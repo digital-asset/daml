@@ -6,7 +6,7 @@ package engine
 
 import java.io.File
 import com.daml.bazeltools.BazelRunfiles
-import com.digitalasset.daml.lf.archive.UniversalArchiveDecoder
+import com.digitalasset.daml.lf.archive.DarDecoder
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion}
@@ -105,7 +105,7 @@ class LargeTransactionTest(
   private def loadPackage(
       resource: String
   ): (PackageId, Ast.Package, Map[PackageId, Ast.Package]) = {
-    val packages = UniversalArchiveDecoder.assertReadFile(new File(rlocation(resource)))
+    val packages = DarDecoder.assertReadArchiveFromFile(new File(rlocation(resource)))
     val (mainPkgId, mainPkg) = packages.main
     (mainPkgId, mainPkg, packages.all.toMap)
   }
@@ -309,7 +309,7 @@ class LargeTransactionTest(
         prefetchKeys = Seq.empty,
       )
       .consume(
-        ledger.get(submitter, effectiveAt).andThen(_.nonVerbose),
+        ledger.get(submitter, effectiveAt).andThen(_.nonVerboseWithoutTrailingNones),
         allPackages,
         { case _ =>
           sys.error("TODO keys for LargeTransactionTest")

@@ -156,7 +156,7 @@ abstract class GenericInMemoryEpochStore[E <: Env[E]]
       addSingleMessageToMap(prePreparesMap)(prePrepare)
     }
 
-  override def addPrepares(
+  override def addPreparesAtomically(
       prepares: Seq[SignedMessage[Prepare]]
   )(implicit traceContext: TraceContext): E#FutureUnlessShutdownT[Unit] =
     createFuture(addPreparesActionName) { () =>
@@ -192,7 +192,7 @@ abstract class GenericInMemoryEpochStore[E <: Env[E]]
       }
     }
 
-  override def addOrderedBlock(
+  override def addOrderedBlockAtomically(
       prePrepare: SignedMessage[PrePrepare],
       commitMessages: Seq[SignedMessage[Commit]],
   )(implicit

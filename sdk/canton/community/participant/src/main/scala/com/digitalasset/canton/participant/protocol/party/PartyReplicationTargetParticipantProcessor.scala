@@ -19,24 +19,20 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.{Reassignment, ReassignmentInfo, Update}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.participant.admin.data.ActiveContractOld
+import com.digitalasset.canton.participant.admin.data.{ActiveContract, RepairContract}
 import com.digitalasset.canton.participant.admin.party.PartyReplicationTestInterceptor
 import com.digitalasset.canton.participant.admin.party.PartyReplicator.AddPartyRequestId
 import com.digitalasset.canton.participant.event.{AcsChangeSupport, RecordOrderPublisher}
 import com.digitalasset.canton.participant.protocol.conflictdetection.{CommitSet, RequestTracker}
 import com.digitalasset.canton.participant.protocol.party.PartyReplicationTargetParticipantProcessor.{
+  GetInternalContractIds,
   PersistContracts,
   contractsToRequestEachTime,
 }
 import com.digitalasset.canton.participant.store.ParticipantNodePersistentState
 import com.digitalasset.canton.participant.sync.ConnectedSynchronizer
 import com.digitalasset.canton.participant.util.TimeOfChange
-import com.digitalasset.canton.protocol.{
-  ContractInstance,
-  ReassignmentId,
-  SerializableContract,
-  TransactionId,
-}
+import com.digitalasset.canton.protocol.{ContractInstance, LfContractId, ReassignmentId, UpdateId}
 import com.digitalasset.canton.topology.{PartyId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{EitherTUtil, ReassignmentTag}
@@ -82,6 +78,7 @@ class PartyReplicationTargetParticipantProcessor(
     protected val onError: String => Unit,
     protected val onDisconnect: (String, TraceContext) => Unit,
     persistContracts: PersistContracts,
+    getInternalContractIds: GetInternalContractIds,
     recordOrderPublisher: RecordOrderPublisher,
     requestTracker: RequestTracker,
     pureCrypto: CryptoPureApi,
@@ -112,7 +109,7 @@ class PartyReplicationTargetParticipantProcessor(
   ): EitherT[FutureUnlessShutdown, String, Unit] = execute("handle connect to SP") {
     super.onConnected().map { _ =>
       // Upon connecting or reconnecting, clear the initial contract ordinal.
-      processorStore.clearInitialContractOrdinalInclusive()
+      processorStore.resetConnection()
       progressPartyReplication()
     }
   }
@@ -138,8 +135,8 @@ class PartyReplicationTargetParticipantProcessor(
         case PartyReplicationSourceParticipantMessage.AcsBatch(contracts) =>
           val firstContractOrdinal = processorStore.processedContractsCount
           logger.debug(
-            s"Received batch beginning at contract ordinal $firstContractOrdinal with contracts ${contracts
-                .map(_.contract.contractId)
+            s"Received batch beginning at contract ordinal $firstContractOrdinal with contracts ${contracts.forgetNE
+                .flatMap(_.contract.createdEvent.map(_.contractId))
                 .mkString(", ")}"
           )
           for {
@@ -151,34 +148,38 @@ class PartyReplicationTargetParticipantProcessor(
               processorStore.processedContractsCount.unwrap + contracts.size <= processorStore.requestedContractsCount.unwrap,
               s"Received too many contracts from SP: processed ${processorStore.processedContractsCount.unwrap} + received ${contracts.size} > requested ${processorStore.requestedContractsCount.unwrap}",
             )
-            contractsToAdd = contracts.map(_.contract)
-            _ <- persistContracts(contractsToAdd)(executionContext)(traceContext)
-              .leftMap(err => s"Failed to persist contracts: $err")
+            validatedActivations <- validateContracts(contracts)
+            _ <- persistContracts(validatedActivations.map(_.contract))(executionContext)(
+              traceContext
+            ).leftMap(err => s"Failed to persist contracts: $err")
             repairCounter = processorStore.getAndIncrementRepairCounter()
             toc = TimeOfChange(partyToParticipantEffectiveAt, Some(repairCounter))
-            contractAssignments = contracts.map {
-              case ActiveContractOld(synchronizerId, contract, reassignmentCounter) =>
+            replicatedContracts = validatedActivations.map {
+              case ContractReassignment(contract, reassignmentCounter) =>
                 (
                   contract.contractId,
-                  ReassignmentTag.Source(synchronizerId),
+                  ReassignmentTag.Source(psid.logical),
                   reassignmentCounter,
                   toc,
                 )
             }
             _ <- requestTracker
-              .addReplicatedContracts(requestId, partyToParticipantEffectiveAt, contractAssignments)
+              .addReplicatedContracts(requestId, partyToParticipantEffectiveAt, replicatedContracts)
               .leftMap(e =>
-                s"Failed to assign contracts $contractAssignments in ActiveContractStore: $e"
+                s"Failed to add contracts $replicatedContracts to ActiveContractStore: $e"
               )
-            reassignments <- EitherT.fromEither[FutureUnlessShutdown](contracts.toNEF.traverse {
-              case ActiveContractOld(_, contract, reassignmentCounter) =>
-                ContractInstance
-                  .fromSerializable(contract)
-                  .map(ContractReassignment(_, reassignmentCounter))
-            })
+            internalContractIdsForActiveContracts <- EitherT.right[String](
+              getInternalContractIds(validatedActivations.map(_.contract.contractId))(
+                traceContext
+              )
+            )
             _ <- EitherT.rightT[FutureUnlessShutdown, String](
               recordOrderPublisher.schedulePublishAddContracts(
-                repairEventFromSerializedContract(repairCounter, reassignments)
+                repairEventFromSerializedContract(
+                  repairCounter = repairCounter,
+                  activeContracts = validatedActivations,
+                  internalContractIds = internalContractIdsForActiveContracts,
+                )
               )
             )
             _ = processorStore
@@ -194,6 +195,24 @@ class PartyReplicationTargetParticipantProcessor(
       }
     } yield ()).map(_ => progressPartyReplication())
   }
+
+  private def validateContracts(
+      contracts: NonEmpty[Seq[ActiveContract]]
+  ): EitherT[FutureUnlessShutdown, String, NonEmpty[Seq[ContractReassignment]]] =
+    EitherT.fromEither[FutureUnlessShutdown](
+      contracts.toNEF
+        .traverse(activeContract =>
+          for {
+            repairContract <- RepairContract.toRepairContract(activeContract.contract)
+            _ <- Either.cond(
+              repairContract.synchronizerId == psid.logical,
+              (),
+              s"Received contract ${repairContract.contractId} has unexpected synchronizer ${repairContract.synchronizerId}",
+            )
+            contractInstance <- ContractInstance.create(repairContract.contract)
+          } yield ContractReassignment(contractInstance, repairContract.reassignmentCounter)
+        )
+    )
 
   override def progressPartyReplication()(implicit traceContext: TraceContext): Unit =
     // Skip progress check if more than one other task is already queued that performs this same progress check or
@@ -273,6 +292,7 @@ class PartyReplicationTargetParticipantProcessor(
   private def repairEventFromSerializedContract(
       repairCounter: RepairCounter,
       activeContracts: NonEmpty[Seq[ContractReassignment]],
+      internalContractIds: Map[LfContractId, Long],
   )(
       timestamp: CantonTimestamp
   )(implicit traceContext: TraceContext): Update.OnPRReassignmentAccepted = {
@@ -290,7 +310,7 @@ class PartyReplicationTargetParticipantProcessor(
             .add(contract.contractId.coid)
         }
         .finish()
-      TransactionId(hash).tryAsLedgerTransactionId
+      UpdateId(hash)
     }
 
     val contractIdCounters = activeContracts.map {
@@ -336,6 +356,7 @@ class PartyReplicationTargetParticipantProcessor(
       recordTime = timestamp,
       synchronizerId = psid.logical,
       acsChangeFactory = acsChangeFactory,
+      internalContractIds = internalContractIds,
     )
   }
 }
@@ -366,6 +387,7 @@ object PartyReplicationTargetParticipantProcessor {
       onError,
       onDisconnect,
       persistContracts(participantNodePersistentState),
+      getInternalContractIds(participantNodePersistentState),
       connectedSynchronizer.ephemeral.recordOrderPublisher,
       connectedSynchronizer.ephemeral.requestTracker,
       connectedSynchronizer.synchronizerHandle.syncPersistentState.pureCryptoApi,
@@ -373,7 +395,7 @@ object PartyReplicationTargetParticipantProcessor {
       exitOnFatalFailures,
       timeouts,
       loggerFactory
-        .append("synchronizerId", connectedSynchronizer.psid.toProtoPrimitive)
+        .append("psid", connectedSynchronizer.psid.toProtoPrimitive)
         .append("partyId", partyId.toProtoPrimitive)
         .append("requestId", requestId.toHexString),
       testInterceptor,
@@ -383,20 +405,30 @@ object PartyReplicationTargetParticipantProcessor {
   private[party] val contractsToRequestEachTime = PositiveInt.tryCreate(10)
 
   private[party] type PersistContracts =
-    NonEmpty[Seq[SerializableContract]] => (ExecutionContext) => (
-        TraceContext
-    ) => EitherT[FutureUnlessShutdown, String, Unit]
+    Seq[ContractInstance] => ExecutionContext => TraceContext => EitherT[
+      FutureUnlessShutdown,
+      String,
+      Unit,
+    ]
 
   private def persistContracts(
       participantNodePersistentState: Eval[ParticipantNodePersistentState]
   ): PersistContracts = contracts =>
     implicit ec =>
       implicit tc =>
-        EitherT(
-          contracts.forgetNE
-            .traverse(ContractInstance.fromSerializable)
-            .traverse(
-              participantNodePersistentState.value.contractStore.storeContracts(_)
-            )
+        EitherT.right[String](
+          participantNodePersistentState.value.contractStore.storeContracts(contracts)
         )
+
+  private[party] type GetInternalContractIds =
+    NonEmpty[Seq[LfContractId]] => TraceContext => FutureUnlessShutdown[
+      Map[LfContractId, Long]
+    ]
+
+  private def getInternalContractIds(
+      participantNodePersistentState: Eval[ParticipantNodePersistentState]
+  ): GetInternalContractIds = contracts =>
+    implicit tc =>
+      participantNodePersistentState.value.contractStore
+        .lookupBatchedNonCachedInternalIds(contracts.forgetNE)
 }

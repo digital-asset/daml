@@ -88,17 +88,20 @@ trait SequencerOffboardingIntegrationTest
     if (isBftOrderer) {
       clue("make sure sequencer1 have connected to enough other sequencers") {
         eventually() {
-          atLeast(
-            OrderingTopology.weakQuorumSize(sequencers.all.size),
-            sequencer1.bft.get_peer_network_status(None).endpointStatuses.collect {
-              case PeerConnectionStatus
-                    .PeerEndpointStatus(_, _, health) =>
-                health.status match {
-                  case PeerEndpointHealthStatus.Authenticated(_) => true
-                  case _ => false
-                }
-              case PeerConnectionStatus.PeerIncomingConnection(_) => true
-            },
+          forAll(env.sequencers.all)(sequencer =>
+            sequencer.bft
+              .get_peer_network_status(None)
+              .endpointStatuses
+              .collect {
+                case PeerConnectionStatus
+                      .PeerEndpointStatus(_, _, health) =>
+                  health.status match {
+                    case PeerEndpointHealthStatus.Authenticated(_) => true
+                    case _ => false
+                  }
+                case PeerConnectionStatus.PeerIncomingConnection(_) => true
+              }
+              .size should be >= OrderingTopology.weakQuorumSize(sequencers.all.size)
           )
         }
       }

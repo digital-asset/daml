@@ -42,6 +42,7 @@ abstract class InitialTopologySnapshotValidatorTest
     val validator = new InitialTopologySnapshotValidator(
       new SynchronizerCryptoPureApi(defaultStaticSynchronizerParameters, crypto),
       store,
+      staticSynchronizerParameters = Some(defaultStaticSynchronizerParameters),
       validateInitialSnapshot = true,
       loggerFactory,
     )
@@ -63,13 +64,13 @@ abstract class InitialTopologySnapshotValidatorTest
           ns3k3_k3 -> false, // check that duplicates are properly processed
           dnd_proposal_k1 -> true,
           dnd_proposal_k2 -> true,
+          okm1bk5k1E_k1 -> false,
           dtcp1_k1 -> false,
           dnd_proposal_k3
             .copy(isProposal = false)
             .addSignatures(dnd_proposal_k1.signatures)
             .addSignatures(dnd_proposal_k2.signatures)
             -> false,
-          okm1bk5k1E_k1 -> false,
         ).map { case (tx, expireImmediately) =>
           StoredTopologyTransaction(
             SequencedTime(timestampForInit),
@@ -98,8 +99,8 @@ abstract class InitialTopologySnapshotValidatorTest
           ns2k2_k2,
           ns3k3_k3,
           ns1k2_k1,
-          dtcp1_k1,
           okm1bk5k1E_k1,
+          dtcp1_k1,
           okmS1k7_k1.removeSignatures(Set(SigningKeys.key7.fingerprint)).value,
         ).map(tx =>
           StoredTopologyTransaction(
@@ -216,8 +217,8 @@ abstract class InitialTopologySnapshotValidatorTest
           ns2k2_k2,
           ns3k3_k3,
           ns1k2_k1,
-          dtcp1_k1,
           okm1bk5k1E_k1,
+          dtcp1_k1,
         ).map(tx =>
           StoredTopologyTransaction(
             SequencedTime(timestampForInit),

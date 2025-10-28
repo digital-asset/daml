@@ -128,9 +128,7 @@ trait TopologyClientApi[+T] { this: HasFutureSupervision =>
     * currentSnapshotApproximation instead. A head snapshot can be useful, however, for producing
     * new topology changes, e.g., for picking the correct serial.
     */
-  def headSnapshot(implicit traceContext: TraceContext): T = checked(
-    trySnapshot(topologyKnownUntilTimestamp)
-  )
+  def headSnapshot(implicit traceContext: TraceContext): T
 
   /** The approximate timestamp
     *
@@ -195,31 +193,6 @@ trait TopologyClientApi[+T] { this: HasFutureSupervision =>
   ): FutureUnlessShutdown[T] =
     supervisedUS(description, warnAfter)(awaitSnapshot(timestamp)(loggingContext.traceContext))
 
-  /** Returns the topology information at a certain point in time
-    *
-    * Fails with an exception if the state is not yet known.
-    *
-    * The snapshot returned by this method should be used for validating transaction and
-    * reassignment requests (Phase 2 - 7). Use the request timestamp as parameter for this method.
-    * Do not use a response or result timestamp, because all validation steps must use the same
-    * topology snapshot.
-    */
-  def trySnapshot(timestamp: CantonTimestamp)(implicit traceContext: TraceContext): T
-
-  /** Returns the topology information at the `timestamp` point in time, but using
-    * `desiredTimestamp` as the actual "forwarded" timestamp.
-    *
-    * Fails with an exception if the state is not yet known.
-    *
-    * The snapshot returned by this method should ONLY BE USED when computing the timestamp for
-    * signature validation (i.e.
-    * [[com.digitalasset.canton.crypto.SyncCryptoClient.getSnapshotForTimestamp]]).
-    */
-  def tryHypotheticalSnapshot(
-      timestamp: CantonTimestamp,
-      desiredTimestamp: CantonTimestamp,
-  )(implicit traceContext: TraceContext): T
-
   /** Returns an optional future which will complete when the effective timestamp has been observed
     *
     * If the timestamp is already observed, returns None.
@@ -250,6 +223,19 @@ trait TopologyClientApi[+T] { this: HasFutureSupervision =>
 trait SynchronizerTopologyClient extends TopologyClientApi[TopologySnapshot] with AutoCloseable {
   this: HasFutureSupervision =>
 
+  /** Returns the topology information at a certain point in time
+    *
+    * Fails with an exception if the state is not yet known.
+    *
+    * The snapshot returned by this method should be used for validating transaction and
+    * reassignment requests (Phase 2 - 7). Use the request timestamp as parameter for this method.
+    * Do not use a response or result timestamp, because all validation steps must use the same
+    * topology snapshot.
+    */
+  protected[topology] def trySnapshot(timestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): TopologySnapshotLoader
+
   /** Wait for a condition to become true according to the current snapshot approximation
     *
     * @return
@@ -262,7 +248,6 @@ trait SynchronizerTopologyClient extends TopologyClientApi[TopologySnapshot] wit
   def awaitUS(condition: TopologySnapshot => FutureUnlessShutdown[Boolean], timeout: Duration)(
       implicit traceContext: TraceContext
   ): FutureUnlessShutdown[Boolean]
-
 }
 
 trait BaseTopologySnapshotClient {
@@ -314,7 +299,9 @@ trait PartyTopologySnapshotClient {
       check: ParticipantAttributes => Boolean = _ => true,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, Set[LfPartyId], Unit]
 
-  /** Returns true if there is at least one participant that satisfies the predicate */
+  /** Returns the set of parties for which there is at least one participant that satisfies the
+    * predicate
+    */
   def isHostedByAtLeastOneParticipantF(
       parties: Set[LfPartyId],
       check: (LfPartyId, ParticipantAttributes) => Boolean,
@@ -478,6 +465,13 @@ trait ParticipantTopologySnapshotClient {
       traceContext: TraceContext
   ): FutureUnlessShutdown[Boolean]
 
+  def participantsWithSupportedFeature(
+      participants: Set[ParticipantId],
+      feature: SynchronizerTrustCertificate.ParticipantTopologyFeatureFlag,
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Set[ParticipantId]]
+
   /** Checks whether the provided participant exists, is active and can login at the given point in
     * time
     *
@@ -604,6 +598,13 @@ trait VettedPackagesSnapshotClient {
       participantId: ParticipantId,
       packageIds: Set[PackageId],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Set[PackageId]]
+
+  /** @return
+    *   all vetted packages
+    */
+  def vettedPackages(participantId: ParticipantId)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Set[VettedPackage]]
 }
 
 trait SynchronizerGovernanceSnapshotClient {
@@ -682,7 +683,7 @@ trait SynchronizerUpgradeClient {
     * synchronizer id of the successor of this synchronizer and the upgrade time. Otherwise, returns
     * None.
     */
-  def isSynchronizerUpgradeOngoing()(implicit
+  def synchronizerUpgradeOngoing()(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[(SynchronizerSuccessor, EffectiveTime)]]
 
@@ -718,6 +719,17 @@ trait SynchronizerTopologyClientWithInit
     with HasFutureSupervision
     with NamedLogging {
 
+  def initialize()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit] =
+    for {
+      // Here we initialize `snapshots` intervals in the `CachingSynchronizerTopologyClient`
+      // for the `headSnapshot` and `currentSnapshotApproximation`
+      // NB: first inserted interval must be the head interval, so the order here matters!
+      _ <- snapshot(topologyKnownUntilTimestamp)
+      _ <- snapshot(approximateTimestamp)
+    } yield ()
+
   implicit override protected def executionContext: ExecutionContext
 
   protected val synchronizerTimeTracker: SingleUseCell[SynchronizerTimeTracker] =
@@ -735,18 +747,7 @@ trait SynchronizerTopologyClientWithInit
   ): TopologySnapshotLoader =
     trySnapshot(approximateTimestamp)
 
-  override def trySnapshot(timestamp: CantonTimestamp)(implicit
-      traceContext: TraceContext
-  ): TopologySnapshotLoader
-
-  override def tryHypotheticalSnapshot(
-      timestamp: CantonTimestamp,
-      desiredTimestamp: CantonTimestamp,
-  )(implicit
-      traceContext: TraceContext
-  ): TopologySnapshotLoader
-
-  private def waitForTimestampWithLogging(
+  protected def waitForTimestampWithLogging(
       timestamp: CantonTimestamp
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     // Keep current value, in case we need it in the log entry below
@@ -769,27 +770,16 @@ trait SynchronizerTopologyClientWithInit
     }
   }
 
-  /** Overloaded snapshot returning derived type */
-  override def snapshot(
-      timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[TopologySnapshotLoader] =
-    waitForTimestampWithLogging(timestamp).map(_ => trySnapshot(timestamp))
-
-  /** Overloaded hypotheticalSnapshot returning derived type */
-  override def hypotheticalSnapshot(
-      timestamp: CantonTimestamp,
-      desiredTimestamp: CantonTimestamp,
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[TopologySnapshotLoader] =
-    waitForTimestampWithLogging(timestamp).map(_ =>
-      tryHypotheticalSnapshot(timestamp, desiredTimestamp)
-    )
-
-  override def awaitSnapshot(timestamp: CantonTimestamp)(implicit
+  override final def awaitSnapshot(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[TopologySnapshot] =
     awaitTimestamp(timestamp)
       .getOrElse(FutureUnlessShutdown.unit)
-      .map(_ => trySnapshot(timestamp))
+      .flatMap(_ => snapshot(timestamp))
+
+  override def headSnapshot(implicit traceContext: TraceContext): TopologySnapshotLoader = checked(
+    trySnapshot(topologyKnownUntilTimestamp)
+  )
 
   /** internal await implementation used to schedule state evaluations after topology updates */
   private[topology] def scheduleAwait(
@@ -871,6 +861,19 @@ private[client] trait ParticipantTopologySnapshotLoader extends ParticipantTopol
   ): FutureUnlessShutdown[Boolean] =
     findParticipantState(participantId).map(_.isDefined)
 
+  override def participantsWithSupportedFeature(
+      participants: Set[ParticipantId],
+      feature: SynchronizerTrustCertificate.ParticipantTopologyFeatureFlag,
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Set[ParticipantId]] = for {
+    participantAttributesMap <- loadParticipantStates(participants.toSeq)
+  } yield {
+    participantAttributesMap.collect {
+      case (pid, attributes) if attributes.features.contains(feature) => pid
+    }.toSet
+  }
+
   override def isParticipantActiveAndCanLoginAt(
       participantId: ParticipantId,
       timestamp: CantonTimestamp,
@@ -894,7 +897,6 @@ private[client] trait ParticipantTopologySnapshotLoader extends ParticipantTopol
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[ParticipantId, ParticipantAttributes]]
-
 }
 
 private[client] trait PartyTopologySnapshotBaseClient {
@@ -1069,7 +1071,7 @@ trait VettedPackagesLoader {
       participant: ParticipantId
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Map[PackageId, VettedPackage]]
 
-  def loadVettedPackages(participants: Seq[ParticipantId])(implicit
+  def loadVettedPackages(participants: Set[ParticipantId])(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[ParticipantId, Map[PackageId, VettedPackage]]]
 }
@@ -1103,6 +1105,11 @@ trait VettedPackagesSnapshotLoader extends VettedPackagesSnapshotClient with Vet
       val vettedIds = vettedPackages.keySet
       packageIds -- vettedIds
     }
+
+  override def vettedPackages(participantId: ParticipantId)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Set[VettedPackage]] =
+    loadVettedPackages(participantId).map(vettedPackages => vettedPackages.values.toSet)
 }
 
 trait SynchronizerGovernanceSnapshotLoader extends SynchronizerGovernanceSnapshotClient {

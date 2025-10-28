@@ -70,10 +70,7 @@ import com.digitalasset.canton.time.*
 import com.digitalasset.canton.time.admin.v30.SynchronizerTimeServiceGrpc
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.grpc.PSIdLookup
-import com.digitalasset.canton.topology.client.{
-  StoreBasedTopologySnapshot,
-  SynchronizerTopologyClient,
-}
+import com.digitalasset.canton.topology.client.SynchronizerTopologyClient
 import com.digitalasset.canton.topology.store.TopologyStoreId.{AuthorizedStore, SynchronizerStore}
 import com.digitalasset.canton.topology.store.{PartyMetadataStore, TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.HostingParticipant
@@ -267,7 +264,6 @@ class ParticipantNodeBootstrap(
           nextPackageIds,
           packageMetadataView,
           dryRunSnapshot,
-          acsInspections = () => acsInspectionPerSynchronizer(),
           forceFlags,
           disableUpgradeValidation = parameters.disableUpgradeValidation,
         )
@@ -373,18 +369,16 @@ class ParticipantNodeBootstrap(
       }
 
     private def createPackageOps(manager: SyncPersistentStateManager): PackageOps = {
-      val authorizedTopologyStoreClient = new StoreBasedTopologySnapshot(
-        CantonTimestamp.MaxValue,
-        topologyManager.store,
-        tryGetPackageDependencyResolver(),
-        loggerFactory,
-      )
       val packageOps = new PackageOpsImpl(
         participantId = participantId,
-        headAuthorizedTopologySnapshot = authorizedTopologyStoreClient,
         stateManager = manager,
-        topologyManager = topologyManager,
-        nodeId = nodeId,
+        topologyManagerLookup = new TopologyManagerLookup(
+          lookupByPsid = psid =>
+            cantonSyncService.get
+              .flatMap(_.syncPersistentStateManager.get(psid))
+              .map(_.topologyManager),
+          lookupActivePsidByLsid = lookupActivePSId,
+        ),
         initialProtocolVersion = ProtocolVersion.latest,
         loggerFactory = ParticipantNodeBootstrap.this.loggerFactory,
         timeouts = timeouts,
@@ -542,6 +536,7 @@ class ParticipantNodeBootstrap(
                 clock = clock,
                 commandProgressTracker = commandProgressTracker,
                 ledgerApiStore = persistentState.map(_.ledgerApiStore),
+                contractStore = persistentState.map(_.contractStore),
                 ledgerApiIndexerConfig = LedgerApiIndexerConfig(
                   storageConfig = config.storage,
                   processingTimeout = parameters.processingTimeouts,
@@ -1044,7 +1039,7 @@ class ParticipantNode(
 
   override def status: ParticipantStatus = {
     val ports = Map("ledger" -> config.ledgerApi.port, "admin" -> config.adminApi.port) ++
-      Option.when(config.httpLedgerApi.enabled)("json" -> config.httpLedgerApi.server.port)
+      Option.when(config.httpLedgerApi.enabled)("json" -> config.httpLedgerApi.port)
     val synchronizers = readySynchronizers
     val topologyQueues = identityPusher.queueStatus
 

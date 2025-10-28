@@ -385,7 +385,7 @@ trait SecurityTestHelpers extends SecurityTestLensUtils {
           ConfirmationResponses.tryCreate(
             cr.requestId,
             cr.rootHash,
-            cr.synchronizerId,
+            cr.psid,
             cr.sender,
             cr.responses.map(cr => ConfirmationResponse.localVerdictUnsafe.replace(verdict)(cr)),
             testedProtocolVersion,
@@ -414,7 +414,7 @@ trait SecurityTestHelpers extends SecurityTestLensUtils {
           ConfirmationResponses.tryCreate(
             cr.requestId,
             cr.rootHash,
-            cr.synchronizerId,
+            cr.psid,
             cr.sender,
             cr.responses.map(cr => ConfirmationResponse.localVerdictUnsafe.replace(verdict)(cr)),
             testedProtocolVersion,

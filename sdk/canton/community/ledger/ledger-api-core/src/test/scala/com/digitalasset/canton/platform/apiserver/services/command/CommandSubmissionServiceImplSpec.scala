@@ -237,7 +237,7 @@ class CommandSubmissionServiceImplSpec
         signatories = Set(alice),
         stakeholders = Set(alice),
         keyOpt = None,
-        version = LfSerializationVersion.minVersion,
+        version = LfSerializationVersion.V1,
       )
 
     val disclosedContract = DisclosedContract(

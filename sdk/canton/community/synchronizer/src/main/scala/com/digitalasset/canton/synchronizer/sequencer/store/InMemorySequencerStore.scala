@@ -25,7 +25,7 @@ import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.*
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{BytesUnit, EitherTUtil, ErrorUtil, retry}
+import com.digitalasset.canton.util.{BytesUnit, EitherTUtil, ErrorUtil, MaxBytesToDecompress, retry}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
@@ -53,6 +53,8 @@ class InMemorySequencerStore(
 )(implicit
     protected val executionContext: ExecutionContext
 ) extends SequencerStore {
+
+  private val maxBytesToDecompress: MaxBytesToDecompress = MaxBytesToDecompress.Default
 
   override protected val batchingConfig: BatchingConfig = BatchingConfig()
 
@@ -194,6 +196,7 @@ class InMemorySequencerStore(
 
   override protected def readEventsInternal(
       memberId: SequencerMemberId,
+      memberRegisteredFrom: CantonTimestamp,
       fromExclusiveO: Option[CantonTimestamp] = None,
       limit: Int = 100,
   )(implicit
@@ -207,6 +210,7 @@ class InMemorySequencerStore(
     watermarkO.fold[ReadEvents](SafeWatermark(watermarkO)) { watermark =>
       val payloads =
         fromExclusiveO
+          .map(_ max memberRegisteredFrom)
           .fold(events.tailMap(CantonTimestamp.MinValue, true))(events.tailMap(_, false))
           .entrySet()
           .iterator()
@@ -252,17 +256,20 @@ class InMemorySequencerStore(
           Option(payloads.get(id.unwrap))
             .map(storedPayload =>
               id -> BytesPayload(id, storedPayload.content)
-                .decodeBatchAndTrim(protocolVersion, member)
+                .decodeBatchAndTrim(maxBytesToDecompress, protocolVersion, member)
             )
             .toList
         case payload: BytesPayload =>
-          List(payload.id -> payload.decodeBatchAndTrim(protocolVersion, member))
+          List(
+            payload.id -> payload.decodeBatchAndTrim(maxBytesToDecompress, protocolVersion, member)
+          )
       }.toMap
     )
 
   private def isMemberRecipient(member: SequencerMemberId)(event: StoreEvent[_]): Boolean =
     event match {
       case deliver: DeliverStoreEvent[_] =>
+        deliver.members.contains(SequencerMemberId.Broadcast) ||
         deliver.members.contains(
           member
         ) // only if they're a recipient (sender should already be a recipient)

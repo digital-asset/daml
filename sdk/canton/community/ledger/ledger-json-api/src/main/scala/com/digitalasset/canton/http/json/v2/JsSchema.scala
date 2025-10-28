@@ -21,20 +21,23 @@ import com.digitalasset.canton.http.json.v2.CirceRelaxedCodec.deriveRelaxedCodec
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
 import com.digitalasset.canton.http.json.v2.JsSchema.JsEvent.{CreatedEvent, ExercisedEvent}
 import com.google.protobuf
+import com.google.protobuf.ByteString
 import com.google.protobuf.field_mask.FieldMask
 import com.google.protobuf.struct.Struct
 import com.google.protobuf.util.JsonFormat
+import com.google.rpc.error_details.{ErrorInfo, RetryInfo}
+import io.circe
 import io.circe.generic.extras.Configuration
 import io.circe.generic.extras.semiauto.deriveConfiguredCodec
 import io.circe.generic.semiauto.deriveCodec
-import io.circe.{Codec, Decoder, Encoder, Json}
+import io.circe.{Codec, Decoder, DecodingFailure, Encoder, Json}
 import scalapb.{GeneratedEnumCompanion, UnknownFieldSet}
 import sttp.tapir.CodecFormat.TextPlain
 import sttp.tapir.Schema.SName
-import sttp.tapir.SchemaType.SProduct
+import sttp.tapir.SchemaType.{SProduct, SProductField}
 import sttp.tapir.generic.Derived
 import sttp.tapir.generic.auto.*
-import sttp.tapir.{DecodeResult, Schema, SchemaType, Validator}
+import sttp.tapir.{DecodeResult, FieldName, Schema, SchemaType, Validator}
 
 import java.time.Instant
 import java.util.Base64
@@ -43,6 +46,8 @@ import scala.util.Try
 
 /** JSON wrappers that do not belong to a particular service */
 object JsSchema {
+
+  val BYTE_STRING_PARSE_ERROR_TEMPLATE = "The string is not a valid Base64: %s"
 
   implicit val config: Configuration = Configuration.default.copy(
     useDefaults = true
@@ -366,9 +371,17 @@ object JsSchema {
       Encoder.encodeString.contramap[protobuf.ByteString] { v =>
         Base64.getEncoder.encodeToString(v.toByteArray)
       }
-    implicit val decodeByteString: Decoder[protobuf.ByteString] = Decoder.decodeString.emapTry {
-      str =>
-        Try(protobuf.ByteString.copyFrom(Base64.getDecoder.decode(str)))
+    private def decodeByteStringEither(
+        str: String
+    ): Either[circe.DecodingFailure, protobuf.ByteString] =
+      Try(Base64.getDecoder.decode(str))
+        .map(protobuf.ByteString.copyFrom)
+        .toEither
+        .left
+        .map(_ => DecodingFailure(BYTE_STRING_PARSE_ERROR_TEMPLATE.format(str), Nil))
+
+    implicit val decodeByteString: Decoder[protobuf.ByteString] = Decoder.decodeString.emap { str =>
+      decodeByteStringEither(str).left.map(_.message)
     }
 
     // proto classes use default values
@@ -428,8 +441,6 @@ object JsSchema {
     implicit val jsArchivedEvent: Codec[JsEvent.ArchivedEvent] = deriveConfiguredCodec
     implicit val jsExercisedEvent: Codec[JsEvent.ExercisedEvent] = deriveConfiguredCodec
 
-    implicit val any: Codec[com.google.protobuf.any.Any] = deriveConfiguredCodec
-
     implicit val jsInterfaceView: Codec[JsInterfaceView] = deriveConfiguredCodec
 
     implicit val jsTransactionTree: Codec[JsTransactionTree] = deriveConfiguredCodec
@@ -463,6 +474,37 @@ object JsSchema {
         } yield com.google.rpc.status.Status(code, message, details)
     }
 
+    implicit val grpcAnyEncoder: Encoder[com.google.protobuf.any.Any] = Encoder.instance { any =>
+      import io.circe.syntax.*
+      def decodeAny(source: com.google.protobuf.any.Any): String =
+        try {
+          source.typeUrl match {
+            case "type.googleapis.com/google.rpc.ErrorInfo" =>
+              ErrorInfo.parseFrom(source.value.toByteArray).toString
+            case "type.googleapis.com/google.rpc.RetryInfo" =>
+              RetryInfo.parseFrom(source.value.toByteArray).toString
+            case _ =>
+              "Unknown type for decoding"
+          }
+        } catch {
+          case e: Exception => "Failed to decode: " + e.getMessage
+        }
+      Json.obj(
+        "typeUrl" -> any.typeUrl.asJson,
+        "value" -> Base64.getEncoder.encodeToString(any.value.toByteArray).asJson,
+        "unknownFields" -> any.unknownFields.asJson,
+        "valueDecoded" -> decodeAny(any).asJson,
+      )
+    }
+
+    implicit val grpcAnyDecoder: Decoder[com.google.protobuf.any.Any] = Decoder.instance { cursor =>
+      for {
+        typeUrl <- cursor.downField("typeUrl").as[String]
+        value <- cursor.downField("value").as[ByteString]
+        unknownFields <- cursor.downField("unknownFields").as[scalapb.UnknownFieldSet]
+      } yield com.google.protobuf.any.Any(typeUrl, value, unknownFields)
+    }
+
     // Schema mappings are added to align generated tapir docs with a circe mapping of ADTs
     implicit val byteStringSchema: Schema[protobuf.ByteString] = Schema(
       SchemaType.SString()
@@ -493,8 +535,31 @@ object JsSchema {
         name = Some(Schema.SName("Empty")),
       )
 
-    implicit val anySchema: Schema[com.google.protobuf.any.Any] =
-      Schema.derived.name(Some(SName("ProtoAny")))
+    implicit val anySchema: Schema[com.google.protobuf.any.Any] = Schema(
+      SchemaType.SProduct[
+        com.google.protobuf.any.Any
+      ](
+        List(
+          SProductField(FieldName("typeUrl"), Schema.string, a => Option(a.typeUrl)),
+          SProductField(FieldName("value"), Schema.string, a => Option(a.value.toString)),
+          SProductField(
+            FieldName("unknownFields"),
+            Schema.derived[scalapb.UnknownFieldSet],
+            a => Option(a.unknownFields),
+          ),
+          SProductField(
+            FieldName("valueDecoded"),
+            Schema
+              .schemaForOption[String](
+                Schema.string
+              )
+              .as[String],
+            _ => Option(""),
+          ), // valueDecoded is now optional
+        )
+      ),
+      Some(SName("ProtoAny")),
+    )
 
     implicit val statusSchema: Schema[com.google.rpc.status.Status] = {
       val baseSchema = Schema.derived[com.google.rpc.status.Status]

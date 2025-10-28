@@ -5,6 +5,9 @@ package com.digitalasset.canton.platform.store.backend
 
 import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.Identifier
+import com.digitalasset.daml.lf.transaction.GlobalKey
+import com.digitalasset.daml.lf.value.Value.{ValueText, ValueUnit}
 import org.scalatest.Inside
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -15,100 +18,235 @@ private[backend] trait StorageBackendTestsContracts
     with StorageBackendSpec {
   this: AnyFlatSpec =>
 
-  behavior of "StorageBackend (contracts)"
-
   import StorageBackendTestValues.*
 
-  it should "correctly find an active contract" in {
-    val contractId = hashCid("#1")
+  behavior of "StorageBackend (contracts)"
+
+  it should "correctly find key states" in {
+    val key1 = GlobalKey.assertBuild(
+      Identifier.assertFromString("A:B:C"),
+      ValueUnit,
+      someTemplateId.pkg.name,
+    )
+    val key2 = GlobalKey.assertBuild(
+      Identifier.assertFromString("A:B:C"),
+      ValueText("value"),
+      someTemplateId.pkg.name,
+    )
+    val internalContractId = 123L
+    val internalContractId2 = 223L
+    val internalContractId3 = 323L
+    val internalContractId4 = 423L
     val signatory = Ref.Party.assertFromString("signatory")
 
     val dtos: Vector[DbDto] = Vector(
-      // 1: transaction with create node
-      dtoCreate(offset(1), 1L, contractId = contractId, signatory = signatory),
-      DbDto.IdFilterCreateStakeholder(
+      dtosCreate(
+        event_offset = 1L,
         event_sequential_id = 1L,
-        template_id = someTemplateId.toString,
-        party_id = signatory,
-        first_per_sequential_id = true,
+        internal_contract_id = internalContractId4,
+        create_key_hash = Some(key2.hash.toHexString),
+      )(
+        stakeholders = Set(signatory),
+        template_id = someTemplateId.toString(),
       ),
-      dtoCompletion(offset(1)),
-    )
+      dtosCreate(
+        event_offset = 2L,
+        event_sequential_id = 2L,
+        internal_contract_id = internalContractId,
+        create_key_hash = Some(key1.hash.toHexString),
+      )(
+        stakeholders = Set(signatory),
+        template_id = someTemplateId.toString(),
+      ),
+      dtosCreate(
+        event_offset = 3L,
+        event_sequential_id = 3L,
+        internal_contract_id = internalContractId2,
+        create_key_hash = Some(key1.hash.toHexString),
+      )(
+        stakeholders = Set(signatory),
+        template_id = someTemplateId.toString(),
+      ),
+      dtosConsumingExercise(
+        event_offset = 4L,
+        event_sequential_id = 4L,
+        internal_contract_id = Some(internalContractId2),
+        stakeholders = Set(signatory),
+        template_id = someTemplateId.toString(),
+      ),
+      dtosCreate(
+        event_offset = 5L,
+        event_sequential_id = 5L,
+        internal_contract_id = internalContractId3,
+        create_key_hash = Some(key1.hash.toHexString),
+      )(
+        stakeholders = Set(signatory),
+        template_id = someTemplateId.toString(),
+      ),
+    ).flatten
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dtos, _))
     executeSql(
-      updateLedgerEnd(offset(1), 1L)
+      updateLedgerEnd(offset(5), 5L)
     )
-    val createdContracts = executeSql(
-      backend.contract.createdContracts(contractId :: Nil, offset(1))
-    )
-    val archivedContracts = executeSql(
-      backend.contract.archivedContracts(contractId :: Nil, offset(1))
-    )
-    val activeCreateIds = executeSql(
-      backend.event.updateStreamingQueries.fetchActiveIdsOfCreateEventsForStakeholderLegacy(
-        stakeholderO = Some(signatory),
-        templateIdO = None,
-        activeAtEventSeqId = 1000,
-      )(_)(
-        PaginatingAsyncStream.IdFilterInput(
-          startExclusive = 0L,
-          endInclusive = 1000L,
-        )
-      )
-    )
-    val lastActivations = executeSql(
-      backend.contract.lastActivations(
+    val keyStates2 = executeSql(
+      backend.contract.keyStates(
         List(
-          someSynchronizerId -> contractId
-        )
+          key1,
+          key2,
+        ),
+        2L,
       )
+    )
+    val keyStateKey1_2 = executeSql(
+      backend.contract.keyState(key1, 2L)
+    )
+    val keyStateKey2_2 = executeSql(
+      backend.contract.keyState(key2, 2L)
+    )
+    val keyStates3 = executeSql(
+      backend.contract.keyStates(
+        List(
+          key1,
+          key2,
+        ),
+        3L,
+      )
+    )
+    val keyStateKey1_3 = executeSql(
+      backend.contract.keyState(key1, 3L)
+    )
+    val keyStateKey2_3 = executeSql(
+      backend.contract.keyState(key2, 3L)
+    )
+    val keyStates4 = executeSql(
+      backend.contract.keyStates(
+        List(
+          key1,
+          key2,
+        ),
+        4L,
+      )
+    )
+    val keyStateKey1_4 = executeSql(
+      backend.contract.keyState(key1, 4L)
+    )
+    val keyStateKey2_4 = executeSql(
+      backend.contract.keyState(key2, 4L)
+    )
+    val keyStates5 = executeSql(
+      backend.contract.keyStates(
+        List(
+          key1,
+          key2,
+        ),
+        5L,
+      )
+    )
+    val keyStateKey1_5 = executeSql(
+      backend.contract.keyState(key1, 5L)
+    )
+    val keyStateKey2_5 = executeSql(
+      backend.contract.keyState(key2, 5L)
     )
 
-    createdContracts should contain(contractId)
-    archivedContracts shouldBe empty
-    activeCreateIds shouldBe Vector(1L)
-    lastActivations shouldBe Map(
-      (someSynchronizerId, contractId) -> 1L
+    keyStates2 shouldBe Map(
+      key1 -> internalContractId,
+      key2 -> internalContractId4,
     )
+    keyStateKey1_2 shouldBe Some(internalContractId)
+    keyStateKey2_2 shouldBe Some(internalContractId4)
+    keyStates3 shouldBe Map(
+      key1 -> internalContractId2,
+      key2 -> internalContractId4,
+    )
+    keyStateKey1_3 shouldBe Some(internalContractId2)
+    keyStateKey2_3 shouldBe Some(internalContractId4)
+    keyStates4 shouldBe Map(
+      key2 -> internalContractId4
+    )
+    keyStateKey1_4 shouldBe None
+    keyStateKey2_4 shouldBe Some(internalContractId4)
+    keyStates5 shouldBe Map(
+      key1 -> internalContractId3,
+      key2 -> internalContractId4,
+    )
+    keyStateKey1_5 shouldBe Some(internalContractId3)
+    keyStateKey2_5 shouldBe Some(internalContractId4)
   }
 
-  it should "not find an active contract with empty flat event witnesses" in {
-    val contractId = hashCid("#1")
+  it should "correctly find active contracts" in {
+    val internalContractId = 123L
+    val internalContractId2 = 223L
+    val internalContractId3 = 323L
     val signatory = Ref.Party.assertFromString("signatory")
 
     val dtos: Vector[DbDto] = Vector(
-      // 1: transaction with create node with no flat event witnesses
-      dtoCreate(
-        offset(1),
-        1L,
-        contractId = contractId,
-        signatory = signatory,
-        emptyFlatEventWitnesses = true,
+      dtosCreate(
+        event_offset = 1L,
+        event_sequential_id = 1L,
+        internal_contract_id = internalContractId,
+      )(
+        stakeholders = Set(signatory),
+        template_id = someTemplateId.toString(),
       ),
-      DbDto.IdFilterCreateNonStakeholderInformee(
-        1L,
-        someTemplateId.toString,
-        signatory,
-        first_per_sequential_id = true,
+      dtosAssign(
+        event_offset = 2L,
+        event_sequential_id = 2L,
+        internal_contract_id = internalContractId2,
+        synchronizer_id = someSynchronizerId2,
+      )(
+        stakeholders = Set(signatory),
+        template_id = someTemplateId.toString(),
       ),
-      dtoCompletion(offset(1)),
-    )
+      dtosAssign(
+        event_offset = 3L,
+        event_sequential_id = 3L,
+        internal_contract_id = internalContractId3,
+        synchronizer_id = someSynchronizerId2,
+      )(
+        stakeholders = Set(signatory),
+        template_id = someTemplateId.toString(),
+      ),
+      dtosAssign(
+        event_offset = 4L,
+        event_sequential_id = 4L,
+        internal_contract_id = internalContractId3,
+        synchronizer_id = someSynchronizerId,
+      )(
+        stakeholders = Set(signatory),
+        template_id = someTemplateId.toString(),
+      ),
+    ).flatten
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dtos, _))
     executeSql(
-      updateLedgerEnd(offset(1), 1L)
+      updateLedgerEnd(offset(3), 3L)
     )
-    val createdContracts = executeSql(
-      backend.contract.createdContracts(contractId :: Nil, offset(1))
+    val activeContracts2 = executeSql(
+      backend.contract.activeContracts(
+        List(
+          internalContractId,
+          internalContractId2,
+          internalContractId3,
+        ),
+        2L,
+      )
     )
-    val archivedContracts = executeSql(
-      backend.contract.archivedContracts(contractId :: Nil, offset(1))
+    val activeContracts3 = executeSql(
+      backend.contract.activeContracts(
+        List(
+          internalContractId,
+          internalContractId2,
+          internalContractId3,
+        ),
+        3L,
+      )
     )
-    val activeCreateIds = executeSql(
-      backend.event.updateStreamingQueries.fetchActiveIdsOfCreateEventsForStakeholderLegacy(
+    val activeIds = executeSql(
+      backend.event.updateStreamingQueries.fetchActiveIds(
         stakeholderO = Some(signatory),
         templateIdO = None,
         activeAtEventSeqId = 1000,
@@ -122,228 +260,146 @@ private[backend] trait StorageBackendTestsContracts
     val lastActivations = executeSql(
       backend.contract.lastActivations(
         List(
-          someSynchronizerId -> contractId
+          someSynchronizerId -> internalContractId,
+          someSynchronizerId -> internalContractId3,
+          someSynchronizerId2 -> internalContractId2,
+          someSynchronizerId2 -> internalContractId3,
         )
       )
     )
 
-    createdContracts shouldBe empty
-    archivedContracts shouldBe empty
-    activeCreateIds shouldBe Vector.empty
-    // Last activation for divulged contracts can be looked up with this query, but we ensure in code that we won't do this:
-    // only divulged deactivation can have a divulged activation pair.
+    activeContracts2 shouldBe Map(
+      internalContractId -> true,
+      internalContractId2 -> true,
+    )
+    activeContracts3 shouldBe Map(
+      internalContractId -> true,
+      internalContractId2 -> true,
+      internalContractId3 -> true,
+    )
+    activeIds shouldBe Vector(1L, 2L, 3L, 4L)
     lastActivations shouldBe Map(
-      (someSynchronizerId, contractId) -> 1L
+      (someSynchronizerId, internalContractId) -> 1L,
+      (someSynchronizerId2, internalContractId2) -> 2L,
+      (someSynchronizerId2, internalContractId3) -> 3L,
     )
   }
 
-  it should "correctly find a contract from assigned table" in {
-    val contractId1 = hashCid("#1")
-    val contractId2 = hashCid("#2")
-    val contractId3 = hashCid("#3")
-    val observer2 = Ref.Party.assertFromString("observer2")
+  it should "correctly find deactivated contracts" in {
+    val internalContractId = 123L
+    val internalContractId2 = 223L
+    val internalContractId3 = 323L
+    val signatory = Ref.Party.assertFromString("signatory")
 
     val dtos: Vector[DbDto] = Vector(
-      dtoAssign(offset(1), 1L, contractId1),
-      dtoAssign(offset(2), 2L, contractId1, observer = observer2),
-      dtoAssign(offset(3), 3L, contractId2),
-      dtoAssign(offset(4), 4L, contractId2, observer = observer2),
-    )
+      dtosCreate(
+        event_offset = 1L,
+        event_sequential_id = 1L,
+        internal_contract_id = internalContractId,
+      )(
+        stakeholders = Set(signatory),
+        template_id = someTemplateId.toString(),
+      ),
+      dtosAssign(
+        event_offset = 2L,
+        event_sequential_id = 2L,
+        internal_contract_id = internalContractId2,
+        synchronizer_id = someSynchronizerId2,
+      )(
+        stakeholders = Set(signatory),
+        template_id = someTemplateId.toString(),
+      ),
+      dtosUnassign(
+        event_offset = 3L,
+        event_sequential_id = 3L,
+        internal_contract_id = Some(internalContractId),
+        deactivated_event_sequential_id = Some(1L),
+        synchronizer_id = someSynchronizerId,
+        stakeholders = Set(signatory),
+        template_id = someTemplateId.toString(),
+      ),
+      dtosConsumingExercise(
+        event_offset = 4L,
+        event_sequential_id = 4L,
+        internal_contract_id = Some(internalContractId2),
+        deactivated_event_sequential_id = Some(2L),
+        synchronizer_id = someSynchronizerId2,
+        stakeholders = Set(signatory),
+        template_id = someTemplateId.toString(),
+      ),
+    ).flatten
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dtos, _))
     executeSql(
       updateLedgerEnd(offset(4), 4L)
     )
-    val assignedContracts1 = executeSql(
-      backend.contract
-        .assignedContracts(Seq(contractId1, contractId2, contractId3), offset(4))
+    val activeContracts2 = executeSql(
+      backend.contract.activeContracts(
+        List(
+          internalContractId,
+          internalContractId2,
+        ),
+        2L,
+      )
     )
-    val assignedContracts2 = executeSql(
-      backend.contract
-        .assignedContracts(Seq(contractId1, contractId2, contractId3), offset(2))
+    val activeContracts4 = executeSql(
+      backend.contract.activeContracts(
+        List(
+          internalContractId,
+          internalContractId2,
+          internalContractId3,
+        ),
+        4L,
+      )
     )
-    assignedContracts1.size shouldBe 2
-    assignedContracts1 should contain(contractId1)
-    assignedContracts1 should contain(contractId2)
-    assignedContracts2.size shouldBe 1
-    assignedContracts2 should contain(contractId1)
-    assignedContracts2.contains(contractId2) shouldBe false
-  }
-
-  it should "not find an archived contract" in {
-    val contractId = hashCid("#1")
-    val signatory = Ref.Party.assertFromString("signatory")
-
-    val dtos: Vector[DbDto] = Vector(
-      // 1: transaction with create node
-      dtoCreate(offset(1), 1L, contractId = contractId, signatory = signatory),
-      DbDto.IdFilterCreateStakeholder(
-        1L,
-        someTemplateId.toString,
-        signatory,
-        first_per_sequential_id = true,
-      ),
-      dtoCompletion(offset(1)),
-      // 2: transaction that archives the contract
-      dtoExercise(offset(2), 2L, consuming = true, contractId, deactivatedEventSeqId = Some(1L)),
-      dtoCompletion(offset(2)),
-    )
-
-    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-    executeSql(ingest(dtos, _))
-    executeSql(
-      updateLedgerEnd(offset(2), 2L)
-    )
-    val createdContracts1 = executeSql(
-      backend.contract.createdContracts(contractId :: Nil, offset(1))
-    )
-    val archivedContracts1 = executeSql(
-      backend.contract.archivedContracts(contractId :: Nil, offset(1))
-    )
-    val createdContracts2 = executeSql(
-      backend.contract.createdContracts(contractId :: Nil, offset(2))
-    )
-    val archivedContracts2 = executeSql(
-      backend.contract.archivedContracts(contractId :: Nil, offset(2))
-    )
-    val activeCreateIds = executeSql(
-      backend.event.updateStreamingQueries.fetchActiveIdsOfCreateEventsForStakeholderLegacy(
+    val activeIds2 = executeSql(
+      backend.event.updateStreamingQueries.fetchActiveIds(
         stakeholderO = Some(signatory),
         templateIdO = None,
-        activeAtEventSeqId = 1000,
+        activeAtEventSeqId = 2L,
       )(_)(
         PaginatingAsyncStream.IdFilterInput(
           startExclusive = 0L,
-          endInclusive = 1000L,
+          endInclusive = 2L,
+        )
+      )
+    )
+    val activeIds4 = executeSql(
+      backend.event.updateStreamingQueries.fetchActiveIds(
+        stakeholderO = Some(signatory),
+        templateIdO = None,
+        activeAtEventSeqId = 4,
+      )(_)(
+        PaginatingAsyncStream.IdFilterInput(
+          startExclusive = 0L,
+          endInclusive = 4L,
         )
       )
     )
     val lastActivations = executeSql(
       backend.contract.lastActivations(
         List(
-          someSynchronizerId -> contractId
+          someSynchronizerId -> internalContractId,
+          someSynchronizerId2 -> internalContractId2,
         )
       )
     )
 
-    createdContracts1 should contain(contractId)
-    archivedContracts1 should not contain contractId
-    createdContracts2 should contain(contractId)
-    archivedContracts2 should contain(contractId)
-    activeCreateIds shouldBe Vector.empty
+    activeContracts2 shouldBe Map(
+      internalContractId -> true,
+      internalContractId2 -> true,
+    )
+    activeContracts4 shouldBe Map(
+      internalContractId -> true, // although deactivated, this logic only cares about archivals
+      internalContractId2 -> false,
+    )
+    activeIds2 shouldBe Vector(1L, 2L)
+    activeIds4 shouldBe Vector.empty
+    // lastActivation does not care about deactivations
     lastActivations shouldBe Map(
-      (someSynchronizerId, contractId) -> 1L
-    )
-  }
-
-  it should "not find an archived contract with empty flat event witnesses" in {
-    val contractId = hashCid("#1")
-    val signatory = Ref.Party.assertFromString("signatory")
-
-    val dtos: Vector[DbDto] = Vector(
-      // 1: transaction with create node
-      dtoCreate(
-        offset(1),
-        1L,
-        contractId = contractId,
-        signatory = signatory,
-        emptyFlatEventWitnesses = true,
-      ),
-      DbDto.IdFilterCreateNonStakeholderInformee(
-        1L,
-        someTemplateId.toString,
-        signatory,
-        first_per_sequential_id = true,
-      ),
-      dtoCompletion(offset(1)),
-      // 2: transaction that archives the contract
-      dtoExercise(offset(2), 2L, consuming = true, contractId, emptyFlatEventWitnesses = true),
-      dtoCompletion(offset(2)),
-    )
-
-    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-    executeSql(ingest(dtos, _))
-    executeSql(
-      updateLedgerEnd(offset(2), 2L)
-    )
-    val createdContracts1 = executeSql(
-      backend.contract.createdContracts(contractId :: Nil, offset(1))
-    )
-    val archivedContracts1 = executeSql(
-      backend.contract.archivedContracts(contractId :: Nil, offset(1))
-    )
-    val createdContracts2 = executeSql(
-      backend.contract.createdContracts(contractId :: Nil, offset(2))
-    )
-    val archivedContracts2 = executeSql(
-      backend.contract.archivedContracts(contractId :: Nil, offset(2))
-    )
-
-    createdContracts1 shouldBe empty
-    archivedContracts1 shouldBe empty
-    createdContracts2 shouldBe empty
-    archivedContracts2 shouldBe empty
-  }
-
-  it should "retrieve multiple contracts correctly for batched contract state query" in {
-    val contractId1 = hashCid("#1")
-    val contractId2 = hashCid("#2")
-    val contractId3 = hashCid("#3")
-    val contractId4 = hashCid("#4")
-    val contractId5 = hashCid("#5")
-    val signatory = Ref.Party.assertFromString("signatory")
-
-    val dtos: Vector[DbDto] = Vector(
-      // 1: transaction with create nodes
-      dtoCreate(offset(1), 1L, contractId = contractId1, signatory = signatory),
-      dtoCreate(offset(1), 2L, contractId = contractId2, signatory = signatory),
-      dtoCreate(offset(1), 3L, contractId = contractId3, signatory = signatory),
-      dtoCreate(offset(1), 4L, contractId = contractId4, signatory = signatory),
-      // 2: transaction that archives the contract
-      dtoExercise(offset(2), 5L, consuming = true, contractId1),
-      // 3: transaction that creates one more contract
-      dtoCreate(offset(3), 6L, contractId = contractId5, signatory = signatory),
-    )
-
-    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-    executeSql(ingest(dtos, _))
-    executeSql(
-      updateLedgerEnd(offset(3), 6L)
-    )
-    val createdContracts = executeSql(
-      backend.contract.createdContracts(
-        List(
-          contractId1,
-          contractId2,
-          contractId3,
-          contractId4,
-          contractId5,
-        ),
-        offset(2),
-      )
-    )
-    val archivedContracts = executeSql(
-      backend.contract.archivedContracts(
-        List(
-          contractId1,
-          contractId2,
-          contractId3,
-          contractId4,
-          contractId5,
-        ),
-        offset(2),
-      )
-    )
-
-    createdContracts shouldBe Set(
-      contractId1,
-      contractId2,
-      contractId3,
-      contractId4,
-    )
-    archivedContracts shouldBe Set(
-      contractId1
+      (someSynchronizerId, internalContractId) -> 1L,
+      (someSynchronizerId2, internalContractId2) -> 2L,
     )
   }
 
@@ -352,20 +408,12 @@ private[backend] trait StorageBackendTestsContracts
     executeSql(
       updateLedgerEnd(offset(3), 6L)
     )
-    val createdContracts = executeSql(
-      backend.contract.createdContracts(
-        1.to(1000).map(n => hashCid(s"#$n")),
-        offset(2),
+    val activeContracts = executeSql(
+      backend.contract.activeContracts(
+        1.to(1000).map(_.toLong),
+        2,
       )
     )
-    val archivedContracts = executeSql(
-      backend.contract.archivedContracts(
-        1.to(1000).map(n => hashCid(s"#$n")),
-        offset(2),
-      )
-    )
-
-    createdContracts shouldBe empty
-    archivedContracts shouldBe empty
+    activeContracts shouldBe empty
   }
 }

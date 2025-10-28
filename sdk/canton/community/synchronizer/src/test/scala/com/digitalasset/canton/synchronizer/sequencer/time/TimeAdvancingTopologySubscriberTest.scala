@@ -29,6 +29,7 @@ import com.digitalasset.canton.sequencing.protocol.{
   MessageId,
   Recipients,
 }
+import com.digitalasset.canton.synchronizer.sequencer.time.TimeAdvancingTopologySubscriber.TimeAdvanceBroadcastMaxSequencingTimeWindow
 import com.digitalasset.canton.time.{Clock, SimClock}
 import com.digitalasset.canton.topology.client.{
   SynchronizerTopologyClientWithInit,
@@ -69,7 +70,6 @@ class TimeAdvancingTopologySubscriberTest extends AnyWordSpec with BaseTest {
           mock[SynchronizerTopologyClientWithInit],
           aPhysicalSynchronizerId,
           aSequencerId,
-          testedProtocolVersion,
           loggerFactory,
         )
 
@@ -94,7 +94,6 @@ class TimeAdvancingTopologySubscriberTest extends AnyWordSpec with BaseTest {
       val clock = new SimClock(start = ts2, loggerFactory)
 
       val sequencerClient = mock[SequencerClientSend]
-      when(sequencerClient.generateMaxSequencingTime).thenReturn(CantonTimestamp.Epoch)
       when(
         sequencerClient.send(
           batch = any[Batch[DefaultOpenEnvelope]],
@@ -129,7 +128,6 @@ class TimeAdvancingTopologySubscriberTest extends AnyWordSpec with BaseTest {
           topologyClient,
           aPhysicalSynchronizerId,
           aSequencerId,
-          testedProtocolVersion,
           loggerFactory,
         )
 
@@ -164,7 +162,7 @@ class TimeAdvancingTopologySubscriberTest extends AnyWordSpec with BaseTest {
         .send(
           batch = eqTo(expectedBatch),
           topologyTimestamp = eqTo(None),
-          maxSequencingTime = eqTo(CantonTimestamp.Epoch),
+          maxSequencingTime = eqTo(ts2.plus(TimeAdvanceBroadcastMaxSequencingTimeWindow.duration)),
           messageId = any[MessageId],
           aggregationRule = eqTo(expectedAggregationRule),
           callback = eqTo(SendCallback.empty),
@@ -204,7 +202,6 @@ class TimeAdvancingTopologySubscriberTest extends AnyWordSpec with BaseTest {
           topologyClient,
           aPhysicalSynchronizerId,
           passiveSequencerId, // boom!
-          testedProtocolVersion,
           loggerFactory,
         )
 
@@ -243,7 +240,6 @@ class TimeAdvancingTopologySubscriberTest extends AnyWordSpec with BaseTest {
           topologyClient,
           aPhysicalSynchronizerId,
           aSequencerId,
-          testedProtocolVersion,
           loggerFactory,
         )
 
@@ -278,7 +274,6 @@ class TimeAdvancingTopologySubscriberTest extends AnyWordSpec with BaseTest {
           topologyClient,
           aPhysicalSynchronizerId,
           aSequencerId, // boom!
-          testedProtocolVersion,
           loggerFactory,
         )
 

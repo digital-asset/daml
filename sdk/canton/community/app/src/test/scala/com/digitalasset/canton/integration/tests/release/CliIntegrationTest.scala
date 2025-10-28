@@ -34,7 +34,8 @@ abstract class CliIntegrationTest extends ReleaseArtifactIntegrationTestUtils {
       s"$cantonBin --help" ! processLogger
       checkOutput(
         processLogger,
-        shouldContain = Seq("Usage: canton [daemon|run|generate|sandbox] [options] <args>..."),
+        shouldContain =
+          Seq("Usage: canton [daemon|run|generate|sandbox|sandbox-console] [options] <args>..."),
       )
     }
 
@@ -42,7 +43,8 @@ abstract class CliIntegrationTest extends ReleaseArtifactIntegrationTestUtils {
       s"$cantonBin" ! processLogger
       checkOutput(
         processLogger,
-        shouldContain = Seq("Usage: canton [daemon|run|generate|sandbox] [options] <args>..."),
+        shouldContain =
+          Seq("Usage: canton [daemon|run|generate|sandbox|sandbox-console] [options] <args>..."),
         shouldSucceed = false,
       )
     }
@@ -100,16 +102,21 @@ abstract class CliIntegrationTest extends ReleaseArtifactIntegrationTestUtils {
           | -C canton.participants.participant1.storage.type=memory
           | -C canton.participants.participant1.admin-api.port=5012
           | -C canton.participants.participant1.ledger-api.port=5011
+          | -C canton.participants.participant1.http-ledger-api.enabled=false
           | -C canton.sequencers.sequencer1.sequencer.config.storage.type=memory
+          | -C canton.sequencers.sequencer1.admin-api.port=5002
+          | -C canton.sequencers.sequencer1.public-api.port=5001
           | -C canton.sequencers.sequencer1.sequencer.type=reference
           | -C canton.sequencers.sequencer1.storage.type=memory
-          | $cantonShouldStartFlags""".stripMargin ! processLogger
+          | -C canton.mediators.mediator1.admin-api.port=6002
+          | $cantonShouldStartFlags""".stripMargin.!(processLogger)
       checkOutput(processLogger, shouldContain = Seq(successMsg))
     }
 
     "not shadow bootstrap script variables with the bootstrap script file name" in {
       processLogger =>
-        s"$cantonBin --config $cacheTurnOff --config $simpleConf --no-tty --bootstrap $resourceDir/scripts/participant1.canton " ! processLogger
+        s"$cantonBin --config $cacheTurnOff --config $simpleConf --no-tty --bootstrap $resourceDir/scripts/participant1.canton "
+          .!(processLogger)
 
         checkOutput(processLogger, shouldContain = Seq(successMsg))
     }

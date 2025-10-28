@@ -30,6 +30,7 @@ import com.digitalasset.canton.sequencing.protocol.{
   SignedContent,
   SubmissionRequest,
   SubscriptionRequest,
+  TopologyStateForInitHashResponse,
   TopologyStateForInitRequest,
   TopologyStateForInitResponse,
 }
@@ -137,4 +138,16 @@ class DirectSequencerConnectionX(
 
   override def subscriptionRetryPolicy: SubscriptionErrorRetryPolicy =
     SubscriptionErrorRetryPolicy.never
+
+  override def downloadTopologyStateForInitHash(
+      request: TopologyStateForInitRequest,
+      timeout: Duration,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, TopologyStateForInitHashResponse] =
+    ErrorUtil.internalError(
+      new UnsupportedOperationException(
+        s"$functionFullName is not implemented for DirectSequencerConnectionX"
+      )
+    )
 }

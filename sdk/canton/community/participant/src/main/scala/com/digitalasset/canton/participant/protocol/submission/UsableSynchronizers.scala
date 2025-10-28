@@ -12,15 +12,19 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.PackageUnknownTo
-import com.digitalasset.canton.protocol.{LfActionNode, LfSerializationVersion, LfVersionedTransaction}
+import com.digitalasset.canton.protocol.{
+  LfActionNode,
+  LfSerializationVersion,
+  LfVersionedTransaction,
+}
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.store.UnknownOrUnvettedPackages
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{EitherTUtil, LfTransactionUtil}
 import com.digitalasset.canton.version.{
-  LfSerializationVersionToProtocolVersions,
   HashingSchemeVersion,
+  LfSerializationVersionToProtocolVersions,
   ProtocolVersion,
 }
 import com.digitalasset.canton.{LfPackageId, LfPartyId}
@@ -33,11 +37,15 @@ object UsableSynchronizers {
   /** Split the synchronizers in two categories:
     *   - Synchronizers that cannot be used
     *   - synchronizer that can be used
+    * @param hashingSchemeVersion:
+    *   For externally signed transactions, the version of the algorithm used to hash the
+    *   transaction
     */
   def check(
       synchronizers: List[(PhysicalSynchronizerId, TopologySnapshot)],
       transaction: LfVersionedTransaction,
       ledgerTime: CantonTimestamp,
+      hashingSchemeVersion: Option[HashingSchemeVersion],
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -50,8 +58,7 @@ object UsableSynchronizers {
             snapshot,
             transaction,
             ledgerTime,
-            // TODO(i20688): use ISV to select synchronizer
-            Option.empty[HashingSchemeVersion],
+            hashingSchemeVersion,
           )
           .map(_ => synchronizerId)
           .value

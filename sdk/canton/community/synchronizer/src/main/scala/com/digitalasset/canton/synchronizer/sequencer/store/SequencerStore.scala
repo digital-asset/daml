@@ -33,8 +33,8 @@ import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.{HasTraceContext, TraceContext}
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.{BytesUnit, ErrorUtil, MonadUtil, retry}
-import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.util.{BytesUnit, ErrorUtil, MaxBytesToDecompress, MonadUtil, retry}
+import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionValidation}
 import com.digitalasset.canton.{ProtoDeserializationError, checked}
 import com.github.blemale.scaffeine.Scaffeine
 import com.google.common.annotations.VisibleForTesting
@@ -58,6 +58,8 @@ final case class SequencerMemberId(private val id: Int) extends PrettyPrinting {
 }
 
 object SequencerMemberId {
+  val Broadcast: SequencerMemberId = SequencerMemberId(-1)
+
   implicit val sequencerMemberIdOrdering: Ordering[SequencerMemberId] =
     Ordering.by[SequencerMemberId, Int](_.id)
   implicit val sequencerMemberIdOrder: Order[SequencerMemberId] = fromOrdering(
@@ -116,11 +118,12 @@ sealed trait Payload extends IdOrPayload
 /** Payload with a assigned id and content as bytes */
 final case class BytesPayload(id: PayloadId, content: ByteString) extends Payload {
   def decodeBatchAndTrim(
+      maxBytesToDecompress: MaxBytesToDecompress,
       protocolVersion: ProtocolVersion,
       member: Member,
   ): Batch[ClosedEnvelope] = {
     val fullBatch = Batch
-      .fromByteString(protocolVersion, content)
+      .fromByteString(ProtocolVersionValidation.PV(protocolVersion), maxBytesToDecompress, content)
       .valueOr(err => throw new DbDeserializationException(err.toString))
     Batch.trimForMember(fullBatch, member)
   }
@@ -647,6 +650,7 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
     */
   protected def readEventsInternal(
       memberId: SequencerMemberId,
+      memberRegisteredFrom: CantonTimestamp,
       fromExclusiveO: Option[CantonTimestamp],
       limit: Int,
   )(implicit
@@ -695,6 +699,7 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
   def readEvents(
       memberId: SequencerMemberId,
       member: Member,
+      memberRegisteredFrom: CantonTimestamp,
       fromExclusiveO: Option[CantonTimestamp],
       limit: Int,
   )(implicit
@@ -720,7 +725,10 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
             val events = cache
               .slice(start, cache.size)
               .view
-              .filter(_.event.members.contains(memberId))
+              .filter(event =>
+                event.event.members.contains(memberId) || event.event.members
+                  .contains(SequencerMemberId.Broadcast)
+              )
               .take(limit)
               .toSeq
 
@@ -748,7 +756,7 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
             sequencerMetrics.eventBuffer.missCount.inc()
             // If the buffer does not start earlier than the `fromExclusive` timestamp,
             // we cannot serve the request with the buffer only, we need to fallback to read from the database
-            readEventsInternal(memberId, fromExclusiveO, limit)
+            readEventsInternal(memberId, memberRegisteredFrom, fromExclusiveO, limit)
         }
       case None =>
         logger.debug(
@@ -756,7 +764,7 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
         )
         sequencerMetrics.eventBuffer.missCount.inc()
         // In case we start from the beginning of events, we cannot determine if we can rely on the buffer
-        readEventsInternal(memberId, fromExclusiveO, limit)
+        readEventsInternal(memberId, memberRegisteredFrom, fromExclusiveO, limit)
     }
   }
 

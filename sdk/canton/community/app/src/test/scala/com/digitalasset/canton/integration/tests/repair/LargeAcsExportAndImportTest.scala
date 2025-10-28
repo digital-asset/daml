@@ -5,8 +5,8 @@ package com.digitalasset.canton.integration.tests.repair
 
 import better.files.*
 import com.daml.test.evidence.scalatest.OperabilityTestHelpers
+import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.{DbConfig, RequireTypes}
 import com.digitalasset.canton.console.{
   LocalInstanceReference,
   LocalMediatorReference,
@@ -35,6 +35,7 @@ import com.digitalasset.canton.integration.{
   TestConsoleEnvironment,
 }
 import com.digitalasset.canton.participant.admin.data.ContractImportMode
+import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.topology.transaction.ParticipantPermission as PP
@@ -45,9 +46,13 @@ import monocle.Monocle.toAppliedFocusOps
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.jdk.CollectionConverters.*
 
 /** Given a large active contract set (ACS), we want to test the ACS export and import.
+  *
+  * The tooling also allows to generate "transient contracts": these are contracts that are created
+  * and archived immediately (and thus don't show up in the ACS snapshot). This is useful to check
+  * how such archived but not-yet pruned contracts impact performance of the export. Hence, it is
+  * important to disable (background pruning).
   *
   * Raison d'être – Have this test code readily available in the repository for on-demand
   * performance investigations. Thus, we're not so much interested in actually creating a large ACS
@@ -103,14 +108,15 @@ protected abstract class LargeAcsExportAndImportTestBase
     with AcsInspection
     with OperabilityTestHelpers {
 
-  /** Test definition, in particular how many active IOU contracts should be used */
+  /** Test definition, in particular how many active Iou contracts should be used */
   protected def testSet: TestSet
 
   protected case class TestSet(
       acsSize: Int,
+      transientContracts: Int,
       name: String,
       directory: File,
-      creationBatchSize: Int = 500,
+      creationBatchSize: Int,
   ) {
     def dumpDirectory: TempDirectory =
       TempDirectory((directory / "dump").createDirectoryIfNotExists(createParents = true))
@@ -130,11 +136,19 @@ protected abstract class LargeAcsExportAndImportTestBase
     def formatWithUnderscores(number: Int): String =
       number.toString.reverse.grouped(3).mkString("_").reverse
 
-    def apply(acsSize: Int) = {
+    def apply(acsSize: Int, transientContracts: Int): TestSet = {
       val testName = formatWithUnderscores(acsSize)
+      val creationBatchSize = 500
+
       val testDirectory =
-        File.currentWorkingDirectory / "tmp" / s"${testName}_LargeAcsExportAndImportTest"
-      new TestSet(acsSize, testName, testDirectory)
+        File.currentWorkingDirectory / "tmp" / s"$testName-transient=${transientContracts}_LargeAcsExportAndImportTest"
+      new TestSet(
+        acsSize = acsSize,
+        transientContracts = transientContracts,
+        testName,
+        testDirectory,
+        creationBatchSize = creationBatchSize,
+      )
     }
   }
 
@@ -144,38 +158,11 @@ protected abstract class LargeAcsExportAndImportTestBase
 
   protected val baseEnvironmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P3_S1M1_Manual
-      .clearConfigTransforms() // Disable globally unique ports
-      .addConfigTransforms(ConfigTransforms.allDefaultsButGloballyUniquePorts*)
       .addConfigTransforms(
-        // Adding hard-coded ports because reconnecting to a synchronizer requires the synchronizer
-        // ports to be the same, and we do so across node restarts as part of the tests
-        ConfigTransforms.updateSequencerConfig("sequencer1")(cfg =>
-          cfg
-            .focus(_.publicApi.internalPort)
-            .replace(Some(RequireTypes.Port.tryCreate(9018)))
-            .focus(_.adminApi.internalPort)
-            .replace(Some(RequireTypes.Port.tryCreate(9019)))
-        ),
-        ConfigTransforms.updateParticipantConfig("participant1")(cfg =>
-          cfg
-            .focus(_.ledgerApi.internalPort)
-            .replace(Some(RequireTypes.Port.tryCreate(9011)))
-            .focus(_.adminApi.internalPort)
-            .replace(Some(RequireTypes.Port.tryCreate(9012)))
-        ),
-        ConfigTransforms.updateParticipantConfig("participant2")(cfg =>
-          cfg
-            .focus(_.ledgerApi.internalPort)
-            .replace(Some(RequireTypes.Port.tryCreate(9021)))
-            .focus(_.adminApi.internalPort)
-            .replace(Some(RequireTypes.Port.tryCreate(9022)))
-        ),
-        ConfigTransforms.updateParticipantConfig("participant3")(cfg =>
-          cfg
-            .focus(_.ledgerApi.internalPort)
-            .replace(Some(RequireTypes.Port.tryCreate(9031)))
-            .focus(_.adminApi.internalPort)
-            .replace(Some(RequireTypes.Port.tryCreate(9032)))
+        // Disable background pruning
+        ConfigTransforms.updateAllParticipantConfigs_(
+          _.focus(_.parameters.journalGarbageCollectionDelay)
+            .replace(config.NonNegativeFiniteDuration.ofDays(365 * 100))
         ),
         // Use distinct timeout values so that it is clear which timeout expired
         _.focus(_.parameters.timeouts.processing.unbounded)
@@ -203,15 +190,13 @@ protected abstract class LargeAcsExportAndImportTestBase
   protected val referenceSequencer = new UseReferenceBlockSequencer[DbConfig.Postgres](
     loggerFactory
   )
-  registerPlugin(
-    referenceSequencer
-  )
+  registerPlugin(referenceSequencer)
   protected val pgPlugin = new UsePostgres(loggerFactory)
   registerPlugin(pgPlugin)
   protected lazy val dumpRestore: PostgresDumpRestore =
     PostgresDumpRestore(pgPlugin, forceLocal = true)
 
-  protected def testSetup(implicit env: TestConsoleEnvironment): Unit = {
+  protected def testSetup()(implicit env: TestConsoleEnvironment): Unit = {
     import env.*
 
     Seq(participant1, participant2, participant3).foreach(_.start())
@@ -238,50 +223,60 @@ protected abstract class LargeAcsExportAndImportTestBase
         .valueOrFail(s"Where is party $name?")
     )
 
-  protected def createContracts(implicit env: TestConsoleEnvironment): Unit = {
+  protected def createContracts()(implicit env: TestConsoleEnvironment): Unit = {
     import env.*
 
     // Enable parties
-    participant1.parties.enable(
-      "Alice"
-    )
-    participant2.parties.enable(
-      "Bob"
-    )
+    participant1.parties.enable("Alice")
+    participant2.parties.enable("Bob")
 
     // Create contracts
     val alice = grabPartyId(participant1, "Alice")
     val bob = grabPartyId(participant2, "Bob")
 
-    val dataset = Range.inclusive(1, testSet.acsSize)
-    val batches: Iterator[Seq[Int]] = dataset.grouped(testSet.creationBatchSize)
+    val contractsDataset = Range.inclusive(1, testSet.acsSize)
+    val batches = contractsDataset.grouped(testSet.creationBatchSize).toList
+    val batchesCount = batches.size
+    val transientContractsPerBatch =
+      Math.ceil(testSet.transientContracts.toDouble / batchesCount).toInt
 
     batches.foreach { batch =>
       val start = System.nanoTime()
-      val iousCommands = batch.flatMap { amount =>
-        IouSyntax.testIou(alice, bob, amount.toDouble).create.commands.asScala.toSeq
+      val iousCommands = batch.map { amount =>
+        IouSyntax.testIou(alice, bob, amount.toDouble).create.commands.loneElement
       }
       participant1.ledger_api.javaapi.commands.submit(Seq(alice), iousCommands)
-      participant1.ledger_api.javaapi.state.acs.await(M.iou.Iou.COMPANION)(alice).discard
       val ledgerEnd = participant1.ledger_api.state.end()
       val end = System.nanoTime()
       logger.info(
         s"Batch: ${batch.head} to ${batch.head + testSet.creationBatchSize} took ${TimeUnit.NANOSECONDS
             .toMillis(end - start)}ms and ledger end = $ledgerEnd"
       )
+
+      // Transient contracts
+      if (transientContractsPerBatch > 0) {
+        val transientContractsCreateCmds =
+          Seq.fill(transientContractsPerBatch)(100.0).map { amount =>
+            IouSyntax.testIou(alice, bob, amount).create.commands.loneElement
+          }
+        val chip = JavaDecodeUtil.decodeAllCreated(M.iou.Iou.COMPANION)(
+          participant1.ledger_api.javaapi.commands
+            .submit(Seq(alice), transientContractsCreateCmds)
+        )
+
+        val archiveCmds = chip.map(_.id.exerciseArchive().commands().loneElement)
+
+        participant1.ledger_api.javaapi.commands.submit(Seq(alice), archiveCmds)
+      }
     }
 
-    val aliceOnP1AcsSize =
-      participant1.ledger_api.state.acs.of_party(alice, limit = PositiveInt.MaxValue).size
-    withClue(s"Alice on P1 ACS size: $aliceOnP1AcsSize")(
-      aliceOnP1AcsSize shouldBe testSet.acsSize
-    )
-
-    val bobOnP2AcsSize =
-      participant2.ledger_api.state.acs.of_party(bob, limit = PositiveInt.MaxValue).size
-    withClue(s"Bob on P2 ACS size: $bobOnP2AcsSize")(
-      bobOnP2AcsSize shouldBe testSet.acsSize
-    )
+    // Sanity checks
+    participant1.ledger_api.state.acs
+      .of_party(alice, limit = PositiveInt.MaxValue)
+      .size shouldBe testSet.acsSize
+    participant2.ledger_api.state.acs
+      .of_party(bob, limit = PositiveInt.MaxValue)
+      .size shouldBe testSet.acsSize
   }
 }
 
@@ -294,10 +289,9 @@ protected abstract class LargeAcsExportAndImportTestBase
   * The number of created active contracts is defined by the [[TestSet]].
   */
 protected abstract class DumpTestSet extends LargeAcsExportAndImportTestBase {
-
   override protected def environmentDefinition: EnvironmentDefinition =
     baseEnvironmentDefinition.withSetup { implicit env =>
-      testSetup
+      testSetup()
     }
 
   private def saveDumps(
@@ -308,6 +302,7 @@ protected abstract class DumpTestSet extends LargeAcsExportAndImportTestBase {
   ): Future[Unit] =
     MonadUtil.sequentialTraverse_(nodes) { node =>
       val filename = s"${node.name}.pg_dump"
+
       dumpRestore.saveDump(node, testSet.dumpDirectory.toTempFile(filename))
     }
 
@@ -334,10 +329,10 @@ protected abstract class DumpTestSet extends LargeAcsExportAndImportTestBase {
   }
 
   s"create ${testSet.acsSize} active contracts" in { implicit env =>
-    createContracts
+    createContracts()
   }
 
-  s"create database dump" in { implicit env =>
+  "create database dump" in { implicit env =>
     import env.*
 
     createDatabaseDump(
@@ -349,10 +344,16 @@ protected abstract class DumpTestSet extends LargeAcsExportAndImportTestBase {
 }
 
 protected abstract class EstablishTestSet extends LargeAcsExportAndImportTestBase {
+  // If true, use legacy export/import (Canton internal instead of LAPI)
+  def useLegacyExportImport: Boolean
 
   protected def testContractIdImportMode: ContractImportMode
 
-  private def restoreDump(node: LocalInstanceReference)(implicit
+  // Replicate Alice from P1 to P3
+  private val acsExportFile = new SingleUseCell[File]
+  private val ledgerOffsetBeforePartyOnboarding = new SingleUseCell[Long]
+
+  protected def restoreDump(node: LocalInstanceReference)(implicit
       env: TestConsoleEnvironment
   ): Future[Unit] = {
     val filename = s"${node.name}.pg_dump"
@@ -368,11 +369,9 @@ protected abstract class EstablishTestSet extends LargeAcsExportAndImportTestBas
       env: TestConsoleEnvironment,
       executionContext: ExecutionContext,
   ): Unit = handleStartupLogs {
-    val nodes =
-      (participants: Seq[LocalInstanceReference]) ++
-        (sequencers: Seq[LocalInstanceReference]) ++
-        (mediators: Seq[LocalInstanceReference])
+    val nodes = (participants: Seq[LocalInstanceReference]) ++ sequencers ++ mediators
     nodes.foreach(_.stop())
+
     clue("Restoring database") {
       val res =
         for {
@@ -384,6 +383,7 @@ protected abstract class EstablishTestSet extends LargeAcsExportAndImportTestBas
         } yield ()
       Await.result(res, 15.minutes)
     }
+
     clue("Starting all nodes") {
       nodes.foreach(_.start())
       new NetworkBootstrapper(networkTopologyDescriptions*).bootstrap()
@@ -391,9 +391,9 @@ protected abstract class EstablishTestSet extends LargeAcsExportAndImportTestBas
         nodes.forall(_.is_initialized)
       }
     }
-    clue("Reconnecting synchronizers")(
-      participants.foreach(_.synchronizers.reconnect_all())
-    )
+
+    participants.foreach(_.synchronizers.reconnect_all())
+
     clue(
       "Ensure that all participants are up-to-date with the state of the topology " +
         "at the given time as returned by the synchronizer"
@@ -409,8 +409,8 @@ protected abstract class EstablishTestSet extends LargeAcsExportAndImportTestBas
     import env.*
 
     if (testSet.isEmptyDumpDirectory) {
-      testSetup
-      createContracts
+      testSetup()
+      createContracts()
     } else {
       loadState(
         Seq(sequencer1),
@@ -420,8 +420,6 @@ protected abstract class EstablishTestSet extends LargeAcsExportAndImportTestBas
       )
     }
   }
-
-  val ledgerOffsetBeforePartyOnboarding = new SingleUseCell[Long]
 
   "authorize Alice on P3" in { implicit env =>
     import env.*
@@ -441,23 +439,10 @@ protected abstract class EstablishTestSet extends LargeAcsExportAndImportTestBas
   }
 
   // Replicate Alice from P1 to P3
-
-  val acsExportFile = new SingleUseCell[File]
-
   "export ACS for Alice from P1" in { implicit env =>
     import env.*
 
     val alice = grabPartyId(participant1, "Alice")
-
-    val aliceAddedOnP3Offset = participant1.parties.find_party_max_activation_offset(
-      partyId = alice,
-      synchronizerId = daId,
-      participantId = participant3.id,
-      beginOffsetExclusive = ledgerOffsetBeforePartyOnboarding.getOrElse(
-        throw new RuntimeException("missing begin offset")
-      ),
-      completeAfter = PositiveInt.one,
-    )
 
     acsExportFile.putIfAbsent(
       File.newTemporaryFile(
@@ -466,16 +451,33 @@ protected abstract class EstablishTestSet extends LargeAcsExportAndImportTestBas
       )
     )
 
-    acsExportFile.get.foreach { acsExport =>
-      clue("Get Alice ACS on P1 with export_acs")(
+    if (useLegacyExportImport) {
+      acsExportFile.get.foreach { acsExport =>
+        participant1.repair.export_acs_old(
+          Set(alice),
+          partiesOffboarding = false,
+          outputFile = acsExport.canonicalPath,
+        )
+      }
+    } else {
+      val aliceAddedOnP3Offset = participant1.parties.find_party_max_activation_offset(
+        partyId = alice,
+        synchronizerId = daId,
+        participantId = participant3.id,
+        beginOffsetExclusive = ledgerOffsetBeforePartyOnboarding.getOrElse(
+          throw new RuntimeException("missing begin offset")
+        ),
+        completeAfter = PositiveInt.one,
+      )
+
+      acsExportFile.get.foreach { acsExport =>
         participant1.repair.export_acs(
           parties = Set(alice),
           exportFilePath = acsExport.canonicalPath,
           ledgerOffset = aliceAddedOnP3Offset,
         )
-      )
+      }
     }
-
   }
 
   "import ACS for Alice on P3" in { implicit env =>
@@ -485,22 +487,21 @@ protected abstract class EstablishTestSet extends LargeAcsExportAndImportTestBas
 
     acsExportFile.get.foreach { acsExportFile =>
       val startImport = System.nanoTime()
-      clue("Import Alice ACS on P3")(
+
+      if (useLegacyExportImport) {
+        participant3.repair.import_acs_old(acsExportFile.canonicalPath)
+      } else
         participant3.repair.import_acs(
           acsExportFile.canonicalPath,
           contractImportMode = testContractIdImportMode,
         )
-      )
+
       val importDurationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startImport)
 
-      withClue("ACS import duration in milliseconds") {
-        importDurationMs should be < testSet.acsImportDurationBoundMs
-      }
+      importDurationMs should be < testSet.acsImportDurationBoundMs
     }
 
-    clue(s"Reconnect P3")(
-      participant3.synchronizers.reconnect(daName)
-    )
+    participant3.synchronizers.reconnect(daName)
 
     clue(s"Assert ACS on P3") {
       participant3.testing.state_inspection
@@ -508,19 +509,32 @@ protected abstract class EstablishTestSet extends LargeAcsExportAndImportTestBas
         .futureValueUS shouldBe Some(testSet.acsSize)
     }
   }
-
 }
 
 /** Use this test to create a large ACS, and dump the test environment to file for subsequent
   * testing
   */
-//final class LargeAcsCreateContractsTest extends DumpTestSet {
-//  override protected def testSet: TestSet = TestSet(1000)
-//}
+/*
+final class LargeAcsCreateContractsTest extends DumpTestSet {
+  override protected def testSet: TestSet = TestSet(1000, transientContracts = 13)
+}
+ */
 
 /** The actual test */
 final class LargeAcsExportAndImportTest extends EstablishTestSet {
-  override protected def testSet: TestSet = TestSet(1000)
+  override protected def testSet: TestSet = TestSet(10, transientContracts = 1)
+
+  override def useLegacyExportImport: Boolean = false
+
+  override protected def testContractIdImportMode: ContractImportMode =
+    ContractImportMode.Validation
+}
+
+/** The actual test */
+final class LargeAcsExportAndImportTestLegacy extends EstablishTestSet {
+  override protected def testSet: TestSet = TestSet(10, transientContracts = 1)
+
+  override def useLegacyExportImport: Boolean = true
 
   override protected def testContractIdImportMode: ContractImportMode =
     ContractImportMode.Validation

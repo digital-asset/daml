@@ -9,15 +9,17 @@ import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
 import com.digitalasset.canton.config.RequireTypes.{
-  NonNegativeInt,
   NonNegativeLong,
+  NonNegativeProportion,
   PositiveInt,
   PositiveNumeric,
 }
 import com.digitalasset.canton.config.{
   BatchingConfig,
+  CommitmentSendDelay,
   DefaultProcessingTimeouts,
   NonNegativeDuration,
+  PositiveDurationSeconds,
   TestingConfigInternal,
 }
 import com.digitalasset.canton.crypto.*
@@ -86,7 +88,7 @@ import java.time.Duration as JDuration
 import java.util.UUID
 import scala.annotation.nowarn
 import scala.collection.concurrent.TrieMap
-import scala.collection.immutable.{Seq, SortedSet}
+import scala.collection.immutable.{Seq, Set, SortedSet}
 import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -271,8 +273,18 @@ sealed trait AcsCommitmentProcessorBaseTest
         )
     }
 
-  // Create the processor, but return the changes instead of publishing them, such that the user can decide when
-  // to publish
+  /** Create the processor, but return the changes instead of publishing them, such that the user
+    * can decide when to publish
+    *
+    * @param warnOnAcsCommitmentDegradation
+    *   Whether to warn on acs commitment degradation errors. Setting this to true is needed only
+    *   when specifically testing acs commitment degradation.
+    * @param increasePerceivedComputationTimeForCommitments
+    *   This parameter will artificially increase the measured computation time for commitments used
+    *   to decide whether to trigger catch-up mode. This is useful to test catch-up mode without
+    *   having to create a large number of commitments. This parameter does not influence neither
+    *   the actual time spent to compute commitments, nor the compute metrics.
+    */
   protected def testSetupDontPublish(
       timeProofs: List[CantonTimestamp],
       contractSetup: Map[
@@ -288,9 +300,8 @@ sealed trait AcsCommitmentProcessorBaseTest
       synchronizerParametersUpdates: List[
         SynchronizerParameters.WithValidity[DynamicSynchronizerParameters]
       ] = List.empty,
-      // Whether to warn on acs commitment degradation errors.
-      // Setting this to true is needed only when specifically testing acs commitment degradation.
       warnOnAcsCommitmentDegradation: Boolean = false,
+      increasePerceivedComputationTimeForCommitments: Boolean = false,
   )(implicit ec: ExecutionContext): (
       FutureUnlessShutdown[AcsCommitmentProcessor],
       AcsCommitmentStore,
@@ -368,7 +379,12 @@ sealed trait AcsCommitmentProcessorBaseTest
       exitOnFatalFailures = true,
       BatchingConfig(),
       // do not delay sending commitments for testing, because tests often expect to see commitments after an interval
-      Some(NonNegativeInt.zero),
+      Some(CommitmentSendDelay(Some(NonNegativeProportion.zero), Some(NonNegativeProportion.zero))),
+      increasePerceivedComputationTimeForCommitments = Option.when(
+        increasePerceivedComputationTimeForCommitments
+      )(interval.duration.multipliedBy(2)),
+      doNotAwaitOnCheckingIncomingCommitments = false,
+      commitmentCheckpointInterval = PositiveDurationSeconds.ofSeconds(interval.duration.getSeconds),
     )
     (acsCommitmentProcessor, store, sequencerClient, changes, acsCommitmentConfigStore)
   }
@@ -1870,6 +1886,117 @@ class AcsCommitmentProcessorTest
       snap3.deleted shouldBe Set.empty
     }
 
+    "running commitments work as expected with garbage collection" in {
+      val rc =
+        new pruning.AcsCommitmentProcessor.RunningCommitments(RecordTime.MinValue, TrieMap.empty)
+
+      rc.watermark shouldBe RecordTime.MinValue
+      rc.snapshot(gc = false) shouldBe CommitmentSnapshot(
+        RecordTime.MinValue,
+        Map.empty,
+        Map.empty,
+        Set.empty,
+      )
+      val ch1 = AcsChange(
+        activations = Map(
+          coid(0, 0) ->
+            ContractStakeholdersAndReassignmentCounter(
+              Set(alice, bob),
+              initialReassignmentCounter,
+            ),
+          coid(0, 1) ->
+            ContractStakeholdersAndReassignmentCounter(
+              Set(bob, carol),
+              initialReassignmentCounter,
+            ),
+        ),
+        deactivations = Map.empty,
+      )
+      rc.update(rt(1, 0), ch1)
+      rc.watermark shouldBe rt(1, 0)
+      val snap1 = rc.snapshot(gc = false)
+      snap1.recordTime shouldBe rt(1, 0)
+      snap1.active.keySet shouldBe Set(SortedSet(alice, bob), SortedSet(bob, carol))
+      snap1.delta.keySet shouldBe Set(SortedSet(alice, bob), SortedSet(bob, carol))
+      snap1.deleted shouldBe Set.empty
+
+      val ch2 = AcsChange(
+        deactivations = Map(
+          coid(0, 0) -> ContractStakeholdersAndReassignmentCounter(
+            Set(alice, bob),
+            initialReassignmentCounter,
+          )
+        ),
+        activations = Map(
+          coid(1, 1) ->
+            ContractStakeholdersAndReassignmentCounter(
+              Set(alice, carol),
+              initialReassignmentCounter,
+            )
+        ),
+      )
+      rc.update(rt(1, 1), ch2)
+      rc.watermark shouldBe rt(1, 1)
+      val snap2 = rc.snapshot(gc = false)
+      snap2.recordTime shouldBe rt(1, 1)
+      snap2.active.keySet should contain theSameElementsAs Set(
+        SortedSet(alice, bob),
+        SortedSet(alice, carol),
+        SortedSet(bob, carol),
+      )
+      // doesn't contain (alice, bob) because delta doesn't contain deleted
+      snap2.delta.keySet should contain theSameElementsAs Set(
+        SortedSet(alice, carol),
+        SortedSet(bob, carol),
+      )
+      snap2.deleted shouldBe Set(SortedSet(alice, bob))
+
+      val ch3 = AcsChange(
+        deactivations = Map.empty,
+        activations = Map(
+          coid(2, 1) ->
+            ContractStakeholdersAndReassignmentCounter(
+              Set(alice, carol),
+              initialReassignmentCounter,
+            )
+        ),
+      )
+      rc.update(rt(3, 0), ch3)
+      val snap3 = rc.snapshot(gc = false)
+      snap3.recordTime shouldBe rt(3, 0)
+      snap3.active.keySet should contain theSameElementsAs Set(
+        SortedSet(alice, bob),
+        SortedSet(alice, carol),
+        SortedSet(bob, carol),
+      )
+      snap3.delta.keySet should contain theSameElementsAs Set(
+        SortedSet(alice, carol),
+        SortedSet(bob, carol),
+      )
+      snap3.deleted shouldBe Set(SortedSet(alice, bob))
+
+      val snap3WithGc = rc.snapshot()
+      snap3WithGc.recordTime shouldBe rt(3, 0)
+      snap3WithGc.active.keySet should contain theSameElementsAs Set(
+        SortedSet(alice, carol),
+        SortedSet(bob, carol),
+      )
+      snap3WithGc.delta.keySet should contain theSameElementsAs Set(
+        SortedSet(alice, carol),
+        SortedSet(bob, carol),
+      )
+      snap3WithGc.deleted shouldBe Set(SortedSet(alice, bob))
+
+      val snap4WithGc = rc.snapshot()
+      snap4WithGc.recordTime shouldBe rt(3, 0)
+      snap4WithGc.active.keySet should contain theSameElementsAs Set(
+        SortedSet(alice, carol),
+        SortedSet(bob, carol),
+      )
+      snap4WithGc.delta.keySet shouldBe empty
+      snap4WithGc.deleted shouldBe empty
+    }
+
     "contracts differing by reassignment counter result in different commitments if the PV support reassignment counters" in {
       val rc1 =
         new pruning.AcsCommitmentProcessor.RunningCommitments(RecordTime.MinValue, TrieMap.empty)
@@ -2106,6 +2233,7 @@ class AcsCommitmentProcessorTest
             topology,
             acsCommitmentsCatchUpModeEnabled = true,
             warnOnAcsCommitmentDegradation = true,
+            increasePerceivedComputationTimeForCommitments = true,
           )
 
         val remoteCommitments = List(
@@ -2323,6 +2451,7 @@ class AcsCommitmentProcessorTest
             acsCommitmentsCatchUpModeEnabled = true,
             synchronizerParametersUpdates = List(startConfigWithValidity),
             warnOnAcsCommitmentDegradation = true,
+            increasePerceivedComputationTimeForCommitments = true,
           )
 
         (for {
@@ -2402,6 +2531,7 @@ class AcsCommitmentProcessorTest
             acsCommitmentsCatchUpModeEnabled = true,
             synchronizerParametersUpdates = List(startConfigWithValidity),
             warnOnAcsCommitmentDegradation = true,
+            increasePerceivedComputationTimeForCommitments = true,
           )
 
         (for {
@@ -2486,6 +2616,7 @@ class AcsCommitmentProcessorTest
             topology,
             acsCommitmentsCatchUpModeEnabled = true,
             warnOnAcsCommitmentDegradation = true,
+            increasePerceivedComputationTimeForCommitments = true,
           )
 
         val remoteCommitments = List(
@@ -2593,6 +2724,7 @@ class AcsCommitmentProcessorTest
             topology,
             acsCommitmentsCatchUpModeEnabled = true,
             warnOnAcsCommitmentDegradation = true,
+            increasePerceivedComputationTimeForCommitments = true,
           )
 
         val remoteCommitments = List(
@@ -2742,6 +2874,7 @@ class AcsCommitmentProcessorTest
             synchronizerParametersUpdates =
               List(disabledConfigWithValidity, changedConfigWithValidity),
             warnOnAcsCommitmentDegradation = true,
+            increasePerceivedComputationTimeForCommitments = true,
           )
 
         (for {
@@ -2847,6 +2980,7 @@ class AcsCommitmentProcessorTest
             synchronizerParametersUpdates =
               List(startConfigWithValidity, disabledConfigWithValidity),
             warnOnAcsCommitmentDegradation = true,
+            increasePerceivedComputationTimeForCommitments = true,
           )
 
         (for {
@@ -2935,6 +3069,7 @@ class AcsCommitmentProcessorTest
             acsCommitmentsCatchUpModeEnabled = true,
             synchronizerParametersUpdates = List(startConfigWithValidity, changeConfigWithValidity),
             warnOnAcsCommitmentDegradation = true,
+            increasePerceivedComputationTimeForCommitments = true,
           )
 
         (for {
@@ -3021,6 +3156,7 @@ class AcsCommitmentProcessorTest
             topology,
             acsCommitmentsCatchUpModeEnabled = true,
             warnOnAcsCommitmentDegradation = true,
+            increasePerceivedComputationTimeForCommitments = true,
           )
 
         (for {
@@ -3175,6 +3311,7 @@ class AcsCommitmentProcessorTest
             topology,
             acsCommitmentsCatchUpModeEnabled = true,
             warnOnAcsCommitmentDegradation = true,
+            increasePerceivedComputationTimeForCommitments = true,
           )
 
         val remoteCommitments = List(
@@ -3297,6 +3434,7 @@ class AcsCommitmentProcessorTest
             topology,
             acsCommitmentsCatchUpModeEnabled = true,
             warnOnAcsCommitmentDegradation = true,
+            increasePerceivedComputationTimeForCommitments = true,
           )
 
         val remoteCommitmentsFast = List(
@@ -3465,6 +3603,7 @@ class AcsCommitmentProcessorTest
             topology,
             acsCommitmentsCatchUpModeEnabled = true,
             warnOnAcsCommitmentDegradation = true,
+            increasePerceivedComputationTimeForCommitments = true,
           )
 
         val remoteCommitmentsFast = List(

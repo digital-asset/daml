@@ -74,6 +74,9 @@ private final class ChangeAssignation(
       }
       unassignedContracts <- readContracts(contractIdCounters)
       _ <- persistContracts(unassignedContracts)
+      internalContractIdsForUnassignedContracts <- EitherT.right(
+        getInternalContractIds(unassignedContracts)
+      )
       _ <- targetPersistentState.unwrap.reassignmentStore
         .completeReassignment(
           unassignmentData.payload.reassignmentId,
@@ -90,6 +93,7 @@ private final class ChangeAssignation(
         publishAssignmentEvent(
           unassignmentData.payload.unassignmentTs,
           unassignmentData.map(_ => unassignedContracts),
+          internalContractIdsForUnassignedContracts,
         )
       )
     } yield ()
@@ -131,7 +135,10 @@ private final class ChangeAssignation(
       _ <- persistContracts(changeBatch)
       newChanges = changes.map(_ => changeBatch)
       _ <- persistUnassignAndAssign(newChanges).toEitherT
-      _ <- EitherT.right(publishReassignmentEvents(repairSource.unwrap.timestamp, newChanges))
+      internalContractIds <- EitherT.right(getInternalContractIds(changeBatch))
+      _ <- EitherT.right(
+        publishReassignmentEvents(repairSource.unwrap.timestamp, newChanges, internalContractIds)
+      )
     } yield ()
   }
 
@@ -332,6 +339,20 @@ private final class ChangeAssignation(
     EitherT.right(batches.parTraverse_(contractStore.storeContracts))
   }
 
+  /** Get the internal contract ids by the contract id mapping of [[ContractStore]]
+    */
+  private def getInternalContractIds(changes: Changes)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[LfContractId, Long]] = {
+    val batches = changes.batches.map { batch =>
+      batch.contracts.map(_.contract.contractId)
+    }
+
+    batches
+      .parTraverse(contractStore.lookupBatchedNonCachedInternalIds(_))
+      .map(_.foldLeft(Map.empty[LfContractId, Long])(_ ++ _))
+  }
+
   private def persistAssignments(
       contracts: Iterable[(LfContractId, ReassignmentCounter)],
       timeOfRepair: Target[TimeOfRepair],
@@ -377,8 +398,9 @@ private final class ChangeAssignation(
   private def publishAssignmentEvent(
       unassignmentTs: CantonTimestamp,
       changes: ChangeAssignation.Data[Changes],
+      internalContractIds: Map[LfContractId, Long],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
-    val updates = assignment(unassignmentTs, changes)
+    val updates = assignment(unassignmentTs, changes, internalContractIds)
 
     for {
       _ <- FutureUnlessShutdown.outcomeF(
@@ -390,10 +412,13 @@ private final class ChangeAssignation(
   private def publishReassignmentEvents(
       unassignmentTs: CantonTimestamp,
       changes: ChangeAssignation.Data[Changes],
+      internalContractIds: Map[LfContractId, Long],
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = {
-    val updates = unassignment(unassignmentTs, changes) ++ assignment(unassignmentTs, changes)
+    val updates =
+      unassignment(unassignmentTs, changes) ++
+        assignment(unassignmentTs, changes, internalContractIds)
     for {
       _ <- FutureUnlessShutdown.outcomeF(
         MonadUtil.sequentialTraverse(updates)(repairIndexer.offer(_))
@@ -416,7 +441,7 @@ private final class ChangeAssignation(
       )
       Update.RepairReassignmentAccepted(
         workflowId = None,
-        updateId = randomTransactionId(syncCrypto).tryAsLedgerTransactionId,
+        updateId = randomTransactionId(syncCrypto),
         reassignmentInfo = ReassignmentInfo(
           sourceSynchronizer = sourceSynchronizerId,
           targetSynchronizer = targetSynchronizerId,
@@ -438,11 +463,17 @@ private final class ChangeAssignation(
         repairCounter = changes.sourceTimeOfRepair.unwrap.repairCounter,
         recordTime = changes.sourceTimeOfRepair.unwrap.timestamp,
         synchronizerId = sourceSynchronizerId.unwrap,
+        // no internal contract ids since no create nodes are involved
+        internalContractIds = Map.empty,
       )
     }
 
-  private def assignment(unassignmentTs: CantonTimestamp, changes: ChangeAssignation.Data[Changes])(
-      implicit traceContext: TraceContext
+  private def assignment(
+      unassignmentTs: CantonTimestamp,
+      changes: ChangeAssignation.Data[Changes],
+      internalContractIds: Map[LfContractId, Long],
+  )(implicit
+      traceContext: TraceContext
   ): Seq[RepairUpdate] =
     changes.payload.batches.map { case batch =>
       val reassignmentId = ReassignmentId(
@@ -453,7 +484,7 @@ private final class ChangeAssignation(
       )
       Update.RepairReassignmentAccepted(
         workflowId = None,
-        updateId = randomTransactionId(syncCrypto).tryAsLedgerTransactionId,
+        updateId = randomTransactionId(syncCrypto),
         reassignmentInfo = ReassignmentInfo(
           sourceSynchronizer = sourceSynchronizerId,
           targetSynchronizer = targetSynchronizerId,
@@ -476,6 +507,7 @@ private final class ChangeAssignation(
         repairCounter = changes.targetTimeOfRepair.unwrap.repairCounter,
         recordTime = changes.targetTimeOfRepair.unwrap.timestamp,
         synchronizerId = targetSynchronizerId.unwrap,
+        internalContractIds = internalContractIds,
       )
     }
 }

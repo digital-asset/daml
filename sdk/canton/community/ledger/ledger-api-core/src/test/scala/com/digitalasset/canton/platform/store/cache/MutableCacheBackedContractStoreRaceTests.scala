@@ -6,7 +6,6 @@ package com.digitalasset.canton.platform.store.cache
 import cats.data.NonEmptyVector
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.digitalasset.canton.TestEssentials
-import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.index.ContractStateStatus
 import com.digitalasset.canton.ledger.participant.state.index.ContractStateStatus.{
   Active,
@@ -60,7 +59,7 @@ class MutableCacheBackedContractStoreRaceTests
   it should "preserve causal monotonicity under contention for key state" in {
     val workload = generateWorkload(keysCount = 10L, contractsCount = 1000L)
     val indexViewContractsReader = IndexViewContractsReader()(unboundedExecutionContext)
-    val cantonContractStore = new InMemoryContractStore(
+    val participantContractStore = new InMemoryContractStore(
       timeouts = timeouts,
       loggerFactory = loggerFactory,
     )(unboundedExecutionContext)
@@ -69,13 +68,13 @@ class MutableCacheBackedContractStoreRaceTests
         indexViewContractsReader,
         unboundedExecutionContext,
         loggerFactory,
-        cantonContractStore,
+        participantContractStore,
       )
 
     for {
       _ <- test(
         indexViewContractsReader,
-        cantonContractStore,
+        participantContractStore,
         workload,
         unboundedExecutionContext,
       ) { ec => event =>
@@ -87,7 +86,7 @@ class MutableCacheBackedContractStoreRaceTests
   it should "preserve causal monotonicity under contention for contract state" in {
     val workload = generateWorkload(keysCount = 10L, contractsCount = 1000L)
     val indexViewContractsReader = IndexViewContractsReader()(unboundedExecutionContext)
-    val cantonContractStore = new InMemoryContractStore(
+    val participantContractStore = new InMemoryContractStore(
       timeouts = timeouts,
       loggerFactory = loggerFactory,
     )(unboundedExecutionContext)
@@ -96,13 +95,13 @@ class MutableCacheBackedContractStoreRaceTests
         indexViewContractsReader,
         unboundedExecutionContext,
         loggerFactory,
-        cantonContractStore,
+        participantContractStore,
       )
 
     for {
       _ <- test(
         indexViewContractsReader,
-        cantonContractStore,
+        participantContractStore,
         workload,
         unboundedExecutionContext,
       ) { ec => event =>
@@ -118,8 +117,8 @@ private object MutableCacheBackedContractStoreRaceTests {
 
   private def test(
       indexViewContractsReader: IndexViewContractsReader,
-      cantonContractStore: ContractStore,
-      workload: Seq[Offset => SimplifiedContractStateEvent],
+      participantContractStore: ContractStore,
+      workload: Seq[Long => SimplifiedContractStateEvent],
       unboundedExecutionContext: ExecutionContext,
   )(
       assert: ExecutionContext => SimplifiedContractStateEvent => Future[Unit]
@@ -131,12 +130,12 @@ private object MutableCacheBackedContractStoreRaceTests {
 
         eventCtor => {
           counter += 1
-          Iterator(eventCtor(offset(counter)))
+          Iterator(eventCtor(counter))
         }
       }
       .map { event =>
         indexViewContractsReader.update(event)
-        update(cantonContractStore, event)(unboundedExecutionContext).futureValue
+        update(participantContractStore, event)(unboundedExecutionContext).futureValue
         event
       }
       .mapAsync(1)(
@@ -155,7 +154,7 @@ private object MutableCacheBackedContractStoreRaceTests {
     // Use Future.delegate here to ensure immediate control handover to the next statement
     val keyLookupF = Future.delegate(contractStore.lookupContractKey(stakeholders, event.key))
     // Update the mutable contract state cache synchronously
-    contractStore.contractStateCaches.push(NonEmptyVector.of(contractStateEvent))
+    contractStore.contractStateCaches.push(NonEmptyVector.of(contractStateEvent), event.eventSeqId)
 
     for {
       // Lookup after synchronous update
@@ -179,7 +178,7 @@ private object MutableCacheBackedContractStoreRaceTests {
     val keyLookupF =
       Future.delegate(contractStore.lookupActiveContract(stakeholders, event.contractId))
     // Update the mutable contract state cache synchronously
-    contractStore.contractStateCaches.push(NonEmptyVector.of(contractStateEvent))
+    contractStore.contractStateCaches.push(NonEmptyVector.of(contractStateEvent), event.eventSeqId)
 
     for {
       // Lookup after synchronous update
@@ -236,9 +235,9 @@ private object MutableCacheBackedContractStoreRaceTests {
   )(implicit ec: ExecutionContext) =
     for {
       _ <- indexViewContractsReader
-        .lookupKeyState(event.key, event.offset)
+        .lookupKeyState(event.key, event.eventSeqId)
         .map {
-          case KeyAssigned(contractId, _) if contractId == event.contractId && event.created =>
+          case KeyAssigned(contractId) if contractId == event.contractId && event.created =>
           case KeyUnassigned if !event.created =>
           case actual =>
             fail(
@@ -247,7 +246,7 @@ private object MutableCacheBackedContractStoreRaceTests {
             )
         }
       _ <- indexViewContractsReader
-        .lookupContractState(event.contractId, event.offset)
+        .lookupContractState(event.contractId, event.eventSeqId)
         .map {
           case Some(Active) if event.created =>
           case Some(Archived) if !event.created =>
@@ -262,7 +261,7 @@ private object MutableCacheBackedContractStoreRaceTests {
   private def generateWorkload(
       keysCount: Long,
       contractsCount: Long,
-  ): Seq[Offset => SimplifiedContractStateEvent] = {
+  ): Seq[Long => SimplifiedContractStateEvent] = {
     val keys = (0L until keysCount).map { keyIdx =>
       keyIdx -> Key.assertBuild(
         Identifier.assertFromString("pkgId:module:entity"),
@@ -288,16 +287,16 @@ private object MutableCacheBackedContractStoreRaceTests {
       keysToContracts.map { case (key, contracts) =>
         contracts.flatMap { case (_, contractRef) =>
           Vector(
-            (offset: Offset) =>
+            (eventSeqId: Long) =>
               SimplifiedContractStateEvent(
-                offset = offset,
+                eventSeqId = eventSeqId,
                 contract = contractRef,
                 created = true,
                 key = key,
               ),
-            (offset: Offset) =>
+            (eventSeqId: Long) =>
               SimplifiedContractStateEvent(
-                offset = offset,
+                eventSeqId = eventSeqId,
                 contract = contractRef,
                 created = false,
                 key = key,
@@ -310,8 +309,8 @@ private object MutableCacheBackedContractStoreRaceTests {
   }
 
   private def interleaveRandom(
-      indexContractsUpdates: Iterable[Iterable[Offset => SimplifiedContractStateEvent]]
-  ): Seq[Offset => SimplifiedContractStateEvent] = {
+      indexContractsUpdates: Iterable[Iterable[Long => SimplifiedContractStateEvent]]
+  ): Seq[Long => SimplifiedContractStateEvent] = {
     @tailrec
     def interleaveIteratorsRandom[T](acc: Vector[T], col: Set[Iterator[T]]): Vector[T] =
       if (col.isEmpty) acc
@@ -324,13 +323,13 @@ private object MutableCacheBackedContractStoreRaceTests {
       }
 
     interleaveIteratorsRandom(
-      Vector.empty[Offset => SimplifiedContractStateEvent],
+      Vector.empty[Long => SimplifiedContractStateEvent],
       indexContractsUpdates.map(_.iterator).toSet,
     )
   }
 
   final case class SimplifiedContractStateEvent(
-      offset: Offset,
+      eventSeqId: Long,
       contract: FatContract,
       created: Boolean,
       key: Key,
@@ -359,49 +358,41 @@ private object MutableCacheBackedContractStoreRaceTests {
       indexViewContractsReader: IndexViewContractsReader,
       ec: ExecutionContext,
       loggerFactory: NamedLoggerFactory,
-      cantonContractStore: ContractStore,
+      participantContractStore: ContractStore,
   ) = {
     val metrics = LedgerApiServerMetrics.ForTesting
     new MutableCacheBackedContractStore(
       contractsReader = indexViewContractsReader,
       contractStateCaches = ContractStateCaches.build(
-        initialCacheIndex = None,
+        initialCacheEventSeqIdIndex = 0L,
         maxContractsCacheSize = 1L,
         maxKeyCacheSize = 1L,
         metrics = metrics,
         loggerFactory = loggerFactory,
       )(ec),
-      contractStore = cantonContractStore,
+      contractStore = participantContractStore,
       loggerFactory = loggerFactory,
     )(ec)
   }
 
   private val toContractStateEvent: SimplifiedContractStateEvent => ContractStateEvent = {
-    case SimplifiedContractStateEvent(offset, contract, created, key) =>
+    case SimplifiedContractStateEvent(_eventSeqId, contract, created, key) =>
       if (created)
-        ContractStateEvent.Created(
-          contract,
-          offset,
-        )
+        ContractStateEvent.Created(contract.contractId, Some(key))
       else
-        ContractStateEvent.Archived(
-          contractId = contract.contractId,
-          globalKey = Some(key),
-          stakeholders = stakeholders, // Not used
-          eventOffset = offset,
-        )
+        ContractStateEvent.Archived(contract.contractId, Some(key))
   }
 
   final case class ContractLifecycle(
       contract: FatContract,
-      createdAt: Offset,
-      archivedAt: Option[Offset],
+      createdAt: Long,
+      archivedAt: Option[Long],
   )
 
   // Simplified view of the index which models the evolution of the key and contracts state
   private final case class IndexViewContractsReader()(implicit ec: ExecutionContext)
       extends LedgerDaoContractsReader {
-    private type CreatedAt = Offset
+    private type CreatedAt = Long
     @volatile private[cache] var contractStateStore = Map.empty[ContractId, ContractLifecycle]
     @volatile private[cache] var keyStateStore = Map.empty[Key, TreeMap[CreatedAt, ContractId]]
 
@@ -415,7 +406,7 @@ private object MutableCacheBackedContractStoreRaceTests {
             Some(
               ContractLifecycle(
                 contract = event.contract,
-                createdAt = event.offset,
+                createdAt = event.eventSeqId,
                 archivedAt = None,
               )
             )
@@ -424,11 +415,11 @@ private object MutableCacheBackedContractStoreRaceTests {
         }
 
         keyStateStore = keyStateStore.updatedWith(event.key) {
-          case None => Some(TreeMap(event.offset -> event.contractId))
+          case None => Some(TreeMap(event.eventSeqId -> event.contractId))
           case Some(assignments) =>
             val (lastContractAssignedAt, currentContractId) = assignments.last
             val lastContract = contractStateStore(currentContractId)
-            val createdAt = event.offset
+            val createdAt = event.eventSeqId
             if (lastContractAssignedAt < createdAt && lastContract.archivedAt.exists(_ < createdAt))
               Some(assignments + (createdAt -> event.contractId))
             else fail(s"Key state update conflict: last state $lastContract vs event $event")
@@ -437,8 +428,8 @@ private object MutableCacheBackedContractStoreRaceTests {
         // On archive
         contractStateStore = contractStateStore.updatedWith(event.contractId) {
           case Some(contractLifecycle @ ContractLifecycle(contract, createdAt, None))
-              if event.offset > createdAt && event.contractId == contract.contractId =>
-            Some(contractLifecycle.copy(archivedAt = Some(event.offset)))
+              if event.eventSeqId > createdAt && event.contractId == contract.contractId =>
+            Some(contractLifecycle.copy(archivedAt = Some(event.eventSeqId)))
           case lastState =>
             fail(s"Contract state update conflict: last state $lastState vs even $event")
         }
@@ -447,7 +438,7 @@ private object MutableCacheBackedContractStoreRaceTests {
           case Some(assignments) =>
             val (currentCreatedAt, currentContractId) = assignments.last
             val lastContractAssignment = contractStateStore(currentContractId)
-            val archivedAt = event.offset
+            val archivedAt = event.eventSeqId
             if (currentCreatedAt < archivedAt && lastContractAssignment.archivedAt.nonEmpty)
               Some(assignments + (archivedAt -> event.contractId))
             else
@@ -457,41 +448,41 @@ private object MutableCacheBackedContractStoreRaceTests {
         }
       }
 
-    override def lookupContractState(contractId: ContractId, validAt: Offset)(implicit
-        loggingContext: LoggingContextWithTrace
+    override def lookupContractState(contractId: ContractId, notEarlierThanEventSeqId: Long)(
+        implicit loggingContext: LoggingContextWithTrace
     ): Future[Option[ExistingContractStatus]] =
       Future {
         val _ = loggingContext
         contractStateStore
           .get(contractId)
           .flatMap { case ContractLifecycle(_, createdAt, maybeArchivedAt) =>
-            if (validAt < createdAt) None
-            else if (maybeArchivedAt.forall(_ > validAt))
+            if (notEarlierThanEventSeqId < createdAt) None
+            else if (maybeArchivedAt.forall(_ > notEarlierThanEventSeqId))
               Some(ContractStateStatus.Active)
             else Some(ContractStateStatus.Archived)
           }
       }(ec)
 
-    override def lookupKeyState(key: Key, validAt: Offset)(implicit
+    override def lookupKeyState(key: Key, notEarlierThanEventSeqId: Long)(implicit
         loggingContext: LoggingContextWithTrace
     ): Future[KeyState] = Future {
       val _ = loggingContext
       keyStateStore
         .get(key)
-        .map(_.maxBefore(nextAfter(validAt)) match {
+        .map(_.maxBefore(notEarlierThanEventSeqId + 1) match {
           case Some((_, contractId)) =>
             contractStateStore(contractId).archivedAt match {
-              case Some(archivedAt) if archivedAt <= validAt => KeyUnassigned
-              case _ => KeyAssigned(contractId, stakeholders)
+              case Some(archivedAt) if archivedAt <= notEarlierThanEventSeqId => KeyUnassigned
+              case _ => KeyAssigned(contractId)
             }
           case None => KeyUnassigned
         })
         .getOrElse(KeyUnassigned)
     }(ec)
 
-    override def lookupKeyStatesFromDb(keys: Seq[Key], notEarlierThanOffset: CreatedAt)(implicit
+    override def lookupKeyStatesFromDb(keys: Seq[Key], notEarlierThanEventSeqId: Long)(implicit
         loggingContext: LoggingContextWithTrace
-    ): Future[Map[Key, KeyState]] = ??? // not used in this test
+    ): Future[Map[Key, Long]] = ??? // not used in this test
   }
 
   def update(contractStore: ContractStore, event: SimplifiedContractStateEvent)(implicit
@@ -504,11 +495,4 @@ private object MutableCacheBackedContractStoreRaceTests {
         .map(_ => ())
         .failOnShutdownToAbortException("test")
     } else Future.unit
-
-  private def offset(idx: Long) = {
-    val base = BigInt(1L) << 32
-    Offset.tryFromLong((base + idx).toLong)
-  }
-
-  private def nextAfter(currentOffset: Offset) = currentOffset.increment
 }

@@ -398,7 +398,7 @@ trait MessageDispatcherTest {
     )
 
     val rawCommitment = mock[AcsCommitment]
-    when(rawCommitment.synchronizerId).thenReturn(psid)
+    when(rawCommitment.psid).thenReturn(psid)
     when(rawCommitment.representativeProtocolVersion).thenReturn(
       AcsCommitment.protocolVersionRepresentativeFor(testedProtocolVersion)
     )

@@ -211,7 +211,7 @@ class Environment(
 
   protected val futureSupervisor =
     if (config.monitoring.logging.logSlowFutures)
-      new FutureSupervisor.Impl(timeouts.slowFutureWarn)
+      new FutureSupervisor.Impl(timeouts.slowFutureWarn, loggerFactory)
     else FutureSupervisor.Noop
 
   private val monitorO = if (deadlockConfig.enabled) {
@@ -369,7 +369,7 @@ class Environment(
           ParticipantApis(
             ledgerApi = node.config.ledgerApi.port.unwrap,
             adminApi = node.config.adminApi.port.unwrap,
-            jsonApi = node.config.httpLedgerApi.server.internalPort.map(_.unwrap),
+            jsonApi = node.config.httpLedgerApi.internalPort.map(_.unwrap),
           ),
         )
       }.toMap

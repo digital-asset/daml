@@ -18,7 +18,6 @@ import com.daml.ledger.api.v2.topology_transaction.TopologyTransaction
 import com.daml.ledger.api.v2.transaction.Transaction as FlatTransaction
 import com.daml.ledger.api.v2.update_service.{GetUpdateResponse, GetUpdatesResponse}
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.TransactionShape.{AcsDelta, LedgerEffects}
 import com.digitalasset.canton.ledger.api.util.{LfEngineToApi, TimestampConversion}
@@ -36,6 +35,7 @@ import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate.{
 import com.digitalasset.canton.platform.{
   InternalTransactionFormat,
   InternalUpdateFormat,
+  PackageId as LfPackageId,
   TemplatePartiesFilter,
   Value,
 }
@@ -50,9 +50,7 @@ import com.digitalasset.daml.lf.transaction.{
   FatContractInstance,
   GlobalKeyWithMaintainers,
   Node,
-  Versioned,
 }
-import com.google.protobuf.ByteString
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -515,13 +513,11 @@ private[events] object TransactionLogUpdatesConversions {
       executionContext: ExecutionContext,
   ): Future[apiEvent.CreatedEvent] = {
 
-    def getFatContractInstance: Right[Nothing, FatContractInstance] =
-      Right(
-        FatContractInstance.fromCreateNode(
-          create,
-          CreationTime.CreatedAt(ledgerEffectiveTime),
-          authenticationData,
-        )
+    val fatContractInstance: FatContractInstance =
+      FatContractInstance.fromCreateNode(
+        create,
+        CreationTime.CreatedAt(ledgerEffectiveTime),
+        authenticationData,
       )
 
     val witnesses = requestingPartiesO
@@ -531,37 +527,15 @@ private[events] object TransactionLogUpdatesConversions {
     val acsDelta =
       requestingPartiesO.fold(flatEventWitnesses.view)(_.view.filter(flatEventWitnesses)).nonEmpty
 
-    val representativeTemplateId =
-      create.templateId.copy(pkg = representativePackageId).toFullIdentifier(create.packageName)
-
-    lfValueTranslation
-      .toApiContractData(
-        value = Versioned(create.version, create.arg),
-        key = create.keyOpt.map(k => Versioned(create.version, k.value)),
-        representativeTemplateId = representativeTemplateId,
-        witnesses = witnesses,
-        eventProjectionProperties = eventProjectionProperties,
-        fatContractInstance = getFatContractInstance,
-      )
-      .map(apiContractData =>
-        apiEvent.CreatedEvent(
-          offset = offset.unwrap,
-          nodeId = nodeId,
-          contractId = create.coid.coid,
-          templateId = Some(LfEngineToApi.toApiIdentifier(create.templateId)),
-          representativePackageId = representativePackageId,
-          packageName = create.packageName,
-          contractKey = apiContractData.contractKey,
-          createArguments = Some(apiContractData.createArguments),
-          createdEventBlob = apiContractData.createdEventBlob.getOrElse(ByteString.EMPTY),
-          interfaceViews = apiContractData.interfaceViews,
-          witnessParties = witnesses.toSeq,
-          signatories = create.signatories.toSeq,
-          observers = create.stakeholders.diff(create.signatories).toSeq,
-          createdAt = Some(TimestampConversion.fromLf(ledgerEffectiveTime)),
-          acsDelta = acsDelta,
-        )
-      )
+    lfValueTranslation.toApiCreatedEvent(
+      eventProjectionProperties = eventProjectionProperties,
+      fatContractInstance = fatContractInstance,
+      offset = offset.unwrap,
+      nodeId = nodeId,
+      representativePackageId = representativePackageId,
+      witnesses = witnesses,
+      acsDelta = acsDelta,
+    )
   }
 
   private def matchPartyInSet(party: Party)(optSet: Option[Set[Party]]) =
@@ -606,7 +580,7 @@ private[events] object TransactionLogUpdatesConversions {
             offset = reassignmentAccepted.offset,
             nodeId = assigned.nodeId,
             authenticationData = assigned.contractAuthenticationData,
-            // TODO(#27872): Use the assignment representative package ID when available
+            // TODO(#28301): Use the assignment representative package ID when available
             representativePackageId = assigned.createNode.templateId.packageId,
             createdEventWitnesses = assigned.createNode.stakeholders,
             flatEventWitnesses = assigned.createNode.stakeholders,

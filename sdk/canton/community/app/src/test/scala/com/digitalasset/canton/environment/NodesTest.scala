@@ -21,7 +21,6 @@ import com.digitalasset.canton.concurrent.{
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.StartupMemoryCheckConfig.ReportingLevel
 import com.digitalasset.canton.crypto.Crypto
-import com.digitalasset.canton.crypto.store.CryptoPrivateStoreFactory
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.health.{
   DependenciesHealthService,
@@ -37,6 +36,7 @@ import com.digitalasset.canton.metrics.{
   OnDemandMetricsReader,
 }
 import com.digitalasset.canton.networking.grpc.CantonMutableHandlerRegistry
+import com.digitalasset.canton.replica.ReplicaManager
 import com.digitalasset.canton.resource.{Storage, StorageSingleFactory}
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
 import com.digitalasset.canton.telemetry.ConfiguredOpenTelemetry
@@ -69,7 +69,7 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
   trait TestNode extends CantonNode
   case class TestNodeConfig()
       extends LocalNodeConfig
-      with ConfigDefaults[DefaultPorts, TestNodeConfig] {
+      with ConfigDefaults[Option[DefaultPorts], TestNodeConfig] {
     override val init: InitConfig = InitConfig()
     override val adminApi: AdminServerConfig =
       AdminServerConfig(internalPort = Some(UniquePortGenerator.next))
@@ -78,7 +78,8 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
     override val sequencerClient: SequencerClientConfig = SequencerClientConfig()
     override def nodeTypeName: String = "test-node"
     override def clientAdminApi = adminApi.clientConfig
-    override def withDefaults(ports: DefaultPorts, edition: CantonEdition): TestNodeConfig = this
+    override def withDefaults(ports: Option[DefaultPorts], edition: CantonEdition): TestNodeConfig =
+      this
     override val monitoring: NodeMonitoringConfig = NodeMonitoringConfig()
     override val topology: TopologyConfig = TopologyConfig.NotUsed
     override def parameters: LocalNodeParametersConfig = new LocalNodeParametersConfig {
@@ -148,8 +149,7 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
   def arguments(config: TestNodeConfig) = factoryArguments(config)
     .toCantonNodeBootstrapCommonArguments(
       storageFactory = new StorageSingleFactory(StorageConfig.Memory()),
-      cryptoPrivateStoreFactory =
-        CryptoPrivateStoreFactory.withoutKms(wallClock, parallelExecutionContext),
+      Option.empty[ReplicaManager],
     )
     .value
 

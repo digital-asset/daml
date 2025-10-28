@@ -8,11 +8,16 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.protocol.submission.SynchronizerSelectionFixture.*
 import com.digitalasset.canton.participant.protocol.submission.SynchronizerSelectionFixture.Transactions.ExerciseByInterface
 import com.digitalasset.canton.participant.protocol.submission.SynchronizersFilterTest.*
-import com.digitalasset.canton.protocol.{LfLanguageVersion, LfVersionedTransaction}
+import com.digitalasset.canton.participant.protocol.submission.UsableSynchronizers.UnsupportedMinimumProtocolVersionForInteractiveSubmission
+import com.digitalasset.canton.protocol.{LfSerializationVersion, LfVersionedTransaction}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.VettedPackage
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.version.{LfSerializationVersionToProtocolVersions, ProtocolVersion}
+import com.digitalasset.canton.version.{
+  HashingSchemeVersion,
+  LfSerializationVersionToProtocolVersions,
+  ProtocolVersion,
+}
 import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext, LfPartyId}
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.Implicits.*
 import org.scalatest.wordspec.AnyWordSpec
@@ -33,6 +38,7 @@ class SynchronizersFilterTest
       Transactions.Create.tx(fixtureSerializationVersion),
       ledgerTime,
       testedProtocolVersion,
+      None,
     )
     val correctPackages = Transactions.Create.correctPackages
 
@@ -42,6 +48,41 @@ class SynchronizersFilterTest
 
       unusableSynchronizers shouldBe empty
       usableSynchronizers shouldBe List(DefaultTestIdentities.physicalSynchronizerId)
+    }
+
+    "reject synchronizers when the hashing scheme version is not supported" in {
+      val allHashingSchemes =
+        HashingSchemeVersion.MinimumProtocolVersionToHashingVersion.values.flatten.toList
+      HashingSchemeVersion.MinimumProtocolVersionToHashingVersion.foreach {
+        case (pv, supportedHashingSchemes) =>
+          allHashingSchemes.filterNot(supportedHashingSchemes.contains).foreach {
+            unsupportedHashingScheme =>
+              val lfSerializationVersion =
+                LfSerializationVersionToProtocolVersions.lfSerializationVersionToMinimumProtocolVersions.collectFirst {
+                  case (lfSerialization, minimumPv) if pv >= minimumPv => lfSerialization
+                }.value
+              val filter =
+                SynchronizersFilterForTx(
+                  Transactions.Create.tx(lfSerializationVersion),
+                  ledgerTime,
+                  pv,
+                  Some(unsupportedHashingScheme),
+                )
+
+              val (unusableSynchronizers, usableSynchronizers) =
+                filter.split(correctTopology, correctPackages).futureValueUS
+
+              unusableSynchronizers shouldBe List(
+                UnsupportedMinimumProtocolVersionForInteractiveSubmission(
+                  synchronizerId = DefaultTestIdentities.physicalSynchronizerId,
+                  requiredPV =
+                    HashingSchemeVersion.minProtocolVersionForHSV(unsupportedHashingScheme),
+                  isVersion = unsupportedHashingScheme,
+                )
+              )
+              usableSynchronizers shouldBe empty
+          }
+      }
     }
 
     "reject synchronizers when informees don't have an active participant" in {
@@ -111,7 +152,7 @@ class SynchronizersFilterTest
       )
     }
 
-    // TODO(#15561) Re-enable this test when we have a stable protocol version
+    // TODO(#28592) Fix test
     "reject synchronizers when the minimum protocol version is not satisfied " ignore {
       import SimpleTopology.*
 
@@ -119,23 +160,25 @@ class SynchronizersFilterTest
       val currentSynchronizerPV = ProtocolVersion.v34
       val filter =
         SynchronizersFilterForTx(
-          Transactions.Create.tx(LfLanguageVersion.v2_dev),
+          Transactions.Create.tx(LfSerializationVersion.VDev),
           ledgerTime,
           currentSynchronizerPV,
+          Option.empty[HashingSchemeVersion],
         )
 
       val (unusableSynchronizers, usableSynchronizers) =
         filter
           .split(correctTopology, Transactions.Create.correctPackages)
           .futureValueUS
-      val requiredPV = LfSerializationVersionToProtocolVersions.damlLfVersionToMinimumProtocolVersions
-        .get(LfLanguageVersion.v2_dev)
-        .value
+      val requiredPV =
+        LfSerializationVersionToProtocolVersions.lfSerializationVersionToMinimumProtocolVersions
+          .get(LfSerializationVersion.VDev)
+          .value
       unusableSynchronizers shouldBe List(
         UsableSynchronizers.UnsupportedMinimumProtocolVersion(
           synchronizerId = DefaultTestIdentities.physicalSynchronizerId,
           requiredPV = requiredPV,
-          lfVersion = LfLanguageVersion.v2_dev,
+          lfVersion = LfSerializationVersion.VDev,
         )
       )
       usableSynchronizers shouldBe empty
@@ -147,7 +190,12 @@ class SynchronizersFilterTest
     val exerciseByInterface = Transactions.ExerciseByInterface(fixtureSerializationVersion)
 
     val ledgerTime = CantonTimestamp.now()
-    val filter = SynchronizersFilterForTx(exerciseByInterface.tx, ledgerTime, testedProtocolVersion)
+    val filter = SynchronizersFilterForTx(
+      exerciseByInterface.tx,
+      ledgerTime,
+      testedProtocolVersion,
+      Some(HashingSchemeVersion.V2),
+    )
     val correctPackages = ExerciseByInterface.correctPackages
 
     "keep synchronizers that satisfy all the constraints" in {
@@ -198,6 +246,7 @@ private[submission] object SynchronizersFilterTest {
       tx: LfVersionedTransaction,
       ledgerTime: CantonTimestamp,
       synchronizerProtocolVersion: ProtocolVersion,
+      hashingSchemeVersion: Option[HashingSchemeVersion],
   ) {
     def split(
         topology: Map[LfPartyId, List[ParticipantId]],
@@ -220,6 +269,7 @@ private[submission] object SynchronizersFilterTest {
         synchronizers = synchronizers,
         transaction = tx,
         ledgerTime = ledgerTime,
+        hashingSchemeVersion = hashingSchemeVersion,
       )
     }
   }

@@ -186,6 +186,18 @@ AuthorizationError :: Text -> SubmitError
 
 authorizationErrorMessage :: SubmitError -> Text
 
+-- | Failed to hash a contract
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-contracthashingerror-75608
+ContractHashingError :: AnyContractId -> TemplateTypeRep -> AnyTemplate -> Text -> SubmitError
+
+contractId :: SubmitError -> AnyContractId
+
+dstTemplateId :: SubmitError -> TemplateTypeRep
+
+createArg :: SubmitError -> AnyTemplate
+
+errorMessage :: SubmitError -> Text
+
 -- | Given disclosed contract key does not match the contract key of the contract on ledger.
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-disclosedcontractkeyhashingerror-69749
 DisclosedContractKeyHashingError :: AnyContractId -> AnyContractKey -> Text -> SubmitError
@@ -363,7 +375,7 @@ truncatedErrorMessage :: SubmitError -> Text
 data UpgradeErrorType
 
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-validationfailed-35370
-ValidationFailed :: AnyContractId -> TemplateTypeRep -> TemplateTypeRep -> [Party] -> [Party] -> Optional (AnyContractKey, [Party]) -> UpgradeErrorType
+ValidationFailed :: AnyContractId -> TemplateTypeRep -> TemplateTypeRep -> Text -> Text -> [Party] -> [Party] -> Optional (AnyContractKey, [Party]) -> [Party] -> [Party] -> Optional (AnyContractKey, [Party]) -> UpgradeErrorType
 
 coid :: UpgradeErrorType -> AnyContractId
 
@@ -371,14 +383,43 @@ srcTemplateId :: UpgradeErrorType -> TemplateTypeRep
 
 dstTemplateId :: UpgradeErrorType -> TemplateTypeRep
 
-signatories :: UpgradeErrorType -> [Party]
+srcPackageName :: UpgradeErrorType -> Text
 
-observers :: UpgradeErrorType -> [Party]
+dstPackageName :: UpgradeErrorType -> Text
 
-keyOpt :: UpgradeErrorType -> Optional (AnyContractKey, [Party])
+originalSignatories :: UpgradeErrorType -> [Party]
 
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-dummyupgradeerror-28037
-DummyUpgradeError :: UpgradeErrorType
+originalObservers :: UpgradeErrorType -> [Party]
+
+originalKeyOpt :: UpgradeErrorType -> Optional (AnyContractKey, [Party])
+
+recomputedSignatories :: UpgradeErrorType -> [Party]
+
+recomputedObservers :: UpgradeErrorType -> [Party]
+
+recomputedKeyOpt :: UpgradeErrorType -> Optional (AnyContractKey, [Party])
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-translationfailed-4701
+TranslationFailed :: Optional AnyContractId -> TemplateTypeRep -> TemplateTypeRep -> AnyTemplate -> UpgradeErrorType
+
+mCoid :: UpgradeErrorType -> Optional AnyContractId
+
+srcTemplateId :: UpgradeErrorType -> TemplateTypeRep
+
+dstTemplateId :: UpgradeErrorType -> TemplateTypeRep
+
+createArg :: UpgradeErrorType -> AnyTemplate
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-authenticationfailed-3671
+AuthenticationFailed :: AnyContractId -> TemplateTypeRep -> TemplateTypeRep -> AnyTemplate -> UpgradeErrorType
+
+coid :: UpgradeErrorType -> AnyContractId
+
+srcTemplateId :: UpgradeErrorType -> TemplateTypeRep
+
+dstTemplateId :: UpgradeErrorType -> TemplateTypeRep
+
+createArg :: UpgradeErrorType -> AnyTemplate
 
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-transactiontree-created-98301
 data Created

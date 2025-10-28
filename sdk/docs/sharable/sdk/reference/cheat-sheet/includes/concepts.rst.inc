@@ -22,10 +22,10 @@ Concepts
 
        A choice can only be exercised by its controller and contains the ``authorization`` of all of the contract’s signatories as well as of the controller.
    * - ``Ledger``
-     - The ledger represents the database where all contracts are recorded. More information on Daml Ledgers can be found `here <https://docs.daml.com/concepts/ledger-model/ledger-structure.html#ledgers>`__.
+     - The ledger represents the database where all contracts are recorded. More information on Daml Ledgers can be found `here <da-ledgers>`.
 
 
-If you are interested you can find the detailed glossary `here <https://docs.daml.com/concepts/glossary.html>`__.
+If you are interested you can find the detailed glossary `here <glossary>`.
 
 .. todo:: Update/remove the old urls.
 

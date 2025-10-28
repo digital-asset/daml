@@ -15,7 +15,11 @@ import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.DatabaseSequencerConfig.TestingInterceptor
 import com.digitalasset.canton.synchronizer.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig
-import com.digitalasset.canton.synchronizer.sequencer.block.{BlockSequencer, BlockSequencerFactory}
+import com.digitalasset.canton.synchronizer.sequencer.block.{
+  BlockOrderer,
+  BlockSequencer,
+  BlockSequencerFactory,
+}
 import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeParameters
 import com.digitalasset.canton.synchronizer.sequencer.traffic.SequencerRateLimitManager
 import com.digitalasset.canton.synchronizer.sequencer.{
@@ -27,6 +31,7 @@ import com.digitalasset.canton.synchronizer.sequencer.{
 import com.digitalasset.canton.synchronizer.sequencing.traffic.store.TrafficPurchasedStore
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.SequencerId
+import com.digitalasset.canton.util.MaxBytesToDecompress
 import com.digitalasset.canton.version.ProtocolVersion
 import com.typesafe.scalalogging.LazyLogging
 import io.opentelemetry.api.trace.Tracer
@@ -65,7 +70,39 @@ class BftSequencerFactory(
   override protected final lazy val orderingTimeFixMode: OrderingTimeFixMode =
     OrderingTimeFixMode.ValidateOnly
 
+  override protected def createBlockOrderer(
+      cryptoApi: SynchronizerCryptoClient,
+      clock: Clock,
+      initialBlockHeight: Option[Long],
+      sequencerSnapshot: Option[SequencerSnapshot],
+      authenticationServices: Option[AuthenticationServices],
+      synchronizerLoggerFactory: NamedLoggerFactory,
+  )(implicit
+      ec: ExecutionContext,
+      materializer: Materializer,
+      tracer: Tracer,
+  ): BlockOrderer = {
+    val initialHeight = initialBlockHeight.getOrElse(0L)
+    new BftBlockOrderer(
+      config,
+      storage,
+      cryptoApi,
+      sequencerId,
+      clock,
+      authenticationServices,
+      nodeParameters,
+      initialHeight,
+      orderingTimeFixMode,
+      sequencerSnapshot.flatMap(_.additional),
+      nodeParameters.exitOnFatalFailures,
+      metrics.bftOrdering,
+      synchronizerLoggerFactory,
+      nodeParameters.loggingConfig.queryCost,
+    )
+  }
+
   override protected final def createBlockSequencer(
+      blockOrderer: BlockOrderer,
       name: String,
       cryptoApi: SynchronizerCryptoClient,
       stateManager: BlockSequencerStateManager,
@@ -75,38 +112,19 @@ class BftSequencerFactory(
       futureSupervisor: FutureSupervisor,
       health: Option[SequencerHealthConfig],
       clock: Clock,
-      driverClock: Clock,
       rateLimitManager: SequencerRateLimitManager,
       orderingTimeFixMode: OrderingTimeFixMode,
       sequencingTimeLowerBoundExclusive: Option[CantonTimestamp],
-      initialBlockHeight: Option[Long],
-      sequencerSnapshot: Option[SequencerSnapshot],
-      authenticationServices: Option[AuthenticationServices],
+      maxBytesToDecompress: MaxBytesToDecompress,
       synchronizerLoggerFactory: NamedLoggerFactory,
       runtimeReady: FutureUnlessShutdown[Unit],
   )(implicit
       ec: ExecutionContext,
       materializer: Materializer,
       tracer: Tracer,
-  ): BlockSequencer = {
-    val initialHeight = initialBlockHeight.getOrElse(0L)
+  ): BlockSequencer =
     new BlockSequencer(
-      new BftBlockOrderer(
-        config,
-        storage,
-        cryptoApi,
-        sequencerId,
-        driverClock,
-        authenticationServices,
-        nodeParameters,
-        initialHeight,
-        orderingTimeFixMode,
-        sequencerSnapshot.flatMap(_.additional),
-        nodeParameters.exitOnFatalFailures,
-        metrics.bftOrdering,
-        synchronizerLoggerFactory,
-        nodeParameters.loggingConfig.queryCost,
-      ),
+      blockOrderer,
       name,
       cryptoApi,
       sequencerId,
@@ -125,12 +143,12 @@ class BftSequencerFactory(
       nodeParameters.processingTimeouts,
       nodeParameters.loggingConfig.eventDetails,
       nodeParameters.loggingConfig.api.printer,
+      maxBytesToDecompress,
       metrics,
       synchronizerLoggerFactory,
       exitOnFatalFailures = nodeParameters.exitOnFatalFailures,
       runtimeReady = runtimeReady,
     )
-  }
 }
 
 object BftSequencerFactory extends LazyLogging {

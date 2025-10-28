@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf
 package engine
 
 import com.daml.bazeltools.BazelRunfiles
-import com.digitalasset.daml.lf.archive.UniversalArchiveDecoder
+import com.digitalasset.daml.lf.archive.DarDecoder
 import com.digitalasset.daml.lf.command.{ApiCommand, ApiCommands}
 import com.digitalasset.daml.lf.data.{Bytes, FrontStack, ImmArray, Time}
 import com.digitalasset.daml.lf.data.Ref.{
@@ -60,7 +60,7 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
   implicit private def toParty(s: String): Party = Party.assertFromString(s)
 
   private def loadPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
-    val packages = UniversalArchiveDecoder.assertReadFile(new File(rlocation(resource)))
+    val packages = DarDecoder.assertReadArchiveFromFile(new File(rlocation(resource)))
     val (mainPkgId, mainPkg) = packages.main
     (mainPkgId, mainPkg, packages.all.toMap)
   }

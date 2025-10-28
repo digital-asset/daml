@@ -10,6 +10,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.platform.store.backend.IntegrityStorageBackend
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.`SimpleSql ops`
+import com.digitalasset.canton.protocol.UpdateId
 import com.digitalasset.canton.topology.SynchronizerId
 import com.google.common.annotations.VisibleForTesting
 
@@ -20,30 +21,22 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
 
   private val allSequentialIds: String =
     s"""
-      |SELECT event_sequential_id FROM lapi_events_create
+      |SELECT event_sequential_id FROM lapi_events_activate_contract
       |UNION ALL
-      |SELECT event_sequential_id FROM lapi_events_consuming_exercise
+      |SELECT event_sequential_id FROM lapi_events_deactivate_contract
       |UNION ALL
-      |SELECT event_sequential_id FROM lapi_events_non_consuming_exercise
-      |UNION ALL
-      |SELECT event_sequential_id FROM lapi_events_unassign
-      |UNION ALL
-      |SELECT event_sequential_id FROM lapi_events_assign
+      |SELECT event_sequential_id FROM lapi_events_various_witnessed
       |UNION ALL
       |SELECT event_sequential_id FROM lapi_events_party_to_participant
       |""".stripMargin
 
   private val allSequentialIdsAndOffsets: String =
     s"""
-       |SELECT event_sequential_id, event_offset FROM lapi_events_create
+       |SELECT event_sequential_id, event_offset FROM lapi_events_activate_contract
        |UNION ALL
-       |SELECT event_sequential_id, event_offset FROM lapi_events_consuming_exercise
+       |SELECT event_sequential_id, event_offset FROM lapi_events_deactivate_contract
        |UNION ALL
-       |SELECT event_sequential_id, event_offset FROM lapi_events_non_consuming_exercise
-       |UNION ALL
-       |SELECT event_sequential_id, event_offset FROM lapi_events_unassign
-       |UNION ALL
-       |SELECT event_sequential_id, event_offset FROM lapi_events_assign
+       |SELECT event_sequential_id, event_offset FROM lapi_events_various_witnessed
        |UNION ALL
        |SELECT event_sequential_id, event_offset FROM lapi_events_party_to_participant
        |""".stripMargin
@@ -77,15 +70,11 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
 
   private val allEventIds: String =
     s"""
-       |SELECT event_offset, node_id FROM lapi_events_create
+       |SELECT event_offset, node_id FROM lapi_events_activate_contract
        |UNION ALL
-       |SELECT event_offset, node_id FROM lapi_events_consuming_exercise
+       |SELECT event_offset, node_id FROM lapi_events_deactivate_contract
        |UNION ALL
-       |SELECT event_offset, node_id FROM lapi_events_non_consuming_exercise
-       |UNION ALL
-       |SELECT event_offset, node_id FROM lapi_events_unassign
-       |UNION ALL
-       |SELECT event_offset, node_id FROM lapi_events_assign
+       |SELECT event_offset, node_id FROM lapi_events_various_witnessed
        |""".stripMargin
 
   private val SqlDuplicateOffsets = SQL"""
@@ -144,15 +133,11 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
 
     // Verify monotonic record times per synchronizer
     val offsetSynchronizerRecordTime = SQL"""
-       SELECT event_offset as _offset, record_time, synchronizer_id FROM lapi_events_create
+       SELECT event_offset as _offset, record_time, synchronizer_id FROM lapi_events_activate_contract
        UNION ALL
-       SELECT event_offset as _offset, record_time, synchronizer_id FROM lapi_events_consuming_exercise
+       SELECT event_offset as _offset, record_time, synchronizer_id FROM lapi_events_deactivate_contract
        UNION ALL
-       SELECT event_offset as _offset, record_time, synchronizer_id FROM lapi_events_non_consuming_exercise
-       UNION ALL
-       SELECT event_offset as _offset, record_time, source_synchronizer_id as synchronizer_id FROM lapi_events_unassign
-       UNION ALL
-       SELECT event_offset as _offset, record_time, target_synchronizer_id as synchronizer_id FROM lapi_events_assign
+       SELECT event_offset as _offset, record_time, synchronizer_id FROM lapi_events_various_witnessed
        UNION ALL
        SELECT completion_offset as _offset, record_time, synchronizer_id FROM lapi_command_completions
        UNION ALL
@@ -186,10 +171,10 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
                 meta1.event_offset != meta2.event_offset
           FETCH NEXT 1 ROWS ONLY
       """
-      .asSingleOpt(str("uId") ~ offset("offset1") ~ offset("offset2"))(connection)
+      .asSingleOpt(updateId("uId") ~ offset("offset1") ~ offset("offset2"))(connection)
       .foreach { case uId ~ offset1 ~ offset2 =>
         throw new RuntimeException(
-          s"occurrence of duplicate update ID [$uId] found for offsets $offset1, $offset2"
+          s"occurrence of duplicate update ID [${uId.toHexString}] found for offsets $offset1, $offset2"
         )
       }
 
@@ -254,7 +239,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
           int("user_id") ~
           byteArray("submitters") ~
           str("command_id") ~
-          str("update_id").? ~
+          updateId("update_id").? ~
           str("submission_id").? ~
           str("message_uuid").? ~
           long("record_time") ~
@@ -324,7 +309,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
     case t: Throwable if !failForEmptyDB =>
       val failure = t.getMessage
       val postgresEmptyDBError = failure.contains(
-        "relation \"lapi_events_create\" does not exist"
+        "relation \"lapi_events_activate_contract\" does not exist"
       )
       val h2EmptyDBError = failure.contains(
         "this database is empty"
@@ -357,7 +342,9 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
     */
   @VisibleForTesting
   override def moveLedgerEndBackToScratch()(connection: Connection): Unit = {
-    SQL"DELETE FROM lapi_parameters".executeUpdate()(connection).discard
+    SQL"UPDATE lapi_parameters SET ledger_end = 1, ledger_end_sequential_id = 0"
+      .executeUpdate()(connection)
+      .discard
     SQL"DELETE FROM lapi_post_processing_end".executeUpdate()(connection).discard
     SQL"DELETE FROM lapi_ledger_end_synchronizer_index".executeUpdate()(connection).discard
     SQL"DELETE FROM par_command_deduplication".executeUpdate()(connection).discard
@@ -368,7 +355,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
       userId: Int,
       submitters: List[Int],
       commandId: String,
-      updateId: Option[String],
+      updateId: Option[UpdateId],
       submissionId: Option[String],
       messageUuid: Option[String],
       recordTimeLong: Long,

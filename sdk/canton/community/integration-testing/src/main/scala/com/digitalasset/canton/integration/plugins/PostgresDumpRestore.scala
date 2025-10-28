@@ -82,6 +82,8 @@ sealed trait PostgresDumpRestore extends DbDumpRestore {
       Map("PGPASSWORD" -> dbPassword),
     )
   }
+
+  override def databaseName(nodeName: String): String = plugin.generateDbName(nodeName)
 }
 
 final case class LocalPostgresDumpRestore(plugin: UsePostgres) extends PostgresDumpRestore {

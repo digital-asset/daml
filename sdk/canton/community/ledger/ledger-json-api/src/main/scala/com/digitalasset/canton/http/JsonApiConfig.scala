@@ -4,25 +4,38 @@
 package com.digitalasset.canton.http
 
 import com.digitalasset.canton.config.CantonConfigValidator
+import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.http.WebsocketConfig as WSC
 import org.apache.pekko.stream.ThrottleMode
 import scalaz.Show
 
+import java.nio.file.Path
 import scala.concurrent.duration.*
 
 // The internal transient scopt structure *and* StartSettings; external `start`
 // users should extend StartSettings or DefaultStartSettings themselves
 final case class JsonApiConfig(
     enabled: Boolean = true,
-    server: HttpServerConfig = HttpServerConfig(),
     websocketConfig: Option[WebsocketConfig] = None,
     debugLoggingOfHttpBodies: Boolean = false,
     damlDefinitionsServiceEnabled: Boolean = false,
-)
+    address: String = JsonApiConfig.defaultAddress,
+    internalPort: Option[Port] = None,
+    portFile: Option[Path] = None,
+    pathPrefix: Option[String] = None,
+    requestTimeout: FiniteDuration = JsonApiConfig.defaultRequestTimeout,
+) {
+  def port: Port =
+    internalPort.getOrElse(
+      throw new IllegalStateException("Accessing server port before default was set")
+    )
+}
 
 object JsonApiConfig {
   implicit val jsonApiConfigCantonConfigValidator: CantonConfigValidator[JsonApiConfig] =
     CantonConfigValidator.validateAll // Do not recurse as there are no enterprise features on the JSON API
+  private val defaultAddress: String = java.net.InetAddress.getLoopbackAddress.getHostAddress
+  private val defaultRequestTimeout: FiniteDuration = 20.seconds
 }
 
 final case class WebsocketConfig(

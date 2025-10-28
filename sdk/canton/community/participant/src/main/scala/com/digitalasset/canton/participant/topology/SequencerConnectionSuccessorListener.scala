@@ -27,7 +27,7 @@ import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.Ge
 import com.digitalasset.canton.topology.transaction.TopologyMapping.Code
 import com.digitalasset.canton.topology.{KnownPhysicalSynchronizerId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{FutureUnlessShutdownUtil, FutureUtil}
+import com.digitalasset.canton.util.FutureUnlessShutdownUtil
 import com.digitalasset.canton.{SequencerCounter, SynchronizerAlias}
 import org.slf4j.event.Level
 
@@ -66,14 +66,7 @@ class SequencerConnectionSuccessorListener(
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     Monad[FutureUnlessShutdown].whenA(
       transactions.exists(_.mapping.code == Code.SequencerConnectionSuccessor)
-    ) {
-      FutureUtil.doNotAwait(
-        checkAndCreateSynchronizerConfig(effectiveTimestamp.value.immediateSuccessor)
-          .onShutdown(()),
-        failureMessage = s"error while migrating sequencer connections for $alias",
-      )
-      FutureUnlessShutdown.unit
-    }
+    )(checkAndCreateSynchronizerConfig(effectiveTimestamp.value.immediateSuccessor))
 
   private def checkAndCreateSynchronizerConfig(
       snapshotTs: CantonTimestamp
@@ -90,7 +83,7 @@ class SequencerConnectionSuccessorListener(
         }.toMap
       configuredSequencerIds = configuredSequencers.keySet
 
-      (synchronizerUpgradeOngoing, _) <- OptionT(snapshot.isSynchronizerUpgradeOngoing())
+      (synchronizerUpgradeOngoing, _) <- OptionT(snapshot.synchronizerUpgradeOngoing())
       SynchronizerSuccessor(successorPSId, upgradeTime) = synchronizerUpgradeOngoing
 
       _ = logger.debug(
@@ -128,6 +121,7 @@ class SequencerConnectionSuccessorListener(
             activeConfig.config.sequencerConnections.sequencerTrustThreshold,
             activeConfig.config.sequencerConnections.sequencerLivenessMargin,
             activeConfig.config.sequencerConnections.submissionRequestAmplification,
+            activeConfig.config.sequencerConnections.sequencerConnectionPoolDelays,
           )
           .toOption
       )
@@ -157,30 +151,35 @@ class SequencerConnectionSuccessorListener(
       }
 
       _ = if (automaticallyConnectToUpgradedSynchronizer)
-        FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
-          synchronizerHandshake
-            .performHandshake(successorPSId)
-            .value
-            .map {
-              case Left(error) =>
-                val isRetryable = error.retryable.isDefined
-
-                // e.g., transient network or pool errors
-                if (isRetryable)
-                  logger.info(s"Unable to perform handshake with $successorPSId: $error")
-                else
-                  logger.error(s"Unable to perform handshake with $successorPSId: $error")
-
-              case Right(_: PhysicalSynchronizerId) =>
-                logger.info(s"Handshake with $successorPSId was successful")
-            },
-          level = Level.INFO,
-          failureMessage = s"Failed to perform the synchronizer handshake with $successorPSId",
-        )
+        performHandshake(successorPSId)
     } yield ()
-    resultOT.value.void
 
+    resultOT.value.void
   }
+
+  private def performHandshake(successorPSId: PhysicalSynchronizerId)(implicit
+      traceContext: TraceContext
+  ): Unit =
+    FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
+      synchronizerHandshake
+        .performHandshake(successorPSId)
+        .value
+        .map {
+          case Left(error) =>
+            val isRetryable = error.retryable.isDefined
+
+            // e.g., transient network or pool errors
+            if (isRetryable)
+              logger.info(s"Unable to perform handshake with $successorPSId: $error")
+            else
+              logger.error(s"Unable to perform handshake with $successorPSId: $error")
+
+          case Right(_: PhysicalSynchronizerId) =>
+            logger.info(s"Handshake with $successorPSId was successful")
+        },
+      level = Level.INFO,
+      failureMessage = s"Failed to perform the synchronizer handshake with $successorPSId",
+    )
 }
 
 trait HandshakeWithPSId {

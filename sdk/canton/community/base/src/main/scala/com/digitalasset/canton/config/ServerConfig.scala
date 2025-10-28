@@ -27,8 +27,27 @@ import io.grpc.ServerInterceptor
 import io.grpc.netty.shaded.io.netty.handler.ssl.{ClientAuth, SslContext}
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration.DurationInt
 import scala.math.Ordering.Implicits.infixOrderingOps
+
+/** Configuration to limit the number of open streams per service
+  *
+  * @param limits
+  *   map of service name to maximum number of parallel open streams
+  * @param warnOnUndefinedLimits
+  *   emit warning if a limit is not configured for a stream
+  */
+final case class StreamLimitConfig(
+    limits: Map[String, NonNegativeInt] = Map.empty,
+    warnOnUndefinedLimits: Boolean = true,
+) extends UniformCantonConfigValidation
+
+object StreamLimitConfig {
+  implicit val streamLimitConfigCantonConfigValidator: CantonConfigValidator[StreamLimitConfig] = {
+    import CantonConfigValidatorInstances.*
+    CantonConfigValidatorDerivation[StreamLimitConfig]
+  }
+}
 
 /** Configuration for hosting a server api */
 trait ServerConfig extends Product with Serializable {
@@ -94,6 +113,9 @@ trait ServerConfig extends Product with Serializable {
   /** settings for the jwks cache */
   def jwksCacheConfig: JwksCacheConfig
 
+  /** configure limits for open streams per service */
+  def stream: Option[StreamLimitConfig]
+
   /** Use the configuration to instantiate the interceptors for this server */
   def instantiateServerInterceptors(
       tracingConfig: TracingConfig,
@@ -107,6 +129,7 @@ trait ServerConfig extends Product with Serializable {
       jwksCacheConfig: JwksCacheConfig,
       telemetry: Telemetry,
       additionalInterceptors: Seq[ServerInterceptor] = Seq.empty,
+      streamLimits: Option[StreamLimitConfig],
   ): CantonServerInterceptors = new CantonCommunityServerInterceptors(
     tracingConfig,
     apiLoggingConfig,
@@ -119,6 +142,7 @@ trait ServerConfig extends Product with Serializable {
     jwksCacheConfig,
     telemetry,
     additionalInterceptors,
+    streamLimits,
   )
 
 }
@@ -142,8 +166,9 @@ final case class AdminServerConfig(
     override val maxInboundMessageSize: NonNegativeInt = ServerConfig.defaultMaxInboundMessageSize,
     override val authServices: Seq[AuthServiceConfig] = Seq.empty,
     override val adminTokenConfig: AdminTokenConfig = AdminTokenConfig(),
-    override val maxTokenLifetime: NonNegativeDuration = NonNegativeDuration(Duration.Inf),
+    override val maxTokenLifetime: NonNegativeDuration = NonNegativeDuration(5.minutes),
     override val jwksCacheConfig: JwksCacheConfig = JwksCacheConfig(),
+    override val stream: Option[StreamLimitConfig] = None,
 ) extends ServerConfig
     with UniformCantonConfigValidation {
   def clientConfig: FullClientConfig =
@@ -294,8 +319,8 @@ final case class SequencerApiClientConfig(
   override def tlsConfig: Option[TlsClientConfig] = tls.map(_.toTlsClientConfig)
 
   def asSequencerConnection(
-      sequencerAlias: SequencerAlias = SequencerAlias.Default,
-      sequencerId: Option[SequencerId] = None,
+      sequencerAlias: SequencerAlias,
+      sequencerId: Option[SequencerId],
   ): GrpcSequencerConnection = {
     val endpoint = Endpoint(address, port)
     GrpcSequencerConnection(
@@ -630,7 +655,7 @@ object JwksCacheConfig {
     CantonConfigValidatorDerivation[JwksCacheConfig]
   private val DefaultCacheMaxSize: Long = 1000
   private val DefaultCacheExpiration: NonNegativeFiniteDuration =
-    NonNegativeFiniteDuration.ofMinutes(10)
+    NonNegativeFiniteDuration.ofMinutes(5)
   private val DefaultConnectionTimeout: NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.ofSeconds(10)
   private val DefaultReadTimeout: NonNegativeFiniteDuration =
@@ -650,16 +675,16 @@ object JwksCacheConfig {
 final case class AdminTokenConfig(
     fixedAdminToken: Option[String] = None,
     adminTokenDuration: PositiveFiniteDuration = AdminTokenConfig.DefaultAdminTokenDuration,
-    actAsAnyPartyClaim: Boolean = true,
-    adminClaim: Boolean = true,
+    actAsAnyPartyClaim: Boolean = false,
+    adminClaim: Boolean = false,
 ) extends UniformCantonConfigValidation {
 
   def merge(other: AdminTokenConfig): AdminTokenConfig =
     AdminTokenConfig(
       fixedAdminToken = fixedAdminToken.orElse(other.fixedAdminToken),
       adminTokenDuration = adminTokenDuration.min(other.adminTokenDuration),
-      actAsAnyPartyClaim = actAsAnyPartyClaim && other.actAsAnyPartyClaim,
-      adminClaim = adminClaim && other.adminClaim,
+      actAsAnyPartyClaim = actAsAnyPartyClaim || other.actAsAnyPartyClaim,
+      adminClaim = adminClaim || other.adminClaim,
     )
 }
 

@@ -5,7 +5,6 @@ package com.digitalasset.canton.participant.admin.party
 
 import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{PositiveFiniteDuration, ProcessingTimeout}
@@ -14,7 +13,6 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.admin.party.AddPartyError
 import com.digitalasset.canton.participant.admin.party.PartyReplicationAdminWorkflow.PartyReplicationArguments
 import com.digitalasset.canton.participant.admin.party.PartyReplicationStatus.{
   ConnectionEstablished,
@@ -50,6 +48,7 @@ import com.digitalasset.canton.util.{
   SimpleExecutionQueue,
   retry,
 }
+import org.apache.pekko.actor.ActorSystem
 
 import java.util.concurrent.atomic.AtomicBoolean
 import scala.collection.concurrent.TrieMap
@@ -88,7 +87,8 @@ final class PartyReplicator(
     progressSchedulingInterval: PositiveFiniteDuration =
       PartyReplicator.defaultProgressSchedulingInterval,
 )(implicit
-    executionContext: ExecutionContext
+    executionContext: ExecutionContext,
+    actorSystem: ActorSystem,
 ) extends FlagCloseable
     with NamedLogging {
 
@@ -502,8 +502,7 @@ final class PartyReplicator(
         for {
           authorizedAtO <- topologyWorkflow.authorizeOnboardingTopology(
             params,
-            connectedSynchronizer.synchronizerHandle.syncPersistentState.topologyManager,
-            connectedSynchronizer.synchronizerHandle.syncPersistentState.topologyStore,
+            connectedSynchronizer,
           )
           // To be sure the authorization has become effective, wait until the topology change is visible via the ledger api
           _ <- authorizedAtO match {
@@ -550,7 +549,7 @@ final class PartyReplicator(
       asOfExclusive: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, String, Set[LfPartyId]] =
+  ): EitherT[FutureUnlessShutdown, String, Set[PartyId]] =
     // TODO(#25766): add topology client endpoint
     EitherT(
       topologyStore
@@ -574,9 +573,9 @@ final class PartyReplicator(
                 ptp.partyId != except &&
                 ptp.participants.exists(_.participantId == participantId)
               }
-              .map(_.mapping.partyId.toLf)
+              .map(_.mapping.partyId)
               .toSet
-          ): Either[String, Set[LfPartyId]]
+          ): Either[String, Set[PartyId]]
         )
     )
 
@@ -597,20 +596,41 @@ final class PartyReplicator(
         for {
           processorInfo <-
             if (participantId == params.sourceParticipantId) {
-              partiesHostedByParticipant(
-                status.params.targetParticipantId,
-                params.partyId,
-                connectedSynchronizer.synchronizerHandle.syncPersistentState.topologyStore,
-                effectiveAt,
-              ).map(partiesAlreadyHostedByTargetParticipant =>
+              for {
+                partiesAlreadyHostedByTargetParticipant <- partiesHostedByParticipant(
+                  status.params.targetParticipantId,
+                  params.partyId,
+                  connectedSynchronizer.synchronizerHandle.syncPersistentState.topologyStore,
+                  effectiveAt,
+                )
+                effectiveAtLapiOffset <- EitherT(
+                  synchronizeWithClosingF(s"Locate PTP lapi offset for $requestId")(
+                    syncService.participantNodePersistentState.value.ledgerApiStore
+                      .topologyEventOffsetPublishedOnRecordTime(
+                        params.synchronizerId,
+                        effectiveAt,
+                      )
+                      .map(
+                        _.toRight(
+                          s"Cannot locate PTP ${params.partyId} offset at $effectiveAt for $requestId"
+                        )
+                      )
+                  )
+                )
+                indexService <- EitherT.fromEither[FutureUnlessShutdown](
+                  syncService.internalIndexService.toRight(
+                    "Internal index service not available for source participant processor due to shutdown or becoming active?"
+                  )
+                )
+              } yield {
                 (
                   PartyReplicationSourceParticipantProcessor(
                     connectedSynchronizer.psid,
                     params.partyId,
                     requestId,
-                    effectiveAt,
+                    effectiveAtLapiOffset,
                     partiesAlreadyHostedByTargetParticipant,
-                    connectedSynchronizer.synchronizerHandle.syncPersistentState.acsInspection,
+                    indexService,
                     markAcsFullyReplicated(requestId),
                     recordError(requestId, traceContext),
                     markDisconnected(requestId),
@@ -623,7 +643,7 @@ final class PartyReplicator(
                   status.params.targetParticipantId,
                   noSessionKey,
                 )
-              )
+              }
             } else if (participantId == params.targetParticipantId) {
               EitherT.rightT[FutureUnlessShutdown, String](
                 (
@@ -816,10 +836,7 @@ final class PartyReplicator(
         isPartyOnboarded <- topologyWorkflow.authorizeOnboardedTopology(
           status.params,
           status.effectiveAt,
-          connectedSynchronizer.ephemeral.timeTracker,
-          connectedSynchronizer.synchronizerHandle.syncPersistentState.topologyManager,
-          connectedSynchronizer.synchronizerHandle.syncPersistentState.topologyStore,
-          connectedSynchronizer.synchronizerHandle.topologyClient,
+          connectedSynchronizer,
         )
       } yield {
         if (isAgreementArchived && isPartyOnboarded) {
@@ -1091,10 +1108,10 @@ final class PartyReplicator(
     )
   }
 
-  private[party] def retryUntilLocalStoreUpdatedInExpectedState(
+  private[party] def retryUntilLocalStoreUpdatedInExpectedState[T](
       operation: String
   )(
-      checkLocalStoreState: String => FutureUnlessShutdown[Either[String, Unit]]
+      checkLocalStoreState: String => FutureUnlessShutdown[Either[String, T]]
   )(implicit traceContext: TraceContext) =
     EitherT(
       retry

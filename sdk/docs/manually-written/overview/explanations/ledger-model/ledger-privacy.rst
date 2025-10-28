@@ -308,7 +308,7 @@ Divulgence is a deliberate choice in the design of Canton Ledgers and comes in t
   because an input contract is not the same as its Create action.
   In the diagrams, this distinction is visualized via the dashed border for input contracts and them being placed to the left.
   
-Via the Ledger API's :externalref:`update service <com.daml.ledger.api.v2.UpdateService.GetUpdateTrees>`,
+Via the Ledger API's :brokenref:`update service <com.daml.ledger.api.v2.UpdateService.GetUpdateTrees>`,
 a user can see the immediately divulged contracts in the trees of the parties' projection
 as these trees contain the Create nodes.
 In contrast, the Ledger API currently does not offer a means for a user to look up a contract ID of a retroactive divulgence.

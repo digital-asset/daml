@@ -32,7 +32,7 @@ import com.google.protobuf.ByteString
   */
 final case class RootHashMessage[+Payload <: RootHashMessagePayload](
     rootHash: RootHash,
-    override val synchronizerId: PhysicalSynchronizerId,
+    override val psid: PhysicalSynchronizerId,
     viewType: ViewType,
     submissionTopologyTimestamp: CantonTimestamp,
     payload: Payload,
@@ -41,14 +41,14 @@ final case class RootHashMessage[+Payload <: RootHashMessagePayload](
     with HasProtocolVersionedWrapper[RootHashMessage[RootHashMessagePayload]] {
 
   override val representativeProtocolVersion: RepresentativeProtocolVersion[RootHashMessage.type] =
-    RootHashMessage.protocolVersionRepresentativeFor(synchronizerId.protocolVersion)
+    RootHashMessage.protocolVersionRepresentativeFor(psid.protocolVersion)
 
   override def toProtoSomeEnvelopeContentV30: v30.EnvelopeContent.SomeEnvelopeContent =
     v30.EnvelopeContent.SomeEnvelopeContent.RootHashMessage(toProtoV30)
 
   def toProtoV30: v30.RootHashMessage = v30.RootHashMessage(
     rootHash = rootHash.toProtoPrimitive,
-    physicalSynchronizerId = synchronizerId.toProtoPrimitive,
+    physicalSynchronizerId = psid.toProtoPrimitive,
     viewType = viewType.toProtoEnum,
     submissionTopologyTime = submissionTopologyTimestamp.toProtoPrimitive,
     payload = payload.getCryptographicEvidence,
@@ -84,7 +84,7 @@ final case class RootHashMessage[+Payload <: RootHashMessagePayload](
   ): RootHashMessage[Payload2] =
     RootHashMessage(
       rootHash,
-      synchronizerId,
+      psid,
       viewType,
       submissionTopologyTime,
       payload,

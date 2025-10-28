@@ -4,6 +4,7 @@
 package com.digitalasset.canton.topology.store.db
 
 import com.digitalasset.canton.TestEssentials
+import com.digitalasset.canton.config.BatchingConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.resource.DbStorage
@@ -31,7 +32,8 @@ trait DbTopologyStoreHelper {
         storesToCleanup = Nil
       }
 
-  protected val maxItemsInSqlQuery: PositiveInt = PositiveInt.tryCreate(20)
+  protected val batchingConfig: BatchingConfig =
+    BatchingConfig(maxItemsInBatch = PositiveInt.tryCreate(2), parallelism = PositiveInt.one)
 
   protected def mkStore(
       synchronizerId: PhysicalSynchronizerId
@@ -41,8 +43,8 @@ trait DbTopologyStoreHelper {
       TopologyStoreId.SynchronizerStore(synchronizerId),
       testedProtocolVersion,
       timeouts,
+      batchingConfig,
       loggerFactory,
-      maxItemsInSqlQuery = maxItemsInSqlQuery,
     )
     storesToCleanup = store :: storesToCleanup
     store

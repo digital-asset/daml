@@ -39,17 +39,19 @@ class SymbolicPrivateCrypto(
   override protected val encryptionOps: EncryptionOps = pureCrypto
 
   // NOTE: These schemes are not really used by Symbolic crypto
-  override val signingAlgorithmSpecs: CryptoScheme[SigningAlgorithmSpec] =
-    CryptoScheme(SigningAlgorithmSpec.Ed25519, NonEmpty.mk(Set, SigningAlgorithmSpec.Ed25519))
-  override val signingKeySpecs: CryptoScheme[SigningKeySpec] =
-    CryptoScheme(SigningKeySpec.EcCurve25519, NonEmpty.mk(Set, SigningKeySpec.EcCurve25519))
-  override val encryptionAlgorithmSpecs: CryptoScheme[EncryptionAlgorithmSpec] =
-    CryptoScheme(
-      EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Cbc,
-      NonEmpty.mk(Set, EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Cbc),
+  override def signingSchemes: SigningCryptoSchemes =
+    SigningCryptoSchemes(
+      CryptoScheme(SigningKeySpec.EcCurve25519, NonEmpty.mk(Set, SigningKeySpec.EcCurve25519)),
+      CryptoScheme(SigningAlgorithmSpec.Ed25519, NonEmpty.mk(Set, SigningAlgorithmSpec.Ed25519)),
     )
-  override val encryptionKeySpecs: CryptoScheme[EncryptionKeySpec] =
-    CryptoScheme(EncryptionKeySpec.EcP256, NonEmpty.mk(Set, EncryptionKeySpec.EcP256))
+  override def encryptionSchemes: EncryptionCryptoSchemes =
+    EncryptionCryptoSchemes(
+      CryptoScheme(EncryptionKeySpec.EcP256, NonEmpty.mk(Set, EncryptionKeySpec.EcP256)),
+      CryptoScheme(
+        EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Cbc,
+        NonEmpty.mk(Set, EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Cbc),
+      ),
+    )
 
   @VisibleForTesting
   def setRandomKeysFlag(newValue: Boolean): Unit =

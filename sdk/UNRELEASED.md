@@ -9,6 +9,12 @@ schedule, i.e. if you add an entry effective at or after the first
 header, prepend the new date header that corresponds to the
 Wednesday after your change.
 
+## Until 2025-10-16 (Exclusive)
+- `unsafeFromInterface` method in `HasFromInterface` type class is deprecated.
+  Its new implementation throws an error at run time. User should use the upgrade-aware `fromInterface` instead.
+  `UNSAFE_FROM_INTERFACE` primitive is removed, starting from Daml LF 2.2 included.
+
+
 ## Until 2025-09-18 (Exclusive)
 - typescript codegen has been changed to produce the interface definitions that use package id rather than package name.
   Following definition

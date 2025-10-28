@@ -4,7 +4,6 @@
 package com.digitalasset.daml.lf
 package archive
 
-import com.daml.SafeProto
 import com.google.protobuf.{ByteString, CodedInputStream, Message}
 
 import scala.util.Using
@@ -50,14 +49,13 @@ final class GenReader[X] private (
 
 object GenReader {
 
-  private[archive] def Base[M <: Message](
+  private[archive] def apply[M <: Message](
       where: String,
       parse: CodedInputStream => M,
   ): GenReader[M] =
     new GenReader[M](cos =>
       for {
         msg <- attempt(where)(parse(cos))
-        _ <- SafeProto.ensureNoUnknownFields(msg).left.map(Error.Parsing)
       } yield msg
     )
 

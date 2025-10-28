@@ -59,7 +59,7 @@ case class InformeeMessage(
 
   override def requestUuid: UUID = fullInformeeTree.transactionUuid
 
-  override def synchronizerId: PhysicalSynchronizerId = fullInformeeTree.synchronizerId
+  override def psid: PhysicalSynchronizerId = fullInformeeTree.synchronizerId
 
   override def mediator: MediatorGroupRecipient = fullInformeeTree.mediator
 

@@ -11,7 +11,8 @@ import scala.math.Ordered.orderingToOrdered
 object LfSerializationVersionToProtocolVersions {
 
   /** This Map links the Daml Lf-version to the minimum protocol version that supports it. */
-  val damlLfVersionToMinimumProtocolVersions: SortedMap[LfSerializationVersion, ProtocolVersion] =
+  val lfSerializationVersionToMinimumProtocolVersions
+      : SortedMap[LfSerializationVersion, ProtocolVersion] =
     SortedMap(
       LfSerializationVersion.V1 -> ProtocolVersion.v34,
       LfSerializationVersion.VDev -> ProtocolVersion.dev,
@@ -24,7 +25,7 @@ object LfSerializationVersionToProtocolVersions {
       serializationVersion >= LfSerializationVersion.V1,
       s"Canton only supports LF serialization versions more recent or equal to ${LfSerializationVersion.V1}",
     )
-    damlLfVersionToMinimumProtocolVersions(serializationVersion)
+    lfSerializationVersionToMinimumProtocolVersions(serializationVersion)
   }
 
 }

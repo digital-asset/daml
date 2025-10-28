@@ -411,7 +411,6 @@ abstract class ReferenceSequencerWithTrafficControlApiTestBase
       .create(
         SequencerId(synchronizerId.uid),
         clock,
-        clock,
         topologyFactory.forOwnerAndSynchronizer(
           owner = sequencerId,
           synchronizerId,

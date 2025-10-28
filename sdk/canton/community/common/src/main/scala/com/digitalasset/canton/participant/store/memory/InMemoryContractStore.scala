@@ -14,6 +14,7 @@ import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.tracing.TraceContext
 
+import java.util.concurrent.atomic.AtomicLong
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.ExecutionContext
 
@@ -31,7 +32,9 @@ class InMemoryContractStore(
   /** Invariants:
     *   - Every [[LfFatContractInst]] is stored under [[LfFatContractInst.contractId]].
     */
-  private[this] val contracts = TrieMap.empty[LfContractId, ContractInstance]
+  private[this] val contracts = TrieMap.empty[LfContractId, (Long, ContractInstance)]
+  private[this] val internalIds = TrieMap.empty[Long, LfContractId]
+  private[this] val index = new AtomicLong(0)
 
   /** Debug find utility to search pcs
     */
@@ -60,7 +63,7 @@ class InMemoryContractStore(
     def conjunctiveFilter(sc: ContractInstance): Boolean =
       flt1.forall(_(sc)) && flt2.forall(_(sc)) && flt3.forall(_(sc))
     FutureUnlessShutdown.pure(
-      contracts.values.filter(conjunctiveFilter).take(limit).toList
+      contracts.values.view.map(_._2).filter(conjunctiveFilter).take(limit).toList
     )
   }
 
@@ -71,7 +74,7 @@ class InMemoryContractStore(
   ): FutureUnlessShutdown[Map[LfContractId, ContractInstance]] =
     FutureUnlessShutdown.pure(
       contractIds
-        .map(cid => cid -> contracts.get(cid))
+        .map(cid => cid -> contracts.get(cid).map(_._2))
         .collect { case (cid, Some(contract)) => cid -> contract }
         .toMap
     )
@@ -81,7 +84,7 @@ class InMemoryContractStore(
   )(implicit traceContext: TraceContext): OptionT[FutureUnlessShutdown, ContractInstance] = {
     logger.debug(s"Looking up contract: $id")
     OptionT(FutureUnlessShutdown.pure {
-      val result = contracts.get(id)
+      val result = contracts.get(id).map(_._2)
       result.fold(logger.debug(s"Contract $id not found"))(contract =>
         logger.debug(
           s"Found contract $id of type ${contract.templateId.qualifiedName.qualifiedName}"
@@ -98,27 +101,38 @@ class InMemoryContractStore(
     FutureUnlessShutdown.unit
   }
 
-  private def store(storedContract: ContractInstance): Unit =
+  private def store(storedContract: ContractInstance): Unit = {
+    val idx = index.getAndIncrement()
     contracts
-      .putIfAbsent(storedContract.contractId, storedContract)
-      .discard[Option[ContractInstance]]
+      .putIfAbsent(storedContract.contractId, (idx, storedContract))
+      .discard[Option[(Long, ContractInstance)]]
+    internalIds
+      .putIfAbsent(idx, storedContract.contractId)
+      .discard[Option[LfContractId]]
+  }
 
   override def deleteIgnoringUnknown(
       ids: Iterable[LfContractId]
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
-    ids.foreach(id => contracts.remove(id).discard[Option[ContractInstance]])
+    ids.foreach(id =>
+      contracts
+        .remove(id)
+        .flatMap { case (iid, _) => internalIds.remove(iid) }
+        .discard[Option[LfContractId]]
+    )
     FutureUnlessShutdown.unit
   }
 
   override def purge()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     contracts.clear()
+    internalIds.clear()
     FutureUnlessShutdown.unit
   }
 
   override def lookupStakeholders(ids: Set[LfContractId])(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, UnknownContracts, Map[LfContractId, Set[LfPartyId]]] = {
-    val res = contracts.filter { case (cid, _) => ids.contains(cid) }.map { case (cid, c) =>
+    val res = contracts.filter { case (cid, _) => ids.contains(cid) }.map { case (cid, (_, c)) =>
       (cid, c.stakeholders)
     }
     EitherT.cond(res.sizeCompare(ids) == 0, res.toMap, UnknownContracts(ids -- res.keySet))
@@ -127,7 +141,7 @@ class InMemoryContractStore(
   override def lookupSignatories(ids: Set[LfContractId])(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, UnknownContracts, Map[LfContractId, Set[LfPartyId]]] = {
-    val res = contracts.filter { case (cid, _) => ids.contains(cid) }.map { case (cid, c) =>
+    val res = contracts.filter { case (cid, _) => ids.contains(cid) }.map { case (cid, (_, c)) =>
       (cid, c.inst.signatories)
     }
     EitherT.cond(res.sizeCompare(ids) == 0, res.toMap, UnknownContracts(ids -- res.keySet))
@@ -140,13 +154,45 @@ class InMemoryContractStore(
       traceContext: TraceContext
   ): Option[Option[PersistedContractInstance]] =
     Some(
-      contracts.get(id).map(c => PersistedContractInstance(c.inst))
+      contracts.get(id).map(c => PersistedContractInstance(c._2.inst))
     )
 
   override def lookupPersisted(id: LfContractId)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[PersistedContractInstance]] =
     FutureUnlessShutdown.pure(
-      contracts.get(id).map(c => PersistedContractInstance(c.inst))
+      contracts.get(id).map(c => PersistedContractInstance(c._2.inst))
+    )
+
+  override def lookupBatchedNonCached(internalContractIds: Iterable[Long])(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[Long, PersistedContractInstance]] =
+    FutureUnlessShutdown.pure(
+      internalContractIds
+        .flatMap(
+          internalIds
+            .get(_)
+            .flatMap(contracts.get)
+            .map { case (iid, c) => (iid, PersistedContractInstance(c.inst)) }
+        )
+        .toMap
+    )
+
+  override def lookupBatchedNonCachedInternalIds(contractIds: Iterable[LfContractId])(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[LfContractId, Long]] =
+    FutureUnlessShutdown.pure(
+      contractIds
+        .flatMap(cid => contracts.get(cid).map { case (iid, _) => (cid, iid) })
+        .toMap
+    )
+
+  override def lookupBatchedNonCachedContractIds(internalContractIds: Iterable[Long])(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[Long, LfContractId]] =
+    FutureUnlessShutdown.pure(
+      internalContractIds
+        .flatMap(iid => internalIds.get(iid).map(iid -> _))
+        .toMap
     )
 }

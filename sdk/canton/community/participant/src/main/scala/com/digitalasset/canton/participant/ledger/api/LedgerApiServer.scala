@@ -42,7 +42,12 @@ import com.digitalasset.canton.participant.config.{
   ParticipantNodeConfig,
   TestingTimeServiceConfig,
 }
-import com.digitalasset.canton.participant.store.{ContractStore, ParticipantNodePersistentState}
+import com.digitalasset.canton.participant.store.{
+  ContractStore,
+  ParticipantNodePersistentState,
+  ParticipantPruningStore,
+  PruningOffsetServiceImpl,
+}
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.participant.{
   LedgerApiServerBootstrapUtils,
@@ -103,7 +108,8 @@ class LedgerApiServer(
     cantonParameterConfig: ParticipantNodeParameters,
     testingTimeService: Option[TimeServiceBackend],
     adminTokenDispenser: CantonAdminTokenDispenser,
-    cantonContractStore: ContractStore,
+    participantContractStore: Eval[ContractStore],
+    participantPruningStore: Eval[ParticipantPruningStore],
     enableCommandInspection: Boolean,
     tracerProvider: TracerProvider,
     grpcApiMetrics: LedgerApiServerMetrics,
@@ -193,6 +199,7 @@ class LedgerApiServer(
         import cantonParameterConfig.ledgerApiServerParameters.contractLoader.*
         ContractLoader
           .create(
+            participantContractStore = participantContractStore.value,
             contractStorageBackend = dbSupport.storageBackendFactory.createContractStorageBackend(
               inMemoryState.stringInterningView,
               inMemoryState.ledgerEndCache,
@@ -257,7 +264,9 @@ class LedgerApiServer(
             )(
               loggingContext
             ),
-        cantonContractStore = cantonContractStore,
+        participantContractStore = participantContractStore.value,
+        pruningOffsetService =
+          PruningOffsetServiceImpl(participantPruningStore.value, loggerFactory),
       )
       _ = timedSyncService.registerInternalIndexService(new InternalIndexService {
         override def activeContracts(
@@ -347,6 +356,7 @@ class LedgerApiServer(
         managementServiceTimeout = serverConfig.managementServiceTimeout,
         userManagement = serverConfig.userManagementService,
         partyManagementServiceConfig = serverConfig.partyManagementService,
+        packageServiceConfig = serverConfig.packageService,
         tls = serverConfig.tls,
         address = Some(serverConfig.address),
         maxInboundMessageSize = serverConfig.maxInboundMessageSize.unwrap,
@@ -441,7 +451,7 @@ class LedgerApiServer(
           logger.info(
             s"Creating admin user with id $userId failed. User with this id already exists"
           )
-          Future.successful(())
+          Future.unit
         case other =>
           Utils.handleResult("creating extra admin user")(other).map(_ => ())
       }
@@ -580,7 +590,8 @@ object LedgerApiServer {
       cantonParameterConfig = parameters,
       testingTimeService = ledgerTestingTimeService,
       adminTokenDispenser = adminTokenDispenser,
-      cantonContractStore = participantNodePersistentState.map(_.contractStore).value,
+      participantContractStore = participantNodePersistentState.map(_.contractStore),
+      participantPruningStore = participantNodePersistentState.map(_.pruningStore),
       enableCommandInspection = config.ledgerApi.enableCommandInspection,
       tracerProvider = tracerProvider,
       grpcApiMetrics = metrics,

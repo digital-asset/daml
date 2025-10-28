@@ -1277,18 +1277,15 @@ object Ast {
     private[lf] def pkgName: Ref.PackageName = metadata.name
     private[lf] def pkgVersion: Ref.PackageVersion = metadata.version
 
-    def toImports(withStablePackages: Boolean): Set[PackageId] = {
+    def importsWithStablePkgs: Set[PackageId] = {
       // TODO[RB]: when we have our bazel-maintained stable packages list, we
       // use it here to filter the stablepackages by lf version (right now it is
       // ok since all stable packages are 2.1)
-      imports.pkgIds.union(
-        if (withStablePackages) stableIds else Set.empty
-      )
+      imports.pkgIds.union(stableIds)
     }
 
     private val stableIds: Set[PackageId] =
       Seq(
-        "54f85ebfc7dfae18f7d70370015dcc6c6792f60135ab369c44ae52c6fc17c274", // daml-prim
         "ee33fb70918e7aaa3d3fc44d64a399fb2bf5bcefc54201b1690ecd448551ba88", // daml-prim-DA-Exception-ArithmeticError
         "6da1f43a10a179524e840e7288b47bda213339b0552d92e87ae811e52f59fc0e", // daml-prim-DA-Exception-AssertionFailed
         "f181cd661f7af3a60bdaae4b0285a2a67beb55d6910fc8431dbae21a5825ec0f", // daml-prim-DA-Exception-GeneralError

@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.sequencing.client.channel
 
+import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SequencerAlias
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -133,6 +134,8 @@ final class SequencerChannelClientFactory(
       supportedProtocolVersions,
       config.authToken,
       clock,
+      metricsO = None,
+      metricsContext = MetricsContext.Empty,
       processingTimeout,
       SequencerClient.loggerFactoryWithSequencerAlias(
         loggerFactory,

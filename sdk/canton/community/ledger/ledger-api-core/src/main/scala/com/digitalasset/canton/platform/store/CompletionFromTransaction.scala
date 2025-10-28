@@ -10,6 +10,7 @@ import com.daml.ledger.api.v2.completion.Completion.DeduplicationPeriod.Empty
 import com.daml.ledger.api.v2.offset_checkpoint.SynchronizerTime
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.util.TimestampConversion.fromInstant
+import com.digitalasset.canton.protocol.UpdateId
 import com.digitalasset.canton.tracing.SerializableTraceContextConverter.SerializableTraceContextExtension
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -27,7 +28,7 @@ object CompletionFromTransaction {
       recordTime: Timestamp,
       offset: Offset,
       commandId: String,
-      updateId: String,
+      updateId: UpdateId,
       userId: String,
       synchronizerId: String,
       traceContext: TraceContext,
@@ -41,7 +42,7 @@ object CompletionFromTransaction {
         toApiCompletion(
           submitters = submitters,
           commandId = commandId,
-          updateId = updateId,
+          updateId = updateId.toHexString,
           userId = userId,
           traceContext = traceContext,
           optStatus = Some(OkStatus),

@@ -4,24 +4,28 @@
 package com.digitalasset.daml.lf
 package engine
 
+import com.daml.logging.LoggingContext
+import com.daml.nameof.NameOf
+import com.daml.scalautil.Statement.discard
 import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.command._
-import com.digitalasset.daml.lf.data._
+import com.digitalasset.daml.lf.crypto.{Hash, SValueHash}
+import com.digitalasset.daml.lf.data
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, ParticipantId, Party, TypeConId}
+import com.digitalasset.daml.lf.data._
+import com.digitalasset.daml.lf.interpretation.{Error => IError}
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.speedy.{
-  InitialSeeding,
-  Question,
-  SError,
-  SResult,
-  SValue,
-  Speedy,
-  TraceLog,
-  ValueTranslator,
-}
+import com.digitalasset.daml.lf.language._
+import com.digitalasset.daml.lf.speedy.Question.Update
+import com.digitalasset.daml.lf.speedy.SBuiltinFun.SBFetchTemplate
 import com.digitalasset.daml.lf.speedy.SExpr.{SEApp, SEMakeClo, SEValue, SExpr}
-import com.digitalasset.daml.lf.speedy.Speedy.{Machine, PureMachine, UpdateMachine}
 import com.digitalasset.daml.lf.speedy.SResult._
+import com.digitalasset.daml.lf.speedy.SValue.SContractId
+import com.digitalasset.daml.lf.speedy.Speedy.Machine.newTraceLog
+import com.digitalasset.daml.lf.speedy.Speedy.{Machine, PureMachine, UpdateMachine}
+import com.digitalasset.daml.lf.speedy._
+import com.digitalasset.daml.lf.stablepackages.StablePackages
+import com.digitalasset.daml.lf.testing.snapshot.Snapshot
 import com.digitalasset.daml.lf.transaction.{
   FatContractInstance,
   GlobalKey,
@@ -32,6 +36,9 @@ import com.digitalasset.daml.lf.transaction.{
   VersionedTransaction,
   Transaction => Tx,
 }
+import com.digitalasset.daml.lf.validation.Validation
+import com.digitalasset.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.value.{Value, ValueCoder}
 
 import java.nio.file.{Files, StandardOpenOption}
 import com.digitalasset.daml.lf.value.{ContractIdVersion, Value, ValueCoder}
@@ -56,10 +63,6 @@ import com.digitalasset.daml.lf.data
 import scala.annotation.tailrec
 import scala.collection.immutable.ArraySeq
 import scala.jdk.CollectionConverters._
-import com.digitalasset.daml.lf.interpretation.{Error => IError}
-import com.digitalasset.daml.lf.speedy.Question.Update
-import com.digitalasset.daml.lf.speedy.SBuiltinFun.SBFetchTemplate
-import com.digitalasset.daml.lf.speedy.SValue.SContractId
 
 // TODO once the ContextualizedLogger is replaced with the NamedLogger and Speedy doesn't use its
 //   own logger, we can remove this import
@@ -728,48 +731,16 @@ class Engine(val config: EngineConfig) {
     * preloaded.
     */
   def validateDar(dar: Dar[(PackageId, Package)]): Either[Error.Package.Error, Unit] = {
+    val pkgIdDepGraph: Map[PackageId, Set[PackageId]] =
+      dar.all.toMap.view.mapValues(_.imports.pkgIds).toMap
+    val mainPackageId: PackageId = dar.main._1
+
+    val mentioned = Graphs.transitiveClosure(pkgIdDepGraph, mainPackageId).diff(stablePackageIds)
+    val included = pkgIdDepGraph.keys.toSet.diff(stablePackageIds)
     val darPackages = dar.all.toMap
-    val mainPackageId = dar.main._1
-    val mainPackageDependencies = dar.main._2.directDeps
-
-    sealed abstract class PackageClassification
-    final case class ExtraPackage(pkgId: PackageId, pkg: Package) extends PackageClassification
-    final case class DependentPackage(pkgId: PackageId) extends PackageClassification
-    final case class MissingPackage(pkgId: PackageId) extends PackageClassification
-
-    @tailrec
-    def calculateDependencyInformation(
-        pkgIds: Set[PackageId],
-        pkgClassification: Map[PackageId, PackageClassification],
-    ): (Set[PackageId], Set[PackageId], Set[PackageId]) = {
-      val unclassifiedPkgIds = pkgIds.collect {
-        case id
-            if !pkgClassification.contains(id) || pkgClassification(id)
-              .isInstanceOf[ExtraPackage] =>
-          id
-      }
-
-      if (unclassifiedPkgIds.isEmpty) {
-        val result = pkgClassification.values.toSet
-        val knownDeps = result.collect { case DependentPackage(id) => id }
-        val missingDeps = result.collect { case MissingPackage(id) => id }
-        val extraDeps = result.collect { case ExtraPackage(id, _) => id }
-
-        (knownDeps, missingDeps, extraDeps)
-      } else {
-        val (knownPkgIds, missingPkdIds) =
-          unclassifiedPkgIds.partition(id => pkgClassification.contains(id))
-        val missingDeps = missingPkdIds.map(id => id -> MissingPackage(id)).toMap
-        val knownDeps = knownPkgIds.map(id => id -> DependentPackage(id)).toMap
-        // There is no point in searching through missing package Ids!
-        val directDeps =
-          knownPkgIds.flatMap(id => pkgClassification(id).asInstanceOf[ExtraPackage].pkg.directDeps)
-
-        calculateDependencyInformation(directDeps, pkgClassification ++ knownDeps ++ missingDeps)
-      }
-    }
 
     for {
+      // first do Version check, copied as-is from validateDar pre-imports-rework
       _ <- darPackages
         .collectFirst {
           case (pkgId, pkg)
@@ -782,18 +753,20 @@ class Engine(val config: EngineConfig) {
             )
         }
         .toLeft(())
-      // missingDeps are transitive dependencies (of the Dar main package) that are missing from the Dar manifest
-      (transitiveDeps, missingDeps, unusedDeps) = calculateDependencyInformation(
-        mainPackageDependencies,
-        darPackages.map { case (id, pkg) => id -> ExtraPackage(id, pkg) },
-      )
-      // extraDeps are unused Dar manifest package IDs that are not stable packages and not the main package ID
-      extraDeps = unusedDeps.diff(Set(mainPackageId) union stablePackageIds)
+
+      // meat of the package checks, to check if included = mentioned
       _ <- Either.cond(
-        missingDeps.isEmpty && extraDeps.isEmpty,
+        included == mentioned,
         (),
-        Error.Package.DarSelfConsistency(mainPackageId, transitiveDeps, missingDeps, extraDeps),
+        // we set transitiveDependencies to Set.empty because our logic does not generate it anymore
+        Error.Package.DarSelfConsistency(
+          mainPackageId = mainPackageId,
+          missingDependencies = mentioned.diff(included),
+          extraDependencies = included.diff(mentioned),
+        ),
       )
+
+      // rest of copied check from validateDar pre-imports-rework
       pkgInterface = PackageInterface(darPackages)
       _ <- {
         darPackages.iterator
@@ -858,26 +831,30 @@ class Engine(val config: EngineConfig) {
       hashingMethod: Hash.HashingMethod,
   ): Result[Hash] = {
     import Engine.Syntax._
-    import Engine.mkDevError
+    import Engine.mkInterpretationError
 
-    val location = NameOf.qualifiedNameOfCurrentFunc
     val templateId = create.templateId
     val pkgId = templateId.packageId
     val createArg = create.arg.mapCid(contractIdSubstitution)
     val packageName = create.packageName
+
+    def mkHashingError(msg: String): Error.Interpretation =
+      mkInterpretationError(
+        IError.ContractHashingError(create.coid, create.templateId, create.arg, msg)
+      )
 
     hashingMethod match {
       case Hash.HashingMethod.Legacy =>
         Hash
           .hashContractInstance(templateId, createArg, packageName, upgradeFriendly = false)
           .left
-          .map(error => mkDevError(location, IError.Dev.HashingError(error)))
+          .map(mkHashingError)
           .toResult
       case Hash.HashingMethod.UpgradeFriendly =>
         Hash
           .hashContractInstance(templateId, createArg, packageName, upgradeFriendly = true)
           .left
-          .map(error => mkDevError(location, IError.Dev.HashingError(error)))
+          .map(mkHashingError)
           .toResult
       case Hash.HashingMethod.TypedNormalForm =>
         for {
@@ -888,15 +865,28 @@ class Engine(val config: EngineConfig) {
           sValue <- new ValueTranslator(
             compiledPackages.pkgInterface,
             forbidLocalContractIds = true,
+            forbidTrailingNones = true,
           )
             .translateValue(Ast.TTyCon(templateId), createArg)
             .left
-            .map(error => mkDevError(location, IError.Dev.TranslationError(error)))
+            .map(error =>
+              mkInterpretationError(
+                IError.Upgrade(
+                  IError.Upgrade.TranslationFailed(
+                    Some(create.coid),
+                    create.templateId,
+                    create.templateId,
+                    create.arg,
+                    error,
+                  )
+                )
+              )
+            )
             .toResult
           hash <- SValueHash
             .hashContractInstance(packageName, templateId.qualifiedName, sValue)
             .left
-            .map(error => mkDevError(location, IError.Dev.HashingError(error.msg)))
+            .map(error => mkHashingError(error.msg))
             .toResult
         } yield hash
     }
@@ -1030,8 +1020,8 @@ object Engine {
     EngineConfig(allowedLanguageVersions = LanguageVersion.AllVersions(majorLanguageVersion))
   )
 
-  private def mkDevError(location: String, error: IError.Dev.Error) =
-    Error.Interpretation(Error.Interpretation.DamlException(IError.Dev(location, error)), None)
+  private def mkInterpretationError(error: IError) =
+    Error.Interpretation(Error.Interpretation.DamlException(error), None)
 
   private object Syntax {
     implicit class EitherOps[A](val e: Either[Error, A]) extends AnyVal {

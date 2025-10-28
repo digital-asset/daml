@@ -1,4 +1,4 @@
--- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 create table par_daml_packages (
@@ -87,11 +87,11 @@ create index idx_par_contracts_internal on par_contracts(internal_contract_id);
 -- contract_id is left out, because a query with contract_id can be served with the primary key.
 create index idx_par_contracts_find on par_contracts(package_id, template_id);
 
--- provides a serial enumeration of static strings so we don't store the same string over and over in the db
+-- provides an enumeration of static strings so we don't store the same string over and over in the db
 -- currently only storing uids
 create table common_static_strings (
-  -- serial identifier of the string (local to this node)
-  id serial not null primary key,
+  -- identifier of the string (local to this node)
+  id integer generated always as identity primary key,
   -- the expression
   string varchar collate "C" not null,
   -- the source (what kind of string are we storing here)
@@ -210,6 +210,10 @@ create table common_sequenced_events (
   primary key (physical_synchronizer_idx, ts)
 );
 
+-- Disable Postgres compression; the proto message is already compressed
+alter table common_sequenced_events
+  alter column sequenced_event set storage external;
+
 create unique index idx_common_sequenced_events_sequencer_counter on common_sequenced_events(physical_synchronizer_idx, sequencer_counter);
 
 create table par_synchronizer_connection_configs(
@@ -325,19 +329,39 @@ create table par_last_computed_acs_commitments (
   ts bigint not null
 );
 
--- Stores the snapshot ACS commitments (per stakeholder set)
+-- Stores the snapshot of running ACS commitments (per stakeholder set), useful for computation caching
 create table par_commitment_snapshot (
   synchronizer_idx integer not null,
   -- A stable reference to a stakeholder set, that doesn't rely on the Protobuf encoding being deterministic
-  -- a hex-encoded hash (not binary so that hash can be indexed in all db server types)
-  stakeholders_hash varchar collate "C" not null,
-  stakeholders varchar[] collate "C" not null,
+  -- a binary-encoded hash for indexing
+  stakeholders_hash bytea not null,
+  stakeholders integer[] not null,
   commitment bytea not null,
   primary key (synchronizer_idx, stakeholders_hash)
 );
 
--- Stores the time (along with a tie-breaker) of the ACS commitment snapshot
+-- Stores the time (along with a tie-breaker) of the running ACS commitment snapshot used for computation caching
 create table par_commitment_snapshot_time (
+  synchronizer_idx integer not null,
+  -- UTC timestamp in microseconds relative to EPOCH
+  ts bigint not null,
+  tie_breaker bigint not null,
+  primary key (synchronizer_idx)
+);
+
+-- Stores the snapshot of running ACS commitments (per stakeholder set) for checkpointing
+create table par_commitment_checkpoint_snapshot (
+  synchronizer_idx integer not null,
+  -- A stable reference to a stakeholder set, that doesn't rely on the Protobuf encoding being deterministic
+  -- a binary-encoded hash for indexing
+  stakeholders_hash bytea not null,
+  stakeholders integer[] not null,
+  commitment bytea not null,
+  primary key (synchronizer_idx, stakeholders_hash)
+);
+
+-- Stores the time (along with a tie-breaker) of the running ACS commitment snapshot used for checkpointing
+create table par_commitment_checkpoint_snapshot_time (
   synchronizer_idx integer not null,
   -- UTC timestamp in microseconds relative to EPOCH
   ts bigint not null,
@@ -460,7 +484,7 @@ create table common_head_sequencer_counters (
 -- members can read all events from `registered_ts`
 create table sequencer_members (
     member varchar collate "C" primary key,
-    id serial unique,
+    id integer generated always as identity unique,
     registered_ts bigint not null,
     -- we keep the latest event's timestamp below the pruning timestamp,
     -- so that we can produce a valid first event above the pruning timestamp with previousTimestamp populated
@@ -688,8 +712,8 @@ create table seq_in_flight_aggregated_sender(
 
 -- stores the topology-x state transactions
 create table common_topology_transactions (
-  -- serial identifier used to preserve insertion order
-  id bigserial not null primary key,
+  -- identifier used to preserve insertion order
+  id bigint generated always as identity primary key,
   -- the id of the store
   store_id varchar collate "C" not null,
   -- the timestamp at which the transaction is sequenced by the sequencer
@@ -1074,7 +1098,7 @@ alter table seq_in_flight_aggregation
         );
 
 -- Stores participants we should not wait for before pruning when handling ACS commitment
-Create TABLE acs_no_wait_counter_participants
+create table acs_no_wait_counter_participants
 (
     synchronizer_id varchar collate "C" not null,
     participant_id varchar collate "C" not null,
@@ -1082,7 +1106,7 @@ Create TABLE acs_no_wait_counter_participants
 );
 
 -- Stores configuration for metrics around slow participants
-CREATE TABLE acs_slow_participant_config
+create table acs_slow_participant_config
 (
    synchronizer_id varchar collate "C" not null,
    threshold_distinguished integer not null,
@@ -1091,11 +1115,29 @@ CREATE TABLE acs_slow_participant_config
 );
 
 -- Stores distinguished or specifically measured counter participants for ACS commitment metrics
-CREATE TABLE acs_slow_counter_participants
+create table acs_slow_counter_participants
 (
    synchronizer_id varchar collate "C" not null,
    participant_id varchar  collate "C" not null,
    is_distinguished boolean not null,
    is_added_to_metrics boolean not null,
    primary key(synchronizer_id,participant_id)
+);
+
+-- Specifies the event that triggers the execution of a pending operation
+create type pending_operation_trigger_type as enum ('synchronizer_reconnect');
+
+-- Stores operations that must be completed, ensuring execution even after a node restart (e.g., following a crash)
+create table common_pending_operations (
+  operation_trigger pending_operation_trigger_type not null,
+  -- The name of the procedure to execute for this operation.
+  operation_name varchar collate "C" not null,
+  -- A key to uniquely identify an instance of an operation, allowing multiple pending operations of the same type
+  -- An empty string indicates no specific key
+  operation_key varchar collate "C" not null,
+  -- The serialized protobuf message for the operation, wrapped for versioning (HasProtocolVersionedWrapper)
+  operation bytea not null,
+  -- The ID of the synchronizer instance this operation is associated with
+  synchronizer_id varchar collate "C" not null,
+  primary key (synchronizer_id, operation_key, operation_name)
 );

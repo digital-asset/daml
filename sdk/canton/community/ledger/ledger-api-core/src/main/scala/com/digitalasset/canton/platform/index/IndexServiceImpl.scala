@@ -376,14 +376,26 @@ private[index] class IndexServiceImpl(
     ledgerDao.listKnownParties(fromExcl, maxResults)
 
   override def prune(
+      previousPruneUpToInclusive: Option[Offset],
+      previousIncompleteReassignmentOffsets: Vector[Offset],
       pruneUpToInclusive: Offset,
-      incompletReassignmentOffsets: Vector[Offset],
+      incompleteReassignmentOffsets: Vector[Offset],
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Unit] = {
     pruneBuffers(pruneUpToInclusive)
-    ledgerDao.prune(pruneUpToInclusive, incompletReassignmentOffsets)
+    ledgerDao.prune(
+      previousPruneUpToInclusive = previousPruneUpToInclusive,
+      previousIncompleteReassignmentOffsets = previousIncompleteReassignmentOffsets,
+      pruneUpToInclusive = pruneUpToInclusive,
+      incompleteReassignmentOffsets = incompleteReassignmentOffsets,
+    )
   }
+
+  override def indexDbPrunedUpto(implicit
+      loggingContext: LoggingContextWithTrace
+  ): Future[Option[Offset]] =
+    ledgerDao.indexDbPrunedUpTo
 
   override def currentLedgerEnd(): Future[Option[Offset]] =
     Future.successful(ledgerEnd())

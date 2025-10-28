@@ -208,6 +208,13 @@ message ScriptError {
     NodeId consumed_by = 2; // optional. A contract whose create was rolled back will not have this set.
   }
 
+  message ContractHashingError {
+      ContractRef contract_ref = 1;
+      Identifier dst_template_id = 3;
+      Value create_arg = 4;
+      string message = 5;
+  }
+
   message DisclosedContractKeyHashingError {
       ContractRef contract_ref = 1;
       Value key = 2;
@@ -367,11 +374,13 @@ message ScriptError {
     WronglyTypedContract wronglyTypedContract = 28;
     Empty ComparableValueError = 29;
     ContractIdInContractKey contract_id_in_contract_key = 30;
-    Empty ValueExceedsMaxNesting = 31;
+    Empty value_exceeds_max_nesting = 31;
+    string malformed_text = 49;
     PartiesNotAllocated script_parties_not_allocated = 33;
     ChoiceGuardFailed choice_guard_failed = 34;
     ContractDoesNotImplementInterface contract_does_not_implement_interface = 35;
     ContractDoesNotImplementRequiringInterface contract_does_not_implement_requiring_interface = 36;
+    ContractHashingError contract_hashing_error = 48;
     DisclosedContractKeyHashingError disclosed_contract_key_hashing_error = 39;
     int64 evaluationTimeout = 40;
     Empty cancelledByRequest = 41;
@@ -379,7 +388,7 @@ message ScriptError {
     UpgradeError upgrade_error = 44;
     FailureStatusError failure_status_error = 45;
     CryptoError crypto_error = 47;
-    // next is 48;
+    // next is 50;
   }
 }
 

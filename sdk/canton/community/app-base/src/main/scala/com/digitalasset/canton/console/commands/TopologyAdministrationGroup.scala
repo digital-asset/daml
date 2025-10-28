@@ -476,6 +476,33 @@ class TopologyAdministrationGroup(
         TopologyStoreId.Synchronizer(synchronizerId),
       )
 
+    @Help.Summary("Propose a transaction")
+    @Help.Description("Raw access to admin API command")
+    def propose[M <: TopologyMapping: ClassTag](
+        mapping: M,
+        store: TopologyStoreId,
+        signedBy: Seq[Fingerprint] = Seq.empty,
+        serial: Option[PositiveInt] = None,
+        change: TopologyChangeOp = TopologyChangeOp.Replace,
+        mustFullyAuthorize: Boolean = true,
+        forceChanges: ForceFlags = ForceFlags.none,
+        waitToBecomeEffective: Option[NonNegativeDuration] = None,
+    ): SignedTopologyTransaction[TopologyChangeOp, M] =
+      consoleEnvironment.run {
+        adminCommand(
+          TopologyAdminCommands.Write.Propose(
+            mapping = mapping,
+            signedBy = signedBy,
+            store = store,
+            serial = serial,
+            change = change,
+            mustFullyAuthorize = mustFullyAuthorize,
+            forceChanges = forceChanges,
+            waitToBecomeEffective = waitToBecomeEffective,
+          )
+        )
+      }
+
     @Help.Summary("Authorize a transaction by its hash")
     def authorize[M <: TopologyMapping: ClassTag](
         txHash: TxHash,
@@ -2237,11 +2264,13 @@ class TopologyAdministrationGroup(
         mustFullyAuthorize: Boolean = true,
         serial: Option[PositiveInt] = None,
         change: TopologyChangeOp = TopologyChangeOp.Replace,
+        featureFlags: Seq[SynchronizerTrustCertificate.ParticipantTopologyFeatureFlag] = Seq.empty,
     ): SignedTopologyTransaction[TopologyChangeOp, SynchronizerTrustCertificate] = {
       val cmd = TopologyAdminCommands.Write.Propose(
         mapping = SynchronizerTrustCertificate(
           participantId,
           synchronizerId,
+          featureFlags,
         ),
         signedBy = Seq.empty,
         store = store.getOrElse(synchronizerId),
@@ -2644,10 +2673,10 @@ class TopologyAdministrationGroup(
       runAdminCommand(command).discard
     }
 
-    @Help.Summary("List mediator synchronizer topology state")
+    @Help.Summary("List vetted packages")
     @Help.Description(
       """
-     synchronizerId: the optional target synchronizer
+     store: the optional topology store to query from
      proposals: if true then proposals are shown, otherwise actual validated state
      """
     )
@@ -2679,6 +2708,14 @@ class TopologyAdministrationGroup(
   @Help.Summary("Inspect mediator synchronizer state")
   @Help.Group("Mediator Synchronizer State")
   object mediators extends Helpful {
+
+    @Help.Summary("List mediator synchronizer topology state")
+    @Help.Description(
+      """
+     synchronizerId: the optional target synchronizer
+     proposals: if true then proposals are shown, otherwise actual validated state
+     """
+    )
     def list(
         synchronizerId: Option[SynchronizerId] = None,
         proposals: Boolean = false,
@@ -3239,8 +3276,8 @@ class TopologyAdministrationGroup(
       if (
         oldSynchronizerParameters.mediatorDeduplicationTimeout < minMediatorDeduplicationTimeout
       ) {
-        val err: RpcError = TopologyManagerError.IncreaseOfPreparationTimeRecordTimeTolerance
-          .PermanentlyInsecure(
+        val err: RpcError =
+          TopologyManagerError.IncreaseOfPreparationTimeRecordTimeTolerance.PermanentlyInsecure(
             newPreparationTimeRecordTimeTolerance.toInternal,
             oldSynchronizerParameters.mediatorDeduplicationTimeout.toInternal,
           )

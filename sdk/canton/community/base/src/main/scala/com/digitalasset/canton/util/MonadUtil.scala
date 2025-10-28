@@ -89,6 +89,9 @@ object MonadUtil {
   def whenM[M[_]](condM: M[Boolean])(trueM: => M[Unit])(implicit monad: Monad[M]): M[Unit] =
     monad.ifM(condM)(trueM, monad.unit)
 
+  def when[M[_]](cond: Boolean)(trueM: => M[Unit])(implicit monad: Monad[M]): M[Unit] =
+    if (cond) trueM else monad.unit
+
   def sequentialTraverse[X, M[_], S](
       xs: Seq[X]
   )(f: X => M[S])(implicit monad: Monad[M]): M[Seq[S]] = {

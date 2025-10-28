@@ -137,6 +137,10 @@ class TopologyStoreTestData(
     NamespaceDelegation
       .tryCreate(p2Namespace, p2Key, CanSignAllMappings)
   )(p2Key)
+  val nsd_p3 = makeSignedTx(
+    NamespaceDelegation
+      .tryCreate(p3Namespace, p3Key, CanSignAllMappings)
+  )(p3Key)
 
   val dnd_p1p2 = makeSignedTx(
     DecentralizedNamespaceDefinition.tryCreate(
@@ -169,6 +173,9 @@ class TopologyStoreTestData(
   val otk_p1 = makeSignedTx(
     OwnerToKeyMapping.tryCreate(p1Id, NonEmpty(Seq, p1Key, factory.EncryptionKeys.key1))
   )((p1Key))
+  val otk_p2 = makeSignedTx(
+    OwnerToKeyMapping.tryCreate(p2Id, NonEmpty(Seq, p2Key, factory.EncryptionKeys.key2))
+  )((p2Key))
   val p1_permission_daSynchronizer = makeSignedTx(
     ParticipantSynchronizerPermission(
       synchronizer1_p1p2_synchronizerId,
@@ -226,6 +233,11 @@ class TopologyStoreTestData(
     isProposal = true,
     serial = PositiveInt.tryCreate(2),
   )(p2Key)
+  val otk_p3_proposal = makeSignedTx(
+    OwnerToKeyMapping.tryCreate(p3Id, NonEmpty(Seq, p1Key, factory.EncryptionKeys.key2)),
+    isProposal = true,
+    serial = PositiveInt.tryCreate(1),
+  )(p3Key)
   val ptp_fred_p1 = makeSignedTx(
     PartyToParticipant.tryCreate(
       partyId = `fred::p2Namepsace`,

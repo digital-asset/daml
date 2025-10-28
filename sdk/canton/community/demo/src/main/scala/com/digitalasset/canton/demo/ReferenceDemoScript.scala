@@ -267,10 +267,16 @@ class ReferenceDemoScript(
         "participant.dars.upload(<filename>)",
         () => {
           settings.foreach { case (name, participant, synchronizers, dars) =>
-            dars.map(darFile).foreach { dar =>
-              logger.debug(s"Uploading dar $dar for $name")
-              val _ = participant.dars.upload(dar)
+            for {
+              dar <- dars
+              synchronizer <- participant.synchronizers.list_connected()
             }
+              dars.map(darFile).foreach { dar =>
+                logger.debug(
+                  s"Uploading dar $dar for $name and vetting it on synchronizer ${synchronizer.synchronizerId}"
+                )
+                val _ = participant.dars.upload(dar, synchronizerId = synchronizer.synchronizerId)
+              }
             // wait until parties are registered with all synchronizers
             ConsoleMacros.utils.retry_until_true(lookupTimeout) {
               participant.parties
@@ -517,18 +523,18 @@ class ReferenceDemoScript(
             }
           }
           val filename = darFile("ai-analysis")
-          val allF = Seq(participant5, participant1, participant6).map { participant =>
-            Future {
-              blocking {
-                participant.dars.upload(filename)
-              }
-            }
-          } :+ Future {
-            blocking {}
-          } :+ registerSynchronizerF
           // once all dars are uploaded and we've connected the synchronizer, register the party (as we can flush everything there ...)
-          val sf = Future
-            .sequence(allF)
+          val sf = registerSynchronizerF
+            .flatMap(_ =>
+              MonadUtil.sequentialTraverse_(Seq(participant5, participant1, participant6)) {
+                participant =>
+                  Future {
+                    blocking {
+                      participant.dars.upload(filename)
+                    }
+                  }
+              }
+            )
             .flatMap(_ =>
               Future {
                 blocking {

@@ -45,6 +45,8 @@ trait ContractValidator {
 
 object ContractValidator {
 
+  type ContractAuthenticatorFn = (FatContractInstance, LfHash) => Either[String, Unit]
+
   def apply(
       cryptoOps: HashOps & HmacOps,
       engine: Engine,
@@ -73,7 +75,7 @@ object ContractValidator {
         result <- lfContractValidation.validate(
           contract,
           targetPackageId,
-          Predef.identity,
+          identity,
           contractIdVersion.contractHashingMethod,
           hash => authenticateHashInternal(contract, hash, contractIdVersion).isRight,
         )

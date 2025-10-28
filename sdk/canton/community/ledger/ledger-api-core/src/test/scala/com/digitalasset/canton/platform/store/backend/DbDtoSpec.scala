@@ -4,19 +4,23 @@
 package com.digitalasset.canton.platform.store.backend
 
 import com.digitalasset.canton.platform.store.backend.DbDto.IdFilter
+import com.digitalasset.canton.protocol.TestUpdateId
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 class DbDtoSpec extends AnyWordSpec with Matchers {
   import StorageBackendTestValues.*
-  implicit private val DbDtoEqual: org.scalactic.Equality[DbDto] = DbDtoEq.DbDtoEq
+  implicit private val DbDtoEqual: org.scalactic.Equality[DbDto] = ScalatestEqualityHelpers.DbDtoEq
+
+  val updateId = TestUpdateId("mock_hash")
+  val updateIdByteArray = updateId.toProtoPrimitive.toByteArray
 
   "DbDto.createDbDtos" should {
     "populate correct DbDtos" in {
       DbDto
         .createDbDtos(
           event_offset = 1,
-          update_id = "a",
+          update_id = updateIdByteArray,
           workflow_id = Some("w"),
           command_id = Some("c"),
           submitters = Some(Set("party")),
@@ -38,7 +42,7 @@ class DbDtoSpec extends AnyWordSpec with Matchers {
         .toList should contain theSameElementsInOrderAs List(
         DbDto.EventActivate(
           event_offset = 1,
-          update_id = "a",
+          update_id = updateIdByteArray,
           workflow_id = Some("w"),
           command_id = Some("c"),
           submitters = Some(Set("party")),
@@ -91,10 +95,10 @@ class DbDtoSpec extends AnyWordSpec with Matchers {
       DbDto
         .assignDbDtos(
           event_offset = 1,
-          update_id = "a",
+          update_id = updateIdByteArray,
           workflow_id = Some("w"),
           command_id = Some("c"),
-          submitters = Some(Set("party")),
+          submitter = Some("party"),
           record_time = 2,
           synchronizer_id = someSynchronizerId,
           trace_context = serializableTraceContext,
@@ -113,7 +117,7 @@ class DbDtoSpec extends AnyWordSpec with Matchers {
         .toList should contain theSameElementsInOrderAs List(
         DbDto.EventActivate(
           event_offset = 1,
-          update_id = "a",
+          update_id = updateIdByteArray,
           workflow_id = Some("w"),
           command_id = Some("c"),
           submitters = Some(Set("party")),
@@ -158,7 +162,7 @@ class DbDtoSpec extends AnyWordSpec with Matchers {
       DbDto
         .consumingExerciseDbDtos(
           event_offset = 1,
-          update_id = "a",
+          update_id = updateIdByteArray,
           workflow_id = Some("w"),
           command_id = Some("c"),
           submitters = Some(Set("party")),
@@ -188,7 +192,7 @@ class DbDtoSpec extends AnyWordSpec with Matchers {
         .toList should contain theSameElementsInOrderAs List(
         DbDto.EventDeactivate(
           event_offset = 1,
-          update_id = "a",
+          update_id = updateIdByteArray,
           workflow_id = Some("w"),
           command_id = Some("c"),
           submitters = Some(Set("party")),
@@ -261,10 +265,10 @@ class DbDtoSpec extends AnyWordSpec with Matchers {
       DbDto
         .unassignDbDtos(
           event_offset = 1,
-          update_id = "a",
+          update_id = updateIdByteArray,
           workflow_id = Some("w"),
           command_id = Some("c"),
-          submitters = Some(Set("party")),
+          submitter = Some("party"),
           record_time = 2,
           synchronizer_id = someSynchronizerId,
           trace_context = serializableTraceContext,
@@ -284,7 +288,7 @@ class DbDtoSpec extends AnyWordSpec with Matchers {
         .toList should contain theSameElementsInOrderAs List(
         DbDto.EventDeactivate(
           event_offset = 1,
-          update_id = "a",
+          update_id = updateIdByteArray,
           workflow_id = Some("w"),
           command_id = Some("c"),
           submitters = Some(Set("party")),
@@ -349,7 +353,7 @@ class DbDtoSpec extends AnyWordSpec with Matchers {
       DbDto
         .witnessedExercisedDbDtos(
           event_offset = 1,
-          update_id = "a",
+          update_id = updateIdByteArray,
           workflow_id = Some("w"),
           command_id = Some("c"),
           submitters = Some(Set("party")),
@@ -378,7 +382,7 @@ class DbDtoSpec extends AnyWordSpec with Matchers {
         .toList should contain theSameElementsInOrderAs List(
         DbDto.EventVariousWitnessed(
           event_offset = 1,
-          update_id = "a",
+          update_id = updateIdByteArray,
           workflow_id = Some("w"),
           command_id = Some("c"),
           submitters = Some(Set("party")),
@@ -423,7 +427,7 @@ class DbDtoSpec extends AnyWordSpec with Matchers {
       DbDto
         .witnessedExercisedDbDtos(
           event_offset = 1,
-          update_id = "a",
+          update_id = updateIdByteArray,
           workflow_id = Some("w"),
           command_id = Some("c"),
           submitters = Some(Set("party")),
@@ -452,7 +456,7 @@ class DbDtoSpec extends AnyWordSpec with Matchers {
         .toList should contain theSameElementsInOrderAs List(
         DbDto.EventVariousWitnessed(
           event_offset = 1,
-          update_id = "a",
+          update_id = updateIdByteArray,
           workflow_id = Some("w"),
           command_id = Some("c"),
           submitters = Some(Set("party")),
@@ -497,7 +501,7 @@ class DbDtoSpec extends AnyWordSpec with Matchers {
       DbDto
         .witnessedCreateDbDtos(
           event_offset = 1,
-          update_id = "a",
+          update_id = updateIdByteArray,
           workflow_id = Some("w"),
           command_id = Some("c"),
           submitters = Some(Set("party")),
@@ -514,7 +518,7 @@ class DbDtoSpec extends AnyWordSpec with Matchers {
         .toList should contain theSameElementsInOrderAs List(
         DbDto.EventVariousWitnessed(
           event_offset = 1,
-          update_id = "a",
+          update_id = updateIdByteArray,
           workflow_id = Some("w"),
           command_id = Some("c"),
           submitters = Some(Set("party")),

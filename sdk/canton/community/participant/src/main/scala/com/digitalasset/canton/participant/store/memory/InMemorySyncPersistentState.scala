@@ -12,6 +12,7 @@ import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{CryptoPureApi, SynchronizerCrypto}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.ledger.api.LedgerApiStore
 import com.digitalasset.canton.participant.store.{
   AcsCounterParticipantConfigStore,
@@ -90,8 +91,7 @@ class InMemoryPhysicalSyncPersistentState(
     crypto: SynchronizerCrypto,
     override val physicalSynchronizerIdx: IndexedPhysicalSynchronizer,
     val staticSynchronizerParameters: StaticSynchronizerParameters,
-    exitOnFatalFailures: Boolean,
-    disableUpgradeValidation: Boolean,
+    parameters: ParticipantNodeParameters,
     packageMetadataView: PackageMetadataView,
     ledgerApiStore: Eval[LedgerApiStore],
     logicalSyncPersistentState: LogicalSyncPersistentState,
@@ -125,7 +125,8 @@ class InMemoryPhysicalSyncPersistentState(
     staticSynchronizerParameters,
     topologyStore,
     synchronizerOutboxQueue,
-    exitOnFatalFailures = exitOnFatalFailures,
+    disableOptionalTopologyChecks = parameters.disableOptionalTopologyChecks,
+    exitOnFatalFailures = parameters.exitOnFatalFailures,
     timeouts,
     futureSupervisor,
     loggerFactory,
@@ -144,10 +145,8 @@ class InMemoryPhysicalSyncPersistentState(
         nextPackageIds,
         packageMetadataView,
         dryRunSnapshot,
-        acsInspections =
-          () => Map(logicalSyncPersistentState.lsid -> logicalSyncPersistentState.acsInspection),
         forceFlags,
-        disableUpgradeValidation = disableUpgradeValidation,
+        disableUpgradeValidation = parameters.disableUpgradeValidation,
       )
     override def checkCannotDisablePartyWithActiveContracts(
         partyId: PartyId,

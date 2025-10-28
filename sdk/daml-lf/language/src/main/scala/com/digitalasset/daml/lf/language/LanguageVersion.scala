@@ -4,6 +4,8 @@
 package com.digitalasset.daml.lf
 package language
 
+import com.digitalasset.daml.lf.language.LanguageMajorVersion.V2.maxStableVersion
+
 import scala.annotation.nowarn
 
 final case class LanguageVersion(major: LanguageMajorVersion, minor: LanguageMinorVersion) {
@@ -82,6 +84,12 @@ object LanguageVersion {
     val default = v2_1
     val packageUpgrades = v2_1
 
+    val flatArchive = v2_2
+    val kindInterning = flatArchive
+    val exprInterning = flatArchive
+
+    val explicitPkgImports = v2_2
+
     val choiceFuncs = v2_dev
     val choiceAuthority = v2_dev
 
@@ -96,13 +104,12 @@ object LanguageVersion {
 
     val contractKeys = v2_dev
 
-    val flatArchive = v2_dev
-    val kindInterning = flatArchive
-    val exprInterning = flatArchive
-
-    val explicitPkgImports = v2_dev
-
     val complexAnyType = v2_dev
+
+    val cryptoUtility = v2_dev
+
+    /** UNSAFE_FROM_INTERFACE is removed starting from 2.2, included */
+    val unsafeFromInterfaceRemoved = v2_2
 
     /** Unstable, experimental features. This should stay in x.dev forever.
       * Features implemented with this flag should be moved to a separate
@@ -161,7 +168,7 @@ object LanguageVersion {
     */
   def StableVersions(majorLanguageVersion: LanguageMajorVersion): VersionRange[LanguageVersion] =
     majorLanguageVersion match {
-      case Major.V2 => VersionRange(v2_1, v2_1)
+      case Major.V2 => VersionRange(v2_1, v2_2)
       case _ => notSupported(majorLanguageVersion)
     }
 
@@ -189,7 +196,7 @@ object LanguageVersion {
     */
   def defaultOrLatestStable(majorLanguageVersion: LanguageMajorVersion): LanguageVersion = {
     majorLanguageVersion match {
-      case Major.V2 => v2_1
+      case Major.V2 => maxStableVersion
       case _ => notSupported(majorLanguageVersion)
     }
   }

@@ -113,6 +113,8 @@ mergePackageMap :: [(PackageId, Package, Bool)] ->
 mergePackageMap ps = foldM merge mempty ps
   where
     merge :: Map.Map PackageId Package -> (PackageId, Package, Bool) -> Either T.Text (Map.Map PackageId Package)
+    -- Utility packages are added without any questions, they will later be filtered out with a useful message
+    merge pkgs (pkgId, pkg, _isMain) | isUtilityPackage pkg = Right $ Map.insert pkgId pkg pkgs
     merge pkgs (pkgId, pkg, _isMain) = do
         let usedPkgNmVers = Set.fromList $ map pkgNameVerFromPackage (Map.elems pkgs)
             ownPkgNameVer = pkgNameVerFromPackage pkg
@@ -158,13 +160,7 @@ main = do
                 \(pkgId, pkg) -> do
                   let pkgNameVer = pkgNameVerFromPackage pkg
                       PackageNameVersion (pkgName, _) = pkgNameVer
-                      isUtilityPackage =
-                        all (\mod ->
-                          null (moduleTemplates mod)
-                            && null (moduleInterfaces mod)
-                            && not (any (getIsSerializable . dataSerializable) $ moduleDataTypes mod)
-                        ) $ packageModules pkg
-                  if isUtilityPackage
+                  if isUtilityPackage pkg
                     then T.putStrLn $ "Skipping " <> unPackageName pkgName <> " (hash: " <> unPackageId pkgId <> ") as it does not define any serializable types" 
                     else do
                       T.putStrLn $ "Generating " <> unPackageName pkgName <> " (hash: " <> unPackageId pkgId <> ")"

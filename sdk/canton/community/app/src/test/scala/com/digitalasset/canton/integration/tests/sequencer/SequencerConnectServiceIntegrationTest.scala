@@ -98,18 +98,18 @@ trait SequencerConnectServiceIntegrationTest
       val failingRequest = HandshakeRequest(Seq(unsupportedPV), None)
 
       grpcSequencerConnectClient
-        .handshake(alias, successfulRequest, dontWarnOnDeprecatedPV = true)
+        .handshake(successfulRequest, dontWarnOnDeprecatedPV = true)
         .futureValueUS
         .value shouldBe HandshakeResponse.Success(testedProtocolVersion)
 
       grpcSequencerConnectClient
-        .handshake(alias, successfulRequestWithMinimumVersion, dontWarnOnDeprecatedPV = true)
+        .handshake(successfulRequestWithMinimumVersion, dontWarnOnDeprecatedPV = true)
         .futureValueUS
         .value shouldBe HandshakeResponse.Success(testedProtocolVersion)
 
       inside(
         grpcSequencerConnectClient
-          .handshake(alias, failingRequest, dontWarnOnDeprecatedPV = true)
+          .handshake(failingRequest, dontWarnOnDeprecatedPV = true)
           .futureValueUS
           .value
       ) { case HandshakeResponse.Failure(serverVersion, reason) =>
@@ -124,7 +124,7 @@ trait SequencerConnectServiceIntegrationTest
       val grpcSequencerConnectClient = getSequencerConnectClient()
 
       val fetchedSynchronizerParameters =
-        grpcSequencerConnectClient.getSynchronizerParameters(alias.unwrap).futureValueUS.value
+        grpcSequencerConnectClient.getSynchronizerParameters().futureValueUS.value
       val cryptoProvider = CryptoProvider.Jce
 
       val defaultSynchronizerParametersConfig = SynchronizerParametersConfig(
@@ -154,7 +154,7 @@ trait SequencerConnectServiceIntegrationTest
       val grpcSequencerConnectClient = getSequencerConnectClient()
 
       val bi = grpcSequencerConnectClient
-        .getSynchronizerClientBootstrapInfo(alias)
+        .getSynchronizerClientBootstrapInfo()
         .futureValueUS
         .value
       bi shouldBe SynchronizerClientBootstrapInfo(daId, sequencer1.id)
@@ -166,7 +166,7 @@ trait SequencerConnectServiceIntegrationTest
       val grpcSequencerConnectClient = getSequencerConnectClient()
 
       grpcSequencerConnectClient
-        .getSynchronizerId(daName.unwrap)
+        .getSynchronizerId()
         .futureValueUS
         .value shouldBe daId
     }
@@ -177,7 +177,7 @@ trait SequencerConnectServiceIntegrationTest
       val grpcSequencerConnectClient = getSequencerConnectClient()
 
       grpcSequencerConnectClient
-        .isActive(participant1.id, alias, waitForActive = false)
+        .isActive(participant1.id, waitForActive = false)
         .futureValueUS
         .value shouldBe false
 
@@ -187,7 +187,7 @@ trait SequencerConnectServiceIntegrationTest
         utils.retry_until_true(Seq(participant1).forall(_.synchronizers.active(alias)))
 
         grpcSequencerConnectClient
-          .isActive(participant1.id, alias, waitForActive = false)
+          .isActive(participant1.id, waitForActive = false)
           .futureValueUS
           .value shouldBe true
       }
@@ -211,6 +211,7 @@ trait GrpcSequencerConnectServiceIntegrationTest extends SequencerConnectService
 
     new GrpcSequencerConnectClient(
       sequencerConnection = grpcSequencerConnection,
+      synchronizerAlias = alias,
       timeouts = timeouts,
       traceContextPropagation = TracingConfig.Propagation.Enabled,
       loggerFactory = loggerFactory,
@@ -249,7 +250,7 @@ trait GrpcSequencerConnectServiceIntegrationTest extends SequencerConnectService
         )
 
         val errorFromLeft = grpcSequencerConnectClient
-          .isActive(participant1.id, alias, waitForActive = false)
+          .isActive(participant1.id, waitForActive = false)
           .leftMap(_.message)
           .futureValueUS
         errorFromLeft.left.value should include regex "Request failed for .*. Is the server running?"

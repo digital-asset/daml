@@ -3,7 +3,8 @@
 
 package com.digitalasset.canton.ledger.api.messages.update
 
-import com.digitalasset.canton.ledger.api.{UpdateFormat, UpdateId}
+import com.digitalasset.canton.ledger.api.UpdateFormat
+import com.digitalasset.canton.protocol.UpdateId
 
 final case class GetUpdateByIdRequest(
     updateId: UpdateId,

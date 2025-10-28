@@ -449,7 +449,7 @@ class IssSegmentModule[E <: Env[E]](
             Some(prePrepare.message.stored)
         }
       case StorePrepares(prepares) =>
-        pipeToSelfWithFutureTracking(epochStore.addPrepares(prepares)) {
+        pipeToSelfWithFutureTracking(epochStore.addPreparesAtomically(prepares)) {
           case Failure(exception) =>
             Some(ConsensusSegment.Internal.AsyncException(exception))
           case Success(_) =>
@@ -579,7 +579,7 @@ class IssSegmentModule[E <: Env[E]](
   ): Unit =
     // Persist ordered block to epochStore and then self-send ack message.
     pipeToSelfWithFutureTracking(
-      epochStore.addOrderedBlock(
+      epochStore.addOrderedBlockAtomically(
         commitCertificate.prePrepare,
         commitCertificate.commits,
       )

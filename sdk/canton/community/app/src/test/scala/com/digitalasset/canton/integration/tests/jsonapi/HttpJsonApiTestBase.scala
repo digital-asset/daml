@@ -120,7 +120,7 @@ trait HttpJsonApiTestBase extends CantonFixture {
     implicit val ec = env.executionContext
     val participant = participantSelector(env)
     import com.digitalasset.canton.ledger.client.configuration.*
-    val jsonApiPort = participant.config.httpLedgerApi.server.internalPort
+    val jsonApiPort = participant.config.httpLedgerApi.internalPort
       .valueOrFail("port must be configured")
 
     val userId = getClass.getName
@@ -151,7 +151,7 @@ trait HttpJsonApiTestBase extends CantonFixture {
       executionSequencerFactory: ExecutionSequencerFactory,
   ): A = {
     import com.digitalasset.canton.ledger.client.configuration.*
-    val jsonApiPort = fixtureParam.participant1.config.httpLedgerApi.server.internalPort
+    val jsonApiPort = fixtureParam.participant1.config.httpLedgerApi.internalPort
       .valueOrFail("port must be configured")
 
     val userId = getClass.getName
@@ -179,7 +179,7 @@ trait HttpJsonApiTestBase extends CantonFixture {
   ): A = {
     import com.digitalasset.canton.ledger.client.configuration.*
     val participant = participantSelector(fixtureParam)
-    val jsonApiPort = participant.config.httpLedgerApi.server.internalPort
+    val jsonApiPort = participant.config.httpLedgerApi.internalPort
       .valueOrFail("port must be configured")
 
     val userId = getClass.getName

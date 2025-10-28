@@ -13,7 +13,7 @@ import com.digitalasset.canton.serialization.{
 }
 import com.google.protobuf.ByteString
 
-import java.io.{ByteArrayOutputStream, EOFException}
+import java.io.{ByteArrayOutputStream, EOFException, InputStream, OutputStream}
 import java.util.zip.{GZIPInputStream, GZIPOutputStream, ZipException}
 import scala.annotation.tailrec
 
@@ -49,34 +49,47 @@ object ByteStringUtil {
     ByteString.copyFrom(compressed.toByteArray)
   }
 
-  /** If maxBytesToRead is not specified, we decompress all the gunzipper input stream. If
-    * maxBytesToRead is specified, we decompress maximum maxBytesToRead bytes, and if the input is
-    * larger we throw MaxBytesToDecompressExceeded error.
+  /** We decompress maximum maxBytesLimit bytes, and if the input is larger we throw
+    * MaxBytesToDecompressExceeded error.
     */
   def decompressGzip(
       bytes: ByteString,
-      maxBytesLimit: Option[Int],
+      maxBytesLimit: MaxBytesToDecompress,
   ): Either[DeserializationError, ByteString] =
     ResourceUtil
       .withResourceEither(new GZIPInputStream(bytes.newInput())) { gunzipper =>
-        maxBytesLimit match {
-          case None =>
-            Right(ByteString.readFrom(gunzipper))
-          case Some(max) =>
-            val read = gunzipper.readNBytes(max + 1)
-            if (read.length > max) {
-              Left(
-                MaxByteToDecompressExceeded(
-                  s"Max bytes to decompress is exceeded. The limit is $max bytes."
-                )
-              )
-            } else {
-              Right(ByteString.copyFrom(read))
-            }
+        // Write to the output stream of the ByteString to avoid building an additional array copy.
+        val out = ByteString.newOutput()
+        val buf = new Array[Byte](8 * 1024) // 8k is the default used by BufferedInputStream.
+        if (copyNBuffered(maxBytesLimit.limit.value, buf, gunzipper, out)) {
+          Right(out.toByteString()) // No need to close as data is in-memory.
+        } else {
+          Left(
+            MaxByteToDecompressExceeded(
+              s"Max bytes to decompress is exceeded. The limit is ${maxBytesLimit.limit.value} bytes."
+            )
+          )
         }
       }
       .leftMap(errorMapping)
       .flatten
+
+  /** Copies `n` bytes from in to out. Returns false if the input contained more than `n` bytes.
+    *
+    * Up to (n + 1) bytes may in fact be copied.
+    */
+  @tailrec
+  def copyNBuffered(n: Int, buffer: Array[Byte], in: InputStream, out: OutputStream): Boolean =
+    if (n < 0) false
+    else {
+      val readCount = (n + 1).max(1) // +1 to detect input exhaustion, max(1) to avoid int overflow
+      in.read(buffer, 0, buffer.length.min(readCount)) match {
+        case -1 => true
+        case count =>
+          out.write(buffer, 0, count)
+          copyNBuffered(n - count, buffer, in, out)
+      }
+    }
 
   /** Based on the final size we either truncate the bytes to fit in that size or pad with 0s
     */

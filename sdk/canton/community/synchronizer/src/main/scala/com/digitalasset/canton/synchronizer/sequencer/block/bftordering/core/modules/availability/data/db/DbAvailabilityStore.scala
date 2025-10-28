@@ -56,7 +56,9 @@ class DbAvailabilityStore(
             traceContext: TraceContext,
             callerCloseContext: CloseContext,
         ): FutureUnlessShutdown[Iterable[Unit]] =
-          runAddBatches(items.map(_.value))
+          // Sorting should prevent deadlocks in Postgres when using concurrent clashing batched inserts
+          //  with idempotency "on conflict do nothing" clauses.
+          runAddBatches(items.sortBy(_.value._1).map(_.value))
             .map(_ => Seq.fill(items.size)(()))
 
         override def prettyItem: Pretty[(BatchId, OrderingRequestBatch)] = {

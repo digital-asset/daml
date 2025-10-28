@@ -187,7 +187,7 @@ object ArbitraryConfig {
       maxPayloadsPerPayloadsPage = eventsPageSize,
       maxPagesPerIdPagesBuffer = acsIdPageBufferSize,
       maxWorkingMemoryInBytesForIdPages = acsIdPageWorkingMemoryBytes,
-      maxParallelIdCreateQueries = acsIdFetchingParallelism,
+      maxParallelActiveIdQueries = acsIdFetchingParallelism,
       maxParallelPayloadCreateQueries = acsContractFetchingParallelism,
     )
 
@@ -208,10 +208,10 @@ object ArbitraryConfig {
       maxPagesPerIdPagesBuffer = maxPayloadsPerPayloadsPage,
       maxWorkingMemoryInBytesForIdPages = maxPagesPerIdPagesBuffer,
       maxPayloadsPerPayloadsPage = maxWorkingMemoryInBytesForIdPages,
-      maxParallelIdCreateQueries = maxParallelIdCreateQueries,
-      maxParallelIdConsumingQueries = maxParallelPayloadCreateQueries,
-      maxParallelPayloadCreateQueries = maxParallelIdConsumingQueries,
-      maxParallelPayloadConsumingQueries = maxParallelPayloadConsumingQueries,
+      maxParallelIdActivateQueries = maxParallelIdCreateQueries,
+      maxParallelIdDeactivateQueries = maxParallelPayloadCreateQueries,
+      maxParallelPayloadActivateQueries = maxParallelIdConsumingQueries,
+      maxParallelPayloadDeactivateQueries = maxParallelPayloadConsumingQueries,
       maxParallelPayloadQueries = maxParallelPayloadQueries,
       transactionsProcessingParallelism = transactionsProcessingParallelism,
     )

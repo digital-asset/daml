@@ -55,8 +55,8 @@ trait BackpressureIntegrationTest
       )
       .withSetup { implicit env =>
         import env.*
-        participants.local.dars.upload(CantonExamplesPath)
         participants.local.synchronizers.connect_local(sequencer1, daName)
+        participants.local.dars.upload(CantonExamplesPath)
 
         // Code snippet just for the user manual
         // user-manual-entry-begin: SetResourceLimits

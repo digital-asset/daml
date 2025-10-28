@@ -38,6 +38,7 @@ import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.chaining.*
 import scala.util.{Failure, Success}
 
 /** Helper trait for Online Party Replication event publishing. Refer to methods in the
@@ -124,7 +125,7 @@ class RecordOrderPublisher private (
       }
     } {
       store.put(
-        updateId = transactionAccepted.updateId,
+        updateId = transactionAccepted.updateId.toHexString,
         lfVersionedTransaction = transactionAccepted.transaction,
       )
     }
@@ -351,9 +352,8 @@ class RecordOrderPublisher private (
       }
     }
 
-  // TODO(#26580) More validation and setting should be done in case of cancelled upgrade (and when attempting the next one)
-  def setSuccessor(successor: SynchronizerSuccessor): Unit =
-    synchronizerSuccessor.set(Some(successor))
+  def setSuccessor(successor: Option[SynchronizerSuccessor]): Unit =
+    synchronizerSuccessor.set(successor)
 
   private def scheduleBufferingEventTaskImmediately(
       perform: CantonTimestamp => FutureUnlessShutdown[Unit]
@@ -553,8 +553,8 @@ object RecordOrderPublisher {
       loggerFactory: NamedLoggerFactory,
       futureSupervisor: FutureSupervisor,
       clock: Clock,
-  )(implicit executionContextForPublishing: ExecutionContext): RecordOrderPublisher = {
-    val rop = new RecordOrderPublisher(
+  )(implicit executionContextForPublishing: ExecutionContext): RecordOrderPublisher =
+    new RecordOrderPublisher(
       psid,
       initSc,
       initTimestamp,
@@ -565,10 +565,5 @@ object RecordOrderPublisher {
       loggerFactory,
       futureSupervisor,
       clock,
-    )
-
-    synchronizerSuccessor.foreach(rop.setSuccessor)
-
-    rop
-  }
+    ).tap(_.setSuccessor(synchronizerSuccessor))
 }

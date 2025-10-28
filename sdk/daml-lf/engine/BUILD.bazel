@@ -12,8 +12,8 @@ load(
 load(
     "//daml-lf/language:daml-lf.bzl",
     "COMPILER_LF_MAJOR_VERSIONS",
-    "ENGINE_LF_DEV_VERSIONS",
-    "lf_version_default_or_latest",
+    "DEFAULT_LF_VERSION",
+    "DEV_LF_VERSION",
     "mangle_for_damlc",
 )
 load(
@@ -26,6 +26,8 @@ da_scala_library(
     srcs = glob(["src/main/**/*.scala"]),
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_typelevel_cats_core",
+        "@maven//:org_typelevel_cats_kernel",
         "@maven//:org_typelevel_paiges_core",
     ],
     scalacopts = lf_scalacopts_stricter,
@@ -61,7 +63,7 @@ ENGINE_TEST_FILES = \
             major = major,
         ),
         srcs = ["src/test/daml/%s.daml" % name],
-        target = lf_version_default_or_latest(major),
+        target = DEFAULT_LF_VERSION,
     )
     for name in ENGINE_TEST_FILES
     for major in COMPILER_LF_MAJOR_VERSIONS
@@ -77,7 +79,7 @@ ENGINE_TEST_FILES = \
         target = version,
     )
     for name in ENGINE_TEST_FILES
-    for version in ENGINE_LF_DEV_VERSIONS
+    for version in [DEV_LF_VERSION]
 ]
 
 da_scala_test_suite(
@@ -95,6 +97,8 @@ da_scala_test_suite(
         ],
     ),
     data = [
+        "//daml-script/test:script-test-v2.dev.dar",
+    ] + [
         "{name}-v{major}.dar".format(
             name = name,
             major = major,
@@ -126,7 +130,7 @@ da_scala_test_suite(
             "//daml-lf/tests:MultiKeys",
             "//daml-lf/tests:Exceptions",
         ]
-        for version in ENGINE_LF_DEV_VERSIONS
+        for version in [DEV_LF_VERSION]
     ],
     scala_deps = [
         "@maven//:org_scalatest_scalatest_core",
@@ -134,6 +138,8 @@ da_scala_test_suite(
         "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_typelevel_cats_core",
+        "@maven//:org_typelevel_cats_kernel",
         "@maven//:com_lihaoyi_sourcecode",
     ],
     scalacopts = lf_scalacopts,
@@ -161,7 +167,7 @@ da_scala_test_suite(
     daml_compile(
         name = "LargeTransaction-v{}".format(major),
         srcs = ["src/test/daml/LargeTransaction.daml"],
-        target = lf_version_default_or_latest(major),
+        target = DEFAULT_LF_VERSION,
     )
     for major in COMPILER_LF_MAJOR_VERSIONS
 ]
@@ -211,11 +217,14 @@ da_scala_test(
         "src/test/**/UpgradesMatrixUnit.scala",
     ]),
     args = ["-P"],  # run suites in parallel
+    max_heap_size = "2g",
     scala_deps = [
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_matchers_core",
         "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_typelevel_cats_kernel",
+        "@maven//:org_typelevel_cats_core",
     ],
     scalacopts = lf_scalacopts,
     visibility = ["//daml-script:__subpackages__"],

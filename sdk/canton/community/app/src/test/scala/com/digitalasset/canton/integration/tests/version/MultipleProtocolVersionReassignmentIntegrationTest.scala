@@ -57,11 +57,13 @@ sealed trait MultipleProtocolVersionReassignmentIntegrationTest
       .withSetup { implicit env =>
         import env.*
 
-        participant1.dars.upload(CantonExamplesPath)
         participant1.synchronizers.connect_local(sequencer1, alias = daName)
         participant1.synchronizers.connect_local(sequencer2, alias = acmeName)
         participant1.synchronizers.connect_local(sequencer3, alias = repairSynchronizerName)
         participant1.synchronizers.connect_local(sequencer4, alias = devSynchronizerName)
+        Seq(daId, acmeId, repairSynchronizerId, devSynchronizerId).foreach(psid =>
+          participant1.dars.upload(CantonExamplesPath, synchronizerId = psid)
+        )
       }
 
   private def createCycleCommand(

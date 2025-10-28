@@ -176,7 +176,7 @@ final class LedgerTestCasesRunner(
             features = session.features,
           )
           // upload the dars sequentially to avoid conflicts
-          _ <- MonadUtil.sequentialTraverse(darsToUpload)(uploadDar(context, _))
+          _ <- MonadUtil.sequentialTraverse_(darsToUpload)(dar => uploadDar(context, dar))
         } yield ()
       }
       .map(_ => ())
@@ -188,7 +188,7 @@ final class LedgerTestCasesRunner(
   )(implicit executionContext: ExecutionContext): Future[Unit] = {
     logger.info(s"""Uploading DAR "$name"...""")
     context
-      .uploadDarFile(Dars.read(name))
+      .uploadDarFileAndVetOnConnectedSynchronizers(Dars.read(name))
       .map { _ =>
         logger.info(s"""Uploaded DAR "$name".""")
       }

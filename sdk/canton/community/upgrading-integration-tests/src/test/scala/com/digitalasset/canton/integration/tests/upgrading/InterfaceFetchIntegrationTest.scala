@@ -22,13 +22,13 @@ class InterfaceFetchIntegrationTest extends CommunityIntegrationTest with Shared
   "a view only consists of a fetch interface" in { implicit env =>
     import env.*
 
+    participant1.synchronizers.connect_local(sequencer1, alias = daName)
     participant1.dars.upload(UpgradingBaseTest.UpgradeV1)
     participant1.dars.upload(UpgradingBaseTest.UpgradeV2)
-    participant1.synchronizers.connect_local(sequencer1, alias = daName)
 
+    participant2.synchronizers.connect_local(sequencer1, alias = daName)
     participant2.dars.upload(UpgradingBaseTest.UpgradeV1)
     participant2.dars.upload(UpgradingBaseTest.UpgradeV2)
-    participant2.synchronizers.connect_local(sequencer1, alias = daName)
 
     val bank = participant1.parties.enable(
       "bank",

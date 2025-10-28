@@ -97,7 +97,8 @@ trait CommandDeduplicationIntegrationTest
         )
         participant1.synchronizers.connect_local(sequencer1, alias = daName)
         participant1.synchronizers.connect_local(sequencer2, alias = acmeName)
-        participant1.dars.upload(CantonExamplesPath)
+        participant1.dars.upload(CantonExamplesPath, synchronizerId = daId)
+        participant1.dars.upload(CantonExamplesPath, synchronizerId = acmeId)
         participant1.parties.enable("Alice", synchronizer = daName)
         participant1.parties.enable("Alice", synchronizer = acmeName)
       }

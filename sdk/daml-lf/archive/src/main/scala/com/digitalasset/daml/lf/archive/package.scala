@@ -44,19 +44,23 @@ package object archive {
   private val EXTENDED_PROTOBUF_RECURSION_LIMIT: Int = 1000
 
   val ArchiveParser: GenReader[DamlLf.Archive] =
-    GenReader.Base(getClass.getCanonicalName + ".ArchiveParser", DamlLf.Archive.parseFrom)
+    GenReader(getClass.getCanonicalName + ".ArchiveParser", DamlLf.Archive.parseFrom)
   val ArchiveReader: GenReader[ArchivePayload] =
-    ArchiveParser.andThen(Reader.readArchive)
+    ArchiveParser.andThen(Reader.readArchive(_, schemaMode = false))
   val ArchiveDecoder: GenReader[(PackageId, Ast.Package)] =
-    ArchiveReader.andThen(Decode.decodeArchivePayload(_))
+    ArchiveReader.andThen(Decode.decodeArchivePayload)
+  val ArchiveSchemaReader: GenReader[ArchivePayload] =
+    ArchiveParser.andThen(Reader.readArchive(_, schemaMode = true))
+  val ArchiveSchemaDecoder: GenReader[(PackageId, Ast.PackageSignature)] =
+    ArchiveSchemaReader.andThen(Decode.decodeArchivePayloadSchema)
 
   val ArchivePayloadParser: GenReader[DamlLf.ArchivePayload] =
-    GenReader.Base(
+    GenReader(
       getClass.getCanonicalName + ".ArchivePayloadParser",
       DamlLf.ArchivePayload.parseFrom,
     )
   val lf1PackageParser: GenReader[DamlLf1.Package] =
-    GenReader.Base(
+    GenReader(
       getClass.getCanonicalName + ".Lf1PackageParser",
       { cos =>
         discard(cos.setRecursionLimit(EXTENDED_PROTOBUF_RECURSION_LIMIT))
@@ -65,7 +69,7 @@ package object archive {
     )
 
   def lf2PackageParser(minor: LanguageVersion.Minor): GenReader[DamlLf2.Package] =
-    GenReader.Base(
+    GenReader(
       getClass.getCanonicalName + ".Lf2PackageParser",
       { cos =>
         val langVersion = LanguageVersion(LanguageVersion.Major.V2, minor)
@@ -75,18 +79,10 @@ package object archive {
       },
     )
 
-  def archivePayloadDecoder(
-      hash: PackageId,
-      onlySerializableDataDefs: Boolean = false,
-  ): GenReader[(PackageId, Ast.Package)] =
-    ArchivePayloadParser
-      .andThen(Reader.readArchivePayload(hash, _))
-      .andThen(Decode.decodeArchivePayload(_, onlySerializableDataDefs))
-
   private def ModuleParser(ver: LanguageVersion): GenReader[DamlLf2.Package] =
     ver.major match {
       case LanguageMajorVersion.V2 =>
-        GenReader.Base(
+        GenReader(
           getClass.getCanonicalName + ".ModuleParser",
           { cos =>
             if (ver < LanguageVersion.Features.flatArchive)
@@ -104,9 +100,14 @@ package object archive {
   val DarParser: GenDarReader[DamlLf.Archive] = GenDarReader(ArchiveParser)
   val DarReader: GenDarReader[ArchivePayload] = GenDarReader(ArchiveReader)
   val DarDecoder: GenDarReader[(PackageId, Ast.Package)] = GenDarReader(ArchiveDecoder)
+  val DarSchemaReader: GenDarReader[ArchivePayload] = GenDarReader(ArchiveSchemaReader)
+  val DarSchemaDecoder: GenDarReader[(PackageId, Ast.PackageSignature)] = GenDarReader(
+    ArchiveSchemaDecoder
+  )
 
   val UniversalArchiveReader: GenUniversalArchiveReader[ArchivePayload] =
     new GenUniversalArchiveReader(ArchiveReader)
   val UniversalArchiveDecoder: GenUniversalArchiveReader[(PackageId, Ast.Package)] =
     new GenUniversalArchiveReader(ArchiveDecoder)
+
 }

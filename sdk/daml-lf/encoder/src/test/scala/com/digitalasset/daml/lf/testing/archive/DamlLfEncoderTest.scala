@@ -6,13 +6,7 @@ package com.digitalasset.daml.lf.testing.archive
 import java.io.File
 import com.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.archive.DamlLf2
-import com.digitalasset.daml.lf.archive.{
-  ArchivePayload,
-  Dar,
-  DecodeV2,
-  UniversalArchiveDecoder,
-  UniversalArchiveReader,
-}
+import com.digitalasset.daml.lf.archive.{ArchivePayload, Dar, DecodeV2, DarDecoder, DarReader}
 import com.digitalasset.daml.lf.data.Ref.DottedName
 import com.digitalasset.daml.lf.data.Ref.ModuleName
 import com.digitalasset.daml.lf.language.Ast
@@ -35,7 +29,7 @@ class DamlLfEncoderTest
 
     "be readable" in {
 
-      val modules_2_1 = Set[DottedName](
+      val sharedModules = Set[DottedName](
         "UnitMod",
         "BoolMod",
         "Int64Mod",
@@ -60,7 +54,9 @@ class DamlLfEncoderTest
         "TextMapMod",
         "LedgerTimeMod",
       )
-      val modules_2_dev = modules_2_1 ++ Set[DottedName](
+      val modules_2_1 = sharedModules ++ Set[DottedName]("InterfaceUnsafeFromMod")
+      val modules_2_2 = sharedModules
+      val modules_2_dev = sharedModules ++ Set[DottedName](
         "BigNumericMod",
         "InterfaceExtMod",
         "TemplateWithKeyMod",
@@ -100,13 +96,14 @@ class DamlLfEncoderTest
       val versions = Table(
         "versions" -> "modules",
         "2.1" -> modules_2_1,
+        "2.2" -> modules_2_2,
         "2.dev" -> modules_2_dev,
       )
 
       forEvery(versions) { (version, expectedModules) =>
         val dar =
-          UniversalArchiveReader
-            .readFile(new File(rlocation(s"daml-lf/encoder/test-$version.dar")))
+          DarReader
+            .readArchiveFromFile(new File(rlocation(s"daml-lf/encoder/test-$version.dar")))
 
         dar shouldBe a[Right[_, _]]
 
@@ -124,7 +121,7 @@ class DamlLfEncoderTest
     for {
       payload <- dar.all
       name <- payload match {
-        case ArchivePayload.Lf2(_, pkg, _) => getNonEmptyModules(pkg)
+        case ArchivePayload.Lf2(_, pkg, _, _) => getNonEmptyModules(pkg)
         case _ => throw new RuntimeException(s"Unsupported language version: ${payload.version}")
       }
     } yield name
@@ -155,8 +152,10 @@ class DamlLfEncoderTest
       forEvery(Table("version", LanguageVersion.AllV2.filter(LanguageVersion.v2_dev < _): _*)) {
         version =>
           val Right(dar) =
-            UniversalArchiveDecoder
-              .readFile(new File(rlocation(s"daml-lf/encoder/test-${version.pretty}.dar")))
+            DarDecoder
+              .readArchiveFromFile(
+                new File(rlocation(s"daml-lf/encoder/test-${version.pretty}.dar"))
+              )
           val (_, mainPkg) = dar.main
           val builtinInModule = mainPkg
             .modules(builtinMod)

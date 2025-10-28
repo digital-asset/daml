@@ -4,33 +4,19 @@
 package com.digitalasset.daml.lf
 package script
 
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.engine.{
-  Engine,
-  Result,
-  ResultDone,
-  ResultError,
-  Enricher => LfEnricher,
-}
-import com.digitalasset.daml.lf.engine.preprocessing.ValueTranslator
-import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LookupError}
-import com.digitalasset.daml.lf.transaction.{
-  CommittedTransaction,
-  FatContractInstance,
-  GlobalKey,
-  NodeId,
-  VersionedTransaction,
-}
-import com.digitalasset.daml.lf.value.Value.ContractId
-import com.digitalasset.daml.lf.speedy._
-import com.digitalasset.daml.lf.speedy.SExpr.{SEApp, SExpr}
-import com.digitalasset.daml.lf.speedy.SResult._
-import com.digitalasset.daml.lf.transaction.IncompleteTransaction
-import com.digitalasset.daml.lf.value.Value
 import com.daml.logging.LoggingContext
 import com.daml.scalautil.Statement.discard
-import com.digitalasset.daml.lf.crypto.Hash
+import com.digitalasset.daml.lf.crypto.{Hash, SValueHash}
+import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.engine.{Engine, Result, ResultDone, Enricher => LfEnricher}
+import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LookupError}
+import com.digitalasset.daml.lf.speedy.SExpr.{SEApp, SExpr}
+import com.digitalasset.daml.lf.speedy.SResult._
+import com.digitalasset.daml.lf.speedy._
+import com.digitalasset.daml.lf.transaction.Transaction.ChildrenRecursion
+import com.digitalasset.daml.lf.transaction._
+import com.digitalasset.daml.lf.value.Value.ContractId
 
 import scala.annotation.tailrec
 import scala.collection.immutable.ArraySeq
@@ -62,7 +48,6 @@ private[lf] object IdeLedgerRunner {
 
   final case class Commit[+R](
       result: R,
-      value: SValue,
       tx: IncompleteTransaction,
   ) extends SubmissionResult[R]
 
@@ -250,16 +235,6 @@ private[lf] object IdeLedgerRunner {
 
   private[this] class EnricherImpl(compiledPackages: CompiledPackages) extends Enricher {
     val config = Engine.DevEngine(LanguageMajorVersion.V2).config
-    val valueTranslator =
-      new ValueTranslator(
-        pkgInterface = compiledPackages.pkgInterface,
-        forbidLocalContractIds = config.forbidLocalContractIds,
-      )
-    def translateValue(typ: Ast.Type, value: Value): Result[SValue] =
-      valueTranslator.translateValue(typ, value) match {
-        case Left(err) => ResultError(err)
-        case Right(sv) => ResultDone(sv)
-      }
     def loadPackage(pkgId: PackageId, context: language.Reference): Result[Unit] = {
       crash(LookupError.MissingPackage.pretty(pkgId, context))
     }
@@ -288,6 +263,55 @@ private[lf] object IdeLedgerRunner {
       consume(strictEnricher.enrichVersionedTransaction(tx))
     override def enrich(tx: IncompleteTransaction): IncompleteTransaction =
       consume(lenientEnricher.enrichIncompleteTransaction(tx))
+  }
+
+  /** A class for suffixing all the local contract IDs of a transaction with the TypedNormalForm hash of their Create
+    * argument. Assumes that the creation package of these contract and its transitive dependencies are all present in
+    * [compiledPackages].
+    */
+  private[this] class CidSuffixer(compiledPackages: CompiledPackages) {
+    private[this] val valueTranslator = new speedy.ValueTranslator(
+      compiledPackages.pkgInterface,
+      forbidLocalContractIds = false,
+      forbidTrailingNones = false,
+    )
+
+    private[this] def hashCreateNode(createNode: Node.Create): crypto.Hash = {
+      val sValue = valueTranslator
+        .translateValue(Ast.TTyCon(createNode.templateId), createNode.arg)
+        .fold(
+          e => crash(s"unexpected error when enriching a Create node produced by the engine: $e"),
+          identity,
+        )
+      SValueHash
+        .hashContractInstance(createNode.packageName, createNode.templateId.qualifiedName, sValue)
+        .fold(
+          e => crash(s"unexpected error when hashing a Create node produced by the engine: $e"),
+          identity,
+        )
+    }
+
+    def suffixCids(tx: VersionedTransaction): VersionedTransaction = {
+      val cidMapping = tx
+        .foldInExecutionOrder(Map.empty[ContractId, ContractId].withDefault(identity))(
+          exerciseBegin = (mapping, _, _) => (mapping, ChildrenRecursion.DoRecurse),
+          rollbackBegin = (mapping, _, _) => (mapping, ChildrenRecursion.DoRecurse),
+          leaf = (mapping, _, leaf) => {
+            leaf match {
+              case create: Node.Create =>
+                val suffix = hashCreateNode(create.mapCid(mapping)).bytes
+                mapping + (create.coid -> data.assertRight(
+                  create.coid.suffixCid(_ => suffix, _ => suffix)
+                ))
+              case _ =>
+                mapping
+            }
+          },
+          exerciseEnd = (mapping, _, _) => mapping,
+          rollbackEnd = (mapping, _, _) => mapping,
+        )
+      tx.mapCid(cidMapping)
+    }
   }
 
   def submit[R](
@@ -328,6 +352,7 @@ private[lf] object IdeLedgerRunner {
     // https://github.com/digital-asset/daml/issues/14108
     val enricher = if (doEnrichment) new EnricherImpl(compiledPackages) else NoEnricher
     import enricher._
+    val suffixer = new CidSuffixer(compiledPackages)
 
     def continue = () => go()
 
@@ -340,9 +365,13 @@ private[lf] object IdeLedgerRunner {
               disclosuresByCoid.get(coid) match {
                 case Some(fcoinst) =>
                   callback(
-                    fcoinst.nonVerbose,
+                    fcoinst.nonVerboseWithoutTrailingNones,
                     Hash.HashingMethod.TypedNormalForm,
-                    _ => true, // The IDE ledger doesn't authenticate disclosed contracts
+                    h =>
+                      fcoinst.contractId match {
+                        case ContractId.V1(_, suffix) => h.bytes == suffix
+                        case ContractId.V2(_, suffix) => h.bytes == suffix
+                      },
                   )
                   go()
                 case None =>
@@ -352,9 +381,13 @@ private[lf] object IdeLedgerRunner {
                     readAs,
                     (fcoinst: FatContractInstance) =>
                       callback(
-                        fcoinst.nonVerbose,
+                        fcoinst.nonVerboseWithoutTrailingNones,
                         Hash.HashingMethod.TypedNormalForm,
-                        _ => true, // The IDE ledger doesn't authenticate input contracts
+                        h =>
+                          fcoinst.contractId match {
+                            case ContractId.V1(_, suffix) => h.bytes == suffix
+                            case ContractId.V2(_, suffix) => h.bytes == suffix
+                          },
                       ),
                   ) match {
                     case Left(err) =>
@@ -387,18 +420,15 @@ private[lf] object IdeLedgerRunner {
           }
         case SResultInterruption =>
           Interruption(continue)
-        case SResult.SResultFinal(resultValue) =>
+        case SResult.SResultFinal(_) =>
           ledgerMachine.finish match {
             case Right(Speedy.UpdateMachine.Result(tx, locationInfo, _, _)) =>
-              val suffix = Bytes.fromByteArray(Array(0, 0))
-              val committedTx = CommittedTransaction(
-                enrich(data.assertRight(tx.suffixCid(_ => suffix, _ => suffix)))
-              )
+              val committedTx = CommittedTransaction(enrich(suffixer.suffixCids(tx)))
               ledger.commit(committers, readAs, location, committedTx, locationInfo) match {
                 case Left(err) =>
                   SubmissionError(err, enrich(ledgerMachine.incompleteTransaction))
                 case Right(r) =>
-                  Commit(r, resultValue, enrich(ledgerMachine.incompleteTransaction))
+                  Commit(r, enrich(ledgerMachine.incompleteTransaction))
               }
             case Left(err) =>
               throw err

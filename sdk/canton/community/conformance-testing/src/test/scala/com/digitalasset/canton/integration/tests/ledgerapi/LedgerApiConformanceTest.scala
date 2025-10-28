@@ -146,6 +146,46 @@ class LedgerApiConformanceMultiSynchronizerTest
   }
 }
 
+class LedgerApiConformanceWithTrafficControlTest
+    extends CommunityIntegrationTest
+    with IsolatedEnvironments {
+
+  override lazy val environmentDefinition: EnvironmentDefinition =
+    EnvironmentDefinition.P1_S1M1
+      .withTrafficControl()
+      .withSetup(setupLedgerApiConformanceEnvironment(_))
+
+  // ensure ledger api conformance tests have less noisy neighbours
+  protected override def numPermits: PositiveInt = PositiveInt.tryCreate(2)
+
+  protected def setupLedgerApiConformanceEnvironment(implicit
+      env: TestConsoleEnvironment
+  ): Unit = {
+    import env.*
+    participants.all.synchronizers.connect_local(sequencer1, alias = daName)
+  }
+
+  protected val ledgerApiTestToolPlugin =
+    new UseLedgerApiTestTool(
+      loggerFactory,
+      connectedSynchronizersCount = 1,
+      lfVersion = UseLedgerApiTestTool.LfVersion.Stable,
+      version = LAPITTVersion.LocalJar,
+    )
+  registerPlugin(ledgerApiTestToolPlugin)
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+
+  "Ledger API test tool on a synchronizer with traffic control enabled" can {
+    "pass traffic control related conformance tests" in { implicit env =>
+      ledgerApiTestToolPlugin.runSuites(
+        suites = LedgerApiConformanceBase.trafficControlTests.mkString(","),
+        exclude = Nil,
+        concurrency = 2,
+      )
+    }
+  }
+}
+
 object LedgerApiConformanceBase {
   val multiSynchronizerTests = Seq(
     "CommandServiceIT:CSsubmitAndWaitPrescribedSynchronizerId",
@@ -153,6 +193,12 @@ object LedgerApiConformanceBase {
     "CommandSubmissionCompletionIT:CSCSubmitWithPrescribedSynchronizerId",
     "ExplicitDisclosureIT:EDFailOnDisclosedContractIdMismatchWithPrescribedSynchronizerId",
     "ExplicitDisclosureIT:EDRouteByDisclosedContractSynchronizerId",
+    "VettingIT:PVListVettedPackagesMultiSynchronizer",
+    "VettingIT:PVListVettedPackagesPagination",
+  )
+  val trafficControlTests = Seq(
+    "InteractiveSubmissionServiceIT:ISSPrepareSubmissionRequestBasic",
+    "InteractiveSubmissionServiceIT:ISSPrepareSubmissionRequestWithoutCostEstimation",
   )
   val excludedTests = Seq(
     "ClosedWorldIT", // Canton errors with "Some(Disputed: unable to parse party id 'unallocated': FailedSimpleStringConversion(LfError(Invalid unique identifier missing namespace unallocated)))"

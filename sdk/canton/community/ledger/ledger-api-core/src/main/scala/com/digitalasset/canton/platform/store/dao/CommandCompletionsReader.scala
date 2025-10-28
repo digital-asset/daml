@@ -13,8 +13,6 @@ import com.digitalasset.canton.platform.{Party, UserId}
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 
-import java.sql.Connection
-
 /** @param pageSize
   *   a single DB fetch query is guaranteed to fetch no more than this many results.
   */
@@ -44,7 +42,7 @@ private[dao] final class CommandCompletionsReader(
       loggingContext: LoggingContextWithTrace
   ): Source[(Offset, CompletionStreamResponse), NotUsed] = {
     val pruneSafeQuery =
-      (range: QueryRange[Offset]) => { implicit connection: Connection =>
+      (range: QueryRange[Offset]) =>
         queryValidRange.withRangeNotPruned[Vector[CompletionStreamResponse]](
           minOffsetInclusive = startInclusive,
           maxOffsetInclusive = endInclusive,
@@ -54,15 +52,16 @@ private[dao] final class CommandCompletionsReader(
             s"Command completions request from ${startInclusive.unwrap} to ${endInclusive.unwrap} is beyond ledger end offset ${ledgerEndOffset
                 .fold(0L)(_.unwrap)}",
         ) {
-          storageBackend.commandCompletions(
-            startInclusive = range.startInclusive,
-            endInclusive = range.endInclusive,
-            userId = userId,
-            parties = parties,
-            limit = pageSize,
-          )(connection)
+          dispatcher.executeSql(metrics.index.db.getCompletions)(
+            storageBackend.commandCompletions(
+              startInclusive = range.startInclusive,
+              endInclusive = range.endInclusive,
+              userId = userId,
+              parties = parties,
+              limit = pageSize,
+            )
+          )
         }
-      }
 
     val initialRange = new QueryRange[Offset](
       startInclusive = startInclusive,
@@ -76,7 +75,7 @@ private[dao] final class CommandCompletionsReader(
           initialRange.copy(startInclusive = lastOffset.increment)
         },
       ) { (subRange: QueryRange[Offset]) =>
-        dispatcher.executeSql(metrics.index.db.getCompletions)(pruneSafeQuery(subRange))
+        pruneSafeQuery(subRange)
       }
     source.map(response => offsetFor(response) -> response)
   }

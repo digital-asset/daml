@@ -11,6 +11,7 @@ import com.daml.ledger.javaapi.data.codegen.ContractId
 import com.daml.ledger.test.java.model.test.{Dummy, DummyWithParam}
 import com.digitalasset.canton.ledger.api.TransactionShape.{AcsDelta, LedgerEffects}
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
+import com.digitalasset.canton.protocol.TestUpdateId
 
 class UpdateServiceQueryIT extends LedgerTestSuite {
   import CompanionImplicits.*
@@ -88,7 +89,11 @@ class UpdateServiceQueryIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, Seq(party))) =>
     for {
       failure <- ledger
-        .transactionById("a" * 60, Seq(party), LedgerEffects)
+        .transactionById(
+          TestUpdateId("a" * 60).toHexString,
+          Seq(party),
+          LedgerEffects,
+        )
         .mustFail("looking up an non-existent transaction")
     } yield {
       assertGrpcError(
@@ -186,7 +191,11 @@ class UpdateServiceQueryIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, Seq(party))) =>
     for {
       failure <- ledger
-        .transactionById("a" * 60, Seq(party), AcsDelta)
+        .transactionById(
+          TestUpdateId("a" * 60).toHexString,
+          Seq(party),
+          AcsDelta,
+        )
         .mustFail("looking up a non-existent transaction")
     } yield {
       assertGrpcError(
@@ -576,7 +585,10 @@ class UpdateServiceQueryIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, _)) =>
     for {
       failure <- ledger
-        .topologyTransactionById("a" * 60, Seq.empty)
+        .topologyTransactionById(
+          TestUpdateId("a" * 60).toHexString,
+          Seq.empty,
+        )
         .mustFail("looking up an non-existent transaction")
     } yield {
       assertGrpcError(

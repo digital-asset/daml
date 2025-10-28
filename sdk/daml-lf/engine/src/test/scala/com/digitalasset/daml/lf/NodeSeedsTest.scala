@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf
 
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.logging.LoggingContext
-import com.digitalasset.daml.lf.archive.UniversalArchiveDecoder
+import com.digitalasset.daml.lf.archive.DarDecoder
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.daml.lf.language.LanguageMajorVersion
@@ -25,7 +25,7 @@ class NodeSeedsTest(majorLanguageVersion: LanguageMajorVersion) extends AnyWordS
   // Test for https://github.com/DACH-NY/canton/issues/14712
 
   val (mainPkgId, mainPkg, packages) = {
-    val packages = UniversalArchiveDecoder.assertReadFile(
+    val packages = DarDecoder.assertReadArchiveFromFile(
       new File(
         BazelRunfiles.rlocation(
           // TODO(https://github.com/digital-asset/daml/issues/18457): split key test cases and

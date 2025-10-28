@@ -23,11 +23,12 @@ import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransacti
   AuthorizationLevel,
 }
 import com.digitalasset.canton.platform.store.interning.StringInterning
+import com.digitalasset.canton.protocol.UpdateId
 import com.digitalasset.canton.tracing.{SerializableTraceContextConverter, TraceContext}
 import com.digitalasset.daml.lf.crypto.Hash
-import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
 import com.digitalasset.daml.lf.value.Value
+import com.google.protobuf.ByteString
 import com.typesafe.scalalogging.Logger
 
 import java.nio.ByteBuffer
@@ -78,28 +79,6 @@ private[backend] object Conversions {
   implicit val packageIdToStatement: ToStatement[Ref.PackageId] =
     new SubTypeOfStringToStatement[Ref.PackageId]
 
-  // LedgerString
-
-  private implicit val columnToLedgerString: Column[Ref.LedgerString] =
-    stringColumnToX(Ref.LedgerString.fromString)
-
-  implicit val ledgerStringToStatement: ToStatement[Ref.LedgerString] =
-    new SubTypeOfStringToStatement[Ref.LedgerString]
-
-  def ledgerString(columnName: String): RowParser[Ref.LedgerString] =
-    SqlParser.get[Ref.LedgerString](columnName)(columnToLedgerString)
-
-  // UserId
-
-  private implicit val columnToUserId: Column[Ref.UserId] =
-    stringColumnToX(Ref.UserId.fromString)
-
-  implicit val userIdToStatement: ToStatement[Ref.UserId] =
-    new SubTypeOfStringToStatement[Ref.UserId]
-
-  def userId(columnName: String): RowParser[Ref.UserId] =
-    SqlParser.get[Ref.UserId](columnName)(columnToUserId)
-
   // ParticipantId
 
   private implicit val columnToParticipantId: Column[Ref.ParticipantId] =
@@ -112,11 +91,6 @@ private[backend] object Conversions {
 
   private implicit val columnToContractId: Column[Value.ContractId] =
     binaryColumnToX(byteArray => Value.ContractId.fromBytes(Bytes.fromByteArray(byteArray)))
-
-  implicit object ContractIdToStatement extends ToStatement[Value.ContractId] {
-    override def set(s: PreparedStatement, index: Int, v: Value.ContractId): Unit =
-      ToStatement.byteArrayToStatement.set(s, index, v.toBytes.toByteArray)
-  }
 
   def contractId(columnName: String): RowParser[Value.ContractId] =
     SqlParser.get[Value.ContractId](columnName)(columnToContractId)
@@ -139,16 +113,6 @@ private[backend] object Conversions {
       .map(Offset.tryFromLong)
 
   // Timestamp
-
-  implicit def TimestampParamMeta: ParameterMetaData[Timestamp] = new ParameterMetaData[Timestamp] {
-    val sqlType = "BIGINT"
-    def jdbcType: Int = java.sql.Types.BIGINT
-  }
-
-  implicit object TimestampToStatement extends ToStatement[Timestamp] {
-    override def set(s: PreparedStatement, index: Int, v: Timestamp): Unit =
-      s.setLong(index, v.micros)
-  }
 
   def timestampFromMicros(name: String): RowParser[com.digitalasset.daml.lf.data.Time.Timestamp] =
     SqlParser.get[Long](name).map(com.digitalasset.daml.lf.data.Time.Timestamp.assertFromLong)
@@ -177,6 +141,21 @@ private[backend] object Conversions {
       .?
       .map(_.getOrElse(TraceContext.empty))
   }
+
+  // UpdateId
+
+  implicit object UpdateIdToStatement extends ToStatement[UpdateId] {
+    override def set(s: PreparedStatement, i: Int, v: UpdateId): Unit =
+      s.setBytes(i, v.getCryptographicEvidence.toByteArray)
+  }
+
+  private implicit val columnToUpdateId: Column[UpdateId] =
+    binaryColumnToX(byteArray =>
+      UpdateId.fromProtoPrimitive(ByteString.copyFrom(byteArray)).left.map(_.message)
+    )
+
+  def updateId(columnName: String): RowParser[UpdateId] =
+    SqlParser.get[UpdateId](columnName)(columnToUpdateId)
 
   // AuthorizationEvent
 

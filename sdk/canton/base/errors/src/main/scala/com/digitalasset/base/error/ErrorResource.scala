@@ -9,7 +9,9 @@ package com.digitalasset.base.error
   * cases, we include the resource identifier as part of the error message. This enum allows an
   * error to provide identifiers of a resource
   */
-final case class ErrorResource(asString: String)
+final case class ErrorResource(asString: String) {
+  def nullable: ErrorResource = ErrorResource(s"NULLABLE_$asString")
+}
 
 object ErrorResource {
   lazy val ContractId: ErrorResource = ErrorResource("CONTRACT_ID")
@@ -68,5 +70,11 @@ object ErrorResource {
     User,
   )
 
-  def fromString(str: String): Option[ErrorResource] = all.find(_.asString == str)
+  def fromString(str: String): Option[ErrorResource] = str.split("NULLABLE_") match {
+    case Array("", resource) =>
+      all.find(_.asString == resource).map(_.nullable)
+    case Array(resource) =>
+      all.find(_.asString == resource)
+    case _ => None
+  }
 }

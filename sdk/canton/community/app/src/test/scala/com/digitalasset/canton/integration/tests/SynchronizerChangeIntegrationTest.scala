@@ -151,7 +151,12 @@ abstract class SynchronizerChangeIntegrationTest(config: SynchronizerChangeInteg
     )
 
     darPaths.foreach { darPath =>
-      participants.all.foreach(_.dars.upload(darPath))
+      participants.all.foreach { p =>
+        p.dars.upload(darPath, synchronizerId = iouSynchronizerId)
+      }
+      Seq(participant4, participant5).foreach(p =>
+        p.dars.upload(darPath, synchronizerId = paintSynchronizerId)
+      )
     }
 
     // Advance the simClock to trigger time-proof requests, if present
@@ -673,7 +678,7 @@ trait SynchronizerChangeRealClockIntegrationTest
           val iou = createIou(alice, bank, painter)
           val iouId = iou.id.toLf
 
-          // paintOfferId <- submit alice do
+          // paintOfferId <- submit alice dos
           //   create $ OfferToPaintHouseByOwner with painter = painter; houseOwner = alice; bank = bank; iouId = iouId
           val cmd = createPaintOfferCmd(alice, bank, painter, iouId)
           clue("creating paint offer") {

@@ -59,7 +59,6 @@ class BftSequencerApiTest extends SequencerApiTest with RateLimitManagerTesting 
     val storage = createStorage()
     val params = createSynchronizerNodeParameters()
     clock = createClock()
-    driverClock = createClock()
 
     val factory =
       new BftSequencerFactory(
@@ -79,7 +78,6 @@ class BftSequencerApiTest extends SequencerApiTest with RateLimitManagerTesting 
       .create(
         SequencerId(psid.uid),
         clock,
-        driverClock,
         crypto,
         FutureSupervisor.Noop,
         SequencerTrafficConfig(),

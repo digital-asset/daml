@@ -51,7 +51,7 @@ sealed trait ProtocolMessage
   override def representativeProtocolVersion: RepresentativeProtocolVersion[companionObj.type]
 
   /** The ID of the synchronizer over which this message is supposed to be sent. */
-  def synchronizerId: PhysicalSynchronizerId
+  def psid: PhysicalSynchronizerId
 
   /** By default prints only the object name as a trade-off for shorter long lines and not leaking
     * confidential data. Sub-classes may override the pretty instance to print more information.
@@ -72,7 +72,7 @@ object ProtocolMessage {
       onWrongSynchronizer: Seq[OpenEnvelope[M]] => Unit
   ): Seq[OpenEnvelope[M]] = {
     val (withCorrectSynchronizerId, withWrongSynchronizerId) =
-      envelopes.partition(_.protocolMessage.synchronizerId == synchronizerId)
+      envelopes.partition(_.protocolMessage.psid == synchronizerId)
     if (withWrongSynchronizerId.nonEmpty)
       onWrongSynchronizer(withWrongSynchronizerId)
     withCorrectSynchronizerId
@@ -122,7 +122,7 @@ case class SignedProtocolMessage[+M <: SignedProtocolMessageContent](
   override val representativeProtocolVersion: RepresentativeProtocolVersion[
     SignedProtocolMessage.type
   ] = SignedProtocolMessage.protocolVersionRepresentativeFor(
-    typedMessage.content.synchronizerId.protocolVersion
+    typedMessage.content.psid.protocolVersion
   )
 
   @transient override protected lazy val companionObj: SignedProtocolMessage.type =
@@ -167,7 +167,7 @@ case class SignedProtocolMessage[+M <: SignedProtocolMessageContent](
   ): SignedProtocolMessage[MM] =
     SignedProtocolMessage(typedMessage, signatures)
 
-  override def synchronizerId: PhysicalSynchronizerId = message.synchronizerId
+  override def psid: PhysicalSynchronizerId = message.psid
 
   protected def toProtoV30: v30.SignedProtocolMessage =
     v30.SignedProtocolMessage(

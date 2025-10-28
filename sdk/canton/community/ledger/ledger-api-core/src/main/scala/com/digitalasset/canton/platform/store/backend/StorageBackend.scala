@@ -4,7 +4,6 @@
 package com.digitalasset.canton.platform.store.backend
 
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
-import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.api.ParticipantId
 import com.digitalasset.canton.ledger.participant.state.SynchronizerIndex
@@ -13,40 +12,22 @@ import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetail
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.indexer.parallel.PostPublishData
-import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
-  Entry,
-  RawAcsDeltaEvent,
-  RawAcsDeltaEventLegacy,
-  RawActiveContractLegacy,
-  RawAssignEventLegacy,
-  RawLedgerEffectsEvent,
-  RawLedgerEffectsEventLegacy,
-  RawParticipantAuthorization,
-  RawThinActivateContractEvent,
-  RawUnassignEventLegacy,
-  SequentialIdBatch,
-  SynchronizerOffset,
-  UnassignProperties,
-}
+import com.digitalasset.canton.platform.store.backend.EventStorageBackend.*
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.PruneUptoInclusiveAndLedgerEnd
 import com.digitalasset.canton.platform.store.backend.common.{
   EventPayloadSourceForUpdatesAcsDelta,
-  EventPayloadSourceForUpdatesAcsDeltaLegacy,
   EventPayloadSourceForUpdatesLedgerEffects,
-  EventPayloadSourceForUpdatesLedgerEffectsLegacy,
   EventReaderQueries,
   UpdatePointwiseQueries,
   UpdateStreamingQueries,
 }
 import com.digitalasset.canton.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream.PaginationInput
-import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.KeyState
 import com.digitalasset.canton.platform.store.interning.StringInterning
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{FullIdentifier, NameTypeConRef}
+import com.digitalasset.daml.lf.data.Ref.FullIdentifier
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.google.common.annotations.VisibleForTesting
 
@@ -224,54 +205,26 @@ trait CompletionStorageBackend {
 
 trait ContractStorageBackend {
 
-  /** Returns true if the batch lookup is implemented */
-  def supportsBatchKeyStateLookups: Boolean
-
   /** Batch lookup of key states
     *
     * If the backend does not support batch lookups, the implementation will fall back to sequential
     * lookups
     */
-  def keyStates(keys: Seq[Key], validAt: Offset)(connection: Connection): Map[Key, KeyState]
+  def keyStates(keys: Seq[Key], validAtEventSeqId: Long)(connection: Connection): Map[Key, Long]
 
   /** Sequential lookup of key states */
-  def keyState(key: Key, validAt: Offset)(connection: Connection): KeyState
+  def keyState(key: Key, validAtEventSeqId: Long)(connection: Connection): Option[Long]
 
-  def archivedContracts(contractIds: Seq[ContractId], before: Offset)(
+  def activeContracts(internalContractIds: Seq[Long], beforeEventSeqId: Long)(
       connection: Connection
-  ): Set[ContractId]
-  def createdContracts(contractIds: Seq[ContractId], before: Offset)(
+  ): Map[Long, Boolean]
+
+  def lastActivations(synchronizerContracts: Iterable[(SynchronizerId, Long)])(
       connection: Connection
-  ): Set[ContractId]
-  def assignedContracts(contractIds: Seq[ContractId], before: Offset)(
-      connection: Connection
-  ): Set[ContractId]
+  ): Map[(SynchronizerId, Long), Long]
 
-  def lastActivations(synchronizerContracts: Iterable[(SynchronizerId, ContractId)])(
-      connection: Connection
-  ): Map[(SynchronizerId, ContractId), Long]
-}
-
-object ContractStorageBackend {
-  sealed trait RawContractState
-
-  final case class RawCreatedContract(
-      templateId: String,
-      packageId: String,
-      flatEventWitnesses: Set[Party],
-      createArgument: Array[Byte],
-      createArgumentCompression: Option[Int],
-      ledgerEffectiveTime: Timestamp,
-      signatories: Set[Party],
-      createKey: Option[Array[Byte]],
-      createKeyCompression: Option[Int],
-      keyMaintainers: Option[Set[Party]],
-      authenticationData: Array[Byte],
-  ) extends RawContractState
-
-  final case class RawArchivedContract(
-      flatEventWitnesses: Set[Party]
-  ) extends RawContractState
+  /** Returns true if the batch lookup is implemented */
+  def supportsBatchKeyStateLookups: Boolean
 }
 
 trait EventStorageBackend {
@@ -283,7 +236,9 @@ trait EventStorageBackend {
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related
     * database operations
     */
-  def pruneEventsLegacy(
+  def pruneEvents(
+      previousPruneUpToInclusive: Option[Offset],
+      previousIncompleteReassignmentOffsets: Vector[Offset],
       pruneUpToInclusive: Offset,
       incompleteReassignmentOffsets: Vector[Offset],
   )(implicit
@@ -291,82 +246,18 @@ trait EventStorageBackend {
       traceContext: TraceContext,
   ): Unit
 
-  /** Part of pruning process, this needs to be in the same transaction as the other pruning related
-    * database operations
-    */
-  def pruneEvents(
-      pruneUpToInclusive: Offset,
-      incompleteReassignmentOffsets: Vector[Offset],
-  )(implicit
-      connection: Connection,
-      traceContext: TraceContext,
-  ): Unit =
-    ??? // TODO(#28005): Implement
-
-  def activateContractBatch(
+  def activeContractBatch(
       eventSequentialIds: Iterable[Long],
       allFilterParties: Option[Set[Party]],
       endInclusive: Long,
-  )(connection: Connection): Vector[RawThinActivateContractEvent] =
-    ??? // TODO(#28002): Implement
-
-  def activeContractCreateEventBatchLegacy(
-      eventSequentialIds: Iterable[Long],
-      allFilterParties: Option[Set[Party]],
-      endInclusive: Long,
-  )(connection: Connection): Vector[RawActiveContractLegacy]
-
-  def activeContractAssignEventBatchLegacy(
-      eventSequentialIds: Iterable[Long],
-      allFilterParties: Option[Set[Party]],
-      endInclusive: Long,
-  )(connection: Connection): Vector[RawActiveContractLegacy]
-
-  def fetchAssignEventIdsForStakeholderLegacy(
-      stakeholderO: Option[Party],
-      templateId: Option[NameTypeConRef],
-  )(connection: Connection): PaginationInput => Vector[Long]
-
-  def fetchUnassignEventIdsForStakeholderLegacy(
-      stakeholderO: Option[Party],
-      templateId: Option[NameTypeConRef],
-  )(connection: Connection): PaginationInput => Vector[Long]
-
-  def assignEventBatchLegacy(
-      eventSequentialIds: SequentialIdBatch,
-      allFilterParties: Option[Set[Party]],
-  )(connection: Connection): Vector[Entry[RawAssignEventLegacy]]
-
-  def unassignEventBatchLegacy(
-      eventSequentialIds: SequentialIdBatch,
-      allFilterParties: Option[Set[Party]],
-  )(connection: Connection): Vector[Entry[RawUnassignEventLegacy]]
+  )(connection: Connection): Vector[RawThinActiveContract]
 
   def lookupAssignSequentialIdByOffset(
       offsets: Iterable[Long]
-  )(connection: Connection): Vector[Long] =
-    ??? // TODO(#28002): Implement
-
-  def lookupAssignSequentialIdByOffsetLegacy(
-      offsets: Iterable[Long]
-  )(connection: Connection): Vector[Long] =
-    ??? // TODO(#28002): Implement
+  )(connection: Connection): Vector[Long]
 
   def lookupUnassignSequentialIdByOffset(
       offsets: Iterable[Long]
-  )(connection: Connection): Vector[Long] =
-    ??? // TODO(#28002): Implement
-
-  def lookupUnassignSequentialIdByOffsetLegacy(
-      offsets: Iterable[Long]
-  )(connection: Connection): Vector[Long]
-
-  def lookupAssignSequentialIdByLegacy(
-      unassignProperties: Iterable[UnassignProperties]
-  )(connection: Connection): Map[UnassignProperties, Long]
-
-  def lookupCreateSequentialIdByContractIdLegacy(
-      contractIds: Iterable[ContractId]
   )(connection: Connection): Vector[Long]
 
   def maxEventSequentialId(untilInclusiveOffset: Option[Offset])(
@@ -404,12 +295,7 @@ trait EventStorageBackend {
     */
   def prunableContracts(fromExclusive: Option[Offset], toInclusive: Offset)(
       connection: Connection
-  ): Set[ContractId] =
-    ??? // TODO(#28005): Implement
-
-  def archivalsLegacy(fromExclusive: Option[Offset], toInclusive: Offset)(
-      connection: Connection
-  ): Set[ContractId]
+  ): Set[Long]
 
   def fetchTopologyPartyEventIds(party: Option[Party])(
       connection: Connection
@@ -426,84 +312,141 @@ trait EventStorageBackend {
 
   def fetchEventPayloadsAcsDelta(target: EventPayloadSourceForUpdatesAcsDelta)(
       eventSequentialIds: SequentialIdBatch,
-      requestingParties: Option[Set[Party]],
-  )(connection: Connection): Vector[Entry[RawAcsDeltaEvent]] =
-    ??? // TODO(#28002): Implement
-
-  def fetchEventPayloadsAcsDeltaLegacy(target: EventPayloadSourceForUpdatesAcsDeltaLegacy)(
-      eventSequentialIds: SequentialIdBatch,
-      requestingParties: Option[Set[Party]],
-  )(connection: Connection): Vector[Entry[RawAcsDeltaEventLegacy]]
+      requestingPartiesForTx: Option[Set[Party]],
+      requestingPartiesForReassignment: Option[Set[Party]],
+  )(connection: Connection): Vector[RawThinAcsDeltaEvent]
 
   def fetchEventPayloadsLedgerEffects(target: EventPayloadSourceForUpdatesLedgerEffects)(
       eventSequentialIds: SequentialIdBatch,
-      requestingParties: Option[Set[Ref.Party]],
-  )(connection: Connection): Vector[Entry[RawLedgerEffectsEvent]] =
-    ??? // TODO(#28002): Implement
-
-  def fetchEventPayloadsLedgerEffectsLegacy(
-      target: EventPayloadSourceForUpdatesLedgerEffectsLegacy
-  )(
-      eventSequentialIds: SequentialIdBatch,
-      requestingParties: Option[Set[Ref.Party]],
-  )(connection: Connection): Vector[Entry[RawLedgerEffectsEventLegacy]]
+      requestingPartiesForTx: Option[Set[Party]],
+      requestingPartiesForReassignment: Option[Set[Party]],
+  )(connection: Connection): Vector[RawThinLedgerEffectsEvent]
 }
 
 object EventStorageBackend {
-  final case class Entry[+E](
-      offset: Long,
-      nodeId: Int,
-      updateId: String,
-      eventSequentialId: Long,
-      ledgerEffectiveTime: Option[Timestamp],
-      commandId: Option[String],
-      workflowId: Option[String],
-      synchronizerId: String,
-      traceContext: Option[Array[Byte]],
-      recordTime: Timestamp,
-      externalTransactionHash: Option[Array[Byte]],
-      event: E,
-  ) {
-    def map[T](f: E => T): Entry[T] = this.copy(event = f(event))
-    def withEvent[T](t: T): Entry[T] = this.copy(event = t)
-  }
+  sealed trait RawEvent extends Product with Serializable {
+    def commonEventProperties: CommonEventProperties
+    final def offset: Long = commonEventProperties.offset
+    final def nodeId: Int = commonEventProperties.nodeId
+    final def eventSeqId: Long = commonEventProperties.eventSequentialId
+    final def workflowId: Option[String] = commonEventProperties.workflowId
+    final def synchronizerId: String = commonEventProperties.synchronizerId
 
-  sealed trait RawEvent {
     def templateId: FullIdentifier
     def witnessParties: Set[String]
   }
+
   sealed trait RawAcsDeltaEvent extends RawEvent
   sealed trait RawLedgerEffectsEvent extends RawEvent
 
-  sealed trait RawActivateEvent extends RawEvent
-  sealed trait RawDeactivateEvent extends RawEvent
-  sealed trait RawVariousWitnessedEvent extends RawEvent
+  sealed trait RawUpdateEvent {
+    def commonUpdateProperties: CommonUpdateProperties
+    final def commandId: Option[String] = commonUpdateProperties.commandId
+    final def updateId: String = commonUpdateProperties.updateId
+    final def recordTime: Timestamp = commonUpdateProperties.recordTime
+    final def traceContext: Array[Byte] = commonUpdateProperties.traceContext
+  }
 
-  sealed trait RawCreatedEvent
+  sealed trait RawReassignmentEvent extends RawEvent with RawUpdateEvent {
+    def reassignmentProperties: ReassignmentProperties
+    final def reassignmentId: String = reassignmentProperties.reassignmentId
+    final def submitter: Option[String] = reassignmentProperties.submitter
+    final def reassignmentCounter: Long = reassignmentProperties.reassignmentCounter
 
-  final case class RawThinCreatedEvent(
-      representativePackageId: String,
-      additionalWitnessParties: Set[String],
+    def sourceSynchronizerId: String
+    def targetSynchronizerId: String
+
+    final override def commonUpdateProperties: CommonUpdateProperties =
+      reassignmentProperties.commonUpdateProperties
+    final override def commonEventProperties: CommonEventProperties =
+      reassignmentProperties.commonEventProperties
+  }
+
+  sealed trait RawTransactionEvent extends RawEvent with RawUpdateEvent {
+    def transactionProperties: TransactionProperties
+    final def externalTransactionHash: Option[Array[Byte]] =
+      transactionProperties.externalTransactionHash
+
+    def ledgerEffectiveTime: Timestamp
+
+    final override def commonUpdateProperties: CommonUpdateProperties =
+      transactionProperties.commonUpdateProperties
+    final override def commonEventProperties: CommonEventProperties =
+      transactionProperties.commonEventProperties
+  }
+
+  sealed trait RawThinEvent extends Product with Serializable {
+    def offset: Long
+    def eventSeqId: Long
+  }
+
+  sealed trait RawThinAcsDeltaEvent extends RawThinEvent
+  sealed trait RawThinLedgerEffectsEvent extends RawThinEvent
+
+  sealed trait RawThinTransactionEvent extends RawThinEvent
+  sealed trait RawThinReassignmentEvent extends RawThinEvent
+
+  final case class CommonEventProperties(
+      eventSequentialId: Long,
+      offset: Long,
+      nodeId: Int,
+      workflowId: Option[String],
+      synchronizerId: String,
+  )
+
+  final case class CommonUpdateProperties(
+      updateId: String,
+      commandId: Option[String],
+      traceContext: Array[Byte],
+      recordTime: Timestamp,
+  )
+
+  final case class TransactionProperties(
+      commonEventProperties: CommonEventProperties,
+      commonUpdateProperties: CommonUpdateProperties,
+      externalTransactionHash: Option[Array[Byte]],
+  )
+
+  final case class ReassignmentProperties(
+      commonEventProperties: CommonEventProperties,
+      commonUpdateProperties: CommonUpdateProperties,
+      reassignmentId: String,
+      submitter: Option[String],
+      reassignmentCounter: Long,
+  )
+
+  final case class ThinCreatedEventProperties(
+      representativePackageId: Ref.PackageId,
+      filteredAdditionalWitnessParties: Set[String],
       internalContractId: Long,
       requestingParties: Option[Set[String]],
-  ) extends RawCreatedEvent
+      reassignmentCounter: Long,
+      acsDeltaForParticipant: Boolean,
+  )
 
-  final case class RawFatCreatedEvent(
-      rawCreatedEvent: RawThinCreatedEvent,
-      fatContract: FatContract,
-  ) extends RawCreatedEvent
-      with RawAcsDeltaEvent
-      with RawLedgerEffectsEvent
-      with RawActivateEvent
-      with RawVariousWitnessedEvent {
-    override def templateId: FullIdentifier =
-      fatContract.templateId.toFullIdentifier(fatContract.packageName)
+  sealed trait FatCreatedEvent extends RawEvent {
+    def fatCreatedEventProperties: FatCreatedEventProperties
+    final def fatContract: FatContract = fatCreatedEventProperties.fatContract
+    final def representativePackageId: Ref.PackageId =
+      fatCreatedEventProperties.thinCreatedEventProperties.representativePackageId
+    final def internalContractId: Long =
+      fatCreatedEventProperties.thinCreatedEventProperties.internalContractId
+    final def acsDeltaForWitnesses: Boolean =
+      fatCreatedEventProperties.thinCreatedEventProperties.acsDeltaForParticipant &&
+        fatCreatedEventProperties.fatContract.stakeholders.iterator
+          .map(_.toString)
+          .exists(witnessParties)
 
-    override def witnessParties: Set[String] =
-      rawCreatedEvent.additionalWitnessParties.iterator
-        .++(fatContract.stakeholders.iterator.map(_.toString))
+    override final def templateId: FullIdentifier =
+      fatCreatedEventProperties.fatContract.templateId.toFullIdentifier(
+        fatCreatedEventProperties.fatContract.packageName
+      )
+
+    override final val witnessParties: Set[String] =
+      fatCreatedEventProperties.thinCreatedEventProperties.filteredAdditionalWitnessParties.iterator
+        .++(fatCreatedEventProperties.fatContract.stakeholders.iterator.map(_.toString))
         .filter(party =>
-          rawCreatedEvent.requestingParties match {
+          fatCreatedEventProperties.thinCreatedEventProperties.requestingParties match {
             case Some(requestingParties) => requestingParties.contains(party)
             case None => true
           }
@@ -511,16 +454,84 @@ object EventStorageBackend {
         .toSet
   }
 
+  final case class FatCreatedEventProperties(
+      thinCreatedEventProperties: ThinCreatedEventProperties,
+      fatContract: FatContract,
+  )
+
+  final case class RawThinActiveContract(
+      commonEventProperties: CommonEventProperties,
+      thinCreatedEventProperties: ThinCreatedEventProperties,
+  ) extends RawThinEvent {
+    override def offset: Long = commonEventProperties.offset
+    override def eventSeqId: Long = commonEventProperties.eventSequentialId
+  }
+
+  final case class RawFatActiveContract(
+      commonEventProperties: CommonEventProperties,
+      fatCreatedEventProperties: FatCreatedEventProperties,
+  ) extends RawEvent
+      with FatCreatedEvent
+
+  final case class RawThinCreatedEvent(
+      transactionProperties: TransactionProperties,
+      thinCreatedEventProperties: ThinCreatedEventProperties,
+  ) extends RawThinAcsDeltaEvent
+      with RawThinLedgerEffectsEvent
+      with RawThinTransactionEvent {
+    override def offset: Long = transactionProperties.commonEventProperties.offset
+    override def eventSeqId: Long = transactionProperties.commonEventProperties.eventSequentialId
+  }
+
+  final case class RawFatCreatedEvent(
+      transactionProperties: TransactionProperties,
+      fatCreatedEventProperties: FatCreatedEventProperties,
+  ) extends RawAcsDeltaEvent
+      with RawLedgerEffectsEvent
+      with RawTransactionEvent
+      with FatCreatedEvent {
+    override def ledgerEffectiveTime: Timestamp =
+      fatCreatedEventProperties.fatContract.createdAt.time
+  }
+
+  final case class RawThinAssignEvent(
+      reassignmentProperties: ReassignmentProperties,
+      thinCreatedEventProperties: ThinCreatedEventProperties,
+      sourceSynchronizerId: String,
+  ) extends RawThinAcsDeltaEvent
+      with RawThinLedgerEffectsEvent
+      with RawThinReassignmentEvent {
+    override def offset: Long = reassignmentProperties.commonEventProperties.offset
+    override def eventSeqId: Long = reassignmentProperties.commonEventProperties.eventSequentialId
+  }
+
+  final case class RawFatAssignEvent(
+      reassignmentProperties: ReassignmentProperties,
+      fatCreatedEventProperties: FatCreatedEventProperties,
+      sourceSynchronizerId: String,
+  ) extends RawAcsDeltaEvent
+      with RawLedgerEffectsEvent
+      with RawReassignmentEvent
+      with FatCreatedEvent {
+    override def targetSynchronizerId: String = synchronizerId
+  }
+
   final case class RawArchivedEvent(
+      transactionProperties: TransactionProperties,
       contractId: ContractId,
       templateId: FullIdentifier,
       filteredStakeholderParties: Set[String],
+      ledgerEffectiveTime: Timestamp,
+      deactivatedEventSeqId: Option[Long],
   ) extends RawAcsDeltaEvent
-      with RawDeactivateEvent {
+      with RawTransactionEvent
+      with RawThinAcsDeltaEvent
+      with RawThinTransactionEvent {
     override def witnessParties: Set[String] = filteredStakeholderParties
   }
 
   final case class RawExercisedEvent(
+      transactionProperties: TransactionProperties,
       contractId: ContractId,
       templateId: FullIdentifier,
       exerciseConsuming: Boolean,
@@ -530,149 +541,41 @@ object EventStorageBackend {
       exerciseArgumentCompression: Option[Int],
       exerciseResult: Option[Array[Byte]],
       exerciseResultCompression: Option[Int],
-      exerciseActors: Seq[String],
+      exerciseActors: Set[String],
       exerciseLastDescendantNodeId: Int,
-      additionalWitnessParties: Set[String],
+      filteredAdditionalWitnessParties: Set[String],
       filteredStakeholderParties: Set[String],
+      ledgerEffectiveTime: Timestamp,
+      deactivatedEventSeqId: Option[Long],
+      acsDeltaForParticipant: Boolean,
   ) extends RawLedgerEffectsEvent
-      with RawDeactivateEvent
-      with RawVariousWitnessedEvent {
+      with RawTransactionEvent
+      with RawThinLedgerEffectsEvent
+      with RawThinTransactionEvent {
     override def witnessParties: Set[String] =
-      filteredStakeholderParties ++ additionalWitnessParties
+      filteredStakeholderParties ++ filteredAdditionalWitnessParties
+
+    def acsDeltaForWitnesses: Boolean =
+      acsDeltaForParticipant && filteredStakeholderParties.nonEmpty
   }
 
   final case class RawUnassignEvent(
-      targetSynchronizerId: String,
-      reassignmentId: String,
-      submitter: Option[String],
-      reassignmentCounter: Long,
+      reassignmentProperties: ReassignmentProperties,
       contractId: ContractId,
       templateId: FullIdentifier,
       filteredStakeholderParties: Set[String],
       assignmentExclusivity: Option[Timestamp],
-      deactivatedEventSequentialId: Option[Long],
+      targetSynchronizerId: String,
+      deactivatedEventSeqId: Option[Long],
   ) extends RawAcsDeltaEvent
       with RawLedgerEffectsEvent
-      with RawDeactivateEvent {
+      with RawReassignmentEvent
+      with RawThinAcsDeltaEvent
+      with RawThinLedgerEffectsEvent
+      with RawThinReassignmentEvent {
     override def witnessParties: Set[String] = filteredStakeholderParties
-  }
 
-  final case class RawAssignEvent[RAW_CREATED_EVENT <: RawCreatedEvent](
-      sourceSynchronizerId: String,
-      reassignmentId: String,
-      submitter: Option[String],
-      reassignmentCounter: Long,
-      rawCreatedEvent: RAW_CREATED_EVENT,
-  )
-
-  type RawThinAssignEvent = RawAssignEvent[RawThinCreatedEvent]
-  type RawFatAssignEvent = RawAssignEvent[RawFatCreatedEvent]
-
-  implicit class RawFatAssignEventToRawEvent(val fat: RawFatAssignEvent)
-      extends RawAcsDeltaEvent
-      with RawLedgerEffectsEvent
-      with RawActivateEvent {
-    override def witnessParties: Set[String] = fat.rawCreatedEvent.witnessParties
-
-    override def templateId: FullIdentifier = fat.rawCreatedEvent.templateId
-  }
-
-  final case class RawActivateContract[RAW_CREATED_EVENT <: RawCreatedEvent](
-      workflowId: Option[String],
-      synchronizerId: String,
-      updateId: String,
-      offset: Long,
-      nodeId: Int,
-      eventSequentialId: Long,
-      reassignmentCounter: Long,
-      rawCreatedEvent: RAW_CREATED_EVENT,
-  )
-
-  type RawThinActivateContractEvent = RawActivateContract[RawThinCreatedEvent]
-  type RawFatActivateContractEvent = RawActivateContract[RawFatCreatedEvent]
-
-  sealed trait RawEventLegacy {
-    def templateId: FullIdentifier
-    def witnessParties: Set[String]
-  }
-  sealed trait RawAcsDeltaEventLegacy extends RawEventLegacy
-  sealed trait RawLedgerEffectsEventLegacy extends RawEventLegacy
-
-  sealed trait RawReassignmentEventLegacy extends RawEventLegacy
-
-  final case class RawCreatedEventLegacy(
-      contractId: ContractId,
-      templateId: FullIdentifier,
-      representativePackageId: LfPackageId,
-      witnessParties: Set[String],
-      flatEventWitnesses: Set[String],
-      signatories: Set[String],
-      observers: Set[String],
-      createArgument: Array[Byte],
-      createArgumentCompression: Option[Int],
-      createKeyMaintainers: Set[String],
-      createKeyValue: Option[Array[Byte]],
-      createKeyValueCompression: Option[Int],
-      ledgerEffectiveTime: Timestamp,
-      createKeyHash: Option[Hash],
-      authenticationData: Array[Byte],
-  ) extends RawAcsDeltaEventLegacy
-      with RawLedgerEffectsEventLegacy
-
-  final case class RawArchivedEventLegacy(
-      contractId: ContractId,
-      templateId: FullIdentifier,
-      witnessParties: Set[String],
-  ) extends RawAcsDeltaEventLegacy
-
-  final case class RawExercisedEventLegacy(
-      contractId: ContractId,
-      templateId: FullIdentifier,
-      exerciseConsuming: Boolean,
-      exerciseChoice: ChoiceName,
-      exerciseChoiceInterface: Option[Ref.Identifier],
-      exerciseArgument: Array[Byte],
-      exerciseArgumentCompression: Option[Int],
-      exerciseResult: Option[Array[Byte]],
-      exerciseResultCompression: Option[Int],
-      exerciseActors: Seq[String],
-      exerciseLastDescendantNodeId: Int,
-      witnessParties: Set[String],
-      flatEventWitnesses: Set[String],
-  ) extends RawLedgerEffectsEventLegacy
-
-  final case class RawActiveContractLegacy(
-      workflowId: Option[String],
-      synchronizerId: String,
-      reassignmentCounter: Long,
-      rawCreatedEvent: RawCreatedEventLegacy,
-      eventSequentialId: Long,
-      nodeId: Int,
-      offset: Long,
-  )
-
-  final case class RawUnassignEventLegacy(
-      sourceSynchronizerId: String,
-      targetSynchronizerId: String,
-      reassignmentId: String,
-      submitter: Option[String],
-      reassignmentCounter: Long,
-      contractId: ContractId,
-      templateId: FullIdentifier,
-      witnessParties: Set[String],
-      assignmentExclusivity: Option[Timestamp],
-  ) extends RawReassignmentEventLegacy
-
-  final case class RawAssignEventLegacy(
-      sourceSynchronizerId: String,
-      targetSynchronizerId: String,
-      reassignmentId: String,
-      submitter: Option[String],
-      reassignmentCounter: Long,
-      rawCreatedEvent: RawCreatedEventLegacy,
-  ) extends RawReassignmentEventLegacy {
-    override def templateId: FullIdentifier = rawCreatedEvent.templateId
-    override def witnessParties: Set[String] = rawCreatedEvent.witnessParties
+    override def sourceSynchronizerId: String = synchronizerId
   }
 
   final case class SynchronizerOffset(

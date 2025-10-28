@@ -17,6 +17,7 @@ import com.digitalasset.canton.sequencing.protocol.{
   SignedContent,
   SubmissionRequest,
   SubscriptionRequest,
+  TopologyStateForInitHashResponse,
   TopologyStateForInitRequest,
   TopologyStateForInitResponse,
 }
@@ -74,7 +75,11 @@ trait UserSequencerConnectionXStub extends NamedLogging {
 
   def downloadTopologyStateForInit(request: TopologyStateForInitRequest, timeout: Duration)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SequencerConnectionXStubError, TopologyStateForInitResponse]
+  ): EitherT[
+    FutureUnlessShutdown,
+    SequencerConnectionXStubError,
+    TopologyStateForInitResponse,
+  ]
 
   def subscribe[E](
       request: SubscriptionRequest,
@@ -84,4 +89,12 @@ trait UserSequencerConnectionXStub extends NamedLogging {
       traceContext: TraceContext
   ): Either[SequencerConnectionXStubError, SequencerSubscription[E]]
 
+  def downloadTopologyStateForInitHash(
+      request: TopologyStateForInitRequest,
+      timeout: Duration,
+      retryPolicy: GrpcError => Boolean = CantonGrpcUtil.RetryPolicy.noRetry,
+      logPolicy: CantonGrpcUtil.GrpcLogPolicy = CantonGrpcUtil.DefaultGrpcLogPolicy,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SequencerConnectionXStubError, TopologyStateForInitHashResponse]
 }

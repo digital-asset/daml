@@ -9,8 +9,8 @@ import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommand
 }
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.config.{DbConfig, NonNegativeDuration}
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeProportion, PositiveInt}
+import com.digitalasset.canton.config.{CommitmentSendDelay, DbConfig, NonNegativeDuration}
 import com.digitalasset.canton.console.LocalParticipantReference
 import com.digitalasset.canton.examples.java.iou.Iou
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
@@ -26,6 +26,7 @@ import com.digitalasset.canton.logging.SuppressionRule
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.Errors.MismatchError.CommitmentsMismatch
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.ReceivedCmtState.Mismatch
 import com.digitalasset.canton.participant.pruning.SortedReconciliationIntervalsHelpers
+import com.digitalasset.canton.participant.store.UpdateMode
 import com.digitalasset.canton.protocol.messages.{AcsCommitment, CommitmentPeriod}
 import com.digitalasset.canton.topology.SynchronizerId
 import monocle.Monocle.toAppliedFocusOps
@@ -60,7 +61,15 @@ trait AcsCommitmentRepairIntegrationTest
         ),
       )
       .updateTestingConfig(
-        _.focus(_.maxCommitmentSendDelayMillis).replace(Some(NonNegativeInt.zero))
+        _.focus(_.commitmentSendDelay)
+          .replace(
+            Some(
+              CommitmentSendDelay(
+                Some(NonNegativeProportion.zero),
+                Some(NonNegativeProportion.zero),
+              )
+            )
+          )
       )
       .withSetup { implicit env =>
         import env.*
@@ -79,7 +88,10 @@ trait AcsCommitmentRepairIntegrationTest
 
         participants.all.synchronizers.connect_local(sequencer1, alias = daName)
         participants.all.synchronizers.connect_local(sequencer2, alias = acmeName)
-        participants.all.foreach(_.dars.upload(CantonExamplesPath))
+        participants.all.foreach { p =>
+          p.dars.upload(CantonExamplesPath, synchronizerId = daId)
+          p.dars.upload(CantonExamplesPath, synchronizerId = acmeId)
+        }
         passTopologyRegistrationTimeout(env)
       }
 
@@ -92,7 +104,14 @@ trait AcsCommitmentRepairIntegrationTest
     simClock.advanceTo(simClock.uniqueTime().immediateSuccessor)
 
     val createdCids =
-      (1 to nContracts.value).map(_ => deployOnP1P2AndCheckContract(synchronizerId, iouContract))
+      (1 to nContracts.value).map(_ =>
+        deployOnTwoParticipantsAndCheckContract(
+          synchronizerId,
+          iouContract,
+          participant1,
+          participant2,
+        )
+      )
 
     val tick1 = tickAfter(simClock.uniqueTime())
     simClock.advanceTo(tick1.forgetRefinement.immediateSuccessor)
@@ -166,6 +185,7 @@ trait AcsCommitmentRepairIntegrationTest
             recordTime,
             updates = Map.empty,
             deletes = runningCmts.keySet,
+            UpdateMode.Checkpoint,
           )
         }
         .futureValueUS

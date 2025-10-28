@@ -15,11 +15,7 @@ class ContractIdSuffixer(hashOps: HashOps & HmacOps, contractIdVersion: CantonCo
 
   private val unicumGenerator: UnicumGenerator = new UnicumGenerator(hashOps)
 
-  val hashingMethod: HashingMethod = contractIdVersion match {
-    case v1: CantonContractIdV1Version => v1.contractHashingMethod
-    // TODO(#23969) review hashing method for V2
-    case _: CantonContractIdV2Version => HashingMethod.UpgradeFriendly
-  }
+  val contractHashingMethod: HashingMethod = contractIdVersion.contractHashingMethod
 
   def relativeSuffixForLocalContract(
       contractSalt: ContractSalt,

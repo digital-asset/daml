@@ -355,7 +355,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
   private[this] val helperCId: Value.ContractId =
     Value.ContractId.V1(crypto.Hash.hashPrivateKey("Helper"))
 
-  private[this] val emptyNestedValue = Value.ValueRecord(None, ImmArray(None -> Value.ValueNone))
+  private[this] val emptyNestedValue = Value.ValueRecord(None, ImmArray.empty)
 
   private[this] val keyValue = Value.ValueRecord(
     None,
@@ -762,7 +762,6 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
             "contract observers",
             "key",
             "maintainers",
-            "view",
             "ends test",
           )
         }

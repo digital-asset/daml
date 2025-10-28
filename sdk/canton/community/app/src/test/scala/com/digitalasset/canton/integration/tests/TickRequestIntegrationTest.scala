@@ -139,7 +139,8 @@ sealed trait TickRequestIntegrationTest
           )
         )
 
-        participants.all.dars.upload(CantonExamplesPath)
+        participants.all.dars.upload(CantonExamplesPath, synchronizerId = daId)
+        participants.all.dars.upload(CantonExamplesPath, synchronizerId = acmeId)
         participant1.parties.enable("Alice", synchronizer = daName)
         participant2.parties.enable("Bob", synchronizer = daName)
         participant1.parties.enable("Alice", synchronizer = acmeName)

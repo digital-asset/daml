@@ -13,7 +13,6 @@ import com.digitalasset.canton.crypto
 import com.digitalasset.canton.crypto.KeyName
 import com.digitalasset.canton.crypto.kms.aws.AwsKms
 import com.digitalasset.canton.crypto.kms.driver.api.v1.*
-import com.digitalasset.canton.crypto.kms.driver.api.v1.SigningKeySpec.EcSecp256k1
 import com.digitalasset.canton.crypto.kms.driver.v1.KmsDriverSpecsConverter
 import com.digitalasset.canton.crypto.kms.{KmsEncryptionPublicKey, KmsKeyId, KmsSigningPublicKey}
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -86,7 +85,7 @@ class AwsKmsDriverFactory extends KmsDriverFactory {
   */
 class AwsKmsDriver(kms: AwsKms)(implicit ec: ExecutionContext) extends KmsDriver {
 
-  private def mapErr[A, E](operation: String)(
+  private def mapErr[A](operation: String)(
       result: => EitherT[Future, String, A]
   ): Future[A] =
     EitherTUtil.toFuture(
@@ -103,16 +102,24 @@ class AwsKmsDriver(kms: AwsKms)(implicit ec: ExecutionContext) extends KmsDriver
   override def health: Future[KmsDriverHealth] = Future.successful(KmsDriverHealth.Ok)
 
   override def supportedSigningKeySpecs: Set[SigningKeySpec] =
-    Set(SigningKeySpec.EcP256, SigningKeySpec.EcP384, EcSecp256k1)
+    AwsKms.supportedSigningKeySpecs.forgetNE.map(
+      KmsDriverSpecsConverter.convertToDriverSigningKeySpec
+    )
 
   override def supportedSigningAlgoSpecs: Set[SigningAlgoSpec] =
-    Set(SigningAlgoSpec.EcDsaSha256, SigningAlgoSpec.EcDsaSha384)
+    AwsKms.supportedSigningAlgoSpecs.forgetNE.map(
+      KmsDriverSpecsConverter.convertToDriverSigningAlgoSpec
+    )
 
-  override def supportedEncryptionKeySpecs: Set[EncryptionKeySpec] = Set(EncryptionKeySpec.Rsa2048)
+  override def supportedEncryptionKeySpecs: Set[EncryptionKeySpec] =
+    AwsKms.supportedEncryptionKeySpecs.forgetNE.map(
+      KmsDriverSpecsConverter.convertToDriverEncryptionKeySpec
+    )
 
-  override def supportedEncryptionAlgoSpecs: Set[EncryptionAlgoSpec] = Set(
-    EncryptionAlgoSpec.RsaEsOaepSha256
-  )
+  override def supportedEncryptionAlgoSpecs: Set[EncryptionAlgoSpec] =
+    AwsKms.supportedEncryptionAlgoSpecs.forgetNE.map(
+      KmsDriverSpecsConverter.convertToDriverEncryptionAlgoSpec
+    )
 
   override def generateSigningKeyPair(
       signingKeySpec: SigningKeySpec,
@@ -261,13 +268,13 @@ class AwsKmsDriver(kms: AwsKms)(implicit ec: ExecutionContext) extends KmsDriver
             .leftMap(_.toString)
             .subflatMap {
               case KmsEncryptionPublicKey(key, spec) =>
-                KmsDriverSpecsConverter
+                val convertedSpec = KmsDriverSpecsConverter
                   .convertToDriverEncryptionKeySpec(spec)
-                  .map(spec => PublicKey(key.toByteArray, spec))
+                Right(PublicKey(key.toByteArray, convertedSpec))
               case KmsSigningPublicKey(key, spec) =>
-                KmsDriverSpecsConverter
+                val convertedSpec = KmsDriverSpecsConverter
                   .convertToDriverSigningKeySpec(spec)
-                  .map(spec => PublicKey(key.toByteArray, spec))
+                Right(PublicKey(key.toByteArray, convertedSpec))
               case unknownKey => Left(s"Invalid public key: $unknownKey")
             }
             .failOnShutdownToAbortException(functionFullName)

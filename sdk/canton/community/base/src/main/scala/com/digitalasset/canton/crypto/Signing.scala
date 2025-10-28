@@ -112,15 +112,14 @@ trait SigningOps {
 /** Signing operations that require access to stored private keys. */
 trait SigningPrivateOps {
 
-  def signingAlgorithmSpecs: CryptoScheme[SigningAlgorithmSpec]
-  def signingKeySpecs: CryptoScheme[SigningKeySpec]
+  def signingSchemes: SigningCryptoSchemes
 
   /** Signs the given hash using the referenced private signing key. */
   def sign(
       hash: Hash,
       signingKeyId: Fingerprint,
       usage: NonEmpty[Set[SigningKeyUsage]],
-      signingAlgorithmSpec: SigningAlgorithmSpec = signingAlgorithmSpecs.default,
+      signingAlgorithmSpec: SigningAlgorithmSpec = signingSchemes.algorithmSpecs.default,
   )(implicit
       tc: TraceContext
   ): EitherT[FutureUnlessShutdown, SigningError, Signature] =
@@ -131,14 +130,14 @@ trait SigningPrivateOps {
       bytes: ByteString,
       signingKeyId: Fingerprint,
       usage: NonEmpty[Set[SigningKeyUsage]],
-      signingAlgorithmSpec: SigningAlgorithmSpec = signingAlgorithmSpecs.default,
+      signingAlgorithmSpec: SigningAlgorithmSpec = signingSchemes.algorithmSpecs.default,
   )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, SigningError, Signature]
 
   /** Generates a new signing key pair with the given scheme and optional name, stores the private
     * key and returns the public key.
     */
   def generateSigningKey(
-      keySpec: SigningKeySpec = signingKeySpecs.default,
+      keySpec: SigningKeySpec = signingSchemes.keySpecs.default,
       usage: NonEmpty[Set[SigningKeyUsage]],
       name: Option[KeyName] = None,
   )(implicit
@@ -1010,6 +1009,11 @@ sealed trait SigningAlgorithmSpec
   def supportedSigningKeySpecs: NonEmpty[Set[SigningKeySpec]]
   def supportedSignatureFormats: NonEmpty[Set[SignatureFormat]]
   def toProtoEnum: v30.SigningAlgorithmSpec
+
+  /** Approximate signature size in bytes. The actual size may depend on the format.
+    */
+  // TODO(i28366): Add a test
+  def approximateSignatureSize: Int
   override val pretty: Pretty[this.type] = prettyOfString(_.name)
 }
 
@@ -1032,6 +1036,7 @@ object SigningAlgorithmSpec {
       NonEmpty.mk(Set, SignatureFormat.Concat)
     override def toProtoEnum: v30.SigningAlgorithmSpec =
       v30.SigningAlgorithmSpec.SIGNING_ALGORITHM_SPEC_ED25519
+    override def approximateSignatureSize: Int = 64
   }
 
   /** Elliptic Curve Digital Signature Algorithm with SHA256 as defined in
@@ -1045,6 +1050,7 @@ object SigningAlgorithmSpec {
       NonEmpty.mk(Set, SignatureFormat.Der)
     override def toProtoEnum: v30.SigningAlgorithmSpec =
       v30.SigningAlgorithmSpec.SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_256
+    override def approximateSignatureSize: Int = 64
   }
 
   /** Elliptic Curve Digital Signature Algorithm with SHA384 as defined in
@@ -1058,6 +1064,7 @@ object SigningAlgorithmSpec {
       NonEmpty.mk(Set, SignatureFormat.Der)
     override def toProtoEnum: v30.SigningAlgorithmSpec =
       v30.SigningAlgorithmSpec.SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_384
+    override def approximateSignatureSize: Int = 96
   }
 
   def toProtoEnumOption(

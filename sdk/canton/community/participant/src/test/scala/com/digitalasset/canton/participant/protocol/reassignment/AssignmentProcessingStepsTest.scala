@@ -22,6 +22,7 @@ import com.digitalasset.canton.data.*
 import com.digitalasset.canton.data.ViewType.AssignmentViewType
 import com.digitalasset.canton.lifecycle.{DefaultPromiseUnlessShutdownFactory, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.LogEntry
+import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.participant.ledger.api.{LedgerApiIndexer, LedgerApiStore}
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
@@ -196,8 +197,7 @@ final class AssignmentProcessingStepsTest
       ledgerApiStore = Eval.now(mock[LedgerApiStore]),
       logicalSyncPersistentState = logical,
       loggerFactory = loggerFactory,
-      exitOnFatalFailures = true,
-      disableUpgradeValidation = false,
+      parameters = ParticipantNodeParameters.forTestingOnly(testedProtocolVersion),
       timeouts = timeouts,
       futureSupervisor = futureSupervisor,
     )
@@ -543,6 +543,7 @@ final class AssignmentProcessingStepsTest
       val viewWithMetadata = (
         WithRecipients(parsedRequest.fullViewTree, parsedRequest.recipients),
         parsedRequest.signatureO,
+        (),
       )
       for {
         result <-

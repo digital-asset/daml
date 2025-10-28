@@ -129,6 +129,14 @@ trait QueryStrategy {
     cSQL"= ANY($longArray)"
   }
 
+  /** ANY SQL clause generation for a number of smallint values
+    */
+  def anyOfSmallInts(ints: Iterable[Int]): CompositeSql = {
+    val intArray: Array[java.lang.Integer] =
+      ints.view.map(Int.box).toArray
+    cSQL"= ANY($intArray)"
+  }
+
   /** ANY SQL clause generation for a number of String values
     */
   def anyOfStrings(strings: Iterable[String]): CompositeSql = {

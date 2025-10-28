@@ -48,7 +48,8 @@ final class PartyToParticipantDeclarativeIntegrationTest
 
       participants.all.synchronizers.connect_local(sequencer1, daName)
       participants.all.synchronizers.connect_local(sequencer2, acmeName)
-      participants.all.dars.upload(CantonExamplesPath)
+      participants.all.dars.upload(CantonExamplesPath, synchronizerId = daId)
+      participants.all.dars.upload(CantonExamplesPath, synchronizerId = acmeId)
     }
 
   "Party to participant declarative" should {

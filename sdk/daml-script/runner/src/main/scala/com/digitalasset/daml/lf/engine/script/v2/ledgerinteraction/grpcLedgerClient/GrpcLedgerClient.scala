@@ -174,7 +174,7 @@ class GrpcLedgerClient(
         Seq(
           CumulativeFilter(
             IdentifierFilter.InterfaceFilter(
-              InterfaceFilter(Some(toApiIdentifier(interfaceId)), true)
+              InterfaceFilter(Some(toApiIdentifier(interfaceId)), true, false)
             )
           )
         )
@@ -377,6 +377,7 @@ class GrpcLedgerClient(
           templateId = Some(toApiIdentifier(tmplId)),
           contractId = cid.coid,
           createdEventBlob = blob.toByteString,
+          synchronizerId = "",
         )
       }
     for {
@@ -390,16 +391,15 @@ class GrpcLedgerClient(
         prefetchContractKeys.traverse(toPrefetchContractKey)
       )
 
-      apiCommands = Commands(
-        actAs = actAs.toList,
-        readAs = readAs.toList,
-        commands = ledgerCommands,
-        userId = userId.getOrElse(""),
-        commandId = UUID.randomUUID.toString,
-        disclosedContracts = ledgerDisclosures,
-        prefetchContractKeys = ledgerPrefetchContractKeys,
-        packageIdSelectionPreference = optPackagePreference.getOrElse(List.empty),
-      )
+      apiCommands = Commands.defaultInstance
+        .withActAs(actAs.toList)
+        .withReadAs(readAs.toList)
+        .withCommands(ledgerCommands)
+        .withUserId(userId.getOrElse(""))
+        .withCommandId(UUID.randomUUID.toString)
+        .withDisclosedContracts(ledgerDisclosures)
+        .withPrefetchContractKeys(ledgerPrefetchContractKeys)
+        .withPackageIdSelectionPreference(optPackagePreference.getOrElse(List.empty))
       eResp <- grpcClient.commandService
         .submitAndWaitForTransaction(apiCommands, TRANSACTION_SHAPE_LEDGER_EFFECTS)
 
@@ -524,7 +524,7 @@ class GrpcLedgerClient(
       case command.CreateCommand(tmplRef, argument) =>
         for {
           arg <- lfValueToApiRecord(true, argument)
-        } yield Command().withCreate(
+        } yield Command.defaultInstance.withCreate(
           CreateCommand(
             Some(toApiIdentifierUpgrades(tmplRef, cmd.explicitPackageId)),
             Some(arg),
@@ -533,7 +533,7 @@ class GrpcLedgerClient(
       case command.ExerciseCommand(typeRef, contractId, choice, argument) =>
         for {
           arg <- lfValueToApiValue(true, argument)
-        } yield Command().withExercise(
+        } yield Command.defaultInstance.withExercise(
           // TODO: https://github.com/digital-asset/daml/issues/14747
           //  Fix once the new field interface_id have been added to the API Exercise Command
           ExerciseCommand(
@@ -547,7 +547,7 @@ class GrpcLedgerClient(
         for {
           key <- lfValueToApiValue(true, key)
           argument <- lfValueToApiValue(true, argument)
-        } yield Command().withExerciseByKey(
+        } yield Command.defaultInstance.withExerciseByKey(
           ExerciseByKeyCommand(
             Some(toApiIdentifierUpgrades(tmplRef, cmd.explicitPackageId)),
             Some(key),
@@ -559,7 +559,7 @@ class GrpcLedgerClient(
         for {
           template <- lfValueToApiRecord(true, template)
           argument <- lfValueToApiValue(true, argument)
-        } yield Command().withCreateAndExercise(
+        } yield Command.defaultInstance.withCreateAndExercise(
           CreateAndExerciseCommand(
             Some(toApiIdentifierUpgrades(tmplRef, cmd.explicitPackageId)),
             Some(template),

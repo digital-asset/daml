@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf
 package stablepackages
 
 import com.daml.bazeltools.BazelRunfiles
-import com.digitalasset.daml.lf.archive.UniversalArchiveDecoder
+import com.digitalasset.daml.lf.archive.DarDecoder
 import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import org.scalatest._
 import org.scalatest.matchers.should.Matchers
@@ -36,7 +36,7 @@ class StablePackageTest(majorLanguageVersion: LanguageMajorVersion)
     // We rely on the fact a dar generated with target x.dev contains all the stable packages
     lazy val darFile =
       resource(rlocation(s"daml-lf/stable-packages/Simple-v${majorLanguageVersion.pretty}dev.dar"))
-    lazy val depPkgs = UniversalArchiveDecoder.assertReadFile(darFile).dependencies.toMap
+    lazy val depPkgs = DarDecoder.assertReadArchiveFromFile(darFile).dependencies.toMap
 
     // This should be all stable packages + `daml-prim` + `daml-stdlib`
     assert(depPkgs.size == stablePackages.allPackages.size + 2)

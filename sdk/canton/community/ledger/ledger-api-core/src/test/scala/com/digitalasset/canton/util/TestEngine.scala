@@ -6,6 +6,8 @@ package com.digitalasset.canton.util
 import cats.implicits.toTraverseOps
 import com.daml.ledger.api.v2.commands.Commands.DeduplicationPeriod.Empty
 import com.daml.logging.LoggingContext
+import com.digitalasset.canton.FutureHelpers
+import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.crypto.{HashOps, HmacOps, Salt, TestSalt}
 import com.digitalasset.canton.ledger.api.validation.ValidateUpgradingPackageResolutions.ValidatedCommandPackageResolutionsSnapshot
@@ -14,9 +16,11 @@ import com.digitalasset.canton.ledger.api.validation.{
   ValidateUpgradingPackageResolutions,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.logging.NoLogging.noTracingLogger
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NoLogging}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.TestContractHasher.SyncContractHasher
 import com.digitalasset.canton.util.TestEngine.{InMemoryPackageStore, TxAndMeta}
 import com.digitalasset.daml.lf.archive
 import com.digitalasset.daml.lf.archive.DamlLf
@@ -46,6 +50,7 @@ class TestEngine(
     userId: String = "TestUserId",
     commandId: String = "TestCmdId",
     iterationsBetweenInterruptions: Long = 1000,
+    cantonContractIdVersion: CantonContractIdV1Version = CantonContractIdVersion.maxV1,
 ) extends EitherValues
     with OptionValues {
 
@@ -90,7 +95,6 @@ class TestEngine(
   private val testInstant = Instant.now
   private val testTimestamp = Time.Timestamp.assertFromInstant(testInstant)
   private val maxDeduplicationDuration = Duration.ZERO
-  private val cantonContractIdVersion = AuthenticatedContractIdVersionV11
 
   val engine = new Engine(
     EngineConfig(
@@ -98,6 +102,12 @@ class TestEngine(
       iterationsBetweenInterruptions = iterationsBetweenInterruptions,
     )
   )
+
+  def hashAndConsume(
+      c: LfNodeCreate,
+      method: Hash.HashingMethod = cantonContractIdVersion.contractHashingMethod,
+  ): LfHash =
+    consume(engine.hashCreateNode(c, identity, method))
 
   private val valueEnricher = new Enricher(engine)
 
@@ -210,8 +220,7 @@ class TestEngine(
           create.stakeholders,
           create.keyOpt.map(Versioned(create.version, _)),
         ),
-        contractHash = LegacyContractHash
-          .tryThinContractHash(create.coinst, cantonContractIdVersion.useUpgradeFriendlyHashing),
+        contractHash = hashAndConsume(create),
       )
       .value
 
@@ -222,7 +231,7 @@ class TestEngine(
     val suffixed = create.mapCid(_ => contractId)
 
     val authenticationData =
-      ContractAuthenticationDataV1(salt)(AuthenticatedContractIdVersionV11).toLfBytes
+      ContractAuthenticationDataV1(salt)(cantonContractIdVersion).toLfBytes
 
     FatContractInstance.fromCreateNode(
       suffixed,
@@ -235,10 +244,7 @@ class TestEngine(
       fat: FatContractInstance,
       recomputeIdVersion: CantonContractIdV1Version,
   ): Unicum = {
-
-    val contractHash =
-      LegacyContractHash.tryFatContractHash(fat, recomputeIdVersion.useUpgradeFriendlyHashing)
-
+    val contractHash = hashAndConsume(fat.toCreateNode, recomputeIdVersion.contractHashingMethod)
     unicumGenerator.recomputeUnicum(fat, recomputeIdVersion, contractHash).value
   }
 
@@ -349,9 +355,20 @@ class TestEngine(
 
 }
 
-object TestEngine {
+object TestEngine extends FutureHelpers with EitherValues {
 
   private type TxAndMeta = (SubmittedTransaction, Transaction.Metadata)
+
+  def syncContractHasher(packagePaths: String*): SyncContractHasher = {
+    val testEngine = new TestEngine(packagePaths)
+    val hasher = ContractHasher(testEngine.engine, testEngine.packageResolver)
+    new TestContractHasher.SyncContractHasher {
+      private val ec =
+        Threading.singleThreadedExecutor("TestEngine.syncContractHasher", noTracingLogger)
+      override def hash(create: LfNodeCreate, hashingMethod: Hash.HashingMethod): LfHash =
+        hasher.hash(create, hashingMethod)(ec, TraceContext.empty).value.futureValueUS.value
+    }
+  }
 
   final case class InMemoryPackageStore(
       packages: Map[PackageId, (DamlLf.Archive, Ast.Package)] = Map.empty

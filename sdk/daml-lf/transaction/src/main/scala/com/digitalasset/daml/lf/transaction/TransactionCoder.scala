@@ -7,8 +7,7 @@ package transaction
 import com.digitalasset.daml.lf.data.{BackStack, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.transaction.TransactionOuterClass.Node.NodeTypeCase
 import com.digitalasset.daml.lf.data.Ref.{Name, Party}
-import com.digitalasset.daml.lf.value.{Value, ValueOuterClass}
-import com.digitalasset.daml.lf.value.ValueCoder.{DecodeError, EncodeError, internal => ValueCoder}
+import com.digitalasset.daml.lf.value.{DecodeError, EncodeError, Value, ValueOuterClass}
 import com.daml.scalautil.Statement.discard
 import com.google.protobuf.{ByteString, ProtocolStringList}
 
@@ -17,7 +16,11 @@ import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.immutable.{HashMap, TreeSet}
 import scala.jdk.CollectionConverters._
 
-object TransactionCoder {
+object TransactionCoder extends TransactionCoder(allowNullCharacters = false)
+
+class TransactionCoder(allowNullCharacters: Boolean) {
+
+  val ValueCoder = new value.ValueCoder(allowNullCharacters = allowNullCharacters).internal
 
   /** Decode a contract instance from wire format
     *

@@ -5,9 +5,7 @@ package com.digitalasset.canton.crypto.provider.jce
 
 import cats.syntax.either.*
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import sun.security.ec.ECPrivateKeyImpl
 
 import java.security.spec.{InvalidKeySpecException, PKCS8EncodedKeySpec, X509EncodedKeySpec}
 import java.security.{
@@ -93,18 +91,6 @@ object JceJavaKeyConverter {
         javaPrivateKey <- Either
           .catchOnly[InvalidKeySpecException](keyFactory.generatePrivate(pkcs8KeySpec))
           .leftMap(err => JceJavaKeyConversionError.InvalidKey(show"$err"))
-        _ =
-          // There exists a race condition in ECPrivateKey before java 15
-          if (Runtime.version.feature < 15)
-            javaPrivateKey match {
-              case pk: ECPrivateKeyImpl =>
-                /* Force the initialization of the private key's internal array data structure.
-                 * This prevents concurrency problems later on during decryption, while generating the shared secret,
-                 * due to a race condition in getArrayS.
-                 */
-                pk.getArrayS.discard
-              case _ => ()
-            }
       } yield javaPrivateKey
     }
 

@@ -38,7 +38,7 @@ final case class TransactionConfirmationRequest(
       submissionTopologyTime: CantonTimestamp
   ): RootHashMessage[EmptyRootHashMessagePayload.type] = RootHashMessage(
     rootHash = rootHash,
-    synchronizerId = informeeMessage.synchronizerId,
+    psid = informeeMessage.psid,
     viewType = ViewType.TransactionViewType,
     submissionTopologyTimestamp = submissionTopologyTime,
     payload = EmptyRootHashMessagePayload,

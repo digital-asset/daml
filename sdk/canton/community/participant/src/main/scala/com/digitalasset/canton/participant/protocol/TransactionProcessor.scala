@@ -79,6 +79,7 @@ class TransactionProcessor(
     packageResolver: PackageResolver,
     override val testingConfig: TestingConfigInternal,
     promiseFactory: PromiseUnlessShutdownFactory,
+    messagePayloadLoggingEnabled: Boolean,
 )(implicit val ec: ExecutionContext)
     extends ProtocolProcessor[
       TransactionProcessingSteps.SubmissionParam,
@@ -108,7 +109,7 @@ class TransactionProcessor(
         crypto,
         metrics,
         damle.enrichTransaction,
-        damle.enrichCreateNode,
+        damle.enrichContract,
         new AuthorizationValidator(participantId),
         new InternalConsistencyChecker(
           loggerFactory
@@ -116,6 +117,7 @@ class TransactionProcessor(
         commandProgressTracker,
         loggerFactory,
         futureSupervisor,
+        messagePayloadLoggingEnabled,
       ),
       inFlightSubmissionSynchronizerTracker,
       ephemeral,
@@ -476,7 +478,7 @@ object TransactionProcessor {
   }
 
   final case class ViewParticipantDataError(
-      transactionId: TransactionId,
+      transactionId: UpdateId,
       viewHash: ViewHash,
       error: String,
   ) extends TransactionProcessorError {

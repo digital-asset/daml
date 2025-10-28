@@ -38,9 +38,11 @@ trait CommitmentTestUtil extends BaseTest with SortedReconciliationIntervalsHelp
       environment.participant1.config.topology.topologyTransactionRegistrationTimeout.asFiniteApproximation.toJava
     )
 
-  protected def deployOnP1P2AndCheckContract(
+  protected def deployOnTwoParticipantsAndCheckContract(
       synchronizerId: SynchronizerId,
       iouContract: AtomicReference[Iou.Contract],
+      firstParticipant: LocalParticipantReference,
+      secondParticipant: LocalParticipantReference,
       observers: Seq[LocalParticipantReference] = Seq.empty,
   )(implicit
       env: TestConsoleEnvironment,
@@ -50,9 +52,9 @@ trait CommitmentTestUtil extends BaseTest with SortedReconciliationIntervalsHelp
 
     logger.info(s"Deploying the iou contract on both participants")
     val iou = IouSyntax
-      .createIou(participant1, Some(synchronizerId))(
-        participant1.adminParty,
-        participant2.adminParty,
+      .createIou(firstParticipant, Some(synchronizerId))(
+        firstParticipant.adminParty,
+        secondParticipant.adminParty,
         observers = observers.toList.map(_.adminParty),
       )
 
@@ -60,7 +62,7 @@ trait CommitmentTestUtil extends BaseTest with SortedReconciliationIntervalsHelp
 
     logger.info(s"Waiting for the participants to see the contract in their ACS")
     eventually() {
-      (Seq(participant1, participant2) ++ observers).foreach(p =>
+      (Seq(firstParticipant, secondParticipant) ++ observers).foreach(p =>
         p.ledger_api.state.acs
           .of_all()
           .filter(_.contractId == iou.id.contractId) should not be empty
@@ -90,16 +92,43 @@ trait CommitmentTestUtil extends BaseTest with SortedReconciliationIntervalsHelp
   def deployThreeAndCheck(
       synchronizerId: SynchronizerId,
       alreadyDeployedContracts: AtomicReference[Seq[Iou.Contract]],
+      firstParticipant: LocalParticipantReference,
+      secondParticipant: LocalParticipantReference,
   )(implicit
       env: TestConsoleEnvironment,
       intervalDuration: IntervalDuration,
   ): (Seq[Iou.Contract], CommitmentPeriod, AcsCommitment.HashedCommitmentType) =
-    deployManyAndCheck(synchronizerId, PositiveInt.three, alreadyDeployedContracts)
+    deployManyAndCheck(
+      synchronizerId,
+      PositiveInt.three,
+      alreadyDeployedContracts,
+      firstParticipant,
+      secondParticipant,
+    )
+
+  def deployOneAndCheck(
+      synchronizerId: SynchronizerId,
+      alreadyDeployedContracts: AtomicReference[Seq[Iou.Contract]],
+      firstParticipant: LocalParticipantReference,
+      secondParticipant: LocalParticipantReference,
+  )(implicit
+      env: TestConsoleEnvironment,
+      intervalDuration: IntervalDuration,
+  ): (Seq[Iou.Contract], CommitmentPeriod, AcsCommitment.HashedCommitmentType) =
+    deployManyAndCheck(
+      synchronizerId,
+      PositiveInt.one,
+      alreadyDeployedContracts,
+      firstParticipant,
+      secondParticipant,
+    )
 
   def deployManyAndCheck(
       synchronizerId: SynchronizerId,
       nContracts: PositiveInt,
       alreadyDeployedContracts: AtomicReference[Seq[Iou.Contract]],
+      firstParticipant: LocalParticipantReference,
+      secondParticipant: LocalParticipantReference,
   )(implicit
       env: TestConsoleEnvironment,
       intervalDuration: IntervalDuration,
@@ -112,20 +141,27 @@ trait CommitmentTestUtil extends BaseTest with SortedReconciliationIntervalsHelp
     simClock.advanceTo(simClock.uniqueTime().immediateSuccessor)
 
     val createdCids =
-      (1 to nContracts.value).map(_ => deployOnP1P2AndCheckContract(synchronizerId, iouContract))
+      (1 to nContracts.value).map(_ =>
+        deployOnTwoParticipantsAndCheckContract(
+          synchronizerId,
+          iouContract,
+          firstParticipant,
+          secondParticipant,
+        )
+      )
 
     val tick1 = tickAfter(simClock.uniqueTime())
     simClock.advanceTo(tick1.forgetRefinement.immediateSuccessor)
 
-    participant1.testing.fetch_synchronizer_times()
+    firstParticipant.testing.fetch_synchronizer_times()
 
     val p1Computed = eventually() {
-      val p1Computed = participant1.commitments
+      val p1Computed = firstParticipant.commitments
         .computed(
           daName,
           tick1.toInstant.minusMillis(1),
           tick1.toInstant,
-          Some(participant2),
+          Some(secondParticipant),
         )
       p1Computed.size shouldBe 1
       p1Computed

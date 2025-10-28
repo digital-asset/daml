@@ -28,7 +28,6 @@ import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.PackagePreferenceBackend
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
 import com.digitalasset.canton.platform.apiserver.execution.*
-import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.ContractAuthenticatorFn
 import com.digitalasset.canton.platform.apiserver.services.*
 import com.digitalasset.canton.platform.apiserver.services.admin.*
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.InteractiveSubmissionServiceImpl
@@ -41,11 +40,13 @@ import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTr
 import com.digitalasset.canton.platform.config.{
   CommandServiceConfig,
   InteractiveSubmissionServiceConfig,
+  PackageServiceConfig,
   PartyManagementServiceConfig,
   UserManagementServiceConfig,
 }
 import com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ContractValidator.ContractAuthenticatorFn
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.*
 import io.grpc.BindableService
@@ -116,6 +117,7 @@ object ApiServices {
       maxDeduplicationDuration: config.NonNegativeFiniteDuration,
       userManagementServiceConfig: UserManagementServiceConfig,
       partyManagementServiceConfig: PartyManagementServiceConfig,
+      packageServiceConfig: PackageServiceConfig,
       engineLoggingConfig: EngineLoggingConfig,
       contractAuthenticator: ContractAuthenticatorFn,
       telemetry: Telemetry,
@@ -171,7 +173,12 @@ object ApiServices {
         )
         val apiEventQueryService =
           new ApiEventQueryService(eventQueryService, telemetry, loggerFactory)
-        val apiPackageService = new ApiPackageService(syncService, telemetry, loggerFactory)
+        val apiPackageService = new ApiPackageService(
+          syncService,
+          packageServiceConfig,
+          telemetry,
+          loggerFactory,
+        )
         val apiUpdateService =
           new ApiUpdateService(
             updateService,
@@ -193,6 +200,7 @@ object ApiServices {
             ledgerFeatures,
             userManagementServiceConfig,
             partyManagementServiceConfig,
+            packageServiceConfig,
             telemetry,
             loggerFactory,
           )

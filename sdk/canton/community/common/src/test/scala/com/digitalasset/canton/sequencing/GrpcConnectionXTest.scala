@@ -3,7 +3,9 @@
 
 package com.digitalasset.canton.sequencing
 
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.health.{HealthElement, HealthListener}
+import com.digitalasset.canton.metrics.CommonMockMetrics
 import com.digitalasset.canton.networking.grpc.GrpcError.GrpcServiceUnavailable
 import com.digitalasset.canton.sequencing.ConnectionX.{ConnectionXError, ConnectionXState}
 import com.digitalasset.canton.sequencing.SequencerConnectionXStub.SequencerConnectionXStubError
@@ -44,7 +46,7 @@ class GrpcConnectionXTest
 
     "fail gRPC calls with invalid state if not started" in {
       ResourceUtil.withResource(mkConnection()) { connection =>
-        val stub = stubFactory.createStub(connection)
+        val stub = stubFactory.createStub(connection, MetricsContext.Empty)
         val result = stub.getApiName().futureValueUS
 
         inside(result) {
@@ -62,7 +64,7 @@ class GrpcConnectionXTest
       ResourceUtil.withResource(mkConnection()) { connection =>
         connection.start()
 
-        val stub = stubFactory.createStub(connection)
+        val stub = stubFactory.createStub(connection, MetricsContext.Empty)
 
         val result = loggerFactory.assertLogs(
           stub.getApiName().futureValueUS,
@@ -88,6 +90,7 @@ class GrpcConnectionXTest
 
     GrpcConnectionX(
       config,
+      CommonMockMetrics.sequencerClient.connectionPool,
       timeouts,
       loggerFactory,
     )

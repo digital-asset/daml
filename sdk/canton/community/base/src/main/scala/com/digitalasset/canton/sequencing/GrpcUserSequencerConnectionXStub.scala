@@ -6,11 +6,13 @@ package com.digitalasset.canton.sequencing
 import cats.data.EitherT
 import cats.implicits.{catsSyntaxEither, toTraverseOps}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasRunOnClosing}
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcLogPolicy
 import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, GrpcError}
 import com.digitalasset.canton.sequencer.api.v30.SequencerServiceGrpc.SequencerServiceStub
 import com.digitalasset.canton.sequencer.api.v30.{
@@ -33,6 +35,7 @@ import com.digitalasset.canton.sequencing.protocol.{
   SignedContent,
   SubmissionRequest,
   SubscriptionRequest,
+  TopologyStateForInitHashResponse,
   TopologyStateForInitRequest,
   TopologyStateForInitResponse,
 }
@@ -54,6 +57,7 @@ import scala.util.{Failure, Success}
 class GrpcUserSequencerConnectionXStub(
     connection: GrpcConnectionX,
     sequencerSvcFactory: Channel => SequencerServiceStub,
+    metricsContext: MetricsContext,
     timeouts: ProcessingTimeout,
     protected override val loggerFactory: NamedLoggerFactory,
     protocolVersion: ProtocolVersion,
@@ -79,6 +83,7 @@ class GrpcUserSequencerConnectionXStub(
           retryPolicy = retryPolicy,
           logPolicy = logPolicy,
           timeout = timeout,
+          metricsContext = metricsContext.withExtraLabels("endpoint" -> "SendAsync"),
         )(
           _.sendAsync(
             SendAsyncRequest(signedSubmissionRequest = request.toByteString)
@@ -107,6 +112,7 @@ class GrpcUserSequencerConnectionXStub(
           retryPolicy = retryPolicy,
           logPolicy = logPolicy,
           timeout = timeout,
+          metricsContext = metricsContext.withExtraLabels("endpoint" -> "AcknowledgeSigned"),
         )(_.acknowledgeSigned(acknowledgeRequest))
         .leftMap[SequencerConnectionXStubError](
           SequencerConnectionXStubError.ConnectionError.apply
@@ -133,6 +139,7 @@ class GrpcUserSequencerConnectionXStub(
         retryPolicy = retryPolicy,
         logPolicy = logPolicy,
         timeout = timeout,
+        metricsContext = metricsContext.withExtraLabels("endpoint" -> "GetTrafficStateForMember"),
       )(_.getTrafficStateForMember(request.toProtoV30))
       .leftMap[SequencerConnectionXStubError](
         SequencerConnectionXStubError.ConnectionError.apply
@@ -160,6 +167,7 @@ class GrpcUserSequencerConnectionXStub(
           retryPolicy = retryPolicy,
           logPolicy = logPolicy,
           timeout = timeout,
+          metricsContext = metricsContext.withExtraLabels("endpoint" -> "GetTime"),
         )(_.getTime(com.digitalasset.canton.sequencer.api.v30.GetTimeRequest()))
         .leftMap[SequencerConnectionXStubError](
           SequencerConnectionXStubError.ConnectionError.apply
@@ -180,12 +188,20 @@ class GrpcUserSequencerConnectionXStub(
       timeout: Duration,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SequencerConnectionXStubError, TopologyStateForInitResponse] =
+  ): EitherT[
+    FutureUnlessShutdown,
+    SequencerConnectionXStubError,
+    TopologyStateForInitResponse,
+  ] =
     // TODO(i26281): Maybe use a `KillSwitch` to enforce a timeout
     for {
       source <-
         connection
-          .serverStreamingRequestPekko(stubFactory = sequencerSvcFactory)(
+          .serverStreamingRequestPekko(
+            stubFactory = sequencerSvcFactory,
+            metricsContext =
+              metricsContext.withExtraLabels("endpoint" -> "DownloadTopologyStateForInit"),
+          )(
             request = request.toProtoV30,
             send = _.downloadTopologyStateForInit,
           )
@@ -266,7 +282,41 @@ class GrpcUserSequencerConnectionXStub(
       .serverStreamingRequest(
         stubFactory = sequencerSvcFactory,
         observerFactory = mkSubscription,
+        metricsContext = metricsContext.withExtraLabels("endpoint" -> "Subscribe"),
       )(getObserver = _.observer)(_.subscribe(request.toProtoV30, _))
       .leftMap[SequencerConnectionXStubError](SequencerConnectionXStubError.ConnectionError.apply)
   }
+
+  override def downloadTopologyStateForInitHash(
+      request: TopologyStateForInitRequest,
+      timeout: Duration,
+      retryPolicy: GrpcError => Boolean,
+      logPolicy: GrpcLogPolicy,
+  )(implicit traceContext: TraceContext): EitherT[
+    FutureUnlessShutdown,
+    SequencerConnectionXStubError,
+    TopologyStateForInitHashResponse,
+  ] =
+    for {
+      responseP <- connection
+        .sendRequest(
+          requestDescription = "download-topology-state-for-init-hash",
+          stubFactory = sequencerSvcFactory,
+          retryPolicy = retryPolicy,
+          logPolicy = logPolicy,
+          timeout = timeout,
+          metricsContext = metricsContext.withExtraLabels(
+            "endpoint" -> "DownloadTopologyStateForInitHash"
+          ),
+        )(_.downloadTopologyStateForInitHash(request.toHashProtoV30))
+        .leftMap[SequencerConnectionXStubError](
+          SequencerConnectionXStubError.ConnectionError.apply
+        )
+      responseE = TopologyStateForInitHashResponse.fromProtoV30(responseP)
+      response <- EitherT.fromEither[FutureUnlessShutdown](
+        responseE.leftMap[SequencerConnectionXStubError](err =>
+          SequencerConnectionXStubError.DeserializationError(err.message)
+        )
+      )
+    } yield response
 }

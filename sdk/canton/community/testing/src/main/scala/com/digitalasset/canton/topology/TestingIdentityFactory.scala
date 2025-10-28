@@ -408,31 +408,14 @@ class TestingIdentityFactory(
 
         override def psid: PhysicalSynchronizerId = dId
 
-        override def trySnapshot(timestamp: CantonTimestamp)(implicit
+        override protected[topology] def trySnapshot(timestamp: CantonTimestamp)(implicit
             traceContext: TraceContext
-        ): TopologySnapshot = {
+        ): TopologySnapshotLoader = {
           require(
             timestamp <= upToInclusive,
             s"Topology information not yet available for $timestamp, known until $upToInclusive",
           )
           topologySnapshot(synchronizerId, timestampForSynchronizerParameters = timestamp)
-        }
-
-        override def tryHypotheticalSnapshot(
-            timestamp: CantonTimestamp,
-            desiredTimestamp: CantonTimestamp,
-        )(implicit
-            traceContext: TraceContext
-        ): TopologySnapshot = {
-          require(
-            timestamp <= upToInclusive,
-            s"Topology information not yet available for $timestamp",
-          )
-          topologySnapshot(
-            synchronizerId,
-            timestampForSynchronizerParameters = timestamp,
-            timestampOfSnapshot = desiredTimestamp,
-          )
         }
 
         override def currentSnapshotApproximation(implicit
@@ -488,16 +471,29 @@ class TestingIdentityFactory(
 
         override def hypotheticalSnapshot(
             timestamp: CantonTimestamp,
-            desiredSnapshot: CantonTimestamp,
+            desiredTimestamp: CantonTimestamp,
         )(implicit
             traceContext: TraceContext
         ): FutureUnlessShutdown[TopologySnapshot] =
-          FutureUnlessShutdown.fromTry(Try(tryHypotheticalSnapshot(timestamp, desiredSnapshot)))
+          FutureUnlessShutdown.fromTry(Try {
+            require(
+              timestamp <= upToInclusive,
+              s"Topology information not yet available for $timestamp",
+            )
+            topologySnapshot(
+              synchronizerId,
+              timestampForSynchronizerParameters = timestamp,
+              timestampOfSnapshot = desiredTimestamp,
+            )
+          })
 
         override def awaitMaxTimestamp(sequencedTime: SequencedTime)(implicit
             traceContext: TraceContext
         ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]] =
           FutureUnlessShutdown.pure(None)
+
+        override def headSnapshot(implicit traceContext: TraceContext): TopologySnapshot =
+          trySnapshot(topologyKnownUntilTimestamp)
       })(TraceContext.empty)
     )
     ips
@@ -887,9 +883,15 @@ class TestingOwnerWithKeys(
       )
     )
 
-    val p1_dtc = mkAdd(SynchronizerTrustCertificate(participant1, synchronizerId))
-    val p2_dtc = mkAdd(SynchronizerTrustCertificate(participant2, synchronizerId))
-    val p3_dtc = mkAdd(SynchronizerTrustCertificate(participant3, synchronizerId))
+    val p1_dtc = mkAdd(
+      SynchronizerTrustCertificate(participant1, synchronizerId)
+    )
+    val p2_dtc = mkAdd(
+      SynchronizerTrustCertificate(participant2, synchronizerId)
+    )
+    val p3_dtc = mkAdd(
+      SynchronizerTrustCertificate(participant3, synchronizerId)
+    )
     val p1_otk = mkAddMultiKey(
       OwnerToKeyMapping
         .tryCreate(participant1, NonEmpty(Seq, EncryptionKeys.key1, SigningKeys.key1)),
@@ -923,14 +925,6 @@ class TestingOwnerWithKeys(
         ParticipantPermission.Confirmation,
         None,
         None,
-      )
-    )
-
-    val p1p1 = mkAdd(
-      PartyToParticipant.tryCreate(
-        PartyId(UniqueIdentifier.tryCreate("one", key1.id)),
-        PositiveInt.one,
-        Seq(HostingParticipant(participant1, ParticipantPermission.Submission)),
       )
     )
 

@@ -86,6 +86,7 @@ class DbLogicalSyncPersistentState(
     acsCounterParticipantConfigStore,
     timeouts,
     loggerFactory,
+    ledgerApiStore.map(_.stringInterningView),
   )
 
   override val acsInspection: AcsInspection =
@@ -174,6 +175,7 @@ class DbPhysicalSyncPersistentState(
       SynchronizerStore(physicalSynchronizerIdx.synchronizerId),
       staticSynchronizerParameters.protocolVersion,
       timeouts,
+      parameters.batchingConfig,
       loggerFactory,
     )
 
@@ -186,6 +188,7 @@ class DbPhysicalSyncPersistentState(
     staticSynchronizerParameters = staticSynchronizerParameters,
     store = topologyStore,
     outboxQueue = synchronizerOutboxQueue,
+    disableOptionalTopologyChecks = parameters.disableOptionalTopologyChecks,
     exitOnFatalFailures = parameters.exitOnFatalFailures,
     timeouts = timeouts,
     futureSupervisor = futureSupervisor,
@@ -205,8 +208,6 @@ class DbPhysicalSyncPersistentState(
         nextPackageIds,
         packageMetadataView,
         dryRunSnapshot,
-        acsInspections =
-          () => Map(logicalSyncPersistentState.lsid -> logicalSyncPersistentState.acsInspection),
         forceFlags,
         parameters.disableUpgradeValidation,
       )

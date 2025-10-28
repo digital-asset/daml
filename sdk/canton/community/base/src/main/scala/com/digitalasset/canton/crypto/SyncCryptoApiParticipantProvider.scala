@@ -81,13 +81,13 @@ class SyncCryptoApiParticipantProvider(
   }
 
   private def createSynchronizerCryptoClient(
-      synchronizerId: PhysicalSynchronizerId,
+      psid: PhysicalSynchronizerId,
       staticSynchronizerParameters: StaticSynchronizerParameters,
       synchronizerTopologyClient: SynchronizerTopologyClient,
   ) =
     SynchronizerCryptoClient.createWithOptionalSessionKeys(
       member,
-      synchronizerId,
+      psid,
       synchronizerTopologyClient,
       staticSynchronizerParameters,
       SynchronizerCrypto(crypto, staticSynchronizerParameters),
@@ -96,7 +96,7 @@ class SyncCryptoApiParticipantProvider(
       publicKeyConversionCacheConfig,
       timeouts,
       futureSupervisor,
-      loggerFactory.append("synchronizerId", synchronizerId.toString),
+      loggerFactory.append("psid", psid.toString),
     )
 
   private def getOrUpdate(
@@ -285,19 +285,6 @@ class SynchronizerCryptoClient private (
   ): FutureUnlessShutdown[SynchronizerSnapshotSyncCryptoApi] =
     ips.hypotheticalSnapshot(timestamp, desiredTimestamp).map(create)
 
-  override def trySnapshot(timestamp: CantonTimestamp)(implicit
-      traceContext: TraceContext
-  ): SynchronizerSnapshotSyncCryptoApi =
-    create(ips.trySnapshot(timestamp))
-
-  override def tryHypotheticalSnapshot(
-      timestamp: CantonTimestamp,
-      desiredTimestamp: CantonTimestamp,
-  )(implicit
-      traceContext: TraceContext
-  ): SynchronizerSnapshotSyncCryptoApi =
-    create(ips.tryHypotheticalSnapshot(timestamp, desiredTimestamp))
-
   override def headSnapshot(implicit
       traceContext: TraceContext
   ): SynchronizerSnapshotSyncCryptoApi =
@@ -314,6 +301,22 @@ class SynchronizerCryptoClient private (
       snapshot,
       crypto,
       syncCryptoSigner,
+      syncCryptoVerifier,
+      loggerFactory,
+    )
+
+  /** Similar to create but allows to provide a custom crypto signer. CAUTION: use only when you
+    * know what you are doing!
+    */
+  private[canton] def createWithCustomCryptoSigner(
+      snapshot: TopologySnapshot,
+      syncCryptoSignerMapper: SyncCryptoSigner => SyncCryptoSigner,
+  ): SynchronizerSnapshotSyncCryptoApi =
+    new SynchronizerSnapshotSyncCryptoApi(
+      psid,
+      snapshot,
+      crypto,
+      syncCryptoSignerMapper(syncCryptoSigner),
       syncCryptoVerifier,
       loggerFactory,
     )

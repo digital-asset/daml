@@ -565,6 +565,12 @@ object DynamicSynchronizerParameters extends VersioningCompanion[DynamicSynchron
     AcsCommitmentsCatchUpParameters(PositiveInt.tryCreate(5), PositiveInt.tryCreate(2))
   )
 
+  val confirmationResponseTimeoutBounds =
+    (NonNegativeFiniteDuration.tryOfSeconds(1), NonNegativeFiniteDuration.tryOfMinutes(5))
+
+  val mediatorReactionTimeoutBounds =
+    (NonNegativeFiniteDuration.tryOfSeconds(1), NonNegativeFiniteDuration.tryOfMinutes(5))
+
   /** Safely creates DynamicSynchronizerParameters.
     *
     * @return

@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant.synchronizer.grpc
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.*
 import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader
@@ -152,6 +153,13 @@ class GrpcSynchronizerRegistry(
     val sequencerConnections: SequencerConnections =
       config.sequencerConnections
 
+    val useNewConnectionPool = participantNodeParameters.sequencerClient.useNewConnectionPool
+
+    val synchronizerLoggerFactory = loggerFactory.append(
+      "synchronizerAlias",
+      config.synchronizerAlias.toString,
+    )
+
     val connectionPoolFactory = new GrpcSequencerConnectionXPoolFactory(
       clientProtocolVersions =
         ProtocolVersionCompatibility.supportedProtocols(participantNodeParameters),
@@ -161,22 +169,23 @@ class GrpcSynchronizerRegistry(
       clock = clock,
       crypto = cryptoApiProvider.crypto,
       seedForRandomnessO = testingConfig.sequencerTransportSeed,
+      metrics = metrics(config.synchronizerAlias).sequencerClient.connectionPool,
+      metricsContext = MetricsContext.Empty,
       futureSupervisor = futureSupervisor,
       timeouts = timeouts,
-      loggerFactory = loggerFactory,
+      loggerFactory = synchronizerLoggerFactory,
     )
 
     val connectionPoolE = connectionPoolFactory
       .createFromOldConfig(
-        config.sequencerConnections,
-        config.synchronizerId,
-        participantNodeParameters.tracing,
+        sequencerConnections = config.sequencerConnections,
+        expectedPSIdO = config.synchronizerId,
+        tracingConfig = participantNodeParameters.tracing,
+        name = if (useNewConnectionPool) "main" else "dummy",
       )
       .leftMap[SynchronizerRegistryError](error =>
         SynchronizerRegistryError.SynchronizerRegistryInternalError.InvalidState(error.toString)
       )
-
-    val useNewConnectionPool = participantNodeParameters.sequencerClient.useNewConnectionPool
 
     val runE = for {
       connectionPool <- connectionPoolE.toEitherT[FutureUnlessShutdown]
@@ -242,6 +251,7 @@ class GrpcSynchronizerRegistry(
                   config.sequencerConnections.sequencerTrustThreshold,
                   config.sequencerConnections.sequencerLivenessMargin,
                   config.sequencerConnections.submissionRequestAmplification,
+                  config.sequencerConnections.sequencerConnectionPoolDelays,
                 )
                 .leftMap(error =>
                   SynchronizerRegistryError.ConnectionErrors.FailedToConnectToSequencers
@@ -300,6 +310,7 @@ class GrpcSynchronizerRegistry(
             config.sequencerConnections.sequencerTrustThreshold,
             config.sequencerConnections.sequencerLivenessMargin,
             config.sequencerConnections.submissionRequestAmplification,
+            config.sequencerConnections.sequencerConnectionPoolDelays,
           )
           .map(connections => config.copy(sequencerConnections = connections))
 

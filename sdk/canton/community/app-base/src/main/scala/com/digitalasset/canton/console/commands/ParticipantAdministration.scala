@@ -106,6 +106,7 @@ private[console] object ParticipantCommands {
         runner: AdminCommandRunner,
         path: String,
         description: String,
+        synchronizerId: Option[SynchronizerId],
         vetAllPackages: Boolean,
         synchronizeVetting: Boolean,
         expectedMainPackageId: String,
@@ -117,8 +118,9 @@ private[console] object ParticipantCommands {
           ParticipantAdminCommands.Package
             .UploadDar(
               path,
-              vetAllPackages,
-              synchronizeVetting,
+              synchronizerId,
+              vetAllPackages = vetAllPackages,
+              synchronizeVetting = synchronizeVetting,
               description,
               expectedMainPackageId,
               requestHeaders,
@@ -141,6 +143,7 @@ private[console] object ParticipantCommands {
     def upload_many(
         runner: AdminCommandRunner,
         paths: Seq[String],
+        synchronizerId: Option[SynchronizerId],
         vetAllPackages: Boolean,
         synchronizeVetting: Boolean,
         requestHeaders: Map[String, String],
@@ -150,8 +153,9 @@ private[console] object ParticipantCommands {
         ParticipantAdminCommands.Package
           .UploadDar(
             paths.map(DarData(_, "", "")),
-            vetAllPackages,
-            synchronizeVetting,
+            synchronizerId,
+            vetAllPackages = vetAllPackages,
+            synchronizeVetting = synchronizeVetting,
             requestHeaders,
             logger,
           )
@@ -164,7 +168,7 @@ private[console] object ParticipantCommands {
     ): ConsoleCommandResult[String] =
       runner.adminCommand(
         ParticipantAdminCommands.Package
-          .ValidateDar(Some(path), logger)
+          .ValidateDar(Some(path), None, logger)
       )
 
   }
@@ -182,6 +186,8 @@ private[console] object ParticipantCommands {
         sequencerLivenessMargin: NonNegativeInt = NonNegativeInt.zero,
         submissionRequestAmplification: SubmissionRequestAmplification =
           SubmissionRequestAmplification.NoAmplification,
+        sequencerConnectionPoolDelays: SequencerConnectionPoolDelays =
+          SequencerConnectionPoolDelays.default,
     ): SynchronizerConnectionConfig =
       SynchronizerConnectionConfig(
         synchronizerAlias,
@@ -192,6 +198,7 @@ private[console] object ParticipantCommands {
           sequencerTrustThreshold,
           sequencerLivenessMargin,
           submissionRequestAmplification,
+          sequencerConnectionPoolDelays,
         ),
         manualConnect = manualConnect,
         psid,
@@ -1570,13 +1577,13 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         |In order to use Daml templates on a participant, the Dar must first be uploaded and then
         |vetted by the participant. Vetting will ensure that other participants can check whether they
         |can actually send a transaction referring to a particular Daml package and participant.
-        |Vetting is done by registering a VettedPackages topology transaction with the topology manager.
-        |By default, vetting happens automatically and this command waits for
-        |the vetting transaction to be successfully registered on all connected synchronizers.
-        |This is the safe default setting minimizing race conditions.
+        Packages must be vetted on each synchronizer by registering a VettedPackages topology transaction.
         |
-        |If vetAllPackages is true (default), the packages will all be vetted on all synchronizers the participant is registered.
+        |if synchronizerId is not set (default), the packages will be vetted, if the participant is connected to only one synchronizer.
         |If synchronizeVetting is true (default), then the command will block until the participant has observed the vetting transactions to be registered with the synchronizer.
+        |
+        |This command waits for the vetting transaction to be successfully registered on the synchronizer.
+        |This is the safe default setting minimizing race conditions.
         |
         |Note that synchronize vetting might block on permissioned synchronizers that do not just allow participants to update the topology state.
         |In such cases, synchronizeVetting should be turned off.
@@ -1585,6 +1592,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     def upload(
         path: String,
         description: String = "",
+        synchronizerId: Option[SynchronizerId] = None,
         vetAllPackages: Boolean = true,
         synchronizeVetting: Boolean = true,
         expectedMainPackageId: String = "",
@@ -1597,6 +1605,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
               runner,
               path = path,
               description = description,
+              synchronizerId = synchronizerId,
               vetAllPackages = vetAllPackages,
               synchronizeVetting = synchronizeVetting,
               expectedMainPackageId = expectedMainPackageId,
@@ -1606,7 +1615,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
             .toEither
         } yield mainPackageId
       }
-      if (synchronizeVetting && vetAllPackages) {
+      if (synchronizeVetting && synchronizerId.nonEmpty) {
         packages.synchronize_vetting()
       }
       res
@@ -1622,13 +1631,13 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         |In order to use Daml templates on a participant, the Dars must first be uploaded and then
         |vetted by the participant. Vetting will ensure that other participants can check whether they
         |can actually send a transaction referring to a particular Daml package and participant.
-        |Vetting is done by registering a VettedPackages topology transaction with the topology manager.
-        |By default, vetting happens automatically and this command waits for
-        |the vetting transaction to be successfully registered on all connected synchronizers.
-        |This is the safe default setting minimizing race conditions.
+        |Packages must be vetted on each synchronizer by registering a VettedPackages topology transaction.
         |
-        |If vetAllPackages is true (default), the packages will all be vetted on all synchronizers the participant is registered.
+        |if synchronizerId is not set (default), the packages will be vetted, if the participant is connected to only one synchronizer.
         |If synchronizeVetting is true (default), then the command will block until the participant has observed the vetting transactions to be registered with the synchronizer.
+        |
+        |This command waits for the vetting transaction to be successfully registered on the synchronizer.
+        |This is the safe default setting minimizing race conditions.
         |
         |Note that synchronize vetting might block on permissioned synchronizers that do not just allow participants to update the topology state.
         |In such cases, synchronizeVetting should be turned off.
@@ -1636,6 +1645,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         |""")
     def upload_many(
         paths: Seq[String],
+        synchronizerId: Option[SynchronizerId] = None,
         vetAllPackages: Boolean = true,
         synchronizeVetting: Boolean = true,
         requestHeaders: Map[String, String] = Map(),
@@ -1646,6 +1656,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
             .upload_many(
               runner,
               paths,
+              synchronizerId = synchronizerId,
               vetAllPackages = vetAllPackages,
               synchronizeVetting = synchronizeVetting,
               requestHeaders = requestHeaders,
@@ -1654,7 +1665,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
             .toEither
         } yield mainPackageId
       }
-      if (synchronizeVetting && vetAllPackages) {
+      if (synchronizeVetting) {
         packages.synchronize_vetting()
       }
       res
@@ -1689,9 +1700,15 @@ trait ParticipantAdministration extends FeatureFlagFilter {
       @Help.Summary(
         "Vet all packages contained in the DAR archive identified by the provided main package-id."
       )
-      def enable(mainPackageId: String, synchronize: Boolean = true): Unit =
+      def enable(
+          mainPackageId: String,
+          synchronize: Boolean = true,
+          synchronizerId: Option[SynchronizerId] = None,
+      ): Unit =
         consoleEnvironment.run {
-          adminCommand(ParticipantAdminCommands.Package.VetDar(mainPackageId, synchronize))
+          adminCommand(
+            ParticipantAdminCommands.Package.VetDar(mainPackageId, synchronize, synchronizerId)
+          )
         }
 
       @Help.Summary(
@@ -1701,9 +1718,9 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           |was symmetric and resulted in a single vetting topology transaction for all the packages in the DAR.
           |This command is potentially dangerous and misuse
           |can lead the participant to fail in processing transactions""")
-      def disable(mainPackageId: String): Unit =
+      def disable(mainPackageId: String, synchronizerId: Option[SynchronizerId] = None): Unit =
         consoleEnvironment.run {
-          adminCommand(ParticipantAdminCommands.Package.UnvetDar(mainPackageId))
+          adminCommand(ParticipantAdminCommands.Package.UnvetDar(mainPackageId, synchronizerId))
         }
     }
   }
@@ -1954,6 +1971,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           sequencerTrustThreshold - Set the minimum number of sequencers that must agree before a message is considered valid.
           sequencerLivenessMargin - Set the number of extra subscriptions to maintain beyond `sequencerTrustThreshold` in order to ensure liveness.
           submissionRequestAmplification - Define how often client should try to send a submission request that is eligible for deduplication.
+          sequencerConnectionPoolDelays - Define the various delays used by the sequencer connection pool.
           validation - Whether to validate the connectivity and ids of the given sequencers (default All)
         """)
     def connect_local_bft(
@@ -1970,6 +1988,8 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         sequencerLivenessMargin: NonNegativeInt = NonNegativeInt.zero,
         submissionRequestAmplification: SubmissionRequestAmplification =
           SubmissionRequestAmplification.NoAmplification,
+        sequencerConnectionPoolDelays: SequencerConnectionPoolDelays =
+          SequencerConnectionPoolDelays.default,
         validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
     ): Unit = {
       val config = ParticipantCommands.synchronizers.reference_to_config(
@@ -1982,6 +2002,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         sequencerTrustThreshold = sequencerTrustThreshold,
         sequencerLivenessMargin = sequencerLivenessMargin,
         submissionRequestAmplification = submissionRequestAmplification,
+        sequencerConnectionPoolDelays = sequencerConnectionPoolDelays,
       )
       connect_by_config(config, validation, synchronize)
     }
@@ -2000,6 +2021,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           sequencerTrustThreshold - Set the minimum number of sequencers that must agree before a message is considered valid.
           sequencerLivenessMargin - Set the number of extra subscriptions to maintain beyond `sequencerTrustThreshold` in order to ensure liveness.
           submissionRequestAmplification - Define how often client should try to send a submission request that is eligible for deduplication.
+          sequencerConnectionPoolDelays - Define the various delays used by the sequencer connection pool.
           validation - Whether to validate the connectivity and ids of the given sequencers (default All)
         """)
     def connect_bft(
@@ -2015,6 +2037,8 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         sequencerLivenessMargin: NonNegativeInt = NonNegativeInt.zero,
         submissionRequestAmplification: SubmissionRequestAmplification =
           SubmissionRequestAmplification.NoAmplification,
+        sequencerConnectionPoolDelays: SequencerConnectionPoolDelays =
+          SequencerConnectionPoolDelays.default,
         validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
     ): Unit = {
       val config = SynchronizerConnectionConfig.tryGrpc(
@@ -2026,6 +2050,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         sequencerTrustThreshold = sequencerTrustThreshold,
         sequencerLivenessMargin = sequencerLivenessMargin,
         submissionRequestAmplification = submissionRequestAmplification,
+        sequencerConnectionPoolDelays = sequencerConnectionPoolDelays,
       )
       connect_by_config(config, validation, synchronize)
     }
@@ -2301,8 +2326,26 @@ trait ParticipantAdministration extends FeatureFlagFilter {
       config(synchronizerAlias).nonEmpty
 
     @Help.Summary("Returns the current configuration of a given synchronizer")
-    def config(synchronizerAlias: SynchronizerAlias): Option[SynchronizerConnectionConfig] =
-      list_registered().map(_._1).find(_.synchronizerAlias == synchronizerAlias)
+    def config(synchronizerAlias: SynchronizerAlias): Option[SynchronizerConnectionConfig] = {
+      val configs = list_registered().collect {
+        case (config, id, _) if config.synchronizerAlias == synchronizerAlias => (config, id)
+      }
+
+      if (configs.sizeIs > 1)
+        consoleEnvironment.raiseError(
+          s"Several synchronizer config found for alias `$synchronizerAlias`: ${configs.map(_._2)}. Specify the physical synchronizer id instead of the synchronizer alias."
+        )
+      else
+        configs.map(_._1).headOption
+    }
+
+    @Help.Summary("Returns the current configuration of a given synchronizer")
+    def config(
+        physicalSynchronizerId: PhysicalSynchronizerId
+    ): Option[SynchronizerConnectionConfig] =
+      list_registered().collectFirst {
+        case (config, id, _) if id.toOption.contains(physicalSynchronizerId) => config
+      }
 
     @Help.Summary("Modify existing synchronizer connection")
     @Help.Description("""

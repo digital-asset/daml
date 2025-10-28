@@ -12,7 +12,7 @@ import DA.Cli.Damlc.Packaging
 import DA.Cli.Damlc.Test
 import DA.Cli.Damlc.Test.TestResults as TR
 import DA.Daml.Compiler.Dar (getDamlRootFiles)
-import qualified DA.Daml.LF.Ast as LF
+import qualified DA.Daml.LF.Ast.Range as LF
 import DA.Daml.LF.PrettyScript (prettyScriptError, prettyScriptResult)
 import qualified DA.Daml.LF.ScriptServiceClient as SS
 import DA.Daml.Options.Types
@@ -47,6 +47,7 @@ import System.IO.Extra
 import Test.Tasty
 import Test.Tasty.HUnit
 import Text.Regex.TDFA
+import qualified DA.Daml.LF.Ast as LF
 
 main :: IO ()
 main = withSdkVersions $ do
@@ -57,22 +58,15 @@ main = withSdkVersions $ do
             [ testGroup
                 "Without Contract keys"
                 [ withResourceCps
-                    (withScriptService lfVersion)
-                    (testScriptService lfVersion)
-                | lfVersion <-
-                    map
-                        LF.defaultOrLatestStable
-                        [minBound @LF.MajorVersion .. maxBound]
+                    (withScriptService LF.defaultLfVersion)
+                    (testScriptService LF.defaultLfVersion)
                 ]
             , testGroup
                 "With Contract Keys"
                 [ withResourceCps
                     (withScriptService lfVersion)
                     (testScriptServiceWithKeys lfVersion)
-                | Just lfVersion <-
-                    map
-                        (LF.featureMinVersion LF.featureContractKeys)
-                        [minBound @LF.MajorVersion .. maxBound]
+                | Just lfVersion <- [LF.minBound $ LF.featureVersionReq LF.featureContractKeys]
                 ]
             ]
 

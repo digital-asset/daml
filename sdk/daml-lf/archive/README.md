@@ -3,10 +3,10 @@
 This component contains the `.proto` definitions specifying the format
 in which Daml-LF packages are stored -- the Daml-LF archive. All the
 proto definitions are kept in the directory
-`src/protobuf/com/daml/daml_lf_dev/`
+`src/protobuf/com/daml/archive/`
 
 The entry point definition is `Archive` in
-`src/protobuf/com/daml/daml_lf_dev/daml_lf.proto`.  `Archive`
+`src/protobuf/com/daml/archive/daml_lf.proto`.  `Archive`
 contains some metadata about the actual archive (currently the hashing
 function and the hash), and then a binary blob containing the
 archive. The binary blob must be an `ArchivePayload` -- we keep it in
@@ -21,16 +21,6 @@ supported by the Daml-LF archive. Currently we have two major versions:
 * `Daml-LF-0`, which is the deprecated legacy Daml core;
 * `Daml-LF-1`, which is the first version of Daml-LF as specified by
     <https://github.com/digital-asset/daml/blob/main/daml-lf/spec/daml-lf-1.rst>.
-
-## Snapshot versions
-
-The component contains also an arbitrary number of snapshots of the
-protobuf definitions as they were as the time a particular version of
-Daml-LF was frozen. Those snapshots are kept in the directories
-`src/protobuf/com/daml/daml_lf_x_y/`, where `x.y` is an already frozen 
-Daml-LF version.  A snapshot for version `x.y` can be used to read any
-Daml-LF version from `1.6` to `x.y` without suffering breaking changes 
-(at the generated code level) often introduced in the current version.
 
 ## Building
 

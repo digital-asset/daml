@@ -6,6 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencing.service
 import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.foldable.*
+import cats.syntax.functorFilter.*
 import com.digitalasset.base.error.RpcError
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.ProtoDeserializationError.{
@@ -274,19 +275,45 @@ class GrpcSequencerInitializationService(
       ]
     } yield result.replicated
 
+  /** Sets all sequencing and effective timestamps to
+    * [[com.digitalasset.canton.data.CantonTimestamp.MinValue]].
+    *
+    * Filters out all ineffective proposals, too, because time resetting is incompatible with
+    * proposals in the preprocessing of the topology snapshot in
+    * [[com.digitalasset.canton.topology.processing.InitialTopologySnapshotValidator.validateAndApplyInitialTopologySnapshot]]
+    * Concretely, `topologyState` might contain a proposal at timestamp `ts1` and the same topology
+    * transaction as a fully authorized transaction at timestamp `ts2 > ts1` with the same serial.
+    * This can happen if the authorization conditions have changed between `ts1` and `ts2`, e.g., by
+    * reducing the threshold of a decentralized namespace. When all timestamps are reset to the same
+    * value, preprocessing attempts to merge the validity periods of the now identical topology
+    * transactions (except for the proposal flag) because we can store only one of them due to
+    * uniqueness constraints. Yet, we cannot really merge them: If we retain the proposal flag on
+    * the resulting transaction, then the fully authorized transaction is gone from the topology
+    * state. Conversely, if we clear the proposal flag, then topology snapshot validation will fail
+    * on the first transaction because the first transaction has not yet been fully authorized at
+    * this point. Instead, we drop all expired proposals from the genesis state.
+    *
+    * Note: The same problem of varying authorization requirements can also appear within a single
+    * sequenced topology transaction. However, compaction
+    * [[com.digitalasset.canton.topology.transaction.SignedTopologyTransactions.compact]] prevents
+    * the uniqueness violation as it removes the fully authorized topology transaction from the
+    * sequence. For the genesis snapshot, however, we cannot enable compaction.
+    */
   private def resetTimes(
-      snapshot: GenericStoredTopologyTransactions
-  ): GenericStoredTopologyTransactions =
-    StoredTopologyTransactions(
-      snapshot.result.map(stored =>
-        StoredTopologyTransaction(
-          SequencedTime(SignedTopologyTransaction.InitialTopologySequencingTime),
-          EffectiveTime(SignedTopologyTransaction.InitialTopologySequencingTime),
-          stored.validUntil.map(_ =>
-            EffectiveTime(SignedTopologyTransaction.InitialTopologySequencingTime)
-          ),
-          stored.transaction,
-          stored.rejectionReason,
+      topologyState: GenericStoredTopologyTransactions
+  ): StoredTopologyTransactions[TopologyChangeOp, TopologyMapping] =
+    StoredTopologyTransactions[TopologyChangeOp, TopologyMapping](
+      topologyState.result.mapFilter(stored =>
+        Option.when(!stored.transaction.isProposal || stored.validUntil.isEmpty)(
+          StoredTopologyTransaction(
+            SequencedTime(SignedTopologyTransaction.InitialTopologySequencingTime),
+            EffectiveTime(SignedTopologyTransaction.InitialTopologySequencingTime),
+            stored.validUntil.map(_ =>
+              EffectiveTime(SignedTopologyTransaction.InitialTopologySequencingTime)
+            ),
+            stored.transaction,
+            stored.rejectionReason,
+          )
         )
       )
     )

@@ -30,9 +30,10 @@ import com.digitalasset.canton.topology.client.*
 import com.digitalasset.canton.topology.processing.TopologyTransactionProcessor.subscriptionTimestamp
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
+import com.digitalasset.canton.topology.transaction.checks.RequiredTopologyMappingChecks
 import com.digitalasset.canton.topology.transaction.{
   SynchronizerUpgradeAnnouncement,
-  ValidatingTopologyMappingChecks,
+  TopologyChangeOp,
 }
 import com.digitalasset.canton.topology.{
   PhysicalSynchronizerId,
@@ -59,6 +60,7 @@ import scala.math.Ordering.Implicits.*
 class TopologyTransactionProcessor(
     pureCrypto: SynchronizerCryptoPureApi,
     store: TopologyStore[TopologyStoreId.SynchronizerStore],
+    staticSynchronizerParameters: StaticSynchronizerParameters,
     acsCommitmentScheduleEffectiveTime: Traced[EffectiveTime] => Unit,
     val terminateProcessing: TerminateProcessing,
     futureSupervisor: FutureSupervisor,
@@ -74,7 +76,7 @@ class TopologyTransactionProcessor(
   protected lazy val stateProcessor: TopologyStateProcessor =
     TopologyStateProcessor.forTransactionProcessing(
       store,
-      new ValidatingTopologyMappingChecks(store, loggerFactory),
+      new RequiredTopologyMappingChecks(store, Some(staticSynchronizerParameters), loggerFactory),
       pureCrypto,
       loggerFactory,
     )
@@ -181,7 +183,7 @@ class TopologyTransactionProcessor(
       // of the approximate time subsequently
       val maxEffective = clientInitTimes.map { case (effective, _) => effective }.max1
       val minApproximate = clientInitTimes.map { case (_, approximate) => approximate }.min1
-      listenersUpdateHead(sequencedTs, maxEffective, minApproximate, potentialChanges = true)
+      listenersUpdateHead(sequencedTs, maxEffective, minApproximate)
 
       val directExecutionContext = DirectExecutionContext(noTracingLogger)
       clientInitTimes.foreach { case (effective, _approximate) =>
@@ -193,7 +195,6 @@ class TopologyTransactionProcessor(
               sequencedTs,
               effective,
               effective.toApproximate,
-              potentialChanges = true,
             )
           case Some(tickF) =>
             FutureUtil.doNotAwait(
@@ -202,7 +203,6 @@ class TopologyTransactionProcessor(
                   sequencedTs,
                   effective,
                   effective.toApproximate,
-                  potentialChanges = true,
                 )
               )(directExecutionContext),
               "Notifying listeners to the topology processor's head",
@@ -216,15 +216,14 @@ class TopologyTransactionProcessor(
       sequenced: SequencedTime,
       effective: EffectiveTime,
       approximate: ApproximateTime,
-      potentialChanges: Boolean,
   )(implicit traceContext: TraceContext): Unit = {
     logger.debug(
-      s"Updating listener heads to $effective and $approximate. Potential changes: $potentialChanges"
+      s"Updating listener heads to $effective and $approximate."
     )
     listeners
       .get()
       .flatten
-      .foreach(_.updateHead(sequenced, effective, approximate, potentialChanges))
+      .foreach(_.updateHead(sequenced, effective, approximate))
   }
 
   /** Inform the topology manager where the subscription starts when using [[processEnvelopes]]
@@ -299,12 +298,10 @@ class TopologyTransactionProcessor(
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     this.synchronizeWithClosingF(functionFullName) {
       Future {
-        val approximate = ApproximateTime(sequencedTimestamp.value)
         listenersUpdateHead(
           sequencedTimestamp,
           effectiveTimestamp,
-          approximate,
-          potentialChanges = false,
+          sequencedTimestamp.toApproximate,
         )
       }
     }
@@ -331,7 +328,7 @@ class TopologyTransactionProcessor(
                 )(wrongMsgs =>
                   TopologyManagerError.TopologyManagerAlarm
                     .Warn(
-                      s"received messages with wrong synchronizer ids: ${wrongMsgs.map(_.protocolMessage.synchronizerId)}"
+                      s"received messages with wrong synchronizer ids: ${wrongMsgs.map(_.protocolMessage.psid)}"
                     )
                     .report()
                 )
@@ -479,12 +476,14 @@ class TopologyTransactionProcessor(
        */
       validUpgradeAnnouncements = validTransactions
         .mapFilter(_.selectMapping[SynchronizerUpgradeAnnouncement])
-        .map(_.mapping)
 
-      // TODO(#26580) Handle cancellation
-      _ = validUpgradeAnnouncements.foreach(announcement =>
-        terminateProcessing.notifyUpgradeAnnouncement(announcement.successor)
-      )
+      _ = validUpgradeAnnouncements.foreach { announcement =>
+        announcement.operation match {
+          case TopologyChangeOp.Replace =>
+            terminateProcessing.notifyUpgradeAnnouncement(announcement.mapping.successor)
+          case TopologyChangeOp.Remove => terminateProcessing.notifyUpgradeCancellation()
+        }
+      }
 
       _ <- synchronizeWithClosing("notify-topology-transaction-observers")(
         MonadUtil.sequentialTraverse(listeners.get()) { listenerGroup =>
@@ -541,6 +540,7 @@ object TopologyTransactionProcessor {
     val processor = new TopologyTransactionProcessor(
       pureCrypto,
       topologyStore,
+      staticSynchronizerParameters,
       _ => (),
       TerminateProcessing.NoOpTerminateTopologyProcessing,
       futureSupervisor,

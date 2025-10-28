@@ -39,6 +39,9 @@ for opt in "$@"; do
     --daml-new)
       TO_BUILD+=(daml-new)
       ;;
+    --upgrade-check)
+      TO_BUILD+=(upgrade-check)
+      ;;
     --dpm)
       TO_BUILD+=(dpm)
       ;;
@@ -78,6 +81,7 @@ for opt in "$@"; do
       echo "  --codegen-js Build and update the codegen-js component"
       echo "  --codegen-java Build and update the codegen-java component"
       echo "  --daml-new Build and update the daml-new component"
+      echo "  --upgrade-check Build and update the upgrade-check component"
       echo "  --dpm Fetch and update the dpm component"
       echo "  --version=<version> Set the component and release version to be built, default 0.0.0"
       echo "  --component-version=<version> Set the component version (internal to dpm) to be built, default 0.0.0"
@@ -124,11 +128,10 @@ fi
 
 if [ ! -d "$DPM_HOME" ]; then
   echo "$(tput setaf 5)DPM is not installed, installing latest from remote....$(tput sgr 0)"
-  "$REPO_ROOT/../ci/get-dpm.sh" "europe-docker.pkg.dev/da-images-dev/private/components/dpm:latest"
-  # Setup DPM config using private edition
+  "$REPO_ROOT/../ci/get-dpm.sh" "europe-docker.pkg.dev/da-images/public-unstable/components/dpm:latest"
   cat > "${DPM_HOME}/dpm-config.yaml" << EOF
-edition: private
-registry: europe-docker.pkg.dev/da-images-dev/private
+edition: open-source
+registry: europe-docker.pkg.dev/da-images/public-unstable
 EOF
   CONF_FILE=
   case $SHELL in
@@ -170,32 +173,35 @@ fi
 # Some issues with updating release yaml file
 chmod -R u+w "$DPM_HOME"
 
-assembly_location="$DPM_HOME/cache/sdk/private/$RELEASE_VERSION.yaml"
+assembly_location="$DPM_HOME/cache/sdk/open-source/$RELEASE_VERSION.yaml"
 
 # When installing via `get-dpm`, an SDK is not installed
-# Detect this and install private latest
+# Detect this and install open-source latest
 if [ -z "$(find "$DPM_HOME"/cache/sdk/* -type f)" ]; then
   echo "$(tput setaf 5)No assemblies installed for copying from, installing latest.$(tput sgr 0)"
   "$DPM_HOME/bin/dpm" install latest
-  echo "$(tput setaf 3)Installed $("$DPM_HOME/bin/dpm" version).$(tput sgr 0)"
+  echo "$(tput setaf 3)Installed $("$DPM_HOME/bin/dpm" versions -o json | jq -r '.[] | select(.active==true).version').$(tput sgr 0)"
 fi
 
 # Create a `$RELEASE_VERSION.yaml` by copying the current latest installed version and updating the name/version field
 if [ ! -f "$assembly_location" ]; then
   echo "$(tput setaf 5)No assembly found for $RELEASE_VERSION, creating new.$(tput sgr 0)"
-  latest_version=$("$DPM_HOME/bin/dpm" version)
-  assembly_location="$DPM_HOME/cache/sdk/private/$RELEASE_VERSION.yaml"
-  cp "$DPM_HOME/cache/sdk/${latest_version#* }/${latest_version% *}.yaml" "$assembly_location"
+  latest_version=$("$DPM_HOME/bin/dpm" versions -o json | jq -r '.[] | select(.active==true).version')
+  assembly_location="$DPM_HOME/cache/sdk/open-source/$RELEASE_VERSION.yaml"
+  cp "$DPM_HOME/cache/sdk/open-source/${latest_version}.yaml" "$assembly_location"
   # yq has trouble picking up env vars
   RELEASE_VERSION=$RELEASE_VERSION yq -MiY '.spec.version |= env.RELEASE_VERSION' "$assembly_location"
-  echo "$(tput setaf 3)Created assembly for $RELEASE_VERSION from ${latest_version% *}.$(tput sgr 0)"
+  echo "$(tput setaf 3)Created assembly for $RELEASE_VERSION from ${latest_version}.$(tput sgr 0)"
 fi
 
-all_components=(damlc daml-script codegen-js codegen-java daml-new)
+all_components=(damlc daml-script codegen-js codegen-java daml-new upgrade-check)
 
 # If no explicit components specified, update all
 if [[ ! ${TO_BUILD[@]} ]]; then
   TO_BUILD=("${all_components[@]}")
+else
+  # If an explicit component is given, skip jars
+  SKIP_JARS=1
 fi
 
 # Imitate `chronic` from coreutils
@@ -226,8 +232,8 @@ update_component() {
 
     # get-dpm script doesn't delete, it only updates
     # use it to pull down a new dpm
-    "$REPO_ROOT/../ci/get-dpm.sh" "europe-docker.pkg.dev/da-images-dev/private/components/dpm:latest"
-    version_line=$("$DPM_HOME/bin/dpm" version --assistant | grep -o 'version: .*')
+    "$REPO_ROOT/../ci/get-dpm.sh" "europe-docker.pkg.dev/da-images/public-unstable/components/dpm:latest"
+    version_line=$("$DPM_HOME/bin/dpm" --version | grep -o 'version: .*')
     DPM_VERSION=${version_line#version: }
 
     # Update our $RELEASE_VERSION.yaml to point to new DPM

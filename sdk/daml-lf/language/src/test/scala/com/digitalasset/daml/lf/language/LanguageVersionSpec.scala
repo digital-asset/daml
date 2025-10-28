@@ -14,6 +14,7 @@ class LanguageVersionSpec extends AnyWordSpec with Matchers with TableDrivenProp
 
     val versionInOrder = List(
       LV(LV.Major.V2, LV.Minor("1")),
+      LV(LV.Major.V2, LV.Minor("2")),
       LV(LV.Major.V2, LV.Minor("dev")),
     )
 

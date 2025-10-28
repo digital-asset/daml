@@ -16,7 +16,6 @@ import com.digitalasset.canton.topology.processing.{
 }
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.PositiveStoredTopologyTransactions
 import com.digitalasset.canton.topology.store.TopologyStore.EffectiveStateChange
-import com.digitalasset.canton.topology.store.TopologyTransactionRejection.InvalidTopologyMapping
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyMapping.Code
 import com.digitalasset.canton.topology.transaction.{TopologyMapping, *}
@@ -188,6 +187,7 @@ trait TopologyStoreTest
       ](
         ts1 -> (nsd_p1, None, None),
         ts1 -> (nsd_p2, None, None),
+        ts1 -> (nsd_p3, None, None),
         ts1 -> (dnd_p1p2, None, None),
         ts1 -> (dop_synchronizer1_proposal, ts2.some, None),
         ts2 -> (dop_synchronizer1, None, None),
@@ -198,11 +198,13 @@ trait TopologyStoreTest
         ts3 -> (dtc_p1_synchronizer1, None, None),
         ts3 -> (ptp_fred_p1_proposal, ts5.some, None),
         ts4 -> (dnd_p1seq, None, None),
-        ts4 -> (otk_p2_proposal, None, None),
+        ts4 -> (otk_p3_proposal, None, None),
+        ts4 -> (otk_p2, None, None),
         ts5 -> (ptp_fred_p1, None, None),
         ts5 -> (dtc_p2_synchronizer1, ts6.some, None),
         ts6 -> (dtc_p2_synchronizer1_update, None, None),
-        ts6 -> (mds_med1_synchronizer1_invalid, ts6.some, s"No delegation found for keys ${seqKey.fingerprint}".some),
+        ts6 -> (mds_med1_synchronizer1_invalid, ts6.some,
+        s"No delegation found for keys ${seqKey.fingerprint}".some),
       ).map { case (from, (tx, until, rejection)) =>
         StoredTopologyTransaction(
           SequencedTime(from),
@@ -474,11 +476,11 @@ trait TopologyStoreTest
 
         "able to inspect" in {
           val store = mk(synchronizer1_p1p2_physicalSynchronizerId)
-
           for {
             _ <- new InitialTopologySnapshotValidator(
               pureCrypto = testData.factory.syncCryptoClient.crypto.pureCrypto,
               store = store,
+              Some(defaultStaticSynchronizerParameters),
               validateInitialSnapshot = true,
               loggerFactory = loggerFactory,
             ).validateAndApplyInitialTopologySnapshot(bootstrapTransactions)
@@ -524,14 +526,15 @@ trait TopologyStoreTest
               filterParty = `fred::p2Namepsace`.uid.toProtoPrimitive,
               filterParticipant = p1Id.uid.toProtoPrimitive,
             )
-            onlyParticipant2 <- inspectKnownParties(store, ts6, filterParticipant = "participant2")
-            neitherParty <- inspectKnownParties(store, ts6, "fred::canton", "participant2")
+            onlyParticipant3 <- inspectKnownParties(store, ts6, filterParticipant = "participant3")
+            neitherParty <- inspectKnownParties(store, ts6, "fred::canton", "participant3")
           } yield {
             expectTransactions(
               headStateTransactions,
               Seq(
                 nsd_p1,
                 nsd_p2,
+                nsd_p3,
                 dnd_p1p2,
                 dop_synchronizer1,
                 otk_p1,
@@ -539,6 +542,7 @@ trait TopologyStoreTest
                 nsd_seq,
                 dtc_p1_synchronizer1,
                 dnd_p1seq,
+                otk_p2,
                 ptp_fred_p1,
                 dtc_p2_synchronizer1_update,
               ),
@@ -559,6 +563,7 @@ trait TopologyStoreTest
               Seq(
                 nsd_p1,
                 nsd_p2,
+                nsd_p3,
                 dnd_p1p2,
                 dop_synchronizer1,
                 otk_p1,
@@ -581,10 +586,11 @@ trait TopologyStoreTest
               dtc_p1_synchronizer1.mapping.participantId.adminParty,
               ptp_fred_p1.mapping.partyId,
               dtc_p2_synchronizer1.mapping.participantId.adminParty,
+              // p3 cannot appear here as OTKP3 is only a proposal
             )
             onlyFred shouldBe Set(ptp_fred_p1.mapping.partyId)
             fredFullySpecified shouldBe Set(ptp_fred_p1.mapping.partyId)
-            onlyParticipant2 shouldBe Set(dtc_p2_synchronizer1.mapping.participantId.adminParty)
+            onlyParticipant3 shouldBe Set() // p3 cannot appear as OTK3 is only a proposal
             neitherParty shouldBe Set.empty
           }
         }
@@ -619,6 +625,7 @@ trait TopologyStoreTest
             _ <- new InitialTopologySnapshotValidator(
               factory.syncCryptoClient.crypto.pureCrypto,
               store,
+              Some(defaultStaticSynchronizerParameters),
               validateInitialSnapshot = true,
               loggerFactory,
             ).validateAndApplyInitialTopologySnapshot(bootstrapTransactions)
@@ -667,6 +674,7 @@ trait TopologyStoreTest
             _ <- new InitialTopologySnapshotValidator(
               factory.syncCryptoClient.crypto.pureCrypto,
               store,
+              Some(defaultStaticSynchronizerParameters),
               validateInitialSnapshot = true,
               loggerFactory,
             ).validateAndApplyInitialTopologySnapshot(bootstrapTransactions)
@@ -746,12 +754,14 @@ trait TopologyStoreTest
               Seq(
                 nsd_p1,
                 nsd_p2,
+                nsd_p3,
                 dnd_p1p2,
                 dop_synchronizer1,
                 otk_p1,
                 nsd_seq,
                 dtc_p1_synchronizer1,
                 dnd_p1seq,
+                otk_p2,
                 ptp_fred_p1,
                 dtc_p2_synchronizer1,
               ),
@@ -761,12 +771,14 @@ trait TopologyStoreTest
               Seq(
                 nsd_p1,
                 nsd_p2,
+                nsd_p3,
                 dnd_p1p2,
                 dop_synchronizer1,
                 otk_p1,
                 nsd_seq,
                 dtc_p1_synchronizer1,
                 dnd_p1seq,
+                otk_p2,
               ),
             )
             expectTransactions(
@@ -775,12 +787,15 @@ trait TopologyStoreTest
             )
             expectTransactions(
               selectiveMappingTransactions,
-              Seq(dnd_p1p2, otk_p1, dnd_p1seq, ptp_fred_p1),
+              Seq(dnd_p1p2, otk_p1, dnd_p1seq, otk_p2, ptp_fred_p1),
             )
-            expectTransactions(uidFilterTransactions, Seq(ptp_fred_p1, dtc_p2_synchronizer1))
+            expectTransactions(
+              uidFilterTransactions,
+              Seq(otk_p2, ptp_fred_p1, dtc_p2_synchronizer1),
+            )
             expectTransactions(
               namespaceFilterTransactions,
-              Seq(nsd_p2, dnd_p1seq, ptp_fred_p1, dtc_p2_synchronizer1),
+              Seq(nsd_p2, dnd_p1seq, otk_p2, ptp_fred_p1, dtc_p2_synchronizer1),
             )
 
             // Essential state currently encompasses all transactions at the specified time
@@ -812,7 +827,8 @@ trait TopologyStoreTest
                 nsd_seq,
                 dtc_p1_synchronizer1,
                 dnd_p1seq,
-                otk_p2_proposal,
+                otk_p3_proposal,
+                otk_p2,
                 ptp_fred_p1,
                 dtc_p2_synchronizer1,
                 dtc_p2_synchronizer1_update,
@@ -821,6 +837,7 @@ trait TopologyStoreTest
 
             onboardingTransactionUnlessShutdown shouldBe Seq(
               nsd_p2,
+              otk_p2,
               dtc_p2_synchronizer1,
               dtc_p2_synchronizer1_update,
             )
@@ -860,7 +877,11 @@ trait TopologyStoreTest
               additions = Seq(
                 ValidatedTopologyTransaction(
                   bad_otk,
-                  Some(TopologyTransactionRejection.InvalidTopologyMapping("bad signature")),
+                  Some(
+                    TopologyTransactionRejection.RequiredMapping.InvalidTopologyMapping(
+                      "bad signature"
+                    )
+                  ),
                 ),
                 ValidatedTopologyTransaction(good_otk),
               ),
@@ -970,7 +991,8 @@ trait TopologyStoreTest
                 ),
                 ValidatedTopologyTransaction(
                   transaction = rejectedPartyToParticipant,
-                  rejectionReason = Some(InvalidTopologyMapping("sad")),
+                  rejectionReason =
+                    Some(TopologyTransactionRejection.RequiredMapping.InvalidTopologyMapping("sad")),
                 ),
                 ValidatedTopologyTransaction(
                   transaction = proposedPartyToParticipant,

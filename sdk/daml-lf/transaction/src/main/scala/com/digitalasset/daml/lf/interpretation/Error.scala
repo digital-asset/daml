@@ -48,6 +48,14 @@ object Error {
       consumedBy: NodeId,
   ) extends Error
 
+  /** Hashing a contract generated an error. */
+  final case class ContractHashingError(
+      coid: ContractId,
+      dstTemplateId: TypeConId,
+      createArg: Value,
+      msg: String,
+  ) extends Error
+
   /** When caching a disclosed contract key, hashing the contract key generated an error. */
   final case class DisclosedContractKeyHashingError(
       coid: ContractId,
@@ -166,11 +174,58 @@ object Error {
         coid: ContractId,
         srcTemplateId: TypeConId,
         dstTemplateId: TypeConId,
-        signatories: Set[Party],
-        observers: Set[Party],
-        keyOpt: Option[GlobalKeyWithMaintainers],
+        srcPackageName: Ref.PackageName,
+        dstPackageName: Ref.PackageName,
+        originalSignatories: Set[Party],
+        originalObservers: Set[Party],
+        originalKeyOpt: Option[GlobalKeyWithMaintainers],
+        recomputedSignatories: Set[Party],
+        recomputedObservers: Set[Party],
+        recomputedKeyOpt: Option[GlobalKeyWithMaintainers],
         msg: String,
     ) extends Error
+
+    final case class TranslationFailed(
+        coid: Option[ContractId],
+        srcTemplateId: TypeConId,
+        dstTemplateId: TypeConId,
+        createArg: Value,
+        error: TranslationFailed.Error,
+    ) extends Error
+
+    final case class AuthenticationFailed(
+        coid: ContractId,
+        srcTemplateId: TypeConId,
+        dstTemplateId: TypeConId,
+        createArg: Value,
+        msg: String,
+    ) extends Error
+
+    object TranslationFailed {
+      sealed abstract class Error
+          extends RuntimeException
+          with scala.util.control.NoStackTrace
+          with Serializable
+          with Product {
+        override def toString: String = s"$productPrefix(${productIterator.mkString(",")})"
+      }
+
+      final case class LookupError(lookupError: com.digitalasset.daml.lf.language.LookupError)
+          extends Error
+
+      final case class TypeMismatch(expectedType: Ast.Type, actualValue: Value, message: String)
+          extends Error
+
+      final case object ValueNesting extends Error
+
+      final case class NonSuffixedV1ContractId(cid: Value.ContractId.V1) extends Error
+
+      final case class NonSuffixedV2ContractId(cid: Value.ContractId.V2) extends Error
+
+      final case class InvalidValue(value: Value, message: String) extends Error
+
+      final case class MalformedText(message: String) extends Error
+    }
   }
 
   sealed case class Crypto(error: Crypto.Error) extends Error
@@ -207,35 +262,6 @@ object Error {
         choiceName: ChoiceName,
         byInterface: Option[TypeConId],
     ) extends Error
-
-    final case class TranslationError(error: TranslationError.Error) extends Error
-
-    object TranslationError {
-      sealed abstract class Error
-          extends RuntimeException
-          with scala.util.control.NoStackTrace
-          with Serializable
-          with Product
-
-      final case class LookupError(lookupError: com.digitalasset.daml.lf.language.LookupError)
-          extends Error
-
-      final case class TypeMismatch(expectedType: Ast.Type, actualValue: Value, message: String)
-          extends Error
-
-      final case class ValueNesting(value: Value) extends Error
-
-      final case class NonSuffixedV1ContractId(cid: Value.ContractId.V1) extends Error
-
-      final case class NonSuffixedV2ContractId(cid: Value.ContractId.V2) extends Error
-
-      final case class InvalidValue(value: Value, message: String) extends Error
-    }
-
-    final case class AuthenticationError(coid: ContractId, value: Value, message: String)
-        extends Error
-
-    final case class HashingError(msg: String) extends Error
 
     final case class Limit(error: Limit.Error) extends Error
 
@@ -298,4 +324,5 @@ object Error {
     }
   }
 
+  final case class MalformedText(err: String) extends Error
 }

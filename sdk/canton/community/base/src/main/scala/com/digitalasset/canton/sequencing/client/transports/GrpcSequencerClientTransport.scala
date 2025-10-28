@@ -234,9 +234,9 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
           Source.single,
         )
       }
-      .runFold(Vector.empty[GenericStoredTopologyTransaction])((acc, txs) =>
+      .runFold(Vector.empty[GenericStoredTopologyTransaction]) { (acc, txs) =>
         acc ++ txs.topologyTransactions.value.result
-      )
+      }
       .map { accumulated =>
         val storedTxs = StoredTopologyTransactions(accumulated)
         logger.debug(
@@ -286,6 +286,29 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
             .leftMap(_.message)
         )
     } yield timestampO
+
+  override def downloadTopologyStateForInitHash(request: TopologyStateForInitRequest)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, TopologyStateForInitHashResponse] =
+    for {
+      responseP <-
+        CantonGrpcUtil
+          .sendGrpcRequest(sequencerServiceClient, "sequencer")(
+            _.downloadTopologyStateForInitHash(request.toHashProtoV30),
+            requestDescription = s"downloadTopologyStateForInitHash",
+            timeout =
+              timeouts.unbounded.duration, // may take a while as it generates the full download to hash it
+            logger = logger,
+            retryPolicy = retryPolicy(retryOnUnavailable = false),
+          )
+          .leftMap(_.toString)
+      hash <-
+        EitherT.fromEither[FutureUnlessShutdown](
+          TopologyStateForInitHashResponse
+            .fromProtoV30(responseP)
+            .leftMap(_.message)
+        )
+    } yield hash
 }
 
 trait GrpcClientTransportHelpers {

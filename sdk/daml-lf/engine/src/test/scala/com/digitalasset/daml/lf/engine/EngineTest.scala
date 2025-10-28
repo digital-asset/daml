@@ -4,12 +4,26 @@
 package com.digitalasset.daml.lf
 package engine
 
-import java.io.File
-import com.digitalasset.daml.lf.archive.UniversalArchiveDecoder
+import com.daml.bazeltools.BazelRunfiles.rlocation
+import com.daml.logging.LoggingContext
+import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.tagToContainer
+import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authorization
+import com.daml.test.evidence.tag.Security.{Attack, SecurityTest, SecurityTestSuite}
+import com.digitalasset.daml.lf
+import com.digitalasset.daml.lf.archive.DarDecoder
+import com.digitalasset.daml.lf.command._
+import com.digitalasset.daml.lf.crypto.{Hash, SValueHash}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
+import com.digitalasset.daml.lf.engine.Error.Interpretation
+import com.digitalasset.daml.lf.engine.Error.Interpretation.DamlException
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.Util._
+import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion, PackageInterface}
+import com.digitalasset.daml.lf.speedy.SValue._
+import com.digitalasset.daml.lf.speedy.{InitialSeeding, SValue, svalue}
+import com.digitalasset.daml.lf.stablepackages.StablePackages
+import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import com.digitalasset.daml.lf.transaction.{
   CreationTime,
   FatContractInstance,
@@ -26,34 +40,20 @@ import com.digitalasset.daml.lf.transaction.{
   VersionedTransaction,
   Transaction => Tx,
 }
+import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.value.{ContractIdVersion, Value}
-import Value._
-import com.daml.bazeltools.BazelRunfiles.rlocation
-import com.digitalasset.daml.lf
-import com.digitalasset.daml.lf.speedy.{DisclosedContract, InitialSeeding, SValue, svalue}
-import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.command._
-import com.digitalasset.daml.lf.crypto.{Hash, SValueHash}
-import com.digitalasset.daml.lf.engine.Error.Interpretation
-import com.digitalasset.daml.lf.engine.Error.Interpretation.DamlException
-import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion, PackageInterface}
-import com.digitalasset.daml.lf.stablepackages.StablePackages
-import com.daml.logging.LoggingContext
-import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.tagToContainer
-import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authorization
-import com.daml.test.evidence.tag.Security.{Attack, SecurityTest, SecurityTestSuite}
 import org.scalactic.Equality
-import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{Assertion, EitherValues}
-import org.scalatest.wordspec.AnyWordSpec
-import org.scalatest.matchers.should.Matchers
 import org.scalatest.Inside._
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.prop.TableDrivenPropertyChecks
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatest.{Assertion, EitherValues}
 
+import java.io.File
 import scala.annotation.nowarn
 import scala.collection.immutable.{ArraySeq, HashMap}
 import scala.language.implicitConversions
 import scala.math.Ordered.orderingToOrdered
-import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 
 class EngineTestCidV1 extends EngineTest(LanguageMajorVersion.V2, ContractIdVersion.V1)
 class EngineTestCidV2 extends EngineTest(LanguageMajorVersion.V2, ContractIdVersion.V2)
@@ -2517,12 +2517,24 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         case Left(
               Interpretation(
                 DamlException(
-                  interpretation.Error.Dev(_, interpretation.Error.Dev.TranslationError(error))
+                  interpretation.Error.Upgrade(
+                    interpretation.Error.Upgrade.TranslationFailed(
+                      Some(coid),
+                      srcTemplateId,
+                      dstTemplateId,
+                      createArg,
+                      error,
+                    )
+                  )
                 ),
                 _,
               )
             ) =>
-          error shouldBe a[interpretation.Error.Dev.TranslationError.TypeMismatch]
+          coid shouldBe cid
+          srcTemplateId shouldBe simpleId
+          dstTemplateId shouldBe simpleId
+          createArg shouldBe contracts(cid).createArg
+          error shouldBe a[interpretation.Error.Upgrade.TranslationFailed.TypeMismatch]
       }
     }
 
@@ -2541,12 +2553,24 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         case Left(
               Interpretation(
                 DamlException(
-                  interpretation.Error.Dev(_, interpretation.Error.Dev.TranslationError(error))
+                  interpretation.Error.Upgrade(
+                    interpretation.Error.Upgrade.TranslationFailed(
+                      Some(coid),
+                      srcTemplateId,
+                      dstTemplateId,
+                      createArg,
+                      error,
+                    )
+                  )
                 ),
                 _,
               )
             ) =>
-          error shouldBe a[interpretation.Error.Dev.TranslationError.TypeMismatch]
+          coid shouldBe cid
+          srcTemplateId shouldBe simpleId
+          dstTemplateId shouldBe simpleId
+          createArg shouldBe contracts(cid).createArg
+          error shouldBe a[interpretation.Error.Upgrade.TranslationFailed.TypeMismatch]
       }
     }
   }
@@ -2614,12 +2638,24 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         case Left(
               Interpretation(
                 DamlException(
-                  interpretation.Error.Dev(_, interpretation.Error.Dev.TranslationError(error))
+                  interpretation.Error.Upgrade(
+                    interpretation.Error.Upgrade.TranslationFailed(
+                      Some(coid),
+                      srcTemplateId,
+                      dstTemplateId,
+                      createArg,
+                      error,
+                    )
+                  )
                 ),
                 _,
               )
             ) =>
-          error shouldBe a[interpretation.Error.Dev.TranslationError.InvalidValue]
+          coid shouldBe cid
+          srcTemplateId shouldBe simpleId
+          dstTemplateId shouldBe simpleId
+          createArg shouldBe contracts(cid).createArg
+          error shouldBe a[interpretation.Error.Upgrade.TranslationFailed.InvalidValue]
       }
     }
 
@@ -2638,17 +2674,151 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         case Left(
               Interpretation(
                 DamlException(
-                  interpretation.Error.Dev(_, interpretation.Error.Dev.TranslationError(error))
+                  interpretation.Error.Upgrade(
+                    interpretation.Error.Upgrade.TranslationFailed(
+                      Some(coid),
+                      srcTemplateId,
+                      dstTemplateId,
+                      createArg,
+                      error,
+                    )
+                  )
                 ),
                 _,
               )
             ) =>
-          error shouldBe a[interpretation.Error.Dev.TranslationError.InvalidValue]
+          coid shouldBe cid
+          srcTemplateId shouldBe simpleId
+          dstTemplateId shouldBe simpleId
+          createArg shouldBe contracts(cid).createArg
+          error shouldBe a[interpretation.Error.Upgrade.TranslationFailed.InvalidValue]
       }
     }
   }
 
-  "legacy contracts" should {
+  "trailing nones" should {
+    val simpleId = Identifier(basicTestsPkgId, "BasicTests:Simple")
+    val fetcherId = Identifier(basicTestsPkgId, "BasicTests:SimpleFetcher")
+    val simpleCid = toContractId("simple")
+    val fetcherCid = toContractId("fetcher")
+    val createArg = ValueRecord(
+      None /* BasicTests:Simple */,
+      ImmArray(None /* p */ -> ValueParty(alice), None -> ValueOptional(None)),
+    )
+    val contracts =
+      Map(
+        simpleCid ->
+          TransactionBuilder.fatContractInstanceWithDummyDefaults(
+            version = defaultSerializationVersion,
+            packageName = basicTestsPkg.pkgName,
+            template = simpleId,
+            arg = createArg,
+            signatories = List(alice),
+            observers = List.empty,
+          ),
+        fetcherCid ->
+          TransactionBuilder.fatContractInstanceWithDummyDefaults(
+            version = defaultSerializationVersion,
+            packageName = basicTestsPkg.pkgName,
+            template = fetcherId,
+            arg = ValueRecord(
+              None /* BasicTests:SimpleFetcher */,
+              ImmArray(
+                (None /* p */, ValueParty(alice))
+              ),
+            ),
+            signatories = List(alice),
+          ),
+      )
+
+    def run(
+        cmds: ImmArray[ApiCommand],
+        hashingMethod: Hash.HashingMethod,
+    ): Either[Error, (SubmittedTransaction, Transaction.Metadata)] =
+      suffixLenientEngine
+        .submit(
+          submitters = Set(alice),
+          readAs = Set.empty: Set[Party],
+          cmds = ApiCommands(cmds, Time.Timestamp.now(), ""),
+          participantId = participant,
+          submissionSeed = hash("contract with trailing nones"),
+          prefetchKeys = Seq.empty,
+        )
+        .consume(
+          contracts,
+          lookupPackage,
+          lookupKey,
+          hashingMethod = _ => hashingMethod,
+          idValidator = (_, _) => true,
+        )
+
+    def runFetch(hashingMethod: Hash.HashingMethod) = run(
+      cmds = ImmArray(
+        ApiCommand.Exercise(
+          fetcherId.toRef,
+          fetcherCid,
+          "DoFetchSimple",
+          ValueRecord(None, ImmArray((Some[Name]("cid"), ValueContractId(simpleCid)))),
+        )
+      ),
+      hashingMethod = hashingMethod,
+    )
+
+    def runExercise(hashingMethod: Hash.HashingMethod) = run(
+      cmds = ImmArray(
+        ApiCommand.Exercise(simpleId.toRef, simpleCid, "Hello", ValueRecord(None, ImmArray.empty))
+      ),
+      hashingMethod = hashingMethod,
+    )
+
+    def expectSuccess(
+        result: Either[Error, (SubmittedTransaction, Transaction.Metadata)]
+    ): Assertion =
+      result shouldBe a[Right[_, _]]
+
+    def expectInvalidValue(
+        result: Either[Error, (SubmittedTransaction, Transaction.Metadata)]
+    ): Assertion =
+      inside(result) {
+        case Left(
+              Error.Interpretation(
+                DamlException(
+                  interpretation.Error.Upgrade(
+                    interpretation.Error.Upgrade.TranslationFailed(_, _, _, _, error)
+                  )
+                ),
+                _,
+              )
+            ) =>
+          error shouldBe a[interpretation.Error.Upgrade.TranslationFailed.InvalidValue]
+      }
+
+    "be allowed in fetches for v10 contracts" in {
+      expectSuccess(runFetch(Hash.HashingMethod.Legacy))
+    }
+
+    "be allowed in exercises for v10 contracts" in {
+      expectSuccess(runExercise(Hash.HashingMethod.Legacy))
+    }
+
+    "be rejected in fetches for v11 contracts" in {
+      expectInvalidValue(runFetch(Hash.HashingMethod.UpgradeFriendly))
+    }
+
+    "be rejected in exercises for v11 contracts" in {
+      expectInvalidValue(runExercise(Hash.HashingMethod.UpgradeFriendly))
+    }
+
+    "be rejected in fetches for v12 contracts" in {
+      expectInvalidValue(runFetch(Hash.HashingMethod.TypedNormalForm))
+    }
+
+    "be rejected in exercises for v12 contracts" in {
+      expectInvalidValue(runExercise(Hash.HashingMethod.TypedNormalForm))
+    }
+  }
+
+  "contract authentication" should {
     val simpleId = Identifier(basicTestsPkgId, "BasicTests:Simple")
     val fetcherId = Identifier(basicTestsPkgId, "BasicTests:SimpleFetcher")
     val simpleCid = toContractId("simple")
@@ -2714,7 +2884,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           readAs = Set.empty: Set[Party],
           cmds = ApiCommands(cmds, Time.Timestamp.now(), ""),
           participantId = participant,
-          submissionSeed = hash("ill-formed contract"),
+          submissionSeed = hash("contract auth"),
           contractIdVersion = contractIdVersion,
           prefetchKeys = Seq.empty,
         )
@@ -2733,7 +2903,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       (Hash.HashingMethod.TypedNormalForm, expectedTypedNormalFormHash),
     )
 
-    "be authenticated on fetch" in {
+    "happen on fetch" in {
       forEvery(cases) { case (hashingMethod, expectedHash) =>
         var idValidatorCalledWithExpectedHash = false
         val result = run(
@@ -2760,7 +2930,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       }
     }
 
-    "be authenticated on exercise" in {
+    "happen on exercise" in {
       forEvery(cases) { case (hashingMethod, expectedHash) =>
         var idValidatorCalledWithExpectedHash = false
         val result = run(
@@ -2866,7 +3036,7 @@ class EngineTestHelpers(
   val preprocessor = preprocessing.Preprocessor.forTesting(compiledPackages)
 
   def loadAndAddPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
-    val packages = UniversalArchiveDecoder.assertReadFile(new File(rlocation(resource)))
+    val packages = DarDecoder.assertReadArchiveFromFile(new File(rlocation(resource)))
     val (mainPkgId, mainPkg) = packages.main
     assert(
       compiledPackages.addPackage(mainPkgId, mainPkg).consume(pkgs = packages.all.toMap).isRight
@@ -3137,35 +3307,5 @@ class EngineTestHelpers(
         nodeSeeds :++ meta.nodeSeeds,
       )
     }
-  }
-
-  def buildDisclosedContract(
-      pkg: Package,
-      templateId: Ref.TypeConId,
-      coid: ContractId,
-      signatory: Ref.Party,
-      arg: SValue,
-      keyOpt: Option[Value] = None,
-  ) = {
-    val version = SerializationVersion.assign(pkg.languageVersion)
-    DisclosedContract(
-      FatContractInstance.fromCreateNode(
-        Node.Create(
-          coid = coid,
-          packageName = pkg.pkgName,
-          templateId = templateId,
-          arg = arg.toNormalizedValue,
-          signatories = Set(signatory),
-          stakeholders = Set(signatory),
-          keyOpt = keyOpt.map(key =>
-            GlobalKeyWithMaintainers.assertBuild(templateId, key, Set(signatory), pkg.pkgName)
-          ),
-          version = version,
-        ),
-        CreationTime.CreatedAt(Time.Timestamp.now()),
-        Bytes.Empty,
-      ),
-      arg,
-    )
   }
 }

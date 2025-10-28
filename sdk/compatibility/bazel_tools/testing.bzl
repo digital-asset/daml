@@ -70,8 +70,11 @@ def daml_ledger_test(
 #
 # The proper fix is to use the appropriate version of Daml-LF for every SDK/platform pair.
 
-def daml_lf_compatible(_sdk_version, platform_version):
-    return in_range(platform_version, {"start": "3.0.0-snapshot"})
+def daml_lf_compatible(sdk_version, platform_version):
+    return (
+        # any post 3.4 platform supports any pre 3x SDK
+        in_range(platform_version, {"start": "3.4.0-snapshot"}) and in_range(sdk_version, {"start": "3.0.0-snapshot"})
+    )
 
 def sdk_platform_test(sdk_version, platform_version):
     # SDK components

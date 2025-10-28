@@ -4,7 +4,6 @@
 package com.digitalasset.canton.platform.store.cache
 
 import com.digitalasset.canton.caching.SizedCache
-import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.index.ContractStateStatus
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
@@ -13,7 +12,7 @@ import scala.concurrent.ExecutionContext
 
 object ContractsStateCache {
   def apply(
-      initialCacheIndex: Option[Offset],
+      initialCacheEventSeqIdIndex: Long,
       cacheSize: Long,
       metrics: LedgerApiServerMetrics,
       loggerFactory: NamedLoggerFactory,
@@ -21,7 +20,7 @@ object ContractsStateCache {
       ec: ExecutionContext
   ): StateCache[ContractId, ContractStateStatus] =
     StateCache(
-      initialCacheIndex = initialCacheIndex,
+      initialCacheEventSeqIdIndex = initialCacheEventSeqIdIndex,
       emptyLedgerState = ContractStateStatus.NotFound,
       cache = SizedCache.from[ContractId, ContractStateStatus](
         SizedCache.Configuration(cacheSize),

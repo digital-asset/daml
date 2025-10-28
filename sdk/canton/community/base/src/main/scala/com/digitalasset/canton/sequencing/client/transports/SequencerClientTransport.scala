@@ -59,6 +59,10 @@ trait SequencerClientTransportCommon extends FlagCloseable {
   def getTime(timeout: Duration)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Option[CantonTimestamp]]
+
+  def downloadTopologyStateForInitHash(request: TopologyStateForInitRequest)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, TopologyStateForInitHashResponse]
 }
 
 /** Implementation dependent operations for a client to read and write to a synchronizer sequencer.

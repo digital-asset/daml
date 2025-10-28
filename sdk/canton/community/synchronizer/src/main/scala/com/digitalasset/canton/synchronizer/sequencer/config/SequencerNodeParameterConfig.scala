@@ -5,7 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer.config
 
 import cats.data.Chain
 import com.digitalasset.canton.config.*
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveDouble, PositiveInt}
+import com.digitalasset.canton.config.RequireTypes.{PositiveDouble, PositiveInt}
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.block.AsyncWriterParameters
@@ -59,17 +59,11 @@ object AsyncWriterConfig {
   * @param sequencingTimeLowerBoundExclusive
   *   if defined, the sequencer will only send events with to subscribers with sequencing time
   *   strictly greater than sequencingTimeLowerBoundExclusive
-  * @param sequencerApiLimits
-  *   map of service name to maximum number of parallel open streams
-  * @param warnOnUndefinedLimits
-  *   if true, then this sequencer will emit a warning once if there is no limit configured for a
-  *   particular stream
   * @param asyncWriter
   *   controls the async writer
   */
 final case class SequencerNodeParameterConfig(
-    // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
-    override val alphaVersionSupport: Boolean = true,
+    override val alphaVersionSupport: Boolean = false,
     override val betaVersionSupport: Boolean = false,
     override val dontWarnOnDeprecatedPV: Boolean = false,
     maxConfirmationRequestsBurstFactor: PositiveDouble = PositiveDouble.tryCreate(0.5),
@@ -79,8 +73,6 @@ final case class SequencerNodeParameterConfig(
     unsafeEnableOnlinePartyReplication: Boolean = false,
     sequencingTimeLowerBoundExclusive: Option[CantonTimestamp] =
       SequencerNodeParameterConfig.DefaultSequencingTimeLowerBoundExclusive,
-    sequencerApiLimits: Map[String, NonNegativeInt] = Map.empty,
-    warnOnUndefinedLimits: Boolean = true,
     asyncWriter: AsyncWriterConfig = AsyncWriterConfig(),
 ) extends ProtocolConfig
     with LocalNodeParametersConfig

@@ -17,6 +17,7 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   PrepareSubmissionRequest,
 }
 import com.daml.ledger.api.v2.reassignment_commands.{ReassignmentCommand, ReassignmentCommands}
+import com.digitalasset.canton.LfTimestamp
 import com.digitalasset.canton.data.{DeduplicationPeriod, Offset}
 import com.digitalasset.canton.ledger.api.messages.command.submission
 import com.digitalasset.canton.ledger.api.util.{DurationConversion, TimestampConversion}
@@ -57,7 +58,6 @@ final class CommandsValidator(
       prepareRequest: PrepareSubmissionRequest,
       currentLedgerTime: Instant,
       currentUtcTime: Instant,
-      maxDeduplicationDuration: Duration,
   )(implicit
       errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, Commands] =
@@ -93,7 +93,7 @@ final class CommandsValidator(
       readAs = submitters.readAs,
       submittedAt = Time.Timestamp.assertFromInstant(currentUtcTime),
       // Unused for transaction preparation
-      deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(maxDeduplicationDuration),
+      deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ZERO),
       commands = ApiCommands(
         commands = validatedCommands.to(ImmArray),
         ledgerEffectiveTime = ledgerEffectiveTimestamp,
@@ -257,6 +257,18 @@ final class CommandsValidator(
         )
 
     } yield ledgerEffectiveTimestamp
+
+  def validateLfTime(protoTimestamp: com.google.protobuf.timestamp.Timestamp)(implicit
+      errorLoggingContext: ErrorLoggingContext
+  ): Either[StatusRuntimeException, LfTimestamp] =
+    LfTimestamp
+      .fromInstant(TimestampConversion.toInstant(protoTimestamp))
+      .left
+      .map(_ =>
+        invalidArgument(
+          s"Can not represent ledger time $protoTimestamp as a Daml timestamp"
+        )
+      )
 
   // Public because it is used by Canton.
   def validateInnerCommands(

@@ -4,7 +4,6 @@
 package com.digitalasset.canton.integration
 
 import cats.syntax.option.*
-import com.digitalasset.canton.BaseTest.testedProtocolVersion
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port, PositiveInt}
 import com.digitalasset.canton.config.StartupMemoryCheckConfig.ReportingLevel
@@ -15,7 +14,7 @@ import com.digitalasset.canton.config.{
   *,
 }
 import com.digitalasset.canton.console.FeatureFlag
-import com.digitalasset.canton.http.{HttpServerConfig, JsonApiConfig, WebsocketConfig}
+import com.digitalasset.canton.http.{JsonApiConfig, WebsocketConfig}
 import com.digitalasset.canton.participant.config.{
   ParticipantNodeConfig,
   RemoteParticipantConfig,
@@ -129,8 +128,7 @@ object ConfigTransforms {
       _.focus(_.monitoring.logging.api.warnBeyondLoad).replace(Some(10000)),
       // disable exit on fatal error in tests
       ConfigTransforms.setExitOnFatalFailures(false),
-      // TODO(i26481): adjust when the new connection pool is stable
-      ConfigTransforms.setConnectionPool(testedProtocolVersion >= ProtocolVersion.dev),
+      ConfigTransforms.setConnectionPool(true),
     )
 
   lazy val dontWarnOnDeprecatedPV: Seq[ConfigTransform] = Seq(
@@ -144,6 +142,18 @@ object ConfigTransforms {
       _.focus(_.parameters.dontWarnOnDeprecatedPV).replace(true)
     ),
   )
+
+  lazy val enableInteractiveSubmissionTransforms: ConfigTransform =
+    ConfigTransforms
+      .updateAllParticipantConfigs_(
+        _.focus(_.ledgerApi.interactiveSubmissionService.enableVerboseHashing)
+          .replace(true)
+      )
+      .compose(
+        ConfigTransforms.updateAllParticipantConfigs_(
+          _.focus(_.topology.broadcastBatchSize).replace(PositiveInt.one)
+        )
+      )
 
   /** Allow all preview and experimental features without compatibility guarantees
     */
@@ -253,7 +263,7 @@ object ConfigTransforms {
         .replace(nextPort.some)
         .focus(_.adminApi.internalPort)
         .replace(nextPort.some)
-        .focus(_.httpLedgerApi.server.internalPort)
+        .focus(_.httpLedgerApi.internalPort)
         .replace(nextPort.some)
         .focus(_.monitoring.grpcHealthServer)
         .modify(_.map(_.copy(internalPort = nextPort.some)))
@@ -598,6 +608,14 @@ object ConfigTransforms {
       _.focus(_.mediator.pruning.maxPruningBatchSize).replace(batchSize)
     )
 
+  def updateCommitmentCheckpointInterval(
+      interval: PositiveDurationSeconds
+  ): ConfigTransform =
+    updateAllParticipantConfigs_(
+      _.focus(_.parameters.commitmentCheckpointInterval)
+        .replace(interval)
+    )
+
   def updateAllDatabaseSequencerConfigs(
       updateDbSequencerConfig: SequencerConfig.Database => SequencerConfig.Database
   ): ConfigTransform = {
@@ -868,7 +886,7 @@ object ConfigTransforms {
 
   /** Use the new sequencer connection pool if 'value' is true. Otherwise use the former transports.
     */
-  private def setConnectionPool(value: Boolean): ConfigTransform =
+  def setConnectionPool(value: Boolean): ConfigTransform =
     updateAllSequencerConfigs { case (_name, config) =>
       config.focus(_.sequencerClient.useNewConnectionPool).replace(value)
     }.compose(updateAllMediatorConfigs { case (_name, config) =>
@@ -879,7 +897,7 @@ object ConfigTransforms {
 
   /** Must be applied before the default config transformers */
   def enableHttpLedgerApi: ConfigTransform = updateAllParticipantConfigs_(
-    _.copy(httpLedgerApi = JsonApiConfig(server = HttpServerConfig()))
+    _.copy(httpLedgerApi = JsonApiConfig())
   )
 
   /** Must be applied before the default config transformers */
@@ -891,9 +909,7 @@ object ConfigTransforms {
     updateParticipantConfig(participantName)(config =>
       config.copy(httpLedgerApi =
         JsonApiConfig(
-          server = HttpServerConfig(
-            pathPrefix = pathPrefix
-          ),
+          pathPrefix = pathPrefix,
           websocketConfig = websocketConfig,
         )
       )

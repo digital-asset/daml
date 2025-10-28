@@ -5,6 +5,7 @@ package com.digitalasset.canton.crypto.kms.gcp
 
 import cats.data.EitherT
 import cats.syntax.either.*
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.config.{KmsConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.*
@@ -306,7 +307,7 @@ class GcpKms(
   ): Either[String, CryptoKeyVersionAlgorithm] =
     signingKeySpec match {
       case SigningKeySpec.EcCurve25519 =>
-        Left(s"Unsupported signing key type: ${signingKeySpec.name}")
+        Right(CryptoKeyVersionAlgorithm.EC_SIGN_ED25519)
       case SigningKeySpec.EcP256 =>
         Right(CryptoKeyVersionAlgorithm.EC_SIGN_P256_SHA256)
       case SigningKeySpec.EcP384 =>
@@ -339,6 +340,7 @@ class GcpKms(
       keySpec: CryptoKeyVersionAlgorithm
   ): Either[String, SigningKeySpec] =
     keySpec match {
+      case CryptoKeyVersionAlgorithm.EC_SIGN_ED25519 => Right(SigningKeySpec.EcCurve25519)
       case CryptoKeyVersionAlgorithm.EC_SIGN_P256_SHA256 => Right(SigningKeySpec.EcP256)
       case CryptoKeyVersionAlgorithm.EC_SIGN_P384_SHA384 => Right(SigningKeySpec.EcP384)
       case CryptoKeyVersionAlgorithm.EC_SIGN_SECP256K1_SHA256 => Right(SigningKeySpec.EcSecp256k1)
@@ -491,7 +493,7 @@ class GcpKms(
     } yield plaintext
   }
 
-  private def signEcDsa(
+  private def signWithAlgorithm(
       keyId: KmsKeyId,
       keyVersionName: gcp.CryptoKeyVersionName,
       signingAlgorithm: CryptoKeyVersionAlgorithm,
@@ -532,14 +534,14 @@ class GcpKms(
       case SigningAlgorithmSpec.EcDsaSha256 =>
         signingKeySpec match {
           case SigningKeySpec.EcP256 =>
-            signEcDsa(
+            signWithAlgorithm(
               keyId,
               keyVersionName,
               CryptoKeyVersionAlgorithm.EC_SIGN_P256_SHA256,
               data.unwrap,
             )
           case SigningKeySpec.EcSecp256k1 =>
-            signEcDsa(
+            signWithAlgorithm(
               keyId,
               keyVersionName,
               CryptoKeyVersionAlgorithm.EC_SIGN_SECP256K1_SHA256,
@@ -553,12 +555,19 @@ class GcpKms(
               )
             )
         }
-
       case SigningAlgorithmSpec.EcDsaSha384 =>
-        signEcDsa(keyId, keyVersionName, CryptoKeyVersionAlgorithm.EC_SIGN_P384_SHA384, data.unwrap)
-      case scheme =>
-        EitherT.leftT[FutureUnlessShutdown, ByteString](
-          KmsError.KmsSignError(keyId, s"unsupported signing algorithm scheme: ${scheme.show}")
+        signWithAlgorithm(
+          keyId,
+          keyVersionName,
+          CryptoKeyVersionAlgorithm.EC_SIGN_P384_SHA384,
+          data.unwrap,
+        )
+      case SigningAlgorithmSpec.Ed25519 =>
+        signWithAlgorithm(
+          keyId,
+          keyVersionName,
+          CryptoKeyVersionAlgorithm.EC_SIGN_ED25519,
+          data.unwrap,
         )
     }
   }
@@ -620,7 +629,30 @@ class GcpKms(
 
 }
 
-object GcpKms {
+object GcpKms extends Kms.SupportedSchemes {
+
+  val supportedSigningKeySpecs: NonEmpty[Set[SigningKeySpec]] =
+    NonEmpty.mk(
+      Set,
+      SigningKeySpec.EcP256,
+      SigningKeySpec.EcP384,
+      SigningKeySpec.EcSecp256k1,
+      SigningKeySpec.EcCurve25519,
+    )
+
+  val supportedSigningAlgoSpecs: NonEmpty[Set[SigningAlgorithmSpec]] =
+    NonEmpty.mk(
+      Set,
+      SigningAlgorithmSpec.EcDsaSha256,
+      SigningAlgorithmSpec.EcDsaSha384,
+      SigningAlgorithmSpec.Ed25519,
+    )
+
+  val supportedEncryptionKeySpecs: NonEmpty[Set[EncryptionKeySpec]] =
+    NonEmpty.mk(Set, EncryptionKeySpec.Rsa2048)
+
+  val supportedEncryptionAlgoSpecs: NonEmpty[Set[EncryptionAlgorithmSpec]] =
+    NonEmpty.mk(Set, EncryptionAlgorithmSpec.RsaOaepSha256)
 
   def create(
       config: KmsConfig.Gcp,

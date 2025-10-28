@@ -13,7 +13,6 @@ import com.digitalasset.canton.integration.{
   EnvironmentDefinition,
   SharedEnvironment,
 }
-import com.digitalasset.canton.ledger.error.groups.PartyManagementServiceErrors.PartyNotFound
 import com.digitalasset.canton.topology.TopologyManagerError.MappingAlreadyExists
 import com.digitalasset.canton.topology.transaction.{ParticipantPermission, TopologyChangeOp}
 import com.digitalasset.canton.topology.{PartyId, SynchronizerId, UniqueIdentifier}
@@ -146,7 +145,7 @@ trait PartyManagementIntegrationTest extends CommunityIntegrationTest with Share
                 partyDetails.copy(annotations = partyDetails.annotations.updated("a", "b"))
               },
             ),
-          _.shouldBeCantonErrorCode(PartyNotFound),
+          _.errorMessage should include("The following parties were not found on the Ledger"),
         )
       }
 

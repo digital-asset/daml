@@ -8,16 +8,17 @@ import com.daml.metrics.api.{MetricHandle, MetricsContext}
 import com.digitalasset.canton.data.{CantonTimestamp, LedgerTimeBoundaries, Offset}
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.TestAcsChangeFactory
+import com.digitalasset.canton.protocol.TestUpdateId
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.TransactionNodeStatistics.EmptyActions
 import com.digitalasset.daml.lf.transaction.test.{TestNodeBuilder, TransactionBuilder}
 import com.digitalasset.daml.lf.transaction.{
   CommittedTransaction,
   NodeId,
+  SerializationVersion as LfSerializationVersion,
   TransactionNodeStatistics,
   VersionedTransaction,
 }
@@ -92,11 +93,12 @@ class EventMetricsUpdaterSpec extends AnyWordSpec with MetricValues {
           )
         ),
       ),
-      updateId = Ref.TransactionId.assertFromString("UpdateId"),
+      updateId = TestUpdateId("UpdateId"),
       Map.empty,
       synchronizerId = SynchronizerId.tryFromString("da::default"),
       CantonTimestamp.now(),
       acsChangeFactory = TestAcsChangeFactory(),
+      internalContractIds = Map.empty,
     )
 
     "extract transaction metering" in {
@@ -151,7 +153,7 @@ class EventMetricsUpdaterSpec extends AnyWordSpec with MetricValues {
       val meter: MetricHandle.Meter = mock[MetricHandle.Meter]
       val txWithNoActionCount = someTransactionAccepted.copy(
         transaction = CommittedTransaction(
-          VersionedTransaction(LanguageVersion.v2_dev, Map.empty, ImmArray.empty)
+          VersionedTransaction(LfSerializationVersion.VDev, Map.empty, ImmArray.empty)
         )
       )
 

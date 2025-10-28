@@ -21,6 +21,7 @@ import com.digitalasset.daml.lf.engine.{
   UpgradesMatrix,
   UpgradesMatrixCases,
   UpgradesMatrixCasesV2Dev,
+  UpgradesMatrixCasesV2MaxStable,
 }
 import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.digitalasset.daml.lf.value.Value._
@@ -35,14 +36,18 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 
 // Split the tests across eight suites with eight Canton runners, which brings
 // down the runtime from ~4000s on a single suite to ~1400s
-class UpgradesMatrixIntegration0 extends UpgradesMatrixIntegration(8, 0)
-class UpgradesMatrixIntegration1 extends UpgradesMatrixIntegration(8, 1)
-class UpgradesMatrixIntegration2 extends UpgradesMatrixIntegration(8, 2)
-class UpgradesMatrixIntegration3 extends UpgradesMatrixIntegration(8, 3)
-class UpgradesMatrixIntegration4 extends UpgradesMatrixIntegration(8, 4)
-class UpgradesMatrixIntegration5 extends UpgradesMatrixIntegration(8, 5)
-class UpgradesMatrixIntegration6 extends UpgradesMatrixIntegration(8, 6)
-class UpgradesMatrixIntegration7 extends UpgradesMatrixIntegration(8, 7)
+class UpgradesMatrixIntegration0
+    extends UpgradesMatrixIntegration(UpgradesMatrixCasesV2MaxStable, 3, 0)
+class UpgradesMatrixIntegration1
+    extends UpgradesMatrixIntegration(UpgradesMatrixCasesV2MaxStable, 3, 1)
+class UpgradesMatrixIntegration2
+    extends UpgradesMatrixIntegration(UpgradesMatrixCasesV2MaxStable, 3, 2)
+
+class UpgradesMatrixIntegration3 extends UpgradesMatrixIntegration(UpgradesMatrixCasesV2Dev, 5, 0)
+class UpgradesMatrixIntegration4 extends UpgradesMatrixIntegration(UpgradesMatrixCasesV2Dev, 5, 1)
+class UpgradesMatrixIntegration5 extends UpgradesMatrixIntegration(UpgradesMatrixCasesV2Dev, 5, 2)
+class UpgradesMatrixIntegration6 extends UpgradesMatrixIntegration(UpgradesMatrixCasesV2Dev, 5, 3)
+class UpgradesMatrixIntegration7 extends UpgradesMatrixIntegration(UpgradesMatrixCasesV2Dev, 5, 4)
 
 /** A test suite to run the UpgradesMatrix matrix on Canton.
   *
@@ -50,11 +55,11 @@ class UpgradesMatrixIntegration7 extends UpgradesMatrixIntegration(8, 7)
   * different test [[UpgradesMatrixUnit]] to catch simple engine issues early which
   * takes only ~40s.
   */
-abstract class UpgradesMatrixIntegration(n: Int, k: Int)
+abstract class UpgradesMatrixIntegration(upgradesMatrixCases: UpgradesMatrixCases, n: Int, k: Int)
     extends UpgradesMatrix[
       ScriptLedgerClient.SubmitFailure,
       (Seq[ScriptLedgerClient.CommandResult], ScriptLedgerClient.TransactionTree),
-    ](UpgradesMatrix.CantonLedger, UpgradesMatrixCasesV2Dev, Some((n, k)))
+    ](upgradesMatrixCases, Some((n, k)))
     with CantonFixture {
   def encodeDar(
       mainDalfName: String,
@@ -305,11 +310,11 @@ abstract class UpgradesMatrixIntegration(n: Int, k: Int)
         }
       case UpgradesMatrixCases.ExpectAuthenticationError =>
         inside(result) { case Left(ScriptLedgerClient.SubmitFailure(_, error)) =>
-          error shouldBe a[SubmitError.DevError]
+          error shouldBe a[SubmitError.UpgradeError.AuthenticationFailed]
         }
       case UpgradesMatrixCases.ExpectRuntimeTypeMismatchError =>
         inside(result) { case Left(ScriptLedgerClient.SubmitFailure(_, error)) =>
-          error shouldBe a[SubmitError.DevError]
+          error shouldBe a[SubmitError.UpgradeError.TranslationFailed]
         }
       case UpgradesMatrixCases.ExpectPreprocessingError =>
         inside(result) { case Left(ScriptLedgerClient.SubmitFailure(statusError, submitError)) =>

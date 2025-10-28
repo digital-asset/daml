@@ -194,7 +194,7 @@ export class DamlLanguageClient {
     return [].concat.apply([], <any>addedArgs);
   }
 
-  private static async getSdkVersion(
+  private static async getSdkVersionDamlAssistant(
     damlPath: string,
     projectPath: string | undefined,
   ): Promise<string | undefined> {
@@ -213,6 +213,22 @@ export class DamlLanguageClient {
       const line = lines.find((line: string) => line.includes(selection));
       if (line) return line.trim().split(" ")[0];
     }
+  }
+
+  // TODO: Once `dpm resolve` allows for json output, we should find the damlc version for that package
+  // rather than finding the current "default" sdk version
+  // This is fine for now as all DPM versions support all extension functionality, but later this could break
+  private static async getSdkVersionDPM(
+    dpmPath: string,
+    projectPath: string | undefined,
+  ): Promise<string> {
+    const { stdout } = await util.promisify(child_process.exec)(
+      dpmPath + " versions -o json",
+      { cwd: projectPath },
+    );
+    return JSON.parse(stdout).filter(
+      (v: { active: boolean; version: string }) => v.active,
+    )[0].version;
   }
 
   private static async getMultiIdeIdentifierSupport(
@@ -315,7 +331,9 @@ export class DamlLanguageClient {
     }
   }
 
-  static findAssistantCommand(config: vscode.WorkspaceConfiguration): string {
+  static findAssistantCommand(
+    config: vscode.WorkspaceConfiguration,
+  ): [string, boolean] {
     const useDpm = config.get("useDPMWhenAvailable");
     if (useDpm) {
       const dpmPath = DamlLanguageClient.findDpmCommand();
@@ -323,11 +341,11 @@ export class DamlLanguageClient {
         vscode.window.showInformationMessage(
           "Daml IDE is starting using the Early Access DPM assistant.",
         );
-        return dpmPath;
+        return [dpmPath, true];
       }
     }
     const damlPath = DamlLanguageClient.findDamlCommand();
-    if (damlPath) return damlPath;
+    if (damlPath) return [damlPath, false];
 
     vscode.window.showErrorMessage(
       "Failed to start the Daml language server. Make sure an assistant (daml assistant or DPM) is installed.",
@@ -351,11 +369,11 @@ export class DamlLanguageClient {
       ],
     };
 
-    const command = DamlLanguageClient.findAssistantCommand(config);
-    const sdkVersion = await DamlLanguageClient.getSdkVersion(
-      command,
-      rootPath,
-    );
+    const [command, isUsingDPM] =
+      DamlLanguageClient.findAssistantCommand(config);
+    const sdkVersion = isUsingDPM
+      ? await DamlLanguageClient.getSdkVersionDPM(command, rootPath)
+      : await DamlLanguageClient.getSdkVersionDamlAssistant(command, rootPath);
     const multiIdeSupport = DamlLanguageClient.getMultiIdeSupport(
       config,
       sdkVersion,

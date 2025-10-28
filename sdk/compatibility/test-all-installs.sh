@@ -269,12 +269,9 @@ export os=$1; shift
 # Serve a mirror directory of github for more speed
 export github_mirror_directory="$(mktemp -d -p "$PWD" "github-mirror-directory.XXXXXXXX")"
 echo "$github_mirror_directory"
-# TODO: restore these lines with 3.x.y versions when that makes sense
-# mkdir -p $github_mirror_directory/{v2.7.1,v2.7.4,v2.7.5,v2.8.0-snapshot.20231109.2}
-# cp --no-dereference $(rlocation daml-sdk-2.7.5-tarball/file/downloaded) "$github_mirror_directory/v2.7.5/daml-sdk-2.7.5-$os.tar.gz"
-# cp --no-dereference $(rlocation daml-sdk-2.7.4-tarball/file/downloaded) "$github_mirror_directory/v2.7.4/daml-sdk-2.7.4-$os.tar.gz"
-# cp --no-dereference $(rlocation daml-sdk-2.7.1-tarball/file/downloaded) "$github_mirror_directory/v2.7.1/daml-sdk-2.7.1-$os.tar.gz"
-# cp --no-dereference $(rlocation daml-sdk-2.8.0-snapshot.20231107.12319.0.v03a51e65-tarball/file/downloaded) "$github_mirror_directory/v2.8.0-snapshot.20231109.2/daml-sdk-2.8.0-snapshot.20231107.12319.0.v03a51e65-$os.tar.gz"
+
+mkdir -p $github_mirror_directory/v3.3.0-snapshot.20250930.0
+cp --no-dereference $(rlocation daml-sdk-3.3.0-snapshot.20250926.13852.1.v4f3223e3-tarball/file/downloaded) "$github_mirror_directory/v3.3.0-snapshot.20250930.0/daml-sdk-3.3.0-snapshot.20250926.13852.1.v4f3223e3-$os-x86_64.tar.gz"
 absolute_github_mirror_directory=$(realpath "$github_mirror_directory")
 if [[ $os == windows ]]; then
   alternate_download_line="alternate-download: $(cygpath -d "$github_mirror_directory")"

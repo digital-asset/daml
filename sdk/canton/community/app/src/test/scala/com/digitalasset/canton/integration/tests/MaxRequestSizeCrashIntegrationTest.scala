@@ -146,7 +146,7 @@ sealed abstract class MaxRequestSizeCrashIntegrationTest
           }
 
           val matchError =
-            s"MaxViewSizeExceeded\\(view size = .*, max request size configured = .*\\)."
+            s"MaxViewSizeExceeded\\(view size .bytes. = .*, max request size configured .bytes. = .*\\)."
 
           val (commandId, _) = submitCommand(env.participant1)
 

@@ -6,6 +6,7 @@ package com.daml.ledger.api.testtool.infrastructure.participant
 import com.daml.ledger.api.v2.version_service.{
   GetLedgerApiVersionResponse,
   OffsetCheckpointFeature,
+  PackageFeature,
   PartyManagementFeature,
   UserManagementFeature,
 }
@@ -13,6 +14,7 @@ import com.daml.ledger.api.v2.version_service.{
 final case class Features(
     userManagement: UserManagementFeature,
     partyManagement: PartyManagementFeature,
+    packageFeature: PackageFeature,
     staticTime: Boolean,
     offsetCheckpoint: OffsetCheckpointFeature,
 )
@@ -25,6 +27,7 @@ object Features {
     Features(
       userManagement = features.getUserManagement,
       partyManagement = features.getPartyManagement,
+      packageFeature = features.getPackageFeature,
       staticTime = experimental.getStaticTime.supported,
       offsetCheckpoint = features.getOffsetCheckpoint,
     )

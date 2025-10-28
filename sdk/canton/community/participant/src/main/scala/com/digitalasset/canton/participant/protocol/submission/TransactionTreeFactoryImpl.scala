@@ -524,7 +524,7 @@ class TransactionTreeFactoryImpl(
         CreationTime.Now
     }
     hasher
-      .hash(createNodeWithSuffixedArg, contractIdSuffixer.hashingMethod)
+      .hash(createNodeWithSuffixedArg, contractIdSuffixer.contractHashingMethod)
       .map { contractHash =>
         val ContractIdSuffixer.RelativeSuffixResult(
           suffixedCreateNode,
@@ -664,7 +664,10 @@ class TransactionTreeFactoryImpl(
     */
   private def resolvedKeys(
       viewKeyInputs: Map[LfGlobalKey, KeyInput],
-      keyVersionAndMaintainers: collection.Map[LfGlobalKey, (LfSerializationVersion, Set[LfPartyId])],
+      keyVersionAndMaintainers: collection.Map[
+        LfGlobalKey,
+        (LfSerializationVersion, Set[LfPartyId]),
+      ],
       subviewKeyResolutions: collection.Map[LfGlobalKey, LfVersioned[SerializableKeyResolution]],
   )(implicit
       traceContext: TraceContext
@@ -1017,13 +1020,14 @@ object TransactionTreeFactoryImpl {
     var createdContractsInView: collection.Set[LfContractId] = Set.empty
 
     /** An [[com.digitalasset.canton.protocol.LfGlobalKey]] stores neither the
-      * [[com.digitalasset.canton.protocol.LfSerializationVersion]] to be used during serialization nor
-      * the maintainers, which we need to cache in case no contract is found.
+      * [[com.digitalasset.canton.protocol.LfSerializationVersion]] to be used during serialization
+      * nor the maintainers, which we need to cache in case no contract is found.
       *
       * Out parameter that stores version and maintainers for all keys that have been referenced by
       * an already-processed node.
       */
-    val keyVersionAndMaintainers: mutable.Map[LfGlobalKey, (LfSerializationVersion, Set[LfPartyId])] =
+    val keyVersionAndMaintainers
+        : mutable.Map[LfGlobalKey, (LfSerializationVersion, Set[LfPartyId])] =
       mutable.Map.empty
 
     /** Out parameter for the [[com.digitalasset.daml.lf.transaction.ContractStateMachine.State]]

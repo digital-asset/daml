@@ -4,7 +4,6 @@
 package com.digitalasset.canton.platform.store.dao.events
 
 import com.daml.metrics.Timed
-import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.index.ContractStateStatus.ExistingContractStatus
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
@@ -30,13 +29,13 @@ private[dao] sealed class ContractsReader(
     *
     * Used to unit test the SQL queries for key lookups. Does not use batching.
     */
-  override def lookupKeyStatesFromDb(keys: Seq[Key], notEarlierThanOffset: Offset)(implicit
+  override def lookupKeyStatesFromDb(keys: Seq[Key], notEarlierThanEventSeqId: Long)(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Map[Key, KeyState]] =
+  ): Future[Map[Key, Long]] =
     Timed.future(
       metrics.index.db.lookupKey,
       dispatcher.executeSql(metrics.index.db.lookupContractByKeyDbMetrics)(
-        storageBackend.keyStates(keys, notEarlierThanOffset)
+        storageBackend.keyStates(keys, notEarlierThanEventSeqId)
       ),
     )
 
@@ -44,33 +43,35 @@ private[dao] sealed class ContractsReader(
     *
     * @param key
     *   the contract key
-    * @param notEarlierThanOffset
+    * @param notEarlierThanEventSeqId
     *   the lower bound offset of the ledger for which to query for the key state
     * @return
     *   the key state.
     */
-  override def lookupKeyState(key: Key, notEarlierThanOffset: Offset)(implicit
+  override def lookupKeyState(key: Key, notEarlierThanEventSeqId: Long)(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[KeyState] =
     Timed.future(
       metrics.index.db.lookupKey,
-      contractLoader.keys.load(key -> notEarlierThanOffset).map {
+      contractLoader.keys.load(key -> notEarlierThanEventSeqId).map {
         case Some(value) => value
         case None =>
           logger
-            .error(s"Key $key resulted in an invalid empty load at offset $notEarlierThanOffset")(
+            .error(
+              s"Key $key resulted in an invalid empty load at offset $notEarlierThanEventSeqId"
+            )(
               loggingContext.traceContext
             )
           KeyUnassigned
       },
     )
 
-  override def lookupContractState(contractId: ContractId, notEarlierThanOffset: Offset)(implicit
+  override def lookupContractState(contractId: ContractId, notEarlierThanEventSeqId: Long)(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Option[ExistingContractStatus]] =
     Timed.future(
       metrics.index.db.lookupActiveContract,
-      contractLoader.contracts.load(contractId -> notEarlierThanOffset),
+      contractLoader.contracts.load(contractId -> notEarlierThanEventSeqId),
     )
 }
 

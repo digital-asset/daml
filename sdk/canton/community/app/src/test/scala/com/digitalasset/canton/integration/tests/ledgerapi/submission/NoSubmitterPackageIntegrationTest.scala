@@ -24,14 +24,14 @@ class NoSubmitterPackageIntegrationTest
     EnvironmentDefinition.P3_S1M1
       .withSetup { implicit env =>
         import env.*
-        ppn.dars.upload(CantonTestsPath)
-        cpn.dars.upload(CantonTestsPath)
         participants.all.synchronizers.connect_local(sequencer1, alias = daName)
+        ppn.dars.upload(CantonTestsPath, synchronizerId = daId)
+        cpn.dars.upload(CantonTestsPath, synchronizerId = daId)
 
         bobE = ppn.parties.external.enable("Bob")
         aliceE = cpn.parties.external.enable("Alice")
       }
-      .addConfigTransforms(enableInteractiveSubmissionTransforms*)
+      .addConfigTransform(ConfigTransforms.enableInteractiveSubmissionTransforms)
 
   "Interactive submission" should {
 

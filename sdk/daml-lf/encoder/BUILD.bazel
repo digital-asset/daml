@@ -11,8 +11,8 @@ load(
 )
 load(
     "//daml-lf/language:daml-lf.bzl",
+    "ALL_LF_VERSIONS",
     "ENGINE_LF_VERSIONS",
-    "lf_version_configuration",
     "lf_version_is_dev",
     "mangle_for_java",
     "version_in",
@@ -124,7 +124,7 @@ da_scala_binary(
             args = [
                 "$(location //daml-lf/repl:repl)",
                 "$(location :testing-dar-%s)" % target,
-                "--dev" if (lf_version_is_dev(target) or target == lf_version_configuration.get("preview")) else "",
+                "--dev" if lf_version_is_dev(target) else "",
             ],
             data = [
                 "//daml-lf/repl",
@@ -135,42 +135,7 @@ da_scala_binary(
             ],
         ),
     ]
-    for target in ENGINE_LF_VERSIONS
-]
-
-[
-    [
-        genrule(
-            name = "testing-dar-lookup-scala-%s" % keyword,
-            outs = ["TestDars-%s.scala" % mangle_for_java(keyword)],
-            cmd = """
-cat > $@ <<EOF
-package com.digitalasset.daml.lf.archive.testing
-object TestDar {
-    val fileName = \"daml-lf/encoder/test-%s.dar\"
-}
-EOF
-""" % version,
-        ),
-        da_scala_library(
-            name = "testing-dar-lookup-lib-%s" % keyword,
-            srcs = ["testing-dar-lookup-scala-%s" % keyword],
-            # generated_srcs is required for scaladocF
-            generated_srcs = ["testing-dar-lookup-scala-%s" % keyword],
-            visibility = ["//visibility:public"],
-        ),
-    ]
-    for (keyword, version) in lf_version_configuration.items()
-    if keyword in ["latest"]
-]
-
-[
-    alias(
-        name = "testing-dar-%s" % keyword,
-        actual = ":testing-dar-%s" % version,
-        visibility = ["//visibility:public"],
-    )
-    for (keyword, version) in lf_version_configuration.items()
+    for target in ALL_LF_VERSIONS
 ]
 
 filegroup(

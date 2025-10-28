@@ -123,9 +123,10 @@ sealed abstract class SynchronizerRepairIntegrationTest
         "Participants disconnected from lost synchronizer will now attempt to connect to new synchronizer"
       )
 
-      Seq(participant1, participant2).foreach(
-        _.synchronizers.connect_local(newSynchronizerSequencer, alias = newSynchronizerAlias)
-      )
+      Seq(participant1, participant2).foreach { p =>
+        p.synchronizers.connect_local(newSynchronizerSequencer, alias = newSynchronizerAlias)
+        p.dars.upload(CantonExamplesPath, synchronizerId = newSynchronizerId)
+      }
 
       // Wait for topology state to appear before disconnecting again.
       clue("newSynchronizer initialization timed out") {

@@ -15,6 +15,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.participant.config.LedgerApiServerConfig
+import com.digitalasset.canton.participant.store.ContractStore
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.platform.indexer.ha.HaConfig
 import com.digitalasset.canton.platform.indexer.parallel.{
@@ -58,6 +59,7 @@ class LedgerApiIndexer(
     val enqueue: Update => FutureUnlessShutdown[Unit],
     val inMemoryState: InMemoryState,
     val ledgerApiStore: Eval[LedgerApiStore],
+    val contractStore: Eval[ContractStore],
     val loggerFactory: NamedLoggerFactory,
     val timeouts: ProcessingTimeout,
     indexerState: IndexerState,
@@ -99,6 +101,7 @@ object LedgerApiIndexer {
       clock: Clock,
       commandProgressTracker: CommandProgressTracker,
       ledgerApiStore: Eval[LedgerApiStore],
+      contractStore: Eval[ContractStore],
       ledgerApiIndexerConfig: LedgerApiIndexerConfig,
       reassignmentOffsetPersistence: ReassignmentOffsetPersistence,
       postProcessor: (Seq[PostPublishData], TraceContext) => Future[Unit],
@@ -157,6 +160,7 @@ object LedgerApiIndexer {
         reassignmentOffsetPersistence,
         postProcessor,
         sequentialPostProcessor,
+        contractStore.value,
       ).initialized().map { indexer => (repairMode: Boolean) => (commit: Commit) =>
         val result = indexer(repairMode)(commit)
         result.onComplete {
@@ -212,6 +216,7 @@ object LedgerApiIndexer {
           .andThen(IndexerState.ShutdownInProgress.transformToFUS),
         inMemoryState = inMemoryState,
         ledgerApiStore = ledgerApiStore,
+        contractStore = contractStore,
         loggerFactory = loggerFactory,
         timeouts = ledgerApiIndexerConfig.processingTimeout,
         indexerState = indexerState,
