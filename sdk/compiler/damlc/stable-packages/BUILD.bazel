@@ -107,7 +107,7 @@ generate_and_track_cabal("stable-packages-lib", "generate-stable-package")
 
 da_haskell_binary(
     name = "stable-package-list-writer",
-    srcs = ["src/DA/Daml/JsonWriter.hs"],
+    srcs = ["src/DA/Daml/StablePackagesListWriter.hs"],
     data = ["stable-packages.yaml"],
     hackage_deps = [
         "base",
@@ -126,8 +126,7 @@ da_haskell_binary(
 da_haskell_library(
     name = "stable-package-list-reader",
     srcs = [
-        "src/DA/Daml/HardcodedStablePackages.hs",
-        "src/DA/Daml/JsonReader.hs",
+        "src/DA/Daml/StablePackagesListReader.hs",
     ],
     compiler_flags = [
         "-XCPP",  # Enable the C Preprocessor to pass path

@@ -30,7 +30,7 @@ import           Data.Int
 import           Text.Printf (printf)
 
 import           DA.Pretty
-import           DA.Daml.HardcodedStablePackages
+import           DA.Daml.StablePackagesListReader
 import           DA.Daml.LF.Ast
 import           DA.Daml.LF.Mangling
 import           DA.Daml.LF.Proto3.Interned    as I

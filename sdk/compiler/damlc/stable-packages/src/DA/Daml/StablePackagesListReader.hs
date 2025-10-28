@@ -5,7 +5,7 @@
 {-# LANGUAGE CPP             #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module DA.Daml.JsonReader (
+module DA.Daml.StablePackagesListReader (
     allStablePackageIds
   , stablePackagesForVersion
   ) where
