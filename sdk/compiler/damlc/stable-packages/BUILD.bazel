@@ -32,7 +32,7 @@ da_haskell_library(
 
 da_haskell_binary(
     name = "generate-stable-package",
-    srcs = glob(["src/**/*.hs"]),
+    srcs = ["src/Main.hs"],
     hackage_deps = [
         "base",
         "bytestring",
@@ -104,3 +104,46 @@ filegroup(
 )
 
 generate_and_track_cabal("stable-packages-lib", "generate-stable-package")
+
+da_haskell_binary(
+    name = "stable-package-list-writer",
+    srcs = ["src/DA/Daml/JsonWriter.hs"],
+    data = ["stable-packages.yaml"],
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "containers",
+        "text",
+        "yaml",
+    ],
+    src_strip_prefix = "src",
+    deps = [
+        "//compiler/daml-lf-ast",
+        ":stable-packages-lib",
+    ],
+)
+
+da_haskell_library(
+    name = "stable-package-list-reader",
+    srcs = [
+        "src/DA/Daml/HardcodedStablePackages.hs",
+        "src/DA/Daml/JsonReader.hs",
+    ],
+    compiler_flags = [
+        "-XCPP",  # Enable the C Preprocessor to pass path
+        '-DYAML_FILE_PATH="$(location stable-packages.yaml)"',
+    ],
+    extra_srcs = ["stable-packages.json", "stable-packages.yaml"],
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "file-embed",
+        "text",
+        "yaml",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+    ],
+)
