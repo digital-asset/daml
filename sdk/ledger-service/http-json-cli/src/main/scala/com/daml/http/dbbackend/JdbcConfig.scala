@@ -8,12 +8,15 @@ import scalaz.std.either._
 import scalaz.std.option._
 import scalaz.syntax.traverse._
 import scalaz.{Show, StateT}
+import scala.concurrent.duration.{FiniteDuration, DurationLong}
+import com.daml.http.StartSettings
 
 import com.daml.dbutils, dbutils.DBConfig
 
 private[http] final case class JdbcConfig(
     baseConfig: dbutils.JdbcConfig,
     startMode: DbStartupMode = DbStartupMode.StartOnly,
+    lockAcquisitionTimeout: FiniteDuration = StartSettings.DefaultLockAcquisitionTimeout,
     backendSpecificConf: Map[String, String] = Map.empty,
 )
 
@@ -23,7 +26,7 @@ private[http] object JdbcConfig
 
   implicit val showInstance: Show[JdbcConfig] = Show.shows { a =>
     import a._, baseConfig._
-    s"JdbcConfig(driver=$driver, url=$url, user=$user, start-mode=$startMode)"
+    s"JdbcConfig(driver=$driver, url=$url, user=$user, start-mode=$startMode, lock-acquisition-timeout=$lockAcquisitionTimeout)"
   }
 
   private[this] val DisableContractPayloadIndexing = "disableContractPayloadIndexing"
@@ -36,7 +39,8 @@ private[http] object JdbcConfig
         (if (jcd.supportedJdbcDrivers exists (_ contains "oracle"))
            s"${indent}$DisableContractPayloadIndexing -- if true, use a slower schema on Oracle that " +
              "supports querying with literals >256 bytes (DRG-50943)\n"
-         else "")
+         else "") +
+        s"lockAcquisitionTimeoutMs -- integer value, specifies how long to wait to acquire a lock on the cache when doing a query for a template, in millis"
     )
 
   lazy val usage: String = helpString(
@@ -46,6 +50,7 @@ private[http] object JdbcConfig
     "<password>",
     "<tablePrefix>",
     s"<${DbStartupMode.allConfigValues.mkString("|")}>",
+    "<lockAcquisitionTimeoutMs>",
   )
 
   override def create(implicit
@@ -53,6 +58,9 @@ private[http] object JdbcConfig
   ): Fields[JdbcConfig] =
     for {
       baseConfig <- dbutils.JdbcConfig.create
+      lockAcquisitionTimeout <- optionalLongField("lockAcquisitionTimeoutMs").map(x =>
+        x.map(_.millis)
+      )
       createSchema <- optionalBooleanField("createSchema").map(
         _.map { createSchema =>
           import DbStartupMode._
@@ -69,6 +77,8 @@ private[http] object JdbcConfig
     } yield JdbcConfig(
       baseConfig = baseConfig,
       startMode = createSchema orElse dbStartupMode getOrElse DbStartupMode.StartOnly,
+      lockAcquisitionTimeout =
+        lockAcquisitionTimeout getOrElse StartSettings.DefaultLockAcquisitionTimeout,
       backendSpecificConf = remainingConf,
     )
 
@@ -79,6 +89,7 @@ private[http] object JdbcConfig
       password: String,
       tablePrefix: String,
       dbStartupMode: String,
+      lockAcquisitionTimeoutMs: String,
   ): String =
-    s"""\"driver=$driver,url=$url,user=$user,password=$password,tablePrefix=$tablePrefix,start-mode=$dbStartupMode\""""
+    s"""\"driver=$driver,url=$url,user=$user,password=$password,tablePrefix=$tablePrefix,start-mode=$dbStartupMode,lockAcquisitionTimeoutMs=$lockAcquisitionTimeoutMs\""""
 }

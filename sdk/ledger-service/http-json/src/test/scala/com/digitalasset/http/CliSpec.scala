@@ -130,6 +130,17 @@ final class CliSpec extends AnyFreeSpec with Matchers {
       )
     }
 
+    "should get the lock acquisition timeout if specified" in {
+      val timeout = 42.seconds
+      val config = configParser(
+        Seq(
+          "--query-store-jdbc-config",
+          s"$jdbcConfigString,lockAcquisitionTimeoutMs=${timeout.toMillis}",
+        ) ++ sharedOptions
+      ).getOrElse(fail())
+      config.jdbcConfig shouldBe Some(jdbcConfig.copy(lockAcquisitionTimeout = timeout))
+    }
+
     "DbStartupMode" - {
       val jdbcConfigShared =
         "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password," +
@@ -303,7 +314,8 @@ final class CliSpec extends AnyFreeSpec with Matchers {
           Some(new File("pvt-key.pem")),
           Some(new File("root-ca.crt")),
         ),
-        jdbcConfig = Some(JdbcConfig(baseConfig, DbStartupMode.StartOnly, Map("foo" -> "bar"))),
+        jdbcConfig =
+          Some(JdbcConfig(baseConfig, DbStartupMode.StartOnly, 10.seconds, Map("foo" -> "bar"))),
         staticContentConfig = Some(StaticContentConfig("static", new File("static-content-dir"))),
         metricsReporter = Some(MetricsReporter.Console),
         metricsReportingInterval = 30.seconds,
