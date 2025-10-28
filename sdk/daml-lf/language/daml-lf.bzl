@@ -176,10 +176,9 @@ RAW_DEV_LF_VERSION = _data.dev_version
 RAW_STAGING_LF_VERSION = _data.staging_version
 
 # see dotted versions of these below for description
-RAW_COMPILER_LF_VERSIONS = RAW_ALL_LF_VERSIONS #deprecated
+RAW_COMPILER_LF_VERSIONS = RAW_ALL_LF_VERSIONS  #deprecated
 RAW_COMPILER_INPUT_LF_VERSIONS = RAW_ALL_LF_VERSIONS
 RAW_COMPILER_OUTPUT_LF_VERSIONS = RAW_ALL_LF_VERSIONS
-
 
 # public API from the internal struct.
 ALL_LF_VERSIONS = _to_dotted_versions(RAW_ALL_LF_VERSIONS)
@@ -195,7 +194,7 @@ STAGING_LF_VERSION = _to_dotted_version(RAW_STAGING_LF_VERSION)
 # bazel files point to the nonspecific COMPILER_VERSIONS. As they are equal now,
 # there is no difference. As soon as COMPILER_INPUT_VERSIONS <>
 # COMPILER_OUTPUT_VERSIONS we must eliminate COMPILER_VERSIONS
-COMPILER_LF_VERSIONS = ALL_LF_VERSIONS #deprecated
+COMPILER_LF_VERSIONS = ALL_LF_VERSIONS  #deprecated
 
 # TODO: When COMPILER_INPUT_VERSIONS <> COMPILER_OUTPUT_VERSIONS, eliminate
 # COMPILER_VERSIONS
