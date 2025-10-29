@@ -24,7 +24,10 @@ import com.digitalasset.canton.topology.store.StoredTopologyTransactions.{
   GenericStoredTopologyTransactions,
   PositiveStoredTopologyTransactions,
 }
-import com.digitalasset.canton.topology.store.TopologyStore.EffectiveStateChange
+import com.digitalasset.canton.topology.store.TopologyStore.{
+  EffectiveStateChange,
+  TopologyStoreDeactivations,
+}
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
@@ -151,53 +154,71 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
   override def update(
       sequenced: SequencedTime,
       effective: EffectiveTime,
-      removeMapping: Map[TopologyMapping.MappingHash, PositiveInt],
-      removeTxs: Set[TopologyTransaction.TxHash],
+      removes: TopologyStoreDeactivations,
       additions: Seq[GenericValidatedTopologyTransaction],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
 
     val effectiveTs = effective.value
 
-    val transactionRemovals = removeMapping.toList.map { case (mappingHash, serial) =>
-      sql"mapping_key_hash=${mappingHash.hash} and serial_counter <= $serial"
-    } ++ removeTxs.map(txHash => sql"tx_hash=${txHash.hash}")
+    def removalSql(removals: Seq[SQLActionBuilder]) =
+      (sql"UPDATE common_topology_transactions SET valid_until = ${Some(effectiveTs)} WHERE store_id=$storeIndex AND (" ++
+        removals
+          .intercalate(
+            sql" OR "
+          ) ++ sql") AND valid_from < $effectiveTs AND valid_until is null").asUpdate
 
-    val updateRemovals =
-      transactionRemovals.grouped(5000).toSeq.map { removals =>
-        (sql"UPDATE common_topology_transactions SET valid_until = ${Some(effectiveTs)} WHERE store_id=$storeIndex AND (" ++
-          removals
-            .intercalate(
-              sql" OR "
-            ) ++ sql") AND valid_from < $effectiveTs AND valid_until is null").asUpdate
-      }
+    def removalForMapping(
+        mapping: MappingHash,
+        serialO: Option[PositiveInt],
+        txHashes: Set[TxHash],
+    ): SQLActionBuilderChain = if (serialO.isEmpty && txHashes.isEmpty)
+      throw new IllegalArgumentException(
+        s"At least one of serialO or txHashes must be defined for removal when passing $mapping"
+      )
+    else {
+      val txConditions = (txHashes.map(txHash => sql"tx_hash=${txHash.hash}") ++ serialO
+        .map(serial => sql"serial_counter <= $serial")
+        .toList).toList.intercalate(sql" OR ")
+      sql"(mapping_key_hash=${mapping.hash} AND (" ++ txConditions ++ sql"))"
+    }
 
-    val insertAdditions =
-      additions.zipWithIndex
-        .grouped(1000)
-        .toSeq
-        .map { tx =>
-          insertSignedTransaction[(GenericValidatedTopologyTransaction, Int)] {
-            case (vtx, batchIdx) =>
-              TransactionEntry(
-                sequenced,
-                effective,
-                batchIdx = batchIdx,
-                Option.when(
-                  vtx.rejectionReason.nonEmpty || vtx.expireImmediately
-                )(effective),
-                vtx.transaction,
-                vtx.rejectionReason.map(_.asString300),
-              )
-          }(tx)
+    val queries =
+      DBIOUtil
+        .batchedSequentialTraverse(batchingConfig.maxTopologyUpdateBatchSize)(removes.toSeq) {
+          case (bulkIdx, items) =>
+            logger.debug(s"Processing removal batch $bulkIdx")
+            removalSql(items.map { case (mappingHash, (serialO, txHashes)) =>
+              removalForMapping(mappingHash, serialO, txHashes).toActionBuilder
+            })
+        }
+        .flatMap { _ =>
+          DBIOUtil.batchedSequentialTraverse(batchingConfig.maxTopologyUpdateBatchSize)(
+            additions.zipWithIndex
+          ) { case (bulkIdx, items) =>
+            logger.debug(s"Processing addition batch $bulkIdx")
+            insertSignedTransaction[(GenericValidatedTopologyTransaction, Int)] {
+              case (vtx, batchIdx) =>
+                TransactionEntry(
+                  sequenced,
+                  effective,
+                  batchIdx = batchIdx,
+                  Option.when(
+                    vtx.rejectionReason.nonEmpty || vtx.expireImmediately
+                  )(effective),
+                  vtx.transaction,
+                  vtx.rejectionReason.map(_.asString300),
+                )
+            }(items).map(_ => ())
+          }
         }
 
+    // this will perform a fold left starting with mapping removals before inserting anything
     storage.update_(
-      DBIO
-        .seq((updateRemovals ++ insertAdditions)*)
-        .transactionally
+      queries.transactionally
         .withTransactionIsolation(TransactionIsolation.Serializable),
       operationName = "update-topology-transactions",
     )
+
   }
 
   override def bulkInsert(
@@ -219,7 +240,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
     val prepared = txWithIdx.reverse
 
     val updates =
-      DBIOUtil.batchedSequentialTraverse(PositiveInt.tryCreate(1000))(prepared) {
+      DBIOUtil.batchedSequentialTraverse(batchingConfig.maxTopologyWriteBatchSize)(prepared) {
         case (bidx, elems) =>
           logger.debug(s"Bulk inserting batch $bidx")
           insertSignedTransaction[TxWithIdx] { case (tx, idx) =>

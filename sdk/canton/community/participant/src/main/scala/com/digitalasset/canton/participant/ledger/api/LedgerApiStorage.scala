@@ -22,6 +22,7 @@ import scala.util.Try
 class LedgerApiStorage private[api] (
     val jdbcUrl: String,
     closeAction: String => Unit,
+    val inMemoryCantonStore: Boolean,
 ) extends AutoCloseable {
 
   override def close(): Unit =
@@ -57,6 +58,7 @@ object LedgerApiStorage {
         new LedgerApiStorage(
           jdbcUrl.url,
           DbActions.doNothing,
+          inMemoryCantonStore = false,
         )
       )
 
@@ -83,6 +85,7 @@ object LedgerApiStorage {
       new LedgerApiStorage(
         s"jdbc:h2:mem:ledger_api_$sanitizedParticipantId;DB_CLOSE_DELAY=-1",
         DbActions.shutdownH2,
+        inMemoryCantonStore = true,
       )
     )
   }

@@ -4,7 +4,10 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability
 
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.BatchId
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.{
+  BatchId,
+  OrderingBlock,
+}
 import com.digitalasset.canton.util.collection.BoundedMap
 import io.opentelemetry.api.trace.{Span, StatusCode}
 
@@ -21,6 +24,27 @@ class AvailabilityModuleSpanManager(maxSize: Int = 10 * 1024) {
         },
     )
 
+  @SuppressWarnings(Array("org.wartremover.warts.Var"))
+  private var currentBlockSpan: Option[Span] = None
+
+  def trackSpanForBlock(span: Span, orderingBlock: OrderingBlock): Unit = {
+    currentBlockSpan.foreach { span =>
+      span.setStatus(StatusCode.ERROR, "Closing early")
+      span.end()
+    }
+    currentBlockSpan = Some(span)
+    orderingBlock.proofs
+      .map(_.batchId)
+      .flatMap { bid =>
+        addEventToBatchSpans(bid, "Batch proposed")
+        batchIdToSpans.getOrElse(bid, Seq.empty)
+      }
+      .foreach { batchSpan =>
+        span.addLink(batchSpan.getSpanContext).discard
+        batchSpan.addLink(span.getSpanContext).discard
+      }
+  }
+
   def trackSpansForBatch(batchId: BatchId, spans: Seq[Span]): Unit = {
     // avoid doing future work on spans that are not being sampled by not including them in
     val sampledSpans = spans.filter(_.isRecording)
@@ -32,7 +56,13 @@ class AvailabilityModuleSpanManager(maxSize: Int = 10 * 1024) {
     .getOrElse(batchId, Seq.empty)
     .foreach(_.addEvent(description).discard)
 
-  def remove(batchId: BatchId): Unit =
+  def finishBlockSpan(orderedBatchIds: Seq[BatchId]): Unit = {
+    orderedBatchIds.foreach(batchId => remove(batchId))
+    currentBlockSpan.foreach(_.end())
+    currentBlockSpan = None
+  }
+
+  private def remove(batchId: BatchId): Unit =
     batchIdToSpans
       .remove(batchId)
       .foreach(_.foreach(_.end()))

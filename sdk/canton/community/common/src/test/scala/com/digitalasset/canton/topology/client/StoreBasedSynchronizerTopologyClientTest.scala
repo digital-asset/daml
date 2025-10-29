@@ -24,6 +24,7 @@ import com.digitalasset.canton.topology.store.{
 }
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.*
+import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.{
   BaseTest,
@@ -96,8 +97,11 @@ trait StoreBasedTopologySnapshotTest
           _ <- store.update(
             SequencedTime(timestamp),
             EffectiveTime(timestamp),
-            removeMapping = transactions.map(tx => tx.mapping.uniqueKey -> tx.serial).toMap,
-            removeTxs = transactions.map(_.hash).toSet,
+            removals = transactions
+              .groupBy(_.mapping.uniqueKey)
+              .map { case (kk, txs) =>
+                kk -> (txs.map(_.serial).maxOption, Set.empty[TxHash])
+              },
             additions = transactions.map(ValidatedTopologyTransaction(_)),
           )
           _ <- client

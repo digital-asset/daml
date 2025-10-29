@@ -19,6 +19,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{Env, ModuleName}
 import com.digitalasset.canton.version.ProtocolVersion
+import io.opentelemetry.api.trace.Tracer
 
 import EpochState.Epoch
 
@@ -42,8 +43,11 @@ final class SegmentModuleRefFactoryImpl[E <: Env[E]](
     loggerFactory: NamedLoggerFactory,
     timeouts: ProcessingTimeout,
     metrics: BftOrderingMetrics,
-)(implicit synchronizerProtocolVersion: ProtocolVersion, metricsContext: MetricsContext)
-    extends SegmentModuleRefFactory[E] {
+)(implicit
+    synchronizerProtocolVersion: ProtocolVersion,
+    metricsContext: MetricsContext,
+    tracer: Tracer,
+) extends SegmentModuleRefFactory[E] {
   override def apply(
       context: E#ActorContextT[Consensus.Message[E]],
       epoch: Epoch,

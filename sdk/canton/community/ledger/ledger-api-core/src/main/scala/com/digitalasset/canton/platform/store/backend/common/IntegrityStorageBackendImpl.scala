@@ -99,7 +99,8 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
 
   @VisibleForTesting
   override def verifyIntegrity(
-      failForEmptyDB: Boolean = true
+      failForEmptyDB: Boolean,
+      inMemoryCantonStore: Boolean,
   )(connection: Connection): Unit = try {
     val duplicateSeqIds = SqlDuplicateEventSequentialIds
       .as(long("id").*)(connection)
@@ -304,6 +305,157 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
     if (firstTenDuplicatedInternalIds.nonEmpty)
       throw new RuntimeException(
         s"duplicate internal_contract_id-s found in table par_contracts (first 10 shown) $firstTenDuplicatedInternalIds"
+      )
+
+    val pruning_started_up_to_inclusive =
+      SQL"""SELECT started_up_to_inclusive FROM par_pruning_operation
+          """
+        .asSingleOpt(long("started_up_to_inclusive"))(connection)
+        .getOrElse(-1L)
+
+    if (!inMemoryCantonStore) {
+      val referencedInternalContractIdsWithOffset = SQL"""
+              SELECT internal_contract_id, event_offset
+              FROM lapi_events_activate_contract
+              WHERE event_offset > $pruning_started_up_to_inclusive
+              UNION ALL
+              SELECT internal_contract_id, event_offset -- activations which were not deactivated before pruning point
+              FROM lapi_events_activate_contract
+              WHERE event_offset <= $pruning_started_up_to_inclusive
+              AND NOT EXISTS (
+                SELECT 1
+                FROM lapi_events_deactivate_contract
+                WHERE lapi_events_deactivate_contract.deactivated_event_sequential_id = lapi_events_activate_contract.event_sequential_id
+                AND lapi_events_deactivate_contract.event_offset <= $pruning_started_up_to_inclusive
+              )
+              UNION ALL
+              SELECT internal_contract_id, event_offset
+              FROM lapi_events_deactivate_contract
+              WHERE event_offset > $pruning_started_up_to_inclusive
+                AND internal_contract_id IS NOT NULL
+              UNION ALL
+              SELECT internal_contract_id, event_offset
+              FROM lapi_events_various_witnessed
+              WHERE event_offset > $pruning_started_up_to_inclusive
+                AND internal_contract_id IS NOT NULL
+          """
+        .asVectorOf(long("internal_contract_id") ~ long("event_offset") map {
+          case internal_contract_id ~ event_offset => (internal_contract_id, event_offset)
+        })(connection)
+      val strayInternalContractIdsWithOffset =
+        referencedInternalContractIdsWithOffset
+          .filterNot(p => internalContractIds.contains(p._1))
+          .distinct
+          .sorted
+      if (strayInternalContractIdsWithOffset.nonEmpty) {
+        throw new RuntimeException(
+          s"some internal_contract_id-s in events tables are not present in par_contracts (first 10 shown with offsets) ${strayInternalContractIdsWithOffset
+              .take(10)
+              .mkString("[", ", ", "]")}"
+        )
+      }
+    }
+
+    val strayDeactivationsWithOffset =
+      SQL"""
+        SELECT deactivated_event_sequential_id, event_offset
+        FROM lapi_events_deactivate_contract dea, lapi_parameters
+        WHERE deactivated_event_sequential_id IS NOT NULL AND NOT EXISTS (
+          SELECT 1
+          FROM lapi_events_activate_contract act
+          WHERE act.event_sequential_id < dea.event_sequential_id
+          AND act.event_sequential_id = dea.deactivated_event_sequential_id
+        )
+        AND lapi_parameters.ledger_end is not null
+        AND event_offset <= lapi_parameters.ledger_end
+    """
+        .asVectorOf(
+          long("lapi_events_deactivate_contract.deactivated_event_sequential_id") ~ long(
+            "event_offset"
+          ) map { case deactivated_event_sequential_id ~ event_offset =>
+            (deactivated_event_sequential_id, event_offset)
+          }
+        )(
+          connection
+        )
+        .sorted
+    if (strayDeactivationsWithOffset.nonEmpty)
+      throw new RuntimeException(
+        s"some deactivation events do not have a preceding activation event, deactivated_event_sequential_id-s with offsets (first 10 shown) ${strayDeactivationsWithOffset
+            .take(10)
+            .mkString("[", ", ", "]")}"
+      )
+
+    val eventSequentialIdsWithMissingMandatories =
+      SQL"""
+          SELECT event_sequential_id, event_offset
+          FROM lapi_events_activate_contract
+          WHERE (event_type = 2 -- assign
+            AND (source_synchronizer_id IS NULL OR reassignment_counter IS NULL OR reassignment_id IS NULL))
+
+          UNION ALL
+
+          SELECT event_sequential_id, event_offset
+          FROM lapi_events_deactivate_contract
+          WHERE (event_type = 3 -- consuming exercise
+            AND (
+              additional_witnesses IS NULL OR
+              exercise_choice IS NULL OR
+              exercise_argument IS NULL OR
+              exercise_result IS NULL OR
+              exercise_actors IS NULL OR
+              contract_id IS NULL OR
+              ledger_effective_time IS NULL
+            )
+          ) OR (event_type = 4 -- unassign
+            AND (
+              reassignment_id IS NULL OR
+              target_synchronizer_id IS NULL OR
+              reassignment_counter IS NULL OR
+              contract_id IS NULL
+            )
+          )
+
+          UNION ALL
+
+          SELECT event_sequential_id, event_offset
+          FROM lapi_events_various_witnessed
+          WHERE (event_type = 5 -- non-consuming exercise
+            AND (
+              consuming IS NULL OR
+              exercise_choice IS NULL OR
+              exercise_argument IS NULL OR
+              exercise_result IS NULL OR
+              exercise_actors IS NULL OR
+              contract_id IS NULL OR
+              template_id IS NULL OR
+              package_id IS NULL OR
+              ledger_effective_time IS NULL
+            )
+          ) OR (event_type = 6 -- witnessed create
+            AND (representative_package_id IS NULL OR internal_contract_id IS NULL)
+          ) OR (event_type = 7 -- witnessed consuming exercise
+            AND (
+              consuming IS NULL OR
+              exercise_choice IS NULL OR
+              exercise_argument IS NULL OR
+              exercise_result IS NULL OR
+              exercise_actors IS NULL OR
+              contract_id IS NULL OR
+              template_id IS NULL OR
+              package_id IS NULL OR
+              ledger_effective_time IS NULL
+            )
+          )
+      """
+        .asVectorOf(long("event_sequential_id") ~ long("event_offset") map {
+          case event_sequential_id ~ event_offset => (event_sequential_id, event_offset)
+        })(connection)
+    if (eventSequentialIdsWithMissingMandatories.nonEmpty)
+      throw new RuntimeException(
+        s"some events are missing mandatory fields, event_sequential_ids, offsets (first 10 shown) ${eventSequentialIdsWithMissingMandatories
+            .take(10)
+            .mkString("[", ", ", "]")}"
       )
   } catch {
     case t: Throwable if !failForEmptyDB =>

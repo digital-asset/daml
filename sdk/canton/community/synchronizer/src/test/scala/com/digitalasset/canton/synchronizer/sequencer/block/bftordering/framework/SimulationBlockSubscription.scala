@@ -5,7 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewo
 
 import com.digitalasset.canton.synchronizer.block.BlockFormat
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import org.apache.pekko.stream.scaladsl.{Keep, Source}
 import org.apache.pekko.stream.{KillSwitch, KillSwitches}
 
@@ -13,12 +13,12 @@ import scala.collection.mutable
 
 class SimulationBlockSubscription(
     thisNode: BftNodeId,
-    queue: mutable.Queue[(BftNodeId, BlockFormat.Block)],
+    queue: mutable.Queue[(BftNodeId, Traced[BlockFormat.Block])],
 ) extends BlockSubscription {
 
-  override def subscription(): Source[BlockFormat.Block, KillSwitch] =
+  override def subscription(): Source[Traced[BlockFormat.Block], KillSwitch] =
     Source.empty.viaMat(KillSwitches.single)(Keep.right)
 
   override def receiveBlock(block: BlockFormat.Block)(implicit traceContext: TraceContext): Unit =
-    queue.addOne(thisNode -> block)
+    queue.addOne(thisNode -> Traced(block))
 }

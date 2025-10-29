@@ -89,6 +89,7 @@ import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.{MaxBytesToDecompress, SingleUseCell}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
+import io.opentelemetry.api.trace.{Span, Tracer}
 
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
@@ -122,6 +123,7 @@ class OutputModule[E <: Env[E]](
     override val config: BftBlockOrdererConfig,
     synchronizerProtocolVersion: ProtocolVersion,
     mc: MetricsContext,
+    tracer: Tracer,
 ) extends Output[E]
     with HasDelayedInit[Message[E]] {
 
@@ -193,6 +195,8 @@ class OutputModule[E <: Env[E]](
   private var processingFetchedBlocksInEpoch: Option[EpochNumber] = None
 
   private val leaderSelectionPolicy = startupState.initialLeaderSelectionPolicy
+
+  private val blockSpanMap: mutable.Map[BlockNumber, (Span, TraceContext)] = mutable.Map()
 
   @SuppressWarnings(Array("org.wartremover.warts.IterableOps"))
   override def receiveInternal(message: Message[E])(implicit
@@ -340,10 +344,18 @@ class OutputModule[E <: Env[E]](
                   mode,
                 )
               ) =>
+            val blockNumber = orderedBlock.metadata.blockNumber
+            val newTraceContext: TraceContext = if (orderedBlock.batchRefs.nonEmpty) {
+              val (span, tc) = startSpan(s"BftOrderer.Output")
+              blockSpanMap
+                .put(blockNumber, (span.setAttribute("block.number", blockNumber), tc))
+                .discard
+              tc
+            } else traceContext
+
             logger.debug(
               s"Output received from local consensus ordered block (mode = $mode) with batch IDs ${orderedBlock.batchRefs}"
             )
-            val blockNumber = orderedBlock.metadata.blockNumber
             if (completedBlocksPeanoQueue.alreadyInserted(blockNumber)) {
               // This can happen if we start catching up in the middle of an epoch, as state transfer has epoch granularity.
               logger.debug(s"Skipping block $blockNumber as it's been provided already")
@@ -359,12 +371,10 @@ class OutputModule[E <: Env[E]](
               //  to the sequencer runtime, but this also ensures that all batches are stored locally
               //  when the epoch ends, so that we can provide past block data (e.g. to a re-subscription from
               //  the sequencer runtime after a crash) even if the topology changes drastically afterward.
-              context.withNewTraceContext { implicit traceContext =>
-                logger.debug(s"Fetching data for block $blockNumber through local availability")
-                availability.asyncSend(
-                  Availability.LocalOutputFetch.FetchBlockData(orderedBlockForOutput)
-                )
-              }
+              logger.debug(s"Fetching data for block $blockNumber through local availability")
+              availability.asyncSend(
+                Availability.LocalOutputFetch.FetchBlockData(orderedBlockForOutput)
+              )(newTraceContext, mc)
               blocksBeingFetched.put(blockNumber, Instant.now()).discard
             } else {
               logger.debug(s"Block $blockNumber is already being fetched")
@@ -434,10 +444,19 @@ class OutputModule[E <: Env[E]](
               //  batch trace IDs with blocks and we propagate block trace IDs properly
               val traceIdsString =
                 orderedBlockData.requestsView.flatMap(_.traceContext.traceId).mkString(",")
+
+              val newTraceContext = blockSpanMap
+                .remove(orderedBlockNumber)
+                .map { case (span, traceContext) =>
+                  span.end()
+                  traceContext
+                }
+                .getOrElse(traceContext)
+
               logger.debug(
                 s"Block $orderedBlockNumber being output contains requests " +
                   s"with the following trace IDs: [$traceIdsString]"
-              )
+              )(newTraceContext)
               logger.debug(
                 s"Sending block $orderedBlockNumber " +
                   s"(current epoch = $epochNumber, " +
@@ -447,7 +466,7 @@ class OutputModule[E <: Env[E]](
                   s"could alter sequencing topology = $epochCouldAlterOrderingTopology, " +
                   s"tick topology = $tickTopology) " +
                   "to sequencer subscription"
-              )
+              )(newTraceContext)
 
               blockSubscription.receiveBlock(
                 BlockFormat.Block(
@@ -457,7 +476,7 @@ class OutputModule[E <: Env[E]](
                     BftTime.epochEndBftTime(orderedBlockBftTime, orderedBlockData).toMicros
                   ),
                 )
-              )
+              )(newTraceContext)
             }
 
           case UpdateLeaderSelection(topologyFetched) =>

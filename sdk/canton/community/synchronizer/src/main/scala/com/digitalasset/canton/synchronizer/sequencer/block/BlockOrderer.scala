@@ -15,7 +15,7 @@ import com.digitalasset.canton.sequencing.protocol.{
 import com.digitalasset.canton.synchronizer.block.{RawLedgerBlock, SequencerDriverHealthStatus}
 import com.digitalasset.canton.synchronizer.sequencer.Sequencer.SignedSubmissionRequest
 import com.digitalasset.canton.synchronizer.sequencer.errors.SequencerError
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import io.grpc.ServerServiceDefinition
 import org.apache.pekko.stream.KillSwitch
 import org.apache.pekko.stream.scaladsl.Source
@@ -70,7 +70,7 @@ trait BlockOrderer extends AutoCloseable {
     */
   def subscribe()(implicit
       traceContext: TraceContext
-  ): Source[RawLedgerBlock, KillSwitch]
+  ): Source[Traced[RawLedgerBlock], KillSwitch]
 
   /** Orders a sender-signed submission. If the sequencer node is honest, this normally results in a
     * [[block.RawLedgerBlock.RawBlockEvent.Send]]. In exceptional cases (crashes, high load, ...), a

@@ -1570,6 +1570,29 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       }
     }
 
+    "retransmit completed block to remote nodes that are in higher view" in {
+      // A block that is already completed (in view 0)
+      val ccForBlockThatIsCompleted = createCommitCertificate(0, view = 0, myId)
+      val blockThatIsCompleted = Block(EpochNumber(0), BlockNumber(0), ccForBlockThatIsCompleted)
+      val segmentState = createSegmentState(completedBlocks = Seq(blockThatIsCompleted))
+
+      val zeroProgressBlockStatus = ConsensusStatus.BlockStatus
+        .InProgress(
+          prePrepared = false,
+          preparesPresent = Seq(false, false, false, false),
+          commitsPresent = Seq(false, false, false, false),
+        )
+      val remoteStatus = ConsensusStatus.SegmentStatus.InProgress(
+        ViewNumber(1), // remote node is in a higher view
+        Seq.fill(slotNumbers.size)(zeroProgressBlockStatus),
+      )
+
+      val retransmissionResult = segmentState.messagesToRetransmit(otherId1, remoteStatus)
+
+      retransmissionResult.messages shouldBe empty
+      retransmissionResult.commitCerts shouldBe Seq(ccForBlockThatIsCompleted)
+    }
+
     "immediately complete a block when receiving a retransmitted commit certificate" in {
       val originalLeader = myId
       val segment = createSegmentState(originalLeader)
@@ -1750,6 +1773,20 @@ object SegmentStateTest {
       .take(fullMembership.orderingTopology.strongQuorum)
       .map(node => createPrepare(blockNumber, view, node, prePrepareHash))
     PrepareCertificate(prePrepare, prepareSeq)
+  }
+
+  def createCommitCertificate(
+      blockNumber: Long,
+      view: Long,
+      prePrepareSource: BftNodeId,
+  )(implicit synchronizerProtocolVersion: ProtocolVersion): CommitCertificate = {
+    val prePrepare = createPrePrepare(blockNumber, view, prePrepareSource)
+    val prePrepareHash = prePrepare.message.hash
+    val commitSeq = allIds
+      .filterNot(_ == prePrepareSource)
+      .take(fullMembership.orderingTopology.strongQuorum)
+      .map(node => createCommit(blockNumber, view, node, prePrepareHash))
+    CommitCertificate(prePrepare, commitSeq)
   }
 
   def createViewChange(

@@ -267,7 +267,7 @@ final class AvailabilityModule[E <: Env[E]](
         spanManager.trackSpansForBatch(
           batchId,
           spans = requests.map { t =>
-            startSpan("BFTOrderer.Availability")(t.traceContext, tracer)
+            startSpan("BFTOrderer.Availability")(t.traceContext, tracer)._1
           },
         )
 
@@ -540,7 +540,7 @@ final class AvailabilityModule[E <: Env[E]](
     consensusMessage match {
       case Availability.Consensus.Ordered(batchIds) =>
         removeOrderedBatchesAndPullFromMempool(messageType, batchIds)
-        batchIds.foreach(batchId => spanManager.remove(batchId))
+        spanManager.finishBlockSpan(batchIds)
 
       case Availability.Consensus.CreateProposal(
             orderingTopology,
@@ -551,7 +551,7 @@ final class AvailabilityModule[E <: Env[E]](
         val batchesToBeEvicted =
           updateLastKnownEpochNumberAndForgetExpiredBatches(messageType, forEpochNumber)
 
-        ordered.foreach(batchId => spanManager.remove(batchId))
+        spanManager.finishBlockSpan(ordered)
 
         if (batchesToBeEvicted.nonEmpty)
           context.pipeToSelf(availabilityStore.gc(batchesToBeEvicted)) {
@@ -1277,21 +1277,24 @@ final class AvailabilityModule[E <: Env[E]](
     emitBatchesQueuedForBlockInclusionLatencies(batchesToBeProposed)
     locally {
       val tracedProofOfAvailabilities = batchesToBeProposed.view.values.map(_.proofOfAvailability)
-      implicit val traceContext: TraceContext =
-        context.traceContextOfBatch(tracedProofOfAvailabilities)
       val proposal =
         Consensus.LocalAvailability.ProposalCreated(
           OrderingBlock(tracedProofOfAvailabilities.map(_.value).toSeq),
           toBeProvidedToConsensus.forEpochNumber,
         )
-      proposal.orderingBlock.proofs
-        .map(_.batchId)
-        .foreach(spanManager.addEventToBatchSpans(_, "Batch proposed"))
+      val (span, newContext) = startSpan(s"BFTOrderer.Availability.ProposeBlock")(
+        context.traceContextOfBatch(tracedProofOfAvailabilities),
+        tracer,
+      )
+      spanManager.trackSpanForBlock(
+        span.setAttribute("poas", tracedProofOfAvailabilities.size.toLong),
+        proposal.orderingBlock,
+      )
       logger.debug(
         s"$actingOnMessageType: providing proposal with batch IDs " +
           s"${proposal.orderingBlock.proofs.map(_.batchId)} to local consensus"
-      )
-      dependencies.consensus.asyncSend(proposal)
+      )(newContext)
+      dependencies.consensus.asyncSend(proposal)(newContext, mc)
     }
     disseminationProtocolState.lastProposalTime = Some(clock.now)
     emitDisseminationStateStats(metrics, disseminationProtocolState)

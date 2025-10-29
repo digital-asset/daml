@@ -38,7 +38,12 @@ trait DbTopologyStoreHelper {
       }
 
   protected val batchingConfig: BatchingConfig =
-    BatchingConfig(maxItemsInBatch = PositiveInt.tryCreate(2), parallelism = PositiveInt.one)
+    BatchingConfig(
+      maxItemsInBatch = PositiveInt.tryCreate(2),
+      parallelism = PositiveInt.one,
+      maxTopologyUpdateBatchSize = PositiveInt.tryCreate(2),
+      maxTopologyWriteBatchSize = PositiveInt.tryCreate(2),
+    )
 
   private lazy val indexedStringStore = new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 10)
 
