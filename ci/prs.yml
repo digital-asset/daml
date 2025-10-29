@@ -155,9 +155,9 @@ jobs:
       REQUEST=$(git log -n1 --format="%(trailers:key=run-full-compat,valueonly)" $COMMIT)
       if [ $REQUEST == true ]; then
         # Unfortunately recovering the actual branch name is tricky
-        trigger_azure $AZURE_TOKEN digital-asset.daml-daily-compat --commit-id $COMMIT --branch not-main
+        trigger_azure $AZURE_DEVOPS_EXT_PAT digital-asset.daml-daily-compat --commit-id $COMMIT --branch not-main
       fi
     env:
-      AZURE_TOKEN: $(System.AccessToken)
+      AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)
     displayName: "Trigger self-service compatibility test"
 

@@ -64,7 +64,7 @@ def daml_script_test(
     )
 
     server = daml_runner
-    server_args = ["sandbox", "--canton-port-file", "$$(pwd)/_port_file"]
+    server_args = ["sandbox", "--canton-port-file", "_port_file"]
     server_files = ["$(rootpath {})".format(compiled_dar)]
     server_files_prefix = "--dar="
 
@@ -91,7 +91,7 @@ trap 'status=$$?; kill -TERM $$PID; wait $$PID; exit $$status' INT TERM
 
 if [ {wait_for_port_file} -eq 1 ]; then
     timeout=60
-    while [ ! -e $$(pwd)/_port_file ]; do
+    while [ ! -e _port_file ]; do
         if [ "$$timeout" = 0 ]; then
             echo "Timed out waiting for Canton startup" >&2
             exit 1
