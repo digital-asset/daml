@@ -166,22 +166,35 @@ def _init_data():
 
 _data = _init_data()
 
-# public API from the internal struct.
+# semi-public API for the json data to be turned into Haskell/Scala src
 RAW_ALL_LF_VERSIONS = _data.all_versions
-ALL_LF_VERSIONS = _to_dotted_versions(RAW_ALL_LF_VERSIONS)
-STABLE_LF_VERSIONS = _to_dotted_versions(_data.stable_versions)
+RAW_STABLE_LF_VERSIONS = _data.stable_versions
 
-LATEST_STABLE_LF_VERSION = _to_dotted_version(_data.latest_stable_version)
-DEFAULT_LF_VERSION = _to_dotted_version(_data.default_version)
-DEV_LF_VERSION = _to_dotted_version(_data.dev_version)
-STAGING_LF_VERSION = _to_dotted_version(_data.staging_version)
+RAW_LATEST_STABLE_LF_VERSION = _data.latest_stable_version
+RAW_DEFAULT_LF_VERSION = _data.default_version
+RAW_DEV_LF_VERSION = _data.dev_version
+RAW_STAGING_LF_VERSION = _data.staging_version
+
+# see dotted versions of these below for description
+RAW_COMPILER_LF_VERSIONS = RAW_ALL_LF_VERSIONS  #deprecated
+RAW_COMPILER_INPUT_LF_VERSIONS = RAW_ALL_LF_VERSIONS
+RAW_COMPILER_OUTPUT_LF_VERSIONS = RAW_ALL_LF_VERSIONS
+
+# public API from the internal struct.
+ALL_LF_VERSIONS = _to_dotted_versions(RAW_ALL_LF_VERSIONS)
+STABLE_LF_VERSIONS = _to_dotted_versions(RAW_STABLE_LF_VERSIONS)
+
+LATEST_STABLE_LF_VERSION = _to_dotted_version(RAW_LATEST_STABLE_LF_VERSION)
+DEFAULT_LF_VERSION = _to_dotted_version(RAW_DEFAULT_LF_VERSION)
+DEV_LF_VERSION = _to_dotted_version(RAW_DEV_LF_VERSION)
+STAGING_LF_VERSION = _to_dotted_version(RAW_STAGING_LF_VERSION)
 
 # Ideally, COMPILER_VERSIONS does not exist. Currently, all of these piont to
 # ALL_LF_VERSIONS. Haskell source files point to input/output versions, but
 # bazel files point to the nonspecific COMPILER_VERSIONS. As they are equal now,
 # there is no difference. As soon as COMPILER_INPUT_VERSIONS <>
 # COMPILER_OUTPUT_VERSIONS we must eliminate COMPILER_VERSIONS
-COMPILER_LF_VERSIONS = ALL_LF_VERSIONS
+COMPILER_LF_VERSIONS = ALL_LF_VERSIONS  #deprecated
 
 # TODO: When COMPILER_INPUT_VERSIONS <> COMPILER_OUTPUT_VERSIONS, eliminate
 # COMPILER_VERSIONS

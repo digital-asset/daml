@@ -5,11 +5,12 @@
 import json
 import sys
 
-# --- Helpers for RAW_ALL definitions
+# --- Helpers for raw version definitions
 
 def to_haskell_var(v):
     """Converts a version dict to a Haskell variable definition name, e.g., version2_1."""
-    return "version{}_{}".format(v["major"], v["minor"]).replace('.', '_')
+    # We format directly from major/minor fields, e.g., {"major": "2", "minor": "dev"} -> "version2_dev"
+    return "version{}_{}".format(v["major"], v["minor"])
 
 def to_haskell_major(major_str):
     """Converts a major version string to a Haskell MajorVersion constructor."""
@@ -31,22 +32,18 @@ def to_haskell_minor(v):
 
 # --- Generic generators
 
-def to_haskell_ref(version_string):
-    """Converts a version string to a Haskell variable reference, e.g., "2.1" -> version2_1."""
-    return "version" + version_string.replace('.', '_')
-
-def generate_haskell_list(name, docstring, version_strings):
-    """Generates a Haskell list definition."""
-    refs = [to_haskell_ref(v) for v in version_strings]
+def generate_haskell_list(name, docstring, version_dicts):
+    """Generates a Haskell list definition from raw version dicts."""
+    refs = [to_haskell_var(v) for v in version_dicts]
     return [
         f"-- | {docstring}",
         f"{name} :: [Version]",
         f"{name} = [{', '.join(refs)}]\n",
     ]
 
-def generate_haskell_singleton(name, docstring, version_string):
-    """Generates a Haskell singleton definition."""
-    ref = to_haskell_ref(version_string)
+def generate_haskell_singleton(name, docstring, version_dict):
+    """Generates a Haskell singleton definition from a raw version dict."""
+    ref = to_haskell_var(version_dict)
     return [
         f"-- | {docstring}",
         f"{name} :: Version",
@@ -68,12 +65,10 @@ import DA.Daml.LF.Ast.Version.VersionType
 """
     ]
 
-    # 1. Handle the special case for raw definitions. Raw definitions are the
-    # full struct with subfields, e.i. the result of json-encoding the bazel
-    # Starlark definitions such as V2_2 = struct(major = "2", minor = "2",
-    # status = "stable", default = True)
-    if "RAW_ALL" in data:
-        for v in data["RAW_ALL"]:
+    # 1. Handle the definitions from `allLfVersions`. This list contains
+    # the full struct-like dicts.
+    if "allLfVersions" in data:
+        for v in data["allLfVersions"]:
             var_name = to_haskell_var(v)
             major = to_haskell_major(v["major"])
             minor = to_haskell_minor(v)
@@ -81,17 +76,16 @@ import DA.Daml.LF.Ast.Version.VersionType
             output.append(f"{var_name} :: Version")
             output.append(f"{var_name} = Version {major} ({minor})\n")
 
-    # 2. Loop over all other items, which are (lists of) string variables (of
-    # shape "2.2"). The key is now used directly as the variable name.
+    # 2. Loop over all other items, which are (lists of) raw version dicts.
+    # The key is used directly as the variable name.
     for key, value in data.items():
-        if key == "RAW_ALL":
-            continue
-
         docstring = f"The {key}."
 
         if isinstance(value, list):
+            # This is for lists like stableLfVersions
             output.extend(generate_haskell_list(key, docstring, value))
-        elif isinstance(value, str):
+        elif isinstance(value, dict):
+            # This is for singletons like defaultLfVersion
             output.extend(generate_haskell_singleton(key, docstring, value))
 
     with open(output_hs_path, 'w') as f:
