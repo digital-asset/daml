@@ -225,3 +225,85 @@ object LanguageVersionRangeOps {
     }
   }
 }
+
+
+object New {
+  final case class LanguageVersion private(
+                                            major: LanguageVersion.Major,
+                                            minor: LanguageVersion.Minor
+                                          ) extends Ordered[LanguageVersion] {
+
+    override def toString: String = s"${major.pretty}.${minor.pretty}"
+
+    override def compare(that: LanguageVersion): Int = {
+      (this.major, this.minor, that.major, that.minor) match {
+        // Dev is highest
+        case (LanguageVersion.Major.V2, LanguageVersion.Minor.Dev, LanguageVersion.Major.V2, LanguageVersion.Minor.Dev) => 0
+        case (LanguageVersion.Major.V2, LanguageVersion.Minor.Dev, LanguageVersion.Major.V2, _) => 1
+        case (LanguageVersion.Major.V2, _, LanguageVersion.Major.V2, LanguageVersion.Minor.Dev) => -1
+
+        // Stable vs Stable
+        case (LanguageVersion.Major.V2, LanguageVersion.Minor.Stable(a), LanguageVersion.Major.V2, LanguageVersion.Minor.Stable(b)) => a.compare(b)
+
+        case _ => 0 // Should be unreachable with current bzl data
+      }
+    }
+  }
+
+  object LanguageVersion {
+    sealed abstract class LegacyMajor(val pretty: String) extends Product with Serializable
+
+    sealed abstract class Major(pretty: String) extends LegacyMajor(pretty) with Serializable {
+      def fromString1(str: String): Option[Major]
+      def fromString(str: String): Option[Major] = str match {
+        case "2" => Some(Major.V2)
+        case _   => None
+      }
+    }
+
+    object Major {
+      case object V1 extends LegacyMajor("1")
+      case object V2 extends Major("2") {
+
+        override def fromString1(str: String): Option[Major] = str match {
+          case "2" => Some(V2)
+          case _   => None
+        }
+      }
+    }
+
+    sealed abstract class Minor extends Product with Serializable {
+      def pretty: String
+    }
+
+    object Minor {
+      final case class Stable(version: Int) extends Minor {
+        override def pretty: String = version.toString
+      }
+
+      final case class Staging(version: Int) extends Minor {
+        override def pretty: String = s"${version}-staging"
+      }
+
+      case object Dev extends Minor {
+        override def pretty: String = "dev"
+      }
+    }
+
+    // --- Start of Generated Code ---
+    val v2_1: LanguageVersion = LanguageVersion(Major.V2, Minor.Stable(1))
+    val v2_2: LanguageVersion = LanguageVersion(Major.V2, Minor.Stable(2))
+    val v2_dev: LanguageVersion = LanguageVersion(Major.V2, Minor.Dev)
+
+    val latestStable: LanguageVersion = v2_2
+    val default: LanguageVersion = v2_2
+    val dev: LanguageVersion = v2_dev
+    val staging: LanguageVersion = v2_2
+
+    val all: List[LanguageVersion] = List(v2_1, v2_2, v2_dev)
+    val stable: List[LanguageVersion] = List(v2_1, v2_2)
+    val compilerInput: List[LanguageVersion] = List(v2_1, v2_2, v2_dev)
+    val compilerOutput: List[LanguageVersion] = List(v2_1, v2_2, v2_dev)
+    // --- End of Generated Code ---
+  }
+}
