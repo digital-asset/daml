@@ -96,9 +96,14 @@ object JsEventServiceCodecs {
   implicit val jsGetEventsByContractIdResponseRW: Codec[JsGetEventsByContractIdResponse] =
     deriveConfiguredCodec
 
+  implicit val jsGetEventsByContractIdResponseSchema: Schema[JsGetEventsByContractIdResponse] =
+    Schema.derived
+
   implicit val getEventsByContractIdRequestRW
       : Codec[event_query_service.GetEventsByContractIdRequest] =
     deriveRelaxedCodec
 
-  implicit val jsCreatedSchema: Schema[JsCreated] = Schema.derived
+  implicit val getEventsByContractIdRequestSchema
+      : Schema[event_query_service.GetEventsByContractIdRequest] =
+    Schema.derived
 }

@@ -243,6 +243,7 @@ def install_java_deps():
             "org.reflections:reflections:0.9.12",
             "org.sangria-graphql:sangria-spray-json_{}:1.0.2".format(scala_major_version),
             "org.sangria-graphql:sangria_{}:4.0.2".format(scala_major_version),
+            "org.scala-lang:scala3-library_3:3.7.1",
             "org.scala-lang.modules:scala-collection-contrib_{}:0.2.2".format(scala_major_version),
             "org.scala-lang.modules:scala-java8-compat_{}:1.0.2".format(scala_major_version),
             "org.scala-lang.modules:scala-parallel-collections_{}:1.0.4".format(scala_major_version),
