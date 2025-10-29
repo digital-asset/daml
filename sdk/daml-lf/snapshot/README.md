@@ -20,7 +20,8 @@ jmh command line functionality:
       -p entriesFile=<entries file>                    \
       -p choiceName=<exercise choice name>             \
       [-p choiceIndex=<index of the exercise node>]     \
-      [-p darFile=<dar file>]                                              
+      [-p darFile=<dar file>]                           \
+      [-p contractIdVersion=<VERSION>]
 
 
 where:
@@ -35,7 +36,7 @@ where:
   omitted. By default, the tool benchmarks the first choice with
   such a name it finds in the ledger export.
 
-* the optional parameter `<position of the exercise node>` is the
+* the optional parameter `<index of the exercise node>` is the
   index of the exercise among the root exercise nodes that matches
   choice name specified by the `choiceName` parameter in the order
   they appear in the export.
@@ -49,6 +50,9 @@ where:
   differ only in their package ID.  This can be used when the original
   Daml source used to generate the ledger export is only slightly
   modified or compiled with different options.
+
+* the optional parameter `<VERSION>` specifies the contract ID version
+  to be used for locally created contracts. Possible values are `V1` and `V2`. 
 
 ## Example Usage
 

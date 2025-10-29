@@ -15,7 +15,7 @@ import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVer
 import com.digitalasset.daml.lf.testing.parser.Implicits._
 import com.digitalasset.daml.lf.testing.parser.{AstRewriter, ParserParameters}
 import com.digitalasset.daml.lf.transaction._
-import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.{ContractIdVersion, Value}
 import com.digitalasset.daml.lf.value.Value._
 import org.scalatest.Assertion
 import org.scalatest.freespec.AsyncFreeSpec
@@ -176,7 +176,9 @@ object UpgradesMatrixCasesV2MaxStable
   * Finally, some definitions need to be shared between v1 and v2 templates: key and interface definitions, gobal
   * parties. These are defined in [[commonDefsPkg]].
   */
-class UpgradesMatrixCases(val langVersion: LanguageVersion) {
+class UpgradesMatrixCases(
+    val langVersion: LanguageVersion
+) {
   import UpgradesMatrixCases._
 
   private[this] def parserParameters(implicit
@@ -1905,6 +1907,8 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
     EngineConfig(
       allowedLanguageVersions = language.LanguageVersion.allUpToVersion(langVersion)
     )
+
+  val contractIdVersion: ContractIdVersion = ContractIdVersion.V1
 
   val compiledPackages: PureCompiledPackages =
     PureCompiledPackages.assertBuild(allPackages, engineConfig.getCompilerConfig)

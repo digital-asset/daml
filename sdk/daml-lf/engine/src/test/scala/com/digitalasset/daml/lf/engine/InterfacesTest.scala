@@ -19,6 +19,7 @@ import com.digitalasset.daml.lf.transaction.{
   SubmittedTransaction,
   Transaction,
 }
+import com.digitalasset.daml.lf.value.ContractIdVersion
 import com.digitalasset.daml.lf.value.Value._
 import org.scalatest.EitherValues
 import org.scalatest.Inside._
@@ -109,6 +110,7 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
             ledgerTime = let,
             preparationTime = let,
             seeding = seeding,
+            contractIdVersion = contractIdVersion,
             packageResolution = packageNameMap,
           )
         (tx, meta, _) = result
@@ -204,6 +206,7 @@ object InterfacesTest {
   private def participant = Ref.ParticipantId.assertFromString("participant")
 
   private val party = Party.assertFromString("Party")
+  private val contractIdVersion = ContractIdVersion.V1
 
   private implicit def qualifiedNameStr(s: String): QualifiedName =
     QualifiedName.assertFromString(s)

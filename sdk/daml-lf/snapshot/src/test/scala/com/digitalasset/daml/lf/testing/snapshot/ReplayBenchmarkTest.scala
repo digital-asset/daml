@@ -10,6 +10,7 @@ import com.digitalasset.daml.lf.archive.DarDecoder
 import com.digitalasset.daml.lf.command.{ApiCommand, ApiCommands}
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.value.ContractIdVersion
 import com.digitalasset.daml.lf.value.Value._
 
 import org.scalatest.matchers.should.Matchers
@@ -18,7 +19,9 @@ import org.scalatest.wordspec.AnyWordSpec
 import java.io.File
 import java.nio.file.{Files, Path}
 
-class ReplayBenchmarkTest extends AnyWordSpec with Matchers {
+class ReplayBenchmarkTestV1 extends ReplayBenchmarkTest(ContractIdVersion.V1)
+
+class ReplayBenchmarkTest(contractIdVersion: ContractIdVersion) extends AnyWordSpec with Matchers {
 
   implicit val logContext: LoggingContext = LoggingContext.ForTesting
 
@@ -61,6 +64,7 @@ class ReplayBenchmarkTest extends AnyWordSpec with Matchers {
         cmds = ApiCommands(ImmArray(cmd), Time.Timestamp.now(), "replay-snapshot-test"),
         participantId = participantId,
         submissionSeed = submissionSeed,
+        contractIdVersion = contractIdVersion,
         prefetchKeys = Seq.empty,
       )
 
@@ -72,6 +76,7 @@ class ReplayBenchmarkTest extends AnyWordSpec with Matchers {
       benchmark.darFile = darFile.toFile.getAbsolutePath
       benchmark.choiceName = "ReplayBenchmark:T:Add"
       benchmark.entriesFile = snapshotFile.toFile.getAbsolutePath
+      benchmark.contractIdVersion = contractIdVersion.toString
 
       noException should be thrownBy benchmark.init()
     }

@@ -24,6 +24,7 @@ import com.digitalasset.daml.lf.engine.{
   UpgradesMatrixCasesV2MaxStable,
 }
 import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.digitalasset.daml.lf.value.ContractIdVersion
 import com.digitalasset.daml.lf.value.Value._
 import com.google.protobuf.ByteString
 import io.grpc.{Status, StatusRuntimeException}
