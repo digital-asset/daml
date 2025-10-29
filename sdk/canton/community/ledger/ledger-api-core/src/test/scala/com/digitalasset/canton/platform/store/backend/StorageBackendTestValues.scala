@@ -222,7 +222,7 @@ private[store] object StorageBackendTestValues extends OptionValues {
       // event related columns
       event_sequential_id: Long = 500L,
       node_id: Int = 15,
-      deactivated_event_sequential_id: Option[Long] = Some(600L),
+      deactivated_event_sequential_id: Option[Long] = Some(2L),
       additional_witnesses: Set[String] = Set("witness1", "witness2"),
       exercise_choice: String = "choice",
       exercise_choice_interface_id: Option[String] = Some("in:ter:face"),

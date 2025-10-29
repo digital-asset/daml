@@ -15,7 +15,7 @@ import com.digitalasset.canton.synchronizer.block.{
 }
 import com.digitalasset.canton.synchronizer.sequencer.Sequencer.SenderSigned
 import com.digitalasset.canton.synchronizer.sequencer.errors.SequencerError
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import io.grpc.ServerServiceDefinition
 import org.apache.pekko.stream.*
 import org.apache.pekko.stream.scaladsl.Source
@@ -34,8 +34,8 @@ class DriverBlockOrderer(
 
   override def subscribe()(implicit
       traceContext: TraceContext
-  ): Source[RawLedgerBlock, KillSwitch] =
-    driver.subscribe()
+  ): Source[Traced[RawLedgerBlock], KillSwitch] =
+    driver.subscribe().map(Traced(_))
 
   override def send(
       signedSubmissionRequest: SenderSigned[SubmissionRequest]

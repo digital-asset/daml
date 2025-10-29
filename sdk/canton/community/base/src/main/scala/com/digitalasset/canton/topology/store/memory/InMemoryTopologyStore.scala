@@ -6,7 +6,6 @@ package com.digitalasset.canton.topology.store.memory
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -19,7 +18,10 @@ import com.digitalasset.canton.topology.store.StoredTopologyTransactions.{
   GenericStoredTopologyTransactions,
   PositiveStoredTopologyTransactions,
 }
-import com.digitalasset.canton.topology.store.TopologyStore.EffectiveStateChange
+import com.digitalasset.canton.topology.store.TopologyStore.{
+  EffectiveStateChange,
+  TopologyStoreDeactivations,
+}
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
@@ -135,10 +137,15 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
   override def update(
       sequenced: SequencedTime,
       effective: EffectiveTime,
-      removeMapping: Map[TopologyMapping.MappingHash, PositiveInt],
-      removeTxs: Set[TopologyTransaction.TxHash],
+      removals: TopologyStoreDeactivations,
       additions: Seq[GenericValidatedTopologyTransaction],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+
+    def mustRemove(tx: TopologyStoreEntry): Boolean =
+      removals.get(tx.mapping.uniqueKey).fold(false) { case (serialO, txSet) =>
+        serialO.exists(_ >= tx.serial) || txSet.contains(tx.hash)
+      }
+
     blocking {
       synchronized {
         // transactionally
@@ -146,14 +153,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
         //    AND ((mapping_key_hash IN $removeMapping AND serial_counter <= $serial) OR (tx_hash IN $removeTxs))
         // INSERT IGNORE DUPLICATES (...)
         topologyTransactionStore.zipWithIndex.foreach { case (tx, idx) =>
-          if (
-            tx.from.value < effective.value && tx.until.isEmpty &&
-            (removeMapping
-              .get(tx.mapping.uniqueKey)
-              .exists(_ >= tx.serial)
-              ||
-                removeTxs.contains(tx.hash))
-          ) {
+          if (tx.from.value < effective.value && tx.until.isEmpty && mustRemove(tx)) {
             topologyTransactionStore.update(idx, tx.copy(until = Some(effective)))
           }
         }

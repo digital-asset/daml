@@ -72,7 +72,7 @@ class LedgerApiStore(
       ec: ExecutionContext,
   ): FutureUnlessShutdown[Unit] =
     executeSqlUS(DatabaseMetrics.ForTesting("checkIntegrity"))(
-      integrityStorageBackend.verifyIntegrity(failForEmptyDB)
+      integrityStorageBackend.verifyIntegrity(failForEmptyDB, ledgerApiStorage.inMemoryCantonStore)
     )
 
   @VisibleForTesting

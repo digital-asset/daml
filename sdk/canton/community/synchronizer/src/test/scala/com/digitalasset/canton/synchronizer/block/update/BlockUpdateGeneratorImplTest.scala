@@ -78,49 +78,57 @@ class BlockUpdateGeneratorImplTest
         val acknowledgeRequest =
           senderSignedAcknowledgeRequest(topologyTransactionFactory.participant1).futureValue
 
-        blockUpdateGenerator.extractBlockEvents(
-          RawLedgerBlock(
-            1L,
-            Seq(
-              RawBlockEvent.Send(
-                signedSubmissionRequest.toByteString,
-                sequencingTimeLowerBoundExclusive.minusSeconds(5).toMicros,
-                sequencerId.toProtoPrimitive,
-              ),
-              RawBlockEvent
-                .Acknowledgment(
-                  acknowledgeRequest.toByteString,
-                  sequencingTimeLowerBoundExclusive.minusSeconds(4).toMicros,
-                ),
-            ).map(Traced(_)(TraceContext.empty)),
-            tickTopologyAtMicrosFromEpoch = None,
+        blockUpdateGenerator
+          .extractBlockEvents(
+            Traced(
+              RawLedgerBlock(
+                1L,
+                Seq(
+                  RawBlockEvent.Send(
+                    signedSubmissionRequest.toByteString,
+                    sequencingTimeLowerBoundExclusive.minusSeconds(5).toMicros,
+                    sequencerId.toProtoPrimitive,
+                  ),
+                  RawBlockEvent
+                    .Acknowledgment(
+                      acknowledgeRequest.toByteString,
+                      sequencingTimeLowerBoundExclusive.minusSeconds(4).toMicros,
+                    ),
+                ).map(Traced(_)(TraceContext.empty)),
+                tickTopologyAtMicrosFromEpoch = None,
+              )
+            )(TraceContext.empty)
           )
-        ) shouldBe BlockEvents(1L, Seq.empty, None)
+          .value shouldBe BlockEvents(1L, Seq.empty, None)
 
-        blockUpdateGenerator.extractBlockEvents(
-          RawLedgerBlock(
-            1L,
-            Seq(
-              RawBlockEvent
-                .Acknowledgment(
-                  acknowledgeRequest.toByteString,
-                  sequencingTimeLowerBoundExclusive.immediatePredecessor.toMicros,
-                ),
-              RawBlockEvent
-                .Send(
-                  signedSubmissionRequest.toByteString,
-                  sequencingTimeLowerBoundExclusive.immediateSuccessor.toMicros,
-                  sequencerId.toProtoPrimitive,
-                ),
-              RawBlockEvent
-                .Acknowledgment(
-                  acknowledgeRequest.toByteString,
-                  sequencingTimeLowerBoundExclusive.immediateSuccessor.immediateSuccessor.toMicros,
-                ),
-            ).map(Traced(_)(TraceContext.empty)),
-            None,
+        blockUpdateGenerator
+          .extractBlockEvents(
+            Traced(
+              RawLedgerBlock(
+                1L,
+                Seq(
+                  RawBlockEvent
+                    .Acknowledgment(
+                      acknowledgeRequest.toByteString,
+                      sequencingTimeLowerBoundExclusive.immediatePredecessor.toMicros,
+                    ),
+                  RawBlockEvent
+                    .Send(
+                      signedSubmissionRequest.toByteString,
+                      sequencingTimeLowerBoundExclusive.immediateSuccessor.toMicros,
+                      sequencerId.toProtoPrimitive,
+                    ),
+                  RawBlockEvent
+                    .Acknowledgment(
+                      acknowledgeRequest.toByteString,
+                      sequencingTimeLowerBoundExclusive.immediateSuccessor.immediateSuccessor.toMicros,
+                    ),
+                ).map(Traced(_)(TraceContext.empty)),
+                None,
+              )
+            )
           )
-        ) shouldBe BlockEvents(
+          .value shouldBe BlockEvents(
           1L,
           Seq(
             Send(
@@ -168,17 +176,23 @@ class BlockUpdateGeneratorImplTest
             memberValidatorMock,
           )
 
-        blockUpdateGenerator.extractBlockEvents(
-          RawLedgerBlock(
-            1L,
-            Seq.empty,
-            tickTopologyAtMicrosFromEpoch = Some(aTimestamp.toMicros),
+        blockUpdateGenerator
+          .extractBlockEvents(
+            Traced(
+              RawLedgerBlock(
+                1L,
+                Seq.empty,
+                tickTopologyAtMicrosFromEpoch = Some(aTimestamp.toMicros),
+              )
+            )
           )
-        ) shouldBe BlockEvents(1L, Seq.empty, Some(aTimestamp))
+          .value shouldBe BlockEvents(1L, Seq.empty, Some(aTimestamp))
 
-        blockUpdateGenerator.extractBlockEvents(
-          RawLedgerBlock(1L, Seq.empty, None)
-        ) shouldBe BlockEvents(1L, Seq.empty, None)
+        blockUpdateGenerator
+          .extractBlockEvents(
+            Traced(RawLedgerBlock(1L, Seq.empty, None))
+          )
+          .value shouldBe BlockEvents(1L, Seq.empty, None)
       }
     }
   }

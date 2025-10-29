@@ -276,8 +276,14 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
       logger.debug(
         s"Authorization details for ${toValidate.mapping.code}=${toValidate.transaction.hash}\n" +
           s"  Required: $requiredAuth\n" +
-          s"  Provided for namespaces:" + renderAuthorizations(namespaceAuthorizations) + "\n" +
-          s"  Provided for extraKeys: " + renderAuthorizations(extraKeyAuthorizations) + "\n" +
+          s"  Provided for namespaces:" + renderAuthorizations(
+            namespaceAuthorizations,
+            requiredAuth.referenced.namespaces.map(_.fingerprint),
+          ) + "\n" +
+          s"  Provided for extraKeys: " + renderAuthorizations(
+            extraKeyAuthorizations,
+            requiredAuth.referenced.extraKeys,
+          ) + "\n" +
           s"  All keys used for authorization: ${allKeysUsedForAuthorization.keySet}" + (
             if (superfluousKeys.nonEmpty) s"\n  Superfluous keys: ${superfluousKeys.mkString(", ")}"
             else ""
@@ -446,7 +452,8 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
       }
 
   private def renderAuthorizations[A](
-      auths: Map[A, (Boolean, Set[SigningPublicKey])]
+      auths: Map[A, (Boolean, Set[SigningPublicKey])],
+      required: Set[Fingerprint],
   ): String = {
     val authorizingKeys = auths
       .collect {
@@ -456,7 +463,12 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
       val report = authorizingKeys
         .map { case (auth, fullyAuthorized, keys) =>
           val status = if (fullyAuthorized) "fully" else "partially"
-          s"$auth $status authorized by keys ${keys.map(_.id)}"
+          val (requiredSig, permissibleSig) = keys.partition(c => required.contains(c.fingerprint))
+          val fst = s"$auth $status authorized by keys ${requiredSig.map(c => c.id).mkString(", ")}"
+          if (permissibleSig.nonEmpty)
+            fst + s" (and permissible keys ${permissibleSig.map(c => c.id).mkString(", ")})"
+          else
+            fst
         }
         .mkString("\n    ")
       "\n    " + report
