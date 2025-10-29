@@ -34,18 +34,6 @@ sealed abstract class LanguageMajorVersion(val pretty: String, minorAscending: L
 
   final val supportedMinorVersions: List[LanguageMinorVersion] =
     acceptedVersions
-
-  final def supportsMinorVersion(fromLFFile: String): Boolean =
-    isAcceptedVersion(fromLFFile).isDefined
-
-  final def toVersion(minorVersion: String) =
-    if (supportsMinorVersion(minorVersion)) {
-      Right(LanguageVersion(this, LanguageMinorVersion(minorVersion)))
-    } else {
-      val supportedVersions = acceptedVersions.map(v => s"$this.${v.identifier}")
-      Left(s"LF $this.$minorVersion unsupported. Supported LF versions are ${supportedVersions
-          .mkString(",")}")
-    }
 }
 
 object LanguageMajorVersion {
@@ -72,3 +60,5 @@ object LanguageMajorVersion {
     case _ => None
   }
 }
+
+
