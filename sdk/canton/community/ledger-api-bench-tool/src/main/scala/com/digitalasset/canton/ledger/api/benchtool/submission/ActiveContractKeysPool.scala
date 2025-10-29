@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.ledger.api.benchtool.submission
 
-import com.daml.ledger.api.v2.value.Value
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 
 import scala.collection.mutable
@@ -11,21 +10,21 @@ import scala.collection.mutable
 /** Keeps track of contract keys of contracts that haven't been used up (archived) yet. Allows to
   * select the next contract key to use up at random.
   */
-final class ActiveContractKeysPool(randomnessProvider: RandomnessProvider) {
+final class ActiveContractKeysPool[T](randomnessProvider: RandomnessProvider) {
 
-  private val poolsPerTemplate = mutable.Map.empty[String, DepletingUniformRandomPool[Value]]
+  private val poolsPerTemplate = mutable.Map.empty[String, DepletingUniformRandomPool[T]]
 
-  def getAndRemoveContractKey(templateName: String): Value = synchronized {
+  def getAndRemoveContractKey(templateName: String): T = synchronized {
     val pool = poolsPerTemplate(templateName)
     pool.pop()
   }
 
-  def addContractKey(templateName: String, key: Value): Unit = synchronized {
+  def addContractKey(templateName: String, value: T): Unit = synchronized {
     if (!poolsPerTemplate.contains(templateName)) {
       poolsPerTemplate.put(templateName, new DepletingUniformRandomPool(randomnessProvider)).discard
     }
     val pool = poolsPerTemplate(templateName)
-    pool.put(key)
+    pool.put(value)
   }
 }
 

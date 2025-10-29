@@ -4,7 +4,7 @@
 package com.digitalasset.canton.ledger.service
 
 import com.daml.scalautil.ExceptionOps.*
-import com.digitalasset.daml.lf.archive.{ArchivePayload, Dar, DarReader}
+import com.digitalasset.daml.lf.archive.{ArchivePayload, Dar, DarSchemaReader}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.typesig
@@ -29,7 +29,7 @@ object MetadataReader {
   def readFromDar(darFile: File): Error \/ LfMetadata =
     for {
       dar <- \/.fromEither(
-        DarReader.readArchiveFromFile(darFile)
+        DarSchemaReader.readArchiveFromFile(darFile)
       ).leftMap(e => Error(Symbol("readFromDar"), e.msg))
 
       packageStore <- decodePackageStoreFromDar(dar)

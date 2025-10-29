@@ -16,7 +16,7 @@ final class FibonacciCommandGenerator(
     config: FibonacciSubmissionConfig,
     signatory: Party,
     names: Names,
-) extends CommandGenerator {
+) extends SimpleCommandGenerator {
 
   private val packageRef: Ref.PackageRef = TestDars.benchtoolDarPackageRef
 

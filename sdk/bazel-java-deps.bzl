@@ -245,6 +245,7 @@ def install_java_deps():
             "org.sangria-graphql:sangria_{}:4.0.2".format(scala_major_version),
             "org.scala-lang.modules:scala-collection-contrib_{}:0.2.2".format(scala_major_version),
             "org.scala-lang.modules:scala-java8-compat_{}:1.0.2".format(scala_major_version),
+            "org.scala-lang.modules:scala-parallel-collections_{}:1.0.4".format(scala_major_version),
             "org.scala-lang:scala-library:{}".format(scala_version),
             "org.scalacheck:scalacheck_{}:1.15.4".format(scala_major_version),
             "org.scalactic:scalactic_{}:3.2.11".format(scala_major_version),

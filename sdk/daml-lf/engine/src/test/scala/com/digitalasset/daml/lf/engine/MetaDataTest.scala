@@ -6,7 +6,7 @@ package engine
 
 import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.{
   CreateKey,
-  CreateTransactionVersion,
+  CreateSerializationVersion,
 }
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.PackageId
@@ -17,13 +17,11 @@ import com.digitalasset.daml.lf.transaction.test.{
   TestNodeBuilder,
   TreeTransactionBuilder,
 }
-import com.digitalasset.daml.lf.transaction.{Node, TransactionVersion}
+import com.digitalasset.daml.lf.transaction.{Node, SerializationVersion}
 import com.digitalasset.daml.lf.value.Value.{ValueParty, ValueUnit}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
-
-class MetaDataTestV2 extends MetaDataTest(LanguageMajorVersion.V2)
 
 class MetaDataTest(majorVersion: LanguageMajorVersion)
     extends AnyWordSpec
@@ -44,7 +42,7 @@ class MetaDataTest(majorVersion: LanguageMajorVersion)
       signatories = parties,
       observers = noOne,
       key = CreateKey.SignatoryMaintainerKey(ValueParty("alice")),
-      version = CreateTransactionVersion.FromPackage,
+      version = CreateSerializationVersion.FromPackage,
     )
     val nodeWithoutInterface = Table[TestNodeBuilder => Node](
       "transaction",
@@ -77,7 +75,7 @@ class MetaDataTest(majorVersion: LanguageMajorVersion)
       signatories = parties,
       observers = noOne,
       key = CreateKey.SignatoryMaintainerKey(ValueParty("alice")),
-      version = CreateTransactionVersion.FromPackage,
+      version = CreateSerializationVersion.FromPackage,
     )
     val nodeWithInterface = Table[TestNodeBuilder => Node](
       "transaction",
@@ -126,7 +124,7 @@ class MetaDataTest(majorVersion: LanguageMajorVersion)
         argument = ValueUnit,
         signatories = parties,
         observers = noOne,
-        version = CreateTransactionVersion.FromPackage,
+        version = CreateSerializationVersion.FromPackage,
       )
       forEvery(nodeWithoutInterface) { mkNodeWithout =>
         forEvery(nodeWithInterface) { mkNodeWith =>
@@ -157,8 +155,8 @@ class MetaDataTestHelper(majorLanguageVersion: LanguageMajorVersion) {
   val langVersion = majorLanguageVersion.maxStableVersion
 
   object langNodeBuilder extends TestNodeBuilder {
-    override def transactionVersion(packageId: PackageId): Option[TransactionVersion] =
-      Some(langVersion).filter(TransactionVersion.All.contains)
+    override def serializationVersion(packageId: PackageId): Option[SerializationVersion] =
+      Some(SerializationVersion.assign(langVersion))
   }
 
   val engine = Engine.DevEngine(majorLanguageVersion)
@@ -173,7 +171,10 @@ class MetaDataTestHelper(majorLanguageVersion: LanguageMajorVersion) {
         Ref.PackageVersion.assertFromString("0.0.0"),
         None,
       ),
-      Left("package made in com.digitalasset.daml.lf.engine.MetaDataTest"),
+      language.Ast.GeneratedImports(
+        reason = "package made in com.digitalasset.daml.lf.engine.MetaDataTest",
+        pkgIds = Set.empty,
+      ),
     )
 
   // For the sake of simplicity we load the engine with empty packages where only the directDeps is set.

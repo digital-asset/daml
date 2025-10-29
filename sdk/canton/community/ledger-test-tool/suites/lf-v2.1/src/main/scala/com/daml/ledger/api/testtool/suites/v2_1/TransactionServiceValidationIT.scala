@@ -10,6 +10,7 @@ import com.daml.ledger.api.v2.update_service.{GetUpdateByIdRequest, GetUpdateByO
 import com.daml.ledger.test.java.model.test.Dummy
 import com.digitalasset.canton.ledger.api.TransactionShape.AcsDelta
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
+import com.digitalasset.canton.protocol.TestUpdateId
 
 class TransactionServiceValidationIT extends LedgerTestSuite {
   import CompanionImplicits.*
@@ -69,7 +70,12 @@ class TransactionServiceValidationIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, Seq())) =>
     for {
       failure <- ledger
-        .updateById(GetUpdateByIdRequest("not-relevant", None))
+        .updateById(
+          GetUpdateByIdRequest(
+            TestUpdateId("not-relevant").toHexString,
+            None,
+          )
+        )
         .mustFail("looking up an update by id without an update format")
     } yield {
       assertGrpcError(

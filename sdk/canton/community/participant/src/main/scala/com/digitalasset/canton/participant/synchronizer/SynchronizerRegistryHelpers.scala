@@ -98,6 +98,10 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
       synchronizerIdx <- EitherT
         .right(syncPersistentStateManager.getSynchronizerIdx(psid.logical))
 
+      synchronizerTopologyStoreId <- EitherT.right(
+        syncPersistentStateManager.getSynchronizerTopologyStoreId(psid)
+      )
+
       _ <- EitherT
         .fromEither[Future](verifySynchronizerId(config, psid))
         .mapK(FutureUnlessShutdown.outcomeK)
@@ -107,6 +111,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
         .lookupOrCreatePersistentState(
           config.synchronizerAlias,
           physicalSynchronizerIdx,
+          synchronizerTopologyStoreId,
           synchronizerIdx,
           sequencerAggregatedInfo.staticSynchronizerParameters,
         )
@@ -117,8 +122,8 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
       )
 
       synchronizerLoggerFactory = loggerFactory.append(
-        "synchronizerId",
-        physicalSynchronizerIdx.synchronizerId.toString,
+        "psid",
+        physicalSynchronizerIdx.toString,
       )
 
       topologyFactory <- syncPersistentStateManager
@@ -454,7 +459,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SynchronizerRegistryError, Boolean] =
     client
-      .isActive(participantId, synchronizerAlias, waitForActive = waitForActive)
+      .isActive(participantId, waitForActive = waitForActive)
       .leftMap(SynchronizerRegistryHelpers.toSynchronizerRegistryError(synchronizerAlias))
 
   private def sequencerConnectClientBuilder: SequencerConnectClient.Builder = {

@@ -40,7 +40,6 @@ import com.digitalasset.canton.participant.store.{
   SynchronizerConnectionConfigStore,
 }
 import com.digitalasset.canton.participant.sync.SyncPersistentStateManager
-import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.pruning.ConfigForNoWaitCounterParticipants
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -297,11 +296,11 @@ class PruningProcessor(
       synchronizerOffsets,
     )
 
-  private def lookUpContractsArchived(
+  private def lookUpPrunableInternalContractIds(
       fromExclusive: Option[Offset],
       upToInclusive: Offset,
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Set[LfContractId]] =
-    participantNodePersistentState.value.ledgerApiStore.archivals(
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Set[Long]] =
+    participantNodePersistentState.value.ledgerApiStore.prunableContracts(
       fromExclusive,
       upToInclusive,
     )
@@ -342,17 +341,20 @@ class PruningProcessor(
     for {
       cutoffs <- lookUpSynchronizerAndParticipantPruningCutoffs(fromExclusive, upToInclusive)
 
-      archivedContracts <- lookUpContractsArchived(
+      prunableInternalContractIds <- lookUpPrunableInternalContractIds(
         fromExclusive = fromExclusive,
         upToInclusive = upToInclusive,
       )
+      // TODO(i27996) not needed as soon as we can support natively internal IDs in the contract store
+      prunableContractIds <- participantNodePersistentState.value.contractStore
+        .lookupBatchedNonCachedContractIds(prunableInternalContractIds)
+        .map(_.values)
 
       // We must prune the contract store even if the event log is empty, because there is not necessarily an
       // archival event reassigned-away contracts.
       _ = logger.debug("Pruning contract store...")
-      // TODO(#28005): not only archived but also divulged created contracts should be deleted (will be implemented later)
       _ <- participantNodePersistentState.value.contractStore.deleteIgnoringUnknown(
-        archivedContracts
+        prunableContractIds
       )
 
       _ <- cutoffs.synchronizerOffsets.parTraverse(pruneSynchronizer)

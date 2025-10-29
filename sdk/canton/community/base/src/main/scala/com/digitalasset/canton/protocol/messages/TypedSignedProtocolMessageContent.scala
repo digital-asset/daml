@@ -25,7 +25,7 @@ case class TypedSignedProtocolMessageContent[+M <: SignedProtocolMessageContent]
   override val representativeProtocolVersion: RepresentativeProtocolVersion[
     TypedSignedProtocolMessageContent.type
   ] = TypedSignedProtocolMessageContent.protocolVersionRepresentativeFor(
-    content.synchronizerId.protocolVersion
+    content.psid.protocolVersion
   )
 
   @transient override protected lazy val companionObj: TypedSignedProtocolMessageContent.type =

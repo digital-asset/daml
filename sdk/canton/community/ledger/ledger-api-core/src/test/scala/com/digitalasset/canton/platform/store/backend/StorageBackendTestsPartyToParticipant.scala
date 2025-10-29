@@ -23,6 +23,7 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.Sequen
   Ids,
 }
 import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream.PaginationInput
+import com.digitalasset.canton.protocol.UpdateId
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -78,7 +79,7 @@ private[backend] trait StorageBackendTestsPartyToParticipant
   def toRaw(dbDto: DbDto.EventPartyToParticipant): RawParticipantAuthorization =
     RawParticipantAuthorization(
       offset = Offset.tryFromLong(dbDto.event_offset),
-      updateId = dbDto.update_id,
+      updateId = UpdateId.tryFromByteArray(dbDto.update_id).toHexString,
       partyId = dbDto.party_id,
       participantId = dbDto.participant_id,
       authorizationEvent = Conversions

@@ -108,4 +108,9 @@ object HashPurpose {
   val ReassignmentId = HashPurpose(57, "ReassignmentId")
   val EncryptedSessionKey = HashPurpose(58, "EncryptedSessionKey")
   val ContractIdAbsolutization = HashPurpose(59, "ContractIdAbsolutization")
+  val InitialTopologyStateConsistency = HashPurpose(60, "InitialTopologyStateConsistency")
+
+  // Do not use for anything other than testing or "mock" hashes
+  // Is not in a testing-only module because it used in traffic cost estimation that requires mock hashes
+  val TestHashPurpose: HashPurpose = HashPurpose(-1, "testing")
 }

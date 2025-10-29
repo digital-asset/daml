@@ -18,4 +18,7 @@ package object data {
 
   type Relation[A, B] = Map[A, Set[B]]
 
+  val Text: TextModule = TextModuleImpl
+  type Text = Text.Text
+
 }

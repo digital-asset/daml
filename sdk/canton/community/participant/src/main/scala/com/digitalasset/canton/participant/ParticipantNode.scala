@@ -65,14 +65,12 @@ import com.digitalasset.canton.resource.*
 import com.digitalasset.canton.scheduler.{Schedulers, SchedulersImpl}
 import com.digitalasset.canton.sequencing.client.{RecordingConfig, ReplayConfig, SequencerClient}
 import com.digitalasset.canton.store.IndexedStringStore
+import com.digitalasset.canton.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.time.*
 import com.digitalasset.canton.time.admin.v30.SynchronizerTimeServiceGrpc
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.grpc.PSIdLookup
-import com.digitalasset.canton.topology.client.{
-  StoreBasedTopologySnapshot,
-  SynchronizerTopologyClient,
-}
+import com.digitalasset.canton.topology.client.SynchronizerTopologyClient
 import com.digitalasset.canton.topology.store.TopologyStoreId.{AuthorizedStore, SynchronizerStore}
 import com.digitalasset.canton.topology.store.{PartyMetadataStore, TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.HostingParticipant
@@ -162,6 +160,7 @@ class ParticipantNodeBootstrap(
 
   override protected def customNodeStages(
       storage: Storage,
+      indexedStringStore: IndexedStringStore,
       crypto: Crypto,
       adminServerRegistry: CantonMutableHandlerRegistry,
       adminTokenDispenser: CantonAdminTokenDispenser,
@@ -172,6 +171,7 @@ class ParticipantNodeBootstrap(
   ): BootstrapStageOrLeaf[ParticipantNode] =
     new StartupNode(
       storage,
+      indexedStringStore,
       crypto,
       adminServerRegistry,
       adminTokenDispenser,
@@ -256,6 +256,7 @@ class ParticipantNodeBootstrap(
       override def validatePackageVetting(
           currentlyVettedPackages: Set[LfPackageId],
           nextPackageIds: Set[LfPackageId],
+          dryRunSnapshot: Option[PackageMetadata],
           forceFlags: ForceFlags,
       )(implicit
           traceContext: TraceContext
@@ -264,7 +265,7 @@ class ParticipantNodeBootstrap(
           currentlyVettedPackages,
           nextPackageIds,
           packageMetadataView,
-          acsInspections = () => acsInspectionPerSynchronizer(),
+          dryRunSnapshot,
           forceFlags,
           disableUpgradeValidation = parameters.disableUpgradeValidation,
         )
@@ -318,6 +319,7 @@ class ParticipantNodeBootstrap(
 
   private class StartupNode(
       storage: Storage,
+      indexedStringStore: IndexedStringStore,
       crypto: Crypto,
       adminServerRegistry: CantonMutableHandlerRegistry,
       adminTokenDispenser: CantonAdminTokenDispenser,
@@ -370,18 +372,16 @@ class ParticipantNodeBootstrap(
       }
 
     private def createPackageOps(manager: SyncPersistentStateManager): PackageOps = {
-      val authorizedTopologyStoreClient = new StoreBasedTopologySnapshot(
-        CantonTimestamp.MaxValue,
-        topologyManager.store,
-        tryGetPackageDependencyResolver(),
-        loggerFactory,
-      )
       val packageOps = new PackageOpsImpl(
         participantId = participantId,
-        headAuthorizedTopologySnapshot = authorizedTopologyStoreClient,
         stateManager = manager,
-        topologyManager = topologyManager,
-        nodeId = nodeId,
+        topologyManagerLookup = new TopologyManagerLookup(
+          lookupByPsid = psid =>
+            cantonSyncService.get
+              .flatMap(_.syncPersistentStateManager.get(psid))
+              .map(_.topologyManager),
+          lookupActivePsidByLsid = lookupActivePSId,
+        ),
         initialProtocolVersion = ProtocolVersion.latest,
         loggerFactory = ParticipantNodeBootstrap.this.loggerFactory,
         timeouts = timeouts,
@@ -420,12 +420,6 @@ class ParticipantNodeBootstrap(
       // closed in SynchronizerAliasManager
       val registeredSynchronizersStore =
         RegisteredSynchronizersStore(storage, timeouts, loggerFactory)
-      val indexedStringStore = IndexedStringStore.create(
-        storage,
-        parameters.cachingConfigs.indexedStrings,
-        timeouts,
-        loggerFactory,
-      )
 
       for {
         synchronizerAliasManager <- EitherT
@@ -539,6 +533,7 @@ class ParticipantNodeBootstrap(
                 clock = clock,
                 commandProgressTracker = commandProgressTracker,
                 ledgerApiStore = persistentState.map(_.ledgerApiStore),
+                contractStore = persistentState.map(_.contractStore),
                 ledgerApiIndexerConfig = LedgerApiIndexerConfig(
                   storageConfig = config.storage,
                   processingTimeout = parameters.processingTimeouts,
@@ -1041,7 +1036,7 @@ class ParticipantNode(
 
   override def status: ParticipantStatus = {
     val ports = Map("ledger" -> config.ledgerApi.port, "admin" -> config.adminApi.port) ++
-      config.httpLedgerApi.map(conf => "json" -> conf.server.port)
+      Option.when(config.httpLedgerApi.enabled)("json" -> config.httpLedgerApi.port)
     val synchronizers = readySynchronizers
     val topologyQueues = identityPusher.queueStatus
 

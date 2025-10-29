@@ -476,6 +476,33 @@ class TopologyAdministrationGroup(
         TopologyStoreId.Synchronizer(synchronizerId),
       )
 
+    @Help.Summary("Propose a transaction")
+    @Help.Description("Raw access to admin API command")
+    def propose[M <: TopologyMapping: ClassTag](
+        mapping: M,
+        store: TopologyStoreId,
+        signedBy: Seq[Fingerprint] = Seq.empty,
+        serial: Option[PositiveInt] = None,
+        change: TopologyChangeOp = TopologyChangeOp.Replace,
+        mustFullyAuthorize: Boolean = true,
+        forceChanges: ForceFlags = ForceFlags.none,
+        waitToBecomeEffective: Option[NonNegativeDuration] = None,
+    ): SignedTopologyTransaction[TopologyChangeOp, M] =
+      consoleEnvironment.run {
+        adminCommand(
+          TopologyAdminCommands.Write.Propose(
+            mapping = mapping,
+            signedBy = signedBy,
+            store = store,
+            serial = serial,
+            change = change,
+            mustFullyAuthorize = mustFullyAuthorize,
+            forceChanges = forceChanges,
+            waitToBecomeEffective = waitToBecomeEffective,
+          )
+        )
+      }
+
     @Help.Summary("Authorize a transaction by its hash")
     def authorize[M <: TopologyMapping: ClassTag](
         txHash: TxHash,
@@ -1644,7 +1671,7 @@ class TopologyAdministrationGroup(
         psid.protocolVersion,
       )
 
-      val newKeys = updatedTransaction.mapping.signingKeys.diff(current.item.signingKeys)
+      val newKeys = updatedTransaction.mapping.signingKeysNE.diff(current.item.signingKeysNE)
       // New keys should sign the transaction
       val newSignatures = newKeys.map { newKey =>
         consoleEnvironment.global_secret.sign(
@@ -1826,6 +1853,8 @@ class TopologyAdministrationGroup(
       threshold: The threshold is `1` for regular parties and larger than `1` for "consortium parties". The threshold
                  indicates how many participant confirmations are needed in order to confirm a Daml transaction on
                  behalf the party.
+      partySigningKeys: Party signing keys with threshold. If specified, the keys will be taken from this field.
+                        Otherwise, they have to be specified earlier in PartyToKey mappings.
       signedBy: Refers to the optional fingerprint of the authorizing key which in turn refers to a specific, locally existing certificate.
       serial: The expected serial this topology transaction should have. Serials must be contiguous and start at 1.
               This transaction will be rejected if another fully authorized transaction with the same serial already
@@ -1849,6 +1878,7 @@ class TopologyAdministrationGroup(
         party: PartyId,
         newParticipants: Seq[(ParticipantId, ParticipantPermission)],
         threshold: PositiveInt = PositiveInt.one,
+        partySigningKeys: Option[SigningKeysWithThreshold] = None,
         serial: Option[PositiveInt] = None,
         signedBy: Seq[Fingerprint] = Seq.empty,
         operation: TopologyChangeOp = TopologyChangeOp.Replace,
@@ -1871,6 +1901,7 @@ class TopologyAdministrationGroup(
               onboarding = participantsRequiringPartyToBeOnboarded.contains(pid),
             )
           },
+          partySigningKeys,
         ),
         signedBy = signedBy,
         serial = serial,
@@ -1890,6 +1921,7 @@ class TopologyAdministrationGroup(
     private[canton] def sign_and_remove(
         party: ExternalParty,
         synchronizer: Synchronizer,
+        forceFlags: ForceFlags = ForceFlags.none,
         synchronize: Option[config.NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
@@ -1915,6 +1947,7 @@ class TopologyAdministrationGroup(
             Seq(consoleEnvironment.global_secret.sign(transaction, party, psid.protocolVersion)),
             psid,
             synchronize = synchronize,
+            forceFlags = forceFlags,
           )
 
         case None =>
@@ -2235,11 +2268,13 @@ class TopologyAdministrationGroup(
         mustFullyAuthorize: Boolean = true,
         serial: Option[PositiveInt] = None,
         change: TopologyChangeOp = TopologyChangeOp.Replace,
+        featureFlags: Seq[SynchronizerTrustCertificate.ParticipantTopologyFeatureFlag] = Seq.empty,
     ): SignedTopologyTransaction[TopologyChangeOp, SynchronizerTrustCertificate] = {
       val cmd = TopologyAdminCommands.Write.Propose(
         mapping = SynchronizerTrustCertificate(
           participantId,
           synchronizerId,
+          featureFlags,
         ),
         signedBy = Seq.empty,
         store = store.getOrElse(synchronizerId),
@@ -2642,10 +2677,10 @@ class TopologyAdministrationGroup(
       runAdminCommand(command).discard
     }
 
-    @Help.Summary("List mediator synchronizer topology state")
+    @Help.Summary("List vetted packages")
     @Help.Description(
       """
-     synchronizerId: the optional target synchronizer
+     store: the optional topology store to query from
      proposals: if true then proposals are shown, otherwise actual validated state
      """
     )
@@ -2677,6 +2712,14 @@ class TopologyAdministrationGroup(
   @Help.Summary("Inspect mediator synchronizer state")
   @Help.Group("Mediator Synchronizer State")
   object mediators extends Helpful {
+
+    @Help.Summary("List mediator synchronizer topology state")
+    @Help.Description(
+      """
+     synchronizerId: the optional target synchronizer
+     proposals: if true then proposals are shown, otherwise actual validated state
+     """
+    )
     def list(
         synchronizerId: Option[SynchronizerId] = None,
         proposals: Boolean = false,
@@ -3237,8 +3280,8 @@ class TopologyAdministrationGroup(
       if (
         oldSynchronizerParameters.mediatorDeduplicationTimeout < minMediatorDeduplicationTimeout
       ) {
-        val err: RpcError = TopologyManagerError.IncreaseOfPreparationTimeRecordTimeTolerance
-          .PermanentlyInsecure(
+        val err: RpcError =
+          TopologyManagerError.IncreaseOfPreparationTimeRecordTimeTolerance.PermanentlyInsecure(
             newPreparationTimeRecordTimeTolerance.toInternal,
             oldSynchronizerParameters.mediatorDeduplicationTimeout.toInternal,
           )

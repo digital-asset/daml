@@ -55,6 +55,7 @@ import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, LedgerCommandId, LfPartyId, WorkflowId, checked}
 import com.digitalasset.daml.lf.data.Ref.UserId
+import com.digitalasset.daml.lf.transaction.SubmittedTransaction
 import com.digitalasset.daml.lf.transaction.test.TestIdFactory
 import org.scalatest.EitherValues.*
 import org.scalatest.OptionValues.*
@@ -182,7 +183,7 @@ class MaliciousParticipantNode(
         rootHashMessage =
           RootHashMessage(
             rootHash,
-            fullTree.synchronizerId,
+            fullTree.psid,
             ViewType.UnassignmentViewType,
             cryptoSnapshot.ipsSnapshot.timestamp,
             EmptyRootHashMessagePayload,
@@ -393,6 +394,7 @@ class MaliciousParticipantNode(
 
   def submitCommand(
       command: CommandsWithMetadata,
+      transactionInterceptor: SubmittedTransaction => SubmittedTransaction = identity,
       transactionTreeInterceptor: GenTransactionTree => GenTransactionTree = identity,
       confirmationRequestInterceptor: TransactionConfirmationRequest => TransactionConfirmationRequest =
         identity,
@@ -416,7 +418,8 @@ class MaliciousParticipantNode(
           .interpret(command)
           .leftMap(err => s"Unable to create transaction: $err")
           .mapK(FutureUnlessShutdown.outcomeK)
-        (submittedTransaction, metadata) = transactionAndMetadata
+        (_submittedTransaction, metadata) = transactionAndMetadata
+        submittedTransaction = transactionInterceptor(_submittedTransaction)
         transactionMeta = command.transactionMeta(submittedTransaction, metadata)
         transactionMetadata = TransactionMetadata
           .fromTransactionMeta(

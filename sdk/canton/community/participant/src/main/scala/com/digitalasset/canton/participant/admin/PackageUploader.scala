@@ -20,18 +20,19 @@ import com.digitalasset.canton.participant.admin.PackageService.{
 }
 import com.digitalasset.canton.participant.store.memory.MutablePackageMetadataView
 import com.digitalasset.canton.participant.store.{DamlPackageStore, PackageInfo}
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
+import com.digitalasset.canton.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.ThereafterOps
 import com.digitalasset.canton.{LedgerSubmissionId, LfPackageId}
 import com.digitalasset.daml.lf.archive.{DamlLf, Dar as LfDar, DarParser, Decode}
 import com.digitalasset.daml.lf.engine.{Engine, Error as EngineError}
-import com.digitalasset.daml.lf.language.Ast
+import com.digitalasset.daml.lf.language.{Ast, LanguageVersion as LV}
 import com.google.protobuf.ByteString
 
 import java.util.zip.ZipInputStream
 import scala.concurrent.ExecutionContext
+import scala.math.Ordering.Implicits.infixOrderingOps
 import scala.util.{Failure, Success, Try}
 
 class PackageUploader(
@@ -51,7 +52,7 @@ class PackageUploader(
       darName: String,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, RpcError, DarMainPackageId] =
+  ): EitherT[FutureUnlessShutdown, RpcError, (LfPackageId, List[(LfPackageId, Ast.Package)])] =
     synchronizeWithClosing("validate DAR") {
       val stream = new ZipInputStream(payload.newInput())
       for {
@@ -63,7 +64,7 @@ class PackageUploader(
         )
         lfDar = LfDar(mainPackage, dependencies)
         _ <- validateLfDarPackages(lfDar)
-      } yield DarMainPackageId.tryCreate(mainPackage._1)
+      } yield (mainPackage._1, mainPackage +: dependencies)
     }
 
   /** Uploads dar into dar store
@@ -196,7 +197,7 @@ class PackageUploader(
     EitherT.fromEither[FutureUnlessShutdown](
       engine.validateDar(dar).left.flatMap {
         case err: EngineError.Package.DarSelfConsistency
-            if !enableStrictDarValidation && err.logReportingEnabled =>
+            if (!enableStrictDarValidation || dar.main._2.languageVersion < LV.Features.explicitPkgImports) && err.logReportingEnabled =>
           logger.warn(err.message)
           Right(())
         case err: EngineError.Package.Error =>

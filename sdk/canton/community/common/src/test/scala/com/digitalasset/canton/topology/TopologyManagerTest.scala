@@ -96,11 +96,11 @@ class TopologyManagerTest extends AnyWordSpec with BaseTest with HasExecutionCon
           .value,
         _.shouldBeCantonError(
           TopologyManagerError.UnauthorizedTransaction,
-          _ should include("Not authorized"),
+          _ should include("Topology transaction is missing authorizations by"),
         ),
       )
       error.code shouldBe TopologyManagerError.UnauthorizedTransaction
-      error.cause should include("Not authorized")
+      error.cause should include("Topology transaction is missing authorizations by")
     }
 
   private def createAuthorizedTopologyManager() =
@@ -149,6 +149,7 @@ class TopologyManagerTest extends AnyWordSpec with BaseTest with HasExecutionCon
         timeouts,
       ),
       new SynchronizerOutboxQueue(loggerFactory),
+      disableOptionalTopologyChecks = false,
       exitOnFatalFailures = exitOnFatal,
       timeouts = timeouts,
       futureSupervisor = futureSupervisor,

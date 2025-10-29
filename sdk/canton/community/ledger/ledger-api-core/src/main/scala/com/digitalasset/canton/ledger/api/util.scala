@@ -13,19 +13,29 @@ import com.daml.ledger.api.v2.transaction_filter.TransactionShape.{
 import com.daml.ledger.api.v2.{package_reference, package_service}
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
 import com.daml.nonempty.*
+import com.daml.platform.v1.page_tokens.ListVettedPackagesPageTokenPayload
 import com.digitalasset.canton.ProtoDeserializationError.{
   FieldNotSet,
   InvariantViolation,
   UnrecognizedEnum,
   ValueConversionError,
 }
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.protocol.LfFatContractInst
+import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.topology.transaction.VettedPackage
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
+import com.digitalasset.canton.topology.{
+  ForceFlag,
+  ForceFlags,
+  ParticipantId,
+  SynchronizerId,
+  UniqueIdentifier,
+}
+import com.digitalasset.canton.util.{EitherUtil, OptionUtil}
 import com.digitalasset.canton.{LfPackageId, LfPackageName, LfPackageVersion}
 import com.digitalasset.daml.lf.command.{ApiCommands as LfCommands, ApiContractKey}
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -34,8 +44,10 @@ import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import scalaz.@@
 import scalaz.syntax.tag.*
 
-import scala.annotation.nowarn
+import java.nio.charset.StandardCharsets
+import java.util.Base64
 import scala.collection.immutable
+import scala.util.Try
 
 final case class UpdateFormat(
     includeTransactions: Option[TransactionFormat],
@@ -181,7 +193,6 @@ final case class DisclosedContract(
   }
 }
 
-// TODO(#25385): Deduplicate with logic from TopologyAwareCommandExecutor
 // Wrapper used for ordering package ids by version
 final case class PackageReference(
     pkgId: LfPackageId,
@@ -231,30 +242,180 @@ object Logging {
 final case class ListVettedPackagesOpts(
     packageFilter: Option[PackageMetadataFilter],
     topologyStateFilter: Option[TopologyStateFilter],
+    pageToken: PageToken,
+    pageSize: PositiveInt,
 ) {
-  def toPredicate(metadata: PackageMetadata): Ref.PackageId => Boolean = { (pkgId: Ref.PackageId) =>
-    val matchesMetadata =
-      packageFilter
-        .map(_.toPredicate(metadata)(pkgId))
-        .getOrElse(true)
-
-    val matchesTopologyState =
-      topologyStateFilter
-        .map(_.toPredicate(metadata)(pkgId))
-        .getOrElse(true)
-
-    matchesMetadata && matchesTopologyState
+  def toPackagePredicate(metadata: PackageMetadata): Ref.PackageId => Boolean = {
+    (pkgId: Ref.PackageId) =>
+      packageFilter.forall(_.toPredicate(metadata)(pkgId))
   }
+
+  // Get sorted list of filtering participants that, given their synchronizer, exceed the page token
+  // If no participants exceed the token, None is returned
+  // If no filtering participants were specified in topologyStateFilter, Some(None) is returned.
+  def userSpecifiedParticipantsInToken(
+      synchronizerId: SynchronizerId
+  ): Option[Option[NonEmpty[Set[ParticipantId]]]] = {
+    val userSpecifiedParticipants =
+      topologyStateFilter.flatMap(filter => NonEmpty.from(filter.participantIds.toSet))
+    userSpecifiedParticipants match {
+      case None => Some(None)
+      case Some(nonEmptyParticipants) =>
+        val participantsMatchingToken =
+          nonEmptyParticipants.forgetNE
+            .filter(pageToken.participantExceedsBound(synchronizerId, _))
+        NonEmpty.from(participantsMatchingToken).map(Some(_))
+    }
+  }
+
+  // Get sorted list of synchronizers that could match the page token (i.e.
+  // greater than or equal to page token's synchronizer). If no synchronizers
+  // are specified in topologyStateFilter, use the default list provided.
+  def filterSynchronizersInToken(default: Set[SynchronizerId]): Seq[SynchronizerId] =
+    pageToken.sortAndFilterSynchronizers(
+      topologyStateFilter
+        .flatMap(filter => NonEmpty.from(filter.synchronizerIds.toSet))
+        .map(_.forgetNE)
+        .getOrElse(default)
+        .toSeq
+    )
+}
+
+sealed trait PageToken {
+  import PageToken.*
+
+  def encode: String
+
+  def synchronizerMeetsBound(synchronizerId: SynchronizerId): Boolean
+
+  def participantExceedsBound(synchronizerId: SynchronizerId, participantId: ParticipantId): Boolean
+
+  def sortAndFilterSynchronizers(synchronizerIds: Seq[SynchronizerId]): Seq[SynchronizerId] =
+    synchronizerIds
+      .filter(synchronizerMeetsBound(_))
+      .sorted(orderingSynchronizerId)
+
+  def sortAndFilterVettedPackages[A <: VettedPackages](
+      vettedPackages: Seq[A]
+  ): Seq[A] =
+    vettedPackages
+      .filter(vp => participantExceedsBound(vp.synchronizerId, vp.participantId))
+      .sortBy(_.toBoundedPageToken)(orderingBoundedPageToken)
+}
+
+final case class BoundedPageToken(
+    synchronizerBound: SynchronizerId,
+    participantBound: ParticipantId,
+) extends PageToken {
+  import PageToken.*
+
+  override def synchronizerMeetsBound(synchronizerId: SynchronizerId): Boolean =
+    orderingSynchronizerId.gteq(synchronizerId, synchronizerBound)
+
+  override def participantExceedsBound(
+      synchronizerId: SynchronizerId,
+      participantId: ParticipantId,
+  ): Boolean =
+    orderingBoundedPageToken.gt(BoundedPageToken(synchronizerId, participantId), this)
+
+  override def encode: String = {
+    val bytes = Base64.getUrlEncoder.encode(
+      ListVettedPackagesPageTokenPayload(
+        synchronizerId = synchronizerBound.uid.toProtoPrimitive,
+        participantId = participantBound.uid.toProtoPrimitive,
+      ).toByteArray
+    )
+    new String(bytes, StandardCharsets.UTF_8)
+  }
+}
+
+final case object InitialPageToken extends PageToken {
+  override def synchronizerMeetsBound(synchronizerId: SynchronizerId): Boolean = true
+
+  override def participantExceedsBound(
+      synchronizerId: SynchronizerId,
+      participantId: ParticipantId,
+  ): Boolean = true
+
+  override def encode: String = ""
+}
+
+object PageToken {
+  val orderingSynchronizerId = Ordering.by[SynchronizerId, String](_.uid.toProtoPrimitive)
+  val orderingParticipantId = Ordering.by[ParticipantId, String](_.uid.toProtoPrimitive)
+  val orderingBoundedPageToken: Ordering[BoundedPageToken] =
+    Ordering
+      .by[BoundedPageToken, SynchronizerId](_.synchronizerBound)(orderingSynchronizerId)
+      .orElseBy(_.participantBound)(orderingParticipantId)
+  val orderingParticipantVettedPackages: Ordering[VettedPackages] =
+    orderingBoundedPageToken.on(_.toBoundedPageToken)
+
+  def invalidPageToken(suffix: String): ValueConversionError =
+    ValueConversionError(
+      error = s"Invalid page token for ListVettedPackagesRequest: $suffix",
+      field = "page_token",
+    )
+
+  def decode(raw: String): ParsingResult[PageToken] =
+    if (raw.isEmpty) {
+      Right(InitialPageToken)
+    } else {
+      val bytes = raw.getBytes(StandardCharsets.UTF_8)
+      for {
+        decodedBytes <- Try[Array[Byte]](Base64.getUrlDecoder.decode(bytes)).toEither.left
+          .map(_ => invalidPageToken("Failed base64 decoding"))
+
+        tokenPayload <- Try[ListVettedPackagesPageTokenPayload] {
+          ListVettedPackagesPageTokenPayload.parseFrom(decodedBytes)
+        }.toEither.left
+          .map(_ => invalidPageToken("Failed proto decoding"))
+
+        synchronizerId <-
+          UniqueIdentifier
+            .fromProtoPrimitive(tokenPayload.synchronizerId, "page_token")
+            .leftMap(uniqueIdentifierErr =>
+              invalidPageToken(
+                s"Couldn't extract token's synchronizer ID: ${uniqueIdentifierErr.message}"
+              )
+            )
+        participantId <-
+          UniqueIdentifier
+            .fromProtoPrimitive(tokenPayload.participantId, "page_token")
+            .leftMap(uniqueIdentifierErr =>
+              invalidPageToken(
+                s"Couldn't extract token's participant ID: ${uniqueIdentifierErr.message}"
+              )
+            )
+      } yield BoundedPageToken(
+        synchronizerBound = SynchronizerId(synchronizerId),
+        participantBound = ParticipantId(participantId),
+      )
+    }
 }
 
 object ListVettedPackagesOpts {
   def fromProto(
-      req: package_service.ListVettedPackagesRequest
+      req: package_service.ListVettedPackagesRequest,
+      serverPageSize: PositiveInt,
   ): ParsingResult[ListVettedPackagesOpts] =
     for {
       packageMetadataFilter <- req.packageMetadataFilter.traverse(PackageMetadataFilter.fromProto)
       topologyStateFilter <- req.topologyStateFilter.traverse(TopologyStateFilter.fromProto)
-    } yield ListVettedPackagesOpts(packageMetadataFilter, topologyStateFilter)
+      pageToken <- PageToken.decode(req.pageToken)
+      requestPageSize <- ProtoConverter.parseNonNegativeInt("page_size", req.pageSize)
+      _ <- EitherUtil.condUnit(
+        requestPageSize.value <= serverPageSize.value,
+        InvariantViolation(
+          "page_size",
+          s"Page size must not exceed the server's maximum of $serverPageSize",
+        ),
+      )
+      pageSize =
+        if (requestPageSize.value == 0)
+          serverPageSize
+        else
+          PositiveInt.tryCreate(requestPageSize.value)
+    } yield ListVettedPackagesOpts(packageMetadataFilter, topologyStateFilter, pageToken, pageSize)
 }
 
 final case class PackageMetadataFilter(
@@ -303,14 +464,9 @@ final case class TopologyStateFilter(
 ) {
   def toProtoLAPI: package_service.TopologyStateFilter =
     package_service.TopologyStateFilter(
-      participantIds.map(_.toString),
-      synchronizerIds.map(_.toString),
+      participantIds.map(_.uid.toString),
+      synchronizerIds.map(_.uid.toString),
     )
-
-  // TODO(#27750) Implement filtering by synch/participant
-  @nowarn
-  def toPredicate(metadata: PackageMetadata): Ref.PackageId => Boolean =
-    (_: Ref.PackageId) => true
 }
 
 object TopologyStateFilter {
@@ -319,10 +475,14 @@ object TopologyStateFilter {
   ): ParsingResult[TopologyStateFilter] =
     for {
       synchronizerIds <- filter.synchronizerIds.traverse(
-        SynchronizerId.fromProtoPrimitive(_, "synchronizer_ids")
+        UniqueIdentifier
+          .fromProtoPrimitive(_, "synchronizer_ids")
+          .map(SynchronizerId(_))
       )
       participantIds <- filter.participantIds.traverse(
-        ParticipantId.fromProtoPrimitive(_, "participant_ids")
+        UniqueIdentifier
+          .fromProtoPrimitive(_, "participant_ids")
+          .map(ParticipantId(_))
       )
     } yield TopologyStateFilter(
       participantIds = participantIds,
@@ -330,9 +490,40 @@ object TopologyStateFilter {
     )
 }
 
+final case class UpdateVettedPackagesForceFlags(
+    forceVetIncompatibleUpgrade: Boolean = false,
+    forceUnvettedDependencies: Boolean = false,
+) {
+  def toForceFlags =
+    ForceFlags(
+      Set(ForceFlag.AllowVetIncompatibleUpgrades)
+        .filter(_ => forceVetIncompatibleUpgrade) ++
+        Set(ForceFlag.AllowUnvettedDependencies)
+          .filter(_ => forceUnvettedDependencies)
+    )
+}
+
+object UpdateVettedPackagesForceFlags {
+  def fromProto(
+      forceFlags: Seq[package_management_service.UpdateVettedPackagesForceFlag]
+  ): ParsingResult[UpdateVettedPackagesForceFlags] =
+    Right(
+      UpdateVettedPackagesForceFlags(
+        forceVetIncompatibleUpgrade =
+          forceFlags.exists(_.isUpdateVettedPackagesForceFlagAllowVetIncompatibleUpgrades),
+        forceUnvettedDependencies =
+          forceFlags.exists(_.isUpdateVettedPackagesForceFlagAllowUnvettedDependencies),
+      )
+    )
+
+}
+
 final case class UpdateVettedPackagesOpts(
     changes: Seq[VettedPackagesChange],
     dryRun: Boolean,
+    synchronizerIdO: Option[SynchronizerId],
+    expectedTopologySerial: Option[PriorTopologySerial],
+    forceFlags: UpdateVettedPackagesForceFlags,
 ) {
   def toTargetStates: Seq[SinglePackageTargetVetting[VettedPackagesRef]] =
     for {
@@ -348,10 +539,22 @@ final case class UpdateVettedPackagesOpts(
 object UpdateVettedPackagesOpts {
   def fromProto(
       req: package_management_service.UpdateVettedPackagesRequest
-  ): ParsingResult[UpdateVettedPackagesOpts] =
-    req.changes
+  ): ParsingResult[UpdateVettedPackagesOpts] = for {
+    vettingChanges <- req.changes
       .traverse(VettedPackagesChange.fromProto)
-      .map(UpdateVettedPackagesOpts(_, req.dryRun))
+    synchronizerIdO <- OptionUtil
+      .emptyStringAsNone(req.synchronizerId)
+      .traverse(SynchronizerId.fromProtoPrimitive(_, "synchronizer_id"))
+    expectedTopologySerial <- req.expectedTopologySerial
+      .flatTraverse(PriorTopologySerial.fromProto("expected_topology_serial", _))
+    forceFlags <- UpdateVettedPackagesForceFlags.fromProto(req.updateVettedPackagesForceFlags)
+  } yield UpdateVettedPackagesOpts(
+    vettingChanges,
+    req.dryRun,
+    synchronizerIdO,
+    expectedTopologySerial,
+    forceFlags,
+  )
 }
 
 sealed trait VettedPackagesChange {
@@ -432,6 +635,7 @@ object UploadDarVettingChange {
     change match {
       case package_management_service.UploadDarFileRequest.VettingChange.VETTING_CHANGE_UNSPECIFIED =>
         Right(default)
+
       case package_management_service.UploadDarFileRequest.VettingChange.VETTING_CHANGE_VET_ALL_PACKAGES =>
         Right(VetAllPackages)
       case package_management_service.UploadDarFileRequest.VettingChange.VETTING_CHANGE_DONT_VET_ANY_PACKAGES =>
@@ -442,7 +646,7 @@ object UploadDarVettingChange {
     }
 }
 
-sealed trait VettedPackagesRef {
+sealed trait VettedPackagesRef extends PrettyPrinting {
   def toProtoLAPI: package_management_service.VettedPackagesRef
   def findMatchingPackages(metadata: PackageMetadata): Either[String, NonEmpty[Set[Ref.PackageId]]]
 }
@@ -462,6 +666,9 @@ object VettedPackagesRef {
       } else {
         Right(NonEmpty(Set, id))
       }
+
+    override protected def pretty: Pretty[Id] =
+      prettyOfString(id => s"package-id: ${id.id.singleQuoted}")
   }
 
   final case class NameAndVersion(
@@ -475,7 +682,6 @@ object VettedPackagesRef {
         version.toString,
       )
 
-    // TODO(#27499): Stop relying on `(name, version) -> id` injection
     def findMatchingPackages(
         metadata: PackageMetadata
     ): Either[String, NonEmpty[Set[Ref.PackageId]]] =
@@ -498,6 +704,11 @@ object VettedPackagesRef {
             case Some(ne) => Right(ne)
           }
       }
+
+    override protected def pretty: Pretty[NameAndVersion] = prettyOfClass(
+      param("name", _.name),
+      param("version", _.version),
+    )
   }
 
   final case class All(
@@ -526,6 +737,13 @@ object VettedPackagesRef {
             )
           }
       }
+
+    override protected def pretty: Pretty[All] =
+      prettyOfClass(
+        param("id", _.id),
+        param("name", _.name),
+        param("version", _.version),
+      )
   }
 
   final case class Name(
@@ -541,6 +759,9 @@ object VettedPackagesRef {
         case None => Left(s"No packages with name $name")
         case Some(packageResolution) => Right(packageResolution.allPackageIdsForName)
       }
+
+    override protected def pretty: Pretty[Name] =
+      prettyOfString(name => s"package-name: ${name.name.singleQuoted}")
   }
 
   private def parseWith[A](
@@ -595,6 +816,34 @@ final case class SinglePackageTargetVetting[R](
   def isUnvetting: Boolean = bounds.isEmpty
 }
 
+sealed trait VettedPackages {
+  def participantId: ParticipantId
+  def synchronizerId: SynchronizerId
+  def toBoundedPageToken: BoundedPageToken = BoundedPageToken(synchronizerId, participantId)
+}
+
+final case class ParticipantVettedPackages(
+    packages: Seq[VettedPackage],
+    participantId: ParticipantId,
+    synchronizerId: SynchronizerId,
+    serial: PositiveInt,
+) extends VettedPackages
+
+final case class EnrichedVettedPackages(
+    packages: Seq[EnrichedVettedPackage],
+    participantId: ParticipantId,
+    synchronizerId: SynchronizerId,
+    serial: PositiveInt,
+) extends VettedPackages {
+  def toProtoLAPI: package_reference.VettedPackages =
+    package_reference.VettedPackages(
+      packages = packages.map(_.toProtoLAPI),
+      participantId = participantId.uid.toProtoPrimitive,
+      synchronizerId = synchronizerId.toProtoPrimitive,
+      topologySerial = serial.value,
+    )
+}
+
 final case class EnrichedVettedPackage(
     vetted: VettedPackage,
     name: Option[Ref.PackageName],
@@ -609,20 +858,24 @@ final case class EnrichedVettedPackage(
   )
 }
 
-sealed trait PriorTopologySerial {
-  def toProtoLAPI: package_reference.PriorTopologySerial
+sealed trait PriorTopologySerial
+
+object PriorTopologySerial {
+  def fromProto(
+      field: String,
+      proto: package_reference.PriorTopologySerial,
+  ): ParsingResult[Option[PriorTopologySerial]] =
+    proto.serial match {
+      case package_reference.PriorTopologySerial.Serial.Empty => Right(None)
+      case package_reference.PriorTopologySerial.Serial.NoPrior(_) =>
+        Right(Some(PriorTopologySerialNone))
+      case package_reference.PriorTopologySerial.Serial.Prior(serial) =>
+        ProtoConverter
+          .parsePositiveInt(field, serial)
+          .map(serial => Some(PriorTopologySerialExists(serial)))
+    }
 }
 
-final case class PriorTopologySerialExists(serial: Int) extends PriorTopologySerial {
-  override def toProtoLAPI =
-    package_reference.PriorTopologySerial(
-      package_reference.PriorTopologySerial.Serial.Prior(serial)
-    )
-}
+final case class PriorTopologySerialExists(serial: PositiveInt) extends PriorTopologySerial
 
-final case object PriorTopologySerialNone extends PriorTopologySerial {
-  override def toProtoLAPI =
-    package_reference.PriorTopologySerial(
-      package_reference.PriorTopologySerial.Serial.NoPrior(com.google.protobuf.empty.Empty())
-    )
-}
+final case object PriorTopologySerialNone extends PriorTopologySerial

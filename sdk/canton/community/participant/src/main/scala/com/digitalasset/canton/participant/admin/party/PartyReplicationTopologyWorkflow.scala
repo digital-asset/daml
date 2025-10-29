@@ -10,10 +10,9 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.participant.sync.ConnectedSynchronizer
 import com.digitalasset.canton.protocol.DynamicSynchronizerParametersHistory
-import com.digitalasset.canton.time.SynchronizerTimeTracker
 import com.digitalasset.canton.topology.TopologyManagerError.NoAppropriateSigningKeyInStore
-import com.digitalasset.canton.topology.client.SynchronizerTopologyClient
 import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.{StoredTopologyTransaction, TimeQuery, TopologyStore}
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp.Replace
@@ -27,7 +26,6 @@ import com.digitalasset.canton.topology.{
   ForceFlags,
   ParticipantId,
   PartyId,
-  SynchronizerId,
   SynchronizerTopologyManager,
 }
 import com.digitalasset.canton.tracing.TraceContext
@@ -38,7 +36,7 @@ import scala.util.chaining.scalaUtilChainingOps
 
 /** The OnPR topology workflow manages the interaction with topology processing with respect to
   * authorizing PartyToParticipant topology changes and verifying that authorized topology changes
-  * permit party replication.
+  * permit party replication for a particular connected synchronizer.
   */
 class PartyReplicationTopologyWorkflow(
     participantId: ParticipantId,
@@ -56,17 +54,14 @@ class PartyReplicationTopologyWorkflow(
     *
     * @param params
     *   party replication parameters
-    * @param topologyManager
-    *   synchronizer topology manager to use for authorizing and TP-signature checking
-    * @param topologyStore
-    *   synchronizer topology store
+    * @param connectedSynchronizer
+    *   connected synchronizer
     * @return
     *   effective time of the onboarding topology transaction or None if not yet authorized
     */
   private[party] def authorizeOnboardingTopology(
       params: PartyReplicationStatus.ReplicationParams,
-      topologyManager: SynchronizerTopologyManager,
-      topologyStore: TopologyStore[SynchronizerStore],
+      connectedSynchronizer: ConnectedSynchronizer,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Option[CantonTimestamp]] = {
@@ -74,20 +69,15 @@ class PartyReplicationTopologyWorkflow(
       .ReplicationParams(
         requestId,
         partyId,
-        synchronizerId,
+        _,
         sourceParticipantId,
         targetParticipantId,
         serial,
         _,
       ) = params
-    require(
-      synchronizerId == topologyManager.psid.logical,
-      s"party replication synchronizer id $synchronizerId does not match topology manager synchronizer id ${topologyManager.psid.logical}",
-    )
-    require(
-      synchronizerId == topologyStore.storeId.psid.logical,
-      s"party replication synchronizer id $synchronizerId does not match topology store synchronizer id ${topologyStore.storeId.psid.logical}",
-    )
+    val topologyStore = connectedSynchronizer.synchronizerHandle.syncPersistentState.topologyStore
+    val topologyManager =
+      connectedSynchronizer.synchronizerHandle.syncPersistentState.topologyManager
     for {
       _ <- EitherT(
         partyToParticipantTopologyHeadO(partyId, topologyStore).map(txO =>
@@ -202,7 +192,7 @@ class PartyReplicationTopologyWorkflow(
           proposal = true,
         ).map(_.filter { proposal =>
           proposal.serial == serial && (proposal.mapping match {
-            case PartyToParticipant(partyId, _thresholdMayDiffer, participants) =>
+            case PartyToParticipant(partyId, _thresholdMayDiffer, participants, _) =>
               partyId == ptpProposal.partyId && participants == ptpProposal.participants
           })
         })
@@ -338,27 +328,15 @@ class PartyReplicationTopologyWorkflow(
     * @param onboardingEffectiveAt
     *   effective time of the onboarding topology transaction needed to determine the safe time to
     *   clear the onboarding flag.
-    * @param synchronizerTimeTracker
-    *   synchronizer time tracker to find the latest synchronizer timestamp observed by the
-    *   participant
-    * @param topologyManager
-    *   synchronizer topology manager to use for authorizing and TP-signature checking
-    * @param topologyStore
-    *   synchronizer topology store
-    * @param topologyClient
-    *   synchronizer topology client to look up synchronizer dynamic parameter history in order to
-    *   determine the safe time to clear onboarding flags wrt decision timeouts of historic
-    *   transactions.
+    * @param connectedSynchronizer
+    *   connected synchronizer
     * @return
     *   whether the onboarded topology has been authorized
     */
   private[party] def authorizeOnboardedTopology(
       params: PartyReplicationStatus.ReplicationParams,
       onboardingEffectiveAt: CantonTimestamp,
-      synchronizerTimeTracker: SynchronizerTimeTracker,
-      topologyManager: SynchronizerTopologyManager,
-      topologyStore: TopologyStore[SynchronizerStore],
-      topologyClient: SynchronizerTopologyClient,
+      connectedSynchronizer: ConnectedSynchronizer,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Boolean] = {
@@ -366,7 +344,7 @@ class PartyReplicationTopologyWorkflow(
       .ReplicationParams(
         requestId,
         partyId,
-        synchronizerId,
+        _,
         _,
         targetParticipantId,
         _,
@@ -374,13 +352,9 @@ class PartyReplicationTopologyWorkflow(
       ) = params
     val res = authorizeOnboardedTopology(
       partyId,
-      synchronizerId,
       targetParticipantId,
       onboardingEffectiveAt,
-      synchronizerTimeTracker,
-      topologyManager,
-      topologyStore,
-      topologyClient,
+      connectedSynchronizer,
       Some(requestId),
     )
     res.map { case (partyHasBeenOnboarded, _) => partyHasBeenOnboarded }
@@ -388,26 +362,20 @@ class PartyReplicationTopologyWorkflow(
 
   private[party] def authorizeOnboardedTopology(
       partyId: PartyId,
-      synchronizerId: SynchronizerId,
       targetParticipantId: ParticipantId,
       onboardingEffectiveAt: CantonTimestamp,
-      synchronizerTimeTracker: SynchronizerTimeTracker,
-      topologyManager: SynchronizerTopologyManager,
-      topologyStore: TopologyStore[SynchronizerStore],
-      topologyClient: SynchronizerTopologyClient,
+      connectedSynchronizer: ConnectedSynchronizer,
       requestId: Option[Hash] = None,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, (Boolean, Option[CantonTimestamp])] = {
-    require(
-      synchronizerId == topologyManager.psid.logical,
-      s"party replication synchronizer id $synchronizerId does not match topology manager synchronizer id ${topologyManager.psid.logical}",
-    )
-    require(
-      synchronizerId == topologyStore.storeId.psid.logical,
-      s"party replication synchronizer id $synchronizerId does not match topology store synchronizer id ${topologyStore.storeId.psid.logical}",
-    )
+    val synchronizerId = connectedSynchronizer.psid.logical
     val requestIdLogPart = if (requestId.nonEmpty) s"For request $requestId: " else ""
+    val synchronizerTimeTracker = connectedSynchronizer.ephemeral.timeTracker
+    val topologyManager =
+      connectedSynchronizer.synchronizerHandle.syncPersistentState.topologyManager
+    val topologyStore = connectedSynchronizer.synchronizerHandle.syncPersistentState.topologyStore
+    val topologyClient = connectedSynchronizer.synchronizerHandle.topologyClient
     for {
       ptpHeadTxn <- EitherT(
         partyToParticipantTopologyHeadO(partyId, topologyStore).map(txO =>
@@ -554,7 +522,11 @@ class PartyReplicationTopologyWorkflow(
       topologyStore: TopologyStore[SynchronizerStore],
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, String, StoredTopologyTransaction[Replace, PartyToParticipant]] =
+  ): EitherT[
+    FutureUnlessShutdown,
+    String,
+    StoredTopologyTransaction[Replace, PartyToParticipant],
+  ] =
     EitherT(
       partyToParticipantTopologyHeadO(partyId, topologyStore).map(
         _.toRight(

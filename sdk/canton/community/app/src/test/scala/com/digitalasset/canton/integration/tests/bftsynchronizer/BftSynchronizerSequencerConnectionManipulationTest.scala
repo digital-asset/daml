@@ -4,9 +4,8 @@
 package com.digitalasset.canton.integration.tests.bftsynchronizer
 
 import com.daml.metrics.api.testing.MetricValues.*
-import com.digitalasset.canton.config
 import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.LocalSequencerReference
 import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.{
@@ -14,6 +13,13 @@ import com.digitalasset.canton.integration.{
   EnvironmentDefinition,
   SharedEnvironment,
 }
+import com.digitalasset.canton.sequencing.{
+  SequencerConnectionPoolDelays,
+  SequencerConnections,
+  SubmissionRequestAmplification,
+}
+import com.digitalasset.canton.topology.SequencerId
+import com.digitalasset.canton.{SequencerAlias, config}
 import monocle.macros.syntax.lens.*
 
 import scala.collection.immutable.Seq
@@ -138,6 +144,55 @@ sealed trait BftSynchronizerSequencerConnectionManipulationTest
       participant1.health.ping(participant2.id, timeout = pingTimeout)
     }
 
+    sequencer1.start()
+  }
+
+  "Modification of sequencer connections triggers sequencers id fetching and storing" in {
+    implicit env =>
+      import env.*
+
+      participant3.synchronizers.connect_local(sequencer1, daName)
+
+      participant3.synchronizers
+        .config(daName)
+        .value
+        .sequencerConnections
+        .connections
+        .forgetNE should have size 1
+
+      participant3.synchronizers.modify(
+        daName,
+        _.copy(sequencerConnections =
+          SequencerConnections.tryMany(
+            Seq(sequencer1, sequencer2).map { sequencer =>
+              // On purpose, we don't set the sequencer id. It should be grabbed automatically.
+              sequencer.sequencerConnection
+                .withAlias(SequencerAlias.tryCreate(sequencer.name))
+            },
+            sequencerTrustThreshold = PositiveInt.two,
+            sequencerLivenessMargin = NonNegativeInt.zero,
+            SubmissionRequestAmplification.NoAmplification,
+            SequencerConnectionPoolDelays.default,
+          )
+        ),
+      )
+
+      // Check that ids are set
+      val configs: Map[SequencerAlias, Option[SequencerId]] = participant3.synchronizers
+        .config(daName)
+        .value
+        .sequencerConnections
+        .aliasToConnection
+        .view
+        .mapValues(_.sequencerId)
+        .toMap
+
+      val expectedConfigs = Map(
+        sequencer1.sequencerAlias -> Some(sequencer1.id),
+        sequencer2.sequencerAlias -> Some(sequencer2.id),
+      )
+
+      configs shouldBe expectedConfigs
   }
 
 }

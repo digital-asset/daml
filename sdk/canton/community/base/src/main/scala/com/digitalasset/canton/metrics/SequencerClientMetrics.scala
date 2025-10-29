@@ -71,6 +71,11 @@ class SequencerClientMetrics(
     labeledMetricsFactory = metricsFactory,
   )
 
+  val connectionPool: SequencerConnectionPoolMetrics = new SequencerConnectionPoolMetrics(
+    prefix = histograms.prefix :+ "sequencer-connection-pool",
+    metricsFactory = metricsFactory,
+  )
+
   // Private constructor to avoid being instantiated multiple times by accident
   final class HandlerMetrics private[SequencerClientMetrics] () {
 
@@ -172,7 +177,7 @@ class SequencerClientMetrics(
         )
       }
 
-      // Two concurrent calls with the same synchronizer alias may cause getOrElseUpdate to evaluate the new value expression twice,
+      // Two concurrent calls with the same sequencer alias may cause getOrElseUpdate to evaluate the new value expression twice,
       // even though only one of the results will be stored in the map.
       // Eval.later ensures that we actually create only one instance of ConnectedSynchronizerMetrics in such a case
       // by delaying the creation until the getOrElseUpdate call has finished.
@@ -191,7 +196,7 @@ class SequencerClientMetrics(
                         |overwhelming it with too many events at once.
                         |
                         |Indicators that the configured upper bound may be too low:
-                        |This metric constantly is closed to the configured maximum, which is exposed via 'max-in-flight-event-batches',
+                        |This metric constantly is close to the configured maximum, which is exposed via 'max-in-flight-event-batches',
                         |while the system's resources are under-utilized.
                         |Indicators that the configured upper bound may be too high:
                         |Out-of-memory errors crashing the JVM or frequent garbage collection cycles that slow down processing.

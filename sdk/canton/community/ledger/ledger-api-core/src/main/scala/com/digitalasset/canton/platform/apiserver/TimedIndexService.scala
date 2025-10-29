@@ -118,13 +118,25 @@ final class TimedIndexService(delegate: IndexService, metrics: LedgerApiServerMe
     )
 
   override def prune(
+      previousPruneUpToInclusive: Option[Offset],
+      previousIncompleteReassignmentOffsets: Vector[Offset],
       pruneUpToInclusive: Offset,
-      incompletReassignmentOffsets: Vector[Offset],
+      incompleteReassignmentOffsets: Vector[Offset],
   )(implicit loggingContext: LoggingContextWithTrace): Future[Unit] =
     Timed.future(
       metrics.services.index.prune,
-      delegate.prune(pruneUpToInclusive, incompletReassignmentOffsets),
+      delegate.prune(
+        previousPruneUpToInclusive = previousPruneUpToInclusive,
+        previousIncompleteReassignmentOffsets = previousIncompleteReassignmentOffsets,
+        pruneUpToInclusive = pruneUpToInclusive,
+        incompleteReassignmentOffsets = incompleteReassignmentOffsets,
+      ),
     )
+
+  def indexDbPrunedUpto(implicit
+      loggingContext: LoggingContextWithTrace
+  ): Future[Option[Offset]] =
+    delegate.indexDbPrunedUpto
 
   override def currentHealth(): HealthStatus =
     delegate.currentHealth()

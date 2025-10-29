@@ -46,6 +46,7 @@ import com.digitalasset.canton.participant.config.BaseParticipantConfig
 import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.{
+  SequencerConnectionPoolDelays,
   SequencerConnectionValidation,
   SequencerConnections,
   SubmissionRequestAmplification,
@@ -58,6 +59,7 @@ import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import com.digitalasset.canton.util.BinaryFileUtil
+import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{SequencerAlias, SynchronizerAlias, config}
 import com.google.protobuf.ByteString
 import com.typesafe.scalalogging.LazyLogging
@@ -771,6 +773,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
                 sequencerTrustThreshold,
                 sequencerLivenessMargin,
                 mediatorRequestAmplification,
+                SequencerConnectionPoolDelays.default,
               ),
               // if we run bootstrap ourselves, we should have been able to reach the nodes
               // so we don't want the bootstrapping to fail spuriously here in the middle of
@@ -784,6 +787,53 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
       )
 
       synchronizerId
+    }
+
+    @Help.Summary("Bootstraps a local synchronizer using default arguments")
+    @Help.Description(
+      "This is a convenience method for bootstrapping a local synchronizer." +
+        "The synchronizer will include all sequencers and mediators that are currently running." +
+        "It will be owned by the sequencers, while the mediator threshold will be set to require" +
+        "all mediators to confirm."
+    )
+    def synchronizer_local(
+        synchronizerName: String = "local"
+    )(implicit consoleEnvironment: ConsoleEnvironment): SynchronizerId = {
+      def checkEnoughAndNotInitialized[T <: InstanceReference](
+          name: String,
+          items: Seq[T],
+      ): Seq[T] = {
+        val distinct = items
+          .filter(x => x.health.is_running() && x.health.active && x.health.has_identity())
+          .groupBy(_.id)
+          .flatMap { case (_, v) =>
+            v.headOption.toList
+          }
+          .toList
+        if (distinct.isEmpty) {
+          consoleEnvironment.raiseError(s"No ${name}s available to bootstrap a local synchronizer.")
+        }
+        distinct.find(_.health.initialized()).foreach { ref =>
+          consoleEnvironment.raiseError(
+            s"$name ${ref.id} has already been initialized"
+          )
+        }
+        distinct
+      }
+      val distinctSequencers =
+        checkEnoughAndNotInitialized("sequencer", consoleEnvironment.sequencers.all)
+      val distinctMediators =
+        checkEnoughAndNotInitialized("mediator", consoleEnvironment.mediators.all)
+      synchronizer(
+        synchronizerName,
+        distinctSequencers,
+        distinctMediators,
+        synchronizerOwners = distinctSequencers,
+        synchronizerThreshold = PositiveInt.tryCreate(distinctSequencers.length),
+        staticSynchronizerParameters =
+          data.StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.forSynchronizer),
+        mediatorThreshold = PositiveInt.tryCreate(distinctMediators.size),
+      ).logical
     }
 
     @Help.Summary(

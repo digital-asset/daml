@@ -695,16 +695,11 @@ private[lf] final class PhaseOne(
         compileExp(env, arg) { arg =>
           Return(t.CreateDefRef(tmplId)(arg))
         }
-      case UpdateCreateInterface(ifaceId, arg) =>
+      case UpdateCreateInterface(_, arg) =>
         unaryFunction(env) { (tokPos, env) =>
           compileExp(env, arg) { arg =>
             let(env, arg) { (payloadPos, env) =>
-              let(env, SBResolveCreate(env.toSEVar(payloadPos), env.toSEVar(tokPos))) {
-                (cidPos, env) =>
-                  let(env, SEPreventCatch(SBViewInterface(ifaceId)(env.toSEVar(payloadPos)))) {
-                    (_, env) => Return(env.toSEVar(cidPos))
-                  }
-              }
+              Return(SBResolveCreate(env.toSEVar(payloadPos), env.toSEVar(tokPos)))
             }
           }
         }

@@ -7,6 +7,7 @@ module DA.Daml.Project.Consts
     , projectPathEnvVar
     , packagePathEnvVar
     , sdkPathEnvVar
+    , sdkVersionDpmEnvVar
     , sdkVersionEnvVar
     , sdkVersionLatestEnvVar
     , damlAssistantEnvVar

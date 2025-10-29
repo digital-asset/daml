@@ -236,17 +236,21 @@ private[tests] trait OnlinePartyReplicationTestHelpers {
 
   /** Wait until online party replication completes on the source and target participants with the
     * expected number of replicated contracts on the specified request.
+    *
+    * @param waitAtMost
+    *   Clearing the onboarding flag takes up to max-decision-timeout (initial value of 60s), so
+    *   wait at least 1 minute at the very least. Also figure about 1 minute for 300 contracts, e.g.
+    *   2 minutes total for an ACS size of 600 contracts plus an extra minute to avoid flakiness.
     */
   protected def eventuallyOnPRCompletes(
       sourceParticipant: ParticipantReference,
       targetParticipant: ParticipantReference,
       addPartyRequestId: String,
       expectedNumContracts: NonNegativeInt,
+      waitAtMost: FiniteDuration = 2.minutes, // default enough for ~400 contracts
   ): Unit =
     eventually(
-      // Clearing the onboarding flag takes up to max-decision-timeout (initial value of 60s),
-      // so wait at least 1 minute.
-      timeUntilSuccess = 2.minutes,
+      timeUntilSuccess = waitAtMost,
       retryOnTestFailuresOnly = false,
       maxPollInterval = 1.second,
     ) {

@@ -24,6 +24,7 @@ import com.digitalasset.canton.crypto.kms.KmsError.{
 import com.digitalasset.canton.crypto.provider.jce.JcePureCrypto
 import com.digitalasset.canton.crypto.{
   CryptoPureApi,
+  CryptoSchemes,
   EncryptionAlgorithmSpec,
   EncryptionKeySpec,
   EncryptionPublicKey,
@@ -74,21 +75,24 @@ trait KmsTest extends BaseTest with BeforeAndAfterAll {
 
   val parallelExecutionContext: ExecutionContext = executionContext
 
+  lazy val config: CryptoConfig = CryptoConfig(
+    provider = CryptoProvider.Jce,
+    signing = SigningSchemeConfig(
+      algorithms = CryptoSchemeConfig(Some(SigningAlgorithmSpec.EcDsaSha256)),
+      keys = CryptoSchemeConfig(Some(SigningKeySpec.EcP256)),
+    ),
+    encryption = EncryptionSchemeConfig(
+      algorithms = CryptoSchemeConfig(Some(EncryptionAlgorithmSpec.RsaOaepSha256)),
+      keys = CryptoSchemeConfig(Some(EncryptionKeySpec.Rsa2048)),
+    ),
+  )
+
   lazy val pureCrypto: CryptoPureApi = JcePureCrypto
     .create(
-      CryptoConfig(
-        provider = CryptoProvider.Jce,
-        signing = SigningSchemeConfig(
-          algorithms = CryptoSchemeConfig(Some(SigningAlgorithmSpec.EcDsaSha256)),
-          keys = CryptoSchemeConfig(Some(SigningKeySpec.EcP256)),
-        ),
-        encryption = EncryptionSchemeConfig(
-          algorithms = CryptoSchemeConfig(Some(EncryptionAlgorithmSpec.RsaOaepSha256)),
-          keys = CryptoSchemeConfig(Some(EncryptionKeySpec.Rsa2048)),
-        ),
-      ),
+      config,
       CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
       CachingConfigs.defaultPublicKeyConversionCache,
+      CryptoSchemes.tryFromConfig(config),
       loggerFactory,
     )
     .valueOrFail("create crypto with JCE provider")

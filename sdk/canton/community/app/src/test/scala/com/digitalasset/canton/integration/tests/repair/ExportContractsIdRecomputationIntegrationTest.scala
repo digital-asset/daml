@@ -24,7 +24,7 @@ import com.digitalasset.canton.integration.{
 }
 import com.digitalasset.canton.logging.SuppressionRule.{Level, forLogger}
 import com.digitalasset.canton.participant.admin.data.{ActiveContract, ContractImportMode}
-import com.digitalasset.canton.participant.admin.repair.ContractIdsImportProcessor
+import com.digitalasset.canton.participant.admin.repair.ContractAuthenticationImportProcessor
 import com.digitalasset.canton.protocol.{LfContractId, LfHash, LfThinContractInst}
 import com.digitalasset.canton.topology.ForceFlag.DisablePartyWithActiveContracts
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
@@ -439,7 +439,9 @@ class ExportContractsIdRecomputationArchivedDependencyIntegrationTest
       withExport(break = removeLeaves andThen zeroOutSuffixes) {
         (brokenExportFile, exportSize, alice) =>
           whileDisconnected(participant2, daName) {
-            loggerFactory.assertLogs(forLogger[ContractIdsImportProcessor] && Level(WARN))(
+            loggerFactory.assertLogs(
+              forLogger[ContractAuthenticationImportProcessor] && Level(WARN)
+            )(
               participant2.repair.import_acs(
                 brokenExportFile.canonicalPath,
                 contractImportMode = ContractImportMode.Recomputation,

@@ -84,7 +84,7 @@ object RootHash {
 }
 
 /** A hash-based transaction id. */
-final case class TransactionId(private val hash: Hash) extends HasCryptographicEvidence {
+final case class UpdateId(private val hash: Hash) extends HasCryptographicEvidence {
   def unwrap: Hash = hash
 
   def toRootHash: RootHash = RootHash(hash)
@@ -98,51 +98,64 @@ final case class TransactionId(private val hash: Hash) extends HasCryptographicE
 
   def tryAsLedgerTransactionId: LedgerTransactionId =
     LedgerTransactionId.assertFromString(hash.toHexString)
+
+  def toHexString: String = hash.toHexString
 }
 
-object TransactionId {
+object UpdateId {
 
   /** The all-zeros transaction ID. This transaction ID is used as the creating transaction ID for
     * contracts whose creation transaction ID is unknown.
     */
-  val zero: TransactionId = {
+  val zero: UpdateId = {
     val algo = HashAlgorithm.Sha256
-    new TransactionId(
+    new UpdateId(
       Hash.tryFromByteStringRaw(ByteString.copyFrom(new Array[Byte](algo.length.toInt)), algo)
     )
   }
 
-  def fromProtoPrimitive(bytes: ByteString): ParsingResult[TransactionId] =
+  def fromProtoPrimitive(bytes: ByteString): ParsingResult[UpdateId] =
     Hash
       .fromByteString(bytes)
-      .bimap(ProtoDeserializationError.CryptoDeserializationError.apply, TransactionId(_))
+      .bimap(ProtoDeserializationError.CryptoDeserializationError.apply, UpdateId(_))
 
-  def fromRootHash(rootHash: RootHash): TransactionId = TransactionId(rootHash.unwrap)
+  def tryFromProtoPrimitive(bytes: ByteString): UpdateId =
+    fromProtoPrimitive(bytes).valueOr(err => throw new IllegalArgumentException(err.toString))
 
-  /** Ordering for [[TransactionId]]s based on the serialized hash */
-  implicit val orderTransactionId: Order[TransactionId] =
-    Order.by[TransactionId, ByteString](_.hash.getCryptographicEvidence)(
+  def tryFromByteArray(bytes: Array[Byte]): UpdateId =
+    fromProtoPrimitive(ByteString.copyFrom(bytes)).valueOr(err =>
+      throw new IllegalArgumentException(err.toString)
+    )
+
+  def fromRootHash(rootHash: RootHash): UpdateId = UpdateId(rootHash.unwrap)
+
+  def fromLedgerString(txId: String): Either[DeserializationError, UpdateId] =
+    Hash.fromHexString(txId).map(UpdateId.apply)
+
+  /** Ordering for [[UpdateId]]s based on the serialized hash */
+  implicit val orderTransactionId: Order[UpdateId] =
+    Order.by[UpdateId, ByteString](_.hash.getCryptographicEvidence)(
       ByteStringUtil.orderByteString
     )
 
-  implicit val orderingTransactionId: Ordering[TransactionId] = orderTransactionId.toOrdering
+  implicit val orderingTransactionId: Ordering[UpdateId] = orderTransactionId.toOrdering
 
-  implicit val prettyTransactionId: Pretty[TransactionId] = {
+  implicit val prettyTransactionId: Pretty[UpdateId] = {
     import Pretty.*
-    prettyOfParam(_.unwrap)
+    prettyOfParam(_.hash)
   }
 
-  implicit val setParameterTransactionId: SetParameter[TransactionId] = (v, pp) => pp.>>(v.hash)
+  implicit val setParameterTransactionId: SetParameter[UpdateId] = (v, pp) => pp.>>(v.hash)
 
-  implicit val getResultTransactionId: GetResult[TransactionId] = GetResult { r =>
-    TransactionId(r.<<)
+  implicit val getResultTransactionId: GetResult[UpdateId] = GetResult { r =>
+    UpdateId(r.<<)
   }
 
-  implicit val setParameterOptionTransactionId: SetParameter[Option[TransactionId]] = (v, pp) =>
+  implicit val setParameterOptionTransactionId: SetParameter[Option[UpdateId]] = (v, pp) =>
     pp.>>(v.map(_.hash))
 
-  implicit val getResultOptionTransactionId: GetResult[Option[TransactionId]] = GetResult { r =>
-    (r.<<[Option[Hash]]).map(TransactionId(_))
+  implicit val getResultOptionTransactionId: GetResult[Option[UpdateId]] = GetResult { r =>
+    (r.<<[Option[Hash]]).map(UpdateId(_))
   }
 }
 
@@ -241,6 +254,12 @@ object ReassignmentId {
         case V0.version => Right(V0(bytes.substring(1)))
         case b => Left(s"invalid version: ${b.toInt}")
       }).leftMap(err => s"cannot parse ReassignmentId bytes: $err")
+
+  def assertFromBytes(bytes: Array[Byte]): ReassignmentId =
+    ReassignmentId.fromBytes(ByteString.copyFrom(bytes)) match {
+      case Left(e) => throw new IllegalArgumentException(s"Cannot convert reassignment id: $e")
+      case Right(id) => id
+    }
 
   def apply(
       source: Source[SynchronizerId],

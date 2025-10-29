@@ -8,12 +8,13 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.health.ComponentHealthState
 import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
 import com.digitalasset.canton.sequencing.SequencerConnectionXPool.SequencerConnectionXPoolError
+import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.util.LoggerUtil
 import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext, config}
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AnyWordSpec
-import org.slf4j.event.Level.WARN
+import org.slf4j.event.Level.{INFO, WARN}
 
 import scala.concurrent.duration.*
 
@@ -132,6 +133,112 @@ class SequencerConnectionXPoolImplTest
                 .roundDurationForHumans(testTimeout.duration)}"
         }
         listener.shouldStabilizeOn(ComponentHealthState.failed("Component is closed"))
+      }
+    }
+
+    "retry a connection that fails to validate" in {
+      // Test the following scenario involving restarts:
+      //
+      // - start
+      // - getApi -> KO
+      // - restart
+      // - getApi -> OK, performHandshake -> KO
+      // - restart
+      // - getApi -> OK, performHandshake -> OK, getSynchronizerAndSequencerIds -> KO
+      // - restart
+      // - getApi -> OK, performHandshake -> OK, getSynchronizerAndSequencerIds -> OK, getStaticSynchronizerParameters -> KO
+      // - restart
+      // - getApi -> OK, performHandshake -> OK, getSynchronizerAndSequencerIds -> OK, getStaticSynchronizerParameters -> OK
+      // - failure, triggering a restart
+      // - getApi -> OK, performHandshake -> OK, getSynchronizerAndSequencerIds -> OK, getStaticSynchronizerParameters -> OK
+      val testResponses = TestResponses(
+        apiResponses = failureUnavailable +: Seq.fill(5)(correctApiResponse),
+        handshakeResponses = failureUnavailable +: Seq.fill(4)(successfulHandshake),
+        synchronizerAndSeqIdResponses =
+          failureUnavailable +: Seq.fill(3)(correctSynchronizerIdResponse1),
+        staticParametersResponses =
+          failureUnavailable +: Seq.fill(2)(correctStaticParametersResponse),
+      )
+
+      val poolDelays = SequencerConnectionPoolDelays(
+        minRestartDelay = config.NonNegativeFiniteDuration.ofMillis(100),
+        maxRestartDelay = config.NonNegativeFiniteDuration.ofSeconds(10),
+        warnValidationDelay =
+          config.NonNegativeFiniteDuration.ofMillis(700), // 100 + 200 + 400 = 700
+        subscriptionRequestDelay = config.NonNegativeFiniteDuration.ofSeconds(1),
+      )
+
+      withConnectionPool(
+        nbConnections = PositiveInt.one,
+        trustThreshold = PositiveInt.one,
+        attributesForConnection =
+          index => mkConnectionAttributes(synchronizerIndex = 1, sequencerIndex = index),
+        responsesForConnection = { case 0 => testResponses },
+        poolDelays = poolDelays,
+      ) { (pool, createdConnections, listener, _) =>
+        val minRestartConnectionDelay = poolDelays.minRestartDelay.duration.toMillis
+        val exponentialDelays = (0 until 4).map(minRestartConnectionDelay << _)
+
+        def retryLogEntry(delayMs: Long) =
+          s"Scheduling restart after ${LoggerUtil.roundDurationForHumans(NonNegativeFiniteDuration.tryOfMillis(delayMs).toScala)}"
+
+        val warningRegex =
+          raw"""(?s)Connection has failed validation since \S+ \((\d+) milliseconds ago\). Last failure reason: "Network error: .*"""".r
+
+        loggerFactory.assertLogsSeq(
+          SuppressionRule.LevelAndAbove(INFO) && SuppressionRule.LoggerNameContains(
+            "ConnectionHandler"
+          )
+        )(
+          {
+            pool.start().futureValueUS.valueOrFail("initialization")
+            listener.shouldStabilizeOn(ComponentHealthState.Ok())
+          },
+          logEntries => {
+            // 4 retries, due to one failure at each call
+            // The retry delay is exponential
+            logEntries
+              .map(_.message)
+              .filter(_.contains("Scheduling restart after")) shouldBe exponentialDelays.map(
+              retryLogEntry
+            )
+
+            // Warnings should be triggered after `warnValidationDelay`
+            // There can be multiple warnings if the system is slow
+            val warnings = logEntries.filter(_.level == WARN).map(_.warningMessage)
+            warnings should not be empty
+            forEvery(warnings) {
+              case warningRegex(delay) =>
+                delay.toLong shouldBe >(poolDelays.warnValidationDelay.duration.toMillis)
+              case _ => fail("warning log entry not found")
+            }
+          },
+        )
+
+        loggerFactory.assertLogsSeq(
+          SuppressionRule.LevelAndAbove(INFO) && SuppressionRule.LoggerNameContains(
+            "ConnectionHandler"
+          )
+        )(
+          {
+            createdConnections(0).fail(reason = "test")
+            listener.shouldStabilizeOn(ComponentHealthState.Ok())
+          },
+          logEntries => {
+            // The retry delay is reset after the connection has been validated
+            logEntries
+              .map(_.message)
+              .filter(_.contains("Scheduling restart after"))
+              .loneElement shouldBe retryLogEntry(minRestartConnectionDelay)
+
+            // There is no warning
+            logEntries.filter(_.level == WARN) shouldBe empty
+          },
+        )
+
+        // Ensure all responses were used, confirming that the proper retries took place.
+        // The test would fail if it were to consume more responses, because they default to failures.
+        testResponses.assertAllResponsesSent()
       }
     }
 

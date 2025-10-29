@@ -13,6 +13,7 @@ import com.digitalasset.daml.lf.transaction.{
   TransactionCoder,
   Versioned,
 }
+import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 
 /** Wraps a [[com.digitalasset.daml.lf.transaction.FatContractInstance]] and ensures the following
@@ -80,7 +81,6 @@ object ContractInstance {
   ): Either[String, ContractAuthenticationData] =
     CantonContractIdVersion
       .extractCantonContractIdVersion(inst.contractId)
-      .leftMap(_.toString)
       .flatMap(contractAuthenticationData(_, inst))
 
   private[protocol] def contractAuthenticationData(
@@ -182,4 +182,17 @@ object ContractInstance {
       param("created at", _.inst.createdAt),
     )
   }
+
+  @VisibleForTesting
+  def createWithSerialization[Time <: CreationTime](
+      inst: FatContractInstance { type CreatedAtTime = Time },
+      metadata: ContractMetadata,
+      serialization: ByteString,
+  ): GenContractInstance =
+    ContractInstanceImpl(
+      inst = inst,
+      metadata = metadata,
+      serialization = serialization,
+    )
+
 }

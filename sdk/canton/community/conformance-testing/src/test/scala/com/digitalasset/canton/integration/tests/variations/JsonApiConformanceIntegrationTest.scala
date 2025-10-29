@@ -103,7 +103,7 @@ sealed trait JsonApiConformanceBase
       env.participants.all.map {
         // TODO(#22349): Use the JSON API client config once exposed, similarly to how we extract the address and port for the gRPC API
         case localParticipantConfig: LocalParticipantReference =>
-          val jsonApiServer = localParticipantConfig.config.httpLedgerApi.value.server
+          val jsonApiServer = localParticipantConfig.config.httpLedgerApi
           jsonApiServer.address -> jsonApiServer.port.unwrap
         case _other =>
           fail(s"Expecting only local participant references but got ${_other}")
@@ -199,7 +199,6 @@ sealed abstract class JsonApiConformanceIntegrationShardedTest(
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P3_S1M1_S1M1
       .prependConfigTransform(ConfigTransforms.enableHttpLedgerApi)
-      .addConfigTransform(ConfigTransforms.zeroReassignmentTimeProofFreshnessProportion)
       .withSetup { implicit env =>
         import env.*
         participants.all.synchronizers.connect_local(sequencer1, alias = daName)

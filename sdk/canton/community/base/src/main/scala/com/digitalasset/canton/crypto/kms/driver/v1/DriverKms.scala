@@ -7,6 +7,7 @@ import cats.data.EitherT
 import cats.syntax.bifunctor.*
 import cats.syntax.either.*
 import com.daml.nameof.NameOf.functionFullName
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.{ExecutorServiceExtensions, FutureSupervisor, Threading}
 import com.digitalasset.canton.config.{KmsConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto
@@ -46,31 +47,20 @@ class DriverKms(
     driverExecutionContext: ExecutorService,
     checkPeriod: PositiveFiniteDuration,
     clock: Clock,
+    val supportedSigningKeySpecs: NonEmpty[Set[crypto.SigningKeySpec]],
+    val supportedSigningAlgoSpecs: NonEmpty[Set[crypto.SigningAlgorithmSpec]],
+    val supportedEncryptionKeySpecs: NonEmpty[Set[crypto.EncryptionKeySpec]],
+    val supportedEncryptionAlgoSpecs: NonEmpty[Set[crypto.EncryptionAlgorithmSpec]],
     protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
     executionContext: ExecutionContext,
 ) extends Kms
+    with Kms.SupportedSchemes
     with CloseableAtomicHealthComponent
     with HasCloseContext
     with NamedLogging {
 
   override type Config = KmsConfig.Driver
-
-  lazy val supportedSigningKeySpecs: Set[crypto.SigningKeySpec] =
-    driver.supportedSigningKeySpecs.map(KmsDriverSpecsConverter.convertToCryptoSigningKeySpec)
-
-  lazy val supportedSigningAlgoSpecs: Set[crypto.SigningAlgorithmSpec] =
-    driver.supportedSigningAlgoSpecs.map(
-      KmsDriverSpecsConverter.convertToCryptoSigningAlgoSpec
-    )
-
-  lazy val supportedEncryptionKeySpecs: Set[crypto.EncryptionKeySpec] =
-    driver.supportedEncryptionKeySpecs.map(KmsDriverSpecsConverter.convertToCryptoEncryptionKeySpec)
-
-  lazy val supportedEncryptionAlgoSpecs: Set[crypto.EncryptionAlgorithmSpec] =
-    driver.supportedEncryptionAlgoSpecs.map(
-      KmsDriverSpecsConverter.convertToCryptoEncryptionAlgoSpec
-    )
 
   private def monitor[A](
       operation: String,
@@ -126,15 +116,12 @@ class DriverKms(
       tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, KmsError, KmsKeyId] =
     for {
-      keySpec <- KmsDriverSpecsConverter
-        .convertToDriverSigningKeySpec(signingKeySpec)
-        .leftMap[KmsError](err => KmsError.KmsCreateKeyError(err, retryable = false))
-        .toEitherT[FutureUnlessShutdown]
-
       keyId <- monitor("generate-signing-key", KmsError.KmsCreateKeyError.apply) {
-        driver.generateSigningKeyPair(keySpec, name.map(_.unwrap))
+        driver.generateSigningKeyPair(
+          KmsDriverSpecsConverter.convertToDriverSigningKeySpec(signingKeySpec),
+          name.map(_.unwrap),
+        )
       }
-
       kmsKeyId <- KmsKeyId
         .create(keyId)
         .leftMap[KmsError](err => KmsError.KmsCreateKeyError(err, retryable = false))
@@ -165,12 +152,11 @@ class DriverKms(
       tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, KmsError, KmsKeyId] =
     for {
-      keySpec <- KmsDriverSpecsConverter
-        .convertToDriverEncryptionKeySpec(encryptionKeySpec)
-        .leftMap[KmsError](err => KmsError.KmsCreateKeyError(err, retryable = false))
-        .toEitherT[FutureUnlessShutdown]
       keyId <- monitor("generate-encryption-key", KmsError.KmsCreateKeyError.apply) {
-        driver.generateEncryptionKeyPair(keySpec, name.map(_.unwrap))
+        driver.generateEncryptionKeyPair(
+          KmsDriverSpecsConverter.convertToDriverEncryptionKeySpec(encryptionKeySpec),
+          name.map(_.unwrap),
+        )
       }
       kmsKeyId <- KmsKeyId
         .create(keyId)
@@ -291,16 +277,11 @@ class DriverKms(
       tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, KmsError, ByteString190] =
     for {
-      algoSpec <-
-        KmsDriverSpecsConverter
-          .convertToDriverEncryptionAlgoSpec(encryptionAlgorithmSpec)
-          .leftMap[KmsError](err => KmsError.KmsDecryptError(keyId, err, retryable = false))
-          .toEitherT[FutureUnlessShutdown]
       decrypted <- monitor("decrypt-asymmetric", KmsError.KmsDecryptError(keyId, _, _)) {
         driver.decryptAsymmetric(
           data.unwrap.toByteArray,
           keyId.unwrap,
-          algoSpec,
+          KmsDriverSpecsConverter.convertToDriverEncryptionAlgoSpec(encryptionAlgorithmSpec),
         )
       }
       result <- ByteString190
@@ -319,12 +300,12 @@ class DriverKms(
       tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, KmsError, ByteString] =
     for {
-      algoSpec <- KmsDriverSpecsConverter
-        .convertToDriverSigningAlgoSpec(signingAlgorithmSpec)
-        .leftMap[KmsError](err => KmsError.KmsSignError(keyId, err, retryable = false))
-        .toEitherT[FutureUnlessShutdown]
       signature <- monitor("sign", KmsError.KmsSignError(keyId, _, _)) {
-        driver.sign(data.unwrap.toByteArray, keyId.unwrap, algoSpec)
+        driver.sign(
+          data.unwrap.toByteArray,
+          keyId.unwrap,
+          KmsDriverSpecsConverter.convertToDriverSigningAlgoSpec(signingAlgorithmSpec),
+        )
       }
     } yield ByteString.copyFrom(signature)
 
@@ -406,6 +387,63 @@ class DriverKms(
 
 object DriverKms {
 
+  private type DriverSupportedSchemes = (
+      NonEmpty[Set[SigningKeySpec]],
+      NonEmpty[Set[SigningAlgorithmSpec]],
+      NonEmpty[Set[EncryptionKeySpec]],
+      NonEmpty[Set[EncryptionAlgorithmSpec]],
+  )
+
+  def resolveDriverSchemes(
+      driver: api.v1.KmsDriver
+  ): Either[KmsError, DriverSupportedSchemes] = {
+
+    def nonEmptySupportedSpecs[A](
+        supportedSpecs: Set[A],
+        msg: String,
+    ) =
+      NonEmpty
+        .from(
+          supportedSpecs
+        )
+        .toRight(
+          KmsError
+            .KmsMissingSupportedSpecsError(
+              s"no supported $msg specifications found for the KMS driver"
+            )
+        )
+
+    for {
+      supportedSigningKeySpecs <- nonEmptySupportedSpecs(
+        driver.supportedSigningKeySpecs.map(KmsDriverSpecsConverter.convertToCryptoSigningKeySpec),
+        "signing key",
+      )
+      supportedSigningAlgoSpecs <- nonEmptySupportedSpecs(
+        driver.supportedSigningAlgoSpecs.map(
+          KmsDriverSpecsConverter.convertToCryptoSigningAlgoSpec
+        ),
+        "signing algorithm",
+      )
+      supportedEncryptionKeySpecs <- nonEmptySupportedSpecs(
+        driver.supportedEncryptionKeySpecs.map(
+          KmsDriverSpecsConverter.convertToCryptoEncryptionKeySpec
+        ),
+        "encryption key",
+      )
+      supportedEncryptionAlgoSpecs <- nonEmptySupportedSpecs(
+        driver.supportedEncryptionAlgoSpecs.map(
+          KmsDriverSpecsConverter.convertToCryptoEncryptionAlgoSpec
+        ),
+        "encryption algorithm",
+      )
+    } yield (
+      supportedSigningKeySpecs,
+      supportedSigningAlgoSpecs,
+      supportedEncryptionKeySpecs,
+      supportedEncryptionAlgoSpecs,
+    )
+  }
+
   def factory(driverName: String): Either[String, api.v1.KmsDriverFactory] =
     DriverFactoryLoader
       .load[
@@ -428,29 +466,39 @@ object DriverKms {
     val driverExecutionContext =
       Threading.newExecutionContext(s"kms-driver-${config.name}", driverLogger)
 
-    DriverLoader
-      .load[
-        api.v1.KmsDriverFactory,
-        com.digitalasset.canton.crypto.kms.driver.api.KmsDriverFactory,
-      ](
-        config.name,
-        config.config,
-        loggerFactory,
-        driverExecutionContext,
-      )
-      .leftMap(KmsError.KmsCreateClientError.apply)
-      .map { driver =>
-        new DriverKms(
-          config,
-          driver,
-          futureSupervisor,
-          driverExecutionContext,
-          config.healthCheckPeriod.toInternal,
-          clock,
-          timeouts,
+    for {
+      driver <- DriverLoader
+        .load[
+          api.v1.KmsDriverFactory,
+          com.digitalasset.canton.crypto.kms.driver.api.KmsDriverFactory,
+        ](
+          config.name,
+          config.config,
           loggerFactory,
-          executionContext,
+          driverExecutionContext,
         )
-      }
+        .leftMap(KmsError.KmsCreateClientError.apply)
+      supportedSchemes <- resolveDriverSchemes(driver)
+      (
+        supportedSigningKeySpecs,
+        supportedSigningAlgoSpecs,
+        supportedEncryptionKeySpecs,
+        supportedEncryptionAlgoSpecs,
+      ) = supportedSchemes
+    } yield new DriverKms(
+      config,
+      driver,
+      futureSupervisor,
+      driverExecutionContext,
+      config.healthCheckPeriod.toInternal,
+      clock,
+      supportedSigningKeySpecs,
+      supportedSigningAlgoSpecs,
+      supportedEncryptionKeySpecs,
+      supportedEncryptionAlgoSpecs,
+      timeouts,
+      loggerFactory,
+      executionContext,
+    )
   }
 }

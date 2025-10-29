@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf
 package engine
 
 import com.daml.bazeltools.BazelRunfiles
-import com.digitalasset.daml.lf.archive.UniversalArchiveDecoder
+import com.digitalasset.daml.lf.archive.DarDecoder
 import com.digitalasset.daml.lf.command.{ApiCommand, ApiCommands}
 import com.digitalasset.daml.lf.data.{Bytes, FrontStack, ImmArray, Time}
 import com.digitalasset.daml.lf.data.Ref.{
@@ -24,8 +24,8 @@ import com.digitalasset.daml.lf.ledger.FailedAuthorization.{
 }
 import com.digitalasset.daml.lf.transaction.{
   FatContractInstance,
+  SerializationVersion,
   SubmittedTransaction,
-  TransactionVersion,
 }
 import com.digitalasset.daml.lf.transaction.Transaction.Metadata
 import com.digitalasset.daml.lf.value.Value.{
@@ -37,6 +37,7 @@ import com.digitalasset.daml.lf.value.Value.{
 }
 import com.daml.logging.LoggingContext
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
+import com.digitalasset.daml.lf.value.ContractIdVersion
 
 import java.io.File
 import org.scalatest.Inside
@@ -59,7 +60,7 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
   implicit private def toParty(s: String): Party = Party.assertFromString(s)
 
   private def loadPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
-    val packages = UniversalArchiveDecoder.assertReadFile(new File(rlocation(resource)))
+    val packages = DarDecoder.assertReadArchiveFromFile(new File(rlocation(resource)))
     val (mainPkgId, mainPkg) = packages.main
     (mainPkgId, mainPkg, packages.all.toMap)
   }
@@ -78,7 +79,7 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
 
   private def t1InstanceFor(party: Party): FatContractInstance =
     TransactionBuilder.fatContractInstanceWithDummyDefaults(
-      version = TransactionVersion.VDev,
+      version = SerializationVersion.VDev,
       packageName = pkg.pkgName,
       template = "T1",
       arg = ValueRecord(
@@ -90,7 +91,7 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
 
   private def x1InstanceFor(party: Party): FatContractInstance =
     TransactionBuilder.fatContractInstanceWithDummyDefaults(
-      TransactionVersion.VDev,
+      SerializationVersion.VDev,
       pkg.pkgName,
       "X1",
       ValueRecord(
@@ -113,6 +114,7 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
   private val let: Time.Timestamp = Time.Timestamp.now()
   private val participant: ParticipantId = ParticipantId.assertFromString("participant")
   private val submissionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("submissionSeed")
+  private val contractIdVersion = ContractIdVersion.V1
 
   private val testEngine: Engine =
     Engine.DevEngine(majorLanguageVersion)
@@ -130,6 +132,7 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
           cmds = ApiCommands(ImmArray(command), let, "commands-tag"),
           participantId = participant,
           submissionSeed = submissionSeed,
+          contractIdVersion = contractIdVersion,
           prefetchKeys = Seq.empty,
         )
         .consume(pcs = defaultContracts, pkgs = allPackages)

@@ -3,15 +3,15 @@
 
 package com.digitalasset.canton.ledger.participant.state
 
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.ledger.api.{
-  EnrichedVettedPackage,
+  EnrichedVettedPackages,
   ListVettedPackagesOpts,
   UpdateVettedPackagesOpts,
   UploadDarVettingChange,
 }
 import com.digitalasset.canton.logging.ErrorLoggingContext
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
+import com.digitalasset.canton.store.packagemeta.PackageMetadata
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.archive.DamlLf.Archive
 import com.digitalasset.daml.lf.data.Ref
@@ -40,6 +40,7 @@ trait PackageSyncService {
       dars: Seq[ByteString],
       submissionId: Ref.SubmissionId,
       vettingChange: UploadDarVettingChange,
+      synchronizerId: Option[SynchronizerId],
   )(implicit
       traceContext: TraceContext
   ): Future[SubmissionResult]
@@ -62,6 +63,7 @@ trait PackageSyncService {
   def validateDar(
       dar: ByteString,
       darName: String,
+      synchronizerId: Option[SynchronizerId],
   )(implicit
       traceContext: TraceContext
   ): Future[SubmissionResult] =
@@ -71,11 +73,11 @@ trait PackageSyncService {
       opts: UpdateVettedPackagesOpts
   )(implicit
       traceContext: TraceContext
-  ): Future[(Seq[EnrichedVettedPackage], Seq[EnrichedVettedPackage])]
+  ): Future[(Option[EnrichedVettedPackages], Option[EnrichedVettedPackages])]
 
   def listVettedPackages(
       opts: ListVettedPackagesOpts
   )(implicit
       traceContext: TraceContext
-  ): Future[Option[(Seq[EnrichedVettedPackage], PositiveInt)]]
+  ): Future[Seq[EnrichedVettedPackages]]
 }

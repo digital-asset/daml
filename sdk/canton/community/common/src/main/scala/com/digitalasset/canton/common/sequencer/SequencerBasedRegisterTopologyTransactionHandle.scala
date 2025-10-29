@@ -113,7 +113,7 @@ class SequencerBasedRegisterTopologyTransactionHandle(
 
   override protected def pretty: Pretty[SequencerBasedRegisterTopologyTransactionHandle.this.type] =
     prettyOfClass(
-      param("synchronizerId", _.psid),
+      param("psid", _.psid),
       param("member", _.member),
     )
 }

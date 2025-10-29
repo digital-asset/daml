@@ -472,8 +472,10 @@ class SequencerReaderTest
         event <- pullFromQueue(queue)
         _ = queue.cancel() // cancel the queue now we're done with it
       } yield {
-        // the first event expected to reach alice is at its registration timestamp (its topo mapping effective time)
-        event.value.timestamp shouldBe ts(2)
+        // the first event expected to reach alice is the next event after its registration time
+        // (onboarding topology effective time). Alice must not receive the event at ts(2),
+        // since it would already have seen its onboarding tx in the topology snapshot at ts(2).
+        event.value.timestamp shouldBe ts(3)
       }
     }
 
@@ -639,10 +641,8 @@ class SequencerReaderTest
             _ <- store
               .saveLowerBound(ts(10), ts(9).some)
               .valueOrFail("saveLowerBound")
-            error <- loggerFactory.assertLogs(
-              leftOrFail(reader.read(alice, requestedTimestampInclusive = None))("read"),
-              _.errorMessage shouldBe expectedMessage,
-            )
+            error <-
+              leftOrFail(reader.read(alice, requestedTimestampInclusive = None))("read")
           } yield inside(error) {
             case CreateSubscriptionError.EventsUnavailableForTimestamp(None, message) =>
               message should include(expectedMessage)
@@ -674,14 +674,9 @@ class SequencerReaderTest
           _ <- store
             .saveLowerBound(ts(10), ts(9).some)
             .valueOrFail("saveLowerBound")
-          error <- loggerFactory.assertLogs(
-            leftOrFail(
-              reader.read(alice, requestedTimestampInclusive = Some(ts0.plusSeconds(10)))
-            )(
-              "read succeeded"
-            ),
-            _.errorMessage shouldBe expectedMessage,
-          )
+          error <- leftOrFail(
+            reader.read(alice, requestedTimestampInclusive = Some(ts0.plusSeconds(10)))
+          )("read succeeded")
         } yield inside(error) {
           case CreateSubscriptionError.EventsUnavailableForTimestamp(Some(timestamp), message) =>
             timestamp shouldBe ts0.plusSeconds(10)

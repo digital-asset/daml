@@ -17,7 +17,7 @@ Note that this section only covers testing your Daml contracts.
 
 .. hint::
 
-  Remember that you can load all the code for this section into a folder called ``intro12`` by running ``daml new intro-test  --template daml-intro-test``
+  Remember that you can load all the code for this section into a folder called ``intro12`` by running ``dpm new intro-test  --template daml-intro-test``
 
 Multi-package project structure
 -------------------------------
@@ -44,7 +44,7 @@ Contrary to ``asset-tests``, ``asset`` is meant to be uploaded to a Canton ledge
 Similarly ``multi-trade`` contains the ``MultiTrade`` template, and ``multi-trade-tests`` contains the corresponding scripts.
 
 ``multi-package.yaml`` is the multi-package configuration.
-It allows the Daml Assistant to orchestrate the build of each sub-package.
+It allows ``dpm`` to orchestrate the build of each sub-package.
 It contains the list of sub-packages:
 
 .. code-block:: yaml
@@ -55,9 +55,9 @@ It contains the list of sub-packages:
   - ./multi-trade
   - ./multi-trade-tests
 
-Run ``daml build --all`` at the root of the multi-package project, to build all sub-packages.
-Or you can run ``daml build`` in any of the sub-package. It detects the dependencies, and build them in the correct order.
-For instance, running ``daml build`` in ``multi-trade-tests`` triggers the build of ``asset``, ``multi-trade`` and ``multi-trade-tests`` in that order.
+Run ``dpm build --all`` at the root of the multi-package project, to build all sub-packages.
+Or you can run ``dpm build`` in any of the sub-package. It detects the dependencies, and build them in the correct order.
+For instance, running ``dpm build`` in ``multi-trade-tests`` triggers the build of ``asset``, ``multi-trade`` and ``multi-trade-tests`` in that order.
 
 Test templates with Daml Scripts
 --------------------------------
@@ -70,7 +70,7 @@ In a script, you can submit commands and queries from multiple parties on a fres
 
 There are two main ways to run a Daml Script:
 - Click the ``Script results`` lens in VS Code: it provides the table and transaction views, which are useful for debugging.
-- Run the ``daml test`` command of the Daml assistant, which is useful for regression checks and coverage.
+- Run the ``dpm test`` command, which is useful for regression checks and coverage.
 
 Run a script in VS Code
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -90,13 +90,13 @@ Try to change the submitting party of an `exerciseCmd` and see if the script is 
 
 You can use the table and transaction views in VS Code to better understand the visibility of each contract, and authority of each party.
 
-Run all scripts with the Daml Assistant
+Run all scripts with ``dpm``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The Daml Assistant can run all the scripts inside a package.
+``dpm`` can run all the scripts inside a package.
 This is useful for quick regression check, and their automation in the CI.
 
-Open a terminal in the ``multi-trade-tests`` folder and run ``daml test``.
+Open a terminal in the ``multi-trade-tests`` folder and run ``dpm test``.
 It should succeed and print the following test summary:
 
 .. code-block:: none

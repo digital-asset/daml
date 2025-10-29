@@ -34,6 +34,7 @@ import com.digitalasset.canton.synchronizer.sequencing.traffic.{
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.MaxBytesToDecompress
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import io.opentelemetry.api.trace
@@ -97,7 +98,21 @@ abstract class BlockSequencerFactory(
 
   protected val orderingTimeFixMode: OrderingTimeFixMode
 
+  protected def createBlockOrderer(
+      cryptoApi: SynchronizerCryptoClient,
+      clock: Clock,
+      initialBlockHeight: Option[Long],
+      sequencerSnapshot: Option[SequencerSnapshot],
+      authenticationServices: Option[AuthenticationServices],
+      synchronizerLoggerFactory: NamedLoggerFactory,
+  )(implicit
+      ec: ExecutionContext,
+      materializer: Materializer,
+      tracer: Tracer,
+  ): BlockOrderer
+
   protected def createBlockSequencer(
+      blockOrderer: BlockOrderer,
       name: String,
       cryptoApi: SynchronizerCryptoClient,
       stateManager: BlockSequencerStateManager,
@@ -107,13 +122,10 @@ abstract class BlockSequencerFactory(
       futureSupervisor: FutureSupervisor,
       health: Option[SequencerHealthConfig],
       clock: Clock,
-      driverClock: Clock,
       rateLimitManager: SequencerRateLimitManager,
       orderingTimeFixMode: OrderingTimeFixMode,
       sequencingTimeLowerBoundExclusive: Option[CantonTimestamp],
-      initialBlockHeight: Option[Long],
-      sequencerSnapshot: Option[SequencerSnapshot],
-      authenticationServices: Option[AuthenticationServices],
+      maxBytesToDecompress: MaxBytesToDecompress,
       synchronizerLoggerFactory: NamedLoggerFactory,
       runtimeReady: FutureUnlessShutdown[Unit],
   )(implicit
@@ -178,7 +190,6 @@ abstract class BlockSequencerFactory(
   override final def create(
       sequencerId: SequencerId,
       clock: Clock,
-      driverClock: Clock,
       synchronizerSyncCryptoApi: SynchronizerCryptoClient,
       futureSupervisor: FutureSupervisor,
       trafficConfig: SequencerTrafficConfig,
@@ -228,7 +239,9 @@ abstract class BlockSequencerFactory(
     )
 
     val synchronizerLoggerFactory =
-      loggerFactory.append("synchronizerId", synchronizerSyncCryptoApi.psid.toString)
+      loggerFactory.append("psid", synchronizerSyncCryptoApi.psid.toString)
+
+    val maxBytesToDecompress = MaxBytesToDecompress.Default
 
     for {
       initialBlockHeight <- FutureUnlessShutdown(Future.successful(initialBlockHeight))
@@ -248,7 +261,16 @@ abstract class BlockSequencerFactory(
         )
       )
     } yield {
+      val blockOrderer = createBlockOrderer(
+        synchronizerSyncCryptoApi,
+        clock,
+        initialBlockHeight,
+        sequencerSnapshot,
+        authenticationServices,
+        synchronizerLoggerFactory,
+      )
       val sequencer = createBlockSequencer(
+        blockOrderer,
         name,
         synchronizerSyncCryptoApi,
         stateManager,
@@ -258,13 +280,10 @@ abstract class BlockSequencerFactory(
         futureSupervisor,
         health,
         clock,
-        driverClock,
         rateLimitManager,
         orderingTimeFixMode,
         sequencingTimeLowerBoundExclusive,
-        initialBlockHeight,
-        sequencerSnapshot,
-        authenticationServices,
+        maxBytesToDecompress,
         synchronizerLoggerFactory,
         runtimeReady,
       )

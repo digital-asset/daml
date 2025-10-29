@@ -10,14 +10,14 @@ import com.digitalasset.daml.lf.value.Value
 import Value._
 import com.digitalasset.daml.lf.ledger._
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.interpretation.Error.Dev.TranslationError
+import com.digitalasset.daml.lf.interpretation.Error.Upgrade.TranslationFailed
 import com.digitalasset.daml.lf.script.IdeLedger.{Disclosure, TransactionId}
 import com.digitalasset.daml.lf.script._
 import com.digitalasset.daml.lf.transaction.{
   GlobalKeyWithMaintainers,
   Node,
   NodeId,
-  TransactionVersion => TxVersion,
+  SerializationVersion,
 }
 import com.digitalasset.daml.lf.speedy.SError._
 import com.digitalasset.daml.lf.speedy.SValue._
@@ -60,6 +60,11 @@ private[lf] object Pretty {
         text("Update failed due to fetch of an inactive contract") & prettyContractId(coid) &
           char('(') + (prettyTypeConId(tid)) + text(").") /
           text(s"The contract had been consumed in sub-transaction #$consumedBy:")
+      case ContractHashingError(coid, dstTemplateId, createArg, msg) =>
+        text("Hash computation failed for contract") & prettyContractId(coid) /
+          text("Reason:") & text(msg) /
+          text("The hash computation assumes target type") & prettyTypeConId(dstTemplateId) /
+          text("The contract argument is") & prettyValue(true)(createArg)
       case DisclosedContractKeyHashingError(coid, gkey, declaredHash) =>
         text("Mismatched disclosed contract key hash for contract") & prettyContractId(coid) &
           char('(') + prettyTypeConId(gkey.templateId) + text(").") / text("declared hash:") &
@@ -122,6 +127,8 @@ private[lf] object Pretty {
           prettyContractId(key.cids.head)
       case ValueNesting(limit) =>
         text(s"Value exceeds maximum nesting value of $limit")
+      case MalformedText(err) =>
+        text(s"Text is malformed: $err")
       case FailureStatus(errorId, cantonCategoryId, errorMessage, _) =>
         text(s"User failure: $errorId (error category $cantonCategoryId): $errorMessage")
       case Upgrade(error) =>
@@ -130,9 +137,14 @@ private[lf] object Pretty {
                 coid,
                 srcTemplateId,
                 dstTemplateId,
-                signatories,
-                observers,
-                keyOpt,
+                srcPackageName,
+                dstPackageName,
+                originalSignatories,
+                originalObservers,
+                originalKeyOpt,
+                recomputedSignatories,
+                recomputedObservers,
+                recomputedKeyOpt,
                 _,
               ) =>
             text("Validation fails when trying to upgrade the contract") & prettyContractId(
@@ -143,16 +155,63 @@ private[lf] object Pretty {
               dstTemplateId
             ) /
               text(
-                "Verify that neither the signatories, nor the observers, nor the contract key, nor the key's maintainers have changed"
+                """Verify that neither the signatories, nor the observers, nor the contract key, nor the key's maintainers, nor the package name have changed""".stripMargin
               ) /
-              text("recomputed signatories are") & prettyParties(signatories) /
-              text("recomputed observers are") & prettyParties(observers) /
-              (keyOpt match {
+              text("original package name is") & text(srcPackageName) /
+              text("original signatories are") & prettyParties(originalSignatories) /
+              text("original observers are") & prettyParties(originalObservers) /
+              (originalKeyOpt match {
+                case None => Doc.empty
+                case Some(key) =>
+                  text("original maintainers are") & prettyParties(key.maintainers) /
+                    text("original key is") & prettyValue(verbose = false)(key.value)
+              }) /
+              text("target package name is") & text(dstPackageName) /
+              text("recomputed signatories are") & prettyParties(recomputedSignatories) /
+              text("recomputed observers are") & prettyParties(recomputedObservers) /
+              (recomputedKeyOpt match {
                 case None => Doc.empty
                 case Some(key) =>
                   text("recomputed maintainers are") & prettyParties(key.maintainers) /
                     text("recomputed key is") & prettyValue(verbose = false)(key.value)
               })
+          case Upgrade.TranslationFailed(
+                coidOpt,
+                srcTemplateId,
+                dstTemplateId,
+                createArg,
+                translationError,
+              ) =>
+            text("Translation of") &
+              (coidOpt match {
+                case Some(coid) => text("contract") & prettyContractId(coid)
+                case None => text("a contract")
+              }) & text("to a value of type") & prettyTypeConId(dstTemplateId) & text("fails.") /
+              text("The contract is purportedly an instance of") & prettyTypeConId(srcTemplateId) /
+              text("Its contract argument is: ") & prettyValue(verbose = false)(createArg) /
+              text("Reason:") & (translationError match {
+                case TranslationFailed.LookupError(lookupError) => text(lookupError.pretty)
+                case TranslationFailed.TypeMismatch(expectedType, value, message) =>
+                  text("Type-checking fails ") & text(message) /
+                    text("  Expected type:") & text(expectedType.pretty) /
+                    text("  Actual value:") & prettyValue(verbose = false)(value)
+                case TranslationFailed.ValueNesting =>
+                  text(s"Value exceeds maximum nesting level of ${Value.MAXIMUM_NESTING}")
+                case TranslationFailed.MalformedText(err) =>
+                  text(s"Value contains malformed text: $err")
+                case TranslationFailed.NonSuffixedV1ContractId(badCoid) =>
+                  text("Encountered non-suffixed Contract ID") & prettyContractId(badCoid)
+                case TranslationFailed.NonSuffixedV2ContractId(badCoid) =>
+                  text("Encountered non-suffixed Contract ID") & prettyContractId(badCoid)
+                case TranslationFailed.InvalidValue(value, message) =>
+                  text("Invalid value") & prettyValue(verbose = false)(value) & text(message)
+              })
+          case Upgrade.AuthenticationFailed(coid, srcTemplateId, dstTemplateId, value, message) =>
+            text("Error when authenticating contract") & prettyContractId(coid) &
+              text("against template") & prettyTypeConId(dstTemplateId) & text(":") &
+              text(message) /
+              text("The contract is purportedly an instance of") & prettyTypeConId(srcTemplateId) /
+              text("The contract argument is") & prettyValue(verbose = false)(value)
         }
       case Crypto(error) =>
         error match {
@@ -236,27 +295,9 @@ private[lf] object Pretty {
                 case None => text("by template")
                 case Some(interfaceId) => text("by interface") & prettyTypeConId(interfaceId)
               })
-          case Dev.TranslationError(translationError) =>
-            translationError match {
-              case TranslationError.LookupError(lookupError) => text(lookupError.pretty)
-              case TranslationError.TypeMismatch(_, _, message) => text(message)
-              case TranslationError.ValueNesting(_) =>
-                text(s"Provided value exceeds maximum nesting level of ${Value.MAXIMUM_NESTING}")
-              case TranslationError.NonSuffixedV1ContractId(_) =>
-                text("non-suffixed V1 Contract IDs are forbidden")
-              case TranslationError.NonSuffixedV2ContractId(_) =>
-                text("non-suffixed V2 Contract IDs are forbidden")
-              case TranslationError.InvalidValue(value, message) =>
-                text("invalid value") & prettyValue(verbose = true)(value) / text(message)
-            }
-          case Dev.AuthenticationError(coid, value, message) =>
-            text("Authentication error for contract") & prettyContractId(coid) /
-              text("with argument") & prettyValue(verbose = false)(value) / text(message)
           case Dev.Cost(Dev.Cost.BudgetExceeded(cause)) =>
             text("Cost budget has been exceeded:") /
               text(cause)
-          case Dev.HashingError(message) =>
-            text("Hashing error:") / text(message)
         }
     }
   }
@@ -346,7 +387,7 @@ private[lf] object Pretty {
           intercalate(line + line, rtx.transaction.roots.toList.map(prettyEventInfo(l, txId)))
         text("TX") & char('#') + str(txId.id) & str(rtx.effectiveAt) & prettyLoc(optLoc) & text(
           "version:"
-        ) & str(rtx.transaction.version.pretty) /
+        ) & str(rtx.transaction.version) /
           children
       case IdeLedger.PassTime(dt) =>
         "pass" &: str(dt)
@@ -454,10 +495,10 @@ private[lf] object Pretty {
     )
   }
 
-  def prettyOptVersion(opt: Option[TxVersion]) = {
+  def prettyOptVersion(opt: Option[SerializationVersion]) = {
     opt match {
       case Some(v) =>
-        text("version:") & str(v.pretty)
+        text("version:") & str(v)
       case None =>
         text("no-version")
     }

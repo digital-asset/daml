@@ -13,7 +13,7 @@ import com.digitalasset.canton.BigDecimalImplicits.*
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.WrappedIncompleteUnassigned
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{
   DbConfig,
   NonNegativeFiniteDuration as NonNegativeFiniteDurationConfig,
@@ -151,7 +151,12 @@ abstract class SynchronizerChangeIntegrationTest(config: SynchronizerChangeInteg
     )
 
     darPaths.foreach { darPath =>
-      participants.all.foreach(_.dars.upload(darPath))
+      participants.all.foreach { p =>
+        p.dars.upload(darPath, synchronizerId = iouSynchronizerId)
+      }
+      Seq(participant4, participant5).foreach(p =>
+        p.dars.upload(darPath, synchronizerId = paintSynchronizerId)
+      )
     }
 
     // Advance the simClock to trigger time-proof requests, if present
@@ -333,13 +338,6 @@ abstract class SynchronizerChangeSimClockIntegrationTest
       )
     )
     with SecurityTestSuite {
-
-  override protected def additionalConfigTransforms: Seq[ConfigTransform] = Seq(
-    ConfigTransforms.updateAllParticipantConfigs_(
-      _.focus(_.parameters.reassignmentsConfig.timeProofFreshnessProportion)
-        .replace(NonNegativeInt.zero)
-    )
-  )
 
   // Workaround to avoid false errors reported by IDEA.
   implicit def tagToContainer(tag: EvidenceTag): Tag = new TagContainer(tag)
@@ -680,7 +678,7 @@ trait SynchronizerChangeRealClockIntegrationTest
           val iou = createIou(alice, bank, painter)
           val iouId = iou.id.toLf
 
-          // paintOfferId <- submit alice do
+          // paintOfferId <- submit alice dos
           //   create $ OfferToPaintHouseByOwner with painter = painter; houseOwner = alice; bank = bank; iouId = iouId
           val cmd = createPaintOfferCmd(alice, bank, painter, iouId)
           clue("creating paint offer") {

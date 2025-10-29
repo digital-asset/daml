@@ -21,7 +21,8 @@ import com.digitalasset.canton.store.*
 import com.digitalasset.canton.store.SequencedEventStore.CounterAndTimestamp
 import com.digitalasset.canton.store.db.DbSequencedEventStore.*
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
-import com.digitalasset.canton.util.EitherTUtil
+import com.digitalasset.canton.util.{EitherTUtil, MaxBytesToDecompress}
+import com.digitalasset.canton.version.ProtocolVersionValidation
 import slick.jdbc.{GetResult, SetParameter}
 
 import scala.concurrent.ExecutionContext
@@ -35,6 +36,8 @@ class DbSequencedEventStore(
     extends SequencedEventStore
     with DbStore
     with DbPrunableByTime[IndexedPhysicalSynchronizer] {
+
+  private val maxBytesToDecompress = MaxBytesToDecompress.Default
 
   override protected[this] implicit def setParameterIndexedSynchronizer
       : SetParameter[IndexedPhysicalSynchronizer] = IndexedString.setParameterIndexedString
@@ -67,7 +70,13 @@ class DbSequencedEventStore(
           val signedEvent = SignedContent
             .fromTrustedByteArray(eventBytes)
             .flatMap(
-              _.deserializeContent(SequencedEvent.fromByteString(protocolVersion, _))
+              _.deserializeContent(
+                SequencedEvent.fromByteString(
+                  ProtocolVersionValidation.PV(protocolVersion),
+                  maxBytesToDecompress,
+                  _,
+                )
+              )
             )
             .valueOr(err =>
               throw new DbDeserializationException(s"Failed to deserialize sequenced event: $err")

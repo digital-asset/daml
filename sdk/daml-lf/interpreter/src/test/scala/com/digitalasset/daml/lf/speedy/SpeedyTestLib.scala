@@ -50,6 +50,7 @@ private[speedy] object SpeedyTestLib {
       getContract: PartialFunction[Value.ContractId, FatContractInstance] = PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
       getTime: PartialFunction[Unit, Time.Timestamp] = PartialFunction.empty,
+      hashingMethod: ContractId => Hash.HashingMethod = _ => Hash.HashingMethod.TypedNormalForm,
   ): Either[SError.SError, SValue] = {
 
     def onQuestion(question: Question.Update): Unit = question match {
@@ -65,7 +66,7 @@ private[speedy] object SpeedyTestLib {
           case Some(coinst) =>
             callback(
               coinst,
-              Hash.HashingMethod.TypedNormalForm,
+              hashingMethod(contractId),
               _ => true, // we assume authentication always succeeds in speedy tests for now
             )
           case None =>

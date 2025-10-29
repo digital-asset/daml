@@ -100,8 +100,16 @@ class EncryptedCryptoPrivateStore(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Set[StoredPrivateKey]] =
     for {
-      storedKeys <- store
-        .listPrivateKeys(purpose, encrypted = true)
+      storedKeys <- store.listPrivateKeys(purpose, encrypted = true)
+      keys <- storedKeys.toList.parTraverse(decryptStoredKey(kms, _))
+    } yield keys.toSet
+
+  @VisibleForTesting
+  private[canton] def listPrivateKeys()(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Set[StoredPrivateKey]] =
+    for {
+      storedKeys <- store.listPrivateKeys()
       keys <- storedKeys.toList.parTraverse(decryptStoredKey(kms, _))
     } yield keys.toSet
 
@@ -421,7 +429,7 @@ object EncryptedCryptoPrivateStore extends EncryptedCryptoPrivateStoreHelper wit
       case None =>
         EitherT.leftT[FutureUnlessShutdown, KmsKeyId](
           EncryptedPrivateStoreError(
-            "Active replica failed to initialize encrypted crypto private store"
+            "active replica failed to initialize encrypted crypto private store"
           )
         )
     }

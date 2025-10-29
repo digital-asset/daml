@@ -38,7 +38,7 @@ final case class FullInformeeTree private (tree: GenTransactionTree)(
 
   @transient override protected lazy val companionObj: FullInformeeTree.type = FullInformeeTree
 
-  lazy val transactionId: TransactionId = TransactionId.fromRootHash(tree.rootHash)
+  lazy val transactionId: UpdateId = UpdateId.fromRootHash(tree.rootHash)
 
   private lazy val commonMetadata: CommonMetadata = checked(tree.commonMetadata.tryUnwrap)
   lazy val synchronizerId: PhysicalSynchronizerId = commonMetadata.synchronizerId

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_repl", "da_haskell_test")
-load("//daml-lf/language:daml-lf.bzl", "lf_docs_version")
+load("//daml-lf/language:daml-lf.bzl", "LF_DOCS_VERSION")
 load("//rules_daml:daml.bzl", "daml_doc_test")
 load("@os_info//:os_info.bzl", "is_windows")
 load("//bazel_tools/packaging:packaging.bzl", "package_app", "package_oci_component")
@@ -337,7 +337,7 @@ genrule(
             -Wno-deprecated-exceptions \
             --target={} \
             $(locations //compiler/damlc/daml-prim-src)
-    """.format(lf_docs_version),
+    """.format(LF_DOCS_VERSION),
     tools = [
         "//compiler/damlc:damlc-compile-only",
     ],
@@ -356,7 +356,7 @@ genrule(
             -Wno-deprecated-exceptions \
             --target={} \
             $(locations //compiler/damlc/daml-stdlib-src)
-    """.format(lf_docs_version),
+    """.format(LF_DOCS_VERSION),
     tools = [
         "//compiler/damlc:damlc-compile-only",
     ],
@@ -394,7 +394,7 @@ genrule(
             --target={} \\
             $(location :daml-stdlib.json) $(location :daml-prim.json)
         $(execpath //bazel_tools/sh:mktgz) $(location :daml-base-rst.tar.gz) daml-base-rst
-    """.format(lf_docs_version),
+    """.format(LF_DOCS_VERSION),
     tools = [
         "//bazel_tools/sh:mktgz",
         "//compiler/damlc:damlc-compile-only",

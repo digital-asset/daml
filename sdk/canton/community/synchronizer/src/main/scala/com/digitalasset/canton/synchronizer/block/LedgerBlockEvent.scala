@@ -8,7 +8,6 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.HasLoggerName
 import com.digitalasset.canton.sequencing.protocol.{
   AcknowledgeRequest,
-  MaxRequestSizeToDeserialize,
   SignedContent,
   SubmissionRequest,
 }
@@ -16,6 +15,7 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.synchronizer.sequencer.Sequencer.SignedSubmissionRequest
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.Traced
+import com.digitalasset.canton.util.MaxBytesToDecompress
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LfTimestamp, ProtoDeserializationError}
 import com.google.protobuf.ByteString
@@ -45,7 +45,7 @@ object LedgerBlockEvent extends HasLoggerName {
 
   def fromRawBlockEvent(
       protocolVersion: ProtocolVersion,
-      maxRequestSizeToDeserialize: MaxRequestSizeToDeserialize,
+      maxBytesToDecompress: MaxBytesToDecompress,
   )(blockEvent: RawBlockEvent): ParsingResult[LedgerBlockEvent] =
     blockEvent match {
       case RawBlockEvent.Send(request, microsecondsSinceEpoch, orderingSequencerId) =>
@@ -57,7 +57,7 @@ object LedgerBlockEvent extends HasLoggerName {
           deserializedRequest <-
             deserializeSignedSubmissionRequest(
               protocolVersion,
-              maxRequestSizeToDeserialize,
+              maxBytesToDecompress,
             )(request)
           timestamp <-
             LfTimestamp
@@ -85,13 +85,13 @@ object LedgerBlockEvent extends HasLoggerName {
 
   def deserializeSignedSubmissionRequest(
       protocolVersion: ProtocolVersion,
-      maxRequestSizeToDeserialize: MaxRequestSizeToDeserialize,
+      maxBytesToDecompress: MaxBytesToDecompress,
   )(submissionRequestBytes: ByteString): ParsingResult[SignedSubmissionRequest] =
     SignedContent
       .fromByteString(protocolVersion, submissionRequestBytes)
       .flatMap(
         _.deserializeContent(
-          SubmissionRequest.fromByteString(protocolVersion, maxRequestSizeToDeserialize)
+          SubmissionRequest.fromByteString(protocolVersion, maxBytesToDecompress)
         )
       )
 

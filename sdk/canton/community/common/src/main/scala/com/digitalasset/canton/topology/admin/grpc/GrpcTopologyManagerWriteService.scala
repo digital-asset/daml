@@ -9,13 +9,11 @@ import cats.syntax.either.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.digitalasset.base.error.RpcError
-import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.ProtoDeserializationError.{
   FieldNotSet,
   ProtoDeserializationFailure,
   ValueConversionError,
 }
-import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -38,6 +36,7 @@ import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, GrpcStreamingUtils}
 import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionValidation}
+import com.digitalasset.canton.{ProtoDeserializationError, config}
 import com.google.protobuf.ByteString
 import com.google.protobuf.duration.Duration
 import io.grpc.stub.StreamObserver
@@ -132,7 +131,9 @@ class GrpcTopologyManagerWriteService(
           waitToBecomeEffectiveO <- EitherT
             .fromEither[FutureUnlessShutdown](
               waitToBecomeEffective
-                .traverse(NonNegativeFiniteDuration.fromProtoPrimitive("wait_to_become_effective"))
+                .traverse(
+                  config.NonNegativeFiniteDuration.fromProtoPrimitive("wait_to_become_effective")
+                )
                 .leftMap(ProtoDeserializationFailure.Wrap(_))
             )
           (op, serial, validatedMapping, signingKeys, forceChanges) = mapping
@@ -208,7 +209,9 @@ class GrpcTopologyManagerWriteService(
       waitToBecomeEffectiveO <- EitherT
         .fromEither[FutureUnlessShutdown](
           request.waitToBecomeEffective
-            .traverse(NonNegativeFiniteDuration.fromProtoPrimitive("wait_to_become_effective"))
+            .traverse(
+              config.NonNegativeFiniteDuration.fromProtoPrimitive("wait_to_become_effective")
+            )
             .leftMap(ProtoDeserializationFailure.Wrap(_))
         )
       _ <- addTransactions(signedTxs, request.store, forceChanges, waitToBecomeEffectiveO)
@@ -250,7 +253,9 @@ class GrpcTopologyManagerWriteService(
       waitToBecomeEffectiveO <- EitherT
         .fromEither[FutureUnlessShutdown](
           waitToBecomeEffectiveP
-            .traverse(NonNegativeFiniteDuration.fromProtoPrimitive("wait_to_become_effective"))
+            .traverse(
+              config.NonNegativeFiniteDuration.fromProtoPrimitive("wait_to_become_effective")
+            )
             .leftMap(ProtoDeserializationFailure.Wrap(_))
         )
       _ <- addTransactions(signedTxs, store, ForceFlags.all, waitToBecomeEffectiveO)
@@ -296,7 +301,9 @@ class GrpcTopologyManagerWriteService(
       waitToBecomeEffectiveO <- EitherT
         .fromEither[FutureUnlessShutdown](
           waitToBecomeEffectiveP
-            .traverse(NonNegativeFiniteDuration.fromProtoPrimitive("wait_to_become_effective"))
+            .traverse(
+              config.NonNegativeFiniteDuration.fromProtoPrimitive("wait_to_become_effective")
+            )
             .leftMap(ProtoDeserializationFailure.Wrap(_))
         )
       _ <- addTransactions(signedTxs, store, ForceFlags.all, waitToBecomeEffectiveO)
@@ -308,7 +315,7 @@ class GrpcTopologyManagerWriteService(
       signedTxs: Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
       store: Option[v30.StoreId],
       forceChanges: ForceFlags,
-      waitToBecomeEffective: Option[NonNegativeFiniteDuration],
+      waitToBecomeEffective: Option[config.NonNegativeFiniteDuration],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, RpcError, Unit] =
@@ -396,7 +403,6 @@ class GrpcTopologyManagerWriteService(
             manager.managerVersion.serialization,
             existingTransaction,
           )
-          .mapK(FutureUnlessShutdown.outcomeK)
           .leftWiden[RpcError]
       } yield transaction.toByteString -> transaction.hash.hash.getCryptographicEvidence
     }

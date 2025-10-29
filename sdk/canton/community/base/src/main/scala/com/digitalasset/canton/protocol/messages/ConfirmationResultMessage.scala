@@ -16,7 +16,7 @@ import com.google.protobuf.ByteString
 
 /** Result message that the mediator sends to all informees of a request with its verdict.
   *
-  * @param synchronizerId
+  * @param psid
   *   the synchronizer on which the request is running
   * @param viewType
   *   determines which processor (transaction / reassignment) must process this message
@@ -29,7 +29,7 @@ import com.google.protobuf.ByteString
   */
 @SuppressWarnings(Array("org.wartremover.warts.FinalCaseClass")) // This class is mocked in tests
 case class ConfirmationResultMessage private (
-    override val synchronizerId: PhysicalSynchronizerId,
+    override val psid: PhysicalSynchronizerId,
     viewType: ViewType,
     override val requestId: RequestId,
     rootHash: RootHash,
@@ -45,12 +45,12 @@ case class ConfirmationResultMessage private (
 
   override val representativeProtocolVersion: RepresentativeProtocolVersion[
     ConfirmationResultMessage.type
-  ] = ConfirmationResultMessage.protocolVersionRepresentativeFor(synchronizerId.protocolVersion)
+  ] = ConfirmationResultMessage.protocolVersionRepresentativeFor(psid.protocolVersion)
 
   override def signingTimestamp: Option[CantonTimestamp] = Some(requestId.unwrap)
 
   def copy(
-      synchronizerId: PhysicalSynchronizerId = this.synchronizerId,
+      synchronizerId: PhysicalSynchronizerId = this.psid,
       viewType: ViewType = this.viewType,
       requestId: RequestId = this.requestId,
       rootHash: RootHash = this.rootHash,
@@ -68,7 +68,7 @@ case class ConfirmationResultMessage private (
 
   protected def toProtoV30: v30.ConfirmationResultMessage =
     v30.ConfirmationResultMessage(
-      physicalSynchronizerId = synchronizerId.toProtoPrimitive,
+      physicalSynchronizerId = psid.toProtoPrimitive,
       viewType = viewType.toProtoEnum,
       requestId = requestId.toProtoPrimitive,
       rootHash = rootHash.toProtoPrimitive,
@@ -84,7 +84,7 @@ case class ConfirmationResultMessage private (
   @VisibleForTesting
   override def pretty: Pretty[ConfirmationResultMessage] =
     prettyOfClass(
-      param("synchronizerId", _.synchronizerId),
+      param("psid", _.psid),
       param("viewType", _.viewType),
       param("requestId", _.requestId.unwrap),
       param("rootHash", _.rootHash),

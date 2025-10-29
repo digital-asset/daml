@@ -17,20 +17,17 @@ trait TopologyTransactionProcessingSubscriber {
     *      been persisted in the topology store.
     *   1. All committed topology transactions with sequenced time up to `sequencedTimestamp` have
     *      been persisted in the topology store.
-    *   1. If this method is called with `potentialTopologyChange == true`, then for every
-    *      subsequent committed topology transaction either `updateHead(potentialTopologyChange ==
-    *      true, ...)` or `observed` must be called again; such calls must occur with ascending
-    *      effective timestamps.
     *   1. `sequencedTimestamp <= effectiveTimestamp`
     *   1. `approximateTimestamp <= effectiveTimestamp`
     *   1. A sequenced event with timestamp at least `approximateTimestamp` has been received from
     *      the sequencer.
+    *
+    * The effective timestamp may have not yet been reached on the synchronizer.
     */
   def updateHead(
       sequencedTimestamp: SequencedTime,
       effectiveTimestamp: EffectiveTime,
       approximateTimestamp: ApproximateTime,
-      potentialTopologyChange: Boolean,
   )(implicit traceContext: TraceContext): Unit = ()
 
   /** This must be called whenever a topology transaction is committed. It may be called at
@@ -39,6 +36,8 @@ trait TopologyTransactionProcessingSubscriber {
     *
     * During crash recovery previous calls of this method may be replayed. Therefore,
     * implementations must be idempotent.
+    *
+    * The effective timestamp may have not yet been reached on the synchronizer.
     */
   def observed(
       sequencedTimestamp: SequencedTime,

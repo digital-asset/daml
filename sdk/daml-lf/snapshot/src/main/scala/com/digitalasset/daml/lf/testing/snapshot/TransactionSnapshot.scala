@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf
 package testing.snapshot
 
-import com.digitalasset.daml.lf.archive.{ArchiveDecoder, UniversalArchiveDecoder}
+import com.digitalasset.daml.lf.archive.{ArchiveDecoder, DarDecoder}
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
 import com.digitalasset.daml.lf.engine.{Engine, EngineConfig, Error}
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
@@ -22,6 +22,7 @@ import com.digitalasset.daml.lf.transaction.{
 }
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
+import com.digitalasset.daml.lf.value.ContractIdVersion
 import com.google.protobuf.ByteString
 
 import java.io.BufferedInputStream
@@ -39,6 +40,7 @@ final case class TransactionSnapshot(
     contractKeys: Map[GlobalKeyWithMaintainers, ContractId],
     pkgs: Map[Ref.PackageId, Ast.Package],
     profileDir: Option[Path],
+    contractIdVersion: ContractIdVersion,
     gasBudget: Option[Long],
 ) {
 
@@ -56,6 +58,7 @@ final case class TransactionSnapshot(
         participantId,
         preparationTime,
         submissionSeed,
+        contractIdVersion,
       )
       .consume(contracts, pkgs, contractKeys)
       .map { case (_, _, metrics) => metrics }
@@ -69,6 +72,7 @@ final case class TransactionSnapshot(
         participantId,
         preparationTime,
         submissionSeed,
+        contractIdVersion,
       )
       .consume(contracts, pkgs, contractKeys)
 
@@ -80,7 +84,7 @@ private[snapshot] object TransactionSnapshot {
 
   def loadDar(darFile: Path): Map[Ref.PackageId, Ast.Package] = {
     println(s"%%% loading dar file $darFile ...")
-    UniversalArchiveDecoder.assertReadFile(darFile.toFile).all.toMap
+    DarDecoder.assertReadArchiveFromFile(darFile.toFile).all.toMap
   }
 
   def compile(
@@ -170,6 +174,7 @@ private[snapshot] object TransactionSnapshot {
       choice: (Ref.QualifiedName, Ref.Name),
       index: Int,
       profileDir: Option[Path],
+      contractIdVersion: ContractIdVersion,
       gasBudget: Option[Long] = None,
   ): TransactionSnapshot = {
     println(s"%%% loading submission entries from $dumpFile...")
@@ -262,6 +267,7 @@ private[snapshot] object TransactionSnapshot {
         contractKeys = contractKeys,
         pkgs = archives.view.map(ArchiveDecoder.assertFromByteString).toMap,
         profileDir = profileDir,
+        contractIdVersion = contractIdVersion,
         gasBudget = gasBudget,
       )
     }

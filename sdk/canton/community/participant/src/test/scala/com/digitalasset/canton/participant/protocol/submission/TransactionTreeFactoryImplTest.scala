@@ -19,6 +19,7 @@ import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.store.PackageDependencyResolver
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.TestContractHasher
 import com.digitalasset.daml.lf.data.Ref.{IdString, PackageId}
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -53,6 +54,7 @@ final class TransactionTreeFactoryImplTest
           factory.psid,
           factory.cantonContractIdVersion,
           factory.cryptoOps,
+          TestContractHasher.Async,
           loggerFactory,
         )
 

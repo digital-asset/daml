@@ -52,7 +52,7 @@ object TreeTransactionBuilder extends TreeTransactionBuilder {
 
   private final case class Tx(nodes: Map[NodeId, Node], roots: Seq[NodeId]) {
     private def version =
-      nodes.values.flatMap(_.optVersion).maxOption.getOrElse(TransactionVersion.maxVersion)
+      nodes.values.flatMap(_.optVersion).maxOption.getOrElse(SerializationVersion.maxVersion)
     def toTransaction: Transaction =
       Transaction(nodes, ImmArray.from(roots))
     def toVersionedTransaction: VersionedTransaction =

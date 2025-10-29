@@ -12,34 +12,30 @@ async function scenario() {
     console.log("Alice creates contract");
     const ledgerOffset1 = (await createContract(alice)).completionOffset;
     console.log(`Ledger offset: ${ledgerOffset1}`)
-    const contracts = await acs(alice, Iou.Iou.templateId, ledgerOffset1);
-    showAcs(contracts, ["owner", "amount", "currency"], c => [c.owner, c.amount, c.currency]);
-    if (contracts.length > 0) {
-        const last = contracts[contracts.length - 1];
+    const transactionContracts = await acs(alice, Iou.Iou.templateId, ledgerOffset1);
+    showAcs(transactionContracts, ["owner", "amount", "currency"], c => [c.owner, c.amount, c.currency]);
+    let iouContractsCreated = false;
+    if (transactionContracts.length > 0) {
+        const last = transactionContracts[transactionContracts.length - 1];
         const contractId = last.contractId;
         console.log("Alice transfers iou to Bob");
         const ledgerOffset2 = (await exerciserTransfer(alice, contractId, bob)).completionOffset;
-        const contracts2 = await acs(bob, Iou.IouTransfer.templateId, ledgerOffset2);
-        showAcs(contracts2, ["newOwner", "Iou", "currency", "owner"], c => [c.newOwner, c.iou.amount, c.iou.currency, c.iou.owner]);
-
-        if (contracts2.length > 0) {
-            const transferContractId = contracts2[0].contractId;
-            console.log("Bob accepts transfer");
-            const lastUpdate = await acceptTransfer(bob, transferContractId)
-
-            const finalContracts = await acs(alice, Iou.Iou.templateId, lastUpdate.completionOffset);
-            showAcs(finalContracts, ["owner", "amount", "currency"], c => [c.owner, c.amount, c.currency]);
-
-            if(finalContracts.length > 0){
-                console.log("Transactions that involved Iou templates")
-                const txs = await transactions(alice, Iou.Iou.templateId, lastUpdate.completionOffset)
-                const updateIds = txs.map((tx) => tx.value.updateId)
-                console.log(updateIds)
-            }
-
-            console.log("End of scenario");
-        }
+        const retrievedIouContracts = await acs(bob, Iou.IouTransfer.templateId, ledgerOffset2);
+        showAcs(retrievedIouContracts, ["newOwner", "Iou", "currency", "owner"], c => [c.newOwner, c.iou.amount, c.iou.currency, c.iou.owner]);
+        transactionContracts.push(...retrievedIouContracts);
+        iouContractsCreated = true;
     }
+    if (iouContractsCreated) {
+        const iouContractId = transactionContracts[transactionContracts.length - 1].contractId;
+        console.log("Bob accepts transfer");
+        const lastUpdate = await acceptTransfer(bob, iouContractId)
+        const ledgerOffset3 = lastUpdate.completionOffset;
+        const transactionUpdatedContracts = await updateContracts(ledgerOffset1, ledgerOffset3, alice, Iou.Iou.templateId, transactionContracts);
+        showAcs(transactionUpdatedContracts
+            .filter((contract) => !("iou" in (contract.createArgument as components["schemas"]["CreatedEvent"]))),
+            ["owner", "amount", "currency"], c => [c.owner, c.amount, c.currency]);
+    }
+    console.log("End of scenario");
 
 }
 
@@ -84,6 +80,49 @@ async function acs(userParty: string, templateId: string, ledger_offset: number)
     }
 }
 
+async function updateContracts(startOffset: number, endOffset: number, userParty: string, templateId: string, contracts: components["schemas"]["CreatedEvent"][]): Promise<components["schemas"]["CreatedEvent"][]> {
+    const filter: components["schemas"]["GetUpdatesRequest"] = {
+        beginExclusive: startOffset,
+        endInclusive: endOffset,
+        updateFormat: {
+            includeTransactions: {
+                eventFormat: eventFormat(userParty, templateId),
+                transactionShape: 'TRANSACTION_SHAPE_ACS_DELTA',
+            },
+        },
+        verbose: false,
+    };
+    const {data, error} = await client.POST("/v2/updates", {
+        body: filter
+    });
+    if (data === undefined)
+        return Promise.reject(error);
+    else {
+        const updatedContracts: components["schemas"]["CreatedEvent"][] = contracts;
+        data.map((res) => res.update)
+            .filter((res) => "Transaction" in res).map(
+            (res) => res.Transaction as components["schemas"]["Transaction"]
+        )
+            .map((res) => res.value)
+            .filter((res) => res.events !== undefined)
+            .flatMap((res) => res.events)
+            .filter((res) => res !== undefined)
+            .forEach((res) => {
+                if ("CreatedEvent" in res){
+                    updatedContracts.push(res.CreatedEvent as components["schemas"]["CreatedEvent"]);
+                } else if ("ArchivedEvent" in res) {
+                    const contractId = res.ArchivedEvent.contractId;
+                    const index = updatedContracts.findIndex(c => c.contractId === contractId);
+                    if (index >= 0) {
+                        updatedContracts.splice(index, 1);
+                    }
+                }
+            })
+
+        return Promise.resolve(updatedContracts);
+    }
+}
+
 function showAcs(created: components["schemas"]["CreatedEvent"][],
                  headers: string[],
                  values: (arg: any) => any[],
@@ -93,34 +132,6 @@ function showAcs(created: components["schemas"]["CreatedEvent"][],
     });
     created.map(c => c.createArgument as any).forEach(c => table.push(values(c)));
     console.log(table.toString());
-}
-
-async function transactions(userParty: string, templateId: string, ledger_offset: number): Promise<components["schemas"]["Transaction"][]> {
-    const updateFormat: components["schemas"]["UpdateFormat"] = {
-        includeTransactions: {
-            eventFormat: eventFormat(userParty, templateId),
-            transactionShape: "TRANSACTION_SHAPE_LEDGER_EFFECTS"
-        }
-    }
-
-    const request: components["schemas"]["GetUpdatesRequest"] = {
-        beginExclusive: 0,
-        endInclusive: ledger_offset,
-        updateFormat: updateFormat,
-        verbose: false,
-    }
-
-    const {data, error} = await client.POST("/v2/updates", {
-        body: request
-    });
-    if (data === undefined) {
-        return Promise.reject(error);
-    } else {
-        const transactions: components["schemas"]["Transaction"][] = data.map((res) => res.update)
-            .filter((upd) => "Transaction" in upd)
-            .map((res) => res.Transaction);
-        return Promise.resolve(transactions);
-    }
 }
 
 scenario();

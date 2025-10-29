@@ -25,6 +25,10 @@ trait PredefinedGcpKmsKeys extends PredefinedKmsKeys {
       KmsKeyId(String300.tryCreate("canton-kms-test-signing-key-secp256k1")),
       KmsKeyId(String300.tryCreate("canton-kms-test-another-signing-key-secp256k1"))
     ),
+    SigningKeySpec.EcCurve25519 -> (
+      KmsKeyId(String300.tryCreate("canton-kms-test-signing-key-ed25519")),
+      KmsKeyId(String300.tryCreate("canton-kms-test-another-signing-key-ed25519"))
+    ),
   )
 
   override val predefinedAsymmetricEncryptionKeys: Map[EncryptionKeySpec, (KmsKeyId, KmsKeyId)] =

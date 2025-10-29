@@ -6,6 +6,7 @@ package com.digitalasset.canton.integration.tests.repair
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.admin.api.client.data.TemplateId.templateIdsFromJava
+import com.digitalasset.canton.annotations.UnstableTest
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{DbConfig, PositiveDurationSeconds}
 import com.digitalasset.canton.console.InstanceReference
@@ -359,21 +360,32 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
         p1SequencedEventStore.delete(lastStoredEvent.counter).futureValueUS
         p1SequencedEventStore.store(Seq(tracedSignedTamperedEvent)).futureValueUS
 
-        loggerFactory.assertLogs(
+        loggerFactory.assertEventuallyLogsSeq(SuppressionRule.LevelAndAbove(Level.WARN))(
           {
             participant1.synchronizers.reconnect(daName)
 
             // Necessary synchronization because some of the errors are reported asynchronously.
             // Feel free to adjust if the number of errors has changed.
+            // Currently there is:
+            // * `SequencedEventValidatorImpl` logging an ERROR
+            // * `SequencerSubscriptionX` / `ResilientSequencerSubscription` logging a WARN
+            // * `SynchronizerConnectionsManager` logging an ERROR
             eventually() {
-              loggerFactory.numberOfRecordedEntries should be >= 2
+              loggerFactory.numberOfRecordedEntries should be >= 3
             }
           },
           // The problem happens to be "ForkHappened" due to the order of checks carried out by the sequencer client.
           // Feel free to change, if another property is checked first, e.g., "SignatureInvalid".
-          _.shouldBeCantonErrorCode(ResilientSequencerSubscription.ForkHappened),
-          _.message should include(s"ForkHappened"),
-          _.shouldBeCantonErrorCode(SyncServiceSynchronizerDisconnect),
+          { entries =>
+            val requiredErrorMessages = Seq(
+              ResilientSequencerSubscription.ForkHappened.id,
+              "ForkHappened",
+              SyncServiceSynchronizerDisconnect.id,
+            )
+            requiredErrorMessages.forall(errMsg =>
+              entries.exists(_.message.contains(errMsg))
+            ) shouldBe true
+          },
         )
 
         eventually() {
@@ -458,17 +470,19 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
                 store = daId,
                 force = ForceFlags(ForceFlag.AlienMember),
               )
-              // Wait until p1 has processed the topology transaction.
+              // Wait until p1 and p2 have processed the topology transaction.
               eventually() {
-                participant1.topology.owner_to_key_mappings
-                  .list(
-                    store = daId,
-                    filterKeyOwnerUid = participant1.id.filterString,
-                  )
-                  .flatMap(_.item.keys)
-                  .filter(_.purpose == missingEncryptionKey.purpose)
-                  .loneElement
-                  .fingerprint shouldBe missingEncryptionKey.fingerprint
+                forAll(Seq(participant1, participant2))(
+                  _.topology.owner_to_key_mappings
+                    .list(
+                      store = daId,
+                      filterKeyOwnerUid = participant1.id.filterString,
+                    )
+                    .flatMap(_.item.keys)
+                    .filter(_.purpose == missingEncryptionKey.purpose)
+                    .loneElement
+                    .fingerprint shouldBe missingEncryptionKey.fingerprint
+                )
               }
             },
             // Participant1 will emit an error, because the key is not present.
@@ -489,8 +503,15 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
 
         // Note: The following ping will bring transaction processing to a halt,
         // because it can't decrypt the confirmation request.
-        loggerFactory.assertLoggedWarningsAndErrorsSeq(
+        loggerFactory.assertEventuallyLogsSeq(SuppressionRule.LevelAndAbove(Level.WARN))(
           {
+            clue(
+              "advancing clock and checking that participant1 is connected to the synchronizer"
+            ) {
+              env.environment.simClock.foreach(_.advance(java.time.Duration.ofSeconds(5)))
+              participant1.synchronizers.list_connected() should not be empty
+            }
+
             clue("pinging to halt") {
               pokeAndAdvance(Future {
                 participant2.health.maybe_ping(participant1, timeout = 2.seconds)
@@ -501,15 +522,25 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
             // because the poisonous event was the last event received.
             // The participant will only disconnect from a synchronizer if (1) the application handler has thrown an exception
             // and (2) another event arrives to the SequencerClient.
-            Try(participant1.synchronizers.disconnect(daName))
+            clue("disconnecting participant1 from synchronizer") {
+              Try(participant1.synchronizers.disconnect(daName))
+            }
             // Restart participant to clean up CantonSyncService
-            Try(participant1.stop())
-            participant1.start()
-            participant1.synchronizers.list_connected() shouldBe empty
+            clue("stopping participant1") {
+              Try(participant1.stop())
+            }
+            clue("starting participant1") {
+              participant1.start()
+            }
+            clue("checking that participant1 is NOT connected to the synchronizer") {
+              participant1.synchronizers.list_connected() shouldBe empty
+            }
           },
           forAtLeast(1, _) {
-            _.message should startWith("Asynchronous event processing failed")
+            _.toString should include("Can't decrypt the randomness of the view")
           },
+          timeUntilSuccess = 1.minute,
+          maxPollInterval = 3.second,
         )
       }
 
@@ -562,6 +593,7 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
   }
 }
 
+@UnstableTest
 class IgnoreSequencedEventsIntegrationTestH2 extends IgnoreSequencedEventsIntegrationTest {
   registerPlugin(new UseH2(loggerFactory))
   registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))

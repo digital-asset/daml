@@ -174,8 +174,7 @@ abstract class BaseEngineModeIT(supportDevLanguageVersions: Boolean)
           accept(betaVersion, "beta", "beta")
         else
           reject(betaVersion, "beta", "stable")
-        // TODO(i15561): re-enable once there is a stable Daml 3 protocol version
-        // reject(devVersion, "dev", "stable")
+        reject(devVersion, "dev", "stable")
       } else {
         accept(maxStableVersion, "stable", "dev")
         accept(betaVersion, "beta", "dev")

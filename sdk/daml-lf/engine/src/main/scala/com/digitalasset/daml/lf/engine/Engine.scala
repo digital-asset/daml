@@ -6,22 +6,18 @@ package engine
 
 import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.command._
-import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, ParticipantId, Party, TypeConId}
+import com.digitalasset.daml.lf.data._
+import com.digitalasset.daml.lf.interpretation.{Error => IError}
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.speedy.{
-  InitialSeeding,
-  Question,
-  SError,
-  SResult,
-  SValue,
-  Speedy,
-  TraceLog,
-  ValueTranslator,
-}
+import com.digitalasset.daml.lf.language._
+import com.digitalasset.daml.lf.speedy.Question.Update
+import com.digitalasset.daml.lf.speedy.SBuiltinFun.SBFetchTemplate
 import com.digitalasset.daml.lf.speedy.SExpr.{SEApp, SEMakeClo, SEValue, SExpr}
-import com.digitalasset.daml.lf.speedy.Speedy.{Machine, PureMachine, UpdateMachine}
 import com.digitalasset.daml.lf.speedy.SResult._
+import com.digitalasset.daml.lf.speedy.SValue.SContractId
+import com.digitalasset.daml.lf.speedy.Speedy.{Machine, PureMachine, UpdateMachine}
+import com.digitalasset.daml.lf.speedy._
 import com.digitalasset.daml.lf.transaction.{
   FatContractInstance,
   GlobalKey,
@@ -34,9 +30,8 @@ import com.digitalasset.daml.lf.transaction.{
 }
 
 import java.nio.file.{Files, StandardOpenOption}
-import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.{ContractIdVersion, Value, ValueCoder}
 import com.digitalasset.daml.lf.value.Value.ContractId
-import com.digitalasset.daml.lf.value.ValueCoder
 import com.digitalasset.daml.lf.language.{
   Ast,
   LanguageMajorVersion,
@@ -54,13 +49,8 @@ import com.daml.scalautil.Statement.discard
 import com.digitalasset.daml.lf.crypto.{Hash, SValueHash}
 import com.digitalasset.daml.lf.data
 
-import scala.annotation.tailrec
 import scala.collection.immutable.ArraySeq
 import scala.jdk.CollectionConverters._
-import com.digitalasset.daml.lf.interpretation.{Error => IError}
-import com.digitalasset.daml.lf.speedy.Question.Update
-import com.digitalasset.daml.lf.speedy.SBuiltinFun.SBFetchTemplate
-import com.digitalasset.daml.lf.speedy.SValue.SContractId
 
 // TODO once the ContextualizedLogger is replaced with the NamedLogger and Speedy doesn't use its
 //   own logger, we can remove this import
@@ -155,6 +145,7 @@ class Engine(val config: EngineConfig) {
     * @param cmds the commands to be interpreted
     * @param participantId a unique identifier (of the underlying participant) used to derive node and contractId discriminators
     * @param submissionSeed the master hash used to derive node and contractId discriminators
+    * @param contractIdVersion The contract ID version to use for local contracts
     */
   def submit(
       packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)] = Map.empty,
@@ -164,6 +155,7 @@ class Engine(val config: EngineConfig) {
       cmds: ApiCommands,
       participantId: ParticipantId,
       submissionSeed: crypto.Hash,
+      contractIdVersion: ContractIdVersion,
       prefetchKeys: Seq[ApiContractKey],
       engineLogger: Option[EngineLogger] = None,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] = {
@@ -190,6 +182,7 @@ class Engine(val config: EngineConfig) {
           ledgerTime = cmds.ledgerEffectiveTime,
           preparationTime = preparationTime,
           seeding = Engine.initialSeeding(submissionSeed, participantId, preparationTime),
+          contractIdVersion = contractIdVersion,
           packageResolution = pkgResolution,
           engineLogger = engineLogger,
           submissionInfo = Some(Engine.SubmissionInfo(participantId, submissionSeed, submitters)),
@@ -210,6 +203,7 @@ class Engine(val config: EngineConfig) {
     *                 The value does not matter for other kind of nodes.
     * @param preparationTime the preparation time used to compute contract IDs
     * @param ledgerEffectiveTime the ledger effective time used as a result of `getTime` during reinterpretation
+    * @param contractIdVersion The contract ID version to use for local contracts
     */
   def reinterpret(
       submitters: Set[Party],
@@ -217,6 +211,7 @@ class Engine(val config: EngineConfig) {
       nodeSeed: Option[crypto.Hash],
       preparationTime: Time.Timestamp,
       ledgerEffectiveTime: Time.Timestamp,
+      contractIdVersion: ContractIdVersion,
       packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
       engineLogger: Option[EngineLogger] = None,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] =
@@ -235,6 +230,7 @@ class Engine(val config: EngineConfig) {
         ledgerTime = ledgerEffectiveTime,
         preparationTime = preparationTime,
         seeding = InitialSeeding.RootNodeSeeds(ImmArray(nodeSeed)),
+        contractIdVersion: ContractIdVersion,
         packageResolution = packageResolution,
         engineLogger = engineLogger,
         submissionInfo = None,
@@ -249,6 +245,7 @@ class Engine(val config: EngineConfig) {
       participantId: Ref.ParticipantId,
       preparationTime: Time.Timestamp,
       submissionSeed: crypto.Hash,
+      contractIdVersion: ContractIdVersion,
       packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
       engineLogger: Option[EngineLogger] = None,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] =
@@ -259,6 +256,7 @@ class Engine(val config: EngineConfig) {
       participantId,
       preparationTime,
       submissionSeed,
+      contractIdVersion,
       packageResolution,
       engineLogger,
     ).map { case (tx, meta, _) => (tx, meta) }
@@ -270,6 +268,7 @@ class Engine(val config: EngineConfig) {
       participantId: Ref.ParticipantId,
       preparationTime: Time.Timestamp,
       submissionSeed: crypto.Hash,
+      contractIdVersion: ContractIdVersion,
       packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
       engineLogger: Option[EngineLogger] = None,
   )(implicit
@@ -285,6 +284,7 @@ class Engine(val config: EngineConfig) {
         ledgerTime = ledgerEffectiveTime,
         preparationTime = preparationTime,
         seeding = Engine.initialSeeding(submissionSeed, participantId, preparationTime),
+        contractIdVersion = contractIdVersion,
         packageResolution = packageResolution,
         engineLogger = engineLogger,
         submissionInfo = None,
@@ -312,6 +312,7 @@ class Engine(val config: EngineConfig) {
       participantId: Ref.ParticipantId,
       preparationTime: Time.Timestamp,
       submissionSeed: crypto.Hash,
+      contractIdVersion: ContractIdVersion,
   )(implicit loggingContext: LoggingContext): Result[Unit] = {
     validateAndCollectMetrics(
       submitters,
@@ -320,6 +321,7 @@ class Engine(val config: EngineConfig) {
       participantId,
       preparationTime,
       submissionSeed,
+      contractIdVersion,
     ).map(_ => ())
   }
 
@@ -330,6 +332,7 @@ class Engine(val config: EngineConfig) {
       participantId: Ref.ParticipantId,
       preparationTime: Time.Timestamp,
       submissionSeed: crypto.Hash,
+      contractIdVersion: ContractIdVersion,
   )(implicit loggingContext: LoggingContext): Result[Speedy.Metrics] = {
     // reinterpret
     for {
@@ -340,6 +343,7 @@ class Engine(val config: EngineConfig) {
         participantId,
         preparationTime,
         submissionSeed,
+        contractIdVersion,
       )
       (rtx, _, metrics) = result
       validationResult <-
@@ -403,6 +407,7 @@ class Engine(val config: EngineConfig) {
       ledgerTime: Time.Timestamp,
       preparationTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
+      contractIdVersion: ContractIdVersion,
       packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
       engineLogger: Option[EngineLogger] = None,
       submissionInfo: Option[Engine.SubmissionInfo] = None,
@@ -422,6 +427,7 @@ class Engine(val config: EngineConfig) {
         ledgerTime,
         preparationTime,
         seeding,
+        contractIdVersion,
         packageResolution,
         engineLogger,
         submissionInfo,
@@ -444,6 +450,7 @@ class Engine(val config: EngineConfig) {
       ledgerTime: Time.Timestamp,
       preparationTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
+      contractIdVersion: ContractIdVersion,
       packageResolution: Map[Ref.PackageName, Ref.PackageId],
       engineLogger: Option[EngineLogger] = None,
       submissionInfo: Option[Engine.SubmissionInfo] = None,
@@ -462,7 +469,7 @@ class Engine(val config: EngineConfig) {
       validating = validating,
       traceLog = EngineLogger.toTraceLog(engineLogger),
       contractKeyUniqueness = config.contractKeyUniqueness,
-      contractIdVersion = config.createContractsWithContractIdVersion,
+      contractIdVersion = contractIdVersion,
       packageResolution = packageResolution,
       limits = config.limits,
       iterationsBetweenInterruptions = config.iterationsBetweenInterruptions,
@@ -712,48 +719,16 @@ class Engine(val config: EngineConfig) {
     * preloaded.
     */
   def validateDar(dar: Dar[(PackageId, Package)]): Either[Error.Package.Error, Unit] = {
+    val pkgIdDepGraph: Map[PackageId, Set[PackageId]] =
+      dar.all.toMap.view.mapValues(_.imports.pkgIds).toMap
+    val mainPackageId: PackageId = dar.main._1
+
+    val mentioned = Graphs.transitiveClosure(pkgIdDepGraph, mainPackageId).diff(stablePackageIds)
+    val included = pkgIdDepGraph.keys.toSet.diff(stablePackageIds)
     val darPackages = dar.all.toMap
-    val mainPackageId = dar.main._1
-    val mainPackageDependencies = dar.main._2.directDeps
-
-    sealed abstract class PackageClassification
-    final case class ExtraPackage(pkgId: PackageId, pkg: Package) extends PackageClassification
-    final case class DependentPackage(pkgId: PackageId) extends PackageClassification
-    final case class MissingPackage(pkgId: PackageId) extends PackageClassification
-
-    @tailrec
-    def calculateDependencyInformation(
-        pkgIds: Set[PackageId],
-        pkgClassification: Map[PackageId, PackageClassification],
-    ): (Set[PackageId], Set[PackageId], Set[PackageId]) = {
-      val unclassifiedPkgIds = pkgIds.collect {
-        case id
-            if !pkgClassification.contains(id) || pkgClassification(id)
-              .isInstanceOf[ExtraPackage] =>
-          id
-      }
-
-      if (unclassifiedPkgIds.isEmpty) {
-        val result = pkgClassification.values.toSet
-        val knownDeps = result.collect { case DependentPackage(id) => id }
-        val missingDeps = result.collect { case MissingPackage(id) => id }
-        val extraDeps = result.collect { case ExtraPackage(id, _) => id }
-
-        (knownDeps, missingDeps, extraDeps)
-      } else {
-        val (knownPkgIds, missingPkdIds) =
-          unclassifiedPkgIds.partition(id => pkgClassification.contains(id))
-        val missingDeps = missingPkdIds.map(id => id -> MissingPackage(id)).toMap
-        val knownDeps = knownPkgIds.map(id => id -> DependentPackage(id)).toMap
-        // There is no point in searching through missing package Ids!
-        val directDeps =
-          knownPkgIds.flatMap(id => pkgClassification(id).asInstanceOf[ExtraPackage].pkg.directDeps)
-
-        calculateDependencyInformation(directDeps, pkgClassification ++ knownDeps ++ missingDeps)
-      }
-    }
 
     for {
+      // first do Version check, copied as-is from validateDar pre-imports-rework
       _ <- darPackages
         .collectFirst {
           case (pkgId, pkg)
@@ -766,18 +741,20 @@ class Engine(val config: EngineConfig) {
             )
         }
         .toLeft(())
-      // missingDeps are transitive dependencies (of the Dar main package) that are missing from the Dar manifest
-      (transitiveDeps, missingDeps, unusedDeps) = calculateDependencyInformation(
-        mainPackageDependencies,
-        darPackages.map { case (id, pkg) => id -> ExtraPackage(id, pkg) },
-      )
-      // extraDeps are unused Dar manifest package IDs that are not stable packages and not the main package ID
-      extraDeps = unusedDeps.diff(Set(mainPackageId) union stablePackageIds)
+
+      // meat of the package checks, to check if included = mentioned
       _ <- Either.cond(
-        missingDeps.isEmpty && extraDeps.isEmpty,
+        included == mentioned,
         (),
-        Error.Package.DarSelfConsistency(mainPackageId, transitiveDeps, missingDeps, extraDeps),
+        // we set transitiveDependencies to Set.empty because our logic does not generate it anymore
+        Error.Package.DarSelfConsistency(
+          mainPackageId = mainPackageId,
+          missingDependencies = mentioned.diff(included),
+          extraDependencies = included.diff(mentioned),
+        ),
       )
+
+      // rest of copied check from validateDar pre-imports-rework
       pkgInterface = PackageInterface(darPackages)
       _ <- {
         darPackages.iterator
@@ -842,26 +819,30 @@ class Engine(val config: EngineConfig) {
       hashingMethod: Hash.HashingMethod,
   ): Result[Hash] = {
     import Engine.Syntax._
-    import Engine.mkDevError
+    import Engine.mkInterpretationError
 
-    val location = NameOf.qualifiedNameOfCurrentFunc
     val templateId = create.templateId
     val pkgId = templateId.packageId
     val createArg = create.arg.mapCid(contractIdSubstitution)
     val packageName = create.packageName
+
+    def mkHashingError(msg: String): Error.Interpretation =
+      mkInterpretationError(
+        IError.ContractHashingError(create.coid, create.templateId, create.arg, msg)
+      )
 
     hashingMethod match {
       case Hash.HashingMethod.Legacy =>
         Hash
           .hashContractInstance(templateId, createArg, packageName, upgradeFriendly = false)
           .left
-          .map(error => mkDevError(location, IError.Dev.HashingError(error)))
+          .map(mkHashingError)
           .toResult
       case Hash.HashingMethod.UpgradeFriendly =>
         Hash
           .hashContractInstance(templateId, createArg, packageName, upgradeFriendly = true)
           .left
-          .map(error => mkDevError(location, IError.Dev.HashingError(error)))
+          .map(mkHashingError)
           .toResult
       case Hash.HashingMethod.TypedNormalForm =>
         for {
@@ -872,15 +853,28 @@ class Engine(val config: EngineConfig) {
           sValue <- new ValueTranslator(
             compiledPackages.pkgInterface,
             forbidLocalContractIds = true,
+            forbidTrailingNones = true,
           )
             .translateValue(Ast.TTyCon(templateId), createArg)
             .left
-            .map(error => mkDevError(location, IError.Dev.TranslationError(error)))
+            .map(error =>
+              mkInterpretationError(
+                IError.Upgrade(
+                  IError.Upgrade.TranslationFailed(
+                    Some(create.coid),
+                    create.templateId,
+                    create.templateId,
+                    create.arg,
+                    error,
+                  )
+                )
+              )
+            )
             .toResult
           hash <- SValueHash
             .hashContractInstance(packageName, templateId.qualifiedName, sValue)
             .left
-            .map(error => mkDevError(location, IError.Dev.HashingError(error.msg)))
+            .map(error => mkHashingError(error.msg))
             .toResult
         } yield hash
     }
@@ -1014,8 +1008,8 @@ object Engine {
     EngineConfig(allowedLanguageVersions = LanguageVersion.AllVersions(majorLanguageVersion))
   )
 
-  private def mkDevError(location: String, error: IError.Dev.Error) =
-    Error.Interpretation(Error.Interpretation.DamlException(IError.Dev(location, error)), None)
+  private def mkInterpretationError(error: IError) =
+    Error.Interpretation(Error.Interpretation.DamlException(error), None)
 
   private object Syntax {
     implicit class EitherOps[A](val e: Either[Error, A]) extends AnyVal {

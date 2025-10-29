@@ -1,12 +1,10 @@
 -- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE InstanceSigs #-}
 
 module Daml.Script.Internal.Questions.Exceptions where
 
-#ifdef DAML_EXCEPTIONS
 import DA.Exception
 import DA.Optional
 import Daml.Script.Internal.LowLevel
@@ -61,11 +59,6 @@ throwAnyException = lift . Throw
 -- | HIDE
 instance CanAssert Script where
   assertFail m = throw (AssertionFailed m)
-#else
--- | HIDE
-instance CanAssert Script where
-  assertFail = abort
-#endif
 
 -- | HIDE
 data FailWithStatus = FailWithStatus with

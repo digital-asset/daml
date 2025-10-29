@@ -6,10 +6,8 @@ package com.digitalasset.canton.protocol
 import cats.syntax.either.*
 import com.digitalasset.canton.crypto.{Hash, HashOps, HashPurpose, HmacOps, Salt}
 import com.digitalasset.canton.serialization.DeterministicEncoding
-import com.digitalasset.canton.util.LegacyContractHash
 import com.digitalasset.daml.lf.data.Bytes
 import com.digitalasset.daml.lf.transaction.{CreationTime, FatContractInstance, Versioned}
-import com.digitalasset.daml.lf.value.Value.ThinContractInstance
 import com.google.common.annotations.VisibleForTesting
 
 /** Generates [[ContractSalt]]s and [[Unicum]]s for contract IDs such that the [[Unicum]] is a
@@ -113,10 +111,10 @@ class UnicumGenerator(cryptoOps: HashOps & HmacOps) {
     *   the ledger time at which the contract is created
     * @param metadata
     *   contract metadata
-    * @param suffixedContractInstance
-    *   the thin instance of the contract where contract IDs have already been suffixed.
     * @param cantonContractIdVersion
     *   the contract id versioning
+    * @param contractHash
+    *   the contract hash using the method associated with the IdVersion
     *
     * @see
     *   UnicumGenerator for the construction details and the security properties
@@ -125,23 +123,18 @@ class UnicumGenerator(cryptoOps: HashOps & HmacOps) {
       salt: ContractSalt,
       ledgerCreateTime: CreationTime.CreatedAt,
       metadata: ContractMetadata,
-      suffixedContractInstance: ThinContractInstance,
       cantonContractIdVersion: CantonContractIdV1Version,
+      contractHash: LfHash,
   ): ContractIdSuffixV1 = {
     val contractSaltSize = salt.unwrap.size
     require(
       contractSaltSize.toLong == cryptoOps.defaultHmacAlgorithm.hashAlgorithm.length,
       s"Invalid contract salt size ($contractSaltSize)",
     )
-    val contractArgHash = LegacyContractHash.tryThinContractHash(
-      suffixedContractInstance,
-      cantonContractIdVersion.useUpgradeFriendlyHashing,
-    )
-
     val unicum = computeUnicumHash(
       ledgerCreateTime = ledgerCreateTime,
       metadata = metadata,
-      contractHash = contractArgHash,
+      contractHash = contractHash,
       contractSalt = salt.unwrap,
     )
     ContractIdSuffixV1(cantonContractIdVersion, Unicum(unicum))
@@ -150,8 +143,8 @@ class UnicumGenerator(cryptoOps: HashOps & HmacOps) {
   def generateRelativeSuffixV2(
       salt: ContractSalt,
       metadata: ContractMetadata,
-      suffixedContractInstance: ThinContractInstance,
       cantonContractIdVersion: CantonContractIdV2Version,
+      contractArgHash: LfHash,
   ): RelativeContractIdSuffixV2 = {
     val hash = cantonContractIdVersion match {
       case CantonContractIdV2Version0 =>
@@ -159,10 +152,6 @@ class UnicumGenerator(cryptoOps: HashOps & HmacOps) {
         require(
           contractSaltSize.toLong == cryptoOps.defaultHmacAlgorithm.hashAlgorithm.length,
           s"Invalid contract salt size ($contractSaltSize)",
-        )
-        val contractArgHash = LegacyContractHash.tryThinContractHash(
-          suffixedContractInstance,
-          upgradeFriendly = true,
         )
         val nonSignatoryStakeholders = metadata.stakeholders -- metadata.signatories
 
@@ -207,40 +196,6 @@ class UnicumGenerator(cryptoOps: HashOps & HmacOps) {
   /** Re-computes a contract's [[Unicum]] based on the provided salt. Used for authenticating
     * contracts.
     *
-    * @param contractSalt
-    *   the [[ContractSalt]] computed when the original contract id was generated.
-    * @param ledgerCreateTime
-    *   the ledger time at which the contract is created
-    * @param metadata
-    *   contract metadata
-    * @param suffixedContractInstance
-    *   the thin instance of the contract where contract IDs have already been suffixed.
-    * @param cantonContractIdVersion
-    *   the contract id versioning
-    * @return
-    *   the unicum if successful or a failure if the contract salt size is mismatching the
-    *   predefined size.
-    */
-  def recomputeUnicum(
-      contractSalt: Salt,
-      ledgerCreateTime: CreationTime.CreatedAt,
-      metadata: ContractMetadata,
-      suffixedContractInstance: ThinContractInstance,
-      cantonContractIdVersion: CantonContractIdV1Version,
-  ): Either[String, Unicum] =
-    recomputeUnicum(
-      contractSalt = contractSalt,
-      ledgerCreateTime = ledgerCreateTime,
-      metadata = metadata,
-      contractHash = LegacyContractHash.tryThinContractHash(
-        suffixedContractInstance,
-        cantonContractIdVersion.useUpgradeFriendlyHashing,
-      ),
-    )
-
-  /** Re-computes a contract's [[Unicum]] based on the provided salt. Used for authenticating
-    * contracts.
-    *
     * @param contractInstance
     *   the serializable raw contract instance of the contract where contract IDs have already been
     *   suffixed.
@@ -277,6 +232,21 @@ class UnicumGenerator(cryptoOps: HashOps & HmacOps) {
       )
     } yield unicum
 
+  /** Re-computes a contract's [[Unicum]] based on the provided salt. Used for authenticating
+    * contracts.
+    *
+    * @param contractSalt
+    *   the [[ContractSalt]] computed when the original contract id was generated.
+    * @param ledgerCreateTime
+    *   the ledger time at which the contract is created
+    * @param metadata
+    *   contract metadata
+    * @param contractHash
+    *   contract hash
+    * @return
+    *   the unicum if successful or a failure if the contract salt size is mismatching the
+    *   predefined size.
+    */
   def recomputeUnicum(
       contractSalt: Salt,
       ledgerCreateTime: CreationTime.CreatedAt,

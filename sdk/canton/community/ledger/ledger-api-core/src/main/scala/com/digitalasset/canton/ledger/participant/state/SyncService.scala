@@ -5,19 +5,27 @@ package com.digitalasset.canton.ledger.participant.state
 
 import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.error.{TransactionError, TransactionRoutingError}
 import com.digitalasset.canton.ledger.api.health.ReportsHealth
 import com.digitalasset.canton.ledger.participant.state.SyncService.{
   ConnectedSynchronizerRequest,
   ConnectedSynchronizerResponse,
+  SubmissionCostEstimation,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.protocol.{LfContractId, LfSubmittedTransaction}
+import com.digitalasset.canton.platform.apiserver.services.command.interactive.CostEstimationHints
+import com.digitalasset.canton.protocol.{
+  LfContractId,
+  LfFatContractInst,
+  LfSubmittedTransaction,
+  LfVersionedTransaction,
+}
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.{LfPackageId, LfPartyId, SynchronizerAlias}
+import com.digitalasset.canton.{LfKeyResolver, LfPackageId, LfPartyId, SynchronizerAlias}
 
 /** An interface to change a ledger via a participant. '''Please note that this interface is
   * unstable and may significantly change.'''
@@ -84,7 +92,7 @@ trait SyncService
     *     of the informees provided
     *   - if the prescribed synchronizer is provided, only that one is considered
     */
-  def packageMapFor(
+  def computePartyVettingMap(
       submitters: Set[LfPartyId],
       informees: Set[LfPartyId],
       vettingValidityTimestamp: CantonTimestamp,
@@ -169,9 +177,31 @@ trait SyncService
   /** Constructs and fetches the current synchronizer state, to be used throughout command execution
     */
   def getRoutingSynchronizerState(implicit traceContext: TraceContext): RoutingSynchronizerState
+
+  /** Estimate the associated traffic cost to submitting and confirming a transaction
+    */
+  def estimateTrafficCost(
+      synchronizerId: SynchronizerId,
+      transaction: LfVersionedTransaction,
+      transactionMetadata: TransactionMeta,
+      submitterInfo: SubmitterInfo,
+      keyResolver: LfKeyResolver,
+      disclosedContracts: Map[LfContractId, LfFatContractInst],
+      costHints: CostEstimationHints,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, SubmissionCostEstimation]
 }
 
 object SyncService {
+  final case class SubmissionCostEstimation(
+      estimationTimestamp: CantonTimestamp,
+      confirmationRequestCost: NonNegativeLong,
+      confirmationResponseCost: NonNegativeLong,
+  ) {
+    def totalCost: NonNegativeLong =
+      confirmationRequestCost + confirmationResponseCost
+  }
   final case class ConnectedSynchronizerRequest(
       party: Option[LfPartyId],
       participantId: Option[ParticipantId],

@@ -54,6 +54,7 @@ import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.util.MaxBytesToDecompress
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.ActorSystem
@@ -130,7 +131,6 @@ class BlockSequencerTest
       SequencedTime(CantonTimestamp.Epoch),
       EffectiveTime(CantonTimestamp.Epoch),
       ApproximateTime(CantonTimestamp.Epoch),
-      potentialTopologyChange = true,
     )
     private val cryptoApi = SynchronizerCryptoClient.create(
       member = sequencer1,
@@ -194,6 +194,7 @@ class BlockSequencerTest
           ApiLoggingConfig.defaultMaxStringLength,
           ApiLoggingConfig.defaultMaxMessageLines,
         ),
+        maxBytesToDecompress = MaxBytesToDecompress.Default,
         metrics = SequencerMetrics.noop(this.getClass.getName),
         loggerFactory = loggerFactory,
         exitOnFatalFailures = true,

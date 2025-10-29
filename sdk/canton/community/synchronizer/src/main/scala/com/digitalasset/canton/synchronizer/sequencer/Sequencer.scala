@@ -21,6 +21,7 @@ import com.digitalasset.canton.synchronizer.sequencer.admin.data.{
   SequencerAdminStatus,
   SequencerHealthStatus,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.BlockOrderer
 import com.digitalasset.canton.synchronizer.sequencer.errors.*
 import com.digitalasset.canton.synchronizer.sequencer.traffic.TimestampSelector.TimestampSelector
 import com.digitalasset.canton.synchronizer.sequencer.traffic.{
@@ -32,6 +33,7 @@ import com.digitalasset.canton.time.SynchronizerTimeTracker
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.tracing.TraceContext
+import com.google.common.annotations.VisibleForTesting
 import io.grpc.ServerServiceDefinition
 import org.apache.pekko.Done
 import org.apache.pekko.stream.KillSwitch
@@ -83,6 +85,9 @@ trait Sequencer
   override def initialHealthState: SequencerHealthStatus =
     SequencerHealthStatus(isActive = true)
   override def closingState: SequencerHealthStatus = SequencerHealthStatus.shutdownStatus
+
+  @VisibleForTesting
+  private[canton] def orderer: Option[BlockOrderer]
 
   /** True if member is registered in sequencer persistent state / storage (i.e. database).
     */

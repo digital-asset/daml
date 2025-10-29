@@ -13,7 +13,13 @@ import com.digitalasset.canton.buildinfo.BuildInfo
 import com.digitalasset.canton.cli.Command.Sandbox
 import com.digitalasset.canton.cli.{Cli, Command, LogFileAppender}
 import com.digitalasset.canton.config.ConfigErrors.CantonConfigError
-import com.digitalasset.canton.config.{CantonConfig, ConfigErrors, GCLoggingConfig, Generate}
+import com.digitalasset.canton.config.{
+  CantonConfig,
+  ConfigErrors,
+  DefaultPorts,
+  GCLoggingConfig,
+  Generate,
+}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.{Environment, EnvironmentFactory}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -130,12 +136,17 @@ abstract class CantonAppDriver extends App with NamedLogging with NoTracing {
   }))
   logger.debug("Registered shutdown-hook.")
   private object Config {
+    val devConfig =
+      Option.when(cliOptions.devProtocol)(JarResourceUtils.extractFileFromJar("sandbox/dev.conf"))
     val sandboxConfig = JarResourceUtils.extractFileFromJar("sandbox/sandbox.conf")
-    val sandboxBotstrap = JarResourceUtils.extractFileFromJar("sandbox/bootstrap.canton")
+    val devPrefix = if (cliOptions.devProtocol) "dev-" else ""
+    val sandboxBotstrap =
+      JarResourceUtils.extractFileFromJar(s"sandbox/${devPrefix}bootstrap.canton")
     val configFiles = cliOptions.command
       .collect { case Sandbox => sandboxConfig }
       .toList
       .concat(cliOptions.configFiles)
+      .concat(devConfig)
     val bootstrapFile = cliOptions.command
       .collect { case Sandbox => sandboxBotstrap }
       .orElse(cliOptions.bootstrapScriptPath)
@@ -156,7 +167,7 @@ abstract class CantonAppDriver extends App with NamedLogging with NoTracing {
       for {
         mergedUserConfigs <- mergedUserConfigsE
         finalConfig = CantonConfig.mergeConfigs(mergedUserConfigs, Seq(configFromMap))
-        loadedConfig <- loadConfig(finalConfig)
+        loadedConfig <- loadConfig(finalConfig, None)
           .leftMap { err =>
             // if loading failed and there is more than one file, writing it into a temporary file
             if (configFiles.sizeCompare(1) > 0) {
@@ -259,7 +270,10 @@ abstract class CantonAppDriver extends App with NamedLogging with NoTracing {
     case Left(_) => sys.exit(1)
   }
 
-  def loadConfig(config: Config): Either[CantonConfigError, CantonConfig]
+  def loadConfig(
+      config: Config,
+      defaultPorts: Option[DefaultPorts],
+  ): Either[CantonConfigError, CantonConfig]
 
   private def startupConfigFileMonitoring(environment: Environment): Unit =
     TraceContext.withNewTraceContext("config_file_monitoring") { implicit traceContext =>

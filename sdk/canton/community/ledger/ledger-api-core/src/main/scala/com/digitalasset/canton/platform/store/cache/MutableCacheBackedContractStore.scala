@@ -4,18 +4,19 @@
 package com.digitalasset.canton.platform.store.cache
 
 import com.digitalasset.canton.ledger.participant.state.index
-import com.digitalasset.canton.ledger.participant.state.index.ContractStore
+import com.digitalasset.canton.ledger.participant.state.index.ContractStateStatus.ExistingContractStatus
+import com.digitalasset.canton.ledger.participant.state.index.{
+  ContractState,
+  ContractStateStatus,
+  ContractStore,
+}
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
+import com.digitalasset.canton.participant.store
 import com.digitalasset.canton.platform.store.cache.ContractKeyStateValue.*
-import com.digitalasset.canton.platform.store.cache.ContractStateValue.*
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader
-import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.{
-  ActiveContract,
-  ArchivedContract,
-  ContractState,
-  KeyState,
-}
+import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.KeyState
 import com.digitalasset.daml.lf.transaction.GlobalKey
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -24,6 +25,7 @@ private[platform] class MutableCacheBackedContractStore(
     contractsReader: LedgerDaoContractsReader,
     val loggerFactory: NamedLoggerFactory,
     private[cache] val contractStateCaches: ContractStateCaches,
+    contractStore: store.ContractStore,
 )(implicit executionContext: ExecutionContext)
     extends ContractStore
     with NamedLogging {
@@ -31,26 +33,32 @@ private[platform] class MutableCacheBackedContractStore(
   override def lookupActiveContract(readers: Set[Party], contractId: ContractId)(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Option[FatContract]] =
-    lookupContractStateValue(contractId)
-      .flatMap(contractStateToResponse(readers))
+    lookupContractState(contractId)
+      .map(contractStateToResponse(readers))
 
   override def lookupContractState(
       contractId: ContractId
-  )(implicit loggingContext: LoggingContextWithTrace): Future[index.ContractState] =
-    lookupContractStateValue(contractId)
-      .map {
-        case active: Active => index.ContractState.Active(active.contract)
-        case _: Archived => index.ContractState.Archived
-        case NotFound => index.ContractState.NotFound
-      }
-
-  private def lookupContractStateValue(
-      contractId: ContractId
-  )(implicit loggingContext: LoggingContextWithTrace): Future[ContractStateValue] =
+  )(implicit loggingContext: LoggingContextWithTrace): Future[ContractState] =
     contractStateCaches.contractState
       .get(contractId)
       .map(Future.successful)
       .getOrElse(readThroughContractsCache(contractId))
+      .flatMap {
+        case ContractStateStatus.Active =>
+          contractStore
+            .lookupPersisted(contractId)
+            .failOnShutdownTo(GrpcErrors.AbortedDueToShutdown.Error().asGrpcError)
+            .map {
+              case Some(persistedContract) => ContractState.Active(persistedContract.inst)
+              case None =>
+                logger.error(
+                  s"Contract $contractId marked as active in index (db or cache) but not found in participant's contract store"
+                )
+                ContractState.NotFound
+            }
+        case ContractStateStatus.Archived => Future.successful(ContractState.Archived)
+        case ContractStateStatus.NotFound => Future.successful(ContractState.NotFound)
+      }
 
   override def lookupContractKey(readers: Set[Party], key: GlobalKey)(implicit
       loggingContext: LoggingContextWithTrace
@@ -59,11 +67,11 @@ private[platform] class MutableCacheBackedContractStore(
       .get(key)
       .map(Future.successful)
       .getOrElse(readThroughKeyCache(key))
-      .map(keyStateToResponse(_, readers))
+      .flatMap(keyStateToResponse(_, readers))
 
   private def readThroughContractsCache(contractId: ContractId)(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[ContractStateValue] =
+  ): Future[ContractStateStatus] =
     contractStateCaches.contractState
       .putAsync(
         contractId,
@@ -73,31 +81,31 @@ private[platform] class MutableCacheBackedContractStore(
   private def keyStateToResponse(
       value: ContractKeyStateValue,
       readers: Set[Party],
-  ): Option[ContractId] = value match {
-    case Assigned(contractId, createWitnesses) if nonEmptyIntersection(readers, createWitnesses) =>
-      Some(contractId)
-    case _: Assigned | Unassigned => Option.empty
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[ContractId]] = value match {
+    case Assigned(contractId) =>
+      lookupContractState(contractId).map(
+        contractStateToResponse(readers)(_).map(_.contractId)
+      )
+
+    case _: Assigned | Unassigned => Future.successful(None)
   }
 
   private def contractStateToResponse(readers: Set[Party])(
-      value: ContractStateValue
-  ): Future[Option[FatContract]] =
+      value: index.ContractState
+  ): Option[FatContract] =
     value match {
-      case Active(contract) if nonEmptyIntersection(contract.stakeholders, readers) =>
-        Future.successful(Some(contract))
+      case ContractState.Active(contract) if nonEmptyIntersection(contract.stakeholders, readers) =>
+        Some(contract)
       case _ =>
-        Future.successful(Option.empty)
+        None
     }
 
-  private val toContractCacheValue: Option[ContractState] => ContractStateValue = {
-    case Some(active: ActiveContract) => ContractStateValue.Active(active.contract)
-    case Some(ArchivedContract(stakeholders)) => ContractStateValue.Archived(stakeholders)
-    case None => ContractStateValue.NotFound
-  }
+  private val toContractCacheValue: Option[ExistingContractStatus] => ContractStateStatus =
+    _.getOrElse(ContractStateStatus.NotFound)
 
   private val toKeyCacheValue: KeyState => ContractKeyStateValue = {
-    case LedgerDaoContractsReader.KeyAssigned(contractId, stakeholders) =>
-      Assigned(contractId, stakeholders)
+    case LedgerDaoContractsReader.KeyAssigned(contractId) =>
+      Assigned(contractId)
     case LedgerDaoContractsReader.KeyUnassigned =>
       Unassigned
   }

@@ -7,21 +7,20 @@ import org.slf4j.Logger;
 import org.slf4j.Marker;
 import org.slf4j.event.Level;
 import org.slf4j.helpers.SubstituteLogger;
-
-import java.util.concurrent.atomic.AtomicReference;
+import scala.runtime.BoxedUnit;
 
 import static org.slf4j.event.Level.*;
 
 class SuppressingLoggerDispatcher extends SubstituteLogger {
 
   private final Logger suppressedMessageLogger;
-  private final AtomicReference<SuppressingLogger.State> activeSuppressionState;
+  private final SuppressingLogger.ActiveState activeSuppressionState;
   private final String suppressionPrefix;
 
   SuppressingLoggerDispatcher(
       String name,
       Logger suppressedMessageLogger,
-      AtomicReference<SuppressingLogger.State> activeSuppressionState,
+      SuppressingLogger.ActiveState activeSuppressionState,
       String suppressionPrefix) {
     // because we know we won't log anything before setting the delegate there's no need to set an
     // event queue hence the null
@@ -33,406 +32,454 @@ class SuppressingLoggerDispatcher extends SubstituteLogger {
 
   @Override
   public void error(String msg) {
-    if (isSuppressed(ERROR)) {
-      super.info(withSuppressionHint(ERROR, msg));
-      suppressedMessageLogger.error(msg);
-    } else {
-      super.error(msg);
-    }
+    ifSuppressed(
+        ERROR,
+        () -> {
+          super.info(withSuppressionHint(ERROR, msg));
+          suppressedMessageLogger.error(msg);
+        },
+        () -> super.error(msg));
   }
 
   @Override
   public void error(String format, Object arg) {
-    if (isSuppressed(ERROR)) {
-      super.info(withSuppressionHint(ERROR, format), arg);
-      suppressedMessageLogger.error(format, arg);
-    } else {
-      super.error(format, arg);
-    }
+    ifSuppressed(
+        ERROR,
+        () -> {
+          super.info(withSuppressionHint(ERROR, format), arg);
+          suppressedMessageLogger.error(format, arg);
+        },
+        () -> super.error(format, arg));
   }
 
   @Override
   public void error(String format, Object arg1, Object arg2) {
-    if (isSuppressed(ERROR)) {
-      super.info(withSuppressionHint(ERROR, format), arg1, arg2);
-      suppressedMessageLogger.error(format, arg1, arg2);
-    } else {
-      super.error(format, arg1, arg2);
-    }
+    ifSuppressed(
+        ERROR,
+        () -> {
+          super.info(withSuppressionHint(ERROR, format), arg1, arg2);
+          suppressedMessageLogger.error(format, arg1, arg2);
+        },
+        () -> super.error(format, arg1, arg2));
   }
 
   @Override
   public void error(String format, Object... arguments) {
-    if (isSuppressed(ERROR)) {
-      super.info(withSuppressionHint(ERROR, format), arguments);
-      suppressedMessageLogger.error(format, arguments);
-    } else {
-      super.error(format, arguments);
-    }
+    ifSuppressed(
+        ERROR,
+        () -> {
+          super.info(withSuppressionHint(ERROR, format), arguments);
+          suppressedMessageLogger.error(format, arguments);
+        },
+        () -> super.error(format, arguments));
   }
 
   @Override
   public void error(String msg, Throwable t) {
-    if (isSuppressed(ERROR)) {
-      super.info(withSuppressionHint(ERROR, msg), t);
-      suppressedMessageLogger.error(msg, t);
-    } else {
-      super.error(msg, t);
-    }
+    ifSuppressed(
+        ERROR,
+        () -> {
+          super.info(withSuppressionHint(ERROR, msg), t);
+          suppressedMessageLogger.error(msg, t);
+        },
+        () -> super.error(msg, t));
   }
 
   @Override
   public void error(Marker marker, String msg) {
-    if (isSuppressed(ERROR)) {
-      super.info(marker, withSuppressionHint(ERROR, msg));
-      suppressedMessageLogger.error(marker, msg);
-    } else {
-      super.error(marker, msg);
-    }
+    ifSuppressed(
+        ERROR,
+        () -> {
+          super.info(marker, withSuppressionHint(ERROR, msg));
+          suppressedMessageLogger.error(marker, msg);
+        },
+        () -> super.error(marker, msg));
   }
 
   @Override
   public void error(Marker marker, String format, Object arg) {
-    if (isSuppressed(ERROR)) {
-      super.info(marker, withSuppressionHint(ERROR, format), arg);
-      suppressedMessageLogger.error(marker, format, arg);
-    } else {
-      super.error(marker, format, arg);
-    }
+    ifSuppressed(
+        ERROR,
+        () -> {
+          super.info(marker, withSuppressionHint(ERROR, format), arg);
+          suppressedMessageLogger.error(marker, format, arg);
+        },
+        () -> super.error(marker, format, arg));
   }
 
   @Override
   public void error(Marker marker, String format, Object arg1, Object arg2) {
-    if (isSuppressed(ERROR)) {
-      super.info(marker, withSuppressionHint(ERROR, format), arg1, arg2);
-      suppressedMessageLogger.error(marker, format, arg1, arg2);
-    } else {
-      super.error(marker, format, arg1, arg2);
-    }
+    ifSuppressed(
+        ERROR,
+        () -> {
+          super.info(marker, withSuppressionHint(ERROR, format), arg1, arg2);
+          suppressedMessageLogger.error(marker, format, arg1, arg2);
+        },
+        () -> super.error(marker, format, arg1, arg2));
   }
 
   @Override
   public void error(Marker marker, String format, Object... arguments) {
-    if (isSuppressed(ERROR)) {
-      super.info(marker, withSuppressionHint(ERROR, format), arguments);
-      suppressedMessageLogger.error(marker, format, arguments);
-    } else {
-      super.error(marker, format, arguments);
-    }
+    ifSuppressed(
+        ERROR,
+        () -> {
+          super.info(marker, withSuppressionHint(ERROR, format), arguments);
+          suppressedMessageLogger.error(marker, format, arguments);
+        },
+        () -> super.error(marker, format, arguments));
   }
 
   @Override
   public void error(Marker marker, String msg, Throwable t) {
-    if (isSuppressed(ERROR)) {
-      super.info(marker, withSuppressionHint(ERROR, msg), t);
-      suppressedMessageLogger.error(marker, msg, t);
-    } else {
-      super.error(marker, msg, t);
-    }
+    ifSuppressed(
+        ERROR,
+        () -> {
+          super.info(marker, withSuppressionHint(ERROR, msg), t);
+          suppressedMessageLogger.error(marker, msg, t);
+        },
+        () -> super.error(marker, msg, t));
   }
 
   @Override
   public void warn(String msg) {
-    if (isSuppressed(WARN)) {
-      super.info(withSuppressionHint(WARN, msg));
-      suppressedMessageLogger.warn(msg);
-    } else {
-      super.warn(msg);
-    }
+    ifSuppressed(
+        WARN,
+        () -> {
+          super.info(withSuppressionHint(WARN, msg));
+          suppressedMessageLogger.warn(msg);
+        },
+        () -> super.warn(msg));
   }
 
   @Override
   public void warn(String format, Object arg) {
-    if (isSuppressed(WARN)) {
-      super.info(withSuppressionHint(WARN, format), arg);
-      suppressedMessageLogger.warn(format, arg);
-    } else {
-      super.warn(format, arg);
-    }
+    ifSuppressed(
+        WARN,
+        () -> {
+          super.info(withSuppressionHint(WARN, format), arg);
+          suppressedMessageLogger.warn(format, arg);
+        },
+        () -> super.warn(format, arg));
   }
 
   @Override
   public void warn(String format, Object arg1, Object arg2) {
-    if (isSuppressed(WARN)) {
-      super.info(withSuppressionHint(WARN, format), arg1, arg2);
-      suppressedMessageLogger.warn(format, arg1, arg2);
-    } else {
-      super.warn(format, arg1, arg2);
-    }
+    ifSuppressed(
+        WARN,
+        () -> {
+          super.info(withSuppressionHint(WARN, format), arg1, arg2);
+          suppressedMessageLogger.warn(format, arg1, arg2);
+        },
+        () -> super.warn(format, arg1, arg2));
   }
 
   @Override
   public void warn(String format, Object... arguments) {
-    if (isSuppressed(WARN)) {
-      super.info(withSuppressionHint(WARN, format), arguments);
-      suppressedMessageLogger.warn(format, arguments);
-    } else {
-      super.warn(format, arguments);
-    }
+    ifSuppressed(
+        WARN,
+        () -> {
+          super.info(withSuppressionHint(WARN, format), arguments);
+          suppressedMessageLogger.warn(format, arguments);
+        },
+        () -> super.warn(format, arguments));
   }
 
   @Override
   public void warn(String msg, Throwable t) {
-    if (isSuppressed(WARN)) {
-      super.info(withSuppressionHint(WARN, msg), t);
-      suppressedMessageLogger.warn(msg, t);
-    } else {
-      super.warn(msg, t);
-    }
+    ifSuppressed(
+        WARN,
+        () -> {
+          super.info(withSuppressionHint(WARN, msg), t);
+          suppressedMessageLogger.warn(msg, t);
+        },
+        () -> super.warn(msg, t));
   }
 
   @Override
   public void warn(Marker marker, String msg) {
-    if (isSuppressed(WARN)) {
-      super.info(marker, withSuppressionHint(WARN, msg));
-      suppressedMessageLogger.warn(marker, msg);
-    } else {
-      super.warn(marker, msg);
-    }
+    ifSuppressed(
+        WARN,
+        () -> {
+          super.info(marker, withSuppressionHint(WARN, msg));
+          suppressedMessageLogger.warn(marker, msg);
+        },
+        () -> super.warn(marker, msg));
   }
 
   @Override
   public void warn(Marker marker, String format, Object arg) {
-    if (isSuppressed(WARN)) {
-      super.info(marker, withSuppressionHint(WARN, format), arg);
-      suppressedMessageLogger.warn(marker, format, arg);
-    } else {
-      super.warn(marker, format, arg);
-    }
+    ifSuppressed(
+        WARN,
+        () -> {
+          super.info(marker, withSuppressionHint(WARN, format), arg);
+          suppressedMessageLogger.warn(marker, format, arg);
+        },
+        () -> super.warn(marker, format, arg));
   }
 
   @Override
   public void warn(Marker marker, String format, Object arg1, Object arg2) {
-    if (isSuppressed(WARN)) {
-      super.info(marker, withSuppressionHint(WARN, format), arg1, arg2);
-      suppressedMessageLogger.warn(marker, format, arg1, arg2);
-    } else {
-      super.warn(marker, format, arg1, arg2);
-    }
+    ifSuppressed(
+        WARN,
+        () -> {
+          super.info(marker, withSuppressionHint(WARN, format), arg1, arg2);
+          suppressedMessageLogger.warn(marker, format, arg1, arg2);
+        },
+        () -> super.warn(marker, format, arg1, arg2));
   }
 
   @Override
   public void warn(Marker marker, String format, Object... arguments) {
-    if (isSuppressed(WARN)) {
-      super.info(marker, withSuppressionHint(WARN, format), arguments);
-      suppressedMessageLogger.warn(marker, format, arguments);
-    } else {
-      super.warn(marker, format, arguments);
-    }
+    ifSuppressed(
+        WARN,
+        () -> {
+          super.info(marker, withSuppressionHint(WARN, format), arguments);
+          suppressedMessageLogger.warn(marker, format, arguments);
+        },
+        () -> super.warn(marker, format, arguments));
   }
 
   @Override
   public void warn(Marker marker, String msg, Throwable t) {
-    if (isSuppressed(WARN)) {
-      super.info(marker, withSuppressionHint(WARN, msg), t);
-      suppressedMessageLogger.warn(marker, msg, t);
-    } else {
-      super.warn(marker, msg, t);
-    }
+    ifSuppressed(
+        WARN,
+        () -> {
+          super.info(marker, withSuppressionHint(WARN, msg), t);
+          suppressedMessageLogger.warn(marker, msg, t);
+        },
+        () -> super.warn(marker, msg, t));
   }
 
   @Override
   public void info(String msg) {
-    if (isSuppressed(INFO)) {
-      super.info(withSuppressionHint(INFO, msg));
-      suppressedMessageLogger.info(msg);
-    } else {
-      super.info(msg);
-    }
+    ifSuppressed(
+        INFO,
+        () -> {
+          super.info(withSuppressionHint(INFO, msg));
+          suppressedMessageLogger.info(msg);
+        },
+        () -> super.info(msg));
   }
 
   @Override
   public void info(String format, Object arg) {
-    if (isSuppressed(INFO)) {
-      super.info(withSuppressionHint(INFO, format), arg);
-      suppressedMessageLogger.info(format, arg);
-    } else {
-      super.info(format, arg);
-    }
+    ifSuppressed(
+        INFO,
+        () -> {
+          super.info(withSuppressionHint(INFO, format), arg);
+          suppressedMessageLogger.info(format, arg);
+        },
+        () -> super.info(format, arg));
   }
 
   @Override
   public void info(String format, Object arg1, Object arg2) {
-    if (isSuppressed(INFO)) {
-      super.info(withSuppressionHint(INFO, format), arg1, arg2);
-      suppressedMessageLogger.info(format, arg1, arg2);
-    } else {
-      super.info(format, arg1, arg2);
-    }
+    ifSuppressed(
+        INFO,
+        () -> {
+          super.info(withSuppressionHint(INFO, format), arg1, arg2);
+          suppressedMessageLogger.info(format, arg1, arg2);
+        },
+        () -> super.info(format, arg1, arg2));
   }
 
   @Override
   public void info(String format, Object... arguments) {
-    if (isSuppressed(INFO)) {
-      super.info(withSuppressionHint(INFO, format), arguments);
-      suppressedMessageLogger.info(format, arguments);
-    } else {
-      super.info(format, arguments);
-    }
+    ifSuppressed(
+        INFO,
+        () -> {
+          super.info(withSuppressionHint(INFO, format), arguments);
+          suppressedMessageLogger.info(format, arguments);
+        },
+        () -> super.info(format, arguments));
   }
 
   @Override
   public void info(String msg, Throwable t) {
-    if (isSuppressed(INFO)) {
-      super.info(withSuppressionHint(INFO, msg), t);
-      suppressedMessageLogger.info(msg, t);
-    } else {
-      super.info(msg, t);
-    }
+    ifSuppressed(
+        INFO,
+        () -> {
+          super.info(withSuppressionHint(INFO, msg), t);
+          suppressedMessageLogger.info(msg, t);
+        },
+        () -> super.info(msg, t));
   }
 
   @Override
   public void info(Marker marker, String msg) {
-    if (isSuppressed(INFO)) {
-      super.info(marker, withSuppressionHint(INFO, msg));
-      suppressedMessageLogger.info(marker, msg);
-    } else {
-      super.info(marker, msg);
-    }
+    ifSuppressed(
+        INFO,
+        () -> {
+          super.info(marker, withSuppressionHint(INFO, msg));
+          suppressedMessageLogger.info(marker, msg);
+        },
+        () -> super.info(marker, msg));
   }
 
   @Override
   public void info(Marker marker, String format, Object arg) {
-    if (isSuppressed(INFO)) {
-      super.info(marker, withSuppressionHint(INFO, format), arg);
-      suppressedMessageLogger.info(marker, format, arg);
-    } else {
-      super.info(marker, format, arg);
-    }
+    ifSuppressed(
+        INFO,
+        () -> {
+          super.info(marker, withSuppressionHint(INFO, format), arg);
+          suppressedMessageLogger.info(marker, format, arg);
+        },
+        () -> super.info(marker, format, arg));
   }
 
   @Override
   public void info(Marker marker, String format, Object arg1, Object arg2) {
-    if (isSuppressed(INFO)) {
-      super.info(marker, withSuppressionHint(INFO, format), arg1, arg2);
-      suppressedMessageLogger.info(marker, format, arg1, arg2);
-    } else {
-      super.info(marker, format, arg1, arg2);
-    }
+    ifSuppressed(
+        INFO,
+        () -> {
+          super.info(marker, withSuppressionHint(INFO, format), arg1, arg2);
+          suppressedMessageLogger.info(marker, format, arg1, arg2);
+        },
+        () -> super.info(marker, format, arg1, arg2));
   }
 
   @Override
   public void info(Marker marker, String format, Object... arguments) {
-    if (isSuppressed(INFO)) {
-      super.info(marker, withSuppressionHint(INFO, format), arguments);
-      suppressedMessageLogger.info(marker, format, arguments);
-    } else {
-      super.info(marker, format, arguments);
-    }
+    ifSuppressed(
+        INFO,
+        () -> {
+          super.info(marker, withSuppressionHint(INFO, format), arguments);
+          suppressedMessageLogger.info(marker, format, arguments);
+        },
+        () -> super.info(marker, format, arguments));
   }
 
   @Override
   public void info(Marker marker, String msg, Throwable t) {
-    if (isSuppressed(INFO)) {
-      super.info(marker, withSuppressionHint(DEBUG, msg), t);
-      suppressedMessageLogger.info(marker, msg, t);
-    } else {
-      super.info(marker, msg, t);
-    }
+    ifSuppressed(
+        INFO,
+        () -> {
+          super.info(marker, withSuppressionHint(DEBUG, msg), t);
+          suppressedMessageLogger.info(marker, msg, t);
+        },
+        () -> super.info(marker, msg, t));
   }
 
   @Override
   public void debug(String msg) {
-    if (isSuppressed(DEBUG)) {
-      super.debug(withSuppressionHint(DEBUG, msg));
-      suppressedMessageLogger.debug(msg);
-    } else {
-      super.debug(msg);
-    }
+    ifSuppressed(
+        DEBUG,
+        () -> {
+          super.debug(withSuppressionHint(DEBUG, msg));
+          suppressedMessageLogger.debug(msg);
+        },
+        () -> super.debug(msg));
   }
 
   @Override
   public void debug(String format, Object arg) {
-    if (isSuppressed(DEBUG)) {
-      super.debug(withSuppressionHint(DEBUG, format), arg);
-      suppressedMessageLogger.debug(format, arg);
-    } else {
-      super.debug(format, arg);
-    }
+    ifSuppressed(
+        DEBUG,
+        () -> {
+          super.debug(withSuppressionHint(DEBUG, format), arg);
+          suppressedMessageLogger.debug(format, arg);
+        },
+        () -> super.debug(format, arg));
   }
 
   @Override
   public void debug(String format, Object arg1, Object arg2) {
-    if (isSuppressed(DEBUG)) {
-      super.debug(withSuppressionHint(DEBUG, format), arg1, arg2);
-      suppressedMessageLogger.debug(format, arg1, arg2);
-    } else {
-      super.debug(format, arg1, arg2);
-    }
+    ifSuppressed(
+        DEBUG,
+        () -> {
+          super.debug(withSuppressionHint(DEBUG, format), arg1, arg2);
+          suppressedMessageLogger.debug(format, arg1, arg2);
+        },
+        () -> super.debug(format, arg1, arg2));
   }
 
   @Override
   public void debug(String format, Object... arguments) {
-    if (isSuppressed(DEBUG)) {
-      super.debug(withSuppressionHint(DEBUG, format), arguments);
-      suppressedMessageLogger.debug(format, arguments);
-    } else {
-      super.debug(format, arguments);
-    }
+    ifSuppressed(
+        DEBUG,
+        () -> {
+          super.debug(withSuppressionHint(DEBUG, format), arguments);
+          suppressedMessageLogger.debug(format, arguments);
+        },
+        () -> super.debug(format, arguments));
   }
 
   @Override
   public void debug(String msg, Throwable t) {
-    if (isSuppressed(DEBUG)) {
-      super.debug(withSuppressionHint(DEBUG, msg), t);
-      suppressedMessageLogger.debug(msg, t);
-    } else {
-      super.debug(msg, t);
-    }
+    ifSuppressed(
+        DEBUG,
+        () -> {
+          super.debug(withSuppressionHint(DEBUG, msg), t);
+          suppressedMessageLogger.debug(msg, t);
+        },
+        () -> super.debug(msg, t));
   }
 
   @Override
   public void debug(Marker marker, String msg) {
-    if (isSuppressed(DEBUG)) {
-      super.debug(marker, withSuppressionHint(DEBUG, msg));
-      suppressedMessageLogger.debug(marker, msg);
-    } else {
-      super.debug(marker, msg);
-    }
+    ifSuppressed(
+        DEBUG,
+        () -> {
+          super.debug(marker, withSuppressionHint(DEBUG, msg));
+          suppressedMessageLogger.debug(marker, msg);
+        },
+        () -> super.debug(marker, msg));
   }
 
   @Override
   public void debug(Marker marker, String format, Object arg) {
-    if (isSuppressed(DEBUG)) {
-      super.debug(marker, withSuppressionHint(DEBUG, format), arg);
-      suppressedMessageLogger.debug(marker, format, arg);
-    } else {
-      super.debug(marker, format, arg);
-    }
+    ifSuppressed(
+        DEBUG,
+        () -> {
+          super.debug(marker, withSuppressionHint(DEBUG, format), arg);
+          suppressedMessageLogger.debug(marker, format, arg);
+        },
+        () -> super.debug(marker, format, arg));
   }
 
   @Override
   public void debug(Marker marker, String format, Object arg1, Object arg2) {
-    if (isSuppressed(DEBUG)) {
-      super.debug(marker, withSuppressionHint(DEBUG, format), arg1, arg2);
-      suppressedMessageLogger.debug(marker, format, arg1, arg2);
-    } else {
-      super.debug(marker, format, arg1, arg2);
-    }
+    ifSuppressed(
+        DEBUG,
+        () -> {
+          super.debug(marker, withSuppressionHint(DEBUG, format), arg1, arg2);
+          suppressedMessageLogger.debug(marker, format, arg1, arg2);
+        },
+        () -> super.debug(marker, format, arg1, arg2));
   }
 
   @Override
   public void debug(Marker marker, String format, Object... arguments) {
-    if (isSuppressed(DEBUG)) {
-      super.debug(marker, withSuppressionHint(DEBUG, format), arguments);
-      suppressedMessageLogger.debug(marker, format, arguments);
-    } else {
-      super.debug(marker, format, arguments);
-    }
+    ifSuppressed(
+        DEBUG,
+        () -> {
+          super.debug(marker, withSuppressionHint(DEBUG, format), arguments);
+          suppressedMessageLogger.debug(marker, format, arguments);
+        },
+        () -> super.debug(marker, format, arguments));
   }
 
   @Override
   public void debug(Marker marker, String msg, Throwable t) {
-    if (isSuppressed(DEBUG)) {
-      super.debug(marker, withSuppressionHint(DEBUG, msg), t);
-      suppressedMessageLogger.debug(marker, msg, t);
-    } else {
-      super.debug(marker, msg, t);
-    }
+    ifSuppressed(
+        DEBUG,
+        () -> {
+          super.debug(marker, withSuppressionHint(DEBUG, msg), t);
+          suppressedMessageLogger.debug(marker, msg, t);
+        },
+        () -> super.debug(marker, msg, t));
   }
 
-  private boolean isSuppressed(Level level) {
-    return activeSuppressionState.get().rule().isSuppressed(getName(), level);
+  private void ifSuppressed(Level level, Runnable ifSuppressed, Runnable ifNotSuppressed) {
+    activeSuppressionState.withSuppressionRule(
+        rule -> {
+          if (rule.isSuppressed(getName(), level)) {
+            ifSuppressed.run();
+          } else {
+            ifNotSuppressed.run();
+          }
+          return BoxedUnit.UNIT;
+        });
   }
 
   public String withSuppressionHint(Level level, String msg) {

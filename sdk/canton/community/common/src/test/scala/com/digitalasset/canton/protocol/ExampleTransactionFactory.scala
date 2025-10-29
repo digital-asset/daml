@@ -48,7 +48,7 @@ import com.digitalasset.canton.util.LfTransactionUtil.{
   metadataFromExercise,
   metadataFromFetch,
 }
-import com.digitalasset.canton.util.{LfTransactionBuilder, LfTransactionUtil}
+import com.digitalasset.canton.util.{LfTransactionBuilder, LfTransactionUtil, TestContractHasher}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.data.Ref.PackageName
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray}
@@ -73,6 +73,7 @@ object ExampleTransactionFactory {
   import EitherValues.*
 
   val pureCrypto: CryptoPureApi = new SymbolicPureCrypto()
+
   // Helper methods for Daml-LF types
   val languageVersion: LanguageVersion = LfTransactionBuilder.defaultLanguageVersion
   val packageId: LfPackageId = LfTransactionBuilder.defaultPackageId
@@ -81,7 +82,8 @@ object ExampleTransactionFactory {
   val packageName: PackageName = LfTransactionBuilder.defaultPackageName
   val someOptUsedPackages: Option[Set[LfPackageId]] = Some(Set(packageId))
   val defaultGlobalKey: LfGlobalKey = LfTransactionBuilder.defaultGlobalKey
-  val transactionVersion: LfLanguageVersion = LfTransactionBuilder.defaultTransactionVersion
+  val serializationVersion: LfSerializationVersion =
+    LfTransactionBuilder.defaultSerializationVersion
 
   private val random = new Random(0)
 
@@ -91,7 +93,7 @@ object ExampleTransactionFactory {
   }
 
   private def versionedValueCapturing(coid: List[LfContractId]): Value.VersionedValue =
-    LfVersioned(transactionVersion, valueCapturing(coid))
+    LfVersioned(serializationVersion, valueCapturing(coid))
 
   def contractInstance(
       capturedIds: Seq[LfContractId] = Seq.empty,
@@ -138,9 +140,12 @@ object ExampleTransactionFactory {
       version = instance.version,
     )
 
+    val contractHash =
+      TestContractHasher.Sync.hash(unsuffixedCreateNode, contractIdVersion.contractHashingMethod)
+
     val ContractIdSuffixer.RelativeSuffixResult(suffixedCreateNode, _, _, authenticationData) =
       contractIdSuffixer
-        .relativeSuffixForLocalContract(contractSalt, createdAt, unsuffixedCreateNode)
+        .relativeSuffixForLocalContract(contractSalt, createdAt, unsuffixedCreateNode, contractHash)
         .valueOr(err =>
           throw new IllegalArgumentException(s"Failed to compute suffix for contract: $err")
         )
@@ -159,7 +164,7 @@ object ExampleTransactionFactory {
     deepValue(Value.MAXIMUM_NESTING + 10)
   }
   val veryDeepVersionedValue: VersionedValue =
-    LfVersioned(transactionVersion, veryDeepValue)
+    LfVersioned(serializationVersion, veryDeepValue)
 
   val veryDeepContractInstance: LfThinContractInst =
     LfThinContractInst(
@@ -174,7 +179,7 @@ object ExampleTransactionFactory {
       packageName: LfPackageName = packageName,
   ): Versioned[LfGlobalKey] =
     LfVersioned(
-      transactionVersion,
+      serializationVersion,
       LfGlobalKey.assertBuild(templateId, value, packageName),
     )
 
@@ -182,7 +187,7 @@ object ExampleTransactionFactory {
       key: LfGlobalKey = defaultGlobalKey,
       maintainers: Set[LfPartyId] = Set(signatory),
   ): Versioned[LfGlobalKeyWithMaintainers] =
-    LfVersioned(transactionVersion, LfGlobalKeyWithMaintainers(key, maintainers))
+    LfVersioned(serializationVersion, LfGlobalKeyWithMaintainers(key, maintainers))
 
   def fetchNode(
       cid: LfContractId,
@@ -191,7 +196,7 @@ object ExampleTransactionFactory {
       observers: Set[LfPartyId] = Set.empty,
       key: Option[LfGlobalKeyWithMaintainers] = None,
       byKey: Boolean = false,
-      version: LfLanguageVersion = transactionVersion,
+      version: LfSerializationVersion = serializationVersion,
       templateId: LfTemplateId = templateId,
       interfaceId: Option[LfTemplateId] = None,
   ): LfNodeFetch =
@@ -224,7 +229,7 @@ object ExampleTransactionFactory {
       signatories = signatories,
       stakeholders = signatories ++ observers,
       keyOpt = key,
-      version = transactionVersion,
+      version = serializationVersion,
     )
   }
 
@@ -260,7 +265,7 @@ object ExampleTransactionFactory {
       exerciseResult = exerciseResult,
       keyOpt = key,
       byKey = byKey,
-      version = transactionVersion,
+      version = serializationVersion,
     )
 
   def exerciseNodeWithoutChildren(
@@ -293,7 +298,7 @@ object ExampleTransactionFactory {
       packageName = key.packageName,
       key = LfGlobalKeyWithMaintainers(key, maintainers),
       result = resolution,
-      version = transactionVersion,
+      version = serializationVersion,
     )
 
   def nodeId(index: Int): LfNodeId = LfNodeId(index)
@@ -316,10 +321,10 @@ object ExampleTransactionFactory {
       (nodeId(index + startIndex), node)
     }*)
 
-    val version = protocol.maxTransactionVersion(
+    val version = protocol.maxSerializationVersion(
       NonEmpty
         .from(nodesMap.values.toSeq.mapFilter(_.optVersion))
-        .getOrElse(NonEmpty(Seq, transactionVersion))
+        .getOrElse(NonEmpty(Seq, serializationVersion))
     )
 
     LfVersionedTransaction(version, nodesMap, roots)
@@ -333,7 +338,7 @@ object ExampleTransactionFactory {
   val malformedLfTransaction: LfVersionedTransaction = transaction(Seq(0))
 
   // Helper methods for contract ids and transaction ids
-  def transactionId(index: Int): TransactionId = TransactionId(
+  def transactionId(index: Int): UpdateId = UpdateId(
     TestHash.digest(s"transactionId$index")
   )
 
@@ -347,7 +352,7 @@ object ExampleTransactionFactory {
   def suffixedId(
       discriminator: Int,
       suffix: Int,
-      contractIdVersion: CantonContractIdVersion = AuthenticatedContractIdVersionV11,
+      contractIdVersion: CantonContractIdVersion = CantonContractIdVersion.maxV1,
   ): LfContractId =
     contractIdVersion match {
       case v1: CantonContractIdV1Version =>
@@ -377,7 +382,7 @@ object ExampleTransactionFactory {
   private def asAuthenticationData(
       salt: Salt,
       version: CantonContractIdVersion,
-      transactionId: Option[TransactionId] = None,
+      transactionId: Option[UpdateId] = None,
   ): ContractAuthenticationData =
     version match {
       case v1: CantonContractIdV1Version => ContractAuthenticationDataV1(salt)(v1)
@@ -499,7 +504,7 @@ class ExampleTransactionFactory(
     val ledgerTime: CantonTimestamp = CantonTimestamp.Epoch,
     val preparationTime: CantonTimestamp = CantonTimestamp.Epoch.minusMillis(9),
     val topologySnapshot: TopologySnapshot = defaultTopologySnapshot,
-    val cantonContractIdVersion: CantonContractIdVersion = AuthenticatedContractIdVersionV11,
+    val cantonContractIdVersion: CantonContractIdVersion = CantonContractIdVersion.maxV1,
 )(implicit ec: ExecutionContext, tc: TraceContext)
     extends EitherValues {
 
@@ -567,7 +572,7 @@ class ExampleTransactionFactory(
           suffixedId(-1, 1, cantonContractIdVersion) -> suffixedId(-1, 1, cantonContractIdVersion),
         ),
       ),
-      SingleFetch(version = LfLanguageVersion.v2_dev),
+      SingleFetch(version = LfSerializationVersion.VDev),
       SingleExercise(seed = deriveNodeSeed(0)),
       SingleExerciseWithNonstakeholderActor(seed = deriveNodeSeed(0)),
       MultipleRoots,
@@ -613,7 +618,7 @@ class ExampleTransactionFactory(
   )
   val unicumGenerator = new UnicumGenerator(cryptoOps)
 
-  def absolutizer(transactionId: TransactionId): ContractIdAbsolutizer = {
+  def absolutizer(transactionId: UpdateId): ContractIdAbsolutizer = {
     val absolutizationData: ContractIdAbsolutizationData =
       cantonContractIdVersion match {
         case _: CantonContractIdV1Version =>
@@ -648,7 +653,7 @@ class ExampleTransactionFactory(
     val metadata = ContractMetadata.tryCreate(
       signatories,
       signatories ++ observers,
-      maybeKeyWithMaintainers.map(LfVersioned(transactionVersion, _)),
+      maybeKeyWithMaintainers.map(LfVersioned(serializationVersion, _)),
     )
     val viewParticipantDataSalt = participantDataSalt(viewIndex)
     val contractSalt = cantonContractIdVersion match {
@@ -671,6 +676,11 @@ class ExampleTransactionFactory(
       metadata.stakeholders,
       metadata.maybeKeyWithMaintainers,
     )
+    val contractHash = TestContractHasher.Sync.hash(
+      unsuffixedCreateNode,
+      cantonContractIdVersion.contractHashingMethod,
+    )
+
     val ContractIdSuffixer.RelativeSuffixResult(
       relativeCreateNode,
       _,
@@ -682,6 +692,7 @@ class ExampleTransactionFactory(
           contractSalt,
           relativeCreateTime,
           unsuffixedCreateNode,
+          contractHash,
         )
         .valueOr(err =>
           throw new IllegalArgumentException(s"Cannot compute suffix for contract: $err")
@@ -699,7 +710,7 @@ class ExampleTransactionFactory(
   }
 
   def toAbsolute(
-      transactionId: TransactionId,
+      transactionId: UpdateId,
       relativeFci: FatContractInstance,
   ): (ContractAuthenticationData, LfContractId) = {
     val absoluteFci = absolutizer(transactionId)
@@ -783,7 +794,7 @@ class ExampleTransactionFactory(
       coreInputContracts,
       createWithSerialization,
       createdInSubviewArchivedInCore,
-      resolvedKeys.fmap(LfVersioned(transactionVersion, _)),
+      resolvedKeys.fmap(LfVersioned(serializationVersion, _)),
       actionDescription,
       RollbackContext.empty,
       participantDataSalt(viewIndex),
@@ -1050,7 +1061,7 @@ class ExampleTransactionFactory(
 
     override def versionedSuffixedTransaction: LfVersionedTransaction =
       LfVersionedTransaction(
-        version = transactionVersion,
+        version = serializationVersion,
         roots = ImmArray.empty,
         nodes = HashMap.empty,
       )
@@ -1060,12 +1071,18 @@ class ExampleTransactionFactory(
     override def usedAndCreated: UsedAndCreatedContracts = UsedAndCreatedContracts.empty
   }
 
-  abstract class SingleNode(val nodeSeed: Option[LfHash]) extends ExampleTransaction {
+  abstract class SingleNode(
+      val nodeSeed: Option[LfHash],
+      transactionIdOverride: Option[Eval[UpdateId]],
+  ) extends ExampleTransaction {
     override def cryptoOps: HashOps & RandomOps = ExampleTransactionFactory.this.cryptoOps
 
     def interpretedContractId: LfContractId
 
     def relativizedContractId: LfContractId
+
+    override def transactionId: UpdateId =
+      transactionIdOverride.fold(super.transactionId)(_.value)
 
     lazy val absolutizedContractId: LfContractId =
       absolutizer(transactionId)
@@ -1260,7 +1277,8 @@ class ExampleTransactionFactory(
       signatories: Set[LfPartyId] = Set(submitter),
       observers: Set[LfPartyId] = Set(observer),
       key: Option[LfGlobalKeyWithMaintainers] = None,
-  ) extends SingleNode(Some(seed)) {
+      transactionIdOverride: Option[Eval[UpdateId]] = None,
+  ) extends SingleNode(Some(seed), transactionIdOverride) {
 
     private def interpretedCapturedContractIds: Seq[LfContractId] = capturedContractIds.map(_._1)
     private def relativeCapturedContractIds: Seq[LfContractId] = capturedContractIds.map(_._2)
@@ -1276,7 +1294,7 @@ class ExampleTransactionFactory(
     lazy val relativeContractInstance: LfThinContractInst =
       ExampleTransactionFactory.contractInstance(relativeCapturedContractIds)
 
-    override val absoluteContractInstance: LfThinContractInst =
+    override lazy val absoluteContractInstance: LfThinContractInst =
       ExampleTransactionFactory.contractInstance(absoluteCapturedContractIds)
 
     lazy val interpretedContractId: LfContractId = localContractId(discriminator)
@@ -1344,17 +1362,23 @@ class ExampleTransactionFactory(
         Salt,
         (ContractAuthenticationData, Eval[ContractAuthenticationData]),
       ],
-  ) extends SingleNode(nodeSeed) {
+      transactionIdOverride: Option[Eval[UpdateId]],
+  ) extends SingleNode(nodeSeed, transactionIdOverride) {
     override def relativeAuthenticationData: ContractAuthenticationData =
-      authenticationData match {
-        case Left(salt) => asAuthenticationData(salt, cantonContractIdVersion, None)
-        case Right((relative, _)) => relative
+      cantonContractIdVersion match {
+        case _: CantonContractIdV2Version if relativizedContractId.isAbsolute =>
+          absoluteAuthenticationData
+        case _ =>
+          authenticationData match {
+            case Left(salt) => asAuthenticationData(salt, cantonContractIdVersion, None)
+            case Right((relative, _)) => relative
+          }
       }
 
     override def absoluteAuthenticationData: ContractAuthenticationData =
       authenticationData match {
         case Left(salt) =>
-          asAuthenticationData(salt, cantonContractIdVersion, Some(TransactionId.zero))
+          asAuthenticationData(salt, cantonContractIdVersion, Some(UpdateId.zero))
         case Right((_, absoluteE)) => absoluteE.value
       }
   }
@@ -1374,12 +1398,13 @@ class ExampleTransactionFactory(
       interpretedContractId: LfContractId = suffixedId(-1, 0, cantonContractIdVersion),
       relativizedContractId: LfContractId = suffixedId(-1, 0, cantonContractIdVersion),
       fetchedContractInstance: LfThinContractInst = contractInstance(),
-      version: LfLanguageVersion = transactionVersion,
+      version: LfSerializationVersion = serializationVersion,
       authenticationData: Either[
         Salt,
         (ContractAuthenticationData, Eval[ContractAuthenticationData]),
       ] = Left(TestSalt.generateSalt(random.nextInt())),
-  ) extends SingleUseNode(None, authenticationData) {
+      transactionIdOverride: Option[Eval[UpdateId]] = None,
+  ) extends SingleUseNode(None, authenticationData, transactionIdOverride) {
 
     override def relativeContractInstance: LfThinContractInst = fetchedContractInstance
     override def absoluteContractInstance: LfThinContractInst = fetchedContractInstance
@@ -1409,7 +1434,7 @@ class ExampleTransactionFactory(
     *   id of the exercised contract during interpretation
     * @param relativizedContractId
     *   id of the exercised contract after suffixing
-    * @param inputContractInstance
+    * @param relativeInputContractInstance
     *   instance of the used contract.
     */
   @SuppressWarnings(Array("org.wartremover.warts.IsInstanceOf"))
@@ -1418,16 +1443,18 @@ class ExampleTransactionFactory(
       override val nodeId: LfNodeId = LfNodeId(0),
       interpretedContractId: LfContractId = suffixedId(-1, 0, cantonContractIdVersion),
       relativizedContractId: LfContractId = suffixedId(-1, 0, cantonContractIdVersion),
-      inputContractInstance: LfThinContractInst = contractInstance(),
+      relativeInputContractInstance: LfThinContractInst = contractInstance(),
+      absoluteInputContractInstance: Eval[LfThinContractInst] = Eval.later(contractInstance()),
       authenticationData: Either[
         Salt,
         (ContractAuthenticationData, Eval[ContractAuthenticationData]),
       ] = Left(TestSalt.generateSalt(random.nextInt())),
-  ) extends SingleUseNode(Some(seed), authenticationData) {
+      transactionIdOverride: Option[Eval[UpdateId]] = None,
+  ) extends SingleUseNode(Some(seed), authenticationData, transactionIdOverride) {
     override def toString: String = "single exercise"
 
-    override def relativeContractInstance: LfThinContractInst = inputContractInstance
-    override def absoluteContractInstance: LfThinContractInst = inputContractInstance
+    override def relativeContractInstance: LfThinContractInst = relativeInputContractInstance
+    override def absoluteContractInstance: LfThinContractInst = absoluteInputContractInstance.value
 
     private def genNode(id: LfContractId): LfNodeExercises =
       exerciseNodeWithoutChildren(
@@ -1465,7 +1492,7 @@ class ExampleTransactionFactory(
         Salt,
         (ContractAuthenticationData, Eval[ContractAuthenticationData]),
       ] = Left(TestSalt.generateSalt(random.nextInt())),
-  ) extends SingleUseNode(Some(seed), authenticationData) {
+  ) extends SingleUseNode(Some(seed), authenticationData, None) {
     override def toString: String = "single exercise"
 
     override def relativeContractInstance: LfThinContractInst = inputContractInstance
@@ -1499,7 +1526,7 @@ class ExampleTransactionFactory(
         (ContractAuthenticationData, Eval[ContractAuthenticationData]),
       ] = Left(TestSalt.generateSalt(random.nextInt())),
       consuming: Boolean = true,
-  ) extends SingleUseNode(Some(seed), authenticationData) {
+  ) extends SingleUseNode(Some(seed), authenticationData, None) {
     val upgradedTemplateId: canton.protocol.LfTemplateId =
       templateId.copy(pkg = upgradePackageId)
     private def genNode(id: LfContractId): LfNodeExercises =
@@ -1522,7 +1549,7 @@ class ExampleTransactionFactory(
         Salt,
         (ContractAuthenticationData, Eval[ContractAuthenticationData]),
       ] = Left(TestSalt.generateSalt(random.nextInt())),
-  ) extends SingleUseNode(Some(seed), authenticationData) {
+  ) extends SingleUseNode(Some(seed), authenticationData, None) {
 
     override def relativeContractInstance: LfThinContractInst = inputContractInstance
     override def absoluteContractInstance: LfThinContractInst = inputContractInstance
@@ -1545,7 +1572,7 @@ class ExampleTransactionFactory(
   }
 
   def absolutizeAuthenticationData(
-      transactionId: TransactionId,
+      transactionId: UpdateId,
       createInfo: CreateInfo,
   ): ContractAuthenticationData = {
     val absoluteFci = absolutizer(transactionId).absolutizeFci(createInfo.relativeFci).value
@@ -1573,6 +1600,7 @@ class ExampleTransactionFactory(
         seed = deriveNodeSeed(0),
         nodeId = LfNodeId(0),
         viewPosition = rootViewPosition(0, rootViewCount),
+        transactionIdOverride = Some(Eval.later(transactionId)),
       )
     private val create1: SingleCreate = SingleCreate(
       seed = deriveNodeSeed(1),
@@ -1583,8 +1611,14 @@ class ExampleTransactionFactory(
         suffixedId(-1, 1, cantonContractIdVersion) -> suffixedId(-1, 1, cantonContractIdVersion),
         create0.interpretedContractId -> create0.relativizedContractId,
       ),
+      transactionIdOverride = Some(Eval.later(transactionId)),
     )
-    private val fetch2: SingleFetch = SingleFetch(LfNodeId(2), suffixedId(-1, 2), suffixedId(-1, 2))
+    private val fetch2: SingleFetch = SingleFetch(
+      LfNodeId(2),
+      suffixedId(-1, 2),
+      suffixedId(-1, 2),
+      transactionIdOverride = Some(Eval.later(transactionId)),
+    )
     private val fetch3: SingleFetch =
       SingleFetch(
         nodeId = LfNodeId(3),
@@ -1592,11 +1626,12 @@ class ExampleTransactionFactory(
         relativizedContractId = create0.relativizedContractId,
         fetchedContractInstance = create0.relativeContractInstance,
         // ensure we test merging transactions with different versions
-        version = LfLanguageVersion.v2_dev,
+        version = LfSerializationVersion.VDev,
         authenticationData = Right(
           create0.relativeAuthenticationData ->
             Eval.later(absolutizeAuthenticationData(transactionId, create0.createInfo))
         ),
+        transactionIdOverride = Some(Eval.later(transactionId)),
       )
     private val exercise4: SingleExercise =
       SingleExercise(deriveNodeSeed(4), LfNodeId(4), suffixedId(-1, 4), suffixedId(-1, 4))
@@ -1605,11 +1640,13 @@ class ExampleTransactionFactory(
       nodeId = LfNodeId(5),
       interpretedContractId = create1.interpretedContractId,
       relativizedContractId = create1.relativizedContractId,
-      inputContractInstance = create1.relativeContractInstance,
+      relativeInputContractInstance = create1.relativeContractInstance,
+      absoluteInputContractInstance = Eval.later(create1.absoluteContractInstance),
       authenticationData = Right(
         create1.relativeAuthenticationData ->
           Eval.later(absolutizeAuthenticationData(transactionId, create1.createInfo))
       ),
+      transactionIdOverride = Some(Eval.later(transactionId)),
     )
 
     private val examples: List[SingleNode] =

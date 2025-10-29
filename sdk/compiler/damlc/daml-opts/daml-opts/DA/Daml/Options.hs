@@ -31,7 +31,7 @@ import Control.Monad.Extra
 import qualified CmdLineParser as Cmd (warnMsg)
 import Data.IORef
 import Data.List.Extra
-import Data.Maybe (fromMaybe, mapMaybe)
+import Data.Maybe (fromMaybe)
 import qualified EnumSet as ES
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
@@ -430,7 +430,7 @@ adjustDynFlags options@Options{..} (GhcVersionHeader versionHeader) tmpDir defau
             }
 
     cppFlags =
-        mapMaybe LF.featureCppFlag (LF.allFeaturesForVersion optDamlLfVersion)
+        map LF.featureCppFlag (LF.allFeaturesForVersion optDamlLfVersion)
             ++ LF.foreverCppFlags
 
     -- We need to add platform info in order to run CPP. To prevent

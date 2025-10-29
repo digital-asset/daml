@@ -34,6 +34,7 @@ import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.Ge
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.Thereafter.syntax.*
+import com.digitalasset.canton.version.ParticipantProtocolFeatureFlags
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.*
@@ -157,8 +158,12 @@ class ParticipantTopologyDispatcher(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SynchronizerRegistryError, Unit] = {
     val logicalSynchronizerId = synchronizerId.logical
+    val featureFlagsForPV = ParticipantProtocolFeatureFlags.supportedFeatureFlagsByPV.getOrElse(
+      synchronizerId.protocolVersion,
+      Set.empty,
+    )
 
-    def alreadyTrustedInStore(
+    def alreadyTrustedInStoreWithSupportedFeatures(
         store: TopologyStore[?]
     ): EitherT[FutureUnlessShutdown, SynchronizerRegistryError, Boolean] =
       EitherT.right(
@@ -173,7 +178,13 @@ class ParticipantTopologyDispatcher(
               filterNamespace = None,
             )
             .map(_.toTopologyState.exists {
-              case SynchronizerTrustCertificate(`participantId`, `logicalSynchronizerId`) => true
+              // If certificate is missing feature flags, re-issue the trust certificate with it
+              case SynchronizerTrustCertificate(
+                    `participantId`,
+                    `logicalSynchronizerId`,
+                    featureFlags,
+                  ) =>
+                featureFlagsForPV.diff(featureFlags.toSet).isEmpty
               case _ => false
             })
         )
@@ -182,14 +193,17 @@ class ParticipantTopologyDispatcher(
     def trustSynchronizer(
         state: SyncPersistentState
     ): EitherT[FutureUnlessShutdown, SynchronizerRegistryError, Unit] =
-      synchronizeWithClosing(functionFullName) {
-        MonadUtil.unlessM(alreadyTrustedInStore(manager.store)) {
+      MonadUtil.unlessM(
+        alreadyTrustedInStoreWithSupportedFeatures(manager.store)
+      ) {
+        synchronizeWithClosing(functionFullName) {
           manager
             .proposeAndAuthorize(
               TopologyChangeOp.Replace,
               SynchronizerTrustCertificate(
                 participantId,
                 logicalSynchronizerId,
+                featureFlagsForPV.toSeq,
               ),
               serial = None,
               signingKeys = Seq.empty,
@@ -204,9 +218,12 @@ class ParticipantTopologyDispatcher(
             )
         }
       }
+
     // check if cert already exists in the synchronizer store
     getState(synchronizerId).flatMap(state =>
-      MonadUtil.unlessM(alreadyTrustedInStore(state.topologyStore))(
+      MonadUtil.unlessM(
+        alreadyTrustedInStoreWithSupportedFeatures(state.topologyStore)
+      )(
         trustSynchronizer(state)
       )
     )
@@ -231,7 +248,7 @@ class ParticipantTopologyDispatcher(
           topologyConfig,
           timeouts,
           loggerFactory
-            .append("synchronizerId", psid.toString)
+            .append("psid", psid.toString)
             .appendUnnamedKey("onboarding", "onboarding"),
           SynchronizerCrypto(crypto, state.staticSynchronizerParameters),
         )
@@ -244,7 +261,7 @@ class ParticipantTopologyDispatcher(
       timeTracker: SynchronizerTimeTracker,
   ): ParticipantTopologyDispatcherHandle = {
     val synchronizerLoggerFactory =
-      loggerFactory.append("synchronizerId", sequencerClient.psid.toString)
+      loggerFactory.append("psid", sequencerClient.psid.toString)
     new ParticipantTopologyDispatcherHandle {
       val handle = new SequencerBasedRegisterTopologyTransactionHandle(
         sequencerClient,
@@ -392,7 +409,6 @@ private class SynchronizerOnboardingOutbox(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SequencerConnectClient.Error, Unit] =
     sequencerConnectClient.registerOnboardingTopologyTransactions(
-      synchronizerAlias,
       participantId,
       transactions,
     )

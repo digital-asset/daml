@@ -6,6 +6,7 @@ package com.digitalasset.canton.platform.store
 import com.daml.ledger.api.v2.completion.Completion.DeduplicationPeriod
 import com.digitalasset.canton.TestEssentials
 import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.protocol.TestUpdateId
 import com.digitalasset.daml.lf.data.Time
 import com.google.protobuf.duration.Duration
 import com.google.protobuf.timestamp.Timestamp
@@ -73,7 +74,7 @@ class CompletionFromTransactionSpec
             Time.Timestamp.Epoch,
             Offset.firstOffset,
             "commandId",
-            "transactionId",
+            TestUpdateId("transactionId"),
             "userId",
             "synchronizer id",
             traceContext,
@@ -88,7 +89,7 @@ class CompletionFromTransactionSpec
           completion.offset shouldBe 1L
 
           completion.commandId shouldBe "commandId"
-          completion.updateId shouldBe "transactionId"
+          completion.updateId shouldBe TestUpdateId("transactionId").toHexString
           completion.userId shouldBe "userId"
           completion.submissionId shouldBe expectedSubmissionId
           completion.deduplicationPeriod shouldBe expectedDeduplicationPeriod
@@ -110,7 +111,7 @@ class CompletionFromTransactionSpec
             Time.Timestamp.Epoch,
             Offset.firstOffset,
             "commandId",
-            "transactionId",
+            TestUpdateId("transactionId"),
             "userId",
             "synchronizer id",
             traceContext,

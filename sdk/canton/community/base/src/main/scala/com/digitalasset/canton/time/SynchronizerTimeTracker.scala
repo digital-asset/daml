@@ -671,7 +671,7 @@ object SynchronizerTimeTracker {
     * proof. Use this only for debugging purposes to identify the reason for the time proof
     * requests.
     */
-  private val PrintCallStackForExecutedTimeProofRequests: Boolean = true
+  private val PrintCallStackForExecutedTimeProofRequests: Boolean = false
 
   @inline
   private def callStackForExecutedTimeProofRequest(): String =

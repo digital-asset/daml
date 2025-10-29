@@ -11,8 +11,9 @@ import com.digitalasset.canton.ledger.participant.state.{
   TestAcsChangeFactory,
   Update,
 }
+import com.digitalasset.canton.participant.store.ContractStore
 import com.digitalasset.canton.platform.IndexComponentTest
-import com.digitalasset.canton.protocol.ReassignmentId
+import com.digitalasset.canton.protocol.{ExampleContractFactory, ReassignmentId, TestUpdateId}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
@@ -21,6 +22,7 @@ import com.digitalasset.daml.lf.value.Value
 import org.scalatest.flatspec.AnyFlatSpec
 
 import scala.collection.mutable
+import scala.concurrent.Future
 
 class MultiSynchronizerIndexComponentTest extends AnyFlatSpec with IndexComponentTest {
   behavior of "MultiSynchronizer contract lookup"
@@ -33,13 +35,42 @@ class MultiSynchronizerIndexComponentTest extends AnyFlatSpec with IndexComponen
   it should "successfully look up contract, even if only the assigned event is visible" in {
     val party = Ref.Party.assertFromString("party1")
 
-    val (reassignmentAccepted1, cn1) =
-      mkReassignmentAccepted(party, "UpdateId1", withAcsChange = false)
-    val (reassignmentAccepted2, cn2) =
-      mkReassignmentAccepted(party, "UpdateId2", withAcsChange = true)
-    ingestUpdates(reassignmentAccepted1, reassignmentAccepted2)
-
+    val c1 =
+      ExampleContractFactory.build(
+        stakeholders = Set(party),
+        signatories = Set(party),
+        templateId = Ref.Identifier.assertFromString("P:M:T"),
+        argument = Value.ValueUnit,
+      )
+    val c2 =
+      ExampleContractFactory.build(
+        stakeholders = Set(party),
+        signatories = Set(party),
+        templateId = Ref.Identifier.assertFromString("P:M:T"),
+        argument = Value.ValueUnit,
+      )
     (for {
+      // contracts should be stored in canton contract store before ingesting the updates to get the internal contract ids mapping
+      _ <- participantContractStore
+        .storeContracts(Seq(c1, c2))
+        .failOnShutdown("failed to store contracts")
+      (reassignmentAccepted1, cn1) <-
+        mkReassignmentAccepted(
+          party,
+          "UpdateId1",
+          createNode = c1.inst.toCreateNode,
+          withAcsChange = false,
+          participantContractStore = participantContractStore,
+        )
+      (reassignmentAccepted2, cn2) <-
+        mkReassignmentAccepted(
+          party,
+          "UpdateId2",
+          createNode = c2.inst.toCreateNode,
+          withAcsChange = true,
+          participantContractStore = participantContractStore,
+        )
+      _ = ingestUpdates(reassignmentAccepted1, reassignmentAccepted2)
       activeContractO1 <- index.lookupActiveContract(Set(party), cn1.coid)
       activeContractO2 <- index.lookupActiveContract(Set(party), cn2.coid)
     } yield {
@@ -64,22 +95,18 @@ class MultiSynchronizerIndexComponentTest extends AnyFlatSpec with IndexComponen
       party: Ref.Party,
       updateIdS: String,
       withAcsChange: Boolean,
-  ): (Update.ReassignmentAccepted, Node.Create) = {
+      createNode: Node.Create,
+      participantContractStore: ContractStore,
+  ): Future[(Update.ReassignmentAccepted, Node.Create)] = {
     val synchronizer1 = SynchronizerId.tryFromString("x::synchronizer1")
     val synchronizer2 = SynchronizerId.tryFromString("x::synchronizer2")
-    val builder = TxBuilder()
-    val contractId = builder.newCid
-    val createNode = builder
-      .create(
-        id = contractId,
-        templateId = Ref.Identifier.assertFromString("P:M:T"),
-        argument = Value.ValueUnit,
-        signatories = Set(party),
-        observers = Set.empty,
-      )
-    val updateId = Ref.TransactionId.assertFromString(updateIdS)
+    val updateId = TestUpdateId(updateIdS)
     val recordTime = Time.Timestamp.now()
-    (
+    for {
+      internalContractIds <- participantContractStore
+        .lookupBatchedNonCachedInternalIds(Seq(createNode.coid))
+        .failOnShutdown
+    } yield (
       if (withAcsChange)
         Update.OnPRReassignmentAccepted(
           workflowId = None,
@@ -104,6 +131,7 @@ class MultiSynchronizerIndexComponentTest extends AnyFlatSpec with IndexComponen
           recordTime = CantonTimestamp(recordTime),
           synchronizerId = synchronizer2,
           acsChangeFactory = TestAcsChangeFactory(),
+          internalContractIds = internalContractIds,
         )
       else
         Update.RepairReassignmentAccepted(
@@ -128,6 +156,7 @@ class MultiSynchronizerIndexComponentTest extends AnyFlatSpec with IndexComponen
           repairCounter = RepairCounter.Genesis,
           recordTime = CantonTimestamp(recordTime),
           synchronizerId = synchronizer2,
+          internalContractIds = internalContractIds,
         ),
       createNode,
     )

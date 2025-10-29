@@ -26,7 +26,7 @@ import com.digitalasset.canton.ledger.participant.state.{
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform
 import com.digitalasset.canton.platform.store.backend.common.UpdatePointwiseQueries.LookupKey
-import com.digitalasset.canton.protocol.ReassignmentId
+import com.digitalasset.canton.protocol.{ReassignmentId, TestUpdateId, UpdateId}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag
@@ -186,7 +186,7 @@ class IndexComponentLoadTest extends AnyFlatSpec with IndexComponentTest {
         logger.warn(s"looks like ledger not empty, getting record time from last update")
         val lastUpdate: GetUpdateResponse.Update = index
           .getUpdateBy(
-            LookupKey.Offset(offset),
+            LookupKey.ByOffset(offset),
             UpdateFormat(
               includeTransactions = Some(
                 TransactionFormat(
@@ -287,7 +287,7 @@ class IndexComponentLoadTest extends AnyFlatSpec with IndexComponentTest {
     ByteString.copyFromUtf8(s"${random.nextLong()}"),
     Sha256,
   )
-  private def randomUpdateId: UpdateId = UpdateId.assertFromString(randomHash.toHexString)
+  private def randomUpdateId: UpdateId = TestUpdateId(randomHash.toHexString)
   private def randomLength(lengthFromToInclusive: (Int, Int)) = {
     val (from, to) = lengthFromToInclusive
     val randomDistance = to - from + 1
@@ -539,6 +539,7 @@ class IndexComponentLoadTest extends AnyFlatSpec with IndexComponentTest {
       recordTime = recordTime,
       synchronizerId = synchronizerId,
       acsChangeFactory = testAcsChangeFactory,
+      internalContractIds = Map.empty,
     )
 
   private def transaction(
@@ -567,5 +568,6 @@ class IndexComponentLoadTest extends AnyFlatSpec with IndexComponentTest {
       recordTime = recordTime,
       acsChangeFactory = testAcsChangeFactory,
       externalTransactionHash = None,
+      internalContractIds = Map.empty,
     )
 }

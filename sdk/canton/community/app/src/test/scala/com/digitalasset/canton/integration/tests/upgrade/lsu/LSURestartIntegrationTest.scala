@@ -16,7 +16,6 @@ import com.digitalasset.canton.integration.plugins.{
   UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.tests.upgrade.LogicalUpgradeUtils.SynchronizerNodes
-import com.digitalasset.canton.integration.tests.upgrade.lsu.LSUBase.Fixture
 import monocle.macros.syntax.lens.*
 
 /*
@@ -39,11 +38,6 @@ abstract class LSURestartIntegrationTest extends LSUBase {
         new NetworkBootstrapper(S1M1)
       }
       .addConfigTransforms(configTransforms*)
-      // Set a connection pool timeout larger than the upgrade time, otherwise it may trigger when we advance the simclock
-      .addConfigTransform(
-        _.focus(_.parameters.timeouts.processing.sequencerInfo)
-          .replace(config.NonNegativeDuration.ofSeconds(40))
-      )
       .withSetup { implicit env =>
         import env.*
 
@@ -80,7 +74,7 @@ abstract class LSURestartIntegrationTest extends LSUBase {
     "work when participants are restarted" in { implicit env =>
       import env.*
 
-      val fixture = Fixture(daId, upgradeTime)
+      val fixture = fixtureWithDefaults()
 
       participant1.health.ping(participant1)
 

@@ -446,7 +446,9 @@ class StoreBasedSynchronizerOutboxTest
       val (source, target, manager, handle, client) =
         mk(
           transactions.size,
-          rejections = Iterator.continually(Some(TopologyTransactionRejection.NotAuthorized)),
+          rejections = Iterator.continually(
+            Some(TopologyTransactionRejection.Authorization.NotAuthorizedByNamespaceKey)
+          ),
         )
       for {
         _ <- outboxConnected(manager, handle, client, source, target)

@@ -24,6 +24,7 @@ import com.digitalasset.canton.synchronizer.sequencer.traffic.SequencerRateLimit
 import com.digitalasset.canton.topology.DefaultTestIdentities.{physicalSynchronizerId, sequencerId}
 import com.digitalasset.canton.topology.TestingIdentityFactory
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.util.MaxBytesToDecompress
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, HasExecutorService}
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -64,6 +65,7 @@ class BlockUpdateGeneratorImplTest
             rateLimitManagerMock,
             OrderingTimeFixMode.ValidateOnly,
             sequencingTimeLowerBoundExclusive = Some(sequencingTimeLowerBoundExclusive),
+            MaxBytesToDecompress.Default,
             SequencerTestMetrics,
             loggerFactory,
             memberValidatorMock,
@@ -160,6 +162,7 @@ class BlockUpdateGeneratorImplTest
             OrderingTimeFixMode.ValidateOnly,
             sequencingTimeLowerBoundExclusive =
               SequencerNodeParameterConfig.DefaultSequencingTimeLowerBoundExclusive,
+            MaxBytesToDecompress.Default,
             SequencerTestMetrics,
             loggerFactory,
             memberValidatorMock,
@@ -203,6 +206,7 @@ class BlockUpdateGeneratorImplTest
             OrderingTimeFixMode.ValidateOnly,
             sequencingTimeLowerBoundExclusive =
               SequencerNodeParameterConfig.DefaultSequencingTimeLowerBoundExclusive,
+            MaxBytesToDecompress.Default,
             SequencerTestMetrics,
             loggerFactory,
             memberValidatorMock,

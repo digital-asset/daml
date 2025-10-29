@@ -22,7 +22,7 @@ import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import com.digitalasset.daml.lf.transaction.{
   FatContractInstance,
   GlobalKeyWithMaintainers,
-  TransactionVersion,
+  SerializationVersion,
 }
 import com.digitalasset.daml.lf.value.Value
 import org.scalatest.Inside
@@ -1317,7 +1317,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
                 templateDefsPkgName,
               )
               val globalContract = TransactionBuilder.fatContractInstanceWithDummyDefaults(
-                version = TransactionVersion.StableVersions.max,
+                version = SerializationVersion.StableVersions.max,
                 packageName = templateDefsV1Pkg.pkgName,
                 template = templateId,
                 arg = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice))),

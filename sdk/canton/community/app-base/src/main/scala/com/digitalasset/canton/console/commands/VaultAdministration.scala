@@ -436,25 +436,28 @@ class GlobalSecretKeyAdministration(
 
   @Help.Summary("Sign the given hash on behalf of the external party")
   @Help.Description(
-    """Sign the given hash on behalf of the external party
+    """Sign the given hash on behalf of the external party with signingThreshold keys.
       |
       |The arguments are:
       |  - hash: Hash to be signed
       |  - party: Party who should sign
+      |  - useAllKeys: If true, all signing keys will be used to sign instead of just signingThreshold many
       |
       |Fails if the corresponding keys are not in the global crypto.
       |"""
   )
-  def sign(hash: ByteString, party: ExternalParty): Seq[Signature] = consoleEnvironment.run(
-    ConsoleCommandResult.fromEitherTUS(
-      party.signingFingerprints.forgetNE
-        .parTraverse(
-          consoleEnvironment.tryGlobalCrypto.privateCrypto
-            .signBytes(hash, _, SigningKeyUsage.ProtocolOnly)
-        )
-        .leftMap(_.toString)
+  def sign(hash: ByteString, party: ExternalParty, useAllKeys: Boolean = false): Seq[Signature] =
+    consoleEnvironment.run(
+      ConsoleCommandResult.fromEitherTUS(
+        party.signingFingerprints
+          .take(if (useAllKeys) party.signingFingerprints.size else party.signingThreshold.value)
+          .parTraverse(
+            consoleEnvironment.tryGlobalCrypto.privateCrypto
+              .signBytes(hash, _, SigningKeyUsage.ProtocolOnly)
+          )
+          .leftMap(_.toString)
+      )
     )
-  )
 
   @Help.Summary("Sign the given hash on behalf of the external party")
   @Help.Description(
@@ -554,7 +557,7 @@ class GlobalSecretKeyAdministration(
       @Help.Description("Generate a key and store it into the global store")
       def generate_key(
           keySpec: SigningKeySpec =
-            consoleEnvironment.tryGlobalCrypto.privateCrypto.signingKeySpecs.default,
+            consoleEnvironment.tryGlobalCrypto.privateCrypto.signingSchemes.keySpecs.default,
           usage: NonEmpty[Set[SigningKeyUsage]],
           name: Option[KeyName] = None,
       ): SigningPublicKey = consoleEnvironment.run(
@@ -570,7 +573,7 @@ class GlobalSecretKeyAdministration(
       def generate_keys(
           count: PositiveInt,
           keySpec: SigningKeySpec =
-            consoleEnvironment.tryGlobalCrypto.privateCrypto.signingKeySpecs.default,
+            consoleEnvironment.tryGlobalCrypto.privateCrypto.signingSchemes.keySpecs.default,
           usage: NonEmpty[Set[SigningKeyUsage]],
           name: Option[KeyName] = None,
       ): NonEmpty[Seq[SigningPublicKey]] = {

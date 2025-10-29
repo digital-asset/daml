@@ -30,7 +30,11 @@ import com.digitalasset.canton.logging.SuppressingLogger.LogEntryOptionality
 import com.digitalasset.canton.participant.config.{ParticipantInitConfig, ParticipantNodeConfig}
 import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
-import com.digitalasset.canton.sequencing.{SequencerConnections, SubmissionRequestAmplification}
+import com.digitalasset.canton.sequencing.{
+  SequencerConnectionPoolDelays,
+  SequencerConnections,
+  SubmissionRequestAmplification,
+}
 import com.digitalasset.canton.synchronizer.mediator.MediatorNodeConfig
 import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeConfig
 import com.digitalasset.canton.topology.{PartyId, PhysicalSynchronizerId}
@@ -192,6 +196,7 @@ abstract class RehydrationIntegrationTest
       sequencerTrustThreshold = PositiveInt.one,
       sequencerLivenessMargin = NonNegativeInt.zero,
       SubmissionRequestAmplification.NoAmplification,
+      SequencerConnectionPoolDelays.default,
     )
 
     // stop mediator1 and copy it over to the fresh mediator2
@@ -292,6 +297,7 @@ abstract class RehydrationIntegrationTest
       sequencerTrustThreshold = PositiveInt.one,
       sequencerLivenessMargin = NonNegativeInt.zero,
       SubmissionRequestAmplification.NoAmplification,
+      SequencerConnectionPoolDelays.default,
     )
 
     loggerFactory.assertLogsUnorderedOptional(

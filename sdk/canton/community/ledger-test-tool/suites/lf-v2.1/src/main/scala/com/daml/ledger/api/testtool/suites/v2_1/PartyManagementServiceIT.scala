@@ -21,7 +21,6 @@ import com.daml.ledger.api.v2.admin.party_management_service.{
   UpdatePartyIdentityProviderIdRequest,
 }
 import com.daml.ledger.api.v2.crypto as lapicrypto
-import com.daml.ledger.api.v2.interactive.interactive_submission_service
 import com.daml.ledger.javaapi.data.Party as ApiParty
 import com.daml.ledger.test.java.model.test.Dummy
 import com.digitalasset.canton.ledger.error.groups.{AdminServiceErrors, RequestValidationErrors}
@@ -1101,12 +1100,11 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
               .SignedTransaction(transaction = x, signatures = Seq.empty)
           ),
           multiHashSignatures = Seq(
-            interactive_submission_service.Signature(
-              format = interactive_submission_service.SignatureFormat.SIGNATURE_FORMAT_RAW,
+            lapicrypto.Signature(
+              format = lapicrypto.SignatureFormat.SIGNATURE_FORMAT_RAW,
               signature = ByteString.copyFrom(signing.sign()),
               signedBy = response.publicKeyFingerprint,
-              signingAlgorithmSpec =
-                interactive_submission_service.SigningAlgorithmSpec.SIGNING_ALGORITHM_SPEC_ED25519,
+              signingAlgorithmSpec = lapicrypto.SigningAlgorithmSpec.SIGNING_ALGORITHM_SPEC_ED25519,
             )
           ),
           identityProviderId = "",

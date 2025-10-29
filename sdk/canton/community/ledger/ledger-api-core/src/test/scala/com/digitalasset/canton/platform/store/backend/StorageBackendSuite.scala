@@ -11,7 +11,6 @@ trait StorageBackendSuite
     with StorageBackendTestsConversions
     with StorageBackendTestsParties
     with StorageBackendTestsEvents
-    with StorageBackendTestsTransactionStreamsEvents
     with StorageBackendTestsCompletions
     with StorageBackendTestsContracts
     with StorageBackendTestsReset

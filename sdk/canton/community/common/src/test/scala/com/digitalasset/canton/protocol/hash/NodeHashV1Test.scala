@@ -5,12 +5,11 @@ package com.digitalasset.canton.protocol.hash
 
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.crypto.Hash
-import com.digitalasset.canton.protocol.LfHash
 import com.digitalasset.canton.protocol.hash.TransactionHash.NodeHashingError
 import com.digitalasset.canton.protocol.hash.TransactionHash.NodeHashingError.IncompleteTransactionTree
+import com.digitalasset.canton.protocol.{LfHash, LfSerializationVersion}
 import com.digitalasset.daml.lf.data.*
 import com.digitalasset.daml.lf.data.Ref.{ChoiceName, PackageName, Party}
-import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.*
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.daml.lf.value.test.TypedValueGenerators.ValueAddend as VA
@@ -50,7 +49,7 @@ class NodeHashV1Test extends BaseTest with AnyWordSpecLike with Matchers with Ha
     stakeholders =
       Set[Party](Ref.Party.assertFromString("alice"), Ref.Party.assertFromString("charlie")),
     keyOpt = None,
-    version = LanguageVersion.v2_1,
+    version = LfSerializationVersion.V1,
   )
 
   private val createNodeEncoding = """'01' # 01 (Node Encoding Version)
@@ -110,7 +109,7 @@ class NodeHashV1Test extends BaseTest with AnyWordSpecLike with Matchers with Ha
     keyOpt = None,
     byKey = false,
     interfaceId = None,
-    version = LanguageVersion.v2_1,
+    version = LfSerializationVersion.V1,
   )
 
   private val fetchNodeEncoding = """'01' # 01 (Node Encoding Version)
@@ -176,7 +175,7 @@ class NodeHashV1Test extends BaseTest with AnyWordSpecLike with Matchers with Ha
     exerciseResult = Some(VA.text.inj("result")),
     keyOpt = None,
     byKey = false,
-    version = LanguageVersion.v2_1,
+    version = LfSerializationVersion.V1,
   )
 
   private val exerciseNodeHash = "070970eb4b2de72561dafb67017ca33850650a8103e5134e16044ba78991f48c"
@@ -188,7 +187,7 @@ class NodeHashV1Test extends BaseTest with AnyWordSpecLike with Matchers with Ha
     result = Some(
       ContractId.V1.assertFromString(contractId1)
     ),
-    version = LanguageVersion.v2_1,
+    version = LfSerializationVersion.V1,
   )
 
   private val rollbackNode = Node.Rollback(
@@ -740,7 +739,7 @@ class NodeHashV1Test extends BaseTest with AnyWordSpecLike with Matchers with Ha
   "TransactionBuilder" should {
     val roots = ImmArray(NodeId(0), NodeId(5))
     val transaction = VersionedTransaction(
-      version = LanguageVersion.v2_1,
+      version = LfSerializationVersion.V1,
       roots = roots,
       nodes = subNodesMap,
     )
@@ -759,7 +758,7 @@ class NodeHashV1Test extends BaseTest with AnyWordSpecLike with Matchers with Ha
       an[IncompleteTransactionTree] shouldBe thrownBy {
         TransactionHash.tryHashTransactionV1(
           VersionedTransaction(
-            version = LanguageVersion.v2_1,
+            version = LfSerializationVersion.V1,
             roots = roots,
             nodes = Map.empty,
           ),
@@ -771,7 +770,7 @@ class NodeHashV1Test extends BaseTest with AnyWordSpecLike with Matchers with Ha
     "not hash NodeIds" in {
       TransactionHash.tryHashTransactionV1(
         VersionedTransaction(
-          version = LanguageVersion.v2_1,
+          version = LfSerializationVersion.V1,
           roots = shiftNodeIds(roots),
           nodes = shiftNodeIds(subNodesMap),
         ),
@@ -782,7 +781,7 @@ class NodeHashV1Test extends BaseTest with AnyWordSpecLike with Matchers with Ha
     "not produce collision in children" in {
       TransactionHash.tryHashTransactionV1(
         VersionedTransaction(
-          version = LanguageVersion.v2_1,
+          version = LfSerializationVersion.V1,
           roots = roots.reverse,
           nodes = subNodesMap,
         ),
@@ -798,7 +797,7 @@ class NodeHashV1Test extends BaseTest with AnyWordSpecLike with Matchers with Ha
         hashTracer = hashTracer,
       )
       hashTracer.result shouldBe s"""'00000030' # Hash Purpose
-                                      |# Transaction Version
+                                      |# Serialization Version
                                       |'00000003' # 3 (int)
                                       |'322e31' # 2.1 (string)
                                       |# Root Nodes
@@ -813,7 +812,7 @@ class NodeHashV1Test extends BaseTest with AnyWordSpecLike with Matchers with Ha
   "Full Transaction Hash" should {
     val roots = ImmArray(NodeId(0), NodeId(5))
     val transaction = VersionedTransaction(
-      version = LanguageVersion.v2_1,
+      version = LfSerializationVersion.V1,
       roots = roots,
       nodes = subNodesMap,
     )

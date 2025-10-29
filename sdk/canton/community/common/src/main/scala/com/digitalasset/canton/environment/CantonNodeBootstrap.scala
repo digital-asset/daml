@@ -37,7 +37,7 @@ import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.admin.grpc.GrpcVaultService
 import com.digitalasset.canton.crypto.admin.v30.VaultServiceGrpc
-import com.digitalasset.canton.crypto.store.{CryptoPrivateStoreError, CryptoPrivateStoreFactory}
+import com.digitalasset.canton.crypto.store.CryptoPrivateStoreError
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.CantonNodeBootstrap.HealthDumpFunction
@@ -70,7 +70,9 @@ import com.digitalasset.canton.networking.grpc.{
   CantonMutableHandlerRegistry,
   CantonServerBuilder,
 }
+import com.digitalasset.canton.replica.ReplicaManager
 import com.digitalasset.canton.resource.{Storage, StorageFactory}
+import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.telemetry.ConfiguredOpenTelemetry
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
@@ -194,7 +196,7 @@ final case class CantonNodeBootstrapCommonArguments[
     clock: Clock,
     metrics: M,
     storageFactory: StorageFactory,
-    cryptoPrivateStoreFactory: CryptoPrivateStoreFactory,
+    replicaManager: Option[ReplicaManager],
     futureSupervisor: FutureSupervisor,
     loggerFactory: NamedLoggerFactory,
     writeHealthDumpToFile: HealthDumpFunction,
@@ -348,6 +350,7 @@ abstract class CantonNodeBootstrapImpl[
 
   protected def customNodeStages(
       storage: Storage,
+      indexedStringStore: IndexedStringStore,
       crypto: Crypto,
       adminServerRegistry: CantonMutableHandlerRegistry,
       adminTokenDispenser: CantonAdminTokenDispenser,
@@ -466,10 +469,11 @@ abstract class CantonNodeBootstrapImpl[
         Crypto
           .create(
             cryptoConfig,
+            arguments.parameterConfig.cachingConfigs.kmsMetadataCache,
             arguments.parameterConfig.cachingConfigs.sessionEncryptionKeyCache,
             arguments.parameterConfig.cachingConfigs.publicKeyConversionCache,
             storage,
-            arguments.cryptoPrivateStoreFactory,
+            arguments.replicaManager,
             ReleaseProtocolVersion.latest,
             arguments.futureSupervisor,
             arguments.clock,
@@ -627,15 +631,6 @@ abstract class CantonNodeBootstrapImpl[
       bootstrapStageCallback.loggerFactory,
     )
     addCloseable(initializationStore)
-    private val authorizedStore =
-      TopologyStore(
-        TopologyStoreId.AuthorizedStore,
-        storage,
-        ProtocolVersion.latest,
-        bootstrapStageCallback.timeouts,
-        bootstrapStageCallback.loggerFactory,
-      )
-    addCloseable(authorizedStore)
 
     adminServerRegistry
       .addServiceU(
@@ -666,19 +661,40 @@ abstract class CantonNodeBootstrapImpl[
         result: SetupNodeIdResult
     ): EitherT[FutureUnlessShutdown, String, GenerateOrAwaitNodeTopologyTx] = {
       val (uid, transactions) = result
-      EitherT.rightT(
-        new GenerateOrAwaitNodeTopologyTx(
-          uid,
-          transactions,
-          authorizedStore,
-          storage,
-          crypto,
-          adminServerRegistry,
-          adminTokenDispenser,
-          healthReporter,
-          healthService,
-        )
+      val indexedStringStore = IndexedStringStore.create(
+        storage,
+        parameters.cachingConfigs.indexedStrings,
+        bootstrapStageCallback.timeouts,
+        bootstrapStageCallback.loggerFactory,
       )
+      addCloseable(indexedStringStore)
+      EitherT
+        .right(
+          TopologyStore.create(
+            TopologyStoreId.AuthorizedStore,
+            storage,
+            indexedStringStore,
+            ProtocolVersion.latest,
+            bootstrapStageCallback.timeouts,
+            parameters.batchingConfig,
+            bootstrapStageCallback.loggerFactory,
+          )
+        )
+        .map { authorizedStore =>
+          addCloseable(authorizedStore)
+          new GenerateOrAwaitNodeTopologyTx(
+            uid,
+            transactions,
+            authorizedStore,
+            indexedStringStore,
+            storage,
+            crypto,
+            adminServerRegistry,
+            adminTokenDispenser,
+            healthReporter,
+            healthService,
+          )
+        }
     }
 
     override protected def autoCompleteStage(): EitherT[FutureUnlessShutdown, String, Option[
@@ -722,8 +738,11 @@ abstract class CantonNodeBootstrapImpl[
       val snapshotValidator = new InitialTopologySnapshotValidator(
         crypto.pureCrypto,
         temporaryTopologyStore,
+        // there are no synchronizer parameters here, so we cannot pass them.
+        // as we are only expecting namespace delegations that end up in the authorized store, this is fine
+        staticSynchronizerParameters = None,
         validateInitialSnapshot = config.topology.validateInitialTopologySnapshot,
-        this.loggerFactory,
+        loggerFactory = this.loggerFactory,
       )
 
       for {
@@ -898,6 +917,7 @@ abstract class CantonNodeBootstrapImpl[
         PositiveSignedTopologyTransaction
       ], // transactions that were added during init
       authorizedStore: TopologyStore[TopologyStoreId.AuthorizedStore],
+      indexedStringStore: IndexedStringStore,
       storage: Storage,
       crypto: Crypto,
       adminServerRegistry: CantonMutableHandlerRegistry,
@@ -1050,6 +1070,7 @@ abstract class CantonNodeBootstrapImpl[
       EitherT.rightT(
         customNodeStages(
           storage,
+          indexedStringStore,
           crypto,
           adminServerRegistry,
           adminTokenDispenser,

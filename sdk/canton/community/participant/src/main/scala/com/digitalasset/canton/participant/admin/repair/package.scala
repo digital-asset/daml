@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant.admin
 
 import com.digitalasset.canton.crypto.{HashPurpose, SyncCryptoApiParticipantProvider}
-import com.digitalasset.canton.protocol.TransactionId
+import com.digitalasset.canton.protocol.UpdateId
 
 package object repair {
 
@@ -20,6 +20,6 @@ package object repair {
     // We don't have to worry about clashes with ordinary transaction IDs as the hash purpose is different.
     val randomness = syncCrypto.pureCrypto.generateRandomByteString(16)
     val hash = syncCrypto.pureCrypto.digest(HashPurpose.RepairTransactionId, randomness)
-    TransactionId(hash)
+    UpdateId(hash)
   }
 }

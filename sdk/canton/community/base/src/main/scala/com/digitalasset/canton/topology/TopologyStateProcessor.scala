@@ -28,10 +28,7 @@ import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.Gener
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyMapping.MappingHash
 import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
-import com.digitalasset.canton.topology.transaction.{
-  SignedTopologyTransactions,
-  TopologyMappingChecks,
-}
+import com.digitalasset.canton.topology.transaction.checks.TopologyMappingChecks
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
 
@@ -39,7 +36,9 @@ import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.ExecutionContext
 
-/** @param outboxQueue
+/** A non-thread safe class which validates and stores topology transactions
+  *
+  * @param outboxQueue
   *   If a [[SynchronizerOutboxQueue]] is provided, the processed transactions are not directly
   *   stored, but rather sent to the synchronizer via an ephemeral queue (i.e. no persistence).
   */
@@ -80,14 +79,19 @@ class TopologyStateProcessor private (
   /** validate the authorization and the signatures of the given transactions
     *
     * The function is NOT THREAD SAFE AND MUST RUN SEQUENTIALLY
+    * @param relaxChecksForBackwardsCompatibility
+    *   in order to import mainnet topology state after hard migration, we need to relax certain
+    *   checks which we added subsequently but which are not honored with older transactions.
+    *   exceptions are:
+    *   - no proof-of-ownership for signing keys on older OTKs
+    *   - adding members before adding OTKs
     */
   def validateAndApplyAuthorization(
       sequenced: SequencedTime,
       effective: EffectiveTime,
-      transactionsToValidate: Seq[GenericSignedTopologyTransaction],
+      transactions: Seq[GenericSignedTopologyTransaction],
       expectFullAuthorization: Boolean,
-      transactionMayHaveMissingSigningKeySignatures: Boolean,
-      compactTransactions: Boolean = true,
+      relaxChecksForBackwardsCompatibility: Boolean,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[(Seq[GenericValidatedTopologyTransaction], AsyncResult[Unit])] = {
@@ -96,10 +100,6 @@ class TopologyStateProcessor private (
     val abortOnError = outboxQueue.nonEmpty
 
     type Lft = Seq[GenericValidatedTopologyTransaction]
-
-    val transactions =
-      if (compactTransactions) SignedTopologyTransactions.compact(transactionsToValidate)
-      else transactionsToValidate
 
     // first, pre-load the currently existing mappings and proposals for the given transactions
     val preloadTxsForMappingF = preloadTxsForMapping(effective, transactions)
@@ -117,9 +117,9 @@ class TopologyStateProcessor private (
                 effective,
                 tx.originalTx,
                 expectFullAuthorization = expectFullAuthorization || !tx.originalTx.isProposal,
-                transactionMayHaveMissingSigningKeySignatures =
-                  transactionMayHaveMissingSigningKeySignatures,
+                relaxChecksForBackwardsCompatibility = relaxChecksForBackwardsCompatibility,
               ).map { finalTx =>
+                logger.debug(s"Validated $finalTx")
                 tx.adjusted.set(Some(finalTx.transaction))
                 tx.rejection.set(finalTx.rejectionReason)
                 determineRemovesAndUpdatePending(tx, removeMappings, removeTxs)
@@ -147,12 +147,14 @@ class TopologyStateProcessor private (
         case (ValidatedTopologyTransaction(tx, None, _), idx) =>
           val enqueuingOrStoring = if (outboxQueue.nonEmpty) "Enqueuing" else "Storing"
           logger.info(
-            s"$enqueuingOrStoring topology transaction ${idx + 1}/$ln ${tx.operation} ${tx.mapping} with ts=$effective (epsilon=$epsilon ms)"
+            s"$enqueuingOrStoring topology transaction ${idx + 1}/$ln serial=${tx.serial.unwrap} ${tx.operation} ${tx.mapping} with ts=$effective (epsilon=$epsilon ms), signedBy=${tx.signatures
+                .map(_.authorizingLongTermKey)}"
           )
         case (ValidatedTopologyTransaction(tx, Some(r), _), idx) =>
           // TODO(i19737): we need to emit a security alert, if the rejection is due to a malicious broadcast
           logger.info(
-            s"Rejected transaction ${idx + 1}/$ln ${tx.operation} ${tx.mapping} at ts=$effective (epsilon=$epsilon ms) due to $r"
+            s"Rejected transaction ${idx + 1}/$ln serial=${tx.serial.unwrap} ${tx.operation} ${tx.mapping} at ts=$effective (epsilon=$epsilon ms), signedBy=${tx.signatures
+                .map(_.authorizingLongTermKey)} due to $r"
           )
       }
       asyncResult <- outboxQueue match {
@@ -269,7 +271,7 @@ class TopologyStateProcessor private (
       Either.cond(
         expected == toValidate.serial,
         (),
-        TopologyTransactionRejection.SerialMismatch(expected, toValidate.serial),
+        TopologyTransactionRejection.Processor.SerialMismatch(expected, toValidate.serial),
       )
     case None => Either.unit
   }
@@ -323,10 +325,11 @@ class TopologyStateProcessor private (
       effective: EffectiveTime,
       txA: GenericSignedTopologyTransaction,
       expectFullAuthorization: Boolean,
-      transactionMayHaveMissingSigningKeySignatures: Boolean,
+      relaxChecksForBackwardsCompatibility: Boolean,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[GenericValidatedTopologyTransaction] = {
+
     // get current valid transaction for the given mapping
     val tx_inStore = txForMapping.get(txA.mapping.uniqueKey).map(_.currentTx)
     // first, merge a pending proposal with this transaction. we do this as it might
@@ -334,6 +337,7 @@ class TopologyStateProcessor private (
     val tx_mergedProposalSignatures = mergeWithPendingProposal(txA)
     val (isMerge, tx_deduplicatedAndMerged) =
       mergeSignatures(tx_inStore, tx_mergedProposalSignatures)
+
     val ret = for {
       // Run mapping specific semantic checks
       _ <- topologyMappingChecks.checkTransaction(
@@ -341,6 +345,7 @@ class TopologyStateProcessor private (
         tx_deduplicatedAndMerged,
         tx_inStore,
         txForMapping,
+        relaxChecksForBackwardsCompatibility,
       )
       _ <-
         // we potentially merge the transaction with the currently active if this is just a signature update
@@ -363,8 +368,7 @@ class TopologyStateProcessor private (
         tx_inStore,
         tx_deduplicatedAndMerged,
         expectFullAuthorization = expectFullAuthorization,
-        transactionMayHaveMissingSigningKeySignatures =
-          transactionMayHaveMissingSigningKeySignatures,
+        transactionMayHaveMissingSigningKeySignatures = relaxChecksForBackwardsCompatibility,
       )
     } yield fullyValidated
     ret.fold(
@@ -389,6 +393,7 @@ class TopologyStateProcessor private (
       // if this is a proposal, we only delete the "previously existing proposal"
       // AND ((tx_hash = ..))
       val txHash = finalTx.hash
+
       proposalsForTx.put(txHash, tx).foreach { existingProposal =>
         // update currently pending (this is relevant in case we have proposals for the
         // same txs within a batch)

@@ -175,13 +175,15 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
     val name = Ref.PackageName.assertFromString("my-package")
     val version = Ref.PackageVersion.assertFromString("1.2.3")
     val pkg =
-      Ast.Package(
+      Ast.PackageSignature(
         modules = Map.empty,
         directDeps = Set.empty,
         languageVersion = LanguageVersion.default,
         metadata = Ast.PackageMetadata(name, version, None),
-        imports =
-          Left("package made in com.digitalasset.daml.lf.typesig.reader.SignatureReaderSpec"),
+        imports = Ast.GeneratedImports(
+          reason = "package made in com.digitalasset.daml.lf.typesig.reader.SignatureReaderSpec",
+          pkgIds = Set.empty,
+        ),
       )
     SignatureReader.readPackageSignature(() => \/-((packageId, pkg)))._2.metadata shouldBe
       PackageMetadata(name, version)
@@ -405,7 +407,7 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
   testDar(LanguageVersion.Major.V2)
 
   private def wrappInModule(dataName: DottedName, dfn: Ast.DDataType) =
-    Ast.Module(
+    Ast.ModuleSignature(
       name = moduleName,
       definitions = Map(dataName -> dfn),
       templates = Map.empty,

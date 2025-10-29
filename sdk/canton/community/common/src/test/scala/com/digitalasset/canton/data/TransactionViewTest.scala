@@ -22,7 +22,7 @@ class TransactionViewTest extends AnyWordSpec with BaseTest with HasExecutionCon
 
   private val contractInst: LfThinContractInst = ExampleTransactionFactory.contractInstance()
 
-  private val cantonContractIdVersion: CantonContractIdV1Version = AuthenticatedContractIdVersionV11
+  private val cantonContractIdVersion: CantonContractIdV1Version = CantonContractIdVersion.maxV1
   private val createdId: LfContractId =
     cantonContractIdVersion.fromDiscriminator(
       ExampleTransactionFactory.lfHash(3),
@@ -307,7 +307,7 @@ class TransactionViewTest extends AnyWordSpec with BaseTest with HasExecutionCon
           archivedInSubviews = Set(otherAbsoluteId),
           resolvedKeys = Map(
             ExampleTransactionFactory.defaultGlobalKey ->
-              LfVersioned(ExampleTransactionFactory.transactionVersion, AssignedKey(absoluteId))
+              LfVersioned(ExampleTransactionFactory.serializationVersion, AssignedKey(absoluteId))
           ),
         ).value
 

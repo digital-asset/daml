@@ -164,7 +164,7 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
         s"Phase 6: Request ${requestId.unwrap}: Timeout in state ${responseAggregation.state} at $timestamp"
       )
 
-      val timedOut = responseAggregation.timeout(version = timestamp)
+      val timedOut = responseAggregation.timeout()
       MonadUtil.whenM(mediatorState.replace(responseAggregation, timedOut))(
         sendResultIfDone(timedOut, responseAggregation.decisionTime)
       )
@@ -730,12 +730,12 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
             )
             .toOption
           _ <-
-            if (signedResponses.synchronizerId == psid)
+            if (signedResponses.psid == psid)
               OptionT.some[FutureUnlessShutdown](())
             else {
               MediatorError.MalformedMessage
                 .Reject(
-                  s"Request ${responses.requestId}, sender ${responses.sender}: Discarding confirmation response for wrong synchronizer ${signedResponses.synchronizerId}"
+                  s"Request ${responses.requestId}, sender ${responses.sender}: Discarding confirmation response for wrong synchronizer ${signedResponses.psid}"
                 )
                 .report()
               OptionT.none[FutureUnlessShutdown, Unit]

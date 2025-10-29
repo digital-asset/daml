@@ -16,7 +16,7 @@ import com.daml.ledger.api.v2.transaction_filter.{
 import com.daml.ledger.javaapi.data.Transaction
 import com.digitalasset.canton.LfPackageName
 import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{LocalParticipantReference, ParticipantReference}
 import com.digitalasset.canton.damltests.bar.v1.java.bar.Bar as BarV1
 import com.digitalasset.canton.damltests.bar.v2.java.bar.Bar as BarV2
@@ -34,7 +34,6 @@ import com.digitalasset.canton.integration.tests.upgrading.UpgradingBaseTest.Syn
 import com.digitalasset.canton.integration.util.PartiesAllocator
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
-  ConfigTransforms,
   EnvironmentDefinition,
   SharedEnvironment,
 }
@@ -44,7 +43,6 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission.Submis
 import com.digitalasset.canton.topology.transaction.VettedPackage
 import com.digitalasset.canton.util.SetupPackageVetting
 import com.digitalasset.canton.util.ShowUtil.*
-import monocle.macros.syntax.lens.*
 
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 import scala.jdk.OptionConverters.RichOption
@@ -128,15 +126,6 @@ class SystematicTopologyAwareUpgradingIntegrationTest
 
   override lazy val environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P4_S1M1
-      .addConfigTransform(
-        ConfigTransforms.updateAllParticipantConfigs_(
-          // Make sure that unassignment picks a recent target synchronizer topology snapshot
-          // TODO(#25110): Remove this configuration once the correct snapshot is used in computing
-          //               the vetting checks for the target synchronizer
-          _.focus(_.parameters.reassignmentsConfig.timeProofFreshnessProportion)
-            .replace(NonNegativeInt.zero)
-        )
-      )
       .withSetup { implicit env =>
         import env.*
 

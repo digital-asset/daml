@@ -9,7 +9,6 @@ import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.examples.java.iou.Iou
-import com.digitalasset.canton.integration.ConfigTransforms.zeroReassignmentTimeProofFreshnessProportion
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
 import com.digitalasset.canton.integration.plugins.{
   UsePostgres,
@@ -47,12 +46,12 @@ sealed trait AssignmentBeforeUnassignmentIntegrationTest
 
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P2_S1M1_S1M1
-      .addConfigTransform(zeroReassignmentTimeProofFreshnessProportion)
       .withSetup { implicit env =>
         import env.*
         participants.all.synchronizers.connect_local(sequencer1, alias = daName)
         participants.all.synchronizers.connect_local(sequencer2, alias = acmeName)
-        participants.all.dars.upload(BaseTest.CantonExamplesPath)
+        participants.all.dars.upload(BaseTest.CantonExamplesPath, synchronizerId = daId)
+        participants.all.dars.upload(BaseTest.CantonExamplesPath, synchronizerId = acmeId)
 
         val alice = "alice"
 

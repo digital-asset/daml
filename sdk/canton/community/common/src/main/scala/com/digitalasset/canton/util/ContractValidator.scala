@@ -45,18 +45,20 @@ trait ContractValidator {
 
 object ContractValidator {
 
+  type ContractAuthenticatorFn = (FatContractInstance, LfHash) => Either[String, Unit]
+
   def apply(
       cryptoOps: HashOps & HmacOps,
       engine: Engine,
       packageResolver: PackageResolver,
   ): ContractValidator =
-    new ContractValidatorImpl(
+    new Impl(
       new UnicumGenerator(cryptoOps),
       LfContractValidation(engine, packageResolver),
     )
 
   // TODO(#23971) add support for V2 contract ids
-  private class ContractValidatorImpl(
+  private class Impl(
       unicumGenerator: UnicumGenerator,
       lfContractValidation: LfContractValidation,
   ) extends ContractValidator {
@@ -73,7 +75,7 @@ object ContractValidator {
         result <- lfContractValidation.validate(
           contract,
           targetPackageId,
-          Predef.identity,
+          identity,
           contractIdVersion.contractHashingMethod,
           hash => authenticateHashInternal(contract, hash, contractIdVersion).isRight,
         )

@@ -52,7 +52,8 @@ final case class ContractAuthenticationDataV1(salt: Salt)(
   @SuppressWarnings(Array("com.digitalasset.canton.ProtobufToByteString"))
   override def toLfBytes: LfBytes =
     contractIdVersion match {
-      case AuthenticatedContractIdVersionV10 | AuthenticatedContractIdVersionV11 =>
+      case AuthenticatedContractIdVersionV10 | AuthenticatedContractIdVersionV11 |
+          AuthenticatedContractIdVersionV12 =>
         LfBytes.fromByteArray(
           v1.UntypedVersionedMessage(
             v1.UntypedVersionedMessage.Wrapper.Data(
@@ -73,7 +74,7 @@ final case class ContractAuthenticationDataV1(salt: Salt)(
 
 final case class ContractAuthenticationDataV2(
     salt: LfBytes,
-    creatingTransactionId: Option[TransactionId],
+    creatingTransactionId: Option[UpdateId],
     relativeArgumentSuffixes: Seq[LfBytes],
 )(val contractIdVersion: CantonContractIdV2Version)
     extends ContractAuthenticationData {
@@ -125,10 +126,12 @@ object ContractAuthenticationData {
     ): ParsingResult[CAD] =
       version match {
         // Pattern-matching on singletons in isolation is necessary for correct type inference
-        case AuthenticatedContractIdVersionV10 =>
-          versionV1(AuthenticatedContractIdVersionV10, bytes)
+        case AuthenticatedContractIdVersionV12 =>
+          versionV1(AuthenticatedContractIdVersionV12, bytes)
         case AuthenticatedContractIdVersionV11 =>
           versionV1(AuthenticatedContractIdVersionV11, bytes)
+        case AuthenticatedContractIdVersionV10 =>
+          versionV1(AuthenticatedContractIdVersionV10, bytes)
         case CantonContractIdV2Version0 =>
           versionV2(CantonContractIdV2Version0, bytes)
       }
@@ -156,7 +159,7 @@ object ContractAuthenticationData {
         proto <- ProtoConverter.protoParser(v31.ContractAuthenticationData.parseFrom)(bytes)
         v31.ContractAuthenticationData(saltP, creatingTransactionIdP, relativeArgumentSuffixesP) =
           proto
-        creatingTransactionId <- creatingTransactionIdP.traverse(TransactionId.fromProtoPrimitive)
+        creatingTransactionId <- creatingTransactionIdP.traverse(UpdateId.fromProtoPrimitive)
         _ <- Either.cond(
           IterableUtil.isSorted(relativeArgumentSuffixesP)(ByteStringUtil.orderingByteString),
           (),

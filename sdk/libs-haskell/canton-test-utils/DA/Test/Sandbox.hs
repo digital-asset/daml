@@ -113,8 +113,8 @@ destroySandbox SandboxResource {..} = do
   cleanupProcess sandboxProcess
   traverse_ FreePort.unlock sandboxPortLocks
 
-makeSignedJwt :: String -> String -> String
-makeSignedJwt sharedSecret user = do
+makeSignedJwt :: String -> String -> Maybe JWT.NumericDate -> String
+makeSignedJwt sharedSecret user expiration = do
     let urc =
             JWT.ClaimsMap $
             Map.fromList
@@ -123,13 +123,14 @@ makeSignedJwt sharedSecret user = do
     let cs = mempty {
         JWT.sub = JWT.stringOrURI $ T.pack user
         , JWT.unregisteredClaims = urc
+        , JWT.exp = expiration
     }
     let key = JWT.hmacSecret $ T.pack sharedSecret
     let text = JWT.encodeSigned key mempty cs
     T.unpack text
 
-makeSignedAdminJwt :: String -> String
-makeSignedAdminJwt sharedSecret = makeSignedJwt sharedSecret "participant_admin"
+makeSignedAdminJwt :: String -> Maybe JWT.NumericDate -> String
+makeSignedAdminJwt sharedSecret expiration = makeSignedJwt sharedSecret "participant_admin" expiration
 
 withCantonSandbox :: SandboxConfig -> (IO Int -> TestTree) -> TestTree
 withCantonSandbox = withGeneralSandbox createCantonSandbox
@@ -206,6 +207,7 @@ getCantonConfig conf@SandboxConfig{..} portFile mCerts (ledgerPort, adminPort, s
                                 ] ]
                           | Just secret <- [mbSharedSecret] ]
                           )
+                     , "http-ledger-api" Aeson..= Aeson.object [ "enabled" Aeson..= False ]
                      , "parameters" Aeson..= Aeson.object [ "alpha-version-support" Aeson..= True ]
                      ] <>
                      [ "testing-time" Aeson..= Aeson.object [ "type" Aeson..= ("monotonic-time" :: T.Text) ]

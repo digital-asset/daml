@@ -6,8 +6,8 @@ package com.digitalasset.canton.integration.tests
 import com.digitalasset.canton.BigDecimalImplicits.*
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.config.{DbConfig, SynchronizerTimeTrackerConfig}
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeProportion}
+import com.digitalasset.canton.config.{CommitmentSendDelay, DbConfig, SynchronizerTimeTrackerConfig}
 import com.digitalasset.canton.console.{LocalParticipantReference, ParticipantReference}
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.examples.java.iou.{Amount, Iou}
@@ -82,7 +82,15 @@ sealed trait AcsCommitmentProcessorIntegrationTest
         ConfigTransforms.updateMaxDeduplicationDurations(maxDedupDuration),
       )
       .updateTestingConfig(
-        _.focus(_.maxCommitmentSendDelayMillis).replace(Some(NonNegativeInt.zero))
+        _.focus(_.commitmentSendDelay)
+          .replace(
+            Some(
+              CommitmentSendDelay(
+                Some(NonNegativeProportion.zero),
+                Some(NonNegativeProportion.zero),
+              )
+            )
+          )
       )
       .withSetup { implicit env =>
         import env.*
@@ -120,7 +128,8 @@ sealed trait AcsCommitmentProcessorIntegrationTest
         connect(participant2, minObservationDuration2)
         connect(participant3, minObservationDuration2)
         participants.all.synchronizers.connect_local(sequencer2, alias = acmeName)
-        participants.all.foreach(_.dars.upload(CantonExamplesPath))
+        participants.all.dars.upload(CantonExamplesPath, synchronizerId = daId)
+        participants.all.dars.upload(CantonExamplesPath, synchronizerId = acmeId)
         passTopologyRegistrationTimeout(env)
       }
 
@@ -128,7 +137,7 @@ sealed trait AcsCommitmentProcessorIntegrationTest
     import env.*
 
     val simClock = environment.simClock.value
-    deployOnP1P2AndCheckContract(daId, iouContract)
+    deployOnTwoParticipantsAndCheckContract(daId, iouContract, participant1, participant2)
 
     val tick1 = tickAfter(simClock.uniqueTime())
     val tick2 = tickAfter(tick1.forgetRefinement)
@@ -197,7 +206,8 @@ sealed trait AcsCommitmentProcessorIntegrationTest
     val tickNoCommitments1 = tickAfter(simClock.uniqueTime())
     simClock.advanceTo(tickNoCommitments1.forgetRefinement.plus(interval.multipliedBy(3)))
     logger.info(s"Upload a package to trigger some vetting transactions")
-    participant1.dars.upload(CantonTestsPath)
+    participant1.dars.upload(CantonTestsPath, synchronizerId = daId)
+    participant1.dars.upload(CantonTestsPath, synchronizerId = acmeId)
     simClock.advance(interval.plus(JDuration.ofSeconds(1)))
 
     val start = tickNoCommitments1.forgetRefinement.toInstant
@@ -481,8 +491,9 @@ sealed trait AcsCommitmentProcessorIntegrationTest
     )
 
     logger.info(s"We deploy the IOU again for following tests.")
-    alreadyDeployedContracts =
-      alreadyDeployedContracts.appended(deployOnP1P2AndCheckContract(daId, iouContract))
+    alreadyDeployedContracts = alreadyDeployedContracts.appended(
+      deployOnTwoParticipantsAndCheckContract(daId, iouContract, participant1, participant2)
+    )
   }
 
   "Periodic synchronizer time proofs trigger commitment computations" in { implicit env =>
@@ -523,7 +534,13 @@ sealed trait AcsCommitmentProcessorIntegrationTest
 
     val simClock = environment.simClock.value
 
-    deployOnP1P2AndCheckContract(daId, iouContract, observers = Seq(participant3))
+    deployOnTwoParticipantsAndCheckContract(
+      daId,
+      iouContract,
+      participant1,
+      participant2,
+      observers = Seq(participant3),
+    )
 
     val seq = getProgrammableSequencer(sequencer1.name)
     val p1RevokedP = Promise[Unit]()
@@ -657,9 +674,6 @@ sealed trait AcsCommitmentProcessorIntegrationTest
         // participant1 will eventually disconnect from this synchronizer.
         // Wait for this disconnection to happen.
         eventually() {
-          // The sequencer connection pool internal mechanisms to restart connections rely on the clock time advancing.
-          simClock.advance(JDuration.ofSeconds(1))
-
           participant1.synchronizers.is_connected(
             initializedSynchronizers(daName).synchronizerId
           ) shouldBe false
@@ -721,9 +735,6 @@ sealed trait AcsCommitmentProcessorIntegrationTest
           change = TopologyChangeOp.Remove,
         )
         eventually() {
-          // The sequencer connection pool internal mechanisms to restart connections rely on the clock time advancing.
-          simClock.advance(JDuration.ofSeconds(1))
-
           participant2.synchronizers.is_connected(
             initializedSynchronizers(acmeName).synchronizerId
           ) shouldBe false
@@ -809,7 +820,7 @@ class AcsCommitmentProcessorReferenceIntegrationTestPostgres
 //    extends AcsCommitmentProcessorIntegrationTest {
 //  registerPlugin(new UseH2(loggerFactory))
 //  registerPlugin(
-//    new UseCommunityReferenceBlockSequencer[DbConfig.H2](
+//    new UseReferenceBlockSequencer[DbConfig.H2](
 //      loggerFactory,
 //      sequencerGroups = MultiSynchronizer(
 //        Seq(

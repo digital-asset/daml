@@ -20,3 +20,15 @@ message ListPartiesPageTokenPayload {
   // Parties are ordered by ``party_id``, and the next page starts with parties whose ``party_id`` is larger than ``party_id_lower_bound_excl``.
   string party_id_lower_bound_excl = 1;
 }
+
+// Describes the payload of a page token for listing vetted packages.
+// Not intended to be handled directly by clients and should be presented to them as an opaque string.
+message ListVettedPackagesPageTokenPayload {
+  // VettedPackages are ordered by ``synchronizer_id`` and then
+  // ``participant_id``. The next page starts with VettedPackages messages whose
+  // synchronizer ID is strictly larger ``synchronizer_id``, or whose
+  // synchronizer ID is equal to ``synchronizer_id`` and whose participant ID is
+  // strictly larger than ``participant_id``.
+  string synchronizer_id = 1;
+  string participant_id = 2;
+}

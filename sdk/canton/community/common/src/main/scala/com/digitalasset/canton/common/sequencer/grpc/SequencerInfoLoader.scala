@@ -27,6 +27,7 @@ import com.digitalasset.canton.sequencing.protocol.{HandshakeRequest, HandshakeR
 import com.digitalasset.canton.sequencing.{
   GrpcSequencerConnection,
   SequencerConnection,
+  SequencerConnectionPoolDelays,
   SequencerConnectionValidation,
   SequencerConnections,
   SubmissionRequestAmplification,
@@ -87,13 +88,13 @@ class SequencerInfoLoader(
     logger.debug(s"Querying bootstrap information for synchronizer $synchronizerAlias")
     for {
       bootstrapInfo <- client
-        .getSynchronizerClientBootstrapInfo(synchronizerAlias)
+        .getSynchronizerClientBootstrapInfo()
         .leftMap(SequencerInfoLoader.fromSequencerConnectClientError(synchronizerAlias))
 
       _ <- performHandshake(client, synchronizerAlias, sequencerAlias)
 
       synchronizerParameters <- client
-        .getSynchronizerParameters(synchronizerAlias.unwrap)
+        .getSynchronizerParameters()
         .leftMap(SequencerInfoLoader.fromSequencerConnectClientError(synchronizerAlias))
 
       _ = logger.info(
@@ -182,7 +183,6 @@ class SequencerInfoLoader(
     for {
       success <- sequencerConnectClient
         .handshake(
-          alias,
           HandshakeRequest(
             clientProtocolVersions,
             minimumProtocolVersion,
@@ -221,6 +221,7 @@ class SequencerInfoLoader(
         sequencerTrustThreshold = sequencerConnections.sequencerTrustThreshold,
         sequencerLivenessMargin = sequencerConnections.sequencerLivenessMargin,
         submissionRequestAmplification = sequencerConnections.submissionRequestAmplification,
+        sequencerConnectionPoolDelays = sequencerConnections.sequencerConnectionPoolDelays,
         sequencerConnectionValidation = sequencerConnectionValidation,
         expectedSynchronizerId = expectedSynchronizerId,
       )
@@ -633,6 +634,7 @@ object SequencerInfoLoader {
       sequencerTrustThreshold: PositiveInt,
       sequencerLivenessMargin: NonNegativeInt,
       submissionRequestAmplification: SubmissionRequestAmplification,
+      sequencerConnectionPoolDelays: SequencerConnectionPoolDelays,
       sequencerConnectionValidation: SequencerConnectionValidation,
       expectedSynchronizerId: Option[PhysicalSynchronizerId],
   )(
@@ -674,6 +676,7 @@ object SequencerInfoLoader {
               sequencerTrustThreshold,
               sequencerLivenessMargin,
               submissionRequestAmplification,
+              sequencerConnectionPoolDelays,
             )
             .leftMap(SequencerInfoLoaderError.FailedToConnectToSequencers.apply)
             .map(connections =>

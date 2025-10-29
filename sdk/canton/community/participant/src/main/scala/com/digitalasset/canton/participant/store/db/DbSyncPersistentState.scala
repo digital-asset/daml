@@ -25,10 +25,12 @@ import com.digitalasset.canton.participant.topology.ParticipantTopologyValidatio
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.DbSequencedEventStore
+import com.digitalasset.canton.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.store.{
   IndexedPhysicalSynchronizer,
   IndexedStringStore,
   IndexedSynchronizer,
+  IndexedTopologyStoreId,
   SendTrackerStore,
 }
 import com.digitalasset.canton.time.Clock
@@ -85,6 +87,7 @@ class DbLogicalSyncPersistentState(
     acsCounterParticipantConfigStore,
     timeouts,
     loggerFactory,
+    ledgerApiStore.map(_.stringInterningView),
   )
 
   override val acsInspection: AcsInspection =
@@ -113,6 +116,7 @@ class DbLogicalSyncPersistentState(
 class DbPhysicalSyncPersistentState(
     participantId: ParticipantId,
     override val physicalSynchronizerIdx: IndexedPhysicalSynchronizer,
+    indexedTopologyStoreId: IndexedTopologyStoreId,
     val staticSynchronizerParameters: StaticSynchronizerParameters,
     clock: Clock,
     storage: DbStorage,
@@ -171,8 +175,10 @@ class DbPhysicalSyncPersistentState(
     new DbTopologyStore(
       storage,
       SynchronizerStore(physicalSynchronizerIdx.synchronizerId),
+      indexedTopologyStoreId,
       staticSynchronizerParameters.protocolVersion,
       timeouts,
+      parameters.batchingConfig,
       loggerFactory,
     )
 
@@ -185,6 +191,7 @@ class DbPhysicalSyncPersistentState(
     staticSynchronizerParameters = staticSynchronizerParameters,
     store = topologyStore,
     outboxQueue = synchronizerOutboxQueue,
+    disableOptionalTopologyChecks = parameters.disableOptionalTopologyChecks,
     exitOnFatalFailures = parameters.exitOnFatalFailures,
     timeouts = timeouts,
     futureSupervisor = futureSupervisor,
@@ -194,6 +201,7 @@ class DbPhysicalSyncPersistentState(
     override def validatePackageVetting(
         currentlyVettedPackages: Set[LfPackageId],
         nextPackageIds: Set[LfPackageId],
+        dryRunSnapshot: Option[PackageMetadata],
         forceFlags: ForceFlags,
     )(implicit
         traceContext: TraceContext
@@ -202,8 +210,7 @@ class DbPhysicalSyncPersistentState(
         currentlyVettedPackages,
         nextPackageIds,
         packageMetadataView,
-        acsInspections =
-          () => Map(logicalSyncPersistentState.lsid -> logicalSyncPersistentState.acsInspection),
+        dryRunSnapshot,
         forceFlags,
         parameters.disableUpgradeValidation,
       )

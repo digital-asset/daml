@@ -12,7 +12,9 @@ import com.digitalasset.canton.ledger.participant.state.index.IndexService
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.participant.store.memory.InMemoryContractStore
 import com.digitalasset.canton.platform.IndexComponentTest.TestServices
+import com.digitalasset.canton.platform.LedgerApiServerInternals
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.platform.config.{IndexServiceConfig, ServerRole}
 import com.digitalasset.canton.platform.index.IndexServiceOwner
@@ -23,8 +25,8 @@ import com.digitalasset.canton.platform.store.DbSupport.{ConnectionPoolConfig, D
 import com.digitalasset.canton.platform.store.cache.MutableLedgerEndCache
 import com.digitalasset.canton.platform.store.dao.events.{ContractLoader, LfValueTranslation}
 import com.digitalasset.canton.platform.store.interning.StringInterningView
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
-import com.digitalasset.canton.platform.store.{DbSupport, FlywayMigrations}
+import com.digitalasset.canton.platform.store.{DbSupport, FlywayMigrations, PruningOffsetService}
+import com.digitalasset.canton.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.time.WallClock
 import com.digitalasset.canton.tracing.NoReportingTracerProvider
 import com.digitalasset.canton.util.PekkoUtil.{FutureQueue, IndexingFutureQueue}
@@ -81,6 +83,9 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
 
   protected def index: IndexService = testServices.index
 
+  protected def participantContractStore: InMemoryContractStore =
+    testServices.participantContractStore
+
   protected def sequentialPostProcessor: Update => Unit = _ => ()
 
   override protected def beforeAll(): Unit = {
@@ -94,6 +99,8 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
     val mutableLedgerEndCache = MutableLedgerEndCache()
     val stringInterningView = new StringInterningView(loggerFactory)
     val participantId = Ref.ParticipantId.assertFromString("index-component-test-participant-id")
+    val participantContractStore = new InMemoryContractStore(timeouts, loggerFactory)
+    val pruningOffsetService = mock[PruningOffsetService]
 
     val indexResourceOwner =
       for {
@@ -138,6 +145,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
           reassignmentOffsetPersistence = NoOpReassignmentOffsetPersistence,
           postProcessor = (_, _) => Future.unit,
           sequentialPostProcessor = sequentialPostProcessor,
+          contractStore = participantContractStore,
         ).initialized()
         indexerFutureQueueConsumer <- ResourceOwner.forFuture(() => indexerF(false)(_ => ()))
         indexer <- ResourceOwner.forReleasable(() =>
@@ -147,6 +155,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
           indexer.done.map(_ => ())
         }
         contractLoader <- ContractLoader.create(
+          participantContractStore = participantContractStore,
           contractStorageBackend = dbSupport.storageBackendFactory.createContractStorageBackend(
             inMemoryState.stringInterningView,
             inMemoryState.ledgerEndCache,
@@ -184,6 +193,8 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
               _: String,
               _: LoggingContextWithTrace,
           ) => FutureUnlessShutdown.pure(Left("not used")),
+          participantContractStore = participantContractStore,
+          pruningOffsetService = pruningOffsetService,
         )
       } yield indexService -> indexer
 
@@ -195,6 +206,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
         indexResource = indexResource,
         index = index,
         indexer = indexer,
+        participantContractStore = participantContractStore,
       )
     )
   }
@@ -218,5 +230,6 @@ object IndexComponentTest {
       indexResource: Resource[Any],
       index: IndexService,
       indexer: FutureQueue[Update],
+      participantContractStore: InMemoryContractStore,
   )
 }

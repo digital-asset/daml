@@ -5,7 +5,7 @@ package com.digitalasset.canton.integration.tests.multisynchronizer
 
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{LocalSequencerReference, ParticipantReference}
 import com.digitalasset.canton.examples.java.iou.Iou
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
@@ -43,7 +43,6 @@ import com.digitalasset.canton.synchronizer.sequencer.{
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.{ParticipantId, PartyId}
 import com.digitalasset.canton.{BaseTest, SynchronizerAlias, config}
-import monocle.macros.syntax.lens.*
 import org.scalatest.Assertion
 
 import java.time.Duration
@@ -93,10 +92,6 @@ sealed trait ReassignmentsConfirmationThresholdIntegrationTest
       .addConfigTransforms(
         ConfigTransforms.useStaticTime,
         ConfigTransforms.updateTargetTimestampForwardTolerance(10.minutes),
-        ConfigTransforms.updateAllParticipantConfigs_(
-          _.focus(_.parameters.reassignmentsConfig.timeProofFreshnessProportion)
-            .replace(NonNegativeInt.zero)
-        ),
       )
       .withSetup { implicit env =>
         import env.*
@@ -117,7 +112,8 @@ sealed trait ReassignmentsConfirmationThresholdIntegrationTest
         participants.all.synchronizers.connect_local(sequencer1, alias = daName)
         participants.all.synchronizers.connect_local(sequencer2, alias = acmeName)
 
-        participants.all.dars.upload(BaseTest.CantonExamplesPath)
+        participants.all.dars.upload(BaseTest.CantonExamplesPath, synchronizerId = daId)
+        participants.all.dars.upload(BaseTest.CantonExamplesPath, synchronizerId = acmeId)
 
         programmableSequencers.put(
           daName,

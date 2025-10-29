@@ -42,7 +42,7 @@ object ActiveContract extends VersioningCompanion[ActiveContract] {
     )
   )
 
-  private def fromProtoV30(
+  def fromProtoV30(
       proto: v30.ActiveContract
   ): ParsingResult[ActiveContract] =
     for {
@@ -51,6 +51,11 @@ object ActiveContract extends VersioningCompanion[ActiveContract] {
       )
       reprProtocolVersion <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield ActiveContract(contract)(reprProtocolVersion)
+
+  def create(
+      contract: LapiActiveContract
+  )(protocolVersion: ProtocolVersion): ActiveContract =
+    ActiveContract(contract)(protocolVersionRepresentativeFor(protocolVersion))
 
   def tryCreate(
       contract: LapiActiveContract

@@ -10,3 +10,8 @@ template MainT with
     dep: DepT
   where
     signatory p, dep.p
+
+template MainTSimple with
+    p: Party
+  where
+    signatory p

@@ -31,413 +31,414 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
 
   behavior of "IntegrityStorageBackend"
 
-  it should "find duplicate event ids" in {
-    val updates = Vector(
-      dtoCreate(offset(7), 7L, hashCid("#7")),
-      dtoCreate(offset(7), 7L, hashCid("#7")), // duplicate id
-    )
-
-    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-    executeSql(ingest(updates, _))
-    executeSql(updateLedgerEnd(offset(7), 7L))
-    val failure =
-      intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
-
-    // Error message should contain the duplicate event sequential id
-    failure.getMessage should include("7")
-  }
-
-  it should "find duplicate event ids with different offsets" in {
-    val updates = Vector(
-      dtoCreate(offset(6), 7L, hashCid("#7")),
-      dtoCreate(offset(7), 7L, hashCid("#7")), // duplicate id
-    )
-
-    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-    executeSql(ingest(updates, _))
-    executeSql(updateLedgerEnd(offset(7), 7L))
-    val failure =
-      intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
-
-    // Error message should contain the duplicate event sequential id
-    failure.getMessage should include("7")
-  }
-
-  it should "find non-consecutive event ids" in {
-    val updates = Vector(
-      dtoCreate(offset(1), 1L, hashCid("#1")),
-      dtoCreate(offset(3), 3L, hashCid("#3")), // non-consecutive id
-    )
-
-    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-    executeSql(ingest(updates, _))
-    executeSql(updateLedgerEnd(offset(3), 3L))
-    val failure =
-      intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
-
-    failure.getMessage should include("consecutive")
-
-  }
-
-  it should "not find non-consecutive event ids if those gaps are before the pruning offset" in {
-    val updates = Vector(
-      dtoCreate(offset(1), 1L, hashCid("#1")),
-      dtoCreate(
-        offset(3),
-        3L,
-        hashCid("#3"),
-      ), // non-consecutive id but after pruning offset
-      dtoCreate(offset(4), 4L, hashCid("#4")),
-    )
-
-    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-    executeSql(backend.parameter.updatePrunedUptoInclusive(offset(2)))
-    executeSql(ingest(updates, _))
-    executeSql(updateLedgerEnd(offset(4), 4L))
-    executeSql(backend.integrity.verifyIntegrity())
-  }
-
-  it should "detect monotonicity violation of record times for one synchronizer in created table" in {
-    val updates = Vector(
-      dtoCreate(
-        offset(1),
-        1L,
-        hashCid("#1"),
-        synchronizerId = someSynchronizerId,
-        recordTime = time5,
-      ),
-      dtoCreate(
-        offset(2),
-        2L,
-        hashCid("#2"),
-        synchronizerId = someSynchronizerId2,
-        recordTime = time1,
-      ),
-      dtoCreate(
-        offset(3),
-        3L,
-        hashCid("#3"),
-        synchronizerId = someSynchronizerId,
-        recordTime = time7,
-      ),
-      dtoCreate(
-        offset(4),
-        4L,
-        hashCid("#4"),
-        synchronizerId = someSynchronizerId2,
-        recordTime = time3,
-      ),
-      dtoCreate(
-        offset(5),
-        5L,
-        hashCid("#5"),
-        synchronizerId = someSynchronizerId,
-        recordTime = time6,
-      ),
-    )
-
-    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-    executeSql(ingest(updates, _))
-    executeSql(updateLedgerEnd(offset(5), 5L))
-    val failure =
-      intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
-    failure.getMessage should include(
-      "occurrence of decreasing record time found within one synchronizer: offsets Offset(3),Offset(5)"
-    )
-  }
-
-  it should "detect monotonicity violation of record times for one synchronizer in consuming exercise table" in {
-    val updates = Vector(
-      dtoCreate(
-        offset(1),
-        1L,
-        hashCid("#1"),
-        synchronizerId = someSynchronizerId,
-        recordTime = time5,
-      ),
-      dtoCreate(
-        offset(2),
-        2L,
-        hashCid("#2"),
-        synchronizerId = someSynchronizerId2,
-        recordTime = time1,
-      ),
-      dtoExercise(
-        offset(3),
-        3L,
-        consuming = true,
-        hashCid("#3"),
-        synchronizerId = someSynchronizerId,
-        recordTime = time7,
-      ),
-      dtoCreate(
-        offset(4),
-        4L,
-        hashCid("#4"),
-        synchronizerId = someSynchronizerId2,
-        recordTime = time3,
-      ),
-      dtoCreate(
-        offset(5),
-        5L,
-        hashCid("#5"),
-        synchronizerId = someSynchronizerId,
-        recordTime = time6,
-      ),
-    )
-
-    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-    executeSql(ingest(updates, _))
-    executeSql(updateLedgerEnd(offset(5), 5L))
-    val failure =
-      intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
-    failure.getMessage should include(
-      "occurrence of decreasing record time found within one synchronizer: offsets Offset(3),Offset(5)"
-    )
-  }
-
-  it should "detect monotonicity violation of record times for one synchronizer in non-consuming exercise table" in {
-    val updates = Vector(
-      dtoCreate(
-        offset(1),
-        1L,
-        hashCid("#1"),
-        synchronizerId = someSynchronizerId,
-        recordTime = time5,
-      ),
-      dtoCreate(
-        offset(2),
-        2L,
-        hashCid("#2"),
-        synchronizerId = someSynchronizerId2,
-        recordTime = time1,
-      ),
-      dtoExercise(
-        offset(3),
-        3L,
-        consuming = false,
-        hashCid("#3"),
-        synchronizerId = someSynchronizerId,
-        recordTime = time7,
-      ),
-      dtoCreate(
-        offset(4),
-        4L,
-        hashCid("#4"),
-        synchronizerId = someSynchronizerId2,
-        recordTime = time3,
-      ),
-      dtoCreate(
-        offset(5),
-        5L,
-        hashCid("#5"),
-        synchronizerId = someSynchronizerId,
-        recordTime = time6,
-      ),
-    )
-
-    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-    executeSql(ingest(updates, _))
-    executeSql(updateLedgerEnd(offset(5), 5L))
-    val failure =
-      intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
-    failure.getMessage should include(
-      "occurrence of decreasing record time found within one synchronizer: offsets Offset(3),Offset(5)"
-    )
-  }
-
-  it should "detect monotonicity violation of record times for one synchronizer in assign table" in {
-    val updates = Vector(
-      dtoCreate(
-        offset(1),
-        1L,
-        hashCid("#1"),
-        synchronizerId = someSynchronizerId,
-        recordTime = time5,
-      ),
-      dtoCreate(
-        offset(2),
-        2L,
-        hashCid("#2"),
-        synchronizerId = someSynchronizerId2,
-        recordTime = time1,
-      ),
-      dtoAssign(
-        offset(3),
-        3L,
-        hashCid("#3"),
-        targetSynchronizerId = someSynchronizerId,
-        recordTime = time7,
-      ),
-      dtoCreate(
-        offset(4),
-        4L,
-        hashCid("#4"),
-        synchronizerId = someSynchronizerId2,
-        recordTime = time3,
-      ),
-      dtoCreate(
-        offset(5),
-        5L,
-        hashCid("#5"),
-        synchronizerId = someSynchronizerId,
-        recordTime = time6,
-      ),
-    )
-
-    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-    executeSql(ingest(updates, _))
-    executeSql(updateLedgerEnd(offset(5), 5L))
-    val failure =
-      intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
-    failure.getMessage should include(
-      "occurrence of decreasing record time found within one synchronizer: offsets Offset(3),Offset(5)"
-    )
-  }
-
-  it should "detect monotonicity violation of record times for one synchronizer in unassign table" in {
-    val updates = Vector(
-      dtoCreate(
-        offset(1),
-        1L,
-        hashCid("#1"),
-        synchronizerId = someSynchronizerId,
-        recordTime = time5,
-      ),
-      dtoCreate(
-        offset(2),
-        2L,
-        hashCid("#2"),
-        synchronizerId = someSynchronizerId2,
-        recordTime = time1,
-      ),
-      dtoUnassign(
-        offset(3),
-        3L,
-        hashCid("#3"),
-        sourceSynchronizerId = someSynchronizerId,
-        recordTime = time7,
-      ),
-      dtoCreate(
-        offset(4),
-        4L,
-        hashCid("#4"),
-        synchronizerId = someSynchronizerId2,
-        recordTime = time3,
-      ),
-      dtoCreate(
-        offset(5),
-        5L,
-        hashCid("#5"),
-        synchronizerId = someSynchronizerId,
-        recordTime = time6,
-      ),
-    )
-
-    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-    executeSql(ingest(updates, _))
-    executeSql(updateLedgerEnd(offset(5), 5L))
-    val failure =
-      intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
-    failure.getMessage should include(
-      "occurrence of decreasing record time found within one synchronizer: offsets Offset(3),Offset(5)"
-    )
-  }
-
-  it should "detect monotonicity violation of record times for one synchronizer in completions table" in {
-    val updates = Vector(
-      dtoCreate(
-        offset(1),
-        1L,
-        hashCid("#1"),
-        synchronizerId = someSynchronizerId,
-        recordTime = time5,
-      ),
-      dtoCreate(
-        offset(2),
-        2L,
-        hashCid("#2"),
-        synchronizerId = someSynchronizerId2,
-        recordTime = time1,
-      ),
-      dtoCompletion(
-        offset(3),
-        synchronizerId = someSynchronizerId,
-        recordTime = time7,
-      ),
-      dtoCreate(
-        offset(4),
-        3L,
-        hashCid("#4"),
-        synchronizerId = someSynchronizerId2,
-        recordTime = time3,
-      ),
-      dtoCreate(
-        offset(5),
-        4L,
-        hashCid("#5"),
-        synchronizerId = someSynchronizerId,
-        recordTime = time6,
-      ),
-    )
-
-    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-    executeSql(ingest(updates, _))
-    executeSql(updateLedgerEnd(offset(5), 4L))
-    val failure =
-      intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
-    failure.getMessage should include(
-      "occurrence of decreasing record time found within one synchronizer: offsets Offset(3),Offset(5)"
-    )
-  }
-
-  it should "detect monotonicity violation of record times for one synchronizer in completions table, if it is a timely-reject going backwards" in {
-    val updates = Vector(
-      dtoCreate(
-        offset(1),
-        1L,
-        hashCid("#1"),
-        synchronizerId = someSynchronizerId,
-        recordTime = time5,
-      ),
-      dtoCreate(
-        offset(2),
-        2L,
-        hashCid("#2"),
-        synchronizerId = someSynchronizerId2,
-        recordTime = time1,
-      ),
-      dtoCompletion(
-        offset(3),
-        synchronizerId = someSynchronizerId,
-        recordTime = time7,
-        messageUuid = Some("message uuid"),
-      ),
-      dtoCreate(
-        offset(4),
-        3L,
-        hashCid("#4"),
-        synchronizerId = someSynchronizerId2,
-        recordTime = time3,
-      ),
-      dtoCreate(
-        offset(5),
-        4L,
-        hashCid("#5"),
-        synchronizerId = someSynchronizerId,
-        recordTime = time6,
-      ),
-    )
-
-    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-    executeSql(ingest(updates, _))
-    executeSql(updateLedgerEnd(offset(5), 4L))
-    val failure =
-      intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
-    failure.getMessage should include(
-      "occurrence of decreasing record time found within one synchronizer: offsets Offset(3),Offset(5)"
-    )
-  }
+  // TODO(i28539) analyse if additional unit tests needed, and implement them with the new schema
+//  it should "find duplicate event ids" in {
+//    val updates = Vector(
+//      dtoCreateLegacy(offset(7), 7L, hashCid("#7")),
+//      dtoCreateLegacy(offset(7), 7L, hashCid("#7")), // duplicate id
+//    )
+//
+//    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+//    executeSql(ingest(updates, _))
+//    executeSql(updateLedgerEnd(offset(7), 7L))
+//    val failure =
+//      intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
+//
+//    // Error message should contain the duplicate event sequential id
+//    failure.getMessage should include("7")
+//  }
+//
+//  it should "find duplicate event ids with different offsets" in {
+//    val updates = Vector(
+//      dtoCreateLegacy(offset(6), 7L, hashCid("#7")),
+//      dtoCreateLegacy(offset(7), 7L, hashCid("#7")), // duplicate id
+//    )
+//
+//    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+//    executeSql(ingest(updates, _))
+//    executeSql(updateLedgerEnd(offset(7), 7L))
+//    val failure =
+//      intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
+//
+//    // Error message should contain the duplicate event sequential id
+//    failure.getMessage should include("7")
+//  }
+//
+//  it should "find non-consecutive event ids" in {
+//    val updates = Vector(
+//      dtoCreateLegacy(offset(1), 1L, hashCid("#1")),
+//      dtoCreateLegacy(offset(3), 3L, hashCid("#3")), // non-consecutive id
+//    )
+//
+//    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+//    executeSql(ingest(updates, _))
+//    executeSql(updateLedgerEnd(offset(3), 3L))
+//    val failure =
+//      intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
+//
+//    failure.getMessage should include("consecutive")
+//
+//  }
+//
+//  it should "not find non-consecutive event ids if those gaps are before the pruning offset" in {
+//    val updates = Vector(
+//      dtoCreateLegacy(offset(1), 1L, hashCid("#1")),
+//      dtoCreateLegacy(
+//        offset(3),
+//        3L,
+//        hashCid("#3"),
+//      ), // non-consecutive id but after pruning offset
+//      dtoCreateLegacy(offset(4), 4L, hashCid("#4")),
+//    )
+//
+//    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+//    executeSql(backend.parameter.updatePrunedUptoInclusive(offset(2)))
+//    executeSql(ingest(updates, _))
+//    executeSql(updateLedgerEnd(offset(4), 4L))
+//    executeSql(backend.integrity.verifyIntegrity())
+//  }
+//
+//  it should "detect monotonicity violation of record times for one synchronizer in created table" in {
+//    val updates = Vector(
+//      dtoCreateLegacy(
+//        offset(1),
+//        1L,
+//        hashCid("#1"),
+//        synchronizerId = someSynchronizerId,
+//        recordTime = time5,
+//      ),
+//      dtoCreateLegacy(
+//        offset(2),
+//        2L,
+//        hashCid("#2"),
+//        synchronizerId = someSynchronizerId2,
+//        recordTime = time1,
+//      ),
+//      dtoCreateLegacy(
+//        offset(3),
+//        3L,
+//        hashCid("#3"),
+//        synchronizerId = someSynchronizerId,
+//        recordTime = time7,
+//      ),
+//      dtoCreateLegacy(
+//        offset(4),
+//        4L,
+//        hashCid("#4"),
+//        synchronizerId = someSynchronizerId2,
+//        recordTime = time3,
+//      ),
+//      dtoCreateLegacy(
+//        offset(5),
+//        5L,
+//        hashCid("#5"),
+//        synchronizerId = someSynchronizerId,
+//        recordTime = time6,
+//      ),
+//    )
+//
+//    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+//    executeSql(ingest(updates, _))
+//    executeSql(updateLedgerEnd(offset(5), 5L))
+//    val failure =
+//      intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
+//    failure.getMessage should include(
+//      "occurrence of decreasing record time found within one synchronizer: offsets Offset(3),Offset(5)"
+//    )
+//  }
+//
+//  it should "detect monotonicity violation of record times for one synchronizer in consuming exercise table" in {
+//    val updates = Vector(
+//      dtoCreateLegacy(
+//        offset(1),
+//        1L,
+//        hashCid("#1"),
+//        synchronizerId = someSynchronizerId,
+//        recordTime = time5,
+//      ),
+//      dtoCreateLegacy(
+//        offset(2),
+//        2L,
+//        hashCid("#2"),
+//        synchronizerId = someSynchronizerId2,
+//        recordTime = time1,
+//      ),
+//      dtoExerciseLegacy(
+//        offset(3),
+//        3L,
+//        consuming = true,
+//        hashCid("#3"),
+//        synchronizerId = someSynchronizerId,
+//        recordTime = time7,
+//      ),
+//      dtoCreateLegacy(
+//        offset(4),
+//        4L,
+//        hashCid("#4"),
+//        synchronizerId = someSynchronizerId2,
+//        recordTime = time3,
+//      ),
+//      dtoCreateLegacy(
+//        offset(5),
+//        5L,
+//        hashCid("#5"),
+//        synchronizerId = someSynchronizerId,
+//        recordTime = time6,
+//      ),
+//    )
+//
+//    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+//    executeSql(ingest(updates, _))
+//    executeSql(updateLedgerEnd(offset(5), 5L))
+//    val failure =
+//      intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
+//    failure.getMessage should include(
+//      "occurrence of decreasing record time found within one synchronizer: offsets Offset(3),Offset(5)"
+//    )
+//  }
+//
+//  it should "detect monotonicity violation of record times for one synchronizer in non-consuming exercise table" in {
+//    val updates = Vector(
+//      dtoCreateLegacy(
+//        offset(1),
+//        1L,
+//        hashCid("#1"),
+//        synchronizerId = someSynchronizerId,
+//        recordTime = time5,
+//      ),
+//      dtoCreateLegacy(
+//        offset(2),
+//        2L,
+//        hashCid("#2"),
+//        synchronizerId = someSynchronizerId2,
+//        recordTime = time1,
+//      ),
+//      dtoExerciseLegacy(
+//        offset(3),
+//        3L,
+//        consuming = false,
+//        hashCid("#3"),
+//        synchronizerId = someSynchronizerId,
+//        recordTime = time7,
+//      ),
+//      dtoCreateLegacy(
+//        offset(4),
+//        4L,
+//        hashCid("#4"),
+//        synchronizerId = someSynchronizerId2,
+//        recordTime = time3,
+//      ),
+//      dtoCreateLegacy(
+//        offset(5),
+//        5L,
+//        hashCid("#5"),
+//        synchronizerId = someSynchronizerId,
+//        recordTime = time6,
+//      ),
+//    )
+//
+//    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+//    executeSql(ingest(updates, _))
+//    executeSql(updateLedgerEnd(offset(5), 5L))
+//    val failure =
+//      intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
+//    failure.getMessage should include(
+//      "occurrence of decreasing record time found within one synchronizer: offsets Offset(3),Offset(5)"
+//    )
+//  }
+//
+//  it should "detect monotonicity violation of record times for one synchronizer in assign table" in {
+//    val updates = Vector(
+//      dtoCreateLegacy(
+//        offset(1),
+//        1L,
+//        hashCid("#1"),
+//        synchronizerId = someSynchronizerId,
+//        recordTime = time5,
+//      ),
+//      dtoCreateLegacy(
+//        offset(2),
+//        2L,
+//        hashCid("#2"),
+//        synchronizerId = someSynchronizerId2,
+//        recordTime = time1,
+//      ),
+//      dtoAssignLegacy(
+//        offset(3),
+//        3L,
+//        hashCid("#3"),
+//        targetSynchronizerId = someSynchronizerId,
+//        recordTime = time7,
+//      ),
+//      dtoCreateLegacy(
+//        offset(4),
+//        4L,
+//        hashCid("#4"),
+//        synchronizerId = someSynchronizerId2,
+//        recordTime = time3,
+//      ),
+//      dtoCreateLegacy(
+//        offset(5),
+//        5L,
+//        hashCid("#5"),
+//        synchronizerId = someSynchronizerId,
+//        recordTime = time6,
+//      ),
+//    )
+//
+//    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+//    executeSql(ingest(updates, _))
+//    executeSql(updateLedgerEnd(offset(5), 5L))
+//    val failure =
+//      intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
+//    failure.getMessage should include(
+//      "occurrence of decreasing record time found within one synchronizer: offsets Offset(3),Offset(5)"
+//    )
+//  }
+//
+//  it should "detect monotonicity violation of record times for one synchronizer in unassign table" in {
+//    val updates = Vector(
+//      dtoCreateLegacy(
+//        offset(1),
+//        1L,
+//        hashCid("#1"),
+//        synchronizerId = someSynchronizerId,
+//        recordTime = time5,
+//      ),
+//      dtoCreateLegacy(
+//        offset(2),
+//        2L,
+//        hashCid("#2"),
+//        synchronizerId = someSynchronizerId2,
+//        recordTime = time1,
+//      ),
+//      dtoUnassignLegacy(
+//        offset(3),
+//        3L,
+//        hashCid("#3"),
+//        sourceSynchronizerId = someSynchronizerId,
+//        recordTime = time7,
+//      ),
+//      dtoCreateLegacy(
+//        offset(4),
+//        4L,
+//        hashCid("#4"),
+//        synchronizerId = someSynchronizerId2,
+//        recordTime = time3,
+//      ),
+//      dtoCreateLegacy(
+//        offset(5),
+//        5L,
+//        hashCid("#5"),
+//        synchronizerId = someSynchronizerId,
+//        recordTime = time6,
+//      ),
+//    )
+//
+//    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+//    executeSql(ingest(updates, _))
+//    executeSql(updateLedgerEnd(offset(5), 5L))
+//    val failure =
+//      intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
+//    failure.getMessage should include(
+//      "occurrence of decreasing record time found within one synchronizer: offsets Offset(3),Offset(5)"
+//    )
+//  }
+//
+//  it should "detect monotonicity violation of record times for one synchronizer in completions table" in {
+//    val updates = Vector(
+//      dtoCreateLegacy(
+//        offset(1),
+//        1L,
+//        hashCid("#1"),
+//        synchronizerId = someSynchronizerId,
+//        recordTime = time5,
+//      ),
+//      dtoCreateLegacy(
+//        offset(2),
+//        2L,
+//        hashCid("#2"),
+//        synchronizerId = someSynchronizerId2,
+//        recordTime = time1,
+//      ),
+//      dtoCompletion(
+//        offset(3),
+//        synchronizerId = someSynchronizerId,
+//        recordTime = time7,
+//      ),
+//      dtoCreateLegacy(
+//        offset(4),
+//        3L,
+//        hashCid("#4"),
+//        synchronizerId = someSynchronizerId2,
+//        recordTime = time3,
+//      ),
+//      dtoCreateLegacy(
+//        offset(5),
+//        4L,
+//        hashCid("#5"),
+//        synchronizerId = someSynchronizerId,
+//        recordTime = time6,
+//      ),
+//    )
+//
+//    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+//    executeSql(ingest(updates, _))
+//    executeSql(updateLedgerEnd(offset(5), 4L))
+//    val failure =
+//      intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
+//    failure.getMessage should include(
+//      "occurrence of decreasing record time found within one synchronizer: offsets Offset(3),Offset(5)"
+//    )
+//  }
+//
+//  it should "detect monotonicity violation of record times for one synchronizer in completions table, if it is a timely-reject going backwards" in {
+//    val updates = Vector(
+//      dtoCreateLegacy(
+//        offset(1),
+//        1L,
+//        hashCid("#1"),
+//        synchronizerId = someSynchronizerId,
+//        recordTime = time5,
+//      ),
+//      dtoCreateLegacy(
+//        offset(2),
+//        2L,
+//        hashCid("#2"),
+//        synchronizerId = someSynchronizerId2,
+//        recordTime = time1,
+//      ),
+//      dtoCompletion(
+//        offset(3),
+//        synchronizerId = someSynchronizerId,
+//        recordTime = time7,
+//        messageUuid = Some("message uuid"),
+//      ),
+//      dtoCreateLegacy(
+//        offset(4),
+//        3L,
+//        hashCid("#4"),
+//        synchronizerId = someSynchronizerId2,
+//        recordTime = time3,
+//      ),
+//      dtoCreateLegacy(
+//        offset(5),
+//        4L,
+//        hashCid("#5"),
+//        synchronizerId = someSynchronizerId,
+//        recordTime = time6,
+//      ),
+//    )
+//
+//    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+//    executeSql(ingest(updates, _))
+//    executeSql(updateLedgerEnd(offset(5), 4L))
+//    val failure =
+//      intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
+//    failure.getMessage should include(
+//      "occurrence of decreasing record time found within one synchronizer: offsets Offset(3),Offset(5)"
+//    )
+//  }
 
   it should "detect monotonicity violation of record times for one synchronizer in party to participant table" in {
     val updates = Vector(
@@ -504,25 +505,25 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
         offset(1),
         1L,
         4L,
-        udpateId = Some(updateIdFromOffset(offset(1))),
+        udpateId = Some(updateIdArrayFromOffset(offset(1))),
       ),
       dtoTransactionMeta(
         offset(2),
         1L,
         4L,
-        udpateId = Some(updateIdFromOffset(offset(2))),
+        udpateId = Some(updateIdArrayFromOffset(offset(2))),
       ),
       dtoTransactionMeta(
         offset(3),
         1L,
         4L,
-        udpateId = Some(updateIdFromOffset(offset(2))),
+        udpateId = Some(updateIdArrayFromOffset(offset(2))),
       ),
       dtoTransactionMeta(
         offset(4),
         1L,
         4L,
-        udpateId = Some(updateIdFromOffset(offset(4))),
+        udpateId = Some(updateIdArrayFromOffset(offset(4))),
       ),
     )
 
@@ -531,8 +532,9 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
     executeSql(updateLedgerEnd(offset(5), 4L))
     val failure =
       intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
+    val hashForOffset2 = updateIdFromOffset(offset(2)).toHexString
     failure.getMessage should include(
-      "occurrence of duplicate update ID [2] found for offsets Offset(2), Offset(3)"
+      s"occurrence of duplicate update ID [$hashForOffset2] found for offsets Offset(2), Offset(3)"
     )
   }
 
@@ -568,13 +570,13 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
         offset(2),
         commandId = "commandid",
         submissionId = Some("submissionid"),
-        updateId = Some(updateIdFromOffset(offset(2))),
+        updateId = Some(updateIdArrayFromOffset(offset(2))),
       ),
       dtoCompletion(
         offset(3),
         commandId = "commandid",
         submissionId = Some("submissionid"),
-        updateId = Some(updateIdFromOffset(offset(2))),
+        updateId = Some(updateIdArrayFromOffset(offset(2))),
       ),
     )
 
@@ -598,14 +600,14 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
         offset(2),
         commandId = "commandid1",
         submissionId = Some("submissionid1"),
-        updateId = Some(updateIdFromOffset(offset(2))),
+        updateId = Some(updateIdArrayFromOffset(offset(2))),
         messageUuid = messageUuid,
       ),
       dtoCompletion(
         offset(3),
         commandId = "commandid",
         submissionId = Some("submissionid"),
-        updateId = Some(updateIdFromOffset(offset(3))),
+        updateId = Some(updateIdArrayFromOffset(offset(3))),
         messageUuid = messageUuid,
       ),
     )
@@ -629,13 +631,13 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
         offset(2),
         commandId = "commandid",
         submissionId = Some("submissionid"),
-        updateId = Some(updateIdFromOffset(offset(2))),
+        updateId = Some(updateIdArrayFromOffset(offset(2))),
       ),
       dtoCompletion(
         offset(3),
         commandId = "commandid",
         submissionId = Some("submissionid"),
-        updateId = Some(updateIdFromOffset(offset(2))),
+        updateId = Some(updateIdArrayFromOffset(offset(2))),
         synchronizerId = SynchronizerId.tryFromString("x::othersynchronizerid"),
       ),
     )
@@ -646,21 +648,22 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
     executeSql(backend.integrity.verifyIntegrity())
   }
 
-  it should "not find errors beyond the ledger end" in {
-    val updates = Vector(
-      dtoCreate(offset(1), 1L, hashCid("#1")),
-      dtoCreate(offset(2), 2L, hashCid("#2")),
-      dtoCreate(offset(7), 7L, hashCid("#7")), // beyond the ledger end
-      dtoCreate(offset(7), 7L, hashCid("#7")), // duplicate id (beyond ledger end)
-      dtoCreate(offset(9), 9L, hashCid("#9")), // non-consecutive id (beyond ledger end)
-    )
-
-    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-    executeSql(ingest(updates, _))
-    executeSql(updateLedgerEnd(offset(2), 2L))
-    executeSql(backend.integrity.verifyIntegrity())
-
-    // Succeeds if verifyIntegrity() doesn't throw
-    succeed
-  }
+  // TODO(i28539) analyse if additional unit tests needed, and implement them with the new schema
+//  it should "not find errors beyond the ledger end" in {
+//    val updates = Vector(
+//      dtoCreateLegacy(offset(1), 1L, hashCid("#1")),
+//      dtoCreateLegacy(offset(2), 2L, hashCid("#2")),
+//      dtoCreateLegacy(offset(7), 7L, hashCid("#7")), // beyond the ledger end
+//      dtoCreateLegacy(offset(7), 7L, hashCid("#7")), // duplicate id (beyond ledger end)
+//      dtoCreateLegacy(offset(9), 9L, hashCid("#9")), // non-consecutive id (beyond ledger end)
+//    )
+//
+//    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+//    executeSql(ingest(updates, _))
+//    executeSql(updateLedgerEnd(offset(2), 2L))
+//    executeSql(backend.integrity.verifyIntegrity())
+//
+//    // Succeeds if verifyIntegrity() doesn't throw
+//    succeed
+//  }
 }

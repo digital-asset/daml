@@ -17,7 +17,7 @@ object DbDto {
   final case class EventActivate(
       // update related columns
       event_offset: Long,
-      update_id: String,
+      update_id: Array[Byte],
       workflow_id: Option[String],
       command_id: Option[String],
       submitters: Option[Set[String]],
@@ -47,7 +47,7 @@ object DbDto {
   final case class EventDeactivate(
       // update related columns
       event_offset: Long,
-      update_id: String,
+      update_id: Array[Byte],
       workflow_id: Option[String],
       command_id: Option[String],
       submitters: Option[Set[String]],
@@ -89,7 +89,7 @@ object DbDto {
   final case class EventVariousWitnessed(
       // update related columns
       event_offset: Long,
-      update_id: String,
+      update_id: Array[Byte],
       workflow_id: Option[String],
       command_id: Option[String],
       submitters: Option[Set[String]],
@@ -156,129 +156,10 @@ object DbDto {
     def variousWitness: IdFilterVariousWitness = IdFilterVariousWitness(this)
   }
 
-  // TODO(#28008) remove
-  final case class EventCreate(
-      event_offset: Long,
-      update_id: String,
-      ledger_effective_time: Long,
-      command_id: Option[String],
-      workflow_id: Option[String],
-      user_id: Option[String],
-      submitters: Option[Set[String]],
-      node_id: Int,
-      contract_id: ContractId,
-      template_id: String,
-      package_id: String,
-      representative_package_id: String,
-      flat_event_witnesses: Set[String],
-      tree_event_witnesses: Set[String],
-      create_argument: Array[Byte],
-      create_signatories: Set[String],
-      create_observers: Set[String],
-      create_key_value: Option[Array[Byte]],
-      create_key_maintainers: Option[Set[String]],
-      create_key_hash: Option[String],
-      create_argument_compression: Option[Int],
-      create_key_value_compression: Option[Int],
-      event_sequential_id: Long,
-      authentication_data: Array[Byte],
-      synchronizer_id: SynchronizerId,
-      trace_context: Array[Byte],
-      record_time: Long,
-      external_transaction_hash: Option[Array[Byte]],
-  ) extends DbDto
-
-  // TODO(#28008) remove
-  final case class EventExercise(
-      consuming: Boolean,
-      event_offset: Long,
-      update_id: String,
-      ledger_effective_time: Long,
-      command_id: Option[String],
-      workflow_id: Option[String],
-      user_id: Option[String],
-      submitters: Option[Set[String]],
-      node_id: Int,
-      contract_id: ContractId,
-      template_id: String,
-      package_id: String,
-      // only for consuming, for non-consuming exercise this field is omitted
-      flat_event_witnesses: Set[String],
-      tree_event_witnesses: Set[String],
-      exercise_choice: String,
-      exercise_choice_interface_id: Option[String],
-      exercise_argument: Array[Byte],
-      exercise_result: Option[Array[Byte]],
-      exercise_actors: Set[String],
-      exercise_last_descendant_node_id: Int,
-      exercise_argument_compression: Option[Int],
-      exercise_result_compression: Option[Int],
-      event_sequential_id: Long,
-      synchronizer_id: SynchronizerId,
-      trace_context: Array[Byte],
-      record_time: Long,
-      external_transaction_hash: Option[Array[Byte]],
-      deactivated_event_sequential_id: Option[Long],
-  ) extends DbDto
-
-  // TODO(#28008) remove
-  final case class EventAssign(
-      event_offset: Long,
-      update_id: String,
-      command_id: Option[String],
-      workflow_id: Option[String],
-      submitter: Option[String],
-      node_id: Int,
-      contract_id: ContractId,
-      template_id: String,
-      package_id: String,
-      flat_event_witnesses: Set[String],
-      create_argument: Array[Byte],
-      create_signatories: Set[String],
-      create_observers: Set[String],
-      create_key_value: Option[Array[Byte]],
-      create_key_maintainers: Option[Set[String]],
-      create_key_hash: Option[String],
-      create_argument_compression: Option[Int],
-      create_key_value_compression: Option[Int],
-      event_sequential_id: Long,
-      ledger_effective_time: Long,
-      authentication_data: Array[Byte],
-      source_synchronizer_id: SynchronizerId,
-      target_synchronizer_id: SynchronizerId,
-      reassignment_id: String,
-      reassignment_counter: Long,
-      trace_context: Array[Byte],
-      record_time: Long,
-  ) extends DbDto
-
-  // TODO(#28008) remove
-  final case class EventUnassign(
-      event_offset: Long,
-      update_id: String,
-      command_id: Option[String],
-      workflow_id: Option[String],
-      submitter: Option[String],
-      node_id: Int,
-      contract_id: ContractId,
-      template_id: String,
-      package_id: String,
-      flat_event_witnesses: Set[String],
-      event_sequential_id: Long,
-      source_synchronizer_id: SynchronizerId,
-      target_synchronizer_id: SynchronizerId,
-      reassignment_id: String,
-      reassignment_counter: Long,
-      assignment_exclusivity: Option[Long],
-      trace_context: Array[Byte],
-      record_time: Long,
-      deactivated_event_sequential_id: Option[Long],
-  ) extends DbDto
-
   final case class EventPartyToParticipant(
       event_sequential_id: Long,
       event_offset: Long,
-      update_id: String,
+      update_id: Array[Byte],
       party_id: String,
       participant_id: String,
       participant_permission: Int,
@@ -305,7 +186,7 @@ object DbDto {
       user_id: String,
       submitters: Set[String],
       command_id: String,
-      update_id: Option[String],
+      update_id: Option[Array[Byte]],
       rejection_status_code: Option[Int],
       rejection_status_message: Option[String],
       rejection_status_details: Option[Array[Byte]],
@@ -329,64 +210,8 @@ object DbDto {
       StringInterningDto(entry._1, entry._2)
   }
 
-  // TODO(#28008) remove
-  final case class IdFilterCreateStakeholder(
-      event_sequential_id: Long,
-      template_id: String,
-      party_id: String,
-      first_per_sequential_id: Boolean,
-  ) extends DbDto
-
-  // TODO(#28008) remove
-  final case class IdFilterCreateNonStakeholderInformee(
-      event_sequential_id: Long,
-      template_id: String,
-      party_id: String,
-      first_per_sequential_id: Boolean,
-  ) extends DbDto
-
-  // TODO(#28008) remove
-  final case class IdFilterConsumingStakeholder(
-      event_sequential_id: Long,
-      template_id: String,
-      party_id: String,
-      first_per_sequential_id: Boolean,
-  ) extends DbDto
-
-  // TODO(#28008) remove
-  final case class IdFilterConsumingNonStakeholderInformee(
-      event_sequential_id: Long,
-      template_id: String,
-      party_id: String,
-      first_per_sequential_id: Boolean,
-  ) extends DbDto
-
-  // TODO(#28008) remove
-  final case class IdFilterNonConsumingInformee(
-      event_sequential_id: Long,
-      template_id: String,
-      party_id: String,
-      first_per_sequential_id: Boolean,
-  ) extends DbDto
-
-  // TODO(#28008) remove
-  final case class IdFilterUnassignStakeholder(
-      event_sequential_id: Long,
-      template_id: String,
-      party_id: String,
-      first_per_sequential_id: Boolean,
-  ) extends DbDto
-
-  // TODO(#28008) remove
-  final case class IdFilterAssignStakeholder(
-      event_sequential_id: Long,
-      template_id: String,
-      party_id: String,
-      first_per_sequential_id: Boolean,
-  ) extends DbDto
-
   final case class TransactionMeta(
-      update_id: String,
+      update_id: Array[Byte],
       event_offset: Long,
       publication_time: Long,
       record_time: Long,
@@ -400,7 +225,7 @@ object DbDto {
   def createDbDtos(
       // update related columns
       event_offset: Long,
-      update_id: String,
+      update_id: Array[Byte],
       workflow_id: Option[String],
       command_id: Option[String],
       submitters: Option[Set[String]],
@@ -459,10 +284,10 @@ object DbDto {
   def assignDbDtos(
       // update related columns
       event_offset: Long,
-      update_id: String,
+      update_id: Array[Byte],
       workflow_id: Option[String],
       command_id: Option[String],
-      submitters: Option[Set[String]],
+      submitter: Option[String],
       record_time: Long,
       synchronizer_id: SynchronizerId,
       trace_context: Array[Byte],
@@ -486,7 +311,7 @@ object DbDto {
         update_id = update_id,
         workflow_id = workflow_id,
         command_id = command_id,
-        submitters = submitters,
+        submitters = submitter.map(Set(_)),
         record_time = record_time,
         synchronizer_id = synchronizer_id,
         trace_context = trace_context,
@@ -514,7 +339,7 @@ object DbDto {
   def consumingExerciseDbDtos(
       // update related columns
       event_offset: Long,
-      update_id: String,
+      update_id: Array[Byte],
       workflow_id: Option[String],
       command_id: Option[String],
       submitters: Option[Set[String]],
@@ -596,10 +421,10 @@ object DbDto {
   def unassignDbDtos(
       // update related columns
       event_offset: Long,
-      update_id: String,
+      update_id: Array[Byte],
       workflow_id: Option[String],
       command_id: Option[String],
-      submitters: Option[Set[String]],
+      submitter: Option[String],
       record_time: Long,
       synchronizer_id: SynchronizerId,
       trace_context: Array[Byte],
@@ -627,7 +452,7 @@ object DbDto {
         update_id = update_id,
         workflow_id = workflow_id,
         command_id = command_id,
-        submitters = submitters,
+        submitters = submitter.map(Set(_)),
         record_time = record_time,
         synchronizer_id = synchronizer_id,
         trace_context = trace_context,
@@ -667,7 +492,7 @@ object DbDto {
   def witnessedCreateDbDtos(
       // update related columns
       event_offset: Long,
-      update_id: String,
+      update_id: Array[Byte],
       workflow_id: Option[String],
       command_id: Option[String],
       submitters: Option[Set[String]],
@@ -730,7 +555,7 @@ object DbDto {
   def witnessedExercisedDbDtos(
       // update related columns
       event_offset: Long,
-      update_id: String,
+      update_id: Array[Byte],
       workflow_id: Option[String],
       command_id: Option[String],
       submitters: Option[Set[String]],

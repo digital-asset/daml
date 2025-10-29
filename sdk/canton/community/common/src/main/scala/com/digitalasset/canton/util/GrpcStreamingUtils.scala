@@ -46,8 +46,11 @@ object GrpcStreamingUtils {
       new ByteStringStreamObserverWithContext[Req, C](extractChunkBytes, extractContext) {
         override def onCompleted(): Unit = {
           super.onCompleted()
-          val responseF = this.result.flatMap { case (byteString, context) =>
-            processFullRequest(byteString, context)
+          val responseF = this.result.flatMap {
+            case Some((byteString, context)) =>
+              processFullRequest(byteString, context)
+            case None =>
+              Future.failed(new NoSuchElementException("No elements were received in stream"))
           }
 
           Try(Await.result(responseF, processingTimeout)) match {

@@ -28,7 +28,12 @@ import com.digitalasset.canton.protocol.DynamicSynchronizerParametersLookup
 import com.digitalasset.canton.protocol.SynchronizerParameters.MaxRequestSize
 import com.digitalasset.canton.protocol.SynchronizerParametersLookup.SequencerSynchronizerParameters
 import com.digitalasset.canton.sequencer.api.v30
-import com.digitalasset.canton.sequencer.api.v30.{GetTimeRequest, GetTimeResponse}
+import com.digitalasset.canton.sequencer.api.v30.{
+  DownloadTopologyStateForInitHashRequest,
+  DownloadTopologyStateForInitHashResponse,
+  GetTimeRequest,
+  GetTimeResponse,
+}
 import com.digitalasset.canton.sequencing.SequencedSerializedEvent
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
@@ -41,11 +46,12 @@ import com.digitalasset.canton.synchronizer.sequencing.service.GrpcSequencerServ
   WrappedAcknowledgeRequest,
 }
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.store.{
+  StoredTopologyTransaction,
   StoredTopologyTransactions,
   TopologyStateForInitializationService,
 }
+import com.digitalasset.canton.topology.{TopologyStateHash, *}
 import com.digitalasset.canton.tracing.{
   SerializableTraceContext,
   TraceContext,
@@ -53,14 +59,15 @@ import com.digitalasset.canton.tracing.{
   Traced,
 }
 import com.digitalasset.canton.util.Thereafter.syntax.*
-import com.digitalasset.canton.util.{EitherTUtil, FutureUtil, RateLimiter}
+import com.digitalasset.canton.util.{EitherTUtil, FutureUtil, MaxBytesToDecompress, RateLimiter}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.github.blemale.scaffeine.{Cache, Scaffeine}
 import com.google.common.annotations.VisibleForTesting
 import io.grpc.Status
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
+import org.apache.pekko.Done
 import org.apache.pekko.stream.scaladsl.{Keep, Sink}
-import org.apache.pekko.stream.{KillSwitches, Materializer}
+import org.apache.pekko.stream.{KillSwitches, Materializer, UniqueKillSwitch}
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
@@ -224,7 +231,7 @@ class GrpcSequencerService(
           SubmissionRequest
             .fromByteString(
               protocolVersion,
-              MaxRequestSizeToDeserialize.Limit(maxRequestSize.value),
+              MaxBytesToDecompress(maxRequestSize.value),
             )
         )
         .leftMap(requestDeserializationError(_, maxRequestSize))
@@ -642,6 +649,17 @@ class GrpcSequencerService(
       authenticationCheck.lookupCurrentMember(),
     )
 
+  private def getDownloadTopologyStateForInit(
+      request: TopologyStateForInitRequest,
+      sendResponse: Seq[StoredTopologyTransaction.GenericStoredTopologyTransaction] => Unit,
+  )(implicit traceContext: TraceContext): (UniqueKillSwitch, Future[Done]) =
+    topologyStateForInitializationService
+      .initialSnapshot(request.member)
+      .grouped(maxItemsInTopologyResponse.value)
+      .viaMat(KillSwitches.single)(Keep.right)
+      .toMat(Sink.foreach(sendResponse))(Keep.both)
+      .run()
+
   override def downloadTopologyStateForInit(
       requestP: v30.DownloadTopologyStateForInitRequest,
       responseObserver: StreamObserver[v30.DownloadTopologyStateForInitResponse],
@@ -652,15 +670,15 @@ class GrpcSequencerService(
       TopologyStateForInitRequest
         .fromProtoV30(requestP)
         .traverse { request =>
-          val (killSwitch, future) = topologyStateForInitializationService
-            .initialSnapshot(request.member)
-            .grouped(maxItemsInTopologyResponse.value)
-            .map { batch =>
-              TopologyStateForInitResponse(Traced(StoredTopologyTransactions(batch))).toProtoV30
-            }
-            .viaMat(KillSwitches.single)(Keep.right)
-            .toMat(Sink.foreach(observer.onNext))(Keep.both)
-            .run()
+          val (killSwitch, future) = getDownloadTopologyStateForInit(
+            request,
+            response =>
+              observer.onNext(
+                TopologyStateForInitResponse(
+                  Traced(StoredTopologyTransactions(response))
+                ).toProtoV30
+              ),
+          )
           observer.setOnCancelHandler(() => killSwitch.shutdown())
           future
         }
@@ -744,5 +762,34 @@ class GrpcSequencerService(
     sequencer.sequencingTime
       .map(time => GetTimeResponse(time.map(_.toProtoPrimitive)))
       .onShutdown(throw AbortedDueToShutdown.Error().asGrpcError)
+  }
+
+  /** Returns a hash of a result equivalent to DownloadTopologyStateForInit call for a BFT check
+    * without transferring the full state.
+    */
+  override def downloadTopologyStateForInitHash(
+      requestP: DownloadTopologyStateForInitHashRequest
+  ): Future[DownloadTopologyStateForInitHashResponse] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+
+    val hashBuilder = new TopologyStateHash
+    EitherTUtil.toFuture(
+      EitherT(
+        TopologyStateForInitRequest
+          .fromProtoV30(requestP)
+          .leftMap(x => ProtoDeserializationFailure.Wrap(x).asGrpcError)
+          .traverse { request =>
+            val (_, future) = getDownloadTopologyStateForInit(
+              request,
+              _.foreach(tx => hashBuilder.add(tx)),
+            )
+            future.map(_ =>
+              DownloadTopologyStateForInitHashResponse(
+                topologyStateHash = hashBuilder.finish().getCryptographicEvidence
+              )
+            )
+          }
+      )
+    )
   }
 }

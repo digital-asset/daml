@@ -58,6 +58,7 @@ final case class Cli(
     bootstrapScriptPath: Option[File] = None,
     manualStart: Boolean = false,
     exitAfterBootstrap: Boolean = false,
+    devProtocol: Boolean = false,
     dars: Seq[String] = Seq.empty,
 ) {
 
@@ -372,6 +373,9 @@ object Cli {
           opt[Unit]("exit-after-bootstrap")
             .hidden()
             .action((_, cli) => cli.copy(exitAfterBootstrap = true)),
+          opt[Unit]("dev")
+            .text("Run sandbox with dev version of the protocol")
+            .action((_, cli) => cli.copy(devProtocol = true)),
           opt[Int]("ledger-api-port")
             .text("Port for the sandbox Ledger API")
             .action((port, cli) =>
@@ -385,7 +389,7 @@ object Cli {
           opt[Int]("json-api-port")
             .text("Port for the sandbox Json API")
             .action((port, cli) =>
-              cli ++ ("canton.participants.sandbox.http-ledger-api.server.port" -> port.toString)
+              cli ++ ("canton.participants.sandbox.http-ledger-api.port" -> port.toString)
             ),
           opt[Int]("sequencer-public-port")
             .text("Port for the sequencer Public API")
@@ -414,6 +418,59 @@ object Cli {
             .text("DAR file to upload to sandbox")
             .unbounded()
             .action((dars, cli) => cli.copy(dars = cli.dars ++ dars.map(_.getPath))),
+        )
+
+      note("") // Newline
+      cmd("sandbox-console")
+        .text("Start a canton console connected to a remote participant and synchronizer")
+        .children(
+          opt[String]("host")
+            .text("Host for the remote participant and synchronizer (default 127.0.0.1)")
+            .action((host, cli) =>
+              cli
+                ++ ("canton.remote-participants.sandbox.ledger-api.address" -> host)
+                ++ ("canton.remote-participants.sandbox.admin-api.address" -> host)
+                ++ ("canton.remote-sequencers.local.public-api.address" -> host)
+                ++ ("canton.remote-sequencers.local.admin-api.address" -> host)
+                ++ ("canton.remote-mediators.mediator1.admin-api.address" -> host)
+            )
+            .required()
+            .withFallback(() => "127.0.0.1"),
+          opt[Int]("port")
+            .text("Port for the remote participant Ledger API (default 6865)")
+            .action((port, cli) =>
+              cli ++ ("canton.remote-participants.sandbox.ledger-api.port" -> port.toString)
+            )
+            .required()
+            .withFallback(() => 6865),
+          opt[Int]("admin-api-port")
+            .text("Port for the remote participant Admin API (default 6866)")
+            .action((port, cli) =>
+              cli ++ ("canton.remote-participants.sandbox.admin-api.port" -> port.toString)
+            )
+            .required()
+            .withFallback(() => 6866),
+          opt[Int]("sequencer-public-port")
+            .text("Port for the remote sequencer Public API (default 6867)")
+            .action((port, cli) =>
+              cli ++ ("canton.remote-sequencers.local.public-api.port" -> port.toString)
+            )
+            .required()
+            .withFallback(() => 6867),
+          opt[Int]("sequencer-admin-port")
+            .text("Port for the remote sequencer Admin API (default 6868)")
+            .action((port, cli) =>
+              cli ++ ("canton.remote-sequencers.local.admin-api.port" -> port.toString)
+            )
+            .required()
+            .withFallback(() => 6868),
+          opt[Int]("mediator-admin-port")
+            .text("Port for the remote mediator Admin API (default 6869)")
+            .action((port, cli) =>
+              cli ++ ("canton.remote-mediators.mediator1.admin-api.port" -> port.toString)
+            )
+            .required()
+            .withFallback(() => 6869),
         )
 
       checkConfig(cli =>

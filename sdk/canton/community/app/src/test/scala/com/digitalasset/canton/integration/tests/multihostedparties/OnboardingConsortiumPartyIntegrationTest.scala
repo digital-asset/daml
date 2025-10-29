@@ -6,8 +6,8 @@ package com.digitalasset.canton.integration.tests.multihostedparties
 import better.files.File
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.BaseTest.CantonLfV21
-import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeProportion, PositiveInt}
+import com.digitalasset.canton.config.{CommitmentSendDelay, DbConfig}
 import com.digitalasset.canton.console.LocalParticipantReference
 import com.digitalasset.canton.integration.EnvironmentDefinition
 import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
@@ -40,7 +40,11 @@ sealed trait OnboardingConsortiumPartyIntegrationTest extends ConsortiumPartyInt
     EnvironmentDefinition.P4_S1M1
       .updateTestingConfig(
         // do not delay sending commitments
-        _.focus(_.maxCommitmentSendDelayMillis).replace(Some(NonNegativeInt.zero))
+        _.focus(_.commitmentSendDelay).replace(
+          Some(
+            CommitmentSendDelay(Some(NonNegativeProportion.zero), Some(NonNegativeProportion.zero))
+          )
+        )
       )
       .withSetup { implicit env =>
         import env.*
@@ -113,6 +117,7 @@ sealed trait OnboardingConsortiumPartyIntegrationTest extends ConsortiumPartyInt
                 newHostingParticipants.map(_.id -> ParticipantPermission.Confirmation),
               threshold = threshold,
               store = daId,
+              participantsRequiringPartyToBeOnboarded = Seq(participant4),
             )
           )
 
@@ -176,7 +181,7 @@ sealed trait OnboardingConsortiumPartyIntegrationTest extends ConsortiumPartyInt
 
           logger.debug("Onboarding: Import ACS to P4 (an empty participant)")
           participant4.ledger_api.state.acs.of_all() shouldBe empty
-          participant4.repair.import_acs(acsFilename)
+          participant4.parties.import_party_acs(acsFilename)
 
           logger.debug(s"Onboarding: Connect P4 to the synchronizer $daName")
           participant4.synchronizers.connect_local(sequencer1, daName)

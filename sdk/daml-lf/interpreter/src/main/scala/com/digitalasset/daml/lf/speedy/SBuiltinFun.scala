@@ -30,11 +30,12 @@ import com.digitalasset.daml.lf.transaction.{
   FatContractInstance,
   GlobalKey,
   GlobalKeyWithMaintainers,
-  TransactionVersion,
+  SerializationVersion,
   TransactionErrors => TxErr,
 }
 import com.digitalasset.daml.lf.value.{Value => V}
 
+import java.nio.charset.StandardCharsets
 import java.security.{
   InvalidKeyException,
   KeyFactory,
@@ -777,6 +778,15 @@ private[lf] object SBuiltinFun {
           crash("JCE Provider BouncyCastle not found")
         case _: NoSuchAlgorithmException =>
           crash("BouncyCastle provider fails to support SECP256K1")
+        case _: IllegalArgumentException =>
+          Control.Error(
+            IE.Crypto(
+              IE.Crypto.MalformedByteEncoding(
+                getSText(args, 2),
+                cause = "can not parse DER encoded public key hex string",
+              )
+            )
+          )
         case exn: InvalidKeyException =>
           Control.Error(
             IE.Crypto(
@@ -798,6 +808,7 @@ private[lf] object SBuiltinFun {
       }
     }
 
+    @throws(classOf[IllegalArgumentException])
     @throws(classOf[NoSuchAlgorithmException])
     @throws(classOf[InvalidKeySpecException])
     private[speedy] def extractPublicKey(hexEncodedPublicKey: Ref.HexString): PublicKey = {
@@ -812,22 +823,26 @@ private[lf] object SBuiltinFun {
         args: ArraySeq[SValue],
         machine: Machine[Q],
     ): Control[Q] = {
-      try {
-        val hexArg = Ref.HexString.assertFromString(getSText(args, 0))
-        val arg = Ref.HexString.decode(hexArg).toStringUtf8
+      val arg = getSText(args, 0)
 
-        Control.Value(SText(arg))
-      } catch {
-        case _: IllegalArgumentException =>
-          Control.Error(
-            IE.Crypto(
-              IE.Crypto.MalformedByteEncoding(
-                getSText(args, 0),
-                cause = "can not parse hex string argument",
+      Ref.HexString
+        .fromString(arg)
+        .fold(
+          _ =>
+            Control.Error(
+              IE.Crypto(
+                IE.Crypto.MalformedByteEncoding(
+                  arg,
+                  cause = "can not parse hex string argument",
+                )
               )
-            )
-          )
-      }
+            ),
+          hexArg => {
+            val result =
+              new String(Ref.HexString.decode(hexArg).toByteArray, StandardCharsets.UTF_8)
+            Control.Value(SText(result))
+          },
+        )
     }
   }
 
@@ -1523,6 +1538,8 @@ private[lf] object SBuiltinFun {
         srcMetadata: ContractMetadata,
         srcArg: V,
         mbTypedNormalFormAuthenticator: Option[Hash => Boolean],
+        forbidLocalContractIds: Boolean,
+        forbidTrailingNones: Boolean,
     ): Control[Question.Update] = {
       resolvePackageName(machine, srcPackageName) { pkgId =>
         val dstTmplId = srcTmplId.copy(pkg = pkgId)
@@ -1532,11 +1549,20 @@ private[lf] object SBuiltinFun {
           language.Reference.Template(dstTmplId.toRef),
         ) { () =>
           ensureTemplateImplementsInterface(machine, interfaceId, coid, dstTmplId) {
-            importValue(machine, Ast.TTyCon(dstTmplId), srcArg) { dstSArg =>
+            importCreateArg(
+              machine,
+              Some(coid),
+              srcTmplId,
+              dstTmplId,
+              srcArg,
+              forbidLocalContractIds = forbidLocalContractIds,
+              forbidTrailingNones = forbidTrailingNones,
+            ) { dstSArg =>
               fetchValidateDstContract(
                 machine,
                 coid,
                 srcTmplId,
+                srcPackageName,
                 srcMetadata,
                 dstTmplId,
                 dstSArg,
@@ -1569,6 +1595,8 @@ private[lf] object SBuiltinFun {
               srcMetadata = srcContractInfo.metadata,
               srcArg = srcContractInfo.arg,
               mbTypedNormalFormAuthenticator = Some(_ == srcContractInfo.valueHash),
+              forbidLocalContractIds = false,
+              forbidTrailingNones = true,
             )
           }
         }
@@ -1589,6 +1617,11 @@ private[lf] object SBuiltinFun {
                 mbTypedNormalFormAuthenticator = hashingMethod match {
                   case HashingMethod.TypedNormalForm => Some(authenticator)
                   case HashingMethod.Legacy | HashingMethod.UpgradeFriendly => None
+                },
+                forbidLocalContractIds = true,
+                forbidTrailingNones = hashingMethod match {
+                  case HashingMethod.Legacy => false
+                  case HashingMethod.UpgradeFriendly | HashingMethod.TypedNormalForm => true
                 },
               )
             }
@@ -1772,7 +1805,15 @@ private[lf] object SBuiltinFun {
         // This isn't ideal as it's a large uncached computation in a non Update primitive.
         // Ideally this would run in Update, and not iterate the value twice
         // i.e. using an upgrade transformation function directly on SValues
-        importValue(machine, Ast.TTyCon(dstTplId), srcArg.toNormalizedValue) { templateArg =>
+        importCreateArg(
+          machine,
+          None,
+          srcTplId,
+          dstTplId,
+          srcArg.toNormalizedValue,
+          forbidLocalContractIds = false,
+          forbidTrailingNones = true,
+        ) { templateArg =>
           Control.Value(SOptional(Some(templateArg)))
         }
       } else {
@@ -1795,6 +1836,11 @@ private[lf] object SBuiltinFun {
     ): Control[Nothing] = {
       val coid = getSContractId(args, 0)
       val (tyCon, record) = getSAnyContract(args, 1)
+      val warning = Warning(
+        machine.getLastLocation,
+        "unsafeFromInterface is deprecated, use fromInterface instead.",
+      )
+      machine.warningLog.add(warning)(machine.loggingContext)
       if (tplId == tyCon) {
         Control.Value(record)
       } else {
@@ -1878,7 +1924,7 @@ private[lf] object SBuiltinFun {
     override private[speedy] def execute[Q](
         args: ArraySeq[SValue],
         machine: Machine[Q],
-    ): Control[Nothing] = {
+    ): Control[Q] = {
       val (templateId, record) = getSAnyContract(args, 0)
 
       val ref = getInterfaceInstance(machine, ifaceId, templateId).fold(
@@ -1887,7 +1933,11 @@ private[lf] object SBuiltinFun {
             s"template of type ${ifaceId}, but there's no matching interface instance."
         )
       )(iiRef => InterfaceInstanceViewDefRef(iiRef))
-      Control.Expression(SEApp(SEVal(ref), ArraySeq(record)))
+      executeExpression(machine, SEApp(SEVal(ref), ArraySeq(record))) { view =>
+        // Check that the view is serializable
+        val _ = view.toNormalizedValue
+        Control.Value(view)
+      }
     }
   }
 
@@ -2521,7 +2571,7 @@ private[lf] object SBuiltinFun {
     SBuiltinFun.SBStructCon(contractInfoPositionStruct)
 
   private def extractContractInfo(
-      tmplId2TxVersion: TypeConId => TransactionVersion,
+      tmplId2TxVersion: TypeConId => SerializationVersion,
       tmplId2PackageName: TypeConId => PackageName,
       contractInfoStruct: SValue,
   ): ContractInfo = {
@@ -2587,9 +2637,12 @@ private[lf] object SBuiltinFun {
 
     def processSrcContract(
         srcTmplId: TypeConId,
+        srcPkgName: Ref.PackageName,
         srcMetadata: ContractMetadata,
         srcArg: V,
         mbTypedNormalFormAuthenticator: Option[Hash => Boolean],
+        forbidLocalContractIds: Boolean,
+        forbidTrailingNones: Boolean,
     ): Control[Question.Update] = {
       if (srcTmplId.qualifiedName != dstTmplId.qualifiedName)
         Control.Error(
@@ -2601,11 +2654,20 @@ private[lf] object SBuiltinFun {
           dstTmplId.packageId,
           language.Reference.Template(dstTmplId.toRef),
         )(() => {
-          importValue(machine, Ast.TTyCon(dstTmplId), srcArg) { dstSArg =>
+          importCreateArg(
+            machine,
+            Some(coid),
+            srcTmplId,
+            dstTmplId,
+            srcArg,
+            forbidLocalContractIds = forbidLocalContractIds,
+            forbidTrailingNones = forbidTrailingNones,
+          ) { dstSArg =>
             fetchValidateDstContract(
               machine,
               coid,
               srcTmplId,
+              srcPkgName,
               srcMetadata,
               dstTmplId,
               dstSArg,
@@ -2637,9 +2699,12 @@ private[lf] object SBuiltinFun {
             ) { srcContractInfo =>
               processSrcContract(
                 srcTmplId = srcTmplId,
+                srcPkgName = srcContractInfo.packageName,
                 srcMetadata = srcContractInfo.metadata,
                 srcArg = srcContractInfo.arg,
                 mbTypedNormalFormAuthenticator = Some(_ == srcContractInfo.valueHash),
+                forbidLocalContractIds = false,
+                forbidTrailingNones = true,
               )
             }
           }
@@ -2651,6 +2716,7 @@ private[lf] object SBuiltinFun {
             ensureContractActive(machine, coid, coinst.templateId) {
               processSrcContract(
                 srcTmplId = coinst.templateId,
+                srcPkgName = coinst.packageName,
                 srcMetadata = ContractMetadata(
                   coinst.signatories,
                   coinst.nonSignatoryStakeholders,
@@ -2660,6 +2726,11 @@ private[lf] object SBuiltinFun {
                 mbTypedNormalFormAuthenticator = hashingMethod match {
                   case HashingMethod.TypedNormalForm => Some(authenticator)
                   case HashingMethod.Legacy | HashingMethod.UpgradeFriendly => None
+                },
+                forbidLocalContractIds = true,
+                forbidTrailingNones = hashingMethod match {
+                  case HashingMethod.Legacy => false
+                  case HashingMethod.UpgradeFriendly | HashingMethod.TypedNormalForm => true
                 },
               )
             }
@@ -2680,6 +2751,7 @@ private[lf] object SBuiltinFun {
       machine: UpdateMachine,
       coid: V.ContractId,
       srcTmplId: TypeConId,
+      srcPkgName: Ref.PackageName,
       srcContractMetadata: ContractMetadata,
       dstTmplId: TypeConId,
       dstTmplArg: SValue,
@@ -2698,12 +2770,14 @@ private[lf] object SBuiltinFun {
           coid,
           srcTmplId,
           dstTmplId,
+          srcPkgName,
+          dstContract.packageName,
           srcContractMetadata,
           dstContract.metadata,
         ) { () =>
           mbTypedNormalFormAuthenticator match {
             case Some(authenticator) =>
-              authenticateContractInfo(authenticator, coid, dstContract) { () =>
+              authenticateContractInfo(authenticator, coid, srcTmplId, dstContract) { () =>
                 k(dstTmplId, dstTmplArg, dstContract)
               }
             case None => k(dstTmplId, dstTmplArg, dstContract)
@@ -2752,18 +2826,28 @@ private[lf] object SBuiltinFun {
               k()
             } else {
               Control.Error(
-                IE.Dev(
-                  NameOf.qualifiedNameOfCurrentFunc,
-                  IE.Dev
-                    .AuthenticationError(coid, coinst.createArg, s"failed to authenticate contract"),
+                IE.Upgrade(
+                  IE.Upgrade
+                    .AuthenticationFailed(
+                      coid = coid,
+                      srcTemplateId = coinst.templateId,
+                      dstTemplateId = coinst.templateId,
+                      createArg = coinst.createArg,
+                      msg = "failed to authenticate contract",
+                    )
                 )
               )
             }
           case Left(msg) =>
             Control.Error(
-              IE.Dev(
-                NameOf.qualifiedNameOfCurrentFunc,
-                IE.Dev.AuthenticationError(coid, coinst.createArg, msg),
+              IE.Upgrade(
+                IE.Upgrade.AuthenticationFailed(
+                  coid = coid,
+                  srcTemplateId = coinst.templateId,
+                  dstTemplateId = coinst.templateId,
+                  createArg = coinst.createArg,
+                  msg = msg,
+                )
               )
             )
         }
@@ -2776,6 +2860,7 @@ private[lf] object SBuiltinFun {
   private def authenticateContractInfo(
       authenticator: Hash => Boolean,
       coid: V.ContractId,
+      srcTemplateId: TypeConId,
       contractInfo: ContractInfo,
   )(k: () => Control[Question.Update]) =
     if (
@@ -2790,14 +2875,14 @@ private[lf] object SBuiltinFun {
       k()
     } else {
       Control.Error(
-        IE.Dev(
-          NameOf.qualifiedNameOfCurrentFunc,
-          IE.Dev
-            .AuthenticationError(
-              coid,
-              contractInfo.value.toNormalizedValue,
-              s"failed to authenticate contract",
-            ),
+        IE.Upgrade(
+          IE.Upgrade.AuthenticationFailed(
+            coid = coid,
+            srcTemplateId = srcTemplateId,
+            dstTemplateId = contractInfo.templateId,
+            createArg = contractInfo.value.toNormalizedValue,
+            msg = s"failed to authenticate contract",
+          )
         )
       )
     }
@@ -2807,6 +2892,8 @@ private[lf] object SBuiltinFun {
       coid: V.ContractId,
       srcTemplateId: TypeConId,
       recomputedTemplateId: TypeConId,
+      srcPkgName: Ref.PackageName,
+      dstPkgName: Ref.PackageName,
       original: ContractMetadata,
       recomputed: ContractMetadata,
   )(
@@ -2824,19 +2911,26 @@ private[lf] object SBuiltinFun {
       check(_.stakeholders, "stakeholders"),
       check(_.keyOpt.map(_.maintainers), "key maintainers"),
       check(_.keyOpt.map(_.globalKey.key), "key value"),
+      Option.when(srcPkgName != dstPkgName)(
+        s"package name mismatch: $srcPkgName vs $dstPkgName"
+      ),
     ).flatten match {
       case Nil => k()
       case errors =>
         Control.Error(
           IE.Upgrade(
-            // TODO(https://github.com/digital-asset/daml/issues/20305): also include the original metadata
             IE.Upgrade.ValidationFailed(
               coid = coid,
               srcTemplateId = srcTemplateId,
               dstTemplateId = recomputedTemplateId,
-              signatories = recomputed.signatories,
-              observers = recomputed.observers,
-              keyOpt = recomputed.keyOpt,
+              srcPackageName = srcPkgName,
+              dstPackageName = dstPkgName,
+              originalSignatories = original.signatories,
+              originalObservers = original.observers,
+              originalKeyOpt = original.keyOpt,
+              recomputedSignatories = recomputed.signatories,
+              recomputedObservers = recomputed.observers,
+              recomputedKeyOpt = recomputed.keyOpt,
               msg = errors.mkString("['", "', '", "']"),
             )
           )
@@ -2844,13 +2938,36 @@ private[lf] object SBuiltinFun {
     }
   }
 
-  private def importValue[Q](machine: Machine[Q], typ: Ast.Type, value: V)(
-      f: SValue => Control[Q]
+  /** Type-checks [createArg] against [dstTmplId] and converts it to an SValue. The [coid] and [srcTmplId] parameters
+    *  are used for error reporting only.
+    */
+  private def importCreateArg[Q](
+      machine: Machine[Q],
+      coidOpt: Option[V.ContractId],
+      srcTmplId: TypeConId,
+      dstTmplId: TypeConId,
+      createArg: V,
+      forbidLocalContractIds: Boolean,
+      forbidTrailingNones: Boolean,
+  )(
+      k: SValue => Control[Q]
   ): Control[Q] = {
-    machine.importValue(typ, value) match {
-      case Right(value) => f(value)
-      case Left(error) => Control.Error(error)
-    }
+    new ValueTranslator(
+      machine.compiledPackages.pkgInterface,
+      forbidLocalContractIds = forbidLocalContractIds,
+      forbidTrailingNones = forbidTrailingNones,
+    )
+      .translateValue(Ast.TTyCon(dstTmplId), createArg)
+      .fold(
+        translationError =>
+          Control.Error(
+            IE.Upgrade(
+              IE.Upgrade
+                .TranslationFailed(coidOpt, srcTmplId, dstTmplId, createArg, translationError)
+            )
+          ),
+        k,
+      )
   }
 
   // Get the contract info for a contract, computing if not in our cache

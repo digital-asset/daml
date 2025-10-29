@@ -12,12 +12,7 @@ import com.digitalasset.daml.lf.speedy.SError.SError
 import com.digitalasset.daml.lf.speedy.SExpr.SExpr
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
-import com.digitalasset.daml.lf.transaction.{
-  CreationTime,
-  FatContractInstance,
-  GlobalKeyWithMaintainers,
-  Node,
-}
+import com.digitalasset.daml.lf.transaction.FatContractInstance
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.daml.lf.value.Value.ContractId.V1.`V1 Order`
@@ -67,7 +62,7 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
     }
 
     "handle propose ETyAbs, ETyApp, and ELoc" in {
-      import language.Util.{EFalse, EEmptyString, TUnit}
+      import language.Util.{EEmptyString, EFalse, TUnit}
       val List(a, x, precond, label) =
         List("a", "x", "precond", "label").map(Ref.Name.assertFromString)
       val l = Ref.Location(
@@ -205,59 +200,5 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
     SpeedyTestLib
       .run(machine, getContract = getContract)
       .map((_, machine.localContractStore))
-  }
-
-  def buildDisclosedContract(
-      contractId: ContractId,
-      maintainer: Party,
-      templateId: Ref.Identifier,
-      label: String = "",
-      hasKey: Boolean,
-      precondition: Boolean = true,
-  ): DisclosedContract = {
-    val payload =
-      SValue.SRecord(
-        templateId,
-        ImmArray(
-          Ref.Name.assertFromString("precond"),
-          Ref.Name.assertFromString("label"),
-          Ref.Name.assertFromString("party"),
-        ),
-        ArraySeq(
-          SValue.SBool(precondition),
-          SValue.SText(label),
-          SValue.SParty(maintainer),
-        ),
-      )
-    val txVersion = pkg.languageVersion
-    val disclosedContract = DisclosedContract(
-      FatContractInstance.fromCreateNode(
-        Node.Create(
-          coid = contractId,
-          packageName = pkg.pkgName,
-          templateId = templateId,
-          arg = payload.toNormalizedValue,
-          signatories = Set(maintainer),
-          stakeholders = Set(maintainer),
-          keyOpt =
-            if (hasKey)
-              Some(
-                GlobalKeyWithMaintainers.assertBuild(
-                  templateId,
-                  payload.toNormalizedValue,
-                  Set(maintainer),
-                  pkg.pkgName,
-                )
-              )
-            else
-              None,
-          version = txVersion,
-        ),
-        CreationTime.CreatedAt(Time.Timestamp.now()),
-        Bytes.Empty,
-      ),
-      payload,
-    )
-    disclosedContract
   }
 }

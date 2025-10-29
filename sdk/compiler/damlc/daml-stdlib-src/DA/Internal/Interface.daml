@@ -82,6 +82,7 @@ class HasFromInterface t i where
   -- | HIDE
   -- Like 'fromInterface', but raises a fatal error (`WronglyTypedContract`) if the
   -- underlying template type of the interface value doesn't match the desired type.
+  -- DEPRECATED: use `fromInterface` instead
   unsafeFromInterface : ContractId i -> i -> t
 
 -- | (Daml-LF >= 1.15) Constraint that indicates that a template implements an interface.
@@ -180,7 +181,9 @@ _exerciseInterfaceGuard : forall i t.
   (HasFromInterface t i, HasInterfaceTypeRep i, HasTemplateTypeRep t) =>
   ContractId t -> (t -> Bool) -> i -> Bool
 _exerciseInterfaceGuard cid tpred ivalue =
-  tpred (unsafeFromInterface (coerceContractId cid) ivalue)
+  case fromInterface ivalue of
+    Some t -> tpred t
+    None -> error ("Guard failed due to wrongly typed contract id " <> show cid)
 #else
 _exerciseInterfaceGuard : forall t i a b c. a -> b -> c -> Bool
 _exerciseInterfaceGuard cid tpred ivalue =

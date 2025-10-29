@@ -25,7 +25,12 @@ class PackageManagementService(channel: Channel, authorizationToken: Option[Stri
   ): Future[Unit] =
     service
       .uploadDarFile(
-        new UploadDarFileRequest(bytes, submissionId, UploadDarVettingChange.default.toProto)
+        new UploadDarFileRequest(
+          bytes,
+          submissionId,
+          UploadDarVettingChange.default.toProto,
+          synchronizerId = "",
+        )
       )
       .map(_ => ())
 

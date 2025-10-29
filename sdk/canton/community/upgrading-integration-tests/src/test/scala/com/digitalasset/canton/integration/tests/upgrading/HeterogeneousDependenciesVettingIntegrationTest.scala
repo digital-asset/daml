@@ -9,7 +9,7 @@ import com.daml.ledger.api.v2.value.Identifier.toJavaProto
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.javaapi.data.Identifier
 import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{LocalParticipantReference, ParticipantReference}
 import com.digitalasset.canton.damltests.{dvpassets, dvpoffer}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -17,7 +17,6 @@ import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.integration.util.PartiesAllocator
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
-  ConfigTransforms,
   EnvironmentDefinition,
   SharedEnvironment,
 }
@@ -28,7 +27,6 @@ import com.digitalasset.canton.topology.transaction.VettedPackage
 import com.digitalasset.canton.util.SetupPackageVetting
 import com.digitalasset.canton.util.collection.MapsUtil
 import com.digitalasset.canton.{LfPackageId, LfPackageName}
-import monocle.macros.syntax.lens.*
 
 import scala.jdk.CollectionConverters.{CollectionHasAsScala, MapHasAsJava, MapHasAsScala}
 import scala.jdk.OptionConverters.{RichOption, RichOptional}
@@ -63,15 +61,6 @@ class HeterogeneousDependenciesVettingIntegrationTest
 
   override lazy val environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P4_S1M1
-      .addConfigTransform(
-        ConfigTransforms.updateAllParticipantConfigs_(
-          // Make sure that unassignment picks a recent target synchronizer topology snapshot
-          // TODO(#25110): Remove this configuration once the correct snapshot is used in computing
-          //               the vetting checks for the target synchronizer
-          _.focus(_.parameters.reassignmentsConfig.timeProofFreshnessProportion)
-            .replace(NonNegativeInt.zero)
-        )
-      )
       .withSetup { implicit env =>
         import env.*
 

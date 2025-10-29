@@ -45,9 +45,10 @@ package object protocol {
   type LfLanguageVersion = LanguageVersion
   val LfLanguageVersion: LanguageVersion.type = LanguageVersion
 
-  val LfTransactionVersion: TransactionVersion.type = TransactionVersion
+  type LfSerializationVersion = SerializationVersion
+  val LfSerializationVersion: SerializationVersion.type = SerializationVersion
 
-  val DummyTransactionVersion: LfLanguageVersion = LanguageVersion.v2_dev
+  val DummySerializationVersion: LfSerializationVersion = LfSerializationVersion.VDev
 
   // Ledger transaction statistics based on lf transaction nodes
   type LedgerTransactionNodeStatistics = TransactionNodeStatistics
@@ -121,9 +122,11 @@ package object protocol {
   type RequestProcessor[VT <: ViewType] =
     Phase37Processor[RequestAndRootHashMessage[OpenEnvelope[EncryptedViewMessage[VT]]]]
 
-  def maxTransactionVersion(versions: NonEmpty[Seq[LfLanguageVersion]]): LfLanguageVersion = {
+  def maxSerializationVersion(
+      versions: NonEmpty[Seq[LfSerializationVersion]]
+  ): LfSerializationVersion = {
     import Ordering.Implicits.*
-    versions.reduceLeft[LfLanguageVersion](_ max _)
+    versions.reduceLeft[LfSerializationVersion](_ max _)
   }
 
 }

@@ -14,7 +14,7 @@ load(
 load(
     "//daml-lf/language:daml-lf.bzl",
     "COMPILER_LF_MAJOR_VERSIONS",
-    "lf_version_default_or_latest",
+    "DEFAULT_LF_VERSION",
 )
 load("@os_info//:os_info.bzl", "is_linux")
 
@@ -111,6 +111,7 @@ da_scala_test_suite(
         "//daml-lf/transaction-test-lib",
         "//libs-scala/contextualized-logging",
         "//libs-scala/crypto",
+        "//libs-scala/scala-utils",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_bouncycastle_bcprov_jdk15on",
         "@maven//:org_scalatest_scalatest_compatible",
@@ -177,34 +178,31 @@ scala_repl(
     ],
 )
 
-[
-    da_scala_benchmark_jmh(
-        name = "speedy-compilation-benchmark-v{}".format(major),
-        srcs = glob(["src/bench/**/SpeedyCompilationBench.scala"]),
-        data = [
-            "//test-common:model-tests-{}.dar".format(lf_version_default_or_latest(major)),
-        ],
-        scala_deps = [
-            "@maven//:org_scalaz_scalaz_core",
-        ],
-        visibility = ["//visibility:public"],
-        deps = [
-            "//bazel_tools/runfiles:scala_runfiles",
-            "//daml-lf/archive:daml_lf_archive_proto_java",
-            "//daml-lf/archive:daml_lf_archive_reader",
-            "//daml-lf/data",
-            "//daml-lf/engine",
-            "//daml-lf/ide-ledger",
-            "//daml-lf/interpreter",
-            "//daml-lf/language",
-            "//daml-lf/transaction",
-            "//daml-lf/validation",
-            "//test-common:dar-files-{}-lib".format(lf_version_default_or_latest(major)),
-            "@maven//:com_google_protobuf_protobuf_java",
-        ],
-    )
-    for major in COMPILER_LF_MAJOR_VERSIONS
-]
+da_scala_benchmark_jmh(
+    name = "speedy-compilation-benchmark",
+    srcs = glob(["src/bench/**/SpeedyCompilationBench.scala"]),
+    data = [
+        "//test-common:model-tests-{}.dar".format(DEFAULT_LF_VERSION),
+    ],
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/archive:daml_lf_archive_proto_java",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/data",
+        "//daml-lf/engine",
+        "//daml-lf/ide-ledger",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//daml-lf/transaction",
+        "//daml-lf/validation",
+        "//test-common:dar-files-{}-lib".format(DEFAULT_LF_VERSION),
+        "@maven//:com_google_protobuf_protobuf_java",
+    ],
+)
 
 da_scala_benchmark_jmh(
     name = "speedy-struct-proj-bench",

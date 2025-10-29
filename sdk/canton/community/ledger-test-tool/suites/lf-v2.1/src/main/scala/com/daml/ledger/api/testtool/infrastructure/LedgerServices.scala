@@ -196,10 +196,11 @@ import com.digitalasset.canton.http.json.v2.{
   TranscodePackageIdResolver,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, NoLogging}
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.Implicits.packageMetadataSemigroup
 import com.digitalasset.canton.serialization.ProtoConverter.InstantConverter
+import com.digitalasset.canton.store.packagemeta.PackageMetadata
+import com.digitalasset.canton.store.packagemeta.PackageMetadata.Implicits.packageMetadataSemigroup
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.OptionUtil
 import com.digitalasset.daml.lf.archive.{DarParser, Decode}
 import io.grpc.health.v1.health.HealthGrpc
 import io.grpc.health.v1.health.HealthGrpc.Health
@@ -618,6 +619,7 @@ private final case class LedgerServicesJson(
                 s"could not convert unrecognized VettingChange enum $unrecognizedValue to a boolean"
               )
           },
+          OptionUtil.emptyStringAsNone(request.synchronizerId),
         ),
       )
     }.map { result =>
@@ -627,10 +629,24 @@ private final case class LedgerServicesJson(
       result
     }
 
-    override def validateDarFile(request: ValidateDarFileRequest): Future[ValidateDarFileResponse] =
-      throw new UnsupportedOperationException(
-        "ValidateDarFile is not available in JSON API"
+    override def validateDarFile(
+        request: ValidateDarFileRequest
+    ): Future[ValidateDarFileResponse] = {
+      val src: Source[ByteString, NotUsed] = Source.fromIterator(() =>
+        request.darFile
+          .asReadOnlyByteBufferList()
+          .iterator
+          .asScala
+          .map(org.apache.pekko.util.ByteString(_))
       )
+      clientCall(
+        JsPackageService.validateDar,
+        (
+          src,
+          OptionUtil.emptyStringAsNone(request.synchronizerId),
+        ),
+      )
+    }.map(_ => ValidateDarFileResponse())
 
     override def updateVettedPackages(
         request: UpdateVettedPackagesRequest

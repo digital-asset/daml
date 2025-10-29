@@ -21,6 +21,7 @@ import com.digitalasset.canton.synchronizer.sequencer.admin.data.{
   SequencerAdminStatus,
   SequencerHealthStatus,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.BlockOrderer
 import com.digitalasset.canton.synchronizer.sequencer.errors.{
   CreateSubscriptionError,
   SequencerError,
@@ -207,6 +208,8 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest with FailOnShutdown 
     override def sequencingTime(implicit
         traceContext: TraceContext
     ): FutureUnlessShutdown[Option[CantonTimestamp]] = ???
+
+    override private[canton] def orderer: Option[BlockOrderer] = ???
   }
 
   "sendAsyncSigned" should {

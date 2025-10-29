@@ -18,7 +18,6 @@ import com.digitalasset.canton.integration.bootstrap.InitializedSynchronizer
 import com.digitalasset.canton.integration.tests.topology.TopologyManagementHelper
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters as StaticSynchronizerParametersInternal
 import com.digitalasset.canton.time.{RemoteClock, SimClock}
-import monocle.macros.syntax.lens.*
 
 /** Defines the necessary environment and setup for running a set of nodes with KMS as their
   * provider, either with or without pre-generated keys.
@@ -35,29 +34,6 @@ trait KmsCryptoIntegrationTestBase extends TopologyManagementHelper {
   protected lazy val nodesWithSessionSigningKeysDisabled: Set[String] = Set.empty
 
   protected def otherConfigTransforms: Seq[ConfigTransform] = Seq.empty
-
-  protected val kmsConfigTransform: ConfigTransform = {
-    def modifyCryptoSchemeConfig(conf: CryptoConfig): CryptoConfig =
-      conf.copy(provider = CryptoProvider.Jce)
-
-    val sequencerConfigTransform = ConfigTransforms.updateSequencerConfig("sequencer1")(
-      _.focus(_.crypto).modify(modifyCryptoSchemeConfig)
-    )
-    val mediatorConfigTransform = ConfigTransforms.updateMediatorConfig("mediator1")(
-      _.focus(_.crypto).modify(modifyCryptoSchemeConfig)
-    )
-    val participant1ConfigTransform = ConfigTransforms.updateParticipantConfig("participant1")(
-      _.focus(_.crypto).modify(modifyCryptoSchemeConfig)
-    )
-    val participant2ConfigTransform = ConfigTransforms.updateParticipantConfig("participant2")(
-      _.focus(_.crypto).modify(modifyCryptoSchemeConfig)
-    )
-
-    sequencerConfigTransform
-      .compose(mediatorConfigTransform)
-      .compose(participant1ConfigTransform)
-      .compose(participant2ConfigTransform)
-  }
 
   protected def kmsConfig: KmsConfig
 

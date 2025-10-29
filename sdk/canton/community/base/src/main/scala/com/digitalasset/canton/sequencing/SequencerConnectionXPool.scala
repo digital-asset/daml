@@ -16,6 +16,7 @@ import com.digitalasset.canton.lifecycle.{
   HasRunOnClosing,
   OnShutdownRunner,
 }
+import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLogging, TracedLogger}
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
@@ -155,8 +156,12 @@ object SequencerConnectionXPool {
     *   for the pool to initialize and start serving connections. After initialization, if the
     *   number of connections in the pool goes below the threshold, the pool's health will
     *   transition to `degraded` (or `failed` if it reaches 0).
-    * @param restartConnectionDelay
-    *   The duration after which a failed connection is restarted.
+    * @param minRestartConnectionDelay
+    *   The minimum duration after which a failed connection is restarted.
+    * @param maxRestartConnectionDelay
+    *   The maximum duration after which a failed connection is restarted.
+    * @param warnConnectionValidationDelay
+    *   The duration after which a warning is issued if a started connection still fails validation.
     * @param expectedPSIdO
     *   If provided, defines the synchronizer to which the connections are expected to connect. If
     *   empty, the synchronizer will be determined as soon as [[trustThreshold]]-many connections
@@ -165,12 +170,22 @@ object SequencerConnectionXPool {
   final case class SequencerConnectionXPoolConfig(
       connections: NonEmpty[Seq[ConnectionXConfig]],
       trustThreshold: PositiveInt,
-      restartConnectionDelay: config.NonNegativeFiniteDuration =
-        config.NonNegativeFiniteDuration.ofMillis(500),
+      minRestartConnectionDelay: config.NonNegativeFiniteDuration,
+      maxRestartConnectionDelay: config.NonNegativeFiniteDuration,
+      warnConnectionValidationDelay: config.NonNegativeFiniteDuration,
       expectedPSIdO: Option[PhysicalSynchronizerId] = None,
-  ) {
+  ) extends PrettyPrinting {
     // TODO(i24780): when persisting, use com.digitalasset.canton.version.Invariant machinery for validation
     import SequencerConnectionXPoolConfig.*
+
+    override protected def pretty: Pretty[SequencerConnectionXPoolConfig] = prettyOfClass(
+      param("connections", _.connections),
+      param("trustThreshold", _.trustThreshold),
+      param("minRestartConnectionDelay", _.minRestartConnectionDelay),
+      param("maxRestartConnectionDelay", _.maxRestartConnectionDelay),
+      param("warnConnectionValidationDelay", _.warnConnectionValidationDelay),
+      paramIfDefined("expectedPSIdO", _.expectedPSIdO),
+    )
 
     def validate: Either[SequencerConnectionXPoolError, Unit] = {
       val (names, endpoints) = connections.map(conn => conn.name -> conn.endpoint).unzip
@@ -195,6 +210,11 @@ object SequencerConnectionXPool {
           (),
           s"Trust threshold ($trustThreshold) must not exceed the number of connections (${connections.size})",
         )
+        _ <- Either.cond(
+          minRestartConnectionDelay.duration <= maxRestartConnectionDelay.duration,
+          (),
+          s"Minimum restart connection delay ($minRestartConnectionDelay) must not exceed the maximum ($maxRestartConnectionDelay)",
+        )
       } yield ()
 
       check.leftMap(SequencerConnectionXPoolError.InvalidConfigurationError.apply)
@@ -217,7 +237,12 @@ object SequencerConnectionXPool {
     private[sequencing] final case class ChangedConnections(
         added: Set[ConnectionXConfig],
         removed: Set[ConnectionXConfig],
-    )
+    ) extends PrettyPrinting {
+      override protected def pretty: Pretty[ChangedConnections] = prettyOfClass(
+        param("added", _.added),
+        param("removed", _.removed),
+      )
+    }
 
     /** Create a sequencer connection pool configuration from the existing format.
       *
@@ -261,6 +286,12 @@ object SequencerConnectionXPool {
         connectionsConfig,
         trustThreshold = sequencerConnections.sequencerTrustThreshold,
         expectedPSIdO = expectedPSIdO,
+        minRestartConnectionDelay =
+          sequencerConnections.sequencerConnectionPoolDelays.minRestartDelay,
+        maxRestartConnectionDelay =
+          sequencerConnections.sequencerConnectionPoolDelays.maxRestartDelay,
+        warnConnectionValidationDelay =
+          sequencerConnections.sequencerConnectionPoolDelays.warnValidationDelay,
       )
     }
 
@@ -302,7 +333,8 @@ trait SequencerConnectionXPoolFactory {
   import SequencerConnectionXPool.{SequencerConnectionXPoolConfig, SequencerConnectionXPoolError}
 
   def create(
-      initialConfig: SequencerConnectionXPoolConfig
+      initialConfig: SequencerConnectionXPoolConfig,
+      name: String,
   )(implicit
       ec: ExecutionContextExecutor,
       esf: ExecutionSequencerFactory,
@@ -314,6 +346,7 @@ trait SequencerConnectionXPoolFactory {
       sequencerConnections: SequencerConnections,
       expectedPSIdO: Option[PhysicalSynchronizerId],
       tracingConfig: TracingConfig,
+      name: String,
   )(implicit
       ec: ExecutionContextExecutor,
       esf: ExecutionSequencerFactory,

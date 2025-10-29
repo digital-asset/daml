@@ -4,11 +4,13 @@
 package com.digitalasset.canton.sequencing.client.transports
 
 import cats.data.EitherT
+import cats.implicits.toTraverseOps
 import cats.syntax.either.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.client.pekko.ClientAdapter
 import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
@@ -232,9 +234,9 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
           Source.single,
         )
       }
-      .runFold(Vector.empty[GenericStoredTopologyTransaction])((acc, txs) =>
+      .runFold(Vector.empty[GenericStoredTopologyTransaction]) { (acc, txs) =>
         acc ++ txs.topologyTransactions.value.result
-      )
+      }
       .map { accumulated =>
         val storedTxs = StoredTopologyTransactions(accumulated)
         logger.debug(
@@ -262,6 +264,51 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
 
     EitherT(resultF)
   }
+
+  override def getTime(timeout: Duration)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, Option[CantonTimestamp]] =
+    for {
+      response <-
+        CantonGrpcUtil
+          .sendGrpcRequest(sequencerServiceClient, "sequencer")(
+            _.getTime(v30.GetTimeRequest()),
+            requestDescription = s"getTime",
+            timeout = timeout,
+            logger = logger,
+            retryPolicy = retryPolicy(retryOnUnavailable = false),
+          )
+          .leftMap(_.toString)
+      timestampO <-
+        EitherT.fromEither[FutureUnlessShutdown](
+          response.sequencingTimestamp
+            .traverse(CantonTimestamp.fromProtoPrimitive)
+            .leftMap(_.message)
+        )
+    } yield timestampO
+
+  override def downloadTopologyStateForInitHash(request: TopologyStateForInitRequest)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, TopologyStateForInitHashResponse] =
+    for {
+      responseP <-
+        CantonGrpcUtil
+          .sendGrpcRequest(sequencerServiceClient, "sequencer")(
+            _.downloadTopologyStateForInitHash(request.toHashProtoV30),
+            requestDescription = s"downloadTopologyStateForInitHash",
+            timeout =
+              timeouts.unbounded.duration, // may take a while as it generates the full download to hash it
+            logger = logger,
+            retryPolicy = retryPolicy(retryOnUnavailable = false),
+          )
+          .leftMap(_.toString)
+      hash <-
+        EitherT.fromEither[FutureUnlessShutdown](
+          TopologyStateForInitHashResponse
+            .fromProtoV30(responseP)
+            .leftMap(_.message)
+        )
+    } yield hash
 }
 
 trait GrpcClientTransportHelpers {

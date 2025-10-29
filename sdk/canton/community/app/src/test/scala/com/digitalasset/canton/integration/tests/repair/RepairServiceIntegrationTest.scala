@@ -31,6 +31,7 @@ import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.Submission
+import com.digitalasset.canton.util.TestEngine
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{
   LfVersioned,
@@ -45,6 +46,7 @@ import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{ValueParty, ValueRecord}
 import org.scalatest.{Assertion, Tag}
 
+import java.time.Duration
 import java.util.UUID
 import scala.annotation.nowarn
 import scala.concurrent.{Future, Promise}
@@ -96,7 +98,8 @@ sealed trait RepairServiceIntegrationTest
 
       participant1.synchronizers.connect_local(sequencer1, alias = daName)
       participant1.synchronizers.connect_local(sequencer2, alias = acmeName)
-      participant1.dars.upload(cantonTestsPath)
+      participant1.dars.upload(cantonTestsPath, synchronizerId = daId)
+      participant1.dars.upload(cantonTestsPath, synchronizerId = acmeId)
       eventually()(assert(participant1.synchronizers.is_connected(daId)))
 
       participant2.synchronizers.connect_local(sequencer2, alias = acmeName)
@@ -403,6 +406,37 @@ sealed trait RepairServiceIntegrationTestStableLf
             _.commandFailureMessage should include(
               "Failed to authenticate contract with id"
             ),
+          )
+        }
+      }
+
+      // TODO(#24610): Add test cases for ContractImportMode.ACCEPT to showcase that authentication is bypassed
+      "contract authentication fails" in { implicit env =>
+        withParticipantsInitialized { (alice, bob) =>
+          import env.*
+
+          val contract = withSynchronizerConnected(daName) {
+            createContractInstance(participant1, daName, daId, alice, bob, "YEN")
+          }
+
+          val modifiedContract = {
+            val fci = contract.contract
+            contract.copy(contract =
+              LfFatContractInst.fromCreateNode(
+                fci.toCreateNode,
+                fci.createdAt.copy(fci.createdAt.time.add(Duration.ofSeconds(1337L))),
+                fci.authenticationData,
+              )
+            )
+          }
+
+          loggerFactory.assertThrowsAndLogs[CommandFailure](
+            participant1.repair.add(
+              acmeId,
+              testedProtocolVersion,
+              Seq(modifiedContract),
+            ),
+            _.commandFailureMessage should include(s"Failed to authenticate contract with id"),
           )
         }
       }
@@ -777,7 +811,7 @@ sealed trait RepairServiceIntegrationTestDevLf extends RepairServiceIntegrationT
             import env.*
 
             val pureCrypto = participant1.underlying.map(_.cryptoPureApi).value
-            val authenticatedContractIdVersion = AuthenticatedContractIdVersionV11
+            val authenticatedContractIdVersion = CantonContractIdVersion.maxV1
             val creationTime = CreationTime.CreatedAt(environment.clock.now.toLf)
             val contractIdSuffixer =
               new ContractIdSuffixer(pureCrypto, authenticatedContractIdVersion)
@@ -795,7 +829,7 @@ sealed trait RepairServiceIntegrationTestDevLf extends RepairServiceIntegrationT
                 Ref.PackageId.assertFromString(pkg),
                 Ref.QualifiedName.assertFromString(s"$module:$template"),
               )
-            val lfPackageName = Ref.PackageName.assertFromString("pkg-name")
+            val lfPackageName = Ref.PackageName.assertFromString("CantonTestsDev")
             val keyWithMaintainers = ExampleTransactionFactory.globalKeyWithMaintainers(
               LfGlobalKey.build(lfNoMaintainerTemplateId, Value.ValueUnit, lfPackageName).value,
               Set.empty,
@@ -805,7 +839,7 @@ sealed trait RepairServiceIntegrationTestDevLf extends RepairServiceIntegrationT
               template = lfNoMaintainerTemplateId,
               packageName = lfPackageName,
               arg = LfVersioned(
-                ExampleTransactionFactory.transactionVersion,
+                ExampleTransactionFactory.serializationVersion,
                 ValueRecord(None, ImmArray(None -> ValueParty(alice.toLf))),
               ),
             )
@@ -826,13 +860,26 @@ sealed trait RepairServiceIntegrationTestDevLf extends RepairServiceIntegrationT
               stakeholders = Set(alice.toLf),
               key = Some(keyWithMaintainers.unversioned),
             )
+
+            val contractHash = TestEngine
+              .syncContractHasher(cantonTestsPath)
+              .hash(
+                unsuffixedCreateNode,
+                contractIdSuffixer.contractHashingMethod,
+              )
+
             val ContractIdSuffixer.RelativeSuffixResult(
               suffixedCreateNode,
               _,
               _,
               authenticationData,
             ) = contractIdSuffixer
-              .relativeSuffixForLocalContract(contractSalt, creationTime, unsuffixedCreateNode)
+              .relativeSuffixForLocalContract(
+                contractSalt,
+                creationTime,
+                unsuffixedCreateNode,
+                contractHash,
+              )
               .valueOr(err => fail(s"Failed to generate contract suffix: $err"))
 
             val suffixedContractInstance = LfFatContractInst.fromCreateNode(

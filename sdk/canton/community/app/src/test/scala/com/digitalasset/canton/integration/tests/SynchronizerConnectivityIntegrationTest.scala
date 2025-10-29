@@ -32,7 +32,11 @@ import com.digitalasset.canton.participant.synchronizer.SynchronizerRegistryErro
 import com.digitalasset.canton.participant.synchronizer.SynchronizerRegistryError.InitialOnboardingError
 import com.digitalasset.canton.sequencing.SequencerConnectionValidation.ThresholdActive
 import com.digitalasset.canton.sequencing.authentication.MemberAuthentication.MemberAccessDisabled
-import com.digitalasset.canton.sequencing.{SequencerConnections, SubmissionRequestAmplification}
+import com.digitalasset.canton.sequencing.{
+  SequencerConnectionPoolDelays,
+  SequencerConnections,
+  SubmissionRequestAmplification,
+}
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp
 import com.digitalasset.canton.{SequencerAlias, SynchronizerAlias, config}
@@ -395,12 +399,15 @@ sealed trait SynchronizerConnectivityIntegrationTest
             daName,
             SequencerConnections.tryMany(
               Seq(
-                sequencer1.config.publicApi.clientConfig.asSequencerConnection(seq1Alias),
-                sequencer2.config.publicApi.clientConfig.asSequencerConnection(seq2Alias),
+                sequencer1.config.publicApi.clientConfig
+                  .asSequencerConnection(seq1Alias, sequencerId = None),
+                sequencer2.config.publicApi.clientConfig
+                  .asSequencerConnection(seq2Alias, sequencerId = None),
               ),
               sequencerTrustThreshold = PositiveInt.one,
               sequencerLivenessMargin = NonNegativeInt.zero,
               SubmissionRequestAmplification.NoAmplification,
+              SequencerConnectionPoolDelays.default,
             ),
           ),
           validation = ThresholdActive,

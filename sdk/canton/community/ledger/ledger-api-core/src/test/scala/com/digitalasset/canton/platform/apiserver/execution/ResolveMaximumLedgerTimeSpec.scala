@@ -9,7 +9,7 @@ import com.digitalasset.canton.ledger.participant.state.index.{
 }
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.apiserver.FatContractInstanceHelper
-import com.digitalasset.canton.protocol.LfTransactionVersion
+import com.digitalasset.canton.protocol.LfSerializationVersion
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageName}
@@ -90,7 +90,7 @@ class ResolveMaximumLedgerTimeSpec
       signatories = Set(alice),
       stakeholders = Set(alice),
       keyOpt = None,
-      version = LfTransactionVersion.minVersion,
+      version = LfSerializationVersion.V1,
     )
 
   private def contractId(id: Int): ContractId =

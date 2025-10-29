@@ -5,7 +5,6 @@ package com.digitalasset.canton.participant.topology
 
 import cats.data.EitherT
 import cats.syntax.either.*
-import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
@@ -16,8 +15,7 @@ import com.digitalasset.canton.participant.protocol.reassignment.IncompleteReass
 import com.digitalasset.canton.participant.store.memory.PackageMetadataView
 import com.digitalasset.canton.participant.store.{AcsInspection, ReassignmentStore}
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
-import com.digitalasset.canton.topology.TopologyManagerError.ParticipantTopologyManagerError
+import com.digitalasset.canton.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.topology.TopologyManagerError.ParticipantTopologyManagerError.*
 import com.digitalasset.canton.topology.transaction.HostingParticipant
 import com.digitalasset.canton.topology.{
@@ -38,7 +36,7 @@ trait ParticipantTopologyValidation extends NamedLogging {
       currentlyVettedPackages: Set[LfPackageId],
       nextPackageIds: Set[LfPackageId],
       packageMetadataView: PackageMetadataView,
-      acsInspections: () => Map[SynchronizerId, AcsInspection],
+      dryRunSnapshot: Option[PackageMetadata],
       forceFlags: ForceFlags,
       disableUpgradeValidation: Boolean,
   )(implicit
@@ -47,7 +45,7 @@ trait ParticipantTopologyValidation extends NamedLogging {
   ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] = {
     val toBeAdded = nextPackageIds -- currentlyVettedPackages
     val toBeDeleted = currentlyVettedPackages -- nextPackageIds
-    val packageMetadataSnapshot = packageMetadataView.getSnapshot
+    val packageMetadataSnapshot = dryRunSnapshot.getOrElse(packageMetadataView.getSnapshot)
     for {
       _ <- EitherT.fromEither[FutureUnlessShutdown](
         checkPackageDependencies(
@@ -57,9 +55,6 @@ trait ParticipantTopologyValidation extends NamedLogging {
           packageMetadataSnapshot,
           forceFlags,
         )
-      )
-      _ <- toBeDeleted.toList.parTraverse_(packageId =>
-        isPackageInUse(packageId, acsInspections, forceFlags)
       )
       _ <- EitherT.fromEither[FutureUnlessShutdown] {
         if (
@@ -270,34 +265,4 @@ trait ParticipantTopologyValidation extends NamedLogging {
       Left(DependenciesNotVetted.Reject(unvettedDeps))
     else Right(())
   }
-
-  private def isPackageInUse(
-      packageId: LfPackageId,
-      acsInspections: () => Map[SynchronizerId, AcsInspection],
-      forceFlags: ForceFlags,
-  )(implicit
-      traceContext: TraceContext,
-      ec: ExecutionContext,
-  ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] =
-    acsInspections().toList
-      .parTraverse_ { case (synchronizerId, acsInspection) =>
-        EitherT(
-          acsInspection.activeContractStore
-            .packageUsage(packageId, acsInspection.contractStore)
-            .map {
-              case Some(_) if forceFlags.permits(ForceFlag.AllowUnvetPackageWithActiveContracts) =>
-                logger.debug(
-                  s"Allowing the unvetting of $packageId on $synchronizerId because force flag ${ForceFlag.AllowUnvetPackageWithActiveContracts} is set."
-                )
-                Either.unit
-              case Some(contractId) =>
-                Left(
-                  ParticipantTopologyManagerError.PackageIdInUse
-                    .Reject(packageId, contractId, synchronizerId): TopologyManagerError
-                )
-              case None =>
-                Either.unit
-            }
-        )
-      }
 }

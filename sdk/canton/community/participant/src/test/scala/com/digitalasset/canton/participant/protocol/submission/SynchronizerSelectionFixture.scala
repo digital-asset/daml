@@ -3,19 +3,23 @@
 
 package com.digitalasset.canton.participant.protocol.submission
 
-import com.digitalasset.canton.protocol.{LfContractId, LfLanguageVersion, LfVersionedTransaction}
+import com.digitalasset.canton.protocol.{
+  LfContractId,
+  LfSerializationVersion,
+  LfVersionedTransaction,
+}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshotLoader
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.Submission
-import com.digitalasset.canton.version.DamlLfVersionToProtocolVersions
+import com.digitalasset.canton.version.LfSerializationVersionToProtocolVersions
 import com.digitalasset.canton.{BaseTest, LfPackageId, LfPartyId, LfValue}
 import com.digitalasset.daml.lf.data.Ref.QualifiedName
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.{
   CreateKey,
-  CreateTransactionVersion,
+  CreateSerializationVersion,
 }
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.Implicits.*
 import com.digitalasset.daml.lf.transaction.test.TreeTransactionBuilder.*
@@ -35,12 +39,12 @@ private[submission] object SynchronizerSelectionFixture extends TestIdFactory {
     )
 
   /*
-   We cannot take the maximum transaction version available. The reason is that if the test is run
+   We cannot take the maximum serialization version available. The reason is that if the test is run
    with a low protocol version, then some filter will reject the transaction (because high transaction
    version needs high protocol version).
    */
-  lazy val fixtureTransactionVersion: LfLanguageVersion =
-    DamlLfVersionToProtocolVersions.damlLfVersionToMinimumProtocolVersions.collect {
+  lazy val fixtureSerializationVersion: LfSerializationVersion =
+    LfSerializationVersionToProtocolVersions.lfSerializationVersionToMinimumProtocolVersions.collect {
       case (txVersion, protocolVersion) if protocolVersion <= BaseTest.testedProtocolVersion =>
         txVersion
     }.last
@@ -84,11 +88,10 @@ private[submission] object SynchronizerSelectionFixture extends TestIdFactory {
 
   object Transactions {
 
-    private[this] val DefaultLfVersion =
-      LfLanguageVersion.StableVersions(LfLanguageVersion.Major.V2).max
+    private[this] val DefaultLfSerializationVersion = LfSerializationVersion.V1
 
     def buildExerciseNode(
-        version: LfLanguageVersion,
+        version: LfSerializationVersion,
         inputContractId: LfContractId,
         signatory: LfPartyId,
         observer: LfPartyId,
@@ -101,7 +104,7 @@ private[submission] object SynchronizerSelectionFixture extends TestIdFactory {
         signatories = List(signatory),
         observers = List(observer),
         key = CreateKey.NoKey,
-        version = CreateTransactionVersion.Version(version),
+        version = CreateSerializationVersion.Version(version),
       )
 
       TestNodeBuilder.exercise(
@@ -122,7 +125,7 @@ private[submission] object SynchronizerSelectionFixture extends TestIdFactory {
       val correctPackages: Seq[VettedPackage] = VettedPackage.unbounded(Seq(defaultPackageId))
 
       def tx(
-          version: LfLanguageVersion = DefaultLfVersion
+          version: LfSerializationVersion = DefaultLfSerializationVersion
       ): LfVersionedTransaction = {
         import SimpleTopology.*
         TreeTransactionBuilder.toVersionedTransaction(
@@ -133,14 +136,14 @@ private[submission] object SynchronizerSelectionFixture extends TestIdFactory {
             signatories = Seq(signatory),
             observers = Seq(observer),
             key = CreateKey.NoKey,
-            version = CreateTransactionVersion.Version(version),
+            version = CreateSerializationVersion.Version(version),
           )
         )
       }
     }
 
     final case class ThreeExercises(
-        version: LfLanguageVersion = DefaultLfVersion
+        version: LfSerializationVersion = DefaultLfSerializationVersion
     ) {
 
       import SimpleTopology.*
@@ -168,7 +171,7 @@ private[submission] object SynchronizerSelectionFixture extends TestIdFactory {
     }
 
     final case class ExerciseByInterface(
-        version: LfLanguageVersion = DefaultLfVersion
+        version: LfSerializationVersion = DefaultLfSerializationVersion
     ) {
       import ExerciseByInterface.*
       import SimpleTopology.*

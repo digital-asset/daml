@@ -5,18 +5,25 @@ package com.digitalasset.daml.lf
 package engine
 
 import java.io.File
-import com.digitalasset.daml.lf.archive.UniversalArchiveDecoder
+import com.digitalasset.daml.lf.archive.DarDecoder
 import com.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.transaction.{Node, NodeId, SubmittedTransaction, Transaction}
+import com.digitalasset.daml.lf.transaction.{
+  FatContractInstance,
+  Node,
+  NodeId,
+  SerializationVersion,
+  SubmittedTransaction,
+  Transaction,
+}
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.command.ReplayCommand
 import com.digitalasset.daml.lf.language.LanguageMajorVersion
-import com.digitalasset.daml.lf.transaction.FatContractInstance
 import com.daml.logging.LoggingContext
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
+import com.digitalasset.daml.lf.value.ContractIdVersion
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.EitherValues
 import org.scalatest.wordspec.AnyWordSpec
@@ -35,14 +42,14 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
 
   import ReinterpretTest._
 
-  private[this] val langVersion = majorLanguageVersion.maxStableVersion
+  private[this] val version = SerializationVersion.assign(majorLanguageVersion.maxStableVersion)
 
   private def hash(s: String) = crypto.Hash.hashPrivateKey(s)
 
   private val party = Party.assertFromString("Party")
 
   private def loadPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
-    val packages = UniversalArchiveDecoder.assertReadFile(new File(rlocation(resource)))
+    val packages = DarDecoder.assertReadArchiveFromFile(new File(rlocation(resource)))
     (packages.main._1, packages.main._2, packages.all.toMap)
   }
 
@@ -54,7 +61,7 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
     Map(
       toContractId("ReinterpretTests:MySimple:1") ->
         TransactionBuilder.fatContractInstanceWithDummyDefaults(
-          version = langVersion,
+          version = version,
           packageName = miniTestsPkg.pkgName,
           template = TypeConId(miniTestsPkgId, "ReinterpretTests:MySimple"),
           arg = ValueRecord(
@@ -82,6 +89,7 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
   val submitters = Set(party)
   val time = Time.Timestamp.now()
   val seed = hash("ReinterpretTests")
+  val contractIdVersion = ContractIdVersion.V1
 
   private def reinterpretCommand(theCommand: ReplayCommand): Either[Error, SubmittedTransaction] = {
     val res = engine
@@ -91,6 +99,7 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
         Some(seed),
         time,
         time,
+        contractIdVersion,
       )
       .consume(pcs = defaultContracts, pkgs = allPackages)
     res match {
@@ -195,7 +204,10 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
             PackageVersion.assertFromString("0.0.0"),
             None,
           ),
-          Left("package made in com.digitalasset.daml.lf.engine.ReinterpretTest"),
+          GeneratedImports(
+            reason = "package made in com.digitalasset.daml.lf.engine.ReinterpretTest",
+            pkgIds = Set.empty,
+          ),
         )
       var queriedPackageIds = Set.empty[Ref.PackageId]
       val trackPackageQueries: PartialFunction[Ref.PackageId, Package] = { pkgId =>
@@ -209,6 +221,7 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
           Some(seed),
           time,
           time,
+          contractIdVersion,
         )
         .consume(pkgs = trackPackageQueries)
       pkgIds.toSet shouldBe queriedPackageIds

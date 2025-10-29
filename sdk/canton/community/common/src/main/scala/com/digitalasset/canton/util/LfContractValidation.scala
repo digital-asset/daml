@@ -7,7 +7,6 @@ import cats.data.EitherT
 import com.daml.logging.LoggingContext
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.protocol.LfNodeCreate
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.PackageConsumer.{ContinueOnInterruption, PackageResolver}
 import com.digitalasset.daml.lf.crypto.Hash
@@ -18,20 +17,7 @@ import com.digitalasset.daml.lf.value.Value.ContractId
 
 import scala.concurrent.ExecutionContext
 
-trait LfContractHasher {
-
-  def hash(
-      create: LfNodeCreate,
-      contractIdSubstitution: ContractId => ContractId,
-      hashingMethod: Hash.HashingMethod,
-  )(implicit
-      ec: ExecutionContext,
-      traceContext: TraceContext,
-  ): EitherT[FutureUnlessShutdown, String, Hash]
-
-}
-
-trait LfContractValidation extends LfContractHasher {
+trait LfContractValidation {
 
   def validate(
       instance: FatContractInstance,
@@ -50,9 +36,9 @@ trait LfContractValidation extends LfContractHasher {
 object LfContractValidation {
 
   def apply(engine: Engine, packageResolver: PackageResolver): LfContractValidation =
-    new LfContractValidationImpl(engine, packageResolver)
+    new Impl(engine, packageResolver)
 
-  private class LfContractValidationImpl(
+  private class Impl(
       delegate: Engine,
       packageResolver: PackageResolver,
       continueOnInterruption: ContinueOnInterruption = () => true,
@@ -80,15 +66,6 @@ object LfContractValidation {
         )
       ).subflatMap(e => e.left.map(_.toString))
 
-    override def hash(
-        create: LfNodeCreate,
-        contractIdSubstitution: ContractId => ContractId,
-        hashingMethod: Hash.HashingMethod,
-    )(implicit
-        ec: ExecutionContext,
-        traceContext: TraceContext,
-    ): EitherT[FutureUnlessShutdown, String, Hash] =
-      consume(delegate.hashCreateNode(create, contractIdSubstitution, hashingMethod))
   }
 
 }

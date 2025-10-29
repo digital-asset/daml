@@ -288,7 +288,7 @@ class UpdateServiceStreamsIT extends LedgerTestSuite {
       )
 
       testPackage <- loadTestPackage()
-      _ <- ledger.uploadDarFile(testPackage)
+      _ <- ledger.uploadDarFileAndVetOnConnectedSynchronizers(testPackage)
       _ <- ledger.create(party, new OngoingStreamPackageUploadTestTemplate(party))(
         OngoingStreamPackageUploadTestTemplate.COMPANION
       )

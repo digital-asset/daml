@@ -5,15 +5,15 @@ package com.digitalasset.canton.ledger.participant.state
 
 import com.daml.logging.entries.{LoggingEntry, LoggingValue, ToLoggingValue}
 import com.digitalasset.base.error.GrpcStatuses
+import com.digitalasset.canton.RepairCounter
 import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
 import com.digitalasset.canton.ledger.participant.state.Update.CommandRejected.RejectionReasonTemplate
 import com.digitalasset.canton.ledger.participant.state.Update.TransactionAccepted.RepresentativePackageIds
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.LfHash
+import com.digitalasset.canton.protocol.{LfHash, UpdateId}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.{HasTraceContext, TraceContext}
-import com.digitalasset.canton.{RepairCounter, data}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
 import com.digitalasset.daml.lf.engine.Blinding
@@ -170,7 +170,7 @@ object Update {
   }
 
   final case class TopologyTransactionEffective(
-      updateId: Ref.TransactionId,
+      updateId: UpdateId,
       events: Set[TopologyTransactionEffective.TopologyEvent],
       synchronizerId: SynchronizerId,
       effectiveTime: CantonTimestamp,
@@ -184,7 +184,7 @@ object Update {
       prettyOfClass(
         param("effectiveTime", _.effectiveTime),
         param("synchronizerId", _.synchronizerId),
-        param("updateId", _.updateId),
+        param("updateId", _.updateId.tryAsLedgerTransactionId),
         indicateOmittedFields,
       )
   }
@@ -262,7 +262,7 @@ object Update {
       */
     def transaction: CommittedTransaction
 
-    def updateId: data.UpdateId
+    def updateId: UpdateId
 
     /** For each contract created in this transaction, this map may contain contract authentication
       * data assigned by the ledger implementation. This data is opaque and can only be used in
@@ -281,13 +281,15 @@ object Update {
 
     def isAcsDelta(contractId: Value.ContractId): Boolean
 
+    def internalContractIds: Map[Value.ContractId, Long]
+
     lazy val blindingInfo: BlindingInfo = Blinding.blind(transaction)
 
     override protected def pretty: Pretty[TransactionAccepted] =
       prettyOfClass(
         param("recordTime", _.recordTime),
         paramIfDefined("repairCounter", _.repairCounterO),
-        param("updateId", _.updateId),
+        param("updateId", _.updateId.tryAsLedgerTransactionId),
         param("transactionMeta", _.transactionMeta),
         paramIfDefined("completion", _.completionInfoO),
         param("nodes", _.transaction.nodes.size),
@@ -338,11 +340,12 @@ object Update {
       completionInfoO: Option[CompletionInfo],
       transactionMeta: TransactionMeta,
       transaction: CommittedTransaction,
-      updateId: data.UpdateId,
+      updateId: UpdateId,
       contractAuthenticationData: Map[Value.ContractId, Bytes],
       synchronizerId: SynchronizerId,
       recordTime: CantonTimestamp,
       acsChangeFactory: AcsChangeFactory,
+      internalContractIds: Map[Value.ContractId, Long],
       externalTransactionHash: Option[Hash] = None,
   )(implicit override val traceContext: TraceContext)
       extends TransactionAccepted
@@ -358,12 +361,13 @@ object Update {
   final case class RepairTransactionAccepted(
       transactionMeta: TransactionMeta,
       transaction: CommittedTransaction,
-      updateId: data.UpdateId,
+      updateId: UpdateId,
       contractAuthenticationData: Map[Value.ContractId, Bytes],
       representativePackageIds: RepresentativePackageIds,
       synchronizerId: SynchronizerId,
       repairCounter: RepairCounter,
       recordTime: CantonTimestamp,
+      internalContractIds: Map[Value.ContractId, Long],
   )(implicit override val traceContext: TraceContext)
       extends TransactionAccepted
       with RepairUpdate {
@@ -391,7 +395,7 @@ object Update {
 
     /** A unique identifier for this update assigned by the ledger.
       */
-    def updateId: data.UpdateId
+    def updateId: UpdateId
 
     /** Common part of all type of reassignments.
       */
@@ -399,11 +403,13 @@ object Update {
 
     def reassignment: Reassignment.Batch
 
+    def internalContractIds: Map[Value.ContractId, Long]
+
     override protected def pretty: Pretty[ReassignmentAccepted] =
       prettyOfClass(
         param("recordTime", _.recordTime),
         paramIfDefined("repairCounter", _.repairCounterO),
-        param("updateId", _.updateId),
+        param("updateId", _.updateId.tryAsLedgerTransactionId),
         paramIfDefined("completion", _.optCompletionInfo),
         param("source", _.reassignmentInfo.sourceSynchronizer),
         param("target", _.reassignmentInfo.targetSynchronizer),
@@ -414,12 +420,13 @@ object Update {
   final case class SequencedReassignmentAccepted(
       optCompletionInfo: Option[CompletionInfo],
       workflowId: Option[Ref.WorkflowId],
-      updateId: data.UpdateId,
+      updateId: UpdateId,
       reassignmentInfo: ReassignmentInfo,
       reassignment: Reassignment.Batch,
       recordTime: CantonTimestamp,
       override val synchronizerId: SynchronizerId,
       acsChangeFactory: AcsChangeFactory,
+      internalContractIds: Map[Value.ContractId, Long],
   )(implicit override val traceContext: TraceContext)
       extends ReassignmentAccepted
       with SequencedUpdate
@@ -427,12 +434,13 @@ object Update {
 
   final case class RepairReassignmentAccepted(
       workflowId: Option[Ref.WorkflowId],
-      updateId: data.UpdateId,
+      updateId: UpdateId,
       reassignmentInfo: ReassignmentInfo,
       reassignment: Reassignment.Batch,
       repairCounter: RepairCounter,
       recordTime: CantonTimestamp,
       override val synchronizerId: SynchronizerId,
+      internalContractIds: Map[Value.ContractId, Long],
   )(implicit override val traceContext: TraceContext)
       extends ReassignmentAccepted
       with RepairUpdate {
@@ -441,13 +449,14 @@ object Update {
 
   final case class OnPRReassignmentAccepted(
       workflowId: Option[Ref.WorkflowId],
-      updateId: data.UpdateId,
+      updateId: UpdateId,
       reassignmentInfo: ReassignmentInfo,
       reassignment: Reassignment.Batch,
       repairCounter: RepairCounter,
       recordTime: CantonTimestamp,
       override val synchronizerId: SynchronizerId,
       acsChangeFactory: AcsChangeFactory,
+      internalContractIds: Map[Value.ContractId, Long],
   )(implicit override val traceContext: TraceContext)
       extends ReassignmentAccepted
       with RepairUpdate
@@ -690,8 +699,8 @@ object Update {
     def party(party: Ref.Party): LoggingEntry =
       "party" -> party
 
-    def updateId(id: data.UpdateId): LoggingEntry =
-      "updateId" -> id
+    def updateId(id: UpdateId): LoggingEntry =
+      "updateId" -> id.toHexString
 
     def userId(id: Ref.UserId): LoggingEntry =
       "userId" -> id

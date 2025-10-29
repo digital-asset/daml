@@ -150,44 +150,38 @@ object CryptoProvider {
   /** The KMS crypto provider is based on the JCE crypto provider because the non-signing/encryption
     * part, as well as the public crypto operations (i.e., encrypting, or verifying a signature),
     * are implemented in software using the JCE.
+    *
+    * We select [[com.digitalasset.canton.crypto.SigningAlgorithmSpec.EcDsaSha256]] and
+    * [[com.digitalasset.canton.crypto.EncryptionAlgorithmSpec.RsaOaepSha256]] as the default
+    * signing/encryption algorithm specifications for a KMS provider, because some proprietary KMS
+    * instances, such as AWS, do not support `Ed25519` or `Ecies` crypto algorithms. The same
+    * applies to the key specifications. However, if the chosen KMS supports any of these
+    * algorithms, the default scheme can be configured accordingly.
     */
   case object Kms extends CryptoProvider with UniformCantonConfigValidation {
     override def name: String = "KMS"
 
-    // Ed25519 is only supported to verify signatures, it does not allow producing such signatures
-    val pureSigningAlgorithms: NonEmpty[Set[SigningAlgorithmSpec]] =
-      NonEmpty.mk(Set, SigningAlgorithmSpec.Ed25519)
-
     override def signingAlgorithms: CryptoProviderScheme[SigningAlgorithmSpec] =
       CryptoProviderScheme(
         SigningAlgorithmSpec.EcDsaSha256,
-        NonEmpty.mk(
+        NonEmpty(
           Set,
+          SigningAlgorithmSpec.Ed25519,
           SigningAlgorithmSpec.EcDsaSha256,
           SigningAlgorithmSpec.EcDsaSha384,
-        ) ++ pureSigningAlgorithms,
+        ),
       )
-
-    // EcCurve25519 is only supported to verify signatures, it does not allow generation of such keys for signing
-    val pureSigningKeys: NonEmpty[Set[SigningKeySpec]] =
-      NonEmpty.mk(Set, SigningKeySpec.EcCurve25519)
 
     override def signingKeys: CryptoProviderScheme[SigningKeySpec] =
       CryptoProviderScheme(
         SigningKeySpec.EcP256,
         NonEmpty.mk(
           Set,
+          SigningKeySpec.EcCurve25519,
           SigningKeySpec.EcP256,
           SigningKeySpec.EcP384,
           SigningKeySpec.EcSecp256k1,
-        ) ++ pureSigningKeys,
-      )
-
-    // ECIES schemes only supported for encryption, it does not allow generation of such keys for decryption
-    val pureEncryptionAlgorithms: NonEmpty[Set[EncryptionAlgorithmSpec]] =
-      NonEmpty.mk(
-        Set,
-        EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Cbc,
+        ),
       )
 
     override def encryptionAlgorithms: CryptoProviderScheme[EncryptionAlgorithmSpec] =
@@ -195,15 +189,9 @@ object CryptoProvider {
         EncryptionAlgorithmSpec.RsaOaepSha256,
         NonEmpty.mk(
           Set,
+          EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Cbc,
           EncryptionAlgorithmSpec.RsaOaepSha256,
-        ) ++ pureEncryptionAlgorithms,
-      )
-
-    // ECIES schemes only supported for encryption, it does not allow generation of such keys for decryption
-    val pureEncryptionKeys: NonEmpty[Set[EncryptionKeySpec]] =
-      NonEmpty.mk(
-        Set,
-        EncryptionKeySpec.EcP256,
+        ),
       )
 
     override def encryptionKeys: CryptoProviderScheme[EncryptionKeySpec] =
@@ -211,8 +199,9 @@ object CryptoProvider {
         EncryptionKeySpec.Rsa2048,
         NonEmpty.mk(
           Set,
+          EncryptionKeySpec.EcP256,
           EncryptionKeySpec.Rsa2048,
-        ) ++ pureEncryptionKeys,
+        ),
       )
 
     override def supportedCryptoKeyFormats: NonEmpty[Set[CryptoKeyFormat]] =

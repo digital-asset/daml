@@ -8,10 +8,7 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
-import com.digitalasset.canton.sequencing.protocol.{
-  AllMembersOfSynchronizer,
-  MaxRequestSizeToDeserialize,
-}
+import com.digitalasset.canton.sequencing.protocol.AllMembersOfSynchronizer
 import com.digitalasset.canton.synchronizer.block.BlockFormat
 import com.digitalasset.canton.synchronizer.block.BlockFormat.OrderedRequest
 import com.digitalasset.canton.synchronizer.block.LedgerBlockEvent.deserializeSignedSubmissionRequest
@@ -89,7 +86,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   PureFun,
 }
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.util.SingleUseCell
+import com.digitalasset.canton.util.{MaxBytesToDecompress, SingleUseCell}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 
@@ -672,7 +669,7 @@ class OutputModule[E <: Env[E]](
           case tracedOrderingRequest @ Traced(orderingRequest) =>
             requestInspector.isRequestToAllMembersOfSynchronizer(
               orderingRequest,
-              currentEpochOrderingTopology.maxRequestSizeToDeserialize,
+              currentEpochOrderingTopology.maxBytesToDecompress,
               logger,
               tracedOrderingRequest.traceContext,
             )
@@ -921,7 +918,7 @@ object OutputModule {
 
     def isRequestToAllMembersOfSynchronizer(
         request: OrderingRequest,
-        maxRequestSizeToDeserialize: MaxRequestSizeToDeserialize,
+        maxBytesToDecompress: MaxBytesToDecompress,
         logger: TracedLogger,
         traceContext: TraceContext,
     )(implicit synchronizerProtocolVersion: ProtocolVersion): Boolean
@@ -931,13 +928,13 @@ object OutputModule {
 
     override def isRequestToAllMembersOfSynchronizer(
         request: OrderingRequest,
-        maxRequestSizeToDeserialize: MaxRequestSizeToDeserialize,
+        maxBytesToDecompress: MaxBytesToDecompress,
         logger: TracedLogger,
         traceContext: TraceContext,
     )(implicit synchronizerProtocolVersion: ProtocolVersion): Boolean =
       // TODO(#21615) we should avoid a further deserialization downstream, which would also eliminate
       //  a zip bomb vulnerability in the BUG that could be triggered by byzantine sequencers (#26169)
-      deserializeSignedSubmissionRequest(synchronizerProtocolVersion, maxRequestSizeToDeserialize)(
+      deserializeSignedSubmissionRequest(synchronizerProtocolVersion, maxBytesToDecompress)(
         request.payload
       ) match {
         case Right(signedSubmissionRequest) =>
@@ -955,7 +952,7 @@ object OutputModule {
 
     override def isRequestToAllMembersOfSynchronizer(
         request: OrderingRequest,
-        maxRequestSizeToDeserialize: MaxRequestSizeToDeserialize,
+        maxBytesToDecompress: MaxBytesToDecompress,
         logger: TracedLogger,
         traceContext: TraceContext,
     )(implicit synchronizerProtocolVersion: ProtocolVersion): Boolean =

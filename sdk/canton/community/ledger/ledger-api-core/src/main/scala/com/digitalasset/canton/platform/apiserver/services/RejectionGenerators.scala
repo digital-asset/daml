@@ -10,6 +10,7 @@ import com.digitalasset.canton.ledger.error.groups.{
   ConsistencyErrors,
   RequestValidationErrors,
 }
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NoLogging}
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
@@ -44,6 +45,12 @@ object ErrorCause {
 }
 
 object RejectionGenerators {
+  def commandExecutorErrorFUS[R](
+      error: ErrorCause
+  )(implicit
+      errorLoggingContext: ErrorLoggingContext
+  ): FutureUnlessShutdown[R] =
+    FutureUnlessShutdown.failed(commandExecutorError(error).asGrpcError)
 
   def commandExecutorError(cause: ErrorCause)(implicit
       errorLoggingContext: ErrorLoggingContext
@@ -103,6 +110,9 @@ object RejectionGenerators {
         case e: LfInterpretationError.ContractNotActive =>
           CommandExecutionErrors.Interpreter.ContractNotActive
             .Reject(renderedMessage, e)
+        case e: LfInterpretationError.ContractHashingError =>
+          CommandExecutionErrors.Interpreter.ContractHashingError
+            .Reject(renderedMessage, e)
         case e: LfInterpretationError.DisclosedContractKeyHashingError =>
           CommandExecutionErrors.Interpreter.DisclosedContractKeyHashingError
             .Reject(renderedMessage, e)
@@ -150,11 +160,24 @@ object RejectionGenerators {
         case e: LfInterpretationError.ValueNesting =>
           CommandExecutionErrors.Interpreter.ValueNesting
             .Reject(renderedMessage, e)
+        case e: LfInterpretationError.MalformedText =>
+          CommandExecutionErrors.Interpreter.MalformedText
+            .Reject(renderedMessage, e)
         case e: LfInterpretationError.FailureStatus =>
           CommandExecutionErrors.Interpreter.FailureStatus
             .Reject(renderedMessage, e, transactionTrace)
         case LfInterpretationError.Upgrade(error: LfInterpretationError.Upgrade.ValidationFailed) =>
           CommandExecutionErrors.Interpreter.UpgradeError.ValidationFailed
+            .Reject(renderedMessage, error)
+        case LfInterpretationError.Upgrade(
+              error: LfInterpretationError.Upgrade.TranslationFailed
+            ) =>
+          CommandExecutionErrors.Interpreter.UpgradeError.TranslationFailed
+            .Reject(renderedMessage, error)
+        case LfInterpretationError.Upgrade(
+              error: LfInterpretationError.Upgrade.AuthenticationFailed
+            ) =>
+          CommandExecutionErrors.Interpreter.UpgradeError.AuthenticationFailed
             .Reject(renderedMessage, error)
         case LfInterpretationError.Crypto(
               error: LfInterpretationError.Crypto.MalformedByteEncoding

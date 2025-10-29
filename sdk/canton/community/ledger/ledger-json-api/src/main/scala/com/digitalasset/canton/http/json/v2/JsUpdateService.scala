@@ -460,15 +460,19 @@ object JsUpdateService extends DocumentationEndpoints {
         CodecFormat.Json,
       ](PekkoStreams)
     )
-    .description("Get flat transactions update stream (deprecated: use v2/updates instead)")
+    .deprecated()
+    .description(
+      "Get flat transactions update stream. Provided for backwards compatibility, it will be removed in the Canton version 3.5.0, use v2/updates instead."
+    )
 
   val getUpdatesFlatListEndpoint =
     updates.post
       .in(sttp.tapir.stringToPath("flats"))
       .in(jsonBody[LegacyDTOs.GetUpdatesRequest])
       .out(jsonBody[Seq[JsGetUpdatesResponse]])
+      .deprecated()
       .description(
-        "Query flat transactions update list (blocking call, deprecated: use v2/updates instead)"
+        "Query flat transactions update list (blocking call). Provided for backwards compatibility, it will be removed in the Canton version 3.5.0, use v2/updates instead."
       )
       .inStreamListParamsAndDescription()
 
@@ -482,15 +486,19 @@ object JsUpdateService extends DocumentationEndpoints {
         CodecFormat.Json,
       ](PekkoStreams)
     )
-    .description("Get update transactions tree stream (deprecated: use v2/updates instead)")
+    .deprecated()
+    .description(
+      "Get update transactions tree stream. Provided for backwards compatibility, it will be removed in the Canton version 3.5.0, use v2/updates instead."
+    )
 
   val getUpdatesTreeListEndpoint =
     updates.post
       .in(sttp.tapir.stringToPath("trees"))
       .in(jsonBody[LegacyDTOs.GetUpdatesRequest])
       .out(jsonBody[Seq[JsGetUpdateTreesResponse]])
+      .deprecated()
       .description(
-        "Query update transactions tree list (blocking call, deprecated: use v2/updates instead)"
+        "Query update transactions tree list (blocking call). Provided for backwards compatibility, it will be removed in the Canton version 3.5.0, use v2/updates instead."
       )
       .inStreamListParamsAndDescription()
 
@@ -499,8 +507,9 @@ object JsUpdateService extends DocumentationEndpoints {
     .in(path[Long]("offset"))
     .in(query[List[String]]("parties"))
     .out(jsonBody[JsGetTransactionTreeResponse])
+    .deprecated()
     .description(
-      "Get transaction tree by offset (deprecated: use v2/updates/update-by-offset instead)"
+      "Get transaction tree by offset. Provided for backwards compatibility, it will be removed in the Canton version 3.5.0, use v2/updates/update-by-offset instead."
     )
 
   val getTransactionTreeByIdEndpoint = updates.get
@@ -508,22 +517,29 @@ object JsUpdateService extends DocumentationEndpoints {
     .in(path[String]("update-id"))
     .in(query[List[String]]("parties"))
     .out(jsonBody[JsGetTransactionTreeResponse])
-    .description("Get transaction tree by id (deprecated: use v2/updates/update-by-id instead)")
+    .deprecated()
+    .description(
+      "Get transaction tree by id. Provided for backwards compatibility, it will be removed in the Canton version 3.5.0, use v2/updates/update-by-id instead."
+    )
 
   val getTransactionByIdEndpoint =
     updates.post
       .in(sttp.tapir.stringToPath("transaction-by-id"))
       .in(jsonBody[LegacyDTOs.GetTransactionByIdRequest])
       .out(jsonBody[JsGetTransactionResponse])
-      .description("Get transaction by id (deprecated: use v2/updates/update-by-id instead)")
+      .deprecated()
+      .description(
+        "Get transaction by id. Provided for backwards compatibility, it will be removed in the Canton version 3.5.0, use v2/updates/update-by-id instead."
+      )
 
   val getTransactionByOffsetEndpoint =
     updates.post
       .in(sttp.tapir.stringToPath("transaction-by-offset"))
       .in(jsonBody[LegacyDTOs.GetTransactionByOffsetRequest])
       .out(jsonBody[JsGetTransactionResponse])
+      .deprecated()
       .description(
-        "Get transaction by offset (deprecated: use v2/updates/update-by-offset instead)"
+        "Get transaction by offset. Provided for backwards compatibility, it will be removed in the Canton version 3.5.0, use v2/updates/update-by-offset instead."
       )
 
   val getUpdateByOffsetEndpoint =

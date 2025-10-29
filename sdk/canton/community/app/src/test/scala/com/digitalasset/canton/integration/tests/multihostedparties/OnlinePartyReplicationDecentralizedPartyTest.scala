@@ -5,7 +5,6 @@ package com.digitalasset.canton.integration.tests.multihostedparties
 
 import com.digitalasset.canton.BaseTest.CantonLfV21
 import com.digitalasset.canton.admin.api.client.data.AddPartyStatus
-import com.digitalasset.canton.config
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.LocalInstanceReference
@@ -35,7 +34,6 @@ import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.version.ProtocolVersion
-import monocle.macros.syntax.lens.*
 
 import scala.concurrent.Promise
 import scala.jdk.CollectionConverters.*
@@ -73,10 +71,10 @@ sealed trait OnlinePartyReplicationDecentralizedPartyTest
   // to produce a race in the TP ConflictDetector in-memory state.
   private def createSourceParticipantTestInterceptor(): PartyReplicationTestInterceptor =
     PartyReplicationTestInterceptorImpl.sourceParticipantProceedsIf { state =>
-      // Allow replicating the first two batches, but stop before the third batch that contains the
-      // contract that this test exercises, so that we can ensure that the exercised contracts is
+      // Allow replicating the first batch that contains the contract that this test exercises,
+      // but stop before the second batch, so that we can ensure that the exercised contracts is
       // replicated while the exercise is inflight.
-      val numContractsBeforeExercisedContract = 2 * numContractsInCreateBatch
+      val numContractsBeforeExercisedContract = numContractsInCreateBatch
       val canProceed =
         state.sentContractsCount.unwrap <= numContractsBeforeExercisedContract || canSourceProceedWithOnPR
 
@@ -95,17 +93,9 @@ sealed trait OnlinePartyReplicationDecentralizedPartyTest
   override lazy val environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P3_S1M1
       .addConfigTransforms(
-        (ConfigTransforms.unsafeEnableOnlinePartyReplication(
+        ConfigTransforms.unsafeEnableOnlinePartyReplication(
           Map("participant1" -> (() => createSourceParticipantTestInterceptor()))
-        ) :+
-          // TODO(#24326): While the SourceParticipant (SP=P1) uses AcsInspection to consume the
-          //  ACS snapshot (rather than the Ledger Api), ensure ACS pruning does not trigger AcsInspection
-          //  TimestampBeforePruning. Allow a generous 5 minutes for the SP to consume all active contracts
-          //  in this test.
-          ConfigTransforms.updateParticipantConfig("participant1")(
-            _.focus(_.parameters.journalGarbageCollectionDelay)
-              .replace(config.NonNegativeFiniteDuration.ofMinutes(5))
-          ))*
+        )*
       )
       .withSetup { implicit env =>
         import env.*
@@ -143,8 +133,8 @@ sealed trait OnlinePartyReplicationDecentralizedPartyTest
     )
 
     val amounts = (1 to numContractsInCreateBatch)
-    IouSyntax.createIous(participant1, alice, decentralizedParty, amounts)
     dpToAlice = IouSyntax.createIous(participant1, decentralizedParty, alice, amounts)
+    IouSyntax.createIous(participant1, alice, decentralizedParty, amounts)
 
     // Create some decentralized party stakeholder contracts shared with a party (Bob) already
     // on the target participant P2.

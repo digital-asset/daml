@@ -149,4 +149,9 @@ object LoggerUtil {
     builder.toString + append
   }
 
+  def limitForLogging[T](items: Iterable[T], maxItems: Int = 10): String =
+    "[" + items.take(maxItems).mkString(", ") + (if (items.sizeIs > maxItems)
+                                                   s", ... (total ${items.size} items)"
+                                                 else "") + "]"
+
 }

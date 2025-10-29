@@ -478,7 +478,8 @@ damlStartTests getDamlStart =
                                 "identifierFilter" Aeson..= Aeson.object [
                                   "TemplateFilter" Aeson..= Aeson.object [
                                     "value" Aeson..= Aeson.object [
-                                      "templateId" Aeson..= (packageRef ++ ":Main:T")
+                                      "templateId" Aeson..= (packageRef ++ ":Main:T"),
+                                      "includeCreatedEventBlob" Aeson..= True
                                     ]
                                   ]
                                 ]
@@ -627,6 +628,7 @@ cantonTests = testGroup "daml sandbox"
         sequencerPublicApiPort <- getFreePort
         sequencerAdminApiPort <- getFreePort
         mediatorAdminApiPort <- getFreePort
+        jsonApiPort <- getFreePort
         step "Staring Canton sandbox"
         let portFile = dir </> "canton-portfile.json"
         withDamlServiceIn (dir </> "skeleton") "sandbox"
@@ -635,6 +637,7 @@ cantonTests = testGroup "daml sandbox"
             , "--sequencer-public-port", show sequencerPublicApiPort
             , "--sequencer-admin-port", show sequencerAdminApiPort
             , "--mediator-admin-port", show mediatorAdminApiPort
+            , "--json-api-port", show jsonApiPort
             , "--canton-port-file", portFile
             ] $ \ ph -> do
             -- wait for port file to be written

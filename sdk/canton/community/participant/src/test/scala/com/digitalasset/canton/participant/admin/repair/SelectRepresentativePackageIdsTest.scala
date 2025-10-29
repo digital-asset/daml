@@ -6,21 +6,24 @@ package com.digitalasset.canton.participant.admin.repair
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.Counter
 import com.digitalasset.canton.participant.admin.data.{
+  ContractImportMode,
   RepairContract,
   RepresentativePackageIdOverride,
 }
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.{
+import com.digitalasset.canton.protocol.{ExampleTransactionFactory, LfContractId}
+import com.digitalasset.canton.store.packagemeta.PackageMetadata.{
   LocalPackagePreference,
   PackageResolution,
 }
-import com.digitalasset.canton.protocol.{ExampleTransactionFactory, LfContractId}
 import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.{BaseTest, LfPackageId, LfPackageName, LfPackageVersion}
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
 import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder
 import com.digitalasset.daml.lf.transaction.{CreationTime, FatContractInstance}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ValueUnit
+import org.scalatest.Assertion
 import org.scalatest.wordspec.AnyWordSpec
 
 private[repair] class SelectRepresentativePackageIdsTest extends AnyWordSpec with BaseTest {
@@ -123,12 +126,37 @@ private[repair] class SelectRepresentativePackageIdsTest extends AnyWordSpec wit
         ),
       )
     }
+
+    s"fail if the selected package-id differs from the exported representative package-id in ${ContractImportMode.Accept}" in {
+      import TestValues.*
+
+      testPrecedence(
+        knownPackages = Set(contractRpIdOverride),
+        expectation = Left(
+          show"Contract import mode is 'Accept' but the selected representative package-id $contractRpIdOverride " +
+            show"for contract with id ${repairContract.contract.contractId} differs from the exported representative package-id ${repairContract.representativePackageId}. " +
+            show"Please use contract import mode '${ContractImportMode.Validation}' or '${ContractImportMode.Recomputation}' to change the representative package-id."
+        ),
+        contractImportMode = ContractImportMode.Accept,
+      )
+    }
+
+    s"succeed if the selected package-id differs from the exported representative package-id in ${ContractImportMode.Recomputation}" in {
+      import TestValues.*
+
+      testPrecedence(
+        knownPackages = Set(contractRpIdOverride),
+        expectation = Right(contractRpIdOverride),
+        contractImportMode = ContractImportMode.Recomputation,
+      )
+    }
   }
 
   private def testPrecedence(
       knownPackages: Set[LfPackageId],
       expectation: Either[String, LfPackageId],
-  ) = {
+      contractImportMode: ContractImportMode = ContractImportMode.Validation,
+  ): Assertion = {
     import TestValues.*
     inside(
       new SelectRepresentativePackageIds(
@@ -148,6 +176,7 @@ private[repair] class SelectRepresentativePackageIdsTest extends AnyWordSpec wit
             allPackageIdsForName = NonEmpty.mk(Set, highestVersionedLocalPackage),
           )
         ),
+        contractImportMode = contractImportMode,
         loggerFactory = loggerFactory,
       ).apply(List(repairContract))
     ) {

@@ -9,26 +9,27 @@ import cats.syntax.foldable.*
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
-import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.concurrent.FutureSupervisor
+import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.{NonNegativeFiniteDuration, ProcessingTimeout}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.{
   DynamicSynchronizerParameters,
   StaticSynchronizerParameters,
 }
 import com.digitalasset.canton.sequencing.AsyncResult
-import com.digitalasset.canton.time.Clock
+import com.digitalasset.canton.store.packagemeta.PackageMetadata
+import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration}
 import com.digitalasset.canton.topology.TopologyManager.assignExpectedUsageToKeys
 import com.digitalasset.canton.topology.TopologyManagerError.{
   DangerousCommandRequiresForce,
   IncreaseOfPreparationTimeRecordTimeTolerance,
-  ParticipantTopologyManagerError,
+  InvalidSynchronizerSuccessor,
+  ValueOutOfBounds,
 }
 import com.digitalasset.canton.topology.processing.{
   EffectiveTime,
@@ -42,6 +43,7 @@ import com.digitalasset.canton.topology.store.TopologyStoreId.{
 }
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
 import com.digitalasset.canton.topology.store.{
+  TimeQuery,
   TopologyStore,
   TopologyStoreId,
   ValidatedTopologyTransaction,
@@ -54,14 +56,22 @@ import com.digitalasset.canton.topology.transaction.TopologyTransaction.{
   GenericTopologyTransaction,
   TxHash,
 }
+import com.digitalasset.canton.topology.transaction.checks.{
+  NoopTopologyMappingChecks,
+  OptionalTopologyMappingChecks,
+  RequiredTopologyMappingChecks,
+  TopologyMappingChecks,
+}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{EitherTUtil, MonadUtil, SimpleExecutionQueue}
 import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionValidation}
+import com.digitalasset.canton.{LfPackageId, config}
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.unused
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
+import scala.math.Ordered.orderingToOrdered
 
 trait TopologyManagerObserver {
   def addedNewTransactions(
@@ -77,6 +87,7 @@ class SynchronizerTopologyManager(
     staticSynchronizerParameters: StaticSynchronizerParameters,
     override val store: TopologyStore[SynchronizerStore],
     val outboxQueue: SynchronizerOutboxQueue,
+    disableOptionalTopologyChecks: Boolean,
     exitOnFatalFailures: Boolean,
     timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
@@ -95,14 +106,25 @@ class SynchronizerTopologyManager(
     ) {
   def psid: PhysicalSynchronizerId = store.storeId.psid
 
-  override protected val processor: TopologyStateProcessor =
+  override protected val processor: TopologyStateProcessor = {
+
+    val required =
+      new RequiredTopologyMappingChecks(store, Some(staticSynchronizerParameters), loggerFactory)
+    val checks =
+      if (!disableOptionalTopologyChecks)
+        new TopologyMappingChecks.All(
+          required,
+          new OptionalTopologyMappingChecks(store, loggerFactory),
+        )
+      else required
     TopologyStateProcessor.forTopologyManager(
       store,
       Some(outboxQueue),
-      new ValidatingTopologyMappingChecks(store, loggerFactory),
+      checks,
       crypto.pureCrypto,
       loggerFactory,
     )
+  }
 
   // When evaluating transactions against the synchronizer store, we want to validate against
   // the head state. We need to take all previously sequenced transactions into account, because
@@ -135,9 +157,9 @@ class SynchronizerTopologyManager(
         EffectiveTime(ts),
         transactions,
         expectFullAuthorization = expectFullAuthorization,
-        // the synchronizer topology manager does not permit missing signing key signatures,
+        // the synchronizer topology manager does not permit weaker validation checks,
         // because these transactions would be rejected during the validating after sequencing.
-        transactionMayHaveMissingSigningKeySignatures = false,
+        relaxChecksForBackwardsCompatibility = false,
       )
   } yield {
     val (txs, asyncResult) = validationResult
@@ -246,9 +268,9 @@ abstract class LocalTopologyManager[StoreId <: TopologyStoreId](
               EffectiveTime(ts),
               Seq(transaction),
               expectFullAuthorization = expectFullAuthorization,
-              // we allow importing OwnerToKeyMappings with missing signing key signatures into a temporary topology store,
+              // we allow importing older topology state such as OTK with missing signing key signatures into a temporary topology store,
               // so that we can import legacy OTKs for debugging/investigation purposes
-              transactionMayHaveMissingSigningKeySignatures = store.storeId.isTemporaryStore,
+              relaxChecksForBackwardsCompatibility = store.storeId.isTemporaryStore,
             )
 
         } yield {
@@ -318,6 +340,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
   def validatePackageVetting(
       @unused currentlyVettedPackages: Set[LfPackageId],
       @unused nextPackageIds: Set[LfPackageId],
+      @unused dryRunSnapshot: Option[PackageMetadata],
       @unused forceFlags: ForceFlags,
   )(implicit
       traceContext: TraceContext
@@ -385,7 +408,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
       protocolVersion: ProtocolVersion,
       expectFullAuthorization: Boolean,
       forceChanges: ForceFlags = ForceFlags.none,
-      waitToBecomeEffective: Option[NonNegativeFiniteDuration],
+      waitToBecomeEffective: Option[config.NonNegativeFiniteDuration],
   )(implicit
       traceContext: TraceContext
   ): EitherT[
@@ -402,9 +425,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
     )
     for {
       existingTransaction <- findExistingTransaction(mapping)
-      tx <- build(op, mapping, serial, protocolVersion, existingTransaction).mapK(
-        FutureUnlessShutdown.outcomeK
-      )
+      tx <- build(op, mapping, serial, protocolVersion, existingTransaction)
       signedTx <- signTransaction(
         tx,
         signingKeys,
@@ -501,7 +522,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
       existingTransaction: Option[GenericSignedTopologyTransaction],
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TopologyManagerError, TopologyTransaction[Op, M]] = {
+  ): EitherT[FutureUnlessShutdown, TopologyManagerError, TopologyTransaction[Op, M]] = {
     val existingTransactionTuple =
       existingTransaction.map(t => (t.operation, t.mapping, t.serial, t.signatures))
     for {
@@ -511,10 +532,10 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
           EitherT.rightT(PositiveInt.one)
         case (None, Some(proposed)) =>
           // didn't find an existing transaction, therefore the proposed serial must be 1
-          EitherT.cond[Future][TopologyManagerError, PositiveInt](
+          EitherT.cond[FutureUnlessShutdown][TopologyManagerError, PositiveInt](
             proposed == PositiveInt.one,
             PositiveInt.one,
-            TopologyManagerError.SerialMismatch.Failure(PositiveInt.one, proposed),
+            TopologyManagerError.SerialMismatch.Failure(Some(PositiveInt.one), Some(proposed)),
           )
         // The stored mapping and the proposed mapping are the same. This likely only adds an additional signature.
         // If not, then duplicates will be filtered out down the line.
@@ -522,7 +543,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
           // auto-select existing
           EitherT.rightT(existingSerial)
         case (Some((`op`, `mapping`, existingSerial, signatures)), Some(proposed)) =>
-          EitherT.cond[Future](
+          EitherT.cond[FutureUnlessShutdown](
             existingSerial == proposed,
             existingSerial,
             TopologyManagerError.MappingAlreadyExists
@@ -535,12 +556,12 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
         case (Some((_, _, existingSerial, _)), Some(proposed)) =>
           // check that the proposed serial matches existing+1
           val next = existingSerial.increment
-          EitherT.cond[Future](
+          EitherT.cond[FutureUnlessShutdown](
             next == proposed,
             next,
-            TopologyManagerError.SerialMismatch.Failure(next, proposed),
+            TopologyManagerError.SerialMismatch.Failure(Some(next), Some(proposed)),
           )
-      }): EitherT[Future, TopologyManagerError, PositiveInt]
+      }): EitherT[FutureUnlessShutdown, TopologyManagerError, PositiveInt]
     } yield TopologyTransaction(op, theSerial, mapping, protocolVersion)
   }
 
@@ -733,14 +754,10 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
         )
 
         transactionsInStore <- EitherT
-          .liftF(
-            store.findLatestTransactionsAndProposalsByTxHash(
-              transactions.map(_.hash).toSet
-            )
-          )
-        existingHashes = transactionsInStore
-          .map(tx => tx.hash -> tx)
-          .toMap
+          .liftF(store.findLatestTransactionsAndProposalsByTxHash(transactions.map(_.hash).toSet))
+
+        existingHashes = transactionsInStore.map(tx => tx.hash -> tx).toMap
+
         // find transactions that provide new signatures
         (existingTransactions, newTransactionsOrAdditionalSignatures) = transactions.partition {
           tx =>
@@ -816,13 +833,21 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] = transaction.mapping match {
     case SynchronizerParametersState(synchronizerId, newSynchronizerParameters) =>
-      checkPreparationTimeRecordTimeToleranceNotIncreasing(
-        synchronizerId,
-        newSynchronizerParameters,
-        forceChanges,
-      )
+      for {
+        _ <- checkPreparationTimeRecordTimeToleranceNotIncreasing(
+          synchronizerId,
+          newSynchronizerParameters,
+          forceChanges,
+        )
+
+        _ <- EitherT.fromEither[FutureUnlessShutdown](
+          checkDynamicSynchronizerParametersBounds(newSynchronizerParameters, forceChanges)
+        )
+      } yield ()
+
     case OwnerToKeyMapping(member, _) =>
       checkTransactionIsForCurrentNode(member, forceChanges, transaction.mapping.code)
+
     case VettedPackages(participantId, newPackages) =>
       checkPackageVettingIsNotDangerous(
         participantId,
@@ -830,7 +855,8 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
         forceChanges,
         transaction.mapping.code,
       )
-    case PartyToParticipant(partyId, threshold, participants) =>
+
+    case PartyToParticipant(partyId, threshold, participants, _) =>
       checkPartyToParticipantIsNotDangerous(
         partyId,
         threshold,
@@ -838,6 +864,12 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
         forceChanges,
         transaction.transaction.operation,
       )
+
+    case upgradeAnnouncement: SynchronizerUpgradeAnnouncement =>
+      if (transaction.operation == TopologyChangeOp.Replace)
+        checkSynchronizerUpgradeAnnouncementIsNotDangerous(upgradeAnnouncement, transaction.serial)
+      else EitherT.pure(())
+
     case _ => EitherT.rightT(())
   }
 
@@ -852,6 +884,16 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
       member.uid == nodeId || forceChanges.permits(ForceFlag.AlienMember),
       DangerousCommandRequiresForce.AlienMember(member, topologyMappingCode),
     )
+
+  private def checkDynamicSynchronizerParametersBounds(
+      newSynchronizerParameters: DynamicSynchronizerParameters,
+      forceChanges: ForceFlags,
+  )(implicit
+      traceContext: TraceContext
+  ): Either[TopologyManagerError, Unit] =
+    if (!forceChanges.permits(ForceFlag.AllowOutOfBoundsValue))
+      TopologyManager.checkBounds(newSynchronizerParameters)
+    else ().asRight
 
   private def checkPreparationTimeRecordTimeToleranceNotIncreasing(
       synchronizerId: SynchronizerId,
@@ -930,26 +972,55 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
             .getOrElse(Nil)
             .toSet
         }
-      _ <- checkPackageVettingRevocation(currentlyVettedPackages, newPackageIds, forceChanges)
       _ <- checkTransactionIsForCurrentNode(participantId, forceChanges, topologyMappingCode)
-      _ <- validatePackageVetting(currentlyVettedPackages, newPackageIds, forceChanges)
+      _ <- validatePackageVetting(currentlyVettedPackages, newPackageIds, None, forceChanges)
     } yield ()
 
-  private def checkPackageVettingRevocation(
-      currentlyVettedPackages: Set[LfPackageId],
-      nextPackageIds: Set[LfPackageId],
-      forceChanges: ForceFlags,
+  private def checkSynchronizerUpgradeAnnouncementIsNotDangerous(
+      upgradeAnnouncement: SynchronizerUpgradeAnnouncement,
+      serial: PositiveInt,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] = {
-    val removed = currentlyVettedPackages -- nextPackageIds
-    val force = forceChanges.permits(ForceFlag.AllowUnvetPackage)
-    val changeIdDangerous = removed.nonEmpty
-    EitherT.cond(
-      !changeIdDangerous || force,
-      (),
-      ParticipantTopologyManagerError.DangerousVettingCommandsRequireForce.Reject(),
-    )
+
+    val resF = store
+      .inspect(
+        proposals = false,
+        timeQuery = TimeQuery.Range(None, None),
+        asOfExclusiveO = None,
+        op = None,
+        types = Seq(TopologyMapping.Code.SynchronizerUpgradeAnnouncement),
+        idFilter = None,
+        namespaceFilter = None,
+      )
+      .map { result =>
+        result
+          .collectOfMapping[SynchronizerUpgradeAnnouncement]
+          .result
+          .maxByOption(_.serial) match {
+          case None => ().asRight
+
+          case Some(latestUpgradeAnnouncement) =>
+            // If the latest is another upgrade, we want the PSId to be strictly greater
+            if (serial == latestUpgradeAnnouncement.serial)
+              ().asRight
+            else {
+              val previouslyAnnouncedSuccessorPSId =
+                latestUpgradeAnnouncement.mapping.successorSynchronizerId
+
+              Either.cond(
+                previouslyAnnouncedSuccessorPSId < upgradeAnnouncement.successorSynchronizerId,
+                (),
+                InvalidSynchronizerSuccessor.Reject.conflictWithPreviousAnnouncement(
+                  successorSynchronizerId = upgradeAnnouncement.successorSynchronizerId,
+                  previouslyAnnouncedSuccessor = previouslyAnnouncedSuccessorPSId,
+                ),
+              )
+            }
+        }
+      }
+
+    EitherT(resF)
   }
 
   private def checkPartyToParticipantIsNotDangerous(
@@ -975,7 +1046,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
         .map {
           _.collectOfMapping[PartyToParticipant].collectLatestByUniqueKey.toTopologyState
             .collectFirst {
-              case PartyToParticipant(_, currentThreshold, currentHostingParticipants) =>
+              case PartyToParticipant(_, currentThreshold, currentHostingParticipants, _) =>
                 Some(currentThreshold) -> currentHostingParticipants
             }
             .getOrElse(None -> Nil)
@@ -1090,19 +1161,21 @@ object TopologyManager {
       forSigning: Boolean,
   ): NonEmpty[Map[Fingerprint, NonEmpty[Set[SigningKeyUsage]]]] = {
 
-    def onlyNamespaceAuth(auth: RequiredAuth): Boolean = auth match {
-      case RequiredAuth.RequiredNamespaces(_, extraKeys) => extraKeys.isEmpty
-      case RequiredAuth.Or(first, second) => onlyNamespaceAuth(first) && onlyNamespaceAuth(second)
-    }
+    def onlyNamespaceAuth(auth: RequiredAuth): Boolean = auth.referenced.isEmpty
 
     // True if the mapping must be signed only by a namespace key but not extra keys
     val strictNamespaceAuth = onlyNamespaceAuth(mapping.requiredAuth(None))
 
     mapping match {
-      // The following topology mapping requires to prove the ownership of the mapped keys, used by OwnerToKeyMapping and PartyToKeyMapping
+      // Keys defined in Keymappings must prove the ownership of the mapped keys
       case keyMapping: KeyMapping if !strictNamespaceAuth =>
-        val mappedKeyIds = keyMapping.mappedKeys.toSet.map(_.id)
+        val mappedKeyIds = keyMapping.mappedKeys.toSet.map[Fingerprint](_.id)
+        val namespaceKeyForSelfAuthorization =
+          keyMapping.namespaceKeyForSelfAuthorization.map(_.fingerprint)
         signingKeys.map {
+          case keyId if namespaceKeyForSelfAuthorization.contains(keyId) =>
+            // the key specified for self-authorization must be a namespace key
+            keyId -> SigningKeyUsage.NamespaceOnly
           case keyId if mappedKeyIds.contains(keyId) =>
             if (forSigning)
               // the mapped keys need to prove ownership
@@ -1122,5 +1195,37 @@ object TopologyManager {
         signingKeys.map(_ -> SigningKeyUsage.NamespaceOnly).toMap
 
     }
+  }
+
+  def checkBounds(
+      parameters: DynamicSynchronizerParameters
+  )(implicit errorLoggingContext: ErrorLoggingContext): Either[TopologyManagerError, Unit] = {
+    def check(
+        proj: DynamicSynchronizerParameters => NonNegativeFiniteDuration,
+        name: String,
+        bounds: (NonNegativeFiniteDuration, NonNegativeFiniteDuration),
+    ): Either[TopologyManagerError, Unit] = {
+      val value = proj(parameters)
+
+      val (min, max) = bounds
+
+      for {
+        _ <- Either.cond(value >= min, (), ValueOutOfBounds.Error(value, name, min, max))
+        _ <- Either.cond(value <= max, (), ValueOutOfBounds.Error(value, name, min, max))
+      } yield ()
+    }
+
+    for {
+      _ <- check(
+        _.confirmationResponseTimeout,
+        "confirmation response timeout",
+        DynamicSynchronizerParameters.confirmationResponseTimeoutBounds,
+      )
+      _ <- check(
+        _.mediatorReactionTimeout,
+        "mediator reaction timeout",
+        DynamicSynchronizerParameters.mediatorReactionTimeoutBounds,
+      )
+    } yield ()
   }
 }

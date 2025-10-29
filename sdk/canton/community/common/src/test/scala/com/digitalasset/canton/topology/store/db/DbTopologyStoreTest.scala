@@ -18,7 +18,11 @@ import com.digitalasset.canton.topology.store.{
   TopologyStoreTest,
 }
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.Submission
-import com.digitalasset.canton.topology.transaction.{HostingParticipant, PartyToParticipant}
+import com.digitalasset.canton.topology.transaction.{
+  HostingParticipant,
+  PartyToParticipant,
+  TopologyMapping,
+}
 
 trait DbTopologyStoreTest extends TopologyStoreTest with DbTopologyStoreHelper {
   this: DbTest =>
@@ -27,61 +31,82 @@ trait DbTopologyStoreTest extends TopologyStoreTest with DbTopologyStoreHelper {
     behave like partyMetadataStore(() => new DbPartyMetadataStore(storage, timeouts, loggerFactory))
   }
 
+  private lazy val largeTestSnapshot = {
+    val synchronizerSetup = Seq(
+      0 -> testData.nsd_p1,
+      0 -> testData.nsd_p2,
+      0 -> testData.dnd_p1p2,
+      0 -> testData.dop_synchronizer1,
+      0 -> testData.otk_p1,
+      0 -> testData.dtc_p1_synchronizer1,
+    )
+
+    val partyAllocations = (1 to 43) map { i =>
+      i -> testData.makeSignedTx(
+        PartyToParticipant.tryCreate(
+          PartyId.tryCreate(s"party$i", testData.p1Namespace),
+          threshold = PositiveInt.one,
+          participants = Seq(HostingParticipant(testData.p1Id, Submission)),
+        )
+      )(testData.p1Key)
+    }
+
+    val transactions = (synchronizerSetup ++ partyAllocations).map { case (timeOffset, tx) =>
+      val ts = CantonTimestamp.Epoch.plusSeconds(timeOffset.toLong)
+      // the actual transaction and the consistency is not important for this test
+      StoredTopologyTransaction(
+        SequencedTime(ts),
+        EffectiveTime(ts),
+        None,
+        tx,
+        None,
+      )
+    }
+    StoredTopologyTransactions(transactions)
+  }
+
   "DbTopologyStore" should {
     behave like topologyStore(mkStore)
 
     "properly handle insertion order for large topology snapshots" in {
-      val store = mkStore(testData.synchronizer1_p1p2_physicalSynchronizerId)
-
-      val synchronizerSetup = Seq(
-        0 -> testData.nsd_p1,
-        0 -> testData.nsd_p2,
-        0 -> testData.dnd_p1p2,
-        0 -> testData.dop_synchronizer1,
-        0 -> testData.otk_p1,
-        0 -> testData.dtc_p1_synchronizer1,
-      )
-
-      val partyAllocations = (1 to maxItemsInSqlQuery.value * 2 + 3) map { i =>
-        i -> testData.makeSignedTx(
-          PartyToParticipant.tryCreate(
-            PartyId.tryCreate(s"party$i", testData.p1Namespace),
-            threshold = PositiveInt.one,
-            participants = Seq(HostingParticipant(testData.p1Id, Submission)),
-          )
-        )(testData.p1Key)
-      }
-
-      val transactions = (synchronizerSetup ++ partyAllocations).map { case (timeOffset, tx) =>
-        val ts = CantonTimestamp.Epoch.plusSeconds(timeOffset.toLong)
-        // the actual transaction and the consistency is not important for this test
-        StoredTopologyTransaction(
-          SequencedTime(ts),
-          EffectiveTime(ts),
-          None,
-          tx,
-          None,
-        )
-      }
-      val topologySnapshot = StoredTopologyTransactions(transactions)
+      val store = mkStore(testData.synchronizer1_p1p2_physicalSynchronizerId, "dbtest1")
 
       for {
         _ <- new InitialTopologySnapshotValidator(
           testData.factory.syncCryptoClient.crypto.pureCrypto,
           store,
+          Some(defaultStaticSynchronizerParameters),
           validateInitialSnapshot = true,
           loggerFactory,
-        ).validateAndApplyInitialTopologySnapshot(topologySnapshot)
+        ).validateAndApplyInitialTopologySnapshot(largeTestSnapshot)
           .valueOrFail("topology bootstrap")
 
         maxTimestamp <- store
           .maxTimestamp(SequencedTime.MaxValue, includeRejected = true)
       } yield {
-        val lastSequenced = transactions.last.sequenced
-        val lastEffective = transactions.last.validFrom
+        val lastSequenced = largeTestSnapshot.result.last.sequenced
+        val lastEffective = largeTestSnapshot.result.last.validFrom
         maxTimestamp shouldBe Some((lastSequenced, lastEffective))
       }
     }
+
+    "properly insert transactions in bulk" in {
+      val store = mkStore(testData.synchronizer1_p1p2_physicalSynchronizerId, "dbtest1")
+      for {
+        _ <- store.bulkInsert(largeTestSnapshot)
+        txs <- store.findPositiveTransactions(
+          CantonTimestamp.MaxValue,
+          asOfInclusive = true,
+          isProposal = false,
+          types = TopologyMapping.Code.all,
+          filterUid = None,
+          filterNamespace = None,
+        )
+      } yield {
+        txs.result shouldBe largeTestSnapshot.result
+      }
+    }
+
   }
 }
 

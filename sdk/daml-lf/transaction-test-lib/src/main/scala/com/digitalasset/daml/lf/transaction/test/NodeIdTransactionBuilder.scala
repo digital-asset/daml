@@ -52,7 +52,7 @@ class NodeIdTransactionBuilder extends TestIdFactory {
       case (_, node: Node.LeafOnlyAction) =>
         node
     }
-    val txVersion = finalNodes.values.foldLeft(TransactionVersion.minVersion)((acc, node) =>
+    val txVersion = finalNodes.values.foldLeft(SerializationVersion.minVersion)((acc, node) =>
       node.optVersion match {
         case Some(version) => acc max version
         case None => acc

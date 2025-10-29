@@ -6,6 +6,7 @@ package com.digitalasset.canton.sequencing
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -42,6 +43,7 @@ import com.digitalasset.canton.sequencing.protocol.{
   SignedContent,
   SubmissionRequest,
   SubscriptionRequest,
+  TopologyStateForInitHashResponse,
   TopologyStateForInitRequest,
   TopologyStateForInitResponse,
 }
@@ -230,6 +232,11 @@ class GrpcSequencerConnectionX(
   ): EitherT[FutureUnlessShutdown, Status, Unit] =
     clientAuth.logout()
 
+  override def getTime(timeout: Duration)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, Option[CantonTimestamp]] =
+    stub.getTime(timeout, retryPolicy = retryPolicy(retryOnUnavailable = false)).leftMap(_.toString)
+
   override def downloadTopologyStateForInit(
       request: TopologyStateForInitRequest,
       timeout: Duration,
@@ -265,4 +272,19 @@ class GrpcSequencerConnectionX(
 
   override val subscriptionRetryPolicy: SubscriptionErrorRetryPolicy =
     new GrpcSubscriptionErrorRetryPolicy(loggerFactory)
+
+  override def downloadTopologyStateForInitHash(
+      request: TopologyStateForInitRequest,
+      timeout: Duration,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, TopologyStateForInitHashResponse] = {
+    logger.debug("Downloading topology state for initialization, fetching hash")
+    for {
+      result <- stub.downloadTopologyStateForInitHash(request, timeout).leftMap(_.toString)
+      _ = logger.debug(
+        s"Downloaded topology state for initialization hash ${result.topologyStateHash}"
+      )
+    } yield result
+  }
 }

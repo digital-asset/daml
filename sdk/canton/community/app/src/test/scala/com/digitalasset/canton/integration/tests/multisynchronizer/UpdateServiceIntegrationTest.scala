@@ -51,7 +51,8 @@ abstract class UpdateServiceIntegrationTest
       participant1.synchronizers.connect_local(sequencer1, alias = daName)
       participant1.synchronizers.connect_local(sequencer3, alias = acmeName)
 
-      participant1.dars.upload(CantonExamplesPath)
+      participant1.dars.upload(CantonExamplesPath, synchronizerId = daId)
+      participant1.dars.upload(CantonExamplesPath, synchronizerId = acmeId)
 
       // Allocate parties
       otherParty = participant1.parties.enable(otherPartyName, synchronizer = daName)

@@ -195,7 +195,7 @@ class TransactionSpec
   "isReplayedBy" - {
     def genTrans(node: Node) = {
       val nid = NodeId(1)
-      val version = node.optVersion.getOrElse(TransactionVersion.minVersion)
+      val version = node.optVersion.getOrElse(SerializationVersion.minVersion)
       VersionedTransaction(version, HashMap(nid -> node), ImmArray(nid))
     }
 
@@ -223,15 +223,15 @@ class TransactionSpec
     }
 
     "fail if version is different" in {
-      val versions = TransactionVersion.All
+      val versions = SerializationVersion.All
 
-      def diffVersion(v: TransactionVersion) = {
+      def diffVersion(v: SerializationVersion) = {
         val randomVersion = versions(Random.nextInt(versions.length - 1))
         if (randomVersion != v) randomVersion else versions.last
       }
 
       forAll(genEmptyNode, minSuccessful(10)) { n =>
-        val version = n.optVersion.getOrElse(TransactionVersion.minVersion)
+        val version = n.optVersion.getOrElse(SerializationVersion.minVersion)
         n match {
           case _: Node.Rollback => ()
           case n: Node.Action =>
@@ -1126,7 +1126,7 @@ object TransactionSpec {
       exerciseResult = if (hasExerciseResult) Some(V.ValueUnit) else None,
       keyOpt = None,
       byKey = false,
-      version = TransactionVersion.minVersion,
+      version = SerializationVersion.minVersion,
     )
 
   def dummyCreateNode(
@@ -1142,7 +1142,7 @@ object TransactionSpec {
       signatories = signatories,
       stakeholders = stakeholders,
       keyOpt = None,
-      version = TransactionVersion.minVersion,
+      version = SerializationVersion.minVersion,
     )
 
 }

@@ -4,7 +4,6 @@
 package com.digitalasset.canton.integration.tests.multihostedparties
 
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.integration.ConfigTransforms.zeroReassignmentTimeProofFreshnessProportion
 import com.digitalasset.canton.integration.EnvironmentDefinition
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.tests.examples.IouSyntax.testIou
@@ -31,12 +30,11 @@ import scala.jdk.CollectionConverters.CollectionHasAsScala
   *   - Target participant clears the onboarding flag unilaterally
   *   - Assert successful clearing of onboarding flag by the target participant
   */
-sealed trait OfflinePartyReplicationOnboardingCompletetionIntegrationTest
+sealed trait OfflinePartyReplicationOnboardingCompletionIntegrationTest
     extends OfflinePartyReplicationIntegrationTestBase {
 
   override def environmentDefinition: EnvironmentDefinition =
     super.environmentDefinition
-      .addConfigTransform(zeroReassignmentTimeProofFreshnessProportion)
       .withSetup { implicit env =>
         import env.*
         source = participant1
@@ -44,8 +42,8 @@ sealed trait OfflinePartyReplicationOnboardingCompletetionIntegrationTest
       }
 }
 
-final class OffPROnboardingCompletionIntegrationTest
-    extends OfflinePartyReplicationOnboardingCompletetionIntegrationTest {
+final class OffPROnboardingFlagClearanceIntegrationTest
+    extends OfflinePartyReplicationOnboardingCompletionIntegrationTest {
 
   "Party replication sets and clears the onboarding flag successfully" in { implicit env =>
     import env.*
@@ -101,7 +99,7 @@ final class OffPROnboardingCompletionIntegrationTest
 
     eventually(timeUntilSuccess = 2.minutes, maxPollInterval = 30.seconds) {
       val (onboard, earliestRetryTimestamp) =
-        target.parties.complete_party_onboarding(alice, daId, target, targetLedgerEnd)
+        target.parties.clear_party_onboarding_flag(alice, daId, targetLedgerEnd)
       (onboard, earliestRetryTimestamp) shouldBe (true, None)
     }
 

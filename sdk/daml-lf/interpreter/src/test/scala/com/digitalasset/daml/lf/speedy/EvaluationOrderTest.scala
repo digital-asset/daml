@@ -22,7 +22,7 @@ import com.digitalasset.daml.lf.transaction.{
   FatContractInstance,
   GlobalKey,
   GlobalKeyWithMaintainers,
-  TransactionVersion,
+  SerializationVersion,
 }
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{ValueParty, ValueRecord}
@@ -58,6 +58,8 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
     extends AnyFreeSpec
     with Matchers
     with Inside {
+
+  val serializationVersion = SerializationVersion.assign(languageVersion)
 
   private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
@@ -353,7 +355,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
   private[this] val helperCId: Value.ContractId =
     Value.ContractId.V1(crypto.Hash.hashPrivateKey("Helper"))
 
-  private[this] val emptyNestedValue = Value.ValueRecord(None, ImmArray(None -> Value.ValueNone))
+  private[this] val emptyNestedValue = Value.ValueRecord(None, ImmArray.empty)
 
   private[this] val keyValue = Value.ValueRecord(
     None,
@@ -373,7 +375,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
     ),
   )
 
-  private val testTxVersion: TransactionVersion = languageVersion
+  private val testTxVersion: SerializationVersion = serializationVersion
 
   private[this] def buildContract(observer: Party): FatContractInstance =
     TransactionBuilder.fatContractInstanceWithDummyDefaults(
@@ -760,7 +762,6 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
             "contract observers",
             "key",
             "maintainers",
-            "view",
             "ends test",
           )
         }

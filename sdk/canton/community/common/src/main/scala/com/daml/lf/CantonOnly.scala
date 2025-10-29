@@ -6,8 +6,8 @@ package com.digitalasset.daml.lf
 import com.digitalasset.canton.protocol.{
   LfNode,
   LfNodeId,
+  LfSerializationVersion,
   LfTransaction,
-  LfTransactionVersion,
   LfVersionedTransaction,
 }
 import com.digitalasset.daml.lf.data.ImmArray
@@ -25,7 +25,7 @@ object CantonOnly {
       nodes: Map[LfNodeId, LfNode],
       roots: ImmArray[LfNodeId],
   ): LfVersionedTransaction =
-    LfTransactionVersion.asVersionedTransaction(LfTransaction(nodes, roots))
+    LfSerializationVersion.asVersionedTransaction(LfTransaction(nodes, roots))
 
   def tryBuildCompiledPackages(
       darMap: Map[PackageId, Ast.Package],

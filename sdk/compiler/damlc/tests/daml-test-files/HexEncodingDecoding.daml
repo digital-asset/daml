@@ -8,7 +8,14 @@ module HexEncodingDecoding where
 import DA.Assert ((===))
 import DA.Crypto.Text
 import DA.Optional (fromSome)
+import DA.Text (fromCodePoints)
 import Daml.Script
+
+replaceChar : Text
+replaceChar = fromCodePoints [255, 253]
+
+replaceHex : BytesHex
+replaceHex = "c3bfc3bd"
 
 main =
   script do
@@ -24,4 +31,10 @@ main =
     ((toHex (fromSome ((fromHex "0001") : Optional Text))) === "0001")
     ((fromHex "0") === (None : Optional Text))
     ((fromHex "Hello World!") === (None : Optional Text))
+    ((fromHex "0000b4334b") === (None : Optional Text))
+    ((toHex ("\NUL\NUL" <> replaceChar <> "3K")) === ("0000" <> replaceHex <> "334b"))
+    ((fromHex ("0000" <> replaceHex <> "334b")) === Some ("\NUL\NUL" <> replaceChar <> "3K"))
+    ((fromHex "6865c6c6f2") === (None : Optional Text))
+    ((toHex ("he" <> replaceChar <> replaceChar <> replaceChar)) === ("6865" <> replaceHex <> replaceHex <> replaceHex))
+    ((fromHex ("6865" <> replaceHex <> replaceHex <> replaceHex)) === Some ("he" <> replaceChar <> replaceChar <> replaceChar))
     pure ()

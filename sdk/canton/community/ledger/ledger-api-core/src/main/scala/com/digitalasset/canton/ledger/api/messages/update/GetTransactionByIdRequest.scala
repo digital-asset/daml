@@ -3,16 +3,10 @@
 
 package com.digitalasset.canton.ledger.api.messages.update
 
-import com.digitalasset.canton.ledger.api.{TransactionFormat, UpdateId}
-import com.digitalasset.daml.lf.data.Ref.Party
+import com.digitalasset.canton.ledger.api.TransactionFormat
+import com.digitalasset.canton.protocol.UpdateId
 
 final case class GetTransactionByIdRequest(
     updateId: UpdateId,
     transactionFormat: TransactionFormat,
-)
-
-// TODO(#23504) cleanup
-final case class GetTransactionByIdRequestForTrees(
-    updateId: UpdateId,
-    requestingParties: Set[Party],
 )
