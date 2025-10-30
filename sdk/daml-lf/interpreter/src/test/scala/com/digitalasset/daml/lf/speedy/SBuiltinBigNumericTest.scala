@@ -6,9 +6,8 @@ package speedy
 
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml.lf.speedy.SValue.{SValue => _, _}
-import com.digitalasset.daml.lf.testing.parser.Implicits.{SyntaxHelper}
+import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import org.scalatest.Inside.inside
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -17,18 +16,15 @@ import org.scalatest.freespec.AnyFreeSpec
 
 import scala.language.implicitConversions
 
-class SBuiltinBigNumericTestV2 extends SBuiltinBigNumericTest(LanguageMajorVersion.V2)
-
-class SBuiltinBigNumericTest(majorLanguageVersion: LanguageMajorVersion)
+class SBuiltinBigNumericTest
     extends AnyFreeSpec
     with Matchers
     with TableDrivenPropertyChecks {
 
-  val helpers = new SBuiltinBigNumericTestHelpers(majorLanguageVersion)
+  val helpers = new SBuiltinBigNumericTestHelpers
   import helpers.{parserParameters => _, _}
 
-  implicit val parserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor[this.type](majorLanguageVersion)
+  implicit val parserParameters: ParserParameters[this.type] = ParserParameters.default
 
   private implicit def toScale(i: Int): Numeric.Scale = Numeric.Scale.assertFromInt(i)
 
@@ -337,12 +333,11 @@ class SBuiltinBigNumericTest(majorLanguageVersion: LanguageMajorVersion)
 
 }
 
-final class SBuiltinBigNumericTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
+final class SBuiltinBigNumericTestHelpers {
 
   import SpeedyTestLib.loggingContext
 
-  implicit val parserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor[this.type](majorLanguageVersion)
+  implicit val parserParameters: ParserParameters[this.type] = ParserParameters.default
 
   private val pkg = p"""
         metadata ( 'pkg' : '1.0.0' )
@@ -391,7 +386,7 @@ final class SBuiltinBigNumericTestHelpers(majorLanguageVersion: LanguageMajorVer
   val compiledPackages =
     PureCompiledPackages.assertBuild(
       Map(parserParameters.defaultPackageId -> pkg),
-      Compiler.Config.Default(majorLanguageVersion),
+      Compiler.Config.Default,
     )
 
   def eval(e: Expr): Either[SError.SError, SValue] =

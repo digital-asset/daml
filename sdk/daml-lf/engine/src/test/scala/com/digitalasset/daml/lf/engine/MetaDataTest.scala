@@ -4,32 +4,25 @@
 package com.digitalasset.daml.lf
 package engine
 
-import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.{
-  CreateKey,
-  CreateSerializationVersion,
-}
+import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.{CreateKey, CreateSerializationVersion}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.Implicits._
-import com.digitalasset.daml.lf.transaction.test.{
-  TestIdFactory,
-  TestNodeBuilder,
-  TreeTransactionBuilder,
-}
+import com.digitalasset.daml.lf.transaction.test.{TestIdFactory, TestNodeBuilder, TreeTransactionBuilder}
 import com.digitalasset.daml.lf.transaction.{Node, SerializationVersion}
 import com.digitalasset.daml.lf.value.Value.{ValueParty, ValueUnit}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 
-class MetaDataTest(majorVersion: LanguageMajorVersion)
+class MetaDataTest
     extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks
     with TestIdFactory {
 
-  val helpers = new MetaDataTestHelper(majorVersion)
+  val helpers = new MetaDataTestHelper
   import helpers._
   import TreeTransactionBuilder._
 
@@ -150,16 +143,16 @@ class MetaDataTest(majorVersion: LanguageMajorVersion)
 
 }
 
-class MetaDataTestHelper(majorLanguageVersion: LanguageMajorVersion) {
+class MetaDataTestHelper {
 
-  val langVersion = majorLanguageVersion.maxStableVersion
+  val langVersion = LanguageVersion.latestStable
 
   object langNodeBuilder extends TestNodeBuilder {
     override def serializationVersion(packageId: PackageId): Option[SerializationVersion] =
       Some(SerializationVersion.assign(langVersion))
   }
 
-  val engine = Engine.DevEngine(majorLanguageVersion)
+  val engine = Engine.DevEngine
 
   def emptyPkg(pkgName: String): language.Ast.Package =
     language.Ast.Package(

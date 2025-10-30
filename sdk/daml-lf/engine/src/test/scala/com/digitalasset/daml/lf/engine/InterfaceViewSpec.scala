@@ -10,17 +10,10 @@ import com.digitalasset.daml.lf.archive.DarDecoder
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, Party, QualifiedName}
 import com.digitalasset.daml.lf.language.Ast.Package
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.Versioned
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{
-  ValueBool,
-  ValueInt64,
-  ValueParty,
-  ValueRecord,
-  ValueUnit,
-  ValueVariant,
-}
+import com.digitalasset.daml.lf.value.Value.{ValueBool, ValueInt64, ValueParty, ValueRecord, ValueUnit, ValueVariant}
 import org.scalatest.EitherValues
 import org.scalatest.Inside.inside
 import org.scalatest.matchers.should.Matchers
@@ -29,7 +22,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import java.io.File
 import scala.language.implicitConversions
 
-class InterfaceViewSpecV2 extends InterfaceViewSpec(LanguageMajorVersion.V2)
+class InterfaceViewSpecV2 extends InterfaceViewSpec(LanguageVersion.Major.V2)
 
 @SuppressWarnings(
   Array(
@@ -38,7 +31,7 @@ class InterfaceViewSpecV2 extends InterfaceViewSpec(LanguageMajorVersion.V2)
     "org.wartremover.warts.Product",
   )
 )
-class InterfaceViewSpec(majorLanguageVersion: LanguageMajorVersion)
+class InterfaceViewSpec(majorLanguageVersion: LanguageVersion.Major)
     extends AnyWordSpec
     with Matchers
     with EitherValues
@@ -58,7 +51,7 @@ class InterfaceViewSpec(majorLanguageVersion: LanguageMajorVersion)
     s"daml-lf/tests/InterfaceViews-v${majorLanguageVersion.pretty}.dar"
   )
 
-  val engine = Engine.DevEngine(majorLanguageVersion)
+  val engine = Engine.DevEngine
 
   private def id(s: String) = Identifier(interfaceviewsPkgId, s"InterfaceViews:$s")
 

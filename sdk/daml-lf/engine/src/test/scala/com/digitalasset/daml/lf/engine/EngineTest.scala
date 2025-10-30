@@ -19,27 +19,12 @@ import com.digitalasset.daml.lf.engine.Error.Interpretation
 import com.digitalasset.daml.lf.engine.Error.Interpretation.DamlException
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.Util._
-import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion, PackageInterface}
+import com.digitalasset.daml.lf.language.{LanguageVersion, PackageInterface}
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.speedy.{InitialSeeding, SValue, svalue}
 import com.digitalasset.daml.lf.stablepackages.StablePackages
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
-import com.digitalasset.daml.lf.transaction.{
-  CreationTime,
-  FatContractInstance,
-  GlobalKey,
-  GlobalKeyWithMaintainers,
-  Node,
-  NodeId,
-  Normalization,
-  ReplayMismatch,
-  SerializationVersion,
-  SubmittedTransaction,
-  Transaction,
-  Validation,
-  VersionedTransaction,
-  Transaction => Tx,
-}
+import com.digitalasset.daml.lf.transaction.{CreationTime, FatContractInstance, GlobalKey, GlobalKeyWithMaintainers, Node, NodeId, Normalization, ReplayMismatch, SerializationVersion, SubmittedTransaction, Transaction, Validation, VersionedTransaction, Transaction => Tx}
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.value.{ContractIdVersion, Value}
 import org.scalactic.Equality
@@ -53,10 +38,9 @@ import java.io.File
 import scala.annotation.nowarn
 import scala.collection.immutable.{ArraySeq, HashMap}
 import scala.language.implicitConversions
-import scala.math.Ordered.orderingToOrdered
 
-class EngineTestCidV1 extends EngineTest(LanguageMajorVersion.V2, ContractIdVersion.V1)
-class EngineTestCidV2 extends EngineTest(LanguageMajorVersion.V2, ContractIdVersion.V2)
+class EngineTestCidV1 extends EngineTest(LanguageVersion.Major.V2, ContractIdVersion.V1)
+class EngineTestCidV2 extends EngineTest(LanguageVersion.Major.V2, ContractIdVersion.V2)
 
 @SuppressWarnings(
   Array(
@@ -65,7 +49,7 @@ class EngineTestCidV2 extends EngineTest(LanguageMajorVersion.V2, ContractIdVers
     "org.wartremover.warts.Product",
   )
 )
-class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: ContractIdVersion)
+class EngineTest(majorLanguageVersion: LanguageVersion.Major, contractIdVersion: ContractIdVersion)
     extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks
@@ -2416,7 +2400,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         )
       )
 
-    val devVersion = majorLanguageVersion.dev
+    val devVersion = LanguageVersion.dev
     val (_, _, allPackagesDev) =
       new EngineTestHelpers(majorLanguageVersion, contractIdVersion).loadAndAddPackage(
         s"daml-lf/engine/BasicTests-v${majorLanguageVersion.pretty}dev.dar"
@@ -3007,12 +2991,12 @@ class EngineTestAllVersions extends AnyWordSpec with Matchers with TableDrivenPr
 }
 
 class EngineTestHelpers(
-    majorLanguageVersion: LanguageMajorVersion,
+    majorLanguageVersion: LanguageVersion.Major,
     contractIdVersion: ContractIdVersion,
 ) {
 
   val defaultSerializationVersion =
-    SerializationVersion.assign(majorLanguageVersion.maxStableVersion)
+    SerializationVersion.assign(LanguageVersion.latestStable)
 
   import Matchers._
 

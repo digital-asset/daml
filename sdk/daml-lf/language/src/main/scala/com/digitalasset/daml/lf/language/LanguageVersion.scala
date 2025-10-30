@@ -4,17 +4,16 @@
 package com.digitalasset.daml.lf
 package language
 
-import com.digitalasset.daml.lf.language.LanguageMajorVersion.V2.maxStableVersion
-
 import scala.annotation.nowarn
 
-
 final case class LanguageVersion private(
-                                          major: LanguageVersion.LegacyMajor,
+                                          major: LanguageVersion.Major,
                                           minor: LanguageVersion.Minor
                                         ) extends Ordered[LanguageVersion] {
 
   override def toString: String = s"${major.pretty}.${minor.pretty}"
+  def pretty = toString
+  def isDevVersion: Boolean = minor.isDevVersion
 
   override def compare(that: LanguageVersion): Int = {
     (this.major, this.minor, that.major, that.minor) match {
@@ -32,16 +31,27 @@ final case class LanguageVersion private(
 }
 
 object LanguageVersion {
-  sealed abstract class LegacyMajor(val pretty: String) extends Product with Serializable
-  sealed abstract class Major(pretty: String) extends LegacyMajor(pretty) with Serializable
+  //sealed abstract class LegacyMajor(val pretty: String) extends Product with Serializable
+  //sealed abstract class Major(pretty: String) extends LegacyMajor(pretty) with Serializable
+  sealed abstract class Major(val pretty: String) extends Product with Serializable
 
   object Major {
-    case object V1 extends LegacyMajor("1")
+    //case object V1 extends LegacyMajor("1")
+    case object V1 extends Major("1")
     case object V2 extends Major("2")
+
+    private val allMajors = List(V1, V2)
+
+    def fromString(str: String): Either[String, Major] =
+      allMajors.find(_.pretty == str).toRight(s"${str} is not supported, supported majors: ${allMajors}")
   }
 
   sealed abstract class Minor extends Product with Serializable {
+    val toProtoIdentifier: String = pretty
+    //TODO: remove alias
+    val identifier: String = pretty
     def pretty: String
+    def isDevVersion: Boolean = false
   }
 
   object Minor {
@@ -55,11 +65,41 @@ object LanguageVersion {
 
     case object Dev extends Minor {
       override def pretty: String = "dev"
+      override def isDevVersion: Boolean = true
+    }
+
+    //TODO: make this less hardcode-y
+    def fromString(input: String): Minor = {
+      input match {
+        // "dev" case
+        case "dev" => Dev
+
+        // All stable int cases
+        case "1"   => Stable(1)
+        case "2"   => Stable(2)
+        case "6"   => Stable(6)
+        case "7"   => Stable(7)
+        case "8"   => Stable(8)
+        case "11"  => Stable(11)
+        case "12"  => Stable(12)
+        case "13"  => Stable(13)
+        case "14"  => Stable(14)
+        case "15"  => Stable(15)
+        case "17"  => Stable(17)
+
+        // All other cases throw an exception
+        case _     =>
+          throw new IllegalArgumentException(s"Invalid language version string: '$input'")
+      }
     }
   }
 
-  val allLegacy = List(6, 7, 8, 11, 12, 13, 14, 15, 17).map(i => LanguageVersion(Major.V1, Minor.Stable(i)))
-  val List(v1_6, v1_7, v1_8, v1_11, v1_12, v1_13, v1_14, v1_15, v1_17, v1_dev) = allLegacy
+  val allStableLegacy: List[LanguageVersion] = List(6, 7, 8, 11, 12, 13, 14, 15, 17).map(i => LanguageVersion(Major.V1, Minor.Stable(i)))
+  val List(v1_6, v1_7, v1_8, v1_11, v1_12, v1_13, v1_14, v1_15, v1_17) = allStableLegacy: @nowarn(
+    "msg=match may not be exhaustive"
+  )
+  val v1_dev: LanguageVersion = LanguageVersion(Major.V1, Minor.Dev)
+  val allLegacy: List[LanguageVersion] = allStableLegacy.appended(v1_dev)
 
   // --- Start of Generated Code ---
   val v2_1: LanguageVersion = LanguageVersion(Major.V2, Minor.Stable(1))
@@ -67,9 +107,8 @@ object LanguageVersion {
   val v2_dev: LanguageVersion = LanguageVersion(Major.V2, Minor.Dev)
 
   val latestStable: LanguageVersion = v2_2
-  val defaultVersion: LanguageVersion = v2_2
+  val default: LanguageVersion = v2_2
   val dev: LanguageVersion = v2_dev
-  val staging: LanguageVersion = v2_2
 
   val all: List[LanguageVersion] = List(v2_1, v2_2, v2_dev)
   val stable: List[LanguageVersion] = List(v2_1, v2_2)
@@ -82,29 +121,62 @@ object LanguageVersion {
 
   def assertFromString(s: String): LanguageVersion = data.assertRight(fromString(s))
 
+  // --- Helper functions --
+  implicit class LanguageVersionListOps(val list: List[LanguageVersion]) extends AnyVal {
+    /**
+     * Extracts a list of all Minor versions from a list of LanguageVersions.
+     */
+    def minors: List[LanguageVersion.Minor] = list.map(_.minor)
+    def toRange: VersionRange[LanguageVersion] = {
+      VersionRange(list.last, list.head)
+    }
+  }
+
+  //@deprecated("Actually not sure if deprecated", since="3.5")
+  object LanguageVersionRangeOps {
+    implicit class LanguageVersionRange(val range: VersionRange[LanguageVersion]) {
+      def majorVersion: Major = {
+        require(
+          range.min.major == range.max.major,
+          s"version range ${range} spans over multiple version LF versions",
+        )
+        range.max.major
+      }
+    }
+  }
+
   // --- Backwards-compoatible definitions ---
+  //@deprecated("Version rework, other reason", since="3.5")
+  val Ordering: scala.Ordering[LanguageVersion] =
+    (a, b) => a.compare(b)
+
+  //@deprecated("Version rework, use generated variables instead", since="3.5")
   private[lf] def notSupported(major: Major) =
     throw new IllegalArgumentException(s"${major.pretty} not supported")
 
-  @deprecated
+  //@deprecated("Version rework, use generated variables instead", since="3.5")
+  def AllV1: Seq[LanguageVersion] = allLegacy
+  def AllV2: Seq[LanguageVersion] = all
+
+  //@deprecated("Version rework, use generated variables instead", since="3.5")
   def supportsPackageUpgrades(lv: LanguageVersion): Boolean =
     lv.major match {
       case Major.V2 => lv >= Features.packageUpgrades
       case Major.V1 => lv >= LegacyFeatures.packageUpgrades
     }
 
-  @deprecated
+  //@deprecated("Version rework, use generated variables instead", since="3.5")
   def StableVersions(major: Major): VersionRange[LanguageVersion] =
     major match {
       case Major.V2 => VersionRange(stable.head, stable.last)
       case _ => notSupported(major)
     }
 
-  @deprecated
+  //@deprecated("Version rework, use generated variables instead", since="3.5")
   def EarlyAccessVersions(major: Major): VersionRange[LanguageVersion] =
     StableVersions(major)
 
-  @deprecated
+  //@deprecated("Version rework, use generated variables instead", since="3.5")
   def AllVersions(major: Major): VersionRange[LanguageVersion] = {
     major match {
       case Major.V2 => VersionRange(all.head, all.last)
@@ -112,7 +184,7 @@ object LanguageVersion {
     }
   }
 
-  @deprecated
+  //@deprecated("Version rework, use generated variables instead", since="3.5")
   def defaultOrLatestStable(major: Major): LanguageVersion = {
     major match {
       case Major.V2 => latestStable
@@ -120,13 +192,15 @@ object LanguageVersion {
     }
   }
 
-  @deprecated
+  //@deprecated("Version rework, use generated variables instead", since="3.5")
   def allUpToVersion(version: LanguageVersion): VersionRange[LanguageVersion] = {
     version.major match {
       case Major.V2 => VersionRange(v2_1, version)
       case _ => notSupported(version.major)
     }
   }
+
+
 
   // --- Features ---
   object Features {

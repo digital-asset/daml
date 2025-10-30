@@ -7,7 +7,6 @@ package speedy
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.language.Ast.Expr
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
@@ -22,9 +21,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 
 import scala.collection.immutable.ArraySeq
 
-class RollbackTestV2 extends RollbackTest(LanguageMajorVersion.V2)
-
-class RollbackTest(majorLanguageVersion: LanguageMajorVersion)
+class RollbackTest
     extends AnyFreeSpec
     with Matchers
     with TableDrivenPropertyChecks {
@@ -34,7 +31,7 @@ class RollbackTest(majorLanguageVersion: LanguageMajorVersion)
   import RollbackTest._
 
   private[this] implicit val defaultParserParameters: ParserParameters[RollbackTest.this.type] =
-    ParserParameters.defaultFor(majorLanguageVersion)
+    ParserParameters.default
 
   private[this] val transactionSeed = crypto.Hash.hashPrivateKey("RollbackTest.scala")
 

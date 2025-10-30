@@ -7,7 +7,6 @@ import java.math.BigDecimal
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{ImmArray, Numeric, Struct, Time}
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import org.scalatest.matchers.should.Matchers
@@ -17,15 +16,12 @@ import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import scala.collection.immutable.VectorMap
 import scala.language.implicitConversions
 
-class ParsersSpecV2 extends ParsersSpec(LanguageMajorVersion.V2)
-
-class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
+class ParsersSpec
     extends AnyWordSpec
     with ScalaCheckPropertyChecks
     with Matchers {
 
-  implicit val parserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor[this.type](majorLanguageVersion)
+  implicit val parserParameters: ParserParameters[this.type] = ParserParameters.default
   val defaultPackageId = parserParameters.defaultPackageId
 
   private implicit def toScale(i: Int): Numeric.Scale = Numeric.Scale.assertFromInt(i)

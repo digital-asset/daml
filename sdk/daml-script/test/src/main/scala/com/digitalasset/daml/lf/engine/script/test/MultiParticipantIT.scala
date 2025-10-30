@@ -7,7 +7,7 @@ package test
 import com.digitalasset.daml.lf.data.FrontStack
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.speedy.SValue._
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
@@ -15,9 +15,9 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.util.{Failure, Success}
 
-class MultiParticipantITV2 extends MultiParticipantIT(LanguageMajorVersion.V2)
+class MultiParticipantITV2 extends MultiParticipantIT(LanguageVersion.Major.V2)
 
-class MultiParticipantIT(override val majorLanguageVersion: LanguageMajorVersion)
+class MultiParticipantIT(override val majorLanguageVersion: LanguageVersion.Major)
     extends AsyncWordSpec
     with AbstractScriptTest
     with Inside

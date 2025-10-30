@@ -15,9 +15,7 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.language.implicitConversions
 
-class PackageInfoSpecV2 extends PackageInfoSpec(LanguageMajorVersion.V2)
-
-class PackageInfoSpec(majorLanguageVersion: LanguageMajorVersion)
+class PackageInfoSpec
     extends AnyWordSpec
     with Matchers {
 
@@ -25,7 +23,7 @@ class PackageInfoSpec(majorLanguageVersion: LanguageMajorVersion)
 
   lazy val pkg0 = {
     implicit val parseParameters: parser.ParserParameters[this.type] =
-      ParserParameters.defaultFor(majorLanguageVersion).copy(defaultPackageId = "-pkg0-")
+      ParserParameters.default.copy(defaultPackageId = "-pkg0-")
 
     p"""metadata ( 'pkg' : '1.0.0' )
         module Mod0 {
@@ -42,7 +40,7 @@ class PackageInfoSpec(majorLanguageVersion: LanguageMajorVersion)
 
   lazy val pkg1 = {
     implicit val parseParameters: parser.ParserParameters[this.type] =
-      ParserParameters.defaultFor(majorLanguageVersion).copy(defaultPackageId = "-pkg1-")
+      ParserParameters.default.copy(defaultPackageId = "-pkg1-")
 
     p"""metadata ( 'pkg' : '1.0.0' )
         module Mod11 {
@@ -71,7 +69,7 @@ class PackageInfoSpec(majorLanguageVersion: LanguageMajorVersion)
 
   lazy val pkg2 = {
     implicit val parseParameters: parser.ParserParameters[this.type] =
-      ParserParameters.defaultFor(majorLanguageVersion).copy(defaultPackageId = "-pkg2-")
+      ParserParameters.default.copy(defaultPackageId = "-pkg2-")
 
     p""" metadata ( 'pkg' : '1.0.0' )
 
@@ -95,7 +93,7 @@ class PackageInfoSpec(majorLanguageVersion: LanguageMajorVersion)
 
   lazy val pkg3 = {
     implicit val parseParameters: parser.ParserParameters[this.type] =
-      ParserParameters.defaultFor(majorLanguageVersion).copy(defaultPackageId = "-pkg3-")
+      ParserParameters.default.copy(defaultPackageId = "-pkg3-")
 
     p"""metadata ( 'pkg' : '1.0.0' )
 

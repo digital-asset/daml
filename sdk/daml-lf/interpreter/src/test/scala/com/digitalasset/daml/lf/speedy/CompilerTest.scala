@@ -7,7 +7,6 @@ package speedy
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml.lf.speedy.SError.SError
 import com.digitalasset.daml.lf.speedy.SExpr.SExpr
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
@@ -24,15 +23,14 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import scala.collection.immutable.ArraySeq
 
-class CompilerTestV2 extends CompilerTest(LanguageMajorVersion.V2)
 
-class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
+class CompilerTest
     extends AnyWordSpec
     with TableDrivenPropertyChecks
     with Matchers
     with Inside {
 
-  val helpers = new CompilerTestHelpers(majorLanguageVersion)
+  val helpers = new CompilerTestHelpers
   import helpers._
 
   "unsafeCompile" should {
@@ -124,12 +122,11 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
   }
 }
 
-final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
+final class CompilerTestHelpers {
 
   import SpeedyTestLib.loggingContext
 
-  implicit val parserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor[this.type](majorLanguageVersion)
+  implicit val parserParameters: ParserParameters[this.type] = ParserParameters.default
   val pkgId = parserParameters.defaultPackageId
 
   implicit val contractIdOrder: Ordering[ContractId] = `Cid Order`.toScalaOrdering
@@ -162,7 +159,7 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
   val compiledPackages: PureCompiledPackages =
     PureCompiledPackages.assertBuild(
       Map(pkgId -> pkg),
-      Compiler.Config.Default(majorLanguageVersion),
+      Compiler.Config.Default,
     )
   val alice: Party = Ref.Party.assertFromString("Alice")
 

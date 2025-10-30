@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.language
 
 import com.digitalasset.daml.lf.LfVersions
-import com.digitalasset.daml.lf.language.LanguageVersion.{LegacyMajor, Major, Minor}
+import com.digitalasset.daml.lf.language.LanguageVersion.{Major, Minor}
 import com.digitalasset.daml.lf.language.LanguageVersion.Minor.{Dev, Stable}
 import scalaz.{IList, NonEmptyList}
 
@@ -19,7 +19,7 @@ sealed abstract class LanguageMajorVersion(val pretty: String, minorAscending: L
     with Product
     with Serializable {
 
-  def toMajor : LegacyMajor =
+  def toMajor : Major =
     pretty match {
       case "1" => Major.V1
       case "2" => Major.V2

@@ -10,7 +10,7 @@ import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion}
+import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
 import com.digitalasset.daml.lf.speedy.SBuiltinFun.SBCrash
 import com.digitalasset.daml.lf.speedy.SError.{SError, SErrorCrash, SErrorDamlException}
 import com.digitalasset.daml.lf.speedy.SExpr._
@@ -33,9 +33,9 @@ import scala.collection.immutable.ArraySeq
 import scala.language.implicitConversions
 import scala.util.{Failure, Try}
 
-class SBuiltinTestV2 extends SBuiltinTest(LanguageMajorVersion.V2)
+class SBuiltinTestV2 extends SBuiltinTest(LanguageVersion.Major.V2)
 
-class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
+class SBuiltinTest(majorLanguageVersion: LanguageVersion.Major)
     extends AnyFreeSpec
     with Matchers
     with TableDrivenPropertyChecks
@@ -44,8 +44,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
   val helpers = new SBuiltinTestHelpers(majorLanguageVersion)
   import helpers.{parserParameters => _, _}
 
-  implicit val parserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor[this.type](majorLanguageVersion)
+  implicit val parserParameters: ParserParameters[this.type] = ParserParameters.default
 
   implicit def toScale(i: Int): Numeric.Scale = Numeric.Scale.assertFromInt(i)
 
@@ -2110,12 +2109,12 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
   }
 }
 
-final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
+final class SBuiltinTestHelpers(majorLanguageVersion: LanguageVersion.Major) {
 
   import SpeedyTestLib.loggingContext
 
   implicit val parserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor(majorLanguageVersion)
+    ParserParameters.default
 
   lazy val pkg =
     p"""  metadata ( '-sbuiltin-test-' : '1.0.0' )
@@ -2224,7 +2223,7 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
   val compiledPackages: PureCompiledPackages =
     PureCompiledPackages.assertBuild(
       Map(parserParameters.defaultPackageId -> pkg),
-      Compiler.Config.Default(majorLanguageVersion),
+      Compiler.Config.Default,
     )
 
   val stablePackages = StablePackages(majorLanguageVersion)

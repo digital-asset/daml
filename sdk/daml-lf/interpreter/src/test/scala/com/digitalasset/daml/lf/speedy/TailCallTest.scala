@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf
 package speedy
 
 import com.digitalasset.daml.lf.data.Time
-import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion}
+import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.speedy.SResult.SResultFinal
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
@@ -13,18 +13,15 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 
-class TailCallTestV2 extends TailCallTest(LanguageMajorVersion.V2)
-
 // TEST_EVIDENCE: Availability: Tail call optimization: Tail recursion does not blow the scala JVM stack.
-class TailCallTest(majorLanguageVersion: LanguageMajorVersion)
+class TailCallTest
     extends AnyFreeSpec
     with Matchers
     with TableDrivenPropertyChecks {
 
   import SpeedyTestLib.loggingContext
 
-  implicit val defaultParserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor[this.type](majorLanguageVersion)
+  implicit val defaultParserParameters: ParserParameters[this.type] = ParserParameters.default
 
   val pkgs = SpeedyTestLib.typeAndCompile(p"""
    metadata ( 'pkg' : '1.0.0' )

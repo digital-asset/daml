@@ -10,18 +10,11 @@ import com.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.transaction.{
-  FatContractInstance,
-  Node,
-  NodeId,
-  SerializationVersion,
-  SubmittedTransaction,
-  Transaction,
-}
+import com.digitalasset.daml.lf.transaction.{FatContractInstance, Node, NodeId, SerializationVersion, SubmittedTransaction, Transaction}
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.command.ReplayCommand
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.daml.logging.LoggingContext
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import com.digitalasset.daml.lf.value.ContractIdVersion
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -31,9 +24,9 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.language.implicitConversions
 
-class ReinterpretTestV2 extends ReinterpretTest(LanguageMajorVersion.V2)
+class ReinterpretTestV2 extends ReinterpretTest(LanguageVersion.Major.V2)
 
-class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
+class ReinterpretTest(majorLanguageVersion: LanguageVersion.Major)
     extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks
@@ -42,7 +35,7 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
 
   import ReinterpretTest._
 
-  private[this] val version = SerializationVersion.assign(majorLanguageVersion.maxStableVersion)
+  private[this] val version = SerializationVersion.assign(LanguageVersion.latestStable)
 
   private def hash(s: String) = crypto.Hash.hashPrivateKey(s)
 
@@ -74,7 +67,7 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
 
   private def freshEngine = new Engine(
     EngineConfig(
-      allowedLanguageVersions = language.LanguageVersion.AllVersions(majorLanguageVersion),
+      allowedLanguageVersions = language.LanguageVersion.all.toRange,
       forbidLocalContractIds = true,
     )
   )
@@ -198,7 +191,7 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
         Package(
           Map.empty,
           Set.empty,
-          LanguageMajorVersion.V2.maxStableVersion,
+          LanguageVersion.latestStable,
           PackageMetadata(
             PackageName.assertFromString("foo"),
             PackageVersion.assertFromString("0.0.0"),

@@ -8,34 +8,14 @@ import com.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.archive.DarDecoder
 import com.digitalasset.daml.lf.command.{ApiCommand, ApiCommands}
 import com.digitalasset.daml.lf.data.{Bytes, FrontStack, ImmArray, Time}
-import com.digitalasset.daml.lf.data.Ref.{
-  Identifier,
-  Name,
-  PackageId,
-  ParticipantId,
-  Party,
-  QualifiedName,
-}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, Name, PackageId, ParticipantId, Party, QualifiedName}
 import com.digitalasset.daml.lf.language.Ast.Package
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
-import com.digitalasset.daml.lf.ledger.FailedAuthorization.{
-  CreateMissingAuthorization,
-  ExerciseMissingAuthorization,
-}
-import com.digitalasset.daml.lf.transaction.{
-  FatContractInstance,
-  SerializationVersion,
-  SubmittedTransaction,
-}
+import com.digitalasset.daml.lf.ledger.FailedAuthorization.{CreateMissingAuthorization, ExerciseMissingAuthorization}
+import com.digitalasset.daml.lf.transaction.{FatContractInstance, SerializationVersion, SubmittedTransaction}
 import com.digitalasset.daml.lf.transaction.Transaction.Metadata
-import com.digitalasset.daml.lf.value.Value.{
-  ContractId,
-  ValueContractId,
-  ValueList,
-  ValueParty,
-  ValueRecord,
-}
+import com.digitalasset.daml.lf.value.Value.{ContractId, ValueContractId, ValueList, ValueParty, ValueRecord}
 import com.daml.logging.LoggingContext
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import com.digitalasset.daml.lf.value.ContractIdVersion
 
@@ -46,9 +26,9 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.language.implicitConversions
 
-class AuthPropagationSpecV2 extends AuthPropagationSpec(LanguageMajorVersion.V2)
+class AuthPropagationSpecV2 extends AuthPropagationSpec(LanguageVersion.Major.V2)
 
-class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
+class AuthPropagationSpec(majorLanguageVersion: LanguageVersion.Major)
     extends AnyFreeSpec
     with Matchers
     with Inside
@@ -117,7 +97,7 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
   private val contractIdVersion = ContractIdVersion.V1
 
   private val testEngine: Engine =
-    Engine.DevEngine(majorLanguageVersion)
+    Engine.DevEngine
 
   private def go(
       submitters: Set[Party],

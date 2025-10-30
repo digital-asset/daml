@@ -49,7 +49,7 @@ class ValueTranslatorSpec(languageVersion: LanguageVersion, forbidTrailingNones:
   val none = Value.ValueNone
 
   private[this] implicit val parserParameters: ParserParameters[ValueTranslatorSpec.this.type] =
-    ParserParameters.defaultFor(languageVersion.major)
+    ParserParameters.default
 
   private[this] implicit val defaultPackageId: Ref.PackageId =
     parserParameters.defaultPackageId
@@ -101,7 +101,7 @@ class ValueTranslatorSpec(languageVersion: LanguageVersion, forbidTrailingNones:
         defaultPackageId -> pkg,
         upgradablePkgId -> upgradablePkg,
       ),
-      Compiler.Config.Default(languageVersion.major),
+      Compiler.Config.Default,
     )
 
   "translateValue" should {

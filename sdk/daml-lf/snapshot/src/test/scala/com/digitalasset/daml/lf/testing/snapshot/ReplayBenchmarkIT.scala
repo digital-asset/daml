@@ -9,13 +9,13 @@ import com.daml.integrationtest.CantonConfig
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
 import com.digitalasset.daml.lf.engine.script.test.AbstractScriptTest
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.value.ContractIdVersion
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.matchers.should.Matchers
 
-import java.nio.file.{Files, FileSystems, Path}
+import java.nio.file.{FileSystems, Files, Path}
 
 // TODO(#23971) This will likely break when Canton starts to produce V2 contract IDs.
 // Ping Andreas Lochbihler on the #team-daml-language slack channel when this happens.
@@ -23,7 +23,7 @@ class ReplayBenchmarkITV2_V1
     extends ReplayBenchmarkIT(LanguageMajorVersion.V2, ContractIdVersion.V1)
 
 class ReplayBenchmarkIT(
-    override val majorLanguageVersion: LanguageMajorVersion,
+    override val majorLanguageVersion: LanguageVersion.Major,
     contractIdVersion: ContractIdVersion,
 ) extends AsyncWordSpec
     with AbstractScriptTest

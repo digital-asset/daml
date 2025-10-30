@@ -10,7 +10,6 @@ import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Struct, Time}
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.{
-  LanguageMajorVersion,
   LanguageVersion,
   LookupError,
   PackageInterface,
@@ -80,16 +79,16 @@ private[lf] object Compiler {
   )
 
   object Config {
-    def Default(majorLanguageVersion: LanguageMajorVersion) =
+    val Default =
       Config(
-        allowedLanguageVersions = LanguageVersion.StableVersions(majorLanguageVersion),
+        allowedLanguageVersions = LanguageVersion.stable.toRange,
         packageValidation = FullPackageValidation,
         profiling = NoProfile,
         stacktracing = NoStackTrace,
       )
 
-    def Dev(majorLanguageVersion: LanguageMajorVersion) = Config(
-      allowedLanguageVersions = LanguageVersion.AllVersions(majorLanguageVersion),
+    val Dev = Config(
+      allowedLanguageVersions = LanguageVersion.all.toRange,
       packageValidation = FullPackageValidation,
       profiling = NoProfile,
       stacktracing = NoStackTrace,

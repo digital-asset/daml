@@ -4,13 +4,13 @@
 package com.digitalasset.daml.lf
 
 import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
+import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.scalautil.Statement.discard
+import com.digitalasset.daml.lf.language.LanguageVersion.Major
 
 import scala.util.Using
 import scala.util.Using.Releasable
 import scala.util.control.NonFatal
-import Ordering.Implicits.infixOrderingOps
 
 package object archive {
 
@@ -81,7 +81,7 @@ package object archive {
 
   private def ModuleParser(ver: LanguageVersion): GenReader[DamlLf2.Package] =
     ver.major match {
-      case LanguageMajorVersion.V2 =>
+      case Major.V2 =>
         GenReader(
           getClass.getCanonicalName + ".ModuleParser",
           { cos =>
@@ -90,7 +90,7 @@ package object archive {
             DamlLf2.Package.parseFrom(cos)
           },
         )
-      case LanguageMajorVersion.V1 =>
+      case Major.V1 =>
         GenReader.fail(Error.Parsing(s"LF version $ver unsupported"))
     }
 
