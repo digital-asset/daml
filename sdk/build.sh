@@ -39,25 +39,6 @@ has_regenerate_stackage_trailer() {
 }
 
 tag_filter=""
-case $test_mode in
-  main)
-    echo "running all tests because test mode is 'main'"
-    ;;
-  # When running against a PR, exclude "main-only" tests, unless the commit message features a
-  # 'run-all-tests: true' trailer
-  pr)
-    if has_run_all_tests_trailer; then
-      echo "ignoring 'pr' test mode because the commit message features 'run-all-tests: true'"
-    else
-      echo "running fewer tests because test mode is 'pr'"
-      tag_filter="-main-only"
-    fi
-    ;;
-  *)
-    echo "unknown test mode: $test_mode"
-    exit 1
-    ;;
-esac
 
 if [[ "$(uname)" == "Darwin" ]]; then
   tag_filter="$tag_filter,-dont-run-on-darwin,-scaladoc,-pdfdocs"
@@ -160,6 +141,26 @@ stop_postgresql # in case it's running from a previous build
 start_postgresql
 
 # Run the tests.
+
+case $test_mode in
+  main)
+    echo "running all tests because test mode is 'main'"
+    ;;
+  # When running against a PR, exclude "main-only" tests, unless the commit message features a
+  # 'run-all-tests: true' trailer
+  pr)
+    if has_run_all_tests_trailer; then
+      echo "ignoring 'pr' test mode because the commit message features 'run-all-tests: true'"
+    else
+      echo "running fewer tests because test mode is 'pr'"
+      tag_filter="$tag_filter,-main-only"
+    fi
+    ;;
+  *)
+    echo "unknown test mode: $test_mode"
+    exit 1
+    ;;
+esac
 
 echo "Running bazel test with the following tag filters: ${tag_filter}"
 
