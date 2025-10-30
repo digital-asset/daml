@@ -1004,8 +1004,8 @@ object Engine {
     }
   }
 
-  def DevEngine(majorLanguageVersion: LanguageMajorVersion): Engine = new Engine(
-    EngineConfig(allowedLanguageVersions = LanguageVersion.AllVersions(majorLanguageVersion))
+  val DevEngine: Engine = new Engine(
+    EngineConfig(allowedLanguageVersions = LanguageVersion.all.toRange)
   )
 
   private def mkInterpretationError(error: IError) =

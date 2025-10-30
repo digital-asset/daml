@@ -26,7 +26,7 @@ object LoadDarFunction extends App {
 
     val compilerConfig =
       Compiler.Config
-        .Default(packages.main._2.languageVersion.major)
+        .Default
         .copy(stacktracing = Compiler.NoStackTrace)
 
     val compiledPackages: CompiledPackages =

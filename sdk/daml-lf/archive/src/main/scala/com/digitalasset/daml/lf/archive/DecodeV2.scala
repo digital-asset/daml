@@ -11,14 +11,14 @@ import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{ImmArray, Numeric, Struct, Time}
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.Util._
-import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion => LV}
+import com.digitalasset.daml.lf.language.{LanguageVersion => LV}
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
+import com.digitalasset.daml.lf.language.LanguageVersion.Major
 
 import scala.annotation.nowarn
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
-import scala.math.Ordering.Implicits.infixOrderingOps
 
 /** Decodes LF2 packages and modules. */
 private[archive] class DecodeV2(minor: LV.Minor) {
@@ -26,7 +26,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
   import DecodeV2._
   import Work.Ret
 
-  private val languageVersion: LV = LV(LanguageMajorVersion.V2, minor)
+  private val languageVersion: LV = LV(Major.V2, minor)
 
   def decodePackage( // entry point
       packageId: PackageId,
@@ -49,7 +49,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
 
         val metadata: PackageMetadata = {
           if (!lfPackage.hasMetadata)
-            throw Error.Parsing(s"Package.metadata is required in Daml-LF 2.${minor.identifier}")
+            throw Error.Parsing(s"Package.metadata is required in Daml-LF 2.${minor.pretty}")
           decodePackageMetadata(lfPackage.getMetadata, internedStrings)
         }
 
@@ -1638,7 +1638,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
     BLNumeric(eitherToParseError(Numeric.fromString(s)))
 
   private[this] def notSupportedError(description: String): Error.Parsing =
-    Error.Parsing(s"$description is not supported by Daml-LF 2.${minor.identifier}")
+    Error.Parsing(s"$description is not supported by Daml-LF 2.${minor.pretty}")
 
   // maxVersion excluded
   private[this] def assertUntil(maxVersion: LV, description: => String): Unit =

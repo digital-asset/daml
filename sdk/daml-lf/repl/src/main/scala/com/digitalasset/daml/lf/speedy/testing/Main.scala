@@ -14,11 +14,7 @@ import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.speedy.SExpr.LfDefRef
 import com.digitalasset.daml.lf.validation.Validation
 import com.digitalasset.daml.lf.testing.parser
-import com.digitalasset.daml.lf.language.{
-  LanguageMajorVersion,
-  PackageInterface,
-  LanguageVersion => LV,
-}
+import com.digitalasset.daml.lf.language.{LanguageVersion, PackageInterface, LanguageVersion => LV}
 import com.daml.logging.LoggingContext
 
 import java.io.{File, PrintWriter, StringWriter}
@@ -55,7 +51,7 @@ object Main extends App {
     case list =>
       list -> Repl.defaultCompilerConfig(LV.default.major)
   }
-  val repl = new Repl(LV.default.major)
+  val repl = new Repl(LV.dev.major)
   replArgs match {
     case "-h" :: _ | "--help" :: _ =>
       usage()
@@ -72,7 +68,7 @@ object Main extends App {
 }
 
 // The Daml-LF Read-Eval-Print-Loop
-class Repl(majorLanguageVersion: LanguageMajorVersion) {
+class Repl(majorLanguageVersion: LanguageVersion.Major) {
 
   import Repl._
 
@@ -361,7 +357,7 @@ class Repl(majorLanguageVersion: LanguageMajorVersion) {
 
             val compiledPackages = PureCompiledPackages.assertBuild(
               state.packages,
-              Compiler.Config.Default(majorLanguageVersion),
+              Compiler.Config.Default,
             )
             val machine = Speedy.Machine.fromPureExpr(compiledPackages, expr)
             val startTime = System.nanoTime()
@@ -463,7 +459,7 @@ class Repl(majorLanguageVersion: LanguageMajorVersion) {
 object Repl {
   implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
-  def defaultCompilerConfig(majorLanguageVersion: LanguageMajorVersion): Compiler.Config =
+  def defaultCompilerConfig(majorLanguageVersion: LV.Major): Compiler.Config =
     Compiler.Config(
       allowedLanguageVersions = LV.StableVersions(majorLanguageVersion),
       packageValidation = Compiler.FullPackageValidation,
@@ -471,7 +467,7 @@ object Repl {
       stacktracing = Compiler.FullStackTrace,
     )
 
-  def devCompilerConfig(majorLanguageVersion: LanguageMajorVersion): Compiler.Config =
+  def devCompilerConfig(majorLanguageVersion: LV.Major): Compiler.Config =
     defaultCompilerConfig(majorLanguageVersion).copy(allowedLanguageVersions =
       LV.AllVersions(majorLanguageVersion)
     )

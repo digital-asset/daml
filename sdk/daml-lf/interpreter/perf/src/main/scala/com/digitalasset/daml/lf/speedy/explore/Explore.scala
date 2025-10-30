@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf
 package speedy
 package explore
 
-import com.digitalasset.daml.lf.language.{LanguageMajorVersion, PackageInterface}
+import com.digitalasset.daml.lf.language.{LanguageVersion, PackageInterface}
 import com.digitalasset.daml.lf.speedy.compiler.SExpr0._
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.speedy.SBuiltinFun._
@@ -26,7 +26,7 @@ object PlaySpeedy {
   def main(args: List[String]) = {
     val config: Config = parseArgsOrDie(args)
     val compilerConfig =
-      Compiler.Config.Default(config.majorLfVersion).copy(stacktracing = Compiler.FullStackTrace)
+      Compiler.Config.Default.copy(stacktracing = Compiler.FullStackTrace)
     val compiler: Compiler = new Compiler(PackageInterface.Empty, compilerConfig)
 
     val names: List[String] = config.names match {
@@ -43,20 +43,20 @@ object PlaySpeedy {
   }
 
   final case class Config(
-      majorLfVersion: LanguageMajorVersion,
+      majorLfVersion: LanguageVersion.Major,
       names: List[String],
   )
 
   private val argsParser = new OptionParser[Config]("explore") {
-    implicit val majorLanguageVersionRead: scopt.Read[LanguageMajorVersion] =
+    implicit val majorLanguageVersionRead: scopt.Read[LanguageVersion.Major] =
       scopt.Read.reads(s =>
-        LanguageMajorVersion.fromString(s) match {
-          case Some(v) => v
-          case None => throw new IllegalArgumentException(s"$s is not a valid major LF version")
+        LanguageVersion.Major.fromString(s) match {
+          case Right(v) => v
+          case Left(_) => throw new IllegalArgumentException(s"$s is not a valid major LF version")
         }
       )
 
-    opt[LanguageMajorVersion]('v', "major-lf-version")
+    opt[LanguageVersion.Major]('v', "major-lf-version")
       .optional()
       .valueName("version")
       .text("the major version of LF to use")
@@ -74,7 +74,7 @@ object PlaySpeedy {
 
   private def parseArgs(args: Seq[String]): Option[Config] = argsParser.parse(
     args,
-    Config(majorLfVersion = LanguageMajorVersion.V2, names = List()),
+    Config(majorLfVersion = LanguageVersion.Major.V2, names = List()),
   )
 
   private def parseArgsOrDie(args: Seq[String]): Config = {

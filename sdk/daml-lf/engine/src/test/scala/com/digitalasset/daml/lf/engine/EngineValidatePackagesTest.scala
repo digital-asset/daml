@@ -7,7 +7,7 @@ package engine
 import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.stablepackages.StablePackages
 import com.digitalasset.daml.lf.testing.parser
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
@@ -19,9 +19,9 @@ import java.nio.file.Path
 import com.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.archive.DarDecoder
 
-class EngineValidatePackagesTestV2 extends EngineValidatePackagesTest(LanguageMajorVersion.V2)
+class EngineValidatePackagesTestV2 extends EngineValidatePackagesTest(LanguageVersion.Major.V2)
 
-class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
+class EngineValidatePackagesTest(majorLanguageVersion: LanguageVersion.Major)
     extends AnyWordSpec
     with Matchers
     with Inside {

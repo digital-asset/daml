@@ -4,22 +4,19 @@
 package com.digitalasset.daml.lf.validation
 
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml.lf.testing.parser.Implicits._
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class TypeSubstSpecV2 extends TypeSubstSpec(LanguageMajorVersion.V2)
-
-class TypeSubstSpec(majorLanguageVersion: LanguageMajorVersion)
+class TypeSubstSpec
     extends AnyWordSpec
     with TableDrivenPropertyChecks
     with Matchers {
 
   private[this] implicit val parserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor(majorLanguageVersion)
+    ParserParameters.default
 
   import SpecUtil._
 

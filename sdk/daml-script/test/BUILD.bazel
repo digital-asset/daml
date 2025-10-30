@@ -501,7 +501,6 @@ da_scala_binary(
     deps = [
         ":test-utils",
         "//bazel_tools/runfiles:scala_runfiles",
-        "//daml-lf/data",
         "//daml-lf/language",
     ],
 )

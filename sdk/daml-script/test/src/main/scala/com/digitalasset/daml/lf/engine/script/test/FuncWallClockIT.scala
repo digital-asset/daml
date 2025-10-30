@@ -6,12 +6,12 @@ package com.digitalasset.daml.lf.engine.script.test
 import java.time.Duration
 import com.digitalasset.daml.lf.data.Ref.QualifiedName
 import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.speedy.SValue.SRecord
 
-class FuncWallClockITV2 extends FuncWallClockIT(LanguageMajorVersion.V2)
+class FuncWallClockITV2 extends FuncWallClockIT(LanguageVersion.Major.V2)
 
-class FuncWallClockIT(override val majorLanguageVersion: LanguageMajorVersion)
+class FuncWallClockIT(override val majorLanguageVersion: LanguageVersion.Major)
     extends AbstractFuncIT {
   protected override lazy val timeMode = ScriptTimeMode.WallClock
 

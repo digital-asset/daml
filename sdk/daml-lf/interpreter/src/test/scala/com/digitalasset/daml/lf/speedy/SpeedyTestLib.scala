@@ -10,17 +10,12 @@ import com.daml.scalautil.Statement.discard
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.data.Time
-import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, PackageInterface}
+import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, PackageInterface}
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.speedy.Speedy.UpdateMachine
 import com.digitalasset.daml.lf.stablepackages.StablePackages
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
-import com.digitalasset.daml.lf.transaction.{
-  FatContractInstance,
-  GlobalKey,
-  GlobalKeyWithMaintainers,
-  SubmittedTransaction,
-}
+import com.digitalasset.daml.lf.transaction.{FatContractInstance, GlobalKey, GlobalKeyWithMaintainers, SubmittedTransaction}
 import com.digitalasset.daml.lf.validation.{Validation, ValidationError}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
@@ -138,7 +133,7 @@ private[speedy] object SpeedyTestLib {
 
   @throws[ValidationError]
   def typeAndCompile(
-      majorLanguageVersion: LanguageMajorVersion,
+      majorLanguageVersion: LanguageVersion.Major,
       pkgs: Map[PackageId, Ast.Package],
   ): PureCompiledPackages = {
     require(
@@ -157,7 +152,7 @@ private[speedy] object SpeedyTestLib {
     PureCompiledPackages.assertBuild(
       pkgs,
       Compiler.Config
-        .Dev(majorLanguageVersion)
+        .Dev
         .copy(stacktracing = Compiler.FullStackTrace),
     )
   }

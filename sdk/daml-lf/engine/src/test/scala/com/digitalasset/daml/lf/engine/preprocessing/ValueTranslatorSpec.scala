@@ -44,7 +44,7 @@ class ValueTranslatorSpec(languageVersion: LanguageVersion)
   val none = Value.ValueNone
 
   private[this] implicit val parserParameters: ParserParameters[ValueTranslatorSpec.this.type] =
-    ParserParameters.defaultFor(languageVersion.major)
+    ParserParameters.default
 
   private[this] implicit val defaultPackageId: Ref.PackageId =
     parserParameters.defaultPackageId
@@ -91,7 +91,7 @@ class ValueTranslatorSpec(languageVersion: LanguageVersion)
   }
 
   private[this] val compiledPackage = ConcurrentCompiledPackages(
-    Compiler.Config.Default(languageVersion.major)
+    Compiler.Config.Default
   )
   assert(compiledPackage.addPackage(defaultPackageId, pkg) == ResultDone.Unit)
   assert(compiledPackage.addPackage(upgradablePkgId, upgradablePkg) == ResultDone.Unit)

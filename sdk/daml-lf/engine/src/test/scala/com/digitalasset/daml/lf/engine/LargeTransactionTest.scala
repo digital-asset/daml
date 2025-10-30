@@ -9,7 +9,7 @@ import com.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.archive.DarDecoder
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion}
+import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
 import com.digitalasset.daml.lf.script.IdeLedger
 import com.digitalasset.daml.lf.transaction.{
   CommittedTransaction,
@@ -120,7 +120,7 @@ class LargeTransactionTest(
   private def report(name: String, quantity: Quantity[Double]): Unit =
     println(s"$name: $quantity")
 
-  private val engine = Engine.DevEngine(majorLanguageVersion)
+  private val engine = Engine.DevEngine
 
   List(5000, 50000, 500000)
     .foreach { txSize =>

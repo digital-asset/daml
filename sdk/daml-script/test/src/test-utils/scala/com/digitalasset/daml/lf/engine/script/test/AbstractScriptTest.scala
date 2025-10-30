@@ -11,11 +11,8 @@ import com.daml.integrationtest.CantonConfig.TimeProviderType
 import com.daml.integrationtest.CantonFixture
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.engine.script.ledgerinteraction.{
-  GrpcLedgerClient,
-  ScriptLedgerClient,
-}
-import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion}
+import com.digitalasset.daml.lf.engine.script.ledgerinteraction.{GrpcLedgerClient, ScriptLedgerClient}
+import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
 import com.digitalasset.daml.lf.speedy.SValue
 import com.digitalasset.daml.lf.stablepackages.StablePackages
 import com.digitalasset.daml.lf.value.Value
@@ -28,7 +25,7 @@ import scala.concurrent.{ExecutionContext, Future}
 trait AbstractScriptTest extends CantonFixture with PekkoBeforeAndAfterAll {
   self: Suite =>
 
-  val majorLanguageVersion: LanguageMajorVersion;
+  val majorLanguageVersion: LanguageVersion.Major;
 
   def tuple(a: SValue, b: SValue) =
     SValue.SRecord(
@@ -46,7 +43,7 @@ trait AbstractScriptTest extends CantonFixture with PekkoBeforeAndAfterAll {
     //  non-dev dar
     Paths.get(s"daml-script/test/script-test-v${majorLanguageVersion.pretty}.dev.dar")
   )
-  lazy val dar: CompiledDar = CompiledDar.read(darPath, Runner.compilerConfig(majorLanguageVersion))
+  lazy val dar: CompiledDar = CompiledDar.read(darPath, Runner.compilerConfig)
 
   protected def timeMode: ScriptTimeMode
   override protected lazy val darFiles = List(darPath)

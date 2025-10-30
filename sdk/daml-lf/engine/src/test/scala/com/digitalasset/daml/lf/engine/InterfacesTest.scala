@@ -12,7 +12,7 @@ import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import com.digitalasset.daml.lf.transaction.{
   SerializationVersion,
@@ -30,7 +30,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import java.io.File
 import scala.language.implicitConversions
 
-class InterfacesTestV2 extends InterfacesTest(LanguageMajorVersion.V2)
+class InterfacesTestV2 extends InterfacesTest(LanguageVersion.Major.V2)
 
 @SuppressWarnings(
   Array(
@@ -39,7 +39,7 @@ class InterfacesTestV2 extends InterfacesTest(LanguageMajorVersion.V2)
     "org.wartremover.warts.Product",
   )
 )
-class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
+class InterfacesTest(majorLanguageVersion: LanguageVersion.Major)
     extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks
@@ -48,7 +48,7 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
 
   import InterfacesTest._
 
-  private[this] val engine = Engine.DevEngine(majorLanguageVersion)
+  private[this] val engine = Engine.DevEngine
   private[this] val compiledPackages = ConcurrentCompiledPackages(engine.config.getCompilerConfig)
   private[this] val preprocessor = preprocessing.Preprocessor.forTesting(compiledPackages)
 
