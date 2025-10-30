@@ -122,7 +122,7 @@ find p (NonEmpty head tail)
 deleteBy : (a -> a -> Bool) -> a -> NonEmpty a -> [a]
 deleteBy eq a ts = L.deleteBy eq a (toList ts)
 
--- | Remove the first occurence of x from the non-empty list, potentially
+-- | Remove the first occurrence of x from the non-empty list, potentially
 -- removing all elements.
 delete : Eq a => a -> NonEmpty a -> [a]
 delete = deleteBy (==)
