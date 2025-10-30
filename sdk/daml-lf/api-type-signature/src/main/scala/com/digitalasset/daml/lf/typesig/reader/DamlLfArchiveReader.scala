@@ -16,7 +16,7 @@ object DamlLfArchiveReader {
     \/.fromEither(either).leftMap(err => s"Cannot parse archive: $err")
 
   def readPackage(lf: DamlLf.Archive): String \/ (Ref.PackageId, Ast.PackageSignature) =
-    fromEither(archive.Reader.readArchive(lf)) flatMap readPackage
+    fromEither(archive.Reader.readArchive(lf, schemaMode = true)) flatMap readPackage
 
   def readPackage(
       packageId: Ref.PackageId,

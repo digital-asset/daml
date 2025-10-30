@@ -48,7 +48,7 @@ object Reader {
    */
   def readArchive(
       lf: DamlLf.Archive,
-      schemaMode: Boolean = false,
+      schemaMode: Boolean,
   ): Either[Error, ArchivePayload] = for {
     theirHash <- lf.getHashFunction match {
       case DamlLf.HashFunction.SHA256 =>
