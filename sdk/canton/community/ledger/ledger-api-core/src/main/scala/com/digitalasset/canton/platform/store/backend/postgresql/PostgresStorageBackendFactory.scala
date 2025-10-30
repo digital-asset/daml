@@ -13,7 +13,7 @@ final case class PostgresStorageBackendFactory(loggerFactory: NamedLoggerFactory
     extends StorageBackendFactory
     with CommonStorageBackendFactory {
 
-  override val createIngestionStorageBackend: IngestionStorageBackend[_] =
+  override val createIngestionStorageBackend: IngestionStorageBackend[?] =
     new IngestionStorageBackendTemplate(PGSchema.schema)
 
   override def createParameterStorageBackend(

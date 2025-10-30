@@ -65,7 +65,7 @@ trait NamedLoggerFactory {
     * Sometimes, the NamedLogging trait can not be used, e.g. in a factory method. In these cases, a
     * logger can be created using this function.
     */
-  def getLogger(klass: Class[_]): Logger = {
+  def getLogger(klass: Class[?]): Logger = {
     val fullName = Array(klass.getName, name)
       .filterNot(_.isEmpty)
       .mkString(":")
@@ -73,7 +73,7 @@ trait NamedLoggerFactory {
   }
 
   /** same as get logger for traced loggers */
-  def getTracedLogger(klass: Class[_]): TracedLogger = TracedLogger(klass, this)
+  def getTracedLogger(klass: Class[?]): TracedLogger = TracedLogger(klass, this)
 
 }
 

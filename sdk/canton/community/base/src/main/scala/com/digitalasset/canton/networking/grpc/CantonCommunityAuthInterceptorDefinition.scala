@@ -14,7 +14,12 @@ import com.digitalasset.canton.auth.{
   RequiringAdminClaimResolver,
 }
 import com.digitalasset.canton.concurrent.DirectExecutionContext
-import com.digitalasset.canton.config.{AdminTokenConfig, AuthServiceConfig, JwksCacheConfig}
+import com.digitalasset.canton.config.{
+  AdminTokenConfig,
+  ApiLoggingConfig,
+  AuthServiceConfig,
+  JwksCacheConfig,
+}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import io.grpc.ServerServiceDefinition
 
@@ -28,6 +33,7 @@ object CantonCommunityAuthInterceptorDefinition {
       adminTokenConfig: AdminTokenConfig,
       jwksCacheConfig: JwksCacheConfig,
       telemetry: Telemetry,
+      apiLoggingConfig: ApiLoggingConfig,
   ): ServerServiceDefinition = {
     val authServices =
       if (authServiceConfigs.isEmpty)
@@ -56,6 +62,7 @@ object CantonCommunityAuthInterceptorDefinition {
       genericInterceptor,
       telemetry,
       loggerFactory,
+      apiLoggingConfig,
       DirectExecutionContext(
         loggerFactory.getLogger(AuthInterceptor.getClass)
       ),

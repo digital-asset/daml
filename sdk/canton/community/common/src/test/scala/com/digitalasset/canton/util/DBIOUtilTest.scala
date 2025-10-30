@@ -19,7 +19,7 @@ class DBIOUtilTest extends AnyWordSpec with BaseTest with PostgresTest with DbTe
 
   override protected def cleanDb(
       storage: DbStorage
-  )(implicit tc: TraceContext): FutureUnlessShutdown[_] = FutureUnlessShutdown.unit
+  )(implicit tc: TraceContext): FutureUnlessShutdown[?] = FutureUnlessShutdown.unit
 
   "batchedSequentialTraverse" should {
     // The test builds a DBIOAction AST that fails on purpose, so that we can test the retry behavior

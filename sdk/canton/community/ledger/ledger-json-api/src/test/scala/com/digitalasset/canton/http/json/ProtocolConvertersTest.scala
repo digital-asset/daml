@@ -62,7 +62,7 @@ class ProtocolConvertersTest extends AnyWordSpec with BaseTest with HasExecution
   private val converters = new ProtocolConverters(mockSchemaProcessor, packageNameResolver)
 
   import magnolify.scalacheck.auto.*
-  private val mappings: Seq[JsMapping[_, _]] = Seq(
+  private val mappings: Seq[JsMapping[?, ?]] = Seq(
     JsMapping(converters.Commands),
     JsMapping(converters.InterfaceView),
     JsMapping(converters.Event),

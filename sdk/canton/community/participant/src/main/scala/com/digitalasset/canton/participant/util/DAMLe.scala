@@ -29,7 +29,6 @@ import com.digitalasset.daml.lf.interpretation.Error as LfInterpretationError
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.language.LanguageVersion.v2_dev
 import com.digitalasset.daml.lf.transaction.{ContractKeyUniquenessMode, FatContractInstance}
-import com.digitalasset.daml.lf.value.ContractIdVersion
 
 import java.nio.file.Path
 import scala.annotation.tailrec
@@ -257,7 +256,6 @@ class DAMLe(
         preparationTime = preparationTime.toLf,
         ledgerEffectiveTime = ledgerTime.toLf,
         packageResolution = packageResolution,
-        contractIdVersion = ContractIdVersion.V1,
         engineLogger =
           engineLoggingConfig.toEngineLogger(loggerFactory.append("phase", "validation")),
       )
@@ -297,7 +295,6 @@ class DAMLe(
         // Only used in Updates, but a create command does not go through Updates.
         ledgerEffectiveTime = Time.Timestamp.Epoch,
         packageResolution = Map.empty,
-        contractIdVersion = ContractIdVersion.V1,
       )
       for {
         txWithMetadata <- EitherT(

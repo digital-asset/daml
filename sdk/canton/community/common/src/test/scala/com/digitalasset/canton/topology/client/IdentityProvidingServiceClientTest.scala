@@ -89,9 +89,9 @@ class PartyTopologySnapshotClientTest extends AsyncWordSpec with BaseTest with F
       } yield {
         right1 shouldBe Either.unit
         right2 shouldBe Either.unit
-        left1.left.value shouldBe a[Set[_]]
-        left2.left.value shouldBe a[Set[_]]
-        left3.left.value shouldBe a[Set[_]]
+        left1.left.value shouldBe a[Set[?]]
+        left2.left.value shouldBe a[Set[?]]
+        left3.left.value shouldBe a[Set[?]]
       }
     }
 

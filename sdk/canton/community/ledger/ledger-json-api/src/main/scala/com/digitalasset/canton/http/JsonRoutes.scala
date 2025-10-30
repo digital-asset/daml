@@ -23,7 +23,7 @@ import headers.`Content-Type`
 import EndpointsCompanion.*
 import util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
 
-class Endpoints(
+class JsonRoutes(
     healthService: HealthService,
     v2Routes: V2Routes,
     shouldLogHttpBodies: Boolean,
@@ -177,12 +177,11 @@ class Endpoints(
     concat(
       path("livez") apply responseToRoute(Future.successful(HttpResponse(status = StatusCodes.OK))),
       path("readyz") apply responseToRoute(healthService.ready().map(_.toHttpResponse)),
-      v2Routes.v2Routes,
-      v2Routes.docsRoute,
+      v2Routes.combinedRoutes,
     )
   }
 }
 
-object Endpoints {
+object JsonRoutes {
   type ET[A] = EitherT[Future, Error, A]
 }

@@ -69,5 +69,5 @@ private[backend] final case class InitHookDataSourceProxy(
 
   override def unwrap[T](aClass: Class[T]): T = delegate.unwrap(aClass)
 
-  override def isWrapperFor(aClass: Class[_]): Boolean = delegate.isWrapperFor(aClass)
+  override def isWrapperFor(aClass: Class[?]): Boolean = delegate.isWrapperFor(aClass)
 }

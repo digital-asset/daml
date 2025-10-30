@@ -551,7 +551,7 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
           .findMessage(daId, LatestUpto(CantonTimestamp.MaxValue))
           .value
         val lastEventRecipients =
-          lastEvent.underlying.value.content.asInstanceOf[Deliver[_]].batch.allRecipients
+          lastEvent.underlying.value.content.asInstanceOf[Deliver[?]].batch.allRecipients
         logger.info(show"Recipients of last event: $lastEventRecipients")
         val lastEventIsRequestMessage =
           lastEventRecipients == Set(

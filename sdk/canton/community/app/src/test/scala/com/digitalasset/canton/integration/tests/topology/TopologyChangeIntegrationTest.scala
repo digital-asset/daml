@@ -238,7 +238,7 @@ class TopologyChangeIntegrationTest extends CommunityIntegrationTest with Shared
       // still be there, but signed by the old key
       getSigningKeyOfPartyToParticipantMapping.forgetNE should contain theSameElementsAs Seq(
         key3Old.fingerprint,
-        participant1.id.uid.namespace.fingerprint,
+        participant1.fingerprint,
       )
 
       // renew the party to participant mapping using all keys
@@ -249,11 +249,12 @@ class TopologyChangeIntegrationTest extends CommunityIntegrationTest with Shared
         participant1.topology.party_to_participant_mappings.propose(
           party,
           Seq((participant1.id, permission)),
-          signedBy = Seq(key.fingerprint),
+          signedBy = Seq(key.fingerprint, participant1.fingerprint),
         )
         eventually() {
           getSigningKeyOfPartyToParticipantMapping.forgetNE should contain theSameElementsAs Seq(
-            key.fingerprint
+            key.fingerprint,
+            participant1.fingerprint,
           )
         }
       }

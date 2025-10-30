@@ -57,12 +57,12 @@ final class BftBenchmark(
   )
 
   private val readNodes = config.nodes.flatMap {
-    case node: BftBenchmarkConfig.ReadNode[_] => Some(node)
+    case node: BftBenchmarkConfig.ReadNode[?] => Some(node)
     case _ => None
   }
 
   private val writeNodes = config.nodes.flatMap {
-    case node: BftBenchmarkConfig.WriteNode[_] => Some(node)
+    case node: BftBenchmarkConfig.WriteNode[?] => Some(node)
     case _ => None
   }
 
