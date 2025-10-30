@@ -40,6 +40,7 @@ import com.digitalasset.daml.lf.transaction.{
   SubmittedTransaction,
   Transaction,
 }
+import com.digitalasset.daml.lf.value.ContractIdVersion
 import scalaz.syntax.tag.*
 
 import java.util.concurrent.TimeUnit
@@ -213,6 +214,7 @@ final class StoreBackedCommandInterpreter(
           submissionSeed = submissionSeed,
           prefetchKeys = commands.prefetchKeys,
           engineLogger = config.toEngineLogger(loggerFactory.append("phase", "submission")),
+          contractIdVersion = ContractIdVersion.V1,
         )
       })),
     )
