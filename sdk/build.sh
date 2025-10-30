@@ -153,7 +153,7 @@ case $test_mode in
       echo "ignoring 'pr' test mode because the commit message features 'run-all-tests: true'"
     else
       echo "running fewer tests because test mode is 'pr'"
-      tag_filter="$tag_filter,-main-only"
+      tag_filter="${tag_filter}${tag_filter:+,}-main-only"
     fi
     ;;
   *)
