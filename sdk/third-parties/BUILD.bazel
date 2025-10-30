@@ -1,0 +1,26 @@
+# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+java_import(
+    name = "transcode-daml-lf",
+    jars = ["transcode-daml-lf-daml3.5_3.jar"],
+    visibility = ["//visibility:public"],
+)
+
+java_import(
+    name = "transcode-codec-json",
+    jars = ["transcode-codec-json_3.jar"],
+    visibility = ["//visibility:public"],
+)
+
+java_import(
+    name = "transcode-codec-proto-scala",
+    jars = ["transcode-codec-proto-scala-daml3.5_3.jar"],
+    visibility = ["//visibility:public"],
+)
+
+java_import(
+    name = "transcode-schema",
+    jars = ["transcode-schema_3.jar"],
+    visibility = ["//visibility:public"],
+)
