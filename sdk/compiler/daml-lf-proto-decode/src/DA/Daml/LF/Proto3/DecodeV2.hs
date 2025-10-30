@@ -33,6 +33,7 @@ import qualified Proto3.Suite as Proto
 import           DA.Daml.LF.Ast as LF
 import           DA.Daml.LF.Proto3.Error
 import           DA.Daml.LF.Mangling
+import           DA.Daml.StablePackages (stablePackagesForVersion)
 
 import qualified Com.Digitalasset.Daml.Lf.Archive.DamlLf2 as LF2
 
@@ -160,7 +161,8 @@ decodePackageId (LF2.SelfOrImportedPackageId pref) =
         ImportedPackageId . (V.! fromIntegral strId) <$> view (to imports . _Right)
   where
     assertStableIfPkgImports id = do
-      when (id `notElem` stableIds) $
+      v <- asks version
+      when (id `notElem` stablePackagesForVersion v) $
         whenSupportsNot
                (to version)
                featurePackageImports

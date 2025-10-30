@@ -3,26 +3,27 @@
 
 module DA.Daml.StablePackages
     ( allStablePackages
-    , allStablePackagesForVersion
+    , allStablePackagesList
+    , allStablePackageIds
+    , stablePackagesForVersion
     , numStablePackagesForVersion
     , stablePackageByModuleName
-    , stableIds
+    , allStablePackagesTuples
     ) where
 
-import Data.Bifunctor
+import           Data.Bifunctor
 import qualified Data.Map.Strict as MS
 import qualified Data.NameMap as NM
 import qualified Data.Text as T
 
-import DA.Daml.LF.Ast
-import DA.Daml.LF.Ast.Version.GeneratedVersions
-import DA.Daml.LF.Proto3.Archive.Encode
-import DA.Daml.UtilLF
+import           DA.Daml.LF.Ast
+import           DA.Daml.LF.Ast.Version.GeneratedVersions
+import           DA.Daml.LF.Proto3.Archive.Encode
+import           DA.Daml.UtilLF
+import qualified DA.Daml.LF.Ast.Range as R
 
-allV2StablePackages :: MS.Map PackageId Package
-allV2StablePackages =
-    MS.fromList $
-    map (\pkg  -> (encodePackageHash pkg, pkg))
+allStablePackagesList :: [Package]
+allStablePackagesList =
       [ ghcTypes version2_1
       , ghcPrim version2_1
       , ghcTuple version2_1
@@ -52,28 +53,31 @@ allV2StablePackages =
       , daInternalFailTypes version2_1
       ]
 
+allStablePackagesTuples :: [(PackageId, Package)]
+allStablePackagesTuples =
+  map (\pkg -> (encodePackageHash pkg, pkg)) allStablePackagesList
+
+allStablePackageIds :: [PackageId]
+allStablePackageIds = map fst allStablePackagesTuples
+
 allStablePackages :: MS.Map PackageId Package
-allStablePackages = allV2StablePackages
+allStablePackages = MS.fromList allStablePackagesTuples
 
-allStablePackagesForMajorVersion :: MajorVersion -> MS.Map PackageId Package
-allStablePackagesForMajorVersion = \case
-    V2 -> allV2StablePackages
-
-allStablePackagesForVersion :: Version -> MS.Map PackageId Package
-allStablePackagesForVersion v =
-    MS.filter
-        (\p -> v `canDependOn` packageLfVersion p)
-        (allStablePackagesForMajorVersion (versionMajor v))
+stablePackagesForVersion :: Version -> [PackageId]
+stablePackagesForVersion v = map snd $ filter (R.elem v . fst) entries
+  where
+    entries :: [(VersionReq, PackageId)]
+    entries = map (\(pId, p) -> (R.From $ packageLfVersion p, pId)) allStablePackagesTuples
 
 numStablePackagesForVersion :: Version -> Int
-numStablePackagesForVersion v = MS.size (allStablePackagesForVersion v)
+numStablePackagesForVersion v = length (stablePackagesForVersion v)
 
 stablePackageByModuleName :: MS.Map (MajorVersion, ModuleName) (PackageId, Package)
 stablePackageByModuleName = MS.fromListWithKey
     (\k -> error $ "Duplicate module among stable packages: " <> show k)
     [ ((major, moduleName m), (pid, p))
     | major <- [minBound .. maxBound]
-    , (pid, p) <- MS.toList (allStablePackagesForMajorVersion major)
+    , (pid, p) <- MS.toList allStablePackages
     , m <- NM.toList (packageModules p)
     ]
 

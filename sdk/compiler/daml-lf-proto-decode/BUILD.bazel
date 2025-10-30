@@ -28,7 +28,7 @@ da_haskell_library(
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto-decode:internal",
         "//compiler/daml-lf-proto-util",
-        "//compiler/damlc/stable-packages:stable-packages-list",
+        "//compiler/damlc/stable-packages:stable-packages-lib",
         "//daml-lf/archive:daml_lf_archive_haskell_proto",
         "//libs-haskell/da-hs-base",
     ],
@@ -57,7 +57,7 @@ da_haskell_library(
     deps = [
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto-util",
-        "//compiler/damlc/stable-packages:stable-packages-list",
+        "//compiler/damlc/stable-packages:stable-packages-lib",
         "//daml-lf/archive:daml_lf_archive_haskell_proto",
         "//libs-haskell/da-hs-base",
     ],

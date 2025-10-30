@@ -9,19 +9,12 @@ import qualified Data.ByteString as BS
 import qualified Data.Map.Strict as MS
 import Options.Applicative
 import qualified Data.Text as T
-import Data.Text.Extended (writeFileUtf8)
 
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Proto3.Archive.Encode
 import DA.Daml.StablePackages
 
-data Opts
-    = PackageListCmd GenPackageListOpts
-    | PackageCmd GenPackageOpts
-
-data GenPackageListOpts = GenPackageListOpts
-  { optListOutputPath :: FilePath
-  }
+data Opts = PackageCmd GenPackageOpts
 
 data GenPackageOpts = GenPackageOpts
   { optMajorVersion :: MajorVersion
@@ -42,15 +35,6 @@ data ModuleDep = ModuleDep
   , depPackageId :: PackageId
   } deriving Show
 
-packageListOptsParser :: Parser GenPackageListOpts
-packageListOptsParser =
-    subparser $
-    command "gen-package-list" $
-    info parser mempty
-  where
-    parser = GenPackageListOpts <$> option str (short 'o')
-
-
 packageOptsParser :: Parser GenPackageOpts
 packageOptsParser =
   GenPackageOpts
@@ -70,8 +54,7 @@ packageOptsParser =
         _ -> Nothing
 
 optParser :: Parser Opts
-optParser =
-    PackageListCmd <$> packageListOptsParser <|> PackageCmd <$> packageOptsParser
+optParser = PackageCmd <$> packageOptsParser
 
 main :: IO ()
 main = do
@@ -83,15 +66,6 @@ main = do
                     fail $ "Unknown module: " <> show optModule
                 Just (_, pkg) ->
                     writePackage pkg optOutputPath
-        PackageListCmd GenPackageListOpts{..} ->
-            writeFileUtf8 optListOutputPath $ T.unlines
-              [ "module DA.Daml.StablePackagesList (stablePackages) where"
-              , "import DA.Daml.LF.Ast (PackageId(..))"
-              , "import qualified Data.Set as Set"
-              , "stablePackages :: Set.Set PackageId"
-              , "stablePackages = Set.fromList"
-              , "  [" <> T.intercalate ", " (map (T.pack . show) $ MS.keys allStablePackages) <> "]"
-              ]
 
 writePackage :: Package -> FilePath -> IO ()
 writePackage pkg path = do
