@@ -1263,11 +1263,9 @@ class UpgradesMatrixCases(
     }
 
     override def additionalCreateArgsValue(v1PkgId: PackageId) = {
-      val v1VariantId =
-        Identifier(v1PkgId, s"Mod:$variantName")
       ImmArray(
         None /* v */ -> ValueVariant(
-          Some(v1VariantId),
+          None,
           "Ctor1",
           ValueInt64(0),
         )
@@ -1295,11 +1293,9 @@ class UpgradesMatrixCases(
     }
 
     override def additionalCreateArgsValue(v1PkgId: PackageId) = {
-      val v1VariantId =
-        Identifier(v1PkgId, s"Mod:$variantName")
       ImmArray(
         None /* v */ -> ValueVariant(
-          Some(v1VariantId),
+          None,
           "Ctor1",
           ValueInt64(0),
         )
@@ -1327,10 +1323,9 @@ class UpgradesMatrixCases(
     }
 
     override def additionalCreateArgsValue(v1PkgId: PackageId) = {
-      val v1EnumId = Identifier(v1PkgId, s"Mod:$enumName")
       ImmArray(
         None /* e */ -> ValueEnum(
-          Some(v1EnumId),
+          None,
           "Ctor1",
         )
       )
@@ -1357,10 +1352,9 @@ class UpgradesMatrixCases(
     }
 
     override def additionalCreateArgsValue(v1PkgId: PackageId) = {
-      val v1EnumId = Identifier(v1PkgId, s"Mod:$enumName")
       ImmArray(
         None /* e */ -> ValueEnum(
-          Some(v1EnumId),
+          None,
           "Ctor1",
         )
       )
@@ -1529,11 +1523,9 @@ class UpgradesMatrixCases(
     }
 
     override def additionalCreateArgsValue(v1PkgId: PackageId) = {
-      val v1VariantId =
-        Identifier(v1PkgId, s"Mod:$variantName")
       ImmArray(
         None /* v */ -> ValueVariant(
-          Some(v1VariantId),
+          None,
           "Ctor1",
           ValueInt64(0),
         )
@@ -1564,11 +1556,9 @@ class UpgradesMatrixCases(
     }
 
     override def additionalCreateArgsValue(v1PkgId: PackageId) = {
-      val v1VariantId =
-        Identifier(v1PkgId, s"Mod:$variantName")
       ImmArray(
         None /* v */ -> ValueVariant(
-          Some(v1VariantId),
+          None,
           "Ctor2",
           ValueUnit,
         )
@@ -1596,10 +1586,9 @@ class UpgradesMatrixCases(
     }
 
     override def additionalCreateArgsValue(v1PkgId: PackageId) = {
-      val v1EnumId = Identifier(v1PkgId, s"Mod:$enumName")
       ImmArray(
         None /* e */ -> ValueEnum(
-          Some(v1EnumId),
+          None,
           "Ctor1",
         )
       )
@@ -1629,10 +1618,9 @@ class UpgradesMatrixCases(
     }
 
     override def additionalCreateArgsValue(v1PkgId: PackageId) = {
-      val v1EnumId = Identifier(v1PkgId, s"Mod:$enumName")
       ImmArray(
         None /* e */ -> ValueEnum(
-          Some(v1EnumId),
+          None,
           "Ctor2",
         )
       )
