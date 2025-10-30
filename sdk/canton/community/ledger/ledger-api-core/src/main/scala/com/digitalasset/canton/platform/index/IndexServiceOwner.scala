@@ -201,16 +201,14 @@ final class IndexServiceOwner(
       queryExecutionContext: ExecutionContextExecutorService,
       commandExecutionContext: ExecutionContextExecutorService,
   ): LedgerReadDao =
-    new JdbcLedgerDao(
-      dbDispatcher = dbSupport.dbDispatcher,
+    JdbcLedgerDao.read(
+      dbSupport = dbSupport,
       queryExecutionContext = queryExecutionContext,
       commandExecutionContext = commandExecutionContext,
       metrics = metrics,
-      readStorageBackend = dbSupport.storageBackendFactory
-        .readStorageBackend(ledgerEndCache, stringInterning, loggerFactory),
-      parameterStorageBackend =
-        dbSupport.storageBackendFactory.createParameterStorageBackend(stringInterning),
+      participantId = participantId,
       ledgerEndCache = ledgerEndCache,
+      stringInterning = stringInterning,
       completionsPageSize = config.completionsPageSize,
       activeContractsServiceStreamsConfig = config.activeContractsServiceStreams,
       updatesStreamsConfig = config.updatesStreams,

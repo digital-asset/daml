@@ -30,6 +30,7 @@ import com.digitalasset.canton.store.{
   IndexedPhysicalSynchronizer,
   IndexedStringStore,
   IndexedSynchronizer,
+  IndexedTopologyStoreId,
   SendTrackerStore,
 }
 import com.digitalasset.canton.time.Clock
@@ -115,6 +116,7 @@ class DbLogicalSyncPersistentState(
 class DbPhysicalSyncPersistentState(
     participantId: ParticipantId,
     override val physicalSynchronizerIdx: IndexedPhysicalSynchronizer,
+    indexedTopologyStoreId: IndexedTopologyStoreId,
     val staticSynchronizerParameters: StaticSynchronizerParameters,
     clock: Clock,
     storage: DbStorage,
@@ -173,6 +175,7 @@ class DbPhysicalSyncPersistentState(
     new DbTopologyStore(
       storage,
       SynchronizerStore(physicalSynchronizerIdx.synchronizerId),
+      indexedTopologyStoreId,
       staticSynchronizerParameters.protocolVersion,
       timeouts,
       parameters.batchingConfig,
@@ -208,8 +211,6 @@ class DbPhysicalSyncPersistentState(
         nextPackageIds,
         packageMetadataView,
         dryRunSnapshot,
-        acsInspections =
-          () => Map(logicalSyncPersistentState.lsid -> logicalSyncPersistentState.acsInspection),
         forceFlags,
         parameters.disableUpgradeValidation,
       )

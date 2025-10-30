@@ -508,7 +508,6 @@ class ConnectedSynchronizer(
         SequencedTime(resubscriptionTs),
         EffectiveTime(resubscriptionTs),
         ApproximateTime(resubscriptionTs),
-        potentialTopologyChange = true,
       )
       // now, compute epsilon at resubscriptionTs and update client
       topologyClient.updateHead(
@@ -517,7 +516,6 @@ class ConnectedSynchronizer(
           resubscriptionTs.plus(staticSynchronizerParameters.topologyChangeDelay.duration)
         ),
         ApproximateTime(resubscriptionTs),
-        potentialTopologyChange = true,
       )
     }
 
@@ -1093,6 +1091,7 @@ object ConnectedSynchronizer {
           parameters.batchingConfig,
           doNotAwaitOnCheckingIncomingCommitments =
             parameters.doNotAwaitOnCheckingIncomingCommitments,
+          commitmentCheckpointInterval = parameters.commitmentCheckpointInterval,
         )
         topologyProcessor <- topologyProcessorFactory.create(
           acsCommitmentProcessor.scheduleTopologyTick

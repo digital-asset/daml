@@ -11,4 +11,4 @@ cd "$(dirname "$0")"
 bazel run --run_under "cd $PWD &&" //versions:update-versions -- -o $PWD/versions.bzl
 
 # We refer to latest_stable_version so this might need changing.
-bazel run @unpinned_maven//:pin
+REPIN=1 bazel run @unpinned_maven//:pin

@@ -30,7 +30,7 @@ da_scala_library(
             "//canton:community_admin-api_proto_scala",
             "//canton:community_admin-api-src",
         ],
-    override_scalacopts = [
+    override_scalacopts = ["-Wconf:msg=Marked as deprecated in proto file:silent"] + [
         copt
         for copt in default_scalacopts + lf_scalacopts_stricter
         if copt not in [

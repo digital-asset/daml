@@ -272,7 +272,7 @@ private[execution] class TopologyAwareCommandExecutor(
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Set[LfPackageId]] =
     for {
       packageMap: Map[PhysicalSynchronizerId, Map[LfPartyId, Set[PackageId]]] <- syncService
-        .packageMapFor(
+        .computePartyVettingMap(
           submitters = Option.unless(forExternallySigned)(submitterParty).iterator.toSet,
           informees = Set(submitterParty),
           vettingValidityTimestamp = CantonTimestamp(vettingValidityTimestamp),
@@ -386,7 +386,7 @@ private[execution] class TopologyAwareCommandExecutor(
         Map[LfPartyId, Set[PackageId]],
       ] <-
         syncService
-          .packageMapFor(
+          .computePartyVettingMap(
             submitters = Option
               .unless(forExternallySigned)(authorizersOf(draftTransaction))
               .getOrElse(Set.empty),

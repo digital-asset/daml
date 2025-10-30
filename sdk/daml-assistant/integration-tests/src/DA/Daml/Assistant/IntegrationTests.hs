@@ -123,7 +123,7 @@ damlStart tmpDir = do
             , "  java:"
             , "    output-directory: ui/java"
             , "build-options:"
-            , "- --target=2.1"
+            , "- --target=2.2"
             ]
     writeFileUTF8 (projDir </> "daml/Main.daml") $
         unlines
@@ -478,7 +478,8 @@ damlStartTests getDamlStart =
                                 "identifierFilter" Aeson..= Aeson.object [
                                   "TemplateFilter" Aeson..= Aeson.object [
                                     "value" Aeson..= Aeson.object [
-                                      "templateId" Aeson..= (packageRef ++ ":Main:T")
+                                      "templateId" Aeson..= (packageRef ++ ":Main:T"),
+                                      "includeCreatedEventBlob" Aeson..= True
                                     ]
                                   ]
                                 ]
@@ -517,7 +518,7 @@ damlStartTests getDamlStart =
                 , "  - daml-stdlib"
                 , "  - daml-script"
                 -- TODO(#14706): remove build-options once the default major version is 2
-                , "build-options: [--target=2.1]"
+                , "build-options: [--target=2.2]"
                 ]
             callCommandSilentIn projDir $ unwords ["daml", "deploy", "--host localhost", "--port", show sandboxPort]
             copyFile (projDir </> "daml.yaml.back") (projDir </> "daml.yaml")
@@ -620,7 +621,7 @@ cantonTests = testGroup "daml sandbox"
         callCommandSilentIn dir $ unwords ["daml new", "skeleton", "--template=skeleton"]
         step "Building package"
         -- TODO(#14706): remove explicit target once the default major version is 2
-        callCommandSilentIn (dir </> "skeleton") "daml build --target=2.1"
+        callCommandSilentIn (dir </> "skeleton") "daml build --target=2.2"
         step "Finding free ports"
         ledgerApiPort <- getFreePort
         adminApiPort <- getFreePort

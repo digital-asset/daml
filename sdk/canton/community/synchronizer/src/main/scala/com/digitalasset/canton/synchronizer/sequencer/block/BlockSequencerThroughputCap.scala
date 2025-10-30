@@ -34,14 +34,14 @@ import scala.jdk.CollectionConverters.*
   *
   * Requirements:
   *   - Hard Cap: load on the network does not exceed the pre-configured maximum
-  *   - Modifiable: cap settings can be modified without a system restart
+  *   - Modifiable: cap settings can be modified without a system restart (TODO(i28703))
   *   - Fairness: under load, throughput is allocated fairly to each client
   *   - Preference Settings: some clients may get higher throughput allocation via sequencer
-  *     operator configuration
+  *     operator configuration (TODO(i28703))
   *   - Elastic Demand Distribution: clients can exceed their fair share of throughput if the system
   *     provides sufficient capacity
   *   - Quality of Service: clients may designate their transactions with a quality of service label
-  *     to indicate the importance of each one
+  *     to indicate the importance of each one (TODO(i28703))
   *   - Message-type aware: caps are implemented with message type in mind to mainly target
   *     voluntary messages (e.g., confirmation and topology requests)
   *
@@ -82,9 +82,13 @@ class BlockSequencerThroughputCap(
       requestType: SubmissionRequestType,
       member: Member,
       requestLevel: Int,
-  ): Boolean = enabled.get() && perMessageTypeCaps
-    .get(requestType)
-    .exists(_.shouldRejectTransaction(member, requestLevel))
+  ): Either[String, Unit] =
+    if (!enabled.get()) Right(())
+    else
+      perMessageTypeCaps
+        .get(requestType)
+        .map(_.shouldRejectTransaction(member, requestLevel))
+        .getOrElse(Right(()))
 
   def addBlockUpdate(
       update: OrderedBlockUpdate
@@ -187,40 +191,72 @@ object BlockSequencerThroughputCap {
 
     private val memberUsage = new ConcurrentHashMap[ThroughputCapKey, ThroughputCapValue]().asScala
 
-    def shouldRejectTransaction(member: Member, requestLevel: Int): Boolean = {
+    def shouldRejectTransaction(member: Member, requestLevel: Int): Either[String, Unit] = {
       val key = ThroughputCapKey(member)
 
-      if (!initialized) false
-      else aboveMaxRate(key, requestLevel) || aboveThrottledRate(key)
+      if (!initialized) Right(())
+      else
+        for {
+          _ <- aboveMaxRate(key, requestLevel)
+          _ <- aboveThrottledRate(key)
+        } yield ()
     }
 
-    private def aboveMaxRate(key: ThroughputCapKey, requestLevel: Int): Boolean = {
+    private def aboveMaxRate(key: ThroughputCapKey, requestLevel: Int): Either[String, Unit] = {
       val usageByMember = memberUsage.getOrElse(key, ThroughputCapValue(0, 0)) // N_i
       val allowedTransactionsForMember =
         config.perClientTpsCap.value * observationPeriodSeconds // N_max_i_tps
       val allowedBytesForMember =
         config.perClientKbpsCap.value * 1024 * observationPeriodSeconds // N_max_i_bps
 
-      val overTps = usageByMember.count > allowedTransactionsForMember
-      val overKbps = usageByMember.bytes > allowedBytesForMember
-      val overThresholdLevel = requestLevel > currentThresholdLevel
+      lazy val overTps = usageByMember.count > allowedTransactionsForMember
+      lazy val overKbps = usageByMember.bytes > allowedBytesForMember
+      lazy val overThresholdLevel = requestLevel > currentThresholdLevel
 
-      overTps || overKbps || overThresholdLevel
+      for {
+        _ <- Either.cond(
+          !overTps,
+          (),
+          s"${usageByMember.count} transactions over the past $observationPeriodSeconds seconds is more than the allowed $allowedTransactionsForMember for the period",
+        )
+        _ <- Either.cond(
+          !overKbps,
+          (),
+          s"${usageByMember.bytes} bytes over the past $observationPeriodSeconds seconds is more than the allowed $allowedBytesForMember for the period",
+        )
+        _ <- Either.cond(
+          !overThresholdLevel,
+          (),
+          s"Request at level $requestLevel is higher than the current threshold $currentThresholdLevel",
+        )
+      } yield ()
     }
 
     // R_t = (R_max - R_A) / (1 + V_active) + B_i
     // Note that R_A and B_i do not exist yet, so they are excluded from below for now
-    private def aboveThrottledRate(key: ThroughputCapKey): Boolean =
-      if (currentThresholdLevel > 0) false
+    private def aboveThrottledRate(key: ThroughputCapKey): Either[String, Unit] =
+      if (currentThresholdLevel > 0) Right(())
       else {
         val vActive = memberUsage.size.toDouble
         val throttledCountForMember = maximumGlobalTransactionsPerObservationPeriod / (1 + vActive)
         val throttledBytesForMember = maximumGlobalBytesPerObservationPeriod / (1 + vActive)
         val usageByMember = memberUsage.getOrElse(key, ThroughputCapValue(0, 0)) // N_i
 
-        val overThrottledTps = usageByMember.count > throttledCountForMember
-        val overThrottledKbps = usageByMember.bytes > throttledBytesForMember
-        overThrottledTps || overThrottledKbps
+        lazy val overThrottledTps = usageByMember.count > throttledCountForMember
+        lazy val overThrottledKbps = usageByMember.bytes > throttledBytesForMember
+
+        for {
+          _ <- Either.cond(
+            !overThrottledTps,
+            (),
+            s"${usageByMember.count} transactions over the past $observationPeriodSeconds seconds is more than the allowed $throttledCountForMember throttled amount for the period",
+          )
+          _ <- Either.cond(
+            !overThrottledKbps,
+            (),
+            s"${usageByMember.bytes} bytes over the past $observationPeriodSeconds seconds is more than the allowed $throttledBytesForMember throttled amount for the period",
+          )
+        } yield ()
       }
 
     // assumes that transactions are added in order of CantonTimestamp
@@ -297,6 +333,7 @@ object BlockSequencerThroughputCap {
       val highestGlobalUtilization =
         math.max(percentGlobalUtilizationTps, percentGlobalUtilizationKbps)
 
+      // TODO(i28703): Make configurable
       currentThresholdLevel =
         if (highestGlobalUtilization < 0.7) 3
         else if (highestGlobalUtilization < 0.8) 2

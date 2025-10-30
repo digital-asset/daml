@@ -135,6 +135,7 @@ da_scala_library(
         "@maven//:org_apache_pekko_pekko_actor",
         "@maven//:org_apache_pekko_pekko_stream",
     ],
+    scalacopts = ["-Wconf:msg=Marked as deprecated in proto file:silent"],
     scaladoc = False,
     unused_dependency_checker_mode = "off",
     visibility = ["//visibility:public"],

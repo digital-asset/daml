@@ -14,6 +14,7 @@ module DA.Daml.Assistant.Command
     , getCommand
     ) where
 
+import Control.Monad (unless)
 import DA.Daml.Assistant.Types
 import Data.List
 import Data.Maybe
@@ -25,7 +26,13 @@ import System.Environment
 import System.FilePath
 import Data.Either.Extra
 import Control.Exception.Safe
+import System.IO (hPutStrLn, stderr)
 import System.Process
+
+-- | Daml assistant is deprecated and shows a warning for every command
+-- Use this to disable the warning
+disableLegacyAssistantWarning :: String
+disableLegacyAssistantWarning = "--no-legacy-assistant-warning"
 
 -- | Parse command line arguments without SDK command info. Returns Nothing if
 -- any error occurs, meaning the command may not be parseable without SDK command
@@ -33,13 +40,20 @@ import System.Process
 tryBuiltinCommand :: IO (Maybe Command)
 tryBuiltinCommand = do
     args <- getArgs
-    pure $ getParseResult (getCommandPure [] args)
+    unless (disableLegacyAssistantWarning `elem` args) $
+      hPutStrLn stderr $ unlines
+        [ "WARNING: Daml Assistant has been deprecated and replaced with the Digital Asset Package Manager (DPM)"
+        , "See intallation here: https://docs.digitalasset.com/build/3.4/dpm/dpm.html"
+        , "Daml Assistant will be removed in 3.5"
+        , "You can disable this warning with --no-legacy-assistant-warning"
+        ]
+    pure $ getParseResult (getCommandPure [] $ delete disableLegacyAssistantWarning args)
 
 -- | Parse command line arguments with SDK command info, exiting on failure.
 getCommand :: [SdkCommandInfo] -> IO Command
 getCommand sdkCommands = do
     args <- getArgs
-    handleParseResult (getCommandPure sdkCommands args)
+    handleParseResult (getCommandPure sdkCommands $ delete disableLegacyAssistantWarning args)
 
 getCommandPure :: [SdkCommandInfo] -> [String] -> ParserResult Command
 getCommandPure sdkCommands args =

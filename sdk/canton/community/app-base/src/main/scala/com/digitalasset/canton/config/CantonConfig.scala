@@ -315,10 +315,8 @@ final case class CantonParameters(
     enableAdditionalConsistencyChecks: Boolean = false,
     manualStart: Boolean = false,
     startupParallelism: Option[PositiveInt] = None,
-    // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
-    nonStandardConfig: Boolean = true,
-    // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
-    alphaVersionSupport: Boolean = true,
+    nonStandardConfig: Boolean = false,
+    alphaVersionSupport: Boolean = false,
     betaVersionSupport: Boolean = false,
     portsFile: Option[String] = None,
     timeouts: TimeoutSettings = TimeoutSettings(),
@@ -399,9 +397,9 @@ final case class CantonConfig(
     parameters: CantonParameters = CantonParameters(),
     features: CantonFeatures = CantonFeatures(),
 ) extends UniformCantonConfigValidation
-    with ConfigDefaults[DefaultPorts, CantonConfig] {
+    with ConfigDefaults[Option[DefaultPorts], CantonConfig] {
 
-  def allNodes: Map[InstanceName, LocalNodeConfig] =
+  def allLocalNodes: Map[InstanceName, LocalNodeConfig] =
     (participants: Map[InstanceName, LocalNodeConfig]) ++ sequencers ++ mediators
 
   /** Use `participants` instead!
@@ -448,14 +446,17 @@ final case class CantonConfig(
   def dumpString: String = CantonConfig.makeConfidentialString(this)
 
   /** run a validation on the current config and return possible warning messages */
-  def validate(edition: CantonEdition): Validated[NonEmpty[Seq[String]], Unit] = {
+  private def validate(
+      edition: CantonEdition,
+      ensurePortsSet: Boolean,
+  ): Validated[NonEmpty[Seq[String]], Unit] = {
     val validator = edition match {
       case CommunityCantonEdition =>
         CommunityConfigValidations
       case EnterpriseCantonEdition =>
         EnterpriseConfigValidations
     }
-    validator.validate(this, edition)
+    validator.validate(this, edition, ensurePortsSet = ensurePortsSet)
   }
 
   private lazy val participantNodeParameters_ : Map[InstanceName, ParticipantNodeParameters] =
@@ -488,6 +489,7 @@ final case class CantonConfig(
         doNotAwaitOnCheckingIncomingCommitments =
           participantParameters.doNotAwaitOnCheckingIncomingCommitments,
         disableOptionalTopologyChecks = participantConfig.topology.disableOptionalTopologyChecks,
+        commitmentCheckpointInterval = participantParameters.commitmentCheckpointInterval,
       )
     }
 
@@ -550,7 +552,7 @@ final case class CantonConfig(
 
   /** Produces a message in the structure
     * "da:admin-api=1,public-api=2;participant1:admin-api=3,ledger-api=4". Helpful for diagnosing
-    * port already bound issues during tests. Allows any config value to be be null (can happen with
+    * port already bound issues during tests. Allows any config value to be null (can happen with
     * invalid configs or config stubbed in tests)
     */
   lazy val portDescription: String = mkPortDescription
@@ -608,10 +610,12 @@ final case class CantonConfig(
     )
 
   override def withDefaults(
-      defaults: DefaultPorts,
+      defaults: Option[DefaultPorts],
       edition: CantonEdition,
   ): CantonConfig = {
-    def mapWithDefaults[K, V](m: Map[K, V with ConfigDefaults[DefaultPorts, V]]): Map[K, V] =
+    def mapWithDefaults[K, V](
+        m: Map[K, V with ConfigDefaults[Option[DefaultPorts], V]]
+    ): Map[K, V] =
       m.fmap(_.withDefaults(defaults, edition))
 
     this
@@ -2178,17 +2182,20 @@ object CantonConfig {
     *
     * @param files
     *   config files to read, parse and merge
+    * @param defaultPorts
+    *   Default ports allocator
     * @return
     *   [[scala.Right]] of type `ConfClass` (e.g. [[CantonConfig]])) if parsing was successful.
     */
   def parseAndLoad(
       files: Seq[File],
       edition: CantonEdition,
+      defaultPorts: Option[DefaultPorts],
   )(implicit elc: ErrorLoggingContext): Either[CantonConfigError, CantonConfig] =
     for {
       nonEmpty <- NonEmpty.from(files).toRight(NoConfigFiles.Error())
       parsedAndMerged <- parseAndMergeConfigs(nonEmpty)
-      loaded <- loadAndValidate(parsedAndMerged, edition)
+      loaded <- loadAndValidate(parsedAndMerged, edition, defaultPorts)
     } yield loaded
 
   /** Parses the provided files to generate a [[com.typesafe.config.Config]], then attempts to load
@@ -2197,15 +2204,21 @@ object CantonConfig {
     *
     * @param files
     *   config files to read - must be a non-empty Seq
+    * @param defaultPorts
+    *   Default ports allocator
     * @throws java.lang.IllegalArgumentException
     *   if `files` is empty
     * @return
     *   [[scala.Right]] of type `ClassTag` (e.g. [[CantonConfig]])) if parsing was successful.
     */
-  def parseAndLoadOrExit(files: Seq[File], edition: CantonEdition)(implicit
+  def parseAndLoadOrExit(
+      files: Seq[File],
+      edition: CantonEdition,
+      defaultPorts: Option[DefaultPorts],
+  )(implicit
       elc: ErrorLoggingContext = elc
   ): CantonConfig = {
-    val result = parseAndLoad(files, edition)
+    val result = parseAndLoad(files, edition, defaultPorts)
     configOrExit(result)
   }
 
@@ -2218,6 +2231,7 @@ object CantonConfig {
   def loadAndValidate(
       config: Config,
       edition: CantonEdition,
+      defaultPorts: Option[DefaultPorts],
   )(implicit elc: ErrorLoggingContext = elc): Either[CantonConfigError, CantonConfig] = {
     // config.resolve forces any substitutions to be resolved (typically referenced environment variables or system properties).
     // this normally would happen by default during ConfigFactory.load(),
@@ -2227,9 +2241,9 @@ object CantonConfig {
       case Right(resolvedConfig) =>
         loadRawConfig(resolvedConfig)
           .flatMap { conf =>
-            val confWithDefaults = conf.withDefaults(new DefaultPorts(), edition)
+            val confWithDefaults = conf.withDefaults(defaultPorts, edition)
             confWithDefaults
-              .validate(edition)
+              .validate(edition, ensurePortsSet = defaultPorts.isEmpty)
               .toEither
               .map(_ => confWithDefaults)
               .leftMap(causes => ConfigErrors.ValidationError.Error(causes.toList))
@@ -2244,16 +2258,6 @@ object CantonConfig {
     NamedLoggerFactory.root.properties,
     TraceContext.empty,
   )
-
-  /** Will load a case class configuration (defined by template args) from the configuration object.
-    * If any configuration errors are encountered, they will be logged and the JVM will exit with
-    * code 1.
-    */
-  def loadOrExit(
-      config: Config,
-      edition: CantonEdition,
-  )(implicit elc: ErrorLoggingContext = elc): CantonConfig =
-    loadAndValidate(config, edition).valueOr(_ => sys.exit(1))
 
   private[config] def loadRawConfig(
       rawConfig: Config

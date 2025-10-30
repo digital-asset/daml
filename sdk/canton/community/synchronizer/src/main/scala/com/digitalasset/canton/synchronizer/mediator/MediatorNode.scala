@@ -7,7 +7,6 @@ import cats.data.{EitherT, OptionT}
 import cats.syntax.either.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.metrics.api.MetricsContext
-import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.admin.mediator.v30.MediatorStatusServiceGrpc.MediatorStatusService
 import com.digitalasset.canton.auth.CantonAdminTokenDispenser
@@ -100,8 +99,7 @@ import scala.util.Success
   *   deprecated protocol version.
   */
 final case class MediatorNodeParameterConfig(
-    // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
-    override val alphaVersionSupport: Boolean = true,
+    override val alphaVersionSupport: Boolean = false,
     override val betaVersionSupport: Boolean = false,
     override val dontWarnOnDeprecatedPV: Boolean = false,
     override val batching: BatchingConfig = BatchingConfig(),
@@ -153,7 +151,7 @@ final case class MediatorNodeConfig(
     override val monitoring: NodeMonitoringConfig = NodeMonitoringConfig(),
     override val topology: TopologyConfig = TopologyConfig(),
 ) extends LocalNodeConfig
-    with ConfigDefaults[DefaultPorts, MediatorNodeConfig]
+    with ConfigDefaults[Option[DefaultPorts], MediatorNodeConfig]
     with UniformCantonConfigValidation {
 
   override def nodeTypeName: String = "mediator"
@@ -165,14 +163,15 @@ final case class MediatorNodeConfig(
   def replicationEnabled: Boolean = replication.exists(_.isEnabled)
 
   override def withDefaults(
-      ports: DefaultPorts,
+      ports: Option[DefaultPorts],
       edition: CantonEdition,
-  ): MediatorNodeConfig =
+  ): MediatorNodeConfig = ports.fold(this)(ports =>
     this
       .focus(_.adminApi.internalPort)
       .modify(ports.mediatorAdminApiPort.setDefaultPort)
       .focus(_.replication)
       .modify(ReplicationConfig.withDefaultO(storage, _, edition))
+  )
 }
 
 object MediatorNodeConfig {
@@ -260,6 +259,7 @@ class MediatorNodeBootstrap(
 
   private class WaitForMediatorToSynchronizerInit(
       storage: Storage,
+      indexedStringStore: IndexedStringStore,
       crypto: Crypto,
       adminServerRegistry: CantonMutableHandlerRegistry,
       adminTokenDispenser: CantonAdminTokenDispenser,
@@ -318,32 +318,40 @@ class MediatorNodeBootstrap(
             PhysicalSynchronizerId,
         )
     ): EitherT[FutureUnlessShutdown, String, StartupNode] = {
-      val (staticSynchronizerParameters, psid) = result
-      val synchronizerTopologyStore =
-        TopologyStore(
-          SynchronizerStore(psid),
-          storage,
-          staticSynchronizerParameters.protocolVersion,
-          timeouts,
-          parameters.batchingConfig,
-          loggerFactory,
-        )
-      addCloseable(synchronizerTopologyStore)
 
-      EitherT.rightT(
-        new StartupNode(
-          storage,
-          SynchronizerCrypto(crypto, staticSynchronizerParameters),
-          adminServerRegistry,
-          adminTokenDispenser,
-          mediatorId,
-          staticSynchronizerParameters,
-          authorizedTopologyManager,
-          synchronizerConfigurationStore,
-          synchronizerTopologyStore,
-          healthService,
+      val (staticSynchronizerParameters, psid) = result
+
+      EitherT
+        .right(
+          TopologyStore
+            .create(
+              SynchronizerStore(psid),
+              storage,
+              indexedStringStore,
+              staticSynchronizerParameters.protocolVersion,
+              timeouts,
+              parameters.batchingConfig,
+              loggerFactory,
+            )
         )
-      )
+        .map { synchronizerTopologyStore =>
+          addCloseable(synchronizerTopologyStore)
+
+          new StartupNode(
+            storage,
+            indexedStringStore,
+            SynchronizerCrypto(crypto, staticSynchronizerParameters),
+            adminServerRegistry,
+            adminTokenDispenser,
+            mediatorId,
+            staticSynchronizerParameters,
+            authorizedTopologyManager,
+            synchronizerConfigurationStore,
+            synchronizerTopologyStore,
+            healthService,
+          )
+        }
+
     }
 
     override def waitingFor: Option[WaitingForExternalInput] = Some(
@@ -401,6 +409,7 @@ class MediatorNodeBootstrap(
 
   private class StartupNode(
       storage: Storage,
+      indexedStringStore: IndexedStringStore,
       crypto: SynchronizerCrypto,
       adminServerRegistry: CantonMutableHandlerRegistry,
       adminTokenDispenser: CantonAdminTokenDispenser,
@@ -472,14 +481,6 @@ class MediatorNodeBootstrap(
           )
           synchronizerOutboxFactory = createSynchronizerOutboxFactory(synchronizerTopologyManager)
 
-          indexedStringStore = IndexedStringStore.create(
-            storage,
-            parameters.cachingConfigs.indexedStrings,
-            timeouts,
-            synchronizerLoggerFactory,
-          )
-          _ = addCloseable(indexedStringStore)
-
           _ <- EitherT.right[String](
             replicaManager.setup(
               adminServerRegistry,
@@ -527,11 +528,7 @@ class MediatorNodeBootstrap(
       traceContextPropagation = parameters.tracing.propagation,
       clientProtocolVersions =
         if (parameters.alphaVersionSupport) ProtocolVersion.supported
-        else
-          // TODO(#15561) Remove NonEmpty construct once stableAndSupported is NonEmpty again
-          NonEmpty
-            .from(ProtocolVersion.stable)
-            .getOrElse(sys.error("no protocol version is considered stable in this release")),
+        else ProtocolVersion.stable,
       minimumProtocolVersion = Some(ProtocolVersion.minimum),
       dontWarnOnDeprecatedPV = parameters.dontWarnOnDeprecatedPV,
       loggerFactory = loggerFactory,
@@ -796,6 +793,7 @@ class MediatorNodeBootstrap(
 
   override protected def customNodeStages(
       storage: Storage,
+      indexedStringStore: IndexedStringStore,
       crypto: Crypto,
       adminServerRegistry: CantonMutableHandlerRegistry,
       adminTokenDispenser: CantonAdminTokenDispenser,
@@ -806,6 +804,7 @@ class MediatorNodeBootstrap(
   ): BootstrapStageOrLeaf[MediatorNode] =
     new WaitForMediatorToSynchronizerInit(
       storage,
+      indexedStringStore,
       crypto,
       adminServerRegistry,
       adminTokenDispenser,

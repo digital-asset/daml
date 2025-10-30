@@ -162,6 +162,7 @@ object PhysicalSyncPersistentState {
       participantId: ParticipantId,
       storage: Storage,
       physicalSynchronizerIdx: IndexedPhysicalSynchronizer,
+      indexedTopologyStoreId: IndexedTopologyStoreId,
       staticSynchronizerParameters: StaticSynchronizerParameters,
       clock: Clock,
       crypto: SynchronizerCrypto,
@@ -192,6 +193,7 @@ object PhysicalSyncPersistentState {
         new DbPhysicalSyncPersistentState(
           participantId,
           physicalSynchronizerIdx,
+          indexedTopologyStoreId,
           staticSynchronizerParameters,
           clock,
           db,

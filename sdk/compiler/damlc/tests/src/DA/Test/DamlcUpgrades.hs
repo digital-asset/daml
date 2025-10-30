@@ -425,19 +425,23 @@ tests damlc =
                   versionDefault
             , testMetadata
                   "FailsWhenUpgradesPackageHasHigherLFVersion"
-                  (FailWithError "\ESC\\[0;91mMain package \\(v0.0.2\\) LF Version \\(2.1\\) cannot be lower than the Upgraded package \\(v0.0.1\\) LF Version \\(2.dev\\)")
+                  (FailWithError "\ESC\\[0;91mMain package \\(v0.0.2\\) LF Version \\(2.2\\) cannot be lower than the Upgraded package \\(v0.0.1\\) LF Version \\(2.dev\\)")
                   "my-package"
                   "0.0.1"
                   LF.version2_dev
                   "my-package"
                   "0.0.2"
-                  LF.version2_1
+                  --TODO(https://github.com/digital-asset/daml/issues/22103):
+                  --evaluate which lf versions need to run here
+                  LF.version2_2
             , testMetadata
                   "SucceedsWhenUpgradesPackageHasLowerLFVersion"
                   Succeed
                   "my-package"
                   "0.0.1"
-                  LF.version2_1
+                  --TODO(https://github.com/digital-asset/daml/issues/22103):
+                  --evaluate which lf versions need to run here
+                  LF.version2_2
                   "my-package"
                   "0.0.2"
                   LF.version2_dev

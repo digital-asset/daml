@@ -180,12 +180,11 @@ class StoreBasedSynchronizerTopologyClient(
       sequencedTimestamp: SequencedTime,
       effectiveTimestamp: EffectiveTime,
       approximateTimestamp: ApproximateTime,
-      potentialTopologyChange: Boolean,
   )(implicit
       traceContext: TraceContext
   ): Unit = {
     logger.debug(
-      s"Head update: sequenced=$sequencedTimestamp, effective=$effectiveTimestamp, approx=$approximateTimestamp, potentialTopologyChange=$potentialTopologyChange"
+      s"Head update: sequenced=$sequencedTimestamp, effective=$effectiveTimestamp, approx=$approximateTimestamp"
     )
     val curHead =
       head.updateAndGet(_.update(sequencedTimestamp, effectiveTimestamp, approximateTimestamp))
@@ -194,9 +193,6 @@ class StoreBasedSynchronizerTopologyClient(
     // now notify the futures that wait for this update here. as the update is active at t+epsilon, (see most recent timestamp),
     // we'll need to notify accordingly
     effectiveTimeAwaiter.notifyAwaitedFutures(curHead.effectiveTimestamp.value.immediateSuccessor)
-
-    if (potentialTopologyChange)
-      checkAwaitingConditions()
   }
 
   override def observed(
@@ -206,7 +202,7 @@ class StoreBasedSynchronizerTopologyClient(
       transactions: Seq[GenericSignedTopologyTransaction],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     logger.debug(
-      s"Observed: sequenced=$sequencedTimestamp, effective=$effectiveTimestamp"
+      s"Observed: sequenced=$sequencedTimestamp, effective=$effectiveTimestamp, numTransactions=${transactions.size}"
     )
     observedInternal(sequencedTimestamp, effectiveTimestamp)
     FutureUnlessShutdown.unit
@@ -223,7 +219,6 @@ class StoreBasedSynchronizerTopologyClient(
       sequencedTimestamp,
       effectiveTimestamp,
       ApproximateTime(sequencedTimestamp.value),
-      potentialTopologyChange = false,
     )
     // notify anyone who is waiting on some condition
     checkAwaitingConditions()
@@ -260,9 +255,9 @@ class StoreBasedSynchronizerTopologyClient(
                 sequencedTimestamp,
                 effectiveTimestamp,
                 ApproximateTime(effectiveTimestamp.value),
-                potentialTopologyChange = true,
               )
               logIfNoPendingTopologyChanges()
+              checkAwaitingConditions()
             }
           case None =>
             // the effective timestamp has already been witnessed
@@ -270,9 +265,9 @@ class StoreBasedSynchronizerTopologyClient(
               sequencedTimestamp,
               effectiveTimestamp,
               ApproximateTime(effectiveTimestamp.value),
-              potentialTopologyChange = true,
             )
             logIfNoPendingTopologyChanges()
+            checkAwaitingConditions()
         }
       case None =>
         logger.warn("Not advancing the time using the time tracker as it's unavailable")
@@ -283,7 +278,7 @@ class StoreBasedSynchronizerTopologyClient(
   override def snapshotAvailable(timestamp: CantonTimestamp): Boolean =
     topologyKnownUntilTimestamp >= timestamp
 
-  override def trySnapshot(
+  override protected[topology] def trySnapshot(
       timestamp: CantonTimestamp
   )(implicit traceContext: TraceContext): StoreBasedTopologySnapshot = {
     ErrorUtil.requireArgument(
@@ -298,10 +293,20 @@ class StoreBasedSynchronizerTopologyClient(
     )
   }
 
-  override def tryHypotheticalSnapshot(
+  def findTopologyIntervalForTimestamp(timestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[(EffectiveTime, Option[EffectiveTime])]] =
+    store.findTopologyIntervalForTimestamp(timestamp)
+
+  override def snapshot(
+      timestamp: CantonTimestamp
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[TopologySnapshotLoader] =
+    waitForTimestampWithLogging(timestamp).map(_ => trySnapshot(timestamp))
+
+  override def hypotheticalSnapshot(
       timestamp: CantonTimestamp,
       desiredTimestamp: CantonTimestamp,
-  )(implicit traceContext: TraceContext): StoreBasedTopologySnapshot =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[StoreBasedTopologySnapshot] =
     ErrorUtil.internalError(
       new UnsupportedOperationException(
         "tryHypotheticalSnapshot is not " +
@@ -358,7 +363,10 @@ class StoreBasedSynchronizerTopologyClient(
   override def await(condition: TopologySnapshot => Future[Boolean], timeout: Duration)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Boolean] =
-    scheduleAwait(FutureUnlessShutdown.outcomeF(condition(currentSnapshotApproximation)), timeout)
+    scheduleAwait(
+      FutureUnlessShutdown.outcomeF(condition(currentSnapshotApproximation)),
+      timeout,
+    )
 
   override def awaitUS(
       condition: TopologySnapshot => FutureUnlessShutdown[Boolean],

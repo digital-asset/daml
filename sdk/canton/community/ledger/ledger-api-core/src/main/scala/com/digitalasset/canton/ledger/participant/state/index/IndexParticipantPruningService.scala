@@ -15,12 +15,12 @@ trait IndexParticipantPruningService {
       previousPruneUpToInclusive: Option[Offset],
       previousIncompleteReassignmentOffsets: Vector[Offset],
       pruneUpToInclusive: Offset,
-      incompleteReassignmentOffsets: Vector[Offset],
+      incompletReassignmentOffsets: Vector[Offset],
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Unit]
 
-  def indexDbPrunedUpto(implicit
+  def indexDbPrunedUpTo(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Option[Offset]]
 }

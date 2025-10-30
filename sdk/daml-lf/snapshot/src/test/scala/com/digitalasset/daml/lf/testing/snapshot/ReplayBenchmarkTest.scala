@@ -6,7 +6,7 @@ package testing.snapshot
 
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.logging.LoggingContext
-import com.digitalasset.daml.lf.archive.UniversalArchiveDecoder
+import com.digitalasset.daml.lf.archive.DarDecoder
 import com.digitalasset.daml.lf.command.{ApiCommand, ApiCommands}
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
@@ -29,7 +29,7 @@ class ReplayBenchmarkTest(majorLanguageVersion: LanguageMajorVersion)
 
   private def getMainPkgIdAndDarPath(resource: String): (Ref.PackageId, Path) = {
     val darFile = new File(rlocation(resource))
-    val packages = UniversalArchiveDecoder.assertReadFile(darFile)
+    val packages = DarDecoder.assertReadArchiveFromFile(darFile)
     val (mainPkgId, _) = packages.main
 
     (mainPkgId, darFile.toPath)

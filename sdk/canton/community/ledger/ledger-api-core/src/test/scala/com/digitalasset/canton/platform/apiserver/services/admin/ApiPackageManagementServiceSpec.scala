@@ -250,7 +250,7 @@ object ApiPackageManagementServiceSpec {
     ): CompletionStage[PruningResult] =
       throw new UnsupportedOperationException()
 
-    override def packageMapFor(
+    override def computePartyVettingMap(
         submitters: Set[LfPartyId],
         informees: Set[LfPartyId],
         vettingValidityTimestamp: CantonTimestamp,

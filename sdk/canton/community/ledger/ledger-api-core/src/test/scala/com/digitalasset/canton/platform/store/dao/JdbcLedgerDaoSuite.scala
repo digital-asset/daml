@@ -8,7 +8,7 @@ import com.digitalasset.canton.ledger.api.TemplateFilter
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.store.entries.LedgerEntry
-import com.digitalasset.canton.protocol.{ExampleContractFactory, TestUpdateId}
+import com.digitalasset.canton.protocol.TestUpdateId
 import com.digitalasset.canton.testing.utils.TestModels
 import com.digitalasset.canton.util.JarResourceUtils
 import com.digitalasset.daml.lf.archive.{DamlLf, DarParser, Decode}
@@ -219,35 +219,33 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
     Ref.UserId.assertFromString(s)
 
   protected final def create(
+      absCid: ContractId,
       signatories: Set[Party] = Set(alice, bob),
       templateId: Identifier = someTemplateId,
       contractArgument: LfValue = someContractArgument,
       observers: Set[Party] = Set.empty,
   ): Node.Create =
-    createNode(signatories, signatories ++ observers, None, templateId, contractArgument)
+    createNode(absCid, signatories, signatories ++ observers, None, templateId, contractArgument)
 
   protected final def createNode(
+      absCid: ContractId,
       signatories: Set[Party],
       stakeholders: Set[Party],
       key: Option[GlobalKeyWithMaintainers] = None,
       templateId: Identifier = someTemplateId,
       contractArgument: LfValue = someContractArgument,
       serializationVersion: LfSerializationVersion = LfSerializationVersion.V1,
-      overrideContractId: Option[ContractId] = None,
   ): Node.Create =
-    ExampleContractFactory
-      .build(
-        templateId = templateId,
-        packageName = somePackageName,
-        argument = contractArgument,
-        signatories = signatories,
-        stakeholders = stakeholders,
-        keyOpt = key,
-        version = serializationVersion,
-        overrideContractId = overrideContractId,
-      )
-      .inst
-      .toCreateNode
+    Node.Create(
+      coid = absCid,
+      templateId = templateId,
+      packageName = somePackageName,
+      arg = contractArgument,
+      signatories = signatories,
+      stakeholders = stakeholders,
+      keyOpt = key,
+      version = serializationVersion,
+    )
 
   protected final def exerciseNode(
       targetCid: ContractId,
@@ -311,17 +309,19 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
     }
 
   protected final def singleCreate: (Offset, LedgerEntry.Transaction) =
-    singleCreate(create())
+    singleCreate(create(_))
 
   protected final def multiPartySingleCreate: (Offset, LedgerEntry.Transaction) =
-    singleCreate(create(Set(alice, bob)), List(alice, bob))
+    singleCreate(create(_, Set(alice, bob)), List(alice, bob))
 
   protected final def singleCreate(
-      create: Node.Create,
+      create: ContractId => Node.Create,
       actAs: List[Party] = List(alice),
   ): (Offset, LedgerEntry.Transaction) = {
     val txBuilder = newBuilder()
-    val eid = txBuilder.add(create)
+    val cid = txBuilder.newCid
+    val creation = create(cid)
+    val eid = txBuilder.add(creation)
     val offset = nextOffset()
     val id = offset.unwrap
     val let = Timestamp.now()
@@ -335,7 +335,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       ledgerEffectiveTime = let,
       recordedAt = let,
       transaction = txBuilder.buildCommitted(),
-      explicitDisclosure = Map(eid -> (create.signatories union create.stakeholders)),
+      explicitDisclosure = Map(eid -> (creation.signatories union creation.stakeholders)),
     )
   }
 
@@ -382,12 +382,15 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
   ): Future[(Offset, LedgerEntry.Transaction)] =
     store(
       singleCreate(
-        create = createNode(
-          signatories = signatories,
-          stakeholders = stakeholders,
-          key = key,
-          contractArgument = contractArgument,
-        ),
+        create = { cid =>
+          createNode(
+            absCid = cid,
+            signatories = signatories,
+            stakeholders = stakeholders,
+            key = key,
+            contractArgument = contractArgument,
+          )
+        },
         actAs = submittingParties.toList,
       ),
       contractActivenessChanged = contractActivenessChanged,
@@ -465,7 +468,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
   ): (Offset, LedgerEntry.Transaction) = {
     val txBuilder = newBuilder()
     val exerciseId = txBuilder.add(exerciseNode(targetCid))
-    val childId = txBuilder.add(create(), exerciseId)
+    val childId = txBuilder.add(create(txBuilder.newCid), exerciseId)
     val tx = txBuilder.buildCommitted()
     val offset = nextOffset()
     val id = offset.unwrap
@@ -486,11 +489,11 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
   }
 
   protected def fullyTransient(
+      create: ContractId => Node.Create = create(_)
   ): (Offset, LedgerEntry.Transaction) = {
     val txBuilder = newBuilder()
-    val c = create()
-    val cid = c.coid
-    val createId = txBuilder.add(c)
+    val cid = txBuilder.newCid
+    val createId = txBuilder.add(create(cid))
     val exerciseId = txBuilder.add(exerciseNode(cid))
     val let = Timestamp.now()
     nextOffset() -> LedgerEntry.Transaction(
@@ -514,12 +517,12 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
   // root exercise node that causes the creation of a transient contract
   protected def fullyTransientWithChildren: (Offset, LedgerEntry.Transaction) = {
     val txBuilder = newBuilder()
-    val root = create()
-    val transient = create()
-    val rootCreateId = txBuilder.add(root)
-    val rootExerciseId = txBuilder.add(exerciseNode(root.coid).copy(actingParties = Set(charlie)))
-    val createTransientId = txBuilder.add(transient, rootExerciseId)
-    val consumeTransientId = txBuilder.add(exerciseNode(transient.coid), rootExerciseId)
+    val root = txBuilder.newCid
+    val transient = txBuilder.newCid
+    val rootCreateId = txBuilder.add(create(root))
+    val rootExerciseId = txBuilder.add(exerciseNode(root).copy(actingParties = Set(charlie)))
+    val createTransientId = txBuilder.add(create(transient), rootExerciseId)
+    val consumeTransientId = txBuilder.add(exerciseNode(transient), rootExerciseId)
     val let = Timestamp.now()
     nextOffset() -> LedgerEntry.Transaction(
       commandId = Some(UUID.randomUUID.toString),
@@ -557,7 +560,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
   protected def partiallyVisible: (Offset, LedgerEntry.Transaction) = {
     val txBuilder = newBuilder()
     val createId = txBuilder.add(
-      createNode(
+      create(txBuilder.newCid).copy(
         signatories = Set(charlie),
         stakeholders = Set(charlie),
       )
@@ -570,11 +573,11 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       )
     )
     val childCreateId1 = txBuilder.add(
-      create(),
+      create(txBuilder.newCid),
       exerciseId,
     )
     val childCreateId2 = txBuilder.add(
-      create(),
+      create(txBuilder.newCid),
       exerciseId,
     )
     val let = Timestamp.now()
@@ -614,7 +617,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
     val disclosure = for {
       entry <- signatoriesAndTemplates
       (signatory, template, argument) = entry
-      contract = create(Set(signatory), template, argument)
+      contract = create(txBuilder.newCid, Set(signatory), template, argument)
       parties = Set[Party](operator, signatory)
       nodeId = txBuilder.add(contract)
     } yield nodeId -> parties
@@ -676,15 +679,18 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
   ): (Offset, LedgerEntry.Transaction) = {
     val txBuilder = newBuilder()
     val createNodeId = txBuilder.add(
-      createNode(
+      Node.Create(
+        coid = txBuilder.newCid,
         templateId = someTemplateId,
-        contractArgument = someContractArgument,
+        packageName = somePackageName,
+        arg = someContractArgument,
         signatories = Set(party),
         stakeholders = Set(party),
-        key = Some(
+        keyOpt = Some(
           GlobalKeyWithMaintainers
             .assertBuild(someTemplateId, someContractKey(party, key), Set(party), somePackageName)
         ),
+        version = txVersion,
       )
     )
     nextOffset() ->

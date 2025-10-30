@@ -337,15 +337,17 @@ export class DamlLanguageClient {
     const useDpm = config.get("useDPMWhenAvailable");
     if (useDpm) {
       const dpmPath = DamlLanguageClient.findDpmCommand();
-      if (dpmPath) {
-        vscode.window.showInformationMessage(
-          "Daml IDE is starting using the Early Access DPM assistant.",
-        );
-        return [dpmPath, true];
-      }
+      if (dpmPath) return [dpmPath, true];
     }
     const damlPath = DamlLanguageClient.findDamlCommand();
-    if (damlPath) return [damlPath, false];
+    if (damlPath) {
+      vscode.window.showWarningMessage(
+        "Daml IDE is starting using the legacy Daml Assistant, which is deprecated and has been replaced with DPM.\n" +
+          "Daml Assistant will be removed in 3.5, see DPM installation instructions:\n" +
+          "[Open DPM documentation](https://docs.digitalasset.com/build/3.4/dpm/dpm.html)",
+      );
+      return [damlPath, false];
+    }
 
     vscode.window.showErrorMessage(
       "Failed to start the Daml language server. Make sure an assistant (daml assistant or DPM) is installed.",

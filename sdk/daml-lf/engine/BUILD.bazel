@@ -217,11 +217,14 @@ da_scala_test(
         "src/test/**/UpgradesMatrixUnit.scala",
     ]),
     args = ["-P"],  # run suites in parallel
+    max_heap_size = "2g",
     scala_deps = [
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_matchers_core",
         "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_typelevel_cats_kernel",
+        "@maven//:org_typelevel_cats_core",
     ],
     scalacopts = lf_scalacopts,
     visibility = ["//daml-script:__subpackages__"],

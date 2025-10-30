@@ -3,25 +3,44 @@
 
 package com.digitalasset.daml.lf.archive
 
-import com.digitalasset.daml.lf.archive.DamlLf
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, Util => AstUtil}
 
 object Decode {
 
+  /*
+   * Decodes an ArchivePayload into a complete AST.
+   * Returns an error if the payload is invalid or contains an unknown LF version.
+   */
   def decodeArchivePayload(
       payload: ArchivePayload
   ): Either[Error, (PackageId, Ast.Package)] =
     decodeArchivePayload(payload, schemaMode = false)
 
+  @throws[Error]
+  def assertDecodeArchivePayload(
+      payload: ArchivePayload
+  ): (PackageId, Ast.Package) =
+    assertRight(decodeArchivePayload(payload))
+
+  /*
+   * Decodes an ArchivePayload into a serializable schema, a partial AST containing
+   * only templates, interfaces, and serializable data type definitions, ignoring
+   * any other definition and the embedded expressions within those definitions.
+   * Ignores the package patch version but returns an error if anything it reads is invalid.
+   */
   def decodeArchivePayloadSchema(
       payload: ArchivePayload
   ): Either[Error, (PackageId, Ast.PackageSignature)] =
-    decodeArchivePayload(payload, schemaMode = true).map { case (pkgId, pkg) =>
-      pkgId -> AstUtil.toSignature(pkg)
-    }
+    decodeArchivePayload(payload, schemaMode = true)
+      .map { case (pkgId, pkg) => pkgId -> AstUtil.toSignature(pkg) }
 
-  // decode an ArchivePayload
+  @throws[Error]
+  def assertDecodeArchivePayloadSchema(
+      payload: ArchivePayload
+  ): (PackageId, Ast.PackageSignature) =
+    assertRight(decodeArchivePayloadSchema(payload))
+
   private[this] def decodeArchivePayload(
       payload: ArchivePayload,
       schemaMode: Boolean,
@@ -50,27 +69,30 @@ object Decode {
         Left(Error.Parsing(s"${payload.version} unsupported"))
     }
 
-  @throws[Error]
-  def assertDecodeArchivePayload(
-      payload: ArchivePayload,
-      schemaMode: Boolean = false,
-  ): (PackageId, Ast.Package) =
-    assertRight(decodeArchivePayload(payload, schemaMode = schemaMode))
-
-  // decode an Archive
   def decodeArchive(
-      archive: DamlLf.Archive,
-      schemaMode: Boolean = false,
+      archive: DamlLf.Archive
   ): Either[Error, (PackageId, Ast.Package)] =
     Reader
-      .readArchive(archive)
-      .flatMap(decodeArchivePayload(_, schemaMode = schemaMode))
+      .readArchive(archive, schemaMode = false)
+      .flatMap(decodeArchivePayload)
 
   @throws[Error]
   def assertDecodeArchive(
-      archive: DamlLf.Archive,
-      schemaMode: Boolean = false,
+      archive: DamlLf.Archive
   ): (PackageId, Ast.Package) =
-    assertRight(decodeArchive(archive, schemaMode = schemaMode))
+    assertRight(decodeArchive(archive))
+
+  def decodeArchiveSchema(
+      archive: DamlLf.Archive
+  ): Either[Error, (PackageId, Ast.PackageSignature)] =
+    Reader
+      .readArchive(archive, schemaMode = true)
+      .flatMap(decodeArchivePayloadSchema)
+
+  @throws[Error]
+  def assertDecodeArchiveSchema(
+      archive: DamlLf.Archive
+  ): (PackageId, Ast.PackageSignature) =
+    assertRight(decodeArchiveSchema(archive))
 
 }

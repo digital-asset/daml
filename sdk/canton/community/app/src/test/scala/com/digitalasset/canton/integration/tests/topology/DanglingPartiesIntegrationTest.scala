@@ -89,7 +89,6 @@ class DanglingPartiesIntegrationTest
           }
           participant.topology.transactions.authorize(sequencer1.synchronizer_id, proposal.txHash)
         }
-
         participants.all.foreach { p =>
           eventually() {
             val mapping =
@@ -112,7 +111,7 @@ class DanglingPartiesIntegrationTest
                       ParticipantPermission.Confirmation,
                       false, // onboarding
                     ),
-                  ) if (participant1.id == p1 && participant2.id == p2 && participant3.id == p3) =>
+                  ) if participant1.id == p1 && participant2.id == p2 && participant3.id == p3 =>
             }
           }
         }

@@ -20,7 +20,7 @@ import scala.util.Using
 object PackageTestUtils {
 
   def astPackageFromLfDef(defn: ParserParameters[?] => Ast.Package)(
-      lfVersion: LanguageVersion = LanguageVersion.v2_1,
+      lfVersion: LanguageVersion = LanguageVersion.v2_2,
       packageId: Ref.PackageId = Ref.PackageId.assertFromString("-self-"),
   ): Ast.Package =
     defn(
@@ -31,7 +31,7 @@ object PackageTestUtils {
     )
 
   def archiveFromLfDef(defn: ParserParameters[?] => Ast.Package)(
-      lfVersion: LanguageVersion = LanguageVersion.v2_1,
+      lfVersion: LanguageVersion = LanguageVersion.v2_2,
       packageId: Ref.PackageId = Ref.PackageId.assertFromString("-self-"),
   ): Archive = {
     val pkg = astPackageFromLfDef(defn)(lfVersion, packageId)
@@ -43,7 +43,7 @@ object PackageTestUtils {
       packageVersion: Ref.PackageVersion,
       discriminatorFields: Seq[String] = Seq.empty,
   )(
-      lfVersion: LanguageVersion = LanguageVersion.v2_1,
+      lfVersion: LanguageVersion = LanguageVersion.v2_2,
       packageId: Ref.PackageId = Ref.PackageId.assertFromString("-self-"),
   ): Ast.Package =
     astPackageFromLfDef(implicit parseParameters =>
@@ -65,7 +65,7 @@ object PackageTestUtils {
       packageName: Ref.PackageName,
       packageVersion: Ref.PackageVersion,
       discriminatorFields: Seq[String] = Seq.empty,
-      lfVersion: LanguageVersion = LanguageVersion.v2_1,
+      lfVersion: LanguageVersion = LanguageVersion.v2_2,
       packageId: Ref.PackageId = Ref.PackageId.assertFromString("-self-"),
   ): Archive = {
     val pkg = sampleAstPackage(
