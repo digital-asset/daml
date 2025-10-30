@@ -73,7 +73,7 @@ object Decode {
       archive: DamlLf.Archive
   ): Either[Error, (PackageId, Ast.Package)] =
     Reader
-      .readArchive(archive, schemaMode = true)
+      .readArchive(archive, schemaMode = false)
       .flatMap(decodeArchivePayload)
 
   @throws[Error]
@@ -86,7 +86,7 @@ object Decode {
       archive: DamlLf.Archive
   ): Either[Error, (PackageId, Ast.PackageSignature)] =
     Reader
-      .readArchive(archive, schemaMode = false)
+      .readArchive(archive, schemaMode = true)
       .flatMap(decodeArchivePayloadSchema)
 
   @throws[Error]
