@@ -12,19 +12,19 @@ object Decode {
   def decodeArchivePayload(
       payload: ArchivePayload
   ): Either[Error, (PackageId, Ast.Package)] =
-    decodeArchivePayload(payload, onlySchema = false)
+    decodeArchivePayload(payload, schemaMode = false)
 
   def decodeArchivePayloadSchema(
       payload: ArchivePayload
   ): Either[Error, (PackageId, Ast.PackageSignature)] =
-    decodeArchivePayload(payload, onlySchema = true).map { case (pkgId, pkg) =>
+    decodeArchivePayload(payload, schemaMode = true).map { case (pkgId, pkg) =>
       pkgId -> AstUtil.toSignature(pkg)
     }
 
   // decode an ArchivePayload
   private[this] def decodeArchivePayload(
       payload: ArchivePayload,
-      onlySchema: Boolean,
+      schemaMode: Boolean,
   ): Either[Error, (PackageId, Ast.Package)] =
     payload match {
       case ArchivePayload.Lf2(pkgId, protoPkg, minor, patch)
@@ -33,7 +33,7 @@ object Decode {
           .decodePackage(
             pkgId,
             protoPkg,
-            onlySchema,
+            schemaMode,
             patch,
           )
           .map(payload.pkgId -> _)
@@ -43,7 +43,7 @@ object Decode {
           .decodePackage(
             pkgId,
             protoPkg,
-            onlySchema,
+            schemaMode,
           )
           .map(payload.pkgId -> _)
       case _ =>
@@ -53,24 +53,24 @@ object Decode {
   @throws[Error]
   def assertDecodeArchivePayload(
       payload: ArchivePayload,
-      onlySchema: Boolean = false,
+      schemaMode: Boolean = false,
   ): (PackageId, Ast.Package) =
-    assertRight(decodeArchivePayload(payload, onlySchema = onlySchema))
+    assertRight(decodeArchivePayload(payload, schemaMode = schemaMode))
 
   // decode an Archive
   def decodeArchive(
       archive: DamlLf.Archive,
-      onlySchema: Boolean = false,
+      schemaMode: Boolean = false,
   ): Either[Error, (PackageId, Ast.Package)] =
     Reader
       .readArchive(archive)
-      .flatMap(decodeArchivePayload(_, onlySchema = onlySchema))
+      .flatMap(decodeArchivePayload(_, schemaMode = schemaMode))
 
   @throws[Error]
   def assertDecodeArchive(
       archive: DamlLf.Archive,
-      onlySchema: Boolean = false,
+      schemaMode: Boolean = false,
   ): (PackageId, Ast.Package) =
-    assertRight(decodeArchive(archive, onlySchema = onlySchema))
+    assertRight(decodeArchive(archive, schemaMode = schemaMode))
 
 }
