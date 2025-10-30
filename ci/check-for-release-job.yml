@@ -30,15 +30,19 @@ jobs:
             [ "sdk/LATEST" = "$changed" ]
         }
 
-        changes_one_line_in_latest() {
-            changed="$(git diff-tree --no-commit-id --numstat -r $(fork_sha) $(branch_sha) -- LATEST | awk '{print $1 "_" $2}')"
-            add_one="1_0"
-            change_one="1_1"
-            [[ "$add_one" == "$changed" || "$change_one" == "$changed" ]]
+        added_line() {
+          git diff $(fork_sha)..$(branch_sha) LATEST \
+            | awk '/^+[^+]/ {print substr($0, 2)}'
         }
 
-        added_line() {
-            echo "$(git diff $(fork_sha) $(branch_sha) -- LATEST | tail -n+6 | grep '^\+' | cut -c2-)"
+        deleted_line() {
+          # ignore adhoc and rc snapshots
+          git diff $(fork_sha)..$(branch_sha) LATEST \
+            | awk '/^-[^-]/ && !/[0-9]+\.[0-9]+\.[0-9]-(adhoc|rc[0-9]+)\./ {print substr($0, 2)}'
+        }
+
+        changes_one_line_in_latest() {
+          [[ $(added_line | wc -l) -eq 1 ]] && [[ $(deleted_line | wc -l) -le 1 ]]
         }
 
         if changes_release_files; then
