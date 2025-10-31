@@ -109,7 +109,7 @@ object ScriptService {
     Status.NOT_FOUND.withDescription(s" context $id not found!").asRuntimeException
 
   private def unknownMajorVersion(str: String): StatusRuntimeException =
-    Status.INVALID_ARGUMENT.withDescription(s"unknonw major LF version: $str").asRuntimeException
+    Status.INVALID_ARGUMENT.withDescription(str).asRuntimeException
 }
 
 sealed abstract class ScriptStream {
@@ -309,8 +309,8 @@ class ScriptService(implicit
         val response = NewContextResponse.newBuilder.setContextId(ctx.contextId).build
         respObs.onNext(response)
         respObs.onCompleted()
-      case Left(_) =>
-        respObs.onError(unknownMajorVersion(req.getLfMajor))
+      case Left(msg) =>
+        respObs.onError(unknownMajorVersion(msg))
     }
   }
 
