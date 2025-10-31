@@ -22,10 +22,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import scala.collection.immutable.ArraySeq
 
 /** Tests for [[Engine.hashCreateNode]]. */
-class HashCreateNodeSpec
-    extends AnyWordSpec
-    with EitherValues
-    with Matchers {
+class HashCreateNodeSpec extends AnyWordSpec with EitherValues with Matchers {
 
   implicit val defaultParserParameters: ParserParameters[this.type] =
     ParserParameters.default[this.type]

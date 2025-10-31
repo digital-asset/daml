@@ -24,7 +24,7 @@ class LanguageVersionSpec extends AnyWordSpec with Matchers with TableDrivenProp
 
     forEvery(versions)(v1 =>
       forEvery(versions)(v2 =>
-          v1.compare(v2).sign shouldBe (versionRank(v1) compareTo versionRank(v2)).sign
+        v1.compare(v2).sign shouldBe (versionRank(v1) compareTo versionRank(v2)).sign
       )
     )
   }

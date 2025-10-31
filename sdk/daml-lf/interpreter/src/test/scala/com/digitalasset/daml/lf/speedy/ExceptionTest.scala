@@ -33,11 +33,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import scala.collection.immutable.ArraySeq
 
 // TEST_EVIDENCE: Integrity: Exceptions, throw/catch.
-class ExceptionTest
-    extends AnyFreeSpec
-    with Inside
-    with Matchers
-    with TableDrivenPropertyChecks {
+class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDrivenPropertyChecks {
 
   import SpeedyTestLib.loggingContext
 

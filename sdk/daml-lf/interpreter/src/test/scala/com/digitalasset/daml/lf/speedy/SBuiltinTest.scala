@@ -33,11 +33,7 @@ import scala.collection.immutable.ArraySeq
 import scala.language.implicitConversions
 import scala.util.{Failure, Try}
 
-class SBuiltinTest
-    extends AnyFreeSpec
-    with Matchers
-    with TableDrivenPropertyChecks
-    with Inside {
+class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks with Inside {
 
   val helpers = new SBuiltinTestHelpers
   import helpers.{parserParameters => _, _}

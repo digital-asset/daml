@@ -468,9 +468,7 @@ object Repl {
     )
 
   def devCompilerConfig: Compiler.Config =
-    defaultCompilerConfig.copy(allowedLanguageVersions =
-      LV.all.toRange
-    )
+    defaultCompilerConfig.copy(allowedLanguageVersions = LV.all.toRange)
 
   private implicit class StateOp(val x: (Boolean, State)) extends AnyVal {
 
