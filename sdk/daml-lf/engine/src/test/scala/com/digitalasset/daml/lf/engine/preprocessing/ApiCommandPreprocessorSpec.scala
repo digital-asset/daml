@@ -8,7 +8,6 @@ package preprocessing
 import com.digitalasset.daml.lf.command.ApiCommand
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.newCid
 import com.digitalasset.daml.lf.value.Value._
@@ -21,9 +20,7 @@ import com.digitalasset.daml.lf.speedy.Compiler
 
 import scala.util.{Failure, Success, Try}
 
-class ApiCommandPreprocessorSpecV2 extends ApiCommandPreprocessorSpec(LanguageMajorVersion.V2)
-
-class ApiCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
+class ApiCommandPreprocessorSpec
     extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks
@@ -36,7 +33,7 @@ class ApiCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
   }
 
   private implicit val parserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor(majorLanguageVersion)
+    ParserParameters.default
 
   private implicit val defaultPackageId: PackageId = parserParameters.defaultPackageId
 
@@ -112,7 +109,7 @@ class ApiCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
     """
 
   private[this] val compiledPackage = ConcurrentCompiledPackages(
-    Compiler.Config.Default(majorLanguageVersion)
+    Compiler.Config.Default
   )
   assert(compiledPackage.addPackage(defaultPackageId, pkg) == ResultDone.Unit)
 

@@ -6,13 +6,13 @@ package test
 
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
+import com.digitalasset.daml.lf.language.LanguageVersion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-class TlsITV2 extends TlsIT(LanguageMajorVersion.V2)
+class TlsITV2 extends TlsIT(LanguageVersion.Major.V2)
 
-class TlsIT(override val majorLanguageVersion: LanguageMajorVersion)
+class TlsIT(override val majorLanguageVersion: LanguageVersion.Major)
     extends AsyncWordSpec
     with AbstractScriptTest
     with Matchers {

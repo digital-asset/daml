@@ -8,7 +8,7 @@ import com.digitalasset.daml.lf.crypto.Hash.HashingMethod
 import com.digitalasset.daml.lf.crypto.{Hash, SValueHash}
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref}
-import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.speedy.{Compiler, SValue}
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
@@ -21,16 +21,16 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import scala.collection.immutable.ArraySeq
 
-class HashCreateNodeSpecV2 extends HashCreateNodeSpec(LanguageMajorVersion.V2)
+class HashCreateNodeSpecV2 extends HashCreateNodeSpec(LanguageVersion.Major.V2)
 
 /** Tests for [[Engine.hashCreateNode]]. */
-class HashCreateNodeSpec(majorLanguageVersion: LanguageMajorVersion)
+class HashCreateNodeSpec(majorLanguageVersion: LanguageVersion.Major)
     extends AnyWordSpec
     with EitherValues
     with Matchers {
 
   implicit val defaultParserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor[this.type](majorLanguageVersion)
+    ParserParameters.default[this.type]
 
   val pkgId = defaultParserParameters.defaultPackageId
   val pkg = {
@@ -46,7 +46,7 @@ class HashCreateNodeSpec(majorLanguageVersion: LanguageMajorVersion)
     """
   }
 
-  val compilerConfig = Compiler.Config.Default(majorLanguageVersion)
+  val compilerConfig = Compiler.Config.Default
   val compiledPkgs = PureCompiledPackages.build(Map(pkgId -> pkg), compilerConfig)
 
   private def newEngine = new Engine(

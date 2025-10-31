@@ -7,8 +7,6 @@ package validation
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.language.Ast._
 
-import scala.Ordering.Implicits.infixOrderingOps
-
 private[validation] object DependencyVersion {
 
   @throws[ValidationError]

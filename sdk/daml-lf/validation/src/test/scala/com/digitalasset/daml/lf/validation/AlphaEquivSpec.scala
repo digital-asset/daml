@@ -4,22 +4,16 @@
 package com.digitalasset.daml.lf.validation
 
 import com.digitalasset.daml.lf.language.Ast.Type
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 
-class AlphaEquivSpecV2 extends AlphaEquivSpec(LanguageMajorVersion.V2)
-
-class AlphaEquivSpec(majorLanguageVersion: LanguageMajorVersion)
-    extends AnyWordSpec
-    with TableDrivenPropertyChecks
-    with Matchers {
+class AlphaEquivSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
   private[this] implicit val parserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor(majorLanguageVersion)
+    ParserParameters.default
 
   import SpecUtil._
 

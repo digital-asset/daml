@@ -17,7 +17,6 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import scala.jdk.CollectionConverters._
 import scala.language.implicitConversions
-import scala.Ordering.Implicits.infixOrderingOps
 
 class DamlLfEncoderTest
     extends AnyWordSpec

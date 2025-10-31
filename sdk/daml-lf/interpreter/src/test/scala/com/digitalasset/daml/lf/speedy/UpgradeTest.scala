@@ -10,7 +10,7 @@ import com.digitalasset.daml.lf.data.Ref.{Identifier, TypeConId}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.speedy.SError.{SError, SErrorDamlException}
 import com.digitalasset.daml.lf.speedy.SExpr.{SEApp, SExpr}
 import com.digitalasset.daml.lf.speedy.SValue.SContractId
@@ -28,22 +28,16 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 
 import scala.collection.immutable.ArraySeq
 
-class UpgradeTestV2 extends UpgradeTest(LanguageMajorVersion.V2)
-
-class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
-    extends AnyFreeSpec
-    with Matchers
-    with TableDrivenPropertyChecks
-    with Inside {
+class UpgradeTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks with Inside {
 
   implicit val pkgId: Ref.PackageId = Ref.PackageId.assertFromString("-no-pkg-")
 
   private[this] implicit def parserParameters(implicit
       pkgId: Ref.PackageId
   ): ParserParameters[this.type] =
-    ParserParameters(pkgId, languageVersion = majorLanguageVersion.dev)
+    ParserParameters(pkgId, languageVersion = LanguageVersion.dev)
 
-  private[this] val compilerConfig = Compiler.Config.Dev(majorLanguageVersion)
+  private[this] val compilerConfig = Compiler.Config.Dev
 
   val ifacePkgId = Ref.PackageId.assertFromString("-iface-")
   private lazy val ifacePkg = {

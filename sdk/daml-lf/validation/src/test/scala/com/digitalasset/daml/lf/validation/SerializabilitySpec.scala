@@ -6,22 +6,16 @@ package validation
 
 import com.digitalasset.daml.lf.data.Ref.DottedName
 import com.digitalasset.daml.lf.language.Ast.Package
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class SerializabilitySpecV2 extends SerializabilitySpec(LanguageMajorVersion.V2)
-
-class SerializabilitySpec(majorLanguageVersion: LanguageMajorVersion)
-    extends AnyWordSpec
-    with TableDrivenPropertyChecks
-    with Matchers {
+class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
   implicit val defaultParserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor(majorLanguageVersion)
+    ParserParameters.default
   val defaultPackageId = defaultParserParameters.defaultPackageId
 
   "Serializability checking" should {

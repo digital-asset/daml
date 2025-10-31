@@ -7,7 +7,6 @@ package speedy
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion}
 import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.speedy.SExpr.LfDefRef
 import com.digitalasset.daml.lf.speedy.SResult._
@@ -16,22 +15,17 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 import com.daml.logging.ContextualizedLogger
+import com.digitalasset.daml.lf.language.Ast
 
 import scala.language.implicitConversions
 
-class InterpreterTestV2 extends InterpreterTest(LanguageMajorVersion.V2)
-
-class InterpreterTest(majorLanguageVersion: LanguageMajorVersion)
-    extends AnyWordSpec
-    with Inside
-    with Matchers
-    with TableDrivenPropertyChecks {
+class InterpreterTest extends AnyWordSpec with Inside with Matchers with TableDrivenPropertyChecks {
 
   import SpeedyTestLib.loggingContext
 
   private implicit def id(s: String): Ref.Name = Name.assertFromString(s)
 
-  private val compilerConfig = Compiler.Config.Default(majorLanguageVersion)
+  private val compilerConfig = Compiler.Config.Default
   private val languageVersion = compilerConfig.allowedLanguageVersions.max
 
   private def runExpr(e: Expr): SValue = {

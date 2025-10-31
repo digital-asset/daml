@@ -6,7 +6,6 @@ package speedy
 
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.speedy.SResult._
@@ -19,17 +18,11 @@ import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import scala.collection.immutable.ArraySeq
 import scala.jdk.CollectionConverters._
 
-class ProfilerTestV2 extends ProfilerTest(LanguageMajorVersion.V2)
-
-class ProfilerTest(majorLanguageVersion: LanguageMajorVersion)
-    extends AnyWordSpec
-    with Matchers
-    with ScalaCheckDrivenPropertyChecks {
+class ProfilerTest extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyChecks {
 
   import SpeedyTestLib.loggingContext
 
-  private implicit val parserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor[this.type](majorLanguageVersion)
+  private implicit val parserParameters: ParserParameters[this.type] = ParserParameters.default
   private val pkgId = parserParameters.defaultPackageId
 
   private[this] val pkg = p"""
@@ -66,7 +59,7 @@ class ProfilerTest(majorLanguageVersion: LanguageMajorVersion)
         }
     """
 
-  val config = Compiler.Config.Default(majorLanguageVersion).copy(profiling = Compiler.FullProfile)
+  val config = Compiler.Config.Default.copy(profiling = Compiler.FullProfile)
   val compiledPackages = PureCompiledPackages.assertBuild(Map(pkgId -> pkg), config)
 
   private def id(s: String) =

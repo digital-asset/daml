@@ -4,22 +4,16 @@
 package com.digitalasset.daml.lf.validation
 
 import com.digitalasset.daml.lf.language.Ast.Package
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml.lf.testing.parser.Implicits._
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 
-class CollisionSpecV2 extends CollisionSpec(LanguageMajorVersion.V2)
-
-class CollisionSpec(majorLanguageVersion: LanguageMajorVersion)
-    extends AnyWordSpec
-    with Matchers
-    with TableDrivenPropertyChecks {
+class CollisionSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
   private[this] implicit val parserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor(majorLanguageVersion)
+    ParserParameters.default
 
   def check(pkg: Package): Unit =
     Collision.checkPackage(parserParameters.defaultPackageId, pkg)

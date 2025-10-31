@@ -9,12 +9,11 @@ import com.daml.ledger.api.v2.value
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.LanguageMajorVersion.V2
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.speedy.SBuiltinFun._
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.speedy.{SValue}
+import com.digitalasset.daml.lf.speedy.SValue
 import com.digitalasset.daml.lf.typesig.EnvironmentSignature
 import com.digitalasset.daml.lf.typesig.reader.SignatureReader
 import com.digitalasset.daml.lf.value.Value
@@ -72,9 +71,9 @@ final case class AnyContractKey(templateId: Identifier, ty: Type, key: SValue)
 final case class Disclosure(templatedId: TypeConId, contractId: ContractId, blob: Bytes)
 
 object Converter {
-  def apply(majorLanguageVersion: LanguageMajorVersion): ConverterMethods = {
+  def apply(majorLanguageVersion: LanguageVersion.Major): ConverterMethods = {
     majorLanguageVersion match {
-      case V2 => com.digitalasset.daml.lf.engine.script.v2.Converter
+      case LanguageVersion.Major.V2 => com.digitalasset.daml.lf.engine.script.v2.Converter
       case _ => throw new IllegalArgumentException(s"${majorLanguageVersion.pretty} not supported")
     }
   }

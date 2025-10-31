@@ -93,7 +93,7 @@ object RunnerMain {
       majorVersion = dar.main._2.languageVersion.major
       compiledPackages = PureCompiledPackages.assertBuild(
         dar.all.toMap,
-        Runner.compilerConfig(majorVersion),
+        Runner.compilerConfig,
       )
       ifaceDar =
         dar.map { case (pkgId, _) =>

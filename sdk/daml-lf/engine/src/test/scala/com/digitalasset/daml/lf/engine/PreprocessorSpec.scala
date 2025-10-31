@@ -9,7 +9,7 @@ import com.digitalasset.daml.lf.command.{ApiCommand, ApiContractKey}
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref.{PackageId, PackageName, PackageRef, PackageVersion, Party}
 import com.digitalasset.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref}
-import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion, LookupError}
+import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, LookupError}
 import com.digitalasset.daml.lf.speedy.{Command, Compiler}
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
@@ -27,19 +27,17 @@ import org.scalatest.{Assertion, Inside, Inspectors}
 
 import scala.collection.immutable
 
-class PreprocessorSpecV2 extends PreprocessorSpec(LanguageMajorVersion.V2)
-
-class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
+class PreprocessorSpec
     extends AnyWordSpec
     with Inside
     with Matchers
     with Inspectors
     with TableDrivenPropertyChecks {
 
-  val helpers = new PreprocessorSpecHelpers(majorLanguageVersion)
+  val helpers = new PreprocessorSpecHelpers
   import helpers._
 
-  val compilerConfig = Compiler.Config.Dev(majorLanguageVersion)
+  val compilerConfig = Compiler.Config.Dev
 
   "preprocessor" should {
     "returns correct result when resuming" in {
@@ -412,12 +410,12 @@ class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
   }
 }
 
-final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) {
+final class PreprocessorSpecHelpers {
 
   implicit val parserParameters: ParserParameters[this.type] =
     ParserParameters(
       defaultPackageId = Ref.PackageId.assertFromString("-pkgId-"),
-      LanguageVersion.defaultOrLatestStable(majorLanguageVersion),
+      LanguageVersion.latestStable,
     )
 
   implicit val defaultPackageId: Ref.PackageId = parserParameters.defaultPackageId

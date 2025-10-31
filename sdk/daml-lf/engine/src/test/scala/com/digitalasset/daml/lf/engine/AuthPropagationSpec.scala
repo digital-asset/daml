@@ -17,7 +17,6 @@ import com.digitalasset.daml.lf.data.Ref.{
   QualifiedName,
 }
 import com.digitalasset.daml.lf.language.Ast.Package
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml.lf.ledger.FailedAuthorization.{
   CreateMissingAuthorization,
   ExerciseMissingAuthorization,
@@ -36,6 +35,7 @@ import com.digitalasset.daml.lf.value.Value.{
   ValueRecord,
 }
 import com.daml.logging.LoggingContext
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import com.digitalasset.daml.lf.value.ContractIdVersion
 
@@ -46,9 +46,9 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.language.implicitConversions
 
-class AuthPropagationSpecV2 extends AuthPropagationSpec(LanguageMajorVersion.V2)
+class AuthPropagationSpecV2 extends AuthPropagationSpec(LanguageVersion.Major.V2)
 
-class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
+class AuthPropagationSpec(majorLanguageVersion: LanguageVersion.Major)
     extends AnyFreeSpec
     with Matchers
     with Inside
@@ -117,7 +117,7 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
   private val contractIdVersion = ContractIdVersion.V1
 
   private val testEngine: Engine =
-    Engine.DevEngine(majorLanguageVersion)
+    Engine.DevEngine
 
   private def go(
       submitters: Set[Party],

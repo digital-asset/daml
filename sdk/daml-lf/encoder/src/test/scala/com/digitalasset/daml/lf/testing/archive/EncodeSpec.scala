@@ -49,7 +49,6 @@ abstract class EncodeSpec(languageVersion: LanguageVersion)
 
       implicit val defaultParserParameters2: ParserParameters[this.type] =
         defaultParserParameters
-      import Ordering.Implicits._
 
       val pkg: Ast.Package =
         p"""
