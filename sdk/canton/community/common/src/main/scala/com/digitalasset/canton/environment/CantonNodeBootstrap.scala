@@ -285,8 +285,8 @@ abstract class CantonNodeBootstrapImpl[
   private def waitingFor: Option[WaitingForExternalInput] = {
     def nextStage(stage: BootstrapStage[?, ?]): Option[BootstrapStage[?, ?]] =
       stage.next match {
-        case Some(s: BootstrapStage[_, _]) => nextStage(s)
-        case Some(_: RunningNode[_]) => None
+        case Some(s: BootstrapStage[?, ?]) => nextStage(s)
+        case Some(_: RunningNode[?]) => None
         // BootstrapStageOrLeaf is not a sealed class, therefore we need to catch any other
         // possible subclass
         case Some(_) => None

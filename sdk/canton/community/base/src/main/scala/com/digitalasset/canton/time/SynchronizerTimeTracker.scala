@@ -216,7 +216,7 @@ class SynchronizerTimeTracker(
     }
   }
 
-  def flow[F[_], Env <: Envelope[_]](implicit F: Foldable[F]): Flow[
+  def flow[F[_], Env <: Envelope[?]](implicit F: Foldable[F]): Flow[
     F[BoxedEnvelope[OrdinaryEnvelopeBox, Env]],
     F[BoxedEnvelope[OrdinaryEnvelopeBox, Env]],
     NotUsed,
@@ -228,7 +228,7 @@ class SynchronizerTimeTracker(
   }
 
   /** Create a [[sequencing.OrdinaryApplicationHandler]] for updating this time tracker */
-  def wrapHandler[Env <: Envelope[_]](
+  def wrapHandler[Env <: Envelope[?]](
       handler: OrdinaryApplicationHandler[Env]
   ): OrdinaryApplicationHandler[Env] = handler.replace { tracedEvents =>
     tracedEvents.withTraceContext { implicit batchTraceContext => events =>
@@ -252,11 +252,11 @@ class SynchronizerTimeTracker(
     }
 
   @VisibleForTesting
-  private[time] def update(events: Seq[OrdinarySequencedEvent[Envelope[_]]])(implicit
+  private[time] def update(events: Seq[OrdinarySequencedEvent[Envelope[?]]])(implicit
       batchTraceContext: TraceContext
   ): Unit = {
     withLock {
-      def updateOne(event: OrdinarySequencedEvent[Envelope[_]]): Unit = {
+      def updateOne(event: OrdinarySequencedEvent[Envelope[?]]): Unit = {
         updateTimestampRef(event.timestamp)
         TimeProof.fromEventO(event).foreach { proof =>
           val oldTimeProof = timeProofRef.getAndSet(LatestAndNext(received(proof).some, None))

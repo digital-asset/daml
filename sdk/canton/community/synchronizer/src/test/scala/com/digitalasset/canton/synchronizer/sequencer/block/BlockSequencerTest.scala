@@ -51,8 +51,8 @@ import com.digitalasset.canton.topology.processing.{
   TopologyTransactionTestFactory,
 }
 import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
-import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
+import com.digitalasset.canton.topology.store.{NoPackageDependencies, ValidatedTopologyTransaction}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.MaxBytesToDecompress
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
@@ -121,7 +121,7 @@ class BlockSequencerTest
       mock[Clock],
       defaultStaticSynchronizerParameters,
       topologyStore,
-      StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
+      NoPackageDependencies,
       DefaultProcessingTimeouts.testing,
       FutureSupervisor.Noop,
       loggerFactory,

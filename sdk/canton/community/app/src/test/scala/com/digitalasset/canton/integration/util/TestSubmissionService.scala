@@ -73,6 +73,7 @@ import com.digitalasset.daml.lf.engine.{
 }
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.*
+import com.digitalasset.daml.lf.value.ContractIdVersion
 import io.grpc.stub.StreamObserver
 import org.scalatest.OptionValues.*
 
@@ -313,6 +314,7 @@ class TestSubmissionService(
         participantId = participantId.toLf,
         prefetchKeys = Seq.empty,
         submissionSeed = submissionSeed,
+        contractIdVersion = ContractIdVersion.V1,
       )
 
     EitherT(resolve(result))

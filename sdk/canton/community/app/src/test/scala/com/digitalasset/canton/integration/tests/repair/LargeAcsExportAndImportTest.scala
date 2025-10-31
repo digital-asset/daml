@@ -44,6 +44,7 @@ import com.digitalasset.canton.{TempDirectory, config}
 import monocle.Monocle.toAppliedFocusOps
 
 import java.util.concurrent.TimeUnit
+import scala.annotation.nowarn
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
 
@@ -343,6 +344,7 @@ protected abstract class DumpTestSet extends LargeAcsExportAndImportTestBase {
   }
 }
 
+@nowarn("cat=deprecation") // Usage of old acs export
 protected abstract class EstablishTestSet extends LargeAcsExportAndImportTestBase {
   // If true, use legacy export/import (Canton internal instead of LAPI)
   def useLegacyExportImport: Boolean

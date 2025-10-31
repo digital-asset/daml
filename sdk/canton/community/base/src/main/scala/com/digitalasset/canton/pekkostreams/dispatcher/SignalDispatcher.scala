@@ -93,7 +93,7 @@ class SignalDispatcher private () {
     }
 
   private def shutdownInternal(
-      shutdownSourceQueue: SourceQueueWithComplete[_] => Future[_]
+      shutdownSourceQueue: SourceQueueWithComplete[?] => Future[?]
   ): Future[Unit] = {
     implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.parasitic
     runningState

@@ -195,7 +195,9 @@ import com.digitalasset.canton.http.json.v2.{
   SchemaProcessorsImpl,
   TranscodePackageIdResolver,
 }
+import com.digitalasset.canton.logging.audit.TransportType.Http
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, NoLogging}
+import com.digitalasset.canton.networking.grpc.CallMetadata
 import com.digitalasset.canton.serialization.ProtoConverter.InstantConverter
 import com.digitalasset.canton.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.store.packagemeta.PackageMetadata.Implicits.packageMetadataSemigroup
@@ -312,7 +314,13 @@ private final case class LedgerServicesJson(
       ],
       ws: Boolean,
   ): INPUT => Future[DecodeResult[Either[(StatusCode, JsCantonError), OUTPUT]]] =
-    client(endpoint, ws)(CallerContext(token.map(Jwt.apply)))
+    client(endpoint, ws)(
+      CallerContext(
+        jwt = token.map(Jwt.apply),
+        // CallMetadata for client are not relevant, but we need to provide one nonetheless
+        call = CallMetadata(endpoint.showShort, Http, Left("integration-test-client")),
+      )
+    )
 
   private def clientCall[INPUT, OUTPUT](
       endpoint: sttp.tapir.Endpoint[

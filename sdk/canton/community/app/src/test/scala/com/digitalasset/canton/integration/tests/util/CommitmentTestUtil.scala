@@ -152,6 +152,8 @@ trait CommitmentTestUtil extends BaseTest with SortedReconciliationIntervalsHelp
 
     val tick1 = tickAfter(simClock.uniqueTime())
     simClock.advanceTo(tick1.forgetRefinement.immediateSuccessor)
+    // just fetch_synchronizer_times() is sometimes not enough to trigger commitment generation
+    firstParticipant.health.ping(firstParticipant)
 
     firstParticipant.testing.fetch_synchronizer_times()
 

@@ -17,7 +17,7 @@ object Implicits {
     param("act as", _.actAs),
   )
 
-  implicit def prettyContractId: Pretty[ContractId[_]] = prettyOfString { coid =>
+  implicit def prettyContractId: Pretty[ContractId[?]] = prettyOfString { coid =>
     val coidStr = coid.contractId
     val tokens = coidStr.split(':')
     if (tokens.lengthCompare(2) == 0) {

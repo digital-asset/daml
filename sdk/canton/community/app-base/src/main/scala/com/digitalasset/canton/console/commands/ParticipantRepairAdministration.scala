@@ -39,7 +39,6 @@ import io.grpc.Context
 
 import java.time.Instant
 import java.util.UUID
-import scala.annotation.nowarn
 
 class ParticipantRepairAdministration(
     val consoleEnvironment: ConsoleEnvironment,
@@ -172,7 +171,8 @@ class ParticipantRepairAdministration(
         |
         |
         |The arguments are:
-        |- parties: identifying contracts having at least one stakeholder from the given set
+        |- parties: identifying contracts having at least one stakeholder from the given set.
+        |           if empty, contracts of all parties will be exported.
         |- partiesOffboarding: true if the parties will be offboarded (party migration)
         |- outputFile: the output file name where to store the data.
         |- filterSynchronizerId: restrict the export to a given synchronizer
@@ -187,7 +187,10 @@ class ParticipantRepairAdministration(
         |         request.
         """
   )
-  @nowarn("cat=deprecation")
+  @deprecated(
+    "Method export_acs_old has been deprecated. Use acs_export_instead. For party replication, see participant.parties.export_acs",
+    since = "3.4",
+  )
   def export_acs_old(
       parties: Set[PartyId],
       partiesOffboarding: Boolean,
@@ -258,6 +261,10 @@ class ParticipantRepairAdministration(
         |
         |DEPRECATION NOTICE: A future release removes this command, use `export_acs` instead.
         """
+  )
+  @deprecated(
+    "Method import_acs_old has been deprecated. Use import_acs instead. For party replication, see participant.parties.import_party_acs",
+    since = "3.4",
   )
   def import_acs_old(
       inputFile: String = ParticipantRepairAdministration.ExportAcsDefaultFile,
