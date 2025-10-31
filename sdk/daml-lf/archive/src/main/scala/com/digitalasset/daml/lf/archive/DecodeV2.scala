@@ -31,10 +31,10 @@ private[archive] class DecodeV2(minor: LV.Minor) {
   def decodePackage( // entry point
       packageId: PackageId,
       lfPackage: PLF.Package,
-      onlySchema: Boolean,
+      schemaMode: Boolean,
       patchVersion: Int,
   ): Either[Error, Package] =
-    if (!onlySchema && patchVersion != 0)
+    if (!schemaMode && patchVersion != 0)
       Left(Error.Parsing(s"Unknown patch version $patchVersion for LF $languageVersion"))
     else
       attempt(NameOf.qualifiedNameOfCurrentFunc) {
@@ -62,7 +62,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           internedStrings = internedStrings,
           internedDottedNames = internedDottedNames,
           optDependencyTracker = Some(dependencyTracker),
-          onlySchema = onlySchema,
+          schemaMode = schemaMode,
           imports = imports,
         )
 
@@ -71,7 +71,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         val internedTypes = decodeTypesTable(env1, lfPackage)
         val env2 = env1.copy(internedTypes = internedTypes)
         val internedExprs =
-          if (onlySchema)
+          if (schemaMode)
             Vector.empty
           else
             lfPackage.getInternedExprsList().asScala.toVector
@@ -258,7 +258,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       internedExprs: collection.IndexedSeq[PLF.Expr] = ImmArraySeq.empty,
       optDependencyTracker: Option[PackageDependencyTracker] = None,
       optModuleName: Option[ModuleName] = None,
-      onlySchema: Boolean = false,
+      schemaMode: Boolean = false,
       currentInternedExprId: Option[Int] = None,
       imports: Either[String, collection.IndexedSeq[String]] = Left(
         "package made in com.digitalasset.daml.lf.DecodeV2 (default Env constructor)"
@@ -338,7 +338,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       val exceptions = mutable.ArrayBuffer[(DottedName, DefException)]()
       val interfaces = mutable.ArrayBuffer[(DottedName, DefInterface)]()
 
-      if (!onlySchema) {
+      if (!schemaMode) {
         // collect type synonyms
         lfModule.getSynonymsList.asScala
           .foreach { defn =>
@@ -350,14 +350,14 @@ private[archive] class DecodeV2(minor: LV.Minor) {
 
       // collect data types
       lfModule.getDataTypesList.asScala
-        .filter(!onlySchema || _.getSerializable)
+        .filter(!schemaMode || _.getSerializable)
         .foreach { defn =>
           val defName = getInternedDottedName(defn.getNameInternedDname)
           val d = Work.run(decodeDefDataType(defn))
           defs += (defName -> d)
         }
 
-      if (!onlySchema) {
+      if (!schemaMode) {
         // collect values
         lfModule.getValuesList.asScala.foreach { defn =>
           val nameWithType = defn.getNameWithType
@@ -374,7 +374,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         templates += ((defName, Work.run(decodeTemplate(defName, defn))))
       }
 
-      if (!onlySchema) {
+      if (!schemaMode) {
         lfModule.getExceptionsList.asScala
           .foreach { defn =>
             val defName = getInternedDottedName(defn.getNameInternedDname)
@@ -954,14 +954,14 @@ private[archive] class DecodeV2(minor: LV.Minor) {
     }
 
     private def decodeExpr[T](lfExpr: PLF.Expr, definition: String)(k: Expr => Work[T]): Work[T] =
-      if (onlySchema)
+      if (schemaMode)
         k(EUnit) // we can call k directly because we know there is no recursion on decodeExpr
       else
         Work.Bind(Work.Delay(() => decodeExpr1(lfExpr, definition)), k)
 
     private def decodeExpr1(lfExpr: PLF.Expr, definition: String): Work[Expr] = {
-      if (onlySchema)
-        throw new IllegalStateException("decodeExpr1 called in onlySchema mode")
+      if (schemaMode)
+        throw new IllegalStateException("decodeExpr1 called in schema mode")
       Work.bind(lfExpr.getSumCase match {
         case PLF.Expr.SumCase.VAR_INTERNED_STR =>
           Ret(EVar(getInternedName(lfExpr.getVarInternedStr)))
