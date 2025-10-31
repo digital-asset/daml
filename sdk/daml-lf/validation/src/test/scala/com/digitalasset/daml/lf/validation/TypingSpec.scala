@@ -19,10 +19,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-abstract class TypingSpec
-    extends AnyWordSpec
-    with TableDrivenPropertyChecks
-    with Matchers {
+abstract class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
   private[this] implicit val parserParameters: ParserParameters[this.type] =
     ParserParameters.default

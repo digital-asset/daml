@@ -1531,7 +1531,7 @@ class DecodeV2Spec
 
     "take a dalf with interned IDs" in {
 
-      minorVersion.isDevVersion should be (false)
+      minorVersion.isDevVersion should be(false)
 
       extId should not be empty
       (extId: String) should !==(pkgId: String)

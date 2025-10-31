@@ -19,10 +19,7 @@ import java.nio.file.Path
 import com.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.archive.DarDecoder
 
-class EngineValidatePackagesTest
-    extends AnyWordSpec
-    with Matchers
-    with Inside {
+class EngineValidatePackagesTest extends AnyWordSpec with Matchers with Inside {
 
   // TODO: extend with a (set of) compat dar(s), script-test-v2.dev.dar is
   // tested here as placeholder https://github.com/digital-asset/daml/pull/22101
