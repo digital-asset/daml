@@ -93,14 +93,14 @@ object Reader {
         for {
           _ <- validateUnknownFields(lf, schemaMode)
           pkg <- lf1PackageParser.fromByteString(lf.getDamlLf1)
-        } yield ArchivePayload.Lf1(hash, pkg, Minor.fromString(lf.getMinor))
+        } yield ArchivePayload.Lf1(hash, pkg, Minor.assertFromString(lf.getMinor))
     case DamlLf.ArchivePayload.SumCase.DAML_LF_2 =>
       for {
         _ <- validateUnknownFields(lf, schemaMode)
-        minor = Minor.fromString(lf.getMinor)
+        minor = Minor.assertFromString(lf.getMinor)
         pkg <- lf2PackageParser(minor).fromByteString(lf.getDamlLf2)
         _ <- validateUnknownFields(pkg, schemaMode)
-      } yield ArchivePayload.Lf2(hash, pkg, Minor.fromString(lf.getMinor), lf.getPatch)
+      } yield ArchivePayload.Lf2(hash, pkg, Minor.assertFromString(lf.getMinor), lf.getPatch)
     case DamlLf.ArchivePayload.SumCase.SUM_NOT_SET =>
       Left(Error.Parsing("Unrecognized or Unsupported LF version"))
   }
