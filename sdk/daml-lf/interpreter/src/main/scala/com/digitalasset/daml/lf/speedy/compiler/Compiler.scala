@@ -79,7 +79,7 @@ private[lf] object Compiler {
   )
 
   object Config {
-    val Default =
+    def Default =
       Config(
         allowedLanguageVersions = LanguageVersion.stable.toRange,
         packageValidation = FullPackageValidation,
@@ -87,7 +87,7 @@ private[lf] object Compiler {
         stacktracing = NoStackTrace,
       )
 
-    val Dev = Config(
+    def Dev = Config(
       allowedLanguageVersions = LanguageVersion.all.toRange,
       packageValidation = FullPackageValidation,
       profiling = NoProfile,

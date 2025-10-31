@@ -1004,7 +1004,7 @@ object Engine {
     }
   }
 
-  val DevEngine: Engine = new Engine(
+  def DevEngine: Engine = new Engine(
     EngineConfig(allowedLanguageVersions = LanguageVersion.all.toRange)
   )
 

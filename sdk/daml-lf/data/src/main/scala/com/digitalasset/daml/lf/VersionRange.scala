@@ -19,7 +19,7 @@ final case class VersionRange[V](
     max: V,
 )(implicit ordering: Ordering[V]) {
 
-  require(min <= max)
+  require(min <= max, s"Invalid ordering, min (${min}) was not <= max (${max})")
 
   private[lf] def map[W](f: V => W)(implicit ordering: Ordering[W]) =
     VersionRange(f(min), f(max))

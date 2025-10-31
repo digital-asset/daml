@@ -16,27 +16,22 @@ final case class LanguageVersion private(
   def isDevVersion: Boolean = minor.isDevVersion
 
   override def compare(that: LanguageVersion): Int = {
-    (this.major, this.minor, that.major, that.minor) match {
-      // Dev is highest
-      case (LanguageVersion.Major.V2, LanguageVersion.Minor.Dev, LanguageVersion.Major.V2, LanguageVersion.Minor.Dev) => 0
-      case (LanguageVersion.Major.V2, LanguageVersion.Minor.Dev, LanguageVersion.Major.V2, _) => 1
-      case (LanguageVersion.Major.V2, _, LanguageVersion.Major.V2, LanguageVersion.Minor.Dev) => -1
+    val majorCompare = this.major.compare(that.major)
 
-      // Stable vs Stable
-      case (LanguageVersion.Major.V2, LanguageVersion.Minor.Stable(a), LanguageVersion.Major.V2, LanguageVersion.Minor.Stable(b)) => a.compare(b)
-
-      case _ => 0 // Should be unreachable with current bzl data
+    if (majorCompare != 0) {
+      majorCompare
+    } else {
+      this.minor.compare(that.minor)
     }
   }
 }
 
 object LanguageVersion {
-  //sealed abstract class LegacyMajor(val pretty: String) extends Product with Serializable
-  //sealed abstract class Major(pretty: String) extends LegacyMajor(pretty) with Serializable
-  sealed abstract class Major(val pretty: String) extends Product with Serializable
+  sealed abstract class Major(val pretty: String) extends Product with Serializable with Ordered[Major] {
+    override def compare(that: Major): Int = this.pretty.compare(that.pretty)
+  }
 
   object Major {
-    //case object V1 extends LegacyMajor("1")
     case object V1 extends Major("1")
     case object V2 extends Major("2")
 
@@ -46,12 +41,27 @@ object LanguageVersion {
       allMajors.find(_.pretty == str).toRight(s"${str} is not supported, supported majors: ${allMajors}")
   }
 
-  sealed abstract class Minor extends Product with Serializable {
+  sealed abstract class Minor extends Product with Serializable with Ordered[Minor] {
     val toProtoIdentifier: String = pretty
     //TODO: remove alias
     val identifier: String = pretty
     def pretty: String
     def isDevVersion: Boolean = false
+
+    override def compare(that: Minor): Int = (this, that) match {
+      // Dev is the highest version
+      case (Minor.Dev, Minor.Dev) => 0
+      case (Minor.Dev, _)         => 1
+      case (_, Minor.Dev)         => -1
+
+      // Staging is the next highest
+      case (Minor.Staging(a), Minor.Staging(b)) => a.compare(b)
+      case (Minor.Staging(_), Minor.Stable(_))  => 1
+      case (Minor.Stable(_), Minor.Staging(_))  => -1
+
+      // Stable is the lowest
+      case (Minor.Stable(a), Minor.Stable(b)) => a.compare(b)
+    }
   }
 
   object Minor {
@@ -128,7 +138,7 @@ object LanguageVersion {
      */
     def minors: List[LanguageVersion.Minor] = list.map(_.minor)
     def toRange: VersionRange[LanguageVersion] = {
-      VersionRange(list.last, list.head)
+      VersionRange(list.head, list.last)
     }
   }
 
