@@ -76,30 +76,12 @@ object LanguageVersion {
       override def isDevVersion: Boolean = true
     }
 
-    // TODO: make this less hardcode-y
-    def fromString(input: String): Minor = {
-      input match {
-        // "dev" case
-        case "dev" => Dev
+    def fromString(str: String): Either[String, Minor] =
+      (all ++ allLegacy).minors
+        .find(_.pretty == str)
+        .toRight(s"${str} is not supported, supported minors: ${(all ++ allLegacy).minors}")
 
-        // All stable int cases
-        case "1" => Stable(1)
-        case "2" => Stable(2)
-        case "6" => Stable(6)
-        case "7" => Stable(7)
-        case "8" => Stable(8)
-        case "11" => Stable(11)
-        case "12" => Stable(12)
-        case "13" => Stable(13)
-        case "14" => Stable(14)
-        case "15" => Stable(15)
-        case "17" => Stable(17)
-
-        // All other cases throw an exception
-        case _ =>
-          throw new IllegalArgumentException(s"Invalid language version string: '$input'")
-      }
-    }
+    def assertFromString(s: String): Minor = data.assertRight(fromString(s))
   }
 
   // legacy versions (i.e. 1.x that is only supported for parsing (i.e. for 1.x
@@ -130,6 +112,7 @@ object LanguageVersion {
   val compilerOutput: List[LanguageVersion] = List(v2_1, v2_2, v2_dev)
   // End of code that in the furutre will be generated from
   // //daml-lf/language/daml-lf.bzl
+
 
   def fromString(str: String): Either[String, LanguageVersion] =
     (allLegacy ++ all).find(_.toString == str).toRight(s"${str} is not supported")

@@ -302,7 +302,7 @@ class ScriptService(implicit
       case Right(majorVersion) =>
         val lfVersion = LanguageVersion(
           majorVersion,
-          LanguageVersion.Minor.fromString(req.getLfMinor),
+          LanguageVersion.Minor.assertFromString(req.getLfMinor),
         )
         val ctx = Context.newContext(lfVersion, req.getEvaluationTimeout.seconds)
         contexts += (ctx.contextId -> ctx)
