@@ -34,7 +34,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
   def decodePackage( // entry point
       packageId: PackageId,
       lfPackage: PLF.Package,
-      onlySchema: Boolean,
+      schemaMode: Boolean,
   ): Either[Error, Package] = attempt(NameOf.qualifiedNameOfCurrentFunc) {
 
     val internedStrings = lfPackage.getInternedStringsList.asScala.to(ImmArraySeq)
@@ -65,7 +65,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       IndexedSeq.empty,
       Some(dependencyTracker),
       None,
-      onlySchema,
+      schemaMode,
     )
 
     val internedTypes = Work.run(decodeInternedTypes(env0, lfPackage))
@@ -128,7 +128,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       IndexedSeq.empty,
       None,
       None,
-      onlySchema = false,
+      schemaMode = false,
     )
     val internedTypes = Work.run(decodeInternedTypes(env0, lfSingleModule))
     val env = env0.copy(internedTypes = internedTypes)
@@ -199,7 +199,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       internedTypes: collection.IndexedSeq[Type],
       optDependencyTracker: Option[PackageDependencyTracker],
       optModuleName: Option[ModuleName],
-      onlySchema: Boolean,
+      schemaMode: Boolean,
   ) {
 
     // decode*ForTest -- test entry points
@@ -257,7 +257,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
 
       if (versionIsOlderThan(Features.typeSynonyms)) {
         assertEmpty(lfModule.getSynonymsList, "Module.synonyms")
-      } else if (!onlySchema) {
+      } else if (!schemaMode) {
         // collect type synonyms
         lfModule.getSynonymsList.asScala
           .foreach { defn =>
@@ -278,7 +278,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
 
       // collect data types
       lfModule.getDataTypesList.asScala
-        .filter(!onlySchema || _.getSerializable)
+        .filter(!schemaMode || _.getSerializable)
         .foreach { defn =>
           val defName = handleDottedName(
             defn.getNameCase,
@@ -293,7 +293,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           defs += (defName -> d)
         }
 
-      if (!onlySchema) {
+      if (!schemaMode) {
         // collect values
         lfModule.getValuesList.asScala.foreach { defn =>
           val nameWithType = defn.getNameWithType
@@ -325,7 +325,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
 
       if (versionIsOlderThan(Features.exceptions)) {
         assertEmpty(lfModule.getExceptionsList, "Module.exceptions")
-      } else if (!onlySchema) {
+      } else if (!schemaMode) {
         lfModule.getExceptionsList.asScala
           .foreach { defn =>
             val defName = getInternedDottedName(defn.getNameInternedDname)
