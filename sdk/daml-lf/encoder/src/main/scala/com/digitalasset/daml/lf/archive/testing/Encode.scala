@@ -9,7 +9,6 @@ import com.daml.crypto.MessageDigestPrototype
 import com.digitalasset.daml.lf.archive.{DamlLf => PLF}
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.language.Ast.Package
-import com.digitalasset.daml.lf.language.LanguageVersion.Major
 import com.digitalasset.daml.lf.language.LanguageVersion
 
 /** The Daml-LF Encoder library can be used to build dar files directly from LF
@@ -39,7 +38,7 @@ object Encode {
       }
 
     major match {
-      case Major.V2 =>
+      case LanguageVersion.Major.V2 =>
         PLF.ArchivePayload
           .newBuilder()
           .setMinor(minor.toProtoIdentifier)

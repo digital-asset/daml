@@ -14,7 +14,6 @@ import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.language.{LanguageVersion => LV}
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
-import com.digitalasset.daml.lf.language.LanguageVersion.Major
 
 import scala.annotation.nowarn
 import scala.collection.mutable
@@ -26,7 +25,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
   import DecodeV2._
   import Work.Ret
 
-  private val languageVersion: LV = LV(Major.V2, minor)
+  private val languageVersion: LV = LV(LV.Major.V2, minor)
 
   def decodePackage( // entry point
       packageId: PackageId,
