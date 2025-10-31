@@ -94,12 +94,13 @@ object Value {
       ValueVariant(tycon, variant, value.mapCid(f))
 
     override def nonVerboseWithoutTrailingNones: Value =
-      ValueVariant(tycon, variant, value.nonVerboseWithoutTrailingNones)
+      ValueVariant(None, variant, value.nonVerboseWithoutTrailingNones)
   }
   final case class ValueEnum(tycon: Option[Identifier], value: Name)
       extends ValueCidlessLeaf
       with CidContainer[ValueEnum] {
-    override def nonVerboseWithoutTrailingNones: Value = this
+    override def nonVerboseWithoutTrailingNones: Value =
+      ValueEnum(None, value)
   }
 
   final case class ValueContractId(value: ContractId)

@@ -476,7 +476,6 @@ class ValueTranslatorSpec(languageVersion: LanguageVersion, forbidTrailingNones:
       val typ = t"Mod:Either Text Int64"
       val testCases = Table(
         "variant",
-        ValueVariant("Mod:Either", "Left", ValueText("some test")),
         ValueVariant("", "Left", ValueText("some test")),
       )
       val svalue = SVariant("Mod:Either", "Left", 0, SText("some test"))
@@ -486,7 +485,7 @@ class ValueTranslatorSpec(languageVersion: LanguageVersion, forbidTrailingNones:
 
     "handle different representation of the same enum" in {
       val typ = t"Mod:Color"
-      val testCases = Table("enum", ValueEnum("Mod:Color", "green"), ValueEnum("", "green"))
+      val testCases = Table("enum", ValueEnum("", "green"))
       val svalue = SEnum("Mod:Color", "green", 1)
       forEvery(testCases)(value => Try(unsafeTranslateValue(typ, value)) shouldBe Success(svalue))
     }
@@ -715,6 +714,78 @@ class ValueTranslatorSpec(languageVersion: LanguageVersion, forbidTrailingNones:
                   "" -> ValueOptional(None),
                   "" -> ValueOptional(None),
                 ),
+              ),
+              "" -> ValueOptional(None),
+              "" -> ValueOptional(None),
+            ),
+          ),
+        ),
+      )
+      forAll(testCases) { (typ, value) =>
+        a[TranslationFailed.InvalidValue] shouldBe thrownBy(
+          unsafeTranslateValue(typ, value)
+        )
+      }
+    }
+
+    "reject variants with typeCon IDs" in {
+      implicit val parserParameters: ParserParameters[ValueTranslatorSpec.this.type] =
+        ParserParameters(upgradablePkgId, languageVersion)
+
+      val testCases = Table[Ast.Type, Value](
+        ("type", "value"),
+        (
+          t"Mod:Variant Unit Unit Unit",
+          ValueVariant(
+            "Mod:Variant",
+            "ConsA",
+            ValueUnit,
+          ),
+        ),
+        (
+          t"Mod:Record (Mod:Variant Unit Unit Unit) Text Party Unit",
+          ValueRecord(
+            "",
+            ImmArray(
+              "" -> ValueVariant(
+                "Mod:Variant",
+                "ConsA",
+                ValueUnit,
+              ),
+              "" -> ValueOptional(None),
+              "" -> ValueOptional(None),
+            ),
+          ),
+        ),
+      )
+      forAll(testCases) { (typ, value) =>
+        a[TranslationFailed.InvalidValue] shouldBe thrownBy(
+          unsafeTranslateValue(typ, value)
+        )
+      }
+    }
+
+    "reject enums with typeCon IDs" in {
+      implicit val parserParameters: ParserParameters[ValueTranslatorSpec.this.type] =
+        ParserParameters(upgradablePkgId, languageVersion)
+
+      val testCases = Table[Ast.Type, Value](
+        ("type", "value"),
+        (
+          t"Mod:Enum",
+          ValueEnum(
+            "Mod:Enum",
+            "red",
+          ),
+        ),
+        (
+          t"Mod:Record Mod:Enum Text Party Unit",
+          ValueRecord(
+            "",
+            ImmArray(
+              "" -> ValueEnum(
+                "Mod:Enum",
+                "red",
               ),
               "" -> ValueOptional(None),
               "" -> ValueOptional(None),
