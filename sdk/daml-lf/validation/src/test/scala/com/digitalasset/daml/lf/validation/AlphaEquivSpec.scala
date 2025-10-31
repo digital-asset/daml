@@ -10,10 +10,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 
-class AlphaEquivSpec
-    extends AnyWordSpec
-    with TableDrivenPropertyChecks
-    with Matchers {
+class AlphaEquivSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
   private[this] implicit val parserParameters: ParserParameters[this.type] =
     ParserParameters.default

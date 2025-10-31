@@ -4,12 +4,19 @@
 package com.digitalasset.daml.lf
 package engine
 
-import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.{CreateKey, CreateSerializationVersion}
+import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.{
+  CreateKey,
+  CreateSerializationVersion,
+}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.Implicits._
-import com.digitalasset.daml.lf.transaction.test.{TestIdFactory, TestNodeBuilder, TreeTransactionBuilder}
+import com.digitalasset.daml.lf.transaction.test.{
+  TestIdFactory,
+  TestNodeBuilder,
+  TreeTransactionBuilder,
+}
 import com.digitalasset.daml.lf.transaction.{Node, SerializationVersion}
 import com.digitalasset.daml.lf.value.Value.{ValueParty, ValueUnit}
 import org.scalatest.matchers.should.Matchers

@@ -14,8 +14,15 @@ import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
-import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.{CreateKey, CreateSerializationVersion}
-import com.digitalasset.daml.lf.transaction.test.{TestNodeBuilder, TransactionBuilder, TreeTransactionBuilder}
+import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.{
+  CreateKey,
+  CreateSerializationVersion,
+}
+import com.digitalasset.daml.lf.transaction.test.{
+  TestNodeBuilder,
+  TransactionBuilder,
+  TreeTransactionBuilder,
+}
 import com.digitalasset.daml.lf.transaction.{CommittedTransaction, NodeId, SerializationVersion}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value._
@@ -24,15 +31,12 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 
-class EnricherSpec
-    extends AnyWordSpec
-    with Matchers
-    with Inside
-    with TableDrivenPropertyChecks {
+class EnricherSpec extends AnyWordSpec with Matchers with Inside with TableDrivenPropertyChecks {
 
   import TransactionBuilder.Implicits.{defaultPackageId => _, _}
 
-  implicit val defaultParserParameters: ParserParameters[this.type] = ParserParameters.default[this.type]
+  implicit val defaultParserParameters: ParserParameters[this.type] =
+    ParserParameters.default[this.type]
 
   implicit val defaultPackageId: Ref.PackageId =
     defaultParserParameters.defaultPackageId

@@ -21,10 +21,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 
 import scala.collection.immutable.ArraySeq
 
-class RollbackTest
-    extends AnyFreeSpec
-    with Matchers
-    with TableDrivenPropertyChecks {
+class RollbackTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks {
 
   import SpeedyTestLib.loggingContext
 

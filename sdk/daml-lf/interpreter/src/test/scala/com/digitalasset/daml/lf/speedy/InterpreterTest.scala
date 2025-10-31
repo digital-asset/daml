@@ -19,11 +19,7 @@ import com.digitalasset.daml.lf.language.Ast
 
 import scala.language.implicitConversions
 
-class InterpreterTest
-    extends AnyWordSpec
-    with Inside
-    with Matchers
-    with TableDrivenPropertyChecks {
+class InterpreterTest extends AnyWordSpec with Inside with Matchers with TableDrivenPropertyChecks {
 
   import SpeedyTestLib.loggingContext
 

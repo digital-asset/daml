@@ -15,7 +15,12 @@ import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.speedy.Speedy.UpdateMachine
 import com.digitalasset.daml.lf.stablepackages.StablePackages
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
-import com.digitalasset.daml.lf.transaction.{FatContractInstance, GlobalKey, GlobalKeyWithMaintainers, SubmittedTransaction}
+import com.digitalasset.daml.lf.transaction.{
+  FatContractInstance,
+  GlobalKey,
+  GlobalKeyWithMaintainers,
+  SubmittedTransaction,
+}
 import com.digitalasset.daml.lf.validation.{Validation, ValidationError}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
@@ -151,8 +156,7 @@ private[speedy] object SpeedyTestLib {
     )
     PureCompiledPackages.assertBuild(
       pkgs,
-      Compiler.Config
-        .Dev
+      Compiler.Config.Dev
         .copy(stacktracing = Compiler.FullStackTrace),
     )
   }

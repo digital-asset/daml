@@ -14,10 +14,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 
 // TEST_EVIDENCE: Availability: Tail call optimization: Tail recursion does not blow the scala JVM stack.
-class TailCallTest
-    extends AnyFreeSpec
-    with Matchers
-    with TableDrivenPropertyChecks {
+class TailCallTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks {
 
   import SpeedyTestLib.loggingContext
 

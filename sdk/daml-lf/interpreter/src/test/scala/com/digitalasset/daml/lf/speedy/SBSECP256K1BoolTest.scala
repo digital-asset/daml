@@ -31,10 +31,7 @@ import java.security.{KeyPairGenerator, Security}
 import java.security.spec.InvalidKeySpecException
 import scala.collection.immutable.ArraySeq
 
-class SBSECP256K1BoolTest
-    extends AnyFreeSpec
-    with Matchers
-    with ScalaCheckPropertyChecks {
+class SBSECP256K1BoolTest extends AnyFreeSpec with Matchers with ScalaCheckPropertyChecks {
   import SBSECP256K1BoolTest._
   import SpeedyTestLib.loggingContext
 

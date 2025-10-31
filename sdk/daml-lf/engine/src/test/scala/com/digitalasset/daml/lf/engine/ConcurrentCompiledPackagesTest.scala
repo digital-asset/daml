@@ -11,10 +11,7 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class ConcurrentCompiledPackagesTest
-    extends AnyWordSpec
-    with Matchers
-    with Inside {
+class ConcurrentCompiledPackagesTest extends AnyWordSpec with Matchers with Inside {
 
   implicit val parserParameters: ParserParameters[this.type] = ParserParameters.default[this.type]
 

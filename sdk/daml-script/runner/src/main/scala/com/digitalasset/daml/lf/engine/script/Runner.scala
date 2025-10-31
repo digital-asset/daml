@@ -10,20 +10,38 @@ import com.daml.logging.LoggingContext
 import com.daml.script.converter.ConverterException
 import com.daml.tls.TlsConfiguration
 import com.digitalasset.canton.ledger.client.LedgerClient
-import com.digitalasset.canton.ledger.client.configuration.{CommandClientConfiguration, LedgerClientChannelConfiguration, LedgerClientConfiguration}
+import com.digitalasset.canton.ledger.client.configuration.{
+  CommandClientConfiguration,
+  LedgerClientChannelConfiguration,
+  LedgerClientConfiguration,
+}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.engine.script.ParticipantsJsonProtocol.ContractIdFormat
-import com.digitalasset.daml.lf.engine.script.ledgerinteraction.{GrpcLedgerClient, IdeLedgerClient, ScriptLedgerClient}
+import com.digitalasset.daml.lf.engine.script.ledgerinteraction.{
+  GrpcLedgerClient,
+  IdeLedgerClient,
+  ScriptLedgerClient,
+}
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.AdminLedgerClient
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.script.{IdeLedger, IdeLedgerRunner}
 import com.digitalasset.daml.lf.speedy.SExpr._
-import com.digitalasset.daml.lf.speedy.{Compiler, Pretty, Profile, SDefinition, SError, SValue, Speedy, TraceLog, WarningLog}
+import com.digitalasset.daml.lf.speedy.{
+  Compiler,
+  Pretty,
+  Profile,
+  SDefinition,
+  SError,
+  SValue,
+  Speedy,
+  TraceLog,
+  WarningLog,
+}
 import com.digitalasset.daml.lf.typesig.EnvironmentSignature
 import com.digitalasset.daml.lf.typesig.reader.SignatureReader
 import com.digitalasset.daml.lf.value.Value.ContractId

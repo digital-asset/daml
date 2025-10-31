@@ -13,7 +13,14 @@ import com.digitalasset.daml.lf.language.Ast.Package
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.Versioned
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{ValueBool, ValueInt64, ValueParty, ValueRecord, ValueUnit, ValueVariant}
+import com.digitalasset.daml.lf.value.Value.{
+  ValueBool,
+  ValueInt64,
+  ValueParty,
+  ValueRecord,
+  ValueUnit,
+  ValueVariant,
+}
 import org.scalatest.EitherValues
 import org.scalatest.Inside.inside
 import org.scalatest.matchers.should.Matchers

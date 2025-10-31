@@ -10,7 +10,14 @@ import com.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.transaction.{FatContractInstance, Node, NodeId, SerializationVersion, SubmittedTransaction, Transaction}
+import com.digitalasset.daml.lf.transaction.{
+  FatContractInstance,
+  Node,
+  NodeId,
+  SerializationVersion,
+  SubmittedTransaction,
+  Transaction,
+}
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.command.ReplayCommand
 import com.daml.logging.LoggingContext

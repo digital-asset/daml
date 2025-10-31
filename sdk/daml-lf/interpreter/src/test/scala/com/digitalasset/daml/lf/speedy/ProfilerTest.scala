@@ -18,10 +18,7 @@ import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import scala.collection.immutable.ArraySeq
 import scala.jdk.CollectionConverters._
 
-class ProfilerTest
-    extends AnyWordSpec
-    with Matchers
-    with ScalaCheckDrivenPropertyChecks {
+class ProfilerTest extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyChecks {
 
   import SpeedyTestLib.loggingContext
 

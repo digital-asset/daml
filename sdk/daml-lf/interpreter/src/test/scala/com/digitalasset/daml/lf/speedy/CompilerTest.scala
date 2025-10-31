@@ -23,12 +23,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import scala.collection.immutable.ArraySeq
 
-
-class CompilerTest
-    extends AnyWordSpec
-    with TableDrivenPropertyChecks
-    with Matchers
-    with Inside {
+class CompilerTest extends AnyWordSpec with TableDrivenPropertyChecks with Matchers with Inside {
 
   val helpers = new CompilerTestHelpers
   import helpers._

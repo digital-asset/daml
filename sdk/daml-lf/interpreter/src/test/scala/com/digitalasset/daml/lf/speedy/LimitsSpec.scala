@@ -10,7 +10,11 @@ import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
-import com.digitalasset.daml.lf.transaction.{FatContractInstance, SerializationVersion, SubmittedTransaction}
+import com.digitalasset.daml.lf.transaction.{
+  FatContractInstance,
+  SerializationVersion,
+  SubmittedTransaction,
+}
 import com.digitalasset.daml.lf.value.Value
 import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
@@ -19,11 +23,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 
 import scala.collection.immutable.ArraySeq
 
-class LimitsSpec
-    extends AnyFreeSpec
-    with Matchers
-    with Inside
-    with TableDrivenPropertyChecks {
+class LimitsSpec extends AnyFreeSpec with Matchers with Inside with TableDrivenPropertyChecks {
 
   import SpeedyTestLib.loggingContext
 

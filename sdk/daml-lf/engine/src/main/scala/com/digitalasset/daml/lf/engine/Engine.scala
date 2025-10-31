@@ -32,12 +32,7 @@ import com.digitalasset.daml.lf.transaction.{
 import java.nio.file.{Files, StandardOpenOption}
 import com.digitalasset.daml.lf.value.{ContractIdVersion, Value, ValueCoder}
 import com.digitalasset.daml.lf.value.Value.ContractId
-import com.digitalasset.daml.lf.language.{
-  Ast,
-  LanguageVersion,
-  LookupError,
-  PackageInterface,
-}
+import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, LookupError, PackageInterface}
 import com.digitalasset.daml.lf.speedy.Speedy.Machine.newTraceLog
 import com.digitalasset.daml.lf.stablepackages.StablePackages
 import com.digitalasset.daml.lf.testing.snapshot.Snapshot

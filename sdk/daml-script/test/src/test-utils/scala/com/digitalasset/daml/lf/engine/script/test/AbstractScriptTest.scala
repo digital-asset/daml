@@ -11,7 +11,10 @@ import com.daml.integrationtest.CantonConfig.TimeProviderType
 import com.daml.integrationtest.CantonFixture
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.engine.script.ledgerinteraction.{GrpcLedgerClient, ScriptLedgerClient}
+import com.digitalasset.daml.lf.engine.script.ledgerinteraction.{
+  GrpcLedgerClient,
+  ScriptLedgerClient,
+}
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
 import com.digitalasset.daml.lf.speedy.SValue
 import com.digitalasset.daml.lf.stablepackages.StablePackages

@@ -12,10 +12,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class SerializabilitySpec
-    extends AnyWordSpec
-    with TableDrivenPropertyChecks
-    with Matchers {
+class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
   implicit val defaultParserParameters: ParserParameters[this.type] =
     ParserParameters.default

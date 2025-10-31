@@ -29,7 +29,8 @@ class HashCreateNodeSpec(majorLanguageVersion: LanguageVersion.Major)
     with EitherValues
     with Matchers {
 
-  implicit val defaultParserParameters: ParserParameters[this.type] = ParserParameters.default[this.type]
+  implicit val defaultParserParameters: ParserParameters[this.type] =
+    ParserParameters.default[this.type]
 
   val pkgId = defaultParserParameters.defaultPackageId
   val pkg = {

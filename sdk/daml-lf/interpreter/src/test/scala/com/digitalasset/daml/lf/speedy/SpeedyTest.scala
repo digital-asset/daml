@@ -22,10 +22,7 @@ import org.scalatest.freespec.AnyFreeSpec
 
 import scala.collection.immutable.ArraySeq
 
-class SpeedyTest
-    extends AnyFreeSpec
-    with Matchers
-    with Inside {
+class SpeedyTest extends AnyFreeSpec with Matchers with Inside {
 
   import SpeedyTest._
 

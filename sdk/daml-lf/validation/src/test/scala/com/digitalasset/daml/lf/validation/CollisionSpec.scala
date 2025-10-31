@@ -10,10 +10,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 
-class CollisionSpec
-    extends AnyWordSpec
-    with Matchers
-    with TableDrivenPropertyChecks {
+class CollisionSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
   private[this] implicit val parserParameters: ParserParameters[this.type] =
     ParserParameters.default

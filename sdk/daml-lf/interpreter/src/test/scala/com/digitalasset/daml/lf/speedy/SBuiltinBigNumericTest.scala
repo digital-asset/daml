@@ -16,10 +16,7 @@ import org.scalatest.freespec.AnyFreeSpec
 
 import scala.language.implicitConversions
 
-class SBuiltinBigNumericTest
-    extends AnyFreeSpec
-    with Matchers
-    with TableDrivenPropertyChecks {
+class SBuiltinBigNumericTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks {
 
   val helpers = new SBuiltinBigNumericTestHelpers
   import helpers.{parserParameters => _, _}

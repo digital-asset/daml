@@ -65,8 +65,7 @@ class StructProjBench {
   def init(): Unit = {
     assert(m >= n)
     println(s"LF = $MAJOR_LF_VERSION, M = $M, N = $N")
-    val config = Compiler.Config
-      .Dev
+    val config = Compiler.Config.Dev
       .copy(packageValidation = Compiler.NoPackageValidation)
     compiledPackages = PureCompiledPackages.assertBuild(Map(defaultPackageId -> pkg), config)
     sexpr = compiledPackages.compiler.unsafeCompile(e"Mod:bench Mod:struct")

@@ -19,7 +19,7 @@ sealed abstract class LanguageMajorVersion(val pretty: String, minorAscending: L
     with Product
     with Serializable {
 
-  def toMajor : Major =
+  def toMajor: Major =
     pretty match {
       case "1" => Major.V1
       case "2" => Major.V2
@@ -32,20 +32,20 @@ sealed abstract class LanguageMajorVersion(val pretty: String, minorAscending: L
       case "dev" => Dev
 
       // All stable int cases
-      case "1"   => Stable(1)
-      case "2"   => Stable(2)
-      case "6"   => Stable(6)
-      case "7"   => Stable(7)
-      case "8"   => Stable(8)
-      case "11"  => Stable(11)
-      case "12"  => Stable(12)
-      case "13"  => Stable(13)
-      case "14"  => Stable(14)
-      case "15"  => Stable(15)
-      case "17"  => Stable(17)
+      case "1" => Stable(1)
+      case "2" => Stable(2)
+      case "6" => Stable(6)
+      case "7" => Stable(7)
+      case "8" => Stable(8)
+      case "11" => Stable(11)
+      case "12" => Stable(12)
+      case "13" => Stable(13)
+      case "14" => Stable(14)
+      case "15" => Stable(15)
+      case "17" => Stable(17)
 
       // All other cases throw an exception
-      case _     =>
+      case _ =>
         throw new IllegalArgumentException(s"Invalid language version string: '$input'")
     }
   }
@@ -93,5 +93,3 @@ object LanguageMajorVersion {
     case _ => None
   }
 }
-
-

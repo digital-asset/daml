@@ -9,12 +9,7 @@ import com.digitalasset.daml.lf.archive
 import com.digitalasset.daml.lf.archive.ArchiveDecoder
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
 
-import com.digitalasset.daml.lf.language.{
-  Ast,
-  LanguageVersion,
-  StablePackage,
-  StablePackages,
-}
+import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, StablePackage, StablePackages}
 
 final object StablePackagesV2
     extends StablePackagesImpl("compiler/damlc/stable-packages/stable-packages-manifest-v2.txt")
