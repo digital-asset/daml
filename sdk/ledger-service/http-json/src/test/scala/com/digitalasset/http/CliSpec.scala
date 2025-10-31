@@ -135,7 +135,7 @@ final class CliSpec extends AnyFreeSpec with Matchers {
       val config = configParser(
         Seq(
           "--query-store-jdbc-config",
-          s"$jdbcConfigString,lockAcquisitionTimeoutMs=${timeout.toMillis}",
+          s"$jdbcConfigString,lockAcquisitionTimeout=${timeout.toMillis}",
         ) ++ sharedOptions
       ).getOrElse(fail())
       config.jdbcConfig shouldBe Some(jdbcConfig.copy(lockAcquisitionTimeout = timeout))
