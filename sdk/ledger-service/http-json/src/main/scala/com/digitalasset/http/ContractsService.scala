@@ -26,6 +26,7 @@ import com.daml.ledger.api.{v1 => api}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.scalautil.ExceptionOps._
+import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.NonEmptyReturningOps._
 import scalaz.Id.Id
 import scalaz.std.option._
@@ -42,7 +43,7 @@ import scalaz.std.scalaFuture._
 import com.codahale.metrics.Timer
 import doobie.free.{connection => fconn}
 import fconn.ConnectionIO
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration.{Duration, FiniteDuration}
 
 class ContractsService(
     resolveContractTypeId: PackageService.ResolveContractTypeId,
@@ -223,12 +224,12 @@ class ContractsService(
       } yield result
     }.run
 
-    override def search(ctx: SearchContext[Set, Id], queryParams: Map[String, JsValue])(implicit
+    override def search(ctx: SearchContext[NESet, Id], queryParams: Map[String, JsValue])(implicit
         lc: LoggingContextOf[InstanceUUID with RequestID],
         metrics: Metrics,
     ) = {
       import ctx.{jwt, parties, templateIds, ledgerId}
-      searchInMemory(jwt, ledgerId, parties, templateIds, InMemoryQuery.Params(queryParams))
+      searchInMemory(jwt, ledgerId, parties, templateIds.forgetNE, InMemoryQuery.Params(queryParams))
     }
   }
 
@@ -297,14 +298,14 @@ class ContractsService(
       if (unresolvedTemplateIds.isEmpty) None
       else Some(domain.UnknownTemplateIds(unresolvedTemplateIds.toList))
   } yield
-    if (resolvedTemplateIds.isEmpty) {
+    NonEmpty.from(resolvedTemplateIds).fold(
       domain.ErrorResponse(
         errors = List(ErrorMessages.cannotResolveAnyTemplateId),
         warnings = warnings,
         status = StatusCodes.BadRequest,
-      )
-    } else {
-      val searchCtx = SearchContext[Set, Id](jwt, parties, resolvedTemplateIds, ledgerId)
+      ) : SearchResult[Error \/ domain.ActiveContract[JsValue]]
+      ) { nonEmptyTemplateIds =>
+      val searchCtx = SearchContext[NESet, Id](jwt, parties, nonEmptyTemplateIds, ledgerId)
       val source = search.toFinal.search(searchCtx, queryParams)
       domain.OkResponse(source, warnings)
     }
@@ -313,7 +314,9 @@ class ContractsService(
     case (dao, fetch) =>
       new Search {
         val lockSet =
-          new LockSet[TemplateId.RequiredPkg](logger)(Ordering.by(TemplateId.toLedgerApiValue(_)))
+          new LockSet[(domain.Party, TemplateId.RequiredPkg)](logger)(Ordering.by { case (party, tid) =>
+            (party.toString, TemplateId.toLedgerApiValue(tid))
+          })
 
         import dao.{logHandler => doobieLog, jdbcDriver}
         // we store create arguments as JSON in DB, that is why it is `JsValue` in the result
@@ -333,7 +336,7 @@ class ContractsService(
             resolved <- OptionT(
               resolveTemplateId(lc)(jwt, ledgerId)(templateId).map(_.toOption.flatten)
             )
-            res <- OptionT(unsafeRunAsync(Set(resolved)) {
+            res <- OptionT(unsafeRunAsync(parties, NonEmpty.mk(Set, resolved)) {
               import doobie.implicits._, cats.syntax.apply._
               // a single contractId is either present or not; we would only need
               // to fetchAndPersistBracket if we were looking up multiple cids
@@ -364,7 +367,7 @@ class ContractsService(
           import ctx.{jwt, parties, templateIds => templateId, ledgerId}, com.daml.lf.crypto.Hash
           for {
             resolved <- resolveTemplateId(lc)(jwt, ledgerId)(templateId).map(_.toOption.flatten.get)
-            found <- unsafeRunAsync(Set(resolved)) {
+            found <- unsafeRunAsync(parties, NonEmpty.mk(Set, resolved)) {
               import doobie.implicits._, cats.syntax.apply._
               // it is possible for the contract under a given key to have been
               // replaced concurrently with a contract unobservable by parties, i.e.
@@ -390,7 +393,7 @@ class ContractsService(
         }
 
         override def search(
-            ctx: SearchContext[Set, Id],
+            ctx: SearchContext[NESet, Id],
             queryParams: Map[String, JsValue],
         )(implicit
             lc: LoggingContextOf[InstanceUUID with RequestID],
@@ -399,18 +402,27 @@ class ContractsService(
 
           // TODO use `stream` when materializing DBContracts, so we could stream ActiveContracts
           val fv: Future[Vector[domain.ActiveContract[JsValue]]] =
-            unsafeRunAsync(ctx.templateIds)(searchDb_(fetch)(ctx, queryParams))
+            unsafeRunAsync(ctx.parties, ctx.templateIds)(searchDb_(fetch)(ctx, queryParams))
 
           Source.future(fv).mapConcat(identity).map(\/.right)
         }
 
         private[this] def unsafeRunAsync[A](
-            templateIds: Set[TemplateId.RequiredPkg]
+            parties: domain.PartySet,
+            templateIds: NESet[TemplateId.RequiredPkg],
         )(cio: doobie.ConnectionIO[A])(implicit
             lc: LoggingContextOf[InstanceUUID with RequestID]
-        ): Future[A] = lockSet.withLocksOn(templateIds, lockAcquisitionTimeout) {
-          dao.transact(cio).unsafeToFuture()
-        }
+        ): Future[A] =
+          if (lockAcquisitionTimeout > Duration.Zero) {
+            val keys: NESet[(domain.Party, TemplateId.RequiredPkg)] =
+              parties.flatMap(p => templateIds.map(tid => (p, tid)))
+            lockSet.withLocksOn(keys, lockAcquisitionTimeout) {
+              dao.transact(cio).unsafeToFuture()
+            }
+          } else {
+            logger.debug("Running query without locking as lock-acquisition-timeout was zero")
+            dao.transact(cio).unsafeToFuture()
+          }
 
         private[this] def timed[A](
             timer: Timer,
@@ -425,7 +437,7 @@ class ContractsService(
         }
 
         private[this] def searchDb_(fetch: ContractsFetch)(
-            ctx: SearchContext[Set, Id],
+            ctx: SearchContext[NESet, Id],
             queryParams: Map[String, JsValue],
         )(implicit
             lc: LoggingContextOf[InstanceUUID],
@@ -440,14 +452,14 @@ class ContractsService(
               jwt,
               ledgerId,
               parties,
-              templateIds.toList,
+              templateIds.forgetNE.toList,
               Lambda[ConnectionIO ~> ConnectionIO](
                 timed(metrics.daml.HttpJsonApi.Db.searchFetch, _)
               ),
             ) { _ =>
               timed(
                 metrics.daml.HttpJsonApi.Db.searchQuery,
-                templateIds.toVector
+                templateIds.forgetNE.toVector
                   .traverse(tpId => searchDbOneTpId_(parties, tpId, queryParams)),
               )
             }
@@ -642,6 +654,8 @@ object ContractsService {
 
   private type LfValue = lf.value.Value
 
+  type NESet[T] = NonEmpty[Set[T]]
+
   private final case class SearchValueFormat[-T](encode: T => (Error \/ JsValue))
 
   final case class SearchContext[Tids[_], Pkgs[_]](
@@ -689,7 +703,7 @@ object ContractsService {
             .flatMap(oac => toFuture(oac traverse (_ traverse convert)))
 
         override def search(
-            ctx: SearchContext[Set, Id],
+            ctx: SearchContext[NESet, Id],
             queryParams: Map[String, JsValue],
         )(implicit
             lc: LoggingContextOf[InstanceUUID with RequestID],
@@ -716,7 +730,7 @@ object ContractsService {
     ): Future[Option[domain.ActiveContract[LfV]]]
 
     def search(
-        ctx: SearchContext[Set, Id],
+        ctx: SearchContext[NESet, Id],
         queryParams: Map[String, JsValue],
     )(implicit
         lc: LoggingContextOf[InstanceUUID with RequestID],
