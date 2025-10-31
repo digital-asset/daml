@@ -24,9 +24,7 @@ class LanguageVersionSpec extends AnyWordSpec with Matchers with TableDrivenProp
 
     forEvery(versions)(v1 =>
       forEvery(versions)(v2 =>
-        LV.Ordering
-          .compare(v1, v2)
-          .sign shouldBe (versionRank(v1) compareTo versionRank(v2)).sign
+          v1.compare(v2).sign shouldBe (versionRank(v1) compareTo versionRank(v2)).sign
       )
     )
   }
@@ -34,7 +32,7 @@ class LanguageVersionSpec extends AnyWordSpec with Matchers with TableDrivenProp
   "fromString" should {
 
     "recognize known versions" in {
-      val testCases = Table("version", (LV.AllV1 ++ LV.AllV2): _*)
+      val testCases = Table("version", (LV.allLegacy ++ LV.all): _*)
 
       forEvery(testCases)(v => LV.fromString(v.pretty) shouldBe Right(v))
     }

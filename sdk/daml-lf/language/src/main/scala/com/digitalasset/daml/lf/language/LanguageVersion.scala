@@ -47,17 +47,15 @@ object LanguageVersion {
     def isDevVersion: Boolean = false
 
     override def compare(that: Minor): Int = (this, that) match {
-      // Dev is the highest version
+      // Dev > Staging > Stable
       case (Minor.Dev, Minor.Dev) => 0
       case (Minor.Dev, _) => 1
       case (_, Minor.Dev) => -1
 
-      // Staging is the next highest
       case (Minor.Staging(a), Minor.Staging(b)) => a.compare(b)
       case (Minor.Staging(_), Minor.Stable(_)) => 1
       case (Minor.Stable(_), Minor.Staging(_)) => -1
 
-      // Stable is the lowest
       case (Minor.Stable(a), Minor.Stable(b)) => a.compare(b)
     }
   }
@@ -80,7 +78,6 @@ object LanguageVersion {
       (all ++ allLegacy).minors
         .find(_.pretty == str)
         .toRight(s"${str} is not supported, supported minors: ${(all ++ allLegacy).minors}")
-
     def assertFromString(s: String): Minor = data.assertRight(fromString(s))
   }
 
@@ -113,10 +110,8 @@ object LanguageVersion {
   // End of code that in the furutre will be generated from
   // //daml-lf/language/daml-lf.bzl
 
-
   def fromString(str: String): Either[String, LanguageVersion] =
     (allLegacy ++ all).find(_.toString == str).toRight(s"${str} is not supported")
-
   def assertFromString(s: String): LanguageVersion = data.assertRight(fromString(s))
 
   // @deprecated("Actually not sure if deprecated", since="3.5")
@@ -133,53 +128,18 @@ object LanguageVersion {
   }
 
   // --- Backwards-compoatible definitions ---
-  // @deprecated("Version rework, other reason", since="3.5")
-  val Ordering: scala.Ordering[LanguageVersion] =
-    (a, b) => a.compare(b)
-
   // @deprecated("Version rework, use generated variables instead", since="3.5")
   private[lf] def notSupported(major: Major) =
     throw new IllegalArgumentException(s"${major.pretty} not supported")
 
-  // @deprecated("Version rework, use generated variables instead", since="3.5")
-  def AllV1: Seq[LanguageVersion] = allLegacy
-  def AllV2: Seq[LanguageVersion] = all
-
-  // @deprecated("Version rework, use generated variables instead", since="3.5")
+  // TODO: remove after feature rework
   def supportsPackageUpgrades(lv: LanguageVersion): Boolean =
     lv.major match {
       case Major.V2 => lv >= Features.packageUpgrades
       case Major.V1 => lv >= LegacyFeatures.packageUpgrades
     }
 
-  // @deprecated("Version rework, use generated variables instead", since="3.5")
-  def StableVersions(major: Major): VersionRange[LanguageVersion] =
-    major match {
-      case Major.V2 => VersionRange(stable.head, stable.last)
-      case _ => notSupported(major)
-    }
-
-  // @deprecated("Version rework, use generated variables instead", since="3.5")
-  def EarlyAccessVersions(major: Major): VersionRange[LanguageVersion] =
-    StableVersions(major)
-
-  // @deprecated("Version rework, use generated variables instead", since="3.5")
-  def AllVersions(major: Major): VersionRange[LanguageVersion] = {
-    major match {
-      case Major.V2 => VersionRange(all.head, all.last)
-      case _ => notSupported(major)
-    }
-  }
-
-  // @deprecated("Version rework, use generated variables instead", since="3.5")
-  def defaultOrLatestStable(major: Major): LanguageVersion = {
-    major match {
-      case Major.V2 => latestStable
-      case _ => notSupported(major)
-    }
-  }
-
-  // @deprecated("Version rework, use generated variables instead", since="3.5")
+  // TODO: remove after feature rework (this reworks ranges too, so this can be replaced by an Until range)
   def allUpToVersion(version: LanguageVersion): VersionRange[LanguageVersion] = {
     version.major match {
       case Major.V2 => VersionRange(v2_1, version)

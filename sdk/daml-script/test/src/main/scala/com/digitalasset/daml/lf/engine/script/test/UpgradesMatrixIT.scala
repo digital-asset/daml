@@ -286,7 +286,7 @@ abstract class UpgradesMatrixIntegration(upgradesMatrixCases: UpgradesMatrixCase
           prefetchContractKeys = List(),
           optLocation = None,
           languageVersionLookup =
-            _ => Right(LanguageVersion.defaultOrLatestStable(LanguageVersion.Major.V2)),
+            _ => Right(LanguageVersion.latestStable),
           errorBehaviour = ScriptLedgerClient.SubmissionErrorBehaviour.Try,
         )
       }
