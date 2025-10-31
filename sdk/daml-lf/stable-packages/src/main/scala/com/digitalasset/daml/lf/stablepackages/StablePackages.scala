@@ -15,17 +15,12 @@ final object StablePackagesV2
     extends StablePackagesImpl("compiler/damlc/stable-packages/stable-packages-manifest-v2.txt")
 
 private[daml] object StablePackages {
-  def apply(languageMajorVersion: LanguageVersion.Major): StablePackages =
-    languageMajorVersion match {
-      case LanguageVersion.Major.V1 => throw new IllegalArgumentException("LF1 is not supported")
-      case LanguageVersion.Major.V2 => StablePackagesV2
-    }
+  val stablePackages: StablePackages = StablePackagesV2
 
   /** The IDs of stable packages compatible with the provided version range. */
   def ids(allowedLanguageVersions: VersionRange[LanguageVersion]): Set[Ref.PackageId] = {
-    import com.digitalasset.daml.lf.language.LanguageVersion.LanguageVersionRangeOps.LanguageVersionRange
 
-    StablePackages(allowedLanguageVersions.majorVersion).allPackages.view
+    StablePackages.stablePackages.allPackages.view
       .filter(_.pkg.languageVersion <= allowedLanguageVersions.max)
       .map(_.packageId)
       .toSet

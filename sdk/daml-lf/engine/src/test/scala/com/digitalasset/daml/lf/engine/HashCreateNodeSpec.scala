@@ -21,10 +21,8 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import scala.collection.immutable.ArraySeq
 
-class HashCreateNodeSpecV2 extends HashCreateNodeSpec(LanguageVersion.Major.V2)
-
 /** Tests for [[Engine.hashCreateNode]]. */
-class HashCreateNodeSpec(majorLanguageVersion: LanguageVersion.Major)
+class HashCreateNodeSpec
     extends AnyWordSpec
     with EitherValues
     with Matchers {
@@ -50,7 +48,7 @@ class HashCreateNodeSpec(majorLanguageVersion: LanguageVersion.Major)
   val compiledPkgs = PureCompiledPackages.build(Map(pkgId -> pkg), compilerConfig)
 
   private def newEngine = new Engine(
-    EngineConfig(LanguageVersion.StableVersions(majorLanguageVersion))
+    EngineConfig(LanguageVersion.stable.toRange)
   )
 
   val alice = Party.assertFromString("Party")

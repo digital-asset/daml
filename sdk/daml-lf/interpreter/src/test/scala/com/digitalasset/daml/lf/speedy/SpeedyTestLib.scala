@@ -167,9 +167,7 @@ private[speedy] object SpeedyTestLib {
   ): PureCompiledPackages =
     typeAndCompile(
       pkg.languageVersion.major,
-      StablePackages(
-        parserParameter.languageVersion.major
-      ).packagesMap + (parserParameter.defaultPackageId -> pkg),
+      StablePackages.stablePackages.packagesMap + (parserParameter.defaultPackageId -> pkg),
     )
 
   private[speedy] object Implicits {

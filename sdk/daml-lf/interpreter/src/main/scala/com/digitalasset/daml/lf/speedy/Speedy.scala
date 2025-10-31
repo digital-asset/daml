@@ -12,7 +12,6 @@ import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{CostModel => _, _}
 import com.digitalasset.daml.lf.interpretation.{Error => IError}
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.LanguageVersion.LanguageVersionRangeOps.LanguageVersionRange
 import com.digitalasset.daml.lf.language.PackageInterface
 import com.digitalasset.daml.lf.speedy.Compiler.{CompilationError, PackageNotFound}
 import com.digitalasset.daml.lf.speedy.PartialTransaction.NodeSeeds
@@ -811,9 +810,7 @@ private[lf] object Speedy {
 
     private[this] val hasGasBudget = initialGasBudget.isDefined
 
-    private val stablePackages = StablePackages(
-      compiledPackages.compilerConfig.allowedLanguageVersions.majorVersion
-    )
+    private val stablePackages = StablePackages.stablePackages
 
     /** A constructor/deconstructor of value arithmetic errors. */
     val valueArithmeticError: ValueArithmeticError =

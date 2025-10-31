@@ -10,7 +10,7 @@ import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
+import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.speedy.SBuiltinFun.SBCrash
 import com.digitalasset.daml.lf.speedy.SError.{SError, SErrorCrash, SErrorDamlException}
 import com.digitalasset.daml.lf.speedy.SExpr._
@@ -33,15 +33,13 @@ import scala.collection.immutable.ArraySeq
 import scala.language.implicitConversions
 import scala.util.{Failure, Try}
 
-class SBuiltinTestV2 extends SBuiltinTest(LanguageVersion.Major.V2)
-
-class SBuiltinTest(majorLanguageVersion: LanguageVersion.Major)
+class SBuiltinTest
     extends AnyFreeSpec
     with Matchers
     with TableDrivenPropertyChecks
     with Inside {
 
-  val helpers = new SBuiltinTestHelpers(majorLanguageVersion)
+  val helpers = new SBuiltinTestHelpers
   import helpers.{parserParameters => _, _}
 
   implicit val parserParameters: ParserParameters[this.type] = ParserParameters.default
@@ -1688,7 +1686,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageVersion.Major)
     }
 
     "should not request package for ArithmeticError" in {
-      val tyCon = StablePackages(majorLanguageVersion).ArithmeticError
+      val tyCon = StablePackages.stablePackages.ArithmeticError
       val prettyTyCon = s"'${tyCon.packageId}':${tyCon.qualifiedName}"
       eval(
         e"""ANY_EXCEPTION_MESSAGE (to_any_exception @$prettyTyCon ($prettyTyCon { message = "Arithmetic error" }))"""
@@ -2109,7 +2107,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageVersion.Major)
   }
 }
 
-final class SBuiltinTestHelpers(majorLanguageVersion: LanguageVersion.Major) {
+final class SBuiltinTestHelpers {
 
   import SpeedyTestLib.loggingContext
 
@@ -2226,7 +2224,7 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageVersion.Major) {
       Compiler.Config.Default,
     )
 
-  val stablePackages = StablePackages(majorLanguageVersion)
+  val stablePackages = StablePackages.stablePackages
 
   def eval(e: Expr): Either[SError, SValue] =
     Machine.runPureExpr(e, compiledPackages)

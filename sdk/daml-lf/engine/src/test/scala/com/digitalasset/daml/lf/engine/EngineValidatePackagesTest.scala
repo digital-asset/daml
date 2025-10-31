@@ -19,9 +19,7 @@ import java.nio.file.Path
 import com.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.archive.DarDecoder
 
-class EngineValidatePackagesTestV2 extends EngineValidatePackagesTest(LanguageVersion.Major.V2)
-
-class EngineValidatePackagesTest(majorLanguageVersion: LanguageVersion.Major)
+class EngineValidatePackagesTest
     extends AnyWordSpec
     with Matchers
     with Inside {
@@ -32,14 +30,14 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageVersion.Major)
   val testDar = Path.of(BazelRunfiles.rlocation(testDarPath))
   val dar: Dar[(Ref.PackageId, Package)] = DarDecoder.assertReadArchiveFromFile(testDar.toFile)
 
-  val langVersion = LanguageVersion.defaultOrLatestStable(majorLanguageVersion)
+  val langVersion = LanguageVersion.latestStable
 
   val pkgId = Ref.PackageId.assertFromString("-pkg-")
   val extraPkgId = Ref.PackageId.assertFromString("-extra-")
   val missingPkgId = Ref.PackageId.assertFromString("-missing-")
   val utilityPkgId = Ref.PackageId.assertFromString("-utility-")
   val altUtilityPkgId = Ref.PackageId.assertFromString("-alt-utility-")
-  val (stablePkgId, stablePkg) = StablePackages(majorLanguageVersion).packagesMap.head
+  val (stablePkgId, stablePkg) = StablePackages.stablePackages.packagesMap.head
 
   implicit val parserParameters: parser.ParserParameters[this.type] =
     parser.ParserParameters(pkgId, langVersion)
@@ -78,7 +76,7 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageVersion.Major)
   )
 
   private def newEngine = new Engine(
-    EngineConfig(LanguageVersion.AllVersions(majorLanguageVersion))
+    EngineConfig(LanguageVersion.all.toRange)
   )
 
   private def darFromPackageMap(

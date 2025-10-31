@@ -23,7 +23,7 @@ class StablePackageTest(majorLanguageVersion: LanguageVersion.Major)
     with Inspectors
     with TryValues {
 
-  val stablePackages = StablePackages(majorLanguageVersion)
+  val stablePackages = StablePackages.stablePackages
 
   private def resource(path: String): File = {
     val f = new File(path).getAbsoluteFile
