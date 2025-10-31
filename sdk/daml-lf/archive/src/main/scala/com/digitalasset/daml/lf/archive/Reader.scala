@@ -53,7 +53,7 @@ object Reader {
    */
   def readArchive(
       lf: DamlLf.Archive,
-      schemaMode: Boolean = false,
+      schemaMode: Boolean,
   ): Either[Error, ArchivePayload] = for {
     _ <- validateUnknownFields(lf, schemaMode)
     theirHash <- lf.getHashFunction match {
