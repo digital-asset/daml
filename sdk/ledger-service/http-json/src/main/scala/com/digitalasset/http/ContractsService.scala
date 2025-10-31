@@ -229,7 +229,13 @@ class ContractsService(
         metrics: Metrics,
     ) = {
       import ctx.{jwt, parties, templateIds, ledgerId}
-      searchInMemory(jwt, ledgerId, parties, templateIds.forgetNE, InMemoryQuery.Params(queryParams))
+      searchInMemory(
+        jwt,
+        ledgerId,
+        parties,
+        templateIds.forgetNE,
+        InMemoryQuery.Params(queryParams),
+      )
     }
   }
 
@@ -297,14 +303,15 @@ class ContractsService(
     warnings: Option[domain.UnknownTemplateIds] =
       if (unresolvedTemplateIds.isEmpty) None
       else Some(domain.UnknownTemplateIds(unresolvedTemplateIds.toList))
-  } yield
-    NonEmpty.from(resolvedTemplateIds).fold(
+  } yield NonEmpty
+    .from(resolvedTemplateIds)
+    .fold(
       domain.ErrorResponse(
         errors = List(ErrorMessages.cannotResolveAnyTemplateId),
         warnings = warnings,
         status = StatusCodes.BadRequest,
-      ) : SearchResult[Error \/ domain.ActiveContract[JsValue]]
-      ) { nonEmptyTemplateIds =>
+      ): SearchResult[Error \/ domain.ActiveContract[JsValue]]
+    ) { nonEmptyTemplateIds =>
       val searchCtx = SearchContext[NESet, Id](jwt, parties, nonEmptyTemplateIds, ledgerId)
       val source = search.toFinal.search(searchCtx, queryParams)
       domain.OkResponse(source, warnings)
@@ -314,8 +321,9 @@ class ContractsService(
     case (dao, fetch) =>
       new Search {
         val lockSet =
-          new LockSet[(domain.Party, TemplateId.RequiredPkg)](logger)(Ordering.by { case (party, tid) =>
-            (party.toString, TemplateId.toLedgerApiValue(tid))
+          new LockSet[(domain.Party, TemplateId.RequiredPkg)](logger)(Ordering.by {
+            case (party, tid) =>
+              (party.toString, TemplateId.toLedgerApiValue(tid))
           })
 
         import dao.{logHandler => doobieLog, jdbcDriver}

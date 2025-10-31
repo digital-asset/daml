@@ -40,7 +40,7 @@ private[http] object JdbcConfig
            s"${indent}$DisableContractPayloadIndexing -- if true, use a slower schema on Oracle that " +
              "supports querying with literals >256 bytes (DRG-50943)\n"
          else "") +
-         s"lockAcquisitionTimeout -- integer value, specifies how many milliseconds to wait to acquire a lock on the cache when doing a query for a template. 0 to disable."
+        s"lockAcquisitionTimeout -- integer value, specifies how many milliseconds to wait to acquire a lock on the cache when doing a query for a template. 0 to disable."
     )
 
   lazy val usage: String = helpString(
