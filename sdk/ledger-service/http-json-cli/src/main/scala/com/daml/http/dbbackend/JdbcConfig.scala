@@ -26,7 +26,7 @@ private[http] object JdbcConfig
 
   implicit val showInstance: Show[JdbcConfig] = Show.shows { a =>
     import a._, baseConfig._
-    s"JdbcConfig(driver=$driver, url=$url, user=$user, start-mode=$startMode, lock-acquisition-timeout=$lockAcquisitionTimeout)"
+    s"JdbcConfig(driver=$driver, url=$url, user=$user, start-mode=$startMode, lockAcquisitionTimeout=${lockAcquisitionTimeout.toMillis})"
   }
 
   private[this] val DisableContractPayloadIndexing = "disableContractPayloadIndexing"
@@ -40,7 +40,7 @@ private[http] object JdbcConfig
            s"${indent}$DisableContractPayloadIndexing -- if true, use a slower schema on Oracle that " +
              "supports querying with literals >256 bytes (DRG-50943)\n"
          else "") +
-        s"lockAcquisitionTimeoutMs -- integer value, specifies how long to wait to acquire a lock on the cache when doing a query for a template, in millis"
+         s"lockAcquisitionTimeout -- integer value, specifies how many milliseconds to wait to acquire a lock on the cache when doing a query for a template. 0 to disable."
     )
 
   lazy val usage: String = helpString(
@@ -50,7 +50,7 @@ private[http] object JdbcConfig
     "<password>",
     "<tablePrefix>",
     s"<${DbStartupMode.allConfigValues.mkString("|")}>",
-    "<lockAcquisitionTimeoutMs>",
+    "<lock acquisition timeout>",
   )
 
   override def create(implicit
@@ -58,7 +58,7 @@ private[http] object JdbcConfig
   ): Fields[JdbcConfig] =
     for {
       baseConfig <- dbutils.JdbcConfig.create
-      lockAcquisitionTimeout <- optionalLongField("lockAcquisitionTimeoutMs").map(x =>
+      lockAcquisitionTimeout <- optionalLongField("lockAcquisitionTimeout").map(x =>
         x.map(_.millis)
       )
       createSchema <- optionalBooleanField("createSchema").map(
@@ -89,7 +89,7 @@ private[http] object JdbcConfig
       password: String,
       tablePrefix: String,
       dbStartupMode: String,
-      lockAcquisitionTimeoutMs: String,
+      lockAcquisitionTimeout: String,
   ): String =
-    s"""\"driver=$driver,url=$url,user=$user,password=$password,tablePrefix=$tablePrefix,start-mode=$dbStartupMode,lockAcquisitionTimeoutMs=$lockAcquisitionTimeoutMs\""""
+    s"""\"driver=$driver,url=$url,user=$user,password=$password,tablePrefix=$tablePrefix,start-mode=$dbStartupMode,lockAcquisitionTimeout=$lockAcquisitionTimeout\""""
 }
