@@ -34,7 +34,6 @@ import com.digitalasset.daml.lf.value.{ContractIdVersion, Value, ValueCoder}
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.daml.lf.language.{
   Ast,
-  LanguageMajorVersion,
   LanguageVersion,
   LookupError,
   PackageInterface,
