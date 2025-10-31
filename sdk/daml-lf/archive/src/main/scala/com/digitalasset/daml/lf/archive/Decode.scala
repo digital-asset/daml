@@ -66,7 +66,9 @@ object Decode {
           )
           .map(payload.pkgId -> _)
       case _ =>
-        Left(Error.Parsing(s"Encountered unsupported LF version ${payload.version} during decoding"))
+        Left(
+          Error.Parsing(s"Encountered unsupported LF version ${payload.version} during decoding")
+        )
     }
   }
 

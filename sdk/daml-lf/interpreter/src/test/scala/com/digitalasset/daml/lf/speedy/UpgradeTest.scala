@@ -28,11 +28,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 
 import scala.collection.immutable.ArraySeq
 
-class UpgradeTest
-    extends AnyFreeSpec
-    with Matchers
-    with TableDrivenPropertyChecks
-    with Inside {
+class UpgradeTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks with Inside {
 
   implicit val pkgId: Ref.PackageId = Ref.PackageId.assertFromString("-no-pkg-")
 

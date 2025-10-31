@@ -20,9 +20,7 @@ import org.scalatest.matchers.should.Matchers._
 
 import scala.collection.immutable.ArraySeq
 
-class ChoiceAuthorityTest
-    extends AnyFreeSpec
-    with Inside {
+class ChoiceAuthorityTest extends AnyFreeSpec with Inside {
 
   val transactionSeed = crypto.Hash.hashPrivateKey("ChoiceAuthorityTest.scala")
 

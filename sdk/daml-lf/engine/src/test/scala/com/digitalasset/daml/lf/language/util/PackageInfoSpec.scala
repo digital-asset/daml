@@ -15,9 +15,7 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.language.implicitConversions
 
-class PackageInfoSpec
-    extends AnyWordSpec
-    with Matchers {
+class PackageInfoSpec extends AnyWordSpec with Matchers {
 
   import parser.Implicits.SyntaxHelper
 

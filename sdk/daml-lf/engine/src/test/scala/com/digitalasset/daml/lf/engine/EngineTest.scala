@@ -24,7 +24,22 @@ import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.speedy.{InitialSeeding, SValue, svalue}
 import com.digitalasset.daml.lf.stablepackages.StablePackages
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
-import com.digitalasset.daml.lf.transaction.{CreationTime, FatContractInstance, GlobalKey, GlobalKeyWithMaintainers, Node, NodeId, Normalization, ReplayMismatch, SerializationVersion, SubmittedTransaction, Transaction, Validation, VersionedTransaction, Transaction => Tx}
+import com.digitalasset.daml.lf.transaction.{
+  CreationTime,
+  FatContractInstance,
+  GlobalKey,
+  GlobalKeyWithMaintainers,
+  Node,
+  NodeId,
+  Normalization,
+  ReplayMismatch,
+  SerializationVersion,
+  SubmittedTransaction,
+  Transaction,
+  Validation,
+  VersionedTransaction,
+  Transaction => Tx,
+}
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.value.{ContractIdVersion, Value}
 import org.scalactic.Equality

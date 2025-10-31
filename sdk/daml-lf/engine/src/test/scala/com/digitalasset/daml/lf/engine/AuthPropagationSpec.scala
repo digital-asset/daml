@@ -8,12 +8,32 @@ import com.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.archive.DarDecoder
 import com.digitalasset.daml.lf.command.{ApiCommand, ApiCommands}
 import com.digitalasset.daml.lf.data.{Bytes, FrontStack, ImmArray, Time}
-import com.digitalasset.daml.lf.data.Ref.{Identifier, Name, PackageId, ParticipantId, Party, QualifiedName}
+import com.digitalasset.daml.lf.data.Ref.{
+  Identifier,
+  Name,
+  PackageId,
+  ParticipantId,
+  Party,
+  QualifiedName,
+}
 import com.digitalasset.daml.lf.language.Ast.Package
-import com.digitalasset.daml.lf.ledger.FailedAuthorization.{CreateMissingAuthorization, ExerciseMissingAuthorization}
-import com.digitalasset.daml.lf.transaction.{FatContractInstance, SerializationVersion, SubmittedTransaction}
+import com.digitalasset.daml.lf.ledger.FailedAuthorization.{
+  CreateMissingAuthorization,
+  ExerciseMissingAuthorization,
+}
+import com.digitalasset.daml.lf.transaction.{
+  FatContractInstance,
+  SerializationVersion,
+  SubmittedTransaction,
+}
 import com.digitalasset.daml.lf.transaction.Transaction.Metadata
-import com.digitalasset.daml.lf.value.Value.{ContractId, ValueContractId, ValueList, ValueParty, ValueRecord}
+import com.digitalasset.daml.lf.value.Value.{
+  ContractId,
+  ValueContractId,
+  ValueList,
+  ValueParty,
+  ValueRecord,
+}
 import com.daml.logging.LoggingContext
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder

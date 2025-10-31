@@ -19,13 +19,10 @@ import scala.collection.immutable.ArraySeq
 import scala.collection.mutable.ArrayBuffer
 import scala.util.{Success, Try}
 
-class LedgerTimeTest
-    extends AnyFreeSpec
-    with Matchers
-    with Inside
-    with TableDrivenPropertyChecks {
+class LedgerTimeTest extends AnyFreeSpec with Matchers with Inside with TableDrivenPropertyChecks {
 
-  private[this] implicit val defaultParserParameters: ParserParameters[this.type] = ParserParameters.default
+  private[this] implicit val defaultParserParameters: ParserParameters[this.type] =
+    ParserParameters.default
   private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
   private[this] val t0 = Time.Timestamp.now()

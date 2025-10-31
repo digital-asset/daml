@@ -16,10 +16,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import scala.collection.immutable.ArraySeq
 
-class ComparisonSBuiltinTest
-    extends AnyWordSpec
-    with Matchers
-    with TableDrivenPropertyChecks {
+class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
   import SpeedyTestLib.loggingContext
 

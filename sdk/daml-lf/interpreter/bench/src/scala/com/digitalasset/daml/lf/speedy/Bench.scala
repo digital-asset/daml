@@ -143,8 +143,7 @@ class Bench {
 
   @Setup(Level.Trial)
   def init(): Unit = {
-    val config = Compiler.Config
-      .Dev
+    val config = Compiler.Config.Dev
       .copy(packageValidation = Compiler.NoPackageValidation)
     compiledPackages = PureCompiledPackages.assertBuild(Map(defaultPackageId -> pkg), config)
     sexpr = SExpr.SEApp(compiledPackages.compiler.unsafeCompile(e"$b"), ArraySeq(SValue.SUnit))

@@ -38,8 +38,7 @@ class SpeedyCompilationBench {
 
   @Benchmark
   def bench(): Unit = {
-    val config = Config
-      .Default
+    val config = Config.Default
       .copy(packageValidation = NoPackageValidation)
     val res = compilePackages(pkgInterface, darMap, config)
     assert(res.isRight)

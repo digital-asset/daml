@@ -9,11 +9,7 @@ import com.daml.scalautil.Statement.discard
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Struct, Time}
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.{
-  LanguageVersion,
-  LookupError,
-  PackageInterface,
-}
+import com.digitalasset.daml.lf.language.{LanguageVersion, LookupError, PackageInterface}
 import com.digitalasset.daml.lf.speedy.compiler.ClosureConversion.closureConvert
 import com.digitalasset.daml.lf.speedy.compiler.Anf.flattenToAnf
 import com.digitalasset.daml.lf.speedy.compiler.PhaseOne.{Env, Position}

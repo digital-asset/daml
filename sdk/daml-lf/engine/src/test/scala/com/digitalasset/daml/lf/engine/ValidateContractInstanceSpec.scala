@@ -49,7 +49,7 @@ class ValidateContractInstanceSpec(majorLanguageVersion: LanguageVersion.Major)
   val pkgId5 = Ref.PackageId.assertFromString("-packageId5-")
   val pkgId6 = Ref.PackageId.assertFromString("-packageId6-")
 
-  val defaultParserParameters: ParserParameters[this.type] =ParserParameters.default
+  val defaultParserParameters: ParserParameters[this.type] = ParserParameters.default
 
   val pkg1 = {
     implicit def parserParameters: ParserParameters[this.type] = defaultParserParameters.copy(

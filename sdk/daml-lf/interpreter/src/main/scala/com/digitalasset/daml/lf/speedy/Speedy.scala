@@ -23,7 +23,17 @@ import com.digitalasset.daml.lf.speedy.SValue.{SAnyException, SArithmeticError, 
 import com.digitalasset.daml.lf.speedy.Speedy.Machine.{newTraceLog, newWarningLog}
 import com.digitalasset.daml.lf.stablepackages.StablePackages
 import com.digitalasset.daml.lf.transaction.ContractStateMachine.KeyMapping
-import com.digitalasset.daml.lf.transaction.{ContractKeyUniquenessMode, FatContractInstance, GlobalKey, GlobalKeyWithMaintainers, Node, NodeId, SerializationVersion, SubmittedTransaction, IncompleteTransaction => IncompleteTx}
+import com.digitalasset.daml.lf.transaction.{
+  ContractKeyUniquenessMode,
+  FatContractInstance,
+  GlobalKey,
+  GlobalKeyWithMaintainers,
+  Node,
+  NodeId,
+  SerializationVersion,
+  SubmittedTransaction,
+  IncompleteTransaction => IncompleteTx,
+}
 import com.digitalasset.daml.lf.value.Value.ValueArithmeticError
 import com.digitalasset.daml.lf.value.{ContractIdVersion, Value => V}
 

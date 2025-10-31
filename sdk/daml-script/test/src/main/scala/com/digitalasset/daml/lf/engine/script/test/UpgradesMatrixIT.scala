@@ -163,8 +163,7 @@ abstract class UpgradesMatrixIntegration(upgradesMatrixCases: UpgradesMatrixCase
           List(ScriptLedgerClient.CommandWithMeta(ApiCommand.Create(tplId.toRef, arg), true)),
         prefetchContractKeys = List(),
         optLocation = None,
-        languageVersionLookup =
-          _ => Right(LanguageVersion.default),
+        languageVersionLookup = _ => Right(LanguageVersion.default),
         errorBehaviour = ScriptLedgerClient.SubmissionErrorBehaviour.MustSucceed,
       )
       .flatMap {

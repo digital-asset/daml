@@ -9,10 +9,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class RecursionSpec
-    extends AnyWordSpec
-    with TableDrivenPropertyChecks
-    with Matchers {
+class RecursionSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
   implicit val parserParameters: ParserParameters[this.type] =
     ParserParameters.default
