@@ -31,12 +31,12 @@ import org.scalatest.wordspec.AnyWordSpec
 import scala.language.implicitConversions
 
 class LargeTransactionTestV2_V1
-    extends LargeTransactionTest(LanguageMajorVersion.V2, ContractIdVersion.V1)
+    extends LargeTransactionTest(LanguageVersion.Major.V2, ContractIdVersion.V1)
 class LargeTransactionTestV2_V2
-    extends LargeTransactionTest(LanguageMajorVersion.V2, ContractIdVersion.V2)
+    extends LargeTransactionTest(LanguageVersion.Major.V2, ContractIdVersion.V2)
 
 class LargeTransactionTest(
-    majorLanguageVersion: LanguageMajorVersion,
+    majorLanguageVersion: LanguageVersion.Major,
     contractIdVersion: ContractIdVersion,
 ) extends AnyWordSpec
     with Matchers
