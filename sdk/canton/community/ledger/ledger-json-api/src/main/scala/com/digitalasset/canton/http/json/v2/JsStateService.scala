@@ -20,6 +20,7 @@ import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
 import com.digitalasset.canton.http.json.v2.JsSchema.{JsCantonError, JsEvent}
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
+import com.digitalasset.canton.logging.audit.ApiRequestLogger
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
 import io.circe.Codec
@@ -37,6 +38,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class JsStateService(
     ledgerClient: LedgerClient,
     protocolConverters: ProtocolConverters,
+    override protected val requestLogger: ApiRequestLogger,
     val loggerFactory: NamedLoggerFactory,
 )(implicit
     val executionContext: ExecutionContext,
@@ -79,7 +81,7 @@ class JsStateService(
   ): TracedInput[(Option[String], Option[String], Option[String])] => Future[
     Either[JsCantonError, state_service.GetConnectedSynchronizersResponse]
   ] = req =>
-    stateServiceClient(callerContext.token())(req.traceContext)
+    stateServiceClient(callerContext.token())(callerContext.traceContext())
       .getConnectedSynchronizers(
         state_service
           .GetConnectedSynchronizersRequest(
@@ -94,8 +96,8 @@ class JsStateService(
       callerContext: CallerContext
   ): TracedInput[Unit] => Future[
     Either[JsCantonError, state_service.GetLedgerEndResponse]
-  ] = req =>
-    stateServiceClient(callerContext.token())(req.traceContext)
+  ] = _ =>
+    stateServiceClient(callerContext.token())(callerContext.traceContext())
       .getLedgerEnd(state_service.GetLedgerEndRequest())
       .resultToRight
 
@@ -103,8 +105,8 @@ class JsStateService(
       callerContext: CallerContext
   ): TracedInput[Unit] => Future[
     Either[JsCantonError, state_service.GetLatestPrunedOffsetsResponse]
-  ] = req =>
-    stateServiceClient(callerContext.token())(req.traceContext)
+  ] = _ =>
+    stateServiceClient(callerContext.token())(callerContext.traceContext())
       .getLatestPrunedOffsets(state_service.GetLatestPrunedOffsetsRequest())
       .resultToRight
 
@@ -115,8 +117,8 @@ class JsStateService(
     JsGetActiveContractsResponse,
     NotUsed,
   ] =
-    req => {
-      implicit val tc = req.traceContext
+    _ => {
+      implicit val tc = caller.traceContext()
       Flow[LegacyDTOs.GetActiveContractsRequest].map {
         toGetActiveContractsRequest
       } via

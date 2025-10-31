@@ -6,21 +6,9 @@ package com.digitalasset.canton.platform.apiserver
 import com.daml.jwt.JwtTimestampLeeway
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.tracing.Telemetry
-import com.digitalasset.canton.auth.{
-  AuthInterceptor,
-  AuthService,
-  Authorizer,
-  GrpcAuthInterceptor,
-  JwtVerifierLoader,
-}
+import com.digitalasset.canton.auth.*
+import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.RequireTypes.Port
-import com.digitalasset.canton.config.{
-  KeepAliveServerConfig,
-  NonNegativeDuration,
-  NonNegativeFiniteDuration,
-  ServerConfig,
-  TlsServerConfig,
-}
 import com.digitalasset.canton.interactive.InteractiveSubmissionEnricher
 import com.digitalasset.canton.ledger.api.IdentityProviderConfig
 import com.digitalasset.canton.ledger.api.auth.*
@@ -121,6 +109,7 @@ object ApiServiceOwner {
       interactiveSubmissionEnricher: InteractiveSubmissionEnricher,
       keepAlive: Option[KeepAliveServerConfig],
       packagePreferenceBackend: PackagePreferenceBackend,
+      apiLoggingConfig: ApiLoggingConfig,
   )(implicit
       actorSystem: ActorSystem,
       materializer: Materializer,
@@ -224,10 +213,12 @@ object ApiServiceOwner {
         maxInboundMetadataSize,
         address,
         tls,
+        // TODO (i28340) fix order of interceptors
         new GrpcAuthInterceptor(
           userAuthInterceptor,
           telemetry,
           loggerFactory,
+          apiLoggingConfig = apiLoggingConfig,
           commandExecutionContext,
         )
           :: otherInterceptors,

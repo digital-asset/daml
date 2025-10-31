@@ -36,17 +36,17 @@ class TraverseTest extends AnyWordSpec with BaseTest with HasExecutionContext {
     // The following tests merely document the implementation choices made by a particular version of Cats
     "used on a specific Seq" should {
       "preserve the Seq type" in {
-        List(1).traverse(Option.apply).value shouldBe a[List[_]]
-        Vector(1).traverse(Option.apply).value shouldBe a[Vector[_]]
-        ArraySeq(1).traverse(Option.apply).value shouldBe an[ArraySeq[_]]
-        LazyList(1).traverse(Option.apply).value shouldBe a[LazyList[_]]
+        List(1).traverse(Option.apply).value shouldBe a[List[?]]
+        Vector(1).traverse(Option.apply).value shouldBe a[Vector[?]]
+        ArraySeq(1).traverse(Option.apply).value shouldBe an[ArraySeq[?]]
+        LazyList(1).traverse(Option.apply).value shouldBe a[LazyList[?]]
       }
     }
 
     "used on a general Seq" should {
       "convert everything to Vector" in {
         def go(xs: Seq[Int]): Assertion =
-          xs.traverse(Option.apply).value shouldBe a[Vector[_]]
+          xs.traverse(Option.apply).value shouldBe a[Vector[?]]
 
         go(List(1))
         go(Vector(1))
@@ -57,10 +57,10 @@ class TraverseTest extends AnyWordSpec with BaseTest with HasExecutionContext {
 
     "used on a specific NonEmpty Seq" should {
       "preserve the Seq type" in {
-        NonEmpty(List, 1).toNEF.traverse(Option.apply).value.forgetNE shouldBe a[List[_]]
-        NonEmpty(Vector, 1).toNEF.traverse(Option.apply).value.forgetNE shouldBe a[Vector[_]]
-        NonEmpty(ArraySeq, 1).toNEF.traverse(Option.apply).value.forgetNE shouldBe an[ArraySeq[_]]
-        NonEmpty(LazyList, 1).toNEF.traverse(Option.apply).value.forgetNE shouldBe a[LazyList[_]]
+        NonEmpty(List, 1).toNEF.traverse(Option.apply).value.forgetNE shouldBe a[List[?]]
+        NonEmpty(Vector, 1).toNEF.traverse(Option.apply).value.forgetNE shouldBe a[Vector[?]]
+        NonEmpty(ArraySeq, 1).toNEF.traverse(Option.apply).value.forgetNE shouldBe an[ArraySeq[?]]
+        NonEmpty(LazyList, 1).toNEF.traverse(Option.apply).value.forgetNE shouldBe a[LazyList[?]]
       }
     }
 
@@ -70,7 +70,7 @@ class TraverseTest extends AnyWordSpec with BaseTest with HasExecutionContext {
           xs.toNEF
             .traverse(Option.apply)
             .value
-            .forgetNE shouldBe a[Vector[_]]
+            .forgetNE shouldBe a[Vector[?]]
 
         go(NonEmpty(List, 1))
         go(NonEmpty(Vector, 1))

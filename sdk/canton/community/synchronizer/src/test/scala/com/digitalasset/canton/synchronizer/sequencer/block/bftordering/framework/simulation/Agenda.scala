@@ -75,7 +75,7 @@ class Agenda(clock: SimClock, loggerFactory: NamedLoggerFactory) {
   }
 
   def removeInternalTick(node: BftNodeId, tickId: Int): Unit = filterCommand {
-    case i: InternalTick[_] =>
+    case i: InternalTick[?] =>
       i.node != node ||
       i.tickId != tickId
     case _ => true
@@ -87,7 +87,7 @@ class Agenda(clock: SimClock, loggerFactory: NamedLoggerFactory) {
       priority: ScheduledCommand.Priority,
   ): Unit =
     command match {
-      case i: InternalEvent[_] =>
+      case i: InternalEvent[?] =>
         i.from match {
           case EventOriginator.FromInternalModule(from) =>
             val key = LatestScheduledMessageKey(i.node, from = from, to = i.to)
@@ -122,7 +122,7 @@ class Agenda(clock: SimClock, loggerFactory: NamedLoggerFactory) {
     }
 
   def removeClientTick(node: BftNodeId, tickId: Int): Unit = filterCommand {
-    case i: ClientTick[_] =>
+    case i: ClientTick[?] =>
       i.node != node ||
       i.tickId != tickId
     case _ => true

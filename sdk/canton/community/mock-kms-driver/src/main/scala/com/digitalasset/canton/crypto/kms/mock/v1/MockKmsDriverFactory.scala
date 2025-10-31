@@ -70,7 +70,7 @@ class MockKmsDriverFactory extends KmsDriverFactory {
 
   override def create(
       config: MockKmsDriverConfig,
-      loggerFactory: Class[_] => Logger,
+      loggerFactory: Class[?] => Logger,
       executionContext: ExecutionContext,
   ): MockKmsDriver = {
 

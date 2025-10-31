@@ -342,7 +342,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
           )
           ensureChannelClosed(p2pEndpointId)(connectExecutionContext, traceContext)
           f
-        case s: Success[_] => s
+        case s: Success[?] => s
       }
   }
 

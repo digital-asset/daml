@@ -9,6 +9,6 @@ import io.grpc.ManagedChannelBuilder
 import scala.language.existentials
 
 private[testtool] final case class ParticipantSessionConfiguration(
-    participant: ManagedChannelBuilder[_],
+    participant: ManagedChannelBuilder[?],
     partyAllocation: PartyAllocationConfiguration,
 )

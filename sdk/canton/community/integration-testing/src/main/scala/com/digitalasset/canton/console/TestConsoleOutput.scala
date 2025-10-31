@@ -76,7 +76,7 @@ class TestConsoleOutput(override val loggerFactory: NamedLoggerFactory)
       val result = operation
 
       result match {
-        case _: Future[_] | _: EitherT[_, _, _] | _: OptionT[_, _] =>
+        case _: Future[?] | _: EitherT[?, ?, ?] | _: OptionT[?, ?] =>
           throw new UnsupportedOperationException(
             "Recording messages is not supported for possibly asynchronous operations."
           )

@@ -3,17 +3,14 @@
 
 package com.digitalasset.canton.participant.protocol.party
 
-import cats.data.EitherT
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
+import com.digitalasset.canton.lifecycle.FlagCloseable
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.data.ActiveContract
 import com.digitalasset.canton.participant.protocol.party.PartyReplicationAcsReader.*
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.EitherTUtil
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.KillSwitches
@@ -108,31 +105,6 @@ private[party] final class PartyReplicationAcsReader(
           }
         }
       }
-
-  def withContracts(numContractsToRead: PositiveInt)(
-      sendContracts: Seq[ActiveContract] => EitherT[FutureUnlessShutdown, String, Unit]
-  ): EitherT[FutureUnlessShutdown, String, Boolean] = {
-    // Ready to invoke send if all the ordinals are in the queue or if the ACS replication has
-    // completed successfully indicating that there may not be contracts up to toInclusive.
-    val canInvokeSend =
-      queue.sizeIs >= numContractsToRead.unwrap || hasAcsReaderCompletedSuccessfully.get()
-
-    EitherTUtil
-      .ifThenET(canInvokeSend) {
-        val contracts = queue.take(numContractsToRead.unwrap).toSeq
-        sendContracts(contracts).map { _ =>
-          val numContractsReadAndSent = contracts.size
-          (0 until numContractsReadAndSent).foreach(i =>
-            queue
-              .dequeueFirst(_ => true)
-              .getOrElse(throw new IllegalStateException(s"No contract to dequeue at ordinal $i"))
-              .discard
-          )
-        }
-      }
-      // We are done if in order (1) ACS stream has completed successfully and (2) the queue is empty.
-      .map(_ => hasAcsReaderCompletedSuccessfully.get() && queue.isEmpty)
-  }
 
   /** Helper to read up to `numContractsToRead` contracts from the ACS queue and dequeue them.
     * @return

@@ -11,7 +11,11 @@ import com.daml.test.evidence.tag.Security.{Attack, SecurityTest, SecurityTestSu
 import com.digitalasset.canton.admin.api.client.commands.TopologyAdminCommands.Write.GenerateTransactions
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.config.{DbConfig, PositiveDurationSeconds}
-import com.digitalasset.canton.console.{CommandFailure, LocalParticipantReference}
+import com.digitalasset.canton.console.{
+  CommandFailure,
+  LocalParticipantReference,
+  ParticipantReference,
+}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.admin.grpc.PrivateKeyMetadata
 import com.digitalasset.canton.data.CantonTimestamp
@@ -32,7 +36,10 @@ import com.digitalasset.canton.topology.ForceFlag.{
   AllowUnvalidatedSigningKeys,
   DisablePartyWithActiveContracts,
 }
-import com.digitalasset.canton.topology.TopologyManagerError.UnauthorizedTransaction
+import com.digitalasset.canton.topology.TopologyManagerError.{
+  NoAppropriateSigningKeyInStore,
+  UnauthorizedTransaction,
+}
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
 import com.digitalasset.canton.topology.store.TimeQuery
 import com.digitalasset.canton.topology.transaction.*
@@ -40,7 +47,11 @@ import com.digitalasset.canton.topology.transaction.DelegationRestriction.{
   CanSignAllButNamespaceDelegations,
   CanSignAllMappings,
 }
-import com.digitalasset.canton.topology.transaction.ParticipantPermission.{Observation, Submission}
+import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
+  Confirmation,
+  Observation,
+  Submission,
+}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import org.slf4j.event.Level.DEBUG
 
@@ -62,7 +73,7 @@ trait TopologyManagementIntegrationTest
   // TODO(#16283): disable participant / roll keys while the affected nodes are busy
 
   override lazy val environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P2_S1M1.withSetup { implicit env =>
+    EnvironmentDefinition.P3_S1M1.withSetup { implicit env =>
       import env.*
       participants.all.synchronizers.connect_local(sequencer1, alias = daName)
       participants.all.dars.upload(CantonExamplesPath)
@@ -429,6 +440,255 @@ trait TopologyManagementIntegrationTest
           "cannot meet threshold of 2 confirming participants with participants"
         ),
       )
+    }
+
+    "participant or party can unilaterally downgrade the hosting permission" in { implicit env =>
+      import env.*
+      val downgradePartyS = "Downgrade"
+      // start with hosting the party on participant2
+      val Seq(downgradeParty) = PartiesAllocator(participants.all.toSet)(
+        Seq(downgradePartyS -> participant1),
+        Map(downgradePartyS -> Map(daId -> (PositiveInt.one, Set((participant2, Submission))))),
+      )
+
+      def downgrade(
+          executing: ParticipantReference,
+          verifying: ParticipantReference,
+          targetParticipant: ParticipantId,
+          permission: Option[ParticipantPermission],
+      ) = {
+        val p2ChangedPermission = executing.topology.party_to_participant_mappings.propose(
+          downgradeParty,
+          permission.map(targetParticipant -> _).toList,
+          store = daId,
+        )
+        eventually() {
+          val updatedMapping = verifying.topology.party_to_participant_mappings
+            .list(daId, filterParty = downgradeParty.filterString)
+            .loneElement
+          updatedMapping.context.serial shouldBe p2ChangedPermission.serial
+          updatedMapping.item.participants
+            .find(_.participantId == targetParticipant)
+            .map(_.permission) shouldBe permission
+        }
+      }
+
+      // the participant can unilaterally downgrade
+      Seq(Some(Confirmation), Some(Observation), None).foreach { permission =>
+        downgrade(
+          executing = participant2,
+          verifying = participant1,
+          targetParticipant = participant2.id,
+          permission = permission,
+        )
+      }
+
+      // host the party on participant3
+      PartiesAllocator(participants.all.toSet)(
+        Seq(downgradePartyS -> participant1),
+        Map(downgradePartyS -> Map(daId -> (PositiveInt.one, Set((participant3, Submission))))),
+      )
+      // the party can unilaterally downgrade
+      Seq(Some(Confirmation), Some(Observation), None).foreach { permission =>
+        downgrade(
+          executing = participant1,
+          verifying = participant3,
+          targetParticipant = participant3.id,
+          permission = permission,
+        )
+      }
+    }
+
+    "parties or participants cannot unilaterally upgrade the hosting permission" in {
+      implicit env =>
+        import env.*
+        val upgradePartyS = "Upgrade"
+        val Seq(upgradeParty) = PartiesAllocator(participants.all.toSet)(
+          Seq(upgradePartyS -> participant1),
+          Map(upgradePartyS -> Map(daId -> (PositiveInt.one, Set((participant2, Observation))))),
+        )
+
+        Seq(Confirmation, Submission).foreach { p2permission =>
+          // the party's namespace tries to upgrade the hosting permission
+          loggerFactory.assertThrowsAndLogs[CommandFailure](
+            participant1.topology.party_to_participant_mappings.propose_delta(
+              upgradeParty,
+              adds = Seq(participant2.id -> p2permission),
+              mustFullyAuthorize = true,
+              store = daId,
+            ),
+            _.shouldBeCantonErrorCode(UnauthorizedTransaction),
+            _.errorMessage should include("Request failed for participant1"),
+          )
+          // the participant2 tries to upgrade the hosting permission
+          loggerFactory.assertThrowsAndLogs[CommandFailure](
+            participant2.topology.party_to_participant_mappings.propose_delta(
+              upgradeParty,
+              adds = Seq(participant2.id -> p2permission),
+              mustFullyAuthorize = true,
+              store = daId,
+            ),
+            _.shouldBeCantonErrorCode(UnauthorizedTransaction),
+            _.errorMessage should include("Request failed for participant2"),
+          )
+
+          // it works when both the party and the participant agree to upgrade the permission
+          val p2ChangedPermission = Seq(participant1, participant2)
+            .map(
+              _.topology.party_to_participant_mappings.propose_delta(
+                upgradeParty,
+                adds = Seq(participant2.id -> p2permission),
+                store = daId,
+              )
+            )
+            .headOption
+            .value
+          eventually() {
+            val updatedMapping = participant1.topology.party_to_participant_mappings
+              .list(daId, filterParty = upgradeParty.filterString)
+              .loneElement
+            updatedMapping.context.serial shouldBe p2ChangedPermission.serial
+            updatedMapping.item.participants
+              .map(_.permission)
+              .loneElement shouldBe p2permission
+          }
+        }
+    }
+
+    "clearing the onboarding flag requires the participant's authorization" in { implicit env =>
+      import env.*
+      val onboardingFlagParty =
+        PartyId(UniqueIdentifier.tryCreate("OnboardingFlag", participant1.namespace))
+
+      val onboardingFlagSet = Seq(participant1, participant2)
+        .map(
+          _.topology.party_to_participant_mappings.propose(
+            onboardingFlagParty,
+            Seq(participant2.id -> Submission),
+            threshold = PositiveInt.one,
+            store = daId,
+            participantsRequiringPartyToBeOnboarded = Seq(participant2),
+          )
+        )
+        .headOption
+        .value
+
+      eventually() {
+        val updatedMapping = participant1.topology.party_to_participant_mappings
+          .list(daId, filterParty = onboardingFlagParty.filterString)
+          .loneElement
+        updatedMapping.context.serial shouldBe onboardingFlagSet.serial
+        updatedMapping.item.participants.loneElement.onboarding shouldBe true
+      }
+
+      // the party cannot clear the onboarding flag
+      loggerFactory.assertThrowsAndLogs[CommandFailure](
+        participant1.topology.party_to_participant_mappings.propose(
+          onboardingFlagParty,
+          Seq(participant2.id -> Submission),
+          threshold = PositiveInt.one,
+          store = daId,
+        ),
+        _.shouldBeCantonErrorCode(NoAppropriateSigningKeyInStore),
+      )
+
+      // the participant can clear its onboarding flag
+      participant2.topology.party_to_participant_mappings.propose(
+        onboardingFlagParty,
+        Seq(participant2.id -> Submission),
+        threshold = PositiveInt.one,
+        store = daId,
+      )
+
+      eventually() {
+        participant1.topology.party_to_participant_mappings
+          .list(daId, filterParty = onboardingFlagParty.filterString)
+          .loneElement
+          .item
+          .participants
+          .loneElement
+          .onboarding shouldBe false
+      }
+    }
+
+    "a mixture of changes are properly authorized" in { implicit env =>
+      import env.*
+      val downgradeAndOnboardFlagClearanceParty =
+        PartyId(
+          UniqueIdentifier.tryCreate("DowngradeAndOnboardFlagClearance", participant1.namespace)
+        )
+
+      Seq(participant1, participant2, participant3)
+        .foreach(
+          _.topology.party_to_participant_mappings.propose(
+            downgradeAndOnboardFlagClearanceParty,
+            Seq(participant2.id -> Submission, participant3.id -> Observation),
+            threshold = PositiveInt.one,
+            store = daId,
+            participantsRequiringPartyToBeOnboarded = Seq(participant3),
+          )
+        )
+
+      Seq(participant1, participant2, participant3).foreach { participant =>
+        eventually() {
+          val updatedMapping = participant.topology.party_to_participant_mappings
+            .list(daId, filterParty = downgradeAndOnboardFlagClearanceParty.filterString)
+            .loneElement
+          updatedMapping.item.participants should have size 2
+        }
+      }
+
+      def submitDowngradeAndClear(executing: ParticipantReference, mustFullyAuthorize: Boolean) =
+        executing.topology.party_to_participant_mappings.propose(
+          downgradeAndOnboardFlagClearanceParty,
+          Seq(participant2.id -> Confirmation, participant3.id -> Observation),
+          threshold = PositiveInt.one,
+          store = daId,
+          mustFullyAuthorize = mustFullyAuthorize,
+        )
+
+      // the downgrading participant cannot unilaterally fully authorize the combined change
+      loggerFactory.assertThrowsAndLogs[CommandFailure](
+        // force the failure with mustFullyAuthorize=true
+        submitDowngradeAndClear(participant2, mustFullyAuthorize = true),
+        _.shouldBeCantonErrorCode(UnauthorizedTransaction),
+        _.errorMessage should include("Request failed for participant2"),
+      )
+      // the participant clearing the onboarding flag cannot unilaterally fully authorize the combined change
+      loggerFactory.assertThrowsAndLogs[CommandFailure](
+        // force the failure with mustFullyAuthorize=true
+        submitDowngradeAndClear(participant3, mustFullyAuthorize = true),
+        _.shouldBeCantonErrorCode(UnauthorizedTransaction),
+        _.errorMessage should include("Request failed for participant3"),
+      )
+
+      // the party cannot cannot unilaterally fully authorize the combined change
+      loggerFactory.assertThrowsAndLogs[CommandFailure](
+        // force the failure with mustFullyAuthorize=true
+        submitDowngradeAndClear(participant1, mustFullyAuthorize = true),
+        _.shouldBeCantonErrorCode(UnauthorizedTransaction),
+        _.errorMessage should include("Request failed for participant1"),
+      )
+
+      Seq(participant2, participant3).foreach { participant =>
+        submitDowngradeAndClear(participant, mustFullyAuthorize = false)
+      }
+
+      eventually() {
+        val ptp = participant1.topology.party_to_participant_mappings
+          .list(daId, filterParty = downgradeAndOnboardFlagClearanceParty.filterString)
+          .loneElement
+          .item
+
+        ptp.participants
+          .find(_.participantId == participant2.id)
+          .value
+          .permission shouldBe Confirmation
+        ptp.participants
+          .find(_.participantId == participant3.id)
+          .value
+          .onboarding shouldBe false
+      }
     }
 
     "Don't allow to change permission to pure observer only if the party is as signatory" in {

@@ -284,7 +284,7 @@ class TopologyStateProcessor private (
       inStore: Option[GenericSignedTopologyTransaction],
       toValidate: GenericSignedTopologyTransaction,
       expectFullAuthorization: Boolean,
-      transactionMayHaveMissingSigningKeySignatures: Boolean,
+      relaxChecksForBackwardsCompatibility: Boolean,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TopologyTransactionRejection, GenericSignedTopologyTransaction] =
@@ -296,8 +296,7 @@ class TopologyStateProcessor private (
             toValidate,
             inStore,
             expectFullAuthorization = expectFullAuthorization,
-            transactionMayHaveMissingSigningKeySignatures =
-              transactionMayHaveMissingSigningKeySignatures,
+            relaxChecksForBackwardsCompatibility = relaxChecksForBackwardsCompatibility,
           )
       )
       .subflatMap { tx =>
@@ -371,7 +370,7 @@ class TopologyStateProcessor private (
         tx_inStore,
         tx_deduplicatedAndMerged,
         expectFullAuthorization = expectFullAuthorization,
-        transactionMayHaveMissingSigningKeySignatures = relaxChecksForBackwardsCompatibility,
+        relaxChecksForBackwardsCompatibility = relaxChecksForBackwardsCompatibility,
       )
     } yield fullyValidated
     ret.fold(

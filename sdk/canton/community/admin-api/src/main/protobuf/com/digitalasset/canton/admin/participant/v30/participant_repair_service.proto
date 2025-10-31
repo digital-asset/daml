@@ -120,8 +120,9 @@ message MigrateSynchronizerResponse {}
 message ExportAcsOldRequest {
   option deprecated = true;
 
-  // The parties for which the ACS should be exported
-  // Required
+  // The parties for which the ACS should be exported.
+  // If empty, the ACS of all parties will be exported.
+  // Optional
   repeated string parties = 1;
 
   // The IDs of the synchronizers to filter the contracts by

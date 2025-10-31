@@ -37,6 +37,7 @@ import com.digitalasset.canton.http.json.v2.LegacyDTOs.toTransactionTree
 import com.digitalasset.canton.http.json.v2.damldefinitionsservice.Schema.Codecs.*
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
+import com.digitalasset.canton.logging.audit.ApiRequestLogger
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
 import io.circe.Codec
@@ -55,6 +56,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class JsUpdateService(
     ledgerClient: LedgerClient,
     protocolConverters: ProtocolConverters,
+    override protected val requestLogger: ApiRequestLogger,
     val loggerFactory: NamedLoggerFactory,
 )(implicit
     val executionContext: ExecutionContext,
@@ -129,8 +131,8 @@ class JsUpdateService(
   ): TracedInput[(Long, List[String])] => Future[
     Either[JsCantonError, JsGetTransactionTreeResponse]
   ] = { req =>
-    implicit val tc: TraceContext = req.traceContext
-    updateServiceClient(caller.token())(req.traceContext)
+    implicit val tc: TraceContext = caller.traceContext()
+    updateServiceClient(caller.token())
       .getUpdateByOffset(
         update_service.GetUpdateByOffsetRequest(
           offset = req.in._1,
@@ -191,8 +193,8 @@ class JsUpdateService(
     Either[JsCantonError, JsGetTransactionResponse]
   ] =
     req => {
-      implicit val tc = req.traceContext
-      updateServiceClient(caller.token())(req.traceContext)
+      implicit val tc = caller.traceContext()
+      updateServiceClient(caller.token())
         .getUpdateByOffset(
           update_service.GetUpdateByOffsetRequest(
             offset = req.in.offset,
@@ -251,8 +253,8 @@ class JsUpdateService(
     Either[JsCantonError, JsGetUpdateResponse]
   ] =
     req => {
-      implicit val tc = req.traceContext
-      updateServiceClient(caller.token())(req.traceContext)
+      implicit val tc = caller.traceContext()
+      updateServiceClient(caller.token())
         .getUpdateByOffset(req.in)
         .flatMap(protocolConverters.GetUpdateResponse.toJson(_))
         .resultToRight
@@ -264,8 +266,8 @@ class JsUpdateService(
     Either[JsCantonError, JsGetUpdateResponse]
   ] =
     req => {
-      implicit val tc = req.traceContext
-      updateServiceClient(caller.token())(req.traceContext)
+      implicit val tc = caller.traceContext()
+      updateServiceClient(caller.token())
         .getUpdateById(req.in)
         .flatMap(protocolConverters.GetUpdateResponse.toJson(_))
         .resultToRight
@@ -276,8 +278,8 @@ class JsUpdateService(
   ): TracedInput[LegacyDTOs.GetTransactionByIdRequest] => Future[
     Either[JsCantonError, JsGetTransactionResponse]
   ] = { req =>
-    implicit val tc = req.traceContext
-    updateServiceClient(caller.token())(req.traceContext)
+    implicit val tc = caller.traceContext()
+    updateServiceClient(caller.token())
       .getUpdateById(
         update_service.GetUpdateByIdRequest(
           updateId = req.in.updateId,
@@ -301,8 +303,8 @@ class JsUpdateService(
     Either[JsCantonError, JsGetTransactionTreeResponse]
   ] =
     req => {
-      implicit val tc = req.traceContext
-      updateServiceClient(caller.token())(req.traceContext)
+      implicit val tc = caller.traceContext()
+      updateServiceClient(caller.token())
         .getUpdateById(
           update_service.GetUpdateByIdRequest(
             updateId = req.in._1,
@@ -325,8 +327,8 @@ class JsUpdateService(
   private def getUpdates(
       caller: CallerContext
   ): TracedInput[Unit] => Flow[LegacyDTOs.GetUpdatesRequest, JsGetUpdatesResponse, NotUsed] =
-    req => {
-      implicit val tc = req.traceContext
+    _ => {
+      implicit val tc = caller.traceContext()
       Flow[LegacyDTOs.GetUpdatesRequest].map { request =>
         toGetUpdatesRequest(request, forTrees = false)
       } via
@@ -339,8 +341,8 @@ class JsUpdateService(
   private def getFlats(
       caller: CallerContext
   ): TracedInput[Unit] => Flow[LegacyDTOs.GetUpdatesRequest, JsGetUpdatesResponse, NotUsed] =
-    req => {
-      implicit val tc = req.traceContext
+    _ => {
+      implicit val tc = caller.traceContext()
       Flow[LegacyDTOs.GetUpdatesRequest].map { req =>
         toGetUpdatesRequest(req, forTrees = false)
       } via
@@ -357,8 +359,8 @@ class JsUpdateService(
     JsGetUpdateTreesResponse,
     NotUsed,
   ] =
-    wsReq => {
-      implicit val tc: TraceContext = wsReq.traceContext
+    _ => {
+      implicit val tc: TraceContext = caller.traceContext()
       Flow[LegacyDTOs.GetUpdatesRequest].map { req =>
         toGetUpdatesRequest(req, forTrees = true)
       } via

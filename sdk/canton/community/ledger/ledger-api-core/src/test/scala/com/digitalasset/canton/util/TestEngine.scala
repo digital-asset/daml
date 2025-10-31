@@ -33,8 +33,8 @@ import com.digitalasset.daml.lf.engine.ResultNeedContract.Response
 import com.digitalasset.daml.lf.language.Ast.Package
 import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
 import com.digitalasset.daml.lf.transaction.*
-import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.value.{ContractIdVersion, Value}
 import io.grpc.StatusRuntimeException
 import org.scalatest.{EitherValues, OptionValues}
 
@@ -199,6 +199,7 @@ class TestEngine(
       submissionSeed = randomHash(),
       readAs = Set.empty,
       prefetchKeys = Seq.empty,
+      contractIdVersion = ContractIdVersion.V1,
     )
 
     val contractMap = storedContracts.map(c => c.contractId -> c).toMap
@@ -278,6 +279,7 @@ class TestEngine(
       preparationTime = testTimestamp,
       ledgerEffectiveTime = testTimestamp,
       packageResolution = packageResolution,
+      contractIdVersion = ContractIdVersion.V1,
     )
     consume(result, contracts)
   }

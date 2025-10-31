@@ -283,8 +283,8 @@ class AcsInspection(
 
       stakeholdersE = contractsWithReassignmentCounter
         .traverse_ { case (contract, reassignmentCounter) =>
-          if (parties.exists(contract.stakeholders)) {
-            allStakeholders ++= contract.stakeholders
+          if (parties.isEmpty || contract.metadata.stakeholders.exists(parties)) {
+            allStakeholders ++= contract.metadata.stakeholders
             f(contract, reassignmentCounter)
           } else
             Either.unit

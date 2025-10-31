@@ -314,7 +314,7 @@ object FutureSupervisor {
       */
     @VisibleForTesting
     private[concurrent] final case class ScheduledFuture(
-        fut: WeakReference[Future[_]],
+        fut: WeakReference[Future[?]],
         description: () => String,
         startNanos: Long,
         warnNanos: Long,

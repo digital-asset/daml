@@ -81,7 +81,7 @@ abstract class AbstractMessageProcessor(
     requestCounter < ephemeral.startingPoints.processing.nextRequestCounter
 
   protected def unlessCleanReplay(requestCounter: RequestCounter)(
-      f: => FutureUnlessShutdown[_]
+      f: => FutureUnlessShutdown[?]
   ): FutureUnlessShutdown[Unit] =
     if (isCleanReplay(requestCounter)) FutureUnlessShutdown.unit else f.void
 

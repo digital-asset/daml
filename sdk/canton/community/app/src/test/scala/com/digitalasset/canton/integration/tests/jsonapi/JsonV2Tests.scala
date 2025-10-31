@@ -699,9 +699,7 @@ class JsonV2Tests
 
         val testContextHeaders =
           extractHeaders(W3CTraceContext(s"00-$randomTraceId-93bb0fa23a8fb53a-01"))
-
         for {
-
           _ <- loggerFactory.assertLogsSeq(SuppressionRule.Level(org.slf4j.event.Level.DEBUG))(
             postJsonRequest(
               uri =

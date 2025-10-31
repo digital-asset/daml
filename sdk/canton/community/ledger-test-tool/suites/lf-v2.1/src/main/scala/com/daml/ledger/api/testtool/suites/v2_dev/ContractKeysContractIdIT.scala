@@ -73,7 +73,7 @@ final class ContractKeysContractIdIT extends LedgerTestSuite {
           update: ExecutionContext => (
               ParticipantTestContext,
               Party,
-          ) => Future[Try[_]]
+          ) => Future[Try[?]]
       ): Unit =
         super.test(
           shortIdentifier = result + camelCase(cidDescription) + "CKCid" + camelCase(description),

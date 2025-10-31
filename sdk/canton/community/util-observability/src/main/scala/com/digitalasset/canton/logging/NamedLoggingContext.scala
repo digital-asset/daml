@@ -62,7 +62,7 @@ final case class NamedLoggingContext(
     TracedLogger(loggerClass.klass, loggerFactory)
 }
 
-final class LoggerNameFromClass(val klass: Class[_]) extends AnyVal
+final class LoggerNameFromClass(val klass: Class[?]) extends AnyVal
 
 /** Defines implicits for obtaining the class used to create a logger out of a
   * [[NamedLoggerFactory]] in a [[NamedLoggingContext]].

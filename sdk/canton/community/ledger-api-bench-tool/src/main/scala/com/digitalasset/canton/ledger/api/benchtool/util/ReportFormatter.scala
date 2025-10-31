@@ -109,7 +109,7 @@ object ReportFormatter {
     case other => sys.error(s"Unsupported value: $other")
   }
 
-  private def objectiveName(objective: ServiceLevelObjective[_]): String =
+  private def objectiveName(objective: ServiceLevelObjective[?]): String =
     objective match {
       case _: DelayMetric.MaxDelay =>
         s"Maximum record time delay [s]"
@@ -126,7 +126,7 @@ object ReportFormatter {
       case other => sys.error(s"Unsupported value: $other")
     }
 
-  private def formattedObjectiveValue(objective: ServiceLevelObjective[_]): String =
+  private def formattedObjectiveValue(objective: ServiceLevelObjective[?]): String =
     objective match {
       case obj: DelayMetric.MaxDelay =>
         obj.maxDelaySeconds.toString

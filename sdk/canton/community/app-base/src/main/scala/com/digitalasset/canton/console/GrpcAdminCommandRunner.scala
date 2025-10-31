@@ -61,7 +61,7 @@ class GrpcAdminCommandRunner(
 
   def runCommandAsync[Result](
       instanceName: String,
-      command: GrpcAdminCommand[_, _, Result],
+      command: GrpcAdminCommand[?, ?, Result],
       clientConfig: ClientConfig,
       token: Option[String],
   )(implicit traceContext: TraceContext): (NonNegativeDuration, EitherT[Future, String, Result]) = {
@@ -121,7 +121,7 @@ class GrpcAdminCommandRunner(
 
   def runCommandWithExistingTrace[Result](
       instanceName: String,
-      command: GrpcAdminCommand[_, _, Result],
+      command: GrpcAdminCommand[?, ?, Result],
       clientConfig: ClientConfig,
       token: Option[String],
   )(implicit traceContext: TraceContext): ConsoleCommandResult[Result] = {
@@ -138,7 +138,7 @@ class GrpcAdminCommandRunner(
 
   def runCommand[Result](
       instanceName: String,
-      command: GrpcAdminCommand[_, _, Result],
+      command: GrpcAdminCommand[?, ?, Result],
       clientConfig: ClientConfig,
       token: Option[String],
   ): ConsoleCommandResult[Result] =

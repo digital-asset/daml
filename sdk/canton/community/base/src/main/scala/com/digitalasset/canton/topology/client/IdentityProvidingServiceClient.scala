@@ -4,10 +4,8 @@
 package com.digitalasset.canton.topology.client
 
 import cats.data.EitherT
-import cats.implicits.toFoldableOps
 import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
-import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.HasFutureSupervision
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
@@ -556,7 +554,7 @@ trait VettedPackagesSnapshotClient {
     *   package is missing locally such that we can not verify the vetting state of the package
     *   dependencies
     */
-  def findUnvettedPackagesOrDependencies(
+  def loadUnvettedPackagesOrDependencies(
       participantId: ParticipantId,
       packages: Set[PackageId],
       ledgerTime: CantonTimestamp,
@@ -1057,23 +1055,20 @@ trait VettedPackagesLoader {
 trait VettedPackagesSnapshotLoader extends VettedPackagesSnapshotClient with VettedPackagesLoader {
   this: BaseTopologySnapshotClient & PartyTopologySnapshotLoader =>
 
-  private[client] def loadUnvettedPackagesOrDependenciesUsingLoader(
+  private[client] def findUnvettedPackagesOrDependencies(
       participant: ParticipantId,
-      packageId: PackageId,
+      packages: Set[PackageId],
       ledgerTime: CantonTimestamp,
-      vettedPackagesLoader: VettedPackagesLoader,
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[UnknownOrUnvettedPackages]
+      vettedPackages: Map[PackageId, VettedPackage],
+  )(implicit traceContext: TraceContext): UnknownOrUnvettedPackages
 
-  override final def findUnvettedPackagesOrDependencies(
+  override final def loadUnvettedPackagesOrDependencies(
       participantId: ParticipantId,
       packages: Set[PackageId],
       ledgerTime: CantonTimestamp,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[UnknownOrUnvettedPackages] =
-    packages.toList
-      .parTraverse(packageId =>
-        loadUnvettedPackagesOrDependenciesUsingLoader(participantId, packageId, ledgerTime, this)
-      )
-      .map(_.combineAll)
+    for (vettedPackages <- loadVettedPackages(participantId))
+      yield findUnvettedPackagesOrDependencies(participantId, packages, ledgerTime, vettedPackages)
 
   override final def determinePackagesWithNoVettingEntry(
       participantId: ParticipantId,

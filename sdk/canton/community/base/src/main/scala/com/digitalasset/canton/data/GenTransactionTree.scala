@@ -54,7 +54,7 @@ final case class GenTransactionTree private (
     // Check that every subtree has a unique root hash
     val usedHashes = mutable.Set[RootHash]()
 
-    def go(tree: MerkleTree[_]): Either[String, this.type] = {
+    def go(tree: MerkleTree[?]): Either[String, this.type] = {
       val rootHash = tree.rootHash
 
       for {
@@ -82,8 +82,8 @@ final case class GenTransactionTree private (
   ): GenTransactionTree =
     GenTransactionTree(submitterMetadata, commonMetadata, participantMetadata, rootViews)(hashOps)
 
-  override def subtrees: Seq[MerkleTree[_]] =
-    Seq[MerkleTree[_]](
+  override def subtrees: Seq[MerkleTree[?]] =
+    Seq[MerkleTree[?]](
       submitterMetadata,
       commonMetadata,
       participantMetadata,

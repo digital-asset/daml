@@ -9,5 +9,5 @@ import ammonite.util.Bind
 /** ammonite requires a ApiHolder in this pattern to make items through bindings available within
   * the dynamic Console environment.
   */
-final case class BindingsHolder(bindings: IndexedSeq[Bind[_]])
+final case class BindingsHolder(bindings: IndexedSeq[Bind[?]])
 object BindingsBridge extends APIHolder[BindingsHolder]

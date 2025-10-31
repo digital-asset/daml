@@ -76,7 +76,7 @@ class LedgerApiStreamingTest extends CommunityIntegrationTest with SharedEnviron
       import env.*
 
       val suppressionRules = FullSuppression && (
-        LoggerNameContains("ApiRequestLogger") ||
+        LoggerNameContains("RequestLogger") ||
           LoggerNameContains("ApiUpdateService")
       )
       participant1.synchronizers.connect_local(sequencer1, alias = daName)

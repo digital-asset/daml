@@ -212,10 +212,9 @@ final class StoreBackedCommandInterpreter(
           cmds = commands.commands,
           participantId = participant,
           submissionSeed = submissionSeed,
-          // TODO(#23971) Pass the expected contract ID version
-          contractIdVersion = ContractIdVersion.V1,
           prefetchKeys = commands.prefetchKeys,
           engineLogger = config.toEngineLogger(loggerFactory.append("phase", "submission")),
+          contractIdVersion = ContractIdVersion.V1,
         )
       })),
     )

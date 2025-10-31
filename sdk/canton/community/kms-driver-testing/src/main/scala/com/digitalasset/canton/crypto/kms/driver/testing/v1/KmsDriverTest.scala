@@ -42,7 +42,7 @@ trait KmsDriverTest extends AsyncWordSpec with BaseTest with HasExecutionContext
   /** Create a new specific KMS Driver instance */
   protected def newKmsDriver(): KmsDriver
 
-  protected def simpleLoggerFactory(clazz: Class[_]): Logger =
+  protected def simpleLoggerFactory(clazz: Class[?]): Logger =
     loggerFactory.getLogger(clazz).underlying
 
   /** Test Suite for a KMS Driver.

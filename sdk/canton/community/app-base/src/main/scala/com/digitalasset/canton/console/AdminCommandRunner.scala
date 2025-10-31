@@ -23,7 +23,7 @@ trait AdminCommandRunner {
     * configured with an HTTP interface.
     */
   protected[console] def adminCommand[Result](
-      grpcCommand: GrpcAdminCommand[_, _, Result]
+      grpcCommand: GrpcAdminCommand[?, ?, Result]
   ): ConsoleCommandResult[Result]
 
   protected[console] def tracedLogger: TracedLogger
@@ -58,7 +58,7 @@ object AdminCommandRunner {
 trait LedgerApiCommandRunner {
 
   protected[console] def ledgerApiCommand[Result](
-      command: GrpcAdminCommand[_, _, Result]
+      command: GrpcAdminCommand[?, ?, Result]
   ): ConsoleCommandResult[Result]
 
   protected[console] def token: Option[String]
@@ -66,7 +66,7 @@ trait LedgerApiCommandRunner {
 
 trait PublicApiCommandRunner {
   protected[console] def publicApiCommand[Result](
-      command: GrpcAdminCommand[_, _, Result]
+      command: GrpcAdminCommand[?, ?, Result]
   ): ConsoleCommandResult[Result]
 }
 

@@ -296,7 +296,7 @@ private[reassignment] class UnassignmentProcessingSteps(
   }
 
   override def createSubmissionResult(
-      deliver: Deliver[Envelope[_]],
+      deliver: Deliver[Envelope[?]],
       pendingSubmission: PendingSubmissionData,
   ): SubmissionResult =
     SubmissionResult(

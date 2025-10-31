@@ -24,7 +24,11 @@ import com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.metrics.ConnectedSynchronizerMetrics
-import com.digitalasset.canton.participant.store.SyncPersistentState
+import com.digitalasset.canton.participant.store.memory.PackageMetadataView
+import com.digitalasset.canton.participant.store.{
+  PackageDependencyResolverImpl,
+  SyncPersistentState,
+}
 import com.digitalasset.canton.participant.sync.SyncPersistentStateManager
 import com.digitalasset.canton.participant.synchronizer.SynchronizerRegistryError.HandshakeErrors.SynchronizerIdMismatch
 import com.digitalasset.canton.participant.synchronizer.SynchronizerRegistryHelpers.SynchronizerHandle
@@ -44,7 +48,6 @@ import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.SynchronizerTopologyClientWithInit
 import com.digitalasset.canton.topology.processing.InitialTopologySnapshotValidator
-import com.digitalasset.canton.topology.store.PackageDependencyResolver
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
@@ -83,7 +86,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
       recordSequencerInteractions: AtomicReference[Option[RecordingConfig]],
       replaySequencerConfig: AtomicReference[Option[ReplayConfig]],
       topologyDispatcher: ParticipantTopologyDispatcher,
-      packageDependencyResolver: PackageDependencyResolver,
+      packageMetadataView: PackageMetadataView,
       partyNotifier: LedgerServerPartyNotifier,
       metrics: SynchronizerAlias => ConnectedSynchronizerMetrics,
   )(implicit
@@ -139,7 +142,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
       topologyClient <- EitherT.right(
         synchronizeWithClosing("create caching client")(
           topologyFactory.createCachingTopologyClient(
-            packageDependencyResolver,
+            new PackageDependencyResolverImpl(participantId, packageMetadataView, loggerFactory),
             synchronizerPredecessor,
           )
         )

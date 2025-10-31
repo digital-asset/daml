@@ -174,27 +174,33 @@ trait MediatorOnboardingTest
   )(implicit env: TestConsoleEnvironment) = {
     import env.*
 
-    val p2GainsSubmissionPermission = SignedTopologyTransaction
-      .signAndCreate(
-        TopologyTransaction(
-          TopologyChangeOp.Replace,
-          serial = PositiveInt.two,
-          PartyToParticipant.tryCreate(
-            alice,
-            threshold = PositiveInt.one,
-            participants = Seq(participant1, participant2).map(p =>
-              HostingParticipant(p.id, ParticipantPermission.Submission)
+    val p2GainsSubmissionPermission = Seq(participant1, participant2)
+      .map(participant =>
+        SignedTopologyTransaction
+          .signAndCreate(
+            TopologyTransaction(
+              TopologyChangeOp.Replace,
+              serial = PositiveInt.two,
+              PartyToParticipant.tryCreate(
+                alice,
+                threshold = PositiveInt.one,
+                participants = Seq(participant1, participant2).map(p =>
+                  HostingParticipant(p.id, ParticipantPermission.Submission)
+                ),
+              ),
+              BaseTest.testedProtocolVersion,
             ),
-          ),
-          BaseTest.testedProtocolVersion,
-        ),
-        signingKeys = NonEmpty(Set, participant1.fingerprint),
-        isProposal = false,
-        crypto = participant1.underlying.value.sync.syncCrypto.crypto.privateCrypto,
-        BaseTest.testedProtocolVersion,
+            signingKeys = NonEmpty(Set, participant.fingerprint),
+            isProposal = true,
+            crypto = participant.underlying.value.sync.syncCrypto.crypto.privateCrypto,
+            BaseTest.testedProtocolVersion,
+          )
+          .failOnShutdown
+          .futureValue
       )
-      .failOnShutdown
-      .futureValue
+      .reduceLeft[SignedTopologyTransaction[TopologyChangeOp.Replace, PartyToParticipant]] {
+        case (tx1, tx2) => tx1.addSignatures(tx2.signatures)
+      }
 
     val extraPayload = createExtraTopologyPayload()
     p2GainsSubmissionPermission +: extraPayload

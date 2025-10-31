@@ -182,7 +182,7 @@ class SendTracker(
   }
 
   private def removePendingSend(
-      event: SequencedEvent[_]
+      event: SequencedEvent[?]
   )(implicit traceContext: TraceContext): Unit =
     extractSendResult(event).foreach { case (messageId, sendResult) =>
       removePendingSendUnlessTimeout(
@@ -297,7 +297,7 @@ class SendTracker(
   }
 
   private def extractSendResult(
-      event: SequencedEvent[_]
+      event: SequencedEvent[?]
   )(implicit traceContext: TraceContext): Option[(MessageId, SendResult)] =
     Option(event) collect {
       case deliver @ Deliver(_, _, _, Some(messageId), _, _, _) =>

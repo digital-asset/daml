@@ -394,7 +394,7 @@ class CantonSyncService(
   val repairService: RepairService = new RepairService(
     participantId,
     syncCrypto,
-    packageService.packageDependencyResolver,
+    packageService.getPackageMetadataView,
     participantNodePersistentState.map(_.contractStore),
     ledgerApiIndexer.asEval(TraceContext.empty),
     aliasManager,
@@ -577,11 +577,11 @@ class CantonSyncService(
       explicitlyDisclosedContracts: ImmArray[LfFatContractInst],
   )(implicit
       traceContext: TraceContext
-  ): Future[Either[SubmissionResult, FutureUnlessShutdown[_]]] = {
+  ): Future[Either[SubmissionResult, FutureUnlessShutdown[?]]] = {
 
     def processSubmissionError(
         error: TransactionError
-    ): Either[SubmissionResult, FutureUnlessShutdown[_]] = {
+    ): Either[SubmissionResult, FutureUnlessShutdown[?]] = {
       error.logWithContext(
         Map("commandId" -> submitterInfo.commandId, "userId" -> submitterInfo.userId)
       )

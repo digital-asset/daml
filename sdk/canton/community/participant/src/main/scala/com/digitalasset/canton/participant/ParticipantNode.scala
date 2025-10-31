@@ -116,11 +116,6 @@ class ParticipantNodeBootstrap(
 
   private val cantonSyncService = new SingleUseCell[CantonSyncService]
   private val mutablePackageMetadataView = new SingleUseCell[MutablePackageMetadataViewImpl]
-  private val packageDependencyResolver = new SingleUseCell[PackageDependencyResolver.Impl]
-  private val packageUpgradeValidator = new PackageUpgradeValidator(
-    arguments.parameterConfig.general.cachingConfigs.packageUpgradeCache,
-    loggerFactory,
-  )
   override def metrics: ParticipantMetrics = arguments.metrics
 
   override protected val adminTokenConfig: AdminTokenConfig =
@@ -129,11 +124,6 @@ class ParticipantNodeBootstrap(
   private def tryGetMutablePackageMetadataView(): MutablePackageMetadataViewImpl =
     mutablePackageMetadataView.getOrElse(
       sys.error("mutablePackageMetadataView should be defined")
-    )
-
-  private def tryGetPackageDependencyResolver(): PackageDependencyResolver.Impl =
-    packageDependencyResolver.getOrElse(
-      sys.error("packageDependencyResolver should be defined")
     )
 
   override protected def sequencedTopologyStores: Seq[TopologyStore[SynchronizerStore]] =
@@ -193,6 +183,10 @@ class ParticipantNodeBootstrap(
       exitOnFatalFailures = parameters.exitOnFatalFailures,
       loggerFactory,
     )
+    val packageUpgradeValidator = new PackageUpgradeValidator(
+      arguments.parameterConfig.general.cachingConfigs.packageUpgradeCache,
+      loggerFactory,
+    )
 
     val packageMetadataView = new MutablePackageMetadataViewImpl(
       clock,
@@ -204,26 +198,7 @@ class ParticipantNodeBootstrap(
       arguments.futureSupervisor,
       exitOnFatalFailures = parameters.exitOnFatalFailures,
     )
-
     mutablePackageMetadataView.putIfAbsent(packageMetadataView).discard
-
-    val resolver = new PackageDependencyResolver.Impl(
-      participantId = ParticipantId(nodeId),
-      damlPackageStore = DamlPackageStore(
-        storage,
-        arguments.futureSupervisor,
-        arguments.parameterConfig,
-        exitOnFatalFailures = parameters.exitOnFatalFailures,
-        loggerFactory,
-      ),
-      timeouts = arguments.parameterConfig.processingTimeouts,
-      loggerFactory = loggerFactory,
-      fetchPackageParallelism = arguments.parameterConfig.general.batchingConfig.parallelism,
-      packageDependencyCacheConfig =
-        arguments.parameterConfig.general.cachingConfigs.packageDependencyCache,
-    )
-
-    packageDependencyResolver.putIfAbsent(resolver).discard
 
     def acsInspectionPerSynchronizer(): Map[SynchronizerId, AcsInspection] =
       cantonSyncService.get
@@ -345,7 +320,6 @@ class ParticipantNodeBootstrap(
         storage,
         engine,
         topologyManager,
-        tryGetPackageDependencyResolver(),
       ).map { participantServices =>
         if (cantonSyncService.putIfAbsent(participantServices.cantonSyncService).nonEmpty) {
           sys.error("should not happen")
@@ -399,7 +373,6 @@ class ParticipantNodeBootstrap(
         storage: Storage,
         engine: Engine,
         authorizedTopologyManager: AuthorizedTopologyManager,
-        packageDependencyResolver: PackageDependencyResolver.Impl,
     )(implicit executionSequencerFactory: ExecutionSequencerFactory): EitherT[
       FutureUnlessShutdown,
       String,
@@ -583,7 +556,6 @@ class ParticipantNodeBootstrap(
           clock = clock,
           engine = engine,
           mutablePackageMetadataView = mutablePackageMetadataView,
-          packageDependencyResolver = packageDependencyResolver,
           enableStrictDarValidation = parameters.enableStrictDarValidation,
           loggerFactory = loggerFactory,
           metrics = arguments.metrics,
@@ -629,7 +601,7 @@ class ParticipantNodeBootstrap(
           arguments.testingConfig,
           recordSequencerInteractions,
           replaySequencerConfig,
-          packageDependencyResolver,
+          mutablePackageMetadataView,
           arguments.metrics.connectedSynchronizerMetrics,
           sequencerInfoLoader,
           partyNotifier,
@@ -901,7 +873,6 @@ class ParticipantNodeBootstrap(
             ).foreach(_.closeAcquired())
         })
         addCloseable(ledgerApiDependentServices)
-        addCloseable(packageDependencyResolver)
         addCloseable(mutablePackageMetadataView)
 
         // return values

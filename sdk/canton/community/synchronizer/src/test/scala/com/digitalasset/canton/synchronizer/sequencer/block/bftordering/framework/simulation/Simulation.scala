@@ -447,7 +447,7 @@ object Simulation {
       Tree.Literal(s"Port.tryCreate(${port.unwrap})")
     case mode: PartitionMode =>
       Tree.Literal(s"PartitionMode.$mode")
-    case pn: PositiveNumeric[_] =>
+    case pn: PositiveNumeric[?] =>
       Tree.Literal(s"PositiveNumeric.tryCreate(${pn.value})")
   }
 }

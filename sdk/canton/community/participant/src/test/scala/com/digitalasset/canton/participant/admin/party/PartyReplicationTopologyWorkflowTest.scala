@@ -23,6 +23,7 @@ import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime
 import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.topology.store.{
+  NoPackageDependencies,
   TopologyStore,
   TopologyStoreTestData,
   ValidatedTopologyTransaction,
@@ -347,7 +348,7 @@ class PartyReplicationTopologyWorkflowTest
         val topologyClient = new StoreBasedSynchronizerTopologyClient(
           clock,
           store = topologyStore,
-          packageDependenciesResolver = StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
+          packageDependencyResolver = NoPackageDependencies,
           timeouts = timeouts,
           futureSupervisor = futureSupervisor,
           loggerFactory = loggerFactory,

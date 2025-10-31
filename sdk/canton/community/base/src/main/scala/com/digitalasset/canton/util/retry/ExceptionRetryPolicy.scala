@@ -28,7 +28,7 @@ trait ExceptionRetryPolicy {
     * Also logs the embedded exception.
     */
   def logAndDetermineErrorKind(
-      outcome: Try[_],
+      outcome: Try[?],
       logger: TracedLogger,
       lastErrorKind: Option[ErrorKind],
   )(implicit

@@ -22,7 +22,7 @@ object NonEmptyUtil {
   def fromElement[A](xs: A): NonEmpty[Set[A]] =
     fromUnsafe(Set(xs))
 
-  def fromUnsafe[A](xs: A with immutable.Iterable[_]): NonEmpty[A] =
+  def fromUnsafe[A](xs: A with immutable.Iterable[?]): NonEmpty[A] =
     NonEmpty.from(xs).getOrElse(throw new NoSuchElementException)
 
   def lensToNEF[A, F[_], B](lens: Lens[A, NonEmpty[F[B]]]): Lens[A, NonEmptyF[F, B]] =
@@ -39,7 +39,7 @@ object NonEmptyUtil {
       NonEmptyColl.Instance.subst[K](F)
     }
 
-    implicit def nonEmptyPureConfigReader[C <: scala.collection.immutable.Iterable[_]](implicit
+    implicit def nonEmptyPureConfigReader[C <: scala.collection.immutable.Iterable[?]](implicit
         reader: ConfigReader[C],
         ct: ClassTag[C],
     ): ConfigReader[NonEmpty[C]] =

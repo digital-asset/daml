@@ -33,7 +33,7 @@ import com.digitalasset.canton.platform.store.interning.StringInterning
 
 object H2StorageBackendFactory extends StorageBackendFactory with CommonStorageBackendFactory {
 
-  override val createIngestionStorageBackend: IngestionStorageBackend[_] =
+  override val createIngestionStorageBackend: IngestionStorageBackend[?] =
     new IngestionStorageBackendTemplate(H2Schema.schema)
 
   override def createParameterStorageBackend(

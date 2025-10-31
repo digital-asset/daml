@@ -203,7 +203,7 @@ object Threading {
         classOf[Int],
         classOf[Int],
         classOf[Int],
-        classOf[Predicate[_]],
+        classOf[Predicate[?]],
         classOf[Long],
         classOf[TimeUnit],
       )

@@ -30,7 +30,7 @@ import com.digitalasset.canton.tracing.TraceContext
   * cannot tick any of the trackers, including the
   * [[com.digitalasset.canton.topology.processing.TopologyTransactionProcessor]].
   */
-class DiscardIgnoredEvents[Env <: Envelope[_]](
+class DiscardIgnoredEvents[Env <: Envelope[?]](
     handler: OrdinaryApplicationHandler[Env],
     override protected val loggerFactory: NamedLoggerFactory,
 ) extends PossiblyIgnoredApplicationHandler[Env]
@@ -69,7 +69,7 @@ class DiscardIgnoredEvents[Env <: Envelope[_]](
 }
 
 object DiscardIgnoredEvents {
-  def apply[Env <: Envelope[_]](loggerFactory: NamedLoggerFactory)(
+  def apply[Env <: Envelope[?]](loggerFactory: NamedLoggerFactory)(
       handler: OrdinaryApplicationHandler[Env]
   ): PossiblyIgnoredApplicationHandler[Env] = new DiscardIgnoredEvents[Env](handler, loggerFactory)
 }

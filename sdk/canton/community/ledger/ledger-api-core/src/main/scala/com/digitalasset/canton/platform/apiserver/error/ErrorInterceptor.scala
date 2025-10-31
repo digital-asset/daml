@@ -148,7 +148,7 @@ private[error] object LogOnUnhandledFailureInClose {
         // This error is considered security-sensitive and can't be propagated to the client.
         LedgerApiErrors.InternalError
           .Generic(
-            s"Unhandled error in ${classOf[ServerCall[_, _]].getSimpleName}.close(). " +
+            s"Unhandled error in ${classOf[ServerCall[?, ?]].getSimpleName}.close(). " +
               s"The gRPC client might have not been notified about the call/stream termination. " +
               s"Either notify clients to retry pending unary/streaming calls or restart the participant server.",
             Some(e),

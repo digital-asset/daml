@@ -147,11 +147,11 @@ object Generators {
   private def findSubClassesOf[T](parent: Class[T]): Seq[Class[?]] =
     subClassesCache.getOrElseUpdate(
       parent.getName, {
-        val classes: Seq[Class[_ <: T]] =
+        val classes: Seq[Class[? <: T]] =
           reflections.getSubTypesOf(parent).asScala.toSeq
 
         // Exclude anonymous companion objects as they should only appear in tests
-        def isAnonymous(c: Class[_]): Boolean = c.isAnonymousClass
+        def isAnonymous(c: Class[?]): Boolean = c.isAnonymousClass
 
         classes.filterNot(isAnonymous)
       },

@@ -31,7 +31,7 @@ import scala.collection.mutable
   * MerkleTree[MyMerkleTree]`.
   */
 trait MerkleTree[+A] extends Product with Serializable with PrettyPrinting {
-  def subtrees: Seq[MerkleTree[_]]
+  def subtrees: Seq[MerkleTree[?]]
 
   def rootHash: RootHash
 
@@ -65,7 +65,7 @@ trait MerkleTree[+A] extends Product with Serializable with PrettyPrinting {
     *   subtree have the blinding command `RevealIfNeedBe`
     */
   final def blind(
-      blindingPolicy: PartialFunction[MerkleTree[_], BlindingCommand]
+      blindingPolicy: PartialFunction[MerkleTree[?], BlindingCommand]
   ): MerkleTree[A] = {
 
     val optimizedBlindingPolicy = mutable.Map[RootHash, BlindingCommand]()
@@ -78,7 +78,7 @@ trait MerkleTree[+A] extends Product with Serializable with PrettyPrinting {
     // - the node effectively needs to be copied (because it has a blinded descendant).
     //
     // Returns (allRevealed, allBlinded) indicating whether all nodes in tree are revealed/blinded.
-    def optimizeBlindingPolicy(tree: MerkleTree[_]): (Boolean, Boolean) =
+    def optimizeBlindingPolicy(tree: MerkleTree[?]): (Boolean, Boolean) =
       completeBlindingPolicy(tree) match {
         case BlindSubtree =>
           optimizedBlindingPolicy += tree.rootHash -> BlindSubtree
@@ -98,12 +98,12 @@ trait MerkleTree[+A] extends Product with Serializable with PrettyPrinting {
           (allRevealed && !allBlinded, allBlinded)
       }
 
-    def completeBlindingPolicy(tree: MerkleTree[_]): BlindingCommand =
-      blindingPolicy.applyOrElse[MerkleTree[_], BlindingCommand](
+    def completeBlindingPolicy(tree: MerkleTree[?]): BlindingCommand =
+      blindingPolicy.applyOrElse[MerkleTree[?], BlindingCommand](
         tree,
         {
-          case _: BlindedNode[_] => BlindSubtree
-          case _: MerkleSeqElement[_] => RevealIfNeedBe
+          case _: BlindedNode[?] => BlindSubtree
+          case _: MerkleSeqElement[?] => RevealIfNeedBe
           case _ =>
             throw new IllegalArgumentException(
               s"No blinding command specified for subtree of type ${tree.getClass}"
@@ -136,7 +136,7 @@ trait MerkleTree[+A] extends Product with Serializable with PrettyPrinting {
   lazy val isFullyUnblinded: Boolean = unwrap.isRight && subtrees.forall(_.isFullyUnblinded)
 
   lazy val hasAllLeavesBlinded: Boolean = unwrap.isRight && subtrees.collectFirst {
-    case l: MerkleTreeLeaf[_] => l
+    case l: MerkleTreeLeaf[?] => l
   }.isEmpty
 }
 
@@ -175,7 +175,7 @@ abstract class MerkleTreeLeaf[+A <: HasCryptographicEvidence](val hashOps: HashO
 
   def salt: Salt
 
-  def subtrees: Seq[MerkleTree[_]] = Seq.empty
+  def subtrees: Seq[MerkleTree[?]] = Seq.empty
 
   override lazy val rootHash: RootHash = {
     if (hashPurpose == HashPurpose.MerkleTreeInnerNode) {
@@ -201,7 +201,7 @@ abstract class MerkleTreeLeaf[+A <: HasCryptographicEvidence](val hashOps: HashO
 /** A blinded node of a Merkle tree. Has no subtrees, as they are all blinded.
   */
 final case class BlindedNode[+A](rootHash: RootHash) extends MerkleTree[A] {
-  override def subtrees: Seq[MerkleTree[_]] = Seq.empty
+  override def subtrees: Seq[MerkleTree[?]] = Seq.empty
 
   override private[data] def withBlindedSubtrees(
       optimizedBlindingPolicy: PartialFunction[RootHash, BlindingCommand]

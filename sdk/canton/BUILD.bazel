@@ -609,6 +609,7 @@ scala_library(
         "@maven//:io_grpc_grpc_netty_shaded",
         "@maven//:io_grpc_grpc_protobuf",
         "@maven//:io_grpc_grpc_services",
+        "@maven//:io_grpc_grpc_inprocess",
         "@maven//:io_grpc_grpc_stub",
         "@maven//:io_grpc_grpc_util",
         "@maven//:io_opentelemetry_instrumentation_opentelemetry_hikaricp_3_0",

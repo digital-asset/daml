@@ -48,7 +48,7 @@ object EitherTUtil {
     }
 
   /** Lifts an `if (cond) then ... else ()` into the `EitherT` applicative */
-  def ifThenET[F[_], L](cond: Boolean)(`then`: => EitherT[F, L, _])(implicit
+  def ifThenET[F[_], L](cond: Boolean)(`then`: => EitherT[F, L, ?])(implicit
       F: Applicative[F]
   ): EitherT[F, L, Unit] =
     if (cond) Functor[EitherT[F, L, *]].void(`then`) else EitherT.pure[F, L](())
@@ -143,14 +143,14 @@ object EitherTUtil {
     * document that an `EitherT[Future,_,_]` is intentionally not being awaited upon.
     */
   def doNotAwait(
-      eitherT: EitherT[Future, _, _],
+      eitherT: EitherT[Future, ?, ?],
       failureMessage: => String,
       level: Level = Level.ERROR,
   )(implicit executionContext: ExecutionContext, loggingContext: ErrorLoggingContext): Unit =
     logOnError(eitherT, failureMessage, level = level).discard
 
   def doNotAwaitUS(
-      eitherT: EitherT[FutureUnlessShutdown, _, _],
+      eitherT: EitherT[FutureUnlessShutdown, ?, ?],
       message: => String,
       failLevel: Level = Level.ERROR,
       shutdownLevel: Level = Level.DEBUG,

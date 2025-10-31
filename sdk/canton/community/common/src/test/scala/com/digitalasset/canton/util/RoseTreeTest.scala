@@ -109,11 +109,11 @@ class RoseTreeTest extends AnyWordSpec with BaseTestWordSpec {
     }
 
     "be stack safe for wide trees" in {
-      Try(wideTree(1).hashCode()) shouldBe a[Success[_]]
+      Try(wideTree(1).hashCode()) shouldBe a[Success[?]]
     }
 
     "be stack safe for deep trees" in {
-      Try(deepTree(1).hashCode()) shouldBe a[Success[_]]
+      Try(deepTree(1).hashCode()) shouldBe a[Success[?]]
     }
   }
 

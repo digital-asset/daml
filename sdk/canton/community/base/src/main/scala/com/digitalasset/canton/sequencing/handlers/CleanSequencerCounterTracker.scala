@@ -60,7 +60,7 @@ class CleanSequencerCounterTracker(
       Traced[SequencerCounterCursorPrehead],
     ](Counter[EventBatchCounterDiscriminator](0L))
 
-  def apply[E <: Envelope[_]](
+  def apply[E <: Envelope[?]](
       handler: PossiblyIgnoredApplicationHandler[E]
   )(implicit callerCloseContext: CloseContext): PossiblyIgnoredApplicationHandler[E] =
     handler.replace { tracedEvents =>

@@ -23,7 +23,7 @@ object ServerRole {
     override val threadPoolSuffix: String = "indexer"
   }
 
-  final case class Testing(testClass: Class[_]) extends ServerRole {
+  final case class Testing(testClass: Class[?]) extends ServerRole {
     override val threadPoolSuffix: String = testClass.getSimpleName.toLowerCase
   }
 

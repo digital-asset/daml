@@ -25,6 +25,7 @@ import com.digitalasset.canton.http.json.v2.JsSchema.{
   stringSchemaForEnum,
 }
 import com.digitalasset.canton.ledger.client.LedgerClient
+import com.digitalasset.canton.logging.audit.ApiRequestLogger
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.tracing.TraceContext
@@ -43,6 +44,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class JsInteractiveSubmissionService(
     ledgerClient: LedgerClient,
     protocolConverters: ProtocolConverters,
+    override protected val requestLogger: ApiRequestLogger,
     val loggerFactory: NamedLoggerFactory,
 )(implicit
     val executionContext: ExecutionContext,
@@ -89,7 +91,7 @@ class JsInteractiveSubmissionService(
     Either[JsCantonError, JsPrepareSubmissionResponse]
   ] = req => {
     implicit val token: Option[String] = callerContext.token()
-    implicit val tc: TraceContext = req.traceContext
+    implicit val tc: TraceContext = callerContext.traceContext()
     for {
       grpcReq <- protocolConverters.PrepareSubmissionRequest.fromJson(req.in)
       grpcResp <- interactiveSubmissionServiceClient(token).prepareSubmission(grpcReq)
@@ -101,7 +103,7 @@ class JsInteractiveSubmissionService(
     Either[JsCantonError, interactive_submission_service.ExecuteSubmissionResponse]
   ] = req => {
     implicit val token: Option[String] = callerContext.token()
-    implicit val tc: TraceContext = req.traceContext
+    implicit val tc: TraceContext = callerContext.traceContext()
     for {
       grpcReq <- protocolConverters.ExecuteSubmissionRequest.fromJson(req.in)
       grpcResp <- interactiveSubmissionServiceClient(token).executeSubmission(grpcReq).resultToRight
@@ -114,7 +116,7 @@ class JsInteractiveSubmissionService(
     Either[JsCantonError, interactive_submission_service.ExecuteSubmissionAndWaitResponse]
   ] = req => {
     implicit val token: Option[String] = callerContext.token()
-    implicit val tc: TraceContext = req.traceContext
+    implicit val tc: TraceContext = callerContext.traceContext()
     for {
       grpcReq <- protocolConverters.ExecuteSubmissionAndWaitRequest.fromJson(req.in)
       grpcResp <- interactiveSubmissionServiceClient(token)
@@ -128,7 +130,7 @@ class JsInteractiveSubmissionService(
     Either[JsCantonError, JsExecuteSubmissionAndWaitForTransactionResponse]
   ] = req => {
     implicit val token: Option[String] = callerContext.token()
-    implicit val tc: TraceContext = req.traceContext
+    implicit val tc: TraceContext = callerContext.traceContext()
     for {
       grpcReq <- protocolConverters.ExecuteSubmissionAndWaitForTransactionRequest.fromJson(req.in)
       grpcResp <- interactiveSubmissionServiceClient(token)
@@ -145,7 +147,7 @@ class JsInteractiveSubmissionService(
     Either[JsCantonError, interactive_submission_service.GetPreferredPackageVersionResponse]
   ] = { (tracedInput: TracedInput[(List[String], String, Option[Instant], Option[String])]) =>
     implicit val token: Option[String] = callerContext.token()
-    implicit val tc: TraceContext = tracedInput.traceContext
+    implicit val tc: TraceContext = callerContext.traceContext()
     val (parties, packageName, vettingValidAt, synchronizerId) = tracedInput.in
     interactiveSubmissionServiceClient(token)
       .getPreferredPackageVersion(
@@ -164,7 +166,7 @@ class JsInteractiveSubmissionService(
   ): TracedInput[interactive_submission_service.GetPreferredPackagesRequest] => Future[
     Either[JsCantonError, interactive_submission_service.GetPreferredPackagesResponse]
   ] = { (tracedInput: TracedInput[interactive_submission_service.GetPreferredPackagesRequest]) =>
-    implicit val tc: TraceContext = tracedInput.traceContext
+    implicit val tc: TraceContext = callerContext.traceContext()
     val token: Option[String] = callerContext.token()
     val getPreferredPackagesRequest = tracedInput.in
     interactiveSubmissionServiceClient(token)

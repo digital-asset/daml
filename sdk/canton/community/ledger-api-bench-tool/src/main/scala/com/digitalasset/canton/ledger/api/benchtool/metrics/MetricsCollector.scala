@@ -27,7 +27,7 @@ object MetricsCollector {
     final case class MetricFinalReportData(
         name: String,
         value: MetricValue,
-        violatedObjectives: List[(ServiceLevelObjective[_], MetricValue)],
+        violatedObjectives: List[(ServiceLevelObjective[?], MetricValue)],
     )
     final case class FinalReport(totalDuration: Duration, metricsData: List[MetricFinalReportData])
         extends Response

@@ -30,7 +30,7 @@ trait PostAggregationHandler {
 
 class PostAggregationHandlerImpl private[sequencing] (
     sequencerAggregator: SequencerAggregator,
-    addToFlushAndLogError: String => Future[_] => Unit,
+    addToFlushAndLogError: String => Future[?] => Unit,
     eventInboxSize: PositiveInt,
     eventBatchProcessor: RichSequencerClientImpl.EventBatchProcessor,
     hasSynchronizeWithClosing: HasSynchronizeWithClosing,

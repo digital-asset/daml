@@ -93,7 +93,7 @@ object MessageRecorder {
           // Workaround for known bugs in the deserialization framework.
           // https://github.com/scala/bug/issues/9777
           // https://bugs.openjdk.java.net/browse/JDK-8024931
-          override def resolveClass(desc: ObjectStreamClass): Class[_] =
+          override def resolveClass(desc: ObjectStreamClass): Class[?] =
             Class.forName(desc.getName, false, loader)
         }) { stream =>
           val builder = List.newBuilder[T]

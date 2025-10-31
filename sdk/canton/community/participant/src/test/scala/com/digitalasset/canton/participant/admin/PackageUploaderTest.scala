@@ -268,7 +268,7 @@ class PackageUploaderTest
     private val clock = new SimClock(start = clockNow, loggerFactory = loggerFactory)
     val mutablePackageMetadataViewImpl = new MutablePackageMetadataViewImpl(
       clock = clock,
-      damlPackageStore = packageStore,
+      packageStore = packageStore,
       new PackageUpgradeValidator(CachingConfigs.defaultPackageUpgradeCache, loggerFactory),
       loggerFactory = loggerFactory,
       packageMetadataViewConfig = PackageMetadataViewConfig(),

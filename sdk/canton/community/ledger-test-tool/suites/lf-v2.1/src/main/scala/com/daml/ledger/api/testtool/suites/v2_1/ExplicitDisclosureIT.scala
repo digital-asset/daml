@@ -545,7 +545,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
       } yield ()
   })
 
-  private def oneFailedWith(result1: Try[_], result2: Try[_])(
+  private def oneFailedWith(result1: Try[?], result2: Try[?])(
       assertError: Throwable => Unit
   ): Unit =
     (result1.isFailure, result2.isFailure) match {

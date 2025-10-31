@@ -159,7 +159,7 @@ object CryptoKeyPair extends HasVersionedMessageCompanion[CryptoKeyPair[PublicKe
 
   def fromProtoCryptoKeyPairV30(
       keyPair: v30.CryptoKeyPair
-  ): ParsingResult[CryptoKeyPair[_ <: PublicKey, _ <: PrivateKey]] =
+  ): ParsingResult[CryptoKeyPair[? <: PublicKey, ? <: PrivateKey]] =
     for {
       pair <- keyPair.pair match {
         case v30.CryptoKeyPair.Pair.EncryptionKeyPair(value) =>

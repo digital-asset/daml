@@ -150,9 +150,9 @@ class TestConnection extends Connection {
   override def prepareCall(s: String, i: Int, i1: Int): CallableStatement =
     throw new UnsupportedOperationException
 
-  override def getTypeMap: util.Map[String, Class[_]] = throw new UnsupportedOperationException
+  override def getTypeMap: util.Map[String, Class[?]] = throw new UnsupportedOperationException
 
-  override def setTypeMap(map: util.Map[String, Class[_]]): Unit =
+  override def setTypeMap(map: util.Map[String, Class[?]]): Unit =
     throw new UnsupportedOperationException
 
   override def setHoldability(i: Int): Unit = throw new UnsupportedOperationException
@@ -223,5 +223,5 @@ class TestConnection extends Connection {
 
   override def unwrap[T](aClass: Class[T]): T = throw new UnsupportedOperationException
 
-  override def isWrapperFor(aClass: Class[_]): Boolean = throw new UnsupportedOperationException
+  override def isWrapperFor(aClass: Class[?]): Boolean = throw new UnsupportedOperationException
 }

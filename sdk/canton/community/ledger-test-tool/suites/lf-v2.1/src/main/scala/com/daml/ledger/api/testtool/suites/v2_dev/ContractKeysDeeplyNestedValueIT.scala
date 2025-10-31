@@ -23,7 +23,7 @@ final class ContractKeysDeeplyNestedValueIT extends LedgerTestSuite {
   private[this] def waitForTransactionId(
       alpha: ParticipantTestContext,
       party: Party,
-      command: Update[_],
+      command: Update[?],
   )(implicit
       ec: ExecutionContext
   ): Future[Either[Throwable, String]] =

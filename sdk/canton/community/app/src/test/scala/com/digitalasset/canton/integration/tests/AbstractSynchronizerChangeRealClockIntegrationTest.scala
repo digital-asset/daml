@@ -229,7 +229,10 @@ abstract class AbstractSynchronizerChangeRealClockIntegrationTest
       .find(_.id.toLf == paintOfferId)
     paintOffer should not be empty
     val iouTemplateIdPkgName = TemplateId.fromJavaIdentifier(Iou.TEMPLATE_ID)
-    val iouTemplateId = TemplateId.fromJavaIdentifier(Iou.TEMPLATE_ID_WITH_PACKAGE_ID)
+    // Look up actually uploaded IOU package ID to accommodate data continuity tests
+    // as the CantonExamples package ID tend to change across builds.
+    val iouPackageIdUploaded = P3.packages.find_by_module("Iou").map(_.packageId).loneElement
+    val iouTemplateId = iouTemplateIdPkgName.copy(packageId = iouPackageIdUploaded)
     val iouCreated = P1.ledger_api.state.acs
       .of_party(
         party = bank,

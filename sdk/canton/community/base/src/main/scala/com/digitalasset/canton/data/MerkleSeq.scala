@@ -219,7 +219,7 @@ object MerkleSeq
   }
 
   object Branch {
-    def apply[M <: VersionedMerkleTree[_]](
+    def apply[M <: VersionedMerkleTree[?]](
         first: MerkleTree[MerkleSeqElement[M]],
         second: MerkleTree[MerkleSeqElement[M]],
         protocolVersion: ProtocolVersion,
@@ -233,7 +233,7 @@ object MerkleSeq
       )(hashOps)
   }
 
-  private[data] final case class Branch[+M <: VersionedMerkleTree[_]](
+  private[data] final case class Branch[+M <: VersionedMerkleTree[?]](
       first: MerkleTree[MerkleSeqElement[M]],
       second: MerkleTree[MerkleSeqElement[M]],
       override val representativeProtocolVersion: RepresentativeProtocolVersion[
@@ -344,7 +344,7 @@ object MerkleSeq
     // data is of type MerkleTree[_], because otherwise we would have to come up with a "surprising" implementation
     // of "withBlindedSubtrees" (i.e., blind the Singleton if the data is blinded).
 
-    override def subtrees: Seq[MerkleTree[_]] = Seq(data)
+    override def subtrees: Seq[MerkleTree[?]] = Seq(data)
 
     override def toSeq: Seq[MerkleTree[M]] = Seq(data)
 
@@ -478,7 +478,7 @@ object MerkleSeq
               .asLeft
           case (_, _, _) =>
             // maybeFirst.isDefined != maybeSecond.isDefined
-            def mkState: Option[_] => String = _.fold("undefined")(_ => "defined")
+            def mkState: Option[?] => String = _.fold("undefined")(_ => "defined")
 
             ProtoDeserializationError
               .OtherError(

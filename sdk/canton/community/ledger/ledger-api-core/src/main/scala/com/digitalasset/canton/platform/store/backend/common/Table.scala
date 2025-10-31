@@ -8,25 +8,25 @@ import com.digitalasset.canton.platform.store.interning.StringInterning
 import java.sql.Connection
 
 private[backend] trait Table[FROM] {
-  def prepareData(in: Vector[FROM], stringInterning: StringInterning): Array[Array[_]]
-  def executeUpdate: Array[Array[_]] => Connection => Unit
+  def prepareData(in: Vector[FROM], stringInterning: StringInterning): Array[Array[?]]
+  def executeUpdate: Array[Array[?]] => Connection => Unit
 }
 
 private[backend] abstract class BaseTable[FROM](
-    fields: Seq[(String, Field[FROM, _, _])],
+    fields: Seq[(String, Field[FROM, ?, ?])],
     ordering: Option[Ordering[FROM]] = None,
 ) extends Table[FROM] {
   override def prepareData(
       in: Vector[FROM],
       stringInterning: StringInterning,
-  ): Array[Array[_]] = {
+  ): Array[Array[?]] = {
     val sortedIn = ordering.map(in.sorted(_)).getOrElse(in)
     fields.view.map(_._2.toArray(sortedIn, stringInterning)).toArray
   }
 }
 
 private[backend] object Table {
-  def ifNonEmpty(data: Array[Array[_]])(effect: => Any): Unit =
+  def ifNonEmpty(data: Array[Array[?]])(effect: => Any): Unit =
     // data(0) accesses the array of data for the first column of the table. This is safe because tables without columns are not supported. Also because of the transposed data-structure here all columns will have data-arrays of the same length.
     if (data(0).length > 0) {
       effect
@@ -35,9 +35,9 @@ private[backend] object Table {
 
   private def batchedInsertBase[FROM](
       insertStatement: String
-  )(fields: Seq[(String, Field[FROM, _, _])]): Table[FROM] =
+  )(fields: Seq[(String, Field[FROM, ?, ?])]): Table[FROM] =
     new BaseTable[FROM](fields) {
-      override def executeUpdate: Array[Array[_]] => Connection => Unit =
+      override def executeUpdate: Array[Array[?]] => Connection => Unit =
         data =>
           connection =>
             ifNonEmpty(data) {
@@ -59,9 +59,9 @@ private[backend] object Table {
 
   private def batchedInsertStatement(
       tableName: String,
-      fields: Seq[(String, Field[_, _, _])],
+      fields: Seq[(String, Field[?, ?, ?])],
   ): String = {
-    def commaSeparatedOf(extractor: ((String, Field[_, _, _])) => String): String =
+    def commaSeparatedOf(extractor: ((String, Field[?, ?, ?])) => String): String =
       fields.view
         .map(extractor)
         .mkString(",")
@@ -78,7 +78,7 @@ private[backend] object Table {
   }
 
   def batchedInsert[FROM](tableName: String)(
-      fields: (String, Field[FROM, _, _])*
+      fields: (String, Field[FROM, ?, ?])*
   ): Table[FROM] =
     batchedInsertBase(batchedInsertStatement(tableName, fields))(fields)
 }

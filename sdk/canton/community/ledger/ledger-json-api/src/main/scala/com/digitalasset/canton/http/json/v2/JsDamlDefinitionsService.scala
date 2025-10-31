@@ -13,6 +13,7 @@ import com.digitalasset.canton.http.json.v2.damldefinitionsservice.Schema.{
   TypeSig,
 }
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.logging.audit.ApiRequestLogger
 import sttp.tapir.path
 
 import scala.annotation.unused
@@ -20,6 +21,7 @@ import scala.concurrent.Future
 
 class JsDamlDefinitionsService(
     damlDefinitionsView: DamlDefinitionsView,
+    override protected val requestLogger: ApiRequestLogger,
     val loggerFactory: NamedLoggerFactory,
 )(implicit val authInterceptor: AuthInterceptor)
     extends Endpoints {

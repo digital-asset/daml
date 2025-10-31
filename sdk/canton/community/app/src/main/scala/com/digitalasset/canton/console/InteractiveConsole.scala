@@ -48,7 +48,7 @@ object InteractiveConsole extends NoTracing {
     // (such as all, help, participant1, etc.), which are made available only here
     // so we can't run Main.runScript or so as the "result" of the script are lost then
     // in the REPL.
-    def startup(replArgs: IndexedSeq[Bind[_]]): (Res[Any], Seq[(Watchable, Long)]) =
+    def startup(replArgs: IndexedSeq[Bind[?]]): (Res[Any], Seq[(Watchable, Long)]) =
       options.instantiateRepl(replArgs) match {
         case Left(missingPredefInfo) => missingPredefInfo
         case Right(repl) =>

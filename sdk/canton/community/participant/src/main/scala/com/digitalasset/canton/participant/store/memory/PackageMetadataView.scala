@@ -41,6 +41,7 @@ trait PackageMetadataView extends AutoCloseable {
   * initialization and on new package uploads.
   */
 trait MutablePackageMetadataView extends PackageMetadataView {
+  def packageStore: DamlPackageStore
 
   /** Update the current package metadata view by merging the series of `newPackageMetadata` into
     * it.
@@ -55,7 +56,7 @@ trait MutablePackageMetadataView extends PackageMetadataView {
 
 class MutablePackageMetadataViewImpl(
     clock: Clock,
-    damlPackageStore: DamlPackageStore,
+    val packageStore: DamlPackageStore,
     val packageUpgradeValidator: PackageUpgradeValidator,
     val loggerFactory: NamedLoggerFactory,
     packageMetadataViewConfig: PackageMetadataViewConfig,
@@ -110,7 +111,7 @@ class MutablePackageMetadataViewImpl(
     def elapsedDurationMillis(): Long = (clock.now - startedTime).toMillis
 
     val initializationFUS =
-      damlPackageStore
+      packageStore
         .listPackages()
         .flatMap(packages =>
           FutureUnlessShutdown.outcomeF(
@@ -157,8 +158,10 @@ class MutablePackageMetadataViewImpl(
           .asGrpcError
       )
 
-  override def onClosed(): Unit =
+  override def onClosed(): Unit = {
     LifeCycle.close(mutatePackageMetadataExecutionQueue)(logger)
+    LifeCycle.close(packageStore)(logger)
+  }
 
   private def decodePackageMetadata(
       archive: DamlLf.Archive
@@ -173,7 +176,7 @@ class MutablePackageMetadataViewImpl(
   private def fetchPackage(
       packageId: LfPackageId
   )(implicit tc: TraceContext): FutureUnlessShutdown[DamlLf.Archive] =
-    damlPackageStore
+    packageStore
       .getPackage(packageId)
       .flatMap {
         case Some(pkg) => FutureUnlessShutdown.pure(pkg)

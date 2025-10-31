@@ -29,7 +29,7 @@ final class DeeplyNestedValueIT extends LedgerTestSuite {
   private[this] def waitForUpdateId(
       alpha: ParticipantTestContext,
       party: Party,
-      command: Update[_],
+      command: Update[?],
   )(implicit
       ec: ExecutionContext
   ): Future[Either[Throwable, String]] =

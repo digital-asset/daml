@@ -260,14 +260,17 @@ private[bftordering] class BftOrderingModuleSystemInitializer[
             p2pNetworkOutRef,
           )
 
-          val segmentModuleRefFactory = new SegmentModuleRefFactoryImpl(
-            storePbftMessages = true,
-            stores.epochStore,
-            dependencies,
-            loggerFactory,
-            timeouts,
-            metrics,
-          )
+          val segmentModuleRefFactory =
+            new SegmentModuleRefFactoryImpl(
+              storePbftMessages = true,
+              stores.epochStore,
+              dependencies,
+              config.consensusBlockCompletionTimeout,
+              config.consensusEmptyBlockCreationTimeout,
+              loggerFactory,
+              timeouts,
+              metrics,
+            )
 
           new PreIssConsensusModule(
             bootstrapTopologyInfo,

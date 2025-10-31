@@ -12,6 +12,7 @@ import com.daml.ports.{Port, PortFiles}
 import com.daml.tls.TlsVersion
 import com.digitalasset.canton.auth.AuthInterceptor
 import com.digitalasset.canton.config.{
+  ApiLoggingConfig,
   ServerAuthRequirementConfig,
   TlsClientConfig,
   TlsServerConfig,
@@ -57,6 +58,7 @@ class HttpService(
     channel: Channel,
     packageSyncService: PackageSyncService,
     packagePreferenceBackend: PackagePreferenceBackend,
+    apiLoggingConfig: ApiLoggingConfig,
     val loggerFactory: NamedLoggerFactory,
 )(implicit
     asys: ActorSystem,
@@ -120,10 +122,11 @@ class HttpService(
           packageSyncService,
           packagePreferenceBackend,
           mat.executionContext,
+          apiLoggingConfig,
           loggerFactory,
         )
 
-        jsonEndpoints = new Endpoints(
+        jsonEndpoints = new JsonRoutes(
           healthService,
           v2Routes,
           startSettings.debugLoggingOfHttpBodies,

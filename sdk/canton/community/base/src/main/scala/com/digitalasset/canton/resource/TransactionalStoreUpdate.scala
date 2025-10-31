@@ -99,7 +99,7 @@ object TransactionalStoreUpdate {
     *   The [[DbStorage]] to be used to execute the `sql` action.
     */
   private[canton] final class DbTransactionalStoreUpdate(
-      val sql: DBIOAction[_, NoStream, Effect.Write with Effect.Transactional],
+      val sql: DBIOAction[?, NoStream, Effect.Write with Effect.Transactional],
       val storage: DbStorage,
       override protected val loggerFactory: NamedLoggerFactory,
   )(implicit val ec: ExecutionContext)
