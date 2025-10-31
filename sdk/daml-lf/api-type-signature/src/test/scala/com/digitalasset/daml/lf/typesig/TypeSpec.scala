@@ -9,17 +9,15 @@ import com.digitalasset.daml.lf.data.BackStack
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import com.digitalasset.daml.lf.testing.parser.Implicits._
-import com.digitalasset.daml.lf.language.{LanguageMajorVersion, Ast => Pkg, Util => PkgUtil}
+import com.digitalasset.daml.lf.language.{Ast => Pkg, Util => PkgUtil}
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
 
 import scala.language.implicitConversions
 
-class TypeSpecV2 extends TypeSpec(LanguageMajorVersion.V2)
-
-class TypeSpec(majorLanguageVersion: LanguageMajorVersion) extends AnyWordSpec with Matchers {
+class TypeSpec extends AnyWordSpec with Matchers {
 
   implicit val parserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor(majorLanguageVersion)
+    ParserParameters.default
 
   implicit def packageId(s: String): PackageId = PackageId.assertFromString(s)
   implicit def qualifiedName(s: String): QualifiedName = QualifiedName.assertFromString(s)

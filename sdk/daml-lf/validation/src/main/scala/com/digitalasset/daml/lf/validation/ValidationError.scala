@@ -10,8 +10,6 @@ import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.Reference
 import com.digitalasset.daml.lf.language.LanguageVersion
 
-import scala.Ordering.Implicits.infixOrderingOps
-
 sealed abstract class Context extends Product with Serializable {
   def pretty: String
 }

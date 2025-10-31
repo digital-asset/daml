@@ -15,7 +15,6 @@ import com.digitalasset.daml.lf.language.{LanguageVersion => LV}
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 
-import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
@@ -1056,7 +1055,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
 
 private[lf] object DecodeV1 {
 
-  val Features = LV.FeaturesV1
+  val Features = LV.LegacyFeatures
 
   private def eitherToParseError[A](x: Either[String, A]): A =
     x.fold(err => throw Error.Parsing(err), identity)

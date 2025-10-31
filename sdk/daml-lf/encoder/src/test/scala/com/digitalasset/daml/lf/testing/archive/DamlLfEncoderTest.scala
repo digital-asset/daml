@@ -17,7 +17,6 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import scala.jdk.CollectionConverters._
 import scala.language.implicitConversions
-import scala.Ordering.Implicits.infixOrderingOps
 
 class DamlLfEncoderTest
     extends AnyWordSpec
@@ -149,7 +148,7 @@ class DamlLfEncoderTest
     val builtinMod = ModuleName.assertFromString("BuiltinMod")
 
     "contains all builtins " in {
-      forEvery(Table("version", LanguageVersion.AllV2.filter(LanguageVersion.v2_dev < _): _*)) {
+      forEvery(Table("version", LanguageVersion.all.filter(LanguageVersion.v2_dev < _): _*)) {
         version =>
           val Right(dar) =
             DarDecoder

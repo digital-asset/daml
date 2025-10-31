@@ -6,8 +6,7 @@ package speedy
 
 import com.digitalasset.daml.lf.data.Ref.{IdString, PackageId, Party, TypeConId}
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref}
-import com.digitalasset.daml.lf.language.LanguageMajorVersion.V2
-import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.speedy.SBuiltinFun.SBFetchTemplate
 import com.digitalasset.daml.lf.speedy.SExpr.SEMakeClo
 import com.digitalasset.daml.lf.testing.parser
@@ -27,9 +26,9 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 
 import scala.collection.immutable.ArraySeq
 
-class SerializationVersionTestV2 extends SerializationVersionTest(V2)
+class SerializationVersionTestV2 extends SerializationVersionTest(LanguageVersion.Major.V2)
 
-class SerializationVersionTest(majorLanguageVersion: LanguageMajorVersion)
+class SerializationVersionTest(majorLanguageVersion: LanguageVersion.Major)
     extends AnyFreeSpec
     with Matchers
     with Inside
@@ -108,12 +107,12 @@ class SerializationVersionTest(majorLanguageVersion: LanguageMajorVersion)
   }
 }
 
-private[lf] class SerializationVersionTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
+private[lf] class SerializationVersionTestHelpers(majorLanguageVersion: LanguageVersion.Major) {
 
   val (commonLfVersion, oldLfVersion, newLfVersion) = majorLanguageVersion match {
-    case V2 =>
+    case LanguageVersion.Major.V2 =>
       (
-        LanguageVersion.defaultOrLatestStable(LanguageMajorVersion.V2),
+        LanguageVersion.default,
         LanguageVersion.v2_1,
         LanguageVersion.v2_dev,
       )

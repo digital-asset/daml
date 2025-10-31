@@ -39,12 +39,12 @@ object CompileUpgradeTestCases {
 
   private val targets: Seq[Target] = Seq(
     Target(
-      LanguageVersion.Major.V2.maxStableVersion,
+      LanguageVersion.latestStable,
       rlocation(Paths.get("daml-script/test/upgrade-test-lib.dar")),
       rlocation(Paths.get("daml-script/test/daml/upgrades/stable")),
     ),
     Target(
-      LanguageVersion.Major.V2.dev,
+      LanguageVersion.dev,
       rlocation(Paths.get("daml-script/test/upgrade-test-lib-dev.dar")),
       rlocation(Paths.get("daml-script/test/daml/upgrades/dev")),
     ),

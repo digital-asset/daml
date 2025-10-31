@@ -6,11 +6,8 @@ package archive
 
 import com.daml.crypto.MessageDigestPrototype
 import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.language.{
-  LanguageVersion,
-  LanguageMajorVersion,
-  LanguageMinorVersion,
-}
+import com.digitalasset.daml.lf.language.LanguageVersion.{Major, Minor}
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.google.protobuf
 
 sealed abstract class ArchivePayload {
@@ -23,18 +20,18 @@ object ArchivePayload {
   final case class Lf1(
       pkgId: PackageId,
       proto: DamlLf1.Package,
-      minor: language.LanguageMinorVersion,
+      minor: Minor,
   ) extends ArchivePayload {
-    val version = LanguageVersion(LanguageMajorVersion.V1, minor)
+    val version = LanguageVersion(Major.V1, minor)
   }
 
   final case class Lf2(
       pkgId: PackageId,
       proto: DamlLf2.Package,
-      minor: language.LanguageMinorVersion,
+      minor: Minor,
       patch: Int,
   ) extends ArchivePayload {
-    val version = LanguageVersion(LanguageMajorVersion.V2, minor)
+    val version = LanguageVersion(Major.V2, minor)
   }
 }
 
@@ -96,14 +93,14 @@ object Reader {
         for {
           _ <- validateUnknownFields(lf, schemaMode)
           pkg <- lf1PackageParser.fromByteString(lf.getDamlLf1)
-        } yield ArchivePayload.Lf1(hash, pkg, LanguageMinorVersion(lf.getMinor))
+        } yield ArchivePayload.Lf1(hash, pkg, Minor.assertFromString(lf.getMinor))
     case DamlLf.ArchivePayload.SumCase.DAML_LF_2 =>
       for {
         _ <- validateUnknownFields(lf, schemaMode)
-        minor = LanguageMinorVersion(lf.getMinor)
+        minor = Minor.assertFromString(lf.getMinor)
         pkg <- lf2PackageParser(minor).fromByteString(lf.getDamlLf2)
         _ <- validateUnknownFields(pkg, schemaMode)
-      } yield ArchivePayload.Lf2(hash, pkg, LanguageMinorVersion(lf.getMinor), lf.getPatch)
+      } yield ArchivePayload.Lf2(hash, pkg, Minor.assertFromString(lf.getMinor), lf.getPatch)
     case DamlLf.ArchivePayload.SumCase.SUM_NOT_SET =>
       Left(Error.Parsing("Unrecognized or Unsupported LF version"))
   }

@@ -51,7 +51,6 @@ import scalaz.syntax.foldable._
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
-import scala.math.Ordered.orderingToOrdered
 
 // Client for the script service.
 class IdeLedgerClient(

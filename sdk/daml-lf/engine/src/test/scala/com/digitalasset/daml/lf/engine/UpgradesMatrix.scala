@@ -11,7 +11,7 @@ import com.digitalasset.daml.lf.archive.testing.Encode
 import com.digitalasset.daml.lf.command.ApiCommand
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
+import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
 import com.digitalasset.daml.lf.testing.parser.Implicits._
 import com.digitalasset.daml.lf.testing.parser.{AstRewriter, ParserParameters}
 import com.digitalasset.daml.lf.transaction._
@@ -21,7 +21,6 @@ import org.scalatest.Assertion
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
 
-import Ordering.Implicits._
 import scala.annotation.nowarn
 import scala.concurrent.Future
 import scala.language.implicitConversions
@@ -146,8 +145,7 @@ abstract class UpgradesMatrix[Err, Res](
 // Instances of UpgradesMatrixCases which provide cases built with LF 2.dev or the
 // highest stable 2.x version, respectively
 object UpgradesMatrixCasesV2Dev extends UpgradesMatrixCases(LanguageVersion.v2_dev)
-object UpgradesMatrixCasesV2MaxStable
-    extends UpgradesMatrixCases(LanguageVersion.StableVersions(LanguageMajorVersion.V2).max)
+object UpgradesMatrixCasesV2MaxStable extends UpgradesMatrixCases(LanguageVersion.latestStable)
 
 /** Pairs of v1/v2 templates are called [[TestCase]]s and are listed in [[testCases]]. A test case is defined by
   * subclassing [[TestCase]] and overriding one definition. For instance, [[ChangedObservers]] overrides
@@ -214,7 +212,7 @@ class UpgradesMatrixCases(
   implicit def toQualifiedName(s: String): QualifiedName = QualifiedName.assertFromString(s)
 
   val stablePackages =
-    com.digitalasset.daml.lf.stablepackages.StablePackages(LanguageMajorVersion.V2)
+    com.digitalasset.daml.lf.stablepackages.StablePackages.stablePackages
 
   val tuple2TyCon: String = {
     import stablePackages.Tuple2

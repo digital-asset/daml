@@ -14,7 +14,7 @@ import com.digitalasset.daml.lf.data.{FrontStack, ImmArray}
 import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
 import com.digitalasset.daml.lf.engine.script.test.DarUtil.Dar
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.AdminLedgerClient
-import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.speedy.Speedy.Machine.{newTraceLog, newWarningLog}
 import com.digitalasset.daml.lf.value.Value
 import org.scalatest.Inside
@@ -43,7 +43,7 @@ class UpgradesIT(
   final override protected lazy val devMode = runCantonInDevMode
   final override protected val disableUpgradeValidation = true
 
-  override val majorLanguageVersion: LanguageMajorVersion = languageVersion.major
+  override val majorLanguageVersion: LanguageVersion.Major = languageVersion.major
 
   override protected lazy val darFiles = List()
 
@@ -68,7 +68,7 @@ class UpgradesIT(
           (testDarPath, _) <- testUtil.buildTestCaseDarMemoized(languageVersion, testCase)
 
           // Create ide ledger client
-          testDar = CompiledDar.read(testDarPath, Runner.compilerConfig(LanguageMajorVersion.V2))
+          testDar = CompiledDar.read(testDarPath, Runner.compilerConfig)
           participants <- Runner.ideLedgerClient(
             testDar.compiledPackages,
             newTraceLog,
@@ -125,7 +125,7 @@ class UpgradesIT(
           _ = println("All packages vetted on all participants")
 
           // Run tests
-          testDar = CompiledDar.read(testDarPath, Runner.compilerConfig(LanguageMajorVersion.V2))
+          testDar = CompiledDar.read(testDarPath, Runner.compilerConfig)
           _ <- run(
             clients,
             QualifiedName.assertFromString(s"${testCase.name}:main"),
@@ -187,7 +187,7 @@ class UpgradesIT(
 class UpgradesITSmallStable
     extends UpgradesIT(
       runCantonInDevMode = false,
-      languageVersion = LanguageVersion.Major.V2.maxStableVersion,
+      languageVersion = LanguageVersion.latestStable,
       upgradeTestLibDarPath = "daml-script/test/upgrade-test-lib.dar",
       testFilesDirPath = "daml-script/test/daml/upgrades/stable",
       numParticipants = 2,
@@ -197,7 +197,7 @@ class UpgradesITSmallStable
 class UpgradesITSLargeStable
     extends UpgradesIT(
       runCantonInDevMode = false,
-      languageVersion = LanguageVersion.Major.V2.maxStableVersion,
+      languageVersion = LanguageVersion.latestStable,
       upgradeTestLibDarPath = "daml-script/test/upgrade-test-lib.dar",
       testFilesDirPath = "daml-script/test/daml/upgrades/stable",
       numParticipants = 5,
@@ -207,7 +207,7 @@ class UpgradesITSLargeStable
 class UpgradesITSmallDev
     extends UpgradesIT(
       runCantonInDevMode = true,
-      languageVersion = LanguageVersion.Major.V2.dev,
+      languageVersion = LanguageVersion.dev,
       upgradeTestLibDarPath = "daml-script/test/upgrade-test-lib-dev.dar",
       testFilesDirPath = "daml-script/test/daml/upgrades/dev",
       numParticipants = 2,

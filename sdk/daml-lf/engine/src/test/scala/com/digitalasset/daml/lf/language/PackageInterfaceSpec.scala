@@ -18,9 +18,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop._
 import org.scalatest.wordspec.AnyWordSpec
 
-class PackageInterfaceSpecV2 extends PackageInterfaceSpec(LanguageMajorVersion.V2)
-
-class PackageInterfaceSpec(majorLanguageVersion: LanguageMajorVersion)
+class PackageInterfaceSpec
     extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks
@@ -35,8 +33,7 @@ class PackageInterfaceSpec(majorLanguageVersion: LanguageMajorVersion)
   // TODO https://github.com/digital-asset/daml/issues/12051
   //  test interfaces
 
-  implicit val parserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor[this.type](majorLanguageVersion)
+  implicit val parserParameters: ParserParameters[this.type] = ParserParameters.default
 
   private[this] implicit val defaultPackageId: Ref.PackageId =
     parserParameters.defaultPackageId

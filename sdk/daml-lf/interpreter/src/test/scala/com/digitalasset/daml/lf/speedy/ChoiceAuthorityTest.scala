@@ -7,7 +7,6 @@ package speedy
 import com.digitalasset.daml.lf.data.FrontStack
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.interpretation.Error.FailedAuthorization
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml.lf.ledger.FailedAuthorization._
 import com.digitalasset.daml.lf.speedy.SError.SError
 import com.digitalasset.daml.lf.speedy.SExpr.SEApp
@@ -21,16 +20,11 @@ import org.scalatest.matchers.should.Matchers._
 
 import scala.collection.immutable.ArraySeq
 
-class ChoiceAuthorityTestV2 extends ChoiceAuthorityTest(LanguageMajorVersion.V2)
-
-class ChoiceAuthorityTest(majorLanguageVersion: LanguageMajorVersion)
-    extends AnyFreeSpec
-    with Inside {
+class ChoiceAuthorityTest extends AnyFreeSpec with Inside {
 
   val transactionSeed = crypto.Hash.hashPrivateKey("ChoiceAuthorityTest.scala")
 
-  implicit val defaultParserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor[this.type](majorLanguageVersion)
+  implicit val defaultParserParameters: ParserParameters[this.type] = ParserParameters.default
 
   val pkgs: PureCompiledPackages = SpeedyTestLib.typeAndCompile(p"""
   metadata ( 'pkg' : '1.0.0' )

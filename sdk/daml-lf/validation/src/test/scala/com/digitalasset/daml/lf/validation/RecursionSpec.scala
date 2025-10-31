@@ -3,22 +3,16 @@
 
 package com.digitalasset.daml.lf.validation
 
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml.lf.testing.parser.Implicits._
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class RecursionSpecV2 extends RecursionSpec(LanguageMajorVersion.V2)
-
-class RecursionSpec(majorLanguageVersion: LanguageMajorVersion)
-    extends AnyWordSpec
-    with TableDrivenPropertyChecks
-    with Matchers {
+class RecursionSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
   implicit val parserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor(majorLanguageVersion)
+    ParserParameters.default
   val defaultPackageId = parserParameters.defaultPackageId
 
   "Recursion validation should not detect cycles between a module and itself" in {

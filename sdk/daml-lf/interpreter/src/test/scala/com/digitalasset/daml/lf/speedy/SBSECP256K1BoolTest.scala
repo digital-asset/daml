@@ -7,7 +7,7 @@ package speedy
 import com.digitalasset.daml.lf.data.support.crypto.MessageSignatureUtil
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
-import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion}
+import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.speedy.SBuiltinFun.SBSECP256K1WithEcdsaBool
 import com.digitalasset.daml.lf.speedy.SValue.{SBool, SText}
 import com.digitalasset.daml.lf.speedy.Speedy.Control
@@ -31,18 +31,13 @@ import java.security.{KeyPairGenerator, Security}
 import java.security.spec.InvalidKeySpecException
 import scala.collection.immutable.ArraySeq
 
-class SBSECP256K1BoolTestV2 extends SBSECP256K1BoolTest(LanguageMajorVersion.V2)
-
-class SBSECP256K1BoolTest(majorLanguageVersion: LanguageMajorVersion)
-    extends AnyFreeSpec
-    with Matchers
-    with ScalaCheckPropertyChecks {
+class SBSECP256K1BoolTest extends AnyFreeSpec with Matchers with ScalaCheckPropertyChecks {
   import SBSECP256K1BoolTest._
   import SpeedyTestLib.loggingContext
 
   Security.addProvider(new BouncyCastleProvider)
 
-  private val compilerConfig = Compiler.Config.Default(majorLanguageVersion)
+  private val compilerConfig = Compiler.Config.Default
   private val dummyMachine = Speedy.Machine.fromPureExpr(
     PureCompiledPackages.Empty(compilerConfig),
     Ast.EBuiltinCon(Ast.BCUnit),

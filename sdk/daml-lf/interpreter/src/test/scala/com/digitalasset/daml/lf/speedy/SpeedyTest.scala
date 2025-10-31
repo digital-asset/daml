@@ -16,24 +16,17 @@ import com.digitalasset.daml.lf.testing.parser.Implicits._
 import org.scalactic.Equality
 import org.scalatest.matchers.should.Matchers
 import SpeedyTestLib.loggingContext
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
 
 import scala.collection.immutable.ArraySeq
 
-class SpeedyTestV2 extends SpeedyTest(LanguageMajorVersion.V2)
-
-class SpeedyTest(majorLanguageVersion: LanguageMajorVersion)
-    extends AnyFreeSpec
-    with Matchers
-    with Inside {
+class SpeedyTest extends AnyFreeSpec with Matchers with Inside {
 
   import SpeedyTest._
 
-  implicit val parserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor[this.type](majorLanguageVersion)
+  implicit val parserParameters: ParserParameters[this.type] = ParserParameters.default
 
   val pkgId = parserParameters.defaultPackageId
 

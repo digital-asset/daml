@@ -10,7 +10,7 @@ import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion}
+import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.speedy.SBuiltinFun.SBCrash
 import com.digitalasset.daml.lf.speedy.SError.{SError, SErrorCrash, SErrorDamlException}
 import com.digitalasset.daml.lf.speedy.SExpr._
@@ -33,19 +33,12 @@ import scala.collection.immutable.ArraySeq
 import scala.language.implicitConversions
 import scala.util.{Failure, Try}
 
-class SBuiltinTestV2 extends SBuiltinTest(LanguageMajorVersion.V2)
+class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks with Inside {
 
-class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
-    extends AnyFreeSpec
-    with Matchers
-    with TableDrivenPropertyChecks
-    with Inside {
-
-  val helpers = new SBuiltinTestHelpers(majorLanguageVersion)
+  val helpers = new SBuiltinTestHelpers
   import helpers.{parserParameters => _, _}
 
-  implicit val parserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor[this.type](majorLanguageVersion)
+  implicit val parserParameters: ParserParameters[this.type] = ParserParameters.default
 
   implicit def toScale(i: Int): Numeric.Scale = Numeric.Scale.assertFromInt(i)
 
@@ -1689,7 +1682,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
     }
 
     "should not request package for ArithmeticError" in {
-      val tyCon = StablePackages(majorLanguageVersion).ArithmeticError
+      val tyCon = StablePackages.stablePackages.ArithmeticError
       val prettyTyCon = s"'${tyCon.packageId}':${tyCon.qualifiedName}"
       eval(
         e"""ANY_EXCEPTION_MESSAGE (to_any_exception @$prettyTyCon ($prettyTyCon { message = "Arithmetic error" }))"""
@@ -2110,12 +2103,12 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
   }
 }
 
-final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
+final class SBuiltinTestHelpers {
 
   import SpeedyTestLib.loggingContext
 
   implicit val parserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor(majorLanguageVersion)
+    ParserParameters.default
 
   lazy val pkg =
     p"""  metadata ( '-sbuiltin-test-' : '1.0.0' )
@@ -2224,10 +2217,10 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
   val compiledPackages: PureCompiledPackages =
     PureCompiledPackages.assertBuild(
       Map(parserParameters.defaultPackageId -> pkg),
-      Compiler.Config.Default(majorLanguageVersion),
+      Compiler.Config.Default,
     )
 
-  val stablePackages = StablePackages(majorLanguageVersion)
+  val stablePackages = StablePackages.stablePackages
 
   def eval(e: Expr): Either[SError, SValue] =
     Machine.runPureExpr(e, compiledPackages)
