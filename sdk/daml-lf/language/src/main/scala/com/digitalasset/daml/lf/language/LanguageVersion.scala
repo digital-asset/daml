@@ -43,8 +43,6 @@ object LanguageVersion {
 
   sealed abstract class Minor extends Product with Serializable with Ordered[Minor] {
     val toProtoIdentifier: String = pretty
-    // TODO: remove alias
-    val identifier: String = pretty
     def pretty: String
     def isDevVersion: Boolean = false
 
