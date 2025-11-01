@@ -237,7 +237,7 @@ trait DbMediatorDeduplicationStoreTest extends MediatorDeduplicationStoreTest wi
 
   override def cleanDb(
       storage: DbStorage
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[_] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[?] = {
     import storage.api.*
     storage.update_(sqlu"truncate table mediator_deduplication_store", functionFullName)
   }

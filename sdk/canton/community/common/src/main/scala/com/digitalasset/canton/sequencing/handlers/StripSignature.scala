@@ -15,7 +15,7 @@ import com.digitalasset.canton.tracing.Traced
   * providing to a handler
   */
 object StripSignature {
-  def apply[Env <: Envelope[_]](
+  def apply[Env <: Envelope[?]](
       handler: UnsignedApplicationHandler[Env]
   ): OrdinaryApplicationHandler[Env] =
     handler.replace(events =>

@@ -1410,12 +1410,12 @@ final class SequencerClientTest
 
     override protected def timeouts: ProcessingTimeout = DefaultProcessingTimeouts.testing
 
-    private val subscriberRef = new AtomicReference[Option[Subscriber[_]]](None)
+    private val subscriberRef = new AtomicReference[Option[Subscriber[?]]](None)
 
     // When using a parallel execution context, the order of asynchronous operations within the SequencerClient
     // is not deterministic which can delay the subscription. This is why we add some retry policy to avoid flaky tests
-    def subscriber: Option[Subscriber[_]] = {
-      @tailrec def subscriber(retry: Int): Option[Subscriber[_]] =
+    def subscriber: Option[Subscriber[?]] = {
+      @tailrec def subscriber(retry: Int): Option[Subscriber[?]] =
         subscriberRef.get() match {
           case Some(value) => Some(value)
           case None if retry >= 0 =>
@@ -1603,12 +1603,12 @@ final class SequencerClientTest
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, String, TopologyStateForInitResponse] = ???
 
-    private val subscriberRef = new AtomicReference[Option[Subscriber[_]]](None)
+    private val subscriberRef = new AtomicReference[Option[Subscriber[?]]](None)
 
     // When using a parallel execution context, the order of asynchronous operations within the SequencerClient
     // is not deterministic which can delay the subscription. This is why we add some retry policy to avoid flaky tests
-    def subscriber: Option[Subscriber[_]] = {
-      @tailrec def subscriber(retry: Int): Option[Subscriber[_]] =
+    def subscriber: Option[Subscriber[?]] = {
+      @tailrec def subscriber(retry: Int): Option[Subscriber[?]] =
         subscriberRef.get() match {
           case Some(value) => Some(value)
           case None if retry >= 0 =>

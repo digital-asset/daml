@@ -1746,6 +1746,8 @@ object ParticipantAdminCommands {
               } yield synchronizerId -> receivedCmts
             )
             .map(_.toMap)
+
+      override def timeoutType: TimeoutType = DefaultUnboundedTimeout
     }
 
     final case class TimeRange(startExclusive: CantonTimestamp, endInclusive: CantonTimestamp)
@@ -1868,6 +1870,8 @@ object ParticipantAdminCommands {
               } yield synchronizerId -> sentCmts
             )
             .map(_.toMap)
+
+      override def timeoutType: TimeoutType = DefaultUnboundedTimeout
     }
 
     final case class SentAcsCmt(
@@ -2146,6 +2150,8 @@ object ParticipantAdminCommands {
           )
         }
       }.sequence
+
+      override def timeoutType: TimeoutType = ServerEnforcedTimeout
     }
   }
 

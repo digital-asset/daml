@@ -284,6 +284,56 @@
     </then>
   </if>
 
+    <if condition='isDefined("LOG_ACCESS")'>
+        <then>
+            <appender name="ACCESS_LOG" class="ch.qos.logback.core.FileAppender">
+                <file>${LOG_ACCESS_FILE_NAME:-log/canton_access.log}</file>
+                <append>${LOG_FILE_APPEND:-true}</append>
+                <!-- Allow for disabling flush on each log-line (faster, but may miss logs when crashing) -->
+                <immediateFlush>${LOG_IMMEDIATE_FLUSH:-true}</immediateFlush>
+                <encoder>
+                    <!-- attempt to place the correlation-id with a trailing space, however replace with an empty string if it's empty -->
+                    <pattern>%date [%thread] %-5level %logger{10} &entityCorrelationIdTrailingSpaceReplace;</pattern>
+                </encoder>
+            </appender>
+            <logger name="com.digitalasset.canton.logging.audit" level="DEBUG" additivity="false">
+                <appender-ref ref="ACCESS_LOG"/>
+            </logger>
+        </then>
+    </if>
+
+    <if condition='isDefined("LOG_ACCESS_ERRORS")'>
+        <then>
+            <appender name="ACCESS_ERROR_LOG" class="ch.qos.logback.core.FileAppender">
+                <file>${LOG_ACCESS_ERRORS_FILE_NAME:-log/canton_access_error.log}</file>
+                <append>${LOG_FILE_APPEND:-true}</append>
+                <!-- Allow for disabling flush on each log-line (faster, but may miss logs when crashing) -->
+                <immediateFlush>${LOG_IMMEDIATE_FLUSH:-true}</immediateFlush>
+                <encoder>
+                    <!-- attempt to place the correlation-id with a trailing space, however replace with an empty string if it's empty -->
+                    <pattern>%date [%thread] %-5level %logger{10} &entityCorrelationIdTrailingSpaceReplace;</pattern>
+                </encoder>
+                <!-- Add filter to ensure only INFO and above logs go to this appender -->
+                <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+                    <level>INFO</level>
+                </filter>
+            </appender>
+            <if condition='isDefined("LOG_ACCESS")'>
+                <then>
+                    <logger name="com.digitalasset.canton.logging.audit" level="DEBUG" additivity="false">
+                        <appender-ref ref="ACCESS_LOG"/>
+                        <appender-ref ref="ACCESS_ERROR_LOG"/>
+                    </logger>
+                </then>
+                <else>
+                    <logger name="com.digitalasset.canton.logging.audit" level="INFO" additivity="false">
+                        <appender-ref ref="ACCESS_ERROR_LOG"/>
+                    </logger>
+                </else>
+            </if>
+        </then>
+    </if>
+
   <root level="${LOG_LEVEL_ROOT:-INFO}"></root>
   <if condition='isDefined("LOG_LAST_ERRORS")'>
     <then>

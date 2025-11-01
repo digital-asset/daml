@@ -12,7 +12,7 @@ import scala.jdk.OptionConverters.{RichOptional, RichOptionalLong}
 object CaffeineCache {
 
   def apply[Key <: AnyRef, Value <: AnyRef](
-      builder: caffeine.Caffeine[_ >: Key, _ >: Value],
+      builder: caffeine.Caffeine[? >: Key, ? >: Value],
       metrics: Option[CacheMetrics],
   ): ConcurrentCache[Key, Value] =
     metrics match {

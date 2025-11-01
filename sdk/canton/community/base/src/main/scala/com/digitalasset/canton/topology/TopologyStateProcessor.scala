@@ -144,20 +144,18 @@ class TopologyStateProcessor private (
         }: Lft,
       ): EitherT[FutureUnlessShutdown, Lft, Unit]
       // string approx for output
-      epsilon =
-        s"${effective.value.toEpochMilli - sequenced.value.toEpochMilli}"
       ln = validatedTx.size
       _ = validatedTx.zipWithIndex.foreach {
         case (ValidatedTopologyTransaction(tx, None, _), idx) =>
           val enqueuingOrStoring = if (outboxQueue.nonEmpty) "Enqueuing" else "Storing"
           logger.info(
-            s"$enqueuingOrStoring topology transaction ${idx + 1}/$ln serial=${tx.serial.unwrap} ${tx.operation} ${tx.mapping} with ts=$effective (epsilon=$epsilon ms), signedBy=${tx.signatures
+            s"$enqueuingOrStoring topology transaction ${idx + 1}/$ln ${tx.hash} with ts=$effective, signedBy=${tx.signatures
                 .map(_.authorizingLongTermKey)}"
           )
         case (ValidatedTopologyTransaction(tx, Some(r), _), idx) =>
           // TODO(i19737): we need to emit a security alert, if the rejection is due to a malicious broadcast
           logger.info(
-            s"Rejected transaction ${idx + 1}/$ln serial=${tx.serial.unwrap} ${tx.operation} ${tx.mapping} at ts=$effective (epsilon=$epsilon ms), signedBy=${tx.signatures
+            s"Rejected transaction ${idx + 1}/$ln ${tx.hash} at ts=$effective, signedBy=${tx.signatures
                 .map(_.authorizingLongTermKey)} due to $r"
           )
       }
@@ -190,9 +188,7 @@ class TopologyStateProcessor private (
             .map { _ =>
               logger.info(
                 s"Persisted topology transactions ($sequenced, $effective):\n" + validatedTx
-                  .mkString(
-                    ",\n"
-                  )
+                  .mkString(",\n")
               )
               AsyncResult.immediate
             }
@@ -284,7 +280,7 @@ class TopologyStateProcessor private (
       inStore: Option[GenericSignedTopologyTransaction],
       toValidate: GenericSignedTopologyTransaction,
       expectFullAuthorization: Boolean,
-      transactionMayHaveMissingSigningKeySignatures: Boolean,
+      relaxChecksForBackwardsCompatibility: Boolean,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TopologyTransactionRejection, GenericSignedTopologyTransaction] =
@@ -296,8 +292,7 @@ class TopologyStateProcessor private (
             toValidate,
             inStore,
             expectFullAuthorization = expectFullAuthorization,
-            transactionMayHaveMissingSigningKeySignatures =
-              transactionMayHaveMissingSigningKeySignatures,
+            relaxChecksForBackwardsCompatibility = relaxChecksForBackwardsCompatibility,
           )
       )
       .subflatMap { tx =>
@@ -371,7 +366,7 @@ class TopologyStateProcessor private (
         tx_inStore,
         tx_deduplicatedAndMerged,
         expectFullAuthorization = expectFullAuthorization,
-        transactionMayHaveMissingSigningKeySignatures = relaxChecksForBackwardsCompatibility,
+        relaxChecksForBackwardsCompatibility = relaxChecksForBackwardsCompatibility,
       )
     } yield fullyValidated
     ret.fold(

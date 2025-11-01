@@ -6,7 +6,12 @@ package com.digitalasset.canton.synchronizer.mediator
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.error.MediatorError
-import com.digitalasset.canton.error.MediatorError.{InvalidMessage, MalformedMessage, Timeout}
+import com.digitalasset.canton.error.MediatorError.{
+  DuplicateConfirmationRequest,
+  InvalidMessage,
+  MalformedMessage,
+  Timeout,
+}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.messages.{NonPositiveLocalVerdict, Verdict}
 import com.digitalasset.canton.topology.ParticipantId
@@ -51,6 +56,7 @@ object MediatorVerdict {
         case timeout: Timeout.Reject => timeout
         case invalid: InvalidMessage.Reject => invalid
         case malformed: MalformedMessage.Reject => malformed
+        case duplicate: DuplicateConfirmationRequest.Reject => duplicate
       }
 
       Verdict.MediatorReject.tryCreate(

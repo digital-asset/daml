@@ -667,7 +667,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[GenericStoredTopologyTransaction]] = {
-    logger.debug(s"Querying for transaction at $asOfExclusive: $transaction")
+    logger.debug(s"Querying for transaction at $asOfExclusive: ${transaction.hash}")
 
     findStoredSql(asOfExclusive, transaction.transaction, includeRejected = includeRejected).map(
       _.result.lastOption
@@ -683,7 +683,9 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
   ): FutureUnlessShutdown[Option[GenericStoredTopologyTransaction]] = {
     val rpv = TopologyTransaction.protocolVersionRepresentativeFor(protocolVersion)
 
-    logger.debug(s"Querying for transaction $transaction with protocol version $protocolVersion")
+    logger.debug(
+      s"Querying for transaction ${transaction.hash} with protocol version $protocolVersion"
+    )
 
     findStoredSql(
       asOfExclusive,
