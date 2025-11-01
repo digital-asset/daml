@@ -3,13 +3,19 @@
 
 package com.digitalasset.canton.auth
 
+import cats.implicits.showInterpolator
 import com.daml.tracing.Telemetry
+import com.digitalasset.canton.config.ApiLoggingConfig
+import com.digitalasset.canton.logging.audit.ApiRequestLogger
 import com.digitalasset.canton.logging.{
   ErrorLoggingContext,
   LoggingContextWithTrace,
   NamedLoggerFactory,
   NamedLogging,
 }
+import com.digitalasset.canton.networking.grpc.{CallMetadata, GrpcAddressHelper}
+import com.digitalasset.canton.tracing.W3CTraceContext
+import com.digitalasset.canton.util.ShowUtil.ShowStringSyntax
 import io.grpc.*
 
 import scala.concurrent.ExecutionContext
@@ -19,10 +25,11 @@ class GrpcAuthInterceptor(
     val genInterceptor: AuthInterceptor,
     telemetry: Telemetry,
     val loggerFactory: NamedLoggerFactory,
+    private val apiLoggingConfig: ApiLoggingConfig,
     implicit val ec: ExecutionContext,
 ) extends ServerInterceptor
     with NamedLogging {
-
+  private val auditLogger = new ApiRequestLogger(apiLoggingConfig, loggerFactory)
   private def getAuthorizationHeader(headers: Metadata): Option[String] =
     Option(headers.get(GrpcAuthInterceptor.AUTHORIZATION_KEY))
 
@@ -34,28 +41,42 @@ class GrpcAuthInterceptor(
     // Note: Context uses ThreadLocal storage, we need to capture it outside of the async block below.
     // Contexts are immutable and safe to pass around.
     val prevCtx = Context.current
-
+    val serviceName = call.getMethodDescriptor.getServiceName
     implicit val loggingContextWithTrace: LoggingContextWithTrace =
       LoggingContextWithTrace(loggerFactory, telemetry)
     implicit val errorLoggingContext: ErrorLoggingContext =
       ErrorLoggingContext(logger, loggingContextWithTrace)
 
-    val serviceName = call.getMethodDescriptor.getServiceName
+    implicit val tc = W3CTraceContext.fromGrpcMetadata(headers)
+
+    val attrs = call.getAttributes()
+    val remoteAddr = attrs.get(Grpc.TRANSPORT_ATTR_REMOTE_ADDR)
+
+    val (transport, clientAddr) = GrpcAddressHelper.extractTransport(remoteAddr)
+    val callMetadata = CallMetadata(
+      apiEndpoint =
+        show"${call.getMethodDescriptor.getFullMethodName().readableLoggerName(apiLoggingConfig.maxMethodLength)}",
+      transport = transport,
+      remoteAddress = clientAddr,
+    )
 
     // The method interceptCall() must return a Listener.
     // The target listener is created by calling `Contexts.interceptCall()`.
     // However, this is only done after we have asynchronously received the claims.
     // Therefore, we need to return a listener that buffers all messages until the target listener is available.
     new AsyncForwardingListener[ReqT] {
+
       private def closeWithError(error: StatusRuntimeException) = {
         call.close(error.getStatus, error.getTrailers)
         new ServerCall.Listener[Nothing]() {}
       }
+
       val authToken = getAuthorizationHeader(headers)
       genInterceptor
         .extractClaims(authToken, serviceName)
         .onComplete {
           case Failure(error: StatusRuntimeException) =>
+            auditLogger.logAuthError(callMetadata, error)
             closeWithError(error)
           case Failure(unexpected: Throwable) =>
             val error = AuthorizationChecksErrors.InternalAuthorizationError
@@ -64,8 +85,10 @@ class GrpcAuthInterceptor(
                 throwable = unexpected,
               )
               .asGrpcError
+            auditLogger.logAuthError(callMetadata, error)
             Failure(error)
           case Success(claimSet) =>
+            auditLogger.logAuth(callMetadata, claimSet)
             val nextCtx = prevCtx.withValue(AuthInterceptor.contextKeyClaimSet, claimSet)
             // Contexts.interceptCall() creates a listener that wraps all methods of `nextListener`
             // such that `Context.current` returns `nextCtx`.

@@ -19,8 +19,8 @@ object ScalatestEqualityHelpers extends Matchers {
       (a.productPrefix === b.productPrefix) &&
       (a.productArity == b.productArity) &&
       (a.productIterator zip b.productIterator).forall {
-        case (x: Array[_], y: Array[_]) => x sameElements y
-        case (Some(x: Array[_]), Some(y: Array[_])) => x sameElements y
+        case (x: Array[?], y: Array[?]) => x sameElements y
+        case (Some(x: Array[?]), Some(y: Array[?])) => x sameElements y
         case (x, y) => x === y
       }
     case (_, _) => false
@@ -33,8 +33,8 @@ object ScalatestEqualityHelpers extends Matchers {
       (a.productPrefix === b.productPrefix) &&
       (a.productArity == b.productArity) &&
       (a.productIterator zip b.productIterator).forall {
-        case (x: Array[_], y: Array[_]) => x sameElements y
-        case (Some(x: Array[_]), Some(y: Array[_])) => x sameElements y
+        case (x: Array[?], y: Array[?]) => x sameElements y
+        case (Some(x: Array[?]), Some(y: Array[?])) => x sameElements y
         case (p1: Product, p2: Product) => caseClassArrayEq.areEquivalent(p1, p2)
         case (x, y) => x === y
       }
@@ -42,7 +42,7 @@ object ScalatestEqualityHelpers extends Matchers {
   }
 
   val DbDtoSeqEq: org.scalactic.Equality[Seq[DbDto]] = {
-    case (a: Seq[_], b: Seq[_]) =>
+    case (a: Seq[?], b: Seq[?]) =>
       a.sizeCompare(b) == 0 && a.zip(b).forall { case (x, y) => DbDtoEq.areEqual(x, y) }
     case (_, _) => false
   }

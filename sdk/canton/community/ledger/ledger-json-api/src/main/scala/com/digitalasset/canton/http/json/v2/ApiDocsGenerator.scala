@@ -11,9 +11,9 @@ import sttp.apispec
 import sttp.apispec.asyncapi.AsyncAPI
 import sttp.apispec.openapi.OpenAPI
 import sttp.apispec.{Schema, SchemaLike, asyncapi, openapi}
+import sttp.tapir.AnyEndpoint
 import sttp.tapir.docs.asyncapi.AsyncAPIInterpreter
 import sttp.tapir.docs.openapi.OpenAPIDocsInterpreter
-import sttp.tapir.{AnyEndpoint, headers}
 
 import scala.collection.immutable.{ListMap, SortedMap}
 
@@ -182,12 +182,10 @@ class ApiDocsGenerator(override protected val loggerFactory: NamedLoggerFactory)
   def createStaticDocs(protoInfo: ProtoInfo): ApiDocs =
     createDocs(
       VersionFile.readVersion().getOrElse("unknown"),
-      staticDocumentationEndpoints.map(addHeaders),
+      staticDocumentationEndpoints,
       protoInfo,
     )
 
-  private def addHeaders(endpoint: AnyEndpoint) =
-    endpoint.in(headers)
 }
 
 final case class ApiDocs(openApi: String, asyncApi: String)

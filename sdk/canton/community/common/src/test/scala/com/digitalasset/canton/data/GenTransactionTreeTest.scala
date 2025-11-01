@@ -417,7 +417,7 @@ class GenTransactionTreeTest
           case _: GenTransactionTree => RevealIfNeedBe
           case v: TransactionView =>
             if (v == rootViewTree.view) MerkleTree.RevealIfNeedBe else MerkleTree.BlindSubtree
-          case _: MerkleTreeLeaf[_] => MerkleTree.RevealSubtree
+          case _: MerkleTreeLeaf[?] => MerkleTree.RevealSubtree
         }.tryUnwrap
 
         FullTransactionViewTree.create(onlyView1Unblinded).left.value should startWith(
@@ -432,7 +432,7 @@ class GenTransactionTreeTest
           case _: GenTransactionTree => RevealIfNeedBe
           case _: SubmitterMetadata => MerkleTree.BlindSubtree
           case _: TransactionView => MerkleTree.RevealSubtree
-          case _: MerkleTreeLeaf[_] => MerkleTree.RevealSubtree
+          case _: MerkleTreeLeaf[?] => MerkleTree.RevealSubtree
         }.tryUnwrap
 
         FullTransactionViewTree

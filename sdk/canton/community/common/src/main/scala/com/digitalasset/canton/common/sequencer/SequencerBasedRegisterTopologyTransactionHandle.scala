@@ -100,7 +100,9 @@ class SequencerBasedRegisterTopologyTransactionHandle(
     implicit val metricsContext: MetricsContext = MetricsContext(
       "type" -> "send-topology"
     )
-    logger.debug(s"Broadcasting topology transaction: ${request.transactions}")
+    logger.debug(
+      s"Broadcasting topology transaction: ${request.transactions.transactions.map(_.hash)}"
+    )
     sequencerClient.send(
       Batch
         .of(psid.protocolVersion, (request, Recipients.cc(TopologyBroadcastAddress.recipient))),

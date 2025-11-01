@@ -17,7 +17,7 @@ class PeriodicAction(
     protected val loggerFactory: NamedLoggerFactory,
     protected val timeouts: ProcessingTimeout,
     description: String,
-)(check: TraceContext => FutureUnlessShutdown[_])(implicit
+)(check: TraceContext => FutureUnlessShutdown[?])(implicit
     executionContext: ExecutionContext
 ) extends NamedLogging
     with FlagCloseable {

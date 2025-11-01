@@ -131,15 +131,15 @@ class ProgrammableSequencer(
       setPolicy(name)(policy)
 
       body match {
-        case asyncResult: Future[_] =>
+        case asyncResult: Future[?] =>
           isSync = false
           asyncResult.thereafter(_ => setPreviousPolicy()).asInstanceOf[A]
 
-        case EitherT(value: Future[Either[_, _]] @unchecked) =>
+        case EitherT(value: Future[Either[?, ?]] @unchecked) =>
           isSync = false
           EitherT(value.thereafter(_ => setPreviousPolicy())).asInstanceOf[A]
 
-        case OptionT(value: Future[Option[_]] @unchecked) =>
+        case OptionT(value: Future[Option[?]] @unchecked) =>
           isSync = false
           OptionT(value.thereafter(_ => setPreviousPolicy())).asInstanceOf[A]
 

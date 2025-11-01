@@ -209,7 +209,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
     val (userRight: Int, forParty: Option[Party]) = fromUserRight(right)
 
     import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
-    val res: Seq[_] =
+    val res: Seq[?] =
       SQL"""
          SELECT 1 AS dummy
          FROM lapi_user_rights ur

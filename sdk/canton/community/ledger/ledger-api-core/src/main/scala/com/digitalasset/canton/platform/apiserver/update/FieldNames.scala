@@ -61,7 +61,7 @@ object FieldNames {
       )
   }
 
-  private def resolveFieldName[A <: GeneratedMessageCompanion[_]](
+  private def resolveFieldName[A <: GeneratedMessageCompanion[?]](
       companion: A
   )(getFieldNumberFun: A => Int): String = {
     val fieldNumber = getFieldNumberFun(companion)

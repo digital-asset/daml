@@ -25,7 +25,7 @@ trait KmsDriverFactoryTest extends AnyWordSpec with BaseTest {
 
   def kmsDriverFactory(): Unit = {
 
-    def simpleLoggerFactory(clazz: Class[_]): Logger =
+    def simpleLoggerFactory(clazz: Class[?]): Logger =
       loggerFactory.getLogger(clazz).underlying
 
     "KMS Driver Factory" must {

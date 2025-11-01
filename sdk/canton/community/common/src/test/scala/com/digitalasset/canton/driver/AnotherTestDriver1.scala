@@ -28,13 +28,13 @@ private[driver] class AnotherTestDriver1Factory extends AnotherTestDriverFactory
 
   override def create(
       config: AnotherTestDriver1Config,
-      loggerFactory: Class[_] => Logger,
+      loggerFactory: Class[?] => Logger,
       executionContext: ExecutionContext,
   ): AnotherTestDriver =
     new AnotherTestDriver1(config, loggerFactory)
 }
 
-class AnotherTestDriver1(config: AnotherTestDriver1Config, loggerFactory: Class[_] => Logger)
+class AnotherTestDriver1(config: AnotherTestDriver1Config, loggerFactory: Class[?] => Logger)
     extends AnotherTestDriver {
 
   private val logger: Logger = loggerFactory(getClass)

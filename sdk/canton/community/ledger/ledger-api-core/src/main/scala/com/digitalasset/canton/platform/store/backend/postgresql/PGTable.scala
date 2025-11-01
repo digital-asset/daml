@@ -12,9 +12,9 @@ private[postgresql] object PGTable {
   private def transposedInsertBase[FROM](
       insertStatement: String,
       ordering: Option[Ordering[FROM]] = None,
-  )(fields: Seq[(String, Field[FROM, _, _])]): Table[FROM] =
+  )(fields: Seq[(String, Field[FROM, ?, ?])]): Table[FROM] =
     new BaseTable[FROM](fields, ordering) {
-      override def executeUpdate: Array[Array[_]] => Connection => Unit =
+      override def executeUpdate: Array[Array[?]] => Connection => Unit =
         data =>
           connection =>
             Table.ifNonEmpty(data) {
@@ -29,10 +29,10 @@ private[postgresql] object PGTable {
 
   private def transposedInsertStatement(
       tableName: String,
-      fields: Seq[(String, Field[_, _, _])],
+      fields: Seq[(String, Field[?, ?, ?])],
       statementSuffix: String = "",
   ): String = {
-    def commaSeparatedOf(extractor: ((String, Field[_, _, _])) => String): String =
+    def commaSeparatedOf(extractor: ((String, Field[?, ?, ?])) => String): String =
       fields.view
         .map(extractor)
         .mkString(",")
@@ -56,7 +56,7 @@ private[postgresql] object PGTable {
   }
 
   def transposedInsert[FROM](tableName: String)(
-      fields: (String, Field[FROM, _, _])*
+      fields: (String, Field[FROM, ?, ?])*
   ): Table[FROM] =
     transposedInsertBase(transposedInsertStatement(tableName, fields))(fields)
 }

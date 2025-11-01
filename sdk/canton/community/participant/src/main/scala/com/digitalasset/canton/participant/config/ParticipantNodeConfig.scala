@@ -136,7 +136,7 @@ object ParticipantNodeConfig {
         DeprecatedConfigUtils.MovedConfigPath("http-ledger-api.server", "http-ledger-api")
       )
 
-      override def deprecatePath: List[DeprecatedConfigUtils.DeprecatedConfigPath[_]] = List(
+      override def deprecatePath: List[DeprecatedConfigUtils.DeprecatedConfigPath[?]] = List(
         DeprecatedConfigUtils
           .DeprecatedConfigPath[Boolean]("http-ledger-api.server", "3.4.0")
       )

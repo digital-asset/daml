@@ -177,7 +177,7 @@ object UsableSynchronizers {
       tc: TraceContext
   ): FutureUnlessShutdown[UnknownOrUnvettedPackages] = {
     val (participantId, required) = participantIdAndRequiredPackages
-    snapshot.findUnvettedPackagesOrDependencies(participantId, required, ledgerTime)
+    snapshot.loadUnvettedPackagesOrDependencies(participantId, required, ledgerTime)
   }
 
   private def resolveParticipants(

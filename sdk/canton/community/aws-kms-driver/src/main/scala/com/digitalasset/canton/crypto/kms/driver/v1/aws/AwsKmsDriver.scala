@@ -53,7 +53,7 @@ class AwsKmsDriverFactory extends KmsDriverFactory {
 
   override def create(
       config: AwsKmsDriverConfig,
-      loggerFactory: Class[_] => Logger,
+      loggerFactory: Class[?] => Logger,
       executionContext: ExecutionContext,
   ): AwsKmsDriver = {
 

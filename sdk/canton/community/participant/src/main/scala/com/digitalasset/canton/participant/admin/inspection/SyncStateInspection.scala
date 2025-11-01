@@ -333,7 +333,8 @@ final class SyncStateInspection(
 
               _ <- acsInspection.checkOffboardingSnapshot(
                 participantId,
-                offboardedParties = parties,
+                // the empty parties filter serves as wildcard, and therefore we consider all stakeholder parties to be offboarded
+                offboardedParties = if (parties.isEmpty) allStakeholders else parties,
                 allStakeholders = allStakeholders,
                 snapshotToc = snapshotToc,
                 topologyClient = connectedSynchronizer.topologyClient,

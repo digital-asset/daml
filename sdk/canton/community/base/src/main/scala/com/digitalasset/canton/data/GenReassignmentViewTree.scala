@@ -25,7 +25,7 @@ abstract class GenReassignmentViewTree[
     hashOps: HashOps
 ) extends MerkleTreeInnerNode[Tree](hashOps) { this: Tree =>
 
-  override def subtrees: Seq[MerkleTree[_]] = Seq(commonData, participantData)
+  override def subtrees: Seq[MerkleTree[?]] = Seq(commonData, participantData)
 
   // If you add new versions, take `version` into account in `toProtoVersioned` above
   def toProtoV30: v30.ReassignmentViewTree =

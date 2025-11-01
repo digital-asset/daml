@@ -58,7 +58,7 @@ class CantonCommunityServerInterceptors(
       withLogging: Boolean,
   ): ServerServiceDefinition =
     if (withLogging) {
-      intercept(service, new ApiRequestLogger(loggerFactory, apiLoggingConfig))
+      intercept(service, new GrpcRequestLoggingInterceptor(loggerFactory, apiLoggingConfig))
     } else {
       service
     }
@@ -90,6 +90,7 @@ class CantonCommunityServerInterceptors(
         adminTokenConfig,
         jwksCacheConfig,
         telemetry,
+        apiLoggingConfig,
       )
 
   private def addLimitInterceptor(service: ServerServiceDefinition): ServerServiceDefinition =

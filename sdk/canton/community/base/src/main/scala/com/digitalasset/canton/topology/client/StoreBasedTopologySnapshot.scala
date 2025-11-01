@@ -37,7 +37,7 @@ import scala.reflect.ClassTag
   * @param store
   *   the db store to use
   * @param packageDependencyResolver
-  *   provides a way determine the direct and indirect package dependencies
+  *   provides a way determine the direct and indirect package dependencies.
   */
 class StoreBasedTopologySnapshot(
     val timestamp: CantonTimestamp,
@@ -105,41 +105,30 @@ class StoreBasedTopologySnapshot(
       }
       .getOrElse(FutureUnlessShutdown.pure(Map.empty))
 
-  override private[client] def loadUnvettedPackagesOrDependenciesUsingLoader(
-      participantId: ParticipantId,
-      packageId: PackageId,
+  override private[client] def findUnvettedPackagesOrDependencies(
+      participant: ParticipantId,
+      packages: Set[PackageId],
       ledgerTime: CantonTimestamp,
-      vettedPackagesLoader: VettedPackagesLoader,
-  )(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[UnknownOrUnvettedPackages] =
-    for {
-      vetted <- vettedPackagesLoader.loadVettedPackages(participantId)
-      validAtLedgerTime = (pkg: PackageId) => vetted.get(pkg).exists(_.validAt(ledgerTime))
-      // check that the main package is vetted
-      res <-
-        if (!validAtLedgerTime(packageId))
-          // main package is not vetted
-          FutureUnlessShutdown.pure(UnknownOrUnvettedPackages.unvetted(participantId, packageId))
-        else {
-          // check which of the dependencies aren't vetted
-          packageDependencyResolver
-            .packageDependencies(packageId)
-            .value
-            .map {
-              case Left((unknown, unknownTo)) =>
-                UnknownOrUnvettedPackages.unknown(
-                  unknownTo,
-                  unknown,
-                )
-              case Right(dependencies) =>
-                UnknownOrUnvettedPackages.unvetted(
-                  participantId,
-                  dependencies.filter(dependency => !validAtLedgerTime(dependency)),
-                )
-            }
-        }
-    } yield res
+      vettedPackages: Map[PackageId, VettedPackage],
+  )(implicit traceContext: TraceContext): UnknownOrUnvettedPackages = {
+    def isValid(pkg: PackageId): Boolean =
+      vettedPackages.get(pkg).exists(_.validAt(ledgerTime))
+
+    val invalidPackages = packages.filterNot(isValid)
+    val validPackages = packages -- invalidPackages
+    packageDependencyResolver.packageDependencies(validPackages) match {
+      case Left(unknownPackages) =>
+        UnknownOrUnvettedPackages(
+          unknown = Map(unknownPackages),
+          unvetted = if (invalidPackages.isEmpty) Map.empty else Map(participant -> invalidPackages),
+        )
+      case Right(dependencies) =>
+        UnknownOrUnvettedPackages.unvetted(
+          participant,
+          invalidPackages ++ dependencies.filterNot(isValid),
+        )
+    }
+  }
 
   override def findDynamicSynchronizerParameters()(implicit
       traceContext: TraceContext

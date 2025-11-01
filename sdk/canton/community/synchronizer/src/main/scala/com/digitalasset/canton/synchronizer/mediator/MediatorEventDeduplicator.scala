@@ -146,8 +146,9 @@ class DefaultMediatorEventDeduplicator(
       traceContext: TraceContext,
       closeContext: CloseContext,
   ): FutureUnlessShutdown[FutureUnlessShutdown[Unit]] = {
-    val rejection = MediatorError.MalformedMessage.Reject(
-      s"The request uuid (${request.requestUuid}) must not be used until $expireAfter."
+    val rejection = MediatorError.DuplicateConfirmationRequest.Reject(
+      request.requestUuid,
+      expireAfter,
     )
     rejection.report()
 

@@ -87,7 +87,7 @@ trait StorageBackendProviderH2 extends StorageBackendProvider with BaseTest { th
 }
 
 final case class TestBackend(
-    ingestion: IngestionStorageBackend[_],
+    ingestion: IngestionStorageBackend[?],
     parameter: ParameterStorageBackend,
     pruningOffsetService: PruningOffsetService,
     party: PartyStorageBackend,

@@ -165,7 +165,7 @@ object ContractInstance {
 
   def assignCreationTime(created: NewContractInstance, let: CantonTimestamp): ContractInstance =
     created match {
-      case c: ContractInstanceImpl[_] =>
+      case c: ContractInstanceImpl[?] =>
         c.copy(inst = c.inst.updateCreateAt(let.toLf))
     }
 

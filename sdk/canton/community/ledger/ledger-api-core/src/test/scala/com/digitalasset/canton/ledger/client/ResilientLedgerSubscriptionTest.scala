@@ -125,7 +125,7 @@ class ResilientLedgerSubscriptionTest extends AnyWordSpec with BaseTest with Has
 
     def makeSource(offset: Long): Source[Transaction, NotUsed] =
       Source.fromPublisher[Transaction](new Publisher[Transaction] {
-        override def subscribe(s: Subscriber[_ >: Transaction]): Unit = {
+        override def subscribe(s: Subscriber[? >: Transaction]): Unit = {
           subscriber.updateAndGet { cur =>
             Some(
               SubscriptionState(
@@ -188,7 +188,7 @@ object ResilientLedgerSubscriptionTest {
   private[client] final case class SubscriptionState(
       index: Int,
       offset: Long,
-      subscriber: Subscriber[_ >: Transaction],
+      subscriber: Subscriber[? >: Transaction],
       request: Long,
       cancel: Boolean,
   )

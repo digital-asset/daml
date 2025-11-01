@@ -90,7 +90,7 @@ class DeclarativeParticipantApi(
   private def queryApi[Result](
       runner: GrpcAdminCommandRunner,
       cfg: ClientConfig,
-      command: GrpcAdminCommand[_, _, Result],
+      command: GrpcAdminCommand[?, ?, Result],
   )(implicit traceContext: TraceContext): Either[QueryResult, Result] = if (
     closeContext.context.isClosing
   )
@@ -107,12 +107,12 @@ class DeclarativeParticipantApi(
     )
 
   private def queryAdminApi[Result](
-      command: GrpcAdminCommand[_, _, Result]
+      command: GrpcAdminCommand[?, ?, Result]
   )(implicit traceContext: TraceContext): Either[String, Result] =
     queryApi(adminApiRunner, adminApiConfig, command).leftMap(_.str)
 
   private def queryLedgerApi[Result](
-      command: GrpcAdminCommand[_, _, Result]
+      command: GrpcAdminCommand[?, ?, Result]
   )(implicit traceContext: TraceContext): Either[String, Result] =
     queryApi(ledgerApiRunner, ledgerApiConfig, command).leftMap(_.str)
 
@@ -125,12 +125,12 @@ class DeclarativeParticipantApi(
   }
 
   private def queryAdminApiIfExists[Result](
-      command: GrpcAdminCommand[_, _, Result]
+      command: GrpcAdminCommand[?, ?, Result]
   )(implicit traceContext: TraceContext): Either[String, Option[Result]] =
     toOptionalE(queryApi(adminApiRunner, adminApiConfig, command))
 
   private def queryLedgerApiIfExists[Result](
-      command: GrpcAdminCommand[_, _, Result]
+      command: GrpcAdminCommand[?, ?, Result]
   )(implicit traceContext: TraceContext): Either[String, Option[Result]] =
     toOptionalE(queryApi(ledgerApiRunner, ledgerApiConfig, command))
 

@@ -128,8 +128,8 @@ object FutureAssertions {
     }
 
   def optionalAssertion(runs: Boolean, description: String)(
-      assertions: => Future[_]
-  )(implicit loggingContext: LoggingContext): Future[_] = if (runs) assertions
+      assertions: => Future[?]
+  )(implicit loggingContext: LoggingContext): Future[?] = if (runs) assertions
   else {
     logger.warn(s"Not running optional assertions: $description")
     Future.unit

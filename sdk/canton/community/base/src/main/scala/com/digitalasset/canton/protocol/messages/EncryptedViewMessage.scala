@@ -488,7 +488,7 @@ object EncryptedViewMessage extends VersioningCompanion[EncryptedViewMessage[Vie
   implicit val encryptedViewMessageCast
       : ProtocolMessageContentCast[EncryptedViewMessage[ViewType]] =
     ProtocolMessageContentCast.create[EncryptedViewMessage[ViewType]]("EncryptedViewMessage") {
-      case evm: EncryptedViewMessage[_] => Some(evm)
+      case evm: EncryptedViewMessage[?] => Some(evm)
       case _ => None
     }
 

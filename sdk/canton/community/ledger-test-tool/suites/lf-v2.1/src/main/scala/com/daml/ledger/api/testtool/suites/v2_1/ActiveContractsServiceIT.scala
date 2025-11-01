@@ -715,7 +715,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
             throw new Exception(s"Invalid partySet, length must be 1 or 2 or 3 but it was $invalid")
         }
 
-      val templateFactories: Vector[Set[Party] => _ <: Template] =
+      val templateFactories: Vector[Set[Party] => ? <: Template] =
         Vector(
           (parties: Set[Party]) => withThreeParties(new TriAgreement(_, _, _))(parties),
           (parties: Set[Party]) => withThreeParties(new TriProposal(_, _, _))(parties),
@@ -726,7 +726,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
       def createContractFor(
           template: Int,
           partyCombination: Int,
-      ): Future[ContractId[_]] = {
+      ): Future[ContractId[?]] = {
         val partiesSet = partyCombinations(partyCombination).map(parties)
         templateFactories(template)(partiesSet) match {
           case agreement: TriAgreement =>

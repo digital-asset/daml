@@ -127,7 +127,7 @@ object Benchmark {
         )
       }
 
-  def scheduleCancelStreamTask(timeoutDuration: Duration, observer: ObserverWithResult[_, _])(
+  def scheduleCancelStreamTask(timeoutDuration: Duration, observer: ObserverWithResult[?, ?])(
       implicit ec: ExecutionContext
   ): Unit = {
     val _ = Delayed.by(t = timeoutDuration)(

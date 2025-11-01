@@ -257,9 +257,9 @@ class DAMLe(
         preparationTime = preparationTime.toLf,
         ledgerEffectiveTime = ledgerTime.toLf,
         packageResolution = packageResolution,
-        contractIdVersion = ContractIdVersion.V1,
         engineLogger =
           engineLoggingConfig.toEngineLogger(loggerFactory.append("phase", "validation")),
+        contractIdVersion = ContractIdVersion.V1,
       )
     }
 

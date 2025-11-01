@@ -4,6 +4,8 @@
 package com.digitalasset.canton.networking.grpc
 
 import com.digitalasset.canton.config.ApiLoggingConfig
+import com.digitalasset.canton.logging.audit.ResponseKind.SevereError
+import com.digitalasset.canton.logging.audit.{ApiRequestLogger, ResponseKind, TransportType}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext, TraceContextGrpc}
@@ -13,7 +15,9 @@ import io.grpc.*
 import io.grpc.ForwardingServerCall.SimpleForwardingServerCall
 import io.grpc.ForwardingServerCallListener.SimpleForwardingServerCallListener
 import io.grpc.Status.Code.*
+import io.grpc.inprocess.InProcessSocketAddress
 
+import java.net.{InetSocketAddress, SocketAddress}
 import java.util.concurrent.atomic.AtomicBoolean
 import scala.util.Try
 
@@ -22,7 +26,7 @@ import scala.util.Try
   * @param config
   *   Configuration to tailor the output
   */
-class ApiRequestLogger(
+class GrpcRequestLoggingInterceptor(
     override protected val loggerFactory: NamedLoggerFactory,
     config: ApiLoggingConfig,
 ) extends ApiRequestLoggerBase(loggerFactory, config)
@@ -38,97 +42,123 @@ class ApiRequestLogger(
       next: ServerCallHandler[ReqT, RespT],
   ): ServerCall.Listener[ReqT] = {
     val requestTraceContext: TraceContext = TraceContextGrpc.fromGrpcContextOrNew("logger")
-
-    val sender = Option(call.getAttributes.get(Grpc.TRANSPORT_ATTR_REMOTE_ADDR).toString)
-      .getOrElse("unknown sender")
+    val remoteAddr = call.getAttributes.get(Grpc.TRANSPORT_ATTR_REMOTE_ADDR)
     val method = call.getMethodDescriptor.getFullMethodName
 
-    def createLogMessage(message: String): String =
-      show"Request ${method.readableLoggerName(config.maxMethodLength)} by ${sender.unquoted}: ${message.unquoted}"
+    val (transport, clientAddr) = GrpcAddressHelper.extractTransport(remoteAddr)
+    val callMetadata = CallMetadata(
+      apiEndpoint = show"${method.readableLoggerName(config.maxMethodLength)}",
+      transport = transport,
+      remoteAddress = clientAddr,
+    )
 
-    logger.trace(createLogMessage(s"received headers ${stringOfMetadata(headers)}"))(
+    auditLogger.traceMessage(callMetadata, s"received headers ${stringOfMetadata(headers)}")(
       requestTraceContext
     )
 
-    val loggingServerCall = new LoggingServerCall(call, createLogMessage, requestTraceContext)
+    val loggingServerCall =
+      new LoggingServerCall(call, callMetadata, requestTraceContext)
     val serverCallListener = next.startCall(loggingServerCall, headers)
-    new LoggingServerCallListener(serverCallListener, createLogMessage, requestTraceContext)
+    new LoggingServerCallListener(
+      serverCallListener,
+      callMetadata,
+      requestTraceContext,
+    )
   }
 
   /** Intercepts events sent by the client.
     */
   class LoggingServerCallListener[ReqT, RespT](
       delegate: ServerCall.Listener[ReqT],
-      createLogMessage: String => String,
+      callMetadata: CallMetadata,
       requestTraceContext: TraceContext,
   ) extends SimpleForwardingServerCallListener[ReqT](delegate) {
 
     /** Called when the server receives the request. */
     override def onMessage(message: ReqT): Unit = {
       val traceContext = traceContextOfMessage(message).getOrElse(requestTraceContext)
-      logger.debug(
-        createLogMessage(
-          show"received a message ${cutMessage(message).unquoted}\n  Request ${requestTraceContext.showTraceId}"
-        )
-      )(traceContext)
-      logThrowable(delegate.onMessage(message))(createLogMessage, traceContext)
+      auditLogger.logIncomingRequest(
+        callMetadata,
+        message,
+      )(
+        traceContext
+      )
+      logThrowable(delegate.onMessage(message))(callMetadata, traceContext)
     }
 
     /** Called when the client completed all message sending (except for cancellation). */
     override def onHalfClose(): Unit = {
-      logger.trace(createLogMessage(s"finished receiving messages"))(requestTraceContext)
-      logThrowable(delegate.onHalfClose())(createLogMessage, requestTraceContext)
+      auditLogger.traceMessage(
+        callMetadata,
+        "finished receiving messages",
+      )(requestTraceContext)
+      logThrowable(delegate.onHalfClose())(callMetadata, requestTraceContext)
     }
 
     /** Called when the client cancels the call. */
     override def onCancel(): Unit = {
-      logger.info(createLogMessage("cancelled"))(requestTraceContext)
-      logThrowable(delegate.onCancel())(createLogMessage, requestTraceContext)
+      auditLogger.logResponseStatus(
+        callMetadata,
+        ResponseKind.MinorError,
+        "cancelled",
+        None,
+      )(requestTraceContext)
+      logThrowable(delegate.onCancel())(callMetadata, requestTraceContext)
       cancelled.set(true)
     }
 
     /** Called when the server considers the call completed. */
     override def onComplete(): Unit = {
-      logger.debug(createLogMessage("completed"))(requestTraceContext)
-      logThrowable(delegate.onComplete())(createLogMessage, requestTraceContext)
+      auditLogger.debugMessage(
+        callMetadata,
+        "completed",
+      )(requestTraceContext)
+      logThrowable(delegate.onComplete())(callMetadata, requestTraceContext)
     }
 
     override def onReady(): Unit =
       // This call is "just a suggestion" according to the docs and turns out to be quite flaky, even in simple scenarios.
       // Not logging therefore.
-      logThrowable(delegate.onReady())(createLogMessage, requestTraceContext)
+      logThrowable(delegate.onReady())(callMetadata, requestTraceContext)
   }
 
   /** Intercepts events sent by the server.
     */
   class LoggingServerCall[ReqT, RespT](
       delegate: ServerCall[ReqT, RespT],
-      createLogMessage: String => String,
+      callMetadata: CallMetadata,
       requestTraceContext: TraceContext,
   ) extends SimpleForwardingServerCall[ReqT, RespT](delegate) {
 
     /** Called when the server sends the response headers. */
     override def sendHeaders(headers: Metadata): Unit = {
-      logger.trace(createLogMessage(s"sending response headers ${cutMessage(headers)}"))(
-        requestTraceContext
-      )
+      auditLogger.traceMessage(
+        callMetadata,
+        s"sending response headers",
+        Some(headers.toString),
+      )(requestTraceContext)
       delegate.sendHeaders(headers)
     }
 
     /** Called when the server sends a response. */
     override def sendMessage(message: RespT): Unit = {
       val traceContext = traceContextOfMessage(message).getOrElse(requestTraceContext)
-      logger.debug(
-        createLogMessage(
-          s"sending response ${cutMessage(message)}\n  Request ${requestTraceContext.showTraceId}"
-        )
+      auditLogger.debugMessage(
+        callMetadata,
+        s"sending response",
+        Some(message),
       )(traceContext)
       delegate.sendMessage(message)
     }
 
     /** Called when the server closes the call. */
     override def close(status: Status, trailers: Metadata): Unit = {
-      val enhancedStatus = logStatusOnClose(status, trailers, createLogMessage)(requestTraceContext)
+
+      val enhancedStatus = logStatusOnClose(
+        status,
+        trailers,
+        callMetadata,
+      )(requestTraceContext)
       delegate.close(enhancedStatus, trailers)
     }
   }
@@ -149,18 +179,25 @@ class ApiRequestLoggerBase(
     config: ApiLoggingConfig,
 ) extends NamedLogging {
 
-  private lazy val printer = config.printer
+  protected val auditLogger = new ApiRequestLogger(config, loggerFactory)
 
   protected def logThrowable(
       within: => Unit
-  )(createLogMessage: String => String, traceContext: TraceContext): Unit =
+  )(callMetadata: CallMetadata, traceContext: TraceContext): Unit =
     try {
       within
     } catch {
       // If the server implementation fails, the server method must return a failed future or call StreamObserver.onError.
       // This handler is invoked, when an internal GRPC error occurs or the server implementation throws.
       case t: Throwable =>
-        logger.error(createLogMessage("failed with an unexpected throwable"), t)(traceContext)
+        auditLogger
+          .logResponseStatus(
+            callMetadata,
+            SevereError,
+            s"failed with an unexpected throwable",
+            Some(t),
+          )(traceContext)
+
         t match {
           case _: RuntimeException =>
             throw t
@@ -175,7 +212,7 @@ class ApiRequestLoggerBase(
   protected def logStatusOnClose(
       status: Status,
       trailers: Metadata,
-      createLogMessage: String => String,
+      call: CallMetadata,
   )(implicit requestTraceContext: TraceContext): Status = {
     val enhancedStatus = enhance(status)
 
@@ -185,33 +222,48 @@ class ApiRequestLoggerBase(
     }
 
     val trailersString = stringOfTrailers(trailers)
+    val statusMessage = s"succeeded($statusString)$trailersString"
 
     if (enhancedStatus.getCode == Status.OK.getCode) {
-      logger.debug(
-        createLogMessage(s"succeeded($statusString)$trailersString"),
-        enhancedStatus.getCause,
-      )
+      auditLogger.logResponseStatus(
+        call,
+        ResponseKind.OK,
+        statusMessage,
+        None,
+      )(requestTraceContext)
     } else {
-      val message = createLogMessage(s"failed with $statusString$trailersString")
-      if (enhancedStatus.getCode == UNKNOWN || enhancedStatus.getCode == DATA_LOSS) {
-        logger.error(message, enhancedStatus.getCause)
-      } else if (enhancedStatus.getCode == INTERNAL) {
-        logger.error(message, enhancedStatus.getCause)
-      } else if (enhancedStatus.getCode == UNAUTHENTICATED) {
-        logger.debug(message, enhancedStatus.getCause)
+      val message = s"failed with $statusString$trailersString"
+      if (
+        enhancedStatus.getCode == UNKNOWN
+        || enhancedStatus.getCode == DATA_LOSS
+        || enhancedStatus.getCode == INTERNAL
+      ) {
+        auditLogger.logResponseStatus(
+          call,
+          ResponseKind.SevereError,
+          message,
+          Some(enhancedStatus.getCause),
+        )(requestTraceContext)
+      } else if (
+        enhancedStatus.getCode == UNAUTHENTICATED || enhancedStatus.getCode == PERMISSION_DENIED
+      ) {
+        auditLogger.logResponseStatus(
+          call,
+          ResponseKind.Security,
+          message,
+          Some(enhancedStatus.getCause),
+        )(requestTraceContext)
       } else {
-        logger.info(message, enhancedStatus.getCause)
+        auditLogger.logResponseStatus(
+          call,
+          ResponseKind.MinorError,
+          message,
+          Some(enhancedStatus.getCause),
+        )(requestTraceContext)
       }
     }
-
     enhancedStatus
   }
-
-  @SuppressWarnings(Array("org.wartremover.warts.Product"))
-  protected def cutMessage(message: Any): String =
-    if (config.messagePayloads) {
-      printer.printAdHoc(message)
-    } else ""
 
   protected def stringOfTrailers(trailers: Metadata): String =
     if (!config.messagePayloads || trailers == null || trailers.keys().isEmpty) {
@@ -253,3 +305,28 @@ class ApiRequestLoggerBase(
     } yield traceContext.unwrap
   }
 }
+object GrpcAddressHelper {
+  def extractTransport(
+      remoteAddr: SocketAddress
+  ): (TransportType, Either[String, InetSocketAddress]) =
+    remoteAddr match {
+      case inet: InetSocketAddress =>
+        (TransportType.Grpc, Right(inet))
+      case internal: InProcessSocketAddress =>
+        (TransportType.InProcessGrpc, Left(internal.toString()))
+      case other =>
+        (TransportType.Grpc, Left(s"unknown: $other"))
+    }
+}
+
+/** Metadata collected about an Api call for logging purposes. apiEndpoint: The API endpoint being
+  * called, e.g., "com.daml.ledger.api.v1.CommandService/SubmitAndWait" transport: The transport
+  * type used for the call, e.g., gRPC or HTTP remoteAddress: The remote address of the caller,
+  * InetSocketAddress, if not possible to retrieve a string error/identifier
+  */
+
+final case class CallMetadata(
+    apiEndpoint: String,
+    transport: TransportType,
+    remoteAddress: Either[String, InetSocketAddress],
+)

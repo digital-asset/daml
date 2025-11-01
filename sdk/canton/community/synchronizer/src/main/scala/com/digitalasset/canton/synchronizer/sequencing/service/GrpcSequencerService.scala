@@ -144,7 +144,7 @@ object GrpcSequencerService {
       metrics,
       loggerFactory,
       authenticationCheck,
-      new SubscriptionPool[GrpcManagedSubscription[_]](
+      new SubscriptionPool[GrpcManagedSubscription[?]](
         clock,
         metrics,
         parameters.processingTimeouts,
@@ -183,7 +183,7 @@ class GrpcSequencerService(
     metrics: SequencerMetrics,
     protected val loggerFactory: NamedLoggerFactory,
     authenticationCheck: AuthenticationCheck,
-    subscriptionPool: SubscriptionPool[GrpcManagedSubscription[_]],
+    subscriptionPool: SubscriptionPool[GrpcManagedSubscription[?]],
     directSequencerSubscriptionFactory: DirectSequencerSubscriptionFactory,
     synchronizerParamsLookup: DynamicSynchronizerParametersLookup[SequencerSynchronizerParameters],
     parameters: SequencerParameters,

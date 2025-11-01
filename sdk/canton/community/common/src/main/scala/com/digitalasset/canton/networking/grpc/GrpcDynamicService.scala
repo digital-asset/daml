@@ -56,7 +56,7 @@ class GrpcDynamicService(
 
   /** Creates a call handler that immediately closes the server call with the generated status. */
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
-  private def mkCall[Req, Res](method: MethodDescriptor[_, _]): ServerCallHandler[Req, Res] =
+  private def mkCall[Req, Res](method: MethodDescriptor[?, ?]): ServerCallHandler[Req, Res] =
     (call: ServerCall[Req, Res], metadata: Metadata) => {
       val methodE = for {
         descriptor <- serviceDescriptorRef

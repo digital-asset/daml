@@ -200,7 +200,7 @@ class Env(override val loggerFactory: SuppressingLogger)(implicit
       SequencerTestMetrics,
       loggerFactory,
       authenticationCheck,
-      new SubscriptionPool[GrpcManagedSubscription[_]](
+      new SubscriptionPool[GrpcManagedSubscription[?]](
         clock,
         SequencerTestMetrics,
         timeouts,
@@ -468,8 +468,8 @@ class GrpcSequencerIntegrationTest
       env.mockSubscription(_ => subscribePromise.success(()), _ => unsubscribePromise.success(()))
 
       val synchronizerTimeTracker = mock[SynchronizerTimeTracker]
-      when(synchronizerTimeTracker.wrapHandler(any[OrdinaryApplicationHandler[Envelope[_]]]))
-        .thenAnswer(Predef.identity[OrdinaryApplicationHandler[Envelope[_]]] _)
+      when(synchronizerTimeTracker.wrapHandler(any[OrdinaryApplicationHandler[Envelope[?]]]))
+        .thenAnswer(Predef.identity[OrdinaryApplicationHandler[Envelope[?]]] _)
 
       // kick of subscription
       val initF = client.subscribeAfter(
@@ -527,7 +527,7 @@ class GrpcSequencerIntegrationTest
           SequencerTestMetrics,
           env.loggerFactory,
           authenticationCheck,
-          new SubscriptionPool[GrpcManagedSubscription[_]](
+          new SubscriptionPool[GrpcManagedSubscription[?]](
             clock,
             SequencerTestMetrics,
             env.timeouts,

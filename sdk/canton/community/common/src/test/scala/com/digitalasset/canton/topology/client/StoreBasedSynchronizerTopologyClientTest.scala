@@ -18,6 +18,7 @@ import com.digitalasset.canton.topology.processing.{ApproximateTime, EffectiveTi
 import com.digitalasset.canton.topology.store.db.DbTopologyStoreHelper
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.topology.store.{
+  NoPackageDependencies,
   TopologyStore,
   TopologyStoreId,
   ValidatedTopologyTransaction,
@@ -83,7 +84,7 @@ trait StoreBasedTopologySnapshotTest
           mock[Clock],
           defaultStaticSynchronizerParameters,
           store,
-          StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
+          NoPackageDependencies,
           DefaultProcessingTimeouts.testing,
           FutureSupervisor.Noop,
           loggerFactory,

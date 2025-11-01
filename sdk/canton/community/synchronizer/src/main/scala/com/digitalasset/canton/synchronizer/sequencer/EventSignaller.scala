@@ -38,7 +38,7 @@ object WriteNotification {
     override def toString: String = s"Members(${memberIds.map(_.unwrap).mkString(",")})"
   }
 
-  def apply(events: NonEmpty[Seq[Sequenced[_]]]): WriteNotification =
+  def apply(events: NonEmpty[Seq[Sequenced[?]]]): WriteNotification =
     events
       .map(_.event.notifies)
       .reduceLeft(_ union _)

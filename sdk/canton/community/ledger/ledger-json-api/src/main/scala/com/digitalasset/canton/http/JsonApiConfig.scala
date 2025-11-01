@@ -17,6 +17,7 @@ import scala.concurrent.duration.*
 final case class JsonApiConfig(
     enabled: Boolean = true,
     websocketConfig: Option[WebsocketConfig] = None,
+    //  @deprecated Use ApiLoggingConfig to enable HTTP body logging
     debugLoggingOfHttpBodies: Boolean = false,
     damlDefinitionsServiceEnabled: Boolean = false,
     address: String = JsonApiConfig.defaultAddress,

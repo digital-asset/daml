@@ -148,7 +148,7 @@ object ErrorLoggingContext {
 
   def forClass(
       loggerFactory: NamedLoggerFactory,
-      clazz: Class[_],
+      clazz: Class[?],
       properties: Map[String, String] = Map.empty,
       traceContext: TraceContext = TraceContext.empty,
   ): ErrorLoggingContext =

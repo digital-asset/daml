@@ -25,7 +25,13 @@ import com.digitalasset.canton.sequencing.client.transports.{
 import com.digitalasset.canton.sequencing.protocol.channel.SequencerChannelId
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, MonadUtil, SingleUseCell}
+import com.digitalasset.canton.util.{
+  ByteStringUtil,
+  EitherTUtil,
+  ErrorUtil,
+  MonadUtil,
+  SingleUseCell,
+}
 import com.digitalasset.canton.version.{HasToByteString, ProtocolVersion}
 import com.google.protobuf.ByteString
 import io.grpc.Context.CancellableContext
@@ -237,7 +243,7 @@ private[channel] final class SequencerChannelClientEndpoint(
         },
       )
       message = new HasToByteString {
-        override def toByteString: ByteString = payload
+        override def toByteString: ByteString = ByteStringUtil.compressGzip(payload)
       }
       encrypted <- security.encrypt(message).leftMap(_.toString)
       _ <- sendMessage(

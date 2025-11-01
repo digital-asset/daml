@@ -83,7 +83,7 @@ private[conflictdetection] class LockableStates[
 
     @SuppressWarnings(Array("org.wartremover.warts.Var"))
     var otherStatesAvailable: Future[Unit] = Future.unit
-    def joinFuture(f: Future[_]): Unit = {
+    def joinFuture(f: Future[?]): Unit = {
       // deliberately discard the contents of the future
       implicit val ec = directExecutionContext
       otherStatesAvailable = otherStatesAvailable.zip(f).void

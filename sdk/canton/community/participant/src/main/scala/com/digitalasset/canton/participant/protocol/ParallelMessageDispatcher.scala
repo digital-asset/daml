@@ -174,7 +174,7 @@ class ParallelMessageDispatcher(
           val signedEventE = eventE.map(_ => signedEvent)
           processOrdinary(sequencerCounter, signedEventE)
 
-        case _: IgnoredSequencedEvent[_] =>
+        case _: IgnoredSequencedEvent[?] =>
           pureProcessingResult
       }
       processingResult.map(

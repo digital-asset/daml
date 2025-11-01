@@ -31,7 +31,7 @@ class JsonCodecTest extends BaseTest with AnyWordSpecLike with Matchers with Lon
     .process(packages)(new JsonCodec())(identity)
     .value
     .collectFirst {
-      case x: SchemaEntity.Template[_] if x.id.qualifiedName.name.dottedName == "TrailingNone" => x
+      case x: SchemaEntity.Template[?] if x.id.qualifiedName.name.dottedName == "TrailingNone" => x
     }
     .value
 

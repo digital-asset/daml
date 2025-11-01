@@ -253,7 +253,7 @@ message ExportPartyAcsRequest {
 
   // The maximum duration the service will wait to find the topology transaction that activates the party on
   // the target participant.
-  // If not set, the service use will use a default timeout.
+  // If not set, the service will use a default timeout.
   // Optional
   google.protobuf.Duration wait_for_activation_timeout = 5;
 }
@@ -342,7 +342,7 @@ message ClearPartyOnboardingFlagRequest {
 
   // The maximum duration the service will wait to find the topology transaction
   // that activates the party.
-  // If not set, the service use will use a default timeout.
+  // If not set, the service will use a default timeout.
   // Optional
   google.protobuf.Duration wait_for_activation_timeout = 4;
 }

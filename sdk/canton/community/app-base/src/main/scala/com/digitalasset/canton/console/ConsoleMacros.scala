@@ -334,7 +334,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
     private def mapToLedgerApiValue(value: Any): Value = {
 
       // assuming that String.toString = id, we'll just map any Map to a string map without casting
-      def safeMapCast(map: Map[_, _]): Map[String, Any] = map.map { case (key, value) =>
+      def safeMapCast(map: Map[?, ?]): Map[String, Any] = map.map { case (key, value) =>
         (key.toString, value)
       }
 
@@ -351,7 +351,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         case x: Instant => Value.Sum.Timestamp(x.toEpochMilli * 1000L)
         case x: Option[Any] => Value.Sum.Optional(Optional(value = x.map(mapToLedgerApiValue)))
         case x: Value.Sum => x
-        case x: Map[_, _] => Value.Sum.Record(buildArguments(safeMapCast(x)))
+        case x: Map[?, ?] => Value.Sum.Record(buildArguments(safeMapCast(x)))
         case x: (Any, Any) => productToLedgerApiRecord(x)
         case x: (Any, Any, Any) => productToLedgerApiRecord(x)
         case _ =>
@@ -1062,7 +1062,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
     // Helper to find all HA-active nodes
     private def allPrunableNodes(implicit
         env: ConsoleEnvironment
-    ): Map[String, PruningSchedulerAdministration[_]] =
+    ): Map[String, PruningSchedulerAdministration[?]] =
       (env.participants.all.collect { case p if p.health.active => p.name -> p.pruning }
         ++ env.sequencers.all.collect {
           case s

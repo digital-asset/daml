@@ -28,7 +28,11 @@ import com.digitalasset.canton.sequencing.protocol.{AllMembersOfSynchronizer, De
 import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.client.*
 import com.digitalasset.canton.topology.processing.TopologyTransactionProcessor.subscriptionTimestamp
-import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
+import com.digitalasset.canton.topology.store.{
+  NoPackageDependencies,
+  TopologyStore,
+  TopologyStoreId,
+}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.checks.RequiredTopologyMappingChecks
 import com.digitalasset.canton.topology.transaction.{
@@ -554,7 +558,7 @@ object TopologyTransactionProcessor {
       staticSynchronizerParameters,
       topologyStore,
       synchronizerPredecessor,
-      StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
+      NoPackageDependencies,
       parameters.cachingConfigs,
       parameters.batchingConfig,
       parameters.processingTimeouts,

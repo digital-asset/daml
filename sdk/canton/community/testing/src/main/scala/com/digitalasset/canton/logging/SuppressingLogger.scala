@@ -128,7 +128,7 @@ class SuppressingLogger private[logging] (
     assertLogs(rule)(checkThrowable[T](the[Throwable] thrownBy within), assertions*)
 
   def assertThrowsAndLogsSuppressingAsync[T <: Throwable](rule: SuppressionRule)(
-      within: => Future[_],
+      within: => Future[?],
       assertions: (LogEntry => Assertion)*
   )(implicit c: ClassTag[T], pos: source.Position): Future[Assertion] =
     assertLogs(rule)(
@@ -142,7 +142,7 @@ class SuppressingLogger private[logging] (
     )
 
   def assertThrowsAndLogsAsync[T <: Throwable](
-      within: => Future[_],
+      within: => Future[?],
       assertion: T => Assertion,
       entryChecks: (LogEntry => Assertion)*
   )(implicit c: ClassTag[T], pos: source.Position): Future[Assertion] =
@@ -206,7 +206,7 @@ class SuppressingLogger private[logging] (
   }
 
   def assertInternalErrorAsync[T <: Throwable](
-      within: => Future[_],
+      within: => Future[?],
       assertion: T => Assertion,
   )(implicit c: ClassTag[T], pos: source.Position): Future[Assertion] =
     assertLogs(
@@ -572,7 +572,7 @@ class SuppressingLogger private[logging] (
       // Run the computation in body
       val result = body
       result match {
-        case asyncResult: Future[_] =>
+        case asyncResult: Future[?] =>
           implicit val ec: ExecutionContext = directExecutionContext
 
           // Cleanup after completion of the future.
@@ -589,7 +589,7 @@ class SuppressingLogger private[logging] (
           // Return future that completes after termination of body and cleanup
           asyncResultWithCleanup.asInstanceOf[T]
 
-        case _: EitherT[_, _, _] | _: OptionT[_, _] =>
+        case _: EitherT[?, ?, ?] | _: OptionT[?, ?] =>
           throw new IllegalArgumentException(
             "Suppression for EitherT and OptionT is currently not supported. Please unwrap the result by calling `_.value`."
           )
@@ -698,7 +698,7 @@ object SuppressingLogger {
   }
 
   def apply(
-      testClass: Class[_],
+      testClass: Class[?],
       pollTimeout: FiniteDuration = 1.second,
       skipLogEntry: LogEntry => Boolean = defaultSkipLogEntry,
   ): SuppressingLogger =

@@ -3,9 +3,10 @@
 
 package com.digitalasset.canton.http.json.v2
 
-import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput, baseEndpoint}
+import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, baseEndpoint}
 import com.digitalasset.canton.ledger.client.services.version.VersionClient
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.logging.audit.ApiRequestLogger
 import com.digitalasset.canton.tracing.TraceContext
 import sttp.tapir.{AnyEndpoint, Endpoint, stringBody}
 
@@ -15,6 +16,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class JsApiDocsService(
     versionClient: VersionClient,
     endpointDescriptions: List[AnyEndpoint],
+    override protected val requestLogger: ApiRequestLogger,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit
     executionContext: ExecutionContext
@@ -35,7 +37,7 @@ class JsApiDocsService(
       .out(stringBody)
       .serverSecurityLogicSuccess(Future.successful)
       .serverLogicSuccess(caller =>
-        (in: TracedInput[Unit]) => getApiDocs(caller.token())(in.traceContext).map(_.openApi)
+        _ => getApiDocs(caller.token())(caller.traceContext()).map(_.openApi)
       ),
     withTraceHeaders(
       docs.get
@@ -45,7 +47,7 @@ class JsApiDocsService(
       .out(stringBody)
       .serverSecurityLogicSuccess(Future.successful)
       .serverLogicSuccess(caller =>
-        (in: TracedInput[Unit]) => getApiDocs(caller.token())(in.traceContext).map(_.asyncApi)
+        _ => getApiDocs(caller.token())(caller.traceContext()).map(_.asyncApi)
       ),
   )
 

@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.topology
 
+import cats.syntax.show.*
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -40,8 +41,8 @@ class SynchronizerOutboxQueue(
   def enqueue(
       txs: Seq[GenericSignedTopologyTransaction]
   )(implicit traceContext: TraceContext): AsyncResult[Unit] = blocking(synchronized {
-    logger.debug(s"enqueuing: $txs")
     val p = Promise[Unit]()
+    logger.debug(s"enqueuing: ${txs.map(_.hash)}")
     unsentQueue.enqueueAll(txs.map(Traced(_) -> p)).discard
     AsyncResult(FutureUnlessShutdown.outcomeF(p.future))
   })
@@ -59,7 +60,8 @@ class SynchronizerOutboxQueue(
       traceContext: TraceContext
   ): Seq[GenericSignedTopologyTransaction] = blocking(synchronized {
     val txs = unsentQueue.take(limit.value).toList
-    logger.debug(s"dequeuing: $txs")
+    // using the show interpolator to force the pretty instance for Traced instead of the normal toString
+    logger.debug(show"dequeuing: ${tracedHashes(txs)}")
     require(
       inProcessQueue.isEmpty,
       s"tried to dequeue while pending wasn't empty: ${inProcessQueue.toSeq}",
@@ -73,7 +75,8 @@ class SynchronizerOutboxQueue(
     * the same order.
     */
   def requeue()(implicit traceContext: TraceContext): Unit = blocking(synchronized {
-    logger.debug(s"requeuing $inProcessQueue")
+    // using the show interpolator to force the pretty instance for Traced instead of the normal toString
+    logger.debug(show"requeuing ${tracedHashes(inProcessQueue)}")
     unsentQueue.prependAll(inProcessQueue)
     inProcessQueue.clear()
   })
@@ -85,9 +88,15 @@ class SynchronizerOutboxQueue(
       inProcessQueue.foreach { case (_, promise) =>
         promise.trySuccess(()).discard
       }
-      logger.debug(s"completeCycle $inProcessQueue")
+      // using the show interpolator to force the pretty instance for Traced instead of the normal toString
+      logger.debug(show"completeCycle ${tracedHashes(inProcessQueue)}")
       inProcessQueue.clear()
     }
   )
+
+  private def tracedHashes(
+      txs: Iterable[(Traced[GenericSignedTopologyTransaction], Promise[Unit])]
+  ) =
+    txs.map(_._1.map(_.hash)).toSeq
 
 }

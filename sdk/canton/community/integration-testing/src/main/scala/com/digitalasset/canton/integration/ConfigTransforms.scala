@@ -587,7 +587,7 @@ object ConfigTransforms {
   def setStorageQueueSize(queueSize: Int): ConfigTransform =
     modifyAllStorageConfigs { (_, _, config) =>
       config match {
-        case dbConfig: ModifiableDbConfig[_] =>
+        case dbConfig: ModifiableDbConfig[?] =>
           dbConfig.modify(config =
             config.config.withValue("queueSize", ConfigValueFactory.fromAnyRef(queueSize))
           )

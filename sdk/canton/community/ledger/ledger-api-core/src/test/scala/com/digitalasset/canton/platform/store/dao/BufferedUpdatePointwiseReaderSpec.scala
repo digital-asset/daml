@@ -25,7 +25,7 @@ import scala.concurrent.Future
 import scala.language.implicitConversions
 
 class BufferedUpdatePointwiseReaderSpec extends AsyncFlatSpec with MockitoSugar with BaseTest {
-  private val className = classOf[BufferedUpdatePointwiseReader[_, _]].getSimpleName
+  private val className = classOf[BufferedUpdatePointwiseReader[?, ?]].getSimpleName
 
   private implicit val loggingContext: LoggingContextWithTrace = LoggingContextWithTrace(
     loggerFactory

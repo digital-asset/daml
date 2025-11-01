@@ -3,10 +3,8 @@
 
 package com.digitalasset.canton.participant.ledger.api
 
-import cats.implicits.toBifunctorOps
 import cats.syntax.functor.*
 import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.participant.ledger.api.LedgerApiServer.FailedToConfigureLedgerApiStorage
 import com.typesafe.config.{Config, ConfigObject, ConfigValueType}
 
 import java.net.URLEncoder
@@ -38,10 +36,10 @@ object LedgerApiJdbcUrl {
 
   def fromDbConfig(
       dbConfig: DbConfig
-  ): Either[FailedToConfigureLedgerApiStorage, LedgerApiJdbcUrl] = (dbConfig match {
+  ): Either[String, LedgerApiJdbcUrl] = (dbConfig match {
     case h2: DbConfig.H2 => reuseH2(h2.config)
     case postgres: DbConfig.Postgres => reusePostgres(postgres.config)
-  }).leftMap(FailedToConfigureLedgerApiStorage.apply)
+  })
 
   /** Extensions to [[com.typesafe.config.Config]] to make config extraction more concise for our
     * purposes.

@@ -11,41 +11,41 @@ import java.sql.Connection
 import scala.reflect.ClassTag
 
 private[backend] trait Schema[FROM] {
-  def prepareData(in: Vector[FROM], stringInterning: StringInterning): Array[Array[Array[_]]]
-  def executeUpdate(data: Array[Array[Array[_]]], connection: Connection): Unit
+  def prepareData(in: Vector[FROM], stringInterning: StringInterning): Array[Array[Array[?]]]
+  def executeUpdate(data: Array[Array[Array[?]]], connection: Connection): Unit
 }
 
 private[backend] object AppendOnlySchema {
 
-  type Batch = Array[Array[Array[_]]]
+  type Batch = Array[Array[Array[?]]]
 
   private[backend] trait FieldStrategy {
-    def string[FROM](extractor: StringInterning => FROM => String): Field[FROM, String, _] =
+    def string[FROM](extractor: StringInterning => FROM => String): Field[FROM, String, ?] =
       StringField(extractor)
 
     def stringOptional[FROM](
         extractor: StringInterning => FROM => Option[String]
-    ): Field[FROM, Option[String], _] =
+    ): Field[FROM, Option[String], ?] =
       StringOptional(extractor)
 
     def stringArray[FROM](
         extractor: StringInterning => FROM => Iterable[String]
-    ): Field[FROM, Iterable[String], _] =
+    ): Field[FROM, Iterable[String], ?] =
       StringArray(extractor)
 
     def bytea[FROM](
         extractor: StringInterning => FROM => Array[Byte]
-    ): Field[FROM, Array[Byte], _] =
+    ): Field[FROM, Array[Byte], ?] =
       Bytea(extractor)
 
     def byteaOptional[FROM](
         extractor: StringInterning => FROM => Option[Array[Byte]]
-    ): Field[FROM, Option[Array[Byte]], _] =
+    ): Field[FROM, Option[Array[Byte]], ?] =
       ByteaOptional(extractor)
 
     def parties[FROM](
         extractor: FROM => Set[String]
-    ): Field[FROM, Array[Byte], _] =
+    ): Field[FROM, Array[Byte], ?] =
       bytea(stringInterning =>
         from =>
           encodeToByteArray(
@@ -56,7 +56,7 @@ private[backend] object AppendOnlySchema {
 
     def partiesOptional[FROM](
         extractor: FROM => Option[Set[String]]
-    ): Field[FROM, Option[Array[Byte]], _] =
+    ): Field[FROM, Option[Array[Byte]], ?] =
       byteaOptional(stringInterning =>
         from =>
           extractor(from)
@@ -64,43 +64,43 @@ private[backend] object AppendOnlySchema {
             .map(encodeToByteArray)
       )
 
-    def bigint[FROM](extractor: StringInterning => FROM => Long): Field[FROM, Long, _] =
+    def bigint[FROM](extractor: StringInterning => FROM => Long): Field[FROM, Long, ?] =
       Bigint(extractor)
 
     def bigintOptional[FROM](
         extractor: StringInterning => FROM => Option[Long]
-    ): Field[FROM, Option[Long], _] =
+    ): Field[FROM, Option[Long], ?] =
       BigintOptional(extractor)
 
     def smallintOptional[FROM](
         extractor: StringInterning => FROM => Option[Int]
-    ): Field[FROM, Option[Int], _] =
+    ): Field[FROM, Option[Int], ?] =
       SmallintOptional(extractor)
 
     def smallint[FROM](
         extractor: StringInterning => FROM => Int
-    ): Field[FROM, Int, _] =
+    ): Field[FROM, Int, ?] =
       Smallint(extractor)
 
-    def int[FROM](extractor: StringInterning => FROM => Int): Field[FROM, Int, _] =
+    def int[FROM](extractor: StringInterning => FROM => Int): Field[FROM, Int, ?] =
       Integer(extractor)
 
     def intOptional[FROM](
         extractor: StringInterning => FROM => Option[Int]
-    ): Field[FROM, Option[Int], _] =
+    ): Field[FROM, Option[Int], ?] =
       IntOptional(extractor)
 
     def booleanOptional[FROM](
         extractor: StringInterning => FROM => Option[Boolean]
-    ): Field[FROM, Option[Boolean], _] =
+    ): Field[FROM, Option[Boolean], ?] =
       BooleanOptional(extractor)
 
     def boolean[FROM](
         extractor: StringInterning => FROM => Boolean
-    ): Field[FROM, Boolean, _] =
+    ): Field[FROM, Boolean, ?] =
       BooleanMandatory(extractor)
 
-    def insert[FROM](tableName: String)(fields: (String, Field[FROM, _, _])*): Table[FROM]
+    def insert[FROM](tableName: String)(fields: (String, Field[FROM, ?, ?])*): Table[FROM]
   }
 
   def apply(fieldStrategy: FieldStrategy): Schema[DbDto] = {
@@ -369,7 +369,7 @@ private[backend] object AppendOnlySchema {
         "event_sequential_id_last" -> fieldStrategy.bigint(_ => _.event_sequential_id_last),
       )
 
-    val executes: Seq[Array[Array[_]] => Connection => Unit] = List(
+    val executes: Seq[Array[Array[?]] => Connection => Unit] = List(
       eventActivate.executeUpdate,
       idFilterActivateStakeholder.executeUpdate,
       idFilterActivateWitness.executeUpdate,
@@ -389,7 +389,7 @@ private[backend] object AppendOnlySchema {
       override def prepareData(
           in: Vector[DbDto],
           stringInterning: StringInterning,
-      ): Array[Array[Array[_]]] = {
+      ): Array[Array[Array[?]]] = {
         def collectWithFilter[T <: DbDto: ClassTag](filter: T => Boolean): Vector[T] =
           in.collect { case dbDto: T if filter(dbDto) => dbDto }
         def collect[T <: DbDto: ClassTag]: Vector[T] = collectWithFilter[T](_ => true)
@@ -414,7 +414,7 @@ private[backend] object AppendOnlySchema {
         )
       }
 
-      override def executeUpdate(data: Array[Array[Array[_]]], connection: Connection): Unit =
+      override def executeUpdate(data: Array[Array[Array[?]]], connection: Connection): Unit =
         executes.zip(data).foreach { case (execute, data) =>
           execute(data)(connection)
         }

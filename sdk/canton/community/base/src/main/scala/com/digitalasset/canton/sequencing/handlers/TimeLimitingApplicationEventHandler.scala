@@ -39,7 +39,7 @@ class TimeLimitingApplicationEventHandler(
 
   import TimeLimitingApplicationEventHandler.*
 
-  def timeLimit[E <: Envelope[_]](
+  def timeLimit[E <: Envelope[?]](
       handler: PossiblyIgnoredApplicationHandler[E]
   )(implicit ec: ExecutionContext): PossiblyIgnoredApplicationHandler[E] =
     if (timeLimit.duration.isFinite) {

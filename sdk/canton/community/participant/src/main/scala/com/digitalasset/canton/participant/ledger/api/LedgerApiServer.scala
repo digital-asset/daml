@@ -17,16 +17,25 @@ import com.digitalasset.canton.auth.*
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.NonNegativeDurationConverter.NonNegativeDurationToMillisConverter
-import com.digitalasset.canton.config.{AdminTokenConfig, ProcessingTimeout}
+import com.digitalasset.canton.config.{AdminTokenConfig, ApiLoggingConfig, ProcessingTimeout}
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.digitalasset.canton.http.{HttpApiServer, JsonApiConfig}
 import com.digitalasset.canton.interactive.InteractiveSubmissionEnricher
-import com.digitalasset.canton.ledger.api.*
 import com.digitalasset.canton.ledger.api.health.HealthChecks
 import com.digitalasset.canton.ledger.api.util.TimeProvider
+import com.digitalasset.canton.ledger.api.{
+  CumulativeFilter,
+  EventFormat,
+  IdentityProviderId,
+  ParticipantAuthorizationFormat,
+  TopologyFormat,
+  UpdateFormat,
+  User,
+  UserRight,
+}
 import com.digitalasset.canton.ledger.localstore.*
 import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
 import com.digitalasset.canton.ledger.participant.state.metrics.TimedSyncService
@@ -36,7 +45,7 @@ import com.digitalasset.canton.lifecycle.LifeCycle.FastCloseableChannel
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
-import com.digitalasset.canton.networking.grpc.{ApiRequestLogger, CantonGrpcUtil}
+import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, GrpcRequestLoggingInterceptor}
 import com.digitalasset.canton.participant.config.{
   LedgerApiServerConfig,
   ParticipantNodeConfig,
@@ -277,7 +286,8 @@ class LedgerApiServer(
             eventFormat = EventFormat(
               filtersByParty =
                 partyIds.view.map(_ -> CumulativeFilter.templateWildcardFilter(true)).toMap,
-              filtersForAnyParty = None,
+              filtersForAnyParty =
+                Option.when(partyIds.isEmpty)(CumulativeFilter.templateWildcardFilter(true)),
               verbose = false,
             ),
             activeAt = validAt,
@@ -393,8 +403,14 @@ class LedgerApiServer(
         interactiveSubmissionEnricher = interactiveSubmissionEnricher,
         keepAlive = serverConfig.keepAliveServer,
         packagePreferenceBackend = packagePreferenceBackend,
+        apiLoggingConfig = cantonParameterConfig.loggingConfig.api,
       )
-      _ <- startHttpApiIfEnabled(timedSyncService, authInterceptor, packagePreferenceBackend)
+      _ <- startHttpApiIfEnabled(
+        timedSyncService,
+        authInterceptor,
+        packagePreferenceBackend,
+        cantonParameterConfig.loggingConfig.api,
+      )
       _ <- serverConfig.userManagementService.additionalAdminUserId
         .fold(ResourceOwner.unit) { rawUserId =>
           ResourceOwner.forFuture { () =>
@@ -460,7 +476,7 @@ class LedgerApiServer(
   private def getInterceptors(
       indexDbExecutor: QueueAwareExecutor & NamedExecutor
   ): List[ServerInterceptor] = List(
-    new ApiRequestLogger(
+    new GrpcRequestLoggingInterceptor(
       loggerFactory,
       cantonParameterConfig.loggingConfig.api,
     ),
@@ -508,6 +524,7 @@ class LedgerApiServer(
       packageSyncService: PackageSyncService,
       authInterceptor: AuthInterceptor,
       packagePreferenceBackend: PackagePreferenceBackend,
+      apiLoggingConfig: ApiLoggingConfig,
   ): ResourceOwner[Unit] =
     if (!jsonApiConfig.enabled)
       ResourceOwner.unit
@@ -533,6 +550,7 @@ class LedgerApiServer(
           loggerFactory,
           authInterceptor,
           packagePreferenceBackend = packagePreferenceBackend,
+          apiLoggingConfig,
         )(
           jsonApiMetrics
         ).afterReleased(noTracingLogger.info("JSON-API HTTP Server is released"))

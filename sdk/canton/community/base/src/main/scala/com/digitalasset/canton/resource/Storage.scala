@@ -265,7 +265,7 @@ trait DbStorage extends Storage { self: NamedLogging =>
     * retried multiple times.
     */
   def update_(
-      action: DBIOAction[_, NoStream, Effect.Write with Effect.Transactional],
+      action: DBIOAction[?, NoStream, Effect.Write with Effect.Transactional],
       operationName: String,
       maxRetries: Int = defaultMaxRetries,
   )(implicit traceContext: TraceContext, closeContext: CloseContext): FutureUnlessShutdown[Unit] =

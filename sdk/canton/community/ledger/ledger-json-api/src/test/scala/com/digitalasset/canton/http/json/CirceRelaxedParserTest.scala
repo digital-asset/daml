@@ -4,8 +4,10 @@
 package com.digitalasset.canton.http.json
 
 import com.digitalasset.canton.http.json.v2.CirceRelaxedCodec.deriveRelaxedCodec
-import io.circe.Codec
+import com.digitalasset.canton.http.json.v2.testproto.all_types_message.AllTypesMessage
 import io.circe.generic.extras.Configuration
+import io.circe.syntax.EncoderOps
+import io.circe.{Codec, Decoder, Encoder}
 import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -74,6 +76,54 @@ class CirceRelaxedParserTest
           )
         )
       )
+    }
+  }
+
+  "custom example" in {
+    implicit val nestedMessageCodec: Codec[AllTypesMessage.NestedMessage] = deriveRelaxedCodec
+    implicit val sampleEnumCodec: Codec[AllTypesMessage.SampleEnum] = deriveRelaxedCodec
+    implicit val byteStringCodec: Codec[com.google.protobuf.ByteString] =
+      Codec.from(
+        Decoder.decodeString.map(com.google.protobuf.ByteString.copyFromUtf8),
+        Encoder.encodeString.contramap(_.toStringUtf8),
+      )
+    implicit val oneOfNestedCodec: Codec[AllTypesMessage.OneofField.OneofNested] =
+      deriveRelaxedCodec
+    implicit val oneOfStringCodec: Codec[AllTypesMessage.OneofField.OneofString] =
+      deriveRelaxedCodec
+    implicit val oneOfEmptyCodec: Codec[AllTypesMessage.OneofField.Empty.type] =
+      deriveRelaxedCodec
+    implicit val oneOfFieldCodec: Codec[AllTypesMessage.OneofField] = deriveRelaxedCodec
+    implicit val relaxedCodecAllTypesMessage: Codec[AllTypesMessage] = deriveRelaxedCodec
+
+    val expected = AllTypesMessage(
+      doubleField = 0d,
+      floatField = 0f,
+      boolField = false,
+      stringField = "",
+      bytesField = com.google.protobuf.ByteString.EMPTY,
+      enumField = AllTypesMessage.SampleEnum.Unrecognized(0),
+      nestedMessageField = None,
+      oneofField = AllTypesMessage.OneofField.Empty,
+      mapField = Map.empty,
+      int32Field = 0,
+      int64Field = 0L,
+      uint32Field = 0,
+      uint64Field = 0L,
+      sint32Field = 0,
+      sint64Field = 0L,
+      fixed32Field = 0,
+      fixed64Field = 0L,
+      sfixed32Field = 0,
+      sfixed64Field = 0L,
+    )
+
+    val jsonRendering = expected.asJson.spaces4
+    io.circe.parser.decode[AllTypesMessage](jsonRendering) should be(Right(expected))
+
+    inside(io.circe.parser.decode[AllTypesMessage]("""{ }""".stripMargin)) {
+      case Right(value) => value shouldBe expected
+      case Left(err) => fail(s"decoding failed: $err")
     }
   }
 }

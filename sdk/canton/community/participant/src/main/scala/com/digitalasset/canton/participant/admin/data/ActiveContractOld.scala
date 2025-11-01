@@ -92,7 +92,7 @@ private[canton] object ActiveContractOld extends VersioningCompanion[ActiveContr
       protocolVersionRepresentativeFor(protocolVersion)
     )
 
-  private[admin] def loadFromByteString(
+  private[canton] def loadFromByteString(
       bytes: ByteString
   ): Either[String, List[ActiveContractOld]] =
     for {

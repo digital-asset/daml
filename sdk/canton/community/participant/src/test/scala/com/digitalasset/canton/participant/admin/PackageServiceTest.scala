@@ -104,25 +104,10 @@ abstract class BasePackageServiceTest(enableStrictDarValidation: Boolean)
   protected class Env(now: CantonTimestamp) {
     val packageStore = new InMemoryDamlPackageStore(loggerFactory)
     private val processingTimeouts = ProcessingTimeout()
-    val packageDependencyResolver =
-      new PackageDependencyResolver.Impl(
-        participantId,
-        packageStore,
-        processingTimeouts,
-        loggerFactory,
-      )
-    private val engine =
-      DAMLe.newEngine(
-        enableLfDev = false,
-        enableLfBeta = false,
-        enableStackTraces = false,
-        paranoidMode = true,
-      )
-
     val clock = new SimClock(start = now, loggerFactory = loggerFactory)
     val mutablePackageMetadataView = new MutablePackageMetadataViewImpl(
       clock,
-      packageDependencyResolver.damlPackageStore,
+      packageStore,
       new PackageUpgradeValidator(CachingConfigs.defaultPackageUpgradeCache, loggerFactory),
       loggerFactory,
       PackageMetadataViewConfig(),
@@ -131,11 +116,18 @@ abstract class BasePackageServiceTest(enableStrictDarValidation: Boolean)
       exitOnFatalFailures = false,
     )
     mutablePackageMetadataView.refreshState.futureValueUS
+    private val engine =
+      DAMLe.newEngine(
+        enableLfDev = false,
+        enableLfBeta = false,
+        enableStackTraces = false,
+        paranoidMode = true,
+      )
+
     val sut: PackageService = PackageService(
       clock = clock,
       engine = engine,
       mutablePackageMetadataView = mutablePackageMetadataView,
-      packageDependencyResolver = packageDependencyResolver,
       enableStrictDarValidation = enableStrictDarValidation,
       loggerFactory = loggerFactory,
       metrics = ParticipantTestMetrics,
@@ -368,15 +360,12 @@ abstract class BasePackageServiceTest(enableStrictDarValidation: Boolean)
             expectedMainPackageId = None,
           )
           .valueOrFail("appending dar")
-        deps <- packageDependencyResolver.packageDependencies(mainPackageId).value
       } yield {
         // test for explict dependencies
-        deps match {
-          case Left((value, _)) => fail(value)
-          case Right(loaded) =>
-            // all direct dependencies should be part of this
-            (dependencyIds -- loaded) shouldBe empty
-        }
+        val loaded = mutablePackageMetadataView.getSnapshot
+          .allDependenciesRecursively(Set(mainPackageId))
+        // all direct dependencies should be part of this
+        (dependencyIds -- loaded) shouldBe empty
       }).unwrap.map(_.failOnShutdown)
     }
 

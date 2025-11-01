@@ -17,16 +17,16 @@ private[h2] object H2Schema {
   private val H2FieldStrategy = new FieldStrategy {
     override def bytea[FROM](
         extractor: StringInterning => FROM => Array[Byte]
-    ): Field[FROM, Array[Byte], _] =
+    ): Field[FROM, Array[Byte], ?] =
       H2Bytea(extractor)
 
     override def byteaOptional[FROM](
         extractor: StringInterning => FROM => Option[Array[Byte]]
-    ): Field[FROM, Option[Array[Byte]], _] =
+    ): Field[FROM, Option[Array[Byte]], ?] =
       H2ByteaOptional(extractor)
 
     override def insert[FROM](tableName: String)(
-        fields: (String, Field[FROM, _, _])*
+        fields: (String, Field[FROM, ?, ?])*
     ): Table[FROM] =
       Table.batchedInsert(tableName)(fields*)
   }

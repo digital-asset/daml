@@ -21,8 +21,6 @@ import com.digitalasset.canton.util.TryUtil.ForFailedOps
 
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicInteger
-import scala.annotation.tailrec
-import scala.collection.mutable
 import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success, Try}
 
@@ -263,18 +261,11 @@ class BatchAggregatorImpl[A, B](
   }
 
   // Return at most maximumBatchSize requests from the queue
-  private def pollItemsFromQueue(): Seq[QueueType] = {
-    val polledItems = new mutable.ArrayDeque[QueueType](maximumBatchSize)
-
-    @tailrec def go(remaining: Int): Unit =
-      Option(queuedRequests.poll()) match {
-        case Some(queueItem) =>
-          polledItems.addOne(queueItem)
-          if (remaining > 0) go(remaining - 1)
-        case None => ()
-      }
-
-    go(maximumBatchSize)
-    polledItems.toSeq
-  }
+  private def pollItemsFromQueue(): Seq[QueueType] =
+    Iterator
+      .continually(Option(queuedRequests.poll()))
+      .takeWhile(_.nonEmpty)
+      .take(maximumBatchSize)
+      .flatten
+      .toSeq
 }

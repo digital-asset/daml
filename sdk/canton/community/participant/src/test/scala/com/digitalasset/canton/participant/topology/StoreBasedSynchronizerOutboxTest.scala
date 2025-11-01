@@ -126,7 +126,7 @@ class StoreBasedSynchronizerOutboxTest
       clock,
       defaultStaticSynchronizerParameters,
       store = target,
-      packageDependenciesResolver = StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
+      packageDependencyResolver = NoPackageDependencies,
       timeouts = timeouts,
       futureSupervisor = futureSupervisor,
       loggerFactory.append("store", "Synchronizer"),

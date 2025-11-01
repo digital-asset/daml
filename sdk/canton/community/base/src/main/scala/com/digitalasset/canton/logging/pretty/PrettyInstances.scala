@@ -10,7 +10,8 @@ import com.digitalasset.canton.config.RequireTypes.{Port, RefinedNumeric}
 import com.digitalasset.canton.data.{DeduplicationPeriod, LedgerTimeBoundaries}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.UniqueIdentifier
-import com.digitalasset.canton.tracing.{TraceContext, W3CTraceContext}
+import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
+import com.digitalasset.canton.tracing.{TraceContext, Traced, W3CTraceContext}
 import com.digitalasset.canton.util.ShowUtil.HashLength
 import com.digitalasset.canton.util.{ErrorUtil, HexString}
 import com.digitalasset.canton.{LedgerUserId, LfPartyId, LfTimestamp, LfVersioned, Uninhabited}
@@ -175,6 +176,8 @@ trait PrettyInstances {
       case Left(_) => partyStr
     }
 
+  implicit val prettyTxHash: Pretty[TxHash] = prettyOfClass(unnamedParam(_.hash))
+
   implicit def prettyPackageId: Pretty[PackageId] = prettyOfString(id => show"${id.readableHash}")
 
   implicit def prettyLfDottedName: Pretty[DottedName] = prettyOfString { dottedName =>
@@ -289,9 +292,11 @@ trait PrettyInstances {
     paramIfDefined("state", _.state.map(_.unquoted)),
   )
 
-  implicit val prettyTraceContext: Pretty[TraceContext] = prettyOfClass(
-    paramIfDefined("trace id", _.traceId.map(_.unquoted)),
-    paramIfDefined("W3C context", _.asW3CTraceContext),
+  implicit val prettyTraceContext: Pretty[TraceContext] = prettyOfString(_.showTraceId.show)
+
+  implicit def prettyTraced[A: Pretty]: Pretty[Traced[A]] = prettyOfClass(
+    unnamedParam(_.value),
+    unnamedParam(_.traceContext),
   )
 
   implicit val prettyKeyInputError: Pretty[KeyInputError] = {
@@ -312,7 +317,7 @@ trait PrettyInstances {
 
   implicit val prettyPort: Pretty[Port] = prettyOfString(_.unwrap.toString)
 
-  implicit val prettyRefinedNumeric: Pretty[RefinedNumeric[_]] = prettyOfString(_.unwrap.toString)
+  implicit val prettyRefinedNumeric: Pretty[RefinedNumeric[?]] = prettyOfString(_.unwrap.toString)
 
   implicit val prettyServingStatus: Pretty[ServingStatus] = prettyOfClass(
     param("status", _.name().singleQuoted)

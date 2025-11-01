@@ -180,7 +180,8 @@ trait SynchronizerOutboxDispatch extends NamedLogging with FlagCloseable {
         .unlessShutdown(
           {
             logger.debug(
-              s"Attempting to push ${transactions.size} topology transactions to $synchronizerAlias: $transactions"
+              s"Attempting to push ${transactions.size} topology transactions to $synchronizerAlias: ${transactions
+                  .map(_.hash)}"
             )
             FutureUnlessShutdownUtil.logOnFailureUnlessShutdown(
               handle.submit(transactions),

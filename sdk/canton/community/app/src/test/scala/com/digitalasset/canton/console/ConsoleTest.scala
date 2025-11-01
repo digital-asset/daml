@@ -118,7 +118,7 @@ final class ConsoleTest extends AnyWordSpec with BaseTest {
       adminCommandRunner
         .runCommand(
           anyString(),
-          any[GrpcAdminCommand[_, _, Nothing]],
+          any[GrpcAdminCommand[?, ?, Nothing]],
           any[ClientConfig],
           any[Option[String]],
         )
@@ -179,7 +179,7 @@ final class ConsoleTest extends AnyWordSpec with BaseTest {
       when(
         adminCommandRunner.runCommand(
           isEq((id)),
-          any[GrpcAdminCommand[_, _, Result]],
+          any[GrpcAdminCommand[?, ?, Result]],
           any[ClientConfig],
           any[Option[String]],
         )

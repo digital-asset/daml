@@ -25,7 +25,7 @@ package object sequencing {
   /** It is convenient to consider the envelopes and all the structure around the envelopes (the
     * box). [[EnvelopeBox]] defines type class operations to manipulate
     */
-  type BoxedEnvelope[+Box[+_ <: Envelope[_]], +Env <: Envelope[_]] = Box[Env]
+  type BoxedEnvelope[+Box[+_ <: Envelope[?]], +Env <: Envelope[?]] = Box[Env]
 
   /** A handler processes an event synchronously in the [[scala.concurrent.Future]] and returns an
     * [[AsyncResult]] that may be computed asynchronously by the contained future. Asynchronous
@@ -41,29 +41,29 @@ package object sequencing {
   /** Default box for signed batches of events The outer `Traced` contains a trace context for the
     * entire batch.
     */
-  type OrdinaryEnvelopeBox[+E <: Envelope[_]] = Traced[Seq[OrdinarySequencedEvent[E]]]
-  type SequencedEnvelopeBox[+E <: Envelope[_]] = Traced[Seq[SequencedEventWithTraceContext[E]]]
-  type OrdinaryApplicationHandler[-E <: Envelope[_]] = ApplicationHandler[OrdinaryEnvelopeBox, E]
-  type SequencedApplicationHandler[-E <: Envelope[_]] = ApplicationHandler[SequencedEnvelopeBox, E]
+  type OrdinaryEnvelopeBox[+E <: Envelope[?]] = Traced[Seq[OrdinarySequencedEvent[E]]]
+  type SequencedEnvelopeBox[+E <: Envelope[?]] = Traced[Seq[SequencedEventWithTraceContext[E]]]
+  type OrdinaryApplicationHandler[-E <: Envelope[?]] = ApplicationHandler[OrdinaryEnvelopeBox, E]
+  type SequencedApplicationHandler[-E <: Envelope[?]] = ApplicationHandler[SequencedEnvelopeBox, E]
 
   /** Just a signature around the [[com.digitalasset.canton.sequencing.protocol.SequencedEvent]] The
     * term "raw" indicates that the trace context is missing. Try to use the box
     * [[OrdinarySerializedEvent]] instead.
     */
-  type RawSignedContentEnvelopeBox[+Env <: Envelope[_]] = SignedContent[SequencedEvent[Env]]
+  type RawSignedContentEnvelopeBox[+Env <: Envelope[?]] = SignedContent[SequencedEvent[Env]]
 
   /** A batch of traced protocol events (without a signature) with the assigned counter. The outer
     * `Traced` contains a trace context for the entire batch.
     */
-  type UnsignedEnvelopeBox[+E <: Envelope[_]] = Traced[Seq[WithCounter[Traced[SequencedEvent[E]]]]]
-  type UnsignedApplicationHandler[-E <: Envelope[_]] = ApplicationHandler[UnsignedEnvelopeBox, E]
+  type UnsignedEnvelopeBox[+E <: Envelope[?]] = Traced[Seq[WithCounter[Traced[SequencedEvent[E]]]]]
+  type UnsignedApplicationHandler[-E <: Envelope[?]] = ApplicationHandler[UnsignedEnvelopeBox, E]
   type UnsignedProtocolEventHandler = UnsignedApplicationHandler[DefaultOpenEnvelope]
 
   /** Default box for `PossiblyIgnoredProtocolEvents`. The outer `Traced` contains a trace context
     * for the entire batch.
     */
-  type PossiblyIgnoredEnvelopeBox[+E <: Envelope[_]] = Traced[Seq[PossiblyIgnoredSequencedEvent[E]]]
-  type PossiblyIgnoredApplicationHandler[-E <: Envelope[_]] =
+  type PossiblyIgnoredEnvelopeBox[+E <: Envelope[?]] = Traced[Seq[PossiblyIgnoredSequencedEvent[E]]]
+  type PossiblyIgnoredApplicationHandler[-E <: Envelope[?]] =
     ApplicationHandler[PossiblyIgnoredEnvelopeBox, E]
 
   ///////////////////////////////////

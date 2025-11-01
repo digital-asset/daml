@@ -24,7 +24,7 @@ trait DbTopologyStoreHelper {
   this: DbTest & TestEssentials =>
 
   @volatile
-  private var storesToCleanup = List.empty[TopologyStore[_]]
+  private var storesToCleanup = List.empty[TopologyStore[?]]
 
   override def cleanDb(
       storage: DbStorage

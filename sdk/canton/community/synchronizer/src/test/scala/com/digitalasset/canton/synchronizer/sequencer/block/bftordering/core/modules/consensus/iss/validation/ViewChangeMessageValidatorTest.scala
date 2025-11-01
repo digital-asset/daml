@@ -211,6 +211,21 @@ class ViewChangeMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTe
       result shouldBe Right(())
     }
 
+    "successfully validate message with commit certificate from higher (or equal) view" in {
+      val validator =
+        new ViewChangeMessageValidator(Membership.forTesting(myId), blockNumbers)
+
+      val pp1 = prePrepare(epochNumber, 1L, view1)
+
+      val cc =
+        CommitCertificate(pp1, Seq(commit(epochNumber, 1L, pp1.message.hash, viewNumber = 1L)))
+
+      val result =
+        validator.validateViewChangeMessage(viewChangeMsg(view1, Seq[ConsensusCertificate](cc)))
+
+      result shouldBe Right(())
+    }
+
     "error when certificates have no messages in them" in {
       val validator = new ViewChangeMessageValidator(membership, blockNumbers)
       val pc = PrepareCertificate(prePrepare(epochNumber, 1L, view0), Seq.empty)

@@ -11,6 +11,7 @@ import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
 import com.digitalasset.canton.http.json.v2.JsSchema.JsCantonError
 import com.digitalasset.canton.ledger.client.services.version.VersionClient
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.logging.audit.ApiRequestLogger
 import io.circe.Codec
 import sttp.tapir.AnyEndpoint
 import sttp.tapir.generic.auto.*
@@ -18,7 +19,11 @@ import sttp.tapir.json.circe.jsonBody
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class JsVersionService(versionClient: VersionClient, val loggerFactory: NamedLoggerFactory)(implicit
+class JsVersionService(
+    versionClient: VersionClient,
+    override protected val requestLogger: ApiRequestLogger,
+    val loggerFactory: NamedLoggerFactory,
+)(implicit
     val executionContext: ExecutionContext,
     val authInterceptor: AuthInterceptor,
 ) extends Endpoints {
@@ -34,9 +39,9 @@ class JsVersionService(versionClient: VersionClient, val loggerFactory: NamedLog
   ): TracedInput[Unit] => Future[
     Either[JsCantonError, version_service.GetLedgerApiVersionResponse]
   ] =
-    tracedInput =>
+    _ =>
       versionClient
-        .serviceStub(caller.token())(tracedInput.traceContext)
+        .serviceStub(caller.token())(caller.traceContext())
         .getLedgerApiVersion(version_service.GetLedgerApiVersionRequest())
         .resultToRight
 }

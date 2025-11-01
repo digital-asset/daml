@@ -6,10 +6,10 @@ package com.digitalasset.canton.integration.tests.repair
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.admin.api.client.data.TemplateId.templateIdsFromJava
-import com.digitalasset.canton.annotations.UnstableTest
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{DbConfig, PositiveDurationSeconds}
 import com.digitalasset.canton.console.InstanceReference
+import com.digitalasset.canton.crypto.store.db.DbCryptoPrivateStore
 import com.digitalasset.canton.crypto.{EncryptionPublicKey, KeyPurpose, SigningKeyUsage}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.integration.plugins.{UseH2, UseReferenceBlockSequencer}
@@ -20,7 +20,7 @@ import com.digitalasset.canton.integration.{
   SharedEnvironment,
   TestConsoleEnvironment,
 }
-import com.digitalasset.canton.logging.SuppressionRule
+import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
 import com.digitalasset.canton.participant.admin.workflows.java.canton.internal as W
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceSynchronizerDisconnect
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
@@ -47,9 +47,9 @@ import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
 import com.digitalasset.canton.topology.transaction.DelegationRestriction.CanSignAllButNamespaceDelegations
 import com.digitalasset.canton.topology.transaction.NamespaceDelegation
 import com.digitalasset.canton.topology.{ForceFlag, ForceFlags}
-import com.digitalasset.canton.util.ShowUtil.*
 import org.slf4j.event.Level
 
+import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.tailrec
 import scala.concurrent.Future
 import scala.concurrent.duration.*
@@ -87,6 +87,7 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
   }
 
   var missingEncryptionKey: EncryptionPublicKey = _
+  var lastRequestSequencerCounter = new AtomicReference[SequencerCounter](SequencerCounter.Genesis)
 
   "A participant" when {
     "it has never connected to a synchronizer" can {
@@ -318,7 +319,7 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
             },
             entries => {
               // The participant may try to acknowledge the ignored events and the sequencer will complain that
-              // the acknowledged timestamp has not yet been sequenced. But sometimes the participant is slow
+              // the acknowledged timestamp has not yet been sequenced. But sometimes the participant is slow,
               // and then we don't have any complaints
               if (entries.nonEmpty) {
                 entries should have size 3
@@ -503,25 +504,71 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
 
         // Note: The following ping will bring transaction processing to a halt,
         // because it can't decrypt the confirmation request.
-        loggerFactory.assertEventuallyLogsSeq(SuppressionRule.LevelAndAbove(Level.WARN))(
+        loggerFactory.assertEventuallyLogsSeq(SuppressionRule.LevelAndAbove(Level.INFO))(
           {
             clue(
-              "advancing clock and checking that participant1 is connected to the synchronizer"
+              "checking that participant1 is connected to the synchronizer"
             ) {
-              env.environment.simClock.foreach(_.advance(java.time.Duration.ofSeconds(5)))
               participant1.synchronizers.list_connected() should not be empty
             }
 
+            val initInstant =
+              participant1.testing.fetch_synchronizer_time(daName, 5.seconds).toInstant
+
             clue("pinging to halt") {
               pokeAndAdvance(Future {
-                participant2.health.maybe_ping(participant1, timeout = 2.seconds)
+                participant2.health.maybe_ping(participant1)
               })
+            } shouldBe None
+
+            eventually() {
+              val lastEvents = participant1.testing.state_inspection
+                .findMessages(
+                  daId,
+                  Some(initInstant),
+                  Some(CantonTimestamp.MaxValue.toInstant),
+                  None,
+                  warnOnDiscardedEnvelopes = false,
+                )
+
+              // The ping confirmation request will crash P1. However, the mediator still sends a confirmation
+              // result message, because P1 does not need to approve. P1 may or may not store this confirmation
+              // result message in its sequenced event store. Therefore, we cannot assume that the last event
+              // is the rogue confirmation request; it could also be the one before last.
+              val lastTwoEvents = lastEvents.takeRight(2)
+              val foundPoisonousPing = lastTwoEvents.foldRight(false) { case (event, state) =>
+                if (!state) {
+                  val eventRecipients =
+                    event.underlying.value.content.asInstanceOf[Deliver[?]].batch.allRecipients
+                  logger.info(
+                    s"Event: ${event.underlying.value.content}, with recipients: $eventRecipients, with " +
+                      s"timestamp: ${event.underlying.value.content.timestamp}"
+                  )
+                  val matchingRecipients = eventRecipients == Set(
+                    MemberRecipient(participant1.id),
+                    MemberRecipient(participant2.id),
+                    MediatorGroupRecipient(MediatorGroupIndex.zero),
+                  )
+                  if (matchingRecipients) lastRequestSequencerCounter.set(event.counter)
+                  matchingRecipients
+                } else state
+              }
+              foundPoisonousPing shouldBe true
             }
 
-            // There is a 1% chance that the participant is not yet disconnected,
-            // because the poisonous event was the last event received.
-            // The participant will only disconnect from a synchronizer if (1) the application handler has thrown an exception
-            // and (2) another event arrives to the SequencerClient.
+            // There is a chance that the participant is not yet disconnected, because the poisonous event was the
+            // last event received. The participant will only disconnect from a synchronizer
+            // if (1) the application handler has thrown an exception and (2) another event arrives to the SequencerClient.
+            // Theoretically, in scenario 2, we could trigger another ping to forcefully disconnect the participant
+            // instead of disconnecting participant1 from the synchronizer. However, this creates
+            // a situation that the current repair.ignore_events() cannot resolve.
+            // What happens is that a new ping request is submitted, but never reaches participant1,
+            // because it triggers a disconnect. As a result, we end up with two poisonous events — one of which
+            // has not been received by participant1. Afterwards, when we ignore the first poisonous event
+            // and reconnect, the second 'future' poisonous ping is finally delivered to participant1, which,
+            // as expected, fails with a "Can't decrypt the randomness of the view" error. One could argue
+            // that repair.ignore_events should be able to ignore future events, but as explained
+            // in TODO(#25162) this is not possible due to the previous timestamps.
             clue("disconnecting participant1 from synchronizer") {
               Try(participant1.synchronizers.disconnect(daName))
             }
@@ -537,7 +584,11 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
             }
           },
           forAtLeast(1, _) {
-            _.toString should include("Can't decrypt the randomness of the view")
+            _.toString should (
+              // in some rare circumstances the decryption exception might not be caught in the logs
+              include("Can't decrypt the randomness of the view") or
+                include(s"Disconnected from $daName")
+            )
           },
           timeUntilSuccess = 1.minute,
           maxPollInterval = 3.second,
@@ -547,44 +598,60 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
       "recover after ignoring the problematic event" in { implicit env =>
         import env.*
 
-        val lastEvent = participant1.testing.state_inspection
-          .findMessage(daId, LatestUpto(CantonTimestamp.MaxValue))
-          .value
-        val lastEventRecipients =
-          lastEvent.underlying.value.content.asInstanceOf[Deliver[_]].batch.allRecipients
-        logger.info(show"Recipients of last event: $lastEventRecipients")
-        val lastEventIsRequestMessage =
-          lastEventRecipients == Set(
-            MemberRecipient(participant1.id),
-            MemberRecipient(participant2.id),
-            MediatorGroupRecipient(MediatorGroupIndex.zero),
-          )
-        val lastRequestSequencerCounter =
-          if (lastEventIsRequestMessage) lastEvent.counter else lastEvent.counter - 1
+        val sequencerCounter = lastRequestSequencerCounter.get()
 
         // Ignore the problematic messages (confirmation request + result message)
-        participant1.repair.ignore_events(
-          daId,
-          lastRequestSequencerCounter,
-          // TODO(#25162): This ignores the future event, which is incompatible with previous timestamps.
-          //  The test work probably because the result message is ignored without prior confirmation request.
-          //  Need to check if that is good enough and if we don't need to extend event ignoring API
-          //  to support ignoring "future" timestamps.
-          //  Previously command here was:
-          //    lastRequestSequencerCounter + 1,
-          lastRequestSequencerCounter,
-        )
+        clue(s"ignoring event with sc=$sequencerCounter") {
+          participant1.repair.ignore_events(
+            daId,
+            sequencerCounter,
+            // TODO(#25162): This ignores the future event, which is incompatible with previous timestamps.
+            //  The test works probably because the result message is ignored without prior confirmation request.
+            //  Need to check if that is good enough and if we don't need to extend event ignoring API
+            //  to support ignoring "future" timestamps.
+            //  Previously command here was:
+            //    lastRequestSequencerCounter + 1,
+            sequencerCounter,
+          )
+        }
 
         // We can already reconnect, but we still get an error about the missing key
-        loggerFactory.assertLogs(
-          participant1.synchronizers.reconnect(daName),
-          _.errorMessage should include("but this key is not present"),
-        )
+        clue(s"reconnecting participant1") {
+          loggerFactory.assertLogsSeq(SuppressionRule.LevelAndAbove(Level.ERROR))(
+            participant1.synchronizers.reconnect(daName),
+            LogEntry.assertLogSeq(
+              Seq(
+                (
+                  _.errorMessage should include("but this key is not present"),
+                  "matching private key is not present",
+                )
+              ),
+              Seq.empty,
+            ),
+          )
+        }
 
         // now, add the encryption key
-        val privateKey = participant2.keys.secret
-          .download(missingEncryptionKey.fingerprint, testedProtocolVersion)
-        participant1.keys.secret.upload(privateKey, None)
+        clue(s"uploading missing private key") {
+          val privateKey = participant2.keys.secret
+            .download(missingEncryptionKey.fingerprint, testedProtocolVersion)
+          participant1.keys.secret.upload(privateKey, None)
+
+          eventually() {
+            val publicKeys =
+              participant1.crypto.cryptoPublicStore.encryptionKeys.futureValueUS.map(_.id)
+            val privateKeys =
+              participant1.crypto.cryptoPrivateStore
+                .asInstanceOf[DbCryptoPrivateStore]
+                .listPrivateKeys()
+                .futureValueUS
+                .valueOrFail("get private keys")
+                .map(_.id)
+
+            publicKeys should contain(missingEncryptionKey.fingerprint)
+            privateKeys should contain(missingEncryptionKey.fingerprint)
+          }
+        }
 
         // and ping should pass
         participant2.health.ping(participant1)
@@ -593,7 +660,6 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
   }
 }
 
-@UnstableTest
 class IgnoreSequencedEventsIntegrationTestH2 extends IgnoreSequencedEventsIntegrationTest {
   registerPlugin(new UseH2(loggerFactory))
   registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))

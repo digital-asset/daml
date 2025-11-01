@@ -31,7 +31,7 @@ class ValueSpec
     Value.fromProto(value).toProto shouldEqual value
   }
 
-  val conversions = Map[SumCase, (Value => JOptional[_], String)](
+  val conversions = Map[SumCase, (Value => JOptional[?], String)](
     SumCase.BOOL -> (((_: Value).asBool(), "asBool")),
     SumCase.CONTRACT_ID -> (((_: Value).asContractId(), "asContractId")),
     SumCase.DATE -> (((_: Value).asDate(), "asDate")),

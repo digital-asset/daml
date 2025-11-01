@@ -4,10 +4,10 @@
 package com.digitalasset.canton.platform
 
 import com.daml.ledger.api.v2.update_service.GetUpdateResponse
-import com.digitalasset.canton
 import com.digitalasset.canton.crypto.HashAlgorithm.Sha256
 import com.digitalasset.canton.crypto.{Hash, HashPurpose}
 import com.digitalasset.canton.data.{CantonTimestamp, LedgerTimeBoundaries}
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.api.{
   CumulativeFilter,
   EventFormat,
@@ -26,7 +26,14 @@ import com.digitalasset.canton.ledger.participant.state.{
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform
 import com.digitalasset.canton.platform.store.backend.common.UpdatePointwiseQueries.LookupKey
-import com.digitalasset.canton.protocol.{ReassignmentId, TestUpdateId, UpdateId}
+import com.digitalasset.canton.protocol.{
+  ContractInstance,
+  ExampleContractFactory,
+  ReassignmentId,
+  TestUpdateId,
+  UpdateId,
+}
+import com.digitalasset.canton.store.db.DbStorageSetup.DbBasicConfig
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag
@@ -35,13 +42,14 @@ import com.digitalasset.daml.lf.transaction.{CommittedTransaction, Node}
 import com.digitalasset.daml.lf.value.Value
 import com.google.protobuf.ByteString
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
-import org.scalatest.Ignore
 import org.scalatest.concurrent.PatienceConfiguration
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.time.Span
+import org.scalatest.{Assertion, Ignore}
 
 import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
 import scala.collection.mutable
+import scala.concurrent.Future
 import scala.concurrent.duration.{Duration, FiniteDuration}
 
 /** Goal of this test is to provide a light-weight approach to ingest synthetic Index DB data for
@@ -51,7 +59,15 @@ import scala.concurrent.duration.{Duration, FiniteDuration}
 @Ignore
 class IndexComponentLoadTest extends AnyFlatSpec with IndexComponentTest {
 
-  override val jdbcUrl: String = s"jdbc:postgresql://localhost:5433/load_test?user=postgres"
+  override val dbConfig: com.digitalasset.canton.config.DbConfig =
+    DbBasicConfig(
+      username = "postgres",
+      password = "",
+      dbName = "load_test",
+      host = "localhost",
+      port = 5432,
+      connectionPoolEnabled = true,
+    ).toPostgresDbConfig
 
   private val synchronizer1 = SynchronizerId.tryFromString("x::synchronizer1")
   private val synchronizer2 = SynchronizerId.tryFromString("x::synchronizer2")
@@ -91,18 +107,17 @@ class IndexComponentLoadTest extends AnyFlatSpec with IndexComponentTest {
     val passes = 1
     val batchesPerPasses = 50 // this is doubled: first all assign batches then all unassign batches
     val eventsPerBatch = 10
-    val allUpdates = 1
-      .to(passes)
-      .toVector
-      .flatMap(_ =>
-        allAssignsThenAllUnassigns(
-          nextRecordTime = nextRecordTime,
-          assignPayloadLength = 400,
-          unassignPayloadLength = 150,
-          batchSize = eventsPerBatch,
-          batches = batchesPerPasses,
-        )
-      ) :+ assigns(nextRecordTime(), 400)(Vector(builder.newCid, builder.newCid))
+    val allUpdates =
+      (1 to passes).toVector
+        .flatMap(_ =>
+          allAssignsThenAllUnassigns(
+            nextRecordTime = nextRecordTime,
+            assignPayloadLength = 400,
+            unassignPayloadLength = 150,
+            batchSize = eventsPerBatch,
+            batches = batchesPerPasses,
+          )
+        ) :+ assigns(nextRecordTime(), 400)(2)
     val allUpdateSize = allUpdates.size
     logger.warn(s"prepared $allUpdateSize updates")
     indexUpdates(allUpdates)
@@ -114,7 +129,7 @@ class IndexComponentLoadTest extends AnyFlatSpec with IndexComponentTest {
       logger.warn(s"start preparing updates...")
       if (1 == "1".toInt)
         fail(
-          "WARNING! Please check if you are really want to do this! The following parameters result in a fixture probably not fitting in the memory. Please verify parameters. Bigger workloads are possible with doing multiple iterations."
+          "WARNING! Please check if you really want to do this! The following parameters result in a fixture probably not fitting in the memory. Please verify parameters. Bigger workloads are possible with doing multiple iterations."
         )
       val passes = 4320
       val txSize = 5
@@ -215,12 +230,19 @@ class IndexComponentLoadTest extends AnyFlatSpec with IndexComponentTest {
     () => recordTime.updateAndGet(_.immediateSuccessor)
   }
 
-  private def indexUpdates(updates: Vector[Update]): Unit = {
+  private def withReporter[UpdateT, ResultT, Out](
+      updates: Vector[UpdateT],
+      parallelism: Int,
+      process: UpdateT => Future[ResultT],
+      action: String,
+      sink: Sink[ResultT, Future[Out]],
+      waitingMessage: String = "",
+      endCheck: () => Assertion = () => succeed,
+  ): Out = {
     val numOfUpdates = updates.size
     val startTime = System.currentTimeMillis()
     val state = new AtomicLong(0L)
-    val ledgerEndLongBefore = index.currentLedgerEnd().futureValue.map(_.positive).getOrElse(0L)
-    logger.warn(s"start ingesting $numOfUpdates updates...")
+    logger.warn(s"start $action $numOfUpdates updates...")
     val reportingSeconds = 5
     val reporter = system.scheduler.scheduleAtFixedRate(
       initialDelay = FiniteDuration(reportingSeconds, "seconds"),
@@ -235,41 +257,69 @@ class IndexComponentLoadTest extends AnyFlatSpec with IndexComponentTest {
         val avgRate = current * 1000 / (System.currentTimeMillis() - startTime)
         val minutesLeft = (numOfUpdates - current) / avgRate / 60
         logger.warn(
-          s"ingesting $current/$numOfUpdates, ${100 * current / numOfUpdates}% (since last: ${current - last}, $reportRate update/seconds) (avg: $avgRate update/seconds, estimated minutes left: $minutesLeft)..."
+          s"$action $current/$numOfUpdates, ${100 * current / numOfUpdates}% (since last: ${current - last}, $reportRate update/seconds) (avg: $avgRate update/seconds, estimated minutes left: $minutesLeft)..."
         )
       }
     })
     Source
       .fromIterator(() => updates.iterator)
       .async
-      .mapAsync(1)(ingestUpdateAsync)
+      .mapAsync(parallelism)(process)
       .async
-      .foreach(_ => state.incrementAndGet())
-      .run()
-      .map { _ =>
+      .map { elem =>
+        state.incrementAndGet()
+        elem
+      }
+      .runWith(sink)
+      .map { result =>
         reporter.cancel()
         logger.warn(
-          s"finished pushing $numOfUpdates updates to indexer, waiting for all to be indexed..."
+          s"finished $action $numOfUpdates updates to indexer" + waitingMessage
         )
         eventually(
           timeUntilSuccess = FiniteDuration(1000, "seconds"),
           maxPollInterval = FiniteDuration(100, "milliseconds"),
-        ) {
-          (index
-            .currentLedgerEnd()
-            .futureValue
-            .map(_.positive)
-            .getOrElse(0L) - ledgerEndLongBefore) shouldBe numOfUpdates
-        }
+        )(endCheck())
         val avgRate = numOfUpdates * 1000 / (System.currentTimeMillis() - startTime)
         logger.warn(
-          s"finished ingesting $numOfUpdates updates with average rate $avgRate updates/second"
+          s"finished $action $numOfUpdates updates with average rate $avgRate updates/second"
         )
+        result
       }
       .futureValue(
         PatienceConfiguration.Timeout(Span.convertDurationToSpan(Duration(200000, "seconds")))
       )
   }
+
+  private def indexUpdates(updates: Vector[(Update, Vector[ContractInstance])]): Unit = {
+    val updatesWithIds = fillUpdatesWithInternalContractIds(updates)
+    val ledgerEndLongBefore = index.currentLedgerEnd().futureValue.map(_.positive).getOrElse(0L)
+    withReporter(
+      updates = updatesWithIds,
+      parallelism = 1,
+      process = ingestUpdateAsync,
+      action = "ingesting",
+      sink = Sink.ignore,
+      waitingMessage = ", waiting for all to be indexed...",
+      endCheck = () =>
+        (index
+          .currentLedgerEnd()
+          .futureValue
+          .map(_.positive)
+          .getOrElse(0L) - ledgerEndLongBefore) shouldBe updates.size,
+    ).discard
+  }
+
+  private def fillUpdatesWithInternalContractIds(
+      updates: Vector[(Update, Vector[ContractInstance])]
+  ): Vector[Update] =
+    withReporter[(Update, Vector[ContractInstance]), Update, Seq[Update]](
+      updates = updates,
+      parallelism = 100,
+      process = storeContracts.tupled,
+      action = "storing contracts of updates",
+      sink = Sink.seq,
+    ).toVector
 
   private val random = new scala.util.Random
   private def randomString(length: Int) = {
@@ -301,12 +351,18 @@ class IndexComponentLoadTest extends AnyFlatSpec with IndexComponentTest {
       unassignPayloadLength: Int,
       batchSize: Int,
       batches: Int,
-  ): Vector[Update.SequencedReassignmentAccepted] = {
+  ): Vector[(Update.SequencedReassignmentAccepted, Vector[ContractInstance])] = {
+    val assigned =
+      Vector
+        .fill(batches)(batchSize)
+        .map(size => assigns(nextRecordTime(), assignPayloadLength)(size))
+
     val cidBatches =
-      1.to(batches).map(_ => 1.to(batchSize).map(_ => builder.newCid).toVector).toVector
-    cidBatches
-      .map(cids => assigns(nextRecordTime(), assignPayloadLength)(cids))
-      .++(cidBatches.map(cids => unassigns(nextRecordTime(), unassignPayloadLength)(cids)))
+      assigned.map(_._2.map(_.contractId))
+
+    assigned ++ cidBatches.map(cids =>
+      unassigns(nextRecordTime(), unassignPayloadLength)(cids) -> Vector.empty
+    )
   }
 
   private def createsAndArchives(
@@ -317,21 +373,20 @@ class IndexComponentLoadTest extends AnyFlatSpec with IndexComponentTest {
       createPayloadLength: Int,
       archiveArgumentPayloadLengthFromTo: (Int, Int),
       archiveResultPayloadLengthFromTo: (Int, Int),
-  ): Vector[Update.SequencedTransactionAccepted] = {
-    val (createTxs, createNodes) =
+  ): Vector[(Update.SequencedTransactionAccepted, Vector[ContractInstance])] = {
+    val (createTxs, contracts) =
       (1 to txsCreatedThenArchived + txsCreatedNotArchived).iterator
         .map(_ =>
           creates(
             recordTime = nextRecordTime,
             payloadLength = createPayloadLength,
-          )(
-            (1 to txSize).map(_ => builder.newCid).toVector
-          )
+          )(txSize)
         )
         .toVector
         .unzip
-    val archivingTxs = createNodes.iterator
+    val archivingTxs = contracts.iterator
       .take(txsCreatedThenArchived)
+      .map(_.map(_.inst.toCreateNode))
       .map(
         archives(
           recordTime = nextRecordTime,
@@ -340,26 +395,31 @@ class IndexComponentLoadTest extends AnyFlatSpec with IndexComponentTest {
         )
       )
       .toVector
-    createTxs ++ archivingTxs
+    createTxs.zip(contracts) ++ archivingTxs.map(_ -> Vector.empty)
   }
 
   private def assigns(recordTime: CantonTimestamp, payloadLength: Int)(
-      coids: Seq[ContractId]
-  ): Update.SequencedReassignmentAccepted =
+      size: Int
+  ): (Update.SequencedReassignmentAccepted, Vector[ContractInstance]) = {
+    val (reassignments, contracts) =
+      (0 until size)
+        .map(index =>
+          assign(
+            nodeId = index,
+            ledgerEffectiveTime = recordTime.underlying,
+            argumentPayload = randomString(payloadLength),
+          )
+        )
+        .unzip
+
     reassignment(
       sourceSynchronizerId = synchronizer2,
       targetSynchronizerId = synchronizer1,
       synchronizerId = synchronizer1,
       recordTime = recordTime,
       workflowId = None,
-    )(coids.zipWithIndex.map { case (coid, index) =>
-      assign(
-        coid = coid,
-        nodeId = index,
-        ledgerEffectiveTime = recordTime.underlying,
-        argumentPayload = randomString(payloadLength),
-      )
-    })
+    )(reassignments) -> contracts.toVector
+  }
 
   private def unassigns(recordTime: CantonTimestamp, payloadLength: Int)(
       coids: Seq[ContractId]
@@ -380,13 +440,12 @@ class IndexComponentLoadTest extends AnyFlatSpec with IndexComponentTest {
     })
 
   private def creates(recordTime: () => CantonTimestamp, payloadLength: Int)(
-      coids: Seq[ContractId]
-  ): (Update.SequencedTransactionAccepted, Vector[Create]) = {
+      size: Int
+  ): (Update.SequencedTransactionAccepted, Vector[ContractInstance]) = {
     val txBuilder = TxBuilder()
-    val creates = coids.iterator
-      .map(coid =>
-        create(
-          coid = coid,
+    val contracts = (1 to size)
+      .map(_ =>
+        genContract(
           argumentPayload = randomString(payloadLength),
           template = randomTemplate,
           signatories = Set(
@@ -398,17 +457,17 @@ class IndexComponentLoadTest extends AnyFlatSpec with IndexComponentTest {
         )
       )
       .toVector
-    creates.foreach(txBuilder.add)
+    contracts.map(_.inst.toCreateNode).foreach(txBuilder.add)
     val tx = txBuilder.buildCommitted()
-    val contractAuthenticationData = coids.iterator
+    val contractAuthenticationData = contracts
       .map(
-        _ -> Bytes.fromByteString(ByteString.copyFromUtf8(randomString(42)))
+        _.contractId -> Bytes.fromByteString(ByteString.copyFromUtf8(randomString(42)))
       )
       .toMap
     transaction(
       synchronizerId = synchronizer1,
       recordTime = recordTime(),
-    )(tx, contractAuthenticationData) -> creates
+    )(tx, contractAuthenticationData) -> contracts
   }
 
   private def archives(
@@ -441,23 +500,22 @@ class IndexComponentLoadTest extends AnyFlatSpec with IndexComponentTest {
     )(tx)
   }
 
-  private def create(
-      coid: ContractId,
+  private def genContract(
       argumentPayload: String,
       template: Ref.Identifier,
       signatories: Set[Party],
-  ): canton.platform.Create =
-    builder.create(
-      id = coid,
-      templateId = template,
-      argument = Value.ValueRecord(
-        tycon = None,
-        fields = ImmArray(None -> Value.ValueText(argumentPayload)),
-      ),
-      signatories = signatories,
-      observers = Set.empty,
-      packageName = packageName,
-    )
+  ): ContractInstance =
+    ExampleContractFactory
+      .build(
+        templateId = template,
+        argument = Value.ValueRecord(
+          tycon = None,
+          fields = ImmArray(None -> Value.ValueText(argumentPayload)),
+        ),
+        signatories = signatories,
+        stakeholders = signatories,
+        packageName = packageName,
+      )
 
   private def archive(
       create: Node.Create,
@@ -485,23 +543,23 @@ class IndexComponentLoadTest extends AnyFlatSpec with IndexComponentTest {
     )
 
   private def assign(
-      coid: ContractId,
       nodeId: Int,
       ledgerEffectiveTime: Time.Timestamp,
       argumentPayload: String,
-  ): Reassignment.Assign =
+  ): (Reassignment.Assign, ContractInstance) = {
+    val contract = genContract(
+      argumentPayload = argumentPayload,
+      template = templates(0),
+      signatories = Set(dsoParty),
+    )
     Reassignment.Assign(
       ledgerEffectiveTime = ledgerEffectiveTime,
-      createNode = create(
-        coid = coid,
-        argumentPayload = argumentPayload,
-        template = templates(0),
-        signatories = Set(dsoParty),
-      ),
+      createNode = contract.inst.toCreateNode,
       contractAuthenticationData = Bytes.Empty,
       reassignmentCounter = 10L,
       nodeId = nodeId,
-    )
+    ) -> contract
+  }
 
   private def unassign(
       coid: ContractId,

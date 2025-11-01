@@ -5,7 +5,6 @@ package com.digitalasset.canton.participant.ledger.api
 
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.DbConfig.*
-import com.digitalasset.canton.participant.ledger.api.LedgerApiServer.FailedToConfigureLedgerApiStorage
 import com.typesafe.config.ConfigFactory
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -146,9 +145,8 @@ class LedgerApiJdbcUrlTest extends AnyWordSpec with BaseTest {
           |}
           |""".stripMargin)
 
-      result.left.value shouldBe FailedToConfigureLedgerApiStorage(
-        "Could not generate a postgres jdbc url from the specified fields: [port]"
-      )
+      result.left.value shouldBe "Could not generate a postgres jdbc url from the specified fields: [port]"
+
     }
   }
 
@@ -172,9 +170,9 @@ class LedgerApiJdbcUrlTest extends AnyWordSpec with BaseTest {
     }
   }
 
-  private def forH2(configText: String): Either[FailedToConfigureLedgerApiStorage, String] =
+  private def forH2(configText: String): Either[String, String] =
     LedgerApiJdbcUrl.fromDbConfig(H2(ConfigFactory.parseString(configText))).map(_.url)
 
-  private def forPostgres(configText: String): Either[FailedToConfigureLedgerApiStorage, String] =
+  private def forPostgres(configText: String): Either[String, String] =
     LedgerApiJdbcUrl.fromDbConfig(Postgres(ConfigFactory.parseString(configText))).map(_.url)
 }

@@ -6,7 +6,6 @@ package com.digitalasset.canton.participant.protocol.submission
 import cats.data.EitherT
 import com.digitalasset.canton.*
 import com.digitalasset.canton.data.GenTransactionTree
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.DefaultParticipantStateValues
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.*
 import com.digitalasset.canton.protocol.*
@@ -201,27 +200,20 @@ final class TransactionTreeFactoryImplTest
   }
 
   object TestPackageDependencyResolver extends PackageDependencyResolver {
-    import cats.syntax.either.*
     val exampleDependency: IdString.PackageId = PackageId.assertFromString("example-dependency")
-    override def packageDependencies(packageId: PackageId)(implicit
+    override def packageDependencies(packageIds: Set[PackageId])(implicit
         traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, (PackageId, ParticipantId), Set[PackageId]] =
-      packageId match {
-        case ExampleTransactionFactory.packageId =>
-          Right(Set(exampleDependency)).toEitherT[FutureUnlessShutdown]
-        case _ => Right(Set.empty[PackageId]).toEitherT[FutureUnlessShutdown]
-      }
+    ): Either[(ParticipantId, Set[PackageId]), Set[PackageId]] =
+      if (packageIds.contains(ExampleTransactionFactory.packageId)) Right(Set(exampleDependency))
+      else Right(Set.empty[PackageId])
   }
 
   object MisconfiguredPackageDependencyResolver extends PackageDependencyResolver {
-    import cats.syntax.either.*
-    val exampleParticipant: ParticipantId = ParticipantId("MisconfiguredPackageDependencyResolver")
-    val exampleDependency: IdString.PackageId = PackageId.assertFromString("example-dependency")
+    private val participantId = ParticipantId("MisconfiguredPackageDependencyResolver")
 
-    override def packageDependencies(packageId: PackageId)(implicit
+    override def packageDependencies(packageIds: Set[PackageId])(implicit
         traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, (PackageId, ParticipantId), Set[PackageId]] =
-      Left(packageId -> exampleParticipant).toEitherT[FutureUnlessShutdown]
+    ): Either[(ParticipantId, Set[PackageId]), Set[PackageId]] = Left(participantId -> packageIds)
   }
 
 }

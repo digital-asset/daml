@@ -310,7 +310,8 @@ class QueueBasedSynchronizerOutbox(
           {
             if (logger.underlying.isDebugEnabled()) {
               logger.debug(
-                s"Attempting to push ${transactions.size} topology transactions to $synchronizerAlias, specifically: $transactions"
+                s"Attempting to push ${transactions.size} topology transactions to $synchronizerAlias, specifically: ${transactions
+                    .map(_.hash)}"
               )
             }
             FutureUnlessShutdownUtil.logOnFailureUnlessShutdown(
@@ -326,7 +327,7 @@ class QueueBasedSynchronizerOutbox(
               s"Topology request contained ${transactions.length} txs, but I received responses for ${responses.length}"
             )
           }
-          val responsesWithTransactions = responses.zip(transactions)
+          val responsesWithTransactions = responses.zip(transactions.map(_.hash))
           if (logger.underlying.isDebugEnabled()) {
             logger.debug(
               s"$synchronizerAlias responded the following for the given topology transactions: $responsesWithTransactions"
@@ -334,7 +335,7 @@ class QueueBasedSynchronizerOutbox(
           }
           val failedResponses =
             responsesWithTransactions.collect {
-              case (TopologyTransactionsBroadcast.State.Failed, tx) => tx
+              case (TopologyTransactionsBroadcast.State.Failed, tx) => tx.hash
             }
 
           Either.cond(
