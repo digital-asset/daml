@@ -36,7 +36,8 @@ import scala.concurrent.ExecutionContext
 import scala.language.existentials
 import scala.util.Try
 
-class ContractDao private (
+//TODO changed from private
+class ContractDao (
     ds: DataSource with Closeable,
     xa: ConnectionPool.T,
     dbAccessPool: ExecutorService,
