@@ -104,6 +104,8 @@ object LanguageVersion {
     }
   }
 
+  //legacy versions (i.e. 1.x that is only supported for parsing (i.e. for 1.x
+  //we only support parsing 1.x dars into ASTs))
   val allStableLegacy: List[LanguageVersion] =
     List(6, 7, 8, 11, 12, 13, 14, 15, 17).map(i => LanguageVersion(Major.V1, Minor.Stable(i)))
   val List(v1_6, v1_7, v1_8, v1_11, v1_12, v1_13, v1_14, v1_15, v1_17) = allStableLegacy: @nowarn(
@@ -112,7 +114,8 @@ object LanguageVersion {
   val v1_dev: LanguageVersion = LanguageVersion(Major.V1, Minor.Dev)
   val allLegacy: List[LanguageVersion] = allStableLegacy.appended(v1_dev)
 
-  // --- Start of Generated Code ---
+  // Start of code that in the furutre will be generated from
+  // //daml-lf/language/daml-lf.bzl
   val v2_1: LanguageVersion = LanguageVersion(Major.V2, Minor.Stable(1))
   val v2_2: LanguageVersion = LanguageVersion(Major.V2, Minor.Stable(2))
   val v2_dev: LanguageVersion = LanguageVersion(Major.V2, Minor.Dev)
@@ -125,7 +128,8 @@ object LanguageVersion {
   val stable: List[LanguageVersion] = List(v2_1, v2_2)
   val compilerInput: List[LanguageVersion] = List(v2_1, v2_2, v2_dev)
   val compilerOutput: List[LanguageVersion] = List(v2_1, v2_2, v2_dev)
-  // --- End of Generated Code ---
+  // End of code that in the furutre will be generated from
+  // //daml-lf/language/daml-lf.bzl
 
   def fromString(str: String): Either[String, LanguageVersion] =
     (allLegacy ++ all).find(_.toString == str).toRight(s"${str} is not supported")
