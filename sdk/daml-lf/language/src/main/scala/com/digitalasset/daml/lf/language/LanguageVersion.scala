@@ -16,13 +16,7 @@ final case class LanguageVersion private (
   def isDevVersion: Boolean = minor.isDevVersion
 
   override def compare(that: LanguageVersion): Int = {
-    val majorCompare = this.major.compare(that.major)
-
-    if (majorCompare != 0) {
-      majorCompare
-    } else {
-      this.minor.compare(that.minor)
-    }
+    (this.major, this.minor).compare((that.major, that.minor))
   }
 }
 
