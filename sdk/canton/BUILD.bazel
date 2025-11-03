@@ -417,7 +417,6 @@ da_scala_library(
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_netty_shaded",
         "@maven//:io_grpc_grpc_protobuf",
-        "@maven//:io_opentelemetry_opentelemetry_api",
         "@maven//:io_opentelemetry_opentelemetry_context",
         "@maven//:io_spray_spray_json_2_13",
         "@maven//:org_apache_pekko_pekko_actor_2_13",
