@@ -239,7 +239,7 @@ object Runner {
   private[script] val compilerConfig: Compiler.Config = {
     import Compiler._
     Config(
-      allowedLanguageVersions = LanguageVersion.all.toRange,
+      allowedLanguageVersions = LanguageVersion.allRange,
       packageValidation = FullPackageValidation,
       profiling = NoProfile,
       stacktracing = FullStackTrace,

@@ -999,7 +999,7 @@ object Engine {
   }
 
   def DevEngine: Engine = new Engine(
-    EngineConfig(allowedLanguageVersions = LanguageVersion.all.toRange)
+    EngineConfig(allowedLanguageVersions = LanguageVersion.allRange)
   )
 
   private def mkInterpretationError(error: IError) =

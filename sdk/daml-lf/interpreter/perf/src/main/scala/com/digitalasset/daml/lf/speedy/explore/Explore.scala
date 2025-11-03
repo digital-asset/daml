@@ -52,7 +52,7 @@ object PlaySpeedy {
       scopt.Read.reads(s =>
         LanguageVersion.Major.fromString(s) match {
           case Right(v) => v
-          case Left(_) => throw new IllegalArgumentException(s"$s is not a valid major LF version")
+          case Left(msg) => throw new IllegalArgumentException(mgs)
         }
       )
 

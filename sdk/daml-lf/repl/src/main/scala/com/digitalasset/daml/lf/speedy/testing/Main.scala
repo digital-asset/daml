@@ -47,11 +47,11 @@ object Main extends App {
 
   val (replArgs, compilerConfig) = args.toList match {
     case "--dev" :: rest =>
-      rest -> Repl.devCompilerConfig(LV.default.major)
+      rest -> Repl.devCompilerConfig(LV.Major.V2)
     case list =>
-      list -> Repl.defaultCompilerConfig(LV.default.major)
+      list -> Repl.defaultCompilerConfig(LV.Major.V2)
   }
-  val repl = new Repl(LV.dev.major)
+  val repl = new Repl(LV.Major.V2)
   replArgs match {
     case "-h" :: _ | "--help" :: _ =>
       usage()

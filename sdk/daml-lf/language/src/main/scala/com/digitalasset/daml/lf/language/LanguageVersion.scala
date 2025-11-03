@@ -125,7 +125,9 @@ object LanguageVersion {
   val dev: LanguageVersion = v2_dev
 
   val all: List[LanguageVersion] = List(v2_1, v2_2, v2_dev)
+  val allRange = VersionRange(v2_1, v2_dev)
   val stable: List[LanguageVersion] = List(v2_1, v2_2)
+  val stableRange = VersionRange(v2_1, v2_2)
   val compilerInput: List[LanguageVersion] = List(v2_1, v2_2, v2_dev)
   val compilerOutput: List[LanguageVersion] = List(v2_1, v2_2, v2_dev)
   // End of code that in the furutre will be generated from
@@ -135,16 +137,6 @@ object LanguageVersion {
     (allLegacy ++ all).find(_.toString == str).toRight(s"${str} is not supported")
 
   def assertFromString(s: String): LanguageVersion = data.assertRight(fromString(s))
-
-  // --- Helper functions --
-  implicit class LanguageVersionListOps(val list: List[LanguageVersion]) extends AnyVal {
-
-    /** Extracts a list of all Minor versions from a list of LanguageVersions.
-      */
-    def toRange: VersionRange[LanguageVersion] = {
-      VersionRange(list.head, list.last)
-    }
-  }
 
   // @deprecated("Actually not sure if deprecated", since="3.5")
   object LanguageVersionRangeOps {
