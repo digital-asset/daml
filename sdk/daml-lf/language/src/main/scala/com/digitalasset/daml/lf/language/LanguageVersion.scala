@@ -27,16 +27,17 @@ final case class LanguageVersion private (
 }
 
 object LanguageVersion {
-  sealed abstract class Major(val pretty: String)
+  sealed abstract class Major(val major: Int)
       extends Product
       with Serializable
       with Ordered[Major] {
+    val pretty = major.toString
     override def compare(that: Major): Int = this.pretty.compare(that.pretty)
   }
 
   object Major {
-    case object V1 extends Major("1")
-    case object V2 extends Major("2")
+    case object V1 extends Major(1)
+    case object V2 extends Major(2)
 
     private val allMajors = List(V1, V2)
 
