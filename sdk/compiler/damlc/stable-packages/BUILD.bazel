@@ -109,10 +109,10 @@ generate_and_track_cabal("stable-packages-lib", "generate-stable-package")
 da_haskell_binary(
     name = "stable-package-list-writer",
     srcs = ["src/DA/Daml/StablePackagesListWriter.hs"],
-    data = ["stable-packages.yaml"],
     compiler_flags = [
         '-DYAML_FILE_PATH="$(location stable-packages.yaml)"',
     ],
+    data = ["stable-packages.yaml"],
     hackage_deps = [
         "base",
         "bytestring",
@@ -129,9 +129,9 @@ da_haskell_binary(
 
 generate_and_track_yaml_file(
     name = "stable-packages-list",
+    data = ["stable-packages.yaml"],
     generator = ":stable-package-list-writer",
     golden_file = "stable-packages.yaml",
-    data = ["stable-packages.yaml"],
 )
 
 da_haskell_library(
