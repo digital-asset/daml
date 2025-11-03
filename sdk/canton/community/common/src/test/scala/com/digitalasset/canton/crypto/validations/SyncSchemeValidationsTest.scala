@@ -132,8 +132,8 @@ class SyncSchemeValidationsTest extends AnyWordSpec with BaseTest with HasExecut
           SigningKeyUsage.ProtocolOnly,
         )
 
-        res1 shouldBe a[Left[DecryptionError.UnsupportedAlgorithmSpec, _]]
-        res2 shouldBe a[Left[SignatureCheckError.UnsupportedAlgorithmSpec, _]]
+        res1 shouldBe a[Left[DecryptionError.UnsupportedAlgorithmSpec, ?]]
+        res2 shouldBe a[Left[SignatureCheckError.UnsupportedAlgorithmSpec, ?]]
       }
 
     // unsupported signing key specifications
@@ -169,8 +169,8 @@ class SyncSchemeValidationsTest extends AnyWordSpec with BaseTest with HasExecut
           SigningKeyUsage.ProtocolOnly,
         )
 
-        res1 shouldBe a[Left[SignatureCheckError.UnsupportedKeySpec, _]]
-        res2 shouldBe a[Left[SignatureCheckError.UnsupportedKeySpec, _]]
+        res1 shouldBe a[Left[SignatureCheckError.UnsupportedKeySpec, ?]]
+        res2 shouldBe a[Left[SignatureCheckError.UnsupportedKeySpec, ?]]
       }
 
     // unsupported signature format
@@ -197,8 +197,8 @@ class SyncSchemeValidationsTest extends AnyWordSpec with BaseTest with HasExecut
         SigningKeyUsage.ProtocolOnly,
       )
 
-      res1 shouldBe a[Left[SignatureCheckError.UnsupportedSignatureFormat, _]]
-      res2 shouldBe a[Left[SignatureCheckError.UnsupportedSignatureFormat, _]]
+      res1 shouldBe a[Left[SignatureCheckError.UnsupportedSignatureFormat, ?]]
+      res2 shouldBe a[Left[SignatureCheckError.UnsupportedSignatureFormat, ?]]
 
     }
 
@@ -233,8 +233,8 @@ class SyncSchemeValidationsTest extends AnyWordSpec with BaseTest with HasExecut
         val res2 =
           p1.crypto.privateCrypto.decrypt(unsupportedCiphertext)(ct => Right(ct)).futureValueUS
 
-        res1 shouldBe a[Left[DecryptionError.UnsupportedAlgorithmSpec, _]]
-        res2 shouldBe a[Left[DecryptionError.UnsupportedAlgorithmSpec, _]]
+        res1 shouldBe a[Left[DecryptionError.UnsupportedAlgorithmSpec, ?]]
+        res2 shouldBe a[Left[DecryptionError.UnsupportedAlgorithmSpec, ?]]
 
       }
 
@@ -269,7 +269,7 @@ class SyncSchemeValidationsTest extends AnyWordSpec with BaseTest with HasExecut
         // no information about the key is known within the context of 'p1.crypto.privateCrypto.decrypt' so no
         // key specification input validation is done for that function.
 
-        res shouldBe a[Left[DecryptionError.UnsupportedKeySpec, _]]
+        res shouldBe a[Left[DecryptionError.UnsupportedKeySpec, ?]]
 
       }
 

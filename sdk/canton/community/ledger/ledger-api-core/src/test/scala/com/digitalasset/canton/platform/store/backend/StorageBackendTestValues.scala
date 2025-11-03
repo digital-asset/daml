@@ -82,8 +82,9 @@ private[store] object StorageBackendTestValues extends OptionValues {
   val someSynchronizerId: SynchronizerId = SynchronizerId.tryFromString("x::sourcesynchronizer")
   val someSynchronizerId2: SynchronizerId = SynchronizerId.tryFromString("x::targetsynchronizer")
 
+  val testTraceContext = TraceContext.withNewTraceContext("test trace context")(identity)
   val serializableTraceContext: Array[Byte] =
-    SerializableTraceContext(TraceContext.empty).toDamlProto.toByteArray
+    SerializableTraceContext(testTraceContext).toDamlProto.toByteArray
   val someExternalTransactionHash: CantonHash =
     CantonHash
       .digest(HashPurpose.PreparedSubmission, ByteString.copyFromUtf8("mock_hash"), Sha256)
@@ -221,7 +222,7 @@ private[store] object StorageBackendTestValues extends OptionValues {
       // event related columns
       event_sequential_id: Long = 500L,
       node_id: Int = 15,
-      deactivated_event_sequential_id: Option[Long] = Some(600L),
+      deactivated_event_sequential_id: Option[Long] = Some(2L),
       additional_witnesses: Set[String] = Set("witness1", "witness2"),
       exercise_choice: String = "choice",
       exercise_choice_interface_id: Option[String] = Some("in:ter:face"),

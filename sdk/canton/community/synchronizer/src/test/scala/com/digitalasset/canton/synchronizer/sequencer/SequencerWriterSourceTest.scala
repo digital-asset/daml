@@ -517,7 +517,7 @@ class SequencerWriterSourceTest
         )
         sortedEvents = sortByMessageId(events)
       } yield {
-        inside(sortedEvents.head) { case event: DeliverStoreEvent[_] =>
+        inside(sortedEvents.head) { case event: DeliverStoreEvent[?] =>
           event.messageId shouldBe messageId1
         }
 

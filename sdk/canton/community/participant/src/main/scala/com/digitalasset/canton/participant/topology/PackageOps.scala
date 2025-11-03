@@ -18,7 +18,10 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.api.{
+  InitialPageToken,
   ListVettedPackagesOpts,
+  PageToken,
+  ParticipantVettedPackages,
   PriorTopologySerial,
   PriorTopologySerialExists,
   PriorTopologySerialNone,
@@ -302,20 +305,37 @@ class PackageOpsImpl(
     FutureUnlessShutdown,
     ParticipantTopologyManagerError,
     Seq[ParticipantVettedPackages],
-  ] =
-    opts.synchronizersNE
-      .map(_.forgetNE)
-      .getOrElse(stateManager.getAllLogical.keySet)
-      .toSeq
-      .parFlatTraverse { synchronizerId =>
-        for {
-          topologyManager <- topologyManagerLookup.activeBySynchronizerId(synchronizerId)
-          vettedPackages <- getVettedPackagesForSynchronizer(
-            topologyManager,
-            opts.participantsNE,
-          )
-        } yield vettedPackages
+  ] = {
+    val sortedSynchronizers: Seq[SynchronizerId] =
+      opts.filterSynchronizersInToken(default = stateManager.getAllLogical.keySet)
+    val initialState: (Int, Seq[ParticipantVettedPackages]) = (opts.pageSize.value, Seq())
+
+    sortedSynchronizers
+      .foldM(initialState) { (state, synchronizerId) =>
+        val (remainingPageSize, resultsSoFar) = state
+        if (remainingPageSize <= 0)
+          EitherT.pure[FutureUnlessShutdown, ParticipantTopologyManagerError](state)
+        else
+          opts.userSpecifiedParticipantsInToken(synchronizerId) match {
+            case None =>
+              EitherT.pure[FutureUnlessShutdown, ParticipantTopologyManagerError](state)
+            case Some(userSpecifiedParticipants) =>
+              for {
+                topologyManager <- topologyManagerLookup.activeBySynchronizerId(synchronizerId)
+                vettedPackages <- getVettedPackagesForSynchronizer(
+                  topologyManager,
+                  userSpecifiedParticipants,
+                  pageToken = opts.pageToken,
+                )
+              } yield {
+                val newResultsWithinPage = vettedPackages.take(remainingPageSize)
+                val newRemainingPageSize = remainingPageSize - newResultsWithinPage.length
+                (newRemainingPageSize, resultsSoFar ++ newResultsWithinPage)
+              }
+          }
       }
+      .map(_._2)
+  }
 
   private def getVettedPackageForSynchronizerAndParticipant(
       topologyManager: SynchronizerTopologyManager,
@@ -333,6 +353,7 @@ class PackageOpsImpl(
   private def getVettedPackagesForSynchronizer(
       topologyManager: SynchronizerTopologyManager,
       participantIds: Option[NonEmpty[Set[ParticipantId]]],
+      pageToken: PageToken = InitialPageToken,
   )(implicit
       tc: TraceContext
   ): EitherT[
@@ -354,22 +375,21 @@ class PackageOpsImpl(
           .map { result =>
             val transactions = result
               .collectOfMapping[VettedPackages]
+              .collectLatestByUniqueKey
               .result
 
-            val participantIds = transactions.map(_.mapping.participantId).toSet.toSeq
-            participantIds
-              .flatMap { (participantId: ParticipantId) =>
-                transactions
-                  .findLast(_.mapping.participantId == participantId)
-                  .map { currentMapping =>
-                    ParticipantVettedPackages(
-                      currentMapping.mapping.packages,
-                      currentMapping.mapping.participantId,
-                      topologyManager.psid.logical,
-                      currentMapping.serial,
-                    )
-                  }
-              }
+            val vettedPackages =
+              transactions
+                .map { currentMapping =>
+                  ParticipantVettedPackages(
+                    currentMapping.mapping.packages,
+                    currentMapping.mapping.participantId,
+                    topologyManager.psid.logical,
+                    currentMapping.serial,
+                  )
+                }
+
+            pageToken.sortAndFilterVettedPackages(vettedPackages)
           }
       )
     )

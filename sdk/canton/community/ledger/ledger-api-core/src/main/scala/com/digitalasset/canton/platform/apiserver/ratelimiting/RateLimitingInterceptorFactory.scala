@@ -4,7 +4,6 @@
 package com.digitalasset.canton.platform.apiserver.ratelimiting
 
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.networking.grpc.ratelimiting.LimitResult.LimitResultCheck
 import com.digitalasset.canton.networking.grpc.ratelimiting.RateLimitingInterceptor
 import com.digitalasset.canton.platform.apiserver.configuration.RateLimitingConfig
@@ -16,13 +15,11 @@ object RateLimitingInterceptorFactory {
 
   def create(
       loggerFactory: NamedLoggerFactory,
-      metrics: LedgerApiServerMetrics,
       config: RateLimitingConfig,
       additionalChecks: List[LimitResultCheck] = List.empty,
   ): RateLimitingInterceptor =
     createWithMXBeans(
       loggerFactory = loggerFactory,
-      metrics = metrics,
       config = config,
       tenuredMemoryPools = ManagementFactory.getMemoryPoolMXBeans.asScala.toList,
       memoryMxBean = ManagementFactory.getMemoryMXBean,
@@ -31,22 +28,15 @@ object RateLimitingInterceptorFactory {
 
   def createWithMXBeans(
       loggerFactory: NamedLoggerFactory,
-      metrics: LedgerApiServerMetrics,
       config: RateLimitingConfig,
       tenuredMemoryPools: List[MemoryPoolMXBean],
       memoryMxBean: MemoryMXBean,
       additionalChecks: List[LimitResultCheck],
-  ): RateLimitingInterceptor = {
-
-    val activeStreamsName = metrics.lapi.streams.activeName
-    val activeStreamsCounter = metrics.lapi.streams.active
-
+  ): RateLimitingInterceptor =
     new RateLimitingInterceptor(
       checks = List[LimitResultCheck](
-        MemoryCheck(tenuredMemoryPools, memoryMxBean, config, loggerFactory),
-        StreamCheck(activeStreamsCounter, activeStreamsName, config.maxStreams, loggerFactory),
+        MemoryCheck(tenuredMemoryPools, memoryMxBean, config, loggerFactory)
       ) ::: additionalChecks
     )
-  }
 
 }

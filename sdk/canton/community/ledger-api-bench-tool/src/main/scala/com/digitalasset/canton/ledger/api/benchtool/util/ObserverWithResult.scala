@@ -15,7 +15,7 @@ object ClientCancelled extends Exception
 abstract class ObserverWithResult[RespT, Result](logger: Logger)
     extends ClientResponseObserver[Any, RespT] {
 
-  private var requestStream: ClientCallStreamObserver[_] = null
+  private var requestStream: ClientCallStreamObserver[?] = null
 
   def streamName: String
 

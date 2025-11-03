@@ -77,6 +77,11 @@ abstract class DownloadTopologyForInitIntegrationTest
     val sequencerClient =
       mediator1.underlying.value.replicaManager.mediatorRuntime.value.mediator.sequencerClient
 
+    // Need to restart the sequencer due to potentially cached initial topology state hash
+    sequencer1.stop()
+    sequencer1.start()
+    sequencer1.health.wait_for_running()
+
     val errorMessage = sequencerClient
       .downloadTopologyStateForInit(0, retryLogLevel = None)
       .futureValueUS

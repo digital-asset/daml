@@ -24,6 +24,7 @@ final case class GrpcHealthServerConfig(
     parallelism: Int = 4,
 ) extends ServerConfig
     with UniformCantonConfigValidation {
+  override val name: String = "grpc-health"
   override def authServices: Seq[AuthServiceConfig] = Seq.empty
   override def adminTokenConfig: AdminTokenConfig = AdminTokenConfig()
   override val sslContext: Option[SslContext] = None
@@ -31,7 +32,7 @@ final case class GrpcHealthServerConfig(
   override def maxInboundMessageSize: NonNegativeInt = ServerConfig.defaultMaxInboundMessageSize
   override val maxTokenLifetime: NonNegativeDuration = NonNegativeDuration(Duration.Inf)
   override val jwksCacheConfig: JwksCacheConfig = JwksCacheConfig()
-  override def stream: Option[StreamLimitConfig] = None
+  override def limits: Option[ActiveRequestLimitsConfig] = None
   def toRemoteConfig: FullClientConfig =
     FullClientConfig(address, port, keepAliveClient = keepAliveServer.map(_.clientConfigFor))
 }

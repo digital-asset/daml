@@ -378,7 +378,7 @@ class RecordOrderPublisher private (
     private def rankSameTimestamp(x: PublicationTask): (Int, Option[SequencerCounter]) =
       x match {
         case task: EventPublicationTask => 0 -> Some(task.sequencerCounter)
-        case _: FloatingEventPublicationTask[_] => 1 -> None
+        case _: FloatingEventPublicationTask[?] => 1 -> None
         case _: FloatingBufferEventsPublicationTask =>
           2 -> None // Follows the corresponding topology task scheduled via FloatingEventPublicationTask
       }

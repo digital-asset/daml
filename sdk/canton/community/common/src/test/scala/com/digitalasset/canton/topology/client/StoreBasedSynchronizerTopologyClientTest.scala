@@ -24,6 +24,7 @@ import com.digitalasset.canton.topology.store.{
 }
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.*
+import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.{
   BaseTest,
@@ -96,8 +97,11 @@ trait StoreBasedTopologySnapshotTest
           _ <- store.update(
             SequencedTime(timestamp),
             EffectiveTime(timestamp),
-            removeMapping = transactions.map(tx => tx.mapping.uniqueKey -> tx.serial).toMap,
-            removeTxs = transactions.map(_.hash).toSet,
+            removals = transactions
+              .groupBy(_.mapping.uniqueKey)
+              .map { case (kk, txs) =>
+                kk -> (txs.map(_.serial).maxOption, Set.empty[TxHash])
+              },
             additions = transactions.map(ValidatedTopologyTransaction(_)),
           )
           _ <- client
@@ -111,6 +115,15 @@ trait StoreBasedTopologySnapshotTest
         client
           .observed(st, et, SequencerCounter(0), List())
           .futureValueUS
+
+      def updateHead(
+          st: SequencedTime,
+          et: EffectiveTime,
+          at: ApproximateTime,
+          potentialTopologyChange: Boolean,
+      ): Unit =
+        client
+          .updateHead(st, et, at, potentialTopologyChange)
     }
 
     "waiting for snapshots" should {
@@ -181,23 +194,27 @@ trait StoreBasedTopologySnapshotTest
       }
 
       "correctly get notified on updateHead" in {
-        val fixture = new Fixture()
-        import fixture.*
-        val awaitSequencedTimestampF =
-          client.awaitSequencedTimestamp(ts2).getOrElse(fail("expected future"))
+        Table("potential topology change", true, false).forEvery { potentialTopologyChange =>
+          val fixture = new Fixture()
+          import fixture.*
+          val awaitSequencedTimestampF =
+            client.awaitSequencedTimestamp(ts2).getOrElse(fail("expected future"))
 
-        client.updateHead(
-          SequencedTime(ts1),
-          EffectiveTime(ts1),
-          ApproximateTime(ts1),
-        )
-        awaitSequencedTimestampF.isCompleted shouldBe false
-        client.updateHead(
-          SequencedTime(ts2),
-          EffectiveTime(ts1),
-          ApproximateTime(ts1),
-        )
-        awaitSequencedTimestampF.isCompleted shouldBe true
+          updateHead(
+            SequencedTime(ts1),
+            EffectiveTime(ts1),
+            ApproximateTime(ts1),
+            potentialTopologyChange,
+          )
+          awaitSequencedTimestampF.isCompleted shouldBe false
+          updateHead(
+            SequencedTime(ts2),
+            EffectiveTime(ts1),
+            ApproximateTime(ts1),
+            potentialTopologyChange,
+          )
+          awaitSequencedTimestampF.isCompleted shouldBe true
+        }
       }
 
       "just return None if sequenced time already known" in {

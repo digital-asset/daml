@@ -25,6 +25,7 @@ import com.digitalasset.canton.crypto.{
   SigningAlgorithmSpec,
   SigningKeySpec,
   SigningKeyUsage,
+  SigningKeysWithThreshold,
   SigningPublicKey,
   SyncCryptoError,
   SynchronizerCryptoClient,
@@ -69,7 +70,6 @@ import com.digitalasset.canton.sequencing.protocol.{Batch, MediatorGroupRecipien
 import com.digitalasset.canton.sequencing.traffic.TrafficStateController
 import com.digitalasset.canton.store.SessionKeyStore
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
-import com.digitalasset.canton.topology.client.PartyKeyTopologySnapshotClient.PartyAuthorizationInfo
 import com.digitalasset.canton.topology.client.{
   SynchronizerTopologyClientWithInit,
   TopologySnapshot,
@@ -219,13 +219,15 @@ class TrafficCostEstimator(
         .parTraverse { party =>
           for {
             partyId <- EitherT.fromEither[FutureUnlessShutdown](PartyId.fromLfParty(party))
-            partyAuthorizationO <- EitherT
-              .liftF[FutureUnlessShutdown, String, Option[PartyAuthorizationInfo]](
-                snapshot.partyAuthorization(partyId)
+            signingKeysWithThresholdO <- EitherT
+              .liftF[FutureUnlessShutdown, String, Option[SigningKeysWithThreshold]](
+                snapshot.signingKeysWithThreshold(partyId)
               )
-            // If the party has no PartyAuthorizationInfo, do not mock signatures.
+            // If the party has no signing keys, do not mock signatures.
             // This makes it technically possible to estimate cost also for local parties
-            mocked = partyAuthorizationO.map(mockSignatures(costHints, _)).getOrElse(Seq.empty)
+            mocked = signingKeysWithThresholdO
+              .map(mockSignatures(costHints, _))
+              .getOrElse(Seq.empty)
           } yield {
             partyId -> mocked
           }
@@ -342,14 +344,14 @@ class TrafficCostEstimator(
 
   private def mockSignatures(
       costHints: CostEstimationHints,
-      partyAuth: PartyAuthorizationInfo,
+      partyAuth: SigningKeysWithThreshold,
   ): Seq[Signature] =
     // If hints are provided, use them to mock a signature with the expected algorithm
     if (costHints.signingAlgorithmSpec.nonEmpty) {
       costHints.signingAlgorithmSpec.map(mockSignature)
     } else {
       // Otherwise mock threshold-many signatures from the first keys in the party to key mapping
-      partyAuth.signingKeys.forgetNE
+      partyAuth.keys.forgetNE
         .flatMap { key =>
           synchronizerCrypto.pureCrypto.signingAlgorithmSpecs.allowed
             .find(_.supportedSigningKeySpecs.contains(key.keySpec))

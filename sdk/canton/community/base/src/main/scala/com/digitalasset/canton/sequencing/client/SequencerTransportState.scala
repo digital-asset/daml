@@ -196,7 +196,7 @@ class SequencersTransportState(
     */
   private[this] def transportInternal(avoid: Set[SequencerId])(implicit
       traceContext: TraceContext
-  ): SequencerTransportContainer[_] = {
+  ): SequencerTransportContainer[?] = {
     // We can use a plain Random instance across all threads calling this method,
     // because this method anyway uses locking on its own.
     // (In general, ThreadLocalRandom would void contention on the random number generation, but
@@ -218,7 +218,7 @@ class SequencersTransportState(
 
   private[this] def pickUnhealthySequencer(implicit
       traceContext: TraceContext
-  ): SequencerTransportContainer[_] = {
+  ): SequencerTransportContainer[?] = {
     // TODO(i12377): Can we fallback to first sequencer transport here or should we
     //               introduce EitherT and propagate error handling?
     val (_, transportState) = states.headOption.getOrElse(

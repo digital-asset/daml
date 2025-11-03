@@ -60,10 +60,10 @@ object HttpApiServer extends NoTracing {
       )
     } yield {
       logger.info(
-        s"HTTP JSON API Server started with (address=${config.server.address: String}" +
-          s", port=${config.server.port}" +
-          s", portFile=${config.server.portFile: Option[Path]}" +
-          s", pathPrefix=${config.server.pathPrefix}" +
+        s"HTTP JSON API Server started with (address=${config.address: String}" +
+          s", port=${config.port}" +
+          s", portFile=${config.portFile: Option[Path]}" +
+          s", pathPrefix=${config.pathPrefix}" +
           s", wsConfig=${config.websocketConfig.shows}" +
           ")"
       )

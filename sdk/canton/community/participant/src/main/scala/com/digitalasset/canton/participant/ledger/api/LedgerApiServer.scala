@@ -36,6 +36,7 @@ import com.digitalasset.canton.lifecycle.LifeCycle.FastCloseableChannel
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.networking.grpc.ratelimiting.ActiveRequestCounterInterceptor
 import com.digitalasset.canton.networking.grpc.{ApiRequestLogger, CantonGrpcUtil}
 import com.digitalasset.canton.participant.config.{
   LedgerApiServerConfig,
@@ -277,7 +278,8 @@ class LedgerApiServer(
             eventFormat = EventFormat(
               filtersByParty =
                 partyIds.view.map(_ -> CumulativeFilter.templateWildcardFilter(true)).toMap,
-              filtersForAnyParty = None,
+              filtersForAnyParty =
+                Option.when(partyIds.isEmpty)(CumulativeFilter.templateWildcardFilter(true)),
               verbose = false,
             ),
             activeAt = validAt,
@@ -459,38 +461,48 @@ class LedgerApiServer(
 
   private def getInterceptors(
       indexDbExecutor: QueueAwareExecutor & NamedExecutor
-  ): List[ServerInterceptor] = List(
-    new ApiRequestLogger(
-      loggerFactory,
-      cantonParameterConfig.loggingConfig.api,
-    ),
-    GrpcTelemetry
-      .builder(tracerProvider.openTelemetry)
-      .build()
-      .newServerInterceptor(),
-  ) ::: serverConfig.rateLimit
-    .map(rateLimit =>
-      RateLimitingInterceptorFactory.create(
-        loggerFactory = loggerFactory,
-        metrics = grpcApiMetrics,
-        config = rateLimit,
-        additionalChecks = List(
-          ThreadpoolCheck(
-            name = "Environment Execution Threadpool",
-            limit = rateLimit.maxApiServicesQueueSize,
-            queue = executionContext,
-            loggerFactory = loggerFactory,
+  ): List[ServerInterceptor] =
+    List(
+      new ApiRequestLogger(
+        loggerFactory,
+        cantonParameterConfig.loggingConfig.api,
+      ),
+      GrpcTelemetry
+        .builder(tracerProvider.openTelemetry)
+        .build()
+        .newServerInterceptor(),
+    ) ::: serverConfig.rateLimit
+      .map(rateLimit =>
+        RateLimitingInterceptorFactory.create(
+          loggerFactory = loggerFactory,
+          config = rateLimit,
+          additionalChecks = List(
+            ThreadpoolCheck(
+              name = "Environment Execution Threadpool",
+              limit = rateLimit.maxApiServicesQueueSize,
+              queue = executionContext,
+              loggerFactory = loggerFactory,
+            ),
+            ThreadpoolCheck(
+              name = "Index DB Threadpool",
+              limit = rateLimit.maxApiServicesIndexDbQueueSize,
+              queue = indexDbExecutor,
+              loggerFactory = loggerFactory,
+            ),
           ),
-          ThreadpoolCheck(
-            name = "Index DB Threadpool",
-            limit = rateLimit.maxApiServicesIndexDbQueueSize,
-            queue = indexDbExecutor,
-            loggerFactory = loggerFactory,
-          ),
-        ),
+        )
       )
-    )
-    .toList
+      .toList ::: serverConfig.limits
+      .map(cfg =>
+        new ActiveRequestCounterInterceptor(
+          "ledger-api",
+          cfg.pending,
+          cfg.warnOnUndefinedLimits,
+          grpcApiMetrics.requests,
+          loggerFactory,
+        )
+      )
+      .toList
 
   private def getLedgerFeatures: LedgerFeatures = LedgerFeatures(
     staticTime = testingTimeService.isDefined,

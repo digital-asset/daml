@@ -4,7 +4,7 @@ build-options:
 name: bank
 source: Bank.daml
 init-script: Bank:setup
-version: 3.4.0
+version: 3.4.2
 dependencies: 
 - daml-prim
 - daml-stdlib

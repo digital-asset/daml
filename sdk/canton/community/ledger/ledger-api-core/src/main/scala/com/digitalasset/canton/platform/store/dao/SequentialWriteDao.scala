@@ -44,7 +44,7 @@ object SequentialWriteDao {
       compressionStrategy: CompressionStrategy,
       ledgerEndCache: MutableLedgerEndCache,
       stringInterningView: StringInterning with InternizingStringInterningView,
-      ingestionStorageBackend: IngestionStorageBackend[_],
+      ingestionStorageBackend: IngestionStorageBackend[?],
       parameterStorageBackend: ParameterStorageBackend,
       loggerFactory: NamedLoggerFactory,
   ): SequentialWriteDao =

@@ -19,6 +19,7 @@ import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.TopologyTransactionRejection.Authorization.{
   MultiTransactionHashMismatch,
   NoDelegationFoundForKeys,
+  NotFullyAuthorized,
 }
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
@@ -101,7 +102,7 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
       toValidate: Seq[GenericSignedTopologyTransaction],
       inStore: Map[MappingHash, GenericSignedTopologyTransaction],
       expectFullAuthorization: Boolean,
-      transactionMayHaveMissingSigningKeySignatures: Boolean = false,
+      relaxChecksForBackwardsCompatibility: Boolean = false,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[GenericValidatedTopologyTransaction]] =
@@ -112,8 +113,7 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
           tx,
           inStore.get(tx.mapping.uniqueKey),
           expectFullAuthorization = expectFullAuthorization,
-          transactionMayHaveMissingSigningKeySignatures =
-            transactionMayHaveMissingSigningKeySignatures,
+          relaxChecksForBackwardsCompatibility = relaxChecksForBackwardsCompatibility,
         )
       )
   "topology transaction authorization" when {
@@ -224,7 +224,7 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
             ),
             Map.empty,
             expectFullAuthorization = true,
-            transactionMayHaveMissingSigningKeySignatures = false,
+            relaxChecksForBackwardsCompatibility = false,
           )
         } yield {
           check(
@@ -271,7 +271,7 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
             ),
             Map.empty,
             expectFullAuthorization = true,
-            transactionMayHaveMissingSigningKeySignatures = true,
+            relaxChecksForBackwardsCompatibility = true,
           )
         } yield {
           check(
@@ -455,8 +455,7 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
           _ <- store.update(
             SequencedTime.MinValue,
             EffectiveTime.MinValue,
-            removeMapping = Map.empty,
-            removeTxs = Set.empty,
+            removals = Map.empty,
             additions = bootstrapTransactions,
           )
           result <- validate(
@@ -593,8 +592,7 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
           .update(
             SequencedTime(ts(0)),
             EffectiveTime(ts(0)),
-            removeMapping = Map.empty,
-            removeTxs = Set.empty,
+            removals = Map.empty,
             additions = (rootCert +: delegations.values.map(_._2).toSeq)
               .map(ValidatedTopologyTransaction(_)),
           )
@@ -618,7 +616,7 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
               signedTxToValidate,
               inStore = None,
               expectFullAuthorization = false,
-              transactionMayHaveMissingSigningKeySignatures = false,
+              relaxChecksForBackwardsCompatibility = false,
             )
             .futureValueUS
 
@@ -759,8 +757,7 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
           _ <- store.update(
             SequencedTime(ts(0)),
             EffectiveTime(ts(0)),
-            removeMapping = Map.empty,
-            removeTxs = Set.empty,
+            removals = Map.empty,
             additions = List(ns1k1_k1).map(ValidatedTopologyTransaction(_)),
           )
           res <- validate(
@@ -909,6 +906,96 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
     }
 
     "observing PartyToParticipant mappings" should {
+
+      "require the participant's authorization for a permission upgrade when not in legacy validation mode" in {
+        val store =
+          new InMemoryTopologyStore(
+            TopologyStoreId.AuthorizedStore,
+            testedProtocolVersion,
+            loggerFactory,
+            timeouts,
+          )
+        val validator = mk(store)
+        import Factory.*
+
+        val initialPTP = mkAddMultiKey(
+          PartyToParticipant.tryCreate(
+            party1b, // lives in the namespace of p1, corresponding to `SigningKeys.key1`
+            threshold = PositiveInt.one,
+            Seq(
+              HostingParticipant(participant6, ParticipantPermission.Observation)
+            ),
+          ),
+          // both the party's owner and the participant sign
+          NonEmpty(Set, SigningKeys.key1, SigningKeys.key6),
+          serial = PositiveInt.one,
+        )
+
+        val upgradeMapping = PartyToParticipant.tryCreate(
+          party1b,
+          threshold = PositiveInt.one,
+          Seq(
+            HostingParticipant(participant6, ParticipantPermission.Submission)
+          ),
+        )
+
+        val upgradeTx_k1 = mkAdd(
+          upgradeMapping,
+          SigningKeys.key1,
+          serial = PositiveInt.two,
+        )
+        val upgradeTx_k1k6 = mkAddMultiKey(
+          upgradeMapping,
+          NonEmpty(Set, SigningKeys.key1, SigningKeys.key6),
+          serial = PositiveInt.two,
+        )
+
+        val ptpMappingHash = initialPTP.mapping.uniqueKey
+        for {
+          _ <- store.update(
+            SequencedTime(ts(0)),
+            EffectiveTime(ts(0)),
+            removals = Map.empty,
+            additions = List(ns1k1_k1, ns6k6_k6).map(
+              ValidatedTopologyTransaction(_)
+            ),
+          )
+
+          legacySuccess <- validate(
+            validator,
+            ts(1),
+            List(upgradeTx_k1),
+            inStore = Map(ptpMappingHash -> initialPTP),
+            expectFullAuthorization = true,
+            relaxChecksForBackwardsCompatibility = true,
+          )
+          upgradeFailure <- validate(
+            validator,
+            ts(1),
+            List(upgradeTx_k1),
+            inStore = Map(ptpMappingHash -> initialPTP),
+            expectFullAuthorization = true,
+            relaxChecksForBackwardsCompatibility = false,
+          )
+          upgradeSuccess <- validate(
+            validator,
+            ts(1),
+            List(upgradeTx_k1k6),
+            inStore = Map(ptpMappingHash -> initialPTP),
+            expectFullAuthorization = true,
+            relaxChecksForBackwardsCompatibility = false,
+          )
+        } yield {
+          check(legacySuccess, Seq(None))
+          check(
+            upgradeFailure,
+            Seq(Some(_ == NotFullyAuthorized(ReferencedAuthorizations(Set(ns6))))),
+          )
+          check(upgradeSuccess, Seq(None))
+
+        }
+      }
+
       "allow participants to unilaterally disassociate themselves from parties" in {
         val store =
           new InMemoryTopologyStore(
@@ -952,6 +1039,13 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
             HostingParticipant(participant6, ParticipantPermission.Submission),
           ),
         )
+        val multipleUnhostingMappingAndThresholdChange = PartyToParticipant.tryCreate(
+          party1b,
+          threshold = PositiveInt.one,
+          Seq(
+            HostingParticipant(participant1, ParticipantPermission.Submission)
+          ),
+        )
 
         val participant2RemovesItselfUnilaterally = mkAdd(
           unhostingMapping,
@@ -960,20 +1054,12 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
           serial = PositiveInt.two,
         )
 
-        val participant2RemovedFullyAuthorized = mkAddMultiKey(
-          unhostingMapping,
-          // both the unhosting participant as well as the party's owner signs
-          NonEmpty(Set, SigningKeys.key1, SigningKeys.key2),
-          serial = PositiveInt.two,
-        )
-
         val ptpMappingHash = participants_1_2_6_HostParty1.mapping.uniqueKey
         for {
           _ <- store.update(
             SequencedTime(ts(0)),
             EffectiveTime(ts(0)),
-            removeMapping = Map.empty,
-            removeTxs = Set.empty,
+            removals = Map.empty,
             additions = List(ns1k1_k1, ns2k2_k2, ns6k6_k6).map(
               ValidatedTopologyTransaction(_)
             ),
@@ -995,23 +1081,27 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
             expectFullAuthorization = false,
           )
 
-          // it is still allowed to have a mix of signatures for unhosting
-          unhostingMixedResult <- validate(
-            validator,
-            ts(2),
-            List(participant2RemovedFullyAuthorized),
-            inStore = Map(ptpMappingHash -> participants_1_2_6_HostParty1),
-            expectFullAuthorization = false,
-          )
-
-          // the participant being removed may not sign if anything else changes
+          // the participant being removed still must sign if also something else changes
           unhostingAndThresholdChangeResult <- validate(
             validator,
             ts(2),
             List(
               mkAddMultiKey(
                 unhostingMappingAndThresholdChange,
-                NonEmpty(Set, SigningKeys.key2),
+                NonEmpty(Set, SigningKeys.key1, SigningKeys.key2),
+              )
+            ),
+            inStore = Map(ptpMappingHash -> participants_1_2_6_HostParty1),
+            expectFullAuthorization = false,
+          )
+
+          multipleUnhostingMappingAndThresholdChangeResult <- validate(
+            validator,
+            ts(2),
+            List(
+              mkAddMultiKey(
+                multipleUnhostingMappingAndThresholdChange,
+                NonEmpty(Set, SigningKeys.key1, SigningKeys.key2, SigningKeys.key6),
               )
             ),
             inStore = Map(ptpMappingHash -> participants_1_2_6_HostParty1),
@@ -1020,11 +1110,8 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
         } yield {
           check(hostingResult, Seq(None))
           check(unhostingResult, Seq(None))
-          check(unhostingMixedResult, Seq(None))
-          check(
-            unhostingAndThresholdChangeResult,
-            Seq(Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key2.fingerprint)))),
-          )
+          check(unhostingAndThresholdChangeResult, Seq(None))
+          check(multipleUnhostingMappingAndThresholdChangeResult, Seq(None))
         }
       }
     }
@@ -1044,8 +1131,7 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
           _ <- store.update(
             SequencedTime(ts(0)),
             EffectiveTime(ts(0)),
-            removeMapping = Map.empty,
-            removeTxs = Set.empty,
+            removals = Map.empty,
             additions = decentralizedNamespaceWithMultipleOwnerThreshold.map(
               ValidatedTopologyTransaction(_)
             ),
@@ -1079,8 +1165,7 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
           _ <- store.update(
             SequencedTime(ts(0)),
             EffectiveTime(ts(0)),
-            removeMapping = Map.empty,
-            removeTxs = Set.empty,
+            removals = Map.empty,
             additions = decentralizedNamespaceWithMultipleOwnerThreshold.map(
               ValidatedTopologyTransaction(_)
             ),
@@ -1088,8 +1173,7 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
           _ <- store.update(
             SequencedTime(ts(1)),
             EffectiveTime(ts(1)),
-            removeMapping = Map.empty,
-            removeTxs = Set.empty,
+            removals = Map.empty,
             additions = proposeDecentralizedNamespaceWithLowerThresholdAndOwnerNumber.map(
               ValidatedTopologyTransaction(_)
             ),
@@ -1135,8 +1219,7 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
           _ <- store.update(
             SequencedTime(ts(0)),
             EffectiveTime(ts(0)),
-            removeMapping = Map.empty,
-            removeTxs = Set.empty,
+            removals = Map.empty,
             additions = resultAddOwners,
           )
 
@@ -1153,8 +1236,7 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
           _ <- store.update(
             SequencedTime(ts(1)),
             EffectiveTime(ts(1)),
-            removeMapping = Map.empty,
-            removeTxs = Set.empty,
+            removals = Map.empty,
             additions = resultAddDND,
           )
 
@@ -1171,8 +1253,7 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
           _ <- store.update(
             SequencedTime(ts(2)),
             EffectiveTime(ts(2)),
-            removeMapping = Map(dns1Removal.mapping.uniqueKey -> dns1Removal.serial),
-            removeTxs = Set.empty,
+            removals = Map(dns1Removal.mapping.uniqueKey -> (Some(dns1Removal.serial), Set.empty)),
             additions = resRemoveDND,
           )
 
@@ -1228,8 +1309,7 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
         _ <- store.update(
           SequencedTime(ts(0)),
           EffectiveTime(ts(0)),
-          removeMapping = Map.empty,
-          removeTxs = Set.empty,
+          removals = Map.empty,
           additions = decentralizedNamespaceWithThreeOwners.map(
             ValidatedTopologyTransaction(_)
           ),
@@ -1301,8 +1381,7 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
         _ <- store.update(
           SequencedTime(ts(0)),
           EffectiveTime(ts(0)),
-          removeMapping = Map.empty,
-          removeTxs = Set.empty,
+          removals = Map.empty,
           additions = decentralizedNamespaceWithTwoOwners.map(
             ValidatedTopologyTransaction(_)
           ),
@@ -1419,8 +1498,7 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
         _ <- store.update(
           SequencedTime(ts(0)),
           EffectiveTime(ts(0)),
-          removeMapping = Map.empty,
-          removeTxs = Set.empty,
+          removals = Map.empty,
           additions = decentralizedNamespaceWithThreeOwners.map(
             ValidatedTopologyTransaction(_)
           ),

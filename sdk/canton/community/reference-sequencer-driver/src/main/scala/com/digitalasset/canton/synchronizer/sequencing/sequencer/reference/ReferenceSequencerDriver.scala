@@ -54,7 +54,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class ReferenceSequencerDriver(
     sequencerId: String,
     store: ReferenceBlockOrderingStore,
-    config: ReferenceSequencerDriver.Config[_ <: StorageConfig],
+    config: ReferenceSequencerDriver.Config[? <: StorageConfig],
     timeProvider: TimeProvider,
     override val firstBlockHeight: Long,
     storage: Storage,

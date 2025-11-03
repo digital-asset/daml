@@ -4,6 +4,7 @@
 package com.digitalasset.canton.topology
 
 import cats.data.EitherT
+import cats.implicits.catsSyntaxOptionId
 import cats.instances.seq.*
 import cats.syntax.either.*
 import cats.syntax.foldable.*
@@ -16,7 +17,10 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.AsyncResult
-import com.digitalasset.canton.topology.TopologyStateProcessor.MaybePending
+import com.digitalasset.canton.topology.TopologyStateProcessor.{
+  AccumulatedDeactivationsPerMapping,
+  MaybePending,
+}
 import com.digitalasset.canton.topology.processing.{
   EffectiveTime,
   SequencedTime,
@@ -111,24 +115,24 @@ class TopologyStateProcessor private (
       (removesF, pendingWrites) = {
         val pendingWrites = transactions.map(MaybePending.apply)
         val removes = pendingWrites
-          .foldLeftM((Map.empty[MappingHash, PositiveInt], Set.empty[TxHash])) {
-            case ((removeMappings, removeTxs), tx) =>
+          .foldLeftM(Map.empty[MappingHash, AccumulatedDeactivationsPerMapping]) {
+            case (removes, tx) =>
               validateAndMerge(
                 effective,
                 tx.originalTx,
                 expectFullAuthorization = expectFullAuthorization || !tx.originalTx.isProposal,
                 relaxChecksForBackwardsCompatibility = relaxChecksForBackwardsCompatibility,
               ).map { finalTx =>
-                logger.debug(s"Validated $finalTx")
                 tx.adjusted.set(Some(finalTx.transaction))
                 tx.rejection.set(finalTx.rejectionReason)
-                determineRemovesAndUpdatePending(tx, removeMappings, removeTxs)
+                determineRemovesAndUpdatePending(tx, removes)
               }
           }
         (removes, pendingWrites)
       }
-      removes <- EitherT.right[Lft](removesF)
-      (mappingRemoves, txRemoves) = removes
+      removes <- EitherT.right[Lft](removesF.map(_.map { case (k, deactivations) =>
+        (k, deactivations.computeSerialAndOtherTxHashes)
+      }))
       validatedTx = pendingWrites.map(pw => pw.validatedTx)
       _ <- EitherT.cond[FutureUnlessShutdown](
         !abortOnError || validatedTx.forall(_.rejectionReason.isEmpty),
@@ -140,20 +144,18 @@ class TopologyStateProcessor private (
         }: Lft,
       ): EitherT[FutureUnlessShutdown, Lft, Unit]
       // string approx for output
-      epsilon =
-        s"${effective.value.toEpochMilli - sequenced.value.toEpochMilli}"
       ln = validatedTx.size
       _ = validatedTx.zipWithIndex.foreach {
         case (ValidatedTopologyTransaction(tx, None, _), idx) =>
           val enqueuingOrStoring = if (outboxQueue.nonEmpty) "Enqueuing" else "Storing"
           logger.info(
-            s"$enqueuingOrStoring topology transaction ${idx + 1}/$ln serial=${tx.serial.unwrap} ${tx.operation} ${tx.mapping} with ts=$effective (epsilon=$epsilon ms), signedBy=${tx.signatures
+            s"$enqueuingOrStoring topology transaction ${idx + 1}/$ln ${tx.hash} with ts=$effective, signedBy=${tx.signatures
                 .map(_.authorizingLongTermKey)}"
           )
         case (ValidatedTopologyTransaction(tx, Some(r), _), idx) =>
           // TODO(i19737): we need to emit a security alert, if the rejection is due to a malicious broadcast
           logger.info(
-            s"Rejected transaction ${idx + 1}/$ln serial=${tx.serial.unwrap} ${tx.operation} ${tx.mapping} at ts=$effective (epsilon=$epsilon ms), signedBy=${tx.signatures
+            s"Rejected transaction ${idx + 1}/$ln ${tx.hash} at ts=$effective, signedBy=${tx.signatures
                 .map(_.authorizingLongTermKey)} due to $r"
           )
       }
@@ -179,17 +181,14 @@ class TopologyStateProcessor private (
               store.update(
                 sequenced,
                 effective,
-                mappingRemoves,
-                txRemoves,
+                removes,
                 validatedTx,
               )
             )
             .map { _ =>
               logger.info(
                 s"Persisted topology transactions ($sequenced, $effective):\n" + validatedTx
-                  .mkString(
-                    ",\n"
-                  )
+                  .mkString(",\n")
               )
               AsyncResult.immediate
             }
@@ -281,7 +280,7 @@ class TopologyStateProcessor private (
       inStore: Option[GenericSignedTopologyTransaction],
       toValidate: GenericSignedTopologyTransaction,
       expectFullAuthorization: Boolean,
-      transactionMayHaveMissingSigningKeySignatures: Boolean,
+      relaxChecksForBackwardsCompatibility: Boolean,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TopologyTransactionRejection, GenericSignedTopologyTransaction] =
@@ -293,8 +292,7 @@ class TopologyStateProcessor private (
             toValidate,
             inStore,
             expectFullAuthorization = expectFullAuthorization,
-            transactionMayHaveMissingSigningKeySignatures =
-              transactionMayHaveMissingSigningKeySignatures,
+            relaxChecksForBackwardsCompatibility = relaxChecksForBackwardsCompatibility,
           )
       )
       .subflatMap { tx =>
@@ -368,7 +366,7 @@ class TopologyStateProcessor private (
         tx_inStore,
         tx_deduplicatedAndMerged,
         expectFullAuthorization = expectFullAuthorization,
-        transactionMayHaveMissingSigningKeySignatures = relaxChecksForBackwardsCompatibility,
+        relaxChecksForBackwardsCompatibility = relaxChecksForBackwardsCompatibility,
       )
     } yield fullyValidated
     ret.fold(
@@ -379,21 +377,21 @@ class TopologyStateProcessor private (
 
   private def determineRemovesAndUpdatePending(
       tx: MaybePending,
-      removeMappings: Map[MappingHash, PositiveInt],
-      removeTxs: Set[TxHash],
-  )(implicit traceContext: TraceContext): (Map[MappingHash, PositiveInt], Set[TxHash]) = {
+      toRemove: Map[MappingHash, AccumulatedDeactivationsPerMapping],
+  )(implicit
+      traceContext: TraceContext
+  ): Map[MappingHash, AccumulatedDeactivationsPerMapping] = {
     val finalTx = tx.currentTx
     // UPDATE tx SET valid_until = effective WHERE storeId = XYZ
     //    AND valid_until is NULL and valid_from < effective
 
     if (tx.rejection.get().nonEmpty) {
       // if the transaction has been rejected, we don't actually expire any proposals or currently valid transactions
-      (removeMappings, removeTxs)
+      toRemove
     } else if (finalTx.isProposal) {
       // if this is a proposal, we only delete the "previously existing proposal"
       // AND ((tx_hash = ..))
       val txHash = finalTx.hash
-
       proposalsForTx.put(txHash, tx).foreach { existingProposal =>
         // update currently pending (this is relevant in case we have proposals for the
         // same txs within a batch)
@@ -404,7 +402,12 @@ class TopologyStateProcessor private (
         )
       }
       trackProposal(txHash, finalTx.mapping.uniqueKey)
-      (removeMappings, removeTxs + txHash)
+      // add this txhash to the list of proposals to be removed for this mapping
+      toRemove.updatedWith(finalTx.mapping.uniqueKey)(
+        _.getOrElse(AccumulatedDeactivationsPerMapping())
+          .removeProposalAt(txHash, finalTx.serial)
+          .some
+      )
     } else {
       // if this is a sufficiently signed and valid transaction, we delete all existing proposals and the previous tx
       //  we can just use a mapping key: there can not be a future proposal, as it would violate the
@@ -432,17 +435,40 @@ class TopologyStateProcessor private (
             }
           )
         )
-      (
-        removeMappings.updatedWith(mappingHash)(
-          Ordering[Option[PositiveInt]].max(_, Some(finalTx.serial))
-        ),
-        removeTxs,
+      toRemove.updatedWith(mappingHash)(
+        _.getOrElse(AccumulatedDeactivationsPerMapping())
+          .removeAllTransactionsAndProposalsUpTo(
+            finalTx.serial
+          )
+          .some
       )
     }
   }
 }
 
 object TopologyStateProcessor {
+
+  private final case class AccumulatedDeactivationsPerMapping(
+      serialO: Option[PositiveInt] = None,
+      txHashWithSerial: Set[(TxHash, PositiveInt)] = Set.empty,
+  ) {
+    def removeAllTransactionsAndProposalsUpTo(
+        serial: PositiveInt
+    ): AccumulatedDeactivationsPerMapping =
+      copy(serialO = Ordering[Option[PositiveInt]].max(serialO, serial.some))
+    def removeProposalAt(txHash: TxHash, serial: PositiveInt): AccumulatedDeactivationsPerMapping =
+      copy(txHashWithSerial = txHashWithSerial + ((txHash, serial)))
+    def computeSerialAndOtherTxHashes: (Option[PositiveInt], Set[TxHash]) =
+      (
+        serialO,
+        // filter out tx hash that will be cleaned up anyway by the mapping hash / serial combination
+        serialO
+          .map(mappingSerial =>
+            txHashWithSerial.collect { case (tx, txSerial) if mappingSerial < txSerial => tx }
+          )
+          .getOrElse(txHashWithSerial.map(_._1)),
+      )
+  }
 
   // small container to store potentially pending data
   private[topology] final case class MaybePending(originalTx: GenericSignedTopologyTransaction)

@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.admin.party
 
 import cats.data.EitherT
+import cats.syntax.option.*
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{Fingerprint, Hash, HashAlgorithm, TestHash}
@@ -156,8 +157,7 @@ class PartyReplicationTopologyWorkflowTest
       .update(
         SequencedTime(ts),
         EffectiveTime(ts),
-        removeMapping = if (proposal) Map.empty else Map(mapping.uniqueKey -> serial),
-        removeTxs = Set.empty,
+        removals = if (proposal) Map.empty else Map(mapping.uniqueKey -> (serial.some, Set.empty)),
         additions = Seq(ValidatedTopologyTransaction(signedTx)),
       )
       .map(_ => signedTx)

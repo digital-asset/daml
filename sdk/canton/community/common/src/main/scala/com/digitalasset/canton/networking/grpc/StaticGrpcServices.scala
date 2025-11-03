@@ -43,7 +43,7 @@ object StaticGrpcServices {
   /** Stub all methods on the provided service descriptor using the given handler. */
   def forService(
       descriptor: ServiceDescriptor
-  )(handler: MethodDescriptor[_, _] => Status): ServerServiceDefinition = {
+  )(handler: MethodDescriptor[?, ?] => Status): ServerServiceDefinition = {
     val builder = ServerServiceDefinition.builder(descriptor)
 
     descriptor.getMethods.asScala.foreach { method =>
@@ -57,8 +57,8 @@ object StaticGrpcServices {
 
   /** Creates a call handler that immediately closes the server call with the generated status. */
   private def mkClosingCallHandler[Req, Res](
-      method: MethodDescriptor[_, _],
-      handler: MethodDescriptor[_, _] => Status,
+      method: MethodDescriptor[?, ?],
+      handler: MethodDescriptor[?, ?] => Status,
   ): ServerCallHandler[Req, Res] = { (call: ServerCall[Req, Res], _: Metadata) =>
     new ServerCall.Listener[Req] {
       call.close(

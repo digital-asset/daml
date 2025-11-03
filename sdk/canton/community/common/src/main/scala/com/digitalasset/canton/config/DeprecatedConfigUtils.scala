@@ -36,10 +36,10 @@ object DeprecatedConfigUtils {
   }
 
   object DeprecatedFieldsFor {
-    def combine[T](instances: DeprecatedFieldsFor[_ >: T]*): DeprecatedFieldsFor[T] =
+    def combine[T](instances: DeprecatedFieldsFor[? >: T]*): DeprecatedFieldsFor[T] =
       new DeprecatedFieldsFor[T] {
         override def movedFields: List[MovedConfigPath] = instances.flatMap(_.movedFields).toList
-        override def deprecatePath: List[DeprecatedConfigPath[_]] =
+        override def deprecatePath: List[DeprecatedConfigPath[?]] =
           instances.flatMap(_.deprecatePath).toList
       }
   }
@@ -50,7 +50,7 @@ object DeprecatedConfigUtils {
     */
   trait DeprecatedFieldsFor[-T] {
     def movedFields: List[MovedConfigPath] = List.empty
-    def deprecatePath: List[DeprecatedConfigPath[_]] = List.empty
+    def deprecatePath: List[DeprecatedConfigPath[?]] = List.empty
   }
 
   implicit class EnhancedConfigReader[T](val configReader: ConfigReader[T]) extends AnyVal {
@@ -109,7 +109,7 @@ object DeprecatedConfigUtils {
 
     /** Log a deprecation message for config values that are deprecated
       */
-    def deprecateConfigPath(deprecated: DeprecatedConfigPath[_])(implicit
+    def deprecateConfigPath(deprecated: DeprecatedConfigPath[?])(implicit
         elc: ErrorLoggingContext
     ): ConfigReader[T] = {
       val fromPathSegment =

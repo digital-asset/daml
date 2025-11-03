@@ -149,7 +149,7 @@ class TestProcessingSteps(
   }
 
   override def createSubmissionResult(
-      deliver: Deliver[Envelope[_]],
+      deliver: Deliver[Envelope[?]],
       submissionResultArgs: PendingSubmissionData,
   ): Unit =
     ()

@@ -219,14 +219,18 @@ class BlockSequencer(
       submission: SubmissionRequest
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit] = {
-    val estimatedSequencingTimestamp = clock.now
+  ): EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit] =
     submission.aggregationRule.traverse_ { _ =>
       for {
+        estimatedSequencingTimestampO <- EitherT.right(sequencingTime)
+        estimatedSequencingTimestamp = estimatedSequencingTimestampO.getOrElse(clock.now)
+        _ = logger.debug(
+          s"Estimated sequencing time $estimatedSequencingTimestamp for submission with id ${submission.messageId}"
+        )
         _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
           submission.maxSequencingTime > estimatedSequencingTimestamp,
           SequencerErrors.SubmissionRequestRefused(
-            s"The sequencer clock timestamp $estimatedSequencingTimestamp is already past the max sequencing time ${submission.maxSequencingTime} for submission with id ${submission.messageId}"
+            s"The estimated sequencing time $estimatedSequencingTimestamp is already past the max sequencing time ${submission.maxSequencingTime} for submission with id ${submission.messageId}"
           ),
         )
         // We can't easily use snapshot(topologyTimestamp), because the effective last snapshot transaction
@@ -255,7 +259,6 @@ class BlockSequencer(
         )
       } yield ()
     }
-  }
 
   override protected def sendAsyncInternal(
       submission: SubmissionRequest
@@ -781,4 +784,6 @@ class BlockSequencer(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[CantonTimestamp]] =
     blockOrderer.sequencingTime
+
+  override private[canton] def orderer: Some[BlockOrderer] = Some(blockOrderer)
 }

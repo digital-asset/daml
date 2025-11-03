@@ -5,6 +5,11 @@ package com.digitalasset.canton.version
 
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 
+/** Objects and variables of this file are used as part of the release process. Be mindful when
+  * removing them. See:
+  *   - `propose.sh` script
+  *   - generateReferenceJson
+  */
 object ReleaseVersionToProtocolVersions {
   private val v2 = ProtocolVersion(2)
   private val v3 = ProtocolVersion(3)
@@ -54,4 +59,61 @@ object ReleaseVersionToProtocolVersions {
       .get(releaseVersion.majorMinor)
       .map(_.forgetNE)
       .getOrElse(Nil)
+}
+
+/** This is used in the release process. Do not rename, nor remove the `extends App`
+  */
+object ReleaseVersionToProtocolVersionsExporter extends App {
+  import io.circe.syntax.*
+  import better.files.File
+
+  private sealed trait ProtocolVersionStatus {
+    def pv: ProtocolVersion
+    def isBeta: Boolean = this match {
+      case ProtocolVersionStatus.Beta(_) => true
+      case _ => false
+    }
+    override def toString: String = pv.toString
+  }
+
+  private object ProtocolVersionStatus {
+    implicit def ordering: Ordering[ProtocolVersionStatus] =
+      Ordering.by(_.pv)
+    final case class Beta(pv: ProtocolVersion) extends ProtocolVersionStatus
+    final case class Stable(pv: ProtocolVersion) extends ProtocolVersionStatus
+  }
+
+  private val stableMap: Map[(Int, Int), NonEmpty[List[ProtocolVersionStatus.Stable]]] =
+    ReleaseVersionToProtocolVersions.majorMinorToStableProtocolVersions.view
+      .mapValues(_.map(ProtocolVersionStatus.Stable(_)))
+      .toMap
+
+  private val betaMap = ReleaseVersionToProtocolVersions.majorMinorToBetaProtocolVersions.view
+    .mapValues(_.map(ProtocolVersionStatus.Beta(_)))
+    .toMap
+
+  // For each (major, minor) the list of stable and beta protocol versions
+  private val majorMinorToProtocolVersions: Map[(Int, Int), List[ProtocolVersionStatus]] =
+    stableMap.foldLeft[Map[(Int, Int), List[ProtocolVersionStatus]]](betaMap) {
+      case (acc, (releaseVersion, protocolVersions)) =>
+        acc + (releaseVersion -> (acc.getOrElse(releaseVersion, Nil) ++ protocolVersions))
+    }
+
+  // (major, minor) -> [protocol version]
+  private val stableAndBetaReleasesToProtocolVersions
+      : List[((Int, Int), List[ProtocolVersionStatus])] =
+    majorMinorToProtocolVersions.toList
+      .sortBy { case (releaseVersion, _) => releaseVersion }
+
+  private val releaseVersionsToProtocolVersions: List[(String, List[String])] =
+    stableAndBetaReleasesToProtocolVersions
+      .collect { case ((major, minor), protocolVersions) =>
+        s"$major.$minor" -> protocolVersions.sorted.collect {
+          case pv if pv.isBeta => s"${pv.toString}*"
+          case pv => pv.toString
+        }
+      }
+      .filter { case (_, protocolVersions) => protocolVersions.nonEmpty }
+
+  File("embed_reference.json").write(releaseVersionsToProtocolVersions.asJson.spaces2)
 }

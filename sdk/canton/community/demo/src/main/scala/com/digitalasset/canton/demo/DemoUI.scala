@@ -139,7 +139,7 @@ class ParticipantTab(
             } else {
               ""
             }
-            Option[javafx.scene.control.TableRow[_]](getTableRow).foreach(x => x.setStyle(style))
+            Option[javafx.scene.control.TableRow[?]](getTableRow).foreach(x => x.setStyle(style))
           }
         }
     }

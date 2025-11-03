@@ -82,6 +82,9 @@ class GrpcInternalSequencerConnectionX private[sequencing] (
   // Reference to the user connection -- for cleaning purposes
   private val userConnectionRef = new AtomicReference[Option[GrpcSequencerConnectionX]](None)
 
+  // Keep track of the last failure reason on this connection
+  private val lastFailureReasonRef = new AtomicReference[Option[String]](None)
+
   // The sequencer connection health state is determined by the underlying connection state and the local state
   override val health: GrpcSequencerConnectionXHealth = new GrpcSequencerConnectionXHealth(
     name = name,
@@ -153,6 +156,8 @@ class GrpcInternalSequencerConnectionX private[sequencing] (
 
   override def attributes: Option[ConnectionAttributes] = attributesCell.get
 
+  override def lastFailureReason: Option[String] = lastFailureReasonRef.get
+
   /** Atomically update the local state using the provided function, and return the previous state.
     * Automatically enforces that we cannot recover from the `Fatal` state. This function also
     * triggers a health refresh.
@@ -198,6 +203,8 @@ class GrpcInternalSequencerConnectionX private[sequencing] (
   override def fail(reason: String)(implicit traceContext: TraceContext): Unit = blocking {
     synchronized {
       logger.info(s"Stopping $name for non-fatal reason: $reason")
+      lastFailureReasonRef.set(Some(reason))
+
       val oldState = updateLocalState {
         case LocalState.Initial => LocalState.Initial
         case LocalState.Starting | LocalState.Stopping | LocalState.Validated => LocalState.Stopping
@@ -219,6 +226,8 @@ class GrpcInternalSequencerConnectionX private[sequencing] (
   override def fatal(reason: String)(implicit traceContext: TraceContext): Unit = blocking {
     synchronized {
       logger.info(s"Stopping $name for fatal reason: $reason")
+      lastFailureReasonRef.set(Some(reason))
+
       val oldState = updateLocalState(_ => LocalState.Fatal)
 
       oldState match {
@@ -249,7 +258,7 @@ class GrpcInternalSequencerConnectionX private[sequencing] (
           ) =>
         // Might need to refine on the errors
         logger.debug(s"Network error: $error")
-        fail("Network error")
+        fail(s"Network error: $error")
     }
 
     def handleSuccessfulValidation(newAttributes: ConnectionAttributes): Unit =

@@ -12,6 +12,7 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   RawExercisedEvent,
   RawFatCreatedEvent,
   RawThinAcsDeltaEvent,
+  RawThinActiveContract,
   RawThinAssignEvent,
   RawThinCreatedEvent,
   RawThinLedgerEffectsEvent,
@@ -63,440 +64,6 @@ private[backend] trait StorageBackendTestsEvents
   import StorageBackendTestValues.*
   import ScalatestEqualityHelpers.*
 
-// TODO(i28539) analyse if additional unit tests needed, and implement them with the new schema
-//  it should "find contracts by party legacy" in {
-//    val partySignatory = Ref.Party.assertFromString("signatory")
-//    val partyObserver1 = Ref.Party.assertFromString("observer1")
-//    val partyObserver2 = Ref.Party.assertFromString("observer2")
-//
-//    val dtos = Vector(
-//      dtoCreateLegacy(
-//        offset(1),
-//        1L,
-//        hashCid("#1"),
-//        signatory = partySignatory,
-//        observer = partyObserver1,
-//      ),
-//      dtoCreateFilter(1L, someTemplateId, partySignatory, first_per_sequential_id = true),
-//      dtoCreateFilter(1L, someTemplateId, partyObserver1, first_per_sequential_id = false),
-//      dtoCreateLegacy(
-//        offset(2),
-//        2L,
-//        hashCid("#2"),
-//        signatory = partySignatory,
-//        observer = partyObserver2,
-//      ),
-//      dtoCreateFilter(2L, someTemplateId, partySignatory, first_per_sequential_id = true),
-//      dtoCreateFilter(2L, someTemplateId, partyObserver2, first_per_sequential_id = false),
-//    )
-//
-//    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-//    executeSql(ingest(dtos, _))
-//    executeSql(updateLedgerEnd(offset(2), 2L))
-//    val resultSignatory = executeSql(
-//      backend.event.updateStreamingQueries
-//        .fetchEventIdsLegacy(EventIdSourceLegacy.CreateStakeholder)(
-//          stakeholderO = Some(partySignatory),
-//          templateIdO = None,
-//        )(_)(
-//          PaginationInput(
-//            startExclusive = 0L,
-//            endInclusive = 10L,
-//            limit = 10,
-//          )
-//        )
-//    )
-//    val resultObserver1 = executeSql(
-//      backend.event.updateStreamingQueries
-//        .fetchEventIdsLegacy(EventIdSourceLegacy.CreateStakeholder)(
-//          stakeholderO = Some(partyObserver1),
-//          templateIdO = None,
-//        )(_)(
-//          PaginationInput(
-//            startExclusive = 0L,
-//            endInclusive = 10L,
-//            limit = 10,
-//          )
-//        )
-//    )
-//    val resultObserver2 = executeSql(
-//      backend.event.updateStreamingQueries
-//        .fetchEventIdsLegacy(EventIdSourceLegacy.CreateStakeholder)(
-//          stakeholderO = Some(partyObserver2),
-//          templateIdO = None,
-//        )(_)(
-//          PaginationInput(
-//            startExclusive = 0L,
-//            endInclusive = 10L,
-//            limit = 10,
-//          )
-//        )
-//    )
-//    val resultSuperReader = executeSql(
-//      backend.event.updateStreamingQueries
-//        .fetchEventIdsLegacy(EventIdSourceLegacy.CreateStakeholder)(
-//          stakeholderO = None,
-//          templateIdO = None,
-//        )(_)(
-//          PaginationInput(
-//            startExclusive = 0L,
-//            endInclusive = 10L,
-//            limit = 10,
-//          )
-//        )
-//    )
-//
-//    resultSignatory should contain theSameElementsAs Vector(1L, 2L)
-//    resultObserver1 should contain theSameElementsAs Vector(1L)
-//    resultObserver2 should contain theSameElementsAs Vector(2L)
-//    resultSuperReader should contain theSameElementsAs Vector(1L, 2L)
-//  }
-//
-//  it should "find contracts by party and template legacy" in {
-//    val partySignatory = Ref.Party.assertFromString("signatory")
-//    val partyObserver1 = Ref.Party.assertFromString("observer1")
-//    val partyObserver2 = Ref.Party.assertFromString("observer2")
-//
-//    val dtos = Vector(
-//      dtoCreateLegacy(
-//        offset(1),
-//        1L,
-//        hashCid("#1"),
-//        signatory = partySignatory,
-//        observer = partyObserver1,
-//      ),
-//      dtoCreateFilter(1L, someTemplateId, partySignatory, first_per_sequential_id = true),
-//      dtoCreateFilter(1L, someTemplateId, partyObserver1, first_per_sequential_id = false),
-//      dtoCreateLegacy(
-//        offset(2),
-//        2L,
-//        hashCid("#2"),
-//        signatory = partySignatory,
-//        observer = partyObserver2,
-//      ),
-//      dtoCreateFilter(2L, someTemplateId, partySignatory, first_per_sequential_id = true),
-//      dtoCreateFilter(2L, someTemplateId, partyObserver2, first_per_sequential_id = false),
-//    )
-//
-//    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-//    executeSql(ingest(dtos, _))
-//    executeSql(updateLedgerEnd(offset(2), 2L))
-//    val resultSignatory = executeSql(
-//      backend.event.updateStreamingQueries
-//        .fetchEventIdsLegacy(EventIdSourceLegacy.CreateStakeholder)(
-//          stakeholderO = Some(partySignatory),
-//          templateIdO = Some(someTemplateId),
-//        )(_)(
-//          PaginationInput(
-//            startExclusive = 0L,
-//            endInclusive = 10L,
-//            limit = 10,
-//          )
-//        )
-//    )
-//    val resultObserver1 = executeSql(
-//      backend.event.updateStreamingQueries
-//        .fetchEventIdsLegacy(EventIdSourceLegacy.CreateStakeholder)(
-//          stakeholderO = Some(partyObserver1),
-//          templateIdO = Some(someTemplateId),
-//        )(_)(
-//          PaginationInput(
-//            startExclusive = 0L,
-//            endInclusive = 10L,
-//            limit = 10,
-//          )
-//        )
-//    )
-//    val resultObserver2 = executeSql(
-//      backend.event.updateStreamingQueries
-//        .fetchEventIdsLegacy(EventIdSourceLegacy.CreateStakeholder)(
-//          stakeholderO = Some(partyObserver2),
-//          templateIdO = Some(someTemplateId),
-//        )(_)(
-//          PaginationInput(
-//            startExclusive = 0L,
-//            endInclusive = 10L,
-//            limit = 10,
-//          )
-//        )
-//    )
-//    val resultSuperReader = executeSql(
-//      backend.event.updateStreamingQueries
-//        .fetchEventIdsLegacy(EventIdSourceLegacy.CreateStakeholder)(
-//          stakeholderO = None,
-//          templateIdO = Some(someTemplateId),
-//        )(_)(
-//          PaginationInput(
-//            startExclusive = 0L,
-//            endInclusive = 10L,
-//            limit = 10,
-//          )
-//        )
-//    )
-//
-//    resultSignatory should contain theSameElementsAs Vector(1L, 2L)
-//    resultObserver1 should contain theSameElementsAs Vector(1L)
-//    resultObserver2 should contain theSameElementsAs Vector(2L)
-//    resultSuperReader should contain theSameElementsAs Vector(1L, 2L)
-//  }
-//
-//  it should "not find contracts when the template doesn't match legacy" in {
-//    val partySignatory = Ref.Party.assertFromString("signatory")
-//    val partyObserver1 = Ref.Party.assertFromString("observer1")
-//    val partyObserver2 = Ref.Party.assertFromString("observer2")
-//    val otherTemplate = NameTypeConRef.assertFromString("#pkg-name:Mod:Template2")
-//
-//    val dtos = Vector(
-//      dtoCreateLegacy(
-//        offset(1),
-//        1L,
-//        hashCid("#1"),
-//        signatory = partySignatory,
-//        observer = partyObserver1,
-//      ),
-//      dtoCreateFilter(1L, someTemplateId, partySignatory, first_per_sequential_id = true),
-//      dtoCreateFilter(1L, someTemplateId, partyObserver1, first_per_sequential_id = false),
-//      dtoCreateLegacy(
-//        offset(2),
-//        2L,
-//        hashCid("#2"),
-//        signatory = partySignatory,
-//        observer = partyObserver2,
-//      ),
-//      dtoCreateFilter(2L, someTemplateId, partySignatory, first_per_sequential_id = true),
-//      dtoCreateFilter(2L, someTemplateId, partyObserver2, first_per_sequential_id = false),
-//    )
-//
-//    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-//    executeSql(ingest(dtos, _))
-//    executeSql(updateLedgerEnd(offset(2), 2L))
-//    val resultSignatory = executeSql(
-//      backend.event.updateStreamingQueries
-//        .fetchEventIdsLegacy(EventIdSourceLegacy.CreateStakeholder)(
-//          stakeholderO = Some(partySignatory),
-//          templateIdO = Some(otherTemplate),
-//        )(_)(
-//          PaginationInput(
-//            startExclusive = 0L,
-//            endInclusive = 10L,
-//            limit = 10,
-//          )
-//        )
-//    )
-//    val resultObserver1 = executeSql(
-//      backend.event.updateStreamingQueries
-//        .fetchEventIdsLegacy(EventIdSourceLegacy.CreateStakeholder)(
-//          stakeholderO = Some(partyObserver1),
-//          templateIdO = Some(otherTemplate),
-//        )(_)(
-//          PaginationInput(
-//            startExclusive = 0L,
-//            endInclusive = 10L,
-//            limit = 10,
-//          )
-//        )
-//    )
-//    val resultObserver2 = executeSql(
-//      backend.event.updateStreamingQueries
-//        .fetchEventIdsLegacy(EventIdSourceLegacy.CreateStakeholder)(
-//          stakeholderO = Some(partyObserver2),
-//          templateIdO = Some(otherTemplate),
-//        )(_)(
-//          PaginationInput(
-//            startExclusive = 0L,
-//            endInclusive = 10L,
-//            limit = 10,
-//          )
-//        )
-//    )
-//    val resultSuperReader = executeSql(
-//      backend.event.updateStreamingQueries
-//        .fetchEventIdsLegacy(EventIdSourceLegacy.CreateStakeholder)(
-//          stakeholderO = None,
-//          templateIdO = Some(otherTemplate),
-//        )(_)(
-//          PaginationInput(
-//            startExclusive = 0L,
-//            endInclusive = 10L,
-//            limit = 10,
-//          )
-//        )
-//    )
-//
-//    resultSignatory shouldBe empty
-//    resultObserver1 shouldBe empty
-//    resultObserver2 shouldBe empty
-//    resultSuperReader shouldBe empty
-//  }
-//
-//  it should "not find contracts when unknown names are used legacy" in {
-//    val partySignatory = Ref.Party.assertFromString("signatory")
-//    val partyObserver = Ref.Party.assertFromString("observer")
-//    val partyUnknown = Ref.Party.assertFromString("unknown")
-//    val unknownTemplate = NameTypeConRef.assertFromString("#unknown:unknown:unknown")
-//
-//    val dtos = Vector(
-//      dtoCreateLegacy(
-//        offset(1),
-//        1L,
-//        hashCid("#1"),
-//        signatory = partySignatory,
-//        observer = partyObserver,
-//      ),
-//      dtoCreateFilter(1L, someTemplateId, partySignatory, first_per_sequential_id = true),
-//      dtoCreateFilter(1L, someTemplateId, partyObserver, first_per_sequential_id = false),
-//    )
-//
-//    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-//    executeSql(ingest(dtos, _))
-//    executeSql(updateLedgerEnd(offset(1), 1L))
-//    val resultUnknownParty = executeSql(
-//      backend.event.updateStreamingQueries
-//        .fetchEventIdsLegacy(EventIdSourceLegacy.CreateStakeholder)(
-//          stakeholderO = Some(partyUnknown),
-//          templateIdO = None,
-//        )(_)(
-//          PaginationInput(
-//            startExclusive = 0L,
-//            endInclusive = 10L,
-//            limit = 10,
-//          )
-//        )
-//    )
-//    val resultUnknownTemplate = executeSql(
-//      backend.event.updateStreamingQueries
-//        .fetchEventIdsLegacy(EventIdSourceLegacy.CreateStakeholder)(
-//          stakeholderO = Some(partySignatory),
-//          templateIdO = Some(unknownTemplate),
-//        )(_)(
-//          PaginationInput(
-//            startExclusive = 0L,
-//            endInclusive = 10L,
-//            limit = 10,
-//          )
-//        )
-//    )
-//    val resultUnknownPartyAndTemplate = executeSql(
-//      backend.event.updateStreamingQueries
-//        .fetchEventIdsLegacy(EventIdSourceLegacy.CreateStakeholder)(
-//          stakeholderO = Some(partyUnknown),
-//          templateIdO = Some(unknownTemplate),
-//        )(_)(
-//          PaginationInput(
-//            startExclusive = 0L,
-//            endInclusive = 10L,
-//            limit = 10,
-//          )
-//        )
-//    )
-//    val resultUnknownTemplateSuperReader = executeSql(
-//      backend.event.updateStreamingQueries
-//        .fetchEventIdsLegacy(EventIdSourceLegacy.CreateStakeholder)(
-//          stakeholderO = None,
-//          templateIdO = Some(unknownTemplate),
-//        )(_)(
-//          PaginationInput(
-//            startExclusive = 0L,
-//            endInclusive = 10L,
-//            limit = 10,
-//          )
-//        )
-//    )
-//
-//    resultUnknownParty shouldBe empty
-//    resultUnknownTemplate shouldBe empty
-//    resultUnknownPartyAndTemplate shouldBe empty
-//    resultUnknownTemplateSuperReader shouldBe empty
-//  }
-//
-//  it should "respect bounds and limits legacy" in {
-//    val partySignatory = Ref.Party.assertFromString("signatory")
-//    val partyObserver1 = Ref.Party.assertFromString("observer1")
-//    val partyObserver2 = Ref.Party.assertFromString("observer2")
-//
-//    val dtos = Vector(
-//      dtoCreateLegacy(
-//        offset(1),
-//        1L,
-//        hashCid("#1"),
-//        signatory = partySignatory,
-//        observer = partyObserver1,
-//      ),
-//      dtoCreateFilter(1L, someTemplateId, partySignatory, first_per_sequential_id = true),
-//      dtoCreateFilter(1L, someTemplateId, partyObserver1, first_per_sequential_id = false),
-//      dtoCreateLegacy(
-//        offset(2),
-//        2L,
-//        hashCid("#2"),
-//        signatory = partySignatory,
-//        observer = partyObserver2,
-//      ),
-//      dtoCreateFilter(2L, someTemplateId, partySignatory, first_per_sequential_id = true),
-//      dtoCreateFilter(2L, someTemplateId, partyObserver2, first_per_sequential_id = false),
-//    )
-//
-//    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-//    executeSql(ingest(dtos, _))
-//    executeSql(updateLedgerEnd(offset(2), 2L))
-//    val result01L2 = executeSql(
-//      backend.event.updateStreamingQueries
-//        .fetchEventIdsLegacy(EventIdSourceLegacy.CreateStakeholder)(
-//          stakeholderO = Some(partySignatory),
-//          templateIdO = None,
-//        )(_)(
-//          PaginationInput(
-//            startExclusive = 0L,
-//            endInclusive = 1L,
-//            limit = 2,
-//          )
-//        )
-//    )
-//    val result12L2 = executeSql(
-//      backend.event.updateStreamingQueries
-//        .fetchEventIdsLegacy(EventIdSourceLegacy.CreateStakeholder)(
-//          stakeholderO = Some(partySignatory),
-//          templateIdO = None,
-//        )(_)(
-//          PaginationInput(
-//            startExclusive = 1L,
-//            endInclusive = 2L,
-//            limit = 2,
-//          )
-//        )
-//    )
-//    val result02L1 = executeSql(
-//      backend.event.updateStreamingQueries
-//        .fetchEventIdsLegacy(EventIdSourceLegacy.CreateStakeholder)(
-//          stakeholderO = Some(partySignatory),
-//          templateIdO = None,
-//        )(_)(
-//          PaginationInput(
-//            startExclusive = 0L,
-//            endInclusive = 2L,
-//            limit = 1,
-//          )
-//        )
-//    )
-//    val result02L2 = executeSql(
-//      backend.event.updateStreamingQueries
-//        .fetchEventIdsLegacy(EventIdSourceLegacy.CreateStakeholder)(
-//          stakeholderO = Some(partySignatory),
-//          templateIdO = None,
-//        )(_)(
-//          PaginationInput(
-//            startExclusive = 0L,
-//            endInclusive = 2L,
-//            limit = 2,
-//          )
-//        )
-//    )
-//
-//    result01L2 should contain theSameElementsAs Vector(1L)
-//    result12L2 should contain theSameElementsAs Vector(2L)
-//    result02L1 should contain theSameElementsAs Vector(1L)
-//    result02L2 should contain theSameElementsAs Vector(1L, 2L)
-//  }
-
   it should "find contracts by party" in {
     val partySignatory = Ref.Party.assertFromString("signatory")
     val partyObserver1 = Ref.Party.assertFromString("observer1")
@@ -510,7 +77,7 @@ private[backend] trait StorageBackendTestsEvents
       )(
         stakeholders = Set(partySignatory, partyObserver1)
       ),
-      dtosCreate(
+      dtosAssign(
         event_offset = 2,
         event_sequential_id = 2L,
         notPersistedContractId = hashCid("#2"),
@@ -728,7 +295,7 @@ private[backend] trait StorageBackendTestsEvents
         stakeholders = Set(partySignatory, partyObserver1),
         template_id = someTemplateId.toString(),
       ),
-      dtosCreate(
+      dtosAssign(
         event_offset = 2,
         event_sequential_id = 2L,
         notPersistedContractId = hashCid("#2"),
@@ -1102,126 +669,6 @@ private[backend] trait StorageBackendTestsEvents
     maxEventSequentialId(20) shouldBe 1110
     maxEventSequentialId(21) shouldBe 1110
   }
-
-// TODO(i28539) analyse if additional unit tests needed, and implement them with the new schema
-//  it should "return the correct trace context for create events" in {
-//    val traceContexts = (1 to 3)
-//      .flatMap(_ => List(TraceContext.empty, TraceContext.withNewTraceContext("test")(identity)))
-//      .map(SerializableTraceContext(_).toDamlProto.toByteArray)
-//    val dbDtos = Vector(
-//      dtoCreateLegacy(
-//        offset = offset(1),
-//        eventSequentialId = 1L,
-//        contractId = hashCid("#1"),
-//        traceContext = traceContexts(0),
-//      ),
-//      dtoCreateLegacy(
-//        offset = offset(2),
-//        eventSequentialId = 2L,
-//        contractId = hashCid("#2"),
-//        traceContext = traceContexts(1),
-//      ),
-//      dtoExerciseLegacy(
-//        offset = offset(3),
-//        eventSequentialId = 3L,
-//        consuming = false,
-//        contractId = hashCid("#1"),
-//        traceContext = traceContexts(2),
-//      ),
-//      dtoExerciseLegacy(
-//        offset = offset(4),
-//        eventSequentialId = 4L,
-//        consuming = false,
-//        contractId = hashCid("#2"),
-//        traceContext = traceContexts(3),
-//      ),
-//      dtoExerciseLegacy(
-//        offset = offset(5),
-//        eventSequentialId = 5L,
-//        consuming = true,
-//        contractId = hashCid("#1"),
-//        traceContext = traceContexts(4),
-//      ),
-//      dtoExerciseLegacy(
-//        offset = offset(6),
-//        eventSequentialId = 6L,
-//        consuming = true,
-//        contractId = hashCid("#2"),
-//        commandId = "command id 6",
-//        traceContext = traceContexts(5),
-//      ),
-//    )
-//
-//    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-//    executeSql(ingest(dbDtos, _))
-//    executeSql(updateLedgerEnd(offset(2), 2L))
-//
-//    val transactionTrees = executeSql(
-//      backend.event.fetchEventPayloadsLedgerEffectsLegacy(
-//        EventPayloadSourceForUpdatesLedgerEffectsLegacy.Create
-//      )(eventSequentialIds = IdRange(1L, 6L), Some(Set.empty))
-//    ) ++
-//      executeSql(
-//        backend.event.fetchEventPayloadsLedgerEffectsLegacy(
-//          EventPayloadSourceForUpdatesLedgerEffectsLegacy.NonConsuming
-//        )(eventSequentialIds = IdRange(1L, 6L), Some(Set.empty))
-//      ) ++
-//      executeSql(
-//        backend.event.fetchEventPayloadsLedgerEffectsLegacy(
-//          EventPayloadSourceForUpdatesLedgerEffectsLegacy.Consuming
-//        )(eventSequentialIds = IdRange(1L, 6L), Some(Set.empty))
-//      )
-//    for (i <- traceContexts.indices)
-//      yield transactionTrees(i).traceContext should equal(Some(traceContexts(i)))
-//
-//  }
-//
-//  it should "return the correct keys for create events" in {
-//    val someKey = Some(someSerializedDamlLfValue)
-//    val someMaintainer = Some("maintainer")
-//    val someMaintainers = Array("maintainer")
-//    val dbDtos = Vector(
-//      dtoCreateLegacy(
-//        offset = offset(1),
-//        eventSequentialId = 1L,
-//        contractId = hashCid("#1"),
-//        createKey = someKey,
-//        createKeyMaintainer = someMaintainer,
-//      ),
-//      dtoCreateLegacy(
-//        offset = offset(2),
-//        eventSequentialId = 2L,
-//        contractId = hashCid("#2"),
-//        createKey = None,
-//        createKeyMaintainer = None,
-//      ),
-//    )
-//
-//    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-//    executeSql(ingest(dbDtos, _))
-//    executeSql(updateLedgerEnd(offset(2), 2L))
-//
-//    val transactionTrees = executeSql(
-//      backend.event.fetchEventPayloadsLedgerEffectsLegacy(
-//        EventPayloadSourceForUpdatesLedgerEffectsLegacy.Create
-//      )(eventSequentialIds = IdRange(1L, 4L), Some(Set.empty))
-//    )
-//
-//    def checkKeyAndMaintainersInTrees(
-//        event: RawLedgerEffectsEventLegacy,
-//        createKey: Option[Array[Byte]],
-//        createKeyMaintainers: Array[String],
-//    ) = event match {
-//      case created: RawCreatedEventLegacy =>
-//        created.createKeyValue should equal(createKey)
-//        created.createKeyMaintainers should equal(createKeyMaintainers.toSet)
-//      case _ => fail()
-//    }
-//
-//    checkKeyAndMaintainersInTrees(transactionTrees(0).event, someKey, someMaintainers)
-//    checkKeyAndMaintainersInTrees(transactionTrees(1).event, None, Array.empty)
-//
-//  }
 
   it should "work properly for SynchronizerOffset queries" in {
     val startRecordTimeSynchronizer = Timestamp.now()
@@ -1793,7 +1240,7 @@ private[backend] trait StorageBackendTestsEvents
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
-      // never return an synchronizer offset with an offset greater than the ledger end
+      // never return a synchronizer offset with an offset greater than the ledger end
       startRecordTimeSynchronizer2.addMicros(4000) -> Some(
         SynchronizerOffset(
           offset = offset(11),
@@ -2224,7 +1671,7 @@ private[backend] trait StorageBackendTestsEvents
           .toFullIdentifier(PackageName.assertFromString("tem")),
         filteredStakeholderParties = Set("stakeholder1"),
         ledgerEffectiveTime = Timestamp.assertFromLong(123456),
-        deactivatedEventSeqId = Some(600),
+        deactivatedEventSeqId = Some(2),
       ),
       RawUnassignEvent(
         reassignmentProperties = ReassignmentProperties(
@@ -2431,7 +1878,7 @@ private[backend] trait StorageBackendTestsEvents
         filteredStakeholderParties = Set("stakeholder1"),
         ledgerEffectiveTime = Timestamp.assertFromLong(123456),
         acsDeltaForParticipant = true,
-        deactivatedEventSeqId = Some(600),
+        deactivatedEventSeqId = Some(2),
       ).tap(_.acsDeltaForWitnesses shouldBe true),
       RawUnassignEvent(
         reassignmentProperties = ReassignmentProperties(
@@ -2507,7 +1954,7 @@ private[backend] trait StorageBackendTestsEvents
         filteredStakeholderParties = Set(),
         ledgerEffectiveTime = Timestamp.assertFromLong(123456),
         acsDeltaForParticipant = true,
-        deactivatedEventSeqId = Some(600),
+        deactivatedEventSeqId = Some(2),
       ).tap(_.acsDeltaForWitnesses shouldBe false),
       RawUnassignEvent(
         reassignmentProperties = ReassignmentProperties(
@@ -2796,7 +2243,7 @@ private[backend] trait StorageBackendTestsEvents
           .toFullIdentifier(PackageName.assertFromString("tem")),
         filteredStakeholderParties = Set("stakeholder1"),
         ledgerEffectiveTime = Timestamp.assertFromLong(123456),
-        deactivatedEventSeqId = Some(600),
+        deactivatedEventSeqId = Some(2),
       )
     )
 
@@ -2873,5 +2320,613 @@ private[backend] trait StorageBackendTestsEvents
       )
     )
     divulged shouldBe (None -> None)
+  }
+
+  it should "fetch correctly the stream contents for acs" in {
+    implicit val eq: Equality[RawThinActiveContract] = caseClassArrayEq
+
+    val dbDtos = Vector(
+      dtosCreate(event_sequential_id = 1L)(),
+      dtosAssign(event_sequential_id = 2L)(),
+      dtosConsumingExercise(event_sequential_id = 3L),
+      dtosUnassign(event_sequential_id = 4L),
+      dtosWitnessedCreate(event_sequential_id = 5L)(),
+      dtosWitnessedExercised(event_sequential_id = 6L),
+      dtosWitnessedExercised(
+        event_sequential_id = 7L,
+        consuming = false,
+      ),
+    ).flatten
+
+    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+    executeSql(ingest(dbDtos, _))
+    executeSql(
+      updateLedgerEnd(offset(10000), 10000L)
+    )
+
+    val acs = executeSql(
+      backend.event.activeContractBatch(
+        eventSequentialIds = 0L to 100L,
+        allFilterParties =
+          Some(Set("witness1", "stakeholder1", "submitter1", "actor1").map(Party.assertFromString)),
+        endInclusive = 100L,
+      )
+    ).toList
+
+    acs should contain theSameElementsInOrderAs List(
+      RawThinActiveContract(
+        commonEventProperties = CommonEventProperties(
+          eventSequentialId = 1L,
+          offset = 10L,
+          nodeId = 15,
+          workflowId = Some("workflow-id"),
+          synchronizerId = someSynchronizerId.toProtoPrimitive,
+        ),
+        thinCreatedEventProperties = ThinCreatedEventProperties(
+          representativePackageId = Ref.PackageId.assertFromString("representativepackage"),
+          filteredAdditionalWitnessParties = Set.empty,
+          internalContractId = 10L,
+          requestingParties = Some(Set("witness1", "stakeholder1", "submitter1", "actor1")),
+          reassignmentCounter = 0L,
+          acsDeltaForParticipant = true,
+        ),
+      ),
+      RawThinActiveContract(
+        commonEventProperties = CommonEventProperties(
+          eventSequentialId = 2L,
+          offset = 10L,
+          nodeId = 15,
+          workflowId = Some("workflow-id"),
+          synchronizerId = someSynchronizerId.toProtoPrimitive,
+        ),
+        thinCreatedEventProperties = ThinCreatedEventProperties(
+          representativePackageId = Ref.PackageId.assertFromString("representativepackage"),
+          filteredAdditionalWitnessParties = Set.empty,
+          internalContractId = 10L,
+          requestingParties = Some(Set("witness1", "stakeholder1", "submitter1", "actor1")),
+          reassignmentCounter = 345,
+          acsDeltaForParticipant = true,
+        ),
+      ),
+    )
+
+    acs.size shouldBe
+      executeSql(
+        backend.event.fetchEventPayloadsAcsDelta(EventPayloadSourceForUpdatesAcsDelta.Activate)(
+          eventSequentialIds = SequentialIdBatch.IdRange(0, 100),
+          requestingPartiesForTx = None,
+          requestingPartiesForReassignment = None,
+        )
+      ).size
+  }
+
+  it should "fetch empty values for optional fields when not defined" in {
+    implicit val eq: Equality[RawThinAcsDeltaEvent] = caseClassArrayEq
+    implicit val eq2: Equality[RawThinLedgerEffectsEvent] = caseClassArrayEq
+
+    val dbDtos = Vector(
+      dtosCreate(
+        event_sequential_id = 1L,
+        workflow_id = None,
+        command_id = None,
+        submitters = None,
+        external_transaction_hash = None,
+        create_key_hash = None,
+      )(),
+      dtosAssign(
+        event_sequential_id = 2L,
+        workflow_id = None,
+        command_id = None,
+        submitter = None,
+      )(),
+      dtosConsumingExercise(
+        event_sequential_id = 3L,
+        workflow_id = None,
+        command_id = None,
+        submitters = None,
+        external_transaction_hash = None,
+        deactivated_event_sequential_id = None,
+        exercise_choice_interface_id = None,
+        exercise_result = None,
+        exercise_argument_compression = None,
+        exercise_result_compression = None,
+        internal_contract_id = Some(10), // internal contract id should NOT be empty
+      ),
+      dtosUnassign(
+        event_sequential_id = 4L,
+        workflow_id = None,
+        command_id = None,
+        submitter = None,
+        deactivated_event_sequential_id = None,
+        assignment_exclusivity = None,
+        internal_contract_id = Some(10), // internal contract id should NOT be empty
+      ),
+      dtosWitnessedCreate(
+        event_sequential_id = 5L,
+        workflow_id = None,
+        command_id = None,
+        submitters = None,
+        external_transaction_hash = None,
+      )(),
+      dtosWitnessedExercised(
+        event_sequential_id = 6L,
+        workflow_id = None,
+        command_id = None,
+        submitters = None,
+        external_transaction_hash = None,
+        exercise_choice_interface_id = None,
+        exercise_result = None,
+        exercise_argument_compression = None,
+        exercise_result_compression = None,
+        internal_contract_id = None,
+      ),
+    ).flatten
+
+    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+    executeSql(ingest(dbDtos, _))
+    executeSql(
+      updateLedgerEnd(offset(10000), 10000L)
+    )
+
+    // acs delta with optional fields undefined
+    executeSql(
+      backend.event.fetchEventPayloadsAcsDelta(EventPayloadSourceForUpdatesAcsDelta.Activate)(
+        eventSequentialIds = SequentialIdBatch.IdRange(0, 100),
+        requestingPartiesForTx = None,
+        requestingPartiesForReassignment = None,
+      )
+    ).toList should contain theSameElementsInOrderAs List(
+      RawThinCreatedEvent(
+        transactionProperties = TransactionProperties(
+          commonEventProperties = CommonEventProperties(
+            eventSequentialId = 1L,
+            offset = 10L,
+            nodeId = 15,
+            workflowId = None,
+            synchronizerId = someSynchronizerId.toProtoPrimitive,
+          ),
+          commonUpdateProperties = CommonUpdateProperties(
+            updateId = TestUpdateId("update").toHexString,
+            commandId = None,
+            traceContext = serializableTraceContext,
+            recordTime = Timestamp.assertFromLong(100L),
+          ),
+          externalTransactionHash = None,
+        ),
+        thinCreatedEventProperties = ThinCreatedEventProperties(
+          representativePackageId = Ref.PackageId.assertFromString("representativepackage"),
+          filteredAdditionalWitnessParties = Set.empty,
+          internalContractId = 10L,
+          requestingParties = None,
+          reassignmentCounter = 0L,
+          acsDeltaForParticipant = true,
+        ),
+      ),
+      RawThinAssignEvent(
+        reassignmentProperties = ReassignmentProperties(
+          commonEventProperties = CommonEventProperties(
+            eventSequentialId = 2L,
+            offset = 10L,
+            nodeId = 15,
+            workflowId = None,
+            synchronizerId = someSynchronizerId.toProtoPrimitive,
+          ),
+          commonUpdateProperties = CommonUpdateProperties(
+            updateId = TestUpdateId("update").toHexString,
+            commandId = None,
+            traceContext = serializableTraceContext,
+            recordTime = Timestamp.assertFromLong(100L),
+          ),
+          reassignmentId = "0012345678",
+          submitter = None,
+          reassignmentCounter = 345,
+        ),
+        thinCreatedEventProperties = ThinCreatedEventProperties(
+          representativePackageId = Ref.PackageId.assertFromString("representativepackage"),
+          filteredAdditionalWitnessParties = Set.empty,
+          internalContractId = 10L,
+          requestingParties = None,
+          reassignmentCounter = 345,
+          acsDeltaForParticipant = true,
+        ),
+        sourceSynchronizerId = someSynchronizerId2.toProtoPrimitive,
+      ),
+    )
+
+    executeSql(
+      backend.event.fetchEventPayloadsAcsDelta(EventPayloadSourceForUpdatesAcsDelta.Deactivate)(
+        eventSequentialIds = SequentialIdBatch.IdRange(0, 100),
+        requestingPartiesForTx = None,
+        requestingPartiesForReassignment = None,
+      )
+    ).toList should contain theSameElementsInOrderAs List(
+      RawArchivedEvent(
+        transactionProperties = TransactionProperties(
+          commonEventProperties = CommonEventProperties(
+            eventSequentialId = 3L,
+            offset = 10L,
+            nodeId = 15,
+            workflowId = None,
+            synchronizerId = someSynchronizerId.toProtoPrimitive,
+          ),
+          commonUpdateProperties = CommonUpdateProperties(
+            updateId = TestUpdateId("update").toHexString,
+            commandId = None,
+            traceContext = serializableTraceContext,
+            recordTime = Timestamp.assertFromLong(100L),
+          ),
+          externalTransactionHash = None,
+        ),
+        contractId = hashCid("c1"),
+        templateId = Identifier
+          .assertFromString("package:pl:ate")
+          .toFullIdentifier(PackageName.assertFromString("tem")),
+        filteredStakeholderParties = Set("stakeholder1", "stakeholder2"),
+        ledgerEffectiveTime = Timestamp.assertFromLong(123456),
+        deactivatedEventSeqId = None,
+      ),
+      RawUnassignEvent(
+        reassignmentProperties = ReassignmentProperties(
+          commonEventProperties = CommonEventProperties(
+            eventSequentialId = 4L,
+            offset = 10L,
+            nodeId = 15,
+            workflowId = None,
+            synchronizerId = someSynchronizerId.toProtoPrimitive,
+          ),
+          commonUpdateProperties = CommonUpdateProperties(
+            updateId = TestUpdateId("update").toHexString,
+            commandId = None,
+            traceContext = serializableTraceContext,
+            recordTime = Timestamp.assertFromLong(100L),
+          ),
+          reassignmentId = "0012345678",
+          submitter = None,
+          reassignmentCounter = 345,
+        ),
+        contractId = hashCid("c1"),
+        templateId = Identifier
+          .assertFromString("package:pl:ate")
+          .toFullIdentifier(PackageName.assertFromString("tem")),
+        filteredStakeholderParties = Set("stakeholder1", "stakeholder2"),
+        assignmentExclusivity = None,
+        targetSynchronizerId = someSynchronizerId2.toProtoPrimitive,
+        deactivatedEventSeqId = None,
+      ),
+    )
+
+    // ledger effects events with optional fields undefined
+    executeSql(
+      backend.event.fetchEventPayloadsLedgerEffects(
+        EventPayloadSourceForUpdatesLedgerEffects.Activate
+      )(
+        eventSequentialIds = SequentialIdBatch.IdRange(0, 100),
+        requestingPartiesForTx = None,
+        requestingPartiesForReassignment = None,
+      )
+    ).toList should contain theSameElementsInOrderAs List(
+      RawThinCreatedEvent(
+        transactionProperties = TransactionProperties(
+          commonEventProperties = CommonEventProperties(
+            eventSequentialId = 1L,
+            offset = 10L,
+            nodeId = 15,
+            workflowId = None,
+            synchronizerId = someSynchronizerId.toProtoPrimitive,
+          ),
+          commonUpdateProperties = CommonUpdateProperties(
+            updateId = TestUpdateId("update").toHexString,
+            commandId = None,
+            traceContext = serializableTraceContext,
+            recordTime = Timestamp.assertFromLong(100L),
+          ),
+          externalTransactionHash = None,
+        ),
+        thinCreatedEventProperties = ThinCreatedEventProperties(
+          representativePackageId = Ref.PackageId.assertFromString("representativepackage"),
+          filteredAdditionalWitnessParties = Set("witness1", "witness2"),
+          internalContractId = 10L,
+          requestingParties = None,
+          reassignmentCounter = 0L,
+          acsDeltaForParticipant = true,
+        ),
+      ),
+      RawThinAssignEvent(
+        reassignmentProperties = ReassignmentProperties(
+          commonEventProperties = CommonEventProperties(
+            eventSequentialId = 2L,
+            offset = 10L,
+            nodeId = 15,
+            workflowId = None,
+            synchronizerId = someSynchronizerId.toProtoPrimitive,
+          ),
+          commonUpdateProperties = CommonUpdateProperties(
+            updateId = TestUpdateId("update").toHexString,
+            commandId = None,
+            traceContext = serializableTraceContext,
+            recordTime = Timestamp.assertFromLong(100L),
+          ),
+          reassignmentId = "0012345678",
+          submitter = None,
+          reassignmentCounter = 345,
+        ),
+        thinCreatedEventProperties = ThinCreatedEventProperties(
+          representativePackageId = Ref.PackageId.assertFromString("representativepackage"),
+          filteredAdditionalWitnessParties = Set.empty,
+          internalContractId = 10L,
+          requestingParties = None,
+          reassignmentCounter = 345,
+          acsDeltaForParticipant = true,
+        ),
+        sourceSynchronizerId = someSynchronizerId2.toProtoPrimitive,
+      ),
+    )
+
+    executeSql(
+      backend.event.fetchEventPayloadsLedgerEffects(
+        EventPayloadSourceForUpdatesLedgerEffects.Deactivate
+      )(
+        eventSequentialIds = SequentialIdBatch.IdRange(0, 100),
+        requestingPartiesForTx = None,
+        requestingPartiesForReassignment = None,
+      )
+    ).toList should contain theSameElementsInOrderAs List(
+      RawExercisedEvent(
+        transactionProperties = TransactionProperties(
+          commonEventProperties = CommonEventProperties(
+            eventSequentialId = 3L,
+            offset = 10L,
+            nodeId = 15,
+            workflowId = None,
+            synchronizerId = someSynchronizerId.toProtoPrimitive,
+          ),
+          commonUpdateProperties = CommonUpdateProperties(
+            updateId = TestUpdateId("update").toHexString,
+            commandId = None,
+            traceContext = serializableTraceContext,
+            recordTime = Timestamp.assertFromLong(100L),
+          ),
+          externalTransactionHash = None,
+        ),
+        contractId = hashCid("c1"),
+        templateId = Identifier
+          .assertFromString("package:pl:ate")
+          .toFullIdentifier(PackageName.assertFromString("tem")),
+        exerciseConsuming = true,
+        exerciseChoice = ChoiceName.assertFromString("choice"),
+        exerciseChoiceInterface = None,
+        exerciseArgument = Array(1, 2, 3),
+        exerciseArgumentCompression = None,
+        exerciseResult = None,
+        exerciseResultCompression = None,
+        exerciseActors = Set("actor1", "actor2"),
+        exerciseLastDescendantNodeId = 3,
+        filteredAdditionalWitnessParties = Set("witness1", "witness2"),
+        filteredStakeholderParties = Set("stakeholder1", "stakeholder2"),
+        ledgerEffectiveTime = Timestamp.assertFromLong(123456),
+        acsDeltaForParticipant = true,
+        deactivatedEventSeqId = None,
+      ),
+      RawUnassignEvent(
+        reassignmentProperties = ReassignmentProperties(
+          commonEventProperties = CommonEventProperties(
+            eventSequentialId = 4L,
+            offset = 10L,
+            nodeId = 15,
+            workflowId = None,
+            synchronizerId = someSynchronizerId.toProtoPrimitive,
+          ),
+          commonUpdateProperties = CommonUpdateProperties(
+            updateId = TestUpdateId("update").toHexString,
+            commandId = None,
+            traceContext = serializableTraceContext,
+            recordTime = Timestamp.assertFromLong(100L),
+          ),
+          reassignmentId = "0012345678",
+          submitter = None,
+          reassignmentCounter = 345,
+        ),
+        contractId = hashCid("c1"),
+        templateId = Identifier
+          .assertFromString("package:pl:ate")
+          .toFullIdentifier(PackageName.assertFromString("tem")),
+        filteredStakeholderParties = Set("stakeholder1", "stakeholder2"),
+        assignmentExclusivity = None,
+        targetSynchronizerId = someSynchronizerId2.toProtoPrimitive,
+        deactivatedEventSeqId = None,
+      ),
+    )
+
+    executeSql(
+      backend.event.fetchEventPayloadsLedgerEffects(
+        EventPayloadSourceForUpdatesLedgerEffects.VariousWitnessed
+      )(
+        eventSequentialIds = SequentialIdBatch.IdRange(0, 100),
+        requestingPartiesForTx = None,
+        requestingPartiesForReassignment = None,
+      )
+    ).toList should contain theSameElementsInOrderAs List(
+      RawThinCreatedEvent(
+        transactionProperties = TransactionProperties(
+          commonEventProperties = CommonEventProperties(
+            eventSequentialId = 5L,
+            offset = 10L,
+            nodeId = 15,
+            workflowId = None,
+            synchronizerId = someSynchronizerId.toProtoPrimitive,
+          ),
+          commonUpdateProperties = CommonUpdateProperties(
+            updateId = TestUpdateId("update").toHexString,
+            commandId = None,
+            traceContext = serializableTraceContext,
+            recordTime = Timestamp.assertFromLong(100L),
+          ),
+          externalTransactionHash = None,
+        ),
+        thinCreatedEventProperties = ThinCreatedEventProperties(
+          representativePackageId = Ref.PackageId.assertFromString("representativepackage"),
+          filteredAdditionalWitnessParties = Set("witness1", "witness2"),
+          internalContractId = 10L,
+          requestingParties = None,
+          reassignmentCounter = 0L,
+          acsDeltaForParticipant = false,
+        ),
+      ),
+      RawExercisedEvent(
+        transactionProperties = TransactionProperties(
+          commonEventProperties = CommonEventProperties(
+            eventSequentialId = 6L,
+            offset = 10L,
+            nodeId = 15,
+            workflowId = None,
+            synchronizerId = someSynchronizerId.toProtoPrimitive,
+          ),
+          commonUpdateProperties = CommonUpdateProperties(
+            updateId = TestUpdateId("update").toHexString,
+            commandId = None,
+            traceContext = serializableTraceContext,
+            recordTime = Timestamp.assertFromLong(100L),
+          ),
+          externalTransactionHash = None,
+        ),
+        contractId = hashCid("c1"),
+        templateId = Identifier
+          .assertFromString("package:pl:ate")
+          .toFullIdentifier(PackageName.assertFromString("tem")),
+        exerciseConsuming = true,
+        exerciseChoice = ChoiceName.assertFromString("choice"),
+        exerciseChoiceInterface = None,
+        exerciseArgument = Array(1, 2, 3),
+        exerciseArgumentCompression = None,
+        exerciseResult = None,
+        exerciseResultCompression = None,
+        exerciseActors = Set("actor1", "actor2"),
+        exerciseLastDescendantNodeId = 3,
+        filteredAdditionalWitnessParties = Set("witness1", "witness2"),
+        filteredStakeholderParties = Set.empty,
+        ledgerEffectiveTime = Timestamp.assertFromLong(123456),
+        acsDeltaForParticipant = false,
+        deactivatedEventSeqId = None,
+      ),
+    )
+
+    // active contracts with optional fields undefined
+    executeSql(
+      backend.event.activeContractBatch(
+        eventSequentialIds = 0L to 100L,
+        allFilterParties = None,
+        endInclusive = 100L,
+      )
+    ).toList should contain theSameElementsInOrderAs List(
+      RawThinActiveContract(
+        commonEventProperties = CommonEventProperties(
+          eventSequentialId = 1L,
+          offset = 10L,
+          nodeId = 15,
+          workflowId = None,
+          synchronizerId = someSynchronizerId.toProtoPrimitive,
+        ),
+        thinCreatedEventProperties = ThinCreatedEventProperties(
+          representativePackageId = Ref.PackageId.assertFromString("representativepackage"),
+          filteredAdditionalWitnessParties = Set.empty,
+          internalContractId = 10L,
+          requestingParties = None,
+          reassignmentCounter = 0L,
+          acsDeltaForParticipant = true,
+        ),
+      ),
+      RawThinActiveContract(
+        commonEventProperties = CommonEventProperties(
+          eventSequentialId = 2L,
+          offset = 10L,
+          nodeId = 15,
+          workflowId = None,
+          synchronizerId = someSynchronizerId.toProtoPrimitive,
+        ),
+        thinCreatedEventProperties = ThinCreatedEventProperties(
+          representativePackageId = Ref.PackageId.assertFromString("representativepackage"),
+          filteredAdditionalWitnessParties = Set.empty,
+          internalContractId = 10L,
+          requestingParties = None,
+          reassignmentCounter = 345,
+          acsDeltaForParticipant = true,
+        ),
+      ),
+    )
+  }
+
+  it should "fetch the same events when queried by list of sequential ids" in {
+    implicit val eq: Equality[RawThinAcsDeltaEvent] = caseClassArrayEq
+    implicit val eq2: Equality[RawThinLedgerEffectsEvent] = caseClassArrayEq
+
+    val dbDtos = Vector(
+      dtosCreate(event_sequential_id = 1L)(),
+      dtosAssign(event_sequential_id = 2L)(),
+      dtosConsumingExercise(event_sequential_id = 3L),
+      dtosUnassign(event_sequential_id = 4L),
+      dtosWitnessedCreate(event_sequential_id = 5L)(),
+      dtosWitnessedExercised(event_sequential_id = 6L),
+    ).flatten
+
+    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+    executeSql(ingest(dbDtos, _))
+    executeSql(
+      updateLedgerEnd(offset(10000), 10000L)
+    )
+
+    for {
+      target <- Seq(
+        EventPayloadSourceForUpdatesAcsDelta.Activate,
+        EventPayloadSourceForUpdatesAcsDelta.Deactivate,
+      )
+    } yield withClue(s"Failed for target: $target") {
+
+      val range = executeSql(
+        backend.event.fetchEventPayloadsAcsDelta(target)(
+          eventSequentialIds = SequentialIdBatch.IdRange(0, 100),
+          requestingPartiesForTx = None,
+          requestingPartiesForReassignment = None,
+        )
+      ).toList
+
+      val list = executeSql(
+        backend.event.fetchEventPayloadsAcsDelta(target)(
+          eventSequentialIds = SequentialIdBatch.Ids((0L to 100L).toList),
+          requestingPartiesForTx = None,
+          requestingPartiesForReassignment = None,
+        )
+      ).toList
+
+      range should contain theSameElementsInOrderAs list
+      range.size shouldBe list.size
+    }
+
+    for {
+      target <- Seq(
+        EventPayloadSourceForUpdatesLedgerEffects.Activate,
+        EventPayloadSourceForUpdatesLedgerEffects.Deactivate,
+        EventPayloadSourceForUpdatesLedgerEffects.VariousWitnessed,
+      )
+    } yield withClue(s"Failed for target: $target") {
+
+      val range = executeSql(
+        backend.event.fetchEventPayloadsLedgerEffects(target)(
+          eventSequentialIds = SequentialIdBatch.IdRange(0, 100),
+          requestingPartiesForTx = None,
+          requestingPartiesForReassignment = None,
+        )
+      ).toList
+
+      val list = executeSql(
+        backend.event.fetchEventPayloadsLedgerEffects(target)(
+          eventSequentialIds = SequentialIdBatch.Ids((0L to 100L).toList),
+          requestingPartiesForTx = None,
+          requestingPartiesForReassignment = None,
+        )
+      ).toList
+
+      range should contain theSameElementsInOrderAs list
+      range.size shouldBe list.size
+    }
   }
 }

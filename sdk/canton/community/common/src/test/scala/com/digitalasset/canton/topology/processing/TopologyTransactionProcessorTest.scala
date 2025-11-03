@@ -402,8 +402,7 @@ abstract class TopologyTransactionProcessorTest
           .update(
             SequencedTime(CantonTimestamp.MinValue.immediateSuccessor),
             EffectiveTime(CantonTimestamp.MinValue.immediateSuccessor),
-            removeMapping = Map.empty,
-            removeTxs = Set.empty,
+            removals = Map.empty,
             additions = (rootCertificates :+ dnd).map(ValidatedTopologyTransaction(_)),
           )
           .futureValueUS

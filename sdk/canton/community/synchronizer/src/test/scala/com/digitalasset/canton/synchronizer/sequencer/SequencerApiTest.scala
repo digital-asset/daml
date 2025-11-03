@@ -123,7 +123,6 @@ abstract class SequencerApiTest
   }
 
   protected var clock: Clock = _
-  protected var driverClock: Clock = _
 
   protected def createClock(): Clock = new SimClock(loggerFactory = loggerFactory)
 
@@ -421,7 +420,7 @@ abstract class SequencerApiTest
             inThePast.code.id shouldBe SequencerErrors.SubmissionRequestRefused.id
             inThePast.cause should (
               include("is already past the max sequencing time") and
-                include("The sequencer clock timestamp")
+                include("The estimated sequencing time")
             )
           }
       }
@@ -436,8 +435,6 @@ abstract class SequencerApiTest
           val aggregationRule =
             AggregationRule(NonEmpty(Seq, p6, p9), PositiveInt.tryCreate(2), testedProtocolVersion)
 
-          simClockOrFail(clock).advanceTo(CantonTimestamp.Epoch.add(Duration.ofSeconds(100)))
-
           val request1 = createSendRequest(
             p6,
             messageContent,
@@ -449,13 +446,12 @@ abstract class SequencerApiTest
             topologyTimestamp = Some(CantonTimestamp.Epoch),
           )
 
+          // Only block orderers implement aggregation, so this should always be defined.
+          val orderer = sequencer.orderer.value
+
           for {
-            _ <- sequencer
-              .sendAsyncSigned(sign(request1))
-              .valueOrFail("Sent async for participant1")
-            _ = {
-              simClockOrFail(clock).reset()
-            }
+            // We're checking the read path, so we can skip the write path of the sequencer and submit directly to the orderer
+            _ <- orderer.send(sign(request1)).valueOrFail("Sent async for participant1")
             reads3 <- readForMembers(Seq(p6), sequencer)
           } yield {
             checkRejection(reads3, p6, request1.messageId, defaultExpectedTrafficReceipt) {

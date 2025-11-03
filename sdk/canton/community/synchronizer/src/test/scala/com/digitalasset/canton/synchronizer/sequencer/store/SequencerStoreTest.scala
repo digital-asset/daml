@@ -517,7 +517,7 @@ trait SequencerStoreTest
           // ask for 10 results from a position where we know there are less
           partialPage <- env.readEvents(alice, ts1.plusSeconds(14).some, 10)
         } yield {
-          def seconds(page: Seq[Sequenced[_]]) = page.map(_.timestamp.getEpochSecond).toList
+          def seconds(page: Seq[Sequenced[?]]) = page.map(_.timestamp.getEpochSecond).toList
 
           seconds(firstPage) shouldBe (1L to 10L).toList
           seconds(secondPage) shouldBe (11L to 20L).toList

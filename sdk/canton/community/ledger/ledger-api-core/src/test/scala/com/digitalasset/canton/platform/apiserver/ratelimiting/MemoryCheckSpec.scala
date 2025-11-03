@@ -17,7 +17,7 @@ import scala.concurrent.duration.DurationInt
 /** Note that most of the check functionality is tested via [[RateLimitingInterceptorChecksSpec]] */
 class MemoryCheckSpec extends AnyFlatSpec with BaseTest {
 
-  private val config = RateLimitingConfig(100, 10, 75, 100 * RateLimitingConfig.Megabyte, 100)
+  private val config = RateLimitingConfig(100, 10, 75, 100 * RateLimitingConfig.Megabyte)
 
   // For tests that do not involve memory
   private def underLimitMemoryPoolMXBean(): MemoryPoolMXBean = {

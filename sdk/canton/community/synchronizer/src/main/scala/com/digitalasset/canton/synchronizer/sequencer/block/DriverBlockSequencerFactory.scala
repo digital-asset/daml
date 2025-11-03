@@ -69,7 +69,29 @@ class DriverBlockSequencerFactory[C](
   override protected final lazy val orderingTimeFixMode: OrderingTimeFixMode =
     OrderingTimeFixMode.MakeStrictlyIncreasing
 
+  override protected def createBlockOrderer(
+      cryptoApi: SynchronizerCryptoClient,
+      clock: Clock,
+      initialBlockHeight: Option[Long],
+      sequencerSnapshot: Option[SequencerSnapshot],
+      authenticationServices: Option[AuthenticationServices],
+      synchronizerLoggerFactory: NamedLoggerFactory,
+  )(implicit ec: ExecutionContext, materializer: Materializer, tracer: Tracer): BlockOrderer =
+    new DriverBlockOrderer(
+      sequencerDriverFactory.create(
+        config,
+        nodeParameters.nonStandardConfig,
+        clock,
+        initialBlockHeight,
+        cryptoApi.psid.toString,
+        sequencerId.toProtoPrimitive,
+        synchronizerLoggerFactory,
+      ),
+      orderingTimeFixMode,
+    )
+
   override protected final def createBlockSequencer(
+      blockOrderer: BlockOrderer,
       name: String,
       cryptoApi: SynchronizerCryptoClient,
       stateManager: BlockSequencerStateManager,
@@ -79,13 +101,9 @@ class DriverBlockSequencerFactory[C](
       futureSupervisor: FutureSupervisor,
       health: Option[SequencerHealthConfig],
       clock: Clock,
-      driverClock: Clock,
       rateLimitManager: SequencerRateLimitManager,
       orderingTimeFixMode: OrderingTimeFixMode,
       sequencingTimeLowerBoundExclusive: Option[CantonTimestamp],
-      initialBlockHeight: Option[Long],
-      sequencerSnapshot: Option[SequencerSnapshot],
-      authenticationServices: Option[AuthenticationServices],
       synchronizerLoggerFactory: NamedLoggerFactory,
       runtimeReady: FutureUnlessShutdown[Unit],
   )(implicit
@@ -94,18 +112,7 @@ class DriverBlockSequencerFactory[C](
       tracer: Tracer,
   ): BlockSequencer =
     new BlockSequencer(
-      new DriverBlockOrderer(
-        sequencerDriverFactory.create(
-          config,
-          nodeParameters.nonStandardConfig,
-          driverClock,
-          initialBlockHeight,
-          cryptoApi.psid.toString,
-          sequencerId.toProtoPrimitive,
-          synchronizerLoggerFactory,
-        ),
-        orderingTimeFixMode,
-      ),
+      blockOrderer,
       name,
       cryptoApi,
       sequencerId,

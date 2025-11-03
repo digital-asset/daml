@@ -14,7 +14,7 @@ import com.digitalasset.canton.integration.{
   SharedEnvironment,
 }
 import com.digitalasset.canton.topology.TopologyManagerError.MappingAlreadyExists
-import com.digitalasset.canton.topology.transaction.{ParticipantPermission, TopologyChangeOp}
+import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.{PartyId, SynchronizerId, UniqueIdentifier}
 
 import java.util.UUID
@@ -105,7 +105,6 @@ trait PartyManagementIntegrationTest extends CommunityIntegrationTest with Share
             .serial shouldBe PositiveInt.three
         }
       }
-
     }
 
     "updating parties" should {
@@ -287,7 +286,6 @@ trait PartyManagementIntegrationTest extends CommunityIntegrationTest with Share
     }
 
   }
-
 }
 
 class PartyManagementIntegrationTestPostgres extends PartyManagementIntegrationTest {

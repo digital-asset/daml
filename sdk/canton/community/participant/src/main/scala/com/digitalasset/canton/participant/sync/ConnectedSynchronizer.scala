@@ -508,6 +508,7 @@ class ConnectedSynchronizer(
         SequencedTime(resubscriptionTs),
         EffectiveTime(resubscriptionTs),
         ApproximateTime(resubscriptionTs),
+        potentialTopologyChange = true,
       )
       // now, compute epsilon at resubscriptionTs and update client
       topologyClient.updateHead(
@@ -516,6 +517,7 @@ class ConnectedSynchronizer(
           resubscriptionTs.plus(staticSynchronizerParameters.topologyChangeDelay.duration)
         ),
         ApproximateTime(resubscriptionTs),
+        potentialTopologyChange = true,
       )
     }
 
@@ -962,7 +964,7 @@ object ConnectedSynchronizer {
       override val loggerFactory: NamedLoggerFactory,
   ) extends NamedLogging {
 
-    def apply[Env <: Envelope[_]](
+    def apply[Env <: Envelope[?]](
         handler: PossiblyIgnoredApplicationHandler[Env]
     ): PossiblyIgnoredApplicationHandler[Env] = handler.replace { tracedBatch =>
       tracedBatch.withTraceContext { implicit batchTraceContext => tracedEvents =>
@@ -1092,6 +1094,7 @@ object ConnectedSynchronizer {
           doNotAwaitOnCheckingIncomingCommitments =
             parameters.doNotAwaitOnCheckingIncomingCommitments,
           commitmentCheckpointInterval = parameters.commitmentCheckpointInterval,
+          commitmentMismatchDebugging = parameters.commitmentMismatchDebugging,
         )
         topologyProcessor <- topologyProcessorFactory.create(
           acsCommitmentProcessor.scheduleTopologyTick

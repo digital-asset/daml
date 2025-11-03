@@ -66,22 +66,23 @@ final class DefaultHeadStateInitializer(store: TopologyStore[TopologyStoreId.Syn
       executionContext: ExecutionContext,
       traceContext: TraceContext,
   ): FutureUnlessShutdown[SynchronizerTopologyClientWithInit] =
-    for {
-      maxTimestamp <- store
-        .maxTimestamp(SequencedTime.MaxValue, includeRejected = true)
-      _ = SynchronizerTopologyClientHeadStateInitializer
-        .computeInitialHeadUpdate(
-          maxTimestamp,
-          synchronizerPredecessor,
-          staticSynchronizerParameters.topologyChangeDelay,
-        )
-        .foreach { case (sequenced, effective) =>
-          client.updateHead(
-            sequenced,
-            effective,
-            effective.toApproximate,
+    store
+      .maxTimestamp(SequencedTime.MaxValue, includeRejected = true)
+      .map { maxTimestamp =>
+        SynchronizerTopologyClientHeadStateInitializer
+          .computeInitialHeadUpdate(
+            maxTimestamp,
+            synchronizerPredecessor,
+            staticSynchronizerParameters.topologyChangeDelay,
           )
-        }
-      _ <- client.initialize()
-    } yield client
+          .foreach { case (sequenced, effective) =>
+            client.updateHead(
+              sequenced,
+              effective,
+              effective.toApproximate,
+              potentialTopologyChange = true,
+            )
+          }
+        client
+      }
 }

@@ -35,15 +35,15 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
   // Populated by the methods `testVersioned` and friends
   lazy val testedClasses: scala.collection.mutable.Set[String] = mutable.Set.empty
 
-  /** We use 10 seconds default for `warnWhenTestRunsLongerThan` to have a very generous buffer to
+  /** We use 20 seconds default for `warnWhenTestRunsLongerThan` to have a very generous buffer to
     * prevent test flakiness. On CI, tests should normally finish within 1 to 3 seconds.
     */
-  private val maxDurationWarning: Duration = 10.second
+  private val maxDurationWarning: Duration = 20.seconds
 
   /** Test for classes extending `HasVersionedWrapper` (protocol version passed to the serialization
     * method), without context for deserialization.
     */
-  protected def testVersioned[T <: HasVersionedWrapper[_]](
+  protected def testVersioned[T <: HasVersionedWrapper[?]](
       companion: HasVersionedMessageCompanion[T],
       protocolVersion: ProtocolVersion,
       defaults: List[DefaultValueUntilExclusive[T]] = Nil,
@@ -109,10 +109,10 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
     Shared test code for classes extending `HasVersionedWrapper` (protocol version passed to the serialization method),
     with/without context for deserialization.
    */
-  private def testVersionedCommon[T <: HasVersionedWrapper[_]](
+  private def testVersionedCommon[T <: HasVersionedWrapper[?]](
       companion: HasVersionedMessageCompanionCommon[T],
       protocolVersion: ProtocolVersion,
-      deserializer: ByteString => ParsingResult[_],
+      deserializer: ByteString => ParsingResult[?],
       defaults: List[DefaultValueUntilExclusive[T]],
   )(implicit arb: Arbitrary[T]): Assertion =
     forAll { (instance: T) =>
@@ -175,7 +175,7 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
   }
 
   protected def findBaseVersioningCompanionSubClasses(): Seq[Class[?]] =
-    findSubClassesOf(classOf[BaseVersioningCompanion[_, _, _, _]])
+    findSubClassesOf(classOf[BaseVersioningCompanion[?, ?, ?, ?]])
 }
 
 object SerializationDeserializationTestHelpers {
@@ -185,16 +185,16 @@ object SerializationDeserializationTestHelpers {
   )
 
   /* Find all subclasses of `parent` com.digitalasset.canton */
-  def findSubClassesOf[T](parent: Class[T]): Seq[Class[_ <: T]] = {
+  def findSubClassesOf[T](parent: Class[T]): Seq[Class[? <: T]] = {
     val reflections = new Reflections("com.digitalasset.canton")
 
-    val classes: Seq[Class[_ <: T]] =
+    val classes: Seq[Class[? <: T]] =
       reflections.getSubTypesOf(parent).asScala.toSeq
 
     // Exclude abstract classes as they cannot be true companion objects, but rather just helper traits
-    def isAbstract(c: Class[_]): Boolean = Modifier.isAbstract(c.getModifiers)
+    def isAbstract(c: Class[?]): Boolean = Modifier.isAbstract(c.getModifiers)
     // Exclude anonymous companion objects as they should only appear in tests
-    def isAnonymous(c: Class[_]): Boolean = c.isAnonymousClass
+    def isAnonymous(c: Class[?]): Boolean = c.isAnonymousClass
 
     classes.filterNot(c => isAbstract(c) || isAnonymous(c))
   }

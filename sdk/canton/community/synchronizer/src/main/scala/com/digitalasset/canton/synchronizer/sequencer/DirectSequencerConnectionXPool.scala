@@ -118,5 +118,6 @@ object DirectSequencerConnectionXPool {
     // Not relevant for the direct pool
     minRestartConnectionDelay = cantonConfig.NonNegativeFiniteDuration.Zero,
     maxRestartConnectionDelay = cantonConfig.NonNegativeFiniteDuration.Zero,
+    warnConnectionValidationDelay = cantonConfig.NonNegativeFiniteDuration.Zero,
   )
 }

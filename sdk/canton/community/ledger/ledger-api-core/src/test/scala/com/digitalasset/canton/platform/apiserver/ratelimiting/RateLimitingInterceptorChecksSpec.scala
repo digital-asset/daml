@@ -10,6 +10,7 @@ import com.daml.metrics.api.{MetricInfo, MetricQualification, MetricsContext}
 import com.daml.ports.Port
 import com.daml.scalautil.Statement.discard
 import com.daml.tracing.NoOpTelemetry
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.grpc.sampleservice.HelloServiceReferenceImplementation
 import com.digitalasset.canton.ledger.api.grpc.{GrpcClientResource, GrpcHealthService}
 import com.digitalasset.canton.ledger.api.health.HealthChecks.ComponentName
@@ -17,8 +18,8 @@ import com.digitalasset.canton.ledger.api.health.{HealthChecks, ReportsHealth}
 import com.digitalasset.canton.ledger.resources.TestResourceContext
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.networking.grpc.ratelimiting.ActiveRequestCounterInterceptor
 import com.digitalasset.canton.networking.grpc.ratelimiting.LimitResult.LimitResultCheck
-import com.digitalasset.canton.platform.apiserver.ActiveStreamMetricsInterceptor
 import com.digitalasset.canton.platform.apiserver.configuration.RateLimitingConfig
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, protobuf}
 import com.typesafe.scalalogging.Logger
@@ -59,7 +60,9 @@ final class RateLimitingInterceptorChecksSpec
   implicit override val patienceConfig: PatienceConfig =
     PatienceConfig(timeout = scaled(Span(1, Second)))
 
-  private val config = RateLimitingConfig(100, 10, 75, 100 * RateLimitingConfig.Megabyte, 100)
+  private val config = RateLimitingConfig(100, 10, 75, 100 * RateLimitingConfig.Megabyte)
+
+  private val metrics = LedgerApiServerMetrics.ForTesting
 
   behavior of "RateLimitingInterceptor"
 
@@ -228,78 +231,210 @@ final class RateLimitingInterceptorChecksSpec
 
   it should "limit the number of streams" in {
 
-    val limitStreamConfig = RateLimitingConfig.Default.copy(maxStreams = 2)
-
     val waitService = new WaitService()
-    withChannel(metrics, waitService, limitStreamConfig, loggerFactory).use { channel =>
-      for {
-        fStatus1 <- streamHello(channel) // Ok
-        fStatus2 <- streamHello(channel) // Ok
-        // Metrics are used by the limiting interceptor, so the following assert causes the test to fail
-        //  rather than being stuck if metrics don't work.
-        _ = metrics.lapi.streams.active.getValue shouldBe limitStreamConfig.maxStreams
-        fStatus3 <- streamHello(channel) // Limited
-        status3 <- fStatus3 // Closed as part of limiting
-        _ = waitService.completeStream()
-        status1 <- fStatus1
-        fStatus4 <- streamHello(channel) // Ok
-        _ = waitService.completeStream()
-        status2 <- fStatus2
-        _ = waitService.completeStream()
-        status4 <- fStatus4
-      } yield {
-        status1.getCode shouldBe Code.OK
-        status2.getCode shouldBe Code.OK
-        status3.getCode shouldBe Code.ABORTED
-        status3.getDescription should include(metrics.lapi.streams.activeName)
-        status4.getCode shouldBe Code.OK
-        eventually(metrics.lapi.streams.active.getValue shouldBe 0)
+    withChannel(
+      metrics,
+      waitService,
+      config,
+      loggerFactory,
+      requestLimits = Map(testStreamName -> 2),
+    )
+      .use { channel =>
+        val (activeGauge, limitGauge) =
+          metrics.requests.getActiveAndLimitGauge(testApiName, testStreamName)
+        for {
+          fStatus1 <- streamHello(channel) // Ok
+          fStatus2 <- streamHello(channel) // Ok
+          // Metrics are used by the limiting interceptor, so the following assert causes the test to fail
+          //  rather than being stuck if metrics don't work.
+          _ = limitGauge.getValue shouldBe 2
+
+          fStatus3 <- streamHello(channel) // Limited
+          status3 <- fStatus3 // Closed as part of limiting
+          _ = waitService.completeStream()
+          status1 <- fStatus1
+          fStatus4 <- streamHello(channel) // Ok
+          _ = waitService.completeStream()
+          status2 <- fStatus2
+          _ = waitService.completeStream()
+          status4 <- fStatus4
+        } yield {
+          status1.getCode shouldBe Code.OK
+          status2.getCode shouldBe Code.OK
+          status3.getCode shouldBe Code.ABORTED
+          status4.getCode shouldBe Code.OK
+          eventually(activeGauge.getValue shouldBe 0)
+        }
+
       }
-    }
+  }
+
+  it should "limit the number of unary requests" in {
+
+    val logger = loggerFactory.getLogger(getClass)
+    val waitService = new WaitService()
+    val (activeRpcGauge, _) =
+      metrics.requests.getActiveAndLimitGauge(testApiName, testRpcName)
+    val (activeStreamGauge, _) =
+      metrics.requests.getActiveAndLimitGauge(testApiName, testStreamName)
+    withChannel(
+      metrics,
+      waitService,
+      config,
+      loggerFactory,
+      requestLimits = Map(testStreamName -> 0, testRpcName -> 1),
+    )
+      .use { channel =>
+        for {
+
+          fStatus1 <- streamHello(channel)
+          activeStreams1 = activeStreamGauge.getValue
+          fHelloStatus1 = singleHello(channel, logger)
+          _ = eventually() {
+            activeRpcGauge.getValue shouldBe 1
+          }
+          fStatus2 <- streamHello(channel)
+          fHelloStatus2 = singleHello(channel, logger)
+          // complete here (should fail)
+          helloStatus2 <- fHelloStatus2
+
+          activeStreams2 = activeStreamGauge.getValue
+
+          _ = waitService.completeSingle()
+
+          status1 <- fStatus1
+          helloStatus1 <- fHelloStatus1
+          status2 <- fStatus2
+
+        } yield {
+          activeStreams1 shouldBe 0
+          activeStreams2 shouldBe 0
+          status1.getCode shouldBe Code.ABORTED
+          helloStatus1.getCode shouldBe Code.OK
+          status2.getCode shouldBe Code.ABORTED
+          helloStatus2.getCode shouldBe Code.ABORTED
+          eventually(activeRpcGauge.getValue shouldBe 0)
+        }
+
+      }
+
+  }
+
+  it should "properly account for failed requests" in {
+
+    val logger = loggerFactory.getLogger(getClass)
+    val waitService = new WaitService()
+    val (activeRpcGauge, _) =
+      metrics.requests.getActiveAndLimitGauge(testApiName, testRpcName)
+    val (activeStreamGauge, _) =
+      metrics.requests.getActiveAndLimitGauge(testApiName, testStreamName)
+    withChannel(
+      metrics,
+      waitService,
+      config,
+      loggerFactory,
+      requestLimits = Map(testStreamName -> 1, testRpcName -> 1),
+    )
+      .use { channel =>
+        for {
+          // with exceptions first
+          fStatus1 <- streamHello(channel)
+          _ = waitService.failStream(new Exception("fail-stream"))
+          fHelloStatus1 = singleHello(channel, logger)
+          _ = waitService.failSingle(new Exception("fail-single"))
+          status1 <- fStatus1
+          helloStatus1 <- fHelloStatus1
+
+          // cancels second
+          fStatus2 <- streamHello(channel, cancel = true)
+          fHelloStatus2 = singleHello(channel, logger, cancel = true)
+          status2 <- fStatus2
+          helloStatus2 <- fHelloStatus2
+          _ = waitService
+            .dropObserver() // we need to drop the observer as cancel prevents normal completion
+
+          // but also verify we can do successful calls again
+          fStatus3 <- streamHello(channel)
+          fHelloStatus3 = singleHello(channel, logger)
+          _ = waitService.completeStream()
+          _ = waitService.completeSingle()
+          status3 <- fStatus3
+          helloStatus3 <- fHelloStatus3
+
+        } yield {
+          status1.getCode shouldBe Code.UNKNOWN
+          helloStatus1.getCode shouldBe Code.INTERNAL
+          helloStatus1.getDescription should include("fail-single")
+
+          status2.getCode shouldBe Code.CANCELLED
+          helloStatus2.getCode shouldBe Code.CANCELLED
+
+          status3.getCode shouldBe Code.OK
+          helloStatus3.getCode shouldBe Code.OK
+
+          eventually(activeRpcGauge.getValue shouldBe 0)
+          eventually(activeStreamGauge.getValue shouldBe 0)
+
+        }
+
+      }
+
   }
 
   it should "exclude non-stream traffic from stream counts" in {
 
-    val limitStreamConfig = RateLimitingConfig.Default.copy(maxStreams = 2)
     val logger = loggerFactory.getLogger(getClass)
     val waitService = new WaitService()
-    withChannel(metrics, waitService, limitStreamConfig, loggerFactory).use { channel =>
-      for {
+    val (activeGauge, _) =
+      metrics.requests.getActiveAndLimitGauge(testApiName, testStreamName)
+    withChannel(
+      metrics,
+      waitService,
+      config,
+      loggerFactory,
+      requestLimits = Map(testStreamName -> 2),
+    )
+      .use { channel =>
+        for {
 
-        fStatus1 <- streamHello(channel)
-        fHelloStatus1 = singleHello(channel, logger)
-        fStatus2 <- streamHello(channel)
-        fHelloStatus2 = singleHello(channel, logger)
+          fStatus1 <- streamHello(channel)
+          fHelloStatus1 = singleHello(channel, logger)
+          fStatus2 <- streamHello(channel)
+          fHelloStatus2 = singleHello(channel, logger)
 
-        activeStreams = metrics.lapi.streams.active.getValue
+          activeStreams = activeGauge.getValue
 
-        _ = waitService.completeStream()
-        _ = waitService.completeSingle()
-        _ = waitService.completeStream()
-        _ = waitService.completeSingle()
+          _ = waitService.completeStream()
+          _ = waitService.completeSingle()
+          _ = waitService.completeStream()
+          _ = waitService.completeSingle()
 
-        status1 <- fStatus1
-        helloStatus1 <- fHelloStatus1
-        status2 <- fStatus2
-        helloStatus2 <- fHelloStatus2
+          status1 <- fStatus1
+          helloStatus1 <- fHelloStatus1
+          status2 <- fStatus2
+          helloStatus2 <- fHelloStatus2
 
-      } yield {
-        activeStreams shouldBe 2
-        status1.getCode shouldBe Code.OK
-        helloStatus1.getCode shouldBe Code.OK
-        status2.getCode shouldBe Code.OK
-        helloStatus2.getCode shouldBe Code.OK
-        eventually(metrics.lapi.streams.active.getValue shouldBe 0)
+        } yield {
+          activeStreams shouldBe 2
+          status1.getCode shouldBe Code.OK
+          helloStatus1.getCode shouldBe Code.OK
+          status2.getCode shouldBe Code.OK
+          helloStatus2.getCode shouldBe Code.OK
+          eventually(activeGauge.getValue shouldBe 0)
+        }
       }
-    }
   }
 
   it should "stream rate limiting should not limit non-stream traffic" in {
 
-    val limitStreamConfig = RateLimitingConfig.Default.copy(maxStreams = 2)
-
     val waitService = new WaitService()
-    withChannel(metrics, waitService, limitStreamConfig, loggerFactory).use { channel =>
+    withChannel(
+      metrics,
+      waitService,
+      config,
+      loggerFactory,
+      requestLimits = Map(testStreamName -> 2),
+    ).use { channel =>
       for {
 
         fStatus1 <- streamHello(channel)
@@ -322,17 +457,23 @@ final class RateLimitingInterceptorChecksSpec
 
   it should "maintain stream count for streams cancellations" in {
 
-    val limitStreamConfig = RateLimitingConfig.Default.copy(maxStreams = 2)
-
     val waitService = new WaitService()
-    withChannel(metrics, waitService, limitStreamConfig, loggerFactory).use { channel =>
+    val (activeGauge, limitGauge) =
+      metrics.requests.getActiveAndLimitGauge(testApiName, testStreamName)
+    withChannel(
+      metrics,
+      waitService,
+      config,
+      loggerFactory,
+      requestLimits = Map(testStreamName -> 2),
+    ).use { channel =>
       for {
         fStatus1 <- streamHello(channel, cancel = true)
         status1 <- fStatus1
       } yield {
         status1.getCode shouldBe Code.CANCELLED
 
-        eventually(metrics.lapi.streams.active.getValue shouldBe 0)
+        eventually(activeGauge.getValue shouldBe 0)
       }
     }
   }
@@ -394,9 +535,11 @@ final class RateLimitingInterceptorChecksSpec
 
 object RateLimitingInterceptorChecksSpec extends MockitoSugar {
 
-  private val healthChecks = new HealthChecks(Map.empty[ComponentName, ReportsHealth])
+  private val testApiName = "rate-limit-test"
+  private val testRpcName = "com.digitalasset.canton.protobuf.HelloService/Hello"
+  private val testStreamName = "com.digitalasset.canton.protobuf.HelloService/HelloStreamed"
 
-  private def metrics = LedgerApiServerMetrics.ForTesting
+  private val healthChecks = new HealthChecks(Map.empty[ComponentName, ReportsHealth])
 
   // For tests that do not involve memory
   private def underLimitMemoryPoolMXBean(): MemoryPoolMXBean = {
@@ -416,16 +559,23 @@ object RateLimitingInterceptorChecksSpec extends MockitoSugar {
       pool: List[MemoryPoolMXBean] = List(underLimitMemoryPoolMXBean()),
       memoryBean: MemoryMXBean = ManagementFactory.getMemoryMXBean,
       additionalChecks: List[LimitResultCheck] = List.empty,
+      requestLimits: Map[String, Int] = Map.empty,
   ): ResourceOwner[Channel] = {
     val rateLimitingInterceptor = RateLimitingInterceptorFactory.createWithMXBeans(
       loggerFactory,
-      metrics,
       config,
       pool,
       memoryBean,
       additionalChecks,
     )
-    val activeStreamMetricsInterceptor = new ActiveStreamMetricsInterceptor(metrics)
+
+    val activeStreamMetricsInterceptor = new ActiveRequestCounterInterceptor(
+      testApiName,
+      requestLimits.map { case (k, v) => (k, NonNegativeInt.tryCreate(v)) },
+      warnOnUnconfiguredLimits = false,
+      metrics = metrics.requests,
+      loggerFactory = loggerFactory,
+    )
     for {
       server <- ResourceOwner.forServer(
         NettyServerBuilder
@@ -455,12 +605,23 @@ object RateLimitingInterceptorChecksSpec extends MockitoSugar {
       responseObserver.onCompleted()
     }
 
+    def dropObserver(): Unit =
+      observers.remove()
+
+    def failStream(ex: Exception): Unit = {
+      val responseObserver = observers.remove()
+      responseObserver.onError(ex)
+    }
+
     def completeSingle(): Unit =
       discard(
         requests
           .poll(10, TimeUnit.SECONDS)
           .success(protobuf.Hello.Response("only"))
       )
+
+    def failSingle(ex: Exception): Unit =
+      discard(requests.poll(10, TimeUnit.SECONDS).failure(ex))
 
     override def helloStreamed(
         request: protobuf.Hello.Request,
@@ -478,7 +639,7 @@ object RateLimitingInterceptorChecksSpec extends MockitoSugar {
 
   }
 
-  def singleHello(channel: Channel, logger: Logger): Future[Status] = {
+  def singleHello(channel: Channel, logger: Logger, cancel: Boolean = false): Future[Status] = {
 
     val status = Promise[Status]()
     val clientCall = channel.newCall(protobuf.HelloServiceGrpc.METHOD_HELLO, CallOptions.DEFAULT)
@@ -498,6 +659,8 @@ object RateLimitingInterceptorChecksSpec extends MockitoSugar {
     clientCall.sendMessage(protobuf.Hello.Request("foo"))
     clientCall.halfClose()
     clientCall.request(1)
+
+    if (cancel) clientCall.cancel("Test cancel", new IOException("network down"))
 
     status.future
   }

@@ -87,7 +87,7 @@ class HikariJdbcConnectionProviderSpec
 
       override def unwrap[T](iface: Class[T]): T = notSupported
 
-      override def isWrapperFor(iface: Class[_]): Boolean = notSupported
+      override def isWrapperFor(iface: Class[?]): Boolean = notSupported
 
       override def getParentLogger: Logger = notSupported
     }

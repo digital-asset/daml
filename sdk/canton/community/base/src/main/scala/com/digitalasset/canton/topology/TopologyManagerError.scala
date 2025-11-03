@@ -1152,4 +1152,20 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
           with TopologyManagerError
     }
   }
+
+  @Explanation(
+    "This error indicates that preview features need to be enabled."
+  )
+  @Resolution("Set flag `enablePreviewFeatures` to true and retry.")
+  object PreviewFeature
+      extends ErrorCode(
+        id = "PREVIEW_FEATURE",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class Error(
+        operation: String
+    )(implicit val loggingContext: ErrorLoggingContext)
+        extends CantonError.Impl(cause = s"Operation $operation is a preview feature.")
+        with TopologyManagerError
+  }
 }

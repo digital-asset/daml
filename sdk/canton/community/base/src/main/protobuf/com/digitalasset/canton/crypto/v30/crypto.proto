@@ -392,3 +392,11 @@ message AsymmetricEncrypted {
   // The fingerprint of the public key that was used for the encryption
   string fingerprint = 3;
 }
+
+message SigningKeysWithThreshold {
+  // the designated signing keys
+  repeated SigningPublicKey keys = 1;
+
+  // the authorization threshold
+  uint32 threshold = 2;
+}
