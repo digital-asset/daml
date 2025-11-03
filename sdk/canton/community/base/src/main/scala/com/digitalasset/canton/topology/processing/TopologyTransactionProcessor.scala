@@ -183,7 +183,7 @@ class TopologyTransactionProcessor(
       // of the approximate time subsequently
       val maxEffective = clientInitTimes.map { case (effective, _) => effective }.max1
       val minApproximate = clientInitTimes.map { case (_, approximate) => approximate }.min1
-      listenersUpdateHead(sequencedTs, maxEffective, minApproximate)
+      listenersUpdateHead(sequencedTs, maxEffective, minApproximate, potentialChanges = true)
 
       val directExecutionContext = DirectExecutionContext(noTracingLogger)
       clientInitTimes.foreach { case (effective, _approximate) =>
@@ -195,6 +195,7 @@ class TopologyTransactionProcessor(
               sequencedTs,
               effective,
               effective.toApproximate,
+              potentialChanges = true,
             )
           case Some(tickF) =>
             FutureUtil.doNotAwait(
@@ -203,6 +204,7 @@ class TopologyTransactionProcessor(
                   sequencedTs,
                   effective,
                   effective.toApproximate,
+                  potentialChanges = true,
                 )
               )(directExecutionContext),
               "Notifying listeners to the topology processor's head",
@@ -216,14 +218,15 @@ class TopologyTransactionProcessor(
       sequenced: SequencedTime,
       effective: EffectiveTime,
       approximate: ApproximateTime,
+      potentialChanges: Boolean,
   )(implicit traceContext: TraceContext): Unit = {
     logger.debug(
-      s"Updating listener heads to $effective and $approximate."
+      s"Updating listener heads to $effective and $approximate. Potential changes: $potentialChanges"
     )
     listeners
       .get()
       .flatten
-      .foreach(_.updateHead(sequenced, effective, approximate))
+      .foreach(_.updateHead(sequenced, effective, approximate, potentialChanges))
   }
 
   /** Inform the topology manager where the subscription starts when using [[processEnvelopes]]
@@ -298,10 +301,12 @@ class TopologyTransactionProcessor(
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     this.synchronizeWithClosingF(functionFullName) {
       Future {
+        val approximate = ApproximateTime(sequencedTimestamp.value)
         listenersUpdateHead(
           sequencedTimestamp,
           effectiveTimestamp,
-          sequencedTimestamp.toApproximate,
+          approximate,
+          potentialChanges = false,
         )
       }
     }

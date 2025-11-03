@@ -411,7 +411,6 @@ abstract class ReferenceSequencerWithTrafficControlApiTestBase
       .create(
         SequencerId(synchronizerId.uid),
         clock,
-        clock,
         topologyFactory.forOwnerAndSynchronizer(
           owner = sequencerId,
           synchronizerId,
@@ -496,7 +495,7 @@ abstract class ReferenceSequencerWithTrafficControlApiTestBase
           _ = traffic1Sender.value.extraTrafficConsumed.value should be > 0L
         } yield {
           val (_, event) = messages1.loneElement
-          inside(event.signedEvent.content) { case deliver: Deliver[_] =>
+          inside(event.signedEvent.content) { case deliver: Deliver[?] =>
             assertLongValue(
               "daml.sequencer.traffic-control.event-delivered-cost",
               deliver.trafficReceipt.value.consumedCost.value,

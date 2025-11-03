@@ -30,6 +30,7 @@ import org.scalatest.Assertions.fail
 import org.scalatest.EitherValues.*
 
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.math.Ordering.Implicits.*
 
 /*
 There are two classes extending this trait:
@@ -67,9 +68,11 @@ sealed trait PartyToParticipantDeclarativeCommon[P] {
       throw new IllegalArgumentException(s"Unknown participant with id $id"),
     )
 
-  protected def retryUntil(f: => Boolean): Unit =
+  protected def retryUntil[A](expected: A)(actual: => A): Unit =
     BaseTest.eventually() {
-      if (f) () else fail()
+      if (actual == expected) () else fail(s"""Couldn't reach target topology:
+           |expected: $expected
+           |actual  : $actual""".stripMargin)
     }
 
   protected def getTopology(
@@ -265,12 +268,10 @@ class PartyToParticipantDeclarative(
         .toMap
 
     participants.toSeq.foreach { p =>
-      retryUntil {
-        val currentTopology = getTopology(p).view
+      retryUntil(expectedTopology) {
+        getTopology(p).view
           .mapValues(_.view.mapValues { case (_serial, hosting) => hosting }.toMap)
           .toMap
-
-        currentTopology == expectedTopology
       }
     }
   }
@@ -286,9 +287,9 @@ class PartyToParticipantDeclarative(
   ): Seq[Future[Unit]] = {
 
     val newParticipants: Set[ParticipantId] = targetHosting.collect {
-      case (participantId, _targetPermissions)
-          // permission of the participant is only required for onboarding
-          if !currentParticipantToPermission.contains(participantId) =>
+      case (participantId, targetPermissions)
+          // permission of the participant is required when upgrading the hosting relationship
+          if currentParticipantToPermission.get(participantId) < Some(targetPermissions) =>
         participantId
     }
 
@@ -489,12 +490,10 @@ class PartiesAllocator(
           .filter { case (_keys, values) => values.nonEmpty }
           .toMap
 
-      retryUntil {
-        val currentTopology = getTopology(p).view
+      retryUntil(topologyOnConnectedSynchronizers) {
+        getTopology(p).view
           .mapValues(_.view.mapValues { case (_serial, hosting) => hosting }.toMap)
           .toMap
-
-        currentTopology == topologyOnConnectedSynchronizers
       }
     }
     result.map(_._1)

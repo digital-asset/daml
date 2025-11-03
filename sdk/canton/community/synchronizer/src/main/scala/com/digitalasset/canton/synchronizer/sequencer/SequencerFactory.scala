@@ -42,7 +42,6 @@ trait SequencerFactory extends FlagCloseable with HasCloseContext {
   def create(
       sequencerId: SequencerId,
       clock: Clock,
-      driverClock: Clock, // this clock is only used in tests, otherwise can the same clock as above can be passed
       synchronizerSyncCryptoApi: SynchronizerCryptoClient,
       futureSupervisor: FutureSupervisor,
       trafficConfig: SequencerTrafficConfig,
@@ -123,7 +122,6 @@ class CommunityDatabaseSequencerFactory(
   override def create(
       sequencerId: SequencerId,
       clock: Clock,
-      driverClock: Clock,
       synchronizerSyncCryptoApi: SynchronizerCryptoClient,
       futureSupervisor: FutureSupervisor,
       trafficConfig: SequencerTrafficConfig,

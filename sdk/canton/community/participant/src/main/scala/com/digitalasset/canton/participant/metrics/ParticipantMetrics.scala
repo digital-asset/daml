@@ -10,12 +10,12 @@ import com.daml.metrics.api.HistogramInventory.Item
 import com.daml.metrics.api.MetricHandle.*
 import com.daml.metrics.api.MetricHandle.Gauge.CloseableGauge
 import com.daml.metrics.api.noop.NoOpGauge
-import com.daml.metrics.grpc.GrpcServerMetrics
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.data.TaskSchedulerMetrics
 import com.digitalasset.canton.environment.BaseMetrics
 import com.digitalasset.canton.http.metrics.{HttpApiHistograms, HttpApiMetrics}
 import com.digitalasset.canton.metrics.*
+import com.digitalasset.canton.metrics.ActiveRequestsMetrics.GrpcServerMetricsX
 import com.digitalasset.canton.participant.metrics.PruningMetrics as ParticipantPruningMetrics
 
 import scala.collection.concurrent.TrieMap
@@ -83,7 +83,7 @@ class ParticipantMetrics(
 
   override val declarativeApiMetrics: DeclarativeApiMetrics =
     new DeclarativeApiMetrics(prefix, openTelemetryMetricsFactory)
-  override def grpcMetrics: GrpcServerMetrics = ledgerApiServer.grpc
+  override def grpcMetrics: GrpcServerMetricsX = (ledgerApiServer.grpc, ledgerApiServer.requests)
   override def healthMetrics: HealthMetrics = ledgerApiServer.health
   override def storageMetrics: DbStorageMetrics = dbStorage
 

@@ -4,6 +4,7 @@
 package com.digitalasset.canton.sequencing.client
 
 import cats.data.EitherT
+import com.digitalasset.canton.crypto.topology.TopologyStateHash
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{
   CloseContext,
@@ -21,11 +22,7 @@ import com.digitalasset.canton.topology.store.{
   StoredTopologyTransaction,
   StoredTopologyTransactions,
 }
-import com.digitalasset.canton.topology.{
-  DefaultTestIdentities,
-  TestingOwnerWithKeys,
-  TopologyStateHash,
-}
+import com.digitalasset.canton.topology.{DefaultTestIdentities, TestingOwnerWithKeys}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -61,20 +58,20 @@ class BftTopologyForInitDownloaderTest
       rejectionReason = None,
     )
     val validHash = {
-      val hashBuilder = new TopologyStateHash
+      val hashBuilder = TopologyStateHash.build()
       hashBuilder.add(tx1)
       hashBuilder.add(tx2)
 
       TopologyStateForInitHashResponse(
-        hashBuilder.finish()
+        hashBuilder.finish().hash
       )
     }
     validHash: Unit
     val invalidHash = {
-      val hashBuilder = new TopologyStateHash
+      val hashBuilder = TopologyStateHash.build()
       hashBuilder.add(tx1)
       TopologyStateForInitHashResponse(
-        hashBuilder.finish()
+        hashBuilder.finish().hash
       )
     }
 

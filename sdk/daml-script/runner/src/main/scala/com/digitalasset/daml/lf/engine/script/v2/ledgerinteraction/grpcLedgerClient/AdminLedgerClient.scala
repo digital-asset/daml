@@ -391,6 +391,7 @@ class AdminLedgerClient private[grpcLedgerClient] (
                   partyId,
                   1,
                   newEntry +: currentHostingParticipants,
+                  None,
                 )
               )
             )

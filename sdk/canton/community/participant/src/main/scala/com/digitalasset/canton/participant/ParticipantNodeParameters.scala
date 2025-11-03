@@ -35,6 +35,7 @@ final case class ParticipantNodeParameters(
     doNotAwaitOnCheckingIncomingCommitments: Boolean,
     disableOptionalTopologyChecks: Boolean,
     commitmentCheckpointInterval: PositiveDurationSeconds,
+    commitmentMismatchDebugging: Boolean,
 ) extends CantonNodeParameters
     with HasGeneralCantonNodeParameters {
   override def dontWarnOnDeprecatedPV: Boolean = protocolConfig.dontWarnOnDeprecatedPV
@@ -90,5 +91,6 @@ object ParticipantNodeParameters {
     doNotAwaitOnCheckingIncomingCommitments = false,
     disableOptionalTopologyChecks = false,
     commitmentCheckpointInterval = PositiveDurationSeconds.ofMinutes(1),
+    commitmentMismatchDebugging = false,
   )
 }

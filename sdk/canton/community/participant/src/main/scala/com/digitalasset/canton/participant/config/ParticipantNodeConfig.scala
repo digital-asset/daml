@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant.config
 import cats.syntax.option.*
 import com.daml.jwt.JwtTimestampLeeway
 import com.digitalasset.canton.config
+import com.digitalasset.canton.config.DeprecatedConfigUtils.DeprecatedFieldsFor
 import com.digitalasset.canton.config.RequireTypes.*
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.config.{ReplicationConfig, *}
@@ -117,7 +118,7 @@ final case class ParticipantNodeConfig(
         .modify(ports.participantAdminApiPort.setDefaultPort)
         .focus(_.replication)
         .modify(ReplicationConfig.withDefaultO(storage, _, edition))
-        .focus(_.httpLedgerApi.server.internalPort)
+        .focus(_.httpLedgerApi.internalPort)
         .modify(ports.jsonLedgerApiPort.setDefaultPort)
     )
 
@@ -127,6 +128,22 @@ object ParticipantNodeConfig {
   implicit val localParticipantConfigCantonConfigValidator
       : CantonConfigValidator[ParticipantNodeConfig] =
     CantonConfigValidatorDerivation[ParticipantNodeConfig]
+
+  trait ParticipantNodeConfigDeprecationsImplicits {
+    implicit def deprecatedParticipantNodeConfig[X <: ParticipantNodeConfig]
+        : DeprecatedFieldsFor[X] = new DeprecatedFieldsFor[ParticipantNodeConfig] {
+      override def movedFields: List[DeprecatedConfigUtils.MovedConfigPath] = List(
+        DeprecatedConfigUtils.MovedConfigPath("http-ledger-api.server", "http-ledger-api")
+      )
+
+      override def deprecatePath: List[DeprecatedConfigUtils.DeprecatedConfigPath[?]] = List(
+        DeprecatedConfigUtils
+          .DeprecatedConfigPath[Boolean]("http-ledger-api.server", "3.4.0")
+      )
+    }
+  }
+
+  object DeprecatedImplicits extends ParticipantNodeConfigDeprecationsImplicits
 }
 
 /** Participant features configuration
@@ -256,12 +273,10 @@ final case class LedgerApiServerConfig(
       TopologyAwarePackageSelectionConfig.Default,
     maxTokenLifetime: NonNegativeDuration = config.NonNegativeDuration(5.minutes),
     jwksCacheConfig: JwksCacheConfig = JwksCacheConfig(),
+    limits: Option[ActiveRequestLimitsConfig] = None,
 ) extends ServerConfig // We can't currently expose enterprise server features at the ledger api anyway
     {
-
-  // LAPI server does not use the canonical server builder, so doesn't support the stream limits using stream limit config
-  override val stream: Option[StreamLimitConfig] = None
-
+  override val name: String = "ledger-api"
   lazy val clientConfig: FullClientConfig =
     FullClientConfig(address, port, tls.map(_.clientConfig))
 
@@ -371,6 +386,10 @@ object TestingTimeServiceConfig {
   *   Checkpoint interval for commitments. Smaller intervals lead to less resource-intensive crash
   *   recovery, at the cost of more frequent DB writing of checkpoints. Regardless of this
   *   checkpoint interval, checkpointing is also performed at reconciliation interval boundaries.
+  * @param commitmentMismatchDebugging
+  *   Enables fine-grained logs of the changes the ACS commitment processor applies. It also enables
+  *   consistency checks in the ACS commitment processor. Should only be enabled for debugging
+  *   purposes, and never in prod.
   */
 final case class ParticipantNodeParameterConfig(
     adminWorkflow: AdminWorkflowConfig = AdminWorkflowConfig(),
@@ -407,6 +426,7 @@ final case class ParticipantNodeParameterConfig(
     doNotAwaitOnCheckingIncomingCommitments: Boolean = false,
     commitmentCheckpointInterval: config.PositiveDurationSeconds =
       config.PositiveDurationSeconds.ofMinutes(1),
+    commitmentMismatchDebugging: Boolean = false,
 ) extends LocalNodeParametersConfig
     with UniformCantonConfigValidation
 

@@ -162,7 +162,6 @@ final class GrpcServerSpec
       )
       val rateLimitingInterceptor = RateLimitingInterceptorFactory.create(
         loggerFactory,
-        metrics,
         rateLimitingConfig,
         additionalChecks = List { (_, _) =>
           LimitResult.OverLimit(

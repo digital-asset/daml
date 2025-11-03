@@ -296,17 +296,17 @@ object DeliverErrorStoreEvent {
     )
 }
 
-final case class Presequenced[+E <: StoreEvent[_]](
+final case class Presequenced[+E <: StoreEvent[?]](
     event: E,
     maxSequencingTimeO: Option[CantonTimestamp],
     blockSequencerTimestampO: Option[CantonTimestamp] = None,
 ) extends HasTraceContext {
 
-  def map[F <: StoreEvent[_]](fn: E => F): Presequenced[F] =
+  def map[F <: StoreEvent[?]](fn: E => F): Presequenced[F] =
     this.copy(event = fn(event))
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
-  def traverse[F[_], E2 <: StoreEvent[_]](fn: E => F[E2])(implicit
+  def traverse[F[_], E2 <: StoreEvent[?]](fn: E => F[E2])(implicit
       F: Functor[F]
   ): F[Presequenced[E2]] = F.map(fn(event)) { newEvent =>
     if (event eq newEvent) this.asInstanceOf[Presequenced[E2]]
@@ -317,13 +317,13 @@ final case class Presequenced[+E <: StoreEvent[_]](
 }
 
 object Presequenced {
-  def withMaxSequencingTime[E <: StoreEvent[_]](
+  def withMaxSequencingTime[E <: StoreEvent[?]](
       event: E,
       maxSequencingTime: CantonTimestamp,
       blockSequencerTimestampO: Option[CantonTimestamp],
   ): Presequenced[E] =
     Presequenced(event, Some(maxSequencingTime), blockSequencerTimestampO)
-  def alwaysValid[E <: StoreEvent[_]](
+  def alwaysValid[E <: StoreEvent[?]](
       event: E,
       blockSequencerTimestamp: Option[CantonTimestamp] = None,
   ): Presequenced[E] = Presequenced(event, None, blockSequencerTimestamp)

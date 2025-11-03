@@ -8,6 +8,7 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.health.ComponentHealthState
 import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
 import com.digitalasset.canton.sequencing.SequencerConnectionXPool.SequencerConnectionXPoolError
+import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.util.LoggerUtil
 import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext, config}
@@ -159,19 +160,30 @@ class SequencerConnectionXPoolImplTest
           failureUnavailable +: Seq.fill(2)(correctStaticParametersResponse),
       )
 
+      val poolDelays = SequencerConnectionPoolDelays(
+        minRestartDelay = config.NonNegativeFiniteDuration.ofMillis(100),
+        maxRestartDelay = config.NonNegativeFiniteDuration.ofSeconds(10),
+        warnValidationDelay =
+          config.NonNegativeFiniteDuration.ofMillis(700), // 100 + 200 + 400 = 700
+        subscriptionRequestDelay = config.NonNegativeFiniteDuration.ofSeconds(1),
+      )
+
       withConnectionPool(
         nbConnections = PositiveInt.one,
         trustThreshold = PositiveInt.one,
         attributesForConnection =
           index => mkConnectionAttributes(synchronizerIndex = 1, sequencerIndex = index),
         responsesForConnection = { case 0 => testResponses },
+        poolDelays = poolDelays,
       ) { (pool, createdConnections, listener, _) =>
-        val minRestartConnectionDelay =
-          sequencerConnectionPoolDelays.minRestartDelay.duration.toMillis
+        val minRestartConnectionDelay = poolDelays.minRestartDelay.duration.toMillis
         val exponentialDelays = (0 until 4).map(minRestartConnectionDelay << _)
 
-        def retryLogEntry(delay: Long) =
-          s"Scheduling restart after $delay millisecond" + (if (delay > 1) "s" else "")
+        def retryLogEntry(delayMs: Long) =
+          s"Scheduling restart after ${LoggerUtil.roundDurationForHumans(NonNegativeFiniteDuration.tryOfMillis(delayMs).toScala)}"
+
+        val warningRegex =
+          raw"""(?s)Connection has failed validation since \S+ \((\d+) milliseconds ago\). Last failure reason: "Network error: .*"""".r
 
         loggerFactory.assertLogsSeq(
           SuppressionRule.LevelAndAbove(INFO) && SuppressionRule.LoggerNameContains(
@@ -182,10 +194,25 @@ class SequencerConnectionXPoolImplTest
             pool.start().futureValueUS.valueOrFail("initialization")
             listener.shouldStabilizeOn(ComponentHealthState.Ok())
           },
-          // 4 retries, due to one failure at each call
-          // The retry delay is exponential
-          _.map(_.message).filter(_.contains("Scheduling restart after"))
-            shouldBe exponentialDelays.map(retryLogEntry),
+          logEntries => {
+            // 4 retries, due to one failure at each call
+            // The retry delay is exponential
+            logEntries
+              .map(_.message)
+              .filter(_.contains("Scheduling restart after")) shouldBe exponentialDelays.map(
+              retryLogEntry
+            )
+
+            // Warnings should be triggered after `warnValidationDelay`
+            // There can be multiple warnings if the system is slow
+            val warnings = logEntries.filter(_.level == WARN).map(_.warningMessage)
+            warnings should not be empty
+            forEvery(warnings) {
+              case warningRegex(delay) =>
+                delay.toLong shouldBe >(poolDelays.warnValidationDelay.duration.toMillis)
+              case _ => fail("warning log entry not found")
+            }
+          },
         )
 
         loggerFactory.assertLogsSeq(
@@ -197,9 +224,16 @@ class SequencerConnectionXPoolImplTest
             createdConnections(0).fail(reason = "test")
             listener.shouldStabilizeOn(ComponentHealthState.Ok())
           },
-          // ... but is reset after the connection has been validated
-          _.map(_.message).filter(_.contains("Scheduling restart after")).loneElement
-            shouldBe retryLogEntry(minRestartConnectionDelay),
+          logEntries => {
+            // The retry delay is reset after the connection has been validated
+            logEntries
+              .map(_.message)
+              .filter(_.contains("Scheduling restart after"))
+              .loneElement shouldBe retryLogEntry(minRestartConnectionDelay)
+
+            // There is no warning
+            logEntries.filter(_.level == WARN) shouldBe empty
+          },
         )
 
         // Ensure all responses were used, confirming that the proper retries took place.

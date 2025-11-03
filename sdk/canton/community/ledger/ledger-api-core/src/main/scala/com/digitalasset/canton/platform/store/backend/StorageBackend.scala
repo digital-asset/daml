@@ -669,7 +669,9 @@ trait IntegrityStorageBackend {
     * during regular index/indexer operation.
     */
   @VisibleForTesting
-  def verifyIntegrity(failForEmptyDB: Boolean = true)(connection: Connection): Unit
+  def verifyIntegrity(failForEmptyDB: Boolean = true, inMemoryCantonStore: Boolean = false)(
+      connection: Connection
+  ): Unit
 
   @VisibleForTesting
   def numberOfAcceptedTransactionsFor(synchronizerId: SynchronizerId)(

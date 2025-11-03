@@ -397,33 +397,33 @@ class ConsoleEnvironment(
 
   /** Assemble top level values with their identifier name, value binding, and help description.
     */
-  protected def topLevelValues: Seq[TopLevelValue[_]] = {
+  protected def topLevelValues: Seq[TopLevelValue[?]] = {
     val nodeTopic = Seq(topicNodeReferences)
-    val localParticipantBinds: Seq[TopLevelValue[_]] =
+    val localParticipantBinds: Seq[TopLevelValue[?]] =
       participants.local.map(p =>
         TopLevelValue(p.name, helpText("participant", p.name), p, nodeTopic)
       )
-    val remoteParticipantBinds: Seq[TopLevelValue[_]] =
+    val remoteParticipantBinds: Seq[TopLevelValue[?]] =
       participants.remote.map(p =>
         TopLevelValue(p.name, helpText("remote participant", p.name), p, nodeTopic)
       )
-    val localMediatorBinds: Seq[TopLevelValue[_]] =
+    val localMediatorBinds: Seq[TopLevelValue[?]] =
       mediators.local.map(d =>
         TopLevelValue(d.name, helpText("local mediator", d.name), d, nodeTopic)
       )
-    val remoteMediatorBinds: Seq[TopLevelValue[_]] =
+    val remoteMediatorBinds: Seq[TopLevelValue[?]] =
       mediators.remote.map(d =>
         TopLevelValue(d.name, helpText("remote mediator", d.name), d, nodeTopic)
       )
-    val localSequencerBinds: Seq[TopLevelValue[_]] =
+    val localSequencerBinds: Seq[TopLevelValue[?]] =
       sequencers.local.map(d =>
         TopLevelValue(d.name, helpText("local sequencer", d.name), d, nodeTopic)
       )
-    val remoteSequencerBinds: Seq[TopLevelValue[_]] =
+    val remoteSequencerBinds: Seq[TopLevelValue[?]] =
       sequencers.remote.map(d =>
         TopLevelValue(d.name, helpText("remote sequencer", d.name), d, nodeTopic)
       )
-    val clockBinds: Option[TopLevelValue[_]] =
+    val clockBinds: Option[TopLevelValue[?]] =
       environment.simClock.map(cl =>
         TopLevelValue("clock", "Simulated time", new SimClockCommand(cl))
       )
@@ -454,7 +454,7 @@ class ConsoleEnvironment(
   /** Bindings for ammonite Add a reference to this instance to resolve implicit references within
     * the console
     */
-  lazy val bindings: Either[RuntimeException, IndexedSeq[Bind[_]]] = {
+  lazy val bindings: Either[RuntimeException, IndexedSeq[Bind[?]]] = {
     import cats.syntax.traverse.*
     for {
       bindsWithoutSelfAlias <- topLevelValues.traverse(_.asBind)
@@ -463,7 +463,7 @@ class ConsoleEnvironment(
     } yield binds.toIndexedSeq
   }
 
-  private def validateNameUniqueness(binds: Seq[Bind[_]]) = {
+  private def validateNameUniqueness(binds: Seq[Bind[?]]) = {
     val nonUniqueNames =
       binds.map(_.name).groupBy(identity).collect {
         case (name, occurrences) if occurrences.sizeIs > 1 =>
@@ -498,7 +498,7 @@ class ConsoleEnvironment(
 
   /** So we can we make this available
     */
-  protected def selfAlias(): Bind[_] = Bind(ConsoleEnvironmentBinding.BindingName, this)
+  protected def selfAlias(): Bind[?] = Bind(ConsoleEnvironmentBinding.BindingName, this)
 
   override def onClosed(): Unit =
     LifeCycle.close(

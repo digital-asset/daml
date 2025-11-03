@@ -4,7 +4,7 @@ build-options:
 - --enable-interfaces=yes
 name: DamlDefinitionsServiceDep
 source: ExternalDep.daml
-version: 3.4.0
+version: 3.4.2
 dependencies: 
 - daml-prim
 - daml-stdlib

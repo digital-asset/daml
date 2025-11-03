@@ -122,8 +122,8 @@ class DbSequencedEventStore(
   ): EitherT[FutureUnlessShutdown, SequencedEventNotFoundError, PossiblyIgnoredSerializedEvent] = {
     val query = criterion match {
       case ByTimestamp(timestamp) =>
-        // The implementation assumes that we timestamps on sequenced events increases monotonically with the sequencer counter
-        // It therefore is fine to take the first event that we find.
+        // The implementation assumes that timestamps on sequenced events increase monotonically with the sequencer counter
+        // Therefore it is fine to take the first event that we find.
         sql"""select type, sequencer_counter, ts, sequenced_event, trace_context, ignore from common_sequenced_events
                 where physical_synchronizer_idx = $partitionKey and ts = $timestamp"""
       case LatestUpto(inclusive) =>

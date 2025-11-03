@@ -7,10 +7,10 @@ import com.daml.metrics.HealthMetrics
 import com.daml.metrics.api.*
 import com.daml.metrics.api.HistogramInventory.Item
 import com.daml.metrics.api.MetricHandle.*
-import com.daml.metrics.grpc.GrpcServerMetrics
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.BaseMetrics
 import com.digitalasset.canton.logging.pretty.PrettyNameOnlyCase
+import com.digitalasset.canton.metrics.ActiveRequestsMetrics.GrpcServerMetricsX
 import com.digitalasset.canton.metrics.{
   DbStorageHistograms,
   DbStorageMetrics,
@@ -195,7 +195,7 @@ private[metrics] final class BftOrderingHistograms(val parent: MetricName)(impli
 class BftOrderingMetrics private[metrics] (
     histograms: BftOrderingHistograms,
     override val openTelemetryMetricsFactory: LabeledMetricsFactory,
-    override val grpcMetrics: GrpcServerMetrics,
+    override val grpcMetrics: GrpcServerMetricsX,
     override val healthMetrics: HealthMetrics,
 ) extends BaseMetrics {
 

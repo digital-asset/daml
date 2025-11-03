@@ -163,7 +163,7 @@ object SequencedEvent
 
   implicit val sequencedEventEnvelopeBox: EnvelopeBox[SequencedEvent] =
     new EnvelopeBox[SequencedEvent] {
-      override private[sequencing] def traverse[G[_], A <: Envelope[_], B <: Envelope[_]](
+      override private[sequencing] def traverse[G[_], A <: Envelope[?], B <: Envelope[?]](
           event: SequencedEvent[A]
       )(f: A => G[B])(implicit G: Applicative[G]): G[SequencedEvent[B]] =
         event.traverse(f)
@@ -173,7 +173,7 @@ object SequencedEvent
   // but the `MemoizeEvidence` bound in `SignedContent` doesn't allow a generic `Traverse` instance.
   implicit val signedContentEnvelopeBox: EnvelopeBox[RawSignedContentEnvelopeBox] =
     new EnvelopeBox[RawSignedContentEnvelopeBox] {
-      override private[sequencing] def traverse[G[_], Env1 <: Envelope[_], Env2 <: Envelope[_]](
+      override private[sequencing] def traverse[G[_], Env1 <: Envelope[?], Env2 <: Envelope[?]](
           signedEvent: SignedContent[SequencedEvent[Env1]]
       )(f: Env1 => G[Env2])(implicit G: Applicative[G]): G[RawSignedContentEnvelopeBox[Env2]] =
         signedEvent.traverse(_.traverse(f))
@@ -307,7 +307,7 @@ object DeliverError {
   *   is different from the sequencing `timestamp`
   */
 @SuppressWarnings(Array("org.wartremover.warts.FinalCaseClass")) // This class is mocked in tests
-case class Deliver[+Env <: Envelope[_]] private[sequencing] (
+case class Deliver[+Env <: Envelope[?]] private[sequencing] (
     override val previousTimestamp: Option[CantonTimestamp],
     override val timestamp: CantonTimestamp,
     override val synchronizerId: PhysicalSynchronizerId,
@@ -394,7 +394,7 @@ case class Deliver[+Env <: Envelope[_]] private[sequencing] (
 }
 
 object Deliver {
-  def create[Env <: Envelope[_]](
+  def create[Env <: Envelope[?]](
       previousTimestamp: Option[CantonTimestamp],
       timestamp: CantonTimestamp,
       synchronizerId: PhysicalSynchronizerId,
@@ -413,7 +413,7 @@ object Deliver {
       trafficReceipt,
     )(None)
 
-  def fromSequencedEvent[Env <: Envelope[_]](
+  def fromSequencedEvent[Env <: Envelope[?]](
       deliverEvent: SequencedEvent[Env]
   ): Option[Deliver[Env]] =
     deliverEvent match {

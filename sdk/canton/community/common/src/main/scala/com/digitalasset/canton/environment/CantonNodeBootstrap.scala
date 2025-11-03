@@ -13,7 +13,6 @@ import com.daml.metrics.HealthMetrics
 import com.daml.metrics.api.MetricHandle.Gauge.CloseableGauge
 import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.api.MetricName
-import com.daml.metrics.grpc.GrpcServerMetrics
 import com.daml.nonempty.NonEmpty
 import com.daml.tracing.DefaultOpenTelemetry
 import com.digitalasset.canton.admin.health.v30.StatusServiceGrpc
@@ -64,6 +63,7 @@ import com.digitalasset.canton.lifecycle.{
   LifeCycle,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.metrics.ActiveRequestsMetrics.GrpcServerMetricsX
 import com.digitalasset.canton.metrics.{DbStorageMetrics, DeclarativeApiMetrics}
 import com.digitalasset.canton.networking.grpc.{
   CantonGrpcUtil,
@@ -176,7 +176,8 @@ trait BaseMetrics {
 
   def openTelemetryMetricsFactory: LabeledMetricsFactory
 
-  def grpcMetrics: GrpcServerMetrics
+  def grpcMetrics: GrpcServerMetricsX
+
   def healthMetrics: HealthMetrics
   def storageMetrics: DbStorageMetrics
   val declarativeApiMetrics: DeclarativeApiMetrics
@@ -284,8 +285,8 @@ abstract class CantonNodeBootstrapImpl[
   private def waitingFor: Option[WaitingForExternalInput] = {
     def nextStage(stage: BootstrapStage[?, ?]): Option[BootstrapStage[?, ?]] =
       stage.next match {
-        case Some(s: BootstrapStage[_, _]) => nextStage(s)
-        case Some(_: RunningNode[_]) => None
+        case Some(s: BootstrapStage[?, ?]) => nextStage(s)
+        case Some(_: RunningNode[?]) => None
         // BootstrapStageOrLeaf is not a sealed class, therefore we need to catch any other
         // possible subclass
         case Some(_) => None
@@ -1001,6 +1002,7 @@ abstract class CantonNodeBootstrapImpl[
                       .managers() ++ sequencedTopologyManagers :+ topologyManager,
                     lookupActivePSId,
                     temporaryStoreRegistry,
+                    parameters,
                     bootstrapStageCallback.loggerFactory,
                   ),
                   executionContext,

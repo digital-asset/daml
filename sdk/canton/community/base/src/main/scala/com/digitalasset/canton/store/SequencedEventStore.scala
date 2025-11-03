@@ -303,7 +303,7 @@ trait SequencedEventStore
 
 object SequencedEventStore {
 
-  def apply[Env <: Envelope[_]](
+  def apply[Env <: Envelope[?]](
       storage: Storage,
       physicalSynchronizerIdx: IndexedPhysicalSynchronizer,
       timeouts: ProcessingTimeout,
@@ -371,7 +371,7 @@ object SequencedEventStore {
 
   /** Base type for wrapping all not yet stored (no counter) and stored events (have counter)
     */
-  sealed trait ProcessingSequencedEvent[+Env <: Envelope[_]]
+  sealed trait ProcessingSequencedEvent[+Env <: Envelope[?]]
       extends HasTraceContext
       with PrettyPrinting
       with Product
@@ -385,7 +385,7 @@ object SequencedEventStore {
 
   /** A wrapper for not yet stored events (no counter) with an additional trace context.
     */
-  final case class SequencedEventWithTraceContext[+Env <: Envelope[_]](
+  final case class SequencedEventWithTraceContext[+Env <: Envelope[?]](
       signedEvent: SignedContent[SequencedEvent[Env]]
   )(
       override val traceContext: TraceContext
@@ -405,7 +405,7 @@ object SequencedEventStore {
   /** Encapsulates an event stored in the SequencedEventStore (has a counter assigned), and the
     * event could have been marked as "ignored".
     */
-  sealed trait PossiblyIgnoredSequencedEvent[+Env <: Envelope[_]]
+  sealed trait PossiblyIgnoredSequencedEvent[+Env <: Envelope[?]]
       extends ProcessingSequencedEvent[Env] {
 
     def previousTimestamp: Option[CantonTimestamp]
@@ -513,7 +513,7 @@ object SequencedEventStore {
   /** Encapsulates an event received by the sequencer client that has been validated and stored. Has
     * a counter assigned by this store and contains a trace context.
     */
-  final case class OrdinarySequencedEvent[+Env <: Envelope[_]](
+  final case class OrdinarySequencedEvent[+Env <: Envelope[?]](
       override val counter: SequencerCounter,
       signedEvent: SignedContent[SequencedEvent[Env]],
   )(
@@ -537,7 +537,7 @@ object SequencedEventStore {
 
     override def asOrdinaryEvent: PossiblyIgnoredSequencedEvent[Env] = this
 
-    override protected def pretty: Pretty[OrdinarySequencedEvent[Envelope[_]]] = prettyOfClass(
+    override protected def pretty: Pretty[OrdinarySequencedEvent[Envelope[?]]] = prettyOfClass(
       param("signedEvent", _.signedEvent)
     )
   }
@@ -557,7 +557,7 @@ object SequencedEventStore {
     private[store] def dbTypeOfEvent(content: SequencedEvent[?]): SequencedEventDbType =
       content match {
         case _: DeliverError => SequencedEventDbType.DeliverError
-        case _: Deliver[_] => SequencedEventDbType.Deliver
+        case _: Deliver[?] => SequencedEventDbType.Deliver
       }
 
     def fromProtoV30(protocolVersion: ProtocolVersion, hashOps: HashOps)(

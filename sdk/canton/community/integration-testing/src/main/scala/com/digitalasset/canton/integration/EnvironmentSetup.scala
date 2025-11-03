@@ -188,7 +188,7 @@ sealed trait EnvironmentSetup extends BeforeAndAfterAll {
         /* the block sequencer makes use of its own db so we don't want to create a new one here since that would
          * set a new state and lead to conflicts with the old db.
          */
-        case _: UseH2 | _: UsePostgres | _: UseReferenceBlockSequencer[_] =>
+        case _: UseH2 | _: UsePostgres | _: UseReferenceBlockSequencer[?] =>
           false // to prevent creating a new fresh db, the db is only deleted when the old environment is destroyed.
         case plugin => runPlugins(plugin)
       },

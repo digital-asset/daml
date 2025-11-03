@@ -142,7 +142,7 @@ object StorageDebug {
     override def closeOnCompletion(): Unit = ???
     override def isCloseOnCompletion: Boolean = ???
     override def unwrap[T](iface: Class[T]): T = ???
-    override def isWrapperFor(iface: Class[_]): Boolean = ???
+    override def isWrapperFor(iface: Class[?]): Boolean = ???
   }
 
 }

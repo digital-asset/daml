@@ -646,6 +646,19 @@ abstract class SequencerClientImpl(
               Left(error),
               nextState,
             )
+
+          case SendAsyncClientError.RequestRefused(sendAsyncError)
+              if sendAsyncError.isOverload && config.amplifySendsOnOverloadedError =>
+            logger.debug(
+              s"Send request with message id $messageId was refused by $sequencerId because it is overloaded"
+            )
+            // Immediately try the next sequencer because the overload may be confined to that one sequencer
+            Either.cond(
+              patienceO.isEmpty,
+              Left(error),
+              nextState,
+            )
+
           case _: SendAsyncClientError.RequestRefused =>
             logger.debug(
               s"Send request with message id $messageId was refused by $sequencerId: $error"

@@ -381,7 +381,10 @@ class SequencerReader(
         topologyClientTimestampBefore: Option[CantonTimestamp],
         event: Sequenced[?],
     ): Option[CantonTimestamp] = {
-      val addressedToTopologyClient = event.event.members.contains(topologyClientMemberId)
+      // this must be kept in line with the addressed_to_sequencer column in DbSequencerStore.readEventsInterval.queryEventsViaRecipientsTable
+      val addressedToTopologyClient = event.event.members.contains(
+        topologyClientMemberId
+      ) || event.event.members.contains(SequencerMemberId.Broadcast)
       if (addressedToTopologyClient) Some(event.timestamp)
       else topologyClientTimestampBefore
     }

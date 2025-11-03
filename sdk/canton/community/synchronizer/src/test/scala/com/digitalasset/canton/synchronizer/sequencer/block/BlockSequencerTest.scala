@@ -106,8 +106,7 @@ class BlockSequencerTest
       .update(
         SequencedTime(CantonTimestamp.Epoch),
         EffectiveTime(CantonTimestamp.Epoch),
-        removeMapping = Map.empty,
-        removeTxs = Set.empty,
+        removals = Map.empty,
         additions = Seq(
           topologyTransactionFactory.ns1k1_k1,
           topologyTransactionFactory.okmS1k7_k1,
@@ -130,6 +129,7 @@ class BlockSequencerTest
       SequencedTime(CantonTimestamp.Epoch),
       EffectiveTime(CantonTimestamp.Epoch),
       ApproximateTime(CantonTimestamp.Epoch),
+      potentialTopologyChange = true,
     )
     private val cryptoApi = SynchronizerCryptoClient.create(
       member = sequencer1,

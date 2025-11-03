@@ -202,7 +202,7 @@ class PartyReplicationTopologyWorkflow(
           proposal = true,
         ).map(_.filter { proposal =>
           proposal.serial == serial && (proposal.mapping match {
-            case PartyToParticipant(partyId, _thresholdMayDiffer, participants) =>
+            case PartyToParticipant(partyId, _thresholdMayDiffer, participants, _) =>
               partyId == ptpProposal.partyId && participants == ptpProposal.participants
           })
         })

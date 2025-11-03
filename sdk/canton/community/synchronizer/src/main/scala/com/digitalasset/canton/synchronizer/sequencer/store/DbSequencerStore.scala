@@ -971,6 +971,7 @@ class DbSequencerStore(
               watermarks as (select * from sequencer_watermarks)
             select events.ts, events.node_index, events.event_type, events.message_id, events.sender,
               case
+                -- this must be kept in line with SequencerReader.EventrsReader.latestTopologyClientTimestampAfter
                 when #$memberContainsBefore $topologyClientMemberId #$memberContainsAfter or #$memberContainsBefore ${SequencerMemberId.Broadcast} #$memberContainsAfter then true
                 else false
               end as addressed_to_sequencer,
@@ -1022,11 +1023,12 @@ class DbSequencerStore(
         case _: H2 =>
           // This is the previous version of the query as H2 doesn't support lateral joins
           sql"""
-            select events.ts, events.node_index, events.event_type, events.message_id, events.sender,
+            select distinct recipients.ts, events.node_index, events.event_type, events.message_id, events.sender,
               case
-                when #$memberContainsBefore $topologyClientMemberId #$memberContainsAfter then true
+                -- this must be kept in line with SequencerReader.EventrsReader.latestTopologyClientTimestampAfter
+                when #$memberContainsBefore $topologyClientMemberId #$memberContainsAfter or #$memberContainsBefore ${SequencerMemberId.Broadcast} #$memberContainsAfter then true
                 else false
-              end,
+              end as addressed_to_sequencer,
               events.payload_id, events.topology_timestamp,
               events.trace_context, events.error,
               events.consumed_cost, events.extra_traffic_consumed, events.base_traffic_remainder

@@ -47,7 +47,7 @@ object TryUtil {
     * wrapped causes (unless there is no such cause)
     */
   def unwrapCompletionException[A](x: Try[A]): Try[A] = x match {
-    case _: Success[_] => x
+    case _: Success[?] => x
     case Failure(ex) =>
       val stripped = stripCompletionException(ex)
       if (stripped eq ex) x else Failure(stripped)
@@ -64,7 +64,7 @@ object TryUtil {
     * wrapped causes (unless there is no such cause)
     */
   def unwrapExecutionException[A](x: Try[A]): Try[A] = x match {
-    case _: Success[_] => x
+    case _: Success[?] => x
     case Failure(ex) =>
       val stripped = stripExecutionException(ex)
       if (stripped eq ex) x else Failure(stripped)

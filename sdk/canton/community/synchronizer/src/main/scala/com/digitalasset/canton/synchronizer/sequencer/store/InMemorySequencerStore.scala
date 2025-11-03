@@ -260,9 +260,9 @@ class InMemorySequencerStore(
       }.toMap
     )
 
-  private def isMemberRecipient(member: SequencerMemberId)(event: StoreEvent[_]): Boolean =
+  private def isMemberRecipient(member: SequencerMemberId)(event: StoreEvent[?]): Boolean =
     event match {
-      case deliver: DeliverStoreEvent[_] =>
+      case deliver: DeliverStoreEvent[?] =>
         deliver.members.contains(SequencerMemberId.Broadcast) ||
         deliver.members.contains(
           member

@@ -4,7 +4,7 @@ build-options:
 name: health-insurance
 source: HealthInsurance.daml
 init-script: HealthInsurance:setup
-version: 3.4.0
+version: 3.4.2
 dependencies: 
 - daml-prim
 - daml-stdlib

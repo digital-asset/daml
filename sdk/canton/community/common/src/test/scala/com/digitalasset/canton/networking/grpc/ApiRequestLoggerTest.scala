@@ -141,7 +141,7 @@ final class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecu
   }
 
   private def assertClientFailure(
-      clientCompletion: Future[_],
+      clientCompletion: Future[?],
       serverStatus: Status,
       serverTrailers: Metadata = new Metadata(),
       clientCause: Throwable = null,

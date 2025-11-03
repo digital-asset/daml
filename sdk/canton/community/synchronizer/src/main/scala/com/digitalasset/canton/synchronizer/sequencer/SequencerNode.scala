@@ -25,7 +25,7 @@ import com.digitalasset.canton.lifecycle.{
   PromiseUnlessShutdown,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.networking.grpc.ratelimiting.StreamCounterCheck
+import com.digitalasset.canton.networking.grpc.ratelimiting.ActiveRequestCounterInterceptor
 import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, CantonMutableHandlerRegistry}
 import com.digitalasset.canton.protocol.SynchronizerParameters.MaxRequestSize
 import com.digitalasset.canton.protocol.SynchronizerParametersLookup.SequencerSynchronizerParameters
@@ -755,7 +755,6 @@ class SequencerNodeBootstrap(
               sequencerFactory.create(
                 sequencerId,
                 clock,
-                clock,
                 syncCryptoWithOptionalSessionKeys,
                 futureSupervisor,
                 config.trafficConfig,
@@ -1014,7 +1013,8 @@ class SequencerNode(
 
   // Provide access such that it can be modified in tests
   @VisibleForTesting
-  def streamCounterCheck: Option[StreamCounterCheck] = sequencerNodeServer.streamCounterCheck
+  def activeRequestCounter: Option[ActiveRequestCounterInterceptor] =
+    sequencerNodeServer.activeRequestCounter
 
   override type Status = SequencerNodeStatus
 

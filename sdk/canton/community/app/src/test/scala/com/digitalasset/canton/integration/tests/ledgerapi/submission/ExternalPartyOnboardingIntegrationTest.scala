@@ -182,7 +182,7 @@ class ExternalPartyOnboardingIntegrationTest extends ExternalPartyOnboardingInte
 
         p2k.loneElement.item.party shouldBe emilyE.partyId
         p2k.loneElement.item.threshold shouldBe keysThreshold
-        p2k.loneElement.item.signingKeys.forgetNE
+        p2k.loneElement.item.signingKeys
           .map(_.fingerprint) should contain theSameElementsAs emilyE.signingFingerprints.forgetNE
       }
 

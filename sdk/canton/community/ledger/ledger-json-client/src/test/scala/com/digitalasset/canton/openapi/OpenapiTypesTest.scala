@@ -136,7 +136,7 @@ class OpenapiTypesTest extends AnyWordSpec with Matchers {
   ) {
     def check(): Unit = checkTypeN[T, V](fromJson)
 
-    def openapiClass(): Class[_] = openapiClassTag.runtimeClass
+    def openapiClass(): Class[?] = openapiClassTag.runtimeClass
   }
 
   // This object is added to split mappings initialization, in order to prevent MethodTooLarge compilation error
@@ -166,7 +166,7 @@ class OpenapiTypesTest extends AnyWordSpec with Matchers {
       JsMappings1.value ++ JsMappings2.value ++ GrpcMappings1.value ++ GrpcMappings2.value ++ GrpcMappings3.value ++ GrpcMappings4.value
 
     object GrpcMappings1 {
-      val value: Seq[Mapping[_, _]] = Seq(
+      val value: Seq[Mapping[?, ?]] = Seq(
         Mapping[
           v2.admin.party_management_service.AllocatePartyResponse,
           openapi.AllocatePartyResponse,
@@ -432,7 +432,7 @@ class OpenapiTypesTest extends AnyWordSpec with Matchers {
     }
 
     object GrpcMappings2 {
-      val value: Seq[Mapping[_, _]] = Seq(
+      val value: Seq[Mapping[?, ?]] = Seq(
         Mapping[LegacyDTOs.GetTransactionByIdRequest, openapi.GetTransactionByIdRequest](
           openapi.GetTransactionByIdRequest.fromJson
         ),
@@ -701,7 +701,7 @@ class OpenapiTypesTest extends AnyWordSpec with Matchers {
       )
     }
     object GrpcMappings3 {
-      val value: Seq[Mapping[_, _]] = Seq(
+      val value: Seq[Mapping[?, ?]] = Seq(
         Mapping[json.JsUpdate.TopologyTransaction, openapi.TopologyTransaction](
           openapi.TopologyTransaction.fromJson
         ),
@@ -928,7 +928,7 @@ class OpenapiTypesTest extends AnyWordSpec with Matchers {
     }
 
     object GrpcMappings4 {
-      val value: Seq[Mapping[_, _]] = Seq(
+      val value: Seq[Mapping[?, ?]] = Seq(
         Mapping[
           v2.crypto.SigningPublicKey,
           openapi.SigningPublicKey,
@@ -951,7 +951,7 @@ class OpenapiTypesTest extends AnyWordSpec with Matchers {
     }
 
     object JsMappings1 {
-      val value: Seq[Mapping[_, _]] =
+      val value: Seq[Mapping[?, ?]] =
         Seq(
           Mapping[json.JsCommands, openapi.JsCommands](
             openapi.JsCommands.fromJson
@@ -1016,7 +1016,7 @@ class OpenapiTypesTest extends AnyWordSpec with Matchers {
     }
 
     object JsMappings2 {
-      val value: Seq[Mapping[_, _]] = Seq(
+      val value: Seq[Mapping[?, ?]] = Seq(
         Mapping[json.JsGetUpdateTreesResponse, openapi.JsGetUpdateTreesResponse](
           openapi.JsGetUpdateTreesResponse.fromJson
         ),

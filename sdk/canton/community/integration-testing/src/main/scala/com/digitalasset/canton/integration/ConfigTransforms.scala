@@ -14,7 +14,7 @@ import com.digitalasset.canton.config.{
   *,
 }
 import com.digitalasset.canton.console.FeatureFlag
-import com.digitalasset.canton.http.{HttpServerConfig, JsonApiConfig, WebsocketConfig}
+import com.digitalasset.canton.http.{JsonApiConfig, WebsocketConfig}
 import com.digitalasset.canton.participant.config.{
   ParticipantNodeConfig,
   RemoteParticipantConfig,
@@ -263,7 +263,7 @@ object ConfigTransforms {
         .replace(nextPort.some)
         .focus(_.adminApi.internalPort)
         .replace(nextPort.some)
-        .focus(_.httpLedgerApi.server.internalPort)
+        .focus(_.httpLedgerApi.internalPort)
         .replace(nextPort.some)
         .focus(_.monitoring.grpcHealthServer)
         .modify(_.map(_.copy(internalPort = nextPort.some)))
@@ -587,7 +587,7 @@ object ConfigTransforms {
   def setStorageQueueSize(queueSize: Int): ConfigTransform =
     modifyAllStorageConfigs { (_, _, config) =>
       config match {
-        case dbConfig: ModifiableDbConfig[_] =>
+        case dbConfig: ModifiableDbConfig[?] =>
           dbConfig.modify(config =
             config.config.withValue("queueSize", ConfigValueFactory.fromAnyRef(queueSize))
           )
@@ -897,7 +897,7 @@ object ConfigTransforms {
 
   /** Must be applied before the default config transformers */
   def enableHttpLedgerApi: ConfigTransform = updateAllParticipantConfigs_(
-    _.copy(httpLedgerApi = JsonApiConfig(server = HttpServerConfig()))
+    _.copy(httpLedgerApi = JsonApiConfig())
   )
 
   /** Must be applied before the default config transformers */
@@ -909,9 +909,7 @@ object ConfigTransforms {
     updateParticipantConfig(participantName)(config =>
       config.copy(httpLedgerApi =
         JsonApiConfig(
-          server = HttpServerConfig(
-            pathPrefix = pathPrefix
-          ),
+          pathPrefix = pathPrefix,
           websocketConfig = websocketConfig,
         )
       )

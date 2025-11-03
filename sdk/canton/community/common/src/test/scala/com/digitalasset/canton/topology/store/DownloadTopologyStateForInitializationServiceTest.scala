@@ -87,8 +87,9 @@ trait DownloadTopologyStateForInitializationServiceTest
         store.update(
           sequencedTime,
           effective = EffectiveTime(effectiveTime.value),
-          removeMapping = transactions.map(tx => tx.mapping.uniqueKey -> tx.serial).toMap,
-          removeTxs = transactions.map(_.hash).toSet,
+          removals = transactions.groupBy(_.mapping.uniqueKey).map { case (k, txs) =>
+            (k, (txs.map(_.serial).maxOption, Set.empty))
+          },
           additions = transactions.map(stored => ValidatedTopologyTransaction(stored.transaction)),
         )
       }

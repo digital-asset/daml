@@ -156,7 +156,7 @@ trait DatabaseDeadlockTest
 
   def dbCanDeadlock: Boolean = true
 
-  def assertSQLException(body: => Try[_]): Assertion =
+  def assertSQLException(body: => Try[?]): Assertion =
     forAtLeast(1, 0 until roundsNegative) { _ =>
       inside(body) { case Failure(e: SQLException) =>
         assertDeadlock(e)
@@ -165,7 +165,7 @@ trait DatabaseDeadlockTest
 
   def assertDeadlock(e: SQLException): Assertion
 
-  def assertNoException(body: => Try[_]): Assertion =
+  def assertNoException(body: => Try[?]): Assertion =
     forAll(0 until roundsPositive) { _ =>
       inside(body) { case Success(_) => succeed }
     }

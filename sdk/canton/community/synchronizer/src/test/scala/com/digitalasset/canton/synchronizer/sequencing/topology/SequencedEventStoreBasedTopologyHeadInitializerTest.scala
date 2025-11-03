@@ -98,20 +98,13 @@ class SequencedEventStoreBasedTopologyHeadInitializerTest
             })
 
           val topologyClientMock = mock[SynchronizerTopologyClientWithInit]
-          when(topologyClientMock.initialize()(anyTraceContext))
-            .thenReturn(FutureUnlessShutdown.unit)
           val topologyStoreMock = mock[TopologyStore[TopologyStoreId.SynchronizerStore]]
           val initializer = new SequencedEventStoreBasedTopologyHeadInitializer(
             sequencedEventStoreMock,
             topologyStoreMock,
           )
 
-          when(
-            topologyStoreMock.maxTimestamp(
-              eqTo(SequencedTime.MaxValue),
-              includeRejected = anyBoolean,
-            )(anyTraceContext)
-          )
+          when(topologyStoreMock.maxTimestamp(SequencedTime.MaxValue, includeRejected = true))
             .thenReturn(
               FutureUnlessShutdown.pure(
                 maxTopologyStoreTimestampsO.map { case (sequencedTime, effectiveTime) =>
@@ -131,8 +124,8 @@ class SequencedEventStoreBasedTopologyHeadInitializerTest
                 SequencedTime(expectedHeadStateSequencedTime),
                 EffectiveTime(expectedHeadStateEffectiveTime),
                 ApproximateTime(expectedHeadStateEffectiveTime),
+                potentialTopologyChange = true,
               )
-              verify(topologyClientMock).initialize()(anyTraceContext)
               succeed
             }
             .failOnShutdown

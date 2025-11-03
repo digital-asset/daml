@@ -384,7 +384,11 @@ sealed trait AcsCommitmentProcessorBaseTest
         increasePerceivedComputationTimeForCommitments
       )(interval.duration.multipliedBy(2)),
       doNotAwaitOnCheckingIncomingCommitments = false,
-      commitmentCheckpointInterval = PositiveDurationSeconds.ofSeconds(interval.duration.getSeconds),
+      commitmentCheckpointInterval =
+        PositiveDurationSeconds.ofSeconds(interval.duration.getSeconds),
+      // just as for the additional consistency checks flag: if enabled, one needs to populate the above ACS
+      // and contract stores correctly, otherwise the tests will fail
+      commitmentMismatchDebugging = false,
     )
     (acsCommitmentProcessor, store, sequencerClient, changes, acsCommitmentConfigStore)
   }

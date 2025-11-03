@@ -187,7 +187,9 @@ object FutureSupervisor {
         val end = System.nanoTime()
         val duration = TimeUnit.NANOSECONDS.toMillis(end - now)
         if (duration >= defaultCheckMs)
-          noTracingLogger.warn(
+          // Logged only at INFO level instead of WARN because GC runs can pause
+          // supervision and lead to false positives.
+          noTracingLogger.info(
             s"Supervising futures itself takes longer than the check frequency: $duration ms. Approximate supervision size: $approximateSize minus $removed"
           )
       } else {
@@ -312,7 +314,7 @@ object FutureSupervisor {
       */
     @VisibleForTesting
     private[concurrent] final case class ScheduledFuture(
-        fut: WeakReference[Future[_]],
+        fut: WeakReference[Future[?]],
         description: () => String,
         startNanos: Long,
         warnNanos: Long,

@@ -67,17 +67,19 @@ final class SequencedEventStoreBasedTopologyHeadInitializer(
             )
           )
         } else maxTopologyStoreTimestamp
+    } yield {
       // Defensively, get the latest possible timestamps or don't update the head.
-      sequencedToEffectiveTimes = List(
+      val sequencedToEffectiveTimes = List(
         latestSequencedEvent.map(event =>
           (SequencedTime(event.timestamp), EffectiveTime(event.timestamp))
         ),
         maxTopologyStoreTimestampWithTopologyChangeDelay,
       ).flatten
-      maxTimestampsO = sequencedToEffectiveTimes.maxByOption {
+      val maxTimestampsO = sequencedToEffectiveTimes.maxByOption {
         case (_, effectiveTime: EffectiveTime) => effectiveTime
       }
-      _ = SynchronizerTopologyClientHeadStateInitializer
+
+      SynchronizerTopologyClientHeadStateInitializer
         .computeInitialHeadUpdate(
           maxTimestampsO,
           synchronizerPredecessor,
@@ -88,8 +90,9 @@ final class SequencedEventStoreBasedTopologyHeadInitializer(
             maxSequencedTime,
             maxEffectiveTime,
             ApproximateTime(maxEffectiveTime.value),
+            potentialTopologyChange = true,
           )
         }
-      _ <- client.initialize()
-    } yield client
+      client
+    }
 }

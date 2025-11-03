@@ -184,7 +184,7 @@ private class SchemaProcessor[T](
         fromCons(id, cons, params.toSeq.map { case (n, _) => TypeVarName(n) } zip args)
       case Ast.DTypeSyn(params, typ) =>
         fromType(typ, params.toSeq.map { case (n, _) => TypeVarName(n) } zip args)
-      case iface: GenDefInterface[_] => fromType(iface.view, Seq.empty)
+      case iface: GenDefInterface[?] => fromType(iface.view, Seq.empty)
       case other => err(s"Data type $other is not supported")
     }
   }

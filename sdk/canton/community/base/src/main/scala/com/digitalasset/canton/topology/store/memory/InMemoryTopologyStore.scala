@@ -6,7 +6,8 @@ package com.digitalasset.canton.topology.store.memory
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.crypto.Hash
+import com.digitalasset.canton.crypto.topology.TopologyStateHash
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -19,7 +20,10 @@ import com.digitalasset.canton.topology.store.StoredTopologyTransactions.{
   GenericStoredTopologyTransactions,
   PositiveStoredTopologyTransactions,
 }
-import com.digitalasset.canton.topology.store.TopologyStore.EffectiveStateChange
+import com.digitalasset.canton.topology.store.TopologyStore.{
+  EffectiveStateChange,
+  TopologyStoreDeactivations,
+}
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
@@ -33,6 +37,7 @@ import com.digitalasset.canton.util.PekkoUtil
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Source
 
 import java.util.concurrent.atomic.AtomicReference
@@ -135,10 +140,15 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
   override def update(
       sequenced: SequencedTime,
       effective: EffectiveTime,
-      removeMapping: Map[TopologyMapping.MappingHash, PositiveInt],
-      removeTxs: Set[TopologyTransaction.TxHash],
+      removals: TopologyStoreDeactivations,
       additions: Seq[GenericValidatedTopologyTransaction],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+
+    def mustRemove(tx: TopologyStoreEntry): Boolean =
+      removals.get(tx.mapping.uniqueKey).fold(false) { case (serialO, txSet) =>
+        serialO.exists(_ >= tx.serial) || txSet.contains(tx.hash)
+      }
+
     blocking {
       synchronized {
         // transactionally
@@ -146,14 +156,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
         //    AND ((mapping_key_hash IN $removeMapping AND serial_counter <= $serial) OR (tx_hash IN $removeTxs))
         // INSERT IGNORE DUPLICATES (...)
         topologyTransactionStore.zipWithIndex.foreach { case (tx, idx) =>
-          if (
-            tx.from.value < effective.value && tx.until.isEmpty &&
-            (removeMapping
-              .get(tx.mapping.uniqueKey)
-              .exists(_ >= tx.serial)
-              ||
-                removeTxs.contains(tx.hash))
-          ) {
+          if (tx.from.value < effective.value && tx.until.isEmpty && mustRemove(tx)) {
             topologyTransactionStore.update(idx, tx.copy(until = Some(effective)))
           }
         }
@@ -479,6 +482,15 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
     PekkoUtil.futureSourceUS(dataF)
   }
 
+  override def findEssentialStateHashAtSequencedTime(
+      asOfInclusive: SequencedTime
+  )(implicit materializer: Materializer, traceContext: TraceContext): FutureUnlessShutdown[Hash] =
+    FutureUnlessShutdown.outcomeF(
+      findEssentialStateAtSequencedTime(asOfInclusive, includeRejected = true)
+        .runFold(TopologyStateHash.build())(_.add(_))
+        .map(_.finish().hash)
+    )
+
   override def findUpcomingEffectiveChanges(asOfInclusive: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[TopologyStore.Change]] =
@@ -496,10 +508,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
       }
     }
 
-  override def maxTimestamp(
-      sequencedTime: SequencedTime,
-      includeRejected: Boolean,
-  )(implicit
+  override def maxTimestamp(sequencedTime: SequencedTime, includeRejected: Boolean)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]] = FutureUnlessShutdown.wrap {
     blocking {
@@ -512,29 +521,6 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
       }
     }
   }
-
-  override def findTopologyIntervalForTimestamp(
-      timestamp: CantonTimestamp
-  )(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[(EffectiveTime, Option[EffectiveTime])]] =
-    FutureUnlessShutdown.wrap {
-      blocking {
-        synchronized {
-          val lowerBound = topologyTransactionStore
-            .findLast(entry =>
-              entry.from.value < timestamp && entry.rejected.isEmpty && !entry.transaction.isProposal
-            )
-            .map(_.from)
-          val upperBound = topologyTransactionStore
-            .find(entry =>
-              entry.from.value >= timestamp && entry.rejected.isEmpty && !entry.transaction.isProposal
-            )
-            .map(_.from)
-          lowerBound.map(_ -> upperBound)
-        }
-      }
-    }
 
   override def findDispatchingTransactionsAfter(
       timestampExclusive: CantonTimestamp,

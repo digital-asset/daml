@@ -73,7 +73,7 @@ final case class Batch[+Env <: Envelope[?]] private (envelopes: List[Env])(
 
   def envelopesCount: Int = envelopes.size
 
-  private[sequencing] def traverse[F[_], Env2 <: Envelope[_]](f: Env => F[Env2])(implicit
+  private[sequencing] def traverse[F[_], Env2 <: Envelope[?]](f: Env => F[Env2])(implicit
       F: Applicative[F]
   ): F[Batch[Env2]] =
     F.map(envelopes.traverse(f))(Batch(_)(representativeProtocolVersion))
@@ -98,7 +98,7 @@ object Batch extends VersioningCompanion2[Batch[Envelope[?]], Batch[ClosedEnvelo
     )
   )
 
-  def apply[Env <: Envelope[_]](
+  def apply[Env <: Envelope[?]](
       envelopes: List[Env],
       protocolVersion: ProtocolVersion,
   ): Batch[Env] = Batch(envelopes)(protocolVersionRepresentativeFor(protocolVersion))
@@ -150,7 +150,7 @@ object Batch extends VersioningCompanion2[Batch[Envelope[?]], Batch[ClosedEnvelo
     }
 
   /** Constructs a batch with no envelopes */
-  def empty[Env <: Envelope[_]](protocolVersion: ProtocolVersion): Batch[Env] =
+  def empty[Env <: Envelope[?]](protocolVersion: ProtocolVersion): Batch[Env] =
     Batch(List.empty[Env])(protocolVersionRepresentativeFor(protocolVersion))
 
   def filterClosedEnvelopesFor(
