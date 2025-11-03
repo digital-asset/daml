@@ -8,7 +8,7 @@ module DA.Daml.StablePackages
     , stablePackagesForVersion
     , numStablePackagesForVersion
     , stablePackageByModuleName
-    , allStablePackagesTuples
+    , allStablePackagesWithIds
     ) where
 
 import           Data.Bifunctor
@@ -53,21 +53,21 @@ allStablePackagesList =
       , daInternalFailTypes version2_1
       ]
 
-allStablePackagesTuples :: [(PackageId, Package)]
-allStablePackagesTuples =
+allStablePackagesWithIds :: [(PackageId, Package)]
+allStablePackagesWithIds =
   map (\pkg -> (encodePackageHash pkg, pkg)) allStablePackagesList
 
 allStablePackageIds :: [PackageId]
-allStablePackageIds = map fst allStablePackagesTuples
+allStablePackageIds = map fst allStablePackagesWithIds
 
 allStablePackages :: MS.Map PackageId Package
-allStablePackages = MS.fromList allStablePackagesTuples
+allStablePackages = MS.fromList allStablePackagesWithIds
 
 stablePackagesForVersion :: Version -> [PackageId]
 stablePackagesForVersion v = map snd $ filter (R.elem v . fst) entries
   where
     entries :: [(VersionReq, PackageId)]
-    entries = map (\(pId, p) -> (R.From $ packageLfVersion p, pId)) allStablePackagesTuples
+    entries = map (\(pId, p) -> (R.From $ packageLfVersion p, pId)) allStablePackagesWithIds
 
 numStablePackagesForVersion :: Version -> Int
 numStablePackagesForVersion v = length (stablePackagesForVersion v)

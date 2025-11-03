@@ -1,7 +1,12 @@
 -- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{- HLINT ignore "Avoid restricted extensions" -}
+{-# LANGUAGE CPP             #-}
+
 module Main(main) where
+
+import System.Environment (getArgs)
 
 import qualified Data.ByteString          as BS
 import qualified Data.Text                as T
@@ -12,15 +17,20 @@ import           DA.Daml.LF.Ast
 import           DA.Daml.StablePackages
 
 entries :: [(Version, T.Text)]
-entries = map toEntry allStablePackagesTuples
+entries = map toEntry allStablePackagesWithIds
   where
     toEntry (id, pkg) = (packageLfVersion pkg, unPackageId id)
 
-outputPath :: FilePath
-outputPath = "compiler/damlc/stable-packages/stable-packages.yaml"
+defaultOutputPath :: FilePath
+defaultOutputPath = YAML_FILE_PATH
 
 main :: IO ()
 main = do
+  args <- getArgs
+  let outputPath = case args of
+        (path:_) -> path
+        []       -> defaultOutputPath
+
   putStrLn $ "Generating fresh json data for: " ++ outputPath
   BS.writeFile outputPath $ headerBS `BS.append` Yaml.encode entries
   putStrLn "Successfully wrote stable packages."

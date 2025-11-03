@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "generate_and_track_cabal")
+load("//rules_daml:daml.bzl", "generate_and_track_yaml_file")
 load(
     "//daml-lf/language:daml-lf.bzl",
     "COMPILER_LF_MAJOR_VERSIONS",
@@ -109,6 +110,9 @@ da_haskell_binary(
     name = "stable-package-list-writer",
     srcs = ["src/DA/Daml/StablePackagesListWriter.hs"],
     data = ["stable-packages.yaml"],
+    compiler_flags = [
+        '-DYAML_FILE_PATH="$(location stable-packages.yaml)"',
+    ],
     hackage_deps = [
         "base",
         "bytestring",
@@ -123,13 +127,19 @@ da_haskell_binary(
     ],
 )
 
+generate_and_track_yaml_file(
+    name = "stable-packages-list",
+    generator = ":stable-package-list-writer",
+    golden_file = "stable-packages.yaml",
+    data = ["stable-packages.yaml"],
+)
+
 da_haskell_library(
     name = "stable-package-list-reader",
     srcs = [
         "src/DA/Daml/StablePackagesListReader.hs",
     ],
     compiler_flags = [
-        "-XCPP",  # Enable the C Preprocessor to pass path
         '-DYAML_FILE_PATH="$(location stable-packages.yaml)"',
     ],
     extra_srcs = [
