@@ -137,7 +137,6 @@ object LanguageVersion {
 
     /** Extracts a list of all Minor versions from a list of LanguageVersions.
       */
-    def minors: List[LanguageVersion.Minor] = list.map(_.minor)
     def toRange: VersionRange[LanguageVersion] = {
       VersionRange(list.head, list.last)
     }
