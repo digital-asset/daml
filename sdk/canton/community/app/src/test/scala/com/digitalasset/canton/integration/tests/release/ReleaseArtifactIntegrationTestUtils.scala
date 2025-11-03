@@ -43,6 +43,8 @@ trait ReleaseArtifactIntegrationTestUtils extends FixtureAnyWordSpec with BaseTe
       ttyWarning,
       "last_errors",
       "last-errors",
+      "log-access-errors",
+      "access error",
       // slow ExecutionContextMonitor warnings
       "WARN  c.d.c.c.ExecutionContextMonitor - Execution context",
     )

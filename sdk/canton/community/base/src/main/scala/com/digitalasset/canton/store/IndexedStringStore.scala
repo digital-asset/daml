@@ -31,11 +31,11 @@ object IndexedString {
 
   abstract class Impl[E](val item: E) extends IndexedString[E]
 
-  implicit val setParameterIndexedString: SetParameter[IndexedString[_]] =
-    (d: IndexedString[_], pp: PositionedParameters) => pp.setInt(d.index)
+  implicit val setParameterIndexedString: SetParameter[IndexedString[?]] =
+    (d: IndexedString[?], pp: PositionedParameters) => pp.setInt(d.index)
 
-  implicit val setParameterIndexedStringO: SetParameter[Option[IndexedString[_]]] =
-    (d: Option[IndexedString[_]], pp: PositionedParameters) => pp.setIntOption(d.map(_.index))
+  implicit val setParameterIndexedStringO: SetParameter[Option[IndexedString[?]]] =
+    (d: Option[IndexedString[?]], pp: PositionedParameters) => pp.setIntOption(d.map(_.index))
 
 }
 

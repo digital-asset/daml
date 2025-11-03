@@ -164,7 +164,6 @@ final case class CachingConfigs(
       CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
     publicKeyConversionCache: CacheConfig = CachingConfigs.defaultPublicKeyConversionCache,
     packageVettingCache: CacheConfig = CachingConfigs.defaultPackageVettingCache,
-    packageDependencyCache: CacheConfig = CachingConfigs.defaultPackageDependencyCache,
     packageUpgradeCache: CacheConfigWithSizeOnly = CachingConfigs.defaultPackageUpgradeCache,
     memberCache: CacheConfig = CachingConfigs.defaultMemberCache,
     kmsMetadataCache: CacheConfig = CachingConfigs.defaultKmsMetadataCache,
@@ -199,11 +198,6 @@ object CachingConfigs {
     )
   val defaultPackageVettingCache: CacheConfig =
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(10000))
-  val defaultPackageDependencyCache: CacheConfig =
-    CacheConfig(
-      maximumSize = PositiveNumeric.tryCreate(10000),
-      NonNegativeFiniteDuration.ofMinutes(15),
-    )
   val defaultPackageUpgradeCache: CacheConfigWithSizeOnly = CacheConfigWithSizeOnly(
     maximumSize = PositiveNumeric.tryCreate(10000)
   )

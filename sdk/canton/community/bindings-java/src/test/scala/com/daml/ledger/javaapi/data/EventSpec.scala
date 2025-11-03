@@ -31,7 +31,7 @@ class EventSpec extends AnyFlatSpec with Matchers with ScalaCheckDrivenPropertyC
     identifierGen,
   ) { (e, extraIV, extraFIV) =>
     val base = CreatedEvent fromProto e
-    def mutList[X](xs: java.util.Collection[_ <: X]) = new java.util.ArrayList[X](xs)
+    def mutList[X](xs: java.util.Collection[? <: X]) = new java.util.ArrayList[X](xs)
     def mutMap[K, V](m: java.util.Map[K, V]) = new java.util.HashMap(m)
     val mutatingWitnesses = mutList(e.getWitnessPartiesList)
     val mutatingSignatories = mutList(e.getSignatoriesList)

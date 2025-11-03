@@ -954,7 +954,7 @@ object ConnectedSynchronizer {
       override val loggerFactory: NamedLoggerFactory,
   ) extends NamedLogging {
 
-    def apply[Env <: Envelope[_]](
+    def apply[Env <: Envelope[?]](
         handler: PossiblyIgnoredApplicationHandler[Env]
     ): PossiblyIgnoredApplicationHandler[Env] = handler.replace { tracedBatch =>
       tracedBatch.withTraceContext { implicit batchTraceContext => tracedEvents =>

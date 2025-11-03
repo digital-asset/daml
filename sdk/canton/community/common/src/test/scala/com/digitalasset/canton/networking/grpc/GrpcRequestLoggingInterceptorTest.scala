@@ -29,7 +29,10 @@ import scala.util.control.NonFatal
 
 @SuppressWarnings(Array("org.wartremover.warts.Null"))
 @nowarn("msg=match may not be exhaustive")
-final class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionContext {
+final class GrpcRequestLoggingInterceptorTest
+    extends AnyWordSpec
+    with BaseTest
+    with HasExecutionContext {
 
   private val ChannelName: String = "testSender"
 
@@ -141,7 +144,7 @@ final class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecu
   }
 
   private def assertClientFailure(
-      clientCompletion: Future[_],
+      clientCompletion: Future[?],
       serverStatus: Status,
       serverTrailers: Metadata = new Metadata(),
       clientCause: Throwable = null,
@@ -160,25 +163,25 @@ final class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecu
 
   val capturingLogger: NamedEventCapturingLogger =
     new NamedEventCapturingLogger(
-      classOf[ApiRequestLoggerTest].getSimpleName,
+      classOf[GrpcRequestLoggingInterceptorTest].getSimpleName,
       outputLogger = Some(progressLogger),
     )
 
   // need to override these loggers as we want the execution context to pick up the capturing logger
   override protected val noTracingLogger: Logger =
-    capturingLogger.getLogger(classOf[ApiRequestLoggerTest])
+    capturingLogger.getLogger(classOf[GrpcRequestLoggingInterceptorTest])
   override protected val logger: TracedLogger = TracedLogger(noTracingLogger)
 
   private def captureSpuriousMessageAfterErrorThrow(
       throwable: Throwable,
-      createExpectedLogMessage: (String, Boolean) => String,
+      createExpectedLogMessage: String => String,
   ): Unit = {
     // since our latest gRPC upgrade (https://github.com/DACH-NY/canton/pull/15304),
     // the client might log one additional "completed" message before or after the
     // fatal error being logged by gRPC
     val capturedComplete = new AtomicBoolean(false)
     capturedComplete.set(
-      capturingLogger.tryToPollMessage(createExpectedLogMessage("completed", false), DEBUG)
+      capturingLogger.tryToPollMessage(createExpectedLogMessage("completed"), DEBUG)
     )
     capturingLogger.assertNextMessageIs(
       s"A fatal error has occurred in $executionContextName. Terminating thread.",
@@ -195,7 +198,7 @@ final class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecu
           case event
               if capturingLogger.eventMatches(
                 event,
-                createExpectedLogMessage("completed", false),
+                createExpectedLogMessage("completed"),
                 DEBUG,
               ) =>
           case other =>
@@ -210,13 +213,15 @@ final class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecu
     val helloServiceDefinition: ServerServiceDefinition =
       HelloServiceGrpc.bindService(service, parallelExecutionContext)
 
-    val apiRequestLogger: ApiRequestLogger =
-      new ApiRequestLogger(
+    val apiRequestLogger: GrpcRequestLoggingInterceptor =
+      new GrpcRequestLoggingInterceptor(
         capturingLogger,
         config = ApiLoggingConfig(
           messagePayloads = logMessagePayloads,
           maxStringLength = maxStringLength,
           maxMetadataSize = maxMetadataSize,
+          debugInProcessRequests = true,
+          prefixGrpcAddresses = false,
         ),
       )
 
@@ -287,13 +292,9 @@ final class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecu
   "On a unary call" when {
 
     def createExpectedLogMessage(
-        content: String,
-        includeRequestTraceContext: Boolean = false,
-    ): String = {
-      val mainMessage = s"Request c.d.c.p.HelloService/Hello by testSender: $content"
-      val traceContextMessage = s"\n  Request ${requestTraceContext.showTraceId}"
-      if (includeRequestTraceContext) mainMessage + traceContextMessage else mainMessage
-    }
+        content: String
+    ): String =
+      s"Request c.d.c.p.HelloService/Hello by testSender: $content"
 
     def assertRequestLogged: Assertion = {
       capturingLogger.assertNextMessage(
@@ -307,8 +308,7 @@ final class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecu
       )
       capturingLogger.assertNextMessageIs(
         createExpectedLogMessage(
-          "received a message Request(Hello server)",
-          includeRequestTraceContext = true,
+          "received a message Request(Hello server)"
         ),
         DEBUG,
       )
@@ -333,8 +333,7 @@ final class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecu
         )
         capturingLogger.assertNextMessageIs(
           createExpectedLogMessage(
-            "sending response Response(Hello client)",
-            includeRequestTraceContext = true,
+            "sending response Response(Hello client)"
           ),
           DEBUG,
         )
@@ -534,13 +533,9 @@ final class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecu
   "On a streamed call" when {
 
     def createExpectedLogMessage(
-        content: String,
-        includeRequestTraceContext: Boolean = false,
-    ): String = {
-      val mainMessage = s"Request c.d.c.p.HelloService/HelloStreamed by testSender: $content"
-      val traceContextMessage = s"\n  Request ${requestTraceContext.showTraceId}"
-      if (includeRequestTraceContext) mainMessage + traceContextMessage else mainMessage
-    }
+        content: String
+    ): String =
+      s"Request c.d.c.p.HelloService/HelloStreamed by testSender: $content"
 
     def assertRequestAndResponsesLogged: Assertion = {
       capturingLogger.assertNextMessage(
@@ -554,8 +549,7 @@ final class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecu
       )
       capturingLogger.assertNextMessageIs(
         createExpectedLogMessage(
-          "received a message Request(Hello server)",
-          includeRequestTraceContext = true,
+          "received a message Request(Hello server)"
         ),
         DEBUG,
       )
@@ -569,15 +563,13 @@ final class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecu
       )
       capturingLogger.assertNextMessageIs(
         createExpectedLogMessage(
-          "sending response Response(Hello client)",
-          includeRequestTraceContext = true,
+          "sending response Response(Hello client)"
         ),
         DEBUG,
       )
       capturingLogger.assertNextMessageIs(
         createExpectedLogMessage(
-          "sending response Response(Hello client)",
-          includeRequestTraceContext = true,
+          "sending response Response(Hello client)"
         ),
         DEBUG,
       )
@@ -746,13 +738,9 @@ final class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecu
 
   "On a unary call with payload logging suppressed" when {
     def createExpectedLogMessage(
-        content: String,
-        includeRequestTraceContext: Boolean = false,
-    ): String = {
-      val mainMessage = s"Request c.d.c.p.HelloService/Hello by testSender: $content"
-      val traceContextMessage = s"\n  Request ${requestTraceContext.showTraceId}"
-      if (includeRequestTraceContext) mainMessage + traceContextMessage else mainMessage
-    }
+        content: String
+    ): String =
+      s"Request c.d.c.p.HelloService/Hello by testSender: $content"
 
     "intercepting a successful request" must {
       "not log any messages" in withEnv(logMessagePayloads = false) { implicit env =>
@@ -764,7 +752,7 @@ final class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecu
 
         capturingLogger.assertNextMessageIs(createExpectedLogMessage("received headers "), TRACE)
         capturingLogger.assertNextMessageIs(
-          createExpectedLogMessage("received a message ", includeRequestTraceContext = true),
+          createExpectedLogMessage("received a message "),
           DEBUG,
         )
         capturingLogger.assertNextMessageIs(
@@ -776,7 +764,7 @@ final class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecu
           TRACE,
         )
         capturingLogger.assertNextMessageIs(
-          createExpectedLogMessage("sending response ", includeRequestTraceContext = true),
+          createExpectedLogMessage("sending response "),
           DEBUG,
         )
         capturingLogger.assertNextMessageIs(createExpectedLogMessage("succeeded(OK)"), DEBUG)
@@ -797,7 +785,7 @@ final class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecu
 
         capturingLogger.assertNextMessageIs(createExpectedLogMessage("received headers "), TRACE)
         capturingLogger.assertNextMessageIs(
-          createExpectedLogMessage("received a message ", includeRequestTraceContext = true),
+          createExpectedLogMessage("received a message "),
           DEBUG,
         )
         capturingLogger.assertNextMessageIs(
@@ -816,13 +804,9 @@ final class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecu
 
   "On a streamed call with very short message limit" when {
     def createExpectedLogMessage(
-        content: String,
-        includeRequestTraceContext: Boolean = false,
-    ): String = {
-      val mainMessage = s"Request c.d.c.p.HelloService/HelloStreamed by testSender: $content"
-      val traceContextMessage = s"\n  Request ${requestTraceContext.showTraceId}"
-      if (includeRequestTraceContext) mainMessage + traceContextMessage else mainMessage
-    }
+        content: String
+    ): String =
+      s"Request c.d.c.p.HelloService/HelloStreamed by testSender: $content"
 
     def assertRequestAndResponsesLogged: Assertion = {
       capturingLogger.assertNextMessageIs(
@@ -832,8 +816,7 @@ final class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecu
       )
       capturingLogger.assertNextMessageIs(
         createExpectedLogMessage(
-          "received a message Request(Hel...)",
-          includeRequestTraceContext = true,
+          "received a message Request(Hel...)"
         ),
         DEBUG,
       )
@@ -847,15 +830,13 @@ final class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecu
       )
       capturingLogger.assertNextMessageIs(
         createExpectedLogMessage(
-          "sending response Response(Hel...)",
-          includeRequestTraceContext = true,
+          "sending response Response(Hel...)"
         ),
         DEBUG,
       )
       capturingLogger.assertNextMessageIs(
         createExpectedLogMessage(
-          "sending response Response(Hel...)",
-          includeRequestTraceContext = true,
+          "sending response Response(Hel...)"
         ),
         DEBUG,
       )

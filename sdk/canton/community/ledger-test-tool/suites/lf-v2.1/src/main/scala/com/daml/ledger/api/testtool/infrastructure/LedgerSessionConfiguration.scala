@@ -7,7 +7,7 @@ import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantSessio
 import io.grpc.ManagedChannelBuilder
 
 private[testtool] final class LedgerSessionConfiguration(
-    participantChannelBuilders: Vector[ManagedChannelBuilder[_]],
+    participantChannelBuilders: Vector[ManagedChannelBuilder[?]],
     partyAllocation: PartyAllocationConfiguration,
     val shuffleParticipants: Boolean,
 ) {

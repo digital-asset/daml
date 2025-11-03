@@ -671,10 +671,10 @@ object GcpKms extends Kms.SupportedSchemes {
                     .defaultGrpcTransportProviderBuilder()
                     .setEndpoint(endpoint)
                     .setChannelConfigurator(
-                      new ApiFunction[ManagedChannelBuilder[_], ManagedChannelBuilder[_]] {
+                      new ApiFunction[ManagedChannelBuilder[?], ManagedChannelBuilder[?]] {
                         override def apply(
-                            managedChannelBuilder: ManagedChannelBuilder[_]
-                        ): ManagedChannelBuilder[_] = {
+                            managedChannelBuilder: ManagedChannelBuilder[?]
+                        ): ManagedChannelBuilder[?] = {
                           managedChannelBuilder
                             .overrideAuthority("cloudkms.googleapis.com")
                           managedChannelBuilder

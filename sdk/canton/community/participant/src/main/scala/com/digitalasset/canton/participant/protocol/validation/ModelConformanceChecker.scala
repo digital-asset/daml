@@ -402,10 +402,7 @@ class ModelConformanceChecker(
 
       informeeParticipants = informeeParticipantsByParty.values.flatten.toSet
       unvetted <- informeeParticipants.toSeq
-        .parTraverse(p =>
-          snapshot
-            .findUnvettedPackagesOrDependencies(p, packageIds, ledgerTime)
-        )
+        .parTraverse(p => snapshot.loadUnvettedPackagesOrDependencies(p, packageIds, ledgerTime))
 
     } yield {
       val combined = unvetted.combineAll.unknownOrUnvetted

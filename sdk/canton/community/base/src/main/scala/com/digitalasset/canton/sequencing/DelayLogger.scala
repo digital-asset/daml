@@ -29,7 +29,7 @@ class DelayLogger(
 
   def checkForDelay(event: PossiblyIgnoredSequencedEvent[?]): Unit =
     event match {
-      case event: OrdinarySequencedEvent[_] =>
+      case event: OrdinarySequencedEvent[?] =>
         checkForDelay_(event.asSequencedSerializedEvent)
       case _ => ()
     }

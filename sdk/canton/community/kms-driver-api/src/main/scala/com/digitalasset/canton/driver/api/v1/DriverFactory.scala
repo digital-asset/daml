@@ -53,7 +53,7 @@ trait DriverFactory extends api.DriverFactory {
     */
   def create(
       config: ConfigType,
-      loggerFactory: Class[_] => Logger,
+      loggerFactory: Class[?] => Logger,
       executionContext: ExecutionContext,
   ): Driver
 }

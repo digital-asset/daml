@@ -28,22 +28,10 @@ import com.digitalasset.canton.platform.apiserver.ratelimiting.RateLimitingInter
 import com.digitalasset.canton.protobuf.Hello
 import com.digitalasset.canton.protobuf.HelloServiceGrpc.HelloService
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, protobuf}
+import io.grpc.*
 import io.grpc.ClientCall.Listener
 import io.grpc.ForwardingClientCall.SimpleForwardingClientCall
 import io.grpc.ForwardingClientCallListener.SimpleForwardingClientCallListener
-import io.grpc.{
-  BindableService,
-  CallOptions,
-  Channel,
-  ClientCall,
-  ClientInterceptor,
-  ClientInterceptors,
-  Metadata,
-  MethodDescriptor,
-  ServerInterceptor,
-  Status,
-  StatusRuntimeException,
-}
 import org.scalacheck.Gen
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec

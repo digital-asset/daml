@@ -284,7 +284,7 @@ class WellFormedTransactionTest extends AnyWordSpec with BaseTest with HasExecut
         "be accepted as well-formed" in {
           WellFormedTransaction
             .check(transaction, metadata, state)
-            .value shouldBe a[WellFormedTransaction[_]]
+            .value shouldBe a[WellFormedTransaction[?]]
         }
       }
     }

@@ -56,7 +56,7 @@ object TimeProof {
   def fromEvent(event: OrdinarySequencedEvent[Envelope[?]]): Either[String, TimeProof] =
     for {
       deliver <- PartialFunction
-        .condOpt(event.signedEvent.content) { case deliver: Deliver[_] => deliver }
+        .condOpt(event.signedEvent.content) { case deliver: Deliver[?] => deliver }
         .toRight("Time Proof must be a deliver event")
       _ <- validateDeliver(deliver)
       // is now safe to cast to a `Deliver[Nothing]` as we've validated it has no envelopes

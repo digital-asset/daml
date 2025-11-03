@@ -143,7 +143,7 @@ class QueueBasedSynchronizerOutboxTest
       clock,
       defaultStaticSynchronizerParameters,
       store = target,
-      packageDependenciesResolver = StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
+      packageDependencyResolver = NoPackageDependencies,
       timeouts = timeouts,
       futureSupervisor = futureSupervisor,
       loggerFactory = loggerFactory,

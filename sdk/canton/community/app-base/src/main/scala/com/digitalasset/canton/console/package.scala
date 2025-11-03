@@ -37,7 +37,7 @@ package object console {
 
   /** Strip the Object suffix from the name of the provided class
     */
-  def objectClassNameWithoutSuffix(c: Class[_]): String =
+  def objectClassNameWithoutSuffix(c: Class[?]): String =
     c.getName.stripSuffix("$").replace('$', '.')
 
 }
