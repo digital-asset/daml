@@ -104,8 +104,8 @@ object LanguageVersion {
     }
   }
 
-  //legacy versions (i.e. 1.x that is only supported for parsing (i.e. for 1.x
-  //we only support parsing 1.x dars into ASTs))
+  // legacy versions (i.e. 1.x that is only supported for parsing (i.e. for 1.x
+  // we only support parsing 1.x dars into ASTs))
   val allStableLegacy: List[LanguageVersion] =
     List(6, 7, 8, 11, 12, 13, 14, 15, 17).map(i => LanguageVersion(Major.V1, Minor.Stable(i)))
   val List(v1_6, v1_7, v1_8, v1_11, v1_12, v1_13, v1_14, v1_15, v1_17) = allStableLegacy: @nowarn(

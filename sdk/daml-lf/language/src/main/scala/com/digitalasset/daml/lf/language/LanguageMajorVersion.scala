@@ -23,8 +23,11 @@ sealed abstract class LanguageMajorVersion(val pretty: String, minorAscending: L
     pretty match {
       case "1" => Major.V1
       case "2" => Major.V2
-      //TODO changes next version pr https://github.com/digital-asset/daml/pull/22301
-      case _ => throw new RuntimeException("Could not parse major version, only supported versions are 1 and 2")
+      // TODO changes next version pr https://github.com/digital-asset/daml/pull/22301
+      case _ =>
+        throw new RuntimeException(
+          "Could not parse major version, only supported versions are 1 and 2"
+        )
     }
 
   def parseMinorVersionOrThrow(input: String): Minor = {
