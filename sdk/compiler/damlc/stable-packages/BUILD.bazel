@@ -138,6 +138,7 @@ da_haskell_library(
     name = "stable-package-list-reader",
     srcs = [
         "src/DA/Daml/StablePackagesListReader.hs",
+        "src/DA/Daml/EmbedFileWithDecoder.hs",
     ],
     compiler_flags = [
         '-DYAML_FILE_PATH="$(location stable-packages.yaml)"',
@@ -148,7 +149,7 @@ da_haskell_library(
     hackage_deps = [
         "base",
         "bytestring",
-        "file-embed",
+        "template-haskell",
         "text",
         "yaml",
     ],

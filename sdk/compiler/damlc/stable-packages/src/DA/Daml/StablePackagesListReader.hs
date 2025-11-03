@@ -17,25 +17,18 @@ module DA.Daml.StablePackagesListReader (
   ) where
 
 import           Data.Bifunctor
-import           Data.ByteString      (ByteString)
-import           Data.FileEmbed       (embedFile)
 import qualified Data.Text            as T
-import qualified Data.Yaml            as Yaml
 
 import           DA.Daml.LF.Ast
 import qualified DA.Daml.LF.Ast.Range as R
 
-rawFile :: ByteString
-rawFile = $(embedFile YAML_FILE_PATH)
+import           DA.Daml.EmbedFileWithDecoder
 
-decoded :: Either Yaml.ParseException [(Version, T.Text)]
-decoded = Yaml.decodeEither' rawFile
+decoded :: [(Version, T.Text)]
+decoded = $(embedFile)
 
 entries :: [(VersionReq, PackageId)]
-entries = case decoded of
-  Left parseEx
-    -> error $ "Failed to decode: " ++ show parseEx
-  Right parsedEntries -> map (bimap R.From PackageId) parsedEntries
+entries = map (bimap R.From PackageId) decoded
 
 allStablePackageIds :: [PackageId]
 allStablePackageIds = map snd entries
