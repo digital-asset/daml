@@ -108,7 +108,7 @@ object ScriptService {
   private def notFoundContextError(id: Long): StatusRuntimeException =
     Status.NOT_FOUND.withDescription(s" context $id not found!").asRuntimeException
 
-  private def unknownMajorVersion(str: String): StatusRuntimeException =
+  private def throwInvalidArgument(str: String): StatusRuntimeException =
     Status.INVALID_ARGUMENT.withDescription(str).asRuntimeException
 }
 
@@ -310,7 +310,7 @@ class ScriptService(implicit
         respObs.onNext(response)
         respObs.onCompleted()
       case Left(msg) =>
-        respObs.onError(unknownMajorVersion(msg))
+        respObs.onError(throwInvalidArgument(msg))
     }
   }
 
