@@ -7,6 +7,7 @@
     "build": "npx tsc",
     "compile": "npx tsc",
     "scenario": "node -r tsconfig-paths/register dist/index.js",
+    "scenario_websocket": "node -r tsconfig-paths/register dist/index_websocket.js",
     "generate_api": "npx openapi-typescript openapi.yaml -o ./generated/api/ledger-api.d.ts",
     "generate_daml_bindings" : "daml codegen js ../model/.daml/dist/model-tests-1.0.0.dar -o generated"
   },
@@ -21,6 +22,7 @@
   "dependencies": {
     "@daml/types": "^2.10.0",
     "@types/lodash": "^4.17.16",
+    "isomorphic-ws": "^5.0.0",
     "cli-table3": "^0.6.5",
     "lodash": "^4.17.21",
     "openapi-fetch": "^0.13.5",

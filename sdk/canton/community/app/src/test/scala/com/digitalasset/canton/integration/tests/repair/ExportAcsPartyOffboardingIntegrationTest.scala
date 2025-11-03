@@ -16,6 +16,8 @@ import com.digitalasset.canton.integration.{
 }
 import com.digitalasset.canton.topology.PartyId
 
+import scala.annotation.nowarn
+
 /*
 In the case of a party migration, the ACS snapshot is used in the last step
 to purge the contracts on the source participant. We want to be careful not
@@ -31,6 +33,7 @@ from the ACS. Since we don't have the tooling to do that and since it would open
 other cans of worms (contract key journal), we make sure that the export_acs_old endpoint
 refuses to serve such a request.
  */
+@nowarn("cat=deprecation") // Usage of old acs export
 final class ExportAcsPartyOffboardingIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment

@@ -82,7 +82,7 @@ object FlywayMigrationsSpec {
   private def getExpectedDigest(
       sourceFile: String,
       digestFile: String,
-      resourceScanner: Scanner[_],
+      resourceScanner: Scanner[?],
   ) =
     IOUtils.toString(
       Option(resourceScanner.getResource(digestFile))

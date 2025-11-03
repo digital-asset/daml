@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.topology.client
 
-import cats.data.EitherT
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -25,10 +24,9 @@ import com.digitalasset.canton.topology.store.{
   TopologyStoreId,
 }
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
-import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
+import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
-import com.digitalasset.daml.lf.data.Ref.PackageId
 
 import java.time.Duration as JDuration
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
@@ -120,7 +118,7 @@ class StoreBasedSynchronizerTopologyClient(
     val clock: Clock,
     val staticSynchronizerParameters: StaticSynchronizerParameters,
     store: TopologyStore[TopologyStoreId.SynchronizerStore],
-    packageDependenciesResolver: PackageDependencyResolver,
+    packageDependencyResolver: PackageDependencyResolver,
     override val timeouts: ProcessingTimeout,
     override protected val futureSupervisor: FutureSupervisor,
     val loggerFactory: NamedLoggerFactory,
@@ -283,12 +281,7 @@ class StoreBasedSynchronizerTopologyClient(
       timestamp <= topologyKnownUntilTimestamp,
       s"requested snapshot=$timestamp, topology known until=$topologyKnownUntilTimestamp",
     )
-    new StoreBasedTopologySnapshot(
-      timestamp,
-      store,
-      packageDependenciesResolver,
-      loggerFactory,
-    )
+    new StoreBasedTopologySnapshot(timestamp, store, packageDependencyResolver, loggerFactory)
   }
 
   def findTopologyIntervalForTimestamp(timestamp: CantonTimestamp)(implicit
@@ -374,16 +367,4 @@ class StoreBasedSynchronizerTopologyClient(
   ): FutureUnlessShutdown[Boolean] =
     scheduleAwait(condition(currentSnapshotApproximation), timeout)
 
-}
-
-object StoreBasedSynchronizerTopologyClient {
-
-  object NoPackageDependencies extends PackageDependencyResolver {
-    override def packageDependencies(packagesId: PackageId)(implicit
-        traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, (PackageId, ParticipantId), Set[PackageId]] =
-      EitherT[FutureUnlessShutdown, (PackageId, ParticipantId), Set[PackageId]](
-        FutureUnlessShutdown.pure(Right(Set.empty[PackageId]))
-      )
-  }
 }

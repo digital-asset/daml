@@ -64,7 +64,7 @@ object CantonServerBuilder {
     * configuration this is intentionally private.
     */
   private class BaseBuilder(
-      serverBuilder: ServerBuilder[_ <: ServerBuilder[?]],
+      serverBuilder: ServerBuilder[? <: ServerBuilder[?]],
       interceptors: CantonServerInterceptors,
   ) extends CantonServerBuilder {
 
@@ -223,6 +223,6 @@ object CantonServerBuilder {
     * isolates the usage of `asInstanceOf` to only here.
     */
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
-  private def reifyBuilder(builder: ServerBuilder[?]): ServerBuilder[_ <: ServerBuilder[?]] =
-    builder.asInstanceOf[ServerBuilder[_ <: ServerBuilder[?]]]
+  private def reifyBuilder(builder: ServerBuilder[?]): ServerBuilder[? <: ServerBuilder[?]] =
+    builder.asInstanceOf[ServerBuilder[? <: ServerBuilder[?]]]
 }

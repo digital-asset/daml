@@ -41,16 +41,18 @@ class ConsensusCertificateValidator(strongQuorum: Int) {
     val prePrepare = consensusCertificate.prePrepare
     val blockNumber = prePrepare.message.blockMetadata.blockNumber
     val epochNumber = prePrepare.message.blockMetadata.epochNumber
-    val (messages, messageName) = consensusCertificate match {
+    val (messages, messageName, dontAllowHigherView) = consensusCertificate match {
       case prepareCertificate: PrepareCertificate =>
         (
           prepareCertificate.prepares: Seq[SignedMessage[ConsensusMessage.PbftNormalCaseMessage]],
           "prepare",
+          true,
         )
       case commitCertificate: CommitCertificate =>
         (
           commitCertificate.commits: Seq[SignedMessage[ConsensusMessage.PbftNormalCaseMessage]],
           "commit",
+          false,
         )
     }
 
@@ -83,7 +85,7 @@ class ConsensusCertificateValidator(strongQuorum: Int) {
           else
             currentViewNumber.fold(valid) { viewNumber =>
               val messagesViewNumber = byViewNumber.head1._1
-              if (messagesViewNumber >= viewNumber) {
+              if (messagesViewNumber >= viewNumber && dontAllowHigherView) {
                 invalid(
                   s"${messageName}s have view number $messagesViewNumber but it should be less than current view number $viewNumber"
                 )

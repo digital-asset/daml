@@ -11,7 +11,6 @@ import com.digitalasset.canton.ledger.participant.state.{
   TestAcsChangeFactory,
   Update,
 }
-import com.digitalasset.canton.participant.store.ContractStore
 import com.digitalasset.canton.platform.IndexComponentTest
 import com.digitalasset.canton.protocol.{ExampleContractFactory, ReassignmentId, TestUpdateId}
 import com.digitalasset.canton.topology.SynchronizerId
@@ -22,7 +21,6 @@ import com.digitalasset.daml.lf.value.Value
 import org.scalatest.flatspec.AnyFlatSpec
 
 import scala.collection.mutable
-import scala.concurrent.Future
 
 class MultiSynchronizerIndexComponentTest extends AnyFlatSpec with IndexComponentTest {
   behavior of "MultiSynchronizer contract lookup"
@@ -49,28 +47,25 @@ class MultiSynchronizerIndexComponentTest extends AnyFlatSpec with IndexComponen
         templateId = Ref.Identifier.assertFromString("P:M:T"),
         argument = Value.ValueUnit,
       )
+    val cn1 = c1.inst.toCreateNode
+    val reassignmentAccepted1 =
+      mkReassignmentAccepted(
+        party,
+        "UpdateId1",
+        createNode = cn1,
+        withAcsChange = false,
+      )
+    val cn2 = c2.inst.toCreateNode
+    val reassignmentAccepted2 =
+      mkReassignmentAccepted(
+        party,
+        "UpdateId2",
+        createNode = cn2,
+        withAcsChange = true,
+      )
+    ingestUpdates(reassignmentAccepted1 -> Vector(c1), reassignmentAccepted2 -> Vector(c2))
+
     (for {
-      // contracts should be stored in canton contract store before ingesting the updates to get the internal contract ids mapping
-      _ <- participantContractStore
-        .storeContracts(Seq(c1, c2))
-        .failOnShutdown("failed to store contracts")
-      (reassignmentAccepted1, cn1) <-
-        mkReassignmentAccepted(
-          party,
-          "UpdateId1",
-          createNode = c1.inst.toCreateNode,
-          withAcsChange = false,
-          participantContractStore = participantContractStore,
-        )
-      (reassignmentAccepted2, cn2) <-
-        mkReassignmentAccepted(
-          party,
-          "UpdateId2",
-          createNode = c2.inst.toCreateNode,
-          withAcsChange = true,
-          participantContractStore = participantContractStore,
-        )
-      _ = ingestUpdates(reassignmentAccepted1, reassignmentAccepted2)
       activeContractO1 <- index.lookupActiveContract(Set(party), cn1.coid)
       activeContractO2 <- index.lookupActiveContract(Set(party), cn2.coid)
     } yield {
@@ -96,69 +91,63 @@ class MultiSynchronizerIndexComponentTest extends AnyFlatSpec with IndexComponen
       updateIdS: String,
       withAcsChange: Boolean,
       createNode: Node.Create,
-      participantContractStore: ContractStore,
-  ): Future[(Update.ReassignmentAccepted, Node.Create)] = {
+  ): Update.ReassignmentAccepted = {
     val synchronizer1 = SynchronizerId.tryFromString("x::synchronizer1")
     val synchronizer2 = SynchronizerId.tryFromString("x::synchronizer2")
     val updateId = TestUpdateId(updateIdS)
     val recordTime = Time.Timestamp.now()
-    for {
-      internalContractIds <- participantContractStore
-        .lookupBatchedNonCachedInternalIds(Seq(createNode.coid))
-        .failOnShutdown
-    } yield (
-      if (withAcsChange)
-        Update.OnPRReassignmentAccepted(
-          workflowId = None,
-          updateId = updateId,
-          reassignmentInfo = ReassignmentInfo(
-            sourceSynchronizer = Source(synchronizer1),
-            targetSynchronizer = Target(synchronizer2),
-            submitter = Option(party),
-            reassignmentId = ReassignmentId.tryCreate("00"),
-            isReassigningParticipant = true,
-          ),
-          reassignment = Reassignment.Batch(
-            Reassignment.Assign(
-              ledgerEffectiveTime = Time.Timestamp.now(),
-              createNode = createNode,
-              contractAuthenticationData = Bytes.Empty,
-              reassignmentCounter = 15L,
-              nodeId = 0,
-            )
-          ),
-          repairCounter = RepairCounter.Genesis,
-          recordTime = CantonTimestamp(recordTime),
-          synchronizerId = synchronizer2,
-          acsChangeFactory = TestAcsChangeFactory(),
-          internalContractIds = internalContractIds,
-        )
-      else
-        Update.RepairReassignmentAccepted(
-          workflowId = None,
-          updateId = updateId,
-          reassignmentInfo = ReassignmentInfo(
-            sourceSynchronizer = Source(synchronizer1),
-            targetSynchronizer = Target(synchronizer2),
-            submitter = Option(party),
-            reassignmentId = ReassignmentId.tryCreate("00"),
-            isReassigningParticipant = true,
-          ),
-          reassignment = Reassignment.Batch(
-            Reassignment.Assign(
-              ledgerEffectiveTime = Time.Timestamp.now(),
-              createNode = createNode,
-              contractAuthenticationData = Bytes.Empty,
-              reassignmentCounter = 15L,
-              nodeId = 0,
-            )
-          ),
-          repairCounter = RepairCounter.Genesis,
-          recordTime = CantonTimestamp(recordTime),
-          synchronizerId = synchronizer2,
-          internalContractIds = internalContractIds,
+    if (withAcsChange)
+      Update.OnPRReassignmentAccepted(
+        workflowId = None,
+        updateId = updateId,
+        reassignmentInfo = ReassignmentInfo(
+          sourceSynchronizer = Source(synchronizer1),
+          targetSynchronizer = Target(synchronizer2),
+          submitter = Option(party),
+          reassignmentId = ReassignmentId.tryCreate("00"),
+          isReassigningParticipant = true,
         ),
-      createNode,
-    )
+        reassignment = Reassignment.Batch(
+          Reassignment.Assign(
+            ledgerEffectiveTime = Time.Timestamp.now(),
+            createNode = createNode,
+            contractAuthenticationData = Bytes.Empty,
+            reassignmentCounter = 15L,
+            nodeId = 0,
+          )
+        ),
+        repairCounter = RepairCounter.Genesis,
+        recordTime = CantonTimestamp(recordTime),
+        synchronizerId = synchronizer2,
+        acsChangeFactory = TestAcsChangeFactory(),
+        internalContractIds =
+          Map.empty, // will be filled when contracts are stored in the participant contract store
+      )
+    else
+      Update.RepairReassignmentAccepted(
+        workflowId = None,
+        updateId = updateId,
+        reassignmentInfo = ReassignmentInfo(
+          sourceSynchronizer = Source(synchronizer1),
+          targetSynchronizer = Target(synchronizer2),
+          submitter = Option(party),
+          reassignmentId = ReassignmentId.tryCreate("00"),
+          isReassigningParticipant = true,
+        ),
+        reassignment = Reassignment.Batch(
+          Reassignment.Assign(
+            ledgerEffectiveTime = Time.Timestamp.now(),
+            createNode = createNode,
+            contractAuthenticationData = Bytes.Empty,
+            reassignmentCounter = 15L,
+            nodeId = 0,
+          )
+        ),
+        repairCounter = RepairCounter.Genesis,
+        recordTime = CantonTimestamp(recordTime),
+        synchronizerId = synchronizer2,
+        internalContractIds =
+          Map.empty, // will be filled when contracts are stored in the participant contract store
+      )
   }
 }

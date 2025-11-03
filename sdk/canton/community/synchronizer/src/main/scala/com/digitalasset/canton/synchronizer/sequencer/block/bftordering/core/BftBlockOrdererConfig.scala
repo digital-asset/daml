@@ -90,6 +90,8 @@ final case class BftBlockOrdererConfig(
     maxBatchesPerBlockProposal: Short = DefaultMaxBatchesPerProposal,
     consensusQueueMaxSize: Int = DefaultConsensusQueueMaxSize,
     consensusQueuePerNodeQuota: Int = DefaultConsensusQueuePerNodeQuota,
+    consensusBlockCompletionTimeout: FiniteDuration = 10.seconds,
+    consensusEmptyBlockCreationTimeout: FiniteDuration = 5.seconds,
     delayedInitQueueMaxSize: Int = DefaultDelayedInitQueueMaxSize,
     epochStateTransferRetryTimeout: FiniteDuration = DefaultEpochStateTransferTimeout,
     outputFetchTimeout: FiniteDuration = DefaultOutputFetchTimeout,

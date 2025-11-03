@@ -418,7 +418,7 @@ object CachingSynchronizerTopologyClient {
       staticSynchronizerParameters: StaticSynchronizerParameters,
       store: TopologyStore[TopologyStoreId.SynchronizerStore],
       synchronizerPredecessor: Option[SynchronizerPredecessor],
-      packageDependenciesResolver: PackageDependencyResolver,
+      packageDependencyResolver: PackageDependencyResolver,
       cachingConfigs: CachingConfigs,
       batchingConfig: BatchingConfig,
       timeouts: ProcessingTimeout,
@@ -436,7 +436,7 @@ object CachingSynchronizerTopologyClient {
         clock,
         staticSynchronizerParameters,
         store,
-        packageDependenciesResolver,
+        packageDependencyResolver,
         timeouts,
         futureSupervisor,
         loggerFactory,
@@ -512,18 +512,13 @@ private class ForwardingTopologySnapshotClient(
   ): FutureUnlessShutdown[Map[ParticipantId, Map[PackageId, VettedPackage]]] =
     parent.loadVettedPackages(participants)
 
-  override private[client] def loadUnvettedPackagesOrDependenciesUsingLoader(
+  override private[client] def findUnvettedPackagesOrDependencies(
       participant: ParticipantId,
-      packageId: PackageId,
+      packages: Set[PackageId],
       ledgerTime: CantonTimestamp,
-      vettedPackagesLoader: VettedPackagesLoader,
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[UnknownOrUnvettedPackages] =
-    parent.loadUnvettedPackagesOrDependenciesUsingLoader(
-      participant,
-      packageId,
-      ledgerTime,
-      vettedPackagesLoader,
-    )
+      vettedPackages: Map[PackageId, VettedPackage],
+  )(implicit traceContext: TraceContext): UnknownOrUnvettedPackages =
+    parent.findUnvettedPackagesOrDependencies(participant, packages, ledgerTime, vettedPackages)
 
   /** returns the list of currently known mediators */
   override def mediatorGroups()(implicit
@@ -761,19 +756,13 @@ class CachingTopologySnapshot(
   ): FutureUnlessShutdown[Map[ParticipantId, Map[PackageId, VettedPackage]]] =
     getAllBatched(participants.toSeq)(packageVettingCache.getAll(_)(traceContext))
 
-  private[client] def loadUnvettedPackagesOrDependenciesUsingLoader(
+  private[client] override def findUnvettedPackagesOrDependencies(
       participant: ParticipantId,
-      packageId: PackageId,
+      packages: Set[PackageId],
       ledgerTime: CantonTimestamp,
-      vettedPackagesLoader: VettedPackagesLoader,
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[UnknownOrUnvettedPackages] =
-    parent.loadUnvettedPackagesOrDependenciesUsingLoader(
-      participant,
-      packageId,
-      ledgerTime,
-      // use the caching vetted package loader
-      this,
-    )
+      vettedPackages: Map[PackageId, VettedPackage],
+  )(implicit traceContext: TraceContext): UnknownOrUnvettedPackages =
+    parent.findUnvettedPackagesOrDependencies(participant, packages, ledgerTime, vettedPackages)
 
   override def inspectKeys(
       filterOwner: String,

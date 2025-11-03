@@ -21,6 +21,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.version.ProtocolVersion
 import io.opentelemetry.api.trace.Tracer
 
+import scala.concurrent.duration.FiniteDuration
+
 import EpochState.Epoch
 
 trait SegmentModuleRefFactory[E <: Env[E]] {
@@ -40,6 +42,8 @@ final class SegmentModuleRefFactoryImpl[E <: Env[E]](
     storePbftMessages: Boolean,
     epochStore: EpochStore[E],
     dependencies: ConsensusModuleDependencies[E],
+    blockCompletionTimeout: FiniteDuration,
+    emptyBlockCreationTimeout: FiniteDuration,
     loggerFactory: NamedLoggerFactory,
     timeouts: ProcessingTimeout,
     metrics: BftOrderingMetrics,
@@ -58,27 +62,31 @@ final class SegmentModuleRefFactoryImpl[E <: Env[E]](
       segmentState: SegmentState,
       metricsAccumulator: EpochMetricsAccumulator,
   ): E#ModuleRefT[ConsensusSegment.Message] = {
-    val module = new IssSegmentModule[E](
-      epoch,
-      segmentState,
-      metricsAccumulator,
-      storePbftMessages,
-      epochStore,
-      cryptoProvider,
-      latestCompletedEpochLastCommits,
-      epochInProgress,
-      context.self,
-      dependencies.availability,
-      dependencies.p2pNetworkOut,
-      metrics,
-      timeouts,
-      loggerFactory,
-    )
-    val moduleRef: E#ModuleRefT[ConsensusSegment.Message] = context.newModuleRef(
-      ModuleName(
-        s"segment-module-${segmentState.epoch.info.number}-${segmentState.segment.slotNumbers.head1}"
+    val module =
+      new IssSegmentModule[E](
+        epoch,
+        segmentState,
+        metricsAccumulator,
+        storePbftMessages,
+        epochStore,
+        cryptoProvider,
+        latestCompletedEpochLastCommits,
+        epochInProgress,
+        context.self,
+        dependencies.availability,
+        dependencies.p2pNetworkOut,
+        blockCompletionTimeout,
+        emptyBlockCreationTimeout,
+        metrics,
+        timeouts,
+        loggerFactory,
       )
-    )(moduleNameForMetrics = "segment-module")
+    val moduleRef: E#ModuleRefT[ConsensusSegment.Message] =
+      context.newModuleRef(
+        ModuleName(
+          s"segment-module-${segmentState.epoch.info.number}-${segmentState.segment.slotNumbers.head1}"
+        )
+      )(moduleNameForMetrics = "segment-module")
     context.setModule(moduleRef, module)
     module.ready(moduleRef)
     moduleRef

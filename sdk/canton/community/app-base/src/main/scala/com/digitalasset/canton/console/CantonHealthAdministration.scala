@@ -89,7 +89,7 @@ object CantonHealthAdministration {
   }
 
   private def statusMap[A <: InstanceReference](
-      nodes: NodeReferences[A, _, _]
+      nodes: NodeReferences[A, ?, ?]
   ): Map[String, () => NodeStatus[A#Status]] =
     nodes.all.map(node => node.name -> (() => node.health.status)).toMap
 }

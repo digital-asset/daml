@@ -30,7 +30,11 @@ import com.digitalasset.canton.topology.processing.{
   TopologyTransactionProcessor,
 }
 import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
-import com.digitalasset.canton.topology.store.{PackageDependencyResolver, TopologyStore}
+import com.digitalasset.canton.topology.store.{
+  NoPackageDependencies,
+  PackageDependencyResolver,
+  TopologyStore,
+}
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import org.apache.pekko.stream.Materializer
@@ -177,9 +181,5 @@ class TopologyComponentFactory(
   def createHeadTopologySnapshot()(implicit
       executionContext: ExecutionContext
   ): TopologySnapshot =
-    createTopologySnapshot(
-      CantonTimestamp.MaxValue,
-      StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
-      preferCaching = false,
-    )
+    createTopologySnapshot(CantonTimestamp.MaxValue, NoPackageDependencies, preferCaching = false)
 }
