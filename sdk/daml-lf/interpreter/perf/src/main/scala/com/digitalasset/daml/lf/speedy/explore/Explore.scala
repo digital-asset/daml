@@ -52,7 +52,7 @@ object PlaySpeedy {
       scopt.Read.reads(s =>
         LanguageVersion.Major.fromString(s) match {
           case Right(v) => v
-          case Left(msg) => throw new IllegalArgumentException(mgs)
+          case Left(msg) => throw new IllegalArgumentException(msg)
         }
       )
 
