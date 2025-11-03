@@ -111,7 +111,6 @@ abstract class UpgradesMatrixIntegration(upgradesMatrixCases: UpgradesMatrixCase
     cases.clientGlobalDalfName,
     cases.clientGlobalDalf,
     List(
-      (cases.templateDefsV1DalfName, cases.templateDefsV1Dalf),
       (cases.templateDefsV2DalfName, cases.templateDefsV2Dalf),
       (cases.commonDefsDalfName, cases.commonDefsDalf),
       (primDATypesDalfName, primDATypesDalf),
