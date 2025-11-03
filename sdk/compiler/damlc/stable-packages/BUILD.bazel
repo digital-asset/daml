@@ -137,8 +137,8 @@ generate_and_track_yaml_file(
 da_haskell_library(
     name = "stable-package-list-reader",
     srcs = [
-        "src/DA/Daml/StablePackagesListReader.hs",
         "src/DA/Daml/EmbedFileWithDecoder.hs",
+        "src/DA/Daml/StablePackagesListReader.hs",
     ],
     compiler_flags = [
         '-DYAML_FILE_PATH="$(location stable-packages.yaml)"',

@@ -605,12 +605,14 @@ def generate_and_track_yaml_file(
         data: A list of labels for files that the 'generator' needs to run.
         generator_args: A list of *additional* string arguments for the generator.
     """
+
     # --- Add this condition ---
     if not is_windows:
         generated_target = name + "-generated-yaml"
         generated_out = name + "-generated.yaml"
         golden_target = name + "-golden-yaml"
         test_name = name + "-yaml-file-matches"
+
         # (1) Generate the YAML file using the provided executable
         native.genrule(
             name = generated_target,
@@ -623,12 +625,14 @@ def generate_and_track_yaml_file(
                 args = " ".join(generator_args),
             ),
         )
+
         # (2) Define the golden file target
         native.filegroup(
             name = golden_target,
             srcs = [golden_file],
             visibility = ["//visibility:public"],
         )
+
         # (3) Define the test to compare generated vs. golden
         lbl = "//{package}:{target}".format(
             package = native.package_name(),
