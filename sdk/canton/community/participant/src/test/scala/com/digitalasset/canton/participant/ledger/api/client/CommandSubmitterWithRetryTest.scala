@@ -83,12 +83,12 @@ class CommandSubmitterWithRetryTest
   }
 
   "CommandSubmitterWithRetry" should {
-    val transactionId = "txId"
+    val updateId = "updateId"
     "complete successfully" in { f =>
-      f.runTest(commands, Future.successful(Right(transactionId))) { (sut, _, _) =>
+      f.runTest(commands, Future.successful(Right(updateId))) { (sut, _, _) =>
         for {
           result <- sut.submitCommands(commands, timeout)
-        } yield result shouldBe CommandResult.Success(transactionId)
+        } yield result shouldBe CommandResult.Success(updateId)
       }
     }
 

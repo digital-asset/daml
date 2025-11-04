@@ -13,10 +13,12 @@ import com.daml.metrics.api.{
   MetricQualification,
   MetricsContext,
 }
-import com.daml.metrics.grpc.{DamlGrpcServerHistograms, DamlGrpcServerMetrics, GrpcServerMetrics}
+import com.daml.metrics.grpc.{DamlGrpcServerHistograms, DamlGrpcServerMetrics}
 import com.digitalasset.canton.environment.BaseMetrics
 import com.digitalasset.canton.logging.TracedLogger
+import com.digitalasset.canton.metrics.ActiveRequestsMetrics.GrpcServerMetricsX
 import com.digitalasset.canton.metrics.{
+  ActiveRequestsMetrics,
   CacheMetrics,
   DbStorageHistograms,
   DbStorageMetrics,
@@ -52,15 +54,22 @@ class SequencerMetrics(
   override val declarativeApiMetrics: DeclarativeApiMetrics =
     new DeclarativeApiMetrics(prefix, openTelemetryMetricsFactory)
 
-  override val grpcMetrics: GrpcServerMetrics =
-    new DamlGrpcServerMetrics(openTelemetryMetricsFactory, "sequencer")
+  override val grpcMetrics: GrpcServerMetricsX =
+    (
+      new DamlGrpcServerMetrics(openTelemetryMetricsFactory, "sequencer"),
+      new ActiveRequestsMetrics(openTelemetryMetricsFactory, "sequencer"),
+    )
+
   override val healthMetrics: HealthMetrics = new HealthMetrics(openTelemetryMetricsFactory)
 
   val bftOrdering: BftOrderingMetrics =
     new BftOrderingMetrics(
       histograms.bftOrdering,
       openTelemetryMetricsFactory,
-      new DamlGrpcServerMetrics(openTelemetryMetricsFactory, "bftordering"),
+      (
+        new DamlGrpcServerMetrics(openTelemetryMetricsFactory, "bftordering"),
+        new ActiveRequestsMetrics(openTelemetryMetricsFactory, "bftordering"),
+      ),
       new HealthMetrics(openTelemetryMetricsFactory),
     )
 
@@ -287,12 +296,16 @@ class MediatorMetrics(
     val openTelemetryMetricsFactory: LabeledMetricsFactory,
 ) extends BaseMetrics {
 
-  override val grpcMetrics: GrpcServerMetrics =
-    new DamlGrpcServerMetrics(openTelemetryMetricsFactory, "mediator")
+  private implicit val mc: MetricsContext = MetricsContext.Empty
+
+  override val grpcMetrics: GrpcServerMetricsX =
+    (
+      new DamlGrpcServerMetrics(openTelemetryMetricsFactory, "mediator"),
+      new ActiveRequestsMetrics(openTelemetryMetricsFactory, "mediator"),
+    )
   override val healthMetrics: HealthMetrics = new HealthMetrics(openTelemetryMetricsFactory)
 
   override val prefix: MetricName = histograms.prefix
-  private implicit val mc: MetricsContext = MetricsContext.Empty
 
   override val declarativeApiMetrics: DeclarativeApiMetrics =
     new DeclarativeApiMetrics(prefix, openTelemetryMetricsFactory)

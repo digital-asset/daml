@@ -125,6 +125,7 @@ class InMemoryPhysicalSyncPersistentState(
     staticSynchronizerParameters,
     topologyStore,
     synchronizerOutboxQueue,
+    dispatchQueueBackpressureLimit = parameters.general.dispatchQueueBackpressureLimit,
     disableOptionalTopologyChecks = parameters.disableOptionalTopologyChecks,
     exitOnFatalFailures = parameters.exitOnFatalFailures,
     timeouts,

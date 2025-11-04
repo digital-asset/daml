@@ -11,7 +11,6 @@ import com.daml.metrics.HealthMetrics
 import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.api.testing.InMemoryMetricsFactory
 import com.daml.metrics.api.{MetricName, MetricsContext}
-import com.daml.metrics.grpc.GrpcServerMetrics
 import com.digitalasset.canton.*
 import com.digitalasset.canton.auth.CantonAdminTokenDispenser
 import com.digitalasset.canton.concurrent.{
@@ -19,6 +18,7 @@ import com.digitalasset.canton.concurrent.{
   FutureSupervisor,
 }
 import com.digitalasset.canton.config.*
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.StartupMemoryCheckConfig.ReportingLevel
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -28,6 +28,7 @@ import com.digitalasset.canton.health.{
   LivenessHealthService,
 }
 import com.digitalasset.canton.lifecycle.{LifeCycle, ShutdownFailedException}
+import com.digitalasset.canton.metrics.ActiveRequestsMetrics.GrpcServerMetricsX
 import com.digitalasset.canton.metrics.{
   CommonMockMetrics,
   DbStorageMetrics,
@@ -114,13 +115,15 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
       startupMemoryCheckConfig: StartupMemoryCheckConfig = StartupMemoryCheckConfig(
         ReportingLevel.Warn
       ),
+      dispatchQueueBackpressureLimit: NonNegativeInt = NonNegativeInt.two,
   ) extends CantonNodeParameters
 
   private val metricsFactory: LabeledMetricsFactory = new InMemoryMetricsFactory
   case class TestMetrics(
       prefix: MetricName = MetricName("test-metrics"),
       openTelemetryMetricsFactory: LabeledMetricsFactory = metricsFactory,
-      grpcMetrics: GrpcServerMetrics = LedgerApiServerMetrics.ForTesting.grpc,
+      grpcMetrics: GrpcServerMetricsX =
+        (LedgerApiServerMetrics.ForTesting.grpc, LedgerApiServerMetrics.ForTesting.requests),
       healthMetrics: HealthMetrics = LedgerApiServerMetrics.ForTesting.health,
       storageMetrics: DbStorageMetrics = CommonMockMetrics.dbStorage,
   ) extends BaseMetrics {

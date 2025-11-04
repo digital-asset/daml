@@ -79,7 +79,7 @@ case class InformeeMessage(
   override def toProtoSomeEnvelopeContentV30: v30.EnvelopeContent.SomeEnvelopeContent =
     v30.EnvelopeContent.SomeEnvelopeContent.InformeeMessage(toProtoV30)
 
-  override def rootHash: RootHash = fullInformeeTree.transactionId.toRootHash
+  override def rootHash: RootHash = fullInformeeTree.updateId.toRootHash
 
   override def viewType: ViewType = ViewType.TransactionViewType
 

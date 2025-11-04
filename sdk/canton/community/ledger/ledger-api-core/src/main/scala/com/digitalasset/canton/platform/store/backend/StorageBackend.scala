@@ -249,7 +249,6 @@ trait EventStorageBackend {
   def activeContractBatch(
       eventSequentialIds: Iterable[Long],
       allFilterParties: Option[Set[Party]],
-      endInclusive: Long,
   )(connection: Connection): Vector[RawThinActiveContract]
 
   def lookupAssignSequentialIdByOffset(

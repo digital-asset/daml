@@ -273,12 +273,10 @@ final case class LedgerApiServerConfig(
       TopologyAwarePackageSelectionConfig.Default,
     maxTokenLifetime: NonNegativeDuration = config.NonNegativeDuration(5.minutes),
     jwksCacheConfig: JwksCacheConfig = JwksCacheConfig(),
+    limits: Option[ActiveRequestLimitsConfig] = None,
 ) extends ServerConfig // We can't currently expose enterprise server features at the ledger api anyway
     {
-
-  // LAPI server does not use the canonical server builder, so doesn't support the stream limits using stream limit config
-  override val stream: Option[StreamLimitConfig] = None
-
+  override val name: String = "ledger-api"
   lazy val clientConfig: FullClientConfig =
     FullClientConfig(address, port, tls.map(_.clientConfig))
 

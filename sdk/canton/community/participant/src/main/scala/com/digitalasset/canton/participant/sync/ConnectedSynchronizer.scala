@@ -512,7 +512,6 @@ class ConnectedSynchronizer(
     }
 
     val startingPoints = ephemeral.startingPoints
-    val nextRequestCounter = startingPoints.processing.nextRequestCounter
     val nextRepairCounter = startingPoints.processing.nextRepairCounter
     val lastSequencerTimestamp = startingPoints.processing.lastSequencerTimestamp
 
@@ -537,9 +536,7 @@ class ConnectedSynchronizer(
 
       _ <- loadPendingEffectiveTimesFromTopologyStore(acsChangesReplayStartRt.timestamp)
       acsChangesToReplay <-
-        if (
-          lastSequencerTimestamp >= acsChangesReplayStartRt.timestamp && (nextRequestCounter > RequestCounter.Genesis || nextRepairCounter > RepairCounter.Genesis)
-        ) {
+        if (lastSequencerTimestamp >= acsChangesReplayStartRt.timestamp) {
           logger.info(
             s"Looking for ACS changes to replay between ${acsChangesReplayStartRt.timestamp} and $lastSequencerTimestamp"
           )

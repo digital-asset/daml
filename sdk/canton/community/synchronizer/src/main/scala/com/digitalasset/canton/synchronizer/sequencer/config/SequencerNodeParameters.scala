@@ -4,7 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer.config
 
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveDouble}
-import com.digitalasset.canton.config.{ProcessingTimeout, StreamLimitConfig}
+import com.digitalasset.canton.config.{ActiveRequestLimitsConfig, ProcessingTimeout}
 import com.digitalasset.canton.environment.{
   CantonNodeParameters,
   HasGeneralCantonNodeParameters,
@@ -42,7 +42,7 @@ final case class SequencerNodeParameters(
     unsafeEnableOnlinePartyReplication: Boolean = false,
     sequencerApiLimits: Map[String, NonNegativeInt] = Map.empty,
     warnOnUndefinedLimits: Boolean = true,
-    streamLimits: Option[StreamLimitConfig] = None,
+    requestLimits: Option[ActiveRequestLimitsConfig] = None,
 ) extends CantonNodeParameters
     with HasGeneralCantonNodeParameters
     with HasProtocolCantonNodeParameters

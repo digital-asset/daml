@@ -8,7 +8,6 @@ import cats.syntax.either.*
 import cats.syntax.foldable.*
 import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommands
 import com.digitalasset.canton.admin.participant.v30.{ExportAcsOldResponse, ExportAcsResponse}
-import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
 import com.digitalasset.canton.config.{ConsoleCommandTimeout, NonNegativeDuration}
 import com.digitalasset.canton.console.{
   AdminCommandRunner,
@@ -303,7 +302,7 @@ class ParticipantRepairAdministration(
   )
   def export_acs(
       parties: Set[PartyId],
-      ledgerOffset: NonNegativeLong,
+      ledgerOffset: Long,
       exportFilePath: String = "canton-acs-export.gz",
       excludedStakeholders: Set[PartyId] = Set.empty,
       synchronizerId: Option[SynchronizerId] = None,

@@ -4,7 +4,7 @@
 package com.digitalasset.canton.integration.tests.multihostedparties
 
 import com.digitalasset.canton.config
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.integration.EnvironmentDefinition
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
@@ -43,7 +43,7 @@ sealed trait OfflinePartyReplicationPreventDuplicateContractsIntegrationTest
     extends OfflinePartyReplicationIntegrationTestBase {
 
   protected var ledgerEndP1: Long = _
-  protected var activationOffset: NonNegativeLong = _
+  protected var activationOffset: Long = _
 
   override def environmentDefinition: EnvironmentDefinition =
     super.environmentDefinition.withSetup { implicit env =>

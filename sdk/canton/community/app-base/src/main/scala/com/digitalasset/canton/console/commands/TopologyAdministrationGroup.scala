@@ -3387,7 +3387,8 @@ class TopologyAdministrationGroup(
 
   object synchronizer_upgrade extends Helpful {
 
-    @Help.Summary("Inspect synchronizer migration announcements")
+    // TODO(#28972) Remove preview flag once LSU is stable
+    @Help.Summary("Inspect synchronizer migration announcements", FeatureFlag.Preview)
     @Help.Group("Synchronizer Migration Announcement")
     object announcement extends Helpful {
       def list(
@@ -3446,28 +3447,29 @@ class TopologyAdministrationGroup(
           synchronize: Option[config.NonNegativeDuration] = Some(
             consoleEnvironment.commandTimeouts.unbounded
           ),
-      ): SignedTopologyTransaction[TopologyChangeOp, SynchronizerUpgradeAnnouncement] = {
-
-        val mapping = SynchronizerUpgradeAnnouncement(
-          successorPhysicalSynchronizerId,
-          upgradeTime,
-        )
-
-        consoleEnvironment.run {
-          adminCommand(
-            TopologyAdminCommands.Write.Propose(
-              mapping = mapping,
-              signedBy = signedBy.toList,
-              serial = serial,
-              change = TopologyChangeOp.Replace,
-              mustFullyAuthorize = mustFullyAuthorize,
-              forceChanges = ForceFlags.none,
-              store = store.getOrElse(successorPhysicalSynchronizerId.logical),
-              waitToBecomeEffective = synchronize,
-            )
+      ): SignedTopologyTransaction[TopologyChangeOp, SynchronizerUpgradeAnnouncement] =
+        // TODO(#28972) Remove preview flag once LSU is stable
+        check(FeatureFlag.Preview) {
+          val mapping = SynchronizerUpgradeAnnouncement(
+            successorPhysicalSynchronizerId,
+            upgradeTime,
           )
+
+          consoleEnvironment.run {
+            adminCommand(
+              TopologyAdminCommands.Write.Propose(
+                mapping = mapping,
+                signedBy = signedBy.toList,
+                serial = serial,
+                change = TopologyChangeOp.Replace,
+                mustFullyAuthorize = mustFullyAuthorize,
+                forceChanges = ForceFlags.none,
+                store = store.getOrElse(successorPhysicalSynchronizerId.logical),
+                waitToBecomeEffective = synchronize,
+              )
+            )
+          }
         }
-      }
 
       @Help.Summary("Propose the revocation of a synchronizer migration announcement")
       @Help.Description(
@@ -3502,27 +3504,29 @@ class TopologyAdministrationGroup(
           synchronize: Option[config.NonNegativeDuration] = Some(
             consoleEnvironment.commandTimeouts.unbounded
           ),
-      ): SignedTopologyTransaction[TopologyChangeOp, SynchronizerUpgradeAnnouncement] = {
-        val mapping = SynchronizerUpgradeAnnouncement(
-          successorPhysicalSynchronizerId,
-          upgradeTime,
-        )
-
-        consoleEnvironment.run {
-          adminCommand(
-            TopologyAdminCommands.Write.Propose(
-              mapping = mapping,
-              signedBy = signedBy.toList,
-              serial = serial,
-              change = TopologyChangeOp.Remove,
-              mustFullyAuthorize = mustFullyAuthorize,
-              forceChanges = ForceFlags.none,
-              store = store.getOrElse(successorPhysicalSynchronizerId.logical),
-              waitToBecomeEffective = synchronize,
-            )
+      ): SignedTopologyTransaction[TopologyChangeOp, SynchronizerUpgradeAnnouncement] =
+        // TODO(#28972) Remove preview flag once LSU is stable
+        check(FeatureFlag.Preview) {
+          val mapping = SynchronizerUpgradeAnnouncement(
+            successorPhysicalSynchronizerId,
+            upgradeTime,
           )
+
+          consoleEnvironment.run {
+            adminCommand(
+              TopologyAdminCommands.Write.Propose(
+                mapping = mapping,
+                signedBy = signedBy.toList,
+                serial = serial,
+                change = TopologyChangeOp.Remove,
+                mustFullyAuthorize = mustFullyAuthorize,
+                forceChanges = ForceFlags.none,
+                store = store.getOrElse(successorPhysicalSynchronizerId.logical),
+                waitToBecomeEffective = synchronize,
+              )
+            )
+          }
         }
-      }
     }
 
     object sequencer_successors extends Helpful {

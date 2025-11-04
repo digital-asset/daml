@@ -126,9 +126,9 @@ final class GeneratorsLf(val generatorsTopology: GeneratorsTopology) {
       index <- Gen.posNum[Int]
       ledgerTime <- Arbitrary.arbitrary[LfTimestamp]
     } yield {
-      val creatingTransactionId = UpdateId(TestHash.digest(index))
+      val creatingUpdateId = UpdateId(TestHash.digest(index))
       val absolutizationData =
-        ContractIdAbsolutizationDataV2(creatingTransactionId, CantonTimestamp(ledgerTime))
+        ContractIdAbsolutizationDataV2(creatingUpdateId, CantonTimestamp(ledgerTime))
       val (_, absoluteCid) = ContractIdAbsolutizer
         .absoluteSuffixV2(TestHash)(
           relative,

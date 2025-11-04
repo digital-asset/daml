@@ -74,7 +74,7 @@ class CompletionFromTransactionSpec
             Time.Timestamp.Epoch,
             Offset.firstOffset,
             "commandId",
-            TestUpdateId("transactionId"),
+            TestUpdateId("updateId"),
             "userId",
             "synchronizer id",
             traceContext,
@@ -89,7 +89,7 @@ class CompletionFromTransactionSpec
           completion.offset shouldBe 1L
 
           completion.commandId shouldBe "commandId"
-          completion.updateId shouldBe TestUpdateId("transactionId").toHexString
+          completion.updateId shouldBe TestUpdateId("updateId").toHexString
           completion.userId shouldBe "userId"
           completion.submissionId shouldBe expectedSubmissionId
           completion.deduplicationPeriod shouldBe expectedDeduplicationPeriod
@@ -111,7 +111,7 @@ class CompletionFromTransactionSpec
             Time.Timestamp.Epoch,
             Offset.firstOffset,
             "commandId",
-            TestUpdateId("transactionId"),
+            TestUpdateId("updateId"),
             "userId",
             "synchronizer id",
             traceContext,

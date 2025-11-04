@@ -7,8 +7,11 @@ import cats.syntax.option.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.{String255, String300}
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.crypto.topology.TopologyStateHash
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.logging.SuppressionRule.LevelAndAbove
+import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.processing.{
   EffectiveTime,
   InitialTopologySnapshotValidator,
@@ -16,21 +19,17 @@ import com.digitalasset.canton.topology.processing.{
 }
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.PositiveStoredTopologyTransactions
 import com.digitalasset.canton.topology.store.TopologyStore.EffectiveStateChange
+import com.digitalasset.canton.topology.store.db.DbTopologyStore
+import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyMapping.Code
-import com.digitalasset.canton.topology.transaction.{TopologyMapping, *}
-import com.digitalasset.canton.topology.{
-  DefaultTestIdentities,
-  ParticipantId,
-  PartyId,
-  PhysicalSynchronizerId,
-}
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{FailOnShutdown, HasActorSystem}
 import org.apache.pekko.stream.scaladsl.Sink
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
+import org.slf4j.event.Level
 
 trait TopologyStoreTest
     extends AsyncWordSpec
@@ -758,6 +757,54 @@ trait TopologyStoreTest
                 mds_med1_synchronizer1,
               ),
             )
+          }
+        }
+
+        "able to correctly hash in findEssentialStateHashAtSequencedTime" in {
+          val store = mk(synchronizer1_p1p2_physicalSynchronizerId, "case8.1")
+
+          for {
+            _ <- update(
+              store,
+              SignedTopologyTransaction.InitialTopologySequencingTime,
+              add = Seq(otk_p1, dtc_p2_synchronizer1),
+            )
+            _ <- update(store, ts1, add = Seq(mds_med1_synchronizer1))
+            initialHash <- store
+              .findEssentialStateHashAtSequencedTime(
+                asOfInclusive =
+                  SequencedTime(SignedTopologyTransaction.InitialTopologySequencingTime)
+              )
+            ts1Hash <-
+              loggerFactory.assertLogsSeq(LevelAndAbove(Level.DEBUG))(
+                store
+                  .findEssentialStateHashAtSequencedTime(
+                    asOfInclusive = SequencedTime(ts1)
+                  ),
+                logs =>
+                  store match {
+                    case _: DbTopologyStore[?] =>
+                      // Only the DB store caches the genesis hash
+                      logs.exists(
+                        _.message.contains(
+                          "Reusing existing genesis topology state hash computation"
+                        )
+                      ) shouldBe true
+                    case _ => succeed
+                  },
+              )
+          } yield {
+            val expectedInitialHash =
+              TopologyStateHash.build().add(otk_p1).add(dtc_p2_synchronizer1).finish().hash
+            val expectedTs1Hash = TopologyStateHash
+              .build()
+              .add(otk_p1)
+              .add(dtc_p2_synchronizer1)
+              .add(mds_med1_synchronizer1)
+              .finish()
+              .hash
+            initialHash shouldBe expectedInitialHash
+            ts1Hash shouldBe expectedTs1Hash
           }
         }
 

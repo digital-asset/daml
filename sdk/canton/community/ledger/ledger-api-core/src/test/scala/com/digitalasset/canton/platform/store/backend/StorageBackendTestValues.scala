@@ -516,7 +516,7 @@ private[store] object StorageBackendTestValues extends OptionValues {
     externalString = external,
   )
 
-  def dtoTransactionId(dto: DbDto): UpdateId =
+  def dtoUpdateId(dto: DbDto): UpdateId =
     dto match {
       case _ => sys.error(s"$dto does not have a transaction id")
     }
@@ -542,7 +542,7 @@ private[store] object StorageBackendTestValues extends OptionValues {
     }
 
   def metaFromSingle(dbDto: DbDto): DbDto.TransactionMeta = DbDto.TransactionMeta(
-    update_id = dtoTransactionId(dbDto).toProtoPrimitive.toByteArray,
+    update_id = dtoUpdateId(dbDto).toProtoPrimitive.toByteArray,
     event_offset = dtoOffset(dbDto),
     publication_time = someTime.micros,
     record_time = someTime.micros,

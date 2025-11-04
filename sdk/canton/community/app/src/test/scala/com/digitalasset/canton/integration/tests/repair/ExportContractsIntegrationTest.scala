@@ -5,7 +5,7 @@ package com.digitalasset.canton.integration.tests.repair
 
 import better.files.*
 import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.CommandFailure
 import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
@@ -140,13 +140,13 @@ final class ExportContractsIntegrationTest
               .export_acs(
                 parties = Set(bob),
                 exportFilePath = dumpForAlice.canonicalPath,
-                ledgerOffset = NonNegativeLong.tryCreate(ledgerEndP1),
+                ledgerOffset = ledgerEndP1,
               )
             participant2.repair
               .export_acs(
                 parties = Set(alice),
                 exportFilePath = dumpForBob.canonicalPath,
-                ledgerOffset = NonNegativeLong.tryCreate(ledgerEndP2),
+                ledgerOffset = ledgerEndP2,
               )
 
             val forAlice = repair.acs
@@ -180,7 +180,7 @@ final class ExportContractsIntegrationTest
         participant1.repair.export_acs(
           parties = p1Parties,
           exportFilePath = explicitExport.canonicalPath,
-          ledgerOffset = NonNegativeLong.tryCreate(ledgerEndP1),
+          ledgerOffset = ledgerEndP1,
         )
         participant1.repair.export_acs_old(
           parties = p1Parties,
@@ -192,7 +192,7 @@ final class ExportContractsIntegrationTest
         participant1.repair.export_acs(
           parties = Set.empty,
           exportFilePath = wildcardExport.canonicalPath,
-          ledgerOffset = NonNegativeLong.tryCreate(ledgerEndP1),
+          ledgerOffset = ledgerEndP1,
         )
         participant1.repair.export_acs_old(
           parties = Set.empty,

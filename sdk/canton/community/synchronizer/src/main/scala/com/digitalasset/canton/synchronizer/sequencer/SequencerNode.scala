@@ -25,7 +25,7 @@ import com.digitalasset.canton.lifecycle.{
   PromiseUnlessShutdown,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.networking.grpc.ratelimiting.StreamCounterCheck
+import com.digitalasset.canton.networking.grpc.ratelimiting.ActiveRequestCounterInterceptor
 import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, CantonMutableHandlerRegistry}
 import com.digitalasset.canton.protocol.SynchronizerParameters.MaxRequestSize
 import com.digitalasset.canton.protocol.SynchronizerParametersLookup.SequencerSynchronizerParameters
@@ -293,27 +293,16 @@ class SequencerNodeBootstrap(
     ): FutureUnlessShutdown[Option[StageResult]] =
       synchronizerConfigurationStore.fetchConfiguration.toOption.flatMapF {
         case Some(existing) =>
-          createSynchronizerTopologyStore(existing.synchronizerId).map { topologyStore =>
-            Some(
-              StageResult(
-                existing.synchronizerParameters,
-                mkFactory(existing.synchronizerParameters.protocolVersion),
-                new SynchronizerTopologyManager(
-                  sequencerId.uid,
-                  clock,
-                  SynchronizerCrypto(crypto, existing.synchronizerParameters),
+          createTopologyManager(existing.synchronizerId, existing.synchronizerParameters).map {
+            topologyManager =>
+              Some(
+                StageResult(
                   existing.synchronizerParameters,
-                  store = topologyStore,
-                  outboxQueue = new SynchronizerOutboxQueue(loggerFactory),
-                  disableOptionalTopologyChecks = config.topology.disableOptionalTopologyChecks,
-                  exitOnFatalFailures = parameters.exitOnFatalFailures,
-                  timeouts,
-                  futureSupervisor,
-                  loggerFactory,
-                ),
-                topologyAndSequencerSnapshot = None,
+                  mkFactory(existing.synchronizerParameters.protocolVersion),
+                  topologyManager,
+                  topologyAndSequencerSnapshot = None,
+                )
               )
-            )
           }
         case None =>
           // create sequencer server such that we can expose a health endpoint until initialized
@@ -419,24 +408,11 @@ class SequencerNodeBootstrap(
                 "No synchronizer id within topology state defined!"
               )
             )
-            store <- EitherT.right(
-              createSynchronizerTopologyStore(
-                PhysicalSynchronizerId(synchronizerId, request.synchronizerParameters)
+            topologyManager <- EitherT.right(
+              createTopologyManager(
+                PhysicalSynchronizerId(synchronizerId, request.synchronizerParameters),
+                request.synchronizerParameters,
               )
-            )
-            outboxQueue = new SynchronizerOutboxQueue(loggerFactory)
-            topologyManager = new SynchronizerTopologyManager(
-              sequencerId.uid,
-              clock,
-              SynchronizerCrypto(crypto, request.synchronizerParameters),
-              request.synchronizerParameters,
-              store,
-              outboxQueue,
-              disableOptionalTopologyChecks = config.topology.disableOptionalTopologyChecks,
-              exitOnFatalFailures = parameters.exitOnFatalFailures,
-              timeouts,
-              futureSupervisor,
-              loggerFactory,
             )
           } yield StageResult(
             request.synchronizerParameters,
@@ -448,6 +424,28 @@ class SequencerNodeBootstrap(
           InitializeSequencerResponse(replicated = config.sequencer.supportsReplicas)
         }
       }
+
+    private def createTopologyManager(
+        synchronizerId: PhysicalSynchronizerId,
+        synchronizerParameters: StaticSynchronizerParameters,
+    ): FutureUnlessShutdown[SynchronizerTopologyManager] =
+      createSynchronizerTopologyStore(synchronizerId).map(topologyStore =>
+        new SynchronizerTopologyManager(
+          sequencerId.uid,
+          clock,
+          SynchronizerCrypto(crypto, synchronizerParameters),
+          synchronizerParameters,
+          topologyStore,
+          outboxQueue = new SynchronizerOutboxQueue(loggerFactory),
+          dispatchQueueBackpressureLimit = parameters.general.dispatchQueueBackpressureLimit,
+          disableOptionalTopologyChecks = config.topology.disableOptionalTopologyChecks,
+          exitOnFatalFailures = parameters.exitOnFatalFailures,
+          timeouts,
+          futureSupervisor,
+          loggerFactory,
+        )
+      )
+
   }
 
   private class StartupNode(
@@ -1013,7 +1011,8 @@ class SequencerNode(
 
   // Provide access such that it can be modified in tests
   @VisibleForTesting
-  def streamCounterCheck: Option[StreamCounterCheck] = sequencerNodeServer.streamCounterCheck
+  def activeRequestCounter: Option[ActiveRequestCounterInterceptor] =
+    sequencerNodeServer.activeRequestCounter
 
   override type Status = SequencerNodeStatus
 

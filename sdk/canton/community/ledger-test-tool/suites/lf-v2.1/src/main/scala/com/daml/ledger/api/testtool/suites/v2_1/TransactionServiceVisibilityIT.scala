@@ -375,7 +375,7 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
   )(implicit ec => {
     case p @ Participants(Participant(alpha, Seq(submitter)), Participant(beta, Seq(listener))) =>
       for {
-        (id, _) <- alpha.createAndGetTransactionId(
+        (id, _) <- alpha.createAndGetUpdateId(
           submitter,
           new AgreementFactory(listener, submitter),
         )
@@ -413,7 +413,7 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
   )(implicit ec => {
     case p @ Participants(Participant(alpha, Seq(submitter)), Participant(beta, Seq(listener))) =>
       for {
-        (id, _) <- alpha.createAndGetTransactionId(
+        (id, _) <- alpha.createAndGetUpdateId(
           submitter,
           new AgreementFactory(listener, submitter),
         )

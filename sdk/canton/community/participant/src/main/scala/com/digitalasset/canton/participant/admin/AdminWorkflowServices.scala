@@ -298,7 +298,10 @@ class AdminWorkflowServices(
   )(
       createService: LedgerClient => S
   ): (FutureUnlessShutdown[ResilientLedgerSubscription[?, ?]], S) = {
-    import TraceContext.Implicits.Empty.*
+
+    implicit val traceContext: TraceContext =
+      TraceContext.createNew("admin_workflow_services_create_service")
+    logger.info(s"Creating admin workflow service $userId")
 
     val client = createLedgerClient(userId)
     val service = createService(client)

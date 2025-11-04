@@ -454,8 +454,8 @@ object TransactionServiceCorrectnessIT {
 
   // Strip command id, offset, event id, node id and transaction id to yield a transaction comparable across participants
   // Furthermore, makes sure that the order is not relevant for witness parties
-  // Sort by transactionId as on distributed ledgers updates can occur in different orders
-  // Even if transactionIds are not the same across distributes ledgers, we still can use them for sorting
+  // Sort by updateId as on distributed ledgers updates can occur in different orders
+  // Even if updateIds are not the same across distributes ledgers, we still can use them for sorting
   private def comparableTransactions(transactions: Vector[Transaction]): Vector[Transaction] = {
     def stripEventFields(event: Event) =
       event match {
@@ -473,7 +473,7 @@ object TransactionServiceCorrectnessIT {
           offset = 12345678L,
           events = t.events
             .map(e => e.copy(event = stripEventFields(e.event)).modifyWitnessParties(_.sorted)),
-          updateId = "transactionId",
+          updateId = "updateId",
           traceContext = t.traceContext.map(tc => tc.copy(tc.traceparent.map(eraseSpanId))),
         )
       )

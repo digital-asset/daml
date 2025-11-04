@@ -42,6 +42,13 @@ object TopologyTransactionRejection {
       override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
         TopologyManagerError.SerialMismatch.Failure(Some(actual), Some(expected))
     }
+    final case class InternalError(message: String) extends TopologyTransactionRejection {
+      override def asString: String = message
+      override protected def pretty: Pretty[InternalError] =
+        prettyOfClass(param("message", _.message.singleQuoted))
+      override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+        TopologyManagerError.InternalError.Unexpected(message)
+    }
   }
 
   /** list of rejections which are created due to authorization checks */

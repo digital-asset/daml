@@ -135,6 +135,7 @@ class SequencerConnectionSuccessorListener(
               synchronizerId = Some(successorPSId),
               sequencerConnections = sequencerConnections,
             )
+          // TODO(#28724) Can we have races leading to failures here?
           configStore
             .put(
               config = updated,
@@ -144,6 +145,7 @@ class SequencerConnectionSuccessorListener(
                 Some(SynchronizerPredecessor(topologyClient.psid, upgradeTime)),
             )
             .toOption
+        // TODO(#28724) Use subsumeMerge to reduce impact of races
         case Some(currentSuccessorConfig) =>
           val updated =
             currentSuccessorConfig.config.copy(sequencerConnections = sequencerConnections)

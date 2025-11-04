@@ -98,7 +98,7 @@ message RegisterSynchronizerRequest {
 
   // Determines how well the provided sequencer connections should be validated before they are
   // persisted. The more paranoid the validation, the higher the chance of the command failing,
-  // as it will require the sequencer to be online and responsive.
+  // as it will require the sequencers to be online and responsive.
   com.digitalasset.canton.admin.sequencer.v30.SequencerConnectionValidation sequencer_connection_validation = 3;
 }
 
@@ -141,7 +141,7 @@ message ConnectSynchronizerRequest {
 
   // Determines how well the provided sequencer connections should be validated before they are
   // persisted. The more paranoid the validation, the higher the chance of the command failing,
-  // as it will require the sequencer to be online and responsive.
+  // as it will require the sequencers to be online and responsive.
   com.digitalasset.canton.admin.sequencer.v30.SequencerConnectionValidation sequencer_connection_validation = 2;
 }
 

@@ -9,7 +9,7 @@ import com.daml.ledger.api.v2.{state_service, transaction_filter, value as apiVa
 import com.digitalasset.canton
 import com.digitalasset.canton.admin.api.client.data.TemplateId
 import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{LocalParticipantReference, ParticipantReference}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.http.json.tests.upgrades
@@ -519,7 +519,7 @@ abstract class AcsImportRepresentativePackageIdSelectionIntegrationTest
         parties = Set(party),
         exportFilePath = file.canonicalPath,
         synchronizerId = Some(env.daId),
-        ledgerOffset = NonNegativeLong.tryCreate(participant1.ledger_api.state.end()),
+        ledgerOffset = participant1.ledger_api.state.end(),
       )
 
       importParticipant.synchronizers.disconnect_all()

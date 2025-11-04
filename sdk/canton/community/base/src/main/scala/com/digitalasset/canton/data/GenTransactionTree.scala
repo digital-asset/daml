@@ -129,7 +129,7 @@ final case class GenTransactionTree private (
       case _ => throw new UnsupportedOperationException(s"Invalid view position: $viewPos")
     }
 
-  lazy val transactionId: UpdateId = UpdateId.fromRootHash(rootHash)
+  lazy val updateId: UpdateId = UpdateId.fromRootHash(rootHash)
 
   /** Yields the full informee tree corresponding to this transaction tree. The resulting informee
     * tree is full, only if every view common data is unblinded.

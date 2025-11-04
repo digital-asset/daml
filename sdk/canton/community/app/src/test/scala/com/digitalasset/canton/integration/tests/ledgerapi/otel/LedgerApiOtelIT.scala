@@ -304,7 +304,7 @@ class LedgerApiOtelIT extends LedgerApiOtelITBase {
 
     def submissionService = CommandSubmissionServiceGrpc
       .stub(channel)
-      .withInterceptors(TraceContextGrpc.clientInterceptor)
+      .withInterceptors(TraceContextGrpc.clientInterceptor())
 
     "receiving a command with a span and trace" should {
       testCommandService(
@@ -321,7 +321,7 @@ class LedgerApiOtelIT extends LedgerApiOtelITBase {
 
   "CommandService" when {
     def commandService =
-      CommandServiceGrpc.stub(channel).withInterceptors(TraceContextGrpc.clientInterceptor)
+      CommandServiceGrpc.stub(channel).withInterceptors(TraceContextGrpc.clientInterceptor())
 
     "receiving a command with a span and trace" should {
       testCommandService(
@@ -350,14 +350,14 @@ class LedgerApiOtelIT extends LedgerApiOtelITBase {
 
     def submissionService = CommandServiceGrpc
       .stub(channel)
-      .withInterceptors(TraceContextGrpc.clientInterceptor)
+      .withInterceptors(TraceContextGrpc.clientInterceptor())
 
     def completionService = CommandCompletionServiceGrpc
       .stub(channel)
-      .withInterceptors(TraceContextGrpc.clientInterceptor)
+      .withInterceptors(TraceContextGrpc.clientInterceptor())
 
     def stateService =
-      StateServiceGrpc.stub(channel).withInterceptors(TraceContextGrpc.clientInterceptor)
+      StateServiceGrpc.stub(channel).withInterceptors(TraceContextGrpc.clientInterceptor())
 
     def extractTraceContext(response: CompletionStreamResponse): Seq[TraceContext] =
       response.completionResponse.completion
@@ -397,13 +397,13 @@ class LedgerApiOtelIT extends LedgerApiOtelITBase {
 
     def submissionService = CommandServiceGrpc
       .stub(channel)
-      .withInterceptors(TraceContextGrpc.clientInterceptor)
+      .withInterceptors(TraceContextGrpc.clientInterceptor())
 
     def stateService =
-      StateServiceGrpc.stub(channel).withInterceptors(TraceContextGrpc.clientInterceptor)
+      StateServiceGrpc.stub(channel).withInterceptors(TraceContextGrpc.clientInterceptor())
 
     def updateService =
-      UpdateServiceGrpc.stub(channel).withInterceptors(TraceContextGrpc.clientInterceptor)
+      UpdateServiceGrpc.stub(channel).withInterceptors(TraceContextGrpc.clientInterceptor())
 
     def extractTraceContextFromUpdates(response: GetUpdatesResponse): Seq[TraceContext] =
       response.update.transaction
@@ -547,7 +547,7 @@ class LedgerApiOtelTlsIT extends LedgerApiOtelITBase {
 
     def submissionService = CommandSubmissionServiceGrpc
       .stub(channel)
-      .withInterceptors(TraceContextGrpc.clientInterceptor)
+      .withInterceptors(TraceContextGrpc.clientInterceptor())
 
     "OTLP headers have been transferred" should {
       testOTLPHeader(

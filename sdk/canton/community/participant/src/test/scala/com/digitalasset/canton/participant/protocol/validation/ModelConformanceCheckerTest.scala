@@ -242,8 +242,8 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
                 check(sut, viewsWithNoInputKeys(example.rootTransactionViewTrees))
               )(s"model conformance check for root views")
             } yield {
-              val Result(transactionId, absoluteTransaction) = result
-              transactionId should equal(example.transactionId)
+              val Result(updateId, absoluteTransaction) = result
+              updateId should equal(example.updateId)
 
               absoluteTransaction.metadata.ledgerTime should equal(factory.ledgerTime)
               absoluteTransaction.unwrap.version should equal(
@@ -289,8 +289,8 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
                 )
               )(s"model conformance check for root views")
             } yield {
-              val Result(transactionId, absoluteTransaction) = result
-              transactionId should equal(example.transactionId)
+              val Result(updateId, absoluteTransaction) = result
+              updateId should equal(example.updateId)
               absoluteTransaction.metadata.ledgerTime should equal(factory.ledgerTime)
               absoluteTransaction.unwrap.version should equal(
                 example.versionedSuffixedTransaction.version
@@ -313,8 +313,8 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
                     s"model conformance check for view at ${viewTree.viewPosition}"
                   )
                 } yield {
-                  val Result(transactionId, absoluteTransaction) = result
-                  transactionId should equal(example.transactionId)
+                  val Result(updateId, absoluteTransaction) = result
+                  updateId should equal(example.updateId)
                   absoluteTransaction.metadata.ledgerTime should equal(factory.ledgerTime)
                 }
               }
@@ -327,14 +327,14 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
         val sut = buildUnderTest(failOnReinterpret)
 
         val singleCreate = factory.SingleCreate(seed = ExampleTransactionFactory.lfHash(0))
-        val viewTreesWithInconsistentTransactionIds = Seq(
+        val viewTreesWithInconsistentUpdateIds = Seq(
           factory.MultipleRootsAndViewNestings.rootTransactionViewTrees.headOption.value,
           singleCreate.rootTransactionViewTrees.headOption.value,
         )
 
         "yield an error" in {
           assertThrows[IllegalArgumentException] {
-            check(sut, viewsWithNoInputKeys(viewTreesWithInconsistentTransactionIds))
+            check(sut, viewsWithNoInputKeys(viewTreesWithInconsistentUpdateIds))
           }
         }
       }

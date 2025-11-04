@@ -45,6 +45,25 @@ sealed trait TopologyManagerError extends ContextualizedCantonError
 object TopologyManagerError extends TopologyManagerErrorGroup {
 
   @Explanation(
+    "This error indicates that currently, too many topology transactions are pending for this node."
+  )
+  @Resolution(
+    """Change the maximum queue size of the synchronizer outbox or retry."""
+  )
+  object TooManyPendingTopologyTransactions
+      extends ErrorCode(
+        "TOPOLOGY_TOO_MANY_PENDING_TOPOLOGY_TRANSACTIONS",
+        ErrorCategory.ContentionOnSharedResources,
+      ) {
+    final case class Backpressure()(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause = s"Too many pending topology transactions on this node."
+        )
+        with TopologyManagerError
+  }
+
+  @Explanation(
     """This error indicates that there was an internal error within the topology manager."""
   )
   @Resolution("Inspect error message for details.")
@@ -309,11 +328,6 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
     """Inspect the topology state and ensure that a valid namespace delegations of the signing key exists or upload one before adding this transaction."""
   )
   object UnauthorizedTransaction extends AlarmErrorCode(id = "TOPOLOGY_UNAUTHORIZED_TRANSACTION") {
-
-    final case class NoSignaturesProvided()(implicit
-        override val loggingContext: ErrorLoggingContext
-    ) extends Alarm(cause = s"Topology transaction is not properly authorized by any namespace key")
-        with TopologyManagerError
 
     final case class NoNamespaceAuth()(implicit
         override val loggingContext: ErrorLoggingContext
@@ -1151,5 +1165,21 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
           )
           with TopologyManagerError
     }
+  }
+
+  @Explanation(
+    "This error indicates that preview features need to be enabled."
+  )
+  @Resolution("Set flag `enablePreviewFeatures` to true and retry.")
+  object PreviewFeature
+      extends ErrorCode(
+        id = "PREVIEW_FEATURE",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class Error(
+        operation: String
+    )(implicit val loggingContext: ErrorLoggingContext)
+        extends CantonError.Impl(cause = s"Operation $operation is a preview feature.")
+        with TopologyManagerError
   }
 }

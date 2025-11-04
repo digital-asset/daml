@@ -11,7 +11,7 @@ import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -29,6 +29,7 @@ import com.digitalasset.canton.topology.TopologyManagerError.{
   DangerousCommandRequiresForce,
   IncreaseOfPreparationTimeRecordTimeTolerance,
   InvalidSynchronizerSuccessor,
+  TooManyPendingTopologyTransactions,
   ValueOutOfBounds,
 }
 import com.digitalasset.canton.topology.processing.{
@@ -87,6 +88,7 @@ class SynchronizerTopologyManager(
     staticSynchronizerParameters: StaticSynchronizerParameters,
     override val store: TopologyStore[SynchronizerStore],
     val outboxQueue: SynchronizerOutboxQueue,
+    dispatchQueueBackpressureLimit: NonNegativeInt,
     disableOptionalTopologyChecks: Boolean,
     exitOnFatalFailures: Boolean,
     timeouts: ProcessingTimeout,
@@ -106,10 +108,13 @@ class SynchronizerTopologyManager(
     ) {
   def psid: PhysicalSynchronizerId = store.storeId.psid
 
+  override def noBackpressure(): Boolean =
+    outboxQueue.numUnsentTransactions < dispatchQueueBackpressureLimit.value
+
   override protected val processor: TopologyStateProcessor = {
 
     val required =
-      new RequiredTopologyMappingChecks(store, Some(staticSynchronizerParameters), loggerFactory)
+      RequiredTopologyMappingChecks(store, Some(staticSynchronizerParameters), loggerFactory)
     val checks =
       if (!disableOptionalTopologyChecks)
         new TopologyMappingChecks.All(
@@ -185,7 +190,10 @@ class TemporaryTopologyManager(
       timeouts,
       futureSupervisor,
       loggerFactory,
-    )
+    ) {
+  override def noBackpressure(): Boolean = true
+
+}
 
 class AuthorizedTopologyManager(
     nodeId: UniqueIdentifier,
@@ -209,6 +217,8 @@ class AuthorizedTopologyManager(
     ) {
   def initialize(implicit @unused traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     FutureUnlessShutdown.unit
+
+  override def noBackpressure(): Boolean = true
 }
 
 abstract class LocalTopologyManager[StoreId <: TopologyStoreId](
@@ -321,6 +331,8 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
     crashOnFailure = exitOnFatalFailures,
   )
 
+  /** must return true if this topology manager should be backpressured */
+  protected def noBackpressure(): Boolean
   protected val processor: TopologyStateProcessor
 
   override def queueSize: Int = sequentialQueue.queueSize
@@ -749,6 +761,10 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
   ): EitherT[FutureUnlessShutdown, TopologyManagerError, AsyncResult[Unit]] =
     sequentialQueue.executeEUS(
       for {
+        _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
+          noBackpressure(),
+          TooManyPendingTopologyTransactions.Backpressure(),
+        )
         _ <- MonadUtil.sequentialTraverse_(transactions)(
           transactionIsNotDangerous(_, forceChanges)
         )

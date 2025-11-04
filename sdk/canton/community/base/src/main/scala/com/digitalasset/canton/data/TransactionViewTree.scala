@@ -44,7 +44,7 @@ trait TransactionViewTree extends ViewTree {
 
   override def rootHash: RootHash = tree.rootHash
 
-  lazy val transactionId: UpdateId = UpdateId.fromRootHash(rootHash)
+  lazy val updateId: UpdateId = UpdateId.fromRootHash(rootHash)
 
   override def toBeSigned: Option[RootHash] = if (isTopLevel) Some(rootHash) else None
 

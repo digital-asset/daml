@@ -183,7 +183,7 @@ class RequiredTopologyMappingChecksTest
   override protected def mkChecks(
       store: TopologyStore[SynchronizerStore]
   ): RequiredTopologyMappingChecks =
-    new RequiredTopologyMappingChecks(
+    RequiredTopologyMappingChecks(
       store,
       Some(defaultStaticSynchronizerParameters),
       loggerFactory,
