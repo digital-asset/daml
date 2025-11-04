@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.topology
 
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.BaseCrypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.topology.processing.TopologyTransactionTestFactory
@@ -29,9 +30,37 @@ class TopologyManagerTest extends AnyWordSpec with BaseTest with HasExecutionCon
   }
   "SynchronizerTopologyManager" should {
     behave like rejectingMissingSigningKeySignatures(
-      createSynchronizerTopologyManager()
+      createSynchronizerTopologyManager()._2
+    )
+    behave like ((backpressureOnFullQueue _).tupled) (
+      createSynchronizerTopologyManager(maxUnsentQueueSize = NonNegativeInt.one)
     )
   }
+
+  private def backpressureOnFullQueue(
+      outbox: SynchronizerOutboxQueue,
+      manager: SynchronizerTopologyManager,
+  ): Unit =
+    "backpressure if too many changes are pending in the outbox" in {
+
+      val res1 = manager
+        .add(Seq(ns1k1_k1), ForceFlags.none, expectFullAuthorization = true)
+        .futureValueUS
+      outbox.numUnsentTransactions shouldBe 1
+      val res2 = manager
+        .add(Seq(ns2k2_k2), ForceFlags.none, expectFullAuthorization = true)
+        .futureValueUS
+      outbox.numUnsentTransactions shouldBe 1
+      val _ = outbox.dequeue(PositiveInt.one)
+      outbox.numUnsentTransactions shouldBe 0
+      val res3 = manager
+        .add(Seq(ns2k2_k2), ForceFlags.none, expectFullAuthorization = true)
+        .futureValueUS
+      res1 shouldBe a[Right[?, ?]]
+      res2 shouldBe Left(TopologyManagerError.TooManyPendingTopologyTransactions.Backpressure())
+      res3 shouldBe a[Right[?, ?]]
+
+    }
 
   private def permittingMissingSigningKeySignatures(
       topologyManager: TopologyManager[TopologyStoreId, BaseCrypto]
@@ -136,8 +165,11 @@ class TopologyManagerTest extends AnyWordSpec with BaseTest with HasExecutionCon
       loggerFactory = loggerFactory,
     )
 
-  private def createSynchronizerTopologyManager() =
-    new SynchronizerTopologyManager(
+  private def createSynchronizerTopologyManager(
+      maxUnsentQueueSize: NonNegativeInt = NonNegativeInt.tryCreate(10)
+  ) = {
+    val outbox = new SynchronizerOutboxQueue(loggerFactory)
+    val manager = new SynchronizerTopologyManager(
       Factory.sequencer1.uid,
       wallClock,
       Factory.syncCryptoClient.crypto,
@@ -148,12 +180,15 @@ class TopologyManagerTest extends AnyWordSpec with BaseTest with HasExecutionCon
         loggerFactory,
         timeouts,
       ),
-      new SynchronizerOutboxQueue(loggerFactory),
+      outbox,
+      dispatchQueueBackpressureLimit = maxUnsentQueueSize,
       disableOptionalTopologyChecks = false,
       exitOnFatalFailures = exitOnFatal,
       timeouts = timeouts,
       futureSupervisor = futureSupervisor,
       loggerFactory = loggerFactory,
     )
+    (outbox, manager)
+  }
 
 }

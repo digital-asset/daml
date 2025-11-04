@@ -350,6 +350,16 @@ object TransactionRoutingError extends RoutingErrorGroup {
             cause = "No valid synchronizer for submission found."
           )
           with TransactionRoutingError
+
+      final case class SynchronizerRankingFailed(
+          discardedSynchronizers: Map[PhysicalSynchronizerId, String]
+      ) extends TransactionErrorImpl(
+            cause =
+              s"No valid synchronizer found for synchronizer ranking. Discarded synchronizers: ${discardedSynchronizers.view
+                  .map { case (syncId, reason) => s"$syncId: $reason" }
+                  .mkString(", ")}"
+          )
+          with TransactionRoutingError
     }
 
     @Explanation(

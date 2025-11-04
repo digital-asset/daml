@@ -20,7 +20,10 @@ import com.digitalasset.canton.topology.store.{
   TopologyStoreId,
 }
 import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
-import com.digitalasset.canton.topology.transaction.checks.RequiredTopologyMappingChecks
+import com.digitalasset.canton.topology.transaction.checks.{
+  MaybeEmptyTopologyStore,
+  RequiredTopologyMappingChecks,
+}
 import com.digitalasset.canton.topology.transaction.{
   SignedTopologyTransaction,
   TopologyChangeOp,
@@ -31,7 +34,7 @@ import com.digitalasset.canton.util.MonadUtil.syntax.*
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 
-import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext
 
@@ -68,11 +71,16 @@ class InitialTopologySnapshotValidator(
 )(implicit ec: ExecutionContext, materializer: Materializer)
     extends NamedLogging {
 
+  private val storeIsEmpty = new AtomicBoolean(false)
+  private val maybeEmptyStore = new MaybeEmptyTopologyStore {
+    override def store: TopologyStore[TopologyStoreId] = InitialTopologySnapshotValidator.this.store
+    override def skipLoadingFromStore: Boolean = storeIsEmpty.get()
+  }
   protected val stateProcessor: TopologyStateProcessor =
     TopologyStateProcessor.forInitialSnapshotValidation(
       store,
       new RequiredTopologyMappingChecks(
-        store,
+        maybeEmptyStore,
         staticSynchronizerParameters,
         loggerFactory,
       ),
@@ -109,16 +117,26 @@ class InitialTopologySnapshotValidator(
         .toSeq
         // ensure that the groups of transactions come in the correct order
         .sortBy { case (timestamps, _) => timestamps }
+
       logger.info(
         s"Validating ${finalSnapshot.result.size}/${initialSnapshot.result.size} transactions to initialize the topology store ${store.storeId} with ${groupedBySequencedTime.size} sequencer times"
       )
       for {
         _ <- EitherT.right(store.deleteAllData())
+        // set to true to bypass loading from store during genesis validation
+        _ = storeIsEmpty.set(true)
         _ <-
           groupedBySequencedTime.sequentialTraverse_ { case ((sequenced, validFrom), storedTxs) =>
-            processTransactionsAtSequencedTime(sequenced, validFrom, storedTxs)
+            processTransactionsAtSequencedTime(sequenced, validFrom, storedTxs, storeIsEmpty.get())
+              .map { res =>
+                // after the first batch, the store is no longer empty
+                storeIsEmpty.set(false)
+                res
+              }
           }
-
+        _ = logger.info(
+          s"Import validated and completed, verifying now that the result matches the imported snapshot."
+        )
         // this comparison of the input and output topology snapshots serves as a security guard/barrier
         mismatch <-
           EitherT
@@ -134,7 +152,7 @@ class InitialTopologySnapshotValidator(
                 .dropWhile { case ((fromInitial, fromStore), _) =>
                   // we don't do a complete == comparison, because the snapshot might contain transactions with superfluous
                   // signatures that are now filtered out. As long as the hash, validFrom, validUntil, isProposal and rejection reason
-                  // agree between initial and stored topology transaciton, we accept the result.
+                  // agree between initial and stored topology transaction, we accept the result.
                   StoredTopologyTransaction.equalIgnoringSignatures(fromInitial, fromStore)
                 }
                 runWith (Sink.headOption)
@@ -237,6 +255,7 @@ class InitialTopologySnapshotValidator(
       sequenced: SequencedTime,
       effectiveTime: EffectiveTime,
       storedTxs: Seq[StoredTopologyTransaction[TopologyChangeOp, TopologyMapping]],
+      storeIsEmpty: Boolean,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] =
     EitherT
       .right(
@@ -250,6 +269,7 @@ class InitialTopologySnapshotValidator(
             // acceptable, if the transaction was part of the genesis topology snapshot
             relaxChecksForBackwardsCompatibility =
               sequenced.value == SignedTopologyTransaction.InitialTopologySequencingTime,
+            storeIsEmpty = storeIsEmpty,
           )
       )
       .map(_ => ())

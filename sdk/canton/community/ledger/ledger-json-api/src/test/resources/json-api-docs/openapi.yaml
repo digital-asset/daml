@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: JSON Ledger API HTTP endpoints
-  version: 3.4.2-SNAPSHOT
+  version: 3.4.3-SNAPSHOT
 paths:
   /v2/commands/submit-and-wait:
     post:

@@ -32,18 +32,21 @@ import scala.math.Ordering.Implicits.infixOrderingOps
 
 /** Configuration to limit the number of open requests per service
   *
-  * @param pending
-  *   map of service name to maximum number of parallel open requests
+  * @param active
+  *   map of service name to maximum number of parallel active requests or streams
   * @param warnOnUndefinedLimits
   *   emit warning if a limit is not configured for a stream
+  * @param throttleLoggingRatePerSecond
+  *   maximum rate for logging rejections for requests exceeding the limit (prevents DOS on logs)
   */
 final case class ActiveRequestLimitsConfig(
-    pending: Map[String, NonNegativeInt] = Map.empty,
+    active: Map[String, NonNegativeInt] = Map.empty,
     warnOnUndefinedLimits: Boolean = false,
+    throttleLoggingRatePerSecond: NonNegativeInt = NonNegativeInt.tryCreate(10),
 ) extends UniformCantonConfigValidation
 
 object ActiveRequestLimitsConfig {
-  implicit val streamLimitConfigCantonConfigValidator
+  implicit val activeRequestLimitsConfigCantonConfigValidator
       : CantonConfigValidator[ActiveRequestLimitsConfig] = {
     import CantonConfigValidatorInstances.*
     CantonConfigValidatorDerivation[ActiveRequestLimitsConfig]
@@ -134,7 +137,7 @@ trait ServerConfig extends Product with Serializable {
       jwksCacheConfig: JwksCacheConfig,
       telemetry: Telemetry,
       additionalInterceptors: Seq[ServerInterceptor] = Seq.empty,
-      streamLimits: Option[ActiveRequestLimitsConfig],
+      requestLimits: Option[ActiveRequestLimitsConfig],
   ): CantonServerInterceptors = new CantonCommunityServerInterceptors(
     api,
     tracingConfig,
@@ -148,7 +151,7 @@ trait ServerConfig extends Product with Serializable {
     jwksCacheConfig,
     telemetry,
     additionalInterceptors,
-    streamLimits,
+    requestLimits,
   )
 
 }

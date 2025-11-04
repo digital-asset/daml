@@ -14,25 +14,17 @@ import com.digitalasset.canton.integration.{
 }
 import com.digitalasset.canton.ledger.api.services.CommandSubmissionService
 import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
-import com.digitalasset.canton.participant.admin.PingService
+import com.digitalasset.canton.networking.grpc.ApiRequestLogger
+import com.digitalasset.canton.participant.admin.{AdminWorkflowServices, PingService}
 import com.digitalasset.canton.participant.protocol.TransactionProcessor
 import com.digitalasset.canton.participant.sync.CantonSyncService
+import com.digitalasset.canton.platform.apiserver.services.ApiStateService
 import org.scalatest.compatible.Assertion
+import org.scalatest.matchers.{MatchResult, Matcher}
 import org.slf4j.event.Level
 
 abstract class TraceContextIntegrationTest extends CommunityIntegrationTest with SharedEnvironment {
-  override def environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P2_S1M1
-      .withSetup { implicit env =>
-        import env.*
-
-        participants.local.foreach(_.synchronizers.connect_local(sequencer1, alias = daName))
-
-        // Wait until all participants are connected
-        utils.retry_until_true {
-          participants.local.forall(_.synchronizers.active(daName))
-        }
-      }
+  override def environmentDefinition: EnvironmentDefinition = EnvironmentDefinition.P2_S1M1
 
   val CaptureLoggersUsingTraceIdForPing: SuppressionRule =
     SuppressionRule.forLogger[PingService] ||
@@ -41,11 +33,67 @@ abstract class TraceContextIntegrationTest extends CommunityIntegrationTest with
       SuppressionRule.forLogger[TransactionProcessor] &&
       SuppressionRule.LevelAndAbove(Level.DEBUG)
 
+  val CaptureAdminServicesStartupTraceIds: SuppressionRule =
+    (SuppressionRule.forLogger[AdminWorkflowServices] ||
+      SuppressionRule.forLogger[ApiRequestLogger] ||
+      SuppressionRule.forLogger[ApiStateService]) &&
+      SuppressionRule.LevelAndAbove(Level.DEBUG)
+
+  private def haveTheSameTraceIdFor(
+      substrings: String*
+  ) = new Matcher[Seq[LogEntry]] {
+    override def apply(left: Seq[LogEntry]): MatchResult = {
+      val allTraceIds = substrings.flatMap { substring =>
+        left
+          .filter(_.message.contains(substring))
+          .flatMap(_.mdc.get("trace-id"))
+      }.toSet
+      MatchResult(
+        allTraceIds.sizeIs == 1,
+        s"Expected the same trace-id for all log, but found multiple distinct trace-ids: ${allTraceIds
+            .mkString(", ")}",
+        "All log messages have the same trace-id",
+      )
+    }
+  }
+
+  "propagate trace-ids set by ping service startup to ledger api" in { implicit env =>
+    import env.*
+
+    participant1.stop()
+
+    loggerFactory.assertLogsSeq(CaptureAdminServicesStartupTraceIds)(
+      {
+        participant1.start()
+        eventually() {
+          participant1.is_running shouldBe true
+        }
+      },
+      { logs =>
+        logs should haveTheSameTraceIdFor(
+          "Loading admin workflows DAR",
+          "PackageService/GetPackageStatus",
+        )
+        logs should haveTheSameTraceIdFor(
+          "Creating admin workflow service admin-ping",
+          "StateService/GetLedgerEnd",
+        )
+      },
+    )
+  }
+
   /** Integration test to verify that trace-ids are flowing through the entirety of Canton's
     * internals
     */
   "check trace id set on sync service write is visible on related read events" in { implicit env =>
     import env.*
+
+    participants.local.foreach(_.synchronizers.connect_local(sequencer1, alias = daName))
+
+    // Wait until all participants are connected
+    utils.retry_until_true {
+      participants.local.forall(_.synchronizers.active(daName))
+    }
 
     loggerFactory.assertLogsSeq(CaptureLoggersUsingTraceIdForPing)(
       {

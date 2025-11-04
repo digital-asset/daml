@@ -496,8 +496,9 @@ class LedgerApiServer(
       .map(cfg =>
         new ActiveRequestCounterInterceptor(
           "ledger-api",
-          cfg.pending,
+          cfg.active,
           cfg.warnOnUndefinedLimits,
+          cfg.throttleLoggingRatePerSecond,
           grpcApiMetrics.requests,
           loggerFactory,
         )

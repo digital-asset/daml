@@ -6,10 +6,11 @@ package com.digitalasset.canton.integration.tests.repair
 import better.files.*
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
 import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
+import com.digitalasset.canton.integration.util.{EntitySyntax, PartiesAllocator}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
@@ -17,9 +18,13 @@ import com.digitalasset.canton.integration.{
 }
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.PartyId
+import com.digitalasset.canton.topology.transaction.ParticipantPermission
 
 // TODO(#23073) - Remove this test once #27325 has been re-implemented
-final class ImportContractsIntegrationTest extends CommunityIntegrationTest with SharedEnvironment {
+final class ImportContractsIntegrationTest
+    extends CommunityIntegrationTest
+    with SharedEnvironment
+    with EntitySyntax {
 
   private var alice: PartyId = _
   private var bob: PartyId = _
@@ -32,11 +37,23 @@ final class ImportContractsIntegrationTest extends CommunityIntegrationTest with
         participants.all.synchronizers.connect_local(sequencer2, alias = acmeName)
         participants.all.dars.upload(CantonExamplesPath, synchronizerId = daId)
         participants.all.dars.upload(CantonExamplesPath, synchronizerId = acmeId)
-        alice = participant1.parties.enable("Alice", synchronizer = daName)
-        participant1.parties.enable("Alice", synchronizer = acmeName)
 
-        bob = participant2.parties.enable("Bob", synchronizer = daName)
-        participant2.parties.enable("Bob", synchronizer = acmeName)
+        PartiesAllocator(Set(participant1, participant2))(
+          newParties = Seq("Alice" -> participant1, "Bob" -> participant2),
+          targetTopology = Map(
+            "Alice" -> Map(
+              daId -> (PositiveInt.one, Set(participant1.id -> ParticipantPermission.Submission)),
+              acmeId -> (PositiveInt.one, Set(participant1.id -> ParticipantPermission.Submission)),
+            ),
+            "Bob" -> Map(
+              daId -> (PositiveInt.one, Set(participant2.id -> ParticipantPermission.Submission)),
+              acmeId -> (PositiveInt.one, Set(participant2.id -> ParticipantPermission.Submission)),
+            ),
+          ),
+        )
+
+        alice = "Alice".toPartyId(participant1)
+        bob = "Bob".toPartyId(participant2)
       }
 
   registerPlugin(new UsePostgres(loggerFactory))
@@ -57,22 +74,22 @@ final class ImportContractsIntegrationTest extends CommunityIntegrationTest with
     "fail for contracts with non-zero reassignment counter" in { implicit env =>
       import env.*
 
-      val contract = IouSyntax.createIou(participant1)(alice, bob)
+      val contract = IouSyntax.createIou(participant1, synchronizerId = Some(daId))(alice, bob)
       val reassignedContractCid = LfContractId.assertFromString(contract.id.contractId)
 
       participant1.ledger_api.commands.submit_reassign(
         alice,
         Seq(reassignedContractCid),
-        daId,
-        acmeId,
+        source = daId,
+        target = acmeId,
         submissionId = "some-submission-id",
       )
 
       participant1.ledger_api.commands.submit_reassign(
         alice,
         Seq(reassignedContractCid),
-        acmeId,
-        daId,
+        source = acmeId,
+        target = daId,
         submissionId = "some-submission-id",
       )
 

@@ -23,7 +23,7 @@ import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyMapping.ReferencedAuthorizations
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ErrorUtil
+import com.digitalasset.canton.util.{EitherUtil, ErrorUtil}
 
 import scala.concurrent.ExecutionContext
 
@@ -94,6 +94,7 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
       expectFullAuthorization: Boolean,
       // TODO(#29057): check whether the relaxations can be removed
       relaxChecksForBackwardsCompatibility: Boolean,
+      storeIsEmpty: Boolean = false,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[GenericValidatedTopologyTransaction] =
@@ -104,6 +105,7 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
           toValidate.transaction,
           inStore.map(_.transaction),
           relaxChecksForBackwardsCompatibility = relaxChecksForBackwardsCompatibility,
+          storeIsEmpty,
         ).map(_ =>
           processTransaction(
             tx,
@@ -165,7 +167,6 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
     TopologyTransactionRejection,
     (GenericSignedTopologyTransaction, ReferencedAuthorizations),
   ] = {
-    // TODO(#28792) bail if toValidate.serial == inStore.serial && toValidate.transaction != inStore.transaction
     // check if this is a transaction that just appends a new signature to the existing, already approved one
     val mergingNewSignatureIntoActiveStateTx =
       inStore.exists(tx => !tx.isProposal && tx.transaction == toValidate.transaction)
@@ -271,7 +272,6 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
       toValidate.signatures.map(_.authorizingLongTermKey) -- allKeysUsedForAuthorization.keys
 
     if (logger.underlying.isDebugEnabled()) {
-      // TODO(#28792) extended "provided" information to distinguish between optional and required signatures
       logger.debug(
         s"Authorization details for ${toValidate.mapping.code}=${toValidate.transaction.hash}\n" +
           s"  Required: $requiredAuth\n" +
@@ -291,6 +291,15 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
     }
 
     for {
+      // consistency check
+      _ <- EitherUtil.condUnit(
+        inStore.forall(previous =>
+          previous.mapping.uniqueKey == toValidate.mapping.uniqueKey && (previous.serial < toValidate.serial || previous.transaction == toValidate.transaction)
+        ),
+        TopologyTransactionRejection.Processor.InternalError(
+          s"In-store and toValidate are inconsistent. In-store:\n  $inStore\ntoValidate $toValidate"
+        ),
+      )
       // check that all signatures cover the transaction hash
       _ <- wronglyCoveredHashesNE
         .map(AuthorizationRejections.MultiTransactionHashMismatch(toValidate.hash, _))
@@ -440,7 +449,6 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
               keyIdsWithUsage.forgetNE(publicKey.id),
             )
             .leftMap(AuthorizationRejections.SignatureCheckFailed.apply)
-
         } yield ()
 
         for {

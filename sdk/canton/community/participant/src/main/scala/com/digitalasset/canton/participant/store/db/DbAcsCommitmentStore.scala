@@ -781,6 +781,22 @@ class DbCommitmentQueue(
         operationName = NameOf.qualifiedNameOfCurrentFunc,
       )
 
+  /** Returns all commitments whose period ends at or after the given timestamp.
+    *
+    * Does not delete them from the queue.
+    */
+  override def nonEmptyAtOrAfter(
+      timestamp: CantonTimestamp
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Boolean] =
+    storage
+      .query(
+        sql"""select exists ( select 1 from par_commitment_queue where synchronizer_idx = $indexedSynchronizer and to_inclusive >= $timestamp)"""
+          .as[Boolean]
+          .headOption
+          .map(_.getOrElse(false)),
+        operationName = NameOf.qualifiedNameOfCurrentFunc,
+      )
+
   def peekOverlapsForCounterParticipant(
       period: CommitmentPeriod,
       counterParticipant: ParticipantId,

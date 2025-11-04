@@ -87,13 +87,28 @@ object NoopTopologyMappingChecks extends TopologyMappingChecks {
     EitherTUtil.unitUS
 }
 
+trait MaybeEmptyTopologyStore {
+  def store: TopologyStore[TopologyStoreId]
+  def skipLoadingFromStore: Boolean
+}
+
+object MaybeEmptyTopologyStore {
+  def apply(topologyStore: TopologyStore[TopologyStoreId]): MaybeEmptyTopologyStore =
+    new MaybeEmptyTopologyStore {
+      override val store: TopologyStore[TopologyStoreId] = topologyStore
+      override val skipLoadingFromStore: Boolean = false
+    }
+}
+
 abstract class TopologyMappingChecksWithStore(
-    store: TopologyStore[TopologyStoreId],
+    maybeStore: MaybeEmptyTopologyStore,
     val loggerFactory: NamedLoggerFactory,
 )(implicit
     executionContext: ExecutionContext
 ) extends TopologyMappingChecks
     with NamedLogging {
+
+  protected def store: TopologyStore[TopologyStoreId] = maybeStore.store
 
   @VisibleForTesting
   private[transaction] def loadFromStore(
@@ -109,15 +124,20 @@ abstract class TopologyMappingChecksWithStore(
   ]] =
     EitherT
       .right[TopologyTransactionRejection](
-        store
-          .findPositiveTransactions(
-            effective.value,
-            asOfInclusive = false,
-            isProposal = false,
-            types = codes.toSeq,
-            filterUid = filterUid,
-            filterNamespace = filterNamespace,
-          )
+        (if (maybeStore.skipLoadingFromStore)
+           FutureUnlessShutdown.pure(
+             StoredTopologyTransactions[TopologyChangeOp.Replace, TopologyMapping](Seq.empty)
+           )
+         else
+           store
+             .findPositiveTransactions(
+               effective.value,
+               asOfInclusive = false,
+               isProposal = false,
+               types = codes.toSeq,
+               filterUid = filterUid,
+               filterNamespace = filterNamespace,
+             ))
           .map { storedTxs =>
             val latestStored = storedTxs.collectLatestByUniqueKey.signedTransactions
 
@@ -153,12 +173,12 @@ abstract class TopologyMappingChecksWithStore(
   *   the signing key specs are correct on a synchronizer.
   */
 class RequiredTopologyMappingChecks(
-    store: TopologyStore[TopologyStoreId],
+    maybeStore: MaybeEmptyTopologyStore,
     parameters: Option[StaticSynchronizerParameters],
     loggerFactory: NamedLoggerFactory,
 )(implicit
     executionContext: ExecutionContext
-) extends TopologyMappingChecksWithStore(store, loggerFactory) {
+) extends TopologyMappingChecksWithStore(maybeStore, loggerFactory) {
 
   def checkTransaction(
       effective: EffectiveTime,
@@ -1050,4 +1070,17 @@ class RequiredTopologyMappingChecks(
     )
   }
 
+}
+
+object RequiredTopologyMappingChecks {
+  def apply(
+      store: TopologyStore[TopologyStoreId],
+      parameters: Option[StaticSynchronizerParameters],
+      loggerFactory: NamedLoggerFactory,
+  )(implicit executionContext: ExecutionContext): RequiredTopologyMappingChecks =
+    new RequiredTopologyMappingChecks(
+      MaybeEmptyTopologyStore(store),
+      parameters,
+      loggerFactory,
+    )
 }

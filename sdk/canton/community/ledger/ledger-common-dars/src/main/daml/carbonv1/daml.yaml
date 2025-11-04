@@ -1,4 +1,4 @@
-sdk-version: 3.4.0-snapshot.20251022.14344.0.v4acf13f9
+sdk-version: 3.4.1-snapshot.20251031.14356.0.v3d851107
 build-options: 
 - --enable-interfaces=yes
 name: carbonv1-tests

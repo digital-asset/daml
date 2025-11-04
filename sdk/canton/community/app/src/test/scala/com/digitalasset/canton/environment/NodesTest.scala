@@ -18,6 +18,7 @@ import com.digitalasset.canton.concurrent.{
   FutureSupervisor,
 }
 import com.digitalasset.canton.config.*
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.StartupMemoryCheckConfig.ReportingLevel
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.crypto.store.CryptoPrivateStoreFactory
@@ -114,6 +115,7 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
       startupMemoryCheckConfig: StartupMemoryCheckConfig = StartupMemoryCheckConfig(
         ReportingLevel.Warn
       ),
+      dispatchQueueBackpressureLimit: NonNegativeInt = NonNegativeInt.two,
   ) extends CantonNodeParameters
 
   private val metricsFactory: LabeledMetricsFactory = new InMemoryMetricsFactory

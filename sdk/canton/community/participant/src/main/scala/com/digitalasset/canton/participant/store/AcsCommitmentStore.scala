@@ -354,6 +354,12 @@ trait CommitmentQueue {
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[BufferedAcsCommitment]]
 
+  /** Returns whether there are commitments whose period ends at or after the given timestamp.
+    */
+  def nonEmptyAtOrAfter(timestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Boolean]
+
   /** Returns, if exists, a list containing all commitments originating from the given participant
     * that overlap the given period. Does not delete them from the queue.
     *

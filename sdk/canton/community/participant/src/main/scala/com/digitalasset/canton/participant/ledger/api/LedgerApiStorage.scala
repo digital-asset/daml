@@ -3,10 +3,14 @@
 
 package com.digitalasset.canton.participant.ledger.api
 
+import cats.implicits.toBifunctorOps
 import com.digitalasset.canton.LedgerParticipantId
 import com.digitalasset.canton.config.{DbConfig, StorageConfig}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.participant.ledger.api.LedgerApiServer.LedgerApiServerError
+import com.digitalasset.canton.participant.ledger.api.LedgerApiServer.{
+  FailedToConfigureLedgerApiStorage,
+  LedgerApiServerError,
+}
 import com.digitalasset.canton.util.ResourceUtil.withResource
 
 import java.sql.DriverManager
@@ -53,7 +57,8 @@ object LedgerApiStorage {
   def fromDbConfig(dbConfig: DbConfig): Either[LedgerApiServerError, LedgerApiStorage] =
     LedgerApiJdbcUrl
       .fromDbConfig(dbConfig)
-      // for h2 don't explicitly shutdown on close as it could still be being used by canton
+      .leftMap(FailedToConfigureLedgerApiStorage.apply)
+      // for h2 don't explicitly shut down on close as it could still be being used by canton
       .map(jdbcUrl =>
         new LedgerApiStorage(
           jdbcUrl.url,
