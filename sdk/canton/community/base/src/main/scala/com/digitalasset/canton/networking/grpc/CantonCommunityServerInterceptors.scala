@@ -45,16 +45,17 @@ class CantonCommunityServerInterceptors(
     jwksCacheConfig: JwksCacheConfig,
     telemetry: Telemetry,
     additionalInterceptors: Seq[ServerInterceptor] = Seq.empty,
-    streamLimits: Option[ActiveRequestLimitsConfig],
+    requestLimits: Option[ActiveRequestLimitsConfig],
 ) extends CantonServerInterceptors {
 
-  override val activeRequestCounter: Option[ActiveRequestCounterInterceptor] = streamLimits.map {
+  override val activeRequestCounter: Option[ActiveRequestCounterInterceptor] = requestLimits.map {
     limits =>
       val (_, requestMetrics) = grpcMetrics
       new ActiveRequestCounterInterceptor(
         api,
-        limits.pending,
+        limits.active,
         limits.warnOnUndefinedLimits,
+        limits.throttleLoggingRatePerSecond,
         requestMetrics,
         loggerFactory,
       )

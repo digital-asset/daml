@@ -5,16 +5,23 @@ package com.digitalasset.canton.platform
 
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, ProcessingTimeout}
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state.Update
+import com.digitalasset.canton.ledger.participant.state.Update.{
+  OnPRReassignmentAccepted,
+  RepairReassignmentAccepted,
+  RepairTransactionAccepted,
+  SequencedReassignmentAccepted,
+  SequencedTransactionAccepted,
+}
 import com.digitalasset.canton.ledger.participant.state.index.IndexService
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, HasCloseContext}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
-import com.digitalasset.canton.metrics.LedgerApiServerMetrics
-import com.digitalasset.canton.participant.store.memory.InMemoryContractStore
+import com.digitalasset.canton.metrics.{CommonMockMetrics, LedgerApiServerMetrics}
+import com.digitalasset.canton.participant.ledger.api.LedgerApiJdbcUrl
+import com.digitalasset.canton.participant.store.ContractStore
 import com.digitalasset.canton.platform.IndexComponentTest.TestServices
-import com.digitalasset.canton.platform.LedgerApiServerInternals
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.platform.config.{IndexServiceConfig, ServerRole}
 import com.digitalasset.canton.platform.index.IndexServiceOwner
@@ -26,9 +33,13 @@ import com.digitalasset.canton.platform.store.cache.MutableLedgerEndCache
 import com.digitalasset.canton.platform.store.dao.events.{ContractLoader, LfValueTranslation}
 import com.digitalasset.canton.platform.store.interning.StringInterningView
 import com.digitalasset.canton.platform.store.{DbSupport, FlywayMigrations, PruningOffsetService}
+import com.digitalasset.canton.protocol.ContractInstance
+import com.digitalasset.canton.resource.DbStorageSingle
+import com.digitalasset.canton.store.db.DbStorageSetup.DbBasicConfig
 import com.digitalasset.canton.store.packagemeta.PackageMetadata
-import com.digitalasset.canton.time.WallClock
-import com.digitalasset.canton.tracing.NoReportingTracerProvider
+import com.digitalasset.canton.time.{SimClock, WallClock}
+import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext}
+import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.util.PekkoUtil.{FutureQueue, IndexingFutureQueue}
 import com.digitalasset.canton.{BaseTest, HasExecutorService}
 import com.digitalasset.daml.lf.data.Ref
@@ -41,7 +52,12 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
-trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasExecutorService {
+trait IndexComponentTest
+    extends PekkoBeforeAndAfterAll
+    with BaseTest
+    with HasExecutorService
+    with HasCloseContext
+    with FlagCloseable {
   self: Suite =>
 
   private val clock = new WallClock(ProcessingTimeout(), loggerFactory)
@@ -51,8 +67,12 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
   protected implicit val loggingContextWithTrace: LoggingContextWithTrace =
     LoggingContextWithTrace.ForTesting
 
-  // if we would need multi-db, polimorphism can come here, look for JdbcLedgerDaoBackend
-  protected val jdbcUrl = s"jdbc:h2:mem:${getClass.getSimpleName.toLowerCase};db_close_delay=-1"
+  private val dbName: String = getClass.getSimpleName.toLowerCase
+
+  protected val dbConfig: com.digitalasset.canton.config.DbConfig =
+    DbBasicConfig(username = "", password = "", dbName = dbName, host = "", port = 0).toH2DbConfig
+
+  private def jdbcUrl: String = LedgerApiJdbcUrl.fromDbConfig(dbConfig).value.url
 
   protected val indexerConfig: IndexerConfig = IndexerConfig()
 
@@ -68,9 +88,14 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
 
   private def ledgerEndOffset = testServices.index.currentLedgerEnd().futureValue
 
-  protected def ingestUpdates(updates: Update*): Offset = {
+  protected def ingestUpdates(updates: (Update, Vector[ContractInstance])*): Offset = {
     val ledgerEndLongBefore = ledgerEndOffset.map(_.positive).getOrElse(0L)
-    updates.foreach(update => testServices.indexer.offer(update).futureValue)
+    // contracts should be stored in participant contract store before ingesting the updates to get the internal contract ids mapping
+    MonadUtil
+      .sequentialTraverse_(updates) { case (update, contracts) =>
+        storeContracts(update, contracts).flatMap(testServices.indexer.offer)
+      }
+      .futureValue
     val expectedOffset = Offset.tryFromLong(updates.size + ledgerEndLongBefore)
     eventually() {
       ledgerEndOffset shouldBe Some(expectedOffset)
@@ -81,10 +106,38 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
   protected def ingestUpdateAsync(update: Update): Future[Unit] =
     testServices.indexer.offer(update).map(_ => ())
 
-  protected def index: IndexService = testServices.index
-
-  protected def participantContractStore: InMemoryContractStore =
+  protected def storeContracts(
+      update: Update,
+      contracts: Vector[ContractInstance],
+  ): Future[Update] =
+    // this mimics protocol processing that stores contracts and retrieves their internal contract ids afterward
     testServices.participantContractStore
+      .storeContracts(contracts)
+      .failOnShutdown("storing contracts")
+      .flatMap(_ =>
+        testServices.participantContractStore
+          .lookupBatchedNonCachedInternalIds(
+            contracts.map(_.contractId)
+          )
+          .failOnShutdown("retrieving internal contract ids")
+      )
+      .map { internalContractIds =>
+        update match {
+          case txAccepted: SequencedTransactionAccepted =>
+            txAccepted.copy(internalContractIds = internalContractIds)
+          case txAccepted: RepairTransactionAccepted =>
+            txAccepted.copy(internalContractIds = internalContractIds)
+          case reassignment: SequencedReassignmentAccepted =>
+            reassignment.copy(internalContractIds = internalContractIds)
+          case reassignment: RepairReassignmentAccepted =>
+            reassignment.copy(internalContractIds = internalContractIds)
+          case reassignment: OnPRReassignmentAccepted =>
+            reassignment.copy(internalContractIds = internalContractIds)
+          case other => other
+        }
+      }
+
+  protected def index: IndexService = testServices.index
 
   protected def sequentialPostProcessor: Update => Unit = _ => ()
 
@@ -99,11 +152,40 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
     val mutableLedgerEndCache = MutableLedgerEndCache()
     val stringInterningView = new StringInterningView(loggerFactory)
     val participantId = Ref.ParticipantId.assertFromString("index-component-test-participant-id")
-    val participantContractStore = new InMemoryContractStore(timeouts, loggerFactory)
-    val pruningOffsetService = mock[PruningOffsetService]
+
+    val pruningOffsetService = new PruningOffsetService {
+      override def pruningOffset(implicit
+          traceContext: TraceContext
+      ): Future[Option[Offset]] = Future.successful(None)
+    }
 
     val indexResourceOwner =
       for {
+        dbStorage <- ResourceOwner
+          .forCloseable(() =>
+            DbStorageSingle
+              .tryCreate(
+                config = dbConfig,
+                connectionPoolForParticipant = false,
+                logQueryCost = None,
+                clock = new SimClock(CantonTimestamp.Epoch, loggerFactory),
+                scheduler = None,
+                metrics = CommonMockMetrics.dbStorage,
+                timeouts = timeouts,
+                loggerFactory = loggerFactory,
+              )
+          )
+        participantContractStore <-
+          ResourceOwner
+            .forCloseable(() =>
+              ContractStore.create(
+                storage = dbStorage,
+                processingTimeouts = timeouts,
+                cachingConfigs = CachingConfigs(),
+                batchingConfig = BatchingConfig(),
+                loggerFactory = loggerFactory,
+              )
+            )
         (inMemoryState, updaterFlow) <- LedgerApiServerInternals.createInMemoryStateAndUpdater(
           participantId = participantId,
           commandProgressTracker = CommandProgressTracker.NoOp,
@@ -196,10 +278,10 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
           participantContractStore = participantContractStore,
           pruningOffsetService = pruningOffsetService,
         )
-      } yield indexService -> indexer
+      } yield (indexService, indexer, participantContractStore)
 
     val indexResource = indexResourceOwner.acquire()
-    val (index, indexer) = indexResource.asFuture.futureValue
+    val (index, indexer, participantContractStore) = indexResource.asFuture.futureValue
 
     testServicesRef.set(
       TestServices(
@@ -230,6 +312,6 @@ object IndexComponentTest {
       indexResource: Resource[Any],
       index: IndexService,
       indexer: FutureQueue[Update],
-      participantContractStore: InMemoryContractStore,
+      participantContractStore: ContractStore,
   )
 }

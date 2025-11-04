@@ -4,6 +4,7 @@
 package com.digitalasset.canton.networking.grpc.ratelimiting
 
 import com.daml.metrics.api.MetricHandle.Gauge
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.base.error.RpcError
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -13,13 +14,13 @@ import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.networking.grpc.ratelimiting.ActiveRequestCounterInterceptor.Limited
 import com.digitalasset.canton.networking.grpc.ratelimiting.LimitResult.FullMethodName
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
+import com.digitalasset.canton.util.TryUtil
 import com.digitalasset.canton.util.TryUtil.ForFailedOps
 import io.grpc.*
 import io.grpc.ForwardingServerCallListener.SimpleForwardingServerCallListener
 import org.slf4j.LoggerFactory
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger, AtomicReference}
-import scala.util.Try
 
 /** Count and enforce limit for selected endpoints
   *
@@ -35,6 +36,7 @@ class ActiveRequestCounterInterceptor(
     api: String,
     initialLimits: Map[FullMethodName, NonNegativeInt],
     warnOnUnconfiguredLimits: Boolean,
+    maxLoggingRatePerSecond: NonNegativeInt,
     metrics: ActiveRequestsMetrics,
     val loggerFactory: NamedLoggerFactory,
 ) extends ServerInterceptor
@@ -58,7 +60,7 @@ class ActiveRequestCounterInterceptor(
               val (active, limitGauge) = metrics.getActiveAndLimitGauge(api, key)
               active.updateValue(0)
               limitGauge.updateValue(limit.value)
-              Limited(new AtomicInteger(0), active, limitGauge)
+              Limited(new AtomicInteger(0), active, limitGauge, metrics.mkContext(api, key))
             } { cur =>
               cur.limitGauge.updateValue(limit.value)
               cur
@@ -97,11 +99,12 @@ class ActiveRequestCounterInterceptor(
             throw ex
         }
       // reject if over limit
-      case Some((false, _)) =>
+      case Some((false, limit)) =>
         val ip = call.getAttributes.get(Grpc.TRANSPORT_ATTR_REMOTE_ADDR)
         val error = errorFactory(fullMethodName, ip.toString)(
           TraceContextGrpc.fromGrpcContextOrNew("ActiveRequestCounterInterceptor")
         )
+        metrics.rejections.inc()(limit.metricsContext)
         val statusRuntimeException = error.asGrpcError
         call.close(statusRuntimeException.getStatus, statusRuntimeException.getTrailers)
         new ServerCall.Listener[ReqT]() {}
@@ -109,11 +112,42 @@ class ActiveRequestCounterInterceptor(
 
   }
 
+  private val logFrequency = new AtomicReference[(Double, Long)]((0.0, 0))
+  private val logSuspended = new AtomicBoolean(false)
   private def errorFactory(methodName: FullMethodName, ip: String)(implicit
       traceContext: TraceContext
-  ): RpcError =
-    CantonGrpcUtil.GrpcErrors.Overloaded.TooManyConcurrentRequests(methodName, ip).toCantonRpcError
+  ): RpcError = {
+    val err = CantonGrpcUtil.GrpcErrors.Overloaded
+      .TooManyConcurrentRequests(methodName, ip)
+    val (count, _) = logFrequency.updateAndGet { case (count, lastLogged) =>
+      val newLastLogged = System.nanoTime()
+      val newCount =
+        Math.max(
+          0.0,
+          1 + count - (maxLoggingRatePerSecond.value / 1e9) * (newLastLogged - lastLogged),
+        )
+      (newCount, newLastLogged)
+    }
+    val suspendLogs = count > maxLoggingRatePerSecond.value
+    if (suspendLogs && !logSuspended.getAndSet(true)) {
+      err.log()
+      logger.warn(
+        s"Suspending detailed overload logging for excessive rejections until rate drops below $maxLoggingRatePerSecond"
+      )
+    } else if (count < maxLoggingRatePerSecond.value) {
+      logSuspended.set(false)
+      err.log()
+    }
+    err.toCantonRpcError
+  }
 
+  /** check if limit has been reached for the given method
+    *
+    * @return
+    *   returns None if the method is not monitored. otherwise returns a tuple where the first
+    *   element indicates if the request is accepted and the second element is the limit object for
+    *   further adjustments
+    */
   private def check(methodName: FullMethodName): Option[(Boolean, Limited)] =
     limits.get().get(methodName) match {
       case Some(limit) =>
@@ -127,12 +161,12 @@ class ActiveRequestCounterInterceptor(
         }
       case None =>
         if (
-          !notified.get().contains(methodName) && !RateLimitingInterceptor.doNonLimit.contains(
+          !notified.get().contains(methodName) && !RateLimitingInterceptor.doNotLimit.contains(
             methodName
           )
         ) {
           val msg = s"No upper active stream limit configured for $methodName"
-          val tc = TraceContextGrpc.fromGrpcContextOrNew("StreamCounterCheck.check")
+          val tc = TraceContextGrpc.fromGrpcContextOrNew("ActiveRequestCounterInterceptor")
           if (warnOnUnconfiguredLimits)
             logger.warn(msg)(tc)
           else
@@ -152,7 +186,9 @@ class ActiveRequestCounterInterceptor(
 
     private def runOnClose(): Unit =
       if (onTerminationCalled.compareAndSet(false, true)) {
-        Try(runOnceOnTermination()).forFailed(logger.warn(s"Exception calling onClose method", _))
+        TryUtil
+          .tryCatchAll(runOnceOnTermination())
+          .forFailed(logger.warn(s"Exception calling onClose method", _))
       }
 
     override def onCancel(): Unit = {
@@ -174,12 +210,13 @@ object ActiveRequestCounterInterceptor {
       active: AtomicInteger,
       activeGauge: Gauge[Int],
       limitGauge: Gauge[Int],
+      metricsContext: MetricsContext,
   ) {
     def enforcedLimit: Int = limitGauge.getValue
     def adjust(delta: Int): Int = {
-      val tmp = active.updateAndGet(_ + delta)
-      activeGauge.updateValue(tmp)
-      tmp
+      val newActive = active.updateAndGet(_ + delta)
+      activeGauge.updateValue(newActive)
+      newActive
     }
 
   }

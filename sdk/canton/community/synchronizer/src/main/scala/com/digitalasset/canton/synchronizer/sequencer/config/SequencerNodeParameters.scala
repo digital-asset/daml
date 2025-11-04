@@ -42,7 +42,7 @@ final case class SequencerNodeParameters(
     unsafeEnableOnlinePartyReplication: Boolean = false,
     sequencerApiLimits: Map[String, NonNegativeInt] = Map.empty,
     warnOnUndefinedLimits: Boolean = true,
-    streamLimits: Option[ActiveRequestLimitsConfig] = None,
+    requestLimits: Option[ActiveRequestLimitsConfig] = None,
 ) extends CantonNodeParameters
     with HasGeneralCantonNodeParameters
     with HasProtocolCantonNodeParameters

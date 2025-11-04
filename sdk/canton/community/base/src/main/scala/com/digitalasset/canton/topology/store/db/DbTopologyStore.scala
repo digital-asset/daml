@@ -615,7 +615,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
   )(implicit materializer: Materializer, traceContext: TraceContext): FutureUnlessShutdown[Hash] = {
 
     def computeGenesisStateHash(): FutureUnlessShutdown[TopologyStateHash] = {
-      logger.debug(s"Querying (hash only) essential state as topology genesis")
+      logger.debug(s"Querying hashes for topology genesis state")
 
       FutureUnlessShutdown.outcomeF(
         findAndMapEssentialStateAtSequencedTime[Hash, Hash](
@@ -652,7 +652,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
         if (asOfInclusive.value == SignedTopologyTransaction.InitialTopologySequencingTime) {
           FutureUnlessShutdown.pure(genesisHash)
         } else {
-          logger.debug(s"Querying (hash only) essential state delta as topology genesis")
+          logger.debug(s"Querying hashes for topology state after the genesis timestamp")
 
           FutureUnlessShutdown.outcomeF(
             findAndMapEssentialStateAtSequencedTime[Hash, Hash](

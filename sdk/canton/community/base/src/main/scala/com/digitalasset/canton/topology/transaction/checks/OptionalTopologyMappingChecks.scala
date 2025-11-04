@@ -42,7 +42,7 @@ class OptionalTopologyMappingChecks(
     loggerFactory: NamedLoggerFactory,
 )(implicit
     executionContext: ExecutionContext
-) extends TopologyMappingChecksWithStore(store, loggerFactory) {
+) extends TopologyMappingChecksWithStore(MaybeEmptyTopologyStore(store), loggerFactory) {
 
   private def loadHistoryFromStore(
       effectiveTime: EffectiveTime,

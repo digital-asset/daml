@@ -32,7 +32,7 @@ class SequencerApiRateLimitingIntegrationTest
         ConfigTransforms.updateAllSequencerConfigs_(
           _.focus(_.publicApi.limits).replace(
             Some(
-              ActiveRequestLimitsConfig(pending =
+              ActiveRequestLimitsConfig(active =
                 Map(
                   com.digitalasset.canton.sequencer.api.v30.SequencerServiceGrpc.METHOD_DOWNLOAD_TOPOLOGY_STATE_FOR_INIT.getFullMethodName -> NonNegativeInt.one,
                   com.digitalasset.canton.sequencer.api.v30.SequencerServiceGrpc.METHOD_SUBSCRIBE.getFullMethodName -> NonNegativeInt.maxValue,

@@ -417,6 +417,8 @@ object CantonGrpcUtil {
               s"Reached the limit of concurrent requests for $methodName. Please try again later"
           ) {
         override def retryable = Some(ErrorCategoryRetry(5.seconds))
+        // not logged automatically in order to throttle logging
+        override def logOnCreation: Boolean = false
       }
     }
 

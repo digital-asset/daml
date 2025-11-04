@@ -457,6 +457,7 @@ class MediatorNodeBootstrap(
           store = synchronizerTopologyStore,
           outboxQueue = outboxQueue,
           disableOptionalTopologyChecks = config.topology.disableOptionalTopologyChecks,
+          dispatchQueueBackpressureLimit = parameters.general.dispatchQueueBackpressureLimit,
           exitOnFatalFailures = parameters.exitOnFatalFailures,
           timeouts = timeouts,
           futureSupervisor = futureSupervisor,

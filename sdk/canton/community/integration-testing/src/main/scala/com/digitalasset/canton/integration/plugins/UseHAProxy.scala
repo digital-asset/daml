@@ -69,7 +69,7 @@ class UseHAProxy(
       else mkDocker(config)
 
     private def mkNative(cantonConfig: CantonConfig): HAProxy = new HAProxy {
-      override val hostname: String = "localhost"
+      override val hostname: String = "127.0.0.1"
       // take a port that won't conflict with any integration tests
       override val port: Port = UniquePortGenerator.next
 
@@ -90,7 +90,7 @@ class UseHAProxy(
     private def mkDocker(cantonConfig: CantonConfig): HAProxy = new HAProxy {
       val logger = TracedLogger(getClass, loggerFactory.append("service", "haproxy"))
 
-      private class HAProxyContainer extends GenericContainer[HAProxyContainer]("haproxy:2.4")
+      private class HAProxyContainer extends GenericContainer[HAProxyContainer]("haproxy:3.1.9")
       private val HAPROXY_CFG_PATH = "/usr/local/etc/haproxy/haproxy.cfg"
 
       private val hostAddressToTestContainer = "host.testcontainers.internal"

@@ -11,6 +11,7 @@ import com.daml.ports.Port
 import com.daml.scalautil.Statement.discard
 import com.daml.tracing.NoOpTelemetry
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.grpc.sampleservice.HelloServiceReferenceImplementation
 import com.digitalasset.canton.ledger.api.grpc.{GrpcClientResource, GrpcHealthService}
 import com.digitalasset.canton.ledger.api.health.HealthChecks.ComponentName
@@ -350,8 +351,8 @@ final class RateLimitingInterceptorChecksSpec
           fHelloStatus2 = singleHello(channel, logger, cancel = true)
           status2 <- fStatus2
           helloStatus2 <- fHelloStatus2
-          _ = waitService
-            .dropObserver() // we need to drop the observer as cancel prevents normal completion
+          // we need to drop the observer as cancel prevents normal completion
+          _ = waitService.dropObserver()
 
           // but also verify we can do successful calls again
           fStatus3 <- streamHello(channel)
@@ -573,6 +574,7 @@ object RateLimitingInterceptorChecksSpec extends MockitoSugar {
       testApiName,
       requestLimits.map { case (k, v) => (k, NonNegativeInt.tryCreate(v)) },
       warnOnUnconfiguredLimits = false,
+      maxLoggingRatePerSecond = NonNegativeInt.tryCreate(10),
       metrics = metrics.requests,
       loggerFactory = loggerFactory,
     )
@@ -606,7 +608,7 @@ object RateLimitingInterceptorChecksSpec extends MockitoSugar {
     }
 
     def dropObserver(): Unit =
-      observers.remove()
+      observers.poll(10, TimeUnit.SECONDS).discard
 
     def failStream(ex: Exception): Unit = {
       val responseObserver = observers.remove()

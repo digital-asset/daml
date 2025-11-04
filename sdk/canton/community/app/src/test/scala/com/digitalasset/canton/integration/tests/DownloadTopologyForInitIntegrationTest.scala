@@ -78,6 +78,7 @@ abstract class DownloadTopologyForInitIntegrationTest
       mediator1.underlying.value.replicaManager.mediatorRuntime.value.mediator.sequencerClient
 
     // Need to restart the sequencer due to potentially cached initial topology state hash
+    // that will not pick up the removed db record above
     sequencer1.stop()
     sequencer1.start()
     sequencer1.health.wait_for_running()

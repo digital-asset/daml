@@ -96,13 +96,14 @@ trait TransactionAuthorizationCache[+PureCrypto <: CryptoPureApi] {
       toProcess: GenericTopologyTransaction,
       inStore: Option[GenericTopologyTransaction],
       relaxChecksForBackwardsCompatibility: Boolean,
+      storeIsEmpty: Boolean = false,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val requiredKeys = permissibleAuthorizationKeysToPreload(
       toProcess,
       inStore,
       relaxChecksForBackwardsCompatibility = relaxChecksForBackwardsCompatibility,
     )
-    loadNamespaceCaches(asOfExclusive, requiredKeys.namespaces)
+    loadNamespaceCaches(asOfExclusive, requiredKeys.namespaces, storeIsEmpty)
   }
 
   protected def tryGetAuthorizationCheckForNamespace(
@@ -137,6 +138,7 @@ trait TransactionAuthorizationCache[+PureCrypto <: CryptoPureApi] {
   private def loadNamespaceCaches(
       asOfExclusive: CantonTimestamp,
       namespaces: Set[Namespace],
+      storeIsEmpty: Boolean,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
 
     def extract[T <: TopologyMapping: ClassTag](
@@ -159,18 +161,20 @@ trait TransactionAuthorizationCache[+PureCrypto <: CryptoPureApi] {
     for {
       // attempt to load both in one query
       storedDecentralizedAndOrdinaryNamespaces <-
-        NonEmpty
-          .from(decentralizedNamespacesToLoad ++ namespacesToLoad)
-          .map(dnsOrNs =>
-            store.findPositiveTransactions(
-              asOfExclusive,
-              asOfInclusive = false,
-              isProposal = false,
-              types = codes,
-              filterUid = None,
-              filterNamespace = Some(dnsOrNs.toSeq),
-            )
-          )
+        (if (storeIsEmpty) None
+         else
+           NonEmpty
+             .from(decentralizedNamespacesToLoad ++ namespacesToLoad)
+             .map(dnsOrNs =>
+               store.findPositiveTransactions(
+                 asOfExclusive,
+                 asOfInclusive = false,
+                 isProposal = false,
+                 types = codes,
+                 filterUid = None,
+                 filterNamespace = Some(dnsOrNs.toSeq),
+               )
+             ))
           .getOrElse(FutureUnlessShutdown.pure(StoredTopologyTransactions.empty))
       decentralizedNamespaceDefinitions = extract[DecentralizedNamespaceDefinition](
         storedDecentralizedAndOrdinaryNamespaces
@@ -191,18 +195,20 @@ trait TransactionAuthorizationCache[+PureCrypto <: CryptoPureApi] {
         )
 
       storedRemainingNamespaceDelegations <-
-        NonEmpty
-          .from(remainingNamespacesToLoad)
-          .map { ns =>
-            store.findPositiveTransactions(
-              asOfExclusive,
-              asOfInclusive = false,
-              isProposal = false,
-              types = Seq(NamespaceDelegation.code),
-              filterUid = None,
-              filterNamespace = Some(ns.toSeq),
-            )
-          }
+        (if (storeIsEmpty) None
+         else
+           NonEmpty
+             .from(remainingNamespacesToLoad)
+             .map { ns =>
+               store.findPositiveTransactions(
+                 asOfExclusive,
+                 asOfInclusive = false,
+                 isProposal = false,
+                 types = Seq(NamespaceDelegation.code),
+                 filterUid = None,
+                 filterNamespace = Some(ns.toSeq),
+               )
+             })
           .getOrElse(FutureUnlessShutdown.pure(StoredTopologyTransactions.empty))
       remainingNamespaceDelegations = extract[NamespaceDelegation](
         storedRemainingNamespaceDelegations
