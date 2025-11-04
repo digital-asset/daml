@@ -338,8 +338,8 @@ object ExampleTransactionFactory {
   val malformedLfTransaction: LfVersionedTransaction = transaction(Seq(0))
 
   // Helper methods for contract ids and transaction ids
-  def transactionId(index: Int): UpdateId = UpdateId(
-    TestHash.digest(s"transactionId$index")
+  def updateId(index: Int): UpdateId = UpdateId(
+    TestHash.digest(s"updateId$index")
   )
 
   def unicum(index: Int): Unicum = Unicum(TestHash.digest(s"unicum$index"))
@@ -382,14 +382,14 @@ object ExampleTransactionFactory {
   private def asAuthenticationData(
       salt: Salt,
       version: CantonContractIdVersion,
-      transactionId: Option[UpdateId] = None,
+      updateId: Option[UpdateId] = None,
   ): ContractAuthenticationData =
     version match {
       case v1: CantonContractIdV1Version => ContractAuthenticationDataV1(salt)(v1)
       case v2: CantonContractIdV2Version =>
         ContractAuthenticationDataV2(
           Bytes.fromByteString(salt.forHashing),
-          transactionId,
+          updateId,
           Seq.empty,
         )(v2)
     }
@@ -618,13 +618,13 @@ class ExampleTransactionFactory(
   )
   val unicumGenerator = new UnicumGenerator(cryptoOps)
 
-  def absolutizer(transactionId: UpdateId): ContractIdAbsolutizer = {
+  def absolutizer(updateId: UpdateId): ContractIdAbsolutizer = {
     val absolutizationData: ContractIdAbsolutizationData =
       cantonContractIdVersion match {
         case _: CantonContractIdV1Version =>
           ContractIdAbsolutizationDataV1
         case _: CantonContractIdV2Version =>
-          ContractIdAbsolutizationDataV2(transactionId, ledgerTime)
+          ContractIdAbsolutizationDataV2(updateId, ledgerTime)
       }
     new ContractIdAbsolutizer(cryptoOps, absolutizationData)
   }
@@ -710,10 +710,10 @@ class ExampleTransactionFactory(
   }
 
   def toAbsolute(
-      transactionId: UpdateId,
+      updateId: UpdateId,
       relativeFci: FatContractInstance,
   ): (ContractAuthenticationData, LfContractId) = {
-    val absoluteFci = absolutizer(transactionId)
+    val absoluteFci = absolutizer(updateId)
       .absolutizeFci(relativeFci)
       .valueOr(err =>
         throw new IllegalArgumentException(s"Cannot absolutize contract instance: $err")
@@ -1073,7 +1073,7 @@ class ExampleTransactionFactory(
 
   abstract class SingleNode(
       val nodeSeed: Option[LfHash],
-      transactionIdOverride: Option[Eval[UpdateId]],
+      updateIdOverride: Option[Eval[UpdateId]],
   ) extends ExampleTransaction {
     override def cryptoOps: HashOps & RandomOps = ExampleTransactionFactory.this.cryptoOps
 
@@ -1081,11 +1081,11 @@ class ExampleTransactionFactory(
 
     def relativizedContractId: LfContractId
 
-    override def transactionId: UpdateId =
-      transactionIdOverride.fold(super.transactionId)(_.value)
+    override def updateId: UpdateId =
+      updateIdOverride.fold(super.updateId)(_.value)
 
     lazy val absolutizedContractId: LfContractId =
-      absolutizer(transactionId)
+      absolutizer(updateId)
         .absolutizeContractId(relativizedContractId)
         .valueOr(err =>
           throw new IllegalArgumentException(
@@ -1277,14 +1277,14 @@ class ExampleTransactionFactory(
       signatories: Set[LfPartyId] = Set(submitter),
       observers: Set[LfPartyId] = Set(observer),
       key: Option[LfGlobalKeyWithMaintainers] = None,
-      transactionIdOverride: Option[Eval[UpdateId]] = None,
-  ) extends SingleNode(Some(seed), transactionIdOverride) {
+      updateIdOverride: Option[Eval[UpdateId]] = None,
+  ) extends SingleNode(Some(seed), updateIdOverride) {
 
     private def interpretedCapturedContractIds: Seq[LfContractId] = capturedContractIds.map(_._1)
     private def relativeCapturedContractIds: Seq[LfContractId] = capturedContractIds.map(_._2)
     private def absoluteCapturedContractIds: Seq[LfContractId] =
       relativeCapturedContractIds.map(cid =>
-        absolutizer(transactionId)
+        absolutizer(updateId)
           .absolutizeContractId(cid)
           .valueOr(err =>
             throw new IllegalArgumentException(s"Cannot absolutize contract id $cid: $err")
@@ -1316,7 +1316,7 @@ class ExampleTransactionFactory(
       createInfo.relativeAuthenticationData
 
     override lazy val absoluteAuthenticationData: ContractAuthenticationData = {
-      val (authData, absContractId) = toAbsolute(transactionId, createInfo.relativeFci)
+      val (authData, absContractId) = toAbsolute(updateId, createInfo.relativeFci)
       // Sanity check that absolutization works as expected
       require(
         absContractId == absolutizedContractId,
@@ -1362,8 +1362,8 @@ class ExampleTransactionFactory(
         Salt,
         (ContractAuthenticationData, Eval[ContractAuthenticationData]),
       ],
-      transactionIdOverride: Option[Eval[UpdateId]],
-  ) extends SingleNode(nodeSeed, transactionIdOverride) {
+      updateIdOverride: Option[Eval[UpdateId]],
+  ) extends SingleNode(nodeSeed, updateIdOverride) {
     override def relativeAuthenticationData: ContractAuthenticationData =
       cantonContractIdVersion match {
         case _: CantonContractIdV2Version if relativizedContractId.isAbsolute =>
@@ -1403,8 +1403,8 @@ class ExampleTransactionFactory(
         Salt,
         (ContractAuthenticationData, Eval[ContractAuthenticationData]),
       ] = Left(TestSalt.generateSalt(random.nextInt())),
-      transactionIdOverride: Option[Eval[UpdateId]] = None,
-  ) extends SingleUseNode(None, authenticationData, transactionIdOverride) {
+      updateIdOverride: Option[Eval[UpdateId]] = None,
+  ) extends SingleUseNode(None, authenticationData, updateIdOverride) {
 
     override def relativeContractInstance: LfThinContractInst = fetchedContractInstance
     override def absoluteContractInstance: LfThinContractInst = fetchedContractInstance
@@ -1449,8 +1449,8 @@ class ExampleTransactionFactory(
         Salt,
         (ContractAuthenticationData, Eval[ContractAuthenticationData]),
       ] = Left(TestSalt.generateSalt(random.nextInt())),
-      transactionIdOverride: Option[Eval[UpdateId]] = None,
-  ) extends SingleUseNode(Some(seed), authenticationData, transactionIdOverride) {
+      updateIdOverride: Option[Eval[UpdateId]] = None,
+  ) extends SingleUseNode(Some(seed), authenticationData, updateIdOverride) {
     override def toString: String = "single exercise"
 
     override def relativeContractInstance: LfThinContractInst = relativeInputContractInstance
@@ -1572,10 +1572,10 @@ class ExampleTransactionFactory(
   }
 
   def absolutizeAuthenticationData(
-      transactionId: UpdateId,
+      updateId: UpdateId,
       createInfo: CreateInfo,
   ): ContractAuthenticationData = {
-    val absoluteFci = absolutizer(transactionId).absolutizeFci(createInfo.relativeFci).value
+    val absoluteFci = absolutizer(updateId).absolutizeFci(createInfo.relativeFci).value
     ContractInstance.contractAuthenticationData(absoluteFci).value
   }
 
@@ -1600,7 +1600,7 @@ class ExampleTransactionFactory(
         seed = deriveNodeSeed(0),
         nodeId = LfNodeId(0),
         viewPosition = rootViewPosition(0, rootViewCount),
-        transactionIdOverride = Some(Eval.later(transactionId)),
+        updateIdOverride = Some(Eval.later(updateId)),
       )
     private val create1: SingleCreate = SingleCreate(
       seed = deriveNodeSeed(1),
@@ -1611,13 +1611,13 @@ class ExampleTransactionFactory(
         suffixedId(-1, 1, cantonContractIdVersion) -> suffixedId(-1, 1, cantonContractIdVersion),
         create0.interpretedContractId -> create0.relativizedContractId,
       ),
-      transactionIdOverride = Some(Eval.later(transactionId)),
+      updateIdOverride = Some(Eval.later(updateId)),
     )
     private val fetch2: SingleFetch = SingleFetch(
       LfNodeId(2),
       suffixedId(-1, 2),
       suffixedId(-1, 2),
-      transactionIdOverride = Some(Eval.later(transactionId)),
+      updateIdOverride = Some(Eval.later(updateId)),
     )
     private val fetch3: SingleFetch =
       SingleFetch(
@@ -1629,9 +1629,9 @@ class ExampleTransactionFactory(
         version = LfSerializationVersion.VDev,
         authenticationData = Right(
           create0.relativeAuthenticationData ->
-            Eval.later(absolutizeAuthenticationData(transactionId, create0.createInfo))
+            Eval.later(absolutizeAuthenticationData(updateId, create0.createInfo))
         ),
-        transactionIdOverride = Some(Eval.later(transactionId)),
+        updateIdOverride = Some(Eval.later(updateId)),
       )
     private val exercise4: SingleExercise =
       SingleExercise(deriveNodeSeed(4), LfNodeId(4), suffixedId(-1, 4), suffixedId(-1, 4))
@@ -1644,9 +1644,9 @@ class ExampleTransactionFactory(
       absoluteInputContractInstance = Eval.later(create1.absoluteContractInstance),
       authenticationData = Right(
         create1.relativeAuthenticationData ->
-          Eval.later(absolutizeAuthenticationData(transactionId, create1.createInfo))
+          Eval.later(absolutizeAuthenticationData(updateId, create1.createInfo))
       ),
-      transactionIdOverride = Some(Eval.later(transactionId)),
+      updateIdOverride = Some(Eval.later(updateId)),
     )
 
     private val examples: List[SingleNode] =
@@ -1717,7 +1717,7 @@ class ExampleTransactionFactory(
 
     override def versionedSuffixedTransaction: LfVersionedTransaction = {
       val relativeNodes = examples.map(_.relativeNode)
-      val abs = absolutizer(transactionId)
+      val abs = absolutizer(updateId)
       val absoluteNodes = relativeNodes.map(abs.absolutizeNode(_).value)
       transaction(0 until rootViewCount, absoluteNodes*)
     }
@@ -2140,11 +2140,11 @@ class ExampleTransactionFactory(
     override lazy val rootTransactionViewTrees: Seq[FullTransactionViewTree] =
       Seq(transactionViewTree0, transactionViewTree1)
 
-    val (create0auth, create0Absolute) = toAbsolute(transactionId, create0Info.relativeFci)
+    val (create0auth, create0Absolute) = toAbsolute(updateId, create0Info.relativeFci)
     val create0: LfNodeCreate = genCreate0(create0Absolute)
-    val (create10auth, create10Absolute) = toAbsolute(transactionId, create10Info.relativeFci)
+    val (create10auth, create10Absolute) = toAbsolute(updateId, create10Info.relativeFci)
     val create10: LfNodeCreate = genCreate10(create10Absolute)
-    val (create12auth, create12Absolute) = toAbsolute(transactionId, create12Info.relativeFci)
+    val (create12auth, create12Absolute) = toAbsolute(updateId, create12Info.relativeFci)
     val create12: LfNodeCreate = genCreate12(create12Absolute)
     val fetch11Abs: LfNodeFetch = genFetch11(create10Absolute)
 
@@ -2675,17 +2675,17 @@ class ExampleTransactionFactory(
     override lazy val rootTransactionViewTrees: Seq[FullTransactionViewTree] =
       Seq(transactionViewTree0, transactionViewTree1)
 
-    val (create0auth, create0Absolute) = toAbsolute(transactionId, create0Info.relativeFci)
+    val (create0auth, create0Absolute) = toAbsolute(updateId, create0Info.relativeFci)
     val create0: LfNodeCreate = genCreate0(create0Absolute)
-    val (create10auth, create10Absolute) = toAbsolute(transactionId, create10Info.relativeFci)
+    val (create10auth, create10Absolute) = toAbsolute(updateId, create10Info.relativeFci)
     val create10: LfNodeCreate = genCreate1x(create10Absolute, create10Inst)
-    val (create12auth, create12Absolute) = toAbsolute(transactionId, create12Info.relativeFci)
+    val (create12auth, create12Absolute) = toAbsolute(updateId, create12Info.relativeFci)
     val create12: LfNodeCreate = genCreate1x(create12Absolute, create12Inst)
     val fetch11Abs: LfNodeFetch = genFetch11(create10Absolute)
     val exercise13Abs: LfNodeExercises = genExercise13(create12Absolute)
-    val (create130auth, create130Absolute) = toAbsolute(transactionId, create130Info.relativeFci)
+    val (create130auth, create130Absolute) = toAbsolute(updateId, create130Info.relativeFci)
     val create130: LfNodeCreate = genCreate130(create130Absolute)
-    val (create1310auth, create1310Absolute) = toAbsolute(transactionId, create1310Info.relativeFci)
+    val (create1310auth, create1310Absolute) = toAbsolute(updateId, create1310Info.relativeFci)
     val create1310: LfNodeCreate = genCreate1310(create1310Absolute)
 
     override lazy val versionedSuffixedTransaction: LfVersionedTransaction =
@@ -3337,18 +3337,18 @@ class ExampleTransactionFactory(
     override lazy val rootTransactionViewTrees: Seq[FullTransactionViewTree] =
       Seq(transactionViewTree0, transactionViewTree1, transactionViewTree2)
 
-    val (create0auth, create0Absolute) = toAbsolute(transactionId, create0Info.relativeFci)
+    val (create0auth, create0Absolute) = toAbsolute(updateId, create0Info.relativeFci)
     val create0: LfNodeCreate = genCreateX(create0Absolute, create0Inst)
-    val (create100auth, create100Absolute) = toAbsolute(transactionId, create100Info.relativeFci)
+    val (create100auth, create100Absolute) = toAbsolute(updateId, create100Info.relativeFci)
     val create100: LfNodeCreate = genCreate3X(create100Absolute, create100Inst)
-    val (create11auth, create11Absolute) = toAbsolute(transactionId, create11Info.relativeFci)
+    val (create11auth, create11Absolute) = toAbsolute(updateId, create11Info.relativeFci)
     val create11: LfNodeCreate = genCreateXX(create11Absolute, genCreate11Inst(create100Absolute))
-    val (create120auth, create120Absolute) = toAbsolute(transactionId, create120Info.relativeFci)
+    val (create120auth, create120Absolute) = toAbsolute(updateId, create120Info.relativeFci)
     val create120: LfNodeCreate =
       genCreate3X(create120Absolute, genCreate120Inst(create100Absolute))
-    val (create13auth, create13Absolute) = toAbsolute(transactionId, create13Info.relativeFci)
+    val (create13auth, create13Absolute) = toAbsolute(updateId, create13Info.relativeFci)
     val create13: LfNodeCreate = genCreateXX(create13Absolute, genCreate13Inst(create120Absolute))
-    val (create2auth, create2Absolute) = toAbsolute(transactionId, create2Info.relativeFci)
+    val (create2auth, create2Absolute) = toAbsolute(updateId, create2Info.relativeFci)
     val create2: LfNodeCreate = genCreateX(create2Absolute, create2Inst)
 
     override lazy val versionedSuffixedTransaction: LfVersionedTransaction =
@@ -3719,13 +3719,13 @@ class ExampleTransactionFactory(
     override def rootTransactionViewTrees: Seq[FullTransactionViewTree] =
       Seq(transactionViewTree0, transactionViewTree1)
 
-    val (create0auth, create0Absolute) = toAbsolute(transactionId, create0Info.relativeFci)
+    val (create0auth, create0Absolute) = toAbsolute(updateId, create0Info.relativeFci)
     val create0: LfNodeCreate = genCreate(create0Absolute, create0Inst)
     val exercise1Abs: LfNodeExercises = genExercise(create0Absolute, List(2, 3, 5, 6))
-    val (create10auth, create10Absolute) = toAbsolute(transactionId, create10Info.relativeFci)
+    val (create10auth, create10Absolute) = toAbsolute(updateId, create10Info.relativeFci)
     val create10: LfNodeCreate = genCreate(create10Absolute, create10Inst)
     val exercise11Abs: LfNodeExercises = genExerciseN(create10Absolute, 4)
-    val (create110auth, create110Absolute) = toAbsolute(transactionId, create110Info.relativeFci)
+    val (create110auth, create110Absolute) = toAbsolute(updateId, create110Info.relativeFci)
     val create110: LfNodeCreate = genCreate110(create110Absolute)
     val exercise12Abs: LfNodeExercises = genExercise(create110Absolute, List.empty)
     val exercise13Abs: LfNodeExercises = genExercise(create10Absolute, List.empty)

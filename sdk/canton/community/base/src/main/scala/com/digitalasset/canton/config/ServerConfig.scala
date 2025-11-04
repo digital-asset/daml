@@ -4,7 +4,6 @@
 package com.digitalasset.canton.config
 
 import com.daml.jwt.JwtTimestampLeeway
-import com.daml.metrics.grpc.GrpcServerMetrics
 import com.daml.nonempty.NonEmpty
 import com.daml.tls.{OcspProperties, ProtocolDisabler, TlsInfo, TlsVersion}
 import com.daml.tracing.Telemetry
@@ -14,6 +13,7 @@ import com.digitalasset.canton.config.AdminServerConfig.defaultAddress
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port}
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.metrics.ActiveRequestsMetrics.GrpcServerMetricsX
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.networking.grpc.{
   CantonCommunityServerInterceptors,
@@ -30,27 +30,34 @@ import org.slf4j.LoggerFactory
 import scala.concurrent.duration.DurationInt
 import scala.math.Ordering.Implicits.infixOrderingOps
 
-/** Configuration to limit the number of open streams per service
+/** Configuration to limit the number of open requests per service
   *
-  * @param limits
-  *   map of service name to maximum number of parallel open streams
+  * @param active
+  *   map of service name to maximum number of parallel active requests or streams
   * @param warnOnUndefinedLimits
   *   emit warning if a limit is not configured for a stream
+  * @param throttleLoggingRatePerSecond
+  *   maximum rate for logging rejections for requests exceeding the limit (prevents DOS on logs)
   */
-final case class StreamLimitConfig(
-    limits: Map[String, NonNegativeInt] = Map.empty,
-    warnOnUndefinedLimits: Boolean = true,
+final case class ActiveRequestLimitsConfig(
+    active: Map[String, NonNegativeInt] = Map.empty,
+    warnOnUndefinedLimits: Boolean = false,
+    throttleLoggingRatePerSecond: NonNegativeInt = NonNegativeInt.tryCreate(10),
 ) extends UniformCantonConfigValidation
 
-object StreamLimitConfig {
-  implicit val streamLimitConfigCantonConfigValidator: CantonConfigValidator[StreamLimitConfig] = {
+object ActiveRequestLimitsConfig {
+  implicit val activeRequestLimitsConfigCantonConfigValidator
+      : CantonConfigValidator[ActiveRequestLimitsConfig] = {
     import CantonConfigValidatorInstances.*
-    CantonConfigValidatorDerivation[StreamLimitConfig]
+    CantonConfigValidatorDerivation[ActiveRequestLimitsConfig]
   }
 }
 
 /** Configuration for hosting a server api */
 trait ServerConfig extends Product with Serializable {
+
+  /** The name of the api */
+  def name: String
 
   /** The address of the interface to be listening on */
   val address: String
@@ -114,14 +121,15 @@ trait ServerConfig extends Product with Serializable {
   def jwksCacheConfig: JwksCacheConfig
 
   /** configure limits for open streams per service */
-  def stream: Option[StreamLimitConfig]
+  def limits: Option[ActiveRequestLimitsConfig]
 
   /** Use the configuration to instantiate the interceptors for this server */
   def instantiateServerInterceptors(
+      api: String,
       tracingConfig: TracingConfig,
       apiLoggingConfig: ApiLoggingConfig,
       loggerFactory: NamedLoggerFactory,
-      grpcMetrics: GrpcServerMetrics,
+      grpcMetrics: GrpcServerMetricsX,
       authServices: Seq[AuthServiceConfig],
       adminTokenDispenser: Option[CantonAdminTokenDispenser],
       jwtTimestampLeeway: Option[JwtTimestampLeeway],
@@ -129,8 +137,9 @@ trait ServerConfig extends Product with Serializable {
       jwksCacheConfig: JwksCacheConfig,
       telemetry: Telemetry,
       additionalInterceptors: Seq[ServerInterceptor] = Seq.empty,
-      streamLimits: Option[StreamLimitConfig],
+      requestLimits: Option[ActiveRequestLimitsConfig],
   ): CantonServerInterceptors = new CantonCommunityServerInterceptors(
+    api,
     tracingConfig,
     apiLoggingConfig,
     loggerFactory,
@@ -142,7 +151,7 @@ trait ServerConfig extends Product with Serializable {
     jwksCacheConfig,
     telemetry,
     additionalInterceptors,
-    streamLimits,
+    requestLimits,
   )
 
 }
@@ -168,9 +177,10 @@ final case class AdminServerConfig(
     override val adminTokenConfig: AdminTokenConfig = AdminTokenConfig(),
     override val maxTokenLifetime: NonNegativeDuration = NonNegativeDuration(5.minutes),
     override val jwksCacheConfig: JwksCacheConfig = JwksCacheConfig(),
-    override val stream: Option[StreamLimitConfig] = None,
+    override val limits: Option[ActiveRequestLimitsConfig] = None,
 ) extends ServerConfig
     with UniformCantonConfigValidation {
+  override val name: String = "admin"
   def clientConfig: FullClientConfig =
     FullClientConfig(
       address,

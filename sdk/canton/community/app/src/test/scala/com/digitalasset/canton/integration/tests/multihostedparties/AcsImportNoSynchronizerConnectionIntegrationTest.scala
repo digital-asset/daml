@@ -4,7 +4,6 @@
 package com.digitalasset.canton.integration.tests.multihostedparties
 
 import better.files.File
-import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
 import com.digitalasset.canton.examples.java.iou.Iou
 import com.digitalasset.canton.integration.plugins.UsePostgres
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
@@ -70,15 +69,13 @@ sealed trait AcsImportNoSynchronizerConnectionIntegrationTest
       IouSyntax.createIou(participant1)(alice, alice, amount = amount)
     }
 
-    val aliceAcsOffset = NonNegativeLong.tryCreate(
-      participant1.ledger_api.state.acs
-        .active_contracts_of_party(alice)
-        .lastOption
-        .value
-        .createdEvent
-        .value
-        .offset
-    )
+    val aliceAcsOffset = participant1.ledger_api.state.acs
+      .active_contracts_of_party(alice)
+      .lastOption
+      .value
+      .createdEvent
+      .value
+      .offset
 
     participant1.repair.export_acs(
       parties = Set(alice),

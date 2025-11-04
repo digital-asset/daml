@@ -524,7 +524,7 @@ final case class CantonConfig(
         asyncWriter = sequencerNodeConfig.parameters.asyncWriter.toParameters,
         unsafeEnableOnlinePartyReplication =
           sequencerNodeConfig.parameters.unsafeEnableOnlinePartyReplication,
-        streamLimits = sequencerNodeConfig.publicApi.stream,
+        requestLimits = sequencerNodeConfig.publicApi.limits,
       )
     }
 
@@ -671,6 +671,7 @@ private[canton] object CantonNodeParameterConverter {
       exitOnFatalFailures = parent.parameters.exitOnFatalFailures,
       watchdog = node.parameters.watchdog,
       startupMemoryCheckConfig = parent.parameters.startupMemoryCheckConfig,
+      dispatchQueueBackpressureLimit = node.topology.dispatchQueueBackpressureLimit,
     )
 
   def protocol(parent: CantonConfig, config: ProtocolConfig): CantonNodeParameters.Protocol =
@@ -1354,8 +1355,9 @@ object CantonConfig {
     lazy implicit final val startupMemoryCheckConfigReader: ConfigReader[StartupMemoryCheckConfig] =
       deriveReader[StartupMemoryCheckConfig]
 
-    lazy implicit final val streamLimitConfigReader: ConfigReader[StreamLimitConfig] =
-      deriveReader[StreamLimitConfig]
+    lazy implicit final val activeRequestLimitsConfigReader
+        : ConfigReader[ActiveRequestLimitsConfig] =
+      deriveReader[ActiveRequestLimitsConfig]
 
     implicit val participantReplicationConfigReader: ConfigReader[ReplicationConfig] =
       deriveReader[ReplicationConfig]
@@ -2022,8 +2024,9 @@ object CantonConfig {
     lazy implicit final val startupMemoryCheckConfigWriter: ConfigWriter[StartupMemoryCheckConfig] =
       deriveWriter[StartupMemoryCheckConfig]
 
-    lazy implicit final val streamLimitConfigWriter: ConfigWriter[StreamLimitConfig] =
-      deriveWriter[StreamLimitConfig]
+    lazy implicit final val activeRequestLimitsConfigWriter
+        : ConfigWriter[ActiveRequestLimitsConfig] =
+      deriveWriter[ActiveRequestLimitsConfig]
 
     implicit val participantReplicationConfigWriter: ConfigWriter[ReplicationConfig] =
       deriveWriter[ReplicationConfig]

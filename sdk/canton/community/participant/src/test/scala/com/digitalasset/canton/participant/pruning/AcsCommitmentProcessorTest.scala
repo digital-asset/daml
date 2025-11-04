@@ -51,10 +51,8 @@ import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.Errors
   AcsCommitmentDegradationWithIneffectiveConfig,
 }
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.{
-  CachedCommitments,
   CommitmentSnapshot,
   CommitmentsPruningBound,
-  RunningCommitments,
   commitmentsFromStkhdCmts,
   computeCommitmentsPerParticipant,
   emptyCommitment,
@@ -1812,8 +1810,7 @@ class AcsCommitmentProcessorTest
     }
 
     "running commitments work as expected" in {
-      val rc =
-        new pruning.AcsCommitmentProcessor.RunningCommitments(RecordTime.MinValue, TrieMap.empty)
+      val rc = new RunningCommitments(RecordTime.MinValue, TrieMap.empty)
 
       rc.watermark shouldBe RecordTime.MinValue
       rc.snapshot() shouldBe CommitmentSnapshot(
@@ -1887,8 +1884,7 @@ class AcsCommitmentProcessorTest
     }
 
     "running commitments work as expected with garbage collection" in {
-      val rc =
-        new pruning.AcsCommitmentProcessor.RunningCommitments(RecordTime.MinValue, TrieMap.empty)
+      val rc = new RunningCommitments(RecordTime.MinValue, TrieMap.empty)
 
       rc.watermark shouldBe RecordTime.MinValue
       rc.snapshot(gc = false) shouldBe CommitmentSnapshot(
@@ -1998,10 +1994,8 @@ class AcsCommitmentProcessorTest
     }
 
     "contracts differing by reassignment counter result in different commitments if the PV support reassignment counters" in {
-      val rc1 =
-        new pruning.AcsCommitmentProcessor.RunningCommitments(RecordTime.MinValue, TrieMap.empty)
-      val rc2 =
-        new pruning.AcsCommitmentProcessor.RunningCommitments(RecordTime.MinValue, TrieMap.empty)
+      val rc1 = new RunningCommitments(RecordTime.MinValue, TrieMap.empty)
+      val rc2 = new RunningCommitments(RecordTime.MinValue, TrieMap.empty)
       val reassignmentCounter2 = initialReassignmentCounter + 1
 
       val (activeCommitment1, deltaAddedCommitment1) =
@@ -2080,8 +2074,7 @@ class AcsCommitmentProcessorTest
       // 1. compute stakeholder commitments by repeatedly applying acs changes (obtained from a commit set)
       // to an empty snapshot using AcsCommitmentProcessor.update
       // and then compute counter-participant commitments by adding together stakeholder commitments
-      val rc =
-        new pruning.AcsCommitmentProcessor.RunningCommitments(RecordTime.MinValue, TrieMap.empty)
+      val rc = new RunningCommitments(RecordTime.MinValue, TrieMap.empty)
 
       rc.update(rt(2, 0), acsChanges(ts(2)))
       rc.watermark shouldBe rt(2, 0)

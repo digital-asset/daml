@@ -296,7 +296,7 @@ class TransactionConfirmationRequestFactoryTest
               Await
                 .result(
                   cryptoSnapshot
-                    .sign(tree.transactionId.unwrap, SigningKeyUsage.ProtocolOnly)
+                    .sign(tree.updateId.unwrap, SigningKeyUsage.ProtocolOnly)
                     .value,
                   10.seconds,
                 )
@@ -357,7 +357,7 @@ class TransactionConfirmationRequestFactoryTest
     val signature =
       cryptoSnapshot
         .sign(
-          example.fullInformeeTree.transactionId.unwrap,
+          example.fullInformeeTree.updateId.unwrap,
           SigningKeyUsage.ProtocolOnly,
         )
         .failOnShutdown

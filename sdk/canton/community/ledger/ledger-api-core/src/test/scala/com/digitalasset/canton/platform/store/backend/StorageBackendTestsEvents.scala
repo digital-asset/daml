@@ -2349,7 +2349,6 @@ private[backend] trait StorageBackendTestsEvents
         eventSequentialIds = 0L to 100L,
         allFilterParties =
           Some(Set("witness1", "stakeholder1", "submitter1", "actor1").map(Party.assertFromString)),
-        endInclusive = 100L,
       )
     ).toList
 
@@ -2815,7 +2814,6 @@ private[backend] trait StorageBackendTestsEvents
       backend.event.activeContractBatch(
         eventSequentialIds = 0L to 100L,
         allFilterParties = None,
-        endInclusive = 100L,
       )
     ).toList should contain theSameElementsInOrderAs List(
       RawThinActiveContract(

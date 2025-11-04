@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.environment
 
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.{
   BatchingConfig,
   CachingConfigs,
@@ -33,6 +34,7 @@ object CantonNodeParameters {
     def exitOnFatalFailures: Boolean
     def watchdog: Option[WatchdogConfig]
     def startupMemoryCheckConfig: StartupMemoryCheckConfig
+    def dispatchQueueBackpressureLimit: NonNegativeInt
   }
   object General {
     final case class Impl(
@@ -50,6 +52,7 @@ object CantonNodeParameters {
         override val exitOnFatalFailures: Boolean,
         override val watchdog: Option[WatchdogConfig],
         override val startupMemoryCheckConfig: StartupMemoryCheckConfig,
+        override val dispatchQueueBackpressureLimit: NonNegativeInt,
     ) extends CantonNodeParameters.General
   }
   trait Protocol {
@@ -86,6 +89,8 @@ trait HasGeneralCantonNodeParameters extends CantonNodeParameters.General {
   override def exitOnFatalFailures: Boolean = general.exitOnFatalFailures
   override def watchdog: Option[WatchdogConfig] = general.watchdog
   override def startupMemoryCheckConfig: StartupMemoryCheckConfig = general.startupMemoryCheckConfig
+  override def dispatchQueueBackpressureLimit: NonNegativeInt =
+    general.dispatchQueueBackpressureLimit
 }
 
 trait HasProtocolCantonNodeParameters extends CantonNodeParameters.Protocol {

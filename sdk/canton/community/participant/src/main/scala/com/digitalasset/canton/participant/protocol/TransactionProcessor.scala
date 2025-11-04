@@ -478,12 +478,12 @@ object TransactionProcessor {
   }
 
   final case class ViewParticipantDataError(
-      transactionId: UpdateId,
+      updateId: UpdateId,
       viewHash: ViewHash,
       error: String,
   ) extends TransactionProcessorError {
     override protected def pretty: Pretty[ViewParticipantDataError] = prettyOfClass(
-      param("transaction id", _.transactionId),
+      param("update id", _.updateId),
       param("view hash", _.viewHash),
       param("error", _.error.unquoted),
     )

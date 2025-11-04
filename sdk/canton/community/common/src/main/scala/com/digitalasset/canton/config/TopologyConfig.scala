@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.config
 
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.config.TopologyConfig.*
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 
@@ -25,6 +25,9 @@ import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
   * @param disableOptionalTopologyChecks
   *   if true (default is false), don't run the optional checks which prevent accidental damage to
   *   this node
+  * @param dispatchQueueBackpressureLimit
+  *   new topology requests will be backpressured if the number of existing requests exceeds this
+  *   number
   */
 final case class TopologyConfig(
     topologyTransactionRegistrationTimeout: NonNegativeFiniteDuration =
@@ -35,6 +38,7 @@ final case class TopologyConfig(
     broadcastRetryDelay: NonNegativeFiniteDuration = defaultBroadcastRetryDelay,
     validateInitialTopologySnapshot: Boolean = true,
     disableOptionalTopologyChecks: Boolean = false,
+    dispatchQueueBackpressureLimit: NonNegativeInt = defaultMaxUnsentTopologyQueueSize,
 ) extends UniformCantonConfigValidation
 
 object TopologyConfig {
@@ -42,6 +46,9 @@ object TopologyConfig {
     import CantonConfigValidatorInstances.*
     CantonConfigValidatorDerivation[TopologyConfig]
   }
+
+  private[TopologyConfig] val defaultMaxUnsentTopologyQueueSize: NonNegativeInt =
+    NonNegativeInt.tryCreate(100)
 
   private[TopologyConfig] val defaultTopologyTransactionRegistrationTimeout =
     NonNegativeFiniteDuration.ofSeconds(20)

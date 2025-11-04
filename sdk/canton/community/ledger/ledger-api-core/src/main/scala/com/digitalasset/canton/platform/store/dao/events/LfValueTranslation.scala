@@ -81,14 +81,17 @@ final class LfValueTranslation(
 ) extends LfValueSerialization
     with NamedLogging {
 
+  private[this] val packageLoader = new DeduplicatingPackageLoader()
+
   private val enricherO: Option[LfEnricher] = engineO.map(engine =>
     LfEnricher(
       engine = engine,
       forbidLocalContractIds = engine.config.forbidLocalContractIds,
+      metrics,
+      packageLoader,
+      loadPackage,
     )
   )
-
-  private[this] val packageLoader = new DeduplicatingPackageLoader()
 
   private def cantSerialize(attribute: String, forContract: ContractId): String =
     s"Cannot serialize $attribute for ${forContract.coid}"
@@ -153,51 +156,17 @@ final class LfValueTranslation(
       serializeNullableKeyOrThrow(exercise),
     )
 
-  private[this] def consumeEnricherResult[V](
-      result: LfEngine.Result[V]
-  )(implicit
-      ec: ExecutionContext,
-      loggingContext: LoggingContextWithTrace,
-  ): Future[V] =
-    result match {
-      case LfEngine.ResultDone(r) => Future.successful(r)
-      case LfEngine.ResultError(e) => Future.failed(new RuntimeException(e.message))
-      case LfEngine.ResultNeedPackage(packageId, resume) =>
-        packageLoader
-          .loadPackage(
-            packageId = packageId,
-            delegate = packageId => loadPackage(packageId, loggingContext),
-            metric = metrics.index.db.translation.getLfPackage,
-          )
-          .flatMap(pkgO => consumeEnricherResult(resume(pkgO)))
-      case result =>
-        Future.failed(new RuntimeException(s"Unexpected ValueEnricher result: $result"))
-    }
-
-  def enrichVersionedTransaction(versionedTransaction: VersionedTransaction)(implicit
-      ec: ExecutionContext,
-      loggingContext: LoggingContextWithTrace,
-  ): Future[VersionedTransaction] =
-    consumeEnricherResult(enricher.enrichVersionedTransaction(versionedTransaction))
-
-  def enrichContract(contract: FatContractInstance)(implicit
-      ec: ExecutionContext,
-      loggingContext: LoggingContextWithTrace,
-  ): Future[FatContractInstance] =
-    consumeEnricherResult(enricher.enrichContractInstance(contract))
-
   def toApiValue(
       value: LfValue,
       verbose: Boolean,
       attribute: => String,
-      enrich: LfValue => LfEngine.Result[com.digitalasset.daml.lf.value.Value],
+      enrich: LfValue => Future[com.digitalasset.daml.lf.value.Value],
   )(implicit
-      ec: ExecutionContext,
-      loggingContext: LoggingContextWithTrace,
+      ec: ExecutionContext
   ): Future[ApiValue] = for {
     enrichedValue <-
       if (verbose)
-        consumeEnricherResult(enrich(value))
+        enrich(value)
       else
         Future.successful(value.unversioned)
   } yield {
@@ -487,13 +456,11 @@ final class LfValueTranslation(
   ): Future[Option[T]] =
     if (cond) f.map(Some(_)) else Future.successful(None)
 
-  private def enrichAsync(verbose: Boolean, value: Value, enrich: Value => LfEngine.Result[Value])(
-      implicit
-      ec: ExecutionContext,
-      loggingContext: LoggingContextWithTrace,
+  private def enrichAsync(verbose: Boolean, value: Value, enrich: Value => Future[Value])(implicit
+      ec: ExecutionContext
   ): Future[Value] =
     condFuture(verbose)(
-      Future(enrich(value)).flatMap(consumeEnricherResult)
+      Future.delegate(enrich(value))
     ).map(_.getOrElse(value))
 
   private def toApi[T](

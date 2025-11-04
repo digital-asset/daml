@@ -182,24 +182,6 @@ private[sync] class SynchronizerConnectionsManager(
     )
   }
 
-  private val logicalSynchronizerUpgrade = new LogicalSynchronizerUpgrade(
-    synchronizerConnectionConfigStore,
-    ledgerApiIndexer,
-    syncPersistentStateManager,
-    connectQueue,
-    connectedSynchronizers,
-    connectSynchronizer = (alias: Traced[SynchronizerAlias]) =>
-      connectSynchronizer(
-        alias.value,
-        keepRetrying = true,
-        connectSynchronizer = ConnectSynchronizer.Connect,
-      )(alias.traceContext),
-    disconnectSynchronizer = (alias: Traced[SynchronizerAlias]) =>
-      disconnectSynchronizer(alias.value)(alias.traceContext),
-    timeouts,
-    loggerFactory,
-  )
-
   // Track synchronizers we would like to "keep on reconnecting until available"
   private val attemptReconnect: TrieMap[SynchronizerAlias, AttemptReconnect] = TrieMap.empty
 
@@ -945,7 +927,6 @@ private[sync] class SynchronizerConnectionsManager(
                 ledgerApiIndexer.asEval,
                 participantNodePersistentState.map(_.contractStore),
                 participantNodeEphemeralState,
-                synchronizerConnectionConfig.predecessor,
                 () => {
                   val tracker = SynchronizerTimeTracker(
                     synchronizerConnectionConfig.config.timeTracker,
@@ -1215,7 +1196,7 @@ private[sync] class SynchronizerConnectionsManager(
       .distinct
       .parTraverse_(disconnectSynchronizer)
 
-  /** Start the upgrade of the participant to the successor.
+  /** Start the upgrade of the participant to the successor (automatic workflow).
     *
     * Prerequisite:
     *   - Time on the current synchronizer has reached the upgrade time.
@@ -1254,11 +1235,23 @@ private[sync] class SynchronizerConnectionsManager(
         s"Upgrade time ${synchronizerSuccessor.upgradeTime} not reached: last event in the sequenced event store has timestamp ${event.timestamp}",
       )
 
-      _ <- logicalSynchronizerUpgrade.upgrade(
-        alias,
-        currentPSId,
-        synchronizerSuccessor,
-      )
+      _ <- new AutomaticLogicalSynchronizerUpgrade(
+        synchronizerConnectionConfigStore,
+        ledgerApiIndexer,
+        syncPersistentStateManager,
+        connectQueue,
+        connectedSynchronizers,
+        connectSynchronizer = (alias: Traced[SynchronizerAlias]) =>
+          connectSynchronizer(
+            alias.value,
+            keepRetrying = true,
+            connectSynchronizer = ConnectSynchronizer.Connect,
+          )(alias.traceContext),
+        disconnectSynchronizer = (alias: Traced[SynchronizerAlias]) =>
+          disconnectSynchronizer(alias.value)(alias.traceContext),
+        timeouts,
+        loggerFactory,
+      ).upgrade(alias, currentPSId, synchronizerSuccessor)
 
     } yield ()
   }

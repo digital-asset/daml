@@ -4,7 +4,7 @@
 package com.digitalasset.canton.integration.tests.multihostedparties
 
 import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{
   CommandFailure,
   LocalParticipantReference,
@@ -404,7 +404,7 @@ final class OfflinePartyReplicationWithSilentSynchronizerIntegrationTest
       val ledgerOffset =
         source.parties.find_highest_offset_by_timestamp(daId, silentSynchronizerValidFrom)
 
-      ledgerOffset should be > NonNegativeLong.zero
+      ledgerOffset should be > 0L
 
       source.repair.export_acs(
         Set(alice),
@@ -441,8 +441,7 @@ final class OfflinePartyReplicationWithSilentSynchronizerIntegrationTest
 
       val foundOffset = loggerFactory.assertLogsUnorderedOptional(
         eventually(retryOnTestFailuresOnly = false) {
-          val offset =
-            source.parties.find_highest_offset_by_timestamp(daId, requestedTimestamp).value
+          val offset = source.parties.find_highest_offset_by_timestamp(daId, requestedTimestamp)
           offset should be > 0L
           offset
         },
@@ -452,10 +451,8 @@ final class OfflinePartyReplicationWithSilentSynchronizerIntegrationTest
         ),
       )
 
-      val forcedFoundOffset =
-        source.parties
-          .find_highest_offset_by_timestamp(daId, requestedTimestamp, force = true)
-          .value
+      val forcedFoundOffset = source.parties
+        .find_highest_offset_by_timestamp(daId, requestedTimestamp, force = true)
 
       // The following cannot check for equality because find_highest_offset_by_timestamp skips over unpersisted
       // SequencerIndexMoved updates.

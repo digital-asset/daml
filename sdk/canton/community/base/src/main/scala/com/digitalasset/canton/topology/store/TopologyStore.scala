@@ -11,6 +11,7 @@ import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.CantonRequireTypes.{String185, String300}
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
+import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
@@ -54,6 +55,7 @@ import com.digitalasset.canton.version.{
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.google.common.annotations.VisibleForTesting
 import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Source
 
 import scala.collection.mutable
@@ -439,6 +441,13 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       asOfInclusive: SequencedTime,
       includeRejected: Boolean,
   )(implicit traceContext: TraceContext): Source[GenericStoredTopologyTransaction, NotUsed]
+
+  /** Yields a hash corresponding to the contents of the respective
+    * [[findEssentialStateAtSequencedTime]], with `includeRejected = true`
+    */
+  def findEssentialStateHashAtSequencedTime(
+      asOfInclusive: SequencedTime
+  )(implicit materializer: Materializer, traceContext: TraceContext): FutureUnlessShutdown[Hash]
 
   /** Checks whether the given signed topology transaction has signatures (at this point still
     * unvalidated) from signing keys, for which there aren't yet signatures in the store.

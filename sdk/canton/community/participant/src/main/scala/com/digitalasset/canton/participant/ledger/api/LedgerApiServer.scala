@@ -45,6 +45,7 @@ import com.digitalasset.canton.lifecycle.LifeCycle.FastCloseableChannel
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.networking.grpc.ratelimiting.ActiveRequestCounterInterceptor
 import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, GrpcRequestLoggingInterceptor}
 import com.digitalasset.canton.participant.config.{
   LedgerApiServerConfig,
@@ -484,11 +485,10 @@ class LedgerApiServer(
       .builder(tracerProvider.openTelemetry)
       .build()
       .newServerInterceptor(),
-  ) ::: serverConfig.rateLimit
+  ) ::: (serverConfig.rateLimit
     .map(rateLimit =>
       RateLimitingInterceptorFactory.create(
         loggerFactory = loggerFactory,
-        metrics = grpcApiMetrics,
         config = rateLimit,
         additionalChecks = List(
           ThreadpoolCheck(
@@ -506,7 +506,18 @@ class LedgerApiServer(
         ),
       )
     )
-    .toList
+    .toList) ::: (serverConfig.limits
+    .map(cfg =>
+      new ActiveRequestCounterInterceptor(
+        "ledger-api",
+        cfg.active,
+        cfg.warnOnUndefinedLimits,
+        cfg.throttleLoggingRatePerSecond,
+        grpcApiMetrics.requests,
+        loggerFactory,
+      )
+    )
+    .toList)
 
   private def getLedgerFeatures: LedgerFeatures = LedgerFeatures(
     staticTime = testingTimeService.isDefined,

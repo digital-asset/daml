@@ -43,8 +43,8 @@ class ExampleTransactionFactoryTest extends AnyWordSpec with BaseTest with HasEx
           "create the transaction tree" in {
             noException should be thrownBy example.transactionTree
           }
-          "create the transaction id" in {
-            example.transactionId should equal(example.transactionTree.transactionId)
+          "create the update id" in {
+            example.updateId should equal(example.transactionTree.updateId)
           }
           "create the full informee tree" in {
             noException should be thrownBy example.fullInformeeTree
@@ -86,10 +86,10 @@ class ExampleTransactionFactoryTest extends AnyWordSpec with BaseTest with HasEx
             example.transactionViewTrees.length shouldBe views
           }
           "with consistent transaction root hashes" in {
-            example.transactionTree.transactionId shouldEqual example.transactionId
-            example.fullInformeeTree.transactionId shouldEqual example.transactionId
+            example.transactionTree.updateId shouldEqual example.updateId
+            example.fullInformeeTree.updateId shouldEqual example.updateId
             forEvery(example.transactionViewTrees) {
-              _.transactionId shouldEqual example.transactionId
+              _.updateId shouldEqual example.updateId
             }
           }
           "reinterpretations are well-formed" must {

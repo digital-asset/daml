@@ -447,7 +447,7 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
               owners = NonEmpty(Set, ns1, ns2),
             )
             .value,
-          serial = PositiveInt.one,
+          serial = PositiveInt.two,
           signingKeys = NonEmpty(Set, key1, key2),
         )
 
@@ -1089,6 +1089,7 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
               mkAddMultiKey(
                 unhostingMappingAndThresholdChange,
                 NonEmpty(Set, SigningKeys.key1, SigningKeys.key2),
+                serial = PositiveInt.two,
               )
             ),
             inStore = Map(ptpMappingHash -> participants_1_2_6_HostParty1),
@@ -1102,6 +1103,7 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
               mkAddMultiKey(
                 multipleUnhostingMappingAndThresholdChange,
                 NonEmpty(Set, SigningKeys.key1, SigningKeys.key2, SigningKeys.key6),
+                serial = PositiveInt.two,
               )
             ),
             inStore = Map(ptpMappingHash -> participants_1_2_6_HostParty1),

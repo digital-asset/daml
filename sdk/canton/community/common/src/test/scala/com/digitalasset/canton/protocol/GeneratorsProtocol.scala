@@ -231,7 +231,7 @@ final class GeneratorsProtocol(
             for {
               index <- Gen.posNum[Int]
               time <- Arbitrary.arbitrary[CantonTimestamp]
-              transactionId <- Arbitrary.arbitrary[UpdateId]
+              updateId <- Arbitrary.arbitrary[UpdateId]
             } yield {
               val discriminator = ExampleTransactionFactory.lfHash(index)
               val salt = ContractSalt.createV2(symbolicCrypto)(
@@ -240,7 +240,7 @@ final class GeneratorsProtocol(
                 ViewPosition(List.empty),
               )
               val absolutizationData = ContractIdAbsolutizationDataV2(
-                transactionId,
+                updateId,
                 CantonTimestamp(ledgerCreateTime.time),
               )
               (LfContractId.V2.unsuffixed(time.toLf, discriminator), salt, absolutizationData)

@@ -46,12 +46,12 @@ import com.digitalasset.canton.synchronizer.sequencing.service.GrpcSequencerServ
   WrappedAcknowledgeRequest,
 }
 import com.digitalasset.canton.time.Clock
+import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.store.{
   StoredTopologyTransaction,
   StoredTopologyTransactions,
   TopologyStateForInitializationService,
 }
-import com.digitalasset.canton.topology.{TopologyStateHash, *}
 import com.digitalasset.canton.tracing.{
   SerializableTraceContext,
   TraceContext,
@@ -772,22 +772,20 @@ class GrpcSequencerService(
   ): Future[DownloadTopologyStateForInitHashResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
-    val hashBuilder = new TopologyStateHash
     EitherTUtil.toFuture(
       EitherT(
         TopologyStateForInitRequest
           .fromProtoV30(requestP)
           .leftMap(x => ProtoDeserializationFailure.Wrap(x).asGrpcError)
           .traverse { request =>
-            val (_, future) = getDownloadTopologyStateForInit(
-              request,
-              _.foreach(tx => hashBuilder.add(tx)),
-            )
-            future.map(_ =>
-              DownloadTopologyStateForInitHashResponse(
-                topologyStateHash = hashBuilder.finish().getCryptographicEvidence
+            topologyStateForInitializationService
+              .initialSnapshotHash(request.member)
+              .map(hash =>
+                DownloadTopologyStateForInitHashResponse(
+                  topologyStateHash = hash.getCryptographicEvidence
+                )
               )
-            )
+              .onShutdown(throw AbortedDueToShutdown.Error().asGrpcError)
           }
       )
     )

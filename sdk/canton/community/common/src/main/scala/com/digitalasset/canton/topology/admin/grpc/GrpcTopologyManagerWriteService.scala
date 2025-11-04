@@ -15,6 +15,7 @@ import com.digitalasset.canton.ProtoDeserializationError.{
   ValueConversionError,
 }
 import com.digitalasset.canton.crypto.*
+import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
@@ -55,6 +56,7 @@ class GrpcTopologyManagerWriteService(
     managers: => Seq[TopologyManager[TopologyStoreId, BaseCrypto]],
     physicalSynchronizerIdLookup: PSIdLookup,
     temporaryStoreRegistry: TemporaryStoreRegistry,
+    nodeParameters: CantonNodeParameters,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
     extends v30.TopologyManagerWriteServiceGrpc.TopologyManagerWriteService
@@ -124,6 +126,7 @@ class GrpcTopologyManagerWriteService(
         } yield {
           (op, serial, validatedMapping, signingKeys, forceFlags)
         }
+
         for {
           mapping <- EitherT
             .fromEither[FutureUnlessShutdown](validatedMappingE)
@@ -137,6 +140,10 @@ class GrpcTopologyManagerWriteService(
                 .leftMap(ProtoDeserializationFailure.Wrap(_))
             )
           (op, serial, validatedMapping, signingKeys, forceChanges) = mapping
+
+          // TODO(#28972) Remove this check once LSU is stable
+          _ <- EitherT.fromEither[FutureUnlessShutdown](ensureLSUPreviewEnabled(validatedMapping))
+
           manager <- targetManagerET(store)
           signedTopoTx <- manager
             .proposeAndAuthorize(
@@ -154,6 +161,21 @@ class GrpcTopologyManagerWriteService(
     }
     CantonGrpcUtil.mapErrNewEUS(result.map(tx => v30.AuthorizeResponse(Some(tx.toProtoV30))))
   }
+
+  // LSU announcement require preview features enabled
+  private def ensureLSUPreviewEnabled(
+      mapping: TopologyMapping
+  )(implicit traceContext: TraceContext): Either[RpcError, Unit] = mapping
+    .select[SynchronizerUpgradeAnnouncement]
+    .fold(().asRight[RpcError])(_ =>
+      Either
+        .cond(
+          nodeParameters.enablePreviewFeatures,
+          (),
+          TopologyManagerError.PreviewFeature.Error(operation = "synchronizer upgrade announcement"),
+        )
+        .leftWiden[RpcError]
+    )
 
   override def signTransactions(
       requestP: v30.SignTransactionsRequest

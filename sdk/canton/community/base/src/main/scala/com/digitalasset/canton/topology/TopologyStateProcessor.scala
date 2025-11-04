@@ -89,6 +89,9 @@ class TopologyStateProcessor private (
     *   exceptions are:
     *   - no proof-of-ownership for signing keys on older OTKs
     *   - adding members before adding OTKs
+    * @param storeIsEmpty
+    *   if set to true, the store is considered empty. no check will load from the store. this is
+    *   useful for importing large genesis timestamps. for all other scenarios it will blow up.
     */
   def validateAndApplyAuthorization(
       sequenced: SequencedTime,
@@ -96,6 +99,7 @@ class TopologyStateProcessor private (
       transactions: Seq[GenericSignedTopologyTransaction],
       expectFullAuthorization: Boolean,
       relaxChecksForBackwardsCompatibility: Boolean,
+      storeIsEmpty: Boolean = false,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[(Seq[GenericValidatedTopologyTransaction], AsyncResult[Unit])] = {
@@ -106,8 +110,11 @@ class TopologyStateProcessor private (
     type Lft = Seq[GenericValidatedTopologyTransaction]
 
     // first, pre-load the currently existing mappings and proposals for the given transactions
-    val preloadTxsForMappingF = preloadTxsForMapping(effective, transactions)
-    val preloadProposalsForTxF = preloadProposalsForTx(effective, transactions)
+    val preloadTxsForMappingF =
+      if (storeIsEmpty) FutureUnlessShutdown.unit else preloadTxsForMapping(effective, transactions)
+    val preloadProposalsForTxF =
+      if (storeIsEmpty) FutureUnlessShutdown.unit
+      else preloadProposalsForTx(effective, transactions)
     val ret = for {
       _ <- EitherT.right[Lft](preloadProposalsForTxF)
       _ <- EitherT.right[Lft](preloadTxsForMappingF)
@@ -122,6 +129,7 @@ class TopologyStateProcessor private (
                 tx.originalTx,
                 expectFullAuthorization = expectFullAuthorization || !tx.originalTx.isProposal,
                 relaxChecksForBackwardsCompatibility = relaxChecksForBackwardsCompatibility,
+                storeIsEmpty = storeIsEmpty,
               ).map { finalTx =>
                 tx.adjusted.set(Some(finalTx.transaction))
                 tx.rejection.set(finalTx.rejectionReason)
@@ -181,13 +189,14 @@ class TopologyStateProcessor private (
               store.update(
                 sequenced,
                 effective,
-                removes,
+                if (storeIsEmpty) Map() else removes,
                 validatedTx,
               )
             )
             .map { _ =>
               logger.info(
                 s"Persisted topology transactions ($sequenced, $effective):\n" + validatedTx
+                  .take(100)
                   .mkString(",\n")
               )
               AsyncResult.immediate
@@ -281,6 +290,7 @@ class TopologyStateProcessor private (
       toValidate: GenericSignedTopologyTransaction,
       expectFullAuthorization: Boolean,
       relaxChecksForBackwardsCompatibility: Boolean,
+      storeIsEmpty: Boolean,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TopologyTransactionRejection, GenericSignedTopologyTransaction] =
@@ -293,6 +303,7 @@ class TopologyStateProcessor private (
             inStore,
             expectFullAuthorization = expectFullAuthorization,
             relaxChecksForBackwardsCompatibility = relaxChecksForBackwardsCompatibility,
+            storeIsEmpty = storeIsEmpty,
           )
       )
       .subflatMap { tx =>
@@ -306,7 +317,6 @@ class TopologyStateProcessor private (
     inStore match {
       case Some(value) if value.hash == toValidate.hash =>
         (true, value.addSignatures(toValidate.signatures))
-
       case _ => (false, toValidate)
     }
 
@@ -324,6 +334,7 @@ class TopologyStateProcessor private (
       txA: GenericSignedTopologyTransaction,
       expectFullAuthorization: Boolean,
       relaxChecksForBackwardsCompatibility: Boolean,
+      storeIsEmpty: Boolean,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[GenericValidatedTopologyTransaction] = {
@@ -367,6 +378,7 @@ class TopologyStateProcessor private (
         tx_deduplicatedAndMerged,
         expectFullAuthorization = expectFullAuthorization,
         relaxChecksForBackwardsCompatibility = relaxChecksForBackwardsCompatibility,
+        storeIsEmpty = storeIsEmpty,
       )
     } yield fullyValidated
     ret.fold(

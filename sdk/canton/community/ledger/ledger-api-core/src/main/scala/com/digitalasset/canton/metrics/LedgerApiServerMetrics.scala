@@ -6,7 +6,7 @@ package com.digitalasset.canton.metrics
 import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.daml.metrics.api.opentelemetry.OpenTelemetryMetricsFactory
-import com.daml.metrics.api.{HistogramInventory, MetricName}
+import com.daml.metrics.api.{HistogramInventory, MetricName, MetricsContext}
 import com.daml.metrics.grpc.{DamlGrpcServerHistograms, DamlGrpcServerMetrics}
 import com.daml.metrics.{DatabaseMetricsHistograms, HealthMetrics}
 import com.typesafe.scalalogging.LazyLogging
@@ -83,6 +83,9 @@ final class LedgerApiServerMetrics(
   )
 
   val grpc = new DamlGrpcServerMetrics(openTelemetryMetricsFactory, "participant")
+  val requests = new ActiveRequestsMetrics(openTelemetryMetricsFactory, "participant")(
+    MetricsContext.Empty
+  )
 
   val health = new HealthMetrics(openTelemetryMetricsFactory)
 

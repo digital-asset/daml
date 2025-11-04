@@ -4,8 +4,8 @@
 package com.digitalasset.canton.integration.tests.sequencer
 
 import com.digitalasset.canton.concurrent.Threading
+import com.digitalasset.canton.config.ActiveRequestLimitsConfig
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.config.StreamLimitConfig
 import com.digitalasset.canton.integration.bootstrap.{
   NetworkBootstrapper,
   NetworkTopologyDescription,
@@ -30,9 +30,9 @@ class SequencerApiRateLimitingIntegrationTest
     EnvironmentDefinition.P2S1M1_Manual
       .addConfigTransform(
         ConfigTransforms.updateAllSequencerConfigs_(
-          _.focus(_.publicApi.stream).replace(
+          _.focus(_.publicApi.limits).replace(
             Some(
-              StreamLimitConfig(limits =
+              ActiveRequestLimitsConfig(active =
                 Map(
                   com.digitalasset.canton.sequencer.api.v30.SequencerServiceGrpc.METHOD_DOWNLOAD_TOPOLOGY_STATE_FOR_INIT.getFullMethodName -> NonNegativeInt.one,
                   com.digitalasset.canton.sequencer.api.v30.SequencerServiceGrpc.METHOD_SUBSCRIBE.getFullMethodName -> NonNegativeInt.maxValue,
@@ -61,7 +61,7 @@ class SequencerApiRateLimitingIntegrationTest
       import env.*
 
       // enforce the limit
-      sequencer1.underlying.value.streamCounterCheck.value.updateLimits(
+      sequencer1.underlying.value.activeRequestCounter.value.updateLimits(
         com.digitalasset.canton.sequencer.api.v30.SequencerServiceGrpc.METHOD_DOWNLOAD_TOPOLOGY_STATE_FOR_INIT.getFullMethodName,
         Some(NonNegativeInt.zero),
       )
@@ -74,7 +74,7 @@ class SequencerApiRateLimitingIntegrationTest
           // must not have completed as otherwise we didn't get blocked
           background.isCompleted shouldBe false
           // increase limit
-          sequencer1.underlying.value.streamCounterCheck.value.updateLimits(
+          sequencer1.underlying.value.activeRequestCounter.value.updateLimits(
             com.digitalasset.canton.sequencer.api.v30.SequencerServiceGrpc.METHOD_DOWNLOAD_TOPOLOGY_STATE_FOR_INIT.getFullMethodName,
             Some(NonNegativeInt.one),
           )

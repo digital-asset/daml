@@ -561,7 +561,7 @@ object ParticipantAdminCommands {
     ) extends GrpcAdminCommand[
           v30.GetHighestOffsetByTimestampRequest,
           v30.GetHighestOffsetByTimestampResponse,
-          NonNegativeLong,
+          Long,
         ] {
       override type Svc = PartyManagementServiceStub
 
@@ -586,15 +586,14 @@ object ParticipantAdminCommands {
 
       override protected def handleResponse(
           response: v30.GetHighestOffsetByTimestampResponse
-      ): Either[String, NonNegativeLong] =
-        NonNegativeLong.create(response.ledgerOffset).leftMap(_.toString)
+      ): Either[String, Long] = Right(response.ledgerOffset)
     }
 
     final case class ExportPartyAcs(
         party: PartyId,
         synchronizerId: SynchronizerId,
         targetParticipantId: ParticipantId,
-        beginOffsetExclusive: NonNegativeLong,
+        beginOffsetExclusive: Long,
         waitForActivationTimeout: Option[config.NonNegativeFiniteDuration],
         observer: StreamObserver[v30.ExportPartyAcsResponse],
     ) extends GrpcAdminCommand[
@@ -614,7 +613,7 @@ object ParticipantAdminCommands {
             party.toProtoPrimitive,
             synchronizerId.toProtoPrimitive,
             targetParticipantId.uid.toProtoPrimitive,
-            beginOffsetExclusive.unwrap,
+            beginOffsetExclusive,
             waitForActivationTimeout.map(_.toProtoPrimitive),
           )
         )
@@ -836,7 +835,7 @@ object ParticipantAdminCommands {
     final case class ExportAcs(
         parties: Set[PartyId],
         filterSynchronizerId: Option[SynchronizerId],
-        offset: NonNegativeLong,
+        offset: Long,
         observer: StreamObserver[v30.ExportAcsResponse],
         contractSynchronizerRenames: Map[SynchronizerId, SynchronizerId],
         excludedStakeholders: Set[PartyId],
@@ -856,7 +855,7 @@ object ParticipantAdminCommands {
           v30.ExportAcsRequest(
             parties.map(_.toProtoPrimitive).toSeq,
             filterSynchronizerId.map(_.toProtoPrimitive).getOrElse(""),
-            offset.unwrap,
+            offset,
             contractSynchronizerRenames.map { case (source, targetSynchronizerId) =>
               val target = v30.ExportAcsTargetSynchronizer(
                 targetSynchronizerId.toProtoPrimitive

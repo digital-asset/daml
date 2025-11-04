@@ -29,11 +29,11 @@ final class GeneratorsContract(version: CantonContractIdVersion) {
     Arbitrary(
       for {
         salt <- Arbitrary.arbitrary[Salt]
-        transactionId <- Gen.option(Arbitrary.arbitrary[UpdateId])
+        updateId <- Gen.option(Arbitrary.arbitrary[UpdateId])
         relativeArgumentSuffixes <- boundedListGen[ByteString]
       } yield ContractAuthenticationDataV2(
         Bytes.fromByteString(salt.forHashing),
-        transactionId,
+        updateId,
         relativeArgumentSuffixes.sorted(ByteStringUtil.orderingByteString).map(Bytes.fromByteString),
       )(version)
     )

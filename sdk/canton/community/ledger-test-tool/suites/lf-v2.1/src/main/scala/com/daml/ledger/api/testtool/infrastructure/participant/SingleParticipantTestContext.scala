@@ -844,14 +844,14 @@ final class SingleParticipantTestContext private[participant] (
       .flatMap(txReq => transactions(take, txReq))
 
   override def transactionTreeById(
-      transactionId: String,
+      updateId: String,
       parties: Party*
   ): Future[Transaction] = {
     val partiesList = parties.toList.headOption.map(_ => parties.toList)
     services.update
       .getUpdateById(
         GetUpdateByIdRequest(
-          updateId = transactionId,
+          updateId = updateId,
           updateFormat = Some(
             UpdateFormat(
               includeTransactions =
@@ -1019,7 +1019,7 @@ final class SingleParticipantTestContext private[participant] (
       submitAndWaitForTransactionRequest(actAs, readAs, template.create.commands, AcsDelta)
     ).map(response => extractContracts(response.getTransaction).head)
 
-  override def createAndGetTransactionId[
+  override def createAndGetUpdateId[
       TCid <: ContractId[T],
       T <: Template,
   ](

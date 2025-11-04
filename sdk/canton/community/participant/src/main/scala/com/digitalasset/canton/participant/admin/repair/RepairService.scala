@@ -664,20 +664,11 @@ final class RepairService(
         ledgerApiIndexer.value.ledgerApiStore.value.cleanSynchronizerIndex(psid.logical)
       )
 
-      synchronizerPredecessor <- EitherT
-        .fromEither[FutureUnlessShutdown](
-          syncPersistentStateLookup
-            .connectionConfig(psid)
-            .toRight(s"Cannot find connection config for $psid")
-        )
-        .map(_.predecessor)
-
       startingPoints <- EitherT.right(
         SyncEphemeralStateFactory.startingPoints(
           persistentState.requestJournalStore,
           persistentState.sequencedEventStore,
           synchronizerIndex,
-          synchronizerPredecessor,
         )
       )
       _ <- EitherTUtil
@@ -1013,7 +1004,7 @@ final class RepairService(
           roots = ImmArray.from(nodeIds.take(txNodes.size)),
         )
       ),
-      updateId = randomTransactionId(syncCrypto),
+      updateId = randomUpdateId(syncCrypto),
       contractAuthenticationData = contractAuthenticationData,
       representativePackageIds = RepresentativePackageIds.from(representativePackageIds),
       synchronizerId = repair.synchronizer.psid.logical,
@@ -1165,7 +1156,7 @@ final class RepairService(
           repairCountersToAllocate,
         )
       )
-    } yield RepairRequest(synchronizer, randomTransactionId(syncCrypto), repairCounters)
+    } yield RepairRequest(synchronizer, randomUpdateId(syncCrypto), repairCounters)
   }
 
   /** Read the ACS state for each contract in cids

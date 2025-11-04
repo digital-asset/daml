@@ -222,7 +222,6 @@ class ACSReader(
                 eventStorageBackend.activeContractBatch(
                   eventSequentialIds = ids,
                   allFilterParties = allFilterParties,
-                  endInclusive = activeAtEventSeqId,
                 )
               }
               .flatMap(

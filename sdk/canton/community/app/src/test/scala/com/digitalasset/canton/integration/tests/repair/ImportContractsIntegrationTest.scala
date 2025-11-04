@@ -6,7 +6,7 @@ package com.digitalasset.canton.integration.tests.repair
 import better.files.*
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
 import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
@@ -100,7 +100,7 @@ final class ImportContractsIntegrationTest
           parties = Set(alice),
           exportFilePath = file.toString,
           synchronizerId = Some(daId),
-          ledgerOffset = NonNegativeLong.tryCreate(participant1.ledger_api.state.end()),
+          ledgerOffset = participant1.ledger_api.state.end(),
         )
 
         val contracts = repair.acs.read_from_file(file.canonicalPath)

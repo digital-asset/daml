@@ -161,7 +161,7 @@ sealed trait ExportContractsIdRecomputationIntegrationTest
         val source =
           participant1.underlying.value.sync.internalIndexService.value.activeContracts(
             Set(alice.toLf),
-            Offset.fromLong(aliceAddedOnP2Offset.unwrap).toOption,
+            Offset.fromLong(aliceAddedOnP2Offset).toOption,
           )
         val cleanExport =
           source.runWith(Sink.seq).futureValue.map(resp => resp.getActiveContract).toList

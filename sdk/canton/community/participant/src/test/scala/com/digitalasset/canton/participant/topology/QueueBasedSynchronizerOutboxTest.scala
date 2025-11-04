@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.topology
 import cats.implicits.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.common.sequencer.RegisterTopologyTransactionHandle
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.config.{NonNegativeFiniteDuration, ProcessingTimeout, TopologyConfig}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{SigningKeyUsage, SynchronizerCrypto}
@@ -132,6 +132,7 @@ class QueueBasedSynchronizerOutboxTest
       defaultStaticSynchronizerParameters,
       target,
       queue,
+      dispatchQueueBackpressureLimit = NonNegativeInt.tryCreate(10),
       disableOptionalTopologyChecks = false,
       // we don't need the validation logic to run, because we control the outcome of transactions manually
       exitOnFatalFailures = true,

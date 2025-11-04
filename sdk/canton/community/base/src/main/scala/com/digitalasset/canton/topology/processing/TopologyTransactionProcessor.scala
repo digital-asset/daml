@@ -80,7 +80,7 @@ class TopologyTransactionProcessor(
   protected lazy val stateProcessor: TopologyStateProcessor =
     TopologyStateProcessor.forTransactionProcessing(
       store,
-      new RequiredTopologyMappingChecks(store, Some(staticSynchronizerParameters), loggerFactory),
+      RequiredTopologyMappingChecks(store, Some(staticSynchronizerParameters), loggerFactory),
       pureCrypto,
       loggerFactory,
     )
