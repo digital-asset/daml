@@ -13,13 +13,11 @@ import org.scalatest.Inside.inside
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.freespec.AnyFreeSpec
+import com.digitalasset.daml.lf.speedy.SBuiltinBigNumericTestHelpers._
 
 import scala.language.implicitConversions
 
 class SBuiltinBigNumericTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks {
-
-  val helpers = new SBuiltinBigNumericTestHelpers
-  import helpers.{parserParameters => _, _}
 
   implicit val parserParameters: ParserParameters[this.type] = ParserParameters.default
 
@@ -330,7 +328,7 @@ class SBuiltinBigNumericTest extends AnyFreeSpec with Matchers with TableDrivenP
 
 }
 
-final class SBuiltinBigNumericTestHelpers {
+object SBuiltinBigNumericTestHelpers {
 
   import SpeedyTestLib.loggingContext
 
