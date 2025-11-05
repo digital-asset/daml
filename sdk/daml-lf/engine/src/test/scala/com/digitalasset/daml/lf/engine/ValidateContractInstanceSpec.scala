@@ -154,7 +154,7 @@ class ValidateContractInstanceSpec
   val compiledPkgs = PureCompiledPackages.build(Map(pkgId1 -> pkg1, pkgId2 -> pkg2), compilerConfig)
 
   private def newEngine = new Engine(
-    EngineConfig(LanguageVersion.stable.toRange)
+    EngineConfig(LanguageVersion.stableRange)
   )
 
   val alice = Party.assertFromString("alice")

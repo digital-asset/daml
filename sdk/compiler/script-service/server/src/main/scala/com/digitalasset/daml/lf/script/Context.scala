@@ -56,7 +56,7 @@ class Context(
 
   private val compilerConfig =
     Compiler.Config(
-      allowedLanguageVersions = LanguageVersion.all.toRange,
+      allowedLanguageVersions = LanguageVersion.allRange,
       packageValidation = Compiler.FullPackageValidation,
       profiling = Compiler.NoProfile,
       stacktracing = Compiler.FullStackTrace,

@@ -461,14 +461,14 @@ object Repl {
 
   def defaultCompilerConfig =
     Compiler.Config(
-      allowedLanguageVersions = LV.stable.toRange,
+      allowedLanguageVersions = LV.stableRange,
       packageValidation = Compiler.FullPackageValidation,
       profiling = Compiler.NoProfile,
       stacktracing = Compiler.FullStackTrace,
     )
 
   def devCompilerConfig: Compiler.Config =
-    defaultCompilerConfig.copy(allowedLanguageVersions = LV.all.toRange)
+    defaultCompilerConfig.copy(allowedLanguageVersions = LV.allRange)
 
   private implicit class StateOp(val x: (Boolean, State)) extends AnyVal {
 

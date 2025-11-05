@@ -73,7 +73,7 @@ class EngineValidatePackagesTest extends AnyWordSpec with Matchers with Inside {
   )
 
   private def newEngine = new Engine(
-    EngineConfig(LanguageVersion.all.toRange)
+    EngineConfig(LanguageVersion.allRange)
   )
 
   private def darFromPackageMap(

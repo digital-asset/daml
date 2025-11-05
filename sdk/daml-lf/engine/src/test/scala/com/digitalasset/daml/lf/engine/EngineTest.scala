@@ -3158,7 +3158,7 @@ class EngineTestHelpers(
   def newEngine(requireCidSuffixes: Boolean = false) =
     new Engine(
       EngineConfig(
-        allowedLanguageVersions = language.LanguageVersion.all.toRange,
+        allowedLanguageVersions = language.LanguageVersion.allRange,
         forbidLocalContractIds = requireCidSuffixes,
       )
     )

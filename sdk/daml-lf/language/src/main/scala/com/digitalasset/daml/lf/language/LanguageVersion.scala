@@ -75,9 +75,10 @@ object LanguageVersion {
     }
 
     def fromString(str: String): Either[String, Minor] =
-      (all ++ allLegacy).minors
+      (all ++ allLegacy)
+        .map(_.minor)
         .find(_.pretty == str)
-        .toRight(s"${str} is not supported, supported minors: ${(all ++ allLegacy).minors}")
+        .toRight(s"${str} is not supported, supported minors: ${(all ++ allLegacy).map(_.minor)}")
     def assertFromString(s: String): Minor = data.assertRight(fromString(s))
   }
 
@@ -105,6 +106,8 @@ object LanguageVersion {
   val allRange = VersionRange(v2_1, v2_dev)
   val stable: List[LanguageVersion] = List(v2_1, v2_2)
   val stableRange = VersionRange(v2_1, v2_2)
+  val earlyAccess = stable
+  val earlyAccessRange = VersionRange(v2_1, v2_2)
   val compilerInput: List[LanguageVersion] = List(v2_1, v2_2, v2_dev)
   val compilerOutput: List[LanguageVersion] = List(v2_1, v2_2, v2_dev)
   // End of code that in the furutre will be generated from

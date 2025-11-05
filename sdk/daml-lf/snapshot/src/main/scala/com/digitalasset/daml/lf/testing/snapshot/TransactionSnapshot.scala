@@ -97,7 +97,7 @@ private[snapshot] object TransactionSnapshot {
     println(s"%%% compile ${pkgs.size} packages ...")
     val engine = new Engine(
       EngineConfig(
-        allowedLanguageVersions = LanguageVersion.all.toRange,
+        allowedLanguageVersions = LanguageVersion.allRange,
         profileDir = profileDir,
         snapshotDir = snapshotDir,
         gasBudget = gasBudget,
