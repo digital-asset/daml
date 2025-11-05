@@ -7,7 +7,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import com.google.protobuf.DescriptorProtos.FileDescriptorProto
 import io.grpc.Status
-import io.grpc.reflection.v1alpha.{ServerReflectionRequest, ServerReflectionResponse}
+import io.grpc.reflection.v1.{ServerReflectionRequest, ServerReflectionResponse}
 import io.grpc.stub.StreamObserver
 
 import scala.jdk.CollectionConverters._
