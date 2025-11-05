@@ -4,8 +4,6 @@
 package com.digitalasset.daml.lf
 package language
 
-import scala.annotation.nowarn
-
 final case class LanguageVersion private (
     major: LanguageVersion.Major,
     minor: LanguageVersion.Minor,
@@ -20,7 +18,7 @@ final case class LanguageVersion private (
   }
 }
 
-object LanguageVersion {
+object LanguageVersion extends LanguageVersionGenerated {
   sealed abstract class Major(val major: Int)
       extends Product
       with Serializable
@@ -82,58 +80,9 @@ object LanguageVersion {
     def assertFromString(s: String): Minor = data.assertRight(fromString(s))
   }
 
-  // legacy versions (i.e. 1.x that is only supported for parsing (i.e. for 1.x
-  // we only support parsing 1.x dars into ASTs))
-  val allStableLegacy: List[LanguageVersion] =
-    List(6, 7, 8, 11, 12, 13, 14, 15, 17).map(i => LanguageVersion(Major.V1, Minor.Stable(i)))
-  val List(v1_6, v1_7, v1_8, v1_11, v1_12, v1_13, v1_14, v1_15, v1_17) = allStableLegacy: @nowarn(
-    "msg=match may not be exhaustive"
-  )
-  val v1_dev: LanguageVersion = LanguageVersion(Major.V1, Minor.Dev)
-  val allLegacy: List[LanguageVersion] = allStableLegacy.appended(v1_dev)
-
-  // Start of code that in the furutre will be generated from
-  // //daml-lf/language/daml-lf.bzl
-  val v2_1: LanguageVersion = LanguageVersion(Major.V2, Minor.Stable(1))
-  val v2_2: LanguageVersion = LanguageVersion(Major.V2, Minor.Stable(2))
-  val v2_dev: LanguageVersion = LanguageVersion(Major.V2, Minor.Dev)
-
-  val latestStable: LanguageVersion = v2_2
-  val default: LanguageVersion = v2_2
-  val dev: LanguageVersion = v2_dev
-
-  val all: List[LanguageVersion] = List(v2_1, v2_2, v2_dev)
-  val allRange = VersionRange(v2_1, v2_dev)
-  val stable: List[LanguageVersion] = List(v2_1, v2_2)
-  val stableRange = VersionRange(v2_1, v2_2)
-  val earlyAccess = stable
-  val earlyAccessRange = VersionRange(v2_1, v2_2)
-  val compilerInput: List[LanguageVersion] = List(v2_1, v2_2, v2_dev)
-  val compilerOutput: List[LanguageVersion] = List(v2_1, v2_2, v2_dev)
-  // End of code that in the furutre will be generated from
-  // //daml-lf/language/daml-lf.bzl
-
   def fromString(str: String): Either[String, LanguageVersion] =
     (allLegacy ++ all).find(_.toString == str).toRight(s"${str} is not supported")
   def assertFromString(s: String): LanguageVersion = data.assertRight(fromString(s))
-
-  // @deprecated("Actually not sure if deprecated", since="3.5")
-  object LanguageVersionRangeOps {
-    implicit class LanguageVersionRange(val range: VersionRange[LanguageVersion]) {
-      def majorVersion: Major = {
-        require(
-          range.min.major == range.max.major,
-          s"version range ${range} spans over multiple version LF versions",
-        )
-        range.max.major
-      }
-    }
-  }
-
-  // --- Backwards-compoatible definitions ---
-  // @deprecated("Version rework, use generated variables instead", since="3.5")
-  private[lf] def notSupported(major: Major) =
-    throw new IllegalArgumentException(s"${major.pretty} not supported")
 
   // TODO: remove after feature rework
   def supportsPackageUpgrades(lv: LanguageVersion): Boolean =
@@ -146,76 +95,20 @@ object LanguageVersion {
   def allUpToVersion(version: LanguageVersion): VersionRange[LanguageVersion] = {
     version.major match {
       case Major.V2 => VersionRange(v2_1, version)
-      case _ => notSupported(version.major)
+      case _ => throw new IllegalArgumentException(s"${version.major.pretty} not supported")
     }
   }
 
-  // --- Features ---
-  object Features {
-    val default = v2_1
-    val packageUpgrades = v2_1
-
-    val flatArchive = v2_2
-    val kindInterning = flatArchive
-    val exprInterning = flatArchive
-
-    val explicitPkgImports = v2_2
-
-    val choiceFuncs = v2_dev
-    val choiceAuthority = v2_dev
-
-    /** TYPE_REP_TYCON_NAME builtin */
-    val templateTypeRepToText = v2_dev
-
-    /** Guards in interfaces */
-    val extendedInterfaces = v2_dev
-
-    /** BigNumeric */
-    val bigNumeric = v2_dev
-
-    val contractKeys = v2_dev
-
-    val complexAnyType = v2_dev
-
-    val cryptoUtility = v2_dev
-
-    /** UNSAFE_FROM_INTERFACE is removed starting from 2.2, included */
-    val unsafeFromInterfaceRemoved = v2_2
-
-    /** Unstable, experimental features. This should stay in x.dev forever.
-      * Features implemented with this flag should be moved to a separate
-      * feature flag once the decision to add them permanently has been made.
-      */
-    val unstable = v2_dev
-  }
-
-  object LegacyFeatures {
-    val default = v1_6
-    val internedPackageId = v1_6
-    val internedStrings = v1_7
-    val internedDottedNames = v1_7
-    val numeric = v1_7
-    val anyType = v1_7
-    val typeRep = v1_7
-    val typeSynonyms = v1_8
-    val packageMetadata = v1_8
-    val genComparison = v1_11
-    val genMap = v1_11
-    val scenarioMustFailAtMsg = v1_11
-    val contractIdTextConversions = v1_11
-    val exerciseByKey = v1_11
-    val internedTypes = v1_11
-    val choiceObservers = v1_11
-    val bigNumeric = v1_13
-    val exceptions = v1_14
-    val basicInterfaces = v1_15
-    val choiceFuncs = v1_dev
-    val choiceAuthority = v1_dev
-    val natTypeErasure = v1_dev
-    val packageUpgrades = v1_17
-    val sharedKeys = v1_17
-    val templateTypeRepToText = v1_dev
-    val extendedInterfaces = v1_dev
-    val unstable = v1_dev
+  // @deprecated("Actually not sure if deprecated", since="3.5")
+  object LanguageVersionRangeOps {
+    implicit class LanguageVersionRange(val range: VersionRange[LanguageVersion]) {
+      def majorVersion: Major = {
+        require(
+          range.min.major == range.max.major,
+          s"version range ${range} spans over multiple version LF versions",
+        )
+        range.max.major
+      }
+    }
   }
 }
