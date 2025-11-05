@@ -5,7 +5,6 @@ package com.daml.metrics
 
 import java.util
 
-import io.opentelemetry.api.GlobalOpenTelemetry
 import io.opentelemetry.instrumentation.runtimemetrics.{GarbageCollector, MemoryPools}
 import com.codahale.metrics.jvm.{
   ClassLoadingGaugeSet,
@@ -46,7 +45,7 @@ object JvmMetricSet {
 //    Classes.registerObservers(openTelemetry)
 //    Cpu.registerObservers(openTelemetry)
 //    Threads.registerObservers(openTelemetry)
-    MemoryPools.registerObservers(GlobalOpenTelemetry.get())
-    GarbageCollector.registerObservers(GlobalOpenTelemetry.get())
+    MemoryPools.registerObservers()
+    GarbageCollector.registerObservers()
   }
 }
