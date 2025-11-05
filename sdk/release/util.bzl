@@ -100,6 +100,88 @@ def sdk_tarball(name, version, config):
         visibility = ["//visibility:public"],
     )
 
+dpm_inputs = {
+    "damlc": "//compiler/damlc:damlc-oci.tar.gz",
+    "daml-script": "//daml-script/runner:daml-script-oci.tar.gz",
+    "codegen-js": "//language-support/ts/codegen:codegen-js-oci.tar.gz",
+    "codegen-java": "//language-support/codegen-main:codegen-java-oci.tar.gz",
+    "daml-new": "//daml-assistant/daml-helper:daml-new-oci.tar.gz",
+    "upgrade-check": "//daml-lf/validation:upgrade-check-oci.tar.gz",
+    "canton-enterprise": "//canton:canton-community-oci.tar.gz",
+}
+
+def dpm_sdk_tarball(name, version):
+    native.genrule(
+        name = name,
+        srcs = [dpm_inputs.get(name) for name in dpm_inputs.keys()],
+        outs = ["{}.tar.gz".format(name)],
+        tools = ["//bazel_tools/sh:mktgz", "@dpm_binary//:dpm"],
+        cmd = """
+          TMP=$$(mktemp -d)
+          trap "rm -rf $$TMP" EXIT
+          mkdir -p $$TMP/{name}
+          DIR=$$TMP/{name}
+
+          DPM_VERSION=$$(HOME=. $(location @dpm_binary//:dpm) -v | head -n 1 | sed -e "s/^version: //")
+          
+          # Need to build the installation directory, can't build the oci thing, its too hard
+          mkdir $$DIR/bin
+          cat > "$$DIR/bin/dpm" << EOF
+#!/usr/bin/env bash
+set -euo pipefail
+SCRIPT_DIR=\\$$( cd -- "\\$$( dirname -- "\\$${{BASH_SOURCE[0]}}" )" &> /dev/null && pwd )
+DPM_HOME=\\$$(dirname -- \\$$SCRIPT_DIR)
+\\$$DPM_HOME/cache/components/dpm/$$DPM_VERSION/dpm \\$$@
+EOF
+          chmod +x $$DIR/bin/dpm
+
+          cat > "$$DIR/dpm-config.yaml" << EOF
+edition: open-source
+registry: europe-docker.pkg.dev/da-images/public-unstable
+EOF
+
+          mkdir -p $$DIR/cache/components
+          {unpack_inputs}
+
+          mkdir -p $$DIR/cache/components/dpm/$$DPM_VERSION
+          cp $(location @dpm_binary//:dpm) $$DIR/cache/components/dpm/$$DPM_VERSION/dpm
+
+          mkdir -p $$DIR/cache/sdk/open-source
+
+          cat > "$$DIR/cache/sdk/open-source/{version}.yaml" << EOF
+apiVersion: digitalasset.com/v1
+kind: SdkManifest
+spec:
+  components:
+    {component_versions}
+  assistant:
+    version: $$DPM_VERSION
+  version: {version}
+  edition: open-source
+EOF
+
+          MKTGZ=$$PWD/$(execpath //bazel_tools/sh:mktgz)
+          OUT_PATH=$$PWD/$@
+          cd $$TMP
+
+          $$MKTGZ $$OUT_PATH {name}
+        """.format(
+            name = name,
+            version = version,
+            unpack_inputs =
+                "\n          ".join(
+                    [
+                        "mkdir -p $$DIR/cache/components/{name}/{version} && tar -xzf $(location {path}) -C $$DIR/cache/components/{name}/{version}"
+                            .format(name = name, path = path, version = version)
+                        for name, path in dpm_inputs.items()
+                    ],
+                ),
+            component_versions =
+                "\n    ".join(["{name}:\n      version: {version}".format(name = name, version = version) for name in dpm_inputs.keys()]),
+        ),
+        visibility = ["//visibility:public"],
+    )
+
 def _protos_zip_impl(ctx):
     posix = ctx.toolchains["@rules_sh//sh/posix:toolchain_type"]
     tmp_dir = ctx.actions.declare_directory("tmp_dir")
