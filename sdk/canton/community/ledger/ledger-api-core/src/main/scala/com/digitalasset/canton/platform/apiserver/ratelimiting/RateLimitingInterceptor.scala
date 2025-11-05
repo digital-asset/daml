@@ -93,7 +93,7 @@ object RateLimitingInterceptor {
   }
 
   private val doNonLimit: Set[String] = Set(
-    "grpc.reflection.v1alpha.ServerReflection/ServerReflectionInfo",
+    "grpc.reflection.v1.ServerReflection/ServerReflectionInfo",
     "grpc.health.v1.Health/Check",
     "grpc.health.v1.Health/Watch",
   )
