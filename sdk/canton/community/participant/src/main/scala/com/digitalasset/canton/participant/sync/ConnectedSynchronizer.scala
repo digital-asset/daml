@@ -475,7 +475,7 @@ class ConnectedSynchronizer(
         logger.info(
           s"Replaying ${changes.size} ACS changes between $fromExclusive (exclusive) and $toInclusive to the commitment processor"
         )
-        logger.debug(
+        logger.trace(
           s"Retrieved contract ID changes from changesBetween " +
             s"${contractIdChanges
                 .map { case (toc, activeContractsChange) =>

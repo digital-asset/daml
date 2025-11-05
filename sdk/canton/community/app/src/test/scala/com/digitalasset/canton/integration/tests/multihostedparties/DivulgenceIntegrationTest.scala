@@ -412,14 +412,20 @@ object DivulgenceIntegrationTest {
         .flatMap(_.createdEvent)
         .map(c => OffsetCid(c.offset, c.contractId))
 
-    def acsDeltas(partyId: PartyId): Seq[(OffsetCid, EventType)] =
-      updates(TRANSACTION_SHAPE_ACS_DELTA, Seq(partyId))
+    def acsDeltas(
+        partyId: PartyId,
+        beginOffsetExclusive: Long = 0L,
+    ): Seq[(OffsetCid, EventType)] =
+      updates(TRANSACTION_SHAPE_ACS_DELTA, Seq(partyId), beginOffsetExclusive)
 
     def acsDeltas(parties: Seq[PartyId]): Seq[(OffsetCid, EventType)] =
       updates(TRANSACTION_SHAPE_ACS_DELTA, parties)
 
-    def ledgerEffects(partyId: PartyId): Seq[(OffsetCid, EventType)] =
-      updates(TRANSACTION_SHAPE_LEDGER_EFFECTS, Seq(partyId))
+    def ledgerEffects(
+        partyId: PartyId,
+        beginOffsetExclusive: Long = 0L,
+    ): Seq[(OffsetCid, EventType)] =
+      updates(TRANSACTION_SHAPE_LEDGER_EFFECTS, Seq(partyId), beginOffsetExclusive)
 
     def eventsWithAcsDelta(parties: Seq[PartyId]): Seq[Event] =
       updatesEvents(TRANSACTION_SHAPE_LEDGER_EFFECTS, parties).filter(_.event match {
@@ -471,6 +477,7 @@ object DivulgenceIntegrationTest {
     private def updatesEvents(
         transactionShape: TransactionShape,
         parties: Seq[PartyId],
+        beginOffsetExclusive: Long = 0L,
     ): Seq[Event] =
       participant.ledger_api.updates
         .updates(
@@ -492,6 +499,7 @@ object DivulgenceIntegrationTest {
           ),
           completeAfter = PositiveInt.tryCreate(1000000),
           endOffsetInclusive = Some(participant.ledger_api.state.end()),
+          beginOffsetExclusive = beginOffsetExclusive,
         )
         .collect { case TransactionWrapper(tx) =>
           tx.events
@@ -501,8 +509,13 @@ object DivulgenceIntegrationTest {
     private def updates(
         transactionShape: TransactionShape,
         parties: Seq[PartyId],
+        beginOffsetExclusive: Long = 0L,
     ): Seq[(OffsetCid, EventType)] =
-      updatesEvents(transactionShape = transactionShape, parties = parties)
+      updatesEvents(
+        transactionShape = transactionShape,
+        parties = parties,
+        beginOffsetExclusive = beginOffsetExclusive,
+      )
         .map(_.event)
         .collect {
           case Event.Event.Created(event) => OffsetCid(event.offset, event.contractId) -> Created
