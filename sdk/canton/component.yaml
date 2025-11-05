@@ -1,0 +1,12 @@
+apiVersion: digitalasset.com/v1
+kind: Component
+spec:
+  jar-commands:
+    - path: community_app_deploy.jar
+      name: sandbox
+      desc: Run full Canton installation in a single process
+      jar-args: [sandbox]
+    - path: community_app_deploy.jar
+      name: canton-console
+      desc: Run a canton console connecting to a remote participant and synchronizer (defaulting to sandbox)
+      jar-args: [sandbox-console]
