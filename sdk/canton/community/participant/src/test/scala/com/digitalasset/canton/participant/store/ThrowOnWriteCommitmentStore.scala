@@ -180,6 +180,10 @@ class ThrowOnWriteCommitmentStore()(override implicit val ec: ExecutionContext)
     )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[BufferedAcsCommitment]] =
       FutureUnlessShutdown.pure(List.empty)
 
+    override def nonEmptyAtOrAfter(timestamp: CantonTimestamp)(implicit
+        traceContext: TraceContext
+    ): FutureUnlessShutdown[Boolean] = FutureUnlessShutdown.pure(false)
+
     def peekOverlapsForCounterParticipant(
         period: CommitmentPeriod,
         counterParticipant: ParticipantId,

@@ -33,12 +33,7 @@ import com.digitalasset.canton.config.{
   TestingConfigInternal,
 }
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.data.{
-  AcsCommitmentData,
-  BufferedAcsCommitment,
-  CantonTimestamp,
-  CantonTimestampSecond,
-}
+import com.digitalasset.canton.data.{AcsCommitmentData, CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.AcsCommitmentErrorGroup
 import com.digitalasset.canton.error.{CantonError, ContextualizedCantonError}
@@ -705,6 +700,32 @@ class AcsCommitmentProcessor private (
     ): FutureUnlessShutdown[Unit] = {
       for {
         config <- catchUpConfig(completedPeriod.toInclusive.forgetRefinement)
+        // We update `catchUpTimestamp` only if the future computing `computedNewCatchUpTimestamp` has returned by
+        // this point. If `catchUpToTimestamp` is greater or equal to the participant's end of period, then the
+        // participant enters catch up mode up to `catchUpTimestamp`.
+        // Important: `catchUpToTimestamp` is not updated concurrently, because the code below runs
+        // sequentially on the `publishQueue`. Moreover, the `publishQueue` inserts `periodEnd`
+        // sequentially in the order of the timestamps, which is the key to ensuring that the catch-up timestamp
+        // grows monotonically and that catch-ups are towards the future.
+        _ = if (config.exists(_.isCatchUpEnabled())) {
+          computingCatchUpTimestamp.unwrap.value.foreach { v =>
+            v.fold(
+              exc => logger.error(s"Error when computing the catch up timestamp", exc),
+              {
+                case Outcome(res) => res.foreach(ts => catchUpToTimestamp = ts)
+                case AbortedDueToShutdown =>
+                  logger.debug(
+                    "Could not compute catch up timestamp because shutting down"
+                  )
+              },
+            )
+            computingCatchUpTimestamp = computeCatchUpTimestamp(
+              completedPeriod.toInclusive.forgetRefinement,
+              config,
+            )
+          }
+        }
+
         _ = initLastCommitmentsComputeTimes(config)
 
         // Evaluate in the beginning the catch-up conditions for simplicity
@@ -874,7 +895,7 @@ class AcsCommitmentProcessor private (
 
     def checkpoint(
         completedPeriod: Option[CommitmentPeriod],
-        snapshot: CommitmentSnapshot,
+        runningCommitments: RunningCommitments,
     ) =
       for {
         // store running commitments for checkpointing
@@ -893,6 +914,8 @@ class AcsCommitmentProcessor private (
                 commitmentCheckpointInterval.duration.toSeconds,
               )
             )
+            // snapshot still needs to run on the publish queue, so it needs to be taken here, not lower
+            val snapshot = runningCommitments.snapshot(gc = false)
             val res = checkpointQueue.executeUS(
               persistRunningCommitments(
                 snapshot,
@@ -906,6 +929,8 @@ class AcsCommitmentProcessor private (
         // always checkpoint when we complete a period
         _ <- completedPeriod match {
           case Some(period) =>
+            // snapshot still needs to run on the publish queue, so it needs to be taken here, not lower
+            val snapshot = runningCommitments.snapshot(gc = false)
             val res = checkpointQueue.executeUS(
               persistRunningCommitments(
                 snapshot,
@@ -959,34 +984,8 @@ class AcsCommitmentProcessor private (
                     // checkpoint if needed
                     _ <- checkpoint(
                       completedPeriod,
-                      runningCommitments.snapshot(gc = false),
+                      runningCommitments,
                     )
-                    config <- catchUpConfig(crtPeriodEnd.forgetRefinement)
-                    // We update `catchUpTimestamp` only if the future computing `computedNewCatchUpTimestamp` has returned by
-                    // this point. If `catchUpToTimestamp` is greater or equal to the participant's end of period, then the
-                    // participant enters catch up mode up to `catchUpTimestamp`.
-                    // Important: `catchUpToTimestamp` is not updated concurrently, because the code below runs
-                    // sequentially on the `publishQueue`. Moreover, the `publishQueue` inserts `periodEnd`
-                    // sequentially in the order of the timestamps, which is the key to ensuring that the catch-up timestamp
-                    // grows monotonically and that catch-ups are towards the future.
-                    _ = if (config.exists(_.isCatchUpEnabled())) {
-                      computingCatchUpTimestamp.unwrap.value.foreach { v =>
-                        v.fold(
-                          exc => logger.error(s"Error when computing the catch up timestamp", exc),
-                          {
-                            case Outcome(res) => res.foreach(ts => catchUpToTimestamp = ts)
-                            case AbortedDueToShutdown =>
-                              logger.debug(
-                                "Could not compute catch up timestamp because shutting down"
-                              )
-                          },
-                        )
-                        computingCatchUpTimestamp = computeCatchUpTimestamp(
-                          crtPeriodEnd.forgetRefinement,
-                          config,
-                        )
-                      }
-                    }
 
                     res <- completedPeriod match {
                       case Some(commitmentPeriod) =>
@@ -1803,11 +1802,11 @@ class AcsCommitmentProcessor private (
 
         // if we already saw commitments from a counter-participant at the time we'd need to catch up to, then
         // we can be in a situation where we need to catch up
-        comm <- catchUpTimestamp.fold(FutureUnlessShutdown.pure(Seq.empty[BufferedAcsCommitment]))(
-          ts => store.queue.peekThroughAtOrAfter(ts)
-        )
+        commNonEmpty <- catchUpTimestamp.fold(
+          FutureUnlessShutdown.pure(false)
+        )(ts => store.queue.nonEmptyAtOrAfter(ts))
       } yield {
-        if (comm.nonEmpty) {
+        if (commNonEmpty) {
           // It seems we might need to catch up, but only if the participant was actually lagging behind, i.e.,
           // it was supposed to compute commitments at the time when the counter-participant computed commitments.
           // This is not the case when the counter-participant sends a commitment because of activity on

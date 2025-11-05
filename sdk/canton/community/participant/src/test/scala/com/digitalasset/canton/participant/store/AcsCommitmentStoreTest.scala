@@ -1179,33 +1179,53 @@ trait CommitmentQueueTest extends CommitmentStoreBaseTest {
         _ <- queue.enqueue(c12)
         _ <- queue.enqueue(c21)
         at5 <- queue.peekThroughAtOrAfter(ts(5))
+        at5ne <- queue.nonEmptyAtOrAfter(ts(5))
         at10 <- queue.peekThroughAtOrAfter(ts(10))
+        at10ne <- queue.nonEmptyAtOrAfter(ts(10))
         _ <- queue.enqueue(c22)
         at10with22 <- queue.peekThroughAtOrAfter(ts(10))
+        at10with22ne <- queue.nonEmptyAtOrAfter(ts(10))
         at15 <- queue.peekThroughAtOrAfter(ts(15))
+        at15ne <- queue.nonEmptyAtOrAfter(ts(15))
         _ <- queue.enqueue(c32)
         at10with32 <- queue.peekThroughAtOrAfter(ts(10))
+        at10with32ne <- queue.nonEmptyAtOrAfter(ts(10))
         at15with32 <- queue.peekThroughAtOrAfter(ts(15))
+        at15with32ne <- queue.nonEmptyAtOrAfter(ts(15))
         _ <- queue.deleteThrough(ts(5))
         at15AfterDelete <- queue.peekThroughAtOrAfter(ts(15))
+        at15AfterDeleteNe <- queue.nonEmptyAtOrAfter(ts(15))
         _ <- queue.enqueue(c31)
         at15with31 <- queue.peekThroughAtOrAfter(ts(15))
+        at15with31ne <- queue.nonEmptyAtOrAfter(ts(15))
         _ <- queue.deleteThrough(ts(15))
         at20AfterDelete <- queue.peekThroughAtOrAfter(ts(20))
+        at20AfterDeleteNe <- queue.nonEmptyAtOrAfter(ts(20))
         _ <- queue.enqueue(c41)
         at20with41 <- queue.peekThroughAtOrAfter(ts(20))
+        at20with41ne <- queue.nonEmptyAtOrAfter(ts(20))
       } yield {
         // We don't really care how the priority queue breaks the ties, so just use sets here
         at5.toSet shouldBe Set(c11, c12, c21).map(_.toQueuedAcsCommitment)
+        at5ne shouldBe true
         at10.toSet shouldBe Set(c21).map(_.toQueuedAcsCommitment)
+        at10ne shouldBe true
         at10with22.toSet shouldBe Set(c21, c22).map(_.toQueuedAcsCommitment)
+        at10with22ne shouldBe true
         at15.toSet shouldBe empty
+        at15ne shouldBe false
         at10with32.toSet shouldBe Set(c21, c22, c32).map(_.toQueuedAcsCommitment)
+        at10with32ne shouldBe true
         at15with32.toSet shouldBe Set(c32).map(_.toQueuedAcsCommitment)
+        at15with32ne shouldBe true
         at15AfterDelete.toSet shouldBe Set(c32).map(_.toQueuedAcsCommitment)
+        at15AfterDeleteNe shouldBe true
         at15with31.toSet shouldBe Set(c32, c31).map(_.toQueuedAcsCommitment)
+        at15with31ne shouldBe true
         at20AfterDelete shouldBe List.empty
+        at20AfterDeleteNe shouldBe false
         at20with41 shouldBe List(c41).map(_.toQueuedAcsCommitment)
+        at20with41ne shouldBe true
       }
     }
 
