@@ -104,6 +104,22 @@ damlc_legacy(
     version = "2.8.3",
 )
 
+load("//bazel_tools:dpm.bzl", "dpm_binary")
+
+dpm_binary(
+    name = "dpm_binary",
+    # Hashes taken from the files themselves, not the OCI artifacts
+    # See `layers[0].digest` in the manifest for each platform
+    sha256 = {
+        "linux_arm64": "a83ae684af19f73e004a2e024564b49ecad00b629a53d866553daef378983361",
+        "darwin_amd64": "7740359a3c3c1aaeec6f7e75e5f4c20ed7f517249f217b745354903c1db87b8e",
+        "darwin_arm64": "98740dd522fa76d67eec4a006e7eadca54c3bfc77fa3d0dc888d904093a05117",
+        "linux_amd64": "51116042b22e374a5f3a415c094e1a239f9b3619c4c1439bb38961e1cb9a4e51",
+        "windows_amd64": "14775197e75b508292a27f864d6d13825cabe608d037b744be5a4b6172795f44",
+    },
+    version = "0.0.5",
+)
+
 # Use Nix provisioned cc toolchain
 nixpkgs_cc_configure(
     nix_file = "//nix:bazel-cc-toolchain.nix",
