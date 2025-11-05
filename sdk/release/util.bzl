@@ -103,8 +103,7 @@ def sdk_tarball(name, version, config):
 dpm_inputs = {
     "damlc": "//compiler/damlc:damlc-oci.tar.gz",
     "daml-script": "//daml-script/runner:daml-script-oci.tar.gz",
-    "codegen-js": "//language-support/ts/codegen:codegen-js-oci.tar.gz",
-    "codegen-java": "//language-support/codegen-main:codegen-java-oci.tar.gz",
+    "codegen": "//language-support/codegen-main:codegen-oci.tar.gz",
     "daml-new": "//daml-assistant/daml-helper:daml-new-oci.tar.gz",
     "upgrade-check": "//daml-lf/validation:upgrade-check-oci.tar.gz",
     "canton-enterprise": "//canton:canton-community-oci.tar.gz",

@@ -115,6 +115,7 @@ da_haskell_test(
         "$(location //:yarn)",
     ],
     data = [
+        "//release:dpm-sdk-release-tarball",
         "//release:sdk-release-tarball",
         "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
         "//:yarn",
