@@ -14,7 +14,7 @@ import com.digitalasset.canton.metrics.MetricHandle
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import com.digitalasset.canton.tracing.TracingConfig
 import io.grpc.health.v1.HealthCheckResponse.ServingStatus
-import io.grpc.protobuf.services.ProtoReflectionServiceV1
+import io.grpc.protobuf.services.ProtoReflectionService
 
 import java.util.concurrent.ExecutorService
 import scala.annotation.nowarn
@@ -44,7 +44,7 @@ class GrpcHealthServer(
       None,
       NoOpTelemetry,
     )
-    .addService(ProtoReflectionServiceV1.newInstance(), withLogging = false)
+    .addService(ProtoReflectionService.newInstance(), withLogging = false)
     .addService(healthManager.getHealthService.bindService())
     .build
     .start()

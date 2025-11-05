@@ -57,7 +57,7 @@ import com.digitalasset.canton.platform.services.time.TimeProviderType
 import com.digitalasset.canton.platform.store.cache.PruningOffsetCache
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.BindableService
-import io.grpc.protobuf.services.ProtoReflectionServiceV1
+import io.grpc.protobuf.services.ProtoReflectionService
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.Materializer
 
@@ -274,7 +274,7 @@ object ApiServices {
           checkOverloaded,
         )
 
-      val apiReflectionService = ProtoReflectionServiceV1.newInstance()
+      val apiReflectionService = ProtoReflectionService.newInstance()
 
       val apiHealthService = new GrpcHealthService(healthChecks, telemetry, loggerFactory)
 

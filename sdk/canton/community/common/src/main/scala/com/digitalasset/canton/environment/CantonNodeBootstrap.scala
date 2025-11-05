@@ -65,7 +65,7 @@ import com.digitalasset.canton.util.{SimpleExecutionQueue, retry}
 import com.digitalasset.canton.version.{ProtocolVersion, ReleaseProtocolVersion}
 import com.digitalasset.canton.watchdog.WatchdogService
 import io.grpc.ServerServiceDefinition
-import io.grpc.protobuf.services.ProtoReflectionServiceV1
+import io.grpc.protobuf.services.ProtoReflectionService
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.actor.ActorSystem
 import org.slf4j.event.Level
@@ -232,7 +232,7 @@ abstract class CantonNodeBootstrapBase[
           executionContext,
         )
       )
-      .addService(ProtoReflectionServiceV1.newInstance(), false)
+      .addService(ProtoReflectionService.newInstance(), false)
       .addService(
         ApiInfoServiceGrpc.bindService(
           new GrpcApiInfoService(CantonGrpcUtil.ApiName.AdminApi),

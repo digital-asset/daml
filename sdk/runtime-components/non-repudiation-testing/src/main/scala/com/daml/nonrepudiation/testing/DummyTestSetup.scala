@@ -8,7 +8,7 @@ import java.net.{InetAddress, InetSocketAddress, SocketAddress}
 import com.daml.ports.FreePort
 import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
 import io.grpc.netty.shaded.io.grpc.netty.{NettyChannelBuilder, NettyServerBuilder}
-import io.grpc.protobuf.services.ProtoReflectionServiceV1
+import io.grpc.protobuf.services.ProtoReflectionService
 import io.grpc.{ManagedChannelBuilder, ServerBuilder}
 
 import scala.concurrent.ExecutionContext
@@ -32,7 +32,7 @@ object DummyTestSetup {
         .addService(DummyLedgerIdentityService.bind(executionContext))
         .addService(DummyCommandSubmissionService.bind(executionContext))
         .addService(DummyCommandService.bind(executionContext))
-        .addService(ProtoReflectionServiceV1.newInstance())
+        .addService(ProtoReflectionService.newInstance())
 
     def apply(useNetworkStack: Boolean, serviceExecutionContext: ExecutionContext): Builders = {
       if (useNetworkStack) {
