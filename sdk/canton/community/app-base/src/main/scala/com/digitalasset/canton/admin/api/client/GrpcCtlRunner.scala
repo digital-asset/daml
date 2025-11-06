@@ -39,7 +39,7 @@ class GrpcCtlRunner(
     def service(channel: ManagedChannel): command.Svc = {
       val baseService = command
         .createServiceInternal(channel)
-        .withInterceptors(TraceContextGrpc.clientInterceptor)
+        .withInterceptors(TraceContextGrpc.clientInterceptor())
       token.toList.foldLeft(baseService)(AuthCallCredentials.authorizingStub)
     }
     val client = GrpcClient.create(managedChannel, service)

@@ -85,7 +85,7 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
       issuer: String,
   )(connection: Connection): Boolean = {
     import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
-    val res: Seq[_] =
+    val res: Seq[?] =
       SQL"""
          SELECT 1 AS dummy
          FROM lapi_identity_provider_config t
@@ -99,7 +99,7 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
 
   override def idpConfigByIdExists(id: IdentityProviderId.Id)(connection: Connection): Boolean = {
     import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
-    val res: Seq[_] =
+    val res: Seq[?] =
       SQL"""
            SELECT 1 AS dummy
            FROM lapi_identity_provider_config t

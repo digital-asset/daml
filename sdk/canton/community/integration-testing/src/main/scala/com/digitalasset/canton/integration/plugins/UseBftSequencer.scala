@@ -29,6 +29,7 @@ import monocle.macros.GenLens
 import monocle.macros.syntax.lens.*
 
 import scala.collection.mutable
+import scala.concurrent.duration.DurationInt
 
 /** @param dynamicallyOnboardedSequencerNames
   *   Names of sequencers that are not part of the initial network config, and can be added later as
@@ -69,6 +70,9 @@ final class UseBftSequencer(
           BftSequencer(
             blockSequencerConfig,
             bftOrdererConfig
+              // Use a shorter empty block creation timeout to speed up tests that stop sequencing
+              //  and use `GetTime` to await an effective time to be reached on the synchronizer.
+              .copy(consensusEmptyBlockCreationTimeout = 250.millis)
               // server endpoint's lens
               .focus(_.initialNetwork)
               .some

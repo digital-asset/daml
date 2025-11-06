@@ -17,7 +17,7 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.{LfPartyId, WorkflowId}
 
 final case class TransactionValidationResult(
-    transactionId: UpdateId,
+    updateId: UpdateId,
     submitterMetadataO: Option[SubmitterMetadata],
     workflowIdO: Option[WorkflowId],
     contractConsistencyResultE: Either[List[ReferenceToFutureContractError], Unit],

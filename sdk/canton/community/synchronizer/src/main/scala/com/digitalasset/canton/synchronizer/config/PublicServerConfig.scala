@@ -34,7 +34,7 @@ import scala.concurrent.duration.Duration
   *     expiration intervals. If disabled, the token expiration interval will be constant.
   * @param overrideMaxRequestSize
   *   overrides the default maximum request size in bytes on the sequencer node
-  * @param stream
+  * @param limits
   *   optional stream limit config
   */
 // TODO(i4056): Client authentication over TLS is currently unsupported,
@@ -52,9 +52,11 @@ final case class PublicServerConfig(
     overrideMaxRequestSize: Option[NonNegativeInt] = None,
     override val maxTokenLifetime: NonNegativeDuration = config.NonNegativeDuration(Duration.Inf),
     override val jwksCacheConfig: JwksCacheConfig = JwksCacheConfig(),
-    stream: Option[StreamLimitConfig] = None,
+    limits: Option[ActiveRequestLimitsConfig] = None,
 ) extends ServerConfig
     with UniformCantonConfigValidation {
+
+  override val name: String = "sequencer-api"
 
   override def authServices: Seq[AuthServiceConfig] = Seq.empty
 

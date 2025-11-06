@@ -80,11 +80,10 @@ class OptionalTopologyMappingChecksTest
           .update(
             SequencedTime(ts1),
             EffectiveTime(ts1),
-            removeMapping = Map(
-              group0.mapping.uniqueKey -> PositiveInt.one,
-              group1.mapping.uniqueKey -> PositiveInt.one,
+            removals = Map(
+              group0.mapping.uniqueKey -> (Some(PositiveInt.one), Set.empty),
+              group1.mapping.uniqueKey -> (Some(PositiveInt.one), Set.empty),
             ),
-            removeTxs = Set.empty,
             additions = Seq(
               ValidatedTopologyTransaction(group0RemoveMed1),
               ValidatedTopologyTransaction(group1RemoveMed2),
@@ -131,10 +130,9 @@ class OptionalTopologyMappingChecksTest
           .update(
             SequencedTime(ts1),
             EffectiveTime(ts1),
-            removeMapping = Map(
-              sds_S1.mapping.uniqueKey -> PositiveInt.one
+            removals = Map(
+              sds_S1.mapping.uniqueKey -> (Some(PositiveInt.one), Set.empty)
             ),
-            removeTxs = Set.empty,
             additions = Seq(
               ValidatedTopologyTransaction(sds_S1)
             ),

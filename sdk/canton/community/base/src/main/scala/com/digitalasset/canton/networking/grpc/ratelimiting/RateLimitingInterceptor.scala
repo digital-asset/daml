@@ -8,7 +8,7 @@ import com.digitalasset.canton.networking.grpc.ratelimiting.LimitResult.{
   OverLimit,
   UnderLimit,
 }
-import com.digitalasset.canton.networking.grpc.ratelimiting.RateLimitingInterceptor.doNonLimit
+import com.digitalasset.canton.networking.grpc.ratelimiting.RateLimitingInterceptor.doNotLimit
 import io.grpc.{Metadata, ServerCall, ServerCallHandler, ServerInterceptor}
 
 final class RateLimitingInterceptor(
@@ -41,7 +41,7 @@ final class RateLimitingInterceptor(
       fullMethodName: String,
       isStream: Boolean,
   ): LimitResult =
-    if (doNonLimit.contains(fullMethodName)) {
+    if (doNotLimit.contains(fullMethodName)) {
       UnderLimit
     } else {
       checks.traverse(fullMethodName, isStream)
@@ -50,7 +50,7 @@ final class RateLimitingInterceptor(
 }
 
 object RateLimitingInterceptor {
-  private val doNonLimit: Set[String] = Set(
+  val doNotLimit: Set[String] = Set(
     "grpc.reflection.v1.ServerReflection/ServerReflectionInfo",
     "grpc.health.v1.Health/Check",
     "grpc.health.v1.Health/Watch",

@@ -1671,7 +1671,7 @@ private[backend] trait StorageBackendTestsEvents
           .toFullIdentifier(PackageName.assertFromString("tem")),
         filteredStakeholderParties = Set("stakeholder1"),
         ledgerEffectiveTime = Timestamp.assertFromLong(123456),
-        deactivatedEventSeqId = Some(600),
+        deactivatedEventSeqId = Some(2),
       ),
       RawUnassignEvent(
         reassignmentProperties = ReassignmentProperties(
@@ -1878,7 +1878,7 @@ private[backend] trait StorageBackendTestsEvents
         filteredStakeholderParties = Set("stakeholder1"),
         ledgerEffectiveTime = Timestamp.assertFromLong(123456),
         acsDeltaForParticipant = true,
-        deactivatedEventSeqId = Some(600),
+        deactivatedEventSeqId = Some(2),
       ).tap(_.acsDeltaForWitnesses shouldBe true),
       RawUnassignEvent(
         reassignmentProperties = ReassignmentProperties(
@@ -1954,7 +1954,7 @@ private[backend] trait StorageBackendTestsEvents
         filteredStakeholderParties = Set(),
         ledgerEffectiveTime = Timestamp.assertFromLong(123456),
         acsDeltaForParticipant = true,
-        deactivatedEventSeqId = Some(600),
+        deactivatedEventSeqId = Some(2),
       ).tap(_.acsDeltaForWitnesses shouldBe false),
       RawUnassignEvent(
         reassignmentProperties = ReassignmentProperties(
@@ -2243,7 +2243,7 @@ private[backend] trait StorageBackendTestsEvents
           .toFullIdentifier(PackageName.assertFromString("tem")),
         filteredStakeholderParties = Set("stakeholder1"),
         ledgerEffectiveTime = Timestamp.assertFromLong(123456),
-        deactivatedEventSeqId = Some(600),
+        deactivatedEventSeqId = Some(2),
       )
     )
 
@@ -2349,7 +2349,6 @@ private[backend] trait StorageBackendTestsEvents
         eventSequentialIds = 0L to 100L,
         allFilterParties =
           Some(Set("witness1", "stakeholder1", "submitter1", "actor1").map(Party.assertFromString)),
-        endInclusive = 100L,
       )
     ).toList
 
@@ -2815,7 +2814,6 @@ private[backend] trait StorageBackendTestsEvents
       backend.event.activeContractBatch(
         eventSequentialIds = 0L to 100L,
         allFilterParties = None,
-        endInclusive = 100L,
       )
     ).toList should contain theSameElementsInOrderAs List(
       RawThinActiveContract(

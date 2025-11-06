@@ -72,8 +72,7 @@ final class FindPartyActivationOffsetsIntegrationTest
           synchronizerId = daId,
           beginOffsetExclusive = ledgerEndP1,
           completeAfter = PositiveInt.one,
-        )
-        .unwrap should be > 0L
+        ) should be > 0L
 
     }
   }

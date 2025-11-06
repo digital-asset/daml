@@ -25,10 +25,10 @@ object Assertions {
   def fail(message: String, cause: Throwable): Nothing =
     throw new AssertionError(message, cause)
 
-  def verifyLength[A, F[_] <: Seq[_]](context: String, length: Int, as: F[A]): Unit =
+  def verifyLength[A, F[_] <: Seq[?]](context: String, length: Int, as: F[A]): Unit =
     assert(as.length == length, s"$context: expected $length item(s), got ${as.length}, $as")
 
-  def assertLength[A, F[_] <: Seq[_]](context: String, length: Int, as: F[A]): F[A] = {
+  def assertLength[A, F[_] <: Seq[?]](context: String, length: Int, as: F[A]): F[A] = {
     verifyLength(context, length, as)
     as
   }
@@ -75,7 +75,7 @@ object Assertions {
           .mkString(", ")}|${Option(context).filter(_.nonEmpty).map(nonEmptyContext => s"Context: $nonEmptyContext").getOrElse("")}",
     )
 
-  def assertIsEmpty(actual: Iterable[_]): Unit =
+  def assertIsEmpty(actual: Iterable[?]): Unit =
     assertSameElements(actual, Seq.empty)
 
   def assertGrpcErrorOneOf(t: Throwable, errors: ErrorCode*): Unit = {

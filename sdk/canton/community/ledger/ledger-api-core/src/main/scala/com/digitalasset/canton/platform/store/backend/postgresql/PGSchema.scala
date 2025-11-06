@@ -17,21 +17,21 @@ private[postgresql] object PGSchema {
   private val PGFieldStrategy = new FieldStrategy {
     override def stringArray[FROM](
         extractor: StringInterning => FROM => Iterable[String]
-    ): Field[FROM, Iterable[String], _] =
+    ): Field[FROM, Iterable[String], ?] =
       PGStringArray(extractor)
 
     override def smallint[FROM](
         extractor: StringInterning => FROM => Int
-    ): Field[FROM, Int, _] =
+    ): Field[FROM, Int, ?] =
       PGSmallint(extractor)
 
     override def smallintOptional[FROM](
         extractor: StringInterning => FROM => Option[Int]
-    ): Field[FROM, Option[Int], _] =
+    ): Field[FROM, Option[Int], ?] =
       PGSmallintOptional(extractor)
 
     override def insert[FROM](tableName: String)(
-        fields: (String, Field[FROM, _, _])*
+        fields: (String, Field[FROM, ?, ?])*
     ): Table[FROM] =
       PGTable.transposedInsert(tableName)(fields*)
   }

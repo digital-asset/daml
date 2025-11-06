@@ -33,8 +33,8 @@ sealed abstract case class RepresentativeProtocolVersion[ValueCompanion](
 object RepresentativeProtocolVersion {
 
   implicit val setParameterRepresentativeProtocolVersion
-      : SetParameter[RepresentativeProtocolVersion[_]] =
-    (rpv: RepresentativeProtocolVersion[_], pp: PositionedParameters) => pp >> rpv.v
+      : SetParameter[RepresentativeProtocolVersion[?]] =
+    (rpv: RepresentativeProtocolVersion[?], pp: PositionedParameters) => pp >> rpv.v
 
   // As `ValueCompanion` is a phantom type on `RepresentativeProtocolVersion`,
   // we can have a single Ordering object for all of them here.

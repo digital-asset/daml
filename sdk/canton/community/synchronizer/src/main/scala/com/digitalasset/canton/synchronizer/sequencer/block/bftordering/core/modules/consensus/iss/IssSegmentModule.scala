@@ -12,10 +12,6 @@ import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.crypto.CryptoProvider
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.crypto.CryptoProvider.AuthenticatedMessageType
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.Epoch
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssSegmentModule.{
-  BlockCompletionTimeout,
-  EmptyBlockCreationTimeout,
-}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.PbftBlockState.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.EpochInProgress
@@ -48,10 +44,11 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
+import io.opentelemetry.api.trace.{Span, Tracer}
 
 import java.time.Instant
 import scala.collection.mutable
-import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success, Try}
 
 /** Handles the PBFT consensus process for one segment of an epoch, either as a leader or as a
@@ -69,11 +66,16 @@ class IssSegmentModule[E <: Env[E]](
     parent: ModuleRef[Consensus.Message[E]],
     availability: ModuleRef[Availability.Message[E]],
     p2pNetworkOut: ModuleRef[P2PNetworkOut.Message],
+    blockCompletionTimeout: FiniteDuration,
+    emptyBlockCreationTimeout: FiniteDuration,
     metrics: BftOrderingMetrics,
     override val timeouts: ProcessingTimeout,
     override val loggerFactory: NamedLoggerFactory,
-)(implicit synchronizerProtocolVersion: ProtocolVersion, metricsContext: MetricsContext)
-    extends Module[E, ConsensusSegment.Message]
+)(implicit
+    synchronizerProtocolVersion: ProtocolVersion,
+    metricsContext: MetricsContext,
+    tracer: Tracer,
+) extends Module[E, ConsensusSegment.Message]
     with NamedLogging {
 
   private val thisNode = epoch.currentMembership.myId
@@ -82,14 +84,14 @@ class IssSegmentModule[E <: Env[E]](
   private val viewChangeTimeoutManager =
     new TimeoutManager[E, ConsensusSegment.Message, BlockNumber](
       loggerFactory,
-      BlockCompletionTimeout,
+      blockCompletionTimeout,
       segmentState.segment.firstBlockNumber,
     )
 
   private val blockStartTimeoutManager =
     new TimeoutManager[E, ConsensusSegment.Message, BlockNumber](
       loggerFactory,
-      EmptyBlockCreationTimeout,
+      emptyBlockCreationTimeout,
       segmentState.segment.firstBlockNumber,
     )
 
@@ -111,6 +113,8 @@ class IssSegmentModule[E <: Env[E]](
   private val runningBlocks = mutable.Map[BlockNumber, Instant]()
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private var lastProposedBlockCommitInstant = Option.empty[Instant]
+
+  private val blockSpanMap: mutable.Map[BlockNumber, Span] = mutable.Map()
 
   override protected def receiveInternal(consensusMessage: ConsensusSegment.Message)(implicit
       context: E#ActorContextT[ConsensusSegment.Message],
@@ -307,6 +311,8 @@ class IssSegmentModule[E <: Env[E]](
         val blockNumber = orderedBlock.metadata.blockNumber
         val orderedBatchIds = orderedBlock.batchRefs.map(_.batchId)
 
+        blockSpanMap.remove(blockNumber).foreach(_.end())
+
         emitSegmentBlockCommitLatency(blockNumber)
 
         logger.debug(
@@ -420,8 +426,27 @@ class IssSegmentModule[E <: Env[E]](
         from = thisNode,
       )
 
-    signMessage(prePrepare)
+    startTracingBlock(orderedBlock.metadata.blockNumber, orderingBlock)
+
+    signMessage(prePrepare)(
+      context,
+      if (orderingBlock.proofs.isEmpty) TraceContext.empty else traceContext,
+    )
   }
+
+  private def startTracingBlock(blockNumber: BlockNumber, orderingBlock: OrderingBlock)(implicit
+      traceContext: TraceContext
+  ): Unit = if (orderingBlock.proofs.nonEmpty) // we only trace non-empty blocks
+    blockSpanMap
+      .put(
+        blockNumber,
+        startSpan(
+          s"BftOrderer.Consensus"
+        )._1
+          .setAttribute("block.number", blockNumber)
+          .setAttribute("block.size", orderingBlock.proofs.size.toLong),
+      )
+      .discard
 
   private def processPbftEvent(
       pbftEvent: ConsensusSegment.ConsensusMessage.PbftEvent,
@@ -713,9 +738,4 @@ class IssSegmentModule[E <: Env[E]](
       )
     )
   }
-}
-
-object IssSegmentModule {
-  val BlockCompletionTimeout: FiniteDuration = 10.seconds
-  val EmptyBlockCreationTimeout: FiniteDuration = 5.seconds
 }

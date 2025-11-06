@@ -320,7 +320,6 @@ class PureConfigReaderWriterSpec
       maxApiServicesIndexDbQueueSize = 1000,
       maxUsedHeapSpacePercentage = 85,
       minFreeHeapSpaceBytes = 300000,
-      maxStreams = 1000,
     )
     convert(rateLimitingConfigConvert, value).value shouldBe Some(expected)
   }

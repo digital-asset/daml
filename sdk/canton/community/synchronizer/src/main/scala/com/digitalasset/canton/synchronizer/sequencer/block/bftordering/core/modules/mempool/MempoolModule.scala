@@ -56,7 +56,7 @@ class MempoolModule[E <: Env[E]](
       // From clients
       case r @ Mempool.OrderRequest(tracedTx, from, sender) =>
         val orderingRequest = tracedTx.value
-        val span = startSpan("BFTOrderer.Mempool")
+        val span = startSpan("BFTOrderer.Mempool")._1
 
         val outcome: IngressLabelOutcome = // Help type inference
           if (!canDisseminate) {

@@ -501,6 +501,13 @@ class InMemoryCommitmentQueue(implicit val ec: ExecutionContext) extends Commitm
       queue.filter(_.period.toInclusive >= timestamp).toSeq
     }
 
+  override def nonEmptyAtOrAfter(
+      timestamp: CantonTimestamp
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Boolean] =
+    sync {
+      queue.exists(_.period.toInclusive >= timestamp)
+    }
+
   def peekOverlapsForCounterParticipant(
       period: CommitmentPeriod,
       counterParticipant: ParticipantId,

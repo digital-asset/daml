@@ -28,7 +28,7 @@ trait PrettyUtil {
       // class is again anonymous (not sure whether this can happen in Scala)
       // we go up in the hierarchy until we find a non-anonymous class.
       @tailrec
-      def firstNonAnonmymousSuperclass(clazz: Class[_]): Class[_] =
+      def firstNonAnonmymousSuperclass(clazz: Class[?]): Class[?] =
         if (clazz.isAnonymousClass) {
           // The superclass cannot be `null` as neither java.lang.Object
           // nor Java interfaces nor primitive types nor void are anonymous classes.
@@ -95,7 +95,7 @@ trait PrettyUtil {
   private def mkNameValue(name: String, valueTree: Tree): Tree =
     Tree.Infix(treeOfString(name), "=", valueTree)
 
-  def paramIfNonEmpty[T, V <: IterableOnce[_]: Pretty](
+  def paramIfNonEmpty[T, V <: IterableOnce[?]: Pretty](
       name: String,
       getValue: T => V,
   ): T => Option[Tree] =
@@ -115,7 +115,7 @@ trait PrettyUtil {
   ): T => Option[Tree] =
     conditionalParam[T, V](getValue, cond, _.toTree)
 
-  def unnamedParamIfNonEmpty[T, V <: IterableOnce[_]: Pretty](getValue: T => V): T => Option[Tree] =
+  def unnamedParamIfNonEmpty[T, V <: IterableOnce[?]: Pretty](getValue: T => V): T => Option[Tree] =
     unnamedParam(getValue, getValue(_).iterator.nonEmpty)
 
   def unnamedParamIfDefined[T, V: Pretty](getValue: T => Option[V]): T => Option[Tree] =

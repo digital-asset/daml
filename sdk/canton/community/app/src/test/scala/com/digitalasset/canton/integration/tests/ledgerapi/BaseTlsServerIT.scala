@@ -115,7 +115,7 @@ abstract class BaseTlsServerIT(minimumServerProtocolVersion: Option[TlsVersion])
     }
     val clueMsg = s"Client enabled following protocols: $enabledProtocols. "
     val prependClueMsg: Throwable => Throwable = {
-      case e: ModifiableMessage[_] =>
+      case e: ModifiableMessage[?] =>
         e.modifyMessage(_.map(clueMsg + _))
       case t => t
     }

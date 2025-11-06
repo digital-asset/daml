@@ -18,12 +18,14 @@ import com.digitalasset.canton.topology.processing.{ApproximateTime, EffectiveTi
 import com.digitalasset.canton.topology.store.db.DbTopologyStoreHelper
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.topology.store.{
+  NoPackageDependencies,
   TopologyStore,
   TopologyStoreId,
   ValidatedTopologyTransaction,
 }
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.*
+import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.{
   BaseTest,
@@ -82,7 +84,7 @@ trait StoreBasedTopologySnapshotTest
           mock[Clock],
           defaultStaticSynchronizerParameters,
           store,
-          StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
+          NoPackageDependencies,
           DefaultProcessingTimeouts.testing,
           FutureSupervisor.Noop,
           loggerFactory,
@@ -96,8 +98,11 @@ trait StoreBasedTopologySnapshotTest
           _ <- store.update(
             SequencedTime(timestamp),
             EffectiveTime(timestamp),
-            removeMapping = transactions.map(tx => tx.mapping.uniqueKey -> tx.serial).toMap,
-            removeTxs = transactions.map(_.hash).toSet,
+            removals = transactions
+              .groupBy(_.mapping.uniqueKey)
+              .map { case (kk, txs) =>
+                kk -> (txs.map(_.serial).maxOption, Set.empty[TxHash])
+              },
             additions = transactions.map(ValidatedTopologyTransaction(_)),
           )
           _ <- client

@@ -23,7 +23,7 @@ import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyMapping.ReferencedAuthorizations
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ErrorUtil
+import com.digitalasset.canton.util.{EitherUtil, ErrorUtil}
 
 import scala.concurrent.ExecutionContext
 
@@ -60,8 +60,6 @@ private object AuthorizationKeys {
   * @param validationIsFinal
   *   if false, then a new topology transaction will be marked as a proposal in the case where the
   *   provided signatures are valid, but not sufficient.
-  * @param relaxSynchronizerStateChecks
-  *   if true, then certain checks are relaxed for backwards compatibilitiy
   */
 class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
     val pureCrypto: PureCrypto,
@@ -79,18 +77,24 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
     *
     * And we use that "head state" to verify if the transactions are authorized or not.
     *
-    * @param transactionMayHaveMissingSigningKeySignatures
-    *   If set to true, the validation of the transaction does not consider missing signatures for
-    *   extra keys (e.g. new signing keys for OwnerToKeyMapping) to be required for the transaction
-    *   to become fully authorized. This flag allows importing legacy topology snapshots that
-    *   contain topology transactions that did not require signatures for new signing keys.
+    * @param relaxChecksForBackwardsCompatibility
+    *   If set to true, the validation of the transaction relaxes certain checks for backwards
+    *   compatibility:
+    *   - participant permission upgrades in PartyToParticipant mapping do not require the
+    *     authorization of the participant
+    *   - it does not consider missing signatures for extra keys (e.g. new signing keys for
+    *     OwnerToKeyMapping) to be required for the transaction to become fully authorized. This
+    *     flag allows importing legacy topology snapshots that contain topology transactions that
+    *     did not require signatures for new signing keys.
     */
   def validateAndUpdateHeadAuthState(
       effectiveTime: CantonTimestamp,
       toValidate: GenericSignedTopologyTransaction,
       inStore: Option[GenericSignedTopologyTransaction],
       expectFullAuthorization: Boolean,
-      transactionMayHaveMissingSigningKeySignatures: Boolean,
+      // TODO(#29057): check whether the relaxations can be removed
+      relaxChecksForBackwardsCompatibility: Boolean,
+      storeIsEmpty: Boolean = false,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[GenericValidatedTopologyTransaction] =
@@ -100,13 +104,14 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
           effectiveTime,
           toValidate.transaction,
           inStore.map(_.transaction),
+          relaxChecksForBackwardsCompatibility = relaxChecksForBackwardsCompatibility,
+          storeIsEmpty,
         ).map(_ =>
           processTransaction(
             tx,
             inStore,
             expectFullAuthorization = expectFullAuthorization,
-            transactionMayHaveMissingSigningKeySignatures =
-              transactionMayHaveMissingSigningKeySignatures,
+            relaxChecksForBackwardsCompatibility = relaxChecksForBackwardsCompatibility,
           )
         )
       case invalid @ ValidatedTopologyTransaction(_, Some(_rejectionReason), _) =>
@@ -121,17 +126,12 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
     *   - if this validation is run to determine a final verdict, as is the case for processing
     *     topology transactions coming from the synchronizer, automatically clear the proposal flag
     *     for transactions with sufficent authorizing signatures.
-    * @param transactionMayHaveMissingSigningKeySignatures
-    *   If set to true, the validation of the transaction does not consider missing signatures for
-    *   extra keys (e.g. new signing keys for OwnerToKeyMapping) to be required for the transaction
-    *   to become fully authorized. This flag allows importing legacy topology snapshots that
-    *   contain topology transactions that did not require signatures for new signing keys.
     */
   private def processTransaction(
       toValidate: GenericSignedTopologyTransaction,
       inStore: Option[GenericSignedTopologyTransaction],
       expectFullAuthorization: Boolean,
-      transactionMayHaveMissingSigningKeySignatures: Boolean,
+      relaxChecksForBackwardsCompatibility: Boolean,
   )(implicit traceContext: TraceContext): GenericValidatedTopologyTransaction = {
     // See validateRootCertificate why we need to check the removal of a root certificate explicitly here.
     val signatureCheckResult = validateRootCertificate(toValidate)
@@ -139,8 +139,7 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
         validateSignaturesAndDetermineMissingAuthorizers(
           toValidate,
           inStore,
-          transactionMayHaveMissingSigningKeySignatures =
-            transactionMayHaveMissingSigningKeySignatures,
+          relaxChecksForBackwardsCompatibility = relaxChecksForBackwardsCompatibility,
         )
       )
 
@@ -158,31 +157,32 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
     }
   }
 
-  /** @param transactionMayHaveMissingSigningKeySignatures
-    *   If set to true, the validation of the transaction does not consider missing signatures for
-    *   extra keys (e.g. new signing keys for OwnerToKeyMapping) to be required for the transaction
-    *   to become fully authorized. This flag allows importing legacy topology snapshots that
-    *   contain topology transactions that did not require signatures for new signing keys.
-    */
   private def validateSignaturesAndDetermineMissingAuthorizers(
       toValidate: GenericSignedTopologyTransaction,
       inStore: Option[GenericSignedTopologyTransaction],
-      transactionMayHaveMissingSigningKeySignatures: Boolean,
+      relaxChecksForBackwardsCompatibility: Boolean,
   )(implicit
       traceContext: TraceContext
   ): Either[
     TopologyTransactionRejection,
     (GenericSignedTopologyTransaction, ReferencedAuthorizations),
   ] = {
-    // TODO(#28792) bail if toValidate.serial == inStore.serial && toValidate.transaction != inStore.transaction
     // check if this is a transaction that just appends a new signature to the existing, already approved one
     val mergingNewSignatureIntoActiveStateTx =
       inStore.exists(tx => !tx.isProposal && tx.transaction == toValidate.transaction)
     // first determine all possible namespaces that need to sign the transaction
-    val requiredAuth = requiredAuthFor(toValidate.transaction, inStore.map(_.transaction))
+    val requiredAuth = requiredAuthFor(
+      toValidate.transaction,
+      inStore.map(_.transaction),
+      relaxChecksForBackwardsCompatibility = relaxChecksForBackwardsCompatibility,
+    )
     // the following signatures are allowed
     val permissibleSig = {
-      val tmp = requiredAuthFor(toValidate.transaction, None).referenced
+      val tmp = requiredAuthFor(
+        toValidate.transaction,
+        None,
+        relaxChecksForBackwardsCompatibility = relaxChecksForBackwardsCompatibility,
+      ).referenced
       TopologyMapping.ReferencedAuthorizations(
         namespaces = tmp.namespaces ++ requiredAuth.referenced.namespaces,
         extraKeys = tmp.extraKeys ++ requiredAuth.referenced.extraKeys,
@@ -272,12 +272,17 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
       toValidate.signatures.map(_.authorizingLongTermKey) -- allKeysUsedForAuthorization.keys
 
     if (logger.underlying.isDebugEnabled()) {
-      // TODO(#28792) extended "provided" information to distinguish between optional and required signatures
       logger.debug(
         s"Authorization details for ${toValidate.mapping.code}=${toValidate.transaction.hash}\n" +
           s"  Required: $requiredAuth\n" +
-          s"  Provided for namespaces:" + renderAuthorizations(namespaceAuthorizations) + "\n" +
-          s"  Provided for extraKeys: " + renderAuthorizations(extraKeyAuthorizations) + "\n" +
+          s"  Provided for namespaces:" + renderAuthorizations(
+            namespaceAuthorizations,
+            requiredAuth.referenced.namespaces.map(_.fingerprint),
+          ) + "\n" +
+          s"  Provided for extraKeys: " + renderAuthorizations(
+            extraKeyAuthorizations,
+            requiredAuth.referenced.extraKeys,
+          ) + "\n" +
           s"  All keys used for authorization: ${allKeysUsedForAuthorization.keySet}" + (
             if (superfluousKeys.nonEmpty) s"\n  Superfluous keys: ${superfluousKeys.mkString(", ")}"
             else ""
@@ -286,6 +291,15 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
     }
 
     for {
+      // consistency check
+      _ <- EitherUtil.condUnit(
+        inStore.forall(previous =>
+          previous.mapping.uniqueKey == toValidate.mapping.uniqueKey && (previous.serial < toValidate.serial || previous.transaction == toValidate.transaction)
+        ),
+        TopologyTransactionRejection.Processor.InternalError(
+          s"In-store and toValidate are inconsistent. In-store:\n  $inStore\ntoValidate $toValidate"
+        ),
+      )
       // check that all signatures cover the transaction hash
       _ <- wronglyCoveredHashesNE
         .map(AuthorizationRejections.MultiTransactionHashMismatch(toValidate.hash, _))
@@ -352,7 +366,7 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
             missing => {
               val ret =
                 if (
-                  transactionMayHaveMissingSigningKeySignatures && toValidate.mapping.code == OwnerToKeyMapping.code
+                  relaxChecksForBackwardsCompatibility && toValidate.mapping.code == OwnerToKeyMapping.code
                 )
                   missing.copy(extraKeys = Set.empty)
                 else missing
@@ -435,7 +449,6 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
               keyIdsWithUsage.forgetNE(publicKey.id),
             )
             .leftMap(AuthorizationRejections.SignatureCheckFailed.apply)
-
         } yield ()
 
         for {
@@ -446,7 +459,8 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
       }
 
   private def renderAuthorizations[A](
-      auths: Map[A, (Boolean, Set[SigningPublicKey])]
+      auths: Map[A, (Boolean, Set[SigningPublicKey])],
+      required: Set[Fingerprint],
   ): String = {
     val authorizingKeys = auths
       .collect {
@@ -456,7 +470,12 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
       val report = authorizingKeys
         .map { case (auth, fullyAuthorized, keys) =>
           val status = if (fullyAuthorized) "fully" else "partially"
-          s"$auth $status authorized by keys ${keys.map(_.id)}"
+          val (requiredSig, permissibleSig) = keys.partition(c => required.contains(c.fingerprint))
+          val fst = s"$auth $status authorized by keys ${requiredSig.map(c => c.id).mkString(", ")}"
+          if (permissibleSig.nonEmpty)
+            fst + s" (and permissible keys ${permissibleSig.map(c => c.id).mkString(", ")})"
+          else
+            fst
         }
         .mkString("\n    ")
       "\n    " + report

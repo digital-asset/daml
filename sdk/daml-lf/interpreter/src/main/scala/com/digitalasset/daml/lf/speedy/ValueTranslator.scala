@@ -81,15 +81,6 @@ private[lf] final class ValueTranslator(
               throw TranslationFailed.LookupError(err)
           }
 
-        def checkUserTypeId(targetType: Ref.TypeConId, mbSourceType: Option[Ref.TypeConId]): Unit =
-          mbSourceType.foreach(sourceType =>
-            // In case of upgrade we simply ignore the package ID.
-            if (targetType.qualifiedName != sourceType.qualifiedName)
-              typeError(
-                s"Mismatching variant id, the type tells us ${targetType.qualifiedName}, but the value tells us ${sourceType.qualifiedName}"
-              )
-          )
-
         (destruct(ty0), value0) match {
           case (UnitF, ValueUnit) =>
             SValue.SUnit
@@ -168,7 +159,8 @@ private[lf] final class ValueTranslator(
                 vF @ VariantF(tyCon, _, _, consTyp),
                 ValueVariant(mbId, constructorName, val0),
               ) =>
-            checkUserTypeId(tyCon, mbId)
+            if (mbId.isDefined)
+              invalidValueError(s"Unexpected type id ${mbId.get} in variant value.")
             val i = handleLookup(vF.consRank(constructorName))
             SValue.SVariant(
               tyCon,
@@ -183,7 +175,7 @@ private[lf] final class ValueTranslator(
               ) =>
             // Fail if the record ID or any label is present in the record value.
             if (mbId.isDefined)
-              invalidValueError(s"Unexpected type id ${mbId} in record value.")
+              invalidValueError(s"Unexpected type id ${mbId.get} in record value.")
             sourceElements.foreach { case (mbLabel, _) =>
               mbLabel.foreach(label =>
                 invalidValueError(s"Unexpected label ${label} in record value.")
@@ -245,7 +237,8 @@ private[lf] final class ValueTranslator(
 
             SValue.SRecord(tyCon, fieldNames.to(ImmArray), values)
           case (eF @ EnumF(tyCon, _, _), ValueEnum(mbId, constructor)) =>
-            checkUserTypeId(tyCon, mbId)
+            if (mbId.isDefined)
+              invalidValueError(s"Unexpected type id ${mbId.get} in enum value.")
             val rank = handleLookup(eF.consRank(constructor))
             SValue.SEnum(tyCon, constructor, rank)
           case _ =>

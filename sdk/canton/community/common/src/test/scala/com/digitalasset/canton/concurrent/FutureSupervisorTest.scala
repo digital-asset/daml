@@ -233,10 +233,12 @@ class FutureSupervisorImplTest extends FutureSupervisorTest {
     }
 
     "supervision is not starved" in {
-      val supervisor =
-        new FutureSupervisor.Impl(config.NonNegativeDuration.ofMillis(100), loggerFactory)(
-          scheduledExecutor()
-        )
+      // A rather generous limit of 1s to avoid flaky warnings due to GC interference.
+      // This test is about starving the supervision, so the warnings are not the main point.
+      // Yet, we do not completely disable them because warnings indicate a long-running
+      // future supervision scheduling problem.
+      val warnLimit = config.NonNegativeDuration.ofSeconds(1)
+      val supervisor = new FutureSupervisor.Impl(warnLimit, loggerFactory)(scheduledExecutor())
 
       val baseLoad = 100000
 

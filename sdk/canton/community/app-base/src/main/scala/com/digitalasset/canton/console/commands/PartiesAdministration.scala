@@ -934,7 +934,7 @@ class ParticipantPartiesAdministrationGroup(
       endOffsetInclusive: Option[Long] = None,
       completeAfter: PositiveInt = PositiveInt.MaxValue,
       timeout: NonNegativeDuration = timeouts.bounded,
-  ): NonNegativeLong = {
+  ): Long = {
     val filter = TopologyTxFiltering.getTopologyFilter(
       partyId,
       participantId,
@@ -999,7 +999,7 @@ class ParticipantPartiesAdministrationGroup(
       endOffsetInclusive: Option[Long] = None,
       completeAfter: PositiveInt = PositiveInt.MaxValue,
       timeout: NonNegativeDuration = timeouts.bounded,
-  ): NonNegativeLong = {
+  ): Long = {
     val filter = TopologyTxFiltering.getTopologyFilter(
       partyId,
       participantId,
@@ -1025,7 +1025,7 @@ class ParticipantPartiesAdministrationGroup(
       completeAfter: PositiveInt,
       timeout: NonNegativeDuration,
       filter: UpdateWrapper => Boolean,
-  ): NonNegativeLong = {
+  ): Long = {
     val topologyTransactions: Seq[com.daml.ledger.api.v2.topology_transaction.TopologyTransaction] =
       reference.ledger_api.updates
         .topology_transactions(
@@ -1040,7 +1040,6 @@ class ParticipantPartiesAdministrationGroup(
 
     topologyTransactions
       .map(_.offset)
-      .map(NonNegativeLong.tryCreate)
       .lastOption
       .getOrElse(
         consoleEnvironment.raiseError(
@@ -1080,7 +1079,7 @@ class ParticipantPartiesAdministrationGroup(
       synchronizerId: SynchronizerId,
       timestamp: Instant,
       force: Boolean = false,
-  ): NonNegativeLong = consoleEnvironment.run {
+  ): Long = consoleEnvironment.run {
     reference.adminCommand(
       ParticipantAdminCommands.PartyManagement
         .GetHighestOffsetByTimestamp(synchronizerId, timestamp, force)
@@ -1143,7 +1142,7 @@ class ParticipantPartiesAdministrationGroup(
             party,
             synchronizerId,
             targetParticipantId,
-            NonNegativeLong.tryCreate(beginOffsetExclusive),
+            beginOffsetExclusive,
             waitForActivationTimeout,
             responseObserver,
           )

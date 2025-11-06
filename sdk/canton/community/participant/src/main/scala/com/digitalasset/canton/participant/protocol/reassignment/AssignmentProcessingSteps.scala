@@ -265,7 +265,7 @@ private[reassignment] class AssignmentProcessingSteps(
   }
 
   override def createSubmissionResult(
-      deliver: Deliver[Envelope[_]],
+      deliver: Deliver[Envelope[?]],
       pendingSubmission: PendingSubmissionData,
   ): SubmissionResult =
     SubmissionResult(pendingSubmission.value.reassignmentCompletion.future)

@@ -33,12 +33,7 @@ import com.digitalasset.canton.config.{
   TestingConfigInternal,
 }
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.data.{
-  AcsCommitmentData,
-  BufferedAcsCommitment,
-  CantonTimestamp,
-  CantonTimestampSecond,
-}
+import com.digitalasset.canton.data.{AcsCommitmentData, CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.AcsCommitmentErrorGroup
 import com.digitalasset.canton.error.{CantonError, ContextualizedCantonError}
@@ -57,7 +52,6 @@ import com.digitalasset.canton.participant.metrics.CommitmentMetrics
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.Errors.DegradationError
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.Errors.MismatchError.AcsCommitmentAlarm
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.PublishTickData.PersistRunningCommitmentsAtUpgradeTime
-import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.RunningCommitments
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.ContractIdSyntax.*
@@ -706,6 +700,32 @@ class AcsCommitmentProcessor private (
     ): FutureUnlessShutdown[Unit] = {
       for {
         config <- catchUpConfig(completedPeriod.toInclusive.forgetRefinement)
+        // We update `catchUpTimestamp` only if the future computing `computedNewCatchUpTimestamp` has returned by
+        // this point. If `catchUpToTimestamp` is greater or equal to the participant's end of period, then the
+        // participant enters catch up mode up to `catchUpTimestamp`.
+        // Important: `catchUpToTimestamp` is not updated concurrently, because the code below runs
+        // sequentially on the `publishQueue`. Moreover, the `publishQueue` inserts `periodEnd`
+        // sequentially in the order of the timestamps, which is the key to ensuring that the catch-up timestamp
+        // grows monotonically and that catch-ups are towards the future.
+        _ = if (config.exists(_.isCatchUpEnabled())) {
+          computingCatchUpTimestamp.unwrap.value.foreach { v =>
+            v.fold(
+              exc => logger.error(s"Error when computing the catch up timestamp", exc),
+              {
+                case Outcome(res) => res.foreach(ts => catchUpToTimestamp = ts)
+                case AbortedDueToShutdown =>
+                  logger.debug(
+                    "Could not compute catch up timestamp because shutting down"
+                  )
+              },
+            )
+            computingCatchUpTimestamp = computeCatchUpTimestamp(
+              completedPeriod.toInclusive.forgetRefinement,
+              config,
+            )
+          }
+        }
+
         _ = initLastCommitmentsComputeTimes(config)
 
         // Evaluate in the beginning the catch-up conditions for simplicity
@@ -875,7 +895,7 @@ class AcsCommitmentProcessor private (
 
     def checkpoint(
         completedPeriod: Option[CommitmentPeriod],
-        snapshot: CommitmentSnapshot,
+        runningCommitments: RunningCommitments,
     ) =
       for {
         // store running commitments for checkpointing
@@ -894,6 +914,8 @@ class AcsCommitmentProcessor private (
                 commitmentCheckpointInterval.duration.toSeconds,
               )
             )
+            // snapshot still needs to run on the publish queue, so it needs to be taken here, not lower
+            val snapshot = runningCommitments.snapshot(gc = false)
             val res = checkpointQueue.executeUS(
               persistRunningCommitments(
                 snapshot,
@@ -907,6 +929,8 @@ class AcsCommitmentProcessor private (
         // always checkpoint when we complete a period
         _ <- completedPeriod match {
           case Some(period) =>
+            // snapshot still needs to run on the publish queue, so it needs to be taken here, not lower
+            val snapshot = runningCommitments.snapshot(gc = false)
             val res = checkpointQueue.executeUS(
               persistRunningCommitments(
                 snapshot,
@@ -960,34 +984,8 @@ class AcsCommitmentProcessor private (
                     // checkpoint if needed
                     _ <- checkpoint(
                       completedPeriod,
-                      runningCommitments.snapshot(gc = false),
+                      runningCommitments,
                     )
-                    config <- catchUpConfig(crtPeriodEnd.forgetRefinement)
-                    // We update `catchUpTimestamp` only if the future computing `computedNewCatchUpTimestamp` has returned by
-                    // this point. If `catchUpToTimestamp` is greater or equal to the participant's end of period, then the
-                    // participant enters catch up mode up to `catchUpTimestamp`.
-                    // Important: `catchUpToTimestamp` is not updated concurrently, because the code below runs
-                    // sequentially on the `publishQueue`. Moreover, the `publishQueue` inserts `periodEnd`
-                    // sequentially in the order of the timestamps, which is the key to ensuring that the catch-up timestamp
-                    // grows monotonically and that catch-ups are towards the future.
-                    _ = if (config.exists(_.isCatchUpEnabled())) {
-                      computingCatchUpTimestamp.unwrap.value.foreach { v =>
-                        v.fold(
-                          exc => logger.error(s"Error when computing the catch up timestamp", exc),
-                          {
-                            case Outcome(res) => res.foreach(ts => catchUpToTimestamp = ts)
-                            case AbortedDueToShutdown =>
-                              logger.debug(
-                                "Could not compute catch up timestamp because shutting down"
-                              )
-                          },
-                        )
-                        computingCatchUpTimestamp = computeCatchUpTimestamp(
-                          crtPeriodEnd.forgetRefinement,
-                          config,
-                        )
-                      }
-                    }
 
                     res <- completedPeriod match {
                       case Some(commitmentPeriod) =>
@@ -1804,11 +1802,11 @@ class AcsCommitmentProcessor private (
 
         // if we already saw commitments from a counter-participant at the time we'd need to catch up to, then
         // we can be in a situation where we need to catch up
-        comm <- catchUpTimestamp.fold(FutureUnlessShutdown.pure(Seq.empty[BufferedAcsCommitment]))(
-          ts => store.queue.peekThroughAtOrAfter(ts)
-        )
+        commNonEmpty <- catchUpTimestamp.fold(
+          FutureUnlessShutdown.pure(false)
+        )(ts => store.queue.nonEmptyAtOrAfter(ts))
       } yield {
-        if (comm.nonEmpty) {
+        if (commNonEmpty) {
           // It seems we might need to catch up, but only if the participant was actually lagging behind, i.e.,
           // it was supposed to compute commitments at the time when the counter-participant computed commitments.
           // This is not the case when the counter-participant sends a commitment because of activity on
@@ -2505,197 +2503,6 @@ object AcsCommitmentProcessor extends HasLoggerName {
       param("active", _.active, _.active.sizeCompare(20) < 0),
       param("delta (parties)", _.delta.keySet, _.delta.sizeCompare(20) < 0),
       param("deleted", _.deleted, _.deleted.sizeCompare(20) < 0),
-    )
-  }
-
-  @SuppressWarnings(Array("org.wartremover.warts.Var"))
-  class RunningCommitments(
-      initRt: RecordTime,
-      commitments: TrieMap[SortedSet[LfPartyId], LtHash16],
-  ) extends HasLoggerName {
-
-    private val lock = new Object
-    @volatile private var rt: RecordTime = initRt
-    private val deltaB = Map.newBuilder[SortedSet[LfPartyId], LtHash16]
-
-    /** The latest (immutable) snapshot. Taking the snapshot also garbage collects empty
-      * commitments.
-      */
-    def snapshot(gc: Boolean = true): CommitmentSnapshot = {
-
-      /* Delete all hashes that have gone empty since the last snapshot if gc is true;
-      returns the corresponding stakeholder sets */
-      def garbageCollect(
-          candidates: Map[SortedSet[LfPartyId], LtHash16]
-      ): Set[SortedSet[LfPartyId]] = {
-        val deletedB = Set.newBuilder[SortedSet[LfPartyId]]
-        candidates.foreach { case (stkhs, h) =>
-          if (h.isEmpty) {
-            deletedB += stkhs
-            if (gc) commitments -= stkhs
-          }
-        }
-        deletedB.result()
-      }
-
-      blocking {
-        lock.synchronized {
-          val delta = deltaB.result()
-          if (gc) deltaB.clear()
-          val deleted = garbageCollect(delta)
-          val activeDelta = (delta -- deleted).fmap(_.getByteString())
-          // Note that it's crucial to eagerly (via fmap, as opposed to, say mapValues) snapshot the LtHash16 values,
-          // since they're mutable
-          CommitmentSnapshot(
-            rt,
-            commitments.readOnlySnapshot().toMap.fmap(_.getByteString()),
-            activeDelta,
-            deleted,
-          )
-        }
-      }
-    }
-
-    def update(rt: RecordTime, change: AcsChange)(implicit
-        loggingContext: NamedLoggingContext
-    ): Unit = {
-      import com.digitalasset.canton.lfPartyOrdering
-      blocking {
-        lock.synchronized {
-          this.rt = rt
-          change.activations.foreach { case (cid, stakeholdersAndReassignmentCounter) =>
-            val sortedStakeholders =
-              SortedSet(stakeholdersAndReassignmentCounter.stakeholders.toSeq*)
-            val h = commitments.getOrElseUpdate(sortedStakeholders, LtHash16())
-            AcsCommitmentProcessor.addContractToCommitmentDigest(
-              h,
-              cid,
-              stakeholdersAndReassignmentCounter.reassignmentCounter,
-            )
-            loggingContext.debug(
-              s"Adding to commitment activation cid $cid reassignmentCounter ${stakeholdersAndReassignmentCounter.reassignmentCounter}"
-            )
-            deltaB += sortedStakeholders -> h
-          }
-          change.deactivations.foreach { case (cid, stakeholdersAndReassignmentCounter) =>
-            val sortedStakeholders =
-              SortedSet(stakeholdersAndReassignmentCounter.stakeholders.toSeq*)
-            val h = commitments.getOrElseUpdate(sortedStakeholders, LtHash16())
-            AcsCommitmentProcessor.removeContractFromCommitmentDigest(
-              h,
-              cid,
-              stakeholdersAndReassignmentCounter.reassignmentCounter,
-            )
-            loggingContext.debug(
-              s"Removing from commitment deactivation cid $cid reassignmentCounter ${stakeholdersAndReassignmentCounter.reassignmentCounter}"
-            )
-            deltaB += sortedStakeholders -> h
-          }
-        }
-      }
-    }
-
-    def watermark: RecordTime = rt
-
-    def reinitialize(snapshot: Map[SortedSet[LfPartyId], CommitmentType], recordTime: RecordTime) =
-      blocking {
-        lock.synchronized {
-          // delete all active
-          deltaB.clear()
-          commitments.clear()
-          snapshot.foreach { case (stkhd, cmt) =>
-            commitments += stkhd -> LtHash16.tryCreate(cmt)
-            deltaB += stkhd -> LtHash16.tryCreate(cmt)
-          }
-          rt = recordTime
-        }
-      }
-  }
-
-  /** Caches the commitments per participant and the commitments per stakeholder group in a period,
-    * in order to optimize the computation of commitments for the subsequent period. It optimizes
-    * the computation of a counter-participant commitments when at most half of the stakeholder
-    * commitments shared with that participant change in the next period.
-    *
-    * The class is thread-safe w.r.t. calling [[setCachedCommitments]] and [[computeCmtFromCached]].
-    * However, for correct commitment computation, the caller needs to call [[setCachedCommitments]]
-    * before [[computeCmtFromCached]], because [[computeCmtFromCached]] uses the state set by
-    * [[setCachedCommitments]].
-    */
-  @SuppressWarnings(Array("org.wartremover.warts.Var"))
-  class CachedCommitments(
-      private var prevParticipantCmts: Map[ParticipantId, AcsCommitment.CommitmentType] =
-        Map.empty[ParticipantId, AcsCommitment.CommitmentType],
-      private var prevStkhdCmts: Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType] = Map
-        .empty[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
-      private var prevParticipantToStkhd: Map[ParticipantId, Set[SortedSet[LfPartyId]]] =
-        Map.empty[ParticipantId, Set[SortedSet[LfPartyId]]],
-  ) {
-    private val lock = new Object
-
-    def setCachedCommitments(
-        cmts: Map[ParticipantId, AcsCommitment.CommitmentType],
-        stkhdCmts: Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
-        participantToStkhd: Map[ParticipantId, Set[SortedSet[LfPartyId]]],
-    ): Unit =
-      blocking {
-        lock.synchronized {
-          // cache participant commitments
-          prevParticipantCmts = cmts
-          // cache stakeholder group commitments
-          prevStkhdCmts = stkhdCmts
-          prevParticipantToStkhd = participantToStkhd
-        }
-      }
-
-    def computeCmtFromCached(
-        participant: ParticipantId,
-        newStkhdCmts: Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
-    ): Option[AcsCommitment.CommitmentType] =
-      blocking {
-        lock.synchronized {
-          // a commitment is cached when we have the participant commitment, and
-          // all commitments for all its stakeholder groups are cached, and exist
-          // in the new stakeholder commitments (a delete exists as an empty commitment)
-          val commitmentIsCached =
-            prevParticipantCmts.contains(participant) &&
-              prevParticipantToStkhd
-                .get(participant)
-                .exists(set =>
-                  set.forall(stkhds =>
-                    prevStkhdCmts.contains(stkhds) && newStkhdCmts.contains(stkhds)
-                  )
-                )
-          if (commitmentIsCached) {
-            // remove from old commitment all stakeholder commitments that have changed
-            val changedKeys = newStkhdCmts.filter { case (stkhd, newCmt) =>
-              prevStkhdCmts
-                .get(stkhd)
-                .fold(false)(_ != newCmt && prevParticipantToStkhd(participant).contains(stkhd))
-            }
-            if (changedKeys.sizeIs > prevParticipantToStkhd(participant).size / 2) None
-            else {
-              val c = LtHash16.tryCreate(prevParticipantCmts(participant))
-              changedKeys.foreach { case (stkhd, cmt) =>
-                c.remove(LtHash16.tryCreate(prevStkhdCmts(stkhd)).get())
-                // if the stakeholder group is still active, add its commitment
-                if (cmt != emptyCommitment) c.add(cmt.toByteArray)
-              }
-              // add new stakeholder group commitments for groups that were not active before
-              newStkhdCmts.foreach { case (stkhds, cmt) =>
-                if (!prevParticipantToStkhd(participant).contains(stkhds) && cmt != emptyCommitment)
-                  c.add(cmt.toByteArray)
-              }
-              Some(c.getByteString())
-            }
-          } else None
-        }
-      }
-
-    def clear(): Unit = setCachedCommitments(
-      Map.empty[ParticipantId, AcsCommitment.CommitmentType],
-      Map.empty[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
-      Map.empty[ParticipantId, Set[SortedSet[LfPartyId]]],
     )
   }
 

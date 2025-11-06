@@ -21,7 +21,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/SubmitAndWaitResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -53,7 +53,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/JsSubmitAndWaitForTransactionResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -86,7 +86,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/JsSubmitAndWaitForReassignmentResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -120,7 +120,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/JsSubmitAndWaitForTransactionTreeResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -153,7 +153,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/SubmitResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -185,7 +185,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/SubmitReassignmentResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -242,9 +242,8 @@ paths:
                 items:
                   $ref: '#/components/schemas/CompletionStreamResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: query parameter
-            limit, Invalid value for: query parameter stream_idle_timeout_ms, Invalid
-            value for: headers'
+          description: 'Invalid value, Invalid value for: body, Invalid value for:
+            query parameter limit, Invalid value for: query parameter stream_idle_timeout_ms'
           content:
             text/plain:
               schema:
@@ -276,7 +275,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/JsGetEventsByContractIdResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -302,7 +301,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/GetLedgerApiVersionResponse'
         '400':
-          description: 'Invalid value for: headers'
+          description: Invalid value
           content:
             text/plain:
               schema:
@@ -338,8 +337,8 @@ paths:
         '200':
           description: ''
         '400':
-          description: 'Invalid value for: body, Invalid value for: query parameter
-            synchronizerId, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body, Invalid value for:
+            query parameter synchronizerId'
           content:
             text/plain:
               schema:
@@ -383,9 +382,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/UploadDarFileResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: query parameter
-            vetAllPackages, Invalid value for: query parameter synchronizerId, Invalid
-            value for: headers'
+          description: 'Invalid value, Invalid value for: body, Invalid value for:
+            query parameter vetAllPackages, Invalid value for: query parameter synchronizerId'
           content:
             text/plain:
               schema:
@@ -411,7 +409,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ListPackagesResponse'
         '400':
-          description: 'Invalid value for: headers'
+          description: Invalid value
           content:
             text/plain:
               schema:
@@ -455,9 +453,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/UploadDarFileResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: query parameter
-            vetAllPackages, Invalid value for: query parameter synchronizerId, Invalid
-            value for: headers'
+          description: 'Invalid value, Invalid value for: body, Invalid value for:
+            query parameter vetAllPackages, Invalid value for: query parameter synchronizerId'
           content:
             text/plain:
               schema:
@@ -495,7 +492,7 @@ paths:
                 type: string
                 format: binary
         '400':
-          description: 'Invalid value for: headers'
+          description: Invalid value
           content:
             text/plain:
               schema:
@@ -527,7 +524,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/GetPackageStatusResponse'
         '400':
-          description: 'Invalid value for: headers'
+          description: Invalid value
           content:
             text/plain:
               schema:
@@ -559,7 +556,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ListVettedPackagesResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -590,7 +587,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/UpdateVettedPackagesResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -632,8 +629,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/ListKnownPartiesResponse'
         '400':
-          description: 'Invalid value for: query parameter pageSize, Invalid value
-            for: query parameter pageToken, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: query parameter pageSize,
+            Invalid value for: query parameter pageToken'
           content:
             text/plain:
               schema:
@@ -664,7 +661,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/AllocatePartyResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -696,7 +693,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/AllocateExternalPartyResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -722,7 +719,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/GetParticipantIdResponse'
         '400':
-          description: 'Invalid value for: headers'
+          description: Invalid value
           content:
             text/plain:
               schema:
@@ -766,8 +763,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/GetPartiesResponse'
         '400':
-          description: 'Invalid value for: query parameter identity-provider-id, Invalid
-            value for: query parameter parties, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: query parameter identity-provider-id,
+            Invalid value for: query parameter parties'
           content:
             text/plain:
               schema:
@@ -804,7 +801,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/UpdatePartyDetailsResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -836,7 +833,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/GenerateExternalPartyTopologyResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -898,9 +895,8 @@ paths:
                 items:
                   $ref: '#/components/schemas/JsGetActiveContractsResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: query parameter
-            limit, Invalid value for: query parameter stream_idle_timeout_ms, Invalid
-            value for: headers'
+          description: 'Invalid value, Invalid value for: body, Invalid value for:
+            query parameter limit, Invalid value for: query parameter stream_idle_timeout_ms'
           content:
             text/plain:
               schema:
@@ -942,9 +938,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/GetConnectedSynchronizersResponse'
         '400':
-          description: 'Invalid value for: query parameter party, Invalid value for:
-            query parameter participantId, Invalid value for: query parameter identityProviderId,
-            Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: query parameter party, Invalid
+            value for: query parameter participantId, Invalid value for: query parameter
+            identityProviderId'
           content:
             text/plain:
               schema:
@@ -970,7 +966,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/GetLedgerEndResponse'
         '400':
-          description: 'Invalid value for: headers'
+          description: Invalid value
           content:
             text/plain:
               schema:
@@ -996,7 +992,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/GetLatestPrunedOffsetsResponse'
         '400':
-          description: 'Invalid value for: headers'
+          description: Invalid value
           content:
             text/plain:
               schema:
@@ -1053,9 +1049,8 @@ paths:
                 items:
                   $ref: '#/components/schemas/JsGetUpdatesResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: query parameter
-            limit, Invalid value for: query parameter stream_idle_timeout_ms, Invalid
-            value for: headers'
+          description: 'Invalid value, Invalid value for: body, Invalid value for:
+            query parameter limit, Invalid value for: query parameter stream_idle_timeout_ms'
           content:
             text/plain:
               schema:
@@ -1112,9 +1107,8 @@ paths:
                 items:
                   $ref: '#/components/schemas/JsGetUpdatesResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: query parameter
-            limit, Invalid value for: query parameter stream_idle_timeout_ms, Invalid
-            value for: headers'
+          description: 'Invalid value, Invalid value for: body, Invalid value for:
+            query parameter limit, Invalid value for: query parameter stream_idle_timeout_ms'
           content:
             text/plain:
               schema:
@@ -1172,9 +1166,8 @@ paths:
                 items:
                   $ref: '#/components/schemas/JsGetUpdateTreesResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: query parameter
-            limit, Invalid value for: query parameter stream_idle_timeout_ms, Invalid
-            value for: headers'
+          description: 'Invalid value, Invalid value for: body, Invalid value for:
+            query parameter limit, Invalid value for: query parameter stream_idle_timeout_ms'
           content:
             text/plain:
               schema:
@@ -1217,8 +1210,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/JsGetTransactionTreeResponse'
         '400':
-          description: 'Invalid value for: path parameter offset, Invalid value for:
-            query parameter parties, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: path parameter offset, Invalid
+            value for: query parameter parties'
           content:
             text/plain:
               schema:
@@ -1253,7 +1246,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/JsGetTransactionResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -1286,7 +1279,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/JsGetUpdateResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -1319,7 +1312,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/JsGetTransactionResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -1352,7 +1345,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/JsGetUpdateResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -1393,8 +1386,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/JsGetTransactionTreeResponse'
         '400':
-          description: 'Invalid value for: query parameter parties, Invalid value
-            for: headers'
+          description: 'Invalid value, Invalid value for: query parameter parties'
           content:
             text/plain:
               schema:
@@ -1437,8 +1429,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/ListUsersResponse'
         '400':
-          description: 'Invalid value for: query parameter pageSize, Invalid value
-            for: query parameter pageToken, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: query parameter pageSize,
+            Invalid value for: query parameter pageToken'
           content:
             text/plain:
               schema:
@@ -1469,7 +1461,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CreateUserResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -1506,8 +1498,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/GetUserResponse'
         '400':
-          description: 'Invalid value for: query parameter identity-provider-id, Invalid
-            value for: headers'
+          description: 'Invalid value, Invalid value for: query parameter identity-provider-id'
           content:
             text/plain:
               schema:
@@ -1538,7 +1529,7 @@ paths:
               schema:
                 type: object
         '400':
-          description: 'Invalid value for: headers'
+          description: Invalid value
           content:
             text/plain:
               schema:
@@ -1575,7 +1566,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/UpdateUserResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -1607,8 +1598,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/GetUserResponse'
         '400':
-          description: 'Invalid value for: query parameter identity-provider-id, Invalid
-            value for: headers'
+          description: 'Invalid value, Invalid value for: query parameter identity-provider-id'
           content:
             text/plain:
               schema:
@@ -1640,7 +1630,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ListUserRightsResponse'
         '400':
-          description: 'Invalid value for: headers'
+          description: Invalid value
           content:
             text/plain:
               schema:
@@ -1677,7 +1667,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/GrantUserRightsResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -1714,7 +1704,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/RevokeUserRightsResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -1752,7 +1742,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/UpdateUserIdentityProviderIdResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -1778,7 +1768,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ListIdentityProviderConfigsResponse'
         '400':
-          description: 'Invalid value for: headers'
+          description: Invalid value
           content:
             text/plain:
               schema:
@@ -1809,7 +1799,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CreateIdentityProviderConfigResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -1841,7 +1831,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/GetIdentityProviderConfigResponse'
         '400':
-          description: 'Invalid value for: headers'
+          description: Invalid value
           content:
             text/plain:
               schema:
@@ -1872,7 +1862,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DeleteIdentityProviderConfigResponse'
         '400':
-          description: 'Invalid value for: headers'
+          description: Invalid value
           content:
             text/plain:
               schema:
@@ -1909,7 +1899,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/UpdateIdentityProviderConfigResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -1941,7 +1931,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/JsPrepareSubmissionResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -1973,7 +1963,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ExecuteSubmissionResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -2005,7 +1995,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ExecuteSubmissionAndWaitResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -2037,7 +2027,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/JsExecuteSubmissionAndWaitForTransactionResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -2087,10 +2077,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/GetPreferredPackageVersionResponse'
         '400':
-          description: 'Invalid value for: query parameter parties, Invalid value
-            for: query parameter package-name, Invalid value for: query parameter
-            vetting_valid_at, Invalid value for: query parameter synchronizer-id,
-            Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: query parameter parties,
+            Invalid value for: query parameter package-name, Invalid value for: query
+            parameter vetting_valid_at, Invalid value for: query parameter synchronizer-id'
           content:
             text/plain:
               schema:
@@ -2123,7 +2112,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/GetPreferredPackagesResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:

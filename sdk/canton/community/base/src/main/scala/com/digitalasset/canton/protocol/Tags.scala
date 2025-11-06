@@ -133,28 +133,28 @@ object UpdateId {
     Hash.fromHexString(txId).map(UpdateId.apply)
 
   /** Ordering for [[UpdateId]]s based on the serialized hash */
-  implicit val orderTransactionId: Order[UpdateId] =
+  implicit val orderUpdateId: Order[UpdateId] =
     Order.by[UpdateId, ByteString](_.hash.getCryptographicEvidence)(
       ByteStringUtil.orderByteString
     )
 
-  implicit val orderingTransactionId: Ordering[UpdateId] = orderTransactionId.toOrdering
+  implicit val orderingUpdateId: Ordering[UpdateId] = orderUpdateId.toOrdering
 
-  implicit val prettyTransactionId: Pretty[UpdateId] = {
+  implicit val prettyUpdateId: Pretty[UpdateId] = {
     import Pretty.*
     prettyOfParam(_.hash)
   }
 
-  implicit val setParameterTransactionId: SetParameter[UpdateId] = (v, pp) => pp.>>(v.hash)
+  implicit val setParameterUpdateId: SetParameter[UpdateId] = (v, pp) => pp.>>(v.hash)
 
-  implicit val getResultTransactionId: GetResult[UpdateId] = GetResult { r =>
+  implicit val getResultUpdateId: GetResult[UpdateId] = GetResult { r =>
     UpdateId(r.<<)
   }
 
-  implicit val setParameterOptionTransactionId: SetParameter[Option[UpdateId]] = (v, pp) =>
+  implicit val setParameterOptionUpdateId: SetParameter[Option[UpdateId]] = (v, pp) =>
     pp.>>(v.map(_.hash))
 
-  implicit val getResultOptionTransactionId: GetResult[Option[UpdateId]] = GetResult { r =>
+  implicit val getResultOptionUpdateId: GetResult[Option[UpdateId]] = GetResult { r =>
     (r.<<[Option[Hash]]).map(UpdateId(_))
   }
 }

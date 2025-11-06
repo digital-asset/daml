@@ -89,8 +89,6 @@
   type: jar-scala
 - target: //libs-scala/build-info:build-info
   type: jar-scala
-- target: //libs-scala/caching:caching
-  type: jar-scala
 - target: //libs-scala/concurrent:concurrent
   type: jar-scala
 - target: //libs-scala/contextualized-logging:contextualized-logging

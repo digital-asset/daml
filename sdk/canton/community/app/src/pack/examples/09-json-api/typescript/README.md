@@ -47,6 +47,31 @@ To run the project, follow these steps in two separate terminal windows:
    ```
    Runs an example scenario.
 
+### Step 3: Execute the TypeScript WebSocket Client
+
+1. Open the second terminal window.
+2. Execute the following commands in sequence:
+   ```sh
+   npm install
+   ```
+   Installs the necessary dependencies.
+   ```sh
+   npm run generate_daml_bindings
+   ```
+   Generates TypeScript definitions for the DAML model.
+   ```sh
+   npm run generate_api
+   ```
+   Generates TypeScript bindings for the JSON API using `openapi.yaml` and `openapi-fetch`.
+   ```sh
+   npm run compile
+   ```
+   Compiles the TypeScript code.
+   ```sh
+   npm run scenario_websocket
+   ```
+   Runs an example scenario.
+
 ## Code Structure
 
 The source code for JSON API usage patterns can be found in the `src` folder. Review these files to understand the interaction with the Ledger API.

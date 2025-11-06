@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.networking.grpc
 
-import com.daml.metrics.grpc.GrpcServerMetrics
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.auth.CantonAdminTokenDispenser
 import com.digitalasset.canton.config.*
@@ -11,7 +10,8 @@ import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.TlsServerConfig.logTlsProtocolsAndCipherSuites
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.networking.grpc.ratelimiting.StreamCounterCheck
+import com.digitalasset.canton.metrics.ActiveRequestsMetrics.GrpcServerMetricsX
+import com.digitalasset.canton.networking.grpc.ratelimiting.ActiveRequestCounterInterceptor
 import com.digitalasset.canton.tracing.TracingConfig
 import com.google.common.annotations.VisibleForTesting
 import io.grpc.*
@@ -54,7 +54,7 @@ trait CantonMutableHandlerRegistry extends AutoCloseable {
   def removeServiceU(service: ServerServiceDefinition): Unit = removeService(service).discard
 
   @VisibleForTesting
-  def streamCounterCheck: Option[StreamCounterCheck]
+  def activeRequestCounter: Option[ActiveRequestCounterInterceptor]
 
 }
 
@@ -64,7 +64,7 @@ object CantonServerBuilder {
     * configuration this is intentionally private.
     */
   private class BaseBuilder(
-      serverBuilder: ServerBuilder[_ <: ServerBuilder[?]],
+      serverBuilder: ServerBuilder[? <: ServerBuilder[?]],
       interceptors: CantonServerInterceptors,
   ) extends CantonServerBuilder {
 
@@ -100,8 +100,8 @@ object CantonServerBuilder {
               .discard[Boolean]
           }
 
-        override def streamCounterCheck: Option[StreamCounterCheck] =
-          interceptors.streamCounterCheck
+        override def activeRequestCounter: Option[ActiveRequestCounterInterceptor] =
+          interceptors.activeRequestCounter
 
       }
 
@@ -158,7 +158,7 @@ object CantonServerBuilder {
       loggerFactory: NamedLoggerFactory,
       apiLoggingConfig: ApiLoggingConfig,
       tracing: TracingConfig,
-      grpcMetrics: GrpcServerMetrics,
+      grpcMetrics: GrpcServerMetricsX,
       telemetry: Telemetry,
       additionalInterceptors: Seq[ServerInterceptor] = Seq.empty,
   ): CantonServerBuilder = {
@@ -178,6 +178,7 @@ object CantonServerBuilder {
     new BaseBuilder(
       reifyBuilder(configureKeepAlive(config.keepAliveServer, builderWithSsl)),
       config.instantiateServerInterceptors(
+        config.name,
         tracing,
         apiLoggingConfig,
         loggerFactory,
@@ -189,7 +190,7 @@ object CantonServerBuilder {
         config.jwksCacheConfig,
         telemetry,
         additionalInterceptors,
-        config.stream,
+        config.limits,
       ),
     )
   }
@@ -223,6 +224,6 @@ object CantonServerBuilder {
     * isolates the usage of `asInstanceOf` to only here.
     */
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
-  private def reifyBuilder(builder: ServerBuilder[?]): ServerBuilder[_ <: ServerBuilder[?]] =
-    builder.asInstanceOf[ServerBuilder[_ <: ServerBuilder[?]]]
+  private def reifyBuilder(builder: ServerBuilder[?]): ServerBuilder[? <: ServerBuilder[?]] =
+    builder.asInstanceOf[ServerBuilder[? <: ServerBuilder[?]]]
 }

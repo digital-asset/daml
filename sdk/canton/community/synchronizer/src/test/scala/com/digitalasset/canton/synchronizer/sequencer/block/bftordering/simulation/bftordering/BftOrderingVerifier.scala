@@ -20,7 +20,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   SimulationVerifier,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.data.StorageHelpers
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import org.scalatest.matchers.should.Matchers
 
 import scala.collection.mutable
@@ -30,7 +30,7 @@ import scala.jdk.DurationConverters.ScalaDurationOps
 import BftOrderingVerifier.{LivenessState, OffboardingStatus}
 
 final class BftOrderingVerifier(
-    queue: mutable.Queue[(BftNodeId, BlockFormat.Block)],
+    queue: mutable.Queue[(BftNodeId, Traced[BlockFormat.Block])],
     stores: Map[BftNodeId, OutputMetadataStore[SimulationEnv]],
     onboardingTimes: Map[BftNodeId, TopologyActivationTime],
     offboardingTimes: Map[BftNodeId, CantonTimestamp],
@@ -209,12 +209,14 @@ final class BftOrderingVerifier(
   private def checkStores(): Unit = {
     implicit val traceContext: TraceContext = TraceContext.empty
     queue.foreach { case (sequencer, block) =>
-      logger.debug(s"Simulation verifier: got block ${block.blockHeight} from sequencer $sequencer")
+      logger.debug(
+        s"Simulation verifier: got block ${block.value.blockHeight} from sequencer $sequencer"
+      )
       val peanoQueue = peanoQueues.getOrElse(
         sequencer,
         throw new RuntimeException(s"Sequencer $sequencer not onboarded"),
       )
-      peanoQueue.insert(BlockNumber(block.blockHeight), block)
+      peanoQueue.insert(BlockNumber(block.value.blockHeight), block.value)
       val newBlocks = peanoQueue.pollAvailable()
       newBlocks.foreach { blockToInsert =>
         logger.debug(

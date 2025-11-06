@@ -110,7 +110,7 @@ class DecodeV2Spec
       exprTable,
       None,
       Some(dummyModuleName),
-      onlySchema = false,
+      schemaMode = false,
       None,
       Left("package made in com.digitalasset.daml.lf.archive.DecodeV2Spec"),
     )

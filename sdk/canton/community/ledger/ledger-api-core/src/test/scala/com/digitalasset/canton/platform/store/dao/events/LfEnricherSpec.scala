@@ -3,9 +3,12 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
-import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.examples.java.trailingnone.TrailingNone
+import com.digitalasset.canton.logging.LoggingContextWithTrace
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader
 import com.digitalasset.canton.util.TestEngine
+import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{ValueParty, ValueRecord}
@@ -13,15 +16,28 @@ import org.scalatest.Assertion
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.util.Optional
+import scala.concurrent.{ExecutionContext, Future}
 
-class LfEnricherSpec extends AnyWordSpec with BaseTest {
+class LfEnricherSpec extends AnyWordSpec with HasExecutionContext with BaseTest {
+
+  private implicit val ec: ExecutionContext = executorService
+  private implicit val lc: LoggingContextWithTrace = LoggingContextWithTrace.ForTesting
 
   "LfEnricher" should {
 
     "remove trailing None fields when enriching values" in {
 
       val testEngine = new TestEngine(Seq(CantonExamplesPath))
-      val underTest = LfEnricher(testEngine.engine, forbidLocalContractIds = false)
+      val underTest = LfEnricher(
+        engine = testEngine.engine,
+        forbidLocalContractIds = false,
+        metrics = LedgerApiServerMetrics.ForTesting,
+        packageLoader = new DeduplicatingPackageLoader(),
+        loadPackage = (
+            packageId,
+            _,
+        ) => Future.successful(testEngine.packageStore.getArchive(packageId)),
+      )
 
       val alice = "alice"
       val command = new TrailingNone(alice, Optional.empty()).create.commands.loneElement
@@ -46,20 +62,9 @@ class LfEnricherSpec extends AnyWordSpec with BaseTest {
           case other => fail(s"Expected enriched contract, got: $other")
         }
 
-      // Enrich contract instance
-      val enrichedTx = testEngine.consume(underTest.enrichVersionedTransaction(tx))
-      checkNoTrailingNoneFields(enrichedTx.nodes.values.collect { case e: Node.Create =>
-        e.arg
-      }.loneElement)
-
-      // Enrich contract instance
-      checkNoTrailingNoneFields(
-        testEngine.consume(underTest.enrichContractInstance(inst)).createArg
-      )
-
       // Enrich contract value
       checkNoTrailingNoneFields(
-        testEngine.consume(underTest.enrichContractValue(inst.templateId, inst.createArg))
+        underTest.enrichContractValue(inst.templateId, inst.createArg)(using ec, lc).futureValue
       )
 
     }

@@ -6,7 +6,7 @@ package com.digitalasset.canton.integration.tests.security.kms
 import better.files.File
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{KeyPurpose, SigningPublicKeyWithName}
 import com.digitalasset.canton.integration.bootstrap.InitializedSynchronizer
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
@@ -196,7 +196,7 @@ trait KmsMigrationIntegrationTest
     File.usingTemporaryFile("participantOld-acs", suffix = ".txt") { acsFile =>
       val acsFileName = acsFile.toString
 
-      val ledgerEnd = NonNegativeLong.tryCreate(participantOld.ledger_api.state.end())
+      val ledgerEnd = participantOld.ledger_api.state.end()
 
       // Export from old participant
       participantOld.repair.export_acs(

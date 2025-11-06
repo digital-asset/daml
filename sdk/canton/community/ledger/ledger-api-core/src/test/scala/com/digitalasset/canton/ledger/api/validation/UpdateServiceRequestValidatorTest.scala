@@ -134,7 +134,7 @@ class UpdateServiceRequestValidatorTest
       ),
     )
 
-  private val txByIdReq =
+  private val updateByIdReq =
     GetUpdateByIdRequest(
       updateId = updateId.toHexString,
       updateFormat = Some(
@@ -550,9 +550,10 @@ class UpdateServiceRequestValidatorTest
 
     "validating transaction by id requests" should {
 
-      "fail on empty transactionId" in {
+      "fail on empty updateId" in {
         requestMustFailWith(
-          request = UpdateServiceRequestValidator.validateUpdateById(txByIdReq.withUpdateId("")),
+          request =
+            UpdateServiceRequestValidator.validateUpdateById(updateByIdReq.withUpdateId("")),
           code = INVALID_ARGUMENT,
           description =
             "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: update_id",
@@ -563,7 +564,7 @@ class UpdateServiceRequestValidatorTest
       "fail on empty update format" in {
         requestMustFailWith(
           request = UpdateServiceRequestValidator.validateUpdateById(
-            txByIdReq.clearUpdateFormat
+            updateByIdReq.clearUpdateFormat
           ),
           code = INVALID_ARGUMENT,
           description =

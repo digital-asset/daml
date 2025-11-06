@@ -7,8 +7,11 @@ import cats.syntax.option.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.{String255, String300}
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.crypto.topology.TopologyStateHash
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.logging.SuppressionRule.LevelAndAbove
+import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.processing.{
   EffectiveTime,
   InitialTopologySnapshotValidator,
@@ -16,21 +19,17 @@ import com.digitalasset.canton.topology.processing.{
 }
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.PositiveStoredTopologyTransactions
 import com.digitalasset.canton.topology.store.TopologyStore.EffectiveStateChange
+import com.digitalasset.canton.topology.store.db.DbTopologyStore
+import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyMapping.Code
-import com.digitalasset.canton.topology.transaction.{TopologyMapping, *}
-import com.digitalasset.canton.topology.{
-  DefaultTestIdentities,
-  ParticipantId,
-  PartyId,
-  PhysicalSynchronizerId,
-}
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{FailOnShutdown, HasActorSystem}
 import org.apache.pekko.stream.scaladsl.Sink
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
+import org.slf4j.event.Level
 
 trait TopologyStoreTest
     extends AsyncWordSpec
@@ -278,8 +277,18 @@ trait TopologyStoreTest
         )
         for {
           _ <- update(store, ts1, add = Seq(ptp1))
-          _ <- update(store, ts2, add = Seq(ptp2), removeTxs = Set(ptp1.transaction.hash))
-          _ <- update(store, ts3, add = Seq(ptp3), removeTxs = Set(ptp2.transaction.hash))
+          _ <- update(
+            store,
+            ts2,
+            add = Seq(ptp2),
+            removals = Map(ptp1.mapping.uniqueKey -> (None, Set(ptp1.transaction.hash))),
+          )
+          _ <- update(
+            store,
+            ts3,
+            add = Seq(ptp3),
+            removals = Map(ptp2.mapping.uniqueKey -> (None, Set(ptp2.transaction.hash))),
+          )
           snapshot1 <- inspect(store, TimeQuery.Snapshot(ts1.immediateSuccessor))
           snapshot2 <- inspect(store, TimeQuery.Snapshot(ts2.immediateSuccessor))
           snapshot3 <- inspect(store, TimeQuery.Snapshot(ts3.immediateSuccessor))
@@ -297,8 +306,7 @@ trait TopologyStoreTest
             _ <- store.update(
               SequencedTime(ts1),
               EffectiveTime(ts1),
-              removeMapping = Map(),
-              removeTxs = Set(),
+              removals = Map(),
               additions = Seq(
                 ValidatedTopologyTransaction(dop_synchronizer1_proposal, expireImmediately = true),
                 ValidatedTopologyTransaction(
@@ -344,9 +352,9 @@ trait TopologyStoreTest
               store.update(
                 SequencedTime(ts),
                 EffectiveTime(ts),
-                removeMapping =
-                  Map(dop_synchronizer1.mapping.uniqueKey -> dop_synchronizer1.serial),
-                removeTxs = Set(),
+                removals = Map(
+                  dop_synchronizer1.mapping.uniqueKey -> (Some(dop_synchronizer1.serial), Set.empty)
+                ),
                 additions = Seq(tx),
               )
             }
@@ -383,22 +391,25 @@ trait TopologyStoreTest
               store,
               ts6,
               add = Seq(mds_med1_synchronizer1, dtc_p2_synchronizer1),
-              removeMapping =
-                Map(dtc_p2_synchronizer1.mapping.uniqueKey -> dtc_p2_synchronizer1.serial),
+              removals = Map(
+                dtc_p2_synchronizer1.mapping.uniqueKey -> (dtc_p2_synchronizer1.serial.some, Set.empty)
+              ),
             )
             _ <- update(
               store,
               ts7,
               add = Seq(mds_med1_synchronizer1, sds_seq1_synchronizer1),
-              removeMapping =
-                Map(mds_med1_synchronizer1.mapping.uniqueKey -> mds_med1_synchronizer1.serial),
+              removals = Map(
+                mds_med1_synchronizer1.mapping.uniqueKey -> (mds_med1_synchronizer1.serial.some, Set.empty)
+              ),
             )
             _ <- update(
               store,
               ts8,
               add = Seq(sds_seq1_synchronizer1),
-              removeMapping =
-                Map(sds_seq1_synchronizer1.mapping.uniqueKey -> sds_seq1_synchronizer1.serial),
+              removals = Map(
+                sds_seq1_synchronizer1.mapping.uniqueKey -> (sds_seq1_synchronizer1.serial.some, Set.empty)
+              ),
             )
 
             maxTs <- store.maxTimestamp(SequencedTime.MaxValue, includeRejected = true)
@@ -447,10 +458,14 @@ trait TopologyStoreTest
             _ <- update(
               store,
               ts4,
-              removeMapping = Map(nsd_p1.mapping.uniqueKey -> nsd_p1.serial),
+              removals = Map(nsd_p1.mapping.uniqueKey -> (nsd_p1.serial.some, Set.empty)),
             )
             removedByMappingHash <- store.findStored(CantonTimestamp.MaxValue, nsd_p1)
-            _ <- update(store, ts4, removeTxs = Set(otk_p1.hash))
+            _ <- update(
+              store,
+              ts4,
+              removals = Map(otk_p1.mapping.uniqueKey -> (None, Set(otk_p1.hash))),
+            )
             removedByTxHash <- store.findStored(CantonTimestamp.MaxValue, otk_p1)
 
             mdsTx <- store.findFirstMediatorStateForMediator(
@@ -745,6 +760,54 @@ trait TopologyStoreTest
           }
         }
 
+        "able to correctly hash in findEssentialStateHashAtSequencedTime" in {
+          val store = mk(synchronizer1_p1p2_physicalSynchronizerId, "case8.1")
+
+          for {
+            _ <- update(
+              store,
+              SignedTopologyTransaction.InitialTopologySequencingTime,
+              add = Seq(otk_p1, dtc_p2_synchronizer1),
+            )
+            _ <- update(store, ts1, add = Seq(mds_med1_synchronizer1))
+            initialHash <- store
+              .findEssentialStateHashAtSequencedTime(
+                asOfInclusive =
+                  SequencedTime(SignedTopologyTransaction.InitialTopologySequencingTime)
+              )
+            ts1Hash <-
+              loggerFactory.assertLogsSeq(LevelAndAbove(Level.DEBUG))(
+                store
+                  .findEssentialStateHashAtSequencedTime(
+                    asOfInclusive = SequencedTime(ts1)
+                  ),
+                logs =>
+                  store match {
+                    case _: DbTopologyStore[?] =>
+                      // Only the DB store caches the genesis hash
+                      logs.exists(
+                        _.message.contains(
+                          "Reusing existing genesis topology state hash computation"
+                        )
+                      ) shouldBe true
+                    case _ => succeed
+                  },
+              )
+          } yield {
+            val expectedInitialHash =
+              TopologyStateHash.build().add(otk_p1).add(dtc_p2_synchronizer1).finish().hash
+            val expectedTs1Hash = TopologyStateHash
+              .build()
+              .add(otk_p1)
+              .add(dtc_p2_synchronizer1)
+              .add(mds_med1_synchronizer1)
+              .finish()
+              .hash
+            initialHash shouldBe expectedInitialHash
+            ts1Hash shouldBe expectedTs1Hash
+          }
+        }
+
         "able to find positive transactions" in {
           val store = mk(synchronizer1_p1p2_physicalSynchronizerId, "case9")
 
@@ -951,8 +1014,7 @@ trait TopologyStoreTest
             _ <- store.update(
               SequencedTime(ts1),
               EffectiveTime(ts1),
-              removeMapping = Map.empty,
-              removeTxs = Set.empty,
+              removals = Map.empty,
               additions = Seq(
                 ValidatedTopologyTransaction(
                   bad_otk,
@@ -1061,8 +1123,7 @@ trait TopologyStoreTest
             _ <- store.update(
               SequencedTime(ts1),
               EffectiveTime(ts2),
-              removeMapping = Map.empty,
-              removeTxs = Set.empty,
+              removals = Map.empty,
               additions = Seq(
                 ValidatedTopologyTransaction(
                   transaction = partyToParticipant1,
@@ -1248,10 +1309,11 @@ trait TopologyStoreTest
             _ <- store.update(
               SequencedTime(ts2),
               EffectiveTime(ts3),
-              removeMapping = Map(
-                partyToParticipant2.mapping.uniqueKey -> partyToParticipant2.serial
+              removals = Map(
+                partyToParticipant2.mapping.uniqueKey -> (Some(
+                  partyToParticipant2.serial
+                ), Set.empty)
               ),
-              removeTxs = Set.empty,
               additions = Seq(
                 ValidatedTopologyTransaction(
                   transaction = partyToParticipant2transient1,
@@ -1388,10 +1450,11 @@ trait TopologyStoreTest
             _ <- store.update(
               SequencedTime(ts3),
               EffectiveTime(ts4),
-              removeMapping = Map(
-                partyToParticipant3.mapping.uniqueKey -> partyToParticipant3.serial
+              removals = Map(
+                partyToParticipant3.mapping.uniqueKey -> (Some(
+                  partyToParticipant3.serial
+                ), Set.empty)
               ),
-              removeTxs = Set.empty,
               additions = Seq(
                 ValidatedTopologyTransaction(
                   transaction = partyToParticipant3,
@@ -1553,10 +1616,11 @@ trait TopologyStoreTest
             _ <- store.update(
               SequencedTime(ts4),
               EffectiveTime(ts5),
-              removeMapping = Map(
-                partyToParticipant4.mapping.uniqueKey -> partyToParticipant4.serial
+              removals = Map(
+                partyToParticipant4.mapping.uniqueKey -> (Some(
+                  partyToParticipant4.serial
+                ), Set.empty)
               ),
-              removeTxs = Set.empty,
               additions = Seq(
                 ValidatedTopologyTransaction(
                   transaction = partyToParticipant4transient1,
@@ -1634,9 +1698,11 @@ trait TopologyStoreTest
             _ <- store.update(
               SequencedTime(ts5),
               EffectiveTime(ts6),
-              removeMapping =
-                Map(partyToParticipant5.mapping.uniqueKey -> partyToParticipant5.serial),
-              removeTxs = Set.empty,
+              removals = Map(
+                partyToParticipant5.mapping.uniqueKey -> (Some(
+                  partyToParticipant5.serial
+                ), Set.empty)
+              ),
               additions = Seq(
                 ValidatedTopologyTransaction(
                   transaction = partyToParticipant5,
@@ -1710,6 +1776,68 @@ trait TopologyStoreTest
           } yield succeed
         }
       }
+
+      "removals" should {
+
+        "work by mapping and tx hash" in {
+          val store = mk(synchronizer1_p1p2_physicalSynchronizerId, "caseRm1")
+
+          for {
+            _ <- update(store, ts1, add = Seq(nsd_p1, nsd_p2, otk_p1, otk_p2, otk_p2_proposal))
+            _ <- update(
+              store,
+              ts2,
+              add = Seq(nsd_p3),
+              removals = Map(
+                otk_p2.mapping.uniqueKey -> (Some(otk_p2.serial), Set(otk_p2.hash)),
+                nsd_p2.mapping.uniqueKey -> (None, Set(nsd_p2.hash)),
+              ),
+            )
+            _ <- update(
+              store,
+              ts3,
+              add = Seq(),
+              removals = Map(
+                otk_p2.mapping.uniqueKey -> (None, Set(otk_p2.hash))
+              ),
+            )
+            _ <- update(
+              store,
+              ts4,
+              add = Seq(),
+              removals = Map(
+                otk_p2_proposal.mapping.uniqueKey -> (None, Set(otk_p2_proposal.hash))
+              ),
+            )
+            snapshot1 <- inspect(store, TimeQuery.Snapshot(ts1.immediateSuccessor))
+            snapshot2 <- inspect(store, TimeQuery.Snapshot(ts2.immediateSuccessor))
+            snapshot2p <- inspect(
+              store,
+              TimeQuery.Snapshot(ts2.immediateSuccessor),
+              proposals = true,
+            )
+            snapshot3p <- inspect(
+              store,
+              TimeQuery.Snapshot(ts3.immediateSuccessor),
+              proposals = true,
+            )
+            snapshot4p <- inspect(
+              store,
+              TimeQuery.Snapshot(ts4.immediateSuccessor),
+              proposals = true,
+            )
+          } yield {
+            expectTransactions(snapshot1, Seq(nsd_p1, nsd_p2, otk_p1, otk_p2))
+            expectTransactions(snapshot2, Seq(nsd_p1, otk_p1, nsd_p3))
+            expectTransactions(snapshot2p, Seq(otk_p2_proposal))
+            expectTransactions(snapshot3p, Seq(otk_p2_proposal))
+            expectTransactions(snapshot4p, Seq())
+          }
+
+        }
+
+      }
+
     }
   }
 }

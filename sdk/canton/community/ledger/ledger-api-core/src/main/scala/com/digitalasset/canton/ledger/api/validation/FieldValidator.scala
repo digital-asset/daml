@@ -236,7 +236,7 @@ object FieldValidator {
     if (s.isEmpty) Left(missingField(fieldName))
     else ContractId.fromString(s).left.map(invalidField(fieldName, _))
 
-  def requireNonEmpty[M[_] <: Iterable[_], T](
+  def requireNonEmpty[M[_] <: Iterable[?], T](
       s: M[T],
       fieldName: String,
   )(implicit

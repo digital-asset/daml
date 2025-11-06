@@ -475,7 +475,7 @@ class ConnectedSynchronizer(
         logger.info(
           s"Replaying ${changes.size} ACS changes between $fromExclusive (exclusive) and $toInclusive to the commitment processor"
         )
-        logger.debug(
+        logger.trace(
           s"Retrieved contract ID changes from changesBetween " +
             s"${contractIdChanges
                 .map { case (toc, activeContractsChange) =>
@@ -512,7 +512,6 @@ class ConnectedSynchronizer(
     }
 
     val startingPoints = ephemeral.startingPoints
-    val nextRequestCounter = startingPoints.processing.nextRequestCounter
     val nextRepairCounter = startingPoints.processing.nextRepairCounter
     val lastSequencerTimestamp = startingPoints.processing.lastSequencerTimestamp
 
@@ -537,9 +536,7 @@ class ConnectedSynchronizer(
 
       _ <- loadPendingEffectiveTimesFromTopologyStore(acsChangesReplayStartRt.timestamp)
       acsChangesToReplay <-
-        if (
-          lastSequencerTimestamp >= acsChangesReplayStartRt.timestamp && (nextRequestCounter > RequestCounter.Genesis || nextRepairCounter > RepairCounter.Genesis)
-        ) {
+        if (lastSequencerTimestamp >= acsChangesReplayStartRt.timestamp) {
           logger.info(
             s"Looking for ACS changes to replay between ${acsChangesReplayStartRt.timestamp} and $lastSequencerTimestamp"
           )
@@ -954,7 +951,7 @@ object ConnectedSynchronizer {
       override val loggerFactory: NamedLoggerFactory,
   ) extends NamedLogging {
 
-    def apply[Env <: Envelope[_]](
+    def apply[Env <: Envelope[?]](
         handler: PossiblyIgnoredApplicationHandler[Env]
     ): PossiblyIgnoredApplicationHandler[Env] = handler.replace { tracedBatch =>
       tracedBatch.withTraceContext { implicit batchTraceContext => tracedEvents =>

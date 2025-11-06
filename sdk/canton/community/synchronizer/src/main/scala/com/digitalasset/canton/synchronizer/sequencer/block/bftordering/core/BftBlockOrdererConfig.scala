@@ -8,6 +8,7 @@ import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port}
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.config.{
+  ActiveRequestLimitsConfig,
   AdminTokenConfig,
   AuthServiceConfig,
   BasicKeepAliveServerConfig,
@@ -20,7 +21,6 @@ import com.digitalasset.canton.config.{
   PemFileOrString,
   ServerConfig,
   StorageConfig,
-  StreamLimitConfig,
   TlsClientConfig,
   TlsServerConfig,
   UniformCantonConfigValidation,
@@ -90,6 +90,8 @@ final case class BftBlockOrdererConfig(
     maxBatchesPerBlockProposal: Short = DefaultMaxBatchesPerProposal,
     consensusQueueMaxSize: Int = DefaultConsensusQueueMaxSize,
     consensusQueuePerNodeQuota: Int = DefaultConsensusQueuePerNodeQuota,
+    consensusBlockCompletionTimeout: FiniteDuration = 10.seconds,
+    consensusEmptyBlockCreationTimeout: FiniteDuration = 5.seconds,
     delayedInitQueueMaxSize: Int = DefaultDelayedInitQueueMaxSize,
     epochStateTransferRetryTimeout: FiniteDuration = DefaultEpochStateTransferTimeout,
     outputFetchTimeout: FiniteDuration = DefaultOutputFetchTimeout,
@@ -209,9 +211,10 @@ object BftBlockOrdererConfig {
       tls: Option[TlsServerConfig] = None,
       override val maxInboundMessageSize: NonNegativeInt =
         ServerConfig.defaultMaxInboundMessageSize,
-      override val stream: Option[StreamLimitConfig] = None,
+      override val limits: Option[ActiveRequestLimitsConfig] = None,
   ) extends ServerConfig
       with UniformCantonConfigValidation {
+    override val name: String = "peer-to-peer"
     override val maxTokenLifetime: config.NonNegativeDuration =
       config.NonNegativeDuration(Duration.Inf)
     override val jwksCacheConfig: JwksCacheConfig = JwksCacheConfig()

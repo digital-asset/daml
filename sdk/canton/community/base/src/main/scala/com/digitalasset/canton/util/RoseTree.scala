@@ -67,7 +67,7 @@ final class RoseTree[+A] private (
     if (this eq other.asInstanceOf[Object]) true
     else
       other match {
-        case that: RoseTree[_] => that.canEqual(this) && RoseTree.equals(this, that)
+        case that: RoseTree[?] => that.canEqual(this) && RoseTree.equals(this, that)
         case _ => false
       }
 
@@ -82,7 +82,7 @@ final class RoseTree[+A] private (
     )(update = (state, child) => HashCodeState(MurmurHash3.mix(state.hash, child), state.arity + 1))
 
   @SuppressWarnings(Array("org.wartremover.warts.IsInstanceOf"))
-  override def canEqual(that: Any): Boolean = that.isInstanceOf[RoseTree[_]]
+  override def canEqual(that: Any): Boolean = that.isInstanceOf[RoseTree[?]]
 
   override def productArity: Int = 1 + children.size
   override def productElement(n: Int): Any =

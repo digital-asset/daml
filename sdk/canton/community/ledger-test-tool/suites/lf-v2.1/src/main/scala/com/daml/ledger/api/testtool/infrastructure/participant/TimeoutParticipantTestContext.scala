@@ -472,11 +472,11 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
     )
 
   override def transactionTreeById(
-      transactionId: String,
+      updateId: String,
       parties: Party*
   ): Future[Transaction] = withTimeout(
-    s"Get transaction tree by id for transaction id $transactionId and parties $parties",
-    delegate.transactionTreeById(transactionId, parties*),
+    s"Get transaction tree by id for transaction id $updateId and parties $parties",
+    delegate.transactionTreeById(updateId, parties*),
   )
 
   override def updateById(request: GetUpdateByIdRequest): Future[GetUpdateResponse] =
@@ -558,7 +558,7 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
     s"Create template for actAs $actAs and readAs $readAs",
     delegate.create(actAs, readAs, template),
   )
-  override def createAndGetTransactionId[
+  override def createAndGetUpdateId[
       TCid <: ContractId[T],
       T <: Template,
   ](
@@ -566,7 +566,7 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
       template: T,
   )(implicit companion: ContractCompanion[?, TCid, T]): Future[(String, TCid)] = withTimeout(
     s"Create and get transaction id for party $party",
-    delegate.createAndGetTransactionId(party, template),
+    delegate.createAndGetUpdateId(party, template),
   )
   override def exercise[T](
       party: Party,

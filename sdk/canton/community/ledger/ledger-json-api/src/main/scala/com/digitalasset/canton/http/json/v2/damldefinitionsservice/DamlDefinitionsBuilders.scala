@@ -177,7 +177,7 @@ object DamlDefinitionsBuilders {
       }
     }
 
-    def toChoiceSig(choiceDef: Ast.GenTemplateChoice[_]): ChoiceSig =
+    def toChoiceSig(choiceDef: Ast.GenTemplateChoice[?]): ChoiceSig =
       ChoiceSig(
         consuming = choiceDef.consuming,
         argType = toSerializableType(choiceDef.argBinder._2, List.empty),

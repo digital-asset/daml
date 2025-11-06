@@ -249,9 +249,8 @@ message VettedPackages {
 //  - adding a signing key: party namespace + all the new signing key
 //  - removing a signing key: party namespace
 //  - changing the signing key threshold: party namespace
-//  - adding a new participant: namespaces from party and the new participant
-//  - removing a participant: party namespace OR the removed participant namespace
-//  - changing a participant's hosting permission: party namespace
+//  - upgrading a participant permission or adding a new participant: namespaces from party and the participant namespace
+//  - downgrading a participant permission or removing a participant: party namespace OR the participant namespace
 //  - setting a participant's onboarding flag from false to true: party namespace
 //  - setting a participant's onboarding flag from true to false: participant namespace
 //  - the removal of a PTP must be authorized just by the party
@@ -279,7 +278,9 @@ message PartyToParticipant {
   uint32 threshold = 2;
 
   // which participants will host the party.
-  // if threshold > 1, must be Confirmation or Observation
+  // if threshold > 1, must be Confirmation or Observation.
+  // if all participants have Observation permission, the confirmation treshold is ignored, making the party
+  // a purely observing party.
   repeated HostingParticipant participants = 3;
 
   reserved 4; // was group_addressing = 4;

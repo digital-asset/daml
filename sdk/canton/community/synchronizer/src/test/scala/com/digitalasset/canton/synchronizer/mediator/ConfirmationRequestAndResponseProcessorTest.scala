@@ -300,7 +300,7 @@ class ConfirmationRequestAndResponseProcessorTest
   ): FutureUnlessShutdown[SignedProtocolMessage[ConfirmationResponses]] = {
     val confirmationResponses: ConfirmationResponses = ConfirmationResponses.tryCreate(
       requestId,
-      fullInformeeTree.transactionId.toRootHash,
+      fullInformeeTree.updateId.toRootHash,
       factory.psid,
       participant,
       responses,
@@ -326,7 +326,7 @@ class ConfirmationRequestAndResponseProcessorTest
   ): Future[SignedProtocolMessage[ConfirmationResponses]] = {
     val response = ConfirmationResponses.tryCreate(
       requestId,
-      fullInformeeTree.transactionId.toRootHash,
+      fullInformeeTree.updateId.toRootHash,
       factory.psid,
       participant,
       NonEmpty.mk(
@@ -494,7 +494,7 @@ class ConfirmationRequestAndResponseProcessorTest
           .failOnShutdown
         response = ConfirmationResponses.tryCreate(
           reqId,
-          fullInformeeTree.transactionId.toRootHash,
+          fullInformeeTree.updateId.toRootHash,
           factory.psid,
           participant,
           NonEmpty.mk(
@@ -902,7 +902,7 @@ class ConfirmationRequestAndResponseProcessorTest
       val informeeMessage =
         InformeeMessage(fullInformeeTree, sign(fullInformeeTree))(testedProtocolVersion)
       val rootHashMessage = RootHashMessage(
-        fullInformeeTree.transactionId.toRootHash,
+        fullInformeeTree.updateId.toRootHash,
         synchronizerId,
         ViewType.TransactionViewType,
         testTopologyTimestamp,
@@ -1171,7 +1171,7 @@ class ConfirmationRequestAndResponseProcessorTest
         }
 
       val rootHashMessage = RootHashMessage(
-        fullInformeeTree.transactionId.toRootHash,
+        fullInformeeTree.updateId.toRootHash,
         synchronizerId,
         ViewType.TransactionViewType,
         testTopologyTimestamp,
@@ -1289,7 +1289,7 @@ class ConfirmationRequestAndResponseProcessorTest
         }
 
       val rootHashMessage = RootHashMessage(
-        fullInformeeTree.transactionId.toRootHash,
+        fullInformeeTree.updateId.toRootHash,
         synchronizerId,
         ViewType.TransactionViewType,
         testTopologyTimestamp,
@@ -1451,7 +1451,7 @@ class ConfirmationRequestAndResponseProcessorTest
         }
 
       val rootHashMessage = RootHashMessage(
-        fullInformeeTree.transactionId.toRootHash,
+        fullInformeeTree.updateId.toRootHash,
         synchronizerId,
         ViewType.TransactionViewType,
         testTopologyTimestamp,
@@ -1557,7 +1557,7 @@ class ConfirmationRequestAndResponseProcessorTest
       val informeeMessage =
         InformeeMessage(fullInformeeTree, sign(fullInformeeTree))(testedProtocolVersion)
       val rootHashMessage = RootHashMessage(
-        fullInformeeTree.transactionId.toRootHash,
+        fullInformeeTree.updateId.toRootHash,
         synchronizerId,
         ViewType.TransactionViewType,
         testTopologyTimestamp,

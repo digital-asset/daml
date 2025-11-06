@@ -4,13 +4,14 @@
 package com.digitalasset.canton.sequencing.client
 
 import cats.data.EitherT
+import com.digitalasset.canton.crypto.topology.TopologyStateHash
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.sequencing.protocol.{
   TopologyStateForInitHashResponse,
   TopologyStateForInitRequest,
 }
-import com.digitalasset.canton.topology.TopologyStateHash
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.retry
@@ -75,13 +76,13 @@ object BftTopologyForInitDownloader {
             )
             .unlessShutdown(
               {
-                val hashBuilder = new TopologyStateHash
+                val hashBuilder = TopologyStateHash.build()
                 downloadSnapshot(request).value.map {
                   case Right(topologyTransactions) =>
                     topologyTransactions.result.foreach { tx =>
-                      hashBuilder.add(tx)
+                      hashBuilder.add(tx).discard
                     }
-                    val computedHash = hashBuilder.finish()
+                    val computedHash = hashBuilder.finish().hash
                     if (computedHash == expectedBftHash.topologyStateHash) {
                       logger.info(
                         s"Successfully downloaded topology state for init with hash matching expected $computedHash"

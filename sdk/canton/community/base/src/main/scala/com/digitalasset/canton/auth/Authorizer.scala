@@ -154,11 +154,11 @@ final class Authorizer(
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   private def assertServerCall[A](observer: StreamObserver[A]): ServerCallStreamObserver[A] =
     observer match {
-      case _: ServerCallStreamObserver[_] =>
+      case _: ServerCallStreamObserver[?] =>
         observer.asInstanceOf[ServerCallStreamObserver[A]]
       case _ =>
         throw new IllegalArgumentException(
-          s"The wrapped stream MUST be a ${classOf[ServerCallStreamObserver[_]].getName}"
+          s"The wrapped stream MUST be a ${classOf[ServerCallStreamObserver[?]].getName}"
         )
     }
 

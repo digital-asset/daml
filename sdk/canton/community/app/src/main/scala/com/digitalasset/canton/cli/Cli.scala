@@ -53,6 +53,10 @@ final case class Cli(
     logEncoder: LogEncoder = LogEncoder.Plain,
     logLastErrors: Boolean = true,
     logLastErrorsFileName: Option[String] = None,
+    logAccess: Boolean = false,
+    logAccessFileName: Option[String] = None,
+    logAccessErrors: Boolean = false,
+    logAccessErrorsFileName: Option[String] = None,
     logImmediateFlush: Option[Boolean] = None,
     kmsLogImmediateFlush: Option[Boolean] = None,
     bootstrapScriptPath: Option[File] = None,
@@ -100,6 +104,8 @@ final case class Cli(
       "LOG_FORMAT_JSON",
       "LOG_IMMEDIATE_FLUSH",
       "KMS_LOG_IMMEDIATE_FLUSH",
+      "LOG_ACCESS",
+      "LOG_ACCESS_ERRORS",
     ).foreach(System.clearProperty(_).discard[String])
     logFileName.foreach(System.setProperty("LOG_FILE_NAME", _))
     kmsLogFileName.foreach(System.setProperty("KMS_LOG_FILE_NAME", _))
@@ -108,6 +114,7 @@ final case class Cli(
     kmsLogFileHistory.foreach(x => System.setProperty("KMS_LOG_FILE_HISTORY", x.toString))
     logFileRollingPattern.foreach(System.setProperty("LOG_FILE_ROLLING_PATTERN", _))
     kmsLogFileRollingPattern.foreach(System.setProperty("KMS_LOG_FILE_ROLLING_PATTERN", _))
+
     logFileAppender match {
       case LogFileAppender.Rolling =>
         System.setProperty("LOG_FILE_ROLLING", "true").discard
@@ -117,6 +124,12 @@ final case class Cli(
     }
     if (logLastErrors)
       System.setProperty("LOG_LAST_ERRORS", "true").discard
+    if (logAccess)
+      System.setProperty("LOG_ACCESS", "true").discard
+    logAccessFileName.foreach(System.setProperty("LOG_ACCESS_FILE_NAME", _))
+    if (logAccessErrors)
+      System.setProperty("LOG_ACCESS_ERRORS", "true").discard
+    logAccessErrorsFileName.foreach(System.setProperty("LOG_ACCESS_ERROR_FILE_NAME", _))
 
     logEncoder match {
       case LogEncoder.Plain =>
@@ -323,6 +336,22 @@ object Cli {
       opt[Boolean]("log-last-errors")
         .text("Capture events for logging.last_errors command")
         .action((isEnabled, cli) => cli.copy(logLastErrors = isEnabled))
+
+      opt[Boolean]("log-access")
+        .text("Capture API access logs in a separate file")
+        .action((isEnabled, cli) => cli.copy(logAccess = isEnabled))
+
+      opt[String]("log-access-filename")
+        .text("Name of a file to capture API access logs")
+        .action((filename, cli) => cli.copy(logAccessFileName = Some(filename)))
+
+      opt[Boolean]("log-access-errors")
+        .text("Capture API access errors in a separate file")
+        .action((isEnabled, cli) => cli.copy(logAccessErrors = isEnabled))
+
+      opt[String]("log-access-errors-filename")
+        .text("Name of a file to capture API access error logs")
+        .action((filename, cli) => cli.copy(logAccessErrorsFileName = Some(filename)))
 
       note("") // Enforce a newline in the help text
 

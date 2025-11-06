@@ -4,8 +4,6 @@
 package com.digitalasset.canton.topology.store
 
 import cats.Monoid
-import cats.data.EitherT
-import cats.implicits.catsSyntaxParallelTraverse1
 import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
@@ -13,9 +11,9 @@ import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.CantonRequireTypes.{String185, String300}
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
+import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdownImpl.parallelInstanceFutureUnlessShutdown
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -32,7 +30,10 @@ import com.digitalasset.canton.topology.store.StoredTopologyTransactions.{
   GenericStoredTopologyTransactions,
   PositiveStoredTopologyTransactions,
 }
-import com.digitalasset.canton.topology.store.TopologyStore.EffectiveStateChange
+import com.digitalasset.canton.topology.store.TopologyStore.{
+  EffectiveStateChange,
+  TopologyStoreDeactivations,
+}
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
 import com.digitalasset.canton.topology.store.db.DbTopologyStore
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
@@ -54,6 +55,7 @@ import com.digitalasset.canton.version.{
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.google.common.annotations.VisibleForTesting
 import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Source
 
 import scala.collection.mutable
@@ -339,19 +341,29 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[PositiveStoredTopologyTransactions]
 
-  /** Updates topology transactions. The method proceeds as follows:
-    *   1. It expires all transactions `tx` with
-    *      `removeMapping.get(tx.mapping.uniqueKey).exists(tx.serial <= _)`. By `expire` we mean
-    *      that `valid_until` is set to `effective`, provided `valid_until` was previously `NULL`
-    *      and `valid_from < effective`. 2. It expires all transactions `tx` with `tx.hash` in
-    *      `removeTxs`. 3. It adds all transactions in additions. Thereby: 3.1. It sets valid_until
-    *      to effective, if there is a rejection reason or if `expireImmediately`.
+  /** Updates topology transactions. The method proceeds as follows: For each mapping hash, it will
+    * have optionally a serial and a set of tx hashes. The tx hashes represent proposals which must
+    * be expired. The serial means that all existing transactions with the same mapping and equal or
+    * lower serial must be expired.
+    *
+    * The mapping hash is redundant in the tx hashes, but kept together here to avoid serialization
+    * issues in large batches.
+    *
+    * The serial accompanying the txHash is only used for efficiency purposes
+    *
+    * Expiring means that valid_until is set to effective time unless it has already been set.
+    *
+    * It adds all transactions in additions and sets valid_until to effective, if there is a
+    * rejection reason or if `expireImmediately`.
+    *
+    * Note, the updates are idempotent and transactional, written as serializable. However, the
+    * update must be called with incremental sequenced time. If the update is called twice, it must
+    * be called with the same arguments.
     */
   def update(
       sequenced: SequencedTime,
       effective: EffectiveTime,
-      removeMapping: Map[MappingHash, PositiveInt],
-      removeTxs: Set[TxHash],
+      removals: TopologyStoreDeactivations,
       additions: Seq[GenericValidatedTopologyTransaction],
   )(implicit
       traceContext: TraceContext
@@ -429,6 +441,13 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       asOfInclusive: SequencedTime,
       includeRejected: Boolean,
   )(implicit traceContext: TraceContext): Source[GenericStoredTopologyTransaction, NotUsed]
+
+  /** Yields a hash corresponding to the contents of the respective
+    * [[findEssentialStateAtSequencedTime]], with `includeRejected = true`
+    */
+  def findEssentialStateHashAtSequencedTime(
+      asOfInclusive: SequencedTime
+  )(implicit materializer: Materializer, traceContext: TraceContext): FutureUnlessShutdown[Hash]
 
   /** Checks whether the given signed topology transaction has signatures (at this point still
     * unvalidated) from signing keys, for which there aren't yet signatures in the store.
@@ -530,6 +549,9 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
 }
 
 object TopologyStore {
+
+  type TopologyStoreDeactivations =
+    Map[MappingHash, (Option[PositiveInt], Set[TxHash])]
 
   sealed trait Change extends Product with Serializable {
     def sequenced: SequencedTime
@@ -722,10 +744,6 @@ object UnknownOrUnvettedPackages {
 
     }
 
-  def unknown(participantId: ParticipantId, packageId: PackageId): UnknownOrUnvettedPackages =
-    empty.copy(unknown = Map(participantId -> Set(packageId)))
-  def unvetted(participantId: ParticipantId, packageId: PackageId): UnknownOrUnvettedPackages =
-    empty.copy(unvetted = Map(participantId -> Set(packageId)))
   def unvetted(
       participantId: ParticipantId,
       packageIds: Set[PackageId],
@@ -743,17 +761,13 @@ final case class UnknownOrUnvettedPackages(
 }
 
 trait PackageDependencyResolver {
-
-  def packageDependencies(packageId: PackageId)(implicit
+  def packageDependencies(packages: Set[PackageId])(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, (PackageId, ParticipantId), Set[PackageId]]
+  ): Either[(ParticipantId, Set[PackageId]), Set[PackageId]]
+}
 
-  def packageDependencies(packages: List[PackageId])(implicit
-      traceContext: TraceContext,
-      ec: ExecutionContext,
-  ): EitherT[FutureUnlessShutdown, (PackageId, ParticipantId), Set[PackageId]] =
-    packages
-      .parTraverse(packageDependencies)
-      .map(_.flatten.toSet -- packages)
-
+object NoPackageDependencies extends PackageDependencyResolver {
+  override def packageDependencies(packages: Set[PackageId])(implicit
+      traceContext: TraceContext
+  ): Either[(ParticipantId, Set[PackageId]), Set[PackageId]] = Right(Set.empty[PackageId])
 }

@@ -703,11 +703,11 @@ class TransactionProcessingSteps(
       case Some(viewsNE) =>
         // All views have the same root hash, so we can take the first one
         val firstView = viewsNE.head1._1.unwrap
-        val transactionId = firstView.transactionId
+        val updateId = firstView.updateId
         val ledgerTime = firstView.ledgerTime
         // TODO(#23971) Generate absolutization data based on the protocol version
         val absolutizationData = {
-          transactionId.discard
+          updateId.discard
           ledgerTime.discard
           ContractIdAbsolutizationDataV1
         }
@@ -1027,7 +1027,7 @@ class TransactionProcessingSteps(
 
       val usedAndCreated = parsedRequest.usedAndCreated
       validation.TransactionValidationResult(
-        transactionId = parsedRequest.transactionId,
+        updateId = parsedRequest.updateId,
         submitterMetadataO = parsedRequest.submitterMetadataO,
         workflowIdO = parsedRequest.workflowIdO,
         contractConsistencyResultE = parallelChecksResult.consistencyResultE,
@@ -1240,7 +1240,7 @@ class TransactionProcessingSteps(
 
     computeCommitAndContractsAndEvent(
       requestTime = pendingRequestData.requestTime,
-      txId = txValidationResult.transactionId,
+      updateId = txValidationResult.updateId,
       workflowIdO = txValidationResult.workflowIdO,
       commitSet = commitSet,
       createdContracts = txValidationResult.createdContracts,
@@ -1254,7 +1254,7 @@ class TransactionProcessingSteps(
 
   private def computeCommitAndContractsAndEvent(
       requestTime: CantonTimestamp,
-      txId: UpdateId,
+      updateId: UpdateId,
       workflowIdO: Option[WorkflowId],
       commitSet: CommitSet,
       createdContracts: Map[LfContractId, NewContractInstance],
@@ -1298,7 +1298,7 @@ class TransactionProcessingSteps(
               optByKeyNodes = None, // optByKeyNodes is unused by the indexer
             ),
             transaction = LfCommittedTransaction(lfTx.unwrap),
-            updateId = txId,
+            updateId = updateId,
             contractAuthenticationData = contractAuthenticationData,
             synchronizerId = psid.logical,
             recordTime = requestTime,
@@ -1349,7 +1349,7 @@ class TransactionProcessingSteps(
 
       commitAndContractsAndEvent = computeCommitAndContractsAndEvent(
         requestTime = pendingRequestData.requestTime,
-        txId = pendingRequestData.transactionValidationResult.transactionId,
+        updateId = pendingRequestData.transactionValidationResult.updateId,
         workflowIdO = pendingRequestData.transactionValidationResult.workflowIdO,
         commitSet = commitSet,
         createdContracts = createdContracts,
@@ -1616,7 +1616,7 @@ object TransactionProcessingSteps {
 
     override def rootHash: RootHash = rootViewTrees.head1.rootHash
 
-    def transactionId: UpdateId = rootViewTrees.head1.transactionId
+    def updateId: UpdateId = rootViewTrees.head1.updateId
 
     def ledgerTime: CantonTimestamp = rootViewTrees.head1.ledgerTime
 
@@ -1655,7 +1655,7 @@ object TransactionProcessingSteps {
     */
   def tryCommonData(receivedViewTrees: NonEmpty[Seq[FullTransactionViewTree]]): CommonData = {
     val distinctCommonData = receivedViewTrees
-      .map(v => CommonData(v.transactionId, v.ledgerTime, v.preparationTime))
+      .map(v => CommonData(v.updateId, v.ledgerTime, v.preparationTime))
       .distinct
     if (distinctCommonData.lengthCompare(1) == 0) distinctCommonData.head1
     else
@@ -1665,7 +1665,7 @@ object TransactionProcessingSteps {
   }
 
   final case class CommonData(
-      transactionId: UpdateId,
+      updateId: UpdateId,
       ledgerTime: CantonTimestamp,
       preparationTime: CantonTimestamp,
   )

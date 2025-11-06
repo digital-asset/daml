@@ -86,7 +86,7 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues with Eit
   }
 
   protected def requestMustFailWith(
-      request: Either[StatusRuntimeException, _],
+      request: Either[StatusRuntimeException, ?],
       code: Code,
       description: String,
       metadata: Map[String, String] = Map.empty,
@@ -98,7 +98,7 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues with Eit
       expectedDescription: String,
       metadata: Map[String, String],
       retryDelay: Seq[Duration],
-  ): PartialFunction[Either[StatusRuntimeException, _], Assertion] = { case Left(err) =>
+  ): PartialFunction[Either[StatusRuntimeException, ?], Assertion] = { case Left(err) =>
     err.getStatus should have(Symbol("code")(expectedCode))
     err.getStatus should have(Symbol("description")(expectedDescription))
     val details = GrpcStatus

@@ -51,8 +51,8 @@ import com.digitalasset.canton.topology.processing.{
   TopologyTransactionTestFactory,
 }
 import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
-import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
+import com.digitalasset.canton.topology.store.{NoPackageDependencies, ValidatedTopologyTransaction}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.MaxBytesToDecompress
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
@@ -107,8 +107,7 @@ class BlockSequencerTest
       .update(
         SequencedTime(CantonTimestamp.Epoch),
         EffectiveTime(CantonTimestamp.Epoch),
-        removeMapping = Map.empty,
-        removeTxs = Set.empty,
+        removals = Map.empty,
         additions = Seq(
           topologyTransactionFactory.ns1k1_k1,
           topologyTransactionFactory.okmS1k7_k1,
@@ -122,7 +121,7 @@ class BlockSequencerTest
       mock[Clock],
       defaultStaticSynchronizerParameters,
       topologyStore,
-      StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
+      NoPackageDependencies,
       DefaultProcessingTimeouts.testing,
       FutureSupervisor.Noop,
       loggerFactory,
@@ -217,7 +216,7 @@ class BlockSequencerTest
 
     override def subscribe()(implicit
         traceContext: TraceContext
-    ): Source[RawLedgerBlock, KillSwitch] =
+    ): Source[Traced[RawLedgerBlock], KillSwitch] =
       Source
         .fromIterator { () =>
           LazyList
@@ -226,7 +225,7 @@ class BlockSequencerTest
             .map { i =>
               if (n == i + 1)
                 completed.success(())
-              RawLedgerBlock(i.toLong, Seq.empty)
+              Traced(RawLedgerBlock(i.toLong, Seq.empty))
             }
             .iterator
         }
@@ -260,8 +259,8 @@ class BlockSequencerTest
   class FakeBlockSequencerStateManager extends BlockSequencerStateManagerBase {
     override def processBlock(
         bug: BlockUpdateGenerator
-    ): Flow[BlockEvents, Traced[OrderedBlockUpdate], NotUsed] =
-      Flow[BlockEvents].mapConcat(_ => Seq.empty)
+    ): Flow[Traced[BlockEvents], Traced[OrderedBlockUpdate], NotUsed] =
+      Flow[Traced[BlockEvents]].mapConcat(_ => Seq.empty)
 
     override def applyBlockUpdate(
         dbSequencerIntegration: SequencerIntegration

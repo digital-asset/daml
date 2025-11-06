@@ -40,6 +40,7 @@ import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.Party
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.topology.store.{
+  NoPackageDependencies,
   PackageDependencyResolver,
   TopologyStoreId,
   ValidatedTopologyTransaction,
@@ -505,8 +506,7 @@ class TestingIdentityFactory(
 
   def topologySnapshot(
       synchronizerId: SynchronizerId = DefaultTestIdentities.synchronizerId,
-      packageDependencyResolver: PackageDependencyResolver =
-        StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
+      packageDependencyResolver: PackageDependencyResolver = NoPackageDependencies,
       timestampForSynchronizerParameters: CantonTimestamp = CantonTimestamp.Epoch,
       timestampOfSnapshot: CantonTimestamp = CantonTimestamp.Epoch,
   ): TopologySnapshotLoader = {
@@ -587,8 +587,7 @@ class TestingIdentityFactory(
     val updateF = store.update(
       SequencedTime(CantonTimestamp.Epoch.immediatePredecessor),
       EffectiveTime(CantonTimestamp.Epoch.immediatePredecessor),
-      removeMapping = Map.empty,
-      removeTxs = Set.empty,
+      removals = Map.empty,
       additions = transactions,
     )(TraceContext.empty)
     Await.result(

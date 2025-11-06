@@ -713,7 +713,6 @@ abstract class EventStorageBackendTemplate(
   override def activeContractBatch(
       eventSequentialIds: Iterable[Long],
       allFilterParties: Option[Set[Party]],
-      endInclusive: Long,
   )(connection: Connection): Vector[RawThinActiveContract] =
     RowDefs
       .rawThinActiveContractParser(stringInterning, allFilterParties)

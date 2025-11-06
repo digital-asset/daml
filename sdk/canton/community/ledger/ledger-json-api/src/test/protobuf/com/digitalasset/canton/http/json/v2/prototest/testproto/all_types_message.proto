@@ -1,0 +1,62 @@
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.http.json.v2.prototest.testproto;
+
+option csharp_namespace = "Com.DigitalAsset.Json.Proto.Test";
+option java_outer_classname = "AllTypesMessageOuterClass";
+option java_package = "com.digitalasset.canton.http.json.v2.testproto";
+
+// A message with all supported field types.
+message AllTypesMessage {
+  // double field
+  double double_field = 1;
+  // float field
+  float float_field = 2;
+  // bool field
+  bool bool_field = 3;
+  // string field
+  string string_field = 4;
+  // bytes field
+  bytes bytes_field = 5;
+  // map
+  map<string, int32> map_field = 6;
+  message NestedMessage {
+    int32 nested_int32_field = 1;
+  }
+  // nested message field
+  NestedMessage nested_message_field = 7;
+  // oneof field
+  oneof oneof_field {
+    string oneof_string = 8;
+    NestedMessage oneof_nested = 9;
+  }
+  // enum field
+  enum SampleEnum {
+    ZERO = 0;
+    FIRST = 1;
+  }
+  SampleEnum enum_field = 10;
+  // int32 field
+  int32 int32_field = 11;
+  // int64 field
+  int64 int64_field = 12;
+  // uint32 field
+  uint32 uint32_field = 13;
+  // uint64 field
+  uint64 uint64_field = 14;
+  // sint32 field
+  sint32 sint32_field = 15;
+  // sint64 field
+  sint64 sint64_field = 16;
+  // fixed32 field
+  fixed32 fixed32_field = 17;
+  // fixed64 field
+  fixed64 fixed64_field = 18;
+  // sfixed32 field
+  sfixed32 sfixed32_field = 19;
+  // sfixed64 field
+  sfixed64 sfixed64_field = 20;
+}

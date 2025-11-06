@@ -19,8 +19,8 @@ import "google/protobuf/timestamp.proto";
  */
 service ParticipantRepairService {
   // Export the ACS for the given parties from the participant
-  // DEPRECATED: Use ExportAcs in the party_management_service.proto instead
-  // TODO(#24610) - Remove, new ExportAcs lives in the party_management_service.proto
+  // DEPRECATED: Use ExportAcs in this proto file
+  // TODO(#24610) - Remove, replaced with ExportAcs below
   rpc ExportAcsOld(ExportAcsOldRequest) returns (stream ExportAcsOldResponse) {
     option deprecated = true;
   }
@@ -120,8 +120,9 @@ message MigrateSynchronizerResponse {}
 message ExportAcsOldRequest {
   option deprecated = true;
 
-  // The parties for which the ACS should be exported
-  // Required
+  // The parties for which the ACS should be exported.
+  // If empty, the ACS of all parties will be exported.
+  // Optional
   repeated string parties = 1;
 
   // The IDs of the synchronizers to filter the contracts by

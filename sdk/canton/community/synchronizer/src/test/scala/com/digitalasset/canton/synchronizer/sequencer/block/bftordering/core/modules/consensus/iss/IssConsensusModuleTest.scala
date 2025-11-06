@@ -805,6 +805,63 @@ class IssConsensusModuleTest
           succeed
         }
 
+      "ignore stale block completion messages for old epochs" in {
+        val outputBuffer =
+          new ArrayBuffer[Output.Message[ProgrammableUnitTestEnv]](defaultBufferSize)
+        val epochNumber = EpochNumber(4L)
+        val epochStore = mock[EpochStore[ProgrammableUnitTestEnv]]
+        val latestCompletedEpochFromStore = EpochStore.Epoch(
+          EpochInfo(
+            epochNumber,
+            BlockNumber(epochLength * epochNumber),
+            epochLength,
+            TopologyActivationTime(aTimestamp),
+          ),
+          Seq.empty,
+        )
+        when(epochStore.latestEpoch(anyBoolean)(any[TraceContext])).thenReturn(() =>
+          latestCompletedEpochFromStore
+        )
+        when(epochStore.startEpoch(latestCompletedEpochFromStore.info)).thenReturn(() => ())
+
+        val (context, consensus) =
+          createIssConsensusModule(
+            outputModuleRef = fakeRecordingModule(outputBuffer),
+            epochStore = epochStore,
+            preConfiguredInitialEpochState = Some(
+              newEpochState(
+                latestCompletedEpochFromStore,
+                _,
+              )
+            ),
+          )
+        implicit val ctx: ContextType = context
+
+        consensus.receive(Consensus.Start)
+
+        val blockNumber = BlockNumber((epochNumber - 1) * epochLength)
+        val leaderOfBlock = myId
+        val prePrepare = PrePrepare.create(
+          BlockMetadata(EpochNumber(epochNumber - 1), blockNumber),
+          ViewNumber.First,
+          OrderingBlock(oneRequestOrderingBlock.proofs),
+          CanonicalCommitSet(Set.empty),
+          leaderOfBlock,
+        )
+        val expectedOrderedBlock = orderedBlockFromPrePrepare(
+          prePrepare
+        )
+        consensus.receive(
+          Consensus.ConsensusMessage
+            .BlockOrdered(
+              expectedOrderedBlock,
+              CommitCertificate(prePrepare.fakeSign, Seq.empty),
+              hasCompletedLedSegment = false,
+            )
+        )
+        outputBuffer shouldBe empty
+      }
+
       "refuse messages for future epochs after reaching queue limits" in {
         val (context, consensus) =
           createIssConsensusModule(

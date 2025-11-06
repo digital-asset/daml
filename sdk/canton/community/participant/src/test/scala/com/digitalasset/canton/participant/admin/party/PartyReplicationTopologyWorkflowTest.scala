@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.admin.party
 
 import cats.data.EitherT
+import cats.syntax.option.*
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{Fingerprint, Hash, HashAlgorithm, TestHash}
@@ -22,6 +23,7 @@ import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime
 import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.topology.store.{
+  NoPackageDependencies,
   TopologyStore,
   TopologyStoreTestData,
   ValidatedTopologyTransaction,
@@ -201,8 +203,7 @@ class PartyReplicationTopologyWorkflowTest
       .update(
         SequencedTime(ts),
         EffectiveTime(ts),
-        removeMapping = if (proposal) Map.empty else Map(mapping.uniqueKey -> serial),
-        removeTxs = Set.empty,
+        removals = if (proposal) Map.empty else Map(mapping.uniqueKey -> (serial.some, Set.empty)),
         additions = Seq(ValidatedTopologyTransaction(signedTx)),
       )
       .map(_ => signedTx)
@@ -347,7 +348,7 @@ class PartyReplicationTopologyWorkflowTest
         val topologyClient = new StoreBasedSynchronizerTopologyClient(
           clock,
           store = topologyStore,
-          packageDependenciesResolver = StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
+          packageDependencyResolver = NoPackageDependencies,
           timeouts = timeouts,
           futureSupervisor = futureSupervisor,
           loggerFactory = loggerFactory,

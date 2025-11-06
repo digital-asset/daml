@@ -84,8 +84,7 @@ private[transaction] abstract class BaseTopologyMappingChecksTest[T <: TopologyM
       .update(
         sequenced = SequencedTime.MinValue,
         effective = EffectiveTime.MinValue,
-        removeMapping = Map.empty,
-        removeTxs = Set.empty,
+        removals = Map.empty,
         additions = transactions.map(ValidatedTopologyTransaction(_)),
       )
       .futureValueUS
@@ -184,7 +183,7 @@ class RequiredTopologyMappingChecksTest
   override protected def mkChecks(
       store: TopologyStore[SynchronizerStore]
   ): RequiredTopologyMappingChecks =
-    new RequiredTopologyMappingChecks(
+    RequiredTopologyMappingChecks(
       store,
       Some(defaultStaticSynchronizerParameters),
       loggerFactory,
@@ -329,8 +328,7 @@ class RequiredTopologyMappingChecksTest
           .update(
             SequencedTime(ts),
             EffectiveTime(ts),
-            removeMapping = Map.empty,
-            removeTxs = Set.empty,
+            removals = Map.empty,
             additions = Seq(nsd1Replace_1, nsd2Replace_1).map(ValidatedTopologyTransaction(_)),
           )
           .futureValueUS
@@ -339,8 +337,8 @@ class RequiredTopologyMappingChecksTest
           .update(
             SequencedTime(ts + seconds(1)),
             EffectiveTime(ts + seconds(1)),
-            removeMapping = Map(nsd1Remove_2.mapping.uniqueKey -> nsd1Remove_2.serial),
-            removeTxs = Set.empty,
+            removals =
+              Map(nsd1Remove_2.mapping.uniqueKey -> (Some(nsd1Remove_2.serial), Set.empty)),
             additions = Seq(ValidatedTopologyTransaction(nsd1Remove_2)),
           )
           .futureValueUS
@@ -349,8 +347,7 @@ class RequiredTopologyMappingChecksTest
           .update(
             SequencedTime(ts + seconds(2)),
             EffectiveTime(ts + seconds(2)),
-            removeMapping = Map.empty,
-            removeTxs = Set.empty,
+            removals = Map.empty,
             additions = Seq(ValidatedTopologyTransaction(nsd1ReplaceProposal_3)),
           )
           .futureValueUS
@@ -979,10 +976,9 @@ class RequiredTopologyMappingChecksTest
           .update(
             SequencedTime(ts1),
             EffectiveTime(ts1),
-            removeMapping = Map(
-              group0_add_med1.mapping.uniqueKey -> PositiveInt.one
+            removals = Map(
+              group0_add_med1.mapping.uniqueKey -> (Some(PositiveInt.one), Set.empty)
             ),
-            removeTxs = Set.empty,
             additions = Seq(
               ValidatedTopologyTransaction(group0_add_med2)
             ),
@@ -1061,10 +1057,9 @@ class RequiredTopologyMappingChecksTest
           .update(
             SequencedTime(ts1),
             EffectiveTime(ts1),
-            removeMapping = Map(
-              sds_add_seq1.mapping.uniqueKey -> PositiveInt.one
+            removals = Map(
+              sds_add_seq1.mapping.uniqueKey -> (Some(PositiveInt.one), Set.empty)
             ),
-            removeTxs = Set.empty,
             additions = Seq(
               ValidatedTopologyTransaction(sds_add_seq2)
             ),

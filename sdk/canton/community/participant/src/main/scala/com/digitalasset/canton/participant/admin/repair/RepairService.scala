@@ -27,12 +27,12 @@ import com.digitalasset.canton.lifecycle.{
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
 import com.digitalasset.canton.participant.ParticipantNodeParameters
-import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.admin.data.RepairContract
 import com.digitalasset.canton.participant.admin.repair.RepairService.ContractToAdd
 import com.digitalasset.canton.participant.event.RecordTime
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
-import com.digitalasset.canton.participant.store.*
+import com.digitalasset.canton.participant.store.memory.PackageMetadataView
+import com.digitalasset.canton.participant.store.{PackageDependencyResolverImpl, *}
 import com.digitalasset.canton.participant.sync.{
   ConnectedSynchronizersLookup,
   SyncEphemeralStateFactory,
@@ -82,7 +82,7 @@ import scala.concurrent.{ExecutionContext, Future}
 final class RepairService(
     participantId: ParticipantId,
     syncCrypto: SyncCryptoApiParticipantProvider,
-    packageDependencyResolver: PackageDependencyResolver.Impl,
+    packageMetadataView: PackageMetadataView,
     contractStore: Eval[ContractStore],
     ledgerApiIndexer: Eval[LedgerApiIndexer],
     aliasManager: SynchronizerAliasManager,
@@ -233,7 +233,7 @@ final class RepairService(
 
       topologySnapshot = topologyFactory.createTopologySnapshot(
         SyncEphemeralStateFactory.currentRecordTime(synchronizerIndex),
-        packageDependencyResolver,
+        new PackageDependencyResolverImpl(participantId, packageMetadataView, loggerFactory),
         preferCaching = true,
       )
       synchronizerParameters <- OptionT(persistentState.parameterStore.lastParameters)
@@ -664,20 +664,11 @@ final class RepairService(
         ledgerApiIndexer.value.ledgerApiStore.value.cleanSynchronizerIndex(psid.logical)
       )
 
-      synchronizerPredecessor <- EitherT
-        .fromEither[FutureUnlessShutdown](
-          syncPersistentStateLookup
-            .connectionConfig(psid)
-            .toRight(s"Cannot find connection config for $psid")
-        )
-        .map(_.predecessor)
-
       startingPoints <- EitherT.right(
         SyncEphemeralStateFactory.startingPoints(
           persistentState.requestJournalStore,
           persistentState.sequencedEventStore,
           synchronizerIndex,
-          synchronizerPredecessor,
         )
       )
       _ <- EitherTUtil
@@ -722,11 +713,9 @@ final class RepairService(
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] =
     for {
       // Check that the representative package-id is known
-      _ <- contracts
-        .map(_.representativePackageId)
-        .distinct
-        .parTraverse_(packageKnown)
-
+      _ <- EitherT.fromEither[FutureUnlessShutdown](
+        contracts.map(_.representativePackageId).distinct.traverse(packageKnown)
+      )
       _ <- contracts.parTraverse_(
         addContractChecks(
           repair,
@@ -1015,7 +1004,7 @@ final class RepairService(
           roots = ImmArray.from(nodeIds.take(txNodes.size)),
         )
       ),
-      updateId = randomTransactionId(syncCrypto),
+      updateId = randomUpdateId(syncCrypto),
       contractAuthenticationData = contractAuthenticationData,
       representativePackageIds = RepresentativePackageIds.from(representativePackageIds),
       synchronizerId = repair.synchronizer.psid.logical,
@@ -1051,14 +1040,9 @@ final class RepairService(
 
   private def packageKnown(
       lfPackageId: LfPackageId
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] =
-    for {
-      _packageVetted <- packageDependencyResolver
-        .getPackageDescription(lfPackageId)
-        .toRight(
-          log(s"Failed to locate package $lfPackageId")
-        )
-    } yield ()
+  )(implicit traceContext: TraceContext): Either[String, Unit] =
+    if (packageMetadataView.getSnapshot.packages.contains(lfPackageId)) Right(())
+    else Left(log(s"Failed to locate package $lfPackageId"))
 
   /** Allows to wait until clean sequencer index has progressed up to a certain timestamp */
   def awaitCleanSequencerTimestamp(
@@ -1172,7 +1156,7 @@ final class RepairService(
           repairCountersToAllocate,
         )
       )
-    } yield RepairRequest(synchronizer, randomTransactionId(syncCrypto), repairCounters)
+    } yield RepairRequest(synchronizer, randomUpdateId(syncCrypto), repairCounters)
   }
 
   /** Read the ACS state for each contract in cids

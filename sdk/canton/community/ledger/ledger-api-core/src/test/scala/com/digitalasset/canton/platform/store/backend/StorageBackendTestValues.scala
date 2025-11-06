@@ -222,7 +222,7 @@ private[store] object StorageBackendTestValues extends OptionValues {
       // event related columns
       event_sequential_id: Long = 500L,
       node_id: Int = 15,
-      deactivated_event_sequential_id: Option[Long] = Some(600L),
+      deactivated_event_sequential_id: Option[Long] = Some(2L),
       additional_witnesses: Set[String] = Set("witness1", "witness2"),
       exercise_choice: String = "choice",
       exercise_choice_interface_id: Option[String] = Some("in:ter:face"),
@@ -516,7 +516,7 @@ private[store] object StorageBackendTestValues extends OptionValues {
     externalString = external,
   )
 
-  def dtoTransactionId(dto: DbDto): UpdateId =
+  def dtoUpdateId(dto: DbDto): UpdateId =
     dto match {
       case _ => sys.error(s"$dto does not have a transaction id")
     }
@@ -542,7 +542,7 @@ private[store] object StorageBackendTestValues extends OptionValues {
     }
 
   def metaFromSingle(dbDto: DbDto): DbDto.TransactionMeta = DbDto.TransactionMeta(
-    update_id = dtoTransactionId(dbDto).toProtoPrimitive.toByteArray,
+    update_id = dtoUpdateId(dbDto).toProtoPrimitive.toByteArray,
     event_offset = dtoOffset(dbDto),
     publication_time = someTime.micros,
     record_time = someTime.micros,

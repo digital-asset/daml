@@ -17,7 +17,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   BlockSubscription,
   Env,
 }
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import org.apache.pekko.stream.ActorAttributes.streamSubscriptionTimeout
 import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 import org.apache.pekko.stream.{
@@ -52,7 +52,7 @@ class PekkoBlockSubscription[E <: Env[E]](
       StreamSubscriptionTimeoutTerminationMode.noop, // instead of .cancel
     )
     val queueSource =
-      Source.queue[BlockFormat.Block](BlockQueueBufferSize, OverflowStrategy.backpressure)
+      Source.queue[Traced[BlockFormat.Block]](BlockQueueBufferSize, OverflowStrategy.backpressure)
     // Normally we'd simply call queueSource.preMaterialize() in order to materialize the queue from here.
     // We need to do that because we don't have access to the materialized values of the stream that uses
     // the source returned by subscription() but we need to have access to the queue that gets materialized
@@ -67,12 +67,13 @@ class PekkoBlockSubscription[E <: Env[E]](
     (mat, Source.fromPublisher(pub))
   }
 
-  override def subscription(): Source[BlockFormat.Block, KillSwitch] =
+  override def subscription(): Source[Traced[BlockFormat.Block], KillSwitch] =
     source
       .statefulMapConcat { () =>
-        val blocksPeanoQueue = new PeanoQueue[BlockNumber, BlockFormat.Block](initialHeight)(abort)
+        val blocksPeanoQueue =
+          new PeanoQueue[BlockNumber, Traced[BlockFormat.Block]](initialHeight)(abort)
         block => {
-          val blockHeight = block.blockHeight
+          val blockHeight = block.value.blockHeight
           logger.debug(
             s"Inserting block $blockHeight into subscription Peano queue (head=${blocksPeanoQueue.head})"
           )(TraceContext.empty)
@@ -90,7 +91,7 @@ class PekkoBlockSubscription[E <: Env[E]](
     // to avoid long delays upon closing.
     synchronizeWithClosingSync("enqueue block") {
       logger.debug(s"Received block ${block.blockHeight}")
-      queue.offer(block)
+      queue.offer(Traced(block))
     }.foreach(_.onComplete {
       case Success(value) =>
         value match {
