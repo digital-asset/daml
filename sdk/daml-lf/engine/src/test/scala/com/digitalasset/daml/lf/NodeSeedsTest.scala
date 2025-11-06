@@ -8,7 +8,7 @@ import com.daml.logging.LoggingContext
 import com.digitalasset.daml.lf.archive.DarDecoder
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.Engine
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import com.digitalasset.daml.lf.transaction.{Node, NodeId}
@@ -18,9 +18,9 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import java.io.File
 
-class NodeSeedsTestV2 extends NodeSeedsTest(LanguageMajorVersion.V2)
+class NodeSeedsTestV2 extends NodeSeedsTest(LanguageVersion.Major.V2)
 
-class NodeSeedsTest(majorLanguageVersion: LanguageMajorVersion) extends AnyWordSpec with Matchers {
+class NodeSeedsTest(majorLanguageVersion: LanguageVersion.Major) extends AnyWordSpec with Matchers {
 
   // Test for https://github.com/DACH-NY/canton/issues/14712
 
@@ -37,7 +37,7 @@ class NodeSeedsTest(majorLanguageVersion: LanguageMajorVersion) extends AnyWordS
     (packages.main._1, packages.main._2, packages.all.toMap)
   }
 
-  val engine = Engine.DevEngine(majorLanguageVersion)
+  val engine = Engine.DevEngine
   val contractIdVersion = ContractIdVersion.V1
 
   val operator = Ref.Party.assertFromString("operator")

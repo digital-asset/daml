@@ -9,12 +9,7 @@ import com.daml.scalautil.Statement.discard
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Struct, Time}
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.{
-  LanguageMajorVersion,
-  LanguageVersion,
-  LookupError,
-  PackageInterface,
-}
+import com.digitalasset.daml.lf.language.{LanguageVersion, LookupError, PackageInterface}
 import com.digitalasset.daml.lf.speedy.compiler.ClosureConversion.closureConvert
 import com.digitalasset.daml.lf.speedy.compiler.Anf.flattenToAnf
 import com.digitalasset.daml.lf.speedy.compiler.PhaseOne.{Env, Position}
@@ -80,16 +75,16 @@ private[lf] object Compiler {
   )
 
   object Config {
-    def Default(majorLanguageVersion: LanguageMajorVersion) =
+    def Default =
       Config(
-        allowedLanguageVersions = LanguageVersion.StableVersions(majorLanguageVersion),
+        allowedLanguageVersions = LanguageVersion.stableRange,
         packageValidation = FullPackageValidation,
         profiling = NoProfile,
         stacktracing = NoStackTrace,
       )
 
-    def Dev(majorLanguageVersion: LanguageMajorVersion) = Config(
-      allowedLanguageVersions = LanguageVersion.AllVersions(majorLanguageVersion),
+    def Dev = Config(
+      allowedLanguageVersions = LanguageVersion.allRange,
       packageValidation = FullPackageValidation,
       profiling = NoProfile,
       stacktracing = NoStackTrace,

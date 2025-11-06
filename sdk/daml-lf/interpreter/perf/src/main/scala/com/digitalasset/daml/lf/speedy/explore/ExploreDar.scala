@@ -78,8 +78,7 @@ object PlaySpeedy {
 
     println(s"Compiling packages... ${config.stacktracing}")
     val compilerConfig =
-      Compiler.Config
-        .Default(packages.main._2.languageVersion.major)
+      Compiler.Config.Default
         .copy(stacktracing = config.stacktracing)
     val compiledPackages =
       PureCompiledPackages.build(packages.all.toMap, compilerConfig) match {

@@ -10,7 +10,7 @@ import com.digitalasset.daml.lf.crypto.{Hash, SValueHash}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.{Engine, Result, ResultDone, Enricher => LfEnricher}
-import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LookupError}
+import com.digitalasset.daml.lf.language.{Ast, LookupError}
 import com.digitalasset.daml.lf.speedy.SExpr.{SEApp, SExpr}
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.speedy._
@@ -234,7 +234,7 @@ private[lf] object IdeLedgerRunner {
   }
 
   private[this] class EnricherImpl(compiledPackages: CompiledPackages) extends Enricher {
-    val config = Engine.DevEngine(LanguageMajorVersion.V2).config
+    val config = Engine.DevEngine.config
     def loadPackage(pkgId: PackageId, context: language.Reference): Result[Unit] = {
       crash(LookupError.MissingPackage.pretty(pkgId, context))
     }

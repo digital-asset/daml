@@ -4,6 +4,8 @@
 package com.digitalasset.daml.lf.language
 
 import com.digitalasset.daml.lf.LfVersions
+import com.digitalasset.daml.lf.language.LanguageVersion.{Major, Minor}
+import com.digitalasset.daml.lf.language.LanguageVersion.Minor.{Dev, Stable}
 import scalaz.{IList, NonEmptyList}
 
 // an ADT version of the Daml-LF version
@@ -17,14 +19,49 @@ sealed abstract class LanguageMajorVersion(val pretty: String, minorAscending: L
     with Product
     with Serializable {
 
+  def toMajor: Major =
+    pretty match {
+      case "1" => Major.V1
+      case "2" => Major.V2
+      // TODO changes next version pr https://github.com/digital-asset/daml/pull/22301
+      case _ =>
+        throw new RuntimeException(
+          "Could not parse major version, only supported versions are 1 and 2"
+        )
+    }
+
+  def parseMinorVersionOrThrow(input: String): Minor = {
+    input match {
+      // "dev" case
+      case "dev" => Dev
+
+      // All stable int cases
+      case "1" => Stable(1)
+      case "2" => Stable(2)
+      case "6" => Stable(6)
+      case "7" => Stable(7)
+      case "8" => Stable(8)
+      case "11" => Stable(11)
+      case "12" => Stable(12)
+      case "13" => Stable(13)
+      case "14" => Stable(14)
+      case "15" => Stable(15)
+      case "17" => Stable(17)
+
+      // All other cases throw an exception
+      case _ =>
+        throw new IllegalArgumentException(s"Invalid language version string: '$input'")
+    }
+  }
+
   val minStableVersion =
-    LanguageVersion(this, LanguageMinorVersion(minorAscending.head))
+    LanguageVersion(toMajor, parseMinorVersionOrThrow(minorAscending.head))
   // second last is stable
   val maxStableVersion =
-    LanguageVersion(this, LanguageMinorVersion(minorAscending.last))
+    LanguageVersion(toMajor, parseMinorVersionOrThrow(minorAscending.last))
 
   final def dev: LanguageVersion = {
-    LanguageVersion(this, LanguageMinorVersion("dev"))
+    LanguageVersion(toMajor, parseMinorVersionOrThrow("dev"))
   }
 
   // do *not* use implicitly unless type `LanguageMinorVersion` becomes
@@ -34,18 +71,6 @@ sealed abstract class LanguageMajorVersion(val pretty: String, minorAscending: L
 
   final val supportedMinorVersions: List[LanguageMinorVersion] =
     acceptedVersions
-
-  final def supportsMinorVersion(fromLFFile: String): Boolean =
-    isAcceptedVersion(fromLFFile).isDefined
-
-  final def toVersion(minorVersion: String) =
-    if (supportsMinorVersion(minorVersion)) {
-      Right(LanguageVersion(this, LanguageMinorVersion(minorVersion)))
-    } else {
-      val supportedVersions = acceptedVersions.map(v => s"$this.${v.identifier}")
-      Left(s"LF $this.$minorVersion unsupported. Supported LF versions are ${supportedVersions
-          .mkString(",")}")
-    }
 }
 
 object LanguageMajorVersion {

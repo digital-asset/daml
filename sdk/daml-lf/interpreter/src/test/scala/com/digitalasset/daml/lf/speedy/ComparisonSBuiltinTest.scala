@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf
 package speedy
 
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Struct}
-import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion}
+import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SError.SError
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
@@ -16,12 +16,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import scala.collection.immutable.ArraySeq
 
-class ComparisonSBuiltinTestV2 extends ComparisonSBuiltinTest(LanguageMajorVersion.V2)
-
-class ComparisonSBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
-    extends AnyWordSpec
-    with Matchers
-    with TableDrivenPropertyChecks {
+class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
   import SpeedyTestLib.loggingContext
 
@@ -30,8 +25,7 @@ class ComparisonSBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
   private[this] val pkgId1 = Ref.PackageId.assertFromString("-packageId1-")
   private[this] val pkgId2 = Ref.PackageId.assertFromString("-packageId2-")
 
-  val defaultParserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor[this.type](majorLanguageVersion)
+  val defaultParserParameters: ParserParameters[this.type] = ParserParameters.default
 
   val parserParameters1: ParserParameters[this.type] =
     defaultParserParameters.copy(
@@ -629,7 +623,7 @@ class ComparisonSBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
   private[this] val compiledPackages =
     PureCompiledPackages.assertBuild(
       Map(pkgId1 -> pkg1, pkgId2 -> pkg2),
-      Compiler.Config.Default(majorLanguageVersion),
+      Compiler.Config.Default,
     )
 
   private[this] val cidBinderType = {

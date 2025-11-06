@@ -13,9 +13,9 @@ class LanguageVersionSpec extends AnyWordSpec with Matchers with TableDrivenProp
   "LanguageVersion.ordering order as expected" in {
 
     val versionInOrder = List(
-      LV(LV.Major.V2, LV.Minor("1")),
-      LV(LV.Major.V2, LV.Minor("2")),
-      LV(LV.Major.V2, LV.Minor("dev")),
+      LV(LV.Major.V2, LV.Minor.fromString("1")),
+      LV(LV.Major.V2, LV.Minor.fromString("2")),
+      LV(LV.Major.V2, LV.Minor.fromString("dev")),
     )
 
     val versionRank = versionInOrder.zipWithIndex.toMap
