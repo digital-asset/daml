@@ -107,9 +107,10 @@ import org.slf4j.event.Level
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.tailrec
+import scala.compat.java8.DurationConverters.FiniteDurationops
 import scala.concurrent.*
 import scala.concurrent.duration.*
-import scala.jdk.DurationConverters.*
+import scala.jdk.DurationConverters.JavaDurationOps
 import scala.util.{Failure, Success, Try}
 
 trait SequencerClient extends SequencerClientSend with FlagCloseable {
@@ -646,6 +647,19 @@ abstract class SequencerClientImpl(
               Left(error),
               nextState,
             )
+
+          case SendAsyncClientError.RequestRefused(sendAsyncError)
+              if sendAsyncError.isOverload && config.enableAmplificationImprovements =>
+            logger.debug(
+              s"Send request with message id $messageId was refused by $sequencerId because it is overloaded"
+            )
+            // Immediately try the next sequencer because the overload may be confined to that one sequencer
+            Either.cond(
+              patienceO.isEmpty,
+              Left(error),
+              nextState,
+            )
+
           case _: SendAsyncClientError.RequestRefused =>
             logger.debug(
               s"Send request with message id $messageId was refused by $sequencerId: $error"
@@ -687,14 +701,19 @@ abstract class SequencerClientImpl(
             FutureUnlessShutdown.abortedDueToShutdown
         }
 
-      def scheduleAmplification(): Unit =
+      def scheduleAmplification(durationOfPreviousAttempt: FiniteDuration): Unit =
         patienceO match {
           case Some(patience) =>
+            val durationToWait = if (config.enableAmplificationImprovements) {
+              (patience.asFiniteApproximation - durationOfPreviousAttempt).max(Duration.Zero)
+            } else patience.asFiniteApproximation
+
             logger.debug(
-              s"Scheduling amplification for message ID $messageId after $patience"
+              s"Scheduling amplification for message ID $messageId ${if (durationToWait <= Duration.Zero) "immediately"
+                else s"after ${LoggerUtil.roundDurationForHumans(durationToWait)}"}"
             )
             FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
-              clock.scheduleAfter(_ => maybeResendAfterPatience(), patience.asJava).flatten,
+              clock.scheduleAfter(_ => maybeResendAfterPatience(), durationToWait.toJava).flatten,
               s"Submission request amplification failed for message ID $messageId",
             )
           case None =>
@@ -720,6 +739,8 @@ abstract class SequencerClientImpl(
               metricsContext.withExtraLabels("target-sequencer" -> sequencerAlias.toString)
             )
 
+            val startTimeOfAttempt = clock.now
+
             val sendResultETUS = transportOrPoolConnection match {
               case Right(connection) => connection.sendAsync(signedRequest, timeout)
               case Left(transport) => transport.sendAsyncSigned(signedRequest, timeout)
@@ -738,13 +759,15 @@ abstract class SequencerClientImpl(
             // this information is global to the sequencer client, the reception of a new event on any sequencer subscription
             // will result in shutting down that subscription (because the handler has shut down), eventually leading to a
             // disconnect from the synchronizer when the trust threshold is no longer satisfied.
-            sendResultETUS.value.onShutdown(Either.unit)
+            sendResultETUS.value
+              .onShutdown(Either.unit)
+              .map(((clock.now - startTimeOfAttempt).toScala, _))
           }.map {
-            case Right(()) =>
+            case (durationOfAttempt, Right(())) =>
               // Do not await the patience. This would defeat the point of asynchronous send.
-              scheduleAmplification()
+              scheduleAmplification(durationOfAttempt)
               Right(Either.unit)
-            case Left(error) =>
+            case (_, Left(error)) =>
               handleSyncError(error, sequencerId)
           }
 
@@ -756,7 +779,7 @@ abstract class SequencerClientImpl(
           } else {
             // Otherwise, skip this step and retry later
             logger.debug(s"No connection available -- skip sending message $messageId")
-            scheduleAmplification()
+            scheduleAmplification(Duration.Zero)
             Either.unit
           }
 

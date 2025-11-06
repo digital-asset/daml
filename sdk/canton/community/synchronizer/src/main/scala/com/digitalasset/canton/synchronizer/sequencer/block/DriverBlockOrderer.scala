@@ -35,6 +35,9 @@ class DriverBlockOrderer(
   override def subscribe()(implicit
       traceContext: TraceContext
   ): Source[Traced[RawLedgerBlock], KillSwitch] =
+    // The trace context being assigned to blocks in this subscription is not correct.
+    // A different one should be assigned to each block as part of the driver's implementation.
+    // But because drivers will be discontinued soon, there are no plans to properly implement that.
     driver.subscribe().map(Traced(_))
 
   override def send(

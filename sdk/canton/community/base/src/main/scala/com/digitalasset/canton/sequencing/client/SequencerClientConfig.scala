@@ -57,6 +57,16 @@ import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenMana
   *   assumptions about dynamic faults and ensures that faulty time readings skewed towards the
   *   future do not linger in the system for too long. Regular eviction also ensures that time
   *   readings from offboarded sequencers are not taken into account indefinitely.
+  * @param enableAmplificationImprovements
+  *   Enables some improvements in the amplification behavior:
+  *   - When sending a submission request with amplification, if we receive a synchronous error from
+  *     the sequencer that is classified as `RequestRefused`, we abort amplification and bubble up
+  *     the error to the caller. If this parameter is enabled, in the specific case of a sequencer
+  *     refusing the submission because it is overloaded
+  *     ([[com.digitalasset.canton.sequencing.protocol.SequencerErrors.Overloaded]]), we will
+  *     immediately continue to the next step of amplification.
+  *   - Scheduling of the next amplification takes into account the time taken by the transport to
+  *     provide a response.
   */
 final case class SequencerClientConfig(
     eventInboxSize: PositiveInt = PositiveInt.tryCreate(100),
@@ -76,6 +86,7 @@ final case class SequencerClientConfig(
     maximumInFlightEventBatches: PositiveInt = PositiveInt.tryCreate(20),
     useNewConnectionPool: Boolean = true,
     timeReadingsRetention: PositiveFiniteDuration = PositiveFiniteDuration.ofMinutes(5),
+    enableAmplificationImprovements: Boolean = false,
 ) extends UniformCantonConfigValidation
 
 object SequencerClientConfig {
