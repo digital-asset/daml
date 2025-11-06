@@ -34,7 +34,7 @@ class SerializationVersionTest(majorLanguageVersion: LanguageVersion.Major)
     with Inside
     with TableDrivenPropertyChecks {
 
-  val helpers = new SerializationVersionTestHelpers(majorLanguageVersion)
+  val helpers = new SerializationVersionTestHelpers
   import helpers._
 
   "interface and transaction versioning" - {
@@ -107,22 +107,15 @@ class SerializationVersionTest(majorLanguageVersion: LanguageVersion.Major)
   }
 }
 
-private[lf] class SerializationVersionTestHelpers(majorLanguageVersion: LanguageVersion.Major) {
+private[lf] class SerializationVersionTestHelpers {
 
-  val (commonLfVersion, oldLfVersion, newLfVersion) = majorLanguageVersion match {
-    case LanguageVersion.Major.V2 =>
-      (
-        LanguageVersion.default,
-        LanguageVersion.v2_1,
-        LanguageVersion.v2_dev,
-      )
-    case _ =>
-      throw new IllegalArgumentException(s"${majorLanguageVersion.pretty} is not supported")
-  }
+  val commonLfVersion: LanguageVersion = LanguageVersion.default
+  val oldLfVersion: LanguageVersion = LanguageVersion.v2_1
+  val newLfVersion: LanguageVersion = LanguageVersion.v2_dev
 
-  val commonVersion = SerializationVersion.assign(commonLfVersion)
-  val oldVersion = SerializationVersion.assign(oldLfVersion)
-  val newVersion = SerializationVersion.assign(newLfVersion)
+  val commonVersion: SerializationVersion = SerializationVersion.assign(commonLfVersion)
+  val oldVersion: SerializationVersion = SerializationVersion.assign(oldLfVersion)
+  val newVersion: SerializationVersion = SerializationVersion.assign(newLfVersion)
 
   implicit val parserParameters: parser.ParserParameters[this.type] =
     parser.ParserParameters(

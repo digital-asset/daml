@@ -32,14 +32,8 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 
 import scala.collection.immutable.ArraySeq
 
-class ExceptionTestV2 extends ExceptionTest(LanguageVersion.Major.V2)
-
 // TEST_EVIDENCE: Integrity: Exceptions, throw/catch.
-class ExceptionTest(majorLanguageVersion: LanguageVersion.Major)
-    extends AnyFreeSpec
-    with Inside
-    with Matchers
-    with TableDrivenPropertyChecks {
+class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDrivenPropertyChecks {
 
   import SpeedyTestLib.loggingContext
 
@@ -47,7 +41,7 @@ class ExceptionTest(majorLanguageVersion: LanguageVersion.Major)
   val defaultPackageId = defaultParserParameters.defaultPackageId
 
   private val stablePackages =
-    com.digitalasset.daml.lf.stablepackages.StablePackages(majorLanguageVersion)
+    com.digitalasset.daml.lf.stablepackages.StablePackages.stablePackages
 
   private val tuple2TyCon: String = {
     import stablePackages.Tuple2

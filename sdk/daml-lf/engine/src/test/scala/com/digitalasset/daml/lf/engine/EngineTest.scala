@@ -2420,11 +2420,11 @@ class EngineTest(majorLanguageVersion: LanguageVersion.Major, contractIdVersion:
       new EngineTestHelpers(majorLanguageVersion, contractIdVersion).loadAndAddPackage(
         s"daml-lf/engine/BasicTests-v${majorLanguageVersion.pretty}dev.dar"
       )
-    val compatibleLanguageVersions = LanguageVersion.AllV2
+    val compatibleLanguageVersions = LanguageVersion.all
     // Following stable packages are deps of other stable packages, so we sort such that these are preloaded first
     val stablePackagesToLoadFirst = List("daml-prim-DA-Types", "daml-stdlib-DA-NonEmpty-Types")
     val stablePackages =
-      StablePackages(majorLanguageVersion).allPackages
+      StablePackages.stablePackages.allPackages
         .sortBy { sp =>
           val i = stablePackagesToLoadFirst.indexOf(sp.name)
           if (i == -1) Int.MaxValue else i
@@ -3158,7 +3158,7 @@ class EngineTestHelpers(
   def newEngine(requireCidSuffixes: Boolean = false) =
     new Engine(
       EngineConfig(
-        allowedLanguageVersions = language.LanguageVersion.AllVersions(majorLanguageVersion),
+        allowedLanguageVersions = language.LanguageVersion.allRange,
         forbidLocalContractIds = requireCidSuffixes,
       )
     )

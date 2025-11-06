@@ -19,12 +19,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class TypingSpecV2 extends TypingSpec(LV.Major.V2)
-
-abstract class TypingSpec(majorLanguageVersion: LV.Major)
-    extends AnyWordSpec
-    with TableDrivenPropertyChecks
-    with Matchers {
+abstract class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
   private[this] implicit val parserParameters: ParserParameters[this.type] =
     ParserParameters.default
@@ -36,7 +31,7 @@ abstract class TypingSpec(majorLanguageVersion: LV.Major)
     None,
   )
 
-  private[this] val stablePackages = StablePackages(majorLanguageVersion)
+  private[this] val stablePackages = StablePackages.stablePackages
 
   private[this] val tuple2TyCon: String = {
     import stablePackages.Tuple2

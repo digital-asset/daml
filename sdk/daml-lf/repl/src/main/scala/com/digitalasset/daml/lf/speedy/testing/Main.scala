@@ -14,7 +14,7 @@ import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.speedy.SExpr.LfDefRef
 import com.digitalasset.daml.lf.validation.Validation
 import com.digitalasset.daml.lf.testing.parser
-import com.digitalasset.daml.lf.language.{LanguageVersion, PackageInterface, LanguageVersion => LV}
+import com.digitalasset.daml.lf.language.{PackageInterface, LanguageVersion => LV}
 import com.daml.logging.LoggingContext
 
 import java.io.{File, PrintWriter, StringWriter}
@@ -47,11 +47,11 @@ object Main extends App {
 
   val (replArgs, compilerConfig) = args.toList match {
     case "--dev" :: rest =>
-      rest -> Repl.devCompilerConfig(LV.Major.V2)
+      rest -> Repl.devCompilerConfig
     case list =>
-      list -> Repl.defaultCompilerConfig(LV.Major.V2)
+      list -> Repl.defaultCompilerConfig
   }
-  val repl = new Repl(LV.Major.V2)
+  val repl = new Repl
   replArgs match {
     case "-h" :: _ | "--help" :: _ =>
       usage()
@@ -68,7 +68,7 @@ object Main extends App {
 }
 
 // The Daml-LF Read-Eval-Print-Loop
-class Repl(majorLanguageVersion: LanguageVersion.Major) {
+class Repl {
 
   import Repl._
 
@@ -118,7 +118,7 @@ class Repl(majorLanguageVersion: LanguageVersion.Major) {
     ":help" -> Command("show this help", (s, _) => { usage(); s }),
     ":reset" -> Command(
       "reset the REPL.",
-      (_, _) => initialState(defaultCompilerConfig(majorLanguageVersion)),
+      (_, _) => initialState(defaultCompilerConfig),
     ),
     ":list" -> Command("list loaded packages.", (s, _) => { list(s); s }),
     ":speedy" -> Command(
@@ -130,7 +130,7 @@ class Repl(majorLanguageVersion: LanguageVersion.Major) {
     ":quit" -> Command("quit the REPL.", (s, _) => s.copy(quit = true)),
     ":devmode" -> Command(
       "switch in devMode. This reset the state of REPL.",
-      (_, _) => initialState(devCompilerConfig(majorLanguageVersion)),
+      (_, _) => initialState(devCompilerConfig),
     ),
     ":validate" -> Command("validate all the packages", (s, _) => { cmdValidate(s); s }),
   )
@@ -459,18 +459,16 @@ class Repl(majorLanguageVersion: LanguageVersion.Major) {
 object Repl {
   implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
-  def defaultCompilerConfig(majorLanguageVersion: LV.Major): Compiler.Config =
+  def defaultCompilerConfig =
     Compiler.Config(
-      allowedLanguageVersions = LV.StableVersions(majorLanguageVersion),
+      allowedLanguageVersions = LV.stableRange,
       packageValidation = Compiler.FullPackageValidation,
       profiling = Compiler.NoProfile,
       stacktracing = Compiler.FullStackTrace,
     )
 
-  def devCompilerConfig(majorLanguageVersion: LV.Major): Compiler.Config =
-    defaultCompilerConfig(majorLanguageVersion).copy(allowedLanguageVersions =
-      LV.AllVersions(majorLanguageVersion)
-    )
+  def devCompilerConfig: Compiler.Config =
+    defaultCompilerConfig.copy(allowedLanguageVersions = LV.allRange)
 
   private implicit class StateOp(val x: (Boolean, State)) extends AnyVal {
 

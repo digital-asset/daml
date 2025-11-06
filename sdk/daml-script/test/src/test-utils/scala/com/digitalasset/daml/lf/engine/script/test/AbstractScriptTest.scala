@@ -32,7 +32,7 @@ trait AbstractScriptTest extends CantonFixture with PekkoBeforeAndAfterAll {
 
   def tuple(a: SValue, b: SValue) =
     SValue.SRecord(
-      id = StablePackages(majorLanguageVersion).Tuple2,
+      id = StablePackages.stablePackages.Tuple2,
       fields = ImmArray(Ref.Name.assertFromString("_1"), Ref.Name.assertFromString("_2")),
       values = ArraySeq(a, b),
     )
