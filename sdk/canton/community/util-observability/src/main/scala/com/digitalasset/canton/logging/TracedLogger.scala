@@ -36,7 +36,7 @@ object TracedLogger {
 
   def apply(logger: slf4j.Logger): TracedLogger = Logger.takingImplicit[TraceContext](logger)
   def apply(logger: Logger): TracedLogger = apply(logger.underlying)
-  def apply(klass: Class[_], loggerFactory: NamedLoggerFactory): TracedLogger = apply(
+  def apply(klass: Class[?], loggerFactory: NamedLoggerFactory): TracedLogger = apply(
     loggerFactory.getLogger(klass)
   )
 }

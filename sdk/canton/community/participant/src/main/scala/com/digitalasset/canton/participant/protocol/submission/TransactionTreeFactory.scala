@@ -32,9 +32,14 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.transaction.TransactionErrors.KeyInputError
 
 import java.util.UUID
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 trait TransactionTreeFactory {
+
+  /** The [[com.digitalasset.canton.protocol.CantonContractIdVersion]] to be used for newly created
+    * contracts
+    */
+  def cantonContractIdVersion: CantonContractIdVersion
 
   /** Converts a `transaction: LfTransaction` to the corresponding transaction tree, if possible.
     *
@@ -95,7 +100,7 @@ trait TransactionTreeFactory {
 object TransactionTreeFactory {
 
   type ContractInstanceOfId =
-    LfContractId => EitherT[Future, ContractLookupError, GenContractInstance]
+    LfContractId => EitherT[FutureUnlessShutdown, ContractLookupError, GenContractInstance]
 
   def contractInstanceLookup(
       contractStore: ContractLookup
@@ -105,7 +110,6 @@ object TransactionTreeFactory {
         contract <- contractStore
           .lookup(id)
           .toRight(ContractLookupError(id, "Unknown contract"))
-          .failOnShutdownToAbortException("TransactionTreeFactory.contractInstanceLookup")
       } yield contract
 
   /** Supertype for all errors than may arise during the conversion. */
@@ -144,8 +148,13 @@ object TransactionTreeFactory {
 
   final case class ContractKeyResolutionError(error: KeyInputError)
       extends TransactionTreeConversionError {
-    override protected def pretty: Pretty[ContractKeyResolutionError] =
-      prettyOfClass(unnamedParam(_.error))
+    override protected def pretty: Pretty[ContractKeyResolutionError] = prettyOfClass(
+      unnamedParam(_.error)
+    )
+  }
+
+  final case class FailedToHashContact(error: String) extends TransactionTreeConversionError {
+    override protected def pretty: Pretty[FailedToHashContact] = prettyOfString(_.error)
   }
 
   /** Indicates that too few salts have been supplied for creating a view */
@@ -167,6 +176,13 @@ object TransactionTreeFactory {
       err =>
         show"Detected conflicting package-ids for the same package name\n${err.conflicts}"
     }
+  }
+
+  final case class ContractIdAbsolutizationError(message: String)
+      extends TransactionTreeConversionError {
+    override protected def pretty: Pretty[ContractIdAbsolutizationError] = prettyOfClass(
+      unnamedParam(_.message.unquoted)
+    )
   }
 
   final case class PackageUnknownTo(

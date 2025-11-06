@@ -4,6 +4,10 @@
 package com.digitalasset.canton.integration.tests.repair
 
 import com.daml.test.evidence.scalatest.OperabilityTestHelpers
+import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommands.Inspection.{
+  SynchronizerTimeRange,
+  TimeRange,
+}
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.SynchronizerTimeTrackerConfig
@@ -12,11 +16,11 @@ import com.digitalasset.canton.console.{
   LocalParticipantReference,
   SequencerReference,
 }
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.MediatorError.InvalidMessage
 import com.digitalasset.canton.examples.java as M
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
 import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.util.{AcsInspection, LoggerSuppressionHelpers}
@@ -33,6 +37,7 @@ import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.logging.SuppressingLogger.LogEntryOptionality
 import com.digitalasset.canton.participant.admin.data.RepairContract
 import com.digitalasset.canton.participant.admin.grpc.PruningServiceError.UnsafeToPrune
+import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.ReceivedCmtState.Match
 import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore
 import com.digitalasset.canton.participant.sync.{SyncServiceError, SynchronizerMigrationError}
 import com.digitalasset.canton.participant.synchronizer.{
@@ -128,8 +133,8 @@ final class ParticipantMigrateSynchronizerIntegrationTest
       ignoreDeprecatedProtocolMessage(
         participant.synchronizers.connect_local(sequencer1, alias = daName)
       )
-      participant.dars.upload(CantonExamplesPath)
-      participant.dars.upload(CantonTestsPath)
+      participant.dars.upload(CantonExamplesPath, synchronizerId = daId)
+      participant.dars.upload(CantonTestsPath, synchronizerId = daId)
     }
 
     val alice = participant1.parties.enable(
@@ -146,6 +151,10 @@ final class ParticipantMigrateSynchronizerIntegrationTest
     // temporarily connect to synchronizer 2 and allocate parties there
     participant1.synchronizers.connect_local(sequencer2, alias = acmeName)
     participant2.synchronizers.connect_local(sequencer2, alias = acmeName)
+    Seq(participant1, participant2).foreach { participant =>
+      participant.dars.upload(CantonExamplesPath, synchronizerId = acmeId)
+      participant.dars.upload(CantonTestsPath, synchronizerId = acmeId)
+    }
     participant1.parties.enable(
       "Alice",
       synchronizeParticipants = Seq(participant2),
@@ -320,7 +329,55 @@ final class ParticipantMigrateSynchronizerIntegrationTest
               (logAssertions)*
             )
 
-          // TODO(i9557) check that commitments match again
+            val tsAfterMigrationAcme =
+              sequencer2.underlying.value.sequencer.timeTracker.fetchTime().futureValueUS
+
+            eventually() {
+              // tsAfterMigrationAcme is the timestamp we know for sure is after migration
+              // advance time on acme to be sure that commitments are created after migration
+              participant1.health.ping(participantId = participant2, synchronizerId = Some(acmeId))
+              // check that commitments match on acme
+              val cmtAfterMigrationAcmeP1 =
+                participant1.commitments.lookup_received_acs_commitments(
+                  synchronizerTimeRanges = Seq(
+                    SynchronizerTimeRange(
+                      acmeId,
+                      Some(
+                        TimeRange(
+                          tsAfterMigrationAcme,
+                          CantonTimestamp.MaxValue,
+                        )
+                      ),
+                    )
+                  ),
+                  counterParticipants = Seq(participant2.id),
+                  commitmentState = Seq(Match),
+                  verboseMode = true,
+                )
+              cmtAfterMigrationAcmeP1.size shouldBe >=(1)
+
+              val cmtAfterMigrationAcmeP2 =
+                participant2.commitments.lookup_received_acs_commitments(
+                  synchronizerTimeRanges = Seq(
+                    SynchronizerTimeRange(
+                      acmeId,
+                      Some(
+                        TimeRange(
+                          tsAfterMigrationAcme,
+                          CantonTimestamp.MaxValue,
+                        )
+                      ),
+                    )
+                  ),
+                  counterParticipants = Seq(participant1.id),
+                  commitmentState = Seq(Match),
+                  verboseMode = true,
+                )
+              cmtAfterMigrationAcmeP2.size shouldBe >=(1)
+
+              cmtAfterMigrationAcmeP1.head._2.head.receivedCommitment should not be None
+              cmtAfterMigrationAcmeP1.head._2.head.receivedCommitment shouldBe cmtAfterMigrationAcmeP2.head._2.head.receivedCommitment
+            }
         }
 
         "test we can progress on existing contracts" in { implicit env =>
@@ -511,6 +568,7 @@ final class ParticipantMigrateSynchronizerCrashRecoveryIntegrationTest
     )
   )
 
+  // TODO(#27707) - Remove when ACS commitments consider the onboarding flag
   // A party replication is involved and we want to minimize the risk of warnings related to acs commitment mismatches
   private val reconciliationInterval = PositiveSeconds.tryOfDays(365 * 10)
 
@@ -521,8 +579,10 @@ final class ParticipantMigrateSynchronizerCrashRecoveryIntegrationTest
       Seq(participant1, participant2, participant3).foreach { participant =>
         participant.synchronizers.connect_local(sequencer1, daName)
         participant.synchronizers.connect_local(sequencer2, acmeName)
-        participant.dars.upload(CantonExamplesPath)
-        participant.dars.upload(CantonTestsPath).discard
+        participant.dars.upload(CantonExamplesPath, synchronizerId = daId)
+        participant.dars.upload(CantonExamplesPath, synchronizerId = acmeId)
+        participant.dars.upload(CantonTestsPath, synchronizerId = daId).discard
+        participant.dars.upload(CantonTestsPath, synchronizerId = acmeId).discard
       }
 
       sequencer1.topology.synchronizer_parameters
@@ -629,7 +689,7 @@ final class ParticipantMigrateSynchronizerCrashRecoveryIntegrationTest
     val source =
       participant1.underlying.value.sync.internalIndexService.value.activeContracts(
         Set(alice.toLf),
-        Offset.fromLong(aliceAddedOnP3Offset.unwrap).toOption,
+        Offset.fromLong(aliceAddedOnP3Offset).toOption,
       )
     val aliceACS =
       source

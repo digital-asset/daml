@@ -1,9 +1,0 @@
-sdk-version: 3.4.0-snapshot.20250903.14173.0.v4cf54bab
-build-options: 
-- --target=2.1
-name: PartyReplication
-source: Canton/Internal/PartyReplication.daml
-version: 3.4.0
-dependencies: 
-- daml-prim
-- daml-stdlib

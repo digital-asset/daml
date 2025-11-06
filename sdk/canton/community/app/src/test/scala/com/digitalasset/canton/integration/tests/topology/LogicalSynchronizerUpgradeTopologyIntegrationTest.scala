@@ -4,16 +4,14 @@
 package com.digitalasset.canton.integration.tests.topology
 
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.SequencerAlias
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.{CommandFailure, LocalParticipantReference}
 import com.digitalasset.canton.crypto.SigningKeyUsage
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.*
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -23,41 +21,63 @@ import com.digitalasset.canton.integration.{
 }
 import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
-import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnections}
+import com.digitalasset.canton.sequencing.{
+  GrpcSequencerConnection,
+  SequencerConnectionPoolDelays,
+  SequencerConnections,
+  SubmissionRequestAmplification,
+}
+import com.digitalasset.canton.topology.TopologyManagerError.InvalidSynchronizerSuccessor
 import com.digitalasset.canton.topology.transaction.DelegationRestriction.CanSignAllMappings
 import com.digitalasset.canton.topology.{
   KnownPhysicalSynchronizerId,
+  PhysicalSynchronizerId,
   SequencerId,
   TopologyManagerError,
   UnknownPhysicalSynchronizerId,
 }
 import com.google.protobuf.ByteString
 import monocle.syntax.all.*
+import org.scalatest.Assertion
 
 import java.net.URI
+import java.util.concurrent.atomic.AtomicReference
 
 sealed trait LogicalSynchronizerUpgradeTopologyIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment {
 
   override def environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P3_S2M2.addConfigTransform(
-      ConfigTransforms.updateAllParticipantConfigs_(
-        _.focus(_.parameters.automaticallyPerformLogicalSynchronizerUpgrade).replace(false)
+    EnvironmentDefinition.P3_S2M2
+      .addConfigTransform(
+        ConfigTransforms.updateAllParticipantConfigs_(
+          _.focus(_.parameters.automaticallyPerformLogicalSynchronizerUpgrade).replace(false)
+        )
       )
-    )
+      .withSetup { env =>
+        latestSuccessorPSId.set(Some(env.daId))
+      }
 
-  private def successorSynchronizerId(implicit env: TestConsoleEnvironment) =
-    env.daId.copy(serial = NonNegativeInt.one)
+  /*
+  PSId of the successor needs to be strictly increasing with different announcements.
+  This allows to track the latest used.
+   */
+  private val latestSuccessorPSId = new AtomicReference[Option[PhysicalSynchronizerId]](None)
+
+  private def allocateSuccessorPSId(): PhysicalSynchronizerId =
+    latestSuccessorPSId.updateAndGet { existing =>
+      Some(existing.value.copy(serial = existing.value.serial.increment.toNonNegative))
+    }.value
 
   private lazy val upgradeTime = CantonTimestamp.now().plusSeconds(3600)
 
-  "migration announcement does not permit further topology transactions" in { implicit env =>
+  "upgrade announcement does not permit further topology transactions" in { implicit env =>
     import env.*
 
+    val successorPSId = allocateSuccessorPSId()
     synchronizerOwners1.foreach { owner =>
       owner.topology.synchronizer_upgrade.announcement.propose(
-        successorPhysicalSynchronizerId = successorSynchronizerId,
+        successorPhysicalSynchronizerId = successorPSId,
         upgradeTime = upgradeTime,
       )
     }
@@ -68,7 +88,7 @@ sealed trait LogicalSynchronizerUpgradeTopologyIntegrationTest
     loggerFactory.assertThrowsAndLogs[CommandFailure](
       owner1.topology.namespace_delegations
         .propose_delegation(owner1.namespace, targetKey, CanSignAllMappings, daId),
-      _ shouldBeCantonErrorCode (TopologyManagerError.OngoingSynchronizerUpgrade),
+      _.shouldBeCantonErrorCode(TopologyManagerError.OngoingSynchronizerUpgrade),
     )
   }
 
@@ -76,7 +96,7 @@ sealed trait LogicalSynchronizerUpgradeTopologyIntegrationTest
     import env.*
     synchronizerOwners1.foreach(
       _.topology.synchronizer_upgrade.announcement.revoke(
-        successorPhysicalSynchronizerId = successorSynchronizerId,
+        successorPhysicalSynchronizerId = latestSuccessorPSId.get().value,
         upgradeTime = upgradeTime,
       )
     )
@@ -92,7 +112,7 @@ sealed trait LogicalSynchronizerUpgradeTopologyIntegrationTest
     }
   }
 
-  "sequencers announce their success endpoints" in { implicit env =>
+  "sequencers announce their successor endpoints" in { implicit env =>
     import env.*
 
     // participant1 has a single sequencer connection
@@ -105,10 +125,11 @@ sealed trait LogicalSynchronizerUpgradeTopologyIntegrationTest
       sequencerTrustThreshold = PositiveInt.two,
     )
 
-    // announce the migration to prepare for the sequencer connection announcements
+    // announce the upgrade to prepare for the sequencer connection announcements
+    val successorPSId = allocateSuccessorPSId()
     synchronizerOwners1.foreach(
       _.topology.synchronizer_upgrade.announcement.propose(
-        successorPhysicalSynchronizerId = successorSynchronizerId,
+        successorPhysicalSynchronizerId = successorPSId,
         upgradeTime = upgradeTime,
       )
     )
@@ -129,7 +150,7 @@ sealed trait LogicalSynchronizerUpgradeTopologyIntegrationTest
       .get(daName, UnknownPhysicalSynchronizerId)
       .toOption shouldBe None
     connectionConfigStore(participant2)
-      .get(daName, KnownPhysicalSynchronizerId(successorSynchronizerId))
+      .get(daName, KnownPhysicalSynchronizerId(successorPSId))
       .toOption shouldBe None
 
     // sequencer2 announces its connection details for the successor synchronizer
@@ -138,6 +159,7 @@ sealed trait LogicalSynchronizerUpgradeTopologyIntegrationTest
       endpoints = NonEmpty(Seq, new URI("http://localhost:6000"), new URI("http://localhost:7000")),
       daId,
     )
+
     // check that participant2 automatically created a synchronizer config for the successor synchronizer
     // with a connection to the same sequencer alias/id
     checkUpgradedSequencerConfig(
@@ -164,11 +186,35 @@ sealed trait LogicalSynchronizerUpgradeTopologyIntegrationTest
       daId,
       customTrustCertificates = Some(ByteString.copyFromUtf8("test")),
     )
+
     // check that the participants automatically modified their synchronizer configs for the successor synchronizer
     // according to the latest sequencer connection updates
     checkUpgradedSequencerConfig(participant1, sequencer1.id -> 5005)
     checkUpgradedSequencerConfig(participant2, sequencer1.id -> 5005, sequencer2.id -> 6000)
 
+    // check that modifying the synchronizer configs (adding sequencer2) yields to the config
+    // of the successor being updated
+    participant1.synchronizers.modify(
+      daName,
+      _.copy(sequencerConnections =
+        SequencerConnections.tryMany(
+          Seq(sequencer1, sequencer2).map { sequencer =>
+            /*
+             On purpose, we don't set the sequencer id. It should be grabbed automatically.
+             In case it is not, the assertion below will fail.
+             */
+            sequencer.sequencerConnection
+              .withAlias(SequencerAlias.tryCreate(sequencer.name))
+          },
+          PositiveInt.two,
+          NonNegativeInt.zero,
+          SubmissionRequestAmplification.NoAmplification,
+          SequencerConnectionPoolDelays.default,
+        )
+      ),
+    )
+
+    checkUpgradedSequencerConfig(participant1, sequencer1.id -> 5005, sequencer2.id -> 6000)
   }
 
   // this test simulates an automation that is part of a logical synchronizer upgrade
@@ -181,7 +227,7 @@ sealed trait LogicalSynchronizerUpgradeTopologyIntegrationTest
       // unfrozen successor synchronizer
       synchronizerOwners1.foreach(
         _.topology.synchronizer_upgrade.announcement.revoke(
-          successorSynchronizerId,
+          latestSuccessorPSId.get().value,
           upgradeTime = upgradeTime,
         )
       )
@@ -216,13 +262,61 @@ sealed trait LogicalSynchronizerUpgradeTopologyIntegrationTest
       }
   }
 
+  "successor PSId should increase between announcements" in { implicit env =>
+    import env.*
+
+    val successor1 = allocateSuccessorPSId()
+    val successor2 = allocateSuccessorPSId()
+    val successor3 = allocateSuccessorPSId()
+
+    Seq(successor1, successor2).foreach { successor =>
+      synchronizerOwners1.foreach { owner =>
+        owner.topology.synchronizer_upgrade.announcement.propose(
+          successorPhysicalSynchronizerId = successor,
+          upgradeTime = upgradeTime,
+        )
+      }
+
+      synchronizerOwners1.foreach { owner =>
+        owner.topology.synchronizer_upgrade.announcement.revoke(
+          successorPhysicalSynchronizerId = successor,
+          upgradeTime = upgradeTime,
+        )
+      }
+    }
+
+    // Re-using successor1 or successor2 should fail
+    Seq(successor1, successor2).foreach { successor =>
+      loggerFactory.assertThrowsAndLogs[CommandFailure](
+        sequencer1.topology.synchronizer_upgrade.announcement.propose(
+          successorPhysicalSynchronizerId = successor,
+          upgradeTime = upgradeTime,
+        ),
+        entry => {
+          entry shouldBeCantonErrorCode (InvalidSynchronizerSuccessor)
+          entry.errorMessage should include(
+            InvalidSynchronizerSuccessor.Reject
+              .conflictWithPreviousAnnouncement(successor, successor2)
+              .cause
+          )
+        },
+      )
+    }
+
+    // But successor3 should be fine
+    sequencer1.topology.synchronizer_upgrade.announcement.propose(
+      successorPhysicalSynchronizerId = successor3,
+      upgradeTime = upgradeTime,
+    )
+  }
+
   private def connectionConfigStore(participant: LocalParticipantReference) =
     participant.underlying.value.sync.synchronizerConnectionConfigStore
 
   private def checkUpgradedSequencerConfig(
       participant: LocalParticipantReference,
       expectedSequencerPorts: (SequencerId, Int)*
-  )(implicit env: TestConsoleEnvironment) = {
+  )(implicit env: TestConsoleEnvironment): Assertion = {
     import env.*
     val portMap = expectedSequencerPorts.groupBy(_._1).view.mapValues(_.map(_._2)).toMap
     eventually() {
@@ -231,7 +325,7 @@ sealed trait LogicalSynchronizerUpgradeTopologyIntegrationTest
         configStore.get(daName, KnownPhysicalSynchronizerId(daId)).value
       currentConfig.status shouldBe SynchronizerConnectionConfigStore.Active
       val successorConfig =
-        configStore.get(daName, KnownPhysicalSynchronizerId(successorSynchronizerId)).value
+        configStore.get(daName, KnownPhysicalSynchronizerId(latestSuccessorPSId.get().value)).value
       successorConfig.status shouldBe SynchronizerConnectionConfigStore.UpgradingTarget
 
       val currentSequencers = currentConfig.config.sequencerConnections.aliasToConnection.map {
@@ -255,5 +349,5 @@ sealed trait LogicalSynchronizerUpgradeTopologyIntegrationTest
 class LogicalSynchronizerUpgradeTopologyIntegrationTestPostgres
     extends LogicalSynchronizerUpgradeTopologyIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }

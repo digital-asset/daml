@@ -30,7 +30,7 @@ import DA.Cli.Options (Debug(..),
                        MultiPackageCleanAll(..),
                        MultiPackageLocation(..),
                        MultiPackageNoCache(..),
-                       ProjectOpts(..),
+                       PackageLocationOpts(..),
                        Style(..),
                        Telemetry(..),
                        cliOptDetailLevel,
@@ -55,7 +55,7 @@ import DA.Cli.Options (Debug(..),
                        optionsParser,
                        optPackageName,
                        outputFileOpt,
-                       projectOpts,
+                       packageLocationOpts,
                        render,
                        studioAutorunAllScriptsOpt,
                        studioReplaceOpt,
@@ -90,8 +90,8 @@ import DA.Daml.Project.Types
       parseUnresolvedVersion,
       isHeadVersion,
       ConfigError(..),
-      ProjectPath(..),
-      ProjectConfig,
+      PackagePath(..),
+      PackageConfig,
       unsafeResolveReleaseVersion)
 import DA.Daml.Assistant.Version (resolveReleaseVersionUnsafe)
 import DA.Daml.Assistant.Util (wrapErr)
@@ -139,29 +139,29 @@ import DA.Daml.Options.Types (EnableScriptService(..),
                               optUpgradeInfo,
                               optTypecheckerWarningFlags,
                               pkgNameVersion,
-                              projectPackageDatabase)
+                              packageDatabasePath)
 import DA.Daml.Package.Config (MultiPackageConfigFields(..),
                                PackageConfigFields(..),
                                checkPkgConfig,
                                findMultiPackageConfig,
                                withPackageConfig,
                                withMultiPackageConfig)
-import DA.Daml.Resolution.Config (ValidPackageResolution (..), ResolutionError (..), DPMUnsupportedError (..), findPackageResolutionData, getResolutionData, resolutionFileEnvVar)
-import DA.Daml.Project.Config (queryProjectConfig, queryProjectConfigRequired, readProjectConfig)
-import DA.Daml.Project.Consts (ProjectCheck(..),
+import DA.Daml.Resolution.Config (ValidPackageResolution (..), ResolutionError (..), DPMUnsupportedError (..), findPackageResolutionData, getResolutionData)
+import DA.Daml.Project.Config (queryPackageConfig, queryPackageConfigRequired, readPackageConfig)
+import DA.Daml.Project.Consts (PackageLocationCheck(..),
                                damlCacheEnvVar,
                                damlPathEnvVar,
-                               getProjectPath,
+                               getPackagePath,
                                getSdkVersion,
                                multiPackageConfigName,
-                               projectConfigName,
-                               withExpectProjectRoot,
-                               withProjectRoot,
+                               packageConfigName,
+                               withExpectPackageRoot,
+                               withPackageRoot,
                                damlAssistantIsSet,
-                               projectPathEnvVar)
+                               projectPathEnvVar,
+                               packagePathEnvVar)
 import DA.Daml.Assistant.Env (getDamlEnv, getDamlPath, envUseCache)
-import qualified DA.Daml.Assistant.Env as AssistantEnv
-import DA.Daml.Assistant.Types (LookForProjectPath(..))
+import DA.Daml.Assistant.Types (LookForPackagePath(..))
 import qualified DA.Pretty
 import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Logger.Impl.GCP as Logger.GCP
@@ -255,8 +255,7 @@ import qualified Options.Applicative.Types as Options.Applicative (readerAsk)
 import qualified Proto3.Suite as PS
 import qualified Proto3.Suite.JSONPB as Proto.JSONPB
 import System.Directory.Extra
-import System.Environment hiding (setEnv)
-import System.Environment.Blank (setEnv)
+import System.Environment
 import System.Exit
 import System.FilePath
 import System.IO.Extra
@@ -311,7 +310,7 @@ data CommandName =
   | UpgradeCheck
   | Studio
   deriving (Ord, Show, Eq)
-data Command = Command CommandName (Maybe ProjectOpts) (IO ())
+data Command = Command CommandName (Maybe PackageLocationOpts) (IO ())
 
 cmdMultiIde :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
 cmdMultiIde _numProcessors =
@@ -436,11 +435,11 @@ cmdTest numProcessors =
     <> fullDesc
   where
     progDoc = unlines
-      [ "Test the current Daml project or the given files by running all test declarations."
-      , "Must be in Daml project if --files is not set."
+      [ "Test the current Daml package or the given files by running all test declarations."
+      , "Must be in Daml package if --files is not set."
       ]
-    cmd = runTestsInProjectOrFiles
-      <$> projectOpts "daml test"
+    cmd = runTestsInPackageOrFiles
+      <$> packageLocationOpts "daml test"
       <*> filesOpt
       <*> fmap RunAllOption runAllOption
       <*> fmap LoadCoverageOnly loadCoverageOnly
@@ -462,7 +461,7 @@ cmdTest numProcessors =
     junitOutput = optional $ strOptionOnce $ long "junit" <> metavar "FILENAME" <> help "Filename of JUnit output file"
     colorOutput = switch $ long "color" <> help "Colored test results"
     showCoverageOpt = switch $ long "show-coverage" <> help "Show detailed test coverage"
-    runAllOption = switch $ long "all" <> help "Run tests in current project as well as dependencies"
+    runAllOption = switch $ long "all" <> help "Run tests in current package as well as dependencies"
     tableOutputPathOpt = optional $ strOptionOnce $ long "table-output" <> help "Filename to which table should be output"
     transactionsOutputPathOpt = optional $ strOptionOnce $ long "transactions-output" <> help "Filename to which the transaction list should be output"
     coveragePathsOpt =
@@ -475,9 +474,9 @@ cmdTest numProcessors =
       Options.Applicative.option (Options.Applicative.readerAsk >>= fmap CoverageFilter . makeRegexM) $
         long "coverage-ignore-choice" <> help "Remove choices matching a regex from the coverage report. The full name of a local choice takes the format '<module>:<template name>:<choice name>', preceded by '<package id>:' for nonlocal packages."
 
-runTestsInProjectOrFiles ::
+runTestsInPackageOrFiles ::
        SdkVersion.Class.SdkVersioned
-    => ProjectOpts
+    => PackageLocationOpts
     -> Maybe [FilePath]
     -> RunAllOption
     -> LoadCoverageOnly
@@ -491,7 +490,7 @@ runTestsInProjectOrFiles ::
     -> CoveragePaths
     -> [CoverageFilter]
     -> Command
-runTestsInProjectOrFiles projectOpts mbInFiles allTests (LoadCoverageOnly True) coverage _ _ _ _ _ _ coveragePaths coverageFilters = Command Test (Just projectOpts) effect
+runTestsInPackageOrFiles packageLocationOpts mbInFiles allTests (LoadCoverageOnly True) coverage _ _ _ _ _ _ coveragePaths coverageFilters = Command Test (Just packageLocationOpts) effect
   where effect = do
           when (getRunAllTests allTests) $ do
             hPutStrLn stderr "Cannot specify --all and --load-coverage-only at the same time."
@@ -502,30 +501,30 @@ runTestsInProjectOrFiles projectOpts mbInFiles allTests (LoadCoverageOnly True) 
               exitFailure
             Nothing -> do
               loadAggregatePrintResults coveragePaths coverageFilters coverage Nothing
-runTestsInProjectOrFiles projectOpts Nothing allTests _ coverage color mbJUnitOutput cliOptions initPkgDb tableOutputPath transactionsOutputPath coveragePaths coverageFilters = Command Test (Just projectOpts) effect
-  where effect = withExpectProjectRoot (projectRoot projectOpts) "daml test" $ \pPath relativize -> do
+runTestsInPackageOrFiles packageLocationOpts Nothing allTests _ coverage color mbJUnitOutput cliOptions initPkgDb tableOutputPath transactionsOutputPath coveragePaths coverageFilters = Command Test (Just packageLocationOpts) effect
+  where effect = withExpectPackageRoot (packageRoot packageLocationOpts) "daml test" $ \pPath relativize -> do
           cliOptions <- addResolutionData cliOptions
-          cliOptions <- pure $ cliOptions { optMbPackageConfigPath = Just $ ProjectPath pPath }
+          cliOptions <- pure $ cliOptions { optMbPackageConfigPath = Just $ PackagePath pPath }
           installDepsAndInitPackageDb cliOptions initPkgDb
           mbJUnitOutput <- traverse relativize mbJUnitOutput
-          withPackageConfig (ProjectPath pPath) $ \pkgConfig@PackageConfigFields{..} -> do
+          withPackageConfig (PackagePath pPath) $ \pkgConfig@PackageConfigFields{..} -> do
             -- TODO: We set up one script service context per file that
             -- we pass to execTest and script contexts are quite expensive.
             -- Therefore we keep the behavior of only passing the root file
             -- if source points to a specific file.
             files <- getDamlRootFiles pSrc
             execTest files allTests coverage color mbJUnitOutput (Just pkgConfig) cliOptions tableOutputPath transactionsOutputPath coveragePaths coverageFilters
-runTestsInProjectOrFiles projectOpts (Just inFiles) allTests _ coverage color mbJUnitOutput cliOptions initPkgDb tableOutputPath transactionsOutputPath coveragePaths coverageFilters = Command Test (Just projectOpts) effect
-  where effect = withProjectRoot (projectRoot projectOpts) (projectCheck projectOpts) $ \mProjectPath relativize -> do
+runTestsInPackageOrFiles packageLocationOpts (Just inFiles) allTests _ coverage color mbJUnitOutput cliOptions initPkgDb tableOutputPath transactionsOutputPath coveragePaths coverageFilters = Command Test (Just packageLocationOpts) effect
+  where effect = withPackageRoot (packageRoot packageLocationOpts) (packageLocationCheck packageLocationOpts) $ \mPackageRoot relativize -> do
           cliOptions <- addResolutionData cliOptions
-          cliOptions <- pure $ cliOptions { optMbPackageConfigPath = ProjectPath <$> mProjectPath }
+          cliOptions <- pure $ cliOptions { optMbPackageConfigPath = PackagePath <$> mPackageRoot }
           -- Cannot run without package context as resolution provides no default/project level resolution, so we wouldn't be able to find script-service
-          when (isJust (optResolutionData cliOptions) && isNothing mProjectPath) $
+          when (isJust (optResolutionData cliOptions) && isNothing mPackageRoot) $
             throwIO $ DPMUnsupportedError "running tests outside of a package"
           installDepsAndInitPackageDb cliOptions initPkgDb
           mbJUnitOutput <- traverse relativize mbJUnitOutput
-          mPkgConfig <- case mProjectPath of
-            Just projectPath -> withMaybeConfig (withPackageConfig (ProjectPath projectPath)) pure
+          mPkgConfig <- case mPackageRoot of
+            Just packagePath -> withMaybeConfig (withPackageConfig (PackagePath packagePath)) pure
             Nothing -> pure Nothing
           inFiles' <- mapM (fmap toNormalizedFilePath' . relativize) inFiles
           execTest inFiles' allTests coverage color mbJUnitOutput mPkgConfig cliOptions tableOutputPath transactionsOutputPath coveragePaths coverageFilters
@@ -543,12 +542,12 @@ cmdBuild :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
 cmdBuild numProcessors =
     command "build" $
     info (helper <*> cmdBuildParser numProcessors) $
-    progDesc "Initialize, build and package the Daml project" <> fullDesc
+    progDesc "Initialize, build and package the Daml package" <> fullDesc
 
 cmdBuildParser :: SdkVersion.Class.SdkVersioned => Int -> Parser Command
 cmdBuildParser numProcessors =
     execBuild
-        <$> projectOpts "daml build"
+        <$> packageLocationOpts "daml build"
         <*> optionsParser
               numProcessors
               (EnableScriptService False)
@@ -566,10 +565,10 @@ cmdClean :: Mod CommandFields Command
 cmdClean =
     command "clean" $
     info (helper <*> cmd) $
-    progDesc "Remove Daml project build artifacts" <> fullDesc
+    progDesc "Remove Daml package build artifacts" <> fullDesc
   where
     cmd = execClean
-            <$> projectOpts "daml clean"
+            <$> packageLocationOpts "daml clean"
             <*> enableMultiPackageOpt
             <*> multiPackageLocationOpt
             <*> multiPackageCleanAllOpt
@@ -577,7 +576,7 @@ cmdClean =
 cmdInit :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
 cmdInit numProcessors =
     command "init" $
-    info (helper <*> cmd) $ progDesc "Initialize a Daml project" <> fullDesc
+    info (helper <*> cmd) $ progDesc "Initialize a Daml package" <> fullDesc
   where
     cmd = execInit
             <$> optionsParser
@@ -585,7 +584,7 @@ cmdInit numProcessors =
                   (EnableScriptService False)
                   (pure Nothing)
                   disabledDlintUsageParser
-            <*> projectOpts "daml damlc init"
+            <*> packageLocationOpts "daml damlc init"
 
 cmdInspectDar :: Mod CommandFields Command
 cmdInspectDar =
@@ -702,7 +701,7 @@ execIde telemetry (Debug debug) enableScriptService autorunAllScripts options =
                       whenJust gcpStateM $ \gcpState -> Logger.GCP.logIgnored gcpState
                       f loggerH
                   TelemetryDisabled -> f loggerH
-          pkgPath <- getCanonDefaultProjectPath
+          pkgPath <- getCanonDefaultPackagePath
           mPkgConfig <- withMaybeConfig (withPackageConfig pkgPath) pure
           let pkgConfUpgradeDar = pUpgradeDar =<< mPkgConfig
           options <- updateUpgradePath "ide" pkgPath options pkgConfUpgradeDar
@@ -739,10 +738,10 @@ newtype WriteInterface = WriteInterface Bool
 
 execCompile :: SdkVersion.Class.SdkVersioned => FilePath -> FilePath -> Options -> WriteInterface -> Maybe FilePath -> Command
 execCompile inputFile outputFile opts (WriteInterface writeInterface) mbIfaceDir =
-  Command Compile (Just projectOpts) effect
+  Command Compile (Just packageLocationOpts) effect
   where
-    projectOpts = ProjectOpts Nothing (ProjectCheck "" False)
-    effect = withProjectRoot' projectOpts $ \relativize -> do
+    packageLocationOpts = PackageLocationOpts Nothing (PackageLocationCheck "" False)
+    effect = withPackageRoot' packageLocationOpts $ \relativize -> do
       loggerH <- getLogger opts "compile"
       inputFile <- toNormalizedFilePath' <$> relativize inputFile
       opts <- pure opts { optIfaceDir = mbIfaceDir }
@@ -772,10 +771,10 @@ execCompile inputFile outputFile opts (WriteInterface writeInterface) mbIfaceDir
         B.writeFile outputFile $ Archive.encodeArchive bs
 
 execDesugar :: SdkVersion.Class.SdkVersioned => FilePath -> FilePath -> Options -> Command
-execDesugar inputFile outputFile opts = Command Desugar (Just projectOpts) effect
+execDesugar inputFile outputFile opts = Command Desugar (Just packageLocationOpts) effect
   where
-    projectOpts = ProjectOpts Nothing (ProjectCheck "" False)
-    effect = withProjectRoot' projectOpts $ \relativize ->
+    packageLocationOpts = PackageLocationOpts Nothing (PackageLocationCheck "" False)
+    effect = withPackageRoot' packageLocationOpts $ \relativize ->
       liftIO . write =<< desugar opts =<< relativize inputFile
     write s
       | outputFile == "-" = T.putStrLn s
@@ -785,11 +784,11 @@ execDesugar inputFile outputFile opts = Command Desugar (Just projectOpts) effec
 
 execDebugIdeSpanInfo :: SdkVersion.Class.SdkVersioned => FilePath -> FilePath -> Options -> Command
 execDebugIdeSpanInfo inputFile outputFile opts =
-  Command DebugIdeSpanInfo (Just projectOpts) effect
+  Command DebugIdeSpanInfo (Just packageLocationOpts) effect
   where
-    projectOpts = ProjectOpts Nothing (ProjectCheck "" False)
+    packageLocationOpts = PackageLocationOpts Nothing (PackageLocationCheck "" False)
     effect =
-      withProjectRoot' projectOpts $ \relativize -> do
+      withPackageRoot' packageLocationOpts $ \relativize -> do
         loggerH <- getLogger opts "debug-ide-span-info"
         inputFile <- toNormalizedFilePath' <$> relativize inputFile
         spanInfo <- withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> do
@@ -806,11 +805,11 @@ execDebugIdeSpanInfo inputFile outputFile opts =
 
 execLint :: SdkVersion.Class.SdkVersioned => [FilePath] -> Options -> Command
 execLint inputFiles opts =
-  Command Lint (Just projectOpts) effect
+  Command Lint (Just packageLocationOpts) effect
   where
-     projectOpts = ProjectOpts Nothing (ProjectCheck "" False)
+     packageLocationOpts = PackageLocationOpts Nothing (PackageLocationCheck "" False)
      effect =
-       withProjectRoot' projectOpts $ \relativize ->
+       withPackageRoot' packageLocationOpts $ \relativize ->
        do
          loggerH <- getLogger opts "lint"
          withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> do
@@ -825,22 +824,22 @@ execLint inputFiles opts =
                exitFailure
      getInputFiles relativize = \case
        [] -> do
-           withPackageConfig defaultProjectPath $ \PackageConfigFields {pSrc} -> do
+           withPackageConfig defaultPackagePath $ \PackageConfigFields {pSrc} -> do
            getDamlRootFiles pSrc
        fs -> forM fs $ fmap toNormalizedFilePath' . relativize
 
-defaultProjectPath :: ProjectPath
-defaultProjectPath = ProjectPath "."
+defaultPackagePath :: PackagePath
+defaultPackagePath = PackagePath "."
 
-getCanonDefaultProjectPath :: IO ProjectPath
-getCanonDefaultProjectPath = fmap ProjectPath $ canonicalizePath $ unwrapProjectPath defaultProjectPath
+getCanonDefaultPackagePath :: IO PackagePath
+getCanonDefaultPackagePath = fmap PackagePath $ canonicalizePath $ unwrapPackagePath defaultPackagePath
 
--- | If we're in a daml project, read the daml.yaml field, install the dependencies and create the
--- project local package database. Otherwise do nothing.
-execInit :: SdkVersion.Class.SdkVersioned => Options -> ProjectOpts -> Command
-execInit opts projectOpts =
-  Command Init (Just projectOpts) effect
-  where effect = withProjectRoot' projectOpts $ \_relativize ->
+-- | If we're in a daml package, read the daml.yaml field, install the dependencies and create the
+-- package local package database. Otherwise do nothing.
+execInit :: SdkVersion.Class.SdkVersioned => Options -> PackageLocationOpts -> Command
+execInit opts packageLocationOpts =
+  Command Init (Just packageLocationOpts) effect
+  where effect = withPackageRoot' packageLocationOpts $ \_relativize ->
           installDepsAndInitPackageDb
             opts
             (InitPkgDb True)
@@ -848,31 +847,27 @@ execInit opts projectOpts =
 installDepsAndInitPackageDb :: SdkVersion.Class.SdkVersioned => Options -> InitPkgDb -> IO ()
 installDepsAndInitPackageDb opts (InitPkgDb shouldInit) =
     when shouldInit $ do
-        -- Rather than just checking that there is a daml.yaml file we check that it has a project configuration.
-        -- This allows us to have a `daml.yaml` in the root of a multi-package project that just has an `sdk-version` field.
-        -- Once the IDE handles `initPackageDb` properly in multi-package projects instead of simply calling it once on
-        -- startup, this can be removed.
-        isProject <- withPackageConfig defaultProjectPath (const $ pure True) `catch` (\(_ :: ConfigError) -> pure False)
-        when isProject $ do
-            projRoot <- getCurrentDirectory
+        isPackage <- withPackageConfig defaultPackagePath (const $ pure True) `catch` (\(_ :: ConfigError) -> pure False)
+        when isPackage $ do
+            packageRoot <- getCurrentDirectory
             opts <- addResolutionData opts
-            withPackageConfig defaultProjectPath $
-              setupPackageDbFromPackageConfig (toNormalizedFilePath' projRoot) opts
+            withPackageConfig defaultPackagePath $
+              setupPackageDbFromPackageConfig (toNormalizedFilePath' packageRoot) opts
 
-getMultiPackagePath :: MultiPackageLocation -> Maybe FilePath -> IO (Maybe ProjectPath)
+getMultiPackagePath :: MultiPackageLocation -> Maybe FilePath -> IO (Maybe PackagePath)
 getMultiPackagePath multiPackageLocation searchPath =
   case multiPackageLocation of
-    MPLSearch -> findMultiPackageConfig $ maybe defaultProjectPath ProjectPath searchPath
+    MPLSearch -> findMultiPackageConfig $ maybe defaultPackagePath PackagePath searchPath
     MPLPath path -> do
       hasMultiPackage <- doesFileExist $ path </> multiPackageConfigName
       unless hasMultiPackage $ do
         hPutStrLn stderr $ (path </> multiPackageConfigName) <> " does not exist."
         exitFailure
-      pure $ Just $ ProjectPath path
+      pure $ Just $ PackagePath path
 
 execBuild
   :: SdkVersion.Class.SdkVersioned
-  => ProjectOpts
+  => PackageLocationOpts
   -> Options
   -> Maybe FilePath
   -> IncrementalBuild
@@ -882,25 +877,25 @@ execBuild
   -> MultiPackageNoCache
   -> MultiPackageLocation
   -> Command
-execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb enableMultiPackage buildAll noCache multiPackageLocation =
-  Command Build (Just projectOpts) $ evalContT $ do
+execBuild packageLocationOpts opts mbOutFile incrementalBuild initPkgDb enableMultiPackage buildAll noCache multiPackageLocation =
+  Command Build (Just packageLocationOpts) $ evalContT $ do
     -- Need exec path for `daml build --all`, where we don't want to be relativized to a package
     execPath <- liftIO getCurrentDirectory
 
-    relativize <- ContT $ withProjectRoot' (projectOpts {projectCheck = ProjectCheck "" False})
+    relativize <- ContT $ withPackageRoot' (packageLocationOpts {packageLocationCheck = PackageLocationCheck "" False})
 
     opts <- liftIO $ addResolutionData opts
 
-    let buildSingle :: ProjectPath -> PackageConfigFields -> IO ()
+    let buildSingle :: PackagePath -> PackageConfigFields -> IO ()
         buildSingle pkgPath pkgConfig = void $ buildEffect relativize pkgPath pkgConfig opts mbOutFile incrementalBuild initPkgDb
-        buildMulti :: ProjectPath -> Maybe PackageConfigFields -> ProjectPath -> IO ()
+        buildMulti :: PackagePath -> Maybe PackageConfigFields -> PackagePath -> IO ()
         buildMulti pkgPath mPkgConfig multiPackageConfigPath = do
           hPutStrLn stderr $ "Running multi-package build of "
-            <> maybe ("all packages in " <> unwrapProjectPath multiPackageConfigPath) (T.unpack . LF.unPackageName . pName) mPkgConfig <> "."
+            <> maybe ("all packages in " <> unwrapPackagePath multiPackageConfigPath) (T.unpack . LF.unPackageName . pName) mPkgConfig <> "."
           withMultiPackageConfig multiPackageConfigPath $ \multiPackageConfig ->
             multiPackageBuildEffect relativize pkgPath mPkgConfig multiPackageConfig opts mbOutFile incrementalBuild initPkgDb noCache
 
-    pkgPath <- liftIO getCanonDefaultProjectPath
+    pkgPath <- liftIO getCanonDefaultPackagePath
     mPkgConfig <- ContT $ withMaybeConfig $ withPackageConfig pkgPath
     liftIO $ if getEnableMultiPackage enableMultiPackage then do
       -- If running build --all, search from invocation location, as package location is irrelevant
@@ -941,7 +936,7 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb enableMultiPacka
     else
       case mPkgConfig of
         Nothing -> do
-          hPutStrLn stderr "daml build: Not in project."
+          hPutStrLn stderr "daml build: Not in package."
           exitFailure
         Just pkgConfig -> do
           let usedMultiPackageOption =
@@ -976,7 +971,7 @@ withMaybeConfig withConfig handler = do
 buildEffect
   :: SdkVersion.Class.SdkVersioned
   => (FilePath -> IO FilePath)
-  -> ProjectPath
+  -> PackagePath
   -> PackageConfigFields
   -> Options
   -> Maybe FilePath
@@ -1021,16 +1016,16 @@ buildEffect relativize pkgPath pkgConfig opts mbOutFile incrementalBuild initPkg
             Nothing -> pure $ distDir </> name <.> "dar"
             Just out -> rel out
 
-        syncUpgradesField :: ProjectPath -> PackageConfigFields -> Options -> IO (PackageConfigFields, Options)
+        syncUpgradesField :: PackagePath -> PackageConfigFields -> Options -> IO (PackageConfigFields, Options)
         syncUpgradesField pkgPath pkgConf opts = do
           opts <- updateUpgradePath "build" pkgPath opts (pUpgradeDar pkgConf)
           pure (pkgConf { pUpgradeDar = uiUpgradedPackagePath (optUpgradeInfo opts) }, opts)
 
-updateUpgradePath :: T.Text -> ProjectPath -> Options -> Maybe FilePath -> IO Options
-updateUpgradePath context projectPath opts@Options{optUpgradeInfo} newPkgPath = do
-  let projectFilePath = unwrapProjectPath projectPath
+updateUpgradePath :: T.Text -> PackagePath -> Options -> Maybe FilePath -> IO Options
+updateUpgradePath context packagePath opts@Options{optUpgradeInfo} newPkgPath = do
+  let packageFilePath = unwrapPackagePath packagePath
   optCanonPath <- traverse canonicalizePath $ uiUpgradedPackagePath optUpgradeInfo
-  pkgCanonPath <- withCurrentDirectory projectFilePath $ traverse canonicalizePath newPkgPath
+  pkgCanonPath <- withCurrentDirectory packageFilePath $ traverse canonicalizePath newPkgPath
   -- optUpgradeInfo is normalised to current directory
   -- newPkgPath is normalised to daml.yaml location (or currentDirectory)
   uiUpgradedPackagePath <- case (pkgCanonPath, optCanonPath) of
@@ -1038,8 +1033,8 @@ updateUpgradePath context projectPath opts@Options{optUpgradeInfo} newPkgPath = 
       loggerH <- getLogger opts context
       Logger.logError loggerH $ T.unlines
         [ "ERROR: Specified two different DARs to run upgrade checks against:"
-        , "  Path specified in daml.yaml `upgrades:` field is '" <> T.pack (makeRelative projectFilePath damlYamlOption) <> "'"
-        , "  Path specified in `--upgrades` build option is '" <> T.pack (makeRelative projectFilePath buildFlagsOption) <> "'"
+        , "  Path specified in daml.yaml `upgrades:` field is '" <> T.pack (makeRelative packageFilePath damlYamlOption) <> "'"
+        , "  Path specified in `--upgrades` build option is '" <> T.pack (makeRelative packageFilePath buildFlagsOption) <> "'"
         ]
       exitFailure
     (a, b) ->
@@ -1063,7 +1058,7 @@ updateUpgradePath context projectPath opts@Options{optUpgradeInfo} newPkgPath = 
 
   The process is as follows:
   - Search for the multi-package.yaml file by traversing up the directory tree to root until we are at a directory containing the file.
-  - Set up own shake environment, defer to it immediately with the project path
+  - Set up own shake environment, defer to it immediately with the package path
   - Within the shake rule:
   - Partially read the daml.yaml file, looking for data dependencies, and some other details needed for caching
   - Intercept the packages data dependencies with the packages we have listed in multi-package.yaml.
@@ -1081,7 +1076,7 @@ updateUpgradePath context projectPath opts@Options{optUpgradeInfo} newPkgPath = 
 multiPackageBuildEffect
   :: SdkVersion.Class.SdkVersioned
   => (FilePath -> IO FilePath)
-  -> ProjectPath
+  -> PackagePath
   -> Maybe PackageConfigFields -- Nothing signifies build all
   -> MultiPackageConfigFields
   -> Options
@@ -1113,8 +1108,8 @@ multiPackageBuildEffect relativize pkgPath mPkgConfig multiPackageConfig opts mb
           Just assistantPath -> pure $ const $ pure assistantPath
           Nothing -> error "Couldn't find DPM or Daml Assistant. Please run damlc via one of these package managers."
 
-  -- Must drop DAML_PROJECT from env var so it can be repopulated based on `cwd`
-  damlcEnv <- filter (flip notElem ["DAML_PROJECT", "DAML_SDK_VERSION", "DAML_SDK"] . fst) <$> getEnvironment
+  -- Must drop DAML_PACKAGE + DAML_PROJECT from env var so it can be repopulated based on `cwd`
+  damlcEnv <- filter (flip notElem [projectPathEnvVar, packagePathEnvVar, "DAML_SDK_VERSION", "DAML_SDK"] . fst) <$> getEnvironment
 
   let damlcRunner = DamlcRunner $ \location args -> do
         damlcPath <- getDamlcPath location
@@ -1128,7 +1123,7 @@ multiPackageBuildEffect relativize pkgPath mPkgConfig multiPackageConfig opts mb
         pure $ fromMaybe
           (error "Internal error: root package was built from dalf, giving no package-id. This is incompatible with multi-package")
           mPkgId
-      mRootPkgData = (toNormalizedFilePath' $ unwrapProjectPath pkgPath,) <$> mRootPkgBuilder
+      mRootPkgData = (toNormalizedFilePath' $ unwrapPackagePath pkgPath,) <$> mRootPkgBuilder
       rule = buildMultiRule damlcRunner buildableDataDeps noCache mRootPkgData
 
   -- Set up a near empty shake environment, with just the buildMulti rule
@@ -1147,7 +1142,7 @@ multiPackageBuildEffect relativize pkgPath mPkgConfig multiPackageConfig opts mb
 -- With DPM, it looks through the resolution file for the given package and calls the correct damlc-binary directly
 data DamlcRunner = DamlcRunner { runDamlc :: FilePath -> [String] -> IO ()}
 
--- Stores a mapping from dar path to project path
+-- Stores a mapping from dar path to package path
 data BuildableDataDeps = BuildableDataDeps { getDataDepSource :: FilePath -> Maybe FilePath }
 
 data BuildMulti = BuildMulti
@@ -1161,7 +1156,8 @@ type instance RuleResult BuildMulti = (LF.PackageName, LF.PackageVersion, LF.Pac
 
 -- Subset of PackageConfig needed for multi-package build deferring.
 data BuildMultiPackageConfig = BuildMultiPackageConfig
-  { bmSdkVersion :: UnresolvedReleaseVersion
+  { bmSdkVersion :: Maybe UnresolvedReleaseVersion
+  -- ^ DPM allows sdk-version to be omitted when sufficient overrides are provided
   , bmName :: LF.PackageName
   , bmVersion :: LF.PackageVersion
   , bmDarDeps :: [FilePath]
@@ -1184,7 +1180,7 @@ getDamlFilesBuildMulti log packagePath srcDir = do
   else do
     log $ "WARNING: Multi-package caching does not support setting the daml.yaml source value to a daml file. This package will always rebuild.\n"
       <> "Change the source value in "
-      <> (packagePath </> projectConfigName)
+      <> (packagePath </> packageConfigName)
       <> " to a directory to allow correct caching.\n"
     pure Map.empty
 
@@ -1215,8 +1211,8 @@ readDarStalenessData archive =
 getDarSdkVersion :: ZipArchive.Archive -> Either String String
 getDarSdkVersion dar = Reader.sdkVersion <$> readDalfManifest dar
 
--- | Gets the package id of a Dar in the given project ONLY if it is not stale.
-getPackageIdIfFresh :: IDELogger.Logger -> FilePath -> BuildMultiPackageConfig -> [(LF.PackageName, LF.PackageVersion, LF.PackageId)] -> IO (Maybe LF.PackageId)
+-- | Gets the package id of a Dar in the given package ONLY if it is not stale.
+getPackageIdIfFresh :: SdkVersion.Class.SdkVersioned => IDELogger.Logger -> FilePath -> BuildMultiPackageConfig -> [(LF.PackageName, LF.PackageVersion, LF.PackageId)] -> IO (Maybe LF.PackageId)
 getPackageIdIfFresh logger path BuildMultiPackageConfig {..} sourceDepPids = do
   let logDebug str = IDELogger.logDebug logger $ T.pack $ path <> ": " <> str
       logInfo str = IDELogger.logInfo logger $ T.pack str
@@ -1241,7 +1237,7 @@ getPackageIdIfFresh logger path BuildMultiPackageConfig {..} sourceDepPids = do
           getArchiveDalfPid name version = dalfDataKey name version `Map.lookup` archiveDalfPids
           -- We check source files by comparing the maps, any extra, missing or changed files will be covered by this, regardless of order
           sourceFilesCorrect = sourceFiles == archiveSourceFiles
-          sdkVersionCorrect = archiveSdkVersion == Right (unresolvedReleaseVersionToString bmSdkVersion)
+          sdkVersionCorrect = archiveSdkVersion == Right (maybe SdkVersion.Class.sdkVersion unresolvedReleaseVersionToString bmSdkVersion)
 
       -- Expanded `all` check that allows us to log specific dependencies being stale. Useful for debugging, maybe we can remove it.
       sourceDepsCorrect <-
@@ -1265,7 +1261,8 @@ damlMultiBuildVersion :: UnresolvedReleaseVersion
 damlMultiBuildVersion = either throw id $ parseUnresolvedVersion "2.8.0-snapshot.20231018.0"
 
 buildMultiRule
-  :: DamlcRunner
+  :: SdkVersion.Class.SdkVersioned
+  => DamlcRunner
   -> BuildableDataDeps
   -> MultiPackageNoCache
   -> Maybe (NormalizedFilePath, IO LF.PackageId)
@@ -1316,8 +1313,9 @@ buildMultiRule damlcRunner buildableDataDeps (MultiPackageNoCache noCache) mRoot
             IDELogger.logInfo logger $ T.pack $ "Building " <> filePath
 
             -- Call build via daml assistant so it selects the correct SDK version.
+            let shouldDisableMultiPackage version = version >= damlMultiBuildVersion || isHeadVersion version
             runDamlc damlcRunner filePath $
-              ["build"] <> (["--enable-multi-package=no" | bmSdkVersion >= damlMultiBuildVersion || isHeadVersion bmSdkVersion])
+              ["build"] <> (["--enable-multi-package=no" | maybe True shouldDisableMultiPackage bmSdkVersion])
 
             darPath <- deriveDarPath filePath bmName bmVersion bmOutput
             -- Extract the new package ID from the dar we just built, by reading the DAR and looking for the dalf that matches our package name/version
@@ -1329,17 +1327,17 @@ buildMultiRule damlcRunner buildableDataDeps (MultiPackageNoCache noCache) mRoot
             pure $ makeReturn ownPid True
 
 -- | Remove any build artifacts if they exist.
-execClean :: ProjectOpts -> EnableMultiPackage -> MultiPackageLocation -> MultiPackageCleanAll -> Command
-execClean projectOpts enableMultiPackage multiPackageLocation cleanAll =
-  Command Clean (Just projectOpts) effect
+execClean :: PackageLocationOpts -> EnableMultiPackage -> MultiPackageLocation -> MultiPackageCleanAll -> Command
+execClean packageLocationOpts enableMultiPackage multiPackageLocation cleanAll =
+  Command Clean (Just packageLocationOpts) effect
   where
     effect
       | getEnableMultiPackage enableMultiPackage
       = do
         execPath <- liftIO getCurrentDirectory
         mMultiPackagePath <- getMultiPackagePath multiPackageLocation $ if getMultiPackageCleanAll cleanAll then Just execPath else Nothing
-        isProject <- withProjectRoot' (projectOpts {projectCheck = ProjectCheck "" False}) $ const $ doesFileExist projectConfigName
-        case (mMultiPackagePath, isProject, getMultiPackageCleanAll cleanAll) of
+        isPackage <- withPackageRoot' (packageLocationOpts {packageLocationCheck = PackageLocationCheck "" False}) $ const $ doesFileExist packageConfigName
+        case (mMultiPackagePath, isPackage, getMultiPackageCleanAll cleanAll) of
           -- daml clean --all with no multi-package.yaml
           (Nothing, _, True) -> do
             hPutStrLn stderr "Couldn't find a multi-package.yaml at current or parent directory. Use --multi-package-path to specify its location."
@@ -1347,13 +1345,13 @@ execClean projectOpts enableMultiPackage multiPackageLocation cleanAll =
           -- daml clean --all with a multi-package.yaml
           (Just path, _, True) ->
             withMultiPackageConfig path $ \multiPackageConfig -> do
-              hPutStrLn stderr $ "Running multi-package clean of all packages in " <> unwrapProjectPath path
+              hPutStrLn stderr $ "Running multi-package clean of all packages in " <> unwrapPackagePath path
               forM_ (mpPackagePaths multiPackageConfig) $ \p ->
-                singleCleanEffect $ projectOpts {projectRoot = Just $ ProjectPath p}
+                singleCleanEffect $ packageLocationOpts {packageRoot = Just $ PackagePath p}
               hPutStrLn stderr "Removed build artifacts."
           -- daml clean in a package
           (_, True, False) -> do
-            singleCleanEffect projectOpts
+            singleCleanEffect packageLocationOpts
             hPutStrLn stderr "Removed build artifacts."
           -- daml clean outside a package and no multi-package.yaml
           (Nothing, False, False) -> do
@@ -1369,14 +1367,14 @@ execClean projectOpts enableMultiPackage multiPackageLocation cleanAll =
         hPutStrLn stderr "Multi-package clean option used with multi-package disabled - re-enable it by setting the --enable-multi-package=yes flag."
         exitFailure
       | otherwise = do
-        singleCleanEffect projectOpts
+        singleCleanEffect packageLocationOpts
         hPutStrLn stderr "Removed build artifacts."
 
-singleCleanEffect :: ProjectOpts -> IO ()
-singleCleanEffect projectOpts =
-  withProjectRoot' projectOpts $ \_relativize -> do
-    isProject <- doesFileExist projectConfigName
-    when isProject $ do
+singleCleanEffect :: PackageLocationOpts -> IO ()
+singleCleanEffect packageLocationOpts =
+  withPackageRoot' packageLocationOpts $ \_relativize -> do
+    isPackage <- doesFileExist packageConfigName
+    when isPackage $ do
       canonDir <- getCurrentDirectory
       hPutStrLn stderr $ "Cleaning " <> canonDir
       whenM (doesPathExist damlArtifactDir) $
@@ -1434,7 +1432,7 @@ execValidateDar inFile =
       n <- validateDar inFile -- errors if validation fails
       putStrLn $ "DAR is valid; contains " <> show n <> " packages."
 
--- | Should source files for doc test be imported into the test project (default yes)
+-- | Should source files for doc test be imported into the test package (default yes)
 newtype ImportSource = ImportSource Bool
 
 execDocTest :: SdkVersion.Class.SdkVersioned => Options -> FilePath -> ImportSource -> [FilePath] -> Command
@@ -1451,16 +1449,11 @@ execDocTest opts scriptDar (ImportSource importSource) files =
 
       logger <- getLogger opts "doctest"
 
-      -- Install daml-script in their project and update the package db
-      -- Note this installs directly to the users dependency database, giving this command side effects.
-      -- An approach of copying out the deps into a temporary location to build/run the tests has been considered
-      -- but the effort to build this, combined with the low number of users of this feature, as well as most projects
-      -- already using daml-script has led us to leave this as is. We'll fix this if someone is affected and notifies us.
       damlAssistantIsSet <- damlAssistantIsSet
       releaseVersion <- if damlAssistantIsSet
           then do
             damlPath <- getDamlPath
-            damlEnv <- getDamlEnv damlPath (LookForProjectPath False)
+            damlEnv <- getDamlEnv damlPath (LookForPackagePath False)
             wrapErr "running doc test" $
               resolveReleaseVersionUnsafe (envUseCache damlEnv) SdkVersion.Class.unresolvedBuiltinSdkVersion
           else pure (unsafeResolveReleaseVersion SdkVersion.Class.unresolvedBuiltinSdkVersion)
@@ -1470,10 +1463,15 @@ execDocTest opts scriptDar (ImportSource importSource) files =
       when (isJust (optResolutionData opts)) $
         throwIO $ DPMUnsupportedError "doctest"
 
+      -- Install daml-script into their package-db
+      -- Note this installs directly to the users dependency database, giving this command side effects.
+      -- An approach of copying out the deps into a temporary location to build/run the tests has been considered
+      -- but the effort to build this, combined with the low number of users of this feature, as well as most packages
+      -- already using daml-script has led us to leave this as is. We'll fix this if someone is affected and notifies us.
       setupPackageDb "." opts releaseVersion [scriptDar] [] mempty
 
       opts <- pure opts
-        { optPackageDbs = projectPackageDatabase : optPackageDbs opts
+        { optPackageDbs = packageDatabasePath : optPackageDbs opts
         , optPackageImports = packageFlag : optPackageImports opts
         -- Drop version information to avoid package clashes (specifically when generating for internal packages)
         , optMbPackageVersion = Nothing
@@ -1526,7 +1524,7 @@ execGenerateMultiPackageManifest multiPackageLocation outputLocation =
           hPutStrLn stderr "Couldn't find a multi-package.yaml at current or parent directory. Use --multi-package-path to specify its location."
           exitFailure
         Just path -> pure path
-      let multiPackageConfigPath = unwrapProjectPath multiPackageConfigProjectPath
+      let multiPackageConfigPath = unwrapPackagePath multiPackageConfigProjectPath
       withMultiPackageConfig multiPackageConfigProjectPath $ \multiPackageConfig -> do
         configs <- forM (mpPackagePaths multiPackageConfig) $ \path -> do
           config@BuildMultiPackageConfig {..} <- buildMultiPackageConfigFromDamlYaml path
@@ -1538,13 +1536,13 @@ execGenerateMultiPackageManifest multiPackageLocation outputLocation =
 
         manifestEntries <- forM configs $ \(packagePath, darPath, BuildMultiPackageConfig {..}) -> do
           damlFilesMap <- bimapMap (bmSourceDaml </>) BSL.toStrict <$> getDamlFilesBuildMulti (hPutStrLn stderr) packagePath bmSourceDaml
-          damlYamlContent <- B.readFile $ packagePath </> projectConfigName
+          damlYamlContent <- B.readFile $ packagePath </> packageConfigName
 
           let manifestFileHash :: B.ByteString -> String
               manifestFileHash = show . Hash.hash @_ @Hash.SHA256
               makeRelativeToRoot :: FilePath -> FilePath
               makeRelativeToRoot path = makeRelative multiPackageConfigPath $ normalise $ packagePath </> path
-              relativeDamlFilesMap = Map.mapKeys makeRelativeToRoot $ Map.insert ("." </> projectConfigName) damlYamlContent damlFilesMap
+              relativeDamlFilesMap = Map.mapKeys makeRelativeToRoot $ Map.insert ("." </> packageConfigName) damlYamlContent damlFilesMap
               relativeDamlFileHashes = manifestFileHash <$> relativeDamlFilesMap
               fullHash = manifestFileHash $ BSUTF8.fromString $ Map.foldMapWithKey (<>) relativeDamlFileHashes
 
@@ -1645,9 +1643,9 @@ scrapeOutputFlag args =
       pure mbOutFile
 
 -- | Query the optional `--output` flag from the daml.yaml build-options
-queryProjectConfigBuildOutput :: ProjectConfig -> Either ConfigError (Maybe FilePath)
-queryProjectConfigBuildOutput project = do
-  mBuildOptions <- queryProjectConfig ["build-options"] project
+queryPackageConfigBuildOutput :: PackageConfig -> Either ConfigError (Maybe FilePath)
+queryPackageConfigBuildOutput package = do
+  mBuildOptions <- queryPackageConfig ["build-options"] package
   pure $ mBuildOptions >>= scrapeOutputFlag
 
 -- | Calculates the canonical path to the DAR for a given package, overriding with a given mOutput if needed
@@ -1662,52 +1660,52 @@ darPathFromDamlYaml path = do
   (name, version, mOutput) <-
     onDamlYaml 
       (\e -> error $ "Failed to parse daml.yaml at " <> path <> " for multi-package build: " <> displayException e)
-      (\project -> do
-        name <- queryProjectConfigRequired ["name"] project
-        version <- queryProjectConfigRequired ["version"] project
-        mOutput <- queryProjectConfigBuildOutput project
+      (\package -> do
+        name <- queryPackageConfigRequired ["name"] package
+        version <- queryPackageConfigRequired ["version"] package
+        mOutput <- queryPackageConfigBuildOutput package
         pure (name, version, mOutput)
-      ) mbProjectOpts
+      ) mPackageOpts
   deriveDarPath path name version mOutput
   where
-    mbProjectOpts = Just $ ProjectOpts (Just $ ProjectPath path) (ProjectCheck "" False)
+    mPackageOpts = Just $ PackageLocationOpts (Just $ PackagePath path) (PackageLocationCheck "" False)
 
--- | Subset of parseProjectConfig to get only what we need for deferring to the correct build call with multi-package build
+-- | Subset of parsePackageConfig to get only what we need for deferring to the correct build call with multi-package build
 buildMultiPackageConfigFromDamlYaml :: FilePath -> IO BuildMultiPackageConfig
 buildMultiPackageConfigFromDamlYaml path =
   onDamlYaml
     (\e -> error $ "Failed to parse daml.yaml at " <> path <> " for multi-package build: " <> displayException e)
-    (\project -> do
-      bmSdkVersion <- queryProjectConfigRequired ["sdk-version"] project
-      bmName <- queryProjectConfigRequired ["name"] project
-      bmVersion <- queryProjectConfigRequired ["version"] project
-      bmSourceDaml <- queryProjectConfigRequired ["source"] project
-      dataDeps <- fromMaybe [] <$> queryProjectConfig ["data-dependencies"] project
-      deps <- fromMaybe [] <$> queryProjectConfig ["dependencies"] project
-      upgradesDar <- maybe [] pure <$> queryProjectConfig ["upgrades"] project
+    (\package -> do
+      bmSdkVersion <- queryPackageConfig ["sdk-version"] package
+      bmName <- queryPackageConfigRequired ["name"] package
+      bmVersion <- queryPackageConfigRequired ["version"] package
+      bmSourceDaml <- queryPackageConfigRequired ["source"] package
+      dataDeps <- fromMaybe [] <$> queryPackageConfig ["data-dependencies"] package
+      deps <- fromMaybe [] <$> queryPackageConfig ["dependencies"] package
+      upgradesDar <- maybe [] pure <$> queryPackageConfig ["upgrades"] package
       let bmDarDeps = dataDeps <> filter (\dep -> takeExtension dep == ".dar") deps <> upgradesDar
-      bmOutput <- queryProjectConfigBuildOutput project
+      bmOutput <- queryPackageConfigBuildOutput package
       pure $ BuildMultiPackageConfig {..}
     )
-    mbProjectOpts
+    mPackageOpts
   where
-    mbProjectOpts = Just $ ProjectOpts (Just $ ProjectPath path) (ProjectCheck "" False)
+    mPackageOpts = Just $ PackageLocationOpts (Just $ PackagePath path) (PackageLocationCheck "" False)
 
 -- | Extract some value from a daml.yaml via a projection function. Return a default value if the file doesn't exist
-onDamlYaml :: (ConfigError -> t) -> (ProjectConfig -> Either ConfigError t) -> Maybe ProjectOpts -> IO t
-onDamlYaml def f mbProjectOpts = do
-    -- This is the same logic used in withProjectRoot but we don’t need to change CWD here
+onDamlYaml :: (ConfigError -> t) -> (PackageConfig -> Either ConfigError t) -> Maybe PackageLocationOpts -> IO t
+onDamlYaml def f mPackageOpts = do
+    -- This is the same logic used in withPackageRoot but we don’t need to change CWD here
     -- and this is simple enough so we inline it here.
-    mbEnvProjectPath <- fmap ProjectPath <$> getProjectPath
-    let mbProjectPath = projectRoot =<< mbProjectOpts
-    let projectPath = fromMaybe (ProjectPath ".") (mbProjectPath <|> mbEnvProjectPath)
+    mEnvPackagePath <- fmap PackagePath <$> getPackagePath
+    let mbProjectPath = packageRoot =<< mPackageOpts
+    let packagePath = fromMaybe (PackagePath ".") (mbProjectPath <|> mEnvPackagePath)
     handle (\(e :: ConfigError) -> pure $ def e) $ do
-        project <- readProjectConfig projectPath
-        either throwIO pure $ f project
+        package <- readPackageConfig packagePath
+        either throwIO pure $ f package
 
-cliArgsFromDamlYaml :: Maybe ProjectOpts -> IO [String]
+cliArgsFromDamlYaml :: Maybe PackageLocationOpts -> IO [String]
 cliArgsFromDamlYaml =
-  onDamlYaml (const []) $ \project -> Right $ case queryProjectConfigRequired ["build-options"] project of
+  onDamlYaml (const []) $ \package -> Right $ case queryPackageConfigRequired ["build-options"] package of
     Left _ -> []
     Right xs -> xs
 
@@ -1722,11 +1720,11 @@ fullParseArgs numProcessors cliArgs = do
     let (_, tempParseResult) = parse cliArgs Nothing
     -- Note: need to parse given args first to decide whether we need to add
     -- args from daml.yaml.
-    Command cmd mbProjectOpts _ <- handleParseResult tempParseResult
+    Command cmd mPackageOpts _ <- handleParseResult tempParseResult
 
     (errMsgs, parseResult) <- if cmdUseDamlYamlArgs cmd
       then
-        parse cliArgs . Just <$> cliArgsFromDamlYaml mbProjectOpts
+        parse cliArgs . Just <$> cliArgsFromDamlYaml mPackageOpts
       else
         pure $ parse cliArgs Nothing
 
@@ -1736,6 +1734,15 @@ fullParseArgs numProcessors cliArgs = do
 
     pure cmd
 
+warnDeprecatedArgs :: [String] -> IO ()
+warnDeprecatedArgs cliArgs =
+  forM_ cliArgs $ \case
+    arg | "--project-root" `isPrefixOf` arg ->
+      hPutStrLn stderr "--project-root is deprecated, please use --package-root"
+    arg | "--project-check" `isPrefixOf` arg ->
+      hPutStrLn stderr "--project-check is deprecated, please use --package-check"
+    _ -> pure ()
+
 main :: SdkVersion.Class.SdkVersioned => IO ()
 main = do
     -- We need this to ensure that logs are flushed on SIGTERM.
@@ -1743,15 +1750,17 @@ main = do
     -- Save the runfiles environment to work around
     -- https://gitlab.haskell.org/ghc/ghc/-/issues/18418.
     setRunfilesEnv
-    -- Dpm does not provide DAML_PROJECT var as legacy assistant did, inject it pre-emptively
-    injectDamlProjectForDpm
 
     numProcessors <- getNumProcessors
     cliArgs <- getArgs
+    warnDeprecatedArgs cliArgs
 
     Command _ _ io <- fullParseArgs numProcessors cliArgs
 
     withProgName "damlc" io
+
+    -- GHC is having some typechecking issues with `io` above, only solution I could find was adding `pure ()`
+    pure ()
 
 -- | Commands for which we add the args from daml.yaml build-options.
 cmdUseDamlYamlArgs :: CommandName -> Bool
@@ -1776,9 +1785,9 @@ cmdUseDamlYamlArgs = \case
   UpgradeCheck -> False -- just reads the DARs it is given
   Studio -> False
 
-withProjectRoot' :: ProjectOpts -> ((FilePath -> IO FilePath) -> IO a) -> IO a
-withProjectRoot' ProjectOpts{..} act =
-    withProjectRoot projectRoot projectCheck (const act)
+withPackageRoot' :: PackageLocationOpts -> ((FilePath -> IO FilePath) -> IO a) -> IO a
+withPackageRoot' PackageLocationOpts{..} act =
+    withPackageRoot packageRoot packageLocationCheck (const act)
 
 addResolutionData :: Options -> IO Options
 addResolutionData opts@Options{optResolutionData = Nothing} = do
@@ -1786,11 +1795,3 @@ addResolutionData opts@Options{optResolutionData = Nothing} = do
   pure $ opts {optResolutionData = resolutionData}
 -- No need to reparse if its already available
 addResolutionData opts = pure opts
-
--- If DPM detected, this injects the DAML_PROJECT env var by finding the daml.yaml
-injectDamlProjectForDpm :: IO ()
-injectDamlProjectForDpm = do
-  mResolutionVar <- lookupEnv resolutionFileEnvVar
-  forM_ mResolutionVar $ const $ do
-    mPackagePath <- fmap unwrapProjectPath <$> AssistantEnv.getProjectPath (LookForProjectPath True)
-    forM_ mPackagePath $ \path -> setEnv projectPathEnvVar path False

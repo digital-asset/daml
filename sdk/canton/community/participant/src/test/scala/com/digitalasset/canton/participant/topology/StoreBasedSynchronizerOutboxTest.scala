@@ -32,7 +32,10 @@ import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.DelegationRestriction.CanSignAllMappings
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp.{Remove, Replace}
-import com.digitalasset.canton.topology.transaction.TopologyTransaction.GenericTopologyTransaction
+import com.digitalasset.canton.topology.transaction.TopologyTransaction.{
+  GenericTopologyTransaction,
+  TxHash,
+}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.{
@@ -121,8 +124,9 @@ class StoreBasedSynchronizerOutboxTest
     )
     val client = new StoreBasedSynchronizerTopologyClient(
       clock,
+      defaultStaticSynchronizerParameters,
       store = target,
-      packageDependenciesResolver = StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
+      packageDependencyResolver = NoPackageDependencies,
       timeouts = timeouts,
       futureSupervisor = futureSupervisor,
       loggerFactory.append("store", "Synchronizer"),
@@ -185,13 +189,12 @@ class StoreBasedSynchronizerOutboxTest
                 EffectiveTime(ts),
                 additions = List(ValidatedTopologyTransaction(x, rejections.next())),
                 // dumbed down version of how to "append" ValidatedTopologyTransactions:
-                removeMapping = Option
+                removals = Option
                   .when(x.operation == TopologyChangeOp.Remove)(
-                    x.mapping.uniqueKey -> x.serial
+                    x.mapping.uniqueKey -> (x.serial.some, Set.empty[TxHash])
                   )
                   .toList
                   .toMap,
-                removeTxs = Set.empty,
               )
               .flatMap(_ =>
                 targetClient
@@ -445,7 +448,9 @@ class StoreBasedSynchronizerOutboxTest
       val (source, target, manager, handle, client) =
         mk(
           transactions.size,
-          rejections = Iterator.continually(Some(TopologyTransactionRejection.NotAuthorized)),
+          rejections = Iterator.continually(
+            Some(TopologyTransactionRejection.Authorization.NotAuthorizedByNamespaceKey)
+          ),
         )
       for {
         _ <- outboxConnected(manager, handle, client, source, target)

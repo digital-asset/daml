@@ -3,8 +3,16 @@
 
 package com.digitalasset.canton.platform.store.backend
 
-import com.digitalasset.canton.platform.store.backend.EventStorageBackend.SequentialIdBatch.Ids
+import com.digitalasset.canton.platform.store.backend.EventStorageBackend.SequentialIdBatch.IdRange
+import com.digitalasset.canton.platform.store.backend.common.EventIdSource.{
+  ActivateStakeholder,
+  ActivateWitnesses,
+  DeactivateStakeholder,
+  DeactivateWitnesses,
+  VariousWitnesses,
+}
 import com.digitalasset.canton.platform.store.backend.common.EventPayloadSourceForUpdatesLedgerEffects
+import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream.PaginationInput
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -39,30 +47,47 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
   it should "reset everything when using resetAll" in {
     val dtos: Vector[DbDto] = Vector(
       // 1: party allocation
-      dtoPartyEntry(offset(1)),
+      Seq(dtoPartyEntry(offset(1))),
       // 2: transaction with create node
-      dtoCreate(offset(2), 1L, hashCid("#3")),
-      DbDto.IdFilterCreateStakeholder(1L, someTemplateId.toString, someParty.toString),
-      dtoCompletion(offset(2)),
+      dtosCreate(
+        event_offset = 2L,
+        event_sequential_id = 1L,
+        notPersistedContractId = hashCid("#3"),
+      )(),
+      Seq(dtoCompletion(offset(2))),
       // 3: transaction with exercise node and retroactive divulgence
-      dtoExercise(offset(3), 2L, true, hashCid("#3")),
-      dtoCompletion(offset(3)),
+      dtosConsumingExercise(
+        event_offset = 3L,
+        event_sequential_id = 2L,
+      ),
+      Seq(dtoCompletion(offset(3))),
       // 4: assign event
-      dtoAssign(offset(4), 4L, hashCid("#4")),
-      DbDto.IdFilterAssignStakeholder(4L, someTemplateId.toString, someParty.toString),
+      dtosAssign(
+        event_offset = 4L,
+        event_sequential_id = 3L,
+        notPersistedContractId = hashCid("#4"),
+      )(),
       // 5: unassign event
-      dtoUnassign(offset(5), 5L, hashCid("#5")),
-      DbDto.IdFilterUnassignStakeholder(5L, someTemplateId.toString, someParty.toString),
+      dtosUnassign(
+        event_offset = 5L,
+        event_sequential_id = 4L,
+      ),
       // 6: topology transaction
-      dtoPartyToParticipant(offset(6), 6L),
+      Seq(dtoPartyToParticipant(offset = offset(6), eventSequentialId = 5L)),
+      // 7: witnessed create
+      dtosWitnessedCreate(event_offset = 7L, event_sequential_id = 6L)(),
+      // 8: witnessed consuming exercise
+      dtosWitnessedExercised(event_offset = 8L, event_sequential_id = 7L),
+      // 9: witnessed non-consuming exercise
+      dtosWitnessedExercised(event_offset = 9L, event_sequential_id = 8L, consuming = false),
       // String interning
-      DbDto.StringInterningDto(10, "d|x:abc"),
-    )
+      Seq(DbDto.StringInterningDto(internalId = 10, externalString = "d|x:abc")),
+    ).flatten
 
     // Initialize and insert some data
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dtos, _))
-    executeSql(updateLedgerEnd(ledgerEnd(4, 3L)))
+    executeSql(updateLedgerEnd(ledgerEnd(10, 10L)))
 
     // queries
     def identity = executeSql(backend.parameter.ledgerIdentity)
@@ -72,13 +97,30 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
     def events =
       executeSql(
         backend.event.fetchEventPayloadsLedgerEffects(
-          EventPayloadSourceForUpdatesLedgerEffects.Create
-        )(Ids(List(1L)), Some(Set.empty))
+          EventPayloadSourceForUpdatesLedgerEffects.Activate
+        )(
+          eventSequentialIds = IdRange(1L, 10L),
+          requestingPartiesForTx = Some(Set.empty),
+          requestingPartiesForReassignment = Some(Set.empty),
+        )
       ) ++
         executeSql(
           backend.event.fetchEventPayloadsLedgerEffects(
-            EventPayloadSourceForUpdatesLedgerEffects.Consuming
-          )(Ids(List(2L)), Some(Set.empty))
+            EventPayloadSourceForUpdatesLedgerEffects.Deactivate
+          )(
+            eventSequentialIds = IdRange(1L, 10L),
+            requestingPartiesForTx = Some(Set.empty),
+            requestingPartiesForReassignment = Some(Set.empty),
+          )
+        ) ++
+        executeSql(
+          backend.event.fetchEventPayloadsLedgerEffects(
+            EventPayloadSourceForUpdatesLedgerEffects.VariousWitnessed
+          )(
+            eventSequentialIds = IdRange(1L, 10L),
+            requestingPartiesForTx = Some(Set.empty),
+            requestingPartiesForReassignment = Some(Set.empty),
+          )
         )
 
     def parties = executeSql(backend.party.knownParties(None, 10))
@@ -87,61 +129,63 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
       backend.stringInterning.loadStringInterningEntries(0, 1000)
     )
 
-    def filterIds = executeSql(
-      backend.event.updateStreamingQueries.fetchIdsOfCreateEventsForStakeholder(
-        stakeholderO = Some(someParty),
+    val paginationInput = PaginationInput(
+      startExclusive = 0L,
+      endInclusive = 1000L,
+      limit = 1000,
+    )
+
+    def activateStakeholderIds = executeSql(
+      backend.event.updateStreamingQueries.fetchEventIds(ActivateStakeholder)(
+        witnessO = None,
         templateIdO = None,
-        startExclusive = 0,
-        endInclusive = 1000,
-        limit = 1000,
-      )
+        eventTypes = Set.empty,
+      )(_)(paginationInput)
     )
 
-    def assignEvents = executeSql(
-      backend.event.assignEventBatch(
-        eventSequentialIds = Ids(List(4)),
-        allFilterParties = Some(Set.empty),
-      )
+    def activateWitnessesIds = executeSql(
+      backend.event.updateStreamingQueries.fetchEventIds(ActivateWitnesses)(
+        witnessO = None,
+        templateIdO = None,
+        eventTypes = Set.empty,
+      )(_)(paginationInput)
     )
 
-    def unassignEvents = executeSql(
-      backend.event.unassignEventBatch(
-        eventSequentialIds = Ids(List(5)),
-        allFilterParties = Some(Set.empty),
-      )
+    def deactivateStakeholderIds = executeSql(
+      backend.event.updateStreamingQueries.fetchEventIds(DeactivateStakeholder)(
+        witnessO = None,
+        templateIdO = None,
+        eventTypes = Set.empty,
+      )(_)(paginationInput)
     )
 
-    def assignIds = executeSql(
-      backend.event.fetchAssignEventIdsForStakeholder(
-        stakeholderO = Some(someParty),
-        templateId = None,
-        startExclusive = 0L,
-        endInclusive = 1000L,
-        1000,
-      )
+    def deactivateWitnessesIds = executeSql(
+      backend.event.updateStreamingQueries.fetchEventIds(DeactivateWitnesses)(
+        witnessO = None,
+        templateIdO = None,
+        eventTypes = Set.empty,
+      )(_)(paginationInput)
     )
 
-    def reassignmentIds = executeSql(
-      backend.event.fetchUnassignEventIdsForStakeholder(
-        stakeholderO = Some(someParty),
-        templateId = None,
-        startExclusive = 0L,
-        endInclusive = 1000L,
-        1000,
-      )
+    def variousWitnessesIds = executeSql(
+      backend.event.updateStreamingQueries.fetchEventIds(VariousWitnesses)(
+        witnessO = None,
+        templateIdO = None,
+        eventTypes = Set.empty,
+      )(_)(paginationInput)
     )
 
-    // verify queries indeed returning something
+    // verify queries indeed return something
     identity should not be None
     end should not be ParameterStorageBackend.LedgerEnd.beforeBegin
-    events.size shouldBe 2
+    events.size shouldBe 7
     parties should not be empty
     stringInterningEntries should not be empty
-    filterIds should not be empty
-    assignEvents should not be empty
-    unassignEvents should not be empty
-    assignIds should not be empty
-    reassignmentIds should not be empty
+    activateStakeholderIds should not be empty
+    activateWitnessesIds should not be empty
+    deactivateStakeholderIds should not be empty
+    deactivateWitnessesIds should not be empty
+    variousWitnessesIds should not be empty
 
     // Reset
     executeSql(backend.reset.resetAll)
@@ -156,11 +200,11 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
 
     parties shouldBe empty
     stringInterningEntries shouldBe empty
-    filterIds shouldBe empty
-    assignEvents shouldBe empty
-    unassignEvents shouldBe empty
-    assignIds shouldBe empty
-    reassignmentIds shouldBe empty
+    activateStakeholderIds shouldBe empty
+    activateWitnessesIds shouldBe empty
+    deactivateStakeholderIds shouldBe empty
+    deactivateWitnessesIds shouldBe empty
+    variousWitnessesIds shouldBe empty
   }
 
   // Some queries are protected to never return data beyond the current ledger end.

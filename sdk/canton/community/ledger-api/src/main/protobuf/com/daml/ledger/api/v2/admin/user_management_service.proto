@@ -124,6 +124,14 @@ message Right {
     string party = 1;
   }
 
+  message CanExecuteAs {
+    // The right to prepare and execute submissions as this party.
+    // This right does not entitle the user to perform any reads.
+    // If reading is required, a separate ReadAs right must be added.
+    // Right to execute as a party is also implicitly contained in the CanActAs right.
+    string party = 1;
+  }
+
   // The right to administer the identity provider that the user is assigned to.
   // It means, being able to manage users and parties that are also assigned
   // to the same identity provider.
@@ -133,6 +141,11 @@ message Right {
   // feeding external tools, such as PQS, continually without the need to change subscriptions
   // as new parties pop in and out of existence.
   message CanReadAsAnyParty {}
+
+  // The rights of a user to prepare and execute transactions as any party.
+  // Its utility is predominantly for users that perform interactive submissions
+  // on behalf of many parties.
+  message CanExecuteAsAnyParty {}
 
   // Required
   oneof kind {
@@ -146,6 +159,10 @@ message Right {
     IdentityProviderAdmin identity_provider_admin = 4;
     // The user can read as any party on a participant
     CanReadAsAnyParty can_read_as_any_party = 5;
+    // The user can prepare and execute submissions as a specific party.
+    CanExecuteAs can_execute_as = 6;
+    // The user can prepare and execute submissions as any party on a participant.
+    CanExecuteAsAnyParty can_execute_as_any_party = 7;
   }
 }
 

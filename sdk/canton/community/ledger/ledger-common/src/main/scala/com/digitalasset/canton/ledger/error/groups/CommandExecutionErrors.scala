@@ -21,7 +21,11 @@ import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId}
 import com.digitalasset.daml.lf.engine.Error as LfError
 import com.digitalasset.daml.lf.interpretation.Error as LfInterpretationError
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, Reference}
-import com.digitalasset.daml.lf.transaction.{GlobalKey, TransactionVersion}
+import com.digitalasset.daml.lf.transaction.{
+  GlobalKey,
+  GlobalKeyWithMaintainers,
+  SerializationVersion,
+}
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.daml.lf.value.{Value, ValueCoder}
 import com.digitalasset.daml.lf.{VersionRange, language}
@@ -36,21 +40,24 @@ import scala.concurrent.duration.DurationInt
 object CommandExecutionErrors extends CommandExecutionErrorGroup {
   def encodeValue(v: Value): Either[ValueCoder.EncodeError, String] =
     ValueCoder
-      .encodeValue(valueVersion = TransactionVersion.VDev, v0 = v)
+      .encodeValue(valueVersion = SerializationVersion.VDev, v0 = v)
       .map(bs => BaseEncoding.base64().encode(bs.toByteArray))
+
+  def tryEncodeValue(v: Value)(implicit loggingContext: ErrorLoggingContext): Option[String] =
+    encodeValue(v).fold(
+      { case ValueCoder.EncodeError(msg) =>
+        loggingContext.error(msg)
+        None
+      },
+      Some(_),
+    )
 
   def withEncodedValue(
       v: Value
   )(
       f: String => Seq[(ErrorResource, String)]
   )(implicit loggingContext: ErrorLoggingContext): Seq[(ErrorResource, String)] =
-    encodeValue(v).fold(
-      { case ValueCoder.EncodeError(msg) =>
-        loggingContext.error(msg)
-        Seq.empty
-      },
-      f,
-    )
+    tryEncodeValue(v).fold(Seq.empty[(ErrorResource, String)])(f)
 
   def encodeParties(parties: Set[Ref.Party]): Seq[(ErrorResource, String)] =
     Seq((ErrorResource.Parties, parties.mkString(",")))
@@ -416,6 +423,38 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
     }
 
     @Explanation(
+      """This error occurs when trying to hash an ill-formed contract."""
+    )
+    @Resolution(
+      "Ensure that the contract being hashed is a valid contract."
+    )
+    object ContractHashingError
+        extends ErrorCode(
+          id = "CONTRACT_HASHING_ERROR",
+          ErrorCategory.InvalidIndependentOfSystemState,
+        ) {
+
+      final case class Reject(
+          override val cause: String,
+          err: LfInterpretationError.ContractHashingError,
+      )(implicit
+          loggingContext: ErrorLoggingContext
+      ) extends DamlErrorWithDefiniteAnswer(
+            cause = cause
+          ) {
+
+        override def resources: Seq[(ErrorResource, String)] =
+          withEncodedValue(err.createArg) { encodedCreateArg =>
+            Seq(
+              (ErrorResource.ContractId, err.coid.coid),
+              (ErrorResource.TemplateId, err.dstTemplateId.toString),
+              (ErrorResource.ContractArg, encodedCreateArg),
+            )
+          }
+      }
+    }
+
+    @Explanation(
       """This error occurs if a user attempts to provide a key hash for a disclosed contract which we have already cached to be different."""
     )
     @Resolution(
@@ -772,6 +811,18 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
     }
 
     @Explanation(
+      "This error occurs when a Daml text is not a valid UTF-8 string or contains null characters."
+    )
+    @Resolution("Restructure your code and reduce value nesting.")
+    object MalformedText
+        extends ErrorCode(id = "MALFORMED_TEXT", ErrorCategory.InvalidIndependentOfSystemState) {
+
+      final case class Reject(override val cause: String, err: LfInterpretationError.MalformedText)(
+          implicit loggingContext: ErrorLoggingContext
+      ) extends DamlErrorWithDefiniteAnswer(cause = cause) {}
+    }
+
+    @Explanation(
       "This error is thrown by use of `failWithStatus` in daml code. The Daml code determines the canton error category, and thus the grpc status code."
     )
     @Resolution(
@@ -821,12 +872,12 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
     object UpgradeError extends ErrorGroup {
       @Explanation("Validation fails when trying to upgrade the contract")
       @Resolution(
-        "Verify that neither the signatories, nor the observers, nor the contract key, nor the key's maintainers have changed"
+        "Verify that neither the signatories, nor the observers, nor the contract key, nor the key's maintainers, nor the package name have changed"
       )
       object ValidationFailed
           extends ErrorCode(
             id = "INTERPRETATION_UPGRADE_ERROR_VALIDATION_FAILED",
-            ErrorCategory.InvalidGivenCurrentSystemStateOther,
+            ErrorCategory.InvalidIndependentOfSystemState,
           ) {
         final case class Reject(
             override val cause: String,
@@ -838,74 +889,98 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
             ) {
 
           override def resources: Seq[(ErrorResource, String)] = {
-            val optKeyResources = err.keyOpt.fold(Seq.empty[(ErrorResource, String)])(key =>
-              withEncodedValue(key.globalKey.key) { encodedKey =>
-                Seq(
-                  (ErrorResource.ContractKey, encodedKey),
-                  (ErrorResource.PackageName, key.globalKey.packageName),
-                ) ++ encodeParties(key.maintainers)
-              }
-            )
+            def optKeyResources(
+                keyOpt: Option[GlobalKeyWithMaintainers]
+            ): Seq[(ErrorResource, String)] =
+              Seq(
+                (
+                  ErrorResource.ContractKey.nullable,
+                  keyOpt.flatMap(key => tryEncodeValue(key.globalKey.key)).getOrElse("NULL"),
+                ),
+                (
+                  ErrorResource.PackageName.nullable,
+                  keyOpt.map(_.globalKey.packageName).getOrElse("NULL"),
+                ),
+                (
+                  ErrorResource.Parties.nullable,
+                  keyOpt.map(_.maintainers.mkString(",")).getOrElse("NULL"),
+                ),
+              )
 
             Seq(
               (ErrorResource.ContractId, err.coid.coid),
               (ErrorResource.TemplateId, err.srcTemplateId.toString),
               (ErrorResource.TemplateId, err.dstTemplateId.toString),
-            ) ++ encodeParties(err.signatories) ++ encodeParties(err.observers) ++ optKeyResources
+              (ErrorResource.PackageName, err.srcPackageName),
+              (ErrorResource.PackageName, err.dstPackageName),
+            )
+              ++ encodeParties(err.originalSignatories)
+              ++ encodeParties(err.originalObservers)
+              ++ optKeyResources(err.originalKeyOpt)
+              ++ encodeParties(err.recomputedSignatories)
+              ++ encodeParties(err.recomputedObservers)
+              ++ optKeyResources(err.recomputedKeyOpt)
           }
         }
       }
 
-      @Explanation(
-        "An optional contract field with a value of Some may not be dropped during downgrading"
-      )
+      @Explanation("Contract is malformed or doesn't match the expected type")
       @Resolution(
-        "There is data that is newer than the implementation using it, and thus is not compatible. Ensure new data (i.e. those with additional fields as `Some`) is only used with new/compatible choices"
+        "Verify that the template used for loading the contract is upgrade-compatible with the template that created it."
       )
-      object DowngradeDropDefinedField
+      object TranslationFailed
           extends ErrorCode(
-            id = "INTERPRETATION_UPGRADE_ERROR_DOWNGRADE_DROP_DEFINED_FIELD",
-            ErrorCategory.InvalidGivenCurrentSystemStateOther,
+            id = "INTERPRETATION_UPGRADE_ERROR_TRANSLATION_FAILED",
+            ErrorCategory.InvalidIndependentOfSystemState,
           ) {
         final case class Reject(
             override val cause: String,
-            err: LfInterpretationError.Upgrade.DowngradeDropDefinedField,
+            err: LfInterpretationError.Upgrade.TranslationFailed,
         )(implicit
             loggingContext: ErrorLoggingContext
         ) extends DamlErrorWithDefiniteAnswer(
               cause = cause
             ) {
+
           override def resources: Seq[(ErrorResource, String)] =
-            Seq(
-              (ErrorResource.ExpectedType, err.expectedType.pretty),
-              (ErrorResource.FieldIndex, err.fieldIndex.toString),
-            )
+            withEncodedValue(err.createArg) { encodedArg =>
+              Seq(
+                (ErrorResource.ContractId.nullable, err.coid.fold("NULL")(_.coid)),
+                (ErrorResource.TemplateId, err.srcTemplateId.toString),
+                (ErrorResource.TemplateId, err.dstTemplateId.toString),
+                (ErrorResource.ContractArg, encodedArg),
+              )
+            }
         }
       }
 
-      @Explanation(
-        "An optional contract field with a value of Some may not be dropped during downgrading"
-      )
+      @Explanation("Cannot authenticate contract")
       @Resolution(
-        "There is data that is newer than the implementation using it, and thus is not compatible. Ensure new data (i.e. those with additional fields as `Some`) is only used with new/compatible choices"
+        "Verify that the template used for loading the contract is upgrade-compatible with the template that created it."
       )
-      object DowngradeFailed
+      object AuthenticationFailed
           extends ErrorCode(
-            id = "INTERPRETATION_UPGRADE_ERROR_DOWNGRADE_FAILED",
-            ErrorCategory.InvalidGivenCurrentSystemStateOther,
+            id = "INTERPRETATION_UPGRADE_ERROR_AUTHENTICATION_FAILED",
+            ErrorCategory.InvalidIndependentOfSystemState,
           ) {
         final case class Reject(
             override val cause: String,
-            err: LfInterpretationError.Upgrade.DowngradeFailed,
+            err: LfInterpretationError.Upgrade.AuthenticationFailed,
         )(implicit
             loggingContext: ErrorLoggingContext
         ) extends DamlErrorWithDefiniteAnswer(
               cause = cause
             ) {
+
           override def resources: Seq[(ErrorResource, String)] =
-            Seq(
-              (ErrorResource.ExpectedType, err.expectedType.pretty)
-            )
+            withEncodedValue(err.createArg) { encodedArg =>
+              Seq(
+                (ErrorResource.ContractId, err.coid.coid),
+                (ErrorResource.TemplateId, err.srcTemplateId.toString),
+                (ErrorResource.TemplateId, err.dstTemplateId.toString),
+                (ErrorResource.ContractArg, encodedArg),
+              )
+            }
         }
       }
     }

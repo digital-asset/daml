@@ -11,6 +11,7 @@ import com.digitalasset.canton.participant.admin.party.PartyReplicationTestInter
 import com.digitalasset.canton.sequencing.client.channel.SequencerChannelProtocolProcessor
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{FutureUnlessShutdownUtil, SimpleExecutionQueue}
+import com.google.common.annotations.VisibleForTesting
 
 import scala.util.chaining.scalaUtilChainingOps
 
@@ -25,6 +26,8 @@ trait PartyReplicationProcessor extends SequencerChannelProtocolProcessor {
 
   protected def isChannelOpenForCommunication: Boolean = isChannelConnected && !hasChannelCompleted
 
+  protected def processorStore: PartyReplicationProcessorStore
+
   protected val executionQueue = new SimpleExecutionQueue(
     name,
     futureSupervisor,
@@ -32,6 +35,9 @@ trait PartyReplicationProcessor extends SequencerChannelProtocolProcessor {
     loggerFactory,
     crashOnFailure = exitOnFatalFailures,
   )
+
+  @VisibleForTesting
+  private[party] def isExecutionQueueEmpty: Boolean = executionQueue.isEmpty
 
   protected def testOnlyInterceptor: PartyReplicationTestInterceptor
 
@@ -43,6 +49,16 @@ trait PartyReplicationProcessor extends SequencerChannelProtocolProcessor {
     */
   def progressPartyReplication()(implicit traceContext: TraceContext): Unit
 
+  protected def notifyCounterParticipantAndPartyReplicatorOnError(
+      code: => EitherT[FutureUnlessShutdown, String, Unit]
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] =
+    code.leftSemiflatMap { error =>
+      // Let the PartyReplicator know there has been an error.
+      onError(error)
+      // Let the counter participant know there has been an error.
+      sendError(error).value.map(_ => error)
+    }
+
   final protected def executeAsync(operation: String)(
       code: => EitherT[FutureUnlessShutdown, String, Unit]
   )(implicit traceContext: TraceContext): Unit = {
@@ -53,7 +69,7 @@ trait PartyReplicationProcessor extends SequencerChannelProtocolProcessor {
           Unit,
         ]
     ): FutureUnlessShutdown[Unit] =
-      eitherT.valueOr(err => logger.warn(s"\"$operation\" failed with $err"))
+      eitherT.valueOr(err => logger.warn(s"\"$operation\" failed with \"$err\""))
 
     logger.debug(s"About to $operation")
     FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
@@ -76,7 +92,11 @@ trait PartyReplicationProcessor extends SequencerChannelProtocolProcessor {
     */
   override def onDisconnected(status: Either[String, Unit])(implicit
       traceContext: TraceContext
-  ): Boolean =
+  ): Boolean = {
+    // Clear the initial contract ordinal so the TP remembers to reinitialize the SP
+    // in case we reconnect.
+    processorStore.resetConnection()
+
     super
       .onDisconnected(status)
       .tap(hasLostChannelEndpoint =>
@@ -88,6 +108,7 @@ trait PartyReplicationProcessor extends SequencerChannelProtocolProcessor {
           )
         }
       )
+  }
 
   override def onClosed(): Unit = LifeCycle.close(executionQueue)(logger)
 }

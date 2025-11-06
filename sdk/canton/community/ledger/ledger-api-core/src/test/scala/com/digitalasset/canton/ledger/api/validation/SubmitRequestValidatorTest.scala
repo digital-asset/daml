@@ -29,8 +29,12 @@ import com.digitalasset.daml.lf.command.{
 }
 import com.digitalasset.daml.lf.data.*
 import com.digitalasset.daml.lf.data.Ref.TypeConRef
-import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.transaction.{CreationTime, FatContractInstance, Node as LfNode}
+import com.digitalasset.daml.lf.transaction.{
+  CreationTime,
+  FatContractInstance,
+  Node as LfNode,
+  SerializationVersion as LfSerializationVersion,
+}
 import com.digitalasset.daml.lf.value.Value as Lf
 import com.digitalasset.daml.lf.value.Value.ValueRecord
 import com.google.protobuf.duration.Duration
@@ -144,7 +148,7 @@ class SubmitRequestValidatorTest
             signatories = Set(Ref.Party.assertFromString("party")),
             stakeholders = Set(Ref.Party.assertFromString("party")),
             keyOpt = None,
-            version = LanguageVersion.v2_dev,
+            version = LfSerializationVersion.VDev,
           ),
           createTime = CreationTime.CreatedAt(Time.Timestamp.now()),
           authenticationData = Bytes.Empty,
@@ -203,7 +207,7 @@ class SubmitRequestValidatorTest
   private val testedCommandValidator = {
     val validateDisclosedContractsMock = mock[ValidateDisclosedContracts]
 
-    when(validateDisclosedContractsMock(any[Commands])(any[ErrorLoggingContext]))
+    when(validateDisclosedContractsMock.validateCommands(any[Commands])(any[ErrorLoggingContext]))
       .thenReturn(Right(internal.disclosedContracts))
 
     new CommandsValidator(
@@ -484,7 +488,7 @@ class SubmitRequestValidatorTest
               internal.maxDeduplicationDuration,
             )
             inside(result) { case Right(valid) =>
-              valid.deduplicationPeriod shouldBe (expectedDeduplication)
+              valid.deduplicationPeriod shouldBe expectedDeduplication
             }
         }
       }
@@ -555,7 +559,9 @@ class SubmitRequestValidatorTest
       "fail when disclosed contracts validation fails" in {
         val validateDisclosedContractsMock = mock[ValidateDisclosedContracts]
 
-        when(validateDisclosedContractsMock(any[Commands])(any[ErrorLoggingContext]))
+        when(
+          validateDisclosedContractsMock.validateCommands(any[Commands])(any[ErrorLoggingContext])
+        )
           .thenReturn(
             Left(
               RequestValidationErrors.InvalidField
@@ -565,8 +571,8 @@ class SubmitRequestValidatorTest
           )
 
         val failingDisclosedContractsValidator = new CommandsValidator(
-          validateDisclosedContracts = validateDisclosedContractsMock,
           validateUpgradingPackageResolutions = ValidateUpgradingPackageResolutions.Empty,
+          validateDisclosedContracts = validateDisclosedContractsMock,
         )
 
         requestMustFailWith(
@@ -587,7 +593,9 @@ class SubmitRequestValidatorTest
       "when upgrading" should {
         val validateDisclosedContractsMock = mock[ValidateDisclosedContracts]
 
-        when(validateDisclosedContractsMock(any[Commands])(any[ErrorLoggingContext]))
+        when(
+          validateDisclosedContractsMock.validateCommands(any[Commands])(any[ErrorLoggingContext])
+        )
           .thenReturn(Right(internal.disclosedContracts))
 
         val packageMap =

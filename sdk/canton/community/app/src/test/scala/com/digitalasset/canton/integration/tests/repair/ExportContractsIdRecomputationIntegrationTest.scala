@@ -14,10 +14,7 @@ import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.{CommandFailure, LocalParticipantReference}
 import com.digitalasset.canton.damltests.java.refs.Refs
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.util.EntitySyntax
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -26,8 +23,8 @@ import com.digitalasset.canton.integration.{
   TestConsoleEnvironment,
 }
 import com.digitalasset.canton.logging.SuppressionRule.{Level, forLogger}
-import com.digitalasset.canton.participant.admin.data.{ActiveContract, ContractIdImportMode}
-import com.digitalasset.canton.participant.admin.repair.ContractIdsImportProcessor
+import com.digitalasset.canton.participant.admin.data.{ActiveContract, ContractImportMode}
+import com.digitalasset.canton.participant.admin.repair.ContractAuthenticationImportProcessor
 import com.digitalasset.canton.protocol.{LfContractId, LfHash, LfThinContractInst}
 import com.digitalasset.canton.topology.ForceFlag.DisablePartyWithActiveContracts
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
@@ -57,7 +54,7 @@ sealed trait ExportContractsIdRecomputationIntegrationTest
 
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory)
+    new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory)
   )
 
   /** Create contracts `participant` for the given `party` -- these will be the contracts exported
@@ -164,7 +161,7 @@ sealed trait ExportContractsIdRecomputationIntegrationTest
         val source =
           participant1.underlying.value.sync.internalIndexService.value.activeContracts(
             Set(alice.toLf),
-            Offset.fromLong(aliceAddedOnP2Offset.unwrap).toOption,
+            Offset.fromLong(aliceAddedOnP2Offset).toOption,
           )
         val cleanExport =
           source.runWith(Sink.seq).futureValue.map(resp => resp.getActiveContract).toList
@@ -299,7 +296,7 @@ object ExportContractsIdRecomputationIntegrationTest {
             whileDisconnected(participant2, daName) {
               loggerFactory.assertThrowsAndLogs[CommandFailure](
                 participant2.repair.import_acs(brokenExportFile.canonicalPath),
-                _.errorMessage should include("malformed contract id"),
+                _.errorMessage should include("Malformed contract ID"),
               )
             }
             participant2.ledger_api.state.acs.of_party(alice) should have size 0
@@ -312,7 +309,7 @@ object ExportContractsIdRecomputationIntegrationTest {
               val remapping =
                 participant2.repair.import_acs(
                   brokenExportFile.canonicalPath,
-                  contractIdImportMode = ContractIdImportMode.Recomputation,
+                  contractImportMode = ContractImportMode.Recomputation,
                 )
               remapping should have size exportSize
               forAll(remapping) { case (oldCid, newCid) =>
@@ -333,7 +330,7 @@ object ExportContractsIdRecomputationIntegrationTest {
               val remapping =
                 participant2.repair.import_acs(
                   exportFile.canonicalPath,
-                  contractIdImportMode = ContractIdImportMode.Recomputation,
+                  contractImportMode = ContractImportMode.Recomputation,
                 )
               remapping shouldBe empty
             }
@@ -442,10 +439,12 @@ class ExportContractsIdRecomputationArchivedDependencyIntegrationTest
       withExport(break = removeLeaves andThen zeroOutSuffixes) {
         (brokenExportFile, exportSize, alice) =>
           whileDisconnected(participant2, daName) {
-            loggerFactory.assertLogs(forLogger[ContractIdsImportProcessor] && Level(WARN))(
+            loggerFactory.assertLogs(
+              forLogger[ContractAuthenticationImportProcessor] && Level(WARN)
+            )(
               participant2.repair.import_acs(
                 brokenExportFile.canonicalPath,
-                contractIdImportMode = ContractIdImportMode.Recomputation,
+                contractImportMode = ContractImportMode.Recomputation,
               ),
               _.message should include regex "Missing dependency with contract ID '.+'. The contract might have been archived. Its contract ID cannot be recomputed.",
             )
@@ -490,7 +489,7 @@ class ExportContractsIdRecomputationDuplicateDiscriminatorIntegrationTest
           loggerFactory.assertThrowsAndLogs[CommandFailure](
             participant2.repair.import_acs(
               brokenExportFile.canonicalPath,
-              contractIdImportMode = ContractIdImportMode.Recomputation,
+              contractImportMode = ContractImportMode.Recomputation,
             ),
             _.errorMessage should include regex "Duplicate discriminator '0+' is used by 2 contract IDs, including",
           )

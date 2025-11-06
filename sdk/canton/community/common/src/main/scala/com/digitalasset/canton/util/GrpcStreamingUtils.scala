@@ -46,8 +46,11 @@ object GrpcStreamingUtils {
       new ByteStringStreamObserverWithContext[Req, C](extractChunkBytes, extractContext) {
         override def onCompleted(): Unit = {
           super.onCompleted()
-          val responseF = this.result.flatMap { case (byteString, context) =>
-            processFullRequest(byteString, context)
+          val responseF = this.result.flatMap {
+            case Some((byteString, context)) =>
+              processFullRequest(byteString, context)
+            case None =>
+              Future.failed(new NoSuchElementException("No elements were received in stream"))
           }
 
           Try(Await.result(responseF, processingTimeout)) match {
@@ -162,8 +165,7 @@ object GrpcStreamingUtils {
     * [[scalapb.GeneratedMessage#writeDelimitedTo]] directly.
     *
     * @return
-    *   either an error, or a list of versioned message instances in reverse order as appeared in
-    *   the given stream
+    *   either an error, or a list of versioned message instances
     */
   def parseDelimitedFromTrusted[ValueClass <: HasRepresentativeProtocolVersion](
       stream: InputStream,
@@ -180,8 +182,7 @@ object GrpcStreamingUtils {
     * [[scalapb.GeneratedMessage#writeDelimitedTo]] directly.
     *
     * @return
-    *   either an error, or a list of versioned message instances in reverse order as appeared in
-    *   the given stream
+    *   either an error, or a list of versioned message instances
     */
   def parseDelimitedFromTrusted[ValueClass](
       stream: InputStream,
@@ -206,7 +207,7 @@ object GrpcStreamingUtils {
               read(value :: acc)
           }
         case None =>
-          Right(acc)
+          Right(acc.reverse)
       }
     read(Nil)
   }

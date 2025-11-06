@@ -70,10 +70,11 @@ data SandboxPorts = SandboxPorts
   , sequencerPublic :: PortNumber
   , sequencerAdmin :: PortNumber
   , mediatorAdmin :: PortNumber
+  , jsonApi :: PortNumber
   }
 
 sandboxPorts :: IO SandboxPorts
-sandboxPorts = SandboxPorts <$> getFreePort <*> getFreePort <*> getFreePort <*> getFreePort <*> getFreePort
+sandboxPorts = SandboxPorts <$> getFreePort <*> getFreePort <*> getFreePort <*> getFreePort <*> getFreePort <*> getFreePort
 
 throwError :: MonadFail m => T.Text -> T.Text -> m ()
 throwError msg e = fail (T.unpack $ msg <> " " <> e)

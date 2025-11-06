@@ -19,6 +19,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import scala.language.implicitConversions
 
 class EncodeV21Spec extends EncodeSpec(LanguageVersion.v2_1)
+class EncodeV22Spec extends EncodeSpec(LanguageVersion.v2_2)
 class EncodeV2devSpec extends EncodeSpec(LanguageVersion.v2_dev)
 
 abstract class EncodeSpec(languageVersion: LanguageVersion)
@@ -216,8 +217,10 @@ ${onlyIf(languageVersion >= LanguageVersion.Features.contractKeys)("""
            val concrete_from_interface: Mod:Human -> Option Mod:Person  =
              \ (h: Mod:Human) -> from_interface @Mod:Human @Mod:Person h;
 
+${onlyIf(languageVersion < LanguageVersion.Features.unsafeFromInterfaceRemoved)("""
            val concrete_unsafe_from_interface: ContractId Mod:Human -> Mod:Human -> Mod:Person  =
              \ (cid: ContractId Mod:Human) (h: Mod:Human) -> unsafe_from_interface @Mod:Human @Mod:Person cid h;
+""")}
 
            val concrete_to_required_interface: Mod:Human -> Mod:Planet =
              \ (h: Mod:Human) -> to_required_interface @Mod:Planet @Mod:Human h;
@@ -274,13 +277,23 @@ ${onlyIf(languageVersion >= LanguageVersion.Features.choiceFuncs)("""
          }
       """
 
-      validate(pkgId, pkg)
+      // we remove the imports to simulate them being unset due to being removed
+      // during encoding
+      val pkg1 =
+        pkg.copy(imports =
+          GeneratedImports(
+            reason = "PLF.Package.ImportsSumCase.IMPORTSSUM_NOT_SET",
+            pkgIds = Set.empty,
+          )
+        )
+
+      validate(pkgId, pkg1)
       val archive =
-        Encode.encodeArchive(pkgId -> pkg, defaultParserParameters.languageVersion)
+        Encode.encodeArchive(pkgId -> pkg1, defaultParserParameters.languageVersion)
       val (hash, decodedPackage) = Decode.assertDecodeArchive(archive)
 
-      val pkg1 = normalize(decodedPackage, hash, pkgId)
-      pkg shouldBe pkg1
+      val pkg2 = normalize(decodedPackage, hash, pkgId)
+      pkg1 shouldBe pkg2
     }
   }
 

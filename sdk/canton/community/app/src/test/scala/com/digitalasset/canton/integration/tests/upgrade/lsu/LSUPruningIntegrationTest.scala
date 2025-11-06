@@ -4,8 +4,9 @@
 package com.digitalasset.canton.integration.tests.upgrade.lsu
 
 import com.digitalasset.canton.config
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.config.RequireTypes.NonNegativeProportion
 import com.digitalasset.canton.config.{
+  CommitmentSendDelay,
   DbConfig,
   PositiveDurationSeconds,
   SynchronizerTimeTrackerConfig,
@@ -15,15 +16,14 @@ import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.EnvironmentDefinition.S1M1
 import com.digitalasset.canton.integration.bootstrap.NetworkBootstrapper
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
 import com.digitalasset.canton.integration.plugins.{
   UseBftSequencer,
-  UseCommunityReferenceBlockSequencer,
   UsePostgres,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.tests.upgrade.LogicalUpgradeUtils.SynchronizerNodes
-import com.digitalasset.canton.integration.tests.upgrade.lsu.LSUBase.Fixture
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.sequencing.SequencerConnections
 import monocle.macros.syntax.lens.*
@@ -58,7 +58,14 @@ abstract class LSUPruningIntegrationTest extends LSUBase {
       }
       .addConfigTransforms(configTransforms*)
       .updateTestingConfig(
-        _.focus(_.maxCommitmentSendDelayMillis).replace(Some(NonNegativeInt.zero))
+        _.focus(_.commitmentSendDelay).replace(
+          Some(
+            CommitmentSendDelay(
+              Some(NonNegativeProportion.zero),
+              Some(NonNegativeProportion.zero),
+            )
+          )
+        )
       )
       .addConfigTransforms(
         ConfigTransforms.updateMaxDeduplicationDurations(10.minutes.toJava)
@@ -94,7 +101,7 @@ abstract class LSUPruningIntegrationTest extends LSUBase {
     "work correctly" in { implicit env =>
       import env.*
 
-      val fixture = Fixture(daId, upgradeTime)
+      val fixture = fixtureWithDefaults()
 
       participant1.health.ping(participant2)
 
@@ -110,9 +117,6 @@ abstract class LSUPruningIntegrationTest extends LSUBase {
 
       eventually() {
         participants.all.forall(_.synchronizers.is_connected(fixture.newPSId)) shouldBe true
-
-        // The sequencer connection pool internal mechanisms to restart connections rely on the clock time advancing.
-        environment.simClock.value.advance(Duration.ofSeconds(1))
       }
 
       oldSynchronizerNodes.all.stop()
@@ -156,7 +160,7 @@ abstract class LSUPruningIntegrationTest extends LSUBase {
 
 final class LSUPruningReferenceIntegrationTest extends LSUPruningIntegrationTest {
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](
+    new UseReferenceBlockSequencer[DbConfig.Postgres](
       loggerFactory,
       MultiSynchronizer.tryCreate(Set("sequencer1"), Set("sequencer2")),
     )

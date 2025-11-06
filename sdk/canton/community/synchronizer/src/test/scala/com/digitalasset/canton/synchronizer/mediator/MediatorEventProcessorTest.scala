@@ -105,7 +105,7 @@ class MediatorEventProcessorTest
 
     val mediatorRequest = mock[MediatorConfirmationRequest]
     when(mediatorRequest.requestUuid).thenReturn(uuid)
-    when(mediatorRequest.synchronizerId).thenReturn(synchronizerId)
+    when(mediatorRequest.psid).thenReturn(synchronizerId)
     when(mediatorRequest.pretty).thenReturn(
       prettyOfClass[MediatorConfirmationRequest](param("uuid", _.requestUuid))
     )

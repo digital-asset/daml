@@ -21,13 +21,10 @@ load(
     "mangle_for_java",
     "test_exclusions",
 )
-load("//bazel_tools/packaging:packaging.bzl", "package_oci_component")
 load(
     "//daml-lf/language:daml-lf.bzl",
     "COMPILER_LF_VERSIONS",
-    "lf_version_configuration",
-    "lf_version_default_or_latest",
-    "lf_version_is_dev",
+    "DEFAULT_LF_VERSION",
 )
 load("//bazel_tools:pom_file.bzl", "pom_file")
 load("@os_info//:os_info.bzl", "is_windows")
@@ -165,7 +162,7 @@ daml_compile(
     srcs = [
         "src/test/daml/Bar.daml",
     ],
-    target = lf_version_configuration.get("default"),
+    target = DEFAULT_LF_VERSION,
 )
 
 dar_to_java(
@@ -207,17 +204,6 @@ scaladoc_jar(
 scala_source_jar(
     name = "binary_src",
     srcs = [],
-)
-
-package_oci_component(
-    name = "codegen-oci",
-    component_manifest = ":component.yaml",
-    platform_agnostic = True,
-    resources = [
-        ":binary.jar",
-    ],
-    tags = ["no-cache"],
-    visibility = ["//visibility:public"],
 )
 
 [

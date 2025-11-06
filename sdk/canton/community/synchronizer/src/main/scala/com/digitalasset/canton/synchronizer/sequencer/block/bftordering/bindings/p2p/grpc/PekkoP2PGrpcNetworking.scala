@@ -9,7 +9,10 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics.updateTimer
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking.P2PEndpoint
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking.{
+  P2PEndpoint,
+  failGrpcStreamObserver,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.pekko.PekkoModuleSystem
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.pekko.PekkoModuleSystem.PekkoActorContext
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
@@ -97,53 +100,73 @@ object PekkoP2PGrpcNetworking {
     override def createNetworkRef[ActorContextT](
         context: PekkoActorContext[ActorContextT],
         p2pAddress: P2PAddress,
-    )(implicit traceContext: TraceContext): P2PNetworkRef[BftOrderingMessage] =
-      p2pAddress match {
-        case _: P2PAddress.NodeId =>
-          abort(
-            logger,
-            "Node ID addresses are not yet supported",
-          )
+    )(implicit traceContext: TraceContext): P2PNetworkRef[BftOrderingMessage] = {
 
-        case P2PAddress.Endpoint(p2pEndpoint) =>
+      val bftNodeIdActorNameComponent =
+        p2pAddress.maybeBftNodeId.getOrElse("unknown-bft-node-id")
+      val p2pEndpointActorNameComponent = p2pAddress.maybeP2PEndpoint
+        .map { p2pEndpoint =>
           val security = if (p2pEndpoint.transportSecurity) "tls" else "plaintext"
-          val p2pEndpointActorNameComponent =
-            s"${p2pEndpoint.address}-${p2pEndpoint.port}-$security"
-          // The Pekko actor name must be unique within the actor system.
-          val actorName =
-            s"pekko-p2p-grpc-connection-managing-actor-$p2pEndpointActorNameComponent-${UUID.randomUUID()}"
-          val outstandingMessages = new AtomicInteger()
-          logger.debug(s"Spawning P2P gRPC connection-managing actor '$actorName'")
-          val result =
-            new PekkoP2PNetworkRef(
-              context.underlying.spawn(
-                createGrpcP2PConnectionManagerPekkoBehavior(
-                  p2pEndpoint,
-                  actorName,
-                  connectionManager,
-                  outstandingMessages,
-                  loggerFactory,
-                  metrics,
-                ),
-                actorName,
-              ),
+          s"${p2pEndpoint.address}-${p2pEndpoint.port}-$security"
+        }
+        .getOrElse("unknown-p2p-endpoint")
+
+      // The Pekko actor name must be unique within the actor system; for each endpoint and node ID we always have
+      //  at most one active P2P gRPC connection-managing actor but network ref consolidation could stop and
+      //  re-create one for the same endpoint and node ID, so we ensure unicity by appending a UUID.
+      //
+      //  An example of that situation follows:
+      //
+      //  - A is configured with an endpoint to B but B is not configured with an endpoint to A
+      //  - A connects and authenticates successfully to B
+      //  - B wants to send to A and thus it creates a network ref to A
+      //  - The connection crashes and B cleans up the network ref
+      //  - A reconnects and authenticates successfully to B
+      val actorName =
+        s"pekko-p2p-grpc-connection-managing-actor-$p2pEndpointActorNameComponent-$bftNodeIdActorNameComponent-${UUID.randomUUID()}"
+
+      val outstandingMessages = new AtomicInteger()
+
+      logger.debug(s"Spawning P2P gRPC connection-managing actor '$actorName'")
+      val result =
+        new PekkoP2PNetworkRef(
+          context.underlying.spawn(
+            createGrpcP2PConnectionManagerPekkoBehavior(
+              p2pAddress,
               actorName,
+              connectionManager,
               outstandingMessages,
-              timeouts,
               loggerFactory,
-            )
-          logger.debug(s"Spawned P2P gRPC connection-managing actor '$actorName'")
-          result
-      }
+              metrics,
+            ),
+            actorName,
+          ),
+          actorName,
+          outstandingMessages,
+          timeouts,
+          loggerFactory,
+        )
+      logger.debug(s"Spawned P2P gRPC connection-managing actor '$actorName'")
+      result
+    }
 
     override def onClosed(): Unit = {
       logger.info("Closing P2P gRPC network manager")(TraceContext.empty)
       connectionManager.close()
     }
+
+    override def shutdownOutgoingConnection(
+        p2pEndpointId: P2PEndpoint.Id
+    )(implicit traceContext: TraceContext): Unit =
+      connectionManager.shutdownConnection(
+        Left(p2pEndpointId),
+        clearNetworkRefAssociations = true,
+        closeNetworkRefs = true,
+      )
   }
 
   private def createGrpcP2PConnectionManagerPekkoBehavior(
-      p2pEndpoint: P2PEndpoint,
+      p2pAddress: P2PAddress,
       actorName: String,
       connectionManager: P2PGrpcConnectionManager,
       outstandingMessages: AtomicInteger,
@@ -152,7 +175,6 @@ object PekkoP2PGrpcNetworking {
   ): Behavior[PekkoP2PGrpcConnectionManagerActorMessage] = {
     implicit val traceContext: TraceContext = TraceContext.empty
     val logger = loggerFactory.getTracedLogger(this.getClass)
-    val p2pEndpointId = p2pEndpoint.id
 
     // Reschedules an Initialize or Send if the connection is not available yet
     def scheduleMessageIfNotConnectedBehavior(
@@ -184,7 +206,7 @@ object PekkoP2PGrpcNetworking {
 
       emitModuleQueueStats()
 
-      connectionManager.getPeerSenderOrStartConnection(p2pEndpoint) match {
+      connectionManager.getPeerSenderOrStartConnection(p2pAddress) match {
         case Some(peerSender) =>
           logger.debug(s"Connection-managing actor $actorName found connection available for Send")
           whenConnected(peerSender)
@@ -237,7 +259,11 @@ object PekkoP2PGrpcNetworking {
 
     def closeBehavior(): Behavior[PekkoP2PGrpcConnectionManagerActorMessage] = {
       logger.info(s"Closing connection-managing actor $actorName")
-      connectionManager.closeConnection(p2pEndpointId)
+      connectionManager.shutdownConnection(
+        p2pAddress.id,
+        clearNetworkRefAssociations = true,
+        closeNetworkRefs = false, // Because we're already closing the actor
+      )
       Behaviors.stopped
     }
 
@@ -253,7 +279,7 @@ object PekkoP2PGrpcNetworking {
               val now = Instant.now
               val msg = sendMsg.createMessage(Some(now))
               try {
-                logger.trace(
+                logger.debug(
                   s"Connection-managing actor $actorName sending message to sender $peerSender"
                 )
                 peerSender.onNext(msg)
@@ -268,10 +294,15 @@ object PekkoP2PGrpcNetworking {
                     s"Connection-managing actor $actorName failed sending message $msg to sender $peerSender",
                     exception,
                   )
-                  peerSender.onError(exception) // Required by the gRPC streaming API
+                  // Failing the stream in case of an exception when sending is required by the gRPC streaming API
+                  failGrpcStreamObserver(peerSender, exception, logger)
                   // gRPC requires onError to be the last event, so the connection must be invalidated even though
                   //  the send operation will be retried.
-                  connectionManager.closeConnection(p2pEndpointId)
+                  connectionManager.shutdownConnection(
+                    p2pAddress.id,
+                    clearNetworkRefAssociations = false,
+                    closeNetworkRefs = false,
+                  )
                   // Retrying after a delay due to an exception:
                   //  record the send instant and delay to emit the actor queue latency when processing the message
                   val newAttemptNumber = sendMsg.attemptNumber + 1

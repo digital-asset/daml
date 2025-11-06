@@ -16,8 +16,6 @@ package speedy
   */
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml.lf.value.{Value => V}
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.speedy.Speedy._
 import com.digitalasset.daml.lf.speedy.SBuiltinFun._
@@ -112,10 +110,13 @@ private[lf] object SExpr {
 
   /** Function application: ANF case: 'fun' and 'args' are atomic expressions */
   final case class SEAppAtomicGeneral(fun: SExprAtomic, args: ArraySeq[SExprAtomic]) extends SExpr {
-    override def execute[Q](machine: Machine[Q]): Control[Q] = {
-      val vfun = fun.lookupValue(machine)
-      machine.enterApplication(vfun, args)
-    }
+    override def execute[Q](machine: Machine[Q]): Control[Q] =
+      fun.lookupValue(machine) match {
+        case vfun: SPAP =>
+          machine.updateGasBudget(_.EApp.cost(vfun.actuals.size, args.size))
+          machine.enterApplication(vfun, args)
+        case other => throw SError.SErrorCrash("SEAppAtomicGeneral", s"except SPAP, but got $other")
+      }
   }
 
   /** Function application: ANF case: 'fun' is builtin; 'args' are atomic expressions.  Size
@@ -124,6 +125,7 @@ private[lf] object SExpr {
   final case class SEAppAtomicSaturatedBuiltin(builtin: SBuiltinFun, args: ArraySeq[SExprAtomic])
       extends SExpr {
     override def execute[Q](machine: Machine[Q]): Control[Q] = {
+      machine.updateGasBudget(_.EApp.cost(0, args.length))
       assert(args.length == builtin.arity)
       val actuals = args.map(_.lookupValue(machine))
       builtin.execute(actuals, machine)
@@ -203,9 +205,10 @@ private[lf] object SExpr {
       extends SExpr {
     override def execute[Q](machine: Machine[Q]): Control.Expression = {
       assert(args.length == builtin.arity)
+      machine.updateGasBudget(_.EApp.cost(0, args.length))
       val actuals = args.map(_.lookupValue(machine))
-      val v = builtin.executePure(actuals)
-      machine.pushEnv(v) // use pushEnv not env.add so instrumentation is updated
+      val v = builtin.executePure(actuals, machine)
+      machine.pushEnv(v)
       Control.Expression(body)
     }
   }
@@ -221,7 +224,7 @@ private[lf] object SExpr {
       val actuals = args.map(_.lookupValue(machine))
       builtin.compute(actuals) match {
         case Some(value) =>
-          machine.pushEnv(value) // use pushEnv not env.add so instrumentation is updated
+          machine.pushEnv(value)
           Control.Expression(body)
         case None =>
           machine.handleException(builtin.buildException(machine, actuals))
@@ -237,7 +240,8 @@ private[lf] object SExpr {
           SELet1Builtin(builtin, args, body)
         case SEAppAtomicSaturatedBuiltin(builtin: SBuiltinArithmetic, args) =>
           SELet1BuiltinArithmetic(builtin, args, body)
-        case _ => SELet1General(rhs, body)
+        case _ =>
+          SELet1General(rhs, body)
       }
     }
   }
@@ -266,16 +270,6 @@ private[lf] object SExpr {
       machine.pushKont(KLabelClosure(label))
       Control.Expression(expr)
     }
-  }
-
-  /** The SEImportValue form is never constructed when compiling user LF.
-    * It is only constructed at runtime by certain builtin-ops.
-    * Assumes the packages needed to import value of type `typ` is already
-    * loaded in `machine`.
-    */
-  final case class SEImportValue(typ: Ast.Type, value: V) extends SExpr {
-    override def execute[Q](machine: Machine[Q]): Control[Nothing] =
-      machine.importValue(typ, value)
   }
 
   /** Exception handler */

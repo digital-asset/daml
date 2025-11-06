@@ -1,0 +1,11 @@
+override-components: 
+  damlc: 
+    version: $DAML_VERSION
+  daml-script: 
+    version: $DAML_VERSION
+name: vetting-main
+source: .
+version: 3.0.0
+dependencies: 
+- daml-prim
+- daml-stdlib

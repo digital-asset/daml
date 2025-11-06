@@ -29,7 +29,7 @@ final case class PendingTransaction(
   val requestId: RequestId = RequestId(requestTime)
 
   override def rootHashO: Option[RootHash] = Some(
-    transactionValidationResult.transactionId.toRootHash
+    transactionValidationResult.updateId.toRootHash
   )
 
   override def isCleanReplay: Boolean = false

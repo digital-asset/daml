@@ -6,6 +6,7 @@ package com.digitalasset.canton.sequencing.client
 import cats.data.EitherT
 import cats.syntax.traverse.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SequencerAlias
 import com.digitalasset.canton.concurrent.FutureSupervisor
@@ -210,6 +211,7 @@ object SequencerClientFactory {
               sequencerConnections.sequencerTrustThreshold,
               sequencerConnections.sequencerLivenessMargin,
               sequencerConnections.submissionRequestAmplification,
+              sequencerConnections.sequencerConnectionPoolDelays,
             )
           )
           // Reinitialize the sequencer counter allocator to ensure that passive->active replica transitions
@@ -426,6 +428,8 @@ object SequencerClientFactory {
           supportedProtocolVersions,
           config.authToken,
           clock,
+          metricsO = None,
+          metricsContext = MetricsContext.Empty,
           processingTimeout,
           SequencerClient.loggerFactoryWithSequencerAlias(
             loggerFactory,

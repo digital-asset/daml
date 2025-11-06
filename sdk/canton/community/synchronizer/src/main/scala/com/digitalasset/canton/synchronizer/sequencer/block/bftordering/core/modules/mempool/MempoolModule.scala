@@ -17,6 +17,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{Env, ModuleRef}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.utils.Miscellaneous.dequeueN
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import io.opentelemetry.api.trace.{StatusCode, Tracer}
 
 import java.time.Instant
 
@@ -27,14 +28,15 @@ import MempoolModuleMetrics.{emitRequestStats, emitStateStats}
   * Crash fault-tolerance is not strictly needed because the sequencer client will re-send the
   * requests if they are lost before being ordered.
   */
+@SuppressWarnings(Array("org.wartremover.warts.Var"))
 class MempoolModule[E <: Env[E]](
     config: MempoolModuleConfig,
+    mempoolState: MempoolState,
     metrics: BftOrderingMetrics,
     override val availability: ModuleRef[Availability.Message[E]],
     override val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
-    mempoolState: MempoolState = new MempoolState(),
-)(implicit mc: MetricsContext)
+)(implicit mc: MetricsContext, tracer: Tracer)
     extends Mempool[E] {
 
   private type IngressLabelOutcome = metrics.ingress.labels.outcome.values.OutcomeValue
@@ -43,6 +45,8 @@ class MempoolModule[E <: Env[E]](
       context: E#ActorContextT[Mempool.Message],
       traceContext: TraceContext,
   ): Unit = {
+    import mempoolState.*
+
     lazy val messageType = shortType(message)
 
     message match {
@@ -52,31 +56,42 @@ class MempoolModule[E <: Env[E]](
       // From clients
       case r @ Mempool.OrderRequest(tracedTx, from, sender) =>
         val orderingRequest = tracedTx.value
+        val span = startSpan("BFTOrderer.Mempool")._1
+
         val outcome: IngressLabelOutcome = // Help type inference
-          if (mempoolState.receivedOrderRequests.sizeIs == config.maxQueueSize) {
+          if (!canDisseminate) {
             val rejectionMessage =
-              s"mempool received client request but the queue is full (${config.maxQueueSize}), dropping it"
+              s"P2P connectivity is not ready (authenticated = $authenticatedCount < dissemination quorum = $weakQuorum), rejecting"
             logger.info(rejectionMessage)
             from.foreach(_.asyncSend(SequencerNode.RequestRejected(rejectionMessage)))
+            metrics.ingress.labels.outcome.values.P2PNotReady
+          } else if (mempoolState.receivedOrderRequests.sizeIs == config.maxQueueSize) {
+            val rejectionMessage =
+              s"mempool received client request but the queue is full (${config.maxQueueSize}), rejecting"
+            logger.info(rejectionMessage)
+            from.foreach(_.asyncSend(SequencerNode.RequestRejected(rejectionMessage)))
+            span.setStatus(StatusCode.ERROR, "queue_full"); span.end()
             metrics.ingress.labels.outcome.values.QueueFull
-          } else if (!orderingRequest.isTagValid) {
+          } else if (config.checkTags && !orderingRequest.isTagValid) {
             val rejectionMessage =
               s"mempool received a client request with an invalid tag '${orderingRequest.tag}', " +
-                s"valid tags are: (${OrderingRequest.ValidTags.mkString(", ")}); dropping it"
+                s"valid tags are: (${OrderingRequest.ValidTags.mkString(", ")}), rejecting"
             logger.warn(rejectionMessage)
             from.foreach(_.asyncSend(SequencerNode.RequestRejected(rejectionMessage)))
+            span.setStatus(StatusCode.ERROR, "invalid_tag"); span.end()
             metrics.ingress.labels.outcome.values.InvalidTag
           } else {
             val payloadSize = orderingRequest.payload.size()
             if (payloadSize > config.maxRequestPayloadBytes) {
               val rejectionMessage =
                 s"mempool received client request of size $payloadSize " +
-                  s"but it exceeds the maximum (${config.maxRequestPayloadBytes}), dropping it"
+                  s"but it exceeds the maximum (${config.maxRequestPayloadBytes}), rejecting"
               logger.warn(rejectionMessage)
               from.foreach(_.asyncSend(SequencerNode.RequestRejected(rejectionMessage)))
+              span.setStatus(StatusCode.ERROR, "max_request_size_exceeded"); span.end()
               metrics.ingress.labels.outcome.values.RequestTooBig
             } else {
-              mempoolState.receivedOrderRequests.enqueue(r)
+              mempoolState.receivedOrderRequests.enqueue((r, span))
               from.foreach(_.asyncSend(SequencerNode.RequestAccepted))
               if (mempoolState.receivedOrderRequests.sizeIs >= config.minRequestsInBatch.toInt) {
                 // every time we receive a new transaction we only try to create new batches if we've reached
@@ -88,7 +103,7 @@ class MempoolModule[E <: Env[E]](
               metrics.ingress.labels.outcome.values.Success
             }
           }
-        emitRequestStats(metrics)(orderingRequest, sender, outcome)
+        emitRequestStats(metrics)(orderingRequest, sender, outcome, config.checkTags)
 
       // From local availability
       case Mempool.CreateLocalBatches(atMost) =>
@@ -111,6 +126,10 @@ class MempoolModule[E <: Env[E]](
         )
         createAndSendBatches()
         scheduleMempoolBatchCreationClockTick()
+
+      case Mempool.P2PConnectivityUpdate(membership, authenticatedCountIncludingSelf) =>
+        weakQuorum = membership.orderingTopology.weakQuorum
+        authenticatedCount = authenticatedCountIncludingSelf
     }
   }
 
@@ -134,13 +153,15 @@ class MempoolModule[E <: Env[E]](
     }
 
   private def createAndSendBatch()(implicit context: E#ActorContextT[Mempool.Message]): Unit = {
-    val requests = dequeueN(mempoolState.receivedOrderRequests, config.maxRequestsInBatch).map(_.tx)
+    val requestsAndSpans = dequeueN(mempoolState.receivedOrderRequests, config.maxRequestsInBatch)
     val batchCreationInstant = Instant.now
     locally {
+      val requests = requestsAndSpans.map(_._1.tx)
       implicit val traceContext = context.traceContextOfBatch(requests)
       emitRequestsQueuedForBatchInclusionLatencies(requests, batchCreationInstant)
       availability.asyncSend(Availability.LocalDissemination.LocalBatchCreated(requests))
     }
+    requestsAndSpans.foreach(_._2.end())
     emitStateStats(metrics, mempoolState)
   }
 

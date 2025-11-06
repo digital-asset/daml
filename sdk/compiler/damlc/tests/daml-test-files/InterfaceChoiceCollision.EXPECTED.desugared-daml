@@ -1,6 +1,7 @@
 module InterfaceChoiceCollision where
 import (implicit) qualified DA.Internal.Record
 import (implicit) qualified GHC.Types
+import (implicit) qualified GHC.Err
 import (implicit) qualified DA.Internal.Desugar
 import (implicit) DA.Internal.RebindableSyntax
 import qualified InterfaceChoiceCollision1
@@ -97,7 +98,9 @@ instance DA.Internal.Desugar.HasToInterface T InterfaceChoiceCollision1.Interfac
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface T InterfaceChoiceCollision1.Interface where
   fromInterface = GHC.Types.primitive @"EFromInterface"
-  unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
+  unsafeFromInterface
+    = GHC.Err.error
+        "unsafeFromInterface is not supported anymore, use fromInterface instead"
 _interface_instance$_T_InterfaceChoiceCollision2:Interface_T :
   DA.Internal.Desugar.InterfaceInstance T InterfaceChoiceCollision2.Interface T
 _interface_instance$_T_InterfaceChoiceCollision2:Interface_T
@@ -126,4 +129,6 @@ instance DA.Internal.Desugar.HasToInterface T InterfaceChoiceCollision2.Interfac
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface T InterfaceChoiceCollision2.Interface where
   fromInterface = GHC.Types.primitive @"EFromInterface"
-  unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
+  unsafeFromInterface
+    = GHC.Err.error
+        "unsafeFromInterface is not supported anymore, use fromInterface instead"

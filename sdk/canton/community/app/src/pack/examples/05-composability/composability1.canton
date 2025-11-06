@@ -31,7 +31,7 @@ val paintId = bootstrap.synchronizer(
 iouSynchronizerOwner.topology.synchronizer_parameters
   .propose_update(iouId, _.update(assignmentExclusivityTimeout = 0 seconds))
 paintSynchronizerOwner.topology.synchronizer_parameters
-  .propose_update(paintId, _.update(assignmentExclusivityTimeout = 2 seconds))
+  .propose_update(paintId, _.update(assignmentExclusivityTimeout = 0 seconds))
 
 // connect participants to the synchronizers
 participant1.synchronizers.connect_local(iou_sequencer, alias = iouAlias)
@@ -49,7 +49,8 @@ participant3.parties.enable("Painter", synchronizer = Some(SynchronizerAlias.try
 
 // upload the Daml model to all participants
 val darPath = Option(System.getProperty("canton-examples.dar-path")).getOrElse("dars/CantonExamples.dar")
-participants.all.dars.upload(darPath)
+Seq(participant1, participant2, participant3).dars.upload(darPath, synchronizerId = iouId)
+Seq(participant2, participant3).dars.upload(darPath, synchronizerId = paintId)
 // architecture-handbook-entry-end: topology
 
 // architecture-handbook-entry-begin: imports

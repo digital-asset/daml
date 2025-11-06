@@ -15,18 +15,18 @@ object TransactionHash {
     final case class MissingNodeSeed(message: String) extends NodeHashingError(message)
     final case class IncompleteTransactionTree(nodeId: NodeId)
         extends NodeHashingError(s"The transaction does not contain a node with nodeId $nodeId")
-    final case class UnsupportedLanguageVersion(
+    final case class UnsupportedSerializationVersion(
         nodeHashVersion: HashingSchemeVersion,
-        version: TransactionVersion,
+        version: SerializationVersion,
     ) extends NodeHashingError(
-          s"Cannot hash node with LF $version using hash version $nodeHashVersion. Supported LF versions: ${NodeBuilder.HashingVersionToSupportedLFVersionMapping
+          s"Cannot hash node with LF $version using hash version $nodeHashVersion. Supported LF serialization versions: ${NodeBuilder.HashingVersionToSupportedLFSerializationVersionMapping
               .getOrElse(nodeHashVersion, Set.empty)
               .mkString(", ")}"
         )
 
     final case class UnsupportedHashingVersion(version: HashingSchemeVersion)
         extends NodeHashingError(
-          s"Cannot hash node with hashing version $version. Supported versions: ${NodeBuilder.HashingVersionToSupportedLFVersionMapping.keySet
+          s"Cannot hash node with hashing version $version. Supported versions: ${NodeBuilder.HashingVersionToSupportedLFSerializationVersionMapping.keySet
               .mkString(", ")}"
         )
   }
@@ -78,8 +78,8 @@ object TransactionHash {
       hashTracer,
       enforceNodeSeedForCreateNodes = true,
     ).addPurpose
-      .withContext("Transaction Version")(
-        _.add(TransactionVersion.toProtoValue(versionedTransaction.version))
+      .withContext("Serialization Version")(
+        _.add(SerializationVersion.toProtoValue(versionedTransaction.version))
       )
       .withContext("Root Nodes")(
         _.addNodesFromNodeIds(versionedTransaction.roots, versionedTransaction.nodes, nodeSeeds)

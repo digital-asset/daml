@@ -8,9 +8,10 @@ import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.integration.plugins.{
   UseBftSequencer,
-  UseCommunityReferenceBlockSequencer,
   UseProgrammableSequencer,
+  UseReferenceBlockSequencer,
 }
+import com.digitalasset.canton.integration.tests.upgrade.LogicalUpgradeUtils
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -34,7 +35,10 @@ trait LedgerTimeRecordTimeToleranceChangesIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment
     with HasProgrammableSequencer
-    with HasCycleUtils {
+    with HasCycleUtils
+    with LogicalUpgradeUtils {
+
+  override protected def testName: String = "ledger-time-record-time-tolerance-changes"
 
   override lazy val environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P1_S1M1
@@ -120,6 +124,9 @@ trait LedgerTimeRecordTimeToleranceChangesIntegrationTest
 
       // Second command submitted after doubling ledgerTimeRecordTimeTolerance.
       val command2Time = environment.now
+      // Make sure that anything sequenced after this point gets assigned a sequencing time based on the
+      // updated simclock, else the test could flake with `LOCAL_VERDICT_LEDGER_TIME_OUT_OF_BOUND`.
+      waitForTargetTimeOnSequencer(sequencer1, command2Time)
       val command2ExpectedConfirmationRequestMaxSequencingTimes = List(
         (
           command2Time,
@@ -139,7 +146,7 @@ trait LedgerTimeRecordTimeToleranceChangesIntegrationTest
 class LedgerTimeRecordTimeToleranceChangesIntegrationTestDefault
     extends LedgerTimeRecordTimeToleranceChangesIntegrationTest {
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory)
+    new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory)
   )
   // we need to register the ProgrammableSequencer after the ReferenceBlockSequencer
   registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))

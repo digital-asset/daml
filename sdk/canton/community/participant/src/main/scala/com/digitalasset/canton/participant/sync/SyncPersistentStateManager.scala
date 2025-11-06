@@ -18,7 +18,6 @@ import com.digitalasset.canton.environment.{
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
-import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.ledger.api.LedgerApiStore
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.memory.PackageMetadataView
@@ -33,8 +32,10 @@ import com.digitalasset.canton.store.{
   IndexedPhysicalSynchronizer,
   IndexedStringStore,
   IndexedSynchronizer,
+  IndexedTopologyStoreId,
 }
 import com.digitalasset.canton.time.Clock
+import com.digitalasset.canton.topology.store.TopologyStoreId
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{MonadUtil, StampedLockWithHandle}
@@ -123,10 +124,9 @@ class SyncPersistentStateManager(
     synchronizerConnectionConfigStore: SynchronizerConnectionConfigStore,
     synchronizerCryptoFactory: StaticSynchronizerParameters => SynchronizerCrypto,
     clock: Clock,
-    packageDependencyResolver: PackageDependencyResolver,
+    packageMetadataView: PackageMetadataView,
     ledgerApiStore: Eval[LedgerApiStore],
     val contractStore: Eval[ContractStore],
-    packageMetadataView: Eval[PackageMetadataView],
     futureSupervisor: FutureSupervisor,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -168,9 +168,15 @@ class SyncPersistentStateManager(
         psidIndexed <- EitherT.right(
           IndexedPhysicalSynchronizer.indexed(indexedStringStore)(psid)
         )
+        indexedTopologyStoreId <- EitherT.right(
+          IndexedTopologyStoreId.indexed(indexedStringStore)(
+            TopologyStoreId.SynchronizerStore(psid)
+          )
+        )
         staticSynchronizerParameters <- getStaticSynchronizerParameters(psid)
         persistentState = createPhysicalPersistentState(
           psidIndexed,
+          indexedTopologyStoreId,
           staticSynchronizerParameters,
           logical,
         )
@@ -202,13 +208,20 @@ class SyncPersistentStateManager(
 
   def getSynchronizerIdx(
       synchronizerId: SynchronizerId
-  ): FutureUnlessShutdown[IndexedSynchronizer] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[IndexedSynchronizer] =
     IndexedSynchronizer.indexed(this.indexedStringStore)(synchronizerId)
 
   def getPhysicalSynchronizerIdx(
       synchronizerId: PhysicalSynchronizerId
-  ): FutureUnlessShutdown[IndexedPhysicalSynchronizer] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[IndexedPhysicalSynchronizer] =
     IndexedPhysicalSynchronizer.indexed(this.indexedStringStore)(synchronizerId)
+
+  def getSynchronizerTopologyStoreId(synchronizerId: PhysicalSynchronizerId)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[IndexedTopologyStoreId] =
+    IndexedTopologyStoreId.indexed(indexedStringStore)(
+      TopologyStoreId.SynchronizerStore(synchronizerId)
+    )
 
   /** Retrieves the [[com.digitalasset.canton.participant.store.SyncPersistentState]] from the
     * [[com.digitalasset.canton.participant.sync.SyncPersistentStateManager]] for the given
@@ -224,6 +237,7 @@ class SyncPersistentStateManager(
   def lookupOrCreatePersistentState(
       synchronizerAlias: SynchronizerAlias,
       physicalSynchronizerIdx: IndexedPhysicalSynchronizer,
+      indexedTopologyStoreId: IndexedTopologyStoreId,
       synchronizerIdx: IndexedSynchronizer,
       synchronizerParameters: StaticSynchronizerParameters,
   )(implicit
@@ -240,6 +254,7 @@ class SyncPersistentStateManager(
           physicalSynchronizerIdx.synchronizerId,
           createPhysicalPersistentState(
             physicalSynchronizerIdx,
+            indexedTopologyStoreId,
             synchronizerParameters,
             logical,
           ),
@@ -275,11 +290,13 @@ class SyncPersistentStateManager(
 
   private def createPhysicalPersistentState(
       physicalSynchronizerIdx: IndexedPhysicalSynchronizer,
+      indexedTopologyStoreId: IndexedTopologyStoreId,
       staticSynchronizerParameters: StaticSynchronizerParameters,
       logicalSyncPersistentState: LogicalSyncPersistentState,
   )(implicit writeLockHandle: lock.WriteLockHandle): PhysicalSyncPersistentState =
     mkPhysicalPersistentState(
       physicalSynchronizerIdx,
+      indexedTopologyStoreId,
       staticSynchronizerParameters,
       logicalSyncPersistentState,
     )
@@ -386,7 +403,7 @@ class SyncPersistentStateManager(
     aliasResolution.aliasForSynchronizerId(synchronizerId)
 
   private def psidLoggerFactory(psid: PhysicalSynchronizerId) =
-    loggerFactory.append("synchronizerId", psid.toString)
+    loggerFactory.append("psid", psid.toString)
   private def lsidLoggerFactory(lsid: SynchronizerId) =
     loggerFactory.append("synchronizerId", lsid.toString)
 
@@ -408,6 +425,7 @@ class SyncPersistentStateManager(
 
   private def mkPhysicalPersistentState(
       physicalSynchronizerIdx: IndexedPhysicalSynchronizer,
+      indexedTopologyStoreId: IndexedTopologyStoreId,
       staticSynchronizerParameters: StaticSynchronizerParameters,
       logicalSyncPersistentState: LogicalSyncPersistentState,
   )(implicit @unused writeLockHandle: lock.WriteLockHandle): PhysicalSyncPersistentState =
@@ -416,14 +434,14 @@ class SyncPersistentStateManager(
         participantId,
         storage,
         physicalSynchronizerIdx,
+        indexedTopologyStoreId,
         staticSynchronizerParameters,
         clock,
         synchronizerCryptoFactory(staticSynchronizerParameters),
         parameters,
-        packageDependencyResolver,
+        packageMetadataView,
         ledgerApiStore,
         logicalSyncPersistentState,
-        packageMetadataView,
         psidLoggerFactory(physicalSynchronizerIdx.synchronizerId),
         futureSupervisor,
       )
@@ -444,7 +462,7 @@ class SyncPersistentStateManager(
         parameters.unsafeOnlinePartyReplication,
         exitOnFatalFailures = parameters.exitOnFatalFailures,
         state.topologyStore,
-        loggerFactory.append("synchronizerId", psid.toString),
+        loggerFactory.append("psid", psid.toString),
       )
     )
 

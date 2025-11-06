@@ -4,25 +4,18 @@
 package com.digitalasset.canton.integration.tests.jsonapi
 
 import com.daml.jwt.Jwt
-import com.daml.logging.LoggingContextOf
+import com.daml.ledger.api.v2.admin.party_management_service.AllocatePartyResponse
 import com.digitalasset.canton.config.TlsClientConfig
 import com.digitalasset.canton.console.LocalParticipantReference
-import com.digitalasset.canton.http.json.*
-import com.digitalasset.canton.http.json.SprayJson.decode1
-import com.digitalasset.canton.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
-import com.digitalasset.canton.http.{
-  AllocatePartyRequest as HttpAllocatePartyRequest,
-  HttpService,
-  OkResponse,
-  Party,
-  PartyDetails as HttpPartyDetails,
-  SyncResponse,
-  UserId,
-}
+import com.digitalasset.canton.http.json.v2.JsPartyManagementCodecs.*
+import com.digitalasset.canton.http.json.v2.js.AllocatePartyRequest as JsAllocatePartyRequest
+import com.digitalasset.canton.http.{HttpService, Party, UserId}
 import com.digitalasset.canton.integration.tests.jsonapi.HttpServiceTestFixture.*
-import com.digitalasset.canton.integration.tests.jsonapi.WebsocketTestFixture.validSubprotocol
 import com.digitalasset.canton.ledger.client.LedgerClient as DamlLedgerClient
 import com.google.protobuf.ByteString as ProtoByteString
+import io.circe.Decoder
+import io.circe.parser.decode
+import io.circe.syntax.EncoderOps
 import org.apache.pekko.http.scaladsl.model.*
 import org.apache.pekko.http.scaladsl.model.ws.{
   Message,
@@ -33,27 +26,22 @@ import org.apache.pekko.http.scaladsl.model.ws.{
 import org.apache.pekko.http.scaladsl.{ConnectionContext, Http, HttpsConnectionContext}
 import org.apache.pekko.stream.scaladsl.{Flow, Keep, Sink, Source}
 import org.apache.pekko.util.ByteString
-import scalaz.syntax.show.*
 import spray.json.*
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 trait HttpTestFuns extends HttpJsonApiTestBase with HttpServiceUserFixture {
   import AbstractHttpServiceIntegrationTestFuns.*
-  import JsonProtocol.*
+  import HttpTestFuns.*
 
   implicit val ec: ExecutionContext = system.dispatcher
 
   // Creation of client context is expensive (due to keystore creation - we cache it)
   private val clientConnectionContextMap =
     new TrieMap[TlsClientConfig, HttpsConnectionContext]()
-
-  protected def withHttpServiceAndClient[A](
-      testFn: (Uri, ApiJsonEncoder, ApiJsonDecoder, DamlLedgerClient) => Future[A]
-  ): FixtureParam => A =
-    withHttpService() { case HttpServiceTestFixtureData(a, b, c, d) => testFn(a, b, c, d) }
 
   protected def withHttpService[A](
       token: Option[Jwt] = None,
@@ -64,44 +52,22 @@ trait HttpTestFuns extends HttpJsonApiTestBase with HttpServiceUserFixture {
     case (jsonApiPort, client) =>
       withHttpService[A](
         jsonApiPort,
-        token = token orElse Some(jwtAdminNoParty),
         client = client,
-      )((u, e, d, c) => testFn(HttpServiceTestFixtureData(u, e, d, c))).futureValue
+      )((u, c) => testFn(HttpServiceTestFixtureData(u, c))).futureValue
 
     case any => throw new IllegalStateException(s"got unexpected $any")
   }
 
-  protected def withHttpServiceAndClient[A](token: Jwt)(
-      testFn: (Uri, ApiJsonEncoder, ApiJsonDecoder, DamlLedgerClient) => Future[A]
-  ): FixtureParam => A = usingLedger[A](Some(token.value)) { case (jsonApiPort, client) =>
-    withHttpService[A](
-      jsonApiPort,
-      token = Some(token),
-      client = client,
-    )(testFn(_, _, _, _)).futureValue
-  }
-
-  protected def withHttpService[A](
-      f: (Uri, ApiJsonEncoder, ApiJsonDecoder) => Future[A]
-  ): FixtureParam => A =
-    withHttpServiceAndClient((a, b, c, _) => f(a, b, c))(_)
-
   private def withHttpService[A](
       jsonApiPort: Int,
       client: DamlLedgerClient,
-      token: Option[Jwt],
   )(
-      testFn: (Uri, ApiJsonEncoder, ApiJsonDecoder, DamlLedgerClient) => Future[A]
+      testFn: (Uri, DamlLedgerClient) => Future[A]
   ): Future[A] = {
-    implicit val lc: LoggingContextOf[InstanceUUID] = instanceUUIDLogCtx(identity)
     val scheme = if (useTls) "https" else "http"
+    val uri = Uri.from(scheme = scheme, host = "localhost", port = jsonApiPort)
+    testFn(uri, client)
 
-    for {
-      codecs <- jsonCodecs(client, token)
-      uri = Uri.from(scheme = scheme, host = "localhost", port = jsonApiPort)
-      (encoder, decoder) = codecs
-      a <- testFn(uri, encoder, decoder, client)
-    } yield a
   }
 
   def postJsonRequest(
@@ -225,17 +191,6 @@ trait HttpTestFuns extends HttpJsonApiTestBase with HttpServiceUserFixture {
       f: HttpServiceTestFixtureData => Future[A]
   ): FixtureParam => A =
     withHttpService(None, participantSelector)(f)(_)
-
-  protected def withHttpServiceOnly[A](jsonApiPort: Int, client: DamlLedgerClient)(
-      f: HttpServiceOnlyTestFixtureData => Future[A]
-  ): A =
-    withHttpService[A](
-      jsonApiPort,
-      token = Some(jwtAdminNoParty),
-      client = client,
-    )((uri, encoder, decoder, _) =>
-      f(HttpServiceOnlyTestFixtureData(uri, encoder, decoder))
-    ).futureValue
   implicit protected final class `AHS Funs Uri functions`(private val self: UriFixture) {
 
     import self.uri
@@ -246,15 +201,15 @@ trait HttpTestFuns extends HttpJsonApiTestBase with HttpServiceUserFixture {
     def getUniquePartyAndAuthHeaders(
         name: String
     ): Future[(Party, List[HttpHeader])] =
-      self.getUniquePartyTokenUserIdAndAuthHeaders(name).map { case (p, _, _, h) => (p, h) }
-
-    def postJsonRequestWithMinimumAuth[Result: JsonReader](
-        path: Uri.Path,
-        json: JsValue,
-    ): Future[SyncResponse[Result]] =
-      headersWithAuth
-        .flatMap(postJsonRequest(path, json, _))
-        .parseResponse[Result]
+      self
+        .getUniquePartyTokenUserIdAndAuthHeaders(name)
+        .map { case (p, _, _, h) => (p, h) }
+        .transform {
+          case Success(a) => Success(a)
+          case Failure(err) =>
+            logger.info(s"err: $err")
+            Failure(err)
+        }
 
     def getStream[T](
         path: Uri.Path,
@@ -290,27 +245,37 @@ trait HttpTestFuns extends HttpJsonApiTestBase with HttpServiceUserFixture {
         uriOverride: Uri = uri,
     ): Future[(Party, Jwt, UserId, List[HttpHeader])] = {
       val party = getUniqueParty(name)
-      val request = HttpAllocatePartyRequest(
-        Some(party),
-        None,
+      val jsAllocate = JsonParser(
+        JsAllocatePartyRequest(partyIdHint = party.toString).asJson
+          .toString()
       )
-      val json = SprayJson.encode(request).valueOr(e => fail(e.shows))
       for {
-        OkResponse(newParty, _, StatusCodes.OK) <-
+        newParty <-
           postJsonRequest(
-            Uri.Path("/v1/parties/allocate"),
-            json = json,
+            Uri.Path("/v2/parties"),
+            json = jsAllocate,
             headers = headersWithAdminAuth,
           )
-            .parseResponse[HttpPartyDetails]
+            .flatMap {
+              case (StatusCodes.OK, result) =>
+                decode[AllocatePartyResponse](result.toString()).left
+                  .map(_.toString)
+                  .flatMap(_.partyDetails.toRight("Missing party details"))
+                  .map(_.party)
+                  .map(Party.apply) match {
+                  case Left(err) => Future.failed(new RuntimeException(err))
+                  case Right(party) => Future.successful(party)
+                }
+              case (status, _) => Future.failed(new RuntimeException(status.value))
+            }
         (jwt, userId) <- jwtUserIdForParties(uriOverride)(
-          List(newParty.identifier),
+          List(newParty),
           List.empty,
           false,
           false,
         )
         headers = authorizationHeader(jwt)
-      } yield (newParty.identifier, jwt, userId, headers)
+      } yield (newParty, jwt, userId, headers)
     }
 
     def headersWithAuth: Future[List[HttpHeader]] =
@@ -443,12 +408,26 @@ trait HttpTestFuns extends HttpJsonApiTestBase with HttpServiceUserFixture {
     ): Future[(StatusCode, ByteString)] =
       getRequestBinaryData(uri withPath path, headers)
 
-    def getRequestWithMinimumAuth[Result: JsonReader](
+    def getRequestWithMinimumAuth_(
         path: Uri.Path
-    ): Future[SyncResponse[Result]] =
+    ): Future[(StatusCode, JsValue)] =
       headersWithAuth
         .flatMap(getRequest(path, _))
-        .parseResponse[Result]
+
+    def getRequestWithMinimumAuth[Resp](
+        path: Uri.Path
+    )(implicit decoder: Decoder[Resp]): Future[Resp] =
+      headersWithAuth
+        .flatMap(getRequest(path, _))
+        .flatMap {
+          case (StatusCodes.OK, result) =>
+            decode[Resp](result.toString()).left
+              .map(_.toString) match {
+              case Left(err) => Future.failed(new RuntimeException(err))
+              case Right(ok) => Future.successful(ok)
+            }
+          case (status, _) => Future.failed(new RuntimeException(status.value))
+        }
 
     def getRequestString(
         path: Uri.Path,
@@ -458,21 +437,19 @@ trait HttpTestFuns extends HttpJsonApiTestBase with HttpServiceUserFixture {
 
   }
 
-  implicit protected final class `Future JsValue functions`(
-      private val self: Future[(StatusCode, JsValue)]
-  ) {
-    def parseResponse[Result: JsonReader]: Future[SyncResponse[Result]] =
-      self.map { case (status, jsv) =>
-        val r = decode1[SyncResponse, Result](jsv).fold(e => fail(e.shows), identity)
-        r.status should ===(status)
-        r
-      }
-  }
-
   private def cachedClientContext(config: TlsClientConfig): HttpsConnectionContext =
     this.clientConnectionContextMap.getOrElseUpdate(config, clientConnectionContext(config))
 
   protected def clientConnectionContext(config: TlsClientConfig): HttpsConnectionContext =
     ConnectionContext.httpsClient(HttpService.buildSSLContext(config))
 
+}
+
+object HttpTestFuns {
+  val tokenPrefix: String = "jwt.token."
+  val wsProtocol: String = "daml.ws.auth"
+
+  def validSubprotocol(jwt: Jwt): Option[String] = Option(
+    s"""$tokenPrefix${jwt.value},$wsProtocol"""
+  )
 }

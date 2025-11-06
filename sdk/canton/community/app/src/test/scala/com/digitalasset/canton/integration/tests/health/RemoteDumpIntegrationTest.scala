@@ -16,9 +16,9 @@ import com.digitalasset.canton.console.{
 }
 import com.digitalasset.canton.environment.{Environment, EnvironmentFactory}
 import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
   UseExternalProcess,
   UsePostgres,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -28,7 +28,6 @@ import com.digitalasset.canton.integration.{
 }
 import com.digitalasset.canton.logging.{LogEntry, NamedLoggerFactory}
 import com.digitalasset.canton.participant.CommunityParticipantNodeBootstrapFactory
-import com.digitalasset.canton.resource.CommunityDbMigrationsMetaFactory
 import com.digitalasset.canton.synchronizer.mediator.CommunityMediatorNodeBootstrapFactory
 import com.digitalasset.canton.synchronizer.sequencer.CommunitySequencerNodeBootstrapFactory
 import com.digitalasset.canton.version.{ProtocolVersionCompatibility, ReleaseVersion}
@@ -308,7 +307,7 @@ class NegativeRemoteDumpIntegrationTest
 
   private val dumpDelay = 1.second
 
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   // Customize the environment factory to tweak the health dump generation
   override protected val environmentFactory: EnvironmentFactory =
@@ -324,9 +323,6 @@ class NegativeRemoteDumpIntegrationTest
         CommunityParticipantNodeBootstrapFactory,
         CommunitySequencerNodeBootstrapFactory,
         CommunityMediatorNodeBootstrapFactory,
-        new CommunityDbMigrationsMetaFactory(
-          loggerFactory
-        ),
         loggerFactory,
       ) {
         override def createHealthDumpGenerator(

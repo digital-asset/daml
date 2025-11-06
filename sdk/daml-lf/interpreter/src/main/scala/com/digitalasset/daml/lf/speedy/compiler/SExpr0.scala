@@ -41,7 +41,7 @@ package compiler
   * - In SExpr: SEAppAtomicGeneral, SEAppAtomicSaturatedBuiltin, SECaseAtomic,
   *   SELet1Builtin, SELet1BuiltinArithmetic
   *
-  * - In SExpr (runtime only, i.e. rejected by validate): SEDamlException, SEImportValue
+  * - In SExpr (runtime only, i.e. rejected by validate): SEDamlException
   */
 
 import com.digitalasset.daml.lf.data.Ref._

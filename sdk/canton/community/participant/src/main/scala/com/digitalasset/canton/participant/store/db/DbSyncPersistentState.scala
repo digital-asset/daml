@@ -12,7 +12,6 @@ import com.digitalasset.canton.crypto.{CryptoPureApi, SynchronizerCrypto}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.ParticipantNodeParameters
-import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.ledger.api.LedgerApiStore
 import com.digitalasset.canton.participant.store.memory.PackageMetadataView
 import com.digitalasset.canton.participant.store.{
@@ -26,10 +25,12 @@ import com.digitalasset.canton.participant.topology.ParticipantTopologyValidatio
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.DbSequencedEventStore
+import com.digitalasset.canton.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.store.{
   IndexedPhysicalSynchronizer,
   IndexedStringStore,
   IndexedSynchronizer,
+  IndexedTopologyStoreId,
   SendTrackerStore,
 }
 import com.digitalasset.canton.time.Clock
@@ -86,6 +87,7 @@ class DbLogicalSyncPersistentState(
     acsCounterParticipantConfigStore,
     timeouts,
     loggerFactory,
+    ledgerApiStore.map(_.stringInterningView),
   )
 
   override val acsInspection: AcsInspection =
@@ -114,15 +116,15 @@ class DbLogicalSyncPersistentState(
 class DbPhysicalSyncPersistentState(
     participantId: ParticipantId,
     override val physicalSynchronizerIdx: IndexedPhysicalSynchronizer,
+    indexedTopologyStoreId: IndexedTopologyStoreId,
     val staticSynchronizerParameters: StaticSynchronizerParameters,
     clock: Clock,
     storage: DbStorage,
     crypto: SynchronizerCrypto,
     parameters: ParticipantNodeParameters,
-    packageDependencyResolver: PackageDependencyResolver,
+    packageMetadataView: PackageMetadataView,
     ledgerApiStore: Eval[LedgerApiStore],
     logicalSyncPersistentState: LogicalSyncPersistentState,
-    packageMetadataView: Eval[PackageMetadataView],
     val loggerFactory: NamedLoggerFactory,
     val futureSupervisor: FutureSupervisor,
 )(implicit ec: ExecutionContext)
@@ -173,8 +175,10 @@ class DbPhysicalSyncPersistentState(
     new DbTopologyStore(
       storage,
       SynchronizerStore(physicalSynchronizerIdx.synchronizerId),
+      indexedTopologyStoreId,
       staticSynchronizerParameters.protocolVersion,
       timeouts,
+      parameters.batchingConfig,
       loggerFactory,
     )
 
@@ -187,6 +191,8 @@ class DbPhysicalSyncPersistentState(
     staticSynchronizerParameters = staticSynchronizerParameters,
     store = topologyStore,
     outboxQueue = synchronizerOutboxQueue,
+    disableOptionalTopologyChecks = parameters.disableOptionalTopologyChecks,
+    dispatchQueueBackpressureLimit = parameters.general.dispatchQueueBackpressureLimit,
     exitOnFatalFailures = parameters.exitOnFatalFailures,
     timeouts = timeouts,
     futureSupervisor = futureSupervisor,
@@ -196,6 +202,7 @@ class DbPhysicalSyncPersistentState(
     override def validatePackageVetting(
         currentlyVettedPackages: Set[LfPackageId],
         nextPackageIds: Set[LfPackageId],
+        dryRunSnapshot: Option[PackageMetadata],
         forceFlags: ForceFlags,
     )(implicit
         traceContext: TraceContext
@@ -203,10 +210,8 @@ class DbPhysicalSyncPersistentState(
       validatePackageVetting(
         currentlyVettedPackages,
         nextPackageIds,
-        Some(packageMetadataView.value.getSnapshot),
-        packageDependencyResolver,
-        acsInspections =
-          () => Map(logicalSyncPersistentState.lsid -> logicalSyncPersistentState.acsInspection),
+        packageMetadataView,
+        dryRunSnapshot,
         forceFlags,
         parameters.disableUpgradeValidation,
       )

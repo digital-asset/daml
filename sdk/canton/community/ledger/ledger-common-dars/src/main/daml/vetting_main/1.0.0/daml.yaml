@@ -1,0 +1,13 @@
+override-components: 
+  damlc: 
+    version: $DAML_VERSION
+  daml-script: 
+    version: $DAML_VERSION
+name: vetting-main
+data-dependencies: 
+- ../../../../../scala-2.13/resource_managed/main/vetting-dep-1.0.0.dar
+source: .
+version: 1.0.0
+dependencies: 
+- daml-prim
+- daml-stdlib

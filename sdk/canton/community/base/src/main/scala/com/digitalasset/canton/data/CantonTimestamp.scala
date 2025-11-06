@@ -38,6 +38,7 @@ final case class CantonTimestamp(underlying: LfTimestamp)
   def plus(d: Duration): CantonTimestamp = new CantonTimestamp(underlying.add(d))
 
   def add(d: Duration): CantonTimestamp = new CantonTimestamp(underlying.add(d))
+  def add(d: FiniteDuration): CantonTimestamp = new CantonTimestamp(underlying.add(d.toJava))
 
   def addMicros(micros: Long): CantonTimestamp = new CantonTimestamp(underlying.addMicros(micros))
 

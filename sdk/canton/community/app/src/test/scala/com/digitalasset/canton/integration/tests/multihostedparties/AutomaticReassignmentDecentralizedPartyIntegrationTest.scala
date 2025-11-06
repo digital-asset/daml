@@ -10,11 +10,8 @@ import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.damltests.java.automaticreassignmenttransactions as M
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.bootstrap.InitializedSynchronizer
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.tests.SynchronizerRouterIntegrationTestSetup
 import com.digitalasset.canton.integration.util.{
   EntitySyntax,
@@ -37,7 +34,7 @@ class AutomaticReassignmentDecentralizedPartyIntegrationTest
     with EntitySyntax {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](
+    new UseReferenceBlockSequencer[DbConfig.Postgres](
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(Set("sequencer1"), Set("sequencer2"))
@@ -59,8 +56,7 @@ class AutomaticReassignmentDecentralizedPartyIntegrationTest
             .propose_update(
               d.synchronizerId,
               _.update(
-                assignmentExclusivityTimeout = config.NonNegativeFiniteDuration.Zero,
-                topologyChangeDelay = config.NonNegativeFiniteDuration.Zero,
+                assignmentExclusivityTimeout = config.NonNegativeFiniteDuration.Zero
               ),
             )
         )
@@ -68,9 +64,10 @@ class AutomaticReassignmentDecentralizedPartyIntegrationTest
       disableAssignmentExclusivityTimeout(getInitializedSynchronizer(daName))
       disableAssignmentExclusivityTimeout(getInitializedSynchronizer(acmeName))
 
-      participants.all.dars.upload(CantonTestsPath)
       participants.all.synchronizers.connect_local(sequencer1, daName)
       participants.all.synchronizers.connect_local(sequencer2, acmeName)
+      participants.all.dars.upload(CantonTestsPath, synchronizerId = daId)
+      participants.all.dars.upload(CantonTestsPath, synchronizerId = acmeId)
 
       participant1.health.ping(participant2, synchronizerId = Some(daId))
       participant1.health.ping(participant2, synchronizerId = Some(acmeId))

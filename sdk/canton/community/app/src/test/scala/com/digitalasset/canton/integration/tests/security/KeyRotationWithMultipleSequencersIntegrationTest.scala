@@ -5,10 +5,7 @@ package com.digitalasset.canton.integration.tests.security
 
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.crypto.{KeyPurpose, SigningKeyUsage}
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
@@ -75,7 +72,7 @@ trait KeyRotationWithMultipleSequencersIntegrationTest
         // Sequencer nodes only have signing keys
         val newKey = sequencer1.keys.secret
           .generate_signing_key(
-            keySpec = Some(sequencer1.crypto.privateCrypto.signingKeySpecs.default),
+            keySpec = Some(sequencer1.crypto.privateCrypto.signingSchemes.keySpecs.default),
             usage = SigningKeyUsage.NamespaceOnly,
           )
 
@@ -95,7 +92,7 @@ class KeyRotationWithMultipleSequencersReferenceIntegrationTestPostgres
     extends KeyRotationWithMultipleSequencersIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](
+    new UseReferenceBlockSequencer[DbConfig.Postgres](
       loggerFactory
     )
   )

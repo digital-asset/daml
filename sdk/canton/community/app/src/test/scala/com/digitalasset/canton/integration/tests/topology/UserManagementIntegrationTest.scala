@@ -10,7 +10,7 @@ import com.digitalasset.canton.admin.api.client.data.{
 }
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.CommandFailure
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -40,6 +40,7 @@ trait UserManagementIntegrationTest extends CommunityIntegrationTest with Shared
 
   private var alice: PartyId = _
   private var bob: PartyId = _
+  private var charlie: PartyId = _
 
   override lazy val environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P1_S1M1
@@ -54,6 +55,7 @@ trait UserManagementIntegrationTest extends CommunityIntegrationTest with Shared
 
         alice = participant1.parties.enable("alice")
         bob = participant1.parties.enable("bob")
+        charlie = participant1.parties.enable("charlie")
       }
 
   "managing users" should {
@@ -70,7 +72,9 @@ trait UserManagementIntegrationTest extends CommunityIntegrationTest with Shared
       participant1.ledger_api.users.rights.list(extraAdmin) shouldBe UserRights(
         actAs = Set.empty,
         readAs = Set.empty,
+        executeAs = Set.empty,
         readAsAnyParty = false,
+        executeAsAnyParty = false,
         participantAdmin = true,
         identityProviderAdmin = false,
       )
@@ -84,6 +88,7 @@ trait UserManagementIntegrationTest extends CommunityIntegrationTest with Shared
         actAs = Set(alice),
         primaryParty = Some(alice),
         readAs = Set(bob),
+        executeAs = Set(charlie),
         participantAdmin = true,
         isDeactivated = true,
         annotations = Map("k" -> "v"),
@@ -99,7 +104,9 @@ trait UserManagementIntegrationTest extends CommunityIntegrationTest with Shared
       participant1.ledger_api.users.rights.list("admin1") shouldBe UserRights(
         actAs = Set(alice),
         readAs = Set(bob),
+        executeAs = Set(charlie),
         readAsAnyParty = false,
+        executeAsAnyParty = false,
         participantAdmin = true,
         identityProviderAdmin = false,
       )
@@ -238,7 +245,9 @@ trait UserManagementIntegrationTest extends CommunityIntegrationTest with Shared
       lapi_users.rights.list(id = userId, identityProviderId = idpId) shouldBe UserRights(
         actAs = Set(bob),
         readAs = Set.empty,
+        executeAs = Set.empty,
         readAsAnyParty = false,
+        executeAsAnyParty = false,
         participantAdmin = false,
         identityProviderAdmin = false,
       )
@@ -310,7 +319,9 @@ trait UserManagementIntegrationTest extends CommunityIntegrationTest with Shared
       participant1.ledger_api.users.rights.list("super-reader-user") shouldBe UserRights(
         actAs = Set(),
         readAs = Set(),
+        executeAs = Set(),
         readAsAnyParty = true,
+        executeAsAnyParty = false,
         participantAdmin = false,
         identityProviderAdmin = false,
       )
@@ -324,6 +335,7 @@ trait UserManagementIntegrationTest extends CommunityIntegrationTest with Shared
 
       val david = participant1.parties.enable("david")
       val erwin = participant1.parties.enable("erwin")
+      val fiona = participant1.parties.enable("fiona")
 
       noException should be thrownBy participant1.ledger_api.users.create(
         id = "admin1",
@@ -335,7 +347,9 @@ trait UserManagementIntegrationTest extends CommunityIntegrationTest with Shared
       val expectedBase = UserRights(
         actAs = Set(david),
         readAs = Set(),
+        executeAs = Set(),
         readAsAnyParty = false,
+        executeAsAnyParty = false,
         participantAdmin = false,
         identityProviderAdmin = false,
       )
@@ -370,6 +384,18 @@ trait UserManagementIntegrationTest extends CommunityIntegrationTest with Shared
         ) shouldBe expectedWithIdp
 
       participant1.ledger_api.users.rights.list("admin1") shouldBe expectedWithIdp
+
+      val expectedWithExecuteAs = expectedWithIdp.copy(
+        executeAs = Set(fiona)
+      )
+
+      participant1.ledger_api.users.rights
+        .grant(
+          "admin1",
+          executeAs = Set(fiona),
+        ) shouldBe expectedWithExecuteAs
+
+      participant1.ledger_api.users.rights.list("admin1") shouldBe expectedWithExecuteAs
     }
 
     "support removing rights" in { implicit env =>
@@ -384,11 +410,14 @@ trait UserManagementIntegrationTest extends CommunityIntegrationTest with Shared
 
       val erwin = findParty("erwin")
       val david = findParty("david")
+      val fiona = findParty("fiona")
 
       val expectedBase = UserRights(
         actAs = Set(david),
         readAs = Set(erwin),
+        executeAs = Set(fiona),
         readAsAnyParty = false,
+        executeAsAnyParty = false,
         participantAdmin = true,
         identityProviderAdmin = true,
       )
@@ -423,16 +452,28 @@ trait UserManagementIntegrationTest extends CommunityIntegrationTest with Shared
         ) shouldBe expectedWithoutIdp
 
       participant1.ledger_api.users.rights.list("admin1") shouldBe expectedWithoutIdp
+
+      val expectedWithoutExecuteAs = expectedWithoutIdp.copy(
+        executeAs = Set()
+      )
+
+      participant1.ledger_api.users.rights
+        .revoke(
+          "admin1",
+          executeAs = Set(fiona),
+        ) shouldBe expectedWithoutExecuteAs
+
+      participant1.ledger_api.users.rights.list("admin1") shouldBe expectedWithoutExecuteAs
     }
   }
 }
 
 class UserManagementReferenceIntegrationTestDefault extends UserManagementIntegrationTest {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 }
 
 class UserManagementReferenceIntegrationTestPostgres extends UserManagementIntegrationTest {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }
 
 trait UserManagementNoExtraAdminIntegrationTest
@@ -461,5 +502,5 @@ trait UserManagementNoExtraAdminIntegrationTest
 
 class UserManagementNoExtraAdminReferenceIntegrationTestPostgres
     extends UserManagementNoExtraAdminIntegrationTest {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }

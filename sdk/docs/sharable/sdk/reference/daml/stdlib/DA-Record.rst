@@ -63,7 +63,7 @@ Data Types
     daml>
 
 
-  For more on Record syntax, see https\://docs\.daml\.com/daml/intro/3\_Data\.html\#record\.
+  For more on Record syntax, see https\://docs\.digitalasset\.com/build/3\.4/reference/daml/stdlib/DA\-Record\.html\.
 
   ``GetField x r a`` and ``SetField x r a`` are typeclasses taking three parameters\. The first
   parameter ``x`` is the field name, the second parameter ``r`` is the record type,

@@ -11,8 +11,8 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.sync.SyncPersistentStateManager
 import com.digitalasset.canton.topology.PhysicalSynchronizerId
-import com.digitalasset.canton.topology.client.StoreBasedSynchronizerTopologyClient
 import com.digitalasset.canton.topology.processing.{ApproximateTime, EffectiveTime, SequencedTime}
+import com.digitalasset.canton.topology.store.NoPackageDependencies
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
@@ -35,17 +35,13 @@ class SortedReconciliationIntervalsProviderFactory(
       .toRight(s"Can not obtain topology factory for $synchronizerId")
       .toEitherT[FutureUnlessShutdown]
     topologyClient <- EitherT.right(
-      topologyFactory.createCachingTopologyClient(
-        StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
-        synchronizerPredecessor,
-      )
+      topologyFactory.createCachingTopologyClient(NoPackageDependencies, synchronizerPredecessor)
     )
   } yield {
     topologyClient.updateHead(
       SequencedTime(subscriptionTs),
       EffectiveTime(subscriptionTs),
       ApproximateTime(subscriptionTs),
-      potentialTopologyChange = true,
     )
 
     new SortedReconciliationIntervalsProvider(

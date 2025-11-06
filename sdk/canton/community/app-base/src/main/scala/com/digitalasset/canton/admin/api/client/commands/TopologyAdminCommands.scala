@@ -7,6 +7,7 @@ import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
   DefaultUnboundedTimeout,
+  ServerEnforcedTimeout,
   TimeoutType,
 }
 import com.digitalasset.canton.admin.api.client.data.*
@@ -336,6 +337,7 @@ object TopologyAdminCommands {
         response.results
           .traverse(ListPartyToParticipantResult.fromProtoV30)
           .leftMap(_.toString)
+
     }
 
     final case class ListSynchronizerParametersState(
@@ -587,6 +589,42 @@ object TopologyAdminCommands {
       override def timeoutType: TimeoutType = DefaultUnboundedTimeout
     }
 
+    final case class ExportTopologySnapshotV2(
+        observer: StreamObserver[ExportTopologySnapshotV2Response],
+        query: BaseQuery,
+        excludeMappings: Seq[String],
+        filterNamespace: String,
+    ) extends BaseCommand[
+          v30.ExportTopologySnapshotV2Request,
+          CancellableContext,
+          CancellableContext,
+        ] {
+      override protected def createRequest(): Either[String, v30.ExportTopologySnapshotV2Request] =
+        Right(
+          new v30.ExportTopologySnapshotV2Request(
+            baseQuery = Some(query.toProtoV1),
+            excludeMappings = excludeMappings,
+            filterNamespace = filterNamespace,
+          )
+        )
+
+      override protected def submitRequest(
+          service: TopologyManagerReadServiceStub,
+          request: v30.ExportTopologySnapshotV2Request,
+      ): Future[CancellableContext] = {
+        val context = Context.current().withCancellation()
+        context.run(() => service.exportTopologySnapshotV2(request, observer))
+        Future.successful(context)
+      }
+
+      override protected def handleResponse(
+          response: CancellableContext
+      ): Either[String, CancellableContext] =
+        Right(response)
+
+      override def timeoutType: TimeoutType = DefaultUnboundedTimeout
+    }
+
     final case class GenesisState(
         observer: StreamObserver[GenesisStateResponse],
         synchronizerStore: Option[TopologyStoreId.Synchronizer],
@@ -649,6 +687,41 @@ object TopologyAdminCommands {
 
       override def timeoutType: TimeoutType = DefaultUnboundedTimeout
     }
+
+    final case class GenesisStateV2(
+        observer: StreamObserver[GenesisStateV2Response],
+        synchronizerStore: Option[TopologyStoreId.Synchronizer],
+        timestamp: Option[CantonTimestamp],
+    ) extends BaseCommand[
+          v30.GenesisStateV2Request,
+          CancellableContext,
+          CancellableContext,
+        ] {
+      override protected def createRequest(): Either[String, v30.GenesisStateV2Request] =
+        Right(
+          v30.GenesisStateV2Request(
+            synchronizerStore.map(_.toProtoV30),
+            timestamp.map(_.toProtoTimestamp),
+          )
+        )
+
+      override protected def submitRequest(
+          service: TopologyManagerReadServiceStub,
+          request: v30.GenesisStateV2Request,
+      ): Future[CancellableContext] = {
+        val context = Context.current().withCancellation()
+        context.run(() => service.genesisStateV2(request, observer))
+        Future.successful(context)
+      }
+
+      override protected def handleResponse(
+          response: CancellableContext
+      ): Either[String, CancellableContext] =
+        Right(response)
+
+      override def timeoutType: TimeoutType = DefaultUnboundedTimeout
+    }
+
   }
 
   object Aggregation {
@@ -779,6 +852,9 @@ object TopologyAdminCommands {
           ImportTopologySnapshotResponse,
           Unit,
         ] {
+
+      override def timeoutType: TimeoutType = ServerEnforcedTimeout
+
       override protected def createRequest(): Either[String, ImportTopologySnapshotRequest] =
         Right(
           ImportTopologySnapshotRequest(
@@ -787,12 +863,13 @@ object TopologyAdminCommands {
             waitToBecomeEffective.map(_.asNonNegativeFiniteApproximation.toProtoPrimitive),
           )
         )
+      @SuppressWarnings(Array("org.wartremover.warts.Null"))
       override protected def submitRequest(
           service: TopologyManagerWriteServiceStub,
           request: ImportTopologySnapshotRequest,
       ): Future[ImportTopologySnapshotResponse] =
         GrpcStreamingUtils.streamToServer(
-          service.importTopologySnapshot,
+          service.withDeadline(null).importTopologySnapshot,
           bytes =>
             ImportTopologySnapshotRequest(
               ByteString.copyFrom(bytes),
@@ -803,6 +880,42 @@ object TopologyAdminCommands {
         )
       override protected def handleResponse(
           response: ImportTopologySnapshotResponse
+      ): Either[String, Unit] = Either.unit
+    }
+
+    final case class ImportTopologySnapshotV2(
+        topologySnapshot: ByteString,
+        store: TopologyStoreId,
+        waitToBecomeEffective: Option[NonNegativeDuration],
+    ) extends BaseWriteCommand[
+          ImportTopologySnapshotV2Request,
+          ImportTopologySnapshotV2Response,
+          Unit,
+        ] {
+      override protected def createRequest(): Either[String, ImportTopologySnapshotV2Request] =
+        Right(
+          ImportTopologySnapshotV2Request(
+            topologySnapshot,
+            Some(store.toProtoV30),
+            waitToBecomeEffective.map(_.asNonNegativeFiniteApproximation.toProtoPrimitive),
+          )
+        )
+      override protected def submitRequest(
+          service: TopologyManagerWriteServiceStub,
+          request: ImportTopologySnapshotV2Request,
+      ): Future[ImportTopologySnapshotV2Response] =
+        GrpcStreamingUtils.streamToServer(
+          service.importTopologySnapshotV2,
+          bytes =>
+            ImportTopologySnapshotV2Request(
+              ByteString.copyFrom(bytes),
+              Some(store.toProtoV30),
+              waitToBecomeEffective.map(_.toProtoPrimitive),
+            ),
+          topologySnapshot,
+        )
+      override protected def handleResponse(
+          response: ImportTopologySnapshotV2Response
       ): Either[String, Unit] = Either.unit
     }
 

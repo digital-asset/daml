@@ -1,0 +1,16 @@
+override-components: 
+  damlc: 
+    version: $DAML_VERSION
+  daml-script: 
+    version: $DAML_VERSION
+build-options: 
+- --target=2.1
+- --enable-interfaces=yes
+name: tests-app-install
+data-dependencies: 
+- ../../../../scala-2.13/resource_managed/test/tests-featured-app-right-iface-1.0.0.dar
+source: AppInstall.daml
+version: 2.0.0
+dependencies: 
+- daml-prim
+- daml-stdlib

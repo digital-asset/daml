@@ -22,8 +22,8 @@ import com.digitalasset.canton.integration.bootstrap.{
   NetworkTopologyDescription,
 }
 import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
   UseProgrammableSequencer,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -58,6 +58,8 @@ import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
 trait MultipleMediatorsBaseTest { this: BaseTest & HasProgrammableSequencer =>
+
+  protected val errorUnknownSender = "(Eligible) Senders are unknown: MED::"
 
   protected def participantSeesMediators(
       ref: ParticipantReference,
@@ -131,7 +133,6 @@ trait MultipleMediatorsBaseTest { this: BaseTest & HasProgrammableSequencer =>
         )
         .cause
 
-      val errorUnknownSender = "(Eligible) Senders are unknown: MED::"
       loggerFactory.assertLoggedWarningsAndErrorsSeq(
         submit(),
         LogEntry.assertLogSeq(
@@ -180,7 +181,7 @@ class MultipleMediatorsIntegrationTest
     with MultipleMediatorsBaseTest
     with OperabilityTestHelpers {
 
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
   // we need to register the ProgrammableSequencer after the ReferenceBlockSequencer
   registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
 
@@ -321,16 +322,32 @@ class MultipleMediatorsIntegrationTest
         participant1.dars.upload(CantonExamplesPath)
         participant1.health.ping(participant1)
 
-        sequencer1.topology.mediators.remove_group(daId, NonNegativeInt.zero)
+        loggerFactory.assertThrowsAndLogsSeq[CommandFailure](
+          {
+            sequencer1.topology.mediators.remove_group(daId, NonNegativeInt.zero)
 
-        eventually() {
-          participant1.topology.mediators
-            .list(daId, group = Some(NonNegativeInt.one)) shouldBe empty
-        }
+            eventually() {
+              participant1.topology.mediators
+                .list(daId, group = Some(NonNegativeInt.zero)) shouldBe empty
+            }
 
-        loggerFactory.assertThrowsAndLogs[CommandFailure](
-          createCycleContract(participant1, participant1.adminParty, "no-mediator-on-synchronizer"),
-          _.errorMessage should include(SynchronizerWithoutMediatorError.code.id),
+            // Environments are isolated, so we can stop the mediator, and prevent it from sending anything
+            mediator1.stop()
+
+            createCycleContract(
+              participant1,
+              participant1.adminParty,
+              "no-mediator-on-synchronizer",
+            )
+          },
+          LogEntry.assertLogSeq(
+            mustContainWithClue = Seq(
+              (_.errorMessage should include(SynchronizerWithoutMediatorError.code.id), "error")
+            ),
+            mayContain = Seq(
+              _.warningMessage should include(errorUnknownSender)
+            ),
+          ),
         )
 
         uploadAndWaitForMediatorIdentity(mediator2, sequencer1)

@@ -16,7 +16,7 @@ import com.digitalasset.canton.ledger.error.JsonApiErrors
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.PackagePreferenceBackend
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
+import com.digitalasset.canton.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
@@ -307,7 +307,6 @@ private class TranscodePackageMetadataBackedResolver(
 
     (for {
       userPreferences <-
-        // TODO(#27499): Support conflicting preferences (two package-ids with the same package-name)
         TranscodePackageIdResolver.resolvePackageNames(userPreferences, packageMetadataSnapshot)
       localPreferences <- packageNames.forgetNE.toList.traverse { packageName =>
         packageNameMap
@@ -366,6 +365,7 @@ object TranscodePackageIdResolver {
           .toRight(show"Package-id $packageId not known")
           .map(_ -> packageId)
       }
+      // TODO(#27500): support multiple preferences per package-name
       .map(_.toMap)
   }
 

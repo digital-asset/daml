@@ -5,11 +5,20 @@ package com.digitalasset.canton.synchronizer.sequencing.traffic.store
 
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.config.BatchAggregatorConfig
+import com.digitalasset.canton.config.{
+  BatchAggregatorConfig,
+  BatchingConfig,
+  CachingConfigs,
+  DefaultProcessingTimeouts,
+}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.DbTest
+import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
+import com.digitalasset.canton.synchronizer.sequencer.SequencerWriterConfig
+import com.digitalasset.canton.synchronizer.sequencer.store.DbSequencerStore
 import com.digitalasset.canton.synchronizer.sequencing.traffic.store.db.DbTrafficPurchasedStore
+import com.digitalasset.canton.topology.{DefaultTestIdentities, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -29,13 +38,33 @@ trait DbTrafficPurchasedStoreTest
   }
 
   "TrafficPurchasedStore" should {
-    behave like trafficPurchasedStore(() =>
-      new DbTrafficPurchasedStore(
-        BatchAggregatorConfig.NoBatching,
-        storage,
-        timeouts,
-        loggerFactory,
+    behave like trafficPurchasedStore { () =>
+      val sequencerStore = new DbSequencerStore(
+        storage = storage,
+        protocolVersion = testedProtocolVersion,
+        bufferedEventsMaxMemory = SequencerWriterConfig.DefaultBufferedEventsMaxMemory,
+        bufferedEventsPreloadBatchSize =
+          SequencerWriterConfig.DefaultBufferedEventsPreloadBatchSize,
+        timeouts = DefaultProcessingTimeouts.testing,
+        loggerFactory = loggerFactory,
+        sequencerMember = SequencerId(DefaultTestIdentities.physicalSynchronizerId.uid),
+        blockSequencerMode = true,
+        cachingConfigs = CachingConfigs(),
+        batchingConfig = BatchingConfig(),
+        sequencerMetrics = SequencerMetrics.noop(getClass.getName),
       )
-    )
+
+      (
+        new DbTrafficPurchasedStore(
+          BatchAggregatorConfig.NoBatching,
+          storage,
+          timeouts,
+          loggerFactory,
+          sequencerStore,
+        ),
+        sequencerStore,
+      )
+    }
+
   }
 }

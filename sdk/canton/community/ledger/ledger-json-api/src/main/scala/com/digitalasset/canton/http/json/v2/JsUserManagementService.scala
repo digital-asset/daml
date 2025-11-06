@@ -11,6 +11,7 @@ import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
 import com.digitalasset.canton.http.json.v2.JsSchema.JsCantonError
 import com.digitalasset.canton.ledger.client.services.admin.UserManagementClient
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.InvalidArgument
+import com.digitalasset.canton.logging.audit.ApiRequestLogger
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref.UserId
@@ -24,6 +25,7 @@ import scala.concurrent.Future
 
 class JsUserManagementService(
     userManagementClient: UserManagementClient,
+    override protected val requestLogger: ApiRequestLogger,
     val loggerFactory: NamedLoggerFactory,
 )(implicit val authInterceptor: AuthInterceptor)
     extends Endpoints
@@ -79,7 +81,7 @@ class JsUserManagementService(
     Either[JsCantonError, user_management_service.CreateUserResponse]
   ] = req =>
     userManagementClient
-      .serviceStub(callerContext.token())(req.traceContext)
+      .serviceStub(callerContext.token())(callerContext.traceContext())
       .createUser(req.in)
       .resultToRight
 
@@ -89,7 +91,7 @@ class JsUserManagementService(
     Either[JsCantonError, user_management_service.ListUsersResponse]
   ] = req =>
     userManagementClient
-      .serviceStub(callerContext.token())(req.traceContext)
+      .serviceStub(callerContext.token())(callerContext.traceContext())
       .listUsers(
         user_management_service
           .ListUsersRequest(req.in.pageToken.getOrElse(""), req.in.pageSize.getOrElse(0), "")
@@ -106,7 +108,7 @@ class JsUserManagementService(
     UserId.fromString(requestedUserId) match {
       case Right(userId) =>
         userManagementClient
-          .serviceStub(callerContext.token())(req.traceContext)
+          .serviceStub(callerContext.token())(callerContext.traceContext())
           .getUser(
             user_management_service.GetUserRequest(
               userId = userId,
@@ -114,7 +116,7 @@ class JsUserManagementService(
             )
           )
           .resultToRight
-      case Left(error) => malformedUserId(error)(req.traceContext)
+      case Left(error) => malformedUserId(error)(callerContext.traceContext())
     }
   }
 
@@ -125,7 +127,7 @@ class JsUserManagementService(
   ] = { req =>
     val requestedIdentityProviderId = req.in.getOrElse("")
     userManagementClient
-      .serviceStub(callerContext.token())(req.traceContext)
+      .serviceStub(callerContext.token())(callerContext.traceContext())
       .getUser(
         user_management_service.GetUserRequest(
           userId = "",
@@ -142,11 +144,11 @@ class JsUserManagementService(
   ] = req =>
     if (req.in._2.user.map(_.id).contains(req.in._1)) {
       userManagementClient
-        .serviceStub(callerContext.token())(req.traceContext)
+        .serviceStub(callerContext.token())(callerContext.traceContext())
         .updateUser(req.in._2)
         .resultToRight
     } else {
-      unmatchedUserId(req.traceContext, req.in._1, req.in._2.user.map(_.id))
+      unmatchedUserId(callerContext.traceContext(), req.in._1, req.in._2.user.map(_.id))
     }
 
   private def deleteUser(
@@ -155,10 +157,10 @@ class JsUserManagementService(
     UserId.fromString(req.in) match {
       case Right(userId) =>
         userManagementClient
-          .deleteUser(userId, callerContext.token())(req.traceContext)
+          .deleteUser(userId, callerContext.token())(callerContext.traceContext())
           .resultToRight
       case Left(errorMsg) =>
-        malformedUserId(errorMsg)(req.traceContext)
+        malformedUserId(errorMsg)(callerContext.traceContext())
     }
 
   private def listUserRights(
@@ -169,7 +171,7 @@ class JsUserManagementService(
     UserId.fromString(req.in) match {
       case Right(userId) =>
         userManagementClient
-          .serviceStub(callerContext.token())(req.traceContext)
+          .serviceStub(callerContext.token())(callerContext.traceContext())
           .listUserRights(
             new user_management_service.ListUserRightsRequest(
               userId = userId,
@@ -177,7 +179,7 @@ class JsUserManagementService(
             )
           )
           .resultToRight
-      case Left(error) => malformedUserId(error)(req.traceContext)
+      case Left(error) => malformedUserId(error)(callerContext.traceContext())
     }
 
   private def grantUserRights(
@@ -188,11 +190,11 @@ class JsUserManagementService(
     req =>
       if (req.in._2.userId == req.in._1) {
         userManagementClient
-          .serviceStub(callerContext.token())(req.traceContext)
+          .serviceStub(callerContext.token())(callerContext.traceContext())
           .grantUserRights(req.in._2)
           .resultToRight
       } else {
-        unmatchedUserId(req.traceContext, req.in._1, Some(req.in._2.userId))
+        unmatchedUserId(callerContext.traceContext(), req.in._1, Some(req.in._2.userId))
       }
 
   private def revokeUserRights(
@@ -203,11 +205,11 @@ class JsUserManagementService(
     req =>
       if (req.in._2.userId == req.in._1) {
         userManagementClient
-          .serviceStub(callerContext.token())(req.traceContext)
+          .serviceStub(callerContext.token())(callerContext.traceContext())
           .revokeUserRights(req.in._2)
           .resultToRight
       } else {
-        unmatchedUserId(req.traceContext, req.in._1, Some(req.in._2.userId))
+        unmatchedUserId(callerContext.traceContext(), req.in._1, Some(req.in._2.userId))
       }
 
   private def updateUserIdentityProvider(
@@ -217,11 +219,11 @@ class JsUserManagementService(
   ] = req =>
     if (req.in._2.userId == req.in._1) {
       userManagementClient
-        .serviceStub(callerContext.token())(req.traceContext)
+        .serviceStub(callerContext.token())(callerContext.traceContext())
         .updateUserIdentityProviderId(req.in._2)
         .resultToRight
     } else {
-      unmatchedUserId(req.traceContext, req.in._1, Some(req.in._2.userId))
+      unmatchedUserId(callerContext.traceContext(), req.in._1, Some(req.in._2.userId))
     }
 
   private def malformedUserId(errorMessage: String)(implicit traceContext: TraceContext) =
@@ -341,6 +343,8 @@ object JsUserManagementCodecs {
     deriveRelaxedCodec
   implicit val canActAsRW: Codec[user_management_service.Right.CanActAs] = deriveRelaxedCodec
   implicit val canReadAsRW: Codec[user_management_service.Right.CanReadAs] = deriveRelaxedCodec
+  implicit val canExecuteAsRW: Codec[user_management_service.Right.CanExecuteAs] =
+    deriveRelaxedCodec
   implicit val rightKindidentityProviderAdminRW
       : Codec[user_management_service.Right.Kind.IdentityProviderAdmin] =
     deriveRelaxedCodec
@@ -348,12 +352,19 @@ object JsUserManagementCodecs {
     deriveRelaxedCodec
   implicit val canReadAsAnyPartyRWRW: Codec[user_management_service.Right.CanReadAsAnyParty] =
     deriveRelaxedCodec
+  implicit val canExecuteAsAnyPartyRWRW: Codec[user_management_service.Right.CanExecuteAsAnyParty] =
+    deriveRelaxedCodec
   implicit val kindCanActAsRWRW: Codec[user_management_service.Right.Kind.CanActAs] =
     deriveRelaxedCodec
   implicit val kindCanReadAsRWRW: Codec[user_management_service.Right.Kind.CanReadAs] =
     deriveRelaxedCodec
   implicit val kindCanReadAsAnyPartyRW
       : Codec[user_management_service.Right.Kind.CanReadAsAnyParty] =
+    deriveRelaxedCodec
+  implicit val kindCanExecuteAsRWRW: Codec[user_management_service.Right.Kind.CanExecuteAs] =
+    deriveRelaxedCodec
+  implicit val kindCanExecuteAsAnyPartyRW
+      : Codec[user_management_service.Right.Kind.CanExecuteAsAnyParty] =
     deriveRelaxedCodec
   implicit val kindParticipantAdminRWRW
       : Codec[user_management_service.Right.Kind.ParticipantAdmin] =

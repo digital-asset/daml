@@ -21,6 +21,7 @@ import com.digitalasset.canton.sequencing.protocol.channel.SequencerChannelSessi
 import com.digitalasset.canton.serialization.DeserializationError
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.{ByteStringUtil, MaxBytesToDecompress}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 
@@ -185,10 +186,8 @@ private[endpoint] class ChannelStageSecurelyConnected(data: InternalData)(implic
     */
   private def processOnChannelReadyForProcessor()(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, String, Unit] = {
-    data.processor.isConnected.set(true)
+  ): EitherT[FutureUnlessShutdown, String, Unit] =
     data.processor.onConnected()
-  }
 
   override def handleMessage(response: Response)(implicit
       traceContext: TraceContext
@@ -203,7 +202,15 @@ private[endpoint] class ChannelStageSecurelyConnected(data: InternalData)(implic
     val encryptedPayload = Encrypted.fromByteString(payload.value)
     for {
       decrypted <- decrypt(encryptedPayload)(Right(_))
-      _ <- data.processor.handlePayload(decrypted)(traceContext)
+      // TODO(#29003): Use static or dynamic synchronizer maxRequestSize parameter value
+      //  to be passed in via ChannelStage.InternalData. If the parameter is decided to be dynamic,
+      //  use SequencerChannelClientEndpoint.timestamp for lookup.
+      decompressed <- EitherT.fromEither[FutureUnlessShutdown](
+        ByteStringUtil
+          .decompressGzip(decrypted, MaxBytesToDecompress.Default)
+          .leftMap(err => s"Failed to decompress payload: ${err.message}")
+      )
+      _ <- data.processor.handlePayload(decompressed)(traceContext)
     } yield (Nil, newStage)
   }
 

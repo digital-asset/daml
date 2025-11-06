@@ -44,8 +44,6 @@ Typeclasses
 
     Converts a hex encoded string into a typed data value\.
 
-  **instance** :ref:`Template <type-da-internal-template-functions-template-31804>` a \=\> `HasFromHex <class-da-crypto-text-hasfromhex-84972_>`_ (:ref:`ContractId <type-da-internal-lf-contractid-95282>` a)
-
   **instance** `HasFromHex <class-da-crypto-text-hasfromhex-84972_>`_ (:ref:`Optional <type-da-internal-prelude-optional-37153>` :ref:`Party <type-da-internal-lf-party-57932>`)
 
   **instance** `HasFromHex <class-da-crypto-text-hasfromhex-84972_>`_ (:ref:`Optional <type-da-internal-prelude-optional-37153>` :ref:`Int <type-ghc-types-int-37261>`)
@@ -85,6 +83,14 @@ Functions
   ``isHex`` is ``True`` if ``t`` is not empty and consists only of
   hex or hexadecimal characters\.
 
+.. _function-da-crypto-text-sha256-84499:
+
+`sha256 <function-da-crypto-text-sha256-84499_>`_
+  \: `BytesHex <type-da-crypto-text-byteshex-47880_>`_ \-\> `BytesHex <type-da-crypto-text-byteshex-47880_>`_
+
+  Computes the SHA256 hash of the decoded UTF8 bytes of the ``Text``, and returns it in its hex\-encoded
+  form\. The hex encoding uses lowercase letters\.
+
 .. _function-da-crypto-text-keccak256-57106:
 
 `keccak256 <function-da-crypto-text-keccak256-57106_>`_
@@ -92,6 +98,13 @@ Functions
 
   Computes the KECCAK256 hash of the UTF8 bytes of the ``Text``, and returns it in its hex\-encoded
   form\. The hex encoding uses lowercase letters\.
+
+.. _function-da-crypto-text-secp256k1withecdsaonly-56908:
+
+`secp256k1WithEcdsaOnly <function-da-crypto-text-secp256k1withecdsaonly-56908_>`_
+  \: `SignatureHex <type-da-crypto-text-signaturehex-12945_>`_ \-\> `BytesHex <type-da-crypto-text-byteshex-47880_>`_ \-\> `PublicKeyHex <type-da-crypto-text-publickeyhex-51359_>`_ \-\> :ref:`Bool <type-ghc-types-bool-66265>`
+
+  Validate the SECP256K1 signature given a hex encoded message and a hex encoded DER formatted public key\.
 
 .. _function-da-crypto-text-secp256k1-38075:
 

@@ -4,19 +4,20 @@
 package com.digitalasset.canton.http
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.jwt.JwtDecoder
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.LoggingContextOf
+import com.daml.metrics.api.MetricHandle.Gauge.CloseableGauge
 import com.daml.metrics.pekkohttp.HttpMetricsInterceptor
 import com.daml.ports.{Port, PortFiles}
 import com.daml.tls.TlsVersion
 import com.digitalasset.canton.auth.AuthInterceptor
 import com.digitalasset.canton.config.{
+  ApiLoggingConfig,
   ServerAuthRequirementConfig,
   TlsClientConfig,
   TlsServerConfig,
 }
-import com.digitalasset.canton.http.json.v1.V1Routes
+import com.digitalasset.canton.http.HttpService.HttpServiceHandle
 import com.digitalasset.canton.http.json.v2.V2Routes
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.digitalasset.canton.http.util.FutureUtil.*
@@ -27,10 +28,6 @@ import com.digitalasset.canton.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
 }
-import com.digitalasset.canton.ledger.client.services.admin.{
-  IdentityProviderConfigClient,
-  UserManagementClient,
-}
 import com.digitalasset.canton.ledger.participant.state.PackageSyncService
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.platform.PackagePreferenceBackend
@@ -40,6 +37,7 @@ import io.grpc.health.v1.health.{HealthCheckRequest, HealthGrpc}
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.http.scaladsl.Http.ServerBinding
 import org.apache.pekko.http.scaladsl.model.Uri
+import org.apache.pekko.http.scaladsl.server.Directives.{concat, pathPrefix}
 import org.apache.pekko.http.scaladsl.server.{PathMatcher, Route}
 import org.apache.pekko.http.scaladsl.settings.ServerSettings
 import org.apache.pekko.http.scaladsl.{ConnectionContext, Http, HttpsConnectionContext}
@@ -51,15 +49,16 @@ import java.io.InputStream
 import java.nio.file.{Files, Path}
 import java.security.{Key, KeyStore}
 import javax.net.ssl.SSLContext
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 import scala.util.Using
 
 class HttpService(
-    startSettings: StartSettings,
+    startSettings: JsonApiConfig,
     httpsConfiguration: Option[TlsServerConfig],
     channel: Channel,
     packageSyncService: PackageSyncService,
     packagePreferenceBackend: PackagePreferenceBackend,
+    apiLoggingConfig: ApiLoggingConfig,
     val loggerFactory: NamedLoggerFactory,
 )(implicit
     asys: ActorSystem,
@@ -68,180 +67,123 @@ class HttpService(
     lc: LoggingContextOf[InstanceUUID],
     metrics: HttpApiMetrics,
     authInterceptor: AuthInterceptor,
-) extends ResourceOwner[ServerBinding]
+) extends ResourceOwner[HttpServiceHandle]
     with NamedLogging
     with NoTracing {
   private type ET[A] = EitherT[Future, HttpService.Error, A]
 
-  @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-  def acquire()(implicit context: ResourceContext): Resource[ServerBinding] =
-    Resource({
-      logger.info(s"Starting JSON API server, ${lc.makeString}")
+  def acquire()(implicit context: ResourceContext): Resource[HttpServiceHandle] = {
+    logger.info(s"Starting JSON API server, ${lc.makeString}")
 
-      import startSettings.*
-      val DummyUserId: UserId = UserId("HTTP-JSON-API-Gateway")
+    val DummyUserId: UserId = UserId("HTTP-JSON-API-Gateway")
 
-      val settings: ServerSettings = ServerSettings(asys)
-        .withTransparentHeadRequests(true)
-        .mapTimeouts(_.withRequestTimeout(startSettings.server.requestTimeout))
+    val clientConfig = LedgerClientConfiguration(
+      userId = UserId.unwrap(DummyUserId),
+      commandClient = CommandClientConfiguration.default,
+    )
 
-      implicit val wsConfig = startSettings.websocketConfig.getOrElse(WebsocketConfig())
+    val ledgerClient: DamlLedgerClient =
+      DamlLedgerClient.withoutToken(channel, clientConfig, loggerFactory)
 
-      val clientConfig = LedgerClientConfiguration(
-        userId = UserId.unwrap(DummyUserId),
-        commandClient = CommandClientConfiguration.default,
-      )
+    val ledgerHealthService = HealthGrpc.stub(channel)
+    val healthService = new HealthService(() => ledgerHealthService.check(HealthCheckRequest()))
 
-      val ledgerClient: DamlLedgerClient =
-        DamlLedgerClient.withoutToken(channel, clientConfig, loggerFactory)
-
-      val resolveUser: EndpointsCompanion.ResolveUser =
-        if (startSettings.userManagementWithoutAuthorization)
-          HttpService.resolveUserWithIdp(
-            ledgerClient.userManagementClient,
-            ledgerClient.identityProviderConfigClient,
-          )
-        else
-          HttpService.resolveUser(ledgerClient.userManagementClient)
-
-      import org.apache.pekko.http.scaladsl.server.Directives.*
-      val bindingEt: EitherT[Future, HttpService.Error, ServerBinding] =
-        for {
-          _ <- eitherT(Future.successful(\/-(ledgerClient)))
-          ledgerHealthService = HealthGrpc.stub(channel)
-
-          healthService = new HealthService(() => ledgerHealthService.check(HealthCheckRequest()))
-
-          _ = metrics.health.registerHealthGauge(
-            HttpApiMetrics.ComponentName,
-            () => healthService.ready().map(_.checks.forall(_.result)),
-          )
-
-          v2Routes = V2Routes(
-            ledgerClient,
-            metadataServiceEnabled = startSettings.damlDefinitionsServiceEnabled,
-            packageSyncService,
-            packagePreferenceBackend,
-            mat.executionContext,
-            loggerFactory,
-          )
-
-          v1Routes = V1Routes(
-            ledgerClient,
-            httpsConfiguration.isEmpty,
-            HttpService.decodeJwt,
-            debugLoggingOfHttpBodies,
-            resolveUser,
-            ledgerClient.userManagementClient,
-            loggerFactory,
-            websocketConfig,
-          )
-
-          jsonEndpoints = new Endpoints(
-            healthService,
-            v2Routes,
-            v1Routes,
-            debugLoggingOfHttpBodies,
-            loggerFactory,
-          )
-
-          rateDurationSizeMetrics = HttpMetricsInterceptor.rateDurationSizeMetrics(metrics.http)
-
-          defaultEndpoints =
-            rateDurationSizeMetrics apply jsonEndpoints.all
-
-          allEndpoints: Route = concat(
-            defaultEndpoints,
-            EndpointsCompanion.notFound(logger),
-          )
-          prefixedEndpoints = server.pathPrefix
-            .map(_.split("/").toList.dropWhile(_.isEmpty))
-            .collect { case head :: tl =>
-              val joinedPrefix = tl.foldLeft(PathMatcher(Uri.Path(head), ()))(_ slash _)
-              pathPrefix(joinedPrefix)(allEndpoints)
-            }
-            .getOrElse(allEndpoints)
-
-          binding <- liftET[HttpService.Error] {
-            val serverBuilder = Http()
-              .newServerAt(server.address, server.port.getOrElse(0))
-              .withSettings(settings)
-
-            httpsConfiguration
-              .fold(serverBuilder) { config =>
-                logger.info(s"Enabling HTTPS with $config")
-                serverBuilder.enableHttps(HttpService.httpsConnectionContext(config)(logger))
-              }
-              .bind(prefixedEndpoints)
-          }
-
-          _ <- either(
-            server.portFile.cata(f => HttpService.createPortFile(f, binding), \/-(()))
-          ): ET[Unit]
-
-        } yield binding
-
-      (bindingEt.run: Future[HttpService.Error \/ ServerBinding]).flatMap {
-        case -\/(error) => Future.failed(new RuntimeException(error.message))
-        case \/-(binding) => Future.successful(binding)
+    for {
+      gauge <- Resource(Future {
+        metrics.health.registerHealthGauge(
+          HttpApiMetrics.ComponentName,
+          () => healthService.ready().map(_.checks.forall(_.result)),
+        )
+      })(gauge => Future(gauge.close()))
+      binding <- Resource(serverBinding(ledgerClient, healthService)) { binding =>
+        logger.info(s"Stopping JSON API server..., ${lc.makeString}")
+        binding.unbind().void
       }
-    }) { binding =>
-      logger.info(s"Stopping JSON API server..., ${lc.makeString}")
-      binding.unbind().void
+    } yield HttpServiceHandle(binding, gauge)
+  }
+
+  private def serverBinding(
+      ledgerClient: DamlLedgerClient,
+      healthService: HealthService,
+  )(implicit context: ResourceContext): Future[ServerBinding] = {
+    val settings: ServerSettings = ServerSettings(asys)
+      .withTransparentHeadRequests(true)
+      .mapTimeouts(_.withRequestTimeout(startSettings.requestTimeout))
+
+    implicit val wsConfig = startSettings.websocketConfig.getOrElse(WebsocketConfig())
+
+    val bindingEt: EitherT[Future, HttpService.Error, ServerBinding] =
+      for {
+        _ <- eitherT(Future.successful(\/-(ledgerClient)))
+
+        v2Routes = V2Routes(
+          ledgerClient,
+          metadataServiceEnabled = startSettings.damlDefinitionsServiceEnabled,
+          packageSyncService,
+          packagePreferenceBackend,
+          mat.executionContext,
+          apiLoggingConfig,
+          loggerFactory,
+        )
+
+        jsonEndpoints = new JsonRoutes(
+          healthService,
+          v2Routes,
+          startSettings.debugLoggingOfHttpBodies,
+          loggerFactory,
+        )
+
+        rateDurationSizeMetrics = HttpMetricsInterceptor.rateDurationSizeMetrics(metrics.http)
+
+        defaultEndpoints =
+          rateDurationSizeMetrics apply jsonEndpoints.all
+
+        allEndpoints: Route = concat(
+          defaultEndpoints,
+          EndpointsCompanion.notFound(logger),
+        )
+        prefixedEndpoints = startSettings.pathPrefix
+          .map(_.split("/").toList.dropWhile(_.isEmpty))
+          .collect { case head :: tl =>
+            val joinedPrefix = tl.foldLeft(PathMatcher(Uri.Path(head), ()))(_ slash _)
+            pathPrefix(joinedPrefix)(allEndpoints)
+          }
+          .getOrElse(allEndpoints)
+
+        binding <- liftET[HttpService.Error] {
+          val serverBuilder = Http()
+            .newServerAt(startSettings.address, startSettings.port.unwrap)
+            .withSettings(settings)
+
+          httpsConfiguration
+            .fold(serverBuilder) { config =>
+              logger.info(s"Enabling HTTPS with $config")
+              serverBuilder.enableHttps(HttpService.httpsConnectionContext(config)(logger))
+            }
+            .bind(prefixedEndpoints)
+        }
+
+        _ <- either(
+          startSettings.portFile.cata(f => HttpService.createPortFile(f, binding), \/-(()))
+        ): ET[Unit]
+
+      } yield binding
+
+    (bindingEt.run: Future[HttpService.Error \/ ServerBinding]).flatMap {
+      case -\/(error) => Future.failed(new RuntimeException(error.message))
+      case \/-(binding) => Future.successful(binding)
     }
+  }
 
 }
 
 object HttpService extends NoTracing {
+
+  final case class HttpServiceHandle(binding: ServerBinding, gauge: CloseableGauge)
   // if no minimumServerProtocolVersion is set `config.protocols` returns an empty list
   // but we still want to setup some protocols
   private val allowedProtocols =
     Set[TlsVersion.TlsVersion](TlsVersion.V1_2, TlsVersion.V1_3).map(_.version)
-
-  def resolveUser(userManagementClient: UserManagementClient): EndpointsCompanion.ResolveUser =
-    jwt => userId => userManagementClient.listUserRights(userId = userId, token = Some(jwt.value))
-
-  def resolveUserWithIdp(
-      userManagementClient: UserManagementClient,
-      idpClient: IdentityProviderConfigClient,
-  )(implicit ec: ExecutionContext): EndpointsCompanion.ResolveUser = jwt =>
-    userId => {
-      for {
-        idps <- idpClient
-          .listIdentityProviderConfigs(token = Some(jwt.value))
-          .map(_.map(_.identityProviderId.value))
-        userWithIdp <- Future
-          .traverse("" +: idps)(idp =>
-            userManagementClient
-              .listUsers(
-                token = Some(jwt.value),
-                identityProviderId = idp,
-                pageToken = "",
-                // Hardcoded limit for users within any idp. This is enough for the limited usage
-                // of this functionality in the transition phase from json-api v1 to v2.
-                pageSize = 1000,
-              )
-              .map(_._1)
-          )
-          .map(_.flatten.filter(_.id == userId))
-        userRight <- Future.traverse(userWithIdp)(user =>
-          userManagementClient.listUserRights(
-            token = Some(jwt.value),
-            userId = userId,
-            identityProviderId = user.identityProviderId.toRequestString,
-          )
-        )
-      } yield userRight.flatten
-
-    }
-  // TODO(#13303) Check that this is intended to be used as ValidateJwt in prod code
-  //              and inline.
-  // Decode JWT without any validation
-  private val decodeJwt: EndpointsCompanion.ValidateJwt =
-    jwt =>
-      \/.fromEither(
-        JwtDecoder.decode(jwt).leftMap(e => EndpointsCompanion.Unauthorized(e.prettyPrint))
-      )
 
   private[http] def createPortFile(
       file: Path,

@@ -16,7 +16,8 @@ trait OrderingTopologyProvider[E <: Env[E]] {
     *
     * @param activationTime
     *   The timestamp with which to query the topology client for a topology snapshot. See
-    *   [[TopologyActivationTime]] for details.
+    *   [[com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.topology.TopologyActivationTime]]
+    *   for details.
     * @param traceContext
     *   The trace context.
     * @return

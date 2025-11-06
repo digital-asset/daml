@@ -7,7 +7,6 @@ import cats.data.EitherT
 import cats.syntax.bifunctor.*
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.data.SynchronizerPredecessor
 import com.digitalasset.canton.discard.Implicits.*
@@ -17,8 +16,10 @@ import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigSto
   Active,
   AtMostOnePhysicalActive,
   ConfigAlreadyExists,
+  ConfigIdentifier,
   Error,
   InconsistentLogicalSynchronizerIds,
+  InconsistentSequencerIds,
   MissingConfigForSynchronizer,
   SynchronizerIdAlreadyAdded,
   UnknownAlias,
@@ -36,10 +37,13 @@ import com.digitalasset.canton.topology.{
   ConfiguredPhysicalSynchronizerId,
   KnownPhysicalSynchronizerId,
   PhysicalSynchronizerId,
+  SequencerId,
   UnknownPhysicalSynchronizerId,
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
+import com.digitalasset.canton.{SequencerAlias, SynchronizerAlias}
+import monocle.macros.syntax.lens.*
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, blocking}
@@ -55,6 +59,23 @@ class InMemorySynchronizerConnectionConfigStore(
     (SynchronizerAlias, ConfiguredPhysicalSynchronizerId),
     StoredSynchronizerConnectionConfig,
   ]()
+
+  private def getInternal(
+      id: ConfigIdentifier
+  ): Either[MissingConfigForSynchronizer, StoredSynchronizerConnectionConfig] = {
+    def predicate(key: (SynchronizerAlias, ConfiguredPhysicalSynchronizerId)): Boolean = {
+      val (entryAlias, entryConfiguredPSId) = key
+      id match {
+        case ConfigIdentifier.WithPSId(psid) => entryConfiguredPSId.toOption.contains(psid)
+        case ConfigIdentifier.WithAlias(alias, configuredPSID) =>
+          (alias, configuredPSID) == (entryAlias, entryConfiguredPSId)
+      }
+    }
+
+    configuredSynchronizerMap
+      .collectFirst { case (key, value) if predicate(key) => value }
+      .toRight(MissingConfigForSynchronizer(id))
+  }
 
   override def put(
       config: SynchronizerConnectionConfig,
@@ -172,7 +193,7 @@ class InMemorySynchronizerConnectionConfigStore(
       config: SynchronizerConnectionConfig,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, Error, Unit] =
+  ): EitherT[FutureUnlessShutdown, MissingConfigForSynchronizer, Unit] =
     EitherT.fromEither(
       replaceInternal(config.synchronizerAlias, configuredPSId, _.copy(config = config))
     )
@@ -187,7 +208,7 @@ class InMemorySynchronizerConnectionConfigStore(
         .updateWith((alias, configuredPSId))(_.map(modifier))
         .isDefined,
       (),
-      MissingConfigForSynchronizer(alias, configuredPSId),
+      MissingConfigForSynchronizer(ConfigIdentifier.WithAlias(alias, configuredPSId)),
     )
 
   override def get(
@@ -196,7 +217,7 @@ class InMemorySynchronizerConnectionConfigStore(
   ): Either[MissingConfigForSynchronizer, StoredSynchronizerConnectionConfig] =
     configuredSynchronizerMap
       .get((alias, configuredPSId))
-      .toRight(MissingConfigForSynchronizer(alias, configuredPSId))
+      .toRight(MissingConfigForSynchronizer(ConfigIdentifier.WithAlias(alias, configuredPSId)))
 
   override def get(
       psid: PhysicalSynchronizerId
@@ -255,6 +276,44 @@ class InMemorySynchronizerConnectionConfigStore(
     EitherT.fromEither(res)
   }
 
+  override def setSequencerIds(
+      psid: PhysicalSynchronizerId,
+      sequencerIds: Map[SequencerAlias, SequencerId],
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, Error, Unit] = {
+    val id = ConfigIdentifier.WithPSId(psid)
+
+    val res = blocking {
+      synchronized {
+        for {
+          storedConfig <- getInternal(id)
+
+          updatedConnectionConfig = sequencerIds.foldLeft(storedConfig.config) {
+            case (config, (alias, id)) =>
+              config
+                .focus(_.sequencerConnections)
+                .modify(_.modify(alias, _.withSequencerId(id)))
+          }
+
+          mergedConnectionConfig <-
+            storedConfig.config
+              .subsumeMerge(updatedConnectionConfig)
+              .leftMap[Error](
+                InconsistentSequencerIds(id, sequencerIds, _)
+              )
+
+          updatedStoredConfig = storedConfig.copy(config = mergedConnectionConfig)
+        } yield configuredSynchronizerMap
+          .put(
+            (storedConfig.config.synchronizerAlias, KnownPhysicalSynchronizerId(psid)),
+            updatedStoredConfig,
+          )
+          .discard
+      }
+    }
+
+    EitherT.fromEither[FutureUnlessShutdown](res)
+  }
+
   override def setPhysicalSynchronizerId(
       alias: SynchronizerAlias,
       psid: PhysicalSynchronizerId,
@@ -279,7 +338,11 @@ class InMemorySynchronizerConnectionConfigStore(
             ) =>
           Right(false)
         case (Left(_: MissingConfigForSynchronizer), _) =>
-          Left(MissingConfigForSynchronizer(alias, UnknownPhysicalSynchronizerId))
+          Left(
+            MissingConfigForSynchronizer(
+              ConfigIdentifier.WithAlias(alias, UnknownPhysicalSynchronizerId)
+            )
+          )
       }
     }
 

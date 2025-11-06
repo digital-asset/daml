@@ -52,7 +52,7 @@ load(
     "zlib_sha256",
     "zlib_version",
 )
-load("//:versions.bzl", "latest_stable_version", "version_sha256s")
+load("//:versions.bzl", "version_sha256s")
 load("@os_info//:os_info.bzl", "os_name")
 
 def daml_deps():

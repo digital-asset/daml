@@ -6,15 +6,11 @@ package com.digitalasset.canton.integration.tests.multihostedparties
 import better.files.File
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.BaseTest.CantonLfV21
-import com.digitalasset.canton.config
-import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeProportion, PositiveInt}
+import com.digitalasset.canton.config.{CommitmentSendDelay, DbConfig}
 import com.digitalasset.canton.console.LocalParticipantReference
 import com.digitalasset.canton.integration.EnvironmentDefinition
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.util.LoggerSuppressionHelpers
 import com.digitalasset.canton.topology.transaction.{
   DecentralizedNamespaceDefinition,
@@ -23,8 +19,6 @@ import com.digitalasset.canton.topology.transaction.{
 import com.digitalasset.canton.topology.{Namespace, PartyId, UniqueIdentifier}
 import monocle.Monocle.toAppliedFocusOps
 
-import java.util.concurrent.TimeUnit
-import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
 
 /*
@@ -46,19 +40,14 @@ sealed trait OnboardingConsortiumPartyIntegrationTest extends ConsortiumPartyInt
     EnvironmentDefinition.P4_S1M1
       .updateTestingConfig(
         // do not delay sending commitments
-        _.focus(_.maxCommitmentSendDelayMillis).replace(Some(NonNegativeInt.zero))
+        _.focus(_.commitmentSendDelay).replace(
+          Some(
+            CommitmentSendDelay(Some(NonNegativeProportion.zero), Some(NonNegativeProportion.zero))
+          )
+        )
       )
       .withSetup { implicit env =>
         import env.*
-
-        //  Reduce the epsilon (topology change delay) to 5ms so that topology transaction(s)
-        //  become effective sooner; and an outdated topology state and test flakiness is avoided.
-        sequencer1.topology.synchronizer_parameters.propose_update(
-          daId,
-          _.update(topologyChangeDelay =
-            config.NonNegativeFiniteDuration(FiniteDuration(5, TimeUnit.MILLISECONDS))
-          ),
-        )
 
         hostingParticipants = Seq(participant1, participant2, participant3)
         owningParticipants = Seq(participant1, participant2, participant3)
@@ -128,6 +117,7 @@ sealed trait OnboardingConsortiumPartyIntegrationTest extends ConsortiumPartyInt
                 newHostingParticipants.map(_.id -> ParticipantPermission.Confirmation),
               threshold = threshold,
               store = daId,
+              participantsRequiringPartyToBeOnboarded = Seq(participant4),
             )
           )
 
@@ -148,19 +138,13 @@ sealed trait OnboardingConsortiumPartyIntegrationTest extends ConsortiumPartyInt
 
           hostingParticipants = newHostingParticipants
 
-          val partyAddedOnP4Offset = participant1.parties.find_party_max_activation_offset(
-            partyId = consortiumPartyId,
-            participantId = participant4.id,
-            synchronizerId = daId,
-            beginOffsetExclusive = ledgerEndP1,
-            completeAfter = PositiveInt.one,
-          )
-
           logger.debug("Onboarding: Export ACS from P1")
-          participant1.parties.export_acs(
-            Set(consortiumPartyId),
+          participant1.parties.export_party_acs(
+            party = consortiumPartyId,
+            synchronizerId = daId,
+            targetParticipantId = participant4.id,
+            beginOffsetExclusive = ledgerEndP1,
             exportFilePath = acsFilename,
-            ledgerOffset = partyAddedOnP4Offset,
           )
 
           participant4.synchronizers.disconnect(daName)
@@ -197,7 +181,7 @@ sealed trait OnboardingConsortiumPartyIntegrationTest extends ConsortiumPartyInt
 
           logger.debug("Onboarding: Import ACS to P4 (an empty participant)")
           participant4.ledger_api.state.acs.of_all() shouldBe empty
-          participant4.repair.import_acs(acsFilename)
+          participant4.parties.import_party_acs(acsFilename)
 
           logger.debug(s"Onboarding: Connect P4 to the synchronizer $daName")
           participant4.synchronizers.connect_local(sequencer1, daName)
@@ -377,5 +361,5 @@ sealed trait OnboardingConsortiumPartyIntegrationTest extends ConsortiumPartyInt
 final class OnboardingConsortiumPartyIntegrationTestPostgres
     extends OnboardingConsortiumPartyIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }

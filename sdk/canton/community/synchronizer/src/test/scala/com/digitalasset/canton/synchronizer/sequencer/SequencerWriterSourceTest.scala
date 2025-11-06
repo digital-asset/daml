@@ -161,12 +161,14 @@ class SequencerWriterSourceTest
       override def readEvents(
           memberId: SequencerMemberId,
           member: Member,
+          memberRegisteredFrom: CantonTimestamp,
           fromExclusiveO: Option[CantonTimestamp] = None,
           limit: Int = 100,
       )(implicit
           traceContext: TraceContext,
           metricsContext: MetricsContext,
-      ): FutureUnlessShutdown[ReadEvents] = readEventsInternal(memberId, fromExclusiveO, limit)
+      ): FutureUnlessShutdown[ReadEvents] =
+        readEventsInternal(memberId, memberRegisteredFrom, fromExclusiveO, limit)
     }
 
     val store =
@@ -253,9 +255,9 @@ class SequencerWriterSourceTest
       clock.advanceTo(nowish)
 
       for {
-        aliceId <- store.registerMember(alice, CantonTimestamp.Epoch)
+        registeredAlice <- store.registerMember(alice, CantonTimestamp.Epoch)
         deliver1 = DeliverStoreEvent.ensureSenderReceivesEvent(
-          aliceId,
+          registeredAlice.memberId,
           messageId1,
           Set.empty,
           payload1,
@@ -278,7 +280,7 @@ class SequencerWriterSourceTest
           },
           _.shouldBeCantonErrorCode(PayloadToEventTimeBoundExceeded),
         )
-        events <- store.readEvents(aliceId, alice)
+        events <- store.readEvents(registeredAlice.memberId, alice, registeredAlice.registeredFrom)
       } yield events.events shouldBe empty
     }
   }
@@ -299,9 +301,10 @@ class SequencerWriterSourceTest
           SuppressionRule.Level(Level.INFO) && SuppressionRule.forLogger[WritePayloadsFlow.type]
         )(
           for {
-            aliceId <- store.registerMember(alice, CantonTimestamp.Epoch)
+            registeredAlice <- store.registerMember(alice, CantonTimestamp.Epoch)
+            _ <- store.registerMember(sequencerMember, CantonTimestamp.Epoch)
             deliver1 = DeliverStoreEvent.ensureSenderReceivesEvent(
-              aliceId,
+              registeredAlice.memberId,
               messageId1,
               Set.empty,
               payload1,
@@ -316,7 +319,11 @@ class SequencerWriterSourceTest
               Presequenced.alwaysValid(deliver1, Some(lowerBoundExclusive.immediateSuccessor))
             )
             _ <- FutureUnlessShutdown.outcomeF(completeFlow())
-            events <- store.readEvents(aliceId, alice)
+            events <- store.readEvents(
+              registeredAlice.memberId,
+              alice,
+              registeredAlice.registeredFrom,
+            )
           } yield {
             events.events.loneElement.timestamp shouldBe lowerBoundExclusive.immediateSuccessor
           },
@@ -345,9 +352,10 @@ class SequencerWriterSourceTest
           SuppressionRule.Level(Level.INFO) && SuppressionRule.forLogger[WritePayloadsFlow.type]
         )(
           for {
-            aliceId <- store.registerMember(alice, CantonTimestamp.Epoch)
+            registeredAlice <- store.registerMember(alice, CantonTimestamp.Epoch)
+            _ <- store.registerMember(sequencerMember, CantonTimestamp.Epoch)
             deliver1 = DeliverStoreEvent.ensureSenderReceivesEvent(
-              aliceId,
+              registeredAlice.memberId,
               messageId1,
               Set.empty,
               payload1,
@@ -370,7 +378,11 @@ class SequencerWriterSourceTest
           clock.advanceTo(lowerBoundExclusive.immediateSuccessor)
 
           for {
-            aliceId <- store.lookupMember(alice).map(_.value.memberId)
+            (aliceId, aliceRegisteredFrom) <- store
+              .lookupMember(alice)
+              .map(registeredAliceO =>
+                (registeredAliceO.value.memberId -> registeredAliceO.value.registeredFrom)
+              )
             deliver2 = DeliverStoreEvent.ensureSenderReceivesEvent(
               aliceId,
               messageId2,
@@ -381,7 +393,7 @@ class SequencerWriterSourceTest
             )
             _ = offerDeliverOrFail(Presequenced.alwaysValid(deliver2))
             _ <- FutureUnlessShutdown.outcomeF(completeFlow())
-            events <- store.readEvents(aliceId, alice)
+            events <- store.readEvents(aliceId, alice, aliceRegisteredFrom)
           } yield events.events.loneElement.timestamp shouldBe lowerBoundExclusive.immediateSuccessor
         }
       }
@@ -399,9 +411,10 @@ class SequencerWriterSourceTest
       val longAfterNow = nowish.plusSeconds(5)
 
       for {
-        aliceId <- store.registerMember(alice, CantonTimestamp.Epoch)
+        registeredAlice <- store.registerMember(alice, CantonTimestamp.Epoch)
+        _ <- store.registerMember(sequencerMember, CantonTimestamp.Epoch)
         deliver1 = DeliverStoreEvent.ensureSenderReceivesEvent(
-          aliceId,
+          registeredAlice.memberId,
           messageId1,
           Set.empty,
           payload1,
@@ -409,7 +422,7 @@ class SequencerWriterSourceTest
           None,
         )
         deliver2 = DeliverStoreEvent.ensureSenderReceivesEvent(
-          aliceId,
+          registeredAlice.memberId,
           messageId2,
           Set.empty,
           payload2,
@@ -434,7 +447,7 @@ class SequencerWriterSourceTest
           FutureUnlessShutdown.outcomeF(completeFlow())
         }
 
-        events <- store.readEvents(aliceId, alice)
+        events <- store.readEvents(registeredAlice.memberId, alice, registeredAlice.registeredFrom)
       } yield {
         events.events should have size 1
         events.events.headOption.map(_.event).value should matchPattern {
@@ -457,9 +470,10 @@ class SequencerWriterSourceTest
       clock.advanceTo(nowish)
 
       for {
-        aliceId <- store.registerMember(alice, CantonTimestamp.Epoch).failOnShutdown
+        registeredAlice <- store.registerMember(alice, CantonTimestamp.Epoch).failOnShutdown
+        _ <- store.registerMember(sequencerMember, CantonTimestamp.Epoch).failOnShutdown
         deliver1 = DeliverStoreEvent.ensureSenderReceivesEvent(
-          aliceId,
+          registeredAlice.memberId,
           messageId1,
           Set.empty,
           payload1,
@@ -467,7 +481,7 @@ class SequencerWriterSourceTest
           None,
         )
         deliver2 = DeliverStoreEvent.ensureSenderReceivesEvent(
-          aliceId,
+          registeredAlice.memberId,
           messageId2,
           Set.empty,
           payload1,
@@ -484,7 +498,9 @@ class SequencerWriterSourceTest
           )
         )
         _ <- completeFlow()
-        events <- store.readEvents(aliceId, alice).failOnShutdown
+        events <- store
+          .readEvents(registeredAlice.memberId, alice, registeredAlice.registeredFrom)
+          .failOnShutdown
       } yield {
         events.events should have size 2
         events.events.map(_.event)
@@ -513,7 +529,7 @@ class SequencerWriterSourceTest
         )
         sortedEvents = sortByMessageId(events)
       } yield {
-        inside(sortedEvents.head) { case event: DeliverStoreEvent[_] =>
+        inside(sortedEvents.head) { case event: DeliverStoreEvent[?] =>
           event.messageId shouldBe messageId1
         }
 
@@ -530,7 +546,7 @@ class SequencerWriterSourceTest
       import env.*
 
       for {
-        aliceId <- store.registerMember(alice, CantonTimestamp.Epoch)
+        registeredAlice <- store.registerMember(alice, CantonTimestamp.Epoch)
 
         batch = Batch.fromClosed(
           testedProtocolVersion,
@@ -566,11 +582,15 @@ class SequencerWriterSourceTest
         )("send to unknown recipient")
         _ <- eventuallyFUS(10.seconds) {
           for {
-            events <- env.store.readEvents(aliceId, alice)
+            events <- env.store.readEvents(
+              registeredAlice.memberId,
+              alice,
+              registeredAlice.registeredFrom,
+            )
             error = events.events.collectFirst {
               case Sequenced(
                     _,
-                    deliverError @ DeliverErrorStoreEvent(`aliceId`, _, _, _, _),
+                    deliverError @ DeliverErrorStoreEvent(aliceId, _, _, _, _),
                   ) =>
                 deliverError
             }.value
@@ -636,7 +656,7 @@ class SequencerWriterSourceTest
       combinedNotificationsF map { notification =>
         forAll(members) { member =>
           withClue(s"expecting notification for $member") {
-            notification.includes(member) shouldBe true
+            notification.isBroadcastOrIncludes(member) shouldBe true
           }
         }
 
@@ -645,8 +665,12 @@ class SequencerWriterSourceTest
     }
 
     for {
-      aliceId <- store.registerMember(alice, CantonTimestamp.Epoch).failOnShutdown
-      bobId <- store.registerMember(bob, CantonTimestamp.Epoch).failOnShutdown
+      registeredAlice <- store.registerMember(alice, CantonTimestamp.Epoch).failOnShutdown
+      aliceId = registeredAlice.memberId
+
+      registeredBob <- store.registerMember(bob, CantonTimestamp.Epoch).failOnShutdown
+      bobId = registeredBob.memberId
+
       // check single members
       _ <- expectNotification(writeCount = 1)(aliceId) { () =>
         deliverEvent(aliceId)

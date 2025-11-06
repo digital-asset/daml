@@ -45,6 +45,20 @@ case object ClaimActAsAnyParty extends Claim
   */
 final case class ClaimActAsParty(name: Ref.Party) extends Claim
 
+/** Authorized to execute commands as any party, including:
+  *   - Preparing an interactive command on behalf of any party
+  *   - Executing an interactive command on behalf of any party It does not entitle to read data for
+  *     any parties.
+  */
+case object ClaimExecuteAsAnyParty extends Claim
+
+/** Authorized to act as the given party, including:
+  *   - Preparing an interactive command on behalf of the given party
+  *   - Executing an interactive command on behalf of the given party It does not entitle to read
+  *     data for any parties.
+  */
+final case class ClaimExecuteAsParty(name: Ref.Party) extends Claim
+
 /** Authorized to read all data for the given party.
   *
   * Does NOT authorize to issue commands.
@@ -193,6 +207,54 @@ object ClaimSet {
         },
         (),
         AuthorizationError.MissingReadAsAnyPartyClaim,
+      )
+
+    /** Returns true if the set of claims authorizes the user to execute interactive commands for
+      * the given party, unless the claims expired.
+      */
+    def canExecuteAs(party: String): Either[AuthorizationError, Unit] =
+      Either.cond(
+        claims.exists {
+          case ClaimActAsAnyParty => true
+          case ClaimExecuteAsAnyParty => true
+          case ClaimActAsParty(p) if p == party => true
+          case ClaimExecuteAsParty(p) if p == party => true
+          case _ => false
+        },
+        (),
+        AuthorizationError.MissingExecuteClaim(party),
+      )
+
+    /** Returns true if the set of claims authorizes the user to execute interactive commands as any
+      * party, unless the claims expired.
+      */
+    def canExecuteAsAnyParty: Either[AuthorizationError, Unit] =
+      Either.cond(
+        claims.exists {
+          case ClaimActAsAnyParty => true
+          case ClaimExecuteAsAnyParty => true
+          case _ => false
+        },
+        (),
+        AuthorizationError.MissingExecuteAsAnyPartyClaim,
+      )
+
+    /** Returns true if the set of claims authorizes the user to read data for the given party,
+      * unless the claims expired
+      */
+    def canOperateAs(party: String): Either[AuthorizationError, Unit] =
+      Either.cond(
+        claims.exists {
+          case ClaimActAsAnyParty => true
+          case ClaimReadAsAnyParty => true
+          case ClaimExecuteAsAnyParty => true
+          case ClaimActAsParty(p) if p == party => true
+          case ClaimReadAsParty(p) if p == party => true
+          case ClaimExecuteAsParty(p) if p == party => true
+          case _ => false
+        },
+        (),
+        AuthorizationError.MissingOperationClaim(party),
       )
   }
 

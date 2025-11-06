@@ -8,14 +8,11 @@ import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommand
   WaitCommitments,
 }
 import com.digitalasset.canton.config
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.config.{DbConfig, SynchronizerTimeTrackerConfig}
+import com.digitalasset.canton.config.RequireTypes.NonNegativeProportion
+import com.digitalasset.canton.config.{CommitmentSendDelay, DbConfig, SynchronizerTimeTrackerConfig}
 import com.digitalasset.canton.console.{LocalParticipantReference, ParticipantReference}
 import com.digitalasset.canton.examples.java.iou.Iou
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -89,7 +86,15 @@ trait AcsCommitmentNoWaitCounterParticipantIntegrationTest
         ConfigTransforms.updateMaxDeduplicationDurations(maxDedupDuration),
       )
       .updateTestingConfig(
-        _.focus(_.maxCommitmentSendDelayMillis).replace(Some(NonNegativeInt.zero))
+        _.focus(_.commitmentSendDelay)
+          .replace(
+            Some(
+              CommitmentSendDelay(
+                Some(NonNegativeProportion.zero),
+                Some(NonNegativeProportion.zero),
+              )
+            )
+          )
       )
       .withSetup { implicit env =>
         import env.*
@@ -166,11 +171,16 @@ trait AcsCommitmentNoWaitCounterParticipantIntegrationTest
     checkNoWaitConfigurationsAreApplied
 
     logger.info(s"Setting no wait for participant2 on participant1")
-    participant1.commitments.set_no_wait_commitments_from(Seq(participant2), Seq(daId))
+    val synchronizerId1 = daId
+    // user-manual-entry-begin: SetNoWaitCommitment
+    participant1.commitments.set_no_wait_commitments_from(Seq(participant2), Seq(synchronizerId1))
+    // user-manual-entry-end: SetNoWaitCommitment
     ValidateWait(noWaitList = participant2NoWaitConfig)
 
     logger.info(s"resetting wait for participant2 on participant1")
-    participant1.commitments.set_wait_commitments_from(Seq(participant2), Seq(daId))
+    // user-manual-entry-begin: ResetNoWaitCommitment
+    participant1.commitments.set_wait_commitments_from(Seq(participant2), Seq(synchronizerId1))
+    // user-manual-entry-end: ResetNoWaitCommitment
     checkNoWaitConfigurationsAreApplied
   }
 
@@ -202,12 +212,12 @@ trait AcsCommitmentNoWaitCounterParticipantIntegrationTest
   "filtering working on get and reset" in { implicit env =>
     import env.*
     checkNoWaitConfigurationsAreApplied
-    val (participant2Id, daId, _, participant2WaitConfig) =
+    val (participant2Id, synId, _, participant2WaitConfig) =
       getParticipant2WaitAndNoWaitConfiguration
     val (testId, testSynchronizer, noWaitList) = nowaitParticipantSynchronizerLazyDummy
 
     logger.info(s"setting no wait for participant2 on participant1")
-    participant1.commitments.set_no_wait_commitments_from(Seq(participant2Id), Seq(daId))
+    participant1.commitments.set_no_wait_commitments_from(Seq(participant2Id), Seq(synId))
 
     logger.info(s"setting no wait for non-existing participant on participant1")
     participant1.commitments.set_no_wait_commitments_from(Seq(testId), Seq(testSynchronizer))
@@ -223,6 +233,16 @@ trait AcsCommitmentNoWaitCounterParticipantIntegrationTest
       participant1.commitments.get_wait_commitments_config_from(Seq.empty, Seq(testId))
     participantFilterWaitList shouldBe Seq.empty
     participantFilterNoWaitList shouldBe noWaitList
+
+    logger.info(
+      s"fetching no wait for all participants known to participant1 on synchronizer1Id = $daId"
+    )
+    assert(synchronizer1Id == daId)
+    // user-manual-entry-begin: GetNoWaitCommitment
+    val (participant1FilterNoWaitList, participant1FilterWaitList) =
+      participant1.commitments.get_wait_commitments_config_from(Seq(synchronizer1Id), Seq.empty)
+    // user-manual-entry-end: GetNoWaitCommitment
+    logger.info(s"$participant1FilterNoWaitList, $participant1FilterWaitList")
 
     logger.info(s"resetting wait for participant2 on participant1")
     participant1.commitments.set_wait_commitments_from(Seq(participant2Id), Seq(daId))
@@ -476,7 +496,7 @@ trait AcsCommitmentNoWaitCounterParticipantIntegrationTest
 class AcsCommitmentNoWaitCounterParticipantIntegrationTestPostgres
     extends AcsCommitmentNoWaitCounterParticipantIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
   override val isInMemory = false
 }
 

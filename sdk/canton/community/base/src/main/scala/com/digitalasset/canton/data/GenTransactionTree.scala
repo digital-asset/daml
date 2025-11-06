@@ -54,7 +54,7 @@ final case class GenTransactionTree private (
     // Check that every subtree has a unique root hash
     val usedHashes = mutable.Set[RootHash]()
 
-    def go(tree: MerkleTree[_]): Either[String, this.type] = {
+    def go(tree: MerkleTree[?]): Either[String, this.type] = {
       val rootHash = tree.rootHash
 
       for {
@@ -82,8 +82,8 @@ final case class GenTransactionTree private (
   ): GenTransactionTree =
     GenTransactionTree(submitterMetadata, commonMetadata, participantMetadata, rootViews)(hashOps)
 
-  override def subtrees: Seq[MerkleTree[_]] =
-    Seq[MerkleTree[_]](
+  override def subtrees: Seq[MerkleTree[?]] =
+    Seq[MerkleTree[?]](
       submitterMetadata,
       commonMetadata,
       participantMetadata,
@@ -129,7 +129,7 @@ final case class GenTransactionTree private (
       case _ => throw new UnsupportedOperationException(s"Invalid view position: $viewPos")
     }
 
-  lazy val transactionId: TransactionId = TransactionId.fromRootHash(rootHash)
+  lazy val updateId: UpdateId = UpdateId.fromRootHash(rootHash)
 
   /** Yields the full informee tree corresponding to this transaction tree. The resulting informee
     * tree is full, only if every view common data is unblinded.
@@ -206,9 +206,7 @@ final case class GenTransactionTree private (
      * Later on, if a view shares the same recipients tree, we can use the same randomness/key.
      */
     val witnessMap =
-      allTransactionViewTrees.foldLeft(
-        Map.empty[ViewPosition, Witnesses]
-      ) { case (ws, tvt) =>
+      allTransactionViewTrees.foldLeft(Map.empty[ViewPosition, Witnesses]) { case (ws, tvt) =>
         val parentPosition = ViewPosition(tvt.viewPosition.position.drop(1))
         val witnesses = ws.get(parentPosition) match {
           case Some(parentWitnesses) =>
@@ -223,6 +221,7 @@ final case class GenTransactionTree private (
         ws.updated(tvt.viewPosition, witnesses)
       }
 
+    // TODO(#23971) This is horribly inefficient as we're going over all recipients over and over again. We could fuse all this into a single tree traversal.
     for {
       allViewsWithMetadata <- allTransactionViewTrees.parTraverse { tvt =>
         val viewWitnesses = witnessMap(tvt.viewPosition)
@@ -231,10 +230,8 @@ final case class GenTransactionTree private (
 
         // We return the witnesses for testing purposes. We will use the recipients to derive our view encryption key.
         for {
-          viewRecipients <- viewWitnesses
-            .toRecipients(topologySnapshot)
-          parentRecipients <- parentWitnessesO
-            .traverse(_.toRecipients(topologySnapshot))
+          viewRecipients <- viewWitnesses.toRecipients(topologySnapshot)
+          parentRecipients <- parentWitnessesO.traverse(_.toRecipients(topologySnapshot))
         } yield ViewWithWitnessesAndRecipients(tvt, viewWitnesses, viewRecipients, parentRecipients)
       }
     } yield allViewsWithMetadata

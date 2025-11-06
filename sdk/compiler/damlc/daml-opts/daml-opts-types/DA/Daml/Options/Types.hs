@@ -25,8 +25,8 @@ module DA.Daml.Options.Types
     , ForceUtilityPackage(..)
     , defaultOptions
     , damlArtifactDir
-    , projectPackageDatabase
-    , projectDependenciesDatabase
+    , packageDatabasePath
+    , packageDependenciesDatabasePath
     , ifaceDir
     , distDir
     , genDir
@@ -50,7 +50,7 @@ module DA.Daml.Options.Types
 import Control.Monad.Reader
 import DA.Bazel.Runfiles
 import qualified DA.Daml.LF.Ast as LF
-import DA.Daml.Project.Types (ProjectPath)
+import DA.Daml.Project.Types (PackagePath)
 import DA.Daml.Resolution.Config (ResolutionData)
 import DA.Pretty
 import qualified DA.Service.Logger as Logger
@@ -86,7 +86,7 @@ data Options = Options
     -- ^ Name of the package (version not included, so this is not the unit id)
   , optMbPackageVersion :: Maybe LF.PackageVersion
     -- ^ Version of the package
-  , optMbPackageConfigPath :: Maybe ProjectPath
+  , optMbPackageConfigPath :: Maybe PackagePath
     -- ^ Path to the daml.yaml
   , optIfaceDir :: Maybe FilePath
     -- ^ directory to write interface files to. If set to `Nothing` we default to <current working dir>.daml/interfaces.
@@ -258,12 +258,12 @@ newtype ForceUtilityPackage = ForceUtilityPackage { getForceUtilityPackage :: Bo
 damlArtifactDir :: FilePath
 damlArtifactDir = ".daml"
 
--- | The project package database path relative to the project root.
-projectPackageDatabase :: FilePath
-projectPackageDatabase = damlArtifactDir </> "package-database"
+-- | The package package database path relative to the package root.
+packageDatabasePath :: FilePath
+packageDatabasePath = damlArtifactDir </> "package-database"
 
-projectDependenciesDatabase :: FilePath
-projectDependenciesDatabase = damlArtifactDir </> "dependencies"
+packageDependenciesDatabasePath :: FilePath
+packageDependenciesDatabasePath = damlArtifactDir </> "dependencies"
 
 ifaceDir :: FilePath
 ifaceDir = damlArtifactDir </> "interfaces"
@@ -292,7 +292,7 @@ locateBuiltinPackageDbs mbProjRoot = do
       , runfilesPathPrefix = mainWorkspace </> "compiler" </> "damlc" </> "pkg-db"
       }
     -- If these directories do not exist, we just discard them.
-    filterM Dir.doesDirectoryExist (internalPackageDb : [fromNormalizedFilePath projRoot </> projectPackageDatabase | Just projRoot <- [mbProjRoot]])
+    filterM Dir.doesDirectoryExist (internalPackageDb : [fromNormalizedFilePath packageRoot </> packageDatabasePath | Just packageRoot <- [mbProjRoot]])
 
 -- Given the target LF version and the package dbs specified by the user, return the versioned package dbs
 -- including builtin package dbs.
@@ -314,7 +314,7 @@ defaultOptions mbVersion =
         , optPackageImports = []
         , optShakeProfiling = Nothing
         , optThreads = 1
-        , optDamlLfVersion = fromMaybe LF.versionDefault mbVersion
+        , optDamlLfVersion = fromMaybe LF.defaultLfVersion mbVersion
         , optLogLevel = Logger.Info
         , optDetailLevel = DA.Pretty.prettyNormal
         , optGhcCustomOpts = []

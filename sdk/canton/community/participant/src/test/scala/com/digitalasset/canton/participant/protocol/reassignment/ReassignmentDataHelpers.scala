@@ -14,7 +14,6 @@ import com.digitalasset.canton.data.{
 import com.digitalasset.canton.participant.protocol.submission.SeedGenerator
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.protocol.*
-import com.digitalasset.canton.time.TimeProofTestUtil
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 
@@ -28,13 +27,8 @@ final case class ReassignmentDataHelpers(
     // mediatorCryptoClient and sequencerCryptoClient need to be defined for computation of the DeliveredUnassignmentResult
     mediatorCryptoClient: Option[SynchronizerCryptoClient] = None,
     sequencerCryptoClient: Option[SynchronizerCryptoClient] = None,
-    targetTime: CantonTimestamp = CantonTimestamp.Epoch,
+    targetTimestamp: Target[CantonTimestamp] = Target(CantonTimestamp.Epoch),
 ) {
-
-  private val targetTimeProof: TimeProof = TimeProofTestUtil.mkTimeProof(
-    timestamp = targetTime,
-    targetSynchronizer = targetSynchronizer,
-  )
 
   private val seedGenerator: SeedGenerator =
     new SeedGenerator(pureCrypto)
@@ -66,7 +60,7 @@ final case class ReassignmentDataHelpers(
       sourceSynchronizer = sourceSynchronizer,
       sourceMediator = sourceMediator,
       targetSynchronizer = targetSynchronizer,
-      targetTimeProof = targetTimeProof,
+      targetTimestamp = targetTimestamp,
     )
 
   def unassignmentData(
@@ -98,6 +92,7 @@ object ReassignmentDataHelpers {
       sourceSynchronizer: Source[PhysicalSynchronizerId],
       targetSynchronizer: Target[PhysicalSynchronizerId],
       identityFactory: TestingIdentityFactory,
+      targetTimestamp: Target[CantonTimestamp],
   ): ReassignmentDataHelpers = {
     val pureCrypto = identityFactory
       .forOwnerAndSynchronizer(DefaultTestIdentities.mediatorId, sourceSynchronizer.unwrap)
@@ -122,6 +117,21 @@ object ReassignmentDataHelpers {
             sourceSynchronizer.unwrap,
           )
       ),
+      targetTimestamp = targetTimestamp,
     )
   }
+
+  def apply(
+      contract: ContractInstance,
+      sourceSynchronizer: Source[PhysicalSynchronizerId],
+      targetSynchronizer: Target[PhysicalSynchronizerId],
+      identityFactory: TestingIdentityFactory,
+  ): ReassignmentDataHelpers =
+    apply(
+      contract,
+      sourceSynchronizer,
+      targetSynchronizer,
+      identityFactory,
+      Target(CantonTimestamp.Epoch),
+    )
 }

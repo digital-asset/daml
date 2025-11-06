@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: JSON Ledger API HTTP endpoints
-  version: 3.4.0-SNAPSHOT
+  version: 3.5.0-SNAPSHOT
 paths:
   /v2/commands/submit-and-wait:
     post:
@@ -21,7 +21,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/SubmitAndWaitResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -53,7 +53,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/JsSubmitAndWaitForTransactionResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -86,7 +86,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/JsSubmitAndWaitForReassignmentResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -102,7 +102,9 @@ paths:
       - apiKeyAuth: []
   /v2/commands/submit-and-wait-for-transaction-tree:
     post:
-      description: Submit a batch of commands and wait for the transaction trees response
+      description: Submit a batch of commands and wait for the transaction trees response.
+        Provided for backwards compatibility, it will be removed in the Canton version
+        3.5.0, use submit-and-wait-for-transaction instead.
       operationId: postV2CommandsSubmit-and-wait-for-transaction-tree
       requestBody:
         content:
@@ -118,7 +120,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/JsSubmitAndWaitForTransactionTreeResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -129,6 +131,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/JsCantonError'
+      deprecated: true
       security:
       - httpAuth: []
       - apiKeyAuth: []
@@ -150,7 +153,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/SubmitResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -182,7 +185,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/SubmitReassignmentResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -239,9 +242,8 @@ paths:
                 items:
                   $ref: '#/components/schemas/CompletionStreamResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: query parameter
-            limit, Invalid value for: query parameter stream_idle_timeout_ms, Invalid
-            value for: headers'
+          description: 'Invalid value, Invalid value for: body, Invalid value for:
+            query parameter limit, Invalid value for: query parameter stream_idle_timeout_ms'
           content:
             text/plain:
               schema:
@@ -273,7 +275,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/JsGetEventsByContractIdResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -299,7 +301,89 @@ paths:
               schema:
                 $ref: '#/components/schemas/GetLedgerApiVersionResponse'
         '400':
-          description: 'Invalid value for: headers'
+          description: Invalid value
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+  /v2/dars/validate:
+    post:
+      description: Validates a DAR for upgrade-compatibility against the current vetting
+        state on the target synchronizer
+      operationId: postV2DarsValidate
+      parameters:
+      - name: synchronizerId
+        in: query
+        required: false
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+        required: true
+      responses:
+        '200':
+          description: ''
+        '400':
+          description: 'Invalid value, Invalid value for: body, Invalid value for:
+            query parameter synchronizerId'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+  /v2/dars:
+    post:
+      description: Upload a DAR to the participant node
+      operationId: postV2Dars
+      parameters:
+      - name: vetAllPackages
+        in: query
+        required: false
+        schema:
+          type: boolean
+      - name: synchronizerId
+        in: query
+        required: false
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadDarFileResponse'
+        '400':
+          description: 'Invalid value, Invalid value for: body, Invalid value for:
+            query parameter vetAllPackages, Invalid value for: query parameter synchronizerId'
           content:
             text/plain:
               schema:
@@ -325,7 +409,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ListPackagesResponse'
         '400':
-          description: 'Invalid value for: headers'
+          description: Invalid value
           content:
             text/plain:
               schema:
@@ -340,8 +424,20 @@ paths:
       - httpAuth: []
       - apiKeyAuth: []
     post:
-      description: Upload a DAR to the participant node
+      description: Upload a DAR to the participant node. Behaves the same as /dars.
+        This endpoint will be deprecated and removed in a future release.
       operationId: postV2Packages
+      parameters:
+      - name: vetAllPackages
+        in: query
+        required: false
+        schema:
+          type: boolean
+      - name: synchronizerId
+        in: query
+        required: false
+        schema:
+          type: string
       requestBody:
         content:
           application/octet-stream:
@@ -357,7 +453,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/UploadDarFileResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body, Invalid value for:
+            query parameter vetAllPackages, Invalid value for: query parameter synchronizerId'
           content:
             text/plain:
               schema:
@@ -395,7 +492,7 @@ paths:
                 type: string
                 format: binary
         '400':
-          description: 'Invalid value for: headers'
+          description: Invalid value
           content:
             text/plain:
               schema:
@@ -427,7 +524,70 @@ paths:
               schema:
                 $ref: '#/components/schemas/GetPackageStatusResponse'
         '400':
-          description: 'Invalid value for: headers'
+          description: Invalid value
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+  /v2/package-vetting:
+    get:
+      description: List vetted packages
+      operationId: getV2Package-vetting
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ListVettedPackagesRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListVettedPackagesResponse'
+        '400':
+          description: 'Invalid value, Invalid value for: body'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+    post:
+      description: Update vetted packages
+      operationId: postV2Package-vetting
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateVettedPackagesRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateVettedPackagesResponse'
+        '400':
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -469,8 +629,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/ListKnownPartiesResponse'
         '400':
-          description: 'Invalid value for: query parameter pageSize, Invalid value
-            for: query parameter pageToken, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: query parameter pageSize,
+            Invalid value for: query parameter pageToken'
           content:
             text/plain:
               schema:
@@ -501,7 +661,39 @@ paths:
               schema:
                 $ref: '#/components/schemas/AllocatePartyResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+  /v2/parties/external/allocate:
+    post:
+      description: Allocate a new external party
+      operationId: postV2PartiesExternalAllocate
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AllocateExternalPartyRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AllocateExternalPartyResponse'
+        '400':
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -527,7 +719,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/GetParticipantIdResponse'
         '400':
-          description: 'Invalid value for: headers'
+          description: Invalid value
           content:
             text/plain:
               schema:
@@ -571,8 +763,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/GetPartiesResponse'
         '400':
-          description: 'Invalid value for: query parameter identity-provider-id, Invalid
-            value for: query parameter parties, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: query parameter identity-provider-id,
+            Invalid value for: query parameter parties'
           content:
             text/plain:
               schema:
@@ -609,7 +801,39 @@ paths:
               schema:
                 $ref: '#/components/schemas/UpdatePartyDetailsResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+  /v2/parties/external/generate-topology:
+    post:
+      description: Generate a topology for an external party
+      operationId: postV2PartiesExternalGenerate-topology
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateExternalPartyTopologyRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerateExternalPartyTopologyResponse'
+        '400':
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -671,9 +895,8 @@ paths:
                 items:
                   $ref: '#/components/schemas/JsGetActiveContractsResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: query parameter
-            limit, Invalid value for: query parameter stream_idle_timeout_ms, Invalid
-            value for: headers'
+          description: 'Invalid value, Invalid value for: body, Invalid value for:
+            query parameter limit, Invalid value for: query parameter stream_idle_timeout_ms'
           content:
             text/plain:
               schema:
@@ -694,7 +917,7 @@ paths:
       parameters:
       - name: party
         in: query
-        required: true
+        required: false
         schema:
           type: string
       - name: participantId
@@ -715,9 +938,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/GetConnectedSynchronizersResponse'
         '400':
-          description: 'Invalid value for: query parameter party, Invalid value for:
-            query parameter participantId, Invalid value for: query parameter identityProviderId,
-            Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: query parameter party, Invalid
+            value for: query parameter participantId, Invalid value for: query parameter
+            identityProviderId'
           content:
             text/plain:
               schema:
@@ -743,7 +966,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/GetLedgerEndResponse'
         '400':
-          description: 'Invalid value for: headers'
+          description: Invalid value
           content:
             text/plain:
               schema:
@@ -769,7 +992,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/GetLatestPrunedOffsetsResponse'
         '400':
-          description: 'Invalid value for: headers'
+          description: Invalid value
           content:
             text/plain:
               schema:
@@ -826,9 +1049,8 @@ paths:
                 items:
                   $ref: '#/components/schemas/JsGetUpdatesResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: query parameter
-            limit, Invalid value for: query parameter stream_idle_timeout_ms, Invalid
-            value for: headers'
+          description: 'Invalid value, Invalid value for: body, Invalid value for:
+            query parameter limit, Invalid value for: query parameter stream_idle_timeout_ms'
           content:
             text/plain:
               schema:
@@ -845,7 +1067,7 @@ paths:
   /v2/updates/flats:
     post:
       description: |-
-        Query flat transactions update list (blocking call, deprecated: use v2/updates instead)
+        Query flat transactions update list (blocking call). Provided for backwards compatibility, it will be removed in the Canton version 3.5.0, use v2/updates instead.
         Notice: This endpoint should be used for small results set.
         When number of results exceeded node configuration limit (`http-list-max-elements-limit`)
         there will be an error (`413 Content Too Large`) returned.
@@ -885,9 +1107,8 @@ paths:
                 items:
                   $ref: '#/components/schemas/JsGetUpdatesResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: query parameter
-            limit, Invalid value for: query parameter stream_idle_timeout_ms, Invalid
-            value for: headers'
+          description: 'Invalid value, Invalid value for: body, Invalid value for:
+            query parameter limit, Invalid value for: query parameter stream_idle_timeout_ms'
           content:
             text/plain:
               schema:
@@ -898,13 +1119,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/JsCantonError'
+      deprecated: true
       security:
       - httpAuth: []
       - apiKeyAuth: []
   /v2/updates/trees:
     post:
       description: |-
-        Query update transactions tree list (blocking call, deprecated: use v2/updates instead)
+        Query update transactions tree list (blocking call). Provided for backwards compatibility, it will be removed in the Canton version 3.5.0, use v2/updates instead.
         Notice: This endpoint should be used for small results set.
         When number of results exceeded node configuration limit (`http-list-max-elements-limit`)
         there will be an error (`413 Content Too Large`) returned.
@@ -944,9 +1166,8 @@ paths:
                 items:
                   $ref: '#/components/schemas/JsGetUpdateTreesResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: query parameter
-            limit, Invalid value for: query parameter stream_idle_timeout_ms, Invalid
-            value for: headers'
+          description: 'Invalid value, Invalid value for: body, Invalid value for:
+            query parameter limit, Invalid value for: query parameter stream_idle_timeout_ms'
           content:
             text/plain:
               schema:
@@ -957,12 +1178,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/JsCantonError'
+      deprecated: true
       security:
       - httpAuth: []
       - apiKeyAuth: []
   /v2/updates/transaction-tree-by-offset/{offset}:
     get:
-      description: Get transaction tree by offset
+      description: Get transaction tree by offset. Provided for backwards compatibility,
+        it will be removed in the Canton version 3.5.0, use v2/updates/update-by-offset
+        instead.
       operationId: getV2UpdatesTransaction-tree-by-offsetOffset
       parameters:
       - name: offset
@@ -986,8 +1210,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/JsGetTransactionTreeResponse'
         '400':
-          description: 'Invalid value for: path parameter offset, Invalid value for:
-            query parameter parties, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: path parameter offset, Invalid
+            value for: query parameter parties'
           content:
             text/plain:
               schema:
@@ -998,12 +1222,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/JsCantonError'
+      deprecated: true
       security:
       - httpAuth: []
       - apiKeyAuth: []
   /v2/updates/transaction-by-offset:
     post:
-      description: Get transaction by offset
+      description: Get transaction by offset. Provided for backwards compatibility,
+        it will be removed in the Canton version 3.5.0, use v2/updates/update-by-offset
+        instead.
       operationId: postV2UpdatesTransaction-by-offset
       requestBody:
         content:
@@ -1019,7 +1246,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/JsGetTransactionResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -1030,6 +1257,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/JsCantonError'
+      deprecated: true
       security:
       - httpAuth: []
       - apiKeyAuth: []
@@ -1051,7 +1279,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/JsGetUpdateResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -1067,7 +1295,8 @@ paths:
       - apiKeyAuth: []
   /v2/updates/transaction-by-id:
     post:
-      description: Get transaction by id
+      description: Get transaction by id. Provided for backwards compatibility, it
+        will be removed in the Canton version 3.5.0, use v2/updates/update-by-id instead.
       operationId: postV2UpdatesTransaction-by-id
       requestBody:
         content:
@@ -1083,7 +1312,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/JsGetTransactionResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -1094,6 +1323,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/JsCantonError'
+      deprecated: true
       security:
       - httpAuth: []
       - apiKeyAuth: []
@@ -1115,7 +1345,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/JsGetUpdateResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -1131,7 +1361,9 @@ paths:
       - apiKeyAuth: []
   /v2/updates/transaction-tree-by-id/{update-id}:
     get:
-      description: Get transaction tree by  id
+      description: Get transaction tree by id. Provided for backwards compatibility,
+        it will be removed in the Canton version 3.5.0, use v2/updates/update-by-id
+        instead.
       operationId: getV2UpdatesTransaction-tree-by-idUpdate-id
       parameters:
       - name: update-id
@@ -1154,8 +1386,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/JsGetTransactionTreeResponse'
         '400':
-          description: 'Invalid value for: query parameter parties, Invalid value
-            for: headers'
+          description: 'Invalid value, Invalid value for: query parameter parties'
           content:
             text/plain:
               schema:
@@ -1166,6 +1397,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/JsCantonError'
+      deprecated: true
       security:
       - httpAuth: []
       - apiKeyAuth: []
@@ -1197,8 +1429,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/ListUsersResponse'
         '400':
-          description: 'Invalid value for: query parameter pageSize, Invalid value
-            for: query parameter pageToken, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: query parameter pageSize,
+            Invalid value for: query parameter pageToken'
           content:
             text/plain:
               schema:
@@ -1229,7 +1461,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CreateUserResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -1266,8 +1498,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/GetUserResponse'
         '400':
-          description: 'Invalid value for: query parameter identity-provider-id, Invalid
-            value for: headers'
+          description: 'Invalid value, Invalid value for: query parameter identity-provider-id'
           content:
             text/plain:
               schema:
@@ -1298,7 +1529,7 @@ paths:
               schema:
                 type: object
         '400':
-          description: 'Invalid value for: headers'
+          description: Invalid value
           content:
             text/plain:
               schema:
@@ -1335,7 +1566,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/UpdateUserResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -1367,8 +1598,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/GetUserResponse'
         '400':
-          description: 'Invalid value for: query parameter identity-provider-id, Invalid
-            value for: headers'
+          description: 'Invalid value, Invalid value for: query parameter identity-provider-id'
           content:
             text/plain:
               schema:
@@ -1400,7 +1630,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ListUserRightsResponse'
         '400':
-          description: 'Invalid value for: headers'
+          description: Invalid value
           content:
             text/plain:
               schema:
@@ -1437,7 +1667,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/GrantUserRightsResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -1474,7 +1704,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/RevokeUserRightsResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -1512,7 +1742,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/UpdateUserIdentityProviderIdResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -1538,7 +1768,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ListIdentityProviderConfigsResponse'
         '400':
-          description: 'Invalid value for: headers'
+          description: Invalid value
           content:
             text/plain:
               schema:
@@ -1569,7 +1799,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CreateIdentityProviderConfigResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -1601,7 +1831,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/GetIdentityProviderConfigResponse'
         '400':
-          description: 'Invalid value for: headers'
+          description: Invalid value
           content:
             text/plain:
               schema:
@@ -1632,7 +1862,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DeleteIdentityProviderConfigResponse'
         '400':
-          description: 'Invalid value for: headers'
+          description: Invalid value
           content:
             text/plain:
               schema:
@@ -1669,7 +1899,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/UpdateIdentityProviderConfigResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -1701,7 +1931,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/JsPrepareSubmissionResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -1733,7 +1963,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ExecuteSubmissionResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -1765,7 +1995,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ExecuteSubmissionAndWaitResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -1797,7 +2027,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/JsExecuteSubmissionAndWaitForTransactionResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -1847,10 +2077,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/GetPreferredPackageVersionResponse'
         '400':
-          description: 'Invalid value for: query parameter parties, Invalid value
-            for: query parameter package-name, Invalid value for: query parameter
-            vetting_valid_at, Invalid value for: query parameter synchronizer-id,
-            Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: query parameter parties,
+            Invalid value for: query parameter package-name, Invalid value for: query
+            parameter vetting_valid_at, Invalid value for: query parameter synchronizer-id'
           content:
             text/plain:
               schema:
@@ -1883,7 +2112,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/GetPreferredPackagesResponse'
         '400':
-          description: 'Invalid value for: body, Invalid value for: headers'
+          description: 'Invalid value, Invalid value for: body'
           content:
             text/plain:
               schema:
@@ -1899,6 +2128,58 @@ paths:
       - apiKeyAuth: []
 components:
   schemas:
+    AllocateExternalPartyRequest:
+      title: AllocateExternalPartyRequest
+      description: 'Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``'
+      type: object
+      required:
+      - synchronizer
+      - identityProviderId
+      properties:
+        synchronizer:
+          description: |-
+            TODO(#27670) support synchronizer aliases
+            Synchronizer ID on which to onboard the party
+            Required
+          type: string
+        onboardingTransactions:
+          description: |-
+            TopologyTransactions to onboard the external party
+            Can contain:
+            - A namespace for the party.
+            This can be either a single NamespaceDelegation,
+            or DecentralizedNamespaceDefinition along with its authorized namespace owners in the form of NamespaceDelegations.
+            May be provided, if so it must be fully authorized by the signatures in this request combined with the existing topology state.
+            - A PartyToKeyMapping to register the party's signing keys.
+            May be provided, if so it must be fully authorized by the signatures in this request combined with the existing topology state.
+            - A PartyToParticipant to register the hosting relationship of the party.
+            Must be provided.
+            Required
+          type: array
+          items:
+            $ref: '#/components/schemas/SignedTransaction'
+        multiHashSignatures:
+          description: |-
+            Optional signatures of the combined hash of all onboarding_transactions
+            This may be used instead of providing signatures on each individual transaction
+          type: array
+          items:
+            $ref: '#/components/schemas/Signature'
+        identityProviderId:
+          description: |-
+            The id of the ``Identity Provider``
+            If not set, assume the party is managed by the default identity provider.
+            Optional
+          type: string
+    AllocateExternalPartyResponse:
+      title: AllocateExternalPartyResponse
+      type: object
+      required:
+      - partyId
+      properties:
+        partyId:
+          description: ''
+          type: string
     AllocatePartyRequest:
       title: AllocatePartyRequest
       description: 'Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``'
@@ -2073,6 +2354,33 @@ components:
       properties:
         party:
           type: string
+    CanExecuteAs:
+      title: CanExecuteAs
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/CanExecuteAs1'
+    CanExecuteAs1:
+      title: CanExecuteAs
+      type: object
+      required:
+      - party
+      properties:
+        party:
+          type: string
+    CanExecuteAsAnyParty:
+      title: CanExecuteAsAnyParty
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/CanExecuteAsAnyParty1'
+    CanExecuteAsAnyParty1:
+      title: CanExecuteAsAnyParty
+      type: object
     CanReadAs:
       title: CanReadAs
       type: object
@@ -2321,6 +2629,70 @@ components:
           type: string
         permission:
           type: string
+          enum:
+          - PARTICIPANT_PERMISSION_UNSPECIFIED
+          - PARTICIPANT_PERMISSION_SUBMISSION
+          - PARTICIPANT_PERMISSION_CONFIRMATION
+          - PARTICIPANT_PERMISSION_OBSERVATION
+    CostEstimation:
+      title: CostEstimation
+      description: |-
+        Estimation of the cost of submitting the prepared transaction
+        The estimation is done against the synchronizer chosen during preparation of the transaction
+        (or the one explicitly requested).
+        The cost of re-assigning contracts to another synchronizer when necessary is not included in the estimation.
+      type: object
+      required:
+      - confirmationRequestTrafficCostEstimation
+      - confirmationResponseTrafficCostEstimation
+      - totalTrafficCostEstimation
+      properties:
+        estimationTimestamp:
+          description: Timestamp at which the estimation was made
+          type: string
+        confirmationRequestTrafficCostEstimation:
+          description: Estimated traffic cost of the confirmation request associated
+            with the transaction
+          type: integer
+          format: int64
+        confirmationResponseTrafficCostEstimation:
+          description: |-
+            Estimated traffic cost of the confirmation response associated with the transaction
+            This field can also be used as an indication of the cost that other potential confirming nodes
+            of the party will incur to approve or reject the transaction
+          type: integer
+          format: int64
+        totalTrafficCostEstimation:
+          description: Sum of the fields above
+          type: integer
+          format: int64
+    CostEstimationHints:
+      title: CostEstimationHints
+      description: Hints to improve cost estimation precision of a prepared transaction
+      type: object
+      required:
+      - disabled
+      properties:
+        disabled:
+          description: |-
+            Disable cost estimation
+            Default (not set) is false
+          type: boolean
+        expectedSignatures:
+          description: |-
+            Details on the keys that will be used to sign the transaction (how many and of which type).
+            Signature size impacts the cost of the transaction.
+            If empty, the signature sizes will be approximated with threshold-many signatures (where threshold is defined
+            in the PartyToKeyMapping of the external party), using keys in the order they are registered.
+            Optional (empty list is equivalent to not providing this field)
+          type: array
+          items:
+            type: string
+            enum:
+            - SIGNING_ALGORITHM_SPEC_UNSPECIFIED
+            - SIGNING_ALGORITHM_SPEC_ED25519
+            - SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_256
+            - SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_384
     CreateAndExerciseCommand:
       title: CreateAndExerciseCommand
       description: Create a contract and exercise a choice on it in the same transaction.
@@ -2428,6 +2800,7 @@ components:
       - createdEventBlob
       - createdAt
       - packageName
+      - representativePackageId
       - acsDelta
       properties:
         offset:
@@ -2541,6 +2914,16 @@ components:
         packageName:
           description: |-
             The package name of the created contract.
+            Required
+          type: string
+        representativePackageId:
+          description: |-
+            A package-id present in the participant package store that typechecks the contract's argument.
+            This may differ from the package-id of the template used to create the contract.
+            For contracts created before Canton 3.4, this field matches the contract's creation package-id.
+
+            NOTE: Experimental, server internal concept, not for client consumption. Subject to change without notice.
+
             Required
           type: string
         acsDelta:
@@ -2692,7 +3075,7 @@ components:
         - Empty
         properties:
           Empty:
-            $ref: '#/components/schemas/Empty8'
+            $ref: '#/components/schemas/Empty10'
     DeleteIdentityProviderConfigResponse:
       title: DeleteIdentityProviderConfigResponse
       description: Does not (yet) contain any data.
@@ -2713,12 +3096,15 @@ components:
             The template id of the contract.
             The identifier uses the package-id reference format.
 
-            Required
+            If provided, used to validate the template id of the contract serialized in the created_event_blob.
+            Optional
           type: string
         contractId:
           description: |-
             The contract id
-            Required
+
+            If provided, used to validate the contract id of the contract serialized in the created_event_blob.
+            Optional
           type: string
         createdEventBlob:
           description: |-
@@ -2754,6 +3140,9 @@ components:
     Empty1:
       title: Empty
       type: object
+    Empty10:
+      title: Empty
+      type: object
     Empty2:
       title: Empty
       type: object
@@ -2773,6 +3162,9 @@ components:
       title: Empty
       type: object
     Empty8:
+      title: Empty
+      type: object
+    Empty9:
       title: Empty
       type: object
     Event:
@@ -3136,6 +3528,12 @@ components:
           $ref: '#/components/schemas/OffsetCheckpointFeature'
           description: It contains the timeouts related to the periodic offset checkpoint
             emission
+        packageFeature:
+          $ref: '#/components/schemas/PackageFeature'
+          description: |-
+            If set, then the Ledger API server supports package listing
+            configurability. It is recommended that clients query this field to
+            gracefully adjust their behavior to maximum package listing page size.
     Field:
       title: Field
       type: object
@@ -3190,6 +3588,76 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/CumulativeFilter'
+    GenerateExternalPartyTopologyRequest:
+      title: GenerateExternalPartyTopologyRequest
+      type: object
+      required:
+      - synchronizer
+      - partyHint
+      - localParticipantObservationOnly
+      - confirmationThreshold
+      properties:
+        synchronizer:
+          description: |-
+            TODO(#27670) support synchronizer aliases
+            Required: synchronizer-id for which we are building this request.
+          type: string
+        partyHint:
+          description: 'Required: the actual party id will be constructed from this
+            hint and a fingerprint of the public key'
+          type: string
+        publicKey:
+          $ref: '#/components/schemas/SigningPublicKey'
+          description: 'Required: public key'
+        localParticipantObservationOnly:
+          description: 'Optional: if true, then the local participant will only be
+            observing, not confirming. Default false.'
+          type: boolean
+        otherConfirmingParticipantUids:
+          description: 'Optional: other participant ids which should be confirming
+            for this party'
+          type: array
+          items:
+            type: string
+        confirmationThreshold:
+          description: 'Optional: Confirmation threshold >= 1 for the party. Defaults
+            to all available confirmers (or if set to 0).'
+          type: integer
+          format: int32
+        observingParticipantUids:
+          description: 'Optional: other observing participant ids for this party'
+          type: array
+          items:
+            type: string
+    GenerateExternalPartyTopologyResponse:
+      title: GenerateExternalPartyTopologyResponse
+      description: Response message with topology transactions and the multi-hash
+        to be signed.
+      type: object
+      required:
+      - partyId
+      - publicKeyFingerprint
+      - multiHash
+      properties:
+        partyId:
+          description: the generated party id
+          type: string
+        publicKeyFingerprint:
+          description: the fingerprint of the supplied public key
+          type: string
+        topologyTransactions:
+          description: |-
+            The serialized topology transactions which need to be signed and submitted as part of the allocate party process
+            Note that the serialization includes the versioning information. Therefore, the transaction here is serialized
+            as an `UntypedVersionedMessage` which in turn contains the serialized `TopologyTransaction` in the version
+            supported by the synchronizer.
+          type: array
+          items:
+            type: string
+        multiHash:
+          description: the multi-hash which may be signed instead of each individual
+            transaction
+          type: string
     GetActiveContractsRequest:
       title: GetActiveContractsRequest
       description: |-
@@ -3205,12 +3673,12 @@ components:
         filter:
           $ref: '#/components/schemas/TransactionFilter'
           description: |-
-            Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
+            Provided for backwards compatibility, it will be removed in the Canton version 3.5.0.
             Templates to include in the served snapshot, per party.
             Optional, if specified event_format must be unset, if not specified event_format must be set.
         verbose:
           description: |-
-            Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
+            Provided for backwards compatibility, it will be removed in the Canton version 3.5.0.
             If enabled, values served over the API will contain more information than strictly necessary to interpret the data.
             In particular, setting the verbose flag to true triggers the ledger to include labels for record fields.
             Optional, if specified event_format must be unset.
@@ -3254,26 +3722,11 @@ components:
             The contract id being queried.
             Required
           type: string
-        requestingParties:
-          description: |-
-            Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
-            The parties whose events the client expects to see.
-            The events associated with the contract id will only be returned if the requesting parties includes
-            at least one party that is a stakeholder of the event. For a definition of stakeholders see
-            https://docs.daml.com/concepts/ledger-model/ledger-privacy.html#contract-observers-and-stakeholders
-            Optional, if some parties specified, event_format needs to be unset.
-          type: array
-          items:
-            type: string
         eventFormat:
           $ref: '#/components/schemas/EventFormat'
           description: |-
             Format of the events in the result, the presentation will be of TRANSACTION_SHAPE_ACS_DELTA.
-            Optional for backwards compatibility, defaults to an EventFormat where:
-
-            - filters_by_party is a template-wildcard filter for all requesting_parties
-            - filters_for_any_party is unset
-            - verbose is set
+            Required
     GetIdentityProviderConfigResponse:
       title: GetIdentityProviderConfigResponse
       type: object
@@ -3349,6 +3802,9 @@ components:
         packageStatus:
           description: The status of the package.
           type: string
+          enum:
+          - PACKAGE_STATUS_UNSPECIFIED
+          - PACKAGE_STATUS_REGISTERED
     GetParticipantIdResponse:
       title: GetParticipantIdResponse
       type: object
@@ -3441,7 +3897,7 @@ components:
     GetTransactionByIdRequest:
       title: GetTransactionByIdRequest
       description: Provided for backwards compatibility, it will be removed in the
-        Canton version 3.4.0.
+        Canton version 3.5.0.
       type: object
       required:
       - updateId
@@ -3454,11 +3910,10 @@ components:
           type: string
         requestingParties:
           description: |-
-            Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
+            Provided for backwards compatibility, it will be removed in the Canton version 3.5.0.
             The parties whose events the client expects to see.
             Events that are not visible for the parties in this collection will not be present in the response.
             Each element must be a valid PartyIdString (as described in ``value.proto``).
-            Must be set for GetTransactionTreeById request.
             Optional for backwards compatibility for GetTransactionById request: if defined transaction_format must be
             unset (falling back to defaults).
           type: array
@@ -3467,7 +3922,6 @@ components:
         transactionFormat:
           $ref: '#/components/schemas/TransactionFormat'
           description: |-
-            Must be unset for GetTransactionTreeById request.
             Optional for GetTransactionById request for backwards compatibility: defaults to a transaction_format, where:
 
             - event_format.filters_by_party will have template-wildcard filters for all the requesting_parties
@@ -3477,7 +3931,7 @@ components:
     GetTransactionByOffsetRequest:
       title: GetTransactionByOffsetRequest
       description: Provided for backwards compatibility, it will be removed in the
-        Canton version 3.4.0.
+        Canton version 3.5.0.
       type: object
       required:
       - offset
@@ -3491,11 +3945,10 @@ components:
           format: int64
         requestingParties:
           description: |-
-            Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
+            Provided for backwards compatibility, it will be removed in the Canton version 3.5.0.
             The parties whose events the client expects to see.
             Events that are not visible for the parties in this collection will not be present in the response.
             Each element must be a valid PartyIdString (as described in ``value.proto``).
-            Must be set for GetTransactionTreeByOffset request.
             Optional for backwards compatibility for GetTransactionByOffset request: if defined transaction_format must be
             unset (falling back to defaults).
           type: array
@@ -3504,7 +3957,6 @@ components:
         transactionFormat:
           $ref: '#/components/schemas/TransactionFormat'
           description: |-
-            Must be unset for GetTransactionTreeByOffset request.
             Optional for GetTransactionByOffset request for backwards compatibility: defaults to a TransactionFormat, where:
 
             - event_format.filters_by_party will have template-wildcard filters for all the requesting_parties
@@ -3573,13 +4025,13 @@ components:
         filter:
           $ref: '#/components/schemas/TransactionFilter'
           description: |-
-            Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
+            Provided for backwards compatibility, it will be removed in the Canton version 3.5.0.
             Requesting parties with template filters.
             Template filters must be empty for GetUpdateTrees requests.
             Optional for backwards compatibility, if defined update_format must be unset
         verbose:
           description: |-
-            Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
+            Provided for backwards compatibility, it will be removed in the Canton version 3.5.0.
             If enabled, values served over the API will contain more information than strictly necessary to interpret the data.
             In particular, setting the verbose flag to true triggers the ledger to include labels, record and variant type ids
             for record fields.
@@ -4154,6 +4606,9 @@ components:
             The hashing scheme version used when building the hash
             Required
           type: string
+          enum:
+          - HASHING_SCHEME_VERSION_UNSPECIFIED
+          - HASHING_SCHEME_VERSION_V2
         minLedgerTime:
           $ref: '#/components/schemas/MinLedgerTime'
           description: |-
@@ -4226,6 +4681,9 @@ components:
             The hashing scheme version used when building the hash
             Required
           type: string
+          enum:
+          - HASHING_SCHEME_VERSION_UNSPECIFIED
+          - HASHING_SCHEME_VERSION_V2
         minLedgerTime:
           $ref: '#/components/schemas/MinLedgerTime'
           description: |-
@@ -4277,6 +4735,9 @@ components:
             The hashing scheme version used when building the hash
             Required
           type: string
+          enum:
+          - HASHING_SCHEME_VERSION_UNSPECIFIED
+          - HASHING_SCHEME_VERSION_V2
         minLedgerTime:
           $ref: '#/components/schemas/MinLedgerTime'
           description: |-
@@ -4318,7 +4779,7 @@ components:
     JsGetTransactionResponse:
       title: JsGetTransactionResponse
       description: Provided for backwards compatibility, it will be removed in the
-        Canton version 3.4.0.
+        Canton version 3.5.0.
       type: object
       required:
       - transaction
@@ -4329,7 +4790,7 @@ components:
     JsGetTransactionTreeResponse:
       title: JsGetTransactionTreeResponse
       description: Provided for backwards compatibility, it will be removed in the
-        Canton version 3.4.0.
+        Canton version 3.5.0.
       type: object
       required:
       - transaction
@@ -4348,7 +4809,7 @@ components:
     JsGetUpdateTreesResponse:
       title: JsGetUpdateTreesResponse
       description: Provided for backwards compatibility, it will be removed in the
-        Canton version 3.4.0.
+        Canton version 3.5.0.
       type: object
       required:
       - update
@@ -4493,7 +4954,8 @@ components:
         synchronizerId:
           description: |-
             Must be a valid synchronizer id
-            Required
+            If not set, a suitable synchronizer that this node is connected to will be chosen
+            Optional
           type: string
         packageIdSelectionPreference:
           description: |-
@@ -4519,6 +4981,28 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PrefetchContractKey'
+        maxRecordTime:
+          description: |-
+            Maximum timestamp at which the transaction can be recorded onto the ledger via the synchronizer specified in the `PrepareSubmissionResponse`.
+            If submitted after it will be rejected even if otherwise valid, in which case it needs to be prepared and signed again
+            with a new valid max_record_time.
+            Use this to limit the time-to-life of a prepared transaction,
+            which is useful to know when it can definitely not be accepted
+            anymore and resorting to preparing another transaction for the same
+            intent is safe again.
+            Optional
+          type: string
+        estimateTrafficCost:
+          $ref: '#/components/schemas/CostEstimationHints'
+          description: |-
+            Hints to improve the accuracy of traffic cost estimation.
+            The estimation logic assumes that this node will be used for the execution of the transaction
+            If another node is used instead, the estimation may be less precise.
+            Request amplification is not accounted for in the estimation: each amplified request will
+            result in the cost of the confirmation request to be charged additionally.
+
+            Optional - Traffic cost estimation is enabled by default if this field is not set
+            To turn off cost estimation, set the CostEstimationHints#disabled field to true
     JsPrepareSubmissionResponse:
       title: JsPrepareSubmissionResponse
       description: '[docs-entry-end: HashingSchemeVersion]'
@@ -4541,12 +5025,20 @@ components:
         hashingSchemeVersion:
           description: The hashing scheme version used when building the hash
           type: string
+          enum:
+          - HASHING_SCHEME_VERSION_UNSPECIFIED
+          - HASHING_SCHEME_VERSION_V2
         hashingDetails:
           description: |-
             Optional additional details on how the transaction was encoded and hashed. Only set if verbose_hashing = true in the request
             Note that there are no guarantees on the stability of the format or content of this field.
             Its content should NOT be parsed and should only be used for troubleshooting purposes.
           type: string
+        costEstimation:
+          $ref: '#/components/schemas/CostEstimation'
+          description: |-
+            Traffic cost estimation of the prepared transaction
+            Optional
     JsReassignment:
       title: JsReassignment
       description: Complete view of an on-ledger reassignment.
@@ -4557,6 +5049,7 @@ components:
       - workflowId
       - offset
       - recordTime
+      - synchronizerId
       properties:
         updateId:
           description: |-
@@ -4603,6 +5096,12 @@ components:
           description: |-
             The time at which the reassignment was recorded. The record time refers to the source/target
             synchronizer for an unassign/assign event respectively.
+            Required
+          type: string
+        synchronizerId:
+          description: |-
+            A valid synchronizer id.
+            Identifies the synchronizer that synchronized this Reassignment.
             Required
           type: string
     JsReassignmentEvent:
@@ -4682,7 +5181,7 @@ components:
     JsSubmitAndWaitForTransactionTreeResponse:
       title: JsSubmitAndWaitForTransactionTreeResponse
       description: Provided for backwards compatibility, it will be removed in the
-        Canton version 3.4.0.
+        Canton version 3.5.0.
       type: object
       required:
       - transactionTree
@@ -4829,7 +5328,7 @@ components:
     JsTransactionTree:
       title: JsTransactionTree
       description: |-
-        Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
+        Provided for backwards compatibility, it will be removed in the Canton version 3.5.0.
         Complete view of an on-ledger transaction.
       type: object
       required:
@@ -4922,6 +5421,18 @@ components:
             $ref: '#/components/schemas/CanActAs'
       - type: object
         required:
+        - CanExecuteAs
+        properties:
+          CanExecuteAs:
+            $ref: '#/components/schemas/CanExecuteAs'
+      - type: object
+        required:
+        - CanExecuteAsAnyParty
+        properties:
+          CanExecuteAsAnyParty:
+            $ref: '#/components/schemas/CanExecuteAsAnyParty'
+      - type: object
+        required:
         - CanReadAs
         properties:
           CanReadAs:
@@ -4937,7 +5448,7 @@ components:
         - Empty
         properties:
           Empty:
-            $ref: '#/components/schemas/Empty6'
+            $ref: '#/components/schemas/Empty8'
       - type: object
         required:
         - IdentityProviderAdmin
@@ -5015,6 +5526,74 @@ components:
             Pagination token to retrieve the next page.
             Empty, if there are no further results.
           type: string
+    ListVettedPackagesRequest:
+      title: ListVettedPackagesRequest
+      type: object
+      required:
+      - pageToken
+      - pageSize
+      properties:
+        packageMetadataFilter:
+          $ref: '#/components/schemas/PackageMetadataFilter'
+          description: |-
+            The package metadata filter the returned vetted packages set must satisfy.
+            Optional
+        topologyStateFilter:
+          $ref: '#/components/schemas/TopologyStateFilter'
+          description: |-
+            The topology filter the returned vetted packages set must satisfy.
+            Optional
+        pageToken:
+          description: |-
+            Pagination token to determine the specific page to fetch. Using the token
+            guarantees that ``VettedPackages`` on a subsequent page are all greater
+            (``VettedPackages`` are sorted by synchronizer ID then participant ID) than
+            the last ``VettedPackages`` on a previous page.
+
+            The server does not store intermediate results between calls chained by a
+            series of page tokens. As a consequence, if new vetted packages are being
+            added and a page is requested twice using the same token, more packages can
+            be returned on the second call.
+
+            Leave unspecified (i.e. as empty string) to fetch the first page.
+
+            Optional
+          type: string
+        pageSize:
+          description: |-
+            Maximum number of ``VettedPackages`` results to return in a single page.
+
+            If the page_size is unspecified (i.e. left as 0), the server will decide
+            the number of results to be returned.
+
+            If the page_size exceeds the maximum supported by the server, an
+            error will be returned.
+
+            To obtain the server's maximum consult the PackageService descriptor
+            available in the VersionService.
+
+            Optional
+          type: integer
+          format: int32
+    ListVettedPackagesResponse:
+      title: ListVettedPackagesResponse
+      type: object
+      required:
+      - nextPageToken
+      properties:
+        vettedPackages:
+          description: |-
+            All ``VettedPackages`` that contain at least one ``VettedPackage`` matching
+            both a ``PackageMetadataFilter`` and a ``TopologyStateFilter``.
+            Sorted by synchronizer_id then participant_id.
+          type: array
+          items:
+            $ref: '#/components/schemas/VettedPackages'
+        nextPageToken:
+          description: |-
+            Pagination token to retrieve the next page.
+            Empty string if there are no further results.
+          type: string
     Map_Filters:
       title: Map_Filters
       type: object
@@ -5059,6 +5638,9 @@ components:
       properties:
         value:
           $ref: '#/components/schemas/Duration'
+    NoPrior:
+      title: NoPrior
+      type: object
     ObjectMeta:
       title: ObjectMeta
       description: |-
@@ -5180,6 +5762,65 @@ components:
         maxOffsetCheckpointEmissionDelay:
           $ref: '#/components/schemas/Duration'
           description: The maximum delay to emmit a new OffsetCheckpoint if it exists
+    Operation:
+      title: Operation
+      oneOf:
+      - type: object
+        required:
+        - Empty
+        properties:
+          Empty:
+            $ref: '#/components/schemas/Empty5'
+      - type: object
+        required:
+        - Unvet
+        properties:
+          Unvet:
+            $ref: '#/components/schemas/Unvet'
+      - type: object
+        required:
+        - Vet
+        properties:
+          Vet:
+            $ref: '#/components/schemas/Vet'
+    PackageFeature:
+      title: PackageFeature
+      type: object
+      required:
+      - maxVettedPackagesPageSize
+      properties:
+        maxVettedPackagesPageSize:
+          description: |-
+            The maximum number of vetted packages the server can return in a single
+            response (page) when listing them.
+          type: integer
+          format: int32
+    PackageMetadataFilter:
+      title: PackageMetadataFilter
+      description: |-
+        Filter the VettedPackages by package metadata.
+
+        A PackageMetadataFilter without package_ids and without package_name_prefixes
+        matches any vetted package.
+
+        Non-empty fields specify candidate values of which at least one must match.
+        If both fields are set, then a candidate is returned if it matches one of the fields.
+      type: object
+      properties:
+        packageIds:
+          description: |-
+            If this list is non-empty, any vetted package with a package ID in this
+            list will match the filter.
+          type: array
+          items:
+            type: string
+        packageNamePrefixes:
+          description: |-
+            If this list is non-empty, any vetted package with a name matching at least
+            one prefix in this list will match the filter.
+          type: array
+          items:
+            type: string
     PackagePreference:
       title: PackagePreference
       type: object
@@ -5270,6 +5911,11 @@ components:
         participantPermission:
           description: Required
           type: string
+          enum:
+          - PARTICIPANT_PERMISSION_UNSPECIFIED
+          - PARTICIPANT_PERMISSION_SUBMISSION
+          - PARTICIPANT_PERMISSION_CONFIRMATION
+          - PARTICIPANT_PERMISSION_OBSERVATION
     ParticipantAuthorizationChanged:
       title: ParticipantAuthorizationChanged
       type: object
@@ -5295,6 +5941,11 @@ components:
         participantPermission:
           description: Required
           type: string
+          enum:
+          - PARTICIPANT_PERMISSION_UNSPECIFIED
+          - PARTICIPANT_PERMISSION_SUBMISSION
+          - PARTICIPANT_PERMISSION_CONFIRMATION
+          - PARTICIPANT_PERMISSION_OBSERVATION
     ParticipantAuthorizationRevoked:
       title: ParticipantAuthorizationRevoked
       type: object
@@ -5405,6 +6056,26 @@ components:
           description: |-
             The key of the contract the client wants to prefetch.
             Required
+    Prior:
+      title: Prior
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          type: integer
+          format: int32
+    PriorTopologySerial:
+      title: PriorTopologySerial
+      description: |-
+        The serial of last ``VettedPackages`` topology transaction on a given
+        participant and synchronizer.
+      type: object
+      required:
+      - serial
+      properties:
+        serial:
+          $ref: '#/components/schemas/Serial'
     ProtoAny:
       title: ProtoAny
       type: object
@@ -5419,6 +6090,8 @@ components:
           type: string
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
+        valueDecoded:
+          type: string
     Reassignment:
       title: Reassignment
       description: Complete view of an on-ledger reassignment.
@@ -5545,6 +6218,27 @@ components:
       properties:
         kind:
           $ref: '#/components/schemas/Kind'
+    Serial:
+      title: Serial
+      oneOf:
+      - type: object
+        required:
+        - Empty
+        properties:
+          Empty:
+            $ref: '#/components/schemas/Empty6'
+      - type: object
+        required:
+        - NoPrior
+        properties:
+          NoPrior:
+            $ref: '#/components/schemas/NoPrior'
+      - type: object
+        required:
+        - Prior
+        properties:
+          Prior:
+            $ref: '#/components/schemas/Prior'
     Signature:
       title: Signature
       type: object
@@ -5566,6 +6260,37 @@ components:
           type: string
         signingAlgorithmSpec:
           description: The signing algorithm specification used to produce this signature
+          type: string
+    SignedTransaction:
+      title: SignedTransaction
+      type: object
+      required:
+      - transaction
+      properties:
+        transaction:
+          type: string
+        signatures:
+          type: array
+          items:
+            $ref: '#/components/schemas/Signature'
+    SigningPublicKey:
+      title: SigningPublicKey
+      type: object
+      required:
+      - format
+      - keyData
+      - keySpec
+      properties:
+        format:
+          description: The serialization format of the public key
+          example: CRYPTO_KEY_FORMAT_DER_X509_SUBJECT_PUBLIC_KEY_INFO
+          type: string
+        keyData:
+          description: Serialized public key in the format specified above
+          type: string
+        keySpec:
+          description: The key specification
+          example: SIGNING_KEY_SPEC_EC_CURVE25519
           type: string
     SinglePartySignatures:
       title: SinglePartySignatures
@@ -5693,7 +6418,7 @@ components:
         - Empty
         properties:
           Empty:
-            $ref: '#/components/schemas/Empty7'
+            $ref: '#/components/schemas/Empty9'
       - type: object
         required:
         - MinLedgerTimeAbs
@@ -5722,7 +6447,7 @@ components:
         - Empty
         properties:
           Empty:
-            $ref: '#/components/schemas/Empty5'
+            $ref: '#/components/schemas/Empty7'
       - type: object
         required:
         - ParticipantAuthorizationAdded
@@ -5752,6 +6477,37 @@ components:
           description: |-
             Include participant authorization topology events in streams.
             Optional, if unset no participant authorization topology events are emitted in the stream.
+    TopologyStateFilter:
+      title: TopologyStateFilter
+      description: |-
+        Filter the vetted packages by the participant and synchronizer that they are
+        hosted on.
+
+        Empty fields are ignored, such that a ``TopologyStateFilter`` without
+        participant_ids and without synchronizer_ids matches a vetted package hosted
+        on any participant and synchronizer.
+
+        Non-empty fields specify candidate values of which at least one must match.
+        If both fields are set then at least one candidate value must match from each
+        field.
+      type: object
+      properties:
+        participantIds:
+          description: |-
+            If this list is non-empty, only vetted packages hosted on participants
+            listed in this field match the filter.
+            Query the current Ledger API's participant's ID via the public
+            ``GetParticipantId`` command in ``PartyManagementService``.
+          type: array
+          items:
+            type: string
+        synchronizerIds:
+          description: |-
+            If this list is non-empty, only vetted packages from the topology state of
+            the synchronizers in this list match the filter.
+          type: array
+          items:
+            type: string
     TopologyTransaction:
       title: TopologyTransaction
       type: object
@@ -5783,7 +6539,7 @@ components:
     TransactionFilter:
       title: TransactionFilter
       description: |-
-        Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
+        Provided for backwards compatibility, it will be removed in the Canton version 3.5.0.
         Used both for filtering create and archive events as well as for filtering transaction trees.
       type: object
       required:
@@ -5803,8 +6559,6 @@ components:
                the listed parties and match the per-party filter.
             3. For **transaction and active-contract-set streams** create and archive events are returned for all contracts whose
                stakeholders include at least one of the listed parties and match the per-party filter.
-
-            Required
         filtersForAnyParty:
           $ref: '#/components/schemas/Filters'
           description: |-
@@ -5827,10 +6581,14 @@ components:
             What transaction shape to use for interpreting the filters of the event format.
             Required
           type: string
+          enum:
+          - TRANSACTION_SHAPE_UNSPECIFIED
+          - TRANSACTION_SHAPE_ACS_DELTA
+          - TRANSACTION_SHAPE_LEDGER_EFFECTS
     TransactionTree:
       title: TransactionTree
       description: |-
-        Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
+        Provided for backwards compatibility, it will be removed in the Canton version 3.5.0.
         Complete view of an on-ledger transaction.
       type: object
       required:
@@ -5841,7 +6599,7 @@ components:
     TreeEvent:
       title: TreeEvent
       description: |-
-        Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
+        Provided for backwards compatibility, it will be removed in the Canton version 3.5.0.
         Each tree event message type below contains a ``witness_parties`` field which
         indicates the subset of the requested parties that can see the event
         in question.
@@ -6010,6 +6768,22 @@ components:
       properties:
         fields:
           $ref: '#/components/schemas/Map_Int_Field'
+    Unvet:
+      title: Unvet
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/Unvet1'
+    Unvet1:
+      title: Unvet
+      type: object
+      properties:
+        packages:
+          type: array
+          items:
+            $ref: '#/components/schemas/VettedPackagesRef'
     Update:
       title: Update
       oneOf:
@@ -6039,7 +6813,6 @@ components:
             $ref: '#/components/schemas/Transaction'
     Update1:
       title: Update
-      description: The update that matches the filter in the request.
       oneOf:
       - type: object
         required:
@@ -6214,6 +6987,78 @@ components:
         user:
           $ref: '#/components/schemas/User'
           description: Updated user
+    UpdateVettedPackagesRequest:
+      title: UpdateVettedPackagesRequest
+      type: object
+      required:
+      - dryRun
+      - synchronizerId
+      properties:
+        changes:
+          description: |-
+            Changes to apply to the current vetting state of the participant on the
+            specified synchronizer. The changes are applied in order.
+            Any package not changed will keep their previous vetting state.
+          type: array
+          items:
+            $ref: '#/components/schemas/VettedPackagesChange'
+        dryRun:
+          description: |-
+            If dry_run is true, then the changes are only prepared, but not applied. If
+            a request would trigger an error when run (e.g. TOPOLOGY_DEPENDENCIES_NOT_VETTED),
+            it will also trigger an error when dry_run.
+
+            Use this flag to preview a change before applying it.
+          type: boolean
+        synchronizerId:
+          description: |-
+            If set, the requested changes will take place on the specified
+            synchronizer. If synchronizer_id is unset and the participant is only
+            connected to a single synchronizer, that synchronizer will be used by
+            default. If synchronizer_id is unset and the participant is connected to
+            multiple synchronizers, the request will error out with
+            PACKAGE_SERVICE_CANNOT_AUTODETECT_SYNCHRONIZER.
+
+            Optional
+          type: string
+        expectedTopologySerial:
+          $ref: '#/components/schemas/PriorTopologySerial'
+          description: |-
+            The serial of the last ``VettedPackages`` topology transaction of this
+            participant and on this synchronizer.
+
+            Execution of the request fails if this is not correct. Use this to guard
+            against concurrent changes.
+
+            If left unspecified, no validation is done against the last transaction's
+            serial.
+
+            Optional
+        updateVettedPackagesForceFlags:
+          description: |-
+            Controls whether potentially unsafe vetting updates are allowed.
+
+            Optional, defaults to FORCE_FLAG_UNSPECIFIED.
+          type: array
+          items:
+            type: string
+            enum:
+            - UPDATE_VETTED_PACKAGES_FORCE_FLAG_UNSPECIFIED
+            - UPDATE_VETTED_PACKAGES_FORCE_FLAG_ALLOW_VET_INCOMPATIBLE_UPGRADES
+            - UPDATE_VETTED_PACKAGES_FORCE_FLAG_ALLOW_UNVETTED_DEPENDENCIES
+    UpdateVettedPackagesResponse:
+      title: UpdateVettedPackagesResponse
+      type: object
+      properties:
+        pastVettedPackages:
+          $ref: '#/components/schemas/VettedPackages'
+          description: |-
+            All vetted packages on this participant and synchronizer, before the
+            specified changes. Empty if no vetting state existed beforehand.
+        newVettedPackages:
+          $ref: '#/components/schemas/VettedPackages'
+          description: All vetted packages on this participant and synchronizer, after
+            the specified changes.
     UploadDarFileResponse:
       title: UploadDarFileResponse
       description: A message that is received when the upload operation succeeded.
@@ -6294,6 +7139,139 @@ components:
             A value of 0 means that the server enforces no page size limit.
           type: integer
           format: int32
+    Vet:
+      title: Vet
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/Vet1'
+    Vet1:
+      title: Vet
+      type: object
+      properties:
+        packages:
+          type: array
+          items:
+            $ref: '#/components/schemas/VettedPackagesRef'
+        newValidFromInclusive:
+          type: string
+        newValidUntilExclusive:
+          type: string
+    VettedPackage:
+      title: VettedPackage
+      description: |-
+        A package that is vetting on a given participant and synchronizer,
+        modelled after ``VettedPackage`` in `topology.proto <https://github.com/digital-asset/canton/blob/main/community/base/src/main/protobuf/com/digitalasset/canton/protocol/v30/topology.proto#L206>`_,
+        enriched with the package name and version.
+      type: object
+      required:
+      - packageId
+      - packageName
+      - packageVersion
+      properties:
+        packageId:
+          description: Package ID of this package. Always present.
+          type: string
+        validFromInclusive:
+          description: |-
+            The time from which this package is vetted. Empty if vetting time has no
+            lower bound.
+          type: string
+        validUntilExclusive:
+          description: |-
+            The time until which this package is vetted. Empty if vetting time has no
+            upper bound.
+          type: string
+        packageName:
+          description: |-
+            Name of this package.
+            Only available if the package has been uploaded to the current participant.
+            If unavailable, is empty string.
+          type: string
+        packageVersion:
+          description: |-
+            Version of this package.
+            Only available if the package has been uploaded to the current participant.
+            If unavailable, is empty string.
+          type: string
+    VettedPackages:
+      title: VettedPackages
+      description: |-
+        The list of packages vetted on a given participant and synchronizer, modelled
+        after ``VettedPackages`` in `topology.proto <https://github.com/digital-asset/canton/blob/main/community/base/src/main/protobuf/com/digitalasset/canton/protocol/v30/topology.proto#L206>`_.
+        The list only contains packages that matched a filter in the query that
+        originated it.
+      type: object
+      required:
+      - participantId
+      - synchronizerId
+      - topologySerial
+      properties:
+        packages:
+          description: |-
+            Sorted by package_name and package_version where known, and package_id as a
+            last resort.
+          type: array
+          items:
+            $ref: '#/components/schemas/VettedPackage'
+        participantId:
+          description: Participant on which these packages are vetted. Always present.
+          type: string
+        synchronizerId:
+          description: Synchronizer on which these packages are vetted. Always present.
+          type: string
+        topologySerial:
+          description: |-
+            Serial of last ``VettedPackages`` topology transaction of this participant
+            and on this synchronizer. Always present.
+          type: integer
+          format: int32
+    VettedPackagesChange:
+      title: VettedPackagesChange
+      description: A change to the set of vetted packages.
+      type: object
+      required:
+      - operation
+      properties:
+        operation:
+          $ref: '#/components/schemas/Operation'
+    VettedPackagesRef:
+      title: VettedPackagesRef
+      description: |-
+        A reference to identify one or more packages.
+
+        A reference matches a package if its ``package_id`` matches the package's ID,
+        its ``package_name`` matches the package's name, and its ``package_version``
+        matches the package's version. If an attribute in the reference is left
+        unspecified (i.e. as an empty string), that attribute is treated as a
+        wildcard. At a minimum, ``package_id`` or the ``package_name`` must be
+        specified.
+
+        If a reference does not match any package, the reference is considered
+        unresolved and the entire update request is rejected.
+      type: object
+      required:
+      - packageId
+      - packageName
+      - packageVersion
+      properties:
+        packageId:
+          description: |-
+            Package's package id must be the same as this field.
+            Optional
+          type: string
+        packageName:
+          description: |-
+            Package's name must be the same as this field.
+            Optional
+          type: string
+        packageVersion:
+          description: |-
+            Package's version must be the same as this field.
+            Optional
+          type: string
     WildcardFilter:
       title: WildcardFilter
       description: This filter matches all templates.

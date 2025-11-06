@@ -12,8 +12,8 @@ import uuid
 from google.protobuf.json_format import MessageToJson
 from com.daml.ledger.api.v2.interactive import interactive_submission_service_pb2_grpc
 from com.daml.ledger.api.v2.interactive import interactive_submission_service_pb2
-from com.daml.ledger.api.v2 import commands_pb2, value_pb2, completion_pb2
-from external_party_onboarding import onboard_external_party
+from com.daml.ledger.api.v2 import commands_pb2, value_pb2, completion_pb2, crypto_pb2
+from external_party_onboarding_admin_api import onboard_external_party
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePrivateKey
 from cryptography.hazmat.primitives.asymmetric import ec
@@ -88,7 +88,7 @@ admin_channel = grpc.insecure_channel(f"localhost:{admin_port}")
 
 # [Define ping template]
 ping_template_id = value_pb2.Identifier(
-    package_id="#AdminWorkflows",
+    package_id="#canton-builtin-admin-workflow-ping",
     module_name="Canton.Internal.Ping",
     entity_name="Ping",
 )
@@ -102,25 +102,27 @@ def get_active_contracts(party: str):
     )
     active_contracts_response = state_client.GetActiveContracts(
         state_service_pb2.GetActiveContractsRequest(
-            filter=transaction_filter_pb2.TransactionFilter(
-                filters_by_party={
-                    party: transaction_filter_pb2.Filters(
-                        cumulative=[
-                            transaction_filter_pb2.CumulativeFilter(
-                                wildcard_filter=transaction_filter_pb2.WildcardFilter(
-                                    include_created_event_blob=True
-                                )
-                            )
-                        ]
-                    )
-                }
-            ),
+            event_format=get_event_format(party),
             active_at_offset=ledger_end_response.offset,
-            verbose=True,
         )
     )
     return active_contracts_response
 
+def get_event_format(party: str) -> transaction_filter_pb2.EventFormat:
+    event_format=transaction_filter_pb2.EventFormat(
+        filters_by_party={
+            party: transaction_filter_pb2.Filters(
+                cumulative=[
+                    transaction_filter_pb2.CumulativeFilter(
+                        wildcard_filter=transaction_filter_pb2.WildcardFilter(
+                            include_created_event_blob=True
+                        )
+                    )
+                ]
+            )
+        }
+    )
+    return event_format
 
 def get_events(
     party: str, contract_id: str
@@ -128,7 +130,7 @@ def get_events(
     contract_event_response: event_query_service_pb2.GetEventsByContractIdResponse = (
         eqs_client.GetEventsByContractId(
             event_query_service_pb2.GetEventsByContractIdRequest(
-                contract_id=contract_id, requesting_parties=[party]
+                contract_id=contract_id, event_format=get_event_format(party)
             )
         )
     )
@@ -162,11 +164,11 @@ def execute_and_get_contract_id(
                 interactive_submission_service_pb2.SinglePartySignatures(
                     party=party,
                     signatures=[
-                        interactive_submission_service_pb2.Signature(
-                            format=interactive_submission_service_pb2.SignatureFormat.SIGNATURE_FORMAT_DER,
+                        crypto_pb2.Signature(
+                            format=crypto_pb2.SignatureFormat.SIGNATURE_FORMAT_DER,
                             signature=signature,
                             signed_by=pub_fingerprint,
-                            signing_algorithm_spec=interactive_submission_service_pb2.SigningAlgorithmSpec.SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_256,
+                            signing_algorithm_spec=crypto_pb2.SigningAlgorithmSpec.SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_256,
                         )
                     ],
                 )
@@ -193,15 +195,20 @@ def execute_and_get_contract_id(
             completion: completion_pb2.Completion = update.completion
             break
 
-    transaction_response: update_service_pb2.GetTransactionResponse = (
-        us_client.GetTransactionById(
-            update_service_pb2.GetTransactionByIdRequest(
+    update_response: update_service_pb2.GetUpdateResponse = (
+        us_client.GetUpdateById(
+            update_service_pb2.GetUpdateByIdRequest(
                 update_id=completion.update_id,
-                requesting_parties=[party],
+                update_format=transaction_filter_pb2.UpdateFormat(
+                    include_transactions=transaction_filter_pb2.TransactionFormat(
+                        event_format=get_event_format(party),
+                        transaction_shape=transaction_filter_pb2.TransactionShape.TRANSACTION_SHAPE_ACS_DELTA
+                    )
+                )
             )
         )
     )
-    for event in transaction_response.transaction.events:
+    for event in update_response.transaction.events:
         if event.HasField("created"):
             contract_id = event.created.contract_id
             break

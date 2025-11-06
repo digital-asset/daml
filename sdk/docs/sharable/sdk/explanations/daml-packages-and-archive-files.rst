@@ -22,12 +22,12 @@ For example, assume a simple package ``mypkg`` with a single dependency ``dep``:
    data-dependencies:
    - /path/to/dep-1.0.0.dar
 
-The command ``daml build`` compiles it and reports the path of the resulting DAR
+The command ``dpm build`` compiles it and reports the path of the resulting DAR
 as the last line:
 
 .. code:: sh
 
-   > daml build
+   > dpm build
 
    Running single package build of mypkg as no multi-package.yaml was found.
    ...

@@ -8,6 +8,8 @@ import anorm.{RowParser, SqlParser, SqlStringInterpolation, ~}
 import com.daml.ledger.api.v2.admin.user_management_service.Right
 import com.digitalasset.canton.ledger.api.UserRight.{
   CanActAs,
+  CanExecuteAs,
+  CanExecuteAsAnyParty,
   CanReadAs,
   CanReadAsAnyParty,
   IdentityProviderAdmin,
@@ -207,7 +209,7 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
     val (userRight: Int, forParty: Option[Party]) = fromUserRight(right)
 
     import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
-    val res: Seq[_] =
+    val res: Seq[?] =
       SQL"""
          SELECT 1 AS dummy
          FROM lapi_user_rights ur
@@ -285,8 +287,10 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
       case (Right.PARTICIPANT_ADMIN_FIELD_NUMBER, None) => ParticipantAdmin
       case (Right.CAN_ACT_AS_FIELD_NUMBER, Some(party)) => CanActAs(party)
       case (Right.CAN_READ_AS_FIELD_NUMBER, Some(party)) => CanReadAs(party)
+      case (Right.CAN_EXECUTE_AS_FIELD_NUMBER, Some(party)) => CanExecuteAs(party)
       case (Right.IDENTITY_PROVIDER_ADMIN_FIELD_NUMBER, None) => IdentityProviderAdmin
       case (Right.CAN_READ_AS_ANY_PARTY_FIELD_NUMBER, None) => CanReadAsAnyParty
+      case (Right.CAN_EXECUTE_AS_ANY_PARTY_FIELD_NUMBER, None) => CanExecuteAsAnyParty
       case _ =>
         throw new RuntimeException(s"Could not convert ${(value, partyO)} to a user right.")
     }
@@ -299,6 +303,8 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
       case CanActAs(party) => (Right.CAN_ACT_AS_FIELD_NUMBER, Some(party))
       case CanReadAs(party) => (Right.CAN_READ_AS_FIELD_NUMBER, Some(party))
       case CanReadAsAnyParty => (Right.CAN_READ_AS_ANY_PARTY_FIELD_NUMBER, None)
+      case CanExecuteAs(party) => (Right.CAN_EXECUTE_AS_FIELD_NUMBER, Some(party))
+      case CanExecuteAsAnyParty => (Right.CAN_EXECUTE_AS_ANY_PARTY_FIELD_NUMBER, None)
       case _ =>
         throw new RuntimeException(s"Could not recognize user right: $right.")
     }

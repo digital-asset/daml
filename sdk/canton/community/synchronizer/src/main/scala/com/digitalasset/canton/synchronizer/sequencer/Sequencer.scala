@@ -21,6 +21,7 @@ import com.digitalasset.canton.synchronizer.sequencer.admin.data.{
   SequencerAdminStatus,
   SequencerHealthStatus,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.BlockOrderer
 import com.digitalasset.canton.synchronizer.sequencer.errors.*
 import com.digitalasset.canton.synchronizer.sequencer.traffic.TimestampSelector.TimestampSelector
 import com.digitalasset.canton.synchronizer.sequencer.traffic.{
@@ -32,6 +33,7 @@ import com.digitalasset.canton.time.SynchronizerTimeTracker
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.tracing.TraceContext
+import com.google.common.annotations.VisibleForTesting
 import io.grpc.ServerServiceDefinition
 import org.apache.pekko.Done
 import org.apache.pekko.stream.KillSwitch
@@ -84,6 +86,9 @@ trait Sequencer
     SequencerHealthStatus(isActive = true)
   override def closingState: SequencerHealthStatus = SequencerHealthStatus.shutdownStatus
 
+  @VisibleForTesting
+  private[canton] def orderer: Option[BlockOrderer]
+
   /** True if member is registered in sequencer persistent state / storage (i.e. database).
     */
   def isRegistered(member: Member)(implicit
@@ -105,6 +110,14 @@ trait Sequencer
   def read(member: Member, timestampInclusive: Option[CantonTimestamp])(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.SequencedEventSource]
+
+  /** Return a "current" sequencing time such that, when a `sendAsyncSigned` operation is
+    * subsequently called, if sequenced, the sequencing time of the resulting event is guaranteed to
+    * be later than the sequencing time previously returned by the `sequencingTime` call.
+    */
+  def sequencingTime(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[CantonTimestamp]]
 
   /** Return the last timestamp of the containing block of the provided timestamp. This is needed to
     * determine the effective timestamp to observe in topology processing, required to produce a

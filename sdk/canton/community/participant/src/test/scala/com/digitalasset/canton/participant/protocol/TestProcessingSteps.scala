@@ -60,7 +60,7 @@ import com.digitalasset.canton.{BaseTest, LfPartyId, RequestCounter, SequencerCo
 import com.google.protobuf.ByteString
 
 import scala.collection.concurrent
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class TestProcessingSteps(
     pendingSubmissionMap: concurrent.Map[Int, Unit],
@@ -86,6 +86,8 @@ class TestProcessingSteps(
   override type RequestType = TestPendingRequestDataType
   override val requestType = TestPendingRequestDataType
 
+  override type ViewAbsoluteLedgerEffects = Unit
+  override type FullViewAbsoluteLedgerEffects = Unit
   override type ParsedRequestType = TestParsedRequest
 
   override def embedRequestError(
@@ -147,7 +149,7 @@ class TestProcessingSteps(
   }
 
   override def createSubmissionResult(
-      deliver: Deliver[Envelope[_]],
+      deliver: Deliver[Envelope[?]],
       submissionResultArgs: PendingSubmissionData,
   ): Unit =
     ()
@@ -190,16 +192,35 @@ class TestProcessingSteps(
     )
   }
 
+  override def absolutizeLedgerEffects(
+      viewsWithCorrectRootHashAndRecipientsAndSignature: Seq[
+        (WithRecipients[DecryptedView], Option[Signature])
+      ]
+  ): (
+      Seq[(WithRecipients[DecryptedView], Option[Signature], Unit)],
+      Seq[ProtocolProcessor.MalformedPayload],
+  ) = (
+    viewsWithCorrectRootHashAndRecipientsAndSignature.map { case (view, sig) => (view, sig, ()) },
+    Seq.empty,
+  )
+
   override def computeFullViews(
-      decryptedViewsWithSignatures: Seq[(WithRecipients[DecryptedView], Option[Signature])]
-  ): (Seq[(WithRecipients[FullView], Option[Signature])], Seq[ProtocolProcessor.MalformedPayload]) =
+      decryptedViewsWithSignatures: Seq[
+        (WithRecipients[DecryptedView], Option[Signature], ViewAbsoluteLedgerEffects)
+      ]
+  ): (
+      Seq[(WithRecipients[FullView], Option[Signature], FullViewAbsoluteLedgerEffects)],
+      Seq[ProtocolProcessor.MalformedPayload],
+  ) =
     (decryptedViewsWithSignatures, Seq.empty)
 
   override def computeParsedRequest(
       rc: RequestCounter,
       ts: CantonTimestamp,
       sc: SequencerCounter,
-      rootViewsWithMetadata: NonEmpty[Seq[(WithRecipients[FullView], Option[Signature])]],
+      rootViewsWithMetadata: NonEmpty[
+        Seq[(WithRecipients[FullView], Option[Signature], FullViewAbsoluteLedgerEffects)]
+      ],
       submitterMetadataO: Option[ViewSubmitterMetadata],
       isFreshOwnTimelyRequest: Boolean,
       malformedPayloads: Seq[ProtocolProcessor.MalformedPayload],
@@ -304,13 +325,6 @@ class TestProcessingSteps(
       traceContext: TraceContext
   ): Unit = ()
 
-  override def authenticateInputContracts(
-      parsedRequest: ParsedRequestType
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[Future, TestProcessingError, Unit] =
-    EitherT.rightT(())
-
   override def handleTimeout(parsedRequest: TestParsedRequest)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TestProcessingError, Unit] = EitherT.pure(())
@@ -323,7 +337,7 @@ object TestProcessingSteps {
       rootHash: RootHash,
       informees: Set[LfPartyId] = Set.empty,
       viewPosition: ViewPosition = ViewPosition(List(MerkleSeqIndex(List.empty))),
-      synchronizerId: PhysicalSynchronizerId = DefaultTestIdentities.physicalSynchronizerId,
+      psid: PhysicalSynchronizerId = DefaultTestIdentities.physicalSynchronizerId,
       mediator: MediatorGroupRecipient = MediatorGroupRecipient(MediatorGroupIndex.zero),
   ) extends ViewTree
       with HasToByteString {

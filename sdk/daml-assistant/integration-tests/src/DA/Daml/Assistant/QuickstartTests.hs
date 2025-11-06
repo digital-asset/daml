@@ -24,6 +24,7 @@ import Test.Tasty.HUnit
 import DA.Bazel.Runfiles
 import DA.Daml.Assistant.IntegrationTestUtils
 import DA.Daml.Helper.Util (waitForHttpServer)
+import DA.Daml.Project.Consts (packagePathEnvVar)
 import DA.Test.Process (callCommandSilent, callCommandSilentIn, callCommandSilentWithEnvIn)
 import DA.Test.Util
 import DA.PortFile
@@ -81,6 +82,7 @@ quickSandbox projDir = do
                         , "--sequencer-public-port", show $ sequencerPublic ports
                         , "--sequencer-admin-port", show $ sequencerAdmin ports
                         , "--mediator-admin-port", show $ mediatorAdmin ports
+                        , "--json-api-port", show $ jsonApi ports
                         , "--port-file", portFile
                         , "--dar", darFile
                         , "--static-time"
@@ -188,7 +190,7 @@ quickstartTests quickstartDir mvnDir getSandbox =
         subtest "daml codegen java with DAML_PROJECT" $ do
             withTempDir $ \dir -> do
                 callCommandSilentIn dir $ unwords ["daml", "new", dir </> "quickstart", "--template=quickstart-java"]
-                let projEnv = [("DAML_PROJECT", dir </> "quickstart")]
+                let projEnv = [(packagePathEnvVar, dir </> "quickstart")]
                 -- TODO(#14706): remove explicit target once the default major version is 2
                 callCommandSilentWithEnvIn dir projEnv "daml build --target=2.1"
                 callCommandSilentWithEnvIn dir projEnv "daml codegen java"

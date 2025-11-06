@@ -17,7 +17,7 @@ import com.digitalasset.base.error.ErrorsAssertions
 import com.digitalasset.base.error.utils.ErrorDetails
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.integration.TestConsoleEnvironment
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.integration.tests.ledgerapi.services.SubmitAndWaitDummyCommandHelpers
 import com.digitalasset.canton.integration.util.UpdateFormatHelpers.getUpdateFormat
 import com.digitalasset.canton.topology.PartyId
@@ -34,7 +34,7 @@ final class OngoingStreamAuthIT
     extends ServiceCallAuthTests
     with SubmitAndWaitDummyCommandHelpers
     with ErrorsAssertions {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   override def serviceCallName: String = "OngoingStreamAuthorizer"
 
@@ -75,8 +75,6 @@ final class OngoingStreamAuthIT
         val request = new GetUpdatesRequest(
           beginExclusive = participantBegin,
           endInclusive = None,
-          filter = None,
-          verbose = false,
           updateFormat = Some(getUpdateFormat(Set(party))),
         )
         val _ = stub(UpdateServiceGrpc.stub(channel), token)
@@ -170,8 +168,6 @@ final class OngoingStreamAuthIT
         val request = new GetUpdatesRequest(
           beginExclusive = participantBegin,
           endInclusive = None,
-          filter = None,
-          verbose = false,
           updateFormat = Some(getUpdateFormat(Set(party))),
         )
         val _ = stub(UpdateServiceGrpc.stub(channel), token)

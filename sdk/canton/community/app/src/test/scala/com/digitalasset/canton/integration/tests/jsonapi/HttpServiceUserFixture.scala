@@ -5,15 +5,19 @@ package com.digitalasset.canton.integration.tests.jsonapi
 
 import com.daml.jwt.Jwt
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
+import com.daml.ledger.api.v2.admin.user_management_service.{CreateUserRequest, Right, User}
 import com.digitalasset.canton.http
+import com.digitalasset.canton.http.json.v2.JsUserManagementCodecs.*
 import com.digitalasset.canton.http.util.ClientUtil.uniqueId
 import com.digitalasset.canton.integration.tests.jsonapi.HttpServiceTestFixture.authorizationHeader
 import com.digitalasset.canton.integration.tests.ledgerapi.fixture.CantonFixture
 import com.digitalasset.canton.tracing.W3CTraceContext
+import io.circe.syntax.EncoderOps
 import org.apache.pekko.http.scaladsl.model.HttpHeader.ParsingResult
 import org.apache.pekko.http.scaladsl.model.{HttpHeader, Uri}
 import org.scalatest.Suite
 import scalaz.syntax.tag.*
+import spray.json.JsonParser
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -78,20 +82,29 @@ object HttpServiceUserFixture {
         ec: ExecutionContext
     ): Future[(Jwt, http.UserId)] = {
       val username = getUniqueUserName("test")
-      val createUserRequest = http.CreateUserRequest(
-        username,
-        None,
-        Some(
-          Option
-            .when(admin)(http.ParticipantAdmin)
-            .toList ++
-            actAs.map(http.CanActAs.apply) ++ readAs.map(http.CanReadAs.apply)
-        ),
+      val rights = Option
+        .when(admin)(
+          Right(
+            Right.Kind.ParticipantAdmin(Right.ParticipantAdmin())
+          )
+        )
+        .toList ++
+        actAs
+          .map(_.unwrap)
+          .map(Right.CanActAs.apply)
+          .map(Right.Kind.CanActAs.apply)
+          .map(Right.apply) ++
+        readAs
+          .map(_.unwrap)
+          .map(Right.CanReadAs.apply)
+          .map(Right.Kind.CanReadAs.apply)
+          .map(Right.apply)
+      val createUserRequest = toSprayJson(
+        CreateUserRequest(Some(User(username, "", false, None, "")), rights)
       )
-      import spray.json.*, com.digitalasset.canton.http.json.JsonProtocol.*
       postRequest(
-        uri.withPath(Uri.Path("/v1/user/create")),
-        createUserRequest.toJson,
+        uri.withPath(Uri.Path("/v2/users")),
+        createUserRequest,
         headers = headersWithAdminAuth,
       ).map(_ => (jwtForUser(username), http.UserId(username)))
     }
@@ -100,5 +113,9 @@ object HttpServiceUserFixture {
 
     protected def jwtForUser(userId: String): Jwt =
       Jwt(getToken(userId, Some("secret")).value)
+
+    private def toSprayJson[T](t: T)(implicit encoder: io.circe.Encoder[T]) = JsonParser(
+      t.asJson.toString()
+    )
   }
 }

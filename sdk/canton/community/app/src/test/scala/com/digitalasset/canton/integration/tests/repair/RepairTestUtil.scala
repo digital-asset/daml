@@ -78,7 +78,14 @@ trait RepairTestUtil {
       .value
       ._2
 
-    RepairContract(synchronizerId, contract.inst, ReassignmentCounter.Genesis)
+    RepairContract(
+      synchronizerId,
+      contract.inst,
+      ReassignmentCounter.Genesis,
+      // Contracts read from the PCS have the representative package ID the same as the original package ID
+      // TODO(#24610): Use the Ledger API Active contract service to get the correct representative package ID
+      representativePackageId = contract.templateId.packageId,
+    )
   }
 
   protected def createContractInstance(

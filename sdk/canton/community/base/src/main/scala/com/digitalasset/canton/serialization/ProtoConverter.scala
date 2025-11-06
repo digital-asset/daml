@@ -24,6 +24,7 @@ import com.digitalasset.canton.config.RequireTypes.{
   PositiveInt,
   PositiveLong,
 }
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.{
   LedgerParticipantId,
@@ -185,6 +186,9 @@ object ProtoConverter {
   def parsePackageId(id: String): ParsingResult[Ref.PackageId] =
     parseString(id, field = None)(Ref.PackageId.fromString)
 
+  def parsePackageName(name: String): ParsingResult[Ref.PackageName] =
+    parseString(name, field = None)(Ref.PackageName.fromString)
+
   private def parseString[T](from: String, field: Option[String])(
       to: String => Either[String, T]
   ): ParsingResult[T] =
@@ -194,6 +198,11 @@ object ProtoConverter {
       companion: LengthLimitedStringCompanion[LLS],
       s: String,
   ): ParsingResult[LLS] = companion.create(s).leftMap(StringConversionError.apply(_, None))
+
+  def parseOffset(field: String, l: Long): ParsingResult[Offset] =
+    Offset
+      .fromLong(l)
+      .leftMap(ProtoDeserializationError.InvariantViolation(field, _))
 
   object InstantConverter extends ProtoConverter[Instant, Timestamp, ProtoDeserializationError] {
     override def toProtoPrimitive(value: Instant): Timestamp =

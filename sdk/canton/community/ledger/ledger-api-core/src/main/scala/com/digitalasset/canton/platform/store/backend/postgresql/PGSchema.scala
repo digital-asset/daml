@@ -17,37 +17,23 @@ private[postgresql] object PGSchema {
   private val PGFieldStrategy = new FieldStrategy {
     override def stringArray[FROM](
         extractor: StringInterning => FROM => Iterable[String]
-    ): Field[FROM, Iterable[String], _] =
+    ): Field[FROM, Iterable[String], ?] =
       PGStringArray(extractor)
 
-    override def intArray[FROM](
-        extractor: StringInterning => FROM => Iterable[Int]
-    ): Field[FROM, Iterable[Int], _] =
-      PGIntArray(extractor)
-
-    override def intArrayOptional[FROM](
-        extractor: StringInterning => FROM => Option[Iterable[Int]]
-    ): Field[FROM, Option[Iterable[Int]], _] =
-      PGIntArrayOptional(extractor)
+    override def smallint[FROM](
+        extractor: StringInterning => FROM => Int
+    ): Field[FROM, Int, ?] =
+      PGSmallint(extractor)
 
     override def smallintOptional[FROM](
         extractor: StringInterning => FROM => Option[Int]
-    ): Field[FROM, Option[Int], _] =
+    ): Field[FROM, Option[Int], ?] =
       PGSmallintOptional(extractor)
 
     override def insert[FROM](tableName: String)(
-        fields: (String, Field[FROM, _, _])*
+        fields: (String, Field[FROM, ?, ?])*
     ): Table[FROM] =
       PGTable.transposedInsert(tableName)(fields*)
-
-    override def idempotentInsert[FROM](
-        tableName: String,
-        keyFieldIndex: Int,
-        ordering: Ordering[FROM],
-    )(
-        fields: (String, Field[FROM, _, _])*
-    ): Table[FROM] =
-      PGTable.idempotentTransposedInsert(tableName, keyFieldIndex, ordering)(fields*)
   }
 
   val schema: Schema[DbDto] = AppendOnlySchema(PGFieldStrategy)

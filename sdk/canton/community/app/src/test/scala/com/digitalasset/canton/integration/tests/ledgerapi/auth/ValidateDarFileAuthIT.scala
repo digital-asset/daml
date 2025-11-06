@@ -6,13 +6,13 @@ package com.digitalasset.canton.integration.tests.ledgerapi.auth
 import com.daml.ledger.api.v2.admin.package_management_service.*
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.integration.TestConsoleEnvironment
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.util.BinaryFileUtil
 
 import scala.concurrent.Future
 
 final class ValidateDarFileAuthIT extends AdminServiceCallAuthTests {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   override def serviceCallName: String = "PackageManagementService#ValidateDarFile"
 
@@ -21,7 +21,7 @@ final class ValidateDarFileAuthIT extends AdminServiceCallAuthTests {
       .readByteStringFromFile(CantonExamplesPath)
       .valueOrFail("could not load examples")
 
-    ValidateDarFileRequest(darData, submissionId = "")
+    ValidateDarFileRequest(darData, submissionId = "", synchronizerId = "")
   }
 
   override def serviceCall(context: ServiceCallContext)(implicit

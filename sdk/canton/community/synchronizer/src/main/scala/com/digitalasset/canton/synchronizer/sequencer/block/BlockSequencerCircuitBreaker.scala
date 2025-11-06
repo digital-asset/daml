@@ -69,8 +69,14 @@ class BlockSequencerCircuitBreaker(
     previousTimestamp.set(timestamp)
   }
 
-  def shouldRejectRequests(submissionRequestType: SubmissionRequestType): Boolean =
-    enabled.get() && pekkoCircuitBreakers.get(submissionRequestType).forall(_.shouldRejectRequests)
+  def shouldRejectRequests(submissionRequestType: SubmissionRequestType): Boolean = {
+    val subTypeKey = submissionRequestType match {
+      case SubmissionRequestType.Unexpected(_) =>
+        BlockSequencerCircuitBreaker.unexpectedSubmissionRequestTypeKey
+      case x => x
+    }
+    enabled.get() && pekkoCircuitBreakers.get(subTypeKey).forall(_.shouldRejectRequests)
+  }
 
   def shouldRejectRequests(submissionRequest: SubmissionRequest): Boolean =
     shouldRejectRequests(submissionRequest.requestType)
@@ -94,6 +100,7 @@ class BlockSequencerCircuitBreaker(
       messages.topUp -> "top up",
       messages.topology -> "topology",
       messages.timeProof -> "time proof",
+      messages.unexpected -> "unexpected",
       messages.acknowledgement -> "acknowledgment",
     ).groupBy(_._1).map { case (config, group) =>
       val messageNames = group.map(_._2)
@@ -115,6 +122,7 @@ class BlockSequencerCircuitBreaker(
         SubmissionRequestType.TopUpMed -> messages.topUp,
         SubmissionRequestType.TopologyTransaction -> messages.topology,
         SubmissionRequestType.TimeProof -> messages.timeProof,
+        BlockSequencerCircuitBreaker.unexpectedSubmissionRequestTypeKey -> messages.unexpected,
       ).fmap(configToCircuitBreaker(_)),
     )
   }
@@ -122,6 +130,7 @@ class BlockSequencerCircuitBreaker(
 }
 
 object BlockSequencerCircuitBreaker {
+  private val unexpectedSubmissionRequestTypeKey = SubmissionRequestType.Unexpected("unexpected")
 
   class IndividualCircuitBreaker(
       config: IndividualCircuitBreakerConfig,

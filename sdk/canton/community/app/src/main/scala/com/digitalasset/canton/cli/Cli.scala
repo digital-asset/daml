@@ -53,11 +53,16 @@ final case class Cli(
     logEncoder: LogEncoder = LogEncoder.Plain,
     logLastErrors: Boolean = true,
     logLastErrorsFileName: Option[String] = None,
+    logAccess: Boolean = false,
+    logAccessFileName: Option[String] = None,
+    logAccessErrors: Boolean = false,
+    logAccessErrorsFileName: Option[String] = None,
     logImmediateFlush: Option[Boolean] = None,
     kmsLogImmediateFlush: Option[Boolean] = None,
     bootstrapScriptPath: Option[File] = None,
     manualStart: Boolean = false,
     exitAfterBootstrap: Boolean = false,
+    devProtocol: Boolean = false,
     dars: Seq[String] = Seq.empty,
 ) {
 
@@ -99,6 +104,8 @@ final case class Cli(
       "LOG_FORMAT_JSON",
       "LOG_IMMEDIATE_FLUSH",
       "KMS_LOG_IMMEDIATE_FLUSH",
+      "LOG_ACCESS",
+      "LOG_ACCESS_ERRORS",
     ).foreach(System.clearProperty(_).discard[String])
     logFileName.foreach(System.setProperty("LOG_FILE_NAME", _))
     kmsLogFileName.foreach(System.setProperty("KMS_LOG_FILE_NAME", _))
@@ -107,6 +114,7 @@ final case class Cli(
     kmsLogFileHistory.foreach(x => System.setProperty("KMS_LOG_FILE_HISTORY", x.toString))
     logFileRollingPattern.foreach(System.setProperty("LOG_FILE_ROLLING_PATTERN", _))
     kmsLogFileRollingPattern.foreach(System.setProperty("KMS_LOG_FILE_ROLLING_PATTERN", _))
+
     logFileAppender match {
       case LogFileAppender.Rolling =>
         System.setProperty("LOG_FILE_ROLLING", "true").discard
@@ -116,6 +124,12 @@ final case class Cli(
     }
     if (logLastErrors)
       System.setProperty("LOG_LAST_ERRORS", "true").discard
+    if (logAccess)
+      System.setProperty("LOG_ACCESS", "true").discard
+    logAccessFileName.foreach(System.setProperty("LOG_ACCESS_FILE_NAME", _))
+    if (logAccessErrors)
+      System.setProperty("LOG_ACCESS_ERRORS", "true").discard
+    logAccessErrorsFileName.foreach(System.setProperty("LOG_ACCESS_ERROR_FILE_NAME", _))
 
     logEncoder match {
       case LogEncoder.Plain =>
@@ -323,6 +337,22 @@ object Cli {
         .text("Capture events for logging.last_errors command")
         .action((isEnabled, cli) => cli.copy(logLastErrors = isEnabled))
 
+      opt[Boolean]("log-access")
+        .text("Capture API access logs in a separate file")
+        .action((isEnabled, cli) => cli.copy(logAccess = isEnabled))
+
+      opt[String]("log-access-filename")
+        .text("Name of a file to capture API access logs")
+        .action((filename, cli) => cli.copy(logAccessFileName = Some(filename)))
+
+      opt[Boolean]("log-access-errors")
+        .text("Capture API access errors in a separate file")
+        .action((isEnabled, cli) => cli.copy(logAccessErrors = isEnabled))
+
+      opt[String]("log-access-errors-filename")
+        .text("Name of a file to capture API access error logs")
+        .action((filename, cli) => cli.copy(logAccessErrorsFileName = Some(filename)))
+
       note("") // Enforce a newline in the help text
 
       note("Use the JAVA_OPTS environment variable to set JVM parameters.")
@@ -372,6 +402,9 @@ object Cli {
           opt[Unit]("exit-after-bootstrap")
             .hidden()
             .action((_, cli) => cli.copy(exitAfterBootstrap = true)),
+          opt[Unit]("dev")
+            .text("Run sandbox with dev version of the protocol")
+            .action((_, cli) => cli.copy(devProtocol = true)),
           opt[Int]("ledger-api-port")
             .text("Port for the sandbox Ledger API")
             .action((port, cli) =>
@@ -385,7 +418,7 @@ object Cli {
           opt[Int]("json-api-port")
             .text("Port for the sandbox Json API")
             .action((port, cli) =>
-              cli ++ ("canton.participants.sandbox.http-ledger-api.server.port" -> port.toString)
+              cli ++ ("canton.participants.sandbox.http-ledger-api.port" -> port.toString)
             ),
           opt[Int]("sequencer-public-port")
             .text("Port for the sequencer Public API")
@@ -414,6 +447,59 @@ object Cli {
             .text("DAR file to upload to sandbox")
             .unbounded()
             .action((dars, cli) => cli.copy(dars = cli.dars ++ dars.map(_.getPath))),
+        )
+
+      note("") // Newline
+      cmd("sandbox-console")
+        .text("Start a canton console connected to a remote participant and synchronizer")
+        .children(
+          opt[String]("host")
+            .text("Host for the remote participant and synchronizer (default 127.0.0.1)")
+            .action((host, cli) =>
+              cli
+                ++ ("canton.remote-participants.sandbox.ledger-api.address" -> host)
+                ++ ("canton.remote-participants.sandbox.admin-api.address" -> host)
+                ++ ("canton.remote-sequencers.local.public-api.address" -> host)
+                ++ ("canton.remote-sequencers.local.admin-api.address" -> host)
+                ++ ("canton.remote-mediators.mediator1.admin-api.address" -> host)
+            )
+            .required()
+            .withFallback(() => "127.0.0.1"),
+          opt[Int]("port")
+            .text("Port for the remote participant Ledger API (default 6865)")
+            .action((port, cli) =>
+              cli ++ ("canton.remote-participants.sandbox.ledger-api.port" -> port.toString)
+            )
+            .required()
+            .withFallback(() => 6865),
+          opt[Int]("admin-api-port")
+            .text("Port for the remote participant Admin API (default 6866)")
+            .action((port, cli) =>
+              cli ++ ("canton.remote-participants.sandbox.admin-api.port" -> port.toString)
+            )
+            .required()
+            .withFallback(() => 6866),
+          opt[Int]("sequencer-public-port")
+            .text("Port for the remote sequencer Public API (default 6867)")
+            .action((port, cli) =>
+              cli ++ ("canton.remote-sequencers.local.public-api.port" -> port.toString)
+            )
+            .required()
+            .withFallback(() => 6867),
+          opt[Int]("sequencer-admin-port")
+            .text("Port for the remote sequencer Admin API (default 6868)")
+            .action((port, cli) =>
+              cli ++ ("canton.remote-sequencers.local.admin-api.port" -> port.toString)
+            )
+            .required()
+            .withFallback(() => 6868),
+          opt[Int]("mediator-admin-port")
+            .text("Port for the remote mediator Admin API (default 6869)")
+            .action((port, cli) =>
+              cli ++ ("canton.remote-mediators.mediator1.admin-api.port" -> port.toString)
+            )
+            .required()
+            .withFallback(() => 6869),
         )
 
       checkConfig(cli =>

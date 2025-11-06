@@ -4,7 +4,6 @@
 package com.digitalasset.canton.participant.protocol.reassignment
 
 import cats.data.EitherT
-import cats.syntax.either.*
 import cats.syntax.functor.*
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.{
@@ -21,13 +20,10 @@ import com.digitalasset.canton.ledger.participant.state.{
   Update,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.participant.protocol.ProcessingSteps.InternalContractIds
 import com.digitalasset.canton.participant.protocol.conflictdetection.{ActivenessResult, CommitSet}
-import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.{
-  FieldConversionError,
-  ReassignmentProcessorError,
-}
 import com.digitalasset.canton.participant.protocol.validation.AuthenticationError
-import com.digitalasset.canton.protocol.{ReassignmentId, RootHash}
+import com.digitalasset.canton.protocol.{ReassignmentId, RootHash, UpdateId}
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag
@@ -47,7 +43,7 @@ final case class UnassignmentValidationResult(
     unassignmentData.sourcePSId
   val targetSynchronizer: Target[PhysicalSynchronizerId] = unassignmentData.targetPSId
   val stakeholders: Set[LfPartyId] = unassignmentData.stakeholders.all
-  val targetTimestamp: CantonTimestamp = unassignmentData.targetTimestamp
+  val targetTimestamp: Target[CantonTimestamp] = unassignmentData.targetTimestamp
 
   override def reassignmentId: ReassignmentId = unassignmentData.reassignmentId
 
@@ -82,54 +78,51 @@ final case class UnassignmentValidationResult(
       recordTime: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
-  ): Either[ReassignmentProcessorError, AcsChangeFactory => Update.SequencedReassignmentAccepted] =
-    for {
-      updateId <-
-        rootHash.asLedgerTransactionId
-          .leftMap[ReassignmentProcessorError](
-            FieldConversionError(reassignmentId, "Transaction Id", _)
-          )
-
-      completionInfo =
-        Option.when(
-          participantId == submitterMetadata.submittingParticipant
-        )(
-          CompletionInfo(
-            actAs = List(submitterMetadata.submitter),
-            userId = submitterMetadata.userId,
-            commandId = submitterMetadata.commandId,
-            optDeduplicationPeriod = None,
-            submissionId = submitterMetadata.submissionId,
-          )
+  ): AcsChangeFactory => InternalContractIds => Update.SequencedReassignmentAccepted = {
+    val updateId = rootHash
+    val completionInfo =
+      Option.when(
+        participantId == submitterMetadata.submittingParticipant
+      )(
+        CompletionInfo(
+          actAs = List(submitterMetadata.submitter),
+          userId = submitterMetadata.userId,
+          commandId = submitterMetadata.commandId,
+          optDeduplicationPeriod = None,
+          submissionId = submitterMetadata.submissionId,
         )
-    } yield (acsChangeFactory: AcsChangeFactory) =>
-      Update.SequencedReassignmentAccepted(
-        optCompletionInfo = completionInfo,
-        workflowId = submitterMetadata.workflowId,
-        updateId = updateId,
-        reassignmentInfo = ReassignmentInfo(
-          sourceSynchronizer = sourceSynchronizer.map(_.logical),
-          targetSynchronizer = targetSynchronizer.map(_.logical),
-          submitter = Option(submitterMetadata.submitter),
-          reassignmentId = reassignmentId,
-          isReassigningParticipant = isReassigningParticipant,
-        ),
-        reassignment =
-          Reassignment.Batch(contracts.contracts.zipWithIndex.map { case (reassign, idx) =>
-            Reassignment.Unassign(
-              contractId = reassign.contract.contractId,
-              templateId = reassign.templateId,
-              packageName = reassign.packageName,
-              stakeholders = contracts.stakeholders.all,
-              assignmentExclusivity = assignmentExclusivity.map(_.unwrap.toLf),
-              reassignmentCounter = reassign.counter.unwrap,
-              nodeId = idx,
-            )
-          }),
-        recordTime = recordTime,
-        synchronizerId = sourceSynchronizer.unwrap.logical,
-        acsChangeFactory = acsChangeFactory,
       )
+    (acsChangeFactory: AcsChangeFactory) =>
+      (internalContractIds: InternalContractIds) =>
+        Update.SequencedReassignmentAccepted(
+          optCompletionInfo = completionInfo,
+          workflowId = submitterMetadata.workflowId,
+          updateId = UpdateId.fromRootHash(updateId),
+          reassignmentInfo = ReassignmentInfo(
+            sourceSynchronizer = sourceSynchronizer.map(_.logical),
+            targetSynchronizer = targetSynchronizer.map(_.logical),
+            submitter = Option(submitterMetadata.submitter),
+            reassignmentId = reassignmentId,
+            isReassigningParticipant = isReassigningParticipant,
+          ),
+          reassignment =
+            Reassignment.Batch(contracts.contracts.zipWithIndex.map { case (reassign, idx) =>
+              Reassignment.Unassign(
+                contractId = reassign.contract.contractId,
+                templateId = reassign.templateId,
+                packageName = reassign.packageName,
+                stakeholders = contracts.stakeholders.all,
+                assignmentExclusivity = assignmentExclusivity.map(_.unwrap.toLf),
+                reassignmentCounter = reassign.counter.unwrap,
+                nodeId = idx,
+              )
+            }),
+          recordTime = recordTime,
+          synchronizerId = sourceSynchronizer.unwrap.logical,
+          acsChangeFactory = acsChangeFactory,
+          internalContractIds = internalContractIds,
+        )
+  }
 }
 
 object UnassignmentValidationResult {
@@ -151,5 +144,17 @@ object UnassignmentValidationResult {
 
   final case class ReassigningParticipantValidationResult(
       errors: Seq[ReassignmentValidationError]
-  ) extends ReassignmentValidationResult.ReassigningParticipantValidationResult
+  ) extends ReassignmentValidationResult.ReassigningParticipantValidationResult {
+    def isTargetTsValidatable: Boolean = !errors.exists {
+      case UnassignmentValidationError.TargetTimestampTooFarInFuture => true
+      case _ => false
+    }
+  }
+
+  object ReassigningParticipantValidationResult {
+    val TargetTimestampTooFarInFuture: ReassigningParticipantValidationResult =
+      ReassigningParticipantValidationResult(
+        Seq(UnassignmentValidationError.TargetTimestampTooFarInFuture)
+      )
+  }
 }

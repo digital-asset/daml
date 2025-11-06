@@ -35,8 +35,11 @@ import Data.Maybe
 import Options.Applicative
 import System.Directory
 import System.Environment
+import System.Exit (exitFailure)
 import System.FilePath hiding ((<.>))
+import System.IO (hPutStrLn, stderr)
 
+import DA.Daml.Project.Config
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
 import qualified DA.Daml.Project.Types as DATypes
@@ -110,6 +113,8 @@ mergePackageMap :: [(PackageId, Package, Bool)] ->
 mergePackageMap ps = foldM merge mempty ps
   where
     merge :: Map.Map PackageId Package -> (PackageId, Package, Bool) -> Either T.Text (Map.Map PackageId Package)
+    -- Utility packages are added without any questions, they will later be filtered out with a useful message
+    merge pkgs (pkgId, pkg, _isMain) | isUtilityPackage pkg = Right $ Map.insert pkgId pkg pkgs
     merge pkgs (pkgId, pkg, _isMain) = do
         let usedPkgNmVers = Set.fromList $ map pkgNameVerFromPackage (Map.elems pkgs)
             ownPkgNameVer = pkgNameVerFromPackage pkg
@@ -138,7 +143,9 @@ main = do
     -- https://gitlab.haskell.org/ghc/ghc/-/issues/18418.
     setRunfilesEnv
     withProgName "daml codegen js" $ do
-        opts@Options{..} <- customExecParser (prefs showHelpOnError) optionsParserInfo
+        args <- getArgs
+        opts@Options{..} <-
+          if null args then deriveOptionsFromDamlYaml else customExecParser (prefs showHelpOnError) optionsParserInfo
         unresolvedVersionOrErr <- fromMaybe (DATypes.parseVersion (T.pack "0.0.0")) <$> getSdkVersionMaybe
         releaseVersion <- case unresolvedVersionOrErr of
               Left _ -> fail "Invalid SDK version"
@@ -153,17 +160,38 @@ main = do
                 \(pkgId, pkg) -> do
                   let pkgNameVer = pkgNameVerFromPackage pkg
                       PackageNameVersion (pkgName, _) = pkgNameVer
-                      isUtilityPackage =
-                        all (\mod ->
-                          null (moduleTemplates mod)
-                            && null (moduleInterfaces mod)
-                            && not (any (getIsSerializable . dataSerializable) $ moduleDataTypes mod)
-                        ) $ packageModules pkg
-                  if isUtilityPackage
+                  if isUtilityPackage pkg
                     then T.putStrLn $ "Skipping " <> unPackageName pkgName <> " (hash: " <> unPackageId pkgId <> ") as it does not define any serializable types" 
                     else do
                       T.putStrLn $ "Generating " <> unPackageName pkgName <> " (hash: " <> unPackageId pkgId <> ")"
                       daml2js Daml2jsParams{..}
+
+deriveOptionsFromDamlYaml :: IO Options
+deriveOptionsFromDamlYaml = go `catch` \(e :: AssistantError) -> do
+    hPutStrLn stderr (displayException e)
+    exitFailure
+  where 
+    go = do
+      packagePath <- DAUtil.required "Must be called from within a package." =<< getPackagePath
+      packageConfig <- readPackageConfig (PackagePath packagePath)
+      projectName <-
+        DAUtil.requiredE "Failed to read package name from package config" $
+          queryPackageConfigRequired ["name"] packageConfig
+      projectVersion <-
+        DAUtil.requiredE "Failed to read package version from package config" $
+          queryPackageConfigRequired ["version"] packageConfig
+      let darPath = ".daml" </> "dist" </> projectName <> "-" <> projectVersion <> ".dar"
+      outputPath <-
+        DAUtil.requiredE "Failed to read output directory for JavaScript code generation" $
+          queryPackageConfigRequired
+            ["codegen", "js", "output-directory"]
+            packageConfig
+      mbNpmScope <-
+        DAUtil.requiredE "Failed to read NPM scope for JavaScript code generation" $
+          queryPackageConfig
+            ["codegen", "js", "npm-scope"]
+            packageConfig
+      pure $ Options [darPath] outputPath $ Scope $ fromMaybe "daml.js" mbNpmScope
 
 newtype Scope = Scope {unScope :: T.Text}
 newtype Dependency = Dependency {_unDependency :: PackageNameVersion} deriving (Eq, Ord)
@@ -221,7 +249,7 @@ genModule pkgMap (Scope scope) curPkgId curPkgNameVer mod
     Nothing -- If no serializable types or interfaces, nothing to do.
   | otherwise =
     let (decls, refs) = unzip (map (genDataDef curPkgId curPkgNameVer mod (interfaceChoices pkgMap curPkgId) tpls) serDefs)
-        (ifaceDecls, ifaceRefs) = unzip (map (genIfaceDecl curPkgId mod) $ NM.toList ifaces)
+        (ifaceDecls, ifaceRefs) = unzip (map (genIfaceDecl curPkgNameVer mod) $ NM.toList ifaces)
         imports = (SelfPackageId, modName) `Set.delete` Set.unions (refs ++ ifaceRefs)
         (internalImports, externalImports) = splitImports imports
         rootPath = map (const "..") (unModuleName modName)
@@ -325,14 +353,14 @@ genDataDef curPkgId curPkgNameVer mod ifcChoices tpls def = case unTypeConName (
         (decls, refs) = genDefDataType curPkgId curPkgNameVer c2 mod ifcChoices tpls def
         tyDecls = [d | DeclTypeDef d <- decls]
 
-genIfaceDecl :: PackageId -> Module -> DefInterface -> ([TsDecl], Set.Set ModuleRef)
-genIfaceDecl pkgId mod DefInterface {intName, intChoices, intView} =
+genIfaceDecl :: PackageNameVersion -> Module -> DefInterface -> ([TsDecl], Set.Set ModuleRef)
+genIfaceDecl curPkgNameVer mod DefInterface {intName, intChoices, intView} =
   ( [ DeclInterface
         (InterfaceDef
            { ifName = name
+           , ifPkgNameVer = curPkgNameVer
            , ifChoices = choices
            , ifModule = moduleName mod
-           , ifPkgId = pkgId
            , ifView = view
            })
     ]
@@ -473,15 +501,15 @@ renderTemplateDef TemplateDef {..} =
 
 data InterfaceDef = InterfaceDef
   { ifName :: T.Text
+  , ifPkgNameVer :: PackageNameVersion
   , ifModule :: ModuleName
-  , ifPkgId :: PackageId
   , ifChoices :: [ChoiceDef]
   , ifView :: (TsTypeConRef, JsSerializerConRef)
   }
 
 renderInterfaceDef :: InterfaceDef -> (T.Text, T.Text)
-renderInterfaceDef InterfaceDef{ifName, ifChoices, ifModule,
-                                ifPkgId, ifView} = (jsSource, tsDecl)
+renderInterfaceDef InterfaceDef{ifName, ifPkgNameVer, ifChoices,
+                                ifModule, ifView} = (jsSource, tsDecl)
   where
     jsSource = T.unlines $ concat
       [ [ "exports." <> ifName <> " = damlTypes.assembleInterface("
@@ -515,7 +543,7 @@ renderInterfaceDef InterfaceDef{ifName, ifChoices, ifModule,
       ]
     (TsTypeConRef viewTy, JsSerializerConRef viewCompanion) = ifView
     ifaceId =
-        unPackageId ifPkgId <> ":" <>
+        pkgNameVerToPackageRef ifPkgNameVer <> ":" <>
         T.intercalate "." (unModuleName ifModule) <> ":" <>
         ifName
 

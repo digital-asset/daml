@@ -4,11 +4,7 @@
 package com.digitalasset.canton.integration.tests.bftsynchronizer
 
 import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
@@ -16,7 +12,6 @@ import com.digitalasset.canton.integration.{
 }
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.sequencing.client.ResilientSequencerSubscription.LostSequencerSubscription
-import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
 
 trait NodesRestartTest
     extends CommunityIntegrationTest
@@ -29,19 +24,8 @@ trait NodesRestartTest
 
   "Restart participant nodes not connected to a synchronizer" in { implicit env =>
     import env.*
-
     stopAndWait(participant1)
     startAndWait(participant1)
-
-    // participants run a package vetting process on startup.
-    // let's make sure that this mechanism doesn't run again on the second startup
-    eventually() {
-      val result = participant1.topology.vetted_packages
-        .list(store = TopologyStoreId.Authorized)
-      result should have size (1)
-      result.head.item.packages shouldNot be(empty)
-      result.head.context.serial shouldBe PositiveInt.one
-    }
   }
 
   "Restart an onboarded mediator node" in { implicit env =>
@@ -93,5 +77,5 @@ trait NodesRestartTest
 
 class NodesRestartTestPostgres extends NodesRestartTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }

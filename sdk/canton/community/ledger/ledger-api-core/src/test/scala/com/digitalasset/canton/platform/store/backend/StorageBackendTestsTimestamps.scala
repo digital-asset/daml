@@ -3,7 +3,8 @@
 
 package com.digitalasset.canton.platform.store.backend
 
-import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.canton.platform.store.backend.EventStorageBackend.SequentialIdBatch.IdRange
+import com.digitalasset.canton.platform.store.backend.common.EventPayloadSourceForUpdatesLedgerEffects
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -20,31 +21,46 @@ private[backend] trait StorageBackendTestsTimestamps extends Matchers with Stora
 
   it should "correctly read ledger effective time using rawEvents" in {
     val let = timestampFromInstant(Instant.now)
-    val cid = hashCid("#1")
-    val create = dtoCreate(
-      offset = offset(1),
-      eventSequentialId = 1L,
-      contractId = cid,
-      ledgerEffectiveTime = let,
+    val consuming = dtosConsumingExercise(
+      event_offset = 1L,
+      event_sequential_id = 1L,
+      ledger_effective_time = let.micros,
     )
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
 
-    executeSql(ingest(Vector(create), _))
+    executeSql(ingest(consuming.toVector, _))
     executeSql(updateLedgerEnd(offset(1), 1L))
 
-    val events = backend.event.activeContractCreateEventBatch(
-      List(1L),
-      Some(Set(Ref.Party.assertFromString("signatory"))),
-      1L,
-    )(_)
+    val events = backend.event.fetchEventPayloadsLedgerEffects(
+      EventPayloadSourceForUpdatesLedgerEffects.Deactivate
+    )(
+      eventSequentialIds = IdRange(1L, 10L),
+      requestingPartiesForTx = Some(Set.empty),
+      requestingPartiesForReassignment = Some(Set.empty),
+    )
     val events1 = executeSql(events)
     val events2 = executeSql(withDefaultTimeZone("GMT-1")(events))
     val events3 = executeSql(withDefaultTimeZone("GMT+1")(events))
 
-    withClue("UTC")(events1.head.rawCreatedEvent.ledgerEffectiveTime shouldBe let)
-    withClue("GMT-1")(events2.head.rawCreatedEvent.ledgerEffectiveTime shouldBe let)
-    withClue("GMT+1")(events3.head.rawCreatedEvent.ledgerEffectiveTime shouldBe let)
+    withClue("UTC")(
+      events1
+        .collect { case ex: EventStorageBackend.RawExercisedEvent => ex }
+        .head
+        .ledgerEffectiveTime shouldBe let
+    )
+    withClue("GMT-1")(
+      events2
+        .collect { case ex: EventStorageBackend.RawExercisedEvent => ex }
+        .head
+        .ledgerEffectiveTime shouldBe let
+    )
+    withClue("GMT+1")(
+      events3
+        .collect { case ex: EventStorageBackend.RawExercisedEvent => ex }
+        .head
+        .ledgerEffectiveTime shouldBe let
+    )
   }
 
   // Some JDBC operations depend on the JVM default time zone.

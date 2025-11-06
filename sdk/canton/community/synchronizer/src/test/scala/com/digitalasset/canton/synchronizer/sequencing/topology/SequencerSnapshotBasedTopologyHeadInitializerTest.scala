@@ -35,6 +35,8 @@ class SequencerSnapshotBasedTopologyHeadInitializerTest
       ) { case (maxTopologyStoreEffectiveTimeO, expectedHeadStateEffectiveTime) =>
         val topologyStoreMock = mock[TopologyStore[TopologyStoreId.SynchronizerStore]]
         val topologyClientMock = mock[SynchronizerTopologyClientWithInit]
+        when(topologyClientMock.initialize()(anyTraceContext))
+          .thenReturn(FutureUnlessShutdown.unit)
         val initializer = new SequencerSnapshotBasedTopologyHeadInitializer(
           SequencerSnapshot(
             aSnapshotLastTs,
@@ -50,11 +52,16 @@ class SequencerSnapshotBasedTopologyHeadInitializerTest
           topologyStoreMock,
         )
 
-        when(topologyStoreMock.maxTimestamp(SequencedTime.MaxValue, includeRejected = true))
+        when(
+          topologyStoreMock.maxTimestamp(
+            eqTo(SequencedTime.MaxValue),
+            includeRejected = anyBoolean,
+          )(anyTraceContext)
+        )
           .thenReturn(
             FutureUnlessShutdown.pure(
               maxTopologyStoreEffectiveTimeO.map(maxTopologyStoreEffectiveTime =>
-                SequencedTime(CantonTimestamp.MinValue /* not used */ ) -> EffectiveTime(
+                SequencedTime(maxTopologyStoreEffectiveTime) -> EffectiveTime(
                   maxTopologyStoreEffectiveTime
                 )
               )
@@ -62,14 +69,19 @@ class SequencerSnapshotBasedTopologyHeadInitializerTest
           )
 
         initializer
-          .initialize(topologyClientMock, synchronizerPredecessor = None)
+          .initialize(
+            topologyClientMock,
+            synchronizerPredecessor = None,
+            defaultStaticSynchronizerParameters,
+          )
           .map { _ =>
             verify(topologyClientMock).updateHead(
               SequencedTime(aSnapshotLastTs),
               EffectiveTime(expectedHeadStateEffectiveTime),
               ApproximateTime(aSnapshotLastTs),
-              potentialTopologyChange = true,
             )
+            verify(topologyClientMock).initialize()(anyTraceContext)
+            verifyNoMoreInteractions(topologyClientMock)
             succeed
           }
           .failOnShutdown

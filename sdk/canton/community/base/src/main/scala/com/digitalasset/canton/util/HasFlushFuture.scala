@@ -29,12 +29,12 @@ trait HasFlushFuture
     */
   protected def addToFlushAndLogError(
       name: String
-  )(future: Future[_])(implicit loggingContext: ErrorLoggingContext): Unit =
+  )(future: Future[?])(implicit loggingContext: ErrorLoggingContext): Unit =
     addToFlushWithoutLogging(name)(FutureUtil.logOnFailure(future, s"$name failed"))
 
   protected def addToFlushAndLogErrorUS(
       name: String
-  )(future: FutureUnlessShutdown[_])(implicit loggingContext: ErrorLoggingContext): Unit =
+  )(future: FutureUnlessShutdown[?])(implicit loggingContext: ErrorLoggingContext): Unit =
     addToFlushWithoutLogging(name)(
       FutureUnlessShutdownUtil.logOnFailureUnlessShutdown(future, s"$name failed").unwrap
     )
@@ -42,7 +42,7 @@ trait HasFlushFuture
   /** Adds the task `future` to the flush future so that [[doFlush]] completes only after `future`
     * has completed. The caller is responsible for logging any exceptions thrown inside the future.
     */
-  protected def addToFlushWithoutLogging(name: String)(future: Future[_]): Unit =
+  protected def addToFlushWithoutLogging(name: String)(future: Future[?]): Unit =
     if (future.isCompleted) ()
     else {
       val promise = Promise[Unit]()
@@ -101,7 +101,7 @@ trait HasFlushFuture
 
 object HasFlushFuture {
   // Not a case class so that we get by-reference equality
-  private class NamedTask(val name: String, val future: Future[_]) extends PrettyPrinting {
+  private class NamedTask(val name: String, val future: Future[?]) extends PrettyPrinting {
     override protected def pretty: Pretty[NamedTask] =
       prettyOfString(x => if (x.future.isCompleted) x.name + " (completed)" else x.name)
   }
@@ -111,11 +111,11 @@ object HasFlushFuture {
 class FlushFuture(name: String, override protected val loggerFactory: NamedLoggerFactory)
     extends HasFlushFuture {
 
-  override def addToFlushAndLogError(name: String)(future: Future[_])(implicit
+  override def addToFlushAndLogError(name: String)(future: Future[?])(implicit
       loggingContext: ErrorLoggingContext
   ): Unit = super.addToFlushAndLogError(name)(future)
 
-  override def addToFlushWithoutLogging(name: String)(future: Future[_]): Unit =
+  override def addToFlushWithoutLogging(name: String)(future: Future[?]): Unit =
     super.addToFlushWithoutLogging(name)(future)
 
   def flush(): Future[Unit] = doFlush()

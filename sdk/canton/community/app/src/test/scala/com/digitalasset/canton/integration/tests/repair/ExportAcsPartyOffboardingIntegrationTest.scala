@@ -6,10 +6,7 @@ package com.digitalasset.canton.integration.tests.repair
 import better.files.File
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.CommandFailure
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.util.AcsInspection
 import com.digitalasset.canton.integration.{
@@ -18,6 +15,8 @@ import com.digitalasset.canton.integration.{
   SharedEnvironment,
 }
 import com.digitalasset.canton.topology.PartyId
+
+import scala.annotation.nowarn
 
 /*
 In the case of a party migration, the ACS snapshot is used in the last step
@@ -34,7 +33,8 @@ from the ACS. Since we don't have the tooling to do that and since it would open
 other cans of worms (contract key journal), we make sure that the export_acs_old endpoint
 refuses to serve such a request.
  */
-class ExportAcsPartyOffboardingIntegrationTest
+@nowarn("cat=deprecation") // Usage of old acs export
+final class ExportAcsPartyOffboardingIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment
     with AcsInspection {
@@ -44,7 +44,7 @@ class ExportAcsPartyOffboardingIntegrationTest
 
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory)
+    new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory)
   )
 
   private var alice: PartyId = _

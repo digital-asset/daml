@@ -228,9 +228,20 @@ object PingService {
     protected def futureSupervisor: FutureSupervisor
     protected implicit def tracer: Tracer
 
-    override private[admin] def eventFormat: EventFormat =
-      // we can't filter by template id as we don't know when the admin workflow package is loaded
-      LedgerConnection.eventFormatByParty(Map(adminPartyId -> Seq.empty))
+    override private[admin] def eventFormat: EventFormat = {
+      val templates = Seq(
+        M.ping.Ping.TEMPLATE_ID,
+        M.bong.BongProposal.TEMPLATE_ID,
+        M.bong.Explode.TEMPLATE_ID,
+        M.bong.Collapse.TEMPLATE_ID,
+        M.bong.Merge.TEMPLATE_ID,
+        M.bong.Bong.TEMPLATE_ID,
+      )
+
+      LedgerConnection.eventFormatByParty(
+        Map(adminPartyId -> templates.map(LedgerConnection.mapTemplateIds))
+      )
+    }
 
     private[admin] abstract class ContractWithExpiry(
         val contractId: ContractId[?],

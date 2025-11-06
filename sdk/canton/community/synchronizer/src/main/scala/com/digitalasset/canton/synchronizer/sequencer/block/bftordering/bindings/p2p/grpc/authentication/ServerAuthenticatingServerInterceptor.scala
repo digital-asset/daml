@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.authentication
 
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.SynchronizerCrypto
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -54,6 +55,8 @@ private[bftordering] class ServerAuthenticatingServerInterceptor(
       crypto,
       supportedProtocolVersions,
       config,
+      metricsO = None,
+      metricsContext = MetricsContext.Empty,
       timeouts,
       loggerFactory,
     )
@@ -74,8 +77,10 @@ private[bftordering] class ServerAuthenticatingServerInterceptor(
           this,
           loggerFactory.getTracedLogger(getClass),
         )
-        // Add the endpoint info sent by the client (`externalAddress`) to the context, so we could use it to find
-        //  a potentially existing outgoing connection rather than accepting the incoming one.
+        // Add the endpoint info sent by the client (`externalAddress`) to the context, so we can use it to find
+        //  a potentially existing outgoing connection rather than accepting the incoming one;
+        //  if not found, we'll accept the incoming one, associate it with the endpoint
+        //  and won't create an outgoing one when we need to send.
         val contextWithEndpoint =
           Context
             .current()

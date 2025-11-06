@@ -38,7 +38,7 @@ DPM_REGISTRY=$3
 # DPM_REGISTRY="europe-docker.pkg.dev/da-images-dev/oci-playground"
 
 # Should match the tars copied into /release/oci during copy-{OS}-release-artifacts.sh
-declare -a components=(damlc daml-script daml2js codegen daml-new)
+declare -a components=(damlc daml-script codegen-js codegen-java daml-new upgrade-check)
 
 if [[ x"$DEBUG" != x ]]; then
   unarchive="tar -x -v -z -f"
@@ -92,9 +92,17 @@ function publish_artifact {
     info "Uploading ${artifact_name} to oci registry...\n"
     "${HOME}"/.dpm/bin/dpm \
       repo publish-component \
-        "${artifact_name}" "${RELEASE_TAG}" --extra-tags latest ${platform_args[@]} \
+        "${artifact_name}" "${RELEASE_TAG}" \
+        --extra-tags main \
+        --extra-tags $(extract_major_minor ${RELEASE_TAG}) \
+        ${platform_args[@]} \
         --registry "${DPM_REGISTRY}" 2>&1 | tee "${logs}/${artifact_name}-${RELEASE_TAG}.log"
   )
+}
+
+function extract_major_minor() {
+  version="$1"
+  echo "$version" | grep -oE '^[0-9]+\.[0-9]+'
 }
 
 for component in "${components[@]}"; do

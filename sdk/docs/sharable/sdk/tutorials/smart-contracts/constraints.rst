@@ -15,7 +15,7 @@ Lastly, you will learn about time on the ledger and in Daml Script.
 
 .. hint::
 
-  Remember that you can load all the code for this section into a folder called ``intro5`` by running ``daml new intro-constraints  --template daml-intro-constraints``
+  Remember that you can load all the code for this section into a folder called ``intro5`` by running ``dpm new intro-constraints  --template daml-intro-constraints``
 
 Template preconditions
 ----------------------

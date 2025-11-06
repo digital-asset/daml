@@ -6,11 +6,8 @@ package com.digitalasset.canton.integration.tests
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.util.{
   EntitySyntax,
@@ -37,7 +34,7 @@ final class PartyToParticipantDeclarativeIntegrationTest
 
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](
+    new UseReferenceBlockSequencer[DbConfig.Postgres](
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(Set("sequencer1"), Set("sequencer2")).map(_.map(InstanceName.tryCreate))
@@ -51,11 +48,12 @@ final class PartyToParticipantDeclarativeIntegrationTest
 
       participants.all.synchronizers.connect_local(sequencer1, daName)
       participants.all.synchronizers.connect_local(sequencer2, acmeName)
-      participants.all.dars.upload(CantonExamplesPath)
+      participants.all.dars.upload(CantonExamplesPath, synchronizerId = daId)
+      participants.all.dars.upload(CantonExamplesPath, synchronizerId = acmeId)
     }
 
   "Party to participant declarative" should {
-    "support all topology changes" in { implicit env =>
+    "support all topology changes (local)" in { implicit env =>
       import env.*
 
       // We consider only one synchronizer in this case since changes are per synchronizer
@@ -96,20 +94,120 @@ final class PartyToParticipantDeclarativeIntegrationTest
       )
     }
 
-    "allow party offboarding" in { implicit env =>
+    "support all topology changes (external)" in { implicit env =>
+      import env.*
+
+      // We consider only one synchronizer in this case since changes are per synchronizer
+
+      val chopperE = participant1.parties.external.enable("chopperE", synchronizer = daName)
+
+      participant1.parties.external.also_enable(chopperE, synchronizer = acmeName)
+
+      def changeTopology(
+          newThreshold: PositiveInt,
+          newPermissions: Set[(ParticipantId, ParticipantPermission)],
+      ): Unit = PartyToParticipantDeclarative(Set(participant1, participant2), Set(daId))(
+        owningParticipants = Map(),
+        externalParties = Set(chopperE),
+        targetTopology = Map(chopperE.partyId -> Map(daId -> (newThreshold, newPermissions))),
+      )
+
+      // replication on p2
+      changeTopology(
+        PositiveInt.one,
+        Set((participant1, Submission), (participant2, Submission)),
+      )
+
+      // changing threshold from one to two and permission on p2
+      changeTopology(
+        PositiveInt.two,
+        Set((participant1, Submission), (participant2, Confirmation)),
+      )
+
+      // offboarding from p1 and changing permission on p2
+      changeTopology(
+        PositiveInt.one,
+        Set((participant2, Submission)),
+      )
+
+      // onboarding to p1 again
+      changeTopology(
+        PositiveInt.one,
+        Set((participant1, Confirmation), (participant2, Submission)),
+      )
+    }
+
+    "support party replication in multi-synchronizer scenario (external)" in { implicit env =>
+      import env.*
+
+      val donaldE = participant1.parties.external.enable("donaldE", synchronizer = daName)
+
+      participant1.parties.external.also_enable(donaldE, synchronizer = acmeName)
+
+      val targetHosting: (PositiveInt, Set[(ParticipantId, ParticipantPermission)]) = (
+        PositiveInt.one,
+        Set(
+          (participant1, Confirmation),
+          (participant2, Confirmation),
+        ),
+      )
+
+      PartyToParticipantDeclarative(Set(participant1, participant2), Set(daId, acmeId))(
+        owningParticipants = Map(),
+        externalParties = Set(donaldE),
+        targetTopology = Map(
+          donaldE.partyId -> Map(
+            daId -> targetHosting,
+            acmeId -> targetHosting,
+          )
+        ),
+      )
+
+      forAll(Seq(daId, acmeId)) { synchronizer =>
+        participant1.topology.party_to_participant_mappings
+          .list(synchronizer, filterParty = donaldE.filterString)
+          .flatMap(_.item.participants.map(_.participantId)) should contain theSameElementsAs Seq(
+          participant1.id,
+          participant2.id,
+        )
+      }
+    }
+
+    "allow party offboarding from synchronizer (local)" in { implicit env =>
       import env.*
 
       val bob = participant1.parties.enable("bob", synchronizer = daName)
-      participant1.parties.enable("bob", synchronizer = acmeName)
 
-      Seq(daId, acmeId).foreach { synchronizerId =>
-        PartyToParticipantDeclarative.forParty(Set(participant1), synchronizerId)(
-          participant1,
-          bob,
-          PositiveInt.one,
-          Set((participant1, Submission)),
-        )
-      }
+      participant1.topology.party_to_participant_mappings
+        .list(daId, filterParty = bob.filterString) should not be empty
+
+      PartyToParticipantDeclarative(Set(participant1), Set(daId))(
+        Map(bob -> participant1),
+        // Offboarding from da
+        Map(),
+      )
+
+      participant1.topology.party_to_participant_mappings
+        .list(daId, filterParty = bob.filterString) shouldBe empty
+    }
+
+    "allow party offboarding from synchronizer (external)" in { implicit env =>
+      import env.*
+
+      val bobE = participant1.parties.external.enable("bobE", synchronizer = daName)
+
+      participant1.topology.party_to_participant_mappings
+        .list(daId, filterParty = bobE.filterString) should not be empty
+
+      PartyToParticipantDeclarative(Set(participant1), Set(daId))(
+        Map(),
+        // Offboarding from da
+        Map(),
+        externalParties = Set(bobE),
+      )
+
+      participant1.topology.party_to_participant_mappings
+        .list(daId, filterParty = bobE.filterString) shouldBe empty
     }
   }
 

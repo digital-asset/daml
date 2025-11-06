@@ -3,23 +3,20 @@
 
 package com.digitalasset.canton.integration.tests.jsonapi
 
-import com.digitalasset.canton.UniquePortGenerator
 import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.http.{HttpServerConfig, JsonApiConfig}
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.integration.tests.ledgerapi.submission.BaseInteractiveSubmissionTest.ParticipantSelector
 import com.digitalasset.canton.integration.{
   ConfigTransforms,
   EnvironmentDefinition,
   TestConsoleEnvironment,
 }
-import com.digitalasset.canton.participant.config.ParticipantNodeConfig
 import org.apache.pekko.http.scaladsl.model.{StatusCodes, Uri}
 
 class JsonPathPrefixTests
     extends AbstractHttpServiceIntegrationTestFuns
     with HttpServiceUserFixture.UserToken {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   private lazy val testCases: Map[String, Option[String]] = Map(
     "participant1" -> Some("/any/company/prefix"),
@@ -36,27 +33,11 @@ class JsonPathPrefixTests
         }
         createChannel(participant1)
       }
-      .addConfigTransforms(
+      .prependConfigTransforms(
         testCases.toSeq.map { case (participant, prefix) =>
-          ConfigTransforms
-            .updateParticipantConfig(participant)(runJsonWithPrefix(prefix))
+          ConfigTransforms.enableHttpLedgerApi(participant, pathPrefix = prefix)
         }*
       )
-
-  private def runJsonWithPrefix(
-      prefix: Option[String]
-  ): ParticipantNodeConfig => ParticipantNodeConfig = { participantConfig =>
-    participantConfig.copy(httpLedgerApi =
-      Some(
-        JsonApiConfig(
-          server = HttpServerConfig().copy(
-            port = Some(UniquePortGenerator.next.unwrap),
-            pathPrefix = prefix,
-          )
-        )
-      )
-    )
-  }
 
   def testService(participantSelector: ParticipantSelector, prefix: Option[String])(implicit
       env: TestConsoleEnvironment

@@ -1811,7 +1811,17 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
     "reject ill formed type record definitions" in {
 
       def checkModule(mod: Module) = {
-        val pkg = Package.build(List(mod), List.empty, defaultLanguageVersion, packageMetadata)
+        val pkg =
+          Package.build(
+            modules = List(mod),
+            directDeps = List.empty,
+            languageVersion = defaultLanguageVersion,
+            metadata = packageMetadata,
+            imports = GeneratedImports(
+              reason = "package made in com.digitalasset.daml.lf.validation.TypingSpecV2",
+              pkgIds = Set.empty,
+            ),
+          )
         Typing.checkModule(
           pkgInterface = PackageInterface(Map(defaultPackageId -> pkg)),
           pkgId = defaultPackageId,
@@ -1838,7 +1848,17 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
     "reject ill formed type variant definitions" in {
 
       def checkModule(mod: Module) = {
-        val pkg = Package.build(List(mod), List.empty, defaultLanguageVersion, packageMetadata)
+        val pkg =
+          Package.build(
+            modules = List(mod),
+            directDeps = List.empty,
+            languageVersion = defaultLanguageVersion,
+            metadata = packageMetadata,
+            imports = GeneratedImports(
+              reason = "package made in com.digitalasset.daml.lf.validation.TypingSpecV2",
+              pkgIds = Set.empty,
+            ),
+          )
         Typing.checkModule(
           pkgInterface = PackageInterface(Map(defaultPackageId -> pkg)),
           pkgId = defaultPackageId,
@@ -1865,7 +1885,17 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
     "reject ill formed type synonym definitions" in {
 
       def checkModule(mod: Module) = {
-        val pkg = Package.build(List(mod), List.empty, defaultLanguageVersion, packageMetadata)
+        val pkg =
+          Package.build(
+            modules = List(mod),
+            directDeps = List.empty,
+            languageVersion = defaultLanguageVersion,
+            metadata = packageMetadata,
+            imports = GeneratedImports(
+              reason = "package made in com.digitalasset.daml.lf.validation.TypingSpecV2",
+              pkgIds = Set.empty,
+            ),
+          )
         Typing.checkModule(
           pkgInterface = PackageInterface(Map(defaultPackageId -> pkg)),
           pkgId = defaultPackageId,

@@ -1,15 +1,7 @@
 -- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE NoImplicitPrelude #-}
-
-#ifndef DAML_EXCEPTIONS
-
--- | HIDE
-module DA.Internal.Exception where
-
-#else
 
 -- | MOVE DA.Exception This module contains the definitions needed for exception desugaring.
 module DA.Internal.Exception
@@ -189,5 +181,3 @@ instance ActionCatch Update where
     _tryCatch = primitive @"UTryCatch"
 
 -- Can't catch in scenarios.
-
-#endif

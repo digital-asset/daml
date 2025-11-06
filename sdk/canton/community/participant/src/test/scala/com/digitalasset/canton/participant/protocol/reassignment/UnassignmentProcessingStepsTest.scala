@@ -27,7 +27,7 @@ import com.digitalasset.canton.data.*
 import com.digitalasset.canton.data.ViewType.UnassignmentViewType
 import com.digitalasset.canton.lifecycle.{DefaultPromiseUnlessShutdownFactory, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.LogEntry
-import com.digitalasset.canton.participant.admin.PackageDependencyResolver
+import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.participant.ledger.api.{LedgerApiIndexer, LedgerApiStore}
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
@@ -58,11 +58,8 @@ import com.digitalasset.canton.participant.protocol.validation.{
   AuthenticationError,
   AuthenticationValidator,
 }
-import com.digitalasset.canton.participant.protocol.{
-  ContractAuthenticator,
-  EngineController,
-  ProcessingStartingPoints,
-}
+import com.digitalasset.canton.participant.protocol.{EngineController, ProcessingStartingPoints}
+import com.digitalasset.canton.participant.store.ActiveContractStore.Active
 import com.digitalasset.canton.participant.store.memory.*
 import com.digitalasset.canton.participant.store.{
   AcsCounterParticipantConfigStore,
@@ -82,7 +79,7 @@ import com.digitalasset.canton.store.{
   SessionKeyStoreWithInMemoryCache,
 }
 import com.digitalasset.canton.time.SynchronizerTimeTracker.DummyTickRequest
-import com.digitalasset.canton.time.{SynchronizerTimeTracker, TimeProofTestUtil, WallClock}
+import com.digitalasset.canton.time.{SynchronizerTimeTracker, WallClock}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -94,7 +91,7 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
-import com.digitalasset.canton.util.ResourceUtil
+import com.digitalasset.canton.util.{ContractValidator, ResourceUtil}
 import com.digitalasset.canton.version.HasTestCloseContext
 import com.digitalasset.canton.{
   BaseTest,
@@ -108,10 +105,14 @@ import com.digitalasset.canton.{
   RequestCounter,
   SequencerCounter,
 }
+import com.google.rpc.status.Status
+import io.grpc.Status.Code.FAILED_PRECONDITION
 import org.scalatest.wordspec.AsyncWordSpec
 
+import java.time.Instant
 import java.util.UUID
 import scala.annotation.nowarn
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 
 @nowarn("msg=match may not be exhaustive")
@@ -186,12 +187,10 @@ final class UnassignmentProcessingStepsTest
     SynchronizerCrypto(crypto, defaultStaticSynchronizerParameters),
     IndexedPhysicalSynchronizer.tryCreate(sourceSynchronizer.unwrap, 1),
     defaultStaticSynchronizerParameters,
-    exitOnFatalFailures = true,
-    disableUpgradeValidation = false,
-    packageDependencyResolver = mock[PackageDependencyResolver],
+    parameters = ParticipantNodeParameters.forTestingOnly(testedProtocolVersion),
+    packageMetadataView = mock[PackageMetadataView],
     Eval.now(mock[LedgerApiStore]),
     logicalPersistentState,
-    Eval.now(mock[PackageMetadataView]),
     loggerFactory,
     timeouts,
     futureSupervisor,
@@ -232,7 +231,7 @@ final class UnassignmentProcessingStepsTest
     sourceSynchronizer,
     sourceMediator,
     targetSynchronizer,
-    timeProof,
+    targetTs,
   )
 
   private def createTestingIdentityFactory(
@@ -289,15 +288,18 @@ final class UnassignmentProcessingStepsTest
   private lazy val seedGenerator = new SeedGenerator(crypto.pureCrypto)
 
   private def createReassignmentCoordination(
-      cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi = cryptoSnapshot
+      cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi = cryptoSnapshot,
+      approximateTimestamp: CantonTimestamp = CantonTimestamp.Epoch,
+      targetTimestampForwardTolerance: FiniteDuration = 30.seconds,
   ) =
     TestReassignmentCoordination(
       Set(Target(sourceSynchronizer.unwrap), targetSynchronizer),
-      CantonTimestamp.Epoch,
+      approximateTimestamp,
       Some(cryptoSnapshot),
       Some(None),
       loggerFactory,
       Seq(ExampleTransactionFactory.packageId),
+      targetTimestampForwardTolerance = targetTimestampForwardTolerance,
     )(directExecutionContext)
 
   private lazy val coordination: ReassignmentCoordination =
@@ -314,7 +316,7 @@ final class UnassignmentProcessingStepsTest
       cryptoClient,
       seedGenerator,
       Source(defaultStaticSynchronizerParameters),
-      ContractAuthenticator(crypto.pureCrypto),
+      ContractValidator.AllowAll,
       Source(testedProtocolVersion),
       loggerFactory,
     )(executorService)
@@ -335,17 +337,15 @@ final class UnassignmentProcessingStepsTest
       participant -> admin
     }
 
-  private lazy val timeProof =
-    TimeProofTestUtil.mkTimeProof(
-      timestamp = CantonTimestamp.Epoch,
-      targetSynchronizer = targetSynchronizer,
-    )
+  private lazy val targetTs = Target(CantonTimestamp.Epoch)
 
   private lazy val contract = ExampleContractFactory.build(
     signatories = Set(submitter),
     stakeholders = Set(submitter, party1),
   )
   private lazy val contractId = contract.contractId
+
+  private val reassignmentId = ReassignmentId.tryCreate("00")
 
   private def mkParsedRequest(
       view: FullUnassignmentTree,
@@ -365,7 +365,7 @@ final class UnassignmentProcessingStepsTest
     sourceMediator,
     cryptoSnapshot,
     cryptoSnapshot.ipsSnapshot.findDynamicSynchronizerParameters().futureValueUS.value,
-    ReassignmentId.tryCreate("00"),
+    reassignmentId,
   )
 
   "UnassignmentRequest.validated" should {
@@ -404,7 +404,6 @@ final class UnassignmentProcessingStepsTest
       UnassignmentRequest
         .validated(
           submittingParticipant,
-          timeProof,
           ContractsReassignmentBatch(
             updatedContract,
             initialReassignmentCounter,
@@ -603,7 +602,7 @@ final class UnassignmentProcessingStepsTest
             sourceSynchronizer = sourceSynchronizer,
             sourceMediator = sourceMediator,
             targetSynchronizer = targetSynchronizer,
-            targetTimeProof = timeProof,
+            targetTimestamp = targetTs,
           ),
           Set(submittingParticipant, participant1, participant2),
         )
@@ -643,7 +642,7 @@ final class UnassignmentProcessingStepsTest
             sourceSynchronizer = sourceSynchronizer,
             sourceMediator = sourceMediator,
             targetSynchronizer = targetSynchronizer,
-            targetTimeProof = timeProof,
+            targetTimestamp = targetTs,
           ),
           Set(submittingParticipant, participant1, participant2, participant3, participant4),
         )
@@ -672,7 +671,7 @@ final class UnassignmentProcessingStepsTest
           sourceSynchronizer = sourceSynchronizer,
           sourceMediator = sourceMediator,
           targetSynchronizer = targetSynchronizer,
-          targetTimeProof = timeProof,
+          targetTimestamp = targetTs,
         ),
         Set(submittingParticipant, participant1),
       )
@@ -696,7 +695,7 @@ final class UnassignmentProcessingStepsTest
         _ <- persistentState.activeContractStore
           .markContractsCreated(
             Seq(contractId -> initialReassignmentCounter),
-            TimeOfChange(timeProof.timestamp),
+            TimeOfChange(targetTs.unwrap),
           )
           .value
         _ <-
@@ -780,7 +779,8 @@ final class UnassignmentProcessingStepsTest
   "construct pending data and response" should {
 
     def constructPendingDataAndResponseWith(
-        unassignmentProcessingSteps: UnassignmentProcessingSteps
+        unassignmentProcessingSteps: UnassignmentProcessingSteps,
+        requestTargetTs: Target[CantonTimestamp] = targetTs,
     ) = {
       val state = mkState
       val unassignmentRequest = UnassignmentRequest(
@@ -788,12 +788,12 @@ final class UnassignmentProcessingStepsTest
         reassigningParticipants = Set(submittingParticipant),
         ContractsReassignmentBatch(
           contract,
-          initialReassignmentCounter,
+          ReassignmentCounter(1),
         ),
         sourceSynchronizer,
         sourceMediator,
         targetSynchronizer,
-        timeProof,
+        requestTargetTs,
       )
       val fullUnassignmentTree = makeFullUnassignmentTree(unassignmentRequest)
 
@@ -817,7 +817,11 @@ final class UnassignmentProcessingStepsTest
             signatureO = signature,
           ),
           state.reassignmentCache,
-          FutureUnlessShutdown.pure(mkActivenessResult()),
+          FutureUnlessShutdown.pure(
+            mkActivenessResult(
+              prior = Map(contract.contractId -> Some(Active(initialReassignmentCounter)))
+            )
+          ),
           engineController = EngineController(
             submittingParticipant,
             RequestId(CantonTimestamp.Epoch),
@@ -852,6 +856,45 @@ final class UnassignmentProcessingStepsTest
       ).value.pendingData.unassignmentValidationResult.reassigningParticipantValidationResult.errors.head shouldBe a[
         PackageIdUnknownOrUnvetted
       ]
+    }
+
+    "with a requested target timestamp" should {
+      val localTs = CantonTimestamp.assertFromInstant(Instant.parse("2020-01-01T00:00:00Z"))
+      val forwardTolerance = 2.seconds
+
+      def getConfirmationResponses(requestTargetTs: CantonTimestamp): Seq[ConfirmationResponse] =
+        constructPendingDataAndResponseWith(
+          createUnassignmentProcessingSteps(
+            createReassignmentCoordination(
+              approximateTimestamp = localTs,
+              targetTimestampForwardTolerance = forwardTolerance,
+            )
+          ),
+          requestTargetTs = Target(requestTargetTs),
+        ).value.confirmationResponsesF.value.futureValueUS.value.value._1.responses
+
+      "approve when less than forward-tolerance ahead of local timestamp" in {
+        getConfirmationResponses(
+          requestTargetTs = localTs.add(forwardTolerance).add(-1.millisecond)
+        ) should matchPattern { case Seq(ConfirmationResponse(_, _: LocalApprove, _)) =>
+        }
+      }
+      "approve when exactly forward-tolerance ahead of local timestamp" in {
+        getConfirmationResponses(
+          requestTargetTs = localTs.add(forwardTolerance)
+        ) should matchPattern { case Seq(ConfirmationResponse(_, _: LocalApprove, _)) =>
+        }
+      }
+      "abstain when more than forward-tolerance ahead of local timestamp" in {
+        getConfirmationResponses(
+          requestTargetTs = localTs.add(forwardTolerance).add(1.millisecond)
+        ) should matchPattern {
+          case Seq(ConfirmationResponse(_, LocalAbstain(Status(code, msg, _, _)), _))
+              if code == FAILED_PRECONDITION.value && msg.contains(
+                s"Non-validatable target timestamp when processing unassignment $reassignmentId"
+              ) =>
+        }
+      }
     }
   }
 
@@ -899,7 +942,7 @@ final class UnassignmentProcessingStepsTest
       testedProtocolVersion,
     )
     val assignmentExclusivity = synchronizerParameters
-      .assignmentExclusivityLimitFor(timeProof.timestamp)
+      .assignmentExclusivityLimitFor(targetTs.unwrap)
       .value
 
     val fullUnassignmentTree = makeFullUnassignmentTree(unassignmentRequest)

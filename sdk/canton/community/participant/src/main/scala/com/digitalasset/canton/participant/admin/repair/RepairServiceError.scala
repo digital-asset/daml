@@ -13,33 +13,12 @@ import com.digitalasset.canton.participant.store.AcsInspectionError
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.version.ProtocolVersion
 
 sealed trait RepairServiceError extends Product with Serializable with CantonBaseError
 
 object RepairServiceError extends RepairServiceErrorGroup {
 
-  @Explanation("The participant does not support the requested protocol version.")
-  @Resolution(
-    "Specify a protocol version that the participant supports or upgrade the participant to a release that supports the requested protocol version."
-  )
-  object UnsupportedProtocolVersionParticipant
-      extends ErrorCode(
-        id = "UNSUPPORTED_PROTOCOL_VERSION_PARTICIPANT",
-        ErrorCategory.InvalidIndependentOfSystemState,
-      ) {
-    final case class Error(
-        requestedProtocolVersion: ProtocolVersion,
-        supportedVersions: Seq[ProtocolVersion] = ProtocolVersion.supported,
-    )(implicit
-        val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(
-          cause =
-            s"The participant does not support the requested protocol version $requestedProtocolVersion"
-        )
-        with RepairServiceError
-  }
-
+  // TODO(#24610) – Remove, replaced by exportAcs
   @Explanation(
     "The participant does not support serving an ACS snapshot at the requested timestamp, likely because some concurrent processing has not yet finished."
   )
@@ -64,6 +43,7 @@ object RepairServiceError extends RepairServiceErrorGroup {
         with RepairServiceError
   }
 
+  // TODO(#24610) – Remove, replaced by exportAcs
   @Explanation(
     "The participant does not support serving an ACS snapshot at the requested timestamp because its database has already been pruned, e.g., by the continuous background pruning process."
   )
@@ -88,6 +68,7 @@ object RepairServiceError extends RepairServiceErrorGroup {
         with RepairServiceError
   }
 
+  // TODO(#24610) – Remove, replaced by exportAcs
   @Explanation(
     "The ACS snapshot cannot be returned because it contains inconsistencies. This is likely due to the request happening concurrently with pruning."
   )
@@ -108,6 +89,7 @@ object RepairServiceError extends RepairServiceErrorGroup {
         with RepairServiceError
   }
 
+  // TODO(#24610) – Remove, replaced by exportAcs
   @Explanation(
     "A contract cannot be serialized due to an error."
   )
@@ -137,6 +119,26 @@ object RepairServiceError extends RepairServiceErrorGroup {
         with RepairServiceError
   }
 
+  object InvalidState
+      extends ErrorCode(
+        id = "INVALID_STATE_REPAIR_ERROR",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class Error(reason: String)(implicit val loggingContext: ErrorLoggingContext)
+        extends CantonError.Impl(reason)
+        with RepairServiceError
+  }
+
+  object IOStream
+      extends ErrorCode(
+        id = "IO_STREAM_REPAIR_ERROR",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class Error(reason: String)(implicit val loggingContext: ErrorLoggingContext)
+        extends CantonError.Impl(reason)
+        with RepairServiceError
+  }
+
   @Explanation(
     "A contract cannot be purged due to an error."
   )
@@ -154,12 +156,8 @@ object RepairServiceError extends RepairServiceErrorGroup {
         with RepairServiceError
   }
 
-  @Explanation(
-    "The assignation of a contract cannot be changed due to an error."
-  )
-  @Resolution(
-    "Retry after operator intervention."
-  )
+  @Explanation("The assignation of a contract cannot be changed due to an error.")
+  @Resolution("Retry after operator intervention.")
   object ContractAssignationChangeError
       extends ErrorCode(
         id = "CONTRACT_ASSIGNATION_CHANGE_ERROR",
@@ -171,12 +169,8 @@ object RepairServiceError extends RepairServiceErrorGroup {
         with RepairServiceError
   }
 
-  @Explanation(
-    "Import Acs has failed."
-  )
-  @Resolution(
-    "Retry after operator intervention."
-  )
+  @Explanation("Import ACS has failed.")
+  @Resolution("Retry after operator intervention.")
   object ImportAcsError
       extends ErrorCode(
         id = "IMPORT_ACS_ERROR",
@@ -188,6 +182,7 @@ object RepairServiceError extends RepairServiceErrorGroup {
         with RepairServiceError
   }
 
+  // TODO(#24610) – Remove, replaced by exportAcs
   def fromAcsInspectionError(acsError: AcsInspectionError, logger: TracedLogger)(implicit
       traceContext: TraceContext,
       elc: ErrorLoggingContext,

@@ -26,6 +26,7 @@ module DA.Daml.LF.ScriptServiceClient.LowLevel
   , SS.WarningMessage(..)
   , SS.Location(..)
   , encodeSinglePackageModule
+  , encodeSinglePackageModuleWithImports
   , ScriptServiceException(..)
   ) where
 
@@ -111,6 +112,10 @@ data ContextUpdate = ContextUpdate
 
 encodeSinglePackageModule :: LF.Version -> LF.Module -> BS.ByteString
 encodeSinglePackageModule version m =
+    BSL.toStrict (Proto.toLazyByteString (Encode.encodeSinglePackageModule version (m, Left $ LF.noPkgImportsReasonTrace "DA.Daml.LF.ScriptServiceClient.LowLevel:encodeSinglePackageModule")))
+
+encodeSinglePackageModuleWithImports :: LF.Version -> LF.ModuleWithImports -> BS.ByteString
+encodeSinglePackageModuleWithImports version m =
     BSL.toStrict (Proto.toLazyByteString (Encode.encodeSinglePackageModule version m))
 
 data BackendError
@@ -327,7 +332,7 @@ updateCtx Handle{..} (ContextId ctxId) ContextUpdate{..} = do
           (Just updModules)
           (Just updPackages)
           (getSkipValidation updSkipValidation)
-          (Just $ convPackageMetadata updPackageMetadata) 
+          (Just $ convPackageMetadata updPackageMetadata)
   pure (void res)
   where
     updModules =
@@ -352,7 +357,7 @@ mangleModuleName (LF.ModuleName modName) =
     map (fromRight (error "Failed to mangle script module name") . mangleIdentifier) modName
 
 mangleScriptName :: LF.ModuleName -> LF.ExprValName -> TL.Text
-mangleScriptName modName scriptName = 
+mangleScriptName modName scriptName =
   TL.fromStrict $
   mangleModuleName modName
   <> ":"

@@ -7,7 +7,8 @@ import * as vscode from "vscode";
 import { LanguageClient, NotificationType } from "vscode-languageclient/node";
 
 interface DamlSdkInstallProgressNotification {
-  sdkVersion: string;
+  sdkVersionIdentifier: string; // Unique indentifier with overrides hash i.e. 3.4.0-with-overrides-495374952876
+  sdkVersionRendered: string; // Human readable version string i.e. 3.4.0 (with 2 overrides)
   kind: "begin" | "report" | "end";
   progress: number;
 }
@@ -19,7 +20,7 @@ export namespace DamlSdkInstallProgress {
 }
 
 interface DamlSdkInstallCancelNotification {
-  sdkVersion: string;
+  sdkVersionIdentifier: string;
 }
 
 namespace DamlSdkInstallCancel {
@@ -49,20 +50,20 @@ export function handleDamlSdkInstallProgress(
         {
           location: vscode.ProgressLocation.Notification,
           cancellable: true,
-          title: "Installing Daml SDK " + message.sdkVersion,
+          title: "Installing Daml SDK " + message.sdkVersionRendered,
         },
         async (
           progress: Progress,
           cancellationToken: vscode.CancellationToken,
         ) => {
           cancellationToken.onCancellationRequested(() => {
-            delete sdkInstallState[message.sdkVersion];
+            delete sdkInstallState[message.sdkVersionIdentifier];
             damlLanguageClient.sendNotification(DamlSdkInstallCancel.type, {
-              sdkVersion: message.sdkVersion,
+              sdkVersionIdentifier: message.sdkVersionIdentifier,
             });
           });
           return new Promise<void>((resolve, _) => {
-            sdkInstallState[message.sdkVersion] = {
+            sdkInstallState[message.sdkVersionIdentifier] = {
               progress,
               resolve,
               reported: 0,
@@ -72,15 +73,15 @@ export function handleDamlSdkInstallProgress(
       );
       break;
     case "report":
-      let progressData = sdkInstallState[message.sdkVersion];
+      let progressData = sdkInstallState[message.sdkVersionIdentifier];
       if (!progressData) return;
       let diff = Math.max(0, message.progress - progressData.reported);
       progressData.progress.report({ increment: diff });
       progressData.reported += diff;
       break;
     case "end":
-      sdkInstallState[message.sdkVersion]?.resolve();
-      delete sdkInstallState[message.sdkVersion];
+      sdkInstallState[message.sdkVersionIdentifier]?.resolve();
+      delete sdkInstallState[message.sdkVersionIdentifier];
       break;
   }
 }

@@ -78,7 +78,7 @@ object HashPurpose {
   val AssignmentView = HashPurpose(27, "AssignmentView")
   val _TransferViewTreeMessageSeed = HashPurpose(28, "TransferViewTreeMessageSeed")
   val Unicum = HashPurpose(29, "Unicum")
-  val RepairTransactionId = HashPurpose(30, "RepairTransactionId")
+  val RepairUpdateId = HashPurpose(30, "RepairUpdateId")
   val _MediatorLeadershipEvent = HashPurpose(31, "MediatorLeadershipEvent")
   val _LegalIdentityClaim = HashPurpose(32, "LegalIdentityClaim")
   val DbLockId = HashPurpose(33, "DbLockId")
@@ -107,4 +107,10 @@ object HashPurpose {
   val SessionKeyDelegation = HashPurpose(56, "SessionKeyDelegation")
   val ReassignmentId = HashPurpose(57, "ReassignmentId")
   val EncryptedSessionKey = HashPurpose(58, "EncryptedSessionKey")
+  val ContractIdAbsolutization = HashPurpose(59, "ContractIdAbsolutization")
+  val InitialTopologyStateConsistency = HashPurpose(60, "InitialTopologyStateConsistency")
+
+  // Do not use for anything other than testing or "mock" hashes
+  // Is not in a testing-only module because it used in traffic cost estimation that requires mock hashes
+  val TestHashPurpose: HashPurpose = HashPurpose(-1, "testing")
 }

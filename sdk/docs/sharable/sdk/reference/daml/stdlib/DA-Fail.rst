@@ -33,7 +33,7 @@ Data Types
 
   The category of the failure, which determines the status code and log
   level of the failure\. Maps 1\-1 to the Canton error categories documented
-  here\: https\://docs\.daml\.com/canton/reference/error\_codes\.html\#error\-categories\-inventory
+  here\: https\://docs\.digitalasset\.com/operate/3\.4/reference/error\_codes\.html\#error\-categories\-inventory
 
   If you are more familiar with gRPC error codes, you can use the synonyms referenced in the
   comments\.
@@ -47,7 +47,7 @@ Data Types
 
     Corresponds to the gRPC status code ``INVALID_ARGUMENT``\.
 
-    See https\://docs\.daml\.com/canton/reference/error\_codes\.html\#invalidindependentofsystemstate
+    See https\://docs\.digitalasset\.com/operate/3\.4/reference/error\_codes\.html\#invalidindependentofsystemstate
     for more information\.
 
   .. _constr-da-internal-fail-types-invalidgivencurrentsystemstateother-6547:
@@ -60,7 +60,7 @@ Data Types
 
     Corresponds to the gRPC status code ``FAILED_PRECONDITION``\.
 
-    See https\://docs\.daml\.com/canton/reference/error\_codes\.html\#invalidgivencurrentsystemstateother
+    See https\://docs\.digitalasset\.com/operate/3\.4/reference/error\_codes\.html\#error\-categories\-inventory
     for more information\.
 
   **instance** :ref:`Eq <class-ghc-classes-eq-22713>` `FailureCategory <type-da-internal-fail-types-failurecategory-97811_>`_

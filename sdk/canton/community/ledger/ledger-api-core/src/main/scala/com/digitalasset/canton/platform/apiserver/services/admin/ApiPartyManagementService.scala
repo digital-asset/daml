@@ -3,11 +3,17 @@
 
 package com.digitalasset.canton.platform.apiserver.services.admin
 
+import cats.syntax.either.*
 import com.daml.ledger.api.v2.admin.object_meta.ObjectMeta as ProtoObjectMeta
+import com.daml.ledger.api.v2.admin.party_management_service.AllocateExternalPartyRequest.SignedTransaction
 import com.daml.ledger.api.v2.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
 import com.daml.ledger.api.v2.admin.party_management_service.{
+  AllocateExternalPartyRequest,
+  AllocateExternalPartyResponse,
   AllocatePartyRequest,
   AllocatePartyResponse,
+  GenerateExternalPartyTopologyRequest,
+  GenerateExternalPartyTopologyResponse,
   GetParticipantIdRequest,
   GetParticipantIdResponse,
   GetPartiesRequest,
@@ -22,14 +28,17 @@ import com.daml.ledger.api.v2.admin.party_management_service.{
   UpdatePartyIdentityProviderIdResponse,
 }
 import com.daml.logging.LoggingContext
+import com.daml.nonempty.NonEmpty
 import com.daml.platform.v1.page_tokens.ListPartiesPageTokenPayload
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.auth.AuthorizationChecksErrors
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.crypto.v30.{SigningKeyScheme, SigningKeyUsage}
+import com.digitalasset.canton.crypto.{Signature, SigningPublicKey, v30}
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.validation.FieldValidator.*
-import com.digitalasset.canton.ledger.api.validation.ValidationErrors
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.requirePresence
+import com.digitalasset.canton.ledger.api.validation.{CryptoValidator, ValidationErrors}
 import com.digitalasset.canton.ledger.api.{
   IdentityProviderId,
   ObjectMeta,
@@ -37,10 +46,12 @@ import com.digitalasset.canton.ledger.api.{
   User,
   UserRight,
 }
+import com.digitalasset.canton.ledger.error.CommonErrors
 import com.digitalasset.canton.ledger.error.groups.{
   PartyManagementServiceErrors,
   RequestValidationErrors,
 }
+import com.digitalasset.canton.ledger.localstore.api.UserManagementStore.UserInfo
 import com.digitalasset.canton.ledger.localstore.api.{
   ObjectMetaUpdate,
   PartyDetailsUpdate,
@@ -50,7 +61,11 @@ import com.digitalasset.canton.ledger.localstore.api.{
   UserManagementStore,
 }
 import com.digitalasset.canton.ledger.participant.state
-import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationEvent
+import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel.Observation
+import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.{
+  AuthorizationEvent,
+  AuthorizationLevel,
+}
 import com.digitalasset.canton.ledger.participant.state.index.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.*
@@ -60,14 +75,23 @@ import com.digitalasset.canton.logging.LoggingContextWithTrace.{
   withEnrichedLoggingContext,
 }
 import com.digitalasset.canton.platform.apiserver.services.admin.ApiPartyManagementService.*
-import com.digitalasset.canton.platform.apiserver.services.admin.PartyAllocation
+import com.digitalasset.canton.platform.apiserver.services.admin.AuthenticatedUserContextResolver.AuthenticatedUserContext
+import com.digitalasset.canton.platform.apiserver.services.admin.{
+  PartyAllocation,
+  PendingPartyAllocations,
+}
 import com.digitalasset.canton.platform.apiserver.services.logging
 import com.digitalasset.canton.platform.apiserver.services.tracking.StreamTracker
 import com.digitalasset.canton.platform.apiserver.update
 import com.digitalasset.canton.platform.apiserver.update.PartyRecordUpdateMapper
+import com.digitalasset.canton.serialization.ProtoConverter
+import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.transaction.*
+import com.digitalasset.canton.topology.transaction.DelegationRestriction.CanSignAllMappings
+import com.digitalasset.canton.topology.transaction.TopologyTransaction.PositiveTopologyTransaction
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionValidation}
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.Party
 import io.grpc.Status.Code.ALREADY_EXISTS
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 import io.opentelemetry.api.trace.Tracer
@@ -86,6 +110,7 @@ private[apiserver] final class ApiPartyManagementService private (
     userManagementStore: UserManagementStore,
     identityProviderExists: IdentityProviderExists,
     maxPartiesPageSize: PositiveInt,
+    maxSelfAllocatedParties: NonNegativeInt,
     partyRecordStore: PartyRecordStore,
     syncService: state.PartySyncService,
     managementServiceTimeout: FiniteDuration,
@@ -98,7 +123,10 @@ private[apiserver] final class ApiPartyManagementService private (
     tracer: Tracer,
 ) extends PartyManagementService
     with GrpcApiService
-    with NamedLogging {
+    with NamedLogging
+    with AuthenticatedUserContextResolver {
+
+  private val pendingPartyAllocations = new PendingPartyAllocations()
 
   private implicit val loggingContext: LoggingContext =
     createLoggingContext(loggerFactory)(identity)
@@ -135,7 +163,7 @@ private[apiserver] final class ApiPartyManagementService private (
           )
           parties <- request.parties.toList.traverse(requireParty)
         } yield (parties, identityProviderId)
-      } { case (parties: Seq[Party], identityProviderId: IdentityProviderId) =>
+      } { case (parties: Seq[Ref.Party], identityProviderId: IdentityProviderId) =>
         for {
           partyDetailsSeq <- partyManagementService.getParties(parties)
           partyRecordOptions <- fetchPartyRecords(partyDetailsSeq)
@@ -215,7 +243,10 @@ private[apiserver] final class ApiPartyManagementService private (
         key: PartyAllocation.TrackerKey
     )(implicit errorLogger: ErrorLoggingContext): StatusRuntimeException =
       CommonErrors.RequestAlreadyInFlight
-        .Reject(requestId = key.submissionId)
+        .Reject(
+          requestId = key.submissionId,
+          details = s"Party ${key.party} is in the process of being allocated on this node.",
+        )
         .asGrpcError
   }
 
@@ -233,6 +264,9 @@ private[apiserver] final class ApiPartyManagementService private (
       )
       implicit val errorLoggingContext: ErrorLoggingContext =
         ErrorLoggingContext(logger, loggingContext.toPropertiesMap, loggingContext.traceContext)
+      // Retrieving the authenticated user context from the thread-local context
+      val authenticatedUserContextF: Future[AuthenticatedUserContext] =
+        resolveAuthenticatedUserContext
       import com.digitalasset.canton.config.NonNegativeFiniteDuration
 
       withValidation {
@@ -265,46 +299,59 @@ private[apiserver] final class ApiPartyManagementService private (
         } yield (partyIdHintO, annotations, identityProviderId, synchronizerIdO, userId)
       } { case (partyIdHintO, annotations, identityProviderId, synchronizerIdO, userId) =>
         val partyName = partyIdHintO.getOrElse(generatePartyName)
-        val trackerKey = submissionIdGenerator(partyName)
+        val trackerKey = submissionIdGenerator(partyName, AuthorizationLevel.Submission)
         withEnrichedLoggingContext(logging.submissionId(trackerKey.submissionId)) {
           implicit loggingContext =>
-            for {
-              _ <- identityProviderExistsOrError(identityProviderId)
-              user <- getUserIfUserSpecified(userId, identityProviderId)
-              allocated <- partyAllocationTracker
-                .track(
-                  trackerKey,
-                  NonNegativeFiniteDuration(managementServiceTimeout),
-                ) { _ =>
-                  for {
-                    result <- syncService.allocateParty(
-                      partyName,
-                      trackerKey.submissionId,
-                      synchronizerIdO,
-                    )
-                    _ <- checkSubmissionResult(result)
-                  } yield ()
-                }
-                .transform(alreadyExistsError(trackerKey.submissionId, loggingContext))
-              _ <- verifyPartyIsNonExistentOrInIdp(
-                identityProviderId,
-                allocated.partyDetails.party,
-              )
-              existingPartyRecord <- partyRecordStore.getPartyRecordO(allocated.partyDetails.party)
-              partyRecord <- updateOrCreatePartyRecord(
-                existingPartyRecord,
-                allocated.partyDetails.party,
-                identityProviderId,
-                annotations,
-              )
-              _ <- updateUserInfoIfUserSpecified(allocated.partyDetails.party, user)
-            } yield {
-              val details = toProtoPartyDetails(
-                partyDetails = allocated.partyDetails,
-                metadataO = Some(partyRecord.metadata),
-                identityProviderId = Some(identityProviderId),
-              )
-              AllocatePartyResponse(Some(details))
+            pendingPartyAllocations.withUser(userId) { outstandingCalls =>
+              for {
+                _ <- identityProviderExistsOrError(identityProviderId)
+                userInfo <- getUserIfUserSpecified(userId, identityProviderId)
+                _ <- checkUserLimitsIfUserSpecified(
+                  userInfo.map(_.rights),
+                  outstandingCalls,
+                  authenticatedUserContextF,
+                )
+                allocated <- partyAllocationTracker
+                  .track(
+                    trackerKey,
+                    NonNegativeFiniteDuration(managementServiceTimeout),
+                  ) { _ =>
+                    for {
+                      result <- syncService.allocateParty(
+                        partyName,
+                        trackerKey.submissionId,
+                        synchronizerIdO,
+                        externalPartyOnboardingDetails = None,
+                      )
+                      _ <- checkSubmissionResult(result)
+                    } yield ()
+                  }
+                  .transform(alreadyExistsError(trackerKey.submissionId, loggingContext))
+                _ <- verifyPartyIsNonExistentOrInIdp(
+                  identityProviderId,
+                  allocated.partyDetails.party,
+                )
+                existingPartyRecord <- partyRecordStore.getPartyRecordO(
+                  allocated.partyDetails.party
+                )
+                partyRecord <- updateOrCreatePartyRecord(
+                  existingPartyRecord,
+                  allocated.partyDetails.party,
+                  identityProviderId,
+                  annotations,
+                )
+                _ <- updateUserInfoIfUserSpecified(
+                  allocated.partyDetails.party,
+                  userInfo.map(_.user),
+                )
+              } yield {
+                val details = toProtoPartyDetails(
+                  partyDetails = allocated.partyDetails,
+                  metadataO = Some(partyRecord.metadata),
+                  identityProviderId = Some(identityProviderId),
+                )
+                AllocatePartyResponse(Some(details))
+              }
             }
         }
       }
@@ -389,7 +436,10 @@ private[apiserver] final class ApiPartyManagementService private (
   override def updatePartyDetails(
       request: UpdatePartyDetailsRequest
   ): Future[UpdatePartyDetailsResponse] = {
-    val submissionId = submissionIdGenerator(request.partyDetails.fold("")(_.party)).submissionId
+    val submissionId = submissionIdGenerator(
+      request.partyDetails.fold("")(_.party),
+      AuthorizationLevel.Submission,
+    ).submissionId
     withEnrichedLoggingContext(telemetry)(
       logging.submissionId(submissionId)
     ) { implicit loggingContext =>
@@ -666,12 +716,37 @@ private[apiserver] final class ApiPartyManagementService private (
   private def getUserIfUserSpecified(
       userId: Option[Ref.UserId],
       identityProviderId: IdentityProviderId,
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[User]] =
-    userId.fold[Future[Option[User]]](Future.successful(None))(
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[UserInfo]] =
+    userId.fold[Future[Option[UserInfo]]](Future.successful(None))(
       userManagementStore
-        .getUser(_, identityProviderId)
+        .getUserInfo(_, identityProviderId)
         .flatMap(result => Utils.handleResult("checking user's existence")(result).map(Some(_)))
     )
+
+  private def checkUserLimitsIfUserSpecified(
+      userRights: Option[Set[UserRight]],
+      outstandingCalls: Int,
+      authenticatedUserContextF: Future[AuthenticatedUserContext],
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Unit] =
+    userRights match {
+      case None => Future.unit
+      case Some(rights) =>
+        for {
+          authenticatedUserContext <- authenticatedUserContextF
+          resultingRightsCount = rights.flatMap(_.getParty).size + outstandingCalls
+          _ <-
+            if (
+              authenticatedUserContext.isRegularUser && resultingRightsCount > maxSelfAllocatedParties.unwrap
+            )
+              Future.failed(
+                AuthorizationChecksErrors.PermissionDenied
+                  .Reject(s"User quota of party allocations exhausted")
+                  .asGrpcError
+              )
+            else
+              Future.unit
+        } yield ()
+    }
 
   private def identityProviderExistsOrError(
       id: IdentityProviderId
@@ -682,7 +757,7 @@ private[apiserver] final class ApiPartyManagementService private (
     identityProviderExists(id)
       .flatMap { idpExists =>
         if (idpExists)
-          Future.successful(())
+          Future.unit
         else
           Future.failed(
             RequestValidationErrors.InvalidArgument
@@ -690,6 +765,306 @@ private[apiserver] final class ApiPartyManagementService private (
               .asGrpcError
           )
       }
+
+  private def parseSignedTransaction(
+      protocolVersion: ProtocolVersion,
+      signedTransaction: SignedTransaction,
+  )(implicit
+      errorLoggingContext: ErrorLoggingContext
+  ): Either[
+    StatusRuntimeException,
+    (PositiveTopologyTransaction, List[Signature]),
+  ] =
+    for {
+      transaction <- TopologyTransaction
+        .fromByteString(
+          // TODO(i27619): We may be able to not validate the protocol version here
+          // depending on the trust we put in the input
+          // Note that pinning to a protocol version makes it not possible to use transactions
+          // generated with an earlier protocol version (e.g in between synchronizer updates)
+          ProtocolVersionValidation(protocolVersion),
+          signedTransaction.transaction,
+        )
+        .leftMap(error =>
+          ValidationErrors.invalidField(
+            "onboarding_transactions.transaction",
+            s"Invalid transaction: ${error.message}",
+          )
+        )
+      positiveTransaction <- transaction
+        .selectOp[TopologyChangeOp.Replace]
+        .toRight(
+          ValidationErrors.invalidField(
+            "onboarding_transactions.transaction",
+            s"Onboarding topology transactions must be Replace operations",
+          )
+        )
+      _ <- Either.cond(
+        positiveTransaction.serial == PositiveInt.one,
+        (),
+        ValidationErrors.invalidField(
+          "onboarding_transactions.transaction.serial",
+          "Onboarding transaction serial must be 1",
+        ),
+      )
+      signatures <- signedTransaction.signatures.toList.traverse(
+        CryptoValidator.validateSignature(_, "onboarding_transaction.signatures")
+      )
+    } yield (positiveTransaction, signatures)
+
+  override def allocateExternalParty(
+      request: AllocateExternalPartyRequest
+  ): Future[AllocateExternalPartyResponse] = {
+    implicit val loggingContext = LoggingContextWithTrace(telemetry)(this.loggingContext)
+    implicit val errorLoggingContext: ErrorLoggingContext =
+      ErrorLoggingContext(logger, loggingContext.toPropertiesMap, loggingContext.traceContext)
+    import com.digitalasset.canton.config.NonNegativeFiniteDuration
+
+    withValidation {
+      for {
+        synchronizerId <- requireSynchronizerId(request.synchronizer, "synchronizer")
+          .orElse(
+            // Take a physical synchronizer ID too
+            requirePhysicalSynchronizerId(request.synchronizer, "synchronizer").map(_.logical)
+          )
+        protocolVersion <- syncService
+          .protocolVersionForSynchronizerId(synchronizerId)
+          .toRight(
+            ValidationErrors.invalidArgument(
+              s"This node is not connected to the requested synchronizer $synchronizerId."
+            )
+          )
+        transactionsWithSignatures <- request.onboardingTransactions.toList.traverse(
+          parseSignedTransaction(protocolVersion, _)
+        )
+        signedTransactionsNE <- NonEmpty
+          .from(transactionsWithSignatures)
+          .toRight(
+            ValidationErrors
+              .invalidField("onboarding_transactions.transactions", "Transactions field is empty")
+          )
+        parsedMultiSignatures <- request.multiHashSignatures.toList.traverse(
+          CryptoValidator.validateSignature(_, "multi_hash_signatures.signatures")
+        )
+        _ = logger.debug(
+          s"External party allocation input transactions:\n ${signedTransactionsNE.map(_._1).mkString("\n")}"
+        )
+        cantonParticipantId = this.syncService.participantId
+        externalPartyDetails <- ExternalPartyOnboardingDetails
+          .create(signedTransactionsNE, parsedMultiSignatures, protocolVersion, cantonParticipantId)
+          .leftMap(ValidationErrors.invalidArgument(_))
+        partyName <- requireParty(externalPartyDetails.partyHint)
+      } yield (partyName, synchronizerId, externalPartyDetails)
+    } { case (partyName, synchronizerId, externalPartyOnboardingDetails) =>
+      val hostingParticipantsString = externalPartyOnboardingDetails.hostingParticipants
+        .map { case HostingParticipant(participantId, permission, _onboarding) =>
+          s"$participantId -> $permission"
+        }
+        .mkString("[", ", ", "]")
+      val signingKeysString = externalPartyOnboardingDetails.signedPartyToKeyMappingTransaction
+        .map { p2k =>
+          s" and ${p2k.mapping.signingKeys.length} signing keys with threshold ${p2k.mapping.threshold.value}"
+        }
+        .getOrElse("")
+      logger.info(
+        s"Allocating external party ${externalPartyOnboardingDetails.partyId.toProtoPrimitive} on" +
+          s" $hostingParticipantsString with confirmation threshold ${externalPartyOnboardingDetails.confirmationThreshold.value}" + signingKeysString
+      )
+      val trackerKey =
+        submissionIdGenerator(
+          partyName,
+          authorizationLevel =
+            if (externalPartyOnboardingDetails.isConfirming) AuthorizationLevel.Confirmation
+            else Observation,
+        )
+      withEnrichedLoggingContext(telemetry)(logging.submissionId(trackerKey.submissionId)) {
+        implicit loggingContext =>
+          def allocateFn = for {
+            result <- syncService.allocateParty(
+              partyName,
+              trackerKey.submissionId,
+              Some(synchronizerId),
+              Some(externalPartyOnboardingDetails),
+            )
+            _ <- checkSubmissionResult(result)
+          } yield ()
+
+          // Only track the party if we expect it to be fully authorized
+          // Otherwise the party won't be fully onboarded here so this would time out
+          val partyIdF =
+            if (externalPartyOnboardingDetails.fullyAllocatesParty) {
+              partyAllocationTracker
+                .track(
+                  trackerKey,
+                  NonNegativeFiniteDuration(managementServiceTimeout),
+                )(_ => allocateFn)
+                .map(_.partyDetails.party)
+            } else {
+              allocateFn
+                .map(_ => externalPartyOnboardingDetails.partyId.toProtoPrimitive)
+                .failOnShutdownTo(
+                  CommonErrors.ServiceNotRunning.Reject("PartyManagementService").asGrpcError
+                )
+            }
+          partyIdF
+            .map(AllocateExternalPartyResponse.apply)
+            .transform(alreadyExistsError(trackerKey.submissionId, loggingContext))
+      }
+    }
+  }
+
+  override def generateExternalPartyTopology(
+      request: GenerateExternalPartyTopologyRequest
+  ): Future[GenerateExternalPartyTopologyResponse] = {
+    import io.scalaland.chimney.dsl.*
+    implicit val errorLoggingContext: ErrorLoggingContext =
+      ErrorLoggingContext(logger, LoggingContextWithTrace(telemetry))
+    val GenerateExternalPartyTopologyRequest(
+      synchronizerIdP,
+      partyHint,
+      publicKeyO,
+      localParticipantObservationOnly,
+      otherConfirmingParticipantUids,
+      confirmationThreshold,
+      observingParticipantUids,
+    ) = request
+
+    val participantId = syncService.participantId
+
+    val availableConfirmers =
+      (if (localParticipantObservationOnly) 0 else 1) + otherConfirmingParticipantUids.size
+
+    val response = for {
+      publicKeyP <- ProtoConverter.required("public_key", publicKeyO).leftMap(_.message)
+      publicKeyT <- publicKeyP
+        .intoPartial[v30.SigningPublicKey]
+        .withFieldConst(_.scheme, SigningKeyScheme.SIGNING_KEY_SCHEME_UNSPECIFIED)
+        .withFieldConst(
+          _.usage,
+          Seq(
+            SigningKeyUsage.SIGNING_KEY_USAGE_NAMESPACE,
+            SigningKeyUsage.SIGNING_KEY_USAGE_PROOF_OF_OWNERSHIP,
+            SigningKeyUsage.SIGNING_KEY_USAGE_PROTOCOL,
+          ),
+        )
+        .withFieldRenamed(_.keyData, _.publicKey)
+        .transform
+        .asEither
+        .leftMap(_.asErrorPathMessages.map { case (p, e) => s"$p: $e" }.mkString(", "))
+      pubKey <- SigningPublicKey
+        .fromProtoV30(publicKeyT)
+        .leftMap(_.message)
+      namespace = Namespace(pubKey.fingerprint)
+      synchronizerIdWithVersion <- UniqueIdentifier
+        .fromProtoPrimitive_(synchronizerIdP)
+        .map(SynchronizerId(_))
+        .leftMap(_.message)
+        .flatMap(synchronizerId =>
+          syncService
+            .protocolVersionForSynchronizerId(synchronizerId)
+            .toRight(s"Unknown or not connected synchronizer $synchronizerId")
+            .map((synchronizerId, _))
+        )
+      _ <- Either.cond(partyHint.nonEmpty, (), "Party hint is empty")
+      _ <- UniqueIdentifier.verifyValidString(partyHint).leftMap(x => "party_hint: " + x)
+      uid <- UniqueIdentifier.create(partyHint, namespace)
+      _ <- Either.cond(confirmationThreshold >= 0, (), "Negative confirmation threshold observed")
+      confirmingPids <- otherConfirmingParticipantUids.toList
+        .traverse(UniqueIdentifier.fromProtoPrimitive_)
+        .leftMap(_.message)
+      observingPids <- observingParticipantUids.toList
+        .traverse(UniqueIdentifier.fromProtoPrimitive_)
+        .leftMap(_.message)
+      _ <- Either.cond(
+        !confirmingPids.contains(participantId.uid),
+        (),
+        s"This participant node ($participantId) is also listed in 'otherConfirmingParticipantUids'." +
+          s" By sending the request to this node, it is de facto a hosting node and must not be listed in 'otherConfirmingParticipantUids'.",
+      )
+      _ <- Either.cond(
+        !observingPids.contains(participantId.uid),
+        (),
+        s"This participant node ($participantId) is also listed in 'observingParticipantUids'." +
+          s" By sending the request to this node, it is de facto a hosting node and must not be listed in 'observingParticipantUids'.",
+      )
+      allParticipantIds = (confirmingPids ++ observingPids)
+      _ <- Either.cond(
+        allParticipantIds.distinct.sizeIs == allParticipantIds.size,
+        (), {
+          val duplicates =
+            allParticipantIds.groupBy(identity).collect { case (x, ys) if ys.sizeIs > 1 => x }
+          s"The following participant IDs are referenced multiple times in the request: ${duplicates
+              .mkString(", ")}." +
+            s" Please ensure all IDs are referenced only once" +
+            s" across 'otherConfirmingParticipantUids' and 'observingParticipantUids' fields."
+        },
+      )
+      _ <- Either.cond(
+        confirmationThreshold <= availableConfirmers,
+        (),
+        "Confirmation threshold exceeds number of confirming participants",
+      )
+      threshold =
+        if (confirmationThreshold == 0) availableConfirmers
+        else confirmationThreshold
+      party = PartyId(uid)
+      nsd <- NamespaceDelegation.create(namespace, pubKey, CanSignAllMappings)
+      p2k <- PartyToKeyMapping.create(
+        party,
+        threshold = PositiveInt.one,
+        signingKeys = NonEmpty.mk(Seq, pubKey),
+      )
+      p2p <- PartyToParticipant.create(
+        party,
+        threshold = PositiveInt.tryCreate(threshold),
+        HostingParticipant(
+          participantId,
+          if (localParticipantObservationOnly) ParticipantPermission.Observation
+          else ParticipantPermission.Confirmation,
+        ) +: (confirmingPids.map(uid =>
+          HostingParticipant(ParticipantId(uid), ParticipantPermission.Confirmation)
+        ) ++ observingPids.map(uid =>
+          HostingParticipant(ParticipantId(uid), ParticipantPermission.Observation)
+        )),
+      )
+    } yield {
+      val (_synchronizerId, protocolVersion) = synchronizerIdWithVersion
+      val transactions =
+        NonEmpty
+          .mk(List, nsd, p2k, p2p)
+          .map(mapping =>
+            TopologyTransaction(
+              op = TopologyChangeOp.Replace,
+              serial = PositiveInt.one,
+              mapping = mapping,
+              protocolVersion = protocolVersion,
+            )
+          )
+
+      GenerateExternalPartyTopologyResponse(
+        partyId = party.toProtoPrimitive,
+        publicKeyFingerprint = pubKey.fingerprint.toProtoPrimitive,
+        topologyTransactions = transactions.map(_.toByteString),
+        multiHash = MultiTransactionSignature
+          .computeCombinedHash(
+            transactions.map(_.hash).toSet,
+            syncService.hashOps,
+          )
+          .getCryptographicEvidence,
+      )
+
+    }
+    response match {
+      case Left(err) =>
+        Future.failed(
+          RequestValidationErrors.InvalidArgument
+            .Reject(err)
+            .asGrpcError
+        )
+      case Right(resp) => Future.successful(resp)
+    }
+  }
+
 }
 
 private[apiserver] object ApiPartyManagementService {
@@ -732,6 +1107,7 @@ private[apiserver] object ApiPartyManagementService {
       userManagementStore: UserManagementStore,
       identityProviderExists: IdentityProviderExists,
       maxPartiesPageSize: PositiveInt,
+      maxSelfAllocatedParties: NonNegativeInt,
       partyRecordStore: PartyRecordStore,
       writeBackend: state.PartySyncService,
       managementServiceTimeout: FiniteDuration,
@@ -748,6 +1124,7 @@ private[apiserver] object ApiPartyManagementService {
       userManagementStore,
       identityProviderExists,
       maxPartiesPageSize,
+      maxSelfAllocatedParties,
       partyRecordStore,
       writeBackend,
       managementServiceTimeout,
@@ -790,7 +1167,7 @@ private[apiserver] object ApiPartyManagementService {
       .asGrpcError
   }
 
-  def encodeNextPageToken(token: Option[Party]): String =
+  def encodeNextPageToken(token: Option[Ref.Party]): String =
     token
       .map { id =>
         val bytes = Base64.getUrlEncoder.encode(
@@ -801,25 +1178,25 @@ private[apiserver] object ApiPartyManagementService {
       .getOrElse("")
 
   trait CreateSubmissionId {
-    def apply(partyIdHint: String): PartyAllocation.TrackerKey
+    def apply(
+        partyIdHint: String,
+        authorizationLevel: AuthorizationLevel,
+    ): PartyAllocation.TrackerKey
   }
 
   object CreateSubmissionId {
     import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel
 
     def forParticipant(participantId: Ref.ParticipantId) = new CreateSubmissionId() {
-      override def apply(partyIdHint: String): PartyAllocation.TrackerKey =
-        PartyAllocation.TrackerKey.of(
+      override def apply(
+          partyIdHint: String,
+          authorizationLevel: AuthorizationLevel,
+      ): PartyAllocation.TrackerKey =
+        PartyAllocation.TrackerKey(
           partyIdHint,
           participantId,
-          AuthorizationEvent.Added(AuthorizationLevel.Submission),
+          AuthorizationEvent.Added(authorizationLevel),
         )
     }
-
-    def fixedForTests(const: String) = new CreateSubmissionId() {
-      override def apply(partyIdHint: String): PartyAllocation.TrackerKey =
-        PartyAllocation.TrackerKey.forTests(Ref.SubmissionId.assertFromString(const))
-    }
-
   }
 }

@@ -14,7 +14,7 @@ import com.digitalasset.canton.sequencing.client.channel.endpoint.SequencerChann
 import com.digitalasset.canton.sequencing.client.transports.GrpcSubscriptionError
 import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.LoggerUtil
+import com.digitalasset.canton.util.{EitherTUtil, LoggerUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 import org.slf4j.event.Level
@@ -61,8 +61,11 @@ trait SequencerChannelProtocolProcessor extends FlagCloseable with NamedLogging 
   /** Notification that the processor is now connected and can begin sending and receiving messages.
     */
   def onConnected()(implicit
+      @scala.annotation.unused // unused trace context used by inheritors
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, String, Unit]
+  ): EitherT[FutureUnlessShutdown, String, Unit] =
+    EitherTUtil
+      .condUnitET[FutureUnlessShutdown](!isConnected.getAndSet(true), "Channel already connected")
 
   /** Handles payload from the channel. */
   def handlePayload(payload: ByteString)(implicit
@@ -85,8 +88,11 @@ trait SequencerChannelProtocolProcessor extends FlagCloseable with NamedLogging 
     channelEndpoint.getAndSet(None).nonEmpty
   }
 
-  /** Sends payload to channel */
-  final protected def sendPayload(operation: String, payload: ByteString)(implicit
+  /** Sends payload to channel
+    *
+    * Overrideable for testing
+    */
+  protected def sendPayload(operation: String, payload: ByteString)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] =
     synchronizeWithClosing(operation) {
@@ -104,8 +110,11 @@ trait SequencerChannelProtocolProcessor extends FlagCloseable with NamedLogging 
       }
     }
 
-  /** Sends channel completion thereby ending the ability to send subsequent messages. */
-  final protected def sendCompleted(status: String)(implicit
+  /** Sends channel completion thereby ending the ability to send subsequent messages.
+    *
+    * Overrideable for testing
+    */
+  protected def sendCompleted(status: String)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] =
     synchronizeWithClosing(s"complete with $status") {
@@ -116,8 +125,11 @@ trait SequencerChannelProtocolProcessor extends FlagCloseable with NamedLogging 
       }(_.sendCompleted(status).map(_ => hasCompleted.set(true)))
     }
 
-  /** Sends channel error thereby ending the ability to send subsequent messages. */
-  final protected def sendError(error: String)(implicit
+  /** Sends channel error thereby ending the ability to send subsequent messages.
+    *
+    * Overrideable for testing
+    */
+  protected def sendError(error: String)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] =
     synchronizeWithClosing(s"send error $error") {

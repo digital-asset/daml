@@ -7,9 +7,9 @@ package speedy
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
-import com.digitalasset.daml.lf.crypto.Hash
+import com.digitalasset.daml.lf.crypto.{Hash, SValueHash}
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data._
+import com.digitalasset.daml.lf.data.{CostModel => _, _}
 import com.digitalasset.daml.lf.interpretation.{Error => IError}
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.LanguageVersionRangeOps._
@@ -25,7 +25,6 @@ import com.digitalasset.daml.lf.stablepackages.StablePackages
 import com.digitalasset.daml.lf.transaction.ContractStateMachine.KeyMapping
 import com.digitalasset.daml.lf.transaction.{
   ContractKeyUniquenessMode,
-  CreationTime,
   FatContractInstance,
   GlobalKey,
   GlobalKeyWithMaintainers,
@@ -33,7 +32,7 @@ import com.digitalasset.daml.lf.transaction.{
   NodeId,
   SubmittedTransaction,
   IncompleteTransaction => IncompleteTx,
-  TransactionVersion => TxVersion,
+  SerializationVersion,
 }
 import com.digitalasset.daml.lf.value.Value.ValueArithmeticError
 import com.digitalasset.daml.lf.value.{ContractIdVersion, Value => V}
@@ -148,8 +147,16 @@ private[lf] object Speedy {
     }
   }
 
+  final case class ContractMetadata(
+      signatories: Set[Party],
+      observers: Set[Party],
+      keyOpt: Option[GlobalKeyWithMaintainers],
+  ) {
+    val stakeholders: Set[Party] = signatories union observers
+  }
+
   final case class ContractInfo(
-      version: TxVersion,
+      version: SerializationVersion,
       packageName: Ref.PackageName,
       templateId: Ref.TypeConId,
       value: SValue,
@@ -173,6 +180,15 @@ private[lf] object Speedy {
         keyOpt = keyOpt.map(_.globalKeyWithMaintainers),
         version = version,
       )
+
+    lazy val metadata: ContractMetadata = ContractMetadata(
+      signatories,
+      observers,
+      keyOpt.map(_.globalKeyWithMaintainers),
+    )
+
+    lazy val valueHash: Hash =
+      SValueHash.assertHashContractInstance(packageName, templateId.qualifiedName, value)
   }
 
   private[speedy] def throwLimitError(location: String, error: IError.Dev.Limit.Error): Nothing =
@@ -207,10 +223,14 @@ private[lf] object Speedy {
       /* Commit location, if a script commit is in progress. */
       val commitLocation: Option[Location],
       val limits: interpretation.Limits,
-      initialEnvSize: Int = 512,
-      initialKontStackSize: Int = 128,
+      costModel: CostModel,
+      initialGasBudget: Option[CostModel.Cost],
+      initialEnvSize: Int,
+      initialKontStackSize: Int,
   )(implicit loggingContext: LoggingContext)
       extends Machine[Question.Update](
+        costModel = costModel,
+        initialGasBudget = initialGasBudget,
         initialEnvSize = initialEnvSize,
         initialKontStackSize = initialKontStackSize,
       ) {
@@ -348,35 +368,15 @@ private[lf] object Speedy {
         case Some(res) =>
           f.tupled(res)
         case None =>
-          // TODO(https://github.com/digital-asset/daml/issues/21667): do not treat disclosed contracts separately
-          disclosedContracts.get(coid) match {
-            case Some(contractInfo) =>
-              markDisclosedcontractAsUsed(coid)
-              f(
-                FatContractInstance.fromCreateNode(
-                  create = contractInfo.toCreateNode(coid),
-                  // These two fields aren't used by the engine so it is safe to use dummy values here. We will
-                  // eventually receive disclosures via needContract so this hack is temporary.
-                  createTime = CreationTime.CreatedAt(Time.Timestamp.MinValue),
-                  authenticationData = Bytes.Empty,
-                ),
-                Hash.HashingMethod.TypedNormalForm,
-                _ =>
-                  throw new NotImplementedError(
-                    "The authentication of disclosed contracts is not implemented yet"
-                  ),
-              )
-            case None =>
-              needContract(
-                NameOf.qualifiedNameOfCurrentFunc,
-                coid,
-                (coinst, hashingMethod, idValidator) => {
-                  contractLookupCache =
-                    contractLookupCache.updated(coid, (coinst, hashingMethod, idValidator))
-                  f(coinst, hashingMethod, idValidator)
-                },
-              )
-          }
+          needContract(
+            NameOf.qualifiedNameOfCurrentFunc,
+            coid,
+            (coinst, hashingMethod, idValidator) => {
+              contractLookupCache =
+                contractLookupCache.updated(coid, (coinst, hashingMethod, idValidator))
+              f(coinst, hashingMethod, idValidator)
+            },
+          )
       }
 
     private[speedy] override def asUpdateMachine(location: String)(
@@ -449,25 +449,6 @@ private[lf] object Speedy {
     // global contract discriminators, that are discriminators from contract created in previous transactions
 
     private[this] var numInputContracts: Int = 0
-
-    private[this] var disclosedContracts_ = Map.empty[V.ContractId, ContractInfo]
-    private[speedy] def disclosedContracts: Map[V.ContractId, ContractInfo] = disclosedContracts_
-
-    private[this] var disclosedContractKeys_ = Map.empty[GlobalKey, V.ContractId]
-    private[speedy] def disclosedContractKeys: Map[GlobalKey, V.ContractId] = disclosedContractKeys_
-
-    private[speedy] def addDisclosedContracts(
-        contractId: V.ContractId,
-        contract: ContractInfo,
-    ): Unit = {
-      disclosedContracts_ = disclosedContracts.updated(contractId, contract)
-      contract.keyOpt.foreach(key =>
-        disclosedContractKeys_ = disclosedContractKeys.updated(key.globalKey, contractId)
-      )
-    }
-
-    private[speedy] def isDisclosedContract(contractId: V.ContractId): Boolean =
-      disclosedContracts.isDefinedAt(contractId)
 
     def getTimeBoundaries: Time.Range =
       timeBoundaries
@@ -620,22 +601,6 @@ private[lf] object Speedy {
         IError.Dev.Limit.ChoiceAuthorizers(cid, templateId, choiceName, arg, authorizers, _),
       )
 
-    // Track which disclosed contracts are used, so we can report events to the ledger
-    private[this] var usedDiclosedContracts: Set[V.ContractId] = Set.empty
-    private[this] def markDisclosedcontractAsUsed(coid: V.ContractId): Unit = {
-      usedDiclosedContracts = usedDiclosedContracts + coid
-    }
-
-    // The set of create events for the disclosed contracts that are used by the generated transaction.
-    def disclosedCreateEvents: ImmArray[Node.Create] = {
-      disclosedContracts.iterator
-        .collect {
-          case (coid, contract) if usedDiclosedContracts.contains(coid) =>
-            contract.toCreateNode(coid)
-        }
-        .to(ImmArray)
-    }
-
     @throws[IllegalArgumentException]
     def zipSameLength[X, Y](xs: ImmArray[X], ys: ImmArray[Y]): ImmArray[(X, Y)] = {
       val n1 = xs.length
@@ -652,38 +617,7 @@ private[lf] object Speedy {
         ptx.locationInfo(),
         zipSameLength(seeds, ptx.actionNodeSeeds.toImmArray),
         ptx.contractState.globalKeyInputs.transform((_, v) => v.toKeyMapping),
-        disclosedCreateEvents,
       )
-    }
-
-    def checkContractVisibility(
-        cid: V.ContractId,
-        contract: ContractInfo,
-    ): Unit = {
-      // For disclosed contracts, we do not perform visibility checking
-      if (!isDisclosedContract(cid)) {
-        visibleToStakeholders(contract.stakeholders) match {
-          case SVisibleToStakeholders.Visible =>
-            ()
-
-          case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
-            val readers = (actAs union readAs).mkString(",")
-            val stakeholders = contract.stakeholders.mkString(",")
-            // TODO: https://github.com/digital-asset/daml/issues/17082
-            //  make this warning an internal error once immutability of meta-data contract is done properly.
-            this.warningLog.add(
-              Warning(
-                commitLocation = commitLocation,
-                message =
-                  s"""Tried to fetch or exercise ${contract.templateId} on contract ${cid.coid}
-                     | but none of the reading parties [$readers] are contract stakeholders [$stakeholders].
-                     | Use of divulged contracts is deprecated and incompatible with pruning.
-                     | To remedy, add one of the readers [$readers] as an observer to the contract.
-                     |""".stripMargin.replaceAll("\r|\n", ""),
-              )
-            )
-        }
-      }
     }
 
     private[speedy] var lastCommand: Option[Command] = None
@@ -760,6 +694,8 @@ private[lf] object Speedy {
         contractIdVersion: ContractIdVersion = ContractIdVersion.V1,
         commitLocation: Option[Location] = None,
         limits: interpretation.Limits = interpretation.Limits.Lenient,
+        costModel: CostModel = CostModel.Empty,
+        initialGasBudget: Option[CostModel.Cost] = None,
         initialEnvSize: Int = 512,
         initialKontStackSize: Int = 128,
     )(implicit loggingContext: LoggingContext): UpdateMachine =
@@ -786,6 +722,8 @@ private[lf] object Speedy {
         profile = new Profile(),
         iterationsBetweenInterruptions = iterationsBetweenInterruptions,
         compiledPackages = compiledPackages,
+        costModel = costModel,
+        initialGasBudget = initialGasBudget,
         initialEnvSize = initialEnvSize,
         initialKontStackSize = initialKontStackSize,
       )
@@ -795,7 +733,6 @@ private[lf] object Speedy {
         locationInfo: Map[NodeId, Location],
         seeds: NodeSeeds,
         globalKeyMapping: Map[GlobalKey, KeyMapping],
-        disclosedCreateEvent: ImmArray[Node.Create],
     )
   }
 
@@ -811,12 +748,12 @@ private[lf] object Speedy {
       override val profile: Profile,
       override val iterationsBetweenInterruptions: Long,
       override val convertLegacyExceptions: Boolean,
-      initialEnvSize: Int = 512,
-      initialKontStackSize: Int = 128,
   )(implicit loggingContext: LoggingContext)
       extends Machine[Nothing](
-        initialEnvSize = initialEnvSize,
-        initialKontStackSize = initialKontStackSize,
+        costModel = CostModel.Empty,
+        initialGasBudget = None,
+        initialEnvSize = 512,
+        initialKontStackSize = 128,
       ) {
 
     private[speedy] override def asUpdateMachine(location: String)(
@@ -841,8 +778,13 @@ private[lf] object Speedy {
   }
 
   /** The speedy CEK machine. */
-  private[lf] sealed abstract class Machine[Q](initialEnvSize: Int, initialKontStackSize: Int)(
-      implicit val loggingContext: LoggingContext
+  private[lf] sealed abstract class Machine[Q](
+      costModel: CostModel,
+      initialGasBudget: Option[CostModel.Cost],
+      initialEnvSize: Int,
+      initialKontStackSize: Int,
+  )(implicit
+      val loggingContext: LoggingContext
   ) {
 
     val sexpr: SExpr
@@ -864,6 +806,10 @@ private[lf] object Speedy {
        Daml-script needs to disable this behaviour in 3.3, thus the flag.
      */
     val convertLegacyExceptions: Boolean = true
+
+    var gasBudget = initialGasBudget.getOrElse(0L)
+
+    private[this] val hasGasBudget = initialGasBudget.isDefined
 
     private val stablePackages = StablePackages(
       compiledPackages.compilerConfig.allowedLanguageVersions.majorVersion
@@ -942,6 +888,7 @@ private[lf] object Speedy {
     private[this] var actuals: Actuals = null
     /* [env] is a stack of temporary values for: let-bindings and pattern-matches. */
     private[speedy] final val env: Env = {
+      updateGasBudget(_.EnvIncrease.cost(initialEnvSize))
       new Stack(initialEnvSize)
     }
     /* [envBase] is the depth of the temporaries-stack when the current code-context was
@@ -953,6 +900,7 @@ private[lf] object Speedy {
      * once the control has been evaluated.
      */
     private[speedy] final val kontStack: Stack[Kont[Q]] = {
+      updateGasBudget(_.KontStackIncrease.cost(initialKontStackSize))
       val kontStack = new Stack[Kont[Q]](initialKontStackSize)
       kontStack.push(KPure(Control.Complete)) // stack is not full, no need to check
       kontStack
@@ -982,7 +930,7 @@ private[lf] object Speedy {
       envBase = 0
     }
 
-    final def tmplId2TxVersion(tmplId: TypeConId): TxVersion =
+    final def tmplId2TxVersion(tmplId: TypeConId): SerializationVersion =
       Machine.tmplId2TxVersion(compiledPackages.pkgInterface, tmplId)
 
     final def tmplId2PackageName(tmplId: TypeConId): PackageName =
@@ -1010,6 +958,7 @@ private[lf] object Speedy {
     @inline
     private[speedy] final def pushKont(k: Kont[Q]): Unit = {
       if (kontStack.isFull) {
+        updateGasBudget(_.KontStackIncrease.cost(kontStack.capacity))
         kontStack.grow()
       }
       kontStack.push(k)
@@ -1052,6 +1001,7 @@ private[lf] object Speedy {
     @inline
     final def pushEnv(v: SValue): Unit = {
       if (env.isFull) {
+        updateGasBudget(_.EnvIncrease.cost(env.capacity))
         env.grow()
       }
       env.push(v)
@@ -1229,74 +1179,68 @@ private[lf] object Speedy {
       */
     // TODO: share common code with executeApplication
     private[speedy] final def enterApplication(
-        vfun: SValue,
+        vfun: SValue.SPAP,
         newArgs: ArraySeq[SExprAtomic],
     ): Control[Q] = {
-      vfun match {
-        case SValue.SPAP(prim, actualsSoFar, arity) =>
-          val missing = arity - actualsSoFar.size
-          val newArgsLimit = Math.min(missing, newArgs.length)
-          val othersLength = newArgs.length - missing
+      val missing = vfun.arity - vfun.actuals.size
+      val newArgsLimit = Math.min(missing, newArgs.length)
+      val othersLength = newArgs.length - missing
 
-          val actuals: ArraySeq[SValue] = {
-            val array = Array.ofDim[SValue](actualsSoFar.size + newArgsLimit)
-            discard[Int](actualsSoFar.copyToArray(array))
-            // Evaluate the arguments
-            var i = 0
-            var j = actualsSoFar.size
-            while (i < newArgsLimit) {
-              array(j) = newArgs(i).lookupValue(this)
-              i += 1
-              j += 1
+      val actuals: ArraySeq[SValue] = {
+        val array = Array.ofDim[SValue](vfun.actuals.size + newArgsLimit)
+        discard[Int](vfun.actuals.copyToArray(array))
+        // Evaluate the arguments
+        var i = 0
+        var j = vfun.actuals.size
+        while (i < newArgsLimit) {
+          array(j) = newArgs(i).lookupValue(this)
+          i += 1
+          j += 1
+        }
+        ArraySeq.unsafeWrapArray(array)
+      }
+      // Not enough arguments. Return a PAP.
+      if (othersLength < 0) {
+        Control.Value(vfun.copy(actuals = actuals))
+      } else {
+        // Too many arguments: Push a continuation to re-apply the over-applied args.
+        if (othersLength > 0) {
+          this.pushKont(KOverApp(this, newArgs.slice(missing, newArgs.length)))
+        }
+        // Now the correct number of arguments is ensured. What kind of prim do we have?
+        vfun.prim match {
+          case closure: SValue.PClosure =>
+            this.frame = closure.frame
+            this.actuals = actuals
+            // Maybe push a continuation for the profiler
+            val label = closure.label
+            if (label != null) {
+              this.profile.addOpenEvent(label)
+              this.pushKont(KLeaveClosure(this, label))
             }
-            ArraySeq.unsafeWrapArray(array)
-          }
-          // Not enough arguments. Return a PAP.
-          if (othersLength < 0) {
-            Control.Value(SValue.SPAP(prim, actuals, arity))
-          } else {
-            // Too many arguments: Push a continuation to re-apply the over-applied args.
-            if (othersLength > 0) {
-              this.pushKont(KOverApp(this, newArgs.slice(missing, newArgs.length)))
-            }
-            // Now the correct number of arguments is ensured. What kind of prim do we have?
-            prim match {
-              case closure: SValue.PClosure =>
-                this.frame = closure.frame
-                this.actuals = actuals
-                // Maybe push a continuation for the profiler
-                val label = closure.label
-                if (label != null) {
-                  this.profile.addOpenEvent(label)
-                  this.pushKont(KLeaveClosure(this, label))
-                }
-                // Start evaluating the body of the closure.
-                popTempStackToBase()
-                Control.Expression(closure.expr)
+            // Start evaluating the body of the closure.
+            popTempStackToBase()
+            Control.Expression(closure.expr)
 
-              case SValue.PBuiltin(builtin) =>
-                this.actuals = actuals
-                builtin.execute(actuals, this)
-            }
-          }
-
-        case _ =>
-          throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, s"Applying non-PAP: $vfun")
+          case SValue.PBuiltin(builtin) =>
+            this.actuals = actuals
+            builtin.execute(actuals, this)
+        }
       }
     }
 
-    // This translates and type-checks an LF value (typically coming from the ledger)
-    // to speedy value and set the control of with the result.
-    private[speedy] final def importValue(typ: Type, value: V): Control[Nothing] =
-      new ValueTranslator(compiledPackages.pkgInterface, forbidLocalContractIds = true)
-        .translateValue(typ, value)
-        .fold(
-          error =>
-            Control.Error(
-              IError.Dev(NameOf.qualifiedNameOfCurrentFunc, IError.Dev.TranslationError(error))
-            ),
-          svalue => Control.Value(svalue),
-        )
+    final def updateGasBudget(cost: CostModel => CostModel.Cost): Unit =
+      if (hasGasBudget) {
+        val consumed = cost(costModel)
+        if (consumed != 0) {
+          gasBudget -= consumed
+          if (gasBudget < 0)
+            throw SErrorCrash(
+              getClass.getCanonicalName,
+              "No more gas",
+            )
+        }
+      }
   }
 
   object Machine {
@@ -1374,8 +1318,6 @@ private[lf] object Speedy {
         warningLog: WarningLog = newWarningLog,
         profile: Profile = newProfile,
         convertLegacyExceptions: Boolean = true,
-        initialEnvSize: Int = 512,
-        initialKontStackSize: Int = 128,
     )(implicit loggingContext: LoggingContext): PureMachine =
       new PureMachine(
         sexpr = expr,
@@ -1385,8 +1327,6 @@ private[lf] object Speedy {
         profile = profile,
         iterationsBetweenInterruptions = iterationsBetweenInterruptions,
         convertLegacyExceptions = convertLegacyExceptions,
-        initialEnvSize = initialEnvSize,
-        initialKontStackSize = initialKontStackSize,
       )
 
     @throws[PackageNotFound]
@@ -1395,14 +1335,10 @@ private[lf] object Speedy {
     def fromPureExpr(
         compiledPackages: CompiledPackages,
         expr: Expr,
-        initialEnvSize: Int = 512,
-        initialKontStackSize: Int = 128,
     )(implicit loggingContext: LoggingContext): PureMachine =
       fromPureSExpr(
         compiledPackages,
         compiledPackages.compiler.unsafeCompile(expr),
-        initialEnvSize = initialEnvSize,
-        initialKontStackSize = initialKontStackSize,
       )
 
     @throws[PackageNotFound]
@@ -1422,8 +1358,8 @@ private[lf] object Speedy {
     )(implicit loggingContext: LoggingContext): Either[SError, SValue] =
       fromPureSExpr(compiledPackages, expr, iterationsBetweenInterruptions).runPure()
 
-    def tmplId2TxVersion(pkgInterface: PackageInterface, tmplId: TypeConId): TxVersion =
-      pkgInterface.packageLanguageVersion(tmplId.packageId)
+    def tmplId2TxVersion(pkgInterface: PackageInterface, tmplId: TypeConId): SerializationVersion =
+      SerializationVersion.assign(pkgInterface.packageLanguageVersion(tmplId.packageId))
 
     def tmplId2PackageName(
         pkgInterface: PackageInterface,
@@ -1491,8 +1427,16 @@ private[lf] object Speedy {
       newArgs: ArraySeq[SExprAtomic],
   ) extends Kont[Q]
       with NoCopy {
-    override def execute(machine: Machine[Q], vfun: SValue): Control[Q] = {
-      machine.restoreBase(savedBase);
+    override def execute(machine: Machine[Q], value: SValue): Control[Q] = {
+
+      val vfun = value match {
+        case vfun: SValue.SPAP => vfun
+        case _ => throw SErrorCrash("KOverApp", s"Expected SPAP, got $value")
+      }
+
+      machine.updateGasBudget(_.KOverApp.cost(vfun.actuals.size, newArgs.length))
+
+      machine.restoreBase(savedBase)
       machine.restoreFrameAndActuals(frame, actuals)
       machine.enterApplication(vfun, newArgs)
     }
@@ -1608,6 +1552,9 @@ private[lf] object Speedy {
   ) extends Kont[Q]
       with NoCopy {
     override def execute(machine: Machine[Q], v: SValue): Control.Expression = {
+
+      machine.updateGasBudget(_.KPushTo.cost(base, machine.env))
+
       machine.restoreBase(savedBase);
       machine.restoreFrameAndActuals(frame, actuals)
       machine.env.keep(base)
@@ -1630,11 +1577,14 @@ private[lf] object Speedy {
   private[speedy] final case class KFoldl[Q] private (
       frame: Frame,
       actuals: Actuals,
-      func: SValue,
+      func: SValue.SPAP,
       var list: FrontStack[SValue],
   ) extends Kont[Q]
       with NoCopy {
     override def execute(machine: Machine[Q], acc: SValue): Control[Q] = {
+
+      machine.updateGasBudget(_.KFoldl.cost(func.actuals.size))
+
       list.pop match {
         case None =>
           Control.Value(acc)
@@ -1650,19 +1600,22 @@ private[lf] object Speedy {
   }
 
   object KFoldl {
-    def apply[Q](machine: Machine[Q], func: SValue, list: FrontStack[SValue]): KFoldl[Q] =
+    def apply[Q](machine: Machine[Q], func: SValue.SPAP, list: FrontStack[SValue]): KFoldl[Q] =
       KFoldl(machine.currentFrame, machine.currentActuals, func, list)
   }
 
   private[speedy] final case class KFoldr[Q] private (
       frame: Frame,
       actuals: Actuals,
-      func: SValue,
+      func: SValue.SPAP,
       list: ImmArray[SValue],
       var lastIndex: Int,
   ) extends Kont[Q]
       with NoCopy {
     override def execute(machine: Machine[Q], acc: SValue): Control[Q] = {
+
+      machine.updateGasBudget(_.KFoldr.cost(func.actuals.size))
+
       if (lastIndex > 0) {
         machine.restoreFrameAndActuals(frame, actuals)
         val currentIndex = lastIndex - 1
@@ -1679,7 +1632,7 @@ private[lf] object Speedy {
   object KFoldr {
     def apply[Q](
         machine: Machine[Q],
-        func: SValue,
+        func: SValue.SPAP,
         list: ImmArray[SValue],
         lastIndex: Int,
     ): KFoldr[Q] =
@@ -1699,6 +1652,9 @@ private[lf] object Speedy {
   ) extends Kont[Q] {
 
     override def execute(machine: Machine[Q], sv: SValue): Control.Value = {
+
+      machine.updateGasBudget(_.KCacheVal.cost)
+
       v.setCached(sv)
       defn.setCached(sv)
       Control.Value(sv)
@@ -1714,11 +1670,15 @@ private[lf] object Speedy {
     override def execute(
         machine: Machine[Question.Update],
         exerciseResult: SValue,
-    ): Control[Question.Update] =
+    ): Control[Question.Update] = {
+
+      machine.updateGasBudget(_.KCloseExercise.cost(exerciseResult))
+
       machine.asUpdateMachine(getClass.getSimpleName) { machine =>
         machine.ptx = machine.ptx.endExercises(exerciseResult.toNormalizedValue)
         Control.Value(exerciseResult)
       }
+    }
   }
 
   /** KTryCatchHandler marks the kont-stack to allow unwinding when throw is executed. If
@@ -1740,12 +1700,15 @@ private[lf] object Speedy {
       machine.restoreFrameAndActuals(frame, actuals)
     }
 
-    override def execute(machine: Machine[Question.Update], v: SValue): Control[Question.Update] =
+    override def execute(machine: Machine[Question.Update], v: SValue): Control[Question.Update] = {
+      machine.updateGasBudget(_.KTryCatchHandler.cost)
+
       machine.asUpdateMachine(getClass.getSimpleName) { machine =>
         restore()
         machine.ptx = machine.ptx.endTry
         Control.Value(v)
       }
+    }
   }
 
   object KTryCatchHandler {
@@ -1774,6 +1737,8 @@ private[lf] object Speedy {
       )
 
     override def execute(machine: Machine[Question.Update], v: SValue): Control.Value = {
+      machine.updateGasBudget(_.KCheckChoiceGuard.cost)
+
       v match {
         case SValue.SBool(b) =>
           if (b)
@@ -1792,6 +1757,7 @@ private[lf] object Speedy {
     */
   private[speedy] final case class KLabelClosure[Q](label: Profile.Label) extends Kont[Q] {
     override def execute(machine: Machine[Q], v: SValue): Control.Value = {
+      machine.updateGasBudget(_.KLabelClosure.cost)
       v match {
         case SValue.SPAP(SValue.PClosure(_, expr, closure), args, arity) =>
           val pap = SValue.SPAP(SValue.PClosure(label, expr, closure), args, arity)
@@ -1808,6 +1774,9 @@ private[lf] object Speedy {
   private[speedy] final case class KLeaveClosure[Q](machine: Machine[Q], label: Profile.Label)
       extends Kont[Q] {
     override def execute(machine: Machine[Q], v: SValue): Control.Value = {
+
+      machine.updateGasBudget(_.KLeaveClosure.cost)
+
       machine.profile.addCloseEvent(label)
       Control.Value(v)
     }
@@ -1815,6 +1784,7 @@ private[lf] object Speedy {
 
   private[speedy] final case class KPreventException[Q]() extends Kont[Q] {
     override def execute(machine: Machine[Q], v: SValue): Control.Value = {
+      machine.updateGasBudget(_.KPreventException.cost)
       Control.Value(v)
     }
   }
@@ -1822,8 +1792,10 @@ private[lf] object Speedy {
   // For when converting an exception to a failure status
   // if an exception is thrown during that conversion, we need to know to not try to convert that too,
   // but instead give back the original exception with a replacement message
+  // [Remy] cannot we use the continuation above ?
   private[speedy] final case class KConvertingException[Q](exceptionId: TypeConId) extends Kont[Q] {
     override def execute(machine: Machine[Q], v: SValue): Control.Value = {
+      machine.updateGasBudget(_.KConvertingException.cost)
       Control.Value(v)
     }
   }

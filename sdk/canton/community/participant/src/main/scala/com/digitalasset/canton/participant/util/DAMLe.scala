@@ -12,29 +12,24 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{LoggingContextUtil, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.EngineController.GetEngineAbortStatus
 import com.digitalasset.canton.participant.store.ContractAndKeyLookup
-import com.digitalasset.canton.participant.util.DAMLe.{
-  CreateNodeEnricher,
-  HasReinterpret,
-  PackageResolver,
-  ReInterpretationResult,
-  TransactionEnricher,
-}
+import com.digitalasset.canton.participant.util.DAMLe.*
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
-import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.ContractAuthenticatorFn
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.Thereafter.syntax.ThereafterOps
-import com.digitalasset.canton.{LfCommand, LfCreateCommand, LfKeyResolver, LfPartyId}
+import com.digitalasset.canton.util.ContractValidator.ContractAuthenticatorFn
+import com.digitalasset.canton.util.PackageConsumer.PackageResolver
+import com.digitalasset.canton.util.Thereafter.syntax.*
+import com.digitalasset.canton.{LfCommand, LfCreateCommand, LfKeyResolver, LfPackageId, LfPartyId}
 import com.digitalasset.daml.lf.VersionRange
 import com.digitalasset.daml.lf.data.Ref.{PackageId, PackageName}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.ResultNeedContract.Response
 import com.digitalasset.daml.lf.engine.{Enricher as _, *}
 import com.digitalasset.daml.lf.interpretation.Error as LfInterpretationError
-import com.digitalasset.daml.lf.language.Ast.Package
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.language.LanguageVersion.v2_dev
-import com.digitalasset.daml.lf.transaction.ContractKeyUniquenessMode
+import com.digitalasset.daml.lf.transaction.{ContractKeyUniquenessMode, FatContractInstance}
+import com.digitalasset.daml.lf.value.ContractIdVersion
 
 import java.nio.file.Path
 import scala.annotation.tailrec
@@ -87,14 +82,13 @@ object DAMLe {
     * must have been validated so that [[com.digitalasset.daml.lf.engine.Engine]] can skip
     * validation.
     */
-  type PackageResolver = PackageId => TraceContext => FutureUnlessShutdown[Option[Package]]
-  private type Enricher[A] = A => TraceContext => EitherT[
+  private type Enricher[I, O] = I => TraceContext => EitherT[
     FutureUnlessShutdown,
     ReinterpretationError,
-    A,
+    O,
   ]
-  type TransactionEnricher = Enricher[LfVersionedTransaction]
-  type CreateNodeEnricher = Enricher[LfNodeCreate]
+  type TransactionEnricher = Enricher[LfVersionedTransaction, LfVersionedTransaction]
+  type ContractEnricher = Enricher[(FatContractInstance, Set[LfPackageId]), FatContractInstance]
 
   sealed trait ReinterpretationError extends PrettyPrinting
 
@@ -106,6 +100,10 @@ object DAMLe {
     override protected def pretty: Pretty[EngineAborted] = prettyOfClass(
       param("reason", _.reason.doubleQuoted)
     )
+  }
+
+  final case class EnrichmentError(reason: String) extends ReinterpretationError {
+    override protected def pretty: Pretty[EnrichmentError] = adHocPrettyInstance
   }
 
   private val zeroSeed: LfHash =
@@ -180,8 +178,15 @@ class DAMLe(
 
   /** Enrich create node values by re-hydrating record labels and identifiers
     */
-  val enrichCreateNode: CreateNodeEnricher = { createNode => implicit traceContext =>
-    EitherT.liftF(interactiveSubmissionEnricher.enrichCreateNode(createNode))
+  val enrichContract: ContractEnricher = { case (createNode, targetPackageIds) =>
+    implicit traceContext =>
+      interactiveSubmissionEnricher
+        .enrichContract(createNode, targetPackageIds)
+        .leftFlatMap(err =>
+          EitherT.leftT[FutureUnlessShutdown, FatContractInstance](
+            EnrichmentError(err): ReinterpretationError
+          )
+        )
   }
 
   override def reinterpret(
@@ -254,6 +259,7 @@ class DAMLe(
         packageResolution = packageResolution,
         engineLogger =
           engineLoggingConfig.toEngineLogger(loggerFactory.append("phase", "validation")),
+        contractIdVersion = ContractIdVersion.V1,
       )
     }
 
@@ -291,6 +297,7 @@ class DAMLe(
         // Only used in Updates, but a create command does not go through Updates.
         ledgerEffectiveTime = Time.Timestamp.Epoch,
         packageResolution = Map.empty,
+        contractIdVersion = ContractIdVersion.V1,
       )
       for {
         txWithMetadata <- EitherT(
@@ -365,14 +372,13 @@ class DAMLe(
             .flatMap(optCid => EitherT(handleResultInternal(contracts, resume(optCid))))
             .value
         case ResultNeedContract(acoid, resume) =>
-          // TODO(#23971) - Add support for V2 contract IDs
-          (CantonContractIdVersion.extractCantonContractIdV1Version(acoid) match {
-            case Right(v1Version) =>
+          (CantonContractIdVersion.extractCantonContractIdVersion(acoid) match {
+            case Right(version) =>
               contracts.lookupFatContract(acoid).value.map[Response] {
                 case Some(contract) =>
                   Response.ContractFound(
                     contract,
-                    v1Version.contractHashingMethod,
+                    version.contractHashingMethod,
                     hash => contractAuthenticator(contract, hash).isRight,
                   )
                 case None => Response.ContractNotFound

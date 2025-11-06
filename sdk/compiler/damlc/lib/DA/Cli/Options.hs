@@ -97,20 +97,21 @@ lfVersionOpt = optionOnce (str >>= select) $
        metavar "DAML-LF-VERSION"
     <> help ("Daml-LF version to output: " ++ versionsStr)
     <> long "target"
-    <> value LF.versionDefault
+    <> value LF.defaultLfVersion
     <> internal
   where
     renderVersion v =
-      let def = if v == LF.versionDefault then " (default)" else ""
+      let def = if v == LF.defaultLfVersion then " (default)" else ""
       in Pretty.renderPretty v ++ def
-    versionsStr = intercalate ", " (map renderVersion LF.supportedOutputVersions)
+    versionsStr = intercalate ", " (map renderVersion versions)
     select = \case
       versionStr
         | Just version <- LF.parseVersion versionStr
-        , version `elem` LF.supportedOutputVersions
+        , version `elem` versions
         -> return version
         | otherwise
         -> readerError $ "Unknown Daml-LF version: " ++ versionStr
+    versions = LF.compilerOutputLfVersions
 
 dotFileOpt :: Parser (Maybe FilePath)
 dotFileOpt = optionOnce (Just <$> str) $
@@ -215,31 +216,43 @@ stringsSepBy sep = eitherReader sepBy'
           where
             items = map trim $ splitOn [sep] input
 
-data ProjectOpts = ProjectOpts
-    { projectRoot :: Maybe ProjectPath
-    -- ^ An explicit project path specified by the user.
-    , projectCheck :: ProjectCheck
-    -- ^ Throw an error if this is not run in a project.
+data PackageLocationOpts = PackageLocationOpts
+    { packageRoot :: Maybe PackagePath
+    -- ^ An explicit package path specified by the user.
+    , packageLocationCheck :: PackageLocationCheck
+    -- ^ Throw an error if this is not run in a package.
     }
 
-projectOpts :: String -> Parser ProjectOpts
-projectOpts name = ProjectOpts <$> projectRootOpt <*> projectCheckOpt name
+packageLocationOpts :: String -> Parser PackageLocationOpts
+packageLocationOpts name = PackageLocationOpts <$> packageOrProjectRootOpt <*> packageOrProjectLocationCheckOpt name
     where
-        projectRootOpt :: Parser (Maybe ProjectPath)
+        packageRootOptDesc :: [String]
+        packageRootOptDesc =
+            [ "Path to the root of a package containing daml.yaml. "
+            , "You should prefer the DAML_PACKAGE environment variable over this option."
+            , "See https://docs.digitalasset.com/build/3.4/dpm/configuration.html#configuration-options for more details."
+            ]
+        packageOrProjectRootOpt :: Parser (Maybe PackagePath)
+        packageOrProjectRootOpt = optional $ packageRootOpt <|> projectRootOpt
+        projectRootOpt :: Parser PackagePath
         projectRootOpt =
-            optional $
-            fmap ProjectPath $
+            fmap PackagePath $
             strOptionOnce $
-            long "project-root" <>
-            help
-                (mconcat
-                     [ "Path to the root of a project containing daml.yaml. "
-                     , "You should prefer the DAML_PROJECT environment variable over this option."
-                     , "See https://docs.daml.com/tools/assistant.html#running-commands-outside-of-the-project-directory for more details."
-                     ])
-        projectCheckOpt cmdName = fmap (ProjectCheck cmdName) . switch $
-               help "Check if running in Daml project."
-            <> long "project-check"
+            long "project-root" <> hidden <>
+            help (mconcat $ packageRootOptDesc ++ ["(project-root is deprecated, please use --package-root)"])
+        packageRootOpt :: Parser PackagePath
+        packageRootOpt =
+            fmap PackagePath $
+            strOptionOnce $
+            long "package-root" <>
+            help (mconcat packageRootOptDesc)
+        packageOrProjectLocationCheckOpt cmdName = packageLocationCheckOpt cmdName <|> projectLocationCheckOpt cmdName
+        projectLocationCheckOpt cmdName = fmap (PackageLocationCheck cmdName) . switch $
+               help "Check if running in Daml package.\n(project-check is deprecated, please use --package-check)"
+            <> long "project-check" <> hidden
+        packageLocationCheckOpt cmdName = fmap (PackageLocationCheck cmdName) . switch $
+               help "Check if running in Daml package."
+            <> long "package-check"
 
 enableScriptServiceOpt :: Parser EnableScriptService
 enableScriptServiceOpt = fmap EnableScriptService $
@@ -305,7 +318,7 @@ dlintHintFilesParser =
         ( long "lint-implicit-hint-file"
           <> internal
           <> help "Use the first '.dlint.yaml' file found in the \
-                  \project directory or any parent thereof, or, failing that, \
+                  \package directory or any parent thereof, or, failing that, \
                   \in the home directory of the current user."
         )
     explicitDlintHintFiles =
@@ -624,7 +637,7 @@ incrementalBuildOpt :: Parser IncrementalBuild
 incrementalBuildOpt = IncrementalBuild <$> flagYesNoAuto "incremental" False "Enable incremental builds" idm
 
 studioReplaceOpt :: Parser ReplaceExtension
-studioReplaceOpt = 
+studioReplaceOpt =
     Options.Applicative.option readReplacement $
       long "replace"
         <> help "Whether an existing extension should be overwritten. ('never' or 'always' for bundled extension version, 'published' for official published version of extension, defaults to 'published')"

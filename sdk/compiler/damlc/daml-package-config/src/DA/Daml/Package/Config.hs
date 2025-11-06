@@ -7,7 +7,7 @@
 module DA.Daml.Package.Config
     ( MultiPackageConfigFields (..)
     , PackageConfigFields (..)
-    , parseProjectConfig
+    , parsePackageConfig
     , overrideSdkVersion
     , withPackageConfig
     , findMultiPackageConfig
@@ -58,24 +58,26 @@ data PackageConfigFields = PackageConfigFields
     -- ^ Map from unit ids to a prefix for all modules in that package.
     -- If this is specified, all modules from the package will be remapped
     -- under the given prefix.
-    , pSdkVersion :: UnresolvedReleaseVersion
+    , pSdkVersion :: Maybe UnresolvedReleaseVersion
+    -- ^ DPM supports omitting sdk-version if enough overrides are provided, should never be Nothing
+    -- when running with Daml Assistant
     , pUpgradeDar :: Maybe FilePath
     }
 
 -- | Parse the daml.yaml for package specific config fields.
-parseProjectConfig :: ProjectConfig -> Either ConfigError PackageConfigFields
-parseProjectConfig project = do
-    pName <- queryProjectConfigRequired ["name"] project
-    pSrc <- queryProjectConfigRequired ["source"] project
+parsePackageConfig :: PackageConfig -> Either ConfigError PackageConfigFields
+parsePackageConfig package = do
+    pName <- queryPackageConfigRequired ["name"] package
+    pSrc <- queryPackageConfigRequired ["source"] package
     pExposedModules <-
         fmap (map Ghc.mkModuleName) <$>
-        queryProjectConfig ["exposed-modules"] project
-    pVersion <- Just <$> queryProjectConfigRequired ["version"] project
-    pDependencies <- queryProjectConfigRequired ["dependencies"] project
-    pDataDependencies <- fromMaybe [] <$> queryProjectConfig ["data-dependencies"] project
-    pModulePrefixes <- fromMaybe Map.empty <$> queryProjectConfig ["module-prefixes"] project
-    pSdkVersion <- queryProjectConfigRequired ["sdk-version"] project
-    pUpgradeDar <- queryProjectConfig ["upgrades"] project
+        queryPackageConfig ["exposed-modules"] package
+    pVersion <- Just <$> queryPackageConfigRequired ["version"] package
+    pDependencies <- queryPackageConfigRequired ["dependencies"] package
+    pDataDependencies <- fromMaybe [] <$> queryPackageConfig ["data-dependencies"] package
+    pModulePrefixes <- fromMaybe Map.empty <$> queryPackageConfig ["module-prefixes"] package
+    pSdkVersion <- queryPackageConfig ["sdk-version"] package
+    pUpgradeDar <- queryPackageConfig ["upgrades"] package
     Right PackageConfigFields {..}
 
 checkPkgConfig :: PackageConfigFields -> [T.Text]
@@ -129,7 +131,7 @@ overrideSdkVersion pkgConfig = do
         Just (Left sdkVersionError) -> do
             hPutStrLn stderr $ unwords
                 [ "Warning: Using SDK version "
-                , V.toString (unwrapUnresolvedReleaseVersion (pSdkVersion pkgConfig))
+                , maybe "<dpm-component-overrides>" (V.toString . unwrapUnresolvedReleaseVersion) (pSdkVersion pkgConfig)
                 , " from config instead of "
                 , sdkVersionEnvVar
                 , " enviroment variable because it doesn't contain a valid version.\n"
@@ -137,19 +139,19 @@ overrideSdkVersion pkgConfig = do
                 ]
             pure pkgConfig
         Just (Right sdkVersion) -> do
-            when (pSdkVersion pkgConfig /= sdkVersion) $
+            when (pSdkVersion pkgConfig /= Just sdkVersion) $
                 hPutStrLn stderr $ unwords
                     [ "Warning: Using SDK version"
                     , V.toString (unwrapUnresolvedReleaseVersion sdkVersion)
                     , "from"
                     , sdkVersionEnvVar
                     , "enviroment variable instead of SDK version"
-                    , V.toString (unwrapUnresolvedReleaseVersion (pSdkVersion pkgConfig))
+                    , maybe "<dpm-component-overrides>" (V.toString . unwrapUnresolvedReleaseVersion) (pSdkVersion pkgConfig)
                     , "from"
-                    , projectConfigName
+                    , packageConfigName
                     , "config file."
                     ]
-            pure pkgConfig { pSdkVersion = sdkVersion }
+            pure pkgConfig { pSdkVersion = Just sdkVersion }
 
 -- If any of these fields are present in a daml.yaml, it is considered a "full" daml.yaml
 -- rather than a verion/options only file, and as such, cannot be ignored by processes like multi-build.
@@ -170,44 +172,44 @@ fullDamlYamlFields = Set.fromList
   ]
 
 -- Determines if a daml.yaml is for defining a package (returns true) or simply for setting sdk-version (false)
-isDamlYamlForPackage :: ProjectConfig -> Bool
-isDamlYamlForPackage project =
-  case unwrapProjectConfig project of
+isDamlYamlForPackage :: PackageConfig -> Bool
+isDamlYamlForPackage package =
+  case unwrapPackageConfig package of
     A.Object obj -> any ((`Set.member` fullDamlYamlFields) . A.toString) (A.keys obj)
     _ -> False
 
 isDamlYamlContentForPackage :: T.Text -> Either ConfigError Bool
-isDamlYamlContentForPackage projectContent =
-  isDamlYamlForPackage <$> readProjectConfigPure projectContent
+isDamlYamlContentForPackage packageContent =
+  isDamlYamlForPackage <$> readPackageConfigPure packageContent
 
-withPackageConfig :: ProjectPath -> (PackageConfigFields -> IO a) -> IO a
-withPackageConfig projectPath f = do
-  project <- readProjectConfig projectPath
+withPackageConfig :: PackagePath -> (PackageConfigFields -> IO a) -> IO a
+withPackageConfig packagePath f = do
+  package <- readPackageConfig packagePath
   -- If the config only has the sdk-version, it is "valid" but not usable for package config. It should be handled explicitly
-  unless (isDamlYamlForPackage project) $
-    throwIO $ ConfigFileInvalid "project" $ Y.InvalidYaml $ Just $ Y.YamlException $
-      projectConfigName ++ " is a packageless daml.yaml, cannot be used for package config."
+  unless (isDamlYamlForPackage package) $
+    throwIO $ ConfigFileInvalid "package" $ Y.InvalidYaml $ Just $ Y.YamlException $
+      packageConfigName ++ " is a packageless daml.yaml, cannot be used for package config."
 
-  pkgConfig <- either throwIO pure (parseProjectConfig project)
+  pkgConfig <- either throwIO pure (parsePackageConfig package)
   pkgConfig' <- overrideSdkVersion pkgConfig
   f pkgConfig'
 
--- Traverses up the directory tree from current project path and returns the project path of the "nearest" project.yaml
+-- Traverses up the directory tree from current package path and returns the package path of the "nearest" multi-package.yaml
 -- Stops at root, but also won't pick any files it doesn't have permission to search
-findMultiPackageConfig :: ProjectPath -> IO (Maybe ProjectPath)
-findMultiPackageConfig projectPath = do
-  filePath <- canonicalizePath $ unwrapProjectPath projectPath
+findMultiPackageConfig :: PackagePath -> IO (Maybe PackagePath)
+findMultiPackageConfig packagePath = do
+  filePath <- canonicalizePath $ unwrapPackagePath packagePath
   flip loopM filePath $ \path -> do
     hasMultiPackage <- doesFileExist $ path </> multiPackageConfigName
     if hasMultiPackage
-      then pure $ Right $ Just $ ProjectPath path
+      then pure $ Right $ Just $ PackagePath path
       else
         let newPath = takeDirectory path
         in pure $ if path == newPath then Right Nothing else Left newPath
 
-canonicalizeMultiPackageConfigIntermediate :: ProjectPath -> MultiPackageConfigFieldsIntermediate -> IO MultiPackageConfigFieldsIntermediate
-canonicalizeMultiPackageConfigIntermediate projectPath (MultiPackageConfigFieldsIntermediate (MultiPackageConfigFields packagePaths darPaths) multiPackagePaths) =
-  withCurrentDirectory (unwrapProjectPath projectPath) $ do
+canonicalizeMultiPackageConfigIntermediate :: PackagePath -> MultiPackageConfigFieldsIntermediate -> IO MultiPackageConfigFieldsIntermediate
+canonicalizeMultiPackageConfigIntermediate packagePath (MultiPackageConfigFieldsIntermediate (MultiPackageConfigFields packagePaths darPaths) multiPackagePaths) =
+  withCurrentDirectory (unwrapPackagePath packagePath) $ do
     MultiPackageConfigFieldsIntermediate
       <$> (MultiPackageConfigFields <$> traverse canonicalizePath packagePaths <*> traverse canonicalizePath darPaths)
       <*> traverse canonicalizePath multiPackagePaths
@@ -228,19 +230,19 @@ exploreAndFlatten start eval = evalStateT (go start) []
           bs <- concat <$> traverse go as
           pure $ b : bs
 
-fullParseMultiPackageConfig :: ProjectPath -> IO MultiPackageConfigFields
+fullParseMultiPackageConfig :: PackagePath -> IO MultiPackageConfigFields
 fullParseMultiPackageConfig startPath = do
-  mpcs <- exploreAndFlatten startPath $ \projectPath -> do
-    multiPackage <- readMultiPackageConfig projectPath
+  mpcs <- exploreAndFlatten startPath $ \packagePath -> do
+    multiPackage <- readMultiPackageConfig packagePath
     multiPackageConfigI <- either throwIO pure (parseMultiPackageConfig multiPackage)
-    canonMultiPackageConfigI <- canonicalizeMultiPackageConfigIntermediate projectPath multiPackageConfigI
-    pure (ProjectPath <$> mpiOtherConfigFiles canonMultiPackageConfigI, mpiConfigFields canonMultiPackageConfigI)
+    canonMultiPackageConfigI <- canonicalizeMultiPackageConfigIntermediate packagePath multiPackageConfigI
+    pure (PackagePath <$> mpiOtherConfigFiles canonMultiPackageConfigI, mpiConfigFields canonMultiPackageConfigI)
 
   pure $ MultiPackageConfigFields (nubOrd $ concatMap mpPackagePaths mpcs) (nubOrd $ concatMap mpDars mpcs)
 
--- Gives the filepath where the multipackage was found if its not the same as project path.
-withMultiPackageConfig :: ProjectPath -> (MultiPackageConfigFields -> IO a) -> IO a
-withMultiPackageConfig projectPath f = fullParseMultiPackageConfig projectPath >>= f
+-- Gives the filepath where the multipackage was found if its not the same as package path.
+withMultiPackageConfig :: PackagePath -> (MultiPackageConfigFields -> IO a) -> IO a
+withMultiPackageConfig packagePath f = fullParseMultiPackageConfig packagePath >>= f
 
 -- | Orphans because I’m too lazy to newtype everything.
 instance A.FromJSON Ghc.ModuleName where

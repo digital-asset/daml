@@ -290,11 +290,19 @@ class SequencerReaderTest
 
       for {
         _ <- store.registerMember(topologyClientMember, ts0).failOnShutdown
-        aliceId <- store.registerMember(alice, ts0).failOnShutdown
+        registeredAlice <- store.registerMember(alice, ts0).failOnShutdown
         // generate 20 delivers starting at ts0+1s
         events = (1L to 20L)
           .map(ts0.plusSeconds)
-          .map(Sequenced(_, mockDeliverStoreEvent(sender = aliceId, traceContext = traceContext)()))
+          .map(
+            Sequenced(
+              _,
+              mockDeliverStoreEvent(
+                sender = registeredAlice.memberId,
+                traceContext = traceContext,
+              )(),
+            )
+          )
         _ <- storeAndWatermark(events)
         events <- readAsSeq(alice, timestampInclusive = None, 20)
       } yield {
@@ -311,10 +319,18 @@ class SequencerReaderTest
 
       for {
         _ <- store.registerMember(topologyClientMember, ts0).failOnShutdown
-        aliceId <- store.registerMember(alice, ts0).failOnShutdown
+        registeredAlice <- store.registerMember(alice, ts0).failOnShutdown
         delivers = (1L to 20L)
           .map(ts0.plusSeconds)
-          .map(Sequenced(_, mockDeliverStoreEvent(sender = aliceId, traceContext = traceContext)()))
+          .map(
+            Sequenced(
+              _,
+              mockDeliverStoreEvent(
+                sender = registeredAlice.memberId,
+                traceContext = traceContext,
+              )(),
+            )
+          )
           .toList
         _ <- storeAndWatermark(delivers)
         events <- readAsSeq(alice, Some(ts0.plusSeconds(6)), 15)
@@ -331,10 +347,18 @@ class SequencerReaderTest
 
       for {
         _ <- store.registerMember(topologyClientMember, ts0).failOnShutdown
-        aliceId <- store.registerMember(alice, ts0).failOnShutdown
+        registeredAlice <- store.registerMember(alice, ts0).failOnShutdown
         delivers = (1L to 5L)
           .map(ts0.plusSeconds)
-          .map(Sequenced(_, mockDeliverStoreEvent(sender = aliceId, traceContext = traceContext)()))
+          .map(
+            Sequenced(
+              _,
+              mockDeliverStoreEvent(
+                sender = registeredAlice.memberId,
+                traceContext = traceContext,
+              )(),
+            )
+          )
           .toList
         _ <- storeAndWatermark(delivers)
         queue = readWithQueue(alice, timestampInclusive = None)
@@ -351,7 +375,10 @@ class SequencerReaderTest
           Seq(
             Sequenced(
               ts0.plusSeconds(6L),
-              mockDeliverStoreEvent(sender = aliceId, traceContext = traceContext)(),
+              mockDeliverStoreEvent(
+                sender = registeredAlice.memberId,
+                traceContext = traceContext,
+              )(),
             )
           )
         )
@@ -369,10 +396,18 @@ class SequencerReaderTest
 
       for {
         _ <- store.registerMember(topologyClientMember, ts0).failOnShutdown
-        aliceId <- store.registerMember(alice, ts0).failOnShutdown
+        registeredAlice <- store.registerMember(alice, ts0).failOnShutdown
         delivers = (1L to 5L)
           .map(ts0.plusSeconds)
-          .map(Sequenced(_, mockDeliverStoreEvent(sender = aliceId, traceContext = traceContext)()))
+          .map(
+            Sequenced(
+              _,
+              mockDeliverStoreEvent(
+                sender = registeredAlice.memberId,
+                traceContext = traceContext,
+              )(),
+            )
+          )
           .toList
         _ <- storeAndWatermark(delivers)
 
@@ -403,14 +438,21 @@ class SequencerReaderTest
       import env.*
 
       for {
-        sequencerMemberId <- store.registerMember(topologyClientMember, ts(0)).failOnShutdown
-        aliceId <- store.registerMember(alice, ts(2)).failOnShutdown
-        addressToEverybody = NonEmpty(SortedSet, aliceId, sequencerMemberId)
+        registeredMember <- store.registerMember(topologyClientMember, ts(0)).failOnShutdown
+        registeredAlice <- store.registerMember(alice, ts(2)).failOnShutdown
+        addressToEverybody = NonEmpty(
+          SortedSet,
+          registeredAlice.memberId,
+          registeredMember.memberId,
+        )
         delivers = (1 to 3)
           .map(offset =>
             Sequenced(
               ts(offset),
-              mockDeliverStoreEvent(sender = sequencerMemberId, traceContext = traceContext)(
+              mockDeliverStoreEvent(
+                sender = registeredMember.memberId,
+                traceContext = traceContext,
+              )(
                 addressToEverybody
               ),
             )
@@ -430,8 +472,10 @@ class SequencerReaderTest
         event <- pullFromQueue(queue)
         _ = queue.cancel() // cancel the queue now we're done with it
       } yield {
-        // the first event expected to reach alice is at its registration timestamp (its topo mapping effective time)
-        event.value.timestamp shouldBe ts(2)
+        // the first event expected to reach alice is the next event after its registration time
+        // (onboarding topology effective time). Alice must not receive the event at ts(2),
+        // since it would already have seen its onboarding tx in the topology snapshot at ts(2).
+        event.value.timestamp shouldBe ts(3)
       }
     }
 
@@ -506,7 +550,7 @@ class SequencerReaderTest
 
       for {
         _ <- store.registerMember(topologyClientMember, ts0).failOnShutdown
-        aliceId <- store.registerMember(alice, ts0).failOnShutdown
+        registeredAlice <- store.registerMember(alice, ts0).failOnShutdown
         // start reading for an event but don't wait for it
         eventsF = readAsSeq(alice, timestampInclusive = None, 1)
         // set a timer to wait for a little
@@ -521,7 +565,10 @@ class SequencerReaderTest
           Seq(
             Sequenced(
               ts0 plusSeconds 1,
-              mockDeliverStoreEvent(sender = aliceId, traceContext = traceContext)(),
+              mockDeliverStoreEvent(
+                sender = registeredAlice.memberId,
+                traceContext = traceContext,
+              )(),
             )
           )
         )
@@ -541,12 +588,18 @@ class SequencerReaderTest
 
         for {
           _ <- store.registerMember(topologyClientMember, ts0)
-          aliceId <- store.registerMember(alice, ts0)
+          registeredAlice <- store.registerMember(alice, ts0)
           // generate 25 delivers starting at ts0+1s
           delivers = (1L to 25L)
             .map(ts0.plusSeconds)
             .map(
-              Sequenced(_, mockDeliverStoreEvent(sender = aliceId, traceContext = traceContext)())
+              Sequenced(
+                _,
+                mockDeliverStoreEvent(
+                  sender = registeredAlice.memberId,
+                  traceContext = traceContext,
+                )(),
+              )
             )
           _ <- storeAndWatermark(delivers)
           events <- readAsSeq(alice, timestampInclusive = Some(ts0.plusSeconds(11)), 15)
@@ -571,21 +624,25 @@ class SequencerReaderTest
 
           for {
             _ <- store.registerMember(topologyClientMember, ts0).failOnShutdown
-            aliceId <- store.registerMember(alice, ts0).failOnShutdown
+            registeredAlice <- store.registerMember(alice, ts0).failOnShutdown
             // write a bunch of events
             delivers = (1L to 20L)
               .map(ts0.plusSeconds)
               .map(
-                Sequenced(_, mockDeliverStoreEvent(sender = aliceId, traceContext = traceContext)())
+                Sequenced(
+                  _,
+                  mockDeliverStoreEvent(
+                    sender = registeredAlice.memberId,
+                    traceContext = traceContext,
+                  )(),
+                )
               )
             _ <- storeAndWatermark(delivers)
             _ <- store
               .saveLowerBound(ts(10), ts(9).some)
               .valueOrFail("saveLowerBound")
-            error <- loggerFactory.assertLogs(
-              leftOrFail(reader.read(alice, requestedTimestampInclusive = None))("read"),
-              _.errorMessage shouldBe expectedMessage,
-            )
+            error <-
+              leftOrFail(reader.read(alice, requestedTimestampInclusive = None))("read")
           } yield inside(error) {
             case CreateSubscriptionError.EventsUnavailableForTimestamp(None, message) =>
               message should include(expectedMessage)
@@ -600,25 +657,26 @@ class SequencerReaderTest
 
         for {
           _ <- store.registerMember(topologyClientMember, ts0).failOnShutdown
-          aliceId <- store.registerMember(alice, ts0).failOnShutdown
+          registeredAlice <- store.registerMember(alice, ts0).failOnShutdown
           // write a bunch of events
           delivers = (1L to 20L)
             .map(ts0.plusSeconds)
             .map(
-              Sequenced(_, mockDeliverStoreEvent(sender = aliceId, traceContext = traceContext)())
+              Sequenced(
+                _,
+                mockDeliverStoreEvent(
+                  sender = registeredAlice.memberId,
+                  traceContext = traceContext,
+                )(),
+              )
             )
           _ <- storeAndWatermark(delivers)
           _ <- store
             .saveLowerBound(ts(10), ts(9).some)
             .valueOrFail("saveLowerBound")
-          error <- loggerFactory.assertLogs(
-            leftOrFail(
-              reader.read(alice, requestedTimestampInclusive = Some(ts0.plusSeconds(10)))
-            )(
-              "read succeeded"
-            ),
-            _.errorMessage shouldBe expectedMessage,
-          )
+          error <- leftOrFail(
+            reader.read(alice, requestedTimestampInclusive = Some(ts0.plusSeconds(10)))
+          )("read succeeded")
         } yield inside(error) {
           case CreateSubscriptionError.EventsUnavailableForTimestamp(Some(timestamp), message) =>
             timestamp shouldBe ts0.plusSeconds(10)
@@ -631,11 +689,11 @@ class SequencerReaderTest
 
         for {
           _ <- store.registerMember(topologyClientMember, ts0).failOnShutdown
-          aliceId <- store.registerMember(alice, ts0).failOnShutdown
+          registeredAlice <- store.registerMember(alice, ts0).failOnShutdown
           // write a bunch of events
           delivers = (1L to 20L)
             .map(ts0.plusSeconds)
-            .map(Sequenced(_, mockDeliverStoreEvent(sender = aliceId)()))
+            .map(Sequenced(_, mockDeliverStoreEvent(sender = registeredAlice.memberId)()))
           _ <- storeAndWatermark(delivers)
           _ <- store
             .saveLowerBound(ts(10), ts(9).some)
@@ -660,10 +718,10 @@ class SequencerReaderTest
           topologyTimestampToleranceInSec = topologyTimestampTolerance.duration.toSeconds
 
           _ <- store.registerMember(topologyClientMember, ts0)
-          aliceId <- store.registerMember(alice, ts0)
-          bobId <- store.registerMember(bob, ts0)
+          registeredAlice <- store.registerMember(alice, ts0)
+          registeredBob <- store.registerMember(bob, ts0)
 
-          recipients = NonEmpty(SortedSet, aliceId, bobId)
+          recipients = NonEmpty(SortedSet, registeredAlice.memberId, registeredBob.memberId)
           testData: Seq[(Option[Long], Long, Long)] = Seq(
             // Previous ts, sequencing ts, signing ts relative to ts0
             (None, 1L, 0L),
@@ -685,7 +743,7 @@ class SequencerReaderTest
             val storeEvent = TraceContext
               .withNewTraceContext("test") { eventTraceContext =>
                 mockDeliverStoreEvent(
-                  sender = aliceId,
+                  sender = registeredAlice.memberId,
                   payloadId = PayloadId(ts0.plusSeconds(sequenceTs)),
                   signingTs = Some(ts0.plusSeconds(signingTs)),
                   traceContext = eventTraceContext,

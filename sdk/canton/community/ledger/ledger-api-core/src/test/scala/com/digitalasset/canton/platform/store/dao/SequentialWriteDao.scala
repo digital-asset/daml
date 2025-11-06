@@ -1,0 +1,191 @@
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+package com.digitalasset.canton.platform.store.dao
+
+import com.daml.metrics.api.MetricsContext
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.ledger.participant.state.Update
+import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
+import com.digitalasset.canton.platform.store.backend.{
+  DbDto,
+  DbDtoToStringsForInterning,
+  IngestionStorageBackend,
+  ParameterStorageBackend,
+  UpdateToDbDto,
+}
+import com.digitalasset.canton.platform.store.cache.MutableLedgerEndCache
+import com.digitalasset.canton.platform.store.dao.events.{CompressionStrategy, LfValueTranslation}
+import com.digitalasset.canton.platform.store.interning.{
+  DomainStringIterators,
+  InternizingStringInterningView,
+  StringInterning,
+}
+import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.value.Value.ContractId
+
+import java.sql.Connection
+import scala.collection.mutable
+import scala.concurrent.{Future, blocking}
+import scala.util.chaining.scalaUtilChainingOps
+
+trait SequentialWriteDao {
+  def store(connection: Connection, offset: Offset, update: Option[Update]): Unit
+}
+
+object SequentialWriteDao {
+  def apply(
+      participantId: Ref.ParticipantId,
+      metrics: LedgerApiServerMetrics,
+      compressionStrategy: CompressionStrategy,
+      ledgerEndCache: MutableLedgerEndCache,
+      stringInterningView: StringInterning with InternizingStringInterningView,
+      ingestionStorageBackend: IngestionStorageBackend[?],
+      parameterStorageBackend: ParameterStorageBackend,
+      loggerFactory: NamedLoggerFactory,
+  ): SequentialWriteDao =
+    MetricsContext.withMetricLabels("participant_id" -> participantId) { implicit mc =>
+      SequentialWriteDaoImpl(
+        ingestionStorageBackend = ingestionStorageBackend,
+        parameterStorageBackend = parameterStorageBackend,
+        updateToDbDtos = offset =>
+          UpdateToDbDto(
+            participantId = participantId,
+            translation = new LfValueTranslation(
+              metrics = metrics,
+              engineO = None,
+              loadPackage = (_, _) => Future.successful(None),
+              loggerFactory = loggerFactory,
+            ),
+            compressionStrategy = compressionStrategy,
+            metrics,
+          )(mc)(offset),
+        ledgerEndCache = ledgerEndCache,
+        stringInterningView = stringInterningView,
+        dbDtosToStringsForInterning = DbDtoToStringsForInterning(_),
+      )
+    }
+
+}
+
+private[dao] final case class SequentialWriteDaoImpl[DB_BATCH](
+    ingestionStorageBackend: IngestionStorageBackend[DB_BATCH],
+    parameterStorageBackend: ParameterStorageBackend,
+    updateToDbDtos: Offset => Update => Iterator[DbDto],
+    ledgerEndCache: MutableLedgerEndCache,
+    stringInterningView: StringInterning with InternizingStringInterningView,
+    dbDtosToStringsForInterning: Iterable[DbDto] => DomainStringIterators,
+) extends SequentialWriteDao {
+
+  @SuppressWarnings(Array("org.wartremover.warts.Var"))
+  private var lastEventSeqId: Long = _
+  @SuppressWarnings(Array("org.wartremover.warts.Var"))
+  private var lastStringInterningId: Int = _
+  @SuppressWarnings(Array("org.wartremover.warts.Var"))
+  private var lastEventSeqIdInitialized = false
+  @SuppressWarnings(Array("org.wartremover.warts.Var"))
+  private var previousTransactionMetaToEventSeqId: Long = _
+
+  private val acs: mutable.HashMap[(SynchronizerId, ContractId), (Long, Long)] = mutable.HashMap()
+
+  private def lazyInit(connection: Connection): Unit =
+    if (!lastEventSeqIdInitialized) {
+      val ledgerEnd = parameterStorageBackend.ledgerEnd(connection)
+      lastEventSeqId = ledgerEnd.map(_.lastEventSeqId).getOrElse(0)
+      previousTransactionMetaToEventSeqId = ledgerEnd.map(_.lastEventSeqId).getOrElse(0)
+      lastStringInterningId = ledgerEnd.map(_.lastStringInterningId).getOrElse(0)
+      lastEventSeqIdInitialized = true
+    }
+
+  private def nextEventSeqId: Long = {
+    lastEventSeqId += 1
+    lastEventSeqId
+  }
+
+  private def adaptEventSeqIds(dbDtos: Iterator[DbDto]): Vector[DbDto] =
+    dbDtos.map {
+      case e: DbDto.EventActivate =>
+        val eventSeqId = nextEventSeqId
+        acs
+          .put(e.synchronizer_id -> e.notPersistedContractId, eventSeqId -> e.internal_contract_id)
+          .discard
+        e.copy(event_sequential_id = eventSeqId)
+      case e: DbDto.EventDeactivate =>
+        val (deactivatedEventSeqId, internalContractId) =
+          acs.get(e.synchronizer_id -> e.contract_id) match {
+            case Some(deactivatedEventSeqId -> internalContractId) =>
+              acs.remove(e.synchronizer_id -> e.contract_id).discard
+              Some(deactivatedEventSeqId) -> Some(internalContractId)
+            case None =>
+              None -> None
+          }
+        e.copy(
+          event_sequential_id = nextEventSeqId,
+          deactivated_event_sequential_id = deactivatedEventSeqId,
+          internal_contract_id = internalContractId,
+        )
+      case e: DbDto.EventVariousWitnessed =>
+        e.copy(event_sequential_id = nextEventSeqId)
+      case e: DbDto.IdFilterDbDto =>
+        e.withEventSequentialId(lastEventSeqId)
+      case e: DbDto.TransactionMeta =>
+        val dto = e.copy(
+          event_sequential_id_first = (previousTransactionMetaToEventSeqId + 1),
+          event_sequential_id_last = lastEventSeqId,
+        )
+        previousTransactionMetaToEventSeqId = lastEventSeqId
+        dto
+      case notEvent => notEvent
+    }.toVector
+
+  override def store(connection: Connection, offset: Offset, update: Option[Update]): Unit =
+    blocking(synchronized {
+      lazyInit(connection)
+
+      val dbDtos = update
+        .map(updateToDbDtos(offset))
+        .map(adaptEventSeqIds)
+        .getOrElse(Vector.empty)
+
+      val dbDtosWithStringInterning =
+        dbDtos
+          .pipe(dbDtosToStringsForInterning)
+          .pipe(stringInterningView.internize)
+          .map(DbDto.StringInterningDto.from)
+          .pipe(newEntries =>
+            newEntries.lastOption
+              .fold(dbDtos) { last =>
+                lastStringInterningId = last.internalId
+                dbDtos ++ newEntries
+              }
+          )
+
+      dbDtosWithStringInterning
+        .pipe(ingestionStorageBackend.batch(_, stringInterningView))
+        .pipe(ingestionStorageBackend.insertBatch(connection, _))
+
+      parameterStorageBackend.updateLedgerEnd(
+        ParameterStorageBackend.LedgerEnd(
+          lastOffset = offset,
+          lastEventSeqId = lastEventSeqId,
+          lastStringInterningId = lastStringInterningId,
+          lastPublicationTime = CantonTimestamp.MinValue,
+        )
+      )(connection)
+
+      ledgerEndCache.set(
+        Some(
+          LedgerEnd(
+            lastOffset = offset,
+            lastEventSeqId = lastEventSeqId,
+            lastStringInterningId = lastStringInterningId,
+            lastPublicationTime = CantonTimestamp.MinValue,
+          )
+        )
+      )
+    })
+}

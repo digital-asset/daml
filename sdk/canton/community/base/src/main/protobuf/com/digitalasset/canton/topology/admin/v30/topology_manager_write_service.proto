@@ -20,6 +20,7 @@ service TopologyManagerWriteService {
   rpc AddTransactions(AddTransactionsRequest) returns (AddTransactionsResponse);
 
   rpc ImportTopologySnapshot(stream ImportTopologySnapshotRequest) returns (ImportTopologySnapshotResponse);
+  rpc ImportTopologySnapshotV2(stream ImportTopologySnapshotV2Request) returns (ImportTopologySnapshotV2Response);
 
   rpc SignTransactions(SignTransactionsRequest) returns (SignTransactionsResponse);
 
@@ -171,6 +172,17 @@ message ImportTopologySnapshotRequest {
 }
 message ImportTopologySnapshotResponse {}
 
+/**
+ * Same message as AddTransactionsRequest, except that transactions are encoded in a byte string
+ */
+message ImportTopologySnapshotV2Request {
+  bytes topology_snapshot = 1;
+  StoreId store = 2;
+  /** Optional timeout to wait for the transaction to become effective in the store. */
+  google.protobuf.Duration wait_to_become_effective = 3;
+}
+message ImportTopologySnapshotV2Response {}
+
 message SignTransactionsRequest {
   /** The transactions to be signed, but will not be stored in the authorized store */
   repeated com.digitalasset.canton.protocol.v30.SignedTopologyTransaction transactions = 1;
@@ -220,8 +232,9 @@ enum ForceFlag {
   FORCE_FLAG_ALIEN_MEMBER = 1;
   /* Deprecated, increasing ledger time record time tolerance does not require a force flag for PV >= 32 */
   FORCE_FLAG_LEDGER_TIME_RECORD_TIME_TOLERANCE_INCREASE = 2;
-  /** Required when revoking the vetting of a package */
-  FORCE_FLAG_ALLOW_UNVET_PACKAGE = 3;
+  // Previously FORCE_FLAG_ALLOW_UNVET_PACKAGE, now always enabled as it is not dangerous anymore
+  reserved 3;
+  reserved "FORCE_FLAG_ALLOW_UNVET_PACKAGE";
   /** Required when vetting unknown packages (not uploaded). */
   FORCE_FLAG_ALLOW_UNKNOWN_PACKAGE = 4;
   /** Required when vetting a package with unvetted dependencies */
@@ -233,8 +246,9 @@ enum ForceFlag {
    * Using this force flag likely causes the transaction to be rejected at a later stage of the processing.
    */
   FORCE_FLAG_ALLOW_UNVALIDATED_SIGNING_KEYS = 7;
-  /** Required when unvetting a package with active contracts */
-  FORCE_FLAG_ALLOW_UNVET_PACKAGE_WITH_ACTIVE_CONTRACTS = 8;
+  // Previously FORCE_FLAG_ALLOW_UNVET_PACKAGE_WITH_ACTIVE_CONTRACTS, now allowed without flag as it is not a dangerous operation anymore.
+  reserved 8;
+  reserved "FORCE_FLAG_ALLOW_UNVET_PACKAGE_WITH_ACTIVE_CONTRACTS";
   /** Required when increasing the submission time record time tolerance */
   FORCE_FLAG_PREPARATION_TIME_RECORD_TIME_TOLERANCE_INCREASE = 9;
   /** Required when we want to change all participants' permissions to observation while the party is still a signatory of a contract. */
@@ -243,4 +257,8 @@ enum ForceFlag {
    * signatory-assigning participants and thus the assignment would be stuck.
    */
   FORCE_FLAG_ALLOW_INSUFFICIENT_SIGNATORY_ASSIGNING_PARTICIPANTS_FOR_PARTY = 11;
+  /** Required when vetting a package that fails upgrade checking */
+  FORCE_FLAG_ALLOW_VET_INCOMPATIBLE_UPGRADES = 12;
+  /** Required when submitting dynamic synchronizer parameters that have out-of-bounds values */
+  FORCE_FLAG_ALLOW_OUT_OF_BOUNDS_VALUE = 13;
 }

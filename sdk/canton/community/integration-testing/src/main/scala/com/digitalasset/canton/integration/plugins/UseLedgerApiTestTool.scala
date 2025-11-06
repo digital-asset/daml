@@ -14,6 +14,7 @@ import com.digitalasset.canton.config.{
 }
 import com.digitalasset.canton.console.BufferedProcessLogger
 import com.digitalasset.canton.integration.plugins.UseLedgerApiTestTool.{
+  EnvVarTestOverrides,
   LAPITTVersion,
   getArtifactoryHttpClient,
   latestVersionFromArtifactory,
@@ -24,7 +25,7 @@ import com.digitalasset.canton.integration.{
   EnvironmentSetupPlugin,
   TestConsoleEnvironment,
 }
-import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.platform.apiserver.SeedService.Seeding
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import com.digitalasset.canton.util.OptionUtil
@@ -56,7 +57,8 @@ class UseLedgerApiTestTool(
     javaOpts: String = "-Xmx500m",
     defaultExtraArguments: Map[String, String] = Map("--timeout-scale-factor" -> "4"),
 ) extends EnvironmentSetupPlugin
-    with NoTracing {
+    with NoTracing
+    with EnvVarTestOverrides {
 
   private def defaultExtraArgumentsSeq: Seq[String] = defaultExtraArguments.flatMap { case (k, v) =>
     Seq(k, v)
@@ -95,7 +97,7 @@ class UseLedgerApiTestTool(
         version match {
           case LAPITTVersion.LocalJar =>
             // Requires running `sbt ledger-test-tool-<lfVersion>/assembly` first.
-            s"file://${System.getProperty("user.dir")}/enterprise/ledger-test-tool/tool/lf-v${lfVersion.testToolSuffix.tail}/target/scala-2.13/$testToolName-$testToolVersion.jar"
+            s"file://${System.getProperty("user.dir")}/community/ledger-test-tool/tool/lf-v${lfVersion.testToolSuffix.tail}/target/scala-2.13/$testToolName-$testToolVersion.jar"
           case _ =>
             val relativeUrl =
               s"com/digitalasset/canton/ledger-api-test-tool_2.13/$testToolVersion/${testToolName}_2.13-$testToolVersion.jar"
@@ -135,15 +137,12 @@ class UseLedgerApiTestTool(
 
     val additionalParameters = (defaultExtraArguments ++ kv).flatMap { case (k, v) => Seq(k, v) }
 
-    execTestTool(
-      Seq(
-        "--concurrent-test-runs",
-        concurrency.toString,
-        "--connected-synchronizers",
-        connectedSynchronizersCount.toString,
-        "--include",
-        suites,
-      ) ++ excludeParameter ++ additionalParameters ++ testParticipants: _*
+    runTestsInternal(
+      concurrentTestRuns = concurrency,
+      connectedSynchronizersCount = connectedSynchronizersCount,
+      testInclusions = suites.split(",").toSeq,
+      extraArgs = additionalParameters.toSeq ++ excludeParameter,
+      testParticipants = testParticipants,
     )
   }
 
@@ -172,6 +171,39 @@ class UseLedgerApiTestTool(
         idx % numShards == shard
       }
       .map(_._1)
+
+    runTestsInternal(
+      concurrentTestRuns = concurrentTestRuns,
+      connectedSynchronizersCount = connectedSynchronizersCount,
+      testInclusions = listing.toSeq,
+      extraArgs = defaultExtraArgumentsSeq,
+      testParticipants = testParticipants,
+    )
+  }
+
+  private def runTestsInternal(
+      concurrentTestRuns: Int,
+      connectedSynchronizersCount: Int,
+      testInclusions: Seq[String],
+      extraArgs: Seq[String],
+      testParticipants: Seq[String],
+  ): String = {
+    val testInclusionsAfterEnvArgConsideration = envArgTestsInclusion
+      .map { selectedTests =>
+        val filtered = testInclusions.filter(selectedTests.testCaseEnabled)
+        if (filtered.isEmpty) {
+          // Fine to use the scalatest cancel here as this method is expected to be invoked from
+          // from a ScalaTest case.
+          org.scalatest.Assertions.cancel(
+            s"After applying the restriction from the env var $LapittRunOnlyEnvVarName no tests remain to be run. " +
+              s"Original test selection: $testInclusions. Restriction applied: $selectedTests."
+          )
+        }
+
+        filtered
+      }
+      .getOrElse(testInclusions)
+
     execTestTool(
       Seq(
         "--concurrent-test-runs",
@@ -179,8 +211,8 @@ class UseLedgerApiTestTool(
         "--connected-synchronizers",
         connectedSynchronizersCount.toString,
         "--include",
-        listing.mkString(","),
-      ) ++ defaultExtraArgumentsSeq ++ testParticipants: _*
+        testInclusionsAfterEnvArgConsideration.mkString(","),
+      ) ++ extraArgs ++ testParticipants: _*
     )
   }
 
@@ -203,6 +235,82 @@ class UseLedgerApiTestTool(
 }
 
 object UseLedgerApiTestTool {
+  sealed trait TestInclusions extends Product with Serializable {
+    def testCaseEnabled(testCaseName: String): Boolean
+  }
+
+  object TestInclusions {
+    case object AllIncluded extends TestInclusions {
+      def testCaseEnabled(testCaseName: String): Boolean = true
+    }
+
+    /** @param includedSuites
+      *   Full suites to include
+      * @param includedTestCases
+      *   Specific test cases to include. Adding individual test cases here is redundant if their
+      *   suite is already included in [[includedSuites]].
+      */
+    final case class SelectedTests(
+        includedSuites: Set[String],
+        includedTestCases: Set[String] = Set.empty,
+    ) extends TestInclusions {
+      def testCaseEnabled(testCaseName: String): Boolean =
+        testCaseName.split(":").map(_.trim).toSeq match {
+          case Seq(suite, _) =>
+            includedSuites.contains(suite) || includedTestCases.contains(testCaseName)
+          case Seq(suite) => includedSuites.contains(suite)
+          case _other =>
+            throw new IllegalArgumentException(
+              s"Invalid test case name: $testCaseName. Expected format: SuiteName:TestCaseName"
+            )
+        }
+    }
+  }
+
+  trait EnvVarTestOverrides {
+    this: NamedLogging =>
+
+    protected val LapittRunOnlyEnvVarName = "LAPI_CONFORMANCE_TEST_RUN_ONLY"
+
+    /** Set the environment variable `LAPI_CONFORMANCE_TEST_RUN_ONLY` to a comma-separated list of
+      * test suite names or test case names to restrict the tests being run as part of a specific
+      * conformance test suite target.
+      *
+      * e.g. LAPI_CONFORMANCE_TEST_RUN_ONLY=CommandServiceIT sbt "testOnly
+      * *JsonApiConformanceIntegrationShardedTest_Shard_0"
+      */
+    protected lazy val envTestFilterO: Option[Seq[String]] =
+      sys.env.get(LapittRunOnlyEnvVarName).map(_.split(",").view.map(_.trim).toSeq)
+
+    // Implementors of this trait should use this value to filter the tests being run
+    // with the restriction provided via the env var.
+    protected lazy val envArgTestsInclusion: Option[TestInclusions.SelectedTests] = envTestFilterO
+      .flatMap { envTestFilter =>
+        val selectedTestsO = envTestFilter
+          .map(_.split(":").toSeq match {
+            case Seq(suite, test) =>
+              TestInclusions
+                .SelectedTests(includedSuites = Set.empty, includedTestCases = Set(s"$suite:$test"))
+            case Seq(suite) => TestInclusions.SelectedTests(includedSuites = Set(suite))
+            case _ => throw new IllegalArgumentException(s"Invalid test filter: $envTestFilter")
+          })
+          .reduceOption((s1, s2) =>
+            TestInclusions.SelectedTests(
+              includedSuites = s1.includedSuites ++ s2.includedSuites,
+              includedTestCases = s1.includedTestCases ++ s2.includedTestCases,
+            )
+          )
+
+        selectedTestsO.foreach(selectedTests =>
+          logger.debug(
+            s"$LapittRunOnlyEnvVarName set to $envTestFilterO. Filtering current test selection in ${getClass.getSimpleName} using restriction $selectedTests."
+          )(TraceContext.empty)
+        )
+
+        selectedTestsO
+      }
+  }
+
   sealed trait LfVersion {
     def testToolSuffix: String
   }

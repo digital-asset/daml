@@ -25,7 +25,7 @@ import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.*
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{BytesUnit, EitherTUtil, ErrorUtil, retry}
+import com.digitalasset.canton.util.{BytesUnit, EitherTUtil, ErrorUtil, MaxBytesToDecompress, retry}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
@@ -54,12 +54,14 @@ class InMemorySequencerStore(
     protected val executionContext: ExecutionContext
 ) extends SequencerStore {
 
+  private val maxBytesToDecompress: MaxBytesToDecompress = MaxBytesToDecompress.Default
+
   override protected val batchingConfig: BatchingConfig = BatchingConfig()
 
   private case class StoredPayload(instanceDiscriminator: UUID, content: ByteString)
 
   private val nextNewMemberId = new AtomicInteger()
-  private val members = TrieMap[Member, RegisteredMember]()
+  private val memberMap = TrieMap[Member, RegisteredMember]()
   private val memberPrunedPreviousEventTimestamps: mutable.Map[Member, CantonTimestamp] =
     mutable.Map.empty
   private val payloads = new ConcurrentSkipListMap[CantonTimestamp, StoredPayload]()
@@ -77,11 +79,11 @@ class InMemorySequencerStore(
     // we're running in-memory so we immediately committing to the "store" we have
     EitherTUtil.unitUS
 
-  override def registerMember(member: Member, timestamp: CantonTimestamp)(implicit
+  protected override def registerMemberInternal(member: Member, timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[SequencerMemberId] =
+  ): FutureUnlessShutdown[RegisteredMember] =
     FutureUnlessShutdown.pure {
-      members
+      memberMap
         .getOrElseUpdate(
           member,
           RegisteredMember(
@@ -90,14 +92,22 @@ class InMemorySequencerStore(
             enabled = true,
           ),
         )
-        .memberId
     }
 
   protected override def lookupMemberInternal(member: Member)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[RegisteredMember]] =
     FutureUnlessShutdown.pure(
-      members.get(member)
+      memberMap.get(member)
+    )
+
+  protected override def lookupMembersInternal(members: Set[Member])(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[Member, Option[RegisteredMember]]] =
+    FutureUnlessShutdown.pure(
+      members.map { member =>
+        member -> memberMap.get(member)
+      }.toMap
     )
 
   override def savePayloads(
@@ -186,6 +196,7 @@ class InMemorySequencerStore(
 
   override protected def readEventsInternal(
       memberId: SequencerMemberId,
+      memberRegisteredFrom: CantonTimestamp,
       fromExclusiveO: Option[CantonTimestamp] = None,
       limit: Int = 100,
   )(implicit
@@ -199,6 +210,7 @@ class InMemorySequencerStore(
     watermarkO.fold[ReadEvents](SafeWatermark(watermarkO)) { watermark =>
       val payloads =
         fromExclusiveO
+          .map(_ max memberRegisteredFrom)
           .fold(events.tailMap(CantonTimestamp.MinValue, true))(events.tailMap(_, false))
           .entrySet()
           .iterator()
@@ -206,7 +218,26 @@ class InMemorySequencerStore(
           .takeWhile(e => e.getKey <= watermark)
           .filter(e => isMemberRecipient(memberId)(e.getValue))
           .take(limit)
-          .map(entry => Sequenced(entry.getKey, entry.getValue))
+          .map { entry =>
+            val event = entry.getValue match {
+              case deliver: DeliverStoreEvent[PayloadId] =>
+                val sequencerMemberId = memberMap
+                  .getOrElse(
+                    sequencerMember,
+                    ErrorUtil.invalidState(
+                      s"Sequencer member $sequencerMember is not registered in the sequencer store"
+                    ),
+                  )
+                  .memberId
+                if (deliver.members.contains(sequencerMemberId)) {
+                  deliver.copy(members = NonEmpty(SortedSet, memberId, sequencerMemberId))
+                } else {
+                  deliver.copy(members = NonEmpty(SortedSet, memberId))
+                }
+              case other => other
+            }
+            Sequenced(entry.getKey, event)
+          }
           .toList
 
       if (payloads.nonEmpty)
@@ -225,18 +256,20 @@ class InMemorySequencerStore(
           Option(payloads.get(id.unwrap))
             .map(storedPayload =>
               id -> BytesPayload(id, storedPayload.content)
-                .decodeBatchAndTrim(protocolVersion, member)
+                .decodeBatchAndTrim(maxBytesToDecompress, protocolVersion, member)
             )
             .toList
         case payload: BytesPayload =>
-          List(payload.id -> payload.decodeBatchAndTrim(protocolVersion, member))
-        case batch: FilteredBatch => List(batch.id -> Batch.trimForMember(batch.batch, member))
+          List(
+            payload.id -> payload.decodeBatchAndTrim(maxBytesToDecompress, protocolVersion, member)
+          )
       }.toMap
     )
 
-  private def isMemberRecipient(member: SequencerMemberId)(event: StoreEvent[_]): Boolean =
+  private def isMemberRecipient(member: SequencerMemberId)(event: StoreEvent[?]): Boolean =
     event match {
-      case deliver: DeliverStoreEvent[_] =>
+      case deliver: DeliverStoreEvent[?] =>
+        deliver.members.contains(SequencerMemberId.Broadcast) ||
         deliver.members.contains(
           member
         ) // only if they're a recipient (sender should already be a recipient)
@@ -366,7 +399,7 @@ class InMemorySequencerStore(
       lowerBound =
         lowerBound.get().map { case (timestamp, _) => timestamp }.getOrElse(CantonTimestamp.Epoch),
       now = now,
-      members = members.collect {
+      members = memberMap.collect {
         case (member, RegisteredMember(memberId, registeredFrom, enabled))
             if (registeredFrom <= now) =>
           SequencerMemberStatus(
@@ -387,7 +420,7 @@ class InMemorySequencerStore(
     * structure
     */
   private def lookupExpectedMember(memberId: SequencerMemberId): Member =
-    members
+    memberMap
       .collectFirst { case (member, RegisteredMember(`memberId`, _, _)) =>
         member
       }
@@ -398,7 +431,7 @@ class InMemorySequencerStore(
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     FutureUnlessShutdown.pure {
       val member = lookupExpectedMember(memberId)
-      members.put(member, members(member).copy(enabled = false)).discard
+      memberMap.put(member, memberMap(member).copy(enabled = false)).discard
     }
 
   /** There can be no other sequencers sharing this storage */
@@ -438,7 +471,7 @@ class InMemorySequencerStore(
         (lookupExpectedMember(memberId), Some(timestamps.max1))
       }
 
-    val previousEventTimestampsWithFallback = members.keySet.map { member =>
+    val previousEventTimestampsWithFallback = memberMap.keySet.map { member =>
       member -> previousEventTimestamps.getOrElse(
         member,
         memberPrunedPreviousEventTimestamps.get(member),
@@ -482,13 +515,13 @@ class InMemorySequencerStore(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[CantonTimestamp]] =
     fetchLowerBound().map { lowerBoundO =>
-      val registeredMember = members.getOrElse(
+      val registeredMember = memberMap.getOrElse(
         member,
         ErrorUtil.invalidState(
           s"Member $member is not registered in the sequencer store"
         ),
       )
-      val sequencerMemberId = members
+      val sequencerMemberId = memberMap
         .getOrElse(
           sequencerMember,
           ErrorUtil.invalidState(

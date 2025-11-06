@@ -24,14 +24,24 @@ data UpgradeErrorType
         coid : AnyContractId
         srcTemplateId : TemplateTypeRep
         dstTemplateId : TemplateTypeRep
-        signatories : [Party]
-        observers : [Party]
-        keyOpt : Optional (AnyContractKey, [Party])
-  | DowngradeDropDefinedField with
-        expectedType : Text
-        fieldIndex : Int
-  | DowngradeFailed with
-        expectedType : Text
+        srcPackageName : Text
+        dstPackageName : Text
+        originalSignatories : [Party]
+        originalObservers : [Party]
+        originalKeyOpt : Optional (AnyContractKey, [Party])
+        recomputedSignatories : [Party]
+        recomputedObservers : [Party]
+        recomputedKeyOpt : Optional (AnyContractKey, [Party])
+  | TranslationFailed with
+        mCoid : Optional AnyContractId
+        srcTemplateId : TemplateTypeRep
+        dstTemplateId : TemplateTypeRep
+        createArg : AnyTemplate
+  | AuthenticationFailed with
+        coid : AnyContractId
+        srcTemplateId : TemplateTypeRep
+        dstTemplateId : TemplateTypeRep
+        createArg : AnyTemplate
 
 -- | MOVE Daml.Script
 -- Daml Crypto (Secp256k1) related submission errors
@@ -50,7 +60,6 @@ data CryptoErrorType
 -- Errors that will be promoted to SubmitError once stable - code needs to be kept in sync with SubmitError.scala
 data DevErrorType
   = ChoiceGuardFailed
-  | TranslationError
   | UnknownNewFeature -- ^ This should never happen - Update Scripts when you see this!
   deriving Show
 
@@ -97,6 +106,12 @@ data SubmitError
   | -- | Generic authorization failure, included missing party authority, invalid signatories, etc.
     AuthorizationError with
       authorizationErrorMessage : Text -- We can't pass over the data at the moment, so we just give the full string error here, for anyone that wants to check it
+  | -- | Failed to hash a contract
+    ContractHashingError with
+      contractId : AnyContractId
+      dstTemplateId : TemplateTypeRep
+      createArg : AnyTemplate
+      errorMessage: Text
   | -- | Given disclosed contract key does not match the contract key of the contract on ledger.
     DisclosedContractKeyHashingError with
       contractId : AnyContractId
@@ -203,6 +218,8 @@ instance Show SubmitError where
     ContractKeyNotFound contractKey -> "Could not find contract with given key"
     UnresolvedPackageName packageName -> "Could not find any vetted package with name " <> packageName
     AuthorizationError errMessage -> "Authorization failure: " <> errMessage
+    ContractHashingError contractId _dstTemplateId _createArg msg ->
+      "Failed to hash contract with ID " <> show contractId <> "\n with message \"" <> msg <> "\""
     DisclosedContractKeyHashingError contractId contractKey contractKeyHash ->
       "Disclosed contract with ID " <> show contractId <> " used incorrect payload - contract key hash: " <> contractKeyHash
     DuplicateContractKey contractKey -> "Attempted to create a contract with a contract key that is already in use"
@@ -235,9 +252,27 @@ instance Show SubmitError where
 -- | MOVE Daml.Script
 instance Show UpgradeErrorType where
   show err = case err of
-    ValidationFailed coid _srcTemplateId _dstTemplateId signatories observers _keyOpt ->
-      "Validation failed for contract " <> show coid <> " (Signatories: " <> show signatories <> ", Observers: " <> show observers <> ")"
-    DowngradeDropDefinedField expectedType rank ->
-      "Cannot drop Some field at position " <> show rank <> " in record to downgrade to " <> show expectedType
-    DowngradeFailed expectedType ->
-      "Could not downgrade from new variant/enum constructor to " <> show expectedType
+    (ValidationFailed
+        coid
+        _srcTemplateId
+        _dstTemplateId
+        srcPackageName
+        dstPackageName
+        originalSignatories
+        originalObservers
+        _originalKeyOpt
+        recomputedSignatories
+        recomputedObservers
+        _recomputedKeyOp) ->
+      "Validation failed for contract "
+          <> show coid
+          <> " ( original package name: " <> show srcPackageName
+          <> ", original signatories: " <> show originalSignatories
+          <> ", original observers: " <> show originalObservers
+          <> ", target package name:" <> show dstPackageName
+          <> ", recomputed signatories: " <> show recomputedSignatories
+          <> ", recomputed observers: " <> show recomputedObservers <> ")"
+    TranslationFailed mCoid _srcTemplateId _dstTemplateId _createArg ->
+      "Failed to load " <> (optional "a contract" (\coid -> "contract" <> show coid)) mCoid
+    AuthenticationFailed coid _srcTemplateId _dstTemplateId _createArg ->
+      "Authentication of contract " <> show coid <> " failed"

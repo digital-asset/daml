@@ -4,6 +4,7 @@
 package com.digitalasset.canton.auth
 
 import cats.syntax.either.*
+import cats.syntax.traverse.*
 import com.daml.jwt.JwtTimestampLeeway
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.LfLedgerString
@@ -153,11 +154,11 @@ final class Authorizer(
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   private def assertServerCall[A](observer: StreamObserver[A]): ServerCallStreamObserver[A] =
     observer match {
-      case _: ServerCallStreamObserver[_] =>
+      case _: ServerCallStreamObserver[?] =>
         observer.asInstanceOf[ServerCallStreamObserver[A]]
       case _ =>
         throw new IllegalArgumentException(
-          s"The wrapped stream MUST be a ${classOf[ServerCallStreamObserver[_]].getName}"
+          s"The wrapped stream MUST be a ${classOf[ServerCallStreamObserver[?]].getName}"
         )
     }
 
@@ -207,6 +208,8 @@ final class Authorizer(
           )
         )
 
+      // No authenticated user but a user-id present in the request OR
+      // Authenticated user different from user-id in the request (likely an admin operation)
       case _ => Right(None)
     }
 
@@ -223,6 +226,8 @@ final class Authorizer(
       case RequiredClaim.ReadAsAnyParty() => claims.canReadAsAnyParty.map(_ => req)
 
       case RequiredClaim.ActAs(party) => claims.canActAs(party).map(_ => req)
+
+      case RequiredClaim.ExecuteAs(party) => claims.canExecuteAs(party).map(_ => req)
 
       case RequiredClaim.MatchIdentityProviderId(_) =>
         val identityProviderIdL = requiredClaim.requestStringL
@@ -254,16 +259,29 @@ final class Authorizer(
           case None => claims.isAdminOrIDPAdmin.map(_ => req)
         }
 
+      case RequiredClaim.AdminOrIdpAdminOrSelfAdmin(_) =>
+        claims.isAdminOrIDPAdmin.left
+          .flatMap { err =>
+            val userId = requiredClaim.requestStringL.get(req)
+            authenticatedUserId(claims).flatMap {
+              case Some(authUserId) if authUserId == userId =>
+                Right(())
+              case _ =>
+                Left(err)
+            }
+          }
+          .map(_ => req)
+
       case RequiredClaim.Admin() => claims.isAdmin.map(_ => req)
 
       case RequiredClaim.AdminOrIdpAdmin() => claims.isAdminOrIDPAdmin.map(_ => req)
 
-      case RequiredClaim.AdminOrIdpAdminOrReadAsParty(party) =>
+      case RequiredClaim.AdminOrIdpAdminOrOperateAsParty(parties) =>
         (claims.isAdminOrIDPAdmin match {
-          case Left(_) =>
-            claims.canReadAs(party) match {
-              case Left(_) =>
-                Left(AuthorizationError.MissingAdminOrIdpAdminOrReadClaim(party))
+          case Left(_) if parties.nonEmpty =>
+            parties.traverse(claims.canOperateAs) match {
+              case Left(AuthorizationError.MissingOperationClaim(party)) =>
+                Left(AuthorizationError.MissingAdminOrIdpAdminOrOperationClaim(party))
               case x => x
             }
           case x => x
@@ -343,6 +361,7 @@ object RequiredClaim {
   final case class ReadAs[Req](party: String) extends RequiredClaim[Req]
   final case class ReadAsAnyParty[Req]() extends RequiredClaim[Req]
   final case class ActAs[Req](party: String) extends RequiredClaim[Req]
+  final case class ExecuteAs[Req](party: String) extends RequiredClaim[Req]
   final case class MatchIdentityProviderId[Req](override val requestStringL: Lens[Req, String])
       extends RequiredClaim[Req]
   final case class MatchUserId[Req](
@@ -351,7 +370,10 @@ object RequiredClaim {
   ) extends RequiredClaim[Req]
   final case class MatchUserIdForUserManagement[Req](override val requestStringL: Lens[Req, String])
       extends RequiredClaim[Req]
+  final case class AdminOrIdpAdminOrSelfAdmin[Req](override val requestStringL: Lens[Req, String])
+      extends RequiredClaim[Req]
   final case class Admin[Req]() extends RequiredClaim[Req]
   final case class AdminOrIdpAdmin[Req]() extends RequiredClaim[Req]
-  final case class AdminOrIdpAdminOrReadAsParty[Req](party: String) extends RequiredClaim[Req]
+  final case class AdminOrIdpAdminOrOperateAsParty[Req](parties: Seq[String])
+      extends RequiredClaim[Req]
 }

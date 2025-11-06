@@ -6,6 +6,7 @@ package com.digitalasset.canton.platform.store.backend
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.platform.store.PruningOffsetService
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.digitalasset.canton.platform.store.backend.h2.H2StorageBackendFactory
 import com.digitalasset.canton.platform.store.backend.localstore.{
@@ -17,6 +18,7 @@ import com.digitalasset.canton.platform.store.backend.postgresql.PostgresStorage
 import com.digitalasset.canton.platform.store.cache.MutableLedgerEndCache
 import com.digitalasset.canton.platform.store.interning.MockStringInterning
 import com.digitalasset.canton.platform.store.testing.postgresql.PostgresAroundAll
+import org.mockito.MockitoSugar.mock
 import org.scalatest.Suite
 
 import java.sql.Connection
@@ -85,8 +87,9 @@ trait StorageBackendProviderH2 extends StorageBackendProvider with BaseTest { th
 }
 
 final case class TestBackend(
-    ingestion: IngestionStorageBackend[_],
+    ingestion: IngestionStorageBackend[?],
     parameter: ParameterStorageBackend,
+    pruningOffsetService: PruningOffsetService,
     party: PartyStorageBackend,
     completion: CompletionStorageBackend,
     contract: ContractStorageBackend,
@@ -115,10 +118,12 @@ object TestBackend {
     TestBackend(
       ingestion = storageBackendFactory.createIngestionStorageBackend,
       parameter = storageBackendFactory.createParameterStorageBackend(stringInterning),
+      pruningOffsetService = mock[PruningOffsetService],
       party = storageBackendFactory.createPartyStorageBackend(ledgerEndCache),
       completion =
         storageBackendFactory.createCompletionStorageBackend(stringInterning, loggerFactory),
-      contract = storageBackendFactory.createContractStorageBackend(stringInterning),
+      contract =
+        storageBackendFactory.createContractStorageBackend(stringInterning, ledgerEndCache),
       event = storageBackendFactory
         .createEventStorageBackend(ledgerEndCache, stringInterning, loggerFactory),
       dataSource = storageBackendFactory.createDataSourceStorageBackend,

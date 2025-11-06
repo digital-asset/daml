@@ -5,6 +5,7 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v2.admin;
 
+import "com/daml/ledger/api/v2/package_reference.proto";
 import "google/protobuf/timestamp.proto";
 
 option csharp_namespace = "Com.Daml.Ledger.Api.V2.Admin";
@@ -21,25 +22,23 @@ service PackageManagementService {
   // Returns the details of all Daml-LF packages known to the backing participant.
   rpc ListKnownPackages(ListKnownPackagesRequest) returns (ListKnownPackagesResponse);
 
-  // Upload a DAR file to the backing participant.
-  // Depending on the ledger implementation this might also make the package
-  // available on the whole ledger. This call might not be supported by some
-  // ledger implementations. Canton could be an example, where uploading a DAR
-  // is not sufficient to render it usable, it must be activated first.
-  // This call may:
+  // Upload a DAR file to the participant.
   //
-  // - Succeed, if the package was successfully uploaded, or if the same package
-  //   was already uploaded before.
-  // - Respond with a gRPC error
+  // If vetting is enabled in the request, the DAR is checked for upgrade compatibility
+  // with the set of the already vetted packages on the target vetting synchronizer
+  // See UploadDarFileRequest for details regarding vetting and the target vetting synchronizer.
   rpc UploadDarFile(UploadDarFileRequest) returns (UploadDarFileResponse);
 
-  // Performs the same checks that UploadDarFile call perform, but doesn't
-  // upload the DAR and does not make it available on the whole ledger.
-  // This call may:
+  // Validates the DAR and checks the upgrade compatibility of the DAR's packages
+  // with the set of the already vetted packages on the target vetting synchronizer.
+  // See ValidateDarFileRequest for details regarding the target vetting synchronizer.
   //
-  // - Succeed if the package is valid
-  // - Respond with a gRPC error if the package is not valid
+  // The operation has no effect on the state of the participant or the Canton ledger:
+  // the DAR payload and its packages are not persisted neither are the packages vetted.
   rpc ValidateDarFile(ValidateDarFileRequest) returns (ValidateDarFileResponse);
+
+  // Update the vetted packages of this participant
+  rpc UpdateVettedPackages(UpdateVettedPackagesRequest) returns (UpdateVettedPackagesResponse);
 }
 
 message ListKnownPackagesRequest {}
@@ -82,6 +81,31 @@ message UploadDarFileRequest {
   // Unique submission identifier.
   // Optional, defaults to a random identifier.
   string submission_id = 2;
+
+  enum VettingChange {
+    // Vetting change field left unspecified, defaults to vetting all the
+    // packages in the DAR.
+    VETTING_CHANGE_UNSPECIFIED = 0;
+    // Vet all the packages in the DAR.
+    VETTING_CHANGE_VET_ALL_PACKAGES = 1;
+    // Do not vet any packages in the DAR.
+    VETTING_CHANGE_DONT_VET_ANY_PACKAGES = 2;
+  }
+
+  // How to vet packages in the DAR being uploaded
+  VettingChange vetting_change = 3;
+
+  // Only used if VettingChange is set to VETTING_CHANGE_VET_ALL_PACKAGES, in
+  // order to specify which synchronizer to vet on.
+  //
+  // If synchronizer_id is set, the synchronizer with this ID will be used. If
+  // synchronizer_id is unset and the participant is only connected to a single
+  // synchronizer, that synchronizer will be used by default. If synchronizer_id
+  // is unset and the participant is connected to multiple synchronizers, the
+  // request will error out with PACKAGE_SERVICE_CANNOT_AUTODETECT_SYNCHRONIZER.
+  //
+  // Optional
+  string synchronizer_id = 4;
 }
 
 // A message that is received when the upload operation succeeded.
@@ -99,6 +123,140 @@ message ValidateDarFileRequest {
   // Unique submission identifier.
   // Optional, defaults to a random identifier.
   string submission_id = 2;
+
+  // If synchronizer_id is set, the synchronizer with this ID will be used. If
+  // synchronizer_id is unset and the participant is only connected to a single
+  // synchronizer, that synchronizer will be used by default. If synchronizer_id
+  // is unset and the participant is connected to multiple synchronizers, the
+  // request will error out with PACKAGE_SERVICE_CANNOT_AUTODETECT_SYNCHRONIZER.
+  //
+  // Optional
+  string synchronizer_id = 4;
 }
 
 message ValidateDarFileResponse {}
+
+// A change to the set of vetted packages.
+message VettedPackagesChange {
+  // Remove packages from the set of vetted packages
+  message Unvet {
+    // Packages to be unvetted.
+    //
+    // If a reference in this list matches multiple packages, they are all
+    // unvetted.
+    repeated VettedPackagesRef packages = 1;
+  }
+
+  // Set vetting bounds of a list of packages. Packages that were not previously
+  // vetted have their bounds added, previous vetting bounds are overwritten.
+  message Vet {
+    // Packages to be vetted.
+    //
+    // If a reference in this list matches more than one package, the change is
+    // considered ambiguous and the entire update request is rejected. In other
+    // words, every reference must match exactly one package.
+    repeated VettedPackagesRef packages = 1;
+
+    // The time from which these packages should be vetted, prior lower bounds
+    // are overwritten.
+    // Optional
+    google.protobuf.Timestamp new_valid_from_inclusive = 2;
+
+    // The time until which these packages should be vetted, prior upper bounds
+    // are overwritten.
+    // Optional
+    google.protobuf.Timestamp new_valid_until_exclusive = 3;
+  }
+
+  oneof operation {
+    // Add packages to or update packages in the set of vetted packages.
+    Vet vet = 1;
+    // Remove packages from the set of vetted packages.
+    Unvet unvet = 2;
+  }
+}
+
+// A reference to identify one or more packages.
+//
+// A reference matches a package if its ``package_id`` matches the package's ID,
+// its ``package_name`` matches the package's name, and its ``package_version``
+// matches the package's version. If an attribute in the reference is left
+// unspecified (i.e. as an empty string), that attribute is treated as a
+// wildcard. At a minimum, ``package_id`` or the ``package_name`` must be
+// specified.
+//
+// If a reference does not match any package, the reference is considered
+// unresolved and the entire update request is rejected.
+message VettedPackagesRef {
+  // Package's package id must be the same as this field.
+  // Optional
+  string package_id = 1;
+
+  // Package's name must be the same as this field.
+  // Optional
+  string package_name = 2;
+
+  // Package's version must be the same as this field.
+  // Optional
+  string package_version = 3;
+}
+
+message UpdateVettedPackagesRequest {
+  // Changes to apply to the current vetting state of the participant on the
+  // specified synchronizer. The changes are applied in order.
+  // Any package not changed will keep their previous vetting state.
+  repeated VettedPackagesChange changes = 1;
+
+  // If dry_run is true, then the changes are only prepared, but not applied. If
+  // a request would trigger an error when run (e.g. TOPOLOGY_DEPENDENCIES_NOT_VETTED),
+  // it will also trigger an error when dry_run.
+  //
+  // Use this flag to preview a change before applying it.
+  bool dry_run = 2;
+
+  // If set, the requested changes will take place on the specified
+  // synchronizer. If synchronizer_id is unset and the participant is only
+  // connected to a single synchronizer, that synchronizer will be used by
+  // default. If synchronizer_id is unset and the participant is connected to
+  // multiple synchronizers, the request will error out with
+  // PACKAGE_SERVICE_CANNOT_AUTODETECT_SYNCHRONIZER.
+  //
+  // Optional
+  string synchronizer_id = 3;
+
+  // The serial of the last ``VettedPackages`` topology transaction of this
+  // participant and on this synchronizer.
+  //
+  // Execution of the request fails if this is not correct. Use this to guard
+  // against concurrent changes.
+  //
+  // If left unspecified, no validation is done against the last transaction's
+  // serial.
+  //
+  // Optional
+  PriorTopologySerial expected_topology_serial = 4;
+
+  // Controls whether potentially unsafe vetting updates are allowed.
+  //
+  // Optional, defaults to FORCE_FLAG_UNSPECIFIED.
+  repeated UpdateVettedPackagesForceFlag update_vetted_packages_force_flags = 5;
+}
+
+enum UpdateVettedPackagesForceFlag {
+  // Force flag left unspecified, defaults to no force flag used in the backend.
+  UPDATE_VETTED_PACKAGES_FORCE_FLAG_UNSPECIFIED = 0;
+  // Formerly UPDATE_VETTED_PACKAGES_FORCE_FLAG_ALLOW_UNVET_PACKAGE_WITH_ACTIVE_CONTRACTS;
+  reserved 1;
+  /** Allow vetting a package that is upgrade-incompatible with other vetted packages */
+  UPDATE_VETTED_PACKAGES_FORCE_FLAG_ALLOW_VET_INCOMPATIBLE_UPGRADES = 2;
+  /** Allow vetting a package without vetting one or more of its dependencies */
+  UPDATE_VETTED_PACKAGES_FORCE_FLAG_ALLOW_UNVETTED_DEPENDENCIES = 3;
+}
+
+message UpdateVettedPackagesResponse {
+  // All vetted packages on this participant and synchronizer, before the
+  // specified changes. Empty if no vetting state existed beforehand.
+  VettedPackages past_vetted_packages = 1;
+  // All vetted packages on this participant and synchronizer, after the specified changes.
+  VettedPackages new_vetted_packages = 2;
+}

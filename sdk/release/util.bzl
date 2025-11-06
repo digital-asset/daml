@@ -160,10 +160,7 @@ protos_zip = rule(
     attrs = {
         "daml_lf_tarballs": attr.label_list(
             allow_files = True,
-            default = [
-                Label("//daml-lf/archive:daml_lf_{}_archive_proto_tar.tar.gz".format(version))
-                for version in SUPPORTED_PROTO_STABLE_LF_VERSIONS
-            ] + ["//daml-lf/archive:daml_lf_archive_proto_tar.tar.gz"],
+            default = ["//daml-lf/archive:daml_lf_archive_proto_tar.tar.gz"],
         ),
         "ledger_api_tarball": attr.label(
             allow_single_file = True,

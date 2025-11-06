@@ -6,7 +6,7 @@ package engine
 
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.logging.LoggingContext
-import com.digitalasset.daml.lf.archive.UniversalArchiveDecoder
+import com.digitalasset.daml.lf.archive.DarDecoder
 import com.digitalasset.daml.lf.command.ApiCommand
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
@@ -14,7 +14,12 @@ import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
-import com.digitalasset.daml.lf.transaction.{SubmittedTransaction, Transaction}
+import com.digitalasset.daml.lf.transaction.{
+  SerializationVersion,
+  SubmittedTransaction,
+  Transaction,
+}
+import com.digitalasset.daml.lf.value.ContractIdVersion
 import com.digitalasset.daml.lf.value.Value._
 import org.scalatest.EitherValues
 import org.scalatest.Inside._
@@ -48,7 +53,7 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
   private[this] val preprocessor = preprocessing.Preprocessor.forTesting(compiledPackages)
 
   private def loadAndAddPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
-    val packages = UniversalArchiveDecoder.assertReadFile(new File(rlocation(resource)))
+    val packages = DarDecoder.assertReadArchiveFromFile(new File(rlocation(resource)))
     val (mainPkgId, mainPkg) = packages.main
     assert(
       compiledPackages.addPackage(mainPkgId, mainPkg).consume(pkgs = packages.all.toMap).isRight
@@ -75,17 +80,19 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
     val contracts = Map(
       cid1 ->
         TransactionBuilder.fatContractInstanceWithDummyDefaults(
-          version = LanguageMajorVersion.V2.minStableVersion,
+          version = SerializationVersion.StableVersions.max,
           packageName = interfacesPkg.pkgName,
           template = idT1,
           arg = ValueRecord(None, ImmArray((None, ValueParty(party)))),
+          signatories = List(party),
         ),
       cid2 ->
         TransactionBuilder.fatContractInstanceWithDummyDefaults(
-          version = LanguageMajorVersion.V2.minStableVersion,
-          interfacesPkg.pkgName,
-          idT2,
-          ValueRecord(None, ImmArray((None, ValueParty(party)))),
+          version = SerializationVersion.StableVersions.min,
+          packageName = interfacesPkg.pkgName,
+          template = idT2,
+          arg = ValueRecord(None, ImmArray((None, ValueParty(party)))),
+          signatories = List(party),
         ),
     )
     def consume[X](x: Result[X]) = x.consume(contracts, allInterfacesPkgs)
@@ -100,10 +107,10 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
             submitters = Set(party),
             readAs = Set.empty,
             commands = ImmArray(speedyCmd),
-            disclosures = ImmArray.empty,
             ledgerTime = let,
             preparationTime = let,
             seeding = seeding,
+            contractIdVersion = contractIdVersion,
             packageResolution = packageNameMap,
           )
         (tx, meta, _) = result
@@ -199,6 +206,7 @@ object InterfacesTest {
   private def participant = Ref.ParticipantId.assertFromString("participant")
 
   private val party = Party.assertFromString("Party")
+  private val contractIdVersion = ContractIdVersion.V1
 
   private implicit def qualifiedNameStr(s: String): QualifiedName =
     QualifiedName.assertFromString(s)

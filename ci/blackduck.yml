@@ -14,7 +14,7 @@ jobs:
     name: ubuntu_20_04
     demands: assignment -equals default
   variables:
-    blackduck_script_sha: 3e1b8abb96308c44fc900755f424ecf23b4b5d82
+    blackduck_script_sha: e2e252780511f44a360d37fda0d343b474188e46
   steps:
   - checkout: self
     clean: true
@@ -151,10 +151,6 @@ jobs:
       eval "$(./dev-env/bin/dade-assist)"
       source $(bash_lib)
       
-      gh auth status
-      export GITHUB_TOKEN=$(gh auth token)
-      git config --global url.https://${GITHUB_TOKEN}@github.com/.insteadOf https://github.com/
-      
       branch="notices-update-$(Build.BuildId)"
 
       tr -d '\015' < digital_asset_daml_$(Build.SourceBranchName)_Black_Duck_Notices_Report.txt | grep -v digital-asset_daml > NOTICES
@@ -162,7 +158,6 @@ jobs:
           echo "NOTICES file already up-to-date."
           setvar need_to_build false
       else
-          
           git add NOTICES
           open_pr "$branch" "update NOTICES file"  "" "" "$(Build.SourceBranchName)"
           setvar need_to_build true
@@ -210,12 +205,8 @@ jobs:
         sed -i "s|blackduck_script_sha: $current|blackduck_script_sha: $latest|" ../ci/blackduck.yml
         git add ../ci/blackduck.yml
         
-        az extension add --name azure-devops --allow-preview true || true
-        echo ${AZURE_DEVOPS_EXT_PAT} | az devops login --organization="https://dev.azure.com/digitalasset"
-        trap "az devops logout" EXIT
-        
         open_pr "$branch" "bump blackduck script to ${latest:0:8}" "" "" "$(Build.SourceBranchName)"
-        trigger_azure $(System.AccessToken) "PRs" --branch $branch
+        trigger_azure $AZURE_DEVOPS_EXT_PAT "PRs" --branch $branch
       fi
     displayName: 'Bump Blackduck Script if needed'
     env:

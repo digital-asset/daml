@@ -15,7 +15,6 @@ import com.digitalasset.canton.ledger.error.groups.{
 }
 import com.digitalasset.canton.ledger.error.{CommonErrors, IndexErrors, LedgerApiErrors}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, SuppressionRule}
-import com.digitalasset.daml.lf.data.Ref
 import com.google.rpc.*
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
@@ -289,29 +288,6 @@ class ErrorFactoriesSpec
             Map("category" -> "9", "definite_answer" -> "false", "test" -> getClass.getSimpleName),
           ),
           expectedCorrelationIdRequestInfo,
-        ),
-        logLevel = Level.INFO,
-        logMessage = msg,
-        logErrorContextRegEx = expectedLocationRegex,
-      )
-    }
-
-    "return a transactionNotFound error" in {
-      val msg =
-        s"TRANSACTION_NOT_FOUND(11,$truncatedCorrelationId): Transaction not found, or not visible."
-      assertError(
-        RequestValidationErrors.NotFound.Transaction
-          .RejectWithTxId(Ref.TransactionId.assertFromString("tId"))(errorLoggingContext)
-      )(
-        code = Code.NOT_FOUND,
-        message = msg,
-        details = Seq[ErrorDetails.ErrorDetail](
-          ErrorDetails.ErrorInfoDetail(
-            "TRANSACTION_NOT_FOUND",
-            Map("category" -> "11", "definite_answer" -> "false", "test" -> getClass.getSimpleName),
-          ),
-          expectedCorrelationIdRequestInfo,
-          ErrorDetails.ResourceInfoDetail(typ = "TRANSACTION_ID", name = "tId"),
         ),
         logLevel = Level.INFO,
         logMessage = msg,

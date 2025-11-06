@@ -26,6 +26,7 @@ import com.digitalasset.canton.synchronizer.sequencer.admin.data.{
   SequencerAdminStatus,
   SequencerHealthStatus,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.BlockOrderer
 import com.digitalasset.canton.synchronizer.sequencer.errors.SequencerError.SnapshotNotFound
 import com.digitalasset.canton.synchronizer.sequencer.errors.{
   CreateSubscriptionError,
@@ -524,4 +525,12 @@ class DatabaseSequencer(
       announcementEffectiveTime: EffectiveTime,
   )(implicit traceContext: TraceContext): Unit =
     reader.updateSynchronizerSuccessor(successorO, announcementEffectiveTime)
+
+  // TODO(#27919): provide a proper implementation
+  override def sequencingTime(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[CantonTimestamp]] =
+    FutureUnlessShutdown.pure(None)
+
+  override private[canton] def orderer: Option[BlockOrderer] = None
 }

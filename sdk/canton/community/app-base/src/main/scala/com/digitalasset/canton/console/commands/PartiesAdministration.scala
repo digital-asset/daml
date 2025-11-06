@@ -5,9 +5,12 @@ package com.digitalasset.canton.console.commands
 
 import better.files.File
 import cats.Applicative
+import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.foldable.*
-import com.daml.ledger.api.v2.topology_transaction.TopologyTransaction
+import cats.syntax.parallel.*
+import com.daml.nonempty.NonEmpty
+import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.{
   TopologyTransactionWrapper,
   UpdateWrapper,
@@ -17,10 +20,7 @@ import com.digitalasset.canton.admin.api.client.commands.{
   TopologyAdminCommands,
 }
 import com.digitalasset.canton.admin.api.client.data.{AddPartyStatus, ListPartiesResult}
-import com.digitalasset.canton.admin.participant.v30.{
-  ExportAcsAtTimestampResponse,
-  ExportAcsResponse,
-}
+import com.digitalasset.canton.admin.participant.v30.ExportPartyAcsResponse
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.config.{ConsoleCommandTimeout, NonNegativeDuration}
 import com.digitalasset.canton.console.commands.TopologyTxFiltering.{AddedFilter, RevokedFilter}
@@ -34,17 +34,32 @@ import com.digitalasset.canton.console.{
   Helpful,
   ParticipantReference,
 }
+import com.digitalasset.canton.crypto.{Fingerprint, SigningKeyUsage}
+import com.digitalasset.canton.data.{CantonTimestamp, OnboardingTransactions}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.grpc.FileStreamObserver
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.participant.admin.data.{
+  ContractImportMode,
+  RepresentativePackageIdOverride,
+}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.transaction.*
+import com.digitalasset.canton.topology.transaction.DelegationRestriction.CanSignAllMappings
+import com.digitalasset.canton.topology.transaction.{TopologyTransaction, *}
+import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.ShowUtil.*
+import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LedgerParticipantId, SynchronizerAlias, config}
+import com.google.common.annotations.VisibleForTesting
+import com.google.protobuf.ByteString
 import io.grpc.Context
 
 import java.time.Instant
+import java.util.UUID
+import scala.concurrent.ExecutionContext
 
 class PartiesAdministrationGroup(
     runner: AdminCommandRunner,
@@ -188,6 +203,575 @@ class ParticipantPartiesAdministrationGroup(
       }
     }
 
+  private[canton] object external {
+
+    private implicit val ec: ExecutionContext = consoleEnvironment.environment.executionContext
+    private implicit val tc: TraceContext = TraceContext.empty
+    private implicit val ce: ConsoleEnvironment = consoleEnvironment
+
+    /** Enable an external party hosted on `reference` with confirmation rights.
+      * @param name
+      *   Name of the party to be enabled
+      * @param synchronizer
+      *   Synchronizer
+      * @param synchronizeParticipants
+      *   Participants that need to see activation of the party
+      */
+    @VisibleForTesting // Ensures external parties are created only in tests
+    def enable(
+        name: String,
+        synchronizer: Option[SynchronizerAlias] = None,
+        synchronizeParticipants: Seq[ParticipantReference] = consoleEnvironment.participants.all,
+        synchronize: Option[config.NonNegativeDuration] = Some(timeouts.unbounded),
+        // External party specifics
+        keysCount: PositiveInt = PositiveInt.one,
+        keysThreshold: PositiveInt = PositiveInt.one,
+    ): ExternalParty = {
+
+      val onboardingET = for {
+        psid <- EitherT
+          .fromEither[FutureUnlessShutdown](lookupOrDetectSynchronizerId(synchronizer))
+          .leftMap(err => s"Cannot find physical synchronizer id: $err")
+
+        onboardingData <- onboarding_transactions(
+          name,
+          synchronizer,
+          keysCount = keysCount,
+          keysThreshold = keysThreshold,
+        )
+        (onboardingTxs, externalParty) = onboardingData
+
+        _ = reference.ledger_api.parties.allocate_external(
+          psid.logical,
+          onboardingTxs.transactionsWithSingleSignature,
+          onboardingTxs.multiTransactionSignatures,
+        )
+
+        _ <- EitherT.fromEither[FutureUnlessShutdown](
+          Applicative[Either[String, *]].whenA(synchronize.nonEmpty)(
+            PartiesAdministration.Allocation.waitForPartyKnown(
+              partyId = externalParty.partyId,
+              hostingParticipant = reference,
+              synchronizeParticipants = synchronizeParticipants,
+              synchronizerId = psid.logical,
+            )(consoleEnvironment)
+          )
+        )
+      } yield externalParty
+
+      consoleEnvironment.run(ConsoleCommandResult.fromEitherTUS(onboardingET))
+    }
+
+    /** Generate the party id and namespace transaction for a centralized namespace party. Creates
+      * the namespace key in the global crypto store.
+      */
+    private def build_centralized_namespace(
+        name: String,
+        protocolVersion: ProtocolVersion,
+    ): EitherT[
+      FutureUnlessShutdown,
+      String,
+      (PartyId, TopologyTransaction[TopologyChangeOp.Replace, TopologyMapping]),
+    ] = for {
+      namespaceKey <- consoleEnvironment.tryGlobalCrypto
+        .generateSigningKey(usage = SigningKeyUsage.NamespaceOnly)
+        .leftMap(_.toString)
+      partyId = PartyId.tryCreate(name, namespaceKey.fingerprint)
+      mapping <- EitherT.fromEither[FutureUnlessShutdown](
+        NamespaceDelegation.create(
+          namespace = partyId.namespace,
+          target = namespaceKey,
+          CanSignAllMappings,
+        )
+      )
+      namespaceTx = TopologyTransaction(
+        TopologyChangeOp.Replace,
+        serial = PositiveInt.one,
+        mapping,
+        protocolVersion,
+      )
+    } yield (partyId, namespaceTx)
+
+    /** Generate the party id and namespace transaction for a decentralized namespace party from a
+      * set of existing namespaces. The namespaces must already exist and be authorized in the
+      * topology of the target synchronizer.
+      */
+    private def build_decentralized_namespace(
+        name: String,
+        protocolVersion: ProtocolVersion,
+        namespaceOwners: NonEmpty[Set[Namespace]],
+        namespaceThreshold: PositiveInt,
+    ): (
+        PartyId,
+        TopologyTransaction[TopologyChangeOp.Replace, TopologyMapping],
+    ) = {
+      val decentralizedNamespace =
+        DecentralizedNamespaceDefinition.computeNamespace(namespaceOwners.forgetNE)
+      val partyId = PartyId.tryCreate(name, decentralizedNamespace.fingerprint)
+      val namespaceTx = TopologyTransaction(
+        TopologyChangeOp.Replace,
+        serial = PositiveInt.one,
+        DecentralizedNamespaceDefinition.tryCreate(
+          decentralizedNamespace,
+          namespaceThreshold,
+          namespaceOwners,
+        ),
+        protocolVersion,
+      )
+      (partyId, namespaceTx)
+    }
+
+    /** Utility method to create a namespace delegation controlled by an external key. Use to create
+      * namespaces prior to allocating an external party controlled by a decentralized namespace for
+      * instance.
+      * @param synchronizer
+      *   Synchronizer
+      * @return
+      *   Namespace
+      */
+    @VisibleForTesting // Ensures external this is only used in testing
+    def create_external_namespace(
+        synchronizer: Option[SynchronizerAlias] = None,
+        synchronize: Option[config.NonNegativeDuration] = Some(timeouts.unbounded),
+    ): Namespace = {
+      val res = for {
+        psid <- EitherT
+          .fromEither[FutureUnlessShutdown](
+            lookupOrDetectSynchronizerId(synchronizer)
+          )
+          .leftMap(err => s"Cannot find protocol version: $err")
+
+        namespaceKey <- consoleEnvironment.tryGlobalCrypto
+          .generateSigningKey(usage = SigningKeyUsage.NamespaceOnly)
+          .leftMap(_.toString)
+
+        namespace = Namespace(namespaceKey.fingerprint)
+
+        namespaceTx = TopologyTransaction(
+          TopologyChangeOp.Replace,
+          serial = PositiveInt.one,
+          NamespaceDelegation.tryCreate(
+            namespace = namespace,
+            target = namespaceKey,
+            CanSignAllMappings,
+          ),
+          psid.protocolVersion,
+        )
+
+        signature <- consoleEnvironment.tryGlobalCrypto.privateCrypto
+          .sign(
+            namespaceTx.hash.hash,
+            namespaceKey.fingerprint,
+            NonEmpty.mk(Set, SigningKeyUsage.Namespace),
+          )
+          .leftMap(_.toString)
+
+        signedNamespace = SignedTopologyTransaction
+          .withTopologySignatures(
+            namespaceTx,
+            NonEmpty.mk(Seq, SingleTransactionSignature(namespaceTx.hash, signature)),
+            isProposal = false,
+            psid.protocolVersion,
+          )
+
+        _ = reference.topology.transactions.load(
+          Seq(signedNamespace),
+          psid,
+          synchronize = synchronize,
+        )
+      } yield Namespace(namespaceKey.fingerprint)
+
+      consoleEnvironment.run(ConsoleCommandResult.fromEitherTUS(res))
+    }
+
+    /** Compute the onboarding transaction to enable party `name`
+      * @param name
+      *   Name of the party to be enabled
+      * @param synchronizer
+      *   Synchronizer
+      * @param additionalConfirming
+      *   Other confirming participants
+      * @param observing
+      *   Observing participants
+      * @param decentralizedNamespaceOwners
+      *   Set when creating a party controlle by a decentralized namespace. The namespaces must
+      *   already exist and be authorized in the topology of the target synchronizer.
+      * @param namespaceThreshold
+      *   Threshold of the decentralized namespace. Only used when decentralizedNamespaceOwners is
+      *   non empty.
+      */
+    @VisibleForTesting // Ensures external parties are created only in tests
+    def onboarding_transactions(
+        name: String,
+        synchronizer: Option[SynchronizerAlias] = None,
+        additionalConfirming: Seq[ParticipantId] = Seq.empty,
+        observing: Seq[ParticipantId] = Seq.empty,
+        confirmationThreshold: PositiveInt = PositiveInt.one,
+        keysCount: PositiveInt = PositiveInt.one,
+        keysThreshold: PositiveInt = PositiveInt.one,
+        decentralizedNamespaceOwners: Set[Namespace] = Set.empty,
+        namespaceThreshold: PositiveInt = PositiveInt.one,
+    ): EitherT[FutureUnlessShutdown, String, (OnboardingTransactions, ExternalParty)] =
+      for {
+        protocolVersion <- EitherT
+          .fromEither[FutureUnlessShutdown](
+            lookupOrDetectSynchronizerId(synchronizer).map(_.protocolVersion)
+          )
+          .leftMap(err => s"Cannot find protocol version: $err")
+
+        decentralizedOwnersNEO = NonEmpty.from(decentralizedNamespaceOwners)
+
+        partyIdAndNamespaceTx <- decentralizedOwnersNEO
+          .map(namespaceOwnersNE =>
+            EitherT.pure[FutureUnlessShutdown, String](
+              build_decentralized_namespace(
+                name,
+                protocolVersion,
+                namespaceOwnersNE,
+                namespaceThreshold,
+              )
+            )
+          )
+          .getOrElse(build_centralized_namespace(name, protocolVersion))
+
+        (partyId, namespaceTx) = partyIdAndNamespaceTx
+
+        protocolSigningKeys = consoleEnvironment.global_secret.keys.secret
+          .generate_keys(keysCount, usage = SigningKeyUsage.ProtocolOnly)
+
+        partyToKeyTx = TopologyTransaction(
+          TopologyChangeOp.Replace,
+          serial = PositiveInt.one,
+          PartyToKeyMapping.tryCreate(
+            partyId = partyId,
+            threshold = keysThreshold,
+            signingKeys = protocolSigningKeys,
+          ),
+          protocolVersion,
+        )
+
+        hybridParticipants = additionalConfirming.intersect(observing)
+        _ <- EitherT.fromEither[FutureUnlessShutdown](
+          NonEmpty
+            .from(hybridParticipants)
+            .toLeft(())
+            .leftMap(hybridParticipants =>
+              s"The following participants are indicated as observing and confirming: $hybridParticipants"
+            )
+        )
+
+        _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
+          !observing.contains(reference.id),
+          "reference participant should not be observing",
+        )
+
+        hostingConfirming = (reference.id +: additionalConfirming).map(
+          HostingParticipant(_, ParticipantPermission.Confirmation)
+        )
+
+        hostingObserving = observing.map(
+          HostingParticipant(_, ParticipantPermission.Observation)
+        )
+
+        partyToParticipantTx = TopologyTransaction(
+          TopologyChangeOp.Replace,
+          serial = PositiveInt.one,
+          PartyToParticipant.tryCreate(
+            partyId = partyId,
+            threshold = confirmationThreshold,
+            participants = hostingConfirming ++ hostingObserving,
+          ),
+          protocolVersion,
+        )
+
+        onboardingTransactions <- bundle_onboarding_transactions(
+          partyId = partyId,
+          protocolSigningKeys = protocolSigningKeys.map(_.fingerprint),
+          protocolVersion = protocolVersion,
+          namespaceTx = namespaceTx,
+          partyToKeyTx = partyToKeyTx,
+          partyToParticipantTx = partyToParticipantTx,
+          decentralizedNamespaceOwners = decentralizedNamespaceOwners,
+        )
+      } yield (
+        onboardingTransactions,
+        ExternalParty(partyId, protocolSigningKeys.map(_.fingerprint), keysThreshold),
+      )
+
+    /** Enable an existing external party hosted on `reference` with confirmation rights. Unlike
+      * `enable`, this command assumes the external party already exists on a different
+      * synchronizer.
+      *
+      * Note: the keys (and threshold) will be the same as on the synchronizer on which the party is
+      * already hosted.
+      *
+      * @param party
+      *   Name of the party to be enabled
+      * @param synchronizer
+      *   Synchronizer
+      * @param synchronizeParticipants
+      *   Participants that need to see activation of the party
+      */
+    @VisibleForTesting // Ensures external parties are created only in tests
+    def also_enable(
+        party: ExternalParty,
+        synchronizer: SynchronizerAlias,
+        synchronizeParticipants: Seq[ParticipantReference] = consoleEnvironment.participants.all,
+        synchronize: Option[config.NonNegativeDuration] = Some(timeouts.unbounded),
+    ): Unit = {
+
+      val onboardingET = for {
+        psid <- EitherT
+          .fromEither[FutureUnlessShutdown](lookupOrDetectSynchronizerId(Some(synchronizer)))
+          .leftMap(err => s"Cannot find physical synchronizer id: $err")
+
+        onboardingTxs <- onboarding_transactions_for_existing(
+          party,
+          synchronizer,
+          confirmationThreshold = PositiveInt.one,
+        )
+
+        _ = reference.ledger_api.parties.allocate_external(
+          psid.logical,
+          onboardingTxs.transactionsWithSingleSignature,
+          onboardingTxs.multiTransactionSignatures,
+        )
+
+        _ <- EitherT.fromEither[FutureUnlessShutdown](
+          Applicative[Either[String, *]].whenA(synchronize.nonEmpty)(
+            PartiesAdministration.Allocation.waitForPartyKnown(
+              partyId = party.partyId,
+              hostingParticipant = reference,
+              synchronizeParticipants = synchronizeParticipants,
+              synchronizerId = psid.logical,
+            )(consoleEnvironment)
+          )
+        )
+      } yield ()
+
+      consoleEnvironment.run(ConsoleCommandResult.fromEitherTUS(onboardingET))
+    }
+
+    /** Compute onboarding transactions for an existing external party.
+      *
+      * Note: the keys (and threshold) will be the same as on the synchronizer on which the party is
+      * already hosted.
+      * @param name
+      *   Name of the party to be enabled
+      * @param synchronizer
+      *   Synchronizer
+      * @param additionalConfirming
+      *   Other confirming participants
+      * @param observing
+      *   Observing participants
+      */
+    @VisibleForTesting // Ensures external parties are used only in tests
+    def onboarding_transactions_for_existing(
+        party: ExternalParty,
+        synchronizer: SynchronizerAlias,
+        additionalConfirming: Seq[ParticipantId] = Seq.empty,
+        observing: Seq[ParticipantId] = Seq.empty,
+        confirmationThreshold: PositiveInt = PositiveInt.one,
+    ): EitherT[FutureUnlessShutdown, String, OnboardingTransactions] = {
+      val knownPSIds = reference.synchronizers.list_registered().collect {
+        case (_, KnownPhysicalSynchronizerId(psid), _) => psid
+      }
+
+      def getUniqueMapping[T](
+          getter: PhysicalSynchronizerId => Seq[T],
+          key: String,
+      ): EitherT[FutureUnlessShutdown, String, T] =
+        knownPSIds.flatMap(getter).toList.distinct match {
+          case Nil => EitherT.leftT[FutureUnlessShutdown, T](s"Unable to $key for $party")
+          case head :: Nil => EitherT.rightT[FutureUnlessShutdown, String](head)
+          case _several => EitherT.leftT[FutureUnlessShutdown, T](s"Found several $key for $party")
+        }
+
+      for {
+        protocolVersion <- EitherT
+          .fromEither[FutureUnlessShutdown](
+            lookupOrDetectSynchronizerId(Some(synchronizer)).map(_.protocolVersion)
+          )
+          .leftMap(err => s"Cannot find protocol version: $err")
+
+        namespaceDelegation <- getUniqueMapping(
+          psid =>
+            reference.topology.namespace_delegations
+              .list(store = psid, filterNamespace = party.namespace.filterString)
+              .map(_.item),
+          "namespace delegation",
+        )
+
+        namespaceDelegationTx = TopologyTransaction(
+          TopologyChangeOp.Replace,
+          serial = PositiveInt.one,
+          namespaceDelegation,
+          protocolVersion,
+        )
+
+        partyToKey <- getUniqueMapping(
+          psid =>
+            reference.topology.party_to_key_mappings
+              .list(store = psid, filterParty = party.filterString)
+              .map(_.item),
+          "party to key",
+        )
+
+        partyToKeyTx = TopologyTransaction(
+          TopologyChangeOp.Replace,
+          serial = PositiveInt.one,
+          partyToKey,
+          protocolVersion,
+        )
+
+        hybridParticipants = additionalConfirming.intersect(observing)
+        _ <- EitherT.fromEither[FutureUnlessShutdown](
+          NonEmpty
+            .from(hybridParticipants)
+            .toLeft(())
+            .leftMap(hybridParticipants =>
+              s"The following participants are indicated as observing and confirming: $hybridParticipants"
+            )
+        )
+
+        _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
+          !observing.contains(reference.id),
+          "reference participant should not be observing",
+        )
+
+        hostingConfirming = (reference.id +: additionalConfirming).map(
+          HostingParticipant(_, ParticipantPermission.Confirmation)
+        )
+
+        hostingObserving = observing.map(
+          HostingParticipant(_, ParticipantPermission.Observation)
+        )
+
+        partyToParticipantTx = TopologyTransaction(
+          TopologyChangeOp.Replace,
+          serial = PositiveInt.one,
+          PartyToParticipant.tryCreate(
+            partyId = party.partyId,
+            threshold = confirmationThreshold,
+            participants = hostingConfirming ++ hostingObserving,
+          ),
+          protocolVersion,
+        )
+
+        onboardingTransactions <- bundle_onboarding_transactions(
+          partyId = party.partyId,
+          protocolSigningKeys = party.signingFingerprints,
+          protocolVersion = protocolVersion,
+          namespaceTx = namespaceDelegationTx,
+          partyToKeyTx = partyToKeyTx,
+          partyToParticipantTx = partyToParticipantTx,
+          decentralizedNamespaceOwners = Set.empty,
+        )
+
+      } yield onboardingTransactions
+    }
+
+    /** Sign the onboarding transactions and build a [[OnboardingTransactions]]
+      */
+    private def bundle_onboarding_transactions(
+        partyId: PartyId,
+        protocolSigningKeys: NonEmpty[Seq[Fingerprint]],
+        protocolVersion: ProtocolVersion,
+        namespaceTx: TopologyTransaction[TopologyChangeOp.Replace, TopologyMapping],
+        partyToKeyTx: TopologyTransaction[TopologyChangeOp.Replace, PartyToKeyMapping],
+        partyToParticipantTx: TopologyTransaction[TopologyChangeOp.Replace, PartyToParticipant],
+        decentralizedNamespaceOwners: Set[Namespace],
+    ): EitherT[FutureUnlessShutdown, String, OnboardingTransactions] = {
+      val transactionHashes = NonEmpty.mk(
+        Set,
+        namespaceTx.hash,
+        partyToParticipantTx.hash,
+        partyToKeyTx.hash,
+      )
+
+      val combinedMultiTxHash = MultiTransactionSignature.computeCombinedHash(
+        transactionHashes,
+        consoleEnvironment.tryGlobalCrypto.pureCrypto,
+      )
+
+      val decentralizedOwnersNEO = NonEmpty.from(decentralizedNamespaceOwners)
+
+      val namespaceFingerprints = decentralizedOwnersNEO
+        .map(_.map(_.fingerprint))
+        .getOrElse(NonEmpty.mk(Set, partyId.fingerprint))
+
+      // Sign the multi hash with the namespace keys, as it is needed to authorize all transactions
+      val namespaceSignatures = namespaceFingerprints.toSeq.map(
+        consoleEnvironment.global_secret.sign(
+          combinedMultiTxHash.getCryptographicEvidence,
+          _,
+          NonEmpty.mk(Set, SigningKeyUsage.Namespace: SigningKeyUsage),
+        )
+      )
+
+      for {
+        // The protocol key signature is only needed on the party to key mapping, so we can sign only that
+        protocolSignatures <- protocolSigningKeys.toNEF
+          .parTraverse { protocolSigningKey =>
+            consoleEnvironment.tryGlobalCrypto.privateCrypto
+              .sign(
+                partyToKeyTx.hash.hash,
+                protocolSigningKey,
+                NonEmpty.mk(Set, SigningKeyUsage.Protocol),
+              )
+          }
+          .leftMap(_.toString)
+          .map(_.toSeq)
+
+        multiTxSignatures = namespaceSignatures.map(namespaceSignature =>
+          MultiTransactionSignature(transactionHashes, namespaceSignature)
+        )
+
+        signedNamespace = SignedTopologyTransaction
+          .withTopologySignatures(
+            namespaceTx,
+            multiTxSignatures,
+            isProposal = false,
+            protocolVersion,
+          )
+
+        signedPartyToParticipant = SignedTopologyTransaction
+          .withTopologySignatures(
+            partyToParticipantTx,
+            multiTxSignatures,
+            isProposal = true,
+            protocolVersion,
+          )
+
+        signedPartyToKey = SignedTopologyTransaction
+          .withTopologySignatures(
+            partyToKeyTx,
+            multiTxSignatures,
+            isProposal = false,
+            protocolVersion,
+          )
+          // Merge the signature from the protocol key
+          .addSingleSignatures(protocolSignatures.toSet)
+      } yield {
+        val keys = Map(
+          "namespace" -> signedNamespace,
+          "party-to-participant" -> signedPartyToParticipant,
+          "party-to-key" -> signedPartyToKey,
+        ).view.mapValues(_.signatures.map(_.authorizingLongTermKey).mkString(", "))
+
+        logger.info(
+          s"Generated onboarding transactions for external party ${partyId.identifier} with id $partyId: $keys"
+        )
+
+        OnboardingTransactions(
+          signedNamespace,
+          signedPartyToParticipant,
+          signedPartyToKey,
+        )
+      }
+    }
+  }
+
   /** @return
     *   if SynchronizerAlias is set, the SynchronizerId that corresponds to the alias. if
     *   SynchronizerAlias is not set, the synchronizer id of the only connected synchronizer. if the
@@ -200,9 +784,11 @@ class ParticipantPartiesAdministrationGroup(
       case Seq() =>
         Left("not connected to any synchronizer")
       case Seq(onlyOneSynchronizer) => Right(onlyOneSynchronizer.physicalSynchronizerId)
-      case _multiple =>
+      case multiple =>
+        val psids = multiple.map(_.physicalSynchronizerId)
+
         Left(
-          "cannot automatically determine synchronizer, because participant is connected to more than 1 synchronizer"
+          s"cannot automatically determine synchronizer, because participant is connected to more than 1 synchronizer: $psids"
         )
     }
     alias
@@ -348,7 +934,7 @@ class ParticipantPartiesAdministrationGroup(
       endOffsetInclusive: Option[Long] = None,
       completeAfter: PositiveInt = PositiveInt.MaxValue,
       timeout: NonNegativeDuration = timeouts.bounded,
-  ): NonNegativeLong = {
+  ): Long = {
     val filter = TopologyTxFiltering.getTopologyFilter(
       partyId,
       participantId,
@@ -413,7 +999,7 @@ class ParticipantPartiesAdministrationGroup(
       endOffsetInclusive: Option[Long] = None,
       completeAfter: PositiveInt = PositiveInt.MaxValue,
       timeout: NonNegativeDuration = timeouts.bounded,
-  ): NonNegativeLong = {
+  ): Long = {
     val filter = TopologyTxFiltering.getTopologyFilter(
       partyId,
       participantId,
@@ -439,21 +1025,21 @@ class ParticipantPartiesAdministrationGroup(
       completeAfter: PositiveInt,
       timeout: NonNegativeDuration,
       filter: UpdateWrapper => Boolean,
-  ): NonNegativeLong = {
-    val topologyTransactions: Seq[TopologyTransaction] = reference.ledger_api.updates
-      .topology_transactions(
-        partyIds = Seq(party),
-        completeAfter = completeAfter,
-        timeout = timeout,
-        beginOffsetExclusive = beginOffsetExclusive,
-        endOffsetInclusive = endOffsetInclusive,
-        resultFilter = filter,
-      )
-      .collect { case TopologyTransactionWrapper(topologyTransaction) => topologyTransaction }
+  ): Long = {
+    val topologyTransactions: Seq[com.daml.ledger.api.v2.topology_transaction.TopologyTransaction] =
+      reference.ledger_api.updates
+        .topology_transactions(
+          partyIds = Seq(party),
+          completeAfter = completeAfter,
+          timeout = timeout,
+          beginOffsetExclusive = beginOffsetExclusive,
+          endOffsetInclusive = endOffsetInclusive,
+          resultFilter = filter,
+        )
+        .collect { case TopologyTransactionWrapper(topologyTransaction) => topologyTransaction }
 
     topologyTransactions
       .map(_.offset)
-      .map(NonNegativeLong.tryCreate)
       .lastOption
       .getOrElse(
         consoleEnvironment.raiseError(
@@ -493,100 +1079,71 @@ class ParticipantPartiesAdministrationGroup(
       synchronizerId: SynchronizerId,
       timestamp: Instant,
       force: Boolean = false,
-  ): NonNegativeLong = consoleEnvironment.run {
+  ): Long = consoleEnvironment.run {
     reference.adminCommand(
       ParticipantAdminCommands.PartyManagement
         .GetHighestOffsetByTimestamp(synchronizerId, timestamp, force)
     )
   }
 
-  @Help.Summary("Export active contracts for the given set of parties to a file.")
-  @Help.Description(
-    """This command exports the current Active Contract Set (ACS) of a given set of parties to a
-      |GZIP compressed ACS snapshot file. Afterwards, the `import_acs` repair command imports it
-      |into a participant's ACS again.
-      |
-      |The arguments are:
-      |- parties: Identifying contracts having at least one stakeholder from the given set.
-      |- synchronizerId: When defined, restricts the export to the given synchronizer.
-      |- exportFilePath: The path denoting the file where the ACS snapshot will be stored.
-      |- ledgerOffset: The offset at which the ACS snapshot is exported.
-      |- contractSynchronizerRenames: Changes the associated synchronizer id of contracts from
-      |                               one synchronizer to another based on the mapping.
-      |- timeout: A timeout for this operation to complete.
-      """
+  @Help.Summary(
+    "Export active contracts for a given party to replicate it."
   )
-  def export_acs(
-      parties: Set[PartyId],
-      synchronizerId: Option[SynchronizerId] = None,
-      exportFilePath: String = "canton-acs-export.gz",
-      ledgerOffset: NonNegativeLong,
-      contractSynchronizerRenames: Map[SynchronizerId, SynchronizerId] = Map.empty,
-      timeout: NonNegativeDuration = timeouts.unbounded,
-  ): Unit =
-    consoleEnvironment.run {
-      val file = File(exportFilePath)
-      val responseObserver = new FileStreamObserver[ExportAcsResponse](file, _.chunk)
-
-      def call: ConsoleCommandResult[Context.CancellableContext] =
-        reference.adminCommand(
-          ParticipantAdminCommands.PartyManagement.ExportAcs(
-            parties,
-            synchronizerId,
-            ledgerOffset.unwrap,
-            responseObserver,
-            contractSynchronizerRenames,
-          )
-        )
-
-      processResult(
-        call,
-        responseObserver.result,
-        timeout,
-        request = "exporting acs",
-        cleanupOnError = () => file.delete(),
-      )
-    }
-
-  @Help.Summary("Export active contracts for the given set of parties to a file.")
   @Help.Description(
-    """This command exports the current Active Contract Set (ACS) of a given set of parties to a
-      |GZIP compressed ACS snapshot file. Afterwards, the `import_acs` repair command imports it
-      |into a participant's ACS again.
+    """This command exports the current Active Contract Set (ACS) for a given
+      |party to facilitate its replication from a source to a target participant.
       |
-      |This command attempts to resolve the given instant (`topologyTransactionEffectiveTime`)
-      |to a ledger offset internally. Such offset exists only after the corresponding topology
-      |transaction has been recorded on the ledger.
-      |This command returns an error when no offset has been found. Possible causes:
-      |1. No topology transaction. Solution: Issue a topology transaction.
-      |2. Topology transaction exists. Solution: Retry the command.
+      |It uses the party's most recent activation on the target participant to
+      |determine the precise historical state of the ACS to export from the
+      |source participant.
+      |
+      |"Activation" on the target participant means the new hosting arrangement
+      |has been authorized by both the party itself and the target participant
+      |via party-to-participant topology transactions.
+      |
+      |This command will fail if the party has not yet been activated on the
+      |target participant.
+      |
+      |Upon successful completion, the command writes a GZIP-compressed ACS
+      |snapshot file. This file should then be imported into the target participant's
+      |ACS using the `import_party_acs` command.
       |
       |The arguments are:
-      |- parties: Identifying contracts having at least one stakeholder from the given set.
+      |- party: The party being replicated, it must already be active on the target participant.
       |- synchronizerId: Restricts the export to the given synchronizer.
-      |- topologyTransactionEffectiveTime: The effective time of a topology transaction at which
-      |                                    the ACS snapshot is exported.
+      |- targetParticipantId: Unique identifier of the target participant where the party
+      |                       will be replicated.
+      |- beginOffsetExclusive: Exclusive ledger offset used as starting point fo find the party's
+      |                        activation on the target participant.
       |- exportFilePath: The path denoting the file where the ACS snapshot will be stored.
+      |- waitForActivationTimeout: The maximum duration the service will wait to find the topology
+      |                            transaction that activates the party on the target participant.
       |- timeout: A timeout for this operation to complete.
       """
   )
-  def export_acs_at_timestamp(
-      parties: Set[PartyId],
+  def export_party_acs(
+      party: PartyId,
       synchronizerId: SynchronizerId,
-      topologyTransactionEffectiveTime: Instant,
+      targetParticipantId: ParticipantId,
+      beginOffsetExclusive: Long,
       exportFilePath: String = "canton-acs-export.gz",
-      timeout: NonNegativeDuration = timeouts.unbounded,
+      waitForActivationTimeout: Option[config.NonNegativeFiniteDuration] = Some(
+        config.NonNegativeFiniteDuration.ofMinutes(2)
+      ),
+      timeout: config.NonNegativeDuration = timeouts.unbounded,
   ): Unit =
     consoleEnvironment.run {
       val file = File(exportFilePath)
-      val responseObserver = new FileStreamObserver[ExportAcsAtTimestampResponse](file, _.chunk)
+      val responseObserver = new FileStreamObserver[ExportPartyAcsResponse](file, _.chunk)
 
       def call: ConsoleCommandResult[Context.CancellableContext] =
         reference.adminCommand(
-          ParticipantAdminCommands.PartyManagement.ExportAcsAtTimestamp(
-            parties,
+          ParticipantAdminCommands.PartyManagement.ExportPartyAcs(
+            party,
             synchronizerId,
-            topologyTransactionEffectiveTime,
+            targetParticipantId,
+            beginOffsetExclusive,
+            waitForActivationTimeout,
             responseObserver,
           )
         )
@@ -595,10 +1152,102 @@ class ParticipantPartiesAdministrationGroup(
         call,
         responseObserver.result,
         timeout,
-        request = "exporting acs at timestamp",
+        request = "exporting party acs",
         cleanupOnError = () => file.delete(),
       )
     }
+
+  @Help.Summary(
+    "Import active contracts from a snapshot file to replicate a party."
+  )
+  @Help.Description(
+    """This command imports contracts from an Active Contract Set (ACS) snapshot
+      |file into the participant's ACS. It expects the given ACS snapshot file to
+      |be the result of a previous `export_party_acs` command invocation.
+      |
+      |The argument is:
+      |- importFilePath: The path denoting the file from where the ACS snapshot will be read.
+      |                  Defaults to "canton-acs-export.gz" when undefined.
+      |- workflowIdPrefix: Sets a custom prefix for the workflow ID to easily identify all
+      |                  transactions generated by this import.
+      |                  Defaults to "import-<random_UUID>" when unspecified.
+      |- contractImportMode: Governs contract authentication processing on import. Options include
+      |                      Validation (default), [Accept, Recomputation].
+      |- representativePackageIdOverride: Defines override mappings for assigning
+      |                                   representative package IDs to contracts upon ACS import.
+      |                                   Defaults to NoOverride when undefined.
+   """
+  )
+  def import_party_acs(
+      importFilePath: String = "canton-acs-export.gz",
+      workflowIdPrefix: String = "",
+      contractImportMode: ContractImportMode = ContractImportMode.Validation,
+      representativePackageIdOverride: RepresentativePackageIdOverride =
+        RepresentativePackageIdOverride.NoOverride,
+  ): Unit =
+    consoleEnvironment.run {
+      reference.adminCommand(
+        ParticipantAdminCommands.PartyManagement.ImportPartyAcs(
+          ByteString.copyFrom(File(importFilePath).loadBytes),
+          if (workflowIdPrefix.nonEmpty) workflowIdPrefix else s"import-${UUID.randomUUID}",
+          contractImportMode,
+          representativePackageIdOverride,
+        )
+      )
+    }
+
+  @Help.Summary(
+    "Clears the onboarding flag for a party."
+  )
+  @Help.Description(
+    """Instructs the participant to unilaterally clear the 'onboarding' flag on the
+      |party-to-participant topology mapping.
+      |
+      |This operation is time-sensitive. If run too soon, the flag cannot be safely cleared,
+      |and another attempt needs to be made.
+      |
+      |This endpoint is idempotent and can be safely called multiple times. Polling is
+      |necessary because the flag can only be cleared after a specific time has passed, and
+      |the underlying change may take time to become effective.
+      |
+      |Prerequisite: A prior party-to-participant mapping topology transaction must exist
+      |that activates the party on the participant with the onboarding flag set to
+      |true.
+      |
+      |Returns a tuple with the current status:
+      |- Cleared: (true, None) – The flag is successfully cleared.
+      |- Pending: (false, Some(timestamp)) – The flag is still set. The timestamp indicates
+      |           the earliest safe time to clear the flag. You may wait until after this
+      |           time to run the command again.
+      |
+      |The arguments are:
+      |- party: The party being onboarded, it must already be active on the participant.
+      |- synchronizerId: Restricts the party onboarding to the given synchronizer.
+      |- beginOffsetExclusive: Exclusive ledger offset used as a starting point to find the
+      |                        party's activation on the participant.
+      |- waitForActivationTimeout: The maximum duration the service will wait to find the
+      |                            topology transaction that activates the party.
+    """
+  )
+  def clear_party_onboarding_flag(
+      party: PartyId,
+      synchronizerId: SynchronizerId,
+      beginOffsetExclusive: Long,
+      waitForActivationTimeout: Option[config.NonNegativeFiniteDuration] = Some(
+        config.NonNegativeFiniteDuration.ofMinutes(2)
+      ),
+  ): (Boolean, Option[CantonTimestamp]) =
+    consoleEnvironment.run {
+      reference.adminCommand(
+        ParticipantAdminCommands.PartyManagement.ClearPartyOnboardingFlag(
+          party,
+          synchronizerId,
+          NonNegativeLong.tryCreate(beginOffsetExclusive),
+          waitForActivationTimeout,
+        )
+      )
+    }
+
 }
 
 private[canton] object PartiesAdministration {
@@ -689,7 +1338,10 @@ private object TopologyTxFiltering {
       validFrom: Option[Instant],
       filterType: AuthorizationFilterKind,
   )(consoleEnvironment: ConsoleEnvironment): UpdateWrapper => Boolean = {
-    def filterOnEffectiveTime(tx: TopologyTransaction, recordTime: Option[Instant]): Boolean =
+    def filterOnEffectiveTime(
+        tx: com.daml.ledger.api.v2.topology_transaction.TopologyTransaction,
+        recordTime: Option[Instant],
+    ): Boolean =
       recordTime.forall { instant =>
         tx.recordTime match {
           case Some(ts) =>

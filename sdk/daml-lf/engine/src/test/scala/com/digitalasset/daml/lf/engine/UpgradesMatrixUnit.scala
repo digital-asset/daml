@@ -10,24 +10,24 @@ import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.engine.{Error => EE}
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml.lf.speedy.SExpr.SEImportValue
-import com.digitalasset.daml.lf.speedy.Speedy.Machine
 import com.digitalasset.daml.lf.transaction._
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value._
 import org.scalatest.Inside.inside
 import org.scalatest.{Assertion, ParallelTestExecution}
 import com.digitalasset.daml.lf.transaction.CreationTime
-import com.digitalasset.daml.lf.engine.UpgradesMatrix
+import com.digitalasset.daml.lf.speedy.ValueTranslator
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 
 import scala.collection.immutable
 import scala.concurrent.Future
 
-// Split the Upgrade unit tests over two suites, which seems to be the sweet
-// spot (~25s instead of ~35s runtime)
-class UpgradesMatrixUnit0 extends UpgradesMatrixUnit(2, 0)
-class UpgradesMatrixUnit1 extends UpgradesMatrixUnit(2, 1)
+// Split the Upgrade unit tests over four suites, which seems to be the sweet
+// spot (~95s instead of ~185s runtime)
+class UpgradesMatrixUnit0 extends UpgradesMatrixUnit(UpgradesMatrixCasesV2MaxStable, 2, 0)
+class UpgradesMatrixUnit1 extends UpgradesMatrixUnit(UpgradesMatrixCasesV2MaxStable, 2, 1)
+class UpgradesMatrixUnit2 extends UpgradesMatrixUnit(UpgradesMatrixCasesV2Dev, 2, 0)
+class UpgradesMatrixUnit3 extends UpgradesMatrixUnit(UpgradesMatrixCasesV2Dev, 2, 1)
 
 /** A test suite to run the UpgradesMatrix matrix directly in the engine
   *
@@ -35,9 +35,9 @@ class UpgradesMatrixUnit1 extends UpgradesMatrixUnit(2, 1)
   * (~5000s) because it does not need to spin up Canton, so we can use this for
   * sanity checking before running UpgradesMatrixIT.
   */
-abstract class UpgradesMatrixUnit(n: Int, k: Int)
+abstract class UpgradesMatrixUnit(upgradesMatrixCases: UpgradesMatrixCases, n: Int, k: Int)
     extends UpgradesMatrix[Error, (SubmittedTransaction, Transaction.Metadata)](
-      UpgradesMatrixCasesV2MaxStable,
+      upgradesMatrixCases,
       Some((n, k)),
     )
     with ParallelTestExecution {
@@ -49,13 +49,19 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
       UpgradesMatrixCases.SetupData(
         alice = Party.assertFromString("Alice"),
         bob = Party.assertFromString("Bob"),
-        clientContractId = toContractId("client"),
+        clientLocalContractId = toContractId("client-local"),
+        clientGlobalContractId = toContractId("client-global"),
         globalContractId = toContractId("1"),
       )
     )
 
   def normalize(value: Value, typ: Ast.Type): Value = {
-    Machine.fromPureSExpr(cases.compiledPackages, SEImportValue(typ, value)).runPure() match {
+    new ValueTranslator(
+      cases.compiledPackages.pkgInterface,
+      forbidLocalContractIds = true,
+      forbidTrailingNones = false,
+    )
+      .translateValue(typ, value) match {
       case Left(err) => throw new RuntimeException(s"Normalization failed: $err")
       case Right(sValue) => sValue.toNormalizedValue
     }
@@ -68,28 +74,28 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
       testHelper: cases.TestHelper,
       apiCommands: ImmArray[ApiCommand],
       contractOrigin: UpgradesMatrixCases.ContractOrigin,
+      creationPackageStatus: UpgradesMatrixCases.CreationPackageStatus,
   ): Future[Either[Error, (SubmittedTransaction, Transaction.Metadata)]] = Future {
-    val clientContract: FatContractInstance =
+    val clientLocalContract: FatContractInstance =
       TransactionBuilder.fatContractInstanceWithDummyDefaults(
-        version = cases.langVersion,
-        packageName = cases.clientPkg.pkgName,
-        template = testHelper.clientTplId,
+        version = cases.serializationVersion,
+        packageName = cases.clientLocalPkg.pkgName,
+        template = testHelper.clientLocalTplId,
         arg = testHelper.clientContractArg(setupData.alice, setupData.bob),
-      )
-
-    val globalContract: FatContractInstance =
-      TransactionBuilder.fatContractInstanceWithDummyDefaults(
-        version = cases.langVersion,
-        packageName = cases.templateDefsPkgName,
-        template = testHelper.v1TplId,
-        arg = testHelper.globalContractArg(setupData.alice, setupData.bob),
         signatories = immutable.Set(setupData.alice),
-        observers = immutable.Set.empty,
-        contractKeyWithMaintainers = Some(testHelper.globalContractKeyWithMaintainers(setupData)),
       )
 
-    val globalContractDisclosure: FatContractInstance = FatContractInstanceImpl(
-      version = cases.langVersion,
+    val clientGlobalContract: FatContractInstance =
+      TransactionBuilder.fatContractInstanceWithDummyDefaults(
+        version = cases.serializationVersion,
+        packageName = cases.clientGlobalPkg.pkgName,
+        template = testHelper.clientGlobalTplId,
+        arg = testHelper.clientContractArg(setupData.alice, setupData.bob),
+        signatories = immutable.Set(setupData.alice),
+      )
+
+    val globalContract: FatContractInstance = FatContractInstanceImpl(
+      version = cases.serializationVersion,
       contractId = setupData.globalContractId,
       packageName = cases.templateDefsPkgName,
       templateId = testHelper.v1TplId,
@@ -99,7 +105,7 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
       ),
       signatories = immutable.TreeSet(setupData.alice),
       stakeholders = immutable.TreeSet(setupData.alice),
-      contractKeyWithMaintainers = Some(testHelper.globalContractKeyWithMaintainers(setupData)),
+      contractKeyWithMaintainers = testHelper.globalContractKeyWithMaintainers(setupData),
       createdAt = CreationTime.CreatedAt(Time.Timestamp.Epoch),
       authenticationData = Bytes.assertFromString("00"),
     )
@@ -109,46 +115,73 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
     val submitters = Set(setupData.alice)
     val readAs = Set.empty[Party]
 
-    val disclosures = contractOrigin match {
-      case UpgradesMatrixCases.Disclosed => ImmArray(globalContractDisclosure)
-      case _ => ImmArray.empty
-    }
     val lookupContractById = contractOrigin match {
-      case UpgradesMatrixCases.Global =>
+      case UpgradesMatrixCases.Global | UpgradesMatrixCases.Disclosed =>
         Map(
-          setupData.clientContractId -> clientContract,
+          setupData.clientLocalContractId -> clientLocalContract,
+          setupData.clientGlobalContractId -> clientGlobalContract,
           setupData.globalContractId -> globalContract,
         )
-      case _ => Map(setupData.clientContractId -> clientContract)
+      case _ =>
+        Map(
+          setupData.clientLocalContractId -> clientLocalContract,
+          setupData.clientGlobalContractId -> clientGlobalContract,
+        )
     }
     val lookupContractByKey = contractOrigin match {
-      case UpgradesMatrixCases.Global =>
-        val keyMap = Map(
-          testHelper
-            .globalContractKeyWithMaintainers(setupData)
-            .globalKey -> setupData.globalContractId
-        )
-        ((kwm: GlobalKeyWithMaintainers) => keyMap.get(kwm.globalKey)).unlift
+      case UpgradesMatrixCases.Global | UpgradesMatrixCases.Disclosed =>
+        (
+            (kwm: GlobalKeyWithMaintainers) =>
+              testHelper
+                .globalContractKeyWithMaintainers(setupData)
+                .flatMap(helperKey =>
+                  Option.when(helperKey.globalKey == kwm.globalKey)(setupData.globalContractId)
+                )
+        ).unlift
       case _ => PartialFunction.empty
     }
+
+    def hash(fci: FatContractInstance): crypto.Hash =
+      newEngine()
+        .hashCreateNode(fci.toCreateNode, identity, crypto.Hash.HashingMethod.TypedNormalForm)
+        .consume(pkgs = cases.allPackages)
+        .fold(e => throw new IllegalArgumentException(s"hashing $fci failed: $e"), identity)
+
+    val hashes = Map(
+      setupData.clientLocalContractId -> hash(clientLocalContract),
+      setupData.clientGlobalContractId -> hash(clientGlobalContract),
+      setupData.globalContractId -> hash(globalContract),
+    )
 
     newEngine()
       .submit(
         packageMap = cases.packageMap,
-        packagePreference =
-          Set(cases.commonDefsPkgId, cases.templateDefsV2PkgId, cases.clientPkgId),
+        packagePreference = Set(
+          cases.commonDefsPkgId,
+          cases.templateDefsV2PkgId,
+          cases.clientLocalPkgId,
+          cases.clientGlobalPkgId,
+        ),
         submitters = submitters,
         readAs = readAs,
         cmds = ApiCommands(apiCommands, Time.Timestamp.Epoch, "test"),
-        disclosures = disclosures,
         participantId = participant,
         submissionSeed = submissionSeed,
+        contractIdVersion = cases.contractIdVersion,
         prefetchKeys = Seq.empty,
       )
       .consume(
         pcs = lookupContractById,
-        pkgs = cases.lookupPackage,
+        pkgs = creationPackageStatus match {
+          case UpgradesMatrixCases.CreationPackageVetted => cases.allPackages
+          case UpgradesMatrixCases.CreationPackageUnvetted => cases.allNonCreationPackages
+        },
         keys = lookupContractByKey,
+        idValidator = (cid, hash) =>
+          hashes.get(cid) match {
+            case Some(expectedHash) => hash == expectedHash
+            case None => false
+          },
       )
   }
 
@@ -163,10 +196,15 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
         inside(result) { case Left(EE.Interpretation(EE.Interpretation.DamlException(error), _)) =>
           error shouldBe a[IE.Upgrade]
         }
+      case UpgradesMatrixCases.ExpectAuthenticationError =>
+        inside(result) {
+          case Left(EE.Interpretation(EE.Interpretation.DamlException(IE.Upgrade(error)), _)) =>
+            error shouldBe a[IE.Upgrade.AuthenticationFailed]
+        }
       case UpgradesMatrixCases.ExpectRuntimeTypeMismatchError =>
         inside(result) {
-          case Left(EE.Interpretation(EE.Interpretation.DamlException(IE.Dev(_, error)), _)) =>
-            error shouldBe a[IE.Dev.TranslationError]
+          case Left(EE.Interpretation(EE.Interpretation.DamlException(IE.Upgrade(error)), _)) =>
+            error shouldBe a[IE.Upgrade.TranslationFailed]
         }
       case UpgradesMatrixCases.ExpectPreprocessingError =>
         inside(result) { case Left(error) =>

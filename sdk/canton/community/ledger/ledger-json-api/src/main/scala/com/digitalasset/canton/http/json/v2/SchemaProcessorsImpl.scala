@@ -4,14 +4,7 @@
 package com.digitalasset.canton.http.json.v2
 
 import com.daml.ledger.api.v2.value
-import com.daml.ledger.api.v2.value.{Identifier, Value}
-import com.digitalasset.canton.fetchcontracts.util.IdentifierConverters
-import com.digitalasset.canton.http.json.v2.SchemaProcessorsImpl.{
-  JsonDict,
-  PackageSignatures,
-  ProtoDict,
-  ResultOps,
-}
+import com.digitalasset.canton.http.json.v2.SchemaProcessorsImpl.*
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.invalidField
 import com.digitalasset.canton.ledger.error.LedgerApiErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
@@ -20,7 +13,14 @@ import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory,
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.ThereafterAsyncOps
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{IdString, PackageRef}
+import com.digitalasset.daml.lf.data.Ref.{
+  DottedName,
+  IdString,
+  ModuleName,
+  PackageId,
+  PackageRef,
+  QualifiedName,
+}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.transcode.codec.json.JsonCodec
 import com.digitalasset.transcode.codec.proto.GrpcValueCodec
@@ -45,7 +45,7 @@ class SchemaProcessorsImpl(
       jsonArgsValue: ujson.Value,
   )(implicit
       traceContext: TraceContext
-  ): Future[Value] =
+  ): Future[value.Value] =
     for {
       templateId <- resolveIdentifier(template).toFuture
       protoDict <- prepareProtoDict
@@ -70,7 +70,7 @@ class SchemaProcessorsImpl(
       jsonArgsValue: ujson.Value,
   )(implicit
       traceContext: TraceContext
-  ): Future[Value] =
+  ): Future[value.Value] =
     for {
       templateId <- resolveIdentifier(template).toFuture
       protoDict <- prepareProtoDict
@@ -113,7 +113,7 @@ class SchemaProcessorsImpl(
       protoArgs: ujson.Value,
   )(implicit
       traceContext: TraceContext
-  ): Future[Value] =
+  ): Future[value.Value] =
     for {
       templateId <- resolveIdentifier(template).toFuture
       protoDict <- prepareProtoDict
@@ -137,12 +137,12 @@ class SchemaProcessorsImpl(
     } yield choiceResultConverter.convert(v)
 
   override def exerciseResultFromJsonToProto(
-      template: Identifier,
+      template: value.Identifier,
       choiceName: IdString.Name,
-      value: ujson.Value,
+      jvalue: ujson.Value,
   )(implicit
       traceContext: TraceContext
-  ): Future[Option[Value]] = value match {
+  ): Future[Option[value.Value]] = jvalue match {
     case ujson.Null => Future(None)
     case _ =>
       for {
@@ -152,7 +152,7 @@ class SchemaProcessorsImpl(
           .get(templateId -> choiceName)
           .toRight(invalidChoiceException(templateId, choiceName))
           .toFuture
-      } yield Some(choiceResultConverter.convert(value))
+      } yield Some(choiceResultConverter.convert(jvalue))
   }
 
   private def invalidChoiceException(templateId: Ref.Identifier, choiceName: IdString.Name)(implicit
@@ -180,11 +180,11 @@ class SchemaProcessorsImpl(
           )
         case PackageRef.Id(_) => Right(template)
       }
-      .map(IdentifierConverters.lfIdentifier)
+      .map(lfIdentifier)
 
   private def prepareProtoDict(implicit
       traceContext: TraceContext
-  ): Future[Dictionary[Converter[ujson.Value, Value]]] =
+  ): Future[Dictionary[Converter[ujson.Value, value.Value]]] =
     memoizedDictionaries(errorLoggingContext).map(_._1)
 
   private def prepareJsonDict(implicit
@@ -194,7 +194,7 @@ class SchemaProcessorsImpl(
 
   private def computeProtoDict(
       signatures: PackageSignatures
-  ): Dictionary[Converter[ujson.Value, Value]] = {
+  ): Dictionary[Converter[ujson.Value, value.Value]] = {
     val visitor: SchemaVisitor { type Type = (Codec[ujson.Value], Codec[value.Value]) } =
       SchemaVisitor.compose(new JsonCodec(), GrpcValueCodec)
     val collector =
@@ -208,7 +208,7 @@ class SchemaProcessorsImpl(
 
   private def computeJsonDict(
       signatures: PackageSignatures
-  ): Dictionary[Converter[Value, ujson.Value]] = {
+  ): Dictionary[Converter[value.Value, ujson.Value]] = {
     val visitor: SchemaVisitor { type Type = (Codec[value.Value], Codec[ujson.Value]) } =
       SchemaVisitor.compose(GrpcValueCodec, new JsonCodec())
     val collector =
@@ -279,8 +279,8 @@ class SchemaProcessorsImpl(
 }
 
 object SchemaProcessorsImpl {
-  type JsonDict = Dictionary[Converter[Value, ujson.Value]]
-  type ProtoDict = Dictionary[Converter[ujson.Value, Value]]
+  type JsonDict = Dictionary[Converter[value.Value, ujson.Value]]
+  type ProtoDict = Dictionary[Converter[ujson.Value, value.Value]]
   type PackageSignatures = Map[Ref.PackageId, Ast.PackageSignature]
   implicit class ResultOps[T](val result: Either[StatusRuntimeException, T]) extends AnyVal {
     def toFuture: Future[T] = result match {
@@ -288,4 +288,13 @@ object SchemaProcessorsImpl {
       case Right(value) => Future.successful(value)
     }
   }
+
+  def lfIdentifier(a: value.Identifier): Ref.Identifier =
+    Ref.Identifier(
+      pkg = PackageId.assertFromString(a.packageId),
+      qualifiedName = QualifiedName(
+        module = ModuleName.assertFromString(a.moduleName),
+        name = DottedName.assertFromString(a.entityName),
+      ),
+    )
 }

@@ -12,7 +12,7 @@ import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{CryptoPureApi, SynchronizerCrypto}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.participant.admin.PackageDependencyResolver
+import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.ledger.api.LedgerApiStore
 import com.digitalasset.canton.participant.store.{
   AcsCounterParticipantConfigStore,
@@ -24,6 +24,7 @@ import com.digitalasset.canton.participant.store.{
 import com.digitalasset.canton.participant.topology.ParticipantTopologyValidation
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.store.memory.{InMemorySendTrackerStore, InMemorySequencedEventStore}
+import com.digitalasset.canton.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.store.{
   IndexedPhysicalSynchronizer,
   IndexedStringStore,
@@ -90,12 +91,10 @@ class InMemoryPhysicalSyncPersistentState(
     crypto: SynchronizerCrypto,
     override val physicalSynchronizerIdx: IndexedPhysicalSynchronizer,
     val staticSynchronizerParameters: StaticSynchronizerParameters,
-    exitOnFatalFailures: Boolean,
-    disableUpgradeValidation: Boolean,
-    packageDependencyResolver: PackageDependencyResolver,
+    parameters: ParticipantNodeParameters,
+    packageMetadataView: PackageMetadataView,
     ledgerApiStore: Eval[LedgerApiStore],
     logicalSyncPersistentState: LogicalSyncPersistentState,
-    packageMetadataView: Eval[PackageMetadataView],
     val loggerFactory: NamedLoggerFactory,
     val timeouts: ProcessingTimeout,
     val futureSupervisor: FutureSupervisor,
@@ -126,7 +125,9 @@ class InMemoryPhysicalSyncPersistentState(
     staticSynchronizerParameters,
     topologyStore,
     synchronizerOutboxQueue,
-    exitOnFatalFailures = exitOnFatalFailures,
+    dispatchQueueBackpressureLimit = parameters.general.dispatchQueueBackpressureLimit,
+    disableOptionalTopologyChecks = parameters.disableOptionalTopologyChecks,
+    exitOnFatalFailures = parameters.exitOnFatalFailures,
     timeouts,
     futureSupervisor,
     loggerFactory,
@@ -135,6 +136,7 @@ class InMemoryPhysicalSyncPersistentState(
     override def validatePackageVetting(
         currentlyVettedPackages: Set[LfPackageId],
         nextPackageIds: Set[LfPackageId],
+        dryRunSnapshot: Option[PackageMetadata],
         forceFlags: ForceFlags,
     )(implicit
         traceContext: TraceContext
@@ -142,12 +144,10 @@ class InMemoryPhysicalSyncPersistentState(
       validatePackageVetting(
         currentlyVettedPackages,
         nextPackageIds,
-        Some(packageMetadataView.value.getSnapshot),
-        packageDependencyResolver,
-        acsInspections =
-          () => Map(logicalSyncPersistentState.lsid -> logicalSyncPersistentState.acsInspection),
+        packageMetadataView,
+        dryRunSnapshot,
         forceFlags,
-        disableUpgradeValidation = disableUpgradeValidation,
+        disableUpgradeValidation = parameters.disableUpgradeValidation,
       )
     override def checkCannotDisablePartyWithActiveContracts(
         partyId: PartyId,

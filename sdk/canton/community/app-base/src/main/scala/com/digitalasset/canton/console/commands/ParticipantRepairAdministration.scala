@@ -7,7 +7,7 @@ import better.files.File
 import cats.syntax.either.*
 import cats.syntax.foldable.*
 import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommands
-import com.digitalasset.canton.admin.participant.v30.ExportAcsOldResponse
+import com.digitalasset.canton.admin.participant.v30.{ExportAcsOldResponse, ExportAcsResponse}
 import com.digitalasset.canton.config.{ConsoleCommandTimeout, NonNegativeDuration}
 import com.digitalasset.canton.console.{
   AdminCommandRunner,
@@ -22,8 +22,9 @@ import com.digitalasset.canton.grpc.FileStreamObserver
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.admin.data.{
   ActiveContractOld,
-  ContractIdImportMode,
+  ContractImportMode,
   RepairContract,
+  RepresentativePackageIdOverride,
 }
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.protocol.{ContractInstance, LfContractId}
@@ -169,7 +170,8 @@ class ParticipantRepairAdministration(
         |
         |
         |The arguments are:
-        |- parties: identifying contracts having at least one stakeholder from the given set
+        |- parties: identifying contracts having at least one stakeholder from the given set.
+        |           if empty, contracts of all parties will be exported.
         |- partiesOffboarding: true if the parties will be offboarded (party migration)
         |- outputFile: the output file name where to store the data.
         |- filterSynchronizerId: restrict the export to a given synchronizer
@@ -184,14 +186,16 @@ class ParticipantRepairAdministration(
         |         request.
         """
   )
+  @deprecated(
+    "Method export_acs_old has been deprecated. Use acs_export_instead. For party replication, see participant.parties.export_acs",
+    since = "3.4",
+  )
   def export_acs_old(
       parties: Set[PartyId],
       partiesOffboarding: Boolean,
       outputFile: String = ParticipantRepairAdministration.ExportAcsDefaultFile,
       filterSynchronizerId: Option[SynchronizerId] = None,
       timestamp: Option[Instant] = None,
-      contractSynchronizerRenames: Map[SynchronizerId, (SynchronizerId, ProtocolVersion)] =
-        Map.empty,
       force: Boolean = false,
       timeout: NonNegativeDuration = timeouts.unbounded,
   ): Unit =
@@ -209,7 +213,6 @@ class ParticipantRepairAdministration(
                 filterSynchronizerId,
                 timestamp,
                 responseObserver,
-                contractSynchronizerRenames,
                 force = force,
               )
           )
@@ -258,6 +261,10 @@ class ParticipantRepairAdministration(
         |DEPRECATION NOTICE: A future release removes this command, use `export_acs` instead.
         """
   )
+  @deprecated(
+    "Method import_acs_old has been deprecated. Use import_acs instead. For party replication, see participant.parties.import_party_acs",
+    since = "3.4",
+  )
   def import_acs_old(
       inputFile: String = ParticipantRepairAdministration.ExportAcsDefaultFile,
       workflowIdPrefix: String = "",
@@ -275,6 +282,58 @@ class ParticipantRepairAdministration(
       }
     }
 
+  @Help.Summary("Export active contracts for the given set of parties to a file.")
+  @Help.Description(
+    """This command exports the current Active Contract Set (ACS) of a given set of parties to a
+      |GZIP compressed ACS snapshot file. Afterwards, the `import_acs` repair command imports it
+      |into a participant's ACS again.
+      |
+      |The arguments are:
+      |- parties: Identifying contracts having at least one stakeholder from the given set.
+      |- ledgerOffset: The offset at which the ACS snapshot is exported.
+      |- exportFilePath: The path denoting the file where the ACS snapshot will be stored.
+      |- excludedStakeholders: When defined, any contract that has one or more of these parties as
+      |                        a stakeholder will be omitted from the ACS snapshot.
+      |- synchronizerId: When defined, restricts the export to the given synchronizer.
+      |- contractSynchronizerRenames: Changes the associated synchronizer id of contracts from
+      |                               one synchronizer to another based on the mapping.
+      |- timeout: A timeout for this operation to complete.
+      """
+  )
+  def export_acs(
+      parties: Set[PartyId],
+      ledgerOffset: Long,
+      exportFilePath: String = "canton-acs-export.gz",
+      excludedStakeholders: Set[PartyId] = Set.empty,
+      synchronizerId: Option[SynchronizerId] = None,
+      contractSynchronizerRenames: Map[SynchronizerId, SynchronizerId] = Map.empty,
+      timeout: NonNegativeDuration = timeouts.unbounded,
+  ): Unit =
+    consoleEnvironment.run {
+      val file = File(exportFilePath)
+      val responseObserver = new FileStreamObserver[ExportAcsResponse](file, _.chunk)
+
+      def call: ConsoleCommandResult[Context.CancellableContext] =
+        runner.adminCommand(
+          ParticipantAdminCommands.ParticipantRepairManagement.ExportAcs(
+            parties,
+            synchronizerId,
+            ledgerOffset,
+            responseObserver,
+            contractSynchronizerRenames,
+            excludedStakeholders,
+          )
+        )
+
+      processResult(
+        call,
+        responseObserver.result,
+        timeout,
+        request = "exporting acs",
+        cleanupOnError = () => file.delete(),
+      )
+    }
+
   @Help.Summary("Import active contracts from an Active Contract Set (ACS) snapshot file.")
   @Help.Description(
     """This command imports contracts from an ACS snapshot file into the participant's ACS. It
@@ -284,10 +343,10 @@ class ParticipantRepairAdministration(
       |The contract IDs of the imported contracts may be checked ahead of starting the process.
       |If any contract ID doesn't match the contract ID scheme associated to the synchronizer
       |where the contract is assigned to, the whole import process fails depending on the value
-      |of `contractIdImportMode`.
+      |of `contractImportMode`.
       |
-      |By default `contractIdImportMode` is set to `ContractIdImportMode.Validation`. If set to
-      |`ContractIdImportMode.Recomputation`, any contract ID that wouldn't pass the check above
+      |By default `contractImportMode` is set to `ContractImportMode.Validation`. If set to
+      |`ContractImportMode.Recomputation`, any contract ID that wouldn't pass the check above
       |will be recomputed. Note that the recomputation of contract IDs fails under the following
       |circumstances:
       | - the contract salt used to compute the contract ID is missing
@@ -302,7 +361,7 @@ class ParticipantRepairAdministration(
       |
       |Expert only: As validation or recomputation on contract IDs may lengthen the import
       |significantly, you have the option to simply accept the contract IDs as they are using
-      |`ContractIdImportMode.Accept`.
+      |`ContractImportMode.Accept`.
       |
       |If the import process succeeds, the mapping from the old contract IDs to the new contract
       |IDs will be returned. An empty map means that all contract IDs were valid, or have been
@@ -311,16 +370,24 @@ class ParticipantRepairAdministration(
       |The arguments are:
       |- importFilePath: The path denoting the file from where the ACS snapshot will be read.
       |                  Defaults to "canton-acs-export.gz" when undefined.
-      |- workflowIdPrefix: Prefixes the workflow ID for the import. Defaults to
-      |                  "import-<random_UUID>" when undefined.
-      |- contractIdImportMode: Governs contract ID processing on import. Options include
-      |                        Validation (default), [Accept, Recomputation].
+      |- workflowIdPrefix: Sets a custom prefix for the workflow ID to easily identify all
+      |                  transactions generated by this import.
+      |                  Defaults to "import-<random_UUID>" when unspecified.
+      |- contractImportMode: Governs contract authentication processing on import. Options include
+      |                      Validation (default), [Accept, Recomputation].
+      |- representativePackageIdOverride: Defines override mappings for assigning
+      |                                   representative package IDs to contracts upon ACS import.
+      |- excludedStakeholders: When defined, any contract that has one or more of these
+      |                        parties as a stakeholder will be omitted from the import.
       """
   )
   def import_acs(
       importFilePath: String = "canton-acs-export.gz",
       workflowIdPrefix: String = "",
-      contractIdImportMode: ContractIdImportMode = ContractIdImportMode.Validation,
+      contractImportMode: ContractImportMode = ContractImportMode.Validation,
+      representativePackageIdOverride: RepresentativePackageIdOverride =
+        RepresentativePackageIdOverride.NoOverride,
+      excludedStakeholders: Set[PartyId] = Set.empty,
   ): Map[LfContractId, LfContractId] =
     check(FeatureFlag.Repair) {
       consoleEnvironment.run {
@@ -328,7 +395,9 @@ class ParticipantRepairAdministration(
           ParticipantAdminCommands.ParticipantRepairManagement.ImportAcs(
             ByteString.copyFrom(File(importFilePath).loadBytes),
             if (workflowIdPrefix.nonEmpty) workflowIdPrefix else s"import-${UUID.randomUUID}",
-            contractIdImportMode = contractIdImportMode,
+            contractImportMode,
+            representativePackageIdOverride,
+            excludedStakeholders,
           )
         )
       }

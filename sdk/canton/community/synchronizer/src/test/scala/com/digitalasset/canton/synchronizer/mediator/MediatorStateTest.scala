@@ -163,7 +163,7 @@ class MediatorStateTest
       }
       "have no more unfinalized after finalization" in {
         for {
-          _ <- sut.replace(currentVersion, currentVersion.timeout(currentVersion.version))
+          _ <- sut.replace(currentVersion, currentVersion.timeout())
         } yield {
           sut.pendingRequestIdsBefore(CantonTimestamp.MaxValue) shouldBe empty
         }

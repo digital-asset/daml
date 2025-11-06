@@ -2,10 +2,10 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DataKinds          #-}
-{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveAnyClass     #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE TemplateHaskell    #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeFamilies       #-}
 -- | Types and pretty-printer for the AST of the Daml Ledger Fragment.
 module DA.Daml.LF.Ast.Base(
     module DA.Daml.LF.Ast.Base
@@ -16,6 +16,7 @@ import Data.Hashable
 import Data.Data
 import GHC.Generics(Generic)
 import Data.Int
+import qualified Data.List.NonEmpty as NE
 import Control.DeepSeq
 import Control.Lens
 import qualified Data.NameMap as NM
@@ -1000,11 +1001,35 @@ newtype UpgradedPackageId = UpgradedPackageId
   deriving stock (Eq, Data, Generic, Ord, Show)
   deriving newtype (Hashable, NFData, ToJSON, ToJSONKey, FromJSON)
 
+
+data NoPkgImportsReason =
+    StablePackage
+  | LfDoesNotSupportPkgImports
+  | Testing String
+  | Trace String --to insert callsite, for when reason unclear
+  deriving (Eq, Data, Generic, NFData, Show, Read)
+newtype NoPkgImportsReasons = NoPkgImportsReasons { unNoPkgImportsReasons :: NE.NonEmpty NoPkgImportsReason }
+  deriving stock (Data, Generic)
+  deriving newtype (Eq, NFData, Show, Read, Semigroup)
+
+noPkgImportsReasonStablePackage, noPkgImportsReasonLfDoesNotSupportPkgImports :: NoPkgImportsReasons
+noPkgImportsReasonStablePackage = NoPkgImportsReasons $ NE.singleton StablePackage
+noPkgImportsReasonLfDoesNotSupportPkgImports = NoPkgImportsReasons $ NE.singleton LfDoesNotSupportPkgImports
+
+noPkgImportsReasonTesting, noPkgImportsReasonTrace :: String -> NoPkgImportsReasons
+noPkgImportsReasonTesting s = NoPkgImportsReasons $ NE.singleton $ Testing s
+noPkgImportsReasonTrace s = NoPkgImportsReasons $ NE.singleton $ Trace s
+
+type PackageIds = S.Set PackageId
+type ModuleWithImports = (Module, Either NoPkgImportsReasons PackageIds)
+type ImportedPackages = Either NoPkgImportsReasons PackageIds
+
 -- | A package.
 data Package = Package
     { packageLfVersion :: Version
     , packageModules :: NM.NameMap Module
     , packageMetadata :: PackageMetadata
+    , importedPackages :: ImportedPackages
     }
   deriving (Eq, Data, Generic, NFData, Show)
 

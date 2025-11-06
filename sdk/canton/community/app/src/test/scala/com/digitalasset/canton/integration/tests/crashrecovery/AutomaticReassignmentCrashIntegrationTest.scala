@@ -7,15 +7,15 @@ import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.{CommandFailure, RemoteParticipantReference}
 import com.digitalasset.canton.error.TransactionRoutingError.AutomaticReassignmentForTransactionFailure
-import com.digitalasset.canton.integration.EnvironmentDefinition
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
 import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
   UseExternalProcess,
   UsePostgres,
   UseProgrammableSequencer,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.tests.SynchronizerRouterIntegrationTestSetup
+import com.digitalasset.canton.integration.{ConfigTransforms, EnvironmentDefinition}
 import com.digitalasset.canton.participant.util.JavaCodegenUtil.*
 import com.digitalasset.canton.synchronizer.sequencer.{
   HasProgrammableSequencer,
@@ -44,7 +44,7 @@ class AutomaticReassignmentCrashIntegrationTest
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(external)
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](
+    new UseReferenceBlockSequencer[DbConfig.Postgres](
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(Set("sequencer1"), Set("sequencer2"), Set("sequencer3"))
@@ -60,17 +60,15 @@ class AutomaticReassignmentCrashIntegrationTest
 
   override def environmentDefinition: EnvironmentDefinition =
     super.environmentDefinition
-      .addConfigTransform(
-        ProgrammableSequencer.configOverride(this.getClass.toString, loggerFactory)
+      .addConfigTransforms(
+        ConfigTransforms.updateTargetTimestampForwardTolerance(30.seconds),
+        ProgrammableSequencer.configOverride(this.getClass.toString, loggerFactory),
       )
       .withSetup { implicit env =>
         import env.*
 
         remoteP1 = rp("participant1")
-
-        participants.local.dars.upload(darPath)
         remoteP1.health.wait_for_initialized()
-        remoteP1.dars.upload(darPath)
 
         connectToCustomSynchronizers(
           Map(

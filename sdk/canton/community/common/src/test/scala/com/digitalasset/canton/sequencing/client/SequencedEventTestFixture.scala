@@ -117,8 +117,8 @@ class SequencedEventTestFixture(
     ).onShutdown(throw new RuntimeException("failed to create carlos event")).futureValue
   )
 
-  // TODO(i26481): adjust when the new connection pool is stable
-  private val useNewConnectionPool = testedProtocolVersion >= ProtocolVersion.dev
+  // TODO(i27260): cleanup when the new connection pool is stable
+  private val useNewConnectionPool = true
 
   def mkAggregator(
       config: MessageAggregationConfig = MessageAggregationConfig(

@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.admin.data
 
-import cats.syntax.either.*
 import com.digitalasset.canton.ReassignmentCounter
 import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.protocol.messages.HasSynchronizerId
@@ -11,12 +10,13 @@ import com.digitalasset.canton.protocol.{HasSerializableContract, SerializableCo
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.SynchronizerId
-import com.digitalasset.canton.util.{ByteStringUtil, GrpcStreamingUtils, ResourceUtil}
+import com.digitalasset.canton.util.{GrpcStreamingUtils, ResourceUtil}
 import com.digitalasset.canton.version.*
 import com.digitalasset.daml.lf.transaction.FatContractInstance
 import com.google.protobuf.ByteString
 
-import java.io.{ByteArrayInputStream, InputStream}
+import java.io.InputStream
+import java.util.zip.GZIPInputStream
 
 // TODO(#24610) – Remove; replaced by the new ActiveContract that uses LAPI active contract
 final case class ActiveContractOld(
@@ -42,7 +42,14 @@ final case class ActiveContractOld(
       contract.ledgerCreateTime,
       contract.authenticationData.toLfBytes,
     )
-    RepairContract(synchronizerId, inst, reassignmentCounter)
+    RepairContract(
+      synchronizerId = synchronizerId,
+      contract = inst,
+      reassignmentCounter = reassignmentCounter,
+      // Fine to have the same representative package id as in the original contract since
+      // exports created using ExportAcsOld are not meant to support forgetting the creation package
+      representativePackageId = inst.templateId.packageId,
+    )
   }
 
 }
@@ -85,16 +92,12 @@ private[canton] object ActiveContractOld extends VersioningCompanion[ActiveContr
       protocolVersionRepresentativeFor(protocolVersion)
     )
 
-  private[admin] def loadFromByteString(
+  private[canton] def loadFromByteString(
       bytes: ByteString
   ): Either[String, List[ActiveContractOld]] =
     for {
-      decompressedBytes <-
-        ByteStringUtil
-          .decompressGzip(bytes, None)
-          .leftMap(err => s"Failed to decompress bytes: $err")
       contracts <- ResourceUtil.withResource(
-        new ByteArrayInputStream(decompressedBytes.toByteArray)
+        new GZIPInputStream(bytes.newInput()) // TODO(i28137): This is vulnerable to zip bombs.
       ) { inputSource =>
         loadFromSource(inputSource)
       }
@@ -108,5 +111,4 @@ private[canton] object ActiveContractOld extends VersioningCompanion[ActiveContr
         source,
         ActiveContractOld,
       )
-      .map(_.toList)
 }

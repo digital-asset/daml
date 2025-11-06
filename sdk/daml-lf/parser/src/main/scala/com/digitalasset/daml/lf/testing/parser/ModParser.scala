@@ -6,10 +6,13 @@ package testing.parser
 
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.{Util => AstUtil}
+import com.digitalasset.daml.lf.language.{LanguageVersion => LV, Util => AstUtil}
 import com.digitalasset.daml.lf.testing.parser.Parsers._
 import com.digitalasset.daml.lf.testing.parser.Token._
 import com.daml.scalautil.Statement.discard
+
+import scala.Ordering.Implicits.infixOrderingOps
+import com.digitalasset.daml.lf.stablepackages.StablePackages
 
 private[parser] class ModParser[P](parameters: ParserParameters[P]) {
 
@@ -40,14 +43,27 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
 
   lazy val pkg: Parser[Package] =
     metadata ~ rep(mod) ^^ { case metadata ~ modules =>
+      val languageVersion = parameters.languageVersion
+      val mentionedPackageIds = modules.iterator
+        .flatMap(AstUtil.collectIdentifiers)
+        .map(_.packageId)
+        .toSet - parameters.defaultPackageId
+      val mentionedPackageIdsMinusStablePackages =
+        mentionedPackageIds.diff(StablePackages.ids(LV.allUpToVersion(languageVersion)))
       Package.build(
         modules = modules,
-        directDeps = modules.iterator
-          .flatMap(AstUtil.collectIdentifiers)
-          .map(_.packageId)
-          .toSet - parameters.defaultPackageId,
+        directDeps = mentionedPackageIds,
         languageVersion = parameters.languageVersion,
         metadata = metadata,
+        imports =
+          if (languageVersion >= LV.Features.explicitPkgImports)
+            DeclaredImports(pkgIds = mentionedPackageIdsMinusStablePackages)
+          else
+            GeneratedImports(
+              reason =
+                "LF too low, package created by com.digitalasset.daml.lf.testing.parser:ModParser",
+              mentionedPackageIdsMinusStablePackages,
+            ),
       )
     }
 

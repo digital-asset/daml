@@ -20,6 +20,38 @@ messages:
           This field will be the reassignment_counter of the latest observable activation event on this synchronizer, which is
           before the active_at_offset.
           Required
+  AllocateExternalPartyRequest:
+    message:
+      comments: 'Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``'
+      fieldComments:
+        synchronizer: |-
+          TODO(#27670) support synchronizer aliases
+          Synchronizer ID on which to onboard the party
+          Required
+        onboarding_transactions: |-
+          TopologyTransactions to onboard the external party
+          Can contain:
+          - A namespace for the party.
+          This can be either a single NamespaceDelegation,
+          or DecentralizedNamespaceDefinition along with its authorized namespace owners in the form of NamespaceDelegations.
+          May be provided, if so it must be fully authorized by the signatures in this request combined with the existing topology state.
+          - A PartyToKeyMapping to register the party's signing keys.
+          May be provided, if so it must be fully authorized by the signatures in this request combined with the existing topology state.
+          - A PartyToParticipant to register the hosting relationship of the party.
+          Must be provided.
+          Required
+        multi_hash_signatures: |-
+          Optional signatures of the combined hash of all onboarding_transactions
+          This may be used instead of providing signatures on each individual transaction
+        identity_provider_id: |-
+          The id of the ``Identity Provider``
+          If not set, assume the party is managed by the default identity provider.
+          Optional
+  AllocateExternalPartyResponse:
+    message:
+      comments: null
+      fieldComments:
+        party_id: ''
   AllocatePartyRequest:
     message:
       comments: 'Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``'
@@ -367,6 +399,35 @@ messages:
           The contract key, if defined
 
           Optional
+  CostEstimation:
+    message:
+      comments: |-
+        Estimation of the cost of submitting the prepared transaction
+        The estimation is done against the synchronizer chosen during preparation of the transaction
+        (or the one explicitly requested).
+        The cost of re-assigning contracts to another synchronizer when necessary is not included in the estimation.
+      fieldComments:
+        estimation_timestamp: Timestamp at which the estimation was made
+        confirmation_request_traffic_cost_estimation: Estimated traffic cost of the
+          confirmation request associated with the transaction
+        confirmation_response_traffic_cost_estimation: |-
+          Estimated traffic cost of the confirmation response associated with the transaction
+          This field can also be used as an indication of the cost that other potential confirming nodes
+          of the party will incur to approve or reject the transaction
+        total_traffic_cost_estimation: Sum of the fields above
+  CostEstimationHints:
+    message:
+      comments: Hints to improve cost estimation precision of a prepared transaction
+      fieldComments:
+        disabled: |-
+          Disable cost estimation
+          Default (not set) is false
+        expected_signatures: |-
+          Details on the keys that will be used to sign the transaction (how many and of which type).
+          Signature size impacts the cost of the transaction.
+          If empty, the signature sizes will be approximated with threshold-many signatures (where threshold is defined
+          in the PartyToKeyMapping of the external party), using keys in the order they are registered.
+          Optional (empty list is equivalent to not providing this field)
   Create:
     message:
       comments: Create Node
@@ -514,6 +575,14 @@ messages:
         package_name: |-
           The package name of the created contract.
           Required
+        representative_package_id: |-
+          A package-id present in the participant package store that typechecks the contract's argument.
+          This may differ from the package-id of the template used to create the contract.
+          For contracts created before Canton 3.4, this field matches the contract's creation package-id.
+
+          NOTE: Experimental, server internal concept, not for client consumption. Subject to change without notice.
+
+          Required
         acs_delta: |-
           Whether this event would be part of respective ACS_DELTA shaped stream,
           and should therefore considered when tracking contract activeness on the client-side.
@@ -569,7 +638,7 @@ messages:
       fieldComments:
         version: |-
           [docs-entry-end: DamlTransaction.Node]
-          Transaction version, will be >= max(nodes version)
+          serialization version, will be >= max(nodes version)
         roots: Root nodes of the transaction
         nodes: List of nodes in the transaction
         node_seeds: Node seeds are values associated with certain nodes used for generating
@@ -609,10 +678,13 @@ messages:
           The template id of the contract.
           The identifier uses the package-id reference format.
 
-          Required
+          If provided, used to validate the template id of the contract serialized in the created_event_blob.
+          Optional
         contract_id: |-
           The contract id
-          Required
+
+          If provided, used to validate the contract id of the contract serialized in the created_event_blob.
+          Optional
         created_event_blob: |-
           Opaque byte string containing the complete payload required by the Daml engine
           to reconstruct a contract not known to the receiving participant.
@@ -990,16 +1062,20 @@ messages:
           for ledger implementation testing purposes only.
 
           Daml applications SHOULD not depend on these in production.
-        user_management: |-
-          If set, then the Ledger API server supports user management.
-          It is recommended that clients query this field to gracefully adjust their behavior for
-          ledgers that do not support user management.
+        package_feature: |-
+          If set, then the Ledger API server supports package listing
+          configurability. It is recommended that clients query this field to
+          gracefully adjust their behavior to maximum package listing page size.
+        offset_checkpoint: It contains the timeouts related to the periodic offset
+          checkpoint emission
         party_management: |-
           If set, then the Ledger API server supports party management configurability.
           It is recommended that clients query this field to gracefully adjust their behavior to
           maximum party page size.
-        offset_checkpoint: It contains the timeouts related to the periodic offset
-          checkpoint emission
+        user_management: |-
+          If set, then the Ledger API server supports user management.
+          It is recommended that clients query this field to gracefully adjust their behavior for
+          ledgers that do not support user management.
   Fetch:
     message:
       comments: Fetch node
@@ -1025,6 +1101,38 @@ messages:
           A wildcard filter SHOULD NOT be defined more than once in the accumulative field.
           Optional, if no ``CumulativeFilter`` defined, the default of a single ``WildcardFilter`` with
           include_created_event_blob unset is used.
+  GenerateExternalPartyTopologyRequest:
+    message:
+      comments: null
+      fieldComments:
+        synchronizer: |-
+          TODO(#27670) support synchronizer aliases
+          Required: synchronizer-id for which we are building this request.
+        other_confirming_participant_uids: 'Optional: other participant ids which
+          should be confirming for this party'
+        public_key: 'Required: public key'
+        observing_participant_uids: 'Optional: other observing participant ids for
+          this party'
+        local_participant_observation_only: 'Optional: if true, then the local participant
+          will only be observing, not confirming. Default false.'
+        confirmation_threshold: 'Optional: Confirmation threshold >= 1 for the party.
+          Defaults to all available confirmers (or if set to 0).'
+        party_hint: 'Required: the actual party id will be constructed from this hint
+          and a fingerprint of the public key'
+  GenerateExternalPartyTopologyResponse:
+    message:
+      comments: Response message with topology transactions and the multi-hash to
+        be signed.
+      fieldComments:
+        party_id: the generated party id
+        public_key_fingerprint: the fingerprint of the supplied public key
+        topology_transactions: |-
+          The serialized topology transactions which need to be signed and submitted as part of the allocate party process
+          Note that the serialization includes the versioning information. Therefore, the transaction here is serialized
+          as an `UntypedVersionedMessage` which in turn contains the serialized `TopologyTransaction` in the version
+          supported by the synchronizer.
+        multi_hash: the multi-hash which may be signed instead of each individual
+          transaction
   GetActiveContractsRequest:
     message:
       comments: |-
@@ -1033,15 +1141,6 @@ messages:
         Note that it is ok to request acs snapshots for party migration with offsets other than ledger end, because party
         migration is not concerned with incomplete (un)assignments.
       fieldComments:
-        filter: |-
-          Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
-          Templates to include in the served snapshot, per party.
-          Optional, if specified event_format must be unset, if not specified event_format must be set.
-        verbose: |-
-          Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
-          If enabled, values served over the API will contain more information than strictly necessary to interpret the data.
-          In particular, setting the verbose flag to true triggers the ledger to include labels for record fields.
-          Optional, if specified event_format must be unset.
         active_at_offset: |-
           The offset at which the snapshot of the active contracts will be computed.
           Must be no greater than the current ledger end offset.
@@ -1098,7 +1197,8 @@ messages:
         party: |-
           The party of interest
           Must be a valid PartyIdString (as described in ``value.proto``).
-          Required
+          If empty, all synchronizers this node is connected to will be returned
+          Optional
         participant_id: |-
           The id of a participant whose mapping of a party to connected synchronizers is requested.
           Must be a valid participant-id retrieved through a prior call to getParticipantId.
@@ -1119,20 +1219,9 @@ messages:
         contract_id: |-
           The contract id being queried.
           Required
-        requesting_parties: |-
-          Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
-          The parties whose events the client expects to see.
-          The events associated with the contract id will only be returned if the requesting parties includes
-          at least one party that is a stakeholder of the event. For a definition of stakeholders see
-          https://docs.daml.com/concepts/ledger-model/ledger-privacy.html#contract-observers-and-stakeholders
-          Optional, if some parties specified, event_format needs to be unset.
         event_format: |-
           Format of the events in the result, the presentation will be of TRANSACTION_SHAPE_ACS_DELTA.
-          Optional for backwards compatibility, defaults to an EventFormat where:
-
-          - filters_by_party is a template-wildcard filter for all requesting_parties
-          - filters_for_any_party is unset
-          - verbose is set
+          Required
   GetEventsByContractIdResponse:
     message:
       comments: null
@@ -1345,68 +1434,6 @@ messages:
       comments: null
       fieldComments:
         current_time: The current time according to the ledger server.
-  GetTransactionByIdRequest:
-    message:
-      comments: Provided for backwards compatibility, it will be removed in the Canton
-        version 3.4.0.
-      fieldComments:
-        update_id: |-
-          The ID of a particular transaction.
-          Must be a valid LedgerString (as described in ``value.proto``).
-          Required
-        requesting_parties: |-
-          Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
-          The parties whose events the client expects to see.
-          Events that are not visible for the parties in this collection will not be present in the response.
-          Each element must be a valid PartyIdString (as described in ``value.proto``).
-          Must be set for GetTransactionTreeById request.
-          Optional for backwards compatibility for GetTransactionById request: if defined transaction_format must be
-          unset (falling back to defaults).
-        transaction_format: |-
-          Must be unset for GetTransactionTreeById request.
-          Optional for GetTransactionById request for backwards compatibility: defaults to a transaction_format, where:
-
-          - event_format.filters_by_party will have template-wildcard filters for all the requesting_parties
-          - event_format.filters_for_any_party is unset
-          - event_format.verbose = true
-          - transaction_shape = TRANSACTION_SHAPE_ACS_DELTA
-  GetTransactionByOffsetRequest:
-    message:
-      comments: Provided for backwards compatibility, it will be removed in the Canton
-        version 3.4.0.
-      fieldComments:
-        offset: |-
-          The offset of the transaction being looked up.
-          Must be a valid absolute offset (positive integer).
-          Required
-        requesting_parties: |-
-          Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
-          The parties whose events the client expects to see.
-          Events that are not visible for the parties in this collection will not be present in the response.
-          Each element must be a valid PartyIdString (as described in ``value.proto``).
-          Must be set for GetTransactionTreeByOffset request.
-          Optional for backwards compatibility for GetTransactionByOffset request: if defined transaction_format must be
-          unset (falling back to defaults).
-        transaction_format: |-
-          Must be unset for GetTransactionTreeByOffset request.
-          Optional for GetTransactionByOffset request for backwards compatibility: defaults to a TransactionFormat, where:
-
-          - event_format.filters_by_party will have template-wildcard filters for all the requesting_parties
-          - event_format.filters_for_any_party is unset
-          - event_format.verbose = true
-          - transaction_shape = TRANSACTION_SHAPE_ACS_DELTA
-  GetTransactionResponse:
-    message:
-      comments: Provided for backwards compatibility, it will be removed in the Canton
-        version 3.4.0.
-      fieldComments:
-        transaction: Required
-  GetTransactionTreeResponse:
-    message:
-      comments: Provided for backwards compatibility, it will be removed in the Canton
-        version 3.4.0.
-      fieldComments:
-        transaction: Required
   GetUpdateByIdRequest:
     message:
       comments: null
@@ -1436,35 +1463,21 @@ messages:
         transaction: ''
         reassignment: ''
         topology_transaction: ''
-  GetUpdateTreesResponse:
-    message:
-      comments: Provided for backwards compatibility, it will be removed in the Canton
-        version 3.4.0.
-      fieldComments:
-        transaction_tree: ''
-        reassignment: ''
-        offset_checkpoint: ''
   GetUpdatesRequest:
     message:
       comments: null
       fieldComments:
-        verbose: |-
-          Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
-          If enabled, values served over the API will contain more information than strictly necessary to interpret the data.
-          In particular, setting the verbose flag to true triggers the ledger to include labels, record and variant type ids
-          for record fields.
-          Optional for backwards compatibility, if defined update_format must be unset
         begin_exclusive: |-
           Beginning of the requested ledger section (non-negative integer).
           The response will only contain transactions whose offset is strictly greater than this.
           If zero, the stream will start from the beginning of the ledger.
           If positive, the streaming will start after this absolute offset.
           If the ledger has been pruned, this parameter must be specified and be greater than the pruning offset.
-        filter: |-
-          Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
-          Requesting parties with template filters.
-          Template filters must be empty for GetUpdateTrees requests.
-          Optional for backwards compatibility, if defined update_format must be unset
+        end_inclusive: |-
+          End of the requested ledger section.
+          The response will only contain transactions whose offset is less than or equal to this.
+          Optional, if empty, the stream will not terminate.
+          If specified, the stream will terminate after this absolute offset (positive integer) is reached.
         update_format: |-
           Must be unset for GetUpdateTrees request.
           Optional for backwards compatibility for GetUpdates request: defaults to an UpdateFormat where:
@@ -1476,11 +1489,6 @@ messages:
           - include_reassignments.filter = the same filter specified on this request
           - include_reassignments.verbose = the same flag specified on this request
           - include_topology_events.include_participant_authorization_events.parties = all the parties specified in filter
-        end_inclusive: |-
-          End of the requested ledger section.
-          The response will only contain transactions whose offset is less than or equal to this.
-          Optional, if empty, the stream will not terminate.
-          If specified, the stream will terminate after this absolute offset (positive integer) is reached.
   GetUpdatesResponse:
     message:
       comments: null
@@ -1726,12 +1734,67 @@ messages:
         next_page_token: |-
           Pagination token to retrieve the next page.
           Empty, if there are no further results.
+  ListVettedPackagesRequest:
+    message:
+      comments: null
+      fieldComments:
+        package_metadata_filter: |-
+          The package metadata filter the returned vetted packages set must satisfy.
+          Optional
+        topology_state_filter: |-
+          The topology filter the returned vetted packages set must satisfy.
+          Optional
+        page_token: |-
+          Pagination token to determine the specific page to fetch. Using the token
+          guarantees that ``VettedPackages`` on a subsequent page are all greater
+          (``VettedPackages`` are sorted by synchronizer ID then participant ID) than
+          the last ``VettedPackages`` on a previous page.
+
+          The server does not store intermediate results between calls chained by a
+          series of page tokens. As a consequence, if new vetted packages are being
+          added and a page is requested twice using the same token, more packages can
+          be returned on the second call.
+
+          Leave unspecified (i.e. as empty string) to fetch the first page.
+
+          Optional
+        page_size: |-
+          Maximum number of ``VettedPackages`` results to return in a single page.
+
+          If the page_size is unspecified (i.e. left as 0), the server will decide
+          the number of results to be returned.
+
+          If the page_size exceeds the maximum supported by the server, an
+          error will be returned.
+
+          To obtain the server's maximum consult the PackageService descriptor
+          available in the VersionService.
+
+          Optional
+  ListVettedPackagesResponse:
+    message:
+      comments: null
+      fieldComments:
+        vetted_packages: |-
+          All ``VettedPackages`` that contain at least one ``VettedPackage`` matching
+          both a ``PackageMetadataFilter`` and a ``TopologyStateFilter``.
+          Sorted by synchronizer_id then participant_id.
+        next_page_token: |-
+          Pagination token to retrieve the next page.
+          Empty string if there are no further results.
   Metadata:
     message:
       comments: |-
         Transaction Metadata
         Refer to the hashing documentation for information on how it should be hashed.
       fieldComments:
+        max_record_time: |-
+          Maximum timestamp at which the transaction can be recorded onto the ledger via the synchronizer `synchronizer_id`.
+          If submitted after it will be rejected even if otherwise valid, in which case it needs to be prepared and signed again
+          with a new valid max_record_time.
+          Unsigned in 3.3 to avoid a breaking protocol change
+          Will be signed in 3.4+
+          Set max_record_time in the PreparedTransactionRequest to get this field set accordingly
         synchronizer_id: ''
         preparation_time: ''
         min_ledger_effective_time: ''
@@ -1851,6 +1914,30 @@ messages:
         known_since: |-
           Indicates since when the package is known to the backing participant.
           Required
+  PackageFeature:
+    message:
+      comments: null
+      fieldComments:
+        max_vetted_packages_page_size: |-
+          The maximum number of vetted packages the server can return in a single
+          response (page) when listing them.
+  PackageMetadataFilter:
+    message:
+      comments: |-
+        Filter the VettedPackages by package metadata.
+
+        A PackageMetadataFilter without package_ids and without package_name_prefixes
+        matches any vetted package.
+
+        Non-empty fields specify candidate values of which at least one must match.
+        If both fields are set, then a candidate is returned if it matches one of the fields.
+      fieldComments:
+        package_ids: |-
+          If this list is non-empty, any vetted package with a package ID in this
+          list will match the filter.
+        package_name_prefixes: |-
+          If this list is non-empty, any vetted package with a name matching at least
+          one prefix in this list will match the filter.
   PackagePreference:
     message:
       comments: null
@@ -1967,9 +2054,19 @@ messages:
           The change ID can be used for matching the intended ledger changes with all their completions.
           Must be a valid LedgerString (as described in ``value.proto``).
           Required
+        max_record_time: |-
+          Maximum timestamp at which the transaction can be recorded onto the ledger via the synchronizer specified in the `PrepareSubmissionResponse`.
+          If submitted after it will be rejected even if otherwise valid, in which case it needs to be prepared and signed again
+          with a new valid max_record_time.
+          Use this to limit the time-to-life of a prepared transaction,
+          which is useful to know when it can definitely not be accepted
+          anymore and resorting to preparing another transaction for the same
+          intent is safe again.
+          Optional
         synchronizer_id: |-
           Must be a valid synchronizer id
-          Required
+          If not set, a suitable synchronizer that this node is connected to will be chosen
+          Optional
         package_id_selection_preference: |-
           The package-id selection preference of the client for resolving
           package names and interface instances in command submission and interpretation
@@ -2001,6 +2098,15 @@ messages:
           If ledger API authorization is enabled, then the authorization metadata must authorize the sender of the request
           to read contract data on behalf of each of the given parties.
           Optional
+        estimate_traffic_cost: |-
+          Hints to improve the accuracy of traffic cost estimation.
+          The estimation logic assumes that this node will be used for the execution of the transaction
+          If another node is used instead, the estimation may be less precise.
+          Request amplification is not accounted for in the estimation: each amplified request will
+          result in the cost of the confirmation request to be charged additionally.
+
+          Optional - Traffic cost estimation is enabled by default if this field is not set
+          To turn off cost estimation, set the CostEstimationHints#disabled field to true
         act_as: |-
           Set of parties on whose behalf the command should be executed, if submitted.
           If ledger API authorization is enabled, then the authorization metadata must authorize the sender of the request
@@ -2020,19 +2126,22 @@ messages:
     message:
       comments: '[docs-entry-end: HashingSchemeVersion]'
       fieldComments:
-        prepared_transaction: |-
-          The interpreted transaction, it represents the ledger changes necessary to execute the commands specified in the request.
-          Clients MUST display the content of the transaction to the user for them to validate before signing the hash if the preparing participant is not trusted.
-        prepared_transaction_hash: |-
-          Hash of the transaction, this is what needs to be signed by the party to authorize the transaction.
-          Only provided for convenience, clients MUST recompute the hash from the raw transaction if the preparing participant is not trusted.
-          May be removed in future versions
-        hashing_scheme_version: The hashing scheme version used when building the
-          hash
         hashing_details: |-
           Optional additional details on how the transaction was encoded and hashed. Only set if verbose_hashing = true in the request
           Note that there are no guarantees on the stability of the format or content of this field.
           Its content should NOT be parsed and should only be used for troubleshooting purposes.
+        prepared_transaction_hash: |-
+          Hash of the transaction, this is what needs to be signed by the party to authorize the transaction.
+          Only provided for convenience, clients MUST recompute the hash from the raw transaction if the preparing participant is not trusted.
+          May be removed in future versions
+        prepared_transaction: |-
+          The interpreted transaction, it represents the ledger changes necessary to execute the commands specified in the request.
+          Clients MUST display the content of the transaction to the user for them to validate before signing the hash if the preparing participant is not trusted.
+        cost_estimation: |-
+          Traffic cost estimation of the prepared transaction
+          Optional
+        hashing_scheme_version: The hashing scheme version used when building the
+          hash
   PreparedTransaction:
     message:
       comments: null
@@ -2040,6 +2149,14 @@ messages:
         transaction: Daml Transaction representing the ledger effect if executed.
           See below
         metadata: Metadata context necessary to execute the transaction
+  PriorTopologySerial:
+    message:
+      comments: |-
+        The serial of last ``VettedPackages`` topology transaction on a given
+        participant and synchronizer.
+      fieldComments:
+        prior: Previous transaction's serial.
+        no_prior: No previous transaction exists.
   PruneRequest:
     message:
       comments: null
@@ -2081,6 +2198,10 @@ messages:
           This field will be populated with the trace context contained in the original submission.
           If that was not provided, a unique ledger-api-server generated trace context will be used
           instead.
+        synchronizer_id: |-
+          A valid synchronizer id.
+          Identifies the synchronizer that synchronized this Reassignment.
+          Required
         update_id: |-
           Assigned by the server. Useful for correlating logs.
           Must be a valid LedgerString (as described in ``value.proto``).
@@ -2175,6 +2296,10 @@ messages:
     message:
       comments: A right granted to a user.
       fieldComments:
+        can_execute_as: The user can prepare and execute submissions as a specific
+          party.
+        can_execute_as_any_party: The user can prepare and execute submissions as
+          any party on a participant.
         can_read_as_any_party: The user can read as any party on a participant
         identity_provider_admin: The user can administer users and parties assigned
           to the same identity provider as the one of the user.
@@ -2205,6 +2330,13 @@ messages:
           and needed to verify.
         signing_algorithm_spec: The signing algorithm specification used to produce
           this signature
+  SigningPublicKey:
+    message:
+      comments: null
+      fieldComments:
+        format: The serialization format of the public key
+        key_data: Serialized public key in the format specified above
+        key_spec: The key specification
   SinglePartySignatures:
     message:
       comments: Signatures provided by a single party
@@ -2252,15 +2384,6 @@ messages:
       fieldComments:
         transaction: |-
           The transaction that resulted from the submitted command.
-          The transaction might contain no events (request conditions result in filtering out all of them).
-          Required
-  SubmitAndWaitForTransactionTreeResponse:
-    message:
-      comments: Provided for backwards compatibility, it will be removed in the Canton
-        version 3.4.0.
-      fieldComments:
-        transaction: |-
-          The transaction tree that resulted from the submitted command.
           The transaction might contain no events (request conditions result in filtering out all of them).
           Required
   SubmitAndWaitRequest:
@@ -2347,6 +2470,28 @@ messages:
         include_participant_authorization_events: |-
           Include participant authorization topology events in streams.
           Optional, if unset no participant authorization topology events are emitted in the stream.
+  TopologyStateFilter:
+    message:
+      comments: |-
+        Filter the vetted packages by the participant and synchronizer that they are
+        hosted on.
+
+        Empty fields are ignored, such that a ``TopologyStateFilter`` without
+        participant_ids and without synchronizer_ids matches a vetted package hosted
+        on any participant and synchronizer.
+
+        Non-empty fields specify candidate values of which at least one must match.
+        If both fields are set then at least one candidate value must match from each
+        field.
+      fieldComments:
+        participant_ids: |-
+          If this list is non-empty, only vetted packages hosted on participants
+          listed in this field match the filter.
+          Query the current Ledger API's participant's ID via the public
+          ``GetParticipantId`` command in ``PartyManagementService``.
+        synchronizer_ids: |-
+          If this list is non-empty, only vetted packages from the topology state of
+          the synchronizers in this list match the filter.
   TopologyTransaction:
     message:
       comments: null
@@ -2438,29 +2583,6 @@ messages:
           The time at which the transaction was recorded. The record time refers to the synchronizer
           which synchronized the transaction.
           Required
-  TransactionFilter:
-    message:
-      comments: |-
-        Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
-        Used both for filtering create and archive events as well as for filtering transaction trees.
-      fieldComments:
-        filters_by_party: |-
-          Each key must be a valid PartyIdString (as described in ``value.proto``).
-          The interpretation of the filter depends on the transaction-shape being filtered:
-
-          1. For **transaction trees** (used in GetUpdateTreesResponse for backwards compatibility) all party keys used as
-             wildcard filters, and all subtrees whose root has one of the listed parties as an informee are returned.
-             If there are ``CumulativeFilter``s, those will control returned ``CreatedEvent`` fields where applicable, but will
-             not be used for template/interface filtering.
-          2. For **ledger-effects** create and exercise events are returned, for which the witnesses include at least one of
-             the listed parties and match the per-party filter.
-          3. For **transaction and active-contract-set streams** create and archive events are returned for all contracts whose
-             stakeholders include at least one of the listed parties and match the per-party filter.
-
-          Required
-        filters_for_any_party: |-
-          Wildcard filters that apply to all the parties existing on the participant. The interpretation of the filters is the same
-          with the per-party filter as described above.
   TransactionFormat:
     message:
       comments: |-
@@ -2471,68 +2593,6 @@ messages:
         transaction_shape: |-
           What transaction shape to use for interpreting the filters of the event format.
           Required
-  TransactionTree:
-    message:
-      comments: |-
-        Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
-        Complete view of an on-ledger transaction.
-      fieldComments:
-        command_id: |-
-          The ID of the command which resulted in this transaction. Missing for everyone except the submitting party.
-          Must be a valid LedgerString (as described in ``value.proto``).
-          Optional
-        trace_context: |-
-          Optional; ledger API trace context
-
-          The trace context transported in this message corresponds to the trace context supplied
-          by the client application in a HTTP2 header of the original command submission.
-          We typically use a header to transfer this type of information. Here we use message
-          body, because it is used in gRPC streams which do not support per message headers.
-          This field will be populated with the trace context contained in the original submission.
-          If that was not provided, a unique ledger-api-server generated trace context will be used
-          instead.
-        synchronizer_id: |-
-          A valid synchronizer id.
-          Identifies the synchronizer that synchronized the transaction.
-          Required
-        update_id: |-
-          Assigned by the server. Useful for correlating logs.
-          Must be a valid LedgerString (as described in ``value.proto``).
-          Required
-        events_by_id: |-
-          Changes to the ledger that were caused by this transaction. Nodes of the transaction tree.
-          Each key must be a valid node ID (non-negative integer).
-          Required
-        offset: |-
-          The absolute offset. The details of this field are described in ``community/ledger-api/README.md``.
-          Required, it is a valid absolute offset (positive integer).
-        effective_at: |-
-          Ledger effective time.
-          Required
-        workflow_id: |-
-          The workflow ID used in command submission. Only set if the ``workflow_id`` for the command was set.
-          Must be a valid LedgerString (as described in ``value.proto``).
-          Optional
-        record_time: |-
-          The time at which the transaction was recorded. The record time refers to the synchronizer
-          which synchronized the transaction.
-          Required
-  TreeEvent:
-    message:
-      comments: |-
-        Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
-        Each tree event message type below contains a ``witness_parties`` field which
-        indicates the subset of the requested parties that can see the event
-        in question.
-
-        Note that transaction trees might contain events with
-        _no_ witness parties, which were included simply because they were
-        children of events which have witnesses.
-      fieldComments:
-        created: |-
-          The event as it appeared in the context of its original daml transaction on this participant node.
-          In particular, the offset, node_id pair of the daml transaction are preserved.
-        exercised: ''
   UnassignCommand:
     message:
       comments: Unassign a contract
@@ -2735,6 +2795,53 @@ messages:
       comments: null
       fieldComments:
         user: Updated user
+  UpdateVettedPackagesRequest:
+    message:
+      comments: null
+      fieldComments:
+        synchronizer_id: |-
+          If set, the requested changes will take place on the specified
+          synchronizer. If synchronizer_id is unset and the participant is only
+          connected to a single synchronizer, that synchronizer will be used by
+          default. If synchronizer_id is unset and the participant is connected to
+          multiple synchronizers, the request will error out with
+          PACKAGE_SERVICE_CANNOT_AUTODETECT_SYNCHRONIZER.
+
+          Optional
+        changes: |-
+          Changes to apply to the current vetting state of the participant on the
+          specified synchronizer. The changes are applied in order.
+          Any package not changed will keep their previous vetting state.
+        dry_run: |-
+          If dry_run is true, then the changes are only prepared, but not applied. If
+          a request would trigger an error when run (e.g. TOPOLOGY_DEPENDENCIES_NOT_VETTED),
+          it will also trigger an error when dry_run.
+
+          Use this flag to preview a change before applying it.
+        expected_topology_serial: |-
+          The serial of the last ``VettedPackages`` topology transaction of this
+          participant and on this synchronizer.
+
+          Execution of the request fails if this is not correct. Use this to guard
+          against concurrent changes.
+
+          If left unspecified, no validation is done against the last transaction's
+          serial.
+
+          Optional
+        update_vetted_packages_force_flags: |-
+          Controls whether potentially unsafe vetting updates are allowed.
+
+          Optional, defaults to FORCE_FLAG_UNSPECIFIED.
+  UpdateVettedPackagesResponse:
+    message:
+      comments: null
+      fieldComments:
+        past_vetted_packages: |-
+          All vetted packages on this participant and synchronizer, before the
+          specified changes. Empty if no vetting state existed beforehand.
+        new_vetted_packages: All vetted packages on this participant and synchronizer,
+          after the specified changes.
   UploadDarFileRequest:
     message:
       comments: null
@@ -2747,6 +2854,18 @@ messages:
         submission_id: |-
           Unique submission identifier.
           Optional, defaults to a random identifier.
+        vetting_change: How to vet packages in the DAR being uploaded
+        synchronizer_id: |-
+          Only used if VettingChange is set to VETTING_CHANGE_VET_ALL_PACKAGES, in
+          order to specify which synchronizer to vet on.
+
+          If synchronizer_id is set, the synchronizer with this ID will be used. If
+          synchronizer_id is unset and the participant is only connected to a single
+          synchronizer, that synchronizer will be used by default. If synchronizer_id
+          is unset and the participant is connected to multiple synchronizers, the
+          request will error out with PACKAGE_SERVICE_CANNOT_AUTODETECT_SYNCHRONIZER.
+
+          Optional
   UploadDarFileResponse:
     message:
       comments: A message that is received when the upload operation succeeded.
@@ -2812,10 +2931,86 @@ messages:
         submission_id: |-
           Unique submission identifier.
           Optional, defaults to a random identifier.
+        synchronizer_id: |-
+          If synchronizer_id is set, the synchronizer with this ID will be used. If
+          synchronizer_id is unset and the participant is only connected to a single
+          synchronizer, that synchronizer will be used by default. If synchronizer_id
+          is unset and the participant is connected to multiple synchronizers, the
+          request will error out with PACKAGE_SERVICE_CANNOT_AUTODETECT_SYNCHRONIZER.
+
+          Optional
   ValidateDarFileResponse:
     message:
       comments: null
       fieldComments: {}
+  VettedPackage:
+    message:
+      comments: |-
+        A package that is vetting on a given participant and synchronizer,
+        modelled after ``VettedPackage`` in `topology.proto <https://github.com/digital-asset/canton/blob/main/community/base/src/main/protobuf/com/digitalasset/canton/protocol/v30/topology.proto#L206>`_,
+        enriched with the package name and version.
+      fieldComments:
+        valid_until_exclusive: |-
+          The time until which this package is vetted. Empty if vetting time has no
+          upper bound.
+        package_version: |-
+          Version of this package.
+          Only available if the package has been uploaded to the current participant.
+          If unavailable, is empty string.
+        package_name: |-
+          Name of this package.
+          Only available if the package has been uploaded to the current participant.
+          If unavailable, is empty string.
+        package_id: Package ID of this package. Always present.
+        valid_from_inclusive: |-
+          The time from which this package is vetted. Empty if vetting time has no
+          lower bound.
+  VettedPackages:
+    message:
+      comments: |-
+        The list of packages vetted on a given participant and synchronizer, modelled
+        after ``VettedPackages`` in `topology.proto <https://github.com/digital-asset/canton/blob/main/community/base/src/main/protobuf/com/digitalasset/canton/protocol/v30/topology.proto#L206>`_.
+        The list only contains packages that matched a filter in the query that
+        originated it.
+      fieldComments:
+        packages: |-
+          Sorted by package_name and package_version where known, and package_id as a
+          last resort.
+        participant_id: Participant on which these packages are vetted. Always present.
+        synchronizer_id: Synchronizer on which these packages are vetted. Always present.
+        topology_serial: |-
+          Serial of last ``VettedPackages`` topology transaction of this participant
+          and on this synchronizer. Always present.
+  VettedPackagesChange:
+    message:
+      comments: A change to the set of vetted packages.
+      fieldComments:
+        vet: Add packages to or update packages in the set of vetted packages.
+        unvet: Remove packages from the set of vetted packages.
+  VettedPackagesRef:
+    message:
+      comments: |-
+        A reference to identify one or more packages.
+
+        A reference matches a package if its ``package_id`` matches the package's ID,
+        its ``package_name`` matches the package's name, and its ``package_version``
+        matches the package's version. If an attribute in the reference is left
+        unspecified (i.e. as an empty string), that attribute is treated as a
+        wildcard. At a minimum, ``package_id`` or the ``package_name`` must be
+        specified.
+
+        If a reference does not match any package, the reference is considered
+        unresolved and the entire update request is rejected.
+      fieldComments:
+        package_id: |-
+          Package's package id must be the same as this field.
+          Optional
+        package_name: |-
+          Package's name must be the same as this field.
+          Optional
+        package_version: |-
+          Package's version must be the same as this field.
+          Optional
   WildcardFilter:
     message:
       comments: This filter matches all templates.
@@ -2827,6 +3022,8 @@ messages:
           Optional
 oneOfs:
   ActiveContract: {}
+  AllocateExternalPartyRequest: {}
+  AllocateExternalPartyResponse: {}
   AllocatePartyRequest: {}
   AllocatePartyResponse: {}
   Archived: {}
@@ -2888,6 +3085,8 @@ oneOfs:
           completion: ''
           offset_checkpoint: ''
   Contract: {}
+  CostEstimation: {}
+  CostEstimationHints: {}
   Create: {}
   CreateAndExerciseCommand: {}
   CreateCommand: {}
@@ -2991,6 +3190,8 @@ oneOfs:
   FeaturesDescriptor: {}
   Fetch: {}
   Filters: {}
+  GenerateExternalPartyTopologyRequest: {}
+  GenerateExternalPartyTopologyResponse: {}
   GetActiveContractsRequest: {}
   GetActiveContractsResponse:
     contract_entry:
@@ -3044,10 +3245,6 @@ oneOfs:
   GetPreferredPackagesResponse: {}
   GetTimeRequest: {}
   GetTimeResponse: {}
-  GetTransactionByIdRequest: {}
-  GetTransactionByOffsetRequest: {}
-  GetTransactionResponse: {}
-  GetTransactionTreeResponse: {}
   GetUpdateByIdRequest: {}
   GetUpdateByOffsetRequest: {}
   GetUpdateResponse:
@@ -3058,14 +3255,6 @@ oneOfs:
           transaction: ''
           reassignment: ''
           topology_transaction: ''
-  GetUpdateTreesResponse:
-    update:
-      message:
-        comments: The update that matches the filter in the request.
-        fieldComments:
-          transaction_tree: ''
-          reassignment: ''
-          offset_checkpoint: ''
   GetUpdatesRequest: {}
   GetUpdatesResponse:
     update:
@@ -3098,6 +3287,8 @@ oneOfs:
   ListUserRightsResponse: {}
   ListUsersRequest: {}
   ListUsersResponse: {}
+  ListVettedPackagesRequest: {}
+  ListVettedPackagesResponse: {}
   Metadata: {}
   MinLedgerTime:
     time:
@@ -3132,6 +3323,8 @@ oneOfs:
   OffsetCheckpoint: {}
   OffsetCheckpointFeature: {}
   PackageDetails: {}
+  PackageFeature: {}
+  PackageMetadataFilter: {}
   PackagePreference: {}
   PackageReference: {}
   PackageVettingRequirement: {}
@@ -3146,6 +3339,13 @@ oneOfs:
   PrepareSubmissionRequest: {}
   PrepareSubmissionResponse: {}
   PreparedTransaction: {}
+  PriorTopologySerial:
+    serial:
+      message:
+        comments: null
+        fieldComments:
+          prior: Previous transaction's serial.
+          no_prior: No previous transaction exists.
   PruneRequest: {}
   PruneResponse: {}
   Reassignment: {}
@@ -3172,6 +3372,10 @@ oneOfs:
       message:
         comments: Required
         fieldComments:
+          can_execute_as: The user can prepare and execute submissions as a specific
+            party.
+          can_execute_as_any_party: The user can prepare and execute submissions as
+            any party on a participant.
           can_read_as_any_party: The user can read as any party on a participant
           identity_provider_admin: The user can administer users and parties assigned
             to the same identity provider as the one of the user.
@@ -3181,12 +3385,12 @@ oneOfs:
   Rollback: {}
   SetTimeRequest: {}
   Signature: {}
+  SigningPublicKey: {}
   SinglePartySignatures: {}
   SubmitAndWaitForReassignmentRequest: {}
   SubmitAndWaitForReassignmentResponse: {}
   SubmitAndWaitForTransactionRequest: {}
   SubmitAndWaitForTransactionResponse: {}
-  SubmitAndWaitForTransactionTreeResponse: {}
   SubmitAndWaitRequest: {}
   SubmitAndWaitResponse: {}
   SubmitReassignmentRequest: {}
@@ -3204,21 +3408,11 @@ oneOfs:
           participant_authorization_revoked: ''
           participant_authorization_added: ''
   TopologyFormat: {}
+  TopologyStateFilter: {}
   TopologyTransaction: {}
   TraceContext: {}
   Transaction: {}
-  TransactionFilter: {}
   TransactionFormat: {}
-  TransactionTree: {}
-  TreeEvent:
-    kind:
-      message:
-        comments: null
-        fieldComments:
-          created: |-
-            The event as it appeared in the context of its original daml transaction on this participant node.
-            In particular, the offset, node_id pair of the daml transaction are preserved.
-          exercised: ''
   UnassignCommand: {}
   UnassignedEvent: {}
   UpdateFormat: {}
@@ -3232,10 +3426,22 @@ oneOfs:
   UpdateUserIdentityProviderIdResponse: {}
   UpdateUserRequest: {}
   UpdateUserResponse: {}
+  UpdateVettedPackagesRequest: {}
+  UpdateVettedPackagesResponse: {}
   UploadDarFileRequest: {}
   UploadDarFileResponse: {}
   User: {}
   UserManagementFeature: {}
   ValidateDarFileRequest: {}
   ValidateDarFileResponse: {}
+  VettedPackage: {}
+  VettedPackages: {}
+  VettedPackagesChange:
+    operation:
+      message:
+        comments: null
+        fieldComments:
+          vet: Add packages to or update packages in the set of vetted packages.
+          unvet: Remove packages from the set of vetted packages.
+  VettedPackagesRef: {}
   WildcardFilter: {}

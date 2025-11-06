@@ -4,27 +4,16 @@
 package com.digitalasset.canton.sequencing.protocol
 
 import cats.data.EitherT
-import cats.syntax.either.*
 import cats.syntax.option.*
 import com.daml.metrics.api.MetricsContext
-import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.CantonRequireTypes.String73
-import com.digitalasset.canton.crypto.HashOps
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.sequencing.OrdinaryProtocolEvent
 import com.digitalasset.canton.sequencing.client.{SendAsyncClientError, SequencerClient}
-import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.serialization.{HasCryptographicEvidence, ProtoConverter}
-import com.digitalasset.canton.store.SequencedEventStore.{
-  IgnoredSequencedEvent,
-  OrdinarySequencedEvent,
-  PossiblyIgnoredSequencedEvent,
-}
-import com.digitalasset.canton.time.v30
+import com.digitalasset.canton.serialization.HasCryptographicEvidence
+import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 
@@ -58,36 +47,16 @@ final case class TimeProof private (
     unnamedParam(_.timestamp)
   )
 
-  def toProtoV30: v30.TimeProof = v30.TimeProof(Some(event.toProtoV30))
-
   override def getCryptographicEvidence: ByteString = deliver.getCryptographicEvidence
 }
 
 object TimeProof {
 
-  def fromProtoV30(
-      protocolVersion: ProtocolVersion,
-      hashOps: HashOps,
-  )(timeProofP: v30.TimeProof): ParsingResult[TimeProof] = {
-    val v30.TimeProof(eventPO) = timeProofP
-    for {
-      possiblyIgnoredProtocolEvent <- ProtoConverter
-        .required("event", eventPO)
-        .flatMap(PossiblyIgnoredSequencedEvent.fromProtoV30(protocolVersion, hashOps))
-      event <- possiblyIgnoredProtocolEvent match {
-        case ordinary: OrdinaryProtocolEvent => Right(ordinary)
-        case _: IgnoredSequencedEvent[_] =>
-          Left(ProtoDeserializationError.OtherError("Event is ignored, but must be ordinary."))
-      }
-      timeProof <- fromEvent(event).leftMap(ProtoDeserializationError.OtherError.apply)
-    } yield timeProof
-  }
-
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   def fromEvent(event: OrdinarySequencedEvent[Envelope[?]]): Either[String, TimeProof] =
     for {
       deliver <- PartialFunction
-        .condOpt(event.signedEvent.content) { case deliver: Deliver[_] => deliver }
+        .condOpt(event.signedEvent.content) { case deliver: Deliver[?] => deliver }
         .toRight("Time Proof must be a deliver event")
       _ <- validateDeliver(deliver)
       // is now safe to cast to a `Deliver[Nothing]` as we've validated it has no envelopes

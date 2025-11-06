@@ -305,7 +305,7 @@ trait MessageDispatcherTest {
 
   private def rootHash(index: Int): RootHash = RootHash(TestHash.digest(index))
 
-  private def signEvent[Env <: Envelope[_]](
+  private def signEvent[Env <: Envelope[?]](
       event: SequencedEvent[Env]
   ): SignedContent[SequencedEvent[Env]] =
     SequencerTestUtils.sign(event)
@@ -381,7 +381,7 @@ trait MessageDispatcherTest {
       ) => MessageDispatcher
   ) = {
 
-    type AnyProcessor = RequestProcessor[_ <: ViewType]
+    type AnyProcessor = RequestProcessor[? <: ViewType]
     type ProcessorOfFixture = Fixture => AnyProcessor
 
     def mk(
@@ -398,7 +398,7 @@ trait MessageDispatcherTest {
     )
 
     val rawCommitment = mock[AcsCommitment]
-    when(rawCommitment.synchronizerId).thenReturn(psid)
+    when(rawCommitment.psid).thenReturn(psid)
     when(rawCommitment.representativeProtocolVersion).thenReturn(
       AcsCommitment.protocolVersionRepresentativeFor(testedProtocolVersion)
     )

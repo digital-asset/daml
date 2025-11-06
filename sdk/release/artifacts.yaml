@@ -1,14 +1,10 @@
 # Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-- target: //daml-assistant/scala-daml-project-config:scala-daml-project-config
+- target: //daml-assistant/scala-daml-package-config:scala-daml-package-config
   type: jar-scala
 - target: //daml-lf/api-type-signature:api-type-signature
   type: jar-scala
-- target: //daml-lf/archive:daml_lf_2.1_archive_proto_jar
-  type: jar-lib
-- target: //daml-lf/archive:daml_lf_2.1_archive_proto_java
-  type: jar-proto
 - target: //daml-lf/archive:daml_lf_archive_proto_jar
   type: jar-lib
 - target: //daml-lf/archive:daml_lf_archive_proto_java
@@ -63,8 +59,6 @@
   type: jar-jarjar
 - target: //canton:bindings-java
   type: jar-lib
-- target: //language-support/java/bindings-rxjava:bindings-rxjava
-  type: jar-lib
 - target: //language-support/java/codegen:lib
   type: jar-scala
 - target: //language-support/java/codegen:binary
@@ -94,8 +88,6 @@
 - target: //libs-scala/auth-utils:auth-utils
   type: jar-scala
 - target: //libs-scala/build-info:build-info
-  type: jar-scala
-- target: //libs-scala/caching:caching
   type: jar-scala
 - target: //libs-scala/concurrent:concurrent
   type: jar-scala

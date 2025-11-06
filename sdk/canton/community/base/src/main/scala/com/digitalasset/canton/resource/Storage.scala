@@ -30,10 +30,8 @@ import com.digitalasset.canton.metrics.{DbQueueMetrics, DbStorageMetrics}
 import com.digitalasset.canton.protocol.{LfContractId, LfGlobalKey, LfHash}
 import com.digitalasset.canton.resource.DbStorage.Profile.{H2, Postgres}
 import com.digitalasset.canton.resource.DbStorage.{DbAction, Profile}
-import com.digitalasset.canton.resource.StorageFactory.StorageCreationException
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.store.db.{DbDeserializationException, DbSerializationException}
-import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.ShowUtil.*
@@ -79,87 +77,6 @@ sealed trait Storage extends CloseableHealthComponent with AtomicHealthComponent
   /** Indicates if the storage instance is active and ready to perform updates/writes. */
   def isActive: Boolean
 
-}
-
-trait StorageFactory {
-  def config: StorageConfig
-
-  /** Throws an exception in case of errors or shutdown during storage creation. */
-  def tryCreate(
-      connectionPoolForParticipant: Boolean,
-      logQueryCost: Option[QueryCostMonitoringConfig],
-      clock: Clock,
-      scheduler: Option[ScheduledExecutorService],
-      metrics: DbStorageMetrics,
-      timeouts: ProcessingTimeout,
-      loggerFactory: NamedLoggerFactory,
-  )(implicit
-      ec: ExecutionContext,
-      traceContext: TraceContext,
-      closeContext: CloseContext,
-  ): Storage =
-    create(
-      connectionPoolForParticipant,
-      logQueryCost,
-      clock,
-      scheduler,
-      metrics,
-      timeouts,
-      loggerFactory,
-    )
-      .valueOr(err => throw new StorageCreationException(err))
-      .onShutdown(throw new StorageCreationException("Shutdown during storage creation"))
-
-  def create(
-      connectionPoolForParticipant: Boolean,
-      logQueryCost: Option[QueryCostMonitoringConfig],
-      clock: Clock,
-      scheduler: Option[ScheduledExecutorService],
-      metrics: DbStorageMetrics,
-      timeouts: ProcessingTimeout,
-      loggerFactory: NamedLoggerFactory,
-  )(implicit
-      ec: ExecutionContext,
-      traceContext: TraceContext,
-      closeContext: CloseContext,
-  ): EitherT[UnlessShutdown, String, Storage]
-}
-
-object StorageFactory {
-  class StorageCreationException(message: String) extends RuntimeException(message)
-}
-
-class CommunityStorageFactory(val config: StorageConfig) extends StorageFactory {
-  override def create(
-      connectionPoolForParticipant: Boolean,
-      logQueryCost: Option[QueryCostMonitoringConfig],
-      clock: Clock,
-      scheduler: Option[ScheduledExecutorService],
-      metrics: DbStorageMetrics,
-      timeouts: ProcessingTimeout,
-      loggerFactory: NamedLoggerFactory,
-  )(implicit
-      ec: ExecutionContext,
-      traceContext: TraceContext,
-      closeContext: CloseContext,
-  ): EitherT[UnlessShutdown, String, Storage] =
-    config match {
-      case StorageConfig.Memory(_, _) =>
-        EitherT.rightT(new MemoryStorage(loggerFactory, timeouts))
-      case db: DbConfig =>
-        DbStorageSingle
-          .create(
-            db,
-            connectionPoolForParticipant,
-            logQueryCost,
-            clock,
-            scheduler,
-            metrics,
-            timeouts,
-            loggerFactory,
-          )
-          .widen[Storage]
-    }
 }
 
 final class MemoryStorage(
@@ -348,7 +265,7 @@ trait DbStorage extends Storage { self: NamedLogging =>
     * retried multiple times.
     */
   def update_(
-      action: DBIOAction[_, NoStream, Effect.Write with Effect.Transactional],
+      action: DBIOAction[?, NoStream, Effect.Write with Effect.Transactional],
       operationName: String,
       maxRetries: Int = defaultMaxRetries,
   )(implicit traceContext: TraceContext, closeContext: CloseContext): FutureUnlessShutdown[Unit] =
@@ -610,7 +527,7 @@ object DbStorage {
       loggerFactory: NamedLoggerFactory
   )(implicit closeContext: CloseContext): EitherT[UnlessShutdown, String, Database] = {
     val baseLogger = loggerFactory.getLogger(classOf[DbStorage])
-    val logger = TracedLogger(baseLogger)
+    implicit val logger = TracedLogger(baseLogger)
 
     TraceContext.withNewTraceContext("create_db") { implicit traceContext =>
       // Must be called to set proper defaults in case of H2
@@ -652,27 +569,32 @@ object DbStorage {
         s"Initializing database storage with config: ${DbConfig.hideConfidential(configWithMigrationFallbacks)}"
       )
 
-      RetryEither.retry[String, Database](
-        maxRetries = retryConfig.maxRetries,
-        waitInMs = retryConfig.retryWaitingTime.toMillis,
-        operationName = functionFullName,
-        retryLogLevel = retryConfig.retryLogLevel,
-        failLogLevel = Level.ERROR,
-      ) {
-        for {
-          db <- createJdbcBackendDatabase(
-            configWithMigrationFallbacks,
-            metrics,
-            logQueryCost,
-            scheduler,
-            config.parameters,
-            baseLogger,
-          )
-          _ <- Either
-            .catchOnly[SQLException](db.createSession().close())
-            .leftMap(err => show"Failed to create session with database: $err")
-        } yield db
-      }(ErrorLoggingContext.fromTracedLogger(logger), closeContext)
+      RetryEither
+        .retry[DatabaseCreationFailed, Database](
+          maxRetries = retryConfig.maxRetries,
+          waitInMs = retryConfig.retryWaitingTime.toMillis,
+          operationName = functionFullName,
+          stopOnLeft = Some(_.isFatal),
+          retryLogLevel = retryConfig.retryLogLevel,
+          failLogLevel = Level.ERROR,
+        ) {
+          for {
+            db <- createJdbcBackendDatabase(
+              configWithMigrationFallbacks,
+              metrics,
+              logQueryCost,
+              scheduler,
+              config.parameters,
+              baseLogger,
+            )
+            _ <- Either
+              .catchOnly[SQLException](db.createSession().close())
+              .leftMap(err =>
+                DatabaseCreationFailed(show"Failed to create session with database: $err", err)
+              )
+          } yield db
+        }(ErrorLoggingContext.fromTracedLogger(logger), closeContext)
+        .leftMap(_.message)
     }
   }
 
@@ -684,7 +606,10 @@ object DbStorage {
       scheduler: Option[ScheduledExecutorService],
       parameters: DbParametersConfig,
       logger: Logger,
-  ): Either[String, Database] = {
+  )(implicit
+      tracedLogger: TracedLogger,
+      traceContext: TraceContext,
+  ): Either[DatabaseCreationFailed, Database] = {
     // copy paste from JdbcBackend.forConfig
     import slick.util.ConfigExtensionMethods.*
     try {
@@ -743,10 +668,21 @@ object DbStorage {
 
       Right(JdbcBackend.Database.forSource(source, executor))
     } catch {
-      case ex: SlickException => Left(show"Failed to setup database access: $ex")
-      case ex: PoolInitializationException => Left(show"Failed to connect to database: $ex")
+      case ex: SlickException =>
+        Left(DatabaseCreationFailed(show"Failed to setup database access: $ex", ex.getCause))
+      case ex: PoolInitializationException =>
+        Left(DatabaseCreationFailed(show"Failed to connect to database: $ex", ex.getCause))
     }
+  }
 
+  private final case class DatabaseCreationFailed(message: String, ex: Throwable)(implicit
+      logger: TracedLogger,
+      traceContext: TraceContext,
+  ) {
+    import com.digitalasset.canton.util.retry.ErrorKind
+
+    val isFatal =
+      DbExceptionRetryPolicy.determineExceptionErrorKind(ex, logger) == ErrorKind.FatalErrorKind
   }
 
   /** Construct a bulk operation (e.g., insertion, deletion). The operation must not return a result

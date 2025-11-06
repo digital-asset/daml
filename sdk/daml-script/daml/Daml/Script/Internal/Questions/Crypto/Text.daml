@@ -15,7 +15,6 @@ import DA.Stack
 -- A DER formatted private key to be used for ECDSA message signing
 type PrivateKeyHex = BytesHex
 
-#ifdef DAML_CRYPTO_ADDITIONS
 -- | HIDE
 data Secp256k1WithEcdsaSign = Secp256k1WithEcdsaSign with
   privateKey: PublicKeyHex
@@ -31,7 +30,6 @@ instance IsQuestion Secp256k1WithEcdsaSign BytesHex where command = "Secp256k1Wi
 -- For example, CCTP attestation services may be mocked in daml-script code.
 secp256k1signWithEcdsaOnly : HasCallStack => PrivateKeyHex -> BytesHex -> Script BytesHex
 secp256k1signWithEcdsaOnly pk msg = lift $ Secp256k1WithEcdsaSign pk msg
-#endif
 
 -- | HIDE
 data Secp256k1Sign = Secp256k1Sign with

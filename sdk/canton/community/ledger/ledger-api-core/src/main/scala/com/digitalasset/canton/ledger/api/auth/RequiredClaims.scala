@@ -3,16 +3,9 @@
 
 package com.digitalasset.canton.ledger.api.auth
 
-import com.daml.ledger.api.v2.transaction_filter.{
-  EventFormat,
-  TransactionFilter,
-  TransactionFormat,
-  UpdateFormat,
-}
+import com.daml.ledger.api.v2.transaction_filter.{EventFormat, TransactionFormat, UpdateFormat}
 import com.digitalasset.canton.auth.RequiredClaim
 import scalapb.lenses.Lens
-
-import scala.annotation.nowarn
 
 object RequiredClaims {
 
@@ -25,6 +18,15 @@ object RequiredClaims {
   ): List[RequiredClaim[Req]] =
     RequiredClaim.MatchUserId(userIdL)
       :: actAs.view.map(RequiredClaim.ActAs[Req]).toList
+      ::: readAs.view.map(RequiredClaim.ReadAs[Req]).toList
+
+  def executionClaims[Req](
+      executeAs: Set[String],
+      readAs: Set[String],
+      userIdL: Lens[Req, String],
+  ): List[RequiredClaim[Req]] =
+    RequiredClaim.MatchUserId(userIdL)
+      :: executeAs.view.map(RequiredClaim.ExecuteAs[Req]).toList
       ::: readAs.view.map(RequiredClaim.ReadAs[Req]).toList
 
   def readAsForAllParties[Req](parties: Iterable[String]): List[RequiredClaim[Req]] =
@@ -52,12 +54,6 @@ object RequiredClaims {
           case nonEmpty => readAsForAllParties[Req](nonEmpty)
         },
     ).flatten.distinct
-
-  // TODO(#23504) remove this method once TransactionFilter is removed from the API
-  @nowarn("cat=deprecation")
-  def transactionFilterClaims[Req](transactionFilter: TransactionFilter): List[RequiredClaim[Req]] =
-    readAsForAllParties[Req](transactionFilter.filtersByParty.keys)
-      ::: transactionFilter.filtersForAnyParty.map(_ => RequiredClaim.ReadAsAnyParty[Req]()).toList
 
   def idpAdminClaimsAndMatchingRequestIdpId[Req](
       identityProviderIdL: Lens[Req, String],

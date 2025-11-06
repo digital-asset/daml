@@ -141,6 +141,16 @@ final class Conversions(
                     .setConsumedBy(proto.NodeId.newBuilder.setId(consumedBy.toString).build)
                     .build
                 )
+              case ContractHashingError(contractId, dstTemplateId, createArg, message) =>
+                builder.setContractHashingError(
+                  proto.ScriptError.ContractHashingError.newBuilder
+                    .setContractRef(mkContractRef(contractId, dstTemplateId))
+                    .setDstTemplateId(convertIdentifier(dstTemplateId))
+                    .setCreateArg(convertValue(createArg))
+                    .setMessage(message)
+                    .build
+                )
+
               case DisclosedContractKeyHashingError(contractId, globalKey, hash) =>
                 builder.setDisclosedContractKeyHashingError(
                   proto.ScriptError.DisclosedContractKeyHashingError.newBuilder
@@ -224,6 +234,8 @@ final class Conversions(
                 builder.setComparableValueError(proto.Empty.newBuilder)
               case ValueNesting(_) =>
                 builder.setValueExceedsMaxNesting(proto.Empty.newBuilder)
+              case MalformedText(err) =>
+                builder.setMalformedText(err)
               case FailureStatus(errorId, categoryId, message, metadata) =>
                 builder.setCrash(s"Failure status: $errorId")
                 builder.setFailureStatusError(
@@ -265,12 +277,8 @@ final class Conversions(
                       cgfBuilder.setByInterface(convertIdentifier(ifaceId))
                     )
                     builder.setChoiceGuardFailed(cgfBuilder.build)
-                  // TODO(https://github.com/digital-asset/daml/issues/21667): handle translation errors properly
-                  case Dev.TranslationError(translationError) =>
-                    builder.setCrash(s"translation error: ${translationError}")
-                  // TODO(https://github.com/digital-asset/daml/issues/21667): handle authentication errors properly
-                  case Dev.AuthenticationError(coid, value, msg) =>
-                    builder.setCrash(s"authentication error: $coid, $value, $msg")
+                  case Dev.Cost(Dev.Cost.BudgetExceeded(cause)) =>
+                    builder.setCrash(cause)
                 }
               case _: Upgrade =>
                 builder.setUpgradeError(

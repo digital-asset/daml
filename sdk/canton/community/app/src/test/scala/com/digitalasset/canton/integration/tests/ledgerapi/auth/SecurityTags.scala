@@ -60,12 +60,14 @@ trait SecurityTags extends CreatesUsers with CreatesParties with BeforeAndAfterA
   protected val randomPartyReadUser: String = "readAs-" + randomParty
   protected val randomPartyActUser: String = "actAs-" + randomParty
   protected val readAsAnyPartyUser: String = "readAsAnyParty-" + UUID.randomUUID.toString
+  protected val executeAsAnyPartyUser: String = "executeAsAnyParty-" + UUID.randomUUID.toString
 
   protected def prerequisiteParties: List[String] = List(randomParty)
   protected def prerequisiteUsers: List[PrerequisiteUser] = List(
     PrerequisiteUser(randomPartyReadUser, readAsParties = List(randomParty)),
     PrerequisiteUser(randomPartyActUser, actAsParties = List(randomParty)),
     PrerequisiteUser(readAsAnyPartyUser, readAsAnyParty = true),
+    PrerequisiteUser(executeAsAnyPartyUser, executeAsAnyParty = true),
   )
 
   override def beforeAll(): Unit = {
@@ -89,9 +91,9 @@ trait SecurityTags extends CreatesUsers with CreatesParties with BeforeAndAfterA
       toHeader(expiringIn(Duration.ofDays(-1), standardToken(randomPartyActUser)))
     )
   )
-  protected def canActAsRandomPartyExpiresTomorrow: ServiceCallContext = ServiceCallContext(
+  protected def canActAsRandomPartyExpiresInAnHour: ServiceCallContext = ServiceCallContext(
     Option(
-      toHeader(expiringIn(Duration.ofDays(1), standardToken(randomPartyActUser)))
+      toHeader(expiringIn(Duration.ofHours(1), standardToken(randomPartyActUser)))
     )
   )
 
@@ -103,17 +105,17 @@ trait SecurityTags extends CreatesUsers with CreatesParties with BeforeAndAfterA
       toHeader(expiringIn(Duration.ofDays(-1), standardToken(randomPartyReadUser)))
     )
   )
-  protected def canReadAsRandomPartyExpiresTomorrow: ServiceCallContext = ServiceCallContext(
+  protected def canReadAsRandomPartyExpiresInAnHour: ServiceCallContext = ServiceCallContext(
     Option(
-      toHeader(expiringIn(Duration.ofDays(1), standardToken(randomPartyReadUser)))
+      toHeader(expiringIn(Duration.ofHours(1), standardToken(randomPartyReadUser)))
     )
   )
 
   protected def canReadAsAdminExpired: ServiceCallContext = ServiceCallContext(
     Option(toHeader(expiringIn(Duration.ofDays(-1), adminToken)))
   )
-  protected def canReadAsAdminExpiresTomorrow: ServiceCallContext = ServiceCallContext(
-    Option(toHeader(expiringIn(Duration.ofDays(1), adminToken)))
+  protected def canReadAsAdminExpiresInAnHour: ServiceCallContext = ServiceCallContext(
+    Option(toHeader(expiringIn(Duration.ofHours(1), adminToken)))
   )
 
   protected def canReadAsAnyParty: ServiceCallContext = ServiceCallContext(
@@ -122,9 +124,9 @@ trait SecurityTags extends CreatesUsers with CreatesParties with BeforeAndAfterA
   protected def canReadAsAnyPartyExpired: ServiceCallContext = ServiceCallContext(
     Option(toHeader(expiringIn(Duration.ofDays(-1), standardToken(readAsAnyPartyUser))))
   )
-  protected def canReadAsAnyPartyExpiresTomorrow =
+  protected def canReadAsAnyPartyExpiresInAnHour =
     ServiceCallContext(
-      Option(toHeader(expiringIn(Duration.ofDays(1), standardToken(readAsAnyPartyUser))))
+      Option(toHeader(expiringIn(Duration.ofHours(1), standardToken(readAsAnyPartyUser))))
     )
 
   // Standard tokens for user authentication
@@ -140,5 +142,9 @@ trait SecurityTags extends CreatesUsers with CreatesParties with BeforeAndAfterA
 
   protected def canBeAUser(userId: String, issuer: Option[String]) = ServiceCallContext(
     Option(toHeader(standardToken(userId, issuer = issuer)))
+  )
+
+  protected def canExecuteAsAnyParty: ServiceCallContext = ServiceCallContext(
+    Option(toHeader(standardToken(executeAsAnyPartyUser)))
   )
 }

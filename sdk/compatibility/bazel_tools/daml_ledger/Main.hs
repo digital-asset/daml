@@ -15,6 +15,7 @@ import Data.Proxy (Proxy (..))
 import Data.SemVer (Version)
 import qualified Data.SemVer as SemVer
 import Data.Tagged (Tagged (..))
+import Data.Time.Clock.POSIX (getPOSIXTime)
 import Sandbox (maxRetries, nullDevice, readCantonPortFile)
 import System.Directory.Extra (withCurrentDirectory)
 import System.Environment (lookupEnv)
@@ -60,7 +61,7 @@ withSandbox getTools mbSecret f =
       in withResource createSandbox destroySandbox (f . fmap fst)
   where
     tweakArg portFile = replace "__PORTFILE__" portFile
-    portArgNames = ["--port=", "--admin-api-port=", "--domain-public-port=", "--domain-admin-port="]
+    portArgNames = ["--port=", "--admin-api-port=", "--sequencer-public-port=", "--sequencer-admin-port=", "--mediator-admin-port=", "--json-api-port="]
 
 newtype DamlOption = DamlOption FilePath
 instance IsOption DamlOption where
@@ -154,8 +155,9 @@ authenticatedUploadTest sdkVersion getTools = do
           withTempDir $ \deployDir -> do
             withCurrentDirectory deployDir $ do
               let tokenFile = deployDir </> "secretToken.jwt"
+              expiration <- JWT.numericDate . (+180) <$> getPOSIXTime
               -- The trailing newline is not required but we want to test that it is supported.
-              writeFileUTF8 tokenFile ("Bearer " <> makeSignedJwt sharedSecret <> "\n")
+              writeFileUTF8 tokenFile ("Bearer " <> makeSignedAdminJwt sharedSecret expiration <> "\n")
               callProcessSilent daml
                 [ "ledger", "list-parties"
                 , "--access-token-file", tokenFile
@@ -168,8 +170,9 @@ authenticatedUploadTest sdkVersion getTools = do
           withTempDir $ \deployDir -> do
             withCurrentDirectory deployDir $ do
               let tokenFile = deployDir </> "secretToken.jwt"
+              expiration <- JWT.numericDate . (+180) <$> getPOSIXTime
               -- The trailing newline is not required but we want to test that it is supported.
-              writeFileUTF8 tokenFile (makeSignedJwt sharedSecret <> "\n")
+              writeFileUTF8 tokenFile (makeSignedAdminJwt sharedSecret expiration <> "\n")
               callProcessSilent daml
                 [ "ledger", "list-parties"
                 , "--access-token-file", tokenFile
@@ -180,13 +183,24 @@ authenticatedUploadTest sdkVersion getTools = do
   where
     sharedSecret = "TheSharedSecret"
 
-makeSignedJwt :: String -> String
-makeSignedJwt sharedSecret = do
-  let urc = JWT.ClaimsMap $ Map.fromList [ ("admin", Aeson.Bool True)]
-  let cs = mempty { JWT.unregisteredClaims = urc }
-  let key = JWT.hmacSecret $ T.pack sharedSecret
-  let text = JWT.encodeSigned key mempty cs
-  T.unpack text
+makeSignedJwt :: String -> String -> Maybe JWT.NumericDate -> String
+makeSignedJwt sharedSecret user expiration = do
+    let urc =
+            JWT.ClaimsMap $
+            Map.fromList
+                [ ("scope", Aeson.String "daml_ledger_api")
+                ]
+    let cs = mempty {
+        JWT.sub = JWT.stringOrURI $ T.pack user
+        , JWT.unregisteredClaims = urc
+        , JWT.exp = expiration
+    }
+    let key = JWT.hmacSecret $ T.pack sharedSecret
+    let text = JWT.encodeSigned key mempty cs
+    T.unpack text
+
+makeSignedAdminJwt :: String -> Maybe JWT.NumericDate -> String
+makeSignedAdminJwt sharedSecret expiration = makeSignedJwt sharedSecret "participant_admin" expiration
 
 unauthenticatedTests :: SdkVersion -> IO Tools -> TestTree
 unauthenticatedTests sdkVersion getTools = do
@@ -203,7 +217,7 @@ fetchTest sdkVersion getTools getSandboxPort = do
     port <- getSandboxPort
     withTempDir $ \fetchDir -> do
       withCurrentDirectory fetchDir $ do
-        writeMinimalProject sdkVersion
+        writeMinimalPackage sdkVersion
         let origDar = ".daml/dist/proj1-0.0.1.dar"
         step "build/upload"
         callProcessSilent daml ["damlc", "build"]
@@ -258,8 +272,8 @@ getMainPidOfDar daml fp = do
     Just pkgId -> pure pkgId
 
 -- | Write `daml.yaml` and `Main.daml` files in the current directory.
-writeMinimalProject :: SdkVersion -> IO ()
-writeMinimalProject (SdkVersion sdkVersion) = do
+writeMinimalPackage :: SdkVersion -> IO ()
+writeMinimalPackage (SdkVersion sdkVersion) = do
   writeFileUTF8 "daml.yaml" $ unlines
       [ "sdk-version: " <> SemVer.toString sdkVersion
       , "name: proj1"

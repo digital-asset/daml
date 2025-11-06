@@ -7,7 +7,7 @@ import com.digitalasset.canton.SequencerAlias
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.CommandFailure
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
@@ -41,7 +41,8 @@ sealed trait BftSynchronizerBootstrapTemplateTest
       clue("participant2 connects to sequencer1, sequencer2 using connect_bft") {
         participant2.synchronizers.connect_bft(
           Seq(sequencer2, sequencer1).map(s =>
-            s.config.publicApi.clientConfig.asSequencerConnection(SequencerAlias.tryCreate(s.name))
+            s.config.publicApi.clientConfig
+              .asSequencerConnection(SequencerAlias.tryCreate(s.name), sequencerId = None)
           ),
           synchronizerAlias = daName,
           physicalSynchronizerId = Some(daId),
@@ -142,7 +143,7 @@ sealed trait BftSynchronizerBootstrapTemplateTest
 
 class BftSynchronizerBootstrapTemplateTestDefault extends BftSynchronizerBootstrapTemplateTest {
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.H2](
+    new UseReferenceBlockSequencer[DbConfig.H2](
       loggerFactory
     )
   )

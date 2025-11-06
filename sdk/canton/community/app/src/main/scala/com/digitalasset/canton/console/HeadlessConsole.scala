@@ -133,7 +133,7 @@ object HeadlessConsole extends NoTracing {
 
   private def initializePredef(
       interpreter: Interpreter,
-      bindings: IndexedSeq[Bind[_]],
+      bindings: IndexedSeq[Bind[?]],
       interactivePredef: Boolean => String,
       logger: TracedLogger,
   ): Either[HeadlessConsoleError, Unit] = {
@@ -200,7 +200,7 @@ object HeadlessConsole extends NoTracing {
     *   If the value is unknown
     */
   private def convertAmmoniteResult(
-      result: Res[_],
+      result: Res[?],
       logger: TracedLogger,
   ): Either[HeadlessConsoleError, Unit] =
     result match {
@@ -255,7 +255,7 @@ object HeadlessConsole extends NoTracing {
     )
   }
 
-  private def generateBindPredef(binds: IndexedSeq[Bind[_]]): String =
+  private def generateBindPredef(binds: IndexedSeq[Bind[?]]): String =
     binds.zipWithIndex
       .map { case (b, idx) =>
         s"""

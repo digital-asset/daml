@@ -4,7 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer
 
 import cats.syntax.option.*
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{PositiveDouble, PositiveInt}
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.config.{
   CantonConfigValidator,
@@ -17,15 +17,19 @@ import com.digitalasset.canton.config.{
   StorageConfig,
   UniformCantonConfigValidation,
 }
-import com.digitalasset.canton.synchronizer.sequencer.BlockSequencerConfig.CircuitBreakerConfig
+import com.digitalasset.canton.synchronizer.sequencer.BlockSequencerConfig.{
+  CircuitBreakerConfig,
+  ThroughputCapConfig,
+}
+import com.digitalasset.canton.synchronizer.sequencer.BlockSequencerStreamInstrumentationConfig.DefaultBufferSize
 import com.digitalasset.canton.synchronizer.sequencer.DatabaseSequencerConfig.{
   SequencerPruningConfig,
   TestingInterceptor,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.reference.{
-  CommunityReferenceSequencerDriverFactory,
   ReferenceSequencerDriver,
+  ReferenceSequencerDriverFactory,
 }
 import com.digitalasset.canton.time.Clock
 import pureconfig.ConfigCursor
@@ -90,7 +94,7 @@ object SequencerConfig {
   }
 
   def default: SequencerConfig = {
-    val driverFactory = new CommunityReferenceSequencerDriverFactory
+    val driverFactory = new ReferenceSequencerDriverFactory
     External(
       driverFactory.name,
       BlockSequencerConfig(),
@@ -184,7 +188,7 @@ trait DatabaseSequencerConfig {
 
 object DatabaseSequencerConfig {
 
-  /** The Postgres sequencer supports adding a interceptor within the sequencer itself for
+  /** The Postgres sequencer supports adding an interceptor within the sequencer itself for
     * manipulating sequence behavior during tests. This is used for delaying and/or dropping
     * messages to verify the behavior of transaction processing in abnormal scenarios in a
     * deterministic way. It is not expected to be used at runtime in any capacity and is not
@@ -221,11 +225,29 @@ object DatabaseSequencerConfig {
   }
 }
 
+final case class BlockSequencerStreamInstrumentationConfig(
+    isEnabled: Boolean = false,
+    bufferSize: PositiveInt = DefaultBufferSize,
+) extends UniformCantonConfigValidation
+
+object BlockSequencerStreamInstrumentationConfig {
+  val DefaultBufferSize = PositiveInt.tryCreate(128)
+
+  implicit val blockSequencerStreamInstrumentationConfigValidator
+      : CantonConfigValidator[BlockSequencerStreamInstrumentationConfig] = {
+    import com.digitalasset.canton.config.CantonConfigValidatorInstances.*
+    CantonConfigValidatorDerivation[BlockSequencerStreamInstrumentationConfig]
+  }
+}
+
 final case class BlockSequencerConfig(
     writer: SequencerWriterConfig = SequencerWriterConfig.HighThroughput(),
     reader: SequencerReaderConfig = SequencerReaderConfig(),
     testingInterceptor: Option[DatabaseSequencerConfig.TestingInterceptor] = None,
     circuitBreaker: CircuitBreakerConfig = CircuitBreakerConfig(),
+    throughputCap: ThroughputCapConfig = ThroughputCapConfig(),
+    streamInstrumentation: BlockSequencerStreamInstrumentationConfig =
+      BlockSequencerStreamInstrumentationConfig(),
 ) extends UniformCantonConfigValidation { self =>
   def toDatabaseSequencerConfig: DatabaseSequencerConfig = new DatabaseSequencerConfig {
     override val writer: SequencerWriterConfig = self.writer
@@ -245,6 +267,44 @@ object BlockSequencerConfig {
         : CantonConfigValidator[TestingInterceptor] =
       CantonConfigValidator.validateAll
     CantonConfigValidatorDerivation[BlockSequencerConfig]
+  }
+
+  final case class ThroughputCapConfig(
+      enabled: Boolean = false,
+      observationPeriodSeconds: Int = 60,
+      clockTickInterval: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofMillis(100),
+      messages: ThroughputCapByMessageTypeConfig = ThroughputCapByMessageTypeConfig(),
+  ) extends UniformCantonConfigValidation
+  object ThroughputCapConfig {
+    implicit val throughputCapConfigValidator: CantonConfigValidator[ThroughputCapConfig] =
+      CantonConfigValidatorDerivation[ThroughputCapConfig]
+  }
+
+  final case class ThroughputCapByMessageTypeConfig(
+      confirmationRequest: IndividualThroughputCapConfig = IndividualThroughputCapConfig(),
+      topology: IndividualThroughputCapConfig = IndividualThroughputCapConfig(
+        globalTpsCap = PositiveDouble.tryCreate(2.0),
+        perClientTpsCap = PositiveDouble.tryCreate(1.0),
+      ),
+  ) extends UniformCantonConfigValidation
+  object ThroughputCapByMessageTypeConfig {
+    implicit val throughputCapConfigValidator
+        : CantonConfigValidator[ThroughputCapByMessageTypeConfig] =
+      CantonConfigValidatorDerivation[ThroughputCapByMessageTypeConfig]
+  }
+
+  final case class IndividualThroughputCapConfig(
+      globalTpsCap: PositiveDouble = PositiveDouble.tryCreate(10.0),
+      globalKbpsCap: PositiveDouble = PositiveDouble.tryCreate(2000.0),
+      perClientTpsCap: PositiveDouble = PositiveDouble.tryCreate(4.0),
+      perClientKbpsCap: PositiveDouble = PositiveDouble.tryCreate(1000.0),
+  ) extends UniformCantonConfigValidation
+  object IndividualThroughputCapConfig {
+    implicit val throughputCapConfigValidator
+        : CantonConfigValidator[IndividualThroughputCapConfig] = {
+      import CantonConfigValidatorInstances.*
+      CantonConfigValidatorDerivation[IndividualThroughputCapConfig]
+    }
   }
 
   final case class CircuitBreakerConfig(
@@ -269,6 +329,7 @@ object BlockSequencerConfig {
       confirmationResponse: IndividualCircuitBreakerConfig = default3,
       verdict: IndividualCircuitBreakerConfig = default3,
       acknowledgement: IndividualCircuitBreakerConfig = default1,
+      unexpected: IndividualCircuitBreakerConfig = default1,
   ) extends UniformCantonConfigValidation
   object CircuitBreakerByMessageTypeConfig {
     implicit val circuitBreakerByMessageTypeConfigValidator

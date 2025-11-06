@@ -43,7 +43,7 @@ import com.digitalasset.canton.version.{
   ProtocolVersion,
   RepresentativeProtocolVersion,
   VersionedProtoCodec,
-  VersioningCompanionMemoization,
+  VersioningCompanionContextMemoization,
 }
 import com.google.protobuf.ByteString
 
@@ -138,6 +138,14 @@ object ConsensusSegment {
       def blockMetadata: BlockMetadata
       def viewNumber: ViewNumber
       def toProto: v30.ConsensusMessage
+
+      /** The actual sender differs from the underlying message's original sender in cases a node
+        * retransmitted another node's old messages. It is supposed to be used for properly
+        * "charging" sender nodes in bounded queues and rate limiting. Can be empty when a message
+        * is created locally or loaded from a store, as in these cases, it's not directly received
+        * from another node. See usages for more context.
+        */
+      def actualSender: Option[BftNodeId]
     }
 
     /** A Signed Pbft consensus message that is an actual event that the consensus module will act
@@ -184,6 +192,7 @@ object ConsensusSegment {
         block: OrderingBlock,
         canonicalCommitSet: CanonicalCommitSet,
         from: BftNodeId,
+        actualSender: Option[BftNodeId],
     )(
         override val representativeProtocolVersion: RepresentativeProtocolVersion[PrePrepare.type],
         override val deserializedFrom: Option[ByteString],
@@ -227,7 +236,7 @@ object ConsensusSegment {
         super[HasProtocolVersionedWrapper].toByteString
     }
 
-    object PrePrepare extends VersioningCompanionMemoization[PrePrepare] {
+    object PrePrepare extends VersioningCompanionContextMemoization[PrePrepare, Option[BftNodeId]] {
       override def name: String = "PrePrepare"
 
       def create(
@@ -236,8 +245,9 @@ object ConsensusSegment {
           block: OrderingBlock,
           canonicalCommitSet: CanonicalCommitSet,
           from: BftNodeId,
+          actualSender: Option[BftNodeId] = None,
       )(implicit synchronizerProtocolVersion: ProtocolVersion): PrePrepare =
-        PrePrepare(blockMetadata, viewNumber, block, canonicalCommitSet, from)(
+        PrePrepare(blockMetadata, viewNumber, block, canonicalCommitSet, from, actualSender)(
           protocolVersionRepresentativeFor(
             synchronizerProtocolVersion
           ): RepresentativeProtocolVersion[
@@ -247,7 +257,8 @@ object ConsensusSegment {
         )
 
       def fromProtoConsensusMessage(
-          value: v30.ConsensusMessage
+          actualSender: Option[BftNodeId],
+          value: v30.ConsensusMessage,
       )(originalByteString: OriginalByteString): ParsingResult[PrePrepare] =
         for {
           header <- headerFromProto(value)
@@ -259,6 +270,7 @@ object ConsensusSegment {
             header.viewNumber,
             protoPrePrepare,
             header.from,
+            actualSender,
           )(originalByteString)
         } yield prePrepare
 
@@ -267,6 +279,7 @@ object ConsensusSegment {
           viewNumber: ViewNumber,
           prePrepare: v30.PrePrepare,
           from: BftNodeId,
+          actualSender: Option[BftNodeId],
       )(
           originalByteString: OriginalByteString
       ): ParsingResult[PrePrepare] =
@@ -286,6 +299,7 @@ object ConsensusSegment {
           OrderingBlock(proofs),
           canonicalCommitSet,
           from,
+          actualSender,
         )(rpv, Some(originalByteString))
 
       override def versioningTable: VersioningTable = VersioningTable(
@@ -302,6 +316,7 @@ object ConsensusSegment {
         viewNumber: ViewNumber,
         hash: Hash,
         from: BftNodeId,
+        actualSender: Option[BftNodeId],
     )(
         override val representativeProtocolVersion: RepresentativeProtocolVersion[Prepare.type],
         override val deserializedFrom: Option[ByteString],
@@ -325,7 +340,7 @@ object ConsensusSegment {
         super[HasProtocolVersionedWrapper].toByteString
     }
 
-    object Prepare extends VersioningCompanionMemoization[Prepare] {
+    object Prepare extends VersioningCompanionContextMemoization[Prepare, Option[BftNodeId]] {
       override def name: String = "Prepare"
       implicit val ordering: Ordering[Prepare] = Ordering.by(prepare => prepare.from)
 
@@ -334,14 +349,16 @@ object ConsensusSegment {
           viewNumber: ViewNumber,
           hash: Hash,
           from: BftNodeId,
+          actualSender: Option[BftNodeId] = None,
       )(implicit synchronizerProtocolVersion: ProtocolVersion): Prepare =
-        Prepare(blockMetadata, viewNumber, hash, from)(
+        Prepare(blockMetadata, viewNumber, hash, from, actualSender)(
           protocolVersionRepresentativeFor(synchronizerProtocolVersion),
           None,
         )
 
       def fromProtoConsensusMessage(
-          value: v30.ConsensusMessage
+          actualSender: Option[BftNodeId],
+          value: v30.ConsensusMessage,
       )(originalByteString: OriginalByteString): ParsingResult[Prepare] =
         for {
           header <- headerFromProto(value)
@@ -353,6 +370,7 @@ object ConsensusSegment {
             header.viewNumber,
             protoPrepare,
             header.from,
+            actualSender,
           )(originalByteString)
         } yield prepare
 
@@ -361,6 +379,7 @@ object ConsensusSegment {
           viewNumber: ViewNumber,
           prepare: v30.Prepare,
           from: BftNodeId,
+          actualSender: Option[BftNodeId],
       )(
           originalByteString: OriginalByteString
       ): ParsingResult[Prepare] =
@@ -372,6 +391,7 @@ object ConsensusSegment {
           viewNumber,
           hash,
           from,
+          actualSender,
         )(rpv, Some(originalByteString))
 
       override def versioningTable: VersioningTable = VersioningTable(
@@ -389,6 +409,7 @@ object ConsensusSegment {
         hash: Hash,
         localTimestamp: CantonTimestamp,
         from: BftNodeId,
+        actualSender: Option[BftNodeId],
     )(
         override val representativeProtocolVersion: RepresentativeProtocolVersion[Commit.type],
         override val deserializedFrom: Option[ByteString],
@@ -410,7 +431,7 @@ object ConsensusSegment {
         super[HasProtocolVersionedWrapper].toByteString
     }
 
-    object Commit extends VersioningCompanionMemoization[Commit] {
+    object Commit extends VersioningCompanionContextMemoization[Commit, Option[BftNodeId]] {
       override def name: String = "Commit"
       implicit val ordering: Ordering[Commit] =
         Ordering.by(commit => (commit.from, commit.localTimestamp))
@@ -421,14 +442,16 @@ object ConsensusSegment {
           hash: Hash,
           localTimestamp: CantonTimestamp,
           from: BftNodeId,
+          actualSender: Option[BftNodeId] = None,
       )(implicit synchronizerProtocolVersion: ProtocolVersion): Commit =
-        Commit(blockMetadata, viewNumber, hash, localTimestamp, from)(
+        Commit(blockMetadata, viewNumber, hash, localTimestamp, from, actualSender)(
           protocolVersionRepresentativeFor(synchronizerProtocolVersion),
           None,
         )
 
       def fromProtoConsensusMessage(
-          value: v30.ConsensusMessage
+          actualSender: Option[BftNodeId],
+          value: v30.ConsensusMessage,
       )(originalByteString: OriginalByteString): ParsingResult[Commit] =
         for {
           header <- headerFromProto(value)
@@ -440,6 +463,7 @@ object ConsensusSegment {
             header.viewNumber,
             protoCommit,
             header.from,
+            actualSender,
           )(originalByteString)
         } yield commit
 
@@ -448,6 +472,7 @@ object ConsensusSegment {
           viewNumber: ViewNumber,
           commit: v30.Commit,
           from: BftNodeId,
+          actualSender: Option[BftNodeId],
       )(originalByteString: OriginalByteString): ParsingResult[Commit] =
         for {
           hash <- Hash.fromProtoPrimitive(commit.blockHash)
@@ -459,6 +484,7 @@ object ConsensusSegment {
           hash,
           timestamp,
           from,
+          actualSender,
         )(rpv, Some(originalByteString))
 
       override def versioningTable: VersioningTable = VersioningTable(
@@ -475,6 +501,7 @@ object ConsensusSegment {
         viewNumber: ViewNumber,
         consensusCerts: Seq[ConsensusCertificate],
         from: BftNodeId,
+        actualSender: Option[BftNodeId],
     )(
         override val representativeProtocolVersion: RepresentativeProtocolVersion[ViewChange.type],
         override val deserializedFrom: Option[ByteString],
@@ -505,21 +532,23 @@ object ConsensusSegment {
         super[HasProtocolVersionedWrapper].toByteString
     }
 
-    object ViewChange extends VersioningCompanionMemoization[ViewChange] {
+    object ViewChange extends VersioningCompanionContextMemoization[ViewChange, Option[BftNodeId]] {
       override def name: String = "ViewChange"
       def create(
           blockMetadata: BlockMetadata,
           viewNumber: ViewNumber,
           consensusCerts: Seq[ConsensusCertificate],
           from: BftNodeId,
+          actualSender: Option[BftNodeId] = None,
       )(implicit synchronizerProtocolVersion: ProtocolVersion): ViewChange =
-        ViewChange(blockMetadata, viewNumber, consensusCerts, from)(
+        ViewChange(blockMetadata, viewNumber, consensusCerts, from, actualSender)(
           protocolVersionRepresentativeFor(synchronizerProtocolVersion),
           None,
         )
 
       def fromProtoConsensusMessage(
-          value: v30.ConsensusMessage
+          actualSender: Option[BftNodeId],
+          value: v30.ConsensusMessage,
       )(originalByteString: OriginalByteString): ParsingResult[ViewChange] =
         for {
           header <- headerFromProto(value)
@@ -531,6 +560,7 @@ object ConsensusSegment {
             header.viewNumber,
             protoViewChange,
             header.from,
+            actualSender,
           )(originalByteString)
         } yield viewChange
 
@@ -539,15 +569,19 @@ object ConsensusSegment {
           viewNumber: ViewNumber,
           viewChange: v30.ViewChange,
           from: BftNodeId,
+          actualSender: Option[BftNodeId],
       )(originalByteString: OriginalByteString): ParsingResult[ViewChange] =
         for {
-          certs <- viewChange.consensusCerts.traverse(ConsensusCertificate.fromProto)
+          certs <- viewChange.consensusCerts.traverse(
+            ConsensusCertificate.fromProto(_, actualSender)
+          )
           rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
         } yield ConsensusSegment.ConsensusMessage.ViewChange(
           blockMetadata,
           viewNumber,
           certs,
           from,
+          actualSender,
         )(rpv, Some(originalByteString))
 
       override def versioningTable: VersioningTable = VersioningTable(
@@ -565,6 +599,7 @@ object ConsensusSegment {
         viewChanges: Seq[SignedMessage[ViewChange]],
         prePrepares: Seq[SignedMessage[PrePrepare]],
         from: BftNodeId,
+        actualSender: Option[BftNodeId],
     )(
         override val representativeProtocolVersion: RepresentativeProtocolVersion[NewView.type],
         override val deserializedFrom: Option[ByteString],
@@ -600,7 +635,7 @@ object ConsensusSegment {
     }
 
     @SuppressWarnings(Array("org.wartremover.warts.IterableOps"))
-    object NewView extends VersioningCompanionMemoization[NewView] {
+    object NewView extends VersioningCompanionContextMemoization[NewView, Option[BftNodeId]] {
       override def name: String = "NewView"
       def create(
           blockMetadata: BlockMetadata,
@@ -608,20 +643,24 @@ object ConsensusSegment {
           viewChanges: Seq[SignedMessage[ViewChange]],
           prePrepares: Seq[SignedMessage[PrePrepare]],
           from: BftNodeId,
-      )(implicit synchronizerProtocolVersion: ProtocolVersion): NewView = NewView(
-        blockMetadata,
-        viewNumber,
-        viewChanges,
-        prePrepares,
-        from,
-      )(
-        protocolVersionRepresentativeFor(synchronizerProtocolVersion),
-        None,
-      )
+          actualSender: Option[BftNodeId] = None,
+      )(implicit synchronizerProtocolVersion: ProtocolVersion): NewView =
+        NewView(
+          blockMetadata,
+          viewNumber,
+          viewChanges,
+          prePrepares,
+          from,
+          actualSender,
+        )(
+          protocolVersionRepresentativeFor(synchronizerProtocolVersion),
+          None,
+        )
       implicit val ordering: Ordering[ViewChange] = Ordering.by(viewChange => viewChange.from)
 
       def fromProtoConsensusMessage(
-          value: v30.ConsensusMessage
+          actualSender: Option[BftNodeId],
+          value: v30.ConsensusMessage,
       )(originalByteString: OriginalByteString): ParsingResult[NewView] =
         for {
           header <- headerFromProto(value)
@@ -633,6 +672,7 @@ object ConsensusSegment {
             header.viewNumber,
             protoNewView,
             header.from,
+            actualSender,
           )(originalByteString)
         } yield newView
 
@@ -641,13 +681,18 @@ object ConsensusSegment {
           viewNumber: ViewNumber,
           newView: v30.NewView,
           from: BftNodeId,
+          actualSender: Option[BftNodeId],
       )(originalByteString: OriginalByteString): ParsingResult[NewView] =
         for {
           viewChanges <- newView.viewChanges.traverse(
-            SignedMessage.fromProto(v30.ConsensusMessage)(ViewChange.fromProtoConsensusMessage)
+            SignedMessage.fromProto(v30.ConsensusMessage)(
+              ViewChange.fromProtoConsensusMessage(actualSender, _)
+            )
           )
           prePrepares <- newView.prePrepares.traverse(
-            SignedMessage.fromProto(v30.ConsensusMessage)(PrePrepare.fromProtoConsensusMessage)
+            SignedMessage.fromProto(v30.ConsensusMessage)(
+              PrePrepare.fromProtoConsensusMessage(actualSender, _)
+            )
           )
           rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
         } yield ConsensusSegment.ConsensusMessage.NewView(
@@ -656,6 +701,7 @@ object ConsensusSegment {
           viewChanges,
           prePrepares,
           from,
+          actualSender,
         )(rpv, Some(originalByteString))
 
       override def versioningTable: VersioningTable = VersioningTable(

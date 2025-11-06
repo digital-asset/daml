@@ -82,15 +82,6 @@ private[metrics] final class ServicesHistograms(val prefix: MetricName)(implicit
   private[metrics] val transactionTrees: Item = extend("transaction_trees", baseInfo)
   private[metrics] val getUpdateByOffset: Item = extend("get_update_by_offset", baseInfo)
   private[metrics] val getUpdateById: Item = extend("get_update_by_id", baseInfo)
-  // TODO(#23504) remove when corresponding grpc method has been removed
-  private[metrics] val getTransactionById: Item = extend("get_transaction_by_id", baseInfo)
-  // TODO(#23504) remove when corresponding grpc method has been removed
-  private[metrics] val getTransactionTreeById: Item = extend("get_transaction_tree_by_id", baseInfo)
-  // TODO(#23504) remove when corresponding grpc method has been removed
-  private[metrics] val getTransactionByOffset: Item = extend("get_transaction_by_offset", baseInfo)
-  // TODO(#23504) remove when corresponding grpc method has been removed
-  private[metrics] val getTransactionTreeByOffset: Item =
-    extend("get_transaction_tree_by_offset", baseInfo)
   private[metrics] val getActiveContracts: Item = extend("get_active_contracts", baseInfo)
   private[metrics] val lookupActiveContract: Item = extend("lookup_active_contract", baseInfo)
   private[metrics] val lookupContractState: Item = extend("lookup_contract_state", baseInfo)
@@ -161,6 +152,13 @@ private[metrics] final class ServicesHistograms(val prefix: MetricName)(implicit
   private[metrics] val readListLfPackages: Item = extend("list_lf_packages", readBaseInfo)
   private[metrics] val readGetLfArchive: Item = extend("get_lf_archive", readBaseInfo)
   private[metrics] val readValidateDar: Item = extend("validate_dar", readBaseInfo)
+  private[metrics] val readListVettedPackages: Item = extend("list_vetted_packages", readBaseInfo)
+  private[metrics] val computePartyVettingMap: Item =
+    extend("compute_party_vetting_map", readBaseInfo)
+  private[metrics] val computeHighestRankedSynchronizerFromAdmissible: Item =
+    extend("compute_highest_ranked_synchronizer_from_admissible", readBaseInfo)
+  private[metrics] val selectRoutingSynchronizer: Item =
+    extend("select_routing_synchronizer", readBaseInfo)
 
   private[metrics] val writeBaseInfo = MetricInfo(
     indexPrefix :+ "write",
@@ -181,6 +179,9 @@ private[metrics] final class ServicesHistograms(val prefix: MetricName)(implicit
   private[metrics] val writeAllocateParty: Item = extend("allocate_party", writeBaseInfo)
 
   private[metrics] val writePrune: Item = extend("prune", writeBaseInfo)
+
+  private[metrics] val writeUpdateVettedPackages: Item =
+    extend("update_vetted_packages", writeBaseInfo)
 
 }
 
@@ -205,18 +206,6 @@ final class ServicesMetrics private[metrics] (
     val getCompletions: Timer = openTelemetryMetricsFactory.timer(inventory.getCompletions.info)
     val transactions: Timer = openTelemetryMetricsFactory.timer(inventory.transactions.info)
     val transactionTrees: Timer = openTelemetryMetricsFactory.timer(inventory.transactionTrees.info)
-    // TODO(#23504) remove when corresponding grpc method has been removed
-    val getTransactionById: Timer =
-      openTelemetryMetricsFactory.timer(inventory.getTransactionById.info)
-    // TODO(#23504) remove when corresponding grpc method has been removed
-    val getTransactionTreeById: Timer =
-      openTelemetryMetricsFactory.timer(inventory.getTransactionTreeById.info)
-    // TODO(#23504) remove when corresponding grpc method has been removed
-    val getTransactionByOffset: Timer =
-      openTelemetryMetricsFactory.timer(inventory.getTransactionByOffset.info)
-    // TODO(#23504) remove when corresponding grpc method has been removed
-    val getTransactionTreeByOffset: Timer =
-      openTelemetryMetricsFactory.timer(inventory.getTransactionTreeByOffset.info)
     val getUpdateByOffset: Timer =
       openTelemetryMetricsFactory.timer(inventory.getUpdateByOffset.info)
     val getUpdateById: Timer =
@@ -331,6 +320,17 @@ final class ServicesMetrics private[metrics] (
     val listLfPackages: Timer = openTelemetryMetricsFactory.timer(inventory.readListLfPackages.info)
     val getLfArchive: Timer = openTelemetryMetricsFactory.timer(inventory.readGetLfArchive.info)
     val validateDar: Timer = openTelemetryMetricsFactory.timer(inventory.readValidateDar.info)
+    val listVettedPackages: Timer =
+      openTelemetryMetricsFactory.timer(inventory.readListVettedPackages.info)
+
+    val computePartyVettingMap: Timer =
+      openTelemetryMetricsFactory.timer(inventory.computePartyVettingMap.info)
+    val computeHighestRankedSynchronizerFromAdmissible: Timer =
+      openTelemetryMetricsFactory.timer(
+        inventory.computeHighestRankedSynchronizerFromAdmissible.info
+      )
+    val selectRoutingSynchronizer: Timer =
+      openTelemetryMetricsFactory.timer(inventory.selectRoutingSynchronizer.info)
   }
 
   val read: ReadMetrics = new ReadMetrics
@@ -360,6 +360,9 @@ final class ServicesMetrics private[metrics] (
     val allocateParty: Timer = openTelemetryMetricsFactory.timer(inventory.writeAllocateParty.info)
 
     val prune: Timer = openTelemetryMetricsFactory.timer(inventory.writePrune.info)
+
+    val updateVettedPackages: Timer =
+      openTelemetryMetricsFactory.timer(inventory.writeUpdateVettedPackages.info)
   }
 
   val write: WriteMetrics = new WriteMetrics

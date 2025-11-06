@@ -54,6 +54,7 @@ trait DbTrafficConsumedStoreTest extends AsyncWordSpec with BaseTest with Traffi
         timeouts = timeouts,
         loggerFactory = loggerFactory,
         batchingConfig = BatchingConfig(),
+        sequencerStore,
       )
     )
   }

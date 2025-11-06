@@ -17,7 +17,7 @@ import com.daml.ledger.api.v2.transaction_filter.{
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.*
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.integration.TestConsoleEnvironment
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.protocol.{ExampleTransactionFactory, LfContractId}
 import io.grpc.Status
 import org.scalatest.Assertion
@@ -25,7 +25,7 @@ import org.scalatest.Assertion
 import scala.concurrent.{ExecutionContext, Future}
 
 final class GetEventsByContractIdRequestAuthIT extends ReadOnlyServiceCallAuthTests {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   override def serviceCallName: String = "EventQueryService#GetEventsByContractId"
 
@@ -35,19 +35,17 @@ final class GetEventsByContractIdRequestAuthIT extends ReadOnlyServiceCallAuthTe
   override def serviceCall(context: ServiceCallContext)(implicit
       env: TestConsoleEnvironment
   ): Future[Any] = {
-    val eventFormat = context.updateFormat
+    val eventFormatO = context.updateFormat
       .flatMap(_.includeTransactions)
       .flatMap(_.eventFormat)
     stub(EventQueryServiceGrpc.stub(channel), context.token)
       .getEventsByContractId(
         GetEventsByContractIdRequest(
           contractId = LfContractId.V1(ExampleTransactionFactory.lfHash(375)).coid,
-          requestingParties = eventFormat match {
-            case None => Seq(getMainActorId) // legacy API
-            case Some(_) =>
-              Nil // new API: if evenFormat is defined requestingParties should be empty
+          eventFormat = eventFormatO match {
+            case None => Some(eventFormat(getMainActorId))
+            case Some(_) => eventFormatO
           },
-          eventFormat = eventFormat,
         )
       )
   }

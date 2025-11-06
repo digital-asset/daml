@@ -5,7 +5,7 @@ package com.digitalasset.canton.integration.tests.ledgerapi.auth
 
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.integration.TestConsoleEnvironment
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.integration.tests.ledgerapi.services.SubmitDummyPreparedSubmission
 
 import scala.concurrent.Future
@@ -13,8 +13,9 @@ import scala.concurrent.Future
 // PrepareSubmission authorizes like a read only command
 final class PrepareSubmissionAuthIT
     extends ReadOnlyServiceCallAuthTests
-    with SubmitDummyPreparedSubmission {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+    with SubmitDummyPreparedSubmission
+    with ExecuteAsAuthTests {
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   override def serviceCallName: String = "InteractiveSubmissionService#PrepareSubmission"
 

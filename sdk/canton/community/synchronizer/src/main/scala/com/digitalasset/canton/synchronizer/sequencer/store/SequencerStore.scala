@@ -7,10 +7,12 @@ import cats.Order.*
 import cats.data.EitherT
 import cats.kernel.Order
 import cats.syntax.either.*
+import cats.syntax.option.*
 import cats.syntax.order.*
 import cats.{Functor, Show}
 import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.caching.ScaffeineCache
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -28,12 +30,13 @@ import com.digitalasset.canton.synchronizer.sequencer.PruningError.UnsafePruning
 import com.digitalasset.canton.synchronizer.sequencer.store.SequencerStore.SequencerPruningResult
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.Member
-import com.digitalasset.canton.tracing.{HasTraceContext, TraceContext, Traced}
+import com.digitalasset.canton.tracing.{HasTraceContext, TraceContext}
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.{BytesUnit, ErrorUtil, MonadUtil, retry}
-import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.util.{BytesUnit, ErrorUtil, MaxBytesToDecompress, MonadUtil, retry}
+import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionValidation}
 import com.digitalasset.canton.{ProtoDeserializationError, checked}
+import com.github.blemale.scaffeine.Scaffeine
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 import com.google.rpc.status.Status
@@ -55,6 +58,8 @@ final case class SequencerMemberId(private val id: Int) extends PrettyPrinting {
 }
 
 object SequencerMemberId {
+  val Broadcast: SequencerMemberId = SequencerMemberId(-1)
+
   implicit val sequencerMemberIdOrdering: Ordering[SequencerMemberId] =
     Ordering.by[SequencerMemberId, Int](_.id)
   implicit val sequencerMemberIdOrder: Order[SequencerMemberId] = fromOrdering(
@@ -113,17 +118,16 @@ sealed trait Payload extends IdOrPayload
 /** Payload with a assigned id and content as bytes */
 final case class BytesPayload(id: PayloadId, content: ByteString) extends Payload {
   def decodeBatchAndTrim(
+      maxBytesToDecompress: MaxBytesToDecompress,
       protocolVersion: ProtocolVersion,
       member: Member,
   ): Batch[ClosedEnvelope] = {
     val fullBatch = Batch
-      .fromByteString(protocolVersion, content)
+      .fromByteString(ProtocolVersionValidation.PV(protocolVersion), maxBytesToDecompress, content)
       .valueOr(err => throw new DbDeserializationException(err.toString))
     Batch.trimForMember(fullBatch, member)
   }
 }
-
-final case class FilteredBatch(id: PayloadId, batch: Batch[ClosedEnvelope]) extends Payload
 
 /** Sequencer events in a structure suitable for persisting in our events store. The payload type is
   * parameterized to allow specifying either a full payload or just a id referencing a payload.
@@ -293,17 +297,17 @@ object DeliverErrorStoreEvent {
     )
 }
 
-final case class Presequenced[+E <: StoreEvent[_]](
+final case class Presequenced[+E <: StoreEvent[?]](
     event: E,
     maxSequencingTimeO: Option[CantonTimestamp],
     blockSequencerTimestampO: Option[CantonTimestamp] = None,
 ) extends HasTraceContext {
 
-  def map[F <: StoreEvent[_]](fn: E => F): Presequenced[F] =
+  def map[F <: StoreEvent[?]](fn: E => F): Presequenced[F] =
     this.copy(event = fn(event))
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
-  def traverse[F[_], E2 <: StoreEvent[_]](fn: E => F[E2])(implicit
+  def traverse[F[_], E2 <: StoreEvent[?]](fn: E => F[E2])(implicit
       F: Functor[F]
   ): F[Presequenced[E2]] = F.map(fn(event)) { newEvent =>
     if (event eq newEvent) this.asInstanceOf[Presequenced[E2]]
@@ -314,13 +318,13 @@ final case class Presequenced[+E <: StoreEvent[_]](
 }
 
 object Presequenced {
-  def withMaxSequencingTime[E <: StoreEvent[_]](
+  def withMaxSequencingTime[E <: StoreEvent[?]](
       event: E,
       maxSequencingTime: CantonTimestamp,
       blockSequencerTimestampO: Option[CantonTimestamp],
   ): Presequenced[E] =
     Presequenced(event, Some(maxSequencingTime), blockSequencerTimestampO)
-  def alwaysValid[E <: StoreEvent[_]](
+  def alwaysValid[E <: StoreEvent[?]](
       event: E,
       blockSequencerTimestamp: Option[CantonTimestamp] = None,
   ): Presequenced[E] = Presequenced(event, None, blockSequencerTimestamp)
@@ -440,7 +444,20 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
 
   protected implicit val executionContext: ExecutionContext
 
-  private val memberCache = new SequencerMemberCache(Traced.lift(lookupMemberInternal(_)(_)))
+  private val memberCache =
+    ScaffeineCache.buildTracedAsync[FutureUnlessShutdown, Member, Option[RegisteredMember]](
+      cache = Scaffeine()
+        .executor(executionContext.execute(_)),
+      loader = { implicit traceContext =>
+        lookupMemberInternal
+      },
+      allLoader = Some(implicit traceContext =>
+        members => {
+          lookupMembersInternal(members.toSet)
+        }
+      ),
+      metrics = Some(sequencerMetrics.memberCache),
+    )(logger, "memberCache")
 
   protected def sequencerMember: Member
 
@@ -460,12 +477,22 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit]
 
-  /** Register the provided member. Should be idempotent if member is already registered and return
-    * the existing id.
+  /** Wrapper around `registerMemberInternal` that also updates the cache.
     */
   def registerMember(member: Member, timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[SequencerMemberId]
+  ): FutureUnlessShutdown[RegisteredMember] =
+    registerMemberInternal(member, timestamp).map { registeredMember =>
+      memberCache.put(member, registeredMember.some)
+      registeredMember
+    }
+
+  /** Register the provided member. Should be idempotent if member is already registered and return
+    * the existing id.
+    */
+  protected def registerMemberInternal(member: Member, timestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[RegisteredMember]
 
   /** Lookup an existing member id for the given member. Will return a cached value if available.
     * Return [[scala.None]] if no id exists.
@@ -473,12 +500,27 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
   final def lookupMember(member: Member)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[RegisteredMember]] =
-    memberCache(member)
+    memberCache.get(member)
+
+  /** Lookup multiple member ids and returns a result as a map. Will return a cache result (the
+    * entire map).
+    */
+  final def lookupMembers(
+      members: Seq[Member]
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[Member, Option[RegisteredMember]]] =
+    memberCache.getAll(members)
 
   /** Lookup member directly without caching. */
   protected def lookupMemberInternal(member: Member)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[RegisteredMember]]
+
+  /** Lookup members directly without caching. */
+  protected def lookupMembersInternal(members: Set[Member])(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[Member, Option[RegisteredMember]]]
 
   override def isMemberRegisteredAt(member: Member, time: CantonTimestamp)(implicit
       tc: TraceContext
@@ -524,7 +566,7 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
 
   /** In case of single instance sequencer we can use in-memory fanout buffer for events */
   final def bufferEvents(
-      events: NonEmpty[Seq[Sequenced[BytesPayload]]]
+      events: NonEmpty[Seq[Sequenced[IdOrPayload]]]
   ): Unit =
     if (eventsBufferEnabled) eventsBuffer.bufferEvents(events)
 
@@ -608,6 +650,7 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
     */
   protected def readEventsInternal(
       memberId: SequencerMemberId,
+      memberRegisteredFrom: CantonTimestamp,
       fromExclusiveO: Option[CantonTimestamp],
       limit: Int,
   )(implicit
@@ -620,6 +663,12 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[PayloadId, Batch[ClosedEnvelope]]]
+
+  def bufferPayload(
+      payload: BytesPayload
+  )(implicit
+      traceContext: TraceContext
+  ): Unit = ()
 
   /** For a given member and timestamp, return the latest timestamp of a potential topology change,
     * that reached both the sequencer and the member. To be used by the topology snapshot awaiting,
@@ -650,6 +699,7 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
   def readEvents(
       memberId: SequencerMemberId,
       member: Member,
+      memberRegisteredFrom: CantonTimestamp,
       fromExclusiveO: Option[CantonTimestamp],
       limit: Int,
   )(implicit
@@ -664,9 +714,10 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
     fromExclusiveO match {
       case Some(fromExclusive) =>
         cache.headOption match {
+          // If the buffer starts before or at the `fromExclusive` timestamp (last event that a reader already consumed)
+          // we can serve the request from the buffer without missing any events
           case Some(earliestEvent) if earliestEvent.timestamp <= fromExclusive =>
-            // If the buffer has events that are newer than the requested timestamp, we can use the buffer
-            val start = SequencerStore.binarySearch[Sequenced[BytesPayload], CantonTimestamp](
+            val start = SequencerStore.binarySearch[Sequenced[IdOrPayload], CantonTimestamp](
               cache,
               _.timestamp,
               fromExclusive,
@@ -674,7 +725,10 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
             val events = cache
               .slice(start, cache.size)
               .view
-              .filter(_.event.members.contains(memberId))
+              .filter(event =>
+                event.event.members.contains(memberId) || event.event.members
+                  .contains(SequencerMemberId.Broadcast)
+              )
               .take(limit)
               .toSeq
 
@@ -702,7 +756,7 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
             sequencerMetrics.eventBuffer.missCount.inc()
             // If the buffer does not start earlier than the `fromExclusive` timestamp,
             // we cannot serve the request with the buffer only, we need to fallback to read from the database
-            readEventsInternal(memberId, fromExclusiveO, limit)
+            readEventsInternal(memberId, memberRegisteredFrom, fromExclusiveO, limit)
         }
       case None =>
         logger.debug(
@@ -710,7 +764,7 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
         )
         sequencerMetrics.eventBuffer.missCount.inc()
         // In case we start from the beginning of events, we cannot determine if we can rely on the buffer
-        readEventsInternal(memberId, fromExclusiveO, limit)
+        readEventsInternal(memberId, memberRegisteredFrom, fromExclusiveO, limit)
     }
   }
 
@@ -801,7 +855,7 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
       member: Member
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     for {
-      memberIdO <- memberCache(member).map(_.map(_.memberId))
+      memberIdO <- memberCache.get(member).map(_.map(_.memberId))
       _ <- memberIdO match {
         case Some(memberId) => disableMemberInternal(memberId)
         case None =>
@@ -958,12 +1012,12 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
           .parTraverseWithLimit_(batchingConfig.parallelism)(snapshot.status.members.toSeq) {
             memberStatus =>
               for {
-                id <- registerMember(memberStatus.member, memberStatus.registeredAt)
+                registeredMember <- registerMember(memberStatus.member, memberStatus.registeredAt)
                 _ <-
                   if (!memberStatus.enabled) disableMember(memberStatus.member)
                   else FutureUnlessShutdown.unit
                 _ <- memberStatus.lastAcknowledged.fold(FutureUnlessShutdown.unit)(ack =>
-                  acknowledge(id, ack)
+                  acknowledge(registeredMember.memberId, ack)
                 )
               } yield ()
           }
@@ -980,8 +1034,10 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
     } yield ()
   }
 
-  override def close(): Unit =
-    memberCache.close()
+  override def close(): Unit = {
+    memberCache.cleanUp()
+    memberCache.invalidateAll()
+  }
 }
 
 object SequencerStore {

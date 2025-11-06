@@ -6,6 +6,7 @@ module DA.Daml.Helper.Test.Deployment (main) where
 {- HLINT ignore "locateRunfiles/package_app" -}
 
 import Control.Exception
+import Data.Time.Clock.POSIX (getPOSIXTime)
 import qualified Data.UUID.V4 as UUID
 import System.Directory.Extra (withCurrentDirectory)
 import System.Environment.Blank (setEnv, unsetEnv)
@@ -15,12 +16,14 @@ import System.IO.Extra (withTempDir,writeFileUTF8)
 import System.Process
 import Test.Tasty (TestTree,defaultMain,testGroup)
 import Test.Tasty.HUnit
+import Web.JWT (numericDate)
 import qualified "zip-archive" Codec.Archive.Zip as Zip
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Text as T
 
 import DA.Bazel.Runfiles (mainWorkspace,locateRunfiles,exe)
 import DA.Daml.LF.Reader (Dalfs(..),readDalfs)
+import DA.Daml.Project.Consts (packagePathEnvVar)
 import DA.Test.Process (callProcessSilent)
 import DA.Test.Sandbox (mbSharedSecret, withCantonSandbox, defaultSandboxConf, makeSignedAdminJwt)
 import DA.Test.Util
@@ -59,8 +62,9 @@ authenticationTests Tools{..} =
           withTempDir $ \deployDir -> do
             withCurrentDirectory deployDir $ do
               let tokenFile = deployDir </> "secretToken.jwt"
+              expiration <- numericDate . (+180) <$> getPOSIXTime
               -- The trailing newline is not required but we want to test that it is supported.
-              writeFileUTF8 tokenFile ("Bearer " <> makeSignedAdminJwt sharedSecret <> "\n")
+              writeFileUTF8 tokenFile ("Bearer " <> makeSignedAdminJwt sharedSecret expiration <> "\n")
               callProcessSilent damlHelper
                 [ "ledger", "list-parties"
                 , "--access-token-file", tokenFile
@@ -71,8 +75,9 @@ authenticationTests Tools{..} =
           withTempDir $ \deployDir -> do
             withCurrentDirectory deployDir $ do
               let tokenFile = deployDir </> "secretToken.jwt"
+              expiration <- numericDate . (+180) <$> getPOSIXTime
               -- The trailing newline is not required but we want to test that it is supported.
-              writeFileUTF8 tokenFile (makeSignedAdminJwt sharedSecret <> "\n")
+              writeFileUTF8 tokenFile (makeSignedAdminJwt sharedSecret expiration <> "\n")
               callProcessSilent damlHelper
                 [ "ledger", "list-parties"
                 , "--access-token-file", tokenFile
@@ -82,21 +87,22 @@ authenticationTests Tools{..} =
           port <- getSandboxPort
           withTempDir $ \deployDir -> do
             withCurrentDirectory deployDir $ do
-              writeMinimalProject
+              writeMinimalPackage
               let tokenFile = deployDir </> "secretToken.jwt"
+              expiration <- numericDate . (+180) <$> getPOSIXTime
               -- The trailing newline is not required but we want to test that it is supported.
-              writeFileUTF8 tokenFile (makeSignedAdminJwt sharedSecret <> "\n")
+              writeFileUTF8 tokenFile (makeSignedAdminJwt sharedSecret expiration <> "\n")
               appendFile "daml.yaml" $ unlines
                 ["ledger:"
                 , "  access-token-file: " <> tokenFile
                 ]
-              writeFileUTF8 tokenFile (makeSignedAdminJwt sharedSecret <> "\n")
-              setEnv "DAML_PROJECT" deployDir True
+              writeFileUTF8 tokenFile (makeSignedAdminJwt sharedSecret expiration <> "\n")
+              setEnv packagePathEnvVar deployDir True
               callProcessSilent damlHelper
                 [ "ledger", "list-parties"
                 , "--host", "localhost", "--port", show port
                 ]
-              unsetEnv "DAML_PROJECT"
+              unsetEnv packagePathEnvVar
 
     ]
   where
@@ -135,7 +141,7 @@ fetchTest Tools{..} getSandboxPort = do
     port <- getSandboxPort
     withTempDir $ \fetchDir -> do
       withCurrentDirectory fetchDir $ do
-        writeMinimalProject
+        writeMinimalPackage
         let origDar = ".daml/dist/proj1-0.0.1.dar"
         step "build/upload"
         callProcessSilent damlc ["build"]
@@ -166,8 +172,8 @@ getMainPidOfDar fp = do
   return $ T.unpack $ LF.unPackageId pkgId
 
 -- | Write `daml.yaml` and `Main.daml` files in the current directory.
-writeMinimalProject :: SdkVersioned => IO ()
-writeMinimalProject = do
+writeMinimalPackage :: SdkVersioned => IO ()
+writeMinimalPackage = do
   writeFileUTF8 "daml.yaml" $ unlines
       [ "sdk-version: " <> sdkVersion
       , "name: proj1"

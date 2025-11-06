@@ -12,7 +12,6 @@ import com.digitalasset.canton.platform.InternalUpdateFormat
 import com.digitalasset.canton.platform.store.backend.common.UpdatePointwiseQueries.LookupKey
 import com.digitalasset.canton.platform.store.backend.{EventStorageBackend, ParameterStorageBackend}
 import com.digitalasset.canton.platform.store.dao.DbDispatcher
-import com.digitalasset.canton.platform.store.dao.events.UpdatePointwiseReader.getOffset
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -21,8 +20,7 @@ final class UpdatePointwiseReader(
     val eventStorageBackend: EventStorageBackend,
     val parameterStorageBackend: ParameterStorageBackend,
     val metrics: LedgerApiServerMetrics,
-    transactionPointwiseReader: TransactionPointwiseReader,
-    reassignmentPointwiseReader: ReassignmentPointwiseReader,
+    transactionPointwiseReader: TransactionOrReassignmentPointwiseReader,
     topologyTransactionPointwiseReader: TopologyTransactionPointwiseReader,
     val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
@@ -39,41 +37,40 @@ final class UpdatePointwiseReader(
     for {
       // Fetching event sequential id range corresponding to the requested update id or offset
       eventSeqIdRangeO <- dbDispatcher.executeSql(dbMetric)(
-        eventStorageBackend.updatePointwiseQueries.fetchIdsFromTransactionMeta(
+        eventStorageBackend.updatePointwiseQueries.fetchIdsFromUpdateMeta(
           lookupKey = lookupKey
         )
       )
 
-      transactionUpdate: Future[Option[Update]] =
+      transactionUpdate: Future[Option[GetUpdateResponse]] =
         eventSeqIdRangeO
           .flatMap(eventSeqIdRange =>
-            internalUpdateFormat.includeTransactions
-              .map(
-                transactionPointwiseReader
-                  .lookupTransactionBy(eventSeqIdRange, _)
-                  .map(_.map(Update.Transaction.apply))
-              )
+            Option.when(
+              internalUpdateFormat.includeReassignments.isDefined ||
+                internalUpdateFormat.includeTransactions.isDefined
+            )(
+              transactionPointwiseReader
+                .lookupUpdateBy(eventSeqIdRange, internalUpdateFormat)
+            )
           )
           .getOrElse(Future.successful(None))
 
-      reassignmentUpdate: Future[Option[Update]] = eventSeqIdRangeO
-        .flatMap(eventSeqIdRange =>
-          internalUpdateFormat.includeReassignments.map(
-            reassignmentPointwiseReader
-              .lookupReassignmentBy(eventSeqIdRange, _)
-              .map(_.map(Update.Reassignment.apply))
-          )
-        )
-        .getOrElse(Future.successful(None))
-
-      topologyTransactionUpdate: Future[Option[Update]] =
+      topologyTransactionUpdate: Future[Option[GetUpdateResponse]] =
         eventSeqIdRangeO
           .flatMap(eventSeqIdRange =>
             internalUpdateFormat.includeTopologyEvents
               .map(
                 topologyTransactionPointwiseReader
                   .lookupTopologyTransaction(eventSeqIdRange, _)
-                  .map(_.map(Update.TopologyTransaction.apply))
+                  .map(
+                    _.map(topologyUpdate =>
+                      GetUpdateResponse(
+                        Update.TopologyTransaction(
+                          topologyUpdate
+                        )
+                      )
+                    )
+                  )
               )
           )
           .getOrElse(Future.successful(None))
@@ -82,30 +79,13 @@ final class UpdatePointwiseReader(
         .sequence(
           Seq(
             transactionUpdate,
-            reassignmentUpdate,
             topologyTransactionUpdate,
           )
         )
         .map(_.flatten)
-
-      prunedUpToInclusive <- dbDispatcher.executeSql(metrics.index.db.fetchPruningOffsetsMetrics)(
-        parameterStorageBackend.prunedUpToInclusive
-      )
-
-      notPruned = agg.filter(update => getOffset(update) > prunedUpToInclusive.fold(0L)(_.unwrap))
-
     } yield {
       // only a single update should exist for a specific offset or update id
-      notPruned.headOption.map(GetUpdateResponse.apply)
+      agg.headOption
     }
 
-}
-
-object UpdatePointwiseReader {
-  private def getOffset(update: Update): Long = update match {
-    case Update.Empty => throw new RuntimeException("The update was unexpectedly empty.")
-    case Update.Transaction(tx) => tx.offset
-    case Update.Reassignment(reassignment) => reassignment.offset
-    case Update.TopologyTransaction(topologyTx) => topologyTx.offset
-  }
 }

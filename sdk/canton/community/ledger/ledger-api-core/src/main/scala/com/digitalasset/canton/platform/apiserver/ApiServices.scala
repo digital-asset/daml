@@ -21,12 +21,12 @@ import com.digitalasset.canton.ledger.localstore.api.{
 }
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.index.*
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.PackagePreferenceBackend
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
 import com.digitalasset.canton.platform.apiserver.execution.*
-import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.ContractAuthenticatorFn
 import com.digitalasset.canton.platform.apiserver.services.*
 import com.digitalasset.canton.platform.apiserver.services.admin.*
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.InteractiveSubmissionServiceImpl
@@ -36,13 +36,11 @@ import com.digitalasset.canton.platform.apiserver.services.command.{
   CommandSubmissionServiceImpl,
 }
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
-import com.digitalasset.canton.platform.config.{
-  CommandServiceConfig,
-  InteractiveSubmissionServiceConfig,
-  PartyManagementServiceConfig,
-  UserManagementServiceConfig,
-}
+import com.digitalasset.canton.platform.config.*
+import com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ContractValidator.ContractAuthenticatorFn
+import com.digitalasset.canton.util.PackageConsumer.PackageResolver
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.*
 import io.grpc.BindableService
@@ -113,6 +111,7 @@ object ApiServices {
       maxDeduplicationDuration: config.NonNegativeFiniteDuration,
       userManagementServiceConfig: UserManagementServiceConfig,
       partyManagementServiceConfig: PartyManagementServiceConfig,
+      packageServiceConfig: PackageServiceConfig,
       engineLoggingConfig: EngineLoggingConfig,
       contractAuthenticator: ContractAuthenticatorFn,
       telemetry: Telemetry,
@@ -168,7 +167,12 @@ object ApiServices {
         )
         val apiEventQueryService =
           new ApiEventQueryService(eventQueryService, telemetry, loggerFactory)
-        val apiPackageService = new ApiPackageService(syncService, telemetry, loggerFactory)
+        val apiPackageService = new ApiPackageService(
+          syncService,
+          packageServiceConfig,
+          telemetry,
+          loggerFactory,
+        )
         val apiUpdateService =
           new ApiUpdateService(
             updateService,
@@ -190,6 +194,7 @@ object ApiServices {
             ledgerFeatures,
             userManagementServiceConfig,
             partyManagementServiceConfig,
+            packageServiceConfig,
             telemetry,
             loggerFactory,
           )
@@ -253,11 +258,24 @@ object ApiServices {
 
     val writeServices = {
       implicit val ec: ExecutionContext = commandExecutionContext
+
+      val packageLoader = new DeduplicatingPackageLoader()
+
+      val packageResolver: PackageResolver = (packageId: Ref.PackageId) =>
+        (tc: TraceContext) =>
+          FutureUnlessShutdown.outcomeF(
+            packageLoader.loadPackage(
+              packageId,
+              syncService.getLfArchive(_)(tc),
+              metrics.execution.getLfPackage,
+            )
+          )
+
       val commandInterpreter =
         new StoreBackedCommandInterpreter(
           engine = engine,
           participant = participantId,
-          packageSyncService = syncService,
+          packageResolver = packageResolver,
           contractStore = contractStore,
           contractAuthenticator = contractAuthenticator,
           metrics = metrics,
@@ -290,7 +308,6 @@ object ApiServices {
           getPackageMetadataSnapshot = syncService.getPackageMetadataSnapshot(_)
         )
       val commandsValidator = new CommandsValidator(
-        validateDisclosedContracts = new ValidateDisclosedContracts(contractAuthenticator),
         validateUpgradingPackageResolutions = validateUpgradingPackageResolutions,
         topologyAwarePackageSelectionEnabled = ledgerFeatures.topologyAwarePackageSelection,
       )
@@ -305,12 +322,12 @@ object ApiServices {
           metrics,
           loggerFactory,
         )
-
       val apiPartyManagementService = ApiPartyManagementService.createApiService(
         partyManagementService,
         userManagementStore,
         new IdentityProviderExists(identityProviderConfigStore),
         partyManagementServiceConfig.maxPartiesPageSize,
+        partyManagementServiceConfig.maxSelfAllocatedParties,
         partyRecordStore,
         syncService,
         managementServiceTimeout,
@@ -350,8 +367,7 @@ object ApiServices {
         loggerFactory = loggerFactory,
       )
       val updateServices = new CommandServiceImpl.UpdateServices(
-        getTransactionTreeById = ledgerApiUpdateService.getTransactionTreeById,
-        getUpdateById = ledgerApiUpdateService.getUpdateById,
+        getUpdateById = ledgerApiUpdateService.getUpdateById
       )
       val apiCommandService = CommandServiceImpl.createApiService(
         commandsValidator = commandsValidator,

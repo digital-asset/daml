@@ -11,7 +11,7 @@ import qualified DA.Service.Logger as L
 import qualified DA.Service.Logger.Impl.Pure as L
 import qualified DA.Service.Logger.Impl.GCP as L
 import DA.Daml.Project.Config
-import DA.Daml.Project.Consts (sdkVersionEnvVar)
+import DA.Daml.Project.Consts (packagePathEnvVar, projectPathEnvVar, sdkVersionEnvVar)
 import DA.Daml.Assistant.Types
 import DA.Daml.Assistant.Env
 import DA.Daml.Assistant.Command
@@ -59,16 +59,21 @@ main = withSdkVersions $ do
     withLogger damlPath $ \logger -> handleErrors logger $ do
         installSignalHandlers
         builtinCommandM <- tryBuiltinCommand
+        usingProjectRootVar <- isJust <$> lookupEnv projectPathEnvVar
+        usingPackageRootVar <- isJust <$> lookupEnv packagePathEnvVar
+        -- Don't warn if both old and new are provided, as daml assistant must do this for backwards compatibility
+        when (usingProjectRootVar && not usingPackageRootVar) $
+          hPutStrLn stderr "The DAML_PROJECT environment variable is deprecated, please use DAML_PACKAGE"
         case builtinCommandM of
             Just builtinCommand -> do
-                env <- getDamlEnv damlPath (commandWantsProjectPath builtinCommand)
+                env <- getDamlEnv damlPath (commandWantsPackagePath builtinCommand)
                 handleCommand env logger builtinCommand
             Nothing -> do
-                env@Env{..} <- autoInstall =<< getDamlEnv damlPath (LookForProjectPath True)
+                env@Env{..} <- autoInstall =<< getDamlEnv damlPath (LookForPackagePath True)
 
                 -- We already know we can't parse the command without an installed SDK.
                 -- So if we can't find it, let the user know. This will happen whenever
-                -- auto-install is disabled and the project or environment specify a
+                -- auto-install is disabled and the package or environment specify a
                 -- missing SDK version.
                 case envSdkPath of
                     Nothing -> do
@@ -91,8 +96,8 @@ main = withSdkVersions $ do
                         versionChecks env
                         handleCommand env logger userCommand
 
-commandWantsProjectPath :: Command -> LookForProjectPath
-commandWantsProjectPath cmd = LookForProjectPath $
+commandWantsPackagePath :: Command -> LookForPackagePath
+commandWantsPackagePath cmd = LookForPackagePath $
     case cmd of
         Builtin (Install InstallOptions{..})
             | Just RawInstallTarget_Project <- iTargetM -> True
@@ -100,7 +105,7 @@ commandWantsProjectPath cmd = LookForProjectPath $
         Builtin Uninstall{} -> False
         _ -> True
 
--- | Perform version checks, i.e. warn user if project SDK version or assistant SDK
+-- | Perform version checks, i.e. warn user if package SDK version or assistant SDK
 -- versions are out of date with the latest known release.
 versionChecks :: Env -> IO ()
 versionChecks Env{..} = do
@@ -167,7 +172,7 @@ autoInstall env@Env{..} = do
                 , targetVersionM = releaseVersion
                 , missingAssistant = False
                 , installingFromOutside = False
-                , projectPathM = Nothing
+                , mPackagePath = Nothing
                 , assistantVersion = envDamlAssistantSdkVersion
                 , artifactoryApiKeyM
                 , output = hPutStrLn stderr
@@ -214,7 +219,7 @@ runCommand env@Env{..} = \case
         let snapshotVersionsE = if vSnapshots then snapshotVersionsEUnfiltered else pure []
             availableVersionsE = extractReleasesFromSnapshots <$> snapshotVersionsEUnfiltered
         defaultVersionM <- tryAssistantM $ getDefaultSdkVersion envDamlPath
-        projectVersionM <- mapM (getSdkVersionFromProjectPath useCache) envProjectPath
+        mPackageVersion <- mapM (getSdkVersionFromPackagePath useCache) envProjectPath
         envSelectedVersionM <- lookupEnv sdkVersionEnvVar
         envSdkVersionResolved <- resolveReleaseVersionUnsafe useCache `traverse` envSdkVersion
 
@@ -222,7 +227,7 @@ runCommand env@Env{..} = \case
             envVersions = catMaybes
                 [ envSdkVersionResolved
                 , guard vAssistant >> asstVersion
-                , projectVersionM
+                , mPackageVersion
                 , defaultVersionM
                 ]
 
@@ -248,8 +253,8 @@ runCommand env@Env{..} = \case
             versionAttrs v = catMaybes
                 [ ("selected by env var " <> pack sdkVersionEnvVar)
                     <$ guard (Just (unpack $ versionToText v) == envSelectedVersionM)
-                , "project SDK version from daml.yaml"
-                    <$ guard (Just v == projectVersionM && isJust envProjectPath)
+                , "package SDK version from daml.yaml"
+                    <$ guard (Just v == mPackageVersion && isJust envProjectPath)
                 , "default SDK version for new projects"
                     <$ guard (Just v == defaultVersionM && isNothing envProjectPath)
                 , "daml assistant version"
@@ -307,8 +312,8 @@ envVarAddedVersion = either throw id $ parseUnresolvedVersion "2.9.0-snapshot.20
 dispatchWithEnvVarWarning :: SdkVersioned => Env -> FilePath -> [String] -> IO ()
 dispatchWithEnvVarWarning env@Env{..} path args = do
   case (envSdkVersion, envProjectPath) of
-    (Just ver, Just projectPath) -> do
-        hasEnvVars <- projectConfigUsesEnvironmentVariables projectPath
+    (Just ver, Just packagePath) -> do
+        hasEnvVars <- packageConfigUsesEnvironmentVariables packagePath
         let sdkMissingEnvSupport = ver < envVarAddedVersion && not (isHeadVersion ver)
         if hasEnvVars && sdkMissingEnvSupport
             then do
@@ -403,7 +408,7 @@ anonimizeArg arg = do
 argWhitelist :: S.Set T.Text
 argWhitelist = S.fromList
     [ "version", "yes", "no", "auto"
-    , "install", "latest", "project"
+    , "install", "latest", "project", "package"
     , "uninstall"
     , "studio", "never", "always", "published"
     , "new", "skeleton", "empty-skeleton", "quickstart-java"

@@ -15,6 +15,7 @@ import com.digitalasset.canton.damltests.java.automaticreassignmenttransactions.
   Single,
 }
 import com.digitalasset.canton.damltests.java.test.Dummy
+import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.integration.util.{AcsInspection, EntitySyntax}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -138,9 +139,18 @@ trait SynchronizerRouterIntegrationTestSetup
         )
         // allocate parties on synchronizers where they aren't allocated yet
         allocateParties(participant, synchronizerAlias)
+        updateVetting(participant, synchronizerAlias)
       }
     }
     synchronizeTopologyState()
+  }
+
+  private def updateVetting(
+      participant: ParticipantReference,
+      synchronizerAlias: SynchronizerAlias,
+  ): Unit = {
+    val synchronizerId = participant.synchronizers.id_of(synchronizerAlias)
+    participant.dars.upload(darPath, synchronizerId = Some(synchronizerId)).discard
   }
 
   private def allocateParties(

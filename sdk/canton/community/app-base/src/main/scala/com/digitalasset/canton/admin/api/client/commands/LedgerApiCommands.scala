@@ -70,6 +70,7 @@ import com.daml.ledger.api.v2.command_submission_service.{
 }
 import com.daml.ledger.api.v2.commands.{Command, Commands, DisclosedContract, PrefetchContractKey}
 import com.daml.ledger.api.v2.completion.Completion
+import com.daml.ledger.api.v2.crypto as lapicrypto
 import com.daml.ledger.api.v2.event.CreatedEvent
 import com.daml.ledger.api.v2.event_query_service.EventQueryServiceGrpc.EventQueryServiceStub
 import com.daml.ledger.api.v2.event_query_service.{
@@ -79,6 +80,7 @@ import com.daml.ledger.api.v2.event_query_service.{
 }
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.InteractiveSubmissionServiceGrpc.InteractiveSubmissionServiceStub
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
+  CostEstimationHints,
   ExecuteSubmissionAndWaitForTransactionRequest,
   ExecuteSubmissionAndWaitForTransactionResponse,
   ExecuteSubmissionAndWaitRequest,
@@ -136,6 +138,7 @@ import com.daml.ledger.api.v2.transaction_filter.{
   CumulativeFilter,
   EventFormat,
   Filters,
+  InterfaceFilter,
   TemplateFilter,
   TransactionFormat,
   TransactionShape,
@@ -151,6 +154,7 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdatesResponse,
   UpdateServiceGrpc,
 }
+import com.digitalasset.canton.admin.api.client
 import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
   DefaultUnboundedTimeout,
   ServerEnforcedTimeout,
@@ -166,8 +170,8 @@ import com.digitalasset.canton.admin.api.client.data.{
   TemplateId,
   UserRights,
 }
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.crypto.Signature
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.crypto.{Signature, SigningPublicKey}
 import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
 import com.digitalasset.canton.ledger.api.{
   IdentityProviderConfig as ApiIdentityProviderConfig,
@@ -180,7 +184,8 @@ import com.digitalasset.canton.networking.grpc.ForwardingStreamObserver
 import com.digitalasset.canton.platform.apiserver.execution.CommandStatus
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.serialization.ProtoConverter
-import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
+import com.digitalasset.canton.topology.transaction.TopologyTransaction.GenericTopologyTransaction
+import com.digitalasset.canton.topology.{ParticipantId, Party, PartyId, SynchronizerId}
 import com.digitalasset.canton.util.BinaryFileUtil
 import com.digitalasset.canton.{LfPackageId, LfPackageName, LfPartyId}
 import com.google.protobuf.empty.Empty
@@ -235,8 +240,96 @@ object LedgerApiCommands {
         response.partyDetails.toRight("Party could not be created")
     }
 
+    final case class GenerateExternalPartyTopology(
+        synchronizerId: SynchronizerId,
+        partyHint: String,
+        publicKey: SigningPublicKey,
+        localParticipantObservationOnly: Boolean,
+        otherConfirmingParticipantIds: Seq[ParticipantId],
+        confirmationThreshold: NonNegativeInt,
+        observingParticipantIds: Seq[ParticipantId],
+    ) extends BaseCommand[
+          GenerateExternalPartyTopologyRequest,
+          GenerateExternalPartyTopologyResponse,
+          client.data.parties.GenerateExternalPartyTopology,
+        ] {
+
+      import com.digitalasset.canton.crypto.LedgerApiCryptoConversions.*
+      import com.daml.ledger.api.v2
+
+      override protected def submitRequest(
+          service: PartyManagementServiceStub,
+          request: GenerateExternalPartyTopologyRequest,
+      ): Future[GenerateExternalPartyTopologyResponse] =
+        service.generateExternalPartyTopology(request)
+
+      override protected def createRequest(): Either[String, GenerateExternalPartyTopologyRequest] =
+        Right(
+          GenerateExternalPartyTopologyRequest(
+            synchronizer = synchronizerId.toProtoPrimitive,
+            partyHint = partyHint,
+            publicKey = Some(
+              publicKey.toProtoV30
+                .into[v2.crypto.SigningPublicKey]
+                .withFieldRenamed(_.publicKey, _.keyData)
+                .transform
+            ),
+            localParticipantObservationOnly = localParticipantObservationOnly,
+            otherConfirmingParticipantUids =
+              otherConfirmingParticipantIds.map(_.uid.toProtoPrimitive),
+            confirmationThreshold = confirmationThreshold.value,
+            observingParticipantUids = observingParticipantIds.map(_.uid.toProtoPrimitive),
+          )
+        )
+
+      override protected def handleResponse(
+          response: GenerateExternalPartyTopologyResponse
+      ): Either[
+        String,
+        client.data.parties.GenerateExternalPartyTopology,
+      ] =
+        client.data.parties.GenerateExternalPartyTopology
+          .fromProto(response)
+          .leftMap(_.message)
+    }
+
+    final case class AllocateExternalParty(
+        synchronizerId: SynchronizerId,
+        transactions: Seq[(GenericTopologyTransaction, Seq[Signature])],
+        multiHashSignatures: Seq[Signature],
+    ) extends BaseCommand[
+          AllocateExternalPartyRequest,
+          AllocateExternalPartyResponse,
+          AllocateExternalPartyResponse,
+        ] {
+      override protected def createRequest(): Either[String, AllocateExternalPartyRequest] =
+        Right(
+          AllocateExternalPartyRequest(
+            synchronizer = synchronizerId.toProtoPrimitive,
+            onboardingTransactions = transactions.map { case (transaction, signatures) =>
+              AllocateExternalPartyRequest.SignedTransaction(
+                transaction.getCryptographicEvidence,
+                signatures.map(_.toProtoV30.transformInto[lapicrypto.Signature]),
+              )
+            },
+            multiHashSignatures =
+              multiHashSignatures.map(_.toProtoV30.transformInto[lapicrypto.Signature]),
+            identityProviderId = "",
+          )
+        )
+      override protected def submitRequest(
+          service: PartyManagementServiceStub,
+          request: AllocateExternalPartyRequest,
+      ): Future[AllocateExternalPartyResponse] =
+        service.allocateExternalParty(request)
+      override protected def handleResponse(
+          response: AllocateExternalPartyResponse
+      ): Either[String, AllocateExternalPartyResponse] =
+        Right(response)
+    }
+
     final case class Update(
-        party: PartyId,
+        party: Party,
         annotationsUpdate: Option[Map[String, String]],
         resourceVersionO: Option[String],
         identityProviderId: String,
@@ -299,13 +392,16 @@ object LedgerApiCommands {
         Right(response.partyDetails)
     }
 
-    final case class GetParty(party: PartyId, identityProviderId: String)
-        extends BaseCommand[GetPartiesRequest, GetPartiesResponse, PartyDetails] {
+    final case class GetParties(
+        parties: Seq[PartyId],
+        identityProviderId: String,
+        failOnNotFound: Boolean,
+    ) extends BaseCommand[GetPartiesRequest, GetPartiesResponse, Map[PartyId, PartyDetails]] {
 
       override protected def createRequest(): Either[String, GetPartiesRequest] =
         Right(
           GetPartiesRequest(
-            parties = Seq(party.toProtoPrimitive),
+            parties = parties.map(_.toProtoPrimitive),
             identityProviderId = identityProviderId,
           )
         )
@@ -317,8 +413,18 @@ object LedgerApiCommands {
 
       override protected def handleResponse(
           response: GetPartiesResponse
-      ): Either[String, PartyDetails] =
-        response.partyDetails.headOption.toRight("PARTY_NOT_FOUND")
+      ): Either[String, Map[PartyId, PartyDetails]] = {
+        val result =
+          response.partyDetails.map(d => (PartyId.tryFromProtoPrimitive(d.party), d)).toMap
+        if (failOnNotFound) {
+          val notFound = parties.toSet -- result.keySet
+          Either.cond(
+            notFound.isEmpty,
+            result,
+            s"The following parties were not found on the Ledger API: $notFound",
+          )
+        } else Right(result)
+      }
     }
 
     final case class UpdateIdp(
@@ -351,6 +457,7 @@ object LedgerApiCommands {
       ): Either[String, Unit] = Either.unit
 
     }
+
   }
 
   object PackageManagementService {
@@ -361,13 +468,18 @@ object LedgerApiCommands {
         PackageManagementServiceGrpc.stub(channel)
     }
 
-    final case class UploadDarFile(darPath: String)
+    final case class UploadDarFile(darPath: String, synchronizerId: Option[SynchronizerId])
         extends BaseCommand[UploadDarFileRequest, UploadDarFileResponse, Unit] {
 
       override protected def createRequest(): Either[String, UploadDarFileRequest] =
         for {
           bytes <- BinaryFileUtil.readByteStringFromFile(darPath)
-        } yield UploadDarFileRequest(bytes, submissionId = "")
+        } yield UploadDarFileRequest(
+          bytes,
+          submissionId = "",
+          vettingChange = UploadDarFileRequest.VettingChange.VETTING_CHANGE_VET_ALL_PACKAGES,
+          synchronizerId.map(_.toProtoPrimitive).getOrElse(""),
+        )
       override protected def submitRequest(
           service: PackageManagementServiceStub,
           request: UploadDarFileRequest,
@@ -381,13 +493,17 @@ object LedgerApiCommands {
 
     }
 
-    final case class ValidateDarFile(darPath: String)
+    final case class ValidateDarFile(darPath: String, synchronizerId: Option[SynchronizerId])
         extends BaseCommand[ValidateDarFileRequest, ValidateDarFileResponse, Unit] {
 
       override protected def createRequest(): Either[String, ValidateDarFileRequest] =
         for {
           bytes <- BinaryFileUtil.readByteStringFromFile(darPath)
-        } yield ValidateDarFileRequest(bytes, submissionId = "")
+        } yield ValidateDarFileRequest(
+          bytes,
+          submissionId = "",
+          synchronizerId.map(_.toProtoPrimitive).getOrElse(""),
+        )
 
       override protected def submitRequest(
           service: PackageManagementServiceStub,
@@ -497,13 +613,18 @@ object LedgerApiCommands {
     trait HasRights {
       def actAs: Set[LfPartyId]
       def readAs: Set[LfPartyId]
+      def executeAs: Set[LfPartyId]
       def participantAdmin: Boolean
       def identityProviderAdmin: Boolean
       def readAsAnyParty: Boolean
+      def executeAsAnyParty: Boolean
 
       protected def getRights: Seq[UserRight] =
         actAs.toSeq.map(x => UserRight.defaultInstance.withCanActAs(UserRight.CanActAs(x))) ++
           readAs.toSeq.map(x => UserRight.defaultInstance.withCanReadAs(UserRight.CanReadAs(x))) ++
+          executeAs.toSeq
+            .map(UserRight.CanExecuteAs.apply)
+            .map(UserRight.defaultInstance.withCanExecuteAs) ++
           (if (participantAdmin)
              Seq(UserRight.defaultInstance.withParticipantAdmin(UserRight.ParticipantAdmin()))
            else Seq()) ++
@@ -515,6 +636,11 @@ object LedgerApiCommands {
            else Seq()) ++
           (if (readAsAnyParty)
              Seq(UserRight.defaultInstance.withCanReadAsAnyParty(UserRight.CanReadAsAnyParty()))
+           else Seq()) ++
+          (if (executeAsAnyParty)
+             Seq(
+               UserRight.defaultInstance.withCanExecuteAsAnyParty(UserRight.CanExecuteAsAnyParty())
+             )
            else Seq())
     }
 
@@ -529,6 +655,8 @@ object LedgerApiCommands {
         annotations: Map[String, String],
         identityProviderId: String,
         readAsAnyParty: Boolean,
+        executeAs: Set[LfPartyId],
+        executeAsAnyParty: Boolean,
     ) extends BaseCommand[CreateUserRequest, CreateUserResponse, LedgerApiUser]
         with HasRights {
 
@@ -726,10 +854,12 @@ object LedgerApiCommands {
           id: String,
           actAs: Set[LfPartyId],
           readAs: Set[LfPartyId],
+          executeAs: Set[LfPartyId],
           participantAdmin: Boolean,
           identityProviderAdmin: Boolean,
           identityProviderId: String,
           readAsAnyParty: Boolean,
+          executeAsAnyParty: Boolean,
       ) extends BaseCommand[GrantUserRightsRequest, GrantUserRightsResponse, UserRights]
           with HasRights {
 
@@ -758,10 +888,12 @@ object LedgerApiCommands {
           id: String,
           actAs: Set[LfPartyId],
           readAs: Set[LfPartyId],
+          executeAs: Set[LfPartyId],
           participantAdmin: Boolean,
           identityProviderAdmin: Boolean,
           identityProviderId: String,
           readAsAnyParty: Boolean,
+          executeAsAnyParty: Boolean,
       ) extends BaseCommand[RevokeUserRightsRequest, RevokeUserRightsResponse, UserRights]
           with HasRights {
 
@@ -1166,8 +1298,6 @@ object LedgerApiCommands {
           beginExclusive = beginExclusive,
           endInclusive = endInclusive,
           updateFormat = Some(updateFormat),
-          filter = None,
-          verbose = false,
         )
       }
 
@@ -1465,6 +1595,8 @@ object LedgerApiCommands {
         packageIdSelectionPreference: Seq[LfPackageId],
         verboseHashing: Boolean,
         prefetchContractKeys: Seq[PrefetchContractKey],
+        maxRecordTime: Option[CantonTimestamp],
+        costEstimationHints: Option[CostEstimationHints],
     ) extends BaseCommand[
           PrepareSubmissionRequest,
           PrepareSubmissionResponse,
@@ -1488,6 +1620,8 @@ object LedgerApiCommands {
             packageIdSelectionPreference = packageIdSelectionPreference,
             verboseHashing = verboseHashing,
             prefetchContractKeys = prefetchContractKeys,
+            maxRecordTime = maxRecordTime.map(_.toProtoTimestamp),
+            estimateTrafficCost = costEstimationHints,
           )
         )
 
@@ -1522,13 +1656,12 @@ object LedgerApiCommands {
 
       import com.digitalasset.canton.crypto.LedgerApiCryptoConversions.*
       import io.scalaland.chimney.dsl.*
-      import com.daml.ledger.api.v2.interactive.interactive_submission_service as iss
 
       private def makePartySignatures: PartySignatures = PartySignatures(
         transactionSignatures.map { case (party, signatures) =>
           SinglePartySignatures(
             party = party.toProtoPrimitive,
-            signatures = signatures.map(_.toProtoV30.transformInto[iss.Signature]),
+            signatures = signatures.map(_.toProtoV30.transformInto[lapicrypto.Signature]),
           )
         }.toSeq
       )
@@ -1624,6 +1757,7 @@ object LedgerApiCommands {
         deduplicationPeriod: Option[DeduplicationPeriod],
         hashingSchemeVersion: HashingSchemeVersion,
         transactionShape: Option[TransactionShape],
+        includeCreatedEventBlob: Boolean,
     ) extends BaseCommand[
           ExecuteSubmissionAndWaitForTransactionRequest,
           ExecuteSubmissionAndWaitForTransactionResponse,
@@ -1633,7 +1767,6 @@ object LedgerApiCommands {
       override protected def createRequest()
           : Either[String, ExecuteSubmissionAndWaitForTransactionRequest] = {
 
-        // TODO(#27482) Wire includeCreatedEventBlob
         val transactionFormat = transactionShape.map(transactionShape =>
           TransactionFormat(
             eventFormat = Some(
@@ -1644,7 +1777,7 @@ object LedgerApiCommands {
                     Seq(
                       CumulativeFilter(
                         CumulativeFilter.IdentifierFilter.WildcardFilter(
-                          WildcardFilter(includeCreatedEventBlob = true)
+                          WildcardFilter(includeCreatedEventBlob = includeCreatedEventBlob)
                         )
                       )
                     )
@@ -1973,7 +2106,7 @@ object LedgerApiCommands {
         Right(response.offset)
     }
 
-    final case class GetConnectedSynchronizers(partyId: LfPartyId)
+    final case class GetConnectedSynchronizers(partyId: Option[LfPartyId])
         extends BaseCommand[
           GetConnectedSynchronizersRequest,
           GetConnectedSynchronizersResponse,
@@ -1983,7 +2116,7 @@ object LedgerApiCommands {
       override protected def createRequest(): Either[String, GetConnectedSynchronizersRequest] =
         Right(
           GetConnectedSynchronizersRequest(
-            partyId.toString,
+            partyId.getOrElse(""),
             participantId = "",
             identityProviderId = "",
           )
@@ -2006,6 +2139,7 @@ object LedgerApiCommands {
         parties: Set[LfPartyId],
         limit: PositiveInt,
         templateFilter: Seq[TemplateId] = Seq.empty,
+        interfaceFilter: Seq[TemplateId] = Seq.empty,
         activeAtOffset: Long,
         verbose: Boolean = true,
         timeout: FiniteDuration,
@@ -2020,7 +2154,7 @@ object LedgerApiCommands {
 
       override protected def createRequest(): Either[String, GetActiveContractsRequest] = {
         val filter =
-          if (templateFilter.nonEmpty) {
+          if (templateFilter.nonEmpty || interfaceFilter.nonEmpty) {
             Filters(
               templateFilter.map(tId =>
                 CumulativeFilter(
@@ -2028,13 +2162,21 @@ object LedgerApiCommands {
                     TemplateFilter(Some(tId.toIdentifier), includeCreatedEventBlob)
                   )
                 )
+              ) ++ interfaceFilter.map(iId =>
+                CumulativeFilter(
+                  IdentifierFilter.InterfaceFilter(
+                    InterfaceFilter(
+                      Some(iId.toIdentifier),
+                      includeInterfaceView = true,
+                      includeCreatedEventBlob = includeCreatedEventBlob,
+                    )
+                  )
+                )
               )
             )
           } else Filters.defaultInstance
         Right(
           GetActiveContractsRequest(
-            filter = None,
-            verbose = false,
             activeAtOffset = activeAtOffset,
             eventFormat = Some(EventFormat(parties.map((_, filter)).toMap, None, verbose)),
           )
@@ -2239,7 +2381,6 @@ object LedgerApiCommands {
       override protected def createRequest(): Either[String, GetEventsByContractIdRequest] = Right(
         GetEventsByContractIdRequest(
           contractId = contractId,
-          requestingParties = Seq.empty,
           eventFormat = Some(
             EventFormat(
               filtersByParty = requestingParties.map(_ -> Filters(Nil)).toMap,

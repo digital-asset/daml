@@ -4,7 +4,7 @@
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@build_environment//:configuration.bzl", "ghc_version")
 load("//rules_daml:daml.bzl", "daml_compile")
-load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "lf_version_default_or_latest")
+load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "DEFAULT_LF_VERSION")
 
 [
     daml_compile(
@@ -26,7 +26,7 @@ load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "lf_version_defau
 # default stable version of LF2.
 copy_file(
     name = "daml-script",
-    src = ":daml-script-{}.dar".format(lf_version_default_or_latest("2")),
+    src = ":daml-script-{}.dar".format(DEFAULT_LF_VERSION),
     out = "daml-script.dar",
     allow_symlink = True,
     visibility = ["//visibility:public"],

@@ -7,10 +7,9 @@ import cats.syntax.all.*
 import com.daml.metrics.{Timed, Tracked}
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.LedgerTimeBoundaries
-import com.digitalasset.canton.ledger.api.Commands as ApiCommands
+import com.digitalasset.canton.ledger.api
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.participant.state
-import com.digitalasset.canton.ledger.participant.state.PackageSyncService
 import com.digitalasset.canton.ledger.participant.state.index.{ContractState, ContractStore}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
@@ -23,19 +22,25 @@ import com.digitalasset.canton.logging.{
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
-import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.ContractAuthenticatorFn
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause
-import com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader
 import com.digitalasset.canton.protocol.{CantonContractIdVersion, LfFatContractInst}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ContractValidator.ContractAuthenticatorFn
+import com.digitalasset.canton.util.PackageConsumer.PackageResolver
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.*
 import com.digitalasset.daml.lf.engine.ResultNeedContract.Response
-import com.digitalasset.daml.lf.transaction.{Node, SubmittedTransaction, Transaction}
+import com.digitalasset.daml.lf.transaction.{
+  GlobalKeyWithMaintainers,
+  Node,
+  SubmittedTransaction,
+  Transaction,
+}
+import com.digitalasset.daml.lf.value.ContractIdVersion
 import scalaz.syntax.tag.*
 
 import java.util.concurrent.TimeUnit
@@ -47,7 +52,7 @@ import scala.util.chaining.scalaUtilChainingOps
 private[apiserver] trait CommandInterpreter {
 
   def interpret(
-      commands: ApiCommands,
+      commands: api.Commands,
       submissionSeed: crypto.Hash,
   )(implicit
       loggingContext: LoggingContextWithTrace,
@@ -62,7 +67,7 @@ private[apiserver] trait CommandInterpreter {
 final class StoreBackedCommandInterpreter(
     engine: Engine,
     participant: Ref.ParticipantId,
-    packageSyncService: PackageSyncService,
+    packageResolver: PackageResolver,
     contractStore: ContractStore,
     metrics: LedgerApiServerMetrics,
     contractAuthenticator: ContractAuthenticatorFn,
@@ -75,10 +80,9 @@ final class StoreBackedCommandInterpreter(
     ec: ExecutionContext
 ) extends CommandInterpreter
     with NamedLogging {
-  private[this] val packageLoader = new DeduplicatingPackageLoader()
 
   override def interpret(
-      commands: ApiCommands,
+      commands: api.Commands,
       submissionSeed: crypto.Hash,
   )(implicit
       loggingContext: LoggingContextWithTrace,
@@ -124,7 +128,7 @@ final class StoreBackedCommandInterpreter(
   }
 
   private def commandInterpretationResult(
-      commands: ApiCommands,
+      commands: api.Commands,
       submissionSeed: crypto.Hash,
       updateTx: SubmittedTransaction,
       meta: Transaction.Metadata,
@@ -132,20 +136,19 @@ final class StoreBackedCommandInterpreter(
   )(implicit
       tc: TraceContext
   ): Either[ErrorCause.DisclosedContractsSynchronizerIdMismatch, CommandInterpretationResult] = {
-    val disclosedContractsMap =
-      commands.disclosedContracts.iterator.map(d => d.fatContractInstance.contractId -> d).toMap
 
-    val processedDisclosedContractsSynchronizers = meta.disclosedEvents
-      .map { event =>
-        val disclosedContract = disclosedContractsMap(event.coid)
-        disclosedContract.fatContractInstance -> disclosedContract.synchronizerIdO
-      }
+    val usedDisclosedContracts = {
+      val inputContractIds = updateTx.inputContracts
+      commands.disclosedContracts.filter(c =>
+        inputContractIds.contains(c.fatContractInstance.contractId)
+      )
+    }
 
     StoreBackedCommandInterpreter
       .considerDisclosedContractsSynchronizerId(
         commands.synchronizerId,
-        processedDisclosedContractsSynchronizers.map { case (disclosed, synchronizerIdO) =>
-          disclosed.contractId -> synchronizerIdO
+        usedDisclosedContracts.map { disclosed =>
+          disclosed.fatContractInstance.contractId -> disclosed.synchronizerIdO
         },
         logger,
       )
@@ -179,13 +182,13 @@ final class StoreBackedCommandInterpreter(
           dependsOnLedgerTime = meta.dependsOnTime,
           interpretationTimeNanos = interpretationTimeNanos,
           globalKeyMapping = meta.globalKeyMapping,
-          processedDisclosedContracts = processedDisclosedContractsSynchronizers.map(_._1),
+          processedDisclosedContracts = usedDisclosedContracts.map(_.fatContractInstance),
         )
       }
   }
 
   private def submitToEngine(
-      commands: ApiCommands,
+      commands: api.Commands,
       submissionSeed: crypto.Hash,
       interpretationTimeNanos: AtomicLong,
   )(implicit
@@ -207,11 +210,11 @@ final class StoreBackedCommandInterpreter(
           submitters = commitAuthorizers,
           readAs = commands.readAs,
           cmds = commands.commands,
-          disclosures = commands.disclosedContracts.map(_.fatContractInstance),
           participantId = participant,
           submissionSeed = submissionSeed,
           prefetchKeys = commands.prefetchKeys,
-          config.toEngineLogger(loggerFactory.append("phase", "submission")),
+          engineLogger = config.toEngineLogger(loggerFactory.append("phase", "submission")),
+          contractIdVersion = ContractIdVersion.V1,
         )
       })),
     )
@@ -260,6 +263,18 @@ final class StoreBackedCommandInterpreter(
     val lookupContractKeyTime = new AtomicLong(0L)
     val lookupContractKeyCount = new AtomicLong(0L)
 
+    val disclosedContractsByKey = (for {
+      idC <- disclosedContracts.view
+      (id, c) = idC
+      k <- c.contractKeyWithMaintainers.toList
+    } yield k -> id).toMap
+
+    def disclosedOrStoreLookup(acoid: ContractId): FutureUnlessShutdown[Option[LfFatContractInst]] =
+      disclosedContracts.get(acoid) match {
+        case Some(fatContract) => FutureUnlessShutdown.pure(Some(fatContract))
+        case None => timedLookup(acoid)
+      }
+
     def timedLookup(acoid: ContractId): FutureUnlessShutdown[Option[LfFatContractInst]] = {
       val start = System.nanoTime
       Timed
@@ -267,9 +282,34 @@ final class StoreBackedCommandInterpreter(
           metrics.execution.lookupActiveContract,
           FutureUnlessShutdown.outcomeF(contractStore.lookupActiveContract(readers, acoid)),
         )
-        .tap { _ =>
-          lookupActiveContractTime.addAndGet(System.nanoTime() - start)
-          lookupActiveContractCount.incrementAndGet()
+        .map {
+          _.tap { _ =>
+            lookupActiveContractTime.addAndGet(System.nanoTime() - start)
+            lookupActiveContractCount.incrementAndGet()
+          }
+        }
+    }
+
+    def disclosedOrStoreKeyLookup(
+        key: GlobalKeyWithMaintainers
+    ): FutureUnlessShutdown[Option[ContractId]] =
+      disclosedContractsByKey.get(key) match {
+        case Some(fatContract) => FutureUnlessShutdown.pure(Some(fatContract))
+        case None => timedKeyLookup(key)
+      }
+
+    def timedKeyLookup(key: GlobalKeyWithMaintainers): FutureUnlessShutdown[Option[ContractId]] = {
+      val start = System.nanoTime
+      Timed
+        .future(
+          metrics.execution.lookupContractKey,
+          FutureUnlessShutdown.outcomeF(contractStore.lookupContractKey(readers, key.globalKey)),
+        )
+        .map {
+          _.tap { _ =>
+            lookupContractKeyTime.addAndGet(System.nanoTime() - start)
+            lookupContractKeyCount.incrementAndGet()
+          }
         }
     }
 
@@ -280,14 +320,13 @@ final class StoreBackedCommandInterpreter(
         case ResultError(err) => FutureUnlessShutdown.pure(Left(ErrorCause.DamlLf(err)))
 
         case ResultNeedContract(acoid, resume) =>
-          // TODO(#23971) - Add support for V2 contract IDs
-          (CantonContractIdVersion.extractCantonContractIdV1Version(acoid) match {
-            case Right(v1Version) =>
-              timedLookup(acoid).map[Response] {
+          (CantonContractIdVersion.extractCantonContractIdVersion(acoid) match {
+            case Right(version) =>
+              disclosedOrStoreLookup(acoid).map[Response] {
                 case Some(contract) =>
                   Response.ContractFound(
                     contract,
-                    v1Version.contractHashingMethod,
+                    version.contractHashingMethod,
                     hash => contractAuthenticator(contract, hash).isRight,
                   )
                 case None => Response.ContractNotFound
@@ -295,6 +334,7 @@ final class StoreBackedCommandInterpreter(
 
             case Left(_) =>
               FutureUnlessShutdown.pure[Response](Response.UnsupportedContractIdVersion)
+
           }).flatMap(response =>
             resolveStep(
               Tracked.value(
@@ -305,33 +345,18 @@ final class StoreBackedCommandInterpreter(
           )
 
         case ResultNeedKey(key, resume) =>
-          val start = System.nanoTime
-          Timed
-            .future(
-              metrics.execution.lookupContractKey,
-              FutureUnlessShutdown.outcomeF(contractStore.lookupContractKey(readers, key.globalKey)),
-            )
-            .flatMap { contractId =>
-              lookupContractKeyTime.addAndGet(System.nanoTime() - start)
-              lookupContractKeyCount.incrementAndGet()
+          disclosedOrStoreKeyLookup(key)
+            .flatMap(response =>
               resolveStep(
                 Tracked.value(
                   metrics.execution.engineRunning,
-                  trackSyncExecution(interpretationTimeNanos)(resume(contractId)),
+                  trackSyncExecution(interpretationTimeNanos)(resume(response)),
                 )
               )
-            }
+            )
 
         case ResultNeedPackage(packageId, resume) =>
-          FutureUnlessShutdown
-            .outcomeF(
-              packageLoader
-                .loadPackage(
-                  packageId = packageId,
-                  delegate = packageSyncService.getLfArchive(_)(loggingContext.traceContext),
-                  metric = metrics.execution.getLfPackage,
-                )
-            )
+          packageResolver(packageId)(loggingContext.traceContext)
             .flatMap { maybePackage =>
               resolveStep(
                 Tracked.value(

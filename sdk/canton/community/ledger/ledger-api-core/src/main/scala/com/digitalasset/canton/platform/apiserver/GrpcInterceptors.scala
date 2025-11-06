@@ -21,7 +21,6 @@ object GrpcInterceptors {
       loggerFactory: NamedLoggerFactory,
       interceptors: List[ServerInterceptor] = List.empty,
   ): List[ServerInterceptor] = interceptors ::: List(
-    new ActiveStreamMetricsInterceptor(metrics),
     new GrpcMetricsServerInterceptor(metrics.grpc),
     new TruncatedStatusInterceptor(MaximumStatusDescriptionLength),
     new ErrorInterceptor(loggerFactory),

@@ -36,11 +36,11 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf
 import com.digitalasset.daml.lf.data.Ref.TypeConId
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.{
   CreationTime,
   FatContractInstance,
   NodeId,
+  SerializationVersion as LfSerializationVersion,
   TransactionCoder,
 }
 import com.digitalasset.daml.lf.value.Value
@@ -110,13 +110,8 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
    * Straightforward decoders for simple proto values
    */
   private implicit val languageVersionTransformer
-      : PartialTransformer[String, lf.language.LanguageVersion] =
-    PartialTransformer {
-      case "dev" =>
-        Result.fromValue(lf.language.LanguageVersion.v2_dev)
-      case src =>
-        lf.language.LanguageVersion.fromString(src).toResult
-    }
+      : PartialTransformer[String, LfSerializationVersion] =
+    PartialTransformer(LfSerializationVersion.fromString(_).toResult)
 
   private implicit val contractIdTransformer
       : PartialTransformer[String, lf.value.Value.ContractId] =
@@ -210,7 +205,7 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
           .traverse(_.transformIntoPartial[lf.value.Value])
           .flatMap(_.toRight("Missing argument value").toResult),
       )
-      .withFieldComputedPartial(_.version, _.lfVersion.transformIntoPartial[LanguageVersion])
+      .withFieldComputedPartial(_.version, _.lfVersion.transformIntoPartial[LfSerializationVersion])
       // Fields not supported in V1
       .withFieldConst(_.keyOpt, None)
       .buildTransformer
@@ -220,7 +215,7 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
     ): PartialTransformer[isdv1.Fetch, lf.transaction.Node.Fetch] = Transformer
       .definePartial[isdv1.Fetch, lf.transaction.Node.Fetch]
       .withFieldRenamed(_.contractId, _.coid)
-      .withFieldComputedPartial(_.version, _.lfVersion.transformIntoPartial[LanguageVersion])
+      .withFieldComputedPartial(_.version, _.lfVersion.transformIntoPartial[LfSerializationVersion])
       // Not supported in V1
       .withFieldConst(_.keyOpt, None)
       .withFieldConst(_.byKey, false)
@@ -236,7 +231,10 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
           _.choiceObservers,
           _.choiceObservers.traverse(_.transformIntoPartial[lf.data.Ref.Party]).map(_.toSet),
         )
-        .withFieldComputedPartial(_.version, _.lfVersion.transformIntoPartial[LanguageVersion])
+        .withFieldComputedPartial(
+          _.version,
+          _.lfVersion.transformIntoPartial[LfSerializationVersion],
+        )
         // Fields not supported in V1
         .withFieldConst(_.keyOpt, None)
         .withFieldConst(_.byKey, false)
@@ -288,7 +286,7 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
   ): PartialTransformer[iss.DamlTransaction, lf.transaction.VersionedTransaction] =
     PartialTransformer { src =>
       def lfVersionedConstructor(
-          version: LanguageVersion,
+          version: LfSerializationVersion,
           nodes: Map[LfNodeId, LfNode],
           roots: ImmArray[LfNodeId],
       ): lf.transaction.VersionedTransaction = lf.transaction.VersionedTransaction(
@@ -424,11 +422,15 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
         mediatorGroup <- ProtoConverter
           .parseNonNegativeInt("mediator_group", metadataProto.mediatorGroup)
           .toFutureWithLoggedFailuresDecode("Failed to deserialize mediator group", logger)
+        maxLedgerTimeO <- metadataProto.maxRecordTime
+          .transformIntoPartial[Option[lf.data.Time.Timestamp]]
+          .toFutureWithLoggedFailuresDecode("Failed to deserialize max record time", logger)
       } yield ExternallySignedSubmission(
         executeRequest.serializationVersion,
         executeRequest.signatures,
         transactionUUID = transactionUUID,
         mediatorGroup = mediatorGroup,
+        maxRecordTimeO = maxLedgerTimeO,
       )
       submitterInfo <- submitterInfoProto
         .intoPartial[SubmitterInfo]

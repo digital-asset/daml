@@ -21,15 +21,16 @@ import com.digitalasset.canton.console.ConsoleEnvironment.Implicits.*
 import com.digitalasset.canton.console.{CommandFailure, SequencerReference}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.integration.*
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
 import com.digitalasset.canton.integration.plugins.{
   UseBftSequencer,
-  UseCommunityReferenceBlockSequencer,
   UsePostgres,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
+import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.sequencing.protocol.SequencerErrors
-import com.digitalasset.canton.time.SimClock
+import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.TopologyManagerError.InvalidSynchronizer
 import com.digitalasset.canton.topology.{
   ForceFlag,
@@ -93,7 +94,7 @@ object SynchronizerParametersFixture {
   }
 }
 
-trait SynchronizerParametersChangeIntegrationTest
+sealed trait SynchronizerParametersChangeIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment
     with SynchronizerParametersFixture
@@ -103,26 +104,26 @@ trait SynchronizerParametersChangeIntegrationTest
   private lazy val dynamicReconciliationInterval = config.PositiveDurationSeconds.ofSeconds(2)
 
   override lazy val environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P2_S1M1_S1M1.addConfigTransforms(
-      ConfigTransforms.useStaticTime,
-      // Disable retries in the ping service so that any submission error is reported reliably
-      // This makes the log messages more deterministic.
-      ConfigTransforms.updateAllParticipantConfigs_(
-        _.focus(_.parameters.adminWorkflow.retries).replace(false)
-      ),
-    ) withSetup { implicit env =>
-      import env.*
+    EnvironmentDefinition.P2_S1M1_S1M1
+      .addConfigTransforms(
+        ConfigTransforms.useStaticTime,
+        // Disable retries in the ping service so that any submission error is reported reliably
+        // This makes the log messages more deterministic.
+        ConfigTransforms.updateAllParticipantConfigs_(
+          _.focus(_.parameters.adminWorkflow.retries).replace(false)
+        ),
+      )
+      .withSetup { implicit env =>
+        import env.*
 
-      participant1.synchronizers.connect_local(sequencer1, alias = daName)
-    }
+        participant1.synchronizers.connect_local(sequencer1, alias = daName)
+      }
 
   protected lazy val sequencersForPlugin: MultiSynchronizer =
     MultiSynchronizer(Seq(Set("sequencer1"), Set("sequencer2")).map(_.map(InstanceName.tryCreate)))
 
-  private lazy val defaultParameters = ConsoleDynamicSynchronizerParameters.initialValues(
-    new SimClock(loggerFactory = loggerFactory),
-    testedProtocolVersion,
-  )
+  private lazy val defaultParameters =
+    ConsoleDynamicSynchronizerParameters.initialValues(testedProtocolVersion)
 
   private def acmeSynchronizer(implicit env: TestConsoleEnvironment) =
     SynchronizerParametersFixture.Synchronizer(env.sequencer2)
@@ -239,9 +240,6 @@ trait SynchronizerParametersChangeIntegrationTest
         .assignmentExclusivityTimeout
       myParticipant.topology.synchronizer_parameters
         .get_dynamic_synchronizer_parameters(synchronizerId)
-        .topologyChangeDelay
-      myParticipant.topology.synchronizer_parameters
-        .get_dynamic_synchronizer_parameters(synchronizerId)
         .ledgerTimeRecordTimeTolerance
       myParticipant.topology.synchronizer_parameters
         .get_dynamic_synchronizer_parameters(synchronizerId)
@@ -270,7 +268,6 @@ trait SynchronizerParametersChangeIntegrationTest
             preparationTimeRecordTimeTolerance = 1.minute,
             mediatorReactionTimeout = 20.seconds,
             assignmentExclusivityTimeout = 1.second,
-            topologyChangeDelay = 0.millis,
             reconciliationInterval = 5.seconds,
             confirmationRequestsMaxRate = 100,
             maxRequestSize = 100000,
@@ -297,8 +294,7 @@ trait SynchronizerParametersChangeIntegrationTest
       mySequencer.topology.synchronizer_parameters.propose_update(
         synchronizerId,
         _.update(
-          confirmationResponseTimeout = 10.seconds,
-          topologyChangeDelay = 1.second,
+          confirmationResponseTimeout = 10.seconds
         ),
       )
       // user-manual-entry-begin:-end: UpdateDynamicSynchronizerParameters
@@ -311,7 +307,6 @@ trait SynchronizerParametersChangeIntegrationTest
               _confirmationResponseTimeout,
               _mediatorReactionTimeout,
               _assignmentExclusivityTimeout,
-              _topologyChangeDelay,
               _ledgerTimeRecordTimeTolerance,
               _mediatorDeduplicationTimeout,
               _reconciliationInterval,
@@ -421,7 +416,6 @@ trait SynchronizerParametersChangeIntegrationTest
         confirmationResponseTimeout = config.NonNegativeFiniteDuration.Zero,
         mediatorReactionTimeout = config.NonNegativeFiniteDuration.Zero,
         assignmentExclusivityTimeout = config.NonNegativeFiniteDuration.Zero,
-        topologyChangeDelay = d,
         ledgerTimeRecordTimeTolerance = config.NonNegativeFiniteDuration.Zero,
         mediatorDeduplicationTimeout = d,
         reconciliationInterval = config.PositiveDurationSeconds.ofSeconds(1),
@@ -491,6 +485,113 @@ trait SynchronizerParametersChangeIntegrationTest
 
       getCurrentSynchronizerParameters(daSynchronizer) shouldBe newParams
     }
+
+    "require force to set out of bounds values" in { implicit env =>
+      val id = daSynchronizer.synchronizerId
+      val sequencer = daSynchronizer.sequencer
+
+      def runTest(
+          setter: (
+              config.NonNegativeFiniteDuration,
+              ConsoleDynamicSynchronizerParameters,
+          ) => ConsoleDynamicSynchronizerParameters,
+          getter: ConsoleDynamicSynchronizerParameters => config.NonNegativeFiniteDuration,
+          boundsInternal: (NonNegativeFiniteDuration, NonNegativeFiniteDuration),
+          name: String,
+      ) = {
+        val (minInternal, maxInternal) = boundsInternal
+        val min = config.NonNegativeFiniteDuration.tryFromJavaDuration(minInternal.duration)
+        val belowMin =
+          config.NonNegativeFiniteDuration.tryFromJavaDuration(minInternal.duration.minusNanos(1))
+        val max = config.NonNegativeFiniteDuration.tryFromJavaDuration(maxInternal.duration)
+        val aboveMax =
+          config.NonNegativeFiniteDuration.tryFromJavaDuration(maxInternal.duration.plusNanos(1))
+
+        // Ensure changing to min does something
+        getter(sequencer.topology.synchronizer_parameters.latest(id)) should not be min
+
+        // change to min should succeed
+        sequencer.topology.synchronizer_parameters
+          .propose_update(
+            daSynchronizer.synchronizerId,
+            parameters => setter(min, parameters),
+          )
+
+        // change to belowMin should fail
+        loggerFactory.assertThrowsAndLogs[CommandFailure](
+          sequencer.topology.synchronizer_parameters
+            .propose_update(
+              daSynchronizer.synchronizerId,
+              parameters => setter(belowMin, parameters),
+            ),
+          _.errorMessage should (include(
+            TopologyManagerError.ValueOutOfBounds
+              .Error(belowMin.toInternal, name, minInternal, maxInternal)
+              .cause
+          )),
+        )
+
+        // change to belowMin with force should succeed
+        sequencer.topology.synchronizer_parameters
+          .propose_update(
+            daSynchronizer.synchronizerId,
+            parameters => setter(belowMin, parameters),
+            force = ForceFlags(ForceFlag.AllowOutOfBoundsValue),
+          )
+
+        // change to max should succeed
+        sequencer.topology.synchronizer_parameters
+          .propose_update(
+            daSynchronizer.synchronizerId,
+            parameters => setter(max, parameters),
+          )
+
+        // change to aboveMax should fail
+        loggerFactory.assertThrowsAndLogs[CommandFailure](
+          sequencer.topology.synchronizer_parameters
+            .propose_update(
+              daSynchronizer.synchronizerId,
+              parameters => setter(aboveMax, parameters),
+            ),
+          _.errorMessage should (include(
+            TopologyManagerError.ValueOutOfBounds
+              .Error(aboveMax.toInternal, name, minInternal, maxInternal)
+              .cause
+          )),
+        )
+
+        // change to aboveMax with force should succeed
+        sequencer.topology.synchronizer_parameters
+          .propose_update(
+            daSynchronizer.synchronizerId,
+            parameters => setter(aboveMax, parameters),
+            force = ForceFlags(ForceFlag.AllowOutOfBoundsValue),
+          )
+
+        // reset to valid value
+        sequencer.topology.synchronizer_parameters
+          .propose_update(
+            daSynchronizer.synchronizerId,
+            parameters => setter(max, parameters),
+            force = ForceFlags(ForceFlag.AllowOutOfBoundsValue),
+          )
+      }
+
+      runTest(
+        (v, p) => p.update(confirmationResponseTimeout = v),
+        _.confirmationResponseTimeout,
+        DynamicSynchronizerParameters.confirmationResponseTimeoutBounds,
+        "confirmation response timeout",
+      )
+
+      runTest(
+        (v, p) => p.update(mediatorReactionTimeout = v),
+        _.mediatorReactionTimeout,
+        DynamicSynchronizerParameters.mediatorReactionTimeoutBounds,
+        "mediator reaction timeout",
+      )
+
+    }
   }
 
   "A participant" can {
@@ -546,7 +647,7 @@ trait SynchronizerParametersChangeIntegrationTest
 class SynchronizerParametersChangeIntegrationTestInMemory
     extends SynchronizerParametersChangeIntegrationTest {
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[StorageConfig.Memory](
+    new UseReferenceBlockSequencer[StorageConfig.Memory](
       loggerFactory,
       sequencersForPlugin,
     )
@@ -568,7 +669,7 @@ trait SynchronizerParametersRestartIntegrationTest
     EnvironmentDefinition.P0_S1M1
 
   private lazy val defaultParameters =
-    ConsoleDynamicSynchronizerParameters.defaultValues(testedProtocolVersion)
+    ConsoleDynamicSynchronizerParameters.initialValues(testedProtocolVersion)
 
   "Dynamic synchronizer parameters" should {
     "not be read from config upon restart" in { implicit env =>
@@ -600,7 +701,7 @@ trait SynchronizerParametersRestartIntegrationTest
 class SynchronizerParametersRestartIntegrationTestPostgres
     extends SynchronizerParametersRestartIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }
 
 class SynchronizerParametersRestartBftOrderingIntegrationTestPostgres

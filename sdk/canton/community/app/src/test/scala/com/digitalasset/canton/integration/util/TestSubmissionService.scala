@@ -34,7 +34,6 @@ import com.digitalasset.canton.integration.util.TestSubmissionService.{
 }
 import com.digitalasset.canton.ledger.api.validation.{
   CommandsValidator,
-  ValidateDisclosedContracts,
   ValidateUpgradingPackageResolutions,
 }
 import com.digitalasset.canton.ledger.participant.state.*
@@ -45,13 +44,13 @@ import com.digitalasset.canton.logging.{
   NamedLoggerFactory,
   NamedLogging,
 }
-import com.digitalasset.canton.participant.util.DAMLe.PackageResolver
 import com.digitalasset.canton.platform.apiserver.SeedService.WeakRandom
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.{ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
+import com.digitalasset.canton.util.PackageConsumer.PackageResolver
 import com.digitalasset.canton.util.TryUtil
 import com.digitalasset.daml.lf.command.ApiCommands
 import com.digitalasset.daml.lf.crypto
@@ -74,6 +73,7 @@ import com.digitalasset.daml.lf.engine.{
 }
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.*
+import com.digitalasset.daml.lf.value.ContractIdVersion
 import io.grpc.stub.StreamObserver
 import org.scalatest.OptionValues.*
 
@@ -287,7 +287,6 @@ class TestSubmissionService(
       actAs = commands.actAs,
       apiCommands = commands.apiCommands(),
       readAs = commands.readAs,
-      disclosures = commands.disclosures,
       submissionSeed = commands.submissionSeed,
       packagePreferenceOverride = commands.packagePreferenceOverride,
       packageMapOverride = commands.packageMapOverride,
@@ -297,7 +296,6 @@ class TestSubmissionService(
       actAs: Seq[PartyId],
       apiCommands: ApiCommands,
       readAs: Seq[PartyId],
-      disclosures: ImmArray[FatContractInstance] = ImmArray.Empty,
       submissionSeed: crypto.Hash = WeakRandom.nextSeed(),
       @unused packageMapOverride: Option[
         Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)]
@@ -313,10 +311,10 @@ class TestSubmissionService(
         submitters = actAs.map(_.toLf).toSet,
         readAs = readAs.map(_.toLf).toSet,
         cmds = apiCommands,
-        disclosures = disclosures,
         participantId = participantId.toLf,
         prefetchKeys = Seq.empty,
         submissionSeed = submissionSeed,
+        contractIdVersion = ContractIdVersion.V1,
       )
 
     EitherT(resolve(result))
@@ -555,7 +553,6 @@ object TestSubmissionService {
       submissionId: String = UUID.randomUUID().toString,
       deduplicationPeriodO: Option[DeduplicationPeriod] = None,
       ledgerTime: Time.Timestamp = Time.Timestamp.now(),
-      disclosures: ImmArray[FatContractInstance] = ImmArray.Empty,
       submissionSeed: crypto.Hash = WeakRandom.nextSeed(),
       packageMapOverride: Option[Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)]] = None,
       packagePreferenceOverride: Option[Set[Ref.PackageId]] = None,
@@ -565,8 +562,7 @@ object TestSubmissionService {
 
     def apiCommands()(implicit errorLogger: ErrorLoggingContext): ApiCommands = {
       val apiCommands = new CommandsValidator(
-        validateUpgradingPackageResolutions = ValidateUpgradingPackageResolutions.Empty,
-        validateDisclosedContracts = ValidateDisclosedContracts.WithContractIdVerificationDisabled,
+        validateUpgradingPackageResolutions = ValidateUpgradingPackageResolutions.Empty
       )
         .validateInnerCommands(commands)
         .valueOr(throw _)

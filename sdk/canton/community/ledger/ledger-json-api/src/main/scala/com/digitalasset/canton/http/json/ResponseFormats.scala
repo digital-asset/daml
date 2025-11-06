@@ -16,12 +16,6 @@ import spray.json.*
 import scala.concurrent.{ExecutionContext, Future}
 
 object ResponseFormats {
-  def resultJsObject[A: JsonWriter](a: A): JsObject =
-    resultJsObject(a.toJson)
-
-  def resultJsObject(a: JsValue): JsObject =
-    JsObject(("status", JsNumber(OK.intValue)), ("result", a))
-
   def resultJsObject[E: Show](
       jsVals: Source[E \/ JsValue, NotUsed],
       warnings: Option[JsValue],

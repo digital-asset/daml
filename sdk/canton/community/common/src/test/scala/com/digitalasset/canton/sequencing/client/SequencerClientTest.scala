@@ -7,10 +7,18 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.foldable.*
 import com.daml.metrics.api.MetricsContext
+import com.daml.nonempty.NonEmpty
+import com.digitalasset.base.error.utils.DecodedCantonError
 import com.digitalasset.canton.*
 import com.digitalasset.canton.concurrent.Threading
+import com.digitalasset.canton.config as cantonConfig
 import com.digitalasset.canton.config.*
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeLong, PositiveInt}
+import com.digitalasset.canton.config.RequireTypes.{
+  NonNegativeInt,
+  NonNegativeLong,
+  Port,
+  PositiveInt,
+}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{
   Fingerprint,
@@ -25,9 +33,12 @@ import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown, Un
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyInstances}
 import com.digitalasset.canton.logging.{LogEntry, NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.metrics.{CommonMockMetrics, TrafficConsumptionMetrics}
+import com.digitalasset.canton.networking.Endpoint
+import com.digitalasset.canton.networking.grpc.GrpcError
 import com.digitalasset.canton.protocol.messages.{DefaultOpenEnvelope, UnsignedProtocolMessage}
 import com.digitalasset.canton.protocol.{
   DynamicSynchronizerParametersLookup,
+  StaticSynchronizerParameters,
   SynchronizerParametersLookup,
   TestSynchronizerParameters,
   v30,
@@ -38,7 +49,10 @@ import com.digitalasset.canton.sequencing.InternalSequencerConnectionX.{
   ConnectionAttributes,
   SequencerConnectionXHealth,
 }
-import com.digitalasset.canton.sequencing.SequencerConnectionXPool.SequencerConnectionXPoolError
+import com.digitalasset.canton.sequencing.SequencerConnectionXPool.{
+  SequencerConnectionXPoolConfig,
+  SequencerConnectionXPoolError,
+}
 import com.digitalasset.canton.sequencing.client.SendAsyncClientError.SendAsyncClientResponseError
 import com.digitalasset.canton.sequencing.client.SequencedEventValidationError.PreviousTimestampMismatch
 import com.digitalasset.canton.sequencing.client.SequencerClient.CloseReason.{
@@ -50,6 +64,7 @@ import com.digitalasset.canton.sequencing.client.SequencerClientSubscriptionErro
   ApplicationHandlerException,
   EventValidationError,
 }
+import com.digitalasset.canton.sequencing.client.SequencerClientTest.SentSubmission
 import com.digitalasset.canton.sequencing.client.SubscriptionCloseReason.{
   HandlerError,
   HandlerException,
@@ -86,8 +101,7 @@ import com.digitalasset.canton.topology.DefaultTestIdentities.{
   participant1,
 }
 import com.digitalasset.canton.topology.client.{SynchronizerTopologyClient, TopologySnapshot}
-import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.EitherTUtil
+import com.digitalasset.canton.tracing.{TraceContext, TracingConfig}
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.canton.version.{
   IgnoreInSerializationTestExhaustivenessCheck,
@@ -99,16 +113,17 @@ import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.{Keep, Source}
 import org.apache.pekko.stream.{BoundedSourceQueue, Materializer, QueueOfferResult}
 import org.scalatest
-import org.scalatest.BeforeAndAfterAll
 import org.scalatest.wordspec.AnyWordSpec
+import org.scalatest.{Assertion, BeforeAndAfterAll}
 
 import java.time.temporal.ChronoUnit
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger, AtomicLong, AtomicReference}
 import scala.annotation.tailrec
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration.{Duration, DurationInt}
 import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
 import scala.jdk.CollectionConverters.*
+import scala.jdk.DurationConverters.ScalaDurationOps
 import scala.util.{Failure, Success}
 
 final class SequencerClientTest
@@ -784,8 +799,9 @@ final class SequencerClientTest
               } else
                 Set(upgradeTime.immediatePredecessor, upgradeTime, upgradeTime.immediateSuccessor)
 
-            acknowledgedTimestamps = env.transport.acknowledgedTimestamps
-              .get() ++ env.pool.acknowledgedTimestamps.get()
+            acknowledgedTimestamps =
+              if (env.useNewConnectionPool) env.pool.acknowledgedTimestamps.get
+              else env.transport.acknowledgedTimestamps.get
 
             _ = acknowledgedTimestamps shouldBe expectedAcknowledgedTimestamps
 
@@ -1067,14 +1083,157 @@ final class SequencerClientTest
       }
     }
 
+    "a synchronous error" should {
+      val amplificationConfig = SubmissionRequestAmplification(
+        factor = PositiveInt.two,
+        patience = config.NonNegativeFiniteDuration.Zero,
+      )
+
+      "trigger amplification if it is 'overloaded' and the flag is set" in {
+        val env = RichEnvFactory.create(
+          options = SequencerClientConfig(enableAmplificationImprovements = true),
+          amplificationConfig = amplificationConfig,
+          firstSendAsyncResponseO = Some(Left(overloadedError)),
+        )
+
+        env
+          .sendAsync(Batch.empty(testedProtocolVersion), amplify = true)
+          .futureValueUS shouldBe Right(())
+
+        env.client.close()
+      }
+
+      "not trigger amplification if it is 'overloaded' and the flag is not set" in {
+        val env = RichEnvFactory.create(
+          options = SequencerClientConfig(enableAmplificationImprovements = false),
+          amplificationConfig = amplificationConfig,
+          firstSendAsyncResponseO = Some(Left(overloadedError)),
+        )
+
+        env
+          .sendAsync(Batch.empty(testedProtocolVersion), amplify = true)
+          .futureValueUS shouldBe Left(overloadedError)
+
+        env.client.close()
+      }
+
+      "not trigger amplification if it is not 'overloaded' and the flag is set" in {
+        val env = RichEnvFactory.create(
+          options = SequencerClientConfig(enableAmplificationImprovements = true),
+          amplificationConfig = amplificationConfig,
+          firstSendAsyncResponseO = Some(Left(senderUnknownError)),
+        )
+
+        env
+          .sendAsync(Batch.empty(testedProtocolVersion), amplify = true)
+          .futureValueUS shouldBe Left(senderUnknownError)
+
+        env.client.close()
+      }
+    }
+
+    "amplification" should {
+      val amplificationConfig = SubmissionRequestAmplification(
+        factor = PositiveInt.two,
+        patience = config.NonNegativeFiniteDuration.tryFromDuration(10.seconds),
+      )
+
+      def lastSubmissionTime(env: Env[?]): CantonTimestamp =
+        if (env.useNewConnectionPool) env.pool.connection.lastSubmissionTime.value
+        else env.transport.lastSubmissionTime.value
+
+      def checkTimeOfAmplification(env: Env[?], expected: CantonTimestamp): Assertion = {
+        env.clock.advanceTo(expected.immediatePredecessor)
+        // Not yet sent...
+        lastSubmissionTime(env) shouldBe CantonTimestamp.Epoch
+
+        env.clock.advanceTo(expected)
+        // Now it is
+        eventually() { // The scheduling might happen asynchronously
+          lastSubmissionTime(env) shouldBe expected
+        }
+      }
+
+      "be scheduled after the transport delay if the flag is not set" in {
+        val env = RichEnvFactory.create(
+          options = SequencerClientConfig(enableAmplificationImprovements = false),
+          amplificationConfig = amplificationConfig,
+          firstSendAsyncResponseO = Some(Right(_.advance(3.seconds.toJava))),
+        )
+
+        env
+          .sendAsync(Batch.empty(testedProtocolVersion), amplify = true)
+          .futureValueUS shouldBe Right(())
+
+        checkTimeOfAmplification(env, CantonTimestamp.ofEpochSecond(13))
+
+        env.client.close()
+      }
+
+      "take into account the transport delay if the flag is set" in {
+        val env = RichEnvFactory.create(
+          options = SequencerClientConfig(enableAmplificationImprovements = true),
+          amplificationConfig = amplificationConfig,
+          firstSendAsyncResponseO = Some(Right(_.advance(3.seconds.toJava))),
+        )
+
+        env
+          .sendAsync(Batch.empty(testedProtocolVersion), amplify = true)
+          .futureValueUS shouldBe Right(())
+
+        checkTimeOfAmplification(env, CantonTimestamp.ofEpochSecond(10))
+
+        env.client.close()
+      }
+
+      "be scheduled after the transport delay if it exceeds the patience and the flag is not set" in {
+        val env = RichEnvFactory.create(
+          options = SequencerClientConfig(enableAmplificationImprovements = false),
+          amplificationConfig = amplificationConfig,
+          firstSendAsyncResponseO = Some(Right(_.advance(13.seconds.toJava))),
+        )
+
+        env
+          .sendAsync(Batch.empty(testedProtocolVersion), amplify = true)
+          .futureValueUS shouldBe Right(())
+
+        // Amplification did not yet take place
+        lastSubmissionTime(env) shouldBe CantonTimestamp.ofEpochSecond(0)
+
+        checkTimeOfAmplification(env, CantonTimestamp.ofEpochSecond(23))
+
+        env.client.close()
+      }
+
+      "be scheduled immediately if the transport delay exceeds the patience and the flag is set" in {
+        val env = RichEnvFactory.create(
+          options = SequencerClientConfig(enableAmplificationImprovements = true),
+          amplificationConfig = amplificationConfig,
+          firstSendAsyncResponseO = Some(Right(_.advance(13.seconds.toJava))),
+        )
+
+        env
+          .sendAsync(Batch.empty(testedProtocolVersion), amplify = true)
+          .futureValueUS shouldBe Right(())
+
+        // Amplification already took place
+        eventually() { // The scheduling might happen asynchronously
+          lastSubmissionTime(env) shouldBe CantonTimestamp.ofEpochSecond(13)
+        }
+
+        env.client.close()
+      }
+    }
+
     "changeTransport" should {
       "create second subscription from the same counter as the previous one when there are no events" in {
-        val secondTransport = MockTransport()
         // TODO(i26481): Enable new connection pool (test uses changeTransport())
         val env = RichEnvFactory.create(useNewConnectionPoolO = Some(false))
+        val secondTransport = MockTransport(env.clock)
+
         val testF = for {
           _ <- env.subscribeAfter()
-          _ <- env.changeTransport(secondTransport)
+          _ <- env.changeTransport(secondTransport, None)
         } yield {
           val originalSubscriber = env.transport.subscriber.value
           originalSubscriber.request.timestamp shouldBe None
@@ -1094,13 +1253,13 @@ final class SequencerClientTest
       }
 
       "create second subscription from the same counter as the previous one when there are events" in {
-        val secondTransport = MockTransport()
-
         // TODO(i26481): Enable new connection pool (test uses changeTransport())
         val env = RichEnvFactory.create(
           initializeCounterAllocatorTo = Some(SequencerCounter(41)),
           useNewConnectionPoolO = Some(false),
         )
+        val secondTransport = MockTransport(env.clock)
+
         val testF = for {
           _ <- env.subscribeAfter()
 
@@ -1108,7 +1267,7 @@ final class SequencerClientTest
           _ <- env.transport.subscriber.value.sendToHandler(nextDeliver)
           _ <- env.client.flushClean()
 
-          _ <- env.changeTransport(secondTransport)
+          _ <- env.changeTransport(secondTransport, None)
         } yield {
           val originalSubscriber = env.transport.subscriber.value
           originalSubscriber.request.timestamp shouldBe None
@@ -1123,12 +1282,12 @@ final class SequencerClientTest
       }
 
       "have new transport be used for sends" in {
-        val secondTransport = MockTransport()
-
         // TODO(i26481): Enable new connection pool (test uses changeTransport())
         val env = RichEnvFactory.create(useNewConnectionPoolO = Some(false))
+        val secondTransport = MockTransport(env.clock)
+
         val testF = for {
-          _ <- env.changeTransport(secondTransport)
+          _ <- env.changeTransport(secondTransport, None)
           _ <- env.sendAsync(Batch.empty(testedProtocolVersion)).value
         } yield {
           env.transport.lastSend.get() shouldBe None
@@ -1143,12 +1302,12 @@ final class SequencerClientTest
       }
 
       "have new transport be used for logout" in {
-        val secondTransport = MockTransport()
-
         // TODO(i26481): Enable new connection pool (test uses changeTransport())
         val env = RichEnvFactory.create(useNewConnectionPoolO = Some(false))
+        val secondTransport = MockTransport(env.clock)
+
         val testF = for {
-          _ <- env.changeTransport(secondTransport)
+          _ <- env.changeTransport(secondTransport, None)
           _ <- env.logout().value
         } yield {
           env.transport.logoutCalled shouldBe false
@@ -1160,13 +1319,13 @@ final class SequencerClientTest
       }
 
       "have new transport be used for sends when there is subscription" in {
-        val secondTransport = MockTransport()
-
         // TODO(i26481): Enable new connection pool (test uses changeTransport())
         val env = RichEnvFactory.create(useNewConnectionPoolO = Some(false))
+        val secondTransport = MockTransport(env.clock)
+
         val testF = for {
           _ <- env.subscribeAfter()
-          _ <- env.changeTransport(secondTransport)
+          _ <- env.changeTransport(secondTransport, None)
           _ <- env.sendAsync(Batch.empty(testedProtocolVersion)).value
         } yield {
           env.transport.lastSend.get() shouldBe None
@@ -1178,10 +1337,10 @@ final class SequencerClientTest
       }
 
       "have new transport be used with same sequencerId but different sequencer alias" in {
-        val secondTransport = MockTransport()
-
         // TODO(i26481): Enable new connection pool (test uses changeTransport())
         val env = RichEnvFactory.create(useNewConnectionPoolO = Some(false))
+        val secondTransport = MockTransport(env.clock)
+
         val testF = for {
           _ <- env.subscribeAfter()
           _ <- env.changeTransport(
@@ -1189,7 +1348,8 @@ final class SequencerClientTest
               SequencerAlias.tryCreate("somethingElse"),
               daSequencerId,
               secondTransport,
-            )
+            ),
+            None,
           )
           _ <- env.sendAsync(Batch.empty(testedProtocolVersion)).value
         } yield {
@@ -1202,32 +1362,36 @@ final class SequencerClientTest
       }
 
       "fail to reassign sequencerId" in {
-        val secondTransport = MockTransport()
+        val env = RichEnvFactory.create()
+        val secondTransport = MockTransport(env.clock)
         val secondSequencerId = SequencerId(
           UniqueIdentifier.tryCreate("da2", Namespace(Fingerprint.tryFromString("default")))
         )
 
-        val env = RichEnvFactory.create()
-        val testF = for {
-          _ <- env.subscribeAfter()
-          error <- loggerFactory
-            .assertLogs(
-              env
-                .changeTransport(
-                  SequencerTransports.default(
-                    secondSequencerId,
-                    secondTransport,
-                  )
-                ),
-              _.errorMessage shouldBe "Adding or removing sequencer subscriptions is not supported at the moment",
-            )
-            .failed
-        } yield {
-          error
-        }
+        // When using the connection pool, this test does not make sense
+        if (!env.useNewConnectionPool) {
+          val testF = for {
+            _ <- env.subscribeAfter()
+            error <- loggerFactory
+              .assertLogs(
+                env
+                  .changeTransport(
+                    SequencerTransports.default(
+                      secondSequencerId,
+                      secondTransport,
+                    ),
+                    None,
+                  ),
+                _.errorMessage shouldBe "Adding or removing sequencer subscriptions is not supported at the moment",
+              )
+              .failed
+          } yield {
+            error
+          }
 
-        testF.futureValueUS shouldBe an[IllegalArgumentException]
-        testF.futureValueUS.getMessage shouldBe "Adding or removing sequencer subscriptions is not supported at the moment"
+          testF.futureValueUS shouldBe an[IllegalArgumentException]
+          testF.futureValueUS.getMessage shouldBe "Adding or removing sequencer subscriptions is not supported at the moment"
+        }
         env.client.close()
       }
     }
@@ -1315,25 +1479,33 @@ final class SequencerClientTest
       )
 
     def changeTransport(
-        newTransport: SequencerClientTransport & SequencerClientTransportPekko
+        newTransport: SequencerClientTransport & SequencerClientTransportPekko,
+        newConnectionPoolConfigO: Option[SequencerConnectionXPoolConfig],
     )(implicit ev: Client <:< RichSequencerClient): FutureUnlessShutdown[Unit] =
       changeTransport(
-        SequencerTransports.default(daSequencerId, newTransport)
+        SequencerTransports.default(daSequencerId, newTransport),
+        newConnectionPoolConfigO,
       )
 
-    def changeTransport(sequencerTransports: SequencerTransports[?])(implicit
+    def changeTransport(
+        sequencerTransports: SequencerTransports[?],
+        newConnectionPoolConfigO: Option[SequencerConnectionXPoolConfig],
+    )(implicit
         ev: Client <:< RichSequencerClient
     ): FutureUnlessShutdown[Unit] =
-      ev(client).changeTransport(sequencerTransports)
+      ev(client)
+        .changeTransport(sequencerTransports, newConnectionPoolConfigO)
+        .valueOrFail("changeTransport")
 
     def sendAsync(
         batch: Batch[DefaultOpenEnvelope],
         messageId: MessageId = client.generateMessageId,
+        amplify: Boolean = false,
     )(implicit
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit] = {
       implicit val metricsContext: MetricsContext = MetricsContext.Empty
-      client.send(batch, messageId = messageId)
+      client.send(batch, messageId = messageId, amplify = amplify)
     }
 
     def logout(): EitherT[FutureUnlessShutdown, Status, Unit] = client.logout()
@@ -1358,8 +1530,14 @@ final class SequencerClientTest
       this.closeReasonPromise.success(HandlerException(error))
   }
 
-  private class MockTransport
-      extends SequencerClientTransport
+  /** A sendAsync resonse: either a sync error, or an action before returning Unit.
+    */
+  type SendAsyncResponse = Either[SendAsyncClientResponseError, SimClock => Unit]
+
+  private class MockTransport(
+      clock: SimClock,
+      firstSendAsyncResponseO: Option[SendAsyncResponse],
+  ) extends SequencerClientTransport
       with SequencerClientTransportPekko
       with NamedLogging {
 
@@ -1367,6 +1545,14 @@ final class SequencerClientTest
     val acknowledgedTimestamps: AtomicReference[Set[CantonTimestamp]] = new AtomicReference(
       Set.empty
     )
+
+    private val sendAsyncResponseRef =
+      new AtomicReference[Option[SendAsyncResponse]](firstSendAsyncResponseO)
+
+    override def getTime(timeout: Duration)(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, String, Option[CantonTimestamp]] =
+      EitherT.rightT(None)
 
     override def logout()(implicit
         traceContext: TraceContext
@@ -1379,12 +1565,12 @@ final class SequencerClientTest
 
     override protected def timeouts: ProcessingTimeout = DefaultProcessingTimeouts.testing
 
-    private val subscriberRef = new AtomicReference[Option[Subscriber[_]]](None)
+    private val subscriberRef = new AtomicReference[Option[Subscriber[?]]](None)
 
     // When using a parallel execution context, the order of asynchronous operations within the SequencerClient
     // is not deterministic which can delay the subscription. This is why we add some retry policy to avoid flaky tests
-    def subscriber: Option[Subscriber[_]] = {
-      @tailrec def subscriber(retry: Int): Option[Subscriber[_]] =
+    def subscriber: Option[Subscriber[?]] = {
+      @tailrec def subscriber(retry: Int): Option[Subscriber[?]] =
         subscriberRef.get() match {
           case Some(value) => Some(value)
           case None if retry >= 0 =>
@@ -1399,7 +1585,8 @@ final class SequencerClientTest
       subscriber(retry = 100)
     }
 
-    val lastSend = new AtomicReference[Option[SubmissionRequest]](None)
+    val lastSend = new AtomicReference[Option[SentSubmission]](None)
+    def lastSubmissionTime: Option[CantonTimestamp] = lastSend.get.map(_.submissionTime)
 
     override def acknowledgeSigned(request: SignedContent[AcknowledgeRequest])(implicit
         traceContext: TraceContext
@@ -1435,8 +1622,14 @@ final class SequencerClientTest
     private def sendAsync(
         request: SubmissionRequest
     ): EitherT[Future, SendAsyncClientResponseError, Unit] = {
-      lastSend.set(Some(request))
-      EitherTUtil.unit
+      lastSend.set(Some(SentSubmission(clock.now, request)))
+
+      val responseE = sendAsyncResponseRef.getAndSet(None) match {
+        case None => Right(())
+        case Some(Left(error)) => Left(error)
+        case Some(Right(action)) => Right(action.apply(clock))
+      }
+      responseE.toEitherT
     }
 
     override def sendAsyncSigned(
@@ -1497,18 +1690,40 @@ final class SequencerClientTest
     override def subscriptionRetryPolicyPekko
         : SubscriptionErrorRetryPolicyPekko[SubscriptionError] =
       SubscriptionErrorRetryPolicyPekko.never
+
+    override def downloadTopologyStateForInitHash(request: TopologyStateForInitRequest)(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, String, TopologyStateForInitHashResponse] = ???
   }
 
   private object MockTransport {
-    def apply(): MockTransport & SequencerClientTransportPekko.Aux[Uninhabited] = new MockTransport
+    def apply(
+        clock: SimClock,
+        firstSendAsyncResponseO: Option[SendAsyncResponse] = None,
+    ): MockTransport & SequencerClientTransportPekko.Aux[Uninhabited] =
+      new MockTransport(clock, firstSendAsyncResponseO)
   }
 
-  private class MockConnection(override val name: String, ack: CantonTimestamp => Unit)
-      extends SequencerConnectionX {
+  private class MockConnection(
+      override val name: String,
+      ack: CantonTimestamp => Unit,
+      clock: SimClock,
+      firstSendAsyncResponseO: Option[SendAsyncResponse],
+  ) extends SequencerConnectionX {
     override val health: SequencerConnectionXHealth =
       new SequencerConnectionXHealth.AlwaysValidated(s"$name-health", logger)
 
-    override def config: ConnectionXConfig = ???
+    private val sendAsyncResponseRef =
+      new AtomicReference[Option[SendAsyncResponse]](firstSendAsyncResponseO)
+
+    override def config: ConnectionXConfig = ConnectionXConfig(
+      name = name,
+      endpoint = Endpoint("dummy-endpoint", Port.tryCreate(0)),
+      transportSecurity = false,
+      customTrustCertificates = None,
+      expectedSequencerIdO = None,
+      tracePropagation = TracingConfig.Propagation.Disabled,
+    )
 
     override def attributes: ConnectionAttributes =
       ConnectionAttributes(
@@ -1521,13 +1736,20 @@ final class SequencerClientTest
 
     override def fatal(reason: String)(implicit traceContext: TraceContext): Unit = ()
 
-    val lastSend = new AtomicReference[Option[SubmissionRequest]](None)
+    val lastSend = new AtomicReference[Option[SentSubmission]](None)
+    def lastSubmissionTime: Option[CantonTimestamp] = lastSend.get.map(_.submissionTime)
 
     override def sendAsync(request: SignedContent[SubmissionRequest], timeout: Duration)(implicit
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, SendAsyncClientResponseError, Unit] = {
-      lastSend.set(Some(request.content))
-      EitherTUtil.unitUS
+      lastSend.set(Some(SentSubmission(clock.now, request.content)))
+
+      val responseE = sendAsyncResponseRef.getAndSet(None) match {
+        case None => Right(())
+        case Some(Left(error)) => Left(error)
+        case Some(Right(action)) => Right(action.apply(clock))
+      }
+      responseE.toEitherT
     }
 
     override def acknowledgeSigned(
@@ -1550,6 +1772,10 @@ final class SequencerClientTest
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, Status, Unit] = ???
 
+    override def getTime(timeout: Duration)(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, String, Option[CantonTimestamp]] = ???
+
     override def downloadTopologyStateForInit(
         request: TopologyStateForInitRequest,
         timeout: Duration,
@@ -1557,12 +1783,12 @@ final class SequencerClientTest
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, String, TopologyStateForInitResponse] = ???
 
-    private val subscriberRef = new AtomicReference[Option[Subscriber[_]]](None)
+    private val subscriberRef = new AtomicReference[Option[Subscriber[?]]](None)
 
     // When using a parallel execution context, the order of asynchronous operations within the SequencerClient
     // is not deterministic which can delay the subscription. This is why we add some retry policy to avoid flaky tests
-    def subscriber: Option[Subscriber[_]] = {
-      @tailrec def subscriber(retry: Int): Option[Subscriber[_]] =
+    def subscriber: Option[Subscriber[?]] = {
+      @tailrec def subscriber(retry: Int): Option[Subscriber[?]] =
         subscriberRef.get() match {
           case Some(value) => Some(value)
           case None if retry >= 0 =>
@@ -1600,25 +1826,48 @@ final class SequencerClientTest
 
     override protected def loggerFactory: NamedLoggerFactory =
       SequencerClientTest.this.loggerFactory
+
+    override def downloadTopologyStateForInitHash(
+        request: TopologyStateForInitRequest,
+        timeout: Duration,
+    )(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, String, TopologyStateForInitHashResponse] = ???
   }
 
-  private class MockPool extends SequencerConnectionXPool {
+  private class MockPool(clock: SimClock, firstSendAsyncResponseO: Option[SendAsyncResponse])
+      extends SequencerConnectionXPool {
     val acknowledgedTimestamps: AtomicReference[Set[CantonTimestamp]] = new AtomicReference(
       Set.empty
     )
 
     val connection =
-      new MockConnection(name = "test", ack = ts => acknowledgedTimestamps.getAndUpdate(_ + ts))
+      new MockConnection(
+        name = "test",
+        ack = ts => acknowledgedTimestamps.getAndUpdate(_ + ts),
+        clock = clock,
+        firstSendAsyncResponseO = firstSendAsyncResponseO,
+      )
 
     override protected def loggerFactory: NamedLoggerFactory =
       SequencerClientTest.this.loggerFactory
-    override def physicalSynchronizerId: Option[PhysicalSynchronizerId] = ???
+
+    override def physicalSynchronizerIdO: Option[PhysicalSynchronizerId] = ???
+
+    override def staticSynchronizerParametersO: Option[StaticSynchronizerParameters] = ???
 
     override def start()(implicit
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, SequencerConnectionXPoolError, Unit] = ???
 
-    override def config: SequencerConnectionXPool.SequencerConnectionXPoolConfig = ???
+    override def config: SequencerConnectionXPool.SequencerConnectionXPoolConfig =
+      SequencerConnectionXPoolConfig(
+        connections = NonEmpty(Seq, connection.config),
+        trustThreshold = PositiveInt.one,
+        minRestartConnectionDelay = cantonConfig.NonNegativeFiniteDuration.Zero,
+        maxRestartConnectionDelay = cantonConfig.NonNegativeFiniteDuration.Zero,
+        warnConnectionValidationDelay = cantonConfig.NonNegativeFiniteDuration.Zero,
+      )
 
     override def updateConfig(newConfig: SequencerConnectionXPool.SequencerConnectionXPoolConfig)(
         implicit traceContext: TraceContext
@@ -1654,8 +1903,54 @@ final class SequencerClientTest
   }
 
   private object MockPool {
-    def apply(): MockPool = new MockPool
+    def apply(
+        clock: SimClock,
+        firstSendAsyncResponseO: Option[SendAsyncResponse] = None,
+    ): MockPool =
+      new MockPool(clock, firstSendAsyncResponseO)
   }
+
+  private val overloadedError = SendAsyncClientError.RequestRefused(
+    SendAsyncError.SendAsyncErrorGrpc(
+      GrpcError.GrpcRequestRefusedByServer(
+        request = "test-request",
+        serverName = "test-server",
+        status = Status.UNAVAILABLE,
+        optTrailers = None,
+        decodedCantonError = Some(
+          DecodedCantonError(
+            code = SequencerErrors.Overloaded,
+            cause = "test-cause",
+            correlationId = None,
+            traceId = None,
+            context = Map.empty,
+            resources = Seq.empty,
+          )
+        ),
+      )
+    )
+  )
+
+  private val senderUnknownError = SendAsyncClientError.RequestRefused(
+    SendAsyncError.SendAsyncErrorGrpc(
+      GrpcError.GrpcRequestRefusedByServer(
+        request = "test-request",
+        serverName = "test-server",
+        status = Status.UNAVAILABLE,
+        optTrailers = None,
+        decodedCantonError = Some(
+          DecodedCantonError(
+            code = SequencerErrors.SenderUnknown,
+            cause = "test-cause",
+            correlationId = None,
+            traceId = None,
+            context = Map.empty,
+            resources = Seq.empty,
+          )
+        ),
+      )
+    )
+  )
 
   private implicit class EnrichedSequencerClient(client: RichSequencerClient) {
     // flush needs to be called twice in order to finish asynchronous processing
@@ -1684,6 +1979,9 @@ final class SequencerClientTest
         mockExitOnFatalErrorO: Option[(String, TracedLogger) => TraceContext => Unit] = None,
         synchronizerPredecessor: Option[SynchronizerPredecessor] = None,
         useNewConnectionPoolO: Option[Boolean] = None,
+        amplificationConfig: SubmissionRequestAmplification =
+          SubmissionRequestAmplification.NoAmplification,
+        firstSendAsyncResponseO: Option[SendAsyncResponse] = None,
     )(implicit closeContext: CloseContext): Env[Client]
 
     protected def preloadStores(
@@ -1762,7 +2060,7 @@ final class SequencerClientTest
   private class TestProtocolMessage()
       extends UnsignedProtocolMessage
       with IgnoreInSerializationTestExhaustivenessCheck {
-    override def synchronizerId: PhysicalSynchronizerId = fail("shouldn't be used")
+    override def psid: PhysicalSynchronizerId = fail("shouldn't be used")
 
     override def representativeProtocolVersion: RepresentativeProtocolVersion[companionObj.type] =
       fail("shouldn't be used")
@@ -1784,15 +2082,17 @@ final class SequencerClientTest
         cleanPrehead: Option[SequencerCounterCursorPrehead],
         eventValidator: SequencedEventValidator,
         options: SequencerClientConfig,
-        topologyO: Option[SynchronizerCryptoClient] = None,
-        initializeCounterAllocatorTo: Option[SequencerCounter] = None,
-        mockExitOnFatalErrorO: Option[(String, TracedLogger) => TraceContext => Unit] = None,
-        synchronizerPredecessor: Option[SynchronizerPredecessor] = None,
-        useNewConnectionPoolO: Option[Boolean] = None,
+        topologyO: Option[SynchronizerCryptoClient],
+        initializeCounterAllocatorTo: Option[SequencerCounter],
+        mockExitOnFatalErrorO: Option[(String, TracedLogger) => TraceContext => Unit],
+        synchronizerPredecessor: Option[SynchronizerPredecessor],
+        useNewConnectionPoolO: Option[Boolean],
+        amplificationConfig: SubmissionRequestAmplification,
+        firstSendAsyncResponseO: Option[SendAsyncResponse],
     )(implicit closeContext: CloseContext): Env[RichSequencerClient] = {
       val clock = new SimClock(loggerFactory = loggerFactory)
       val timeouts = DefaultProcessingTimeouts.testing
-      val transport = MockTransport()
+      val transport = MockTransport(clock, firstSendAsyncResponseO)
       val sendTrackerStore = new InMemorySendTrackerStore()
       val sequencedEventStore = new InMemorySequencedEventStore(loggerFactory, timeouts)
       val sequencerCounterTrackerStore =
@@ -1832,16 +2132,30 @@ final class SequencerClientTest
           Some(trafficStateController),
         )
 
-      val connectionPool = MockPool()
+      val connectionPool = MockPool(clock, firstSendAsyncResponseO)
 
-      // TODO(i26481): adjust when the new connection pool is stable
-      val useNewConnectionPool =
-        useNewConnectionPoolO.getOrElse(testedProtocolVersion >= ProtocolVersion.dev)
+      // TODO(i26481): adjust when everything in this test can be enabled for the connection pool
+      val useNewConnectionPool = useNewConnectionPoolO.getOrElse(true)
+
+      val transports = SequencerTransports
+        .from(
+          sequencerTransportsMapO =
+            Option.when(!useNewConnectionPool)(NonEmpty(Map, SequencerAlias.Default -> transport)),
+          expectedSequencersO = Option.when(!useNewConnectionPool)(
+            NonEmpty(Map, SequencerAlias.Default -> DefaultTestIdentities.daSequencerId)
+          ),
+          sequencerSignatureThreshold = PositiveInt.one,
+          sequencerLivenessMargin = NonNegativeInt.zero,
+          submissionRequestAmplification = amplificationConfig,
+          sequencerConnectionPoolDelays = SequencerConnectionPoolDelays.default,
+        )
+        .value
+
       val client = new RichSequencerClientImpl(
         psid,
         synchronizerPredecessor = synchronizerPredecessor,
         mediatorId,
-        SequencerTransports.default(DefaultTestIdentities.daSequencerId, transport),
+        transports,
         connectionPool = connectionPool,
         options.copy(useNewConnectionPool = useNewConnectionPool),
         TestingConfigInternal(),
@@ -1901,15 +2215,17 @@ final class SequencerClientTest
         cleanPrehead: Option[SequencerCounterCursorPrehead],
         eventValidator: SequencedEventValidator,
         options: SequencerClientConfig,
-        topologyO: Option[SynchronizerCryptoClient] = None,
-        initializeCounterAllocatorTo: Option[SequencerCounter] = None,
-        mockExitOnFatalErrorO: Option[(String, TracedLogger) => TraceContext => Unit] = None,
+        topologyO: Option[SynchronizerCryptoClient],
+        initializeCounterAllocatorTo: Option[SequencerCounter],
+        mockExitOnFatalErrorO: Option[(String, TracedLogger) => TraceContext => Unit],
         synchronizerPredecessor: Option[SynchronizerPredecessor],
-        useNewConnectionPoolO: Option[Boolean] = None,
+        useNewConnectionPoolO: Option[Boolean],
+        amplificationConfig: SubmissionRequestAmplification,
+        firstSendAsyncResponseO: Option[SendAsyncResponse],
     )(implicit closeContext: CloseContext): Env[SequencerClient] = {
       val clock = new SimClock(loggerFactory = loggerFactory)
       val timeouts = DefaultProcessingTimeouts.testing
-      val transport = MockTransport()
+      val transport = MockTransport(clock)
       val sendTrackerStore = new InMemorySendTrackerStore()
       val sequencedEventStore = new InMemorySequencedEventStore(loggerFactory, timeouts)
       val sequencerCounterTrackerStore =
@@ -1947,7 +2263,7 @@ final class SequencerClientTest
           Some(trafficStateController),
         )
 
-      val connectionPool = MockPool()
+      val connectionPool = MockPool(clock)
 
       // TODO(i26481): adjust when the new connection pool is stable
       // The subscription pool does not support the Pekko sequencer client
@@ -1998,4 +2314,11 @@ final class SequencerClientTest
       )
     }
   }
+}
+
+object SequencerClientTest {
+  private final case class SentSubmission(
+      submissionTime: CantonTimestamp,
+      request: SubmissionRequest,
+  )
 }

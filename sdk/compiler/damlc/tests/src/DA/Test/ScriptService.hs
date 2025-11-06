@@ -12,7 +12,7 @@ import DA.Cli.Damlc.Packaging
 import DA.Cli.Damlc.Test
 import DA.Cli.Damlc.Test.TestResults as TR
 import DA.Daml.Compiler.Dar (getDamlRootFiles)
-import qualified DA.Daml.LF.Ast as LF
+import qualified DA.Daml.LF.Ast.Range as LF
 import DA.Daml.LF.PrettyScript (prettyScriptError, prettyScriptResult)
 import qualified DA.Daml.LF.ScriptServiceClient as SS
 import DA.Daml.Options.Types
@@ -47,6 +47,7 @@ import System.IO.Extra
 import Test.Tasty
 import Test.Tasty.HUnit
 import Text.Regex.TDFA
+import qualified DA.Daml.LF.Ast as LF
 
 main :: IO ()
 main = withSdkVersions $ do
@@ -57,22 +58,15 @@ main = withSdkVersions $ do
             [ testGroup
                 "Without Contract keys"
                 [ withResourceCps
-                    (withScriptService lfVersion)
-                    (testScriptService lfVersion)
-                | lfVersion <-
-                    map
-                        LF.defaultOrLatestStable
-                        [minBound @LF.MajorVersion .. maxBound]
+                    (withScriptService LF.defaultLfVersion)
+                    (testScriptService LF.defaultLfVersion)
                 ]
             , testGroup
                 "With Contract Keys"
                 [ withResourceCps
                     (withScriptService lfVersion)
                     (testScriptServiceWithKeys lfVersion)
-                | Just lfVersion <-
-                    map
-                        (LF.featureMinVersion LF.featureContractKeys)
-                        [minBound @LF.MajorVersion .. maxBound]
+                | Just lfVersion <- [LF.minBound $ LF.featureVersionReq LF.featureContractKeys]
                 ]
             ]
 
@@ -100,7 +94,7 @@ withPackageDBAndIdeState lfVersion getScriptService action = do
           "- " <> show scriptDar
         ]
     let opts = defaultOptions (Just lfVersion)
-    withPackageConfig (ProjectPath ".") $
+    withPackageConfig (PackagePath ".") $
       setupPackageDbFromPackageConfig (toNormalizedFilePath' ".") opts
     withIdeState getScriptService opts action
 
@@ -692,7 +686,7 @@ testScriptService lfVersion getScriptService =
     , testGroup "multi packages"
         [ testCase "upgrade to acquired interface" $ do
             scriptDar <- locateDamlScriptDar lfVersion
-            rs <- runScriptsInAllPackages getScriptService lfVersion  (ProjectPath "v2")
+            rs <- runScriptsInAllPackages getScriptService lfVersion  (PackagePath "v2")
               [ ( "interface"
                 , [ ( "daml.yaml"
                     , [ "sdk-version: " <> T.pack sdkVersion
@@ -1274,19 +1268,19 @@ runScriptsInAllPackages
   :: SdkVersioned
   => IO SS.Handle
   -> LF.Version
-  -> ProjectPath
+  -> PackagePath
   -> [(FilePath, [(FilePath, [T.Text])])]
   -> IO [(TR.LocalOrExternal, [(ScriptName, Either T.Text T.Text)])]
 runScriptsInAllPackages getScriptService lfVersion mainPackage packages = do
   damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
   withCurrentTempDir $ do
-    for_ packages $ writeAndBuildProject lfVersion damlc
+    for_ packages $ writeAndBuildPackage lfVersion damlc
     opts <- withPackageConfig mainPackage $ \ PackageConfigFields{..} -> do
       pure $ (defaultOptions (Just lfVersion)) 
         { optMbPackageName = Just pName
         , optMbPackageVersion = pVersion
         }
-    damlFiles <- getDamlRootFiles (unwrapProjectPath mainPackage)
+    damlFiles <- getDamlRootFiles (unwrapPackagePath mainPackage)
     (localResults, extResults) <- withIdeState getScriptService opts $ \ideState ->
       runAllScripts ideState damlFiles (RunAllOption True)
     sequence
@@ -1302,15 +1296,15 @@ locateDamlScriptDar lfVersion = locateRunfiles $ case lfVersion of
   where
     prefix = mainWorkspace </> "daml-script" </> "daml"
 
-writeAndBuildProject :: LF.Version -> FilePath -> (FilePath, [(FilePath, [T.Text])]) -> IO ()
-writeAndBuildProject lfVersion damlc (projectPath, projectFiles) = do
-  createDirectory projectPath
-  for_ projectFiles $ \(file, fileContent) ->
-    writeFile (projectPath </> file) $ T.unpack $ T.unlines fileContent
+writeAndBuildPackage :: LF.Version -> FilePath -> (FilePath, [(FilePath, [T.Text])]) -> IO ()
+writeAndBuildPackage lfVersion damlc (packagePath, packageFiles) = do
+  createDirectory packagePath
+  for_ packageFiles $ \(file, fileContent) ->
+    writeFile (packagePath </> file) $ T.unpack $ T.unlines fileContent
   callProcessSilent damlc
     [ "build"
-    , "--project-root"
-    , projectPath
+    , "--package-root"
+    , packagePath
     , "--target=" <> LF.renderVersion lfVersion
     ]
 

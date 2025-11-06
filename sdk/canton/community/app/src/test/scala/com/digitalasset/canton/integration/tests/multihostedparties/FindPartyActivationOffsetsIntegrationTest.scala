@@ -7,7 +7,7 @@ import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.integration.*
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.util.PartyToParticipantDeclarative
 import com.digitalasset.canton.time.PositiveSeconds
@@ -17,6 +17,7 @@ final class FindPartyActivationOffsetsIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment {
 
+  // TODO(#27707) - Remove when ACS commitments consider the onboarding flag
   // A party gets activated on the multiple participants without being replicated (= ACS mismatch),
   // and we want to minimize the risk of warnings related to acs commitment mismatches
   private val reconciliationInterval = PositiveSeconds.tryOfDays(365 * 10)
@@ -32,7 +33,7 @@ final class FindPartyActivationOffsetsIntegrationTest
       }
 
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory)
+    new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory)
   )
 
   "Alice has 2 activations on P1 and P3" in { implicit env =>
@@ -71,8 +72,7 @@ final class FindPartyActivationOffsetsIntegrationTest
           synchronizerId = daId,
           beginOffsetExclusive = ledgerEndP1,
           completeAfter = PositiveInt.one,
-        )
-        .unwrap should be > 0L
+        ) should be > 0L
 
     }
   }

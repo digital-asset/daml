@@ -10,6 +10,7 @@ import com.digitalasset.daml.lf.data.Ref
 import io.grpc.{Status, StatusRuntimeException}
 import org.mockito.MockitoSugar
 import org.scalatest.Assertion
+import org.scalatest.Assertions.succeed
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import scalapb.lenses.Lens
@@ -25,413 +26,714 @@ class AuthorizerSpec
     with MockitoSugar
     with PekkoBeforeAndAfterAll {
 
+  import AuthorizerSpec.*
+
   private val className = classOf[Authorizer].getSimpleName
   private val dummyRequest = 1337L
   private val expectedSuccessfulResponse = "expectedSuccessfulResponse"
   private val dummyReqRes: Long => Future[String] =
     Map(dummyRequest -> Future.successful(expectedSuccessfulResponse))
 
-  behavior of s"$className.authorize"
-
-  it should "authorize if claims are valid" in {
-    contextWithClaims(ClaimSet.Claims.Wildcard) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.Admin())(dummyRequest)
-    }.map(_ shouldBe expectedSuccessfulResponse)
-  }
-
-  it should "return permission denied authorization error for empty claims" in {
-    contextWithClaims(ClaimSet.Claims.Empty) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.Admin())(dummyRequest)
-    }
-      .transform(
-        assertExpectedFailure(Status.PERMISSION_DENIED.getCode)
-      )
-  }
-
-  it should "return permission denied on authorization error for missing claims" in {
-    contextWithClaims(ClaimSet.Claims.Empty.copy(claims = Seq(ClaimPublic))) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.Admin())(dummyRequest)
-    }
-      .transform(
-        assertExpectedFailure(Status.PERMISSION_DENIED.getCode)
-      )
-  }
-
-  it should "return permission denied " in {
-    contextWithClaims(ClaimSet.Claims.Empty.copy(claims = Seq(ClaimPublic))) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.Admin())(dummyRequest)
-    }
-      .transform(
-        assertExpectedFailure(Status.PERMISSION_DENIED.getCode)
-      )
-  }
+  private val party = Ref.Party.assertFromString("party")
+  private val party2 = Ref.Party.assertFromString("party2")
 
   behavior of s"$className.authorize for RequiredClaim.Public"
 
-  it should "return permission denied for for Admin only" in {
-    contextWithClaims(ClaimSet.Claims.Empty.copy(claims = Seq(ClaimAdmin))) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.Public())(dummyRequest)
-    }
-      .transform(
-        assertExpectedFailure(Status.PERMISSION_DENIED.getCode)
-      )
-  }
-
-  it should "authorize for ClaimSet.Claims.Admin" in {
-    contextWithClaims(ClaimSet.Claims.Admin) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.Public())(dummyRequest)
-    }.map(_ shouldBe expectedSuccessfulResponse)
-  }
-
-  it should "authorize for Public" in {
-    contextWithClaims(ClaimSet.Claims.Empty.copy(claims = Seq(ClaimPublic))) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.Public())(dummyRequest)
-    }.map(_ shouldBe expectedSuccessfulResponse)
-  }
-
-  it should "return permission denied for ClaimIdentityProviderAdmin" in {
-    contextWithClaims(ClaimSet.Claims.Empty.copy(claims = Seq(ClaimIdentityProviderAdmin))) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.Public())(dummyRequest)
-    }
-      .transform(
-        assertExpectedFailure(Status.PERMISSION_DENIED.getCode)
-      )
-  }
+  List(
+    TestDefinition(RequiredClaim.Public(), ClaimSet.Claims.Empty, expectedPermissionDenied),
+    TestDefinition(RequiredClaim.Public(), ClaimSet.Claims.Wildcard, ExpectedSuccess),
+    TestDefinition(
+      RequiredClaim.Public(),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimAdmin)),
+      expectedPermissionDenied,
+    ),
+    TestDefinition(RequiredClaim.Public(), ClaimSet.Claims.Admin, ExpectedSuccess),
+    TestDefinition(
+      RequiredClaim.Public(),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimPublic)),
+      ExpectedSuccess,
+    ),
+    TestDefinition(
+      RequiredClaim.Public(),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimIdentityProviderAdmin)),
+      expectedPermissionDenied,
+    ),
+  ).foreach(generateAuthorizationTest)
 
   behavior of s"$className.authorize for RequiredClaim.Admin"
 
-  it should "return permission denied for ClaimIdentityProviderAdmin" in {
-    contextWithClaims(ClaimSet.Claims.Empty.copy(claims = Seq(ClaimIdentityProviderAdmin))) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.Admin())(dummyRequest)
-    }
-      .transform(
-        assertExpectedFailure(Status.PERMISSION_DENIED.getCode)
-      )
-  }
-
-  it should "authorize for for Admin only" in {
-    contextWithClaims(ClaimSet.Claims.Empty.copy(claims = Seq(ClaimAdmin))) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.Admin())(dummyRequest)
-    }.map(_ shouldBe expectedSuccessfulResponse)
-  }
-
-  it should "authorize for ClaimSet.Claims.Admin" in {
-    contextWithClaims(ClaimSet.Claims.Admin) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.Admin())(dummyRequest)
-    }.map(_ shouldBe expectedSuccessfulResponse)
-  }
+  List(
+    TestDefinition(RequiredClaim.Admin(), ClaimSet.Claims.Empty, expectedPermissionDenied),
+    TestDefinition(
+      RequiredClaim.Admin(),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimPublic)),
+      expectedPermissionDenied,
+    ),
+    TestDefinition(RequiredClaim.Admin(), ClaimSet.Claims.Wildcard, ExpectedSuccess),
+    TestDefinition(
+      RequiredClaim.Admin(),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimIdentityProviderAdmin)),
+      expectedPermissionDenied,
+    ),
+    TestDefinition(
+      RequiredClaim.Admin(),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimAdmin)),
+      ExpectedSuccess,
+    ),
+    TestDefinition(RequiredClaim.Admin(), ClaimSet.Claims.Admin, ExpectedSuccess),
+  ).foreach(generateAuthorizationTest)
 
   behavior of s"$className.authorize for RequiredClaim.AdminOrIdpAdmin"
 
-  it should "authorize for ClaimIdentityProviderAdminOrIdpAdmin" in {
-    contextWithClaims(ClaimSet.Claims.Empty.copy(claims = Seq(ClaimIdentityProviderAdmin))) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.AdminOrIdpAdmin())(dummyRequest)
-    }.map(_ shouldBe expectedSuccessfulResponse)
-  }
-
-  it should "authorize for for Admin onlyOrIdpAdmin" in {
-    contextWithClaims(ClaimSet.Claims.Empty.copy(claims = Seq(ClaimAdmin))) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.AdminOrIdpAdmin())(dummyRequest)
-    }.map(_ shouldBe expectedSuccessfulResponse)
-  }
-
-  it should "authorize for ClaimSet.Claims.AdminOrIdpAdmin" in {
-    contextWithClaims(ClaimSet.Claims.Admin) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.AdminOrIdpAdmin())(dummyRequest)
-    }.map(_ shouldBe expectedSuccessfulResponse)
-  }
+  List(
+    TestDefinition(
+      RequiredClaim.AdminOrIdpAdmin(),
+      ClaimSet.Claims.Empty,
+      expectedPermissionDenied,
+    ),
+    TestDefinition(
+      RequiredClaim.AdminOrIdpAdmin(),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimPublic)),
+      expectedPermissionDenied,
+    ),
+    TestDefinition(RequiredClaim.AdminOrIdpAdmin(), ClaimSet.Claims.Wildcard, ExpectedSuccess),
+    TestDefinition(
+      RequiredClaim.AdminOrIdpAdmin(),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimIdentityProviderAdmin)),
+      ExpectedSuccess,
+    ),
+    TestDefinition(
+      RequiredClaim.AdminOrIdpAdmin(),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimAdmin)),
+      ExpectedSuccess,
+    ),
+    TestDefinition(RequiredClaim.AdminOrIdpAdmin(), ClaimSet.Claims.Admin, ExpectedSuccess),
+  ).foreach(generateAuthorizationTest)
 
   behavior of s"$className.authorize for RequiredClaim.ReadAs"
 
-  it should "return permission denied for ClaimSet.Claims.Admin" in {
-    contextWithClaims(ClaimSet.Claims.Admin) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.ReadAs("party"))(dummyRequest)
-    }
-      .transform(
-        assertExpectedFailure(Status.PERMISSION_DENIED.getCode)
-      )
-  }
+  List(
+    TestDefinition(RequiredClaim.ReadAs("party"), ClaimSet.Claims.Empty, expectedPermissionDenied),
+    TestDefinition(RequiredClaim.ReadAs("party"), ClaimSet.Claims.Wildcard, ExpectedSuccess),
+    TestDefinition(RequiredClaim.ReadAs("party"), ClaimSet.Claims.Admin, expectedPermissionDenied),
+    TestDefinition(
+      RequiredClaim.ReadAs("party"),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimPublic)),
+      expectedPermissionDenied,
+    ),
+    TestDefinition(
+      RequiredClaim.ReadAs("party"),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimReadAsAnyParty)),
+      ExpectedSuccess,
+    ),
+    TestDefinition(
+      RequiredClaim.ReadAs("party"),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimExecuteAsAnyParty)),
+      expectedPermissionDenied,
+    ),
+    TestDefinition(
+      RequiredClaim.ReadAs("party"),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimActAsAnyParty)),
+      ExpectedSuccess,
+    ),
+    TestDefinition(
+      RequiredClaim.ReadAs("party"),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimReadAsParty(party))),
+      ExpectedSuccess,
+    ),
+    TestDefinition(
+      RequiredClaim.ReadAs("party"),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimExecuteAsParty(party))),
+      expectedPermissionDenied,
+    ),
+    TestDefinition(
+      RequiredClaim.ReadAs("party"),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimActAsParty(party))),
+      ExpectedSuccess,
+    ),
+    TestDefinition(
+      RequiredClaim.ReadAs("party"),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimReadAsParty(party2))),
+      expectedPermissionDenied,
+    ),
+    TestDefinition(
+      RequiredClaim.ReadAs("party"),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimExecuteAsParty(party2))),
+      expectedPermissionDenied,
+    ),
+    TestDefinition(
+      RequiredClaim.ReadAs("party"),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimActAsParty(party2))),
+      expectedPermissionDenied,
+    ),
+  ).foreach(generateAuthorizationTest)
 
-  it should "return permission denied for Public" in {
-    contextWithClaims(ClaimSet.Claims.Empty.copy(claims = Seq(ClaimPublic))) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.ReadAs("party"))(dummyRequest)
-    }
-      .transform(
-        assertExpectedFailure(Status.PERMISSION_DENIED.getCode)
-      )
-  }
+  behavior of s"$className.authorize for RequiredClaim.ExecuteAs"
 
-  it should "authorize for ClaimSet.Claims.ReadAsAnyParty" in {
-    contextWithClaims(ClaimSet.Claims.Empty.copy(claims = Seq(ClaimReadAsAnyParty))) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.ReadAs("party"))(dummyRequest)
-    }.map(_ shouldBe expectedSuccessfulResponse)
-  }
-
-  it should "authorize for ClaimSet.Claims.ActAsAnyParty" in {
-    contextWithClaims(ClaimSet.Claims.Empty.copy(claims = Seq(ClaimActAsAnyParty))) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.ReadAs("party"))(dummyRequest)
-    }.map(_ shouldBe expectedSuccessfulResponse)
-  }
-
-  it should "authorize for ClaimSet.Claims.ReadAs with same party" in {
-    contextWithClaims(
-      ClaimSet.Claims.Empty.copy(
-        claims = Seq(ClaimReadAsParty(Ref.Party.assertFromString("party")))
-      )
-    ) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.ReadAs("party"))(dummyRequest)
-    }.map(_ shouldBe expectedSuccessfulResponse)
-  }
-
-  it should "authorize for ClaimSet.Claims.ActAs with same party" in {
-    contextWithClaims(
-      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimActAsParty(Ref.Party.assertFromString("party"))))
-    ) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.ReadAs("party"))(dummyRequest)
-    }.map(_ shouldBe expectedSuccessfulResponse)
-  }
-
-  it should "return permission denied for ClaimSet.Claims.ReadAs with different party" in {
-    contextWithClaims(
-      ClaimSet.Claims.Empty.copy(
-        claims = Seq(ClaimReadAsParty(Ref.Party.assertFromString("party2")))
-      )
-    ) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.ReadAs("party"))(dummyRequest)
-    }
-      .transform(
-        assertExpectedFailure(Status.PERMISSION_DENIED.getCode)
-      )
-  }
-
-  it should "return permission denied for ClaimSet.Claims.ActAs with different party" in {
-    contextWithClaims(
-      ClaimSet.Claims.Empty.copy(
-        claims = Seq(ClaimActAsParty(Ref.Party.assertFromString("party2")))
-      )
-    ) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.ReadAs("party"))(dummyRequest)
-    }
-      .transform(
-        assertExpectedFailure(Status.PERMISSION_DENIED.getCode)
-      )
-  }
+  List(
+    TestDefinition(
+      RequiredClaim.ExecuteAs("party"),
+      ClaimSet.Claims.Empty,
+      expectedPermissionDenied,
+    ),
+    TestDefinition(RequiredClaim.ExecuteAs("party"), ClaimSet.Claims.Wildcard, ExpectedSuccess),
+    TestDefinition(
+      RequiredClaim.ExecuteAs("party"),
+      ClaimSet.Claims.Admin,
+      expectedPermissionDenied,
+    ),
+    TestDefinition(
+      RequiredClaim.ExecuteAs("party"),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimPublic)),
+      expectedPermissionDenied,
+    ),
+    TestDefinition(
+      RequiredClaim.ExecuteAs("party"),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimReadAsAnyParty)),
+      expectedPermissionDenied,
+    ),
+    TestDefinition(
+      RequiredClaim.ExecuteAs("party"),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimExecuteAsAnyParty)),
+      ExpectedSuccess,
+    ),
+    TestDefinition(
+      RequiredClaim.ExecuteAs("party"),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimActAsAnyParty)),
+      ExpectedSuccess,
+    ),
+    TestDefinition(
+      RequiredClaim.ExecuteAs("party"),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimReadAsParty(party))),
+      expectedPermissionDenied,
+    ),
+    TestDefinition(
+      RequiredClaim.ExecuteAs("party"),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimExecuteAsParty(party))),
+      ExpectedSuccess,
+    ),
+    TestDefinition(
+      RequiredClaim.ExecuteAs("party"),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimActAsParty(party))),
+      ExpectedSuccess,
+    ),
+    TestDefinition(
+      RequiredClaim.ExecuteAs("party"),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimReadAsParty(party2))),
+      expectedPermissionDenied,
+    ),
+    TestDefinition(
+      RequiredClaim.ExecuteAs("party"),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimExecuteAsParty(party2))),
+      expectedPermissionDenied,
+    ),
+    TestDefinition(
+      RequiredClaim.ExecuteAs("party"),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimActAsParty(party2))),
+      expectedPermissionDenied,
+    ),
+  ).foreach(generateAuthorizationTest)
 
   behavior of s"$className.authorize for RequiredClaim.ReadAsAnyParty"
 
-  it should "return permission denied for ClaimSet.Claims.AdminAnyParty" in {
-    contextWithClaims(ClaimSet.Claims.Admin) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.ReadAsAnyParty())(dummyRequest)
-    }
-      .transform(
-        assertExpectedFailure(Status.PERMISSION_DENIED.getCode)
-      )
-  }
-
-  it should "return permission denied for PublicAnyParty" in {
-    contextWithClaims(ClaimSet.Claims.Empty.copy(claims = Seq(ClaimPublic))) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.ReadAsAnyParty())(dummyRequest)
-    }
-      .transform(
-        assertExpectedFailure(Status.PERMISSION_DENIED.getCode)
-      )
-  }
-
-  it should "authorize for ClaimSet.Claims.ReadAsAnyPartyAnyParty" in {
-    contextWithClaims(ClaimSet.Claims.Empty.copy(claims = Seq(ClaimReadAsAnyParty))) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.ReadAsAnyParty())(dummyRequest)
-    }.map(_ shouldBe expectedSuccessfulResponse)
-  }
-
-  it should "authorize for ClaimSet.Claims.ActAsAnyPartyAnyParty" in {
-    contextWithClaims(ClaimSet.Claims.Empty.copy(claims = Seq(ClaimActAsAnyParty))) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.ReadAsAnyParty())(dummyRequest)
-    }.map(_ shouldBe expectedSuccessfulResponse)
-  }
-
-  it should "return permission denied for ClaimSet.Claims.ReadAs a partyAnyParty" in {
-    contextWithClaims(
-      ClaimSet.Claims.Empty.copy(
-        claims = Seq(ClaimReadAsParty(Ref.Party.assertFromString("party")))
-      )
-    ) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.ReadAsAnyParty())(dummyRequest)
-    }
-      .transform(
-        assertExpectedFailure(Status.PERMISSION_DENIED.getCode)
-      )
-  }
-
-  it should "return permission denied for ClaimSet.Claims.ActAs with a partyAnyParty" in {
-    contextWithClaims(
-      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimActAsParty(Ref.Party.assertFromString("party"))))
-    ) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.ReadAsAnyParty())(dummyRequest)
-    }
-      .transform(
-        assertExpectedFailure(Status.PERMISSION_DENIED.getCode)
-      )
-  }
+  List(
+    TestDefinition(RequiredClaim.ReadAsAnyParty(), ClaimSet.Claims.Empty, expectedPermissionDenied),
+    TestDefinition(RequiredClaim.ReadAsAnyParty(), ClaimSet.Claims.Wildcard, ExpectedSuccess),
+    TestDefinition(RequiredClaim.ReadAsAnyParty(), ClaimSet.Claims.Admin, expectedPermissionDenied),
+    TestDefinition(
+      RequiredClaim.ReadAsAnyParty(),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimPublic)),
+      expectedPermissionDenied,
+    ),
+    TestDefinition(
+      RequiredClaim.ReadAsAnyParty(),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimReadAsAnyParty)),
+      ExpectedSuccess,
+    ),
+    TestDefinition(
+      RequiredClaim.ReadAsAnyParty(),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimExecuteAsAnyParty)),
+      expectedPermissionDenied,
+    ),
+    TestDefinition(
+      RequiredClaim.ReadAsAnyParty(),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimActAsAnyParty)),
+      ExpectedSuccess,
+    ),
+    TestDefinition(
+      RequiredClaim.ReadAsAnyParty(),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimReadAsParty(party))),
+      expectedPermissionDenied,
+    ),
+    TestDefinition(
+      RequiredClaim.ReadAsAnyParty(),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimExecuteAsParty(party))),
+      expectedPermissionDenied,
+    ),
+    TestDefinition(
+      RequiredClaim.ReadAsAnyParty(),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimActAsParty(party))),
+      expectedPermissionDenied,
+    ),
+    TestDefinition(
+      RequiredClaim.ReadAsAnyParty(),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimReadAsParty(party2))),
+      expectedPermissionDenied,
+    ),
+    TestDefinition(
+      RequiredClaim.ReadAsAnyParty(),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimExecuteAsParty(party2))),
+      expectedPermissionDenied,
+    ),
+    TestDefinition(
+      RequiredClaim.ReadAsAnyParty(),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimActAsParty(party2))),
+      expectedPermissionDenied,
+    ),
+  ).foreach(generateAuthorizationTest)
 
   behavior of s"$className.authorize for RequiredClaim.ActAs"
 
-  it should "return permission denied for ClaimSet.Claims.Admin" in {
-    contextWithClaims(ClaimSet.Claims.Admin) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.ActAs("party"))(dummyRequest)
-    }
-      .transform(
-        assertExpectedFailure(Status.PERMISSION_DENIED.getCode)
-      )
-  }
+  List(
+    TestDefinition(RequiredClaim.ActAs("party"), ClaimSet.Claims.Empty, expectedPermissionDenied),
+    TestDefinition(RequiredClaim.ActAs("party"), ClaimSet.Claims.Wildcard, ExpectedSuccess),
+    TestDefinition(RequiredClaim.ActAs("party"), ClaimSet.Claims.Admin, expectedPermissionDenied),
+    TestDefinition(
+      RequiredClaim.ActAs("party"),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimPublic)),
+      expectedPermissionDenied,
+    ),
+    TestDefinition(
+      RequiredClaim.ActAs("party"),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimReadAsAnyParty)),
+      expectedPermissionDenied,
+    ),
+    TestDefinition(
+      RequiredClaim.ActAs("party"),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimExecuteAsAnyParty)),
+      expectedPermissionDenied,
+    ),
+    TestDefinition(
+      RequiredClaim.ActAs("party"),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimActAsAnyParty)),
+      ExpectedSuccess,
+    ),
+    TestDefinition(
+      RequiredClaim.ActAs("party"),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimReadAsParty(party))),
+      expectedPermissionDenied,
+    ),
+    TestDefinition(
+      RequiredClaim.ActAs("party"),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimExecuteAsParty(party))),
+      expectedPermissionDenied,
+    ),
+    TestDefinition(
+      RequiredClaim.ActAs("party"),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimActAsParty(party))),
+      ExpectedSuccess,
+    ),
+    TestDefinition(
+      RequiredClaim.ActAs("party"),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimReadAsParty(party2))),
+      expectedPermissionDenied,
+    ),
+    TestDefinition(
+      RequiredClaim.ActAs("party"),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimExecuteAsParty(party2))),
+      expectedPermissionDenied,
+    ),
+    TestDefinition(
+      RequiredClaim.ActAs("party"),
+      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimActAsParty(party2))),
+      expectedPermissionDenied,
+    ),
+  ).foreach(generateAuthorizationTest)
 
-  it should "return permission denied for Public" in {
-    contextWithClaims(ClaimSet.Claims.Empty.copy(claims = Seq(ClaimPublic))) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.ActAs("party"))(dummyRequest)
-    }
-      .transform(
-        assertExpectedFailure(Status.PERMISSION_DENIED.getCode)
-      )
-  }
+  val userId1 = "userId1"
+  val userId2 = "userId2"
 
-  it should "return permission denied for ClaimSet.Claims.ReadAsAnyParty" in {
-    contextWithClaims(ClaimSet.Claims.Empty.copy(claims = Seq(ClaimReadAsAnyParty))) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.ActAs("party"))(dummyRequest)
-    }
-      .transform(
-        assertExpectedFailure(Status.PERMISSION_DENIED.getCode)
-      )
-  }
-
-  it should "authorize for ClaimSet.Claims.ActAsAnyParty" in {
-    contextWithClaims(ClaimSet.Claims.Empty.copy(claims = Seq(ClaimActAsAnyParty))) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.ActAs("party"))(dummyRequest)
-    }.map(_ shouldBe expectedSuccessfulResponse)
-  }
-
-  it should "return permission denied for ClaimSet.Claims.ReadAs with same party" in {
-    contextWithClaims(
+  def matchUserIdTestDef(
+      claims: Seq[Claim],
+      userId: Option[String],
+      req: String,
+      expectedResult: ExpectedResult,
+      descSuffix: String,
+      resolvedFromUser: Boolean = true,
+  ): TestDefinition =
+    TestDefinition(
+      RequiredClaim.MatchUserIdForUserManagement(simpleLens),
       ClaimSet.Claims.Empty.copy(
-        claims = Seq(ClaimReadAsParty(Ref.Party.assertFromString("party")))
-      )
-    ) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.ActAs("party"))(dummyRequest)
-    }
-      .transform(
-        assertExpectedFailure(Status.PERMISSION_DENIED.getCode)
-      )
-  }
+        claims = claims,
+        userId = userId,
+        resolvedFromUser = resolvedFromUser,
+      ),
+      expectedResult,
+      req = req,
+      descSuffix = descSuffix,
+      resultAssert = _ shouldBe userId1,
+    )
 
-  it should "authorize for ClaimSet.Claims.ActAs with same party" in {
-    contextWithClaims(
-      ClaimSet.Claims.Empty.copy(claims = Seq(ClaimActAsParty(Ref.Party.assertFromString("party"))))
-    ) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.ActAs("party"))(dummyRequest)
-    }.map(_ shouldBe expectedSuccessfulResponse)
-  }
+  behavior of s"$className.authorize for RequiredClaim.MatchUserIdForUserManagement without Admin rights"
 
-  it should "return permission denied for ClaimSet.Claims.ActAs with different party" in {
-    contextWithClaims(
+  List(
+    matchUserIdTestDef(
+      Nil,
+      Some(userId1),
+      userId1,
+      ExpectedSuccess,
+      "when authorized and request user IDs match",
+    ),
+    matchUserIdTestDef(Nil, Some(userId1), "", ExpectedSuccess, "when missing request user ID"),
+    matchUserIdTestDef(
+      Nil,
+      Some(userId2),
+      userId1,
+      expectedPermissionDenied,
+      "when authorized and request user IDs don't match",
+    ),
+    matchUserIdTestDef(Nil, None, userId1, expectedInternal, "when undefined authorized user ID"),
+  ).foreach(generateAuthorizationTest)
+
+  behavior of s"$className.authorize for RequiredClaim.MatchUserIdForUserManagement with Admin rights"
+  List(
+    matchUserIdTestDef(
+      Seq(ClaimAdmin),
+      Some(userId1),
+      userId1,
+      ExpectedSuccess,
+      "when authorized and request user IDs match",
+    ),
+    matchUserIdTestDef(
+      Seq(ClaimAdmin),
+      Some(userId1),
+      "",
+      ExpectedSuccess,
+      "when missing request user ID",
+    ),
+    matchUserIdTestDef(
+      Seq(ClaimAdmin),
+      Some(userId2),
+      userId1,
+      ExpectedSuccess,
+      "when authorized and request user IDs don't match",
+    ),
+    matchUserIdTestDef(
+      Seq(ClaimAdmin),
+      None,
+      userId1,
+      expectedInternal,
+      "when undefined authorized user ID",
+    ),
+  ).foreach(generateAuthorizationTest)
+
+  behavior of s"$className.authorize for RequiredClaim.MatchUserIdForUserManagement with IDP Admin rights"
+  List(
+    matchUserIdTestDef(
+      Seq(ClaimIdentityProviderAdmin),
+      Some(userId1),
+      userId1,
+      ExpectedSuccess,
+      "when authorized and request user IDs match",
+    ),
+    matchUserIdTestDef(
+      Seq(ClaimIdentityProviderAdmin),
+      Some(userId1),
+      "",
+      ExpectedSuccess,
+      "when missing request user ID",
+    ),
+    matchUserIdTestDef(
+      Seq(ClaimIdentityProviderAdmin),
+      Some(userId2),
+      userId1,
+      ExpectedSuccess,
+      "when authorized and request user IDs don't match",
+    ),
+    matchUserIdTestDef(
+      Seq(ClaimIdentityProviderAdmin),
+      None,
+      userId1,
+      expectedInternal,
+      "when undefined authorized user ID",
+    ),
+  ).foreach(generateAuthorizationTest)
+
+  behavior of s"$className.authorize for RequiredClaim.MatchUserIdForUserManagement not resolvedFromUser"
+
+  List(
+    matchUserIdTestDef(
+      Nil,
+      Some(userId1),
+      userId1,
+      expectedPermissionDenied,
+      "when authorized and request user IDs match",
+      resolvedFromUser = false,
+    ),
+    matchUserIdTestDef(
+      Nil,
+      None,
+      userId1,
+      expectedPermissionDenied,
+      "when undefined authenticated user ID",
+      resolvedFromUser = false,
+    ),
+    matchUserIdTestDef(
+      Nil,
+      Some(userId2),
+      userId1,
+      expectedPermissionDenied,
+      "when authorized and request user IDs don't match",
+      resolvedFromUser = false,
+    ),
+    matchUserIdTestDef(
+      Seq(ClaimAdmin),
+      Some(userId1),
+      userId1,
+      ExpectedSuccess,
+      "when authorized and request user IDs match",
+      resolvedFromUser = false,
+    ),
+    matchUserIdTestDef(
+      Seq(ClaimAdmin),
+      None,
+      userId1,
+      ExpectedSuccess,
+      "when undefined authenticated user ID",
+      resolvedFromUser = false,
+    ),
+    matchUserIdTestDef(
+      Seq(ClaimAdmin),
+      Some(userId2),
+      userId1,
+      ExpectedSuccess,
+      "when authorized and request user IDs don't match",
+      resolvedFromUser = false,
+    ),
+  ).foreach(generateAuthorizationTest)
+
+  def anyAdminTestDef(
+      claims: Seq[Claim],
+      userId: Option[String],
+      req: String,
+      expectedResult: ExpectedResult,
+      descSuffix: String,
+      resolvedFromUser: Boolean = true,
+  ): TestDefinition =
+    TestDefinition(
+      RequiredClaim.AdminOrIdpAdminOrSelfAdmin(simpleLens),
       ClaimSet.Claims.Empty.copy(
-        claims = Seq(ClaimActAsParty(Ref.Party.assertFromString("party2")))
-      )
-    ) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.ActAs("party"))(dummyRequest)
-    }
-      .transform(
-        assertExpectedFailure(Status.PERMISSION_DENIED.getCode)
-      )
-  }
+        claims = claims,
+        userId = userId,
+        resolvedFromUser = resolvedFromUser,
+      ),
+      expectedResult,
+      req = req,
+      descSuffix = descSuffix,
+    )
+
+  behavior of s"$className.authorize for AdminOrIdpAdminOrSelfAdmin with Admin claims"
+  List(
+    anyAdminTestDef(
+      Seq(ClaimAdmin),
+      Some(userId2),
+      userId2,
+      ExpectedSuccess,
+      "when authorized and request user IDs match",
+    ),
+    anyAdminTestDef(
+      Seq(ClaimAdmin),
+      Some(userId1),
+      userId2,
+      ExpectedSuccess,
+      "when authorized and request user IDs don't match",
+    ),
+    anyAdminTestDef(
+      Seq(ClaimAdmin),
+      Some(userId1),
+      "",
+      ExpectedSuccess,
+      "when request user ID missing",
+    ),
+    anyAdminTestDef(
+      Seq(ClaimAdmin),
+      None,
+      userId2,
+      ExpectedSuccess,
+      "when authorized user ID missing",
+    ),
+  ).foreach(generateAuthorizationTest)
+
+  behavior of s"$className.authorize for AdminOrIdpAdminOrSelfAdmin with Idp Admin claims"
+  List(
+    anyAdminTestDef(
+      Seq(ClaimIdentityProviderAdmin),
+      Some(userId2),
+      userId2,
+      ExpectedSuccess,
+      "when authorized and request user IDs match",
+    ),
+    anyAdminTestDef(
+      Seq(ClaimIdentityProviderAdmin),
+      Some(userId1),
+      userId2,
+      ExpectedSuccess,
+      "when authorized and request user IDs don't match",
+    ),
+    anyAdminTestDef(
+      Seq(ClaimIdentityProviderAdmin),
+      Some(userId1),
+      "",
+      ExpectedSuccess,
+      "when request user ID missing",
+    ),
+    anyAdminTestDef(
+      Seq(ClaimIdentityProviderAdmin),
+      None,
+      userId2,
+      ExpectedSuccess,
+      "when authorized user ID missing",
+    ),
+  )
+    .foreach(generateAuthorizationTest)
+
+  behavior of s"$className.authorize for AdminOrIdpAdminOrSelfAdmin without Admin claims"
+  List(
+    anyAdminTestDef(
+      Nil,
+      Some(userId2),
+      userId2,
+      ExpectedSuccess,
+      "when authorized and request user IDs match",
+    ),
+    anyAdminTestDef(
+      Nil,
+      Some(userId1),
+      userId2,
+      expectedPermissionDenied,
+      "when authorized and request user IDs don't match",
+    ),
+    anyAdminTestDef(
+      Nil,
+      Some(userId1),
+      "",
+      expectedPermissionDenied,
+      "when request user ID missing",
+    ),
+    anyAdminTestDef(Nil, None, userId2, expectedInternal, "when authorized user ID missing"),
+  ).foreach(generateAuthorizationTest)
+
+  behavior of s"$className.authorize for AdminOrIdpAdminOrSelfAdmin with Admin claims when not resolvedFromUser"
+  List(
+    anyAdminTestDef(
+      Seq(ClaimAdmin),
+      Some(userId2),
+      userId2,
+      ExpectedSuccess,
+      "when authorized and request user IDs match",
+      resolvedFromUser = false,
+    ),
+    anyAdminTestDef(
+      Seq(ClaimAdmin),
+      Some(userId1),
+      userId2,
+      ExpectedSuccess,
+      "when authorized and request user IDs don't match",
+      resolvedFromUser = false,
+    ),
+    anyAdminTestDef(
+      Seq(ClaimAdmin),
+      Some(userId1),
+      "",
+      ExpectedSuccess,
+      "when request user ID missing",
+      resolvedFromUser = false,
+    ),
+    anyAdminTestDef(
+      Seq(ClaimAdmin),
+      None,
+      userId2,
+      ExpectedSuccess,
+      "when authorized user ID missing",
+      resolvedFromUser = false,
+    ),
+  ).foreach(generateAuthorizationTest)
+
+  behavior of s"$className.authorize for AdminOrIdpAdminOrSelfAdmin with Idp Admin claims when not resolvedFromUser"
+  List(
+    anyAdminTestDef(
+      Seq(ClaimIdentityProviderAdmin),
+      Some(userId2),
+      userId2,
+      ExpectedSuccess,
+      "when authorized and request user IDs match",
+      resolvedFromUser = false,
+    ),
+    anyAdminTestDef(
+      Seq(ClaimIdentityProviderAdmin),
+      Some(userId1),
+      userId2,
+      ExpectedSuccess,
+      "when authorized and request user IDs don't match",
+      resolvedFromUser = false,
+    ),
+    anyAdminTestDef(
+      Seq(ClaimIdentityProviderAdmin),
+      Some(userId1),
+      "",
+      ExpectedSuccess,
+      "when request user ID missing",
+      resolvedFromUser = false,
+    ),
+    anyAdminTestDef(
+      Seq(ClaimIdentityProviderAdmin),
+      None,
+      userId2,
+      ExpectedSuccess,
+      "when authorized user ID missing",
+      resolvedFromUser = false,
+    ),
+  ).foreach(generateAuthorizationTest)
+
+  behavior of s"$className.authorize for AdminOrIdpAdminOrSelfAdmin without Admin claims when not resolvedFromUser"
+  List(
+    anyAdminTestDef(
+      Nil,
+      Some(userId2),
+      userId2,
+      expectedPermissionDenied,
+      "when authorized and request user IDs match",
+      resolvedFromUser = false,
+    ),
+    anyAdminTestDef(
+      Nil,
+      Some(userId1),
+      userId2,
+      expectedPermissionDenied,
+      "when authorized and request user IDs don't match",
+      resolvedFromUser = false,
+    ),
+    anyAdminTestDef(
+      Nil,
+      Some(userId1),
+      "",
+      expectedPermissionDenied,
+      "when request user ID missing",
+      resolvedFromUser = false,
+    ),
+    anyAdminTestDef(
+      Nil,
+      None,
+      userId2,
+      expectedPermissionDenied,
+      "when authorized user ID missing",
+      resolvedFromUser = false,
+    ),
+  ).foreach(generateAuthorizationTest)
 
   behavior of s"$className.authorize for RequiredClaim.MatchUserId"
 
-  it should "authorize for resolvedFromUser and user ID matching user ID" in {
-    val userL = Lens[Long, String](_.toString)((_, s) => s.toLong)
-    contextWithClaims(
-      ClaimSet.Claims.Empty.copy(
-        claims = Nil,
-        userId = Some(dummyRequest.toString),
-        resolvedFromUser = true,
-      )
-    ) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.MatchUserIdForUserManagement(userL))(dummyRequest)
-    }.map(_ shouldBe expectedSuccessfulResponse)
-  }
-
-  it should "return permission denied for resolvedFromUser and user ID not matching user ID" in {
-    val userL = Lens[Long, String](_.toString)((_, s) => s.toLong)
-    contextWithClaims(
-      ClaimSet.Claims.Empty.copy(
-        claims = Nil,
-        userId = Some("x"),
-        resolvedFromUser = true,
-      )
-    ) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.MatchUserIdForUserManagement(userL))(dummyRequest)
-    }
-      .transform(
-        assertExpectedFailure(Status.PERMISSION_DENIED.getCode)
-      )
-  }
-
-  it should "return permission denied for not resolvedFromUser" in {
-    val userL = Lens[Long, String](_.toString)((_, s) => s.toLong)
-    contextWithClaims(
-      ClaimSet.Claims.Empty.copy(
-        claims = Nil,
-        resolvedFromUser = false,
-      )
-    ) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.MatchUserIdForUserManagement(userL))(dummyRequest)
-    }
-      .transform(
-        assertExpectedFailure(Status.PERMISSION_DENIED.getCode)
-      )
-  }
-
-  it should "return permission denied for resolvedFromUser and not defined user ID" in {
-    val userL = Lens[Long, String](_.toString)((_, s) => s.toLong)
-    contextWithClaims(
-      ClaimSet.Claims.Empty.copy(
-        claims = Nil,
-        resolvedFromUser = false,
-      )
-    ) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.MatchUserIdForUserManagement(userL))(dummyRequest)
-    }
-      .transform(
-        assertExpectedFailure(Status.PERMISSION_DENIED.getCode)
-      )
-  }
-
-  it should "authorize for resolvedFromUser and user ID not matching user ID if Admin rights available" in {
-    val userL = Lens[Long, String](_.toString)((_, s) => s.toLong)
-    contextWithClaims(
-      ClaimSet.Claims.Empty.copy(
-        claims = Seq(ClaimAdmin),
-        userId = Some("x"),
-        resolvedFromUser = true,
-      )
-    ) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.MatchUserIdForUserManagement(userL))(dummyRequest)
-    }.map(_ shouldBe expectedSuccessfulResponse)
-  }
-
-  it should "authorize for resolvedFromUser and user ID not matching user ID if IDP Admin rights available" in {
-    val userL = Lens[Long, String](_.toString)((_, s) => s.toLong)
-    contextWithClaims(
-      ClaimSet.Claims.Empty.copy(
-        claims = Seq(ClaimIdentityProviderAdmin),
-        userId = Some("x"),
-        resolvedFromUser = true,
-      )
-    ) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.MatchUserIdForUserManagement(userL))(dummyRequest)
-    }.map(_ shouldBe expectedSuccessfulResponse)
-  }
-
-  behavior of s"$className.authorize for RequiredClaim.MatchUserId"
-
-  it should "authorize for user ID matching user ID" in {
+  it should "authorize for authenticated user ID matching request user ID" in {
     val userIdL = Lens[Long, String](_.toString)((_, s) => s.toLong)
     contextWithClaims(
       ClaimSet.Claims.Empty.copy(
@@ -443,7 +745,7 @@ class AuthorizerSpec
     }.map(_ shouldBe expectedSuccessfulResponse)
   }
 
-  it should "authorize for no user ID specified but available in the claims" in {
+  it should "authorize for authenticated user ID when request user ID is missing" in {
     val userIdL = Lens[Long, String](l => if (l == 0) "" else l.toString)((_, s) => s.toLong)
     contextWithClaims(
       ClaimSet.Claims.Empty.copy(
@@ -455,7 +757,7 @@ class AuthorizerSpec
     }.map(_ shouldBe expectedSuccessfulResponse)
   }
 
-  it should "return permission denied for user ID not matching user ID" in {
+  it should "return permission denied for authenticated user ID not matching request user ID" in {
     val userIdL = Lens[Long, String](_.toString)((_, s) => s.toLong)
     contextWithClaims(
       ClaimSet.Claims.Empty.copy(
@@ -470,7 +772,7 @@ class AuthorizerSpec
       )
   }
 
-  it should "return permission denied for user ID not matching user ID if skipUserIdValidationForAnyPartyReaders" in {
+  it should "return permission denied for authenticated user ID not matching request user ID if skipUserIdValidationForAnyPartyReaders" in {
     val userIdL = Lens[Long, String](_.toString)((_, s) => s.toLong)
     contextWithClaims(
       ClaimSet.Claims.Empty.copy(
@@ -490,7 +792,7 @@ class AuthorizerSpec
       )
   }
 
-  it should "authorize for user ID not matching user ID for AnyPartyReaders-s if skipUserIdValidationForAnyPartyReaders" in {
+  it should "authorize for authenticated user ID not matching request user ID for AnyPartyReaders-s if skipUserIdValidationForAnyPartyReaders" in {
     val userIdL = Lens[Long, String](_.toString)((_, s) => s.toLong)
     contextWithClaims(
       ClaimSet.Claims.Empty.copy(
@@ -507,7 +809,7 @@ class AuthorizerSpec
     }.map(_ shouldBe expectedSuccessfulResponse)
   }
 
-  it should "return invalid argument for no user ID in claims, and none provided in the request" in {
+  it should "return invalid argument for no authenticated user ID, and no request user ID" in {
     val userIdL = Lens[Long, String](l => if (l == 0) "" else l.toString)((_, s) => s.toLong)
     contextWithClaims(
       ClaimSet.Claims.Empty.copy(
@@ -611,5 +913,59 @@ class AuthorizerSpec
     "participant-id",
     telemetry = NoOpTelemetry,
     loggerFactory = loggerFactory,
+  )
+
+  def generateAuthorizationTest(td: TestDefinition): Unit = {
+    val prettyClaims = s"Claims(${td.suppliedClaim.claims.map(_.toString).mkString(",")})"
+    val testDescription = td.expectedResult match {
+      case ExpectedSuccess =>
+        s"authorize for $prettyClaims ${td.descSuffix}"
+      case ExpectedFailure(code) =>
+        s"return $code for $prettyClaims ${td.descSuffix}"
+    }
+    it should testDescription in {
+      contextWithClaims(td.suppliedClaim) {
+        authorizer().rpc(simpleReqRes)(td.requiredClaim)(td.req)
+      }.map(td.resultAssert).transform {
+        case Success(_) =>
+          td.expectedResult match {
+            case ExpectedSuccess =>
+              Success(succeed)
+            case ExpectedFailure(_) =>
+              fail("Unexpected success")
+          }
+        case Failure(ex: StatusRuntimeException) =>
+          td.expectedResult match {
+            case ExpectedSuccess =>
+              fail(s"Unexpected error ${ex.getStatus.getCode}")
+            case ExpectedFailure(code) if code != ex.getStatus.getCode =>
+              fail(s"Unexpected error ${ex.getStatus.getCode}")
+            case _ => Success(succeed)
+          }
+        case ex => fail(s"Unexpected error $ex")
+      }
+    }
+  }
+}
+
+object AuthorizerSpec {
+  sealed trait ExpectedResult
+  final case object ExpectedSuccess extends ExpectedResult
+  final case class ExpectedFailure(code: Status.Code) extends ExpectedResult
+
+  val expectedPermissionDenied: ExpectedFailure = ExpectedFailure(Status.PERMISSION_DENIED.getCode)
+  val expectedInternal: ExpectedFailure = ExpectedFailure(Status.INTERNAL.getCode)
+
+  val simpleRequest: String = "simpleRequest"
+  val simpleReqRes: String => Future[String] = s => Future.successful(s)
+  val simpleLens: Lens[String, String] = Lens[String, String](s => s)((_, s) => s)
+
+  final case class TestDefinition(
+      requiredClaim: RequiredClaim[String],
+      suppliedClaim: ClaimSet.Claims,
+      expectedResult: ExpectedResult,
+      req: String = simpleRequest,
+      descSuffix: String = "",
+      resultAssert: String => Assertion = _ => succeed,
   )
 }

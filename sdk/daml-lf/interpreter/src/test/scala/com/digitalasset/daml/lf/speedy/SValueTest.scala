@@ -21,7 +21,7 @@ class SValueTest extends AnyWordSpec with Inside with Matchers with TableDrivenP
 
   "SValue#toValue" should {
 
-    val Nat = Ref.Identifier.assertFromString("-pkgId:Mod:Nat")
+    val Nat = Ref.Identifier.assertFromString("-pkgId-:Mod:Nat")
     val Z = Ref.Name.assertFromString("Z")
     val S = Ref.Name.assertFromString("S")
 
@@ -41,6 +41,38 @@ class SValueTest extends AnyWordSpec with Inside with Matchers with TableDrivenP
       }
     }
 
+    "rejects null char in Text" in {
+      import interpretation.{Error => IError}
+
+      val testCases = Table(
+        "value",
+        SValue.SText("->\u0000<-"),
+        SValue.SRecord(
+          Ref.Identifier.assertFromString("-pkgId-:Mod:R"),
+          ImmArray(Ref.Name.assertFromString("f")),
+          ArraySeq(SValue.SText("'\u0001'-'\u0001'='\u0000'")),
+        ),
+        SMap(
+          isTextMap = false,
+          SValue.SText("\u0000") -> SValue.SInt64(0),
+          SValue.SText("\u00001") -> SValue.SInt64(2),
+        ),
+        SMap(
+          isTextMap = true,
+          SValue.SText("\u0000") -> SValue.SInt64(0),
+          SValue.SText("\u0001") -> SValue.SInt64(2),
+        ),
+      )
+
+      forEvery(testCases) { v =>
+        val result = Try(v.toUnnormalizedValue)
+        inside(result) { case Failure(SError.SErrorDamlException(IError.MalformedText(err))) =>
+          err should include("null character")
+        }
+      }
+
+    }
+
     "accepts just right nesting" in {
       // Because Z has a nesting of 1, toNat(Value.MAXIMUM_NESTING - 1) has a nesting of
       // Value.MAXIMUM_NESTING
@@ -50,7 +82,7 @@ class SValueTest extends AnyWordSpec with Inside with Matchers with TableDrivenP
 
   "SMap" should {
 
-    "fail on creation with unordered indexed sequences" in {
+    "fail on creation with non-strictly ordered indexed sequences" in {
       val testCases = Table[Boolean, IndexedSeqView[(SValue, SValue)]](
         ("isTextMap", "entries"),
         (
@@ -58,8 +90,16 @@ class SValueTest extends AnyWordSpec with Inside with Matchers with TableDrivenP
           ImmArray(SText("1") -> SValue.SValue.True, SText("0") -> SValue.SValue.False).toSeq.view,
         ),
         (
+          true,
+          ImmArray(SText("1") -> SValue.SValue.True, SText("1") -> SValue.SValue.True).toSeq.view,
+        ),
+        (
           false,
           ImmArray(SText("1") -> SValue.SValue.True, SText("0") -> SValue.SValue.False).toSeq.view,
+        ),
+        (
+          false,
+          ImmArray(SText("1") -> SValue.SValue.True, SText("1") -> SValue.SValue.True).toSeq.view,
         ),
         (
           true,
@@ -72,10 +112,10 @@ class SValueTest extends AnyWordSpec with Inside with Matchers with TableDrivenP
       )
 
       forAll(testCases) { (isTextMap, entries) =>
-        val result = Try(SMap.fromOrderedEntries(isTextMap, entries))
+        val result = Try(SMap.fromStrictlyOrderedEntries(isTextMap, entries))
 
         inside(result) { case Failure(error: IllegalArgumentException) =>
-          error.getMessage shouldBe "the entries are not ordered"
+          error.getMessage shouldBe "the entries are not strictly ordered"
         }
       }
     }
@@ -106,7 +146,7 @@ class SValueTest extends AnyWordSpec with Inside with Matchers with TableDrivenP
       )
 
       forAll(testCases) { (isTextMap, entries, result) =>
-        SMap.fromOrderedEntries(isTextMap, entries) shouldBe result
+        SMap.fromStrictlyOrderedEntries(isTextMap, entries) shouldBe result
       }
     }
 
@@ -134,7 +174,7 @@ class SValueTest extends AnyWordSpec with Inside with Matchers with TableDrivenP
       )
 
       forEvery(testCases) { entries =>
-        Try(SMap.fromOrderedEntries(true, entries)) shouldBe nonComparableFailure
+        Try(SMap.fromStrictlyOrderedEntries(true, entries)) shouldBe nonComparableFailure
         Try(SMap(false, entries)) shouldBe nonComparableFailure
         Try(SMap(true, entries: _*)) shouldBe nonComparableFailure
       }

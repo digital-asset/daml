@@ -3,8 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
-import cats.implicits.toTraverseOps
-import com.daml.ledger.api.v2.event.{ArchivedEvent, CreatedEvent, ExercisedEvent, InterfaceView}
+import com.daml.ledger.api.v2.event.{CreatedEvent, ExercisedEvent, InterfaceView}
 import com.daml.ledger.api.v2.value
 import com.daml.ledger.api.v2.value.{Record as ApiRecord, Value as ApiValue}
 import com.daml.metrics.Timed
@@ -18,11 +17,7 @@ import com.digitalasset.canton.logging.{
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.services.{ErrorCause, RejectionGenerators}
 import com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader
-import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
-  RawArchivedEvent,
-  RawCreatedEvent,
-  RawExercisedEvent,
-}
+import com.digitalasset.canton.platform.store.backend.EventStorageBackend.RawExercisedEvent
 import com.digitalasset.canton.platform.store.dao.EventProjectionProperties
 import com.digitalasset.canton.platform.store.dao.events.LfValueTranslation.ApiContractData
 import com.digitalasset.canton.platform.store.serialization.{Compression, ValueSerializer}
@@ -35,8 +30,8 @@ import com.digitalasset.canton.platform.{
   Value as LfValue,
 }
 import com.digitalasset.canton.util.MonadUtil
-import com.digitalasset.daml.lf.data.Ref.{FullIdentifier, Identifier, Party}
-import com.digitalasset.daml.lf.data.{Bytes, Ref}
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.{FullIdentifier, Identifier}
 import com.digitalasset.daml.lf.engine as LfEngine
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.daml.lf.transaction.*
@@ -86,14 +81,17 @@ final class LfValueTranslation(
 ) extends LfValueSerialization
     with NamedLogging {
 
+  private[this] val packageLoader = new DeduplicatingPackageLoader()
+
   private val enricherO: Option[LfEnricher] = engineO.map(engine =>
     LfEnricher(
       engine = engine,
       forbidLocalContractIds = engine.config.forbidLocalContractIds,
+      metrics,
+      packageLoader,
+      loadPackage,
     )
   )
-
-  private[this] val packageLoader = new DeduplicatingPackageLoader()
 
   private def cantSerialize(attribute: String, forContract: ContractId): String =
     s"Cannot serialize $attribute for ${forContract.coid}"
@@ -158,51 +156,17 @@ final class LfValueTranslation(
       serializeNullableKeyOrThrow(exercise),
     )
 
-  private[this] def consumeEnricherResult[V](
-      result: LfEngine.Result[V]
-  )(implicit
-      ec: ExecutionContext,
-      loggingContext: LoggingContextWithTrace,
-  ): Future[V] =
-    result match {
-      case LfEngine.ResultDone(r) => Future.successful(r)
-      case LfEngine.ResultError(e) => Future.failed(new RuntimeException(e.message))
-      case LfEngine.ResultNeedPackage(packageId, resume) =>
-        packageLoader
-          .loadPackage(
-            packageId = packageId,
-            delegate = packageId => loadPackage(packageId, loggingContext),
-            metric = metrics.index.db.translation.getLfPackage,
-          )
-          .flatMap(pkgO => consumeEnricherResult(resume(pkgO)))
-      case result =>
-        Future.failed(new RuntimeException(s"Unexpected ValueEnricher result: $result"))
-    }
-
-  def enrichVersionedTransaction(versionedTransaction: VersionedTransaction)(implicit
-      ec: ExecutionContext,
-      loggingContext: LoggingContextWithTrace,
-  ): Future[VersionedTransaction] =
-    consumeEnricherResult(enricher.enrichVersionedTransaction(versionedTransaction))
-
-  def enrichContract(contract: FatContractInstance)(implicit
-      ec: ExecutionContext,
-      loggingContext: LoggingContextWithTrace,
-  ): Future[FatContractInstance] =
-    consumeEnricherResult(enricher.enrichContractInstance(contract))
-
   def toApiValue(
       value: LfValue,
       verbose: Boolean,
       attribute: => String,
-      enrich: LfValue => LfEngine.Result[com.digitalasset.daml.lf.value.Value],
+      enrich: LfValue => Future[com.digitalasset.daml.lf.value.Value],
   )(implicit
-      ec: ExecutionContext,
-      loggingContext: LoggingContextWithTrace,
+      ec: ExecutionContext
   ): Future[ApiValue] = for {
     enrichedValue <-
       if (verbose)
-        consumeEnricherResult(enrich(value))
+        enrich(value)
       else
         Future.successful(value.unversioned)
   } yield {
@@ -233,7 +197,7 @@ final class LfValueTranslation(
       )
     )
 
-  def deserializeRaw(
+  def deserializeRawExercised(
       eventProjectionProperties: EventProjectionProperties,
       rawExercisedEvent: RawExercisedEvent,
   )(implicit
@@ -260,7 +224,10 @@ final class LfValueTranslation(
         )
       )
       Ref.QualifiedChoiceId(interfaceId, choiceName) =
-        Ref.QualifiedChoiceId.assertFromString(rawExercisedEvent.exerciseChoice)
+        Ref.QualifiedChoiceId(
+          rawExercisedEvent.exerciseChoiceInterface,
+          rawExercisedEvent.exerciseChoice,
+        )
       // Convert Daml-LF values to ledger API values.
       // In verbose mode, this involves loading Daml-LF packages and filling in missing type information.
       choiceArgument <- toApiValue(
@@ -303,7 +270,7 @@ final class LfValueTranslation(
       ),
       choice = choiceName,
       choiceArgument = Some(choiceArgument),
-      actingParties = rawExercisedEvent.exerciseActors,
+      actingParties = rawExercisedEvent.exerciseActors.toSeq,
       consuming = rawExercisedEvent.exerciseConsuming,
       witnessParties = rawExercisedEvent.witnessParties.toSeq,
       lastDescendantNodeId = rawExercisedEvent.exerciseLastDescendantNodeId,
@@ -317,159 +284,106 @@ final class LfValueTranslation(
             rawExercisedEvent.templateId,
           )
         else Nil,
-      acsDelta = rawExercisedEvent.flatEventWitnesses.nonEmpty,
+      acsDelta = rawExercisedEvent.acsDeltaForWitnesses,
     )
 
-  def deserializeRaw(
+  def toApiCreatedEvent(
       eventProjectionProperties: EventProjectionProperties,
-      rawArchivedEvent: RawArchivedEvent,
-  ): ArchivedEvent =
-    ArchivedEvent(
-      offset = rawArchivedEvent.offset,
-      nodeId = rawArchivedEvent.nodeId,
-      contractId = rawArchivedEvent.contractId.coid,
-      templateId = Some(
-        LfEngineToApi.toApiIdentifier(rawArchivedEvent.templateId.toIdentifier)
-      ),
-      witnessParties = rawArchivedEvent.witnessParties.toSeq,
-      packageName = rawArchivedEvent.templateId.pkgName,
-      implementedInterfaces = implementedInterfaces(
-        eventProjectionProperties,
-        rawArchivedEvent.witnessParties,
-        rawArchivedEvent.templateId,
-      ),
-    )
-
-  def deserializeRaw(
-      eventProjectionProperties: EventProjectionProperties,
-      rawCreatedEvent: RawCreatedEvent,
+      fatContractInstance: FatContractInstance,
+      offset: Long,
+      nodeId: Int,
+      representativePackageId: LfPackageId,
+      witnesses: Set[String],
+      acsDelta: Boolean,
   )(implicit
       ec: ExecutionContext,
       loggingContext: LoggingContextWithTrace,
   ): Future[CreatedEvent] = {
-    def getFatContractInstance(
-        createArgument: VersionedValue,
-        createKey: Option[VersionedValue],
-    ): Either[String, FatContractInstance] =
-      for {
-        signatories <- rawCreatedEvent.signatories.toList.traverse(Party.fromString).map(_.toSet)
-        observers <- rawCreatedEvent.observers.toList.traverse(Party.fromString).map(_.toSet)
-        maintainers <- rawCreatedEvent.createKeyMaintainers.toList
-          .traverse(Party.fromString)
-          .map(_.toSet)
-        globalKey <- createKey
-          .traverse(key =>
-            GlobalKey
-              .build(
-                rawCreatedEvent.templateId.toIdentifier,
-                key.unversioned,
-                rawCreatedEvent.templateId.pkgName,
-              )
-              .left
-              .map(_.msg)
-          )
-      } yield FatContractInstance.fromCreateNode(
-        Node.Create(
-          coid = rawCreatedEvent.contractId,
-          templateId = rawCreatedEvent.templateId.toIdentifier,
-          packageName = rawCreatedEvent.templateId.pkgName,
-          arg = createArgument.unversioned,
-          signatories = signatories,
-          stakeholders = signatories ++ observers,
-          keyOpt = globalKey.map(GlobalKeyWithMaintainers(_, maintainers)),
-          version = createArgument.version,
-        ),
-        createTime = CreationTime.CreatedAt(rawCreatedEvent.ledgerEffectiveTime),
-        authenticationData = Bytes.fromByteArray(rawCreatedEvent.authenticationData),
-      )
+    val createArgument = fatContractInstance.createArg
+    val createKey = fatContractInstance.contractKeyWithMaintainers.map(_.globalKey.key)
+
+    val representativeTemplateId =
+      fatContractInstance.templateId
+        .toFullIdentifier(fatContractInstance.packageName)
+        .copy(pkgId = representativePackageId)
 
     for {
-      createKey <- Future(
-        rawCreatedEvent.createKeyValue
-          .map(
-            decompressAndDeserialize(
-              Compression.Algorithm
-                .assertLookup(rawCreatedEvent.createKeyValueCompression),
-              _,
-            )
-          )
-      )
-      createArgument <- Future(
-        decompressAndDeserialize(
-          Compression.Algorithm
-            .assertLookup(rawCreatedEvent.createArgumentCompression),
-          rawCreatedEvent.createArgument,
-        )
-      )
       apiContractData <- toApiContractData(
         value = createArgument,
-        key = createKey,
-        templateId = rawCreatedEvent.templateId,
-        witnesses = rawCreatedEvent.witnessParties,
+        keyO = createKey,
+        representativeTemplateId = representativeTemplateId,
+        witnesses = witnesses,
         eventProjectionProperties = eventProjectionProperties,
-        fatContractInstance = getFatContractInstance(createArgument, createKey),
+        fatContractInstance = fatContractInstance,
       )
     } yield CreatedEvent(
-      offset = rawCreatedEvent.offset,
-      nodeId = rawCreatedEvent.nodeId,
-      contractId = rawCreatedEvent.contractId.coid,
+      offset = offset,
+      nodeId = nodeId,
+      contractId = fatContractInstance.contractId.coid,
       templateId = Some(
-        LfEngineToApi.toApiIdentifier(rawCreatedEvent.templateId.toIdentifier)
+        LfEngineToApi.toApiIdentifier(fatContractInstance.templateId)
       ),
       contractKey = apiContractData.contractKey,
       createArguments = Some(apiContractData.createArguments),
       createdEventBlob = apiContractData.createdEventBlob.getOrElse(ByteString.EMPTY),
       interfaceViews = apiContractData.interfaceViews,
-      witnessParties = rawCreatedEvent.witnessParties.toList,
-      signatories = rawCreatedEvent.signatories.toList,
-      observers = rawCreatedEvent.observers.toList,
-      createdAt = Some(TimestampConversion.fromLf(rawCreatedEvent.ledgerEffectiveTime)),
-      packageName = rawCreatedEvent.templateId.pkgName,
-      acsDelta = rawCreatedEvent.flatEventWitnesses.nonEmpty,
+      witnessParties = witnesses.toSeq,
+      signatories = fatContractInstance.signatories.toSeq,
+      observers = fatContractInstance.stakeholders.diff(fatContractInstance.signatories).toSeq,
+      createdAt = fatContractInstance.createdAt match {
+        case CreationTime.CreatedAt(t) => Some(TimestampConversion.fromLf(t))
+        case _ => None
+      },
+      packageName = fatContractInstance.packageName,
+      acsDelta = acsDelta,
+      representativePackageId = representativePackageId,
     )
   }
 
-  def toApiContractData(
-      value: LfValue,
-      key: Option[VersionedValue],
-      templateId: FullIdentifier,
+  private def toApiContractData(
+      value: Value,
+      keyO: Option[Value],
+      representativeTemplateId: FullIdentifier,
       witnesses: Set[String],
       eventProjectionProperties: EventProjectionProperties,
-      fatContractInstance: => Either[String, FatContractInstance],
+      fatContractInstance: FatContractInstance,
   )(implicit
       ec: ExecutionContext,
       loggingContext: LoggingContextWithTrace,
   ): Future[ApiContractData] = {
     val renderResult =
-      eventProjectionProperties.render(witnesses, templateId.toNameTypeConRef)
+      eventProjectionProperties.render(witnesses, representativeTemplateId.toNameTypeConRef)
     val verbose = eventProjectionProperties.verbose
     def asyncContractArguments =
       enrichAsync(
-        verbose,
-        value.unversioned,
-        enricher.enrichContractValue(templateId.toIdentifier, _),
+        verbose = verbose,
+        value = value,
+        enrich = enricher.enrichContractValue(representativeTemplateId.toIdentifier, _),
       )
         .map(toContractArgumentApi(verbose))
-    @SuppressWarnings(Array("org.wartremover.warts.OptionPartial"))
-    def asyncContractKey = condFuture(key.isDefined)(
-      enrichAsync(
-        verbose,
-        key.get.unversioned,
-        enricher.enrichContractKey(templateId.toIdentifier, _),
-      )
-        .map(toContractKeyApi(verbose))
-    )
+    def asyncContractKey = keyO match {
+      case None => Future.successful(None)
+      case Some(key) =>
+        enrichAsync(
+          verbose = verbose,
+          value = key,
+          enrich = enricher.enrichContractKey(representativeTemplateId.toIdentifier, _),
+        )
+          .map(toContractKeyApi(verbose))
+          .map(Some(_))
+    }
+
     def asyncInterfaceViews =
       MonadUtil.sequentialTraverse(renderResult.interfaces.toList)(interfaceId =>
         for {
           upgradedInstanceIdentifierResultE <- eventProjectionProperties.interfaceViewPackageUpgrade
-            .upgrade(interfaceId.toIdentifier, templateId.toIdentifier)
+            .upgrade(interfaceId.toIdentifier, representativeTemplateId.toIdentifier)
           viewResult <- upgradedInstanceIdentifierResultE.fold(
             failureStatus => Future.successful(Left(failureStatus)),
             upgradedInstanceIdentifier =>
               computeInterfaceView(
                 templateId = upgradedInstanceIdentifier,
-                value = value.unversioned,
+                value = value,
                 interfaceId = interfaceId.toIdentifier,
               ),
           )
@@ -483,9 +397,8 @@ final class LfValueTranslation(
 
     def asyncCreatedEventBlob = condFuture(renderResult.createdEventBlob) {
       (for {
-        fatInstance <- fatContractInstance
         encoded <- TransactionCoder
-          .encodeFatContractInstance(fatInstance)
+          .encodeFatContractInstance(fatContractInstance)
           .left
           .map(_.errorMessage)
       } yield encoded).fold(
@@ -543,13 +456,11 @@ final class LfValueTranslation(
   ): Future[Option[T]] =
     if (cond) f.map(Some(_)) else Future.successful(None)
 
-  private def enrichAsync(verbose: Boolean, value: Value, enrich: Value => LfEngine.Result[Value])(
-      implicit
-      ec: ExecutionContext,
-      loggingContext: LoggingContextWithTrace,
+  private def enrichAsync(verbose: Boolean, value: Value, enrich: Value => Future[Value])(implicit
+      ec: ExecutionContext
   ): Future[Value] =
     condFuture(verbose)(
-      Future(enrich(value)).flatMap(consumeEnricherResult)
+      Future.delegate(enrich(value))
     ).map(_.getOrElse(value))
 
   private def toApi[T](

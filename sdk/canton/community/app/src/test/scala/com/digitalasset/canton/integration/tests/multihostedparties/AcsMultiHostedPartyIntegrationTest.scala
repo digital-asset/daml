@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.integration.tests.multihostedparties
 
-import com.digitalasset.canton.config
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.config.CommitmentSendDelay
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeProportion, PositiveInt}
 import com.digitalasset.canton.console.ParticipantReference
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.examples.java.iou.Iou
@@ -18,11 +18,10 @@ import com.digitalasset.canton.integration.{
   SharedEnvironment,
   TestConsoleEnvironment,
 }
-import com.digitalasset.canton.topology.transaction.ParticipantPermission
+import com.digitalasset.canton.topology.transaction.{ParticipantPermission, VettedPackage}
 import com.digitalasset.canton.topology.{ParticipantId, PartyId}
-import com.digitalasset.canton.util.DamlPackageLoader
-import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.language.Ast
+import com.digitalasset.canton.util.SetupPackageVetting
+import com.digitalasset.canton.{LfPackageId, config}
 import monocle.Monocle.toAppliedFocusOps
 
 import java.time.Duration as JDuration
@@ -33,10 +32,7 @@ trait AcsMultiHostedPartyIntegrationTest
     with SharedEnvironment
     with EntitySyntax {
 
-  lazy val darPaths: Seq[String] = Seq(CantonExamplesPath)
-  lazy val Packages: Map[PackageId, Ast.Package] = DamlPackageLoader
-    .getPackagesFromDarFiles(darPaths)
-    .value
+  private lazy val darPaths: Set[String] = Set(CantonExamplesPath)
 
   private val iouContract = new AtomicReference[Iou.Contract]
   private val interval = JDuration.ofSeconds(5)
@@ -66,7 +62,15 @@ trait AcsMultiHostedPartyIntegrationTest
         ConfigTransforms.updateMaxDeduplicationDurations(maxDedupDuration),
       )
       .updateTestingConfig(
-        _.focus(_.maxCommitmentSendDelayMillis).replace(Some(NonNegativeInt.zero))
+        _.focus(_.commitmentSendDelay)
+          .replace(
+            Some(
+              CommitmentSendDelay(
+                Some(NonNegativeProportion.zero),
+                Some(NonNegativeProportion.zero),
+              )
+            )
+          )
       )
       .withSetup { implicit env =>
         import env.*
@@ -122,10 +126,19 @@ trait AcsMultiHostedPartyIntegrationTest
         observer1 = observer1Name.toPartyId(participant1)
         observer2 = observer2Name.toPartyId(participant1)
 
-        darPaths.foreach { darPath =>
-          participants.all.foreach(p => p.dars.upload(darPath))
-        }
-
+        // Upload the CantonExample DAR and vet its packages
+        SetupPackageVetting(
+          darPaths,
+          targetTopology = Map(
+            daId -> participants.all
+              .map(
+                _ -> VettedPackage
+                  .unbounded(Seq(LfPackageId.assertFromString(IouSyntax.modelCompanion.PACKAGE_ID)))
+                  .toSet
+              )
+              .toMap
+          ),
+        )
       }
 
   private def deployAndCheckContract(

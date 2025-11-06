@@ -5,6 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block
 
 import cats.data.EitherT
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.sequencer.admin.v30
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.synchronizer.block.{
@@ -14,7 +15,7 @@ import com.digitalasset.canton.synchronizer.block.{
 }
 import com.digitalasset.canton.synchronizer.sequencer.Sequencer.SenderSigned
 import com.digitalasset.canton.synchronizer.sequencer.errors.SequencerError
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import io.grpc.ServerServiceDefinition
 import org.apache.pekko.stream.*
 import org.apache.pekko.stream.scaladsl.Source
@@ -33,8 +34,11 @@ class DriverBlockOrderer(
 
   override def subscribe()(implicit
       traceContext: TraceContext
-  ): Source[RawLedgerBlock, KillSwitch] =
-    driver.subscribe()
+  ): Source[Traced[RawLedgerBlock], KillSwitch] =
+    // The trace context being assigned to blocks in this subscription is not correct.
+    // A different one should be assigned to each block as part of the driver's implementation.
+    // But because drivers will be discontinued soon, there are no plans to properly implement that.
+    driver.subscribe().map(Traced(_))
 
   override def send(
       signedSubmissionRequest: SenderSigned[SubmissionRequest]
@@ -69,4 +73,14 @@ class DriverBlockOrderer(
       timestamp: CantonTimestamp
   ): EitherT[Future, SequencerError, Option[v30.BftSequencerSnapshotAdditionalInfo]] =
     EitherT.rightT(None)
+
+  override def sequencingTime(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[CantonTimestamp]] =
+    FutureUnlessShutdown.outcomeF(
+      driver.sequencingTime.map(t =>
+        t.map(CantonTimestamp.fromProtoPrimitive)
+          .map(_.fold(e => throw new RuntimeException(e.message), identity))
+      )
+    )
 }

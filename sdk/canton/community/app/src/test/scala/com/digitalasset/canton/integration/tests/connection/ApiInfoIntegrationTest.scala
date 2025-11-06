@@ -5,7 +5,7 @@ package com.digitalasset.canton.integration.tests.connection
 
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.StorageConfig
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -60,6 +60,6 @@ class ApiInfoIntegrationTestInMemory extends ApiInfoIntegrationTest {
       .addConfigTransform(ConfigTransforms.allInMemory)
       .addConfigTransform(_.focus(_.monitoring.logging.api.messagePayloads).replace(false))
 
-  registerPlugin(new UseCommunityReferenceBlockSequencer[StorageConfig.Memory](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[StorageConfig.Memory](loggerFactory))
 
 }

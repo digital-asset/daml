@@ -7,10 +7,15 @@ import better.files.*
 import com.daml.metrics.api.testing.InMemoryMetricsFactory
 import com.digitalasset.canton.*
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.{CantonConfig, EnterpriseCantonEdition, TestingConfigInternal}
+import com.digitalasset.canton.config.{
+  CantonConfig,
+  DefaultPorts,
+  EnterpriseCantonEdition,
+  TestingConfigInternal,
+}
 import com.digitalasset.canton.console.{LocalInstanceReference, RemoteInstanceReference}
 import com.digitalasset.canton.integration.*
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
 import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.tests.examples.ExampleIntegrationTest.referenceConfiguration
 import com.digitalasset.canton.metrics.MetricsFactoryType
@@ -200,7 +205,11 @@ class AdvancedConfigFilesTest extends BaseTestWordSpec {
     // just testing that the config still parses
     def testConfig(config: Seq[String]) = {
       val files = config.map(file => (referenceConfiguration / file).toJava)
-      CantonConfig.parseAndLoadOrExit(files, EnterpriseCantonEdition)
+      CantonConfig.parseAndLoadOrExit(
+        files,
+        EnterpriseCantonEdition,
+        Some(DefaultPorts.create()),
+      )
     }
     testConfig(
       Seq(

@@ -26,12 +26,12 @@ import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.SerializableTraceContextConverter.SerializableTraceContextExtension
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{NameTypeConRef, PackageId, Party}
+import com.digitalasset.daml.lf.data.Ref.{NameTypeConRef, PackageId, Party, UserId}
+import com.digitalasset.daml.lf.value.Value.ContractId
 import com.google.protobuf.ByteString
 import org.mockito.MockitoSugar.mock
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import sun.reflect.generics.reflectiveObjects.NotImplementedException
 
 import java.sql.Connection
 import scala.concurrent.blocking
@@ -73,18 +73,23 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
       1,
       CantonTimestamp.MinValue,
     )
-    storageBackendCaptor.captured(2).asInstanceOf[DbDto.EventCreate].event_sequential_id shouldBe 6
+    storageBackendCaptor
+      .captured(2)
+      .asInstanceOf[DbDto.EventActivate]
+      .event_sequential_id shouldBe 6
     storageBackendCaptor
       .captured(3)
-      .asInstanceOf[DbDto.IdFilterCreateStakeholder]
+      .asInstanceOf[DbDto.IdFilterActivateStakeholder]
+      .idFilter
       .event_sequential_id shouldBe 6
     storageBackendCaptor
       .captured(4)
-      .asInstanceOf[DbDto.IdFilterCreateStakeholder]
+      .asInstanceOf[DbDto.IdFilterActivateStakeholder]
+      .idFilter
       .event_sequential_id shouldBe 6
     storageBackendCaptor
       .captured(5)
-      .asInstanceOf[DbDto.EventExercise]
+      .asInstanceOf[DbDto.EventDeactivate]
       .event_sequential_id shouldBe 7
     storageBackendCaptor
       .captured(6) shouldBe LedgerEnd(
@@ -101,7 +106,10 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
       CantonTimestamp.MinValue,
     )
     storageBackendCaptor.captured(8) shouldBe someParty
-    storageBackendCaptor.captured(9).asInstanceOf[DbDto.EventCreate].event_sequential_id shouldBe 8
+    storageBackendCaptor
+      .captured(9)
+      .asInstanceOf[DbDto.EventActivate]
+      .event_sequential_id shouldBe 8
     storageBackendCaptor
       .captured(10) shouldBe LedgerEnd(
       offset(5L),
@@ -138,7 +146,10 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
       CantonTimestamp.MinValue,
     )
     storageBackendCaptor.captured(1) shouldBe someParty
-    storageBackendCaptor.captured(2).asInstanceOf[DbDto.EventCreate].event_sequential_id shouldBe 1
+    storageBackendCaptor
+      .captured(2)
+      .asInstanceOf[DbDto.EventActivate]
+      .event_sequential_id shouldBe 1
     storageBackendCaptor
       .captured(3) shouldBe LedgerEnd(
       offset(4L),
@@ -242,6 +253,9 @@ object SequentialWriteDaoSpec {
 
   private def offset(l: Long): Offset = Offset.tryFromLong(l)
 
+  private def hashCid(key: String): ContractId =
+    ContractId.V1(com.digitalasset.daml.lf.crypto.Hash.hashPrivateKey(key))
+
   private def someUpdate(key: String) = Some(
     Update.PartyAddedToParticipant(
       party = Ref.Party.assertFromString(key),
@@ -261,65 +275,62 @@ object SequentialWriteDaoSpec {
     is_local = Some(true),
   )
 
-  private val someEventCreated = DbDto.EventCreate(
+  private val someEventActivate = DbDto.EventActivate(
     event_offset = 1,
-    update_id = "",
-    ledger_effective_time = 3,
+    update_id = new Array[Byte](0),
     command_id = None,
     workflow_id = None,
-    user_id = None,
     submitters = None,
     node_id = 3,
-    contract_id = Array(24),
-    template_id = "",
-    package_id = "2",
-    flat_event_witnesses = Set.empty,
-    tree_event_witnesses = Set.empty,
-    create_argument = Array.empty,
-    create_signatories = Set.empty,
-    create_observers = Set.empty,
-    create_key_value = None,
-    create_key_maintainers = None,
+    representative_package_id = "3",
     create_key_hash = None,
-    create_argument_compression = None,
-    create_key_value_compression = None,
     event_sequential_id = 0,
-    authentication_data = Array.empty,
-    synchronizer_id = "x::synchronizer",
+    synchronizer_id = SynchronizerId.tryFromString("x::synchronizer"),
     trace_context = serializableTraceContext,
     record_time = 0,
     external_transaction_hash = Some(externalTransactionHash),
+    internal_contract_id = 42L,
+    event_type = 1,
+    additional_witnesses = Some(Set.empty),
+    source_synchronizer_id = None,
+    reassignment_id = None,
+    reassignment_counter = None,
+    notPersistedContractId = hashCid("24"),
   )
 
-  private val someEventExercise = DbDto.EventExercise(
-    consuming = true,
+  private val someEventDeactivate = DbDto.EventDeactivate(
     event_offset = 1,
-    update_id = "",
-    ledger_effective_time = 3,
+    update_id = new Array[Byte](0),
+    ledger_effective_time = None,
     command_id = None,
     workflow_id = None,
-    user_id = None,
     submitters = None,
     node_id = 3,
-    contract_id = Array(24),
+    contract_id = hashCid("24"),
     template_id = "",
     package_id = "2",
-    flat_event_witnesses = Set.empty,
-    tree_event_witnesses = Set.empty,
-    create_key_value = None,
-    exercise_choice = "",
-    exercise_argument = Array.empty,
+    exercise_choice = Some(""),
+    exercise_choice_interface_id = None,
+    exercise_argument = Some(Array.empty),
     exercise_result = None,
-    exercise_actors = Set.empty,
-    exercise_last_descendant_node_id = 3,
-    create_key_value_compression = None,
+    exercise_actors = Some(Set.empty),
+    exercise_last_descendant_node_id = Some(3),
     exercise_argument_compression = None,
     exercise_result_compression = None,
     event_sequential_id = 0,
-    synchronizer_id = "x::synchronizer",
+    synchronizer_id = SynchronizerId.tryFromString("x::synchronizer"),
     trace_context = serializableTraceContext,
     record_time = 0,
     external_transaction_hash = Some(externalTransactionHash),
+    deactivated_event_sequential_id = None,
+    event_type = 3,
+    additional_witnesses = None,
+    internal_contract_id = None,
+    stakeholders = Set.empty,
+    reassignment_id = None,
+    reassignment_counter = None,
+    assignment_exclusivity = None,
+    target_synchronizer_id = None,
   )
 
   val singlePartyFixture: Option[Update.PartyAddedToParticipant] =
@@ -332,12 +343,12 @@ object SequentialWriteDaoSpec {
   @SuppressWarnings(Array("org.wartremover.warts.OptionPartial"))
   private val someUpdateToDbDtoFixture: Map[Ref.Party, List[DbDto]] = Map(
     singlePartyFixture.get.party -> List(someParty),
-    partyAndCreateFixture.get.party -> List(someParty, someEventCreated),
+    partyAndCreateFixture.get.party -> List(someParty, someEventActivate),
     allEventsFixture.get.party -> List(
-      someEventCreated,
-      DbDto.IdFilterCreateStakeholder(0L, "", ""),
-      DbDto.IdFilterCreateStakeholder(0L, "", ""),
-      someEventExercise,
+      someEventActivate,
+      DbDto.IdFilter(0L, "", "", first_per_sequential_id = true).activateStakeholder,
+      DbDto.IdFilter(0L, "", "", first_per_sequential_id = false).activateStakeholder,
+      someEventDeactivate,
     ),
   )
 
@@ -355,6 +366,10 @@ object SequentialWriteDaoSpec {
         templateIds = List("1").iterator,
         synchronizerIds = Iterator.empty,
         packageIds = Iterator("2"),
+        userIds = Iterator.empty,
+        participantIds = Iterator.empty,
+        choiceNames = Iterator.empty,
+        interfaceIds = Iterator.empty,
       )
     case _ =>
       new DomainStringIterators(
@@ -362,21 +377,36 @@ object SequentialWriteDaoSpec {
         templateIds = Iterator.empty,
         synchronizerIds = Iterator.empty,
         packageIds = Iterator.empty,
+        userIds = Iterator.empty,
+        participantIds = Iterator.empty,
+        choiceNames = Iterator.empty,
+        interfaceIds = Iterator.empty,
       )
   }
 
   private val stringInterningViewFixture: StringInterning with InternizingStringInterningView =
     new StringInterning with InternizingStringInterningView {
       override def templateId: StringInterningDomain[NameTypeConRef] =
-        throw new NotImplementedException
+        ???
 
       override def packageId: StringInterningDomain[PackageId] =
-        throw new NotImplementedException
+        ???
 
-      override def party: StringInterningDomain[Party] = throw new NotImplementedException
+      override def party: StringInterningDomain[Party] = ???
 
       override def synchronizerId: StringInterningDomain[SynchronizerId] =
-        throw new NotImplementedException
+        ???
+
+      override def userId: StringInterningDomain[UserId] = ???
+
+      override def participantId: StringInterningDomain[Ref.ParticipantId] =
+        ???
+
+      override def choiceName: StringInterningDomain[Ref.ChoiceName] =
+        ???
+
+      override def interfaceId: StringInterningDomain[Ref.Identifier] =
+        ???
 
       override def internize(
           domainStringIterators: DomainStringIterators

@@ -5,14 +5,14 @@ package com.digitalasset.daml.lf
 
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.logging.LoggingContext
-import com.digitalasset.daml.lf.archive.UniversalArchiveDecoder
+import com.digitalasset.daml.lf.archive.DarDecoder
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import com.digitalasset.daml.lf.transaction.{Node, NodeId}
-import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.{ContractIdVersion, Value}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -25,7 +25,7 @@ class NodeSeedsTest(majorLanguageVersion: LanguageMajorVersion) extends AnyWordS
   // Test for https://github.com/DACH-NY/canton/issues/14712
 
   val (mainPkgId, mainPkg, packages) = {
-    val packages = UniversalArchiveDecoder.assertReadFile(
+    val packages = DarDecoder.assertReadArchiveFromFile(
       new File(
         BazelRunfiles.rlocation(
           // TODO(https://github.com/digital-asset/daml/issues/18457): split key test cases and
@@ -38,6 +38,7 @@ class NodeSeedsTest(majorLanguageVersion: LanguageMajorVersion) extends AnyWordS
   }
 
   val engine = Engine.DevEngine(majorLanguageVersion)
+  val contractIdVersion = ContractIdVersion.V1
 
   val operator = Ref.Party.assertFromString("operator")
   val investor = Ref.Party.assertFromString("investor")
@@ -50,7 +51,7 @@ class NodeSeedsTest(majorLanguageVersion: LanguageMajorVersion) extends AnyWordS
   )
   val requestContract =
     TransactionBuilder.fatContractInstanceWithDummyDefaults(
-      version = transaction.TransactionVersion.VDev,
+      version = transaction.SerializationVersion.VDev,
       packageName = mainPkg.pkgName,
       template = requestTmplId,
       arg = Value.ValueRecord(
@@ -66,7 +67,7 @@ class NodeSeedsTest(majorLanguageVersion: LanguageMajorVersion) extends AnyWordS
     "002000000000000000000000000000000000000000000000000000000000000000"
   )
   val roleContract = TransactionBuilder.fatContractInstanceWithDummyDefaults(
-    version = transaction.TransactionVersion.VDev,
+    version = transaction.SerializationVersion.VDev,
     packageName = mainPkg.pkgName,
     template = roleTmplId,
     arg = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(operator))),
@@ -95,6 +96,7 @@ class NodeSeedsTest(majorLanguageVersion: LanguageMajorVersion) extends AnyWordS
         ),
         participantId = Ref.ParticipantId.assertFromString("participant"),
         submissionSeed = crypto.Hash.hashPrivateKey(getClass.getName + time.toString),
+        contractIdVersion = contractIdVersion,
         prefetchKeys = Seq.empty,
       )
       .consume(pcs = contracts, pkgs = packages)
@@ -166,6 +168,7 @@ class NodeSeedsTest(majorLanguageVersion: LanguageMajorVersion) extends AnyWordS
           nodeSeeds.get(nodeId),
           time,
           time,
+          contractIdVersion = contractIdVersion,
         )(LoggingContext.empty)
         .consume(pcs = contracts, pkgs = packages)
     rTx.nodes.values.collect { case create: Node.Create => create }.toSet

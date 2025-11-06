@@ -54,8 +54,11 @@ trait SequencerWriterStore extends AutoCloseable {
   ): FutureUnlessShutdown[Unit] =
     store.saveEvents(instanceIndex, events)
 
-  def bufferEvents(events: NonEmpty[Seq[Sequenced[BytesPayload]]]): Unit =
+  def bufferEvents(events: NonEmpty[Seq[Sequenced[IdOrPayload]]]): Unit =
     store.bufferEvents(events)
+
+  def bufferPayload(payload: BytesPayload)(implicit tc: TraceContext): Unit =
+    store.bufferPayload(payload)
 
   def resetWatermark(ts: CantonTimestamp)(implicit
       traceContext: TraceContext

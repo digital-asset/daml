@@ -32,30 +32,30 @@ trait Spanning {
   protected def withSpan[A](
       description: String
   )(f: TraceContext => SpanWrapper => A)(implicit traceContext: TraceContext, tracer: Tracer): A = {
-    val currentSpan = startSpan(description)
+    val (currentSpan, childContext) = startSpan(description)
 
     def closeSpan(value: Any): Unit = value match {
-      case future: Future[_] =>
+      case future: Future[?] =>
         closeOnComplete(future)
-      case eitherT: EitherT[_, _, _] =>
+      case eitherT: EitherT[?, ?, ?] =>
         closeSpan(eitherT.value)
       case Right(x) => closeSpan(x) // Look into the result of an EitherT
-      case optionT: OptionT[_, _] =>
+      case optionT: OptionT[?, ?] =>
         closeSpan(optionT.value)
       case Some(x) => closeSpan(x) // Look into the result of an OptionT
-      case checkedT: CheckedT[_, _, _, _] =>
+      case checkedT: CheckedT[?, ?, ?, ?] =>
         closeSpan(checkedT.value)
       case Checked.Result(_, x) => closeSpan(x) // Look into the result of a CheckedT
-      case unlessShutdown: UnlessShutdown.Outcome[_] =>
+      case unlessShutdown: UnlessShutdown.Outcome[?] =>
         // Look into the result of a FutureUnlessShutdown
         closeSpan(unlessShutdown.result)
-      case asyncResult: AsyncResult[_] =>
+      case asyncResult: AsyncResult[?] =>
         closeSpan(asyncResult.unwrap)
       case _ =>
         currentSpan.end()
     }
 
-    def closeOnComplete(f: Future[_]): Unit =
+    def closeOnComplete(f: Future[?]): Unit =
       f.onComplete {
         case Success(x) =>
           closeSpan(x)
@@ -71,7 +71,6 @@ trait Spanning {
 
     val result: A =
       try {
-        val childContext = TraceContext(currentSpan.storeInContext(traceContext.context))
         f(childContext)(new SpanWrapper(currentSpan))
       } catch {
         case NonFatal(exception) =>
@@ -83,15 +82,16 @@ trait Spanning {
     result
   }
 
-  private def startSpan(
+  protected def startSpan(
       description: String
-  )(implicit parentTraceContext: TraceContext, tracer: Tracer): Span = {
+  )(implicit parentTraceContext: TraceContext, tracer: Tracer): (Span, TraceContext) = {
     val currentSpan = tracer
       .spanBuilder(description)
       .setParent(parentTraceContext.context)
       .startSpan()
     currentSpan.setAttribute("canton.class", getClass.getName)
-    currentSpan
+    val childContext = TraceContext(currentSpan.storeInContext(parentTraceContext.context))
+    (currentSpan, childContext)
   }
 }
 

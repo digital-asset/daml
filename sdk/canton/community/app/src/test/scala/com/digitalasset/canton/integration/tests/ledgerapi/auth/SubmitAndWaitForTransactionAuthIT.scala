@@ -5,15 +5,16 @@ package com.digitalasset.canton.integration.tests.ledgerapi.auth
 
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.integration.TestConsoleEnvironment
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.integration.tests.ledgerapi.services.SubmitAndWaitDummyCommand
 
 import scala.concurrent.Future
 
 final class SubmitAndWaitForTransactionAuthIT
     extends SyncServiceCallAuthTests
-    with SubmitAndWaitDummyCommand {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+    with SubmitAndWaitDummyCommand
+    with ExecuteAsAuthTests {
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   override def serviceCallName: String = "CommandService#SubmitAndWaitForTransaction"
 

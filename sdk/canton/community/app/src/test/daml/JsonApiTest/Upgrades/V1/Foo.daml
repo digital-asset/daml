@@ -3,8 +3,14 @@
 
 module Foo where
 
--- This template is upgraded by the Bar in V2/Foo.daml
-template Bar with
+import IFoo
+
+-- This template is upgraded by the Foo in V2/Foo.daml
+template Foo with
     owner : Party
+    otherParty: Party
   where
     signatory owner
+
+    interface instance IFoo for Foo where
+      view = FooView with owner = owner

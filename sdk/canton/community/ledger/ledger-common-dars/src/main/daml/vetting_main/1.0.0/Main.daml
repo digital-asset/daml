@@ -1,0 +1,17 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Main where
+
+import Dep
+
+template MainT with
+    p: Party
+    dep: DepT
+  where
+    signatory p, dep.p
+
+template MainTSimple with
+    p: Party
+  where
+    signatory p

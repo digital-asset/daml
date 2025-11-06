@@ -7,11 +7,8 @@ import com.daml.ledger.api.v2.commands.Command
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.examples.java.cycle as M
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.util.{
   AcsInspection,
   HasCommandRunnersHelpers,
@@ -60,11 +57,13 @@ sealed trait MultipleProtocolVersionReassignmentIntegrationTest
       .withSetup { implicit env =>
         import env.*
 
-        participant1.dars.upload(CantonExamplesPath)
         participant1.synchronizers.connect_local(sequencer1, alias = daName)
         participant1.synchronizers.connect_local(sequencer2, alias = acmeName)
         participant1.synchronizers.connect_local(sequencer3, alias = repairSynchronizerName)
         participant1.synchronizers.connect_local(sequencer4, alias = devSynchronizerName)
+        Seq(daId, acmeId, repairSynchronizerId, devSynchronizerId).foreach(psid =>
+          participant1.dars.upload(CantonExamplesPath, synchronizerId = psid)
+        )
       }
 
   private def createCycleCommand(
@@ -174,7 +173,7 @@ class MultipleProtocolVersionReassignmentIntegrationTestPostgres
     extends MultipleProtocolVersionReassignmentIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](
+    new UseReferenceBlockSequencer[DbConfig.Postgres](
       loggerFactory,
       sequencerGroups = MultiSynchronizer.tryCreate(
         Set("sequencer1"),

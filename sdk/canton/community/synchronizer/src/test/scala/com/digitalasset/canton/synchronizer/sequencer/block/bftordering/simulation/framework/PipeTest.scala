@@ -14,6 +14,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings
   P2PEndpoint,
   PlainTextP2PEndpoint,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.endpointToTestBftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.{
   SystemInitializationResult,
   SystemInitializer,
@@ -141,7 +142,7 @@ object PipeTest {
       val consensusAdminModuleRef =
         system.newModuleRef[Consensus.Admin](ModuleName("consensusAdminModule"))()
       val outputModuleRef =
-        system.newModuleRef[Output.SequencerSnapshotMessage](ModuleName("outputModule"))()
+        system.newModuleRef[Output.Message[E]](ModuleName("outputModule"))()
       val pruningModuleRef =
         system.newModuleRef[Pruning.Message](ModuleName("pruningModule"))()
       inputModuleRef.asyncSendNoTrace("init")
@@ -177,7 +178,7 @@ class PipeTest extends AnyFlatSpec with BaseTest {
           timeouts,
         )(
           PipeTest.mkNode(pipeStore, reporter, loggerFactory, timeouts),
-          new P2PGrpcConnectionState(loggerFactory),
+          new P2PGrpcConnectionState(endpointToTestBftNodeId(theEndpoint), loggerFactory),
         )
     )
 

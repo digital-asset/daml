@@ -6,14 +6,21 @@ package com.digitalasset.canton.resource
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.nameof.NameOf.functionFullName
+import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.{DbConfig, ProcessingTimeout}
+import com.digitalasset.canton.config.{
+  DbConfig,
+  DbLockedConnectionConfig,
+  PositiveFiniteDuration,
+  ProcessingTimeout,
+}
 import com.digitalasset.canton.environment.CantonNodeParameters
-import com.digitalasset.canton.lifecycle.{CloseContext, UnlessShutdown}
+import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.DbStorage.RetryConfig
-import com.digitalasset.canton.time.Clock
+import com.digitalasset.canton.resource.WithDbLock.WithDbLockError.OperationError
+import com.digitalasset.canton.time.WallClock
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.retry.RetryEither
@@ -22,43 +29,30 @@ import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.FlywayException
 import slick.jdbc.JdbcBackend.Database
 import slick.jdbc.hikaricp.HikariCPJdbcDataSource
-import slick.jdbc.{DataSourceJdbcDataSource, JdbcDataSource}
+import slick.jdbc.{DataSourceJdbcDataSource, JdbcBackend, JdbcDataSource}
 
 import java.sql.SQLException
 import javax.sql.DataSource
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, blocking}
 
-trait DbMigrationsMetaFactory {
+/** Performs DB migrations using Flyway.
+  *
+  * @param alphaVersionSupport
+  *   Whether we want to add the schema files found in the dev folder to the migration. A user that
+  *   does that, won't be able to upgrade to new Canton versions, as we reserve our right to just
+  *   modify the dev version files in any way we like.
+  */
+class DbMigrations(
+    dbConfig: DbConfig,
+    alphaVersionSupport: Boolean,
+    timeouts: ProcessingTimeout,
+    protected val loggerFactory: NamedLoggerFactory,
+)(implicit ec: ExecutionContext, closeContext: CloseContext)
+    extends NamedLogging {
 
-  type Factory <: DbMigrationsFactory
-
-  def create(clock: Clock)(implicit ec: ExecutionContext): Factory
-
-}
-
-trait DbMigrationsFactory {
-
-  def create(dbConfig: DbConfig, devVersionSupport: Boolean)(implicit
-      closeContext: CloseContext
-  ): DbMigrations
-
-  def create(dbConfig: DbConfig, name: String, devVersionSupport: Boolean)(implicit
-      closeContext: CloseContext
-  ): DbMigrations
-
-}
-
-trait DbMigrations { this: NamedLogging =>
-
-  implicit protected def closeContext: CloseContext
-
-  /** Whether we want to add the schema files found in the dev folder to the migration
-    *
-    * A user that does that, won't be able to upgrade to new Canton versions, as we reserve our
-    * right to just modify the dev version files in any way we like.
-    */
-  protected def alphaVersionSupport: Boolean
+  /** For DB migrations we always use a wallclock. */
+  private val clock = new WallClock(timeouts, loggerFactory)
 
   /** Database is migrated using Flyway, which looks at the migration files at
     * src/main/resources/db/migration/canton as explained at
@@ -88,13 +82,6 @@ trait DbMigrations { this: NamedLogging =>
       .leftMap(DbMigrations.DatabaseError.apply)
       .flatMap(db => ResourceUtil.withResource(db)(fn))
 
-  /** Obtain access to the database to run the migration operation. */
-  protected def withDb[A](
-      retryConfig: DbStorage.RetryConfig = DbStorage.RetryConfig.failFast
-  )(fn: Database => EitherT[UnlessShutdown, DbMigrations.Error, A])(implicit
-      traceContext: TraceContext
-  ): EitherT[UnlessShutdown, DbMigrations.Error, A]
-
   protected def migrateDatabaseInternal(
       flyway: Flyway
   )(implicit traceContext: TraceContext): EitherT[UnlessShutdown, DbMigrations.Error, Unit] =
@@ -118,8 +105,6 @@ trait DbMigrations { this: NamedLogging =>
       )
       .leftMap[DbMigrations.Error](DbMigrations.FlywayError.apply)
       .toEitherT[UnlessShutdown]
-
-  protected def dbConfig: DbConfig
 
   /** Migrate the database with all pending migrations. */
   def migrateDatabase(): EitherT[UnlessShutdown, DbMigrations.Error, Unit] =
@@ -272,49 +257,62 @@ trait DbMigrations { this: NamedLogging =>
         }
     } yield ()
 
-}
+  /** With replication possibly multiple nodes sharing the same database, therefore we use a DB-lock
+    * based coordination for performing the DB migration. Only the node that acquired the lock
+    * performs the migration operation at a time.
+    */
+  def withDb[A](retryConfig: RetryConfig = RetryConfig.failFast)(
+      fn: JdbcBackend.Database => EitherT[UnlessShutdown, DbMigrations.Error, A]
+  )(implicit traceContext: TraceContext): EitherT[UnlessShutdown, DbMigrations.Error, A] = {
+    val profile = DbStorage.profile(dbConfig)
 
-class CommunityDbMigrationsMetaFactory(loggerFactory: NamedLoggerFactory)
-    extends DbMigrationsMetaFactory {
-
-  override type Factory = CommunityDbMigrationsFactory
-
-  override def create(clock: Clock)(implicit ec: ExecutionContext): CommunityDbMigrationsFactory =
-    new CommunityDbMigrationsFactory(loggerFactory)
-}
-
-class CommunityDbMigrationsFactory(loggerFactory: NamedLoggerFactory) extends DbMigrationsFactory {
-  override def create(dbConfig: DbConfig, name: String, devVersionSupport: Boolean)(implicit
-      closeContext: CloseContext
-  ): DbMigrations =
-    new CommunityDbMigrations(
-      dbConfig,
-      devVersionSupport,
-      loggerFactory.appendUnnamedKey("node", name),
-    )
-
-  override def create(dbConfig: DbConfig, devVersionSupport: Boolean)(implicit
-      closeContext: CloseContext
-  ): DbMigrations =
-    new CommunityDbMigrations(dbConfig, devVersionSupport, loggerFactory)
-}
-
-class CommunityDbMigrations(
-    protected val dbConfig: DbConfig,
-    protected val alphaVersionSupport: Boolean,
-    protected val loggerFactory: NamedLoggerFactory,
-)(implicit override protected val closeContext: CloseContext)
-    extends DbMigrations
-    with NamedLogging {
-
-  override def withDb[A](
-      retryConfig: RetryConfig
-  )(fn: Database => EitherT[UnlessShutdown, DbMigrations.Error, A])(implicit
-      traceContext: TraceContext
-  ): EitherT[UnlessShutdown, DbMigrations.Error, A] = withCreatedDb(retryConfig)(fn)
+    withCreatedDb(retryConfig) { db =>
+      EitherT {
+        timeouts.io
+          .await("db-migration") {
+            WithDbLock
+              .withDbLock(
+                "db-migration",
+                DbLockCounters.NODE_MIGRATIONS,
+                timeouts,
+                dbConfig,
+                DbLockedConnectionConfig(
+                  // Lower the retry period for db migration lock acquisitions, such that in cases with high contention
+                  // (e.g HA sequencers on a single DB), all sequencer can get initialized in a timely manner
+                  passiveCheckPeriod = PositiveFiniteDuration.ofSeconds(3)
+                ),
+                profile,
+                FutureSupervisor.Noop,
+                clock,
+                loggerFactory,
+                logLockOwnersOnLockAcquisitionAttempt = true,
+              )(fn(db).mapK(FutureUnlessShutdown.liftK))
+              .leftMap {
+                case OperationError(err: DbMigrations.Error) => err
+                case err => DbMigrations.DatabaseError(s"Failed to migrate with DB lock: $err")
+              }
+              .value
+              .unwrap
+          }
+      }
+    }
+  }
 }
 
 object DbMigrations {
+
+  def create(
+      dbConfig: DbConfig,
+      alphaVersionSupport: Boolean,
+      timeouts: ProcessingTimeout,
+      loggerFactory: NamedLoggerFactory,
+  )(implicit executionContext: ExecutionContext, closeContext: CloseContext): DbMigrations =
+    new DbMigrations(
+      dbConfig,
+      alphaVersionSupport,
+      timeouts,
+      loggerFactory,
+    )
 
   def createDataSource(jdbcDataSource: JdbcDataSource): DataSource =
     jdbcDataSource match {

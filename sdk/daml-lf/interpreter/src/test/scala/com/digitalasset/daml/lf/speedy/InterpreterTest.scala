@@ -185,6 +185,10 @@ class InterpreterTest(majorLanguageVersion: LanguageMajorVersion)
                 Ref.PackageVersion.assertFromString("0.0.0"),
                 None,
               ),
+              GeneratedImports(
+                reason = "package made in com.digitalasset.daml.lf.speedy.InterpreterTest",
+                pkgIds = Set.empty,
+              ),
             )
         ),
         compilerConfig,
@@ -209,6 +213,10 @@ class InterpreterTest(majorLanguageVersion: LanguageMajorVersion)
               Ref.PackageName.assertFromString("foo"),
               Ref.PackageVersion.assertFromString("0.0.0"),
               None,
+            ),
+            GeneratedImports(
+              reason = "package made in com.digitalasset.daml.lf.speedy.InterpreterTest",
+              pkgIds = Set.empty,
             ),
           )
       ),

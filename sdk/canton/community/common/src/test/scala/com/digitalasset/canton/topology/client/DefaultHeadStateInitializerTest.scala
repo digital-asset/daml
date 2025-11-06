@@ -22,13 +22,20 @@ class DefaultHeadStateInitializerTest
   "DefaultHeadStateInitializer" should {
     "initialize when topology store is non-empty" in {
       val topologyClientMock = mock[SynchronizerTopologyClientWithInit]
+      when(topologyClientMock.initialize()(anyTraceContext))
+        .thenReturn(FutureUnlessShutdown.unit)
       val topologyStoreMock = mock[TopologyStore[TopologyStoreId.SynchronizerStore]]
       val initializer = new DefaultHeadStateInitializer(topologyStoreMock)
 
       val maxSequencedTimestamp =
         CantonTimestamp.assertFromInstant(Instant.parse("2024-11-19T12:00:00.000Z"))
       val maxEffectiveTimestamp = maxSequencedTimestamp.plusMillis(250)
-      when(topologyStoreMock.maxTimestamp(SequencedTime.MaxValue, includeRejected = true))
+      when(
+        topologyStoreMock.maxTimestamp(
+          eqTo(SequencedTime.MaxValue),
+          includeRejected = anyBoolean,
+        )(anyTraceContext)
+      )
         .thenReturn(
           FutureUnlessShutdown.pure(
             Some(SequencedTime(maxSequencedTimestamp) -> EffectiveTime(maxEffectiveTimestamp))
@@ -36,34 +43,49 @@ class DefaultHeadStateInitializerTest
         )
 
       initializer
-        .initialize(topologyClientMock, synchronizerPredecessor = None)
+        .initialize(
+          topologyClientMock,
+          synchronizerPredecessor = None,
+          defaultStaticSynchronizerParameters,
+        )
         .map { _ =>
           verify(topologyClientMock).updateHead(
             SequencedTime(maxSequencedTimestamp),
             EffectiveTime(maxEffectiveTimestamp),
             ApproximateTime(maxEffectiveTimestamp),
-            potentialTopologyChange = true,
           )
+          verify(topologyClientMock).initialize()(anyTraceContext)
           succeed
         }
     }
 
     "not initialize when the topology store is empty" in {
       val topologyClientMock = mock[SynchronizerTopologyClientWithInit]
+      when(topologyClientMock.initialize()(anyTraceContext))
+        .thenReturn(FutureUnlessShutdown.unit)
       val topologyStoreMock = mock[TopologyStore[TopologyStoreId.SynchronizerStore]]
-      when(topologyStoreMock.maxTimestamp(SequencedTime.MaxValue, includeRejected = true))
+      when(
+        topologyStoreMock.maxTimestamp(
+          eqTo(SequencedTime.MaxValue),
+          includeRejected = anyBoolean,
+        )(anyTraceContext)
+      )
         .thenReturn(FutureUnlessShutdown.pure(None))
       val initializer = new DefaultHeadStateInitializer(topologyStoreMock)
 
       initializer
-        .initialize(topologyClientMock, synchronizerPredecessor = None)
+        .initialize(
+          topologyClientMock,
+          synchronizerPredecessor = None,
+          defaultStaticSynchronizerParameters,
+        )
         .map { _ =>
           verify(topologyClientMock, never).updateHead(
             any[SequencedTime],
             any[EffectiveTime],
             any[ApproximateTime],
-            any[Boolean],
           )(any[TraceContext])
+          verify(topologyClientMock).initialize()(anyTraceContext)
           succeed
         }
     }

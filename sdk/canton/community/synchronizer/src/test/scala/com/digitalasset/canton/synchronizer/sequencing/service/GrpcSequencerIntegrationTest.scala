@@ -138,8 +138,8 @@ class Env(override val loggerFactory: SuppressingLogger)(implicit
     override protected[this] def logger: TracedLogger = self.logger
   })
 
-  // TODO(i26481): adjust when the new connection pool is stable
-  val useNewConnectionPool: Boolean = BaseTest.testedProtocolVersion >= ProtocolVersion.dev
+  // TODO(i27260): cleanup when the new connection pool is stable
+  val useNewConnectionPool: Boolean = true
 
   when(topologyClient.currentSnapshotApproximation(any[TraceContext]))
     .thenReturn(mockTopologySnapshot)
@@ -200,7 +200,7 @@ class Env(override val loggerFactory: SuppressingLogger)(implicit
       SequencerTestMetrics,
       loggerFactory,
       authenticationCheck,
-      new SubscriptionPool[GrpcManagedSubscription[_]](
+      new SubscriptionPool[GrpcManagedSubscription[?]](
         clock,
         SequencerTestMetrics,
         timeouts,
@@ -307,6 +307,8 @@ class Env(override val loggerFactory: SuppressingLogger)(implicit
     crypto = cryptoApi.crypto.crypto,
     seedForRandomnessO = None,
     futureSupervisor = futureSupervisor,
+    metrics = CommonMockMetrics.sequencerClient.connectionPool,
+    metricsContext = MetricsContext.Empty,
     timeouts = timeouts,
     loggerFactory = loggerFactory,
   )
@@ -320,11 +322,13 @@ class Env(override val loggerFactory: SuppressingLogger)(implicit
       expectedSequencers: NonEmpty[Map[SequencerAlias, SequencerId]],
       useNewConnectionPool: Boolean = useNewConnectionPool,
   ): EitherT[FutureUnlessShutdown, String, RichSequencerClient] = {
+    val clientConfig =
+      SequencerClientConfig(authToken = authConfig, useNewConnectionPool = useNewConnectionPool)
     val clientFactory = SequencerClientFactory(
       synchronizerId,
       cryptoApi,
       cryptoApi.crypto,
-      SequencerClientConfig(authToken = authConfig, useNewConnectionPool = useNewConnectionPool),
+      clientConfig,
       TracingConfig.Propagation.Disabled,
       TestingConfigInternal(),
       BaseTest.defaultStaticSynchronizerParameters,
@@ -346,14 +350,14 @@ class Env(override val loggerFactory: SuppressingLogger)(implicit
     )
 
     val poolConfig = SequencerConnectionXPoolConfig.fromSequencerConnections(
-      connections,
-      TracingConfig(TracingConfig.Propagation.Disabled),
+      sequencerConnections = connections,
+      tracingConfig = TracingConfig(TracingConfig.Propagation.Disabled),
       expectedPSIdO = None,
     )
 
     for {
       connectionPool <- EitherT.fromEither[FutureUnlessShutdown](
-        connectionPoolFactory.create(poolConfig).leftMap(error => error.toString)
+        connectionPoolFactory.create(poolConfig, name = "test").leftMap(error => error.toString)
       )
       _ <-
         if (useNewConnectionPool)
@@ -464,8 +468,8 @@ class GrpcSequencerIntegrationTest
       env.mockSubscription(_ => subscribePromise.success(()), _ => unsubscribePromise.success(()))
 
       val synchronizerTimeTracker = mock[SynchronizerTimeTracker]
-      when(synchronizerTimeTracker.wrapHandler(any[OrdinaryApplicationHandler[Envelope[_]]]))
-        .thenAnswer(Predef.identity[OrdinaryApplicationHandler[Envelope[_]]] _)
+      when(synchronizerTimeTracker.wrapHandler(any[OrdinaryApplicationHandler[Envelope[?]]]))
+        .thenAnswer(Predef.identity[OrdinaryApplicationHandler[Envelope[?]]] _)
 
       // kick of subscription
       val initF = client.subscribeAfter(
@@ -523,7 +527,7 @@ class GrpcSequencerIntegrationTest
           SequencerTestMetrics,
           env.loggerFactory,
           authenticationCheck,
-          new SubscriptionPool[GrpcManagedSubscription[_]](
+          new SubscriptionPool[GrpcManagedSubscription[?]](
             clock,
             SequencerTestMetrics,
             env.timeouts,
@@ -577,6 +581,7 @@ class GrpcSequencerIntegrationTest
               sequencerTrustThreshold = PositiveInt.two,
               sequencerLivenessMargin = NonNegativeInt.zero,
               submissionRequestAmplification = SubmissionRequestAmplification.NoAmplification,
+              sequencerConnectionPoolDelays = SequencerConnectionPoolDelays.default,
             )
             .value,
           expectedSequencers = NonEmpty
@@ -603,7 +608,7 @@ class GrpcSequencerIntegrationTest
 
     override protected lazy val companionObj = MockProtocolMessage
 
-    override def synchronizerId: PhysicalSynchronizerId =
+    override def psid: PhysicalSynchronizerId =
       DefaultTestIdentities.physicalSynchronizerId
 
     override def toProtoSomeEnvelopeContentV30: protocolV30.EnvelopeContent.SomeEnvelopeContent =
@@ -681,14 +686,20 @@ class GrpcSequencerIntegrationWithFailingTokenRefreshTest
                 "Failing token refresh",
               ),
               (
+                _.warningMessage should (include(
+                  "Request failed"
+                ) and include("Request: download-topology-state-for-init-hash")),
+                "Request failure",
+              ),
+              (
                 _.warningMessage should include(
-                  "The operation 'Download topology state for init' was not successful."
+                  "The operation 'Get hash for init topology state' was not successful."
                 ),
                 "Attempt failure",
               ),
               (
                 _.warningMessage should include(
-                  "Now retrying operation 'Download topology state for init'."
+                  "Now retrying operation 'Get hash for init topology state'."
                 ),
                 "Retry message",
               ),

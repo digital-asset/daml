@@ -14,10 +14,10 @@ import com.digitalasset.canton.participant.protocol.EngineController.{
   GetEngineAbortStatus,
 }
 import com.digitalasset.canton.participant.store.{ContractAndKeyLookup, ExtendedContractLookup}
-import com.digitalasset.canton.participant.util.DAMLe.PackageResolver
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
-import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.ContractAuthenticatorFn
 import com.digitalasset.canton.protocol.*
+import com.digitalasset.canton.util.ContractValidator.ContractAuthenticatorFn
+import com.digitalasset.canton.util.PackageConsumer.PackageResolver
 import com.digitalasset.canton.util.TestEngine
 import com.digitalasset.canton.{
   BaseTest,
@@ -28,6 +28,7 @@ import com.digitalasset.canton.{
   LfPartyId,
 }
 import com.digitalasset.daml.lf.data.Ref.Party
+import com.digitalasset.daml.lf.engine
 import org.scalatest.wordspec.AsyncWordSpec
 
 class DAMLeTest
@@ -176,7 +177,7 @@ class DAMLeTest
       val (exerciseSeed, replayExercise, submitters) = replayExecuteCommand(contract)
 
       val inst = contract.inst
-      val contractHash = LegacyContractHash.fatContractHash(inst).value
+      val contractHash = testEngine.hashAndConsume(inst.toCreateNode)
 
       reinterpret(
         submitters = submitters,
@@ -185,6 +186,7 @@ class DAMLeTest
         contracts = new ExtendedContractLookup(Map(contract.contractId -> contract), Map.empty),
         contractAuthenticator = {
           case (`inst`, `contractHash`) => Either.unit
+          case (`inst`, h) => fail(s"Hash mismatch: $h : $contractHash")
           case other => fail(s"Unexpected: $other")
         },
       ).value
@@ -194,15 +196,14 @@ class DAMLeTest
 
     }
 
-    // TODO(#27344) - This test can be enabled, and error matched, once the engine authentication callback is supported
-    "fail if authentication fails" ignore {
+    "fail if authentication fails" in {
 
       val (_, _, contract) = createCycleContract()
 
       val (exerciseSeed, replayExercise, submitters) = replayExecuteCommand(contract)
 
       val inst = contract.inst
-      val contractHash = LegacyContractHash.fatContractHash(inst).value
+      val contractHash = testEngine.hashAndConsume(inst.toCreateNode)
 
       reinterpret(
         submitters = submitters,
@@ -213,14 +214,17 @@ class DAMLeTest
           case (`inst`, `contractHash`) => Left("Authentication failed")
           case other => fail(s"Unexpected: $other")
         },
-      ).swap.map(error =>
-        inside(error) { case DAMLe.EngineAborted(_) =>
-          succeed
+      ).value.map { actual =>
+        inside(actual) {
+          // TODO(#23876) - improve error matching once non-Dev errors are used
+          case Left(
+                DAMLe.EngineError(
+                  engine.Error.Interpretation(engine.Error.Interpretation.DamlException(e), _)
+                )
+              ) =>
+            succeed
         }
-      )
-
+      }
     }
-
   }
-
 }

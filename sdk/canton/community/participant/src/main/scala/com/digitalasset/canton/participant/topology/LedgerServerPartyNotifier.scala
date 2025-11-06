@@ -139,7 +139,7 @@ class LedgerServerPartyNotifier(
       Seq.empty
     } else {
       transaction.mapping match {
-        case PartyToParticipant(partyId, _, participants) =>
+        case PartyToParticipant(partyId, _, participants, _) =>
           participants
             .map { hostingParticipant =>
               // Note/CN-5291: Only remove pending submission-id once update persisted.
@@ -155,7 +155,7 @@ class LedgerServerPartyNotifier(
               )
             }
         // propagate admin parties
-        case SynchronizerTrustCertificate(participantId, _) =>
+        case SynchronizerTrustCertificate(participantId, _, _) =>
           Seq(
             (
               participantId.adminParty,
@@ -216,6 +216,11 @@ class LedgerServerPartyNotifier(
                 else {
                   logger.debug(
                     s"Not applying duplicate party metadata update with submission ID $submissionId"
+                  )
+                  // It is normally removed after we've stored the new metadata it into the DB,
+                  // but since there's nothing to store in this case, it won't happen, so remove it now
+                  update.participantId.foreach(pid =>
+                    pendingAllocationData.remove((update.partyId, pid)).discard
                   )
                   None
                 }

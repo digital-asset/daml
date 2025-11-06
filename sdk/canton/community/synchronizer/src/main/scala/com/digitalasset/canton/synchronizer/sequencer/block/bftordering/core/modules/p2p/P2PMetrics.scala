@@ -10,7 +10,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingMessageBody
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingMessageBody.Message
 
-private[p2p] object P2PMetrics {
+private[bftordering] object P2PMetrics {
 
   def emitConnectedCount(
       metrics: BftOrderingMetrics,
@@ -107,16 +107,17 @@ private[p2p] object P2PMetrics {
 
   def emitIdentityEquivocation(
       metrics: BftOrderingMetrics,
-      fromEndpointId: P2PEndpoint.Id,
+      fromP2PEndpointId: P2PEndpoint.Id,
       claimedBftNodeId: BftNodeId,
   )(implicit
       mc: MetricsContext
   ): Unit =
     metrics.security.noncompliant.behavior.mark()(
       mc.withExtraLabels(
-        metrics.security.noncompliant.labels.Endpoint -> fromEndpointId.url,
-        metrics.security.noncompliant.labels.Sequencer -> claimedBftNodeId,
-        metrics.security.noncompliant.labels.violationType.Key -> metrics.security.noncompliant.labels.violationType.values.AuthIdentityEquivocation,
+        metrics.security.noncompliant.labels.Endpoint -> fromP2PEndpointId.url,
+        metrics.security.noncompliant.labels.Sequencer -> (claimedBftNodeId: String),
+        metrics.security.noncompliant.labels.violationType.Key ->
+          metrics.security.noncompliant.labels.violationType.values.AuthIdentityEquivocation.toString,
       )
     )
 }

@@ -105,7 +105,7 @@ newtype LfVersionOpt = LfVersionOpt Version
   deriving (Eq)
 
 instance IsOption LfVersionOpt where
-  defaultValue = LfVersionOpt versionDefault
+  defaultValue = LfVersionOpt defaultLfVersion
   -- Tasty seems to force the value somewhere so we cannot just set this
   -- to `error`. However, this will always be set.
   parseValue = fmap LfVersionOpt . parseVersion
@@ -159,7 +159,7 @@ withVersionedDamlScriptDep packageFlagName darPath mLfVer extraPackages cont = d
         extraDars
         mempty
 
-      cont (dir </> projectPackageDatabase, packageFlags)
+      cont (dir </> packageDatabasePath, packageFlags)
 
 main :: IO ()
 main = withSdkVersions $ do
@@ -433,8 +433,8 @@ damlFileTestTree version getService outdir registerTODO input
       Ignore -> True
       SinceLF versionBounds -> not (versionBounds `containsVersion` version)
       UntilLF versionBounds -> not (versionBounds `extendsVersion` version)
-      SupportsFeature featureName -> not (version `satisfies` versionReqForFeaturePartial featureName)
-      DoesNotSupportFeature featureName -> version `satisfies` versionReqForFeaturePartial featureName
+      SupportsFeature featureName -> not (version `supports` nameToFeature featureName)
+      DoesNotSupportFeature featureName -> version `supports` nameToFeature featureName
       _ -> False
     diff ref new = [POSIX_DIFF, "-w", "--strip-trailing-cr", ref, new]
 
@@ -521,7 +521,7 @@ checkDiagnostics version log expected' got
           expected :: [[DiagnosticField]]
           expected = filter (not . any shouldDropExpected) expected'
           shouldDropExpected :: DiagnosticField -> Bool
-          shouldDropExpected (DFeatureCondition featureName) = not $ version `satisfies` versionReqForFeaturePartial (T.pack featureName)
+          shouldDropExpected (DFeatureCondition featureName) = not $ version `supports` nameToFeature (T.pack featureName)
           shouldDropExpected _ = False
           logDiags = log $ T.unpack $ showDiagnostics got
           bad = filter

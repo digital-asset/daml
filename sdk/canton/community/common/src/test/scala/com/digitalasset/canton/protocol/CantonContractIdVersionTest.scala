@@ -3,20 +3,17 @@
 
 package com.digitalasset.canton.protocol
 
-import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.crypto.*
+import com.digitalasset.canton.{BaseTest, LfTimestamp}
+import com.digitalasset.daml.lf.data.Bytes
 import org.scalatest.wordspec.AnyWordSpec
 
 class CantonContractIdVersionTest extends AnyWordSpec with BaseTest {
 
-  forEvery(Seq(AuthenticatedContractIdVersionV10, AuthenticatedContractIdVersionV11)) { underTest =>
+  forEvery(CantonContractIdVersion.allV1) { underTest =>
     s"$underTest" when {
       val discriminator = ExampleTransactionFactory.lfHash(1)
-      val hash =
-        Hash.build(TestHash.testHashPurpose, HashAlgorithm.Sha256).add(0).finish()
-
-      val unicum = Unicum(hash)
-
+      val unicum = Unicum(TestHash.digest(1))
       val cid = underTest.fromDiscriminator(discriminator, unicum)
 
       "creating a contract ID from discriminator and unicum" should {
@@ -32,9 +29,39 @@ class CantonContractIdVersionTest extends AnyWordSpec with BaseTest {
 
       "extracting a canton-contract-id-version" should {
         "succeed" in {
-          CantonContractIdVersion.extractCantonContractIdVersion(cid) shouldBe Right(
-            underTest
-          )
+          CantonContractIdVersion.extractCantonContractIdVersion(cid) shouldBe
+            Right(underTest)
+        }
+      }
+    }
+  }
+
+  forEvery(Seq(CantonContractIdV2Version0)) { underTest =>
+    s"$underTest" when {
+      val timestamp = LfTimestamp.Epoch.addMicros(12345678)
+      val discriminator = ExampleTransactionFactory.lfHash(1)
+      val suffix = Bytes.fromByteString(TestHash.digest(1).unwrap)
+      val cidLocal = LfContractId.V2.unsuffixed(timestamp, discriminator)
+
+      "extracting a canton contract id version" should {
+        "work for relative suffixes" in {
+          val cidRelative =
+            LfContractId.V2.assertBuild(
+              cidLocal.local,
+              underTest.versionPrefixBytesRelative ++ suffix,
+            )
+          CantonContractIdVersion.extractCantonContractIdVersion(cidRelative) shouldBe
+            Right(underTest)
+        }
+
+        "work for absolute suffixes" in {
+          val cidAbsolute =
+            LfContractId.V2.assertBuild(
+              cidLocal.local,
+              underTest.versionPrefixBytesAbsolute ++ suffix,
+            )
+          CantonContractIdVersion.extractCantonContractIdVersion(cidAbsolute) shouldBe
+            Right(underTest)
         }
       }
     }

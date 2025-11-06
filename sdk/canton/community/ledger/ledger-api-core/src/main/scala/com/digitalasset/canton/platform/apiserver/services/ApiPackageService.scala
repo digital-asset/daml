@@ -12,15 +12,23 @@ import com.daml.ledger.api.v2.package_service.{
   HashFunction as APIHashFunction,
   ListPackagesRequest,
   ListPackagesResponse,
+  ListVettedPackagesRequest,
+  ListVettedPackagesResponse,
   PackageServiceGrpc,
   PackageStatus,
 }
 import com.daml.logging.LoggingContext
 import com.daml.tracing.Telemetry
-import com.digitalasset.canton.ledger.api.ValidationLogger
+import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.grpc.Logging.traceId
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors
+import com.digitalasset.canton.ledger.api.{
+  InitialPageToken,
+  ListVettedPackagesOpts,
+  PageToken,
+  ValidationLogger,
+}
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.participant.state.PackageSyncService
 import com.digitalasset.canton.logging.LoggingContextUtil.createLoggingContext
@@ -35,6 +43,8 @@ import com.digitalasset.canton.logging.{
   NamedLoggerFactory,
   NamedLogging,
 }
+import com.digitalasset.canton.platform.config.PackageServiceConfig
+import com.digitalasset.canton.util.EitherUtil.RichEither
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.daml.lf.archive.DamlLf.{Archive, HashFunction}
 import com.digitalasset.daml.lf.data.Ref
@@ -44,12 +54,14 @@ import scala.concurrent.{ExecutionContext, Future}
 
 private[apiserver] final class ApiPackageService(
     packageSyncService: PackageSyncService,
+    packageServiceConfig: PackageServiceConfig,
     telemetry: Telemetry,
     val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends PackageService
     with GrpcApiService
     with NamedLogging {
+
   private implicit val loggingContext: LoggingContext =
     createLoggingContext(loggerFactory)(identity)
 
@@ -115,6 +127,24 @@ private[apiserver] final class ApiPackageService(
         }
           .thereafter(logger.logErrorsOnCall[GetPackageStatusResponse])
       }
+    }
+
+  override def listVettedPackages(
+      request: ListVettedPackagesRequest
+  ): Future[ListVettedPackagesResponse] =
+    withEnrichedLoggingContext(telemetry)(
+      traceId(telemetry.traceIdFromGrpcContext)
+    ) { implicit loggingContext =>
+      for {
+        opts <- ListVettedPackagesOpts
+          .fromProto(request, packageServiceConfig.maxVettedPackagesPageSize)
+          .toFuture(ProtoDeserializationFailure.Wrap(_).asGrpcError)
+        results <- packageSyncService.listVettedPackages(opts)
+      } yield ListVettedPackagesResponse(
+        vettedPackages = results.map(_.toProtoLAPI),
+        nextPageToken =
+          results.lastOption.map(_.toBoundedPageToken: PageToken).getOrElse(InitialPageToken).encode,
+      )
     }
 
   private def withValidatedPackageId[T, R](packageId: String, request: R)(

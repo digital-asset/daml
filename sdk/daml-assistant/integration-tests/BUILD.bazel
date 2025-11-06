@@ -12,8 +12,6 @@ genrule(
         "//daml-lf/archive:daml_lf_archive_proto_java_pom",
         "//canton:libbindings-java.jar",
         "//canton:bindings-java_pom.xml",
-        "//language-support/java/bindings-rxjava:libbindings-rxjava.jar",
-        "//language-support/java/bindings-rxjava:bindings-rxjava_pom.xml",
         "//language-support/java/codegen:binary.jar",
         "//language-support/java/codegen:binary_pom.xml",
         "//libs-scala/rs-grpc-bridge:librs-grpc-bridge.jar",
@@ -46,10 +44,6 @@ genrule(
         "com.daml" "bindings-java" \\
         $(location //canton:libbindings-java.jar) \\
         $(location //canton:bindings-java_pom.xml)
-      install_mvn \\
-        "com.daml" "bindings-rxjava" \\
-        $(location //language-support/java/bindings-rxjava:libbindings-rxjava.jar) \\
-        $(location //language-support/java/bindings-rxjava:bindings-rxjava_pom.xml)
       install_mvn \\
         "com.daml" "codegen-java" \\
         $(location //language-support/java/codegen:binary.jar) \\
@@ -172,6 +166,7 @@ da_haskell_test(
     visibility = ["//visibility:public"],
     deps = [
         ":integration-test-utils",
+        "//daml-assistant:daml-project-config",
         "//daml-assistant/daml-helper:daml-helper-lib",
         "//language-support/hs/bindings:hs-ledger",
         "//language-support/ts/codegen/tests:daml2js-test-helpers",

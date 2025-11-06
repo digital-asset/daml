@@ -249,7 +249,7 @@ private[mediator] class MediatorState(
     pendingRequests
       .values()
       .asScala
-      .filter(resp => resp.timeout < cutoff)
+      .filter(resp => resp.responseTimeout < cutoff)
       .map(resp => resp.requestId)
       .toList
 

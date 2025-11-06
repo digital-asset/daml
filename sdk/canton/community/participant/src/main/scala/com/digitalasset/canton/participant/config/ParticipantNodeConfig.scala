@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant.config
 import cats.syntax.option.*
 import com.daml.jwt.JwtTimestampLeeway
 import com.digitalasset.canton.config
+import com.digitalasset.canton.config.DeprecatedConfigUtils.DeprecatedFieldsFor
 import com.digitalasset.canton.config.RequireTypes.*
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.config.{ReplicationConfig, *}
@@ -23,6 +24,7 @@ import com.digitalasset.canton.platform.config.{
   IdentityProviderManagementConfig,
   IndexServiceConfig as LedgerIndexServiceConfig,
   InteractiveSubmissionServiceConfig,
+  PackageServiceConfig,
   PartyManagementServiceConfig,
   TopologyAwarePackageSelectionConfig,
   UserManagementServiceConfig,
@@ -36,7 +38,7 @@ import io.grpc.netty.shaded.io.netty.handler.ssl.SslContext
 import monocle.macros.syntax.lens.*
 
 import java.nio.file.Path
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration.DurationInt
 
 /** Base for all participant configs - both local and remote */
 trait BaseParticipantConfig extends NodeConfig with Product with Serializable {
@@ -80,7 +82,7 @@ final case class ParticipantNodeConfig(
     override val init: ParticipantInitConfig = ParticipantInitConfig(),
     override val crypto: CryptoConfig = CryptoConfig(),
     ledgerApi: LedgerApiServerConfig = LedgerApiServerConfig(),
-    httpLedgerApi: Option[JsonApiConfig] = None,
+    httpLedgerApi: JsonApiConfig = JsonApiConfig(),
     override val adminApi: AdminServerConfig = AdminServerConfig(),
     override val storage: StorageConfig = StorageConfig.Memory(),
     testingTime: Option[TestingTimeServiceConfig] = None,
@@ -93,7 +95,7 @@ final case class ParticipantNodeConfig(
     alphaDynamic: DeclarativeParticipantConfig = DeclarativeParticipantConfig(),
 ) extends LocalNodeConfig
     with BaseParticipantConfig
-    with ConfigDefaults[DefaultPorts, ParticipantNodeConfig]
+    with ConfigDefaults[Option[DefaultPorts], ParticipantNodeConfig]
     with UniformCantonConfigValidation {
   override def nodeTypeName: String = "participant"
 
@@ -104,20 +106,44 @@ final case class ParticipantNodeConfig(
   def toRemoteConfig: RemoteParticipantConfig =
     RemoteParticipantConfig(adminApi.clientConfig, ledgerApi.clientConfig)
 
-  override def withDefaults(ports: DefaultPorts, edition: CantonEdition): ParticipantNodeConfig =
-    this
-      .focus(_.ledgerApi.internalPort)
-      .modify(ports.ledgerApiPort.setDefaultPort)
-      .focus(_.adminApi.internalPort)
-      .modify(ports.participantAdminApiPort.setDefaultPort)
-      .focus(_.replication)
-      .modify(ReplicationConfig.withDefaultO(storage, _, edition))
+  override def withDefaults(
+      ports: Option[DefaultPorts],
+      edition: CantonEdition,
+  ): ParticipantNodeConfig =
+    ports.fold(this)(ports =>
+      this
+        .focus(_.ledgerApi.internalPort)
+        .modify(ports.ledgerApiPort.setDefaultPort)
+        .focus(_.adminApi.internalPort)
+        .modify(ports.participantAdminApiPort.setDefaultPort)
+        .focus(_.replication)
+        .modify(ReplicationConfig.withDefaultO(storage, _, edition))
+        .focus(_.httpLedgerApi.internalPort)
+        .modify(ports.jsonLedgerApiPort.setDefaultPort)
+    )
+
 }
 
 object ParticipantNodeConfig {
   implicit val localParticipantConfigCantonConfigValidator
       : CantonConfigValidator[ParticipantNodeConfig] =
     CantonConfigValidatorDerivation[ParticipantNodeConfig]
+
+  trait ParticipantNodeConfigDeprecationsImplicits {
+    implicit def deprecatedParticipantNodeConfig[X <: ParticipantNodeConfig]
+        : DeprecatedFieldsFor[X] = new DeprecatedFieldsFor[ParticipantNodeConfig] {
+      override def movedFields: List[DeprecatedConfigUtils.MovedConfigPath] = List(
+        DeprecatedConfigUtils.MovedConfigPath("http-ledger-api.server", "http-ledger-api")
+      )
+
+      override def deprecatePath: List[DeprecatedConfigUtils.DeprecatedConfigPath[?]] = List(
+        DeprecatedConfigUtils
+          .DeprecatedConfigPath[Boolean]("http-ledger-api.server", "3.4.0")
+      )
+    }
+  }
+
+  object DeprecatedImplicits extends ParticipantNodeConfigDeprecationsImplicits
 }
 
 /** Participant features configuration
@@ -203,6 +229,8 @@ object RemoteParticipantConfig {
   *   configurations pertaining to the ledger api server's "user management service"
   * @param partyManagementService
   *   configurations pertaining to the ledger api server's "party management service"
+  * @param packageService
+  *   configurations pertaining to the ledger api server's "package service"
   * @param managementServiceTimeout
   *   ledger api server management service maximum duration. Duration has to be finite as the ledger
   *   api server uses java.time.duration that does not support infinite scala durations.
@@ -233,6 +261,7 @@ final case class LedgerApiServerConfig(
     commandService: CommandServiceConfig = CommandServiceConfig(),
     userManagementService: UserManagementServiceConfig = UserManagementServiceConfig(),
     partyManagementService: PartyManagementServiceConfig = PartyManagementServiceConfig(),
+    packageService: PackageServiceConfig = PackageServiceConfig(),
     managementServiceTimeout: config.NonNegativeFiniteDuration =
       LedgerApiServerConfig.DefaultManagementServiceTimeout,
     enableCommandInspection: Boolean = true,
@@ -242,11 +271,12 @@ final case class LedgerApiServerConfig(
       InteractiveSubmissionServiceConfig.Default,
     topologyAwarePackageSelection: TopologyAwarePackageSelectionConfig =
       TopologyAwarePackageSelectionConfig.Default,
-    maxTokenLifetime: NonNegativeDuration = config.NonNegativeDuration(Duration.Inf),
+    maxTokenLifetime: NonNegativeDuration = config.NonNegativeDuration(5.minutes),
     jwksCacheConfig: JwksCacheConfig = JwksCacheConfig(),
+    limits: Option[ActiveRequestLimitsConfig] = None,
 ) extends ServerConfig // We can't currently expose enterprise server features at the ledger api anyway
     {
-
+  override val name: String = "ledger-api"
   lazy val clientConfig: FullClientConfig =
     FullClientConfig(address, port, tls.map(_.clientConfig))
 
@@ -314,12 +344,6 @@ object TestingTimeServiceConfig {
   *
   * The following specialized participant node performance tuning parameters may be grouped once a
   * more final set of configs emerges.
-  * @param reassignmentTimeProofFreshnessProportion
-  *   Proportion of the target synchronizer exclusivity timeout that is used as a freshness bound
-  *   when requesting a time proof. Setting to 3 means we'll take a 1/3 of the target synchronizer
-  *   exclusivity timeout and potentially we reuse a recent timeout if one exists within that bound,
-  *   otherwise a new time proof will be requested. Setting to zero will disable reusing recent time
-  *   proofs and will instead always fetch a new proof.
   * @param minimumProtocolVersion
   *   The minimum protocol version that this participant will speak when connecting to a
   *   synchronizer
@@ -339,6 +363,11 @@ object TestingTimeServiceConfig {
   *   How much time to delay the canton journal garbage collection
   * @param disableUpgradeValidation
   *   Disable the package upgrade verification on DAR upload
+  * @param enableStrictDarValidation
+  *   Enables the throwing of an error if lf>2.2 and the dar is not self-sufficient (i.e. throw an
+  *   error if the set of included packages does not equal the set of imported packages). Normally,
+  *   packages produced by damlc targeting 2.2 or above are self-sufficient. If set to false, errors
+  *   are logged as warning instead.
   * @param packageMetadataView
   *   Initialization parameters for the package metadata in-memory store.
   * @param automaticallyPerformLogicalSynchronizerUpgrade
@@ -350,6 +379,13 @@ object TestingTimeServiceConfig {
   *   [[com.digitalasset.canton.config.CantonParameters.enableAdditionalConsistencyChecks]] being
   *   enabled are logged, measured in the number of contract activations during a single connection
   *   to a synchronizer. Used only for database storage.
+  * @param doNotAwaitOnCheckingIncomingCommitments
+  *   Enable fully asynchronous checking of incoming commitments. This may result in some incoming
+  *   commitments not being checked in case of crashes or HA failovers.
+  * @param commitmentCheckpointInterval
+  *   Checkpoint interval for commitments. Smaller intervals lead to less resource-intensive crash
+  *   recovery, at the cost of more frequent DB writing of checkpoints. Regardless of this
+  *   checkpoint interval, checkpointing is also performed at reconciliation interval boundaries.
   */
 final case class ParticipantNodeParameterConfig(
     adminWorkflow: AdminWorkflowConfig = AdminWorkflowConfig(),
@@ -357,15 +393,13 @@ final case class ParticipantNodeParameterConfig(
     batching: BatchingConfig = BatchingConfig(),
     caching: CachingConfigs = CachingConfigs(),
     stores: ParticipantStoreConfig = ParticipantStoreConfig(),
-    reassignmentTimeProofFreshnessProportion: NonNegativeInt = NonNegativeInt.tryCreate(3),
     minimumProtocolVersion: Option[ParticipantProtocolVersion] = Some(
       ParticipantProtocolVersion(ProtocolVersion.v34)
     ),
     initialProtocolVersion: ParticipantProtocolVersion = ParticipantProtocolVersion(
       ProtocolVersion.latest
     ),
-    // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
-    alphaVersionSupport: Boolean = true,
+    alphaVersionSupport: Boolean = false,
     betaVersionSupport: Boolean = false,
     dontWarnOnDeprecatedPV: Boolean = false,
     warnIfOverloadedFor: Option[config.NonNegativeFiniteDuration] = Some(
@@ -376,7 +410,7 @@ final case class ParticipantNodeParameterConfig(
     journalGarbageCollectionDelay: config.NonNegativeFiniteDuration =
       config.NonNegativeFiniteDuration.ofSeconds(0),
     disableUpgradeValidation: Boolean = false,
-    enableStrictDarValidation: Boolean = false,
+    enableStrictDarValidation: Boolean = true,
     watchdog: Option[WatchdogConfig] = None,
     packageMetadataView: PackageMetadataViewConfig = PackageMetadataViewConfig(),
     commandProgressTracker: CommandProgressTrackerConfig = CommandProgressTrackerConfig(),
@@ -384,15 +418,17 @@ final case class ParticipantNodeParameterConfig(
     // TODO(#25344): check whether this should be removed
     automaticallyPerformLogicalSynchronizerUpgrade: Boolean = true,
     activationFrequencyForWarnAboutConsistencyChecks: Long = 1000,
+    reassignmentsConfig: ReassignmentsConfig = ReassignmentsConfig(),
+    doNotAwaitOnCheckingIncomingCommitments: Boolean = false,
+    commitmentCheckpointInterval: config.PositiveDurationSeconds =
+      config.PositiveDurationSeconds.ofMinutes(1),
 ) extends LocalNodeParametersConfig
     with UniformCantonConfigValidation
 
 object ParticipantNodeParameterConfig {
   implicit val participantNodeParameterConfigCantonConfigValidator
-      : CantonConfigValidator[ParticipantNodeParameterConfig] = {
-    import CantonConfigValidatorInstances.*
+      : CantonConfigValidator[ParticipantNodeParameterConfig] =
     CantonConfigValidatorDerivation[ParticipantNodeParameterConfig]
-  }
 }
 
 /** Parameters for the participant node's stores
@@ -427,17 +463,26 @@ object ParticipantStoreConfig {
   *   The initial interval size for pruning
   * @param maxBuckets
   *   The maximum number of buckets used for any pruning interval
+  * @param maxItemsExpectedToPrunePerBatch
+  *   The maximum on the number of items expected to prune per batch. Implemented by select stores
+  *   (e.g. ActiveContractStore) to help motivate database filtered index selection. Should be at
+  *   least an order of magnitude larger than targetBatchSize to not interfere with dynamic
+  *   bucketing after a participant node has been inactive for a while, but not excessively large to
+  *   discourage scanning the entire table.
   */
 final case class JournalPruningConfig(
     targetBatchSize: PositiveInt = JournalPruningConfig.DefaultTargetBatchSize,
     initialInterval: config.NonNegativeFiniteDuration = JournalPruningConfig.DefaultInitialInterval,
     maxBuckets: PositiveInt = JournalPruningConfig.DefaultMaxBuckets,
+    maxItemsExpectedToPrunePerBatch: PositiveInt =
+      JournalPruningConfig.DefaultMaxItemsExpectedToPrunePerBatch,
 ) extends UniformCantonConfigValidation {
   def toInternal: PrunableByTimeParameters =
     PrunableByTimeParameters(
       targetBatchSize,
       initialInterval = initialInterval.toInternal,
       maxBuckets = maxBuckets,
+      maxItemsExpectedToPrunePerBatch = maxItemsExpectedToPrunePerBatch,
     )
 }
 
@@ -451,6 +496,7 @@ object JournalPruningConfig {
   private val DefaultTargetBatchSize = PositiveInt.tryCreate(5000)
   private val DefaultInitialInterval = config.NonNegativeFiniteDuration.ofSeconds(5)
   private val DefaultMaxBuckets = PositiveInt.tryCreate(100)
+  private val DefaultMaxItemsExpectedToPrunePerBatch = PositiveInt.tryCreate(100000)
 }
 
 /** Parameters for the ledger api server

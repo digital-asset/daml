@@ -16,10 +16,7 @@ import com.digitalasset.canton.console.{
 }
 import com.digitalasset.canton.crypto.{PublicKey, SigningKeyUsage, SigningPublicKey}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.integration.plugins.{
-  UseBftSequencer,
-  UseCommunityReferenceBlockSequencer,
-}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -238,7 +235,7 @@ trait StressTopologyDispatcherIntegrationTest
 
 class StressTopologyDispatcherReferenceIntegrationTestPostgres
     extends StressTopologyDispatcherIntegrationTest {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }
 
 class StressTopologyDispatcherBftOrderingIntegrationTestPostgres

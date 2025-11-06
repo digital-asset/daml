@@ -35,7 +35,6 @@ import com.digitalasset.canton.protocol.WellFormedTransaction.{
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.messages.EncryptedViewMessage.computeRandomnessLength
 import com.digitalasset.canton.sequencing.protocol.{
-  MaxRequestSizeToDeserialize,
   MediatorGroupRecipient,
   MemberRecipient,
   OpenEnvelope,
@@ -51,7 +50,7 @@ import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.*
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ResourceUtil
+import com.digitalasset.canton.util.{MaxBytesToDecompress, ResourceUtil}
 import monocle.macros.syntax.lens.*
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -130,12 +129,19 @@ class TransactionConfirmationRequestFactoryTest
       override def generateUuid(): UUID = transactionUuid
     }
 
+  // Input factory
+  private val transactionFactory: ExampleTransactionFactory =
+    new ExampleTransactionFactory()(ledgerTime = ledgerTime)
+
   // Device under test
   private def confirmationRequestFactory(
       transactionTreeFactoryResult: Either[TransactionTreeConversionError, GenTransactionTree]
   ): TransactionConfirmationRequestFactory = {
 
     val transactionTreeFactory: TransactionTreeFactory = new TransactionTreeFactory {
+      override def cantonContractIdVersion: CantonContractIdVersion =
+        transactionFactory.cantonContractIdVersion
+
       override def createTransactionTree(
           transaction: WellFormedTransaction[WithoutSuffixes],
           submitterInfo: SubmitterInfo,
@@ -208,10 +214,6 @@ class TransactionConfirmationRequestFactoryTest
     EitherT.leftT(ContractLookupError(id, "Error in test: argument should not be used"))
   }
   // This isn't used because the transaction tree factory is mocked
-
-  // Input factory
-  private val transactionFactory: ExampleTransactionFactory =
-    new ExampleTransactionFactory()(ledgerTime = ledgerTime)
 
   // Since the ConfirmationRequestFactory signs the envelopes in parallel,
   // we cannot predict the counter that SymbolicCrypto uses to randomize the signatures.
@@ -294,7 +296,7 @@ class TransactionConfirmationRequestFactoryTest
               Await
                 .result(
                   cryptoSnapshot
-                    .sign(tree.transactionId.unwrap, SigningKeyUsage.ProtocolOnly)
+                    .sign(tree.updateId.unwrap, SigningKeyUsage.ProtocolOnly)
                     .value,
                   10.seconds,
                 )
@@ -328,9 +330,7 @@ class TransactionConfirmationRequestFactoryTest
             TransactionViewType,
           )(
             ltvt,
-            MaxRequestSizeToDeserialize.Limit(
-              DynamicSynchronizerParameters.defaultMaxRequestSize.value
-            ),
+            MaxBytesToDecompress.Default,
           )
           .valueOr(err => fail(s"fail to encrypt view tree: $err"))
 
@@ -357,7 +357,7 @@ class TransactionConfirmationRequestFactoryTest
     val signature =
       cryptoSnapshot
         .sign(
-          example.fullInformeeTree.transactionId.unwrap,
+          example.fullInformeeTree.updateId.unwrap,
           SigningKeyUsage.ProtocolOnly,
         )
         .failOnShutdown

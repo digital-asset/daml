@@ -13,10 +13,7 @@ import com.digitalasset.canton.integration.bootstrap.{
   NetworkBootstrapper,
   NetworkTopologyDescription,
 }
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -54,7 +51,7 @@ sealed trait SequencerChannelProtocolIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment
     with SequencerChannelProtocolTestExecHelpers {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   override lazy val environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P2S1M1_Manual
@@ -380,8 +377,10 @@ sealed trait SequencerChannelProtocolIntegrationTest
       extends SequencerChannelProtocolProcessor {
     override def onConnected()(implicit
         traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, String, Unit] =
-      MonadUtil.sequentialTraverse_(initialPayloads)(sendPayload("initial payload", _))
+    ): EitherT[FutureUnlessShutdown, String, Unit] = for {
+      _ <- super.onConnected()
+      _ <- MonadUtil.sequentialTraverse_(initialPayloads)(sendPayload("initial payload", _))
+    } yield ()
 
     override def handlePayload(payload: ByteString)(implicit
         traceContext: TraceContext

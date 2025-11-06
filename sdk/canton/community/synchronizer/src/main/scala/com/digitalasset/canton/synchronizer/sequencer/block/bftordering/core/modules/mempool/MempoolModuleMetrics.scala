@@ -14,12 +14,20 @@ private[mempool] object MempoolModuleMetrics {
       orderingRequest: OrderingRequest,
       sender: Option[Member],
       outcome: metrics.ingress.labels.outcome.values.OutcomeValue,
+      checkTags: Boolean,
   )(implicit mc: MetricsContext): Unit = {
     val mc1 =
-      mc.withExtraLabels(
-        metrics.ingress.labels.Tag -> orderingRequest.tag,
-        metrics.ingress.labels.outcome.Key -> outcome,
-      )
+      if (checkTags) {
+        mc.withExtraLabels(
+          metrics.ingress.labels.Tag -> orderingRequest.tag,
+          metrics.ingress.labels.outcome.Key -> outcome,
+        )
+      } else {
+        // This is to avoid emitting high-cardinality labels, as standalone mode uses the tag to store the request UUID
+        mc.withExtraLabels(
+          metrics.ingress.labels.outcome.Key -> outcome
+        )
+      }
     val mc2 = sender
       .map(sender => mc1.withExtraLabels(metrics.ingress.labels.Sender -> sender.toProtoPrimitive))
       .getOrElse(mc1)
@@ -37,7 +45,7 @@ private[mempool] object MempoolModuleMetrics {
   ): Unit = {
     metrics.ingress.requestsQueued.updateValue(mempoolState.receivedOrderRequests.size)
     metrics.ingress.bytesQueued.updateValue(
-      mempoolState.receivedOrderRequests.map(_.tx.value.payload.size()).sum
+      mempoolState.receivedOrderRequests.map(_._1.tx.value.payload.size()).sum
     )
     metrics.mempool.requestedBatches.updateValue(mempoolState.toBeProvidedToAvailability)
   }

@@ -6,6 +6,7 @@ package com.digitalasset.canton.sequencing
 import cats.data.EitherT
 import cats.implicits.catsSyntaxEither
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -40,6 +41,7 @@ class GrpcSequencerConnectionXStub(
     connection: GrpcConnectionX,
     apiSvcFactory: Channel => ApiInfoServiceStub,
     sequencerConnectSvcFactory: Channel => SequencerConnectServiceStub,
+    metricsContext: MetricsContext,
 )(implicit
     ec: ExecutionContextExecutor
 ) extends SequencerConnectionXStub {
@@ -55,6 +57,7 @@ class GrpcSequencerConnectionXStub(
         stubFactory = apiSvcFactory,
         retryPolicy = retryPolicy,
         logPolicy = logPolicy,
+        metricsContext = metricsContext.withExtraLabels("endpoint" -> "GetApiInfo"),
       )(_.getApiInfo(v30.GetApiInfoRequest()).map(_.name))
       .leftMap(
         SequencerConnectionXStubError.ConnectionError.apply
@@ -77,6 +80,7 @@ class GrpcSequencerConnectionXStub(
           stubFactory = sequencerConnectSvcFactory,
           retryPolicy = retryPolicy,
           logPolicy = logPolicy,
+          metricsContext = metricsContext.withExtraLabels("endpoint" -> "Handshake"),
         )(_.handshake(handshakeRequest.toProtoV30))
         .leftMap(SequencerConnectionXStubError.ConnectionError.apply)
       handshakeResponse <- EitherT
@@ -104,6 +108,7 @@ class GrpcSequencerConnectionXStub(
           stubFactory = sequencerConnectSvcFactory,
           retryPolicy = retryPolicy,
           logPolicy = logPolicy,
+          metricsContext = metricsContext.withExtraLabels("endpoint" -> "GetSynchronizerId"),
         )(_.getSynchronizerId(SequencerConnect.GetSynchronizerIdRequest()))
         .leftMap(SequencerConnectionXStubError.ConnectionError.apply)
 
@@ -136,6 +141,7 @@ class GrpcSequencerConnectionXStub(
           stubFactory = sequencerConnectSvcFactory,
           retryPolicy = retryPolicy,
           logPolicy = logPolicy,
+          metricsContext = metricsContext.withExtraLabels("endpoint" -> "GetSynchronizerParameters"),
         )(_.getSynchronizerParameters(SequencerConnect.GetSynchronizerParametersRequest()))
         .leftMap(SequencerConnectionXStubError.ConnectionError.apply)
 
@@ -156,7 +162,7 @@ class GrpcSequencerConnectionXStub(
 
 class SequencerConnectionXStubFactoryImpl(loggerFactory: NamedLoggerFactory)
     extends SequencerConnectionXStubFactory {
-  override def createStub(connection: ConnectionX)(implicit
+  override def createStub(connection: ConnectionX, metricsContext: MetricsContext)(implicit
       ec: ExecutionContextExecutor
   ): SequencerConnectionXStub = connection match {
     case grpcConnection: GrpcConnectionX =>
@@ -164,6 +170,7 @@ class SequencerConnectionXStubFactoryImpl(loggerFactory: NamedLoggerFactory)
         grpcConnection,
         ApiInfoServiceGrpc.stub,
         SequencerConnectServiceGrpc.stub,
+        metricsContext,
       )
 
     case _ => throw new IllegalStateException(s"Connection type not supported: $connection")
@@ -172,6 +179,7 @@ class SequencerConnectionXStubFactoryImpl(loggerFactory: NamedLoggerFactory)
   def createUserStub(
       connection: ConnectionX,
       clientAuth: GrpcSequencerClientAuth,
+      metricsContext: MetricsContext,
       timeouts: ProcessingTimeout,
       protocolVersion: ProtocolVersion,
   )(implicit
@@ -184,6 +192,7 @@ class SequencerConnectionXStubFactoryImpl(loggerFactory: NamedLoggerFactory)
         new GrpcUserSequencerConnectionXStub(
           grpcConnection,
           channel => clientAuth(SequencerServiceGrpc.stub(channel)),
+          metricsContext,
           timeouts,
           loggerFactory,
           protocolVersion,

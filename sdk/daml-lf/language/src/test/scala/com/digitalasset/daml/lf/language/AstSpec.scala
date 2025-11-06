@@ -36,6 +36,10 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
           Ref.PackageVersion.assertFromString("0.0.0"),
           None,
         ),
+        Ast.GeneratedImports(
+          reason = "package made in com.digitalasset.daml.lf.language.AstSpec",
+          pkgIds = Set.empty,
+        ),
       )
       a[PackageError] shouldBe thrownBy(
         Package.build(
@@ -49,6 +53,10 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
             Ref.PackageName.assertFromString("bar"),
             Ref.PackageVersion.assertFromString("0.0.0"),
             None,
+          ),
+          Ast.GeneratedImports(
+            reason = "package made in com.digitalasset.daml.lf.language.AstSpec",
+            pkgIds = Set.empty,
           ),
         )
       )

@@ -15,7 +15,7 @@ class UtilSpec extends AnyWordSpec with Matchers with ScalaCheckPropertyChecks {
   "normalize" should {
 
     "be equivalent to serialization followed by unserialization" in {
-      forAll(valueGen(), transactionVersionGen()) { (v, version) =>
+      forAll(valueGen(), SerializationVersionGen()) { (v, version) =>
         val reference = for {
           encoded <-
             ValueCoder.encodeValue(valueVersion = version, v0 = v).left.map(_ => ())

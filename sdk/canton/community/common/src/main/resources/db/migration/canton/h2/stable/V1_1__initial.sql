@@ -1,4 +1,4 @@
--- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 create table par_daml_packages (
@@ -70,23 +70,27 @@ create table common_crypto_public_keys (
 
 -- Stores the immutable contracts, however a creation of a contract can be rolled back.
 create table par_contracts (
+    internal_contract_id bigint generated always as identity,
     contract_id binary varying not null,
     -- The contract is a LfFatContractInstance serialized using the LF contract proto serializer.
     instance binary large object not null,
     package_id varchar not null,
     template_id varchar not null,
-    primary key (contract_id));
+    primary key (contract_id)
+);
 
+-- Index for lookup per internal_contract_id
+create index idx_par_contracts_internal on par_contracts(internal_contract_id);
 -- Index to speedup ContractStore.find
 -- package_id comes before template_id, because queries with package_id and without template_id make more sense than vice versa.
 -- contract_id is left out, because a query with contract_id can be served with the primary key.
 create index idx_par_contracts_find on par_contracts(package_id, template_id);
 
--- provides a serial enumeration of static strings so we don't store the same string over and over in the db
+-- provides an enumeration of static strings so we don't store the same string over and over in the db
 -- currently only storing uids
 create table common_static_strings (
-    -- serial identifier of the string (local to this node)
-    id serial not null primary key,
+    -- identifier of the string (local to this node)
+    id integer generated always as identity primary key,
     -- the expression
     string varchar not null,
     -- the source (what kind of string are we storing here)
@@ -121,7 +125,7 @@ create index idx_common_party_metadata_notified on common_party_metadata(notifie
 -- Stores the dispatching watermarks
 create table common_topology_dispatching (
   -- the target store we are dispatching to (from is always authorized)
-  store_id varchar not null primary key,
+  store_id integer not null primary key,
   -- the dispatching watermark
   watermark_ts bigint not null
 );
@@ -308,19 +312,39 @@ create table par_last_computed_acs_commitments (
     ts bigint not null
 );
 
--- Stores the snapshot ACS commitments (per stakeholder set)
+-- Stores the snapshot of running ACS commitments (per stakeholder set), useful for computation caching
 create table par_commitment_snapshot (
     synchronizer_idx integer not null,
     -- A stable reference to a stakeholder set, that doesn't rely on the Protobuf encoding being deterministic
-    -- a hex-encoded hash (not binary so that hash can be indexed in all db server types)
-    stakeholders_hash varchar not null,
-    stakeholders varchar array not null,
+    -- a binary-encoded hash for indexing
+    stakeholders_hash binary varying not null,
+    stakeholders integer array not null,
     commitment binary large object not null,
     primary key (synchronizer_idx, stakeholders_hash)
 );
 
--- Stores the time (along with a tie-breaker) of the ACS commitment snapshot
+-- Stores the time (along with a tie-breaker) of the running ACS commitment snapshot used for computation caching
 create table par_commitment_snapshot_time (
+    synchronizer_idx integer not null,
+    -- UTC timestamp in microseconds relative to EPOCH
+    ts bigint not null,
+    tie_breaker bigint not null,
+    primary key (synchronizer_idx)
+);
+
+-- Stores the snapshot of running ACS commitments (per stakeholder set) for checkpointing
+create table par_commitment_checkpoint_snapshot (
+    synchronizer_idx integer not null,
+    -- A stable reference to a stakeholder set, that doesn't rely on the Protobuf encoding being deterministic
+    -- a binary-encoded hash for indexing
+    stakeholders_hash binary varying not null,
+    stakeholders integer array not null,
+    commitment binary large object not null,
+    primary key (synchronizer_idx, stakeholders_hash)
+);
+
+-- Stores the time (along with a tie-breaker) of the running ACS commitment snapshot used for checkpointing
+create table par_commitment_checkpoint_snapshot_time (
     synchronizer_idx integer not null,
     -- UTC timestamp in microseconds relative to EPOCH
     ts bigint not null,
@@ -384,12 +408,11 @@ create table seq_block_height (
 );
 
 create table mediator_deduplication_store (
-    mediator_id varchar not null,
     uuid varchar not null,
     request_time bigint not null,
     expire_after bigint not null
 );
-create index idx_mediator_deduplication_store_expire_after on mediator_deduplication_store(mediator_id, expire_after);
+create index idx_mediator_deduplication_store_expire_after on mediator_deduplication_store(expire_after);
 
 create type pruning_phase as enum ('started', 'completed');
 
@@ -449,7 +472,7 @@ create table common_head_sequencer_counters (
 -- members can read all events from `registered_ts`
 create table sequencer_members (
     member varchar primary key,
-    id serial unique,
+    id integer generated always as identity unique,
     registered_ts bigint not null,
     pruned_previous_event_timestamp bigint,
     enabled bool not null default true
@@ -668,11 +691,11 @@ create index idx_seq_in_flight_aggregation_temporal on seq_in_flight_aggregation
 
 create table seq_in_flight_aggregated_sender(
     aggregation_id varchar not null,
-    sender varchar not null,
+    sender_id integer not null,
     -- UTC timestamp in microseconds relative to EPOCH
     sequencing_timestamp bigint not null,
     signatures binary large object not null,
-    primary key (aggregation_id, sender),
+    primary key (aggregation_id, sender_id),
     constraint foreign_key_in_flight_aggregated_sender foreign key (aggregation_id) references seq_in_flight_aggregation(aggregation_id) on delete cascade
 );
 
@@ -680,10 +703,10 @@ create index idx_seq_in_flight_aggregated_sender_temporal on seq_in_flight_aggre
 
 -- stores the topology-x state transactions
 create table common_topology_transactions (
-    -- serial identifier used to preserve insertion order
-    id bigserial not null primary key,
+    -- identifier used to preserve insertion order
+    id bigint generated always as identity primary key,
     -- the id of the store
-    store_id varchar not null,
+    store_id integer not null,
     -- the timestamp at which the transaction is sequenced by the sequencer
     -- UTC timestamp in microseconds relative to EPOCH
     sequenced bigint not null,
@@ -697,7 +720,7 @@ create table common_topology_transactions (
     identifier varchar not null,
     -- The topology mapping key hash, to uniquify and aid efficient lookups.
     -- a hex-encoded hash (not binary so that hash can be indexed in all db server types)
-    mapping_key_hash varchar not null,
+    mapping_key_hash binary varying not null,
     -- the serial_counter describes the change order within transactions of the same mapping_key_hash
     -- (redundant also embedded in instance)
     serial_counter integer not null,
@@ -705,6 +728,9 @@ create table common_topology_transactions (
     -- so `TopologyChangeOp.Replace` transactions have an effect for valid_from < t <= valid_until
     -- a `TopologyChangeOp.Remove` will have valid_from = valid_until
     valid_from bigint not null,
+    -- batch index used to deduplicate proposals within a single batch
+    -- this means that valid_from, batch_idx must be unique
+    batch_idx integer not null,
     valid_until bigint null,
     -- operation
     -- 1: Remove
@@ -714,7 +740,7 @@ create table common_topology_transactions (
     instance binary large object not null,
     -- The transaction hash, to uniquify and aid efficient lookups.
     -- a hex-encoded hash (not binary so that hash can be indexed in all db server types)
-    tx_hash varchar not null,
+    tx_hash binary varying not null,
     -- flag / reason why this transaction is being rejected
     -- therefore: if this field is NULL, then the transaction is included. if it is non-null shows the reason why it is invalid
     rejection_reason varchar null,
@@ -725,17 +751,37 @@ create table common_topology_transactions (
     representative_protocol_version integer not null,
     -- the hash of the transaction's signatures. this disambiguates multiple transactions/proposals with the same
     -- tx_hash but different signatures
-    hash_of_signatures varchar not null,
+    hash_of_signatures binary varying not null,
     -- index used for idempotency during crash recovery
-    unique (store_id, mapping_key_hash, serial_counter, valid_from, operation, representative_protocol_version, hash_of_signatures, tx_hash)
+    unique (store_id, valid_from, batch_idx)
 );
 
 create index idx_common_topology_transactions on common_topology_transactions (store_id, transaction_type, namespace, identifier, valid_until, valid_from);
 
+-- for:
+-- - DbTopologyStore.findProposalsByTxHash
+-- - DbTopologyStore.findLatestTransactionsAndProposalsByTxHash
+create index idx_common_topology_transactions_by_tx_hash
+  on common_topology_transactions (store_id, tx_hash, is_proposal, valid_from, valid_until, rejection_reason);
+
+-- for:
+-- - DbTopologyStore.findEffectiveStateChanges
+create index idx_common_topology_transactions_effective_changes
+  on common_topology_transactions (store_id, is_proposal, valid_from, valid_until, rejection_reason);
+
+
+-- for:
+-- - DbTopologyStore.update, updating the valid_until column for past transactions
+create index idx_common_topology_transactions_for_valid_until_update
+  on common_topology_transactions (store_id, mapping_key_hash, serial_counter, valid_from);
+
+create index idx_common_topology_transactions_for_old_unique_idx
+    on common_topology_transactions (store_id, mapping_key_hash, serial_counter, valid_from, operation, representative_protocol_version, tx_hash);
+
 -- Stores the traffic balance updates
 create table seq_traffic_control_balance_updates (
     -- member the traffic balance update is for
-       member varchar not null,
+       member_id integer not null,
     -- timestamp at which the update was sequenced
        sequencing_timestamp bigint not null,
     -- total traffic balance after the update
@@ -743,7 +789,7 @@ create table seq_traffic_control_balance_updates (
     -- used to keep balance updates idempotent
        serial bigint not null,
     -- traffic states have a unique sequencing_timestamp per member
-       primary key (member, sequencing_timestamp)
+       primary key (member_id, sequencing_timestamp)
 );
 
 -- Stores the initial timestamp during onboarding. Allows to survive a restart immediately after onboarding
@@ -756,7 +802,7 @@ create table seq_traffic_control_initial_timestamp (
 -- Stores the traffic consumed as a journal
 create table seq_traffic_control_consumed_journal (
     -- member the traffic consumed entry is for
-       member varchar not null,
+       member_id integer not null,
     -- timestamp at which the event that caused traffic to be consumed was sequenced
        sequencing_timestamp bigint not null,
     -- total traffic consumed at sequencing_timestamp
@@ -766,7 +812,7 @@ create table seq_traffic_control_consumed_journal (
     -- the last cost consumed at sequencing_timestamp
        last_consumed_cost bigint not null,
     -- traffic entries have a unique sequencing_timestamp per member
-       primary key (member, sequencing_timestamp)
+       primary key (member_id, sequencing_timestamp)
 );
 
 --   BFT Ordering Tables
@@ -931,4 +977,22 @@ create table acs_slow_counter_participants
    is_distinguished boolean not null,
    is_added_to_metrics boolean not null,
    primary key(synchronizer_id,participant_id)
+);
+
+-- Specifies the event that triggers the execution of a pending operation
+create type pending_operation_trigger_type as enum ('synchronizer_reconnect');
+
+-- Stores operations that must be completed, ensuring execution even after a node restart (e.g., following a crash)
+create table common_pending_operations (
+  operation_trigger pending_operation_trigger_type not null,
+  -- The name of the procedure to execute for this operation.
+  operation_name varchar not null,
+  -- A key to uniquely identify an instance of an operation, allowing multiple pending operations of the same type
+  -- An empty string indicates no specific key
+  operation_key varchar not null,
+  -- The serialized protobuf message for the operation, wrapped for versioning (HasProtocolVersionedWrapper)
+  operation bytea not null,
+  -- The ID of the synchronizer instance this operation is associated with
+  synchronizer_id varchar not null,
+  primary key (synchronizer_id, operation_key, operation_name)
 );

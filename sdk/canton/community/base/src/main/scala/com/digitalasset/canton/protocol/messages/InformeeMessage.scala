@@ -59,7 +59,7 @@ case class InformeeMessage(
 
   override def requestUuid: UUID = fullInformeeTree.transactionUuid
 
-  override def synchronizerId: PhysicalSynchronizerId = fullInformeeTree.synchronizerId
+  override def psid: PhysicalSynchronizerId = fullInformeeTree.synchronizerId
 
   override def mediator: MediatorGroupRecipient = fullInformeeTree.mediator
 
@@ -79,7 +79,7 @@ case class InformeeMessage(
   override def toProtoSomeEnvelopeContentV30: v30.EnvelopeContent.SomeEnvelopeContent =
     v30.EnvelopeContent.SomeEnvelopeContent.InformeeMessage(toProtoV30)
 
-  override def rootHash: RootHash = fullInformeeTree.transactionId.toRootHash
+  override def rootHash: RootHash = fullInformeeTree.updateId.toRootHash
 
   override def viewType: ViewType = ViewType.TransactionViewType
 

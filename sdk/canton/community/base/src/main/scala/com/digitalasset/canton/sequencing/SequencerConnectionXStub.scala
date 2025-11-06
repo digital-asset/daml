@@ -5,6 +5,7 @@ package com.digitalasset.canton.sequencing
 
 import cats.data.EitherT
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -79,13 +80,14 @@ object SequencerConnectionXStub {
 }
 
 trait SequencerConnectionXStubFactory {
-  def createStub(connection: ConnectionX)(implicit
+  def createStub(connection: ConnectionX, metricsContext: MetricsContext)(implicit
       ec: ExecutionContextExecutor
   ): SequencerConnectionXStub
 
   def createUserStub(
       connection: ConnectionX,
       clientAuth: GrpcSequencerClientAuth,
+      metricsContext: MetricsContext,
       timeouts: ProcessingTimeout,
       protocolVersion: ProtocolVersion,
   )(implicit

@@ -65,6 +65,7 @@ import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
+import io.opentelemetry.api.trace.Tracer
 
 import java.time.Instant
 import scala.collection.mutable
@@ -92,6 +93,7 @@ final class AvailabilityModule[E <: Env[E]](
     override val timeouts: ProcessingTimeout,
     disseminationProtocolState: DisseminationProtocolState = new DisseminationProtocolState(),
     outputFetchProtocolState: MainOutputFetchProtocolState = new MainOutputFetchProtocolState(),
+    checkTags: Boolean = true,
 )(
     // Only passed in tests
     private var messageAuthorizer: MessageAuthorizer = initialMembership.orderingTopology,
@@ -101,6 +103,7 @@ final class AvailabilityModule[E <: Env[E]](
     override val config: BftBlockOrdererConfig,
     synchronizerProtocolVersion: ProtocolVersion,
     mc: MetricsContext,
+    tracer: Tracer,
 ) extends Availability[E]
     with HasDelayedInit[Availability.Message[E]] {
 
@@ -123,6 +126,8 @@ final class AvailabilityModule[E <: Env[E]](
   private var waitingForBatchSince: Option[Instant] = None
 
   disseminationProtocolState.lastProposalTime = Some(clock.now)
+
+  private val spanManager = new AvailabilityModuleSpanManager()
 
   override def receiveInternal(
       message: Availability.Message[E]
@@ -259,14 +264,23 @@ final class AvailabilityModule[E <: Env[E]](
         emitBatchWaitLatency()
         val batch = OrderingRequestBatch.create(requests, lastKnownEpochNumber)
         val batchId = BatchId.from(batch)
+        spanManager.trackSpansForBatch(
+          batchId,
+          spans = requests.map { t =>
+            startSpan("BFTOrderer.Availability")(t.traceContext, tracer)._1
+          },
+        )
+
         logger.debug(s"$messageType: received $batchId from local mempool")
         disseminationProtocolState.beingFirstSaved
           .put(batchId, InitialSaveInProgress(availabilityEnterInstant = Some(Instant.now)))
           .discard
         pipeToSelf(availabilityStore.addBatch(batchId, batch)) {
           case Failure(exception) =>
+            spanManager.endSpansWithError(batchId, "Failed to add batch")
             abort(s"Failed to add batch $batchId", exception)
           case Success(_) =>
+            spanManager.addEventToBatchSpans(batchId, "Batch stored")
             Availability.LocalDissemination.LocalBatchesStored(Seq(Traced(batchId) -> batch))
         }
 
@@ -339,14 +353,17 @@ final class AvailabilityModule[E <: Env[E]](
       )
     ) {
       case Failure(exception) =>
+        batches.foreach(b => spanManager.endSpansWithError(b._1.value, "Failed to sign batch"))
         abort("Failed to sign local batches", exception)
       case Success(results) =>
         val (errors, signatures) = results.partitionMap(identity)
         if (errors.nonEmpty) {
+          batches.foreach(b => spanManager.endSpansWithError(b._1.value, "Failed to sign batch"))
           abort(s"Failed to sign local batches: ${errors.map(_.toString)}")
         } else {
           Availability.LocalDissemination.LocalBatchesStoredSigned(
             batches.zip(signatures).map { case ((batchId, batch), signature) =>
+              spanManager.addEventToBatchSpans(batchId.value, "Batch signed")
               Availability.LocalDissemination
                 .LocalBatchStoredSigned(batchId, batch, Some(signature))
             }
@@ -523,6 +540,7 @@ final class AvailabilityModule[E <: Env[E]](
     consensusMessage match {
       case Availability.Consensus.Ordered(batchIds) =>
         removeOrderedBatchesAndPullFromMempool(messageType, batchIds)
+        spanManager.finishBlockSpan(batchIds)
 
       case Availability.Consensus.CreateProposal(
             orderingTopology,
@@ -532,6 +550,8 @@ final class AvailabilityModule[E <: Env[E]](
           ) =>
         val batchesToBeEvicted =
           updateLastKnownEpochNumberAndForgetExpiredBatches(messageType, forEpochNumber)
+
+        spanManager.finishBlockSpan(ordered)
 
         if (batchesToBeEvicted.nonEmpty)
           context.pipeToSelf(availabilityStore.gc(batchesToBeEvicted)) {
@@ -801,6 +821,8 @@ final class AvailabilityModule[E <: Env[E]](
       logger.debug(
         s"$actingOnMessageType: $batchId has completed dissemination in ${disseminationProgress.orderingTopology}"
       )
+      spanManager.addEventToBatchSpans(batchId, "Batch completed dissemination")
+
       emitBatchDisseminationLatency(disseminationProgress)
       // Dissemination completed: remove it now from the progress to avoids clashes with delayed / unneeded ACKs
       disseminationProtocolState.disseminationProgress.remove(batchId).discard
@@ -1255,18 +1277,24 @@ final class AvailabilityModule[E <: Env[E]](
     emitBatchesQueuedForBlockInclusionLatencies(batchesToBeProposed)
     locally {
       val tracedProofOfAvailabilities = batchesToBeProposed.view.values.map(_.proofOfAvailability)
-      implicit val traceContext: TraceContext =
-        context.traceContextOfBatch(tracedProofOfAvailabilities)
       val proposal =
         Consensus.LocalAvailability.ProposalCreated(
           OrderingBlock(tracedProofOfAvailabilities.map(_.value).toSeq),
           toBeProvidedToConsensus.forEpochNumber,
         )
+      val (span, newContext) = startSpan(s"BFTOrderer.Availability.ProposeBlock")(
+        context.traceContextOfBatch(tracedProofOfAvailabilities),
+        tracer,
+      )
+      spanManager.trackSpanForBlock(
+        span.setAttribute("poas", tracedProofOfAvailabilities.size.toLong),
+        proposal.orderingBlock,
+      )
       logger.debug(
         s"$actingOnMessageType: providing proposal with batch IDs " +
           s"${proposal.orderingBlock.proofs.map(_.batchId)} to local consensus"
-      )
-      dependencies.consensus.asyncSend(proposal)
+      )(newContext)
+      dependencies.consensus.asyncSend(proposal)(newContext, mc)
     }
     disseminationProtocolState.lastProposalTime = Some(clock.now)
     emitDisseminationStateStats(metrics, disseminationProtocolState)
@@ -1387,7 +1415,7 @@ final class AvailabilityModule[E <: Env[E]](
       }
 
       _ <- Either.cond(
-        batch.requests.map(_.value).forall(_.isTagValid),
+        !checkTags || batch.requests.map(_.value).forall(_.isTagValid),
         (), {
           emitInvalidMessage(metrics, from)
           s"Batch $batchId from '$from' contains requests with invalid tags, valid tags are: (${OrderingRequest.ValidTags

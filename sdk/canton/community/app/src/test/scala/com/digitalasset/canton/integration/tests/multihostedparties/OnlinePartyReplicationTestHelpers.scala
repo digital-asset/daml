@@ -3,7 +3,10 @@
 
 package com.digitalasset.canton.integration.tests.multihostedparties
 
-import com.digitalasset.canton.admin.api.client.data.AddPartyStatus
+import com.digitalasset.canton.admin.api.client.data.{
+  AddPartyStatus,
+  DynamicSynchronizerParameters as ConsoleDynamicSynchronizerParameters,
+}
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.{InstanceReference, ParticipantReference}
@@ -17,7 +20,7 @@ import com.digitalasset.canton.topology.transaction.{
   SignedTopologyTransaction,
   TopologyChangeOp,
 }
-import com.digitalasset.canton.{BaseTest, integration}
+import com.digitalasset.canton.{BaseTest, config, integration}
 
 import scala.concurrent.duration.*
 import scala.util.Try
@@ -26,6 +29,24 @@ import scala.util.Try
   */
 private[tests] trait OnlinePartyReplicationTestHelpers {
   this: BaseTest =>
+
+  protected def updateSynchronizerParameters(
+      synchronizerOwner: InstanceReference,
+      maxDecisionTimeout: config.NonNegativeFiniteDuration,
+      update: ConsoleDynamicSynchronizerParameters => ConsoleDynamicSynchronizerParameters =
+        identity,
+  )(implicit
+      env: integration.TestConsoleEnvironment
+  ): Unit = {
+    import env.*
+    val half = (maxDecisionTimeout.toInternal / NonNegativeInt.two).toConfig
+    synchronizerOwner.topology.synchronizer_parameters.propose_update(
+      daId,
+      params =>
+        update(params.update(confirmationResponseTimeout = half, mediatorReactionTimeout = half)),
+      mustFullyAuthorize = true,
+    )
+  }
 
   protected def createSharedContractsAndProposeTopologyForOnPR(
       sourceParticipant: ParticipantReference,
@@ -180,7 +201,8 @@ private[tests] trait OnlinePartyReplicationTestHelpers {
     */
   protected def modifyDecentralizedPartyTopology(
       decentralizedParty: PartyId,
-      partyOwners: Seq[InstanceReference],
+      authorizers: Seq[InstanceReference],
+      verifiers: Seq[InstanceReference],
       propose: (
           InstanceReference,
           PartyToParticipant,
@@ -189,15 +211,16 @@ private[tests] trait OnlinePartyReplicationTestHelpers {
       verifyBeforeAfter: (PartyToParticipant, PartyToParticipant) => Unit,
   )(implicit env: integration.TestConsoleEnvironment): PositiveInt = {
     import env.*
-    val ptpCurrent = partyOwners.head.topology.party_to_participant_mappings
+    verifiers should contain allElementsOf authorizers
+    val ptpCurrent = authorizers.head.topology.party_to_participant_mappings
       .list(daId, filterParty = decentralizedParty.filterString)
       .loneElement
     val serial = ptpCurrent.context.serial.increment
 
-    partyOwners.foreach(propose(_, ptpCurrent.item, serial).discard)
+    authorizers.foreach(propose(_, ptpCurrent.item, serial).discard)
 
     eventually() {
-      partyOwners.foreach(po =>
+      verifiers.foreach(po =>
         verifyBeforeAfter(
           ptpCurrent.item,
           po.topology.party_to_participant_mappings
@@ -213,14 +236,24 @@ private[tests] trait OnlinePartyReplicationTestHelpers {
 
   /** Wait until online party replication completes on the source and target participants with the
     * expected number of replicated contracts on the specified request.
+    *
+    * @param waitAtMost
+    *   Clearing the onboarding flag takes up to max-decision-timeout (initial value of 60s), so
+    *   wait at least 1 minute at the very least. Also figure about 1 minute for 300 contracts, e.g.
+    *   2 minutes total for an ACS size of 600 contracts plus an extra minute to avoid flakiness.
     */
   protected def eventuallyOnPRCompletes(
       sourceParticipant: ParticipantReference,
       targetParticipant: ParticipantReference,
       addPartyRequestId: String,
       expectedNumContracts: NonNegativeInt,
+      waitAtMost: FiniteDuration = 2.minutes, // default enough for ~400 contracts
   ): Unit =
-    eventually(retryOnTestFailuresOnly = false, maxPollInterval = 10.millis) {
+    eventually(
+      timeUntilSuccess = waitAtMost,
+      retryOnTestFailuresOnly = false,
+      maxPollInterval = 1.second,
+    ) {
       // The try handles the optional `CommandFailure`, so that we don't give up while the SP is stopped.
       val spStatusO =
         Try(sourceParticipant.parties.get_add_party_status(addPartyRequestId)).toOption

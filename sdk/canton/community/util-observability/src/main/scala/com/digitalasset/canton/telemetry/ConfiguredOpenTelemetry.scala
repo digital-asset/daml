@@ -18,6 +18,11 @@ final case class ConfiguredOpenTelemetry(
     onDemandMetricsReader: OnDemandMetricsReader,
 ) extends AutoCloseable {
 
+  /** Omit all the details of the configured open telemetry instance as otherwise closing this
+    * instance results in all metrics being logged as part of shutdown.
+    */
+  override def toString: String = "ConfiguredOpenTelemetry(...)"
+
   override def close(): Unit = {
     openTelemetry.getSdkMeterProvider.close()
     openTelemetry.getSdkTracerProvider.close()

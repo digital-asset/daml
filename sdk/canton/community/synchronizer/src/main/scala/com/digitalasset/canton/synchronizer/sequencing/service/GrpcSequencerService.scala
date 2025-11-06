@@ -19,7 +19,6 @@ import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
   PromiseUnlessShutdown,
-  UnlessShutdown,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
@@ -29,6 +28,12 @@ import com.digitalasset.canton.protocol.DynamicSynchronizerParametersLookup
 import com.digitalasset.canton.protocol.SynchronizerParameters.MaxRequestSize
 import com.digitalasset.canton.protocol.SynchronizerParametersLookup.SequencerSynchronizerParameters
 import com.digitalasset.canton.sequencer.api.v30
+import com.digitalasset.canton.sequencer.api.v30.{
+  DownloadTopologyStateForInitHashRequest,
+  DownloadTopologyStateForInitHashResponse,
+  GetTimeRequest,
+  GetTimeResponse,
+}
 import com.digitalasset.canton.sequencing.SequencedSerializedEvent
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
@@ -43,6 +48,7 @@ import com.digitalasset.canton.synchronizer.sequencing.service.GrpcSequencerServ
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.store.{
+  StoredTopologyTransaction,
   StoredTopologyTransactions,
   TopologyStateForInitializationService,
 }
@@ -53,13 +59,15 @@ import com.digitalasset.canton.tracing.{
   Traced,
 }
 import com.digitalasset.canton.util.Thereafter.syntax.*
-import com.digitalasset.canton.util.{EitherTUtil, FutureUtil, RateLimiter}
+import com.digitalasset.canton.util.{EitherTUtil, FutureUtil, MaxBytesToDecompress, RateLimiter}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.github.blemale.scaffeine.{Cache, Scaffeine}
 import com.google.common.annotations.VisibleForTesting
 import io.grpc.Status
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
-import org.apache.pekko.stream.Materializer
+import org.apache.pekko.Done
+import org.apache.pekko.stream.scaladsl.{Keep, Sink}
+import org.apache.pekko.stream.{KillSwitches, Materializer, UniqueKillSwitch}
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
@@ -136,7 +144,7 @@ object GrpcSequencerService {
       metrics,
       loggerFactory,
       authenticationCheck,
-      new SubscriptionPool[GrpcManagedSubscription[_]](
+      new SubscriptionPool[GrpcManagedSubscription[?]](
         clock,
         metrics,
         parameters.processingTimeouts,
@@ -175,7 +183,7 @@ class GrpcSequencerService(
     metrics: SequencerMetrics,
     protected val loggerFactory: NamedLoggerFactory,
     authenticationCheck: AuthenticationCheck,
-    subscriptionPool: SubscriptionPool[GrpcManagedSubscription[_]],
+    subscriptionPool: SubscriptionPool[GrpcManagedSubscription[?]],
     directSequencerSubscriptionFactory: DirectSequencerSubscriptionFactory,
     synchronizerParamsLookup: DynamicSynchronizerParametersLookup[SequencerSynchronizerParameters],
     parameters: SequencerParameters,
@@ -183,7 +191,7 @@ class GrpcSequencerService(
     protocolVersion: ProtocolVersion,
     maxItemsInTopologyResponse: PositiveInt = PositiveInt.tryCreate(100),
     acknowledgementsConflateWindow: Option[PositiveFiniteDuration] = None,
-)(implicit ec: ExecutionContext)
+)(implicit ec: ExecutionContext, materializer: Materializer)
     extends v30.SequencerServiceGrpc.SequencerService
     with NamedLogging
     with FlagCloseable {
@@ -212,7 +220,6 @@ class GrpcSequencerService(
 
     // This has to run at the beginning, because it reads from a thread-local.
     val senderFromMetadata = authenticationCheck.lookupCurrentMember()
-
     def parseAndValidate(
         maxRequestSize: MaxRequestSize
     ): Either[SequencerDeliverError, SignedContent[SubmissionRequest]] = for {
@@ -224,7 +231,7 @@ class GrpcSequencerService(
           SubmissionRequest
             .fromByteString(
               protocolVersion,
-              MaxRequestSizeToDeserialize.Limit(maxRequestSize.value),
+              MaxBytesToDecompress(maxRequestSize.value),
             )
         )
         .leftMap(requestDeserializationError(_, maxRequestSize))
@@ -473,7 +480,7 @@ class GrpcSequencerService(
       val createSubscriptionP =
         PromiseUnlessShutdown.unsupervised[Either[Status, GrpcManagedSubscription[?]]]()
       observer.setOnCancelHandler { () =>
-        logger.debug(s"Subscription cancelled by client ${request.member}.")
+        logger.info(s"Subscription cancelled by client ${request.member}.")
         // Instead upon cancellation, we close the subscription once/if it has been successfully created.
         createSubscriptionP.future.onComplete {
           case Success(Outcome(Right(subscription))) =>
@@ -642,34 +649,50 @@ class GrpcSequencerService(
       authenticationCheck.lookupCurrentMember(),
     )
 
+  private def getDownloadTopologyStateForInit(
+      request: TopologyStateForInitRequest,
+      sendResponse: Seq[StoredTopologyTransaction.GenericStoredTopologyTransaction] => Unit,
+  )(implicit traceContext: TraceContext): (UniqueKillSwitch, Future[Done]) =
+    topologyStateForInitializationService
+      .initialSnapshot(request.member)
+      .grouped(maxItemsInTopologyResponse.value)
+      .viaMat(KillSwitches.single)(Keep.right)
+      .toMat(Sink.foreach(sendResponse))(Keep.both)
+      .run()
+
   override def downloadTopologyStateForInit(
       requestP: v30.DownloadTopologyStateForInitRequest,
       responseObserver: StreamObserver[v30.DownloadTopologyStateForInitResponse],
   ): Unit = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    TopologyStateForInitRequest
-      .fromProtoV30(requestP)
-      .traverse(request =>
-        topologyStateForInitializationService
-          .initialSnapshot(request.member)
-      )
-      .onComplete {
-        case Success(UnlessShutdown.Outcome(Left(parsingError))) =>
-          responseObserver.onError(ProtoDeserializationFailure.Wrap(parsingError).asGrpcError)
 
-        case Success(UnlessShutdown.Outcome(Right(initialSnapshot))) =>
-          initialSnapshot.result.grouped(maxItemsInTopologyResponse.value).foreach { batch =>
-            val response =
-              TopologyStateForInitResponse(Traced(StoredTopologyTransactions(batch)))
-            responseObserver.onNext(response.toProtoV30)
-          }
-          responseObserver.onCompleted()
+    withServerCallStreamObserver(responseObserver) { observer =>
+      TopologyStateForInitRequest
+        .fromProtoV30(requestP)
+        .traverse { request =>
+          val (killSwitch, future) = getDownloadTopologyStateForInit(
+            request,
+            response =>
+              observer.onNext(
+                TopologyStateForInitResponse(
+                  Traced(StoredTopologyTransactions(response))
+                ).toProtoV30
+              ),
+          )
+          observer.setOnCancelHandler(() => killSwitch.shutdown())
+          future
+        }
+        .onComplete {
+          case Success(Left(parsingError)) =>
+            responseObserver.onError(ProtoDeserializationFailure.Wrap(parsingError).asGrpcError)
 
-        case Failure(exception) =>
-          responseObserver.onError(exception)
-        case Success(UnlessShutdown.AbortedDueToShutdown) =>
-          responseObserver.onCompleted()
-      }
+          case Success(Right(_)) =>
+            responseObserver.onCompleted()
+
+          case Failure(exception) =>
+            responseObserver.onError(exception)
+        }
+    }
   }
 
   private def invalidRequest(message: String): Status =
@@ -724,5 +747,47 @@ class GrpcSequencerService(
     } yield v30.GetTrafficStateForMemberResponse(trafficO.map(_.toProtoV30))
 
     EitherTUtil.toFuture(result.onShutdown(Left(AbortedDueToShutdown.Error().asGrpcError)))
+  }
+
+  override def getTime(request: GetTimeRequest): Future[GetTimeResponse] = {
+    // This call is authenticated but does not require special authorization.
+
+    // Traffic is not impacted as no events are emitted.
+
+    // The returned information is expected to be readily available and served from transient memory,
+    //  hence this call is expected to be fast and impose minimal load on sequencers,
+    //  so network-level rate limiting is enough to secure it against denial-of-service attacks;
+    //  for this reason we don't apply application-level rate limiting.
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+    sequencer.sequencingTime
+      .map(time => GetTimeResponse(time.map(_.toProtoPrimitive)))
+      .onShutdown(throw AbortedDueToShutdown.Error().asGrpcError)
+  }
+
+  /** Returns a hash of a result equivalent to DownloadTopologyStateForInit call for a BFT check
+    * without transferring the full state.
+    */
+  override def downloadTopologyStateForInitHash(
+      requestP: DownloadTopologyStateForInitHashRequest
+  ): Future[DownloadTopologyStateForInitHashResponse] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+
+    EitherTUtil.toFuture(
+      EitherT(
+        TopologyStateForInitRequest
+          .fromProtoV30(requestP)
+          .leftMap(x => ProtoDeserializationFailure.Wrap(x).asGrpcError)
+          .traverse { request =>
+            topologyStateForInitializationService
+              .initialSnapshotHash(request.member)
+              .map(hash =>
+                DownloadTopologyStateForInitHashResponse(
+                  topologyStateHash = hash.getCryptographicEvidence
+                )
+              )
+              .onShutdown(throw AbortedDueToShutdown.Error().asGrpcError)
+          }
+      )
+    )
   }
 }

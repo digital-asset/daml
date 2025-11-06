@@ -4,6 +4,7 @@
 package com.digitalasset.canton.topology
 
 import cats.data.EitherT
+import cats.implicits.catsSyntaxOptionId
 import cats.instances.seq.*
 import cats.syntax.either.*
 import cats.syntax.foldable.*
@@ -16,6 +17,10 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.AsyncResult
+import com.digitalasset.canton.topology.TopologyStateProcessor.{
+  AccumulatedDeactivationsPerMapping,
+  MaybePending,
+}
 import com.digitalasset.canton.topology.processing.{
   EffectiveTime,
   SequencedTime,
@@ -27,10 +32,7 @@ import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.Gener
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyMapping.MappingHash
 import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
-import com.digitalasset.canton.topology.transaction.{
-  SignedTopologyTransactions,
-  TopologyMappingChecks,
-}
+import com.digitalasset.canton.topology.transaction.checks.TopologyMappingChecks
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
 
@@ -38,7 +40,9 @@ import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.ExecutionContext
 
-/** @param outboxQueue
+/** A non-thread safe class which validates and stores topology transactions
+  *
+  * @param outboxQueue
   *   If a [[SynchronizerOutboxQueue]] is provided, the processed transactions are not directly
   *   stored, but rather sent to the synchronizer via an ephemeral queue (i.e. no persistence).
   */
@@ -57,27 +61,6 @@ class TopologyStateProcessor private (
     if (store.storeId == AuthorizedStore) {
       loggerFactoryParent.append("store", store.storeId.toString)
     } else loggerFactoryParent
-
-  // small container to store potentially pending data
-  private case class MaybePending(originalTx: GenericSignedTopologyTransaction)
-      extends PrettyPrinting {
-    val adjusted = new AtomicReference[Option[GenericSignedTopologyTransaction]](None)
-    val rejection = new AtomicReference[Option[TopologyTransactionRejection]](None)
-    val expireImmediately = new AtomicBoolean(false)
-
-    def currentTx: GenericSignedTopologyTransaction = adjusted.get().getOrElse(originalTx)
-
-    def validatedTx: GenericValidatedTopologyTransaction =
-      ValidatedTopologyTransaction(currentTx, rejection.get(), expireImmediately.get())
-
-    override protected def pretty: Pretty[MaybePending] =
-      prettyOfClass(
-        param("original", _.originalTx),
-        paramIfDefined("adjusted", _.adjusted.get()),
-        paramIfDefined("rejection", _.rejection.get()),
-        paramIfTrue("expireImmediately", _.expireImmediately.get()),
-      )
-  }
 
   private val txForMapping = TrieMap[MappingHash, MaybePending]()
   private val proposalsByMapping = TrieMap[MappingHash, Seq[TxHash]]()
@@ -100,14 +83,23 @@ class TopologyStateProcessor private (
   /** validate the authorization and the signatures of the given transactions
     *
     * The function is NOT THREAD SAFE AND MUST RUN SEQUENTIALLY
+    * @param relaxChecksForBackwardsCompatibility
+    *   in order to import mainnet topology state after hard migration, we need to relax certain
+    *   checks which we added subsequently but which are not honored with older transactions.
+    *   exceptions are:
+    *   - no proof-of-ownership for signing keys on older OTKs
+    *   - adding members before adding OTKs
+    * @param storeIsEmpty
+    *   if set to true, the store is considered empty. no check will load from the store. this is
+    *   useful for importing large genesis timestamps. for all other scenarios it will blow up.
     */
   def validateAndApplyAuthorization(
       sequenced: SequencedTime,
       effective: EffectiveTime,
-      transactionsToValidate: Seq[GenericSignedTopologyTransaction],
+      transactions: Seq[GenericSignedTopologyTransaction],
       expectFullAuthorization: Boolean,
-      transactionMayHaveMissingSigningKeySignatures: Boolean,
-      compactTransactions: Boolean = true,
+      relaxChecksForBackwardsCompatibility: Boolean,
+      storeIsEmpty: Boolean = false,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[(Seq[GenericValidatedTopologyTransaction], AsyncResult[Unit])] = {
@@ -117,13 +109,12 @@ class TopologyStateProcessor private (
 
     type Lft = Seq[GenericValidatedTopologyTransaction]
 
-    val transactions =
-      if (compactTransactions) SignedTopologyTransactions.compact(transactionsToValidate)
-      else transactionsToValidate
-
     // first, pre-load the currently existing mappings and proposals for the given transactions
-    val preloadTxsForMappingF = preloadTxsForMapping(effective, transactions)
-    val preloadProposalsForTxF = preloadProposalsForTx(effective, transactions)
+    val preloadTxsForMappingF =
+      if (storeIsEmpty) FutureUnlessShutdown.unit else preloadTxsForMapping(effective, transactions)
+    val preloadProposalsForTxF =
+      if (storeIsEmpty) FutureUnlessShutdown.unit
+      else preloadProposalsForTx(effective, transactions)
     val ret = for {
       _ <- EitherT.right[Lft](preloadProposalsForTxF)
       _ <- EitherT.right[Lft](preloadTxsForMappingF)
@@ -131,24 +122,25 @@ class TopologyStateProcessor private (
       (removesF, pendingWrites) = {
         val pendingWrites = transactions.map(MaybePending.apply)
         val removes = pendingWrites
-          .foldLeftM((Map.empty[MappingHash, PositiveInt], Set.empty[TxHash])) {
-            case ((removeMappings, removeTxs), tx) =>
+          .foldLeftM(Map.empty[MappingHash, AccumulatedDeactivationsPerMapping]) {
+            case (removes, tx) =>
               validateAndMerge(
                 effective,
                 tx.originalTx,
                 expectFullAuthorization = expectFullAuthorization || !tx.originalTx.isProposal,
-                transactionMayHaveMissingSigningKeySignatures =
-                  transactionMayHaveMissingSigningKeySignatures,
+                relaxChecksForBackwardsCompatibility = relaxChecksForBackwardsCompatibility,
+                storeIsEmpty = storeIsEmpty,
               ).map { finalTx =>
                 tx.adjusted.set(Some(finalTx.transaction))
                 tx.rejection.set(finalTx.rejectionReason)
-                determineRemovesAndUpdatePending(tx, removeMappings, removeTxs)
+                determineRemovesAndUpdatePending(tx, removes)
               }
           }
         (removes, pendingWrites)
       }
-      removes <- EitherT.right[Lft](removesF)
-      (mappingRemoves, txRemoves) = removes
+      removes <- EitherT.right[Lft](removesF.map(_.map { case (k, deactivations) =>
+        (k, deactivations.computeSerialAndOtherTxHashes)
+      }))
       validatedTx = pendingWrites.map(pw => pw.validatedTx)
       _ <- EitherT.cond[FutureUnlessShutdown](
         !abortOnError || validatedTx.forall(_.rejectionReason.isEmpty),
@@ -160,19 +152,19 @@ class TopologyStateProcessor private (
         }: Lft,
       ): EitherT[FutureUnlessShutdown, Lft, Unit]
       // string approx for output
-      epsilon =
-        s"${effective.value.toEpochMilli - sequenced.value.toEpochMilli}"
       ln = validatedTx.size
       _ = validatedTx.zipWithIndex.foreach {
         case (ValidatedTopologyTransaction(tx, None, _), idx) =>
           val enqueuingOrStoring = if (outboxQueue.nonEmpty) "Enqueuing" else "Storing"
           logger.info(
-            s"$enqueuingOrStoring topology transaction ${idx + 1}/$ln ${tx.operation} ${tx.mapping} with ts=$effective (epsilon=$epsilon ms)"
+            s"$enqueuingOrStoring topology transaction ${idx + 1}/$ln ${tx.hash} with ts=$effective, signedBy=${tx.signatures
+                .map(_.authorizingLongTermKey)}"
           )
         case (ValidatedTopologyTransaction(tx, Some(r), _), idx) =>
           // TODO(i19737): we need to emit a security alert, if the rejection is due to a malicious broadcast
           logger.info(
-            s"Rejected transaction ${idx + 1}/$ln ${tx.operation} ${tx.mapping} at ts=$effective (epsilon=$epsilon ms) due to $r"
+            s"Rejected transaction ${idx + 1}/$ln ${tx.hash} at ts=$effective, signedBy=${tx.signatures
+                .map(_.authorizingLongTermKey)} due to $r"
           )
       }
       asyncResult <- outboxQueue match {
@@ -197,17 +189,15 @@ class TopologyStateProcessor private (
               store.update(
                 sequenced,
                 effective,
-                mappingRemoves,
-                txRemoves,
+                if (storeIsEmpty) Map() else removes,
                 validatedTx,
               )
             )
             .map { _ =>
               logger.info(
                 s"Persisted topology transactions ($sequenced, $effective):\n" + validatedTx
-                  .mkString(
-                    ",\n"
-                  )
+                  .take(100)
+                  .mkString(",\n")
               )
               AsyncResult.immediate
             }
@@ -289,7 +279,7 @@ class TopologyStateProcessor private (
       Either.cond(
         expected == toValidate.serial,
         (),
-        TopologyTransactionRejection.SerialMismatch(expected, toValidate.serial),
+        TopologyTransactionRejection.Processor.SerialMismatch(expected, toValidate.serial),
       )
     case None => Either.unit
   }
@@ -299,7 +289,8 @@ class TopologyStateProcessor private (
       inStore: Option[GenericSignedTopologyTransaction],
       toValidate: GenericSignedTopologyTransaction,
       expectFullAuthorization: Boolean,
-      transactionMayHaveMissingSigningKeySignatures: Boolean,
+      relaxChecksForBackwardsCompatibility: Boolean,
+      storeIsEmpty: Boolean,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TopologyTransactionRejection, GenericSignedTopologyTransaction] =
@@ -311,8 +302,8 @@ class TopologyStateProcessor private (
             toValidate,
             inStore,
             expectFullAuthorization = expectFullAuthorization,
-            transactionMayHaveMissingSigningKeySignatures =
-              transactionMayHaveMissingSigningKeySignatures,
+            relaxChecksForBackwardsCompatibility = relaxChecksForBackwardsCompatibility,
+            storeIsEmpty = storeIsEmpty,
           )
       )
       .subflatMap { tx =>
@@ -326,7 +317,6 @@ class TopologyStateProcessor private (
     inStore match {
       case Some(value) if value.hash == toValidate.hash =>
         (true, value.addSignatures(toValidate.signatures))
-
       case _ => (false, toValidate)
     }
 
@@ -343,10 +333,12 @@ class TopologyStateProcessor private (
       effective: EffectiveTime,
       txA: GenericSignedTopologyTransaction,
       expectFullAuthorization: Boolean,
-      transactionMayHaveMissingSigningKeySignatures: Boolean,
+      relaxChecksForBackwardsCompatibility: Boolean,
+      storeIsEmpty: Boolean,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[GenericValidatedTopologyTransaction] = {
+
     // get current valid transaction for the given mapping
     val tx_inStore = txForMapping.get(txA.mapping.uniqueKey).map(_.currentTx)
     // first, merge a pending proposal with this transaction. we do this as it might
@@ -354,21 +346,15 @@ class TopologyStateProcessor private (
     val tx_mergedProposalSignatures = mergeWithPendingProposal(txA)
     val (isMerge, tx_deduplicatedAndMerged) =
       mergeSignatures(tx_inStore, tx_mergedProposalSignatures)
+
     val ret = for {
       // Run mapping specific semantic checks
       _ <- topologyMappingChecks.checkTransaction(
         effective,
         tx_deduplicatedAndMerged,
         tx_inStore,
-        // TODO(#26009): this creates a new data structure for every check. this is very inefficient.
-        //    even more, we never shrink the map and we keep on iterating through it.
-        txForMapping.view.mapValues { pending =>
-          require(
-            !pending.expireImmediately.get() && pending.rejection.get.isEmpty,
-            s"unexpectedly used rejected or immediately expired tx: $pending",
-          )
-          pending.currentTx
-        }.toMap,
+        txForMapping,
+        relaxChecksForBackwardsCompatibility,
       )
       _ <-
         // we potentially merge the transaction with the currently active if this is just a signature update
@@ -391,8 +377,8 @@ class TopologyStateProcessor private (
         tx_inStore,
         tx_deduplicatedAndMerged,
         expectFullAuthorization = expectFullAuthorization,
-        transactionMayHaveMissingSigningKeySignatures =
-          transactionMayHaveMissingSigningKeySignatures,
+        relaxChecksForBackwardsCompatibility = relaxChecksForBackwardsCompatibility,
+        storeIsEmpty = storeIsEmpty,
       )
     } yield fullyValidated
     ret.fold(
@@ -403,16 +389,17 @@ class TopologyStateProcessor private (
 
   private def determineRemovesAndUpdatePending(
       tx: MaybePending,
-      removeMappings: Map[MappingHash, PositiveInt],
-      removeTxs: Set[TxHash],
-  )(implicit traceContext: TraceContext): (Map[MappingHash, PositiveInt], Set[TxHash]) = {
+      toRemove: Map[MappingHash, AccumulatedDeactivationsPerMapping],
+  )(implicit
+      traceContext: TraceContext
+  ): Map[MappingHash, AccumulatedDeactivationsPerMapping] = {
     val finalTx = tx.currentTx
     // UPDATE tx SET valid_until = effective WHERE storeId = XYZ
     //    AND valid_until is NULL and valid_from < effective
 
     if (tx.rejection.get().nonEmpty) {
       // if the transaction has been rejected, we don't actually expire any proposals or currently valid transactions
-      (removeMappings, removeTxs)
+      toRemove
     } else if (finalTx.isProposal) {
       // if this is a proposal, we only delete the "previously existing proposal"
       // AND ((tx_hash = ..))
@@ -427,7 +414,12 @@ class TopologyStateProcessor private (
         )
       }
       trackProposal(txHash, finalTx.mapping.uniqueKey)
-      (removeMappings, removeTxs + txHash)
+      // add this txhash to the list of proposals to be removed for this mapping
+      toRemove.updatedWith(finalTx.mapping.uniqueKey)(
+        _.getOrElse(AccumulatedDeactivationsPerMapping())
+          .removeProposalAt(txHash, finalTx.serial)
+          .some
+      )
     } else {
       // if this is a sufficiently signed and valid transaction, we delete all existing proposals and the previous tx
       //  we can just use a mapping key: there can not be a future proposal, as it would violate the
@@ -455,17 +447,61 @@ class TopologyStateProcessor private (
             }
           )
         )
-      (
-        removeMappings.updatedWith(mappingHash)(
-          Ordering[Option[PositiveInt]].max(_, Some(finalTx.serial))
-        ),
-        removeTxs,
+      toRemove.updatedWith(mappingHash)(
+        _.getOrElse(AccumulatedDeactivationsPerMapping())
+          .removeAllTransactionsAndProposalsUpTo(
+            finalTx.serial
+          )
+          .some
       )
     }
   }
 }
 
 object TopologyStateProcessor {
+
+  private final case class AccumulatedDeactivationsPerMapping(
+      serialO: Option[PositiveInt] = None,
+      txHashWithSerial: Set[(TxHash, PositiveInt)] = Set.empty,
+  ) {
+    def removeAllTransactionsAndProposalsUpTo(
+        serial: PositiveInt
+    ): AccumulatedDeactivationsPerMapping =
+      copy(serialO = Ordering[Option[PositiveInt]].max(serialO, serial.some))
+    def removeProposalAt(txHash: TxHash, serial: PositiveInt): AccumulatedDeactivationsPerMapping =
+      copy(txHashWithSerial = txHashWithSerial + ((txHash, serial)))
+    def computeSerialAndOtherTxHashes: (Option[PositiveInt], Set[TxHash]) =
+      (
+        serialO,
+        // filter out tx hash that will be cleaned up anyway by the mapping hash / serial combination
+        serialO
+          .map(mappingSerial =>
+            txHashWithSerial.collect { case (tx, txSerial) if mappingSerial < txSerial => tx }
+          )
+          .getOrElse(txHashWithSerial.map(_._1)),
+      )
+  }
+
+  // small container to store potentially pending data
+  private[topology] final case class MaybePending(originalTx: GenericSignedTopologyTransaction)
+      extends PrettyPrinting {
+    val adjusted = new AtomicReference[Option[GenericSignedTopologyTransaction]](None)
+    val rejection = new AtomicReference[Option[TopologyTransactionRejection]](None)
+    val expireImmediately = new AtomicBoolean(false)
+
+    def currentTx: GenericSignedTopologyTransaction = adjusted.get().getOrElse(originalTx)
+
+    def validatedTx: GenericValidatedTopologyTransaction =
+      ValidatedTopologyTransaction(currentTx, rejection.get(), expireImmediately.get())
+
+    override protected def pretty: Pretty[MaybePending] =
+      prettyOfClass(
+        param("original", _.originalTx),
+        paramIfDefined("adjusted", _.adjusted.get()),
+        paramIfDefined("rejection", _.rejection.get()),
+        paramIfTrue("expireImmediately", _.expireImmediately.get()),
+      )
+  }
 
   /** Creates a TopologyStateProcessor for topology managers.
     */

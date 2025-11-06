@@ -7,6 +7,7 @@ import com.daml.ledger.api.v2.topology_transaction.TopologyTransaction
 import com.daml.metrics.DatabaseMetrics
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.ParticipantAuthorizationFormat
+import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.Party
@@ -16,7 +17,7 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   RawParticipantAuthorization,
   SequentialIdBatch,
 }
-import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream.IdPaginationState
+import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream.PaginationInput
 import com.digitalasset.canton.platform.store.dao.events.EventsTable.TransactionConversions
 import com.digitalasset.canton.platform.store.dao.events.TopologyTransactionsStreamReader.{
   IdDbQuery,
@@ -77,25 +78,23 @@ class TopologyTransactionsStreamReader(
       }
       partiesO
         .map { partyO =>
-          paginatingAsyncStream.streamIdsFromSeekPagination(
+          paginatingAsyncStream.streamIdsFromSeekPaginationWithoutIdFilter(
+            idStreamName = s"Update IDs for topology transaction events for partyO:$partyO",
             idPageSizing = idPageSizing,
             idPageBufferSize = maxPagesPerIdPagesBuffer,
             initialFromIdExclusive = queryRange.startInclusiveEventSeqId,
+            initialEndInclusive = queryRange.endInclusiveEventSeqId,
           )(
-            fetchPage = (state: IdPaginationState) => {
+            idDbQuery.fetchIds(
+              stakeholder = partyO
+            )
+          )(
+            executeIdQuery = f =>
               maxParallelIdQueriesLimiter.execute {
                 globalIdQueriesLimiter.execute {
-                  dbDispatcher.executeSql(metric) {
-                    idDbQuery.fetchIds(
-                      stakeholder = partyO,
-                      startExclusive = state.fromIdExclusive,
-                      endInclusive = queryRange.endInclusiveEventSeqId,
-                      limit = state.pageSize,
-                    )
-                  }
+                  dbDispatcher.executeSql(metric)(f)
                 }
               }
-            }
           )
         }
         .pipe(EventIdsUtils.sortAndDeduplicateIds)
@@ -118,18 +117,19 @@ class TopologyTransactionsStreamReader(
         .mapAsync(maxParallelPayloadQueries)(ids =>
           payloadQueriesLimiter.execute {
             globalPayloadQueriesLimiter.execute {
-              dbDispatcher.executeSql(dbMetric) { implicit connection =>
-                queryValidRange.withRangeNotPruned(
-                  minOffsetInclusive = queryRange.startInclusiveOffset,
-                  maxOffsetInclusive = queryRange.endInclusiveOffset,
-                  errorPruning = (prunedOffset: Offset) =>
-                    s"Topology events request from ${queryRange.startInclusiveOffset.unwrap} to ${queryRange.endInclusiveOffset.unwrap} precedes pruned offset ${prunedOffset.unwrap}",
-                  errorLedgerEnd = (ledgerEndOffset: Option[Offset]) =>
-                    s"Topology events request from ${queryRange.startInclusiveOffset.unwrap} to ${queryRange.endInclusiveOffset.unwrap} is beyond ledger end offset ${ledgerEndOffset
-                        .fold(0L)(_.unwrap)}",
-                ) {
-                  payloadDbQuery.fetchPayloads(eventSequentialIds = Ids(ids))(connection)
-                }
+              queryValidRange.withRangeNotPruned(
+                minOffsetInclusive = queryRange.startInclusiveOffset,
+                maxOffsetInclusive = queryRange.endInclusiveOffset,
+                errorPruning = (prunedOffset: Offset) =>
+                  s"Topology events request from ${queryRange.startInclusiveOffset.unwrap} to ${queryRange.endInclusiveOffset.unwrap} precedes pruned offset ${prunedOffset.unwrap}",
+                errorLedgerEnd = (ledgerEndOffset: Option[Offset]) =>
+                  s"Topology events request from ${queryRange.startInclusiveOffset.unwrap} to ${queryRange.endInclusiveOffset.unwrap} is beyond ledger end offset ${ledgerEndOffset
+                      .fold(0L)(_.unwrap)}",
+              ) {
+                dbDispatcher.executeSql(dbMetric)(
+                  payloadDbQuery.fetchPayloads(eventSequentialIds = Ids(ids))
+                )
+
               }
             }
           }
@@ -174,11 +174,8 @@ object TopologyTransactionsStreamReader {
   @FunctionalInterface
   trait IdDbQuery {
     def fetchIds(
-        stakeholder: Option[Party],
-        startExclusive: Long,
-        endInclusive: Long,
-        limit: Int,
-    ): Connection => Vector[Long]
+        stakeholder: Option[Party]
+    ): Connection => PaginationInput => Vector[Long]
   }
 
   @FunctionalInterface

@@ -48,7 +48,7 @@ final case class AssignmentMediatorMessage(
 
   protected[this] val commonData: AssignmentCommonData = tree.commonData.tryUnwrap
 
-  override def synchronizerId: PhysicalSynchronizerId = commonData.targetSynchronizerId.unwrap
+  override def psid: PhysicalSynchronizerId = commonData.targetSynchronizerId.unwrap
 
   override def mediator: MediatorGroupRecipient = commonData.targetMediatorGroup
 

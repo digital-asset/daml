@@ -8,8 +8,8 @@ import com.digitalasset.canton.console.LocalInstanceReference
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.integration.plugins.{
   UseBftSequencer,
-  UseCommunityReferenceBlockSequencer,
   UsePostgres,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -17,7 +17,7 @@ import com.digitalasset.canton.integration.{
   SharedEnvironment,
 }
 import com.digitalasset.canton.metrics.CommonMockMetrics
-import com.digitalasset.canton.resource.{CommunityStorageFactory, DbStorage}
+import com.digitalasset.canton.resource.{DbStorage, StorageSingleFactory}
 import com.digitalasset.canton.time.SimClock
 import org.scalatest.Assertion
 
@@ -49,7 +49,7 @@ trait CrashRecoveryDuringAutoInitIntegrationTest
         node.stop()
         (id, keys, txs)
       }
-    val factory = new CommunityStorageFactory(node.config.storage)
+    val factory = new StorageSingleFactory(node.config.storage)
     val storage = factory.tryCreate(
       connectionPoolForParticipant = false,
       None,
@@ -113,7 +113,7 @@ trait CrashRecoveryDuringAutoInitIntegrationTest
 class CrashRecoveryDuringAutoInitReferenceIntegrationTestPostgres
     extends CrashRecoveryDuringAutoInitIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }
 
 class CrashRecoveryDuringAutoInitBftOrderingIntegrationTestPostgres

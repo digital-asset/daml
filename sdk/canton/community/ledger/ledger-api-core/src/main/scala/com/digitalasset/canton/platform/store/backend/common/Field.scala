@@ -98,6 +98,9 @@ private[backend] final case class BigintOptional[FROM](
   override def convert: Option[Long] => java.lang.Long = _.map(Long.box).orNull
 }
 
+private[backend] final case class Smallint[FROM](extract: StringInterning => FROM => Int)
+    extends TrivialField[FROM, Int]
+
 private[backend] final case class SmallintOptional[FROM](
     extract: StringInterning => FROM => Option[Int]
 ) extends Field[FROM, Option[Int], java.lang.Integer] {
@@ -120,16 +123,4 @@ private[backend] final case class StringArray[FROM](
     extract: StringInterning => FROM => Iterable[String]
 ) extends Field[FROM, Iterable[String], Array[String]] {
   override def convert: Iterable[String] => Array[String] = _.toArray
-}
-
-private[backend] final case class IntArray[FROM](extract: StringInterning => FROM => Iterable[Int])
-    extends Field[FROM, Iterable[Int], Array[Int]] {
-  override def convert: Iterable[Int] => Array[Int] = _.toArray
-}
-
-private[backend] final case class IntArrayOptional[FROM](
-    extract: StringInterning => FROM => Option[Iterable[Int]]
-) extends Field[FROM, Option[Iterable[Int]], Array[Int]] {
-  @SuppressWarnings(Array("org.wartremover.warts.Null"))
-  override def convert: Option[Iterable[Int]] => Array[Int] = _.map(_.toArray).orNull
 }

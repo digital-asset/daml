@@ -5,21 +5,25 @@ package com.digitalasset.daml
 package lf
 package speedy
 
-import data.Ref.PackageId
-import data.Time
-import SResult._
-import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, PackageInterface}
-import com.digitalasset.daml.lf.speedy.Speedy.{ContractInfo, UpdateMachine}
-import com.digitalasset.daml.lf.testing.parser.ParserParameters
-import com.digitalasset.daml.lf.validation.{Validation, ValidationError}
-import com.digitalasset.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
-import transaction.{FatContractInstance, GlobalKey, GlobalKeyWithMaintainers, SubmittedTransaction}
-import value.Value
 import com.daml.scalautil.Statement.discard
-import com.digitalasset.daml.lf.stablepackages.StablePackages
-
 import com.digitalasset.daml.lf.crypto.Hash
+import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.data.Time
+import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, PackageInterface}
+import com.digitalasset.daml.lf.speedy.SResult._
+import com.digitalasset.daml.lf.speedy.Speedy.UpdateMachine
+import com.digitalasset.daml.lf.stablepackages.StablePackages
+import com.digitalasset.daml.lf.testing.parser.ParserParameters
+import com.digitalasset.daml.lf.transaction.{
+  FatContractInstance,
+  GlobalKey,
+  GlobalKeyWithMaintainers,
+  SubmittedTransaction,
+}
+import com.digitalasset.daml.lf.validation.{Validation, ValidationError}
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.ContractId
 
 import scala.annotation.tailrec
 
@@ -46,6 +50,7 @@ private[speedy] object SpeedyTestLib {
       getContract: PartialFunction[Value.ContractId, FatContractInstance] = PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
       getTime: PartialFunction[Unit, Time.Timestamp] = PartialFunction.empty,
+      hashingMethod: ContractId => Hash.HashingMethod = _ => Hash.HashingMethod.TypedNormalForm,
   ): Either[SError.SError, SValue] = {
 
     def onQuestion(question: Question.Update): Unit = question match {
@@ -61,7 +66,7 @@ private[speedy] object SpeedyTestLib {
           case Some(coinst) =>
             callback(
               coinst,
-              Hash.HashingMethod.TypedNormalForm,
+              hashingMethod(contractId),
               _ => true, // we assume authentication always succeeds in speedy tests for now
             )
           case None =>
@@ -190,6 +195,10 @@ private[speedy] object SpeedyTestLib {
           limits = machine.limits,
           iterationsBetweenInterruptions = machine.iterationsBetweenInterruptions,
           packageResolution = Map.empty,
+          costModel = CostModel.Empty,
+          initialGasBudget = None,
+          initialKontStackSize = 128,
+          initialEnvSize = 512,
         )
 
       private[speedy] def withLocalContractKey(
@@ -202,15 +211,6 @@ private[speedy] object SpeedyTestLib {
             activeState = machine.ptx.contractState.activeState.createKey(key, contractId),
           )
         )
-        machine
-      }
-
-      private[speedy] def withDisclosedContractKeys(
-          disclosedContractKeys: (ContractId, ContractInfo)*
-      ): UpdateMachine = {
-        disclosedContractKeys.foreach { case (contractId, contract) =>
-          machine.addDisclosedContracts(contractId, contract)
-        }
         machine
       }
     }

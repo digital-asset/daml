@@ -50,13 +50,13 @@ tests :: SdkVersioned => Tools -> TestTree
 tests Tools{damlc} = testGroup "Packaging" $
     [ testCaseSteps "Five layer-deep expression-only dependency tree" $ \step -> withTempDir $ \tmpDir -> do
         -- This test is for https://github.com/digital-asset/daml/issues/20939
-        let project :: Integer -> String
-            project i = tmpDir </> ("layer" <> show i)
+        let package :: Integer -> String
+            package i = tmpDir </> ("layer" <> show i)
         let mkAndAssertLayer :: Integer -> [String] -> IO ()
             mkAndAssertLayer i lines = do
               step $ "Generating source for layer" <> show i
-              createDirectoryIfMissing True (project i)
-              writeFile (project i </> "daml.yaml") $ unlines
+              createDirectoryIfMissing True (package i)
+              writeFile (package i </> "daml.yaml") $ unlines
                   [ "sdk-version: " <> sdkVersion
                   , "name: layer" <> show i
                   , "version: 1.0.0"
@@ -70,12 +70,12 @@ tests Tools{damlc} = testGroup "Packaging" $
                       else "  - ../layer" <> show (i - 1) <> "/.daml/dist/layer" <> show (i - 1) <> "-1.0.0.dar"
                   ]
 
-              writeFile (project i </> ("Layer" <> show i <> ".daml")) $ unlines $ ("module Layer" <> show i <> " where") : lines
+              writeFile (package i </> ("Layer" <> show i <> ".daml")) $ unlines $ ("module Layer" <> show i <> " where") : lines
 
               step $ "Building DAR for layer" <> show i
-              buildProject (project i)
+              buildPackage (package i)
 
-              output <- inspectDar (project i) (".daml/dist/layer" <> show i <> "-1.0.0.dar")
+              output <- inspectDar (package i) (".daml/dist/layer" <> show i <> "-1.0.0.dar")
               forM_ [1..i-1] $ \depI -> do
                 step $ "Checking that DAR for layer" <> show i <> " depends on DALF for layer" <> show depI
                 assertInfixOf ("\nlayer" <> show depI) output
@@ -109,24 +109,24 @@ tests Tools{damlc} = testGroup "Packaging" $
             , "layer5 t = \"layer5 \" <> layer4 t"
             ]
     , testCaseSteps "Build package with dependency" $ \step -> withTempDir $ \tmpDir -> do
-        let projectA = tmpDir </> "a"
-        let projectB = tmpDir </> "b"
-        let aDar = projectA </> ".daml" </> "dist" </> "a-1.0.dar"
-        let bDar = projectB </> ".daml" </> "dist" </> "b-1.0.dar"
-        step "Creating project a..."
-        createDirectoryIfMissing True (projectA </> "daml" </> "Foo" </> "Bar")
-        writeFileUTF8 (projectA </> "daml" </> "A.daml") $ unlines
+        let packageA = tmpDir </> "a"
+        let packageB = tmpDir </> "b"
+        let aDar = packageA </> ".daml" </> "dist" </> "a-1.0.dar"
+        let bDar = packageB </> ".daml" </> "dist" </> "b-1.0.dar"
+        step "Creating package a..."
+        createDirectoryIfMissing True (packageA </> "daml" </> "Foo" </> "Bar")
+        writeFileUTF8 (packageA </> "daml" </> "A.daml") $ unlines
             [ "module A (a) where"
             , "a : ()"
             , "a = ()"
             ]
-        writeFileUTF8 (projectA </> "daml" </> "Foo" </> "Bar" </> "Baz.daml") $ unlines
+        writeFileUTF8 (packageA </> "daml" </> "Foo" </> "Bar" </> "Baz.daml") $ unlines
             [ "module Foo.Bar.Baz (c) where"
             , "import A (a)"
             , "c : ()"
             , "c = a"
             ]
-        writeFileUTF8 (projectA </> "daml.yaml") $ unlines
+        writeFileUTF8 (packageA </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
             , "name: a"
             , "version: \"1.0\""
@@ -136,11 +136,11 @@ tests Tools{damlc} = testGroup "Packaging" $
             , "  - daml-prim"
             , "  - daml-stdlib"
             ]
-        buildProject projectA
+        buildPackage packageA
         assertFileExists aDar
-        step "Creating project b..."
-        createDirectoryIfMissing True (projectB </> "daml")
-        writeFileUTF8 (projectB </> "daml" </> "B.daml") $ unlines
+        step "Creating package b..."
+        createDirectoryIfMissing True (packageB </> "daml")
+        writeFileUTF8 (packageB </> "daml" </> "B.daml") $ unlines
             [ "module B where"
             , "import C"
             , "import Foo.Bar.Baz"
@@ -149,7 +149,7 @@ tests Tools{damlc} = testGroup "Packaging" $
             , "d : ()"
             , "d = c"
             ]
-        writeFileUTF8 (projectB </> "daml.yaml") $ unlines
+        writeFileUTF8 (packageB </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
             , "version: \"1.0\""
             , "name: b"
@@ -163,19 +163,19 @@ tests Tools{damlc} = testGroup "Packaging" $
             ]
             -- the last option checks that module aliases work and modules imported without aliases
             -- are still exposed.
-        buildProject projectB
+        buildPackage packageB
         assertFileExists bDar
     , testCaseSteps "Dependency on a package with source: A.daml" $ \step -> withTempDir $ \tmpDir -> do
-        let projectA = tmpDir </> "a"
-        let projectB = tmpDir </> "b"
-        let aDar = projectA </> ".daml" </> "dist" </> "a-1.0.dar"
-        let bDar = projectB </> ".daml" </> "dist" </> "b-1.0.dar"
-        step "Creating project a..."
-        createDirectoryIfMissing True projectA
-        writeFileUTF8 (projectA </> "A.daml") $ unlines
+        let packageA = tmpDir </> "a"
+        let packageB = tmpDir </> "b"
+        let aDar = packageA </> ".daml" </> "dist" </> "a-1.0.dar"
+        let bDar = packageB </> ".daml" </> "dist" </> "b-1.0.dar"
+        step "Creating package a..."
+        createDirectoryIfMissing True packageA
+        writeFileUTF8 (packageA </> "A.daml") $ unlines
             [ "module A () where"
             ]
-        writeFileUTF8 (projectA </> "daml.yaml") $ unlines
+        writeFileUTF8 (packageA </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
             , "name: a"
             , "version: \"1.0\""
@@ -184,15 +184,15 @@ tests Tools{damlc} = testGroup "Packaging" $
             , "  - daml-prim"
             , "  - daml-stdlib"
             ]
-        buildProject projectA
+        buildPackage packageA
         assertFileExists aDar
-        step "Creating project b..."
-        createDirectoryIfMissing True projectB
-        writeFileUTF8 (projectB </> "B.daml") $ unlines
+        step "Creating package b..."
+        createDirectoryIfMissing True packageB
+        writeFileUTF8 (packageB </> "B.daml") $ unlines
             [ "module B where"
             , "import A ()"
             ]
-        writeFileUTF8 (projectB </> "daml.yaml") $ unlines
+        writeFileUTF8 (packageB </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
             , "version: \"1.0\""
             , "name: b"
@@ -202,13 +202,13 @@ tests Tools{damlc} = testGroup "Packaging" $
             , "  - daml-stdlib"
             , "  - " <> aDar
             ]
-        buildProject projectB
+        buildPackage packageB
         assertFileExists bDar
         darFiles <- Zip.filesInArchive . Zip.toArchive <$> BSL.readFile bDar
         assertBool "b.dar contains source file from package database" $
             not $ any ("A.daml" `isSuffixOf`) darFiles
     , testCase "Top-level source files" $ withTempDir $ \tmpDir -> do
-        -- Test that a source file in the project root will be included in the
+        -- Test that a source file in the package root will be included in the
         -- DAR file. Regression test for #1048.
         let projDir = tmpDir </> "proj"
         createDirectoryIfMissing True projDir
@@ -227,7 +227,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           , "  - daml-prim"
           , "  - daml-stdlib"
           ]
-        buildProject projDir
+        buildPackage projDir
         let dar = projDir </> ".daml" </> "dist" </> "proj-1.0.dar"
         assertFileExists dar
         darFiles <- Zip.filesInArchive . Zip.toArchive <$> BSL.readFile dar
@@ -256,7 +256,7 @@ tests Tools{damlc} = testGroup "Packaging" $
         bracket
             (setEnv "DAML_SDK_VERSION" sdkVersion True)
             (\ _ -> unsetEnv "DAML_SDK_VERSION")
-            (\ _ -> buildProject projDir)
+            (\ _ -> buildPackage projDir)
 
         let dar = projDir </> ".daml" </> "dist" </> "proj-1.0.dar"
         assertFileExists dar
@@ -283,7 +283,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           , "source: A.daml"
           , "dependencies: [daml-prim, daml-stdlib]"
           ]
-        buildProject projDir
+        buildPackage projDir
         let dar = projDir </> ".daml/dist/proj-0.1.0.dar"
         assertFileExists dar
         darFiles <- Zip.filesInArchive . Zip.toArchive <$> BSL.readFile dar
@@ -307,7 +307,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           , "source: A/B.daml"
           , "dependencies: [daml-prim, daml-stdlib]"
           ]
-        buildProject projDir
+        buildPackage projDir
         let dar = projDir </> ".daml/dist/proj-0.1.0.dar"
         assertFileExists dar
         darFiles <- Zip.filesInArchive . Zip.toArchive <$> BSL.readFile dar
@@ -331,7 +331,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           , "source: daml"
           , "dependencies: [daml-prim, daml-stdlib]"
           ]
-        buildProject projDir
+        buildPackage projDir
         let dar = projDir </> ".daml/dist/proj-0.1.0.dar"
         assertFileExists dar
         darFiles <- Zip.filesInArchive . Zip.toArchive <$> BSL.readFile dar
@@ -364,9 +364,9 @@ tests Tools{damlc} = testGroup "Packaging" $
           , "source: ."
           , "dependencies: [daml-prim, daml-stdlib]"
           ]
-        buildProject projDir
+        buildPackage projDir
 
-    , testCase "Project without exposed modules" $ withTempDir $ \projDir -> do
+    , testCase "Package without exposed modules" $ withTempDir $ \projDir -> do
         writeFileUTF8 (projDir </> "A.daml") $ unlines
             [ "module A (a) where"
             , "a : ()"
@@ -379,7 +379,7 @@ tests Tools{damlc} = testGroup "Packaging" $
             , "source: A.daml"
             , "dependencies: [daml-prim, daml-stdlib]"
             ]
-        buildProject projDir
+        buildPackage projDir
 
     , testCase "Empty package" $ withTempDir $ \projDir -> do
         writeFileUTF8 (projDir </> "daml.yaml") $ unlines
@@ -390,7 +390,7 @@ tests Tools{damlc} = testGroup "Packaging" $
             , "dependencies: [daml-prim, daml-stdlib]"
             ]
         createDirectoryIfMissing True (projDir </> "src")
-        buildProject projDir
+        buildPackage projDir
 
     , testCase "Package-wide name collision" $ withTempDir $ \projDir -> do
         createDirectoryIfMissing True (projDir </> "src")
@@ -410,7 +410,7 @@ tests Tools{damlc} = testGroup "Packaging" $
             [ "module A.B where"
             , "data C = C Int"
             ]
-        buildProjectError projDir "" "name collision"
+        buildPackageError projDir "" "name collision"
 
     , testCase "Virtual module name collision" $ withTempDir $ \projDir -> do
         createDirectoryIfMissing True (projDir </> "src" </> "A" </> "B")
@@ -429,7 +429,7 @@ tests Tools{damlc} = testGroup "Packaging" $
             [ "module A.B.C where"
             , "data C = C Int"
             ]
-        (exitCode, out, err) <- readProcessWithExitCode damlc ["build", "--project-root", projDir] ""
+        (exitCode, out, err) <- readProcessWithExitCode damlc ["build", "--package-root", projDir] ""
         out @?= ""
         assertInfixOf "Running single package build of proj as no multi-package.yaml was found.\n" err
         assertInfixOf "collision between module prefix A.B (from A.B.C) and variant A:B" err
@@ -602,7 +602,7 @@ tests Tools{damlc} = testGroup "Packaging" $
             , "import A ()"
             , "import B ()"
             ]
-          buildProjectError projC "" "dependencies with same unit id but conflicting package ids: a-0.0.1"
+          buildPackageError projC "" "dependencies with same unit id but conflicting package ids: a-0.0.1"
 
     , testCase "Detects unitId collisions in data-dependencies" $ withTempDir $ \projDir -> do
           -- Check that two pacages with the same unit id is flagged as an error.
@@ -672,7 +672,7 @@ tests Tools{damlc} = testGroup "Packaging" $
             , "import A ()"
             , "import B ()"
             ]
-          buildProjectError projC "" "dependencies with same unit id but conflicting package ids: a-0.0.1"
+          buildPackageError projC "" "dependencies with same unit id but conflicting package ids: a-0.0.1"
 
     , testCaseSteps "Error on newer LF data-dependency" $ \step -> withTempDir $ \tmpDir -> do
           step "Building 'a"
@@ -708,7 +708,7 @@ tests Tools{damlc} = testGroup "Packaging" $
               [ "module B where"
               , "import A ()"
               ]
-          buildProjectError (tmpDir </> "b") "" "Targeted LF version 2.1 but dependencies have incompatible LF versions"
+          buildPackageError (tmpDir </> "b") "" "Targeted LF version 2.1 but dependencies have incompatible LF versions"
 
     , testCaseSteps "Error on newer LF dependency" $ \step -> withTempDir $ \tmpDir -> do
           step "Building 'a"
@@ -743,7 +743,7 @@ tests Tools{damlc} = testGroup "Packaging" $
               [ "module B where"
               , "import A ()"
               ]
-          buildProjectError (tmpDir </> "b") "" "Targeted LF version 2.1 but dependencies have different LF versions"
+          buildPackageError (tmpDir </> "b") "" "Targeted LF version 2.1 but dependencies have different LF versions"
 
     , testCaseSteps "Error on inconsistent LF dependency" $ \step -> withTempDir $ \tmpDir -> do
           step "Building 'a"
@@ -778,9 +778,9 @@ tests Tools{damlc} = testGroup "Packaging" $
               [ "module B where"
               , "import A ()"
               ]
-          buildProjectError (tmpDir </> "b") "" "Targeted LF version 2.dev but dependencies have different LF versions"
+          buildPackageError (tmpDir </> "b") "" "Targeted LF version 2.dev but dependencies have different LF versions"
 
-    , testCase "build-options + project-root" $ withTempDir $ \projDir -> do
+    , testCase "build-options + package-root" $ withTempDir $ \projDir -> do
           createDirectoryIfMissing True (projDir </> "src")
           writeFileUTF8 (projDir </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
@@ -795,7 +795,7 @@ tests Tools{damlc} = testGroup "Packaging" $
             , "f : Optional a -> a"
             , "f (Some a) = a"
             ]
-          (exitCode, _, stderr) <- readProcessWithExitCode damlc ["build", "--project-root", projDir] ""
+          (exitCode, _, stderr) <- readProcessWithExitCode damlc ["build", "--package-root", projDir] ""
           exitCode @?= ExitFailure 1
           assertBool ("Expected \"non-exhaustive\" error in stderr but got: " <> show stderr) ("non-exhaustive" `isInfixOf` stderr)
 
@@ -889,7 +889,7 @@ tests Tools{damlc} = testGroup "Packaging" $
               <*> keyToVertex p2
 
     , testCaseSteps "dependency with data-dependency" $ \step -> withTempDir $ \projDir -> do
-          -- This tests that a Daml project ('main') can depend on a package ('dependency') which in turn
+          -- This tests that a Daml package ('main') can depend on a package ('dependency') which in turn
           -- has a data-dependency on a third package ('data-dependency'). Note that, as usual, all the
           -- transitive dependencies of a dependency need to be stated in the `daml.yaml` file -
           -- in this case, 'data-dependency' is also a data-dependency of 'main'.
@@ -1077,7 +1077,7 @@ tests Tools{damlc} = testGroup "Packaging" $
             , "eq = x == y && x == Foo"
             , "  where (x, y) = bar"
             ]
-          buildProjectError (projDir </> "main") "" "cannot satisfy --package dependency-0.0.1"
+          buildPackageError (projDir </> "main") "" "cannot satisfy --package dependency-0.0.1"
 
     , testCaseSteps "module-prefixes" $ \step -> withTempDir $ \dir -> do
           step "Create dep1"
@@ -1095,7 +1095,7 @@ tests Tools{damlc} = testGroup "Packaging" $
             ]
           callProcessSilent
             damlc
-            ["build", "--project-root", dir </> "dep1", "-o", dir </> "dep1" </> "dep1.dar"]
+            ["build", "--package-root", dir </> "dep1", "-o", dir </> "dep1" </> "dep1.dar"]
           createDirectoryIfMissing True (dir </> "dep2")
           writeFileUTF8 (dir </> "dep2" </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
@@ -1110,7 +1110,7 @@ tests Tools{damlc} = testGroup "Packaging" $
             ]
           callProcessSilent
             damlc
-            ["build", "--project-root", dir </> "dep2", "-o", dir </> "dep2" </> "dep2.dar"]
+            ["build", "--package-root", dir </> "dep2", "-o", dir </> "dep2" </> "dep2.dar"]
           step "Building main"
           createDirectoryIfMissing True (dir </> "main")
           writeFileUTF8 (dir </> "main" </> "daml.yaml") $ unlines
@@ -1132,7 +1132,7 @@ tests Tools{damlc} = testGroup "Packaging" $
             , "import Dep2.A"
             , "main = dep1 + dep2"
             ]
-          callProcessSilent damlc ["build", "--project-root", dir </> "main", "-o", "main.dar"]
+          callProcessSilent damlc ["build", "--package-root", dir </> "main", "-o", "main.dar"]
           step "Changing module prefixes"
           writeFileUTF8 (dir </> "main" </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
@@ -1147,9 +1147,9 @@ tests Tools{damlc} = testGroup "Packaging" $
             , "  dep-1.0.0: Dep3"
             , "  dep-2.0.0: Dep4"
             ]
-          buildProjectError (dir </> "main") "" "Could not find module"
+          buildPackageError (dir </> "main") "" "Could not find module"
     , testCaseSteps "relative output filepath" $ \step -> withTempDir $ \dir -> do
-          step "Create project"
+          step "Create package"
           writeFileUTF8 (dir </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
             , "name: dep"
@@ -1164,20 +1164,20 @@ tests Tools{damlc} = testGroup "Packaging" $
           let outDir = dir </> "out"
           createDirectoryIfMissing True outDir
           withCurrentDirectory outDir $
-            callProcessSilent damlc ["build", "--project-root", dir, "-o", "A.dar"]
+            callProcessSilent damlc ["build", "--package-root", dir, "-o", "A.dar"]
           assertFileExists $ outDir </> "A.dar"
     ] <>
     [ lfVersionTests damlc
     ]
   where
-      buildProject' :: FilePath -> FilePath -> IO ()
-      buildProject' damlc dir = withCurrentDirectory dir $ callProcessSilent damlc ["build"]
-      buildProject = buildProject' damlc
+      buildPackage' :: FilePath -> FilePath -> IO ()
+      buildPackage' damlc dir = withCurrentDirectory dir $ callProcessSilent damlc ["build"]
+      buildPackage = buildPackage' damlc
 
       inspectDar dir file = withCurrentDirectory dir $ callProcessForStdout damlc ["inspect-dar", file]
 
-      buildProjectError :: FilePath -> String -> String -> IO ()
-      buildProjectError dir expectedOut expectedErr = withCurrentDirectory dir $ do
+      buildPackageError :: FilePath -> String -> String -> IO ()
+      buildPackageError dir expectedOut expectedErr = withCurrentDirectory dir $ do
           (exitCode, out, err) <- readProcessWithExitCode damlc ["build"] ""
           if exitCode /= ExitSuccess then do
               unless (expectedOut `isInfixOf` out && expectedErr `isInfixOf` err) $ do
@@ -1218,7 +1218,7 @@ lfVersionTests damlc = testGroup "LF version dependencies"
               Right (_, pkg) <- pure $ LFArchive.decodeArchive LFArchive.DecodeAsMain $ BSL.toStrict bytes
               assertBool ("Expected LF version <=" <> show version <> " but got " <> show (LF.packageLfVersion pkg) <> " in " <> path) $
                   version `LF.canDependOn` LF.packageLfVersion pkg
-    | version <- LF.supportedOutputVersions
+    | version <- LF.compilerOutputLfVersions
     ]
 
 darPackageIds :: FilePath -> IO [LF.PackageId]

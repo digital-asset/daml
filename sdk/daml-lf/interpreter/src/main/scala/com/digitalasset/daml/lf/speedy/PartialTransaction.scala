@@ -17,7 +17,7 @@ import com.digitalasset.daml.lf.transaction.{
   SubmittedTransaction => SubmittedTx,
   Transaction => Tx,
   TransactionErrors => TxErr,
-  TransactionVersion => TxVersion,
+  SerializationVersion,
 }
 import com.digitalasset.daml.lf.value.{ContractIdVersion, Value}
 import com.daml.nameof.NameOf
@@ -87,15 +87,19 @@ private[lf] object PartialTransaction {
     */
   final case class Context(
       info: ContextInfo,
-      minChildVersion: TxVersion, // tracks the minimum version of any child within `children`
+      minChildVersion: SerializationVersion, // tracks the minimum version of any child within `children`
       children: BackStack[NodeId],
       nextActionChildIdx: Int,
   ) {
     // when we add a child node we must pass the minimum-version contained in that child
-    def addActionChild(child: NodeId, version: TxVersion): Context = {
+    def addActionChild(child: NodeId, version: SerializationVersion): Context = {
       Context(info, minChildVersion min version, children :+ child, nextActionChildIdx + 1)
     }
-    def addNonActionChild(child: NodeId, version: TxVersion, nextActionChildIdx: Int): Context =
+    def addNonActionChild(
+        child: NodeId,
+        version: SerializationVersion,
+        nextActionChildIdx: Int,
+    ): Context =
       Context(info, minChildVersion min version, children :+ child, nextActionChildIdx)
     // This function may be costly, it must be call at most once for each node.
     def nextActionChildSeed: crypto.Hash = info.actionChildSeed(nextActionChildIdx)
@@ -105,7 +109,7 @@ private[lf] object PartialTransaction {
 
     def apply(info: ContextInfo): Context =
       // An empty context, with no children; minChildVersion is set to the max-int.
-      Context(info, TxVersion.VDev, BackStack.empty, 0)
+      Context(info, SerializationVersion.VDev, BackStack.empty, 0)
 
     def apply(initialSeeds: InitialSeeding, committers: Set[Party]): Context =
       initialSeeds match {
@@ -157,7 +161,7 @@ private[lf] object PartialTransaction {
       nodeId: NodeId,
       parent: Context,
       byKey: Boolean,
-      version: TxVersion,
+      version: SerializationVersion,
   ) extends ContextInfo {
     val actionNodeSeed = parent.nextActionChildSeed
     val actionChildSeed = crypto.Hash.deriveNodeSeed(actionNodeSeed, _)
@@ -286,8 +290,8 @@ private[speedy] case class PartialTransaction(
     }.toMap
   }
 
-  private[this] def normByKey(version: TxVersion, byKey: Boolean): Boolean = {
-    if (version < TxVersion.minContractKeys) {
+  private[this] def normByKey(version: SerializationVersion, byKey: Boolean): Boolean = {
+    if (version < SerializationVersion.minContractKeys) {
       false
     } else {
       byKey
@@ -300,7 +304,7 @@ private[speedy] case class PartialTransaction(
     * - the 'PartialTransaction' itself if it is not yet complete or
     *   has been aborted ;
     * - an error in case the transaction cannot be serialized using
-    *   the `outputTransactionVersions`.
+    *   the `outputSerializationVersions`.
     */
   private[speedy] def finish: Either[SError.SErrorCrash, (SubmittedTx, ImmArray[NodeId])] =
     context.info match {
@@ -308,7 +312,7 @@ private[speedy] case class PartialTransaction(
         val roots = context.children.toImmArray
         val tx0 = Tx(nodes, roots)
         val (tx, seeds) = NormalizeRollbacks.normalizeTx(tx0)
-        val txResult = SubmittedTx(TxVersion.asVersionedTransaction(tx))
+        val txResult = SubmittedTx(SerializationVersion.asVersionedTransaction(tx))
         Right((txResult, seeds))
 
       case _ =>
@@ -392,7 +396,7 @@ private[speedy] case class PartialTransaction(
       contract: ContractInfo,
       optLocation: Option[Location],
       byKey: Boolean,
-      version: TxVersion,
+      version: SerializationVersion,
       interfaceId: Option[TypeConId],
   ): Either[TxErr.TransactionError, PartialTransaction] =
     mustBeActive(NameOf.qualifiedNameOfCurrentFunc, Some(coid)) {
@@ -433,7 +437,7 @@ private[speedy] case class PartialTransaction(
       optLocation: Option[Location],
       key: CachedKey,
       result: Option[Value.ContractId],
-      keyVersion: TxVersion,
+      keyVersion: SerializationVersion,
   ): Either[TxErr.TransactionError, PartialTransaction] =
     mustBeActive(NameOf.qualifiedNameOfCurrentFunc, result) {
       val auth = Authorize(context.info.authorizers)
@@ -475,7 +479,7 @@ private[speedy] case class PartialTransaction(
       choiceAuthorizers: Option[Set[Party]],
       byKey: Boolean,
       chosenValue: Value,
-      version: TxVersion,
+      version: SerializationVersion,
   ): Either[TxErr.TransactionError, PartialTransaction] =
     mustBeActive(NameOf.qualifiedNameOfCurrentFunc, Some(targetId)) {
       val auth = Authorize(context.info.authorizers)
@@ -673,7 +677,7 @@ private[speedy] case class PartialTransaction(
   /** Insert the given `LeafNode` under a fresh node-id, and return it */
   private[this] def insertLeafNode(
       node: Node.LeafOnlyAction,
-      version: TxVersion,
+      version: SerializationVersion,
       optLocation: Option[Location],
       newContractState: ContractStateMachine.State[NodeId],
   ): PartialTransaction = {

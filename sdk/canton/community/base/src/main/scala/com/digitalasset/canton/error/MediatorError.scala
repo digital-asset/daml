@@ -11,10 +11,13 @@ import com.digitalasset.base.error.{
   Explanation,
   Resolution,
 }
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonErrorGroups.MediatorErrorGroup
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.topology.ParticipantId
 import org.slf4j.event.Level
+
+import java.util.UUID
 
 sealed trait MediatorError extends Product with Serializable with PrettyPrinting {
   def isMalformed: Boolean
@@ -77,6 +80,39 @@ object MediatorError extends MediatorErrorGroup {
         override val cause: String
     ) extends CantonBaseError.Impl(cause)
         with MediatorError {
+
+      override def isMalformed: Boolean = false
+
+      override protected def pretty: Pretty[Reject] = prettyOfClass(
+        param("code", _.code.id.unquoted),
+        param("cause", _.cause.unquoted),
+      )
+    }
+  }
+
+  @Explanation(
+    """The mediator keeps track of the UUID of confirmation requests recently processed to detect duplicate submissions.
+      |The request has the same UUID as a previous request that has been processed within the deduplication window.
+      |The request will be rejected.
+      |No corruption of the ledger is to be expected."""
+  )
+  @Resolution(
+    "Re-submit the request with a fresh UUID. Caution that if the earlier request succeeded, a re-submission may lead to duplicate effects."
+  )
+  object DuplicateConfirmationRequest
+      extends AlarmErrorCode(
+        "DUPLICATE_CONFIRMATION_REQUEST_UUID",
+        redactDetails = false,
+      ) {
+    override def logLevel = Level.INFO
+    final case class Reject(
+        uuid: UUID,
+        expireAfter: CantonTimestamp,
+    ) extends Alarm(
+          s"The request UUID ($uuid) is a duplicate of a previous request with an identical UUID. It cannot be re-used until $expireAfter."
+        )
+        with MediatorError
+        with CantonBaseError {
 
       override def isMalformed: Boolean = false
 

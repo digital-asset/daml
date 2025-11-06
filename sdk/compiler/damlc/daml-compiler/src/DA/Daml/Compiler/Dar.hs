@@ -1,5 +1,6 @@
 -- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
+
 module DA.Daml.Compiler.Dar
     ( createDarFile
     , buildDar
@@ -64,9 +65,9 @@ import Module
 import qualified Module as Ghc
 import HscTypes
 import qualified Data.SemVer as V
-import DA.Daml.Project.Types (ProjectPath (..), UnresolvedReleaseVersion(..))
+import DA.Daml.Project.Types (PackagePath (..), UnresolvedReleaseVersion(..))
 
-import SdkVersion.Class (SdkVersioned)
+import SdkVersion.Class (SdkVersioned, unresolvedBuiltinSdkVersion)
 import qualified DA.Daml.LF.TypeChecker.Error as TypeCheckerError
 
 -- | Create a DAR file by running a ZipArchive action.
@@ -114,7 +115,7 @@ buildDar ::
     -> FromDalf
     -> UpgradeInfo
     -> WarningFlags TypeCheckerError.ErrorOrWarning
-    -> Maybe ProjectPath
+    -> Maybe PackagePath
     -> IO (Maybe (Zip.ZipArchive (), Maybe LF.PackageId))
 buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo typecheckerWarningFlags mbProjectPath = do
     liftIO $
@@ -126,7 +127,7 @@ buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo typechecke
             -- in the dalfInput case we interpret pSrc as the filepath pointing to the dalf.
             -- Note that the package id is obviously wrong but this feature is not something we expose to users.
             pure $ Just
-              ( createArchive pName pVersion pSdkVersion (LF.PackageId "") bytes [] (toNormalizedFilePath' ".") [] [] []
+              ( createArchive pName pVersion (fromMaybe unresolvedBuiltinSdkVersion pSdkVersion) (LF.PackageId "") bytes [] (toNormalizedFilePath' ".") [] [] []
               , Nothing
               )
         -- We need runActionSync here to ensure that diagnostics are printed to the terminal.
@@ -164,9 +165,9 @@ buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo typechecke
                          Just _ -> pure $ Just []
                  -- get all dalf dependencies.
                  dalfDependencies0 <- getDalfDependencies files
-                 let mbNormalizedProjectPath = toNormalizedFilePath' . unwrapProjectPath <$> mbProjectPath
-                 rootDepsUnitIds <- liftIO $ maybe (pure []) (fmap directDependencies . readMetadata) mbNormalizedProjectPath
-                 pkgMap <- lift $ maybe (pure $ PackageMap mempty) (use_ GeneratePackageMap) mbNormalizedProjectPath
+                 let mbNormalizedPackagePath = toNormalizedFilePath' . unwrapPackagePath <$> mbProjectPath
+                 rootDepsUnitIds <- liftIO $ maybe (pure []) (fmap directDependencies . readMetadata) mbNormalizedPackagePath
+                 pkgMap <- lift $ maybe (pure $ PackageMap mempty) (use_ GeneratePackageMap) mbNormalizedPackagePath
                  let rootDepsDalfs = mapMaybe (flip Map.lookup $ getPackageMap pkgMap) rootDepsUnitIds
 
                  MaybeT $
@@ -183,7 +184,7 @@ buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo typechecke
                  srcRoot <- getSrcRoot pSrc
                  pure
                    ( createArchive
-                       pName pVersion pSdkVersion
+                       pName pVersion (fromMaybe unresolvedBuiltinSdkVersion pSdkVersion)
                        pkgId
                        dalf
                        dalfDependencies
@@ -266,10 +267,12 @@ getSrcRoot fileOrDir = do
 mergePkgs :: LF.PackageMetadata -> LF.Version -> [WhnfPackage] -> LF.Package
 mergePkgs meta ver pkgs =
     let mergedMods = foldl' NM.union NM.empty $ map (LF.packageModules . getWhnfPackage) pkgs
+        mergedImports = foldl' LF.mergeImportedPackages (Right S.empty) $ map (LF.importedPackages . getWhnfPackage) pkgs
      in LF.Package
             { LF.packageLfVersion = ver
             , LF.packageModules = mergedMods
             , LF.packageMetadata = meta
+            , LF.importedPackages = mergedImports
             }
 
 -- | Find all Daml files below a given source root. If the source root is a file we interpret it as

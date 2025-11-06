@@ -4,7 +4,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 
 module DA.Cli.Damlc.Packaging
-  ( createProjectPackageDb
+  ( createPackageDb
   , setupPackageDb
   , setupPackageDbFromPackageConfig
   , mbErr
@@ -55,7 +55,7 @@ import "ghc-lib-parser" UniqSet
 import DA.Bazel.Runfiles
 import DA.Cli.Damlc.DependencyDb
 import DA.Daml.Assistant.Env (getDamlEnv, getDamlPath, envUseCache)
-import DA.Daml.Assistant.Types (LookForProjectPath (..))
+import DA.Daml.Assistant.Types (LookForPackagePath (..))
 import DA.Daml.Assistant.Util (wrapErr)
 import DA.Daml.Assistant.Version (resolveReleaseVersionUnsafe)
 import DA.Daml.Compiler.Dar
@@ -74,9 +74,9 @@ import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LFConversion.MetadataEncoding as LFC
 import qualified DA.Pretty
 import qualified DA.Service.Logger as Logger
-import SdkVersion.Class (SdkVersioned, damlStdlib)
+import SdkVersion.Class (SdkVersioned, damlStdlib, unresolvedBuiltinSdkVersion)
 
--- | Create the project package database containing the given dar packages.
+-- | Create the package database containing the given dar packages.
 --
 -- We differentiate between two kinds of dependencies.
 --
@@ -90,10 +90,10 @@ import SdkVersion.Class (SdkVersioned, damlStdlib)
 --   ledger. Based on the Daml-LF we generate dummy interface files
 --   and then remap references to those dummy packages to the original Daml-LF
 --   package id.
-createProjectPackageDb :: SdkVersioned => NormalizedFilePath -> Options -> MS.Map UnitId GHC.ModuleName -> IO ()
-createProjectPackageDb projectRoot (disableScriptService -> opts) modulePrefixes
+createPackageDb :: SdkVersioned => NormalizedFilePath -> Options -> MS.Map UnitId GHC.ModuleName -> IO ()
+createPackageDb packageRoot (disableScriptService -> opts) modulePrefixes
   = do
-    (needsReinitalization, depsFingerprint) <- dbNeedsReinitialization projectRoot depsDir modulePrefixes
+    (needsReinitalization, depsFingerprint) <- dbNeedsReinitialization packageRoot depsDir modulePrefixes
     loggerH <- getLogger opts "package-db"
     when needsReinitalization $ do
       Logger.logDebug loggerH "package db is not up2date, reinitializing"
@@ -104,7 +104,7 @@ createProjectPackageDb projectRoot (disableScriptService -> opts) modulePrefixes
         fromMaybeM (fail "Failed to generate package info") $
           withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> runActionSync ide $ runMaybeT $
             (,) <$> useNoFileE GenerateStablePackages
-                <*> (fst <$> useE GeneratePackageMap projectRoot)
+                <*> (fst <$> useE GeneratePackageMap packageRoot)
 
       let builtinDependenciesIds =
               Set.fromList $ map LF.dalfPackageId $ MS.elems builtinDependencies
@@ -200,7 +200,7 @@ createProjectPackageDb projectRoot (disableScriptService -> opts) modulePrefixes
 
               liftIO $ installDataDep InstallDataDepArgs
                 { opts
-                , projectRoot
+                , packageRoot
                 , dbPath
                 , pkgs
                 , stablePkgs
@@ -214,11 +214,11 @@ createProjectPackageDb projectRoot (disableScriptService -> opts) modulePrefixes
               insert unitId dalfPackage
 
       writeMetadata
-          projectRoot
+          packageRoot
           (PackageDbMetadata mainUnitIds validatedModulePrefixes depsFingerprint)
   where
-    dbPath = projectPackageDatabase </> lfVersionString (optDamlLfVersion opts)
-    depsDir = dependenciesDir opts projectRoot
+    dbPath = packageDatabasePath </> lfVersionString (optDamlLfVersion opts)
+    depsDir = dependenciesDir opts packageRoot
     clearPackageDb = do
         -- Since we reinitialize the whole package db during `daml init` anyway,
         -- we clear the package db before to avoid
@@ -231,12 +231,12 @@ createProjectPackageDb projectRoot (disableScriptService -> opts) modulePrefixes
 -- the package db to decide whether to run reinitialization or not.
 dbNeedsReinitialization ::
        NormalizedFilePath -> FilePath -> MS.Map UnitId GHC.ModuleName -> IO (Bool, Fingerprint)
-dbNeedsReinitialization projectRoot depsDir modulePrefixes = do
+dbNeedsReinitialization packageRoot depsDir modulePrefixes = do
     allDeps <- listFilesRecursive depsDir
     fileFingerprints <- mapM getFileHash allDeps
     let depsFingerprint = fingerprintFingerprints fileFingerprints
     -- Read the metadata of an already existing package database and see if wee need to reinitialize.
-    errOrmetaData <- tryAny $ readMetadata projectRoot
+    errOrmetaData <- tryAny $ readMetadata packageRoot
     pure $
         case errOrmetaData of
             Left _err -> (True, depsFingerprint)
@@ -257,7 +257,7 @@ toGhcModuleName = GHC.mkModuleName . T.unpack . LF.moduleNameString
 
 data InstallDataDepArgs = InstallDataDepArgs
   { opts :: Options
-  , projectRoot :: NormalizedFilePath
+  , packageRoot :: NormalizedFilePath
   , dbPath :: FilePath
   , pkgs :: [DecodedDalf]
     -- ^ All the packages in the dependency graph of the package being built.
@@ -275,7 +275,7 @@ data InstallDataDepArgs = InstallDataDepArgs
 
 installDataDep :: SdkVersioned => InstallDataDepArgs -> IO ()
 installDataDep InstallDataDepArgs {..} = do
-  exposedModules <- getExposedModules opts projectRoot
+  exposedModules <- getExposedModules opts packageRoot
 
   let unitIdStr = unitIdString unitId
   let pkgIdStr = T.unpack $ LF.unPackageId pkgId
@@ -387,7 +387,7 @@ generateAndInstallIfaceFiles GenerateAndInstallIfaceFilesArgs {..} = do
         pure $ opts
             { optIfaceDir = Nothing
             -- We write ifaces below using writeIfacesAndHie so we don’t need to enable these options.
-            , optPackageDbs = projectPackageDatabase : optPackageDbs opts
+            , optPackageDbs = packageDatabasePath : optPackageDbs opts
             , optIsGenerated = True
             , optDflagCheck = False
             , optMbPackageName = Just pkgName
@@ -703,7 +703,7 @@ buildLfPackageGraph' BuildLfPackageGraphMetaArgs {..} BuildLfPackageGraphArgs {.
     (depGraph0, vertexToNode0, _keyToVertex0) =
         graphFromEdges $
           -- We might have multiple copies of the same package if, for example,
-          -- the project we're building has multiple data-dependencies from older
+          -- the package we're building has multiple data-dependencies from older
           -- SDKs, each of which bring a copy of daml-prim and daml-stdlib.
           nubSortOn (\(_,pid,_) -> pid) $
             [ (node, pid, pkgRefs)
@@ -912,7 +912,7 @@ checkForUnitIdConflicts dalfs builtinDependencies
         ]
 
 getExposedModules :: SdkVersioned => Options -> NormalizedFilePath -> IO (MS.Map UnitId (UniqSet GHC.ModuleName))
-getExposedModules opts projectRoot = do
+getExposedModules opts packageRoot = do
     logger <- getLogger opts "list exposed modules"
     -- We need to avoid inference of package flags. Otherwise, we will
     -- try to load package flags for data-dependencies that we have not generated
@@ -926,7 +926,7 @@ getExposedModules opts projectRoot = do
     hscEnv <-
         (maybe (exitWithError "Failed to list exposed modules") (pure . hscEnv) =<<) $
         withDamlIdeState opts logger diagnosticsLogger $ \ide ->
-        runActionSync ide $ runMaybeT $ fst <$> useE GhcSession projectRoot
+        runActionSync ide $ runMaybeT $ fst <$> useE GhcSession packageRoot
     pure $! exposedModulesFromDynFlags $ hsc_dflags hscEnv
   where
     exposedModulesFromDynFlags :: DynFlags -> MS.Map UnitId (UniqSet GHC.ModuleName)
@@ -965,18 +965,18 @@ unsafeSetupPackageDb
     -> [FilePath] -- Data Dependencies. Can be filepath to dars/dalfs.
     -> MS.Map UnitId GHC.ModuleName
     -> IO ()
-unsafeSetupPackageDb projRoot opts releaseVersion pDependencies pDataDependencies pModulePrefixes = do
+unsafeSetupPackageDb packageRoot opts releaseVersion pDependencies pDataDependencies pModulePrefixes = do
     installDependencies
-        projRoot
+        packageRoot
         opts
         releaseVersion
         pDependencies
         pDataDependencies
-    createProjectPackageDb projRoot opts pModulePrefixes
+    createPackageDb packageRoot opts pModulePrefixes
 
 withPkgDbLock :: NormalizedFilePath -> IO a -> IO a
-withPkgDbLock projRoot act = do
-    let packageDbLockFile = packageDbLockPath projRoot
+withPkgDbLock packageRoot act = do
+    let packageDbLockFile = packageDbLockPath packageRoot
     createDirectoryIfMissing True $ takeDirectory packageDbLockFile
     withFileLock packageDbLockFile Exclusive $ const act
 
@@ -990,8 +990,8 @@ setupPackageDb
     -> [FilePath] -- Data Dependencies. Can be filepath to dars/dalfs.
     -> MS.Map UnitId GHC.ModuleName
     -> IO ()
-setupPackageDb projRoot opts releaseVersion pDependencies pDataDependencies pModulePrefixes =
-    withPkgDbLock projRoot $ unsafeSetupPackageDb projRoot opts releaseVersion pDependencies pDataDependencies pModulePrefixes
+setupPackageDb packageRoot opts releaseVersion pDependencies pDataDependencies pModulePrefixes =
+    withPkgDbLock packageRoot $ unsafeSetupPackageDb packageRoot opts releaseVersion pDependencies pDataDependencies pModulePrefixes
 
 setupPackageDbFromPackageConfig
     :: SdkVersioned
@@ -999,14 +999,15 @@ setupPackageDbFromPackageConfig
     -> Options
     -> PackageConfigFields
     -> IO ()
-setupPackageDbFromPackageConfig projRoot opts PackageConfigFields {..} =
-    withPkgDbLock projRoot $ do
+setupPackageDbFromPackageConfig packageRoot opts PackageConfigFields {..} =
+    withPkgDbLock packageRoot $ do
+        let sdkVersion = fromMaybe unresolvedBuiltinSdkVersion pSdkVersion
         damlAssistantIsSet <- damlAssistantIsSet
         releaseVersion <- if damlAssistantIsSet
             then do
               damlPath <- getDamlPath
-              damlEnv <- getDamlEnv damlPath (LookForProjectPath False)
+              damlEnv <- getDamlEnv damlPath (LookForPackagePath False)
               wrapErr "installing dependencies and initializing package database" $
-                resolveReleaseVersionUnsafe (envUseCache damlEnv) pSdkVersion
-            else pure (unsafeResolveReleaseVersion pSdkVersion)
-        unsafeSetupPackageDb projRoot opts releaseVersion pDependencies pDataDependencies pModulePrefixes
+                resolveReleaseVersionUnsafe (envUseCache damlEnv) sdkVersion
+            else pure (unsafeResolveReleaseVersion sdkVersion)
+        unsafeSetupPackageDb packageRoot opts releaseVersion pDependencies pDataDependencies pModulePrefixes

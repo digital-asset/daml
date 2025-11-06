@@ -3,29 +3,19 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
-import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.platform.*
 
-sealed trait ContractStateEvent extends Product with Serializable {
-  def eventOffset: Offset
-}
+sealed trait ContractStateEvent extends Product with Serializable
 
 object ContractStateEvent {
   final case class Created(
-      contract: FatContract,
-      eventOffset: Offset,
-  ) extends ContractStateEvent {
-    def contractId: ContractId = contract.contractId
-    def globalKey: Option[Key] = contract.contractKeyWithMaintainers.map(_.globalKey)
-  }
+      contractId: ContractId,
+      globalKey: Option[Key],
+  ) extends ContractStateEvent
   final case class Archived(
       contractId: ContractId,
       globalKey: Option[Key],
-      stakeholders: Set[Party],
-      eventOffset: Offset,
   ) extends ContractStateEvent
-  // This is merely an offset placeholder for now, sole purpose is to tick the StateCaches internal offset
-  final case class ReassignmentAccepted(
-      eventOffset: Offset
-  ) extends ContractStateEvent
+  // This is merely a placeholder for now, sole purpose is to tick the StateCaches internal index
+  case object ReassignmentAccepted extends ContractStateEvent
 }

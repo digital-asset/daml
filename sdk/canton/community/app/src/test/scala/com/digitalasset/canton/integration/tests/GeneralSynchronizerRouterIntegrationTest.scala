@@ -14,11 +14,8 @@ import com.digitalasset.canton.error.TransactionRoutingError.TopologyErrors.{
   NoCommonSynchronizer,
 }
 import com.digitalasset.canton.integration.EnvironmentDefinition
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.participant.util.JavaCodegenUtil.*
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
@@ -33,9 +30,6 @@ sealed trait GeneralSynchronizerRouterIntegrationTest
 
   override def environmentDefinition: EnvironmentDefinition = super.environmentDefinition
     .withSetup { implicit env =>
-      import env.*
-      participants.all.dars.upload(darPath)
-
       connectToDefaultSynchronizers()
     }
 
@@ -411,7 +405,7 @@ class GeneralSynchronizerRouterIntegrationTestPostgres
     extends GeneralSynchronizerRouterIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](
+    new UseReferenceBlockSequencer[DbConfig.Postgres](
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(Set("sequencer1"), Set("sequencer2"), Set("sequencer3"))

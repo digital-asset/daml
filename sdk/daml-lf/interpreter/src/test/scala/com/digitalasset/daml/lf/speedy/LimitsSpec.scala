@@ -13,7 +13,7 @@ import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import com.digitalasset.daml.lf.transaction.{
   FatContractInstance,
   SubmittedTransaction,
-  TransactionVersion,
+  SerializationVersion,
 }
 import com.digitalasset.daml.lf.value.Value
 import org.scalatest.Inside
@@ -544,7 +544,7 @@ class LimitsSpec(majorLanguageVersion: LanguageMajorVersion)
   private[this] def mkContract(signatories: Iterable[Ref.Party], observers: Iterable[Ref.Party]) = {
 
     TransactionBuilder.fatContractInstanceWithDummyDefaults(
-      TransactionVersion.StableVersions.max,
+      SerializationVersion.StableVersions.max,
       pkg.pkgName,
       T,
       Value.ValueRecord(
@@ -554,6 +554,8 @@ class LimitsSpec(majorLanguageVersion: LanguageMajorVersion)
           None -> Value.ValueList(observers.view.map(Value.ValueParty).to(FrontStack)),
         ),
       ),
+      signatories = signatories,
+      observers = observers,
     )
   }
 }

@@ -9,7 +9,6 @@ import com.daml.ledger.api.v2.transaction_filter.{
   Filters,
   ParticipantAuthorizationTopologyFormat,
   TopologyFormat,
-  TransactionFilter,
   TransactionFormat,
   UpdateFormat,
 }
@@ -19,10 +18,6 @@ import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import scalapb.lenses.Lens
 
-import scala.annotation.nowarn
-
-// TODO(#23504) remove TransactionFilter related when TransactionFilter is removed
-@nowarn("cat=deprecation")
 class RequiredClaimsSpec extends AsyncFlatSpec with BaseTest with Matchers {
 
   behavior of "submissionClaims"
@@ -69,50 +64,48 @@ class RequiredClaimsSpec extends AsyncFlatSpec with BaseTest with Matchers {
     )
   }
 
-  behavior of "transactionFilterClaims"
+  behavior of "executionClaims"
 
-  it should "compute the correct claims in the happy path" in {
-    RequiredClaims.transactionFilterClaims[String](
-      TransactionFilter(
-        filtersByParty = Map(
-          "a" -> Filters(Nil),
-          "b" -> Filters(Nil),
-          "c" -> Filters(Nil),
-        ),
-        filtersForAnyParty = Some(Filters(Nil)),
-      )
+  it should "compute the correct ExecuteAs claims in the happy path" in {
+    val userIdL: Lens[String, String] = Lens.unit
+    RequiredClaims.executionClaims(
+      executeAs = Set("1", "2", "3"),
+      readAs = Set("a", "b", "c"),
+      userIdL = userIdL,
     ) should contain theSameElementsAs RequiredClaims[String](
       RequiredClaim.ReadAs("a"),
       RequiredClaim.ReadAs("b"),
       RequiredClaim.ReadAs("c"),
-      RequiredClaim.ReadAsAnyParty(),
+      RequiredClaim.ExecuteAs("1"),
+      RequiredClaim.ExecuteAs("2"),
+      RequiredClaim.ExecuteAs("3"),
+      RequiredClaim.MatchUserId(userIdL),
     )
   }
 
-  it should "compute the correct claims if no any party filters" in {
-    RequiredClaims.transactionFilterClaims[String](
-      TransactionFilter(
-        filtersByParty = Map(
-          "a" -> Filters(Nil),
-          "b" -> Filters(Nil),
-          "c" -> Filters(Nil),
-        ),
-        filtersForAnyParty = None,
-      )
+  it should "compute the correct claims if no ExecuteAs" in {
+    val userIdL: Lens[String, String] = Lens.unit
+    RequiredClaims.executionClaims(
+      executeAs = Set.empty,
+      readAs = Set("a", "b", "c"),
+      userIdL = userIdL,
     ) should contain theSameElementsAs RequiredClaims[String](
       RequiredClaim.ReadAs("a"),
       RequiredClaim.ReadAs("b"),
       RequiredClaim.ReadAs("c"),
+      RequiredClaim.MatchUserId(userIdL),
     )
   }
 
-  it should "compute the correct claims if no any party filters and no party filters" in {
-    RequiredClaims.transactionFilterClaims[String](
-      TransactionFilter(
-        filtersByParty = Map.empty,
-        filtersForAnyParty = None,
-      )
-    ) shouldBe Nil
+  it should "compute the correct claims if no ExecuteAs and no ReadAs" in {
+    val userIdL: Lens[String, String] = Lens.unit
+    RequiredClaims.executionClaims(
+      executeAs = Set.empty,
+      readAs = Set.empty,
+      userIdL = userIdL,
+    ) should contain theSameElementsAs RequiredClaims[String](
+      RequiredClaim.MatchUserId(userIdL)
+    )
   }
 
   behavior of "readAsForAllParties"

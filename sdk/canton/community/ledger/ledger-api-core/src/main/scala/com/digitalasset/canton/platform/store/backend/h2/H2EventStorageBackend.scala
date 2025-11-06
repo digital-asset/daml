@@ -17,4 +17,4 @@ class H2EventStorageBackend(
       ledgerEndCache = ledgerEndCache,
       stringInterning = stringInterning,
       loggerFactory = loggerFactory,
-    ) {}
+    )

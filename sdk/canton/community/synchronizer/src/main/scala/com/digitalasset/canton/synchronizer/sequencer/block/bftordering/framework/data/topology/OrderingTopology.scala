@@ -5,14 +5,13 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewo
 
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
-import com.digitalasset.canton.sequencing.protocol.MaxRequestSizeToDeserialize
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.canton.crypto.FingerprintKeyId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.topology.TopologyActivationTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BftKeyId,
   BftNodeId,
 }
+import com.digitalasset.canton.util.MaxBytesToDecompress
 import com.google.common.annotations.VisibleForTesting
 
 import OrderingTopology.{
@@ -34,7 +33,7 @@ final case class OrderingTopology(
     // NOTE: make sure to change `toString` when adding useful information
     nodesTopologyInfo: Map[BftNodeId, NodeTopologyInfo],
     sequencingParameters: SequencingParameters,
-    maxRequestSizeToDeserialize: MaxRequestSizeToDeserialize,
+    maxBytesToDecompress: MaxBytesToDecompress,
     activationTime: TopologyActivationTime,
     areTherePendingCantonTopologyChanges: Boolean,
 ) extends MessageAuthorizer {
@@ -75,7 +74,7 @@ final case class OrderingTopology(
      | strong quorum = $strongQuorum,
      | nodes = $nodesWithActivationTime,
      | sequencing parameters = $sequencingParameters,
-     | max request size to deserialize = $maxRequestSizeToDeserialize,
+     | max request size to deserialize = $maxBytesToDecompress,
      | pending topology changes = $areTherePendingCantonTopologyChanges
      |)""".stripMargin
   }
@@ -108,9 +107,7 @@ object OrderingTopology {
         )
       }.toMap,
       sequencingParameters,
-      MaxRequestSizeToDeserialize.Limit(
-        DynamicSynchronizerParameters.defaultMaxRequestSize.value
-      ),
+      MaxBytesToDecompress.Default,
       activationTime,
       areTherePendingCantonTopologyChanges,
     )

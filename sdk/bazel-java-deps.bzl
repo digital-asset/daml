@@ -60,6 +60,8 @@ prometheus_version = "0.16.0"
 
 protostuff_version = "3.1.40"
 
+aws_version = "2.29.5"
+
 # group libraries controlled by the same org
 circe_version = "0.14.2"
 
@@ -155,6 +157,7 @@ def install_java_deps():
             "org.apache.pekko:pekko-stream-testkit_{}:{}".format(scala_major_version, pekko_version),
             "org.apache.pekko:pekko-stream_{}:{}".format(scala_major_version, pekko_version),
             "org.apache.pekko:pekko-testkit_{}:{}".format(scala_major_version, pekko_version),
+            "org.openjdk.jol:jol-core:0.17",
             #            "io.gatling.highcharts:gatling-charts-highcharts:{}".format(gatling_version),
             #            "io.gatling:gatling-app:{}".format(gatling_version),
             #            "io.gatling:gatling-charts:{}".format(gatling_version),
@@ -241,6 +244,7 @@ def install_java_deps():
             "org.sangria-graphql:sangria-spray-json_{}:1.0.2".format(scala_major_version),
             "org.sangria-graphql:sangria_{}:4.0.2".format(scala_major_version),
             "org.scala-lang.modules:scala-collection-contrib_{}:0.2.2".format(scala_major_version),
+            "org.scala-lang.modules:scala-java8-compat_{}:1.0.2".format(scala_major_version),
             "org.scala-lang.modules:scala-parallel-collections_{}:1.0.4".format(scala_major_version),
             "org.scala-lang:scala-library:{}".format(scala_version),
             "org.scalacheck:scalacheck_{}:1.15.4".format(scala_major_version),
@@ -310,7 +314,23 @@ def install_java_deps():
         name = "canton_maven",
         maven_install_json = "@//:canton_maven_install.json",
         artifacts = [
+            "com.google.api:gax:2.55.0",
+            "com.google.api:gax-grpc:2.55.0",
+            "com.google.api:api-common:2.38.0",
+            "com.google.api.grpc:proto-google-cloud-kms-v1:0.146.0",
+            "com.google.auth:google-auth-library-oauth2-http:1.28.0",
+            "com.google.auth:google-auth-library-credentials:1.28.0",
+            "com.google.cloud:google-cloud-kms:2.55.0",
             "org.flywaydb:flyway-core:9.15.2",
+            "software.amazon.awssdk:auth:{}".format(aws_version),
+            "software.amazon.awssdk:aws-core:{}".format(aws_version),
+            "software.amazon.awssdk:http-client-spi:{}".format(aws_version),
+            "software.amazon.awssdk:identity-spi:{}".format(aws_version),
+            "software.amazon.awssdk:kms:{}".format(aws_version),
+            "software.amazon.awssdk:netty-nio-client:{}".format(aws_version),
+            "software.amazon.awssdk:regions:{}".format(aws_version),
+            "software.amazon.awssdk:sdk-core:{}".format(aws_version),
+            "software.amazon.awssdk:utils:{}".format(aws_version),
         ],
         repositories = [
             "https://repo1.maven.org/maven2",

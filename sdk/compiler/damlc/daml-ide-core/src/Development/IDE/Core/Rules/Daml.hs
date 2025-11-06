@@ -23,7 +23,6 @@ import HscTypes
 import MkIface
 import Maybes (MaybeErr(..), rightToMaybe)
 import TcRnMonad (initIfaceLoad)
-
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 import Control.Concurrent.Extra
 import Control.DeepSeq (NFData())
@@ -32,12 +31,12 @@ import Control.Monad.Except
 import Control.Monad.Extra
 import Control.Monad.Trans.Maybe
 import DA.Daml.Compiler.ExtractDar (extractDar, ExtractedDar(..), edDeps)
-import DA.Daml.LF.Ast (renderMajorVersion, Version (versionMajor))
+import DA.Daml.LF.Ast.Version ( Version(versionMajor), renderMajorVersion, supports, featurePackageImports )
 import DA.Daml.Options
 import DA.Daml.Options.Packaging.Metadata
 import DA.Daml.Options.Types
-import DA.Daml.Project.Consts (projectConfigName)
-import DA.Daml.Project.Types (ProjectPath (..))
+import DA.Daml.Project.Consts (packageConfigName)
+import DA.Daml.Project.Types (PackagePath (..))
 import Data.Aeson hiding (Options)
 import Data.Bifunctor (bimap)
 import Data.Binary (Binary())
@@ -69,6 +68,7 @@ import Development.IDE.GHC.Util
 import Development.IDE.GHC.Warnings
 import Development.IDE.Types.Location as Base
 import Development.IDE.Types.Logger hiding (Priority)
+
 import Development.Shake hiding (Diagnostic, Env, doesFileExist)
 import "ghc-lib" GHC hiding (Succeeded, typecheckModule)
 import "ghc-lib-parser" Module (DefUnitId(..), UnitId(..), stringToUnitId)
@@ -378,6 +378,12 @@ packageMetadataFromOptions options = LF.PackageMetadata
     , upgradedPackageId = Nothing -- set by daml build
     }
 
+extractImports :: [LF.ModuleWithImports] -> ([LF.Module], LF.ImportedPackages)
+extractImports = foldr (\(mod, imp) (mods, imps) -> (mod:mods, imp `merge` imps)) ([], Right Set.empty)
+  where
+    merge = LF.mergeImportedPackages
+
+
 -- This rule is for on-disk incremental builds. We cannot use the fine-grained rules that we have for
 -- in-memory builds since we need to be able to serialize intermediate results. GHC doesn’t provide a way to serialize
 -- TypeCheckedModules or CoreModules. In addition to that, making this too fine-grained would probably also incur a performance penalty.
@@ -403,7 +409,7 @@ generateSerializedDalfRule options =
             lfVersion <- getDamlLfVersion
             -- build dependencies
             files <- discardInternalModules (optUnitId options) . transitiveModuleDeps =<< use_ GetDependencies file
-            dalfDeps <- uses_ ReadSerializedDalf files
+            dalfDeps <- map fst <$> uses_ ReadSerializedDalf files
             -- type checking
             pm <- use_ GetParsedModule file
             deps <- uses_ ReadInterface files
@@ -424,6 +430,7 @@ generateSerializedDalfRule options =
                             -- lf conversion
                             PackageMap pkgMap <- use_ GeneratePackageMap file
                             stablePkgs <- useNoFile_ GenerateStablePackages
+                            imports <- use_ GeneratePackageImports file
                             DamlEnv{envEnableInterfaces} <- getDamlServiceEnv
                             let modInfo = tmrModInfo tm
                                 details = hm_details modInfo
@@ -433,7 +440,11 @@ generateSerializedDalfRule options =
                                 Right (rawDalf, conversionWarnings) -> do
                                     -- LF postprocessing
                                     pkgs <- getExternalPackages file
-                                    let selfPkg = buildPackage (packageMetadataFromOptions options) lfVersion dalfDeps
+                                    let selfPkg = buildPackage
+                                                    (packageMetadataFromOptions options)
+                                                    lfVersion
+                                                    dalfDeps
+                                                    imports
                                         world = LF.initWorldSelf pkgs selfPkg
                                         simplified = LF.simplifyModule (LF.initWorld [] lfVersion) lfVersion rawDalf
                                         -- NOTE (SF): We pass a dummy LF.World to the simplifier because we don't want inlining
@@ -448,7 +459,7 @@ generateSerializedDalfRule options =
                                             fmap (conversionWarnings ++ diags,) $ case checkResult of
                                                 Nothing -> pure Nothing
                                                 Just () -> do
-                                                    writeDalfFile (dalfFileName file) dalf
+                                                    writeDalfFile (dalfFileName file) (dalf, imports)
                                                     pure (Just $ fingerprintToBS $ mi_mod_hash $ hm_iface $ tmrModInfo tm)
         }
 
@@ -459,6 +470,7 @@ readSerializedDalfRule =
       needOnDisk GenerateSerializedDalf file
       dalf <- readDalfFromFile dalfFile
       (_, iface) <- use_ ReadInterface file
+      --TODO[RB] ask Remy if we should do some fingerprintToBS magic
       pure (Just $ fingerprintToBS $ mi_mod_hash iface, ([], Just dalf))
 
 readInterfaceRule :: Rules ()
@@ -571,7 +583,7 @@ getUpgradedPackageErrs opts file mainPkg
     -- package versions have been checked at this point
     packageVersionLt :: LF.PackageVersion -> LF.PackageVersion -> Bool
     packageVersionLt = (<) `on` fromRight (error "Impossible invalid package version") . LF.splitPackageVersion id
-     
+
     lfVersionMinorLt :: LF.Version -> LF.Version -> Bool
     lfVersionMinorLt = (<) `on` LF.versionMinor
 
@@ -607,7 +619,7 @@ extractUpgradedPackageRule opts = do
            main <- decodeEntryWithUnitId Archive.DecodeAsMain (edMain extractedDar)
            deps <- decodeEntryWithUnitId Archive.DecodeAsDependency `traverse` edDeps extractedDar
            pure (main, deps)
-        packageConfigFilePath = maybe file (LSP.toNormalizedFilePath . (</> projectConfigName) . unwrapProjectPath) $ optMbPackageConfigPath opts
+        packageConfigFilePath = maybe file (LSP.toNormalizedFilePath . (</> packageConfigName) . unwrapPackagePath) $ optMbPackageConfigPath opts
         diags = case mainAndDeps of
           Left _ -> [ideErrorPretty packageConfigFilePath ("Could not decode file as a DAR." :: T.Text)]
           Right (mainPkg, _) ->
@@ -628,11 +640,11 @@ generatePackageMapRule :: Options -> Rules ()
 generatePackageMapRule opts = do
     defineNoFile $ \GeneratePackageMapIO -> do
         f <- liftIO $ do
-            findProjectRoot <- memoIO findProjectRoot
+            findPackageRoot <- memoIO findPackageRoot
             generatePackageMap <- memoIO $ \mbRoot -> generatePackageMap (optDamlLfVersion opts) mbRoot (optPackageDbs opts)
             pure $ \file -> do
-                mbProjectRoot <- liftIO (findProjectRoot file)
-                liftIO $ generatePackageMap (LSP.toNormalizedFilePath <$> mbProjectRoot)
+                mPackageRoot <- liftIO (findPackageRoot file)
+                liftIO $ generatePackageMap (LSP.toNormalizedFilePath <$> mPackageRoot)
         pure (GeneratePackageMapFun f)
     defineEarlyCutoff $ \GeneratePackageMap file -> do
         GeneratePackageMapFun fun <- useNoFile_ GeneratePackageMapIO
@@ -650,17 +662,17 @@ damlGhcSessionRule :: SdkVersioned => Options -> Rules ()
 damlGhcSessionRule opts@Options{..} = do
     -- The file path here is optional so we go for defineNoFile
     -- (or the equivalent thereof for rules with cut off).
-    defineEarlyCutoff $ \(DamlGhcSession mbProjectRoot) _file -> assert (null $ fromNormalizedFilePath _file) $ do
+    defineEarlyCutoff $ \(DamlGhcSession mPackageRoot) _file -> assert (null $ fromNormalizedFilePath _file) $ do
         let base = mkBaseUnits (optUnitId opts)
-        extraPkgFlags <- liftIO $ case mbProjectRoot of
-            Just projectRoot | not (getIgnorePackageMetadata optIgnorePackageMetadata) ->
+        extraPkgFlags <- liftIO $ case mPackageRoot of
+            Just packageRoot | not (getIgnorePackageMetadata optIgnorePackageMetadata) ->
                 -- We catch doesNotExistError which could happen if the
                 -- package db has never been initialized. In that case, we
                 -- return no extra package flags.
                 handleJust
                     (guard . isDoesNotExistError)
                     (const $ pure []) $ do
-                    PackageDbMetadata{..} <- readMetadata projectRoot
+                    PackageDbMetadata{..} <- readMetadata packageRoot
                     let mainPkgs = map mkPackageFlag directDependencies
                     let renamings =
                             map (\(unitId, (prefix, modules)) -> renamingToFlag unitId prefix modules)
@@ -669,9 +681,9 @@ damlGhcSessionRule opts@Options{..} = do
             _ -> pure []
         optPackageImports <- pure $ map mkPackageFlag base ++ extraPkgFlags ++ optPackageImports
         env <- liftIO $ runGhcFast $ do
-            setupDamlGHC mbProjectRoot opts
+            setupDamlGHC mPackageRoot opts
             GHC.getSession
-        pkg <- liftIO $ generatePackageState optDamlLfVersion mbProjectRoot optPackageDbs optPackageImports
+        pkg <- liftIO $ generatePackageState optDamlLfVersion mPackageRoot optPackageDbs optPackageImports
         dflags <- liftIO $ checkDFlags opts $ setPackageDynFlags pkg $ hsc_dflags env
         hscEnv <- liftIO $ newHscEnvEq env{hsc_dflags = dflags}
         -- In the IDE we do not care about the cache value here but for
@@ -781,9 +793,9 @@ generateSerializedPackage pkgName pkgVersion meta rootFiles = do
     fileDeps <- usesE' GetDependencies rootFiles
     let allFiles = nubSort $ rootFiles <> concatMap transitiveModuleDeps fileDeps
     files <- lift $ discardInternalModules (Just $ pkgNameVersion pkgName pkgVersion) allFiles
-    dalfs <- usesE' ReadSerializedDalf files
+    (dalfs, imports) <- extractImports <$> usesE' ReadSerializedDalf files
     lfVersion <- lift getDamlLfVersion
-    pure $ buildPackage meta lfVersion dalfs
+    pure $ buildPackage meta lfVersion dalfs imports
 
 -- | Artifact directory for incremental builds.
 buildDir :: FilePath
@@ -799,7 +811,7 @@ hiFileName :: NormalizedFilePath -> NormalizedFilePath
 hiFileName file =
     toNormalizedFilePath' $ buildDir </> fromNormalizedFilePath file -<.> "hi"
 
-readDalfFromFile :: NormalizedFilePath -> Action LF.Module
+readDalfFromFile :: NormalizedFilePath -> Action LF.ModuleWithImports
 readDalfFromFile dalfFile = do
     lfVersion <- getDamlLfVersion
     liftIO $
@@ -815,7 +827,7 @@ readDalfFromFile dalfFile = do
             Left err -> fail (show err)
             Right mod -> pure mod
 
-writeDalfFile :: NormalizedFilePath -> LF.Module -> Action ()
+writeDalfFile :: NormalizedFilePath -> LF.ModuleWithImports -> Action ()
 writeDalfFile dalfFile mod = do
     lfVersion <- getDamlLfVersion
     liftIO $
@@ -832,29 +844,55 @@ writeDalfFile dalfFile mod = do
                 Proto.toLazyByteString $
                     encodeSinglePackageModule lfVersion mod
 
+convertUnitId :: Map.Map GHC.UnitId LF.DalfPackage -> GHC.InstalledUnitId -> LF.PackageId
+convertUnitId pkgMap id =
+  let LF.DalfPackage { dalfPackageId } = fromJust (Map.lookup (DefiniteUnitId (DefUnitId id)) pkgMap)
+  in dalfPackageId
+
+depsToIds :: Map.Map GHC.UnitId LF.DalfPackage -> IntMap.IntMap (Set.Set GHC.InstalledUnitId) -> LF.PackageIds
+depsToIds pkgMap unitMap = Set.map (convertUnitId pkgMap) $ mconcat $ IntMap.elems unitMap
+
+generatePackageImports :: Rules ()
+generatePackageImports =
+  --TODO[RB]: probably see if we need to guard this on the version
+  defineEarlyCutoff $ \GeneratePackageImports file -> do
+    lfVersion <- getDamlLfVersion
+    imports <- if lfVersion `supports` featurePackageImports
+      then do
+        PackageMap pkgMap <- use_ GeneratePackageMap file
+        deps <- depPkgDeps <$> use_ GetDependencyInformation file
+        return $ Right $ depsToIds pkgMap deps
+      else
+        return $ Left LF.noPkgImportsReasonLfDoesNotSupportPkgImports
+    let hash :: BS.ByteString
+        hash = foldMap (BS.fromString . T.unpack . LF.unPackageId) (toList $ fromRight mempty imports)
+    return (Just hash, ([], Just imports))
+
 -- Generates a Daml-LF archive without adding serializability information
 -- or type checking it. This must only be used for debugging/testing.
 generateRawPackageRule :: Options -> Rules ()
 generateRawPackageRule options =
     define $ \GenerateRawPackage file -> do
         lfVersion <- getDamlLfVersion
+        imports <- use_ GeneratePackageImports file
         fs <- transitiveModuleDeps <$> use_ GetDependencies file
         files <- discardInternalModules (optUnitId options) (fs ++ [file])
         dalfs <- uses_ GenerateRawDalf files
         -- build package
-        let pkg = buildPackage (packageMetadataFromOptions options) lfVersion dalfs
+        let pkg = buildPackage (packageMetadataFromOptions options) lfVersion dalfs imports
         return ([], Just $ WhnfPackage pkg)
 
 generatePackageDepsRule :: Options -> Rules ()
 generatePackageDepsRule options =
     define $ \GeneratePackageDeps file -> do
         lfVersion <- getDamlLfVersion
+        imports <- use_ GeneratePackageImports file
         fs <- transitiveModuleDeps <$> use_ GetDependencies file
         files <- discardInternalModules (optUnitId options) fs
         dalfs <- uses_ GenerateDalf files
 
         -- build package
-        return ([], Just $ WhnfPackage $ buildPackage (packageMetadataFromOptions options) lfVersion dalfs)
+        return ([], Just $ WhnfPackage $ buildPackage (packageMetadataFromOptions options) lfVersion dalfs imports)
 
 contextForModule :: NormalizedFilePath -> Action SS.Context
 contextForModule modFile = do
@@ -998,7 +1036,7 @@ runScriptsPkg damlFile extPkg = do
             ctxIdOrErr
     scriptContextsVar <- envScriptContexts <$> getDamlServiceEnv
     liftIO $ modifyMVar_ scriptContextsVar $ pure . HashMap.insert damlFile ctxId
-    results <- forM scripts $ \(modName, script) -> 
+    results <- forM scripts $ \(modName, script) ->
         runScript scriptService Nothing ctxId modName script
     -- modify result to map back to PackageId
     pure $ Just results
@@ -1060,10 +1098,9 @@ toDiagnostics lvl world scriptFile scriptRange = \case
         }
 
 encodeModule :: LF.Version -> LF.Module -> Action (SS.Hash, BS.ByteString)
-encodeModule lfVersion m =
+encodeModule lfVersion m = do
     case LF.moduleSource m of
-      Just file
-        | isAbsolute file -> use_ EncodeModule $ toNormalizedFilePath' file
+      Just file -> use_ EncodeModule $ toNormalizedFilePath' file
       _ -> pure $ SS.encodeModule lfVersion m
 
 getScriptRootsRule :: Rules ()
@@ -1355,10 +1392,11 @@ encodeModuleRule options =
     define $ \EncodeModule file -> do
         lfVersion <- getDamlLfVersion
         fs <- transitiveModuleDeps <$> use_ GetDependencies file
+        imports <- use_ GeneratePackageImports file
         files <- discardInternalModules (optUnitId options) fs
         encodedDeps <- uses_ EncodeModule files
         m <- moduleForScript file
-        let (hash, bs) = SS.encodeModule lfVersion m
+        let (hash, bs) = SS.encodeModuleWithImports lfVersion (m, imports)
         return ([], Just (mconcat $ hash : map fst encodedDeps, bs))
 
 -- dlint
@@ -1514,6 +1552,7 @@ damlRule :: SdkVersioned => Options -> Rules ()
 damlRule opts = do
     generateRawDalfRule opts
     generateDalfRule opts
+    generatePackageImports
     generateSerializedDalfRule opts
     readSerializedDalfRule
     readInterfaceRule

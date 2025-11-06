@@ -1,6 +1,7 @@
 module InterfaceUpcastDowncast where
 import (implicit) qualified DA.Internal.Record
 import (implicit) qualified GHC.Types
+import (implicit) qualified GHC.Err
 import (implicit) qualified DA.Internal.Desugar
 import (implicit) DA.Internal.RebindableSyntax
 import Daml.Script
@@ -335,7 +336,9 @@ instance DA.Internal.Desugar.HasToInterface T1 A where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface T1 A where
   fromInterface = GHC.Types.primitive @"EFromInterface"
-  unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
+  unsafeFromInterface
+    = GHC.Err.error
+        "unsafeFromInterface is not supported anymore, use fromInterface instead"
 _interface_instance$_T1_B_T1 :
   DA.Internal.Desugar.InterfaceInstance T1 B T1
 _interface_instance$_T1_B_T1
@@ -362,7 +365,9 @@ instance DA.Internal.Desugar.HasToInterface T1 B where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface T1 B where
   fromInterface = GHC.Types.primitive @"EFromInterface"
-  unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
+  unsafeFromInterface
+    = GHC.Err.error
+        "unsafeFromInterface is not supported anymore, use fromInterface instead"
 data GHC.Types.DamlTemplate => T2
   = T2 {p2 : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -452,7 +457,9 @@ instance DA.Internal.Desugar.HasToInterface T2 A where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface T2 A where
   fromInterface = GHC.Types.primitive @"EFromInterface"
-  unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
+  unsafeFromInterface
+    = GHC.Err.error
+        "unsafeFromInterface is not supported anymore, use fromInterface instead"
 useAction : Party -> (ContractId B -> Update ()) -> Update ()
 useAction p action
   = do cid <- create (toInterface @A (T2 p))

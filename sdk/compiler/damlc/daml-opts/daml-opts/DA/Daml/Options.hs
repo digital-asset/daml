@@ -10,7 +10,7 @@ module DA.Daml.Options
     ( checkDFlags
     , expandSdkPackages
     , fakeDynFlags
-    , findProjectRoot
+    , findPackageRoot
     , generatePackageState
     , memoIO
     , mkPackageFlag
@@ -31,7 +31,7 @@ import Control.Monad.Extra
 import qualified CmdLineParser as Cmd (warnMsg)
 import Data.IORef
 import Data.List.Extra
-import Data.Maybe (fromMaybe, mapMaybe)
+import Data.Maybe (fromMaybe)
 import qualified EnumSet as ES
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
@@ -128,21 +128,21 @@ damlKeywords =
 
 getDamlGhcSession :: Action (FilePath -> Action HscEnvEq)
 getDamlGhcSession = do
-    findProjectRoot <- liftIO $ memoIO findProjectRoot
+    findPackageRoot <- liftIO $ memoIO findPackageRoot
     pure $ \file -> do
-        mbRoot <- liftIO (findProjectRoot file)
+        mbRoot <- liftIO (findPackageRoot file)
         useNoFile_ (DamlGhcSession $ toNormalizedFilePath' <$> mbRoot)
 
 -- | Find the daml.yaml given a starting file or directory.
-findProjectRoot :: FilePath -> IO (Maybe FilePath)
-findProjectRoot file = do
+findPackageRoot :: FilePath -> IO (Maybe FilePath)
+findPackageRoot file = do
     -- TODO[SW]: This logic appears to be wrong, doesFileExist (takeDirectory file) will always be false for wellformed paths.
     isFile <- doesFileExist (takeDirectory file)
     let dir = if isFile then takeDirectory file else file
-    findM hasProjectConfig (ascendants dir)
+    findM hasPackageConfig (ascendants dir)
   where
-    hasProjectConfig :: FilePath -> IO Bool
-    hasProjectConfig p = doesFileExist (p </> projectConfigName)
+    hasPackageConfig :: FilePath -> IO Bool
+    hasPackageConfig p = doesFileExist (p </> packageConfigName)
 
 
 -- | Memoize an IO function, with the characteristics:
@@ -430,7 +430,7 @@ adjustDynFlags options@Options{..} (GhcVersionHeader versionHeader) tmpDir defau
             }
 
     cppFlags =
-        mapMaybe LF.featureCppFlag (LF.allFeaturesForVersion optDamlLfVersion)
+        map LF.featureCppFlag (LF.allFeaturesForVersion optDamlLfVersion)
             ++ LF.foreverCppFlags
 
     -- We need to add platform info in order to run CPP. To prevent
@@ -494,7 +494,7 @@ locateCppPath = do
 --     * if present, parses and applies custom options for GHC
 --       (may fail if the custom options are inconsistent with std Daml ones)
 setupDamlGHC :: GhcMonad m => Maybe NormalizedFilePath -> Options -> m ()
-setupDamlGHC mbProjectRoot options@Options{..} = do
+setupDamlGHC mPackageRoot options@Options{..} = do
   tmpDir <- liftIO getTemporaryDirectory
   versionHeader <- liftIO locateGhcVersionHeader
   defaultCppPath <- liftIO locateCppPath
@@ -520,15 +520,15 @@ setupDamlGHC mbProjectRoot options@Options{..} = do
 
     modifySession $ \h ->
       h { hsc_dflags = dflags', hsc_IC = (hsc_IC h) {ic_dflags = dflags' } }
-  whenJust mbProjectRoot $ \(fromNormalizedFilePath -> projRoot) ->
-    -- Make import paths relative to project root. Otherwise, we
+  whenJust mPackageRoot $ \(fromNormalizedFilePath -> packageRoot) ->
+    -- Make import paths relative to package root. Otherwise, we
     -- can end up with the same file being represented multiple times
     -- with different prefixes or not found at all if our CWD is not the
-    -- project root.
-    -- Note that in the IDE project root is absolute whereas it is
+    -- package root.
+    -- Note that in the IDE package root is absolute whereas it is
     -- relative in `daml build`.
     modifyDynFlags $ \dflags ->
-      dflags { importPaths = map (\p -> normalise (projRoot </> p)) (importPaths dflags) }
+      dflags { importPaths = map (\p -> normalise (packageRoot </> p)) (importPaths dflags) }
 
 
 -- | Check for bad @DynFlags@.

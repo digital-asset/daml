@@ -25,13 +25,13 @@ class EngineInfoTest extends AnyWordSpec with Matchers {
     "show supported LF, Transaction and Value versions" in {
 
       engineInfoStable.show shouldBe
-        "Daml-LF Engine supports LF versions: 2.1"
+        "Daml-LF Engine supports LF versions: 2.1, 2.2"
 
       engineEarlyAccess.show shouldBe
-        "Daml-LF Engine supports LF versions: 2.1"
+        "Daml-LF Engine supports LF versions: 2.1, 2.2"
 
       engineInfoV2.show shouldBe
-        "Daml-LF Engine supports LF versions: 2.1, 2.dev"
+        "Daml-LF Engine supports LF versions: 2.1, 2.2, 2.dev"
     }
 
     "toString returns the same value as show" in {

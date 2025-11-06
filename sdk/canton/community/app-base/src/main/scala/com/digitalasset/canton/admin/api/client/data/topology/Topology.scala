@@ -6,17 +6,20 @@ package com.digitalasset.canton.admin.api.client.data.topology
 import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.ProtoDeserializationError.RefinedDurationConversionError
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.crypto.Fingerprint
+import com.digitalasset.canton.crypto.{Fingerprint, Hash}
+import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
 import com.digitalasset.canton.topology.admin.v30
 import com.digitalasset.canton.topology.transaction.*
+import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
+import com.digitalasset.canton.topology.{ParticipantId, PartyId}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.google.protobuf.ByteString
 
 import java.time.Instant
 
@@ -42,49 +45,62 @@ final case class BaseResult(
     validUntil: Option[Instant],
     sequenced: Instant,
     operation: TopologyChangeOp,
-    transactionHash: ByteString,
+    transactionHash: TxHash,
     serial: PositiveInt,
     signedBy: NonEmpty[Seq[Fingerprint]],
 )
 
 object BaseResult {
-  def fromProtoV30(value: v30.BaseResult): ParsingResult[BaseResult] =
+  def fromProtoV30(value: v30.BaseResult): ParsingResult[BaseResult] = {
+    val v30.BaseResult(
+      storeId,
+      sequenced,
+      validFrom,
+      validUntil,
+      operation,
+      transactionHash,
+      serial,
+      signedByFingerprints,
+    ) = value
     for {
-      protoValidFrom <- ProtoConverter.required("valid_from", value.validFrom)
+      protoValidFrom <- ProtoConverter.required("valid_from", validFrom)
       validFrom <- ProtoConverter.InstantConverter.fromProtoPrimitive(protoValidFrom)
-      validUntil <- value.validUntil.traverse(ProtoConverter.InstantConverter.fromProtoPrimitive)
-      protoSequenced <- ProtoConverter.required("sequencer", value.sequenced)
+      validUntil <- validUntil.traverse(ProtoConverter.InstantConverter.fromProtoPrimitive)
+      protoSequenced <- ProtoConverter.required("sequenced", sequenced)
       sequenced <- ProtoConverter.InstantConverter.fromProtoPrimitive(protoSequenced)
       operation <- ProtoConverter.parseEnum(
         TopologyChangeOp.fromProtoV30,
         "operation",
-        value.operation,
+        operation,
       )
       serial <- PositiveInt
-        .create(value.serial)
+        .create(serial)
         .leftMap(e => RefinedDurationConversionError("serial", e.message))
       signedBy <-
         ProtoConverter.parseRequiredNonEmpty(
           Fingerprint.fromProtoPrimitive,
           "signed_by_fingerprints",
-          value.signedByFingerprints,
+          signedByFingerprints,
         )
-
       store <- ProtoConverter.parseRequired(
         TopologyStoreId.fromProtoV30(_, "store"),
         "store",
-        value.store,
+        storeId,
       )
+      txHash <- Hash
+        .fromByteString(transactionHash)
+        .leftMap(ProtoDeserializationError.CryptoDeserializationError(_))
     } yield BaseResult(
       store,
       validFrom,
       validUntil,
       sequenced,
       operation,
-      value.transactionHash,
+      TxHash(txHash),
       serial,
       signedBy,
     )
+  }
 }
 
 final case class ListNamespaceDelegationResult(
@@ -238,6 +254,52 @@ object ListPartyToParticipantResult {
       itemProto <- ProtoConverter.required("item", value.item)
       item <- PartyToParticipant.fromProtoV30(itemProto)
     } yield ListPartyToParticipantResult(context, item)
+}
+
+/** Console API class to conveniently represent a party to participant proposals
+  *
+  * @param txHash
+  *   the hash of the proposal, required to approve it
+  * @param party
+  *   the party to be hosted
+  * @param permission
+  *   the permission for the currently selected participant
+  * @param otherParticipants
+  *   the other participants involved in the hosting relationship
+  * @param threshold
+  *   the signing threshold in case this is a multi-sig party
+  */
+final case class ListMultiHostingProposal(
+    txHash: TxHash,
+    party: PartyId,
+    permission: ParticipantPermission,
+    otherParticipants: Seq[HostingParticipant],
+    threshold: PositiveInt,
+) extends PrettyPrinting {
+  override def pretty: Pretty[ListMultiHostingProposal] =
+    prettyOfClass(
+      param("txHash", _.txHash.hash),
+      param("party", _.party),
+      param("permission", _.permission.showType),
+      param("others", _.otherParticipants.map(x => (x.participantId, x.permission.showType)).toMap),
+      param("threshold", _.threshold),
+    )
+}
+
+object ListMultiHostingProposal {
+  def mapFilter(participantId: ParticipantId)(
+      result: ListPartyToParticipantResult
+  ): Option[ListMultiHostingProposal] =
+    result.item.participants.find(_.participantId == participantId).map { res =>
+      ListMultiHostingProposal(
+        txHash = result.context.transactionHash,
+        party = result.item.partyId,
+        permission = res.permission,
+        otherParticipants = result.item.participants.filter(_.participantId != participantId),
+        threshold = result.item.threshold,
+      )
+    }
+
 }
 
 final case class ListSynchronizerParametersStateResult(

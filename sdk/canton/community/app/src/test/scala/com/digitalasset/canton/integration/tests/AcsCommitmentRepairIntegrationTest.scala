@@ -9,16 +9,12 @@ import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommand
 }
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.config.{DbConfig, NonNegativeDuration}
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeProportion, PositiveInt}
+import com.digitalasset.canton.config.{CommitmentSendDelay, DbConfig, NonNegativeDuration}
 import com.digitalasset.canton.console.LocalParticipantReference
 import com.digitalasset.canton.examples.java.iou.Iou
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UseH2,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
+import com.digitalasset.canton.integration.plugins.{UseH2, UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.tests.util.{CommitmentTestUtil, IntervalDuration}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -28,7 +24,9 @@ import com.digitalasset.canton.integration.{
 }
 import com.digitalasset.canton.logging.SuppressionRule
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.Errors.MismatchError.CommitmentsMismatch
+import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.ReceivedCmtState.Mismatch
 import com.digitalasset.canton.participant.pruning.SortedReconciliationIntervalsHelpers
+import com.digitalasset.canton.participant.store.UpdateMode
 import com.digitalasset.canton.protocol.messages.{AcsCommitment, CommitmentPeriod}
 import com.digitalasset.canton.topology.SynchronizerId
 import monocle.Monocle.toAppliedFocusOps
@@ -63,7 +61,15 @@ trait AcsCommitmentRepairIntegrationTest
         ),
       )
       .updateTestingConfig(
-        _.focus(_.maxCommitmentSendDelayMillis).replace(Some(NonNegativeInt.zero))
+        _.focus(_.commitmentSendDelay)
+          .replace(
+            Some(
+              CommitmentSendDelay(
+                Some(NonNegativeProportion.zero),
+                Some(NonNegativeProportion.zero),
+              )
+            )
+          )
       )
       .withSetup { implicit env =>
         import env.*
@@ -82,7 +88,10 @@ trait AcsCommitmentRepairIntegrationTest
 
         participants.all.synchronizers.connect_local(sequencer1, alias = daName)
         participants.all.synchronizers.connect_local(sequencer2, alias = acmeName)
-        participants.all.foreach(_.dars.upload(CantonExamplesPath))
+        participants.all.foreach { p =>
+          p.dars.upload(CantonExamplesPath, synchronizerId = daId)
+          p.dars.upload(CantonExamplesPath, synchronizerId = acmeId)
+        }
         passTopologyRegistrationTimeout(env)
       }
 
@@ -95,7 +104,14 @@ trait AcsCommitmentRepairIntegrationTest
     simClock.advanceTo(simClock.uniqueTime().immediateSuccessor)
 
     val createdCids =
-      (1 to nContracts.value).map(_ => deployOnP1P2AndCheckContract(synchronizerId, iouContract))
+      (1 to nContracts.value).map(_ =>
+        deployOnTwoParticipantsAndCheckContract(
+          synchronizerId,
+          iouContract,
+          participant1,
+          participant2,
+        )
+      )
 
     val tick1 = tickAfter(simClock.uniqueTime())
     simClock.advanceTo(tick1.forgetRefinement.immediateSuccessor)
@@ -169,6 +185,7 @@ trait AcsCommitmentRepairIntegrationTest
             recordTime,
             updates = Map.empty,
             deletes = runningCmts.keySet,
+            UpdateMode.Checkpoint,
           )
         }
         .futureValueUS
@@ -199,12 +216,32 @@ trait AcsCommitmentRepairIntegrationTest
                 )
               ),
               counterParticipants = Seq.empty,
-              commitmentState = Seq.empty,
+              commitmentState = Seq(Mismatch),
               verboseMode = false,
             )
 
-            val daCmts = p1Received.get(daId).value
-            daCmts.size shouldBe (1)
+            val daCmtsP1 = p1Received.get(daId).value
+            daCmtsP1.size shouldBe (1)
+
+            val p2Received = participant2.commitments.lookup_received_acs_commitments(
+              synchronizerTimeRanges = Seq(
+                SynchronizerTimeRange(
+                  daId,
+                  Some(
+                    TimeRange(
+                      period3da.fromExclusive.forgetRefinement,
+                      period3da.toInclusive.forgetRefinement,
+                    )
+                  ),
+                )
+              ),
+              counterParticipants = Seq.empty,
+              commitmentState = Seq(Mismatch),
+              verboseMode = false,
+            )
+
+            val daCmtsP2 = p2Received.get(daId).value
+            daCmtsP2.size shouldBe (1)
           }
 
           // Repair P2's commitments on da by reinitializing them based on the ACS. We expect that the running commitments
@@ -302,7 +339,7 @@ trait AcsCommitmentRepairIntegrationTest
 class AcsCommitmentRepairIntegrationTestPostgres extends AcsCommitmentRepairIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](
+    new UseReferenceBlockSequencer[DbConfig.Postgres](
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(
@@ -317,7 +354,7 @@ class AcsCommitmentRepairIntegrationTestPostgres extends AcsCommitmentRepairInte
 class AcsCommitmentRepairIntegrationTestH2 extends AcsCommitmentRepairIntegrationTest {
   registerPlugin(new UseH2(loggerFactory))
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.H2](
+    new UseReferenceBlockSequencer[DbConfig.H2](
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(

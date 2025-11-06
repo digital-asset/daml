@@ -12,6 +12,7 @@ import scala.concurrent.Future
   * [[com.daml.ledger.api.v2.admin.party_management_service.PartyManagementServiceGrpc]]
   */
 trait IndexPartyManagementService {
+
   def getParticipantId(): Future[ParticipantId]
 
   def getParties(

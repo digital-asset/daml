@@ -20,12 +20,12 @@ import com.digitalasset.canton.console.{
 import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod, Offset}
 import com.digitalasset.canton.error.CantonBaseError
 import com.digitalasset.canton.examples.java.cycle as C
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
 import com.digitalasset.canton.integration.plugins.{
   UseBftSequencer,
-  UseCommunityReferenceBlockSequencer,
   UsePostgres,
   UseProgrammableSequencer,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.tests.CommandDeduplicationIntegrationTest.DelayPromises
 import com.digitalasset.canton.integration.{
@@ -97,7 +97,8 @@ trait CommandDeduplicationIntegrationTest
         )
         participant1.synchronizers.connect_local(sequencer1, alias = daName)
         participant1.synchronizers.connect_local(sequencer2, alias = acmeName)
-        participant1.dars.upload(CantonExamplesPath)
+        participant1.dars.upload(CantonExamplesPath, synchronizerId = daId)
+        participant1.dars.upload(CantonExamplesPath, synchronizerId = acmeId)
         participant1.parties.enable("Alice", synchronizer = daName)
         participant1.parties.enable("Alice", synchronizer = acmeName)
       }
@@ -783,7 +784,7 @@ trait CommandDeduplicationTestHelpers { this: BaseTest with HasProgrammableSeque
 
 class CommandDeduplicationIntegrationTestInMemory extends CommandDeduplicationIntegrationTest {
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[StorageConfig.Memory](
+    new UseReferenceBlockSequencer[StorageConfig.Memory](
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(Set("sequencer1"), Set("sequencer2"))
@@ -1062,6 +1063,6 @@ private object CommandDeduplicationIntegrationTest {
 class CommandDeduplicationPruningIntegrationTestPostgres
     extends CommandDeduplicationPruningIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
   registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
 }

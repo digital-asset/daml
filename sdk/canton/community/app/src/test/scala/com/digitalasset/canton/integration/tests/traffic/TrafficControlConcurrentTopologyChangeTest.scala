@@ -13,9 +13,9 @@ import com.digitalasset.canton.config.RequireTypes.{
 }
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
   UsePostgres,
   UseProgrammableSequencer,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -63,9 +63,7 @@ trait TrafficControlConcurrentTopologyChangeTest
         sequencer1.topology.synchronizer_parameters.propose_update(
           synchronizerId = daId,
           _.update(
-            trafficControl = Some(trafficControlParameters),
-            // So that topology changes become effective as of sequencing time
-            topologyChangeDelay = config.NonNegativeFiniteDuration.Zero,
+            trafficControl = Some(trafficControlParameters)
           ),
         )
 
@@ -229,6 +227,6 @@ trait TrafficControlConcurrentTopologyChangeTest
 class TrafficControlConcurrentTopologyChangeTestPostgres
     extends TrafficControlConcurrentTopologyChangeTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
   registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
 }

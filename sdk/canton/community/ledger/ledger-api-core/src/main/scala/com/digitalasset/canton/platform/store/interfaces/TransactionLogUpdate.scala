@@ -33,7 +33,7 @@ object TransactionLogUpdate {
   /** Complete view of a ledger transaction.
     *
     * @param updateId
-    *   The transaction it.
+    *   The transaction id.
     * @param workflowId
     *   The workflow id.
     * @param effectiveAt
@@ -83,6 +83,7 @@ object TransactionLogUpdate {
       completionStreamResponse: Option[CompletionStreamResponse],
       reassignmentInfo: ReassignmentInfo,
       reassignment: Reassignment.Batch,
+      synchronizerId: String,
   )(implicit override val traceContext: TraceContext)
       extends TransactionLogUpdate {
 
@@ -123,6 +124,7 @@ object TransactionLogUpdate {
       contractId: ContractId,
       ledgerEffectiveTime: Timestamp,
       templateId: Identifier,
+      representativePackageId: Ref.PackageId,
       packageName: PackageName,
       packageVersion: Option[Ref.PackageVersion],
       commandId: String,

@@ -139,7 +139,7 @@ class ParticipantTab(
             } else {
               ""
             }
-            Option[javafx.scene.control.TableRow[_]](getTableRow).foreach(x => x.setStyle(style))
+            Option[javafx.scene.control.TableRow[?]](getTableRow).foreach(x => x.setStyle(style))
           }
         }
     }
@@ -370,8 +370,6 @@ class ParticipantTab(
     val req = new GetUpdatesRequest(
       beginExclusive = offset,
       endInclusive = None,
-      filter = None,
-      verbose = false,
       updateFormat = Some(
         UpdateFormat(
           includeTransactions = Some(

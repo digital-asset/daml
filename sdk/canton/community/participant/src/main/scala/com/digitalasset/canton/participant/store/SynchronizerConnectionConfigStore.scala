@@ -7,7 +7,6 @@ import cats.data.EitherT
 import cats.syntax.apply.*
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.SynchronizerPredecessor
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -34,10 +33,12 @@ import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.topology.{
   ConfiguredPhysicalSynchronizerId,
   PhysicalSynchronizerId,
+  SequencerId,
   SynchronizerId,
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ReleaseProtocolVersion
+import com.digitalasset.canton.{SequencerAlias, SynchronizerAlias}
 import slick.jdbc.{GetResult, SetParameter}
 
 import scala.concurrent.ExecutionContext
@@ -95,7 +96,20 @@ trait SynchronizerConnectionConfigStore extends AutoCloseable {
       config: SynchronizerConnectionConfig,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, Error, Unit]
+  ): EitherT[FutureUnlessShutdown, MissingConfigForSynchronizer, Unit]
+
+  /** Sets the sequencer IDs for the given sequencers of the given synchronizer.
+    *
+    * Returns an error if the connection does not exist or if a different id already exists for a
+    * sequencer.
+    *
+    * This is better than [[replace]] because [[setSequencerIds]] works well even if there are
+    * concurrent calls. Failure can happen only if inconcistent ids are set.
+    */
+  def setSequencerIds(
+      psid: PhysicalSynchronizerId,
+      sequencerIds: Map[SequencerAlias, SequencerId],
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, Error, Unit]
 
   def setPhysicalSynchronizerId(
       alias: SynchronizerAlias,
@@ -285,6 +299,29 @@ object SynchronizerConnectionConfigStore {
     override protected def pretty: Pretty[Inactive.type] = prettyOfString(_ => "Inactive")
   }
 
+  /** From the point of view of [[SynchronizerConnectionConfigStore]], a config can be identified
+    * by:
+    *   - ([[SynchronizerAlias]], [[ConfiguredPhysicalSynchronizerId]]), where the second component
+    *     can be [[com.digitalasset.canton.topology.UnknownPhysicalSynchronizerId]] or
+    *     [[com.digitalasset.canton.topology.KnownPhysicalSynchronizerId]]
+    *   - [[PhysicalSynchronizerId]]
+    *
+    * Both are equivalent since the physical synchronizer id is guaranteed to be unique in the
+    * store. This trait allows to offer the two interfaces for the operations.
+    */
+  private[store] sealed trait ConfigIdentifier extends Product with Serializable
+  private[store] object ConfigIdentifier {
+    final case class WithPSId(psid: PhysicalSynchronizerId) extends ConfigIdentifier {
+      override def toString: String = psid.toString
+    }
+    final case class WithAlias(
+        alias: SynchronizerAlias,
+        configuredPSID: ConfiguredPhysicalSynchronizerId,
+    ) extends ConfigIdentifier {
+      override def toString: String = s"($alias, $configuredPSID)"
+    }
+  }
+
   sealed trait Error extends Serializable with Product {
     def message: String
   }
@@ -320,13 +357,35 @@ object SynchronizerConnectionConfigStore {
       s"Synchronizer with id $predecessorPSId cannot be the predecessor of $predecessorPSId because their logical IDs are incompatible"
   }
 
+  final case class InconsistentSequencerIds(
+      id: String,
+      sequencerIds: Map[SequencerAlias, SequencerId],
+      details: String,
+  ) extends Error {
+    val message =
+      s"Connection for synchronizer $id cannot be updated to set ids $sequencerIds: $details."
+  }
+
+  object InconsistentSequencerIds {
+    def apply(
+        id: ConfigIdentifier,
+        sequencerIds: Map[SequencerAlias, SequencerId],
+        details: String,
+    ): InconsistentSequencerIds = InconsistentSequencerIds(id.toString, sequencerIds, details)
+  }
+
   final case class MissingConfigForSynchronizer(
-      alias: SynchronizerAlias,
-      id: ConfiguredPhysicalSynchronizerId,
+      id: String
   ) extends Error {
     override def message: String =
-      s"Synchronizer with alias `$alias` and id `$id` is unknown. Has the synchronizer been registered?"
+      s"Synchronizer with $id. Has the synchronizer been registered?"
   }
+
+  object MissingConfigForSynchronizer {
+    def apply(id: ConfigIdentifier): MissingConfigForSynchronizer =
+      MissingConfigForSynchronizer(id.toString)
+  }
+
   final case class NoActiveSynchronizer(
       alias: SynchronizerAlias
   ) extends Error {

@@ -10,10 +10,7 @@ import com.digitalasset.canton.console.ParticipantReference
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.examples.java.iou.{Amount, Iou}
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.util.EntitySyntax
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -50,8 +47,8 @@ sealed trait ConsoleCommandIntegrationTestWithSharedEnv
         alice = participant1.parties.enable("Alice", synchronizeParticipants = Seq(participant1))
         bob = participant2.parties.enable("Bob", synchronizeParticipants = Seq(participant1))
 
-        participant1.dars.upload(CantonExamplesPath)
-        participant2.dars.upload(CantonExamplesPath)
+        participant1.dars.upload(CantonExamplesPath, synchronizerId = daId)
+        participant2.dars.upload(CantonExamplesPath, synchronizerId = daId)
         val commands = Seq.fill[Command](3)(createIouWithObserver(bob))
         submitAndReturnIous(participant1, bank, commands).discard
       }
@@ -205,5 +202,5 @@ sealed trait ConsoleCommandIntegrationTestWithSharedEnv
 final class ConsoleCommandReferenceIntegrationTestWithSharedEnvPostgres
     extends ConsoleCommandIntegrationTestWithSharedEnv {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[Postgres](loggerFactory))
 }

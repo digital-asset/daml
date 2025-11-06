@@ -42,8 +42,12 @@ import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.logging.TracedLogger
+import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.admin.ResourceLimits
-import com.digitalasset.canton.participant.admin.data.ContractIdImportMode
+import com.digitalasset.canton.participant.admin.data.{
+  ContractImportMode,
+  RepresentativePackageIdOverride,
+}
 import com.digitalasset.canton.participant.admin.party.PartyParticipantPermission
 import com.digitalasset.canton.participant.admin.traffic.TrafficStateAdmin
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.{
@@ -67,7 +71,6 @@ import com.digitalasset.canton.topology.{
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{BinaryFileUtil, GrpcStreamingUtils, OptionUtil, PathUtils}
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{ReassignmentCounter, SequencerCounter, SynchronizerAlias, config}
 import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp
@@ -78,6 +81,7 @@ import io.grpc.{Context, ManagedChannel}
 import java.io.{File, IOException}
 import java.nio.file.{Files, Path, Paths}
 import java.time.Instant
+import scala.annotation.nowarn
 import scala.concurrent.Future
 import scala.concurrent.duration.{Duration, MILLISECONDS}
 
@@ -182,6 +186,7 @@ object ParticipantAdminCommands {
     final case class DarData(darPath: String, description: String, expectedMainPackageId: String)
     final case class UploadDar(
         dars: Seq[DarData],
+        synchronizerId: Option[SynchronizerId],
         vetAllPackages: Boolean,
         synchronizeVetting: Boolean,
         requestHeaders: Map[String, String],
@@ -209,6 +214,7 @@ object ParticipantAdminCommands {
               _,
               synchronizeVetting = synchronizeVetting,
               vetAllPackages = vetAllPackages,
+              synchronizerId = synchronizerId.map(_.toProtoPrimitive),
             )
           )
 
@@ -253,6 +259,7 @@ object ParticipantAdminCommands {
     object UploadDar {
       def apply(
           darPath: String,
+          synchronizerId: Option[SynchronizerId],
           vetAllPackages: Boolean,
           synchronizeVetting: Boolean,
           description: String,
@@ -261,8 +268,9 @@ object ParticipantAdminCommands {
           logger: TracedLogger,
       ): UploadDar = UploadDar(
         Seq(DarData(darPath, description, expectedMainPackageId)),
-        vetAllPackages,
-        synchronizeVetting,
+        synchronizerId,
+        vetAllPackages = vetAllPackages,
+        synchronizeVetting = synchronizeVetting,
         requestHeaders,
         logger,
       )
@@ -271,6 +279,7 @@ object ParticipantAdminCommands {
 
     final case class ValidateDar(
         darPath: Option[String],
+        synchronizerId: Option[SynchronizerId],
         logger: TracedLogger,
     ) extends PackageCommand[v30.ValidateDarRequest, v30.ValidateDarResponse, String] {
 
@@ -287,6 +296,7 @@ object ParticipantAdminCommands {
         } yield v30.ValidateDarRequest(
           darData,
           filename,
+          synchronizerId = synchronizerId.map(_.toProtoPrimitive),
         )
 
       override protected def submitRequest(
@@ -424,10 +434,13 @@ object ParticipantAdminCommands {
 
     }
 
-    final case class VetDar(darDash: String, synchronize: Boolean)
-        extends PackageCommand[v30.VetDarRequest, v30.VetDarResponse, Unit] {
+    final case class VetDar(
+        darDash: String,
+        synchronize: Boolean,
+        synchronizer: Option[SynchronizerId],
+    ) extends PackageCommand[v30.VetDarRequest, v30.VetDarResponse, Unit] {
       override protected def createRequest(): Either[String, v30.VetDarRequest] = Right(
-        v30.VetDarRequest(darDash, synchronize)
+        v30.VetDarRequest(darDash, synchronize, synchronizer.map(_.toProtoPrimitive))
       )
 
       override protected def submitRequest(
@@ -441,11 +454,11 @@ object ParticipantAdminCommands {
 
     // TODO(#14432): Add `synchronize` flag which makes the call block until the unvetting operation
     //               is observed by the participant on all connected synchronizers.
-    final case class UnvetDar(mainPackageId: String)
+    final case class UnvetDar(mainPackageId: String, synchronizerId: Option[SynchronizerId])
         extends PackageCommand[v30.UnvetDarRequest, v30.UnvetDarResponse, Unit] {
 
       override protected def createRequest(): Either[String, v30.UnvetDarRequest] = Right(
-        v30.UnvetDarRequest(mainPackageId)
+        v30.UnvetDarRequest(mainPackageId, synchronizerId.map(_.toProtoPrimitive))
       )
 
       override protected def submitRequest(
@@ -548,7 +561,7 @@ object ParticipantAdminCommands {
     ) extends GrpcAdminCommand[
           v30.GetHighestOffsetByTimestampRequest,
           v30.GetHighestOffsetByTimestampResponse,
-          NonNegativeLong,
+          Long,
         ] {
       override type Svc = PartyManagementServiceStub
 
@@ -573,18 +586,18 @@ object ParticipantAdminCommands {
 
       override protected def handleResponse(
           response: v30.GetHighestOffsetByTimestampResponse
-      ): Either[String, NonNegativeLong] =
-        NonNegativeLong.create(response.ledgerOffset).leftMap(_.toString)
+      ): Either[String, Long] = Right(response.ledgerOffset)
     }
 
-    final case class ExportAcs(
-        parties: Set[PartyId],
-        filterSynchronizerId: Option[SynchronizerId],
-        offset: Long,
-        observer: StreamObserver[v30.ExportAcsResponse],
-        contractSynchronizerRenames: Map[SynchronizerId, SynchronizerId],
+    final case class ExportPartyAcs(
+        party: PartyId,
+        synchronizerId: SynchronizerId,
+        targetParticipantId: ParticipantId,
+        beginOffsetExclusive: Long,
+        waitForActivationTimeout: Option[config.NonNegativeFiniteDuration],
+        observer: StreamObserver[v30.ExportPartyAcsResponse],
     ) extends GrpcAdminCommand[
-          v30.ExportAcsRequest,
+          v30.ExportPartyAcsRequest,
           CancellableContext,
           CancellableContext,
         ] {
@@ -594,28 +607,23 @@ object ParticipantAdminCommands {
       override def createService(channel: ManagedChannel): PartyManagementServiceStub =
         v30.PartyManagementServiceGrpc.stub(channel)
 
-      override protected def createRequest(): Either[String, v30.ExportAcsRequest] =
+      override protected def createRequest(): Either[String, v30.ExportPartyAcsRequest] =
         Right(
-          v30.ExportAcsRequest(
-            parties.map(_.toLf).toSeq,
-            filterSynchronizerId.map(_.toProtoPrimitive).getOrElse(""),
-            offset,
-            contractSynchronizerRenames.map { case (source, targetSynchronizerId) =>
-              val target = v30.ExportAcsTargetSynchronizer(
-                targetSynchronizerId.toProtoPrimitive
-              )
-
-              (source.toProtoPrimitive, target)
-            },
+          v30.ExportPartyAcsRequest(
+            party.toProtoPrimitive,
+            synchronizerId.toProtoPrimitive,
+            targetParticipantId.uid.toProtoPrimitive,
+            beginOffsetExclusive,
+            waitForActivationTimeout.map(_.toProtoPrimitive),
           )
         )
 
       override protected def submitRequest(
           service: PartyManagementServiceStub,
-          request: v30.ExportAcsRequest,
+          request: v30.ExportPartyAcsRequest,
       ): Future[CancellableContext] = {
         val context = Context.current().withCancellation()
-        context.run(() => service.exportAcs(request, observer))
+        context.run(() => service.exportPartyAcs(request, observer))
         Future.successful(context)
       }
 
@@ -627,15 +635,15 @@ object ParticipantAdminCommands {
         GrpcAdminCommand.DefaultUnboundedTimeout
     }
 
-    final case class ExportAcsAtTimestamp(
-        parties: Set[PartyId],
-        filterSynchronizerId: SynchronizerId,
-        topologyTransactionEffectiveTime: Instant,
-        observer: StreamObserver[v30.ExportAcsAtTimestampResponse],
+    final case class ImportPartyAcs(
+        acsChunk: ByteString,
+        workflowIdPrefix: String,
+        contractImportMode: ContractImportMode,
+        representativePackageIdOverride: RepresentativePackageIdOverride,
     ) extends GrpcAdminCommand[
-          v30.ExportAcsAtTimestampRequest,
-          CancellableContext,
-          CancellableContext,
+          v30.ImportPartyAcsRequest,
+          v30.ImportPartyAcsResponse,
+          Unit,
         ] {
 
       override type Svc = PartyManagementServiceStub
@@ -643,30 +651,79 @@ object ParticipantAdminCommands {
       override def createService(channel: ManagedChannel): PartyManagementServiceStub =
         v30.PartyManagementServiceGrpc.stub(channel)
 
-      override protected def createRequest(): Either[String, v30.ExportAcsAtTimestampRequest] =
+      override protected def createRequest(): Either[String, v30.ImportPartyAcsRequest] =
         Right(
-          v30.ExportAcsAtTimestampRequest(
-            parties.map(_.toLf).toSeq,
-            filterSynchronizerId.toProtoPrimitive,
-            Some(Timestamp(topologyTransactionEffectiveTime)),
+          v30.ImportPartyAcsRequest(
+            acsChunk,
+            workflowIdPrefix,
+            contractImportMode.toProtoV30,
+            Some(representativePackageIdOverride.toProtoV30),
           )
         )
 
       override protected def submitRequest(
           service: PartyManagementServiceStub,
-          request: v30.ExportAcsAtTimestampRequest,
-      ): Future[CancellableContext] = {
-        val context = Context.current().withCancellation()
-        context.run(() => service.exportAcsAtTimestamp(request, observer))
-        Future.successful(context)
-      }
+          request: v30.ImportPartyAcsRequest,
+      ): Future[v30.ImportPartyAcsResponse] =
+        GrpcStreamingUtils.streamToServer(
+          service.importPartyAcs,
+          (bytes: Array[Byte]) =>
+            v30.ImportPartyAcsRequest(
+              ByteString.copyFrom(bytes),
+              workflowIdPrefix,
+              contractImportMode.toProtoV30,
+              Some(representativePackageIdOverride.toProtoV30),
+            ),
+          request.acsSnapshot,
+        )
 
       override protected def handleResponse(
-          response: CancellableContext
-      ): Either[String, CancellableContext] = Right(response)
+          response: v30.ImportPartyAcsResponse
+      ): Either[String, Unit] = Either.unit
 
-      override def timeoutType: GrpcAdminCommand.TimeoutType =
-        GrpcAdminCommand.DefaultUnboundedTimeout
+    }
+
+    final case class ClearPartyOnboardingFlag(
+        party: PartyId,
+        synchronizerId: SynchronizerId,
+        beginOffsetExclusive: NonNegativeLong,
+        waitForActivationTimeout: Option[config.NonNegativeFiniteDuration],
+    ) extends GrpcAdminCommand[
+          v30.ClearPartyOnboardingFlagRequest,
+          v30.ClearPartyOnboardingFlagResponse,
+          (Boolean, Option[CantonTimestamp]),
+        ] {
+
+      override type Svc = PartyManagementServiceStub
+
+      override def createService(channel: ManagedChannel): PartyManagementServiceStub =
+        v30.PartyManagementServiceGrpc.stub(channel)
+
+      override protected def createRequest(): Either[String, v30.ClearPartyOnboardingFlagRequest] =
+        Right(
+          v30.ClearPartyOnboardingFlagRequest(
+            party.toProtoPrimitive,
+            synchronizerId.toProtoPrimitive,
+            beginOffsetExclusive.unwrap,
+            waitForActivationTimeout.map(_.toProtoPrimitive),
+          )
+        )
+
+      override protected def submitRequest(
+          service: PartyManagementServiceStub,
+          request: v30.ClearPartyOnboardingFlagRequest,
+      ): Future[v30.ClearPartyOnboardingFlagResponse] = service.clearPartyOnboardingFlag(request)
+
+      override protected def handleResponse(
+          response: v30.ClearPartyOnboardingFlagResponse
+      ): Either[String, (Boolean, Option[CantonTimestamp])] =
+        response.earliestRetryTimestamp
+          .traverse(
+            CantonTimestamp
+              .fromProtoTimestamp(_)
+              .leftMap(_.message)
+          )
+          .map(tsOption => (response.onboarded, tsOption))
     }
 
   }
@@ -674,13 +731,13 @@ object ParticipantAdminCommands {
   object ParticipantRepairManagement {
 
     // TODO(#24610) – Remove, replaced by ExportAcs
+    @nowarn("cat=deprecation")
     final case class ExportAcsOld(
         parties: Set[PartyId],
         partiesOffboarding: Boolean,
         filterSynchronizerId: Option[SynchronizerId],
         timestamp: Option[Instant],
         observer: StreamObserver[v30.ExportAcsOldResponse],
-        contractSynchronizerRenames: Map[SynchronizerId, (SynchronizerId, ProtocolVersion)],
         force: Boolean,
     ) extends GrpcAdminCommand[
           v30.ExportAcsOldRequest,
@@ -699,15 +756,6 @@ object ParticipantAdminCommands {
             parties.map(_.toLf).toSeq,
             filterSynchronizerId.map(_.toProtoPrimitive).getOrElse(""),
             timestamp.map(Timestamp.apply),
-            contractSynchronizerRenames.map {
-              case (source, (targetSynchronizerId, targetProtocolVersion)) =>
-                val targetSynchronizer = v30.ExportAcsOldRequest.TargetSynchronizer(
-                  synchronizerId = targetSynchronizerId.toProtoPrimitive,
-                  protocolVersion = targetProtocolVersion.toProtoPrimitive,
-                )
-
-                (source.toProtoPrimitive, targetSynchronizer)
-            },
             force = force,
             partiesOffboarding = partiesOffboarding,
           )
@@ -731,6 +779,7 @@ object ParticipantAdminCommands {
     }
 
     // TODO(#24610) - Remove, replaced by ImportAcs
+    @nowarn("cat=deprecation")
     final case class ImportAcsOld(
         acsChunk: ByteString,
         workflowIdPrefix: String,
@@ -783,10 +832,64 @@ object ParticipantAdminCommands {
           .map(_.toMap)
     }
 
+    final case class ExportAcs(
+        parties: Set[PartyId],
+        filterSynchronizerId: Option[SynchronizerId],
+        offset: Long,
+        observer: StreamObserver[v30.ExportAcsResponse],
+        contractSynchronizerRenames: Map[SynchronizerId, SynchronizerId],
+        excludedStakeholders: Set[PartyId],
+    ) extends GrpcAdminCommand[
+          v30.ExportAcsRequest,
+          CancellableContext,
+          CancellableContext,
+        ] {
+
+      override type Svc = ParticipantRepairServiceStub
+
+      override def createService(channel: ManagedChannel): ParticipantRepairServiceStub =
+        v30.ParticipantRepairServiceGrpc.stub(channel)
+
+      override protected def createRequest(): Either[String, v30.ExportAcsRequest] =
+        Right(
+          v30.ExportAcsRequest(
+            parties.map(_.toProtoPrimitive).toSeq,
+            filterSynchronizerId.map(_.toProtoPrimitive).getOrElse(""),
+            offset,
+            contractSynchronizerRenames.map { case (source, targetSynchronizerId) =>
+              val target = v30.ExportAcsTargetSynchronizer(
+                targetSynchronizerId.toProtoPrimitive
+              )
+
+              (source.toProtoPrimitive, target)
+            },
+            excludedStakeholders.map(_.toProtoPrimitive).toSeq,
+          )
+        )
+
+      override protected def submitRequest(
+          service: ParticipantRepairServiceStub,
+          request: v30.ExportAcsRequest,
+      ): Future[CancellableContext] = {
+        val context = Context.current().withCancellation()
+        context.run(() => service.exportAcs(request, observer))
+        Future.successful(context)
+      }
+
+      override protected def handleResponse(
+          response: CancellableContext
+      ): Either[String, CancellableContext] = Right(response)
+
+      override def timeoutType: GrpcAdminCommand.TimeoutType =
+        GrpcAdminCommand.DefaultUnboundedTimeout
+    }
+
     final case class ImportAcs(
         acsChunk: ByteString,
         workflowIdPrefix: String,
-        contractIdImportMode: ContractIdImportMode,
+        contractImportMode: ContractImportMode,
+        representativePackageIdOverride: RepresentativePackageIdOverride,
+        excludedStakeholders: Set[PartyId],
     ) extends GrpcAdminCommand[
           v30.ImportAcsRequest,
           v30.ImportAcsResponse,
@@ -803,7 +906,9 @@ object ParticipantAdminCommands {
           v30.ImportAcsRequest(
             acsChunk,
             workflowIdPrefix,
-            contractIdImportMode.toProtoV30,
+            contractImportMode.toProtoV30,
+            excludedStakeholders.map(_.toProtoPrimitive).toSeq,
+            Some(representativePackageIdOverride.toProtoV30),
           )
         )
 
@@ -817,7 +922,9 @@ object ParticipantAdminCommands {
             v30.ImportAcsRequest(
               ByteString.copyFrom(bytes),
               workflowIdPrefix,
-              contractIdImportMode.toProtoV30,
+              contractImportMode.toProtoV30,
+              excludedStakeholders.map(_.toProtoPrimitive).toSeq,
+              Some(representativePackageIdOverride.toProtoV30),
             ),
           request.acsSnapshot,
         )
@@ -1505,7 +1612,6 @@ object ParticipantAdminCommands {
         Right(response.offset)
     }
 
-    // TODO(#9557) R2 The code below should be sufficient
     final case class OpenCommitment(
         observer: StreamObserver[v30.OpenCommitmentResponse],
         commitment: AcsCommitment.HashedCommitmentType,
@@ -1544,7 +1650,6 @@ object ParticipantAdminCommands {
       override def timeoutType: TimeoutType = DefaultUnboundedTimeout
     }
 
-    // TODO(#9557) R2 The code below should be sufficient
     final case class CommitmentContracts(
         observer: StreamObserver[v30.InspectCommitmentContractsResponse],
         contracts: Seq[LfContractId],
@@ -1640,6 +1745,8 @@ object ParticipantAdminCommands {
               } yield synchronizerId -> receivedCmts
             )
             .map(_.toMap)
+
+      override def timeoutType: TimeoutType = DefaultUnboundedTimeout
     }
 
     final case class TimeRange(startExclusive: CantonTimestamp, endInclusive: CantonTimestamp)
@@ -1762,6 +1869,8 @@ object ParticipantAdminCommands {
               } yield synchronizerId -> sentCmts
             )
             .map(_.toMap)
+
+      override def timeoutType: TimeoutType = DefaultUnboundedTimeout
     }
 
     final case class SentAcsCmt(
@@ -2040,6 +2149,8 @@ object ParticipantAdminCommands {
           )
         }
       }.sequence
+
+      override def timeoutType: TimeoutType = ServerEnforcedTimeout
     }
   }
 
@@ -2166,7 +2277,12 @@ object ParticipantAdminCommands {
     final case class NoWaitCommitments(
         counterParticipant: ParticipantId,
         synchronizers: Seq[SynchronizerId],
-    )
+    ) extends PrettyPrinting {
+      override protected def pretty: Pretty[NoWaitCommitments] = prettyOfClass(
+        param("no-wait counter-participant", _.counterParticipant),
+        param("synchronizers", _.synchronizers),
+      )
+    }
 
     object NoWaitCommitments {
       def fromSetup(setup: Seq[WaitCommitmentsSetup]): Either[String, Seq[NoWaitCommitments]] = {
@@ -2230,7 +2346,12 @@ object ParticipantAdminCommands {
     final case class WaitCommitments(
         counterParticipant: ParticipantId,
         synchronizers: Seq[SynchronizerId],
-    )
+    ) extends PrettyPrinting {
+      override protected def pretty: Pretty[WaitCommitments] = prettyOfClass(
+        param("wait counter-participant", _.counterParticipant),
+        param("synchronizers", _.synchronizers),
+      )
+    }
 
     object WaitCommitments {
       def fromSetup(setup: Seq[WaitCommitmentsSetup]): Either[String, Seq[WaitCommitments]] = {

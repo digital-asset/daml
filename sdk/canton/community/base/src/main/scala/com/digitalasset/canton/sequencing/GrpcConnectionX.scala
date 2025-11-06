@@ -6,12 +6,14 @@ package com.digitalasset.canton.sequencing
 import cats.data.EitherT
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.client.pekko.ClientAdapter
+import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.GrpcServiceInvocationMethod
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasRunOnClosing, LifeCycle}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.metrics.SequencerConnectionPoolMetrics
 import com.digitalasset.canton.networking.grpc.{
   CantonGrpcUtil,
   ClientChannelBuilder,
@@ -42,6 +44,7 @@ import scala.concurrent.{ExecutionContextExecutor, Future, blocking}
   */
 final case class GrpcConnectionX(
     config: ConnectionXConfig,
+    metrics: SequencerConnectionPoolMetrics,
     override val timeouts: ProcessingTimeout,
     protected override val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContextExecutor)
@@ -109,6 +112,7 @@ final case class GrpcConnectionX(
       logPolicy: CantonGrpcUtil.GrpcLogPolicy = CantonGrpcUtil.DefaultGrpcLogPolicy,
       retryPolicy: GrpcError => Boolean,
       timeout: Duration = timeouts.network.unwrap,
+      metricsContext: MetricsContext,
   )(
       send: Svc => Future[Res]
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, ConnectionXError, Res] =
@@ -119,6 +123,7 @@ final case class GrpcConnectionX(
       case Some(channel) =>
         val client = GrpcClient.create(channel, stubFactory)
 
+        metrics.connectionRequests.inc()(metricsContext)
         CantonGrpcUtil
           .sendGrpcRequest(client, s"server-${config.name}")(
             send = send,
@@ -128,7 +133,7 @@ final case class GrpcConnectionX(
             logPolicy = logPolicy,
             retryPolicy = retryPolicy,
           )
-          .leftMap(ConnectionXError.TransportError.apply)
+          .leftMap[ConnectionXError](ConnectionXError.TransportError.apply)
 
       case None =>
         EitherT.leftT[FutureUnlessShutdown, Res](
@@ -139,11 +144,13 @@ final case class GrpcConnectionX(
   def serverStreamingRequest[Svc <: AbstractStub[Svc], HasObserver, Res](
       stubFactory: Channel => Svc,
       observerFactory: (CancellableContext, HasRunOnClosing) => HasObserver,
+      metricsContext: MetricsContext,
   )(getObserver: HasObserver => StreamObserver[Res])(
       send: (Svc, StreamObserver[Res]) => Unit
   )(implicit traceContext: TraceContext): Either[ConnectionXError.InvalidStateError, HasObserver] =
     channelRef.get() match {
       case Some(channel) =>
+        metrics.connectionRequests.inc()(metricsContext)
         val client = GrpcClient.create(channel, stubFactory)
         val result =
           CantonGrpcUtil.serverStreamingRequest(client, observerFactory)(getObserver)(send)
@@ -154,12 +161,14 @@ final case class GrpcConnectionX(
     }
 
   def serverStreamingRequestPekko[Svc <: AbstractStub[Svc], Req, Res](
-      stubFactory: Channel => Svc
+      stubFactory: Channel => Svc,
+      metricsContext: MetricsContext,
   )(request: Req, send: Svc => (Req, StreamObserver[Res]) => Unit)(implicit
       esf: ExecutionSequencerFactory
   ): Either[ConnectionXError.InvalidStateError, Source[Res, NotUsed]] =
     channelRef.get() match {
       case Some(channel) =>
+        metrics.connectionRequests.inc()(metricsContext)
         val client = GrpcClient.create(channel, stubFactory)
         val source = ClientAdapter.serverStreaming(request, send(client.service))
         Right(source)

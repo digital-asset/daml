@@ -5,7 +5,7 @@ package com.digitalasset.canton.integration.tests
 
 import com.digitalasset.canton.config.StorageConfig
 import com.digitalasset.canton.damltests.java.noninformeestakeholder.{Inner, Outer}
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
@@ -62,5 +62,5 @@ trait NonInformeeStakeholderIntegrationTest
 
 class NonInformeeStakeholderReferenceIntegrationTestInMemory
     extends NonInformeeStakeholderIntegrationTest {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[StorageConfig.Memory](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[StorageConfig.Memory](loggerFactory))
 }

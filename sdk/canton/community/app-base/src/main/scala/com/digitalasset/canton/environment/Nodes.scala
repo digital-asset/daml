@@ -17,8 +17,8 @@ import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.*
 import com.digitalasset.canton.participant.config.ParticipantNodeConfig
+import com.digitalasset.canton.resource.DbMigrations
 import com.digitalasset.canton.resource.DbStorage.RetryConfig
-import com.digitalasset.canton.resource.{DbMigrations, DbMigrationsFactory}
 import com.digitalasset.canton.synchronizer.mediator.{
   MediatorNode,
   MediatorNodeBootstrap,
@@ -116,7 +116,6 @@ class ManagedNodes[
     NodeBootstrap <: CantonNodeBootstrap[Node],
 ](
     create: (String, NodeConfig) => NodeBootstrap,
-    migrationsFactory: DbMigrationsFactory,
     override protected val timeouts: ProcessingTimeout,
     configs: => Map[String, NodeConfig],
     parametersFor: String => CantonNodeParameters,
@@ -360,16 +359,23 @@ class ManagedNodes[
     case _ => F.pure(Either.unit)
   }
 
+  private def createDbMigration(
+      name: InstanceName,
+      dbConfig: DbConfig,
+      alphaVersionSupport: Boolean,
+  ): DbMigrations =
+    DbMigrations.create(dbConfig, alphaVersionSupport, timeouts, loggerFactory.append("node", name))
+
   // if database is fresh, we will migrate it. Otherwise, we will check if there is any pending migrations,
   // which need to be triggered manually.
   private def checkMigration(
       name: InstanceName,
       storageConfig: StorageConfig,
       params: CantonNodeParameters,
-  ): Either[StartupError, Unit] =
+  )(implicit traceContext: TraceContext): Either[StartupError, Unit] =
     runIfUsingDatabase[Id](storageConfig) { dbConfig =>
-      val migrations = migrationsFactory.create(dbConfig, name, params.alphaVersionSupport)
-      import TraceContext.Implicits.Empty.*
+      val migrations = createDbMigration(name, dbConfig, params.alphaVersionSupport)
+
       logger.info(s"Setting up database schemas for $name")
 
       def errorMapping(err: DbMigrations.Error): StartupError =
@@ -402,8 +408,7 @@ class ManagedNodes[
       alphaVersionSupport: Boolean,
   ): Either[StartupError, Unit] =
     runIfUsingDatabase[Id](storageConfig) { dbConfig =>
-      migrationsFactory
-        .create(dbConfig, name, alphaVersionSupport)
+      createDbMigration(name, dbConfig, alphaVersionSupport)
         .migrateDatabase()
         .leftMap(FailedDatabaseMigration(name, _))
         .value
@@ -416,8 +421,7 @@ class ManagedNodes[
       alphaVersionSupport: Boolean,
   ): Either[StartupError, Unit] =
     runIfUsingDatabase[Id](storageConfig) { dbConfig =>
-      migrationsFactory
-        .create(dbConfig, name, alphaVersionSupport)
+      createDbMigration(name, dbConfig, alphaVersionSupport)
         .repairFlywayMigration()
         .leftMap(FailedDatabaseRepairMigration(name, _))
         .value
@@ -429,7 +433,6 @@ class ManagedNodes[
 
 class ParticipantNodes[B <: CantonNodeBootstrap[N], N <: CantonNode](
     create: (String, ParticipantNodeConfig) => B, // (nodeName, config) => bootstrap
-    migrationsFactory: DbMigrationsFactory,
     timeouts: ProcessingTimeout,
     configs: => Map[String, ParticipantNodeConfig],
     parametersFor: String => ParticipantNodeParameters,
@@ -440,7 +443,6 @@ class ParticipantNodes[B <: CantonNodeBootstrap[N], N <: CantonNode](
     protected val executionContext: ExecutionContextIdlenessExecutorService
 ) extends ManagedNodes[N, ParticipantNodeConfig, ParticipantNodeParameters, B](
       create,
-      migrationsFactory,
       timeouts,
       configs,
       parametersFor,
@@ -454,7 +456,6 @@ class ParticipantNodes[B <: CantonNodeBootstrap[N], N <: CantonNode](
 
 class SequencerNodes(
     create: (String, SequencerNodeConfig) => SequencerNodeBootstrap,
-    migrationsFactory: DbMigrationsFactory,
     timeouts: ProcessingTimeout,
     configs: => Map[String, SequencerNodeConfig],
     parameters: String => SequencerNodeParameters,
@@ -467,7 +468,6 @@ class SequencerNodes(
       SequencerNodeBootstrap,
     ](
       create,
-      migrationsFactory,
       timeouts,
       configs,
       parameters,
@@ -477,7 +477,6 @@ class SequencerNodes(
 
 class MediatorNodes(
     create: (String, MediatorNodeConfig) => MediatorNodeBootstrap,
-    migrationsFactory: DbMigrationsFactory,
     timeouts: ProcessingTimeout,
     configs: => Map[String, MediatorNodeConfig],
     parameters: String => MediatorNodeParameters,
@@ -490,7 +489,6 @@ class MediatorNodes(
       MediatorNodeBootstrap,
     ](
       create,
-      migrationsFactory,
       timeouts,
       configs,
       parameters,

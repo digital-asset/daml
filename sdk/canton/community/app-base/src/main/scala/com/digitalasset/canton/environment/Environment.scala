@@ -28,7 +28,6 @@ import com.digitalasset.canton.metrics.{CantonHistograms, MetricsRegistry}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.participant.*
 import com.digitalasset.canton.participant.config.ParticipantNodeConfig
-import com.digitalasset.canton.resource.DbMigrationsMetaFactory
 import com.digitalasset.canton.synchronizer.mediator.{
   MediatorNodeBootstrap,
   MediatorNodeBootstrapFactory,
@@ -67,7 +66,6 @@ class Environment(
     participantNodeFactory: ParticipantNodeBootstrapFactory,
     sequencerNodeFactory: SequencerNodeBootstrapFactory,
     mediatorNodeFactory: MediatorNodeBootstrapFactory,
-    migrationsFactoryFactory: DbMigrationsMetaFactory,
     override val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging
     with AutoCloseable
@@ -213,7 +211,7 @@ class Environment(
 
   protected val futureSupervisor =
     if (config.monitoring.logging.logSlowFutures)
-      new FutureSupervisor.Impl(timeouts.slowFutureWarn)
+      new FutureSupervisor.Impl(timeouts.slowFutureWarn, loggerFactory)
     else FutureSupervisor.Noop
 
   private val monitorO = if (deadlockConfig.enabled) {
@@ -300,7 +298,6 @@ class Environment(
   lazy val participants =
     new ParticipantNodes[ParticipantNodeBootstrap, ParticipantNode](
       createParticipant,
-      migrationsFactoryFactory.create(clock),
       timeouts,
       config.participantsByString,
       config.participantNodeParametersByString,
@@ -311,7 +308,6 @@ class Environment(
 
   val sequencers = new SequencerNodes(
     createSequencer,
-    migrationsFactoryFactory.create(clock),
     timeouts,
     config.sequencersByString,
     config.sequencerNodeParametersByString,
@@ -321,7 +317,6 @@ class Environment(
   val mediators =
     new MediatorNodes(
       createMediator,
-      migrationsFactoryFactory.create(clock),
       timeouts,
       config.mediatorsByString,
       config.mediatorNodeParametersByString,
@@ -374,7 +369,7 @@ class Environment(
           ParticipantApis(
             ledgerApi = node.config.ledgerApi.port.unwrap,
             adminApi = node.config.adminApi.port.unwrap,
-            jsonApi = node.config.httpLedgerApi.flatMap(_.server.port),
+            jsonApi = node.config.httpLedgerApi.internalPort.map(_.unwrap),
           ),
         )
       }.toMap

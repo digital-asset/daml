@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.protocol.reassignment
 
 import cats.data.EitherT
 import cats.syntax.functor.*
+import com.digitalasset.canton.BaseTest.testedProtocolVersion
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.{
   SyncCryptoApiParticipantProvider,
@@ -22,7 +23,7 @@ import com.digitalasset.canton.participant.store.memory.InMemoryReassignmentStor
 import com.digitalasset.canton.participant.sync.StaticSynchronizerParametersGetter
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.*
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
-import com.digitalasset.canton.time.TimeProofTestUtil
+import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
   Confirmation,
   Observation,
@@ -38,12 +39,11 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{ReassignmentTag, SameReassignmentType, SingletonTraverse}
 import com.digitalasset.canton.{BaseTest, LfPackageId}
-import org.mockito.ArgumentMatchers.any
-import org.mockito.Mockito.when
-import org.mockito.MockitoSugar.mock
 
 import scala.collection.concurrent.TrieMap
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.DurationConverters.*
 
 private[reassignment] object TestReassignmentCoordination {
 
@@ -57,18 +57,8 @@ private[reassignment] object TestReassignmentCoordination {
       awaitTimestampOverride: Option[Option[Future[Unit]]] = None,
       loggerFactory: NamedLoggerFactory,
       packages: Seq[LfPackageId] = Seq.empty,
+      targetTimestampForwardTolerance: FiniteDuration = 30.seconds,
   )(implicit ec: ExecutionContext): ReassignmentCoordination = {
-
-    val recentTimeProofProvider = mock[RecentTimeProofProvider]
-    when(
-      recentTimeProofProvider.get(
-        any[Target[PhysicalSynchronizerId]],
-        any[Target[StaticSynchronizerParameters]],
-      )(
-        any[TraceContext]
-      )
-    )
-      .thenReturn(EitherT.pure(TimeProofTestUtil.mkTimeProof(timeProofTimestamp)))
 
     val reassignmentStores =
       synchronizers
@@ -84,7 +74,12 @@ private[reassignment] object TestReassignmentCoordination {
     val staticSynchronizerParametersGetter = new StaticSynchronizerParametersGetter {
       override def staticSynchronizerParameters(
           synchronizerId: PhysicalSynchronizerId
-      ): Option[StaticSynchronizerParameters] = Some(BaseTest.testedStaticSynchronizerParameters)
+      ): Option[StaticSynchronizerParameters] = Some(
+        BaseTest.defaultStaticSynchronizerParametersWith(
+          topologyChangeDelay = NonNegativeFiniteDuration.Zero,
+          testedProtocolVersion,
+        )
+      )
 
       override def latestKnownPSId(synchronizerId: SynchronizerId): Option[PhysicalSynchronizerId] =
         ???
@@ -104,19 +99,24 @@ private[reassignment] object TestReassignmentCoordination {
     new ReassignmentCoordination(
       reassignmentStoreFor = id =>
         reassignmentStores.get(id).toRight(UnknownSynchronizer(id.unwrap, "not found")),
-      recentTimeProofFor = recentTimeProofProvider,
       reassignmentSubmissionFor = assignmentBySubmission,
       pendingUnassignments = reassignmentSynchronizer.map(Option(_)),
       staticSynchronizerParametersGetter = staticSynchronizerParametersGetter,
-      syncCryptoApi =
-        defaultSyncCryptoApi(synchronizers.toSeq.map(_.unwrap), packages, loggerFactory),
+      syncCryptoApi = defaultSyncCryptoApi(
+        synchronizers.toSeq.map(_.unwrap),
+        packages,
+        loggerFactory,
+        timeProofTimestamp,
+      ),
+      targetTimestampForwardTolerance =
+        NonNegativeFiniteDuration.tryCreate(targetTimestampForwardTolerance.toJava),
       loggerFactory,
     ) {
 
       override def awaitTimestamp[T[X] <: ReassignmentTag[X]: SameReassignmentType](
           synchronizerId: T[PhysicalSynchronizerId],
           staticSynchronizerParameters: T[StaticSynchronizerParameters],
-          timestamp: CantonTimestamp,
+          timestamp: T[CantonTimestamp],
       )(implicit
           traceContext: TraceContext
       ): Either[ReassignmentProcessorError, Option[FutureUnlessShutdown[Unit]]] =
@@ -132,7 +132,7 @@ private[reassignment] object TestReassignmentCoordination {
       ](
           synchronizerId: T[PhysicalSynchronizerId],
           staticSynchronizerParameters: T[StaticSynchronizerParameters],
-          timestamp: CantonTimestamp,
+          timestamp: T[CantonTimestamp],
       )(implicit
           traceContext: TraceContext
       ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, T[
@@ -152,12 +152,16 @@ private[reassignment] object TestReassignmentCoordination {
       synchronizers: Seq[PhysicalSynchronizerId],
       packages: Seq[LfPackageId],
       loggerFactory: NamedLoggerFactory,
+      approximateTimestamp: CantonTimestamp,
   ): SyncCryptoApiParticipantProvider =
     TestingTopology(synchronizers = synchronizers.toSet)
       .withReversedTopology(defaultTopology)
       .withPackages(defaultTopology.keys.map(_ -> packages).toMap)
       .build(loggerFactory)
-      .forOwner(submittingParticipant)
+      .forOwner(
+        owner = submittingParticipant,
+        currentSnapshotApproximationTimestamp = approximateTimestamp,
+      )
 
   private val observerParticipant1: ParticipantId = ParticipantId("observerParticipant1")
   private val observerParticipant2: ParticipantId = ParticipantId("observerParticipant2")

@@ -10,6 +10,7 @@ module DA.Test.DamlcUpgrades (main) where
 import Control.Monad.Extra
 import DA.Bazel.Runfiles
 import qualified DA.Daml.LF.Ast.Version as LF
+import qualified DA.Daml.LF.Ast.Version.GeneratedVersions as LF
 import Data.Foldable
 import System.Directory.Extra
 import System.FilePath
@@ -343,7 +344,7 @@ tests damlc =
             --, test
             --      "WarnsWhenExpressionChangesBindingOrder"
             --      (SucceedWithWarning ".*refer to different bindings in the environment")
-            --      versionDefault
+            --      LF.version2_dev
             --      (SeparateDeps False)
             --      False
             --      True
@@ -401,28 +402,28 @@ tests damlc =
                   )
                   "my-package"
                   "0.0.1"
-                  versionDefault
+                  LF.defaultLfVersion
                   "my-package2"
                   "0.0.2"
-                  versionDefault
+                  LF.defaultLfVersion
             , testMetadata
                   "FailsWhenUpgradesPackageHasEqualVersion"
                   (FailWithError "\ESC\\[0;91mMain package \\(v0.0.1\\) cannot have the same package version as Upgraded package \\(v0.0.1\\)")
                   "my-package"
                   "0.0.1"
-                  versionDefault
+                  LF.defaultLfVersion
                   "my-package"
                   "0.0.1"
-                  versionDefault
+                  LF.defaultLfVersion
             , testMetadata
                   "FailsWhenUpgradesPackageHasHigherVersion"
                   (FailWithError "\ESC\\[0;91mUpgraded package \\(v0.0.2\\) cannot have a higher package version than Main package \\(v0.0.1\\)")
                   "my-package"
                   "0.0.2"
-                  versionDefault
+                  LF.defaultLfVersion
                   "my-package"
                   "0.0.1"
-                  versionDefault
+                  LF.defaultLfVersion
             , testMetadata
                   "FailsWhenUpgradesPackageHasHigherLFVersion"
                   (FailWithError "\ESC\\[0;91mMain package \\(v0.0.2\\) LF Version \\(2.1\\) cannot be lower than the Upgraded package \\(v0.0.1\\) LF Version \\(2.dev\\)")
@@ -536,13 +537,13 @@ tests damlc =
 
                 let oldSharedDir = dir </> "oldShared"
                 let oldSharedDar = oldSharedDir </> "out.dar"
-                writeFiles oldSharedDir (projectFile "0.0.1" oldDepLfVersion ("upgrades-example-" <> location <> "-dep") Nothing Nothing [] : sharedDepFiles)
-                callProcessSilent damlc ["build", "--project-root", oldSharedDir, "-o", oldSharedDar]
+                writeFiles oldSharedDir (packageDamlYaml "0.0.1" oldDepLfVersion ("upgrades-example-" <> location <> "-dep") Nothing Nothing [] : sharedDepFiles)
+                callProcessSilent damlc ["build", "--package-root", oldSharedDir, "-o", oldSharedDar]
 
                 let newSharedDir = dir </> "newShared"
                 let newSharedDar = newSharedDir </> "out.dar"
-                writeFiles newSharedDir (projectFile "0.0.1" newDepLfVersion ("upgrades-example-" <> location <> "-dep") Nothing Nothing [] : sharedDepFiles)
-                callProcessSilent damlc ["build", "--project-root", newSharedDir, "-o", newSharedDar]
+                writeFiles newSharedDir (packageDamlYaml "0.0.1" newDepLfVersion ("upgrades-example-" <> location <> "-dep") Nothing Nothing [] : sharedDepFiles)
+                callProcessSilent damlc ["build", "--package-root", newSharedDir, "-o", newSharedDar]
 
                 pure (Just oldSharedDar, Just newSharedDar)
               SeparateDeps { shouldSwap } -> do
@@ -553,8 +554,8 @@ tests damlc =
                       )
                 let depV1Dir = dir </> "shared-v1"
                 let depV1Dar = depV1Dir </> "out.dar"
-                writeFiles depV1Dir (projectFile "0.0.1" (if shouldSwap then newDepLfVersion else oldDepLfVersion) ("upgrades-example-" <> location <> "-dep") Nothing Nothing [] : depV1Files)
-                callProcessSilent damlc ["build", "--project-root", depV1Dir, "-o", depV1Dar]
+                writeFiles depV1Dir (packageDamlYaml "0.0.1" (if shouldSwap then newDepLfVersion else oldDepLfVersion) ("upgrades-example-" <> location <> "-dep") Nothing Nothing [] : depV1Files)
+                callProcessSilent damlc ["build", "--package-root", depV1Dir, "-o", depV1Dar]
 
                 depV2FilePaths <- listDirectory =<< testRunfile (location </> "dep-v2")
                 let depV2Files = flip map depV2FilePaths $ \path ->
@@ -563,8 +564,8 @@ tests damlc =
                       )
                 let depV2Dir = dir </> "shared-v2"
                 let depV2Dar = depV2Dir </> "out.dar"
-                writeFiles depV2Dir (projectFile "0.0.2" (if shouldSwap then oldDepLfVersion else newDepLfVersion) ("upgrades-example-" <> location <> "-dep") Nothing Nothing [] : depV2Files)
-                callProcessSilent damlc ["build", "--project-root", depV2Dir, "-o", depV2Dar]
+                writeFiles depV2Dir (packageDamlYaml "0.0.2" (if shouldSwap then oldDepLfVersion else newDepLfVersion) ("upgrades-example-" <> location <> "-dep") Nothing Nothing [] : depV2Files)
+                callProcessSilent damlc ["build", "--package-root", depV2Dir, "-o", depV2Dar]
 
                 if shouldSwap
                    then pure (Just depV2Dar, Just depV1Dar)
@@ -575,24 +576,24 @@ tests damlc =
                 pure (Nothing, Nothing)
 
             v1AdditionalDarsRunFiles <- traverse testAdditionaDarRunfile additionalDarsV1
-            writeFiles oldDir (projectFile "0.0.1" oldLfVersion ("upgrades-example-" <> location) Nothing depV1Dar v1AdditionalDarsRunFiles : oldVersion)
-            callProcessSilent damlc ["build", "--project-root", oldDir, "-o", oldDar]
+            writeFiles oldDir (packageDamlYaml "0.0.1" oldLfVersion ("upgrades-example-" <> location) Nothing depV1Dar v1AdditionalDarsRunFiles : oldVersion)
+            callProcessSilent damlc ["build", "--package-root", oldDir, "-o", oldDar]
 
             v2AdditionalDarsRunFiles <- traverse testAdditionaDarRunfile additionalDarsV2
-            writeFiles newDir (projectFile "0.0.2" newLfVersion ("upgrades-example-" <> location) (if setUpgradeField then Just oldDar else Nothing) depV2Dar v2AdditionalDarsRunFiles : newVersion)
+            writeFiles newDir (packageDamlYaml "0.0.2" newLfVersion ("upgrades-example-" <> location) (if setUpgradeField then Just oldDar else Nothing) depV2Dar v2AdditionalDarsRunFiles : newVersion)
 
             handleExpectation expectation newDir newDar (doTypecheck && setUpgradeField) Nothing
       where
-        projectFile version lfVersion name upgradedFile mbDep darDeps =
+        packageDamlYaml version lfVersion name upgradedFile mbDep darDeps =
           makeProjectFile name version lfVersion upgradedFile (maybeToList mbDep ++ darDeps) doTypecheck warnBadInterfaceInstances ignoreUpgradesOwnDependency templateHasNewInterfaceInstance
 
     handleExpectation :: Expectation -> FilePath -> FilePath -> Bool -> Maybe FilePath -> IO ()
     handleExpectation expectation dir dar shouldRunChecks expectedDiagFile =
       case expectation of
         Succeed ->
-            callProcessSilent damlc ["build", "--project-root", dir, "-o", dar]
+            callProcessSilent damlc ["build", "--package-root", dir, "-o", dar]
         SucceedWithoutWarning regex -> do
-            stderr <- callProcessForSuccessfulStderr damlc ["build", "--project-root", dir, "-o", dar]
+            stderr <- callProcessForSuccessfulStderr damlc ["build", "--package-root", dir, "-o", dar]
             let regexWithSeverity = "Severity: DsWarning\nMessage: \n" <> regex
             let compiledRegex :: Regex
                 compiledRegex = makeRegexOpts defaultCompOpt { multiline = False } defaultExecOpt regexWithSeverity
@@ -601,16 +602,16 @@ tests damlc =
                 then assertFailure ("`daml build` succeeded, but should not give a warning matching '" <> show regexWithSeverity <> "':\n" <> show stderr)
                 else assertFailure ("`daml build` succeeded, did not `upgrade:` field set, should not give a warning matching '" <> show regexWithSeverity <> "':\n" <> show stderr)
         FailWithError _ | not shouldRunChecks ->
-            callProcessSilent damlc ["build", "--project-root", dir, "-o", dar]
+            callProcessSilent damlc ["build", "--package-root", dir, "-o", dar]
         FailWithError regex -> do
-            stderr <- callProcessForStderr damlc ["build", "--project-root", dir, "-o", dar]
+            stderr <- callProcessForStderr damlc ["build", "--package-root", dir, "-o", dar]
             let regexWithSeverity = regexPrefix <> "Severity: DsError\nMessage: \n" <> regex
             let compiledRegex :: Regex
                 compiledRegex = makeRegexOpts defaultCompOpt { multiline = False } defaultExecOpt regexWithSeverity
             unless (matchTest compiledRegex stderr) $
                 assertFailure ("`daml build` failed as expected, but did not give an error matching '" <> show regexWithSeverity <> "':\n" <> show stderr)
         SucceedWithWarning regex -> do
-            stderr <- callProcessForSuccessfulStderr damlc ["build", "--project-root", dir, "-o", dar]
+            stderr <- callProcessForSuccessfulStderr damlc ["build", "--package-root", dir, "-o", dar]
             let regexWithSeverity = regexPrefix <> "Severity: DsWarning\nMessage: \n" <> regex
             let compiledRegex :: Regex
                 compiledRegex = makeRegexOpts defaultCompOpt { multiline = False } defaultExecOpt regexWithSeverity
@@ -634,7 +635,7 @@ tests damlc =
             let newDar = newDir </> "out.dar"
             let oldDar = oldDir </> "old.dar"
             writeFiles oldDir [makeProjectFile v1Name v1Version v1LfVersion Nothing [] True False False False, ("daml/Main.daml", pure "module Main where")]
-            callProcessSilent damlc ["build", "--project-root", oldDir, "-o", oldDar]
+            callProcessSilent damlc ["build", "--package-root", oldDir, "-o", oldDar]
             writeFiles newDir [makeProjectFile v2Name v2Version v2LfVersion (Just oldDar) [] True False False False, ("daml/Main.daml", pure "module Main where")]
             -- Metadata errors are reported on the daml.yaml file
             handleExpectation expectation newDir newDar True (Just $ toUnixPath $ newDir </> "daml.yaml")
@@ -695,7 +696,7 @@ testOptions :: TestOptions
 testOptions =
   TestOptions
     { mbLocation = Nothing
-    , lfVersion = versionPairs versionDefault
+    , lfVersion = versionPairs LF.version2_dev
     , sharedDep = NoDependencies
     , warnBadInterfaceInstances = False
     , ignoreUpgradesOwnDependency = False
@@ -705,9 +706,6 @@ testOptions =
     , additionalDarsV1 = []
     , additionalDarsV2 = []
     }
-
-versionDefault :: LF.Version
-versionDefault = LF.version2_dev
 
 data Expectation
   = Succeed

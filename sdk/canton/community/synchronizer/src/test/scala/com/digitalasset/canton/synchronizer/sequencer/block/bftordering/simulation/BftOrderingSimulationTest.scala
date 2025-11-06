@@ -8,7 +8,6 @@ import com.digitalasset.canton.config.RequireTypes.{Port, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{LogEntry, NamedLoggerFactory, NamedLogging, TracedLogger}
-import com.digitalasset.canton.sequencing.protocol.MaxRequestSizeToDeserialize
 import com.digitalasset.canton.synchronizer.block.BlockFormat
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcConnectionState
@@ -65,7 +64,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.{
 }
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingMessage
 import com.digitalasset.canton.time.{Clock, SimClock}
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.util.MaxBytesToDecompress
 import com.digitalasset.canton.version.ProtocolVersion
 import org.scalatest.Assertion
 import org.scalatest.flatspec.AnyFlatSpec
@@ -107,9 +107,18 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
   def numberOfInitialNodes: Int
   def generateStages(): NonEmpty[Seq[SimulationTestStageSettings]]
 
-  def warnLogAssertion(logEntry: LogEntry): Assertion = fail(
-    s"Test should not produce warning logs but got: ${logEntry.message}"
-  )
+  def allowedWarnings: Seq[LogEntry => Assertion] = Seq.empty
+
+  def warnLogAssertion(logEntry: LogEntry): Assertion =
+    if (allowedWarnings.isEmpty) {
+      fail(
+        s"Test should not produce warning logs but got: ${logEntry.message}"
+      )
+    } else {
+      exists(
+        Table("assertions", allowedWarnings*)
+      )(_(logEntry))
+    }
 
   private val noopMetrics = SequencerMetrics.noop(getClass.getSimpleName).bftOrdering
 
@@ -124,7 +133,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
 
       logger.info(s"Starting run $runNumber (of $numberOfRuns)")
 
-      val sendQueue = mutable.Queue.empty[(BftNodeId, BlockFormat.Block)]
+      val sendQueue = mutable.Queue.empty[(BftNodeId, Traced[BlockFormat.Block])]
 
       var firstNewlyOnboardedIndex = numberOfInitialNodes
 
@@ -256,6 +265,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
                   }.toMap,
                   alreadyOnboardedAll.keys.toSeq,
                   simSettings,
+                  DefaultEpochLength,
                   loggerFactory,
                 )
               val onboardingManager = new SequencerSnapshotOnboardingManager(
@@ -368,7 +378,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
       endpoint: P2PEndpoint,
       getAllEndpointsToTopologyData: () => Map[P2PEndpoint, NodeSimulationTopologyData],
       stores: BftOrderingStores[SimulationEnv],
-      sendQueue: mutable.Queue[(BftNodeId, BlockFormat.Block)],
+      sendQueue: mutable.Queue[(BftNodeId, Traced[BlockFormat.Block])],
       clock: Clock,
       availabilityRandom: Random,
       epochChecker: EpochChecker,
@@ -386,7 +396,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
         loggerFactory,
       )
 
-    val p2pGrpcConnectionState = new P2PGrpcConnectionState(loggerFactory)
+    val p2pGrpcConnectionState = new P2PGrpcConnectionState(thisBftNodeId, logger)
 
     SimulationInitializer(
       {
@@ -398,7 +408,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
           val requestInspector = new RequestInspector {
             override def isRequestToAllMembersOfSynchronizer(
                 request: OrderingRequest,
-                maxRequestSizeToDeserialize: MaxRequestSizeToDeserialize,
+                maxBytesToDecompress: MaxBytesToDecompress,
                 logger: TracedLogger,
                 traceContext: TraceContext,
             )(implicit synchronizerProtocolVersion: ProtocolVersion): Boolean = true
@@ -417,7 +427,8 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
             orderingTopologyProvider,
             new SimulationBlockSubscription(thisBftNodeId, sendQueue),
             sequencerSnapshotAdditionalInfo,
-            new P2PNetworkOutModule.State(p2pGrpcConnectionState),
+            bootstrapMembership =>
+              new P2PNetworkOutModule.State(p2pGrpcConnectionState, bootstrapMembership),
             clock,
             availabilityRandom,
             noopMetrics,
@@ -844,15 +855,23 @@ class BftOrderingSimulationTestOffboarding extends BftOrderingSimulationTest {
   private val durationOfSecondPhaseWithoutFaults = 1.minute
 
   private val randomSourceToCreateSettings: Random =
-    new Random(2) // Manually remove the seed for fully randomized local runs.
+    new Random(4) // Manually remove the seed for fully randomized local runs.
 
-  override def warnLogAssertion(logEntry: LogEntry): Assertion = {
+  override def allowedWarnings: Seq[LogEntry => Assertion] = Seq(
     // We might get messages from off boarded nodes, don't count these as errors.
-    logEntry.message should include(
-      "but it cannot be verified in the currently known dissemination topology"
-    )
-    logEntry.loggerName should include("AvailabilityModule")
-  }
+    { logEntry =>
+      logEntry.message should include(
+        "but it cannot be verified in the currently known dissemination topology"
+      )
+      logEntry.loggerName should include("AvailabilityModule")
+    },
+    { logEntry =>
+      logEntry.message should include(
+        "sent invalid ACK for batch"
+      )
+      logEntry.loggerName should include("AvailabilityModule")
+    },
+  )
 
   override def generateStages(): NonEmpty[Seq[SimulationTestStageSettings]] = NonEmpty(
     Seq,

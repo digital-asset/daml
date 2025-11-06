@@ -5,38 +5,25 @@ package com.digitalasset.daml.lf
 package engine
 
 import com.daml.nameof.NameOf.qualifiedNameOfMember
+import com.digitalasset.daml.lf.command.{ApiCommand, ApiContractKey}
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref.{PackageId, PackageName, PackageRef, PackageVersion, Party}
 import com.digitalasset.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref}
-import com.digitalasset.daml.lf.command.{ApiCommand, ApiContractKey}
 import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion, LookupError}
-import com.digitalasset.daml.lf.speedy.{Command, DisclosedContract, SValue}
-import com.digitalasset.daml.lf.value.Value.{
-  ContractId,
-  ValueInt64,
-  ValueList,
-  ValueParty,
-  ValueRecord,
-}
-import org.scalatest.{Assertion, Inside, Inspectors}
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.wordspec.AnyWordSpec
+import com.digitalasset.daml.lf.speedy.{Command, Compiler}
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.Implicits.{
   defaultPackageId => _,
   _,
 }
-import com.digitalasset.daml.lf.transaction.{
-  CreationTime,
-  FatContractInstanceImpl,
-  GlobalKey,
-  GlobalKeyWithMaintainers,
-  TransactionVersion,
-}
+import com.digitalasset.daml.lf.transaction._
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.speedy.Compiler
+import com.digitalasset.daml.lf.value.Value._
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.prop.TableDrivenPropertyChecks
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatest.{Assertion, Inside, Inspectors}
 
 import scala.collection.immutable
 
@@ -240,52 +227,6 @@ class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
       }
     }
 
-    "preprocessDisclosedContracts" should {
-
-      "reject duplicate disclosed contract IDs" in {
-        val preprocessor = preprocessing.Preprocessor.forTesting(compilerConfig)
-        val contract1 = buildDisclosedContract(contractId)
-        val contract2 =
-          buildDisclosedContract(contractId, templateId = withKeyTmplId, key = Some(helpers.key))
-        val finalResult = preprocessor
-          .preprocessDisclosedContracts(ImmArray(contract1, contract2))
-          .consume(pkgs = pkgs)
-
-        inside(finalResult) {
-          case Left(
-                Error.Preprocessing(Error.Preprocessing.DuplicateDisclosedContractId(`contractId`))
-              ) =>
-            succeed
-        }
-      }
-
-      "return the sets of disclosed contract IDs and disclosed contract key hashes" in {
-        val preprocessor = preprocessing.Preprocessor.forTesting(compilerConfig)
-        val contract1 =
-          buildDisclosedContract(contractId, templateId = withKeyTmplId, key = Some(helpers.key))
-        val contractId2 =
-          Value.ContractId.V1.assertBuild(
-            crypto.Hash.hashPrivateKey("another-contract-id"),
-            Bytes.assertFromString("cafe"),
-          )
-
-        val contract2 =
-          buildDisclosedContract(
-            contractId2,
-            templateId = withKeyTmplId,
-            key = Some(keyBob),
-          )
-        val finalResult = preprocessor
-          .preprocessDisclosedContracts(ImmArray(contract1, contract2))
-          .consume(pkgs = pkgs)
-
-        inside(finalResult) { case Right((_, contractIds, keyHashes)) =>
-          contractIds shouldBe Set(contract1.contractId, contract2.contractId)
-          keyHashes shouldBe Set(keyHash, keyBobHash)
-        }
-      }
-    }
-
     "prefetchContractIdsAndKeys" should {
       val priority = Map(pkgName -> defaultPackageId)
       val bob: Party = Ref.Party.assertFromString("Bob")
@@ -339,36 +280,12 @@ class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
           preprocessor.prefetchContractIdsAndKeys(
             preprocessedCommands,
             Seq.empty,
-            Set.empty,
-            Set.empty,
           )
         inside(resultAllPrefetch) { case ResultPrefetch(contractIds, keys, resume) =>
           contractIds shouldBe Seq(contractId)
           keys shouldBe Seq(globalKey1, globalKey2)
           resume() shouldBe ResultDone.Unit
         }
-
-        val resultAllKeysDisclosed =
-          preprocessor.prefetchContractIdsAndKeys(
-            preprocessedCommands,
-            Seq.empty,
-            Set.empty,
-            Set(globalKey1.hash, globalKey2.hash),
-          )
-        inside(resultAllKeysDisclosed) { case ResultPrefetch(contractIds, keys, resume) =>
-          contractIds shouldBe Seq(contractId)
-          keys shouldBe Seq.empty
-          resume() shouldBe ResultDone.Unit
-        }
-
-        val resultAllDisclosed =
-          preprocessor.prefetchContractIdsAndKeys(
-            preprocessedCommands,
-            Seq.empty,
-            Set(contractId),
-            Set(globalKey1.hash, globalKey2.hash),
-          )
-        resultAllDisclosed shouldBe ResultDone.Unit
       }
 
       "include explicitly specified keys" in {
@@ -384,21 +301,12 @@ class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
         globalKeys shouldBe Seq(globalKey1, globalKey2)
 
         val resultAllUndisclosed =
-          preprocessor.prefetchContractIdsAndKeys(ImmArray.empty, globalKeys, Set.empty, Set.empty)
+          preprocessor.prefetchContractIdsAndKeys(ImmArray.empty, globalKeys)
         inside(resultAllUndisclosed) { case ResultPrefetch(contractIds, keys, resume) =>
           contractIds shouldBe Seq.empty
           keys shouldBe Seq(globalKey1, globalKey2)
           resume() shouldBe ResultDone.Unit
         }
-
-        val resultAllDisclosed =
-          preprocessor.prefetchContractIdsAndKeys(
-            ImmArray.empty,
-            globalKeys,
-            Set.empty,
-            globalKeys.map(_.hash).toSet,
-          )
-        resultAllDisclosed shouldBe ResultDone.Unit
       }
 
       "extract contract IDs from commands" in {
@@ -455,8 +363,6 @@ class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
           preprocessor.prefetchContractIdsAndKeys(
             preprocessedCommands,
             Seq.empty,
-            Set.empty,
-            Set.empty,
           )
         inside(resultAllPrefetch) { case ResultPrefetch(contractIds, keys, resume) =>
           contractIds.toSet shouldBe ((contractId +: moreContractIds).toSet)
@@ -494,8 +400,6 @@ class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
         val result = preprocessor.prefetchContractIdsAndKeys(
           commandsWithContractIdAsKey,
           Seq.empty,
-          Set.empty,
-          Set.empty,
         )
         inside(result) {
           case ResultError(
@@ -617,7 +521,7 @@ final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) 
         .ValueInt64(42L),
     )
     FatContractInstanceImpl(
-      version = TransactionVersion.StableVersions.max,
+      version = SerializationVersion.StableVersions.max,
       contractId = contractId,
       packageName = pkgName,
       templateId = templateId,
@@ -632,40 +536,5 @@ final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) 
       createdAt = CreationTime.CreatedAt(data.Time.Timestamp.Epoch),
       authenticationData = Bytes.Empty,
     )
-  }
-
-  @SuppressWarnings(
-    Array(
-      "org.wartremover.warts.Product",
-      "org.wartremover.warts.Serializable",
-      "org.wartremover.warts.JavaSerializable",
-    )
-  )
-  def acceptDisclosedContract(
-      result: Either[Error, (ImmArray[DisclosedContract], Set[Hash])]
-  ): Assertion = {
-    import Inside._
-    import Inspectors._
-    import Matchers._
-
-    inside(result) { case Right((disclosedContracts, keyHashes)) =>
-      forAll(disclosedContracts.toList) {
-        _.argument match {
-          case SValue.SRecord(`withoutKeyTmplId`, fields, values) =>
-            fields shouldBe ImmArray(
-              Ref.Name.assertFromString("owners"),
-              Ref.Name.assertFromString("data"),
-            )
-            values shouldBe Array(
-              SValue.SList(FrontStack(SValue.SParty(alice))),
-              SValue.SInt64(42L),
-            )
-
-          case _ =>
-            fail()
-        }
-      }
-      keyHashes shouldBe Set.empty
-    }
   }
 }

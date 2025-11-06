@@ -17,6 +17,7 @@ import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.sequencing.{
   GrpcSequencerConnection,
   SequencerConnection,
+  SequencerConnectionPoolDelays,
   SequencerConnectionValidation,
   SubmissionRequestAmplification,
 }
@@ -57,7 +58,7 @@ class SequencerInfoLoaderTest extends BaseTestWordSpec with HasExecutionContext 
   private lazy val endpoint1 = Endpoint("localhost", Port.tryCreate(1001))
   private lazy val endpoint2 = Endpoint("localhost", Port.tryCreate(1002))
   private lazy val endpoint3 = Endpoint("localhost", Port.tryCreate(1003))
-  private lazy val staticSynchronizerParameters = BaseTest.defaultStaticSynchronizerParametersWith()
+  private lazy val staticSynchronizerParameters = BaseTest.defaultStaticSynchronizerParameters
   private lazy val synchronizerAlias = SynchronizerAlias.tryCreate("synchronizer1")
 
   private def mapArgs(
@@ -308,6 +309,7 @@ class SequencerInfoLoaderTest extends BaseTestWordSpec with HasExecutionContext 
         sequencerTrustThreshold = PositiveInt.tryCreate(2),
         sequencerLivenessMargin = NonNegativeInt.zero,
         SubmissionRequestAmplification.NoAmplification,
+        SequencerConnectionPoolDelays.default,
         SequencerConnectionValidation.All,
         None,
       )(mapArgs(args))

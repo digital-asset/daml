@@ -56,7 +56,7 @@ import scala.concurrent.ExecutionContext
 final case class ResponseAggregation[VKEY](
     override val requestId: RequestId,
     override val request: MediatorConfirmationRequest,
-    timeout: CantonTimestamp,
+    responseTimeout: CantonTimestamp,
     decisionTime: CantonTimestamp,
     override val version: CantonTimestamp,
     state: Either[MediatorVerdict, Map[VKEY, ViewState]],
@@ -327,12 +327,12 @@ final case class ResponseAggregation[VKEY](
   def copy(
       requestId: RequestId = requestId,
       request: MediatorConfirmationRequest = request,
-      timeout: CantonTimestamp = timeout,
+      responseTimeout: CantonTimestamp = responseTimeout,
       decisionTime: CantonTimestamp = decisionTime,
       version: CantonTimestamp = version,
       state: Either[MediatorVerdict, Map[VKEY, ViewState]] = state,
   ): ResponseAggregation[VKEY] =
-    ResponseAggregation(requestId, request, timeout, decisionTime, version, state)(
+    ResponseAggregation(requestId, request, responseTimeout, decisionTime, version, state)(
       requestTraceContext,
       participantResponseDeadlineTick,
     )
@@ -341,7 +341,6 @@ final case class ResponseAggregation[VKEY](
     copy(version = version)
 
   def timeout(
-      version: CantonTimestamp
   )(implicit loggingContext: NamedLoggingContext): ResponseAggregation[VKEY] = state match {
     case Right(statesOfView) =>
       val unresponsiveParties = statesOfView
@@ -353,7 +352,8 @@ final case class ResponseAggregation[VKEY](
         // Sort and deduplicate the parties so that multiple mediator replicas generate the same rejection reason
         .to(SortedSet)
       copy(
-        version = version,
+        // Immediate successor because the timeout triggers only once we've observed a message after the timeout.
+        version = responseTimeout.immediateSuccessor,
         state = Left(
           MediatorVerdict.MediatorReject(
             MediatorError.Timeout.Reject(unresponsiveParties = unresponsiveParties.mkString(","))
@@ -371,7 +371,7 @@ final case class ResponseAggregation[VKEY](
   override protected def pretty: Pretty[ResponseAggregation.this.type] = prettyOfClass(
     param("id", _.requestId),
     param("request", _.request),
-    param("timeout", _.timeout),
+    param("response timeout", _.responseTimeout),
     param("version", _.version),
     param("state", _.state),
   )
@@ -510,7 +510,7 @@ object ResponseAggregation {
   def fromRequest(
       requestId: RequestId,
       request: MediatorConfirmationRequest,
-      timeout: CantonTimestamp,
+      responseTimeout: CantonTimestamp,
       decisionTime: CantonTimestamp,
       topologySnapshot: TopologySnapshot,
       participantResponseDeadlineTick: Option[SynchronizerTimeTracker.TickRequest],
@@ -527,7 +527,7 @@ object ResponseAggregation {
       ResponseAggregation[ViewPosition](
         requestId,
         request,
-        timeout,
+        responseTimeout,
         decisionTime,
         requestId.unwrap,
         Right(initialState),

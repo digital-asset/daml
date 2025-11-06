@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.store
 
+import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port, PositiveInt}
 import com.digitalasset.canton.config.SynchronizerTimeTrackerConfig
@@ -13,13 +14,16 @@ import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigSto
   Active,
   AtMostOnePhysicalActive,
   ConfigAlreadyExists,
+  ConfigIdentifier,
   Inactive,
   InconsistentLogicalSynchronizerIds,
   InconsistentPredecessorLogicalSynchronizerIds,
+  InconsistentSequencerIds,
   MissingConfigForSynchronizer,
   NoActiveSynchronizer,
   SynchronizerIdAlreadyAdded,
   UnknownAlias,
+  UnknownPSId,
 }
 import com.digitalasset.canton.participant.store.memory.InMemoryRegisteredSynchronizersStore
 import com.digitalasset.canton.participant.synchronizer.{
@@ -28,6 +32,7 @@ import com.digitalasset.canton.participant.synchronizer.{
 }
 import com.digitalasset.canton.sequencing.{
   GrpcSequencerConnection,
+  SequencerConnectionPoolDelays,
   SequencerConnections,
   SubmissionRequestAmplification,
 }
@@ -57,16 +62,28 @@ trait SynchronizerConnectionConfigStoreTest extends FailOnShutdown {
   private val daAlias = SynchronizerAlias.tryCreate("da")
   private val acmeAlias = SynchronizerAlias.tryCreate("acme")
 
-  private val connection = GrpcSequencerConnection(
+  private val sequencerAlias1 = SequencerAlias.tryCreate("sequencer1")
+  private val sequencerAlias2 = SequencerAlias.tryCreate("sequencer2")
+
+  private val connection1 = GrpcSequencerConnection(
     NonEmpty(Seq, Endpoint("host1", Port.tryCreate(500)), Endpoint("host2", Port.tryCreate(600))),
     transportSecurity = false,
     Some(ByteString.copyFrom("stuff".getBytes)),
-    SequencerAlias.Default,
-    None,
+    sequencerAlias1,
+    sequencerId = None,
   )
+
+  private val connection2 = GrpcSequencerConnection(
+    NonEmpty(Seq, Endpoint("host3", Port.tryCreate(501)), Endpoint("host4", Port.tryCreate(601))),
+    transportSecurity = false,
+    Some(ByteString.copyFrom("stuff".getBytes)),
+    sequencerAlias2,
+    sequencerId = None,
+  )
+
   private val config = SynchronizerConnectionConfig(
     daAlias,
-    SequencerConnections.single(connection),
+    SequencerConnections.single(connection1),
     manualConnect = false,
     Some(psid),
     42,
@@ -89,7 +106,14 @@ trait SynchronizerConnectionConfigStoreTest extends FailOnShutdown {
 
     SynchronizerConnectionConfig(
       alias,
-      SequencerConnections.single(connection),
+      SequencerConnections
+        .tryMany(
+          Seq(connection1, connection2),
+          PositiveInt.one,
+          NonNegativeInt.zero,
+          SubmissionRequestAmplification.NoAmplification,
+          SequencerConnectionPoolDelays.default,
+        ),
       manualConnect = manualConnect,
       None,
       id.suffix.length,
@@ -121,12 +145,13 @@ trait SynchronizerConnectionConfigStoreTest extends FailOnShutdown {
     "when merging SynchronizerConnectionConfig" should {
       def addEndpoint(cfg: SynchronizerConnectionConfig) = cfg.copy(
         sequencerConnections = cfg.sequencerConnections
-          .modify(SequencerAlias.Default, _.addEndpoints("https://host3:700").value)
+          .modify(sequencerAlias1, _.addEndpoints("https://host3:700").value)
       )
       def withSequencerId(cfg: SynchronizerConnectionConfig) = cfg.copy(
         sequencerConnections = cfg.sequencerConnections
-          .modify(SequencerAlias.Default, _.withSequencerId(DefaultTestIdentities.sequencerId))
+          .modify(sequencerAlias1, _.withSequencerId(DefaultTestIdentities.sequencerId))
       )
+
       "merge subsumed configs successfully" in {
         val configWithSequencerId = withSequencerId(config)
         val configWithEndpoint = addEndpoint(config)
@@ -144,15 +169,16 @@ trait SynchronizerConnectionConfigStoreTest extends FailOnShutdown {
         val configWithTwoSequencers = config.copy(
           sequencerConnections = SequencerConnections.tryMany(
             Seq(
-              connection,
-              connection.copy(
-                connection.endpoints.map(e => e.copy(port = e.port + 10)),
+              connection1,
+              connection1.copy(
+                connection1.endpoints.map(e => e.copy(port = e.port + 10)),
                 sequencerAlias = SequencerAlias.create("sequencer2").value,
               ),
             ),
             sequencerTrustThreshold = PositiveInt.one,
             sequencerLivenessMargin = NonNegativeInt.zero,
             submissionRequestAmplification = SubmissionRequestAmplification.NoAmplification,
+            sequencerConnectionPoolDelays = SequencerConnectionPoolDelays.default,
           )
         )
 
@@ -270,8 +296,10 @@ trait SynchronizerConnectionConfigStoreTest extends FailOnShutdown {
 
           unknownAlias <- sut.setPhysicalSynchronizerId(acmeName, acmeStable).value
           _ = unknownAlias.left.value shouldBe MissingConfigForSynchronizer(
-            acmeName,
-            UnknownPhysicalSynchronizerId,
+            ConfigIdentifier.WithAlias(
+              acmeName,
+              UnknownPhysicalSynchronizerId,
+            )
           )
         } yield succeed
       }
@@ -365,7 +393,9 @@ trait SynchronizerConnectionConfigStoreTest extends FailOnShutdown {
           sut <- mk
         } yield {
           sut.get(daAlias, UnknownPhysicalSynchronizerId) shouldBe Left(
-            MissingConfigForSynchronizer(daAlias, UnknownPhysicalSynchronizerId)
+            MissingConfigForSynchronizer(
+              ConfigIdentifier.WithAlias(daAlias, UnknownPhysicalSynchronizerId)
+            )
           )
         }
       }
@@ -379,7 +409,7 @@ trait SynchronizerConnectionConfigStoreTest extends FailOnShutdown {
           ),
           transportSecurity = false,
           None,
-          SequencerAlias.Default,
+          sequencerAlias1,
           None,
         )
         val secondConfig = SynchronizerConnectionConfig(
@@ -415,7 +445,9 @@ trait SynchronizerConnectionConfigStoreTest extends FailOnShutdown {
           sut <- mk
           result <- sut.replace(KnownPhysicalSynchronizerId(psid), config).value
         } yield result shouldBe Left(
-          MissingConfigForSynchronizer(daAlias, KnownPhysicalSynchronizerId(psid))
+          MissingConfigForSynchronizer(
+            ConfigIdentifier.WithAlias(daAlias, KnownPhysicalSynchronizerId(psid))
+          )
         )
       }
 
@@ -605,6 +637,90 @@ trait SynchronizerConnectionConfigStoreTest extends FailOnShutdown {
             .config
             .manualConnect shouldBe true
 
+        } yield succeed
+      }
+
+      "allow to set sequencer ids" in {
+        val s1Id = SequencerId(UniqueIdentifier.tryCreate("sequencer1", namespace))
+        val s2Id = SequencerId(UniqueIdentifier.tryCreate("sequencer2", namespace))
+        val s3Id = SequencerId(UniqueIdentifier.tryCreate("sequencer3", namespace))
+
+        val sutF = mk
+        val initialConfig = getConfig(daStable)
+
+        def getSequencerId(
+            alias: SequencerAlias
+        ): EitherT[FutureUnlessShutdown, UnknownPSId, Option[SequencerId]] =
+          for {
+            sut <- EitherT
+              .liftF[FutureUnlessShutdown, UnknownPSId, SynchronizerConnectionConfigStore](sutF)
+            storedConfig <- EitherT.fromEither[FutureUnlessShutdown](sut.get(daStable))
+          } yield storedConfig.config.sequencerConnections.aliasToConnection
+            .get(alias)
+            .value
+            .sequencerId
+
+        for {
+          sut <- sutF
+
+          failureUnset <- sut
+            .setSequencerIds(
+              daStable,
+              Map(sequencerAlias1 -> s1Id),
+            )
+            .value
+
+          _ = failureUnset.left.value shouldBe MissingConfigForSynchronizer(
+            ConfigIdentifier.WithPSId(daStable)
+          )
+
+          _ <- sut
+            .put(initialConfig, Inactive, KnownPhysicalSynchronizerId(daStable), None)
+            .valueOrFail("put daStable")
+
+          initialId1 <- getSequencerId(sequencerAlias1).valueOrFail("get initial sequencer id")
+
+          _ = initialId1 shouldBe empty
+
+          _ <- sut
+            .setSequencerIds(
+              daStable,
+              Map(sequencerAlias1 -> s1Id, sequencerAlias2 -> s2Id),
+            )
+            .valueOrFail("set initial sequencer id")
+
+          retrievedId1 <- getSequencerId(sequencerAlias1).valueOrFail("get sequencer id")
+          retrievedId2 <- getSequencerId(sequencerAlias2).valueOrFail("get sequencer id")
+          _ = retrievedId1.value shouldBe s1Id
+          _ = retrievedId2.value shouldBe s2Id
+
+          // idempotency
+          _ <- sut
+            .setSequencerIds(
+              daStable,
+              Map(sequencerAlias1 -> s1Id, sequencerAlias2 -> s2Id),
+            )
+            .valueOrFail("second call to set id")
+
+          // failure for different ids
+          failureInconsistent <- sut
+            .setSequencerIds(
+              daStable,
+              Map(
+                // different from s1Id
+                sequencerAlias1 -> s3Id
+              ),
+            )
+            .value
+
+          _ = failureInconsistent.left.value shouldBe InconsistentSequencerIds(
+            ConfigIdentifier.WithPSId(daStable),
+            Map(sequencerAlias1 -> s3Id),
+            "Mismatch",
+          )
+
+          retrievedIdFinal1 <- getSequencerId(sequencerAlias1).valueOrFail("get sequencer id")
+          _ = retrievedIdFinal1.value shouldBe s1Id
         } yield succeed
       }
 

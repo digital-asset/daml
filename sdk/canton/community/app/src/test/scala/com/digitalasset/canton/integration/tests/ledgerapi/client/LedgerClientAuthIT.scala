@@ -6,7 +6,7 @@ package com.digitalasset.canton.integration.tests.ledgerapi.client
 import com.daml.grpc.GrpcException
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.integration.TestConsoleEnvironment
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.integration.tests.ledgerapi.SuppressionRules.AuthInterceptorSuppressionRule
 import com.digitalasset.canton.integration.tests.ledgerapi.fixture.{
   CantonFixture,
@@ -22,7 +22,7 @@ import com.digitalasset.canton.ledger.client.configuration.{
 import java.util.UUID
 
 final class LedgerClientAuthIT extends CantonFixture with CreatesParties with CreatesUsers {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   private val clientConfigurationWithoutToken = LedgerClientConfiguration(
     userId = classOf[LedgerClientAuthIT].getSimpleName,

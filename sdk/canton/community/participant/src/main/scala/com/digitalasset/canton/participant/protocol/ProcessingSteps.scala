@@ -16,6 +16,7 @@ import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
 import com.digitalasset.canton.participant.protocol.ProcessingSteps.{
+  InternalContractIds,
   ParsedRequest,
   WrapsProcessorError,
 }
@@ -49,7 +50,7 @@ import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LedgerSubmissionId, RequestCounter, SequencerCounter, checked}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Interface for processing steps that are specific to request types (transaction / reassignment).
   * The [[ProtocolProcessor]] wires up these steps with the necessary synchronization and state
@@ -101,6 +102,8 @@ trait ProcessingSteps[
   type FullView = RequestViewType#FullView
 
   type ViewSubmitterMetadata = RequestViewType#ViewSubmitterMetadata
+
+  type ViewAbsoluteLedgerEffects
 
   /** Type of a request that has been parsed and contains at least one well-formed view. */
   type ParsedRequestType <: ParsedRequest[ViewSubmitterMetadata]
@@ -336,7 +339,7 @@ trait ProcessingSteps[
 
   // Phase 3: Request processing
 
-  /** Phase 3, step 1:
+  /** Phase 3, step 1a:
     *
     * @param batch
     *   The batch of messages in the request to be processed
@@ -379,15 +382,44 @@ trait ProcessingSteps[
 
   /** Phase 3, step 1b
     *
+    * Extracts the ledger effects from the decrypted view and makes them absolute. When
+    * absolutization fails for a view, say because an unknown contract ID versions appear in an
+    * input contract value, the view should be considered malformed.
+    *
+    * Conflict detection needs absolutized contract IDs. As it happens in parallel to model
+    * conformance, absolutization cannot be delayed until model conformance.
+    *
+    * @param viewsWithCorrectRootHashAndRecipientsAndSignature
+    *   The list of decrypted views, as returned by [[decryptViews]], after the additional checks
+    *   for the root hash and the recipients.
+    */
+  def absolutizeLedgerEffects(
+      viewsWithCorrectRootHashAndRecipientsAndSignature: Seq[
+        (WithRecipients[DecryptedView], Option[Signature])
+      ]
+  ): (
+      Seq[(WithRecipients[DecryptedView], Option[Signature], ViewAbsoluteLedgerEffects)],
+      Seq[MalformedPayload],
+  )
+
+  type FullViewAbsoluteLedgerEffects
+
+  /** Phase 3, step 1c
+    *
     * Converts the decrypted (possible light-weight) view trees to the corresponding full view
     * trees. Views that cannot be converted are mapped to [[ProtocolProcessor.MalformedPayload]]
     * errors.
     */
   def computeFullViews(
-      decryptedViewsWithSignatures: Seq[(WithRecipients[DecryptedView], Option[Signature])]
-  ): (Seq[(WithRecipients[FullView], Option[Signature])], Seq[MalformedPayload])
+      decryptedViewsWithSignatures: Seq[
+        (WithRecipients[DecryptedView], Option[Signature], ViewAbsoluteLedgerEffects)
+      ]
+  ): (
+      Seq[(WithRecipients[FullView], Option[Signature], FullViewAbsoluteLedgerEffects)],
+      Seq[MalformedPayload],
+  )
 
-  /** Phase 3, step 1c
+  /** Phase 3, step 1d
     *
     * Create a ParsedRequest out of the data computed so far.
     */
@@ -396,7 +428,7 @@ trait ProcessingSteps[
       ts: CantonTimestamp,
       sc: SequencerCounter,
       rootViewsWithMetadata: NonEmpty[
-        Seq[(WithRecipients[FullView], Option[Signature])]
+        Seq[(WithRecipients[FullView], Option[Signature], FullViewAbsoluteLedgerEffects)]
       ],
       submitterMetadataO: Option[ViewSubmitterMetadata],
       isFreshOwnTimelyRequest: Boolean,
@@ -460,10 +492,6 @@ trait ProcessingSteps[
   )(implicit
       traceContext: TraceContext
   ): Unit
-
-  def authenticateInputContracts(parsedRequest: ParsedRequestType)(implicit
-      traceContext: TraceContext
-  ): EitherT[Future, RequestError, Unit]
 
   /** Phase 3, step 3: Yields the pending data and confirmation responses for the case that at least
     * one payload is well-formed.
@@ -566,7 +594,7 @@ trait ProcessingSteps[
   case class CommitAndStoreContractsAndPublishEvent(
       commitSet: Option[FutureUnlessShutdown[CommitSet]],
       contractsToBeStored: Seq[ContractInstance],
-      maybeEvent: Option[AcsChangeFactory => SequencedUpdate],
+      maybeEvent: Option[AcsChangeFactory => InternalContractIds => SequencedUpdate],
   )
 
   /** Phase 7, step 4:
@@ -593,7 +621,7 @@ trait ProcessingSteps[
 object ProcessingSteps {
   def getAssignmentExclusivity(
       topologySnapshot: Target[TopologySnapshot],
-      ts: CantonTimestamp,
+      ts: Target[CantonTimestamp],
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -602,7 +630,9 @@ object ProcessingSteps {
       synchronizerParameters <- EitherT(topologySnapshot.unwrap.findDynamicSynchronizerParameters())
 
       assignmentExclusivity <- EitherT
-        .fromEither[FutureUnlessShutdown](synchronizerParameters.assignmentExclusivityLimitFor(ts))
+        .fromEither[FutureUnlessShutdown](
+          synchronizerParameters.assignmentExclusivityLimitFor(ts.unwrap)
+        )
     } yield Target(assignmentExclusivity)
 
   def getDecisionTime(
@@ -793,4 +823,8 @@ object ProcessingSteps {
 
     override def cancelDecisionTimeTickRequest(): Unit = ()
   }
+
+  // TODO(#27996) remove this type when internal contract ids are no longer fetched from ProtocolProcessor
+  type InternalContractIds = Map[LfContractId, Long]
+
 }

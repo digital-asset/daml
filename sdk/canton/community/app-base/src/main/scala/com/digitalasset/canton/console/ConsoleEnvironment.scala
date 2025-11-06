@@ -14,7 +14,8 @@ import com.digitalasset.canton.console.CommandErrors.{
   GenericCommandError,
 }
 import com.digitalasset.canton.console.Help.{Description, Summary, Topic}
-import com.digitalasset.canton.crypto.Fingerprint
+import com.digitalasset.canton.console.commands.GlobalSecretKeyAdministration
+import com.digitalasset.canton.crypto.{Crypto, Fingerprint}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.Environment
@@ -72,12 +73,28 @@ class ConsoleEnvironment(
 
   override protected val loggerFactory: NamedLoggerFactory = environment.loggerFactory
 
+  /** Return global crypto object that allows to help interacting with external parties. Should be
+    * defined only in tests.
+    */
+  // Overridden in TestEnvironment
+  private[canton] def tryGlobalCrypto: Crypto = throw new RuntimeException(
+    "Supported only in tests"
+  )
+
   def consoleLogger: Logger = super.noTracingLogger
 
   @Help.Summary("Environment health inspection")
   @Help.Group("Health")
   private lazy val health_ = new CantonHealthAdministration(this)
   def health: CantonHealthAdministration = health_
+
+  @Help.Summary("Global secret operations")
+  @Help.Group("Secret keys")
+  protected lazy val global_secret_ = new GlobalSecretKeyAdministration(this, loggerFactory)
+  // Overridden in TestEnvironment
+  private[canton] def global_secret: GlobalSecretKeyAdministration = throw new RuntimeException(
+    "Supported only in tests"
+  )
 
   /** determines the control exception thrown on errors */
   private val errorHandler: ConsoleErrorHandler = ThrowErrorHandler
@@ -380,33 +397,33 @@ class ConsoleEnvironment(
 
   /** Assemble top level values with their identifier name, value binding, and help description.
     */
-  protected def topLevelValues: Seq[TopLevelValue[_]] = {
+  protected def topLevelValues: Seq[TopLevelValue[?]] = {
     val nodeTopic = Seq(topicNodeReferences)
-    val localParticipantBinds: Seq[TopLevelValue[_]] =
+    val localParticipantBinds: Seq[TopLevelValue[?]] =
       participants.local.map(p =>
         TopLevelValue(p.name, helpText("participant", p.name), p, nodeTopic)
       )
-    val remoteParticipantBinds: Seq[TopLevelValue[_]] =
+    val remoteParticipantBinds: Seq[TopLevelValue[?]] =
       participants.remote.map(p =>
         TopLevelValue(p.name, helpText("remote participant", p.name), p, nodeTopic)
       )
-    val localMediatorBinds: Seq[TopLevelValue[_]] =
+    val localMediatorBinds: Seq[TopLevelValue[?]] =
       mediators.local.map(d =>
         TopLevelValue(d.name, helpText("local mediator", d.name), d, nodeTopic)
       )
-    val remoteMediatorBinds: Seq[TopLevelValue[_]] =
+    val remoteMediatorBinds: Seq[TopLevelValue[?]] =
       mediators.remote.map(d =>
         TopLevelValue(d.name, helpText("remote mediator", d.name), d, nodeTopic)
       )
-    val localSequencerBinds: Seq[TopLevelValue[_]] =
+    val localSequencerBinds: Seq[TopLevelValue[?]] =
       sequencers.local.map(d =>
         TopLevelValue(d.name, helpText("local sequencer", d.name), d, nodeTopic)
       )
-    val remoteSequencerBinds: Seq[TopLevelValue[_]] =
+    val remoteSequencerBinds: Seq[TopLevelValue[?]] =
       sequencers.remote.map(d =>
         TopLevelValue(d.name, helpText("remote sequencer", d.name), d, nodeTopic)
       )
-    val clockBinds: Option[TopLevelValue[_]] =
+    val clockBinds: Option[TopLevelValue[?]] =
       environment.simClock.map(cl =>
         TopLevelValue("clock", "Simulated time", new SimClockCommand(cl))
       )
@@ -437,7 +454,7 @@ class ConsoleEnvironment(
   /** Bindings for ammonite Add a reference to this instance to resolve implicit references within
     * the console
     */
-  lazy val bindings: Either[RuntimeException, IndexedSeq[Bind[_]]] = {
+  lazy val bindings: Either[RuntimeException, IndexedSeq[Bind[?]]] = {
     import cats.syntax.traverse.*
     for {
       bindsWithoutSelfAlias <- topLevelValues.traverse(_.asBind)
@@ -446,7 +463,7 @@ class ConsoleEnvironment(
     } yield binds.toIndexedSeq
   }
 
-  private def validateNameUniqueness(binds: Seq[Bind[_]]) = {
+  private def validateNameUniqueness(binds: Seq[Bind[?]]) = {
     val nonUniqueNames =
       binds.map(_.name).groupBy(identity).collect {
         case (name, occurrences) if occurrences.sizeIs > 1 =>
@@ -481,7 +498,7 @@ class ConsoleEnvironment(
 
   /** So we can we make this available
     */
-  protected def selfAlias(): Bind[_] = Bind(ConsoleEnvironmentBinding.BindingName, this)
+  protected def selfAlias(): Bind[?] = Bind(ConsoleEnvironmentBinding.BindingName, this)
 
   override def onClosed(): Unit =
     LifeCycle.close(

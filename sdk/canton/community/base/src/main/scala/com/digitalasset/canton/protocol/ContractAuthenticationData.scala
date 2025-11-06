@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.protocol
 
+import cats.syntax.traverse.*
 import com.digitalasset.canton.ProtoDeserializationError.{
   ContractDeserializationError,
   UnknownContractAuthenticationDataVersion,
@@ -11,13 +12,15 @@ import com.digitalasset.canton.crypto.Salt
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.util.ByteStringUtil
+import com.digitalasset.canton.util.collection.IterableUtil
 import com.digitalasset.canton.version.v1
 import com.digitalasset.canton.{admin, crypto}
 import com.digitalasset.daml.lf.data.Bytes as LfBytes
 import com.google.protobuf.ByteString
 import io.scalaland.chimney.dsl.*
 
-sealed trait ContractAuthenticationData extends PrettyPrinting {
+sealed trait ContractAuthenticationData extends PrettyPrinting with Product with Serializable {
 
   /** Defines the serialization of contract authentication data as stored inside
     * [[com.digitalasset.daml.lf.transaction.FatContractInstance.authenticationData]]
@@ -49,7 +52,8 @@ final case class ContractAuthenticationDataV1(salt: Salt)(
   @SuppressWarnings(Array("com.digitalasset.canton.ProtobufToByteString"))
   override def toLfBytes: LfBytes =
     contractIdVersion match {
-      case AuthenticatedContractIdVersionV10 | AuthenticatedContractIdVersionV11 =>
+      case AuthenticatedContractIdVersionV10 | AuthenticatedContractIdVersionV11 |
+          AuthenticatedContractIdVersionV12 =>
         LfBytes.fromByteArray(
           v1.UntypedVersionedMessage(
             v1.UntypedVersionedMessage.Wrapper.Data(
@@ -68,15 +72,37 @@ final case class ContractAuthenticationDataV1(salt: Salt)(
     salt.toProtoV30.transformInto[admin.crypto.v30.Salt].toByteString
 }
 
-// TODO(#23971) implement this stub
-final case class ContractAuthenticationDataV2() extends ContractAuthenticationData {
-  override def toLfBytes: LfBytes = ???
+final case class ContractAuthenticationDataV2(
+    salt: LfBytes,
+    creatingUpdateId: Option[UpdateId],
+    relativeArgumentSuffixes: Seq[LfBytes],
+)(val contractIdVersion: CantonContractIdV2Version)
+    extends ContractAuthenticationData {
 
-  override def toSerializableContractProtoV30: ByteString = ???
+  @SuppressWarnings(Array("com.digitalasset.canton.ProtobufToByteString"))
+  override def toLfBytes: LfBytes =
+    contractIdVersion match {
+      case CantonContractIdV2Version0 =>
+        val serialized = v31.ContractAuthenticationData(
+          salt.toByteString,
+          creatingUpdateId.map(_.getCryptographicEvidence),
+          relativeArgumentSuffixes.map(_.toByteString),
+        )
+        LfBytes.fromByteString(serialized.toByteString)
+    }
 
-  override def toSerializableContractAdminProtoV30: ByteString = ???
+  override def toSerializableContractProtoV30: ByteString = toLfBytes.toByteString
 
-  override protected def pretty: Pretty[ContractAuthenticationDataV2.this.type] = ???
+  override def toSerializableContractAdminProtoV30: ByteString = toLfBytes.toByteString
+
+  override protected def pretty: Pretty[ContractAuthenticationDataV2.this.type] = prettyOfClass(
+    param("salt", _.salt.toByteString),
+    paramIfDefined("creating transaction id", _.creatingUpdateId),
+    paramIfNonEmpty(
+      "relative argument suffixes",
+      _.relativeArgumentSuffixes.map(_.toHexString),
+    ),
+  )
 }
 
 object ContractAuthenticationData {
@@ -100,16 +126,14 @@ object ContractAuthenticationData {
     ): ParsingResult[CAD] =
       version match {
         // Pattern-matching on singletons in isolation is necessary for correct type inference
-        case AuthenticatedContractIdVersionV10 =>
-          versionV1(AuthenticatedContractIdVersionV10, bytes)
+        case AuthenticatedContractIdVersionV12 =>
+          versionV1(AuthenticatedContractIdVersionV12, bytes)
         case AuthenticatedContractIdVersionV11 =>
           versionV1(AuthenticatedContractIdVersionV11, bytes)
+        case AuthenticatedContractIdVersionV10 =>
+          versionV1(AuthenticatedContractIdVersionV10, bytes)
         case CantonContractIdV2Version0 =>
-          Left(
-            ContractDeserializationError(
-              s"Unsupported contract ID version $version for authentication data"
-            )
-          )
+          versionV2(CantonContractIdV2Version0, bytes)
       }
 
     def parse(
@@ -125,6 +149,28 @@ object ContractAuthenticationData {
       bytes: LfBytes,
   ): ParsingResult[contractIdVersion.AuthenticationData] =
     LfBytesContractAuthenticationDataParser.parse(contractIdVersion, bytes.toByteString)
+
+  private def versionV2Parser(
+      version: CantonContractIdV2Version,
+      bytes: ByteString,
+  ): ParsingResult[ContractAuthenticationDataV2] = version match {
+    case CantonContractIdV2Version0 =>
+      for {
+        proto <- ProtoConverter.protoParser(v31.ContractAuthenticationData.parseFrom)(bytes)
+        v31.ContractAuthenticationData(saltP, creatingUpdateIdP, relativeArgumentSuffixesP) =
+          proto
+        creatingUpdateId <- creatingUpdateIdP.traverse(UpdateId.fromProtoPrimitive)
+        _ <- Either.cond(
+          IterableUtil.isSorted(relativeArgumentSuffixesP)(ByteStringUtil.orderingByteString),
+          (),
+          ContractDeserializationError("Relative argument suffixes are not sorted"),
+        )
+      } yield ContractAuthenticationDataV2(
+        LfBytes.fromByteString(saltP),
+        creatingUpdateId,
+        relativeArgumentSuffixesP.map(LfBytes.fromByteString),
+      )(version)
+  }
 
   private object LfBytesContractAuthenticationDataParser extends ContractAuthenticationDataParser {
     override protected def versionV1(
@@ -152,11 +198,7 @@ object ContractAuthenticationData {
         version: CantonContractIdV2Version,
         bytes: ByteString,
     ): ParsingResult[ContractAuthenticationDataV2] =
-      Left(
-        ContractDeserializationError(
-          s"Unsupported contract ID version $version for authentication data"
-        )
-      )
+      versionV2Parser(version, bytes)
   }
 
   /** Parsing method for [[ContractAuthenticationData.toSerializableContractProtoV30]] */
@@ -182,11 +224,7 @@ object ContractAuthenticationData {
         version: CantonContractIdV2Version,
         bytes: ByteString,
     ): ParsingResult[ContractAuthenticationDataV2] =
-      Left(
-        ContractDeserializationError(
-          s"Unsupported contract ID version $version for authentication data"
-        )
-      )
+      versionV2Parser(version, bytes)
   }
 
   /** Parsing method for [[ContractAuthenticationData.toSerializableContractAdminProtoV30]] */
@@ -213,10 +251,6 @@ object ContractAuthenticationData {
         version: CantonContractIdV2Version,
         bytes: ByteString,
     ): ParsingResult[ContractAuthenticationDataV2] =
-      Left(
-        ContractDeserializationError(
-          s"Unsupported contract ID version $version for authentication data"
-        )
-      )
+      versionV2Parser(version, bytes)
   }
 }

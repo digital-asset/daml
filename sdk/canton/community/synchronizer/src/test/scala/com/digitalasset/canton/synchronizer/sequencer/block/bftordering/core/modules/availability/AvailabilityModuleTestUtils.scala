@@ -55,7 +55,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.{
   fakeModuleExpectingSilence,
 }
 import com.digitalasset.canton.time.{Clock, SimClock}
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext, Traced}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 
@@ -399,6 +399,7 @@ private[availability] trait AvailabilityModuleTestUtils { self: BftSequencerBase
       ),
       synchronizerProtocolVersion,
       MetricsContext.Empty,
+      NoReportingTracerProvider.tracer,
     )
     availability.receive(Availability.Start)
     availability

@@ -7,12 +7,14 @@ import com.digitalasset.canton.admin.api.client.data.TemplateId
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.LocalParticipantReference
+import com.digitalasset.canton.console.commands.PartiesAdministration
 import com.digitalasset.canton.damltests.java.cycle.Cycle
 import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.integration.plugins.UseH2
 import com.digitalasset.canton.integration.tests.ledgerapi.submission.BaseInteractiveSubmissionTest.ParticipantsSelector
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
+  ConfigTransforms,
   EnvironmentDefinition,
   HasCycleUtils,
   SharedEnvironment,
@@ -20,13 +22,6 @@ import com.digitalasset.canton.integration.{
 }
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.topology.ExternalParty
-import com.digitalasset.canton.topology.transaction.{
-  HostingParticipant,
-  ParticipantPermission,
-  PartyToParticipant,
-  TopologyChangeOp,
-  TopologyTransaction,
-}
 import io.grpc.Status
 
 /** Test and demonstrates onboarding of a multi hosted external party
@@ -37,10 +32,12 @@ sealed trait MultiHostingInteractiveSubmissionIntegrationTest
     with BaseInteractiveSubmissionTest
     with HasCycleUtils {
 
+  // Alice is onboarded as a multi hosted party at the beginning of the test suite and re-used in subsequent tests
   private var aliceE: ExternalParty = _
 
   override protected def epn(implicit env: TestConsoleEnvironment): LocalParticipantReference =
     env.participant1
+
   private val cpns: ParticipantsSelector = env => Seq(env.participant1, env.participant2)
   private val opns: ParticipantsSelector = env => Seq(env.participant3)
 
@@ -57,63 +54,41 @@ sealed trait MultiHostingInteractiveSubmissionIntegrationTest
           )
         )
 
-        participants.all.dars.upload(CantonExamplesPath)
         participants.all.synchronizers.connect_local(sequencer1, alias = daName)
-      }
-      .addConfigTransforms(enableInteractiveSubmissionTransforms*)
+        participants.all.dars.upload(CantonExamplesPath)
 
-  "Interactive submission" should {
-    "host parties on multiple participants with a threshold" in { implicit env =>
-      import env.*
-      // TODO(#27482) Allow allocation on extra confirming and observing
+        // Create a multi hosted party for this test suite
+        val (onboardingTransactions, externalParty) =
+          participant1.parties.external
+            .onboarding_transactions(
+              "Alice",
+              additionalConfirming = Seq(participant2),
+              observing = Seq(participant3),
+              confirmationThreshold = PositiveInt.two,
+            )
+            .futureValueUS
+            .value
 
-      aliceE = participant1.external_parties.enable("Alice")
+        aliceE = externalParty
 
-      val newPTP = TopologyTransaction(
-        TopologyChangeOp.Replace,
-        serial = PositiveInt.two,
-        mapping = PartyToParticipant
-          .create(
-            aliceE.partyId,
-            threshold = PositiveInt.two,
-            Seq(
-              HostingParticipant(participant1, ParticipantPermission.Confirmation, false),
-              HostingParticipant(participant2, ParticipantPermission.Confirmation, false),
-              HostingParticipant(participant3, ParticipantPermission.Observation, false),
-            ),
+        Seq(participant1, participant2, participant3).map { hostingNode =>
+          hostingNode.ledger_api.parties.allocate_external(
+            synchronizer1Id,
+            onboardingTransactions.transactionsWithSingleSignature,
+            multiSignatures = onboardingTransactions.multiTransactionSignatures,
           )
-          .value,
-        protocolVersion = testedProtocolVersion,
-      )
+        }
 
-      // TODO(#27482) Generalize PartyToParticipantDeclarative to external parties
-      participant1.topology.transactions.load(
-        Seq(participant1.external_parties.sign(newPTP, aliceE.partyId, testedProtocolVersion)),
-        daId,
-      )
-
-      Seq(participant2, participant3).foreach { p =>
-        p.topology.party_to_participant_mappings.propose(
-          aliceE.partyId,
-          newParticipants = newPTP.mapping.participants.map(p => (p.participantId, p.permission)),
-          threshold = newPTP.mapping.threshold,
-          store = daId,
+        PartiesAdministration.Allocation.waitForPartyKnown(
+          partyId = externalParty.partyId,
+          hostingParticipant = participant1,
+          synchronizeParticipants = Seq(participant1, participant2, participant3),
+          synchronizerId = synchronizer1Id.logical,
         )
       }
+      .addConfigTransform(ConfigTransforms.enableInteractiveSubmissionTransforms)
 
-      eventually() {
-        participants.all.forall(
-          _.topology.party_to_participant_mappings
-            .is_known(
-              daId,
-              aliceE,
-              hostingParticipants = participants.all,
-              threshold = Some(newPTP.mapping.threshold),
-            )
-        ) shouldBe true
-      }
-    }
-
+  "Interactive submission" should {
     "create a contract and read it from all confirming and observing participants" in {
       implicit env =>
         val contractId =
@@ -121,7 +96,10 @@ sealed trait MultiHostingInteractiveSubmissionIntegrationTest
 
         // Get the created event from all confirming and observing
         val events = (cpns(env) ++ opns(env)).map { pn =>
-          getCreatedEvent(contractId, aliceE.partyId, pn)
+          pn.ledger_api.event_query
+            .by_contract_id(contractId, Seq(aliceE.partyId))
+            .getCreated
+            .getCreatedEvent
             // Nullify the offset as it will be different for each participant
             .withOffset(0)
         }
@@ -133,9 +111,10 @@ sealed trait MultiHostingInteractiveSubmissionIntegrationTest
       import env.*
       // Stop one of the 2 CPNs - threshold is 2 so the transaction cannot be committed
       participant2.stop()
-      val prepared = prepareCommand(aliceE, protoCreateCycleCmd(aliceE))
+      val prepared = ppn.ledger_api.interactive_submission
+        .prepare(Seq(aliceE), Seq(createCycleCommand(aliceE, "test-external-signing")))
 
-      val signatures = participant1.external_parties.sign(prepared.preparedTransactionHash, aliceE)
+      val signatures = global_secret.sign(prepared.preparedTransactionHash, aliceE)
       val (submissionId, ledgerEnd) = exec(prepared, Map(aliceE.partyId -> signatures), epn)
       val completion = findCompletion(
         submissionId,
@@ -170,13 +149,17 @@ sealed trait MultiHostingInteractiveSubmissionIntegrationTest
       import env.*
       participant3.start()
       participant3.synchronizers.reconnect_all()
+
       eventually() {
-        getCreatedEvent(
-          contractIdMissedByObserving,
-          aliceE.partyId,
-          participant3,
-          requireBlob = Some(TemplateId.fromJavaIdentifier(Cycle.TEMPLATE_ID)),
-        )
+        participant3.ledger_api.state.acs
+          .active_contracts_of_party(
+            aliceE.partyId,
+            filterTemplates = Seq(TemplateId.fromJavaIdentifier(Cycle.TEMPLATE_ID)),
+            includeCreatedEventBlob = true,
+          )
+          .flatMap(_.createdEvent)
+          .filter(_.contractId == contractIdMissedByObserving)
+          .loneElement
       }
     }
   }

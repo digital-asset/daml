@@ -44,7 +44,6 @@ import com.digitalasset.canton.participant.protocol.validation.{
 }
 import com.digitalasset.canton.participant.sync.SyncEphemeralState
 import com.digitalasset.canton.participant.util.DAMLe
-import com.digitalasset.canton.participant.util.DAMLe.PackageResolver
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
@@ -53,6 +52,8 @@ import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ContractValidator
+import com.digitalasset.canton.util.PackageConsumer.PackageResolver
 import com.digitalasset.canton.util.ShowUtil.*
 import org.slf4j.event.Level
 
@@ -66,6 +67,7 @@ class TransactionProcessor(
     damle: DAMLe,
     staticSynchronizerParameters: StaticSynchronizerParameters,
     crypto: SynchronizerCryptoClient,
+    contractValidator: ContractValidator,
     sequencerClient: SequencerClient,
     inFlightSubmissionSynchronizerTracker: InFlightSubmissionSynchronizerTracker,
     ephemeral: SyncEphemeralState,
@@ -77,6 +79,7 @@ class TransactionProcessor(
     packageResolver: PackageResolver,
     override val testingConfig: TestingConfigInternal,
     promiseFactory: PromiseUnlessShutdownFactory,
+    messagePayloadLoggingEnabled: Boolean,
 )(implicit val ec: ExecutionContext)
     extends ProtocolProcessor[
       TransactionProcessingSteps.SubmissionParam,
@@ -96,7 +99,7 @@ class TransactionProcessor(
         ModelConformanceChecker(
           damle,
           confirmationRequestFactory.transactionTreeFactory,
-          ContractAuthenticator(crypto.pureCrypto),
+          contractValidator,
           participantId,
           packageResolver,
           crypto.pureCrypto,
@@ -105,9 +108,8 @@ class TransactionProcessor(
         staticSynchronizerParameters,
         crypto,
         metrics,
-        ContractAuthenticator(crypto.pureCrypto),
         damle.enrichTransaction,
-        damle.enrichCreateNode,
+        damle.enrichContract,
         new AuthorizationValidator(participantId),
         new InternalConsistencyChecker(
           loggerFactory
@@ -115,6 +117,7 @@ class TransactionProcessor(
         commandProgressTracker,
         loggerFactory,
         futureSupervisor,
+        messagePayloadLoggingEnabled,
       ),
       inFlightSubmissionSynchronizerTracker,
       ephemeral,
@@ -475,12 +478,12 @@ object TransactionProcessor {
   }
 
   final case class ViewParticipantDataError(
-      transactionId: TransactionId,
+      updateId: UpdateId,
       viewHash: ViewHash,
       error: String,
   ) extends TransactionProcessorError {
     override protected def pretty: Pretty[ViewParticipantDataError] = prettyOfClass(
-      param("transaction id", _.transactionId),
+      param("update id", _.updateId),
       param("view hash", _.viewHash),
       param("error", _.error.unquoted),
     )

@@ -12,7 +12,7 @@ import com.digitalasset.canton.*
 import com.digitalasset.canton.common.sequencer.SequencerConnectClient
 import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader.SequencerAggregatedInfo
 import com.digitalasset.canton.concurrent.HasFutureSupervision
-import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
+import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal, TopologyConfig}
 import com.digitalasset.canton.crypto.{
   SyncCryptoApiParticipantProvider,
   SynchronizerCrypto,
@@ -20,11 +20,15 @@ import com.digitalasset.canton.crypto.{
 }
 import com.digitalasset.canton.data.SynchronizerPredecessor
 import com.digitalasset.canton.lifecycle.*
-import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
+import com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.metrics.ConnectedSynchronizerMetrics
-import com.digitalasset.canton.participant.store.SyncPersistentState
+import com.digitalasset.canton.participant.store.memory.PackageMetadataView
+import com.digitalasset.canton.participant.store.{
+  PackageDependencyResolverImpl,
+  SyncPersistentState,
+}
 import com.digitalasset.canton.participant.sync.SyncPersistentStateManager
 import com.digitalasset.canton.participant.synchronizer.SynchronizerRegistryError.HandshakeErrors.SynchronizerIdMismatch
 import com.digitalasset.canton.participant.synchronizer.SynchronizerRegistryHelpers.SynchronizerHandle
@@ -39,15 +43,14 @@ import com.digitalasset.canton.sequencing.client.channel.{
   SequencerChannelClient,
   SequencerChannelClientFactory,
 }
-import com.digitalasset.canton.sequencing.{GrpcSequencerConnectionXPoolFactory, SequencerConnection}
+import com.digitalasset.canton.sequencing.{SequencerConnection, SequencerConnectionXPool}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.SynchronizerTopologyClientWithInit
 import com.digitalasset.canton.topology.processing.InitialTopologySnapshotValidator
-import com.digitalasset.canton.topology.store.PackageDependencyResolverUS
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.Thereafter.syntax.*
+import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
 import com.digitalasset.canton.version.ProtocolVersionCompatibility
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.Materializer
@@ -74,14 +77,16 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
       synchronizerPredecessor: Option[SynchronizerPredecessor],
       syncPersistentStateManager: SyncPersistentStateManager,
       sequencerAggregatedInfo: SequencerAggregatedInfo,
+      connectionPool: SequencerConnectionXPool,
   )(
       cryptoApiProvider: SyncCryptoApiParticipantProvider,
       clock: Clock,
       testingConfig: TestingConfigInternal,
+      topologyConfig: TopologyConfig,
       recordSequencerInteractions: AtomicReference[Option[RecordingConfig]],
       replaySequencerConfig: AtomicReference[Option[ReplayConfig]],
       topologyDispatcher: ParticipantTopologyDispatcher,
-      packageDependencyResolver: PackageDependencyResolverUS,
+      packageMetadataView: PackageMetadataView,
       partyNotifier: LedgerServerPartyNotifier,
       metrics: SynchronizerAlias => ConnectedSynchronizerMetrics,
   )(implicit
@@ -89,48 +94,16 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
   ): EitherT[FutureUnlessShutdown, SynchronizerRegistryError, SynchronizerHandle] = {
     import sequencerAggregatedInfo.psid
 
-    val connectionPoolFactory = new GrpcSequencerConnectionXPoolFactory(
-      clientProtocolVersions =
-        ProtocolVersionCompatibility.supportedProtocols(participantNodeParameters),
-      minimumProtocolVersion = participantNodeParameters.protocolConfig.minimumProtocolVersion,
-      authConfig = participantNodeParameters.sequencerClient.authToken,
-      member = participantId,
-      clock = clock,
-      crypto = cryptoApiProvider.crypto,
-      seedForRandomnessO = testingConfig.sequencerTransportSeed,
-      futureSupervisor = futureSupervisor,
-      timeouts = timeouts,
-      loggerFactory = loggerFactory,
-    )
-
-    val connectionPoolE = connectionPoolFactory
-      .createFromOldConfig(
-        config.sequencerConnections,
-        config.synchronizerId,
-        participantNodeParameters.tracing,
-      )
-      .leftMap[SynchronizerRegistryError](error =>
-        SynchronizerRegistryError.SynchronizerRegistryInternalError.InvalidState(error.toString)
-      )
-
-    val useNewConnectionPool = participantNodeParameters.sequencerClient.useNewConnectionPool
-
     val synchronizerHandleET = for {
-      connectionPool <- connectionPoolE.toEitherT[FutureUnlessShutdown]
-      _ <-
-        if (useNewConnectionPool) {
-          connectionPool.start().leftMap { error =>
-            SynchronizerRegistryError.ConnectionErrors.FailedToConnectToSequencers.Error(
-              error.toString
-            )
-          }
-        } else EitherTUtil.unitUS[SynchronizerRegistryError]
-
       physicalSynchronizerIdx <- EitherT
         .right(syncPersistentStateManager.getPhysicalSynchronizerIdx(psid))
 
       synchronizerIdx <- EitherT
         .right(syncPersistentStateManager.getSynchronizerIdx(psid.logical))
+
+      synchronizerTopologyStoreId <- EitherT.right(
+        syncPersistentStateManager.getSynchronizerTopologyStoreId(psid)
+      )
 
       _ <- EitherT
         .fromEither[Future](verifySynchronizerId(config, psid))
@@ -141,6 +114,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
         .lookupOrCreatePersistentState(
           config.synchronizerAlias,
           physicalSynchronizerIdx,
+          synchronizerTopologyStoreId,
           synchronizerIdx,
           sequencerAggregatedInfo.staticSynchronizerParameters,
         )
@@ -151,8 +125,8 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
       )
 
       synchronizerLoggerFactory = loggerFactory.append(
-        "synchronizerId",
-        physicalSynchronizerIdx.synchronizerId.toString,
+        "psid",
+        physicalSynchronizerIdx.toString,
       )
 
       topologyFactory <- syncPersistentStateManager
@@ -168,7 +142,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
       topologyClient <- EitherT.right(
         synchronizeWithClosing("create caching client")(
           topologyFactory.createCachingTopologyClient(
-            packageDependencyResolver,
+            new PackageDependencyResolverImpl(participantId, packageMetadataView, loggerFactory),
             synchronizerPredecessor,
           )
         )
@@ -311,7 +285,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
           ),
           sequencerAggregatedInfo.sequencerConnections,
           synchronizerPredecessor,
-          Option.when(!useNewConnectionPool)(sequencerAggregatedInfo.expectedSequencers),
+          sequencerAggregatedInfo.expectedSequencersO,
           connectionPool,
         )
         .leftMap[SynchronizerRegistryError](
@@ -321,7 +295,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
       _ <- downloadSynchronizerTopologyStateForInitializationIfNeeded(
         syncPersistentStateManager,
         psid,
-        topologyFactory.createInitialTopologySnapshotValidator,
+        topologyFactory.createInitialTopologySnapshotValidator(topologyConfig),
         topologyClient,
         sequencerClient,
         partyNotifier,
@@ -343,7 +317,8 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
             .create(
               participantId,
               sequencerAggregatedInfo.sequencerConnections,
-              sequencerAggregatedInfo.expectedSequencers,
+              sequencerAggregatedInfo.expectedSequencersO
+                .getOrElse(ErrorUtil.invalidState("`expectedSequencersO` should be defined")),
             )
             .leftMap(
               SynchronizerRegistryError.SynchronizerRegistryInternalError
@@ -364,11 +339,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
       timeouts,
     )
 
-    synchronizerHandleET.thereafter {
-      case Success(Outcome(Right(_))) =>
-      // In case of error or exception, ensure the pool is closed
-      case _ => connectionPoolE.foreach(_.close())
-    }
+    synchronizerHandleET
   }
 
   private def downloadSynchronizerTopologyStateForInitializationIfNeeded(
@@ -455,6 +426,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SynchronizerRegistryError, Boolean] = {
+    // TODO(i27618): modify to use the connection pool
     val client = sequencerConnectClient(synchronizerAlias, sequencerAggregatedInfo)
     isActive(synchronizerAlias, client, waitForActive = false).thereafter { _ =>
       client.close()
@@ -490,7 +462,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SynchronizerRegistryError, Boolean] =
     client
-      .isActive(participantId, synchronizerAlias, waitForActive = waitForActive)
+      .isActive(participantId, waitForActive = waitForActive)
       .leftMap(SynchronizerRegistryHelpers.toSynchronizerRegistryError(synchronizerAlias))
 
   private def sequencerConnectClientBuilder: SequencerConnectClient.Builder = {

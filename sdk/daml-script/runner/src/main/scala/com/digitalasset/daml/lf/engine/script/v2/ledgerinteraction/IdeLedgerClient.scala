@@ -342,6 +342,13 @@ class IdeLedgerClient(
           NonEmpty(Seq, cid),
           Some(SubmitError.ContractNotFound.AdditionalInfo.NotActive(cid, tid)),
         )
+      case e @ ContractHashingError(coid, dstTemplateId, createArg, _) =>
+        SubmitError.ContractHashingError(
+          coid,
+          dstTemplateId,
+          createArg,
+          Pretty.prettyDamlException(e).renderWideStream.mkString,
+        )
       case DisclosedContractKeyHashingError(cid, key, hash) =>
         SubmitError.DisclosedContractKeyHashingError(cid, key, hash.toString)
       case DuplicateContractKey(key) => SubmitError.DuplicateContractKey(Some(key))
@@ -366,26 +373,37 @@ class IdeLedgerClient(
       case ContractIdInContractKey(_) => SubmitError.ContractIdInContractKey()
       case ContractIdComparability(cid) => SubmitError.ContractIdComparability(cid.toString)
       case ValueNesting(limit) => SubmitError.ValueNesting(limit)
+      case MalformedText(err) => SubmitError.MalformedText(err)
       case e: FailureStatus => SubmitError.FailureStatusError(e, None)
       case e @ Upgrade(innerError: Upgrade.ValidationFailed) =>
         SubmitError.UpgradeError.ValidationFailed(
           innerError.coid,
           innerError.srcTemplateId,
           innerError.dstTemplateId,
-          innerError.signatories,
-          innerError.observers,
-          innerError.keyOpt,
+          innerError.srcPackageName,
+          innerError.dstPackageName,
+          innerError.originalSignatories,
+          innerError.originalObservers,
+          innerError.originalKeyOpt,
+          innerError.recomputedSignatories,
+          innerError.recomputedObservers,
+          innerError.recomputedKeyOpt,
           Pretty.prettyDamlException(e).renderWideStream.mkString,
         )
-      case e @ Upgrade(innerError: Upgrade.DowngradeDropDefinedField) =>
-        SubmitError.UpgradeError.DowngradeDropDefinedField(
-          innerError.expectedType.pretty,
-          innerError.fieldIndex,
+      case e @ Upgrade(innerError: Upgrade.TranslationFailed) =>
+        SubmitError.UpgradeError.TranslationFailed(
+          innerError.coid,
+          innerError.srcTemplateId,
+          innerError.dstTemplateId,
+          innerError.createArg,
           Pretty.prettyDamlException(e).renderWideStream.mkString,
         )
-      case e @ Upgrade(innerError: Upgrade.DowngradeFailed) =>
-        SubmitError.UpgradeError.DowngradeFailed(
-          innerError.expectedType.pretty,
+      case e @ Upgrade(innerError: Upgrade.AuthenticationFailed) =>
+        SubmitError.UpgradeError.AuthenticationFailed(
+          innerError.coid,
+          innerError.srcTemplateId,
+          innerError.dstTemplateId,
+          innerError.createArg,
           Pretty.prettyDamlException(e).renderWideStream.mkString,
         )
       case e @ Crypto(innerError: Crypto.MalformedByteEncoding) =>
@@ -616,7 +634,7 @@ class IdeLedgerClient(
           case IdeLedgerRunner.Interruption(continue) =>
             loop(continue())
           case err: IdeLedgerRunner.SubmissionError => Left(err)
-          case commit @ IdeLedgerRunner.Commit(result, _, _) =>
+          case commit @ IdeLedgerRunner.Commit(result, _) =>
             val referencedParties: Set[Party] =
               result.richTransaction.blindingInfo.disclosure.values
                 .fold(Set.empty[Party])(_ union _)
@@ -667,28 +685,13 @@ class IdeLedgerClient(
         }
 
       val eitherSpeedyDisclosures
-          : Either[script.IdeLedgerRunner.SubmissionError, ImmArray[speedy.DisclosedContract]] = {
-        import scalaz.syntax.traverse._
-        import scalaz.std.either._
-        for {
-          fatContacts <-
-            disclosures
-              .to(ImmArray)
-              .traverse(b => TransactionCoder.decodeFatContractInstance(b.blob.toByteString))
-              .left
-              .map(err =>
-                makeEmptySubmissionError(script.Error.DisclosureDecoding(err.errorMessage))
-              )
-          contracts = fatContacts
-          disclosures <-
-            try {
-              val (preprocessedDisclosed, _, _) =
-                preprocessor.unsafePreprocessDisclosedContracts(contracts)
-              Right(preprocessedDisclosed)
-            } catch {
-              case Error.Preprocessing.Lookup(err) => Left(makeLookupError(err))
-            }
-        } yield disclosures
+          : Either[script.IdeLedgerRunner.SubmissionError, List[FatContractInstance]] = {
+        import cats.implicits._
+
+        disclosures
+          .traverse(b => TransactionCoder.decodeFatContractInstance(b.blob.toByteString))
+          .left
+          .map(err => makeEmptySubmissionError(script.Error.DisclosureDecoding(err.errorMessage)))
       }
 
       val ledgerApi = IdeLedgerRunner.ScriptLedgerApi(ledger)
@@ -696,10 +699,11 @@ class IdeLedgerClient(
       for {
         speedyCommands <- eitherSpeedyCommands
         speedyDisclosures <- eitherSpeedyDisclosures
-        translated = compiledPackages.compiler.unsafeCompile(speedyCommands, speedyDisclosures)
+        translated = compiledPackages.compiler.unsafeCompile(speedyCommands)
         result =
           IdeLedgerRunner.submit(
             compiledPackages,
+            speedyDisclosures,
             ledgerApi,
             actAs.toSet,
             readAs,
@@ -741,7 +745,7 @@ class IdeLedgerClient(
         commands,
         optLocation,
       ) match {
-        case Right(IdeLedgerRunner.Commit(result, _, tx)) =>
+        case Right(IdeLedgerRunner.Commit(result, tx)) =>
           val commandResultPackageIds = commands.flatMap(toCommandPackageIds(_))
           _ledger = result.newLedger
           val transaction = result.richTransaction.transaction

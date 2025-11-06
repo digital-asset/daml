@@ -9,6 +9,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLogging
+import com.digitalasset.canton.topology.store.StoredTopologyTransactions.PositiveStoredTopologyTransactions
 import com.digitalasset.canton.topology.store.{
   StoredTopologyTransactions,
   TopologyStore,
@@ -25,6 +26,7 @@ import com.digitalasset.canton.util.ShowUtil.*
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.ExecutionContext
+import scala.reflect.ClassTag
 
 /** cache for working with topology transaction authorization */
 trait TransactionAuthorizationCache[+PureCrypto <: CryptoPureApi] {
@@ -59,9 +61,19 @@ trait TransactionAuthorizationCache[+PureCrypto <: CryptoPureApi] {
   protected def requiredAuthFor(
       toValidate: TopologyTransaction[TopologyChangeOp, TopologyMapping],
       inStore: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]],
+      relaxChecksForBackwardsCompatibility: Boolean,
   ): TopologyMapping.RequiredAuth = {
+    // mainnet's DSO party upgrades permissions without the participant's authorization in the genesis state.
+    // This relaxation is for backwards compatibility, so that we can still import the topology state.
     val requiredAuthFromMapping =
-      toValidate.mapping.requiredAuth(inStore)
+      if (relaxChecksForBackwardsCompatibility) {
+        toValidate.mapping match {
+          case ptp: PartyToParticipant => ptp.requiredAuthBackwardsCompatible(inStore)
+          case other => other.requiredAuth(inStore)
+        }
+      } else {
+        toValidate.mapping.requiredAuth(inStore)
+      }
 
     if (toValidate.operation == TopologyChangeOp.Remove) {
       synchronizerId
@@ -83,9 +95,15 @@ trait TransactionAuthorizationCache[+PureCrypto <: CryptoPureApi] {
       asOfExclusive: CantonTimestamp,
       toProcess: GenericTopologyTransaction,
       inStore: Option[GenericTopologyTransaction],
+      relaxChecksForBackwardsCompatibility: Boolean,
+      storeIsEmpty: Boolean = false,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
-    val requiredKeys = requiredAuhtorizationKeys(toProcess, inStore)
-    loadNamespaceCaches(asOfExclusive, requiredKeys.namespaces)
+    val requiredKeys = permissibleAuthorizationKeysToPreload(
+      toProcess,
+      inStore,
+      relaxChecksForBackwardsCompatibility = relaxChecksForBackwardsCompatibility,
+    )
+    loadNamespaceCaches(asOfExclusive, requiredKeys.namespaces, storeIsEmpty)
   }
 
   protected def tryGetAuthorizationCheckForNamespace(
@@ -117,62 +135,87 @@ trait TransactionAuthorizationCache[+PureCrypto <: CryptoPureApi] {
       ErrorUtil.invalidState(s"Cache miss for direct namespace $namespace"),
     )
 
-  protected def loadNamespaceCaches(
+  private def loadNamespaceCaches(
       asOfExclusive: CantonTimestamp,
       namespaces: Set[Namespace],
+      storeIsEmpty: Boolean,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
 
-    // only load the ones we don't already hold in memory
-    val decentralizedNamespacesToLoad = namespaces -- decentralizedNamespaceCache.keys
-
-    for {
-      storedDecentralizedNamespaces <-
-        NonEmpty
-          .from(decentralizedNamespacesToLoad)
-          .map(dns =>
-            store.findPositiveTransactions(
-              asOfExclusive,
-              asOfInclusive = false,
-              isProposal = false,
-              types = Seq(DecentralizedNamespaceDefinition.code),
-              filterUid = None,
-              filterNamespace = Some(dns.toSeq),
-            )
-          )
-          .getOrElse(FutureUnlessShutdown.pure(StoredTopologyTransactions.empty))
-      decentralizedNamespaceDefinitions = storedDecentralizedNamespaces
-        .collectOfMapping[DecentralizedNamespaceDefinition]
+    def extract[T <: TopologyMapping: ClassTag](
+        transactions: PositiveStoredTopologyTransactions
+    ): Seq[SignedTopologyTransaction[TopologyChangeOp.Replace, T]] =
+      transactions
+        .collectOfMapping[T]
         .collectLatestByUniqueKey
         .result
         .map(_.transaction)
+
+    // only load the ones we don't already hold in memory
+    val decentralizedNamespacesToLoad = namespaces.filterNot(decentralizedNamespaceCache.contains)
+    val namespacesToLoad = namespaces.filterNot(namespaceCache.contains)
+    val codes =
+      (if (decentralizedNamespacesToLoad.nonEmpty) Seq(DecentralizedNamespaceDefinition.code)
+       else
+         Seq.empty) ++ (if (namespacesToLoad.nonEmpty) Seq(NamespaceDelegation.code) else Seq.empty)
+
+    for {
+      // attempt to load both in one query
+      storedDecentralizedAndOrdinaryNamespaces <-
+        (if (storeIsEmpty) None
+         else
+           NonEmpty
+             .from(decentralizedNamespacesToLoad ++ namespacesToLoad)
+             .map(dnsOrNs =>
+               store.findPositiveTransactions(
+                 asOfExclusive,
+                 asOfInclusive = false,
+                 isProposal = false,
+                 types = codes,
+                 filterUid = None,
+                 filterNamespace = Some(dnsOrNs.toSeq),
+               )
+             ))
+          .getOrElse(FutureUnlessShutdown.pure(StoredTopologyTransactions.empty))
+      decentralizedNamespaceDefinitions = extract[DecentralizedNamespaceDefinition](
+        storedDecentralizedAndOrdinaryNamespaces
+      ).filter(x => decentralizedNamespacesToLoad.contains(x.mapping.namespace))
+      ordinaryNamespaceDelegations = extract[NamespaceDelegation](
+        storedDecentralizedAndOrdinaryNamespaces
+      ).filter(x => namespacesToLoad.contains(x.mapping.namespace))
 
       // We need to add queries for owners here, because the caller cannot know them up front.
       decentralizedNamespaceOwners = decentralizedNamespaceDefinitions
         .flatMap(_.mapping.owners)
         .toSet
-      namespacesToLoad = namespaces ++ decentralizedNamespaceOwners -- namespaceCache.keys
+      remainingNamespacesToLoad =
+        decentralizedNamespaceOwners.filterNot(ns =>
+          namespaceCache.contains(ns) || ordinaryNamespaceDelegations.exists(
+            _.mapping.namespace == ns
+          )
+        )
 
-      storedNamespaceDelegations <-
-        NonEmpty
-          .from(namespacesToLoad)
-          .map { ns =>
-            store.findPositiveTransactions(
-              asOfExclusive,
-              asOfInclusive = false,
-              isProposal = false,
-              types = Seq(NamespaceDelegation.code),
-              filterUid = None,
-              filterNamespace = Some(ns.toSeq),
-            )
-          }
+      storedRemainingNamespaceDelegations <-
+        (if (storeIsEmpty) None
+         else
+           NonEmpty
+             .from(remainingNamespacesToLoad)
+             .map { ns =>
+               store.findPositiveTransactions(
+                 asOfExclusive,
+                 asOfInclusive = false,
+                 isProposal = false,
+                 types = Seq(NamespaceDelegation.code),
+                 filterUid = None,
+                 filterNamespace = Some(ns.toSeq),
+               )
+             })
           .getOrElse(FutureUnlessShutdown.pure(StoredTopologyTransactions.empty))
-      namespaceDelegations = storedNamespaceDelegations
-        .collectOfMapping[NamespaceDelegation]
-        .collectLatestByUniqueKey
-        .result
-        .map(_.transaction)
+      remainingNamespaceDelegations = extract[NamespaceDelegation](
+        storedRemainingNamespaceDelegations
+      )
+
     } yield {
-      namespaceDelegations
+      (ordinaryNamespaceDelegations ++ remainingNamespaceDelegations)
         .groupBy(_.mapping.namespace)
         .foreach { case (namespace, transactions) =>
           val graph = new AuthorizationGraph(
@@ -236,11 +279,29 @@ trait TransactionAuthorizationCache[+PureCrypto <: CryptoPureApi] {
     }
   }
 
-  def requiredAuhtorizationKeys(
+  private def permissibleAuthorizationKeysToPreload(
       toValidate: TopologyTransaction[TopologyChangeOp, TopologyMapping],
       inStore: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]],
+      relaxChecksForBackwardsCompatibility: Boolean,
   ): AuthorizationKeys = {
-    val referencedAuthorizations = requiredAuthFor(toValidate, inStore).referenced
+    val againstInStore =
+      requiredAuthFor(
+        toValidate,
+        inStore,
+        relaxChecksForBackwardsCompatibility = relaxChecksForBackwardsCompatibility,
+      ).referenced
+    val referencedAuthorizations = {
+      val plainReferencedAuth =
+        requiredAuthFor(
+          toValidate,
+          None,
+          relaxChecksForBackwardsCompatibility = relaxChecksForBackwardsCompatibility,
+        ).referenced
+      ReferencedAuthorizations(
+        namespaces = againstInStore.namespaces ++ plainReferencedAuth.namespaces,
+        extraKeys = againstInStore.extraKeys ++ plainReferencedAuth.extraKeys,
+      )
+    }
     requiredAuthorizationKeysForProcessing(toValidate) ++
       requiredForCheckingAuthorization(referencedAuthorizations)
   }

@@ -8,21 +8,20 @@ import cats.syntax.either.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
-import com.digitalasset.canton.crypto.kms.CommunityKmsFactory
-import com.digitalasset.canton.crypto.store.CommunityCryptoPrivateStoreFactory
 import com.digitalasset.canton.environment.{
   CantonNodeBootstrapCommonArguments,
   NodeFactoryArguments,
 }
 import com.digitalasset.canton.networking.grpc.StaticGrpcServices
+import com.digitalasset.canton.participant.LedgerApiServerBootstrapUtils.IndexerLockIds
 import com.digitalasset.canton.participant.admin.ResourceManagementService
 import com.digitalasset.canton.participant.config.ParticipantNodeConfig
-import com.digitalasset.canton.participant.ledger.api.CantonLedgerApiServerWrapper.IndexerLockIds
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
 import com.digitalasset.canton.participant.store.ParticipantSettingsStore
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.participant.util.DAMLe
-import com.digitalasset.canton.resource.CommunityStorageFactory
+import com.digitalasset.canton.replica.ReplicaManager
+import com.digitalasset.canton.resource.StorageSingleFactory
 import com.digitalasset.canton.time.TestingTimeService
 import com.digitalasset.daml.lf.engine.Engine
 import io.grpc.ServerServiceDefinition
@@ -59,14 +58,14 @@ trait ParticipantNodeBootstrapFactory {
       arguments.metrics,
     )
 
-  protected def createLedgerApiServerFactory(
+  protected def createLedgerApiBootstrapUtils(
       arguments: Arguments,
       engine: Engine,
       testingTimeService: TestingTimeService,
   )(implicit
       executionContext: ExecutionContextIdlenessExecutorService,
       actorSystem: ActorSystem,
-  ): CantonLedgerApiServerFactory
+  ): LedgerApiServerBootstrapUtils
 
   def create(
       arguments: NodeFactoryArguments[
@@ -95,20 +94,19 @@ object CommunityParticipantNodeBootstrapFactory extends ParticipantNodeBootstrap
         arguments.loggerFactory,
       )
 
-  override protected def createLedgerApiServerFactory(
+  override protected def createLedgerApiBootstrapUtils(
       arguments: Arguments,
       engine: Engine,
       testingTimeService: TestingTimeService,
   )(implicit
       executionContext: ExecutionContextIdlenessExecutorService,
       actorSystem: ActorSystem,
-  ): CantonLedgerApiServerFactory =
-    new CantonLedgerApiServerFactory(
+  ): LedgerApiServerBootstrapUtils =
+    new LedgerApiServerBootstrapUtils(
       engine = engine,
       clock = arguments.clock,
       testingTimeService = testingTimeService,
       allocateIndexerLockIds = _ => Option.empty[IndexerLockIds].asRight,
-      futureSupervisor = arguments.futureSupervisor,
       loggerFactory = arguments.loggerFactory,
     )
 
@@ -127,25 +125,15 @@ object CommunityParticipantNodeBootstrapFactory extends ParticipantNodeBootstrap
   ): Either[String, ParticipantNodeBootstrap] =
     arguments
       .toCantonNodeBootstrapCommonArguments(
-        new CommunityStorageFactory(arguments.config.storage),
-        new CommunityCryptoPrivateStoreFactory(
-          arguments.config.crypto.provider,
-          arguments.config.crypto.kms,
-          CommunityKmsFactory,
-          arguments.config.parameters.caching.kmsMetadataCache,
-          arguments.config.crypto.privateKeyStore,
-          arguments.futureSupervisor,
-          arguments.clock,
-          arguments.executionContext,
-        ),
-        CommunityKmsFactory,
+        new StorageSingleFactory(arguments.config.storage),
+        Option.empty[ReplicaManager],
       )
       .map { arguments =>
         val engine = createEngine(arguments)
         createNode(
           arguments,
           engine,
-          createLedgerApiServerFactory(
+          createLedgerApiBootstrapUtils(
             arguments,
             engine,
             testingTimeService,
@@ -156,7 +144,7 @@ object CommunityParticipantNodeBootstrapFactory extends ParticipantNodeBootstrap
   private def createNode(
       arguments: Arguments,
       engine: Engine,
-      ledgerApiServerFactory: CantonLedgerApiServerFactory,
+      ledgerApiServerBootstrapUtils: LedgerApiServerBootstrapUtils,
   )(implicit
       executionContext: ExecutionContextIdlenessExecutorService,
       scheduler: ScheduledExecutorService,
@@ -169,7 +157,7 @@ object CommunityParticipantNodeBootstrapFactory extends ParticipantNodeBootstrap
       CantonSyncService.DefaultFactory,
       createResourceService(arguments),
       _ => createReplicationServiceFactory(arguments),
-      ledgerApiServerFactory = ledgerApiServerFactory,
+      ledgerApiServerBootstrapUtils = ledgerApiServerBootstrapUtils,
       setInitialized = _ => (),
     )
 }

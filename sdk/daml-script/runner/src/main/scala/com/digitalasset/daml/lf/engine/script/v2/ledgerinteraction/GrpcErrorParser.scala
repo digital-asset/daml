@@ -3,43 +3,52 @@
 
 package com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction
 
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.transaction.{
   GlobalKey,
   GlobalKeyWithMaintainers,
-  TransactionVersion,
+  SerializationVersion,
 }
 import com.digitalasset.daml.lf.value.Value.ContractId
-import com.digitalasset.daml.lf.value.ValueCoder
-import com.daml.nonempty.NonEmpty
+import com.digitalasset.daml.lf.value.{Value, ValueCoder}
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
-import com.google.rpc.status.Status
 import com.google.protobuf.any.Any
+import com.google.rpc.status.Status
 
 import scala.reflect.ClassTag
 import scala.util.Try
 
 object GrpcErrorParser {
-  val decodeValue = (s: String) =>
+  val decodeValue: String => Option[Value] = (s: String) =>
     for {
       bytes <- Try(BaseEncoding.base64().decode(s)).toOption
       value <-
         ValueCoder
           .decodeValue(
-            TransactionVersion.VDev,
+            SerializationVersion.VDev,
             ByteString.copyFrom(bytes),
           )
           .toOption
     } yield value
 
+  val decodeNullableValue: String => Option[Option[Value]] =
+    decodeNullable(decodeValue)
+
+  val decodeNullableString: String => Option[Option[String]] =
+    decodeNullable((s: String) => Some(s))
+
+  def decodeNullable[A](decoder: String => Option[A]): String => Option[Option[A]] = (s: String) =>
+    if (s == "NULL") Some(None) else decoder(s).map(Some(_))
+
   val parseList = (s: String) => s.tail.init.split(", ").toSeq
 
   // Converts a given SubmitError into a SubmitError. Wraps in an UnknownError if its not what we expect, wraps in a TruncatedError if we're missing resources
   def convertStatusRuntimeException(status: Status): SubmitError = {
-    import com.digitalasset.base.error.utils.ErrorDetails._
     import com.digitalasset.base.error.ErrorResource
+    import com.digitalasset.base.error.utils.ErrorDetails._
 
     val details = from(status.details.map(Any.toJavaProto))
     val message = status.message
@@ -71,6 +80,31 @@ object GrpcErrorParser {
         Set.empty
       } else {
         parties.split(",").toSet.map(Party.assertFromString _)
+      }
+    }
+
+    def parseGlobalKeyWithMaintainers(
+        templateId: Identifier,
+        globalKeyOpt: Option[Value],
+        packageNameOpt: Option[String],
+        maintainersOpt: Option[String],
+    ): Option[GlobalKeyWithMaintainers] = {
+      (globalKeyOpt, packageNameOpt, maintainersOpt) match {
+        case (None, None, None) => None
+        case (Some(globalKey), Some(packageName), Some(maintainers)) =>
+          Some(
+            GlobalKeyWithMaintainers.assertBuild(
+              templateId,
+              globalKey,
+              parseParties(maintainers),
+              PackageName.assertFromString(packageName),
+            )
+          )
+        case _ =>
+          throw new IllegalArgumentException(
+            s"""The components of GlobalKeyWithMaintainers should be either all present or all absent:
+               |key=$globalKeyOpt, packageName=$packageNameOpt, maintainers=$maintainersOpt""".stripMargin
+          )
       }
     }
 
@@ -118,6 +152,20 @@ object GrpcErrorParser {
             NonEmpty(Seq, ContractId.assertFromString(cid)),
             None,
           )
+        }
+      case "CONTRACT_HASHING_ERROR" =>
+        caseErr {
+          case Seq(
+                (ErrorResource.ContractId, cid),
+                (ErrorResource.TemplateId, tid),
+                (ErrorResource.ContractArg, decodeValue.unlift(arg)),
+              ) =>
+            SubmitError.ContractHashingError(
+              ContractId.assertFromString(cid),
+              Identifier.assertFromString(tid),
+              arg,
+              message,
+            )
         }
       case "DISCLOSED_CONTRACT_KEY_HASHING_ERROR" =>
         caseErr {
@@ -262,71 +310,87 @@ object GrpcErrorParser {
           SubmitError.ContractIdComparability(cid)
         }
       case "INTERPRETATION_UPGRADE_ERROR_VALIDATION_FAILED" =>
+        val NullableContractKey = ErrorResource.ContractKey.nullable
+        val NullablePackageName = ErrorResource.PackageName.nullable
+        val NullableParties = ErrorResource.Parties.nullable
+
         caseErr {
           case Seq(
                 (ErrorResource.ContractId, coid),
                 (ErrorResource.TemplateId, srcTemplateId),
                 (ErrorResource.TemplateId, dstTemplateId),
-                (ErrorResource.Parties, signatories),
-                (ErrorResource.Parties, observers),
+                (ErrorResource.PackageName, srcPackageName),
+                (ErrorResource.PackageName, dstPackageName),
+                (ErrorResource.Parties, originalSignatories),
+                (ErrorResource.Parties, originalObservers),
+                (NullableContractKey, decodeNullableValue.unlift(originalGlobalKey)),
+                (NullablePackageName, decodeNullableString.unlift(originalPn)),
+                (NullableParties, decodeNullableString.unlift(originalMaintainers)),
+                (ErrorResource.Parties, recomputedSignatories),
+                (ErrorResource.Parties, recomputedObservers),
+                (NullableContractKey, decodeNullableValue.unlift(recomputedGlobalKey)),
+                (NullablePackageName, decodeNullableString.unlift(recomputedPn)),
+                (NullableParties, decodeNullableString.unlift(recomputedMaintainers)),
               ) =>
-            SubmitError.UpgradeError.ValidationFailed(
-              ContractId.assertFromString(coid),
-              Identifier.assertFromString(srcTemplateId),
-              Identifier.assertFromString(dstTemplateId),
-              parseParties(signatories),
-              parseParties(observers),
-              None,
-              message,
-            )
-          case Seq(
-                (ErrorResource.ContractId, coid),
-                (ErrorResource.TemplateId, srcTemplateId),
-                (ErrorResource.TemplateId, dstTemplateId),
-                (ErrorResource.Parties, signatories),
-                (ErrorResource.Parties, observers),
-                (ErrorResource.ContractKey, decodeValue.unlift(globalKey)),
-                (ErrorResource.PackageName, pn),
-                (ErrorResource.Parties, maintainers),
-              ) =>
+            val srcTid = Identifier.assertFromString(srcTemplateId)
             val dstTid = Identifier.assertFromString(dstTemplateId)
-            val packageName = PackageName.assertFromString(pn)
             SubmitError.UpgradeError.ValidationFailed(
               ContractId.assertFromString(coid),
-              Identifier.assertFromString(srcTemplateId),
+              srcTid,
               dstTid,
-              parseParties(signatories),
-              parseParties(observers),
-              Some(
-                GlobalKeyWithMaintainers.assertBuild(
-                  dstTid,
-                  globalKey,
-                  parseParties(maintainers),
-                  packageName,
-                )
+              PackageName.assertFromString(srcPackageName),
+              PackageName.assertFromString(dstPackageName),
+              parseParties(originalSignatories),
+              parseParties(originalObservers),
+              parseGlobalKeyWithMaintainers(
+                srcTid,
+                originalGlobalKey,
+                originalPn,
+                originalMaintainers,
+              ),
+              parseParties(recomputedSignatories),
+              parseParties(recomputedObservers),
+              parseGlobalKeyWithMaintainers(
+                dstTid,
+                recomputedGlobalKey,
+                recomputedPn,
+                recomputedMaintainers,
               ),
               message,
             )
         }
-      case "INTERPRETATION_UPGRADE_ERROR_DOWNGRADE_DROP_DEFINED_FIELD" =>
+      case "INTERPRETATION_UPGRADE_ERROR_TRANSLATION_FAILED" =>
+        val NullableContractId = ErrorResource.ContractId.nullable
         caseErr {
           case Seq(
-                (ErrorResource.ExpectedType, expectedType),
-                (ErrorResource.FieldIndex, fieldIndex),
+                (NullableContractId, decodeNullableString.unlift(coidOpt)),
+                (ErrorResource.TemplateId, srcTemplateId),
+                (ErrorResource.TemplateId, dstTemplateId),
+                (ErrorResource.ContractArg, decodeValue.unlift(createArg)),
               ) =>
-            SubmitError.UpgradeError.DowngradeDropDefinedField(
-              expectedType,
-              fieldIndex.toLong,
+            SubmitError.UpgradeError.TranslationFailed(
+              coidOpt.map(ContractId.assertFromString),
+              Identifier.assertFromString(srcTemplateId),
+              Identifier.assertFromString(dstTemplateId),
+              createArg,
               message,
             )
         }
-
-      case "INTERPRETATION_UPGRADE_ERROR_DOWNGRADE_FAILED" =>
+      case "INTERPRETATION_UPGRADE_ERROR_AUTHENTICATION_FAILED" =>
         caseErr {
           case Seq(
-                (ErrorResource.ExpectedType, expectedType)
+                (ErrorResource.ContractId, coid),
+                (ErrorResource.TemplateId, srcTemplateId),
+                (ErrorResource.TemplateId, dstTemplateId),
+                (ErrorResource.ContractArg, decodeValue.unlift(createArg)),
               ) =>
-            SubmitError.UpgradeError.DowngradeFailed(expectedType, message)
+            SubmitError.UpgradeError.AuthenticationFailed(
+              ContractId.assertFromString(coid),
+              Identifier.assertFromString(srcTemplateId),
+              Identifier.assertFromString(dstTemplateId),
+              createArg,
+              message,
+            )
         }
 
       case "DAML_FAILURE" => {

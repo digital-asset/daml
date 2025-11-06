@@ -22,7 +22,11 @@ import com.digitalasset.canton.integration.tests.upgrade.LogicalUpgradeUtils.{
 }
 import com.digitalasset.canton.sequencing.client.{SendCallback, SendResult}
 import com.digitalasset.canton.sequencing.protocol.{Batch, Deliver}
-import com.digitalasset.canton.sequencing.{SequencerConnections, SubmissionRequestAmplification}
+import com.digitalasset.canton.sequencing.{
+  SequencerConnectionPoolDelays,
+  SequencerConnections,
+  SubmissionRequestAmplification,
+}
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
 import com.digitalasset.canton.topology.transaction.{NamespaceDelegation, OwnerToKeyMapping}
 import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId, UniqueIdentifier}
@@ -79,7 +83,7 @@ trait LogicalUpgradeUtils { self: BaseTest =>
 
     def writeAuthorizeStoreToFile(node: InstanceReference): Unit = {
       val byteString = node.topology.transactions
-        .export_topology_snapshot(
+        .export_topology_snapshotV2(
           filterMappings = Seq(NamespaceDelegation.code, OwnerToKeyMapping.code),
           filterNamespace = node.id.uid.namespace.filterString,
         )
@@ -130,7 +134,7 @@ trait LogicalUpgradeUtils { self: BaseTest =>
     migratedNode.topology.init_id_from_uid(files.uid)
     migratedNode.health.wait_for_ready_for_node_topology()
     migratedNode.topology.transactions
-      .import_topology_snapshot(files.authorizedStore, TopologyStoreId.Authorized)
+      .import_topology_snapshotV2(files.authorizedStore, TopologyStoreId.Authorized)
 
     migratedNode match {
       case newSequencer: SequencerReference =>
@@ -149,6 +153,7 @@ trait LogicalUpgradeUtils { self: BaseTest =>
             sequencerTrustThreshold,
             sequencerLivenessMargin,
             SubmissionRequestAmplification.NoAmplification,
+            SequencerConnectionPoolDelays.default,
           ),
         )
 
@@ -206,9 +211,7 @@ private[upgrade] object LogicalUpgradeUtils {
       genesisStateFile: File,
   ) {
     def uid: UniqueIdentifier =
-      UniqueIdentifier.tryFromProtoPrimitive(
-        uidFile.contentAsString
-      )
+      UniqueIdentifier.tryFromProtoPrimitive(uidFile.contentAsString)
 
     def keys: Seq[(ByteString, Option[String])] =
       keyFiles.map { file =>

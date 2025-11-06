@@ -5,7 +5,9 @@ package com.digitalasset.canton.console.commands
 
 import com.digitalasset.canton.admin.api.client.commands.SequencerAdminCommands.{
   InitializeFromGenesisState,
+  InitializeFromGenesisStateV2,
   InitializeFromOnboardingState,
+  InitializeFromOnboardingStateV2,
   InitializeFromSynchronizerPredecessor,
 }
 import com.digitalasset.canton.admin.api.client.commands.{GrpcAdminCommand, SequencerAdminCommands}
@@ -25,7 +27,10 @@ import com.digitalasset.canton.console.{
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.grpc.ByteStringStreamObserver
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.sequencer.admin.v30.OnboardingStateResponse
+import com.digitalasset.canton.sequencer.admin.v30.{
+  OnboardingStateResponse,
+  OnboardingStateV2Response,
+}
 import com.digitalasset.canton.synchronizer.sequencer.SequencerSnapshot
 import com.digitalasset.canton.synchronizer.sequencer.admin.grpc.InitializeSequencerResponse
 import com.digitalasset.canton.topology.SequencerId
@@ -90,6 +95,27 @@ class SequencerAdministration(node: SequencerReference) extends ConsoleCommandGr
     }
 
   @Help.Summary(
+    "Download the onboarding state for a given sequencer"
+  )
+  def onboarding_state_for_sequencerV2(
+      sequencerId: SequencerId,
+      timeout: NonNegativeDuration = timeouts.unbounded,
+  ): ByteString =
+    consoleEnvironment.run {
+      val responseObserver =
+        new ByteStringStreamObserver[OnboardingStateV2Response](_.onboardingStateForSequencer)
+
+      def call =
+        runner.adminCommand(
+          SequencerAdminCommands.OnboardingStateV2(
+            observer = responseObserver,
+            sequencerOrTimestamp = Left(sequencerId),
+          )
+        )
+      processResult(call, responseObserver.resultBytes, timeout, "Downloading onboarding state")
+    }
+
+  @Help.Summary(
     "Initialize a sequencer from the beginning of the event stream. This should only be called for " +
       "sequencer nodes being initialized at the same time as the corresponding synchronizer node. " +
       "This is called as part of the synchronizer.setup.bootstrap command, so you are unlikely to need to call this directly."
@@ -104,6 +130,28 @@ class SequencerAdministration(node: SequencerReference) extends ConsoleCommandGr
     consoleEnvironment.run {
       runner.adminCommand(
         InitializeFromGenesisState(
+          genesisState,
+          synchronizerParameters.toInternal,
+        )
+      )
+    }
+  }
+
+  @Help.Summary(
+    "Initialize a sequencer from the beginning of the event stream. This should only be called for " +
+      "sequencer nodes being initialized at the same time as the corresponding synchronizer node. " +
+      "This is called as part of the synchronizer.setup.bootstrap command, so you are unlikely to need to call this directly."
+  )
+  def assign_from_genesis_stateV2(
+      genesisState: ByteString,
+      synchronizerParameters: StaticSynchronizerParameters,
+      waitForReady: Boolean = true,
+  ): InitializeSequencerResponse = {
+    if (waitForReady) node.health.wait_for_ready_for_initialization()
+
+    consoleEnvironment.run {
+      runner.adminCommand(
+        InitializeFromGenesisStateV2(
           genesisState,
           synchronizerParameters.toInternal,
         )
@@ -144,6 +192,23 @@ class SequencerAdministration(node: SequencerReference) extends ConsoleCommandGr
     consoleEnvironment.run {
       runner.adminCommand(
         InitializeFromOnboardingState(onboardingState = onboardingState)
+      )
+    }
+  }
+
+  @Help.Summary(
+    "Dynamically initialize a sequencer from a point later than the beginning of the event stream."
+  )
+  def assign_from_onboarding_stateV2(
+      onboardingState: ByteString,
+      waitForReady: Boolean = true,
+  ): InitializeSequencerResponse = {
+    if (waitForReady && !node.health.initialized())
+      node.health.wait_for_ready_for_initialization()
+
+    consoleEnvironment.run {
+      runner.adminCommand(
+        InitializeFromOnboardingStateV2(onboardingState)
       )
     }
   }

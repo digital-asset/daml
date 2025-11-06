@@ -56,6 +56,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.{
   failingCryptoProvider,
   fakeIgnoringModule,
   fakeModuleExpectingSilence,
+  fakeRecordingModule,
 }
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.tracing.TraceContext
@@ -362,56 +363,65 @@ class StateTransferBehaviorTest
     }
 
     "receiving a new epoch stored message" should {
-      "set the epoch state, clean up the postponed message queue, and start state-transferring the epoch" in {
-        val stateTransferManagerMock = mock[StateTransferManager[ProgrammableUnitTestEnv]]
-        val (context, stateTransferBehavior) =
-          createStateTransferBehavior(maybeStateTransferManager = Some(stateTransferManagerMock))
-        implicit val ctx: ContextType = context
+      "set the epoch state, communicate the membership to the P2P output module, " +
+        "clean up the postponed message queue, and start state-transferring the epoch" in {
+          val stateTransferManagerMock = mock[StateTransferManager[ProgrammableUnitTestEnv]]
+          val p2pNetworkOutputBuffer = new collection.mutable.ArrayBuffer[P2PNetworkOut.Message]
+          val (context, stateTransferBehavior) =
+            createStateTransferBehavior(
+              maybeStateTransferManager = Some(stateTransferManagerMock),
+              p2pNetworkOutModuleRef = fakeRecordingModule(p2pNetworkOutputBuffer),
+            )
+          implicit val ctx: ContextType = context
 
-        val underlyingMessage = mock[ConsensusSegment.ConsensusMessage.PbftNetworkMessage]
-        when(underlyingMessage.blockMetadata).thenReturn(
-          BlockMetadata(
-            EpochNumber(anEpochInfo.number - 1L), // outdated message
-            BlockNumber.First,
+          val underlyingMessage = mock[ConsensusSegment.ConsensusMessage.PbftNetworkMessage]
+          when(underlyingMessage.blockMetadata).thenReturn(
+            BlockMetadata(
+              EpochNumber(anEpochInfo.number - 1L), // outdated message
+              BlockNumber.First,
+            )
           )
-        )
-        val signedMessage = underlyingMessage.fakeSign
-        stateTransferBehavior.postponedConsensusMessages
-          .enqueue(
-            otherId,
-            Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage(otherId, signedMessage),
+          val signedMessage = underlyingMessage.fakeSign
+          stateTransferBehavior.postponedConsensusMessages
+            .enqueue(
+              otherId,
+              Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage(signedMessage),
+            )
+
+          stateTransferBehavior.receive(
+            Consensus.NewEpochStored(
+              anEpochInfo,
+              aMembership,
+              aFakeCryptoProviderInstance,
+            )
           )
 
-        stateTransferBehavior.receive(
-          Consensus.NewEpochStored(
-            anEpochInfo,
-            aMembership,
-            aFakeCryptoProviderInstance,
+          p2pNetworkOutputBuffer should contain only P2PNetworkOut.Network.TopologyUpdate(
+            aMembership
           )
-        )
 
-        // Should have set the new epoch state.
-        stateTransferBehavior should matchPattern {
-          case StateTransferBehavior(
-                TestEpochLength,
-                _,
-                _,
-                _,
-                `anEpochInfo`,
-                _,
-              ) =>
+          // Should have set the new epoch state.
+          stateTransferBehavior should matchPattern {
+            case StateTransferBehavior(
+                  TestEpochLength,
+                  _,
+                  _,
+                  _,
+                  `anEpochInfo`,
+                  _,
+                ) =>
+          }
+
+          stateTransferBehavior.postponedConsensusMessages.dump shouldBe empty
+
+          verify(stateTransferManagerMock, times(1)).stateTransferNewEpoch(
+            eqTo(anEpochInfo.number),
+            eqTo(aMembership),
+            eqTo(aFakeCryptoProviderInstance),
+          )(any[String => Nothing])(eqTo(ctx), any[TraceContext])
+
+          succeed
         }
-
-        stateTransferBehavior.postponedConsensusMessages.dump shouldBe empty
-
-        verify(stateTransferManagerMock, times(1)).stateTransferNewEpoch(
-          eqTo(anEpochInfo.number),
-          eqTo(aMembership),
-          eqTo(aFakeCryptoProviderInstance),
-        )(any[String => Nothing])(eqTo(ctx), any[TraceContext])
-
-        succeed
-      }
     }
   }
 
@@ -438,15 +448,13 @@ class StateTransferBehaviorTest
 
       // PbftUnverifiedNetworkMessage
       val underlyingMessage = mock[ConsensusSegment.ConsensusMessage.PbftNetworkMessage]
+      when(underlyingMessage.actualSender).thenReturn(Some(otherId))
       when(underlyingMessage.from).thenThrow(
         new RuntimeException("should have used an actual sender")
       )
       val signedMessage = underlyingMessage.fakeSign
       val pbftUnverifiedNetworkMessage =
-        Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage(
-          actualSender = otherId,
-          signedMessage,
-        )
+        Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage(signedMessage)
       stateTransferBehavior.receive(pbftUnverifiedNetworkMessage)
 
       // PbftVerifiedNetworkMessage

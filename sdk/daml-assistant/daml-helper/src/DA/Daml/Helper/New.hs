@@ -15,6 +15,7 @@ import Data.List.Extra
 import Data.Maybe
 import Options.Applicative
 import System.Directory.Extra
+import System.Environment (withProgName)
 import System.Exit
 import System.FilePath
 import System.IO.Extra
@@ -25,24 +26,24 @@ import DA.Daml.Project.Consts
 import DA.Daml.Project.Util
 import DA.Signals (installSignalHandlers)
 
--- | Create a Daml project in a new directory, based on a project template packaged
+-- | Create a Daml package or project in a new directory, based on a template packaged
 -- with the SDK. Special care has been taken to avoid:
 --
 -- * Project name/template name confusion: i.e. when a user passes a
--- single argument, it should be the new project folder. But if the user
+-- single argument, it should be the new project/package folder. But if the user
 -- passes an existing template name instead, we ask the user to be more
 -- explicit.
--- * Creation of a project in existing folder (suggest daml init instead).
--- * Creation of a project inside another project.
+-- * Creation of a project/package in existing folder (suggest daml init instead).
+-- * Creation of a package inside a project.
 --
 runNew :: FilePath -> Maybe String -> IO ()
 runNew targetFolder templateNameM = do
   sdkVersion <- getSdkVersion
-  runNewInternal "daml" sdkVersion targetFolder templateNameM
+  runNewInternal "daml" sdkVersion False targetFolder templateNameM
 
 -- | Called for both Daml Assistant and DPM
-runNewInternal :: String -> String -> FilePath -> Maybe String -> IO ()
-runNewInternal assistantName sdkVersion targetFolder templateNameM = do
+runNewInternal :: String -> String -> Bool -> FilePath -> Maybe String -> IO ()
+runNewInternal assistantName sdkVersion allowExisting targetFolder templateNameM = do
     templatesFolder <- getTemplatesFolder
     let templateName = fromMaybe defaultProjectTemplate templateNameM
         templateFolder = templatesFolder </> templateName
@@ -58,14 +59,15 @@ runNewInternal assistantName sdkVersion targetFolder templateNameM = do
 
     -- Ensure project directory does not already exist.
     whenM (doesDirectoryExist targetFolder) $ do
-        hPutStr stderr $ unlines
-            [ "Directory " <> show targetFolder <> " already exists."
-            , "Please specify a new directory, or use 'daml init' instead:"
-            , ""
-            , "    " <> showCommandForUser assistantName ["init", targetFolder]
-            , ""
-            ]
-        exitFailure
+        unless allowExisting $ do
+            hPutStr stderr $ unlines
+                [ "Directory " <> show targetFolder <> " already exists."
+                , "Please specify a new directory, or use '" <> assistantName <> " init' instead:"
+                , ""
+                , "    " <> showCommandForUser assistantName ["init", targetFolder]
+                , ""
+                ]
+            exitFailure
 
     -- Ensure user is not confusing template name with project name.
     --
@@ -87,7 +89,7 @@ runNewInternal assistantName sdkVersion targetFolder templateNameM = do
     -- Ensure we are not creating a project inside another project.
     targetFolderAbs <- makeAbsolute targetFolder
 
-    damlRootM <- findDamlProjectRoot targetFolderAbs
+    damlRootM <- findDamlPackageRoot targetFolderAbs
     whenJust damlRootM $ \damlRoot -> do
         hPutStr stderr $ unlines
             [ "Target directory is inside existing Daml project " <> show damlRoot
@@ -147,15 +149,15 @@ setWritable f = do
     setPermissions f p { writable = True }
 
 -- Copied from Helper.Util to avoid its much larger dependency set. To be cleaned up once Daml Helper is removed.
-findDamlProjectRoot :: FilePath -> IO (Maybe FilePath)
-findDamlProjectRoot = findAscendantWithFile projectConfigName
+findDamlPackageRoot :: FilePath -> IO (Maybe FilePath)
+findDamlPackageRoot = findAscendantWithFile packageConfigName
 
 findAscendantWithFile :: FilePath -> FilePath -> IO (Maybe FilePath)
 findAscendantWithFile filename path =
     findM (\p -> doesFileExist (p </> filename)) (ascendants path)
 
 ociMain :: IO ()
-ociMain = do
+ociMain = withProgName "dpm" $ do
     forM_ [stdout, stderr] $ \h -> hSetBuffering h LineBuffering
     -- Save the runfiles environment to work around
     -- https://gitlab.haskell.org/ghc/ghc/-/issues/18418.
@@ -170,13 +172,24 @@ ociMain = do
             [ Just <$> strOption (long "template" <> metavar "TEMPLATE" <> help templateHelpStr)
             , pure Nothing
             ]
-          runNewDpm :: FilePath -> Maybe String -> IO ()
-          runNewDpm targetFolder templateNameM = do
+          runNewDpm :: Bool -> Maybe FilePath -> Maybe String -> IO ()
+          runNewDpm allowExisting oTargetFolder templateNameM = do
             sdkVersion <- getSdkVersionDpm
-            runNewInternal "dpm" sdkVersion targetFolder templateNameM
-      in asum
-        [ runListTemplates <$ flag' () (long "list" <> help "List the available project templates.")
-        , runNewDpm
-            <$> argument str (metavar "TARGET_PATH" <> help "Path where the new project should be located")
-            <*> appTemplateFlag
+            runNewInternal "dpm" sdkVersion allowExisting (fromMaybe "." oTargetFolder) templateNameM
+          commandNewParser :: Parser (IO ())
+          commandNewParser = asum
+            [ runListTemplates <$ flag' () (long "list" <> help "List the available project templates.")
+            , runNewDpm False
+                <$> (Just <$> argument str (metavar "TARGET_PATH" <> help "Path where the new project should be located"))
+                <*> appTemplateFlag
+            ]
+          commandInitParser :: Parser (IO ())
+          commandInitParser =
+            runNewDpm True
+              <$> optional (argument str (metavar "TARGET_PATH" <> help "Path where the new project should be located"))
+              <*> pure (Just "empty-skeleton")
+      in subparser $ fold 
+        [ command "new" (info (commandNewParser <**> helper) idm)
+        , command "init" (info (commandInitParser <**> helper) idm)
         ]
+        

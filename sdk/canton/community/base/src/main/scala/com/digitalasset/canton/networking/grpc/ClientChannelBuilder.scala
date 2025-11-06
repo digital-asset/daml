@@ -76,7 +76,7 @@ class ClientChannelBuilder private (protected val loggerFactory: NamedLoggerFact
     maxInboundMessageSize.foreach(s => builder.maxInboundMessageSize(s.unwrap))
     ClientChannelBuilder.configureKeepAlive(keepAliveClient, builder).discard
     if (traceContextPropagation == Propagation.Enabled)
-      builder.intercept(TraceContextGrpc.clientInterceptor).discard
+      builder.intercept(TraceContextGrpc.clientInterceptor()).discard
 
     if (useTls) {
       builder

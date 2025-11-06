@@ -158,7 +158,6 @@ trait AcsCommitmentStore extends AcsCommitmentLookup with PrunableByTime with Au
   val runningCommitments: IncrementalCommitmentStore
 
   val queue: CommitmentQueue
-
 }
 
 /** Read interface for ACS commitments, with no usage restrictions. */
@@ -279,11 +278,14 @@ trait IncrementalCommitmentStore {
     *   checked)
     * @param deletes
     *   Keys to be deleted to the store.
+    * @param updateMode
+    *   Specifies which store(s) to store running commitments in, depending on the purpose.
     */
   def update(
       rt: RecordTime,
       updates: Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
       deletes: Set[SortedSet[LfPartyId]],
+      updateMode: UpdateMode,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 
   /** Read the status of commitment reinitialization
@@ -351,6 +353,12 @@ trait CommitmentQueue {
   def peekThroughAtOrAfter(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[BufferedAcsCommitment]]
+
+  /** Returns whether there are commitments whose period ends at or after the given timestamp.
+    */
+  def nonEmptyAtOrAfter(timestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Boolean]
 
   /** Returns, if exists, a list containing all commitments originating from the given participant
     * that overlap the given period. Does not delete them from the queue.
@@ -422,4 +430,13 @@ object AcsCommitmentStore {
       @VisibleForTesting lastStarted: Option[CantonTimestamp],
       lastCompleted: Option[CantonTimestamp],
   )
+}
+
+// Which store(s) to store running commitments in on update
+sealed trait UpdateMode extends Product with Serializable
+
+// checkpointing, efficient commitment computation of commitments of the following interval
+object UpdateMode {
+  case object Checkpoint extends UpdateMode
+  case object Efficiency extends UpdateMode
 }

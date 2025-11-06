@@ -25,7 +25,7 @@ object SendResult {
     * reached and the envelopes are delivered. Accordingly, the
     * [[com.digitalasset.canton.sequencing.protocol.Deliver]] event may contain an empty batch.
     */
-  final case class Success(deliver: Deliver[Envelope[_]]) extends SendResult
+  final case class Success(deliver: Deliver[Envelope[?]]) extends SendResult
 
   /** Send caused an event that indicates that the submission was not and never will be sequenced */
   sealed trait NotSequenced extends SendResult

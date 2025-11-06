@@ -6,7 +6,6 @@ package com.digitalasset.canton.synchronizer.sequencer.block
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.crypto.SynchronizerCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.Storage
@@ -17,6 +16,7 @@ import com.digitalasset.canton.synchronizer.block.{
 }
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.DatabaseSequencerConfig.TestingInterceptor
+import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeParameters
 import com.digitalasset.canton.synchronizer.sequencer.traffic.SequencerRateLimitManager
 import com.digitalasset.canton.synchronizer.sequencer.{
   AuthenticationServices,
@@ -27,6 +27,7 @@ import com.digitalasset.canton.synchronizer.sequencer.{
 import com.digitalasset.canton.synchronizer.sequencing.traffic.store.TrafficPurchasedStore
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.SequencerId
+import com.digitalasset.canton.util.MaxBytesToDecompress
 import com.digitalasset.canton.version.ProtocolVersion
 import com.typesafe.scalalogging.LazyLogging
 import io.opentelemetry.api.trace.Tracer
@@ -47,7 +48,7 @@ class DriverBlockSequencerFactory[C](
     storage: Storage,
     protocolVersion: ProtocolVersion,
     sequencerId: SequencerId,
-    nodeParameters: CantonNodeParameters,
+    nodeParameters: SequencerNodeParameters,
     metrics: SequencerMetrics,
     override val loggerFactory: NamedLoggerFactory,
     testingInterceptor: Option[TestingInterceptor],
@@ -69,7 +70,29 @@ class DriverBlockSequencerFactory[C](
   override protected final lazy val orderingTimeFixMode: OrderingTimeFixMode =
     OrderingTimeFixMode.MakeStrictlyIncreasing
 
+  override protected def createBlockOrderer(
+      cryptoApi: SynchronizerCryptoClient,
+      clock: Clock,
+      initialBlockHeight: Option[Long],
+      sequencerSnapshot: Option[SequencerSnapshot],
+      authenticationServices: Option[AuthenticationServices],
+      synchronizerLoggerFactory: NamedLoggerFactory,
+  )(implicit ec: ExecutionContext, materializer: Materializer, tracer: Tracer): BlockOrderer =
+    new DriverBlockOrderer(
+      sequencerDriverFactory.create(
+        config,
+        nodeParameters.nonStandardConfig,
+        clock,
+        initialBlockHeight,
+        cryptoApi.psid.toString,
+        sequencerId.toProtoPrimitive,
+        synchronizerLoggerFactory,
+      ),
+      orderingTimeFixMode,
+    )
+
   override protected final def createBlockSequencer(
+      blockOrderer: BlockOrderer,
       name: String,
       cryptoApi: SynchronizerCryptoClient,
       stateManager: BlockSequencerStateManager,
@@ -79,13 +102,10 @@ class DriverBlockSequencerFactory[C](
       futureSupervisor: FutureSupervisor,
       health: Option[SequencerHealthConfig],
       clock: Clock,
-      driverClock: Clock,
       rateLimitManager: SequencerRateLimitManager,
       orderingTimeFixMode: OrderingTimeFixMode,
       sequencingTimeLowerBoundExclusive: Option[CantonTimestamp],
-      initialBlockHeight: Option[Long],
-      sequencerSnapshot: Option[SequencerSnapshot],
-      authenticationServices: Option[AuthenticationServices],
+      maxBytesToDecompress: MaxBytesToDecompress,
       synchronizerLoggerFactory: NamedLoggerFactory,
       runtimeReady: FutureUnlessShutdown[Unit],
   )(implicit
@@ -94,18 +114,7 @@ class DriverBlockSequencerFactory[C](
       tracer: Tracer,
   ): BlockSequencer =
     new BlockSequencer(
-      new DriverBlockOrderer(
-        sequencerDriverFactory.create(
-          config,
-          nodeParameters.nonStandardConfig,
-          driverClock,
-          initialBlockHeight,
-          cryptoApi.psid.toString,
-          sequencerId.toProtoPrimitive,
-          synchronizerLoggerFactory,
-        ),
-        orderingTimeFixMode,
-      ),
+      blockOrderer,
       name,
       cryptoApi,
       sequencerId,
@@ -124,6 +133,7 @@ class DriverBlockSequencerFactory[C](
       nodeParameters.processingTimeouts,
       nodeParameters.loggingConfig.eventDetails,
       nodeParameters.loggingConfig.api.printer,
+      maxBytesToDecompress,
       metrics,
       synchronizerLoggerFactory,
       exitOnFatalFailures = nodeParameters.exitOnFatalFailures,
@@ -142,7 +152,7 @@ object DriverBlockSequencerFactory extends LazyLogging {
       storage: Storage,
       protocolVersion: ProtocolVersion,
       sequencerId: SequencerId,
-      nodeParameters: CantonNodeParameters,
+      nodeParameters: SequencerNodeParameters,
       metrics: SequencerMetrics,
       loggerFactory: NamedLoggerFactory,
       testingInterceptor: Option[TestingInterceptor],
@@ -183,7 +193,7 @@ object DriverBlockSequencerFactory extends LazyLogging {
       storage: Storage,
       protocolVersion: ProtocolVersion,
       sequencerId: SequencerId,
-      nodeParameters: CantonNodeParameters,
+      nodeParameters: SequencerNodeParameters,
       metrics: SequencerMetrics,
       loggerFactory: NamedLoggerFactory,
   )(implicit ec: ExecutionContext): DriverBlockSequencerFactory[C] =

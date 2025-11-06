@@ -57,11 +57,20 @@ sealed abstract class SValue extends AnyRef {
           interpretation.Error.ValueNesting(V.MAXIMUM_NESTING)
         )
 
+      def toText(x: String) =
+        Text.fromString(x) match {
+          case Right(t) =>
+            t
+          case Left(err) =>
+            throw SError.SErrorDamlException(interpretation.Error.MalformedText(err))
+        }
+
       val nextMaxNesting = maxNesting - 1
       v match {
         case SInt64(x) => V.ValueInt64(x)
         case SNumeric(x) => V.ValueNumeric(x)
-        case SText(x) => V.ValueText(x)
+        case SText(x) =>
+          V.ValueText(toText(x))
         case STimestamp(x) => V.ValueTimestamp(x)
         case SParty(x) => V.ValueParty(x)
         case SBool(x) => V.ValueBool(x)
@@ -90,7 +99,7 @@ sealed abstract class SValue extends AnyRef {
           V.ValueOptional(mbV.map(go(_, nextMaxNesting)))
         case SMap(true, entries) =>
           V.ValueTextMap(SortedLookupList(entries.map {
-            case (SText(t), v) => t -> go(v, nextMaxNesting)
+            case (SText(t), v) => toText(t) -> go(v, nextMaxNesting)
             case (_, _) =>
               throw SError.SErrorCrash(
                 NameOf.qualifiedNameOfCurrentFunc,
@@ -231,12 +240,12 @@ object SValue {
       * SValue keys are assumed to be in ascending order - hence the SMap's TreeMap will be built in time O(n) using a
       * sorted map specialisation.
       */
-    def fromOrderedEntries(
+    def fromStrictlyOrderedEntries(
         isTextMap: Boolean,
         entries: Iterable[(SValue, SValue)],
     ): SMap = {
       entries.foreach { case (k, _) => comparable(k) }
-      SMap(isTextMap, data.TreeMap.fromOrderedEntries(entries))
+      SMap(isTextMap, data.TreeMap.fromStrictlyOrderedEntries(entries))
     }
 
     /** Build an SMap from an iterator over SValue key/value pairs.

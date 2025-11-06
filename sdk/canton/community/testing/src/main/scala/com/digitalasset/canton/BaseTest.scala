@@ -18,7 +18,7 @@ import com.digitalasset.canton.logging.{NamedLogging, SuppressingLogger}
 import com.digitalasset.canton.metrics.OpenTelemetryOnDemandMetricsReader
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.telemetry.ConfiguredOpenTelemetry
-import com.digitalasset.canton.time.WallClock
+import com.digitalasset.canton.time.{NonNegativeFiniteDuration, WallClock}
 import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext, W3CTraceContext}
 import com.digitalasset.canton.util.CheckedT
@@ -50,6 +50,7 @@ import org.typelevel.discipline.Laws
 import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.implicitConversions
+import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
 trait ScalaFuturesWithPatience extends ScalaFutures {
@@ -99,7 +100,7 @@ trait TestEssentials
 
   override val loggerFactory: SuppressingLogger = SuppressingLogger(getClass)
 
-  val futureSupervisor: FutureSupervisor = FutureSupervisor.Noop
+  lazy val futureSupervisor: FutureSupervisor = FutureSupervisor.Noop
 
   lazy val wallClock = new WallClock(timeouts, loggerFactory)
 
@@ -329,6 +330,18 @@ trait BaseTest
     )
   }
 
+  private final val retryTimes = 3
+
+  def retryET[A, T](
+      times: Int = retryTimes
+  )(
+      block: => EitherT[FutureUnlessShutdown, A, T]
+  )(implicit ec: ExecutionContext): EitherT[FutureUnlessShutdown, A, T] =
+    block.recoverWith {
+      case NonFatal(_) if times > 0 =>
+        retryET(times - 1)(block)
+    }
+
   def clue[T](message: String)(expr: => T): T = {
     logger.debug(s"Running clue: $message")
     Try(expr) match {
@@ -432,8 +445,21 @@ trait BaseTest
   lazy val PerformanceTestPath: String = BaseTest.PerformanceTestPath
   lazy val DamlTestFilesPath: String = BaseTest.DamlTestFilesPath
   lazy val DamlTestLfDevFilesPath: String = BaseTest.DamlTestLfDevFilesPath
+  // TODO(#25385): Consider deduplicating the upgrade test DARs below
+  lazy val FooV1Path: String = BaseTest.FooV1Path
+  lazy val FooV2Path: String = BaseTest.FooV2Path
+  lazy val FooV3Path: String = BaseTest.FooV3Path
   lazy val UpgradeTestsPath: String = BaseTest.UpgradeTestsPath
+  lazy val UpgradeTestsCompatPath: String = BaseTest.UpgradeTestsCompatPath
   lazy val UpgradeTestsIncompatPath: String = BaseTest.UpgradeTestsIncompatPath
+  lazy val VettingDepPath: String = BaseTest.VettingDepPath
+  lazy val VettingDepCompatPath: String = BaseTest.VettingDepCompatPath
+  lazy val VettingDepIncompatPath: String = BaseTest.VettingDepIncompatPath
+  lazy val VettingDepSubstitutionPath: String = BaseTest.VettingDepSubstitutionPath
+  lazy val VettingMainPath: String = BaseTest.VettingMainPath
+  lazy val VettingMainCompatPath: String = BaseTest.VettingMainCompatPath
+  lazy val VettingMainIncompatPath: String = BaseTest.VettingMainIncompatPath
+  lazy val VettingMainSubstitutionPath: String = BaseTest.VettingMainSubstitutionPath
 
   implicit class RichSynchronizerId(val id: SynchronizerId) {
     def toPhysical: PhysicalSynchronizerId =
@@ -534,23 +560,24 @@ object BaseTest {
     defaultStaticSynchronizerParametersWith()
 
   def defaultStaticSynchronizerParametersWith(
-      protocolVersion: ProtocolVersion = testedProtocolVersion
-  ): StaticSynchronizerParameters = StaticSynchronizerParameters(
-    requiredSigningSpecs = SymbolicCryptoProvider.supportedSigningSpecs,
-    requiredEncryptionSpecs = SymbolicCryptoProvider.supportedEncryptionSpecs,
-    requiredSymmetricKeySchemes = SymbolicCryptoProvider.supportedSymmetricKeySchemes,
-    requiredHashAlgorithms = SymbolicCryptoProvider.supportedHashAlgorithms,
-    requiredCryptoKeyFormats = SymbolicCryptoProvider.supportedCryptoKeyFormats,
-    requiredSignatureFormats = SymbolicCryptoProvider.supportedSignatureFormats,
-    enableTransparencyChecks = false,
-    protocolVersion = protocolVersion,
-    serial = NonNegativeInt.zero,
-  )
+      topologyChangeDelay: NonNegativeFiniteDuration =
+        StaticSynchronizerParameters.defaultTopologyChangeDelay,
+      protocolVersion: ProtocolVersion = testedProtocolVersion,
+  ): StaticSynchronizerParameters =
+    StaticSynchronizerParameters(
+      requiredSigningSpecs = SymbolicCryptoProvider.supportedSigningSpecs,
+      requiredEncryptionSpecs = SymbolicCryptoProvider.supportedEncryptionSpecs,
+      requiredSymmetricKeySchemes = SymbolicCryptoProvider.supportedSymmetricKeySchemes,
+      requiredHashAlgorithms = SymbolicCryptoProvider.supportedHashAlgorithms,
+      requiredCryptoKeyFormats = SymbolicCryptoProvider.supportedCryptoKeyFormats,
+      requiredSignatureFormats = SymbolicCryptoProvider.supportedSignatureFormats,
+      topologyChangeDelay = topologyChangeDelay,
+      enableTransparencyChecks = false,
+      protocolVersion = protocolVersion,
+      serial = NonNegativeInt.zero,
+    )
 
   lazy val testedProtocolVersion: ProtocolVersion = ProtocolVersion.forSynchronizer
-
-  lazy val testedStaticSynchronizerParameters: StaticSynchronizerParameters =
-    defaultStaticSynchronizerParametersWith(testedProtocolVersion)
 
   lazy val testedProtocolVersionValidation: ProtocolVersionValidation =
     ProtocolVersionValidation(testedProtocolVersion)
@@ -568,8 +595,21 @@ object BaseTest {
   lazy val DamlScript3TestFilesPath: String = getResourcePath("DamlScript3TestFiles-3.4.0.dar")
   lazy val DamlTestFilesPath: String = getResourcePath("DamlTestFiles-3.4.0.dar")
   lazy val DamlTestLfDevFilesPath: String = getResourcePath("DamlTestLfDevFiles-3.4.0.dar")
+  // TODO(#25385): Deduplicate these upgrading test DARs
+  lazy val FooV1Path: String = getResourcePath("foo-0.0.1.dar")
+  lazy val FooV2Path: String = getResourcePath("foo-0.0.2.dar")
+  lazy val FooV3Path: String = getResourcePath("foo-0.0.3.dar")
   lazy val UpgradeTestsPath: String = getResourcePath("UpgradeTests-3.4.0.dar")
-  lazy val UpgradeTestsIncompatPath: String = getResourcePath("UpgradeTests-4.0.0.dar")
+  lazy val UpgradeTestsCompatPath: String = getResourcePath("UpgradeTests-4.0.0.dar")
+  lazy val UpgradeTestsIncompatPath: String = getResourcePath("UpgradeTests-5.0.0.dar")
+  lazy val VettingDepPath: String = getResourcePath("VettingDep-1.0.0.dar")
+  lazy val VettingDepCompatPath: String = getResourcePath("VettingDep-2.0.0.dar")
+  lazy val VettingDepIncompatPath: String = getResourcePath("VettingDep-3.0.0.dar")
+  lazy val VettingDepSubstitutionPath: String = getResourcePath("VettingDepSubstitution-1.0.0.dar")
+  lazy val VettingMainPath: String = getResourcePath("VettingMain-1.0.0.dar")
+  lazy val VettingMainCompatPath: String = getResourcePath("VettingMain-2.0.0.dar")
+  lazy val VettingMainIncompatPath: String = getResourcePath("VettingMain-3.0.0.dar")
+  lazy val VettingMainSubstitutionPath: String = getResourcePath("VettingMain-4.0.0.dar")
 
   def getResourcePath(name: String): String =
     Option(getClass.getClassLoader.getResource(name))

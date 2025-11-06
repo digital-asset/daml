@@ -15,7 +15,7 @@ import com.google.common.annotations.VisibleForTesting
 import scala.concurrent.ExecutionContext
 
 /** An application handler processes boxed envelopes and returns a [[HandlerResult]] */
-trait ApplicationHandler[-Box[+_ <: Envelope[_]], -Env <: Envelope[_]]
+trait ApplicationHandler[-Box[+_ <: Envelope[?]], -Env <: Envelope[?]]
     extends (BoxedEnvelope[Box, Env] => HandlerResult) {
 
   /** Human-readable name of the application handler for logging and debugging */
@@ -36,7 +36,7 @@ trait ApplicationHandler[-Box[+_ <: Envelope[_]], -Env <: Envelope[_]]
   /** Replaces the application handler's processing with `f` and leaves the [[subscriptionStartsAt]]
     * logic and the name the same.
     */
-  def replace[Box2[+_ <: Envelope[_]], Env2 <: Envelope[_]](
+  def replace[Box2[+_ <: Envelope[?]], Env2 <: Envelope[?]](
       f: BoxedEnvelope[Box2, Env2] => HandlerResult
   ): ApplicationHandler[Box2, Env2] = new ApplicationHandler[Box2, Env2] {
 
@@ -55,7 +55,7 @@ trait ApplicationHandler[-Box[+_ <: Envelope[_]], -Env <: Envelope[_]]
   }
 
   /** Run the `other` ApplicationHandler after `this`. */
-  def combineWith[Box2[+X <: Envelope[_]] <: Box[X], Env2 <: Env](
+  def combineWith[Box2[+X <: Envelope[?]] <: Box[X], Env2 <: Env](
       other: ApplicationHandler[Box2, Env2]
   )(implicit
       ec: ExecutionContext
@@ -86,7 +86,7 @@ object ApplicationHandler {
   /** Creates an application handler that runs `f` on the boxed envelopes and ignores the
     * [[ApplicationHandler.subscriptionStartsAt]] notifications
     */
-  def create[Box[+_ <: Envelope[_]], Env <: Envelope[_]](name: String)(
+  def create[Box[+_ <: Envelope[?]], Env <: Envelope[?]](name: String)(
       f: BoxedEnvelope[Box, Env] => HandlerResult
   ): ApplicationHandler[Box, Env] = {
     val handlerName = name
@@ -108,7 +108,7 @@ object ApplicationHandler {
 
   /** Application handler that does nothing and always succeeds */
   @VisibleForTesting
-  def success[Box[+_ <: Envelope[_]], Env <: Envelope[_]](
+  def success[Box[+_ <: Envelope[?]], Env <: Envelope[?]](
       name: String = "success"
   ): ApplicationHandler[Box, Env] =
     ApplicationHandler.create(name)(_ => HandlerResult.done)

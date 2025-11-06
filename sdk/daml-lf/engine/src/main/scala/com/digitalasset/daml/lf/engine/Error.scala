@@ -68,14 +68,12 @@ object Error {
 
     final case class DarSelfConsistency(
         mainPackageId: Ref.PackageId,
-        transitiveDependencies: Set[Ref.PackageId],
         missingDependencies: Set[Ref.PackageId],
         extraDependencies: Set[Ref.PackageId],
     ) extends Error
         with OptionalLogReporting {
       def message: String =
-        s"For package $mainPackageId, the set of package dependencies ${transitiveDependencies
-            .mkString("{'", "', '", "'}")} is not self consistent, " +
+        s"For package $mainPackageId, the set of package dependencies is not self consistent, " +
           (if (missingDependencies.nonEmpty)
              s"the missing dependencies are ${missingDependencies.mkString("{'", "', '", "'}")} "
            else "") +
@@ -127,6 +125,8 @@ object Error {
       override def message: String =
         s"Provided value exceeds maximum nesting level of ${Value.MAXIMUM_NESTING}"
     }
+
+    final case class MalformedText(override val message: String) extends Error
 
     final case class IllegalContractId(cid: Value.ContractId, reason: IllegalContractId.Reason)
         extends Error {

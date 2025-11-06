@@ -21,7 +21,8 @@ import com.digitalasset.canton.store.*
 import com.digitalasset.canton.store.SequencedEventStore.CounterAndTimestamp
 import com.digitalasset.canton.store.db.DbSequencedEventStore.*
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
-import com.digitalasset.canton.util.EitherTUtil
+import com.digitalasset.canton.util.{EitherTUtil, MaxBytesToDecompress}
+import com.digitalasset.canton.version.ProtocolVersionValidation
 import slick.jdbc.{GetResult, SetParameter}
 
 import scala.concurrent.ExecutionContext
@@ -35,6 +36,8 @@ class DbSequencedEventStore(
     extends SequencedEventStore
     with DbStore
     with DbPrunableByTime[IndexedPhysicalSynchronizer] {
+
+  private val maxBytesToDecompress = MaxBytesToDecompress.Default
 
   override protected[this] implicit def setParameterIndexedSynchronizer
       : SetParameter[IndexedPhysicalSynchronizer] = IndexedString.setParameterIndexedString
@@ -67,7 +70,13 @@ class DbSequencedEventStore(
           val signedEvent = SignedContent
             .fromTrustedByteArray(eventBytes)
             .flatMap(
-              _.deserializeContent(SequencedEvent.fromByteString(protocolVersion, _))
+              _.deserializeContent(
+                SequencedEvent.fromByteString(
+                  ProtocolVersionValidation.PV(protocolVersion),
+                  maxBytesToDecompress,
+                  _,
+                )
+              )
             )
             .valueOr(err =>
               throw new DbDeserializationException(s"Failed to deserialize sequenced event: $err")
@@ -122,8 +131,8 @@ class DbSequencedEventStore(
   ): EitherT[FutureUnlessShutdown, SequencedEventNotFoundError, PossiblyIgnoredSerializedEvent] = {
     val query = criterion match {
       case ByTimestamp(timestamp) =>
-        // The implementation assumes that we timestamps on sequenced events increases monotonically with the sequencer counter
-        // It therefore is fine to take the first event that we find.
+        // The implementation assumes that timestamps on sequenced events increase monotonically with the sequencer counter
+        // Therefore it is fine to take the first event that we find.
         sql"""select type, sequencer_counter, ts, sequenced_event, trace_context, ignore from common_sequenced_events
                 where physical_synchronizer_idx = $partitionKey and ts = $timestamp"""
       case LatestUpto(inclusive) =>

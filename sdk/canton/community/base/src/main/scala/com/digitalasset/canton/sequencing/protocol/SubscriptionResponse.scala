@@ -6,7 +6,8 @@ package com.digitalasset.canton.sequencing.protocol
 import com.digitalasset.canton.sequencer.api.v30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.util.MaxBytesToDecompress
+import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionValidation}
 
 final case class SubscriptionResponse(
     signedSequencedEvent: SignedContent[SequencedEvent[ClosedEnvelope]],
@@ -15,7 +16,8 @@ final case class SubscriptionResponse(
 
 object SubscriptionResponse {
   def fromVersionedProtoV30(
-      protocolVersion: ProtocolVersion
+      maxBytesToDecompress: MaxBytesToDecompress,
+      protocolVersion: ProtocolVersion,
   )(responseP: v30.SubscriptionResponse)(implicit
       traceContext: TraceContext
   ): ParsingResult[SubscriptionResponse] = {
@@ -26,7 +28,11 @@ object SubscriptionResponse {
     for {
       signedContent <- SignedContent.fromByteString(protocolVersion, signedSequencedEvent)
       signedSequencedEvent <- signedContent.deserializeContent(
-        SequencedEvent.fromByteString(protocolVersion, _)
+        SequencedEvent.fromByteString(
+          ProtocolVersionValidation.PV(protocolVersion),
+          maxBytesToDecompress,
+          _,
+        )
       )
     } yield SubscriptionResponse(signedSequencedEvent, traceContext)
 

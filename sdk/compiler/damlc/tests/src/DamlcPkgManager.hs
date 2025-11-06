@@ -10,12 +10,14 @@ import DA.Bazel.Runfiles
 import DA.Daml.Dar.Reader
 import DA.Daml.Helper.Ledger (downloadAllReachablePackages)
 import qualified DA.Daml.LF.Ast as LF
+import DA.Daml.Project.Consts (packagePathEnvVar)
 import DA.Test.Sandbox
 import qualified Data.HashMap.Strict as HMS
 import Data.List
 import qualified Data.Map as M
 import Data.Maybe
 import qualified Data.Text.Extended as T
+import Data.Time.Clock.POSIX (getPOSIXTime)
 import SdkVersion (SdkVersioned, sdkVersion, withSdkVersions)
 import System.Directory
 import System.Environment.Blank
@@ -25,6 +27,7 @@ import System.IO.Extra
 import System.Process
 import Test.Tasty
 import Test.Tasty.HUnit
+import Web.JWT (numericDate)
 
 main :: IO ()
 main = withSdkVersions $ do
@@ -40,7 +43,7 @@ tests damlc dar =
     testGroup "damlc package manager" [testsForRemoteDataDependencies damlc dar]
 
 lfVersion :: LF.Version
-lfVersion = LF.defaultOrLatestStable LF.V2
+lfVersion = LF.defaultLfVersion
 
 testsForRemoteDataDependencies :: SdkVersioned => FilePath -> FilePath -> TestTree
 testsForRemoteDataDependencies damlc dar =
@@ -74,7 +77,7 @@ testsForRemoteDataDependencies damlc dar =
                             , "template T with p : Party where"
                             , "  signatory p"
                             ]
-                    setEnv "DAML_PROJECT" projDir True
+                    setEnv packagePathEnvVar projDir True
                     (exitCode, _stdout, _stderr) <- readProcessWithExitCode damlc ["build"] ""
                     exitCode @?= ExitSuccess
               , testCase "package name:version data-dependency" $
@@ -103,7 +106,7 @@ testsForRemoteDataDependencies damlc dar =
                             , "template T with p : Party where"
                             , "  signatory p"
                             ]
-                    setEnv "DAML_PROJECT" projDir True
+                    setEnv packagePathEnvVar projDir True
                     (exitCode, _stdout, _stderr) <- readProcessWithExitCode damlc ["build"] ""
                     exitCode @?= ExitSuccess
                   -- check that a lock file is written
@@ -173,7 +176,8 @@ testsForRemoteDataDependencies damlc dar =
                     InspectInfo {mainPackageId} <- getDarInfo dar
                     let mainPkgId = T.unpack $ LF.unPackageId mainPackageId
                     let tokenFp = projDir </> "token"
-                    writeFileUTF8 tokenFp $ makeSignedAdminJwt "secret"
+                    expiration <- numericDate . (+180) <$> getPOSIXTime
+                    writeFileUTF8 tokenFp $ makeSignedAdminJwt "secret" expiration
                     sandboxPort <- getSandboxPort
                     writeFileUTF8 (projDir </> "daml.yaml") $
                         unlines
@@ -197,7 +201,7 @@ testsForRemoteDataDependencies damlc dar =
                             , "template T with p : Party where"
                             , "  signatory p"
                             ]
-                    setEnv "DAML_PROJECT" projDir True
+                    setEnv packagePathEnvVar projDir True
                     (exitCode, _stdout, _stderr) <- readProcessWithExitCode damlc ["build"] ""
                     exitCode @?= ExitSuccess
               ]

@@ -13,7 +13,7 @@ import com.digitalasset.canton.ledger.participant.state.{RoutingSynchronizerStat
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.{
   LfContractId,
-  LfLanguageVersion,
+  LfSerializationVersion,
   LfVersionedTransaction,
   Stakeholders,
 }
@@ -55,7 +55,7 @@ private[routing] final case class TransactionData private (
     prescribedSynchronizerIdO: Option[PhysicalSynchronizerId],
 ) {
   val informees: Set[LfPartyId] = requiredPackagesPerParty.keySet
-  val version: LfLanguageVersion = transaction.version
+  val version: LfSerializationVersion = transaction.version
   val readers: Set[LfPartyId] = actAs.union(readAs)
 }
 

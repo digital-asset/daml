@@ -6,13 +6,9 @@ package com.digitalasset.canton.integration.tests.multihostedparties
 import better.files.File
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
-import com.digitalasset.canton.integration.util.{AcsInspection, PartyToParticipantDeclarative}
+import com.digitalasset.canton.integration.tests.multihostedparties.PartyActivationFlow.authorizeWithTargetDisconnect
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
@@ -20,7 +16,6 @@ import com.digitalasset.canton.integration.{
   TestConsoleEnvironment,
 }
 import com.digitalasset.canton.topology.PartyId
-import com.digitalasset.canton.topology.transaction.ParticipantPermission as PP
 
 /** Consider the following setup:
   *   - Alice, Bob hosted on participant1
@@ -30,10 +25,9 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission as PP
   * We check that we can first replicate Alice and then Bob. The reason for this that is that it was
   * a limitation in 2.x
   */
-trait OfflinePartyReplicationSharedContractIntegrationTest
+sealed trait OfflinePartyReplicationSharedContractIntegrationTest
     extends CommunityIntegrationTest
-    with SharedEnvironment
-    with AcsInspection {
+    with SharedEnvironment {
 
   private val aliceName = "Alice"
   private val bobName = "Bob"
@@ -45,6 +39,7 @@ trait OfflinePartyReplicationSharedContractIntegrationTest
     EnvironmentDefinition.P2_S1M1.withSetup { implicit env =>
       import env.*
 
+      // TODO(#27707) - Remove when ACS commitments consider the onboarding flag
       sequencer1.topology.synchronizer_parameters.propose_update(
         synchronizerId = daId,
         _.update(reconciliationInterval = config.PositiveDurationSeconds.ofDays(365)),
@@ -63,36 +58,19 @@ trait OfflinePartyReplicationSharedContractIntegrationTest
   )(implicit env: TestConsoleEnvironment): Unit = {
     import env.*
 
-    val ledgerEndP1 = participant1.ledger_api.state.end()
-
-    PartyToParticipantDeclarative.forParty(Set(participant1, participant2), daId)(
-      participant1,
-      party,
-      PositiveInt.one,
-      Set(
-        (participant1, PP.Submission),
-        (participant2, PP.Observation),
-      ),
-    )
-
-    val partyAddedOnP2Offset = participant1.parties
-      .find_party_max_activation_offset(
-        partyId = party,
-        participantId = participant2.id,
-        synchronizerId = daId,
-        beginOffsetExclusive = ledgerEndP1,
-        completeAfter = PositiveInt.one,
-      )
+    val beforeActivationOffset =
+      authorizeWithTargetDisconnect(party, daId, source = participant1, target = participant2)
 
     val file = File.newTemporaryFile(s"acs_export_chopper_$party")
-    participant1.parties.export_acs(
-      Set(party),
+    participant1.parties.export_party_acs(
+      party = party,
+      synchronizerId = daId.logical,
+      targetParticipantId = participant2.id,
+      beginOffsetExclusive = beforeActivationOffset,
       exportFilePath = file.canonicalPath,
-      ledgerOffset = partyAddedOnP2Offset,
     )
 
-    participant2.synchronizers.disconnect_all()
-    participant2.repair.import_acs(file.canonicalPath)
+    participant2.parties.import_party_acs(file.canonicalPath)
     participant2.synchronizers.reconnect_all()
   }
 
@@ -116,8 +94,8 @@ trait OfflinePartyReplicationSharedContractIntegrationTest
   }
 }
 
-class OfflinePartyReplicationSharedContractIntegrationTestPostgres
+final class OfflinePartyReplicationSharedContractIntegrationTestPostgres
     extends OfflinePartyReplicationSharedContractIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }

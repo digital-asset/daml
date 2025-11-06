@@ -12,10 +12,7 @@ import com.digitalasset.canton.config.{DbConfig, PositiveDurationSeconds}
 import com.digitalasset.canton.console.{CommandFailure, LocalMediatorReference}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.integration.*
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.util.BackgroundWorkloadRunner
 import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.scheduler.IgnoresTransientSchedulerErrors
@@ -25,7 +22,7 @@ import scala.util.chaining.*
 
 class ScheduledMediatorPruningTestPostgres extends ScheduledMediatorPruningTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }
 
 abstract class ScheduledMediatorPruningTest
@@ -108,7 +105,7 @@ abstract class ScheduledMediatorPruningTest
         // In the second half, the pruning test is able to prune a lot more aggressively according to the 4 second
         // timeout set as a dynamic synchronizer parameter.
         val secondsWorstCaseUntilFirstPrune = DynamicSynchronizerParameters
-          .initialValues(env.environment.clock, testedProtocolVersion)
+          .initialValues(testedProtocolVersion)
           .confirmationResponseTimeout // == 30.seconds
           .unwrap
           .getSeconds

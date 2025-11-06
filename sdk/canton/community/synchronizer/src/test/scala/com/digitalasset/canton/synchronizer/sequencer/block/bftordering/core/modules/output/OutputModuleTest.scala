@@ -7,9 +7,7 @@ import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.TracedLogger
-import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.sequencer.admin.v30
-import com.digitalasset.canton.sequencing.protocol.MaxRequestSizeToDeserialize
 import com.digitalasset.canton.synchronizer.block.BlockFormat
 import com.digitalasset.canton.synchronizer.block.BlockFormat.OrderedRequest
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
@@ -28,6 +26,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.OutputModule.{
   DefaultRequestInspector,
+  FixedResultRequestInspector,
   RequestInspector,
   StartupState,
 }
@@ -99,7 +98,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.{
   fakeIgnoringModule,
   fakeModuleExpectingSilence,
 }
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext, Traced}
+import com.digitalasset.canton.util.MaxBytesToDecompress
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, HasActorSystem, HasExecutionContext}
 import com.google.protobuf.ByteString
@@ -503,15 +503,15 @@ class OutputModuleTest
 
       blockSubscription.subscription().take(2).runWith(Sink.seq).map { blocks =>
         blocks.size shouldBe 2
-        val initialBlock = blocks.head
+        val initialBlock = blocks.head.value
         initialBlock.blockHeight shouldBe BlockNumber.First
         initialBlock.requests.size shouldBe 1
         initialBlock.requests.head shouldBe Traced(
           OrderedRequest(aTimestamp.toMicros, aTag, ByteString.EMPTY, BftNodeId.Empty)
         )
         val nextBlock = blocks(1)
-        nextBlock.blockHeight shouldBe secondBlockNumber
-        nextBlock.requests should be(empty)
+        nextBlock.value.blockHeight shouldBe secondBlockNumber
+        nextBlock.value.requests should be(empty)
       }
     }
 
@@ -555,8 +555,8 @@ class OutputModuleTest
       )
 
       blockSubscription.subscription().runWith(Sink.head).map { block =>
-        block.blockHeight shouldBe secondBlockNumber
-        block.requests should be(empty)
+        block.value.blockHeight shouldBe secondBlockNumber
+        block.value.requests should be(empty)
       }
     }
 
@@ -598,8 +598,8 @@ class OutputModuleTest
       )
 
       blockSubscription.subscription().runWith(Sink.head).map { block =>
-        block.blockHeight shouldBe initialHeight
-        block.requests should be(empty)
+        block.value.blockHeight shouldBe initialHeight
+        block.value.requests should be(empty)
       }
     }
 
@@ -644,7 +644,7 @@ class OutputModuleTest
             val newCryptoProvider = failingCryptoProvider[ProgrammableUnitTestEnv]
             when(topologyProviderMock.getOrderingTopologyAt(topologyActivationTime))
               .thenReturn(() => Some((newOrderingTopology, newCryptoProvider)))
-            val subscriptionBlocks = mutable.Queue.empty[BlockFormat.Block]
+            val subscriptionBlocks = mutable.Queue.empty[Traced[BlockFormat.Block]]
             implicit val context
                 : ProgrammableUnitTestContext[Output.Message[ProgrammableUnitTestEnv]] =
               new ProgrammableUnitTestContext(resolveAwaits = true)
@@ -719,10 +719,10 @@ class OutputModuleTest
 
             // All blocks have now been output to the subscription
             subscriptionBlocks should have size 2
-            val block1 = subscriptionBlocks.dequeue()
+            val block1 = subscriptionBlocks.dequeue().value
             block1.blockHeight shouldBe BlockNumber.First
             block1.tickTopologyAtMicrosFromEpoch shouldBe None
-            val block2 = subscriptionBlocks.dequeue()
+            val block2 = subscriptionBlocks.dequeue().value
             block2.blockHeight shouldBe BlockNumber(1)
             // We should tick even during state transfer if the epoch has potential sequencer topology changes
             block2.tickTopologyAtMicrosFromEpoch shouldBe Some(anotherTimestamp.toMicros)
@@ -847,17 +847,11 @@ class OutputModuleTest
 
     "not process a block from a future epoch" when {
       "receiving multiple state-transferred blocks" in {
-        val subscriptionBlocks = mutable.Queue.empty[BlockFormat.Block]
+        val subscriptionBlocks = mutable.Queue.empty[Traced[BlockFormat.Block]]
         val output =
-          createOutputModule[ProgrammableUnitTestEnv](requestInspector = new RequestInspector {
-            override def isRequestToAllMembersOfSynchronizer(
-                request: OrderingRequest,
-                maxRequestSizeToDeserialize: MaxRequestSizeToDeserialize,
-                logger: TracedLogger,
-                traceContext: TraceContext,
-            )(implicit synchronizerProtocolVersion: ProtocolVersion): Boolean =
-              true // All requests are topology transactions
-          })(
+          createOutputModule[ProgrammableUnitTestEnv](requestInspector =
+            new FixedResultRequestInspector(true)
+          )(
             blockSubscription = new EnqueueingBlockSubscription(subscriptionBlocks)
           )
         implicit val context: ProgrammableUnitTestContext[Output.Message[ProgrammableUnitTestEnv]] =
@@ -912,15 +906,7 @@ class OutputModuleTest
         val store = spy(createOutputMetadataStore[ProgrammableUnitTestEnv])
         val output = createOutputModule[ProgrammableUnitTestEnv](
           store = store,
-          requestInspector = new RequestInspector {
-            override def isRequestToAllMembersOfSynchronizer(
-                request: OrderingRequest,
-                maxRequestSizeToDeserialize: MaxRequestSizeToDeserialize,
-                logger: TracedLogger,
-                traceContext: TraceContext,
-            )(implicit synchronizerProtocolVersion: ProtocolVersion): Boolean =
-              true // All requests are topology transactions
-          },
+          requestInspector = new FixedResultRequestInspector(true),
         )()
         implicit val context: ProgrammableUnitTestContext[Output.Message[ProgrammableUnitTestEnv]] =
           new ProgrammableUnitTestContext(resolveAwaits = true)
@@ -1067,15 +1053,7 @@ class OutputModuleTest
           initialOrderingTopology = OrderingTopology.forTesting(Set(BftNodeId("node1"))),
           orderingTopologyProvider = topologyProviderSpy,
           consensusRef = consensusRef,
-          requestInspector = new RequestInspector {
-            override def isRequestToAllMembersOfSynchronizer(
-                request: OrderingRequest,
-                maxRequestSizeToDeserialize: MaxRequestSizeToDeserialize,
-                logger: TracedLogger,
-                traceContext: TraceContext,
-            )(implicit synchronizerProtocolVersion: ProtocolVersion): Boolean =
-              false // No request is for all members of synchronizer
-          },
+          requestInspector = new FixedResultRequestInspector(false),
         )()
 
         val blockData =
@@ -1139,9 +1117,7 @@ class OutputModuleTest
             ),
         ),
         SequencingParameters.Default,
-        MaxRequestSizeToDeserialize.Limit(
-          DynamicSynchronizerParameters.defaultMaxRequestSize.value
-        ), // irrelevant for this test
+        MaxBytesToDecompress.Default, // irrelevant for this test
         topologyActivationTime,
         areTherePendingCantonTopologyChanges = false,
       )
@@ -1402,7 +1378,12 @@ class OutputModuleTest
       loggerFactory,
       timeouts,
       requestInspector,
-    )(new BftBlockOrdererConfig(), synchronizerProtocolVersion, MetricsContext.Empty)
+    )(
+      new BftBlockOrdererConfig(),
+      synchronizerProtocolVersion,
+      MetricsContext.Empty,
+      NoReportingTracerProvider.tracer,
+    )
   }
 
   private def createOutputMetadataStore[E <: BaseIgnoringUnitTestEnv[E]] =
@@ -1427,7 +1408,7 @@ object OutputModuleTest {
 
     override def isRequestToAllMembersOfSynchronizer(
         _request: OrderingRequest,
-        _maxRequestSizeToDeserialize: MaxRequestSizeToDeserialize,
+        _maxBytesToDecompress: MaxBytesToDecompress,
         _logger: TracedLogger,
         _traceContext: TraceContext,
     )(implicit _synchronizerProtocolVersion: ProtocolVersion): Boolean = {
@@ -1452,13 +1433,13 @@ object OutputModuleTest {
   }
 
   private class EnqueueingBlockSubscription(
-      subscriptionBlocks: mutable.Queue[BlockFormat.Block]
+      subscriptionBlocks: mutable.Queue[Traced[BlockFormat.Block]]
   ) extends EmptyBlockSubscription {
 
     override def receiveBlock(block: BlockFormat.Block)(implicit
         traceContext: TraceContext
     ): Unit =
-      subscriptionBlocks.enqueue(block)
+      subscriptionBlocks.enqueue(Traced(block))
   }
 
   private class FakeOrderingTopologyProvider[E <: BaseIgnoringUnitTestEnv[E]]

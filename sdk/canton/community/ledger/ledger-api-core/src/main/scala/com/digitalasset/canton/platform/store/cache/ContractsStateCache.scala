@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.cache
 
 import com.digitalasset.canton.caching.SizedCache
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.ledger.participant.state.index.ContractStateStatus
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 
@@ -12,33 +12,21 @@ import scala.concurrent.ExecutionContext
 
 object ContractsStateCache {
   def apply(
-      initialCacheIndex: Option[Offset],
+      initialCacheEventSeqIdIndex: Long,
       cacheSize: Long,
       metrics: LedgerApiServerMetrics,
       loggerFactory: NamedLoggerFactory,
   )(implicit
       ec: ExecutionContext
-  ): StateCache[ContractId, ContractStateValue] =
+  ): StateCache[ContractId, ContractStateStatus] =
     StateCache(
-      initialCacheIndex = initialCacheIndex,
-      emptyLedgerState = ContractStateValue.NotFound,
-      cache = SizedCache.from[ContractId, ContractStateValue](
+      initialCacheEventSeqIdIndex = initialCacheEventSeqIdIndex,
+      emptyLedgerState = ContractStateStatus.NotFound,
+      cache = SizedCache.from[ContractId, ContractStateStatus](
         SizedCache.Configuration(cacheSize),
         metrics.execution.cache.contractState.stateCache,
       ),
       registerUpdateTimer = metrics.execution.cache.contractState.registerCacheUpdate,
       loggerFactory = loggerFactory,
     )
-}
-
-sealed trait ContractStateValue extends Product with Serializable
-
-object ContractStateValue {
-  final case object NotFound extends ContractStateValue
-
-  sealed trait ExistingContractValue extends ContractStateValue
-
-  final case class Active(contract: FatContract) extends ExistingContractValue
-
-  final case class Archived(stakeholders: Set[Party]) extends ExistingContractValue
 }

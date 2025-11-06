@@ -19,13 +19,7 @@ import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.sequencing.TrafficControlParameters
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.time.{
-  Clock,
-  NonNegativeFiniteDuration,
-  PositiveSeconds,
-  RemoteClock,
-  SimClock,
-}
+import com.digitalasset.canton.time.{NonNegativeFiniteDuration, PositiveSeconds}
 import com.digitalasset.canton.topology.transaction.ParticipantSynchronizerLimits
 import com.digitalasset.canton.util.EitherUtil.RichEither
 import com.digitalasset.canton.version.*
@@ -68,6 +62,7 @@ final case class StaticSynchronizerParameters(
     requiredHashAlgorithms: NonEmpty[Set[HashAlgorithm]],
     requiredCryptoKeyFormats: NonEmpty[Set[CryptoKeyFormat]],
     requiredSignatureFormats: NonEmpty[Set[SignatureFormat]],
+    topologyChangeDelay: NonNegativeFiniteDuration,
     enableTransparencyChecks: Boolean,
     protocolVersion: ProtocolVersion,
     serial: NonNegativeInt,
@@ -89,6 +84,7 @@ final case class StaticSynchronizerParameters(
       requiredHashAlgorithms = requiredHashAlgorithms.toSeq.map(_.toProtoEnum),
       requiredCryptoKeyFormats = requiredCryptoKeyFormats.toSeq.map(_.toProtoEnum),
       requiredSignatureFormats = requiredSignatureFormats.toSeq.map(_.toProtoEnum),
+      topologyChangeDelay = Some(topologyChangeDelay.toProtoPrimitive),
       enableTransparencyChecks = enableTransparencyChecks,
       protocolVersion = protocolVersion.toProtoPrimitive,
       serial = serial.value,
@@ -100,6 +96,7 @@ final case class StaticSynchronizerParameters(
     param("required symmetric key schemes", _.requiredSymmetricKeySchemes),
     param("required hash algorithms", _.requiredHashAlgorithms),
     param("required crypto key formats", _.requiredCryptoKeyFormats),
+    param("topology change delay", _.topologyChangeDelay),
     param("enable transparency checks", _.enableTransparencyChecks),
     param("protocol version", _.protocolVersion),
     param("serial", _.serial),
@@ -111,6 +108,11 @@ object StaticSynchronizerParameters
     with ProtocolVersionedCompanionDbHelpers[StaticSynchronizerParameters] {
 
   // Note: if you need static synchronizer parameters for testing, look at BaseTest.defaultStaticSynchronizerParametersWith
+
+  val defaultTopologyChangeDelay: NonNegativeFiniteDuration =
+    NonNegativeFiniteDuration.tryOfMillis(250)
+  val defaultTopologyChangeDelayNonStandardClock: NonNegativeFiniteDuration =
+    NonNegativeFiniteDuration.Zero // SimClock, RemoteClock
 
   val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(
@@ -143,6 +145,7 @@ object StaticSynchronizerParameters
       protocolVersionP,
       serialP,
       enableTransparencyChecks,
+      topologyChangeDelayP,
     ) = synchronizerParametersP
 
     for {
@@ -178,6 +181,11 @@ object StaticSynchronizerParameters
         requiredSignatureFormatsP,
         SignatureFormat.fromProtoEnum,
       )
+      topologyChangeDelay <- ProtoConverter.parseRequired(
+        NonNegativeFiniteDuration.fromProtoPrimitive("topology_change_delay")(_),
+        "topology_change_delay",
+        topologyChangeDelayP,
+      )
       protocolVersion <- ProtocolVersion.fromProtoPrimitive(protocolVersionP)
       serial <- ProtoConverter.parseNonNegativeInt("serial", serialP)
     } yield StaticSynchronizerParameters(
@@ -187,6 +195,7 @@ object StaticSynchronizerParameters
       requiredHashAlgorithms,
       requiredCryptoKeyFormats,
       requiredSignatureFormats,
+      topologyChangeDelay,
       enableTransparencyChecks,
       protocolVersion,
       serial,
@@ -334,8 +343,7 @@ object OnboardingRestriction {
   *   protobuf version v2 and protocol version v30. If None, the catch-up mode is disabled: the
   *   participant does not trigger the catch-up mode when lagging behind. If not None, it specifies
   *   the number of reconciliation intervals that the participant skips in catch-up mode, and the
-  *   number of catch-up intervals intervals a participant should lag behind in order to enter
-  *   catch-up mode.
+  *   number of catch-up intervals a participant should lag behind in order to enter catch-up mode.
   * @param preparationTimeRecordTimeTolerance
   *   the maximum absolute difference between the preparation time and the record time of a command.
   *   If the absolute difference would be larger for a command, then the command must be rejected.
@@ -347,7 +355,6 @@ final case class DynamicSynchronizerParameters private (
     confirmationResponseTimeout: NonNegativeFiniteDuration,
     mediatorReactionTimeout: NonNegativeFiniteDuration,
     assignmentExclusivityTimeout: NonNegativeFiniteDuration,
-    topologyChangeDelay: NonNegativeFiniteDuration,
     ledgerTimeRecordTimeTolerance: NonNegativeFiniteDuration,
     mediatorDeduplicationTimeout: NonNegativeFiniteDuration,
     reconciliationInterval: PositiveSeconds,
@@ -440,7 +447,6 @@ final case class DynamicSynchronizerParameters private (
       confirmationResponseTimeout: NonNegativeFiniteDuration = confirmationResponseTimeout,
       mediatorReactionTimeout: NonNegativeFiniteDuration = mediatorReactionTimeout,
       assignmentExclusivityTimeout: NonNegativeFiniteDuration = assignmentExclusivityTimeout,
-      topologyChangeDelay: NonNegativeFiniteDuration = topologyChangeDelay,
       ledgerTimeRecordTimeTolerance: NonNegativeFiniteDuration = ledgerTimeRecordTimeTolerance,
       mediatorDeduplicationTimeout: NonNegativeFiniteDuration = mediatorDeduplicationTimeout,
       reconciliationInterval: PositiveSeconds = reconciliationInterval,
@@ -457,7 +463,6 @@ final case class DynamicSynchronizerParameters private (
     confirmationResponseTimeout = confirmationResponseTimeout,
     mediatorReactionTimeout = mediatorReactionTimeout,
     assignmentExclusivityTimeout = assignmentExclusivityTimeout,
-    topologyChangeDelay = topologyChangeDelay,
     ledgerTimeRecordTimeTolerance = ledgerTimeRecordTimeTolerance,
     mediatorDeduplicationTimeout = mediatorDeduplicationTimeout,
     reconciliationInterval = reconciliationInterval,
@@ -474,7 +479,6 @@ final case class DynamicSynchronizerParameters private (
     confirmationResponseTimeout = Some(confirmationResponseTimeout.toProtoPrimitive),
     mediatorReactionTimeout = Some(mediatorReactionTimeout.toProtoPrimitive),
     assignmentExclusivityTimeout = Some(assignmentExclusivityTimeout.toProtoPrimitive),
-    topologyChangeDelay = Some(topologyChangeDelay.toProtoPrimitive),
     ledgerTimeRecordTimeTolerance = Some(ledgerTimeRecordTimeTolerance.toProtoPrimitive),
     mediatorDeduplicationTimeout = Some(mediatorDeduplicationTimeout.toProtoPrimitive),
     reconciliationInterval = Some(reconciliationInterval.toProtoPrimitive),
@@ -493,7 +497,6 @@ final case class DynamicSynchronizerParameters private (
       param("confirmation response timeout", _.confirmationResponseTimeout),
       param("mediator reaction timeout", _.mediatorReactionTimeout),
       param("assignment exclusivity timeout", _.assignmentExclusivityTimeout),
-      param("topology change delay", _.topologyChangeDelay),
       param("ledger time record time tolerance", _.ledgerTimeRecordTimeTolerance),
       param("mediator deduplication timeout", _.mediatorDeduplicationTimeout),
       param("reconciliation interval", _.reconciliationInterval),
@@ -542,11 +545,6 @@ object DynamicSynchronizerParameters extends VersioningCompanion[DynamicSynchron
   private val defaultTrafficControlParameters: Option[TrafficControlParameters] =
     Option.empty[TrafficControlParameters]
 
-  private val defaultTopologyChangeDelay: NonNegativeFiniteDuration =
-    NonNegativeFiniteDuration.tryOfMillis(250)
-  private val defaultTopologyChangeDelayNonStandardClock: NonNegativeFiniteDuration =
-    NonNegativeFiniteDuration.Zero // SimClock, RemoteClock
-
   private val defaultLedgerTimeRecordTimeTolerance: NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.tryOfSeconds(60)
 
@@ -567,6 +565,12 @@ object DynamicSynchronizerParameters extends VersioningCompanion[DynamicSynchron
     AcsCommitmentsCatchUpParameters(PositiveInt.tryCreate(5), PositiveInt.tryCreate(2))
   )
 
+  val confirmationResponseTimeoutBounds =
+    (NonNegativeFiniteDuration.tryOfSeconds(1), NonNegativeFiniteDuration.tryOfMinutes(5))
+
+  val mediatorReactionTimeoutBounds =
+    (NonNegativeFiniteDuration.tryOfSeconds(1), NonNegativeFiniteDuration.tryOfMinutes(5))
+
   /** Safely creates DynamicSynchronizerParameters.
     *
     * @return
@@ -577,7 +581,6 @@ object DynamicSynchronizerParameters extends VersioningCompanion[DynamicSynchron
       confirmationResponseTimeout: NonNegativeFiniteDuration,
       mediatorReactionTimeout: NonNegativeFiniteDuration,
       assignmentExclusivityTimeout: NonNegativeFiniteDuration,
-      topologyChangeDelay: NonNegativeFiniteDuration,
       ledgerTimeRecordTimeTolerance: NonNegativeFiniteDuration,
       mediatorDeduplicationTimeout: NonNegativeFiniteDuration,
       reconciliationInterval: PositiveSeconds,
@@ -598,7 +601,6 @@ object DynamicSynchronizerParameters extends VersioningCompanion[DynamicSynchron
         confirmationResponseTimeout,
         mediatorReactionTimeout,
         assignmentExclusivityTimeout,
-        topologyChangeDelay,
         ledgerTimeRecordTimeTolerance,
         mediatorDeduplicationTimeout,
         reconciliationInterval,
@@ -621,7 +623,6 @@ object DynamicSynchronizerParameters extends VersioningCompanion[DynamicSynchron
       confirmationResponseTimeout: NonNegativeFiniteDuration,
       mediatorReactionTimeout: NonNegativeFiniteDuration,
       assignmentExclusivityTimeout: NonNegativeFiniteDuration,
-      topologyChangeDelay: NonNegativeFiniteDuration,
       ledgerTimeRecordTimeTolerance: NonNegativeFiniteDuration,
       mediatorDeduplicationTimeout: NonNegativeFiniteDuration,
       reconciliationInterval: PositiveSeconds,
@@ -641,7 +642,6 @@ object DynamicSynchronizerParameters extends VersioningCompanion[DynamicSynchron
       confirmationResponseTimeout,
       mediatorReactionTimeout,
       assignmentExclusivityTimeout,
-      topologyChangeDelay,
       ledgerTimeRecordTimeTolerance,
       mediatorDeduplicationTimeout,
       reconciliationInterval,
@@ -656,10 +656,9 @@ object DynamicSynchronizerParameters extends VersioningCompanion[DynamicSynchron
 
   /** Default dynamic synchronizer parameters for non-static clocks */
   def defaultValues(protocolVersion: ProtocolVersion): DynamicSynchronizerParameters =
-    initialValues(defaultTopologyChangeDelay, protocolVersion)
+    initialValues(protocolVersion)
 
   def initialValues(
-      topologyChangeDelay: NonNegativeFiniteDuration,
       protocolVersion: ProtocolVersion,
       mediatorReactionTimeout: NonNegativeFiniteDuration = defaultMediatorReactionTimeout,
   ): DynamicSynchronizerParameters = checked( // safe because default values are safe
@@ -667,7 +666,6 @@ object DynamicSynchronizerParameters extends VersioningCompanion[DynamicSynchron
       confirmationResponseTimeout = defaultConfirmationResponseTimeout,
       mediatorReactionTimeout = mediatorReactionTimeout,
       assignmentExclusivityTimeout = defaultAssignmentExclusivityTimeout,
-      topologyChangeDelay = topologyChangeDelay,
       ledgerTimeRecordTimeTolerance = defaultLedgerTimeRecordTimeTolerance,
       mediatorDeduplicationTimeout = defaultMediatorDeduplicationTimeout,
       reconciliationInterval = DynamicSynchronizerParameters.defaultReconciliationInterval,
@@ -685,7 +683,6 @@ object DynamicSynchronizerParameters extends VersioningCompanion[DynamicSynchron
   )
 
   def tryInitialValues(
-      topologyChangeDelay: NonNegativeFiniteDuration,
       protocolVersion: ProtocolVersion,
       confirmationRequestsMaxRate: NonNegativeInt =
         DynamicSynchronizerParameters.defaultConfirmationRequestsMaxRate,
@@ -703,7 +700,6 @@ object DynamicSynchronizerParameters extends VersioningCompanion[DynamicSynchron
       confirmationResponseTimeout = confirmationResponseTimeout,
       mediatorReactionTimeout = mediatorReactionTimeout,
       assignmentExclusivityTimeout = defaultAssignmentExclusivityTimeout,
-      topologyChangeDelay = topologyChangeDelay,
       ledgerTimeRecordTimeTolerance = defaultLedgerTimeRecordTimeTolerance,
       mediatorDeduplicationTimeout = defaultMediatorDeduplicationTimeout,
       reconciliationInterval = reconciliationInterval,
@@ -718,17 +714,6 @@ object DynamicSynchronizerParameters extends VersioningCompanion[DynamicSynchron
       protocolVersionRepresentativeFor(protocolVersion)
     )
 
-  def initialValues(
-      clock: Clock,
-      protocolVersion: ProtocolVersion,
-  ): DynamicSynchronizerParameters = {
-    val topologyChangeDelay = clock match {
-      case _: RemoteClock | _: SimClock => defaultTopologyChangeDelayNonStandardClock
-      case _ => defaultTopologyChangeDelay
-    }
-    initialValues(topologyChangeDelay, protocolVersion)
-  }
-
   // if there is no topology change delay defined (or not yet propagated), we'll use this one
   val topologyChangeDelayIfAbsent: NonNegativeFiniteDuration = NonNegativeFiniteDuration.Zero
 
@@ -739,7 +724,6 @@ object DynamicSynchronizerParameters extends VersioningCompanion[DynamicSynchron
       confirmationResponseTimeoutP,
       mediatorReactionTimeoutP,
       assignmentExclusivityTimeoutP,
-      topologyChangeDelayP,
       ledgerTimeRecordTimeToleranceP,
       reconciliationIntervalP,
       mediatorDeduplicationTimeoutP,
@@ -767,9 +751,6 @@ object DynamicSynchronizerParameters extends VersioningCompanion[DynamicSynchron
         "assignmentExclusivityTimeout"
       )(
         assignmentExclusivityTimeoutP
-      )
-      topologyChangeDelay <- NonNegativeFiniteDuration.fromProtoPrimitiveO("topologyChangeDelay")(
-        topologyChangeDelayP
       )
       ledgerTimeRecordTimeTolerance <- NonNegativeFiniteDuration.fromProtoPrimitiveO(
         "ledgerTimeRecordTimeTolerance"
@@ -826,7 +807,6 @@ object DynamicSynchronizerParameters extends VersioningCompanion[DynamicSynchron
           confirmationResponseTimeout = confirmationResponseTimeout,
           mediatorReactionTimeout = mediatorReactionTimeout,
           assignmentExclusivityTimeout = assignmentExclusivityTimeout,
-          topologyChangeDelay = topologyChangeDelay,
           ledgerTimeRecordTimeTolerance = ledgerTimeRecordTimeTolerance,
           mediatorDeduplicationTimeout = mediatorDeduplicationTimeout,
           reconciliationInterval = reconciliationInterval,
@@ -924,13 +904,89 @@ final case class DynamicSynchronizerParametersWithValidity(
   def mediatorDeduplicationTimeout: NonNegativeFiniteDuration =
     parameters.mediatorDeduplicationTimeout
 
-  def topologyChangeDelay: NonNegativeFiniteDuration = parameters.topologyChangeDelay
   def assignmentExclusivityTimeout: NonNegativeFiniteDuration =
     parameters.assignmentExclusivityTimeout
   def sequencerTopologyTimestampTolerance: NonNegativeFiniteDuration =
     parameters.sequencerTopologyTimestampTolerance
   def submissionCostTimestampTopologyTolerance: NonNegativeFiniteDuration =
     parameters.submissionCostTimestampTopologyTolerance
+}
+
+object DynamicSynchronizerParametersWithValidity {
+  implicit lazy val ordering: Ordering[DynamicSynchronizerParametersWithValidity] =
+    Ordering.by(params =>
+      (
+        params.validFrom,
+        // Sort None last using Boolean which sorts false before true
+        params.validUntil.isEmpty,
+        params.validUntil,
+      )
+    )
+}
+
+/** Utility functions for operating on a sequence (history) of dynamic synchronizer parameters.
+  */
+object DynamicSynchronizerParametersHistory {
+
+  /** Computes the latest possible decision deadline based on a history of parameter changes.
+    *
+    * For each item in the history, a potential deadline is calculated by adding its
+    * `decisionTimeout` to its `validUntil` timestamp. This method returns the maximum value among
+    * all computed deadlines and the initial `lowerBound`.
+    *
+    * @param history
+    *   The sequence of parameter changes over time.
+    * @param lowerBound
+    *   The minimum timestamp for the result. It also serves as a fallback for items that have an
+    *   undefined `validUntil`.
+    * @return
+    *   The latest possible decision deadline, guaranteed to be at least `lowerBound`.
+    */
+  def latestDecisionDeadline(
+      history: Seq[DynamicSynchronizerParametersWithValidity],
+      lowerBound: CantonTimestamp,
+  ): CantonTimestamp =
+    history.foldLeft(lowerBound) { case (previousBound, parametersChange) =>
+      val parameters = parametersChange.parameters
+      val maxTime = parametersChange.validUntil.getOrElse(lowerBound)
+
+      val newBound = maxTime + parameters.decisionTimeout
+
+      newBound.max(previousBound)
+    }
+
+  /** Computes the latest possible decision deadline based on a history of parameter changes
+    * relative to a given topology effective timestamp as an anchor.
+    *
+    * Note the special handling of the parameters valid at `effectiveAt` below and the associated
+    * need to order the parameters by `validFrom` and `validUntil` in descending order.
+    */
+  def latestDecisionDeadlineEffectiveAt(
+      history: Seq[DynamicSynchronizerParametersWithValidity],
+      effectiveAt: CantonTimestamp,
+  ): CantonTimestamp = {
+    val newestToOldest = NonEmpty
+      .from(history.sorted(DynamicSynchronizerParametersWithValidity.ordering.reverse))
+      .getOrElse(throw new IllegalStateException("no synchronizer parameters found"))
+
+    // Extract parameters valid at effectiveAt for explicit calculation
+    // in case parametersAtEffectiveTs has since been redefined (i.e. validUntil.nonEmpty)
+    // as we want to anchor the "effectiveAt" decision timeout valid at effectiveAt
+    // rather than at validUntil.
+    val parametersAtEffectiveTs = newestToOldest.head1
+
+    // Topology sanity check
+    require(
+      parametersAtEffectiveTs.validUntil.forall(effectiveAt < _),
+      s"Parameters effective at $effectiveAt can only be expired later, but encountered ${parametersAtEffectiveTs.validUntil}",
+    )
+
+    val historyExcludingEffectiveTsParams = newestToOldest.tail1
+    DynamicSynchronizerParametersHistory.latestDecisionDeadline(
+      historyExcludingEffectiveTsParams,
+      effectiveAt + parametersAtEffectiveTs.parameters.decisionTimeout,
+    )
+  }
 }
 
 /** The class specifies the catch-up parameters governing the catch-up mode of a participant lagging

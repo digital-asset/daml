@@ -50,7 +50,7 @@ getPortForSandbox defaultPortSpec portSpecM =
         SpecifiedPort port -> pure (unSandboxPort port)
         FreePort -> fromIntegral <$> getFreePort
 
-determineCantonOptions :: Maybe SandboxPortSpec -> SandboxCantonPortSpec -> FilePath -> Maybe JsonApiPort -> IO CantonOptions
+determineCantonOptions :: Maybe SandboxPortSpec -> SandboxCantonPortSpec -> FilePath -> JsonApiPort -> IO CantonOptions
 determineCantonOptions ledgerApiSpec SandboxCantonPortSpec{..} portFile jsonApi = do
     cantonLedgerApi <- getPortForSandbox (SpecifiedPort (SandboxPort (ledger defaultSandboxPorts))) ledgerApiSpec
     cantonAdminApi <- getPortForSandbox (SpecifiedPort (SandboxPort (admin defaultSandboxPorts))) adminApiSpec
@@ -61,7 +61,7 @@ determineCantonOptions ledgerApiSpec SandboxCantonPortSpec{..} portFile jsonApi 
     let cantonStaticTime = StaticTime False
     let cantonHelp = False
     let cantonConfigFiles = []
-    let cantonJsonApi = fmap unJsonApiPort jsonApi
+    let cantonJsonApi = unJsonApiPort jsonApi
     let cantonJsonApiPortFileM = Nothing
     pure CantonOptions {..}
 
@@ -71,7 +71,7 @@ withSandbox StartOptions{..} darPath sandboxArgs kont =
   where
     cantonSandbox = withTempDir $ \tempDir -> do
       let portFile = tempDir </> "sandbox-portfile"
-      cantonOptions <- determineCantonOptions sandboxPortM sandboxPortSpec portFile jsonApiPortM
+      cantonOptions <- determineCantonOptions sandboxPortM sandboxPortSpec portFile jsonApiPort
       putStrLn "Waiting for canton sandbox to start."
       withCantonSandbox cantonOptions sandboxArgs $ \(ph, sandboxPort) -> do
         runLedgerUploadDar (sandboxLedgerFlags sandboxPort) (DryRun False) (Just darPath)
@@ -83,17 +83,17 @@ waitForJsonApi sandboxPh (JsonApiPort jsonApiPort) = do
         waitForHttpServer 240 (unsafeProcessHandle sandboxPh) (putStr "." *> threadDelay 500000)
             ("http://localhost:" <> show jsonApiPort <> "/readyz") []
 
-withOptsFromProjectConfig :: T.Text -> [String] -> ProjectConfig -> IO [String]
-withOptsFromProjectConfig fieldName cliOpts projectConfig = do
+withOptsFromPackageConfig :: T.Text -> [String] -> PackageConfig -> IO [String]
+withOptsFromPackageConfig fieldName cliOpts packageConfig = do
     optsYaml :: [String] <-
         fmap (fromMaybe []) $
         requiredE ("Failed to parse " <> fieldName) $
-        queryProjectConfig [fieldName] projectConfig
+        queryPackageConfig [fieldName] packageConfig
     pure (optsYaml ++ cliOpts)
 
 data StartOptions = StartOptions
     { sandboxPortM :: Maybe SandboxPortSpec
-    , jsonApiPortM :: Maybe JsonApiPort
+    , jsonApiPort :: JsonApiPort
     , onStartM :: Maybe String
     , shouldWaitForSignal :: Bool
     , sandboxOptions :: [String]
@@ -110,16 +110,16 @@ data SandboxCantonPortSpec = SandboxCantonPortSpec
 
 runStart :: StartOptions -> IO ()
 runStart startOptions@StartOptions{..} =
-  withProjectRoot Nothing (ProjectCheck "daml start" True) $ \_ _ -> do
-    projectConfig <- getProjectConfig Nothing
+  withPackageRoot Nothing (PackageLocationCheck "daml start" True) $ \_ _ -> do
+    packageConfig <- getPackageConfig Nothing
     darPath <- getDarPath
     mbInitScript :: Maybe String <-
         requiredE "Failed to parse init-script" $
-        queryProjectConfig ["init-script"] projectConfig
-    sandboxOpts <- withOptsFromProjectConfig "sandbox-options" sandboxOptions projectConfig
-    scriptOpts <- withOptsFromProjectConfig "script-options" scriptOptions projectConfig
+        queryPackageConfig ["init-script"] packageConfig
+    sandboxOpts <- withOptsFromPackageConfig "sandbox-options" sandboxOptions packageConfig
+    scriptOpts <- withOptsFromPackageConfig "script-options" scriptOptions packageConfig
     doBuild
-    doCodegen projectConfig
+    doCodegen packageConfig
     withSandbox startOptions darPath sandboxOpts $ \sandboxPh sandboxPort -> do
         let doRunInitScript =
               whenJust mbInitScript $ \initScript -> do
@@ -141,19 +141,19 @@ runStart startOptions@StartOptions{..} =
                   runProcess_ procScript
         doRunInitScript
         whenJust onStartM $ \onStart -> runProcess_ (shell onStart)
-        whenJust jsonApiPortM $ \jsonApiPort -> waitForJsonApi sandboxPh jsonApiPort
+        waitForJsonApi sandboxPh jsonApiPort
         printReadyInstructions
         when shouldWaitForSignal $
           void $ waitAnyCancel =<< mapM (async . waitExitCode) [sandboxPh]
 
     where
-        doCodegen projectConfig =
+        doCodegen packageConfig =
           forM_ [minBound :: Lang .. maxBound :: Lang] $ \lang -> do
             mbOutputPath :: Maybe String <-
               requiredE ("Failed to parse codegen entry for " <> showLang lang) $
-              queryProjectConfig
+              queryPackageConfig
                 ["codegen", showLang lang, "output-directory"]
-                projectConfig
+                packageConfig
             whenJust mbOutputPath $ \_outputPath -> do
               runCodegen lang []
         printReadyInstructions = do

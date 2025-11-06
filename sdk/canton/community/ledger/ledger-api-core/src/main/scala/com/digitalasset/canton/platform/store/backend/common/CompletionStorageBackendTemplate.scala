@@ -14,12 +14,15 @@ import com.digitalasset.canton.platform.store.CompletionFromTransaction
 import com.digitalasset.canton.platform.store.backend.CompletionStorageBackend
 import com.digitalasset.canton.platform.store.backend.Conversions.{
   offset,
+  parties,
   timestampFromMicros,
   traceContextOption,
+  updateId,
 }
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.digitalasset.canton.platform.store.interning.StringInterning
 import com.digitalasset.canton.platform.{Party, UserId}
+import com.digitalasset.canton.protocol.UpdateId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -43,66 +46,68 @@ class CompletionStorageBackendTemplate(
       limit: Int,
   )(connection: Connection): Vector[CompletionStreamResponse] = {
     import ComposableQuery.*
-    import com.digitalasset.canton.platform.store.backend.Conversions.userIdToStatement
     import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.*
-    val internedParties =
-      parties.view.map(stringInterning.party.tryInternalize).flatMap(_.toList).toSet
-    if (internedParties.isEmpty) {
+    if (parties.isEmpty) {
       Vector.empty
     } else {
-      val rows = SQL"""
-        SELECT
-          submitters,
-          completion_offset,
-          record_time,
-          command_id,
-          update_id,
-          rejection_status_code,
-          rejection_status_message,
-          rejection_status_details,
-          user_id,
-          submission_id,
-          deduplication_offset,
-          deduplication_duration_seconds,
-          deduplication_duration_nanos,
-          synchronizer_id,
-          trace_context
-        FROM
-          lapi_command_completions
-        WHERE
-          ${QueryStrategy.offsetIsBetween(
-          nonNullableColumn = "completion_offset",
-          startInclusive = startInclusive,
-          endInclusive = endInclusive,
-        )} AND
-          user_id = $userId
-        ORDER BY completion_offset ASC
-        ${QueryStrategy.limitClause(Some(limit))}"""
-        .asVectorOf(completionParser(internedParties))(connection)
-      rows.collect {
-        case (submitters, response) if submitters.exists(internedParties) => response
+      stringInterning.userId.tryInternalize(userId) match {
+        case Some(internedUserId) =>
+          val rows = SQL"""
+            SELECT
+              submitters,
+              completion_offset,
+              record_time,
+              command_id,
+              update_id,
+              rejection_status_code,
+              rejection_status_message,
+              rejection_status_details,
+              user_id,
+              submission_id,
+              deduplication_offset,
+              deduplication_duration_seconds,
+              deduplication_duration_nanos,
+              synchronizer_id,
+              trace_context
+            FROM
+              lapi_command_completions
+            WHERE
+              ${QueryStrategy.offsetIsBetween(
+              nonNullableColumn = "completion_offset",
+              startInclusive = startInclusive,
+              endInclusive = endInclusive,
+            )} AND
+              user_id = $internedUserId
+            ORDER BY completion_offset ASC
+            ${QueryStrategy.limitClause(Some(limit))}"""
+            .asVectorOf(completionParser(parties))(connection)
+          rows.collect {
+            case (submitters, response) if submitters.exists(parties) =>
+              response
+          }
+        case None => Vector.empty
       }
     }
   }
 
   private val sharedColumns: RowParser[
-    Array[Int] ~ Offset ~ Timestamp ~ String ~ String ~ Option[String] ~ Int ~ TraceContext
+    Seq[Party] ~ Offset ~ Timestamp ~ String ~ Int ~ Option[String] ~ Int ~ TraceContext
   ] =
-    array[Int]("submitters") ~
+    parties(stringInterning)("submitters") ~
       offset("completion_offset") ~
       timestampFromMicros("record_time") ~
       str("command_id") ~
-      str("user_id") ~
+      int("user_id") ~
       str("submission_id").? ~
       int("synchronizer_id") ~
       traceContextOption("trace_context")(noTracingLogger)
 
   private val acceptedCommandSharedColumns: RowParser[
-    Array[Int] ~ Offset ~ Timestamp ~ String ~ String ~ Option[
+    Seq[Party] ~ Offset ~ Timestamp ~ String ~ Int ~ Option[
       String
-    ] ~ Int ~ TraceContext ~ String
+    ] ~ Int ~ TraceContext ~ UpdateId
   ] =
-    sharedColumns ~ str("update_id")
+    sharedColumns ~ updateId("update_id")
 
   private val deduplicationOffsetColumn: RowParser[Option[Long]] =
     long("deduplication_offset").?
@@ -112,23 +117,20 @@ class CompletionStorageBackendTemplate(
     int("deduplication_duration_nanos").?
 
   private def acceptedCommandParser(
-      internedParties: Set[Int]
-  ): RowParser[(Array[Int], CompletionStreamResponse)] =
+      parties: Set[Party]
+  ): RowParser[(Seq[Party], CompletionStreamResponse)] =
     acceptedCommandSharedColumns ~
       deduplicationOffsetColumn ~
       deduplicationDurationSecondsColumn ~ deduplicationDurationNanosColumn map {
-        case submitters ~ offset ~ recordTime ~ commandId ~ userId ~ submissionId ~ internedSynchronizerId ~ traceContext ~ updateId ~
+        case submitters ~ offset ~ recordTime ~ commandId ~ internedUserId ~ submissionId ~ internedSynchronizerId ~ traceContext ~ updateId ~
             deduplicationOffset ~ deduplicationDurationSeconds ~ deduplicationDurationNanos =>
           submitters -> CompletionFromTransaction.acceptedCompletion(
-            submitters = submitters.iterator
-              .filter(internedParties)
-              .map(stringInterning.party.unsafe.externalize)
-              .toSet,
+            submitters = submitters.filter(parties).toSet,
             recordTime = recordTime,
             offset = offset,
             commandId = commandId,
             updateId = updateId,
-            userId = userId,
+            userId = stringInterning.userId.unsafe.externalize(internedUserId),
             optSubmissionId = submissionId,
             optDeduplicationOffset = deduplicationOffset,
             optDeduplicationDurationSeconds = deduplicationDurationSeconds,
@@ -145,29 +147,26 @@ class CompletionStorageBackendTemplate(
     byteArray("rejection_status_details").?
 
   private def rejectedCommandParser(
-      internedParties: Set[Int]
-  ): RowParser[(Array[Int], CompletionStreamResponse)] =
+      internedParties: Set[Party]
+  ): RowParser[(Seq[Party], CompletionStreamResponse)] =
     sharedColumns ~
       deduplicationOffsetColumn ~
       deduplicationDurationSecondsColumn ~ deduplicationDurationNanosColumn ~
       rejectionStatusCodeColumn ~
       rejectionStatusMessageColumn ~
       rejectionStatusDetailsColumn map {
-        case submitters ~ offset ~ recordTime ~ commandId ~ userId ~ submissionId ~ internedSynchronizerId ~ traceContext ~
+        case submitters ~ offset ~ recordTime ~ commandId ~ internedUserId ~ submissionId ~ internedSynchronizerId ~ traceContext ~
             deduplicationOffset ~ deduplicationDurationSeconds ~ deduplicationDurationNanos ~
             rejectionStatusCode ~ rejectionStatusMessage ~ rejectionStatusDetails =>
           val status =
             buildStatusProto(rejectionStatusCode, rejectionStatusMessage, rejectionStatusDetails)
           submitters -> CompletionFromTransaction.rejectedCompletion(
-            submitters = submitters.iterator
-              .filter(internedParties)
-              .map(stringInterning.party.unsafe.externalize)
-              .toSet,
+            submitters = submitters.filter(internedParties).toSet,
             recordTime = recordTime,
             offset = offset,
             commandId = commandId,
             status = status,
-            userId = userId,
+            userId = stringInterning.userId.unsafe.externalize(internedUserId),
             optSubmissionId = submissionId,
             optDeduplicationOffset = deduplicationOffset,
             optDeduplicationDurationSeconds = deduplicationDurationSeconds,
@@ -179,24 +178,24 @@ class CompletionStorageBackendTemplate(
       }
 
   private def completionParser(
-      internedParties: Set[Int]
-  ): RowParser[(Array[Int], CompletionStreamResponse)] =
+      internedParties: Set[Party]
+  ): RowParser[(Seq[Party], CompletionStreamResponse)] =
     acceptedCommandParser(internedParties) | rejectedCommandParser(internedParties)
 
   private val postPublishDataParser: RowParser[Option[PostPublishData]] =
     int("synchronizer_id") ~
       str("message_uuid").? ~
       long("record_time") ~
-      str("user_id") ~
+      int("user_id") ~
       str("command_id") ~
-      array[Int]("submitters") ~
+      parties(stringInterning)("submitters") ~
       offset("completion_offset") ~
       long("publication_time") ~
       str("submission_id").? ~
-      str("update_id").? ~
+      updateId("update_id").? ~
       traceContextOption("trace_context")(noTracingLogger) ~
       bool("is_transaction") map {
-        case internedSynchronizerId ~ messageUuidString ~ recordTimeMicros ~ userId ~
+        case internedSynchronizerId ~ messageUuidString ~ recordTimeMicros ~ internedUserId ~
             commandId ~ submitters ~ offset ~ publicationTimeMicros ~ submissionId ~ updateIdOpt ~ traceContext ~ true =>
           // note: we only collect completions for transactions here for acceptance and transactions and reassignments for rejection (is_transaction will be true in rejection reassignment case as well)
           Some(
@@ -211,9 +210,9 @@ class CompletionStorageBackendTemplate(
                     CantonTimestamp.ofEpochMicro(recordTimeMicros)
                   )
                 ),
-              userId = Ref.UserId.assertFromString(userId),
+              userId = stringInterning.userId.externalize(internedUserId),
               commandId = Ref.CommandId.assertFromString(commandId),
-              actAs = submitters.view.map(stringInterning.party.externalize).toSet,
+              actAs = submitters.toSet,
               offset = offset,
               publicationTime = CantonTimestamp.ofEpochMicro(publicationTimeMicros),
               submissionId = submissionId.map(Ref.SubmissionId.assertFromString),

@@ -192,7 +192,7 @@ Search the standard library
 
 Being able to browse the standard library starting from :ref:`stdlib-reference-base` is a start, and the module naming helps, but it's not an efficient process for finding out what a function you've encountered does, even less so for finding a function that does a thing you need to do.
 
-Daml has its own version of the `Hoogle <https://hoogle.haskell.org/>`__ search engine, which offers search both by name and by signature. This function is fully integrated into the search bar on `https://docs.daml.com/ <https://docs.daml.com/>`__, but for those wanting a pure standard library search, it's also available on `<https://hoogle.daml.com>`__.
+Daml has its own version of the `Hoogle <https://hoogle.haskell.org/>`__ search engine, which offers search both by name and by signature. This function is fully integrated into the search bar on `https://docs.digitalasset.com/ <https://docs.digitalasset.com/>`__, but for those wanting a pure standard library search, it's also available on `<https://hoogle.daml.com>`__.
 
 Search for functions by name
 ............................

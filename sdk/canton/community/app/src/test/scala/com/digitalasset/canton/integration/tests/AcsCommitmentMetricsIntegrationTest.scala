@@ -8,19 +8,16 @@ import com.daml.metrics.MetricsFilterConfig
 import com.daml.metrics.api.MetricQualification
 import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommands.Inspection.SlowCounterParticipantSynchronizerConfig
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeLong}
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, NonNegativeProportion}
+import com.digitalasset.canton.config.{CommitmentSendDelay, DbConfig}
 import com.digitalasset.canton.console.{
   LocalParticipantReference,
   LocalSequencerReference,
   ParticipantReference,
 }
 import com.digitalasset.canton.examples.java.iou.Iou
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -82,7 +79,11 @@ trait AcsCommitmentMetricsIntegrationTest
           )
       )
       .updateTestingConfig(
-        _.focus(_.maxCommitmentSendDelayMillis).replace(Some(NonNegativeInt.zero))
+        _.focus(_.commitmentSendDelay).replace(
+          Some(
+            CommitmentSendDelay(Some(NonNegativeProportion.zero), Some(NonNegativeProportion.zero))
+          )
+        )
       )
       .withSetup { implicit env =>
         import env.*
@@ -134,7 +135,10 @@ trait AcsCommitmentMetricsIntegrationTest
   ): Unit = {
     // Connect and disconnect so that we can modify the synchronizer connection config afterwards
     participant.synchronizers.connect_local(localSequencerReference, alias = synchronizerAlias)
-    participant.dars.upload(CantonExamplesPath)
+    participant.dars.upload(
+      CantonExamplesPath,
+      synchronizerId = Some(participant.synchronizers.id_of(synchronizerAlias)),
+    )
   }
 
   private def deployAndCheckContractOnParticipants(
@@ -769,7 +773,7 @@ trait AcsCommitmentMetricsIntegrationTest
 
 class AcsCommitmentMetricsIntegrationTestDefault extends AcsCommitmentMetricsIntegrationTest {
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](
+    new UseReferenceBlockSequencer[DbConfig.Postgres](
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(Set("sequencer1"), Set("sequencer2"))
@@ -782,7 +786,7 @@ class AcsCommitmentMetricsIntegrationTestDefault extends AcsCommitmentMetricsInt
 class AcsCommitmentMetricsIntegrationTestPostgres extends AcsCommitmentMetricsIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](
+    new UseReferenceBlockSequencer[DbConfig.Postgres](
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(Set("sequencer1"), Set("sequencer2"))

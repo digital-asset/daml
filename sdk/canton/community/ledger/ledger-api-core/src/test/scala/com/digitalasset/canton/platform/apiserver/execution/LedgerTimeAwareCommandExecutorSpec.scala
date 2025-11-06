@@ -20,7 +20,7 @@ import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.FatContractInstanceHelper
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause.LedgerTime
-import com.digitalasset.canton.protocol.LfTransactionVersion
+import com.digitalasset.canton.protocol.LfSerializationVersion
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.{BaseTest, FailOnShutdown}
 import com.digitalasset.daml.lf.command.ApiCommands as LfCommands
@@ -80,7 +80,7 @@ class LedgerTimeAwareCommandExecutorSpec
       signatories = Set(alice),
       stakeholders = Set(alice),
       keyOpt = None,
-      version = LfTransactionVersion.minVersion,
+      version = LfSerializationVersion.V1,
     )
   )
   private val synchronizerRank =

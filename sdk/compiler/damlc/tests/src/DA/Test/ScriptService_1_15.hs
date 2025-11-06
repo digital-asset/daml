@@ -64,7 +64,7 @@ main = withSdkVersions $ do
             "- daml-stdlib",
             "- " <> show scriptDar
           ]
-      withPackageConfig (ProjectPath ".") $
+      withPackageConfig (PackagePath ".") $
         setupPackageDbFromPackageConfig (toNormalizedFilePath' dir) options
 
       logger <- Logger.newStderrLogger Logger.Debug "script-service"

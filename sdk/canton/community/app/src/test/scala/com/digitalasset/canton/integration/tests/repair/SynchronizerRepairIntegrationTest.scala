@@ -16,11 +16,11 @@ import com.digitalasset.canton.console.{
 }
 import com.digitalasset.canton.examples.java.iou
 import com.digitalasset.canton.integration.*
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
 import com.digitalasset.canton.integration.plugins.{
   UseBftSequencer,
-  UseCommunityReferenceBlockSequencer,
   UsePostgres,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.util.EntitySyntax
 import com.digitalasset.canton.logging.{LogEntry, SuppressingLogger, SuppressionRule}
@@ -123,9 +123,10 @@ sealed abstract class SynchronizerRepairIntegrationTest
         "Participants disconnected from lost synchronizer will now attempt to connect to new synchronizer"
       )
 
-      Seq(participant1, participant2).foreach(
-        _.synchronizers.connect_local(newSynchronizerSequencer, alias = newSynchronizerAlias)
-      )
+      Seq(participant1, participant2).foreach { p =>
+        p.synchronizers.connect_local(newSynchronizerSequencer, alias = newSynchronizerAlias)
+        p.dars.upload(CantonExamplesPath, synchronizerId = newSynchronizerId)
+      }
 
       // Wait for topology state to appear before disconnecting again.
       clue("newSynchronizer initialization timed out") {
@@ -323,7 +324,7 @@ final class SynchronizerRepairReferenceIntegrationTestPostgres
     extends SynchronizerRepairIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](
+    new UseReferenceBlockSequencer[DbConfig.Postgres](
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(

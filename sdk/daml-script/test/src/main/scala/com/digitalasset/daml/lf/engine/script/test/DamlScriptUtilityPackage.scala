@@ -18,6 +18,7 @@ class DamlScriptUtilityPackage extends AnyWordSpec with Matchers {
 
   "Daml-script" should {
     "be a utility package in LF 2.1" in testUtility("daml-script/daml/daml-script-2.1.dar")
+    "be a utility package in LF 2.2" in testUtility("daml-script/daml/daml-script-2.2.dar")
     "be a utility package in LF 2.dev" in testUtility("daml-script/daml/daml-script-2.dev.dar")
   }
 

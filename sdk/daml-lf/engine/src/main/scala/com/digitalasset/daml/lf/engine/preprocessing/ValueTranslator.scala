@@ -93,6 +93,13 @@ private[lf] final class ValueTranslator(
         val newNesting = nesting + 1
         def typeError(msg: String = s"mismatching type: ${ty0.pretty} and value: $value0") =
           throw Error.Preprocessing.TypeMismatch(ty0, value0, msg)
+        def toText(str: String): Text =
+          Text.fromString(str) match {
+            case Right(value) => value
+            case Left(err) =>
+              throw Error.Preprocessing.MalformedText(err)
+          }
+
         def destruct(typ: Type) =
           Destructor.destruct(typ, shouldCheckDataSerializable) match {
             case Right(value) => value
@@ -123,7 +130,7 @@ private[lf] final class ValueTranslator(
           case (DateF, ValueDate(t)) =>
             SValue.SDate(t)
           case (TextF, ValueText(t)) =>
-            SValue.SText(t)
+            SValue.SText(toText(t))
           case (PartyF, ValueParty(p)) =>
             SValue.SParty(p)
           case (NumericF(s), ValueNumeric(d)) =>
@@ -164,7 +171,7 @@ private[lf] final class ValueTranslator(
               SValue.SMap(
                 isTextMap = true,
                 entries = entries.toImmArray.toSeq.view.map { case (k, v) =>
-                  SValue.SText(k) -> go(a, v, newNesting)
+                  SValue.SText(toText(k)) -> go(a, v, newNesting)
                 }.toList,
               )
             }

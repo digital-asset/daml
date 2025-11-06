@@ -3,13 +3,14 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.config
 
-import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveDouble}
+import com.digitalasset.canton.config.{ActiveRequestLimitsConfig, ProcessingTimeout}
 import com.digitalasset.canton.environment.{
   CantonNodeParameters,
   HasGeneralCantonNodeParameters,
   HasProtocolCantonNodeParameters,
 }
+import com.digitalasset.canton.synchronizer.block.AsyncWriterParameters
 
 trait SequencerParameters {
   def maxConfirmationRequestsBurstFactor: PositiveDouble
@@ -25,21 +26,23 @@ trait SequencerParameters {
   *   parameters)
   * @param maxConfirmationRequestsBurstFactor
   *   How many confirmation requests can be sent in a burst before the rate limit kicks in.
+  * @param asyncWriter
+  *   Whether the sequencer writes are async or sync
   * @param unsafeEnableOnlinePartyReplication
   *   Whether to enable online party replication sequencer channels. Unsafe as still under
   *   development.
-  * @param sequencerApiLimits
-  *   map of service name to maximum number of parallel open streams
-  * @param warnOnUndefinedLimits
-  *   emit warning if a limit is not configured for a stream
+  * @param streamLimits
+  *   optional stream limit configs
   */
 final case class SequencerNodeParameters(
     general: CantonNodeParameters.General,
     protocol: CantonNodeParameters.Protocol,
     maxConfirmationRequestsBurstFactor: PositiveDouble,
+    asyncWriter: AsyncWriterParameters,
     unsafeEnableOnlinePartyReplication: Boolean = false,
     sequencerApiLimits: Map[String, NonNegativeInt] = Map.empty,
     warnOnUndefinedLimits: Boolean = true,
+    requestLimits: Option[ActiveRequestLimitsConfig] = None,
 ) extends CantonNodeParameters
     with HasGeneralCantonNodeParameters
     with HasProtocolCantonNodeParameters

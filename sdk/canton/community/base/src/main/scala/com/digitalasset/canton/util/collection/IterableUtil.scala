@@ -12,6 +12,7 @@ import com.digitalasset.canton.util.ErrorUtil
 import scala.annotation.tailrec
 import scala.collection.{IterableOps, immutable}
 import scala.concurrent.{ExecutionContext, Future}
+import scala.math.Ordered.orderingToOrdered
 
 object IterableUtil {
 
@@ -199,4 +200,17 @@ object IterableUtil {
 
   def zipAllOption[A, B](xs: Seq[A], ys: Iterable[B]): Seq[(Option[A], Option[B])] =
     xs.map(Some(_)).zipAll(ys.map(Some(_)), None, None)
+
+  def isSorted[A: Ordering](xs: immutable.Iterable[A]): Boolean = {
+    val iter = xs.iterator
+
+    @tailrec def go(prev: A): Boolean =
+      if (iter.hasNext) {
+        val next = iter.next()
+        if (prev <= next) go(next)
+        else false
+      } else true
+
+    if (iter.hasNext) go(iter.next()) else true
+  }
 }

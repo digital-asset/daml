@@ -30,6 +30,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.mempool.{
   MempoolModule,
   MempoolModuleConfig,
+  MempoolState,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.OutputModule.RequestInspector
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore
@@ -48,6 +49,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.pruning.PruningModule
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.pruning.data.BftOrdererPruningSchedulerStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.{
   SystemInitializationResult,
   SystemInitializer,
@@ -60,26 +62,21 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   EpochNumber,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.snapshot.SequencerSnapshotAdditionalInfo
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopologyInfo
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.{
+  Membership,
+  OrderingTopologyInfo,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Mempool
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.dependencies.{
   AvailabilityModuleDependencies,
   ConsensusModuleDependencies,
   P2PNetworkOutModuleDependencies,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
-  BlockSubscription,
-  Env,
-  ModuleRef,
-  ModuleSystem,
-  OrderingModuleSystemInitializer,
-  P2PConnectionEventListener,
-  P2PNetworkManager,
-}
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingMessage
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
+import io.opentelemetry.api.trace.Tracer
 
 import scala.util.Random
 
@@ -97,7 +94,7 @@ private[bftordering] class BftOrderingModuleSystemInitializer[
     orderingTopologyProvider: OrderingTopologyProvider[E],
     blockSubscription: BlockSubscription,
     sequencerSnapshotAdditionalInfo: Option[SequencerSnapshotAdditionalInfo],
-    p2pNetworkOutModuleState: P2PNetworkOutModule.State,
+    p2pNetworkOutModuleStateFactory: Membership => P2PNetworkOutModule.State,
     clock: Clock,
     random: Random,
     metrics: BftOrderingMetrics,
@@ -106,7 +103,9 @@ private[bftordering] class BftOrderingModuleSystemInitializer[
     requestInspector: RequestInspector =
       OutputModule.DefaultRequestInspector, // Only set by simulation tests
     epochChecker: EpochChecker = EpochChecker.DefaultEpochChecker, // Only set by simulation tests
-)(implicit synchronizerProtocolVersion: ProtocolVersion, mc: MetricsContext)
+    outputPreviousStoredBlock: OutputModule.PreviousStoredBlock =
+      new OutputModule.PreviousStoredBlock,
+)(implicit synchronizerProtocolVersion: ProtocolVersion, mc: MetricsContext, tracer: Tracer)
     extends SystemInitializer[
       E,
       P2PNetworkManagerT,
@@ -158,6 +157,7 @@ private[bftordering] class BftOrderingModuleSystemInitializer[
       thisNodeFirstKnownAt
         .flatMap(_.startEpochCouldAlterOrderingTopology)
         .exists(pendingChanges => pendingChanges)
+    val currentTopology = bootstrapTopologyInfo.currentTopology
     val outputModuleStartupState =
       OutputModule.StartupState(
         bootstrapTopologyInfo.thisNode,
@@ -167,11 +167,11 @@ private[bftordering] class BftOrderingModuleSystemInitializer[
         previousBftTimeForOnboarding,
         onboardingEpochCouldAlterOrderingTopology,
         bootstrapTopologyInfo.currentCryptoProvider,
-        bootstrapTopologyInfo.currentTopology,
+        currentTopology,
         initialLowerBound,
         leaderSelectionPolicyFactory.leaderSelectionPolicy(
           blacklistLeaderSelectionState,
-          bootstrapTopologyInfo.currentTopology,
+          currentTopology,
         ),
       )
     new OrderingModuleSystemInitializer[E, P2PNetworkManagerT](
@@ -183,9 +183,11 @@ private[bftordering] class BftOrderingModuleSystemInitializer[
             config.maxRequestsInBatch,
             config.minRequestsInBatch,
             config.maxBatchCreationInterval,
+            checkTags = config.standalone.isEmpty,
           )
           new MempoolModule(
             cfg,
+            new MempoolState(currentTopology.weakQuorum),
             metrics,
             availabilityRef,
             loggerFactory,
@@ -217,18 +219,17 @@ private[bftordering] class BftOrderingModuleSystemInitializer[
             outputRef,
             pruningRef,
           )
-          val p2PNetworkOutModule = new P2PNetworkOutModule(
+          val p2pNetworkOutModule = new P2PNetworkOutModule(
             bootstrapTopologyInfo.thisNode,
             isGenesis = initialEpoch == GenesisEpoch.info.number,
-            bootstrapTopologySize = bootstrapTopologyInfo.currentMembership.orderingTopology.size,
-            p2pNetworkOutModuleState,
+            p2pNetworkOutModuleStateFactory(bootstrapTopologyInfo.currentMembership),
             stores.p2pEndpointsStore,
             metrics,
             dependencies,
             loggerFactory,
             timeouts,
           )
-          (p2PNetworkOutModule, p2PNetworkOutModule.p2pNetworkManager)
+          (p2pNetworkOutModule, p2pNetworkOutModule.p2pNetworkManager)
         },
         availability = (mempoolRef, networkOutRef, consensusRef, outputRef) => {
           val dependencies = AvailabilityModuleDependencies[E](
@@ -248,6 +249,8 @@ private[bftordering] class BftOrderingModuleSystemInitializer[
             dependencies,
             loggerFactory,
             timeouts,
+            // In standalone mode don't check tag, as they are used for request IDs
+            checkTags = config.standalone.isEmpty,
           )()
         },
         consensus = (p2pNetworkOutRef, availabilityRef, outputRef) => {
@@ -257,14 +260,17 @@ private[bftordering] class BftOrderingModuleSystemInitializer[
             p2pNetworkOutRef,
           )
 
-          val segmentModuleRefFactory = new SegmentModuleRefFactoryImpl(
-            storePbftMessages = true,
-            stores.epochStore,
-            dependencies,
-            loggerFactory,
-            timeouts,
-            metrics,
-          )
+          val segmentModuleRefFactory =
+            new SegmentModuleRefFactoryImpl(
+              storePbftMessages = true,
+              stores.epochStore,
+              dependencies,
+              config.consensusBlockCompletionTimeout,
+              config.consensusEmptyBlockCreationTimeout,
+              loggerFactory,
+              timeouts,
+              metrics,
+            )
 
           new PreIssConsensusModule(
             bootstrapTopologyInfo,
@@ -294,6 +300,7 @@ private[bftordering] class BftOrderingModuleSystemInitializer[
             timeouts,
             requestInspector,
             epochChecker,
+            previousStoredBlock = outputPreviousStoredBlock,
           ),
         pruning = () =>
           new PruningModule(

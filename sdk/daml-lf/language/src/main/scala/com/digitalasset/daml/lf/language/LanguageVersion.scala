@@ -4,6 +4,8 @@
 package com.digitalasset.daml.lf
 package language
 
+import com.digitalasset.daml.lf.language.LanguageMajorVersion.V2.maxStableVersion
+
 import scala.annotation.nowarn
 
 final case class LanguageVersion(major: LanguageMajorVersion, minor: LanguageMinorVersion) {
@@ -46,7 +48,7 @@ object LanguageVersion {
   val List(v1_6, v1_7, v1_8, v1_11, v1_12, v1_13, v1_14, v1_15, v1_17, v1_dev) = AllV1: @nowarn(
     "msg=match may not be exhaustive"
   )
-  val List(v2_1, v2_dev) = AllV2: @nowarn("msg=match may not be exhaustive")
+  val List(v2_1, v2_2, v2_dev) = AllV2: @nowarn("msg=match may not be exhaustive")
 
   @deprecated("use AllV2", since = "3.1.0")
   val All = AllV2
@@ -78,14 +80,15 @@ object LanguageVersion {
       Some(FeaturesV1.packageUpgrades.minor),
     )
 
-  def supportsPersistedPackageVersion(lv: LanguageVersion): Boolean =
-    supportsV1AndV2(lv, Some(Features.persistedPackageVersion.minor), None)
-
   object Features {
     val default = v2_1
-    val exceptions = v2_1
     val packageUpgrades = v2_1
-    val persistedPackageVersion = v2_dev
+
+    val flatArchive = v2_2
+    val kindInterning = flatArchive
+    val exprInterning = flatArchive
+
+    val explicitPkgImports = v2_2
 
     val choiceFuncs = v2_dev
     val choiceAuthority = v2_dev
@@ -101,14 +104,12 @@ object LanguageVersion {
 
     val contractKeys = v2_dev
 
-    val crypto = v2_1
-    val cryptoAdditions = v2_dev
-
-    val flatArchive = v2_dev
-    val kindInterning = flatArchive
-    val exprInterning = flatArchive
-
     val complexAnyType = v2_dev
+
+    val cryptoUtility = v2_dev
+
+    /** UNSAFE_FROM_INTERFACE is removed starting from 2.2, included */
+    val unsafeFromInterfaceRemoved = v2_2
 
     /** Unstable, experimental features. This should stay in x.dev forever.
       * Features implemented with this flag should be moved to a separate
@@ -154,7 +155,6 @@ object LanguageVersion {
       * feature flag once the decision to add them permanently has been made.
       */
     val unstable = v1_dev
-
   }
 
   private[lf] def notSupported(majorLanguageVersion: LanguageMajorVersion) =
@@ -168,7 +168,7 @@ object LanguageVersion {
     */
   def StableVersions(majorLanguageVersion: LanguageMajorVersion): VersionRange[LanguageVersion] =
     majorLanguageVersion match {
-      case Major.V2 => VersionRange(v2_1, v2_1)
+      case Major.V2 => VersionRange(v2_1, v2_2)
       case _ => notSupported(majorLanguageVersion)
     }
 
@@ -196,8 +196,16 @@ object LanguageVersion {
     */
   def defaultOrLatestStable(majorLanguageVersion: LanguageMajorVersion): LanguageVersion = {
     majorLanguageVersion match {
-      case Major.V2 => v2_1
+      case Major.V2 => maxStableVersion
       case _ => notSupported(majorLanguageVersion)
+    }
+  }
+
+  /** Version range including the passed one */
+  def allUpToVersion(version: LanguageVersion): VersionRange[LanguageVersion] = {
+    version.major match {
+      case Major.V2 => VersionRange(v2_1, version)
+      case _ => notSupported(version.major)
     }
   }
 

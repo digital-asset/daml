@@ -36,6 +36,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
   Availability,
   Consensus,
+  P2PNetworkOut,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
   Env,
@@ -262,9 +263,14 @@ final class StateTransferBehavior[E <: Env[E]](
       // We drop retransmission messages, as they will likely be stale once state transfer is finished.
       case _: Consensus.RetransmissionsMessage =>
 
-      case Consensus.ConsensusMessage
-            .PbftUnverifiedNetworkMessage(actualSender, _) =>
+      case Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage(underlyingMessage) =>
         // Use the actual sender to prevent the node from filling up other nodes' quotas in the queue.
+        val actualSender =
+          underlyingMessage.message.actualSender.getOrElse(
+            abort(
+              s"$messageType: internal inconsistency, actualSender needs to be provided for network messages"
+            )
+          )
         enqueuePbftNetworkMessage(message, actualSender)
 
       case Consensus.ConsensusMessage.PbftVerifiedNetworkMessage(underlyingMessage) =>
@@ -425,7 +431,7 @@ final class StateTransferBehavior[E <: Env[E]](
     val currentEpochNumber = epochState.epoch.info.number
 
     postponedConsensusMessages.dequeueAll {
-      case Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage(_, underlyingMessage) =>
+      case Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage(underlyingMessage) =>
         underlyingMessage.message.blockMetadata.epochNumber < currentEpochNumber
       case Consensus.ConsensusMessage.PbftVerifiedNetworkMessage(underlyingMessage) =>
         // likely a late response from the crypto provider
@@ -518,6 +524,10 @@ final class StateTransferBehavior[E <: Env[E]](
       completedBlocks = Seq.empty,
       loggerFactory = loggerFactory,
       timeouts = timeouts,
+    )
+
+    dependencies.p2pNetworkOut.asyncSend(
+      P2PNetworkOut.Network.TopologyUpdate(epochState.epoch.currentMembership)
     )
   }
 }

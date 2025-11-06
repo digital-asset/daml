@@ -130,9 +130,19 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
         local.scheduleFuture(node, to, clock.now, future, errorMessage, traceContext)
       case NodeCollector.CancelTick(tickCounter) =>
         agenda.removeInternalTick(node, tickCounter)
-      case NodeCollector.OpenConnection(to, endpoint, p2pConnectionEventListener, traceContext) =>
-        network
-          .scheduleEstablishConnection(node, to, endpoint, p2pConnectionEventListener, traceContext)
+      case NodeCollector.OpenConnection(
+            to,
+            maybeP2PEndpoint,
+            p2pConnectionEventListener,
+            traceContext,
+          ) =>
+        network.scheduleEstablishConnection(
+          node,
+          to,
+          maybeP2PEndpoint,
+          p2pConnectionEventListener,
+          traceContext,
+        )
     }
 
   private def runClientCollector(node: BftNodeId, collector: ClientCollector): Unit =
@@ -361,18 +371,24 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
           addCommands(onboardingManager.prepareOnboardingFor(clock.now, node))
         case AddEndpoint(endpoint, to) =>
           addEndpoint(endpoint, to)(TraceContext.empty)
-        case EstablishConnection(from, to, endpoint, p2pConnectionEventListener, traceContext) =>
+        case EstablishConnection(
+              from,
+              to,
+              maybeP2PEndpoint,
+              p2pConnectionEventListener,
+              traceContext,
+            ) =>
           implicit val tc: TraceContext = traceContext
-          logger.debug(s"Establish connection '$from' -> '$to' via $endpoint")
-          p2pConnectionEventListener.onConnect(endpoint.id)
-          p2pConnectionEventListener.onSequencerId(endpoint.id, to)
+          logger.debug(s"Establish connection '$from' -> '$to' via endpoint $maybeP2PEndpoint")
+          maybeP2PEndpoint.map(_.id).foreach(p2pConnectionEventListener.onConnect)
+          p2pConnectionEventListener.onSequencerId(to, maybeP2PEndpoint)
           val machine = tryGetMachine(from)
           runNodeCollector(from, EventOriginator.FromNetwork, machine.nodeCollector)
         case CrashNode(node) =>
-          logger.info(s"Crashing '$node'")(TraceContext.empty)
+          logger.info(s"Crashing '$node' at ${whatToDo.at}")(TraceContext.empty)
           crashNode(node)
         case RestartNode(node) =>
-          logger.info(s"Restarting '$node'")(TraceContext.empty)
+          logger.info(s"Restarting '$node' at ${whatToDo.at}")(TraceContext.empty)
           restartNode(node)
         case MakeSystemHealthy =>
           local.makeHealthy()
@@ -431,7 +447,7 @@ object Simulation {
       Tree.Literal(s"Port.tryCreate(${port.unwrap})")
     case mode: PartitionMode =>
       Tree.Literal(s"PartitionMode.$mode")
-    case pn: PositiveNumeric[_] =>
+    case pn: PositiveNumeric[?] =>
       Tree.Literal(s"PositiveNumeric.tryCreate(${pn.value})")
   }
 }

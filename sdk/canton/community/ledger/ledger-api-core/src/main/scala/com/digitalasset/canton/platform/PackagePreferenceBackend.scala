@@ -21,7 +21,7 @@ import com.digitalasset.canton.logging.{
   TracedLogger,
 }
 import com.digitalasset.canton.platform.PackagePreferenceBackend.*
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
+import com.digitalasset.canton.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -91,7 +91,7 @@ class PackagePreferenceBackend(
 
     for {
       _ <- ensurePackageNamesKnown(packageVettingRequirements, packageMetadataSnapshot)
-      packageMapForRequest <- syncService.packageMapFor(
+      packageMapForRequest <- syncService.computePartyVettingMap(
         submitters = Set.empty,
         informees = packageVettingRequirements.allParties,
         vettingValidityTimestamp = vettingValidAt.getOrElse(clock.now),

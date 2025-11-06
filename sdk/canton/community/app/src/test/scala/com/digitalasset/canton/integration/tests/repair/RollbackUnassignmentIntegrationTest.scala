@@ -10,11 +10,8 @@ import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.Updat
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.{CommandFailure, FeatureFlag}
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.util.EntitySyntax
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -34,13 +31,16 @@ sealed trait RollbackUnassignmentIntegrationTest
 
   override lazy val environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P2_S1M1_S1M1
-      .addConfigTransform(ConfigTransforms.enableAdvancedCommands(FeatureFlag.Repair))
+      .addConfigTransforms(
+        ConfigTransforms.enableAdvancedCommands(FeatureFlag.Repair)
+      )
       .withSetup { implicit env =>
         import env.*
         Seq(participant1, participant2).foreach { p =>
           p.synchronizers.connect_local(sequencer1, alias = daName)
           p.synchronizers.connect_local(sequencer2, alias = acmeName)
-          p.dars.upload(CantonExamplesPath)
+          p.dars.upload(CantonExamplesPath, synchronizerId = daId)
+          p.dars.upload(CantonExamplesPath, synchronizerId = acmeId)
         }
 
         Seq(daName, acmeName).foreach { alias =>
@@ -225,7 +225,7 @@ final class RollbackUnassignmentIntegrationTestPostgres
     extends RollbackUnassignmentIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](
+    new UseReferenceBlockSequencer[DbConfig.Postgres](
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(
