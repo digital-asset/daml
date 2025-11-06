@@ -10,8 +10,7 @@ import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml.lf.speedy.SBuiltinFun.SBCrash
+import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion}
 import com.digitalasset.daml.lf.speedy.SError.{SError, SErrorCrash, SErrorDamlException}
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SValue.{SValue => _, _}
@@ -1649,15 +1648,6 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
     "ERROR" - {
       "throws an exception" in {
         eval(e"""ERROR "message" """) shouldBe a[Left[_, _]]
-      }
-    }
-  }
-
-  "SBCrash" - {
-    "throws an exception" in {
-      inside(eval(SEApp(SEBuiltinFun(SBCrash("test message")), ArraySeq(SUnit)))) {
-        case Left(SErrorCrash(_, message)) =>
-          message should endWith("test message")
       }
     }
   }

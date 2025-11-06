@@ -48,8 +48,9 @@ private[lf] object SExpr {
   }
 
   // This is used to delay errors happening during evaluation of question continuations
-  private[speedy] final case class SEDelayedCrash(location: String, reason: String) extends SExpr {
-    override def execute[Q](machine: Machine[Q]): Control[Nothing] =
+  private[speedy] final case class SEDelayedCrash(location: String, reason: String)
+      extends SExprAtomic {
+    override def lookupValue(machine: Machine[_]): SValue =
       throw SError.SErrorCrash(location, reason)
   }
 
@@ -115,7 +116,8 @@ private[lf] object SExpr {
         case vfun: SPAP =>
           machine.updateGasBudget(_.EApp.cost(vfun.actuals.size, args.size))
           machine.enterApplication(vfun, args)
-        case other => throw SError.SErrorCrash("SEAppAtomicGeneral", s"except SPAP, but got $other")
+        case other =>
+          throw SError.SErrorCrash("SEAppAtomicGeneral", s"except SPAP, but got $other")
       }
   }
 
@@ -147,12 +149,10 @@ private[lf] object SExpr {
   /** Closure creation. Create a new closure object storing the free variables
     * in 'body'.
     */
-  final case class SEMakeClo(fvs: ArraySeq[SELoc], arity: Int, body: SExpr) extends SExpr {
-
-    override def execute[Q](machine: Machine[Q]): Control.Value = {
+  final case class SEMakeClo(fvs: ArraySeq[SELoc], arity: Int, body: SExpr) extends SExprAtomic {
+    override def lookupValue(machine: Machine[_]): SValue = {
       val sValues = fvs.map(_.lookupValue(machine))
-      val pap = SPAP(PClosure(Profile.LabelUnset, body, sValues), ArraySeq.empty, arity)
-      Control.Value(pap)
+      SPAP(PClosure(Profile.LabelUnset, body, sValues), ArraySeq.empty, arity)
     }
   }
 

@@ -1797,13 +1797,4 @@ private[lf] object Speedy {
     }
   }
 
-  private[speedy] def deriveTransactionSeed(
-      submissionSeed: crypto.Hash,
-      participant: Ref.ParticipantId,
-      preparationTime: Time.Timestamp,
-  ): InitialSeeding =
-    InitialSeeding.TransactionSeed(
-      crypto.Hash.deriveTransactionSeed(submissionSeed, participant, preparationTime)
-    )
-
 }
