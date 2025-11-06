@@ -440,12 +440,8 @@ class OutputModule[E <: Env[E]](
               //  avoiding possible future problems e.g. with pruning and/or BFT onboarding from multiple
               //  sequencer snapshots.
               val tickTopology = isBlockLastInEpoch && epochCouldAlterOrderingTopology
-              // TODO(#23345): there should be no need to log this if we correlate request trace IDs with batches,
-              //  batch trace IDs with blocks and we propagate block trace IDs properly
-              val traceIdsString =
-                orderedBlockData.requestsView.flatMap(_.traceContext.traceId).mkString(",")
 
-              val newTraceContext = blockSpanMap
+              val blockTraceContext = blockSpanMap
                 .remove(orderedBlockNumber)
                 .map { case (span, traceContext) =>
                   span.end()
@@ -453,10 +449,14 @@ class OutputModule[E <: Env[E]](
                 }
                 .getOrElse(traceContext)
 
+              // Being able to correlate the trace contexts of submission requests with
+              // the block containing them can be useful for troubleshooting issues.
+              val traceIdsString =
+                orderedBlockData.requestsView.flatMap(_.traceContext.traceId).mkString(",")
               logger.debug(
                 s"Block $orderedBlockNumber being output contains requests " +
                   s"with the following trace IDs: [$traceIdsString]"
-              )(newTraceContext)
+              )(blockTraceContext)
               logger.debug(
                 s"Sending block $orderedBlockNumber " +
                   s"(current epoch = $epochNumber, " +
@@ -466,7 +466,7 @@ class OutputModule[E <: Env[E]](
                   s"could alter sequencing topology = $epochCouldAlterOrderingTopology, " +
                   s"tick topology = $tickTopology) " +
                   "to sequencer subscription"
-              )(newTraceContext)
+              )(blockTraceContext)
 
               blockSubscription.receiveBlock(
                 BlockFormat.Block(
@@ -476,7 +476,7 @@ class OutputModule[E <: Env[E]](
                     BftTime.epochEndBftTime(orderedBlockBftTime, orderedBlockData).toMicros
                   ),
                 )
-              )(newTraceContext)
+              )(blockTraceContext)
             }
 
           case UpdateLeaderSelection(topologyFetched) =>

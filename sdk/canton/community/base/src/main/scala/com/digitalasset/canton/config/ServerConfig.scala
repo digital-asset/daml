@@ -257,7 +257,7 @@ final case class LedgerApiKeepAliveServerConfig(
     permitKeepAliveWithoutCalls: Boolean = false,
 ) extends KeepAliveServerConfig
 
-/** GRPC keep alive client configuration
+/** gRPC keep alive client configuration
   *
   * Settings according to
   * [[https://grpc.github.io/grpc-java/javadoc/io/grpc/ManagedChannelBuilder.html#keepAliveTime-long-java.util.concurrent.TimeUnit-]]
@@ -266,11 +266,17 @@ final case class LedgerApiKeepAliveServerConfig(
   *   Sets the time without read activity before sending a keepalive ping. Do not set to small
   *   numbers (default is 40s)
   * @param timeout
-  *   Sets the time waiting for read activity after sending a keepalive ping (default is 20s)
+  *   Sets the time waiting for read activity after sending a keepalive ping (default is 15s).
+  *
+  * The default timeout was previously 20s and was lowered to 15s, because besides configuring the
+  * gRPC KeepAliveManager, it also sets up the socket's TCP_USER_TIMEOUT (see
+  * [[https://man7.org/linux/man-pages/man7/tcp.7.html]]). 15s gives a larger margin to detect a
+  * faulty connection earlier and retry a submission on another sequencer via amplification, thereby
+  * avoiding a request failure.
   */
 final case class KeepAliveClientConfig(
     time: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(40),
-    timeout: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(20),
+    timeout: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(15),
 ) extends UniformCantonConfigValidation
 
 object KeepAliveClientConfig {
