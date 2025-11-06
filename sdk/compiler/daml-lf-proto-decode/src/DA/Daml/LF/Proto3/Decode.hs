@@ -18,7 +18,7 @@ import           DA.Daml.LF.Ast.Base     ( Package, PackageId, SelfOrImportedPac
 import           DA.Daml.LF.Proto3.Error
 import qualified DA.Daml.LF.Proto3.DecodeV2 as DecodeV2
 import qualified DA.Daml.LF.Ast             as LF
-import           DA.Daml.StablePackagesList (stablePackages)
+import           DA.Daml.StablePackages (allStablePackageIds)
 
 import           Control.Monad.Except (throwError)
 import           Control.Lens         (over, _Left)
@@ -37,7 +37,7 @@ decodeLfVersion major pkgId minorText patchInt = do
     | otherwise -> unsupportedMinor
   _ <- if patchInt == 0 then pure () else unsupportedPatch minor patchInt
   let version = LF.Version major minor
-  if pkgId `elem` stablePackages || version `elem` LF.compilerInputLfVersions
+  if pkgId `elem` allStablePackageIds || version `elem` LF.compilerInputLfVersions
       then pure version
       else unsupportedMinor
 

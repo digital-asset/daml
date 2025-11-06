@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "generate_and_track_cabal")
+load("//rules_daml:daml.bzl", "generate_and_track_yaml_file")
 load(
     "//daml-lf/language:daml-lf.bzl",
     "COMPILER_LF_MAJOR_VERSIONS",
@@ -32,7 +33,7 @@ da_haskell_library(
 
 da_haskell_binary(
     name = "generate-stable-package",
-    srcs = glob(["src/**/*.hs"]),
+    srcs = ["src/Main.hs"],
     hackage_deps = [
         "base",
         "bytestring",
@@ -103,29 +104,58 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
-genrule(
-    name = "stable-packages-list-srcs",
-    outs = ["DA/Daml/StablePackagesList.hs"],
-    cmd = """
-    $(location :generate-stable-package) gen-package-list -o $(location DA/Daml/StablePackagesList.hs)
-  """,
-    tools = [":generate-stable-package"],
-)
+generate_and_track_cabal("stable-packages-lib", "generate-stable-package")
 
-# We generate this as a library rather than depending on :stable-packages-lib
-# to avoid a cyclical dependency between the daml-lf-proto and :stable-packages-lib
-# and to avoid having to encode the packages at runtime to get their package id.
-da_haskell_library(
-    name = "stable-packages-list",
-    srcs = ["DA/Daml/StablePackagesList.hs"],
+da_haskell_binary(
+    name = "stable-package-list-writer",
+    srcs = ["src/DA/Daml/StablePackagesListWriter.hs"],
+    compiler_flags = [
+        '-DYAML_FILE_PATH="$(location stable-packages.yaml)"',
+    ],
+    data = ["stable-packages.yaml"],
     hackage_deps = [
         "base",
+        "bytestring",
         "containers",
+        "text",
+        "yaml",
     ],
+    src_strip_prefix = "src",
+    deps = [
+        ":stable-packages-lib",
+        "//compiler/daml-lf-ast",
+    ],
+)
+
+generate_and_track_yaml_file(
+    name = "stable-packages-list",
+    data = ["stable-packages.yaml"],
+    generator = ":stable-package-list-writer",
+    golden_file = "stable-packages.yaml",
+)
+
+da_haskell_library(
+    name = "stable-package-list-reader",
+    srcs = [
+        "src/DA/Daml/EmbedFileAndDecode.hs",
+        "src/DA/Daml/StablePackagesListReader.hs",
+    ],
+    compiler_flags = [
+        '-DYAML_FILE_PATH="$(location stable-packages.yaml)"',
+    ],
+    extra_srcs = [
+        "stable-packages.yaml",
+    ],
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "template-haskell",
+        "text",
+        "yaml",
+    ],
+    src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
     ],
 )
-
-generate_and_track_cabal("stable-packages-lib", "generate-stable-package")
