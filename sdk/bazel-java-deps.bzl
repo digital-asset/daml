@@ -37,7 +37,7 @@ version_specific = {
 #
 # 2. As recommended by https://github.com/grpc/grpc-java/blob/master/SECURITY.md#netty we use
 # grpc-netty-shaded than embedded netty and netty-boringssl-tcnative (shaded)
-grpc_version = "1.67.1"
+grpc_version = "1.75.0"
 protobuf_version = "3.25.5"
 pekko_version = "1.1.2"
 pekko_http_version = "1.1.0"
