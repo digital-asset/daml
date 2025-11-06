@@ -606,7 +606,6 @@ def generate_and_track_yaml_file(
         generator_args: A list of *additional* string arguments for the generator.
     """
 
-    # --- Add this condition ---
     if not is_windows:
         generated_target = name + "-generated-yaml"
         generated_out = name + "-generated.yaml"

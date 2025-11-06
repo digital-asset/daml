@@ -13,8 +13,8 @@
 {-# LANGUAGE DeriveLift         #-}
 {-# OPTIONS_GHC -Wno-orphans    #-}
 
-module DA.Daml.EmbedFileWithDecoder(
-    embedFile
+module DA.Daml.EmbedFileAndDecode(
+    embedFileAndDecode
   ) where
 
 import           Data.ByteString      (ByteString)
@@ -24,9 +24,7 @@ import qualified Data.Yaml            as Yaml
 
 import "template-haskell" Language.Haskell.TH.Syntax as TH
 
--- import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Version.VersionType
-
 
 decode :: ByteString -> [(Version, T.Text)]
 decode bs = either (\ex -> error $ "Failed to decode: " ++ show ex) id decoded
@@ -42,5 +40,5 @@ deriving instance Lift MajorVersion
 deriving instance Lift MinorVersion
 deriving instance Lift Version
 
-embedFile :: TH.Q TH.Exp
-embedFile = embedFileWithDecoder decode
+embedFileAndDecode :: TH.Q TH.Exp
+embedFileAndDecode = embedFileWithDecoder decode

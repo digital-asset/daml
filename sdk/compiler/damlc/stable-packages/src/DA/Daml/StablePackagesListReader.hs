@@ -22,10 +22,10 @@ import qualified Data.Text            as T
 import           DA.Daml.LF.Ast
 import qualified DA.Daml.LF.Ast.Range as R
 
-import           DA.Daml.EmbedFileWithDecoder
+import           DA.Daml.EmbedFileAndDecode
 
 decoded :: [(Version, T.Text)]
-decoded = $(embedFile)
+decoded = $(embedFileAndDecode)
 
 entries :: [(VersionReq, PackageId)]
 entries = map (bimap R.From PackageId) decoded
