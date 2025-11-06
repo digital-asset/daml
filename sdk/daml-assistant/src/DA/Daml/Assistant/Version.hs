@@ -238,7 +238,7 @@ getAvailableSdkSnapshotVersions :: UseCache -> IO ([ReleaseVersion], CacheAge)
 getAvailableSdkSnapshotVersions useCache =
   cacheAvailableSdkVersions useCache (\_ -> getAvailableSdkSnapshotVersionsUncached (damlPath useCache) >>= flattenSnapshotsList)
 
--- | Find the first occurence of a version on Github, without the cache. Keep in
+-- | Find the first occurrence of a version on Github, without the cache. Keep in
   -- mind that versions are not sorted.
 findAvailableSdkSnapshotVersion :: Maybe DamlPath -> (ReleaseVersion -> Bool) -> IO (Maybe ReleaseVersion)
 findAvailableSdkSnapshotVersion damlPathMb pred =

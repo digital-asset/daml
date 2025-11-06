@@ -23,11 +23,19 @@ For Linux and MacOS, run
 
 .. code:: bash
 
-  curl -sSL https://get.daml.com/ | sh -s 3.3.0-snapshot.20250507.0
+  curl -sSL https://get.daml.com/ | sh
+
+This will install the latest stable Daml SDK. To install a specific version, run:
+
+.. code:: bash
+
+  curl -sSL https://get.daml.com/ | sh -s 3.4.0
 
 For Windows 10/11, download and run the installer from the `GitHub releases page <https://github.com/digital-asset/daml/releases>`__.
 
-These methods will install the most recent Daml SDK with its Daml Assistant, and add daml to your PATH, though you may need to restart your terminal for this to take effect.
+These methods will install the Daml SDK with its Daml Assistant, and add daml to your PATH, though you may need to restart your terminal for this to take effect.
+
+Available SDK versions can be found on the `GitHub releases page <https://github.com/digital-asset/daml/releases>`__.
 
 Configure
 *********
@@ -102,6 +110,8 @@ Other Daml Commands
   Sub-command for the Daml Compiler.  
   Commands like ``daml build`` and ``daml test`` redirect to this sub-command, and thus are repeated. Some commands are only accessible via ``daml damlc <command>``, as follows:
 
+  - | ``daml damlc inspect FILE``:
+    | Pretty print a DALF file or the main DALF of a DAR file.
   - | ``daml damlc inspect-dar FILE``:
     | Given a path to a .dar file, this will give information about the packages contained within the DAR.
   - | ``daml damlc docs``
@@ -172,14 +182,20 @@ an alternative is to change the location of these directories before the install
 To do so, call the installer with ``DAML_HOME`` and ``TMPDIR`` environment variables pointing to directories that have sufficient space:
 
 * On Windows, first set the environment variables. Then run the installation as usual.
-* On Linus and MacOS, run in a terminal:
+* On Linux and MacOS, run in a terminal:
 
 .. code-block: sh
   
   DAML_HOME=<YOUR-TARGET-DIR> TMPDIR=<YOUR-TEMPDIR> curl -sSL https://get.daml.com/ | sh
 
-Avoid choosing directories for ``DAML_HOME`` and ``TMPDIR`` environment variables that are located inside the unzipped installation
-directory ``sdk-x.x.x``, as otherwise the installer fails.
+**Important**: Avoid choosing directories for ``DAML_HOME`` and ``TMPDIR`` environment variables that are located inside the unzipped installation
+directory ``sdk-x.x.x``, as otherwise the installer will hang or fail. These directories must be located outside the installation folder.
+
+**Example**: If you have downloaded and extracted the SDK to ``/tmp/sdk-2.8.0/``, set your environment variables to directories outside this folder:
+
+.. code-block: sh
+  
+  DAML_HOME=/home/user/daml-root TMPDIR=/home/user/tmp curl -sSL https://get.daml.com/ | sh
 
 Contribute
 **********
