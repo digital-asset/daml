@@ -130,7 +130,7 @@ def dpm_sdk_tarball(name, version):
 set -euo pipefail
 SCRIPT_DIR=\\$$( cd -- "\\$$( dirname -- "\\$${{BASH_SOURCE[0]}}" )" &> /dev/null && pwd )
 DPM_HOME=\\$$(dirname -- \\$$SCRIPT_DIR)
-HOME=$$DPM_HOME
+HOME=\\$$DPM_HOME
 \\$$DPM_HOME/cache/components/dpm/$$DPM_VERSION/dpm \\$$@
 EOF
           chmod +x $$DIR/bin/dpm
