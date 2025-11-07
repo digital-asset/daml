@@ -71,14 +71,9 @@ class ReplayingEventsSequencerClientTransport(
     EitherT.rightT(())
 
   /** Does nothing */
-  override def acknowledge(request: AcknowledgeRequest)(implicit
-      traceContext: TraceContext
-  ): Future[Unit] = Future.unit
-
-  /** Does nothing */
   override def acknowledgeSigned(request: SignedContent[AcknowledgeRequest])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, Unit] =
+  ): EitherT[Future, SendAcknowledgementError, Unit] =
     EitherT.rightT(())
 
   /** Replays all events in `replayPath` to the handler. */

@@ -158,7 +158,7 @@ class TopologyTransactionProcessorTest
       }
     }
 
-    "cascading update" in {
+    "cascading update with remove / add" in {
       val (proc, store) = mk()
       val block1 = List(ns1k1_k1, ns1k2_k1, id1ak4_k2, okm1bk5_k4)
       for {
@@ -178,6 +178,61 @@ class TopologyTransactionProcessorTest
         validate(st3, List(ns1k1_k1, ns1k2_k1p, id1ak4_k2, okm1bk5_k4))
         validate(st4, List(ns1k1_k1, ns1k2_k1p))
         validate(st5, List(ns1k1_k1, ns1k2_k1p, id1ak4_k2p, okm1bk5_k4))
+      }
+    }
+
+    "cascading update with add / remove" when {
+      "in same batch" in {
+        val (proc, store) = mk()
+        for {
+          _ <- process(proc, ts(0), 0, List(ns1k1_k1, ns1k2_k1, id1ak4_k2, okm1bk5_k4))
+          st1 <- fetch(store, ts(0).immediateSuccessor)
+          _ <- process(proc, ts(1), 1, List(ns1k2_k1p, id1ak4_k2p))
+          st2 <- fetch(store, ts(1).immediateSuccessor)
+          _ <- process(proc, ts(2), 2, List(Factory.revert(id1ak4_k2), Factory.revert(ns1k2_k1)))
+          st3 <- fetch(store, ts(2).immediateSuccessor)
+        } yield {
+          validate(st1, List(ns1k1_k1, ns1k2_k1, id1ak4_k2, okm1bk5_k4))
+          validate(st2, List(ns1k1_k1, ns1k2_k1, id1ak4_k2, okm1bk5_k4, ns1k2_k1p, id1ak4_k2p))
+          validate(st3, List(ns1k1_k1, okm1bk5_k4, ns1k2_k1p, id1ak4_k2p))
+        }
+      }
+      "in separate steps" in {
+        val (proc, store) = mk()
+        for {
+          _ <- process(proc, ts(0), 0, List(ns1k1_k1, ns1k2_k1, id1ak4_k2, okm1bk5_k4))
+          st1 <- fetch(store, ts(0).immediateSuccessor)
+          _ <- process(proc, ts(1), 1, List(ns1k2_k1p, id1ak4_k2p))
+          st2 <- fetch(store, ts(1).immediateSuccessor)
+          _ <- process(proc, ts(2), 2, List(Factory.revert(ns1k2_k1)))
+          st3 <- fetch(store, ts(2).immediateSuccessor)
+          _ <- process(proc, ts(3), 3, List(Factory.revert(id1ak4_k2)))
+          st4 <- fetch(store, ts(3).immediateSuccessor)
+        } yield {
+          validate(st1, List(ns1k1_k1, ns1k2_k1, id1ak4_k2, okm1bk5_k4))
+          validate(st2, List(ns1k1_k1, ns1k2_k1, id1ak4_k2, okm1bk5_k4, ns1k2_k1p, id1ak4_k2p))
+          validate(st3, List(ns1k1_k1, id1ak4_k2, okm1bk5_k4, ns1k2_k1p, id1ak4_k2p))
+          validate(st4, List(ns1k1_k1, okm1bk5_k4, ns1k2_k1p, id1ak4_k2p))
+        }
+      }
+      "cascading update ignores transient" in {
+        val (proc, store) = mk()
+        for {
+          _ <- process(proc, ts(0), 0, List(ns1k1_k1, ns1k2_k1))
+          st1 <- fetch(store, ts(0).immediateSuccessor)
+          _ <- process(proc, ts(1), 1, List(okm1ak5_k2, Factory.revert(okm1ak5_k2), id1ak4_k2))
+          st2p <- fetch(store, ts(1))
+          st2 <- fetch(store, ts(1).immediateSuccessor)
+          _ <- process(proc, ts(2), 2, List(ns1k2_k1p, Factory.revert(ns1k2_k1)))
+          st3p <- fetch(store, ts(2))
+          st3 <- fetch(store, ts(2).immediateSuccessor)
+        } yield {
+          validate(st1, List(ns1k1_k1, ns1k2_k1))
+          validate(st2p, List(ns1k1_k1, ns1k2_k1))
+          validate(st2, List(ns1k1_k1, ns1k2_k1, id1ak4_k2))
+          validate(st3p, List(ns1k1_k1, ns1k2_k1, id1ak4_k2))
+          validate(st3, List(ns1k1_k1, ns1k2_k1p, id1ak4_k2))
+        }
       }
     }
 
@@ -220,7 +275,34 @@ class TopologyTransactionProcessorTest
       } yield {
         validate(st, block1)
       }
+    }
 
+    "cascading addition and removal in the same transaction is handled correctly" in {
+      val (proc, store) = mk()
+      for {
+        _ <- process(
+          proc,
+          ts(0),
+          0,
+          List(ns1k1_k1, okmS1k7_k1, okmS1k9_k1, okmS1k7_k1_remove),
+        )
+        state <- fetch(store, ts(0).immediateSuccessor)
+      } yield {
+        validate(state, List(ns1k1_k1, okmS1k9_k1))
+      }
+    }
+
+    "incremental addition and removal in the same transaction is handled correctly" in {
+      val (proc, store) = mk()
+      for {
+        _ <- process(proc, ts(0), 0, List(ns1k1_k1))
+        _ <- process(proc, ts(1), 0, List(okmS1k7_k1, okmS1k7_k1_remove, okmS1k9_k1))
+        state0 <- fetch(store, ts(1))
+        state1 <- fetch(store, ts(1).immediateSuccessor)
+      } yield {
+        validate(state0, List(ns1k1_k1))
+        validate(state1, List(ns1k1_k1, okmS1k9_k1))
+      }
     }
 
   }

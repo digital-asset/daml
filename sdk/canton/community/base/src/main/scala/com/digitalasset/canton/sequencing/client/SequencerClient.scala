@@ -31,6 +31,7 @@ import com.digitalasset.canton.protocol.messages.DefaultOpenEnvelope
 import com.digitalasset.canton.resource.DbStorage.PassiveInstanceException
 import com.digitalasset.canton.sequencing.SequencerAggregator.MessageAggregationConfig
 import com.digitalasset.canton.sequencing.*
+import com.digitalasset.canton.sequencing.client.RequestSigner.RequestSignerError
 import com.digitalasset.canton.sequencing.client.SendCallback.CallbackFuture
 import com.digitalasset.canton.sequencing.client.SequencerClient.SequencerTransports
 import com.digitalasset.canton.sequencing.client.SequencerClientSubscriptionError.*
@@ -161,16 +162,9 @@ trait SequencerClient extends SequencerClientSend with FlagCloseable {
 
   def healthComponent: CloseableHealthComponent
 
-  /** Acknowledge that we have successfully processed all events up to and including the given timestamp.
-    * The client should then never subscribe for events from before this point.
-    */
-  private[client] def acknowledge(timestamp: CantonTimestamp)(implicit
-      traceContext: TraceContext
-  ): Future[Unit]
-
   def acknowledgeSigned(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, Unit]
+  ): EitherT[Future, SendAcknowledgementError, Unit]
 
   /** The sequencer counter at which the first subscription starts */
   protected def initialCounterLowerBound: SequencerCounter
@@ -1060,22 +1054,21 @@ class SequencerClientImpl(
         }(EitherT.leftT[Future, Unit](_))
     }
 
-  /** Acknowledge that we have successfully processed all events up to and including the given timestamp.
-    * The client should then never subscribe for events from before this point.
-    */
-  private[client] def acknowledge(timestamp: CantonTimestamp)(implicit
-      traceContext: TraceContext
-  ): Future[Unit] = {
-    val request = AcknowledgeRequest(member, timestamp, protocolVersion)
-    sequencersTransportState.transport.acknowledge(request)
-  }
-
   def acknowledgeSigned(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, Unit] = {
+  ): EitherT[Future, SendAcknowledgementError, Unit] = {
     val request = AcknowledgeRequest(member, timestamp, protocolVersion)
     for {
-      signedRequest <- requestSigner.signRequest(request, HashPurpose.AcknowledgementSignature)
+      signedRequest <- requestSigner
+        .signRequest(request, HashPurpose.AcknowledgementSignature)
+        .leftMap[SendAcknowledgementError] {
+          case RequestSignerError.KeyNotAvailable(at) =>
+            SendAcknowledgementError.SigningKeyNotAvailable(at)
+          case RequestSignerError.Unexpected(err) =>
+            SendAcknowledgementError.OtherError(err.toString)
+          case RequestSignerError.UnauthenticatedMemberDoNotSign =>
+            SendAcknowledgementError.OtherError("Unauthenticated members do not sign")
+        }
       _ <- sequencersTransportState.transport.acknowledgeSigned(signedRequest)
     } yield ()
   }

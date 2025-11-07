@@ -8,8 +8,8 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.*
 import com.daml.tracing.Telemetry
+import com.digitalasset.canton.auth.Authorizer
 import com.digitalasset.canton.ledger.api.SubmissionIdGenerator
-import com.digitalasset.canton.ledger.api.auth.Authorizer
 import com.digitalasset.canton.ledger.api.auth.services.*
 import com.digitalasset.canton.ledger.api.domain.LedgerId
 import com.digitalasset.canton.ledger.api.grpc.GrpcHealthService
@@ -39,6 +39,7 @@ import com.digitalasset.canton.platform.apiserver.services.command.{
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
 import com.digitalasset.canton.platform.apiserver.services.transaction.{
   EventQueryServiceImpl,
+  KeyTypeValidatorImpl,
   TransactionServiceImpl,
 }
 import com.digitalasset.canton.platform.config.{
@@ -190,8 +191,17 @@ object ApiServices {
           transactionServiceRequestValidator,
         )
 
+      val keyTypeValidator =
+        new KeyTypeValidatorImpl(engine, packagesService, packageMetadataStore, metrics)
+
       val apiEventQueryService =
-        EventQueryServiceImpl.create(ledgerId, eventQueryService, telemetry, loggerFactory)
+        EventQueryServiceImpl.create(
+          ledgerId,
+          eventQueryService,
+          keyTypeValidator,
+          telemetry,
+          loggerFactory,
+        )
 
       val apiLedgerIdentityService =
         ApiLedgerIdentityService.create(ledgerId, telemetry, loggerFactory)
@@ -346,6 +356,7 @@ object ApiServices {
               serializableContractAuthenticators.upgrade,
               metrics,
               engineLoggingConfig,
+              commandConfig.contractPrefetchingDepth,
               loggerFactory,
               dynParamGetter,
               timeProvider,
@@ -365,6 +376,7 @@ object ApiServices {
           validateUpgradingPackageResolutions = validateUpgradingPackageResolutions,
           enableExplicitDisclosure = enableExplicitDisclosure,
           authenticateSerializableContract = serializableContractAuthenticators.input,
+          stricterPartyValidation = commandConfig.stricterPartyValidation,
         )
         val (apiSubmissionService, commandSubmissionService) =
           CommandSubmissionServiceImpl.createApiService(

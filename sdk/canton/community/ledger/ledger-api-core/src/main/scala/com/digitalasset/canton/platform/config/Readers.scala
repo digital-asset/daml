@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.config
 
 import com.digitalasset.canton.ledger.api.tls.TlsVersion
 import com.digitalasset.canton.ledger.api.tls.TlsVersion.TlsVersion
-import io.netty.handler.ssl.ClientAuth
+import io.grpc.netty.shaded.io.netty.handler.ssl.ClientAuth
 import scopt.Read
 
 import java.time.Duration

@@ -33,6 +33,7 @@ import com.daml.lf.value.Value.{ContractInstance, ValueTrue}
 import com.daml.logging.LoggingContext
 import com.digitalasset.canton.BaseTest.{pvPackageName, pvTransactionVersion}
 import com.digitalasset.canton.concurrent.Threading
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.crypto.{CryptoPureApi, Salt, SaltSeed}
 import com.digitalasset.canton.ledger.api.domain.{CommandId, Commands, LedgerId}
@@ -152,6 +153,7 @@ class StoreBackedCommandExecutorSpec
       authenticateSerializableContract = _ => Right(()),
       metrics = Metrics.ForTesting,
       EngineLoggingConfig(),
+      PositiveInt.two,
       loggerFactory = loggerFactory,
       dynParamGetter = new TestDynamicDomainParameterGetter(tolerance),
       TimeProvider.UTC,
@@ -381,6 +383,7 @@ class StoreBackedCommandExecutorSpec
         authenticateSerializableContract = _ => authenticationResult,
         metrics = Metrics.ForTesting,
         EngineLoggingConfig(),
+        PositiveInt.two,
         loggerFactory = loggerFactory,
         dynParamGetter = new TestDynamicDomainParameterGetter(NonNegativeFiniteDuration.Zero),
         TimeProvider.UTC,

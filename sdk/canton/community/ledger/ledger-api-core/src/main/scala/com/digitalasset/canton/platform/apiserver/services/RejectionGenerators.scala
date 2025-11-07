@@ -158,6 +158,9 @@ object RejectionGenerators {
             ) =>
           CommandExecutionErrors.Interpreter.UpgradeError.DowngradeFailed
             .Reject(renderedMessage, error)
+        case error: LfInterpretationError.DisallowedInterfaceExercise =>
+          CommandExecutionErrors.Interpreter.DisallowedInterfaceExercise
+            .Reject(renderedMessage, error)
         case LfInterpretationError.Dev(_, err) =>
           CommandExecutionErrors.Interpreter.InterpretationDevError
             .Reject(renderedMessage, err)

@@ -7,14 +7,15 @@ import com.daml.grpc.sampleservice.implementations.HelloServiceReferenceImplemen
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
 import com.digitalasset.canton.config.RequireTypes.Port
+import com.digitalasset.canton.config.ServerConfig
 import com.digitalasset.canton.ledger.api.tls.TlsConfiguration
 import com.digitalasset.canton.ledger.client.GrpcChannel
 import com.digitalasset.canton.ledger.client.configuration.LedgerClientChannelConfiguration
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.apiserver.{ApiService, ApiServices, LedgerApiService}
+import io.grpc.netty.shaded.io.netty.handler.ssl.ClientAuth
 import io.grpc.{BindableService, ManagedChannel}
-import io.netty.handler.ssl.ClientAuth
 
 import java.io.File
 import java.util.concurrent.Executors
@@ -40,8 +41,6 @@ final case class TlsFixture(
         .stub(channel)
         .single(testRequest)
     }
-
-  private val DefaultMaxInboundMessageSize: Int = 4 * 1024 * 1024 // taken from the Sandbox config
 
   private final class MockApiServices(apiServices: ApiServices) extends ResourceOwner[ApiServices] {
     override def acquire()(implicit context: ResourceContext): Resource[ApiServices] =
@@ -74,7 +73,8 @@ final case class TlsFixture(
         new LedgerApiService(
           apiServicesOwner = owner,
           desiredPort = Port.Dynamic,
-          maxInboundMessageSize = DefaultMaxInboundMessageSize,
+          maxInboundMessageSize = ServerConfig.defaultMaxInboundMessageSize.unwrap,
+          maxInboundMetadataSize = ServerConfig.defaultMaxInboundMetadataSize.unwrap,
           address = None,
           tlsConfiguration = Some(serverTlsConfiguration),
           servicesExecutor = servicesExecutor,

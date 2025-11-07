@@ -10,6 +10,7 @@ import com.daml.lf.value.Value
 import com.digitalasset.canton.crypto.{HashOps, Salt, TestSalt}
 import com.digitalasset.canton.data.ViewParticipantData.InvalidViewParticipantData
 import com.digitalasset.canton.protocol.*
+import com.digitalasset.canton.protocol.v4.ActionDescription.FetchActionDescription
 import com.digitalasset.canton.util.LfTransactionBuilder
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, LfPackageId}
@@ -79,22 +80,23 @@ class TransactionViewTest extends AnyWordSpec with BaseTest with HasExecutionCon
     "a child view has package preferences not in the parent" must {
 
       val unexpectedPackage = LfPackageId.assertFromString("u1")
-
       val view = factory.SingleExercise(seed = ExampleTransactionFactory.lfHash(3)).view0
 
-      val subview =
-        TransactionView.viewParticipantDataUnsafe
-          .modify { w =>
-            val d = w.tryUnwrap
-            val p = d.actionDescription.toProtoV4
-            p.getExercise.withPackagePreference(Seq(unexpectedPackage))
-            val n = p.withExercise(p.getExercise.withPackagePreference(Seq(unexpectedPackage)))
-            d.copy(actionDescription = ActionDescription.fromProtoV4(n).value)
-          }(view)
+      "reject creation if child exercise based view is different from its parent" in {
 
-      val subViews = TransactionSubviews(Seq(subview))(testedProtocolVersion, factory.cryptoOps)
+        val subview =
+          TransactionView.viewParticipantDataUnsafe
+            .modify { vpd =>
+              val actionDescription = vpd.tryUnwrap.actionDescription.toProtoV4
+              actionDescription.getExercise.withPackagePreference(Seq(unexpectedPackage))
+              val exercise = actionDescription.withExercise(
+                actionDescription.getExercise.withPackagePreference(Seq(unexpectedPackage))
+              )
+              vpd.tryUnwrap.copy(actionDescription = ActionDescription.fromProtoV4(exercise).value)
+            }(view)
 
-      "reject creation" in {
+        val subViews = TransactionSubviews(Seq(subview))(testedProtocolVersion, factory.cryptoOps)
+
         TransactionView
           .create(hashOps)(
             view.viewCommonData,
@@ -105,6 +107,40 @@ class TransactionViewTest extends AnyWordSpec with BaseTest with HasExecutionCon
           .left
           .value shouldBe s"Detected unexpected exercise package preference: $unexpectedPackage at $firstSubviewIndex"
       }
+
+      "reject creation if child fetch based view is different from its parent" in {
+
+        val subview =
+          TransactionView.viewParticipantDataUnsafe
+            .modify { vpd =>
+              val actionDescription = vpd.tryUnwrap.actionDescription.toProtoV4
+              val ex = actionDescription.getExercise
+              val fetch = actionDescription.withFetch(
+                FetchActionDescription(
+                  inputContractId = ex.inputContractId,
+                  actors = ex.actors,
+                  byKey = false,
+                  version = ex.version,
+                  templateId = Some(s"$unexpectedPackage:module:template"),
+                  interfaceId = Some("ifPkg:module:template"),
+                )
+              )
+              vpd.tryUnwrap.copy(actionDescription = ActionDescription.fromProtoV4(fetch).value)
+            }(view)
+
+        val subViews = TransactionSubviews(Seq(subview))(testedProtocolVersion, factory.cryptoOps)
+
+        TransactionView
+          .create(hashOps)(
+            view.viewCommonData,
+            view.viewParticipantData,
+            subViews,
+            testedProtocolVersion,
+          )
+          .left
+          .value shouldBe s"Detected unexpected fetch package preference: $unexpectedPackage at $firstSubviewIndex"
+      }
+
     }
   }
 

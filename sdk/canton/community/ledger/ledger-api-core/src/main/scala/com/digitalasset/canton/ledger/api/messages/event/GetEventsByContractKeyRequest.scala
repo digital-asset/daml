@@ -3,10 +3,9 @@
 
 package com.digitalasset.canton.ledger.api.messages.event
 
-import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.ledger.EventId
-import com.daml.lf.value.Value
+import com.daml.lf.transaction.GlobalKey
 
 sealed trait KeyContinuationToken extends Product with Serializable
 object KeyContinuationToken {
@@ -43,8 +42,7 @@ object KeyContinuationToken {
 }
 
 final case class GetEventsByContractKeyRequest(
-    contractKey: Value,
-    typeConRef: Ref.TypeConRef,
+    globalKey: GlobalKey,
     requestingParties: Set[Party],
     keyContinuationToken: KeyContinuationToken,
 )

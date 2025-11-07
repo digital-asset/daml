@@ -8,22 +8,28 @@ import cats.syntax.either.*
 import cats.syntax.parallel.*
 import com.daml.lf.data.Ref.PackageId
 import com.daml.nameof.NameOf.functionFullName
-import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config
+import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveLong}
+import com.digitalasset.canton.config.{CacheConfig, ProcessingTimeout}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.store.DamlPackageStore
 import com.digitalasset.canton.protocol.PackageDescription
 import com.digitalasset.canton.topology.store.PackageDependencyResolverUS
 import com.digitalasset.canton.tracing.{TraceContext, TracedScaffeine}
-import com.github.blemale.scaffeine.Scaffeine
+import com.digitalasset.canton.util.MonadUtil
 
-import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
 
 class PackageDependencyResolver(
     private[admin] val damlPackageStore: DamlPackageStore,
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
+    fetchPackageParallelism: PositiveInt = PositiveInt.tryCreate(8),
+    packageDependencyCacheConfig: CacheConfig = CacheConfig(
+      maximumSize = PositiveLong.tryCreate(10000),
+      expireAfterAccess = config.NonNegativeFiniteDuration.ofMinutes(15L),
+    ),
 )(implicit
     ec: ExecutionContext
 ) extends NamedLogging
@@ -33,7 +39,7 @@ class PackageDependencyResolver(
   private val dependencyCache =
     TracedScaffeine
       .buildTracedAsync[EitherT[FutureUnlessShutdown, PackageId, *], PackageId, Set[PackageId]](
-        cache = Scaffeine().maximumSize(10000).expireAfterAccess(15.minutes),
+        cache = packageDependencyCacheConfig.buildScaffeine(),
         loader = implicit tc => loadPackageDependencies _,
       )(logger)
 
@@ -53,7 +59,9 @@ class PackageDependencyResolver(
         packageIds: List[PackageId]
     ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
       for {
-        directDependenciesByPackage <- packageIds.parTraverse { packageId =>
+        directDependenciesByPackage <- MonadUtil.parTraverseWithLimit(
+          fetchPackageParallelism.value
+        )(packageIds) { packageId =>
           for {
             pckg <- OptionT(
               performUnlessClosingF(functionFullName)(damlPackageStore.getPackage(packageId))

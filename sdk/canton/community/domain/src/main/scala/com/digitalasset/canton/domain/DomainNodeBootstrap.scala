@@ -450,7 +450,7 @@ class DomainNodeBootstrap(
       val sequencedTopologyStore =
         sequencerTopologyStore.initOrGet(DomainStore(domainId))
       val publicSequencerConnectionEitherT =
-        config.publicApi.toSequencerConnectionConfig.toConnection.toEitherT[Future]
+        config.publicApi.clientConfig.toGrpcSequencerConnection.toEitherT[Future]
 
       for {
         publicSequencerConnection <- publicSequencerConnectionEitherT
@@ -600,6 +600,7 @@ class DomainNodeBootstrap(
           initialKeys,
           sequencerClientFactoryFactory(topologyClient),
           parameters,
+          parameters.dispatcherBatchSize,
           futureSupervisor,
           indexedStringStore,
           loggerFactory,

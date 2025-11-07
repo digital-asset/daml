@@ -130,7 +130,7 @@ private[platform] object InMemoryStateUpdater {
       archiveToMetadata = archive =>
         Timed.value(
           metrics.daml.index.packageMetadata.decodeArchive,
-          PackageMetadata.from(archive),
+          PackageMetadata.from(archive)._1,
         )
     ),
     update = update(inMemoryState, logger),

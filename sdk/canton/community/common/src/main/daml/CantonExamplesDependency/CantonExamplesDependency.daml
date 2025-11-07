@@ -1,0 +1,9 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- Dummy module to create a dependency on CantonExamples package.
+module CantonExamplesDependency where
+
+import Iou
+
+testIssue = issue "test" "test"

@@ -5,16 +5,18 @@ package com.digitalasset.canton.networking.grpc
 
 import com.daml.metrics.api.MetricName
 import com.daml.metrics.grpc.GrpcServerMetrics
+import com.daml.tracing.Telemetry
 import com.digitalasset.canton.DiscardOps
+import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.MetricHandle.MetricsFactory
 import com.digitalasset.canton.tracing.TracingConfig
 import io.grpc.*
-import io.grpc.netty.{GrpcSslContexts, NettyServerBuilder}
+import io.grpc.netty.shaded.io.grpc.netty.{GrpcSslContexts, NettyServerBuilder}
+import io.grpc.netty.shaded.io.netty.handler.ssl.{SslContext, SslContextBuilder}
 import io.grpc.util.MutableHandlerRegistry
-import io.netty.handler.ssl.{SslContext, SslContextBuilder}
 
 import java.net.InetSocketAddress
 import java.util.concurrent.{Executor, TimeUnit}
@@ -148,6 +150,9 @@ object CantonServerBuilder {
       apiLoggingConfig: ApiLoggingConfig,
       tracing: TracingConfig,
       grpcMetrics: GrpcServerMetrics,
+      adminToken: Option[CantonAdminToken],
+      telemetry: Telemetry,
+      additionalInterceptors: Seq[ServerInterceptor] = Seq.empty,
   ): CantonServerBuilder = {
     val builder =
       NettyServerBuilder
@@ -171,6 +176,10 @@ object CantonServerBuilder {
         metricsFactory,
         loggerFactory,
         grpcMetrics,
+        config.authServices,
+        adminToken,
+        telemetry,
+        additionalInterceptors,
       ),
     )
   }

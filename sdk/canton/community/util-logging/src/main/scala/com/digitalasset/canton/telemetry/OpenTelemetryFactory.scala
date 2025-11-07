@@ -3,12 +3,14 @@
 
 package com.digitalasset.canton.telemetry
 
+import better.files.File
 import com.daml.metrics.HistogramDefinition
 import com.daml.telemetry.OpenTelemetryOwner.addViewsToProvider
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.metrics.OnDemandMetricsReader.NoOpOnDemandMetricsReader$
 import com.digitalasset.canton.metrics.OpenTelemetryOnDemandMetricsReader
 import com.digitalasset.canton.tracing.{NoopSpanExporter, TraceContext, TracingConfig}
+import com.google.protobuf.ByteString
 import io.opentelemetry.api.trace.propagation.W3CTraceContextPropagator
 import io.opentelemetry.context.propagation.ContextPropagators
 import io.opentelemetry.exporter.jaeger.JaegerGrpcSpanExporter
@@ -105,6 +107,9 @@ object OpenTelemetryFactory {
 
   }
 
+  private def loadCertificate(tlsCaCert: String): ByteString =
+    ByteString.copyFrom(File(tlsCaCert).loadBytes)
+
   private def createExporter(config: TracingConfig.Exporter): SpanExporter = config match {
     case TracingConfig.Exporter.Jaeger(address, port) =>
       JaegerGrpcSpanExporter.builder
@@ -114,9 +119,25 @@ object OpenTelemetryFactory {
     case TracingConfig.Exporter.Zipkin(address, port) =>
       val httpUrl = s"http://$address:$port/api/v2/spans"
       ZipkinSpanExporter.builder.setEndpoint(httpUrl).build
-    case TracingConfig.Exporter.Otlp(address, port) =>
-      val httpUrl = s"http://$address:$port"
-      OtlpGrpcSpanExporter.builder.setEndpoint(httpUrl).build
+
+    case TracingConfig.Exporter.Otlp(
+          address,
+          port,
+          tlsCaCert,
+          additionalHeaders,
+          timeout,
+        ) =>
+      val protocol = tlsCaCert.fold("http")(_ => "https")
+      val url = s"$protocol://$address:$port"
+      val loadedCert = tlsCaCert.map(loadCertificate)
+      val builder = OtlpGrpcSpanExporter.builder.setEndpoint(url)
+
+      loadedCert.foreach(cert => builder.setTrustedCertificates(cert.toByteArray))
+      timeout.foreach(tmo => builder.setTimeout(tmo.toJava))
+      additionalHeaders
+        .foldLeft(builder) { case (builder, (key, value)) => builder.addHeader(key, value) }
+        .build
+
     case TracingConfig.Exporter.Disabled =>
       NoopSpanExporter
   }

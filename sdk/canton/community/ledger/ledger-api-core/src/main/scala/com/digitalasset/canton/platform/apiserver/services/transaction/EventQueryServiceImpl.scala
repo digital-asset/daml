@@ -14,6 +14,7 @@ import com.digitalasset.canton.ledger.api.messages.event.{
   GetEventsByContractKeyRequest,
 }
 import com.digitalasset.canton.ledger.api.services.EventQueryService
+import com.digitalasset.canton.ledger.api.validation.EventQueryServiceRequestValidator.KeyTypeValidator
 import com.digitalasset.canton.ledger.api.validation.PartyNameChecker
 import com.digitalasset.canton.ledger.participant.state.index.v2.IndexEventQueryService
 import com.digitalasset.canton.logging.LoggingContextWithTrace.{
@@ -35,6 +36,7 @@ private[apiserver] object EventQueryServiceImpl {
   def create(
       ledgerId: LedgerId,
       eventQueryService: IndexEventQueryService,
+      keyTypeValidator: KeyTypeValidator,
       telemetry: Telemetry,
       loggerFactory: NamedLoggerFactory,
   )(implicit
@@ -44,6 +46,7 @@ private[apiserver] object EventQueryServiceImpl {
       new EventQueryServiceImpl(eventQueryService, loggerFactory),
       ledgerId,
       PartyNameChecker.AllowAllParties,
+      keyTypeValidator,
       telemetry,
       loggerFactory,
     )
@@ -84,9 +87,9 @@ private[apiserver] final class EventQueryServiceImpl private (
   )(implicit loggingContext: LoggingContextWithTrace): Future[GetEventsByContractKeyResponse] = {
 
     withEnrichedLoggingContext(
-      logging.contractKey(request.contractKey),
-      // Repopulate
-//      logging.templateId(request.templateId),
+      logging.contractKey(request.globalKey.key),
+      logging.templateId(request.globalKey.templateId),
+      logging.packageName(request.globalKey.packageName),
       logging.parties(request.requestingParties),
       logging.keyContinuationToken(request.keyContinuationToken),
     ) { implicit loggingContext =>
@@ -97,8 +100,7 @@ private[apiserver] final class EventQueryServiceImpl private (
 
     eventQueryService
       .getEventsByContractKey(
-        request.contractKey,
-        request.typeConRef,
+        request.globalKey,
         request.requestingParties,
         request.keyContinuationToken,
       )

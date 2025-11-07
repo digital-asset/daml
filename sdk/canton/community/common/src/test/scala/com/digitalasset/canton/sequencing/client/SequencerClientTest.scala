@@ -22,6 +22,7 @@ import com.digitalasset.canton.metrics.{CommonMockMetrics, SequencerClientMetric
 import com.digitalasset.canton.protocol.messages.DefaultOpenEnvelope
 import com.digitalasset.canton.protocol.{DomainParametersLookup, TestDomainParameters}
 import com.digitalasset.canton.sequencing.*
+import com.digitalasset.canton.sequencing.client.RequestSigner.RequestSignerError
 import com.digitalasset.canton.sequencing.client.SequencedEventValidationError.GapInSequencerCounter
 import com.digitalasset.canton.sequencing.client.SequencerClient.CloseReason.{
   ClientShutdown,
@@ -895,14 +896,9 @@ class SequencerClientTest
 
     val lastSend = new AtomicReference[Option[SubmissionRequest]](None)
 
-    override def acknowledge(request: AcknowledgeRequest)(implicit
-        traceContext: TraceContext
-    ): Future[Unit] =
-      Future.unit
-
     override def acknowledgeSigned(request: SignedContent[AcknowledgeRequest])(implicit
         traceContext: TraceContext
-    ): EitherT[Future, String, Unit] =
+    ): EitherT[Future, SendAcknowledgementError, Unit] =
       EitherT.rightT(())
 
     override def sendAsync(
@@ -1056,10 +1052,10 @@ class SequencerClientTest
           )(implicit
               ec: ExecutionContext,
               traceContext: TraceContext,
-          ): EitherT[Future, String, SignedContent[A]] =
+          ): EitherT[Future, RequestSignerError, SignedContent[A]] =
             EitherT(
               Future.successful(
-                Either.right[String, SignedContent[A]](
+                Either.right[RequestSignerError, SignedContent[A]](
                   SignedContent(request, SymbolicCrypto.emptySignature, None, testedProtocolVersion)
                 )
               )

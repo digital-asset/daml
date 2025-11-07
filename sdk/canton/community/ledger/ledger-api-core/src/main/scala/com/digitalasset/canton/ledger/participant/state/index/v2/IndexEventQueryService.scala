@@ -6,7 +6,7 @@ package com.digitalasset.canton.ledger.participant.state.index.v2
 import com.daml.ledger.api.v1.event_query_service.GetEventsByContractKeyResponse
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
 import com.daml.lf.data.Ref
-import com.daml.lf.value.Value
+import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.ledger.api.messages.event.KeyContinuationToken
 import com.digitalasset.canton.logging.LoggingContextWithTrace
@@ -24,8 +24,7 @@ trait IndexEventQueryService extends LedgerEndService {
   )(implicit loggingContext: LoggingContextWithTrace): Future[GetEventsByContractIdResponse]
 
   def getEventsByContractKey(
-      contractKey: Value,
-      typeConRef: Ref.TypeConRef,
+      globalKey: GlobalKey,
       requestingParties: Set[Ref.Party],
       keyContinuationToken: KeyContinuationToken,
   )(implicit loggingContext: LoggingContextWithTrace): Future[GetEventsByContractKeyResponse]
