@@ -5,7 +5,7 @@ package com.digitalasset.canton.domain.topology
 
 import cats.data.EitherT
 import com.digitalasset.canton.concurrent.{FutureSupervisor, Threading}
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveDouble}
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveDouble, PositiveInt}
 import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts, ProcessingTimeout}
 import com.digitalasset.canton.crypto.DomainSnapshotSyncCryptoApi
 import com.digitalasset.canton.data.CantonTimestamp
@@ -93,6 +93,7 @@ class DomainTopologyDispatcherTest
       initialProtocolVersion = testedProtocolVersion,
     ),
     maxBurstFactor = PositiveDouble.tryCreate(1.0),
+    dispatcherBatchSize = PositiveInt.two,
   )
 
   case class TopoMsg(
@@ -133,13 +134,26 @@ class DomainTopologyDispatcherTest
       timeouts,
       futureSupervisor,
     )
+
+    val awaitWatermark = new AtomicReference[Option[Promise[CantonTimestamp]]](None)
+
     val targetStore =
       new InMemoryTopologyStore(
         TopologyStoreId.DomainStore(domainId),
         loggerFactory,
         timeouts,
         futureSupervisor,
-      )
+      ) {
+
+        override def updateDispatchingWatermark(timestamp: CantonTimestamp)(implicit
+            traceContext: TraceContext
+        ): Future[Unit] =
+          super
+            .updateDispatchingWatermark(timestamp)
+            .map { _ =>
+              awaitWatermark.getAndUpdate(_ => None).foreach(_.success(timestamp))
+            }(parallelExecutionContext)
+      }
 
     val manager = mock[DomainTopologyManager]
     when(manager.store).thenReturn(sourceStore)
@@ -423,10 +437,15 @@ class DomainTopologyDispatcherTest
       "restarting idle" in { f =>
         import f.*
         logger.debug("restarting when idle")
+        val watermarkPromise = Promise[CantonTimestamp]()
+        awaitWatermark.set(Some(watermarkPromise))
         for {
           _ <- f.init()
           _ <- submit(ts0, txs.ns1k1, txs.id1k1)
           _ <- nextMessage()
+          // ensure that watermark gets updated before we start the new dispatcher
+          dispatchedTs <- watermarkPromise.future
+          _ = dispatchedTs shouldBe ts0
           d2 = f.mkDispatcher
           _ <- f.initDispatcher(d2, Future.unit)
           _ <- submit(d2, ts1, txs.okm1, txs.ns1k2)

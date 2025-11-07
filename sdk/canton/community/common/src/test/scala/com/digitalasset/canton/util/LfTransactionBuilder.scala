@@ -36,7 +36,10 @@ object LfTransactionBuilder {
   val defaultPackageId: LfPackageId = LfPackageId.assertFromString("pkg")
   val defaultTemplateId: Ref.Identifier =
     Ref.Identifier(defaultPackageId, QualifiedName.assertFromString("module:template"))
-  val defaultInterfaceId: LfInterfaceId = defaultTemplateId
+
+  val interfacePackageId: Ref.PackageId = Ref.PackageId.assertFromString("pkgIface")
+  val defaultInterfaceId: LfInterfaceId =
+    Ref.Identifier(interfacePackageId, QualifiedName.assertFromString("module:interface"))
 
   val defaultGlobalKey: LfGlobalKey = LfGlobalKey.assertBuild(
     defaultTemplateId,

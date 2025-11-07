@@ -46,6 +46,8 @@ import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 
+import java.util.concurrent.atomic.AtomicReference
+import scala.collection.mutable
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -266,6 +268,7 @@ object TopologyTransactionRejection {
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext) =
       TopologyManagerError.DuplicateTransaction.ExistsAt(old)
   }
+
   final case class SerialMismatch(expected: PositiveInt, actual: PositiveInt)
       extends TopologyTransactionRejection {
     override def asString: String =
@@ -278,9 +281,22 @@ object TopologyTransactionRejection {
   final case class Other(str: String) extends TopologyTransactionRejection {
     override def asString: String = str
     override def pretty: Pretty[Other] = prettyOfString(_ => asString)
-
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext) =
       TopologyManagerError.InternalError.Other(str)
+  }
+  final case object Transient extends TopologyTransactionRejection {
+    override def asString: String = "Transient"
+    override def pretty: Pretty[Transient.type] = prettyOfObject[Transient.type]
+    override def toTopologyManagerError(implicit elc: ErrorLoggingContext) =
+      // is internal as topology manager should not see transient ones during addition
+      TopologyManagerError.InternalError.Other("Transient transaction")
+  }
+  final case object DuplicateInBatch extends TopologyTransactionRejection {
+    override def asString: String = "DuplicateInBatch"
+    override def pretty: Pretty[DuplicateInBatch.type] = prettyOfObject[DuplicateInBatch.type]
+    override def toTopologyManagerError(implicit elc: ErrorLoggingContext) =
+      // is internal as topology manager should not see transient ones during addition
+      TopologyManagerError.InternalError.Other("Duplicate in batch")
   }
 
   final case class ExtraTrafficLimitTooLow(
@@ -706,119 +722,142 @@ object TopologyStore {
     def op: TopologyChangeOp = transaction.transaction.op
   }
 
+  /** Remove transient and in-place replace transactions from batch
+    *
+    * We use this method to filter out unnecessary transactions that we send to newly onboarded participants.
+    * We need to remove these transactions to avoid unique key conflicts in the database.
+    *
+    * @param transactions
+    * @param loggingContext
+    * @return
+    */
+  def markTransientAndDuplicateTransactions(
+      transactions: List[ValidatedTopologyTransaction]
+  )(implicit loggingContext: ErrorLoggingContext): List[ValidatedTopologyTransaction] = {
+    val logger = loggingContext.logger
+    implicit val traceContext: TraceContext = loggingContext.traceContext
+    final case class PendingInsert(
+        validated: ValidatedTopologyTransaction
+    ) {
+      val newRejection =
+        new AtomicReference[Option[TopologyTransactionRejection]](validated.rejectionReason)
+      def markTransient(): Unit =
+        newRejection.set(Some(TopologyTransactionRejection.Transient))
+      def markDuplicate(): Unit =
+        newRejection.set(Some(TopologyTransactionRejection.DuplicateInBatch))
+    }
+    val adjusted = mutable.ListBuffer[PendingInsert]()
+    adjusted.sizeHint(transactions.length)
+    def go(
+        pending: Map[UniquePath, PendingInsert],
+        item: ValidatedTopologyTransaction,
+    ): Map[UniquePath, PendingInsert] = if (item.rejectionReason.nonEmpty) {
+      // rejected transactions are appended as is for future inspection
+      adjusted.append(PendingInsert(item))
+      pending
+    } else {
+      val insert = PendingInsert(item)
+      adjusted.append(insert)
+      (
+        item.transaction.operation,
+        pending.get(item.transaction.uniquePath),
+      ) match {
+        case (TopologyChangeOp.Add, Some(earlier)) =>
+          logger.warn(
+            s"Duplicate topology transaction: ${item.transaction}, keeping earlier signedBy=${earlier.validated.transaction.signature.signedBy}"
+          )
+          insert.markDuplicate()
+          pending
+        case (TopologyChangeOp.Add, None) =>
+          pending + (item.transaction.uniquePath -> insert)
+        case (TopologyChangeOp.Remove, None) =>
+          pending
+        case (TopologyChangeOp.Remove, Some(transientAdd)) =>
+          transientAdd.markTransient()
+          logger.debug(
+            s"Removing transient topology transaction from batch ${transientAdd.validated.transaction.transaction}"
+          )
+          pending.removed(item.transaction.uniquePath)
+        case (TopologyChangeOp.Replace, previousO) =>
+          previousO.foreach { previous =>
+            previous.markTransient()
+            logger.warn(
+              s"Duplicate replace topology transaction: removing ${previous.validated.transaction}"
+            )
+          }
+          pending + (item.transaction.uniquePath -> insert)
+      }
+    }
+    transactions.foldLeft(Map.empty[UniquePath, PendingInsert])(go).discard
+    adjusted.map { item =>
+      if (item.validated.rejectionReason.nonEmpty)
+        item.validated
+      else
+        item.validated.copy(rejectionReason = item.newRejection.get())
+    }.toList
+  }
+
   /** collect all actions on the topology store during an append
     *
     * this function computes the paths of all transactions that will "expire" because of some
     * removal in this update block and calculates what needs to be inserted into the store.
-    * we also insert transient data (for debugability and completeness).
     */
   private[topology] def appends(
-      timestamp: CantonTimestamp,
+      timestamp: EffectiveTime,
       transactions: Seq[ValidatedTopologyTransaction],
   )(implicit loggingContext: ErrorLoggingContext): (
       Set[UniquePath], // updates
       Seq[InsertTransaction],
   ) = {
-    val logger = loggingContext.logger
-    implicit val traceContext: TraceContext = loggingContext.traceContext
 
-    final case class PendingInsert(include: Boolean, entry: InsertTransaction)
-    type PendingInsertIdx = Int
+    val incoming = markTransientAndDuplicateTransactions(transactions.toList)
 
-    // random access array in order to adjust pending insertions
-    val inserts = new Array[PendingInsert](transactions.length)
+    // collect all removals and replacements in this transaction
+    val updates = incoming
+      .filter(_.rejectionReason.isEmpty)
+      .map(tx => (tx.transaction.operation, tx))
+      .collect { case (TopologyChangeOp.Remove | TopologyChangeOp.Replace, tx) =>
+        tx.transaction.uniquePath
+      }
+      .toSet
 
-    def adjustPending(
-        index: PendingInsertIdx,
-        pending: Map[UniquePath, Seq[PendingInsertIdx]],
-        warnOnDuplicate: Boolean = true,
-    ): Map[UniquePath, Seq[PendingInsertIdx]] = {
-      val pendingInsert = inserts(index)
-      val op = pendingInsert.entry.op
-      val path = pendingInsert.entry.transaction.uniquePath
-
-      val previous = pending.getOrElse(path, Seq())
-      val previousI = previous.map(ii => (ii, inserts(ii))).filter { case (_, pendingInsert) =>
-        pendingInsert.include
+    def computeAttributes(
+        op: TopologyChangeOp,
+        rejectionReason: Option[TopologyTransactionRejection],
+    ): (Boolean, Option[TopologyTransactionRejection], Option[CantonTimestamp]) =
+      (op, rejectionReason) match {
+        case (TopologyChangeOp.Replace, Some(TopologyTransactionRejection.Transient)) =>
+          // replaces need to be filtered out to avoid key conflicts
+          // this is already done by the topology manager, but just in case
+          (false, None, Some(timestamp.value))
+        case (_, Some(TopologyTransactionRejection.Transient)) =>
+          // adds and removes are allowed to be transient
+          (true, None, Some(timestamp.value))
+        case (_, Some(reason)) =>
+          // anything rejected is stored but marked as validUntil = validFrom
+          (true, Some(reason), Some(timestamp.value))
+        case (TopologyChangeOp.Remove, None) =>
+          // removals are stored with validUntil = timestamp
+          (true, None, Some(timestamp.value))
+        case (_, None) =>
+          // just include adds
+          (true, None, None)
       }
 
-      op match {
-        // if this one is an add (resp., replace): only dedupe conflicting adds (resp., replaces)
-        case TopologyChangeOp.Add | TopologyChangeOp.Replace =>
-          previousI.foreach { case (ii, item) =>
-            // ignore conflicting add
-            if (item.entry.op == op) {
-              inserts(ii) = item.copy(include = false)
-              if (warnOnDuplicate)
-                logger.warn(
-                  s"Discarding duplicate ${op.toString} (#$ii): ${item.entry.transaction.uniquePath}"
-                )
-            }
-          // malicious domain: theoretically we could check here if a certificate has already been revoked
-          // previously. however, we assume that the domain topology manager would not do that generally (and we would
-          // have to check this also against all revocations in the database as well).
-          // TODO(i4933) check for permanent revocations
-          }
-        // if this one is a remove: deprecate pending adds and dedupe conflicting removes
-        case TopologyChangeOp.Remove =>
-          previousI.foreach { case (ii, item) =>
-            if (item.entry.op == TopologyChangeOp.Remove) {
-              // ignore conflicting remove
-              inserts(ii) = item.copy(include = false)
-              logger.info(
-                s"Discarding conflicting removal (#$ii): ${item.entry.transaction.uniquePath}"
-              )
-            } else {
-              // deprecate pending add
-              inserts(ii) = item.copy(entry = item.entry.copy(validUntil = Some(timestamp)))
-            }
-          }
-      }
-      pending + (path -> (previous :+ index))
+    // compute the validUntil for all transactions
+    val inserts = incoming.flatMap { tx =>
+      val (include, newRejectionReason, validUntil) =
+        computeAttributes(tx.transaction.operation, tx.rejectionReason)
+      Option.when(include)(
+        InsertTransaction(
+          transaction = tx.transaction,
+          validUntil = validUntil,
+          rejectionReason = newRejectionReason,
+        )
+      )
     }
+    (updates, inserts)
 
-    def validUntil(x: SignedTopologyTransaction[TopologyChangeOp]): Option[CantonTimestamp] =
-      x.operation match {
-        case TopologyChangeOp.Remove => Some(timestamp)
-        case _ => None
-      }
-
-    // iterate over all transactions and adjust the validity period of any transient or special transaction
-    val (updates, _) =
-      transactions.zipWithIndex.foldLeft(
-        (Set.empty[UniquePath], Map.empty[UniquePath, Seq[PendingInsertIdx]])
-      ) {
-        case (
-              (updates, pending),
-              (ValidatedTopologyTransaction(x: SignedTopologyTransaction[_], reason), index),
-            ) =>
-          inserts(index) = PendingInsert(
-            include = true,
-            InsertTransaction(x, validUntil(x), reason),
-          )
-
-          (x.transaction.op: TopologyChangeOp) match {
-            case TopologyChangeOp.Remove | TopologyChangeOp.Replace =>
-              // if this removal (or replace) is not authorized, then don't update the current exiting records
-              val newUpdates =
-                if (reason.isEmpty)
-                  updates + x.uniquePath
-                else updates
-              (newUpdates, adjustPending(index, pending))
-
-            case TopologyChangeOp.Add => (updates, adjustPending(index, pending))
-          }
-      }
-
-    (
-      updates,
-      inserts.collect {
-        case insert if insert.include =>
-          val insertTx = insert.entry
-          // mark all rejected transactions to be validFrom = validUntil
-          insertTx.rejectionReason.fold(insertTx)(_ => insertTx.copy(validUntil = Some(timestamp)))
-      }.toSeq,
-    )
   }
 
   /** Initial state accumulator

@@ -8,6 +8,7 @@ import cats.syntax.either.*
 import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.engine.Engine
 import com.daml.tracing.DefaultOpenTelemetry
+import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.concurrent.{
   ExecutionContextIdlenessExecutorService,
   FutureSupervisor,

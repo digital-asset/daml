@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.config
 
+import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.PositiveNumeric
 import com.github.blemale.scaffeine.Scaffeine
 import com.google.common.annotations.VisibleForTesting
@@ -65,6 +66,7 @@ final case class SessionKeyCacheConfig(
   * @param topologySnapshot cache size configuration for topology snapshots
   * @param finalizedMediatorRequests cache size for the finalized mediator requests such the mediator does not have to
   *                                  perform a db round-trip if we have slow responders.
+  * @param packageDependencyCache configures the cache for direct dependencies of a package
   */
 final case class CachingConfigs(
     indexedStrings: CacheConfig = CachingConfigs.defaultStaticStringCache,
@@ -76,6 +78,7 @@ final case class CachingConfigs(
     sessionKeyCacheConfig: SessionKeyCacheConfig = CachingConfigs.defaultSessionKeyCacheConfig,
     packageVettingCache: CacheConfig = CachingConfigs.defaultPackageVettingCache,
     checkOnlyPackageCache: CacheConfig = CachingConfigs.defaultCheckOnlyPackageCache,
+    packageDependencyCache: CacheConfig = CachingConfigs.defaultPackageDependencyCache,
     mySigningKeyCache: CacheConfig = CachingConfigs.defaultMySigningKeyCache,
     trafficStatusCache: CacheConfig = CachingConfigs.defaultTrafficStatusCache,
     memberCache: CacheConfig = CachingConfigs.defaultMemberCache,
@@ -109,6 +112,11 @@ object CachingConfigs {
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(10000))
   val defaultCheckOnlyPackageCache: CacheConfig =
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(10000))
+  val defaultPackageDependencyCache: CacheConfig =
+    CacheConfig(
+      maximumSize = PositiveNumeric.tryCreate(10000),
+      config.NonNegativeFiniteDuration.ofMinutes(15),
+    )
   val defaultMySigningKeyCache: CacheConfig =
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(5))
   val defaultTrafficStatusCache: CacheConfig =

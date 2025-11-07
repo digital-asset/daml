@@ -46,6 +46,7 @@ import com.digitalasset.canton.protocol.{
   v3 as protocolV3,
 }
 import com.digitalasset.canton.sequencing.authentication.AuthenticationToken
+import com.digitalasset.canton.sequencing.client.RequestSigner.RequestSignerError
 import com.digitalasset.canton.sequencing.client.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.{
@@ -68,7 +69,7 @@ import com.digitalasset.canton.version.{
   ReleaseVersion,
   RepresentativeProtocolVersion,
 }
-import io.grpc.netty.NettyServerBuilder
+import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.ActorSystem
@@ -270,7 +271,7 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
               request: A,
               hashPurpose: HashPurpose,
           )(implicit ec: ExecutionContext, traceContext: TraceContext)
-              : EitherT[Future, String, SignedContent[A]] =
+              : EitherT[Future, RequestSignerError, SignedContent[A]] =
             EitherT.rightT(
               SignedContent(
                 request,

@@ -31,6 +31,7 @@ import com.digitalasset.canton.participant.admin.PackageService.{
   catchUpstreamErrors,
 }
 import com.digitalasset.canton.participant.sync.{LedgerSyncEvent, ParticipantEventPublisher}
+import com.digitalasset.canton.platform.packages.PackageUpgradeValidator
 import com.digitalasset.canton.protocol.PackageDescription
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
@@ -324,7 +325,7 @@ class PackageUploader(
         .listPackages()
         .map(_.foldLeft(Map.empty[LfPackageId, (LfPackageName, LfPackageVersion)]) {
           case (acc, PackageDescription(packageId, _, Some(packageName), Some(packageVersion))) =>
-            acc + (packageId -> (packageName -> packageVersion))
+            acc + (packageId -> (packageName, packageVersion))
           case (acc, _) =>
             // Only upgradable packages (i.e. have language version >= 1.16) are stored with name and version populated
             acc

@@ -14,8 +14,8 @@ import com.digitalasset.canton.tracing.{NoTracing, TraceContextGrpc}
 import com.digitalasset.canton.util.ResourceUtil.withResource
 import com.google.protobuf.ByteString
 import io.grpc.ManagedChannel
-import io.grpc.netty.{GrpcSslContexts, NettyChannelBuilder}
-import io.netty.handler.ssl.SslContext
+import io.grpc.netty.shaded.io.grpc.netty.{GrpcSslContexts, NettyChannelBuilder}
+import io.grpc.netty.shaded.io.netty.handler.ssl.SslContext
 
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.{Executor, TimeUnit}
@@ -152,7 +152,7 @@ object ClientChannelBuilder {
     configureKeepAlive(
       clientConfig.keepAliveClient,
       // if tls isn't configured assume that it's a plaintext channel
-      clientConfig.tls
+      clientConfig.tlsConfig
         .fold(baseBuilder.usePlaintext()) { tls =>
           baseBuilder
             .useTransportSecurity()

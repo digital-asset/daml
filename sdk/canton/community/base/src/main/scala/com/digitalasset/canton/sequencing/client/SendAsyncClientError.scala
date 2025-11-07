@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.sequencing.client
 
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.sequencing.protocol.SendAsyncError
 
@@ -35,4 +36,16 @@ object SendAsyncClientError {
   final case class RequestRefused(error: SendAsyncError) extends SendAsyncClientError {
     override def pretty: Pretty[RequestRefused] = prettyOfClass(unnamedParam(_.error))
   }
+
+  final case class SigningKeyNotAvailable(at: CantonTimestamp) extends SendAsyncClientError {
+    override def pretty: Pretty[SigningKeyNotAvailable] = prettyOfClass(param("at", _.at))
+  }
+
+}
+
+sealed trait SendAcknowledgementError
+object SendAcknowledgementError {
+  final case class SigningKeyNotAvailable(at: CantonTimestamp) extends SendAcknowledgementError
+  final case class SendingError(str: String) extends SendAcknowledgementError
+  final case class OtherError(str: String) extends SendAcknowledgementError
 }

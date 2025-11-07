@@ -16,6 +16,7 @@ import com.daml.jwt.JwtTimestampLeeway
 import com.daml.metrics.HistogramDefinition
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
+import com.digitalasset.canton.auth.{AccessLevel, AuthorizedUser}
 import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.{
   InvalidLengthString,
   defaultMaxLength,
@@ -418,6 +419,7 @@ trait CantonConfig {
         general = CantonNodeParameterConverter.general(this, domainConfig),
         protocol = CantonNodeParameterConverter.protocol(this, domainConfig.init.domainParameters),
         maxBurstFactor = domainConfig.parameters.maxBurstFactor,
+        dispatcherBatchSize = domainConfig.parameters.dispatcherBatchSize,
       )
   }
 
@@ -453,7 +455,7 @@ trait CantonConfig {
         engine = participantParameters.engine,
         allowForUnauthenticatedContractIds =
           participantParameters.allowForUnauthenticatedContractIds,
-        disableUpgradeValidation = participantParameters.disableUpgradeValidation,
+        disableUpgradeValidation = participantParameters.unsafeDisableUpgradeValidation,
         commandProgressTracking = participantParameters.commandProgressTracker,
       )
     }
@@ -716,6 +718,9 @@ object CantonConfig {
       deriveReader[LedgerApiKeepAliveServerConfig]
     lazy implicit val tlsServerConfigReader: ConfigReader[TlsServerConfig] =
       deriveReader[TlsServerConfig]
+    lazy implicit val tlsServerOnlyTrustFileConfigReader
+        : ConfigReader[TlsClientConfigOnlyTrustFile] =
+      deriveReader[TlsClientConfigOnlyTrustFile]
     lazy implicit val tlsClientConfigReader: ConfigReader[TlsClientConfig] =
       deriveReader[TlsClientConfig]
     lazy implicit val initBaseIdentityConfigReader: ConfigReader[InitConfigBase.Identity] =
@@ -764,6 +769,21 @@ object CantonConfig {
       deriveReader[ApiType.Grpc.type]
     lazy implicit val apiTypeConfigReader: ConfigReader[ApiType] = deriveReader[ApiType]
     lazy implicit val clientConfigReader: ConfigReader[ClientConfig] = deriveReader[ClientConfig]
+    lazy implicit val remoteConsoleSequencerClientConfigReader
+        : ConfigReader[SequencerApiClientConfig] =
+      deriveReader[SequencerApiClientConfig]
+        // Note that transformations are applied in reverse order,
+        // so we move the deprecated before deleting the parent path
+        .deprecateConfigPath(
+          DeprecatedConfigUtils.DeprecatedConfigPath[String](
+            "custom-trust-certificates",
+            since = "2.10.0",
+            dropPath = true,
+          )
+        )
+        .moveDeprecatedField("custom-trust-certificates.pem-file", Seq("tls.trust-collection-file"))
+        .moveDeprecatedField("transport-security", Seq("tls.enabled"))
+
     lazy implicit val remoteDomainConfigReader: ConfigReader[RemoteDomainConfig] =
       deriveReader[RemoteDomainConfig]
     lazy implicit val remoteParticipantConfigReader: ConfigReader[RemoteParticipantConfig] =
@@ -807,6 +827,10 @@ object CantonConfig {
     lazy implicit val clockConfigReader: ConfigReader[ClockConfig] = deriveReader[ClockConfig]
     lazy implicit val jwtTimestampLeewayConfigReader: ConfigReader[JwtTimestampLeeway] =
       deriveReader[JwtTimestampLeeway]
+    lazy implicit val authorizedUserReader: ConfigReader[AuthorizedUser] =
+      deriveReader[AuthorizedUser]
+    lazy implicit val authServiceAccessLevelReader: ConfigReader[AccessLevel] =
+      deriveEnumerationReader[AccessLevel]
     lazy implicit val authServiceConfigUnsafeJwtHmac256Reader
         : ConfigReader[AuthServiceConfig.UnsafeJwtHmac256] =
       deriveReader[AuthServiceConfig.UnsafeJwtHmac256]
@@ -863,22 +887,6 @@ object CantonConfig {
       deriveReader[PackageMetadataViewConfig]
     lazy implicit val identityConfigReader: ConfigReader[TopologyConfig] =
       deriveReader[TopologyConfig]
-    lazy implicit val sequencerConnectionConfigCertificateFileReader
-        : ConfigReader[SequencerConnectionConfig.CertificateFile] =
-      deriveReader[SequencerConnectionConfig.CertificateFile]
-    lazy implicit val sequencerConnectionConfigCertificateStringReader
-        : ConfigReader[SequencerConnectionConfig.CertificateString] =
-      deriveReader[SequencerConnectionConfig.CertificateString]
-    lazy implicit val sequencerConnectionConfigCertificateConfigReader
-        : ConfigReader[SequencerConnectionConfig.CertificateConfig] =
-      deriveReader[SequencerConnectionConfig.CertificateConfig]
-    lazy implicit val sequencerConnectionConfigGrpcReader
-        : ConfigReader[SequencerConnectionConfig.Grpc] =
-      deriveReader[SequencerConnectionConfig.Grpc]
-    lazy implicit val sequencerConnectionConfigReader: ConfigReader[SequencerConnectionConfig] =
-      deriveReader[SequencerConnectionConfig]
-        // since the big majority of users will use GRPC, default to it so that they don't need to specify `type = grpc`
-        .orElse(ConfigReader[SequencerConnectionConfig.Grpc])
     lazy implicit val communitySequencerConfigDatabaseReader
         : ConfigReader[CommunitySequencerConfig.Database] =
       deriveReader[CommunitySequencerConfig.Database]
@@ -1126,6 +1134,9 @@ object CantonConfig {
       deriveWriter[TlsServerConfig]
     lazy implicit val tlsClientConfigWriter: ConfigWriter[TlsClientConfig] =
       deriveWriter[TlsClientConfig]
+    lazy implicit val tlsClientConfigWriterOnlyTrustFile
+        : ConfigWriter[TlsClientConfigOnlyTrustFile] =
+      deriveWriter[TlsClientConfigOnlyTrustFile]
     lazy implicit val initBaseIdentityConfigWriter: ConfigWriter[InitConfigBase.Identity] =
       deriveWriter[InitConfigBase.Identity]
     lazy implicit val initConfigWriter: ConfigWriter[InitConfig] = deriveWriter[InitConfig]
@@ -1166,6 +1177,9 @@ object CantonConfig {
     lazy implicit val communityCryptoWriter: ConfigWriter[CommunityCryptoConfig] =
       deriveWriter[CommunityCryptoConfig]
     lazy implicit val clientConfigWriter: ConfigWriter[ClientConfig] = deriveWriter[ClientConfig]
+    lazy implicit val remoteConsoleSequencerClientConfigWriter
+        : ConfigWriter[SequencerApiClientConfig] =
+      deriveWriter[SequencerApiClientConfig]
     lazy implicit val remoteDomainConfigWriter: ConfigWriter[RemoteDomainConfig] =
       deriveWriter[RemoteDomainConfig]
     lazy implicit val remoteParticipantConfigWriter: ConfigWriter[RemoteParticipantConfig] =
@@ -1215,6 +1229,8 @@ object CantonConfig {
     lazy implicit val clockConfigWriter: ConfigWriter[ClockConfig] = deriveWriter[ClockConfig]
     lazy implicit val jwtTimestampLeewayConfigWriter: ConfigWriter[JwtTimestampLeeway] =
       deriveWriter[JwtTimestampLeeway]
+    lazy implicit val authServiceAccessLevelWriter: ConfigWriter[AccessLevel] =
+      deriveEnumerationWriter[AccessLevel]
     lazy implicit val authServiceConfigJwtEs256CrtWriter
         : ConfigWriter[AuthServiceConfig.JwtEs256Crt] =
       deriveWriter[AuthServiceConfig.JwtEs256Crt]
@@ -1227,6 +1243,10 @@ object CantonConfig {
     lazy implicit val authServiceConfigJwtRs256JwksWriter
         : ConfigWriter[AuthServiceConfig.JwtRs256Jwks] =
       deriveWriter[AuthServiceConfig.JwtRs256Jwks]
+    lazy implicit val authorizedUserWriter: ConfigWriter[AuthorizedUser] =
+      confidentialWriter[AuthorizedUser](
+        _.copy(userId = "****")
+      )
     lazy implicit val authServiceConfigUnsafeJwtHmac256Writer
         : ConfigWriter[AuthServiceConfig.UnsafeJwtHmac256] =
       confidentialWriter[AuthServiceConfig.UnsafeJwtHmac256](
@@ -1272,20 +1292,6 @@ object CantonConfig {
       deriveWriter[PackageMetadataViewConfig]
     lazy implicit val identityConfigWriter: ConfigWriter[TopologyConfig] =
       deriveWriter[TopologyConfig]
-    lazy implicit val sequencerConnectionConfigCertificateFileWriter
-        : ConfigWriter[SequencerConnectionConfig.CertificateFile] =
-      deriveWriter[SequencerConnectionConfig.CertificateFile]
-    lazy implicit val sequencerConnectionConfigCertificateStringWriter
-        : ConfigWriter[SequencerConnectionConfig.CertificateString] =
-      confidentialWriter[SequencerConnectionConfig.CertificateString](_.copy(pemString = "****"))
-    lazy implicit val sequencerConnectionConfigCertificateConfigWriter
-        : ConfigWriter[SequencerConnectionConfig.CertificateConfig] =
-      deriveWriter[SequencerConnectionConfig.CertificateConfig]
-    lazy implicit val sequencerConnectionConfigGrpcWriter
-        : ConfigWriter[SequencerConnectionConfig.Grpc] =
-      deriveWriter[SequencerConnectionConfig.Grpc]
-    lazy implicit val sequencerConnectionConfigWriter: ConfigWriter[SequencerConnectionConfig] =
-      deriveWriter[SequencerConnectionConfig]
     lazy implicit val communitySequencerConfigDatabaseWriter
         : ConfigWriter[CommunitySequencerConfig.Database] =
       deriveWriter[CommunitySequencerConfig.Database]
@@ -1513,8 +1519,7 @@ object CantonConfig {
         .foldLeft(c) { case (subConfig, (key, obj)) =>
           subConfig.withValue(key, goVal(key, obj))
         }
-    go(config)
-      .resolve()
+    go(config.resolve()) // Resolve config _before_ redacting confidential fields
       .root()
       .get("canton")
       .render(CantonConfig.defaultConfigRenderer)

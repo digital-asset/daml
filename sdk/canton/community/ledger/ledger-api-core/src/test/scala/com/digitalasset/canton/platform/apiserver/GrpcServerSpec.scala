@@ -29,7 +29,21 @@ import com.digitalasset.canton.platform.apiserver.ratelimiting.{
 }
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import com.google.protobuf.ByteString
-import io.grpc.{ManagedChannel, ServerInterceptor, StatusRuntimeException}
+import io.grpc.ClientCall.Listener
+import io.grpc.ForwardingClientCall.SimpleForwardingClientCall
+import io.grpc.ForwardingClientCallListener.SimpleForwardingClientCallListener
+import io.grpc.{
+  CallOptions,
+  Channel,
+  ClientCall,
+  ClientInterceptor,
+  ClientInterceptors,
+  Metadata,
+  MethodDescriptor,
+  ServerInterceptor,
+  Status,
+  StatusRuntimeException,
+}
 import org.scalacheck.Gen
 import org.scalatest.compatible.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
@@ -162,6 +176,49 @@ final class GrpcServerSpec
       }
     }
 
+    "handle a request with short header" in {
+      resources(
+        loggerFactory,
+        clientInterceptors = List(new HeaderClientInterceptor("ShortHeader")),
+      ).use { channel =>
+        val helloService = HelloServiceGrpc.stub(channel)
+        for {
+          response <- helloService.single(HelloRequest(7))
+        } yield {
+          response.respInt shouldBe 14
+        }
+      }
+    }
+
+    "don't handle a request with long header" in {
+      resources(loggerFactory, clientInterceptors = List(new HeaderClientInterceptor("A" * 10000)))
+        .use { channel =>
+          val helloService = HelloServiceGrpc.stub(channel)
+          helloService.single(HelloRequest(7)).failed.map {
+            case s: StatusRuntimeException =>
+              s.getStatus.getCode shouldBe Status.Code.INTERNAL
+              s.getStatus.getDescription shouldBe "http2 exception"
+              s.getCause.getMessage should include("Header size exceeded max allowed size")
+            case o => fail(s"Expected StatusRuntimeException, not $o")
+          }
+        }
+    }
+
+    "handle a request with long header when large metadata size permitted" in {
+      resources(
+        loggerFactory,
+        clientInterceptors = List(new HeaderClientInterceptor("A" * 10000)),
+        maxInboundMetadataSize = Some(20000),
+      ).use { channel =>
+        val helloService = HelloServiceGrpc.stub(channel)
+        for {
+          response <- helloService.single(HelloRequest(7))
+        } yield {
+          response.respInt shouldBe 14
+        }
+      }
+    }
+
   }
 
   private def fuzzTestErrorCodePropagation(
@@ -215,19 +272,22 @@ object GrpcServerSpec {
   private def resources(
       loggerFactory: NamedLoggerFactory,
       metrics: Metrics = Metrics.ForTesting,
-      interceptors: List[ServerInterceptor] = List.empty,
+      serverInterceptors: List[ServerInterceptor] = List.empty,
+      clientInterceptors: List[ClientInterceptor] = List.empty,
       service: HelloServiceReferenceImplementation = new TestedHelloService,
-  ): ResourceOwner[ManagedChannel] =
+      maxInboundMetadataSize: Option[Int] = None,
+  ): ResourceOwner[Channel] =
     for {
       executor <- ResourceOwner.forExecutorService(() => Executors.newSingleThreadExecutor())
       server <- GrpcServer.owner(
         address = None,
         desiredPort = Port.Dynamic,
         maxInboundMessageSize = maxInboundMessageSize,
+        maxInboundMetadataSize = maxInboundMetadataSize.getOrElse(8 * 1024),
         metrics = metrics,
         servicesExecutor = executor,
         services = Seq(service),
-        interceptors = interceptors,
+        interceptors = serverInterceptors,
         loggerFactory = loggerFactory,
         keepAlive = None,
       )
@@ -235,6 +295,31 @@ object GrpcServerSpec {
         Port.tryCreate(server.getPort),
         LedgerClientChannelConfiguration.InsecureDefaults,
       )
-    } yield channel
+    } yield clientInterceptors.foldLeft[Channel](channel) { case (channel, interceptor) =>
+      ClientInterceptors.intercept(channel, interceptor)
+    }
 
+  val CUSTOM_HEADER_KEY: Metadata.Key[String] =
+    Metadata.Key.of("custom_client_header_key", Metadata.ASCII_STRING_MARSHALLER)
+
+  class HeaderClientInterceptor(customHeader: String) extends ClientInterceptor {
+    override def interceptCall[ReqT, RespT](
+        method: MethodDescriptor[ReqT, RespT],
+        callOptions: CallOptions,
+        next: Channel,
+    ): ClientCall[ReqT, RespT] =
+      new SimpleForwardingClientCall[ReqT, RespT](next.newCall(method, callOptions)) {
+        override def start(responseListener: Listener[RespT], headers: Metadata): Unit = {
+          /* put custom header */
+          headers.put(CUSTOM_HEADER_KEY, customHeader)
+          super.start(
+            new SimpleForwardingClientCallListener[RespT](responseListener) {
+              override def onHeaders(headers: Metadata): Unit =
+                super.onHeaders(headers)
+            },
+            headers,
+          )
+        }
+      }
+  }
 }

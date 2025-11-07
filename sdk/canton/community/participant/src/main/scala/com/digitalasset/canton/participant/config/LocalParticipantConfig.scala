@@ -31,7 +31,7 @@ import com.digitalasset.canton.sequencing.client.SequencerClientConfig
 import com.digitalasset.canton.store.PrunableByTimeParameters
 import com.digitalasset.canton.version.{ParticipantProtocolVersion, ProtocolVersion}
 import com.digitalasset.canton.{DiscardOps, config}
-import io.netty.handler.ssl.{ClientAuth, SslContext}
+import io.grpc.netty.shaded.io.netty.handler.ssl.{ClientAuth, SslContext}
 import monocle.macros.syntax.lens.*
 
 /** Base for all participant configs - both local and remote */
@@ -229,6 +229,7 @@ final case class LedgerApiServerConfig(
       LedgerApiKeepAliveServerConfig()
     ),
     maxInboundMessageSize: NonNegativeInt = ServerConfig.defaultMaxInboundMessageSize,
+    maxInboundMetadataSize: NonNegativeInt = ServerConfig.defaultMaxInboundMetadataSize,
     databaseConnectionTimeout: config.NonNegativeFiniteDuration =
       LedgerApiServerConfig.DefaultDatabaseConnectionTimeout,
     // TODO(#14529): use a common value for ApiServerConfig's and LedgerIndexServiceConfig's apiStreamShutdownTimeout
@@ -488,7 +489,8 @@ object TestingTimeServiceConfig {
   * @param allowForUnauthenticatedContractIds Skip contract id authentication check, if the contract id scheme does not support authentication.
   *                                           You should enable this only if all participants on a domain mutually trust each other.
   *                                           Otherwise, an attacker may compromise integrity of the ledger.
-  * @param disableUpgradeValidation Disable the package upgrade verification on DAR upload
+  * @param unsafeDisableUpgradeValidation Disable the package upgrade verification on DAR upload and Ledger API start-up.
+  *                                       Note: This is a dangerous setting and should only be used for testing purposes.
   */
 final case class ParticipantNodeParameterConfig(
     adminWorkflow: AdminWorkflowConfig = AdminWorkflowConfig(),
@@ -515,7 +517,7 @@ final case class ParticipantNodeParameterConfig(
     excludeInfrastructureTransactions: Boolean = true,
     engine: CantonEngineConfig = CantonEngineConfig(),
     allowForUnauthenticatedContractIds: Boolean = false,
-    disableUpgradeValidation: Boolean = false,
+    unsafeDisableUpgradeValidation: Boolean = false,
     watchdog: Option[WatchdogConfig] = None,
     commandProgressTracker: CommandProgressTrackerConfig = CommandProgressTrackerConfig(),
 ) extends LocalNodeParametersConfig

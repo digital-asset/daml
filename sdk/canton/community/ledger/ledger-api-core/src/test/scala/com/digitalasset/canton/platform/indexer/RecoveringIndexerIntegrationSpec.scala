@@ -281,6 +281,7 @@ class RecoveringIndexerIntegrationSpec
           indexerConfig.ingestionParallelism.unwrap
         ),
         highAvailability = HaConfig(),
+        disableUpgradeValidation = false,
       )(materializer, traceContext)
     } yield participantState._2
   }

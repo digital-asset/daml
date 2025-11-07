@@ -146,7 +146,8 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
       transactions: Seq[ValidatedTopologyTransaction],
   )(implicit traceContext: TraceContext): Future[Unit] = blocking(synchronized {
 
-    val (updates, appends) = TopologyStore.appends(effective.value, transactions)
+    val (updates, appends) =
+      TopologyStore.appends(effective, transactions)
 
     // UPDATE topology_transactions SET valid_until = ts WHERE store_id = ... AND valid_until is NULL AND valid_from < ts AND path_id IN (updates)
     updates.foreach { upd =>

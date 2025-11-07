@@ -297,7 +297,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
       .filter(_.config.topology.open)
     def toDomainConfig(domain: DomainNodeBootstrap): Either[StartupError, DomainConnectionConfig] =
       (for {
-        connection <- domain.config.sequencerConnectionConfig.toConnection
+        connection <- domain.config.sequencerConnectionConfig.toGrpcSequencerConnection
         name <- DomainAlias.create(domain.name.unwrap)
         sequencerConnections = SequencerConnections.single(connection)
       } yield DomainConnectionConfig(name, sequencerConnections)).leftMap(err =>

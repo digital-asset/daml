@@ -358,7 +358,7 @@ trait TopologyStoreTest
             _ <- loggerFactory.assertLoggedWarningsAndErrorsSeq(
               append(store, ts, List(ns1k1, ns1k1, ns1k1, okm1, okm1, okm1, ps1, ps1, rps1, ps2)),
               seq => {
-                seq.foreach(x => x.warningMessage should include("Discarding duplicate Add"))
+                seq.foreach(x => x.warningMessage should include("Duplicate topology transaction"))
                 seq should have length (5)
               },
             )
@@ -367,14 +367,15 @@ trait TopologyStoreTest
             added.toSet shouldBe Set(ns1k1, okm1, ps2)
           }
         }
-
         "sanely deal with duplicate replaces in case of a faulty domain topology manager" in {
           val store = mk()
           for {
             _ <- loggerFactory.assertLoggedWarningsAndErrorsSeq(
               append(store, ts, List(ns1k1, dpc1, dpc1Updated)),
               seq => {
-                seq.foreach(x => x.warningMessage should include("Discarding duplicate Replace"))
+                seq.foreach(x =>
+                  x.warningMessage should include("Duplicate replace topology transaction")
+                )
                 seq should have length (1)
               },
             )

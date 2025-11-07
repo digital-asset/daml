@@ -3,25 +3,33 @@
 
 package com.digitalasset.canton.config
 
+import better.files.*
+import cats.syntax.traverse.*
 import com.daml.metrics.api.MetricHandle.MetricsFactory
 import com.daml.metrics.api.MetricName
 import com.daml.metrics.grpc.GrpcServerMetrics
-import com.digitalasset.canton.ProtoDeserializationError
+import com.daml.nonempty.NonEmpty
+import com.daml.tracing.Telemetry
+import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.config.AdminServerConfig.defaultAddress
 import com.digitalasset.canton.config.RequireTypes.{ExistingFile, NonNegativeInt, Port}
-import com.digitalasset.canton.config.SequencerConnectionConfig.CertificateFile
+import com.digitalasset.canton.crypto.X509CertificatePem
 import com.digitalasset.canton.domain.api.v0
 import com.digitalasset.canton.ledger.api.tls.TlsVersion
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.networking.grpc.{
   CantonCommunityServerInterceptors,
   CantonServerBuilder,
   CantonServerInterceptors,
 }
+import com.digitalasset.canton.sequencing.GrpcSequencerConnection
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.tracing.TracingConfig
-import io.netty.handler.ssl.{ClientAuth, SslContext}
+import com.digitalasset.canton.{ProtoDeserializationError, SequencerAlias}
+import io.grpc.ServerInterceptor
+import io.grpc.netty.shaded.io.netty.handler.ssl.{ClientAuth, SslContext}
 import org.slf4j.LoggerFactory
 
 import java.io.File
@@ -58,6 +66,14 @@ trait ServerConfig extends Product with Serializable {
     */
   def sslContext: Option[SslContext]
 
+  /** If any defined, enforces token based authorization when accessing this node through the given `address` and `port`.
+    */
+  def authServices: Seq[AuthServiceConfig]
+
+  /** If defined, the admin-token based authoriztion will be supported when accessing this node through the given `address` and `port`.
+    */
+  def adminToken: Option[String]
+
   /** server cert chain file if TLS is defined
     *
     * Used for domain internal GRPC sequencer connections
@@ -69,13 +85,6 @@ trait ServerConfig extends Product with Serializable {
 
   /** maximum inbound message size in bytes on the ledger api and the admin api */
   def maxInboundMessageSize: NonNegativeInt
-  def toSequencerConnectionConfig: SequencerConnectionConfig.Grpc =
-    SequencerConnectionConfig.Grpc(
-      address,
-      port,
-      serverCertChainFile.isDefined,
-      serverCertChainFile.map(f => CertificateFile(f)),
-    )
 
   /** Use the configuration to instantiate the interceptors for this server */
   def instantiateServerInterceptors(
@@ -85,6 +94,10 @@ trait ServerConfig extends Product with Serializable {
       @nowarn("cat=deprecation") metrics: MetricsFactory,
       loggerFactory: NamedLoggerFactory,
       grpcMetrics: GrpcServerMetrics,
+      authServices: Seq[AuthServiceConfig],
+      adminToken: Option[CantonAdminToken],
+      telemetry: Telemetry,
+      additionalInterceptors: Seq[ServerInterceptor] = Seq.empty,
   ): CantonServerInterceptors
 
 }
@@ -97,16 +110,25 @@ trait CommunityServerConfig extends ServerConfig {
       @nowarn("cat=deprecation") metrics: MetricsFactory,
       loggerFactory: NamedLoggerFactory,
       grpcMetrics: GrpcServerMetrics,
+      authServices: Seq[AuthServiceConfig],
+      adminToken: Option[CantonAdminToken],
+      telemetry: Telemetry,
+      additionalInterceptors: Seq[ServerInterceptor] = Seq.empty,
   ) = new CantonCommunityServerInterceptors(
     tracingConfig,
     apiLoggingConfig,
     loggerFactory,
     grpcMetrics,
+    authServices,
+    adminToken,
+    telemetry,
+    additionalInterceptors,
   )
 }
 
 object ServerConfig {
   val defaultMaxInboundMessageSize: NonNegativeInt = NonNegativeInt.tryCreate(10 * 1024 * 1024)
+  val defaultMaxInboundMetadataSize: NonNegativeInt = NonNegativeInt.tryCreate(8 * 1024)
 }
 
 /** A variant of [[ServerConfig]] that by default listens to connections only on the loopback interface.
@@ -139,6 +161,8 @@ final case class CommunityAdminServerConfig(
     tls: Option[TlsServerConfig] = None,
     keepAliveServer: Option[BasicKeepAliveServerConfig] = Some(BasicKeepAliveServerConfig()),
     maxInboundMessageSize: NonNegativeInt = ServerConfig.defaultMaxInboundMessageSize,
+    authServices: Seq[AuthServiceConfig] = Seq.empty,
+    adminToken: Option[String] = None,
 ) extends AdminServerConfig
     with CommunityServerConfig
 
@@ -219,13 +243,52 @@ object ApiType {
     }
 }
 
+trait GrpcClientConfig {
+  def address: String
+  def port: Port
+  def tlsConfig: Option[TlsClientConfig]
+  def toGrpcSequencerConnection: Either[String, GrpcSequencerConnection] =
+    for {
+      pem <- tlsConfig
+        .flatMap(_.trustCollectionFile)
+        .traverse(file => X509CertificatePem.fromFile(file.unwrap.toScala))
+    } yield GrpcSequencerConnection(
+      endpoints = NonEmpty(Seq, Endpoint(address, port)),
+      transportSecurity = tlsConfig.exists(_.enabled),
+      customTrustCertificates = pem.map(_.unwrap),
+      sequencerAlias = SequencerAlias.Default,
+    )
+}
+
 /** A client configuration to a corresponding server configuration */
 final case class ClientConfig(
-    address: String = "127.0.0.1",
-    port: Port,
+    override val address: String = "127.0.0.1",
+    override val port: Port,
     tls: Option[TlsClientConfig] = None,
     keepAliveClient: Option[KeepAliveClientConfig] = Some(KeepAliveClientConfig()),
-)
+) extends GrpcClientConfig {
+  override def tlsConfig: Option[TlsClientConfig] = tls
+}
+
+/** A sequencer API client configuration, which unlike a generic gRPC client config
+  * does not support TLS client certificates because the sequencer API uses auth tokens.
+  */
+final case class SequencerApiClientConfig(
+    override val address: String,
+    override val port: Port,
+    tls: Option[TlsClientConfigOnlyTrustFile] = None,
+) extends GrpcClientConfig {
+  override def tlsConfig: Option[TlsClientConfig] = tls.map(_.toTlsClientConfig)
+}
+
+object SequencerApiClientConfig {
+  def fromClientConfig(clientConfig: ClientConfig): SequencerApiClientConfig =
+    SequencerApiClientConfig(
+      clientConfig.address,
+      clientConfig.port,
+      clientConfig.tlsConfig.map(_.withoutClientCert),
+    )
+}
 
 sealed trait BaseTlsArguments {
   def certChainFile: ExistingFile
@@ -323,22 +386,24 @@ object TlsServerConfig {
     )
     val logger = LoggerFactory.getLogger(TlsServerConfig.getClass)
     val filtered = candidates.filter { x =>
-      io.netty.handler.ssl.OpenSsl.availableOpenSslCipherSuites().contains(x) ||
-      io.netty.handler.ssl.OpenSsl.availableJavaCipherSuites().contains(x)
+      io.grpc.netty.shaded.io.netty.handler.ssl.OpenSsl
+        .availableOpenSslCipherSuites()
+        .contains(x) ||
+      io.grpc.netty.shaded.io.netty.handler.ssl.OpenSsl.availableJavaCipherSuites().contains(x)
     }
     if (filtered.isEmpty) {
-      val len = io.netty.handler.ssl.OpenSsl
+      val len = io.grpc.netty.shaded.io.netty.handler.ssl.OpenSsl
         .availableOpenSslCipherSuites()
-        .size() + io.netty.handler.ssl.OpenSsl
+        .size() + io.grpc.netty.shaded.io.netty.handler.ssl.OpenSsl
         .availableJavaCipherSuites()
         .size()
       logger.warn(
         s"All of Canton's default TLS ciphers are unsupported by your JVM (netty reports $len ciphers). Defaulting to JVM settings."
       )
-      if (!io.netty.handler.ssl.OpenSsl.isAvailable) {
+      if (!io.grpc.netty.shaded.io.netty.handler.ssl.OpenSsl.isAvailable) {
         logger.info(
           "Netty OpenSSL is not available because of an issue",
-          io.netty.handler.ssl.OpenSsl.unavailabilityCause(),
+          io.grpc.netty.shaded.io.netty.handler.ssl.OpenSsl.unavailabilityCause(),
         )
       }
       None
@@ -371,11 +436,34 @@ final case class TlsBaseServerConfig(
   *
   * @param trustCollectionFile a file containing certificates of all nodes the client trusts. If none is specified, defaults to the JVM trust store
   * @param clientCert the client certificate
+  * @param enabled allows enabling TLS without `trustCollectionFile` or `clientCert`
   */
 final case class TlsClientConfig(
     trustCollectionFile: Option[ExistingFile],
     clientCert: Option[TlsClientCertificate],
-)
+    enabled: Boolean = true,
+) {
+  def withoutClientCert: TlsClientConfigOnlyTrustFile = TlsClientConfigOnlyTrustFile(
+    trustCollectionFile = trustCollectionFile,
+    enabled = enabled,
+  )
+}
+
+/** A wrapper for TLS related client configurations without client auth support (currently public sequencer api)
+  *
+  * @param trustCollectionFile a file containing certificates of all nodes the client trusts. If none is specified, defaults to the JVM trust store
+  * @param enabled allows enabling TLS without `trustCollecionFile` or `clientCert`
+  */
+final case class TlsClientConfigOnlyTrustFile(
+    trustCollectionFile: Option[ExistingFile],
+    enabled: Boolean = true,
+) {
+  def toTlsClientConfig: TlsClientConfig = TlsClientConfig(
+    trustCollectionFile = trustCollectionFile,
+    clientCert = None,
+    enabled = enabled,
+  )
+}
 
 /**
   */

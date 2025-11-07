@@ -9,14 +9,16 @@ import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.tracing.Telemetry
+import com.digitalasset.canton.auth.{AuthService, Authorizer}
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.config.{
   KeepAliveServerConfig,
   NonNegativeDuration,
   NonNegativeFiniteDuration,
+  ServerConfig,
 }
 import com.digitalasset.canton.ledger.api.auth.*
-import com.digitalasset.canton.ledger.api.auth.interceptor.AuthorizationInterceptor
+import com.digitalasset.canton.ledger.api.auth.interceptor.UserBasedAuthorizationInterceptor
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.health.HealthChecks
 import com.digitalasset.canton.ledger.api.tls.TlsConfiguration
@@ -72,6 +74,7 @@ object ApiServiceOwner {
         ApiServiceOwner.DefaultApiStreamShutdownTimeout,
       address: Option[String] = DefaultAddress, // This defaults to "localhost" when set to `None`.
       maxInboundMessageSize: Int = DefaultMaxInboundMessageSize,
+      maxInboundMetadataSize: Int = ServerConfig.defaultMaxInboundMetadataSize.unwrap,
       port: Port = DefaultPort,
       tls: Option[TlsConfiguration] = DefaultTls,
       seeding: Seeding = DefaultSeeding,
@@ -128,16 +131,20 @@ object ApiServiceOwner {
   ): ResourceOwner[ApiService] = {
 
     val authorizer = new Authorizer(
-      Clock.systemUTC.instant _,
-      ledgerId,
-      participantId,
-      userManagementStore,
-      servicesExecutionContext,
-      userRightsCheckIntervalInSeconds = userManagement.cacheExpiryAfterWriteInSeconds,
-      pekkoScheduler = actorSystem.scheduler,
+      now = Clock.systemUTC.instant _,
+      ledgerId = ledgerId,
+      participantId = participantId,
+      ongoingAuthorizationFactory = UserBasedOngoingAuthorization.Factory(
+        now = Clock.systemUTC.instant _,
+        userManagementStore = userManagementStore,
+        userRightsCheckIntervalInSeconds = userManagement.cacheExpiryAfterWriteInSeconds,
+        pekkoScheduler = actorSystem.scheduler,
+        jwtTimestampLeeway = jwtTimestampLeeway,
+        tokenExpiryGracePeriodForStreams =
+          tokenExpiryGracePeriodForStreams.map(_.asJavaApproximation),
+        loggerFactory = loggerFactory,
+      )(servicesExecutionContext, traceContext),
       jwtTimestampLeeway = jwtTimestampLeeway,
-      tokenExpiryGracePeriodForStreams =
-        tokenExpiryGracePeriodForStreams.map(_.asJavaApproximation),
       telemetry = telemetry,
       loggerFactory = loggerFactory,
     )
@@ -199,9 +206,10 @@ object ApiServiceOwner {
         apiServicesOwner,
         port,
         maxInboundMessageSize,
+        maxInboundMetadataSize,
         address,
         tls,
-        AuthorizationInterceptor(
+        new UserBasedAuthorizationInterceptor(
           authService = authService,
           Option.when(userManagement.enabled)(userManagementStore),
           new IdentityProviderAwareAuthServiceImpl(
@@ -231,7 +239,7 @@ object ApiServiceOwner {
   val DefaultPort: Port = Port.tryCreate(6865)
   val DefaultAddress: Option[String] = None
   val DefaultTls: Option[TlsConfiguration] = None
-  val DefaultMaxInboundMessageSize: Int = 64 * 1024 * 1024
+  val DefaultMaxInboundMessageSize: Int = 64 * 1024 * 1024 // Larger than ServerConfig default
   val DefaultConfigurationLoadTimeout: NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.ofSeconds(10)
   val DefaultSeeding: Seeding = Seeding.Strong

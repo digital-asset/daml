@@ -127,6 +127,7 @@ final class IndexerStabilityTestFixture(loggerFactory: NamedLoggerFactory) {
             indexerLockId = lockIdSeed,
             indexerWorkerLockId = lockIdSeed + 1,
           ),
+          disableUpgradeValidation = false,
         ).acquire()
       } yield ReadServiceAndIndexer(readService, indexing)
     }

@@ -166,7 +166,7 @@ class PackageOpsImpl(
           _ <- addMappingIfMissing(
             mapping = VettedPackages(participantId, allPackageIds),
             checkMissing =
-              topologyManager.packagesNotVetted(participantId, allPackageIds.toSet).map(_.nonEmpty),
+              topologyManager.mappingExists(VettedPackages(participantId, allPackageIds)).map(!_),
           )
           _ <- removeMappingIfExists(
             CheckOnlyPackages(participantId, allPackageIds),
@@ -213,8 +213,8 @@ class PackageOpsImpl(
           _ <- addMappingIfMissing(
             mapping = CheckOnlyPackages(participantId, allPackageIds),
             checkMissing = topologyManager
-              .packagesNotMarkedAsCheckOnly(participantId, allPackageIds.toSet)
-              .map(_.nonEmpty),
+              .mappingExists(CheckOnlyPackages(participantId, allPackageIds))
+              .map(!_),
             targetProtocolVersion = {
               // Check-only packages are introduced with PV 7
               Ordering[ProtocolVersion].max(protocolVersion, ProtocolVersion.v7)
@@ -235,7 +235,7 @@ class PackageOpsImpl(
       vettedSyncF = onSynchronizeWaitForPackagesState(
         synchronize = synchronize,
         subjectDescription = "main package of DAR",
-        stateDescription = "vetted",
+        stateDescription = "unvetted",
         darDescription = darDescription,
         waitForState = topologyManager.waitForPackageBeingUnvetted(mainPkg, participantId),
       )
@@ -290,7 +290,7 @@ class PackageOpsImpl(
         EitherT.leftT[FutureUnlessShutdown, Unit](
           ParticipantTopologyManagerError.PackageTopologyStateUpdateTimeout
             .Reject(
-              s"Timed out while waiting for the ${subjectDescription.capitalize} '$darDescription' to appear as $stateDescription on all connected domains"
+              s"Timed out while waiting for the $subjectDescription '$darDescription' to appear as $stateDescription on all connected domains"
             ): ParticipantTopologyManagerError
         )
     })
