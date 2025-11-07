@@ -19,11 +19,11 @@ def _dpm_binary_impl(ctx):
     oras_dir = ctx.path("oras_binary")
 
     oras_plat_mapping = {
-        "aarch64": "linux_arm64",
-        "darwin_x86_64": "darwin_amd64",
-        "darwin_arm64": "darwin_arm64",
-        "k8": "linux_amd64",
-        "x64_windows": "windows_amd64",
+        "aarch64": "linux_arm64.tar.gz",
+        "darwin_x86_64": "darwin_amd64.tar.gz",
+        "darwin_arm64": "darwin_arm64.tar.gz",
+        "k8": "linux_amd64.tar.gz",
+        "x64_windows": "windows_amd64.zip",
     }
 
     # We shouldn't ever need to update oras, so keep its hashes here
@@ -38,7 +38,7 @@ def _dpm_binary_impl(ctx):
 
     ctx.download_and_extract(
         output = oras_dir,
-        url = "https://github.com/oras-project/oras/releases/download/v{}/oras_{}_{}.tar.gz".format(oras_version, oras_version, oras_plat_mapping[cpu_value]),
+        url = "https://github.com/oras-project/oras/releases/download/v{}/oras_{}_{}".format(oras_version, oras_version, oras_plat_mapping[cpu_value]),
         sha256 = oras_shas_mapping[oras_plat_mapping[cpu_value]],
     )
 
