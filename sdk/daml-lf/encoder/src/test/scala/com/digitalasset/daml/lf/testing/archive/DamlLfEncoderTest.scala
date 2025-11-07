@@ -148,30 +148,31 @@ class DamlLfEncoderTest
     val builtinMod = ModuleName.assertFromString("BuiltinMod")
 
     "contains all builtins " in {
-      forEvery(Table("version", LanguageVersion.all.filter(LanguageVersion.v2_dev < _): _*)) {
-        version =>
-          val Right(dar) =
-            DarDecoder
-              .readArchiveFromFile(
-                new File(rlocation(s"daml-lf/encoder/test-${version.pretty}.dar"))
-              )
-          val (_, mainPkg) = dar.main
-          val builtinInModule = mainPkg
-            .modules(builtinMod)
-            .definitions
-            .values
-            .collect { case Ast.DValue(_, Ast.EBuiltinFun(builtin)) => builtin }
-            .toSet
-          val builtinsInVersion = DecodeV2.builtinFunctionInfos.collect {
-            case DecodeV2.BuiltinFunctionInfo(_, builtin, minVersion, maxVersion, _)
-                if minVersion <= version && maxVersion.forall(version < _) =>
-              builtin
-          }.toSet
+      forEvery(
+        Table("version", LanguageVersion.allLfVersions.filter(LanguageVersion.v2_dev < _): _*)
+      ) { version =>
+        val Right(dar) =
+          DarDecoder
+            .readArchiveFromFile(
+              new File(rlocation(s"daml-lf/encoder/test-${version.pretty}.dar"))
+            )
+        val (_, mainPkg) = dar.main
+        val builtinInModule = mainPkg
+          .modules(builtinMod)
+          .definitions
+          .values
+          .collect { case Ast.DValue(_, Ast.EBuiltinFun(builtin)) => builtin }
+          .toSet
+        val builtinsInVersion = DecodeV2.builtinFunctionInfos.collect {
+          case DecodeV2.BuiltinFunctionInfo(_, builtin, minVersion, maxVersion, _)
+              if minVersion <= version && maxVersion.forall(version < _) =>
+            builtin
+        }.toSet
 
-          val missingBuiltins = builtinsInVersion -- builtinInModule
-          assert(missingBuiltins.isEmpty, s", missing builtin(s) in BuiltinMod")
-          val unexpectedBuiltins = builtinInModule -- builtinsInVersion
-          assert(unexpectedBuiltins.isEmpty, s", unexpected builtin(s) in BuiltinMod")
+        val missingBuiltins = builtinsInVersion -- builtinInModule
+        assert(missingBuiltins.isEmpty, s", missing builtin(s) in BuiltinMod")
+        val unexpectedBuiltins = builtinInModule -- builtinsInVersion
+        assert(unexpectedBuiltins.isEmpty, s", unexpected builtin(s) in BuiltinMod")
       }
     }
   }

@@ -30,7 +30,7 @@ import scala.util.{Failure, Success, Try}
 
 class SBuiltinInterfaceTestDefaultLf
     extends SBuiltinInterfaceTest(
-      LanguageVersion.default,
+      LanguageVersion.defaultLfVersion,
       Compiler.Config.Default,
     )
 class SBuiltinInterfaceTestDevLf

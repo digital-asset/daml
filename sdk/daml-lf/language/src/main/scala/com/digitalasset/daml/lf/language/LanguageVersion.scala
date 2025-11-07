@@ -73,15 +73,19 @@ object LanguageVersion extends LanguageVersionGenerated {
     }
 
     def fromString(str: String): Either[String, Minor] =
-      (all ++ allLegacy)
+      (allLfVersions ++ allLegacyLfVersions)
         .map(_.minor)
         .find(_.pretty == str)
-        .toRight(s"${str} is not supported, supported minors: ${(all ++ allLegacy).map(_.minor)}")
+        .toRight(
+          s"${str} is not supported, supported minors: ${(allLfVersions ++ allLegacyLfVersions).map(_.minor)}"
+        )
     def assertFromString(s: String): Minor = data.assertRight(fromString(s))
   }
 
   def fromString(str: String): Either[String, LanguageVersion] =
-    (allLegacy ++ all).find(_.toString == str).toRight(s"${str} is not supported")
+    (allLegacyLfVersions ++ allLfVersions)
+      .find(_.toString == str)
+      .toRight(s"${str} is not supported")
   def assertFromString(s: String): LanguageVersion = data.assertRight(fromString(s))
 
   // TODO: remove after feature rework

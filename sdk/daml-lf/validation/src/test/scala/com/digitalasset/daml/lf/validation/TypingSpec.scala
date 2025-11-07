@@ -1994,7 +1994,7 @@ abstract class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks wit
        }
      """
     Typing.Env(
-      LV.default,
+      LV.defaultLfVersion,
       PackageInterface(Map(defaultPackageId -> pkg)),
       Context.None,
     )

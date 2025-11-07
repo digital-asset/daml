@@ -45,7 +45,7 @@ class HashCreateNodeSpec extends AnyWordSpec with EitherValues with Matchers {
   val compiledPkgs = PureCompiledPackages.build(Map(pkgId -> pkg), compilerConfig)
 
   private def newEngine = new Engine(
-    EngineConfig(LanguageVersion.stableRange)
+    EngineConfig(LanguageVersion.stableLfVersionsRange)
   )
 
   val alice = Party.assertFromString("Party")

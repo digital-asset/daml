@@ -130,7 +130,7 @@ private[daml] object DamlLfEncoder extends App {
           go(appArgs.copy(inputFiles = appArgs.inputFiles.enqueue(x)), tail)
       }
 
-    go(Arguments(Queue.empty, "", LanguageVersion.default, true), args.toList)
+    go(Arguments(Queue.empty, "", LanguageVersion.defaultLfVersion, true), args.toList)
   }
 
   main()

@@ -90,9 +90,9 @@ object SerializationVersion {
     VersionedTransaction(txVersion(tx), tx.nodes, tx.roots)
 
   val StableVersions: VersionRange[SerializationVersion] =
-    LanguageVersion.stableRange.map(assign)
+    LanguageVersion.stableLfVersionsRange.map(assign)
 
   private[lf] val DevVersions: VersionRange[SerializationVersion] =
-    LanguageVersion.allRange.map(assign)
+    LanguageVersion.allLfVersionsRange.map(assign)
 
 }

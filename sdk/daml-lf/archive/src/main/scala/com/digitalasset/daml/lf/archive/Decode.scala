@@ -47,7 +47,7 @@ object Decode {
   ): Either[Error, (PackageId, Ast.Package)] = {
     payload match {
       case ArchivePayload.Lf2(pkgId, protoPkg, minor, patch)
-          if LanguageVersion.all.map(_.minor).contains(minor) =>
+          if LanguageVersion.allLfVersions.map(_.minor).contains(minor) =>
         new DecodeV2(minor)
           .decodePackage(
             pkgId,
@@ -57,7 +57,7 @@ object Decode {
           )
           .map(payload.pkgId -> _)
       case ArchivePayload.Lf1(pkgId, protoPkg, minor)
-          if LanguageVersion.allLegacy.map(_.minor).contains(minor) =>
+          if LanguageVersion.allLegacyLfVersions.map(_.minor).contains(minor) =>
         new DecodeV1(minor)
           .decodePackage(
             pkgId,

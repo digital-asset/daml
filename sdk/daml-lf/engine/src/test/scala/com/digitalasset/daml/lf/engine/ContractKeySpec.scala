@@ -281,14 +281,14 @@ class ContractKeySpec(majorLanguageVersion: LanguageVersion.Major)
       import com.digitalasset.daml.lf.language.{LanguageVersion => LV}
       val nonUckEngine = new Engine(
         EngineConfig(
-          allowedLanguageVersions = LV.allRange,
+          allowedLanguageVersions = LV.allLfVersionsRange,
           contractKeyUniqueness = ContractKeyUniquenessMode.Off,
           forbidLocalContractIds = true,
         )
       )
       val uckEngine = new Engine(
         EngineConfig(
-          allowedLanguageVersions = LV.allRange,
+          allowedLanguageVersions = LV.allLfVersionsRange,
           contractKeyUniqueness = ContractKeyUniquenessMode.Strict,
           forbidLocalContractIds = true,
         )

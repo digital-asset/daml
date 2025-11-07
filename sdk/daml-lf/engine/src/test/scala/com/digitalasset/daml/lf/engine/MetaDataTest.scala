@@ -152,7 +152,7 @@ class MetaDataTest
 
 class MetaDataTestHelper {
 
-  val langVersion = LanguageVersion.latestStable
+  val langVersion = LanguageVersion.latestStableLfVersion
 
   object langNodeBuilder extends TestNodeBuilder {
     override def serializationVersion(packageId: PackageId): Option[SerializationVersion] =

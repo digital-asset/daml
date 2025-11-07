@@ -13,7 +13,7 @@ class EngineInfo(config: EngineConfig) {
   override def toString: String = show
   def show: String = {
 
-    val allLangVersions = LanguageVersion.allLegacy ++ LanguageVersion.all
+    val allLangVersions = LanguageVersion.allLegacyLfVersions ++ LanguageVersion.allLfVersions
 
     val allowedLangVersions =
       allLangVersions.filter(config.allowedLanguageVersions.contains)

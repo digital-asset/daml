@@ -713,7 +713,7 @@ class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDriv
 
     "works as expected for a contract version POST-dating exceptions" - {
 
-      val pkgs = mkPackagesAtVersion(LanguageVersion.dev)
+      val pkgs = mkPackagesAtVersion(LanguageVersion.devLfVersion)
       val res = Speedy.Machine
         .fromUpdateSExpr(
           pkgs,
@@ -773,7 +773,8 @@ class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDriv
 
   // Section testing exceptions thrown when computing the metadata of a contract
   {
-    val parserParameters = defaultParserParameters.copy(languageVersion = LanguageVersion.default)
+    val parserParameters =
+      defaultParserParameters.copy(languageVersion = LanguageVersion.defaultLfVersion)
 
     // A package that defines an interface, a key type, an exception, and a party to be used by
     // the packages defined below.

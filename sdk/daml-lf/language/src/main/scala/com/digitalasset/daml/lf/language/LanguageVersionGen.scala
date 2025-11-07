@@ -10,13 +10,14 @@ import com.digitalasset.daml.lf.language.LanguageVersion.Minor._
 import scala.annotation.nowarn
 
 trait LanguageVersionGenerated {
-  val allStableLegacy: List[LanguageVersion] =
+  val allStableLegacyLfVersions: List[LanguageVersion] =
     List(6, 7, 8, 11, 12, 13, 14, 15, 17).map(i => LanguageVersion(V1, Stable(i)))
-  val List(v1_6, v1_7, v1_8, v1_11, v1_12, v1_13, v1_14, v1_15, v1_17) = allStableLegacy: @nowarn(
-    "msg=match may not be exhaustive"
-  )
+  val List(v1_6, v1_7, v1_8, v1_11, v1_12, v1_13, v1_14, v1_15, v1_17) =
+    allStableLegacyLfVersions: @nowarn(
+      "msg=match may not be exhaustive"
+    )
   val v1_dev: LanguageVersion = LanguageVersion(V1, Dev)
-  val allLegacy: List[LanguageVersion] = allStableLegacy.appended(v1_dev)
+  val allLegacyLfVersions: List[LanguageVersion] = allStableLegacyLfVersions.appended(v1_dev)
 
   // Start of code that in the furutre will be generated from
   // //daml-lf/language/daml-lf.bzl
@@ -24,18 +25,18 @@ trait LanguageVersionGenerated {
   val v2_2: LanguageVersion = LanguageVersion(V2, Stable(2))
   val v2_dev: LanguageVersion = LanguageVersion(V2, Dev)
 
-  val latestStable: LanguageVersion = v2_2
-  val default: LanguageVersion = v2_2
-  val dev: LanguageVersion = v2_dev
+  val latestStableLfVersion: LanguageVersion = v2_2
+  val defaultLfVersion: LanguageVersion = v2_2
+  val devLfVersion: LanguageVersion = v2_dev
 
-  val all: List[LanguageVersion] = List(v2_1, v2_2, v2_dev)
-  val allRange = VersionRange(v2_1, v2_dev)
-  val stable: List[LanguageVersion] = List(v2_1, v2_2)
-  val stableRange = VersionRange(v2_1, v2_2)
-  val earlyAccess = stable
-  val earlyAccessRange = VersionRange(v2_1, v2_2)
-  val compilerInput: List[LanguageVersion] = List(v2_1, v2_2, v2_dev)
-  val compilerOutput: List[LanguageVersion] = List(v2_1, v2_2, v2_dev)
+  val allLfVersions: List[LanguageVersion] = List(v2_1, v2_2, v2_dev)
+  val allLfVersionsRange = VersionRange(v2_1, v2_dev)
+  val stableLfVersions: List[LanguageVersion] = List(v2_1, v2_2)
+  val stableLfVersionsRange = VersionRange(v2_1, v2_2)
+  val earlyAccessLfVersions = stableLfVersions
+  val earlyAccessLfVersionsRange = VersionRange(v2_1, v2_2)
+  val compilerInputLfVersions: List[LanguageVersion] = List(v2_1, v2_2, v2_dev)
+  val compilerOutputLfVersions: List[LanguageVersion] = List(v2_1, v2_2, v2_dev)
 
   object Features {
     val default = v2_1

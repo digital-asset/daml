@@ -2415,12 +2415,12 @@ class EngineTest(majorLanguageVersion: LanguageVersion.Major, contractIdVersion:
         )
       )
 
-    val devVersion = LanguageVersion.dev
+    val devVersion = LanguageVersion.devLfVersion
     val (_, _, allPackagesDev) =
       new EngineTestHelpers(majorLanguageVersion, contractIdVersion).loadAndAddPackage(
         s"daml-lf/engine/BasicTests-v${majorLanguageVersion.pretty}dev.dar"
       )
-    val compatibleLanguageVersions = LanguageVersion.all
+    val compatibleLanguageVersions = LanguageVersion.allLfVersions
     // Following stable packages are deps of other stable packages, so we sort such that these are preloaded first
     val stablePackagesToLoadFirst = List("daml-prim-DA-Types", "daml-stdlib-DA-NonEmpty-Types")
     val stablePackages =
@@ -3011,7 +3011,7 @@ class EngineTestHelpers(
 ) {
 
   val defaultSerializationVersion =
-    SerializationVersion.assign(LanguageVersion.latestStable)
+    SerializationVersion.assign(LanguageVersion.latestStableLfVersion)
 
   import Matchers._
 
@@ -3158,7 +3158,7 @@ class EngineTestHelpers(
   def newEngine(requireCidSuffixes: Boolean = false) =
     new Engine(
       EngineConfig(
-        allowedLanguageVersions = language.LanguageVersion.allRange,
+        allowedLanguageVersions = language.LanguageVersion.allLfVersionsRange,
         forbidLocalContractIds = requireCidSuffixes,
       )
     )
