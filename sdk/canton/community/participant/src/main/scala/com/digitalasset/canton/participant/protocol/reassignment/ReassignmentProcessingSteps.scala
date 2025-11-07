@@ -88,7 +88,7 @@ private[reassignment] trait ReassignmentProcessingSteps[
 
   protected implicit def ec: ExecutionContext
 
-  override type SubmissionSendError = ReassignmentProcessorError
+  override type SubmissionSendError = GenericStepsError[ProtocolProcessor.SubmissionProcessingError]
 
   override type PendingSubmissionId = RootHash
 
@@ -388,9 +388,10 @@ private[reassignment] trait ReassignmentProcessingSteps[
 
     override def embedSubmissionError(
         err: ProtocolProcessor.SubmissionProcessingError
-    ): ReassignmentProcessorError =
+    ): SubmissionSendError =
       GenericStepsError(err)
-    override def toSubmissionError(err: ReassignmentProcessorError): ReassignmentProcessorError =
+
+    override def toSubmissionError(err: SubmissionSendError): ReassignmentProcessorError =
       err
   }
 
@@ -648,8 +649,9 @@ object ReassignmentProcessingSteps {
   /** Used to convert ReassignmentValidationError to ReassignmentValidationError */
   final case class SubmissionValidationError(message: String) extends ReassignmentProcessorError
 
-  final case class GenericStepsError(error: ProcessorError) extends ReassignmentProcessorError {
-    override def underlyingProcessorError(): Option[ProcessorError] = Some(error)
+  final case class GenericStepsError[+E <: ProcessorError](error: E)
+      extends ReassignmentProcessorError {
+    override def underlyingProcessorError(): Option[E] = Some(error)
 
     override def message: String = error.toString
   }

@@ -146,20 +146,14 @@ trait SynchronizerParametersTimeoutChangesIntegrationTest
         },
         LogEntry.assertLogSeq(
           Seq(
-            (_.warningMessage shouldBe "Sequencing result message timed out.", "mediator timeout"),
             (
               entry => {
                 entry.shouldBeCantonErrorCode(LocalTimeout)
                 entry.warningMessage should include regex ("Failed to submit ping.*due to a participant determined timeout")
               },
               "Ping service timeout",
-            ),
-          ),
-          Seq(
-            _.warningMessage should include regex (
-              "has exceeded the max-sequencing-time .* of the send request"
             )
-          ),
+          )
         ),
       )
     }

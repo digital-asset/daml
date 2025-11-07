@@ -6,6 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencer
 import cats.data.EitherT
 import com.digitalasset.canton.crypto.HashPurpose
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.error.CantonBaseError
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.protocol.SequencerErrors.SubmissionRequestRefused
@@ -55,7 +56,7 @@ abstract class BaseSequencer(
 
   override def sendAsyncSigned(signedSubmission: SignedContent[SubmissionRequest])(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit] =
+  ): EitherT[FutureUnlessShutdown, CantonBaseError, Unit] =
     withSpan("Sequencer.sendAsyncSigned") { implicit traceContext => span =>
       val submission = signedSubmission.content
       span.setAttribute("sender", submission.sender.toString)
@@ -128,11 +129,11 @@ abstract class BaseSequencer(
 
   protected def sendAsyncInternal(submission: SubmissionRequest)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit]
+  ): EitherT[FutureUnlessShutdown, CantonBaseError, Unit]
 
   protected def sendAsyncSignedInternal(signedSubmission: SignedContent[SubmissionRequest])(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit]
+  ): EitherT[FutureUnlessShutdown, CantonBaseError, Unit]
 
   override def read(member: Member, timestamp: Option[CantonTimestamp])(implicit
       traceContext: TraceContext

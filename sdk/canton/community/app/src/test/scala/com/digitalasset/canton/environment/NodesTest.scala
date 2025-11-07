@@ -44,7 +44,10 @@ import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.telemetry.ConfiguredOpenTelemetry
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.admin.grpc.PSIdLookup
-import com.digitalasset.canton.topology.client.SynchronizerTopologyClientWithInit
+import com.digitalasset.canton.topology.client.{
+  SynchronizerTopologyClientWithInit,
+  TopologyClientConfig,
+}
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.{
   AuthorizedTopologyManager,
@@ -78,6 +81,7 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
     override val storage: StorageConfig = StorageConfig.Memory()
     override val crypto: CryptoConfig = CryptoConfig()
     override val sequencerClient: SequencerClientConfig = SequencerClientConfig()
+    override val topologyClient: TopologyClientConfig = TopologyClientConfig()
     override def nodeTypeName: String = "test-node"
     override def clientAdminApi = adminApi.clientConfig
     override def withDefaults(ports: Option[DefaultPorts], edition: CantonEdition): TestNodeConfig =
@@ -101,6 +105,7 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
       enablePreviewFeatures: Boolean = false,
       processingTimeouts: ProcessingTimeout = DefaultProcessingTimeouts.testing,
       sequencerClient: SequencerClientConfig = SequencerClientConfig(),
+      topologyClient: TopologyClientConfig = TopologyClientConfig(),
       cachingConfigs: CachingConfigs = CachingConfigs(),
       batchingConfig: BatchingConfig = BatchingConfig(),
       nonStandardConfig: Boolean = false,

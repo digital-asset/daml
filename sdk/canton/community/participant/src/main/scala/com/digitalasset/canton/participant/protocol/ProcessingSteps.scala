@@ -307,6 +307,11 @@ trait ProcessingSteps[
     def submissionErrorTrackingData(error: SubmissionSendError)(implicit
         traceContext: TraceContext
     ): SubmissionTrackingData
+
+    /** Log the submission send error */
+    def logSubmissionSendError(error: SubmissionSendError)(implicit
+        errorLoggingContext: ErrorLoggingContext
+    ): Unit
   }
 
   /** Phase 1, step 2:
