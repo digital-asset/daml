@@ -25,7 +25,12 @@ import com.digitalasset.canton.lifecycle.{
   PromiseUnlessShutdown,
   UnlessShutdown,
 }
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, NamedLoggingContext}
+import com.digitalasset.canton.logging.{
+  ErrorLoggingContext,
+  NamedLoggerFactory,
+  NamedLogging,
+  NamedLoggingContext,
+}
 import com.digitalasset.canton.metrics.*
 import com.digitalasset.canton.participant.metrics.TransactionProcessingMetrics
 import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
@@ -95,7 +100,7 @@ import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, RoseTree}
+import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, LoggerUtil, RoseTree}
 import com.digitalasset.canton.{
   LedgerSubmissionId,
   LfKeyResolver,
@@ -453,8 +458,8 @@ class TransactionProcessingSteps(
           existingSubmission.submissionId,
           existingSubmission.submissionSynchronizerId,
         )
-      case TimeoutTooLow(_submission, lowerBound) =>
-        TransactionProcessor.SubmissionErrors.TimeoutError.Error(lowerBound)
+      case TimeoutTooLow(_submission, _lowerBound) =>
+        TransactionProcessor.SubmissionErrors.TimeoutError.Error()
     }
 
     override def embedSequencerRequestError(
@@ -501,8 +506,12 @@ class TransactionProcessingSteps(
         error: SubmissionSendError
     )(implicit traceContext: TraceContext): TransactionSubmissionTrackingData = {
       val errorCode: TransactionError = error.sendError match {
-        case SendAsyncClientError.RequestRefused(error) if error.isOverload =>
-          TransactionProcessor.SubmissionErrors.SequencerBackpressure.Rejection(error.toString)
+        case refused @ SendAsyncClientError.RequestRefused(error) =>
+          if (error.isOverload)
+            TransactionProcessor.SubmissionErrors.SequencerBackpressure.Rejection(error.toString)
+          else if (error.hasMaxSequencingTimeElapsed)
+            TransactionProcessor.SubmissionErrors.TimeoutError.Error()
+          else TransactionProcessor.SubmissionErrors.SequencerRequest.Error(refused)
         case otherSendError =>
           TransactionProcessor.SubmissionErrors.SequencerRequest.Error(otherSendError)
       }
@@ -512,6 +521,13 @@ class TransactionProcessingSteps(
         rejectionCause,
         psid,
       )
+    }
+
+    override def logSubmissionSendError(error: SequencerRequest.Error)(implicit
+        errorLoggingContext: ErrorLoggingContext
+    ): Unit = {
+      val logLevel = SendAsyncClientError.logLevel(error.sendError)
+      LoggerUtil.logAtLevel(logLevel, s"Failed to submit transaction due to $error")
     }
   }
 

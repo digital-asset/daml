@@ -747,7 +747,7 @@ abstract class SequencerClientImpl(
             }
 
             // We are treating a shutdown result in the same way as a normal result, instead of propagating it up.
-            // Note that this is the shutdown of the transport, not the sequencer client (see `performUnlessClosingF` above).
+            // Note that this is the shutdown of the transport, not the sequencer client (see `synchronizeWithClosingF` above).
             // It can happen outside a regular shutdown when closing a connection for a fatal reason.
             //
             // If this send attempt is happening outside the application handler (e.g. a confirmation request),

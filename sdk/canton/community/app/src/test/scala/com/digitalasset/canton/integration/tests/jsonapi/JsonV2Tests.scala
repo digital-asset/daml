@@ -131,7 +131,7 @@ class JsonV2Tests
       val darPath = JarResourceUtils
         .resourceFile(
           TestModels.daml_lf_encoder_test_dar(
-            LanguageVersion.StableVersions(LanguageVersion.Major.V2).max.pretty
+            LanguageVersion.stableRange.max.pretty
           )
         )
         .toPath

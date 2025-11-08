@@ -458,6 +458,7 @@ class SyncPersistentStateManager(
         futureSupervisor,
         parameters.cachingConfigs,
         parameters.batchingConfig,
+        parameters.topologyClient,
         participantId,
         parameters.unsafeOnlinePartyReplication,
         exitOnFatalFailures = parameters.exitOnFatalFailures,

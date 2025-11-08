@@ -44,7 +44,7 @@ import com.digitalasset.canton.util.PekkoUtil.{FutureQueue, IndexingFutureQueue}
 import com.digitalasset.canton.{BaseTest, HasExecutorService}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.{Engine, EngineConfig}
-import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.test.{NodeIdTransactionBuilder, TestNodeBuilder}
 import org.scalatest.Suite
 
@@ -147,7 +147,7 @@ trait IndexComponentTest
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
 
     val engine = new Engine(
-      EngineConfig(LanguageVersion.StableVersions(LanguageMajorVersion.V2))
+      EngineConfig(LanguageVersion.stableRange)
     )
     val mutableLedgerEndCache = MutableLedgerEndCache()
     val stringInterningView = new StringInterningView(loggerFactory)

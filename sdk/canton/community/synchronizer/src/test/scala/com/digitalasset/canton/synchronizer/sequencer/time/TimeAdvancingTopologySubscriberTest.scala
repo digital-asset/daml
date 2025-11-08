@@ -44,6 +44,7 @@ import com.digitalasset.canton.topology.{
   SynchronizerId,
 }
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.{BaseTest, SequencerCounter}
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -233,10 +234,23 @@ class TimeAdvancingTopologySubscriberTest extends AnyWordSpec with BaseTest {
       val topologyClient = mock[SynchronizerTopologyClientWithInit]
       when(topologyClient.currentSnapshotApproximation).thenReturn(snapshot)
 
+      val mockSequencerClient = mock[SequencerClient]
+      when(
+        mockSequencerClient.send(
+          any[Batch[DefaultOpenEnvelope]],
+          any[Option[CantonTimestamp]],
+          any[CantonTimestamp],
+          any[MessageId],
+          any[Option[AggregationRule]],
+          any[SendCallback],
+          any[Boolean],
+        )(any[TraceContext], any[MetricsContext])
+      ).thenReturn(EitherTUtil.unitUS)
+
       val subscriber =
         new TimeAdvancingTopologySubscriber(
           mock[Clock],
-          mock[SequencerClient],
+          mockSequencerClient,
           topologyClient,
           aPhysicalSynchronizerId,
           aSequencerId,

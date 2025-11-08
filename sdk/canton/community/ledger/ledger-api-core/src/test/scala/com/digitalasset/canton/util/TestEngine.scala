@@ -31,7 +31,7 @@ import com.digitalasset.daml.lf.data.{Ref, Time}
 import com.digitalasset.daml.lf.engine.*
 import com.digitalasset.daml.lf.engine.ResultNeedContract.Response
 import com.digitalasset.daml.lf.language.Ast.Package
-import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
+import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
 import com.digitalasset.daml.lf.transaction.*
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.daml.lf.value.{ContractIdVersion, Value}
@@ -98,7 +98,7 @@ class TestEngine(
 
   val engine = new Engine(
     EngineConfig(
-      allowedLanguageVersions = LanguageVersion.AllVersions(LanguageMajorVersion.V2),
+      allowedLanguageVersions = LanguageVersion.allRange,
       iterationsBetweenInterruptions = iterationsBetweenInterruptions,
     )
   )

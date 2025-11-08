@@ -9,6 +9,7 @@ import com.digitalasset.canton.config.StartupMemoryCheckConfig.ReportingLevel
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
+import com.digitalasset.canton.topology.client.TopologyClientConfig
 import com.digitalasset.canton.tracing.TracingConfig
 
 object MockedNodeParameters {
@@ -31,6 +32,8 @@ object MockedNodeParameters {
     override def tracing: TracingConfig = ???
 
     override def sequencerClient: SequencerClientConfig = ???
+
+    override def topologyClient: TopologyClientConfig = ???
 
     override def cachingConfigs: CachingConfigs = _cachingConfigs
 
@@ -56,6 +59,5 @@ object MockedNodeParameters {
       ReportingLevel.Warn
     )
     override def dispatchQueueBackpressureLimit: NonNegativeInt = ???
-
   }
 }

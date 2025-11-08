@@ -373,10 +373,10 @@ object TransactionProcessor {
     )
     object TimeoutError
         extends ErrorCode(id = "NOT_SEQUENCED_TIMEOUT", ErrorCategory.ContentionOnSharedResources) {
-      final case class Error(timestamp: CantonTimestamp)
+      final case class Error()
           extends TransactionErrorImpl(
             cause =
-              "Transaction was not sequenced within the pre-defined max sequencing time and has therefore timed out"
+              s"Transaction was not sequenced within the pre-defined max sequencing time and has therefore timed out"
           )
           with TransactionSubmissionError
     }

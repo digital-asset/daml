@@ -98,6 +98,7 @@ import com.digitalasset.canton.synchronizer.sequencer.config.{
   SequencerNodeParameters,
 }
 import com.digitalasset.canton.synchronizer.sequencer.traffic.SequencerTrafficConfig
+import com.digitalasset.canton.topology.client.TopologyClientConfig
 import com.digitalasset.canton.tracing.{TraceContext, TracingConfig}
 import com.digitalasset.canton.util.BytesUnit
 import com.typesafe.config.ConfigException.UnresolvedSubstitution
@@ -664,6 +665,7 @@ private[canton] object CantonNodeParameterConverter {
       enablePreviewFeatures = parent.features.enablePreviewCommands,
       processingTimeouts = parent.parameters.timeouts.processing,
       sequencerClient = node.sequencerClient,
+      topologyClient = node.topologyClient,
       cachingConfigs = node.parameters.caching,
       batchingConfig = node.parameters.batching,
       nonStandardConfig = parent.parameters.nonStandardConfig,
@@ -1328,6 +1330,8 @@ object CantonConfig {
       deriveReader[AuthenticationTokenManagerExponentialBackoffJitterConfig.Full.type]
     lazy implicit final val sequencerClientConfigReader: ConfigReader[SequencerClientConfig] =
       deriveReader[SequencerClientConfig]
+    lazy implicit final val topologyClientConfigReader: ConfigReader[TopologyClientConfig] =
+      deriveReader[TopologyClientConfig]
 
     lazy implicit final val cantonParametersReader: ConfigReader[CantonParameters] = {
       implicit val ammoniteConfigReader: ConfigReader[AmmoniteConsoleConfig] =
@@ -1997,6 +2001,8 @@ object CantonConfig {
       deriveWriter[AuthenticationTokenManagerExponentialBackoffJitterConfig.Full.type]
     lazy implicit final val sequencerClientConfigWriter: ConfigWriter[SequencerClientConfig] =
       deriveWriter[SequencerClientConfig]
+    lazy implicit final val topologyClientConfigWriter: ConfigWriter[TopologyClientConfig] =
+      deriveWriter[TopologyClientConfig]
 
     lazy implicit final val cantonParametersWriter: ConfigWriter[CantonParameters] = {
       implicit val ammoniteConfigWriter: ConfigWriter[AmmoniteConsoleConfig] =
