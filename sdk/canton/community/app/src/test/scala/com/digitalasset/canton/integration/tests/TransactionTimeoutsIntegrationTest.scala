@@ -8,7 +8,7 @@ import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.*
 import com.daml.test.evidence.tag.Security.SecurityTest.Property.Finality
 import com.daml.test.evidence.tag.Security.{Attack, SecurityTest, SecurityTestSuite}
 import com.digitalasset.base.error.utils.DecodedCantonError
-import com.digitalasset.canton.config.DbConfig
+import com.digitalasset.canton.config.{DbConfig, TestSequencerClientFor}
 import com.digitalasset.canton.error.{CantonBaseError, MediatorError}
 import com.digitalasset.canton.examples.java.cycle.Cycle
 import com.digitalasset.canton.integration.*
@@ -16,20 +16,36 @@ import com.digitalasset.canton.integration.plugins.{
   UseProgrammableSequencer,
   UseReferenceBlockSequencer,
 }
-import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.logging.SuppressingLogger.LogEntryOptionality
+import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
+import com.digitalasset.canton.sequencing.SequencedSerializedEvent
+import com.digitalasset.canton.sequencing.client.DelayedSequencerClient
+import com.digitalasset.canton.sequencing.client.DelayedSequencerClient.{
+  DelaySequencerClient,
+  SequencedEventDelayPolicy,
+}
+import com.digitalasset.canton.sequencing.protocol.{
+  ClosedEnvelope,
+  Deliver,
+  SequencedEvent,
+  TimeProof,
+}
 import com.digitalasset.canton.synchronizer.sequencer.ProgrammableSequencerPolicies.isConfirmationResponse
 import com.digitalasset.canton.synchronizer.sequencer.{
   HasProgrammableSequencer,
   ProgrammableSequencer,
+  ProgrammableSequencerPolicies,
   SendDecision,
   SendPolicy,
 }
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.*
+import monocle.macros.syntax.lens.*
+import org.slf4j.event.Level
 
 import java.time.Duration
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.Promise
 
 abstract class TransactionTimeoutsIntegrationTest
@@ -47,6 +63,11 @@ abstract class TransactionTimeoutsIntegrationTest
 
   override lazy val environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P1_S1M1
+      .updateTestingConfig(
+        _.focus(_.testSequencerClientFor).replace(
+          Set(TestSequencerClientFor(this.getClass.getSimpleName, "mediator1", "synchronizer1"))
+        )
+      )
       .addConfigTransforms(ConfigTransforms.useStaticTime)
       .withSetup { implicit env =>
         import env.*
@@ -64,12 +85,10 @@ abstract class TransactionTimeoutsIntegrationTest
 
       }
 
-  def attemptCreateAndWait(
-      sequencer: ProgrammableSequencer
-  )(implicit env: TestConsoleEnvironment): Completion = {
+  private def attemptCreate()(implicit env: TestConsoleEnvironment): Completion = {
     import env.*
     val uuid = UUID.randomUUID()
-    val completion = clue(s"creating a cycle command $uuid") {
+    clue(s"creating a cycle command $uuid") {
       val ledgerEnd = participant1.ledger_api.state.end()
       val cycle = new Cycle(
         uuid.toString,
@@ -84,13 +103,24 @@ abstract class TransactionTimeoutsIntegrationTest
 
       completion
     }
+  }
 
-    // follow immediately with a ping to ensure the timeout message at the participant is triggered (otherwise it's flaky)
+  private def resetAndPing(
+      sequencer: ProgrammableSequencer
+  )(implicit env: TestConsoleEnvironment): Unit = {
+    import env.*
     sequencer.resetPolicy()
     logger.info(s"Starting a ping")
     val time = assertPingSucceeds(participant1, participant1)
     logger.info(s"Ping completed in $time")
+  }
 
+  private def attemptCreateAndWait(
+      sequencer: ProgrammableSequencer
+  )(implicit env: TestConsoleEnvironment): Completion = {
+    val completion = attemptCreate()
+    // follow immediately with a ping to ensure the timeout message at the participant is triggered (otherwise it's flaky)
+    resetAndPing(sequencer)
     completion
   }
 
@@ -185,10 +215,92 @@ abstract class TransactionTimeoutsIntegrationTest
         "Response message for request \\[.*\\] timed out at"),
     )
     val status = completion.status.value
-    CantonBaseError.isStatusErrorCode(MediatorError.Timeout, status)
+    CantonBaseError.isStatusErrorCode(MediatorError.Timeout, status) shouldBe true
     val error = DecodedCantonError.fromGrpcStatus(status).value
     val unresponsiveParties = error.context.get("unresponsiveParties")
     unresponsiveParties shouldBe Some(participant1.adminParty.toLf)
+  }
+
+  // Similar to the test case above where we reject the mediator message. However,
+  // here the message bounces on the sequencer due to the mediator being "slow"
+  // and this should be handled more gracefully in terms of logging.
+  "The mediator tolerates late sending of verdicts" in { implicit env =>
+    import env.*
+
+    val confirmationResponseCount = new AtomicInteger()
+
+    // Reject time proof requests from the mediator to ensure that the send tracker cannot observe
+    // the timeout before the mediator receives the synchronous rejection for its send verdict.
+    // Otherwise we'd be testing the same as in the test case above.
+    val sequencer = getProgrammableSequencer(sequencer1.name)
+    sequencer.setPolicy_("drop time proof requests from mediator") { submissionRequest =>
+      submissionRequest.sender match {
+        case _: MediatorId if TimeProof.isTimeProofSubmission(submissionRequest) =>
+          SendDecision.Drop
+        case _ => SendDecision.Process
+      }
+    }
+
+    // Advance the clock when the mediator processes the first confirmation response in this test
+    val mediatorSequencerClientInterceptor = DelayedSequencerClient
+      .delayedSequencerClient(this.getClass.getSimpleName, daId, mediator1.id.uid.toString)
+      .value
+    mediatorSequencerClientInterceptor.setDelayPolicy(new SequencedEventDelayPolicy {
+      private def isConfirmationResponse(event: SequencedEvent[ClosedEnvelope]): Boolean =
+        event match {
+          case deliver: Deliver[ClosedEnvelope] =>
+            ProgrammableSequencerPolicies.isConfirmationResponse(deliver.batch)
+          case _ => false
+        }
+
+      override def apply(event: SequencedSerializedEvent): DelaySequencerClient = {
+        if (isConfirmationResponse(event.underlying.value.content)) {
+          val count = confirmationResponseCount.incrementAndGet()
+          logger.info(s"Received confirmation response #$count")
+          if (count == 1) {
+            // Advance the clock so that the mediator's verdict will bounce at the sequencer
+            environment.simClock.value.advance(
+              confirmationResponseTimeout.unwrap
+                .plus(mediatorReactionTimeout.unwrap)
+                // Advance by more so that the participant will request a time proof to trigger the timeout.
+                .plusSeconds(10)
+            )
+          }
+        }
+        DelayedSequencerClient.Immediate
+      }
+    })
+
+    loggerFactory.assertEventuallyLogsSeq(
+      SuppressionRule.LevelAndAbove(Level.INFO) &&
+        SuppressionRule.LoggerNameContains("DefaultVerdictSender")
+    )(
+      {
+        attemptCreate()
+        // Wait until we actually see two INFO messages on the mediator
+        // Otherwise, the ping may make the send tracker observe the timeout first
+        eventually() {
+          loggerFactory.fetchRecordedLogEntries should not be empty
+        }
+        resetAndPing(sequencer)
+      },
+      LogEntry.assertLogSeq(
+        Seq(
+          (
+            _.infoMessage should include("Sequencing result message timed out synchronously"),
+            "mediator observes synchronous rejection",
+          ),
+          // The ping makes the send tracker on the mediator observe the timeout asynchronously
+          (
+            _.infoMessage should include("Sequencing result message timed out asynchronously"),
+            "mediator observes asynchronous rejection",
+          ),
+        ),
+        // Allow all other info level logs
+        Seq(_.level shouldBe Level.INFO),
+      ),
+    )
+
   }
 }
 

@@ -500,13 +500,18 @@ trait AcsCommitmentMetricsIntegrationTest
     participant3.stop()
     val start = simClock.now
 
-    simClock.advance(interval.multipliedBy(2L))
+    simClock.advance(
+      interval
+        .multipliedBy(2L)
+        // Add one microsecond to avoid sequencing times that fall on interval boundaries
+        .plusNanos(1000)
+    )
     participant1.health.ping(participant1)
     participant1.testing.fetch_synchronizer_times()
     val end = simClock.now
 
     eventually() {
-      participant1.commitments.computed(daName, start.toInstant, end.toInstant).size shouldBe 4
+      participant1.commitments.computed(daName, start.toInstant, end.toInstant) should have size 2
     }
 
     logger.info(

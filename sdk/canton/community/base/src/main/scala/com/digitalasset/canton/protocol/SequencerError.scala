@@ -176,7 +176,6 @@ object SequencerError extends SequencerErrorGroup {
         "MAX_SEQUENCING_TIME_EXCEEDED",
         ErrorCategory.ContentionOnSharedResources,
       ) {
-    override def exposedViaApi: Boolean = false
     final case class Error(
         ts: CantonTimestamp,
         maxSequencingTime: CantonTimestamp,

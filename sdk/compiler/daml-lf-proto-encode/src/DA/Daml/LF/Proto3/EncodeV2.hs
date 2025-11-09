@@ -30,6 +30,7 @@ import           Data.Int
 import           Text.Printf (printf)
 
 import           DA.Pretty
+import           DA.Daml.StablePackagesListReader
 import           DA.Daml.LF.Ast
 import           DA.Daml.LF.Mangling
 import           DA.Daml.LF.Proto3.Interned    as I
@@ -209,7 +210,7 @@ encodePackageId = fmap (Just . P.SelfOrImportedPackageId . Just) . go
         pure $ P.SelfOrImportedPackageIdSumSelfPackageId P.Unit
       ImportedPackageId p@(PackageId pkgId) -> do
         (eMap :: Either NoPkgImportsReasons ImportMap) <- asks (view importMap)
-        ifVersion version (\v -> p `notElem` stableIds && v `supports` featurePackageImports)
+        ifVersion version (\v -> p `notElem` allStablePackageIds  && v `supports` featurePackageImports)
           {-then-}
              (case eMap of
                Left r ->

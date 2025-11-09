@@ -32,7 +32,6 @@ import com.google.protobuf.ByteString
 
 import java.util.zip.ZipInputStream
 import scala.concurrent.ExecutionContext
-import scala.math.Ordering.Implicits.infixOrderingOps
 import scala.util.{Failure, Success, Try}
 
 class PackageUploader(

@@ -1209,6 +1209,7 @@ da_haskell_test(
         "//compiler/daml-lf-proto",
         "//compiler/damlc/daml-extract-dar",
         "//compiler/damlc/daml-ide-core",
+        "//compiler/damlc/stable-packages:stable-packages-lib",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
     ],

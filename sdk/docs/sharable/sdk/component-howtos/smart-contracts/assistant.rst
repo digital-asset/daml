@@ -23,7 +23,7 @@ For Linux and MacOS, run
 
 .. code:: bash
 
-  curl -sSL https://get.daml.com/ | sh -s 3.3.0-snapshot.20250507.0
+  curl -sSL https://get.daml.com/ | sh -s 3.4.0-rc2
 
 For Windows 10/11, download and run the installer from the `GitHub releases page <https://github.com/digital-asset/daml/releases>`__.
 

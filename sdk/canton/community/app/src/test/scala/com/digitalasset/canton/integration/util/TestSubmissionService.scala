@@ -409,9 +409,9 @@ object TestSubmissionService {
       EngineConfig(
         allowedLanguageVersions =
           if (enableLfDev)
-            LanguageVersion.AllVersions(LanguageVersion.Major.V2)
+            LanguageVersion.allRange
           else
-            LanguageVersion.StableVersions(LanguageVersion.Major.V2),
+            LanguageVersion.stableRange,
         checkAuthorization = checkAuthorization,
       )
     )

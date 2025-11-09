@@ -7,7 +7,6 @@ import com.digitalasset.daml.lf.data.Ref.{DottedName, PackageName, PackageVersio
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.{
   Ast,
-  LanguageMajorVersion,
   LookupError,
   PackageInterface,
   Reference,
@@ -20,15 +19,10 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class TypingSpecV2 extends TypingSpec(LanguageMajorVersion.V2)
-
-abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
-    extends AnyWordSpec
-    with TableDrivenPropertyChecks
-    with Matchers {
+abstract class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
   private[this] implicit val parserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor(majorLanguageVersion)
+    ParserParameters.default
   private[this] val defaultPackageId = parserParameters.defaultPackageId
   private[this] val defaultLanguageVersion = parserParameters.languageVersion
   private[this] val packageMetadata = Ast.PackageMetadata(
@@ -37,7 +31,7 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
     None,
   )
 
-  private[this] val stablePackages = StablePackages(majorLanguageVersion)
+  private[this] val stablePackages = StablePackages.stablePackages
 
   private[this] val tuple2TyCon: String = {
     import stablePackages.Tuple2

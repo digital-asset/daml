@@ -22,7 +22,6 @@ import org.scalatest.{Inside, OptionValues}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.Ordering.Implicits.infixOrderingOps
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
@@ -82,7 +81,7 @@ class DecodeV2Spec
   private[this] val dummyModuleStr = "dummyModule"
   private[this] val dummyModuleName = Ref.DottedName.assertFromString(dummyModuleStr)
 
-  private[this] val lfVersions = LV.AllV2
+  private[this] val lfVersions = LV.all
 
   private[this] def forEveryVersionSuchThat[U](cond: LV => Boolean)(f: LV => U): Unit =
     lfVersions.foreach { version =>
@@ -1532,7 +1531,7 @@ class DecodeV2Spec
 
     "take a dalf with interned IDs" in {
 
-      minorVersion.identifier should !==("dev")
+      minorVersion.isDevVersion should be(false)
 
       extId should not be empty
       (extId: String) should !==(pkgId: String)

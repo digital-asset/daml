@@ -4,6 +4,7 @@
 package com.digitalasset.canton.config
 
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
+import com.digitalasset.canton.topology.client.TopologyClientConfig
 
 trait NodeConfig {
   def clientAdminApi: ClientConfig
@@ -19,6 +20,7 @@ trait LocalNodeConfig extends NodeConfig {
   def storage: StorageConfig
   def crypto: CryptoConfig
   def sequencerClient: SequencerClientConfig
+  def topologyClient: TopologyClientConfig
   def monitoring: NodeMonitoringConfig
   def topology: TopologyConfig
 

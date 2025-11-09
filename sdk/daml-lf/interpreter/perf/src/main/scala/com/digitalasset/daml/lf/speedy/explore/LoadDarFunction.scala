@@ -25,8 +25,7 @@ object LoadDarFunction extends App {
     val packages = DarDecoder.assertReadArchiveFromFile(darFile)
 
     val compilerConfig =
-      Compiler.Config
-        .Default(packages.main._2.languageVersion.major)
+      Compiler.Config.Default
         .copy(stacktracing = Compiler.NoStackTrace)
 
     val compiledPackages: CompiledPackages =

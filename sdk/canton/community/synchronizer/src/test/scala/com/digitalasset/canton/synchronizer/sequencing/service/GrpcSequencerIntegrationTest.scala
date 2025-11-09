@@ -27,6 +27,7 @@ import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{HashPurpose, Nonce, SigningKeyUsage, SyncCryptoApi}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.error.CantonBaseError
 import com.digitalasset.canton.lifecycle.{
   AsyncOrSyncCloseable,
   CloseContext,
@@ -492,7 +493,7 @@ class GrpcSequencerIntegrationTest
 
     "send from the client gets a message to the sequencer" in { env =>
       when(env.sequencer.sendAsyncSigned(any[SignedContent[SubmissionRequest]])(anyTraceContext))
-        .thenReturn(EitherTUtil.unitUS[SequencerDeliverError])
+        .thenReturn(EitherTUtil.unitUS[CantonBaseError])
       implicit val metricsContext: MetricsContext = MetricsContext.Empty
       val client = env.makeDefaultClient.futureValueUS.value
       val result = for {

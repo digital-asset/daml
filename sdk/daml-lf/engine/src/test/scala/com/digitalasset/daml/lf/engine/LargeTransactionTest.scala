@@ -9,7 +9,7 @@ import com.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.archive.DarDecoder
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion}
+import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
 import com.digitalasset.daml.lf.script.IdeLedger
 import com.digitalasset.daml.lf.transaction.{
   CommittedTransaction,
@@ -31,12 +31,12 @@ import org.scalatest.wordspec.AnyWordSpec
 import scala.language.implicitConversions
 
 class LargeTransactionTestV2_V1
-    extends LargeTransactionTest(LanguageMajorVersion.V2, ContractIdVersion.V1)
+    extends LargeTransactionTest(LanguageVersion.Major.V2, ContractIdVersion.V1)
 class LargeTransactionTestV2_V2
-    extends LargeTransactionTest(LanguageMajorVersion.V2, ContractIdVersion.V2)
+    extends LargeTransactionTest(LanguageVersion.Major.V2, ContractIdVersion.V2)
 
 class LargeTransactionTest(
-    majorLanguageVersion: LanguageMajorVersion,
+    majorLanguageVersion: LanguageVersion.Major,
     contractIdVersion: ContractIdVersion,
 ) extends AnyWordSpec
     with Matchers
@@ -120,7 +120,7 @@ class LargeTransactionTest(
   private def report(name: String, quantity: Quantity[Double]): Unit =
     println(s"$name: $quantity")
 
-  private val engine = Engine.DevEngine(majorLanguageVersion)
+  private val engine = Engine.DevEngine
 
   List(5000, 50000, 500000)
     .foreach { txSize =>

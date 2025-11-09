@@ -7,7 +7,7 @@ package speedy
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
+import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
 import com.digitalasset.daml.lf.speedy.SError.{SError, SErrorDamlException}
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SValue.{SValue => _, _}
@@ -31,12 +31,12 @@ import scala.util.{Failure, Success, Try}
 class SBuiltinInterfaceTestDefaultLf
     extends SBuiltinInterfaceTest(
       LanguageVersion.default,
-      Compiler.Config.Default(LanguageMajorVersion.V2),
+      Compiler.Config.Default,
     )
 class SBuiltinInterfaceTestDevLf
     extends SBuiltinInterfaceTest(
       LanguageVersion.v2_dev,
-      Compiler.Config.Dev(LanguageMajorVersion.V2),
+      Compiler.Config.Dev,
     )
 
 class SBuiltinInterfaceUpgradeImplementationTest extends AnyFreeSpec with Matchers with Inside {
@@ -45,7 +45,7 @@ class SBuiltinInterfaceUpgradeImplementationTest extends AnyFreeSpec with Matche
 
   // TODO: revert to the default version and compiler config once they support upgrades
   val languageVersion = LanguageVersion.Features.packageUpgrades
-  val compilerConfig = Compiler.Config.Dev(LanguageMajorVersion.V2)
+  val compilerConfig = Compiler.Config.Dev
 
   val alice = Ref.Party.assertFromString("Alice")
 
@@ -220,7 +220,7 @@ class SBuiltinInterfaceUpgradeViewTest extends AnyFreeSpec with Matchers with In
 
   // TODO: revert to the default version and compiler config once they support upgrades
   val languageVersion = LanguageVersion.Features.packageUpgrades
-  val compilerConfig = Compiler.Config.Dev(LanguageMajorVersion.V2)
+  val compilerConfig = Compiler.Config.Dev
 
   val alice = Ref.Party.assertFromString("Alice")
 

@@ -23,7 +23,7 @@ import com.digitalasset.daml.lf.engine.{
   UpgradesMatrixCasesV2Dev,
   UpgradesMatrixCasesV2MaxStable,
 }
-import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.value.Value._
 import com.google.protobuf.ByteString
 import io.grpc.{Status, StatusRuntimeException}
@@ -163,8 +163,7 @@ abstract class UpgradesMatrixIntegration(upgradesMatrixCases: UpgradesMatrixCase
           List(ScriptLedgerClient.CommandWithMeta(ApiCommand.Create(tplId.toRef, arg), true)),
         prefetchContractKeys = List(),
         optLocation = None,
-        languageVersionLookup =
-          _ => Right(LanguageVersion.defaultOrLatestStable(LanguageMajorVersion.V2)),
+        languageVersionLookup = _ => Right(LanguageVersion.latestStable),
         errorBehaviour = ScriptLedgerClient.SubmissionErrorBehaviour.MustSucceed,
       )
       .flatMap {
@@ -173,7 +172,7 @@ abstract class UpgradesMatrixIntegration(upgradesMatrixCases: UpgradesMatrixCase
       }
 
   private val globalRandom = new scala.util.Random(0)
-  private val converter = Converter(LanguageMajorVersion.V2)
+  private val converter = Converter(LanguageVersion.Major.V2)
 
   private def allocateParty(name: String): Future[Party] =
     Future(
@@ -286,8 +285,7 @@ abstract class UpgradesMatrixIntegration(upgradesMatrixCases: UpgradesMatrixCase
           commands = commands,
           prefetchContractKeys = List(),
           optLocation = None,
-          languageVersionLookup =
-            _ => Right(LanguageVersion.defaultOrLatestStable(LanguageMajorVersion.V2)),
+          languageVersionLookup = _ => Right(LanguageVersion.latestStable),
           errorBehaviour = ScriptLedgerClient.SubmissionErrorBehaviour.Try,
         )
       }

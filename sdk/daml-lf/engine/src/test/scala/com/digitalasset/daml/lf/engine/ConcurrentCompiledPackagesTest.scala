@@ -4,7 +4,6 @@
 package com.digitalasset.daml.lf
 package engine
 
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml.lf.speedy.Compiler
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
@@ -12,16 +11,9 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class ConcurrentCompiledPackagesTestV2
-    extends ConcurrentCompiledPackagesTest(LanguageMajorVersion.V2)
+class ConcurrentCompiledPackagesTest extends AnyWordSpec with Matchers with Inside {
 
-class ConcurrentCompiledPackagesTest(majorLanguageVersion: LanguageMajorVersion)
-    extends AnyWordSpec
-    with Matchers
-    with Inside {
-
-  implicit val parserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor[this.type](majorLanguageVersion)
+  implicit val parserParameters: ParserParameters[this.type] = ParserParameters.default[this.type]
 
   "ConcurrentCompiledPackages" should {
 
@@ -35,14 +27,14 @@ class ConcurrentCompiledPackagesTest(majorLanguageVersion: LanguageMajorVersion)
 
     "load valid package" in {
 
-      new ConcurrentCompiledPackages(Compiler.Config.Dev(majorLanguageVersion))
+      new ConcurrentCompiledPackages(Compiler.Config.Dev)
         .addPackage(parserParameters.defaultPackageId, pkg) shouldBe ResultDone(())
 
     }
 
     "not load of an invalid package" in {
 
-      val packages = new ConcurrentCompiledPackages(Compiler.Config.Dev(majorLanguageVersion))
+      val packages = new ConcurrentCompiledPackages(Compiler.Config.Dev)
 
       val illFormedPackage =
         p"""

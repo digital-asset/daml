@@ -11,7 +11,7 @@ import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.Ast.{TNat, TTyCon, Type}
 import com.digitalasset.daml.lf.language.Util._
-import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion}
+import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.{
@@ -31,18 +31,12 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 
-class EnricherSpecV2 extends EnricherSpec(LanguageMajorVersion.V2)
-
-class EnricherSpec(majorLanguageVersion: LanguageMajorVersion)
-    extends AnyWordSpec
-    with Matchers
-    with Inside
-    with TableDrivenPropertyChecks {
+class EnricherSpec extends AnyWordSpec with Matchers with Inside with TableDrivenPropertyChecks {
 
   import TransactionBuilder.Implicits.{defaultPackageId => _, _}
 
   implicit val defaultParserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor[this.type](majorLanguageVersion)
+    ParserParameters.default[this.type]
 
   implicit val defaultPackageId: Ref.PackageId =
     defaultParserParameters.defaultPackageId
@@ -151,7 +145,7 @@ class EnricherSpec(majorLanguageVersion: LanguageMajorVersion)
         }
     """ (defaultParserParameters.copy(defaultPackageId = pkgId3))
 
-  private[this] val engine = Engine.DevEngine(majorLanguageVersion)
+  private[this] val engine = Engine.DevEngine
 
   def preloadPackage(pkgId: Ref.PackageId, pkg: Ast.Package): Unit =
     engine

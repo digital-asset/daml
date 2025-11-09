@@ -119,6 +119,7 @@ class StoreBasedSynchronizerTopologyClient(
     val staticSynchronizerParameters: StaticSynchronizerParameters,
     store: TopologyStore[TopologyStoreId.SynchronizerStore],
     packageDependencyResolver: PackageDependencyResolver,
+    topologyClientConfig: TopologyClientConfig,
     override val timeouts: ProcessingTimeout,
     override protected val futureSupervisor: FutureSupervisor,
     val loggerFactory: NamedLoggerFactory,
@@ -258,14 +259,15 @@ class StoreBasedSynchronizerTopologyClient(
           checkAwaitingConditions()
         }
 
-        timeTracker
-          .awaitTick(effectiveTimestamp.value)
-          .fold {
-            // Effective time already reached on the synchronizer
-            advanceApproximateTimeToEffectiveTime()
-          } { awaitTickF =>
-            awaitTickF.foreach(_ => advanceApproximateTimeToEffectiveTime())
-          }
+        if (topologyClientConfig.useTimeProofsForApproximateTime)
+          timeTracker
+            .awaitTick(effectiveTimestamp.value)
+            .fold {
+              // Effective time already reached on the synchronizer
+              advanceApproximateTimeToEffectiveTime()
+            } { awaitTickF =>
+              awaitTickF.foreach(_ => advanceApproximateTimeToEffectiveTime())
+            }
       }
     }
   }

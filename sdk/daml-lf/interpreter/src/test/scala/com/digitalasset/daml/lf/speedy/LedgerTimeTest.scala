@@ -7,7 +7,6 @@ package speedy
 import com.daml.logging.LoggingContext
 import com.digitalasset.daml.lf.data.Ref.Location
 import com.digitalasset.daml.lf.data.Time
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
@@ -20,16 +19,10 @@ import scala.collection.immutable.ArraySeq
 import scala.collection.mutable.ArrayBuffer
 import scala.util.{Success, Try}
 
-class LedgerTimeTestV2 extends LedgerTimeTest(LanguageMajorVersion.V2)
-
-class LedgerTimeTest(majorLanguageVersion: LanguageMajorVersion)
-    extends AnyFreeSpec
-    with Matchers
-    with Inside
-    with TableDrivenPropertyChecks {
+class LedgerTimeTest extends AnyFreeSpec with Matchers with Inside with TableDrivenPropertyChecks {
 
   private[this] implicit val defaultParserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor[this.type](majorLanguageVersion)
+    ParserParameters.default
   private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
   private[this] val t0 = Time.Timestamp.now()
@@ -190,7 +183,7 @@ class LedgerTimeTest(majorLanguageVersion: LanguageMajorVersion)
       time: Time.Timestamp,
       timeBoundaries: Time.Range,
   ) = {
-    val compilerConfig = Compiler.Config.Default(majorLanguageVersion)
+    val compilerConfig = Compiler.Config.Default
     val pkgs = PureCompiledPackages.Empty(compilerConfig)
     val builtinSExpr = pkgs.compiler.unsafeCompile(e"""\(time: Timestamp) -> $builtin time""")
     val seed = crypto.Hash.hashPrivateKey("seed")

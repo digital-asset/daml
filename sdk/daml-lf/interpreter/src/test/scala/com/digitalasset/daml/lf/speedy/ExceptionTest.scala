@@ -9,7 +9,7 @@ import com.digitalasset.daml.lf.data.Ref.{PackageId, PackageName, Party}
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.speedy.SError.{SError, SErrorDamlException}
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SResult.{SResultError, SResultFinal}
@@ -32,23 +32,16 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 
 import scala.collection.immutable.ArraySeq
 
-class ExceptionTestV2 extends ExceptionTest(LanguageMajorVersion.V2)
-
 // TEST_EVIDENCE: Integrity: Exceptions, throw/catch.
-class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
-    extends AnyFreeSpec
-    with Inside
-    with Matchers
-    with TableDrivenPropertyChecks {
+class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDrivenPropertyChecks {
 
   import SpeedyTestLib.loggingContext
 
-  implicit val defaultParserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor[this.type](majorLanguageVersion)
+  implicit val defaultParserParameters: ParserParameters[this.type] = ParserParameters.default
   val defaultPackageId = defaultParserParameters.defaultPackageId
 
   private val stablePackages =
-    com.digitalasset.daml.lf.stablepackages.StablePackages(majorLanguageVersion)
+    com.digitalasset.daml.lf.stablepackages.StablePackages.stablePackages
 
   private val tuple2TyCon: String = {
     import stablePackages.Tuple2
@@ -720,7 +713,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
 
     "works as expected for a contract version POST-dating exceptions" - {
 
-      val pkgs = mkPackagesAtVersion(majorLanguageVersion.dev)
+      val pkgs = mkPackagesAtVersion(LanguageVersion.dev)
       val res = Speedy.Machine
         .fromUpdateSExpr(
           pkgs,
@@ -1206,7 +1199,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
           templateDefsV2PkgId -> templateDefsV2Pkg,
           metadataTestsPkgId -> metadataTestsPkg,
         ),
-        Compiler.Config.Default(majorLanguageVersion),
+        Compiler.Config.Default,
       )
 
     sealed trait ContractOrigin {

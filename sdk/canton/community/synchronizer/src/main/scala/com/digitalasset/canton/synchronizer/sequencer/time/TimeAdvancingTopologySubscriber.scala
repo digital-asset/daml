@@ -3,13 +3,11 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.time
 
-import cats.data.EitherT
 import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.CantonRequireTypes.String73
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcast
@@ -33,7 +31,7 @@ import com.digitalasset.canton.topology.processing.{
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.FutureUnlessShutdownUtil
+import com.digitalasset.canton.util.{FutureUnlessShutdownUtil, FutureUtil, LoggerUtil}
 import com.google.common.annotations.VisibleForTesting
 
 import java.util.UUID
@@ -106,50 +104,46 @@ final class TimeAdvancingTopologySubscriber(
         )*
       )
 
-    val sendETUS =
-      for {
-        // Ask for a topology snapshot again to avoid races on topology changes after scheduling.
-        maybeSequencerGroup <-
-          EitherT.liftF(
-            topologyClient.currentSnapshotApproximation.sequencerGroup()
-          )
-        maybeAggregationRule =
-          maybeSequencerGroup.flatMap { sequencerGroup =>
-            NonEmpty
-              .from(sequencerGroup.active)
-              .map { sequencerGroup =>
-                AggregationRule(
-                  sequencerGroup,
-                  // We merely deduplicate here, so members eventually receive only one event; this means
-                  //  that the mechanism is not BFT, and we still rely on sequencer client-triggered time proofs
-                  //  for resilience against non-compliant sequencers.
-                  threshold = PositiveInt.one,
-                  protocolVersion,
-                )
-              }
-          }
-        _ <-
-          if (maybeSequencerGroup.exists(_.active.contains(thisSequencerId))) {
-            logger.debug(
-              s"Sending a time-advancing message to hopefully reach $desiredTimestamp"
+    val sendUS =
+      // Ask for a topology snapshot again to avoid races on topology changes after scheduling.
+      topologyClient.currentSnapshotApproximation.sequencerGroup().flatMap { maybeSequencerGroup =>
+        val maybeAggregationRule = maybeSequencerGroup.flatMap { sequencerGroup =>
+          NonEmpty.from(sequencerGroup.active).map { sequencerGroup =>
+            AggregationRule(
+              sequencerGroup,
+              // We merely deduplicate here, so members eventually receive only one event; this means
+              //  that the mechanism is not BFT, and we still rely on sequencer client-triggered time proofs
+              //  for resilience against non-compliant sequencers.
+              threshold = PositiveInt.one,
+              protocolVersion,
             )
-            sequencerClient
-              .send(
-                batch,
-                topologyTimestamp = None,
-                maxSequencingTime =
-                  desiredTimestamp.value.plus(TimeAdvanceBroadcastMaxSequencingTimeWindow.duration),
-                aggregationRule = maybeAggregationRule,
-                messageId = mkTimeAdvanceBroadcastMessageId(),
-                callback = SendCallback.empty,
+          }
+        }
+        if (maybeSequencerGroup.exists(_.active.contains(thisSequencerId))) {
+          logger.debug(s"Sending a time-advancing message to hopefully reach $desiredTimestamp")
+          sequencerClient
+            .send(
+              batch,
+              topologyTimestamp = None,
+              maxSequencingTime =
+                desiredTimestamp.value.plus(TimeAdvanceBroadcastMaxSequencingTimeWindow.duration),
+              aggregationRule = maybeAggregationRule,
+              messageId = mkTimeAdvanceBroadcastMessageId(),
+              callback = SendCallback.empty,
+            )
+            .valueOr(err =>
+              LoggerUtil.logAtLevel(
+                SendAsyncClientError.logLevel(err),
+                s"Could not send a time-advancing message: $err",
               )
-          } else EitherT.right[SendAsyncClientError](FutureUnlessShutdown.unit)
-      } yield ()
+            )
+        } else FutureUnlessShutdown.unit
+      }
 
-    sendETUS
-      .tapLeft(err => logger.warn(s"Could not send a time-advancing message: $err"))
-      .onShutdown(Right(logger.debug("Time-advancing broadcast aborted on shutdown")))
-      .discard
+    FutureUtil.doNotAwait(
+      sendUS.onShutdown(logger.debug("Time-advancing broadcast aborted on shutdown")),
+      "Time advancing broadcast",
+    )
   }
 }
 

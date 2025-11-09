@@ -240,13 +240,12 @@ abstract class LSUTimeoutInFlightIntegrationTest extends LSUBase with HasProgram
               .asJava
           )
 
-          val irrelevantTs = CantonTimestamp.now()
           participant1.ledger_api.completions
             .list(alice, atLeastNumCompletions = 1, beginOffsetExclusive = ledgerEndP1)
             .loneElement
             .status
             .value
-            .message should include(SubmissionErrors.TimeoutError.Error(irrelevantTs).cause)
+            .message should include(SubmissionErrors.TimeoutError.Error().cause)
 
           archive1F.failed.futureValue
 

@@ -17,7 +17,7 @@ import com.digitalasset.daml.lf.data.Ref.{
 }
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.Ast.Package
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.speedy.InitialSeeding
 import com.digitalasset.daml.lf.transaction.{
   ContractKeyUniquenessMode,
@@ -46,7 +46,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import scala.language.implicitConversions
 
-class ContractKeySpecV2 extends ContractKeySpec(LanguageMajorVersion.V2)
+class ContractKeySpecV2 extends ContractKeySpec(LanguageVersion.Major.V2)
 
 @SuppressWarnings(
   Array(
@@ -55,7 +55,7 @@ class ContractKeySpecV2 extends ContractKeySpec(LanguageMajorVersion.V2)
     "org.wartremover.warts.Product",
   )
 )
-class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
+class ContractKeySpec(majorLanguageVersion: LanguageVersion.Major)
     extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks
@@ -69,7 +69,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
 
   private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
-  private[this] val suffixLenientEngine = Engine.DevEngine(majorLanguageVersion)
+  private[this] val suffixLenientEngine = Engine.DevEngine
   private[this] val compiledPackages = ConcurrentCompiledPackages(
     suffixLenientEngine.config.getCompilerConfig
   )
@@ -281,14 +281,14 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
       import com.digitalasset.daml.lf.language.{LanguageVersion => LV}
       val nonUckEngine = new Engine(
         EngineConfig(
-          allowedLanguageVersions = LV.AllVersions(majorLanguageVersion),
+          allowedLanguageVersions = LV.allRange,
           contractKeyUniqueness = ContractKeyUniquenessMode.Off,
           forbidLocalContractIds = true,
         )
       )
       val uckEngine = new Engine(
         EngineConfig(
-          allowedLanguageVersions = LV.AllVersions(majorLanguageVersion),
+          allowedLanguageVersions = LV.allRange,
           contractKeyUniqueness = ContractKeyUniquenessMode.Strict,
           forbidLocalContractIds = true,
         )

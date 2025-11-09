@@ -7,8 +7,7 @@ package test
 import com.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
-import com.digitalasset.daml.lf.language.LanguageMajorVersion.V2
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.speedy.SValue._
 
 import java.nio.file.Paths
@@ -20,17 +19,17 @@ class DamlScriptDevIT extends AsyncWordSpec with AbstractScriptTest with Inside 
   final override protected lazy val devMode = true
   final override protected lazy val timeMode = ScriptTimeMode.WallClock
 
-  override val majorLanguageVersion: LanguageMajorVersion = V2
+  override val majorLanguageVersion: LanguageVersion.Major = LanguageVersion.Major.V2
 
   lazy val trySubmitConcurrentlyTestDarPath =
     BazelRunfiles.rlocation(Paths.get("compiler/damlc/tests/try-submit-concurrently-test.dar"))
   lazy val trySubmitConcurrentlyTestDar: CompiledDar =
-    CompiledDar.read(trySubmitConcurrentlyTestDarPath, Runner.compilerConfig(majorLanguageVersion))
+    CompiledDar.read(trySubmitConcurrentlyTestDarPath, Runner.compilerConfig)
 
   lazy val queryTestDarPath =
     BazelRunfiles.rlocation(Paths.get("compiler/damlc/tests/query-test.dar"))
   lazy val queryTestDar: CompiledDar =
-    CompiledDar.read(queryTestDarPath, Runner.compilerConfig(majorLanguageVersion))
+    CompiledDar.read(queryTestDarPath, Runner.compilerConfig)
 
   override protected lazy val darFiles = List(
     trySubmitConcurrentlyTestDarPath,

@@ -40,7 +40,7 @@ import com.digitalasset.daml.lf.archive.DamlLf.Archive
 import com.digitalasset.daml.lf.archive.testing.Encode
 import com.digitalasset.daml.lf.archive.{DamlLf, Dar as LfDar, DarParser, DarWriter}
 import com.digitalasset.daml.lf.data.Bytes
-import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
+import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import com.google.protobuf.ByteString
@@ -152,7 +152,7 @@ abstract class BasePackageServiceTest(enableStrictDarValidation: Boolean)
     examplePackages.map(DamlPackageStore.readPackageId).toSet
 
   protected def mainPkg(
-      lfVersion: LanguageVersion = LanguageVersion.defaultOrLatestStable(LanguageMajorVersion.V2)
+      lfVersion: LanguageVersion = LanguageVersion.latestStable
   ): Archive =
     createLfArchiveForLf(lfVersion) { implicit parserParameters =>
       p"""
@@ -163,7 +163,7 @@ abstract class BasePackageServiceTest(enableStrictDarValidation: Boolean)
     }
 
   protected def extraPkg(
-      lfVersion: LanguageVersion = LanguageVersion.defaultOrLatestStable(LanguageMajorVersion.V2)
+      lfVersion: LanguageVersion = LanguageVersion.latestStable
   ): Archive =
     createLfArchiveForLf(lfVersion) { implicit parserParameters =>
       p"""
@@ -174,7 +174,7 @@ abstract class BasePackageServiceTest(enableStrictDarValidation: Boolean)
     }
 
   protected def missingPkg(
-      lfVersion: LanguageVersion = LanguageVersion.defaultOrLatestStable(LanguageMajorVersion.V2)
+      lfVersion: LanguageVersion = LanguageVersion.latestStable
   ): Archive =
     createLfArchiveForLf(lfVersion) { implicit parserParameters =>
       p"""
@@ -531,7 +531,7 @@ abstract class BasePackageServiceTest(enableStrictDarValidation: Boolean)
     }
 
   private def createLfArchive(defn: ParserParameters[?] => Ast.Package): Archive = {
-    val lfVersion = LanguageVersion.defaultOrLatestStable(LanguageMajorVersion.V2)
+    val lfVersion = LanguageVersion.latestStable
     createLfArchiveForLf(lfVersion)(defn)
   }
 

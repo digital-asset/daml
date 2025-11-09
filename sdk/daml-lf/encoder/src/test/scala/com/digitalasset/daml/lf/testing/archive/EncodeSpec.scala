@@ -30,7 +30,7 @@ abstract class EncodeSpec(languageVersion: LanguageVersion)
   import EncodeSpec._
 
   private val stablePackages =
-    com.digitalasset.daml.lf.stablepackages.StablePackages(languageVersion.major)
+    com.digitalasset.daml.lf.stablepackages.StablePackages.stablePackages
 
   private val tuple2TyCon: String = {
     import stablePackages.Tuple2
@@ -49,7 +49,6 @@ abstract class EncodeSpec(languageVersion: LanguageVersion)
 
       implicit val defaultParserParameters2: ParserParameters[this.type] =
         defaultParserParameters
-      import Ordering.Implicits._
 
       val pkg: Ast.Package =
         p"""

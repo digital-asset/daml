@@ -4,224 +4,111 @@
 package com.digitalasset.daml.lf
 package language
 
-import com.digitalasset.daml.lf.language.LanguageMajorVersion.V2.maxStableVersion
+final case class LanguageVersion private (
+    major: LanguageVersion.Major,
+    minor: LanguageVersion.Minor,
+) extends Ordered[LanguageVersion] {
 
-import scala.annotation.nowarn
+  override def toString: String = s"${major.pretty}.${minor.pretty}"
+  def pretty = toString
+  def isDevVersion: Boolean = minor.isDevVersion
 
-final case class LanguageVersion(major: LanguageMajorVersion, minor: LanguageMinorVersion) {
-  def pretty: String = s"${major.pretty}.${minor.toProtoIdentifier}"
-
-  def isDevVersion = minor.identifier == "dev"
+  override def compare(that: LanguageVersion): Int = {
+    (this.major, this.minor).compare((that.major, that.minor))
+  }
 }
 
-object LanguageVersion {
+object LanguageVersion extends LanguageVersionGenerated {
+  sealed abstract class Major(val major: Int)
+      extends Product
+      with Serializable
+      with Ordered[Major] {
+    val pretty = major.toString
+    override def compare(that: Major): Int = this.pretty.compare(that.pretty)
+  }
 
-  type Major = LanguageMajorVersion
-  val Major = LanguageMajorVersion
+  object Major {
+    case object V1 extends Major(1)
+    case object V2 extends Major(2)
 
-  type Minor = LanguageMinorVersion
-  val Minor = LanguageMinorVersion
+    private val allMajors = List(V1, V2)
 
-  private[this] lazy val stringToVersions = (AllV1 ++ AllV2).iterator.map(v => v.pretty -> v).toMap
+    def fromString(str: String): Either[String, Major] =
+      allMajors
+        .find(_.pretty == str)
+        .toRight(s"${str} is not supported, supported majors: ${allMajors}")
+  }
 
-  def fromString(s: String): Either[String, LanguageVersion] =
-    stringToVersions.get(s).toRight(s + " is not supported")
+  sealed abstract class Minor extends Product with Serializable with Ordered[Minor] {
+    val toProtoIdentifier: String = pretty
+    def pretty: String
+    def isDevVersion: Boolean = false
 
+    override def compare(that: Minor): Int = (this, that) match {
+      // Dev > Staging > Stable
+      case (Minor.Dev, Minor.Dev) => 0
+      case (Minor.Dev, _) => 1
+      case (_, Minor.Dev) => -1
+
+      case (Minor.Staging(a), Minor.Staging(b)) => a.compare(b)
+      case (Minor.Staging(_), Minor.Stable(_)) => 1
+      case (Minor.Stable(_), Minor.Staging(_)) => -1
+
+      case (Minor.Stable(a), Minor.Stable(b)) => a.compare(b)
+    }
+  }
+
+  object Minor {
+    final case class Stable(version: Int) extends Minor {
+      override def pretty: String = version.toString
+    }
+
+    final case class Staging(version: Int) extends Minor {
+      override def pretty: String = s"${version}-staging"
+    }
+
+    case object Dev extends Minor {
+      override def pretty: String = "dev"
+      override def isDevVersion: Boolean = true
+    }
+
+    def fromString(str: String): Either[String, Minor] =
+      (all ++ allLegacy)
+        .map(_.minor)
+        .find(_.pretty == str)
+        .toRight(s"${str} is not supported, supported minors: ${(all ++ allLegacy).map(_.minor)}")
+    def assertFromString(s: String): Minor = data.assertRight(fromString(s))
+  }
+
+  def fromString(str: String): Either[String, LanguageVersion] =
+    (allLegacy ++ all).find(_.toString == str).toRight(s"${str} is not supported")
   def assertFromString(s: String): LanguageVersion = data.assertRight(fromString(s))
 
-  // TODO https://github.com/digital-asset/daml/issues/20101
-  //   Drop the ordering
-  implicit val Ordering: scala.Ordering[LanguageVersion] = {
-    case (LanguageVersion(Major.V1, leftMinor), LanguageVersion(Major.V1, rightMinor)) =>
-      Major.V1.minorVersionOrdering.compare(leftMinor, rightMinor)
-    case (LanguageVersion(Major.V1, _), LanguageVersion(Major.V2, _)) =>
-      -1
-    case (LanguageVersion(Major.V2, _), LanguageVersion(Major.V1, _)) =>
-      1
-    case (LanguageVersion(Major.V2, leftMinor), LanguageVersion(Major.V2, rightMinor)) =>
-      Major.V2.minorVersionOrdering.compare(leftMinor, rightMinor)
-  }
-
-  val AllV1 = Major.V1.supportedMinorVersions.map(LanguageVersion(Major.V1, _))
-  val AllV2 = Major.V2.supportedMinorVersions.map(LanguageVersion(Major.V2, _))
-
-  val List(v1_6, v1_7, v1_8, v1_11, v1_12, v1_13, v1_14, v1_15, v1_17, v1_dev) = AllV1: @nowarn(
-    "msg=match may not be exhaustive"
-  )
-  val List(v2_1, v2_2, v2_dev) = AllV2: @nowarn("msg=match may not be exhaustive")
-
-  @deprecated("use AllV2", since = "3.1.0")
-  val All = AllV2
-
-  private def supportsV1AndV2(
-      lv: LanguageVersion,
-      minorV2: Option[Minor],
-      minorV1: Option[Minor],
-  ): Boolean = {
-    import scala.math.Ordering.Implicits._
-    lv.major match {
-      case Major.V2 =>
-        minorV2 match {
-          case Some(minorV2) => lv >= LanguageVersion(Major.V2, minorV2)
-          case None => false
-        }
-      case Major.V1 =>
-        minorV1 match {
-          case Some(minorV1) => lv >= LanguageVersion(Major.V1, minorV1)
-          case None => false
-        }
-    }
-  }
-
+  // TODO: remove after feature rework
   def supportsPackageUpgrades(lv: LanguageVersion): Boolean =
-    supportsV1AndV2(
-      lv,
-      Some(Features.packageUpgrades.minor),
-      Some(FeaturesV1.packageUpgrades.minor),
-    )
-
-  object Features {
-    val default = v2_1
-    val packageUpgrades = v2_1
-
-    val flatArchive = v2_2
-    val kindInterning = flatArchive
-    val exprInterning = flatArchive
-
-    val explicitPkgImports = v2_2
-
-    val choiceFuncs = v2_dev
-    val choiceAuthority = v2_dev
-
-    /** TYPE_REP_TYCON_NAME builtin */
-    val templateTypeRepToText = v2_dev
-
-    /** Guards in interfaces */
-    val extendedInterfaces = v2_dev
-
-    /** BigNumeric */
-    val bigNumeric = v2_dev
-
-    val contractKeys = v2_dev
-
-    val complexAnyType = v2_dev
-
-    val cryptoUtility = v2_dev
-
-    /** UNSAFE_FROM_INTERFACE is removed starting from 2.2, included */
-    val unsafeFromInterfaceRemoved = v2_2
-
-    /** Unstable, experimental features. This should stay in x.dev forever.
-      * Features implemented with this flag should be moved to a separate
-      * feature flag once the decision to add them permanently has been made.
-      */
-    val unstable = v2_dev
-  }
-
-  object FeaturesV1 {
-    val default = v1_6
-    val internedPackageId = v1_6
-    val internedStrings = v1_7
-    val internedDottedNames = v1_7
-    val numeric = v1_7
-    val anyType = v1_7
-    val typeRep = v1_7
-    val typeSynonyms = v1_8
-    val packageMetadata = v1_8
-    val genComparison = v1_11
-    val genMap = v1_11
-    val scenarioMustFailAtMsg = v1_11
-    val contractIdTextConversions = v1_11
-    val exerciseByKey = v1_11
-    val internedTypes = v1_11
-    val choiceObservers = v1_11
-    val bigNumeric = v1_13
-    val exceptions = v1_14
-    val basicInterfaces = v1_15
-    val choiceFuncs = v1_dev
-    val choiceAuthority = v1_dev
-    val natTypeErasure = v1_dev
-    val packageUpgrades = v1_17
-    val sharedKeys = v1_17
-
-    /** TYPE_REP_TYCON_NAME builtin */
-    val templateTypeRepToText = v1_dev
-
-    /** Guards in interfaces */
-    val extendedInterfaces = v1_dev
-
-    /** Unstable, experimental features. This should stay in x.dev forever.
-      * Features implemented with this flag should be moved to a separate
-      * feature flag once the decision to add them permanently has been made.
-      */
-    val unstable = v1_dev
-  }
-
-  private[lf] def notSupported(majorLanguageVersion: LanguageMajorVersion) =
-    throw new IllegalArgumentException(s"${majorLanguageVersion.pretty} not supported")
-
-  /** All the stable versions for a given major language version.
-    * Version ranges don't make sense across major language versions because major language versions
-    * break backwards compatibility. Clients of [[VersionRange]] in the codebase assume that all LF
-    * versions in a range are backwards compatible with the older versions within that range. Hence
-    * the majorLanguageVersion parameter.
-    */
-  def StableVersions(majorLanguageVersion: LanguageMajorVersion): VersionRange[LanguageVersion] =
-    majorLanguageVersion match {
-      case Major.V2 => VersionRange(v2_1, v2_2)
-      case _ => notSupported(majorLanguageVersion)
+    lv.major match {
+      case Major.V2 => lv >= Features.packageUpgrades
+      case Major.V1 => lv >= LegacyFeatures.packageUpgrades
     }
 
-  /** All the stable and preview versions for a given major language version.
-    * Equals [[StableVersions(majorLanguageVersion)]] if no preview version is available.
-    */
-  def EarlyAccessVersions(
-      majorLanguageVersion: LanguageMajorVersion
-  ): VersionRange[LanguageVersion] =
-    StableVersions(majorLanguageVersion)
-
-  /** All the supported versions for a given major language version: stable, early access and dev.
-    */
-  def AllVersions(majorLanguageVersion: LanguageMajorVersion): VersionRange[LanguageVersion] = {
-    majorLanguageVersion match {
-      case Major.V2 => VersionRange(v2_1, v2_dev)
-      case _ => notSupported(majorLanguageVersion)
-    }
-  }
-
-  /** The Daml-LF version used by default by the compiler if it matches the
-    * provided major version, the latest non-dev version with that major version
-    * otherwise. This function is meant to be used in tests who want to test the
-    * closest thing to the default user experience given a major version.
-    */
-  def defaultOrLatestStable(majorLanguageVersion: LanguageMajorVersion): LanguageVersion = {
-    majorLanguageVersion match {
-      case Major.V2 => maxStableVersion
-      case _ => notSupported(majorLanguageVersion)
-    }
-  }
-
-  /** Version range including the passed one */
+  // TODO: remove after feature rework (this reworks ranges too, so this can be replaced by an Until range)
   def allUpToVersion(version: LanguageVersion): VersionRange[LanguageVersion] = {
     version.major match {
       case Major.V2 => VersionRange(v2_1, version)
-      case _ => notSupported(version.major)
+      case _ => throw new IllegalArgumentException(s"${version.major.pretty} not supported")
     }
   }
 
-  // This refers to the default output LF version in the compiler
-  val default: LanguageVersion = defaultOrLatestStable(Major.V2)
-}
-
-/** Operations on [[VersionRange]] that only make sense for ranges of [[LanguageVersion]]. */
-object LanguageVersionRangeOps {
-  implicit class LanguageVersionRange(val range: VersionRange[LanguageVersion]) {
-    def majorVersion: LanguageMajorVersion = {
-      require(
-        range.min.major == range.max.major,
-        s"version range ${range} spans over multiple version LF versions",
-      )
-      range.max.major
+  // @deprecated("Actually not sure if deprecated", since="3.5")
+  object LanguageVersionRangeOps {
+    implicit class LanguageVersionRange(val range: VersionRange[LanguageVersion]) {
+      def majorVersion: Major = {
+        require(
+          range.min.major == range.max.major,
+          s"version range ${range} spans over multiple version LF versions",
+        )
+        range.max.major
+      }
     }
   }
 }

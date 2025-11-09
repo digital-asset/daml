@@ -10,7 +10,7 @@ import com.daml.scalautil.Statement.discard
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.data.Time
-import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, PackageInterface}
+import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, PackageInterface}
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.speedy.Speedy.UpdateMachine
 import com.digitalasset.daml.lf.stablepackages.StablePackages
@@ -138,7 +138,7 @@ private[speedy] object SpeedyTestLib {
 
   @throws[ValidationError]
   def typeAndCompile(
-      majorLanguageVersion: LanguageMajorVersion,
+      majorLanguageVersion: LanguageVersion.Major,
       pkgs: Map[PackageId, Ast.Package],
   ): PureCompiledPackages = {
     require(
@@ -156,8 +156,7 @@ private[speedy] object SpeedyTestLib {
     )
     PureCompiledPackages.assertBuild(
       pkgs,
-      Compiler.Config
-        .Dev(majorLanguageVersion)
+      Compiler.Config.Dev
         .copy(stacktracing = Compiler.FullStackTrace),
     )
   }
@@ -168,9 +167,7 @@ private[speedy] object SpeedyTestLib {
   ): PureCompiledPackages =
     typeAndCompile(
       pkg.languageVersion.major,
-      StablePackages(
-        parserParameter.languageVersion.major
-      ).packagesMap + (parserParameter.defaultPackageId -> pkg),
+      StablePackages.stablePackages.packagesMap + (parserParameter.defaultPackageId -> pkg),
     )
 
   private[speedy] object Implicits {

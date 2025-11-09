@@ -11,7 +11,6 @@ import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.{LanguageVersion => LV, Util => AstUtil}
 
-import scala.Ordering.Implicits.infixOrderingOps
 import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.language.implicitConversions

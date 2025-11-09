@@ -11,7 +11,6 @@ import com.digitalasset.daml.lf.testing.parser.Parsers._
 import com.digitalasset.daml.lf.testing.parser.Token._
 import com.daml.scalautil.Statement.discard
 
-import scala.Ordering.Implicits.infixOrderingOps
 import com.digitalasset.daml.lf.stablepackages.StablePackages
 
 private[parser] class ModParser[P](parameters: ParserParameters[P]) {

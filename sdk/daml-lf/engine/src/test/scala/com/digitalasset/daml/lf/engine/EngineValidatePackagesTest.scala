@@ -7,7 +7,7 @@ package engine
 import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.stablepackages.StablePackages
 import com.digitalasset.daml.lf.testing.parser
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
@@ -19,12 +19,7 @@ import java.nio.file.Path
 import com.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.archive.DarDecoder
 
-class EngineValidatePackagesTestV2 extends EngineValidatePackagesTest(LanguageMajorVersion.V2)
-
-class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
-    extends AnyWordSpec
-    with Matchers
-    with Inside {
+class EngineValidatePackagesTest extends AnyWordSpec with Matchers with Inside {
 
   // TODO: extend with a (set of) compat dar(s), script-test-v2.dev.dar is
   // tested here as placeholder https://github.com/digital-asset/daml/pull/22101
@@ -32,14 +27,14 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
   val testDar = Path.of(BazelRunfiles.rlocation(testDarPath))
   val dar: Dar[(Ref.PackageId, Package)] = DarDecoder.assertReadArchiveFromFile(testDar.toFile)
 
-  val langVersion = LanguageVersion.defaultOrLatestStable(majorLanguageVersion)
+  val langVersion = LanguageVersion.latestStable
 
   val pkgId = Ref.PackageId.assertFromString("-pkg-")
   val extraPkgId = Ref.PackageId.assertFromString("-extra-")
   val missingPkgId = Ref.PackageId.assertFromString("-missing-")
   val utilityPkgId = Ref.PackageId.assertFromString("-utility-")
   val altUtilityPkgId = Ref.PackageId.assertFromString("-alt-utility-")
-  val (stablePkgId, stablePkg) = StablePackages(majorLanguageVersion).packagesMap.head
+  val (stablePkgId, stablePkg) = StablePackages.stablePackages.packagesMap.head
 
   implicit val parserParameters: parser.ParserParameters[this.type] =
     parser.ParserParameters(pkgId, langVersion)
@@ -78,7 +73,7 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
   )
 
   private def newEngine = new Engine(
-    EngineConfig(LanguageVersion.AllVersions(majorLanguageVersion))
+    EngineConfig(LanguageVersion.allRange)
   )
 
   private def darFromPackageMap(

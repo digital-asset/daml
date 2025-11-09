@@ -8,7 +8,7 @@ import com.daml.logging.LoggingContext
 import com.digitalasset.daml.lf.crypto.{Hash, SValueHash}
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.speedy.{Compiler, SValue}
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
@@ -27,13 +27,11 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import scala.collection.immutable.ArraySeq
 
-class ValidateContractInstanceSpecV2 extends ValidateContractInstanceSpec(LanguageMajorVersion.V2)
-
 /** Tests for [[Engine.validateContractInstance]]. This method is a proxy for [fetchTemplate] which is
   * already thoroughly tested in [[EngineTest]] and [[com.digitalasset.daml.lf.speedy.ValueTranslatorSpec]] so we only
   * test here that things are properly wired. For instance, we don't test every single way a contract can be ill-typed.
   */
-class ValidateContractInstanceSpec(majorLanguageVersion: LanguageMajorVersion)
+class ValidateContractInstanceSpec
     extends AnyWordSpec
     with EitherValues
     with Matchers
@@ -49,8 +47,7 @@ class ValidateContractInstanceSpec(majorLanguageVersion: LanguageMajorVersion)
   val pkgId5 = Ref.PackageId.assertFromString("-packageId5-")
   val pkgId6 = Ref.PackageId.assertFromString("-packageId6-")
 
-  val defaultParserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor[this.type](majorLanguageVersion)
+  val defaultParserParameters: ParserParameters[this.type] = ParserParameters.default
 
   val pkg1 = {
     implicit def parserParameters: ParserParameters[this.type] = defaultParserParameters.copy(
@@ -153,11 +150,11 @@ class ValidateContractInstanceSpec(majorLanguageVersion: LanguageMajorVersion)
     """
   }
 
-  val compilerConfig = Compiler.Config.Default(majorLanguageVersion)
+  val compilerConfig = Compiler.Config.Default
   val compiledPkgs = PureCompiledPackages.build(Map(pkgId1 -> pkg1, pkgId2 -> pkg2), compilerConfig)
 
   private def newEngine = new Engine(
-    EngineConfig(LanguageVersion.StableVersions(majorLanguageVersion))
+    EngineConfig(LanguageVersion.stableRange)
   )
 
   val alice = Party.assertFromString("alice")

@@ -41,7 +41,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.archive.DamlLf.Archive
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.{Engine, EngineConfig}
-import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.digitalasset.daml.lf.language.LanguageVersion
 import io.opentelemetry.api.OpenTelemetry
 import org.scalatest.Suite
 
@@ -125,7 +125,7 @@ private[dao] trait JdbcLedgerDaoBackend extends PekkoBeforeAndAfterAll with Base
       )
     } yield {
       val engine = Some(
-        new Engine(EngineConfig(LanguageVersion.StableVersions(LanguageMajorVersion.V2)))
+        new Engine(EngineConfig(LanguageVersion.stableRange))
       )
       new JdbcLedgerWriteDao(
         dbDispatcher = dbSupport.dbDispatcher,

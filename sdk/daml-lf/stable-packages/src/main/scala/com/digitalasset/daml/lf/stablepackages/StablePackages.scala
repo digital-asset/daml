@@ -9,31 +9,18 @@ import com.digitalasset.daml.lf.archive
 import com.digitalasset.daml.lf.archive.ArchiveDecoder
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
 
-import com.digitalasset.daml.lf.language.{
-  Ast,
-  LanguageMajorVersion,
-  LanguageVersion,
-  StablePackage,
-  StablePackages,
-}
+import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, StablePackage, StablePackages}
 
 final object StablePackagesV2
     extends StablePackagesImpl("compiler/damlc/stable-packages/stable-packages-manifest-v2.txt")
 
 private[daml] object StablePackages {
-  def apply(languageMajorVersion: LanguageMajorVersion): StablePackages =
-    languageMajorVersion match {
-      case LanguageMajorVersion.V1 => throw new IllegalArgumentException("LF1 is not supported")
-      case LanguageMajorVersion.V2 => StablePackagesV2
-    }
+  val stablePackages: StablePackages = StablePackagesV2
 
   /** The IDs of stable packages compatible with the provided version range. */
   def ids(allowedLanguageVersions: VersionRange[LanguageVersion]): Set[Ref.PackageId] = {
-    import com.digitalasset.daml.lf.language.LanguageVersionRangeOps.LanguageVersionRange
 
-    import scala.Ordering.Implicits.infixOrderingOps
-
-    StablePackages(allowedLanguageVersions.majorVersion).allPackages.view
+    StablePackages.stablePackages.allPackages.view
       .filter(_.pkg.languageVersion <= allowedLanguageVersions.max)
       .map(_.packageId)
       .toSet

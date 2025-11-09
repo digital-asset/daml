@@ -6,8 +6,7 @@ package speedy
 
 import com.digitalasset.daml.lf.data.Ref.{IdString, PackageId, Party, TypeConId}
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref}
-import com.digitalasset.daml.lf.language.LanguageMajorVersion.V2
-import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.speedy.SBuiltinFun.SBFetchTemplate
 import com.digitalasset.daml.lf.speedy.SExpr.SEMakeClo
 import com.digitalasset.daml.lf.testing.parser
@@ -27,15 +26,15 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 
 import scala.collection.immutable.ArraySeq
 
-class SerializationVersionTestV2 extends SerializationVersionTest(V2)
+class SerializationVersionTestV2 extends SerializationVersionTest(LanguageVersion.Major.V2)
 
-class SerializationVersionTest(majorLanguageVersion: LanguageMajorVersion)
+class SerializationVersionTest(majorLanguageVersion: LanguageVersion.Major)
     extends AnyFreeSpec
     with Matchers
     with Inside
     with TableDrivenPropertyChecks {
 
-  val helpers = new SerializationVersionTestHelpers(majorLanguageVersion)
+  val helpers = new SerializationVersionTestHelpers
   import helpers._
 
   "interface and transaction versioning" - {
@@ -108,22 +107,15 @@ class SerializationVersionTest(majorLanguageVersion: LanguageMajorVersion)
   }
 }
 
-private[lf] class SerializationVersionTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
+private[lf] class SerializationVersionTestHelpers {
 
-  val (commonLfVersion, oldLfVersion, newLfVersion) = majorLanguageVersion match {
-    case V2 =>
-      (
-        LanguageVersion.defaultOrLatestStable(LanguageMajorVersion.V2),
-        LanguageVersion.v2_1,
-        LanguageVersion.v2_dev,
-      )
-    case _ =>
-      throw new IllegalArgumentException(s"${majorLanguageVersion.pretty} is not supported")
-  }
+  val commonLfVersion: LanguageVersion = LanguageVersion.default
+  val oldLfVersion: LanguageVersion = LanguageVersion.v2_1
+  val newLfVersion: LanguageVersion = LanguageVersion.v2_dev
 
-  val commonVersion = SerializationVersion.assign(commonLfVersion)
-  val oldVersion = SerializationVersion.assign(oldLfVersion)
-  val newVersion = SerializationVersion.assign(newLfVersion)
+  val commonVersion: SerializationVersion = SerializationVersion.assign(commonLfVersion)
+  val oldVersion: SerializationVersion = SerializationVersion.assign(oldLfVersion)
+  val newVersion: SerializationVersion = SerializationVersion.assign(newLfVersion)
 
   implicit val parserParameters: parser.ParserParameters[this.type] =
     parser.ParserParameters(
