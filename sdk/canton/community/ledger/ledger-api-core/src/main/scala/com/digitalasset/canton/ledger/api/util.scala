@@ -341,8 +341,14 @@ final case object InitialPageToken extends PageToken {
 }
 
 object PageToken {
-  val orderingSynchronizerId = Ordering.by[SynchronizerId, String](_.uid.toProtoPrimitive)
-  val orderingParticipantId = Ordering.by[ParticipantId, String](_.uid.toProtoPrimitive)
+  val orderingUniqueIdentifier =
+    Ordering
+      .by[UniqueIdentifier, String](_.identifier.toProtoPrimitive)
+      .orElse(
+        Ordering.by[UniqueIdentifier, String](_.namespace.toProtoPrimitive)
+      )
+  val orderingSynchronizerId = orderingUniqueIdentifier.on[SynchronizerId](_.uid)
+  val orderingParticipantId = orderingUniqueIdentifier.on[ParticipantId](_.uid)
   val orderingBoundedPageToken: Ordering[BoundedPageToken] =
     Ordering
       .by[BoundedPageToken, SynchronizerId](_.synchronizerBound)(orderingSynchronizerId)

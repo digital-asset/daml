@@ -54,7 +54,7 @@ trait AcsCommitmentNoWaitCounterParticipantIntegrationTest
       env: TestConsoleEnvironment
   ): Unit = {
     val (_, _, _, waitConfiguration) = getParticipant2WaitAndNoWaitConfiguration
-    ValidateWait(waitConfiguration)
+    validateWait(waitConfiguration)
   }
 
   // this build the grpc answers for a given participant (both no wait and wait for easy comparison)
@@ -149,7 +149,7 @@ trait AcsCommitmentNoWaitCounterParticipantIntegrationTest
     iou
   }
 
-  private def ValidateWait(
+  private def validateWait(
       waitList: Seq[WaitCommitments] = Seq.empty,
       noWaitList: Seq[NoWaitCommitments] = Seq.empty,
   )(implicit env: TestConsoleEnvironment): Unit = {
@@ -175,7 +175,7 @@ trait AcsCommitmentNoWaitCounterParticipantIntegrationTest
     // user-manual-entry-begin: SetNoWaitCommitment
     participant1.commitments.set_no_wait_commitments_from(Seq(participant2), Seq(synchronizerId1))
     // user-manual-entry-end: SetNoWaitCommitment
-    ValidateWait(noWaitList = participant2NoWaitConfig)
+    validateWait(noWaitList = participant2NoWaitConfig)
 
     logger.info(s"resetting wait for participant2 on participant1")
     // user-manual-entry-begin: ResetNoWaitCommitment
@@ -196,14 +196,14 @@ trait AcsCommitmentNoWaitCounterParticipantIntegrationTest
       logger.info(s"creating a fake existing no wait configuration")
       participant1.commitments.set_no_wait_commitments_from(Seq(testId), Seq(testSynchronizer))
 
-      ValidateWait(participant2WaitConfig, noWaitList)
+      validateWait(participant2WaitConfig, noWaitList)
       logger.info(s"Setting no wait for participant2 on participant1")
       participant1.commitments.set_no_wait_commitments_from(Seq(participant2Id), Seq(daId))
-      ValidateWait(noWaitList = noWaitList ++ participant2NoWaitConfig)
+      validateWait(noWaitList = noWaitList ++ participant2NoWaitConfig)
 
       logger.info(s"resetting wait for participant2 on participant1")
       participant1.commitments.set_wait_commitments_from(Seq(participant2Id), Seq(daId))
-      ValidateWait(participant2WaitConfig, noWaitList)
+      validateWait(participant2WaitConfig, noWaitList)
 
       // clear before next test
       participant1.commitments.set_wait_commitments_from(Seq(testId), Seq(testSynchronizer))
@@ -246,7 +246,7 @@ trait AcsCommitmentNoWaitCounterParticipantIntegrationTest
 
     logger.info(s"resetting wait for participant2 on participant1")
     participant1.commitments.set_wait_commitments_from(Seq(participant2Id), Seq(daId))
-    ValidateWait(participant2WaitConfig, noWaitList)
+    validateWait(participant2WaitConfig, noWaitList)
 
     logger.info(s"resetting wait for non-existing participant on non-existing synchronizer")
     participant1.commitments.set_wait_commitments_from(Seq(testId), Seq(testSynchronizer))
@@ -269,13 +269,13 @@ trait AcsCommitmentNoWaitCounterParticipantIntegrationTest
       s"attempting to set wait on participant without a synchronizer (will fail and result should be same as previous)"
     )
     participant1.commitments.set_wait_commitments_from(Seq(participant2Id), Seq.empty)
-    ValidateWait(participant2WaitConfig, noWaitList = noWaitList)
+    validateWait(participant2WaitConfig, noWaitList = noWaitList)
 
     logger.info(
       s"attempting to set wait on synchronizer without a participant (will fail and result should be same as previous)"
     )
     participant1.commitments.set_wait_commitments_from(Seq.empty, Seq(daId))
-    ValidateWait(participant2WaitConfig, noWaitList = noWaitList)
+    validateWait(participant2WaitConfig, noWaitList = noWaitList)
 
     // clear before next test
     participant1.commitments.set_wait_commitments_from(Seq(testId), Seq(testSynchronizer))
@@ -325,11 +325,11 @@ trait AcsCommitmentNoWaitCounterParticipantIntegrationTest
 
     logger.info(s"setting no wait for non-existing participant on non-existing synchronizer")
     participant1.commitments.set_no_wait_commitments_from(Seq(testId), Seq(testSynchronizer))
-    ValidateWait(participant2WaitConfig, noWaitList)
+    validateWait(participant2WaitConfig, noWaitList)
 
     logger.info(s"Idempotent check")
     participant1.commitments.set_no_wait_commitments_from(Seq(testId), Seq(testSynchronizer))
-    ValidateWait(participant2WaitConfig, noWaitList)
+    validateWait(participant2WaitConfig, noWaitList)
 
     // clear before next test
     participant1.commitments.set_wait_commitments_from(Seq(testId), Seq(testSynchronizer))
@@ -340,16 +340,20 @@ trait AcsCommitmentNoWaitCounterParticipantIntegrationTest
       import env.*
       checkNoWaitConfigurationsAreApplied
 
+      // Advance the clock by 1 micro to avoid messages being sequenced at exact interval boundaries,
+      // which would make this test brittle.
+      environment.simClock.value.advance(JDuration.ofNanos(1000))
+
       val iou = IouSyntax
         .createIou(participant1, Some(daId))(participant1.adminParty, participant2.adminParty)
 
       val contractCreationTime = environment.simClock.value.now
 
-      logger.info(s"deploying an IOU contract on participant1 and participant2")
+      logger.info("deploying an IOU contract on participant1 and participant2")
       checkContractOnParticipants(iou, Seq(participant1, participant2))
       val contractCreationOffset =
         participant1.pruning.get_offset_by_time(contractCreationTime.toInstant)
-      AdvanceTimeAndValidate(expectWarnings = false, acsPruningInterval)
+      advanceTimeAndValidate(expectWarnings = false, acsPruningInterval)
       val firstPruningOffset = participant1.pruning.find_safe_offset()
 
       logger.info("removing the IOU from participant2")
@@ -366,39 +370,31 @@ trait AcsCommitmentNoWaitCounterParticipantIntegrationTest
           .filter(_.contractId == iou.id.contractId) shouldBe empty
       }
 
-      AdvanceTimeAndValidate(
+      advanceTimeAndValidate(
         expectWarnings = true,
         acsPruningInterval,
         ensureParticipant1HasNoOutstanding = false,
       )
 
-      // expect mismatches until we equalize ACSes again
-      loggerFactory.assertEventuallyLogsSeq(SuppressionRule.LevelAndAbove(Level.WARN))(
-        {
-          val secondPruningOffset = participant1.pruning.find_safe_offset()
+      // We don't expect mismatches any more because time does not move across an interval boundary any  more.
+      val secondPruningOffset = participant1.pruning.find_safe_offset()
 
-          // firstPruningOffset and secondPruningOffset should be the same since the time between first and second we have acs mismatched
-          firstPruningOffset shouldBe secondPruningOffset
+      // firstPruningOffset and secondPruningOffset should be the same since the time between first and second we have acs mismatched
+      firstPruningOffset shouldBe secondPruningOffset
 
-          logger.info("setting no wait for participant2 on participant1")
-          // this will cause us to be able to prune again
-          participant1.commitments.set_no_wait_commitments_from(Seq(participant2.id), Seq(daId))
-          val lastPruningOffset = participant1.pruning.find_safe_offset()
-          // only difference between lastPruningOffset and secondPruningOffset is the inclusion of the no-wait for participant2
-          lastPruningOffset should be > secondPruningOffset
-          lastPruningOffset should be > contractCreationOffset
+      logger.info("setting no wait for participant2 on participant1")
+      // this will cause us to be able to prune again
+      participant1.commitments.set_no_wait_commitments_from(Seq(participant2.id), Seq(daId))
+      val lastPruningOffset = participant1.pruning.find_safe_offset()
+      // only difference between lastPruningOffset and secondPruningOffset is the inclusion of the no-wait for participant2
+      lastPruningOffset should be > secondPruningOffset
+      lastPruningOffset should be > contractCreationOffset
 
-          // clean up before next test
-          participant1.synchronizers.disconnect_all()
-          participant1.repair.purge(daName, Seq(iou.id.toLf))
-          participant1.synchronizers.reconnect_local(daName)
-          participant1.commitments.set_wait_commitments_from(Seq(participant2.id), Seq(daId))
-        },
-        logs => {
-          forAtLeast(1, logs)(m => m.message should include(CommitmentsMismatch.id))
-          forAtLeast(1, logs)(m => m.message should include(NoSharedContracts.id))
-        },
-      )
+      // clean up before next test
+      participant1.synchronizers.disconnect_all()
+      participant1.repair.purge(daName, Seq(iou.id.toLf))
+      participant1.synchronizers.reconnect_local(daName)
+      participant1.commitments.set_wait_commitments_from(Seq(participant2.id), Seq(daId))
   }
 
   "No wait configuration allows pruning in case of participant falling behind" onlyRunWhen (!isInMemory) in {
@@ -416,7 +412,7 @@ trait AcsCommitmentNoWaitCounterParticipantIntegrationTest
       checkContractOnParticipants(iou, Seq(participant1, participant2))
       val contractCreationOffset =
         participant1.pruning.get_offset_by_time(contractCreationTime.toInstant)
-      AdvanceTimeAndValidate(expectWarnings = false, acsPruningInterval)
+      advanceTimeAndValidate(expectWarnings = false, acsPruningInterval)
       val firstPruningOffset = participant1.pruning.find_safe_offset()
 
       logger.info("stopping participant2")
@@ -425,7 +421,7 @@ trait AcsCommitmentNoWaitCounterParticipantIntegrationTest
       eventually() {
         participant2.health.is_running() shouldBe false
       }
-      AdvanceTimeAndValidate(
+      advanceTimeAndValidate(
         expectWarnings = false,
         acsPruningInterval,
         ensureParticipant1HasNoOutstanding = false,
@@ -443,7 +439,7 @@ trait AcsCommitmentNoWaitCounterParticipantIntegrationTest
       lastPruningOffset should be > contractCreationOffset
   }
 
-  private def AdvanceTimeAndValidate(
+  private def advanceTimeAndValidate(
       expectWarnings: Boolean,
       timeAdvance: JDuration,
       ensureParticipant1HasNoOutstanding: Boolean = true,

@@ -561,6 +561,7 @@ object TopologyTransactionProcessor {
       NoPackageDependencies,
       parameters.cachingConfigs,
       parameters.batchingConfig,
+      parameters.topologyClient,
       parameters.processingTimeouts,
       futureSupervisor,
       loggerFactory,

@@ -10,6 +10,7 @@ import com.digitalasset.canton.synchronizer.config.PublicServerConfig
 import com.digitalasset.canton.synchronizer.sequencer.SequencerConfig.SequencerHighAvailabilityConfig
 import com.digitalasset.canton.synchronizer.sequencer.traffic.SequencerTrafficConfig
 import com.digitalasset.canton.synchronizer.sequencer.{SequencerConfig, SequencerHealthConfig}
+import com.digitalasset.canton.topology.client.TopologyClientConfig
 import monocle.macros.syntax.lens.*
 
 /** Configuration parameters for a single sequencer node
@@ -48,6 +49,7 @@ final case class SequencerNodeConfig(
     sequencer: SequencerConfig = SequencerConfig.default,
     timeTracker: SynchronizerTimeTrackerConfig = SynchronizerTimeTrackerConfig(),
     override val sequencerClient: SequencerClientConfig = SequencerClientConfig(),
+    override val topologyClient: TopologyClientConfig = TopologyClientConfig(),
     override val parameters: SequencerNodeParameterConfig = SequencerNodeParameterConfig(),
     health: SequencerHealthConfig = SequencerHealthConfig(),
     override val monitoring: NodeMonitoringConfig = NodeMonitoringConfig(),

@@ -5,18 +5,38 @@ package com.digitalasset.canton.sequencing.protocol
 
 import com.digitalasset.canton.topology.{MediatorId, Member, ParticipantId, SequencerId}
 
-sealed trait SubmissionRequestType
+sealed trait SubmissionRequestType {
+  def name: String
+}
 
 object SubmissionRequestType {
-  case object ConfirmationResponse extends SubmissionRequestType
-  case object ConfirmationRequest extends SubmissionRequestType
-  case object Verdict extends SubmissionRequestType
-  case object Commitment extends SubmissionRequestType
-  case object TopUp extends SubmissionRequestType
-  case object TopUpMed extends SubmissionRequestType
-  case object TopologyTransaction extends SubmissionRequestType
-  case object TimeProof extends SubmissionRequestType
-  final case class Unexpected(description: String) extends SubmissionRequestType
+  case object ConfirmationResponse extends SubmissionRequestType {
+    override val name: String = "confirmation response"
+  }
+  case object ConfirmationRequest extends SubmissionRequestType {
+    override def name: String = "confirmation request"
+  }
+  case object Verdict extends SubmissionRequestType {
+    override def name: String = "verdict"
+  }
+  case object Commitment extends SubmissionRequestType {
+    override def name: String = "commitment"
+  }
+  case object TopUp extends SubmissionRequestType {
+    override def name: String = "top up"
+  }
+  case object TopUpMed extends SubmissionRequestType {
+    override def name: String = "top up med"
+  }
+  case object TopologyTransaction extends SubmissionRequestType {
+    override def name: String = "topology transaction"
+  }
+  case object TimeProof extends SubmissionRequestType {
+    override def name: String = "time proof"
+  }
+  final case class Unexpected(description: String) extends SubmissionRequestType {
+    override def name: String = "unexpected"
+  }
 
   def submissionRequestType(allRecipients: Set[Recipient], member: Member): SubmissionRequestType =
     allRecipients

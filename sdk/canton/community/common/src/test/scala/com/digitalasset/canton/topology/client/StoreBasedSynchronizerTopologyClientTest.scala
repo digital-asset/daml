@@ -85,6 +85,7 @@ trait StoreBasedTopologySnapshotTest
           defaultStaticSynchronizerParameters,
           store,
           NoPackageDependencies,
+          TopologyClientConfig(),
           DefaultProcessingTimeouts.testing,
           FutureSupervisor.Noop,
           loggerFactory,

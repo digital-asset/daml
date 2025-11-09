@@ -21,7 +21,7 @@ import com.digitalasset.canton.util.{ContractValidator, TestEngine}
 import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.*
-import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.{FatContractInstance, Node, TransactionCoder}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
@@ -40,9 +40,7 @@ class DisclosedContractNormalizationTest
   private val ec: ExecutionContext = executorService
   private implicit val loggingContext: LoggingContext = LoggingContextWithTrace(loggerFactory)
 
-  val engine = new Engine(
-    EngineConfig(allowedLanguageVersions = LanguageVersion.AllVersions(LanguageMajorVersion.V2))
-  )
+  val engine = new Engine(EngineConfig(allowedLanguageVersions = LanguageVersion.allRange))
 
   private val testEngine = new TestEngine(packagePaths = Seq(UpgradingBaseTest.UpgradeV2))
 

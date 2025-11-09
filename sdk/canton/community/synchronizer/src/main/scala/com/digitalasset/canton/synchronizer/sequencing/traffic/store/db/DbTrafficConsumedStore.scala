@@ -39,6 +39,15 @@ class DbTrafficConsumedStore(
   import Member.DbStorageImplicits.*
   import storage.api.*
 
+  private def withMemberId[A](member: Member)(
+      fn: RegisteredMember => FutureUnlessShutdown[A],
+      ifNotExist: => A,
+  )(implicit tc: TraceContext): FutureUnlessShutdown[A] =
+    sequencerStore.lookupMember(member).flatMap {
+      case None => FutureUnlessShutdown.pure(ifNotExist)
+      case Some(registeredMember) => fn(registeredMember)
+    }
+
   override def store(
       trafficUpdates: Seq[TrafficConsumed]
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
@@ -94,28 +103,34 @@ class DbTrafficConsumedStore(
 
   override def lookup(
       member: Member
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[TrafficConsumed]] = {
-    val query =
-      sql"""select member, sequencing_timestamp, extra_traffic_consumed, base_traffic_remainder, last_consumed_cost
-            from seq_traffic_control_consumed_journal journal
-            inner join sequencer_members members on journal.member_id = members.id
-            where member = $member
-            order by sequencing_timestamp asc"""
-    storage.query(query.as[TrafficConsumed], functionFullName)
-  }
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[TrafficConsumed]] =
+    withMemberId(member)(
+      { registeredMember =>
+        val query =
+          sql"""select $member, sequencing_timestamp, extra_traffic_consumed, base_traffic_remainder, last_consumed_cost
+              from seq_traffic_control_consumed_journal
+              where member_id = ${registeredMember.memberId}
+              order by sequencing_timestamp asc"""
+        storage.query(query.as[TrafficConsumed], functionFullName)
+      },
+      Seq.empty,
+    )
 
   override def lookupLast(
       member: Member
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Option[TrafficConsumed]] = {
-    val query =
-      sql"""select member, sequencing_timestamp, extra_traffic_consumed, base_traffic_remainder, last_consumed_cost
-           from seq_traffic_control_consumed_journal journal
-           inner join sequencer_members members on journal.member_id = members.id
-           where member = $member
-           order by sequencing_timestamp desc
-           limit 1"""
-    storage.querySingle(query.as[TrafficConsumed].headOption, functionFullName).value
-  }
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Option[TrafficConsumed]] =
+    withMemberId(member)(
+      { registeredMember =>
+        val query =
+          sql"""select $member, sequencing_timestamp, extra_traffic_consumed, base_traffic_remainder, last_consumed_cost
+             from seq_traffic_control_consumed_journal
+             where member_id = ${registeredMember.memberId}
+             order by sequencing_timestamp desc
+             limit 1"""
+        storage.querySingle(query.as[TrafficConsumed].headOption, functionFullName).value
+      },
+      None,
+    )
 
   override def lookupLatestBeforeInclusive(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
@@ -128,7 +143,7 @@ class DbTrafficConsumedStore(
               select sequencing_timestamp, extra_traffic_consumed, base_traffic_remainder, last_consumed_cost
               from seq_traffic_control_consumed_journal journal
               where member_id = m.id and sequencing_timestamp <= $timestamp
-              order by member, sequencing_timestamp desc
+              order by sequencing_timestamp desc
               limit 1) tc
             on true"""
       case _ =>
@@ -149,29 +164,35 @@ class DbTrafficConsumedStore(
 
   def lookupLatestBeforeInclusiveForMember(member: Member, timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[TrafficConsumed]] = {
-    val query =
-      sql"""select member, sequencing_timestamp, extra_traffic_consumed, base_traffic_remainder, last_consumed_cost
-            from seq_traffic_control_consumed_journal journal
-            inner join sequencer_members members on journal.member_id = members.id
-            where sequencing_timestamp <= $timestamp and member = $member
-            order by member, sequencing_timestamp desc
+  ): FutureUnlessShutdown[Option[TrafficConsumed]] =
+    withMemberId(member)(
+      { registeredMember =>
+        val query =
+          sql"""select $member, sequencing_timestamp, extra_traffic_consumed, base_traffic_remainder, last_consumed_cost
+            from seq_traffic_control_consumed_journal
+            where sequencing_timestamp <= $timestamp and member_id = ${registeredMember.memberId}
+            order by member_id, sequencing_timestamp desc
             limit 1""".as[TrafficConsumed].headOption
 
-    storage.querySingle(query, functionFullName).value
-  }
+        storage.querySingle(query, functionFullName).value
+      },
+      None,
+    )
 
   override def lookupAt(member: Member, timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[TrafficConsumed]] = {
-    val query =
-      sql"""select member, sequencing_timestamp, extra_traffic_consumed, base_traffic_remainder, last_consumed_cost
-           from seq_traffic_control_consumed_journal journal
-           inner join sequencer_members members on journal.member_id = members.id
-           where member = $member and sequencing_timestamp = $timestamp
+  ): FutureUnlessShutdown[Option[TrafficConsumed]] =
+    withMemberId(member)(
+      { registeredMember =>
+        val query =
+          sql"""select $member, sequencing_timestamp, extra_traffic_consumed, base_traffic_remainder, last_consumed_cost
+           from seq_traffic_control_consumed_journal
+           where member_id = ${registeredMember.memberId} and sequencing_timestamp = $timestamp
            limit 1"""
-    storage.querySingle(query.as[TrafficConsumed].headOption, functionFullName).value
-  }
+        storage.querySingle(query.as[TrafficConsumed].headOption, functionFullName).value
+      },
+      None,
+    )
 
   override def pruneBelowExclusive(
       upToExclusive: CantonTimestamp

@@ -29,7 +29,7 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.testing.utils.TestModels
 import com.digitalasset.canton.util.JarResourceUtils
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.google.protobuf
 import monocle.macros.syntax.lens.*
 
@@ -130,9 +130,9 @@ abstract class BaseEngineModeIT(supportDevLanguageVersions: Boolean)
 
     def accept(langVersion: LanguageVersion, version: String, mode: String) = {
       val protocolVersion =
-        if (LanguageVersion.StableVersions(LanguageMajorVersion.V2).contains(langVersion))
+        if (LanguageVersion.stable.contains(langVersion))
           ProtocolVersion.latest
-        else if (LanguageVersion.EarlyAccessVersions(LanguageMajorVersion.V2).contains(langVersion))
+        else if (LanguageVersion.earlyAccess.contains(langVersion))
           ProtocolVersion.beta.lastOption.getOrElse(ProtocolVersion.dev)
         else if (supportDevLanguageVersions) ProtocolVersion.dev
         else fail(s"Unsupported language version: $langVersion")
@@ -160,17 +160,14 @@ abstract class BaseEngineModeIT(supportDevLanguageVersions: Boolean)
 
     inside(
       List(
-        LanguageVersion.StableVersions(LanguageVersion.Major.V2).max,
-        LanguageVersion.EarlyAccessVersions(LanguageVersion.Major.V2).max,
+        LanguageVersion.stableRange.max,
+        LanguageVersion.earlyAccessRange.max,
         LanguageVersion.v2_dev,
       )
     ) { case List(maxStableVersion, betaVersion, devVersion) =>
       if (!supportDevLanguageVersions) {
         accept(maxStableVersion, "stable", "stable")
-        if (
-          LanguageVersion.EarlyAccessVersions(LanguageVersion.Major.V2) == LanguageVersion
-            .StableVersions(LanguageVersion.Major.V2)
-        )
+        if (LanguageVersion.earlyAccess == LanguageVersion.stable)
           accept(betaVersion, "beta", "beta")
         else
           reject(betaVersion, "beta", "stable")

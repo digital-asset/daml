@@ -32,7 +32,6 @@ import com.digitalasset.canton.networking.grpc.{
 import com.digitalasset.canton.sequencer.api.v30
 import com.digitalasset.canton.sequencer.api.v30.SequencerServiceGrpc.SequencerServiceStub
 import com.digitalasset.canton.sequencer.api.v30.SubscriptionResponse
-import com.digitalasset.canton.sequencing.SequencedEventHandler
 import com.digitalasset.canton.sequencing.client.SendAsyncClientError.SendAsyncClientResponseError
 import com.digitalasset.canton.sequencing.client.{
   SendAsyncClientError,
@@ -41,6 +40,7 @@ import com.digitalasset.canton.sequencing.client.{
 }
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.protocol.SendAsyncError.SendAsyncErrorGrpc
+import com.digitalasset.canton.sequencing.{SequencedEventHandler, UserSequencerConnectionXStub}
 import com.digitalasset.canton.topology.store.StoredTopologyTransaction.GenericStoredTopologyTransaction
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
@@ -115,6 +115,7 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
       requestDescription = s"$endpoint/$messageId",
       timeout = timeout,
       logger = logger,
+      logPolicy = UserSequencerConnectionXStub.DefaultSendAsyncLogPolicy,
       retryPolicy = sendAtMostOnce,
     )
     response.biflatMap(

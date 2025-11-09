@@ -7,6 +7,7 @@ import cats.Functor
 import cats.data.EitherT
 import cats.implicits.*
 import com.daml.grpc.AuthCallCredentials
+import com.digitalasset.base.error.utils.DecodedCantonError
 import com.digitalasset.base.error.{
   ErrorCategory,
   ErrorCategoryRetry,
@@ -364,6 +365,14 @@ object CantonGrpcUtil {
       // Log an info, if a cause is defined to not discard the cause information
       Option(error.status.getCause).foreach { cause =>
         logger.info(error.toString, cause)
+      }
+  }
+
+  /** Logs all errors except those for which `doNotLog` returns true */
+  class FilteredGrpcLogPolicy(doNotLog: DecodedCantonError => Boolean) extends GrpcLogPolicy {
+    def log(error: GrpcError, logger: TracedLogger)(implicit traceContext: TraceContext): Unit =
+      if (!error.decodedCantonError.exists(doNotLog)) {
+        error.log(logger)
       }
   }
 
