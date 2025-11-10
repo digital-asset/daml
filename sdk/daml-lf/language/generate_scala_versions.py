@@ -84,9 +84,9 @@ trait LanguageVersionGenerated {
 # closing brace for the trait.
 STATIC_FOOTER = """
   //ranges hardcoded (for now)
-  val allLfVersionsRange = VersionRange(v2_1, v2_dev)
-  val stableLfVersionsRange = VersionRange(v2_1, v2_2)
-  val earlyAccessLfVersionsRange = VersionRange(v2_1, v2_2)
+  val allLfVersionsRange: VersionRange.Inclusive[LanguageVersion] = VersionRange(v2_1, v2_dev)
+  val stableLfVersionsRange: VersionRange.Inclusive[LanguageVersion] = VersionRange(v2_1, v2_2)
+  val earlyAccessLfVersionsRange: VersionRange.Inclusive[LanguageVersion] = VersionRange(v2_1, v2_2)
 
   //features hardcoded (for now)
   object Features {
