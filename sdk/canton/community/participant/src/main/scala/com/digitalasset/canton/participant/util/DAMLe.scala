@@ -75,8 +75,8 @@ object DAMLe {
 
   private def maxVersion(enableLfDev: Boolean, enableLfBeta: Boolean) =
     if (enableLfDev) v2_dev
-    else if (enableLfBeta) LanguageVersion.earlyAccessRange.max
-    else LanguageVersion.stableRange.max
+    else if (enableLfBeta) LanguageVersion.earlyAccessLfVersionsRange.max
+    else LanguageVersion.latestStableLfVersion
 
   /** Resolves packages by [[com.digitalasset.daml.lf.data.Ref.PackageId]]. The returned packages
     * must have been validated so that [[com.digitalasset.daml.lf.engine.Engine]] can skip
