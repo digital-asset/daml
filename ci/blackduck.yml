@@ -12,7 +12,7 @@ jobs:
                     startsWith(variables['System.PullRequest.SourceBranch'], 'bump-blackduck-script-')))
   pool:
     name: ubuntu_20_04
-    demands: assignment -equals default
+    demands: assignment -equals default-new
   variables:
     blackduck_script_sha: e2e252780511f44a360d37fda0d343b474188e46
   steps:
@@ -177,7 +177,7 @@ jobs:
                  eq(variables['Build.DefinitionName'], 'digital-asset.daml-daily-compat'))
   pool:
     name: ubuntu_20_04
-    demands: assignment -equals default
+    demands: assignment -equals default-new
   steps:
   - checkout: self
     clean: true
