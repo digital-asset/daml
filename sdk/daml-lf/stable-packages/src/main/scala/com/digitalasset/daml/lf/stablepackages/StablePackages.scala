@@ -21,7 +21,7 @@ private[daml] object StablePackages {
   def ids(allowedLanguageVersions: VersionRange[LanguageVersion]): Set[Ref.PackageId] = {
 
     StablePackages.stablePackages.allPackages.view
-      .filter(_.pkg.languageVersion <= allowedLanguageVersions.max)
+      .filter(p => allowedLanguageVersions.contains(p.pkg.languageVersion))
       .map(_.packageId)
       .toSet
   }
