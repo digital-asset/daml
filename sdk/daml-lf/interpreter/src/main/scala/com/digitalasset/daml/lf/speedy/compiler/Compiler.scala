@@ -77,14 +77,14 @@ private[lf] object Compiler {
   object Config {
     def Default =
       Config(
-        allowedLanguageVersions = LanguageVersion.stableRange,
+        allowedLanguageVersions = LanguageVersion.stableLfVersionsRange,
         packageValidation = FullPackageValidation,
         profiling = NoProfile,
         stacktracing = NoStackTrace,
       )
 
     def Dev = Config(
-      allowedLanguageVersions = LanguageVersion.allRange,
+      allowedLanguageVersions = LanguageVersion.allLfVersionsRange,
       packageValidation = FullPackageValidation,
       profiling = NoProfile,
       stacktracing = NoStackTrace,

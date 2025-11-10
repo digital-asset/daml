@@ -145,7 +145,8 @@ abstract class UpgradesMatrix[Err, Res](
 // Instances of UpgradesMatrixCases which provide cases built with LF 2.dev or the
 // highest stable 2.x version, respectively
 object UpgradesMatrixCasesV2Dev extends UpgradesMatrixCases(LanguageVersion.v2_dev)
-object UpgradesMatrixCasesV2MaxStable extends UpgradesMatrixCases(LanguageVersion.latestStable)
+object UpgradesMatrixCasesV2MaxStable
+    extends UpgradesMatrixCases(LanguageVersion.latestStableLfVersion)
 
 /** Pairs of v1/v2 templates are called [[TestCase]]s and are listed in [[testCases]]. A test case is defined by
   * subclassing [[TestCase]] and overriding one definition. For instance, [[ChangedObservers]] overrides

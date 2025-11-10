@@ -81,7 +81,7 @@ class DecodeV2Spec
   private[this] val dummyModuleStr = "dummyModule"
   private[this] val dummyModuleName = Ref.DottedName.assertFromString(dummyModuleStr)
 
-  private[this] val lfVersions = LV.all
+  private[this] val lfVersions = LV.allLfVersions
 
   private[this] def forEveryVersionSuchThat[U](cond: LV => Boolean)(f: LV => U): Unit =
     lfVersions.foreach { version =>

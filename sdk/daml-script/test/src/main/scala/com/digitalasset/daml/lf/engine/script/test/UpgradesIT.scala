@@ -187,7 +187,7 @@ class UpgradesIT(
 class UpgradesITSmallStable
     extends UpgradesIT(
       runCantonInDevMode = false,
-      languageVersion = LanguageVersion.latestStable,
+      languageVersion = LanguageVersion.latestStableLfVersion,
       upgradeTestLibDarPath = "daml-script/test/upgrade-test-lib.dar",
       testFilesDirPath = "daml-script/test/daml/upgrades/stable",
       numParticipants = 2,
@@ -197,7 +197,7 @@ class UpgradesITSmallStable
 class UpgradesITSLargeStable
     extends UpgradesIT(
       runCantonInDevMode = false,
-      languageVersion = LanguageVersion.latestStable,
+      languageVersion = LanguageVersion.latestStableLfVersion,
       upgradeTestLibDarPath = "daml-script/test/upgrade-test-lib.dar",
       testFilesDirPath = "daml-script/test/daml/upgrades/stable",
       numParticipants = 5,
@@ -207,7 +207,7 @@ class UpgradesITSLargeStable
 class UpgradesITSmallDev
     extends UpgradesIT(
       runCantonInDevMode = true,
-      languageVersion = LanguageVersion.dev,
+      languageVersion = LanguageVersion.devLfVersion,
       upgradeTestLibDarPath = "daml-script/test/upgrade-test-lib-dev.dar",
       testFilesDirPath = "daml-script/test/daml/upgrades/dev",
       numParticipants = 2,

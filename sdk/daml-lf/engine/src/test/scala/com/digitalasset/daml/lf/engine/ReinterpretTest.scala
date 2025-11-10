@@ -42,7 +42,7 @@ class ReinterpretTest(majorLanguageVersion: LanguageVersion.Major)
 
   import ReinterpretTest._
 
-  private[this] val version = SerializationVersion.assign(LanguageVersion.latestStable)
+  private[this] val version = SerializationVersion.assign(LanguageVersion.latestStableLfVersion)
 
   private def hash(s: String) = crypto.Hash.hashPrivateKey(s)
 
@@ -74,7 +74,7 @@ class ReinterpretTest(majorLanguageVersion: LanguageVersion.Major)
 
   private def freshEngine = new Engine(
     EngineConfig(
-      allowedLanguageVersions = language.LanguageVersion.allRange,
+      allowedLanguageVersions = language.LanguageVersion.allLfVersionsRange,
       forbidLocalContractIds = true,
     )
   )
@@ -198,7 +198,7 @@ class ReinterpretTest(majorLanguageVersion: LanguageVersion.Major)
         Package(
           Map.empty,
           Set.empty,
-          LanguageVersion.latestStable,
+          LanguageVersion.latestStableLfVersion,
           PackageMetadata(
             PackageName.assertFromString("foo"),
             PackageVersion.assertFromString("0.0.0"),

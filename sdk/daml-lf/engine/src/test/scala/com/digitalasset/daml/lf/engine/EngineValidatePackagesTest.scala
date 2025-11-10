@@ -27,7 +27,7 @@ class EngineValidatePackagesTest extends AnyWordSpec with Matchers with Inside {
   val testDar = Path.of(BazelRunfiles.rlocation(testDarPath))
   val dar: Dar[(Ref.PackageId, Package)] = DarDecoder.assertReadArchiveFromFile(testDar.toFile)
 
-  val langVersion = LanguageVersion.latestStable
+  val langVersion = LanguageVersion.latestStableLfVersion
 
   val pkgId = Ref.PackageId.assertFromString("-pkg-")
   val extraPkgId = Ref.PackageId.assertFromString("-extra-")
@@ -73,7 +73,7 @@ class EngineValidatePackagesTest extends AnyWordSpec with Matchers with Inside {
   )
 
   private def newEngine = new Engine(
-    EngineConfig(LanguageVersion.allRange)
+    EngineConfig(LanguageVersion.allLfVersionsRange)
   )
 
   private def darFromPackageMap(

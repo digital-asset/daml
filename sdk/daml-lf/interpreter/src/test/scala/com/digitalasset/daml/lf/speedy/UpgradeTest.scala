@@ -35,7 +35,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChec
   private[this] implicit def parserParameters(implicit
       pkgId: Ref.PackageId
   ): ParserParameters[this.type] =
-    ParserParameters(pkgId, languageVersion = LanguageVersion.dev)
+    ParserParameters(pkgId, languageVersion = LanguageVersion.devLfVersion)
 
   private[this] val compilerConfig = Compiler.Config.Dev
 

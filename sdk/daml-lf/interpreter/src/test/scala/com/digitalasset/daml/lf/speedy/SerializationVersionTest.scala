@@ -109,7 +109,7 @@ class SerializationVersionTest(majorLanguageVersion: LanguageVersion.Major)
 
 private[lf] class SerializationVersionTestHelpers {
 
-  val commonLfVersion: LanguageVersion = LanguageVersion.default
+  val commonLfVersion: LanguageVersion = LanguageVersion.defaultLfVersion
   val oldLfVersion: LanguageVersion = LanguageVersion.v2_1
   val newLfVersion: LanguageVersion = LanguageVersion.v2_dev
 

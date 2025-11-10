@@ -16,7 +16,7 @@ object ParserParameters {
   def default[P]: ParserParameters[P] = {
     ParserParameters(
       defaultPackageId = Ref.PackageId.assertFromString("-pkgId-"),
-      LanguageVersion.default,
+      LanguageVersion.defaultLfVersion,
     )
   }
 }

@@ -18,7 +18,7 @@ import scala.collection.immutable.VectorMap
 
 class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
-  private def defaultVersion = LanguageVersion.default
+  private def defaultVersion = LanguageVersion.defaultLfVersion
 
   "Package.build" should {
 

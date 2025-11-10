@@ -178,7 +178,7 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
       Ast.PackageSignature(
         modules = Map.empty,
         directDeps = Set.empty,
-        languageVersion = LanguageVersion.default,
+        languageVersion = LanguageVersion.defaultLfVersion,
         metadata = Ast.PackageMetadata(name, version, None),
         imports = Ast.GeneratedImports(
           reason = "package made in com.digitalasset.daml.lf.typesig.reader.SignatureReaderSpec",

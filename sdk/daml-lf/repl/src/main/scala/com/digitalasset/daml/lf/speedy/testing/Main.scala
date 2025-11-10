@@ -333,7 +333,7 @@ class Repl {
   implicit val parserParameters: parser.ParserParameters[Repl.this.type] =
     parser.ParserParameters(
       defaultPackageId = Ref.PackageId.assertFromString("-dummy-"),
-      languageVersion = LV.default,
+      languageVersion = LV.defaultLfVersion,
     )
 
   // Invoke the given top-level function with given arguments.
@@ -461,14 +461,14 @@ object Repl {
 
   def defaultCompilerConfig =
     Compiler.Config(
-      allowedLanguageVersions = LV.stableRange,
+      allowedLanguageVersions = LV.stableLfVersionsRange,
       packageValidation = Compiler.FullPackageValidation,
       profiling = Compiler.NoProfile,
       stacktracing = Compiler.FullStackTrace,
     )
 
   def devCompilerConfig: Compiler.Config =
-    defaultCompilerConfig.copy(allowedLanguageVersions = LV.allRange)
+    defaultCompilerConfig.copy(allowedLanguageVersions = LV.allLfVersionsRange)
 
   private implicit class StateOp(val x: (Boolean, State)) extends AnyVal {
 

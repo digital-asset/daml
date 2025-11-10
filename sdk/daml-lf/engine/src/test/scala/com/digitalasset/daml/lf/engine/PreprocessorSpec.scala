@@ -415,7 +415,7 @@ final class PreprocessorSpecHelpers {
   implicit val parserParameters: ParserParameters[this.type] =
     ParserParameters(
       defaultPackageId = Ref.PackageId.assertFromString("-pkgId-"),
-      LanguageVersion.latestStable,
+      LanguageVersion.latestStableLfVersion,
     )
 
   implicit val defaultPackageId: Ref.PackageId = parserParameters.defaultPackageId
