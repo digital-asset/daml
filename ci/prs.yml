@@ -20,7 +20,7 @@ jobs:
 - job: compatibility_target_protobuf
   pool:
     name: ubuntu_20_04
-    demands: assignment -equals default
+    demands: assignment -equals default-new
   steps:
     - checkout: self
     - bash: sdk/ci/check-protobuf-stability.sh --target
@@ -41,7 +41,7 @@ jobs:
     - platform_independence_test
   pool:
     name: 'ubuntu_20_04'
-    demands: assignment -equals default
+    demands: assignment -equals default-new
   variables:
     branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
     status: $[ dependencies.collect_build_data.result ]
@@ -94,7 +94,7 @@ jobs:
     - check_for_release
   pool:
     name: 'ubuntu_20_04'
-    demands: assignment -equals default
+    demands: assignment -equals default-new
   variables:
     pr.num: $[ variables['System.PullRequest.PullRequestNumber'] ]
     branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
@@ -122,7 +122,7 @@ jobs:
 - job: self_service_compat_test
   pool:
     name: 'ubuntu_20_04'
-    demands: assignment -equals default
+    demands: assignment -equals default-new
   condition: eq(variables['Build.Reason'], 'PullRequest')
   steps:
   - checkout: self

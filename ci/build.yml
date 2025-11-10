@@ -8,7 +8,7 @@ jobs:
 - job: git_sha
   pool:
     name: 'ubuntu_20_04'
-    demands: assignment -equals default
+    demands: assignment -equals default-new
   steps:
     - template: bash-lib.yml
       parameters:
@@ -44,10 +44,10 @@ jobs:
   strategy:
     matrix:
       intel:
-        assignment: default
+        assignment: default-new
         name: linux-intel
       arm:
-        assignment: arm
+        assignment: arm-new
         name: linux-arm
   pool:
     name: 'ubuntu_20_04'
@@ -128,7 +128,7 @@ jobs:
   timeoutInMinutes: 240
   pool:
     name: 'windows-pool'
-    demands: assignment -equals default
+    demands: assignment -equals default-new
   steps:
     - template: report-start.yml
     - checkout: self
@@ -171,7 +171,7 @@ jobs:
   timeoutInMinutes: 240
   pool:
     name: 'ubuntu_20_04'
-    demands: assignment -equals default
+    demands: assignment -equals default-new
   steps:
     - template: report-start.yml
     - checkout: self
@@ -273,7 +273,7 @@ jobs:
     - macOS
   pool:
     name: 'ubuntu_20_04'
-    demands: assignment -equals default
+    demands: assignment -equals default-new
   steps:
     - checkout: self
     - bash: ci/dev-env-install.sh
@@ -323,7 +323,7 @@ jobs:
   timeoutInMinutes: 240
   pool:
     name: ubuntu_20_04
-    demands: assignment -equals default
+    demands: assignment -equals default-new
   steps:
     - template: report-start.yml
     - checkout: self
@@ -339,7 +339,7 @@ jobs:
   timeoutInMinutes: 240
   pool:
     name: ubuntu_20_04
-    demands: assignment -equals default
+    demands: assignment -equals default-new
   steps:
     - template: report-start.yml
     - checkout: self
@@ -354,7 +354,7 @@ jobs:
 - job: compatibility_stable_protobuf
   pool:
     name: ubuntu_20_04
-    demands: assignment -equals default
+    demands: assignment -equals default-new
   steps:
     - checkout: self
       fetchTags: true
@@ -375,7 +375,7 @@ jobs:
     - check_for_release
   pool:
     name: "ubuntu_20_04"
-    demands: assignment -equals default
+    demands: assignment -equals default-new
 
 - job: collect_build_data
   condition: always()
@@ -385,7 +385,7 @@ jobs:
     failed_result: $[ dependencies.collect_build_data_failed.result ]
   pool:
     name: "ubuntu_20_04"
-    demands: assignment -equals default
+    demands: assignment -equals default-new
   steps:
     - bash: "exit 1"
       # Since 'collect_build_data_failed' only runs when 'failed()', if it was

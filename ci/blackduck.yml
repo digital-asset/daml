@@ -11,7 +11,7 @@ jobs:
                     startsWith(variables['Build.SourceBranchName'], 'bump-blackduck-script-')))
   pool:
     name: ubuntu_20_04
-    demands: assignment -equals default
+    demands: assignment -equals default-new
   variables:
     blackduck_script_sha: 2f1a64462b79ead0583101afbe0c12708eb83053
   steps:
@@ -175,7 +175,7 @@ jobs:
                  eq(variables['Build.DefinitionName'], 'digital-asset.daml-daily-compat'))
   pool:
     name: ubuntu_20_04
-    demands: assignment -equals default
+    demands: assignment -equals default-new
   steps:
   - checkout: self
     persistCredentials: true

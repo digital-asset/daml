@@ -28,7 +28,7 @@ jobs:
     timeoutInMinutes: 60
     pool:
       name: ubuntu_20_04
-      demands: assignment -equals default
+      demands: assignment -equals default-new
     steps:
       - checkout: self
       - template: ../clean-up.yml
@@ -39,7 +39,7 @@ jobs:
     timeoutInMinutes: 720
     pool:
       name: ubuntu_20_04
-      demands: assignment -equals default
+      demands: assignment -equals default-new
     steps:
       - checkout: self
       - template: ../clean-up.yml
@@ -50,7 +50,7 @@ jobs:
     timeoutInMinutes: 720
     pool:
       name: windows-pool
-      demands: assignment -equals default
+      demands: assignment -equals default-new
     steps:
       - checkout: self
       - template: ../compatibility-windows.yml
@@ -64,7 +64,7 @@ jobs:
     timeoutInMinutes: 120
     pool:
       name: "ubuntu_20_04"
-      demands: assignment -equals default
+      demands: assignment -equals default-new
     steps:
       - checkout: self
       - bash: ci/dev-env-install.sh
@@ -119,7 +119,7 @@ jobs:
                       eq(variables['Build.SourceBranchName'], 'main-2.x')))
     pool:
       name: 'ubuntu_20_04'
-      demands: assignment -equals default
+      demands: assignment -equals default-new
     variables:
       need_to_build: $[ dependencies.blackduck_scan.outputs['out.need_to_build'] ]
     steps:
@@ -142,7 +142,7 @@ jobs:
     timeoutInMinutes: 60
     pool:
       name: ubuntu_20_04
-      demands: assignment -equals default
+      demands: assignment -equals default-new
     steps:
       - checkout: self
         persistCredentials: true
@@ -271,7 +271,7 @@ jobs:
                   eq(variables['Build.SourceBranchName'], 'main-2.x'))
     pool:
       name: ubuntu_20_04
-      demands: assignment -equals default
+      demands: assignment -equals default-new
     steps:
     - checkout: self
       persistCredentials: true
@@ -322,7 +322,7 @@ jobs:
                       eq(variables['Build.SourceBranchName'], 'main-2.x')))
     pool:
       name: ubuntu_20_04
-      demands: assignment -equals default
+      demands: assignment -equals default-new
     variables:
       compatibility_ts_libs: $[ dependencies.compatibility_ts_libs.result ]
       compatibility_linux: $[ dependencies.compatibility_linux.result ]
