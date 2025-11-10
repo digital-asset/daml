@@ -119,3 +119,20 @@ py_binary(
     visibility = _VERSION_GENERATING_PACKAGES,
     deps = [],
 )
+
+
+py_binary(
+    name = "generate_scala_features",
+    srcs = ["generate_scala_features.py"],
+    visibility = _VERSION_GENERATING_PACKAGES,
+)
+
+genrule(
+    name = "generated_scala_features_src",
+    srcs = [
+        "//daml-lf/language:feature_data_json",
+    ],
+    outs = ["src/main/scala/com/digitalasset/daml/lf/language/LanguageFeatureGen.scala"],
+    cmd = "$(location //daml-lf/language:generate_scala_features) $(location //daml-lf/language:feature_data_json) $@",
+    tools = ["//daml-lf/language:generate_scala_features"],
+)
