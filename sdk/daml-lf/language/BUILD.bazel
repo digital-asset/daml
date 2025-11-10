@@ -94,14 +94,10 @@ genrule(
     name = "generated_scala_versions_src",
     srcs = [
         "//daml-lf/language:version_data_json",
-        # You may not need this src, unlike the haskell rule,
-        # but it's good for dependency tracking if you do.
-        # "src/main/scala/com/digitalasset/daml/lf/language/LanguageVersion.scala",
     ],
-    outs = ["src/main/scala/com/digitalasset/daml/lf/language/LanguageVersionGen.scala"],  # Adjust path as needed
+    outs = ["src/main/scala/com/digitalasset/daml/lf/language/LanguageVersionGen.scala"],
     cmd = "$(location //daml-lf/language:generate_scala_versions) $(location //daml-lf/language:version_data_json) $@",
     tools = ["//daml-lf/language:generate_scala_versions"],
-    #visibility = ["//visibility:public"], # Or _VERSION_GENERATING_PACKAGES
 )
 
 genrule(
