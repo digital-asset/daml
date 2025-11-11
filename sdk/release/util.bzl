@@ -129,8 +129,8 @@ def dpm_sdk_tarball(name, version):
 #!/usr/bin/env bash
 set -euo pipefail
 SCRIPT_DIR=\\$$( cd -- "\\$$( dirname -- "\\$${{BASH_SOURCE[0]}}" )" &> /dev/null && pwd )
-DPM_HOME=\\$$(dirname -- \\$$SCRIPT_DIR)
-HOME=\\$$DPM_HOME
+export DPM_HOME=\\$$(dirname -- \\$$SCRIPT_DIR)
+export HOME=\\$$DPM_HOME
 \\$$DPM_HOME/cache/components/dpm/$$DPM_VERSION/dpm \\$$@
 EOF
           chmod +x $$DIR/bin/dpm

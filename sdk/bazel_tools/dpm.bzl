@@ -49,7 +49,7 @@ def _dpm_binary_impl(ctx):
         content =
             """#!/usr/bin/env bash
 {runfiles_library}
-$(rlocation oras_binary/oras.exe) $@
+$(rlocation dpm_binary/oras_binary/oras.exe) $@
 """.format(runfiles_library = runfiles_library),
     ) if is_windows else None
 
@@ -69,14 +69,22 @@ sh_binary(
   data = ["oras_binary/oras.exe"],
 )
 
+alias(
+  name = "dpm",
+  actual = ":dpm.exe",
+) if is_windows else None
+
 genrule(
     name = "dpm_binary",
     srcs = [],
-    outs = ["dpm"],
+    outs = ["dpm.exe" if is_windows else "dpm"],
     cmd = \"""
     set -eoux pipefail
     ORAS="$(location :oras)"
+    # Oras needs some kind of home directory to exist (HOME for linux/mac, USERPROFILE for windows)
+    # It doesn't use these directories, it just wants them to exist
     export HOME=$$(dirname $@)
+    export USERPROFILE=$$(dirname $@)
     $$ORAS pull --platform "{oras_platform}" -o $$(dirname $@) europe-docker.pkg.dev/da-images/public/components/dpm:{version}
     chmod +x $@
     downloaded_sha=$$(sha256sum $@)
