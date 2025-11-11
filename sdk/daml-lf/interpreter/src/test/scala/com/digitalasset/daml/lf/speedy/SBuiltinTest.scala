@@ -6,12 +6,10 @@ package speedy
 
 import com.daml.crypto.MessageSignaturePrototypeUtil
 import com.digitalasset.daml.lf.crypto.Hash
-import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion}
-import com.digitalasset.daml.lf.speedy.SError.{SError, SErrorCrash, SErrorDamlException}
+import com.digitalasset.daml.lf.language.Ast
+import com.digitalasset.daml.lf.speedy.SError.{SError, SErrorDamlException}
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SValue.{SValue => _, _}
 import com.digitalasset.daml.lf.speedy.Speedy.Machine
@@ -1446,7 +1444,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         val builtin = e"""TEXT_TO_INT64"""
 
         forEvery(testCases) { (input, output) =>
-          eval(EApp(builtin, EBuiltinLit(BLText(input())))) shouldBe Right(
+          eval(Ast.EApp(builtin, Ast.EBuiltinLit(Ast.BLText(input())))) shouldBe Right(
             SOptional(output)
           )
         }
@@ -1518,7 +1516,9 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       val builtin = e"""TEXT_TO_NUMERIC @10 ${w(10)}"""
 
       forEvery(testCases) { (input, output) =>
-        eval(EApp(builtin, EBuiltinLit(BLText(input())))) shouldBe Right(SOptional(output))
+        eval(Ast.EApp(builtin, Ast.EBuiltinLit(Ast.BLText(input())))) shouldBe Right(
+          SOptional(output)
+        )
       }
     }
 
@@ -1711,7 +1711,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
     val testCases = Table[String, SValue](
       "expression" -> "string-result",
       "interface_template_type_rep @Mod:Iface Mod:aliceOwesBobIface" -> STypeRep(
-        TTyCon(iouTypeRep)
+        Ast.TTyCon(iouTypeRep)
       ),
       "signatory_interface @Mod:Iface Mod:aliceOwesBobIface" -> SList(FrontStack(SParty(alice))),
       "observer_interface @Mod:Iface Mod:aliceOwesBobIface" -> SList(FrontStack(SParty(bob))),
@@ -2212,30 +2212,30 @@ final class SBuiltinTestHelpers {
 
   val stablePackages = StablePackages.stablePackages
 
-  def eval(e: Expr): Either[SError, SValue] =
+  def eval(e: Ast.Expr): Either[SError, SValue] =
     Machine.runPureExpr(e, compiledPackages)
 
   def evalApp(
-      e: Expr,
+      e: Ast.Expr,
       args: ArraySeq[SValue],
   ): Either[SError, SValue] =
     eval(SEApp(compiledPackages.compiler.unsafeCompile(e), args))
 
-  val alice: Party = Ref.Party.assertFromString("Alice")
-  val committers: Set[Party] = Set(alice)
+  val alice: Ref.Party = Ref.Party.assertFromString("Alice")
+  val committers: Set[Ref.Party] = Set(alice)
 
   def eval(sexpr: SExpr): Either[SError, SValue] =
     Machine.runPureSExpr(sexpr, compiledPackages)
 
   def evalAppOnLedger(
-      e: Expr,
+      e: Ast.Expr,
       args: ArraySeq[SValue],
       getContract: PartialFunction[ContractId, FatContractInstance] = Map.empty,
   ): Either[SError, SValue] =
     evalOnLedger(SEApp(compiledPackages.compiler.unsafeCompile(e), args), getContract)
 
   def evalOnLedger(
-      e: Expr,
+      e: Ast.Expr,
       getContract: PartialFunction[ContractId, FatContractInstance] = Map.empty,
   ): Either[SError, SValue] =
     evalOnLedger(compiledPackages.compiler.unsafeCompile(e), getContract)
@@ -2249,13 +2249,13 @@ final class SBuiltinTestHelpers {
   ] = evalUpdateOnLedger(SELet1(sexpr, SEMakeClo(ArraySeq(SELocS(1)), 1, SELocF(0))), getContract)
 
   def evalUpdateOnLedger(
-      e: Expr,
+      e: Ast.Expr,
       getContract: PartialFunction[ContractId, FatContractInstance] = Map.empty,
   ): Either[SError, SValue] =
     evalUpdateOnLedger(compiledPackages.compiler.unsafeCompile(e), getContract)
 
   def evalUpdateAppOnLedger(
-      e: Expr,
+      e: Ast.Expr,
       args: ArraySeq[SValue],
       getContract: PartialFunction[ContractId, FatContractInstance] = Map.empty,
   ): Either[SError, SValue] =
@@ -2282,7 +2282,7 @@ final class SBuiltinTestHelpers {
     if (xs.isEmpty) "(Nil @Int64)"
     else xs.mkString(s"(Cons @Int64 [", ", ", s"] (Nil @Int64))")
 
-  val entryFields = Struct.assertFromNameSeq(List(keyFieldName, valueFieldName))
+  val entryFields = Struct.assertFromNameSeq(List(Ast.keyFieldName, Ast.valueFieldName))
 
   def mapEntry(k: String, v: SValue) = SStruct(entryFields, ArraySeq(SText(k), v))
 
@@ -2297,7 +2297,7 @@ final class SBuiltinTestHelpers {
       case _ => sys.error(s"litToText: unexpected $x")
     }
 
-  def keyWithMaintainers(key: SValue, maintainer: Party) = SStruct(
+  def keyWithMaintainers(key: SValue, maintainer: Ref.Party) = SStruct(
     Struct.assertFromNameSeq(
       Seq(Ref.Name.assertFromString("key"), Ref.Name.assertFromString("maintainers"))
     ),
