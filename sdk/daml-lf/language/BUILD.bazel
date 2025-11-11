@@ -23,7 +23,10 @@ load(
 
 da_scala_library(
     name = "language",
-    srcs = glob(["src/main/**/*.scala"]),
+    srcs = glob(["src/main/**/*.scala"]) + [
+        ":generated_scala_versions_src",
+    ],
+    generated_srcs = [":generated_scala_versions_src"],
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
     ],
@@ -79,6 +82,22 @@ py_binary(
     name = "generate_haskell_versions",
     srcs = ["generate_haskell_versions.py"],
     visibility = _VERSION_GENERATING_PACKAGES,
+)
+
+py_binary(
+    name = "generate_scala_versions",
+    srcs = ["generate_scala_versions.py"],
+    visibility = _VERSION_GENERATING_PACKAGES,
+)
+
+genrule(
+    name = "generated_scala_versions_src",
+    srcs = [
+        "//daml-lf/language:version_data_json",
+    ],
+    outs = ["src/main/scala/com/digitalasset/daml/lf/language/LanguageVersionGen.scala"],
+    cmd = "$(location //daml-lf/language:generate_scala_versions) $(location //daml-lf/language:version_data_json) $@",
+    tools = ["//daml-lf/language:generate_scala_versions"],
 )
 
 genrule(
