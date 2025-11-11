@@ -44,7 +44,7 @@ object Graphs {
   }
 
   /*
-   * Computes all nodes reachable from a given starting node in a directed graph.
+   * Computes the transitive closure for a starting node in a graph.
    * The graph is represented as a map from a node to a set of its direct neighbors.
    *
    * @param graph The graph, represented as an adjacency map.
@@ -52,7 +52,7 @@ object Graphs {
    * @tparam A The type of the nodes in the graph.
    * @return A set containing all nodes reachable from the startNode (inclusive).
    */
-  def reachable[A](graph: Graph[A], startNode: A): Set[A] = {
+  def transitiveClosure[A](graph: Graph[A], startNode: A): Set[A] = {
 
     @tailrec
     def go(toVisit: Set[A], visited: Set[A]): Set[A] = {
@@ -85,6 +85,6 @@ object Graphs {
    */
   def transitiveClosure[A](g: Graph[A]): Graph[A] = {
     val allVertices = g.keySet ++ g.values.flatten
-    allVertices.view.map(u => u -> reachable(g, u)).toMap
+    allVertices.view.map(u => u -> transitiveClosure(g, u)).toMap
   }
 }
