@@ -52,8 +52,6 @@ data CryptoErrorType
         keyValue : Text
     | MalformedSignature with
         signatureValue : Text
-    | MalformedContractId with
-        contractIdValue : Text
     deriving Show
 
 -- | HIDE

@@ -227,7 +227,6 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
         "TIMESTAMP_TO_TEXT" -> BTimestampToText,
         "PARTY_TO_TEXT" -> BPartyToText,
         "DATE_TO_TEXT" -> BDateToText,
-        "TEXT_TO_CONTRACT_ID" -> BTextToContractId,
         "ERROR" -> BError,
         "LESS_NUMERIC" -> BLessNumeric,
         "LESS_EQ_NUMERIC" -> BLessEqNumeric,

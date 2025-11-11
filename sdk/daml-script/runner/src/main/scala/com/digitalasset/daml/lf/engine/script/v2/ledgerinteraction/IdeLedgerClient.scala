@@ -421,11 +421,6 @@ class IdeLedgerClient(
           innerError.signature,
           Pretty.prettyDamlException(e).renderWideStream.mkString,
         )
-      case e @ Crypto(innerError: Crypto.MalformedContractId) =>
-        SubmitError.CryptoError.MalformedContractId(
-          innerError.value,
-          Pretty.prettyDamlException(e).renderWideStream.mkString,
-        )
       case e @ Dev(_, innerError) =>
         SubmitError.DevError(
           innerError.getClass.getSimpleName,

@@ -303,21 +303,6 @@ Data Types
          - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
          -
 
-  .. _constr-daml-script-internal-questions-submit-error-malformedcontractid-56895:
-
-  `MalformedContractId <constr-daml-script-internal-questions-submit-error-malformedcontractid-56895_>`_
-
-    .. list-table::
-       :widths: 15 10 30
-       :header-rows: 1
-
-       * - Field
-         - Type
-         - Description
-       * - contractIdValue
-         - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
-         -
-
 .. _type-daml-script-internal-questions-submit-error-submiterror-38284:
 
 **data** `SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284_>`_

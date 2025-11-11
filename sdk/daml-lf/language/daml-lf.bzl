@@ -56,6 +56,96 @@ def _init_data():
     _staging_versions = _get_by_status("staging")
     staging_version = _staging_versions[-1] if _staging_versions else latest_stable_version
 
+    ### Features
+
+    # Helpers
+    dev_only = {
+        "low": V2_DEV,
+        "high": V2_DEV,
+    }
+
+    # version_req: just leave off a bound if its not needed, {"low"=x, "high"=y}
+    # -> [x..y], {"low"=x} -> [x..], only {"high"=y} = [..y], {} = []
+    features_definitions = [
+        {
+            # Unstable, experimental features. This should stay in x.dev
+            # forever. Features implemented with this flag should be moved to a
+            # separate feature flag once the decision to add them permanently
+            # has been made.
+            "name": "featureUnstable",
+            "name_pretty": "Unstable, experimental features",
+            "cpp_flag": "DAML_UNSTABLE",
+            "version_req": dev_only,
+        },
+        {
+            "name": "featureTextMap",
+            "name_pretty": "TextMap type",
+            "cpp_flag": "DAML_TEXTMAP",
+            "version_req": dev_only,
+        },
+        {
+            "name": "featureBigNumeric",
+            "name_pretty": "BigNumeric type",
+            "cpp_flag": "DAML_BIGNUMERIC",
+            "version_req": dev_only,
+        },
+        {
+            "name": "featureExceptions",
+            "name_pretty": "Daml Exceptions",
+            "cpp_flag": "DAML_EXCEPTIONS",
+            "version_req": {"low": V2_1},
+        },
+        {
+            "name": "featureExtendedInterfaces",
+            "name_pretty": "Guards in interfaces",
+            "cpp_flag": "DAML_INTERFACE_EXTENDED",
+            "version_req": dev_only,
+        },
+        {
+            "name": "featureChoiceFuncs",
+            "name_pretty": "choiceController and choiceObserver functions",
+            "cpp_flag": "DAML_CHOICE_FUNCS",
+            # TODO: https://github.com/digital-asset/daml/issues/20786: complete implementing this feature
+            "version_req": {},
+        },
+        {
+            "name": "featureTemplateTypeRepToText",
+            "name_pretty": "templateTypeRepToText function",
+            "cpp_flag": "DAML_TEMPLATE_TYPEREP_TO_TEXT",
+            "version_req": dev_only,
+        },
+        {
+            "name": "featureContractKeys",
+            "name_pretty": "Contract Keys",
+            "cpp_flag": "DAML_CONTRACT_KEYS",
+            "version_req": dev_only,
+        },
+        {
+            "name": "featureFlatArchive",
+            "name_pretty": "Flat Archive",
+            "cpp_flag": "DAML_FLATARCHIVE",
+            "version_req": {"low": V2_2},
+        },
+        {
+            "name": "featurePackageImports",
+            "name_pretty": "Explicit package imports",
+            "cpp_flag": "DAML_PackageImports",
+            "version_req": {"low": V2_2},
+        },
+        {
+            "name": "featureComplexAnyType",
+            "name_pretty": "Complex Any type",
+            "cpp_flag": "DAML_COMPLEX_ANY_TYPE",
+            "version_req": dev_only,
+        },
+        {
+            "name": "featureExperimental",
+            "name_pretty": "Daml Experimental",
+            "cpp_flag": "DAML_EXPERIMENTAL",
+            "version_req": dev_only,
+        },
+    ]
+
     return struct(
         all_versions = all_versions,
         stable_versions = stable_versions,
