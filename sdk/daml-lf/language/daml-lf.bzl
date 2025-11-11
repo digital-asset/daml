@@ -139,12 +139,6 @@ def _init_data():
             "version_req": dev_only,
         },
         {
-            "name": "featureCryptoUtility",
-            "name_pretty": "Crypto Utility Function",
-            "cpp_flag": "DAML_CRYPTO_UTILITY",
-            "version_req": dev_only,
-        },
-        {
             "name": "featureExperimental",
             "name_pretty": "Daml Experimental",
             "cpp_flag": "DAML_EXPERIMENTAL",

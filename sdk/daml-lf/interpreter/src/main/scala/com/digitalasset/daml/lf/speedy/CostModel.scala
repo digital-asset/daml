@@ -62,7 +62,6 @@ abstract class CostModel {
   val BSECP256K1WithEcdsaBool: CostFunction3[Text, Text, Text]
   val BDecodeHex: CostFunction1[Text]
   val BEncodeHex: CostFunction1[Text]
-  val BTextToContractId: CostFunction1[Text]
   val BDateToUnixDays: CostFunction1[Date]
   val BExplodeText: CostFunction1[Text]
   val BImplodeText: CostFunction1[FrontStack[SValue]]
@@ -275,7 +274,6 @@ object CostModel {
     override val BSECP256K1WithEcdsaBool: CostFunction3[Text, Text, Text] = CostFunction3.Null
     override val BDecodeHex: CostFunction1[Text] = CostFunction1.Null
     override val BEncodeHex: CostFunction1[Text] = CostFunction1.Null
-    override val BTextToContractId: CostFunction1[Text] = CostFunction1.Null
     override val BDateToUnixDays: CostFunction1[Date] = CostFunction1.Null
     override val BExplodeText: CostFunction1[Text] = CostFunction1.Null
     override val BImplodeText: CostFunction1[FrontStack[SValue]] = CostFunction1.Null
@@ -864,8 +862,6 @@ object CostModel {
     override val BEncodeHex: CostFunction1[Text] = { (t: String) =>
       STextWrapperSize + StringSize.a + StringSize.b * t.length / 2
     }
-    override val BTextToContractId: CostFunction1[Text] =
-      CostFunction1.Constant(SContractIdWrapperSize + ContractIdSize)
     override val BDateToUnixDays: CostFunction1[Date] =
       CostFunction1.Constant(SInt64Size)
     override val BExplodeText: CostFunction1[Text] = {
