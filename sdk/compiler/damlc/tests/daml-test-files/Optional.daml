@@ -6,6 +6,7 @@ module Optional where
 
 import Daml.Script
 import DA.Optional
+import DA.Action (when)
 import DA.Assert
 import ScriptAssertHelpers
 
@@ -17,18 +18,19 @@ template Foo
 
     nonconsuming choice ConsumeIfPositive : ()
       with x : Int
-           cid : ContractId Foo
       controller p
-      do if x > 0
-           then archive cid
-           else pure ()
+      do when (x > 0) $ archive self
 
--- @ERROR range=27:1-27:13; fromSome: None
+    choice UpdateCid : ContractId Foo
+      controller p
+      do create this
+
+-- @ERROR range=29:1-29:13; fromSome: None
 testFromSome = script @(Optional ()) do
   "abc" === fromSome (Some "abc")
   pure $ fromSome None
 
--- @ERROR range=32:1-32:17; testFromSomeNoteError
+-- @ERROR range=34:1-34:17; testFromSomeNoteError
 testFromSomeNote = script @(Optional ()) do
   "abc" === fromSomeNote "testFromSomeNoteWrongError" (Some "abc")
   pure $ fromSomeNote "testFromSomeNoteError" None
@@ -70,13 +72,35 @@ testMapOptional = script do
 
 testWhenSome = script do
   p <- allocateParty "p"
-  cid <- submit p (createCmd Foo with p)
-  whenSome None (\x -> submit p $ exerciseCmd cid $ ConsumeIfPositive x cid)
+  cid <- submit p $ createCmd Foo with p
+  whenSome None (\x -> submit p $ exerciseCmd cid $ ConsumeIfPositive x)
   p `canSee` cid
-  whenSome (Some (-5)) (\x -> submit p $ exerciseCmd cid $ ConsumeIfPositive x cid)
+  whenSome (Some (-5)) (\x -> submit p $ exerciseCmd cid $ ConsumeIfPositive x)
   p `canSee` cid
-  whenSome (Some 5) (\x -> submit p $ exerciseCmd cid $ ConsumeIfPositive x cid)
+  whenSome (Some 5) (\x -> submit p $ exerciseCmd cid $ ConsumeIfPositive x)
   p `cantSee` cid
+
+testWhenNone_ = script do
+  p <- allocateParty "p"
+  cid <- submit p $ createCmd Foo with p
+  let submitConsume = submit p $ exerciseCmd cid $ ConsumeIfPositive 1
+  whenNone_ (Some ()) submitConsume
+  p `canSee` cid
+  whenNone_ None submitConsume
+  p `cantSee` cid
+
+testWhenNone = script do
+  p <- allocateParty "p"
+  cid <- submit p (createCmd Foo with p)
+  let submitUpdateCid = submit p $ exerciseCmd cid UpdateCid
+  cid' <- whenNone (Some cid) submitUpdateCid
+  cid' === cid
+  p `canSee` cid
+  p `canSee` cid'
+  cid' <- whenNone None submitUpdateCid
+  cid' =/= cid
+  p `cantSee` cid
+  p `canSee` cid'
 
 testFindOptional = script do
   findOptional toLeft [] === (None : Optional ())

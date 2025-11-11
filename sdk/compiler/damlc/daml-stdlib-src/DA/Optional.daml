@@ -76,8 +76,17 @@ mapOptional p = foldr f []
 -- | Perform some operation on `Some`, given the field inside the
 -- `Some`.
 whenSome : Applicative m => Optional a -> (a -> m ()) -> m ()
-whenSome None _ = pure ()
-whenSome (Some v) f = f v
+whenSome = flip . optional $ pure ()
+
+-- | Perform some operation on `None`.
+-- Otherwise returns content of `Some` pured to Applicative.
+whenNone : Applicative m => Optional a -> m a -> m a
+whenNone o m = optional m pure o
+
+-- | Perform some operation on `None`. Do nothing for `Some`.
+-- Convenient for discarding `Some` content.
+whenNone_ : Applicative m => Optional a -> m () -> m ()
+whenNone_ o m = optional m (const $ pure ()) o
 
 -- | The `findOptional` returns the value of the predicate at the first
 -- element where it returns `Some`. `findOptional` is similar to `find` but it
