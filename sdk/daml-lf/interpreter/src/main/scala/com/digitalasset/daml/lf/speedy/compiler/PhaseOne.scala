@@ -420,7 +420,6 @@ private[lf] final class PhaseOne(
           case BTextToParty => SBTextToParty
           case BTextToInt64 => SBTextToInt64
           case BTextToCodePoints => SBTextToCodePoints
-          case BTextToContractId => SBTextToContractId
           case BSHA256Text => SBSHA256Text
           case BSHA256Hex => SBSHA256Hex
           case BKECCAK256Text => SBKECCAK256Text

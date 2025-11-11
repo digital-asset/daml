@@ -638,19 +638,6 @@ private[lf] object SBuiltinFun {
     }
   }
 
-  final case object SBTextToContractId extends SBuiltinFun(1) {
-    override private[speedy] def execute[Q](
-        args: ArraySeq[SValue],
-        machine: Machine[Q],
-    ): Control[Nothing] = {
-      val value = getSText(args, 0)
-      V.ContractId.fromString(value) match {
-        case Right(cid) if cid.isAbsolute => Control.Value(SContractId(cid))
-        case _ => Control.Error(IE.Crypto(IE.Crypto.MalformedContractId(value)))
-      }
-    }
-  }
-
   final case object SBSHA256Text extends SBuiltinPure(1) {
     override private[speedy] def executePure(args: ArraySeq[SValue], machine: Machine[_]): SText = {
 

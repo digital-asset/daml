@@ -448,14 +448,6 @@ object GrpcErrorParser {
             SubmitError.CryptoError.MalformedSignature(signature, message)
         }
 
-      case "INTERPRETATION_CRYPTO_ERROR_MALFORMED_CONTRACT_ID" =>
-        caseErr {
-          case Seq(
-                (ErrorResource.CryptoValue, value)
-              ) =>
-            SubmitError.CryptoError.MalformedContractId(value, message)
-        }
-
       case "INTERPRETATION_DEV_ERROR" =>
         caseErr { case Seq((ErrorResource.DevErrorType, errorType)) =>
           SubmitError.DevError(errorType, message)

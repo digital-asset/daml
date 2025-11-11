@@ -776,22 +776,10 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
   }
 
   "ContractId operations" - {
-    val relativeSuffix = Bytes.fromByteArray(Array(0, 1, 2, 3))
     val absoluteSuffix = Bytes.fromByteArray(Array(-1, 0, 1, 2))
 
     val absoluteCidV1 = ContractId.V1(Hash.hashPrivateKey("#contract1"), absoluteSuffix)
     val localCidV1 = ContractId.V1(Hash.hashPrivateKey("#contract2"))
-
-    def cidV2WithSuffix(discriminator: String, suffix: Bytes): ContractId =
-      ContractId.V2
-        .suffixed(Time.Timestamp.Epoch, Hash.hashPrivateKey(discriminator), suffix)
-        .toOption
-        .get
-
-    val absoluteCidV2 = cidV2WithSuffix("#contract3", absoluteSuffix)
-    val relativeCidV2 = cidV2WithSuffix("#contract4", relativeSuffix)
-    val localCidV2 =
-      ContractId.V2.unsuffixed(Time.Timestamp.Epoch, Hash.hashPrivateKey("#contract5"))
 
     "EQUAL @ContractId" - {
       "works as expected" in {
@@ -803,62 +791,6 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
           e"EQUAL @(ContractId Mod:T)",
           ArraySeq(SContractId(absoluteCidV1), SContractId(localCidV1)),
         ) shouldBe Right(SBool(false))
-      }
-    }
-
-    "TEXT_TO_CONTRACT-ID" - {
-      "should parse absolute contract ID" in {
-        val absoluteCidV1AsHex = absoluteCidV1.toBytes.toHexString
-        val absoluteCidV2AsHex = absoluteCidV2.toBytes.toHexString
-        evalApp(e"TEXT_TO_CONTRACT_ID", ArraySeq(SText(absoluteCidV1AsHex))) shouldBe Right(
-          SContractId(absoluteCidV1)
-        )
-        evalApp(e"TEXT_TO_CONTRACT_ID", ArraySeq(SText(absoluteCidV2AsHex))) shouldBe Right(
-          SContractId(absoluteCidV2)
-        )
-      }
-
-      "should fail to parse relative contract id" in {
-        val relativeCidV2AsHex = relativeCidV2.toBytes.toHexString
-        inside {
-          evalApp(e"TEXT_TO_CONTRACT_ID", ArraySeq(SText(relativeCidV2AsHex)))
-        } { case Left(SError.SErrorDamlException(IE.Crypto(error))) =>
-          error shouldBe IE.Crypto.MalformedContractId(relativeCidV2AsHex)
-        }
-      }
-
-      "should fail to parse local contract id" in {
-        val localCidV1AsHex = localCidV1.toBytes.toHexString
-        val localCidV2AsHex = localCidV2.toBytes.toHexString
-        inside {
-          evalApp(e"TEXT_TO_CONTRACT_ID", ArraySeq(SText(localCidV1AsHex)))
-        } { case Left(SError.SErrorDamlException(IE.Crypto(error))) =>
-          error shouldBe IE.Crypto.MalformedContractId(localCidV1AsHex)
-        }
-        inside {
-          evalApp(e"TEXT_TO_CONTRACT_ID", ArraySeq(SText(localCidV2AsHex)))
-        } { case Left(SError.SErrorDamlException(IE.Crypto(error))) =>
-          error shouldBe IE.Crypto.MalformedContractId(localCidV2AsHex)
-        }
-      }
-
-      "should fail on malformed contract id" in {
-        val invalidHexString = "invalid"
-        val tooShortHexString = "0" * 64
-        val tooLongHexString = "0" * 256
-
-        inside(evalApp(e"TEXT_TO_CONTRACT_ID", ArraySeq(SText(invalidHexString)))) {
-          case Left(SError.SErrorDamlException(IE.Crypto(error))) =>
-            error shouldBe IE.Crypto.MalformedContractId(invalidHexString)
-        }
-        inside(evalApp(e"TEXT_TO_CONTRACT_ID", ArraySeq(SText(tooShortHexString)))) {
-          case Left(SError.SErrorDamlException(IE.Crypto(error))) =>
-            error shouldBe IE.Crypto.MalformedContractId(tooShortHexString)
-        }
-        inside(evalApp(e"TEXT_TO_CONTRACT_ID", ArraySeq(SText(tooLongHexString)))) {
-          case Left(SError.SErrorDamlException(IE.Crypto(error))) =>
-            error shouldBe IE.Crypto.MalformedContractId(tooLongHexString)
-        }
       }
     }
   }

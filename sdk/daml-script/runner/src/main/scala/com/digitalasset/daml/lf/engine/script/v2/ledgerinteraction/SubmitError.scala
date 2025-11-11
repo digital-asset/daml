@@ -642,23 +642,6 @@ object SubmitError {
       }
     }
 
-    final case class MalformedContractId(value: String, message: String) extends SubmitError {
-      override def toDamlSubmitError(env: Env): SValue = {
-        val errorType = damlScriptCryptoErrorType(
-          env,
-          "MalformedContractId",
-          2,
-          "contractIdValue" -> SText(value),
-        )
-
-        SubmitErrorConverters(env).damlScriptError(
-          "CryptoError",
-          ("cryptoErrorType", errorType),
-          ("cryptoErrorMessage", SText(message)),
-        )
-      }
-    }
-
     private def damlScriptCryptoErrorType(
         env: Env,
         variantName: String,
