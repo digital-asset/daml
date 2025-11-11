@@ -149,9 +149,8 @@ jobs:
         sha=$(release_sha)
         git tag -a "$tag" "$sha" -m "Internal SDK release $tag"
         git push origin "$tag"
-      name: tag_release_in_git
       displayName: "Tag Release in Git"
-    - bash:
+    - bash: |
         set -euo pipefail
         # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(cd sdk; dev-env/bin/dade-assist)"
