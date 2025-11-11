@@ -14,7 +14,7 @@ import com.digitalasset.canton.ledger.api.{TraceIdentifiers, TransactionShape}
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
-import com.digitalasset.canton.participant.store.ContractStore
+import com.digitalasset.canton.participant.store.LedgerApiContractStore
 import com.digitalasset.canton.platform.config.UpdatesStreamsConfig
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.SequentialIdBatch.Ids
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{RawEvent, RawThinEvent}
@@ -54,7 +54,7 @@ class UpdatesStreamReader(
     queryValidRange: QueryValidRange,
     eventStorageBackend: EventStorageBackend,
     lfValueTranslation: LfValueTranslation,
-    contractStore: ContractStore,
+    contractStore: LedgerApiContractStore,
     metrics: LedgerApiServerMetrics,
     tracer: Tracer,
     topologyTransactionsStreamReader: TopologyTransactionsStreamReader,
@@ -772,7 +772,7 @@ class UpdatesStreamReader(
       maxParallelPayloadQueries: Int,
       dbMetric: DatabaseMetrics,
       payloadQueriesLimiter: ConcurrencyLimiter,
-      contractStore: ContractStore,
+      contractStore: LedgerApiContractStore,
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Source[RawEvent, NotUsed] = {

@@ -4,7 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.performance
 
 import com.codahale.metrics.MetricRegistry
-import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.performance.BftBenchmarkTool.NanosInMillis
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.performance.BftMetrics.{
   MetricName,
@@ -17,11 +17,11 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.performa
   successfulWriteMeters,
   writeNanosHistograms,
 }
+import com.digitalasset.canton.tracing.TraceContext
 import com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility
 import com.fasterxml.jackson.annotation.PropertyAccessor
 import com.fasterxml.jackson.databind.{ObjectMapper, SerializationFeature}
 import com.typesafe.config.ConfigRenderOptions
-import com.typesafe.scalalogging.Logger
 import pureconfig.ConfigWriter
 import pureconfig.generic.auto.*
 
@@ -32,9 +32,12 @@ import scala.collection.immutable.ListMap
 import scala.concurrent.duration.*
 import scala.jdk.CollectionConverters.*
 
-final class BftBenchmarkTool(bftBindingFactory: BftBindingFactory) {
+final class BftBenchmarkTool(
+    bftBindingFactory: BftBindingFactory,
+    override val loggerFactory: NamedLoggerFactory,
+) extends NamedLogging {
 
-  private val log = NamedLoggerFactory.root.getLogger(getClass)
+  private implicit val traceContext: TraceContext = TraceContext.empty
 
   def run(config: BftBenchmarkConfig): SeqMap[MetricName, AnyVal] = {
 
@@ -50,11 +53,11 @@ final class BftBenchmarkTool(bftBindingFactory: BftBindingFactory) {
     val readNodeIndices =
       config.nodes.filter(_.isInstanceOf[BftBenchmarkConfig.ReadNode[?]]).indices
 
-    log.info(
+    logger.info(
       "Starting BFT benchmark, the configuration follows (JSON)"
     )
 
-    log.info(
+    logger.info(
       ConfigWriter[BftBenchmarkConfig]
         .to(config)
         .render(renderOptions.setFormatted(false))
@@ -68,7 +71,7 @@ final class BftBenchmarkTool(bftBindingFactory: BftBindingFactory) {
     val reportingScheduler = Executors.newScheduledThreadPool(1)
     val scheduledReport = config.reportingInterval.map { reportingInterval =>
       reportingScheduler.scheduleAtFixedRate(
-        { () => report(log, nodeIndices, readNodeIndices, metrics); () }: Runnable,
+        { () => report(nodeIndices, readNodeIndices, metrics); () }: Runnable,
         reportingInterval.toNanos,
         reportingInterval.toNanos,
         TimeUnit.NANOSECONDS,
@@ -79,8 +82,8 @@ final class BftBenchmarkTool(bftBindingFactory: BftBindingFactory) {
     reportingScheduler.shutdown()
 
     // Always include a final report
-    log.info("Completed, final stats will follow")
-    report(log, nodeIndices, readNodeIndices, metrics)
+    logger.info("Completed, final stats will follow")
+    report(nodeIndices, readNodeIndices, metrics)
   }
 
   private def awaitBftBenchmarkDoneFuture(
@@ -90,7 +93,6 @@ final class BftBenchmarkTool(bftBindingFactory: BftBindingFactory) {
     bftBenchmarkDoneFuture.get(config.runDuration.toNanos + 2.minutes.toNanos, TimeUnit.NANOSECONDS)
 
   private def report(
-      log: Logger,
       nodeIndices: Range,
       readNodeIndices: Range,
       metrics: MetricRegistry,
@@ -139,7 +141,9 @@ final class BftBenchmarkTool(bftBindingFactory: BftBindingFactory) {
     val unifiedReport: SeqMap[MetricName, AnyVal] =
       ListMap.newBuilder.addAll((meterReport ++ histogramReport).sortBy(_._1)).result()
 
-    log.info(toJson(unifiedReport.asJava))
+    val reportString = toJson(unifiedReport.asJava)
+    logger.info(reportString)
+    println(reportString)
     unifiedReport
   }
 

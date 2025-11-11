@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.performance.shortcircuit
 
+import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.performance.{
   BftBenchmarkConfig,
   BftBenchmarkTool,
@@ -12,7 +13,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import pureconfig.ConfigSource
 import pureconfig.generic.auto.*
 
-class ShortCircuitBindingSpec extends AnyWordSpec with Matchers {
+class ShortCircuitBindingSpec extends AnyWordSpec with BaseTest with Matchers {
 
   "ShortCircuitBinding" should {
     "run" in {
@@ -20,7 +21,7 @@ class ShortCircuitBindingSpec extends AnyWordSpec with Matchers {
         .resources("bftbenchmark-shortcircuit.conf")
         .load[BftBenchmarkConfig]
         .getOrElse(throw new RuntimeException("Invalid configuration"))
-      val metricReport = new BftBenchmarkTool(ShortCircuitBindingFactory).run(config)
+      val metricReport = new BftBenchmarkTool(ShortCircuitBindingFactory, loggerFactory).run(config)
 
       val globalWritesCount =
         metricReport("global.writes.successful.meter.count").asInstanceOf[Long]

@@ -271,6 +271,10 @@ object SequencerBftAdminData {
                     .fromProtoPrimitive(sequencerIdString, "sequencerId")
                     .leftMap(_.toString)
                     .map(PeerEndpointHealthStatus.Authenticated(_))
+                case ProtoPeerEndpointHealthStatus(
+                      ProtoPeerEndpointHealthStatus.Status.Disconnected(_)
+                    ) =>
+                  Right(PeerEndpointHealthStatus.Disconnected)
                 case _ =>
                   Left("Health status is empty")
               }

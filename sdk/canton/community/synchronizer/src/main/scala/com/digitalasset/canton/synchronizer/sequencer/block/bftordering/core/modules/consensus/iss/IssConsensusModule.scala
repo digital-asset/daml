@@ -111,6 +111,8 @@ final class IssConsensusModule[E <: Env[E]](
 ) extends Consensus[E]
     with HasDelayedInit[Consensus.Message[E]] {
 
+  logger.info(s"Consensus module instantiated with epoch length $epochLength")(TraceContext.empty)
+
   private val thisNode = initialState.topologyInfo.thisNode
 
   // An instance of state transfer manager to be used only in a server role.

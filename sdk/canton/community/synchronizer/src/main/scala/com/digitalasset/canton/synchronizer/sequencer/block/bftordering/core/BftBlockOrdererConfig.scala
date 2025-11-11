@@ -31,8 +31,11 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.Bft
   BftBlockOrderingStandaloneNetworkConfig,
   DefaultAvailabilityMaxNonOrderedBatchesPerNode,
   DefaultAvailabilityNumberOfAttemptsOfDownloadingOutputFetchBeforeWarning,
+  DefaultConsensusBlockCompletionTimeout,
+  DefaultConsensusEmptyBlockCreationTimeout,
   DefaultConsensusQueueMaxSize,
   DefaultConsensusQueuePerNodeQuota,
+  DefaultDedicatedExecutionContextDivisor,
   DefaultDelayedInitQueueMaxSize,
   DefaultEpochLength,
   DefaultEpochStateTransferTimeout,
@@ -90,8 +93,8 @@ final case class BftBlockOrdererConfig(
     maxBatchesPerBlockProposal: Short = DefaultMaxBatchesPerProposal,
     consensusQueueMaxSize: Int = DefaultConsensusQueueMaxSize,
     consensusQueuePerNodeQuota: Int = DefaultConsensusQueuePerNodeQuota,
-    consensusBlockCompletionTimeout: FiniteDuration = 10.seconds,
-    consensusEmptyBlockCreationTimeout: FiniteDuration = 5.seconds,
+    consensusBlockCompletionTimeout: FiniteDuration = DefaultConsensusBlockCompletionTimeout,
+    consensusEmptyBlockCreationTimeout: FiniteDuration = DefaultConsensusEmptyBlockCreationTimeout,
     delayedInitQueueMaxSize: Int = DefaultDelayedInitQueueMaxSize,
     epochStateTransferRetryTimeout: FiniteDuration = DefaultEpochStateTransferTimeout,
     outputFetchTimeout: FiniteDuration = DefaultOutputFetchTimeout,
@@ -103,6 +106,7 @@ final case class BftBlockOrdererConfig(
     // We may want to flip the default once we're satisfied with initial performance
     enablePerformanceMetrics: Boolean = true,
     batchAggregator: BatchAggregatorConfig = BatchAggregatorConfig(),
+    dedicatedExecutionContextDivisor: Option[Int] = DefaultDedicatedExecutionContextDivisor,
 ) extends UniformCantonConfigValidation {
   private val maxRequestsPerBlock = maxBatchesPerBlockProposal * maxRequestsInBatch
   require(
@@ -129,6 +133,8 @@ object BftBlockOrdererConfig {
   val DefaultAvailabilityMaxNonOrderedBatchesPerNode: Short = 1000
   val DefaultConsensusQueueMaxSize: Int = 10 * 1024
   val DefaultConsensusQueuePerNodeQuota: Int = 1024
+  val DefaultConsensusBlockCompletionTimeout: FiniteDuration = 10.seconds
+  val DefaultConsensusEmptyBlockCreationTimeout: FiniteDuration = 5.seconds
   val DefaultDelayedInitQueueMaxSize: Int = 1024
   val DefaultEpochStateTransferTimeout: FiniteDuration = 10.seconds
   val DefaultOutputFetchTimeout: FiniteDuration = 2.second
@@ -140,6 +146,7 @@ object BftBlockOrdererConfig {
     LeaderSelectionPolicyConfig.HowManyCanWeBlacklist.NumFaultsTolerated
   val DefaultLeaderSelectionPolicy: LeaderSelectionPolicyConfig =
     LeaderSelectionPolicyConfig.Blacklisting()
+  val DefaultDedicatedExecutionContextDivisor: Option[Int] = None
 
   trait BlacklistLeaderSelectionPolicyConfig {
     def howLongToBlackList: LeaderSelectionPolicyConfig.HowLongToBlacklist

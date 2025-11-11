@@ -42,6 +42,9 @@ object ForceFlag {
   case object AllowUnvettedDependencies
       extends ForceFlag(v30.ForceFlag.FORCE_FLAG_ALLOW_UNVETTED_DEPENDENCIES)
 
+  case object AllowConfirmingThresholdCanBeMet
+      extends ForceFlag(v30.ForceFlag.FORCE_FLAG_ALLOW_CONFIRMING_THRESHOLD_CANNOT_BE_MET)
+
   case object DisablePartyWithActiveContracts
       extends ForceFlag(v30.ForceFlag.FORCE_FLAG_DISABLE_PARTY_WITH_ACTIVE_CONTRACTS)
 
@@ -85,6 +88,7 @@ object ForceFlag {
       AllowInsufficientSignatoryAssigningParticipantsForParty,
       AllowVetIncompatibleUpgrades,
       AllowOutOfBoundsValue,
+      AllowConfirmingThresholdCanBeMet,
     )
       .map(ff => ff.toProtoV30 -> ff)
       .toMap
