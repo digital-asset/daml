@@ -147,11 +147,6 @@ MalformedSignature :: Text -> CryptoErrorType
 
 signatureValue :: CryptoErrorType -> Text
 
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-malformedcontractid-56895
-MalformedContractId :: Text -> CryptoErrorType
-
-contractIdValue :: CryptoErrorType -> Text
-
 -- | Errors that can be thrown by a command submission via `trySubmit`
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-submiterror-38284
 data SubmitError
