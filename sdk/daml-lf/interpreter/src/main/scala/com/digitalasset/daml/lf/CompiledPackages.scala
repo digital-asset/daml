@@ -5,7 +5,6 @@ package com.digitalasset.daml.lf
 
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.language.Ast.{Package, PackageSignature}
-import com.digitalasset.daml.lf.language.Graphs.Graph
 import com.digitalasset.daml.lf.language.{PackageInterface, Util}
 import com.digitalasset.daml.lf.speedy.SExpr.SDefinitionRef
 import com.digitalasset.daml.lf.speedy.{Compiler, SDefinition}
