@@ -102,10 +102,4 @@ object LanguageVersion extends LanguageVersionGenerated {
       case _ => throw new IllegalArgumentException(s"${version.major.pretty} not supported")
     }
   }
-
-  // object LanguageVersionRangeOps {
-  //   implicit class LanguageVersionRange(val range: VersionRange[LanguageVersion]) {
-  //     def supportsPackage(p: Ast.Package): Boolean = range.contains(p.languageVersion)
-  //   }
-  // }
 }

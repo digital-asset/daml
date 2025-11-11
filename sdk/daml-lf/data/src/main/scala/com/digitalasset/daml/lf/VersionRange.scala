@@ -4,14 +4,14 @@
 package com.digitalasset.daml.lf
 
 /** [[VersionRange]] represents a range of versions any type but usually of
-  * [[com.digitalasset.daml.lf.language.LanguageVersion]] or
-  * [[com.digitalasset.daml.lf.transaction.SerializationVersion]].
+  * [[com.digitalasset.daml.lf.LanguageVersion]] or
+  * [[com.digitalasset.daml.lf.SerializationVersion]].
   *
   * This can represent an empty range, a one-sided range (from/until), or
   * an inclusive two-sided range.
   *
-  * @tparam V either [[com.digitalasset.daml.lf.language.LanguageVersion]] or
-  * [[com.digitalasset.daml.lf.transaction.SerializationVersion]].
+  * @tparam V either [[com.digitalasset.daml.lf.LanguageVersion]] or
+  * [[com.digitalasset.daml.lf.SerializationVersion]].
   */
 sealed abstract class VersionRange[V](implicit val ordering: Ordering[V])
     extends Product
@@ -19,7 +19,6 @@ sealed abstract class VersionRange[V](implicit val ordering: Ordering[V])
 
   def pretty: String
 
-  /** Checks if a given version `v` is contained within this range. */
   def contains(v: V): Boolean = this match {
     case VersionRange.Empty() => false
     case VersionRange.From(min) => ordering.gteq(v, min)
@@ -47,12 +46,12 @@ object VersionRange {
     def pretty: String = "[] (empty range)"
   }
 
-  /** Represents a one-sided range `[min, ...]`. */
+  /** Represents a one-sided range `[min..]`. */
   final case class From[V: Ordering](min: V) extends VersionRange[V] {
     def pretty: String = s"[${min}..] (all from ${min} upwards)"
   }
 
-  /** Represents a one-sided range `[..., max]`. */
+  /** Represents a one-sided range `[..max]`. */
   final case class Until[V: Ordering](max: V) extends VersionRange[V] {
     def pretty: String = s"[..${max}] (all up to and including ${max})"
   }
