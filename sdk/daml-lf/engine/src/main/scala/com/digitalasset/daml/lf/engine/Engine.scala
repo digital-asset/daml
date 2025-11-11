@@ -717,7 +717,7 @@ class Engine(val config: EngineConfig) {
       dar.all.toMap.view.mapValues(_.imports.pkgIds).toMap
     val mainPackageId: PackageId = dar.main._1
 
-    val mentioned = Graphs.transitiveClosure(pkgIdDepGraph, mainPackageId).diff(stablePackageIds)
+    val mentioned = Graphs.reachable(pkgIdDepGraph, mainPackageId).diff(stablePackageIds)
     val included = pkgIdDepGraph.keys.toSet.diff(stablePackageIds)
     val darPackages = dar.all.toMap
 

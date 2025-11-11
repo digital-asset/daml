@@ -29,6 +29,13 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
   private[this] val packageDeps: ConcurrentMap[PackageId, Set[PackageId]] =
     new ConcurrentHashMap().asScala
 
+  // We unconditionally load stable packages
+  this.synchronized {
+    val _ = signatures.addAll(CompiledPackages.stablePackageSignatures)
+    val _ = definitions.addAll(CompiledPackages.stableDefs)
+    val _ = packageDeps.addAll(CompiledPackages.stableDeps)
+  }
+
   /** Might ask for a package if the package you're trying to add references it.
     *
     * Note that when resuming from a [[Result]] the continuation will modify the
