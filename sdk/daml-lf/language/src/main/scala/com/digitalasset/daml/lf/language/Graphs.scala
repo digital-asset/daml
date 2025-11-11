@@ -45,7 +45,7 @@ object Graphs {
 
   /*
    * Computes all nodes reachable from a given starting node in a directed graph.
-   * The graph is represented as an adjacency map, where each node maps to its direct neighbors.
+   * The graph is represented as a map from a node to a set of its direct neighbors.
    *
    * @param graph The graph, represented as an adjacency map.
    * @param startNode The node from which to start the traversal.
