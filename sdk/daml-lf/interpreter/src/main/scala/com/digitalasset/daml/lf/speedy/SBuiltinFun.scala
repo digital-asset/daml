@@ -507,17 +507,17 @@ private[lf] object SBuiltinFun {
     }
   }
 
-  final case object SBContractIdToText extends SBuiltinFun(1) {
-    override private[speedy] def execute[Q](
+  final case object SBContractIdToText extends SBuiltinPure(1) {
+    override private[speedy] def executePure(
         args: ArraySeq[SValue],
-        machine: Machine[Q],
-    ): Control.Value = {
+        machine: Machine[_],
+    ): SOptional = {
       val coid = getSContractId(args, 0).coid
       machine match {
         case _: PureMachine =>
-          Control.Value(SOptional(Some(SText(coid))))
+          SOptional(Some(SText(coid)))
         case _: UpdateMachine =>
-          Control.Value(SValue.SValue.None)
+          SValue.SValue.None
       }
     }
   }
@@ -1853,19 +1853,16 @@ private[lf] object SBuiltinFun {
   // the underlying template implements `requiringIfaceId`. Else return `None`.
   final case class SBFromRequiredInterface(
       requiringIfaceId: TypeConId
-  ) extends SBuiltinFun(1) {
-
-    override private[speedy] def execute[Q](
+  ) extends SBuiltinPure(1) {
+    override private[speedy] def executePure(
         args: ArraySeq[SValue],
-        machine: Machine[Q],
-    ): Control.Value = {
+        machine: Machine[_],
+    ): SOptional = {
       val (actualTemplateId, record) = getSAnyContract(args, 0)
-      val v =
-        if (interfaceInstanceExists(machine, requiringIfaceId, actualTemplateId))
-          SOptional(Some(SAnyContract(actualTemplateId, record)))
-        else
-          SOptional(None)
-      Control.Value(v)
+      if (interfaceInstanceExists(machine, requiringIfaceId, actualTemplateId))
+        SOptional(Some(SAnyContract(actualTemplateId, record)))
+      else
+        SOptional(None)
     }
   }
 
@@ -2253,19 +2250,6 @@ private[lf] object SBuiltinFun {
     ): Control[Nothing] = {
       val excep = getSAny(args, 0)
       machine.handleException(excep)
-    }
-  }
-
-  /** $crash :: Text -> Unit -> Nothing */
-  private[speedy] final case class SBCrash(reason: String) extends SBuiltinFun(1) {
-
-    override private[speedy] def execute[Q](
-        args: ArraySeq[SValue],
-        machine: Machine[Q],
-    ): Nothing = {
-      getSUnit(args, 0)
-
-      crash(reason)
     }
   }
 

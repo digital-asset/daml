@@ -251,7 +251,6 @@ private[validation] object Typing {
       BCodePointsToText -> (TList(TInt64) ->: TText),
       BTextToParty -> (TText ->: TOptional(TParty)),
       BTextToInt64 -> (TText ->: TOptional(TInt64)),
-      BTextToNumericLegacy -> TForall(alpha.name -> KNat, TText ->: TOptional(TNumeric(alpha))),
       BTextToNumeric -> TForall(
         alpha.name -> KNat,
         TNumeric(alpha) ->: TText ->: TOptional(TNumeric(alpha)),

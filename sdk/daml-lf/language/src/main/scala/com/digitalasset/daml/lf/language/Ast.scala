@@ -505,8 +505,6 @@ object Ast {
   final case object BCodePointsToText extends BuiltinFunction // : [Int64] -> Text
   final case object BTextToParty extends BuiltinFunction // : Text -> Optional Party
   final case object BTextToInt64 extends BuiltinFunction // : Text -> Optional Int64
-  final case object BTextToNumericLegacy
-      extends BuiltinFunction // :  ∀s. Text -> Optional (Numeric s)
   final case object BTextToNumeric
       extends BuiltinFunction // :  ∀s.  Numeric s → Text -> Optional (Numeric s)
   final case object BTextToCodePoints extends BuiltinFunction // : Text -> List Int64

@@ -495,11 +495,7 @@ private[lf] final class PhaseOne(
           case BTypeRepTyConName => SBTypeRepTyConName
 
           // Implemented using SExpr
-          case BCoerceContractId | BTextMapEmpty | BGenMapEmpty | BLessNumeric | BLessEqNumeric |
-              BGreaterNumeric | BGreaterEqNumeric | BEqualNumeric | BNumericToText |
-              BAddNumeric | BSubNumeric | BMulNumeric | BDivNumeric | BRoundNumeric | BCastNumeric |
-              BShiftNumeric | BInt64ToNumeric | BTextToNumericLegacy | BTextToNumeric |
-              BNumericToInt64 | BNumericToBigNumeric | BBigNumericToNumeric =>
+          case BCoerceContractId | BTextMapEmpty | BGenMapEmpty =>
             throw CompilationError(s"unexpected $bf")
 
           case BAnyExceptionMessage => SBAnyExceptionMessage
