@@ -72,7 +72,7 @@ package object archive {
       getClass.getCanonicalName + ".Lf2PackageParser",
       { cos =>
         val langVersion = LanguageVersion(LanguageVersion.Major.V2, minor)
-        if (langVersion < LanguageVersion.Features.flatArchive)
+        if (LanguageVersion.featureFlatArchive.enabledIn(langVersion))
           discard(cos.setRecursionLimit(EXTENDED_PROTOBUF_RECURSION_LIMIT))
         DamlLf2.Package.parseFrom(cos)
       },
@@ -84,7 +84,7 @@ package object archive {
         GenReader(
           getClass.getCanonicalName + ".ModuleParser",
           { cos =>
-            if (ver < LanguageVersion.Features.flatArchive)
+            if (LanguageVersion.featureFlatArchive.enabledIn(ver))
               discard(cos.setRecursionLimit(EXTENDED_PROTOBUF_RECURSION_LIMIT))
             DamlLf2.Package.parseFrom(cos)
           },

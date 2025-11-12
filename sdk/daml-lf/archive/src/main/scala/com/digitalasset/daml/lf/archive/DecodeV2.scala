@@ -192,7 +192,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
     val lfKinds = lfPackage.getInternedKindsList
 
     if (!lfKinds.isEmpty)
-      assertSince(LV.Features.kindInterning, "interned kinds table")
+      assertVersionSupports(LV.featureFlatArchive)
 
     lfKinds.iterator.asScala
       .foldLeft(new mutable.ArrayBuffer[Kind](lfKinds.size)) { (buf, kind) =>
@@ -221,7 +221,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         Left("PLF.Package.ImportsSumCase.IMPORTSSUM_NOT_SET")
       case PLF.Package.ImportsSumCase.PACKAGE_IMPORTS =>
         val imports = lfPackage.getPackageImports.getImportedPackagesList.asScala.toIndexedSeq
-        if (languageVersion < LV.Features.explicitPkgImports)
+        if (versionSupports(LV.featurePackageImports))
           throw Error.Parsing(
             s"Explicit pkg imports set on unsupported lf version (version ${languageVersion}), case set PACKAGE_IMPORTS, to ${imports}"
           )
@@ -229,7 +229,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           Right(imports)
       case PLF.Package.ImportsSumCase.NO_IMPORTED_PACKAGES_REASON =>
         val reason = lfPackage.getNoImportedPackagesReason
-        if (languageVersion < LV.Features.explicitPkgImports)
+        if (versionSupports(LV.featurePackageImports))
           throw Error.Parsing(
             s"Explicit pkg imports set on unsupported lf version (version ${languageVersion}), case NO_IMPORTED_PACKAGES_REASON, set to ${reason}"
           )
@@ -554,7 +554,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         tpl: DottedName,
         key: PLF.DefTemplate.DefKey,
     ): Work[TemplateKey] = {
-      assertSince(LV.Features.contractKeys, "key")
+      assertVersionSupports(LV.featureContractKeys)
       decodeExpr(key.getKeyExpr, s"${tpl}:key") { keyExpr =>
         decodeType(key.getType) { typ =>
           decodeExpr(key.getMaintainers, s"${tpl}:maintainer") { maintainers =>
@@ -583,7 +583,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
               Work.sequence(lfImplements.view.map(decodeTemplateImplements(_))) { implements =>
                 Work.bind(
                   if (lfTempl.hasKey) {
-                    assertSince(LV.Features.contractKeys, "key")
+                    assertVersionSupports(LV.featureContractKeys)
                     Work.bind(decodeTemplateKey(tpl, lfTempl.getKey)) { tk =>
                       Ret(Some(tk))
                     }
@@ -660,7 +660,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           ) { choiceObservers =>
             Work.bind(
               if (lfChoice.hasAuthorizers) {
-                assertSince(LV.Features.choiceAuthority, "TemplateChoice.authorizers")
                 decodeExpr(lfChoice.getAuthorizers, s"$tpl:$chName:authorizers") { authorizers =>
                   Ret(Some(authorizers))
                 }
@@ -757,7 +756,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
               }
             }
           case PLF.Kind.SumCase.INTERNED_KIND =>
-            assertSince(LV.Features.kindInterning, "interned kinds unsupported in this version")
+            assertVersionSupports(LV.featureFlatArchive, Some("interned kinds"))
             Ret(
               internedKinds.applyOrElse(
                 lfKind.getInternedKind,
@@ -876,7 +875,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
             )
           )
         case PLF.Type.SumCase.TAPP =>
-          if (!(languageVersion >= LV.Features.flatArchive))
+          if (!versionSupports(LV.featureFlatArchive))
             throw Error.Parsing(
               s"Illegal case: TApp not supported in version ${languageVersion}, since this version has local flattening"
             )
@@ -900,7 +899,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           this.packageId
         case SC.IMPORTED_PACKAGE_ID_INTERNED_STR =>
           val id = getInternedPackageId(lfId.getPackageId.getImportedPackageIdInternedStr)
-          if (!stableIds.contains(id) && languageVersion >= LV.Features.explicitPkgImports)
+          if (!stableIds.contains(id) && versionSupports(LV.featurePackageImports))
             throw Error.Parsing(
               s"Got explicit non-stable package id (${id}) on lf version (${languageVersion}) that supports explicit package imports, imports: (${imports})"
             )
@@ -1247,7 +1246,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Expr.SumCase.UNSAFE_FROM_INTERFACE =>
-          assertUntil(LV.Features.unsafeFromInterfaceRemoved, "Expr.unsafe_from_interface")
+          assertVersionSupports(LV.featureUnsafeFromInterface, Some("Expr.unsafe_from_interface"))
           val unsafeFromInterface = lfExpr.getUnsafeFromInterface
           val interfaceId = decodeTypeConId(unsafeFromInterface.getInterfaceType)
           val templateId = decodeTypeConId(unsafeFromInterface.getTemplateType)
@@ -1313,7 +1312,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Expr.SumCase.CHOICE_CONTROLLER =>
-          assertSince(LV.Features.choiceFuncs, "Expr.choice_controller")
+          assertVersionSupports(LV.featureChoiceFuncs, Some("Expr.choice_controller"))
           val choiceController = lfExpr.getChoiceController
           val tplCon = decodeTypeConId(choiceController.getTemplate)
           val choiceName = internedName(choiceController.getChoiceInternedStr)
@@ -1324,7 +1323,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Expr.SumCase.CHOICE_OBSERVER =>
-          assertSince(LV.Features.choiceFuncs, "Expr.choice_observer")
+          assertVersionSupports(LV.featureChoiceFuncs, Some("Expr.choice_observer"))
           val choiceObserver = lfExpr.getChoiceObserver
           val tplCon = decodeTypeConId(choiceObserver.getTemplate)
           val choiceName = internedName(choiceObserver.getChoiceInternedStr)
@@ -1335,14 +1334,14 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Expr.SumCase.EXPERIMENTAL =>
-          assertSince(LV.Features.unstable, "Expr.experimental")
+          assertVersionSupports(LV.featureUnstable)
           val experimental = lfExpr.getExperimental
           decodeType(experimental.getType) { typ =>
             Ret(EExperimental(experimental.getName, typ))
           }
 
         case PLF.Expr.SumCase.INTERNED_EXPR =>
-          assertSince(LV.Features.exprInterning, "interned exprs unsupported in this version")
+          assertVersionSupports(LV.featureFlatArchive, Some("INTERNED_EXPR"))
           val exprIdx = lfExpr.getInternedExpr
           if (currentInternedExprId.exists(_ <= exprIdx))
             throw Error.IllegalInterning(
@@ -1412,7 +1411,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
     }
 
     private[this] def decodeRetrieveByKey(value: PLF.Update.RetrieveByKey): Work[TypeConId] = {
-      assertSince(LV.Features.contractKeys, "RetrieveByKey")
+      assertVersionSupports(LV.featureContractKeys, Some("RetrieveByKey"))
       Ret(decodeTypeConId(value.getTemplate))
     }
 
@@ -1465,7 +1464,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
             decodeExpr(exercise.getArg, definition) { argE =>
               Work.bind(
                 if (exercise.hasGuard) {
-                  assertSince(LV.Features.extendedInterfaces, "exerciseInterface.guard")
+                  assertVersionSupports(LV.featureExtendedInterfaces, Some("exerciseInterface.guard"))
                   decodeExpr(exercise.getGuard, definition) { e =>
                     Ret(Some(e))
                   }
@@ -1480,7 +1479,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Update.SumCase.EXERCISE_BY_KEY =>
-          assertSince(LV.Features.contractKeys, "exercise_by_key")
+          assertVersionSupports(LV.featureContractKeys, Some("exercise_by_key"))
           val exerciseByKey = lfUpdate.getExerciseByKey
           val templateId = decodeTypeConId(exerciseByKey.getTemplate)
           val choice = getInternedName(exerciseByKey.getChoiceInternedStr)
@@ -1514,13 +1513,13 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Update.SumCase.FETCH_BY_KEY =>
-          assertSince(LV.Features.contractKeys, "fetch_by_key")
+          assertVersionSupports(LV.featureContractKeys, Some("fetch_by_key"))
           Work.bind(decodeRetrieveByKey(lfUpdate.getFetchByKey)) { tmplId =>
             Ret(UpdateFetchByKey(tmplId))
           }
 
         case PLF.Update.SumCase.LOOKUP_BY_KEY =>
-          assertSince(LV.Features.contractKeys, "lookup_by_key")
+          assertVersionSupports(LV.featureContractKeys, Some("lookup_by_key"))
           Work.bind(decodeRetrieveByKey(lfUpdate.getLookupByKey)) { tmplId =>
             Ret(UpdateLookupByKey(tmplId))
           }
@@ -1603,7 +1602,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         case PLF.BuiltinLit.SumCase.NUMERIC_INTERNED_STR =>
           toBLNumeric(getInternedStr(lfBuiltinLit.getNumericInternedStr))
         case PLF.BuiltinLit.SumCase.ROUNDING_MODE =>
-          assertSince(LV.Features.bigNumeric, "Expr.rounding_mode")
+          assertVersionSupports(LV.featureBigNumeric, Some("Expr.rounding_mode"))
           BLRoundingMode(java.math.RoundingMode.valueOf(lfBuiltinLit.getRoundingModeValue))
         case PLF.BuiltinLit.SumCase.FAILURE_CATEGORY =>
           BLFailureCategory(lfBuiltinLit.getFailureCategory match {
@@ -1617,6 +1616,19 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         case PLF.BuiltinLit.SumCase.SUM_NOT_SET =>
           throw Error.Parsing("BuiltinLit.SUM_NOT_SET")
       }
+  }
+
+  private def versionSupports(ft : LV.Feature): Boolean =
+    ft.versionReq.contains(languageVersion)
+
+  def assertVersionSupports(ft: LV.Feature, caseDescription: Option[String] = None): Unit = {
+    if (!versionSupports(ft)) {
+      val optDescr = caseDescription match {
+        case Some(str) => s" (case ${str})"
+        case None      => ""
+      }
+      throw notSupportedError(ft.name ++ optDescr)
+    }
   }
 
   private def versionIsOlderThan(minVersion: LV): Boolean =
@@ -1656,7 +1668,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       s: collection.Seq[_],
       description: => String,
   ): Unit =
-    if ((!versionIsOlderThan(LV.Features.flatArchive)) && s.length != 1)
+    if (versionSupports(LV.featureFlatArchive) && s.length != 1)
       throw Error.Parsing(
         s"Illegal local flattening: since lf flattening is supported, expected a single element for $description, but found ${s.length}, version ${languageVersion}"
       )
@@ -1665,7 +1677,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       s: collection.Seq[_],
       description: => String,
   ): Unit =
-    if ((!versionIsOlderThan(LV.Features.flatArchive)) && s.length != 0)
+    if (versionSupports(LV.featureFlatArchive) && s.length != 0)
       throw Error.Parsing(
         s"Illegal local flattening: Since lf flattening is supported, expected a null list $description, but found ${s.length}, version ${languageVersion}"
       )
@@ -1686,7 +1698,8 @@ private[lf] object DecodeV2 {
   case class BuiltinTypeInfo(
       proto: PLF.BuiltinType,
       bTyp: BuiltinType,
-      minVersion: LV = LV.Features.default,
+      minVersion: LV = LV.allLfVersionsRange.min,
+      range: Option[VersionRange[LV]] = None,
   ) {
     val typ = TBuiltin(bTyp)
   }
@@ -1711,8 +1724,8 @@ private[lf] object DecodeV2 {
       BuiltinTypeInfo(NUMERIC, BTNumeric),
       BuiltinTypeInfo(ANY, BTAny),
       BuiltinTypeInfo(TYPE_REP, BTTypeRep),
-      BuiltinTypeInfo(BIGNUMERIC, BTBigNumeric, minVersion = LV.Features.bigNumeric),
-      BuiltinTypeInfo(ROUNDING_MODE, BTRoundingMode, minVersion = LV.Features.bigNumeric),
+      BuiltinTypeInfo(BIGNUMERIC, BTBigNumeric, minVersion = LV.featureBigNumeric.versionReq.min, range = Some(LV.featureBigNumeric.versionReq)),
+      BuiltinTypeInfo(ROUNDING_MODE, BTRoundingMode, minVersion = LV.featureBigNumeric.versionReq.min, range = Some(LV.featureBigNumeric.versionReq)),
       BuiltinTypeInfo(ANY_EXCEPTION, BTAnyException),
       BuiltinTypeInfo(FAILURE_CATEGORY, BTFailureCategory),
     )
@@ -1726,15 +1739,15 @@ private[lf] object DecodeV2 {
   case class BuiltinFunctionInfo(
       proto: PLF.BuiltinFunction,
       builtin: BuiltinFunction,
-      minVersion: LV = LV.Features.default, // first version that does support the builtin
+      minVersion: LV = LV.allLfVersionsRange.min, // first version that does support the builtin
       maxVersion: Option[LV] = None, // first version that does not support the builtin
+      versionReq: Option[VersionRange[LV]] = None,
       implicitParameters: List[Type] = List.empty,
   ) {
     val expr: Expr = implicitParameters.foldLeft[Expr](EBuiltinFun(builtin))(ETyApp)
   }
 
   val builtinFunctionInfos: List[BuiltinFunctionInfo] = {
-    import LV.Features._
     import PLF.BuiltinFunction._
     List(
       BuiltinFunctionInfo(ADD_NUMERIC, BAddNumeric),
@@ -1801,18 +1814,18 @@ private[lf] object DecodeV2 {
       BuiltinFunctionInfo(EQUAL_LIST, BEqualList),
       BuiltinFunctionInfo(TRACE, BTrace),
       BuiltinFunctionInfo(COERCE_CONTRACT_ID, BCoerceContractId),
-      BuiltinFunctionInfo(SCALE_BIGNUMERIC, BScaleBigNumeric, minVersion = bigNumeric),
-      BuiltinFunctionInfo(PRECISION_BIGNUMERIC, BPrecisionBigNumeric, minVersion = bigNumeric),
-      BuiltinFunctionInfo(ADD_BIGNUMERIC, BAddBigNumeric, minVersion = bigNumeric),
-      BuiltinFunctionInfo(SUB_BIGNUMERIC, BSubBigNumeric, minVersion = bigNumeric),
-      BuiltinFunctionInfo(MUL_BIGNUMERIC, BMulBigNumeric, minVersion = bigNumeric),
-      BuiltinFunctionInfo(DIV_BIGNUMERIC, BDivBigNumeric, minVersion = bigNumeric),
-      BuiltinFunctionInfo(SHIFT_RIGHT_BIGNUMERIC, BShiftRightBigNumeric, minVersion = bigNumeric),
-      BuiltinFunctionInfo(BIGNUMERIC_TO_NUMERIC, BBigNumericToNumeric, minVersion = bigNumeric),
-      BuiltinFunctionInfo(NUMERIC_TO_BIGNUMERIC, BNumericToBigNumeric, minVersion = bigNumeric),
-      BuiltinFunctionInfo(BIGNUMERIC_TO_TEXT, BBigNumericToText, minVersion = bigNumeric),
+      BuiltinFunctionInfo(SCALE_BIGNUMERIC, BScaleBigNumeric, minVersion = LV.featureBigNumeric.versionReq.min, versionReq = Some(LV.featureBigNumeric.versionReq)),
+      BuiltinFunctionInfo(PRECISION_BIGNUMERIC, BPrecisionBigNumeric, minVersion = LV.featureBigNumeric.versionReq.min, versionReq = Some(LV.featureBigNumeric.versionReq)),
+      BuiltinFunctionInfo(ADD_BIGNUMERIC, BAddBigNumeric, minVersion = LV.featureBigNumeric.versionReq.min, versionReq = Some(LV.featureBigNumeric.versionReq)),
+      BuiltinFunctionInfo(SUB_BIGNUMERIC, BSubBigNumeric, minVersion = LV.featureBigNumeric.versionReq.min, versionReq = Some(LV.featureBigNumeric.versionReq)),
+      BuiltinFunctionInfo(MUL_BIGNUMERIC, BMulBigNumeric, minVersion = LV.featureBigNumeric.versionReq.min, versionReq = Some(LV.featureBigNumeric.versionReq)),
+      BuiltinFunctionInfo(DIV_BIGNUMERIC, BDivBigNumeric, minVersion = LV.featureBigNumeric.versionReq.min, versionReq = Some(LV.featureBigNumeric.versionReq)),
+      BuiltinFunctionInfo(SHIFT_RIGHT_BIGNUMERIC, BShiftRightBigNumeric, minVersion = LV.featureBigNumeric.versionReq.min, versionReq = Some(LV.featureBigNumeric.versionReq)),
+      BuiltinFunctionInfo(BIGNUMERIC_TO_NUMERIC, BBigNumericToNumeric, minVersion = LV.featureBigNumeric.versionReq.min, versionReq = Some(LV.featureBigNumeric.versionReq)),
+      BuiltinFunctionInfo(NUMERIC_TO_BIGNUMERIC, BNumericToBigNumeric, minVersion = LV.featureBigNumeric.versionReq.min, versionReq = Some(LV.featureBigNumeric.versionReq)),
+      BuiltinFunctionInfo(BIGNUMERIC_TO_TEXT, BBigNumericToText, minVersion = LV.featureBigNumeric.versionReq.min, versionReq = Some(LV.featureBigNumeric.versionReq)),
       BuiltinFunctionInfo(ANY_EXCEPTION_MESSAGE, BAnyExceptionMessage),
-      BuiltinFunctionInfo(TYPE_REP_TYCON_NAME, BTypeRepTyConName, minVersion = unstable),
+      BuiltinFunctionInfo(TYPE_REP_TYCON_NAME, BTypeRepTyConName, minVersion = LV.featureUnstable.versionReq.min, versionReq = Some(LV.featureUnstable.versionReq)),
       BuiltinFunctionInfo(FAIL_WITH_STATUS, BFailWithStatus),
     )
   }
