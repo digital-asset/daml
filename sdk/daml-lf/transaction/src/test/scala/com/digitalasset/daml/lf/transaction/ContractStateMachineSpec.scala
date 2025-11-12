@@ -877,7 +877,7 @@ object ContractStateMachineSpec {
     Either[KeyInputError, (Map[GlobalKey, KeyInput], ActiveLedgerState[Unit], Set[ContractId])]
   case class TestCase(
       name: String,
-      transaction: HasTxNodes[_],
+      transaction: HasTxNodes,
       resolver: KeyResolver,
       expected: Map[ContractKeyUniquenessMode, TestResult],
   )
@@ -885,12 +885,12 @@ object ContractStateMachineSpec {
   object TestCase {
     def apply(
         name: String,
-        transaction: HasTxNodes[_],
+        transaction: HasTxNodes,
         expected: Map[ContractKeyUniquenessMode, TestResult],
     ): TestCase = TestCase(name, transaction, resolverFromTx(transaction), expected)
   }
 
-  def resolverFromTx(tx: HasTxNodes[_]): KeyResolver = {
+  def resolverFromTx(tx: HasTxNodes): KeyResolver = {
     def updateKey(
         resolver: KeyResolver,
         mbKey: Option[GlobalKey],
