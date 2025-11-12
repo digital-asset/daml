@@ -147,7 +147,9 @@ jobs:
         rtag="$(release_tag)"
         tag=internal-"$rtag"
         sha=$(release_sha)
-        git tag -a "$tag" "$sha" -m "Internal SDK release $tag"
+        git -c user.name="Azure Pipelines Daml Build" \
+            -c user.email="support@digitalasset.com" \
+            tag -a "$tag" "$sha" -m "Internal SDK release $tag"
         git push origin "$tag"
       displayName: "Tag Release in Git"
     - bash: |
@@ -163,3 +165,4 @@ jobs:
     - template: tell-slack-failed.yml
       parameters:
         trigger_sha: '$(trigger_sha)'
+
