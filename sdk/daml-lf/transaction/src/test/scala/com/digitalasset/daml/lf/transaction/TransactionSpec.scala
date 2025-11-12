@@ -1082,6 +1082,39 @@ class TransactionSpec
       }
     }
   }
+
+  "normalizeNodeIds" - {
+    "normalize NodeIds in a transaction" in {
+
+      val notNormalized = mkTransaction(
+        HashMap(
+          NodeId(666666) -> dummyCreateNode(cid("#cid0")),
+          NodeId(55555) -> dummyExerciseNode(cid("#cid1"), ImmArray(NodeId(7777777), NodeId(4444))),
+          NodeId(7777777) -> dummyExerciseNode(cid("#cid2"), ImmArray.Empty),
+          NodeId(1) -> dummyCreateNode(cid("#cid3")),
+          NodeId(4444) -> dummyRollbackNode(ImmArray(NodeId(22))),
+          NodeId(22) -> dummyCreateNode(cid("#cid5")),
+        ),
+        ImmArray(NodeId(666666), NodeId(55555), NodeId(1)),
+      )
+
+      val normalized = mkTransaction(
+        HashMap(
+          NodeId(0) -> dummyCreateNode(cid("#cid0")),
+          NodeId(1) -> dummyExerciseNode(cid("#cid1"), ImmArray(NodeId(2), NodeId(3))),
+          NodeId(2) -> dummyExerciseNode(cid("#cid2"), ImmArray.Empty),
+          NodeId(3) -> dummyRollbackNode(ImmArray(NodeId(4))),
+          NodeId(4) -> dummyCreateNode(cid("#cid5")),
+          NodeId(5) -> dummyCreateNode(cid("#cid3")),
+        ),
+        ImmArray(NodeId(0), NodeId(1), NodeId(5)),
+      )
+
+      notNormalized.normalizeNodeIds shouldBe normalized
+      normalized.normalizeNodeIds shouldBe normalized
+    }
+  }
+
 }
 
 object TransactionSpec {

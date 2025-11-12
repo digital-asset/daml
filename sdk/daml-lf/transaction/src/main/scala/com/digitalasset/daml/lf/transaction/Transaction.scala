@@ -18,27 +18,19 @@ final case class VersionedTransaction private[lf] (
     version: SerializationVersion,
     nodes: Map[NodeId, Node],
     override val roots: ImmArray[NodeId],
-) extends HasTxNodes
+) extends HasTxNodes[VersionedTransaction]
     with value.CidContainer[VersionedTransaction]
     with NoCopy {
-
-  override def mapCid(f: ContractId => ContractId): VersionedTransaction =
-    VersionedTransaction(
-      version,
-      nodes = nodes.map { case (nodeId, node) => nodeId -> node.mapCid(f) },
-      roots,
-    )
-
-  def mapNodeId(f: NodeId => NodeId): VersionedTransaction =
-    VersionedTransaction(
-      version,
-      nodes.map { case (nodeId, node) => f(nodeId) -> node.mapNodeId(f) },
-      roots.map(f),
-    )
 
   // O(1)
   def transaction: Transaction =
     Transaction(nodes, roots)
+
+  override protected def updated(
+      nodes: Map[NodeId, Node],
+      roots: ImmArray[NodeId],
+  ): VersionedTransaction =
+    VersionedTransaction(version, nodes = nodes, roots = roots)
 
 }
 
@@ -57,18 +49,13 @@ final case class VersionedTransaction private[lf] (
 final case class Transaction(
     nodes: Map[NodeId, Node],
     roots: ImmArray[NodeId],
-) extends HasTxNodes
+) extends HasTxNodes[Transaction]
     with value.CidContainer[Transaction] {
 
   import Transaction._
 
-  override def mapCid(f: ContractId => ContractId): Transaction =
-    copy(nodes = nodes.map { case (nodeId, node) => nodeId -> node.mapCid(f) })
-  def mapNodeId(f: NodeId => NodeId): Transaction =
-    copy(
-      nodes = nodes.map { case (nodeId, node) => f(nodeId) -> node.mapNodeId(f) },
-      roots = roots.map(f),
-    )
+  override protected def updated(nodes: Map[NodeId, Node], roots: ImmArray[NodeId]): Transaction =
+    Transaction(nodes = nodes, roots = roots)
 
   /** This function checks the following properties:
     *
@@ -244,13 +231,38 @@ final case class Transaction(
    */
 }
 
-sealed abstract class HasTxNodes {
+sealed abstract class HasTxNodes[Tx] {
 
   import Transaction.{KeyInput, ChildrenRecursion}
+
+  protected def updated(nodes: Map[NodeId, Node], roots: ImmArray[NodeId]): Tx
 
   def nodes: Map[NodeId, Node]
 
   def roots: ImmArray[NodeId]
+
+  final def mapCid(f: ContractId => ContractId): Tx =
+    updated(
+      nodes = nodes.map { case (nodeId, node) => nodeId -> node.mapCid(f) },
+      roots = roots,
+    )
+
+  final def mapNodeId(f: NodeId => NodeId): Tx =
+    updated(
+      nodes = nodes.map { case (nodeId, node) => f(nodeId) -> node.mapNodeId(f) },
+      roots = roots.map(f),
+    )
+
+  /** Renames the NodeIds in the transaction to ensure they are sequential,
+    * starting from zero and incrementing by one, following a pre-order traversal
+    * of the transaction tree.
+    */
+  final def normalizeNodeIds: Tx = {
+    val normalization = fold(Map.empty[NodeId, NodeId]) { case (remapping, (oldNodeId, _)) =>
+      remapping.updated(oldNodeId, NodeId(remapping.size))
+    }
+    mapNodeId(normalization)
+  }
 
   // We assume that rollback node cannot be a root of a transaction.
   // This is correct for an unprojected transaction. For a project transaction,
