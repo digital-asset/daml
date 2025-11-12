@@ -47,10 +47,11 @@ final case class TransactionSnapshot(
 
   private[this] implicit def loggingContext: LoggingContext = LoggingContext.ForTesting
 
-  private[this] val metricPlugins = Seq(new StepCount(42), new TxNodeCount) // FIXME:
-
   private[this] lazy val engine =
     TransactionSnapshot.compile(pkgs, profileDir, gasBudget = gasBudget)
+
+  private[this] lazy val metricPlugins =
+    Seq(new StepCount(engine.config.iterationsBetweenInterruptions), new TxNodeCount)
 
   def replay(): Either[Error, Speedy.Metrics] =
     engine

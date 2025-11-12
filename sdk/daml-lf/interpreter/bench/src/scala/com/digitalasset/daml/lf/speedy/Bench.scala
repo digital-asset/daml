@@ -5,6 +5,7 @@ package com.digitalasset.daml.lf
 package speedy
 
 import com.daml.logging.LoggingContext
+import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.daml.lf.speedy.metrics.{StepCount, TxNodeCount}
 import com.digitalasset.daml.lf.testing.parser._
 import org.openjdk.jmh.annotations._
@@ -24,7 +25,11 @@ class Bench {
   implicit def parserParameters: ParserParameters[this.type] =
     ParserParameters.default
 
-  private[this] val metricPlugins = Seq(new StepCount(42), new TxNodeCount) // FIXME:
+  private[this] val metricPlugins = {
+    val config = Engine.DevEngine.config
+
+    Seq(new StepCount(config.iterationsBetweenInterruptions), new TxNodeCount)
+  }
 
   private[this] def defaultPackageId = parserParameters.defaultPackageId
 
