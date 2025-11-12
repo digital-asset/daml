@@ -9,7 +9,7 @@ import com.digitalasset.base.error.ErrorsAssertions
 import com.digitalasset.canton.config.{AuthServiceConfig, CantonConfig, DbConfig}
 import com.digitalasset.canton.http.json.v2.JsIdentityProviderCodecs.*
 import com.digitalasset.canton.http.json.v2.JsUserManagementCodecs.*
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.integration.tests.jsonapi.AbstractHttpServiceIntegrationTestFuns.HttpServiceTestFixtureData
 import com.digitalasset.canton.integration.tests.ledgerapi.SuppressionRules.ApiUserManagementServiceSuppressionRule
 import com.digitalasset.canton.integration.tests.ledgerapi.auth.ServiceCallContext
@@ -38,7 +38,7 @@ class JsonUserApiTest
     with ErrorsAssertions {
 
   registerPlugin(ExpectedScopeOverrideConfig(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   override val defaultScope: String = ExpectedScope
 

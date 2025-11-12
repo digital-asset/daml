@@ -22,6 +22,7 @@ import com.digitalasset.canton.participant.store.AcsCommitmentStore.{
   ParticipantCommitmentData,
   ReinitializationStatus,
 }
+import com.digitalasset.canton.participant.store.UpdateMode.Checkpoint
 import com.digitalasset.canton.protocol.ContractMetadata
 import com.digitalasset.canton.protocol.messages.{
   AcsCommitment,
@@ -978,75 +979,82 @@ trait IncrementalCommitmentStoreTest extends CommitmentStoreBaseTest {
 
     def rt(timestamp: Int, tieBreaker: Int) = RecordTime(ts(timestamp), tieBreaker.toLong)
 
-    "give correct snapshots on a small example" in {
-      val snapshot = mk()
+    // TODO(i28386) add Efficiency as a mode below when it's fully supported for get() and watermark()
+    forAll(Table("mode", Checkpoint)) { mode =>
+      s"give correct snapshots on a small example in mode $mode" in {
+        val snapshot = mk()
 
-      val snapAB10 = ByteString.copyFromUtf8("AB10")
-      val snapBC10 = ByteString.copyFromUtf8("BC10")
-      val snapBC11 = ByteString.copyFromUtf8("BC11")
-      val snapAB2 = ByteString.copyFromUtf8("AB21")
-      val snapAC2 = ByteString.copyFromUtf8("AC21")
+        val snapAB10 = ByteString.copyFromUtf8("AB10")
+        val snapBC10 = ByteString.copyFromUtf8("BC10")
+        val snapBC11 = ByteString.copyFromUtf8("BC11")
+        val snapAB2 = ByteString.copyFromUtf8("AB21")
+        val snapAC2 = ByteString.copyFromUtf8("AC21")
 
-      for {
-        res0 <- snapshot.get()
-        wm0 <- snapshot.watermark
+        for {
+          res0 <- snapshot.get()
+          wm0 <- snapshot.watermark
 
-        _ <- snapshot.update(
-          rt(1, 0),
-          updates = Map(SortedSet(alice, bob) -> snapAB10, SortedSet(bob, charlie) -> snapBC10),
-          deletes = Set.empty,
-        )
-        res1 <- snapshot.get()
-        wm1 <- snapshot.watermark
+          _ <- snapshot.update(
+            rt(1, 0),
+            updates = Map(SortedSet(alice, bob) -> snapAB10, SortedSet(bob, charlie) -> snapBC10),
+            deletes = Set.empty,
+            mode,
+          )
+          res1 <- snapshot.get()
+          wm1 <- snapshot.watermark
 
-        _ <- snapshot.update(
-          rt(1, 1),
-          updates = Map(SortedSet(bob, charlie) -> snapBC11),
-          deletes = Set.empty,
-        )
-        res11 <- snapshot.get()
-        wm11 <- snapshot.watermark
+          _ <- snapshot.update(
+            rt(1, 1),
+            updates = Map(SortedSet(bob, charlie) -> snapBC11),
+            deletes = Set.empty,
+            mode,
+          )
+          res11 <- snapshot.get()
+          wm11 <- snapshot.watermark
 
-        _ <- snapshot.update(
-          rt(2, 0),
-          updates = Map(SortedSet(alice, bob) -> snapAB2, SortedSet(alice, charlie) -> snapAC2),
-          deletes = Set(SortedSet(bob, charlie)),
-        )
-        res2 <- snapshot.get()
-        ts2 <- snapshot.watermark
+          _ <- snapshot.update(
+            rt(2, 0),
+            updates = Map(SortedSet(alice, bob) -> snapAB2, SortedSet(alice, charlie) -> snapAC2),
+            deletes = Set(SortedSet(bob, charlie)),
+            mode,
+          )
+          res2 <- snapshot.get()
+          ts2 <- snapshot.watermark
 
-        _ <- snapshot.update(
-          rt(3, 0),
-          updates = Map.empty,
-          deletes = Set(SortedSet(alice, bob), SortedSet(alice, charlie)),
-        )
-        res3 <- snapshot.get()
-        ts3 <- snapshot.watermark
+          _ <- snapshot.update(
+            rt(3, 0),
+            updates = Map.empty,
+            deletes = Set(SortedSet(alice, bob), SortedSet(alice, charlie)),
+            mode,
+          )
+          res3 <- snapshot.get()
+          ts3 <- snapshot.watermark
 
-      } yield {
-        wm0 shouldBe RecordTime.MinValue
-        res0 shouldBe (RecordTime.MinValue -> Map.empty)
+        } yield {
+          wm0 shouldBe RecordTime.MinValue
+          res0 shouldBe (RecordTime.MinValue -> Map.empty)
 
-        wm1 shouldBe rt(1, 0)
-        res1 shouldBe (rt(1, 0) -> Map(
-          SortedSet(alice, bob) -> snapAB10,
-          SortedSet(bob, charlie) -> snapBC10,
-        ))
+          wm1 shouldBe rt(1, 0)
+          res1 shouldBe (rt(1, 0) -> Map(
+            SortedSet(alice, bob) -> snapAB10,
+            SortedSet(bob, charlie) -> snapBC10,
+          ))
 
-        wm11 shouldBe rt(1, 1)
-        res11 shouldBe (rt(1, 1) -> Map(
-          SortedSet(alice, bob) -> snapAB10,
-          SortedSet(bob, charlie) -> snapBC11,
-        ))
+          wm11 shouldBe rt(1, 1)
+          res11 shouldBe (rt(1, 1) -> Map(
+            SortedSet(alice, bob) -> snapAB10,
+            SortedSet(bob, charlie) -> snapBC11,
+          ))
 
-        ts2 shouldBe rt(2, 0)
-        res2 shouldBe (rt(2, 0) -> Map(
-          SortedSet(alice, bob) -> snapAB2,
-          SortedSet(alice, charlie) -> snapAC2,
-        ))
+          ts2 shouldBe rt(2, 0)
+          res2 shouldBe (rt(2, 0) -> Map(
+            SortedSet(alice, bob) -> snapAB2,
+            SortedSet(alice, charlie) -> snapAC2,
+          ))
 
-        ts3 shouldBe rt(3, 0)
-        res3 shouldBe (rt(3, 0) -> Map.empty)
+          ts3 shouldBe rt(3, 0)
+          res3 shouldBe (rt(3, 0) -> Map.empty)
+        }
       }
     }
 
@@ -1171,33 +1179,53 @@ trait CommitmentQueueTest extends CommitmentStoreBaseTest {
         _ <- queue.enqueue(c12)
         _ <- queue.enqueue(c21)
         at5 <- queue.peekThroughAtOrAfter(ts(5))
+        at5ne <- queue.nonEmptyAtOrAfter(ts(5))
         at10 <- queue.peekThroughAtOrAfter(ts(10))
+        at10ne <- queue.nonEmptyAtOrAfter(ts(10))
         _ <- queue.enqueue(c22)
         at10with22 <- queue.peekThroughAtOrAfter(ts(10))
+        at10with22ne <- queue.nonEmptyAtOrAfter(ts(10))
         at15 <- queue.peekThroughAtOrAfter(ts(15))
+        at15ne <- queue.nonEmptyAtOrAfter(ts(15))
         _ <- queue.enqueue(c32)
         at10with32 <- queue.peekThroughAtOrAfter(ts(10))
+        at10with32ne <- queue.nonEmptyAtOrAfter(ts(10))
         at15with32 <- queue.peekThroughAtOrAfter(ts(15))
+        at15with32ne <- queue.nonEmptyAtOrAfter(ts(15))
         _ <- queue.deleteThrough(ts(5))
         at15AfterDelete <- queue.peekThroughAtOrAfter(ts(15))
+        at15AfterDeleteNe <- queue.nonEmptyAtOrAfter(ts(15))
         _ <- queue.enqueue(c31)
         at15with31 <- queue.peekThroughAtOrAfter(ts(15))
+        at15with31ne <- queue.nonEmptyAtOrAfter(ts(15))
         _ <- queue.deleteThrough(ts(15))
         at20AfterDelete <- queue.peekThroughAtOrAfter(ts(20))
+        at20AfterDeleteNe <- queue.nonEmptyAtOrAfter(ts(20))
         _ <- queue.enqueue(c41)
         at20with41 <- queue.peekThroughAtOrAfter(ts(20))
+        at20with41ne <- queue.nonEmptyAtOrAfter(ts(20))
       } yield {
         // We don't really care how the priority queue breaks the ties, so just use sets here
         at5.toSet shouldBe Set(c11, c12, c21).map(_.toQueuedAcsCommitment)
+        at5ne shouldBe true
         at10.toSet shouldBe Set(c21).map(_.toQueuedAcsCommitment)
+        at10ne shouldBe true
         at10with22.toSet shouldBe Set(c21, c22).map(_.toQueuedAcsCommitment)
+        at10with22ne shouldBe true
         at15.toSet shouldBe empty
+        at15ne shouldBe false
         at10with32.toSet shouldBe Set(c21, c22, c32).map(_.toQueuedAcsCommitment)
+        at10with32ne shouldBe true
         at15with32.toSet shouldBe Set(c32).map(_.toQueuedAcsCommitment)
+        at15with32ne shouldBe true
         at15AfterDelete.toSet shouldBe Set(c32).map(_.toQueuedAcsCommitment)
+        at15AfterDeleteNe shouldBe true
         at15with31.toSet shouldBe Set(c32, c31).map(_.toQueuedAcsCommitment)
+        at15with31ne shouldBe true
         at20AfterDelete shouldBe List.empty
+        at20AfterDeleteNe shouldBe false
         at20with41 shouldBe List(c41).map(_.toQueuedAcsCommitment)
+        at20with41ne shouldBe true
       }
     }
 

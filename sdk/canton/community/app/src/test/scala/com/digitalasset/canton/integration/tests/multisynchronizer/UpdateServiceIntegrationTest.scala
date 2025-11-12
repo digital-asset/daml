@@ -14,11 +14,8 @@ import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.ParticipantReference
 import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.examples.java.iou.{Dummy, GetCash, Iou}
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.util.UpdateFormatHelpers.getUpdateFormat
 import com.digitalasset.canton.integration.util.{
@@ -54,7 +51,8 @@ abstract class UpdateServiceIntegrationTest
       participant1.synchronizers.connect_local(sequencer1, alias = daName)
       participant1.synchronizers.connect_local(sequencer3, alias = acmeName)
 
-      participant1.dars.upload(CantonExamplesPath)
+      participant1.dars.upload(CantonExamplesPath, synchronizerId = daId)
+      participant1.dars.upload(CantonExamplesPath, synchronizerId = acmeId)
 
       // Allocate parties
       otherParty = participant1.parties.enable(otherPartyName, synchronizer = daName)
@@ -63,7 +61,7 @@ abstract class UpdateServiceIntegrationTest
     }
 
   private lazy val plugin =
-    new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](
+    new UseReferenceBlockSequencer[DbConfig.Postgres](
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(

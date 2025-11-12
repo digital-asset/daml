@@ -27,12 +27,12 @@ import com.digitalasset.canton.lifecycle.{
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
 import com.digitalasset.canton.participant.ParticipantNodeParameters
-import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.admin.data.RepairContract
 import com.digitalasset.canton.participant.admin.repair.RepairService.ContractToAdd
 import com.digitalasset.canton.participant.event.RecordTime
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
-import com.digitalasset.canton.participant.store.*
+import com.digitalasset.canton.participant.store.memory.PackageMetadataView
+import com.digitalasset.canton.participant.store.{PackageDependencyResolverImpl, *}
 import com.digitalasset.canton.participant.sync.{
   ConnectedSynchronizersLookup,
   SyncEphemeralStateFactory,
@@ -82,8 +82,7 @@ import scala.concurrent.{ExecutionContext, Future}
 final class RepairService(
     participantId: ParticipantId,
     syncCrypto: SyncCryptoApiParticipantProvider,
-    packageDependencyResolver: PackageDependencyResolver,
-    contractAuthenticator: ContractAuthenticator,
+    packageMetadataView: PackageMetadataView,
     contractStore: Eval[ContractStore],
     ledgerApiIndexer: Eval[LedgerApiIndexer],
     aliasManager: SynchronizerAliasManager,
@@ -177,7 +176,7 @@ final class RepairService(
       case Some(ActiveContractStore.Purged) => addContract(reassigningFrom = None)
       case Some(ActiveContractStore.ReassignedAway(targetSynchronizer, reassignmentCounter)) =>
         log(
-          s"Marking contract ${repairContract.contract.contractId} previously unassigned targetting $targetSynchronizer as " +
+          s"Marking contract ${repairContract.contract.contractId} previously unassigned targeting $targetSynchronizer as " +
             s"assigned from $targetSynchronizer (even though contract may have been reassigned to yet another synchronizer since)."
         ).discard
 
@@ -198,38 +197,6 @@ final class RepairService(
 
     }
   }
-
-  /** Prepare contract for add, including re-computing metadata
-    * @param repairContract
-    *   Contract to be added
-    * @param acsState
-    *   If the contract is known, its status
-    * @param storedContract
-    *   If the contract already exist in the ContractStore, the stored copy
-    */
-  private def readRepairContractCurrentState(
-      repairContract: RepairContract,
-      acsState: Option[ActiveContractStore.Status],
-      storedContract: Option[ContractInstance],
-      ignoreAlreadyAdded: Boolean,
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, String, Option[ContractToAdd]] =
-    for {
-      _ <- EitherT
-        .fromEither[FutureUnlessShutdown](
-          contractAuthenticator.legacyAuthenticate(repairContract.contract)
-        )
-        .leftMap(e =>
-          log(s"Failed to authenticate contract with id: ${repairContract.contract.contractId}: $e")
-        )
-      contractToAdd <- contractToAdd(
-        repairContract,
-        ignoreAlreadyAdded = ignoreAlreadyAdded,
-        acsState = acsState,
-        storedContract = storedContract,
-      )
-    } yield contractToAdd
 
   // The repair request gets inserted at the reprocessing starting point.
   // We use the prenextTimestamp such that a regular request is always the first request for a given timestamp.
@@ -266,7 +233,7 @@ final class RepairService(
 
       topologySnapshot = topologyFactory.createTopologySnapshot(
         SyncEphemeralStateFactory.currentRecordTime(synchronizerIndex),
-        packageDependencyResolver,
+        new PackageDependencyResolverImpl(participantId, packageMetadataView, loggerFactory),
         preferCaching = true,
       )
       synchronizerParameters <- OptionT(persistentState.parameterStore.lastParameters)
@@ -344,11 +311,11 @@ final class RepairService(
             storedContracts = contractInstances.map(c => c.contractId -> c).toMap
             filteredContracts <- contracts.zip(contractStates).parTraverseFilter {
               case (contract, acsState) =>
-                readRepairContractCurrentState(
+                contractToAdd(
                   repairContract = contract,
+                  ignoreAlreadyAdded = ignoreAlreadyAdded,
                   acsState = acsState,
                   storedContract = storedContracts.get(contract.contract.contractId),
-                  ignoreAlreadyAdded = ignoreAlreadyAdded,
                 )
             }
 
@@ -403,11 +370,20 @@ final class RepairService(
                       storedContracts = storedContracts,
                     )
 
+                    internalContractIdsForContractsAdded <-
+                      logOnFailureWithInfoLevel(
+                        contractStore.value.lookupBatchedNonCachedInternalIds(
+                          contractsWithTimeOfChange.map(_._1.contract.contractId)
+                        ),
+                        "Unable to lookup internal contract ids in contract store",
+                      )
+
                     // Commit and publish added contracts via the indexer to the ledger api.
                     _ <- EitherT.right[String](
                       writeContractsAddedEvents(
                         repair,
                         contractsToAdd,
+                        internalContractIdsForContractsAdded,
                         workflowIds,
                         repairIndexer,
                       )
@@ -688,20 +664,11 @@ final class RepairService(
         ledgerApiIndexer.value.ledgerApiStore.value.cleanSynchronizerIndex(psid.logical)
       )
 
-      synchronizerPredecessor <- EitherT
-        .fromEither[FutureUnlessShutdown](
-          syncPersistentStateLookup
-            .connectionConfig(psid)
-            .toRight(s"Cannot find connection config for $psid")
-        )
-        .map(_.predecessor)
-
       startingPoints <- EitherT.right(
         SyncEphemeralStateFactory.startingPoints(
           persistentState.requestJournalStore,
           persistentState.sequencedEventStore,
           synchronizerIndex,
-          synchronizerPredecessor,
         )
       )
       _ <- EitherTUtil
@@ -745,12 +712,10 @@ final class RepairService(
       contracts: Seq[ContractToAdd],
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] =
     for {
-      // All referenced templates known and vetted
-      _packagesVetted <- contracts
-        .map(_.contract.templateId.packageId)
-        .distinct
-        .parTraverse_(packageKnown)
-
+      // Check that the representative package-id is known
+      _ <- EitherT.fromEither[FutureUnlessShutdown](
+        contracts.map(_.representativePackageId).distinct.traverse(packageKnown)
+      )
       _ <- contracts.parTraverse_(
         addContractChecks(
           repair,
@@ -992,13 +957,15 @@ final class RepairService(
           roots = ImmArray.from(nodeIds.take(txNodes.size)),
         )
       ),
-      updateId = repair.transactionId.tryAsLedgerTransactionId,
+      updateId = repair.updateId,
       contractAuthenticationData = Map.empty,
       // No create nodes so no representative package IDs
       representativePackageIds = RepresentativePackageIds.Empty,
       synchronizerId = repair.synchronizer.psid.logical,
       repairCounter = repair.tryExactlyOneRepairCounter,
       recordTime = repair.timestamp,
+      // no need to pass the internal contract ids since no create nodes are involved
+      internalContractIds = Map.empty,
     )
     // not waiting for Update.persisted, since CommitRepair anyway will be waited for at the end
     repairIndexer.offer(update).map(_ => ())
@@ -1009,6 +976,7 @@ final class RepairService(
       repairCounter: RepairCounter,
       ledgerCreateTime: CreationTime.CreatedAt,
       contractsAdded: Seq[ContractToAdd],
+      internalContractIdsForContractsAdded: Map[LfContractId, Long],
       workflowIdProvider: () => Option[LfWorkflowId],
   )(implicit traceContext: TraceContext): RepairUpdate = {
     val contractAuthenticationData = contractsAdded.view.map { c =>
@@ -1036,18 +1004,20 @@ final class RepairService(
           roots = ImmArray.from(nodeIds.take(txNodes.size)),
         )
       ),
-      updateId = randomTransactionId(syncCrypto).tryAsLedgerTransactionId,
+      updateId = randomUpdateId(syncCrypto),
       contractAuthenticationData = contractAuthenticationData,
       representativePackageIds = RepresentativePackageIds.from(representativePackageIds),
       synchronizerId = repair.synchronizer.psid.logical,
       repairCounter = repairCounter,
       recordTime = repair.timestamp,
+      internalContractIds = internalContractIdsForContractsAdded,
     )
   }
 
   private def writeContractsAddedEvents(
       repair: RepairRequest,
       contractsAdded: Seq[(TimeOfRepair, (CreationTime.CreatedAt, Seq[ContractToAdd]))],
+      internalContractIdsForContractsAdded: Map[LfContractId, Long],
       workflowIds: Iterator[Option[LfWorkflowId]],
       repairIndexer: FutureQueue[RepairUpdate],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
@@ -1057,11 +1027,12 @@ final class RepairService(
         repairIndexer
           .offer(
             prepareAddedEvents(
-              repair,
-              timeOfChange.repairCounter,
-              timestamp,
-              contractsToAdd,
-              () => workflowIds.next(),
+              repair = repair,
+              repairCounter = timeOfChange.repairCounter,
+              ledgerCreateTime = timestamp,
+              contractsAdded = contractsToAdd,
+              internalContractIdsForContractsAdded = internalContractIdsForContractsAdded,
+              workflowIdProvider = () => workflowIds.next(),
             )
           )
           .map(_ => ())
@@ -1069,14 +1040,9 @@ final class RepairService(
 
   private def packageKnown(
       lfPackageId: LfPackageId
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] =
-    for {
-      _packageVetted <- packageDependencyResolver
-        .getPackageDescription(lfPackageId)
-        .toRight(
-          log(s"Failed to locate package $lfPackageId")
-        )
-    } yield ()
+  )(implicit traceContext: TraceContext): Either[String, Unit] =
+    if (packageMetadataView.getSnapshot.packages.contains(lfPackageId)) Right(())
+    else Left(log(s"Failed to locate package $lfPackageId"))
 
   /** Allows to wait until clean sequencer index has progressed up to a certain timestamp */
   def awaitCleanSequencerTimestamp(
@@ -1190,7 +1156,7 @@ final class RepairService(
           repairCountersToAllocate,
         )
       )
-    } yield RepairRequest(synchronizer, randomTransactionId(syncCrypto), repairCounters)
+    } yield RepairRequest(synchronizer, randomUpdateId(syncCrypto), repairCounters)
   }
 
   /** Read the ACS state for each contract in cids

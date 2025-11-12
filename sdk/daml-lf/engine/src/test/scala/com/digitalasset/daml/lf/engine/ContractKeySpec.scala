@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf
 package engine
 
 import com.daml.bazeltools.BazelRunfiles
-import com.digitalasset.daml.lf.archive.UniversalArchiveDecoder
+import com.digitalasset.daml.lf.archive.DarDecoder
 import com.digitalasset.daml.lf.command.ApiCommand
 import com.digitalasset.daml.lf.data.Ref.{
   Identifier,
@@ -17,15 +17,16 @@ import com.digitalasset.daml.lf.data.Ref.{
 }
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.Ast.Package
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.speedy.InitialSeeding
 import com.digitalasset.daml.lf.transaction.{
   ContractKeyUniquenessMode,
   FatContractInstance,
   GlobalKey,
   GlobalKeyWithMaintainers,
+  SerializationVersion,
 }
-import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.{ContractIdVersion, Value}
 import com.digitalasset.daml.lf.value.Value.{
   ContractId,
   ValueContractId,
@@ -45,7 +46,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import scala.language.implicitConversions
 
-class ContractKeySpecV2 extends ContractKeySpec(LanguageMajorVersion.V2)
+class ContractKeySpecV2 extends ContractKeySpec(LanguageVersion.Major.V2)
 
 @SuppressWarnings(
   Array(
@@ -54,7 +55,7 @@ class ContractKeySpecV2 extends ContractKeySpec(LanguageMajorVersion.V2)
     "org.wartremover.warts.Product",
   )
 )
-class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
+class ContractKeySpec(majorLanguageVersion: LanguageVersion.Major)
     extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks
@@ -63,18 +64,19 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
 
   import ContractKeySpec._
 
-  private[this] val langVersion = majorLanguageVersion.maxStableVersion
+  private[this] val version = SerializationVersion.minContractKeys
+  private[this] val contractIdVersion = ContractIdVersion.V2
 
   private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
-  private[this] val suffixLenientEngine = Engine.DevEngine(majorLanguageVersion)
+  private[this] val suffixLenientEngine = Engine.DevEngine
   private[this] val compiledPackages = ConcurrentCompiledPackages(
     suffixLenientEngine.config.getCompilerConfig
   )
   private[this] val preprocessor = preprocessing.Preprocessor.forTesting(compiledPackages)
 
   private def loadAndAddPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
-    val packages = UniversalArchiveDecoder.assertReadFile(new File(rlocation(resource)))
+    val packages = DarDecoder.assertReadArchiveFromFile(new File(rlocation(resource)))
     val (mainPkgId, mainPkg) = packages.main
     assert(
       compiledPackages.addPackage(mainPkgId, mainPkg).consume(pkgs = packages.all.toMap).isRight
@@ -92,7 +94,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
   val BasicTests_WithKey = Identifier(basicTestsPkgId, withKeyTemplate)
   val withKeyContractInst: FatContractInstance =
     TransactionBuilder.fatContractInstanceWithDummyDefaults(
-      version = langVersion,
+      version = version,
       packageName = basicTestsPkg.pkgName,
       template = TypeConId(basicTestsPkgId, withKeyTemplate),
       arg = ValueRecord(
@@ -109,7 +111,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
     Map(
       toContractId("BasicTests:Simple:1") ->
         TransactionBuilder.fatContractInstanceWithDummyDefaults(
-          version = langVersion,
+          version = version,
           packageName = basicTestsPkg.pkgName,
           template = TypeConId(basicTestsPkgId, "BasicTests:Simple"),
           arg = ValueRecord(
@@ -120,7 +122,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
         ),
       toContractId("BasicTests:CallablePayout:1") ->
         TransactionBuilder.fatContractInstanceWithDummyDefaults(
-          version = langVersion,
+          version = version,
           packageName = basicTestsPkg.pkgName,
           template = TypeConId(basicTestsPkgId, "BasicTests:CallablePayout"),
           arg = ValueRecord(
@@ -198,6 +200,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
           ledgerTime = now,
           preparationTime = now,
           seeding = InitialSeeding.TransactionSeed(txSeed),
+          contractIdVersion = contractIdVersion,
         )
         .consume(pkgs = allPackages, keys = lookupKey)
       result shouldBe a[Right[_, _]]
@@ -227,6 +230,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
           ledgerTime = now,
           preparationTime = now,
           seeding = InitialSeeding.TransactionSeed(txSeed),
+          contractIdVersion = contractIdVersion,
         )
         .consume(pkgs = allPackages, keys = lookupKey)
       result shouldBe a[Left[_, _]]
@@ -259,6 +263,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
           ledgerTime = now,
           preparationTime = now,
           seeding = InitialSeeding.TransactionSeed(txSeed),
+          contractIdVersion = contractIdVersion,
         )
         .consume(pkgs = allPackages, keys = lookupKey)
 
@@ -276,14 +281,14 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
       import com.digitalasset.daml.lf.language.{LanguageVersion => LV}
       val nonUckEngine = new Engine(
         EngineConfig(
-          allowedLanguageVersions = LV.AllVersions(majorLanguageVersion),
+          allowedLanguageVersions = LV.allLfVersionsRange,
           contractKeyUniqueness = ContractKeyUniquenessMode.Off,
           forbidLocalContractIds = true,
         )
       )
       val uckEngine = new Engine(
         EngineConfig(
-          allowedLanguageVersions = LV.AllVersions(majorLanguageVersion),
+          allowedLanguageVersions = LV.allLfVersionsRange,
           contractKeyUniqueness = ContractKeyUniquenessMode.Strict,
           forbidLocalContractIds = true,
         )
@@ -299,7 +304,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
       val cid1 = toContractId("1")
       val cid2 = toContractId("2")
       val keyedInst = TransactionBuilder.fatContractInstanceWithDummyDefaults(
-        version = langVersion,
+        version = version,
         packageName = multiKeysPkg.pkgName,
         template = TypeConId(multiKeysPkgId, "MultiKeys:Keyed"),
         arg = ValueRecord(None, ImmArray((None, ValueParty(party)))),
@@ -339,6 +344,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
             ledgerTime = let,
             preparationTime = let,
             seeding = seeding,
+            contractIdVersion = contractIdVersion,
           )
           .consume(contracts, pkgs = allMultiKeysPkgs, keys = lookupKey)
       }

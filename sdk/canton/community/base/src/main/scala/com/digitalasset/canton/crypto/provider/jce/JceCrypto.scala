@@ -21,6 +21,7 @@ object JceCrypto {
 
   def create(
       config: CryptoConfig,
+      cryptoSchemes: CryptoSchemes,
       sessionEncryptionKeyCacheConfig: SessionEncryptionKeyCacheConfig,
       publicKeyConversionCacheConfig: CacheConfig,
       cryptoPrivateStore: CryptoPrivateStore,
@@ -35,7 +36,6 @@ object JceCrypto {
         config.provider == CryptoProvider.Jce,
         "JCE provider must be configured",
       )
-      cryptoSchemes <- CryptoSchemes.fromConfig(config)
       cryptoPrivateStoreExtended <- cryptoPrivateStore.toExtended
         .toRight(
           s"The crypto private store does not implement all the functions necessary " +
@@ -45,15 +45,14 @@ object JceCrypto {
         config,
         sessionEncryptionKeyCacheConfig,
         publicKeyConversionCacheConfig,
+        cryptoSchemes,
         loggerFactory,
       )
       privateCrypto =
         new JcePrivateCrypto(
           pureCrypto,
-          signingAlgorithmSpecs = cryptoSchemes.signingAlgoSpecs,
-          signingKeySpecs = cryptoSchemes.signingKeySpecs,
-          encryptionAlgorithmSpecs = cryptoSchemes.encryptionAlgoSpecs,
-          encryptionKeySpecs = cryptoSchemes.encryptionKeySpecs,
+          signingSchemes = cryptoSchemes.signingSchemes,
+          encryptionSchemes = cryptoSchemes.encryptionSchemes,
           store = cryptoPrivateStoreExtended,
           timeouts = timeouts,
           loggerFactory = loggerFactory,

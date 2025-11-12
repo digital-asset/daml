@@ -9,7 +9,6 @@ import com.digitalasset.canton.crypto.{CryptoPureApi, SynchronizerCrypto}
 import com.digitalasset.canton.lifecycle.LifeCycle
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
-import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.ledger.api.LedgerApiStore
 import com.digitalasset.canton.participant.store.db.{
   DbLogicalSyncPersistentState,
@@ -163,14 +162,14 @@ object PhysicalSyncPersistentState {
       participantId: ParticipantId,
       storage: Storage,
       physicalSynchronizerIdx: IndexedPhysicalSynchronizer,
+      indexedTopologyStoreId: IndexedTopologyStoreId,
       staticSynchronizerParameters: StaticSynchronizerParameters,
       clock: Clock,
       crypto: SynchronizerCrypto,
       parameters: ParticipantNodeParameters,
-      packageDependencyResolver: PackageDependencyResolver,
+      packageMetadataView: PackageMetadataView,
       ledgerApiStore: Eval[LedgerApiStore],
       logicalSyncPersistentState: LogicalSyncPersistentState,
-      packageMetadataView: Eval[PackageMetadataView],
       loggerFactory: NamedLoggerFactory,
       futureSupervisor: FutureSupervisor,
   )(implicit ec: ExecutionContext): PhysicalSyncPersistentState =
@@ -182,12 +181,10 @@ object PhysicalSyncPersistentState {
           crypto,
           physicalSynchronizerIdx,
           staticSynchronizerParameters,
-          exitOnFatalFailures = parameters.exitOnFatalFailures,
-          disableUpgradeValidation = parameters.disableUpgradeValidation,
-          packageDependencyResolver,
+          parameters,
+          packageMetadataView,
           ledgerApiStore,
           logicalSyncPersistentState,
-          packageMetadataView,
           loggerFactory,
           parameters.processingTimeouts,
           futureSupervisor,
@@ -196,15 +193,15 @@ object PhysicalSyncPersistentState {
         new DbPhysicalSyncPersistentState(
           participantId,
           physicalSynchronizerIdx,
+          indexedTopologyStoreId,
           staticSynchronizerParameters,
           clock,
           db,
           crypto,
           parameters,
-          packageDependencyResolver,
+          packageMetadataView,
           ledgerApiStore,
           logicalSyncPersistentState,
-          packageMetadataView,
           loggerFactory,
           futureSupervisor,
         )

@@ -24,6 +24,7 @@ import scala.concurrent.Future
 import scala.sys.process.{Process, ProcessLogger}
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
+import java.time.Instant
 
 import scala.concurrent.ExecutionContext
 
@@ -104,6 +105,7 @@ object CantonRunner {
          |        ${authConfig}
          |        ${tls}
          |      }
+         |      http-ledger-api.enabled = false
          |      storage.type = memory
          |      parameters = {
          |        engine.enable-engine-stack-traces = true
@@ -131,7 +133,7 @@ object CantonRunner {
          |        public-api.port = ${sequencerPublicApi.port}
          |        sequencer {
          |          config.storage.type = memory
-         |          type = community-reference
+         |          type = reference
          |        }
          |        storage.type = memory
          |    }
@@ -156,7 +158,7 @@ object CantonRunner {
         .mkString("\n")
     val bootstrapUploadDar = darFiles
       .map(darFile =>
-        s"participants.all.dars.upload(\"${darFile.toString.replace("\\", "\\\\")}\", \"\", true, true, \"\")"
+        s"participants.all.dars.upload(darPath = \"${darFile.toString.replace("\\", "\\\\")}\", description = \"\", vetAllPackages = true, synchronizeVetting = true, expectedMainPackageId = \"\")"
       )
       .mkString("\n")
     // Run the given clients bootstrap, upload dars via the console (which internally calls the admin api), then write a non-empty file for us to wait on
@@ -169,8 +171,9 @@ object CantonRunner {
          |import java.nio.charset.StandardCharsets
          |import com.digitalasset.canton.config.RequireTypes.PositiveInt
          |import com.digitalasset.canton.version.ProtocolVersion
+         |import com.digitalasset.canton.config.NonNegativeFiniteDuration
          |
-         |val staticSynchronizerParameters = StaticSynchronizerParameters.defaults(sequencer1.config.crypto, $protocolVersion)
+         |val staticSynchronizerParameters = StaticSynchronizerParameters.defaults(sequencer1.config.crypto, $protocolVersion, topologyChangeDelay=NonNegativeFiniteDuration.Zero)
          |val synchronizerOwners = Seq(sequencer1, mediator1)
          |bootstrap.synchronizer("mySynchronizer", Seq(sequencer1), Seq(mediator1), synchronizerOwners, PositiveInt.one, staticSynchronizerParameters)
          |${bootstrapConnectParticipants}
@@ -291,12 +294,13 @@ object CantonRunner {
       userId: String,
       authSecret: Option[String] = None,
       targetScope: Option[String] = None,
+      exp: Option[Instant] = None,
   ): Option[String] = authSecret.map { secret =>
     val payload = StandardJWTPayload(
       issuer = None,
       userId = userId,
       participantId = None,
-      exp = None,
+      exp = exp,
       format = StandardJWTTokenFormat.Scope,
       audiences = List.empty,
       scope = Some(targetScope.getOrElse("daml_ledger_api")),

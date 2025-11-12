@@ -4,6 +4,7 @@
 package com.digitalasset.canton.http.json.v2
 
 import com.daml.ledger.api.v2.admin.package_management_service
+import com.daml.ledger.api.v2.admin.package_management_service.UploadDarFileResponse
 import com.daml.ledger.api.v2.{package_reference, package_service}
 import com.digitalasset.canton.auth.AuthInterceptor
 import com.digitalasset.canton.http.json.v2.CirceRelaxedCodec.deriveRelaxedCodec
@@ -18,6 +19,7 @@ import com.digitalasset.canton.http.json.v2.JsSchema.{
 import com.digitalasset.canton.ledger.client.services.admin.PackageManagementClient
 import com.digitalasset.canton.ledger.client.services.pkg.PackageClient
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.logging.audit.ApiRequestLogger
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.protobuf
 import io.circe.generic.extras.semiauto.deriveConfiguredCodec
@@ -26,9 +28,19 @@ import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.{Source, StreamConverters}
 import org.apache.pekko.util
 import sttp.capabilities.pekko.PekkoStreams
+import sttp.model.StatusCode
 import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.jsonBody
-import sttp.tapir.{AnyEndpoint, CodecFormat, Schema, path, query, streamBinaryBody}
+import sttp.tapir.{
+  AnyEndpoint,
+  CodecFormat,
+  Endpoint,
+  Schema,
+  SchemaType,
+  path,
+  query,
+  streamBinaryBody,
+}
 
 import scala.annotation.unused
 import scala.concurrent.{ExecutionContext, Future}
@@ -39,6 +51,7 @@ import JsPackageCodecs.*
 class JsPackageService(
     packageClient: PackageClient,
     packageManagementClient: PackageManagementClient,
+    override protected val requestLogger: ApiRequestLogger,
     val loggerFactory: NamedLoggerFactory,
 )(implicit
     val executionContext: ExecutionContext,
@@ -48,6 +61,19 @@ class JsPackageService(
   @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
   def endpoints() =
     List(
+      // TODO(#27556): Extract validateDar and uploadDar in a separate service (JsDarService)
+      withServerLogic(
+        JsPackageService.validateDar,
+        validateDar,
+      ),
+      withServerLogic(
+        JsPackageService.uploadDar,
+        upload,
+      ),
+      withServerLogic(
+        JsPackageService.uploadDarOld,
+        upload,
+      ),
       withServerLogic(
         JsPackageService.listPackagesEndpoint,
         list,
@@ -55,10 +81,6 @@ class JsPackageService(
       withServerLogic(
         JsPackageService.downloadPackageEndpoint,
         getPackage,
-      ),
-      withServerLogic(
-        JsPackageService.uploadDar,
-        upload,
       ),
       withServerLogic(
         JsPackageService.packageStatusEndpoint,
@@ -76,22 +98,23 @@ class JsPackageService(
   private def list(
       caller: CallerContext
   ): TracedInput[Unit] => Future[Either[JsCantonError, package_service.ListPackagesResponse]] = {
-    req =>
-      packageClient.listPackages(caller.token())(req.traceContext).resultToRight
+    _ =>
+      packageClient.listPackages(caller.token())(caller.traceContext()).resultToRight
   }
 
   private def status(
       @unused caller: CallerContext
   ): TracedInput[String] => Future[
     Either[JsCantonError, package_service.GetPackageStatusResponse]
-  ] = req => packageClient.getPackageStatus(req.in, caller.token())(req.traceContext).resultToRight
+  ] = req =>
+    packageClient.getPackageStatus(req.in, caller.token())(caller.traceContext()).resultToRight
 
   private def listVettedPackages(
       @unused caller: CallerContext
   ): TracedInput[package_service.ListVettedPackagesRequest] => Future[
     Either[JsCantonError, package_service.ListVettedPackagesResponse]
   ] = req =>
-    packageClient.listVettedPackages(req.in, caller.token())(req.traceContext).resultToRight
+    packageClient.listVettedPackages(req.in, caller.token())(caller.traceContext()).resultToRight
 
   private def updateVettedPackages(
       @unused caller: CallerContext
@@ -99,19 +122,36 @@ class JsPackageService(
     Either[JsCantonError, package_management_service.UpdateVettedPackagesResponse]
   ] = req =>
     packageManagementClient
-      .updateVettedPackages(req.in, caller.token())(req.traceContext)
+      .updateVettedPackages(req.in, caller.token())(caller.traceContext())
       .resultToRight
 
+  private def validateDar(caller: CallerContext) = {
+    (tracedInput: TracedInput[(Source[util.ByteString, Any], Option[String])]) =>
+      implicit val traceContext: TraceContext = caller.traceContext()
+      val (bytesSource, synchronizerIdO) = tracedInput.in
+      val inputStream = bytesSource.runWith(StreamConverters.asInputStream())(materializer)
+      val bs = protobuf.ByteString.readFrom(inputStream)
+      packageManagementClient
+        .validateDarFile(
+          darFile = bs,
+          token = caller.token(),
+          synchronizerId = synchronizerIdO,
+        )
+        .resultToRight
+  }
+
   private def upload(caller: CallerContext) = {
-    (tracedInput: TracedInput[(Source[util.ByteString, Any], Option[Boolean])]) =>
-      implicit val traceContext: TraceContext = tracedInput.traceContext
-      val inputStream = tracedInput.in._1.runWith(StreamConverters.asInputStream())(materializer)
+    (tracedInput: TracedInput[(Source[util.ByteString, Any], Option[Boolean], Option[String])]) =>
+      implicit val traceContext: TraceContext = caller.traceContext()
+      val (bytesSource, vetAllPackagesO, synchronizerIdO) = tracedInput.in
+      val inputStream = bytesSource.runWith(StreamConverters.asInputStream())(materializer)
       val bs = protobuf.ByteString.readFrom(inputStream)
       packageManagementClient
         .uploadDarFile(
           darFile = bs,
           token = caller.token(),
-          vetAllPackages = tracedInput.in._2.getOrElse(true),
+          vetAllPackages = vetAllPackagesO.getOrElse(true),
+          synchronizerId = synchronizerIdO,
         )
         .map { _ =>
           package_management_service.UploadDarFileResponse()
@@ -121,7 +161,7 @@ class JsPackageService(
 
   private def getPackage(caller: CallerContext) = { (tracedInput: TracedInput[String]) =>
     packageClient
-      .getPackage(tracedInput.in, caller.token())(tracedInput.traceContext)
+      .getPackage(tracedInput.in, caller.token())(caller.traceContext())
       .map(response =>
         (
           Source.fromIterator(() =>
@@ -142,14 +182,34 @@ object JsPackageService extends DocumentationEndpoints {
   import Endpoints.*
   lazy val packages = v2Endpoint.in(sttp.tapir.stringToPath("packages"))
   lazy val packageVetting = v2Endpoint.in(sttp.tapir.stringToPath("package-vetting"))
+  lazy val dars = v2Endpoint.in(sttp.tapir.stringToPath("dars"))
   private val packageIdPath = "package-id"
 
-  val uploadDar =
-    packages.post
+  val validateDar =
+    dars.post
+      .in(streamBinaryBody(PekkoStreams)(CodecFormat.OctetStream()).toEndpointIO)
+      .in(sttp.tapir.stringToPath("validate"))
+      .in(query[Option[String]]("synchronizerId"))
+      .description(
+        "Validates a DAR for upgrade-compatibility against the current vetting state on the target synchronizer"
+      )
+
+  val uploadDar = uploadDarEndpoint(dars).description("Upload a DAR to the participant node")
+
+  private val uploadDarOld =
+    uploadDarEndpoint(packages)
+      .description(
+        "Upload a DAR to the participant node. Behaves the same as /dars. This endpoint will be deprecated and removed in a future release."
+      )
+
+  private def uploadDarEndpoint(
+      endpointDef: Endpoint[CallerContext, Unit, (StatusCode, JsCantonError), Unit, Any]
+  ) =
+    endpointDef.post
       .in(streamBinaryBody(PekkoStreams)(CodecFormat.OctetStream()).toEndpointIO)
       .in(query[Option[Boolean]]("vetAllPackages"))
-      .out(jsonBody[package_management_service.UploadDarFileResponse])
-      .description("Upload a DAR to the participant node")
+      .in(query[Option[String]]("synchronizerId"))
+      .out(jsonBody[UploadDarFileResponse])
 
   val listPackagesEndpoint =
     packages.get
@@ -186,7 +246,9 @@ object JsPackageService extends DocumentationEndpoints {
 
   override def documentation: Seq[AnyEndpoint] =
     Seq(
+      validateDar,
       uploadDar,
+      uploadDarOld,
       listPackagesEndpoint,
       downloadPackageEndpoint,
       packageStatusEndpoint,
@@ -224,6 +286,32 @@ object JsPackageCodecs {
       : Schema[package_management_service.VettedPackagesChange.Operation] =
     Schema.oneOfWrapped
 
+  implicit val topologySerial: Codec[package_reference.PriorTopologySerial] =
+    deriveRelaxedCodec
+
+  implicit val topologySerialSerial: Codec[package_reference.PriorTopologySerial.Serial] =
+    deriveConfiguredCodec
+
+  implicit val topologySerialSerialPriorOneOf
+      : Codec[package_reference.PriorTopologySerial.Serial.Prior] =
+    deriveRelaxedCodec
+
+  implicit val topologySerialSerialNoPriorOneOf
+      : Codec[package_reference.PriorTopologySerial.Serial.NoPrior] =
+    Codec.from(
+      Decoder.decodeUnit.map(_ =>
+        package_reference.PriorTopologySerial.Serial.NoPrior(com.google.protobuf.empty.Empty())
+      ),
+      Encoder.encodeUnit.contramap[package_reference.PriorTopologySerial.Serial.NoPrior](_ => ()),
+    )
+
+  implicit val updateVettedPackagesForceFlagEncoder
+      : Encoder[package_management_service.UpdateVettedPackagesForceFlag] =
+    stringEncoderForEnum()
+  implicit val updateVettedPackagesForceFlagDecoder
+      : Decoder[package_management_service.UpdateVettedPackagesForceFlag] =
+    stringDecoderForEnum()
+
   implicit val vettedPackagesChange: Codec[package_management_service.VettedPackagesChange] =
     deriveRelaxedCodec
   implicit val updateVettedPackagesRequest
@@ -257,5 +345,24 @@ object JsPackageCodecs {
     Schema.oneOfWrapped
 
   implicit val packageStatusSchema: Schema[package_service.PackageStatus] = stringSchemaForEnum()
+
+  // Schema mappings are added to align generated tapir docs with a circe mapping of ADTs
+  implicit val updateVettedPackagesForceFlagRecognizedSchema
+      : Schema[package_management_service.UpdateVettedPackagesForceFlag.Recognized] =
+    Schema.oneOfWrapped
+  implicit val updateVettedPackagesForceFlagSchema
+      : Schema[package_management_service.UpdateVettedPackagesForceFlag] =
+    stringSchemaForEnum()
+
+  implicit val topologySerialSerialNoPriorSchema
+      : Schema[package_reference.PriorTopologySerial.Serial.NoPrior] =
+    Schema(
+      schemaType =
+        SchemaType.SProduct[package_reference.PriorTopologySerial.Serial.NoPrior](List.empty),
+      name = Some(Schema.SName("NoPrior")),
+    )
+
+  implicit val topologySerialSerialSchema: Schema[package_reference.PriorTopologySerial.Serial] =
+    Schema.oneOfWrapped
 
 }

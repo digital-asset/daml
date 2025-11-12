@@ -1,4 +1,4 @@
--- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 create schema debug;
@@ -166,7 +166,10 @@ create or replace view debug.par_dars as
   from par_dars;
 
 create or replace view debug.par_dar_packages as
-select main_package_id , package_id from par_dar_packages;
+  select
+    main_package_id,
+    package_id
+  from par_dar_packages;
 
 create or replace view debug.common_crypto_private_keys as
   select
@@ -195,6 +198,7 @@ create or replace view debug.common_crypto_public_keys as
 
 create or replace view debug.par_contracts as
   select
+    internal_contract_id,
     lower(encode(contract_id, 'hex')) as contract_id,
     instance,
     package_id,
@@ -345,7 +349,7 @@ create or replace view debug.par_last_computed_acs_commitments as
 create or replace view debug.par_commitment_snapshot as
   select
     debug.resolve_common_static_string(synchronizer_idx) as synchronizer_idx,
-    stakeholders_hash,
+    lower(encode(stakeholders_hash, 'hex')) as stakeholders_hash,
     stakeholders,
     commitment
   from par_commitment_snapshot;
@@ -356,6 +360,21 @@ create or replace view debug.par_commitment_snapshot_time as
     debug.canton_timestamp(ts) as ts,
     tie_breaker
   from par_commitment_snapshot_time;
+
+  create or replace view debug.par_commitment_checkpoint_snapshot as
+    select
+      debug.resolve_common_static_string(synchronizer_idx) as synchronizer_idx,
+      lower(encode(stakeholders_hash, 'hex')) as stakeholders_hash,
+      stakeholders,
+      commitment
+    from par_commitment_checkpoint_snapshot;
+
+  create or replace view debug.par_commitment_checkpoint_snapshot_time as
+    select
+      debug.resolve_common_static_string(synchronizer_idx) as synchronizer_idx,
+      debug.canton_timestamp(ts) as ts,
+      tie_breaker
+    from par_commitment_checkpoint_snapshot_time;
 
 
 create or replace view debug.par_commitment_reinitialization as
@@ -489,12 +508,12 @@ create or replace view debug.sequencer_events as
   from sequencer_events;
 
 create or replace view debug.sequencer_event_recipients as
-select
+  select
     debug.canton_timestamp(ts) as ts,
     debug.resolve_sequencer_member(recipient_id) as recipient_id,
     node_index,
     is_topology_event
-from sequencer_event_recipients;
+  from sequencer_event_recipients;
 
 create or replace view debug.par_pruning_schedules as
   select
@@ -559,7 +578,6 @@ create or replace view debug.sequencer_synchronizer_configuration as
 
 create or replace view debug.mediator_deduplication_store as
   select
-    mediator_id,
     uuid,
     debug.canton_timestamp(request_time) as request_time,
     debug.canton_timestamp(expire_after) as expire_after
@@ -596,17 +614,18 @@ create or replace view debug.common_topology_transactions as
     debug.topology_mapping(transaction_type) as transaction_type,
     namespace,
     identifier,
-    mapping_key_hash,
+    lower(encode(mapping_key_hash, 'hex')) as mapping_key_hash,
     serial_counter,
     debug.canton_timestamp(valid_from) as valid_from,
+    batch_idx,
     debug.canton_timestamp(valid_until) as valid_until,
     debug.topology_change_op(operation) as operation,
     instance,
-    tx_hash,
+    lower(encode(tx_hash, 'hex')) as tx_hash,
     rejection_reason,
     is_proposal,
     representative_protocol_version,
-    hash_of_signatures
+    lower(encode(hash_of_signatures, 'hex')) as hash_of_signatures
   from common_topology_transactions;
 
 create or replace view debug.seq_traffic_control_balance_updates as
@@ -648,14 +667,14 @@ create or replace view debug.ord_availability_batch as
   from ord_availability_batch;
 
 create or replace view debug.ord_pbft_messages_in_progress as
-select
+  select
     block_number,
     epoch_number,
     view_number,
     message,
     discriminator,
     from_sequencer_id
-from ord_pbft_messages_in_progress;
+  from ord_pbft_messages_in_progress;
 
 create or replace view debug.ord_pbft_messages_completed as
   select
@@ -687,13 +706,13 @@ create or replace view debug.ord_output_lower_bound as
   from ord_output_lower_bound;
 
 create or replace view debug.ord_pruning_schedules as
-select
+  select
     lock,
     cron,
     max_duration,
     retention,
     min_blocks_to_keep
-from ord_pruning_schedules;
+  from ord_pruning_schedules;
 
 create or replace view debug.ord_leader_selection_state as
   select
@@ -718,23 +737,32 @@ create or replace view debug.ord_p2p_endpoints as
     client_private_key_file
   from ord_p2p_endpoints;
 
-create or replace VIEW debug.acs_no_wait_counter_participants as
-    select
-        synchronizer_id,
-        participant_id
-        from acs_no_wait_counter_participants;
+create or replace view debug.acs_no_wait_counter_participants as
+  select
+    synchronizer_id,
+    participant_id
+  from acs_no_wait_counter_participants;
 
-create or replace VIEW debug.acs_slow_participant_config as
-    select
-        synchronizer_id,
-        threshold_distinguished,
-        threshold_default
-        from acs_slow_participant_config;
+create or replace view debug.acs_slow_participant_config as
+  select
+    synchronizer_id,
+    threshold_distinguished,
+    threshold_default
+  from acs_slow_participant_config;
 
-create or replace VIEW debug.acs_slow_counter_participants as
-    select
-        synchronizer_id,
-        participant_id,
-        is_distinguished,
-        is_added_to_metrics
-        from acs_slow_counter_participants;
+create or replace view debug.acs_slow_counter_participants as
+  select
+    synchronizer_id,
+    participant_id,
+    is_distinguished,
+    is_added_to_metrics
+  from acs_slow_counter_participants;
+
+create or replace view debug.common_pending_operations as
+  select
+    operation_trigger,
+    operation_name,
+    operation_key,
+    operation,
+    synchronizer_id
+  from common_pending_operations;

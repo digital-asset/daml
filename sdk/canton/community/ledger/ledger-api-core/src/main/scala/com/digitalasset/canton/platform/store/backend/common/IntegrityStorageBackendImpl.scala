@@ -3,13 +3,14 @@
 
 package com.digitalasset.canton.platform.store.backend.common
 
-import anorm.SqlParser.{array, int, long, str}
+import anorm.SqlParser.{byteArray, int, long, str}
 import anorm.{RowParser, ~}
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.platform.store.backend.IntegrityStorageBackend
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.`SimpleSql ops`
+import com.digitalasset.canton.protocol.UpdateId
 import com.digitalasset.canton.topology.SynchronizerId
 import com.google.common.annotations.VisibleForTesting
 
@@ -20,30 +21,22 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
 
   private val allSequentialIds: String =
     s"""
-      |SELECT event_sequential_id FROM lapi_events_create
+      |SELECT event_sequential_id FROM lapi_events_activate_contract
       |UNION ALL
-      |SELECT event_sequential_id FROM lapi_events_consuming_exercise
+      |SELECT event_sequential_id FROM lapi_events_deactivate_contract
       |UNION ALL
-      |SELECT event_sequential_id FROM lapi_events_non_consuming_exercise
-      |UNION ALL
-      |SELECT event_sequential_id FROM lapi_events_unassign
-      |UNION ALL
-      |SELECT event_sequential_id FROM lapi_events_assign
+      |SELECT event_sequential_id FROM lapi_events_various_witnessed
       |UNION ALL
       |SELECT event_sequential_id FROM lapi_events_party_to_participant
       |""".stripMargin
 
   private val allSequentialIdsAndOffsets: String =
     s"""
-       |SELECT event_sequential_id, event_offset FROM lapi_events_create
+       |SELECT event_sequential_id, event_offset FROM lapi_events_activate_contract
        |UNION ALL
-       |SELECT event_sequential_id, event_offset FROM lapi_events_consuming_exercise
+       |SELECT event_sequential_id, event_offset FROM lapi_events_deactivate_contract
        |UNION ALL
-       |SELECT event_sequential_id, event_offset FROM lapi_events_non_consuming_exercise
-       |UNION ALL
-       |SELECT event_sequential_id, event_offset FROM lapi_events_unassign
-       |UNION ALL
-       |SELECT event_sequential_id, event_offset FROM lapi_events_assign
+       |SELECT event_sequential_id, event_offset FROM lapi_events_various_witnessed
        |UNION ALL
        |SELECT event_sequential_id, event_offset FROM lapi_events_party_to_participant
        |""".stripMargin
@@ -77,15 +70,11 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
 
   private val allEventIds: String =
     s"""
-       |SELECT event_offset, node_id FROM lapi_events_create
+       |SELECT event_offset, node_id FROM lapi_events_activate_contract
        |UNION ALL
-       |SELECT event_offset, node_id FROM lapi_events_consuming_exercise
+       |SELECT event_offset, node_id FROM lapi_events_deactivate_contract
        |UNION ALL
-       |SELECT event_offset, node_id FROM lapi_events_non_consuming_exercise
-       |UNION ALL
-       |SELECT event_offset, node_id FROM lapi_events_unassign
-       |UNION ALL
-       |SELECT event_offset, node_id FROM lapi_events_assign
+       |SELECT event_offset, node_id FROM lapi_events_various_witnessed
        |""".stripMargin
 
   private val SqlDuplicateOffsets = SQL"""
@@ -110,7 +99,8 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
 
   @VisibleForTesting
   override def verifyIntegrity(
-      failForEmptyDB: Boolean = true
+      failForEmptyDB: Boolean,
+      inMemoryCantonStore: Boolean,
   )(connection: Connection): Unit = try {
     val duplicateSeqIds = SqlDuplicateEventSequentialIds
       .as(long("id").*)(connection)
@@ -144,15 +134,11 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
 
     // Verify monotonic record times per synchronizer
     val offsetSynchronizerRecordTime = SQL"""
-       SELECT event_offset as _offset, record_time, synchronizer_id FROM lapi_events_create
+       SELECT event_offset as _offset, record_time, synchronizer_id FROM lapi_events_activate_contract
        UNION ALL
-       SELECT event_offset as _offset, record_time, synchronizer_id FROM lapi_events_consuming_exercise
+       SELECT event_offset as _offset, record_time, synchronizer_id FROM lapi_events_deactivate_contract
        UNION ALL
-       SELECT event_offset as _offset, record_time, synchronizer_id FROM lapi_events_non_consuming_exercise
-       UNION ALL
-       SELECT event_offset as _offset, record_time, source_synchronizer_id as synchronizer_id FROM lapi_events_unassign
-       UNION ALL
-       SELECT event_offset as _offset, record_time, target_synchronizer_id as synchronizer_id FROM lapi_events_assign
+       SELECT event_offset as _offset, record_time, synchronizer_id FROM lapi_events_various_witnessed
        UNION ALL
        SELECT completion_offset as _offset, record_time, synchronizer_id FROM lapi_command_completions
        UNION ALL
@@ -186,10 +172,10 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
                 meta1.event_offset != meta2.event_offset
           FETCH NEXT 1 ROWS ONLY
       """
-      .asSingleOpt(str("uId") ~ offset("offset1") ~ offset("offset2"))(connection)
+      .asSingleOpt(updateId("uId") ~ offset("offset1") ~ offset("offset2"))(connection)
       .foreach { case uId ~ offset1 ~ offset2 =>
         throw new RuntimeException(
-          s"occurrence of duplicate update ID [$uId] found for offsets $offset1, $offset2"
+          s"occurrence of duplicate update ID [${uId.toHexString}] found for offsets $offset1, $offset2"
         )
       }
 
@@ -252,9 +238,9 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
       .asVectorOf(
         offset("completion_offset") ~
           int("user_id") ~
-          array[Int]("submitters") ~
+          byteArray("submitters") ~
           str("command_id") ~
-          str("update_id").? ~
+          updateId("update_id").? ~
           str("submission_id").? ~
           str("message_uuid").? ~
           long("record_time") ~
@@ -262,7 +248,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
             case offset ~ userId ~ submitters ~ commandId ~ updateId ~ submissionId ~ messageUuid ~ recordTimeLong ~ synchronizerId =>
               CompletionEntry(
                 userId,
-                submitters.toList,
+                IntArrayDBSerialization.decodeFromByteArray(submitters).toList,
                 commandId,
                 updateId,
                 submissionId,
@@ -302,11 +288,180 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
         )
       )
 
+    // Verify no duplicate completion entry
+    val internalContractIds = SQL"""
+          SELECT
+            internal_contract_id
+          FROM par_contracts
+      """
+      .asVectorOf(long("internal_contract_id"))(connection)
+    val firstTenDuplicatedInternalIds = internalContractIds
+      .groupMap(identity)(identity)
+      .iterator
+      .filter(_._2.sizeIs > 1)
+      .take(10)
+      .map(_._1)
+      .toSeq
+    if (firstTenDuplicatedInternalIds.nonEmpty)
+      throw new RuntimeException(
+        s"duplicate internal_contract_id-s found in table par_contracts (first 10 shown) $firstTenDuplicatedInternalIds"
+      )
+
+    val pruning_started_up_to_inclusive =
+      SQL"""SELECT started_up_to_inclusive FROM par_pruning_operation
+          """
+        .asSingleOpt(long("started_up_to_inclusive"))(connection)
+        .getOrElse(-1L)
+
+    if (!inMemoryCantonStore) {
+      val referencedInternalContractIdsWithOffset = SQL"""
+              SELECT internal_contract_id, event_offset
+              FROM lapi_events_activate_contract
+              WHERE event_offset > $pruning_started_up_to_inclusive
+              UNION ALL
+              SELECT internal_contract_id, event_offset -- activations which were not deactivated before pruning point
+              FROM lapi_events_activate_contract
+              WHERE event_offset <= $pruning_started_up_to_inclusive
+              AND NOT EXISTS (
+                SELECT 1
+                FROM lapi_events_deactivate_contract
+                WHERE lapi_events_deactivate_contract.deactivated_event_sequential_id = lapi_events_activate_contract.event_sequential_id
+                AND lapi_events_deactivate_contract.event_offset <= $pruning_started_up_to_inclusive
+              )
+              UNION ALL
+              SELECT internal_contract_id, event_offset
+              FROM lapi_events_deactivate_contract
+              WHERE event_offset > $pruning_started_up_to_inclusive
+                AND internal_contract_id IS NOT NULL
+              UNION ALL
+              SELECT internal_contract_id, event_offset
+              FROM lapi_events_various_witnessed
+              WHERE event_offset > $pruning_started_up_to_inclusive
+                AND internal_contract_id IS NOT NULL
+          """
+        .asVectorOf(long("internal_contract_id") ~ long("event_offset") map {
+          case internal_contract_id ~ event_offset => (internal_contract_id, event_offset)
+        })(connection)
+      val strayInternalContractIdsWithOffset =
+        referencedInternalContractIdsWithOffset
+          .filterNot(p => internalContractIds.contains(p._1))
+          .distinct
+          .sorted
+      if (strayInternalContractIdsWithOffset.nonEmpty) {
+        throw new RuntimeException(
+          s"some internal_contract_id-s in events tables are not present in par_contracts (first 10 shown with offsets) ${strayInternalContractIdsWithOffset
+              .take(10)
+              .mkString("[", ", ", "]")}"
+        )
+      }
+    }
+
+    val strayDeactivationsWithOffset =
+      SQL"""
+        SELECT deactivated_event_sequential_id, event_offset
+        FROM lapi_events_deactivate_contract dea, lapi_parameters
+        WHERE deactivated_event_sequential_id IS NOT NULL AND NOT EXISTS (
+          SELECT 1
+          FROM lapi_events_activate_contract act
+          WHERE act.event_sequential_id < dea.event_sequential_id
+          AND act.event_sequential_id = dea.deactivated_event_sequential_id
+        )
+        AND lapi_parameters.ledger_end is not null
+        AND event_offset <= lapi_parameters.ledger_end
+    """
+        .asVectorOf(
+          long("lapi_events_deactivate_contract.deactivated_event_sequential_id") ~ long(
+            "event_offset"
+          ) map { case deactivated_event_sequential_id ~ event_offset =>
+            (deactivated_event_sequential_id, event_offset)
+          }
+        )(
+          connection
+        )
+        .sorted
+    if (strayDeactivationsWithOffset.nonEmpty)
+      throw new RuntimeException(
+        s"some deactivation events do not have a preceding activation event, deactivated_event_sequential_id-s with offsets (first 10 shown) ${strayDeactivationsWithOffset
+            .take(10)
+            .mkString("[", ", ", "]")}"
+      )
+
+    val eventSequentialIdsWithMissingMandatories =
+      SQL"""
+          SELECT event_sequential_id, event_offset
+          FROM lapi_events_activate_contract
+          WHERE (event_type = 2 -- assign
+            AND (source_synchronizer_id IS NULL OR reassignment_counter IS NULL OR reassignment_id IS NULL))
+
+          UNION ALL
+
+          SELECT event_sequential_id, event_offset
+          FROM lapi_events_deactivate_contract
+          WHERE (event_type = 3 -- consuming exercise
+            AND (
+              additional_witnesses IS NULL OR
+              exercise_choice IS NULL OR
+              exercise_argument IS NULL OR
+              exercise_result IS NULL OR
+              exercise_actors IS NULL OR
+              contract_id IS NULL OR
+              ledger_effective_time IS NULL
+            )
+          ) OR (event_type = 4 -- unassign
+            AND (
+              reassignment_id IS NULL OR
+              target_synchronizer_id IS NULL OR
+              reassignment_counter IS NULL OR
+              contract_id IS NULL
+            )
+          )
+
+          UNION ALL
+
+          SELECT event_sequential_id, event_offset
+          FROM lapi_events_various_witnessed
+          WHERE (event_type = 5 -- non-consuming exercise
+            AND (
+              consuming IS NULL OR
+              exercise_choice IS NULL OR
+              exercise_argument IS NULL OR
+              exercise_result IS NULL OR
+              exercise_actors IS NULL OR
+              contract_id IS NULL OR
+              template_id IS NULL OR
+              package_id IS NULL OR
+              ledger_effective_time IS NULL
+            )
+          ) OR (event_type = 6 -- witnessed create
+            AND (representative_package_id IS NULL OR internal_contract_id IS NULL)
+          ) OR (event_type = 7 -- witnessed consuming exercise
+            AND (
+              consuming IS NULL OR
+              exercise_choice IS NULL OR
+              exercise_argument IS NULL OR
+              exercise_result IS NULL OR
+              exercise_actors IS NULL OR
+              contract_id IS NULL OR
+              template_id IS NULL OR
+              package_id IS NULL OR
+              ledger_effective_time IS NULL
+            )
+          )
+      """
+        .asVectorOf(long("event_sequential_id") ~ long("event_offset") map {
+          case event_sequential_id ~ event_offset => (event_sequential_id, event_offset)
+        })(connection)
+    if (eventSequentialIdsWithMissingMandatories.nonEmpty)
+      throw new RuntimeException(
+        s"some events are missing mandatory fields, event_sequential_ids, offsets (first 10 shown) ${eventSequentialIdsWithMissingMandatories
+            .take(10)
+            .mkString("[", ", ", "]")}"
+      )
   } catch {
     case t: Throwable if !failForEmptyDB =>
       val failure = t.getMessage
       val postgresEmptyDBError = failure.contains(
-        "relation \"lapi_events_create\" does not exist"
+        "relation \"lapi_events_activate_contract\" does not exist"
       )
       val h2EmptyDBError = failure.contains(
         "this database is empty"
@@ -339,7 +494,9 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
     */
   @VisibleForTesting
   override def moveLedgerEndBackToScratch()(connection: Connection): Unit = {
-    SQL"DELETE FROM lapi_parameters".executeUpdate()(connection).discard
+    SQL"UPDATE lapi_parameters SET ledger_end = 1, ledger_end_sequential_id = 0"
+      .executeUpdate()(connection)
+      .discard
     SQL"DELETE FROM lapi_post_processing_end".executeUpdate()(connection).discard
     SQL"DELETE FROM lapi_ledger_end_synchronizer_index".executeUpdate()(connection).discard
     SQL"DELETE FROM par_command_deduplication".executeUpdate()(connection).discard
@@ -350,7 +507,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
       userId: Int,
       submitters: List[Int],
       commandId: String,
-      updateId: Option[String],
+      updateId: Option[UpdateId],
       submissionId: Option[String],
       messageUuid: Option[String],
       recordTimeLong: Long,

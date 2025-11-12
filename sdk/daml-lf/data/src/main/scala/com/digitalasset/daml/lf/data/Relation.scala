@@ -41,4 +41,5 @@ object Relation {
   private[this] def get[A, B](r: data.Relation[A, B], a: A): Set[B] =
     r.getOrElse(a, Set.empty[B])
 
+  def lookup[A, B](r: data.Relation[A, B], a: A): Set[B] = get[A, B](r, a)
 }

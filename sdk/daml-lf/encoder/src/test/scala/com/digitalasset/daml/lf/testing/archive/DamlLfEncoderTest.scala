@@ -6,13 +6,7 @@ package com.digitalasset.daml.lf.testing.archive
 import java.io.File
 import com.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.archive.DamlLf2
-import com.digitalasset.daml.lf.archive.{
-  ArchivePayload,
-  Dar,
-  DecodeV2,
-  UniversalArchiveDecoder,
-  UniversalArchiveReader,
-}
+import com.digitalasset.daml.lf.archive.{ArchivePayload, Dar, DecodeV2, DarDecoder, DarReader}
 import com.digitalasset.daml.lf.data.Ref.DottedName
 import com.digitalasset.daml.lf.data.Ref.ModuleName
 import com.digitalasset.daml.lf.language.Ast
@@ -23,7 +17,6 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import scala.jdk.CollectionConverters._
 import scala.language.implicitConversions
-import scala.Ordering.Implicits.infixOrderingOps
 
 class DamlLfEncoderTest
     extends AnyWordSpec
@@ -35,7 +28,7 @@ class DamlLfEncoderTest
 
     "be readable" in {
 
-      val modules_2_1 = Set[DottedName](
+      val sharedModules = Set[DottedName](
         "UnitMod",
         "BoolMod",
         "Int64Mod",
@@ -60,30 +53,63 @@ class DamlLfEncoderTest
         "TextMapMod",
         "LedgerTimeMod",
       )
-      val modules_2_dev = modules_2_1 ++ Set[DottedName](
+      val modules_2_1 = sharedModules ++ Set[DottedName]("InterfaceUnsafeFromMod")
+      val modules_2_2 = sharedModules
+      val modules_2_dev = sharedModules ++ Set[DottedName](
         "BigNumericMod",
         "InterfaceExtMod",
         "TemplateWithKeyMod",
         "DA.Types", // stable package
       )
 
+      val stableModules = Set[DottedName](
+        "DA.Exception.ArithmeticError",
+        "DA.Exception.AssertionFailed",
+        "DA.Exception.GeneralError",
+        "DA.Exception.PreconditionFailed",
+        "DA.Internal.Erased",
+        "DA.Internal.NatSyn",
+        "DA.Internal.PromotedText",
+        "DA.Types",
+        "GHC.Prim",
+        "GHC.Tuple",
+        "GHC.Types",
+        "DA.Action.State.Type",
+        "DA.Date.Types",
+        "DA.Internal.Any",
+        "DA.Internal.Down",
+        "DA.Internal.Fail.Types",
+        "DA.Internal.Interface.AnyView.Types",
+        "DA.Internal.Template",
+        "DA.Logic.Types",
+        "DA.Monoid.Types",
+        "DA.NonEmpty.Types",
+        "DA.Random.Types",
+        "DA.Semigroup.Types",
+        "DA.Set.Types",
+        "DA.Stack.Types",
+        "DA.Time.Types",
+        "DA.Validation.Types",
+      )
+
       val versions = Table(
         "versions" -> "modules",
         "2.1" -> modules_2_1,
+        "2.2" -> modules_2_2,
         "2.dev" -> modules_2_dev,
       )
 
       forEvery(versions) { (version, expectedModules) =>
         val dar =
-          UniversalArchiveReader
-            .readFile(new File(rlocation(s"daml-lf/encoder/test-$version.dar")))
+          DarReader
+            .readArchiveFromFile(new File(rlocation(s"daml-lf/encoder/test-$version.dar")))
 
         dar shouldBe a[Right[_, _]]
 
         val findModules = dar.toOption.toList.flatMap(getNonEmptyModules).toSet
 
-        findModules diff expectedModules shouldBe Set()
-        expectedModules diff findModules shouldBe Set()
+        (findModules diff expectedModules) diff stableModules shouldBe Set()
+        (expectedModules diff findModules) diff stableModules shouldBe Set()
 
       }
     }
@@ -94,7 +120,7 @@ class DamlLfEncoderTest
     for {
       payload <- dar.all
       name <- payload match {
-        case ArchivePayload.Lf2(_, pkg, _) => getNonEmptyModules(pkg)
+        case ArchivePayload.Lf2(_, pkg, _, _) => getNonEmptyModules(pkg)
         case _ => throw new RuntimeException(s"Unsupported language version: ${payload.version}")
       }
     } yield name
@@ -122,28 +148,31 @@ class DamlLfEncoderTest
     val builtinMod = ModuleName.assertFromString("BuiltinMod")
 
     "contains all builtins " in {
-      forEvery(Table("version", LanguageVersion.AllV2.filter(LanguageVersion.v2_1 <= _): _*)) {
-        version =>
-          val Right(dar) =
-            UniversalArchiveDecoder
-              .readFile(new File(rlocation(s"daml-lf/encoder/test-${version.pretty}.dar")))
-          val (_, mainPkg) = dar.main
-          val builtinInModule = mainPkg
-            .modules(builtinMod)
-            .definitions
-            .values
-            .collect { case Ast.DValue(_, Ast.EBuiltinFun(builtin)) => builtin }
-            .toSet
-          val builtinsInVersion = DecodeV2.builtinFunctionInfos.collect {
-            case DecodeV2.BuiltinFunctionInfo(_, builtin, minVersion, maxVersion, _)
-                if minVersion <= version && maxVersion.forall(version < _) =>
-              builtin
-          }.toSet
+      forEvery(
+        Table("version", LanguageVersion.allLfVersions.filter(LanguageVersion.v2_dev < _): _*)
+      ) { version =>
+        val Right(dar) =
+          DarDecoder
+            .readArchiveFromFile(
+              new File(rlocation(s"daml-lf/encoder/test-${version.pretty}.dar"))
+            )
+        val (_, mainPkg) = dar.main
+        val builtinInModule = mainPkg
+          .modules(builtinMod)
+          .definitions
+          .values
+          .collect { case Ast.DValue(_, Ast.EBuiltinFun(builtin)) => builtin }
+          .toSet
+        val builtinsInVersion = DecodeV2.builtinFunctionInfos.collect {
+          case DecodeV2.BuiltinFunctionInfo(_, builtin, minVersion, maxVersion, _)
+              if minVersion <= version && maxVersion.forall(version < _) =>
+            builtin
+        }.toSet
 
-          val missingBuiltins = builtinsInVersion -- builtinInModule
-          assert(missingBuiltins.isEmpty, s", missing builtin(s) in BuiltinMod")
-          val unexpectedBuiltins = builtinInModule -- builtinsInVersion
-          assert(unexpectedBuiltins.isEmpty, s", unexpected builtin(s) in BuiltinMod")
+        val missingBuiltins = builtinsInVersion -- builtinInModule
+        assert(missingBuiltins.isEmpty, s", missing builtin(s) in BuiltinMod")
+        val unexpectedBuiltins = builtinInModule -- builtinsInVersion
+        assert(unexpectedBuiltins.isEmpty, s", unexpected builtin(s) in BuiltinMod")
       }
     }
   }

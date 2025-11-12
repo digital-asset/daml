@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf
 package speedy
 
 import com.daml.logging.LoggingContext
-import com.digitalasset.daml.lf.data.Ref.{Location, Party}
+import com.digitalasset.daml.lf.data.Ref.{Location, PackageId, PackageName, Party}
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.Ast._
@@ -22,7 +22,7 @@ import com.digitalasset.daml.lf.transaction.{
   FatContractInstance,
   GlobalKey,
   GlobalKeyWithMaintainers,
-  TransactionVersion,
+  SerializationVersion,
 }
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{ValueParty, ValueRecord}
@@ -59,6 +59,8 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
     with Matchers
     with Inside {
 
+  val serializationVersion = SerializationVersion.assign(languageVersion)
+
   private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
   private val packageId = Ref.PackageId.assertFromString("-pkg-")
@@ -67,7 +69,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
 
   private[this] final def tuple2TyCon: String = {
     val Tuple2 =
-      com.digitalasset.daml.lf.stablepackages.StablePackages(languageVersion.major).Tuple2
+      com.digitalasset.daml.lf.stablepackages.StablePackages.stablePackages.Tuple2
     s"'${Tuple2.packageId}':${Tuple2.qualifiedName}"
   }
 
@@ -353,7 +355,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
   private[this] val helperCId: Value.ContractId =
     Value.ContractId.V1(crypto.Hash.hashPrivateKey("Helper"))
 
-  private[this] val emptyNestedValue = Value.ValueRecord(None, ImmArray(None -> Value.ValueNone))
+  private[this] val emptyNestedValue = Value.ValueRecord(None, ImmArray.empty)
 
   private[this] val keyValue = Value.ValueRecord(
     None,
@@ -373,7 +375,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
     ),
   )
 
-  private val testTxVersion: TransactionVersion = languageVersion
+  private val testTxVersion: SerializationVersion = serializationVersion
 
   private[this] def buildContract(observer: Party): FatContractInstance =
     TransactionBuilder.fatContractInstanceWithDummyDefaults(
@@ -403,25 +405,6 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
         )
       ),
     )
-
-  private[this] def buildDisclosedContract(
-      signatory: Party
-  ): (Value.ContractId, Speedy.ContractInfo) = {
-    cId ->
-      Speedy.ContractInfo(
-        version = TransactionVersion.minVersion,
-        packageName = pkg.pkgName,
-        templateId = Dummy,
-        value = SRecord(
-          Dummy,
-          ImmArray(Ref.Name.assertFromString("signatory")),
-          ArraySeq(SParty(signatory)),
-        ),
-        signatories = Set(signatory),
-        observers = Set.empty,
-        keyOpt = None,
-      )
-  }
 
   private[this] val visibleContract = buildContract(bob)
 
@@ -484,17 +467,16 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
 
   private[this] val seed = crypto.Hash.hashPrivateKey("seed")
 
-  private[this] def evalUpdateApp(
+  private def evalUpdateApp(
       pkgs: CompiledPackages,
       e: Expr,
       args: ArraySeq[SValue],
       parties: Set[Party],
       readAs: Set[Party] = Set.empty,
-      packageResolution: Map[Ref.PackageName, Ref.PackageId] = packageNameMap,
-      disclosedContracts: Iterable[(Value.ContractId, Speedy.ContractInfo)] = Iterable.empty,
+      packageResolution: Map[PackageName, PackageId] = packageNameMap,
       getContract: PartialFunction[Value.ContractId, FatContractInstance] = PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
-  ): (Try[Either[SError, SValue]], Seq[String]) = {
+  ) = {
     val se = pkgs.compiler.unsafeCompile(e)
     val traceLog = new TestTraceLog()
     val machine = Speedy.Machine
@@ -507,9 +489,6 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
         packageResolution = packageResolution,
         traceLog = traceLog,
       )
-    disclosedContracts.foreach { case (cid, contract) =>
-      machine.addDisclosedContracts(cid, contract)
-    }
     val res = Try(
       SpeedyTestLib.run(
         machine,
@@ -537,19 +516,11 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
 
     "native foldl match LF implementation" in {
 
-      val (_, refMsgs) = evalUpdateApp(
-        pkgs,
-        e"""Test:testFold (M:foldl @Text @Text)""",
-        ArraySeq.empty,
-        Set.empty,
-      )
+      val (_, refMsgs) =
+        evalUpdateApp(pkgs, e"""Test:testFold (M:foldl @Text @Text)""", ArraySeq.empty, Set.empty)
 
-      val (_, msgs) = evalUpdateApp(
-        pkgs,
-        e"""Test:testFold (FOLDL @Text @Text)""",
-        ArraySeq.empty,
-        Set.empty,
-      )
+      val (_, msgs) =
+        evalUpdateApp(pkgs, e"""Test:testFold (FOLDL @Text @Text)""", ArraySeq.empty, Set.empty)
 
       refMsgs shouldBe List("starts test", "0", "1", "01", "2", "012", "3", "ends test")
       msgs shouldBe refMsgs
@@ -557,19 +528,11 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
 
     "native foldr match LF implementation" in {
 
-      val (_, refMsgs) = evalUpdateApp(
-        pkgs,
-        e"""Test:testFold (M:foldr @Text @Text)""",
-        ArraySeq.empty,
-        Set.empty,
-      )
+      val (_, refMsgs) =
+        evalUpdateApp(pkgs, e"""Test:testFold (M:foldr @Text @Text)""", ArraySeq.empty, Set.empty)
 
-      val (_, msgs) = evalUpdateApp(
-        pkgs,
-        e"""Test:testFold (FOLDR @Text @Text)""",
-        ArraySeq.empty,
-        Set.empty,
-      )
+      val (_, msgs) =
+        evalUpdateApp(pkgs, e"""Test:testFold (FOLDR @Text @Text)""", ArraySeq.empty, Set.empty)
 
       refMsgs shouldBe List("starts test", "3", "0", "2", "30", "1", "230", "ends test")
       msgs shouldBe refMsgs
@@ -799,7 +762,6 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
             "contract observers",
             "key",
             "maintainers",
-            "view",
             "ends test",
           )
         }
@@ -2491,27 +2453,6 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
               stakeholders shouldBe Set(alice, bob)
               authorizingParties shouldBe Set(charlie)
               msgs shouldBe Seq("starts test")
-          }
-        }
-      }
-
-      "a disclosed contract" - {
-
-        // TEST_EVIDENCE: Integrity: Evaluation order of fetch of a wrongly typed disclosed contract
-        "wrongly typed contract" in {
-          val (result, events) = evalUpdateApp(
-            pkgs,
-            e"""\(sig : Party) (fetchingParty: Party) (cId1: ContractId M:Dummy) ->
-         let cId2: ContractId M:T = COERCE_CONTRACT_ID @M:Dummy @M:T cId1
-         in Test:fetch_by_id fetchingParty cId2""",
-            ArraySeq(SParty(alice), SParty(alice), SContractId(cId)),
-            Set(alice),
-            disclosedContracts = List(buildDisclosedContract(alice)),
-          )
-
-          inside(result) {
-            case Success(Left(SErrorDamlException(IE.WronglyTypedContract(`cId`, T, Dummy)))) =>
-              events shouldBe Seq("starts test")
           }
         }
       }

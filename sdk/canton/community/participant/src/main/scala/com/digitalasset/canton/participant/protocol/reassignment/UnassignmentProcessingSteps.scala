@@ -59,20 +59,20 @@ import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil.{condUnitET, ifThenET}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
-import com.digitalasset.canton.util.{ContractAuthenticator, MonadUtil}
+import com.digitalasset.canton.util.{ContractValidator, MonadUtil}
 import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionValidation}
 import com.digitalasset.canton.{LfPartyId, RequestCounter, SequencerCounter, checked}
 
 import scala.concurrent.{ExecutionContext, Future}
 
 private[reassignment] class UnassignmentProcessingSteps(
-    val synchronizerId: Source[PhysicalSynchronizerId],
+    val psid: Source[PhysicalSynchronizerId],
     val participantId: ParticipantId,
     reassignmentCoordination: ReassignmentCoordination,
     sourceCrypto: SynchronizerCryptoClient,
     seedGenerator: SeedGenerator,
     staticSynchronizerParameters: Source[StaticSynchronizerParameters],
-    override protected val contractAuthenticator: ContractAuthenticator,
+    override protected val contractValidator: ContractValidator,
     val protocolVersion: Source[ProtocolVersion],
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
@@ -136,12 +136,14 @@ private[reassignment] class UnassignmentProcessingSteps(
 
     for {
       _ <- condUnitET[FutureUnlessShutdown](
-        targetSynchronizer.unwrap != synchronizerId.unwrap,
-        TargetSynchronizerIsSourceSynchronizer(synchronizerId.unwrap, contractIds),
+        targetSynchronizer.unwrap != psid.unwrap,
+        TargetSynchronizerIsSourceSynchronizer(psid.unwrap, contractIds),
       )
 
-      targetStaticSynchronizerParameters <- reassignmentCoordination
-        .getStaticSynchronizerParameter(targetSynchronizer)
+      targetStaticSynchronizerParameters <- EitherT.fromEither[FutureUnlessShutdown](
+        reassignmentCoordination
+          .getStaticSynchronizerParameter(targetSynchronizer)
+      )
       targetTopology <- reassignmentCoordination
         .getRecentTopologySnapshot(
           targetSynchronizer,
@@ -197,7 +199,7 @@ private[reassignment] class UnassignmentProcessingSteps(
           participantId,
           contracts,
           submitterMetadata,
-          synchronizerId,
+          psid,
           mediator,
           targetSynchronizer,
           Source(sourceRecentSnapshot.ipsSnapshot),
@@ -257,7 +259,7 @@ private[reassignment] class UnassignmentProcessingSteps(
       rootHashMessage =
         RootHashMessage(
           rootHash,
-          synchronizerId.unwrap,
+          psid.unwrap,
           ViewType.UnassignmentViewType,
           sourceRecentSnapshot.ipsSnapshot.timestamp,
           EmptyRootHashMessagePayload,
@@ -294,7 +296,7 @@ private[reassignment] class UnassignmentProcessingSteps(
   }
 
   override def createSubmissionResult(
-      deliver: Deliver[Envelope[_]],
+      deliver: Deliver[Envelope[?]],
       pendingSubmission: PendingSubmissionData,
   ): SubmissionResult =
     SubmissionResult(
@@ -340,7 +342,7 @@ private[reassignment] class UnassignmentProcessingSteps(
   )(implicit
       traceContext: TraceContext
   ): Either[ReassignmentProcessorError, ActivenessSet] =
-    if (parsedRequest.fullViewTree.synchronizerId == synchronizerId.unwrap) {
+    if (parsedRequest.fullViewTree.psid == psid.unwrap) {
       val contractIdS = parsedRequest.fullViewTree.contracts.contractIds.toSet
       // Either check contracts for activeness and lock them normally or lock them knowing the
       // contracts may not be known to the participant (e.g. due to party onboarding).
@@ -363,7 +365,7 @@ private[reassignment] class UnassignmentProcessingSteps(
       Right(activenessSet)
     } else
       Left(
-        UnexpectedSynchronizer(parsedRequest.reassignmentId, synchronizerId.unwrap)
+        UnexpectedSynchronizer(parsedRequest.reassignmentId, psid.unwrap)
       )
 
   protected override def contractsMaybeUnknown(
@@ -406,7 +408,7 @@ private[reassignment] class UnassignmentProcessingSteps(
     val unassignmentValidation = UnassignmentValidation(
       isReassigningParticipant,
       participantId,
-      contractAuthenticator,
+      contractValidator,
       activenessF,
       reassignmentCoordination,
     )
@@ -526,7 +528,7 @@ private[reassignment] class UnassignmentProcessingSteps(
       } yield CommitAndStoreContractsAndPublishEvent(
         None,
         Seq.empty,
-        eventO.map(event => _ => event),
+        eventO.map(event => _ => _ => event),
       )
 
     def mergeRejectionReasons(
@@ -595,12 +597,11 @@ private[reassignment] class UnassignmentProcessingSteps(
                 triggerAssignmentWhenExclusivityTimeoutExceeded(pendingRequestData)
               else EitherT.pure[FutureUnlessShutdown, ReassignmentProcessorError](())
 
-            reassignmentAccepted <- EitherT.fromEither[FutureUnlessShutdown](
+            reassignmentAccepted =
               unassignmentValidationResult.createReassignmentAccepted(
                 participantId,
                 requestId.unwrap,
               )
-            )
           } yield CommitAndStoreContractsAndPublishEvent(
             commitSetFO,
             Seq.empty,
@@ -639,8 +640,10 @@ private[reassignment] class UnassignmentProcessingSteps(
     val t0 = pendingRequestData.unassignmentValidationResult.targetTimestamp
 
     for {
-      targetStaticSynchronizerParameters <- reassignmentCoordination
-        .getStaticSynchronizerParameter(targetSynchronizer)
+      targetStaticSynchronizerParameters <- EitherT.fromEither[FutureUnlessShutdown](
+        reassignmentCoordination
+          .getStaticSynchronizerParameter(targetSynchronizer)
+      )
 
       automaticAssignment <- AutomaticAssignment
         .perform(

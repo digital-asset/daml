@@ -123,11 +123,11 @@ message TopologyStateFilter {
 
 message ListVettedPackagesRequest {
   // The package metadata filter the returned vetted packages set must satisfy.
-  // Optional.
+  // Optional
   PackageMetadataFilter package_metadata_filter = 1;
 
   // The topology filter the returned vetted packages set must satisfy.
-  // Optional.
+  // Optional
   TopologyStateFilter topology_state_filter = 2;
 
   // Pagination token to determine the specific page to fetch. Using the token
@@ -140,15 +140,15 @@ message ListVettedPackagesRequest {
   // added and a page is requested twice using the same token, more packages can
   // be returned on the second call.
   //
-  // Leave empty to fetch the first page.
+  // Leave unspecified (i.e. as empty string) to fetch the first page.
   //
   // Optional
   string page_token = 3;
 
   // Maximum number of ``VettedPackages`` results to return in a single page.
   //
-  // If the page_size is unspecified, the server will decide the number of
-  // results to be returned.
+  // If the page_size is unspecified (i.e. left as 0), the server will decide
+  // the number of results to be returned.
   //
   // If the page_size exceeds the maximum supported by the server, an
   // error will be returned.
@@ -167,6 +167,6 @@ message ListVettedPackagesResponse {
   repeated VettedPackages vetted_packages = 1;
 
   // Pagination token to retrieve the next page.
-  // Empty, if there are no further results.
+  // Empty string if there are no further results.
   string next_page_token = 2;
 }

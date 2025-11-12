@@ -11,10 +11,7 @@ import com.digitalasset.canton.integration.bootstrap.{
   NetworkBootstrapper,
   NetworkTopologyDescription,
 }
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UseExternalProcess,
-}
+import com.digitalasset.canton.integration.plugins.{UseExternalProcess, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
@@ -49,7 +46,7 @@ class RemoteMediatorInitializationTest extends CommunityIntegrationTest with Sha
     }
 
   registerPlugin(externalPlugin)
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   protected def setup(env: TestConsoleEnvironment): Unit = {
     import env.*
@@ -66,7 +63,7 @@ class RemoteMediatorInitializationTest extends CommunityIntegrationTest with Sha
           synchronizerThreshold = PositiveInt.one,
           sequencers = Seq(sequencer1),
           mediators = Seq(m1),
-        )
+        )(env)
       )
     )(env).bootstrap()
   }

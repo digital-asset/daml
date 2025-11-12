@@ -38,6 +38,7 @@ import com.digitalasset.canton.participant.protocol.ProtocolProcessor.{
   MalformedPayload,
   NoMediatorError,
   ProcessorError,
+  ViewMessageError,
 }
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.submission.EncryptedViewMessageFactory.EncryptedViewMessageCreationError
@@ -46,6 +47,7 @@ import com.digitalasset.canton.participant.store.ReassignmentStore.ReassignmentS
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
+import com.digitalasset.canton.protocol.messages.EncryptedViewMessageError.InvalidContractIdInView
 import com.digitalasset.canton.protocol.messages.Verdict.{
   Approve,
   MediatorReject,
@@ -56,12 +58,12 @@ import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
 import com.digitalasset.canton.time.SynchronizerTimeTracker
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{ContractAuthenticator, EitherTUtil, ReassignmentTag}
+import com.digitalasset.canton.util.{ContractValidator, ReassignmentTag}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LfPartyId, RequestCounter, SequencerCounter, checked}
 
 import scala.collection.concurrent
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{ExecutionContext, Promise}
 
 private[reassignment] trait ReassignmentProcessingSteps[
     SubmissionParam,
@@ -78,15 +80,15 @@ private[reassignment] trait ReassignmentProcessingSteps[
 
   val participantId: ParticipantId
 
-  val synchronizerId: ReassignmentTag[PhysicalSynchronizerId]
+  val psid: ReassignmentTag[PhysicalSynchronizerId]
 
   val protocolVersion: ReassignmentTag[ProtocolVersion]
 
-  protected def contractAuthenticator: ContractAuthenticator
+  protected def contractValidator: ContractValidator
 
   protected implicit def ec: ExecutionContext
 
-  override type SubmissionSendError = ReassignmentProcessorError
+  override type SubmissionSendError = GenericStepsError[ProtocolProcessor.SubmissionProcessingError]
 
   override type PendingSubmissionId = RootHash
 
@@ -104,6 +106,10 @@ private[reassignment] trait ReassignmentProcessingSteps[
   override val requestType: RequestType
 
   override type FullView <: FullReassignmentViewTree
+
+  override type ViewAbsoluteLedgerEffects = Unit
+  override type FullViewAbsoluteLedgerEffects = Unit
+
   override type ParsedRequestType = ParsedReassignmentRequest[FullView]
 
   protected def reassignmentId(
@@ -155,15 +161,6 @@ private[reassignment] trait ReassignmentProcessingSteps[
       validationResult: ReassignmentValidationResult,
   ): Option[LocalRejectError]
 
-  override def authenticateInputContracts(
-      parsedRequest: ParsedRequestType
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[Future, ReassignmentProcessorError, Unit] =
-    // this check is implemented in the ReassignmentValidation.checkMetadata as part of the phase 3 and phase 7.
-    // TODO(i12928): Remove this method once the transaction validation has fixed the non-authenticated contract issue.
-    EitherTUtil.unit
-
   protected def performPendingSubmissionMapUpdate(
       pendingSubmissionMap: concurrent.Map[RootHash, PendingReassignmentSubmission],
       reassignmentRef: ReassignmentRef,
@@ -212,9 +209,38 @@ private[reassignment] trait ReassignmentProcessingSteps[
     EitherT.right(result)
   }
 
+  override def absolutizeLedgerEffects(
+      viewsWithCorrectRootHashAndRecipientsAndSignature: Seq[
+        (WithRecipients[DecryptedView], Option[Signature])
+      ]
+  ): (
+      Seq[(WithRecipients[DecryptedView], Option[Signature], ViewAbsoluteLedgerEffects)],
+      Seq[MalformedPayload],
+  ) =
+    // Merely check that all reassigned contract IDs are absolute.
+    viewsWithCorrectRootHashAndRecipientsAndSignature.partitionMap {
+      case (withRecipients @ WithRecipients(view, _), sig) =>
+        val invalidContractIds =
+          view.contracts.contracts.view.map(_.contract.contractId).filterNot(_.isAbsolute).toSeq
+        Either.cond(
+          invalidContractIds.nonEmpty,
+          ViewMessageError(
+            InvalidContractIdInView(
+              s"Invalid contract IDs in view at position ${view.viewPosition}: $invalidContractIds"
+            )
+          ),
+          (withRecipients, sig, ()),
+        )
+    }
+
   override def computeFullViews(
-      decryptedViewsWithSignatures: Seq[(WithRecipients[DecryptedView], Option[Signature])]
-  ): (Seq[(WithRecipients[FullView], Option[Signature])], Seq[ProtocolProcessor.MalformedPayload]) =
+      decryptedViewsWithSignatures: Seq[
+        (WithRecipients[DecryptedView], Option[Signature], ViewAbsoluteLedgerEffects)
+      ]
+  ): (
+      Seq[(WithRecipients[FullView], Option[Signature], FullViewAbsoluteLedgerEffects)],
+      Seq[ProtocolProcessor.MalformedPayload],
+  ) =
     (decryptedViewsWithSignatures, Seq.empty)
 
   override def computeParsedRequest(
@@ -222,7 +248,7 @@ private[reassignment] trait ReassignmentProcessingSteps[
       ts: CantonTimestamp,
       sc: SequencerCounter,
       rootViewsWithMetadata: NonEmpty[
-        Seq[(WithRecipients[FullView], Option[Signature])]
+        Seq[(WithRecipients[FullView], Option[Signature], FullViewAbsoluteLedgerEffects)]
       ],
       submitterMetadataO: Option[ViewSubmitterMetadata],
       isFreshOwnTimelyRequest: Boolean,
@@ -246,7 +272,7 @@ private[reassignment] trait ReassignmentProcessingSteps[
         .report()
     }
 
-    val (WithRecipients(viewTree, recipients), signature) = rootViewsWithMetadata.head1
+    val (WithRecipients(viewTree, recipients), signature, ()) = rootViewsWithMetadata.head1
 
     contractsMaybeUnknown(viewTree, snapshot).map(contractsMaybeUnknown =>
       ParsedReassignmentRequest(
@@ -284,7 +310,7 @@ private[reassignment] trait ReassignmentProcessingSteps[
       requestId = requestId,
       rootHash = rootHash,
       malformedPayloads = malformedPayloads,
-      synchronizerId = synchronizerId.unwrap,
+      synchronizerId = psid.unwrap,
       participantId = participantId,
       protocolVersion = protocolVersion.unwrap,
     )
@@ -313,7 +339,7 @@ private[reassignment] trait ReassignmentProcessingSteps[
       Update.SequencedCommandRejected(
         completionInfo,
         rejection,
-        synchronizerId.unwrap.logical,
+        psid.unwrap.logical,
         ts,
       )
     )
@@ -343,7 +369,7 @@ private[reassignment] trait ReassignmentProcessingSteps[
       Update.SequencedCommandRejected(
         info,
         rejection,
-        synchronizerId.unwrap.logical,
+        psid.unwrap.logical,
         pendingReassignment.requestId.unwrap,
       )
     )
@@ -362,9 +388,10 @@ private[reassignment] trait ReassignmentProcessingSteps[
 
     override def embedSubmissionError(
         err: ProtocolProcessor.SubmissionProcessingError
-    ): ReassignmentProcessorError =
+    ): SubmissionSendError =
       GenericStepsError(err)
-    override def toSubmissionError(err: ReassignmentProcessorError): ReassignmentProcessorError =
+
+    override def toSubmissionError(err: SubmissionSendError): ReassignmentProcessorError =
       err
   }
 
@@ -392,7 +419,7 @@ private[reassignment] trait ReassignmentProcessingSteps[
           requestId = requestId,
           rootHash = validationResult.rootHash,
           malformedPayloads = malformedPayloads,
-          synchronizerId = synchronizerId.unwrap,
+          synchronizerId = psid.unwrap,
           participantId = participantId,
           protocolVersion = protocolVersion,
         )
@@ -418,7 +445,7 @@ private[reassignment] trait ReassignmentProcessingSteps[
           ConfirmationResponses.tryCreate(
             requestId,
             rootHash,
-            synchronizerId.unwrap,
+            psid.unwrap,
             participantId,
             NonEmpty.mk(
               Seq,
@@ -495,7 +522,7 @@ private[reassignment] trait ReassignmentProcessingSteps[
             ConfirmationResponses.tryCreate(
               requestId,
               validationResult.rootHash,
-              synchronizerId.unwrap,
+              psid.unwrap,
               participantId,
               NonEmpty.mk(
                 Seq,
@@ -622,8 +649,9 @@ object ReassignmentProcessingSteps {
   /** Used to convert ReassignmentValidationError to ReassignmentValidationError */
   final case class SubmissionValidationError(message: String) extends ReassignmentProcessorError
 
-  final case class GenericStepsError(error: ProcessorError) extends ReassignmentProcessorError {
-    override def underlyingProcessorError(): Option[ProcessorError] = Some(error)
+  final case class GenericStepsError[+E <: ProcessorError](error: E)
+      extends ReassignmentProcessorError {
+    override def underlyingProcessorError(): Option[E] = Some(error)
 
     override def message: String = error.toString
   }

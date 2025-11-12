@@ -22,6 +22,8 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.Sequen
   IdRange,
   Ids,
 }
+import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream.PaginationInput
+import com.digitalasset.canton.protocol.UpdateId
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -77,13 +79,13 @@ private[backend] trait StorageBackendTestsPartyToParticipant
   def toRaw(dbDto: DbDto.EventPartyToParticipant): RawParticipantAuthorization =
     RawParticipantAuthorization(
       offset = Offset.tryFromLong(dbDto.event_offset),
-      updateId = dbDto.update_id,
+      updateId = UpdateId.tryFromByteArray(dbDto.update_id).toHexString,
       partyId = dbDto.party_id,
       participantId = dbDto.participant_id,
       authorizationEvent = Conversions
         .authorizationEvent(dbDto.participant_authorization_event, dbDto.participant_permission),
       recordTime = Timestamp.assertFromLong(dbDto.record_time),
-      synchronizerId = dbDto.synchronizer_id,
+      synchronizerId = dbDto.synchronizer_id.toProtoPrimitive,
       traceContext = Some(dbDto.trace_context),
     )
 
@@ -95,10 +97,13 @@ private[backend] trait StorageBackendTestsPartyToParticipant
     executeSql(ingest(singleDto, _))
     val eventsForAll = executeSql(
       backend.event.fetchTopologyPartyEventIds(
-        party = None,
-        startExclusive = 0L,
-        endInclusive = 10L,
-        limit = 10,
+        party = None
+      )(_)(
+        PaginationInput(
+          startExclusive = 0L,
+          endInclusive = 10L,
+          limit = 10,
+        )
       )
     )
     executeSql(
@@ -106,10 +111,13 @@ private[backend] trait StorageBackendTestsPartyToParticipant
     )
     val eventsForSomeParty = executeSql(
       backend.event.fetchTopologyPartyEventIds(
-        party = Some(someParty),
-        startExclusive = 0L,
-        endInclusive = 10L,
-        limit = 10,
+        party = Some(someParty)
+      )(_)(
+        PaginationInput(
+          startExclusive = 0L,
+          endInclusive = 10L,
+          limit = 10,
+        )
       )
     )
 
@@ -122,10 +130,13 @@ private[backend] trait StorageBackendTestsPartyToParticipant
     executeSql(ingest(multipleDtos, _))
     val eventsForAll = executeSql(
       backend.event.fetchTopologyPartyEventIds(
-        party = None,
-        startExclusive = 0L,
-        endInclusive = 10L,
-        limit = 10,
+        party = None
+      )(_)(
+        PaginationInput(
+          startExclusive = 0L,
+          endInclusive = 10L,
+          limit = 10,
+        )
       )
     )
     executeSql(
@@ -133,10 +144,13 @@ private[backend] trait StorageBackendTestsPartyToParticipant
     )
     val eventsForSomeParty = executeSql(
       backend.event.fetchTopologyPartyEventIds(
-        party = Some(someParty),
-        startExclusive = 0L,
-        endInclusive = 10L,
-        limit = 10,
+        party = Some(someParty)
+      )(_)(
+        PaginationInput(
+          startExclusive = 0L,
+          endInclusive = 10L,
+          limit = 10,
+        )
       )
     )
 
@@ -205,19 +219,19 @@ private[backend] trait StorageBackendTestsPartyToParticipant
           dtoPartyToParticipant(
             offset(1),
             1L,
-            synchronizerId = synchronizerId1.toProtoPrimitive,
+            synchronizerId = synchronizerId1,
             recordTime = Timestamp.assertFromLong(1504),
           ),
           dtoPartyToParticipant(
             offset(2),
             2L,
-            synchronizerId = synchronizerId1.toProtoPrimitive,
+            synchronizerId = synchronizerId1,
             recordTime = Timestamp.assertFromLong(1505),
           ),
           dtoPartyToParticipant(
             offset(3),
             3L,
-            synchronizerId = synchronizerId1.toProtoPrimitive,
+            synchronizerId = synchronizerId1,
             recordTime = Timestamp.assertFromLong(1506),
           ),
         ),
@@ -246,13 +260,13 @@ private[backend] trait StorageBackendTestsPartyToParticipant
           dtoPartyToParticipant(
             offset(1),
             1L,
-            synchronizerId = synchronizerId1.toProtoPrimitive,
+            synchronizerId = synchronizerId1,
             recordTime = Timestamp.assertFromLong(1504),
           ),
           dtoPartyToParticipant(
             offset(3),
             3L,
-            synchronizerId = synchronizerId1.toProtoPrimitive,
+            synchronizerId = synchronizerId1,
             recordTime = Timestamp.assertFromLong(1506),
           ),
         ),
@@ -279,19 +293,19 @@ private[backend] trait StorageBackendTestsPartyToParticipant
           dtoPartyToParticipant(
             offset(1),
             1L,
-            synchronizerId = synchronizerId1.toProtoPrimitive,
+            synchronizerId = synchronizerId1,
             recordTime = Timestamp.assertFromLong(1504),
           ),
           dtoPartyToParticipant(
             offset(2),
             2L,
-            synchronizerId = synchronizerId2.toProtoPrimitive,
+            synchronizerId = synchronizerId2,
             recordTime = Timestamp.assertFromLong(1505),
           ),
           dtoPartyToParticipant(
             offset(3),
             3L,
-            synchronizerId = synchronizerId1.toProtoPrimitive,
+            synchronizerId = synchronizerId1,
             recordTime = Timestamp.assertFromLong(1506),
           ),
         ),
@@ -318,19 +332,19 @@ private[backend] trait StorageBackendTestsPartyToParticipant
           dtoPartyToParticipant(
             offset(1),
             1L,
-            synchronizerId = synchronizerId1.toProtoPrimitive,
+            synchronizerId = synchronizerId1,
             recordTime = Timestamp.assertFromLong(1504),
           ),
           dtoPartyToParticipant(
             offset(2),
             2L,
-            synchronizerId = synchronizerId1.toProtoPrimitive,
+            synchronizerId = synchronizerId1,
             recordTime = Timestamp.assertFromLong(1505),
           ),
           dtoPartyToParticipant(
             offset(3),
             3L,
-            synchronizerId = synchronizerId1.toProtoPrimitive,
+            synchronizerId = synchronizerId1,
             recordTime = Timestamp.assertFromLong(1506),
           ),
         ),

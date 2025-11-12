@@ -527,7 +527,6 @@ class IssConsensusModuleTest
             BftBlockOrdererConfig.DefaultConsensusQueuePerNodeQuota,
           )
         val aDummyMessage = Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage(
-          myId,
           ConsensusSegment.ConsensusMessage.ViewChange
             .create(
               BlockMetadata(EpochNumber.First, BlockNumber.First),
@@ -535,7 +534,7 @@ class IssConsensusModuleTest
               consensusCerts = Seq.empty,
               from = myId,
             )
-            .fakeSign,
+            .fakeSign
         )
         futurePbftMessageQueue.enqueue(myId, aDummyMessage)
         val postponedConsensusMessageQueue =
@@ -806,6 +805,63 @@ class IssConsensusModuleTest
           succeed
         }
 
+      "ignore stale block completion messages for old epochs" in {
+        val outputBuffer =
+          new ArrayBuffer[Output.Message[ProgrammableUnitTestEnv]](defaultBufferSize)
+        val epochNumber = EpochNumber(4L)
+        val epochStore = mock[EpochStore[ProgrammableUnitTestEnv]]
+        val latestCompletedEpochFromStore = EpochStore.Epoch(
+          EpochInfo(
+            epochNumber,
+            BlockNumber(epochLength * epochNumber),
+            epochLength,
+            TopologyActivationTime(aTimestamp),
+          ),
+          Seq.empty,
+        )
+        when(epochStore.latestEpoch(anyBoolean)(any[TraceContext])).thenReturn(() =>
+          latestCompletedEpochFromStore
+        )
+        when(epochStore.startEpoch(latestCompletedEpochFromStore.info)).thenReturn(() => ())
+
+        val (context, consensus) =
+          createIssConsensusModule(
+            outputModuleRef = fakeRecordingModule(outputBuffer),
+            epochStore = epochStore,
+            preConfiguredInitialEpochState = Some(
+              newEpochState(
+                latestCompletedEpochFromStore,
+                _,
+              )
+            ),
+          )
+        implicit val ctx: ContextType = context
+
+        consensus.receive(Consensus.Start)
+
+        val blockNumber = BlockNumber((epochNumber - 1) * epochLength)
+        val leaderOfBlock = myId
+        val prePrepare = PrePrepare.create(
+          BlockMetadata(EpochNumber(epochNumber - 1), blockNumber),
+          ViewNumber.First,
+          OrderingBlock(oneRequestOrderingBlock.proofs),
+          CanonicalCommitSet(Set.empty),
+          leaderOfBlock,
+        )
+        val expectedOrderedBlock = orderedBlockFromPrePrepare(
+          prePrepare
+        )
+        consensus.receive(
+          Consensus.ConsensusMessage
+            .BlockOrdered(
+              expectedOrderedBlock,
+              CommitCertificate(prePrepare.fakeSign, Seq.empty),
+              hasCompletedLedSegment = false,
+            )
+        )
+        outputBuffer shouldBe empty
+      }
+
       "refuse messages for future epochs after reaching queue limits" in {
         val (context, consensus) =
           createIssConsensusModule(
@@ -816,25 +872,26 @@ class IssConsensusModuleTest
           )
         implicit val ctx: ContextType = context
 
-        val underlyingMessage = {
+        def underlyingMessage(from: BftNodeId) = {
           val msg = mock[ConsensusSegment.ConsensusMessage.PbftNetworkMessage]
           when(msg.blockMetadata).thenReturn(BlockMetadata(EpochNumber(10L), BlockNumber.First))
-          when(msg.from) thenReturn myId
+          when(msg.from).thenReturn(from)
           when(msg.viewNumber).thenReturn(ViewNumber.First)
+          when(msg.actualSender).thenReturn(Some(from))
           msg
         }
 
         consensus.receive(Consensus.Start)
-        consensus.receive(PbftUnverifiedNetworkMessage(myId, underlyingMessage.fakeSign))
+        consensus.receive(PbftUnverifiedNetworkMessage(underlyingMessage(otherIds(0)).fakeSign))
 
         // we can only take 1 future messages per node, so the second one is refused
-        consensus.receive(PbftUnverifiedNetworkMessage(myId, underlyingMessage.fakeSign))
+        consensus.receive(PbftUnverifiedNetworkMessage(underlyingMessage(otherIds(0)).fakeSign))
         consensus.futurePbftMessageQueue.size shouldBe 1
 
-        consensus.receive(PbftUnverifiedNetworkMessage(otherIds(0), underlyingMessage.fakeSign))
+        consensus.receive(PbftUnverifiedNetworkMessage(underlyingMessage(otherIds(1)).fakeSign))
 
         // we can only take 2 future messages in total, so the third one is refused
-        consensus.receive(PbftUnverifiedNetworkMessage(otherIds(1), underlyingMessage.fakeSign))
+        consensus.receive(PbftUnverifiedNetworkMessage(underlyingMessage(otherIds(2)).fakeSign))
         consensus.futurePbftMessageQueue.size shouldBe 2
 
         succeed
@@ -900,17 +957,17 @@ class IssConsensusModuleTest
         Table[ProtocolMessage](
           "message",
           PbftUnverifiedNetworkMessage(
-            allIds(1),
             SignedMessage(
               PrePrepare.create( // Just to trigger the catch-up check
                 blockMetadata4Nodes(1),
                 ViewNumber.First,
                 OrderingBlock(oneRequestOrderingBlock.proofs),
                 CanonicalCommitSet(Set.empty),
-                allIds(1),
+                from = allIds(1),
+                actualSender = Some(allIds(1)),
               ),
               Signature.noSignature,
-            ),
+            )
           ),
           RetransmissionsMessage.VerifiedNetworkMessage(
             RetransmissionsMessage.RetransmissionRequest(
@@ -1002,13 +1059,14 @@ class IssConsensusModuleTest
             )
           )
           val unauthorizedNodeId = BftNodeId("unauthorized")
-          when(underlyingMessage.from) thenReturn unauthorizedNodeId
+          when(underlyingMessage.from).thenReturn(unauthorizedNodeId)
+          when(underlyingMessage.actualSender).thenReturn(Some(unauthorizedNodeId))
           when(underlyingMessage.viewNumber).thenReturn(ViewNumber.First)
           val signedMessage = underlyingMessage.fakeSign
 
           consensus.receive(Consensus.Start)
 
-          consensus.receive(PbftUnverifiedNetworkMessage(unauthorizedNodeId, signedMessage))
+          consensus.receive(PbftUnverifiedNetworkMessage(signedMessage))
 
           assertLogs(
             context.runPipedMessages(),

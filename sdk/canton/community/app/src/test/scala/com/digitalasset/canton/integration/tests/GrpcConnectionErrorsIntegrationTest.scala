@@ -6,11 +6,8 @@ package com.digitalasset.canton.integration.tests
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.RequireTypes.ExistingFile
 import com.digitalasset.canton.config.{IdentityConfig, PemFile, StorageConfig, TlsBaseServerConfig}
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
-import com.digitalasset.canton.integration.plugins.{
-  UseBftSequencer,
-  UseCommunityReferenceBlockSequencer,
-}
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -247,7 +244,7 @@ trait GrpcConnectionErrorsIntegrationTest extends CommunityIntegrationTest with 
 class GrpcConnectionErrorsReferenceIntegrationTestInMemory
     extends GrpcConnectionErrorsIntegrationTest {
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[StorageConfig.Memory](
+    new UseReferenceBlockSequencer[StorageConfig.Memory](
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(Set(InstanceName.tryCreate("sequencer1")), Set(InstanceName.tryCreate("sequencer2")))

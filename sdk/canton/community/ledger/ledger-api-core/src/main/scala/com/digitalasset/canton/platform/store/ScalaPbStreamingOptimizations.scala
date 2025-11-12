@@ -20,7 +20,7 @@ object ScalaPbStreamingOptimizations {
       *
       * We've observed empirically that ScalaPB-generated message classes have associated
       * marshallers with significant latencies when encoding complex payloads (e.g.
-      * [[com.daml.ledger.api.v2.update_service.GetUpdateTreesResponse]]), with the gRPC marshalling
+      * [[com.daml.ledger.api.v2.update_service.GetUpdatesResponse]]), with the gRPC marshalling
       * bottleneck appearing in some performance tests.
       *
       * To alleviate the problem, we can leverage the fact that ScalaPB message classes have the

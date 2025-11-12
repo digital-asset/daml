@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf
 package engine
 
 import com.daml.bazeltools.BazelRunfiles
-import com.digitalasset.daml.lf.archive.UniversalArchiveDecoder
+import com.digitalasset.daml.lf.archive.DarDecoder
 import com.digitalasset.daml.lf.command.{ApiCommand, ApiCommands}
 import com.digitalasset.daml.lf.data.{Bytes, FrontStack, ImmArray, Time}
 import com.digitalasset.daml.lf.data.Ref.{
@@ -17,15 +17,14 @@ import com.digitalasset.daml.lf.data.Ref.{
   QualifiedName,
 }
 import com.digitalasset.daml.lf.language.Ast.Package
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml.lf.ledger.FailedAuthorization.{
   CreateMissingAuthorization,
   ExerciseMissingAuthorization,
 }
 import com.digitalasset.daml.lf.transaction.{
   FatContractInstance,
+  SerializationVersion,
   SubmittedTransaction,
-  TransactionVersion,
 }
 import com.digitalasset.daml.lf.transaction.Transaction.Metadata
 import com.digitalasset.daml.lf.value.Value.{
@@ -36,7 +35,9 @@ import com.digitalasset.daml.lf.value.Value.{
   ValueRecord,
 }
 import com.daml.logging.LoggingContext
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
+import com.digitalasset.daml.lf.value.ContractIdVersion
 
 import java.io.File
 import org.scalatest.Inside
@@ -45,9 +46,9 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.language.implicitConversions
 
-class AuthPropagationSpecV2 extends AuthPropagationSpec(LanguageMajorVersion.V2)
+class AuthPropagationSpecV2 extends AuthPropagationSpec(LanguageVersion.Major.V2)
 
-class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
+class AuthPropagationSpec(majorLanguageVersion: LanguageVersion.Major)
     extends AnyFreeSpec
     with Matchers
     with Inside
@@ -59,7 +60,7 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
   implicit private def toParty(s: String): Party = Party.assertFromString(s)
 
   private def loadPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
-    val packages = UniversalArchiveDecoder.assertReadFile(new File(rlocation(resource)))
+    val packages = DarDecoder.assertReadArchiveFromFile(new File(rlocation(resource)))
     val (mainPkgId, mainPkg) = packages.main
     (mainPkgId, mainPkg, packages.all.toMap)
   }
@@ -78,7 +79,7 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
 
   private def t1InstanceFor(party: Party): FatContractInstance =
     TransactionBuilder.fatContractInstanceWithDummyDefaults(
-      version = TransactionVersion.VDev,
+      version = SerializationVersion.VDev,
       packageName = pkg.pkgName,
       template = "T1",
       arg = ValueRecord(
@@ -90,7 +91,7 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
 
   private def x1InstanceFor(party: Party): FatContractInstance =
     TransactionBuilder.fatContractInstanceWithDummyDefaults(
-      TransactionVersion.VDev,
+      SerializationVersion.VDev,
       pkg.pkgName,
       "X1",
       ValueRecord(
@@ -113,9 +114,10 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
   private val let: Time.Timestamp = Time.Timestamp.now()
   private val participant: ParticipantId = ParticipantId.assertFromString("participant")
   private val submissionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("submissionSeed")
+  private val contractIdVersion = ContractIdVersion.V1
 
   private val testEngine: Engine =
-    Engine.DevEngine(majorLanguageVersion)
+    Engine.DevEngine
 
   private def go(
       submitters: Set[Party],
@@ -128,9 +130,9 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
           submitters = submitters,
           readAs = readAs,
           cmds = ApiCommands(ImmArray(command), let, "commands-tag"),
-          disclosures = ImmArray.empty,
           participantId = participant,
           submissionSeed = submissionSeed,
+          contractIdVersion = contractIdVersion,
           prefetchKeys = Seq.empty,
         )
         .consume(pcs = defaultContracts, pkgs = allPackages)

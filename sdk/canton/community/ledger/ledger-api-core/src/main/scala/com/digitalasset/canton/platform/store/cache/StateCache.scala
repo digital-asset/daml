@@ -6,7 +6,6 @@ package com.digitalasset.canton.platform.store.cache
 import com.daml.metrics.Timed
 import com.daml.metrics.api.MetricHandle.Timer
 import com.digitalasset.canton.caching.Cache
-import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.store.cache.StateCache.PendingUpdatesState
@@ -27,7 +26,7 @@ import scala.concurrent.{ExecutionContext, Future, blocking}
   */
 @SuppressWarnings(Array("org.wartremover.warts.FinalCaseClass")) // This class is mocked in tests
 private[platform] case class StateCache[K, V](
-    initialCacheIndex: Option[Offset],
+    initialCacheEventSeqIdIndex: Long,
     emptyLedgerState: V,
     cache: Cache[K, V],
     registerUpdateTimer: Timer,
@@ -36,7 +35,7 @@ private[platform] case class StateCache[K, V](
     extends NamedLogging {
   private[cache] val pendingUpdates = mutable.Map.empty[K, PendingUpdatesState]
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
-  @volatile private[cache] var cacheIndex = initialCacheIndex
+  @volatile private[cache] var cacheEventSeqIdIndex = initialCacheEventSeqIdIndex
 
   /** Fetch the corresponding value for an input key, if present.
     *
@@ -58,12 +57,12 @@ private[platform] case class StateCache[K, V](
   /** Synchronous cache updates evolve the cache ahead with the most recent Index DB entries. This
     * method increases the `cacheIndex` monotonically.
     *
-    * @param validAt
+    * @param validAtEventSeqId
     *   ordering discriminator for pending updates for the same key
     * @param batch
     *   the batch of events updating the cache at `validAt`
     */
-  def putBatch(validAt: Offset, batch: Map[K, V])(implicit
+  def putBatch(validAtEventSeqId: Long, batch: Map[K, V])(implicit
       traceContext: TraceContext
   ): Unit =
     Timed.value(
@@ -72,21 +71,20 @@ private[platform] case class StateCache[K, V](
         // The mutable contract state cache update stream should generally increase the cacheIndex strictly monotonically.
         // However, the most recent updates can be replayed in case of failure of the mutable contract state cache update stream.
         // In this case, we must ignore the already seen updates (i.e. that have `validAt` before or at the cacheIndex).
-        if (Option(validAt) > cacheIndex) {
+        if (validAtEventSeqId > cacheEventSeqIdIndex) {
           batch.keySet.foreach { key =>
-            pendingUpdates.updateWith(key)(_.map(_.withValidAt(validAt))).discard
+            pendingUpdates.updateWith(key)(_.map(_.withValidAt(validAtEventSeqId))).discard
           }
-          cacheIndex = Some(validAt)
+          cacheEventSeqIdIndex = validAtEventSeqId
           cache.putAll(batch)
           logger.debug(
             s"Updated cache with a batch of ${batch
                 .map { case (k, v) => s"$k -> ${truncateValueForLogging(v)}" }
-                .mkString("[", ", ", "]")} at $validAt"
+                .mkString("[", ", ", "]")} at $validAtEventSeqId"
           )
         } else
           logger.warn(
-            s"Ignoring incoming synchronous update at an index (${validAt.unwrap}) equal to or before the cache index (${cacheIndex
-                .fold(0L)(_.unwrap)})"
+            s"Ignoring incoming synchronous update at an index at event sequential ID($validAtEventSeqId) equal to or before the cache index ($cacheEventSeqIdIndex)"
           )
       }),
     )
@@ -103,52 +101,48 @@ private[platform] case class StateCache[K, V](
     *   fetches asynchronously the value for key `key` at the current cache index
     */
   @SuppressWarnings(Array("com.digitalasset.canton.SynchronizedFuture"))
-  def putAsync(key: K, fetchAsync: Offset => Future[V])(implicit
+  def putAsync(key: K, fetchAsync: Long => Future[V])(implicit
       traceContext: TraceContext
   ): Future[V] =
     Timed.value(
       registerUpdateTimer,
       blocking(pendingUpdates.synchronized {
-        cacheIndex match {
-          case Some(validAt) =>
-            val eventualValue = Future.delegate(fetchAsync(validAt))
-            pendingUpdates.get(key) match {
-              case Some(freshPendingUpdate) if freshPendingUpdate.latestValidAt == validAt =>
-                eventualValue
+        // dereferencing the mutable var to a val here is critical as it will be used asynchronously below
+        val validAt = cacheEventSeqIdIndex
+        val eventualValue = Future.delegate(fetchAsync(validAt))
+        pendingUpdates.get(key) match {
+          case Some(freshPendingUpdate) if freshPendingUpdate.latestValidAt == validAt =>
+            eventualValue
 
-              case Some(freshPendingUpdate) if freshPendingUpdate.latestValidAt > validAt =>
-                ErrorUtil.invalidState(
-                  s"Pending update ($freshPendingUpdate) should never be later than the cacheIndex ($validAt)."
-                )
+          case Some(freshPendingUpdate) if freshPendingUpdate.latestValidAt > validAt =>
+            ErrorUtil.invalidState(
+              s"Pending update ($freshPendingUpdate) should never be later than the cacheIndex ($validAt)."
+            )
 
-              case outdatedOrNew =>
-                pendingUpdates
-                  .put(
-                    key,
-                    PendingUpdatesState(
-                      outdatedOrNew.map(_.pendingCount).getOrElse(0L) + 1L,
-                      validAt,
-                    ),
-                  )
-                  .discard
-                registerEventualCacheUpdate(key, eventualValue, validAt)
-                  .flatMap(_ => eventualValue)
-            }
-
-          case None =>
-            Future.successful(emptyLedgerState)
+          case outdatedOrNew =>
+            pendingUpdates
+              .put(
+                key,
+                PendingUpdatesState(
+                  outdatedOrNew.map(_.pendingCount).getOrElse(0L) + 1L,
+                  validAt,
+                ),
+              )
+              .discard
+            registerEventualCacheUpdate(key, eventualValue, validAt)
+              .flatMap(_ => eventualValue)
         }
       }),
     )
 
   /** Resets the cache and cancels are pending asynchronous updates.
     *
-    * @param resetAtOffset
-    *   The cache re-initialization offset
+    * @param resetAtEventSeqId
+    *   The cache re-initialization event sequential ID
     */
-  def reset(resetAtOffset: Option[Offset]): Unit =
+  def reset(resetAtEventSeqId: Long): Unit =
     blocking(pendingUpdates.synchronized {
-      cacheIndex = resetAtOffset
+      cacheEventSeqIdIndex = resetAtEventSeqId
       pendingUpdates.clear()
       cache.invalidateAll()
     })
@@ -156,7 +150,7 @@ private[platform] case class StateCache[K, V](
   private def registerEventualCacheUpdate(
       key: K,
       eventualUpdate: Future[V],
-      validAt: Offset,
+      validAtEventSeqId: Long,
   )(implicit traceContext: TraceContext): Future[Unit] =
     eventualUpdate
       .map { (value: V) =>
@@ -169,10 +163,10 @@ private[platform] case class StateCache[K, V](
                 // sampled when initially dispatched in `putAsync`.
                 // Otherwise we can assume that a more recent `putAsync` has an update in-flight
                 // or that the entry has been updated synchronously with `put` with a recent Index DB entry.
-                if (pendingForKey.latestValidAt == validAt) {
+                if (pendingForKey.latestValidAt == validAtEventSeqId) {
                   cache.put(key, value)
                   logger.debug(
-                    s"Updated cache for $key with ${truncateValueForLogging(value)} at $validAt"
+                    s"Updated cache for $key with ${truncateValueForLogging(value)} at $validAtEventSeqId"
                   )
                 }
                 removeFromPending(key)
@@ -227,9 +221,9 @@ object StateCache {
     */
   private[cache] final case class PendingUpdatesState(
       pendingCount: Long,
-      latestValidAt: Offset,
+      latestValidAt: Long,
   ) {
-    def withValidAt(validAt: Offset): PendingUpdatesState =
+    def withValidAt(validAt: Long): PendingUpdatesState =
       this.copy(latestValidAt = validAt)
     def decPendingCount: PendingUpdatesState = this.copy(pendingCount = pendingCount - 1)
   }

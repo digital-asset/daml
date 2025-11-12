@@ -251,13 +251,11 @@ private[validation] object Typing {
       BCodePointsToText -> (TList(TInt64) ->: TText),
       BTextToParty -> (TText ->: TOptional(TParty)),
       BTextToInt64 -> (TText ->: TOptional(TInt64)),
-      BTextToNumericLegacy -> TForall(alpha.name -> KNat, TText ->: TOptional(TNumeric(alpha))),
       BTextToNumeric -> TForall(
         alpha.name -> KNat,
         TNumeric(alpha) ->: TText ->: TOptional(TNumeric(alpha)),
       ),
       BTextToCodePoints -> (TText ->: TList(TInt64)),
-      BTextToContractId -> TForall(alpha.name -> KStar, TText ->: TContractId(alpha)),
       BError -> TForall(alpha.name -> KStar, TText ->: alpha),
       // ComparisonsA
       BLessNumeric -> tNumComparison,
@@ -1368,7 +1366,6 @@ private[validation] object Typing {
     }
 
     private def checkAnyType(typ: Type): Unit = {
-      import Ordering.Implicits._
       if (languageVersion >= LanguageVersion.Features.complexAnyType)
         checkAnyType_(typ)
       else

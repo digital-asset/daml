@@ -15,9 +15,9 @@ import qualified Data.NameMap               as NM
 import qualified Data.Text                  as T
 
 import           GHC.Stack                  (HasCallStack)
-import Language.LSP.Types
-import           Outputable (Outputable(..), text)
-import Text.Printf (printf)
+import           Language.LSP.Types
+import           Outputable                 (Outputable(..), text)
+import           Text.Printf                (printf)
 
 mkVar :: T.Text -> ExprVarName
 mkVar = ExprVarName
@@ -86,7 +86,7 @@ buildPackage :: HasCallStack => PackageMetadata -> Version -> [Module] -> Import
 buildPackage meta version mods imports =
   case (version `supports` featurePackageImports, imports) of
     (True, Left rsns) ->
-      error $ printf "version %s supports explicit package imports, but found Left with reasons %str" (show version) (show rsns)
+      error $ printf "version %s supports explicit package imports, but found Left with reasons %s" (show version) (show rsns)
     _ ->
       Package version (NM.fromList mods) meta imports
 

@@ -12,7 +12,7 @@ import com.digitalasset.canton.*
 import com.digitalasset.canton.common.sequencer.SequencerConnectClient
 import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader.SequencerAggregatedInfo
 import com.digitalasset.canton.concurrent.HasFutureSupervision
-import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
+import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal, TopologyConfig}
 import com.digitalasset.canton.crypto.{
   SyncCryptoApiParticipantProvider,
   SynchronizerCrypto,
@@ -24,7 +24,11 @@ import com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.metrics.ConnectedSynchronizerMetrics
-import com.digitalasset.canton.participant.store.SyncPersistentState
+import com.digitalasset.canton.participant.store.memory.PackageMetadataView
+import com.digitalasset.canton.participant.store.{
+  PackageDependencyResolverImpl,
+  SyncPersistentState,
+}
 import com.digitalasset.canton.participant.sync.SyncPersistentStateManager
 import com.digitalasset.canton.participant.synchronizer.SynchronizerRegistryError.HandshakeErrors.SynchronizerIdMismatch
 import com.digitalasset.canton.participant.synchronizer.SynchronizerRegistryHelpers.SynchronizerHandle
@@ -44,7 +48,6 @@ import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.SynchronizerTopologyClientWithInit
 import com.digitalasset.canton.topology.processing.InitialTopologySnapshotValidator
-import com.digitalasset.canton.topology.store.PackageDependencyResolverUS
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
@@ -79,10 +82,11 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
       cryptoApiProvider: SyncCryptoApiParticipantProvider,
       clock: Clock,
       testingConfig: TestingConfigInternal,
+      topologyConfig: TopologyConfig,
       recordSequencerInteractions: AtomicReference[Option[RecordingConfig]],
       replaySequencerConfig: AtomicReference[Option[ReplayConfig]],
       topologyDispatcher: ParticipantTopologyDispatcher,
-      packageDependencyResolver: PackageDependencyResolverUS,
+      packageMetadataView: PackageMetadataView,
       partyNotifier: LedgerServerPartyNotifier,
       metrics: SynchronizerAlias => ConnectedSynchronizerMetrics,
   )(implicit
@@ -97,6 +101,10 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
       synchronizerIdx <- EitherT
         .right(syncPersistentStateManager.getSynchronizerIdx(psid.logical))
 
+      synchronizerTopologyStoreId <- EitherT.right(
+        syncPersistentStateManager.getSynchronizerTopologyStoreId(psid)
+      )
+
       _ <- EitherT
         .fromEither[Future](verifySynchronizerId(config, psid))
         .mapK(FutureUnlessShutdown.outcomeK)
@@ -106,6 +114,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
         .lookupOrCreatePersistentState(
           config.synchronizerAlias,
           physicalSynchronizerIdx,
+          synchronizerTopologyStoreId,
           synchronizerIdx,
           sequencerAggregatedInfo.staticSynchronizerParameters,
         )
@@ -116,8 +125,8 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
       )
 
       synchronizerLoggerFactory = loggerFactory.append(
-        "synchronizerId",
-        physicalSynchronizerIdx.synchronizerId.toString,
+        "psid",
+        physicalSynchronizerIdx.toString,
       )
 
       topologyFactory <- syncPersistentStateManager
@@ -133,7 +142,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
       topologyClient <- EitherT.right(
         synchronizeWithClosing("create caching client")(
           topologyFactory.createCachingTopologyClient(
-            packageDependencyResolver,
+            new PackageDependencyResolverImpl(participantId, packageMetadataView, loggerFactory),
             synchronizerPredecessor,
           )
         )
@@ -286,7 +295,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
       _ <- downloadSynchronizerTopologyStateForInitializationIfNeeded(
         syncPersistentStateManager,
         psid,
-        topologyFactory.createInitialTopologySnapshotValidator,
+        topologyFactory.createInitialTopologySnapshotValidator(topologyConfig),
         topologyClient,
         sequencerClient,
         partyNotifier,
@@ -453,7 +462,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SynchronizerRegistryError, Boolean] =
     client
-      .isActive(participantId, synchronizerAlias, waitForActive = waitForActive)
+      .isActive(participantId, waitForActive = waitForActive)
       .leftMap(SynchronizerRegistryHelpers.toSynchronizerRegistryError(synchronizerAlias))
 
   private def sequencerConnectClientBuilder: SequencerConnectClient.Builder = {

@@ -421,7 +421,7 @@ public final class UpdateSubmission<U> {
         actAs,
         readAs,
         empty(),
-        emptyList(),
+        disclosedContracts,
         synchronizerId,
         accessToken,
         packageIdSelectionPreference,

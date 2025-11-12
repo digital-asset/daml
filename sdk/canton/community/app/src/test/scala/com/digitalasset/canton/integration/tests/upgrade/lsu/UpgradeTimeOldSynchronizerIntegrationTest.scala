@@ -4,17 +4,16 @@
 package com.digitalasset.canton.integration.tests.upgrade.lsu
 
 import cats.syntax.functor.*
-import com.digitalasset.canton.admin.api.client.data.ParticipantStatus.SubmissionReady
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.integration.*
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.SingleSynchronizer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.SingleSynchronizer
 import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
   UsePostgres,
   UseProgrammableSequencer,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.util.EntitySyntax
 import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
@@ -23,7 +22,6 @@ import com.digitalasset.canton.synchronizer.sequencer.{HasProgrammableSequencer,
 import monocle.macros.syntax.lens.*
 import org.slf4j.event.Level
 
-import java.time.Duration
 import scala.concurrent.Future
 
 /*
@@ -41,7 +39,7 @@ class UpgradeTimeOldSynchronizerIntegrationTest
 
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](
+    new UseReferenceBlockSequencer[DbConfig.Postgres](
       loggerFactory,
       sequencerGroups = SingleSynchronizer,
     )
@@ -66,10 +64,9 @@ class UpgradeTimeOldSynchronizerIntegrationTest
 
       participant1.synchronizers.connect_local(sequencer1, daName)
 
-      synchronizerOwners1.foreach { owner =>
-        owner.topology.synchronizer_upgrade.announcement
-          .propose(successorPSId, upgradeTime)
-      }
+      synchronizerOwners1.foreach(
+        _.topology.synchronizer_upgrade.announcement.propose(successorPSId, upgradeTime)
+      )
 
       eventually() {
         participant1.topology.synchronizer_upgrade.announcement
@@ -102,16 +99,6 @@ class UpgradeTimeOldSynchronizerIntegrationTest
           )
         ),
       )
-
-      if (participant1.config.sequencerClient.useNewConnectionPool)
-        eventually() {
-          // The sequencer connection pool internal mechanisms to restart connections rely on the clock time advancing.
-          environment.simClock.value.advance(Duration.ofSeconds(1))
-
-          participant1.health.status.trySuccess.connectedSynchronizers.get(daId) should contain(
-            SubmissionReady(true)
-          )
-        }
 
       /** If the participant sends the ping before the resilient subscription detects that the
         * sequencer is up again, it fails (failed future). On such failed future, the submission is
@@ -175,9 +162,13 @@ class UpgradeTimeOldSynchronizerIntegrationTest
       logger.debug("Ping failed")
       participant1.testing.fetch_synchronizer_times()
 
-      // TODO(#26580): Test also cancelling and updating the upgrade announcement, e.g.:
-      //  - cancel the upgrade announcement and check that the time is not offset (or that offsetting got removed and this was logged)
-      //  - update the upgrade announcement to a later time and check that the time offsetting is updated accordingly
+      val dynamicSynchronizerParameters = participant1.topology.synchronizer_parameters.latest(daId)
+
+      sequencer1.underlying.value.sequencer.timeTracker
+        .fetchTime()
+        .futureValueUS should be >= upgradeTime.plus(
+        dynamicSynchronizerParameters.decisionTimeout.asJava
+      )
 
       val cleanSynchronizerIndex = participant1.underlying.value.sync.stateInspection
         .getAcsInspection(daId)

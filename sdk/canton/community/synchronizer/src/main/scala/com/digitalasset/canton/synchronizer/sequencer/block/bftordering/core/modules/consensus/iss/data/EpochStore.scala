@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data
 
-import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.{BatchAggregatorConfig, ProcessingTimeout}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.pekko.PekkoModuleSystem.PekkoEnv
@@ -58,7 +58,7 @@ trait EpochStore[E <: Env[E]] extends AutoCloseable {
   protected def addPrePrepareActionName(prePrepare: SignedMessage[PrePrepare]): String =
     s"add PrePrepare ${prePrepare.message.blockMetadata.blockNumber} epoch: ${prePrepare.message.blockMetadata.epochNumber}"
 
-  def addPrepares(prepares: Seq[SignedMessage[Prepare]])(implicit
+  def addPreparesAtomically(prepares: Seq[SignedMessage[Prepare]])(implicit
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[Unit]
 
@@ -91,7 +91,7 @@ trait EpochStore[E <: Env[E]] extends AutoCloseable {
       s"add ViewChange for ${viewChange.viewNumber} and blockMetadata ${viewChange.blockMetadata}"
   }
 
-  def addOrderedBlock(
+  def addOrderedBlockAtomically(
       prePrepare: SignedMessage[PrePrepare],
       commitMessages: Seq[SignedMessage[Commit]],
   )(implicit
@@ -153,6 +153,7 @@ object EpochStore {
   )
 
   def apply(
+      batchAggregatorConfig: BatchAggregatorConfig,
       storage: Storage,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
@@ -161,7 +162,7 @@ object EpochStore {
       case _: MemoryStorage =>
         new InMemoryEpochStore()
       case dbStorage: DbStorage =>
-        new DbEpochStore(dbStorage, timeouts, loggerFactory)(ec)
+        new DbEpochStore(batchAggregatorConfig, dbStorage, timeouts, loggerFactory)(ec)
     }
 
   final case class NumberOfRecords(

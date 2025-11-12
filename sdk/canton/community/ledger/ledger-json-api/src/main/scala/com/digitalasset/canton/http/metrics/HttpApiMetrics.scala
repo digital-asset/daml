@@ -5,7 +5,6 @@ package com.digitalasset.canton.http.metrics
 
 import com.daml.metrics.HealthMetrics
 import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
-import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.daml.metrics.api.{HistogramInventory, MetricName}
 import com.daml.metrics.http.{
   DamlHttpHistograms,
@@ -17,12 +16,6 @@ import com.daml.metrics.http.{
 import scala.annotation.unused
 
 object HttpApiMetrics {
-  lazy val ForTesting =
-    new HttpApiMetrics(
-      new HttpApiHistograms(MetricName("test"))(new HistogramInventory),
-      NoOpMetricsFactory,
-    )
-
   final val ComponentName = "json_api"
 }
 

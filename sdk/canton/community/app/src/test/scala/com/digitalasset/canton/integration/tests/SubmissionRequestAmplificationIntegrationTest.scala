@@ -17,9 +17,9 @@ import com.digitalasset.canton.console.LocalSequencerReference
 import com.digitalasset.canton.integration.EnvironmentDefinition.S2M2
 import com.digitalasset.canton.integration.bootstrap.NetworkBootstrapper
 import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
   UsePostgres,
   UseProgrammableSequencer,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -87,6 +87,7 @@ abstract class SubmissionRequestAmplificationIntegrationTest
             PositiveInt.tryCreate(2),
             config.NonNegativeFiniteDuration.Zero,
           ),
+          old.sequencerConnectionPoolDelays,
         )
       }
     )
@@ -437,7 +438,7 @@ class SubmissionRequestAmplificationReferenceIntegrationTestPostgres
 
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory)
+    new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory)
   )
   registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
 }

@@ -167,21 +167,11 @@ object KmsCryptoPrivateStore {
       kmsCacheConfig: CacheConfig,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
-  )(implicit ec: ExecutionContext): CryptoPrivateStore =
+  )(implicit ec: ExecutionContext): KmsCryptoPrivateStore =
     new KmsCryptoPrivateStore(
       kms,
       KmsMetadataStore.create(storage, kmsCacheConfig, timeouts, loggerFactory),
       loggerFactory,
     )
 
-  def fromCryptoPrivateStore(
-      cryptoPrivateStore: CryptoPrivateStore
-  ): Either[String, KmsCryptoPrivateStore] =
-    cryptoPrivateStore match {
-      case store: KmsCryptoPrivateStore => Right(store)
-      case _ =>
-        Left(
-          s"The crypto private store is not set as an external KMS crypto private store"
-        )
-    }
 }

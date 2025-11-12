@@ -357,7 +357,6 @@ object TypecheckUpgrades {
   private def checkLfVersions(
       arg: Upgrading[LanguageVersion]
   ): Try[Unit] = {
-    import Ordering.Implicits._
     if (arg.past > arg.present)
       fail(UpgradeError.DecreasingLfVersion(arg.past, arg.present))
     else

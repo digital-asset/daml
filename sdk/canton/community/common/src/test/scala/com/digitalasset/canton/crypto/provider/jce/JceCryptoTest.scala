@@ -9,9 +9,8 @@ import com.digitalasset.canton.config.{CachingConfigs, CryptoConfig, PositiveFin
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.CryptoTestHelper.TestMessage
 import com.digitalasset.canton.crypto.SigningKeySpec.EcSecp256k1
-import com.digitalasset.canton.crypto.kms.CommunityKmsFactory
-import com.digitalasset.canton.crypto.store.CryptoPrivateStoreFactory
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.replica.ReplicaManager
 import com.digitalasset.canton.resource.MemoryStorage
 import com.digitalasset.canton.tracing.NoReportingTracerProvider
 import com.google.protobuf.ByteString
@@ -32,7 +31,7 @@ class JceCryptoTest
     with PrivateKeyValidationTest
     with CryptoKeyFormatMigrationTest {
 
-  "JceCrypto" can {
+  "JceCrypto" must {
 
     // use a short duration to verify that a Java key is removed from the cache promptly
     lazy val javaKeyCacheDuration = PositiveFiniteDuration.ofSeconds(4)
@@ -41,6 +40,7 @@ class JceCryptoTest
       Crypto
         .create(
           CryptoConfig(provider = Jce),
+          CachingConfigs.defaultKmsMetadataCache,
           CachingConfigs.defaultSessionEncryptionKeyCacheConfig
             .focus(_.senderCache.expireAfterTimeout)
             .replace(javaKeyCacheDuration),
@@ -48,8 +48,7 @@ class JceCryptoTest
             config.NonNegativeFiniteDuration(javaKeyCacheDuration.underlying)
           ),
           new MemoryStorage(loggerFactory, timeouts),
-          CryptoPrivateStoreFactory.withoutKms(wallClock, parallelExecutionContext),
-          CommunityKmsFactory, // Does not matter for the test as we do not use KMS
+          Option.empty[ReplicaManager],
           testedReleaseProtocolVersion,
           futureSupervisor,
           wallClock,

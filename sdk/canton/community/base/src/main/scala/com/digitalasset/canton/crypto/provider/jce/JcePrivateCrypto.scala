@@ -44,10 +44,8 @@ import scala.concurrent.ExecutionContext
 
 class JcePrivateCrypto(
     pureCrypto: JcePureCrypto,
-    override val signingAlgorithmSpecs: CryptoScheme[SigningAlgorithmSpec],
-    override val signingKeySpecs: CryptoScheme[SigningKeySpec],
-    override val encryptionAlgorithmSpecs: CryptoScheme[EncryptionAlgorithmSpec],
-    override val encryptionKeySpecs: CryptoScheme[EncryptionKeySpec],
+    override val signingSchemes: SigningCryptoSchemes,
+    override val encryptionSchemes: EncryptionCryptoSchemes,
     override protected val store: CryptoPrivateStoreExtended,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
@@ -66,7 +64,7 @@ class JcePrivateCrypto(
     CryptoKeyValidation
       .ensureCryptoKeySpec(
         keySpec,
-        encryptionKeySpecs.allowed,
+        encryptionSchemes.keySpecs.allowed,
         EncryptionKeyGenerationError.UnsupportedKeySpec.apply,
       )
       .flatMap(_ => JcePrivateCrypto.generateEncryptionKeypair(keySpec))
@@ -81,7 +79,7 @@ class JcePrivateCrypto(
     CryptoKeyValidation
       .ensureCryptoKeySpec(
         keySpec,
-        signingKeySpecs.allowed,
+        signingSchemes.keySpecs.allowed,
         SigningKeyGenerationError.UnsupportedKeySpec.apply,
       )
       .flatMap(_ => JcePrivateCrypto.generateSigningKeypair(keySpec, usage))
@@ -142,7 +140,7 @@ object JcePrivateCrypto {
         .leftMap(SigningKeyGenerationError.KeyCreationError.apply)
     } yield keyPair
 
-  private[crypto] def generateSigningKeypair(
+  private[canton] def generateSigningKeypair(
       keySpec: SigningKeySpec,
       usage: NonEmpty[Set[SigningKeyUsage]],
   ): Either[SigningKeyGenerationError, SigningKeyPair] = keySpec match {

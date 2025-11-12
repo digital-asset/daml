@@ -1,7 +1,8 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.digitalasset.daml
+package lf
 package data
 
 import com.digitalasset.daml.lf.command.ApiContractKey
@@ -13,9 +14,9 @@ import com.digitalasset.daml.lf.transaction.{
   GlobalKey,
   GlobalKeyWithMaintainers,
   Node,
+  SerializationVersion,
 }
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.{command, crypto, language}
 
 import scala.collection.immutable.TreeSet
 import scala.language.implicitConversions
@@ -27,7 +28,7 @@ private[lf] object CostModel {
   trait CostModelImplicits {
     implicit def costOfPackageVersion(value: Ref.PackageVersion): Cost
 
-    implicit def costOfLanguageVersion(value: language.LanguageVersion): Cost
+    implicit def costOfSerializationVersion(value: SerializationVersion): Cost
 
     implicit def costOfTypeConRef(value: Ref.TypeConRef): Cost
 
@@ -99,7 +100,7 @@ private[lf] object CostModel {
   object EmptyCostModelImplicits extends CostModelImplicits {
     implicit def costOfPackageVersion(value: Ref.PackageVersion): Cost = 0L
 
-    implicit def costOfLanguageVersion(value: language.LanguageVersion): Cost = 0L
+    implicit def costOfSerializationVersion(value: SerializationVersion): Cost = 0L
 
     implicit def costOfTypeConRef(value: Ref.TypeConRef): Cost = 0L
 
@@ -173,8 +174,8 @@ private[lf] object CostModel {
     implicit def costOfPackageVersion(value: Ref.PackageVersion): Cost =
       1 + value.segments.length.toLong
 
-    implicit def costOfLanguageVersion(value: language.LanguageVersion): Cost =
-      1 + value.pretty.length.toLong
+    implicit def costOfSerializationVersion(value: SerializationVersion): Cost =
+      1 + SerializationVersion.All.view.map(SerializationVersion.toProtoValue(_).length).max.toLong
 
     implicit def costOfTypeConRef(value: Ref.TypeConRef): Cost = 1 + value.toString.length.toLong
 
@@ -252,7 +253,7 @@ private[lf] object CostModel {
         authData,
       ) = value
 
-      1 + costOfLanguageVersion(version) +
+      1 + costOfSerializationVersion(version) +
         costOfContractId(contractId) +
         costOfString(pkgName) +
         costOfIdentifier(templateId) +

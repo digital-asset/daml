@@ -618,7 +618,7 @@ trait MessageDispatcher { this: NamedLogging =>
       alarm(
         sc,
         ts,
-        s"Received messages with wrong synchronizer ids ${wrongMsgs.map(_.protocolMessage.synchronizerId)}. Discarding them.",
+        s"Received messages with wrong synchronizer ids ${wrongMsgs.map(_.protocolMessage.psid)}. Discarding them.",
       ).discard
     }
 

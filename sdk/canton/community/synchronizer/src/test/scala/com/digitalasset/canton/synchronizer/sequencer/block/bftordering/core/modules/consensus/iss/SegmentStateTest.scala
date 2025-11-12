@@ -770,16 +770,37 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
       // Create and receive f+1 view change messages from nodes
       def viewChangeMessage(from: BftNodeId = otherId2) =
-        createViewChange(nextView, from = from, originalLeader, Seq.empty)
+        createViewChange(
+          nextView,
+          from,
+          originalLeader,
+          Seq.empty,
+          actualSender = if (from == myId) None else Some(from),
+        )
       assertNoLogs(segment.processEvent(PbftSignedNetworkMessage(viewChangeMessage())))
       assertNoLogs(
         segment.processEvent(PbftSignedNetworkMessage(viewChangeMessage(from = otherId3)))
       )
 
       // Create new view message for later, but don't process yet
-      val ppBottom1 = createBottomPrePrepare(slotNumbers(0), nextView, from = otherId1)
-      val ppBottom2 = createBottomPrePrepare(slotNumbers(1), nextView, from = otherId1)
-      val ppBottom3 = createBottomPrePrepare(slotNumbers(2), nextView, from = otherId1)
+      val ppBottom1 = createBottomPrePrepare(
+        slotNumbers(0),
+        nextView,
+        from = otherId1,
+        actualSender = Some(otherId1),
+      )
+      val ppBottom2 = createBottomPrePrepare(
+        slotNumbers(1),
+        nextView,
+        from = otherId1,
+        actualSender = Some(otherId1),
+      )
+      val ppBottom3 = createBottomPrePrepare(
+        slotNumbers(2),
+        nextView,
+        from = otherId1,
+        actualSender = Some(otherId1),
+      )
       val newView = createNewView(
         nextView,
         otherId1,
@@ -789,14 +810,33 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           viewChangeMessage(from = otherId2),
         ),
         Seq(ppBottom1, ppBottom2, ppBottom3),
+        actualSender = Some(otherId1),
       )
       segment.isViewChangeInProgress shouldBe true
 
       // Simulate receiving early Prepare messages (for nextView) before receiving the new view message
       def prepare1(from: BftNodeId = myId) =
-        createPrepare(slotNumbers(0), nextView, from = from, ppBottom1.message.hash)
-      val prepare2 = createPrepare(slotNumbers(1), nextView, from = myId, ppBottom2.message.hash)
-      val prepare3 = createPrepare(slotNumbers(2), nextView, from = myId, ppBottom3.message.hash)
+        createPrepare(
+          slotNumbers(0),
+          nextView,
+          from = from,
+          ppBottom1.message.hash,
+          actualSender = if (from == myId) None else Some(from),
+        )
+      val prepare2 = createPrepare(
+        slotNumbers(1),
+        nextView,
+        from = myId,
+        ppBottom2.message.hash,
+        actualSender = None,
+      )
+      val prepare3 = createPrepare(
+        slotNumbers(2),
+        nextView,
+        from = myId,
+        ppBottom3.message.hash,
+        actualSender = None,
+      )
       assertLogs(
         segment.processEvent(PbftSignedNetworkMessage(prepare1(from = otherId1))),
         log => {
@@ -817,7 +857,13 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
       // Simulate receiving an early message from an even more future view
       val prepareFuture =
-        createPrepare(slotNumbers(1), nextView + 1, from = otherId2, ppBottom2.message.hash)
+        createPrepare(
+          slotNumbers(1),
+          nextView + 1,
+          from = otherId2,
+          ppBottom2.message.hash,
+          actualSender = Some(otherId2),
+        )
       assertLogs(
         segment.processEvent(PbftSignedNetworkMessage(prepareFuture)),
         log => {
@@ -1330,19 +1376,30 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         from,
         originalLeader,
         Seq(slotNumbers(0) -> view1),
+        actualSender = if (from == myId) None else Some(from),
       )
 
       val pp1 = createPrePrepare(slotNumbers(0), view1, from = myId)
-      val ppBottom2 = createBottomPrePrepare(slotNumbers(1), view2, from = otherId1)
-      val ppBottom3 = createBottomPrePrepare(slotNumbers(2), view2, from = otherId1)
+      val ppBottom2 = createBottomPrePrepare(
+        slotNumbers(1),
+        view2,
+        from = otherId1,
+        actualSender = Some(otherId1),
+      )
+      val ppBottom3 = createBottomPrePrepare(
+        slotNumbers(2),
+        view2,
+        from = otherId1,
+        actualSender = Some(otherId1),
+      )
 
       val prepare1 = createPrepare(slotNumbers(0), view2, from = myId, pp1.message.hash)
       val prepare2 = createPrepare(slotNumbers(1), view2, from = myId, ppBottom2.message.hash)
       val prepare3 = createPrepare(slotNumbers(2), view2, from = myId, ppBottom3.message.hash)
 
-      segment.processEvent(PbftSignedNetworkMessage(prepare1)) shouldBe empty
-      segment.processEvent(PbftSignedNetworkMessage(prepare2)) shouldBe empty
-      segment.processEvent(PbftSignedNetworkMessage(prepare3)) shouldBe empty
+      segment.processEvent(PbftSignedNetworkMessage(prepare1), rehydrated = true) shouldBe empty
+      segment.processEvent(PbftSignedNetworkMessage(prepare2), rehydrated = true) shouldBe empty
+      segment.processEvent(PbftSignedNetworkMessage(prepare3), rehydrated = true) shouldBe empty
 
       // getting new-view message without having gotten any view-change messages
       // although this could indeed happen in real life, it is more commonly seen during rehydration of messages
@@ -1513,6 +1570,29 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       }
     }
 
+    "retransmit completed block to remote nodes that are in higher view" in {
+      // A block that is already completed (in view 0)
+      val ccForBlockThatIsCompleted = createCommitCertificate(0, view = 0, myId)
+      val blockThatIsCompleted = Block(EpochNumber(0), BlockNumber(0), ccForBlockThatIsCompleted)
+      val segmentState = createSegmentState(completedBlocks = Seq(blockThatIsCompleted))
+
+      val zeroProgressBlockStatus = ConsensusStatus.BlockStatus
+        .InProgress(
+          prePrepared = false,
+          preparesPresent = Seq(false, false, false, false),
+          commitsPresent = Seq(false, false, false, false),
+        )
+      val remoteStatus = ConsensusStatus.SegmentStatus.InProgress(
+        ViewNumber(1), // remote node is in a higher view
+        Seq.fill(slotNumbers.size)(zeroProgressBlockStatus),
+      )
+
+      val retransmissionResult = segmentState.messagesToRetransmit(otherId1, remoteStatus)
+
+      retransmissionResult.messages shouldBe empty
+      retransmissionResult.commitCerts shouldBe Seq(ccForBlockThatIsCompleted)
+    }
+
     "immediately complete a block when receiving a retransmitted commit certificate" in {
       val originalLeader = myId
       val segment = createSegmentState(originalLeader)
@@ -1608,6 +1688,7 @@ object SegmentStateTest {
       blockNumber: BlockNumber,
       view: Long,
       from: BftNodeId,
+      actualSender: Option[BftNodeId] = None,
   )(implicit synchronizerProtocolVersion: ProtocolVersion): SignedMessage[PrePrepare] =
     PrePrepare
       .create(
@@ -1616,6 +1697,7 @@ object SegmentStateTest {
         OrderingBlock.empty,
         CanonicalCommitSet(Set.empty),
         from,
+        actualSender,
       )
       .fakeSign
 
@@ -1639,6 +1721,7 @@ object SegmentStateTest {
       view: Long,
       from: BftNodeId,
       hash: Hash,
+      actualSender: Option[BftNodeId] = None,
   )(implicit synchronizerProtocolVersion: ProtocolVersion): SignedMessage[Prepare] =
     Prepare
       .create(
@@ -1646,6 +1729,7 @@ object SegmentStateTest {
         ViewNumber(view),
         hash,
         from,
+        actualSender,
       )
       .fakeSign
 
@@ -1691,11 +1775,26 @@ object SegmentStateTest {
     PrepareCertificate(prePrepare, prepareSeq)
   }
 
+  def createCommitCertificate(
+      blockNumber: Long,
+      view: Long,
+      prePrepareSource: BftNodeId,
+  )(implicit synchronizerProtocolVersion: ProtocolVersion): CommitCertificate = {
+    val prePrepare = createPrePrepare(blockNumber, view, prePrepareSource)
+    val prePrepareHash = prePrepare.message.hash
+    val commitSeq = allIds
+      .filterNot(_ == prePrepareSource)
+      .take(fullMembership.orderingTopology.strongQuorum)
+      .map(node => createCommit(blockNumber, view, node, prePrepareHash))
+    CommitCertificate(prePrepare, commitSeq)
+  }
+
   def createViewChange(
       viewNumber: Long,
       from: BftNodeId,
       originalLeader: BftNodeId = myId,
       slotsAndViewNumbers: Seq[(Long, Long)] = Seq.empty,
+      actualSender: Option[BftNodeId] = None,
   )(implicit synchronizerProtocolVersion: ProtocolVersion): SignedMessage[ViewChange] = {
     val originalLeaderIndex = allIds.indexOf(originalLeader)
     val certs = slotsAndViewNumbers.map { case (slot, view) =>
@@ -1711,6 +1810,7 @@ object SegmentStateTest {
         ViewNumber(viewNumber),
         consensusCerts = certs,
         from,
+        actualSender,
       )
       .fakeSign
   }
@@ -1730,6 +1830,7 @@ object SegmentStateTest {
       from: BftNodeId,
       vcSet: Seq[SignedMessage[ViewChange]],
       ppSet: Seq[SignedMessage[PrePrepare]],
+      actualSender: Option[BftNodeId] = None,
   )(implicit synchronizerProtocolVersion: ProtocolVersion): SignedMessage[NewView] =
     NewView
       .create(
@@ -1738,6 +1839,7 @@ object SegmentStateTest {
         viewChanges = vcSet,
         prePrepares = ppSet,
         from,
+        actualSender,
       )
       .fakeSign
 

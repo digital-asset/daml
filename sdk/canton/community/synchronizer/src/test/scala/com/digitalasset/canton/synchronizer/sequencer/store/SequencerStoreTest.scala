@@ -172,11 +172,15 @@ trait SequencerStoreTest
           ),
         )
 
-      def lookupRegisteredMember(member: Member): FutureUnlessShutdown[SequencerMemberId] =
+      def lookupRegisteredMember(
+          member: Member
+      ): FutureUnlessShutdown[(SequencerMemberId, CantonTimestamp)] =
         for {
           registeredMemberO <- store.lookupMember(member)
-          memberId = registeredMemberO.map(_.memberId).getOrElse(fail(s"$member is not registered"))
-        } yield memberId
+          result = registeredMemberO
+            .map(registeredMember => registeredMember.memberId -> registeredMember.registeredFrom)
+            .getOrElse(fail(s"$member is not registered"))
+        } yield result
 
       private def ensureSequencerMemberIsRegistered() =
         store.registerMember(sequencerMember, CantonTimestamp.MinValue)
@@ -204,8 +208,8 @@ trait SequencerStoreTest
       ): FutureUnlessShutdown[Seq[Sequenced[BytesPayload]]] = {
         implicit val metricsContext: MetricsContext = MetricsContext.Empty
         for {
-          memberId <- lookupRegisteredMember(member)
-          events <- store.readEvents(memberId, member, fromTimestampO, limit)
+          (memberId, memberRegisteredFrom) <- lookupRegisteredMember(member)
+          events <- store.readEvents(memberId, member, memberRegisteredFrom, fromTimestampO, limit)
           payloads <- store.readPayloads(events.events.flatMap(_.event.payloadO).toList, member)
         } yield events.events.map {
           _.map {
@@ -225,8 +229,10 @@ trait SequencerStoreTest
           expectedTopologyTimestamp: Option[CantonTimestamp] = None,
       ): FutureUnlessShutdown[Unit] =
         for {
-          senderId <- lookupRegisteredMember(expectedSender)
-          recipientIds <- expectedRecipients.toList.parTraverse(lookupRegisteredMember).map(_.toSet)
+          (senderId, _) <- lookupRegisteredMember(expectedSender)
+          recipientIds <- expectedRecipients.toList
+            .parTraverse(lookupRegisteredMember)
+            .map(_.map(_._1).toSet)
         } yield {
           event.timestamp shouldBe expectedTimestamp
           event.event match {
@@ -258,7 +264,7 @@ trait SequencerStoreTest
           expectedTopologyTimestamp: Option[CantonTimestamp],
       ): FutureUnlessShutdown[Unit] =
         for {
-          senderId <- lookupRegisteredMember(expectedSender)
+          (senderId, _) <- lookupRegisteredMember(expectedSender)
         } yield {
           event.timestamp shouldBe expectedTimestamp
           event.event match {
@@ -362,12 +368,10 @@ trait SequencerStoreTest
             .saveWatermark(deliverEvent2.timestamp)
             .valueOrFail("saveWatermark")
           events <- env.readEvents(alice)
-          _ = events should have size 2
-          Seq(event1, event2) = events
+          _ = events should have size 1 // Event at timestamp of member registration is skipped
+          Seq(event) = events
           _ <- env
-            .assertDeliverEvent(event1, ts1, alice, messageId1, Set(alice), payload1)
-          _ <- env
-            .assertDeliverEvent(event2, ts2, alice, messageId2, Set(alice), payload2)
+            .assertDeliverEvent(event, ts2, alice, messageId2, Set(alice), payload2)
         } yield succeed
       }
 
@@ -375,6 +379,8 @@ trait SequencerStoreTest
         val env = Env()
 
         for {
+          _ <- env.store.registerMember(alice, ts1.immediatePredecessor)
+          _ <- env.store.registerMember(bob, ts2.immediatePredecessor)
           // the first event is for alice, and the second for bob
           deliverEvent1 <- env.deliverEvent(ts1, alice, messageId1, payload1)
           deliverEvent2 <- env.deliverEvent(ts2, bob, messageId2, payload2)
@@ -412,6 +418,8 @@ trait SequencerStoreTest
         val env = Env()
 
         for {
+          _ <- env.store.registerMember(alice, ts1.immediatePredecessor)
+          _ <- env.store.registerMember(bob, ts2.immediatePredecessor)
           // the first event is for alice, and the second for bob
           deliverEventAlice <- env.deliverEvent(ts1, alice, messageId1, payload1)
           deliverEventAll <- env
@@ -420,7 +428,7 @@ trait SequencerStoreTest
               alice,
               messageId2,
               payload2,
-              recipients = Set(alice, bob),
+              recipients = Set(alice, bob, sequencerMember),
             )
           receiptAlice <- env.deliverReceipt(ts4, alice, messageId4, ts3)
           deliverEventBob <- env.deliverEvent(ts3, bob, messageId3, payload3)
@@ -440,7 +448,10 @@ trait SequencerStoreTest
             ts2,
             alice,
             messageId2,
-            Set(alice, bob),
+            Set(
+              alice,
+              sequencerMember,
+            ), // sequencer member is returned for the reader to correctly track last topology recipient timestamp in the subscription
             payload2,
           )
           _ <- env.assertReceiptEvent(
@@ -455,7 +466,10 @@ trait SequencerStoreTest
             ts2,
             alice,
             messageId2,
-            Set(alice, bob),
+            Set(
+              bob,
+              sequencerMember,
+            ), // sequencer member is returned for the reader to correctly track last topology recipient timestamp in the subscription
             payload2,
           )
           _ <- env.assertDeliverEvent(bobEvents(1), ts3, bob, messageId3, Set(bob), payload3)
@@ -466,8 +480,8 @@ trait SequencerStoreTest
         val env = Env()
 
         for {
-          registeredAlice <- env.store.registerMember(alice, ts1)
-          _ <- env.store.registerMember(bob, ts1)
+          registeredAlice <- env.store.registerMember(alice, ts1.immediatePredecessor)
+          _ <- env.store.registerMember(bob, ts1.immediatePredecessor)
           error = DeliverErrorStoreEvent(
             registeredAlice.memberId,
             messageId1,
@@ -486,16 +500,21 @@ trait SequencerStoreTest
         }
       }
 
-      "support paging results" in {
+      "support paging results and interleave broadcasts correctly" in {
         val env = Env()
 
         for {
-          registeredAlice <- env.store.registerMember(alice, ts1)
+          registeredAlice <- env.store.registerMember(alice, ts1.immediatePredecessor)
           // lets write 20 deliver events - offsetting the second timestamp that is at epoch second 1
           events = NonEmptyUtil.fromUnsafe(
             (0L until 20L).map { n =>
               env.deliverEventWithDefaults(ts1.plusSeconds(n), sender = registeredAlice.memberId)()
-            }.toSeq
+            } ++
+              List(
+                env.deliverEventWithDefaults(ts(30), sender = registeredAlice.memberId)(
+                  NonEmpty(SortedSet, SequencerMemberId.Broadcast)
+                )
+              )
           )
           _ <- env.saveEventsAndBuffer(instanceIndex, events)
           _ <- env.saveWatermark(events.last1.timestamp).valueOrFail("saveWatermark")
@@ -506,11 +525,11 @@ trait SequencerStoreTest
           // ask for 10 results from a position where we know there are less
           partialPage <- env.readEvents(alice, ts1.plusSeconds(14).some, 10)
         } yield {
-          def seconds(page: Seq[Sequenced[_]]) = page.map(_.timestamp.getEpochSecond).toList
+          def seconds(page: Seq[Sequenced[?]]) = page.map(_.timestamp.getEpochSecond).toList
 
           seconds(firstPage) shouldBe (1L to 10L).toList
           seconds(secondPage) shouldBe (11L to 20L).toList
-          seconds(partialPage) shouldBe (16L to 20L).toList
+          seconds(partialPage) shouldBe (16L to 20L).toList :+ 30L
         }
       }
 

@@ -11,8 +11,10 @@ import com.digitalasset.base.error.{
   Explanation,
   Resolution,
 }
+import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.PackageServiceErrorGroup
 import com.digitalasset.canton.error.{CantonError, ContextualizedCantonError, ParentCantonError}
+import com.digitalasset.canton.ledger.api.VettedPackagesRef
 import com.digitalasset.canton.ledger.error.PackageServiceErrors
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.participant.admin.PackageService.DarDescription
@@ -157,6 +159,43 @@ object CantonPackageServiceError extends PackageServiceErrorGroup {
 
   }
 
+  @Resolution("Connect to a synchronzer before vetting a package.")
+  object NotConnectedToSynchronizer
+      extends ErrorCode(
+        id = "PACKAGE_SERVICE_NOT_CONNECTED_TO_SYNCHRONIZER",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class Error(synchronizerId: String)(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause =
+            s"Cannot upload a dar because the participant is not connected to synchronizer '$synchronizerId'."
+        )
+  }
+
+  @Resolution(
+    """If the node is not connected to any synchronizer, connect to a synchornizer first.
+      |If the participant is connected to more than one synchronizer, explicitly specify the synchronizer id."""
+  )
+  object CannotAutodetectSynchronizer
+      extends ErrorCode(
+        id = "PACKAGE_SERVICE_CANNOT_AUTODETECT_SYNCHRONIZER",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class Failure(synchronizers: Seq[SynchronizerId])(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause = {
+            val connectedSynchronizersMsg =
+              if (synchronizers.isEmpty)
+                "no synchronizers currently connected"
+              else
+                "currently connected synchronizers " + synchronizers.mkString(", ")
+            s"Cannot autodetect synchronizer: $connectedSynchronizersMsg"
+          }
+        )
+
+  }
   @Explanation(
     """An operation failed with an internal error."""
   )
@@ -169,4 +208,41 @@ object CantonPackageServiceError extends PackageServiceErrorGroup {
     ) extends CantonError.Impl(_reason)(PackageServiceErrors.InternalError)
   }
 
+  @Explanation("Package vetting errors")
+  object Vetting extends ErrorGroup {
+
+    @Explanation(
+      """The vetted package reference does not match any package in the package store."""
+    )
+    @Resolution("""Check the provided vetted package reference and re-try the operation.""")
+    object VettingReferenceEmpty
+        extends ErrorCode(
+          id = "UNRESOLVED_VETTING_REFERENCE",
+          ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
+        ) {
+      final case class Reject(reason: String, reference: VettedPackagesRef)(implicit
+          val loggingContext: ErrorLoggingContext
+      ) extends CantonError.Impl(
+            cause =
+              s"The vetted package reference $reference does not match any package in the package store. Reason: $reason"
+          )
+    }
+
+    @Explanation(
+      """The vetted package reference matches more than one package in the package store."""
+    )
+    @Resolution("""Check the provided vetted package reference and re-try the operation.""")
+    object VettingReferenceMoreThanOne
+        extends ErrorCode(
+          id = "AMBIGUOUS_VETTING_REFERENCE",
+          ErrorCategory.InvalidGivenCurrentSystemStateOther,
+        ) {
+      final case class Reject(reference: VettedPackagesRef, matchingPackages: Set[LfPackageId])(
+          implicit val loggingContext: ErrorLoggingContext
+      ) extends CantonError.Impl(
+            cause =
+              show"The package reference $reference matches multiple packages: ${matchingPackages.toSeq}"
+          )
+    }
+  }
 }

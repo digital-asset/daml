@@ -6,7 +6,6 @@ package com.digitalasset.canton.platform.store.cache
 import com.daml.metrics.api.noop.{NoOpMetricsFactory, NoOpTimer}
 import com.daml.metrics.api.{MetricInfo, MetricName, MetricQualification}
 import com.digitalasset.canton.caching.{CaffeineCache, ConcurrentCache, SizedCache}
-import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.metrics.CacheMetrics
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import com.github.benmanes.caffeine.cache.Caffeine
@@ -39,9 +38,9 @@ class StateCacheSpec
 
   it should "asynchronously store the update" in {
     val cache = mock[ConcurrentCache[String, String]]
-    val someOffset = offset(0L)
+    val someEventSeqId = 0L
     val stateCache = StateCache[String, String](
-      initialCacheIndex = Some(someOffset),
+      initialCacheEventSeqIdIndex = someEventSeqId,
       emptyLedgerState = "",
       cache = cache,
       registerUpdateTimer = cacheUpdateTimer,
@@ -53,7 +52,7 @@ class StateCacheSpec
       stateCache.putAsync(
         "key",
         {
-          case `someOffset` => asyncUpdatePromise.future
+          case `someEventSeqId` => asyncUpdatePromise.future
           case _ => fail()
         },
       )
@@ -123,9 +122,9 @@ class StateCacheSpec
 
   it should "synchronously update the cache in front of older asynchronous updates" in {
     val cache = mock[ConcurrentCache[String, String]]
-    val initialOffset = offset(0L)
+    val initialEventSeqId = 0L
     val stateCache = StateCache[String, String](
-      initialCacheIndex = Some(initialOffset),
+      initialCacheEventSeqIdIndex = initialEventSeqId,
       emptyLedgerState = "",
       cache = cache,
       registerUpdateTimer = cacheUpdateTimer,
@@ -137,12 +136,12 @@ class StateCacheSpec
       stateCache.putAsync(
         "key",
         {
-          case `initialOffset` => asyncUpdatePromise.future
+          case `initialEventSeqId` => asyncUpdatePromise.future
           case _ => fail()
         },
       )
     stateCache.putBatch(
-      offset(2L),
+      2L,
       Map("key" -> "value", "key2" -> "value2"),
     )
     asyncUpdatePromise.completeWith(Future.successful("should not update the cache"))
@@ -159,21 +158,21 @@ class StateCacheSpec
 
   it should "not update the cache if called with a non-increasing `validAt`" in {
     val cache = mock[ConcurrentCache[String, String]]
-    val stateCache = StateCache[String, String](None, "", cache, cacheUpdateTimer, loggerFactory)
+    val stateCache = StateCache[String, String](0L, "", cache, cacheUpdateTimer, loggerFactory)
 
-    stateCache.putBatch(offset(2L), Map("key" -> "value"))
+    stateCache.putBatch(2L, Map("key" -> "value"))
     loggerFactory.assertLogs(
       within = {
         // `Put` at a decreasing validAt
-        stateCache.putBatch(offset(1L), Map("key" -> "earlier value"))
+        stateCache.putBatch(1L, Map("key" -> "earlier value"))
         stateCache
-          .putBatch(offset(2L), Map("key" -> "value at same validAt"))
+          .putBatch(2L, Map("key" -> "value at same validAt"))
       },
       assertions = _.warningMessage should include(
-        "Ignoring incoming synchronous update at an index (1000000001) equal to or before the cache index (1000000002)"
+        "Ignoring incoming synchronous update at an index at event sequential ID(1) equal to or before the cache index (2)"
       ),
       _.warningMessage should include(
-        "Ignoring incoming synchronous update at an index (1000000002) equal to or before the cache index (1000000002)"
+        "Ignoring incoming synchronous update at an index at event sequential ID(2) equal to or before the cache index (2)"
       ),
     )
 
@@ -187,7 +186,7 @@ class StateCacheSpec
   it should "correctly reset the state cache" in {
     val stateCache =
       new StateCache[String, String](
-        initialCacheIndex = Some(offset(1L)),
+        initialCacheEventSeqIdIndex = 1L,
         emptyLedgerState = "",
         cache = SizedCache.from(
           SizedCache.Configuration(2),
@@ -205,7 +204,7 @@ class StateCacheSpec
 
     // Add eagerly an entry into the cache
     stateCache.putBatch(
-      offset(2L),
+      2L,
       Map(syncUpdateKey -> "some initial value"),
     )
     stateCache.get(syncUpdateKey) shouldBe Some("some initial value")
@@ -216,7 +215,7 @@ class StateCacheSpec
       loggerFactory.assertLogs(
         within = stateCache.putAsync(
           asyncUpdateKey,
-          Map(offset(2L) -> asyncUpdatePromise.future),
+          Map(2L -> asyncUpdatePromise.future),
         ),
         assertions = _.warningMessage should include(
           "Pending updates tracker for other_key not registered. This could be due to a transient error causing a restart in the index service."
@@ -224,13 +223,13 @@ class StateCacheSpec
       )
 
     // Reset the cache
-    stateCache.reset(Some(offset(1L)))
+    stateCache.reset(1L)
     // Complete async update
     asyncUpdatePromise.completeWith(Future.successful("some value"))
 
     // Assert the cache is empty after completion of the async update
     putAsyncF.map { _ =>
-      stateCache.cacheIndex shouldBe Some(offset(1L))
+      stateCache.cacheEventSeqIdIndex shouldBe 1L
       stateCache.get(syncUpdateKey) shouldBe None
       stateCache.get(asyncUpdateKey) shouldBe None
     }
@@ -238,7 +237,7 @@ class StateCacheSpec
 
   private def buildStateCache(cacheSize: Long): StateCache[String, String] =
     StateCache[String, String](
-      initialCacheIndex = None,
+      initialCacheEventSeqIdIndex = 0L,
       emptyLedgerState = "",
       cache = CaffeineCache[String, String](
         Caffeine
@@ -281,14 +280,14 @@ class StateCacheSpec
       var cacheIdx = 0L
       insertions.map { case (key, (promise, _)) =>
         cacheIdx += 1L
-        val validAt = offset(cacheIdx)
-        stateCache.cacheIndex = Some(validAt)
+        val validAt = cacheIdx
+        stateCache.cacheEventSeqIdIndex = validAt
         stateCache
           .putAsync(
             key,
             {
               case `validAt` => promise.future
-              case _ => fail()
+              case incorrect => fail(s"expected $validAt but was $incorrect")
             },
           )
           .map(_ => ())
@@ -300,10 +299,5 @@ class StateCacheSpec
     val r = f
     val duration = FiniteDuration((System.nanoTime() - start) / 1000000L, TimeUnit.MILLISECONDS)
     (r, duration)
-  }
-
-  private def offset(idx: Long): Offset = {
-    val base = 1000000000L
-    Offset.tryFromLong(base + idx)
   }
 }

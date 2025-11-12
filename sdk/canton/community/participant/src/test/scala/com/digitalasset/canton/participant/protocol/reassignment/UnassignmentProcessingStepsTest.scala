@@ -27,7 +27,7 @@ import com.digitalasset.canton.data.*
 import com.digitalasset.canton.data.ViewType.UnassignmentViewType
 import com.digitalasset.canton.lifecycle.{DefaultPromiseUnlessShutdownFactory, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.LogEntry
-import com.digitalasset.canton.participant.admin.PackageDependencyResolver
+import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.participant.ledger.api.{LedgerApiIndexer, LedgerApiStore}
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
@@ -91,7 +91,7 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
-import com.digitalasset.canton.util.{ContractAuthenticator, ResourceUtil}
+import com.digitalasset.canton.util.{ContractValidator, ResourceUtil}
 import com.digitalasset.canton.version.HasTestCloseContext
 import com.digitalasset.canton.{
   BaseTest,
@@ -187,12 +187,10 @@ final class UnassignmentProcessingStepsTest
     SynchronizerCrypto(crypto, defaultStaticSynchronizerParameters),
     IndexedPhysicalSynchronizer.tryCreate(sourceSynchronizer.unwrap, 1),
     defaultStaticSynchronizerParameters,
-    exitOnFatalFailures = true,
-    disableUpgradeValidation = false,
-    packageDependencyResolver = mock[PackageDependencyResolver],
+    parameters = ParticipantNodeParameters.forTestingOnly(testedProtocolVersion),
+    packageMetadataView = mock[PackageMetadataView],
     Eval.now(mock[LedgerApiStore]),
     logicalPersistentState,
-    Eval.now(mock[PackageMetadataView]),
     loggerFactory,
     timeouts,
     futureSupervisor,
@@ -318,7 +316,7 @@ final class UnassignmentProcessingStepsTest
       cryptoClient,
       seedGenerator,
       Source(defaultStaticSynchronizerParameters),
-      ContractAuthenticator(crypto.pureCrypto),
+      ContractValidator.AllowAll,
       Source(testedProtocolVersion),
       loggerFactory,
     )(executorService)

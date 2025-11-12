@@ -4,7 +4,7 @@
 package com.digitalasset.canton.integration.tests.multihostedparties
 
 import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{
   CommandFailure,
   LocalParticipantReference,
@@ -12,12 +12,9 @@ import com.digitalasset.canton.console.{
 }
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.examples.java as M
-import com.digitalasset.canton.integration.ConfigTransforms.zeroReassignmentTimeProofFreshnessProportion
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
+import com.digitalasset.canton.integration.tests.multihostedparties.PartyActivationFlow.authorizeWithTargetDisconnect
 import com.digitalasset.canton.integration.util.PartyToParticipantDeclarative
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -27,14 +24,87 @@ import com.digitalasset.canton.integration.{
 }
 import com.digitalasset.canton.logging.SuppressingLogger.LogEntryOptionality
 import com.digitalasset.canton.participant.admin.data.ContractImportMode
+import com.digitalasset.canton.participant.admin.party.PartyManagementServiceError.InvalidState.AbortAcsExportForMissingOnboardingFlag
 import com.digitalasset.canton.participant.admin.party.PartyManagementServiceError.InvalidTimestamp
 import com.digitalasset.canton.time.PositiveSeconds
-import com.digitalasset.canton.topology.transaction.ParticipantPermission as PP
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.{Observation, Submission}
+import com.digitalasset.canton.topology.transaction.{
+  HostingParticipant,
+  ParticipantPermission,
+  ParticipantPermission as PP,
+}
 import com.digitalasset.canton.topology.{PartyId, PhysicalSynchronizerId}
 import com.digitalasset.canton.{HasExecutionContext, HasTempDirectory, config}
 
 import java.time.Instant
+
+private[multihostedparties] object PartyActivationFlow {
+
+  def authorizeOnly(
+      party: PartyId,
+      synchronizerId: PhysicalSynchronizerId,
+      source: ParticipantReference,
+      target: ParticipantReference,
+  ): Long =
+    authorizeWithTargetDisconnect(
+      party,
+      synchronizerId,
+      source,
+      target,
+      disconnectTarget = false,
+    )
+
+  def authorizeWithTargetDisconnect(
+      party: PartyId,
+      synchronizerId: PhysicalSynchronizerId,
+      source: ParticipantReference,
+      target: ParticipantReference,
+      disconnectTarget: Boolean = true,
+  ): Long = {
+    target.topology.party_to_participant_mappings
+      .propose_delta(
+        party = party,
+        adds = Seq(target.id -> ParticipantPermission.Submission),
+        store = synchronizerId,
+        requiresPartyToBeOnboarded = true,
+      )
+
+    if (disconnectTarget) {
+      target.synchronizers.disconnect_all()
+    }
+
+    val sourceLedgerEnd = source.ledger_api.state.end()
+
+    source.topology.party_to_participant_mappings.propose_delta(
+      party = party,
+      adds = Seq(target.id -> ParticipantPermission.Submission),
+      store = synchronizerId,
+      requiresPartyToBeOnboarded = true,
+    )
+
+    sourceLedgerEnd
+  }
+
+  /** Unilateral clears the onboarding flag.
+    *
+    * As opposed to the `parties.complete_party_onboarding` endpoint, this does not wait for the
+    * appropriate time to remove the onboarding flag, but does so immediately.
+    */
+  def removeOnboardingFlag(
+      party: PartyId,
+      synchronizerId: PhysicalSynchronizerId,
+      target: ParticipantReference,
+  ): Unit =
+    target.topology.party_to_participant_mappings
+      .propose_delta(
+        party = party,
+        adds = Seq(target.id -> ParticipantPermission.Submission),
+        store = synchronizerId,
+        requiresPartyToBeOnboarded = false,
+      )
+      .discard
+
+}
 
 trait OfflinePartyReplicationIntegrationTestBase
     extends CommunityIntegrationTest
@@ -55,7 +125,6 @@ trait OfflinePartyReplicationIntegrationTestBase
 
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P3_S1M1
-      .addConfigTransform(zeroReassignmentTimeProofFreshnessProportion)
       .withSetup { implicit env =>
         import env.*
         participants.local.synchronizers.connect_local(sequencer1, daName)
@@ -69,7 +138,7 @@ trait OfflinePartyReplicationIntegrationTestBase
 
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory)
+    new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory)
   )
 
   private val acsSnapshot =
@@ -77,19 +146,31 @@ trait OfflinePartyReplicationIntegrationTestBase
 
   protected val acsSnapshotPath: String = acsSnapshot.toString
 
-  protected def authorizeAlice(
+  protected def authorizeAliceWithTargetDisconnect(
+      synchronizerId: PhysicalSynchronizerId,
+      source: ParticipantReference,
+      target: ParticipantReference,
+  ): Long =
+    authorizeWithTargetDisconnect(
+      alice,
+      synchronizerId,
+      source,
+      target,
+    )
+
+  protected def authorizeAliceWithoutOnboardingFlag(
       permission: PP,
-      p1: ParticipantReference,
-      p3: ParticipantReference,
+      source: ParticipantReference,
+      target: ParticipantReference,
       synchronizerId: PhysicalSynchronizerId,
   )(implicit env: TestEnvironment): Unit =
-    PartyToParticipantDeclarative.forParty(Set(p1, p3), synchronizerId)(
-      p1.id,
+    PartyToParticipantDeclarative.forParty(Set(source, target), synchronizerId)(
+      source.id,
       alice,
       PositiveInt.one,
       Set(
-        (p1.id, PP.Submission),
-        (p3.id, permission),
+        (source.id, PP.Submission),
+        (target.id, permission),
       ),
     )
 
@@ -164,36 +245,110 @@ final class OfflinePartyReplicationAtOffsetIntegrationTest
         exportFilePath = acsSnapshotPath,
         waitForActivationTimeout = Some(config.NonNegativeFiniteDuration.ofMillis(5)),
       ),
-      _.commandFailureMessage should include regex "The stream has not been completed in.*– Possibly missing party activation?",
+      _.errorMessage should include regex "The stream has not been completed in.*– Possibly missing party activation?",
     )
+  }
+
+  "Party activation on the target participant with missing onboarding flag aborts ACS export" in {
+    implicit env =>
+      import env.*
+
+      val ledgerEndP1 = source.ledger_api.state.end()
+
+      authorizeAliceWithoutOnboardingFlag(Submission, source, target, daId)
+
+      forAll(
+        source.topology.party_to_participant_mappings
+          .list(
+            daId,
+            filterParty = alice.toProtoPrimitive,
+            filterParticipant = target.toProtoPrimitive,
+          )
+          .loneElement
+          .item
+          .participants
+      ) { p =>
+        p.onboarding shouldBe false
+      }
+
+      loggerFactory.assertThrowsAndLogs[CommandFailure](
+        source.parties.export_party_acs(
+          party = alice,
+          synchronizerId = daId,
+          targetParticipantId = target.id,
+          beginOffsetExclusive = ledgerEndP1,
+          exportFilePath = acsSnapshotPath,
+          waitForActivationTimeout = Some(config.NonNegativeFiniteDuration.ofSeconds(1)),
+        ),
+        _.errorMessage should include(AbortAcsExportForMissingOnboardingFlag(alice, target).cause),
+      )
+
+      // Undo activating Alice on the target participant without onboarding flag set; for the following test
+      source.topology.party_to_participant_mappings.propose_delta(
+        party = alice,
+        removes = Seq(target.id),
+        store = daId,
+        mustFullyAuthorize = true,
+      )
+
+      // Wait for party deactivation to propagate to both source and target participants
+      eventually() {
+        val sourceMapping = source.topology.party_to_participant_mappings
+          .list(daId, filterParty = alice.toProtoPrimitive)
+          .loneElement
+          .item
+
+        sourceMapping.participants should have size 1
+        forExactly(1, sourceMapping.participants) { p =>
+          p.participantId shouldBe source.id
+          p.onboarding should be(false)
+        }
+
+        // Ensure the target has processed the "remove" transaction to prevent flakes
+        val targetMapping = target.topology.party_to_participant_mappings
+          .list(daId, filterParty = alice.toProtoPrimitive)
+          .loneElement
+          .item
+
+        targetMapping.participants should have size 1
+        forExactly(1, targetMapping.participants) { p =>
+          p.participantId shouldBe source.id
+          p.onboarding should be(false)
+        }
+      }
+
   }
 
   "Exporting and importing a LAPI based ACS snapshot as part of a party replication using ledger offset" in {
     implicit env =>
       import env.*
 
-      val ledgerEndP1 = source.ledger_api.state.end()
-
-      authorizeAlice(Observation, source, target, daId)
+      val beforeActivationOffset = authorizeAliceWithTargetDisconnect(daId, source, target)
 
       source.parties.export_party_acs(
         party = alice,
         synchronizerId = daId,
         targetParticipantId = target.id,
-        beginOffsetExclusive = ledgerEndP1,
+        beginOffsetExclusive = beforeActivationOffset,
         exportFilePath = acsSnapshotPath,
       )
 
-      target.synchronizers.disconnect_all()
-
-      target.repair.import_acs(
-        acsSnapshotPath,
-        contractImportMode = ContractImportMode.Accept,
-      )
+      target.parties.import_party_acs(acsSnapshotPath)
 
       target.synchronizers.reconnect(daName)
 
-      authorizeAlice(Submission, source, target, daId)
+      eventually() {
+        target.topology.party_to_participant_mappings
+          .list(daId, filterParty = alice.filterString)
+          .loneElement
+          .item
+          .participants should contain(
+          HostingParticipant(target.id, ParticipantPermission.Submission, onboarding = true)
+        )
+      }
+
+      // To prevent flakes when trying to archive contracts on the target in the next step
+      PartyActivationFlow.removeOnboardingFlag(alice, daId, target)
 
       assertAcsAndContinuedOperation(target)
   }
@@ -202,15 +357,13 @@ final class OfflinePartyReplicationAtOffsetIntegrationTest
     implicit env =>
       import env.*
 
-      val ledgerEndP1 = source.ledger_api.state.end()
-
-      authorizeAlice(Observation, source, participant2, daId)
+      val beforeActivationOffset = authorizeAliceWithTargetDisconnect(daId, source, participant2)
 
       source.parties.export_party_acs(
         party = alice,
         synchronizerId = daId,
         targetParticipantId = participant2.id,
-        beginOffsetExclusive = ledgerEndP1,
+        beginOffsetExclusive = beforeActivationOffset,
         exportFilePath = acsSnapshotPath,
       )
 
@@ -243,7 +396,7 @@ final class OfflinePartyReplicationWithSilentSynchronizerIntegrationTest
 
       adjustTimeouts(sequencer1)
 
-      authorizeAlice(Observation, source, target, daId)
+      authorizeAliceWithoutOnboardingFlag(Observation, source, target, daId)
 
       val silentSynchronizerValidFrom =
         silenceSynchronizerAndAwaitEffectiveness(daId, sequencer1, source, simClock = None)
@@ -251,7 +404,7 @@ final class OfflinePartyReplicationWithSilentSynchronizerIntegrationTest
       val ledgerOffset =
         source.parties.find_highest_offset_by_timestamp(daId, silentSynchronizerValidFrom)
 
-      ledgerOffset should be > NonNegativeLong.zero
+      ledgerOffset should be > 0L
 
       source.repair.export_acs(
         Set(alice),
@@ -271,7 +424,7 @@ final class OfflinePartyReplicationWithSilentSynchronizerIntegrationTest
 
       resumeSynchronizerAndAwaitEffectiveness(daId, sequencer1, source, simClock = None)
 
-      authorizeAlice(Submission, source, target, daId)
+      authorizeAliceWithoutOnboardingFlag(Submission, source, target, daId)
 
       assertAcsAndContinuedOperation(target)
   }
@@ -288,8 +441,7 @@ final class OfflinePartyReplicationWithSilentSynchronizerIntegrationTest
 
       val foundOffset = loggerFactory.assertLogsUnorderedOptional(
         eventually(retryOnTestFailuresOnly = false) {
-          val offset =
-            source.parties.find_highest_offset_by_timestamp(daId, requestedTimestamp).value
+          val offset = source.parties.find_highest_offset_by_timestamp(daId, requestedTimestamp)
           offset should be > 0L
           offset
         },
@@ -299,10 +451,8 @@ final class OfflinePartyReplicationWithSilentSynchronizerIntegrationTest
         ),
       )
 
-      val forcedFoundOffset =
-        source.parties
-          .find_highest_offset_by_timestamp(daId, requestedTimestamp, force = true)
-          .value
+      val forcedFoundOffset = source.parties
+        .find_highest_offset_by_timestamp(daId, requestedTimestamp, force = true)
 
       // The following cannot check for equality because find_highest_offset_by_timestamp skips over unpersisted
       // SequencerIndexMoved updates.
@@ -324,15 +474,13 @@ final class OfflinePartyReplicationFilterAcsExportIntegrationTest
 
       IouSyntax.createIou(source)(alice, charlie, 99.99).discard
 
-      val ledgerEndP1 = source.ledger_api.state.end()
-
-      authorizeAlice(Observation, source, target, daId)
+      val beforeActivationOffset = authorizeAliceWithTargetDisconnect(daId, source, target)
 
       source.parties.export_party_acs(
         party = alice,
         synchronizerId = daId.logical,
         targetParticipantId = target.id,
-        beginOffsetExclusive = ledgerEndP1,
+        beginOffsetExclusive = beforeActivationOffset,
         exportFilePath = acsSnapshotPath,
       )
 
@@ -348,9 +496,7 @@ final class OfflinePartyReplicationFilterAcsExportIntegrationTest
         stakeholders.intersect(Set(charlie.toProtoPrimitive)).isEmpty
       }
 
-      target.synchronizers.disconnect_all()
-
-      target.repair.import_acs(acsSnapshotPath)
+      target.parties.import_party_acs(acsSnapshotPath)
 
       target.synchronizers.reconnect(daName)
 

@@ -56,7 +56,7 @@ class Context(
 
   private val compilerConfig =
     Compiler.Config(
-      allowedLanguageVersions = LanguageVersion.AllVersions(languageVersion.major),
+      allowedLanguageVersions = LanguageVersion.allLfVersionsRange,
       packageValidation = Compiler.FullPackageValidation,
       profiling = Compiler.NoProfile,
       stacktracing = Compiler.FullStackTrace,
@@ -147,7 +147,10 @@ class Context(
             extSignatures.keySet,
             languageVersion,
             packageMetadata,
-            Left("package made in com.digitalasset.daml.lf.script.Context"),
+            Ast.GeneratedImports(
+              reason = "package made in com.digitalasset.daml.lf.script.Context",
+              pkgIds = Set.empty,
+            ),
           )
         ),
       )
@@ -182,7 +185,10 @@ class Context(
               extSignatures.keySet,
               languageVersion,
               packageMetadata,
-              Left("package made in com.digitalasset.daml.lf.script.Context"),
+              Ast.GeneratedImports(
+                reason = "package made in com.digitalasset.daml.lf.script.Context",
+                pkgIds = Set.empty,
+              ),
             ),
           )
       }

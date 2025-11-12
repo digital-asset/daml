@@ -78,7 +78,7 @@ trait AdminServiceCallAuthTests
         "Ledger API client can make a call with explicitly non-expired admin JWT"
       ) in { implicit env =>
       import env.*
-      expectSuccess(serviceCall(canReadAsAdminExpiresTomorrow))
+      expectSuccess(serviceCall(canReadAsAdminExpiresInAnHour))
     }
     "allow calls with admin token without expiration" taggedAs adminSecurityAsset
       .setHappyCase(

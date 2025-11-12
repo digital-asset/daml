@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf
 package testing.snapshot
 
-import com.digitalasset.daml.lf.archive.{ArchiveDecoder, UniversalArchiveDecoder}
+import com.digitalasset.daml.lf.archive.{ArchiveDecoder, DarDecoder}
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
 import com.digitalasset.daml.lf.engine.{Engine, EngineConfig, Error}
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
@@ -22,6 +22,7 @@ import com.digitalasset.daml.lf.transaction.{
 }
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
+import com.digitalasset.daml.lf.value.ContractIdVersion
 import com.google.protobuf.ByteString
 
 import java.io.BufferedInputStream
@@ -38,12 +39,15 @@ final case class TransactionSnapshot(
     contracts: Map[ContractId, FatContractInstance],
     contractKeys: Map[GlobalKeyWithMaintainers, ContractId],
     pkgs: Map[Ref.PackageId, Ast.Package],
-    profileDir: Option[Path] = None,
+    profileDir: Option[Path],
+    contractIdVersion: ContractIdVersion,
+    gasBudget: Option[Long],
 ) {
 
   private[this] implicit def loggingContext: LoggingContext = LoggingContext.ForTesting
 
-  private[this] lazy val engine = TransactionSnapshot.compile(pkgs, profileDir)
+  private[this] lazy val engine =
+    TransactionSnapshot.compile(pkgs, profileDir, gasBudget = gasBudget)
 
   def replay(): Either[Error, Speedy.Metrics] =
     engine
@@ -54,6 +58,7 @@ final case class TransactionSnapshot(
         participantId,
         preparationTime,
         submissionSeed,
+        contractIdVersion,
       )
       .consume(contracts, pkgs, contractKeys)
       .map { case (_, _, metrics) => metrics }
@@ -67,6 +72,7 @@ final case class TransactionSnapshot(
         participantId,
         preparationTime,
         submissionSeed,
+        contractIdVersion,
       )
       .consume(contracts, pkgs, contractKeys)
 
@@ -78,21 +84,23 @@ private[snapshot] object TransactionSnapshot {
 
   def loadDar(darFile: Path): Map[Ref.PackageId, Ast.Package] = {
     println(s"%%% loading dar file $darFile ...")
-    UniversalArchiveDecoder.assertReadFile(darFile.toFile).all.toMap
+    DarDecoder.assertReadArchiveFromFile(darFile.toFile).all.toMap
   }
 
   def compile(
       pkgs: Map[Ref.PackageId, Ast.Package],
       profileDir: Option[Path] = None,
       snapshotDir: Option[Path] = None,
+      gasBudget: Option[Long] = None,
   ): Engine = {
     require(pkgs.nonEmpty, "expected at least one package, got none")
     println(s"%%% compile ${pkgs.size} packages ...")
     val engine = new Engine(
       EngineConfig(
-        allowedLanguageVersions = LanguageVersion.AllVersions(pkgs.head._2.languageVersion.major),
+        allowedLanguageVersions = LanguageVersion.allLfVersionsRange,
         profileDir = profileDir,
         snapshotDir = snapshotDir,
+        gasBudget = gasBudget,
       )
     )
     AstUtil.dependenciesInTopologicalOrder(pkgs.keys.toList, pkgs).foreach { pkgId =>
@@ -166,6 +174,8 @@ private[snapshot] object TransactionSnapshot {
       choice: (Ref.QualifiedName, Ref.Name),
       index: Int,
       profileDir: Option[Path],
+      contractIdVersion: ContractIdVersion,
+      gasBudget: Option[Long] = None,
   ): TransactionSnapshot = {
     println(s"%%% loading submission entries from $dumpFile...")
     val inputStream = new BufferedInputStream(Files.newInputStream(dumpFile))
@@ -257,6 +267,8 @@ private[snapshot] object TransactionSnapshot {
         contractKeys = contractKeys,
         pkgs = archives.view.map(ArchiveDecoder.assertFromByteString).toMap,
         profileDir = profileDir,
+        contractIdVersion = contractIdVersion,
+        gasBudget = gasBudget,
       )
     }
 

@@ -33,7 +33,7 @@ import com.digitalasset.canton.platform.store.interning.StringInterning
 
 object H2StorageBackendFactory extends StorageBackendFactory with CommonStorageBackendFactory {
 
-  override val createIngestionStorageBackend: IngestionStorageBackend[_] =
+  override val createIngestionStorageBackend: IngestionStorageBackend[?] =
     new IngestionStorageBackendTemplate(H2Schema.schema)
 
   override def createParameterStorageBackend(
@@ -54,9 +54,10 @@ object H2StorageBackendFactory extends StorageBackendFactory with CommonStorageB
     new CompletionStorageBackendTemplate(stringInterning, loggerFactory)
 
   override def createContractStorageBackend(
-      stringInterning: StringInterning
+      stringInterning: StringInterning,
+      ledgerEndCache: LedgerEndCache,
   ): ContractStorageBackend =
-    new ContractStorageBackendTemplate(H2QueryStrategy, stringInterning)
+    new ContractStorageBackendTemplate(H2QueryStrategy, stringInterning, ledgerEndCache)
 
   override def createEventStorageBackend(
       ledgerEndCache: LedgerEndCache,

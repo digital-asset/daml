@@ -6,13 +6,7 @@ package engine
 package preprocessing
 
 import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.language.{
-  Ast,
-  LanguageMajorVersion,
-  LanguageVersion,
-  LookupError,
-  Reference,
-}
+import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, LookupError, Reference}
 import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
@@ -27,9 +21,10 @@ import com.digitalasset.daml.lf.speedy.Compiler
 import scala.collection.immutable.ArraySeq
 import scala.util.{Failure, Success, Try}
 
-class ValueTranslatorSpecV2 extends ValueTranslatorSpec(LanguageMajorVersion.V2)
+class ValueTranslatorSpecV2_1 extends ValueTranslatorSpec(LanguageVersion.v2_1)
+class ValueTranslatorSpecV2_2 extends ValueTranslatorSpec(LanguageVersion.v2_2)
 
-class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
+class ValueTranslatorSpec(languageVersion: LanguageVersion)
     extends AnyWordSpec
     with Inside
     with Matchers
@@ -49,7 +44,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
   val none = Value.ValueNone
 
   private[this] implicit val parserParameters: ParserParameters[ValueTranslatorSpec.this.type] =
-    ParserParameters.defaultFor(majorLanguageVersion)
+    ParserParameters.default
 
   private[this] implicit val defaultPackageId: Ref.PackageId =
     parserParameters.defaultPackageId
@@ -83,7 +78,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
   val upgradablePkgId = Ref.PackageId.assertFromString("-upgradable-v1-")
   val upgradablePkg = {
     implicit val parserParameters: ParserParameters[ValueTranslatorSpec.this.type] =
-      ParserParameters(upgradablePkgId, LanguageVersion.v2_1)
+      ParserParameters(upgradablePkgId, languageVersion)
     p"""metadata ( 'upgradable' : '1.0.0' )
       module Mod {
         record @serializable Record (a: *) (b: *) (c: *) (d: *) = { fieldA: a, fieldB: Option b, fieldC: Option c };
@@ -96,7 +91,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
   }
 
   private[this] val compiledPackage = ConcurrentCompiledPackages(
-    Compiler.Config.Default(majorLanguageVersion)
+    Compiler.Config.Default
   )
   assert(compiledPackage.addPackage(defaultPackageId, pkg) == ResultDone.Unit)
   assert(compiledPackage.addPackage(upgradablePkgId, upgradablePkg) == ResultDone.Unit)
@@ -228,7 +223,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
     "return proper mismatch error for upgrades" in {
 
       implicit val parserParameters: ParserParameters[ValueTranslatorSpec.this.type] =
-        ParserParameters(upgradablePkgId, LanguageVersion.v2_1)
+        ParserParameters(upgradablePkgId, languageVersion)
 
       val TRecordUpgradable = t"Mod:Record Int64 Text Party Unit"
 
@@ -396,6 +391,196 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
           ),
         ),
         upgradeCaseSuccess(
+          true,
+          true,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              None -> ValueInt64(1),
+              "extraField" -> ValueOptional(Some(ValueText("a"))),
+              "anotherExtraField" -> ValueOptional(Some(ValueText("b"))),
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          true,
+          true,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              None -> ValueInt64(1),
+              "extraField" -> ValueOptional(Some(ValueText("a"))),
+              "anotherExtraField" -> ValueOptional(Some(ValueText("b"))),
+              "bonusField" -> ValueOptional(None),
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          true,
+          true,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              None -> ValueInt64(1),
+              "extraField" -> ValueOptional(Some(ValueText("a"))),
+              "anotherExtraField" -> ValueOptional(Some(ValueText("b"))),
+              None -> ValueOptional(None),
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          true,
+          true,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              "field" -> ValueInt64(1),
+              None -> ValueOptional(Some(ValueText("a"))),
+              "anotherExtraField" -> ValueOptional(Some(ValueText("b"))),
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          true,
+          true,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              "field" -> ValueInt64(1),
+              None -> ValueOptional(Some(ValueText("a"))),
+              "anotherExtraField" -> ValueOptional(Some(ValueText("b"))),
+              "bonusField" -> ValueOptional(None),
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          true,
+          true,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              "field" -> ValueInt64(1),
+              None -> ValueOptional(Some(ValueText("a"))),
+              "anotherExtraField" -> ValueOptional(Some(ValueText("b"))),
+              None -> ValueOptional(None),
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          true,
+          true,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              "field" -> ValueInt64(1),
+              "extraField" -> ValueOptional(Some(ValueText("a"))),
+              None -> ValueOptional(Some(ValueText("b"))),
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          true,
+          true,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              "field" -> ValueInt64(1),
+              "extraField" -> ValueOptional(Some(ValueText("a"))),
+              None -> ValueOptional(Some(ValueText("b"))),
+              "bonusField" -> ValueOptional(None),
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          true,
+          true,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              "field" -> ValueInt64(1),
+              "extraField" -> ValueOptional(Some(ValueText("a"))),
+              None -> ValueOptional(Some(ValueText("b"))),
+              None -> ValueOptional(None),
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          true,
+          true,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              None -> ValueInt64(1),
+              "extraField" -> ValueOptional(Some(ValueText("a"))),
+              None -> ValueOptional(Some(ValueText("b"))),
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          true,
+          true,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              None -> ValueInt64(1),
+              "extraField" -> ValueOptional(Some(ValueText("a"))),
+              None -> ValueOptional(Some(ValueText("b"))),
+              "bonusField" -> ValueOptional(None),
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          true,
+          true,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              None -> ValueInt64(1),
+              "extraField" -> ValueOptional(Some(ValueText("a"))),
+              None -> ValueOptional(Some(ValueText("b"))),
+              None -> ValueOptional(None),
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          true,
+          true,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              None -> ValueInt64(1),
+              None -> ValueOptional(Some(ValueText("a"))),
+              None -> ValueOptional(Some(ValueText("b"))),
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          true,
+          true,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              None -> ValueInt64(1),
+              None -> ValueOptional(Some(ValueText("a"))),
+              None -> ValueOptional(Some(ValueText("b"))),
+              "bonusField" -> ValueOptional(None),
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          true,
+          true,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              None -> ValueInt64(1),
+              None -> ValueOptional(Some(ValueText("a"))),
+              None -> ValueOptional(Some(ValueText("b"))),
+              None -> ValueOptional(None),
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
           false,
           true,
           ValueRecord(
@@ -437,6 +622,27 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
             "Mod:Upgradeable",
             ImmArray(
               "field" -> ValueInt64(1)
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          false,
+          false,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              None -> ValueInt64(1)
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          true,
+          false,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              None -> ValueInt64(1),
+              None -> ValueOptional(Some(ValueText("a"))),
             ),
           ),
         ),
@@ -558,6 +764,60 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
 
       Try(unsafeTranslateValue(t"Mod:MyList", notTooBig)) shouldBe a[Success[_]]
       Try(unsafeTranslateValue(t"Mod:MyList", tooBig)) shouldBe failure
+    }
+
+    "fails on values containing null characters" in {
+
+      val testCases = Table(
+        ("type", "value without null char", "value with null char"),
+        (TText, Value.ValueText("->\u0001<-"), Value.ValueText("->\u0000<-")),
+        (
+          TOptional(TText),
+          ValueOptional(Some(ValueText("'\u0001'+'\u0001'='\u0002'"))),
+          ValueOptional(Some(ValueText("'\u0001'-'\u0001'='\u0000'"))),
+        ),
+        (
+          TGenMap(TText, TInt64),
+          ValueGenMap(
+            ImmArray(
+              ValueText("\u0001") -> ValueInt64(1)
+            )
+          ),
+          ValueGenMap(
+            ImmArray(
+              ValueText("\u0000") -> ValueInt64(0),
+              ValueText("\u0001") -> ValueInt64(1),
+            )
+          ),
+        ),
+        (
+          TTextMap(TInt64),
+          ValueTextMap(
+            SortedLookupList(
+              Map(
+                "\u0001" -> ValueInt64(1)
+              )
+            )
+          ),
+          ValueTextMap(
+            SortedLookupList(
+              Map(
+                "\u0000" -> ValueInt64(0),
+                "\u0001" -> ValueInt64(2),
+              )
+            )
+          ),
+        ),
+      )
+
+      forEvery(testCases) { case (typ, negativeTestCase, positiveTestCase) =>
+        val success = Try(unsafeTranslateValue(typ, negativeTestCase))
+        val failure = Try(unsafeTranslateValue(typ, positiveTestCase))
+        success shouldBe a[Success[_]]
+        inside(failure) { case Failure(Error.Preprocessing.MalformedText(err)) =>
+          err should include("null character")
+        }
+      }
     }
 
     def testCasesForCid(culprit: ContractId) = {

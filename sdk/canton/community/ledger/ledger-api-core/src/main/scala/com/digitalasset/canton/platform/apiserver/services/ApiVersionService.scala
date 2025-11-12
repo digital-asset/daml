@@ -24,6 +24,7 @@ import com.digitalasset.canton.logging.{
 }
 import com.digitalasset.canton.platform.apiserver.LedgerFeatures
 import com.digitalasset.canton.platform.config.{
+  PackageServiceConfig,
   PartyManagementServiceConfig,
   UserManagementServiceConfig,
 }
@@ -39,6 +40,7 @@ private[apiserver] final class ApiVersionService(
     ledgerFeatures: LedgerFeatures,
     userManagementServiceConfig: UserManagementServiceConfig,
     partyManagementServiceConfig: PartyManagementServiceConfig,
+    packageServiceConfig: PackageServiceConfig,
     telemetry: Telemetry,
     val loggerFactory: NamedLoggerFactory,
 )(implicit
@@ -80,7 +82,7 @@ private[apiserver] final class ApiVersionService(
       offsetCheckpoint = Some(ledgerFeatures.offsetCheckpointFeature),
       packageFeature = Some(
         PackageFeature.of(
-          maxVettedPackagesPageSize = 100
+          maxVettedPackagesPageSize = packageServiceConfig.maxVettedPackagesPageSize.value
         )
       ),
     )

@@ -75,7 +75,7 @@ import com.digitalasset.canton.http.json.v2.{
 }
 import com.digitalasset.canton.http.util.ClientUtil.uniqueId
 import com.digitalasset.canton.http.{Party, WebsocketConfig}
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.integration.tests.jsonapi.AbstractHttpServiceIntegrationTestFuns.{
   HttpServiceTestFixtureData,
   dar1,
@@ -117,7 +117,7 @@ import scala.concurrent.duration.*
 class JsonV2Tests
     extends AbstractHttpServiceIntegrationTestFuns
     with HttpServiceUserFixture.UserToken {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   // Configure extremely small wait time to avoid long test times and test edge cases
   override def wsConfig: Option[WebsocketConfig] = Some(
@@ -131,7 +131,7 @@ class JsonV2Tests
       val darPath = JarResourceUtils
         .resourceFile(
           TestModels.daml_lf_encoder_test_dar(
-            LanguageVersion.StableVersions(LanguageVersion.Major.V2).max.pretty
+            LanguageVersion.stableRange.max.pretty
           )
         )
         .toPath
@@ -699,9 +699,7 @@ class JsonV2Tests
 
         val testContextHeaders =
           extractHeaders(W3CTraceContext(s"00-$randomTraceId-93bb0fa23a8fb53a-01"))
-
         for {
-
           _ <- loggerFactory.assertLogsSeq(SuppressionRule.Level(org.slf4j.event.Level.DEBUG))(
             postJsonRequest(
               uri =
@@ -923,7 +921,8 @@ class JsonV2Tests
           _ <- createCommand(fixture, alice, headers, "cmd2", "completions1")
           (status, result) <- fixture.postJsonStringRequest(
             fixture.uri withPath Uri.Path("/v2/commands/completions") withQuery Query(
-              ("limit", "2")
+              ("limit", "2"),
+              ("stream_idle_timeout_ms", "1000"),
             ),
             command_completion_service
               .CompletionStreamRequest(
@@ -1002,9 +1001,7 @@ class JsonV2Tests
               websocket(fixture.uri.withPath(Uri.Path("/v2/state/active-contracts")), jwt)
             val req = state_service
               .GetActiveContractsRequest(
-                filter = None,
                 activeAtOffset = endOffset,
-                verbose = false,
                 eventFormat = Some(allTransactionsFormat),
               )
 
@@ -1043,25 +1040,9 @@ class JsonV2Tests
               websocket(fixture.uri.withPath(Uri.Path("/v2/state/active-contracts")), jwt)
             val req = LegacyDTOs
               .GetActiveContractsRequest(
-                filter = Some(
-                  LegacyDTOs.TransactionFilter(
-                    filtersByParty = Map.empty,
-                    filtersForAnyParty = Some(
-                      transaction_filter.Filters(
-                        cumulative = Seq(
-                          transaction_filter.CumulativeFilter(
-                            identifierFilter = transaction_filter.CumulativeFilter.IdentifierFilter
-                              .WildcardFilter(
-                                transaction_filter.WildcardFilter(includeCreatedEventBlob = true)
-                              )
-                          )
-                        )
-                      )
-                    ),
-                  )
-                ),
+                filter = Some(allTransactionsFilter),
                 activeAtOffset = endOffset,
-                verbose = false,
+                verbose = true,
                 eventFormat = None,
               )
 
@@ -1102,7 +1083,6 @@ class JsonV2Tests
               .GetActiveContractsRequest(
                 filter = None,
                 activeAtOffset = endOffset,
-                verbose = false,
                 eventFormat = None,
               )
 
@@ -1150,9 +1130,7 @@ class JsonV2Tests
                 .parse(
                   state_service
                     .GetActiveContractsRequest(
-                      filter = None,
                       activeAtOffset = endOffset,
-                      verbose = false,
                       eventFormat = Some(allTransactionsFormat),
                     )
                     .asJson
@@ -1173,43 +1151,80 @@ class JsonV2Tests
         }
       }
     }
-    "return active contracts list (all fields set)" in httpTestFixture { fixture =>
-      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
-        for {
-          jwt <- jwtForParties(fixture.uri)(List(alice), List())
-          _ <- createCommand(fixture, alice, headers)
-          endOffset <- fixture.client.stateService.getLedgerEndOffset()
-          _ <- fixture
-            .postJsonRequest(
-              Uri.Path("/v2/state/active-contracts"),
-              SprayJson
-                .parse(
-                  state_service
-                    .GetActiveContractsRequest(
-                      filter = None,
-                      activeAtOffset = endOffset,
-                      verbose = true,
-                      eventFormat = Some(allTransactionsFormat),
-                    )
-                    .asJson
-                    .toString()
+    "return active contracts list (event_format and verbose fields set)" in httpTestFixture {
+      fixture =>
+        fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
+          for {
+            _ <- createCommand(fixture, alice, headers)
+            endOffset <- fixture.client.stateService.getLedgerEndOffset()
+            _ <- fixture
+              .postJsonRequest(
+                Uri.Path("/v2/state/active-contracts"),
+                SprayJson
+                  .parse(
+                    LegacyDTOs
+                      .GetActiveContractsRequest(
+                        filter = None,
+                        activeAtOffset = endOffset,
+                        verbose = true,
+                        eventFormat = Some(allTransactionsFormat),
+                      )
+                      .asJson
+                      .toString()
+                  )
+                  .valueOr(err => fail(s"$err")),
+                headers,
+              )
+              .map { case (status, result) =>
+                status should be(StatusCodes.BadRequest)
+                val cantonError =
+                  decode[JsCantonError](result.toString())
+                cantonError.value.errorCategory should be(
+                  ErrorCategory.InvalidIndependentOfSystemState.asInt
                 )
-                .valueOr(err => fail(s"$err")),
-              headers,
-            )
-            .map { case (status, result) =>
-              status should be(StatusCodes.BadRequest)
-              val cantonError =
-                decode[JsCantonError](result.toString())
-              cantonError.value.errorCategory should be(
-                ErrorCategory.InvalidIndependentOfSystemState.asInt
+                cantonError.value.cause should include(
+                  "Both event_format and verbose are set. Please use either backwards compatible arguments (filter and verbose) or event_format, but not both."
+                )
+              }
+          } yield ()
+        }
+    }
+    "return active contracts list (event_format and filter fields set)" in httpTestFixture {
+      fixture =>
+        fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
+          for {
+            _ <- createCommand(fixture, alice, headers)
+            endOffset <- fixture.client.stateService.getLedgerEndOffset()
+            _ <- fixture
+              .postJsonRequest(
+                Uri.Path("/v2/state/active-contracts"),
+                SprayJson
+                  .parse(
+                    LegacyDTOs
+                      .GetActiveContractsRequest(
+                        filter = Some(allTransactionsFilter),
+                        activeAtOffset = endOffset,
+                        eventFormat = Some(allTransactionsFormat),
+                      )
+                      .asJson
+                      .toString()
+                  )
+                  .valueOr(err => fail(s"$err")),
+                headers,
               )
-              cantonError.value.cause should include(
-                "Both event_format and verbose are set. Please use either backwards compatible arguments (filter and verbose) or event_format, but not both."
-              )
-            }
-        } yield ()
-      }
+              .map { case (status, result) =>
+                status should be(StatusCodes.BadRequest)
+                val cantonError =
+                  decode[JsCantonError](result.toString())
+                cantonError.value.errorCategory should be(
+                  ErrorCategory.InvalidIndependentOfSystemState.asInt
+                )
+                cantonError.value.cause should include(
+                  "Both event_format and filter are set. Please use either backwards compatible arguments (filter and verbose) or event_format, but not both."
+                )
+              }
+          } yield ()
+        }
     }
     "handle offset after ledger end for active contracts list" in httpTestFixture { fixture =>
       fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (alice, headers) =>
@@ -1224,9 +1239,7 @@ class JsonV2Tests
                 .parse(
                   state_service
                     .GetActiveContractsRequest(
-                      filter = None,
                       activeAtOffset = endOffset + 100,
-                      verbose = false,
                       eventFormat = Some(allTransactionsFormat),
                     )
                     .asJson
@@ -1951,15 +1964,13 @@ class JsonV2Tests
     beginExclusive = 0,
     endInclusive = None,
     filter = Some(allTransactionsFilter),
-    verbose = false,
+    verbose = true,
     updateFormat = None,
   )
 
   private val updatesRequest = update_service.GetUpdatesRequest(
     beginExclusive = 0,
     endInclusive = None,
-    filter = None,
-    verbose = false,
     updateFormat = Some(
       UpdateFormat(
         includeTransactions = Some(

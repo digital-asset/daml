@@ -12,10 +12,7 @@ import com.digitalasset.canton.integration.bootstrap.{
   NetworkBootstrapper,
   NetworkTopologyDescription,
 }
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.util.OnboardsNewSequencerNode
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -226,6 +223,15 @@ trait SequencerOnboardingTombstoneTest
             ))
           },
         ),
+        (
+          LogEntryOptionality.OptionalMany,
+          (entry: LogEntry) => {
+            entry.loggerName should include("TransactionProcessor")
+            entry.warningMessage should include(
+              "RequestFailed(No connection available)"
+            )
+          },
+        ),
       )
   }
 
@@ -283,5 +289,5 @@ trait SequencerOnboardingTombstoneTest
 
 class SequencerOnboardingTombstoneTestPostgres extends SequencerOnboardingTombstoneTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }

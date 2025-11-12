@@ -18,6 +18,7 @@ import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.{Member, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.LoggerUtil
 
 import scala.concurrent.ExecutionContext
 
@@ -59,9 +60,11 @@ class SequencerBasedRegisterTopologyTransactionHandle(
       sendRequest(request, maxSequencingTime, sendCallback)
     )
       .biSemiflatMap(
-        sendAsyncClientError => {
-          logger.warn(
-            s"Failed broadcasting topology transactions: $sendAsyncClientError. This will be retried automatically."
+        { sendAsyncClientError =>
+          val logLevel = SendAsyncClientError.logLevel(sendAsyncClientError)
+          LoggerUtil.logAtLevel(
+            logLevel,
+            s"Failed broadcasting topology transactions: $sendAsyncClientError. This will be retried automatically.",
           )
           FutureUnlessShutdown.pure[TopologyTransactionsBroadcast.State](
             TopologyTransactionsBroadcast.State.Failed
@@ -100,10 +103,11 @@ class SequencerBasedRegisterTopologyTransactionHandle(
     implicit val metricsContext: MetricsContext = MetricsContext(
       "type" -> "send-topology"
     )
-    logger.debug(s"Broadcasting topology transaction: ${request.transactions}")
+    logger.debug(
+      s"Broadcasting topology transaction: ${request.transactions.transactions.map(_.hash)}"
+    )
     sequencerClient.send(
-      Batch
-        .of(psid.protocolVersion, (request, Recipients.cc(TopologyBroadcastAddress.recipient))),
+      Batch.of(psid.protocolVersion, (request, Recipients.cc(TopologyBroadcastAddress.recipient))),
       maxSequencingTime = maxSequencingTime,
       callback = sendCallback,
       // Do not amplify because we are running our own retry loop here anyway
@@ -113,7 +117,7 @@ class SequencerBasedRegisterTopologyTransactionHandle(
 
   override protected def pretty: Pretty[SequencerBasedRegisterTopologyTransactionHandle.this.type] =
     prettyOfClass(
-      param("synchronizerId", _.psid),
+      param("psid", _.psid),
       param("member", _.member),
     )
 }

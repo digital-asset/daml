@@ -6,7 +6,7 @@ package com.digitalasset.canton.http
 import com.daml.grpc.adapter.PekkoExecutionSequencerPool
 import com.daml.ledger.resources.ResourceOwner
 import com.digitalasset.canton.auth.AuthInterceptor
-import com.digitalasset.canton.config.TlsServerConfig
+import com.digitalasset.canton.config.{ApiLoggingConfig, TlsServerConfig}
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.digitalasset.canton.http.util.Logging.instanceUUIDLogCtx
 import com.digitalasset.canton.ledger.participant.state.PackageSyncService
@@ -31,6 +31,7 @@ object HttpApiServer extends NoTracing {
       loggerFactory: NamedLoggerFactory,
       authInterceptor: AuthInterceptor,
       packagePreferenceBackend: PackagePreferenceBackend,
+      apiLoggingConfig: ApiLoggingConfig,
   )(implicit
       jsonApiMetrics: HttpApiMetrics
   ): ResourceOwner[Unit] = {
@@ -48,6 +49,7 @@ object HttpApiServer extends NoTracing {
           channel,
           packageSyncService,
           packagePreferenceBackend,
+          apiLoggingConfig,
           loggerFactory,
         )(
           actorSystem,
@@ -60,11 +62,10 @@ object HttpApiServer extends NoTracing {
       )
     } yield {
       logger.info(
-        s"HTTP JSON API Server started with (address=${config.server.address: String}" +
-          s", configured httpPort=${config.server.port.getOrElse(0)}" +
-          s", assigned httpPort=${serverBinding.localAddress.getPort}" +
-          s", portFile=${config.server.portFile: Option[Path]}" +
-          s", pathPrefix=${config.server.pathPrefix}" +
+        s"HTTP JSON API Server started with (address=${config.address: String}" +
+          s", port=${config.port}" +
+          s", portFile=${config.portFile: Option[Path]}" +
+          s", pathPrefix=${config.pathPrefix}" +
           s", wsConfig=${config.websocketConfig.shows}" +
           ")"
       )

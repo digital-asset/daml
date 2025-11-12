@@ -12,13 +12,23 @@ import com.digitalasset.canton.platform.store.backend.postgresql.PostgresDataSou
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
 /** See com.digitalasset.canton.platform.indexer.JdbcIndexer for semantics on these configurations.
+  *
+  *   - enableCompression: switches on compression for both consuming and non-consuming exercises,
+  *     equivalent to setting both enableCompressionConsumingExercise and
+  *     enableCompressionNonConsumingExercise to true. This is to maintain backward compatibility
+  *     with existing config files.
+  *   - enableCompressionConsumingExercise: switches on compression for consuming exercises
+  *   - enableCompressionNonConsumingExercise: switches on compression for non-consuming exercises
   */
 final case class IndexerConfig(
     batchingParallelism: NonNegativeInt = NonNegativeInt.tryCreate(DefaultBatchingParallelism),
     enableCompression: Boolean = DefaultEnableCompression,
+    enableCompressionConsumingExercise: Boolean = DefaultEnableCompression,
+    enableCompressionNonConsumingExercise: Boolean = DefaultEnableCompression,
     ingestionParallelism: NonNegativeInt = NonNegativeInt.tryCreate(DefaultIngestionParallelism),
     inputMappingParallelism: NonNegativeInt =
       NonNegativeInt.tryCreate(DefaultInputMappingParallelism),
+    dbPrepareParallelism: NonNegativeInt = NonNegativeInt.tryCreate(DefaultDbPrepareParallelism),
     maxInputBufferSize: NonNegativeInt = NonNegativeInt.tryCreate(DefaultMaxInputBufferSize),
     restartDelay: NonNegativeFiniteDuration =
       NonNegativeFiniteDuration.ofSeconds(DefaultRestartDelay.toSeconds),
@@ -40,17 +50,17 @@ object IndexerConfig {
 
   // Exposed as public method so defaults can be overriden in the downstream code.
   def createDataSourcePropertiesForTesting(
-      ingestionParallelism: Int
+      indexerConfig: IndexerConfig
   ): DataSourceProperties = DataSourceProperties(
     // PostgresSQL specific configurations
     postgres = PostgresDataSourceConfig(
       synchronousCommit = Some(PostgresDataSourceConfig.SynchronousCommitValue.Off)
     ),
-    connectionPool = createConnectionPoolConfig(ingestionParallelism),
+    connectionPool = createConnectionPoolConfig(indexerConfig),
   )
 
   def createConnectionPoolConfig(
-      ingestionParallelism: Int,
+      indexerConfig: IndexerConfig,
       connectionTimeout: FiniteDuration = FiniteDuration(
         // 250 millis is the lowest possible value for this Hikari configuration (see HikariConfig JavaDoc)
         250,
@@ -59,13 +69,15 @@ object IndexerConfig {
   ): ConnectionPoolConfig =
     ConnectionPoolConfig(
       connectionPoolSize =
-        ingestionParallelism + 2, // + 2 for the tailing ledger_end and post processing end updates
+        indexerConfig.ingestionParallelism.unwrap + indexerConfig.dbPrepareParallelism.unwrap +
+          2, // + 2 for the tailing ledger_end and post processing end updates
       connectionTimeout = connectionTimeout,
     )
 
   val DefaultRestartDelay: FiniteDuration = 10.seconds
   val DefaultMaxInputBufferSize: Int = 50
   val DefaultInputMappingParallelism: Int = 16
+  val DefaultDbPrepareParallelism: Int = 4
   val DefaultBatchingParallelism: Int = 4
   val DefaultIngestionParallelism: Int = 16
   val DefaultSubmissionBatchSize: Long = 50L

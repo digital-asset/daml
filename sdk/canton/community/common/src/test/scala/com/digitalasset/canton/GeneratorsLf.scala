@@ -8,8 +8,6 @@ import com.digitalasset.canton.crypto.TestHash
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.ContractIdAbsolutizer.ContractIdAbsolutizationDataV2
 import com.digitalasset.canton.protocol.{
-  AuthenticatedContractIdVersionV10,
-  AuthenticatedContractIdVersionV11,
   CantonContractIdV1Version,
   CantonContractIdV2Version,
   CantonContractIdV2Version0,
@@ -22,8 +20,9 @@ import com.digitalasset.canton.protocol.{
   LfLanguageVersion,
   LfTemplateId,
   RelativeContractIdSuffixV2,
-  TransactionId,
   Unicum,
+  UpdateId,
+  *,
 }
 import com.digitalasset.canton.topology.{GeneratorsTopology, PartyId}
 import com.digitalasset.daml.lf.data.Bytes
@@ -62,14 +61,13 @@ final class GeneratorsLf(val generatorsTopology: GeneratorsTopology) {
   locally {
     // If this pattern match is not exhaustive anymore, update the generators for CantonContractIdVersions below
     (_: CantonContractIdVersion) match {
-      case AuthenticatedContractIdVersionV10 => ()
-      case AuthenticatedContractIdVersionV11 => ()
+      case _: CantonContractIdV1Version => ()
       case CantonContractIdV2Version0 => ()
     }
   }
 
   implicit val cantonContractIdV1VersionArb: Arbitrary[CantonContractIdV1Version] =
-    Arbitrary(Gen.oneOf(AuthenticatedContractIdVersionV10, AuthenticatedContractIdVersionV11))
+    Arbitrary(Gen.oneOf(CantonContractIdVersion.allV1))
 
   implicit val cantonContractIdV2VersionArb: Arbitrary[CantonContractIdV2Version] =
     Arbitrary(Gen.const(CantonContractIdV2Version0))
@@ -128,9 +126,9 @@ final class GeneratorsLf(val generatorsTopology: GeneratorsTopology) {
       index <- Gen.posNum[Int]
       ledgerTime <- Arbitrary.arbitrary[LfTimestamp]
     } yield {
-      val creatingTransactionId = TransactionId(TestHash.digest(index))
+      val creatingUpdateId = UpdateId(TestHash.digest(index))
       val absolutizationData =
-        ContractIdAbsolutizationDataV2(creatingTransactionId, CantonTimestamp(ledgerTime))
+        ContractIdAbsolutizationDataV2(creatingUpdateId, CantonTimestamp(ledgerTime))
       val (_, absoluteCid) = ContractIdAbsolutizer
         .absoluteSuffixV2(TestHash)(
           relative,
@@ -198,6 +196,6 @@ final class GeneratorsLf(val generatorsTopology: GeneratorsTopology) {
   )
 
   implicit val LfLanguageVersionArb: Arbitrary[LfLanguageVersion] =
-    Arbitrary(Gen.oneOf(LfLanguageVersion.AllV2))
+    Arbitrary(Gen.oneOf(LfLanguageVersion.all))
 
 }

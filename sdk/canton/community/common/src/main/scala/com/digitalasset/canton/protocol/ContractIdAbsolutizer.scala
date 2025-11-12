@@ -83,7 +83,7 @@ class ContractIdAbsolutizer(
       }
       relativeSuffixesInArg = relativeSuffixesInArgBuilder.result()
       absolutizedCid <- absolutizeContractId(fci.contractId)
-      absolutizedCreationTime <- absolutizationData.updateLedgerTime(fci.createdAt)
+      absolutizedCreationTime <- absolutizationData.updateLedgerTime(absolutizedCid, fci.createdAt)
       contractIdVersion <- CantonContractIdVersion
         .extractCantonContractIdVersion(fci.contractId)
         .leftMap(err => s"Invalid contract ID version: $err")
@@ -125,7 +125,10 @@ class ContractIdAbsolutizer(
 object ContractIdAbsolutizer {
 
   sealed trait ContractIdAbsolutizationData extends Product with Serializable {
-    def updateLedgerTime(relativeCreationTime: CreationTime): Either[String, CreationTime.CreatedAt]
+    def updateLedgerTime(
+        contractId: LfContractId,
+        relativeCreationTime: CreationTime,
+    ): Either[String, CreationTime.CreatedAt]
     def absolutizeAuthenticationData(
         relativeSuffixesInArg: SortedSet[RelativeContractIdSuffixV2],
         authenticationData: ContractAuthenticationData,
@@ -134,13 +137,16 @@ object ContractIdAbsolutizer {
 
   case object ContractIdAbsolutizationDataV1 extends ContractIdAbsolutizationData {
     override def updateLedgerTime(
-        relativeCreationTime: CreationTime
+        contractId: LfContractId,
+        relativeCreationTime: CreationTime,
     ): Either[String, CreationTime.CreatedAt] =
       relativeCreationTime match {
         case absolute: CreationTime.CreatedAt =>
           Right(absolute)
         case _ =>
-          Left(s"Invalid creation time for V1 contract ID absolutization: $relativeCreationTime")
+          Left(
+            s"Invalid creation time for V1 contract ID $contractId absolutization: $relativeCreationTime"
+          )
       }
 
     override def absolutizeAuthenticationData(
@@ -155,16 +161,17 @@ object ContractIdAbsolutizer {
   }
 
   final case class ContractIdAbsolutizationDataV2(
-      creatingTransactionId: TransactionId,
+      creatingUpdateId: UpdateId,
       ledgerTimeOfTx: CantonTimestamp,
   ) extends ContractIdAbsolutizationData {
     override def updateLedgerTime(
-        relativeCreationTime: CreationTime
+        contractId: LfContractId,
+        relativeCreationTime: CreationTime,
     ): Either[String, CreationTime.CreatedAt] = relativeCreationTime match {
       case CreationTime.Now => Right(CreationTime.CreatedAt(ledgerTimeOfTx.toLf))
       case createdAt: CreationTime.CreatedAt =>
         Left(
-          s"Invalid creation time for V2 contract ID absolutization: $createdAt, expected 'now'"
+          s"Invalid creation time for V2 contract ID $contractId absolutization: $createdAt, expected 'now'"
         )
     }
 
@@ -175,9 +182,9 @@ object ContractIdAbsolutizer {
       case v2: ContractAuthenticationDataV2 =>
         for {
           _ <-
-            v2.creatingTransactionId.traverse_(transactionId =>
+            v2.creatingUpdateId.traverse_(updateId =>
               Either.left(
-                s"Cannot absolutize authentication data that already contains a transaction ID ${transactionId.unwrap.toHexString}"
+                s"Cannot absolutize authentication data that already contains a transaction ID ${updateId.toHexString}"
               )
             )
           _ <- Either.cond(
@@ -188,7 +195,7 @@ object ContractIdAbsolutizer {
         } yield {
           ContractAuthenticationDataV2(
             v2.salt,
-            Some(creatingTransactionId),
+            Some(creatingUpdateId),
             relativeSuffixesInArg.toSeq.map(_.toBytes),
           )(v2.contractIdVersion)
         }
@@ -203,14 +210,14 @@ object ContractIdAbsolutizer {
       absolutizationData: ContractIdAbsolutizationData,
   ): Either[String, (RelativeContractIdSuffixV2, ContractId.V2)] =
     absolutizationData match {
-      case ContractIdAbsolutizationDataV2(transactionId, ledgerTime) =>
+      case ContractIdAbsolutizationDataV2(updateId, ledgerTime) =>
         for {
           version <- CantonContractIdVersion.extractCantonContractIdVersionV2(v2)
         } yield {
           val hash = hashOps
             .build(HashPurpose.ContractIdAbsolutization)
             .add(v2.suffix.toByteString)
-            .add(transactionId.getCryptographicEvidence)
+            .add(updateId.getCryptographicEvidence)
             .add(ledgerTime.toProtoPrimitive)
             .finish()
           val suffix = version.versionPrefixBytesAbsolute.toByteString.concat(hash.unwrap)

@@ -6,6 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencer
 import cats.data.EitherT
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerSuccessor}
+import com.digitalasset.canton.error.CantonBaseError
 import com.digitalasset.canton.health.{AtomicHealthElement, CloseableHealthQuasiComponent}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasCloseContext}
 import com.digitalasset.canton.logging.{HasLoggerName, NamedLogging}
@@ -21,6 +22,7 @@ import com.digitalasset.canton.synchronizer.sequencer.admin.data.{
   SequencerAdminStatus,
   SequencerHealthStatus,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.BlockOrderer
 import com.digitalasset.canton.synchronizer.sequencer.errors.*
 import com.digitalasset.canton.synchronizer.sequencer.traffic.TimestampSelector.TimestampSelector
 import com.digitalasset.canton.synchronizer.sequencer.traffic.{
@@ -32,6 +34,7 @@ import com.digitalasset.canton.time.SynchronizerTimeTracker
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.tracing.TraceContext
+import com.google.common.annotations.VisibleForTesting
 import io.grpc.ServerServiceDefinition
 import org.apache.pekko.Done
 import org.apache.pekko.stream.KillSwitch
@@ -84,6 +87,9 @@ trait Sequencer
     SequencerHealthStatus(isActive = true)
   override def closingState: SequencerHealthStatus = SequencerHealthStatus.shutdownStatus
 
+  @VisibleForTesting
+  private[canton] def orderer: Option[BlockOrderer]
+
   /** True if member is registered in sequencer persistent state / storage (i.e. database).
     */
   def isRegistered(member: Member)(implicit
@@ -100,7 +106,7 @@ trait Sequencer
 
   def sendAsyncSigned(signedSubmission: SignedContent[SubmissionRequest])(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit]
+  ): EitherT[FutureUnlessShutdown, CantonBaseError, Unit]
 
   def read(member: Member, timestampInclusive: Option[CantonTimestamp])(implicit
       traceContext: TraceContext

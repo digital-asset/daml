@@ -413,7 +413,7 @@ class ClockTest extends AnyWordSpec with BaseTest with HasExecutionContext {
 
     val channel: ManagedChannel = InProcessChannelBuilder
       .forName(channelName)
-      .intercept(TraceContextGrpc.clientInterceptor)
+      .intercept(TraceContextGrpc.clientInterceptor())
       .build()
 
     val clock = new RemoteClock(channel, timeouts, loggerFactory)

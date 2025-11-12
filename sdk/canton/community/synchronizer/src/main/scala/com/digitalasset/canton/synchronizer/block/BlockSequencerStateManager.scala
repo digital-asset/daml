@@ -83,7 +83,7 @@ trait BlockSequencerStateManagerBase extends FlagCloseable {
     */
   def processBlock(
       bug: BlockUpdateGenerator
-  ): Flow[BlockEvents, Traced[OrderedBlockUpdate], NotUsed]
+  ): Flow[Traced[BlockEvents], Traced[OrderedBlockUpdate], NotUsed]
 
   /** Persists the [[update.BlockUpdate]]s and completes the waiting RPC calls as necessary.
     */
@@ -521,7 +521,7 @@ class BlockSequencerStateManager(
 
   override def processBlock(
       bug: BlockUpdateGenerator
-  ): Flow[BlockEvents, Traced[OrderedBlockUpdate], NotUsed] = {
+  ): Flow[Traced[BlockEvents], Traced[OrderedBlockUpdate], NotUsed] = {
     val head = getHeadState
     val bugState = {
       import TraceContext.Implicits.Empty.*
@@ -539,7 +539,7 @@ class BlockSequencerStateManager(
         )(MetricsContext("element" -> flowName))
       else original
 
-    Flow[BlockEvents]
+    Flow[Traced[BlockEvents]]
       .via(
         finalFlow(checkBlockHeight(head.block.height), "check_block_height")
       )
@@ -553,12 +553,14 @@ class BlockSequencerStateManager(
 
   private def checkBlockHeight(
       initialHeight: Long
-  ): Flow[BlockEvents, Traced[BlockEvents], NotUsed] =
-    Flow[BlockEvents].statefulMapConcat { () =>
+  ): Flow[Traced[BlockEvents], Traced[BlockEvents], NotUsed] =
+    Flow[Traced[BlockEvents]].statefulMapConcat { () =>
       @SuppressWarnings(Array("org.wartremover.warts.Var"))
       var currentBlockHeight = initialHeight
-      blockEvents => {
+      tracedBlockEvents => {
 
+        implicit val traceContext = tracedBlockEvents.traceContext
+        val blockEvents = tracedBlockEvents.value
         val height = blockEvents.height
 
         // TODO(M98 Tech-Debt Collection): consider validating that blocks with the same block height have the same contents
@@ -578,8 +580,6 @@ class BlockSequencerStateManager(
           noTracingLogger.error(msg)
           throw new SequencerUnexpectedStateChange(msg)
         } else {
-          implicit val traceContext: TraceContext =
-            TraceContext.ofBatch("check_block_height")(blockEvents.events)(logger)
           // Set the current block height to the new block's height instead of + 1 of the previous value
           // so that we support starting from an arbitrary block height
           logger.debug(

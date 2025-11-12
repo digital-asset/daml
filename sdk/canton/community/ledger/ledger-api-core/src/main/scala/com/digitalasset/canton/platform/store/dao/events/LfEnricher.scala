@@ -3,88 +3,150 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
+import com.digitalasset.canton.logging.LoggingContextWithTrace
+import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.platform.PackageId as LfPackageId
+import com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader
 import com.digitalasset.daml.lf.data.Ref.{ChoiceName, Identifier}
-import com.digitalasset.daml.lf.engine.{Engine, Enricher, Result}
-import com.digitalasset.daml.lf.transaction.{FatContractInstance, VersionedTransaction}
+import com.digitalasset.daml.lf.engine as LfEngine
+import com.digitalasset.daml.lf.engine.{Engine, Enricher}
 import com.digitalasset.daml.lf.value.Value
+
+import scala.concurrent.{ExecutionContext, Future}
 
 /** Enricher for LF values.
   */
 trait LfEnricher {
 
-  def enrichVersionedTransaction(
-      versionedTransaction: VersionedTransaction
-  ): Result[VersionedTransaction]
-
-  def enrichContractInstance(contract: FatContractInstance): Result[FatContractInstance]
-
-  def enrichContractValue(tyCon: Identifier, value: Value): Result[Value]
+  def enrichContractValue(tyCon: Identifier, value: Value)(implicit
+      ec: ExecutionContext,
+      loggingContext: LoggingContextWithTrace,
+  ): Future[Value]
 
   def enrichChoiceArgument(
       toIdentifier: Identifier,
       interfaceId: Option[Identifier],
       choiceName: ChoiceName,
       unversioned: Value,
-  ): Result[Value]
+  )(implicit
+      ec: ExecutionContext,
+      loggingContext: LoggingContextWithTrace,
+  ): Future[Value]
 
   def enrichChoiceResult(
       toIdentifier: Identifier,
       interfaceId: Option[Identifier],
       choiceName: ChoiceName,
       unversioned: Value,
-  ): Result[Value]
+  )(implicit
+      ec: ExecutionContext,
+      loggingContext: LoggingContextWithTrace,
+  ): Future[Value]
 
-  def enrichContractKey(toIdentifier: Identifier, value: Value): Result[Value]
+  def enrichContractKey(toIdentifier: Identifier, value: Value)(implicit
+      ec: ExecutionContext,
+      loggingContext: LoggingContextWithTrace,
+  ): Future[Value]
 
-  def enrichView(interfaceId: Identifier, value: Value): Result[Value]
+  def enrichView(interfaceId: Identifier, value: Value)(implicit
+      ec: ExecutionContext,
+      loggingContext: LoggingContextWithTrace,
+  ): Future[Value]
 }
 
 object LfEnricher {
 
-  def apply(engine: Engine, forbidLocalContractIds: Boolean): LfEnricher =
-    new LfEnricherImpl(
+  def apply(
+      engine: Engine,
+      forbidLocalContractIds: Boolean,
+      metrics: LedgerApiServerMetrics,
+      packageLoader: DeduplicatingPackageLoader,
+      loadPackage: (
+          LfPackageId,
+          LoggingContextWithTrace,
+      ) => Future[Option[com.digitalasset.daml.lf.archive.DamlLf.Archive]],
+  ): LfEnricher =
+    new Impl(
       new Enricher(
         engine = engine,
         addTrailingNoneFields = false,
         forbidLocalContractIds = forbidLocalContractIds,
-      )
+      ),
+      metrics,
+      packageLoader,
+      loadPackage,
     )
 
-  class LfEnricherImpl(delegate: Enricher) extends LfEnricher {
+  private class Impl(
+      delegate: Enricher,
+      metrics: LedgerApiServerMetrics,
+      packageLoader: DeduplicatingPackageLoader,
+      loadPackage: (
+          LfPackageId,
+          LoggingContextWithTrace,
+      ) => Future[Option[com.digitalasset.daml.lf.archive.DamlLf.Archive]],
+  ) extends LfEnricher {
 
-    override def enrichVersionedTransaction(
-        versionedTransaction: VersionedTransaction
-    ): Result[VersionedTransaction] = delegate.enrichVersionedTransaction(versionedTransaction)
-
-    override def enrichContractInstance(
-        contract: FatContractInstance
-    ): Result[FatContractInstance] =
-      delegate.enrichContract(contract)
-
-    override def enrichContractValue(tyCon: Identifier, value: Value): Result[Value] =
-      delegate.enrichContract(tyCon, value)
+    override def enrichContractValue(tyCon: Identifier, value: Value)(implicit
+        ec: ExecutionContext,
+        loggingContext: LoggingContextWithTrace,
+    ): Future[Value] =
+      consume(delegate.enrichContract(tyCon, value))
 
     override def enrichChoiceArgument(
         toIdentifier: Identifier,
         interfaceId: Option[Identifier],
         choiceName: ChoiceName,
         unversioned: Value,
-    ): Result[Value] =
-      delegate.enrichChoiceArgument(toIdentifier, interfaceId, choiceName, unversioned)
+    )(implicit
+        ec: ExecutionContext,
+        loggingContext: LoggingContextWithTrace,
+    ): Future[Value] =
+      consume(delegate.enrichChoiceArgument(toIdentifier, interfaceId, choiceName, unversioned))
 
     override def enrichChoiceResult(
         toIdentifier: Identifier,
         interfaceId: Option[Identifier],
         choiceName: ChoiceName,
         unversioned: Value,
-    ): Result[Value] =
-      delegate.enrichChoiceResult(toIdentifier, interfaceId, choiceName, unversioned)
+    )(implicit
+        ec: ExecutionContext,
+        loggingContext: LoggingContextWithTrace,
+    ): Future[Value] =
+      consume(delegate.enrichChoiceResult(toIdentifier, interfaceId, choiceName, unversioned))
 
-    override def enrichContractKey(toIdentifier: Identifier, value: Value): Result[Value] =
-      delegate.enrichContractKey(toIdentifier, value)
+    override def enrichContractKey(toIdentifier: Identifier, value: Value)(implicit
+        ec: ExecutionContext,
+        loggingContext: LoggingContextWithTrace,
+    ): Future[Value] =
+      consume(delegate.enrichContractKey(toIdentifier, value))
 
-    override def enrichView(interfaceId: Identifier, value: Value): Result[Value] =
-      delegate.enrichView(interfaceId, value)
+    override def enrichView(interfaceId: Identifier, value: Value)(implicit
+        ec: ExecutionContext,
+        loggingContext: LoggingContextWithTrace,
+    ): Future[Value] =
+      consume(delegate.enrichView(interfaceId, value))
+
+    private def consume[V](
+        result: LfEngine.Result[V]
+    )(implicit
+        ec: ExecutionContext,
+        loggingContext: LoggingContextWithTrace,
+    ): Future[V] =
+      result match {
+        case LfEngine.ResultDone(r) => Future.successful(r)
+        case LfEngine.ResultNeedPackage(packageId, resume) =>
+          packageLoader
+            .loadPackage(
+              packageId = packageId,
+              delegate = packageId => loadPackage(packageId, loggingContext),
+              metric = metrics.index.db.translation.getLfPackage,
+            )
+            .flatMap(pkgO => consume(resume(pkgO)))
+        case LfEngine.ResultError(e) => Future.failed(new RuntimeException(e.message))
+        case result =>
+          Future.failed(new RuntimeException(s"Unexpected ValueEnricher result: $result"))
+      }
 
   }
 

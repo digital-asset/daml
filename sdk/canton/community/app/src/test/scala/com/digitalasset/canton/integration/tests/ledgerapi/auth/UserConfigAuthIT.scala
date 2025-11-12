@@ -11,7 +11,7 @@ import com.digitalasset.canton.auth.{AuthorizedUser, CantonAdminToken}
 import com.digitalasset.canton.config.CantonRequireTypes.NonEmptyString
 import com.digitalasset.canton.config.{AuthServiceConfig, CantonConfig, DbConfig}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.integration.tests.ledgerapi.SuppressionRules.AuthServiceJWTSuppressionRule
 import com.digitalasset.canton.integration.tests.ledgerapi.services.SubmitAndWaitDummyCommandHelpers
 import com.digitalasset.canton.integration.{
@@ -32,7 +32,7 @@ class UserConfigAuthIT
     with SubmitAndWaitDummyCommandHelpers {
 
   registerPlugin(ExpectedScopeOverrideConfig(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   override def prerequisiteParties: List[String] = List(randomParty)
 
@@ -83,7 +83,7 @@ class UserConfigAuthIT
     issuer = None,
     participantId = None,
     userId = participantAdmin,
-    exp = None,
+    exp = Some(Instant.now().plusNanos(Duration.ofMinutes(5).toNanos)),
     format = StandardJWTTokenFormat.Scope,
     audiences = List.empty,
     scope = Some(defaultScope),
@@ -93,7 +93,7 @@ class UserConfigAuthIT
     issuer = None,
     participantId = None,
     userId = configuredUser,
-    exp = None,
+    exp = Some(Instant.now().plusNanos(Duration.ofMinutes(5).toNanos)),
     format = StandardJWTTokenFormat.Scope,
     audiences = List.empty,
     scope = Some(privilegedScope),
@@ -103,7 +103,7 @@ class UserConfigAuthIT
     issuer = None,
     participantId = None,
     userId = otherUser,
-    exp = None,
+    exp = Some(Instant.now().plusNanos(Duration.ofMinutes(5).toNanos)),
     format = StandardJWTTokenFormat.Scope,
     audiences = List.empty,
     scope = Some(privilegedScope),
@@ -254,6 +254,8 @@ class UserConfigAuthIT
                 ),
             )
           )
+          .focus(_.ledgerApi.adminTokenConfig.adminClaim)
+          .replace(true)
       }(config)
   }
 }

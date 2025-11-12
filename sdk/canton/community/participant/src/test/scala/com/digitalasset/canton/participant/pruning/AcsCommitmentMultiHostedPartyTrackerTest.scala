@@ -13,8 +13,6 @@ import com.digitalasset.canton.ledger.participant.state.{
   ContractStakeholdersAndReassignmentCounter,
 }
 import com.digitalasset.canton.participant.event.RecordTime
-import com.digitalasset.canton.participant.pruning
-import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.RunningCommitments
 import com.digitalasset.canton.protocol.messages.CommitmentPeriod
 import com.digitalasset.canton.protocol.{ExampleTransactionFactory, LfContractId}
 import com.digitalasset.canton.time.PositiveSeconds
@@ -162,8 +160,7 @@ class AcsCommitmentMultiHostedPartyTrackerTest
 
     val uniqueParties = topology.keys.toSet
 
-    val rc =
-      new pruning.AcsCommitmentProcessor.RunningCommitments(RecordTime.MinValue, TrieMap.empty)
+    val rc = new RunningCommitments(RecordTime.MinValue, TrieMap.empty)
 
     val party1 = uniqueParties.headOption
 

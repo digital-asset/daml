@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.store.db
 
+import cats.Eval
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.store.{
@@ -10,6 +11,7 @@ import com.digitalasset.canton.participant.store.{
   CommitmentQueueTest,
   IncrementalCommitmentStoreTest,
 }
+import com.digitalasset.canton.platform.store.interning.MockStringInterning
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.IndexedSynchronizer
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
@@ -18,6 +20,8 @@ import com.digitalasset.canton.tracing.TraceContext
 import scala.concurrent.ExecutionContext
 
 trait DbAcsCommitmentStoreTest extends AcsCommitmentStoreTest { this: DbTest =>
+
+  val mockStringInterning = new MockStringInterning
 
   override def cleanDb(
       storage: DbStorage
@@ -43,12 +47,15 @@ trait DbAcsCommitmentStoreTest extends AcsCommitmentStoreTest { this: DbTest =>
         new DbAcsCommitmentConfigStore(storage, timeouts, loggerFactory),
         timeouts,
         loggerFactory,
+        Eval.now(mockStringInterning),
       )(ec)
     )
   }
 }
 
 trait DbIncrementalCommitmentStoreTest extends IncrementalCommitmentStoreTest { this: DbTest =>
+  val mockStringInterning = new MockStringInterning
+
   override def cleanDb(
       storage: DbStorage
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
@@ -69,6 +76,7 @@ trait DbIncrementalCommitmentStoreTest extends IncrementalCommitmentStoreTest { 
         IndexedSynchronizer.tryCreate(synchronizerId, 1),
         timeouts,
         loggerFactory,
+        Eval.now(mockStringInterning),
       )(ec)
     )
   }

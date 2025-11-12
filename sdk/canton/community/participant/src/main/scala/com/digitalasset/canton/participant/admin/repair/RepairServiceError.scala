@@ -156,12 +156,8 @@ object RepairServiceError extends RepairServiceErrorGroup {
         with RepairServiceError
   }
 
-  @Explanation(
-    "The assignation of a contract cannot be changed due to an error."
-  )
-  @Resolution(
-    "Retry after operator intervention."
-  )
+  @Explanation("The assignation of a contract cannot be changed due to an error.")
+  @Resolution("Retry after operator intervention.")
   object ContractAssignationChangeError
       extends ErrorCode(
         id = "CONTRACT_ASSIGNATION_CHANGE_ERROR",
@@ -173,12 +169,8 @@ object RepairServiceError extends RepairServiceErrorGroup {
         with RepairServiceError
   }
 
-  @Explanation(
-    "Import ACS has failed."
-  )
-  @Resolution(
-    "Retry after operator intervention."
-  )
+  @Explanation("Import ACS has failed.")
+  @Resolution("Retry after operator intervention.")
   object ImportAcsError
       extends ErrorCode(
         id = "IMPORT_ACS_ERROR",

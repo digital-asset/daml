@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.admin
 
-import cats.Eval
 import cats.data.EitherT
 import cats.implicits.{catsSyntaxParallelTraverse1, toBifunctorOps, toTraverseOps}
 import com.digitalasset.base.error.RpcError
@@ -19,19 +18,16 @@ import com.digitalasset.canton.participant.admin.PackageService.{
   DarMainPackageId,
   catchUpstreamErrors,
 }
-import com.digitalasset.canton.participant.store.memory.{
-  MutablePackageMetadataView,
-  PackageMetadataView,
-}
+import com.digitalasset.canton.participant.store.memory.MutablePackageMetadataView
 import com.digitalasset.canton.participant.store.{DamlPackageStore, PackageInfo}
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
+import com.digitalasset.canton.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.ThereafterOps
 import com.digitalasset.canton.{LedgerSubmissionId, LfPackageId}
 import com.digitalasset.daml.lf.archive.{DamlLf, Dar as LfDar, DarParser, Decode}
 import com.digitalasset.daml.lf.engine.{Engine, Error as EngineError}
-import com.digitalasset.daml.lf.language.Ast
+import com.digitalasset.daml.lf.language.{Ast, LanguageVersion as LV}
 import com.google.protobuf.ByteString
 
 import java.util.zip.ZipInputStream
@@ -43,21 +39,19 @@ class PackageUploader(
     packageStore: DamlPackageStore,
     engine: Engine,
     enableStrictDarValidation: Boolean,
-    packageMetadataView: Eval[MutablePackageMetadataView],
+    val packageMetadataView: MutablePackageMetadataView,
     protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging
     with FlagCloseable {
 
-  def getPackageMetadataView: PackageMetadataView = packageMetadataView.value
-
   def validateDar(
       payload: ByteString,
       darName: String,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, RpcError, DarMainPackageId] =
+  ): EitherT[FutureUnlessShutdown, RpcError, (LfPackageId, List[(LfPackageId, Ast.Package)])] =
     synchronizeWithClosing("validate DAR") {
       val stream = new ZipInputStream(payload.newInput())
       for {
@@ -69,7 +63,7 @@ class PackageUploader(
         )
         lfDar = LfDar(mainPackage, dependencies)
         _ <- validateLfDarPackages(lfDar)
-      } yield DarMainPackageId.tryCreate(mainPackage._1)
+      } yield (mainPackage._1, mainPackage +: dependencies)
     }
 
   /** Uploads dar into dar store
@@ -137,9 +131,10 @@ class PackageUploader(
         _ = logger.debug(
           s"Managed to upload one or more archives for submissionId $submissionId"
         )
-        _ = allPackages.foreach { case (_, (pkgId, pkg)) =>
-          packageMetadataView.value.update(PackageMetadata.from(pkgId, pkg))
+        darPackageMetadata = allPackages.map { case (_, (pkgId, pkg)) =>
+          PackageMetadata.from(pkgId, pkg)
         }
+        _ <- packageMetadataView.updateMany(darPackageMetadata)
       } yield ()
 
     val uploadTime = clock.monotonicTime()
@@ -189,7 +184,7 @@ class PackageUploader(
         )
         // If JDBC insertion call failed, we don't know whether the DB was updated or not
         // hence ensure the package metadata view stays in sync by re-initializing it from the DB.
-        packageMetadataView.value.refreshState.transformWith(_ => FutureUnlessShutdown.failed(e))
+        packageMetadataView.refreshState.transformWith(_ => FutureUnlessShutdown.failed(e))
       case success: Success[UnlessShutdown[Unit]] => FutureUnlessShutdown.lift(success.value)
     }
 
@@ -201,7 +196,7 @@ class PackageUploader(
     EitherT.fromEither[FutureUnlessShutdown](
       engine.validateDar(dar).left.flatMap {
         case err: EngineError.Package.DarSelfConsistency
-            if !enableStrictDarValidation && err.logReportingEnabled =>
+            if (!enableStrictDarValidation || dar.main._2.languageVersion < LV.Features.explicitPkgImports) && err.logReportingEnabled =>
           logger.warn(err.message)
           Right(())
         case err: EngineError.Package.Error =>

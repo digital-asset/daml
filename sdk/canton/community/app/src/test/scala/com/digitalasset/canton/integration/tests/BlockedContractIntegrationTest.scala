@@ -10,10 +10,7 @@ import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.ParticipantReference
 import com.digitalasset.canton.error.TransactionRoutingError.TopologyErrors.UnknownInformees
 import com.digitalasset.canton.examples.java.iou.{Amount, Iou}
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
@@ -150,5 +147,5 @@ sealed trait BlockedContractIntegrationTest
 
 class BlockedContractIntegrationTestPostgres extends BlockedContractIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }

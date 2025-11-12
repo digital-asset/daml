@@ -27,6 +27,8 @@ trait ErrorLoggingContext extends BaseErrorLogger {
   def traceId: Option[String]
   def traceContext: TraceContext
 
+  def trace(message: String): Unit
+  def trace(message: String, throwable: Throwable): Unit
   def debug(message: String): Unit
   def debug(message: String, throwable: Throwable): Unit
   def info(message: String): Unit
@@ -88,11 +90,11 @@ abstract class AbstractErrorLoggingContext(
   override def error(message: String, throwable: Throwable): Unit =
     logger.error(message, throwable)(traceContext)
 
-  def debug(message: String): Unit = logger.debug(message)(traceContext)
-  def debug(message: String, throwable: Throwable): Unit =
+  override def debug(message: String): Unit = logger.debug(message)(traceContext)
+  override def debug(message: String, throwable: Throwable): Unit =
     logger.debug(message, throwable)(traceContext)
-  def trace(message: String): Unit = logger.trace(message)(traceContext)
-  def trace(message: String, throwable: Throwable): Unit =
+  override def trace(message: String): Unit = logger.trace(message)(traceContext)
+  override def trace(message: String, throwable: Throwable): Unit =
     logger.trace(message, throwable)(traceContext)
 
   def withContext[A](context: Map[String, String])(body: => A): A = {
@@ -148,7 +150,7 @@ object ErrorLoggingContext {
 
   def forClass(
       loggerFactory: NamedLoggerFactory,
-      clazz: Class[_],
+      clazz: Class[?],
       properties: Map[String, String] = Map.empty,
       traceContext: TraceContext = TraceContext.empty,
   ): ErrorLoggingContext =
@@ -204,6 +206,8 @@ class NoLogging(
   private val underlying: slf4j.Logger = NOPLogger.NOP_LOGGER
 
   override def logError(err: BaseError, extra: Map[String, String]): Unit = ()
+  override def trace(message: String): Unit = ()
+  override def trace(message: String, throwable: Throwable): Unit = ()
   override def debug(message: String): Unit = ()
   override def debug(message: String, throwable: Throwable): Unit = ()
   override def info(message: String): Unit = ()

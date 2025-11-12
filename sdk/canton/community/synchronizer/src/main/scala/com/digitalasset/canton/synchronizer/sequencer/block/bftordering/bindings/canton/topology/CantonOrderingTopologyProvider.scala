@@ -14,7 +14,6 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
-import com.digitalasset.canton.sequencing.protocol.MaxRequestSizeToDeserialize
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.canton.crypto.{
   CantonCryptoProvider,
@@ -40,6 +39,7 @@ import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.{Member, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.MaxBytesToDecompress
 
 import scala.concurrent.ExecutionContext
 
@@ -153,7 +153,7 @@ private[canton] final class CantonOrderingTopologyProvider(
         OrderingTopology(
           nodesTopologyInfo,
           sequencingDynamicParameters,
-          MaxRequestSizeToDeserialize.Limit(maxRequestSize),
+          MaxBytesToDecompress(maxRequestSize),
           activationTime,
           areTherePendingCantonTopologyChanges = maxTimestamp.exists { case (_, maxEffectiveTime) =>
             TopologyActivationTime.fromEffectiveTime(maxEffectiveTime).value > activationTime.value

@@ -33,7 +33,7 @@ object TransactionLogUpdate {
   /** Complete view of a ledger transaction.
     *
     * @param updateId
-    *   The transaction it.
+    *   The transaction id.
     * @param workflowId
     *   The workflow id.
     * @param effectiveAt

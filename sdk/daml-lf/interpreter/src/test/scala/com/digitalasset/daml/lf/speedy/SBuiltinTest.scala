@@ -6,20 +6,13 @@ package speedy
 
 import com.daml.crypto.MessageSignaturePrototypeUtil
 import com.digitalasset.daml.lf.crypto.Hash
-import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion}
-import com.digitalasset.daml.lf.speedy.SBuiltinFun.{
-  SBCrash,
-  SBImportInputContract,
-  SBuildContractInfoStruct,
-}
-import com.digitalasset.daml.lf.speedy.SError.{SError, SErrorCrash, SErrorDamlException}
+import com.digitalasset.daml.lf.language.Ast
+import com.digitalasset.daml.lf.speedy.SError.{SError, SErrorDamlException}
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SValue.{SValue => _, _}
-import com.digitalasset.daml.lf.speedy.Speedy.{CachedKey, ContractInfo, Machine}
+import com.digitalasset.daml.lf.speedy.Speedy.Machine
 import com.digitalasset.daml.lf.stablepackages.StablePackages
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
@@ -37,19 +30,12 @@ import scala.collection.immutable.ArraySeq
 import scala.language.implicitConversions
 import scala.util.{Failure, Try}
 
-class SBuiltinTestV2 extends SBuiltinTest(LanguageMajorVersion.V2)
+class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks with Inside {
 
-class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
-    extends AnyFreeSpec
-    with Matchers
-    with TableDrivenPropertyChecks
-    with Inside {
-
-  val helpers = new SBuiltinTestHelpers(majorLanguageVersion)
+  val helpers = new SBuiltinTestHelpers
   import helpers.{parserParameters => _, _}
 
-  implicit val parserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor[this.type](majorLanguageVersion)
+  implicit val parserParameters: ParserParameters[this.type] = ParserParameters.default
 
   implicit def toScale(i: Int): Numeric.Scale = Numeric.Scale.assertFromInt(i)
 
@@ -790,22 +776,10 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
   }
 
   "ContractId operations" - {
-    val relativeSuffix = Bytes.fromByteArray(Array(0, 1, 2, 3))
     val absoluteSuffix = Bytes.fromByteArray(Array(-1, 0, 1, 2))
 
     val absoluteCidV1 = ContractId.V1(Hash.hashPrivateKey("#contract1"), absoluteSuffix)
     val localCidV1 = ContractId.V1(Hash.hashPrivateKey("#contract2"))
-
-    def cidV2WithSuffix(discriminator: String, suffix: Bytes): ContractId =
-      ContractId.V2
-        .suffixed(Time.Timestamp.Epoch, Hash.hashPrivateKey(discriminator), suffix)
-        .toOption
-        .get
-
-    val absoluteCidV2 = cidV2WithSuffix("#contract3", absoluteSuffix)
-    val relativeCidV2 = cidV2WithSuffix("#contract4", relativeSuffix)
-    val localCidV2 =
-      ContractId.V2.unsuffixed(Time.Timestamp.Epoch, Hash.hashPrivateKey("#contract5"))
 
     "EQUAL @ContractId" - {
       "works as expected" in {
@@ -817,62 +791,6 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           e"EQUAL @(ContractId Mod:T)",
           ArraySeq(SContractId(absoluteCidV1), SContractId(localCidV1)),
         ) shouldBe Right(SBool(false))
-      }
-    }
-
-    "TEXT_TO_CONTRACT-ID" - {
-      "should parse absolute contract ID" in {
-        val absoluteCidV1AsHex = absoluteCidV1.toBytes.toHexString
-        val absoluteCidV2AsHex = absoluteCidV2.toBytes.toHexString
-        evalApp(e"TEXT_TO_CONTRACT_ID", ArraySeq(SText(absoluteCidV1AsHex))) shouldBe Right(
-          SContractId(absoluteCidV1)
-        )
-        evalApp(e"TEXT_TO_CONTRACT_ID", ArraySeq(SText(absoluteCidV2AsHex))) shouldBe Right(
-          SContractId(absoluteCidV2)
-        )
-      }
-
-      "should fail to parse relative contract id" in {
-        val relativeCidV2AsHex = relativeCidV2.toBytes.toHexString
-        inside {
-          evalApp(e"TEXT_TO_CONTRACT_ID", ArraySeq(SText(relativeCidV2AsHex)))
-        } { case Left(SError.SErrorDamlException(IE.Crypto(error))) =>
-          error shouldBe IE.Crypto.MalformedContractId(relativeCidV2AsHex)
-        }
-      }
-
-      "should fail to parse local contract id" in {
-        val localCidV1AsHex = localCidV1.toBytes.toHexString
-        val localCidV2AsHex = localCidV2.toBytes.toHexString
-        inside {
-          evalApp(e"TEXT_TO_CONTRACT_ID", ArraySeq(SText(localCidV1AsHex)))
-        } { case Left(SError.SErrorDamlException(IE.Crypto(error))) =>
-          error shouldBe IE.Crypto.MalformedContractId(localCidV1AsHex)
-        }
-        inside {
-          evalApp(e"TEXT_TO_CONTRACT_ID", ArraySeq(SText(localCidV2AsHex)))
-        } { case Left(SError.SErrorDamlException(IE.Crypto(error))) =>
-          error shouldBe IE.Crypto.MalformedContractId(localCidV2AsHex)
-        }
-      }
-
-      "should fail on malformed contract id" in {
-        val invalidHexString = "invalid"
-        val tooShortHexString = "0" * 64
-        val tooLongHexString = "0" * 256
-
-        inside(evalApp(e"TEXT_TO_CONTRACT_ID", ArraySeq(SText(invalidHexString)))) {
-          case Left(SError.SErrorDamlException(IE.Crypto(error))) =>
-            error shouldBe IE.Crypto.MalformedContractId(invalidHexString)
-        }
-        inside(evalApp(e"TEXT_TO_CONTRACT_ID", ArraySeq(SText(tooShortHexString)))) {
-          case Left(SError.SErrorDamlException(IE.Crypto(error))) =>
-            error shouldBe IE.Crypto.MalformedContractId(tooShortHexString)
-        }
-        inside(evalApp(e"TEXT_TO_CONTRACT_ID", ArraySeq(SText(tooLongHexString)))) {
-          case Left(SError.SErrorDamlException(IE.Crypto(error))) =>
-            error shouldBe IE.Crypto.MalformedContractId(tooLongHexString)
-        }
       }
     }
   }
@@ -1458,7 +1376,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         val builtin = e"""TEXT_TO_INT64"""
 
         forEvery(testCases) { (input, output) =>
-          eval(EApp(builtin, EBuiltinLit(BLText(input())))) shouldBe Right(
+          eval(Ast.EApp(builtin, Ast.EBuiltinLit(Ast.BLText(input())))) shouldBe Right(
             SOptional(output)
           )
         }
@@ -1530,7 +1448,9 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
       val builtin = e"""TEXT_TO_NUMERIC @10 ${w(10)}"""
 
       forEvery(testCases) { (input, output) =>
-        eval(EApp(builtin, EBuiltinLit(BLText(input())))) shouldBe Right(SOptional(output))
+        eval(Ast.EApp(builtin, Ast.EBuiltinLit(Ast.BLText(input())))) shouldBe Right(
+          SOptional(output)
+        )
       }
     }
 
@@ -1664,15 +1584,6 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
     }
   }
 
-  "SBCrash" - {
-    "throws an exception" in {
-      inside(eval(SEApp(SEBuiltinFun(SBCrash("test message")), ArraySeq(SUnit)))) {
-        case Left(SErrorCrash(_, message)) =>
-          message should endWith("test message")
-      }
-    }
-  }
-
   "AnyExceptionMessage" - {
     "request unknown packageId" in {
       evalOnLedger(
@@ -1693,7 +1604,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
     }
 
     "should not request package for ArithmeticError" in {
-      val tyCon = StablePackages(majorLanguageVersion).ArithmeticError
+      val tyCon = StablePackages.stablePackages.ArithmeticError
       val prettyTyCon = s"'${tyCon.packageId}':${tyCon.qualifiedName}"
       eval(
         e"""ANY_EXCEPTION_MESSAGE (to_any_exception @$prettyTyCon ($prettyTyCon { message = "Arithmetic error" }))"""
@@ -1732,7 +1643,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
     val testCases = Table[String, SValue](
       "expression" -> "string-result",
       "interface_template_type_rep @Mod:Iface Mod:aliceOwesBobIface" -> STypeRep(
-        TTyCon(iouTypeRep)
+        Ast.TTyCon(iouTypeRep)
       ),
       "signatory_interface @Mod:Iface Mod:aliceOwesBobIface" -> SList(FrontStack(SParty(alice))),
       "observer_interface @Mod:Iface Mod:aliceOwesBobIface" -> SList(FrontStack(SParty(bob))),
@@ -1741,108 +1652,6 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
     forEvery(testCases) { (exp, res) =>
       s"""eval[$exp] --> "$res"""" in {
         eval(e"$exp") shouldBe Right(res)
-      }
-    }
-  }
-
-  "SBCacheDisclosedContract" - {
-    "updates on ledger cached contract map" - {
-      val contractId = ContractId.V1(crypto.Hash.hashPrivateKey("test-contract-id"))
-
-      "when no template key is defined" in {
-        val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:Iou")
-        val (disclosedContract, None) =
-          buildDisclosedContract(contractId, alice, alice, templateId, withKey = false)
-        val contractInfo = ContractInfo(
-          version = txVersion,
-          packageName = pkg.pkgName,
-          templateId = templateId,
-          value = disclosedContract.argument,
-          signatories = Set(alice),
-          observers = Set.empty,
-          keyOpt = None,
-        )
-        val contractInfoSExpr = SBuildContractInfoStruct(
-          SEValue(STypeRep(TTyCon(templateId))),
-          SEValue(disclosedContract.argument),
-          SEValue(SList(FrontStack(SParty(alice)))),
-          SEValue(SList(FrontStack.Empty)),
-          SEValue(SOptional(None)),
-        )
-
-        inside(
-          evalOnLedger(
-            SELet1(
-              contractInfoSExpr,
-              SEAppAtomic(
-                SEBuiltinFun(SBImportInputContract(disclosedContract.contract, templateId)),
-                ArraySeq(SELocS(1)),
-              ),
-            ),
-            getContract = Map(
-              contractId -> TransactionBuilder.fatContractInstanceWithDummyDefaults(
-                version = txVersion,
-                packageName = pkg.pkgName,
-                template = templateId,
-                arg = disclosedContract.argument.toUnnormalizedValue,
-              )
-            ),
-          )
-        ) { case Right((SUnit, disclosedContracts, disclosedContractKeys)) =>
-          disclosedContracts shouldBe Map(contractId -> contractInfo)
-          disclosedContractKeys shouldBe empty
-        }
-      }
-
-      "when template key is defined" in {
-        val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:IouWithKey")
-        val (disclosedContract, Some(key)) =
-          buildDisclosedContract(contractId, alice, alice, templateId, withKey = true)
-        val cachedKey = CachedKey(
-          pkgName,
-          GlobalKeyWithMaintainers
-            .assertBuild(templateId, key.toUnnormalizedValue, Set(alice), pkg.pkgName),
-          key,
-        )
-        val contractInfo = ContractInfo(
-          version = txVersion,
-          packageName = pkg.pkgName,
-          templateId = templateId,
-          value = disclosedContract.argument,
-          signatories = Set(alice),
-          observers = Set.empty,
-          keyOpt = Some(cachedKey),
-        )
-        val contractInfoSExpr = SBuildContractInfoStruct(
-          SEValue(STypeRep(TTyCon(templateId))),
-          SEValue(disclosedContract.argument),
-          SEValue(SList(FrontStack(SParty(alice)))),
-          SEValue(SList(FrontStack.Empty)),
-          SEValue(SOptional(Some(keyWithMaintainers(key, alice)))),
-        )
-
-        inside(
-          evalOnLedger(
-            SELet1(
-              contractInfoSExpr,
-              SEAppAtomic(
-                SEBuiltinFun(SBImportInputContract(disclosedContract.contract, templateId)),
-                ArraySeq(SELocS(1)),
-              ),
-            ),
-            getContract = Map(
-              contractId -> TransactionBuilder.fatContractInstanceWithDummyDefaults(
-                version = txVersion,
-                template = templateId,
-                arg = disclosedContract.argument.toUnnormalizedValue,
-                packageName = pkg.pkgName,
-              )
-            ),
-          )
-        ) { case Right((SUnit, disclosedContracts, disclosedContractKeys)) =>
-          disclosedContracts shouldBe Map(contractId -> contractInfo)
-          disclosedContractKeys shouldBe Map(cachedKey.globalKey -> contractId)
-        }
       }
     }
   }
@@ -2216,12 +2025,12 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
   }
 }
 
-final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
+final class SBuiltinTestHelpers {
 
   import SpeedyTestLib.loggingContext
 
   implicit val parserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor(majorLanguageVersion)
+    ParserParameters.default
 
   lazy val pkg =
     p"""  metadata ( '-sbuiltin-test-' : '1.0.0' )
@@ -2324,81 +2133,72 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
         }
     """
 
-  val txVersion = pkg.languageVersion
+  val txVersion = SerializationVersion.assign(pkg.languageVersion)
   val pkgName = Ref.PackageName.assertFromString("-sbuiltin-test-")
 
   val compiledPackages: PureCompiledPackages =
     PureCompiledPackages.assertBuild(
       Map(parserParameters.defaultPackageId -> pkg),
-      Compiler.Config.Default(majorLanguageVersion),
+      Compiler.Config.Default,
     )
 
-  val stablePackages = StablePackages(majorLanguageVersion)
+  val stablePackages = StablePackages.stablePackages
 
-  def eval(e: Expr): Either[SError, SValue] =
+  def eval(e: Ast.Expr): Either[SError, SValue] =
     Machine.runPureExpr(e, compiledPackages)
 
   def evalApp(
-      e: Expr,
+      e: Ast.Expr,
       args: ArraySeq[SValue],
   ): Either[SError, SValue] =
     eval(SEApp(compiledPackages.compiler.unsafeCompile(e), args))
 
-  val alice: Party = Ref.Party.assertFromString("Alice")
-  val committers: Set[Party] = Set(alice)
+  val alice: Ref.Party = Ref.Party.assertFromString("Alice")
+  val committers: Set[Ref.Party] = Set(alice)
 
   def eval(sexpr: SExpr): Either[SError, SValue] =
     Machine.runPureSExpr(sexpr, compiledPackages)
 
   def evalAppOnLedger(
-      e: Expr,
+      e: Ast.Expr,
       args: ArraySeq[SValue],
       getContract: PartialFunction[ContractId, FatContractInstance] = Map.empty,
   ): Either[SError, SValue] =
-    evalOnLedger(SEApp(compiledPackages.compiler.unsafeCompile(e), args), getContract).map(_._1)
+    evalOnLedger(SEApp(compiledPackages.compiler.unsafeCompile(e), args), getContract)
 
   def evalOnLedger(
-      e: Expr,
+      e: Ast.Expr,
       getContract: PartialFunction[ContractId, FatContractInstance] = Map.empty,
   ): Either[SError, SValue] =
-    evalOnLedger(compiledPackages.compiler.unsafeCompile(e), getContract).map(_._1)
+    evalOnLedger(compiledPackages.compiler.unsafeCompile(e), getContract)
 
   def evalOnLedger(
       sexpr: SExpr,
       getContract: PartialFunction[ContractId, FatContractInstance],
   ): Either[
     SError,
-    (
-        SValue,
-        Map[ContractId, ContractInfo],
-        Map[GlobalKey, ContractId],
-    ),
+    SValue,
   ] = evalUpdateOnLedger(SELet1(sexpr, SEMakeClo(ArraySeq(SELocS(1)), 1, SELocF(0))), getContract)
 
   def evalUpdateOnLedger(
-      e: Expr,
+      e: Ast.Expr,
       getContract: PartialFunction[ContractId, FatContractInstance] = Map.empty,
   ): Either[SError, SValue] =
-    evalUpdateOnLedger(compiledPackages.compiler.unsafeCompile(e), getContract).map(_._1)
+    evalUpdateOnLedger(compiledPackages.compiler.unsafeCompile(e), getContract)
 
   def evalUpdateAppOnLedger(
-      e: Expr,
+      e: Ast.Expr,
       args: ArraySeq[SValue],
       getContract: PartialFunction[ContractId, FatContractInstance] = Map.empty,
   ): Either[SError, SValue] =
     evalUpdateOnLedger(SEApp(compiledPackages.compiler.unsafeCompile(e), args), getContract)
-      .map(_._1)
 
   def evalUpdateOnLedger(
       sexpr: SExpr,
       getContract: PartialFunction[ContractId, FatContractInstance],
   ): Either[
     SError,
-    (
-        SValue,
-        Map[ContractId, ContractInfo],
-        Map[GlobalKey, ContractId],
-    ),
+    SValue,
   ] = {
     val machine =
       Speedy.Machine.fromUpdateSExpr(
@@ -2407,19 +2207,14 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
         updateSE = sexpr,
         committers = committers,
       )
-
-    SpeedyTestLib
-      .run(machine, getContract = getContract)
-      .map(
-        (_, machine.disclosedContracts, machine.disclosedContractKeys)
-      )
+    SpeedyTestLib.run(machine, getContract = getContract)
   }
 
   def intList(xs: Long*): String =
     if (xs.isEmpty) "(Nil @Int64)"
     else xs.mkString(s"(Cons @Int64 [", ", ", s"] (Nil @Int64))")
 
-  val entryFields = Struct.assertFromNameSeq(List(keyFieldName, valueFieldName))
+  val entryFields = Struct.assertFromNameSeq(List(Ast.keyFieldName, Ast.valueFieldName))
 
   def mapEntry(k: String, v: SValue) = SStruct(entryFields, ArraySeq(SText(k), v))
 
@@ -2434,7 +2229,7 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
       case _ => sys.error(s"litToText: unexpected $x")
     }
 
-  def keyWithMaintainers(key: SValue, maintainer: Party) = SStruct(
+  def keyWithMaintainers(key: SValue, maintainer: Ref.Party) = SStruct(
     Struct.assertFromNameSeq(
       Seq(Ref.Name.assertFromString("key"), Ref.Name.assertFromString("maintainers"))
     ),
@@ -2444,71 +2239,5 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
     ),
   )
 
-  def buildDisclosedContract(
-      contractId: ContractId,
-      owner: Party,
-      maintainer: Party,
-      templateId: Ref.Identifier,
-      withKey: Boolean,
-  ): (DisclosedContract, Option[SValue]) = {
-    val key = SValue.SRecord(
-      templateId,
-      ImmArray(
-        Ref.Name.assertFromString("label"),
-        Ref.Name.assertFromString("maintainers"),
-      ),
-      ArraySeq(
-        SValue.SText("test-key"),
-        SValue.SList(FrontStack(SValue.SParty(maintainer))),
-      ),
-    )
-    val fields = if (withKey) ImmArray("i", "u", "name", "k") else ImmArray("i", "u", "name")
-    val svalues: ArraySeq[SValue] =
-      if (withKey) {
-        ArraySeq(
-          SValue.SParty(owner),
-          SValue.SParty(maintainer),
-          SValue.SText("x"),
-          SValue.SParty(maintainer),
-        )
-      } else {
-        ArraySeq(SValue.SParty(owner), SValue.SParty(maintainer), SValue.SText("y"))
-      }
-    val sarg = SValue.SRecord(
-      templateId,
-      fields.map(Ref.Name.assertFromString),
-      svalues,
-    )
-    val txVersion = pkg.languageVersion
-    val keyOpt =
-      if (withKey)
-        Some(
-          GlobalKeyWithMaintainers
-            .assertBuild(templateId, key.toNormalizedValue, Set(maintainer), pkgName)
-        )
-      else
-        None
-    val disclosedContract = DisclosedContract(
-      FatContractInstance.fromCreateNode(
-        Node.Create(
-          coid = contractId,
-          packageName = pkg.pkgName,
-          templateId = templateId,
-          arg = sarg.toNormalizedValue,
-          signatories = Set(maintainer),
-          stakeholders = Set(maintainer),
-          keyOpt = keyOpt,
-          version = txVersion,
-        ),
-        createTime = CreationTime.CreatedAt(Time.Timestamp.now()),
-        authenticationData = Bytes.Empty,
-      ),
-      sarg,
-    )
-
-    (disclosedContract, keyOpt.map(_ => key))
-  }
-
   val witness = Numeric.Scale.values.map(n => SNumeric(Numeric.assertFromBigDecimal(n, 1)))
-
 }

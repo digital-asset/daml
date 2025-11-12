@@ -164,10 +164,9 @@ final case class CachingConfigs(
       CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
     publicKeyConversionCache: CacheConfig = CachingConfigs.defaultPublicKeyConversionCache,
     packageVettingCache: CacheConfig = CachingConfigs.defaultPackageVettingCache,
-    packageDependencyCache: CacheConfig = CachingConfigs.defaultPackageDependencyCache,
     packageUpgradeCache: CacheConfigWithSizeOnly = CachingConfigs.defaultPackageUpgradeCache,
     memberCache: CacheConfig = CachingConfigs.defaultMemberCache,
-    kmsMetadataCache: CacheConfig = CachingConfigs.kmsMetadataCache,
+    kmsMetadataCache: CacheConfig = CachingConfigs.defaultKmsMetadataCache,
     finalizedMediatorConfirmationRequests: CacheConfig =
       CachingConfigs.defaultFinalizedMediatorConfirmationRequestsCache,
     sequencerPayloadCache: CacheConfigWithMemoryBounds = CachingConfigs.defaultSequencerPayloadCache,
@@ -199,17 +198,12 @@ object CachingConfigs {
     )
   val defaultPackageVettingCache: CacheConfig =
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(10000))
-  val defaultPackageDependencyCache: CacheConfig =
-    CacheConfig(
-      maximumSize = PositiveNumeric.tryCreate(10000),
-      NonNegativeFiniteDuration.ofMinutes(15),
-    )
   val defaultPackageUpgradeCache: CacheConfigWithSizeOnly = CacheConfigWithSizeOnly(
     maximumSize = PositiveNumeric.tryCreate(10000)
   )
   val defaultMemberCache: CacheConfig =
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(1000))
-  val kmsMetadataCache: CacheConfig =
+  val defaultKmsMetadataCache: CacheConfig =
     CacheConfig.apply(maximumSize = PositiveNumeric.tryCreate(20))
   val defaultFinalizedMediatorConfirmationRequestsCache =
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(1000))

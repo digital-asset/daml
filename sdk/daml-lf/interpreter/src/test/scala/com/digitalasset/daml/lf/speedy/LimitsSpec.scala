@@ -6,14 +6,14 @@ package speedy
 
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
-import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion}
+import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import com.digitalasset.daml.lf.transaction.{
   FatContractInstance,
+  SerializationVersion,
   SubmittedTransaction,
-  TransactionVersion,
 }
 import com.digitalasset.daml.lf.value.Value
 import org.scalatest.Inside
@@ -23,18 +23,11 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 
 import scala.collection.immutable.ArraySeq
 
-class LimitsSpecV2 extends LimitsSpec(LanguageMajorVersion.V2)
-
-class LimitsSpec(majorLanguageVersion: LanguageMajorVersion)
-    extends AnyFreeSpec
-    with Matchers
-    with Inside
-    with TableDrivenPropertyChecks {
+class LimitsSpec extends AnyFreeSpec with Matchers with Inside with TableDrivenPropertyChecks {
 
   import SpeedyTestLib.loggingContext
 
-  implicit val defaultParserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor[this.type](majorLanguageVersion)
+  implicit val defaultParserParameters: ParserParameters[this.type] = ParserParameters.default
 
   val pkg = p""" metadata ( '-limits-spec-' : '1.0.0' )
   module Mod {
@@ -544,7 +537,7 @@ class LimitsSpec(majorLanguageVersion: LanguageMajorVersion)
   private[this] def mkContract(signatories: Iterable[Ref.Party], observers: Iterable[Ref.Party]) = {
 
     TransactionBuilder.fatContractInstanceWithDummyDefaults(
-      TransactionVersion.StableVersions.max,
+      SerializationVersion.StableVersions.max,
       pkg.pkgName,
       T,
       Value.ValueRecord(

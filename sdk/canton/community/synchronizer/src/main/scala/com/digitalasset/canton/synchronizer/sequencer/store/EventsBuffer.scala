@@ -53,7 +53,7 @@ class EventsBuffer(
   // testing just the overhead).
   // It becomes even more significant when increasing the order of magnitude by number of elements
   @volatile
-  private var eventsBuffer: Vector[Sequenced[BytesPayload]] = Vector.empty
+  private var eventsBuffer: Vector[Sequenced[IdOrPayload]] = Vector.empty
   @volatile
   private var memoryUsed = BytesUnit(0)
 
@@ -66,7 +66,7 @@ class EventsBuffer(
     * not buffer all provided events to stay within the memory limit.
     */
   final def bufferEvents(
-      events: NonEmpty[Seq[Sequenced[BytesPayload]]]
+      events: NonEmpty[Seq[Sequenced[IdOrPayload]]]
   ): Unit = addElementsInternal(events, append = true).discard
 
   /** Prepends events to the buffer up to the memory limit. May not buffer all provided events to
@@ -75,10 +75,10 @@ class EventsBuffer(
     *   true if the buffer is at the memory limit or some events had to be dropped again to stay
     *   within the memory limit.
     */
-  final def prependEventsForPreloading(events: NonEmpty[Seq[Sequenced[BytesPayload]]]): Boolean =
+  final def prependEventsForPreloading(events: NonEmpty[Seq[Sequenced[IdOrPayload]]]): Boolean =
     addElementsInternal(events, append = false)
 
-  private def addElementsInternal(events: NonEmpty[Seq[Sequenced[BytesPayload]]], append: Boolean) =
+  private def addElementsInternal(events: NonEmpty[Seq[Sequenced[IdOrPayload]]], append: Boolean) =
     blocking(synchronized { // synchronized to enforce that there is only 1 writer
 
       // prepare the buffer so that the backing array is prepared for the right size
@@ -135,7 +135,7 @@ class EventsBuffer(
     memoryUsed = BytesUnit.zero
   })
 
-  final def snapshot(): Vector[Sequenced[BytesPayload]] = eventsBuffer
+  final def snapshot(): Vector[Sequenced[IdOrPayload]] = eventsBuffer
 }
 
 object EventsBuffer {
@@ -146,13 +146,18 @@ object EventsBuffer {
   private val otherFieldsOverheadEstimate = 600L
 
   @VisibleForTesting
-  def approximateEventSize(event: Sequenced[BytesPayload]): BytesUnit = {
-    val payloadSize = event.event.payloadO.map(_.content.size.toLong).getOrElse(0L)
+  def approximateEventSize(event: Sequenced[IdOrPayload]): BytesUnit = {
+    val payloadSize = event.event.payloadO
+      .map {
+        case BytesPayload(_, bytes) => bytes.size.toLong
+        case PayloadId(_) => 8L // 64-bit Long / CantonTimestamp
+      }
+      .getOrElse(0L)
     val membersSizeEstimate = event.event.members.size * perMemberOverhead
     BytesUnit(payloadSize + membersSizeEstimate + otherFieldsOverheadEstimate)
   }
 
   @VisibleForTesting
-  def approximateSize(events: Seq[Sequenced[BytesPayload]]): BytesUnit =
+  def approximateSize(events: Seq[Sequenced[IdOrPayload]]): BytesUnit =
     events.map(approximateEventSize).sum
 }

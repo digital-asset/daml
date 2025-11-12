@@ -108,8 +108,6 @@ convertPrim _ "BETextToInt64" (TText :-> TOptional TInt64) =
     pure $ EBuiltinFun BETextToInt64
 convertPrim _ "BETextToCodePoints" (TText :-> TList TInt64) =
     pure $ EBuiltinFun BETextToCodePoints
-convertPrim _ "BETextToContractId" (TText :-> TContractId a) =
-    pure $ EBuiltinFun BETextToContractId `ETyApp` a
 convertPrim _ "BECodePointsToText" (TList TInt64 :-> TText) =
     pure $ EBuiltinFun BECodePointsToText
 
@@ -509,5 +507,5 @@ featureErrorMessage (Feature name versionReq _) =
     mconcat
         [ name
         , " only supported when compiling to Daml-LF versions "
-        , T.pack (renderFeatureVersionReq versionReq)
+        , renderPretty versionReq
         ]

@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.engine
 
-import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.digitalasset.daml.lf.language.LanguageVersion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -17,21 +17,21 @@ class EngineInfoTest extends AnyWordSpec with Matchers {
       engineInfoV2,
     ) =
       List(
-        LanguageVersion.StableVersions(LanguageMajorVersion.V2),
-        LanguageVersion.EarlyAccessVersions(LanguageMajorVersion.V2),
-        LanguageVersion.AllVersions(LanguageMajorVersion.V2),
+        LanguageVersion.stableLfVersionsRange,
+        LanguageVersion.earlyAccessLfVersionsRange,
+        LanguageVersion.allLfVersionsRange,
       ).map(versions => new EngineInfo(EngineConfig(allowedLanguageVersions = versions)))
 
     "show supported LF, Transaction and Value versions" in {
 
       engineInfoStable.show shouldBe
-        "Daml-LF Engine supports LF versions: 2.1"
+        "Daml-LF Engine supports LF versions: 2.1, 2.2"
 
       engineEarlyAccess.show shouldBe
-        "Daml-LF Engine supports LF versions: 2.1"
+        "Daml-LF Engine supports LF versions: 2.1, 2.2"
 
       engineInfoV2.show shouldBe
-        "Daml-LF Engine supports LF versions: 2.1, 2.dev"
+        "Daml-LF Engine supports LF versions: 2.1, 2.2, 2.dev"
     }
 
     "toString returns the same value as show" in {

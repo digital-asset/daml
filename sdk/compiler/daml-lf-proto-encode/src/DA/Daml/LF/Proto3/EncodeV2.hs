@@ -30,6 +30,7 @@ import           Data.Int
 import           Text.Printf (printf)
 
 import           DA.Pretty
+import           DA.Daml.StablePackagesListReader
 import           DA.Daml.LF.Ast
 import           DA.Daml.LF.Mangling
 import           DA.Daml.LF.Proto3.Interned    as I
@@ -56,9 +57,9 @@ data EncodeState = EncodeState
     , internedDottedNames :: !(HMS.HashMap [Int32] Int32)
     , nextInternedDottedNameId :: !Int32
       -- ^ We track the size of `internedDottedNames` explicitly since `HMS.size` is `O(n)`.
-    , internedKindsMap :: InternedKindsMap
-    , internedTypesMap :: InternedTypesMap
-    , internedExprsMap :: InternedExprsMap
+    , internedKindsMap :: !InternedKindsMap
+    , internedTypesMap :: !InternedTypesMap
+    , internedExprsMap :: !InternedExprsMap
     }
 
 makeLensesFor [ ("internedKindsMap", "internedKindsMapLens")
@@ -209,11 +210,11 @@ encodePackageId = fmap (Just . P.SelfOrImportedPackageId . Just) . go
         pure $ P.SelfOrImportedPackageIdSumSelfPackageId P.Unit
       ImportedPackageId p@(PackageId pkgId) -> do
         (eMap :: Either NoPkgImportsReasons ImportMap) <- asks (view importMap)
-        ifVersion version (\v -> p `notElem` stableIds && v `supports` featureFlatArchive)
+        ifVersion version (\v -> p `notElem` allStablePackageIds  && v `supports` featurePackageImports)
           {-then-}
              (case eMap of
                Left r ->
-                 error $ printf "Encountered an package ID of type ImportedPackage in a module that doesn't expose an import map, reason: " $ show r
+                 error $ printf "Encountered an package ID of type ImportedPackage in a module that doesn't expose an import map, reason: %s, pkgId: %s" (show r) (show pkgId)
                Right ids ->
                  let (mID :: Maybe Int32) = M.lookup p ids
                  in  maybe (error $ printf "During encoding, did not find imported package id %s in import map %s" (show p) (show ids)) (return . P.SelfOrImportedPackageIdSumPackageImportId) mID)
@@ -476,7 +477,6 @@ encodeBuiltinExpr = \case
     BETextToInt64 -> builtin P.BuiltinFunctionTEXT_TO_INT64
     BETextToNumeric -> builtin P.BuiltinFunctionTEXT_TO_NUMERIC
     BETextToCodePoints -> builtin P.BuiltinFunctionTEXT_TO_CODE_POINTS
-    BETextToContractId -> builtin P.BuiltinFunctionTEXT_TO_CONTRACT_ID
 
     BEAddNumeric -> builtin P.BuiltinFunctionADD_NUMERIC
     BESubNumeric -> builtin P.BuiltinFunctionSUB_NUMERIC
@@ -565,6 +565,7 @@ encodeExpr' e = case e of
       P.Expr{..} <- encodeExpr' e
       exprLocation <- Just <$> encodeSourceLoc loc
       pure P.Expr{..}
+  --else if expr is not an location:
   _ -> internExpr $ case e of
     EVar v -> expr . P.ExprSumVarInternedStr <$> encodeNameId unExprVarName v
     EVal (Qualified pkgRef modName val) -> do

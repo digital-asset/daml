@@ -64,7 +64,6 @@ final case class GrpcSequencerConnection(
     sequencerAlias: SequencerAlias,
     sequencerId: Option[SequencerId],
 ) extends SequencerConnection {
-
   override def certificates: Option[ByteString] = customTrustCertificates
 
   def mkChannelBuilder(clientChannelBuilder: ClientChannelBuilder, tracePropagation: Propagation)(

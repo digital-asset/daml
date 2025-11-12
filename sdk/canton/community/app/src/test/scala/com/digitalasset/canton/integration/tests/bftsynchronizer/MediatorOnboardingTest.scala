@@ -14,10 +14,7 @@ import com.digitalasset.canton.integration.bootstrap.{
   NetworkBootstrapper,
   NetworkTopologyDescription,
 }
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.util.{EntitySyntax, PartiesAllocator}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -177,27 +174,33 @@ trait MediatorOnboardingTest
   )(implicit env: TestConsoleEnvironment) = {
     import env.*
 
-    val p2GainsSubmissionPermission = SignedTopologyTransaction
-      .signAndCreate(
-        TopologyTransaction(
-          TopologyChangeOp.Replace,
-          serial = PositiveInt.two,
-          PartyToParticipant.tryCreate(
-            alice,
-            threshold = PositiveInt.one,
-            participants = Seq(participant1, participant2).map(p =>
-              HostingParticipant(p.id, ParticipantPermission.Submission)
+    val p2GainsSubmissionPermission = Seq(participant1, participant2)
+      .map(participant =>
+        SignedTopologyTransaction
+          .signAndCreate(
+            TopologyTransaction(
+              TopologyChangeOp.Replace,
+              serial = PositiveInt.two,
+              PartyToParticipant.tryCreate(
+                alice,
+                threshold = PositiveInt.one,
+                participants = Seq(participant1, participant2).map(p =>
+                  HostingParticipant(p.id, ParticipantPermission.Submission)
+                ),
+              ),
+              BaseTest.testedProtocolVersion,
             ),
-          ),
-          BaseTest.testedProtocolVersion,
-        ),
-        signingKeys = NonEmpty(Set, participant1.fingerprint),
-        isProposal = false,
-        crypto = participant1.underlying.value.sync.syncCrypto.crypto.privateCrypto,
-        BaseTest.testedProtocolVersion,
+            signingKeys = NonEmpty(Set, participant.fingerprint),
+            isProposal = true,
+            crypto = participant.underlying.value.sync.syncCrypto.crypto.privateCrypto,
+            BaseTest.testedProtocolVersion,
+          )
+          .failOnShutdown
+          .futureValue
       )
-      .failOnShutdown
-      .futureValue
+      .reduceLeft[SignedTopologyTransaction[TopologyChangeOp.Replace, PartyToParticipant]] {
+        case (tx1, tx2) => tx1.addSignatures(tx2.signatures)
+      }
 
     val extraPayload = createExtraTopologyPayload()
     p2GainsSubmissionPermission +: extraPayload
@@ -246,5 +249,5 @@ trait MediatorOnboardingTest
 
 class MediatorOnboardingTestPostgres extends MediatorOnboardingTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }

@@ -76,7 +76,7 @@ class StackSafeTyping extends AnyFreeSpec with Matchers with TableDrivenProperty
 
     // This is the code under test...
     def kindCheck(typ: Type): Option[ValidationError] = {
-      val langVersion: LanguageVersion = LanguageVersion.default
+      val langVersion: LanguageVersion = LanguageVersion.defaultLfVersion
       val signatures: PartialFunction[PackageId, PackageSignature] = Map.empty
       val pkgInterface = new PackageInterface(signatures)
       val ctx: Context = Context.None
@@ -246,7 +246,7 @@ class StackSafeTyping extends AnyFreeSpec with Matchers with TableDrivenProperty
 
     // This is the code under test...
     def typecheck(expr: Expr): Option[ValidationError] = {
-      val langVersion: LanguageVersion = LanguageVersion.default
+      val langVersion: LanguageVersion = LanguageVersion.defaultLfVersion
       val signatures: PartialFunction[PackageId, PackageSignature] = Map.empty
       val pkgInterface = new PackageInterface(signatures)
       val ctx: Context = Context.None

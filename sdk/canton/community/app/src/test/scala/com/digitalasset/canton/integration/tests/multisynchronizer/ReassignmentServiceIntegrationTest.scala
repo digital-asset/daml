@@ -16,11 +16,8 @@ import com.digitalasset.canton.console.LocalParticipantReference
 import com.digitalasset.canton.data.ReassignmentRef
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.examples.java.iou.Iou
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.util.GrpcAdminCommandSupport.*
 import com.digitalasset.canton.integration.util.GrpcServices.ReassignmentsService
@@ -106,7 +103,8 @@ abstract class ReassignmentServiceIntegrationTest
         participant2.synchronizers.connect_local(sequencer2, alias = acmeName)
         participant3.synchronizers.connect_local(sequencer2, alias = acmeName)
 
-        participants.all.dars.upload(CantonExamplesPath)
+        participants.all.dars.upload(CantonExamplesPath, synchronizerId = daId)
+        participants.all.dars.upload(CantonExamplesPath, synchronizerId = acmeId)
 
         // Allocate parties
         party1a = participant1.parties.enable(
@@ -799,7 +797,7 @@ abstract class ReassignmentServiceIntegrationTest
 
 class ReferenceReassignmentServiceIntegrationTest extends ReassignmentServiceIntegrationTest {
   override protected lazy val plugin =
-    new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](
+    new UseReferenceBlockSequencer[DbConfig.Postgres](
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(

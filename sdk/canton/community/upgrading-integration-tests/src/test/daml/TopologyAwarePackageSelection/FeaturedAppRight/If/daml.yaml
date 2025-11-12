@@ -1,0 +1,14 @@
+override-components: 
+  damlc: 
+    version: $DAML_VERSION
+  daml-script: 
+    version: $DAML_VERSION
+build-options: 
+- --target=2.1
+- --enable-interfaces=yes
+name: tests-featured-app-right-iface
+source: FeaturedAppRightV1.daml
+version: 1.0.0
+dependencies: 
+- daml-prim
+- daml-stdlib

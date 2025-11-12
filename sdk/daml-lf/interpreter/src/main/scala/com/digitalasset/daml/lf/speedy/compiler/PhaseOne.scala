@@ -420,7 +420,6 @@ private[lf] final class PhaseOne(
           case BTextToParty => SBTextToParty
           case BTextToInt64 => SBTextToInt64
           case BTextToCodePoints => SBTextToCodePoints
-          case BTextToContractId => SBTextToContractId
           case BSHA256Text => SBSHA256Text
           case BSHA256Hex => SBSHA256Hex
           case BKECCAK256Text => SBKECCAK256Text
@@ -495,11 +494,7 @@ private[lf] final class PhaseOne(
           case BTypeRepTyConName => SBTypeRepTyConName
 
           // Implemented using SExpr
-          case BCoerceContractId | BTextMapEmpty | BGenMapEmpty | BLessNumeric | BLessEqNumeric |
-              BGreaterNumeric | BGreaterEqNumeric | BEqualNumeric | BNumericToText |
-              BAddNumeric | BSubNumeric | BMulNumeric | BDivNumeric | BRoundNumeric | BCastNumeric |
-              BShiftNumeric | BInt64ToNumeric | BTextToNumericLegacy | BTextToNumeric |
-              BNumericToInt64 | BNumericToBigNumeric | BBigNumericToNumeric =>
+          case BCoerceContractId | BTextMapEmpty | BGenMapEmpty =>
             throw CompilationError(s"unexpected $bf")
 
           case BAnyExceptionMessage => SBAnyExceptionMessage
@@ -695,16 +690,11 @@ private[lf] final class PhaseOne(
         compileExp(env, arg) { arg =>
           Return(t.CreateDefRef(tmplId)(arg))
         }
-      case UpdateCreateInterface(ifaceId, arg) =>
+      case UpdateCreateInterface(_, arg) =>
         unaryFunction(env) { (tokPos, env) =>
           compileExp(env, arg) { arg =>
             let(env, arg) { (payloadPos, env) =>
-              let(env, SBResolveCreate(env.toSEVar(payloadPos), env.toSEVar(tokPos))) {
-                (cidPos, env) =>
-                  let(env, SEPreventCatch(SBViewInterface(ifaceId)(env.toSEVar(payloadPos)))) {
-                    (_, env) => Return(env.toSEVar(cidPos))
-                  }
-              }
+              Return(SBResolveCreate(env.toSEVar(payloadPos), env.toSEVar(tokPos)))
             }
           }
         }

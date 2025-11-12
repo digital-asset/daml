@@ -4,12 +4,26 @@
 package com.digitalasset.daml.lf
 package engine
 
-import java.io.File
-import com.digitalasset.daml.lf.archive.UniversalArchiveDecoder
+import com.daml.bazeltools.BazelRunfiles.rlocation
+import com.daml.logging.LoggingContext
+import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.tagToContainer
+import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authorization
+import com.daml.test.evidence.tag.Security.{Attack, SecurityTest, SecurityTestSuite}
+import com.digitalasset.daml.lf
+import com.digitalasset.daml.lf.archive.DarDecoder
+import com.digitalasset.daml.lf.command._
+import com.digitalasset.daml.lf.crypto.{Hash, SValueHash}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
+import com.digitalasset.daml.lf.engine.Error.Interpretation
+import com.digitalasset.daml.lf.engine.Error.Interpretation.DamlException
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.Util._
+import com.digitalasset.daml.lf.language.{LanguageVersion, PackageInterface}
+import com.digitalasset.daml.lf.speedy.SValue._
+import com.digitalasset.daml.lf.speedy.{InitialSeeding, SValue, svalue}
+import com.digitalasset.daml.lf.stablepackages.StablePackages
+import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import com.digitalasset.daml.lf.transaction.{
   CreationTime,
   FatContractInstance,
@@ -19,46 +33,29 @@ import com.digitalasset.daml.lf.transaction.{
   NodeId,
   Normalization,
   ReplayMismatch,
+  SerializationVersion,
   SubmittedTransaction,
   Transaction,
   Validation,
   VersionedTransaction,
   Transaction => Tx,
-  TransactionVersion => TxVersions,
 }
+import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.value.{ContractIdVersion, Value}
-import Value._
-import com.daml.bazeltools.BazelRunfiles.rlocation
-import com.digitalasset.daml.lf
-import com.digitalasset.daml.lf.speedy.{DisclosedContract, InitialSeeding, SValue, svalue}
-import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.command._
-import com.digitalasset.daml.lf.crypto.Hash
-import com.digitalasset.daml.lf.engine.Error.Interpretation
-import com.digitalasset.daml.lf.engine.Error.Interpretation.DamlException
-import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion, PackageInterface}
-import com.digitalasset.daml.lf.stablepackages.StablePackages
-import com.daml.logging.LoggingContext
-import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.tagToContainer
-import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authorization
-import com.daml.test.evidence.tag.Security.{Attack, SecurityTest, SecurityTestSuite}
 import org.scalactic.Equality
-import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{Assertion, EitherValues}
-import org.scalatest.wordspec.AnyWordSpec
-import org.scalatest.matchers.should.Matchers
 import org.scalatest.Inside._
-import org.scalatest.matchers.{MatchResult, Matcher}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.prop.TableDrivenPropertyChecks
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatest.{Assertion, EitherValues}
 
+import java.io.File
 import scala.annotation.nowarn
 import scala.collection.immutable.{ArraySeq, HashMap}
 import scala.language.implicitConversions
-import scala.math.Ordered.orderingToOrdered
-import com.digitalasset.daml.lf.interpretation.{Error => IE}
-import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 
-class EngineTestCidV1 extends EngineTest(LanguageMajorVersion.V2, ContractIdVersion.V1)
-class EngineTestCidV2 extends EngineTest(LanguageMajorVersion.V2, ContractIdVersion.V2)
+class EngineTestCidV1 extends EngineTest(LanguageVersion.Major.V2, ContractIdVersion.V1)
+class EngineTestCidV2 extends EngineTest(LanguageVersion.Major.V2, ContractIdVersion.V2)
 
 @SuppressWarnings(
   Array(
@@ -67,7 +64,7 @@ class EngineTestCidV2 extends EngineTest(LanguageMajorVersion.V2, ContractIdVers
     "org.wartremover.warts.Product",
   )
 )
-class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: ContractIdVersion)
+class EngineTest(majorLanguageVersion: LanguageVersion.Major, contractIdVersion: ContractIdVersion)
     extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks
@@ -97,9 +94,9 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         submitters = submitters,
         readAs = readAs,
         cmds = ApiCommands(ImmArray(command), let, "test"),
-        disclosures = ImmArray.empty,
         participantId = participant,
         submissionSeed = submissionSeed,
+        contractIdVersion = contractIdVersion,
         prefetchKeys = Seq.empty,
       )
       .consume(lookupContract, lookupPackage, lookupKey)
@@ -132,7 +129,15 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       val submitters = Set(submitter)
       val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
       val validated = suffixLenientEngine
-        .validate(submitters, ntx, let, participant, meta.preparationTime, submissionSeed)
+        .validate(
+          submitters,
+          ntx,
+          let,
+          participant,
+          meta.preparationTime,
+          submissionSeed,
+          contractIdVersion,
+        )
         .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
@@ -151,127 +156,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       interpretResult.map { case (tx, _) => byKeyNodes(tx).size } shouldBe Right(0)
     }
 
-  }
-
-  "command with disclosure" should {
-    "reject disclosures with non-normalized numeric values" in {
-      val templateId = Identifier(basicTestsPkgId, "BasicTests:SimpleNumeric")
-      val cid = toContractId("BasicTests:SimpleNumeric:1")
-      val command =
-        ApiCommand.Exercise(
-          templateId.toRef,
-          cid,
-          "HelloNumeric",
-          ValueRecord(Some(Identifier(basicTestsPkgId, "BasicTests:HelloNumeric")), ImmArray.Empty),
-        )
-      val readAs = (Set.empty: Set[Party])
-
-      val res = preprocessor
-        .preprocessApiCommands(Map.empty, ImmArray(command))
-        .consume(Map.empty, lookupPackage, Map.empty)
-      res shouldBe a[Right[_, _]]
-
-      val disclosure =
-        FatContractInstance.fromCreateNode(
-          Node.Create(
-            coid = cid,
-            packageName = basicTestsPkg.pkgName,
-            templateId = templateId,
-            arg = ValueRecord(
-              None /* templateId */,
-              ImmArray(
-                None /* p */ -> ValueParty(party),
-                // The static type of "num" is Numeric 4 but the value below only has 2 decimal places. Because
-                // numeric values in disclosures must be normalized, we expect this to disclosure to be rejected
-                // by the engine in SBImportInputContract with a conformance error.
-                None /* num */ -> ValueNumeric(Numeric.assertFromString("12.12")),
-              ),
-            ),
-            signatories = Set(party),
-            stakeholders = Set(party),
-            keyOpt = None,
-            version = basicTestsPkg.languageVersion,
-          ),
-          CreationTime.CreatedAt(Time.Timestamp.now()),
-          Bytes.Empty,
-        )
-
-      val result = suffixLenientEngine
-        .submit(
-          submitters = Set(party),
-          readAs = readAs,
-          cmds = ApiCommands(ImmArray(command), Time.Timestamp.now(), "test"),
-          disclosures = ImmArray(disclosure),
-          participantId = participant,
-          submissionSeed = hash("exercise command with disclosure"),
-          prefetchKeys = Seq.empty,
-        )
-        .consume(Map.empty, lookupPackage, Map.empty)
-
-      inside(result) { case Left(Error.Interpretation(DamlException(IE.Dev(_, err)), _)) =>
-        err shouldBe a[IE.Dev.Conformance]
-      }
-    }
-
-    "accept disclosures with trailing nones" in {
-      val templateId = Identifier(basicTestsPkgId, "BasicTests:SimpleTrailingNone")
-      val cid = toContractId("BasicTests:SimpleTrailingNone:1")
-      val command =
-        ApiCommand.Exercise(
-          templateId.toRef,
-          cid,
-          "HelloTrailingNone",
-          ValueRecord(
-            Some(Identifier(basicTestsPkgId, "BasicTests:HelloTrailingNone")),
-            ImmArray.Empty,
-          ),
-        )
-      val readAs = (Set.empty: Set[Party])
-
-      val res = preprocessor
-        .preprocessApiCommands(Map.empty, ImmArray(command))
-        .consume(Map.empty, lookupPackage, Map.empty)
-      res shouldBe a[Right[_, _]]
-
-      val disclosure =
-        FatContractInstance.fromCreateNode(
-          Node.Create(
-            coid = cid,
-            packageName = basicTestsPkg.pkgName,
-            templateId = templateId,
-            arg = ValueRecord(
-              None /* templateId */,
-              ImmArray(
-                None /* p */ -> ValueParty(party),
-                // The engine will always produce transactions with no trailing Nones. But for backwards compatibility
-                // with version of Canton predating 3.3, SBImportInputContract should not reject disclosures with
-                // trailing Nones.
-                None /* opt */ -> ValueOptional(None),
-              ),
-            ),
-            signatories = Set(party),
-            stakeholders = Set(party),
-            keyOpt = None,
-            version = basicTestsPkg.languageVersion,
-          ),
-          CreationTime.CreatedAt(Time.Timestamp.now()),
-          Bytes.Empty,
-        )
-
-      val result = suffixLenientEngine
-        .submit(
-          submitters = Set(party),
-          readAs = readAs,
-          cmds = ApiCommands(ImmArray(command), Time.Timestamp.now(), "test"),
-          disclosures = ImmArray(disclosure),
-          participantId = participant,
-          submissionSeed = hash("exercise command with disclosure"),
-          prefetchKeys = Seq.empty,
-        )
-        .consume(Map.empty, lookupPackage, Map.empty)
-
-      result shouldBe a[Right[_, _]]
-    }
   }
 
   "multi-party create command" should {
@@ -315,9 +199,9 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           submitters = actAs,
           readAs = readAs,
           cmds = ApiCommands(ImmArray(cmd), let, "test"),
-          disclosures = ImmArray.empty,
           participantId = participant,
           submissionSeed = submissionSeed,
+          contractIdVersion = contractIdVersion,
           prefetchKeys = Seq.empty,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
@@ -353,7 +237,15 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         val Right((tx, meta)) = interpretResult(templateId, signatories, submitters)
         val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
         val validated = suffixLenientEngine
-          .validate(submitters, ntx, let, participant, meta.preparationTime, submissionSeed)
+          .validate(
+            submitters,
+            ntx,
+            let,
+            participant,
+            meta.preparationTime,
+            submissionSeed,
+            contractIdVersion,
+          )
           .consume(lookupContract, lookupPackage, lookupKey)
         validated match {
           case Left(e) =>
@@ -375,6 +267,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
             ledgerEffectiveTime = let,
             participantId = participant,
             preparationTime = let,
+            contractIdVersion = contractIdVersion,
             submissionSeed = submissionSeed,
           )
           .consume()
@@ -394,6 +287,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           ledgerEffectiveTime = let,
           participantId = participant,
           preparationTime = let,
+          contractIdVersion = contractIdVersion,
           submissionSeed = submissionSeed,
         )
 
@@ -435,6 +329,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
               ledgerTime = let,
               preparationTime = let,
               seeding = seeding,
+              contractIdVersion = contractIdVersion,
             )
             .consume(lookupContract, lookupPackage, lookupKey)
         }
@@ -447,9 +342,9 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           submitters = Set(party),
           readAs = readAs,
           cmds = ApiCommands(ImmArray(command), let, "test"),
-          disclosures = ImmArray.empty,
           participantId = participant,
           submissionSeed = submissionSeed,
+          contractIdVersion = contractIdVersion,
           prefetchKeys = Seq.empty,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
@@ -476,7 +371,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     "be validated" in {
       val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
       val validated = suffixLenientEngine
-        .validate(Set(submitter), ntx, let, participant, let, submissionSeed)
+        .validate(Set(submitter), ntx, let, participant, let, submissionSeed, contractIdVersion)
         .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
@@ -501,6 +396,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
                 ledgerTime = let,
                 preparationTime = let,
                 seeding = seeding,
+                contractIdVersion = contractIdVersion,
               )
               .consume(lookupContract, lookupPackage, lookupKey)
           }
@@ -517,16 +413,33 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
                 ledgerTime = let,
                 preparationTime = let,
                 seeding = seeding,
+                contractIdVersion = contractIdVersion,
               )
               .consume(lookupContract, lookupPackage, lookupKey)
           }
       val Right((_, _, expectedNoCaching)) = interpretResultNoCaching
       val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
       val validatedWithCaching = sharedEngine
-        .validateAndCollectMetrics(Set(submitter), ntx, let, participant, let, submissionSeed)
+        .validateAndCollectMetrics(
+          Set(submitter),
+          ntx,
+          let,
+          participant,
+          let,
+          submissionSeed,
+          contractIdVersion,
+        )
         .consume(lookupContract, lookupPackage, lookupKey)
       val validatedNoCaching = freshEngine2
-        .validateAndCollectMetrics(Set(submitter), ntx, let, participant, let, submissionSeed)
+        .validateAndCollectMetrics(
+          Set(submitter),
+          ntx,
+          let,
+          participant,
+          let,
+          submissionSeed,
+          contractIdVersion,
+        )
         .consume(lookupContract, lookupPackage, lookupKey)
 
       inside((validatedWithCaching, validatedNoCaching)) {
@@ -566,9 +479,9 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           submitters = submitters,
           readAs = readAs,
           cmds = ApiCommands(ImmArray(command), let, "test"),
-          disclosures = ImmArray.empty,
           participantId = participant,
           submissionSeed = submissionSeed,
+          contractIdVersion = contractIdVersion,
           prefetchKeys = Seq.empty,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
@@ -622,6 +535,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
               ledgerTime = let,
               preparationTime = let,
               seeding = seeding,
+              contractIdVersion = contractIdVersion,
             )
             .consume(lookupContract, lookupPackage, lookupKey)
         }
@@ -633,9 +547,9 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           submitters = submitters,
           readAs = readAs,
           cmds = ApiCommands(ImmArray(command), let, "test"),
-          disclosures = ImmArray.empty,
           participantId = participant,
           submissionSeed = submissionSeed,
+          contractIdVersion = contractIdVersion,
           prefetchKeys = Seq.empty,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
@@ -665,7 +579,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     "be validated" in {
       val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
       val validated = suffixLenientEngine
-        .validate(submitters, ntx, let, participant, let, submissionSeed)
+        .validate(submitters, ntx, let, participant, let, submissionSeed, contractIdVersion)
         .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
@@ -712,6 +626,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           ledgerTime = now,
           preparationTime = now,
           seeding = InitialSeeding.TransactionSeed(seed),
+          contractIdVersion = contractIdVersion,
         )
         .consume(PartialFunction.empty, lookupPackage, lookupKey)
 
@@ -751,6 +666,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           ledgerTime = now,
           preparationTime = now,
           seeding = InitialSeeding.TransactionSeed(seed),
+          contractIdVersion = contractIdVersion,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
 
@@ -895,6 +811,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           ledgerTime = now,
           preparationTime = now,
           seeding = InitialSeeding.TransactionSeed(seed),
+          contractIdVersion = contractIdVersion,
         )
         .consume(PartialFunction.empty, lookupPackage, lookupKey)
 
@@ -930,6 +847,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           ledgerTime = now,
           preparationTime = now,
           seeding = InitialSeeding.TransactionSeed(seed),
+          contractIdVersion = contractIdVersion,
         )
         .consume(PartialFunction.empty, lookupPackage, lookupKey)
 
@@ -978,6 +896,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           ledgerTime = now,
           preparationTime = now,
           seeding = InitialSeeding.TransactionSeed(seed),
+          contractIdVersion = contractIdVersion,
         )
         .consume(PartialFunction.empty, lookupPackage, lookupKey)
 
@@ -999,56 +918,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
             )
           )
       }
-    }
-
-    "unused disclosed contracts not saved to ledger" in {
-      val templateId = Identifier(basicTestsPkgId, "BasicTests:WithKey")
-      val usedContractSKey = SValue.SRecord(
-        templateId,
-        ImmArray("_1", "_2").map(Ref.Name.assertFromString),
-        values = ArraySeq(SValue.SParty(alice), SValue.SInt64(42)),
-      )
-      val usedContractKey = usedContractSKey.toNormalizedValue
-      val usedDisclosedContract = buildDisclosedContract(
-        basicTestsPkg,
-        templateId,
-        toContractId("BasicTests:WithKey:1"),
-        alice,
-        SValue.SRecord(
-          templateId,
-          ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
-          ArraySeq(SValue.SParty(alice), SValue.SInt64(42)),
-        ),
-        Some(usedContractKey),
-      )
-      val unusedContractSKey = SValue.SRecord(
-        templateId,
-        ImmArray("_1", "_2").map(Ref.Name.assertFromString),
-        values = ArraySeq(SValue.SParty(alice), SValue.SInt64(69)),
-      )
-      val unusedDisclosedContract =
-        buildDisclosedContract(
-          basicTestsPkg,
-          templateId,
-          toContractId("BasicTests:WithKey:2"),
-          alice,
-          SValue.SRecord(
-            templateId,
-            ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
-            ArraySeq(SValue.SParty(alice), SValue.SInt64(69)),
-          ),
-          Some(unusedContractSKey.toNormalizedValue),
-        )
-      val fetchByKeyCommand = speedy.Command.FetchByKey(
-        templateId = templateId,
-        key = usedContractSKey,
-      )
-
-      ExplicitDisclosureTesting.unusedDisclosedContractsNotSavedToLedger(
-        fetchByKeyCommand,
-        unusedDisclosedContract,
-        usedDisclosedContract,
-      )
     }
   }
 
@@ -1084,6 +953,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
               ledgerTime = let,
               preparationTime = let,
               seeding = InitialSeeding.TransactionSeed(txSeed),
+              contractIdVersion = contractIdVersion,
             )
             .consume(lookupContract, lookupPackage, lookupKey)
         }
@@ -1119,7 +989,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     "be validated" in {
       val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
       val validated = suffixLenientEngine
-        .validate(Set(submitter), ntx, let, participant, let, submissionSeed)
+        .validate(Set(submitter), ntx, let, participant, let, submissionSeed, contractIdVersion)
         .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
@@ -1344,9 +1214,9 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         submitters = submitters,
         readAs = readAs,
         cmds = ApiCommands(ImmArray(command), let, "test"),
-        disclosures = ImmArray.empty,
         participantId = participant,
         submissionSeed = submissionSeed,
+        contractIdVersion = contractIdVersion,
         prefetchKeys = Seq.empty,
       )
       .consume(lookupContract, lookupPackage, lookupKey)
@@ -1367,6 +1237,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         ledgerTime = let,
         preparationTime = preparationTime,
         seeding = InitialSeeding.TransactionSeed(txSeed),
+        contractIdVersion = contractIdVersion,
       )
       .consume(lookupContract, lookupPackage, lookupKey)
 
@@ -1482,7 +1353,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         observers: Iterable[Party],
     ) =
       TransactionBuilder.fatContractInstanceWithDummyDefaults(
-        version = defaultLangVersion,
+        version = defaultSerializationVersion,
         packageName = basicTestsPkg.pkgName,
         template = TypeConId(basicTestsPkgId, tid),
         arg = ValueRecord(None /* Identifier(basicTestsPkgId, tid) */, targs),
@@ -1541,6 +1412,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
               ledgerTime = let,
               preparationTime = let,
               seeding = seeding,
+              contractIdVersion = contractIdVersion,
             )
             .consume(lookupContract, lookupPackage, lookupKey)
         }
@@ -1611,6 +1483,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
               txMeta.nodeSeeds.toSeq.collectFirst { case (`nid`, seed) => seed },
               txMeta.preparationTime,
               let,
+              contractIdVersion = contractIdVersion,
             )
             .consume(lookupContract, lookupPackage, lookupKey)
         isReplayedBy(fetchTx, reinterpreted) shouldBe Right(())
@@ -1632,7 +1505,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
 
     val fetchedContract =
       TransactionBuilder.fatContractInstanceWithDummyDefaults(
-        version = defaultLangVersion,
+        version = defaultSerializationVersion,
         packageName = basicTestsPkg.pkgName,
         template = TypeConId(basicTestsPkgId, fetchedStrTid),
         arg = ValueRecord(
@@ -1666,7 +1539,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
 
       val reinterpreted =
         engine
-          .reinterpret(submitters, fetchNode, None, let, let)
+          .reinterpret(submitters, fetchNode, None, let, let, contractIdVersion)
           .consume(lookupContract, lookupPackage, lookupKey)
 
       reinterpreted shouldBe a[Right[_, _]]
@@ -1681,7 +1554,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     val lookerUpCid = toContractId("2")
     val lookerUpInst =
       TransactionBuilder.fatContractInstanceWithDummyDefaults(
-        version = defaultLangVersion,
+        version = defaultSerializationVersion,
         packageName = basicTestsPkg.pkgName,
         template = TypeConId(basicTestsPkgId, lookerUpTemplate),
         arg =
@@ -1726,9 +1599,9 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           submitters = submitters,
           readAs = readAs,
           cmds = ApiCommands(ImmArray(exerciseCmd), now, "test"),
-          disclosures = ImmArray.empty,
           participantId = participant,
           submissionSeed = seed,
+          contractIdVersion = contractIdVersion,
           prefetchKeys = Seq.empty,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
@@ -1756,9 +1629,9 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           submitters = submitters,
           readAs = readAs,
           cmds = ApiCommands(ImmArray(exerciseCmd), now, "test"),
-          disclosures = ImmArray.empty,
           participantId = participant,
           submissionSeed = seed,
+          contractIdVersion = contractIdVersion,
           prefetchKeys = Seq.empty,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
@@ -1775,6 +1648,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
             nodeSeedMap.get(nid),
             txMeta.preparationTime,
             now,
+            contractIdVersion = contractIdVersion,
           )
           .consume(lookupContract, lookupPackage, lookupKey)
 
@@ -1796,9 +1670,9 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           submitters = submitters,
           readAs = readAs,
           cmds = ApiCommands(ImmArray(exerciseCmd), now, "test"),
-          disclosures = ImmArray.empty,
           participantId = participant,
           submissionSeed = seed,
+          contractIdVersion = contractIdVersion,
           prefetchKeys = Seq.empty,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
@@ -1816,6 +1690,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
             nodeSeedMap.get(nid),
             txMeta.preparationTime,
             now,
+            contractIdVersion = contractIdVersion,
           )
           .consume(lookupContract, lookupPackage, lookupKey)
 
@@ -1841,6 +1716,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           ledgerTime = now,
           preparationTime = now,
           seeding = InitialSeeding.TransactionSeed(seed),
+          contractIdVersion = contractIdVersion,
         )
         .consume(PartialFunction.empty, lookupPackage, lookupKey)
 
@@ -1849,104 +1725,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           "Update failed due to a contract key with an empty set of maintainers"
         )
       }
-    }
-
-    "unused disclosed contracts not saved to ledger" in {
-      val templateId = Identifier(basicTestsPkgId, "BasicTests:WithKey")
-      val usedContractSKey = SValue.SRecord(
-        templateId,
-        ImmArray("_1", "_2").map(Ref.Name.assertFromString),
-        values = ArraySeq(SValue.SParty(alice), SValue.SInt64(42)),
-      )
-      val usedContractKey = Value.ValueRecord(
-        None,
-        ImmArray(
-          None -> Value.ValueParty(alice),
-          None -> Value.ValueInt64(42),
-        ),
-      )
-      val usedDisclosedContract = buildDisclosedContract(
-        basicTestsPkg,
-        templateId,
-        toContractId("BasicTests:WithKey:1"),
-        alice,
-        SValue.SRecord(
-          templateId,
-          ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
-          ArraySeq(SValue.SParty(alice), SValue.SInt64(42)),
-        ),
-        Some(usedContractKey),
-      )
-      val unusedContractKey = Value.ValueRecord(
-        None,
-        ImmArray(
-          None -> Value.ValueParty(alice),
-          None -> Value.ValueInt64(69),
-        ),
-      )
-      val unusedDisclosedContract = buildDisclosedContract(
-        basicTestsPkg,
-        templateId,
-        toContractId("BasicTests:WithKey:2"),
-        alice,
-        SValue.SRecord(
-          templateId,
-          ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
-          ArraySeq(SValue.SParty(alice), SValue.SInt64(69)),
-        ),
-        Some(unusedContractKey),
-      )
-      val lookupByKeyCommand = speedy.Command.LookupByKey(
-        templateId = templateId,
-        contractKey = usedContractSKey,
-      )
-
-      ExplicitDisclosureTesting.unusedDisclosedContractsNotSavedToLedger(
-        lookupByKeyCommand,
-        unusedDisclosedContract,
-        usedDisclosedContract,
-      )
-    }
-  }
-
-  "fetch template" should {
-    val templateId = Identifier(basicTestsPkgId, "BasicTests:Simple")
-    val usedDisclosedContract = buildDisclosedContract(
-      basicTestsPkg,
-      templateId,
-      toContractId("BasicTests:Simple:1"),
-      alice,
-      SValue.SRecord(
-        templateId,
-        ImmArray(Ref.Name.assertFromString("p")),
-        ArraySeq(SValue.SParty(alice)),
-      ),
-      None,
-    )
-    val unusedDisclosedContract = buildDisclosedContract(
-      basicTestsPkg,
-      templateId,
-      toContractId("BasicTests:Simple:2"),
-      alice,
-      SValue.SRecord(
-        templateId,
-        ImmArray(Ref.Name.assertFromString("p")),
-        ArraySeq(SValue.SParty(alice)),
-      ),
-      None,
-    )
-
-    "unused disclosed contracts not saved to ledger" in {
-      val fetchTemplateCommand = speedy.Command.FetchTemplate(
-        templateId = templateId,
-        coid = SContractId(usedDisclosedContract.contract.contractId),
-      )
-
-      ExplicitDisclosureTesting.unusedDisclosedContractsNotSavedToLedger(
-        fetchTemplateCommand,
-        unusedDisclosedContract,
-        usedDisclosedContract,
-      )
     }
   }
 
@@ -1969,9 +1747,9 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           submitters = submitters,
           readAs = readAs,
           cmds = ApiCommands(ImmArray(command), Time.Timestamp.now(), "test"),
-          disclosures = ImmArray.empty,
           participantId = participant,
           submissionSeed = submissionSeed,
+          contractIdVersion = contractIdVersion,
           prefetchKeys = Seq.empty,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
@@ -2008,6 +1786,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           ledgerTime = now,
           preparationTime = now,
           seeding = InitialSeeding.TransactionSeed(txSeed),
+          contractIdVersion = contractIdVersion,
         )
         .consume(lookupContractMap, lookupPackage, lookupKey)
 
@@ -2028,7 +1807,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       val fetcherTemplateId = Identifier(basicTestsPkgId, fetcherTemplate)
       val fetcherCid = toContractId("2")
       val fetcherInst = TransactionBuilder.fatContractInstanceWithDummyDefaults(
-        version = defaultLangVersion,
+        version = defaultSerializationVersion,
         packageName = basicTestsPkg.pkgName,
         template = TypeConId(basicTestsPkgId, fetcherTemplate),
         arg =
@@ -2074,6 +1853,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           ledgerTime = now,
           preparationTime = now,
           seeding = InitialSeeding.TransactionSeed(txSeed),
+          contractIdVersion = contractIdVersion,
         )
         .consume(lookupContractMap, lookupPackage, lookupKey)
 
@@ -2098,7 +1878,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     val cid = toContractId("BasicTests:WithKey:1")
     val fetcherCid = toContractId("42")
     val fetcherInst = TransactionBuilder.fatContractInstanceWithDummyDefaults(
-      version = defaultLangVersion,
+      version = defaultSerializationVersion,
       packageName = basicTestsPkg.pkgName,
       template = fetcherId,
       arg = ValueRecord(
@@ -2145,9 +1925,9 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           submitters = submitters,
           readAs = readAs,
           cmds = ApiCommands(cmds, now, ""),
-          disclosures = ImmArray.empty,
           participantId = participant,
           submissionSeed = submissionSeed,
+          contractIdVersion = contractIdVersion,
           prefetchKeys = Seq.empty,
         )
         .consume(contracts, lookupPackage, lookupKey)
@@ -2202,9 +1982,9 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           submitters = submitters,
           readAs = readAs,
           cmds = ApiCommands(ImmArray(command), let, "test"),
-          disclosures = ImmArray.empty,
           participantId = participant,
           submissionSeed = submissionSeed,
+          contractIdVersion = contractIdVersion,
           prefetchKeys = Seq.empty,
         )
         .consume(PartialFunction.empty, lookupPackage, PartialFunction.empty)
@@ -2230,6 +2010,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
               participant,
               metaData.preparationTime,
               submissionSeed,
+              contractIdVersion = contractIdVersion,
             )
             .consume(PartialFunction.empty, lookupPackage, PartialFunction.empty)
             .left
@@ -2277,7 +2058,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     val cid = toContractId("1")
     val contracts = Map(
       cid -> TransactionBuilder.fatContractInstanceWithDummyDefaults(
-        version = defaultLangVersion,
+        version = defaultSerializationVersion,
         packageName = exceptionsPkg.pkgName,
         template = TypeConId(exceptionsPkgId, "Exceptions:K"),
         arg = ValueRecord(
@@ -2326,6 +2107,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           ledgerTime = let,
           preparationTime = let,
           seeding = seeding,
+          contractIdVersion = contractIdVersion,
         )
         .consume(contracts, allExceptionsPkgs, lookupKey)
     }
@@ -2438,7 +2220,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     val cid = toContractId("1")
     val contracts = Map(
       cid -> TransactionBuilder.fatContractInstanceWithDummyDefaults(
-        version = defaultLangVersion,
+        version = defaultSerializationVersion,
         packageName = exceptionsPkg.pkgName,
         template = TypeConId(exceptionsPkgId, "Exceptions:K"),
         arg = ValueRecord(
@@ -2487,6 +2269,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           ledgerTime = let,
           preparationTime = let,
           seeding = seeding,
+          contractIdVersion = contractIdVersion,
         )
         .consume(contracts, allExceptionsPkgs, lookupKey)
     }
@@ -2527,7 +2310,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     val cid = toContractId("1")
     val contracts = Map(
       cid -> TransactionBuilder.fatContractInstanceWithDummyDefaults(
-        version = defaultLangVersion,
+        version = defaultSerializationVersion,
         packageName = exceptionsPkg.pkgName,
         template = TypeConId(exceptionsPkgId, "Exceptions:K"),
         arg = ValueRecord(
@@ -2583,6 +2366,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           ledgerTime = let,
           preparationTime = let,
           seeding = seeding,
+          contractIdVersion = contractIdVersion,
         )
         .consume(
           contracts,
@@ -2631,16 +2415,16 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         )
       )
 
-    val devVersion = majorLanguageVersion.dev
+    val devVersion = LanguageVersion.devLfVersion
     val (_, _, allPackagesDev) =
       new EngineTestHelpers(majorLanguageVersion, contractIdVersion).loadAndAddPackage(
         s"daml-lf/engine/BasicTests-v${majorLanguageVersion.pretty}dev.dar"
       )
-    val compatibleLanguageVersions = LanguageVersion.AllV2
+    val compatibleLanguageVersions = LanguageVersion.allLfVersions
     // Following stable packages are deps of other stable packages, so we sort such that these are preloaded first
     val stablePackagesToLoadFirst = List("daml-prim-DA-Types", "daml-stdlib-DA-NonEmpty-Types")
     val stablePackages =
-      StablePackages(majorLanguageVersion).allPackages
+      StablePackages.stablePackages.allPackages
         .sortBy { sp =>
           val i = stablePackagesToLoadFirst.indexOf(sp.name)
           if (i == -1) Int.MaxValue else i
@@ -2679,7 +2463,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       Map(
         cid ->
           TransactionBuilder.fatContractInstanceWithDummyDefaults(
-            version = defaultLangVersion,
+            version = defaultSerializationVersion,
             packageName = basicTestsPkg.pkgName,
             template = simpleId,
             arg = ValueRecord(
@@ -2691,7 +2475,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           ),
         fetcherCid ->
           TransactionBuilder.fatContractInstanceWithDummyDefaults(
-            version = defaultLangVersion,
+            version = defaultSerializationVersion,
             packageName = basicTestsPkg.pkgName,
             template = fetcherId,
             arg = ValueRecord(
@@ -2710,9 +2494,9 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           submitters = Set(alice),
           readAs = Set.empty: Set[Party],
           cmds = ApiCommands(cmds, Time.Timestamp.now(), ""),
-          disclosures = ImmArray.empty,
           participantId = participant,
           submissionSeed = hash("wrongly-typed contract"),
+          contractIdVersion = contractIdVersion,
           prefetchKeys = Seq.empty,
         )
         .consume(contracts, lookupPackage, lookupKey)
@@ -2732,12 +2516,24 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         case Left(
               Interpretation(
                 DamlException(
-                  interpretation.Error.Dev(_, interpretation.Error.Dev.TranslationError(error))
+                  interpretation.Error.Upgrade(
+                    interpretation.Error.Upgrade.TranslationFailed(
+                      Some(coid),
+                      srcTemplateId,
+                      dstTemplateId,
+                      createArg,
+                      error,
+                    )
+                  )
                 ),
                 _,
               )
             ) =>
-          error shouldBe a[interpretation.Error.Dev.TranslationError.TypeMismatch]
+          coid shouldBe cid
+          srcTemplateId shouldBe simpleId
+          dstTemplateId shouldBe simpleId
+          createArg shouldBe contracts(cid).createArg
+          error shouldBe a[interpretation.Error.Upgrade.TranslationFailed.TypeMismatch]
       }
     }
 
@@ -2756,12 +2552,24 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         case Left(
               Interpretation(
                 DamlException(
-                  interpretation.Error.Dev(_, interpretation.Error.Dev.TranslationError(error))
+                  interpretation.Error.Upgrade(
+                    interpretation.Error.Upgrade.TranslationFailed(
+                      Some(coid),
+                      srcTemplateId,
+                      dstTemplateId,
+                      createArg,
+                      error,
+                    )
+                  )
                 ),
                 _,
               )
             ) =>
-          error shouldBe a[interpretation.Error.Dev.TranslationError.TypeMismatch]
+          coid shouldBe cid
+          srcTemplateId shouldBe simpleId
+          dstTemplateId shouldBe simpleId
+          createArg shouldBe contracts(cid).createArg
+          error shouldBe a[interpretation.Error.Upgrade.TranslationFailed.TypeMismatch]
       }
     }
   }
@@ -2775,7 +2583,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       Map(
         cid ->
           TransactionBuilder.fatContractInstanceWithDummyDefaults(
-            version = defaultLangVersion,
+            version = defaultSerializationVersion,
             packageName = basicTestsPkg.pkgName,
             template = simpleId,
             // ill-formed argument: values imported by the engine cannot contain labels
@@ -2788,7 +2596,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           ),
         fetcherCid ->
           TransactionBuilder.fatContractInstanceWithDummyDefaults(
-            version = defaultLangVersion,
+            version = defaultSerializationVersion,
             packageName = basicTestsPkg.pkgName,
             template = fetcherId,
             arg = ValueRecord(
@@ -2807,9 +2615,9 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           submitters = Set(alice),
           readAs = Set.empty: Set[Party],
           cmds = ApiCommands(cmds, Time.Timestamp.now(), ""),
-          disclosures = ImmArray.empty,
           participantId = participant,
           submissionSeed = hash("ill-formed contract"),
+          contractIdVersion = contractIdVersion,
           prefetchKeys = Seq.empty,
         )
         .consume(contracts, lookupPackage, lookupKey)
@@ -2829,12 +2637,24 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         case Left(
               Interpretation(
                 DamlException(
-                  interpretation.Error.Dev(_, interpretation.Error.Dev.TranslationError(error))
+                  interpretation.Error.Upgrade(
+                    interpretation.Error.Upgrade.TranslationFailed(
+                      Some(coid),
+                      srcTemplateId,
+                      dstTemplateId,
+                      createArg,
+                      error,
+                    )
+                  )
                 ),
                 _,
               )
             ) =>
-          error shouldBe a[interpretation.Error.Dev.TranslationError.InvalidValue]
+          coid shouldBe cid
+          srcTemplateId shouldBe simpleId
+          dstTemplateId shouldBe simpleId
+          createArg shouldBe contracts(cid).createArg
+          error shouldBe a[interpretation.Error.Upgrade.TranslationFailed.InvalidValue]
       }
     }
 
@@ -2853,17 +2673,152 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         case Left(
               Interpretation(
                 DamlException(
-                  interpretation.Error.Dev(_, interpretation.Error.Dev.TranslationError(error))
+                  interpretation.Error.Upgrade(
+                    interpretation.Error.Upgrade.TranslationFailed(
+                      Some(coid),
+                      srcTemplateId,
+                      dstTemplateId,
+                      createArg,
+                      error,
+                    )
+                  )
                 ),
                 _,
               )
             ) =>
-          error shouldBe a[interpretation.Error.Dev.TranslationError.InvalidValue]
+          coid shouldBe cid
+          srcTemplateId shouldBe simpleId
+          dstTemplateId shouldBe simpleId
+          createArg shouldBe contracts(cid).createArg
+          error shouldBe a[interpretation.Error.Upgrade.TranslationFailed.InvalidValue]
       }
     }
   }
 
-  "legacy contracts" should {
+  "trailing nones" should {
+    val simpleId = Identifier(basicTestsPkgId, "BasicTests:Simple")
+    val fetcherId = Identifier(basicTestsPkgId, "BasicTests:SimpleFetcher")
+    val simpleCid = toContractId("simple")
+    val fetcherCid = toContractId("fetcher")
+    val createArg = ValueRecord(
+      None /* BasicTests:Simple */,
+      ImmArray(None /* p */ -> ValueParty(alice), None -> ValueOptional(None)),
+    )
+    val contracts =
+      Map(
+        simpleCid ->
+          TransactionBuilder.fatContractInstanceWithDummyDefaults(
+            version = defaultSerializationVersion,
+            packageName = basicTestsPkg.pkgName,
+            template = simpleId,
+            arg = createArg,
+            signatories = List(alice),
+            observers = List.empty,
+          ),
+        fetcherCid ->
+          TransactionBuilder.fatContractInstanceWithDummyDefaults(
+            version = defaultSerializationVersion,
+            packageName = basicTestsPkg.pkgName,
+            template = fetcherId,
+            arg = ValueRecord(
+              None /* BasicTests:SimpleFetcher */,
+              ImmArray(
+                (None /* p */, ValueParty(alice))
+              ),
+            ),
+            signatories = List(alice),
+          ),
+      )
+
+    def run(
+        cmds: ImmArray[ApiCommand],
+        hashingMethod: Hash.HashingMethod,
+    ): Either[Error, (SubmittedTransaction, Transaction.Metadata)] =
+      suffixLenientEngine
+        .submit(
+          submitters = Set(alice),
+          readAs = Set.empty: Set[Party],
+          cmds = ApiCommands(cmds, Time.Timestamp.now(), ""),
+          participantId = participant,
+          submissionSeed = hash("contract with trailing nones"),
+          contractIdVersion = contractIdVersion,
+          prefetchKeys = Seq.empty,
+        )
+        .consume(
+          contracts,
+          lookupPackage,
+          lookupKey,
+          hashingMethod = _ => hashingMethod,
+          idValidator = (_, _) => true,
+        )
+
+    def runFetch(hashingMethod: Hash.HashingMethod) = run(
+      cmds = ImmArray(
+        ApiCommand.Exercise(
+          fetcherId.toRef,
+          fetcherCid,
+          "DoFetchSimple",
+          ValueRecord(None, ImmArray((Some[Name]("cid"), ValueContractId(simpleCid)))),
+        )
+      ),
+      hashingMethod = hashingMethod,
+    )
+
+    def runExercise(hashingMethod: Hash.HashingMethod) = run(
+      cmds = ImmArray(
+        ApiCommand.Exercise(simpleId.toRef, simpleCid, "Hello", ValueRecord(None, ImmArray.empty))
+      ),
+      hashingMethod = hashingMethod,
+    )
+
+    def expectSuccess(
+        result: Either[Error, (SubmittedTransaction, Transaction.Metadata)]
+    ): Assertion =
+      result shouldBe a[Right[_, _]]
+
+    def expectInvalidValue(
+        result: Either[Error, (SubmittedTransaction, Transaction.Metadata)]
+    ): Assertion =
+      inside(result) {
+        case Left(
+              Error.Interpretation(
+                DamlException(
+                  interpretation.Error.Upgrade(
+                    interpretation.Error.Upgrade.TranslationFailed(_, _, _, _, error)
+                  )
+                ),
+                _,
+              )
+            ) =>
+          error shouldBe a[interpretation.Error.Upgrade.TranslationFailed.InvalidValue]
+      }
+
+    "be allowed in fetches for v10 contracts" in {
+      expectSuccess(runFetch(Hash.HashingMethod.Legacy))
+    }
+
+    "be allowed in exercises for v10 contracts" in {
+      expectSuccess(runExercise(Hash.HashingMethod.Legacy))
+    }
+
+    "be rejected in fetches for v11 contracts" in {
+      expectInvalidValue(runFetch(Hash.HashingMethod.UpgradeFriendly))
+    }
+
+    "be rejected in exercises for v11 contracts" in {
+      expectInvalidValue(runExercise(Hash.HashingMethod.UpgradeFriendly))
+    }
+
+    "be rejected in fetches for v12 contracts" in {
+      expectInvalidValue(runFetch(Hash.HashingMethod.TypedNormalForm))
+    }
+
+    "be rejected in exercises for v12 contracts" in {
+      expectInvalidValue(runExercise(Hash.HashingMethod.TypedNormalForm))
+    }
+  }
+
+  "contract authentication" should {
     val simpleId = Identifier(basicTestsPkgId, "BasicTests:Simple")
     val fetcherId = Identifier(basicTestsPkgId, "BasicTests:SimpleFetcher")
     val simpleCid = toContractId("simple")
@@ -2876,7 +2831,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       Map(
         simpleCid ->
           TransactionBuilder.fatContractInstanceWithDummyDefaults(
-            version = defaultLangVersion,
+            version = defaultSerializationVersion,
             packageName = basicTestsPkg.pkgName,
             template = simpleId,
             arg = createArg,
@@ -2885,7 +2840,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           ),
         fetcherCid ->
           TransactionBuilder.fatContractInstanceWithDummyDefaults(
-            version = defaultLangVersion,
+            version = defaultSerializationVersion,
             packageName = basicTestsPkg.pkgName,
             template = fetcherId,
             arg = ValueRecord(
@@ -2906,6 +2861,17 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       Hash
         .hashContractInstance(simpleId, createArg, basicTestsPkg.pkgName, upgradeFriendly = true)
         .value
+    def expectedTypedNormalFormHash = SValueHash
+      .hashContractInstance(
+        basicTestsPkg.pkgName,
+        simpleId.qualifiedName,
+        SValue.SRecord(
+          simpleId,
+          ImmArray(Ref.Name.assertFromString("p")),
+          ArraySeq(SValue.SParty(alice)),
+        ),
+      )
+      .value
 
     def run(
         cmds: ImmArray[ApiCommand],
@@ -2917,9 +2883,9 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           submitters = Set(alice),
           readAs = Set.empty: Set[Party],
           cmds = ApiCommands(cmds, Time.Timestamp.now(), ""),
-          disclosures = ImmArray.empty,
           participantId = participant,
-          submissionSeed = hash("ill-formed contract"),
+          submissionSeed = hash("contract auth"),
+          contractIdVersion = contractIdVersion,
           prefetchKeys = Seq.empty,
         )
         .consume(
@@ -2934,9 +2900,10 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       ("hashingMethod", "expectedHash"),
       (Hash.HashingMethod.Legacy, expectedLegacyHash),
       (Hash.HashingMethod.UpgradeFriendly, expectedUpgradeFriendlyHash),
+      (Hash.HashingMethod.TypedNormalForm, expectedTypedNormalFormHash),
     )
 
-    "be authenticated on fetch" in {
+    "happen on fetch" in {
       forEvery(cases) { case (hashingMethod, expectedHash) =>
         var idValidatorCalledWithExpectedHash = false
         val result = run(
@@ -2963,7 +2930,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       }
     }
 
-    "be authenticated on exercise" in {
+    "happen on exercise" in {
       forEvery(cases) { case (hashingMethod, expectedHash) =>
         var idValidatorCalledWithExpectedHash = false
         val result = run(
@@ -3018,7 +2985,10 @@ class EngineTestAllVersions extends AnyWordSpec with Matchers with TableDrivenPr
           PackageVersion.assertFromString("0.0.0"),
           None,
         ),
-        Left("package made in com.digitalasset.daml.lf.engine.EngineTestAllVersions"),
+        GeneratedImports(
+          reason = "package made in com.digitalasset.daml.lf.engine.EngineTestAllVersions",
+          pkgIds = Set.empty,
+        ),
       )
 
     "reject disallowed packages" in {
@@ -3036,11 +3006,12 @@ class EngineTestAllVersions extends AnyWordSpec with Matchers with TableDrivenPr
 }
 
 class EngineTestHelpers(
-    majorLanguageVersion: LanguageMajorVersion,
+    majorLanguageVersion: LanguageVersion.Major,
     contractIdVersion: ContractIdVersion,
 ) {
 
-  val defaultLangVersion = majorLanguageVersion.maxStableVersion
+  val defaultSerializationVersion =
+    SerializationVersion.assign(LanguageVersion.latestStableLfVersion)
 
   import Matchers._
 
@@ -3065,7 +3036,7 @@ class EngineTestHelpers(
   val preprocessor = preprocessing.Preprocessor.forTesting(compiledPackages)
 
   def loadAndAddPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
-    val packages = UniversalArchiveDecoder.assertReadFile(new File(rlocation(resource)))
+    val packages = DarDecoder.assertReadArchiveFromFile(new File(rlocation(resource)))
     val (mainPkgId, mainPkg) = packages.main
     assert(
       compiledPackages.addPackage(mainPkgId, mainPkg).consume(pkgs = packages.all.toMap).isRight
@@ -3094,7 +3065,7 @@ class EngineTestHelpers(
   val BasicTests_WithKey: lf.data.Ref.ValueRef = Identifier(basicTestsPkgId, withKeyTemplate)
   val withKeyContractInst: FatContractInstance =
     TransactionBuilder.fatContractInstanceWithDummyDefaults(
-      defaultLangVersion,
+      defaultSerializationVersion,
       packageName = basicTestsPkg.pkgName,
       template = TypeConId(basicTestsPkgId, withKeyTemplate),
       arg = ValueRecord(
@@ -3122,7 +3093,7 @@ class EngineTestHelpers(
     Map(
       toContractId("BasicTests:Simple:1") ->
         TransactionBuilder.fatContractInstanceWithDummyDefaults(
-          version = defaultLangVersion,
+          version = defaultSerializationVersion,
           packageName = basicTestsPkg.pkgName,
           template = TypeConId(basicTestsPkgId, "BasicTests:Simple"),
           arg = ValueRecord(
@@ -3134,7 +3105,7 @@ class EngineTestHelpers(
         ),
       toContractId("BasicTests:CallablePayout:1") ->
         TransactionBuilder.fatContractInstanceWithDummyDefaults(
-          version = defaultLangVersion,
+          version = defaultSerializationVersion,
           packageName = basicTestsPkg.pkgName,
           template = TypeConId(basicTestsPkgId, "BasicTests:CallablePayout"),
           arg = ValueRecord(
@@ -3187,9 +3158,8 @@ class EngineTestHelpers(
   def newEngine(requireCidSuffixes: Boolean = false) =
     new Engine(
       EngineConfig(
-        allowedLanguageVersions = language.LanguageVersion.AllVersions(majorLanguageVersion),
+        allowedLanguageVersions = language.LanguageVersion.allLfVersionsRange,
         forbidLocalContractIds = requireCidSuffixes,
-        createContractsWithContractIdVersion = contractIdVersion,
       )
     )
 
@@ -3267,6 +3237,7 @@ class EngineTestHelpers(
                 nodeSeedMap.get(nodeId),
                 txMeta.preparationTime,
                 ledgerEffectiveTime,
+                contractIdVersion = contractIdVersion,
               )
               .consume(
                 state.contracts,
@@ -3286,7 +3257,7 @@ class EngineTestHelpers(
 
     finalState.map(state =>
       (
-        TxVersions.asVersionedTransaction(
+        SerializationVersion.asVersionedTransaction(
           Tx(state.nodes, state.roots.toImmArray)
         ),
         Tx.Metadata(
@@ -3296,80 +3267,9 @@ class EngineTestHelpers(
           timeBoundaries = state.timeBoundaries,
           nodeSeeds = state.nodeSeeds.toImmArray,
           globalKeyMapping = Map.empty,
-          disclosedEvents = ImmArray.empty,
         ),
       )
     )
-  }
-
-  object ExplicitDisclosureTesting {
-    def unusedDisclosedContractsNotSavedToLedger(
-        cmd: speedy.Command,
-        unusedDisclosedContract: DisclosedContract,
-        usedDisclosedContract: DisclosedContract,
-    ): Assertion = {
-      val result = suffixLenientEngine
-        .interpretCommands(
-          validating = false,
-          submitters = Set(alice),
-          readAs = Set.empty,
-          commands = ImmArray(cmd),
-          ledgerTime = Time.Timestamp.now(),
-          preparationTime = Time.Timestamp.now(),
-          seeding = InitialSeeding.TransactionSeed(hash(s"$cmd")),
-          disclosures = ImmArray(unusedDisclosedContract, usedDisclosedContract),
-        )
-        .consume(PartialFunction.empty, lookupPackage, lookupKey)
-
-      inside(result) { case Right((transaction, metadata, _)) =>
-        transaction should haveDisclosedInputContracts(usedDisclosedContract)
-        metadata should haveDisclosedEvents(usedDisclosedContract.contract.toCreateNode)
-      }
-    }
-
-    @SuppressWarnings(
-      Array(
-        "org.wartremover.warts.JavaSerializable",
-        "org.wartremover.warts.Product",
-        "org.wartremover.warts.Serializable",
-      )
-    )
-    def haveDisclosedEvents(
-        expectedProcessedDisclosedContracts: Node.Create*
-    ): Matcher[Tx.Metadata] =
-      Matcher { metadata =>
-        val expectedResult = ImmArray(expectedProcessedDisclosedContracts: _*)
-        val actualResult = metadata.disclosedEvents
-
-        val debugMessage = Seq(
-          s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.toSeq.contains(_)).map(_.coid)}",
-          s"unexpected but found contract IDs: ${actualResult.filter(!expectedResult.toSeq.contains(_)).map(_.coid)}",
-        ).mkString("\n  ", "\n  ", "")
-
-        MatchResult(
-          expectedResult == actualResult,
-          s"Failed with unexpected disclosed contracts: $expectedResult != $actualResult $debugMessage",
-          s"Failed with unexpected disclosed contracts: $expectedResult == $actualResult",
-        )
-      }
-
-    def haveDisclosedInputContracts(
-        disclosedContracts: DisclosedContract*
-    ): Matcher[VersionedTransaction] =
-      Matcher { transaction =>
-        val expectedResult = disclosedContracts.map(_.contract.contractId).toSet
-        val actualResult = transaction.inputContracts
-        val debugMessage = Seq(
-          s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.contains(_))}",
-          s"unexpected but found contract IDs: ${actualResult.filter(!expectedResult.contains(_))}",
-        ).mkString("\n  ", "\n  ", "")
-
-        MatchResult(
-          expectedResult == actualResult,
-          s"Failed with unexpected disclosed contracts: $expectedResult != $actualResult $debugMessage",
-          s"Failed with unexpected disclosed contracts: $expectedResult == $actualResult",
-        )
-      }
   }
 
   case class ReinterpretState(
@@ -3407,35 +3307,5 @@ class EngineTestHelpers(
         nodeSeeds :++ meta.nodeSeeds,
       )
     }
-  }
-
-  def buildDisclosedContract(
-      pkg: Package,
-      templateId: Ref.TypeConId,
-      coid: ContractId,
-      signatory: Ref.Party,
-      arg: SValue,
-      keyOpt: Option[Value] = None,
-  ) = {
-    val version = pkg.languageVersion
-    DisclosedContract(
-      FatContractInstance.fromCreateNode(
-        Node.Create(
-          coid = coid,
-          packageName = pkg.pkgName,
-          templateId = templateId,
-          arg = arg.toNormalizedValue,
-          signatories = Set(signatory),
-          stakeholders = Set(signatory),
-          keyOpt = keyOpt.map(key =>
-            GlobalKeyWithMaintainers.assertBuild(templateId, key, Set(signatory), pkg.pkgName)
-          ),
-          version = version,
-        ),
-        CreationTime.CreatedAt(Time.Timestamp.now()),
-        Bytes.Empty,
-      ),
-      arg,
-    )
   }
 }

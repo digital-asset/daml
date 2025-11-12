@@ -12,7 +12,6 @@ import com.digitalasset.daml.lf.speedy.{
 
 import java.nio.file.Path
 import com.digitalasset.daml.lf.transaction.ContractKeyUniquenessMode
-import com.digitalasset.daml.lf.value.ContractIdVersion
 
 /** The Engine configurations describes the versions of language and
   * transaction the engine is allowed to read and write together with
@@ -40,8 +39,6 @@ import com.digitalasset.daml.lf.value.ContractIdVersion
   *     A value of false is insecure and should be used for security testing only.
   * @param iterationsBetweenInterruptions bound the maximal number of interpreter
   *     steps needed to produce a Result.
-  * @param createContractsWithContractIdVersion The contract ID version to use
-  *     for local contracts
   * @param useDefensiveContractLookup When true, contracts passed to the ResultNeedContract
   *      callback are type-checked, authenticated and upgraded by the engine. Explicit disclosures
   *      are assumed to be provided via ResultNeedContract.
@@ -60,9 +57,9 @@ final case class EngineConfig(
     limits: interpretation.Limits = interpretation.Limits.Lenient,
     checkAuthorization: Boolean = true,
     iterationsBetweenInterruptions: Long = 10000,
-    createContractsWithContractIdVersion: ContractIdVersion = ContractIdVersion.V1,
     paranoid: Boolean = false,
     useDefensiveContractLookup: Boolean = false,
+    gasBudget: Option[Long] = None,
 ) {
   private[lf] def getCompilerConfig: speedy.Compiler.Config =
     speedy.Compiler.Config(

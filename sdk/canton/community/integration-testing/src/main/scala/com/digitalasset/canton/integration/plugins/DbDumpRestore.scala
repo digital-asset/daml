@@ -4,12 +4,16 @@
 package com.digitalasset.canton.integration.plugins
 
 import better.files.File
+import cats.implicits.catsSyntaxParallelTraverse_
+import com.digitalasset.canton.config.CantonConfig
+import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.console.InstanceReference
 import com.digitalasset.canton.integration.TestConsoleEnvironment
+import com.digitalasset.canton.util.FutureInstances.parallelFuture
 import com.digitalasset.canton.{TempDirectory, TempFile}
 
 import java.nio.file.Path
-import scala.concurrent.{Future, blocking}
+import scala.concurrent.{ExecutionContext, Future, blocking}
 import scala.sys.process.*
 
 trait DbDumpRestore {
@@ -17,6 +21,18 @@ trait DbDumpRestore {
   def copy(src: File, tempDirectory: TempDirectory): Unit
 
   def copyToLocal(source: TempDirectory, target: File): Unit
+
+  def saveDumps(config: CantonConfig, tempDir: TempDirectory)(implicit
+      executionContext: ExecutionContext
+  ): Future[Unit] =
+    saveDumps(config.nodeNamesInStartupOrder, tempDir)
+
+  def saveDumps(nodes: Seq[InstanceName], tempDir: TempDirectory)(implicit
+      executionContext: ExecutionContext
+  ): Future[Unit] =
+    nodes.parTraverse_ { node =>
+      saveDump(node.unwrap, tempDir.toTempFile(dumpFileName(databaseName(node.unwrap))))
+    }
 
   def saveDump(node: InstanceReference, tempFile: TempFile)(implicit
       env: TestConsoleEnvironment
@@ -26,11 +42,27 @@ trait DbDumpRestore {
 
   def createParent(tempFile: TempFile): Future[Unit]
 
+  def restoreDumps(config: CantonConfig, tempDir: TempDirectory)(implicit
+      executionContext: ExecutionContext
+  ): Future[Unit] =
+    restoreDumps(config.nodeNamesInStartupOrder, tempDir)
+
+  def restoreDumps(nodes: Seq[InstanceName], tempDir: TempDirectory)(implicit
+      executionContext: ExecutionContext
+  ): Future[Unit] =
+    nodes.parTraverse_ { node =>
+      restoreDump(node.unwrap, tempDir.toTempFile(dumpFileName(databaseName(node.unwrap))).path)
+    }
+
   def restoreDump(node: InstanceReference, dumpFileName: Path)(implicit
       env: TestConsoleEnvironment
   ): Future[Unit]
 
   def restoreDump(nodeName: String, dumpFileName: Path): Future[Unit]
+
+  def dumpFileName(dbName: String): String = s"pg-dump-$dbName.tar"
+
+  def databaseName(nodeName: String): String
 }
 
 trait DockerDbDumpRestore extends DbDumpRestore {

@@ -40,7 +40,7 @@ message Verdict {
   VerdictResult verdict = 3;
   // the time of the finalization of the verdict, i.e.:
   // - the nth response required to finalize the verdict
-  // - the sequencing time that determined the timeout of a request
+  // - the participant response deadline in case the request timed out
   google.protobuf.Timestamp finalization_time = 4;
   // record time of the request
   google.protobuf.Timestamp record_time = 5;

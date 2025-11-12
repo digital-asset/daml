@@ -120,7 +120,7 @@ object CommitmentPeriod {
   * time, and are exactly `interval` apart.
   */
 abstract sealed case class AcsCommitment private (
-    synchronizerId: PhysicalSynchronizerId,
+    psid: PhysicalSynchronizerId,
     sender: ParticipantId,
     counterParticipant: ParticipantId,
     period: CommitmentPeriod,
@@ -139,7 +139,7 @@ abstract sealed case class AcsCommitment private (
 
   protected def toProtoV30: v30.AcsCommitment =
     v30.AcsCommitment(
-      physicalSynchronizerId = synchronizerId.toProtoPrimitive,
+      physicalSynchronizerId = psid.toProtoPrimitive,
       sendingParticipantUid = sender.uid.toProtoPrimitive,
       counterParticipantUid = counterParticipant.uid.toProtoPrimitive,
       fromExclusive = period.fromExclusive.toProtoPrimitive,
@@ -158,7 +158,7 @@ abstract sealed case class AcsCommitment private (
 
   override lazy val pretty: Pretty[AcsCommitment] =
     prettyOfClass(
-      param("synchronizerId", _.synchronizerId),
+      param("psid", _.psid),
       param("sender", _.sender),
       param("counterParticipant", _.counterParticipant),
       param("period", _.period),
@@ -167,7 +167,7 @@ abstract sealed case class AcsCommitment private (
 
   def toQueuedAcsCommitment: BufferedAcsCommitment = this
     .into[BufferedAcsCommitment]
-    .withFieldComputed(_.synchronizerId, _.synchronizerId.logical)
+    .withFieldComputed(_.synchronizerId, _.psid.logical)
     .transform
 }
 

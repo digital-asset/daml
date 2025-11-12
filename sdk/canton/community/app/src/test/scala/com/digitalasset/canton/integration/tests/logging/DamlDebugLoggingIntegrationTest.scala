@@ -53,8 +53,8 @@ class DamlDebugLoggingIntegrationTest extends CommunityIntegrationTest with Shar
         import env.*
 
         participants.local.foreach { participant =>
-          participant.dars.upload(CantonTestsPath)
           participant.synchronizers.connect_local(sequencer1, alias = daName)
+          participant.dars.upload(CantonTestsPath)
           val alice =
             participant.parties.enable("Alice")
           participant.ledger_api.javaapi.commands

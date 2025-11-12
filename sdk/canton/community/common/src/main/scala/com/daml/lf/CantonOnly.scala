@@ -6,13 +6,13 @@ package com.digitalasset.daml.lf
 import com.digitalasset.canton.protocol.{
   LfNode,
   LfNodeId,
+  LfSerializationVersion,
   LfTransaction,
-  LfTransactionVersion,
   LfVersionedTransaction,
 }
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion}
+import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.speedy.Compiler
 
 /** As part of upstream Daml-LF refactoring, previously accessible capabilities have become
@@ -25,7 +25,7 @@ object CantonOnly {
       nodes: Map[LfNodeId, LfNode],
       roots: ImmArray[LfNodeId],
   ): LfVersionedTransaction =
-    LfTransactionVersion.asVersionedTransaction(LfTransaction(nodes, roots))
+    LfSerializationVersion.asVersionedTransaction(LfTransaction(nodes, roots))
 
   def tryBuildCompiledPackages(
       darMap: Map[PackageId, Ast.Package],
@@ -33,7 +33,7 @@ object CantonOnly {
   ): PureCompiledPackages =
     PureCompiledPackages.assertBuild(
       darMap,
-      if (enableLfDev) Compiler.Config.Dev(LanguageMajorVersion.V2)
-      else Compiler.Config.Default(LanguageMajorVersion.V2),
+      if (enableLfDev) Compiler.Config.Dev
+      else Compiler.Config.Default,
     )
 }

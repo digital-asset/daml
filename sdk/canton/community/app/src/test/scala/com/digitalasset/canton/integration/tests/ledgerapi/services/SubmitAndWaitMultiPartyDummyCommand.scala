@@ -14,7 +14,6 @@ import com.digitalasset.canton.integration.tests.ledgerapi.auth.ServiceCallAuthT
 import com.google.protobuf.empty.Empty
 
 import java.util.UUID
-import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 trait SubmitAndWaitMultiPartyDummyCommand extends TestCommands { self: ServiceCallAuthTests =>
@@ -77,18 +76,6 @@ trait SubmitAndWaitMultiPartyDummyCommand extends TestCommands { self: ServiceCa
   )(implicit ec: ExecutionContext): Future[Empty] =
     service(token)
       .submitAndWait(dummySubmitAndWaitRequest(actAs, readAs, userId))
-      .map(_ => Empty())
-
-  // TODO(#23504) remove
-  @nowarn("cat=deprecation")
-  protected def submitAndWaitForTransactionTree(
-      token: Option[String],
-      actAs: Seq[String],
-      readAs: Seq[String],
-      userId: String,
-  )(implicit ec: ExecutionContext): Future[Empty] =
-    service(token)
-      .submitAndWaitForTransactionTree(dummySubmitAndWaitRequest(actAs, readAs, userId))
       .map(_ => Empty())
 
 }

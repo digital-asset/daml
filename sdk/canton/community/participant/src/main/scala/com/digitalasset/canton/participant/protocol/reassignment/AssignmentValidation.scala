@@ -32,7 +32,7 @@ import com.digitalasset.canton.participant.store.ReassignmentStore.{
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ContractAuthenticator
+import com.digitalasset.canton.util.ContractValidator
 import com.digitalasset.canton.util.ReassignmentTag.Target
 
 import scala.concurrent.ExecutionContext
@@ -42,7 +42,7 @@ private[reassignment] class AssignmentValidation(
     staticSynchronizerParameters: Target[StaticSynchronizerParameters],
     participantId: ParticipantId,
     reassignmentCoordination: ReassignmentCoordination,
-    contractAuthenticator: ContractAuthenticator,
+    contractValidator: ContractValidator,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
     extends NamedLogging {
@@ -132,9 +132,9 @@ private[reassignment] class AssignmentValidation(
     val topologySnapshot = Target(parsedRequest.snapshot.ipsSnapshot)
     val assignmentRequest: FullAssignmentTree = parsedRequest.fullViewTree
 
-    val stakeholdersCheckResultET =
-      ReassignmentValidation.checkMetadata(
-        contractAuthenticator,
+    val contractAuthenticationResultF =
+      ReassignmentValidation.authenticateContractAndStakeholders(
+        contractValidator,
         assignmentRequest,
       )
 
@@ -162,7 +162,7 @@ private[reassignment] class AssignmentValidation(
     } yield AssignmentValidationResult.CommonValidationResult(
       activenessResult = activenessResult,
       participantSignatureVerificationResult = participantSignatureVerificationResult,
-      contractAuthenticationResultF = stakeholdersCheckResultET,
+      contractAuthenticationResultF = contractAuthenticationResultF,
       submitterCheckResult = submitterCheckResult,
       reassignmentIdResult = reassignmentIdResult,
     )

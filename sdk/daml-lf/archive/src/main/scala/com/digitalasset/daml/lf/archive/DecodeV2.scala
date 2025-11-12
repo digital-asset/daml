@@ -11,13 +11,13 @@ import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{ImmArray, Numeric, Struct, Time}
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.Util._
-import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion => LV}
+import com.digitalasset.daml.lf.language.{LanguageVersion => LV}
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 
+import scala.annotation.nowarn
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
-import scala.math.Ordering.Implicits.infixOrderingOps
 
 /** Decodes LF2 packages and modules. */
 private[archive] class DecodeV2(minor: LV.Minor) {
@@ -25,61 +25,80 @@ private[archive] class DecodeV2(minor: LV.Minor) {
   import DecodeV2._
   import Work.Ret
 
-  private val languageVersion: LV = LV(LanguageMajorVersion.V2, minor)
+  private val languageVersion: LV = LV(LV.Major.V2, minor)
 
   def decodePackage( // entry point
       packageId: PackageId,
       lfPackage: PLF.Package,
-      onlySerializableDataDefs: Boolean,
-  ): Either[Error, Package] = attempt(NameOf.qualifiedNameOfCurrentFunc) {
+      schemaMode: Boolean,
+      patchVersion: Int,
+  ): Either[Error, Package] =
+    if (!schemaMode && patchVersion != 0)
+      Left(Error.Parsing(s"Unknown patch version $patchVersion for LF $languageVersion"))
+    else
+      attempt(NameOf.qualifiedNameOfCurrentFunc) {
 
-    val internedStrings = lfPackage.getInternedStringsList.asScala.to(ImmArraySeq)
+        val internedStrings = lfPackage.getInternedStringsList.asScala.to(ImmArraySeq)
 
-    val internedDottedNames =
-      decodeInternedDottedNames(
-        lfPackage.getInternedDottedNamesList.asScala,
-        internedStrings,
-      )
+        val internedDottedNames =
+          decodeInternedDottedNames(
+            lfPackage.getInternedDottedNamesList.asScala,
+            internedStrings,
+          )
 
-    val dependencyTracker = new PackageDependencyTracker(packageId)
+        val metadata: PackageMetadata = {
+          if (!lfPackage.hasMetadata)
+            throw Error.Parsing(s"Package.metadata is required in Daml-LF 2.${minor.pretty}")
+          decodePackageMetadata(lfPackage.getMetadata, internedStrings)
+        }
 
-    val metadata: PackageMetadata = {
-      if (!lfPackage.hasMetadata)
-        throw Error.Parsing(s"Package.metadata is required in Daml-LF 2.$minor")
-      decodePackageMetadata(lfPackage.getMetadata, internedStrings)
-    }
+        val imports = decodePackageImports(lfPackage)
 
-    val imports = decodePackageImports(lfPackage)
+        val dependencyTracker = new PackageDependencyTracker(packageId)
 
-    val env0 = Env(
-      packageId = packageId,
-      internedStrings = internedStrings,
-      internedDottedNames = internedDottedNames,
-      optDependencyTracker = Some(dependencyTracker),
-      onlySerializableDataDefs = onlySerializableDataDefs,
-      imports = imports,
-    )
+        val env0 = Env(
+          packageId = packageId,
+          internedStrings = internedStrings,
+          internedDottedNames = internedDottedNames,
+          optDependencyTracker = Some(dependencyTracker),
+          schemaMode = schemaMode,
+          imports = imports,
+        )
 
-    val internedKinds = decodeKindsTable(env0, lfPackage)
-    val env1 = env0.copy(internedKinds = internedKinds)
-    val internedTypes = decodeTypesTable(env1, lfPackage)
-    val env2 = env1.copy(internedTypes = internedTypes)
-    val internedExprs = lfPackage.getInternedExprsList().asScala.toVector
-    val env = env2.copy(internedExprs = internedExprs)
+        val internedKinds = decodeKindsTable(env0, lfPackage)
+        val env1 = env0.copy(internedKinds = internedKinds)
+        val internedTypes = decodeTypesTable(env1, lfPackage)
+        val env2 = env1.copy(internedTypes = internedTypes)
+        val internedExprs =
+          if (schemaMode)
+            Vector.empty
+          else
+            lfPackage.getInternedExprsList().asScala.toVector
+        val env = env2.copy(internedExprs = internedExprs)
 
-    val importsSet =
-      imports.map(xs => xs.map(s => eitherToParseError(PackageId.fromString(s))).toSet)
+        val modules = lfPackage.getModulesList.asScala.map(env.decodeModule(_))
 
-    val modules = lfPackage.getModulesList.asScala.map(env.decodeModule(_))
-    Package.build(
-      modules = modules,
-      directDeps = dependencyTracker.getDependencies,
-      languageVersion = languageVersion,
-      metadata = metadata,
-      imports = importsSet,
-    )
+        val directDeps = dependencyTracker.getDependencies
 
-  }
+        val packageImports = imports match {
+          case Right(xs) =>
+            DeclaredImports(pkgIds = xs.map(s => eitherToParseError(PackageId.fromString(s))).toSet)
+          case Left(str) =>
+            GeneratedImports(
+              reason = str,
+              pkgIds = directDeps.diff(Set.from(stableIds)),
+            )
+        }
+
+        Package.build(
+          modules = modules,
+          directDeps = directDeps,
+          languageVersion = languageVersion,
+          metadata = metadata,
+          imports = packageImports,
+        )
+
+      }
 
   private[archive] def decodePackageMetadata(
       metadata: PLF.PackageMetadata,
@@ -197,24 +216,25 @@ private[archive] class DecodeV2(minor: LV.Minor) {
   private[archive] def decodePackageImports(
       lfPackage: PLF.Package
   ): Either[String, collection.IndexedSeq[String]] = {
-    val imports = lfPackage.getImportsSumCase
-    imports match {
+    lfPackage.getImportsSumCase match {
       case PLF.Package.ImportsSumCase.IMPORTSSUM_NOT_SET =>
         Left("PLF.Package.ImportsSumCase.IMPORTSSUM_NOT_SET")
       case PLF.Package.ImportsSumCase.PACKAGE_IMPORTS =>
+        val imports = lfPackage.getPackageImports.getImportedPackagesList.asScala.toIndexedSeq
         if (languageVersion < LV.Features.explicitPkgImports)
           throw Error.Parsing(
-            s"Explicit pkg imports set on unsupported lf version (version ${languageVersion}), case set PACKAGE_IMPORTS, to ${lfPackage.getPackageImports.getImportedPackagesList.asScala.toIndexedSeq.toString()}"
+            s"Explicit pkg imports set on unsupported lf version (version ${languageVersion}), case set PACKAGE_IMPORTS, to ${imports}"
           )
         else
-          Right(lfPackage.getPackageImports.getImportedPackagesList.asScala.toIndexedSeq)
+          Right(imports)
       case PLF.Package.ImportsSumCase.NO_IMPORTED_PACKAGES_REASON =>
+        val reason = lfPackage.getNoImportedPackagesReason
         if (languageVersion < LV.Features.explicitPkgImports)
           throw Error.Parsing(
-            s"Explicit pkg imports set on unsupported lf version (version ${languageVersion}), case NO_IMPORTED_PACKAGES_REASON, set to ${lfPackage.getNoImportedPackagesReason.toString}"
+            s"Explicit pkg imports set on unsupported lf version (version ${languageVersion}), case NO_IMPORTED_PACKAGES_REASON, set to ${reason}"
           )
         else
-          Left(lfPackage.getNoImportedPackagesReason)
+          Left(reason)
     }
   }
 
@@ -237,10 +257,10 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       internedExprs: collection.IndexedSeq[PLF.Expr] = ImmArraySeq.empty,
       optDependencyTracker: Option[PackageDependencyTracker] = None,
       optModuleName: Option[ModuleName] = None,
-      onlySerializableDataDefs: Boolean = false,
+      schemaMode: Boolean = false,
       currentInternedExprId: Option[Int] = None,
       imports: Either[String, collection.IndexedSeq[String]] = Left(
-        "com.digitalasset.daml.lf.DecodeV2 (default Env constructor)"
+        "package made in com.digitalasset.daml.lf.DecodeV2 (default Env constructor)"
       ),
   ) {
 
@@ -317,7 +337,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       val exceptions = mutable.ArrayBuffer[(DottedName, DefException)]()
       val interfaces = mutable.ArrayBuffer[(DottedName, DefInterface)]()
 
-      if (!onlySerializableDataDefs) {
+      if (!schemaMode) {
         // collect type synonyms
         lfModule.getSynonymsList.asScala
           .foreach { defn =>
@@ -329,14 +349,14 @@ private[archive] class DecodeV2(minor: LV.Minor) {
 
       // collect data types
       lfModule.getDataTypesList.asScala
-        .filter(!onlySerializableDataDefs || _.getSerializable)
+        .filter(!schemaMode || _.getSerializable)
         .foreach { defn =>
           val defName = getInternedDottedName(defn.getNameInternedDname)
           val d = Work.run(decodeDefDataType(defn))
           defs += (defName -> d)
         }
 
-      if (!onlySerializableDataDefs) {
+      if (!schemaMode) {
         // collect values
         lfModule.getValuesList.asScala.foreach { defn =>
           val nameWithType = defn.getNameWithType
@@ -353,9 +373,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         templates += ((defName, Work.run(decodeTemplate(defName, defn))))
       }
 
-      if (versionIsOlderThan(LV.Features.exceptions)) {
-        assertEmpty(lfModule.getExceptionsList, "Module.exceptions")
-      } else if (!onlySerializableDataDefs) {
+      if (!schemaMode) {
         lfModule.getExceptionsList.asScala
           .foreach { defn =>
             val defName = getInternedDottedName(defn.getNameInternedDname)
@@ -574,10 +592,10 @@ private[archive] class DecodeV2(minor: LV.Minor) {
                   Ret(
                     Template.build(
                       param = paramName,
-                      precond,
-                      signatories,
-                      choices,
-                      observers,
+                      precond = precond,
+                      signatories = signatories,
+                      choices = choices,
+                      observers = observers,
                       implements = implements,
                       key = key,
                     )
@@ -934,11 +952,15 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       }
     }
 
-    private def decodeExpr[T](lfExpr: PLF.Expr, definition: String)(k: Expr => Work[T]): Work[T] = {
-      Work.Bind(Work.Delay(() => decodeExpr1(lfExpr, definition)), k)
-    }
+    private def decodeExpr[T](lfExpr: PLF.Expr, definition: String)(k: Expr => Work[T]): Work[T] =
+      if (schemaMode)
+        k(EUnit) // we can call k directly because we know there is no recursion on decodeExpr
+      else
+        Work.Bind(Work.Delay(() => decodeExpr1(lfExpr, definition)), k)
 
     private def decodeExpr1(lfExpr: PLF.Expr, definition: String): Work[Expr] = {
+      if (schemaMode)
+        throw new IllegalStateException("decodeExpr1 called in schema mode")
       Work.bind(lfExpr.getSumCase match {
         case PLF.Expr.SumCase.VAR_INTERNED_STR =>
           Ret(EVar(getInternedName(lfExpr.getVarInternedStr)))
@@ -1159,7 +1181,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Expr.SumCase.THROW =>
-          assertSince(LV.Features.exceptions, "Expr.from_any_exception")
           val eThrow = lfExpr.getThrow
           decodeType(eThrow.getReturnType) { returnType =>
             decodeType(eThrow.getExceptionType) { exceptionType =>
@@ -1170,7 +1191,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Expr.SumCase.TO_ANY_EXCEPTION =>
-          assertSince(LV.Features.exceptions, "Expr.to_any_exception")
           val toAnyException = lfExpr.getToAnyException
           decodeType(toAnyException.getType) { typ =>
             decodeExpr(toAnyException.getExpr, definition) { value =>
@@ -1179,7 +1199,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Expr.SumCase.FROM_ANY_EXCEPTION =>
-          assertSince(LV.Features.exceptions, "Expr.from_any_exception")
           val fromAnyException = lfExpr.getFromAnyException
           decodeType(fromAnyException.getType) { typ =>
             decodeExpr(fromAnyException.getExpr, definition) { value =>
@@ -1228,6 +1247,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Expr.SumCase.UNSAFE_FROM_INTERFACE =>
+          assertUntil(LV.Features.unsafeFromInterfaceRemoved, "Expr.unsafe_from_interface")
           val unsafeFromInterface = lfExpr.getUnsafeFromInterface
           val interfaceId = decodeTypeConId(unsafeFromInterface.getInterfaceType)
           val templateId = decodeTypeConId(unsafeFromInterface.getTemplateType)
@@ -1514,7 +1534,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Update.SumCase.TRY_CATCH =>
-          assertSince(LV.Features.exceptions, "Update.try_catch")
           val tryCatch = lfUpdate.getTryCatch
           decodeType(tryCatch.getReturnType) { typ =>
             decodeExpr(tryCatch.getTryExpr, definition) { body =>
@@ -1618,7 +1637,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
     BLNumeric(eitherToParseError(Numeric.fromString(s)))
 
   private[this] def notSupportedError(description: String): Error.Parsing =
-    Error.Parsing(s"$description is not supported by Daml-LF 2.$minor")
+    Error.Parsing(s"$description is not supported by Daml-LF 2.${minor.pretty}")
 
   // maxVersion excluded
   private[this] def assertUntil(maxVersion: LV, description: => String): Unit =
@@ -1654,6 +1673,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
   private[this] def assertEmpty(s: collection.Seq[_], description: => String): Unit =
     if (s.nonEmpty) throw Error.Parsing(s"Unexpected non-empty $description")
 
+  @nowarn("cat=unused")
   private[this] def assertEmpty(s: util.List[_], description: => String): Unit =
     if (!s.isEmpty) throw Error.Parsing(s"Unexpected non-empty $description")
 }
@@ -1693,7 +1713,7 @@ private[lf] object DecodeV2 {
       BuiltinTypeInfo(TYPE_REP, BTTypeRep),
       BuiltinTypeInfo(BIGNUMERIC, BTBigNumeric, minVersion = LV.Features.bigNumeric),
       BuiltinTypeInfo(ROUNDING_MODE, BTRoundingMode, minVersion = LV.Features.bigNumeric),
-      BuiltinTypeInfo(ANY_EXCEPTION, BTAnyException, minVersion = LV.Features.exceptions),
+      BuiltinTypeInfo(ANY_EXCEPTION, BTAnyException),
       BuiltinTypeInfo(FAILURE_CATEGORY, BTFailureCategory),
     )
   }
@@ -1760,17 +1780,12 @@ private[lf] object DecodeV2 {
       BuiltinFunctionInfo(TEXT_TO_NUMERIC, BTextToNumeric),
       BuiltinFunctionInfo(TEXT_TO_CODE_POINTS, BTextToCodePoints),
       BuiltinFunctionInfo(SHA256_TEXT, BSHA256Text),
-      BuiltinFunctionInfo(SHA256_HEX, BSHA256Hex, minVersion = LV.Features.cryptoAdditions),
-      BuiltinFunctionInfo(KECCAK256_TEXT, BKECCAK256Text, minVersion = LV.Features.crypto),
-      BuiltinFunctionInfo(SECP256K1_BOOL, BSECP256K1Bool, minVersion = LV.Features.crypto),
-      BuiltinFunctionInfo(
-        SECP256K1_WITH_ECDSA_BOOL,
-        BSECP256K1WithEcdsaBool,
-        minVersion = LV.Features.cryptoAdditions,
-      ),
-      BuiltinFunctionInfo(HEX_TO_TEXT, BDecodeHex, minVersion = LV.Features.crypto),
-      BuiltinFunctionInfo(TEXT_TO_HEX, BEncodeHex, minVersion = LV.Features.crypto),
-      BuiltinFunctionInfo(TEXT_TO_CONTRACT_ID, BTextToContractId, minVersion = LV.Features.crypto),
+      BuiltinFunctionInfo(SHA256_HEX, BSHA256Hex),
+      BuiltinFunctionInfo(KECCAK256_TEXT, BKECCAK256Text),
+      BuiltinFunctionInfo(SECP256K1_BOOL, BSECP256K1Bool),
+      BuiltinFunctionInfo(SECP256K1_WITH_ECDSA_BOOL, BSECP256K1WithEcdsaBool),
+      BuiltinFunctionInfo(HEX_TO_TEXT, BDecodeHex),
+      BuiltinFunctionInfo(TEXT_TO_HEX, BEncodeHex),
       BuiltinFunctionInfo(DATE_TO_UNIX_DAYS, BDateToUnixDays),
       BuiltinFunctionInfo(EXPLODE_TEXT, BExplodeText),
       BuiltinFunctionInfo(IMPLODE_TEXT, BImplodeText),
@@ -1796,7 +1811,7 @@ private[lf] object DecodeV2 {
       BuiltinFunctionInfo(BIGNUMERIC_TO_NUMERIC, BBigNumericToNumeric, minVersion = bigNumeric),
       BuiltinFunctionInfo(NUMERIC_TO_BIGNUMERIC, BNumericToBigNumeric, minVersion = bigNumeric),
       BuiltinFunctionInfo(BIGNUMERIC_TO_TEXT, BBigNumericToText, minVersion = bigNumeric),
-      BuiltinFunctionInfo(ANY_EXCEPTION_MESSAGE, BAnyExceptionMessage, minVersion = exceptions),
+      BuiltinFunctionInfo(ANY_EXCEPTION_MESSAGE, BAnyExceptionMessage),
       BuiltinFunctionInfo(TYPE_REP_TYCON_NAME, BTypeRepTyConName, minVersion = unstable),
       BuiltinFunctionInfo(FAIL_WITH_STATUS, BFailWithStatus),
     )
@@ -1811,7 +1826,6 @@ private[lf] object DecodeV2 {
   // need to put at central place
   val stableIds: Seq[PackageId] =
     Seq(
-      "54f85ebfc7dfae18f7d70370015dcc6c6792f60135ab369c44ae52c6fc17c274", // daml-prim
       "ee33fb70918e7aaa3d3fc44d64a399fb2bf5bcefc54201b1690ecd448551ba88", // daml-prim-DA-Exception-ArithmeticError
       "6da1f43a10a179524e840e7288b47bda213339b0552d92e87ae811e52f59fc0e", // daml-prim-DA-Exception-AssertionFailed
       "f181cd661f7af3a60bdaae4b0285a2a67beb55d6910fc8431dbae21a5825ec0f", // daml-prim-DA-Exception-GeneralError

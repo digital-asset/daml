@@ -48,7 +48,7 @@ final case class UnassignmentMediatorMessage(
 
   override def submittingParticipant: ParticipantId = tree.submittingParticipant
 
-  override def synchronizerId: PhysicalSynchronizerId = commonData.sourceSynchronizerId.unwrap
+  override def psid: PhysicalSynchronizerId = commonData.sourceSynchronizerId.unwrap
 
   override def mediator: MediatorGroupRecipient = commonData.sourceMediatorGroup
 

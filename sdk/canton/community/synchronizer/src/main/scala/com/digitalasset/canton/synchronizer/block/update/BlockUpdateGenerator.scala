@@ -26,6 +26,7 @@ import com.digitalasset.canton.synchronizer.sequencer.traffic.SequencerRateLimit
 import com.digitalasset.canton.synchronizer.sequencer.{InFlightAggregations, SubmissionOutcome}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.{Spanning, TraceContext, Traced}
+import com.digitalasset.canton.util.MaxBytesToDecompress
 import com.digitalasset.canton.util.collection.IterableUtil
 import com.digitalasset.canton.version.ProtocolVersion
 import io.opentelemetry.api.trace.Tracer
@@ -65,7 +66,7 @@ trait BlockUpdateGenerator {
 
   def internalStateFor(state: BlockEphemeralState): InternalState
 
-  def extractBlockEvents(block: RawLedgerBlock): BlockEvents
+  def extractBlockEvents(tracedBlock: Traced[RawLedgerBlock]): Traced[BlockEvents]
 
   def chunkBlock(block: BlockEvents)(implicit
       traceContext: TraceContext
@@ -97,6 +98,7 @@ class BlockUpdateGeneratorImpl(
     rateLimitManager: SequencerRateLimitManager,
     orderingTimeFixMode: OrderingTimeFixMode,
     sequencingTimeLowerBoundExclusive: Option[CantonTimestamp],
+    maxBytesToDecompress: MaxBytesToDecompress,
     metrics: SequencerMetrics,
     protected val loggerFactory: NamedLoggerFactory,
     memberValidator: SequencerMemberValidator,
@@ -128,43 +130,47 @@ class BlockUpdateGeneratorImpl(
     inFlightAggregations = state.inFlightAggregations,
   )
 
-  override def extractBlockEvents(block: RawLedgerBlock): BlockEvents = {
-    val ledgerBlockEvents = block.events.mapFilter { tracedEvent =>
-      withSpan("BlockUpdateGenerator.extractBlockEvents") { implicit traceContext => _ =>
-        logger.trace("Extracting event from raw block")
-        // TODO(i26169) Prevent zip bombing when decompressing the request
-        LedgerBlockEvent.fromRawBlockEvent(protocolVersion, MaxRequestSizeToDeserialize.NoLimit)(
-          tracedEvent.value
-        ) match {
-          case Left(error) =>
-            InvalidLedgerEvent.Error(block.blockHeight, error).discard
-            None
+  override def extractBlockEvents(tracedBlock: Traced[RawLedgerBlock]): Traced[BlockEvents] =
+    withSpan("BlockUpdateGenerator.extractBlockEvents") { blockTraceContext => _ =>
+      val block = tracedBlock.value
 
-          case Right(event) =>
-            sequencingTimeLowerBoundExclusive match {
-              case Some(boundExclusive)
-                  if !LogicalUpgradeTime.canProcessKnowingPastUpgrade(
-                    upgradeTime = Some(boundExclusive),
-                    sequencingTime = event.timestamp,
-                  ) =>
-                SequencedBeforeOrAtLowerBound
-                  .Error(event.timestamp, boundExclusive, event.toString)
-                  .log()
-                None
+      val ledgerBlockEvents = block.events.mapFilter { tracedEvent =>
+        withSpan("BlockUpdateGenerator.extractBlockEvents") { implicit traceContext => _ =>
+          logger.trace("Extracting event from raw block")
+          LedgerBlockEvent.fromRawBlockEvent(protocolVersion, maxBytesToDecompress)(
+            tracedEvent.value
+          ) match {
+            case Left(error) =>
+              InvalidLedgerEvent.Error(block.blockHeight, error).discard
+              None
 
-              case _ => Some(Traced(event))
-            }
-        }
-      }(tracedEvent.traceContext, tracer)
-    }
+            case Right(event) =>
+              sequencingTimeLowerBoundExclusive match {
+                case Some(boundExclusive)
+                    if !LogicalUpgradeTime.canProcessKnowingPastUpgrade(
+                      upgradeTime = Some(boundExclusive),
+                      sequencingTime = event.timestamp,
+                    ) =>
+                  SequencedBeforeOrAtLowerBound
+                    .Error(event.timestamp, boundExclusive, event.toString)
+                    .log()
+                  None
 
-    BlockEvents(
-      block.blockHeight,
-      ledgerBlockEvents,
-      tickTopologyAtLeastAt =
-        block.tickTopologyAtMicrosFromEpoch.map(CantonTimestamp.assertFromLong),
-    )
-  }
+                case _ => Some(Traced(event))
+              }
+          }
+        }(tracedEvent.traceContext, tracer)
+      }
+
+      Traced(
+        BlockEvents(
+          block.blockHeight,
+          ledgerBlockEvents,
+          tickTopologyAtLeastAt =
+            block.tickTopologyAtMicrosFromEpoch.map(CantonTimestamp.assertFromLong),
+        )
+      )(blockTraceContext)
+    }(tracedBlock.traceContext, tracer)
 
   override def chunkBlock(
       blockEvents: BlockEvents

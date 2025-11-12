@@ -42,7 +42,6 @@ trait SequencerFactory extends FlagCloseable with HasCloseContext {
   def create(
       sequencerId: SequencerId,
       clock: Clock,
-      driverClock: Clock, // this clock is only used in tests, otherwise can the same clock as above can be passed
       synchronizerSyncCryptoApi: SynchronizerCryptoClient,
       futureSupervisor: FutureSupervisor,
       trafficConfig: SequencerTrafficConfig,
@@ -123,7 +122,6 @@ class CommunityDatabaseSequencerFactory(
   override def create(
       sequencerId: SequencerId,
       clock: Clock,
-      driverClock: Clock,
       synchronizerSyncCryptoApi: SynchronizerCryptoClient,
       futureSupervisor: FutureSupervisor,
       trafficConfig: SequencerTrafficConfig,
@@ -223,16 +221,8 @@ object CommunitySequencerFactory extends MkSequencerFactory {
           blockSequencerConfig,
           config,
         ) =>
-      // Each external sequencer driver must have a unique identifier. Yet, we have two
-      // implementations of the external reference sequencer driver:
-      // - `community-reference` for the community edition
-      // - `reference` for the enterprise edition
-      // So if the sequencer type is `reference` and we're in community edition,
-      // we need to convert it to `community-reference`.
-      val actualSequencerType =
-        if (sequencerType == "reference") "community-reference" else sequencerType
       DriverBlockSequencerFactory(
-        actualSequencerType,
+        sequencerType,
         SequencerDriver.DriverApiVersion,
         config,
         blockSequencerConfig,

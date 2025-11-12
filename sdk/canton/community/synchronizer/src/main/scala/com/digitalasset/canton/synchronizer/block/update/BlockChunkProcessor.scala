@@ -127,9 +127,7 @@ final class BlockChunkProcessor(
       ) = validationResult
 
       finalInFlightAggregationsWithAggregationExpiry =
-        finalInFlightAggregations.filterNot { case (_, inFlightAggregation) =>
-          inFlightAggregation.expired(lastTsBeforeValidation)
-        }
+        expireInFlightAggregations(finalInFlightAggregations, lastTsBeforeValidation)
       chunkUpdate =
         ChunkUpdate(
           acksByMember,
@@ -161,6 +159,14 @@ final class BlockChunkProcessor(
         )
     } yield (newState, chunkUpdate)
   }
+
+  private def expireInFlightAggregations(
+      finalInFlightAggregations: InFlightAggregations,
+      timestamp: CantonTimestamp,
+  ): InFlightAggregations =
+    finalInFlightAggregations.filterNot { case (_, inFlightAggregation) =>
+      inFlightAggregation.expired(timestamp)
+    }
 
   private def logChunkDetails(
       state: State,
@@ -253,7 +259,6 @@ final class BlockChunkProcessor(
           synchronizerSyncCryptoApi,
           tickSequencingTimestamp,
           state.latestSequencerEventTimestamp,
-          protocolVersion,
           warnIfApproximate = false,
         )
       _ = logger.debug(
@@ -265,10 +270,15 @@ final class BlockChunkProcessor(
           snapshot.ipsSnapshot,
         )
     } yield {
+      val unexpiredInFlightAggregations = expireInFlightAggregations(
+        state.inFlightAggregations,
+        tickSequencingTimestamp,
+      )
       val newState =
         state.copy(
           lastChunkTs = tickSequencingTimestamp,
           latestSequencerEventTimestamp = Some(tickSequencingTimestamp),
+          inFlightAggregations = unexpiredInFlightAggregations,
         )
       val tickSubmissionOutcome =
         SubmissionOutcome.Deliver(
@@ -294,7 +304,7 @@ final class BlockChunkProcessor(
         invalidAcknowledgements = Seq.empty,
         inFlightAggregationUpdates = Map.empty,
         lastSequencerEventTimestamp = Some(tickSequencingTimestamp),
-        inFlightAggregations = state.inFlightAggregations,
+        inFlightAggregations = unexpiredInFlightAggregations,
         submissionsOutcomes = Seq(tickSubmissionOutcome),
       )
 
@@ -310,6 +320,9 @@ final class BlockChunkProcessor(
       // With this logic, we assign to the initial non-Send events the same timestamp as for the last
       // block. This means that we will include these events in the ephemeral state of the previous block
       // when we re-read it from the database. But this doesn't matter given that all those events are idempotent.
+      // This is purely data sanitization (which is checked by a validation), i.e., so that acknowledgements are
+      // assigned a sequencing time that corresponds to an actual (i.e. `Send`) event and that is also surely
+      // at or after the acknowledged timestamp. This has no effect whatsoever on transaction processing.
       chunk.forgetNE.foldLeft[
         (CantonTimestamp, Seq[(CantonTimestamp, Traced[LedgerBlockEvent])]),
       ]((state.lastChunkTs, Seq.empty)) { case ((lastTs, events), event) =>
@@ -382,7 +395,6 @@ final class BlockChunkProcessor(
                         topologyTimestamp,
                         sequencingTimestamp,
                         latestSequencerEventTimestamp,
-                        protocolVersion,
                         warnIfApproximate,
                         _.sequencerTopologyTimestampTolerance,
                       )
@@ -416,7 +428,6 @@ final class BlockChunkProcessor(
                         synchronizerSyncCryptoApi,
                         sequencingTimestamp,
                         latestSequencerEventTimestamp,
-                        protocolVersion,
                         warnIfApproximate,
                       )
                       .map { snapshot =>
@@ -471,11 +482,10 @@ final class BlockChunkProcessor(
         synchronizerSyncCryptoApi,
         state.lastBlockTs,
         state.latestSequencerEventTimestamp,
-        protocolVersion,
         warnIfApproximate = false,
       )
       synchronizerSuccessorO <- snapshot.ipsSnapshot
-        .isSynchronizerUpgradeOngoing()
+        .synchronizerUpgradeOngoing()
         .map(_.map { case (successor, _) => successor })
       allAcknowledgements = fixedTsChanges.collect { case (_, t @ Traced(Acknowledgment(_, ack))) =>
         t.map(_ => ack)

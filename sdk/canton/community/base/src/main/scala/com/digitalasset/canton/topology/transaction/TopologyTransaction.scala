@@ -169,6 +169,7 @@ final case class TopologyTransaction[+Op <: TopologyChangeOp, +M <: TopologyMapp
       unnamedParam(_.mapping),
       param("serial", _.serial),
       param("operation", _.operation),
+      param("hash", _.hash.hash),
     )
 
   @transient override protected lazy val companionObj: TopologyTransaction.type =
@@ -185,6 +186,7 @@ object TopologyTransaction
   override val name: String = "TopologyTransaction"
 
   type GenericTopologyTransaction = TopologyTransaction[TopologyChangeOp, TopologyMapping]
+  type PositiveTopologyTransaction = TopologyTransaction[TopologyChangeOp.Replace, TopologyMapping]
 
   val versioningTable: VersioningTable =
     VersioningTable(

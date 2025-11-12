@@ -7,9 +7,9 @@ import com.digitalasset.canton.admin.api.client.data.TemplateId
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
   UsePostgres,
   UseProgrammableSequencer,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -17,8 +17,9 @@ import com.digitalasset.canton.integration.{
   SharedEnvironment,
 }
 import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
+import com.digitalasset.canton.participant.admin.PingService
 import com.digitalasset.canton.participant.admin.workflows.java.canton.internal.ping.Ping
-import com.digitalasset.canton.participant.admin.{AdminWorkflowServices, PingService}
+import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.synchronizer.sequencer.{HasProgrammableSequencer, SendDecision}
 import org.slf4j.event.Level
 
@@ -87,7 +88,7 @@ trait AdminWorkflowConfigTest
   }
 
   val ReUploadSuppressionRule: SuppressionRule =
-    SuppressionRule.forLogger[AdminWorkflowServices] && SuppressionRule.Level(Level.DEBUG)
+    SuppressionRule.forLogger[CantonSyncService] && SuppressionRule.Level(Level.DEBUG)
 
   "Dar is not re-uploaded if participant is restarted" in { implicit env =>
     import env.*
@@ -103,6 +104,7 @@ trait AdminWorkflowConfigTest
         // AdminWorkflowPackages are already loaded from previous ping timeout test
         participant1.stop()
         participant1.start()
+        participant1.synchronizers.reconnect_all()
       },
       allLogEntries => {
         val logEntries = logEntriesOfInterest(allLogEntries)
@@ -116,6 +118,6 @@ trait AdminWorkflowConfigTest
 
 class AdminWorkflowConfigTestPostgres extends AdminWorkflowConfigTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
   registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
 }

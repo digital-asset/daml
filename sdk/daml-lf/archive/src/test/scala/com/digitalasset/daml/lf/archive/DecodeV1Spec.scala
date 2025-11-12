@@ -15,7 +15,6 @@ import org.scalatest.{Inside, OptionValues}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.Ordering.Implicits.infixOrderingOps
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
@@ -70,7 +69,7 @@ class DecodeV1Spec
   private[this] val dummyModuleStr = "dummyModule"
   private[this] val dummyModuleName = Ref.DottedName.assertFromString(dummyModuleStr)
 
-  private[this] val lfVersions = LV.AllV1
+  private[this] val lfVersions = LV.allLegacyLfVersions
 
   private[this] def forEveryVersionSuchThat[U](cond: LV => Boolean)(f: LV => U): Unit = {
     lfVersions.foreach { version =>
@@ -95,7 +94,7 @@ class DecodeV1Spec
       typeTable,
       None,
       Some(dummyModuleName),
-      onlySerializableDataDefs = false,
+      schemaMode = false,
     )
   }
 
@@ -907,7 +906,7 @@ class DecodeV1Spec
           IndexedSeq.empty,
           None,
           None,
-          onlySerializableDataDefs = false,
+          schemaMode = false,
         )
         val parseError =
           the[Error.Parsing] thrownBy (decoder

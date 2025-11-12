@@ -19,6 +19,7 @@ import com.digitalasset.canton.participant.store.{
   AcsCounterParticipantConfigStore,
   CommitmentQueue,
   IncrementalCommitmentStore,
+  UpdateMode,
 }
 import com.digitalasset.canton.protocol.messages.{
   AcsCommitment,
@@ -340,16 +341,19 @@ class InMemoryIncrementalCommitments(
 ) extends IncrementalCommitmentStore {
   private val snap: TrieMap[SortedSet[LfPartyId], AcsCommitment.CommitmentType] = TrieMap.empty
   snap ++= initialHashes
+  private val checkpointSnap: TrieMap[SortedSet[LfPartyId], AcsCommitment.CommitmentType] =
+    TrieMap.empty
+  checkpointSnap ++= initialHashes
 
   private val rt: AtomicReference[RecordTime] = new AtomicReference(initialRt)
+  private val checkpointRt: AtomicReference[RecordTime] = new AtomicReference(initialRt)
 
   private val reinitStarted: AtomicReference[Option[CantonTimestamp]] = new AtomicReference(None)
   private val reinitCompleted: AtomicReference[Option[CantonTimestamp]] = new AtomicReference(None)
 
   private object lock
 
-  /** Update the snapshot */
-  private def update_(
+  private def updateSnap(
       rt: RecordTime,
       updates: Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
       deletes: Set[SortedSet[LfPartyId]],
@@ -362,25 +366,55 @@ class InMemoryIncrementalCommitments(
     }
   }
 
-  private def watermark_(): RecordTime = rt.get()
+  private def updateCheckpointSnap(
+      rt: RecordTime,
+      updates: Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
+      deletes: Set[SortedSet[LfPartyId]],
+  ): Unit = blocking {
+    lock.synchronized {
+      this.checkpointRt.set(rt)
+      checkpointSnap --= deletes
+      checkpointSnap ++= updates
+      ()
+    }
+  }
+
+  /** Update the snapshot */
+  private def update_(
+      rt: RecordTime,
+      updates: Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
+      deletes: Set[SortedSet[LfPartyId]],
+      updateMode: UpdateMode,
+  ): Unit =
+    updateMode match {
+      case UpdateMode.Checkpoint =>
+        updateCheckpointSnap(rt, updates, deletes)
+      case UpdateMode.Efficiency =>
+        updateSnap(rt, updates, deletes)
+    }
+
+  private def watermark_(): RecordTime = checkpointRt.get()
 
   /** A read-only version of the snapshot.
     */
   def snapshot: TrieMap[SortedSet[LfPartyId], AcsCommitment.CommitmentType] = snap.snapshot()
+  def checkpointSnapshot: TrieMap[SortedSet[LfPartyId], AcsCommitment.CommitmentType] =
+    checkpointSnap.snapshot()
 
   override def get()(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[(RecordTime, Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType])] = {
     val rt = watermark_()
-    FutureUnlessShutdown.pure((rt, snapshot.toMap))
+    FutureUnlessShutdown.pure((rt, checkpointSnapshot.toMap))
   }
 
   override def update(
       rt: RecordTime,
       updates: Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
       deletes: Set[SortedSet[LfPartyId]],
+      updateMode: UpdateMode,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    FutureUnlessShutdown.pure(update_(rt, updates, deletes))
+    FutureUnlessShutdown.pure(update_(rt, updates, deletes, updateMode))
 
   override def watermark(implicit traceContext: TraceContext): FutureUnlessShutdown[RecordTime] =
     FutureUnlessShutdown.pure(watermark_())
@@ -465,6 +499,13 @@ class InMemoryCommitmentQueue(implicit val ec: ExecutionContext) extends Commitm
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[BufferedAcsCommitment]] =
     sync {
       queue.filter(_.period.toInclusive >= timestamp).toSeq
+    }
+
+  override def nonEmptyAtOrAfter(
+      timestamp: CantonTimestamp
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Boolean] =
+    sync {
+      queue.exists(_.period.toInclusive >= timestamp)
     }
 
   def peekOverlapsForCounterParticipant(

@@ -13,7 +13,6 @@ import com.daml.metrics.HealthMetrics
 import com.daml.metrics.api.MetricHandle.Gauge.CloseableGauge
 import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.api.MetricName
-import com.daml.metrics.grpc.GrpcServerMetrics
 import com.daml.nonempty.NonEmpty
 import com.daml.tracing.DefaultOpenTelemetry
 import com.digitalasset.canton.admin.health.v30.StatusServiceGrpc
@@ -37,8 +36,7 @@ import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.admin.grpc.GrpcVaultService
 import com.digitalasset.canton.crypto.admin.v30.VaultServiceGrpc
-import com.digitalasset.canton.crypto.kms.KmsFactory
-import com.digitalasset.canton.crypto.store.{CryptoPrivateStoreError, CryptoPrivateStoreFactory}
+import com.digitalasset.canton.crypto.store.CryptoPrivateStoreError
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.CantonNodeBootstrap.HealthDumpFunction
@@ -65,13 +63,16 @@ import com.digitalasset.canton.lifecycle.{
   LifeCycle,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.metrics.ActiveRequestsMetrics.GrpcServerMetricsX
 import com.digitalasset.canton.metrics.{DbStorageMetrics, DeclarativeApiMetrics}
 import com.digitalasset.canton.networking.grpc.{
   CantonGrpcUtil,
   CantonMutableHandlerRegistry,
   CantonServerBuilder,
 }
+import com.digitalasset.canton.replica.ReplicaManager
 import com.digitalasset.canton.resource.{Storage, StorageFactory}
+import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.telemetry.ConfiguredOpenTelemetry
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
@@ -176,7 +177,8 @@ trait BaseMetrics {
 
   def openTelemetryMetricsFactory: LabeledMetricsFactory
 
-  def grpcMetrics: GrpcServerMetrics
+  def grpcMetrics: GrpcServerMetricsX
+
   def healthMetrics: HealthMetrics
   def storageMetrics: DbStorageMetrics
   val declarativeApiMetrics: DeclarativeApiMetrics
@@ -195,8 +197,7 @@ final case class CantonNodeBootstrapCommonArguments[
     clock: Clock,
     metrics: M,
     storageFactory: StorageFactory,
-    cryptoPrivateStoreFactory: CryptoPrivateStoreFactory,
-    kmsFactory: KmsFactory,
+    replicaManager: Option[ReplicaManager],
     futureSupervisor: FutureSupervisor,
     loggerFactory: NamedLoggerFactory,
     writeHealthDumpToFile: HealthDumpFunction,
@@ -285,8 +286,8 @@ abstract class CantonNodeBootstrapImpl[
   private def waitingFor: Option[WaitingForExternalInput] = {
     def nextStage(stage: BootstrapStage[?, ?]): Option[BootstrapStage[?, ?]] =
       stage.next match {
-        case Some(s: BootstrapStage[_, _]) => nextStage(s)
-        case Some(_: RunningNode[_]) => None
+        case Some(s: BootstrapStage[?, ?]) => nextStage(s)
+        case Some(_: RunningNode[?]) => None
         // BootstrapStageOrLeaf is not a sealed class, therefore we need to catch any other
         // possible subclass
         case Some(_) => None
@@ -350,6 +351,7 @@ abstract class CantonNodeBootstrapImpl[
 
   protected def customNodeStages(
       storage: Storage,
+      indexedStringStore: IndexedStringStore,
       crypto: Crypto,
       adminServerRegistry: CantonMutableHandlerRegistry,
       adminTokenDispenser: CantonAdminTokenDispenser,
@@ -468,11 +470,11 @@ abstract class CantonNodeBootstrapImpl[
         Crypto
           .create(
             cryptoConfig,
+            arguments.parameterConfig.cachingConfigs.kmsMetadataCache,
             arguments.parameterConfig.cachingConfigs.sessionEncryptionKeyCache,
             arguments.parameterConfig.cachingConfigs.publicKeyConversionCache,
             storage,
-            arguments.cryptoPrivateStoreFactory,
-            arguments.kmsFactory,
+            arguments.replicaManager,
             ReleaseProtocolVersion.latest,
             arguments.futureSupervisor,
             arguments.clock,
@@ -630,15 +632,6 @@ abstract class CantonNodeBootstrapImpl[
       bootstrapStageCallback.loggerFactory,
     )
     addCloseable(initializationStore)
-    private val authorizedStore =
-      TopologyStore(
-        TopologyStoreId.AuthorizedStore,
-        storage,
-        ProtocolVersion.latest,
-        bootstrapStageCallback.timeouts,
-        bootstrapStageCallback.loggerFactory,
-      )
-    addCloseable(authorizedStore)
 
     adminServerRegistry
       .addServiceU(
@@ -669,19 +662,40 @@ abstract class CantonNodeBootstrapImpl[
         result: SetupNodeIdResult
     ): EitherT[FutureUnlessShutdown, String, GenerateOrAwaitNodeTopologyTx] = {
       val (uid, transactions) = result
-      EitherT.rightT(
-        new GenerateOrAwaitNodeTopologyTx(
-          uid,
-          transactions,
-          authorizedStore,
-          storage,
-          crypto,
-          adminServerRegistry,
-          adminTokenDispenser,
-          healthReporter,
-          healthService,
-        )
+      val indexedStringStore = IndexedStringStore.create(
+        storage,
+        parameters.cachingConfigs.indexedStrings,
+        bootstrapStageCallback.timeouts,
+        bootstrapStageCallback.loggerFactory,
       )
+      addCloseable(indexedStringStore)
+      EitherT
+        .right(
+          TopologyStore.create(
+            TopologyStoreId.AuthorizedStore,
+            storage,
+            indexedStringStore,
+            ProtocolVersion.latest,
+            bootstrapStageCallback.timeouts,
+            parameters.batchingConfig,
+            bootstrapStageCallback.loggerFactory,
+          )
+        )
+        .map { authorizedStore =>
+          addCloseable(authorizedStore)
+          new GenerateOrAwaitNodeTopologyTx(
+            uid,
+            transactions,
+            authorizedStore,
+            indexedStringStore,
+            storage,
+            crypto,
+            adminServerRegistry,
+            adminTokenDispenser,
+            healthReporter,
+            healthService,
+          )
+        }
     }
 
     override protected def autoCompleteStage(): EitherT[FutureUnlessShutdown, String, Option[
@@ -725,8 +739,11 @@ abstract class CantonNodeBootstrapImpl[
       val snapshotValidator = new InitialTopologySnapshotValidator(
         crypto.pureCrypto,
         temporaryTopologyStore,
-        this.timeouts,
-        this.loggerFactory,
+        // there are no synchronizer parameters here, so we cannot pass them.
+        // as we are only expecting namespace delegations that end up in the authorized store, this is fine
+        staticSynchronizerParameters = None,
+        validateInitialSnapshot = config.topology.validateInitialTopologySnapshot,
+        loggerFactory = this.loggerFactory,
       )
 
       for {
@@ -901,6 +918,7 @@ abstract class CantonNodeBootstrapImpl[
         PositiveSignedTopologyTransaction
       ], // transactions that were added during init
       authorizedStore: TopologyStore[TopologyStoreId.AuthorizedStore],
+      indexedStringStore: IndexedStringStore,
       storage: Storage,
       crypto: Crypto,
       adminServerRegistry: CantonMutableHandlerRegistry,
@@ -930,48 +948,6 @@ abstract class CantonNodeBootstrapImpl[
     private val topologyManager: AuthorizedTopologyManager =
       createAuthorizedTopologyManager(nodeId, crypto, authorizedStore, storage)
     addCloseable(topologyManager)
-    adminServerRegistry
-      .addServiceU(
-        adminV30.TopologyManagerReadServiceGrpc
-          .bindService(
-            new GrpcTopologyManagerReadService(
-              member(nodeId),
-              temporaryStoreRegistry.stores() ++ sequencedTopologyStores :+ authorizedStore,
-              crypto,
-              lookupTopologyClient,
-              lookupActivePSId,
-              processingTimeout = parameters.processingTimeouts,
-              bootstrapStageCallback.loggerFactory,
-            ),
-            executionContext,
-          )
-      )
-    adminServerRegistry
-      .addServiceU(
-        adminV30.TopologyManagerWriteServiceGrpc
-          .bindService(
-            new GrpcTopologyManagerWriteService(
-              temporaryStoreRegistry.managers() ++ sequencedTopologyManagers :+ topologyManager,
-              lookupActivePSId,
-              temporaryStoreRegistry,
-              bootstrapStageCallback.loggerFactory,
-            ),
-            executionContext,
-          )
-      )
-    adminServerRegistry
-      .addServiceU(
-        adminV30.TopologyAggregationServiceGrpc.bindService(
-          new GrpcTopologyAggregationService(
-            sequencedTopologyStores.mapFilter(
-              TopologyStoreId.select[TopologyStoreId.SynchronizerStore]
-            ),
-            ips,
-            bootstrapStageCallback.loggerFactory,
-          ),
-          executionContext,
-        )
-      )
 
     private val topologyManagerObserver = new TopologyManagerObserver {
       override def addedNewTransactions(
@@ -999,17 +975,63 @@ abstract class CantonNodeBootstrapImpl[
     ): EitherT[FutureUnlessShutdown, String, Unit] = {
       // Register the observer first so that it does not race with the removal when the stage has finished.
       topologyManager.addObserver(topologyManagerObserver)
-      // Add any topology transactions that were passed as part of the init process
-      // This is not crash safe if we crash between storing the node-id and adding the transactions,
-      // but a crash can recovered (use manual for anything).
-      topologyManager
-        .add(
-          transactions,
-          forceChanges = ForceFlags.none,
-          expectFullAuthorization = true,
-        )
-        .leftMap(_.cause)
-        .flatMap(_ => super.start())
+      for {
+        _ <- EitherT.right(topologyManager.initialize)
+        // add services after the topology manager is initialized
+        _ = {
+          adminServerRegistry
+            .addServiceU(
+              adminV30.TopologyManagerReadServiceGrpc
+                .bindService(
+                  new GrpcTopologyManagerReadService(
+                    member(nodeId),
+                    temporaryStoreRegistry.stores() ++ sequencedTopologyStores :+ authorizedStore,
+                    crypto,
+                    lookupTopologyClient,
+                    lookupActivePSId,
+                    processingTimeout = parameters.processingTimeouts,
+                    bootstrapStageCallback.loggerFactory,
+                  ),
+                  executionContext,
+                )
+            )
+          adminServerRegistry
+            .addServiceU(
+              adminV30.TopologyManagerWriteServiceGrpc
+                .bindService(
+                  new GrpcTopologyManagerWriteService(
+                    temporaryStoreRegistry
+                      .managers() ++ sequencedTopologyManagers :+ topologyManager,
+                    lookupActivePSId,
+                    temporaryStoreRegistry,
+                    parameters,
+                    bootstrapStageCallback.loggerFactory,
+                  ),
+                  executionContext,
+                )
+            )
+          adminServerRegistry
+            .addServiceU(
+              adminV30.TopologyAggregationServiceGrpc.bindService(
+                new GrpcTopologyAggregationService(
+                  sequencedTopologyStores.mapFilter(
+                    TopologyStoreId.select[TopologyStoreId.SynchronizerStore]
+                  ),
+                  ips,
+                  bootstrapStageCallback.loggerFactory,
+                ),
+                executionContext,
+              )
+            )
+        }
+        // Add any topology transactions that were passed as part of the init process
+        // This is not crash safe if we crash between storing the node-id and adding the transactions,
+        // but a crash can recovered (use manual for anything).
+        _ <- topologyManager
+          .add(transactions, forceChanges = ForceFlags.none, expectFullAuthorization = true)
+          .leftMap(_.cause)
+        _ <- super.start()
+      } yield ()
     }
 
     override def waitingFor: Option[WaitingForExternalInput] = Some(WaitingForNodeTopology)
@@ -1050,6 +1072,7 @@ abstract class CantonNodeBootstrapImpl[
       EitherT.rightT(
         customNodeStages(
           storage,
+          indexedStringStore,
           crypto,
           adminServerRegistry,
           adminTokenDispenser,

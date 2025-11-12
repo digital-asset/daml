@@ -4,6 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer
 
 import cats.data.EitherT
+import cats.syntax.bifunctor.*
 import cats.syntax.either.*
 import cats.syntax.option.*
 import com.daml.nameof.NameOf.functionFullName
@@ -11,6 +12,7 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.crypto.SynchronizerCryptoClient
 import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerSuccessor}
+import com.digitalasset.canton.error.CantonBaseError
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.metrics.MetricsHelper
@@ -26,6 +28,7 @@ import com.digitalasset.canton.synchronizer.sequencer.admin.data.{
   SequencerAdminStatus,
   SequencerHealthStatus,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.BlockOrderer
 import com.digitalasset.canton.synchronizer.sequencer.errors.SequencerError.SnapshotNotFound
 import com.digitalasset.canton.synchronizer.sequencer.errors.{
   CreateSubscriptionError,
@@ -288,7 +291,7 @@ class DatabaseSequencer(
 
   override protected def sendAsyncInternal(submission: SubmissionRequest)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit] =
+  ): EitherT[FutureUnlessShutdown, CantonBaseError, Unit] =
     for {
       // TODO(#12405) Support aggregatable submissions in the DB sequencer
       _ <- EitherT.cond[FutureUnlessShutdown](
@@ -309,7 +312,7 @@ class DatabaseSequencer(
           "Group addresses are not yet supported by this database sequencer"
         ),
       )
-      _ <- writer.send(submission)
+      _ <- writer.send(submission).leftWiden[CantonBaseError]
     } yield ()
 
   protected def blockSequencerWriteInternal(
@@ -323,7 +326,7 @@ class DatabaseSequencer(
       signedSubmission: SignedContent[SubmissionRequest]
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit] =
+  ): EitherT[FutureUnlessShutdown, CantonBaseError, Unit] =
     sendAsyncInternal(signedSubmission.content)
 
   override def readInternal(member: Member, timestamp: Option[CantonTimestamp])(implicit
@@ -530,4 +533,6 @@ class DatabaseSequencer(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[CantonTimestamp]] =
     FutureUnlessShutdown.pure(None)
+
+  override private[canton] def orderer: Option[BlockOrderer] = None
 }

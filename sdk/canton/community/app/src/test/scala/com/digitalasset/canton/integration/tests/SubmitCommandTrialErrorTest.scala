@@ -11,10 +11,7 @@ import com.digitalasset.canton.error.TransactionRoutingError.TopologyErrors.{
   UnknownSubmitters,
 }
 import com.digitalasset.canton.examples.java.iou.*
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
@@ -124,6 +121,8 @@ trait SubmitCommandTrialErrorTest extends CommunityIntegrationTest with SharedEn
 
       participant2.dars.upload(CantonExamplesPath)
 
+      participant2.packages.synchronize_vetting()
+
       participant1.ledger_api.javaapi.commands.submit(Seq(Bank), cmds)
     }
 
@@ -147,6 +146,6 @@ trait SubmitCommandTrialErrorTest extends CommunityIntegrationTest with SharedEn
 class SubmitCommandTrialErrorTestPostgres extends SubmitCommandTrialErrorTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory)
+    new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory)
   )
 }

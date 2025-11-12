@@ -116,7 +116,7 @@ class TrafficPurchasedSubmissionHandlerTest
       Try(callbackCapture.getValue).isSuccess shouldBe true
     }
     callbackCapture.getValue.asInstanceOf[SendCallback.CallbackFuture](
-      UnlessShutdown.Outcome(SendResult.Success(mock[Deliver[Envelope[_]]]))
+      UnlessShutdown.Outcome(SendResult.Success(mock[Deliver[Envelope[?]]]))
     )
     maxSequencingTimeCapture.getValue shouldBe clock.now.plusSeconds(
       trafficParams.setBalanceRequestSubmissionWindowSize.duration.toSeconds
@@ -142,11 +142,11 @@ class TrafficPurchasedSubmissionHandlerTest
       )
     )
     batch.envelopes.foreach { envelope =>
-      envelope.protocolMessage shouldBe a[SignedProtocolMessage[_]]
+      envelope.protocolMessage shouldBe a[SignedProtocolMessage[?]]
       val topUpMessage = envelope.protocolMessage
         .asInstanceOf[SignedProtocolMessage[SetTrafficPurchasedMessage]]
         .message
-      topUpMessage.synchronizerId shouldBe synchronizerId
+      topUpMessage.psid shouldBe synchronizerId
       topUpMessage.serial.value shouldBe 5
       topUpMessage.member shouldBe recipient1
       topUpMessage.totalTrafficPurchased.value shouldBe 1000
@@ -200,7 +200,7 @@ class TrafficPurchasedSubmissionHandlerTest
     }
     callbackCapture.getAllValues.asScala.foreach {
       _.asInstanceOf[SendCallback.CallbackFuture](
-        UnlessShutdown.Outcome(SendResult.Success(mock[Deliver[Envelope[_]]]))
+        UnlessShutdown.Outcome(SendResult.Success(mock[Deliver[Envelope[?]]]))
       )
     }
 

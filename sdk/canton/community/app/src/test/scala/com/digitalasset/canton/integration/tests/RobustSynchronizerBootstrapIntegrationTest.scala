@@ -18,11 +18,8 @@ import com.digitalasset.canton.console.{
 }
 import com.digitalasset.canton.crypto.KeyPurpose
 import com.digitalasset.canton.integration.*
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.logging.SuppressionRule
 import com.digitalasset.canton.sequencing.{SequencerConnectionValidation, SequencerConnections}
 import com.digitalasset.canton.synchronizer.mediator.MediatorNodeConfig
@@ -94,7 +91,7 @@ sealed trait RobustSynchronizerBootstrapIntegrationTest
     new LocalSequencerReference(env, sequencerReference.name) {
       val counter = new AtomicInteger(0)
       override def setup: SequencerAdministration = new SequencerAdministration(this) {
-        override def assign_from_genesis_state(
+        override def assign_from_genesis_stateV2(
             genesisState: ByteString,
             synchronizerParameters: StaticSynchronizerParameters,
             waitForReady: Boolean,
@@ -102,7 +99,7 @@ sealed trait RobustSynchronizerBootstrapIntegrationTest
           if (counter.incrementAndGet() == 1)
             throw new RuntimeException("First time sequencer init fails")
           else
-            super.assign_from_genesis_state(genesisState, synchronizerParameters)
+            super.assign_from_genesis_stateV2(genesisState, synchronizerParameters)
       }
     }
 
@@ -235,7 +232,7 @@ sealed trait RobustSynchronizerBootstrapIntegrationTest
       mediator.stop()
     }
 
-    "fail if trying to boostrap a synchronizer with a sequencer or mediator already initialized previously with another synchronizer" in {
+    "fail if trying to bootstrap a synchronizer with a sequencer or mediator already initialized previously with another synchronizer" in {
       implicit env =>
         import env.*
 
@@ -310,7 +307,7 @@ class RobustSynchronizerBootstrapIntegrationTestPostgres
     extends RobustSynchronizerBootstrapIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](
+    new UseReferenceBlockSequencer[DbConfig.Postgres](
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(Set("sequencer1"), Set("secondSequencer"), Set("sequencerToFail")).map(

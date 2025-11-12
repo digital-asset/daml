@@ -11,11 +11,14 @@ import com.daml.ledger.api.v2.topology_transaction.{
   TopologyTransaction,
 }
 import com.digitalasset.canton.auth.AuthorizationChecksErrors.PermissionDenied
+import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{DbConfig, NonNegativeFiniteDuration}
 import com.digitalasset.canton.console.{CommandFailure, LocalParticipantReference}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.bootstrap.NetworkBootstrapper
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
 import com.digitalasset.canton.integration.util.PartyToParticipantDeclarative
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -45,6 +48,8 @@ import org.scalatest.Inside.inside
 import org.scalatest.matchers.should.Matchers.*
 import org.slf4j.event.Level
 
+import scala.annotation.nowarn
+
 trait LedgerApiTopologyTransactionsTest extends CommunityIntegrationTest with SharedEnvironment {
 
   import LedgerApiTopologyTransactionsTest.*
@@ -55,8 +60,16 @@ trait LedgerApiTopologyTransactionsTest extends CommunityIntegrationTest with Sh
   private val maxDedupDuration = java.time.Duration.ofSeconds(2)
   private val reconciliationInterval = config.PositiveDurationSeconds.ofSeconds(1)
 
+  @nowarn("msg=match may not be exhaustive")
   override lazy val environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P2_S1M1
+    EnvironmentDefinition.P3S2M2_Config
+      .withNetworkBootstrap { implicit env =>
+        val Seq(daDesc, acmeDesc) = EnvironmentDefinition.S1M1_S1M1
+        new NetworkBootstrapper(
+          daDesc,
+          acmeDesc.withTopologyChangeDelay(NonNegativeFiniteDuration.ofSeconds(10)),
+        )
+      }
       .addConfigTransforms(
         ConfigTransforms.updateMaxDeduplicationDurations(maxDedupDuration)
       )
@@ -393,23 +406,29 @@ trait LedgerApiTopologyTransactionsTest extends CommunityIntegrationTest with Sh
     implicit env =>
       import env.*
 
-      sequencer1.topology.synchronizer_parameters.propose_update(
-        daId,
-        _.copy(
-          // giving plenty of time for the test to succeed
-          topologyChangeDelay = NonNegativeFiniteDuration.Zero.plusSeconds(10)
-        ),
-      )
-      val babayaga = participant1.parties.enable(
+      // run this test case against a synchronizer with a large topology change delay and a fresh participant,
+      // so that the other synchronizer used in this test doesn't interfere with its pruning timestamps
+      eventually() {
+        sequencer2.topology.sequencers
+          .list(acmeId)
+          .flatMap(_.item.active.forgetNE)
+          .loneElement shouldBe sequencer2.id
+
+      }
+      participant3.synchronizers.connect_local(sequencer2, acmeName)
+      participant3.health.ping(participant3, synchronizerId = acmeId)
+
+      val babayaga = participant3.parties.enable(
         "Babayaga",
         synchronizeParticipants = Seq(),
         synchronize = None,
+        synchronizer = acmeName,
       )
       val (sequencedTime, effectiveTime) = eventually() {
-        participant1.topology.transactions
+        participant3.topology.transactions
           .list(
             timeQuery = TimeQuery.Snapshot(wallClock.now.plusSeconds(20)),
-            store = daId,
+            store = acmeId,
             filterMappings = List(TopologyMapping.Code.PartyToParticipant),
           )
           .result
@@ -425,8 +444,8 @@ trait LedgerApiTopologyTransactionsTest extends CommunityIntegrationTest with Sh
       }
       // making sure that the topology transaction is fully processed
       eventually() {
-        val synchronizerIndex = participant1.testing.state_inspection
-          .lookupCleanSynchronizerIndex(daName)
+        val synchronizerIndex = participant3.testing.state_inspection
+          .lookupCleanSynchronizerIndex(acmeName)
           .value
           .failOnShutdown
           .futureValue
@@ -437,22 +456,22 @@ trait LedgerApiTopologyTransactionsTest extends CommunityIntegrationTest with Sh
         synchronizerIndex.sequencerIndex.value.sequencerTimestamp should be >= sequencedTime
       }
 
-      participant1.synchronizers.disconnect(daName)
-      participant1.synchronizers.reconnect(daName, synchronize = None)
+      participant3.synchronizers.disconnect(acmeName)
+      participant3.synchronizers.reconnect(acmeName, synchronize = None)
 
       // making sure that the topology update is not visible just yet: synchronizer time did not reach the effective time yet
       // (crash recovery for topology events should just schedule the event, not emit it)
-      participant1.ledger_api.updates
+      participant3.ledger_api.updates
         .topology_transactions(
           1,
           Seq(babayaga),
           0,
-          Some(participant1.ledger_api.state.end()),
+          Some(participant3.ledger_api.state.end()),
         ) should have size 0
 
       // making sure that the effective time is not yet passed after synchronizer reconnect
-      val currentRecordTime = participant1.testing.state_inspection
-        .lookupCleanSynchronizerIndex(daName)
+      val currentRecordTime = participant3.testing.state_inspection
+        .lookupCleanSynchronizerIndex(acmeName)
         .value
         .failOnShutdown
         .futureValue
@@ -464,14 +483,14 @@ trait LedgerApiTopologyTransactionsTest extends CommunityIntegrationTest with Sh
       currentRecordTime should be >= sequencedTime
       currentRecordTime should be < effectiveTime
 
-      participant1.health.ping(participant1)
-      val ledgerEnd = participant1.ledger_api.state.end()
+      participant3.health.ping(participant3, synchronizerId = acmeId)
+      val ledgerEnd = participant3.ledger_api.state.end()
 
       // After a while the not-yet effective topology transaction should be the cause for pruning error
       eventually() {
-        participant1.health.ping(participant1)
+        participant3.health.ping(participant3)
         loggerFactory.assertThrowsAndLogs[CommandFailure](
-          participant1.pruning.prune(ledgerEnd),
+          participant3.pruning.prune(ledgerEnd),
           logEntry => {
             logEntry.errorMessage should include(UnsafeToPrune.id)
             logEntry.errorMessage should include("due to Topology event crash recovery")
@@ -481,8 +500,8 @@ trait LedgerApiTopologyTransactionsTest extends CommunityIntegrationTest with Sh
 
       // the topology update is getting emitted on effective time
       eventually() {
-        val updates = participant1.ledger_api.updates
-          .topology_transactions(1, Seq(babayaga), 0, Some(participant1.ledger_api.state.end()))
+        val updates = participant3.ledger_api.updates
+          .topology_transactions(1, Seq(babayaga), 0, Some(participant3.ledger_api.state.end()))
           .map(_.topologyTransaction)
         updates should have size 1
         CantonTimestamp
@@ -493,7 +512,9 @@ trait LedgerApiTopologyTransactionsTest extends CommunityIntegrationTest with Sh
       }
 
       // and after effective time emission the participant can be pruned above the related sequenced time
-      participant1.pruning.prune(ledgerEnd)
+      participant3.pruning.prune(ledgerEnd)
+
+      participant3.synchronizers.disconnect(acmeName)
   }
 
   "Topology transaction is emitted in case SynchronizerTrustCertificate revocation" in {
@@ -622,5 +643,15 @@ private object LedgerApiTopologyTransactionsTest {
 }
 
 class LedgerApiTopologyTransactionsTestDefault extends LedgerApiTopologyTransactionsTest {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(
+    new UseReferenceBlockSequencer[DbConfig.H2](
+      loggerFactory,
+      sequencerGroups = MultiSynchronizer(
+        Seq(
+          Set(InstanceName.tryCreate("sequencer1")),
+          Set(InstanceName.tryCreate("sequencer2")),
+        )
+      ),
+    )
+  )
 }

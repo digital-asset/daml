@@ -27,6 +27,11 @@ import com.digitalasset.canton.logging.pretty.CantonPrettyPrinter
   * @param warnBeyondLoad
   *   If API logging is turned on, emit a warning on each request if the load exceeds this
   *   threshold.
+  * @param debugInProcessRequests
+  *   grpc in-process communication is logged with DEBUG level otherwise only in TRACE
+  * @param prefixGrpcAddresses
+  *   Prefix connecting gRPC client addresses with "grpc:" (default: true, false for full backwards
+  *   compatibility). http is always prefixed with "http:"
   */
 final case class ApiLoggingConfig(
     messagePayloads: Boolean = false,
@@ -35,6 +40,8 @@ final case class ApiLoggingConfig(
     maxStringLength: Int = ApiLoggingConfig.defaultMaxStringLength,
     maxMetadataSize: Int = ApiLoggingConfig.defaultMaxMetadataSize,
     warnBeyondLoad: Option[Int] = ApiLoggingConfig.defaultWarnBeyondLoad,
+    debugInProcessRequests: Boolean = false,
+    prefixGrpcAddresses: Boolean = true,
 ) extends UniformCantonConfigValidation {
 
   /** Pretty printer for logging event details */

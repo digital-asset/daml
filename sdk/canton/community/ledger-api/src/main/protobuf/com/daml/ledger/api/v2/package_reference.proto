@@ -5,6 +5,7 @@ syntax = "proto3";
 
 package com.daml.ledger.api.v2;
 
+import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 
 option csharp_namespace = "Com.Daml.Ledger.Api.V2";
@@ -37,10 +38,12 @@ message VettedPackage {
 
   // Name of this package.
   // Only available if the package has been uploaded to the current participant.
+  // If unavailable, is empty string.
   string package_name = 4;
 
   // Version of this package.
   // Only available if the package has been uploaded to the current participant.
+  // If unavailable, is empty string.
   string package_version = 5;
 }
 
@@ -60,6 +63,17 @@ message VettedPackages {
   string synchronizer_id = 3;
 
   // Serial of last ``VettedPackages`` topology transaction of this participant
-  // and on this synchronizer.
+  // and on this synchronizer. Always present.
   uint32 topology_serial = 4;
+}
+
+// The serial of last ``VettedPackages`` topology transaction on a given
+// participant and synchronizer.
+message PriorTopologySerial {
+  oneof serial {
+    // Previous transaction's serial.
+    uint32 prior = 1;
+    // No previous transaction exists.
+    google.protobuf.Empty no_prior = 2;
+  }
 }

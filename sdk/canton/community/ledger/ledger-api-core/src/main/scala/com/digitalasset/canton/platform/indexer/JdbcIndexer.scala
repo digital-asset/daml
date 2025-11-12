@@ -7,6 +7,7 @@ import com.daml.ledger.resources.ResourceOwner
 import com.digitalasset.canton.ledger.participant.state.Update
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.participant.store.ContractStore
 import com.digitalasset.canton.platform.InMemoryState
 import com.digitalasset.canton.platform.index.InMemoryStateUpdater
 import com.digitalasset.canton.platform.indexer.ha.HaConfig
@@ -52,6 +53,7 @@ object JdbcIndexer {
       reassignmentOffsetPersistence: ReassignmentOffsetPersistence,
       postProcessor: (Vector[PostPublishData], TraceContext) => Future[Unit],
       sequentialPostProcessor: Update => Unit,
+      contractStore: ContractStore,
   )(implicit materializer: Materializer) {
 
     def initialized()(implicit traceContext: TraceContext): ResourceOwner[Indexer] = {
@@ -63,6 +65,10 @@ object JdbcIndexer {
       val ingestionStorageBackend = factory.createIngestionStorageBackend
       val parameterStorageBackend =
         factory.createParameterStorageBackend(inMemoryState.stringInterningView)
+      val contractStorageBackend = factory.createContractStorageBackend(
+        inMemoryState.stringInterningView,
+        inMemoryState.ledgerEndCache,
+      )
       val DBLockStorageBackend = factory.createDBLockStorageBackend
       val stringInterningStorageBackend = factory.createStringInterningStorageBackend
       val completionStorageBackend =
@@ -96,6 +102,7 @@ object JdbcIndexer {
         parallelIndexerSubscription = ParallelIndexerSubscription(
           parameterStorageBackend = parameterStorageBackend,
           ingestionStorageBackend = ingestionStorageBackend,
+          contractStorageBackend = contractStorageBackend,
           participantId = participantId,
           translation = new LfValueTranslation(
             metrics = metrics,
@@ -105,9 +112,14 @@ object JdbcIndexer {
           ),
           compressionStrategy =
             if (config.enableCompression) CompressionStrategy.allGZIP(metrics)
-            else CompressionStrategy.none(metrics),
+            else
+              CompressionStrategy.buildFromConfig(metrics)(
+                config.enableCompressionConsumingExercise,
+                config.enableCompressionNonConsumingExercise,
+              ),
           maxInputBufferSize = config.maxInputBufferSize.unwrap,
           inputMappingParallelism = config.inputMappingParallelism.unwrap,
+          dbPrepareParallelism = config.dbPrepareParallelism.unwrap,
           batchingParallelism = config.batchingParallelism.unwrap,
           ingestionParallelism = ingestionParallelism,
           submissionBatchSize = config.submissionBatchSize,
@@ -120,6 +132,7 @@ object JdbcIndexer {
           reassignmentOffsetPersistence = reassignmentOffsetPersistence,
           postProcessor = postProcessor,
           sequentialPostProcessor = sequentialPostProcessor,
+          contractStore = contractStore,
           disableMonotonicityChecks = config.disableMonotonicityChecks,
           tracer = tracer,
           loggerFactory = loggerFactory,

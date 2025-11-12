@@ -40,7 +40,8 @@ class AutomaticReassignmentBatchingIntegrationTest
       import env.*
       participant1.synchronizers.connect_local(sequencer1, alias = daName)
       participant1.synchronizers.connect_local(sequencer2, alias = acmeName)
-      participant1.dars.upload(CantonTestsPath)
+      participant1.dars.upload(CantonTestsPath, synchronizerId = daId)
+      participant1.dars.upload(CantonTestsPath, synchronizerId = acmeId)
     }
 
   "automatic reassignment" should {

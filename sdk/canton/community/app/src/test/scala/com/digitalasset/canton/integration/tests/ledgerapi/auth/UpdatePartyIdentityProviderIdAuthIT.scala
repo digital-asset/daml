@@ -6,7 +6,7 @@ package com.digitalasset.canton.integration.tests.ledgerapi.auth
 import com.daml.ledger.api.v2.admin.party_management_service.*
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.integration.TestConsoleEnvironment
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 
 import java.util.UUID
 import scala.concurrent.Future
@@ -14,7 +14,7 @@ import scala.concurrent.Future
 final class UpdatePartyIdentityProviderIdAuthIT
     extends AdminServiceCallAuthTests
     with IdentityProviderConfigAuth {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   override def serviceCallName: String = "PartyManagementService#UpdatePartyIdentityProviderId"
 

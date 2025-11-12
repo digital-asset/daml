@@ -6,29 +6,19 @@ package com.digitalasset.canton.platform.store.dao
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
-import com.daml.ledger.api.v2.update_service.{
-  GetTransactionResponse,
-  GetTransactionTreeResponse,
-  GetUpdateResponse,
-  GetUpdateTreesResponse,
-  GetUpdatesResponse,
-}
+import com.daml.ledger.api.v2.update_service.{GetUpdateResponse, GetUpdatesResponse}
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.ParticipantId
 import com.digitalasset.canton.ledger.api.health.ReportsHealth
-import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.digitalasset.canton.platform.store.backend.common.UpdatePointwiseQueries.LookupKey
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.transaction.CommittedTransaction
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 
-import scala.annotation.nowarn
 import scala.concurrent.Future
 
 private[platform] trait LedgerDaoUpdateReader {
@@ -40,51 +30,10 @@ private[platform] trait LedgerDaoUpdateReader {
       loggingContext: LoggingContextWithTrace
   ): Source[(Offset, GetUpdatesResponse), NotUsed]
 
-  // TODO(#23504) remove when getTransactionById is removed
-  @nowarn("cat=deprecation")
-  def lookupTransactionById(
-      updateId: UpdateId,
-      internalTransactionFormat: InternalTransactionFormat,
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]]
-
-  // TODO(#23504) remove when getTransactionByOffset is removed
-  @nowarn("cat=deprecation")
-  def lookupTransactionByOffset(
-      offset: Offset,
-      internalTransactionFormat: InternalTransactionFormat,
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]]
-
   def lookupUpdateBy(
       lookupKey: LookupKey,
       internalUpdateFormat: InternalUpdateFormat,
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetUpdateResponse]]
-
-  // TODO(#23504) remove when getTransactionById is removed
-  @nowarn("cat=deprecation")
-  def getTransactionTrees(
-      startInclusive: Offset,
-      endInclusive: Offset,
-      requestingParties: Option[Set[Party]],
-      eventProjectionProperties: EventProjectionProperties,
-  )(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Source[(Offset, GetUpdateTreesResponse), NotUsed]
-
-  // TODO(#23504) remove when getTransactionById is removed
-  @nowarn("cat=deprecation")
-  def lookupTransactionTreeById(
-      updateId: UpdateId,
-      requestingParties: Set[Party],
-      eventProjectionProperties: EventProjectionProperties,
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionTreeResponse]]
-
-  // TODO(#23504) remove when getTransactionById is removed
-  @nowarn("cat=deprecation")
-  def lookupTransactionTreeByOffset(
-      offset: Offset,
-      requestingParties: Set[Party],
-      eventProjectionProperties: EventProjectionProperties,
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionTreeResponse]]
 
   def getActiveContracts(
       activeAt: Option[Offset],
@@ -159,11 +108,17 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
     * @return
     */
   def prune(
+      previousPruneUpToInclusive: Option[Offset],
+      previousIncompleteReassignmentOffsets: Vector[Offset],
       pruneUpToInclusive: Offset,
-      incompletReassignmentOffsets: Vector[Offset],
+      incompleteReassignmentOffsets: Vector[Offset],
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Unit]
+
+  def indexDbPrunedUpTo(implicit
+      loggingContext: LoggingContextWithTrace
+  ): Future[Option[Offset]]
 
   /** Return the latest pruned offset inclusive (participant_pruned_up_to_inclusive) from the
     * parameters table (if defined)
@@ -171,60 +126,4 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
   def pruningOffset(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Option[Offset]]
-}
-
-// TODO(i12285) sandbox-classic clean-up: This interface and its implementation is only used in the JdbcLedgerDao suite
-//                                It should be removed when the assertions in that suite are covered by other suites
-private[platform] trait LedgerWriteDaoForTests extends ReportsHealth {
-
-  /** Initializes the database with the given ledger identity. If the database was already
-    * intialized, instead compares the given identity parameters to the existing ones, and returns a
-    * Future failed with [[MismatchException]] if they don't match.
-    *
-    * This method is idempotent. This method is NOT safe to call concurrently.
-    *
-    * This method must succeed at least once before other LedgerWriteDao methods may be used.
-    *
-    * @param participantId
-    *   the participant id to be stored
-    */
-  def initialize(
-      participantId: ParticipantId
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Unit]
-
-  def storeRejection(
-      completionInfo: Option[state.CompletionInfo],
-      recordTime: Timestamp,
-      offset: Offset,
-      reason: state.Update.CommandRejected.RejectionReasonTemplate,
-  )(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Future[PersistenceResponse]
-
-  /** Stores a party allocation or rejection thereof. */
-  def storePartyAdded(
-      offset: Offset,
-      submissionIdOpt: Option[SubmissionId],
-      recordTime: Timestamp,
-      partyDetails: IndexerPartyDetails,
-  )(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Future[PersistenceResponse]
-
-  /** This is a combined store transaction method to support only tests !!! Usage of this is
-    * discouraged.
-    */
-  def storeTransaction(
-      completionInfo: Option[state.CompletionInfo],
-      workflowId: Option[WorkflowId],
-      updateId: UpdateId,
-      ledgerEffectiveTime: Timestamp,
-      offset: Offset,
-      transaction: CommittedTransaction,
-      recordTime: Timestamp,
-      contractActivenessChanged: Boolean,
-  )(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Future[PersistenceResponse]
-
 }

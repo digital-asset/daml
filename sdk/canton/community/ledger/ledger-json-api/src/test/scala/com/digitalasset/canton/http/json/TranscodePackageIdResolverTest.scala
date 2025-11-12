@@ -19,8 +19,8 @@ import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.{
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.platform.PackagePreferenceBackend
 import com.digitalasset.canton.platform.PackagePreferenceBackend.PackageFilterRestriction
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.{
+import com.digitalasset.canton.store.packagemeta.PackageMetadata
+import com.digitalasset.canton.store.packagemeta.PackageMetadata.{
   LocalPackagePreference,
   PackageResolution,
 }

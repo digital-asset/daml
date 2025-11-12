@@ -8,12 +8,12 @@ import com.daml.ledger.api.v2.state_service.ActiveContract as LapiActiveContract
 import com.digitalasset.canton.data.Counter
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.SynchronizerId
-import com.digitalasset.canton.util.{ByteStringUtil, GrpcStreamingUtils, ResourceUtil}
+import com.digitalasset.canton.util.{GrpcStreamingUtils, ResourceUtil}
 import com.digitalasset.canton.{LfPackageId, ReassignmentCounter}
 import com.digitalasset.daml.lf.transaction.{CreationTime, TransactionCoder}
 import com.google.protobuf.ByteString
 
-import java.io.ByteArrayInputStream
+import java.util.zip.GZIPInputStream
 
 /** A contract to add/import with admin repairs.
   */
@@ -39,18 +39,11 @@ object RepairContract {
       acsSnapshot: ByteString
   ): Either[String, List[RepairContract]] =
     for {
-      decompressedBytes <-
-        ByteStringUtil
-          .decompressGzip(acsSnapshot, None)
-          .leftMap(err => s"Failed to decompress bytes: $err")
       contracts <- ResourceUtil.withResource(
-        new ByteArrayInputStream(decompressedBytes.toByteArray)
-      ) { inputSource =>
-        GrpcStreamingUtils
-          .parseDelimitedFromTrusted[ActiveContract](
-            inputSource,
-            ActiveContract,
-          )
+        // TODO(i28137): This is vulnerable to zip bombs.
+        new GZIPInputStream(acsSnapshot.newInput())
+      ) { decompressed =>
+        GrpcStreamingUtils.parseDelimitedFromTrusted[ActiveContract](decompressed, ActiveContract)
       }
       repairContracts <- contracts.traverse(c => toRepairContract(c.contract))
     } yield repairContracts
@@ -70,7 +63,7 @@ object RepairContract {
           s"Unable to decode contract event payload: ${decodeError.errorMessage}"
         )
 
-      // TODO(#27872): Require populated representativePackageId starting with 3.4
+      // TODO(#25385): Assume populated representativePackageId starting with 3.4
       representativePackageId <- Option(event.representativePackageId)
         .filter(_.nonEmpty)
         .traverse(LfPackageId.fromString)

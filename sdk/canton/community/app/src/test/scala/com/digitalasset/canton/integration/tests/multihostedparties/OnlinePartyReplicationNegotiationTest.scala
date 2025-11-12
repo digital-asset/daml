@@ -25,10 +25,7 @@ import com.digitalasset.canton.integration.bootstrap.{
   NetworkBootstrapper,
   NetworkTopologyDescription,
 }
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -45,6 +42,7 @@ import com.digitalasset.canton.participant.admin.workflows.java.canton.internal 
 import com.digitalasset.canton.participant.config.UnsafeOnlinePartyReplicationConfig
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.sequencing.{
+  SequencerConnectionPoolDelays,
   SequencerConnectionValidation,
   SequencerConnections,
   SubmissionRequestAmplification,
@@ -57,6 +55,7 @@ import com.digitalasset.canton.{SequencerAlias, config}
 import monocle.macros.syntax.lens.*
 import org.slf4j.event.Level
 
+import scala.concurrent.duration.DurationInt
 import scala.jdk.CollectionConverters.*
 import scala.util.chaining.scalaUtilChainingOps
 
@@ -92,7 +91,7 @@ sealed trait OnlinePartyReplicationNegotiationTest
       .focus(_.parameters.unsafeEnableOnlinePartyReplication)
       .replace(sequencer != "sequencer3")
 
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   private val aliceName = "Alice"
 
@@ -121,14 +120,6 @@ sealed trait OnlinePartyReplicationNegotiationTest
             .replace(Some(UnsafeOnlinePartyReplicationConfig()))
         ),
         ConfigTransforms.updateAllSequencerConfigs(selectivelyEnablePartyReplicationOnSequencers),
-        // TODO(#24326): While the SourceParticipant (SP=P1) uses AcsInspection to consume the
-        //  ACS snapshot (rather than the Ledger Api), ensure ACS pruning does not trigger AcsInspection
-        //  TimestampBeforePruning. Allow a generous 5 minutes for the SP to consume all active contracts
-        //  in this test.
-        ConfigTransforms.updateParticipantConfig("participant1")(
-          _.focus(_.parameters.journalGarbageCollectionDelay)
-            .replace(config.NonNegativeFiniteDuration.ofMinutes(5))
-        ),
       )
       .withNetworkBootstrap { implicit env =>
         import env.*
@@ -154,6 +145,7 @@ sealed trait OnlinePartyReplicationNegotiationTest
             sequencerTrustThreshold = PositiveInt.three,
             sequencerLivenessMargin = NonNegativeInt.zero,
             submissionRequestAmplification = SubmissionRequestAmplification.NoAmplification,
+            sequencerConnectionPoolDelays = SequencerConnectionPoolDelays.default,
           )
           participant.synchronizers.connect_by_config(
             SynchronizerConnectionConfig(
@@ -288,7 +280,9 @@ sealed trait OnlinePartyReplicationNegotiationTest
       })
 
       // Wait until both SP and TP report that party replication has completed.
-      eventually() {
+      // Clearing the onboarding flag takes up to max-decision-timeout (initial value of 60s),
+      // so wait at least 1 minute.
+      eventually(timeUntilSuccess = 2.minutes) {
         val tpStatus = targetParticipant.parties.get_add_party_status(
           addPartyRequestId = addPartyRequestId
         )

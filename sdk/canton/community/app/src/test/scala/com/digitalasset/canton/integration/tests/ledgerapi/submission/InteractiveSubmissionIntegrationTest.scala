@@ -22,6 +22,8 @@ import com.daml.ledger.javaapi.data.codegen.ContractId as CodeGenCID
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.TransactionWrapper
 import com.digitalasset.canton.admin.api.client.data.TemplateId
 import com.digitalasset.canton.config
+import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
+import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.CommandFailure
 import com.digitalasset.canton.crypto.SigningKeyUsage
@@ -30,10 +32,12 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.examples.java.cycle.Cycle
 import com.digitalasset.canton.examples.java.trailingnone.TrailingNone
 import com.digitalasset.canton.examples.java.{cycle as M, trailingnone as T}
-import com.digitalasset.canton.integration.plugins.UsePostgres
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.util.UpdateFormatHelpers.getUpdateFormat
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
+  ConfigTransforms,
   EnvironmentDefinition,
   HasCycleUtils,
   SharedEnvironment,
@@ -55,6 +59,7 @@ import monocle.macros.GenLens
 import org.slf4j.event.Level
 
 import java.util.UUID
+import scala.jdk.OptionConverters.RichOption
 
 trait InteractiveSubmissionIntegrationTestSetup
     extends CommunityIntegrationTest
@@ -85,13 +90,13 @@ trait InteractiveSubmissionIntegrationTestSetup
     EnvironmentDefinition.P3_S1M1
       .withSetup { implicit env =>
         import env.*
-        participants.all.dars.upload(CantonExamplesPath)
-        participants.all.dars.upload(CantonTestsPath)
         participants.all.synchronizers.connect_local(sequencer1, alias = daName)
+        participants.all.dars.upload(CantonExamplesPath, synchronizerId = daId)
+        participants.all.dars.upload(CantonTestsPath, synchronizerId = daId)
 
         aliceE = cpn.parties.external.enable("Alice")
       }
-      .addConfigTransforms(enableInteractiveSubmissionTransforms*)
+      .addConfigTransform(ConfigTransforms.enableInteractiveSubmissionTransforms)
 
   protected def createTrailingNoneContract(
       party: ExternalParty
@@ -522,10 +527,10 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
         Seq(archiveCmd),
         disclosedContracts = Seq(
           new DisclosedContract(
-            TrailingNone.TEMPLATE_ID_WITH_PACKAGE_ID,
-            contract1CreatedEvent.contractId,
             contract1CreatedEvent.createdEventBlob,
             env.daId.logical.toProtoPrimitive,
+            Some(TrailingNone.TEMPLATE_ID_WITH_PACKAGE_ID).toJava,
+            Some(contract1CreatedEvent.contractId).toJava,
           )
         ),
       )
@@ -593,10 +598,10 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
         Seq(exerciseRepeatOnCycleContract),
         disclosedContracts = Seq(
           new DisclosedContract(
-            Cycle.TEMPLATE_ID_WITH_PACKAGE_ID,
-            cycleCreated.contractId,
             cycleCreated.createdEventBlob,
             daId.logical.toProtoPrimitive,
+            Some(Cycle.TEMPLATE_ID_WITH_PACKAGE_ID).toJava,
+            Some(cycleCreated.contractId).toJava,
           )
         ),
       )
@@ -830,6 +835,72 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
 
 }
 
+class InteractiveSubmissionMultiSynchronizerIntegrationTest
+    extends CommunityIntegrationTest
+    with SharedEnvironment
+    with BaseInteractiveSubmissionTest
+    with HasCycleUtils {
+
+  override def environmentDefinition: EnvironmentDefinition =
+    EnvironmentDefinition.P1_S1M1_S1M1_S1M1
+      .withSetup { implicit env =>
+        import env.*
+        participants.all.synchronizers.connect_local(sequencer1, alias = daName)
+        participants.all.synchronizers.connect_local(sequencer2, alias = acmeName)
+        participants.all.synchronizers.connect_local(sequencer3, alias = repairSynchronizerName)
+        participants.all.dars.upload(CantonExamplesPath, synchronizerId = daId)
+        participants.all.dars.upload(CantonTestsPath, synchronizerId = daId)
+      }
+      .addConfigTransform(ConfigTransforms.enableInteractiveSubmissionTransforms)
+
+  registerPlugin(
+    new UseReferenceBlockSequencer[DbConfig.Postgres](
+      loggerFactory,
+      sequencerGroups = MultiSynchronizer(
+        Seq(
+          Set(InstanceName.tryCreate("sequencer1")),
+          Set(InstanceName.tryCreate("sequencer2")),
+          Set(InstanceName.tryCreate("sequencer3")),
+        )
+      ),
+    )
+  )
+  registerPlugin(new UsePostgres(loggerFactory))
+
+  "External parties" should {
+    "can be allocated in a multi-synchronizer scenario" in { implicit env =>
+      import env.*
+
+      val aliceE = participant1.parties.external.enable("Alice", synchronizer = Some(daName))
+
+      // Check that alice is hosted on `hostedCount` synchronizers
+      def ensureCorrectHosting(hostedCount: Int) = {
+        val synchronizers = Seq(daId, acmeId, repairSynchronizerId)
+        val activeOn = synchronizers.take(hostedCount)
+        val inactiveOn = synchronizers.drop(hostedCount)
+
+        activeOn.foreach { psid =>
+          participant1.topology.party_to_participant_mappings
+            .list(psid, filterParty = aliceE.filterString) should not be empty
+        }
+
+        inactiveOn.foreach { psid =>
+          participant1.topology.party_to_participant_mappings
+            .list(psid, filterParty = aliceE.filterString) shouldBe empty
+        }
+      }
+
+      ensureCorrectHosting(1)
+
+      participant1.parties.external.also_enable(aliceE, acmeName)
+      ensureCorrectHosting(2)
+
+      participant1.parties.external.also_enable(aliceE, repairSynchronizerName)
+      ensureCorrectHosting(3)
+    }
+  }
+}
+
 class InteractiveSubmissionIntegrationTestTimeouts
     extends InteractiveSubmissionIntegrationTestSetup {
   "timeout if CPN does not respond" in { implicit env =>
@@ -869,14 +940,12 @@ class InteractiveSubmissionIntegrationTestTimeouts
     loggerFactory.assertEventuallyLogsSeq(SuppressionRule.Level(Level.WARN))(
       cpn.synchronizers.reconnect_all(),
       LogEntry.assertLogSeq(
+        Seq.empty,
         Seq(
-          (
-            _.warningMessage should (include("Response message for request") and include(
-              "timed out"
-            )),
-            "expected timed out message",
-          )
-        )
+          _.warningMessage should (include("Response message for request") and include(
+            "timed out"
+          ))
+        ),
       ),
     )
   }

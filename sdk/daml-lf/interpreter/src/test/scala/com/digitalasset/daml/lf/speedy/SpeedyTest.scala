@@ -16,28 +16,17 @@ import com.digitalasset.daml.lf.testing.parser.Implicits._
 import org.scalactic.Equality
 import org.scalatest.matchers.should.Matchers
 import SpeedyTestLib.loggingContext
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
-import com.digitalasset.daml.lf.speedy.Speedy.ContractInfo
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
-import com.digitalasset.daml.lf.transaction.GlobalKey
-import com.digitalasset.daml.lf.value.Value.ContractId
-import com.daml.logging.ContextualizedLogger
 import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
 
 import scala.collection.immutable.ArraySeq
 
-class SpeedyTestV2 extends SpeedyTest(LanguageMajorVersion.V2)
-
-class SpeedyTest(majorLanguageVersion: LanguageMajorVersion)
-    extends AnyFreeSpec
-    with Matchers
-    with Inside {
+class SpeedyTest extends AnyFreeSpec with Matchers with Inside {
 
   import SpeedyTest._
 
-  implicit val parserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor[this.type](majorLanguageVersion)
+  implicit val parserParameters: ParserParameters[this.type] = ParserParameters.default
 
   val pkgId = parserParameters.defaultPackageId
 
@@ -552,43 +541,5 @@ object SpeedyTest {
     case (Right(v1: SValue), Right(v2: SValue)) => svalue.Equality.areEqual(v1, v2)
     case (Left(e1), Left(e2)) => e1 == e2
     case _ => false
-  }
-
-  abstract class VisibilityChecking(
-      majorLanguageVersion: LanguageMajorVersion
-  ) {
-    val explicitDisclosureLib = new ExplicitDisclosureLib(majorLanguageVersion)
-    import explicitDisclosureLib._
-    import SpeedyTestLib.Implicits._
-
-    val alice: IdString.Party = Ref.Party.assertFromString("alice")
-    val localContractId: ContractId =
-      ContractId.V1(crypto.Hash.hashPrivateKey("test-local-contract-id"))
-    val localContractKey: GlobalKey = buildContractKey(alice, somePackageName, "local-label")
-    val localContractInfo: ContractInfo =
-      buildHouseContractInfo(alice, alice, label = "local-label")
-    val globalContractId: ContractId =
-      ContractId.V1(crypto.Hash.hashPrivateKey("test-global-contract-id"))
-    val globalContractInfo: ContractInfo =
-      buildHouseContractInfo(alice, alice, label = "global-label")
-    val disclosedContractId: ContractId =
-      ContractId.V1(crypto.Hash.hashPrivateKey("test-disclosed-contract-id"))
-    val disclosedContract: ContractInfo =
-      buildDisclosedHouseContract(alice, alice, label = "disclosed-label")
-    val disclosedContractInfo: ContractInfo =
-      buildHouseContractInfo(alice, alice, label = "disclosed-label")
-    val testLogger: WarningLog = new WarningLog(ContextualizedLogger.createFor("daml.warnings"))
-    val machine: Speedy.UpdateMachine = Speedy.Machine
-      .fromUpdateSExpr(
-        pkgs,
-        crypto.Hash.hashPrivateKey("VisibilityChecking"),
-        SEValue(SUnit),
-        // As committers is empty, our readers will be empty and so contracts and contract keys will *always* be non-visible to stakeholders
-        committers = Set.empty,
-//        disclosedContracts = ImmArray(disclosedContract),
-      )
-      .withWarningLog(testLogger)
-      .withLocalContractKey(localContractId, localContractKey)
-      .withDisclosedContractKeys(disclosedContractId -> disclosedContractInfo)
   }
 }

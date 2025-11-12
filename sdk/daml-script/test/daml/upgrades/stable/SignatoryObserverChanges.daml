@@ -7,7 +7,7 @@ import UpgradeTestLib
 import qualified V1.SignatoryObserverChanges as V1
 import qualified V2.SignatoryObserverChanges as V2
 import qualified V1.IfaceMod as Iface
-import DA.List (sort)
+import DA.List (sort, (\\))
 import DA.Text
 
 {- PACKAGE
@@ -112,13 +112,14 @@ signatoryObserverUpgrade shouldSucceed sigF obsF exerciseChoice = test $ do
   res <- trySubmitMulti [alice, bob, charlie] [] $ exerciseChoice cid
   case (res, shouldSucceed) of
     (Right _, True) -> pure ()
-    (Left (UpgradeError (ValidationFailed foundCid foundSrcTemplateTypeRep foundDstTemplateTypeRep foundSignatories foundObservers None) msg), False)
+    (Left (UpgradeError (ValidationFailed foundCid foundSrcTemplateTypeRep foundDstTemplateTypeRep _ _ originalSignatories originalObservers None foundSignatories foundObservers None) msg), False)
       | fromAnyContractId @V1.SignatoryObserverChangesTemplate foundCid == Some cid &&
         foundSrcTemplateTypeRep == templateTypeRep @V1.SignatoryObserverChangesTemplate &&
         foundDstTemplateTypeRep == templateTypeRep @V2.SignatoryObserverChangesTemplate &&
+        sort originalSignatories == sort preSignatories &&
+        sort originalObservers == sort (preObservers \\ preSignatories) &&
         sort foundSignatories == sort postSignatories &&
-        sort foundObservers == sort foundObservers &&
-        "Verify that neither the signatories, nor the observers, nor the contract key, nor the key's maintainers have changed" `isInfixOf` msg
+        sort foundObservers == sort postObservers
       -> pure ()
     _ -> assertFail $ "Expected " <> (if shouldSucceed then "success" else "Upgrade error") <> " but got " <> show res
 

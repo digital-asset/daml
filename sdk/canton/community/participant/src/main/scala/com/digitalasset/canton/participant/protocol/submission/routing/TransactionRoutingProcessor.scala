@@ -6,12 +6,10 @@ package com.digitalasset.canton.participant.protocol.submission.routing
 import cats.data.EitherT
 import cats.syntax.bifunctor.*
 import cats.syntax.either.*
-import cats.syntax.foldable.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.crypto.CryptoPureApi
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.TransactionRoutingError
 import com.digitalasset.canton.error.TransactionRoutingError.ConfigurationErrors.{
@@ -47,7 +45,7 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{ContractAuthenticator, EitherTUtil}
+import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.{LfKeyResolver, LfPartyId, checked}
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.transaction.CreationTime
@@ -62,7 +60,6 @@ import scala.concurrent.ExecutionContext
 class TransactionRoutingProcessor(
     contractsReassigner: ContractsReassigner,
     connectedSynchronizersLookup: ConnectedSynchronizersLookup,
-    serializableContractAuthenticator: ContractAuthenticator,
     synchronizerRankComputation: SynchronizerRankComputation,
     synchronizerSelectorFactory: SynchronizerSelectorFactory,
     override protected val timeouts: ProcessingTimeout,
@@ -94,23 +91,15 @@ class TransactionRoutingProcessor(
     logger.debug(s"Routing the transaction to synchronizer $synchronizerId")
 
     for {
-      // TODO(#25385) Not needed anymore if we just authenticate all before interpretation
-      //          and ensure we just forward the payload
       inputDisclosedContracts <- EitherT
         .fromEither[FutureUnlessShutdown](
-          for {
-            _ <- explicitlyDisclosedContracts.toList
-              .traverse_(serializableContractAuthenticator.legacyAuthenticate)
-              .leftMap(MalformedInputErrors.DisclosedContractAuthenticationFailed.Error.apply)
-            inputDisclosedContracts <-
-              explicitlyDisclosedContracts.toList
-                .parTraverse(ContractInstance.create[CreationTime.CreatedAt])
-                .leftMap(MalformedInputErrors.InvalidDisclosedContract.Error.apply)
-
-          } yield inputDisclosedContracts
+          explicitlyDisclosedContracts.toList
+            .parTraverse(ContractInstance.create[CreationTime.CreatedAt])
+            .leftMap(MalformedInputErrors.InvalidDisclosedContract.Error.apply)
         )
+
       _ <- contractsReassigner
-        .reassign(synchronizerRankTarget, submitterInfo)
+        .reassign(synchronizerRankTarget, submitterInfo, synchronizerState)
 
       topologySnapshot <- EitherT
         .fromEither[FutureUnlessShutdown] {
@@ -378,7 +367,6 @@ object TransactionRoutingProcessor {
   def apply(
       connectedSynchronizersLookup: ConnectedSynchronizersLookup,
       synchronizerConnectionConfigStore: SynchronizerConnectionConfigStore,
-      cryptoPureApi: CryptoPureApi,
       participantId: ParticipantId,
       parameters: ParticipantNodeParameters,
       loggerFactory: NamedLoggerFactory,
@@ -405,12 +393,9 @@ object TransactionRoutingProcessor {
       loggerFactory = loggerFactory,
     )
 
-    val serializableContractAuthenticator = ContractAuthenticator(cryptoPureApi)
-
     new TransactionRoutingProcessor(
       reassigner,
       connectedSynchronizersLookup,
-      serializableContractAuthenticator,
       synchronizerRankComputation,
       synchronizerSelectorFactory,
       parameters.processingTimeouts,

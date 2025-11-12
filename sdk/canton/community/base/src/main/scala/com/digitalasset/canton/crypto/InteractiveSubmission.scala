@@ -255,16 +255,16 @@ object InteractiveSubmission {
     signatures.toList
       .parTraverse_ { case (party, signatures) =>
         for {
-          authInfo <- EitherT(
+          signingKeysWithThreshold <- EitherT(
             topologySnapshot
-              .partyAuthorization(party)
+              .signingKeysWithThreshold(party)
               .map(
                 _.toRight(s"Could not find party signing keys for $party.")
               )
           )
 
           (invalidSignatures, validSignatures) = signatures.map { signature =>
-            authInfo.signingKeys
+            signingKeysWithThreshold.keys
               .find(_.fingerprint == signature.authorizingLongTermKey)
               .toRight(
                 s"Signing key ${signature.authorizingLongTermKey} is not a valid key for $party"
@@ -286,13 +286,14 @@ object InteractiveSubmission {
             }
           }
           _ <- EitherT.cond[FutureUnlessShutdown](
-            validSignaturesSet.sizeIs >= authInfo.threshold.unwrap,
+            validSignaturesSet.sizeIs >= signingKeysWithThreshold.threshold.unwrap,
             (),
-            s"Received ${validSignatures.size} valid signatures (${invalidSignatures.size} invalid), but expected at least ${authInfo.threshold} valid for $party",
+            s"Received ${validSignatures.size} valid signatures (${invalidSignatures.size} invalid), but expected at least ${signingKeysWithThreshold.threshold} valid for $party. " +
+              s"Transaction hash to be signed: ${hash.toHexString}. Ensure the correct transaction hash is signed with the correct key(s).",
           )
         } yield {
           logger.debug(
-            s"Found ${validSignaturesSet.size} valid external signatures for $party with threshold ${authInfo.threshold.unwrap}"
+            s"Found ${validSignaturesSet.size} valid external signatures for $party with threshold ${signingKeysWithThreshold.threshold.unwrap}"
           )
         }
       }

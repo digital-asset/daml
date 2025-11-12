@@ -12,6 +12,7 @@ import com.digitalasset.canton.participant.config.*
 import com.digitalasset.canton.participant.sync.CommandProgressTrackerConfig
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
 import com.digitalasset.canton.time
+import com.digitalasset.canton.topology.client.TopologyClientConfig
 import com.digitalasset.canton.tracing.TracingConfig
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
@@ -32,6 +33,9 @@ final case class ParticipantNodeParameters(
     unsafeOnlinePartyReplication: Option[UnsafeOnlinePartyReplicationConfig],
     automaticallyPerformLogicalSynchronizerUpgrade: Boolean,
     reassignmentsConfig: ReassignmentsConfig,
+    doNotAwaitOnCheckingIncomingCommitments: Boolean,
+    disableOptionalTopologyChecks: Boolean,
+    commitmentCheckpointInterval: PositiveDurationSeconds,
 ) extends CantonNodeParameters
     with HasGeneralCantonNodeParameters {
   override def dontWarnOnDeprecatedPV: Boolean = protocolConfig.dontWarnOnDeprecatedPV
@@ -49,18 +53,19 @@ object ParticipantNodeParameters {
       loggingConfig = LoggingConfig(api = ApiLoggingConfig(messagePayloads = true)),
       processingTimeouts = DefaultProcessingTimeouts.testing,
       enablePreviewFeatures = false,
-      // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
-      nonStandardConfig = true,
+      nonStandardConfig = false,
       cachingConfigs = CachingConfigs(),
       batchingConfig = BatchingConfig(
         maxPruningBatchSize = PositiveNumeric.tryCreate(10),
         aggregator = BatchAggregatorConfig.defaultsForTesting,
       ),
       sequencerClient = SequencerClientConfig(),
+      topologyClient = TopologyClientConfig(),
       dbMigrateAndStart = false,
       exitOnFatalFailures = true,
       watchdog = None,
       startupMemoryCheckConfig = StartupMemoryCheckConfig(ReportingLevel.Warn),
+      dispatchQueueBackpressureLimit = NonNegativeInt.tryCreate(10),
     ),
     activationFrequencyForWarnAboutConsistencyChecks = 1000L,
     adminWorkflow = AdminWorkflowConfig(
@@ -70,8 +75,7 @@ object ParticipantNodeParameters {
     stores = ParticipantStoreConfig(),
     protocolConfig = ParticipantProtocolConfig(
       Some(testedProtocolVersion),
-      // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
-      alphaVersionSupport = true,
+      alphaVersionSupport = false,
       betaVersionSupport = true,
       dontWarnOnDeprecatedPV = false,
     ),
@@ -79,12 +83,15 @@ object ParticipantNodeParameters {
     engine = CantonEngineConfig(),
     journalGarbageCollectionDelay = time.NonNegativeFiniteDuration.Zero,
     disableUpgradeValidation = false,
-    enableStrictDarValidation = false,
+    enableStrictDarValidation = true,
     commandProgressTracking = CommandProgressTrackerConfig(),
     unsafeOnlinePartyReplication = None,
     automaticallyPerformLogicalSynchronizerUpgrade = true,
     reassignmentsConfig = ReassignmentsConfig(
       targetTimestampForwardTolerance = NonNegativeFiniteDuration.ofSeconds(30)
     ),
+    doNotAwaitOnCheckingIncomingCommitments = false,
+    disableOptionalTopologyChecks = false,
+    commitmentCheckpointInterval = PositiveDurationSeconds.ofMinutes(1),
   )
 }

@@ -1,0 +1,18 @@
+override-components: 
+  damlc: 
+    version: $DAML_VERSION
+  daml-script: 
+    version: $DAML_VERSION
+build-options: 
+- --target=2.1
+name: foo
+data-dependencies: 
+- ../../../../scala-2.13/resource_managed/test/ibaz-1.0.0.dar
+- ../../../../scala-2.13/resource_managed/test/baz-1.0.0.dar
+- ../../../../scala-2.13/resource_managed/test/ibar-1.0.0.dar
+- ../../../../scala-2.13/resource_managed/test/bar-1.0.0.dar
+source: Foo.daml
+version: 4.0.0
+dependencies: 
+- daml-prim
+- daml-stdlib

@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf.testing.parser
 
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.digitalasset.daml.lf.language.LanguageVersion
 
 case class ParserParameters[P](
     defaultPackageId: PackageId,
@@ -13,16 +13,10 @@ case class ParserParameters[P](
 )
 
 object ParserParameters {
-
-  def defaultFor[P](majorLanguageVersion: LanguageMajorVersion): ParserParameters[P] = {
-    majorLanguageVersion match {
-      case LanguageMajorVersion.V1 =>
-        throw new IllegalArgumentException("Lf1 is not supported")
-      case LanguageMajorVersion.V2 =>
-        ParserParameters(
-          defaultPackageId = Ref.PackageId.assertFromString("-pkgId-"),
-          LanguageVersion.defaultOrLatestStable(LanguageMajorVersion.V2),
-        )
-    }
+  def default[P]: ParserParameters[P] = {
+    ParserParameters(
+      defaultPackageId = Ref.PackageId.assertFromString("-pkgId-"),
+      LanguageVersion.defaultLfVersion,
+    )
   }
 }

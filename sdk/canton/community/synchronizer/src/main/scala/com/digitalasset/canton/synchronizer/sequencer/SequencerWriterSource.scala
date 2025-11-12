@@ -306,7 +306,10 @@ object SequencerWriterSource {
           Flow[Traced[BatchWritten]].map { tracedBatchWritten =>
             tracedBatchWritten.withTraceContext { _ => batchWritten =>
               batchWritten.events.foreach { events =>
-                store.bufferEvents(events)
+                store.bufferEvents(events.map(_.map(_.id)))
+                events.foreach { event =>
+                  event.event.payloadO.foreach(store.bufferPayload(_)(event.traceContext))
+                }
               }
             }
             tracedBatchWritten
@@ -385,6 +388,11 @@ class SendEventGenerator(
       }
 
       def deliver(recipientIds: Set[SequencerMemberId]): StoreEvent[BytesPayload] = {
+        val finalRecipientIds = if (submission.batch.isBroadcast) {
+          Set(SequencerMemberId.Broadcast)
+        } else {
+          recipientIds
+        }
         val payload =
           BytesPayload(
             submissionOrOutcome.fold(
@@ -397,7 +405,7 @@ class SendEventGenerator(
         DeliverStoreEvent.ensureSenderReceivesEvent(
           senderId,
           submission.messageId,
-          recipientIds,
+          finalRecipientIds,
           payload,
           submission.topologyTimestamp,
           trafficReceiptO,

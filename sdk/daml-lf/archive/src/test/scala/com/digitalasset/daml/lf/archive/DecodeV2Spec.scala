@@ -4,6 +4,7 @@
 package com.digitalasset.daml.lf.archive
 
 import com.daml.SafeProto
+
 import java.math.BigDecimal
 import java.nio.file.Paths
 import com.daml.bazeltools.BazelRunfiles._
@@ -21,7 +22,6 @@ import org.scalatest.{Inside, OptionValues}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.Ordering.Implicits.infixOrderingOps
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
@@ -81,7 +81,7 @@ class DecodeV2Spec
   private[this] val dummyModuleStr = "dummyModule"
   private[this] val dummyModuleName = Ref.DottedName.assertFromString(dummyModuleStr)
 
-  private[this] val lfVersions = LV.AllV2
+  private[this] val lfVersions = LV.allLfVersions
 
   private[this] def forEveryVersionSuchThat[U](cond: LV => Boolean)(f: LV => U): Unit =
     lfVersions.foreach { version =>
@@ -109,7 +109,7 @@ class DecodeV2Spec
       exprTable,
       None,
       Some(dummyModuleName),
-      onlySerializableDataDefs = false,
+      schemaMode = false,
       None,
       Left("package made in com.digitalasset.daml.lf.archive.DecodeV2Spec"),
     )
@@ -150,7 +150,7 @@ class DecodeV2Spec
       }
     }
 
-    s"Reject local flattening iff lf version >= ${LV.Features.exceptions}" in {
+    s"Reject local flattening if lf version >= ${LV.Features.exprInterning}" in {
       val input = DamlLf2.Kind
         .newBuilder()
         .setArrow(
@@ -325,7 +325,7 @@ class DecodeV2Spec
       }
     }
 
-    s"translate exception types iff version >= ${LV.Features.exceptions}" in {
+    s"translate exception types" in {
       val exceptionBuiltinTypes = Table(
         "builtin types",
         DamlLf2.BuiltinType.ANY_EXCEPTION -> Ast.BTAnyException,
@@ -335,18 +335,12 @@ class DecodeV2Spec
         val decoder = moduleDecoder(version)
         forEvery(exceptionBuiltinTypes) { case (proto, bType) =>
           val result = Try(decoder.uncheckedDecodeTypeForTest(buildPrimType(proto)))
-
-          if (version >= LV.Features.exceptions)
-            result shouldBe Success(Ast.TBuiltin(bType))
-          else
-            inside(result) { case Failure(error) =>
-              error shouldBe an[Error.Parsing]
-            }
+          result shouldBe Success(Ast.TBuiltin(bType))
         }
       }
     }
 
-    s"Reject local flattening iff lf version >= ${LV.Features.exceptions}" should {
+    s"Reject local flattening if lf version >= ${LV.Features.exprInterning}" should {
 
       "for case VAR (enforced: null)" in {
         val stringTable = ImmArraySeq("a")
@@ -714,7 +708,7 @@ class DecodeV2Spec
 
     }
 
-    s"translate exception primitive as is iff version >= ${LV.Features.exceptions}" in {
+    s"translate exception primitive" in {
       val exceptionBuiltinCases = Table(
         "exception primitive" -> "expected output",
         toProtoExpr(DamlLf2.BuiltinFunction.ANY_EXCEPTION_MESSAGE) ->
@@ -741,17 +735,12 @@ class DecodeV2Spec
         forEvery(exceptionBuiltinCases) { (proto, scala) =>
           val result = Try(decoder.decodeExprForTest(proto, "test"))
 
-          if (version >= LV.Features.exceptions)
-            result shouldBe Success(scala)
-          else
-            inside(result) { case Failure(error) =>
-              error shouldBe an[Error.Parsing]
-            }
+          result shouldBe Success(scala)
         }
       }
     }
 
-    s"translate UpdateTryCatch as is iff version >= ${LV.Features.exceptions}" in {
+    s"translate UpdateTryCatch" in {
       val tryCatchProto =
         DamlLf2.Update.TryCatch
           .newBuilder()
@@ -775,12 +764,7 @@ class DecodeV2Spec
         val decoder =
           moduleDecoder(version, stringTable, ImmArraySeq.empty, ImmArraySeq.empty, typeTable)
         val result = Try(decoder.decodeExprForTest(tryCatchExprProto, "test"))
-        if (version >= LV.Features.exceptions)
-          result shouldBe Success(tryCatchExprScala)
-        else
-          inside(result) { case Failure(error) =>
-            error shouldBe an[Error.Parsing]
-          }
+        result shouldBe Success(tryCatchExprScala)
       }
     }
 
@@ -863,19 +847,6 @@ class DecodeV2Spec
           )
           .build()
 
-        val unsafeFromInterface = DamlLf2.Expr
-          .newBuilder()
-          .setUnsafeFromInterface(
-            DamlLf2.Expr.UnsafeFromInterface
-              .newBuilder()
-              .setInterfaceType(ifaceTyConId)
-              .setTemplateType(templateTyConId)
-              .setContractIdExpr(unitExpr)
-              .setInterfaceExpr(falseExpr)
-              .build()
-          )
-          .build()
-
         val toRequiredInterface = DamlLf2.Expr
           .newBuilder()
           .setToRequiredInterface(
@@ -930,12 +901,6 @@ class DecodeV2Spec
             ifaceId = scalaIfaceTyConName,
             body = EUnit,
           ),
-          unsafeFromInterface -> Ast.EUnsafeFromInterface(
-            interfaceId = scalaIfaceTyConName,
-            templateId = scalaTemplateTyConName,
-            contractIdExpr = EUnit,
-            ifaceExpr = EFalse,
-          ),
           toRequiredInterface -> Ast.EToRequiredInterface(
             requiredIfaceId = scalaRequiredIfaceTyConName,
             requiringIfaceId = scalaIfaceTyConName,
@@ -960,6 +925,44 @@ class DecodeV2Spec
           val result = Try(interfacePrimitivesDecoder(version).decodeExprForTest(proto, "test"))
           result shouldBe Success(scala)
         }
+      }
+    }
+
+    s"decode unsafe_from_interface primitive, iff version < LF 2.2" in {
+      val pkgId = DamlLf2.SelfOrImportedPackageId.newBuilder().setSelfPackageId(unit).build
+      val modId =
+        DamlLf2.ModuleId.newBuilder().setPackageId(pkgId).setModuleNameInternedDname(0).build()
+      val templateTyConId =
+        DamlLf2.TypeConId.newBuilder().setModule(modId).setNameInternedDname(1)
+      val ifaceTyConId =
+        DamlLf2.TypeConId.newBuilder().setModule(modId).setNameInternedDname(2)
+      val scalaTemplateTyConName = Ref.TypeConId.assertFromString("noPkgId:Mod:T")
+      val scalaIfaceTyConName = Ref.TypeConId.assertFromString("noPkgId:Mod:I")
+
+      val unsafeFromInterface = DamlLf2.Expr
+        .newBuilder()
+        .setUnsafeFromInterface(
+          DamlLf2.Expr.UnsafeFromInterface
+            .newBuilder()
+            .setInterfaceType(ifaceTyConId)
+            .setTemplateType(templateTyConId)
+            .setContractIdExpr(unitExpr)
+            .setInterfaceExpr(falseExpr)
+            .build()
+        )
+        .build()
+      val expected = Ast.EUnsafeFromInterface(
+        interfaceId = scalaIfaceTyConName,
+        templateId = scalaTemplateTyConName,
+        contractIdExpr = EUnit,
+        ifaceExpr = EFalse,
+      )
+
+      forEveryVersion { version =>
+        val result =
+          Try(interfacePrimitivesDecoder(version).decodeExprForTest(unsafeFromInterface, "test"))
+        if (version < LV.Features.unsafeFromInterfaceRemoved) result shouldBe Success(expected)
+        else inside(result) { case Failure(error) => error shouldBe an[Error.Parsing] }
       }
     }
 
@@ -1202,7 +1205,7 @@ class DecodeV2Spec
       }
     }
 
-    s"Reject local flattening iff lf version >= ${LV.Features.exceptions}" should {
+    s"Reject local flattening if lf version >= ${LV.Features.exprInterning}" should {
       "for case ABS (enforced: singleton)" in {
         val internedZero = DamlLf2.Expr
           .newBuilder()
@@ -1501,7 +1504,7 @@ class DecodeV2Spec
 
   "decodeModuleRef" should {
 
-    lazy val Right(ArchivePayload.Lf2(pkgId, pkgProto, minorVersion)) =
+    lazy val Right(ArchivePayload.Lf2(pkgId, pkgProto, minorVersion, _)) =
       ArchiveReader.fromFile(Paths.get(rlocation("daml-lf/archive/DarReaderTest.dalf")))
 
     lazy val extId = {
@@ -1528,7 +1531,7 @@ class DecodeV2Spec
 
     "take a dalf with interned IDs" in {
 
-      minorVersion.identifier should !==("dev")
+      minorVersion.isDevVersion should be(false)
 
       extId should not be empty
       (extId: String) should !==(pkgId: String)
@@ -1536,7 +1539,7 @@ class DecodeV2Spec
 
     "decode resolving the interned package ID" in {
       val decoder = new DecodeV2(minorVersion)
-      inside(decoder.decodePackage(pkgId, pkgProto, false)) { case Right(pkg) =>
+      inside(decoder.decodePackage(pkgId, pkgProto, false, 0)) { case Right(pkg) =>
         inside(
           pkg
             .modules(Ref.DottedName.assertFromString("DarReaderTest"))
@@ -1657,7 +1660,7 @@ class DecodeV2Spec
         val pkgId = Ref.PackageId.assertFromString(
           "0000000000000000000000000000000000000000000000000000000000000000"
         )
-        inside(decoder.decodePackage(pkgId, DamlLf2.Package.newBuilder().build(), false)) {
+        inside(decoder.decodePackage(pkgId, DamlLf2.Package.newBuilder().build(), false, 0)) {
           case Left(err) => err shouldBe an[Error.Parsing]
         }
       }
@@ -1680,7 +1683,7 @@ class DecodeV2Spec
           .addInternedStrings("0.0.0")
           .setMetadata(metadata)
           .build()
-        inside(decoder.decodePackage(pkgId, pkg, false)) { case Right(pkg) =>
+        inside(decoder.decodePackage(pkgId, pkg, false, 0)) { case Right(pkg) =>
           pkg.metadata shouldBe
             Ast.PackageMetadata(
               Ref.PackageName.assertFromString("foobar"),
@@ -1810,6 +1813,61 @@ class DecodeV2Spec
       forEveryVersionSuchThat(_ < LV.Features.flatArchive) { _ =>
         // explanation for "magic" number: see above
         Decode.decodeArchive(exprToArch(buildLet(498), "1")) shouldBe a[Right[_, _]]
+      }
+    }
+
+    val pkgId = Ref.PackageId.assertFromString("-pkgId-")
+
+    val pkg = DamlLf2.Package
+      .newBuilder()
+      .addInternedStrings("foobar")
+      .addInternedStrings("0.0.0")
+      .setMetadata(
+        DamlLf2.PackageMetadata.newBuilder
+          .setNameInternedStr(0)
+          .setVersionInternedStr(1)
+          .build()
+      )
+      .build()
+
+    "fail for unknown patch versions" in {
+      val pkgId = Ref.PackageId.assertFromString("-pkgId-")
+
+      forEveryVersion { version =>
+        Decode.decodeArchivePayload(
+          ArchivePayload.Lf2(
+            pkgId = pkgId,
+            proto = pkg,
+            minor = version.minor,
+            patch = 0,
+          )
+        ) shouldBe a[Right[_, _]]
+
+        inside(
+          Decode.decodeArchivePayload(
+            ArchivePayload.Lf2(
+              pkgId = pkgId,
+              proto = pkg,
+              minor = version.minor,
+              patch = 1,
+            )
+          )
+        ) { case Left(err) =>
+          err.msg should include(s"Unknown patch version 1 for LF $version")
+        }
+      }
+    }
+
+    "ignore patch versions when decoding only Schema" in {
+      forEveryVersion { version =>
+        Decode.decodeArchivePayloadSchema(
+          ArchivePayload.Lf2(
+            pkgId = pkgId,
+            proto = pkg,
+            minor = version.minor,
+            patch = 1,
+          )
+        ) shouldBe a[Right[_, _]]
       }
     }
   }

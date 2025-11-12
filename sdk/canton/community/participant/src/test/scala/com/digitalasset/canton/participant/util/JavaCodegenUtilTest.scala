@@ -6,11 +6,7 @@ package com.digitalasset.canton.participant.util
 import com.daml.ledger.javaapi.data.codegen.ContractId
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, TestHash}
-import com.digitalasset.canton.protocol.{
-  AuthenticatedContractIdVersionV11,
-  ExampleTransactionFactory,
-  Unicum,
-}
+import com.digitalasset.canton.protocol.{CantonContractIdVersion, ExampleTransactionFactory, Unicum}
 import org.scalatest.wordspec.AsyncWordSpec
 
 class JavaCodegenUtilTest extends AsyncWordSpec with BaseTest {
@@ -22,7 +18,7 @@ class JavaCodegenUtilTest extends AsyncWordSpec with BaseTest {
         val hash =
           Hash.build(TestHash.testHashPurpose, HashAlgorithm.Sha256).add(0).finish()
         val unicum = Unicum(hash)
-        val lfCid = AuthenticatedContractIdVersionV11.fromDiscriminator(discriminator, unicum)
+        val lfCid = CantonContractIdVersion.maxV1.fromDiscriminator(discriminator, unicum)
 
         val apiCid = new ContractId(lfCid.coid)
         val lfCid2 = apiCid.toLf

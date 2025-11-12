@@ -20,26 +20,33 @@ object HashingSchemeVersion {
   implicit val hashingSchemeVersionOrdering: Ordering[HashingSchemeVersion] =
     Ordering.by(_.index)
 
-  private val ProtocolVersionToHashingVersion =
+  /*
+    Entries (pv=34 -> V2), (pv=37 -> V2, V3) means
+      - pv=34, 35 and 36 support V2
+      - pv=37 and onwards support V2 and V3
+   */
+  private[canton] val MinimumProtocolVersionToHashingVersion =
     SortedMap[ProtocolVersion, NonEmpty[SortedSet[HashingSchemeVersion]]](
-      ProtocolVersion.v34 -> NonEmpty.mk(SortedSet, V2),
-      ProtocolVersion.dev -> NonEmpty.mk(SortedSet, V2),
+      ProtocolVersion.v34 -> NonEmpty.mk(SortedSet, V2)
     )
 
   def minProtocolVersionForHSV(version: HashingSchemeVersion): Option[ProtocolVersion] =
-    ProtocolVersionToHashingVersion.iterator.collectFirst {
+    MinimumProtocolVersionToHashingVersion.iterator.collectFirst {
       case (pv, isVersions) if isVersions.contains(version) => pv
     }
 
   def getHashingSchemeVersionsForProtocolVersion(
       protocolVersion: ProtocolVersion
-  ): NonEmpty[SortedSet[HashingSchemeVersion]] = {
-    assert(
-      protocolVersion >= ProtocolVersion.v34,
-      s"Canton only supports external signing from ProtocolVersions >= ${ProtocolVersion.v34}",
-    )
-    ProtocolVersionToHashingVersion(protocolVersion)
-  }
+  ): NonEmpty[SortedSet[HashingSchemeVersion]] =
+    MinimumProtocolVersionToHashingVersion
+      .filter { case (pv, _) => pv <= protocolVersion }
+      .maxByOption { case (pv, _) => pv }
+      .getOrElse(
+        throw new IllegalArgumentException(
+          s"Unable to find hashing scheme for protocol version $protocolVersion"
+        )
+      )
+      ._2
 
   def fromProtoV30(
       version: v30.ExternalAuthorization.HashingSchemeVersion

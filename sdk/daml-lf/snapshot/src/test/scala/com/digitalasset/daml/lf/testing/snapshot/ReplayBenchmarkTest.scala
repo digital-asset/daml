@@ -6,11 +6,11 @@ package testing.snapshot
 
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.logging.LoggingContext
-import com.digitalasset.daml.lf.archive.UniversalArchiveDecoder
+import com.digitalasset.daml.lf.archive.DarDecoder
 import com.digitalasset.daml.lf.command.{ApiCommand, ApiCommands}
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
+import com.digitalasset.daml.lf.value.ContractIdVersion
 import com.digitalasset.daml.lf.value.Value._
 
 import org.scalatest.matchers.should.Matchers
@@ -19,17 +19,15 @@ import org.scalatest.wordspec.AnyWordSpec
 import java.io.File
 import java.nio.file.{Files, Path}
 
-class ReplayBenchmarkTestV2 extends ReplayBenchmarkTest(LanguageMajorVersion.V2)
+class ReplayBenchmarkTestV1 extends ReplayBenchmarkTest(ContractIdVersion.V1)
 
-class ReplayBenchmarkTest(majorLanguageVersion: LanguageMajorVersion)
-    extends AnyWordSpec
-    with Matchers {
+class ReplayBenchmarkTest(contractIdVersion: ContractIdVersion) extends AnyWordSpec with Matchers {
 
   implicit val logContext: LoggingContext = LoggingContext.ForTesting
 
   private def getMainPkgIdAndDarPath(resource: String): (Ref.PackageId, Path) = {
     val darFile = new File(rlocation(resource))
-    val packages = UniversalArchiveDecoder.assertReadFile(darFile)
+    val packages = DarDecoder.assertReadArchiveFromFile(darFile)
     val (mainPkgId, _) = packages.main
 
     (mainPkgId, darFile.toPath)
@@ -41,7 +39,7 @@ class ReplayBenchmarkTest(majorLanguageVersion: LanguageMajorVersion)
   val alice = Ref.Party.assertFromString("Alice")
   val submissionSeed = crypto.Hash.hashPrivateKey("replay snapshot test")
   val (pkgId, darFile) = getMainPkgIdAndDarPath(
-    s"daml-lf/snapshot/ReplayBenchmark-v${majorLanguageVersion.pretty}.dar"
+    s"daml-lf/snapshot/ReplayBenchmark.dar"
   )
 
   "Generating a snapshot" should {
@@ -66,6 +64,7 @@ class ReplayBenchmarkTest(majorLanguageVersion: LanguageMajorVersion)
         cmds = ApiCommands(ImmArray(cmd), Time.Timestamp.now(), "replay-snapshot-test"),
         participantId = participantId,
         submissionSeed = submissionSeed,
+        contractIdVersion = contractIdVersion,
         prefetchKeys = Seq.empty,
       )
 
@@ -77,6 +76,7 @@ class ReplayBenchmarkTest(majorLanguageVersion: LanguageMajorVersion)
       benchmark.darFile = darFile.toFile.getAbsolutePath
       benchmark.choiceName = "ReplayBenchmark:T:Add"
       benchmark.entriesFile = snapshotFile.toFile.getAbsolutePath
+      benchmark.contractIdVersion = contractIdVersion.toString
 
       noException should be thrownBy benchmark.init()
     }

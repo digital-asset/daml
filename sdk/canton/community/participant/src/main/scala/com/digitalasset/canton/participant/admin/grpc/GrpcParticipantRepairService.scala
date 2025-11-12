@@ -29,7 +29,7 @@ import com.digitalasset.canton.participant.admin.grpc.GrpcParticipantRepairServi
 }
 import com.digitalasset.canton.participant.admin.repair.RepairServiceError.ImportAcsError
 import com.digitalasset.canton.participant.admin.repair.{
-  ContractIdsImportProcessor,
+  ContractAuthenticationImportProcessor,
   RepairServiceError,
 }
 import com.digitalasset.canton.participant.sync.CantonSyncService
@@ -54,7 +54,6 @@ import com.digitalasset.canton.util.{
   OptionUtil,
   ResourceUtil,
 }
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{
   LfPartyId,
   ReassignmentCounter,
@@ -69,6 +68,7 @@ import org.apache.pekko.actor.ActorSystem
 import java.io.{ByteArrayOutputStream, OutputStream}
 import java.util.concurrent.atomic.AtomicReference
 import java.util.zip.GZIPOutputStream
+import scala.annotation.nowarn
 import scala.concurrent.{Await, ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success, Try}
 
@@ -118,6 +118,7 @@ final class GrpcParticipantRepairService(
   }
 
   // TODO(#24610) – Remove, replaced by exportAcs
+  @nowarn("cat=deprecation")
   override def exportAcsOld(
       request: ExportAcsOldRequest,
       responseObserver: StreamObserver[ExportAcsOldResponse],
@@ -134,15 +135,14 @@ final class GrpcParticipantRepairService(
   }
 
   // TODO(#24610) – Remove, replaced by exportAcs
+  @nowarn("cat=deprecation")
   private def createAcsSnapshotTemporaryFile(
       request: ExportAcsOldRequest,
       out: OutputStream,
   )(implicit traceContext: TraceContext): Future[Unit] = {
     val gzipOut = new GZIPOutputStream(out)
     val res = for {
-      validRequest <- EitherT.fromEither[FutureUnlessShutdown](
-        ValidExportAcsOldRequest(request, sync.stateInspection.allProtocolVersions)
-      )
+      validRequest <- EitherT.fromEither[FutureUnlessShutdown](ValidExportAcsOldRequest(request))
       timestampAsString = validRequest.timestamp.fold("head")(ts => s"at $ts")
       _ = logger.info(
         s"Exporting active contract set ($timestampAsString) for parties ${validRequest.parties}"
@@ -155,7 +155,6 @@ final class GrpcParticipantRepairService(
               _.filterString.startsWith(request.filterSynchronizerId),
               validRequest.parties,
               validRequest.timestamp,
-              validRequest.contractSynchronizerRenames,
               skipCleanTimestampCheck = validRequest.force,
               partiesOffboarding = validRequest.partiesOffboarding,
             )
@@ -166,6 +165,7 @@ final class GrpcParticipantRepairService(
     mapErrNewEUS(res.leftMap(_.toCantonRpcError))
   }
 
+  @nowarn("cat=deprecation")
   override def importAcsOld(
       responseObserver: StreamObserver[ImportAcsOldResponse]
   ): StreamObserver[ImportAcsOldRequest] = {
@@ -393,7 +393,7 @@ final class GrpcParticipantRepairService(
             )
           case (_, oldContractImportMode, _, _) if oldContractImportMode != contractImportMode =>
             Left(
-              s"Contract ID import mode cannot be changed from $oldContractImportMode to $contractImportMode"
+              s"Contract authentication import mode cannot be changed from $oldContractImportMode to $contractImportMode"
             )
           case (_, _, oldExcludedStakeholders, _)
               if oldExcludedStakeholders != excludeStakeholders =>
@@ -513,8 +513,8 @@ final class GrpcParticipantRepairService(
       contractImportMode: ContractImportMode,
   )(implicit traceContext: TraceContext): Future[Map[String, String]] = {
     val resultET = for {
-      repairContracts <- EitherT
-        .fromEither[Future](contracts)
+      repairContracts <- contracts
+        .toEitherT[FutureUnlessShutdown]
         .ensure( // TODO(#23073) - Remove this restriction once #27325 has been re-implemented
           "Found at least one contract with a non-zero reassignment counter. ACS import does not yet support it."
         )(_.forall(_.reassignmentCounter == ReassignmentCounter.Genesis))
@@ -522,10 +522,12 @@ final class GrpcParticipantRepairService(
       workflowIdPrefixO = Option.when(workflowIdPrefix != "")(workflowIdPrefix)
 
       activeContractsWithRemapping <-
-        ContractIdsImportProcessor(
+        ContractAuthenticationImportProcessor(
           loggerFactory,
           sync.syncPersistentStateManager,
           sync.pureCryptoApi,
+          sync.contractHasher,
+          sync.contractValidator,
           contractImportMode,
         )(repairContracts)
       (activeContractsWithValidContractIds, contractIdRemapping) =
@@ -538,18 +540,19 @@ final class GrpcParticipantRepairService(
             batching.maxAcsImportBatchSize,
           )(contracts)(
             writeContractsBatchOld(workflowIdPrefixO)(synchronizerId, _)
+              .mapK(FutureUnlessShutdown.outcomeK)
           )
       }
 
     } yield contractIdRemapping
 
     resultET.value.flatMap {
-      case Left(error) => Future.failed(ImportAcsError.Error(error).asGrpcError)
+      case Left(error) => FutureUnlessShutdown.failed(ImportAcsError.Error(error).asGrpcError)
       case Right(contractIdRemapping) =>
-        Future.successful(
+        FutureUnlessShutdown.pure(
           contractIdRemapping.map { case (oldCid, newCid) => (oldCid.coid, newCid.coid) }
         )
-    }
+    }.asGrpcFuture
   }
 
   private def writeContractsBatchOld(
@@ -874,49 +877,10 @@ final class GrpcParticipantRepairService(
 object GrpcParticipantRepairService {
 
   // TODO(#24610) - remove, used by ExportAcsOldRequest only
+  @nowarn("cat=deprecation")
   private object ValidExportAcsOldRequest {
-
-    private def validateContractSynchronizerRenames(
-        contractSynchronizerRenames: Map[String, ExportAcsOldRequest.TargetSynchronizer],
-        allProtocolVersions: Map[SynchronizerId, ProtocolVersion],
-    ): Either[String, List[(SynchronizerId, (SynchronizerId, ProtocolVersion))]] =
-      contractSynchronizerRenames.toList.traverse {
-        case (
-              source,
-              ExportAcsOldRequest.TargetSynchronizer(targetSynchronizer, targetProtocolVersionRaw),
-            ) =>
-          for {
-            sourceId <- SynchronizerId
-              .fromProtoPrimitive(source, "source synchronizer id")
-              .leftMap(_.message)
-
-            targetSynchronizerId <- SynchronizerId
-              .fromProtoPrimitive(targetSynchronizer, "target synchronizer id")
-              .leftMap(_.message)
-            targetProtocolVersion <- ProtocolVersion
-              .fromProtoPrimitive(targetProtocolVersionRaw)
-              .leftMap(_.toString)
-
-            /*
-            The `targetProtocolVersion` should be the one running on the corresponding synchronizer.
-             */
-            _ <- allProtocolVersions
-              .get(targetSynchronizerId)
-              .map { foundProtocolVersion =>
-                Either.cond(
-                  foundProtocolVersion == targetProtocolVersion,
-                  (),
-                  s"Inconsistent protocol versions for synchronizer $targetSynchronizerId: found version is $foundProtocolVersion, passed is $targetProtocolVersion",
-                )
-              }
-              .getOrElse(Either.unit)
-
-          } yield (sourceId, (targetSynchronizerId, targetProtocolVersion))
-      }
-
     private def validateRequestOld(
-        request: ExportAcsOldRequest,
-        allProtocolVersions: Map[SynchronizerId, ProtocolVersion],
+        request: ExportAcsOldRequest
     ): Either[String, ValidExportAcsOldRequest] =
       for {
         parties <- request.parties.traverse(party =>
@@ -925,37 +889,29 @@ object GrpcParticipantRepairService {
         timestamp <- request.timestamp
           .traverse(CantonTimestamp.fromProtoTimestamp)
           .leftMap(_.message)
-        contractSynchronizerRenames <- validateContractSynchronizerRenames(
-          request.contractSynchronizerRenames,
-          allProtocolVersions,
-        )
       } yield ValidExportAcsOldRequest(
         parties.toSet,
         timestamp,
-        contractSynchronizerRenames.toMap,
         force = request.force,
         partiesOffboarding = request.partiesOffboarding,
       )
 
     def apply(
-        request: ExportAcsOldRequest,
-        allProtocolVersions: Map[SynchronizerId, ProtocolVersion],
+        request: ExportAcsOldRequest
     )(implicit
         elc: ErrorLoggingContext
     ): Either[RepairServiceError, ValidExportAcsOldRequest] =
       for {
-        validRequest <- validateRequestOld(request, allProtocolVersions).leftMap(
+        validRequest <- validateRequestOld(request).leftMap(
           RepairServiceError.InvalidArgument.Error(_)
         )
       } yield validRequest
-
   }
 
   // TODO(#24610) - remove, used by ExportAcsOldRequest only
   private final case class ValidExportAcsOldRequest private (
       parties: Set[LfPartyId],
       timestamp: Option[CantonTimestamp],
-      contractSynchronizerRenames: Map[SynchronizerId, (SynchronizerId, ProtocolVersion)],
       force: Boolean, // if true, does not check whether `timestamp` is clean
       partiesOffboarding: Boolean,
   )

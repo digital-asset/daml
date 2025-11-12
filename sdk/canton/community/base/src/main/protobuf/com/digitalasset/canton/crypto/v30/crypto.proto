@@ -284,7 +284,7 @@ enum EncryptionAlgorithmSpec {
   ENCRYPTION_ALGORITHM_SPEC_UNSPECIFIED = 0;
 
   /* ECIES with ECDH, AES128 CBC, and HKDF and authentication (MAC) with HMAC-SHA256. This requires a P-256 key
-     because we use SHA256 and we need to align the lengths of the curve the and hash function. */
+     because we use SHA256 and we need to align the lengths of the curve and the hash function. */
   ENCRYPTION_ALGORITHM_SPEC_ECIES_HKDF_HMAC_SHA256_AES128CBC = 1;
 
   /* RSA with OAEP Padding,
@@ -321,7 +321,7 @@ message CryptoKeyPair {
 }
 
 message SymmetricKey {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   CryptoKeyFormat format = 1;
 
@@ -391,4 +391,12 @@ message AsymmetricEncrypted {
 
   // The fingerprint of the public key that was used for the encryption
   string fingerprint = 3;
+}
+
+message SigningKeysWithThreshold {
+  // the designated signing keys
+  repeated SigningPublicKey keys = 1;
+
+  // the authorization threshold
+  uint32 threshold = 2;
 }

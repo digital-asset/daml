@@ -10,10 +10,7 @@ import com.daml.ledger.api.v2.value.{Record, RecordField, Value}
 import com.digitalasset.canton.config.AuthServiceConfig.Wildcard
 import com.digitalasset.canton.config.{CantonConfig, ClockConfig, DbConfig}
 import com.digitalasset.canton.console.LocalParticipantReference
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.tests.ledgerapi.fixture.ValueConversions.*
 import com.digitalasset.canton.integration.tests.ledgerapi.fixture.{CantonFixture, CreatesParties}
 import com.digitalasset.canton.integration.tests.ledgerapi.services.TestCommands
@@ -147,5 +144,5 @@ final case class CommandServiceOverrideConfig(
 class CommandServiceITPostgres extends CommandServiceITBase {
   registerPlugin(CommandServiceOverrideConfig(loggerFactory))
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }

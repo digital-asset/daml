@@ -4,6 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer
 
 import cats.data.EitherT
+import cats.syntax.bifunctor.*
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
@@ -16,6 +17,7 @@ import com.digitalasset.canton.crypto.{
 }
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.error.CantonBaseError
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
@@ -123,7 +125,6 @@ abstract class SequencerApiTest
   }
 
   protected var clock: Clock = _
-  protected var driverClock: Clock = _
 
   protected def createClock(): Clock = new SimClock(loggerFactory = loggerFactory)
 
@@ -147,6 +148,18 @@ abstract class SequencerApiTest
   protected def supportAggregation: Boolean
 
   protected def defaultExpectedTrafficReceipt: Option[TrafficReceipt]
+
+  private def sendWithElapsedMaxSequencingTime(
+      sequencer: Sequencer,
+      request: SignedContent[SubmissionRequest],
+  ): EitherT[FutureUnlessShutdown, CantonBaseError, Unit] =
+    // Only block orderers implement the max-sequencing-time check on the write side
+    // Since this method is only used for testing the read side, we bypass the write-side check for block sequencers.
+    sequencer.orderer match {
+      case None => sequencer.sendAsyncSigned(request)
+      case Some(orderer) =>
+        orderer.send(request).mapK(FutureUnlessShutdown.outcomeK).leftWiden[CantonBaseError]
+    }
 
   protected def runSequencerApiTests(): Unit = {
     "The sequencers" should {
@@ -193,8 +206,7 @@ abstract class SequencerApiTest
 
         for {
           messages <- loggerFactory.assertLogsSeq(SuppressionRule.LevelAndAbove(Level.INFO))(
-            sequencer
-              .sendAsyncSigned(sign(request))
+            sendWithElapsedMaxSequencingTime(sequencer, sign(request))
               .valueOrFail("sent async")
               .flatMap(_ =>
                 readForMembers(
@@ -253,8 +265,7 @@ abstract class SequencerApiTest
             SuppressionRule.LevelAndAbove(Level.INFO) &&
               SuppressionRule.forLogger[BlockChunkProcessor]
           )(
-            sequencer
-              .sendAsyncSigned(sign(request2))
+            sendWithElapsedMaxSequencingTime(sequencer, sign(request2))
               .valueOrFail("sent async")
               .flatMap(_ => readForMembers(List(sender), sequencer)),
             forAll(_) { entry =>
@@ -418,10 +429,12 @@ abstract class SequencerApiTest
                 include("Max sequencing time")
             )
 
-            inThePast.code.id shouldBe SequencerErrors.SubmissionRequestRefused.id
+            inThePast.code.id shouldBe ExceededMaxSequencingTime.id
             inThePast.cause should (
-              include("is already past the max sequencing time") and
-                include("The sequencer clock timestamp")
+              include("The sequencer time") and
+                include("has exceeded by") and
+                include("the max-sequencing-time of the send request") and
+                include("Estimation for message id")
             )
           }
       }
@@ -436,8 +449,6 @@ abstract class SequencerApiTest
           val aggregationRule =
             AggregationRule(NonEmpty(Seq, p6, p9), PositiveInt.tryCreate(2), testedProtocolVersion)
 
-          simClockOrFail(clock).advanceTo(CantonTimestamp.Epoch.add(Duration.ofSeconds(100)))
-
           val request1 = createSendRequest(
             p6,
             messageContent,
@@ -449,13 +460,12 @@ abstract class SequencerApiTest
             topologyTimestamp = Some(CantonTimestamp.Epoch),
           )
 
+          // Only block orderers implement aggregation, so this should always be defined.
+          val orderer = sequencer.orderer.value
+
           for {
-            _ <- sequencer
-              .sendAsyncSigned(sign(request1))
-              .valueOrFail("Sent async for participant1")
-            _ = {
-              simClockOrFail(clock).reset()
-            }
+            // We're checking the read path, so we can skip the write path of the sequencer and submit directly to the orderer
+            _ <- orderer.send(sign(request1)).valueOrFail("Sent async for participant1")
             reads3 <- readForMembers(Seq(p6), sequencer)
           } yield {
             checkRejection(reads3, p6, request1.messageId, defaultExpectedTrafficReceipt) {

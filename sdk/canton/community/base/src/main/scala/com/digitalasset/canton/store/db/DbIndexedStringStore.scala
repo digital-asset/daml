@@ -11,6 +11,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.store.{IndexedStringStore, IndexedStringType}
+import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
 
@@ -22,13 +23,12 @@ class DbIndexedStringStore(
     extends IndexedStringStore
     with DbStore {
 
-  import com.digitalasset.canton.tracing.TraceContext.Implicits.Empty.*
   import storage.api.*
 
   override def getOrCreateIndex(
       dbTyp: IndexedStringType,
       str: String300,
-  ): FutureUnlessShutdown[Int] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] =
     getIndexForStr(dbTyp.source, str).getOrElseF {
       insertIgnore(dbTyp.source, str).flatMap { _ =>
         getIndexForStr(dbTyp.source, str).getOrElse {
@@ -40,7 +40,9 @@ class DbIndexedStringStore(
       }
     }
 
-  private def getIndexForStr(dbType: Int, str: String300): OptionT[FutureUnlessShutdown, Int] =
+  private def getIndexForStr(dbType: Int, str: String300)(implicit
+      traceContext: TraceContext
+  ): OptionT[FutureUnlessShutdown, Int] =
     OptionT(
       storage
         .query(
@@ -51,7 +53,9 @@ class DbIndexedStringStore(
         )
     )
 
-  private def insertIgnore(dbType: Int, str: String300): FutureUnlessShutdown[Unit] = {
+  private def insertIgnore(dbType: Int, str: String300)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit] = {
     // not sure how to get "last insert id" here in case the row was inserted
     // therefore, we're just querying the db again. this is a bit dorky,
     // but we'll hardly ever do this, so should be good
@@ -64,7 +68,7 @@ class DbIndexedStringStore(
   override def getForIndex(
       dbTyp: IndexedStringType,
       idx: Int,
-  ): FutureUnlessShutdown[Option[String300]] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Option[String300]] =
     storage
       .query(
         sql"select string from common_static_strings where id = $idx and source = ${dbTyp.source}"

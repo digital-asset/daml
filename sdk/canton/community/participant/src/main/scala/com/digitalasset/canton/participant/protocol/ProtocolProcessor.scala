@@ -258,8 +258,8 @@ abstract class ProtocolProcessor[
           Right(steps.createSubmissionResult(deliver, pendingSubmission))
         case SendResult.Error(error) =>
           Left(untracked.embedSubmissionError(SequencerDeliverError(error)))
-        case SendResult.Timeout(sequencerTime) =>
-          Left(untracked.embedSubmissionError(SequencerTimeoutError(sequencerTime)))
+        case SendResult.Timeout(_sequencerTime) =>
+          Left(untracked.embedSubmissionError(SequencerTimeoutError))
       })
     } yield result
     result.bimap(untracked.toSubmissionError, FutureUnlessShutdown.pure)
@@ -387,7 +387,7 @@ abstract class ProtocolProcessor[
             preparedBatch.embedSequencerRequestError,
             pendingSubmission,
           ).leftMap { submissionError =>
-            logger.warn(s"Failed to submit submission due to $submissionError")
+            preparedBatch.logSubmissionSendError(submissionError)
             preparedBatch.submissionErrorTrackingData(submissionError)
           }
 
@@ -783,18 +783,27 @@ abstract class ProtocolProcessor[
         )
         (incorrectRecipients, viewsWithCorrectRootHashAndRecipients) = checkRecipientsResult
 
-        // TODO(#23971) Absolutize ledger effects before passing them to ExtractUsedAndCreated
+        (
+          viewsWithCorrectRootHashAndRecipientsAndAbsoluteLedgerEffects,
+          incorrectAbsolutizationViews,
+        ) = steps.absolutizeLedgerEffects(
+          viewsWithCorrectRootHashAndRecipients
+        )
 
-        (fullViewsWithCorrectRootHashAndRecipients, incorrectDecryptedViews) =
-          steps.computeFullViews(viewsWithCorrectRootHashAndRecipients)
+        (
+          fullViewsWithCorrectRootHashAndRecipientsAndAbsoluteLedgerEffects,
+          incorrectFullViews,
+        ) = steps.computeFullViews(viewsWithCorrectRootHashAndRecipientsAndAbsoluteLedgerEffects)
 
         malformedPayloads =
-          decryptionErrors ++ incorrectRootHashes ++ incorrectRecipients ++ incorrectDecryptedViews
+          decryptionErrors ++ incorrectRootHashes ++ incorrectRecipients ++ incorrectAbsolutizationViews ++ incorrectFullViews
 
-        _ <- NonEmpty.from(fullViewsWithCorrectRootHashAndRecipients) match {
+        _ <- NonEmpty.from(
+          fullViewsWithCorrectRootHashAndRecipientsAndAbsoluteLedgerEffects
+        ) match {
           case None =>
             /*
-              If fullViewsWithCorrectRootHashAndRecipients is empty, it does not necessarily mean that we have a
+              If fullViewsWithCorrectRootHashAndRecipientsAndAbsoluteLedgerEffects is empty, it does not necessarily mean that we have a
               malicious submitter (e.g., if there is concurrent topology change). Hence, if we have a submission data,
               then we will aim to generate a command completion.
              */
@@ -848,7 +857,7 @@ abstract class ProtocolProcessor[
 
           case Some(goodViewsWithSignatures) =>
             // All views with the same correct root hash declare the same mediator, so it's enough to look at the head
-            val (firstView, _) = goodViewsWithSignatures.head1
+            val (firstView, _, _) = goodViewsWithSignatures.head1
 
             val observeFUS = submissionDataForTrackerO match {
               case Some(submissionDataForTracker) =>
@@ -1063,11 +1072,6 @@ abstract class ProtocolProcessor[
             .addRequest(rc, sc, ts, ts, decisionTime, activenessSet)
         )
         .leftMap(err => steps.embedRequestError(RequestTrackerError(err)))
-
-      // TODO(i12928): non-authenticated contracts will crash the participant
-      _ <- steps
-        .authenticateInputContracts(parsedRequest)
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       pendingDataAndResponsesAndTimeoutEvent <-
         if (isCleanReplay(rc)) {
@@ -1591,7 +1595,15 @@ abstract class ProtocolProcessor[
         )
         for {
           commitSet <- EitherT.right[steps.ResultError](commitSetF)
-          eventO = eventFactoryO.map(_(AcsChangeSupport.fromCommitSet(commitSet)))
+          // TODO(#27996) getting the internal contract ids will not be done here and will be part of indexing
+          internalContractIdsForStoredContracts <- EitherT.right[steps.ResultError](
+            ephemeral.contractStore.lookupBatchedNonCachedInternalIds(
+              contractsToBeStored.map(_.contractId)
+            )
+          )
+          eventO = eventFactoryO.map(
+            _(AcsChangeSupport.fromCommitSet(commitSet))(internalContractIdsForStoredContracts)
+          )
           _ = logger.info(show"About to wrap up request $requestId with event $eventO")
           requestTimestamp = requestId.unwrap
           _unit <- EitherT.right[steps.ResultError](
@@ -1875,9 +1887,11 @@ object ProtocolProcessor {
 
   sealed trait ResultProcessingError extends ProcessorError
 
+  sealed trait SubmissionOrTimeoutError extends SubmissionProcessingError
+
   /** We were unable to send the request to the sequencer */
   final case class SequencerRequestError(sendError: SendAsyncClientError)
-      extends SubmissionProcessingError
+      extends SubmissionOrTimeoutError
       with RequestProcessingError {
     override protected def pretty: Pretty[SequencerRequestError] = prettyOfParam(_.sendError)
   }
@@ -1898,16 +1912,12 @@ object ProtocolProcessor {
   }
 
   /** The sequencer did not sequence our event within the allotted time
-    * @param timestamp
-    *   sequencer time when the timeout occurred
     */
-  final case class SequencerTimeoutError(timestamp: CantonTimestamp)
-      extends SubmissionProcessingError
-      with RequestProcessingError {
-    override protected def pretty: Pretty[SequencerTimeoutError] = prettyOfClass(
-      unnamedParam(_.timestamp)
-    )
+  case object SequencerTimeoutError extends SubmissionOrTimeoutError with RequestProcessingError {
+    override protected def pretty: Pretty[SequencerTimeoutError] =
+      prettyOfObject[SequencerTimeoutError]
   }
+  type SequencerTimeoutError = SequencerTimeoutError.type
 
   final case class UnableToGetDynamicSynchronizerParameters(
       synchronizerId: PhysicalSynchronizerId,

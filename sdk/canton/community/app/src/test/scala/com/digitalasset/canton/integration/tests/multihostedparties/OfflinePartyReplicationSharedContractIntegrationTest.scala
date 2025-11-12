@@ -6,13 +6,9 @@ package com.digitalasset.canton.integration.tests.multihostedparties
 import better.files.File
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
-import com.digitalasset.canton.integration.util.PartyToParticipantDeclarative
+import com.digitalasset.canton.integration.tests.multihostedparties.PartyActivationFlow.authorizeWithTargetDisconnect
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
@@ -20,7 +16,6 @@ import com.digitalasset.canton.integration.{
   TestConsoleEnvironment,
 }
 import com.digitalasset.canton.topology.PartyId
-import com.digitalasset.canton.topology.transaction.ParticipantPermission as PP
 
 /** Consider the following setup:
   *   - Alice, Bob hosted on participant1
@@ -63,29 +58,19 @@ sealed trait OfflinePartyReplicationSharedContractIntegrationTest
   )(implicit env: TestConsoleEnvironment): Unit = {
     import env.*
 
-    val ledgerEndP1 = participant1.ledger_api.state.end()
-
-    PartyToParticipantDeclarative.forParty(Set(participant1, participant2), daId)(
-      participant1,
-      party,
-      PositiveInt.one,
-      Set(
-        (participant1, PP.Submission),
-        (participant2, PP.Observation),
-      ),
-    )
+    val beforeActivationOffset =
+      authorizeWithTargetDisconnect(party, daId, source = participant1, target = participant2)
 
     val file = File.newTemporaryFile(s"acs_export_chopper_$party")
     participant1.parties.export_party_acs(
       party = party,
       synchronizerId = daId.logical,
       targetParticipantId = participant2.id,
-      beginOffsetExclusive = ledgerEndP1,
+      beginOffsetExclusive = beforeActivationOffset,
       exportFilePath = file.canonicalPath,
     )
 
-    participant2.synchronizers.disconnect_all()
-    participant2.repair.import_acs(file.canonicalPath)
+    participant2.parties.import_party_acs(file.canonicalPath)
     participant2.synchronizers.reconnect_all()
   }
 
@@ -112,5 +97,5 @@ sealed trait OfflinePartyReplicationSharedContractIntegrationTest
 final class OfflinePartyReplicationSharedContractIntegrationTestPostgres
     extends OfflinePartyReplicationSharedContractIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }

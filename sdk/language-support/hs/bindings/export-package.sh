@@ -16,7 +16,7 @@ TARGET_DIR=$(realpath $1)
 
 cd "$(dirname ${BASH_SOURCE[0]})"
 
-bazel build //canton:all-ledger-api-haskellpb-sources
+bazel build //libs-haskell/ledger-api-pb
 
 BAZEL_BIN=$(bazel info bazel-bin)
 

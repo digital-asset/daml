@@ -97,20 +97,21 @@ lfVersionOpt = optionOnce (str >>= select) $
        metavar "DAML-LF-VERSION"
     <> help ("Daml-LF version to output: " ++ versionsStr)
     <> long "target"
-    <> value LF.versionDefault
+    <> value LF.defaultLfVersion
     <> internal
   where
     renderVersion v =
-      let def = if v == LF.versionDefault then " (default)" else ""
+      let def = if v == LF.defaultLfVersion then " (default)" else ""
       in Pretty.renderPretty v ++ def
-    versionsStr = intercalate ", " (map renderVersion LF.supportedOutputVersions)
+    versionsStr = intercalate ", " (map renderVersion versions)
     select = \case
       versionStr
         | Just version <- LF.parseVersion versionStr
-        , version `elem` LF.supportedOutputVersions
+        , version `elem` versions
         -> return version
         | otherwise
         -> readerError $ "Unknown Daml-LF version: " ++ versionStr
+    versions = LF.compilerOutputLfVersions
 
 dotFileOpt :: Parser (Maybe FilePath)
 dotFileOpt = optionOnce (Just <$> str) $
@@ -229,7 +230,7 @@ packageLocationOpts name = PackageLocationOpts <$> packageOrProjectRootOpt <*> p
         packageRootOptDesc =
             [ "Path to the root of a package containing daml.yaml. "
             , "You should prefer the DAML_PACKAGE environment variable over this option."
-            , "See https://docs.daml.com/tools/assistant.html#running-commands-outside-of-the-project-directory for more details."
+            , "See https://docs.digitalasset.com/build/3.4/dpm/configuration.html#configuration-options for more details."
             ]
         packageOrProjectRootOpt :: Parser (Maybe PackagePath)
         packageOrProjectRootOpt = optional $ packageRootOpt <|> projectRootOpt
@@ -636,7 +637,7 @@ incrementalBuildOpt :: Parser IncrementalBuild
 incrementalBuildOpt = IncrementalBuild <$> flagYesNoAuto "incremental" False "Enable incremental builds" idm
 
 studioReplaceOpt :: Parser ReplaceExtension
-studioReplaceOpt = 
+studioReplaceOpt =
     Options.Applicative.option readReplacement $
       long "replace"
         <> help "Whether an existing extension should be overwritten. ('never' or 'always' for bundled extension version, 'published' for official published version of extension, defaults to 'published')"

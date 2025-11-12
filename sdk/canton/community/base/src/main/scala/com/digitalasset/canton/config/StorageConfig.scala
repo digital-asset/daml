@@ -92,7 +92,11 @@ final case class DbParametersConfig(
 /** Various settings to control batching behaviour related to db queries
   *
   * @param maxItemsInBatch
-  *   maximum number of items in a batch
+  *   maximum number of items in a batch (default value)
+  * @param maxTopologyWriteBatchSize
+  *   maximum number of items in a write batch
+  * @param maxTopologyUpdateBatchSize
+  *   maximum number of items in an update batch
   * @param maxPruningBatchSize
   *   maximum number of events to prune from a participant at a time, used to break up canton
   *   participant-internal batches
@@ -113,12 +117,17 @@ final case class DbParametersConfig(
   */
 final case class BatchingConfig(
     maxItemsInBatch: PositiveNumeric[Int] = BatchingConfig.defaultMaxItemsBatch,
+    maxTopologyWriteBatchSize: PositiveNumeric[Int] =
+      BatchingConfig.defaultMaxTopologyWriteBatchSize,
+    maxTopologyUpdateBatchSize: PositiveNumeric[Int] =
+      BatchingConfig.defaultMaxTopologyUpdateBatchSize,
     maxPruningBatchSize: PositiveNumeric[Int] = BatchingConfig.defaultMaxPruningBatchSize,
     ledgerApiPruningBatchSize: PositiveNumeric[Int] =
       BatchingConfig.defaultLedgerApiPruningBatchSize,
     maxAcsImportBatchSize: PositiveNumeric[Int] = BatchingConfig.defaultMaxAcsImportBatchSize,
     parallelism: PositiveNumeric[Int] = BatchingConfig.defaultBatchingParallelism,
     aggregator: BatchAggregatorConfig = BatchingConfig.defaultAggregator,
+    contractStoreAggregator: BatchAggregatorConfig = BatchingConfig.defaultContractStoreAggregator,
     maxPruningTimeInterval: PositiveFiniteDuration = BatchingConfig.defaultMaxPruningTimeInterval,
 ) extends UniformCantonConfigValidation
 
@@ -129,11 +138,18 @@ object BatchingConfig {
   }
 
   private val defaultMaxItemsBatch: PositiveInt = PositiveNumeric.tryCreate(100)
+  private val defaultMaxTopologyWriteBatchSize: PositiveInt = PositiveNumeric.tryCreate(1000)
+  private val defaultMaxTopologyUpdateBatchSize: PositiveInt = PositiveNumeric.tryCreate(1000)
   private val defaultBatchingParallelism: PositiveInt = PositiveNumeric.tryCreate(8)
   private val defaultMaxPruningBatchSize: PositiveInt = PositiveNumeric.tryCreate(1000)
   private val defaultLedgerApiPruningBatchSize: PositiveInt = PositiveNumeric.tryCreate(50000)
   private val defaultMaxAcsImportBatchSize: PositiveNumeric[Int] = PositiveNumeric.tryCreate(1000)
   private val defaultAggregator: BatchAggregatorConfig.Batching = BatchAggregatorConfig.Batching()
+  private val defaultContractStoreAggregator: BatchAggregatorConfig.Batching =
+    BatchAggregatorConfig.Batching(
+      maximumInFlight = PositiveNumeric.tryCreate(5),
+      maximumBatchSize = PositiveNumeric.tryCreate(50),
+    )
   // default of 30min corresponds to 1440 pruning queries after 30 days downtime, which is a reasonable tradeoff
   private val defaultMaxPruningTimeInterval: PositiveFiniteDuration =
     PositiveFiniteDuration.ofMinutes(30)

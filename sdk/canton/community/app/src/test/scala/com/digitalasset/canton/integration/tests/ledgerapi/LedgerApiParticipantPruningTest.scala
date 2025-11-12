@@ -23,7 +23,7 @@ import com.digitalasset.canton.damltests.java.test
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.examples.java.iou.{Amount, Iou}
 import com.digitalasset.canton.examples.java.paint.OfferToPaintHouseByOwner
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransform,
@@ -56,8 +56,6 @@ trait LedgerApiParticipantPruningTest
       )
         .replace(1)
         .focus(_.ledgerApi.indexService.updatesStreams.maxPayloadsPerPayloadsPage)
-        .replace(1)
-        .focus(_.ledgerApi.indexService.transactionTreeStreams.maxPayloadsPerPayloadsPage)
         .replace(1)
     )
 
@@ -117,7 +115,7 @@ trait LedgerApiParticipantPruningTest
     participant1.dars.upload(CantonTestsPath)
 
     // Produce some create and archive events to prune.
-    val (prunedTransactionId, _) = createContract(
+    val (prunedUpdateId, _) = createContract(
       participant1
     ) // create a non-archived contract whose event is kept around by the ledger api server
     val Seq(
@@ -130,7 +128,7 @@ trait LedgerApiParticipantPruningTest
     val pruningOffset = offsetOfLastPrunedEvent
 
     waitUntilSafeToPrune(participant1)(env)
-    val (unprunedTransactionId, _) = createContract(
+    val (unprunedUpdateId, _) = createContract(
       participant1
     ) // create a non-archived contract whose events is kept around by the ledger api server
 
@@ -166,9 +164,9 @@ trait LedgerApiParticipantPruningTest
       )
     val tx =
       participant1.ledger_api.updates
-        .update_by_id(unprunedTransactionId, updateFormat(participant1))
+        .update_by_id(unprunedUpdateId, updateFormat(participant1))
         .value
-    tx.updateId shouldBe unprunedTransactionId
+    tx.updateId shouldBe unprunedUpdateId
 
     // Starting any earlier should fail:
     loggerFactory.assertLogs(
@@ -219,7 +217,7 @@ trait LedgerApiParticipantPruningTest
     // The pruned transaction should no longer be exposed when querying by transaction id.
     // When we merge pruning upstream, add separate tests for byEvent and flat mode which are not exposed via the canton console
     participant1.ledger_api.updates
-      .update_by_id(prunedTransactionId, updateFormat(participant1)) shouldBe None
+      .update_by_id(prunedUpdateId, updateFormat(participant1)) shouldBe None
 
     // If this turns out to be flaky (because of some background txs), wrap the code below in an eventually.
     val end = participant1.ledger_api.state.end()
@@ -251,7 +249,7 @@ trait LedgerApiParticipantPruningTest
 
       // Produce some create and archive events to prune.
       // create a non-archived contract whose event is kept around by the ledger api server
-      val (prunedTransactionId, _) = clue("creating contracts on p2")(createContract(participant2))
+      val (prunedUpdateId, _) = clue("creating contracts on p2")(createContract(participant2))
 
       // Create a paint offer
       createAcceptPaintOfferCommand(participant1, participant2)
@@ -267,7 +265,7 @@ trait LedgerApiParticipantPruningTest
       )
 
       waitUntilSafeToPrune(participant2)(env)
-      val (_unprunedTransactionId, _unprunedCid) = createContract(
+      val (_unprunedUpdateId, _unprunedCid) = createContract(
         participant2
       ) // create a non-archived contract whose create event is kept around by the ledger api server
 
@@ -304,9 +302,9 @@ trait LedgerApiParticipantPruningTest
         )
       val txTree =
         participant2.ledger_api.updates
-          .update_by_id(prunedTransactionId, updateFormat(participant2))
+          .update_by_id(prunedUpdateId, updateFormat(participant2))
           .value
-      txTree.updateId shouldBe prunedTransactionId
+      txTree.updateId shouldBe prunedUpdateId
 
       // Check that the "internal" sequenced event store has been pruned:
       val lookup = participant2.testing
@@ -506,7 +504,7 @@ trait LedgerApiParticipantPruningTest
 }
 
 class LedgerApiParticipantPruningTestDefault extends LedgerApiParticipantPruningTest {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 }
 
 //class LedgerApiParticipantPruningTestPostgres extends LedgerApiParticipantPruningTest {

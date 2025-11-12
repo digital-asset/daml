@@ -21,6 +21,7 @@ import com.digitalasset.canton.protocol.hash.HashTracer
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.version.{HashingSchemeVersion, ProtocolVersion}
 import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Enricher
 import com.digitalasset.daml.lf.transaction.{
   FatContractInstance,
@@ -118,6 +119,7 @@ final case class PrepareTransactionData(
     private[codec] val synchronizerId: SynchronizerId,
     private[codec] val mediatorGroup: Int,
     private[codec] val transactionUUID: UUID,
+    private[codec] val maxRecordTime: Option[Timestamp],
 ) extends EnrichedTransactionData
 
 /** Transaction data for an enriched external submission during the execute phase. This is usually

@@ -119,9 +119,7 @@ module Daml.Script
   , Secp256k1KeyPair
   , secp256k1generatekeypair
   , secp256k1sign
-#ifdef DAML_CRYPTO_ADDITIONS
   , secp256k1signWithEcdsaOnly
-#endif
   , CryptoErrorType (..)
 
   , -- Upgrades features

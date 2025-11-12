@@ -22,32 +22,25 @@ import com.digitalasset.canton.logging.{
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
-import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.ContractAuthenticatorFn
-import com.digitalasset.canton.platform.apiserver.execution.StoreBackedCommandInterpreter.PackageResolver
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause
-import com.digitalasset.canton.protocol.{
-  CantonContractIdV1Version,
-  CantonContractIdV2Version,
-  CantonContractIdVersion,
-  LfFatContractInst,
-  LfHash,
-}
+import com.digitalasset.canton.protocol.{CantonContractIdVersion, LfFatContractInst}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ContractValidator.ContractAuthenticatorFn
+import com.digitalasset.canton.util.PackageConsumer.PackageResolver
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.daml.lf.crypto
-import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.*
 import com.digitalasset.daml.lf.engine.ResultNeedContract.Response
-import com.digitalasset.daml.lf.language.Ast.Package
 import com.digitalasset.daml.lf.transaction.{
   GlobalKeyWithMaintainers,
   Node,
   SubmittedTransaction,
   Transaction,
 }
+import com.digitalasset.daml.lf.value.ContractIdVersion
 import scalaz.syntax.tag.*
 
 import java.util.concurrent.TimeUnit
@@ -221,6 +214,7 @@ final class StoreBackedCommandInterpreter(
           submissionSeed = submissionSeed,
           prefetchKeys = commands.prefetchKeys,
           engineLogger = config.toEngineLogger(loggerFactory.append("phase", "submission")),
+          contractIdVersion = ContractIdVersion.V1,
         )
       })),
     )
@@ -328,17 +322,11 @@ final class StoreBackedCommandInterpreter(
         case ResultNeedContract(acoid, resume) =>
           (CantonContractIdVersion.extractCantonContractIdVersion(acoid) match {
             case Right(version) =>
-              val hashingMethod = version match {
-                case v1: CantonContractIdV1Version => v1.contractHashingMethod
-                case _: CantonContractIdV2Version =>
-                  // TODO(#23971) - Add support for transforming the contract argument prior to hashing and switch to TypedNormalForm
-                  LfHash.HashingMethod.UpgradeFriendly
-              }
               disclosedOrStoreLookup(acoid).map[Response] {
                 case Some(contract) =>
                   Response.ContractFound(
                     contract,
-                    hashingMethod,
+                    version.contractHashingMethod,
                     hash => contractAuthenticator(contract, hash).isRight,
                   )
                 case None => Response.ContractNotFound
@@ -491,8 +479,6 @@ final class StoreBackedCommandInterpreter(
 }
 
 object StoreBackedCommandInterpreter {
-
-  type PackageResolver = PackageId => TraceContext => FutureUnlessShutdown[Option[Package]]
 
   def considerDisclosedContractsSynchronizerId(
       prescribedSynchronizerIdO: Option[SynchronizerId],

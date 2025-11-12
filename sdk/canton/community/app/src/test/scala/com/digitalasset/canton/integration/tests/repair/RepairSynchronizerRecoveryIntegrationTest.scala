@@ -13,9 +13,9 @@ import com.digitalasset.canton.examples.java.iou
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.plugins.{
   UseBftSequencer,
-  UseCommunityReferenceBlockSequencer,
   UsePostgres,
   UseProgrammableSequencer,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.util.EntitySyntax
 import com.digitalasset.canton.ledger.participant.state.SequencerIndex
@@ -171,7 +171,7 @@ trait RepairSynchronizerRecoveryIntegrationTest
                         val signedModifiedRequest = signModifiedSubmissionRequest(
                           modifiedRequest,
                           participant1.underlying.value.sync.syncCrypto
-                            .tryForSynchronizer(daId, defaultStaticSynchronizerParameters),
+                            .tryForSynchronizer(daId, staticSynchronizerParameters1),
                         )
                         dropSomeMessagesToP1.set(true)
                         SendDecision.Replace(signedModifiedRequest)
@@ -435,7 +435,7 @@ class RepairSynchronizerRecoveryIntegrationTestPostgres
     extends RepairSynchronizerRecoveryIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory)
+    new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory)
   )
   registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
 }

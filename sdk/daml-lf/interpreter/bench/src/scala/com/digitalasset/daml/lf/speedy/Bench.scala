@@ -5,7 +5,6 @@ package com.digitalasset.daml.lf
 package speedy
 
 import com.daml.logging.LoggingContext
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml.lf.testing.parser._
 import org.openjdk.jmh.annotations._
 
@@ -21,10 +20,8 @@ class Bench {
 
   private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
-  private def MAJOR_LF_VERSION = LanguageMajorVersion.V2
-
   implicit def parserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor(MAJOR_LF_VERSION)
+    ParserParameters.default
   private[this] def defaultPackageId = parserParameters.defaultPackageId
 
   private[this] def pkg = {
@@ -146,8 +143,7 @@ class Bench {
 
   @Setup(Level.Trial)
   def init(): Unit = {
-    val config = Compiler.Config
-      .Dev(MAJOR_LF_VERSION)
+    val config = Compiler.Config.Dev
       .copy(packageValidation = Compiler.NoPackageValidation)
     compiledPackages = PureCompiledPackages.assertBuild(Map(defaultPackageId -> pkg), config)
     sexpr = SExpr.SEApp(compiledPackages.compiler.unsafeCompile(e"$b"), ArraySeq(SValue.SUnit))

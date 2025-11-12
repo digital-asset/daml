@@ -4,6 +4,8 @@
 package com.digitalasset.daml.lf
 package engine
 
+import com.digitalasset.daml.lf.language.LanguageVersion
+
 class EngineInfo(config: EngineConfig) {
 
   import language.{LanguageVersion => LV}
@@ -11,11 +13,7 @@ class EngineInfo(config: EngineConfig) {
   override def toString: String = show
   def show: String = {
 
-    val allLangVersions =
-      for {
-        major <- LV.Major.All
-        minor <- major.supportedMinorVersions
-      } yield LV(major, minor)
+    val allLangVersions = LanguageVersion.allLegacyLfVersions ++ LanguageVersion.allLfVersions
 
     val allowedLangVersions =
       allLangVersions.filter(config.allowedLanguageVersions.contains)

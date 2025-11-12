@@ -10,7 +10,7 @@ import com.digitalasset.base.error.ErrorsAssertions
 import com.digitalasset.canton.auth.AccessLevel
 import com.digitalasset.canton.config.CantonRequireTypes.NonEmptyString
 import com.digitalasset.canton.config.{AuthServiceConfig, CantonConfig, DbConfig}
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.integration.tests.ledgerapi.SuppressionRules.AuthServiceJWTSuppressionRule
 import com.digitalasset.canton.integration.tests.ledgerapi.services.SubmitAndWaitDummyCommandHelpers
 import com.digitalasset.canton.integration.{
@@ -233,7 +233,7 @@ trait PrivilegedTokenAuthIT
 
 class PrivilegedScopeTokenAuthIT extends PrivilegedTokenAuthIT {
   registerPlugin(ExpectedScopeOverrideConfig(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   protected def toContext(
       payload: StandardJWTPayload,
@@ -255,7 +255,7 @@ class PrivilegedScopeTokenAuthIT extends PrivilegedTokenAuthIT {
     issuer = None,
     participantId = None,
     userId = privilegedEphemeralUser,
-    exp = None,
+    exp = Some(Instant.now().plusNanos(Duration.ofMinutes(5).toNanos)),
     format = StandardJWTTokenFormat.Scope,
     audiences = List.empty,
     scope = Some(privilegedScope),
@@ -318,7 +318,7 @@ class PrivilegedScopeTokenAuthIT extends PrivilegedTokenAuthIT {
 
 class PrivilegedAudienceTokenAuthIT extends PrivilegedTokenAuthIT {
   registerPlugin(ExpectedAudienceOverrideConfig(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   protected def toContext(
       payload: StandardJWTPayload,
@@ -337,7 +337,7 @@ class PrivilegedAudienceTokenAuthIT extends PrivilegedTokenAuthIT {
     issuer = None,
     participantId = None,
     userId = participantAdmin,
-    exp = None,
+    exp = Some(Instant.now().plusNanos(Duration.ofMinutes(5).toNanos)),
     format = StandardJWTTokenFormat.Audience,
     audiences = List(ExpectedAudience),
     scope = None,
@@ -351,7 +351,7 @@ class PrivilegedAudienceTokenAuthIT extends PrivilegedTokenAuthIT {
     issuer = None,
     participantId = None,
     userId = privilegedEphemeralUser,
-    exp = None,
+    exp = Some(Instant.now().plusNanos(Duration.ofMinutes(5).toNanos)),
     format = StandardJWTTokenFormat.Audience,
     audiences = List(privilegedAudience),
     scope = None,
@@ -379,7 +379,7 @@ class PrivilegedAudienceTokenAuthIT extends PrivilegedTokenAuthIT {
     issuer = None,
     participantId = None,
     userId = randomPartyActUser,
-    exp = None,
+    exp = Some(Instant.now().plusNanos(Duration.ofMinutes(5).toNanos)),
     format = StandardJWTTokenFormat.Audience,
     audiences = List(defaultAudience),
     scope = None,

@@ -107,7 +107,7 @@ private[mediator] class MediatorEventsProcessor(
         tracedProtocolEvent.value.envelopes,
         tracedProtocolEvent.value.synchronizerId,
       ) { wrongMessages =>
-        val wrongSynchronizerIds = wrongMessages.map(_.protocolMessage.synchronizerId)
+        val wrongSynchronizerIds = wrongMessages.map(_.protocolMessage.psid)
         logger.error(s"Received messages with wrong synchronizer ids: $wrongSynchronizerIds")
       }
       tracedProtocolEvent -> synchronizerEnvelopes

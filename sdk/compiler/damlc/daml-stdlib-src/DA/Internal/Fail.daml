@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE CPP #-}
+
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | MOVE DA.Fail
@@ -27,11 +27,7 @@ instance ActionFailWithStatus Update where
 -- In 3.4, fail will be redefined using failWithStatus, so instance is moved here
 -- | MOVE Prelude
 instance ActionFail Update where
-#ifdef DAML_EXCEPTIONS
   fail m = pure () >>= \_ -> error m
-#else
-  fail = primitive @"UAbort"
-#endif
 
 instance CanAbort Update where
   abort = fail

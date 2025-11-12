@@ -6,14 +6,16 @@ package com.digitalasset.canton.concurrent
 import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.ErrorLoggingContext
-import com.digitalasset.canton.util.LoggerUtil
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.util.Thereafter.syntax.*
+import com.digitalasset.canton.util.TryUtil.ForFailedOps
+import com.digitalasset.canton.util.{LoggerUtil, TryUtil}
 import com.google.common.annotations.VisibleForTesting
 import org.slf4j.event.Level
 
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import java.util.concurrent.{ScheduledExecutorService, TimeUnit}
+import scala.annotation.tailrec
 import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
 import scala.ref.WeakReference
@@ -34,20 +36,17 @@ trait FutureSupervisor {
       description: => String,
       warnAfter: Duration = 10.seconds,
       logLevel: Level = Level.WARN,
-  )(fut: Future[T])(implicit
-      errorLoggingContext: ErrorLoggingContext
-  ): Future[T]
+  )(fut: Future[T])(implicit errorLoggingContext: ErrorLoggingContext): Future[T]
+
   def supervisedUS[T](
       description: => String,
       warnAfter: Duration = 10.seconds,
       logLevel: Level = Level.WARN,
-  )(
-      fut: FutureUnlessShutdown[T]
-  )(implicit
+  )(fut: FutureUnlessShutdown[T])(implicit
       errorLoggingContext: ErrorLoggingContext
-  ): FutureUnlessShutdown[T] = FutureUnlessShutdown(
-    supervised(description, warnAfter, logLevel)(fut.unwrap)
-  )
+  ): FutureUnlessShutdown[T] =
+    FutureUnlessShutdown(supervised(description, warnAfter, logLevel)(fut.unwrap))
+
 }
 
 object FutureSupervisor {
@@ -63,17 +62,34 @@ object FutureSupervisor {
   }
 
   class Impl(
-      defaultWarningInterval: NonNegativeDuration
+      defaultWarningInterval: NonNegativeDuration,
+      override protected val loggerFactory: NamedLoggerFactory,
   )(implicit
       scheduler: ScheduledExecutorService
-  ) extends FutureSupervisor {
-    import Impl.ScheduledFuture
+  ) extends FutureSupervisor
+      with NamedLogging {
 
-    private val scheduled = new AtomicReference[Seq[ScheduledFuture]](Seq.empty)
-    private val defaultCheckMs = 1000L
+    import Impl.*
+
+    /** All supervised futures are kept in this mutable singly-linked list. Contains `null` iff the
+      * scheduler has been stopped.
+      */
+    private val headScheduled: AtomicReference[ScheduledEntry] =
+      new AtomicReference[ScheduledEntry](ScheduledSentinel())
+
+    /** Approximates the number of currently supervised futures in the list. The returned number may
+      * deviate from the actual number in both directions:
+      *
+      *   - It may not count the supervised futures whose `.supervised` calls have not yet finished.
+      *   - It may count the supervised futures that are being removed by the currently running
+      *     slowness check.
+      *
+      * [[ScheduledSentinel]] entries in the list are omitted from the count.
+      */
+    private val approximateSizeRef: AtomicInteger = new AtomicInteger(0)
 
     // schedule regular background checks
-    scheduler.scheduleWithFixedDelay(
+    private val scheduledHandle = scheduler.scheduleWithFixedDelay(
       () => checkSlow(),
       defaultCheckMs,
       defaultCheckMs,
@@ -81,7 +97,13 @@ object FutureSupervisor {
     )
 
     @VisibleForTesting
-    private[concurrent] def inspectScheduled: Seq[ScheduledFuture] = scheduled.get()
+    private[concurrent] def inspectApproximateSize: Int = approximateSizeRef.get
+
+    /** Returns the current head, which may be a [[ScheduledSentinel]]. Returns [[scala.None$]] if
+      * the scheduler has been stopped.
+      */
+    @VisibleForTesting
+    private[concurrent] def inspectHead: Option[ScheduledEntry] = Option(headScheduled.get())
 
     private def log(
         message: String,
@@ -95,14 +117,100 @@ object FutureSupervisor {
 
     private def checkSlow(): Unit = {
       val now = System.nanoTime()
-      val cur = scheduled.updateAndGet(_.filter(_.stillRelevantAndIncomplete))
-      cur.filter(x => x.alertNow(now)).foreach { blocked =>
-        val dur = Duration.fromNanos(now - blocked.startNanos)
-        val message =
-          s"${blocked.description()} has not completed after ${LoggerUtil.roundDurationForHumans(dur)}"
-        log(message, blocked.logLevel, blocked.errorLoggingContext)
+
+      // First a new Sentinel at the head of the linked list
+      // as another indirection so that we can modify the `next` pointer afterwards
+      // as we go through the list, removing completed futures, without having to access
+      // the atomic again. This has the advantage that `insertAtHead` and `stop`
+      // do not interfere with these updates as they don't look at `next` of what's in the list.
+      // This sentinel will be removed with the next scheduled traversal of the list.
+
+      val newSentinel = ScheduledSentinel()
+      if (insertAtHead(newSentinel)) {
+        val approximateSize = approximateSizeRef.get()
+
+        @SuppressWarnings(Array("org.wartremover.warts.Var"))
+        var removed = 0
+
+        TryUtil
+          .tryCatchInterrupted {
+            // Traverses the linked list with a look-ahead of 1, i.e.,
+            // `current` lags behind by one element compared to what is being looked at.
+            // This way, if we want to remove the entry we're looking at,
+            // we simply modify the `next` field of `current`.
+            @tailrec def go(current: ScheduledEntry): Unit = {
+              val next = current.next
+              if (next != null) {
+                next match {
+                  case blocked: ScheduledFuture =>
+                    if (!blocked.stillRelevantAndIncomplete) {
+                      current.next = blocked.next
+                      removed += 1
+                      go(current)
+                    } else {
+                      if (blocked.alertNow(now)) {
+                        val dur = Duration.fromNanos(now - blocked.startNanos)
+                        val message =
+                          s"${blocked.description()} has not completed after ${LoggerUtil.roundDurationForHumans(dur)}"
+                        log(message, blocked.logLevel, blocked.errorLoggingContext)
+                      }
+                      go(blocked)
+                    }
+                  case sentinel: ScheduledSentinel =>
+                    // Remove all sentinels we encounter.
+                    current.next = sentinel.next
+                    go(current)
+                }
+              }
+            }
+
+            go(newSentinel)
+          }
+          .valueOr { ex =>
+            // Catch all non-fatal (and interrupted) exceptions and log them so that they don't get discarded.
+            // Do not rethrow as this would terminate the scheduler immediately.
+            // This is fairly crude because if the exception comes from the supervised future's description,
+            // this will block the removal of all earlier added futures, but at least we see the exception.
+            // Since new supervised futures are added to the head of the linked list,
+            // they will be supervised as normally, so this is not a growing memory leak
+            // unless there's a constant influx of throwing supervisions.
+            noTracingLogger.error(
+              s"Future supervision has failed with an exception, but will repeat in ${defaultCheckMs}ms",
+              ex,
+            )
+          }
+
+        // We update the approximation only once we've gone through the whole list
+        // to reduce contention on this atomic.
+        approximateSizeRef.addAndGet(-removed).discard
+
+        val end = System.nanoTime()
+        val duration = TimeUnit.NANOSECONDS.toMillis(end - now)
+        if (duration >= defaultCheckMs)
+          // Logged only at INFO level instead of WARN because GC runs can pause
+          // supervision and lead to false positives.
+          noTracingLogger.info(
+            s"Supervising futures itself takes longer than the check frequency: $duration ms. Approximate supervision size: $approximateSize minus $removed"
+          )
+      } else {
+        noTracingLogger.debug(
+          "Skipping slowness check because this future supervisor has been stopped"
+        )
       }
     }
+
+    /** Replaces the [[headScheduled]] with `entry` and points `entry`'s [[ScheduledEntry.next]] to
+      * the previous head. Does nothing and returns `false` if the supervisor has been stopped.
+      */
+    @SuppressWarnings(Array("org.wartremover.warts.Null"))
+    private def insertAtHead(entry: ScheduledEntry): Boolean =
+      headScheduled.updateAndGet { oldHead =>
+        if (oldHead == null) null
+        else {
+          entry.next = oldHead
+          entry
+        }
+      } != null
 
     def supervised[T](
         description: => String,
@@ -122,29 +230,35 @@ object FutureSupervisor {
           errorLoggingContext,
           logLevel,
         )
-        // Merely add the new ScheduledFuture to the list and don't filter out no longer relevant items.
-        // Otherwise, this will produce a quadratic runtime if many future supervisions are happening at the same time.
-        scheduled.updateAndGet(itm +: _)
 
-        // Use the direct execution context so that the supervision follow-up steps doesn't affect task-based scheduling
-        // because the follow-up is run on the future itself.
-        implicit val directExecutionContext: ExecutionContext =
-          new DirectExecutionContext(errorLoggingContext.noTracingLogger)
-        fut.thereafter {
-          case Success(_) =>
-            val time = elapsed(itm)
-            if (time > warnAfter) {
-              errorLoggingContext.info(
-                s"$description succeed successfully but slow after $time"
+        if (insertAtHead(itm)) {
+          approximateSizeRef.incrementAndGet()
+
+          // Use the direct execution context so that the supervision follow-up steps doesn't affect task-based scheduling
+          // because the follow-up is run on the future itself.
+          implicit val directExecutionContext: ExecutionContext =
+            new DirectExecutionContext(errorLoggingContext.noTracingLogger)
+          fut.thereafter {
+            case Success(_) =>
+              val time = elapsed(itm)
+              if (time > warnAfter) {
+                errorLoggingContext.info(
+                  s"$description succeed successfully but slow after $time"
+                )
+              }
+            case Failure(exception) =>
+              log(
+                s"$description failed with exception after ${elapsed(itm)}",
+                logLevel,
+                errorLoggingContext,
+                Some(exception),
               )
-            }
-          case Failure(exception) =>
-            log(
-              s"$description failed with exception after ${elapsed(itm)}",
-              logLevel,
-              errorLoggingContext,
-              Some(exception),
-            )
+          }
+        } else {
+          errorLoggingContext.debug(
+            "Skipping future supervision because the supervisor has been stopped"
+          )
+          fut
         }
       }
 
@@ -153,8 +267,39 @@ object FutureSupervisor {
       LoggerUtil.roundDurationForHumans(dur)
     }
 
+    @SuppressWarnings(Array("org.wartremover.warts.Null"))
+    def stop(): Unit = {
+      scheduledHandle.cancel( /* mayInterruptIfRunning = */ false).discard[Boolean]
+      headScheduled.set(null)
+      approximateSizeRef.set(0)
+    }
   }
+
   object Impl {
+
+    /** How frequently the future supervisor checks for slowness, in milliseconds */
+    val defaultCheckMs = 1000L
+
+    /** An entry in the */
+    private[Impl] sealed trait ScheduledEntry extends Product with Serializable {
+
+      /** The next pointer in the linked list of scheduled future supervisions.
+        *
+        * We use `null` as the sentinel instead of `Option[ScheduledEntry]` to avoid allocating lots
+        * of useless `Some`s.
+        *
+        * A plain variable without synchronization suffices here because access to this variable is
+        * synchronized via the [[Impl.headScheduled]] atomic: Before this `ScheduledEntry` becomes
+        * the head, this field is only accessed by the single thread that tries to insert the entry
+        * into the list. Afterwards, this field is accessed only by the [[Impl.checkSlow]] method,
+        * where the scheduler makes sure sequentializes all runs of [[Impl.checkSlow]]. The update
+        * of the atomic creates the required happens-before relationships.
+        */
+      @SuppressWarnings(Array("org.wartremover.warts.Var", "org.wartremover.warts.Null"))
+      private[Impl] var next: ScheduledEntry = _
+    }
+
+    private final case class ScheduledSentinel() extends ScheduledEntry
 
     /** A scheduled future to monitor.
       *
@@ -169,13 +314,13 @@ object FutureSupervisor {
       */
     @VisibleForTesting
     private[concurrent] final case class ScheduledFuture(
-        fut: WeakReference[Future[_]],
+        fut: WeakReference[Future[?]],
         description: () => String,
         startNanos: Long,
         warnNanos: Long,
         errorLoggingContext: ErrorLoggingContext,
         logLevel: Level,
-    ) {
+    ) extends ScheduledEntry {
       val warnCounter = new AtomicInteger(1)
 
       def stillRelevantAndIncomplete: Boolean = fut match {

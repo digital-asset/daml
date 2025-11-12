@@ -8,15 +8,10 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.base.error.{
-  Alarm,
-  AlarmErrorCode,
-  ErrorCategory,
-  ErrorCode,
-  Explanation,
-  Resolution,
-}
+import com.digitalasset.base.error.*
 import com.digitalasset.canton.ProtoDeserializationError
+import com.digitalasset.canton.ProtoDeserializationError.InvariantViolation
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.config.{
   CantonConfigValidator,
@@ -43,13 +38,7 @@ import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.topology.{Member, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherUtil
-import com.digitalasset.canton.version.{
-  HasVersionedMessageCompanion,
-  HasVersionedMessageCompanionDbHelpers,
-  HasVersionedWrapper,
-  ProtoVersion,
-  ProtocolVersion,
-}
+import com.digitalasset.canton.version.*
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 import org.bouncycastle.asn1.edec.EdECObjectIdentifiers
@@ -112,15 +101,14 @@ trait SigningOps {
 /** Signing operations that require access to stored private keys. */
 trait SigningPrivateOps {
 
-  def signingAlgorithmSpecs: CryptoScheme[SigningAlgorithmSpec]
-  def signingKeySpecs: CryptoScheme[SigningKeySpec]
+  def signingSchemes: SigningCryptoSchemes
 
   /** Signs the given hash using the referenced private signing key. */
   def sign(
       hash: Hash,
       signingKeyId: Fingerprint,
       usage: NonEmpty[Set[SigningKeyUsage]],
-      signingAlgorithmSpec: SigningAlgorithmSpec = signingAlgorithmSpecs.default,
+      signingAlgorithmSpec: SigningAlgorithmSpec = signingSchemes.algorithmSpecs.default,
   )(implicit
       tc: TraceContext
   ): EitherT[FutureUnlessShutdown, SigningError, Signature] =
@@ -131,14 +119,14 @@ trait SigningPrivateOps {
       bytes: ByteString,
       signingKeyId: Fingerprint,
       usage: NonEmpty[Set[SigningKeyUsage]],
-      signingAlgorithmSpec: SigningAlgorithmSpec = signingAlgorithmSpecs.default,
+      signingAlgorithmSpec: SigningAlgorithmSpec = signingSchemes.algorithmSpecs.default,
   )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, SigningError, Signature]
 
   /** Generates a new signing key pair with the given scheme and optional name, stores the private
     * key and returns the public key.
     */
   def generateSigningKey(
-      keySpec: SigningKeySpec = signingKeySpecs.default,
+      keySpec: SigningKeySpec = signingSchemes.keySpecs.default,
       usage: NonEmpty[Set[SigningKeyUsage]],
       name: Option[KeyName] = None,
   )(implicit
@@ -200,7 +188,8 @@ trait SigningPrivateStoreOps extends SigningPrivateOps {
   *   The fingerprint of the key that was used to generate the signature.
   * @param signingAlgorithmSpec
   *   The signing algorithm scheme used to generate this signature. It is optional to ensure
-  *   backwards compatibility.
+  *   backwards compatibility with previous version where the spec is not set, but the general code
+  *   path expects you to provide it.
   * @param signatureDelegation
   *   An additional "optional" signature that includes a session key and a delegation/authorization
   *   through a signature created by a long-term key. This allows the session key to be used for
@@ -966,11 +955,17 @@ object SigningKeySpec {
       keySpecP: v30.SigningKeySpec,
       keySchemeP: v30.SigningKeyScheme,
   ): ParsingResult[SigningKeySpec] =
-    SigningKeySpec.fromProtoEnum("key_spec", keySpecP).leftFlatMap {
-      case ProtoDeserializationError.FieldNotSet(_) =>
-        SigningKeySpec.fromProtoEnumSigningKeyScheme("scheme", keySchemeP)
-      case err => Left(err)
-    }
+    // return better error if neither field is set
+    if (
+      keySpecP == v30.SigningKeySpec.SIGNING_KEY_SPEC_UNSPECIFIED && keySchemeP.isSigningKeySchemeUnspecified
+    )
+      Left(ProtoDeserializationError.FieldNotSet("key_spec and scheme"))
+    else
+      SigningKeySpec.fromProtoEnum("key_spec", keySpecP).leftFlatMap {
+        case ProtoDeserializationError.FieldNotSet(_) =>
+          SigningKeySpec.fromProtoEnumSigningKeyScheme("scheme", keySchemeP)
+        case err => Left(err)
+      }
 
   /** Converts an old SigningKeyScheme enum to the new key scheme, ensuring backward compatibility
     * with existing data.
@@ -1003,6 +998,11 @@ sealed trait SigningAlgorithmSpec
   def supportedSigningKeySpecs: NonEmpty[Set[SigningKeySpec]]
   def supportedSignatureFormats: NonEmpty[Set[SignatureFormat]]
   def toProtoEnum: v30.SigningAlgorithmSpec
+
+  /** Approximate signature size in bytes. The actual size may depend on the format.
+    */
+  // TODO(i28366): Add a test
+  def approximateSignatureSize: Int
   override val pretty: Pretty[this.type] = prettyOfString(_.name)
 }
 
@@ -1025,6 +1025,7 @@ object SigningAlgorithmSpec {
       NonEmpty.mk(Set, SignatureFormat.Concat)
     override def toProtoEnum: v30.SigningAlgorithmSpec =
       v30.SigningAlgorithmSpec.SIGNING_ALGORITHM_SPEC_ED25519
+    override def approximateSignatureSize: Int = 64
   }
 
   /** Elliptic Curve Digital Signature Algorithm with SHA256 as defined in
@@ -1038,6 +1039,7 @@ object SigningAlgorithmSpec {
       NonEmpty.mk(Set, SignatureFormat.Der)
     override def toProtoEnum: v30.SigningAlgorithmSpec =
       v30.SigningAlgorithmSpec.SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_256
+    override def approximateSignatureSize: Int = 64
   }
 
   /** Elliptic Curve Digital Signature Algorithm with SHA384 as defined in
@@ -1051,6 +1053,7 @@ object SigningAlgorithmSpec {
       NonEmpty.mk(Set, SignatureFormat.Der)
     override def toProtoEnum: v30.SigningAlgorithmSpec =
       v30.SigningAlgorithmSpec.SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_384
+    override def approximateSignatureSize: Int = 96
   }
 
   def toProtoEnumOption(
@@ -1399,7 +1402,7 @@ object SigningPublicKey
     * format. If the [[SigningKeySpec]] is EC-based, it also validates that the public key lies on
     * the expected curve.
     */
-  private[crypto] def create(
+  def create(
       format: CryptoKeyFormat,
       key: ByteString,
       keySpec: SigningKeySpec,
@@ -1418,7 +1421,7 @@ object SigningPublicKey
         key,
         keySpec,
         // if a key is something else than a namespace or identity delegation, then it can be used to sign itself to
-        // prove ownership for OwnerToKeyMapping and PartyToKeyMapping requests.
+        // prove ownership for KeyMapping requests.
         SigningKeyUsage.addProofOfOwnership(usage),
         dataForFingerprintO,
       )()
@@ -2015,4 +2018,74 @@ object SignatureCheckError extends CantonErrorGroups.AuthorizationChecksErrorGro
     )
   }
 
+}
+
+final case class SigningKeysWithThreshold private (
+    keys: NonEmpty[Seq[SigningPublicKey]],
+    threshold: PositiveInt,
+) {
+  def toProto: v30.SigningKeysWithThreshold = v30.SigningKeysWithThreshold(
+    keys = keys.map(_.toProtoV30),
+    threshold = threshold.value,
+  )
+
+  @VisibleForTesting
+  private def copy(
+      keys: NonEmpty[Seq[SigningPublicKey]],
+      threshold: PositiveInt,
+  ) = SigningKeysWithThreshold(keys, threshold)
+
+  @VisibleForTesting
+  def copyKeysUnsafe(newKeys: NonEmpty[Seq[SigningPublicKey]]): SigningKeysWithThreshold =
+    copy(keys = newKeys, threshold = threshold)
+}
+
+object SigningKeysWithThreshold {
+
+  def create(
+      keys: NonEmpty[Seq[SigningPublicKey]],
+      threshold: PositiveInt,
+  ): Either[String, SigningKeysWithThreshold] = {
+    val duplicateKeys = keys.groupBy(_.fingerprint).values.filter(_.sizeIs > 1).toList
+    for {
+      _ <- Either.cond(
+        duplicateKeys.isEmpty,
+        (),
+        s"All signing keys must be unique. Duplicate keys: $duplicateKeys",
+      )
+      _ <- Either
+        .cond(
+          threshold.value <= keys.size,
+          (),
+          s"Cannot meet threshold of $threshold signing keys with participants ${keys.size} keys",
+        )
+    } yield SigningKeysWithThreshold(keys, threshold)
+  }
+
+  private[canton] def tryCreate(
+      keys: NonEmpty[Seq[SigningPublicKey]],
+      threshold: PositiveInt,
+  ): SigningKeysWithThreshold =
+    create(keys, threshold).valueOr(err => throw new IllegalArgumentException((err)))
+
+  def fromProtoV30(
+      value: v30.SigningKeysWithThreshold
+  ): ParsingResult[SigningKeysWithThreshold] =
+    for {
+      keysNE <-
+        ProtoConverter.parseRequiredNonEmpty(
+          SigningPublicKey.fromProtoV30,
+          "keys",
+          value.keys,
+        )
+      threshold <- PositiveInt
+        .create(value.threshold)
+        .leftMap(InvariantViolation.toProtoDeserializationError("threshold", _))
+      signingKeysWithThreshold <- SigningKeysWithThreshold
+        .create(
+          keysNE,
+          threshold,
+        )
+        .leftMap(ProtoDeserializationError.InvariantViolation(None, _))
+    } yield signingKeysWithThreshold
 }

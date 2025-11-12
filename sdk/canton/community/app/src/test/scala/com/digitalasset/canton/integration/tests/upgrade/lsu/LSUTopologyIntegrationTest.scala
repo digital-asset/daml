@@ -10,14 +10,13 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.EnvironmentDefinition.S1M1
 import com.digitalasset.canton.integration.bootstrap.NetworkBootstrapper
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
 import com.digitalasset.canton.integration.plugins.{
   UseBftSequencer,
-  UseCommunityReferenceBlockSequencer,
   UsePostgres,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.tests.upgrade.LogicalUpgradeUtils.SynchronizerNodes
-import com.digitalasset.canton.integration.tests.upgrade.lsu.LSUBase.Fixture
 import com.digitalasset.canton.topology.TopologyManagerError
 import com.digitalasset.canton.topology.store.TimeQuery
 import com.digitalasset.canton.topology.transaction.TopologyMapping
@@ -89,7 +88,7 @@ abstract class LSUTopologyIntegrationTest extends LSUBase {
     "work end-to-end" in { implicit env =>
       import env.*
 
-      val fixture = Fixture(daId, upgradeTime)
+      val fixture = fixtureWithDefaults()
       val newPSId = fixture.newPSId
       val newStaticSynchronizerParameters = fixture.newStaticSynchronizerParameters
 
@@ -119,7 +118,7 @@ abstract class LSUTopologyIntegrationTest extends LSUBase {
 
 final class LSUTopologyReferenceIntegrationTest extends LSUTopologyIntegrationTest {
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](
+    new UseReferenceBlockSequencer[DbConfig.Postgres](
       loggerFactory,
       MultiSynchronizer.tryCreate(Set("sequencer1"), Set("sequencer2")),
     )

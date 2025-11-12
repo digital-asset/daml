@@ -227,6 +227,23 @@ object SubmitError {
       )
   }
 
+  final case class ContractHashingError(
+      coid: ContractId,
+      dstTemplateId: TypeConId,
+      createArg: Value,
+      message: String,
+  ) extends SubmitError {
+    override def toDamlSubmitError(env: Env): SValue = {
+      SubmitErrorConverters(env).damlScriptError(
+        "ContractHashingError",
+        ("coid", fromAnyContractId(env.scriptIds, toApiIdentifier(dstTemplateId), coid)),
+        ("dstTemplateId", fromTemplateTypeRep(dstTemplateId)),
+        ("createArg", fromAnyTemplate(env.valueTranslator, dstTemplateId, createArg).toOption.get),
+        ("contractHashingErrorMessage", SText(message)),
+      )
+    }
+  }
+
   final case class DisclosedContractKeyHashingError(
       contractId: ContractId,
       key: GlobalKey,
@@ -384,6 +401,14 @@ object SubmitError {
       )
   }
 
+  final case class MalformedText(message: String) extends SubmitError {
+    override def toDamlSubmitError(env: Env): SValue =
+      SubmitErrorConverters(env).damlScriptError(
+        "MalformedText",
+        ("malformedTextMessage", SText(message)),
+      )
+  }
+
   final case class LocalVerdictLockedContracts(cids: Seq[(Identifier, ContractId)])
       extends SubmitError {
     override def toDamlSubmitError(env: Env): SValue =
@@ -431,9 +456,14 @@ object SubmitError {
         coid: ContractId,
         srcTemplateId: Identifier,
         dstTemplateId: Identifier,
-        signatories: Set[Party],
-        observers: Set[Party],
-        optKey: Option[GlobalKeyWithMaintainers],
+        srcPackageName: PackageName,
+        dstPackageName: PackageName,
+        originalSignatories: Set[Party],
+        originalObservers: Set[Party],
+        originalOptKey: Option[GlobalKeyWithMaintainers],
+        recomputedSignatories: Set[Party],
+        recomputedObservers: Set[Party],
+        recomputedOptKey: Option[GlobalKeyWithMaintainers],
         message: String,
     ) extends SubmitError {
       override def toDamlSubmitError(env: Env): SValue = {
@@ -445,11 +475,29 @@ object SubmitError {
             ("coid", fromAnyContractId(env.scriptIds, toApiIdentifier(srcTemplateId), coid)),
             ("srcTemplateId", fromTemplateTypeRep(srcTemplateId)),
             ("dstTemplateId", fromTemplateTypeRep(dstTemplateId)),
-            ("signatories", SList(signatories.toList.map(SParty).to(FrontStack))),
-            ("observers", SList(observers.toList.map(SParty).to(FrontStack))),
+            ("srcPackageName", SText(srcPackageName)),
+            ("dstPackageName", SText(dstPackageName)),
             (
-              "optKey",
-              SOptional(optKey.map(key => {
+              "originalSignatories",
+              SList(originalSignatories.toList.map(SParty).to(FrontStack)),
+            ),
+            ("originalObservers", SList(originalObservers.toList.map(SParty).to(FrontStack))),
+            (
+              "originalOptKey",
+              SOptional(originalOptKey.map(key => {
+                val globalKey = globalKeyToAnyContractKey(env, key.globalKey)
+                val maintainers = SList(key.maintainers.toList.map(SParty).to(FrontStack))
+                makeTuple(globalKey, maintainers)
+              })),
+            ),
+            (
+              "recomputedSignatories",
+              SList(recomputedSignatories.toList.map(SParty).to(FrontStack)),
+            ),
+            ("recomputedObservers", SList(recomputedObservers.toList.map(SParty).to(FrontStack))),
+            (
+              "recomputedOptKey",
+              SOptional(recomputedOptKey.map(key => {
                 val globalKey = globalKeyToAnyContractKey(env, key.globalKey)
                 val maintainers = SList(key.maintainers.toList.map(SParty).to(FrontStack))
                 makeTuple(globalKey, maintainers)
@@ -464,19 +512,32 @@ object SubmitError {
       }
     }
 
-    sealed case class DowngradeDropDefinedField(
-        expectedType: String,
-        fieldIndex: Long,
+    sealed case class TranslationFailed(
+        coid: Option[ContractId],
+        srcTemplateId: Identifier,
+        dstTemplateId: Identifier,
+        createArg: Value,
         message: String,
     ) extends SubmitError {
       override def toDamlSubmitError(env: Env): SValue = {
-        val upgradeErrorType = damlScriptUpgradeErrorType(
-          env,
-          "DowngradeDropDefinedField",
-          1,
-          ("expectedType", SText(expectedType)),
-          ("fieldIndex", SInt64(fieldIndex)),
-        )
+        val upgradeErrorType =
+          damlScriptUpgradeErrorType(
+            env,
+            "TranslationFailed",
+            1,
+            (
+              "coid",
+              SOptional.apply(
+                coid.map(id => fromAnyContractId(env.scriptIds, toApiIdentifier(srcTemplateId), id))
+              ),
+            ),
+            ("srcTemplateId", fromTemplateTypeRep(srcTemplateId)),
+            ("dstTemplateId", fromTemplateTypeRep(dstTemplateId)),
+            (
+              "createArg",
+              fromAnyTemplate(env.valueTranslator, srcTemplateId, createArg).toOption.get,
+            ),
+          )
         SubmitErrorConverters(env).damlScriptError(
           "UpgradeError",
           ("errorType", upgradeErrorType),
@@ -485,14 +546,27 @@ object SubmitError {
       }
     }
 
-    sealed case class DowngradeFailed(expectedType: String, message: String) extends SubmitError {
+    sealed case class AuthenticationFailed(
+        coid: ContractId,
+        srcTemplateId: Identifier,
+        dstTemplateId: Identifier,
+        createArg: Value,
+        message: String,
+    ) extends SubmitError {
       override def toDamlSubmitError(env: Env): SValue = {
-        val upgradeErrorType = damlScriptUpgradeErrorType(
-          env,
-          "DowngradeFailed",
-          2,
-          ("expectedType", SText(expectedType)),
-        )
+        val upgradeErrorType =
+          damlScriptUpgradeErrorType(
+            env,
+            "AuthenticationFailed",
+            2,
+            ("coid", fromAnyContractId(env.scriptIds, toApiIdentifier(srcTemplateId), coid)),
+            ("srcTemplateId", fromTemplateTypeRep(srcTemplateId)),
+            ("dstTemplateId", fromTemplateTypeRep(dstTemplateId)),
+            (
+              "createArg",
+              fromAnyTemplate(env.valueTranslator, srcTemplateId, createArg).toOption.get,
+            ),
+          )
         SubmitErrorConverters(env).damlScriptError(
           "UpgradeError",
           ("errorType", upgradeErrorType),
@@ -568,23 +642,6 @@ object SubmitError {
       }
     }
 
-    final case class MalformedContractId(value: String, message: String) extends SubmitError {
-      override def toDamlSubmitError(env: Env): SValue = {
-        val errorType = damlScriptCryptoErrorType(
-          env,
-          "MalformedContractId",
-          2,
-          "contractIdValue" -> SText(value),
-        )
-
-        SubmitErrorConverters(env).damlScriptError(
-          "CryptoError",
-          ("cryptoErrorType", errorType),
-          ("cryptoErrorMessage", SText(message)),
-        )
-      }
-    }
-
     private def damlScriptCryptoErrorType(
         env: Env,
         variantName: String,
@@ -610,9 +667,7 @@ object SubmitError {
       val devErrorType = errorType match {
         case "ChoiceGuardFailed" =>
           SEnum(devErrorTypeIdentifier, Name.assertFromString("ChoiceGuardFailed"), 0)
-        case "TranslationError" =>
-          SEnum(devErrorTypeIdentifier, Name.assertFromString("TranslationError"), 1)
-        case _ => SEnum(devErrorTypeIdentifier, Name.assertFromString("UnknownNewFeature"), 2)
+        case _ => SEnum(devErrorTypeIdentifier, Name.assertFromString("UnknownNewFeature"), 1)
       }
       SubmitErrorConverters(env).damlScriptError(
         "DevError",

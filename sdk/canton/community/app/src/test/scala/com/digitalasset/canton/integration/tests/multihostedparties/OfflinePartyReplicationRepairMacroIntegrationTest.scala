@@ -3,38 +3,32 @@
 
 package com.digitalasset.canton.integration.tests.multihostedparties
 
+import com.digitalasset.canton.config
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.InstanceReference
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
-import com.digitalasset.canton.integration.util.{AcsInspection, PartyToParticipantDeclarative}
+import com.digitalasset.canton.integration.tests.multihostedparties.PartyActivationFlow.authorizeOnly
+import com.digitalasset.canton.integration.util.AcsInspection
 import com.digitalasset.canton.integration.{ConfigTransforms, EnvironmentDefinition}
 import com.digitalasset.canton.participant.util.JavaCodegenUtil.*
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.PartyId
-import com.digitalasset.canton.topology.transaction.ParticipantPermission as PP
-import com.digitalasset.canton.{HasTempDirectory, config}
 
 import scala.jdk.CollectionConverters.*
 
 sealed trait OfflinePartyReplicationRepairMacroIntegrationTest
-    extends UseSilentSynchronizerInTest
-    with AcsInspection
-    with HasTempDirectory {
+    extends OfflinePartyReplicationIntegrationTestBase
+    with UseSilentSynchronizerInTest
+    with AcsInspection {
 
   private val aliceName = "Alice"
   private val bobName = "Bob"
   private val charlieName = "Charlie"
 
-  private var alice: PartyId = _
-  private var bob: PartyId = _
   private var charlie: PartyId = _
 
   // TODO(#27707) - Remove when ACS commitments consider the onboarding flag
@@ -57,7 +51,8 @@ sealed trait OfflinePartyReplicationRepairMacroIntegrationTest
         participant2.synchronizers.connect_local(sequencer4, alias = acmeName)
         participant3.synchronizers.connect_local(sequencer4, alias = acmeName)
 
-        participants.all.dars.upload(CantonExamplesPath)
+        participants.all.dars.upload(CantonExamplesPath, synchronizerId = daId)
+        participants.all.dars.upload(CantonExamplesPath, synchronizerId = acmeId)
 
         // Allocate parties
         alice = participant1.parties.enable(
@@ -97,9 +92,6 @@ sealed trait OfflinePartyReplicationRepairMacroIntegrationTest
         sequencer1.topology.synchronizer_parameters
           .propose_update(daId, _.update(reconciliationInterval = reconciliationInterval.toConfig))
       }
-
-  private val acsSnapshot = tempDirectory.toTempFile("alize.gz")
-  private val acsSnapshotPath: String = acsSnapshot.toString
 
   "setup our test scenario: create archived and active contracts" in { implicit env =>
     import env.*
@@ -182,17 +174,8 @@ sealed trait OfflinePartyReplicationRepairMacroIntegrationTest
       )
     )
 
-    val beforeActivationOffset = participant1.ledger_api.state.end()
-
-    PartyToParticipantDeclarative.forParty(Set(participant1, participant3), daId)(
-      participant1,
-      alice,
-      PositiveInt.one,
-      Set(
-        (participant1, PP.Submission),
-        (participant3, PP.Observation),
-      ),
-    )
+    val beforeActivationOffset =
+      authorizeOnly(alice, daId, source = participant1, target = participant3)
 
     silenceSynchronizerAndAwaitEffectiveness(daId, sequencer1, participant1, simClock)
 
@@ -255,16 +238,6 @@ sealed trait OfflinePartyReplicationRepairMacroIntegrationTest
       synchronizer = acmeName,
     )
 
-    PartyToParticipantDeclarative.forParty(Set(participant1, participant3), daId)(
-      participant1,
-      alice,
-      PositiveInt.one,
-      Set(
-        (participant1, PP.Submission),
-        (participant3, PP.Submission),
-      ),
-    )
-
     participant3.ledger_api.javaapi.commands
       .submit(
         Seq(alice),
@@ -280,7 +253,7 @@ final class OfflinePartyReplicationRepairMacroIntegrationTestPostgres
     extends OfflinePartyReplicationRepairMacroIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](
+    new UseReferenceBlockSequencer[DbConfig.Postgres](
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(

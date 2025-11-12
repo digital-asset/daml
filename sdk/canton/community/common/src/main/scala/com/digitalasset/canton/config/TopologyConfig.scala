@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.config
 
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.config.TopologyConfig.*
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 
@@ -19,6 +19,15 @@ import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
   *   The maximum number of topology transactions sent in a topology transaction broadcast
   * @param broadcastRetryDelay
   *   The delay after which a failed dispatch cycle will be triggered again.
+  * @param validateInitialTopologySnapshot
+  *   Whether or not the node will validate the initial topology snapshot when onboarding to a
+  *   synchronizer.
+  * @param disableOptionalTopologyChecks
+  *   if true (default is false), don't run the optional checks which prevent accidental damage to
+  *   this node
+  * @param dispatchQueueBackpressureLimit
+  *   new topology requests will be backpressured if the number of existing requests exceeds this
+  *   number
   */
 final case class TopologyConfig(
     topologyTransactionRegistrationTimeout: NonNegativeFiniteDuration =
@@ -27,6 +36,9 @@ final case class TopologyConfig(
       defaultTopologyTransactionObservationTimeout,
     broadcastBatchSize: PositiveInt = defaultBroadcastBatchSize,
     broadcastRetryDelay: NonNegativeFiniteDuration = defaultBroadcastRetryDelay,
+    validateInitialTopologySnapshot: Boolean = true,
+    disableOptionalTopologyChecks: Boolean = false,
+    dispatchQueueBackpressureLimit: NonNegativeInt = defaultMaxUnsentTopologyQueueSize,
 ) extends UniformCantonConfigValidation
 
 object TopologyConfig {
@@ -34,6 +46,9 @@ object TopologyConfig {
     import CantonConfigValidatorInstances.*
     CantonConfigValidatorDerivation[TopologyConfig]
   }
+
+  private[TopologyConfig] val defaultMaxUnsentTopologyQueueSize: NonNegativeInt =
+    NonNegativeInt.tryCreate(100)
 
   private[TopologyConfig] val defaultTopologyTransactionRegistrationTimeout =
     NonNegativeFiniteDuration.ofSeconds(20)

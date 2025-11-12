@@ -1,6 +1,7 @@
 module InterfaceFunctions where
 import (implicit) qualified DA.Internal.Record
 import (implicit) qualified GHC.Types
+import (implicit) qualified GHC.Err
 import (implicit) qualified DA.Internal.Desugar
 import (implicit) DA.Internal.RebindableSyntax
 import Daml.Script
@@ -182,7 +183,9 @@ instance DA.Internal.Desugar.HasToInterface Asset Token where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface Asset Token where
   fromInterface = GHC.Types.primitive @"EFromInterface"
-  unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
+  unsafeFromInterface
+    = GHC.Err.error
+        "unsafeFromInterface is not supported anymore, use fromInterface instead"
 data GHC.Types.DamlTemplate => Test
   = Test {alice : Party, bob : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)

@@ -14,7 +14,7 @@ import scala.collection.immutable.TreeSet
 sealed abstract class FatContractInstance extends CidContainer[FatContractInstance] {
   type CreatedAtTime <: CreationTime
 
-  val version: TransactionVersion
+  val version: SerializationVersion
   val contractId: Value.ContractId
   val packageName: Ref.PackageName
   val templateId: Ref.TypeConId
@@ -55,11 +55,11 @@ sealed abstract class FatContractInstance extends CidContainer[FatContractInstan
     version = version,
   )
 
-  def nonVerbose: FatContractInstance
+  def nonVerboseWithoutTrailingNones: FatContractInstance
 }
 
 private[lf] final case class FatContractInstanceImpl[Time <: CreationTime](
-    version: TransactionVersion,
+    version: SerializationVersion,
     contractId: Value.ContractId,
     packageName: Ref.PackageName,
     templateId: Ref.TypeConId,
@@ -120,12 +120,12 @@ private[lf] final case class FatContractInstanceImpl[Time <: CreationTime](
     copy(authenticationData = authenticationData)
   }
 
-  override def nonVerbose: FatContractInstance = FatContractInstanceImpl(
+  override def nonVerboseWithoutTrailingNones: FatContractInstance = FatContractInstanceImpl(
     version,
     contractId,
     packageName,
     templateId,
-    createArg.nonVerbose,
+    createArg.nonVerboseWithoutTrailingNones,
     signatories: TreeSet[Ref.Party],
     stakeholders: TreeSet[Ref.Party],
     contractKeyWithMaintainers.map(_.nonVerbose),

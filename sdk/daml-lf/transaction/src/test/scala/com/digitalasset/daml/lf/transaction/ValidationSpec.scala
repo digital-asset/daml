@@ -83,8 +83,8 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   private val samKWM3 =
     GlobalKeyWithMaintainers.assertBuild(samTemplateId2, samValue2, samParties1, somePkgName)
 
-  private val samVersion1: TransactionVersion = TransactionVersion.minVersion
-  private val samVersion2: TransactionVersion = TransactionVersion.maxVersion
+  private val samVersion1: SerializationVersion = SerializationVersion.minVersion
+  private val samVersion2: SerializationVersion = SerializationVersion.maxVersion
 
   private val someCreates: Seq[Node] =
     for {
@@ -161,13 +161,13 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   // --[running tweaks]--
   // We dont aim for much coverage in the overal TX shape; we limit to either 0 or 1 level of nesting.
 
-  private def flatVTXs(txVersion: TransactionVersion): Seq[VTX] =
+  private def flatVTXs(txVersion: SerializationVersion): Seq[VTX] =
     (someCreates ++ someFetches ++ someLookups ++ someExercises).map { node =>
       val nid = NodeId(0)
       VersionedTransaction(txVersion, HashMap(nid -> node), ImmArray(nid))
     }
 
-  private def nestedVTXs(txVersion: TransactionVersion): Seq[VTX] =
+  private def nestedVTXs(txVersion: SerializationVersion): Seq[VTX] =
     for {
       exe <- someExercises
       child <- someExercises ++ someCreates ++ someLookups ++ someFetches
@@ -185,7 +185,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   private def preTweakedVTXs: Seq[VTX] = {
     // we ensure the preTweaked txs are properly normalized.
     for {
-      txVersion <- TransactionVersion.All
+      txVersion <- SerializationVersion.All
       vtx <- flatVTXs(txVersion) ++ nestedVTXs(txVersion)
     } yield Normalization.normalizeTx(vtx)
   }
@@ -217,16 +217,16 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
     if (x != samValue1) samValue1 else samValue2
   }
 
-  private def changeVersion(x: TransactionVersion): TransactionVersion = {
+  private def changeVersion(x: SerializationVersion): SerializationVersion = {
     if (x != samVersion1) samVersion1 else samVersion2
   }
 
   // --[predicates]--
   // Some tweaks have version dependant significance.
 
-  private def versionSinceMinByKey(v: TransactionVersion): Boolean = {
+  private def versionSinceMinByKey(v: SerializationVersion): Boolean = {
     import scala.Ordering.Implicits.infixOrderingOps
-    v >= TransactionVersion.minContractKeys
+    v >= SerializationVersion.minContractKeys
   }
 
   // --[shared sub tweaks]--
@@ -305,11 +305,11 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   private val tweakFetchStakeholders = Tweak[Node] { case nf: Node.Fetch =>
     tweakPartySet.run(nf.stakeholders).map { x => nf.copy(stakeholders = x) }
   }
-  private def tweakFetchKey(tweakOptKeyMaintainers: TransactionVersion => Tweak[OKWM]) =
+  private def tweakFetchKey(tweakOptKeyMaintainers: SerializationVersion => Tweak[OKWM]) =
     Tweak[Node] { case nf: Node.Fetch =>
       tweakOptKeyMaintainers(nf.version).run(nf.keyOpt).map { x => nf.copy(keyOpt = x) }
     }
-  private def tweakFetchByKey(whenVersion: TransactionVersion => Boolean) = Tweak.single[Node] {
+  private def tweakFetchByKey(whenVersion: SerializationVersion => Boolean) = Tweak.single[Node] {
     case nf: Node.Fetch if whenVersion(nf.version) =>
       nf.copy(byKey = changeBoolean(nf.byKey))
   }
@@ -324,7 +324,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       "tweakFetchActingParties" -> tweakFetchActingPartiesNonEmpty,
       "tweakFetchSignatories" -> tweakFetchSignatories,
       "tweakFetchStakeholders" -> tweakFetchStakeholders,
-      "tweakFetchKey" -> tweakFetchKey((_: TransactionVersion) => tweakOptKeyMaintainers),
+      "tweakFetchKey" -> tweakFetchKey((_: SerializationVersion) => tweakOptKeyMaintainers),
       "tweakFetchByKey(New Version)" -> tweakFetchByKey(versionSinceMinByKey),
       "tweakFetchVersion" -> tweakFetchVersion,
     )
@@ -392,14 +392,15 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
     }
   }
 
-  private def tweakExerciseKey(tweakOptKeyMaintainers: TransactionVersion => Tweak[OKWM]) =
+  private def tweakExerciseKey(tweakOptKeyMaintainers: SerializationVersion => Tweak[OKWM]) =
     Tweak[Node] { case ne: Node.Exercise =>
       tweakOptKeyMaintainers(ne.version).run(ne.keyOpt).map { x => ne.copy(keyOpt = x) }
     }
-  private def tweakExerciseByKey(whenVersion: TransactionVersion => Boolean) = Tweak.single[Node] {
-    case ne: Node.Exercise if whenVersion(ne.version) =>
-      ne.copy(byKey = changeBoolean(ne.byKey))
-  }
+  private def tweakExerciseByKey(whenVersion: SerializationVersion => Boolean) =
+    Tweak.single[Node] {
+      case ne: Node.Exercise if whenVersion(ne.version) =>
+        ne.copy(byKey = changeBoolean(ne.byKey))
+    }
   private val tweakExerciseVersion = Tweak.single[Node] { case ne: Node.Exercise =>
     ne.copy(version = changeVersion(ne.version))
   }
@@ -416,7 +417,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       "tweakExerciseSignatories" -> tweakExerciseSignatories,
       "tweakExerciseChoiceObservers" -> tweakExerciseChoiceObservers,
       "tweakExerciseExerciseResult" -> tweakExerciseExerciseResult,
-      "tweakExerciseKey" -> tweakExerciseKey((_: TransactionVersion) => tweakOptKeyMaintainers),
+      "tweakExerciseKey" -> tweakExerciseKey((_: SerializationVersion) => tweakOptKeyMaintainers),
       "tweakExerciseByKey(New Version)" -> tweakExerciseByKey(versionSinceMinByKey),
       "tweakExerciseVersion" -> tweakExerciseVersion,
     )

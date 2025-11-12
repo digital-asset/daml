@@ -4,7 +4,6 @@
 package com.digitalasset.transcode.daml_lf
 
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.language.Ast.GenDefInterface
 import com.digitalasset.daml.lf.language.{Ast, Util}
 import com.digitalasset.transcode.daml_lf.SchemaEntity.PackageInfo
 import com.digitalasset.transcode.daml_lf.SchemaEntity.Template.DataKind
@@ -180,12 +179,10 @@ private class SchemaProcessor[T](
   // Addressable types that have FQNames
   private val fromDef = cached[(Ref.Identifier, Args), visitor.Type] { case (id, args) =>
     getDefinition(id) match {
-      case Ast.DDataType(_, params, cons) =>
+      case Ast.DDataType(true, params, cons) =>
         fromCons(id, cons, params.toSeq.map { case (n, _) => TypeVarName(n) } zip args)
-      case Ast.DTypeSyn(params, typ) =>
-        fromType(typ, params.toSeq.map { case (n, _) => TypeVarName(n) } zip args)
-      case iface: GenDefInterface[_] => fromType(iface.view, Seq.empty)
-      case other => err(s"Data type $other is not supported")
+      case other =>
+        err(s"Data type $other is not serializable")
     }
   }
 
@@ -207,14 +204,13 @@ private class SchemaProcessor[T](
       case Ast.DataEnum(constructors) =>
         visitor.`enum`(getIdentifier(id), constructors.map(EnumConName).toSeq)
 
-      case Ast.DataInterface =>
-        visitor.interface(getIdentifier(id))
+      case other =>
+        err(s"$other is not serializable")
     }
 
   // Simple types and type applications
   private def fromType(typ: Ast.Type, varMap: VarMap): visitor.Type = typ match {
     case Util.TTyConApp(id, args) => fromDef((id, args.toSeq.map(fromType(_, varMap))))
-    case Ast.TSynApp(id, args) => fromDef((id, args.toSeq.map(fromType(_, varMap))))
 
     case Ast.TVar(name) =>
       visitor.variable(
@@ -237,9 +233,9 @@ private class SchemaProcessor[T](
     case Util.TTimestamp => visitor.timestamp
     case Util.TDate => visitor.date
     case Util.TParty => visitor.party
-    case Util.TContractId(typ) => visitor.contractId(fromType(typ, varMap))
+    case Util.TContractId(_) => visitor.contractId
 
-    case other => err(s"Type $other not supported")
+    case other => err(s"Type $other not serializable                                          ")
   }
 
   private def cached[K, V](compute: K => V): K => V = {

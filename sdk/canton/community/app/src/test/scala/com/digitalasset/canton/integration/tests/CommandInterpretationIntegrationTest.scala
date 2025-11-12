@@ -5,10 +5,7 @@ package com.digitalasset.canton.integration.tests
 
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.CommandFailure
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -141,5 +138,5 @@ sealed trait CommandInterpretationIntegrationTest
 class CommandInterpretationReferenceIntegrationTestPostgres
     extends CommandInterpretationIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }

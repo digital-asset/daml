@@ -28,8 +28,7 @@ import com.digitalasset.daml.lf.engine.script.ledgerinteraction.{
 }
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.AdminLedgerClient
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
-import com.digitalasset.daml.lf.language.LanguageVersionRangeOps._
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.script.{IdeLedger, IdeLedgerRunner}
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.{
@@ -237,11 +236,10 @@ object Runner {
   final case object CanceledByRequest extends RuntimeException
   final case object TimedOut extends RuntimeException
 
-  private[script] def compilerConfig(majorLanguageVersion: LanguageMajorVersion) = {
+  private[script] val compilerConfig: Compiler.Config = {
     import Compiler._
     Config(
-      allowedLanguageVersions =
-        VersionRange(min = majorLanguageVersion.minStableVersion, max = majorLanguageVersion.dev),
+      allowedLanguageVersions = LanguageVersion.allLfVersionsRange,
       packageValidation = FullPackageValidation,
       profiling = NoProfile,
       stacktracing = FullStackTrace,
@@ -354,9 +352,13 @@ object Runner {
     val darMap = dar.all.toMap
     val majorVersion = dar.main._2.languageVersion.major
     val compiledPackages =
-      PureCompiledPackages.assertBuild(darMap, Runner.compilerConfig(majorVersion))
+      PureCompiledPackages.assertBuild(darMap, Runner.compilerConfig)
     def convert(json: JsValue, typ: Type) = {
-      val ifaceDar = dar.map(pkg => SignatureReader.readPackageSignature(() => \/-(pkg))._2)
+      val ifaceDar = dar.map { case (pkgId, _) =>
+        SignatureReader
+          .readPackageSignature(() => \/-(pkgId -> compiledPackages.signatures(pkgId)))
+          ._2
+      }
       val envIface = EnvironmentSignature.fromPackageSignatures(ifaceDar)
       Converter(majorVersion).fromJsonValue(
         scriptId.qualifiedName,
@@ -511,7 +513,7 @@ private[lf] class Runner(
     }
 
     new CompiledPackages(
-      Runner.compilerConfig(compiledPackages.compilerConfig.allowedLanguageVersions.majorVersion)
+      Runner.compilerConfig
     ) {
       override def signatures = compiledPackages.signatures
 

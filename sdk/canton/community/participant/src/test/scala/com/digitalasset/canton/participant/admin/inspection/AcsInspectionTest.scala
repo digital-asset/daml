@@ -139,7 +139,7 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar with Ba
       signatories = stakeholders.take(1),
       stakeholders = stakeholders,
       createdAt = CreationTime.CreatedAt(LfTimestamp.Epoch),
-      version = LfLanguageVersion.v2_dev,
+      version = LfSerializationVersion.VDev,
       packageName = Ref.PackageName.assertFromString("pkg-name"),
       templateId = Ref.Identifier.assertFromString("pkg:Mod:Template"),
       argument = LfValue.ValueNil,

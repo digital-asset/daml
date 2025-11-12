@@ -23,32 +23,26 @@ object LoggerUtil {
     */
   def logAtLevel(level: Level, message: => String)(implicit
       loggingContext: ErrorLoggingContext
-  ): Unit = {
-    val logger = loggingContext.logger
-    implicit val traceContext: TraceContext = loggingContext.traceContext
+  ): Unit =
     level match {
-      case Level.TRACE => logger.trace(message)
-      case Level.DEBUG => logger.debug(message)
-      case Level.INFO => logger.info(message)
-      case Level.WARN => logger.warn(message)
-      case Level.ERROR => logger.error(message)
+      case Level.TRACE => loggingContext.trace(message)
+      case Level.DEBUG => loggingContext.debug(message)
+      case Level.INFO => loggingContext.info(message)
+      case Level.WARN => loggingContext.warn(message)
+      case Level.ERROR => loggingContext.error(message)
     }
-  }
 
   /** Log a `message` with a `throwable` at a given `level`. */
   def logThrowableAtLevel(level: Level, message: => String, throwable: => Throwable)(implicit
       loggingContext: ErrorLoggingContext
-  ): Unit = {
-    val logger = loggingContext.logger
-    implicit val traceContext: TraceContext = loggingContext.traceContext
+  ): Unit =
     level match {
-      case Level.TRACE => logger.trace(message, throwable)
-      case Level.DEBUG => logger.debug(message, throwable)
-      case Level.INFO => logger.info(message, throwable)
-      case Level.WARN => logger.warn(message, throwable)
-      case Level.ERROR => logger.error(message, throwable)
+      case Level.TRACE => loggingContext.trace(message, throwable)
+      case Level.DEBUG => loggingContext.debug(message, throwable)
+      case Level.INFO => loggingContext.info(message, throwable)
+      case Level.WARN => loggingContext.warn(message, throwable)
+      case Level.ERROR => loggingContext.error(message, throwable)
     }
-  }
 
   /** Log the time taken by a task `run` and optionally non-fatal throwable */
   def clue[T](message: => String, logNonFatalThrowable: Boolean = false)(
@@ -148,5 +142,10 @@ object LoggerUtil {
     val append = if (lines == maxLines || length == maxSize) " ..." else ""
     builder.toString + append
   }
+
+  def limitForLogging[T](items: Iterable[T], maxItems: Int = 10): String =
+    "[" + items.take(maxItems).mkString(", ") + (if (items.sizeIs > maxItems)
+                                                   s", ... (total ${items.size} items)"
+                                                 else "") + "]"
 
 }

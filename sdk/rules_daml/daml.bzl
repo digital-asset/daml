@@ -400,11 +400,13 @@ def daml_compile(
 def daml_compile_with_dalf(
         name,
         version = _default_project_version,
+        target = None,
         **kwargs):
     "Build a Daml project, with a generated daml.yaml, and extract the main DALF."
     daml_compile(
         name = name,
         version = version,
+        target = target,
         **kwargs
     )
     _extract_main_dalf(
@@ -577,6 +579,84 @@ $$DAMLC test {enable_interfaces} {damlc_opts} --files {files}
         ),
         **kwargs
     )
+
+def generate_and_track_yaml_file(
+        name,
+        generator,
+        golden_file,
+        data = [],
+        generator_args = []):
+    """
+    Generates a yaml file and tests it against a golden file.
+
+    Defines:
+      (1) ':{name}-generated-yaml' (genrule to create the yaml)
+      (2) ':{name}-golden-yaml' (filegroup for the checked-in yaml)
+      (3) ':{name}-yaml-file-matches' (sh_test to compare them)
+
+    Target (3) supports '--accept'.
+
+    NOTE: These targets are only generated on non-Windows platforms.
+
+    Args:
+        name: The base name for the targets (e.g., "stable-packages").
+        generator: The label of the executable that generates the yaml.
+        golden_file: The path to the checked-in golden .yaml file.
+        data: A list of labels for files that the 'generator' needs to run.
+        generator_args: A list of *additional* string arguments for the generator.
+    """
+
+    if not is_windows:
+        generated_target = name + "-generated-yaml"
+        generated_out = name + "-generated.yaml"
+        golden_target = name + "-golden-yaml"
+        test_name = name + "-yaml-file-matches"
+
+        # (1) Generate the YAML file using the provided executable
+        native.genrule(
+            name = generated_target,
+            srcs = data,
+            tools = [generator],
+            outs = [generated_out],
+            # Pass the output file path ($@) as the first argument
+            cmd = "$(execpath {generator}) $@ {args}".format(
+                generator = generator,
+                args = " ".join(generator_args),
+            ),
+        )
+
+        # (2) Define the golden file target
+        native.filegroup(
+            name = golden_target,
+            srcs = [golden_file],
+            visibility = ["//visibility:public"],
+        )
+
+        # (3) Define the test to compare generated vs. golden
+        lbl = "//{package}:{target}".format(
+            package = native.package_name(),
+            target = test_name,
+        )
+        native.sh_test(
+            name = test_name,
+            srcs = ["//bazel_tools:match-golden-file"],
+            args = [
+                lbl,
+                "$(location :{})".format(generated_target),
+                "$(location :{})".format(golden_target),
+                "$(POSIX_DIFF)",
+            ],
+            data = [
+                ":{}".format(generated_target),
+                ":{}".format(golden_target),
+            ],
+            toolchains = [
+                "@rules_sh//sh/posix:make_variables",
+            ],
+            deps = [
+                "@bazel_tools//tools/bash/runfiles",
+            ],
+        )
 
 def daml_doc_test(
         name,

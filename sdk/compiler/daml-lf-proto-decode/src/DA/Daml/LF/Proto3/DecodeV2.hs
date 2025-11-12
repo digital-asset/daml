@@ -33,6 +33,7 @@ import qualified Proto3.Suite as Proto
 import           DA.Daml.LF.Ast as LF
 import           DA.Daml.LF.Proto3.Error
 import           DA.Daml.LF.Mangling
+import           DA.Daml.StablePackages (stablePackagesForVersion)
 
 import qualified Com.Digitalasset.Daml.Lf.Archive.DamlLf2 as LF2
 
@@ -160,7 +161,8 @@ decodePackageId (LF2.SelfOrImportedPackageId pref) =
         ImportedPackageId . (V.! fromIntegral strId) <$> view (to imports . _Right)
   where
     assertStableIfPkgImports id = do
-      when (id `notElem` stableIds) $
+      v <- asks version
+      when (id `notElem` stablePackagesForVersion v) $
         whenSupportsNot
                (to version)
                featurePackageImports
@@ -396,7 +398,6 @@ decodeBuiltinFunction = \case
   LF2.BuiltinFunctionTEXT_TO_INT64 -> pure BETextToInt64
   LF2.BuiltinFunctionTEXT_TO_NUMERIC -> pure BETextToNumeric
   LF2.BuiltinFunctionTEXT_TO_CODE_POINTS -> pure BETextToCodePoints
-  LF2.BuiltinFunctionTEXT_TO_CONTRACT_ID -> pure BETextToContractId
 
   LF2.BuiltinFunctionADD_NUMERIC   -> pure BEAddNumeric
   LF2.BuiltinFunctionSUB_NUMERIC   -> pure BESubNumeric

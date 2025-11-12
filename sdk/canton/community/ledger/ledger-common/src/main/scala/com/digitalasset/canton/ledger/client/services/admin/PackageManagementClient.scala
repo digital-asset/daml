@@ -43,6 +43,7 @@ final class PackageManagementClient(
       darFile: ByteString,
       token: Option[String] = None,
       vetAllPackages: Boolean = true,
+      synchronizerId: Option[String] = None,
   )(implicit traceContext: TraceContext): Future[Unit] =
     LedgerClient
       .stubWithTracing(service, token.orElse(getDefaultToken()))
@@ -55,6 +56,7 @@ final class PackageManagementClient(
               UploadDarFileRequest.VettingChange.VETTING_CHANGE_VET_ALL_PACKAGES
             else
               UploadDarFileRequest.VettingChange.VETTING_CHANGE_DONT_VET_ANY_PACKAGES,
+          synchronizerId = synchronizerId.getOrElse(""),
         )
       )
       .map(_ => ())
@@ -62,6 +64,7 @@ final class PackageManagementClient(
   def validateDarFile(
       darFile: ByteString,
       token: Option[String] = None,
+      synchronizerId: Option[String] = None,
   )(implicit traceContext: TraceContext): Future[Unit] =
     LedgerClient
       .stubWithTracing(service, token.orElse(getDefaultToken()))
@@ -69,6 +72,7 @@ final class PackageManagementClient(
         ValidateDarFileRequest(
           darFile = darFile,
           submissionId = "",
+          synchronizerId = synchronizerId.getOrElse(""),
         )
       )
       .map(_ => ())

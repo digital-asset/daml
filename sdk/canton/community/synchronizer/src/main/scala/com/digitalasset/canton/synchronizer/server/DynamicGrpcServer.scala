@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.synchronizer.server
 
-import com.daml.metrics.grpc.GrpcServerMetrics
 import com.daml.tracing.NoOpTelemetry
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.HasGeneralCantonNodeParameters
@@ -14,10 +13,13 @@ import com.digitalasset.canton.health.{
 }
 import com.digitalasset.canton.lifecycle.LifeCycle.{CloseableServer, toCloseableServer}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.metrics.ActiveRequestsMetrics.GrpcServerMetricsX
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
+import com.digitalasset.canton.networking.grpc.ratelimiting.ActiveRequestCounterInterceptor
 import com.digitalasset.canton.protocol.SynchronizerParameters.MaxRequestSize
 import com.digitalasset.canton.synchronizer.config.PublicServerConfig
 import com.digitalasset.canton.synchronizer.sequencer.SequencerRuntime
+import com.google.common.annotations.VisibleForTesting
 import io.grpc.protobuf.services.ProtoReflectionServiceV1
 
 import scala.concurrent.ExecutionContextExecutorService
@@ -31,7 +33,7 @@ class DynamicGrpcServer(
     maxRequestSize: MaxRequestSize,
     nodeParameters: HasGeneralCantonNodeParameters,
     serverConfig: PublicServerConfig,
-    grpcMetrics: GrpcServerMetrics,
+    grpcMetrics: GrpcServerMetricsX,
     grpcHealthReporter: GrpcHealthReporter,
     healthService: DependenciesHealthService,
 )(implicit executionContext: ExecutionContextExecutorService)
@@ -50,6 +52,9 @@ class DynamicGrpcServer(
     runtime.sequencerServices.foreach(registry.addServiceU(_))
     this
   }
+
+  @VisibleForTesting
+  def activeRequestCounter: Option[ActiveRequestCounterInterceptor] = registry.activeRequestCounter
 
   private val (grpcServer, registry) = {
     val serverBuilder = CantonServerBuilder

@@ -35,10 +35,12 @@ service TopologyManagerReadService {
   rpc ListAvailableStores(ListAvailableStoresRequest) returns (ListAvailableStoresResponse);
   rpc ListAll(ListAllRequest) returns (ListAllResponse);
   rpc ExportTopologySnapshot(ExportTopologySnapshotRequest) returns (stream ExportTopologySnapshotResponse);
+  rpc ExportTopologySnapshotV2(ExportTopologySnapshotV2Request) returns (stream ExportTopologySnapshotV2Response);
 
   // Fetch the genesis topology state.
   // The returned bytestring can be used directly to initialize a sequencer.
   rpc GenesisState(GenesisStateRequest) returns (stream GenesisStateResponse);
+  rpc GenesisStateV2(GenesisStateV2Request) returns (stream GenesisStateV2Response);
 
   // Fetch the topology state
   // The returned bytestring can be used directly to initialize a successor sequencer
@@ -277,17 +279,27 @@ message ListAllRequest {
   string filter_namespace = 3;
 }
 
+message ListAllResponse {
+  com.digitalasset.canton.topology.admin.v30.TopologyTransactions result = 1;
+}
+
 message ExportTopologySnapshotRequest {
   BaseQuery base_query = 1;
   repeated string exclude_mappings = 2;
   string filter_namespace = 3;
 }
 
-message ListAllResponse {
-  com.digitalasset.canton.topology.admin.v30.TopologyTransactions result = 1;
+message ExportTopologySnapshotResponse {
+  bytes chunk = 1;
 }
 
-message ExportTopologySnapshotResponse {
+message ExportTopologySnapshotV2Request {
+  BaseQuery base_query = 1;
+  repeated string exclude_mappings = 2;
+  string filter_namespace = 3;
+}
+
+message ExportTopologySnapshotV2Response {
   bytes chunk = 1;
 }
 
@@ -299,6 +311,18 @@ message GenesisStateRequest {
 }
 
 message GenesisStateResponse {
+  // versioned stored topology transactions
+  bytes chunk = 1;
+}
+
+message GenesisStateV2Request {
+  // Must be specified if the genesis state is requested from a participant node.
+  optional StoreId synchronizer_store = 1;
+  // Optional - the effective time used to fetch the topology transactions. If not provided the effective time of the last topology transaction is used.
+  google.protobuf.Timestamp timestamp = 2;
+}
+
+message GenesisStateV2Response {
   // versioned stored topology transactions
   bytes chunk = 1;
 }

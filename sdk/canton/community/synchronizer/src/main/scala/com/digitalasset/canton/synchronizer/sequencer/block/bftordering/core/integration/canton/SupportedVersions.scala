@@ -17,12 +17,14 @@ object SupportedVersions {
   //  However, since the BFT orderer is unreleased, it currently supports only one Canton protocol version
   //  and only one protobuf data version.
 
-  val CantonProtocol: ProtocolVersionWithStatus[ProtocolVersionAnnotation.Alpha] =
+  val CantonProtocol: ProtocolVersionWithStatus[ProtocolVersionAnnotation.Stable] =
     ProtocolVersion.v34
 
   // Each protobuf data version can work with multiple Canton protocol versions; the set of consecutive Canton
   //  protocol versions that use the same protobuf data version are designated via a representative
   //  Canton protocol version.
   // TODO(#25269): support multiple protobuf data versions
+  // It's fine to fully support multiple versions once we have another version, because only nodes with a new version
+  //  will need the support.
   val ProtoData: ProtoVersion = ProtoVersion(30)
 }

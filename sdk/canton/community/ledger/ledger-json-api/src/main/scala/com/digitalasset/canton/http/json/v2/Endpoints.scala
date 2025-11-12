@@ -12,7 +12,9 @@ import com.digitalasset.canton.http.json.v2.JsSchema.JsCantonError
 import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.InvalidArgument
 import com.digitalasset.canton.ledger.error.{JsonApiErrors, LedgerApiErrors}
+import com.digitalasset.canton.logging.audit.ApiRequestLogger
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLogging}
+import com.digitalasset.canton.networking.grpc.CallMetadata
 import com.digitalasset.canton.tracing.{TraceContext, W3CTraceContext}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.Error.Preprocessing
@@ -41,6 +43,8 @@ import scala.util.{Failure, Success, Try}
 
 trait Endpoints extends NamedLogging {
   type CustomError = (StatusCode, JsCantonError)
+
+  protected def requestLogger: ApiRequestLogger
 
   import Endpoints.*
   import com.digitalasset.canton.http.util.GrpcHttpErrorCodes.`gRPC status  as sttp`
@@ -91,7 +95,6 @@ trait Endpoints extends NamedLogging {
       authInterceptor: AuthInterceptor
   ): Full[CallerContext, CallerContext, TracedInput[P], CustomError, R, Any, Future] =
     endpoint
-      .in(headers)
       .mapIn(traceHeadersMapping[P]())
       .serverSecurityLogic(validateJwtToken)
       .out(jsonBody[R])
@@ -99,7 +102,9 @@ trait Endpoints extends NamedLogging {
         i =>
           Future
             .delegate(service(callerContext)(i))(ExecutionContext.parasitic)
-            .transform(handleErrorResponse(i.traceContext))(ExecutionContext.parasitic)
+            .transform(handleErrorResponse(callerContext.traceContext()))(
+              ExecutionContext.parasitic
+            )
       )
 
   protected def websocket[HI, I, O](
@@ -125,7 +130,7 @@ trait Endpoints extends NamedLogging {
       .serverLogicSuccess { jwt => i =>
         val errorHandlingService =
           service(jwt)(
-            TracedInput(i, TraceContext.empty)
+            TracedInput(i)
           ) // We do not pass traceheaders on Websockets
             .map(out => Right[JsCantonError, O](out))
             .recover(handleErrorInSocket(TraceContext.empty))
@@ -155,12 +160,11 @@ trait Endpoints extends NamedLogging {
       authInterceptor: AuthInterceptor,
   ) =
     endpoint
-      .in(headers)
       .mapIn(traceHeadersMapping[StreamList[INPUT]]())
       .serverSecurityLogic(validateJwtToken)
       .serverLogic(caller =>
         (tracedInput: TracedInput[StreamList[INPUT]]) => {
-          implicit val tc = tracedInput.traceContext
+          implicit val tc = caller.traceContext()
           val flow = service(caller)(tracedInput.copy(in = ()))
           val limit = tracedInput.in.limit
           val elementsLimit = maxRowsToReturn(limit)
@@ -189,7 +193,7 @@ trait Endpoints extends NamedLogging {
             .map(
               handleListLimit(systemListElementsLimit, _)
             )(ExecutionContext.parasitic)
-            .transform(handleFailure(tracedInput.traceContext))(ExecutionContext.parasitic)
+            .transform(handleFailure)(ExecutionContext.parasitic)
         }
       )
 
@@ -225,14 +229,15 @@ trait Endpoints extends NamedLogging {
     PagedList[INPUT]
   ], (StatusCode, JsCantonError), OUTPUT, R, Future] =
     endpoint
-      .in(headers)
       .mapIn(traceHeadersMapping[PagedList[INPUT]]())
       .serverSecurityLogic(validateJwtToken)
       .serverLogic(caller =>
         tracedInput => {
           Future
             .delegate(service(caller)(tracedInput))(ExecutionContext.parasitic)
-            .transform(handleErrorResponse(tracedInput.traceContext))(ExecutionContext.parasitic)
+            .transform(
+              handleErrorResponse(caller.traceContext())
+            )(ExecutionContext.parasitic)
         }
       )
 
@@ -243,14 +248,13 @@ trait Endpoints extends NamedLogging {
       authInterceptor: AuthInterceptor
   ): Full[CallerContext, CallerContext, TracedInput[INPUT], CustomError, OUTPUT, R, Future] =
     endpoint
-      .in(headers)
       .mapIn(traceHeadersMapping[INPUT]())
       .serverSecurityLogic(validateJwtToken)
       .serverLogic(caller =>
         tracedInput => {
           Future
             .delegate(service(caller)(tracedInput))(ExecutionContext.parasitic)
-            .transform(handleErrorResponse(tracedInput.traceContext))(ExecutionContext.parasitic)
+            .transform(handleErrorResponse(caller.traceContext()))(ExecutionContext.parasitic)
         }
       )
   private def validateJwtToken(caller: CallerContext)(implicit
@@ -258,12 +262,20 @@ trait Endpoints extends NamedLogging {
   ): Future[Either[CustomError, CallerContext]] = {
     // TODO (i26198) extract trace context from headers
     implicit val lc = LoggingContextWithTrace.empty
-
+    implicit val traceContext = caller.traceContext()
     // TODO (i26198) pass service name as 2nd parameter (instead of JSON Ledger API)
     authInterceptor
       .extractClaims(caller.token().map(token => s"Bearer $token"), "JSON Ledger API")
-      .map(claims => Right(caller.copy(claimSet = Some(claims))))(ExecutionContext.parasitic)
+      .map { claims =>
+        val authenticatedCaller = caller.copy(claimSet = Some(claims))
+        requestLogger.logAuth(
+          caller.call,
+          claims,
+        )
+        Right(authenticatedCaller)
+      }(ExecutionContext.parasitic)
       .recoverWith { error =>
+        requestLogger.logAuthError(caller.call, error)
         Future.successful(handleError(lc.traceContext)(error).left.map {
           case (statusCode, jsCantonError) =>
             (
@@ -278,7 +290,7 @@ trait Endpoints extends NamedLogging {
   protected def withTraceHeaders[P, E](
       endpoint: Endpoint[CallerContext, P, E, Unit, Any]
   ): Endpoint[CallerContext, TracedInput[P], E, Unit, Any] =
-    endpoint.in(headers).mapIn(traceHeadersMapping[P]())
+    endpoint.mapIn(traceHeadersMapping[P]())
 
   implicit class FutureOps[R](future: Future[R]) {
     implicit val executionContext: ExecutionContext = ExecutionContext.parasitic
@@ -319,15 +331,29 @@ trait Endpoints extends NamedLogging {
       Left(
         (
           sre.getStatus.getCode.asSttpStatus,
-          JsCantonError.fromDecodedCantonError(
-            DecodedCantonError
-              .fromStatusRuntimeException(sre)
-              .getOrElse(
-                throw new RuntimeException(
-                  "Failed to convert response to JsCantonError."
-                )
+          DecodedCantonError
+            .fromStatusRuntimeException(sre)
+            .map(JsCantonError.fromDecodedCantonError)
+            .getOrElse {
+              // TODO (#27556) we should log these errors / locations and clean all of them up
+              //   CantonErrors are logged on creation (normally ...).
+              logger.info(
+                s"Request failed with legacy error ${sre.getStatus} / ${sre.getMessage}",
+                sre.getCause,
               )
-          ),
+              JsCantonError(
+                code = sre.getStatus.getDescription,
+                cause = sre.getMessage,
+                correlationId = None,
+                traceId = None,
+                context = Map(),
+                resources = Seq(),
+                errorCategory = -1,
+                grpcCodeValue = Some(sre.getStatus.getCode.value()),
+                retryInfo = None,
+                definiteAnswer = None,
+              )
+            },
         )
       )
     case unexpected: UnexpectedFieldsException =>
@@ -381,11 +407,19 @@ object Endpoints {
   final case class Jwt(token: String)
 
   // added to ease burden if we change what is included in SECURITY_INPUT
-  final case class CallerContext(jwt: Option[Jwt], claimSet: Option[ClaimSet] = None) {
+  final case class CallerContext(
+      jwt: Option[Jwt],
+      call: CallMetadata,
+      claimSet: Option[ClaimSet] = None,
+      optTraceContext: Option[TraceContext] = None,
+  ) {
     def token(): Option[String] = jwt.map(_.token)
+
+    def traceContext(): TraceContext = optTraceContext.getOrElse(TraceContext.empty)
   }
 
-  final case class TracedInput[A](in: A, traceContext: TraceContext)
+  // TODO (i28204) remove this class - it was once a wrapper over Input and TraceContext - but TraceContext is now part of  Caller
+  final case class TracedInput[A](in: A)
 
   val wsSubprotocol: Header =
     sttp.model.Header("Sec-WebSocket-Protocol", "daml.ws.auth")
@@ -413,7 +447,36 @@ object Endpoints {
             }(_.map(_.token))
             .description("Ledger API standard JWT token (websocket)")
         )
-        .map(tokens => CallerContext(tokens._1.orElse(tokens._2)))(cc => (cc.jwt, cc.jwt))
+        .and(
+          extractFromRequest(req =>
+            (
+              req.headers,
+              RequestInterceptorsUtil.extractCallMetadata(req),
+            )
+          )
+            .map { case (headersList: Seq[Header], addr) =>
+              val z = W3CTraceContext.fromHeaders(headersList.map(h => (h.name, h.value)).toMap)
+              (z.map(_.toTraceContext), addr)
+            } { case (tc1, addr) =>
+              (
+                tc1
+                  .map { case tc =>
+                    (W3CTraceContext
+                      .extractHeaders(tc)
+                      .map { case (k, v) =>
+                        Header(k, v)
+                      }
+                      .toList)
+
+                  }
+                  .getOrElse(Nil),
+                addr,
+              )
+            }
+        )
+        .map { case (httpToken, wsToken, traceContext, call) =>
+          CallerContext(httpToken.orElse(wsToken), call, None, traceContext)
+        }(cc => (cc.jwt, cc.jwt, cc.optTraceContext, cc.call))
     )
 
   lazy val v2Endpoint: Endpoint[CallerContext, Unit, (StatusCode, JsCantonError), Unit, Any] =
@@ -421,25 +484,18 @@ object Endpoints {
       .errorOut(statusCode.and(jsonBody[JsCantonError]))
       .in("v2")
 
-  def traceHeadersMapping[I](): Mapping[(I, List[Header]), TracedInput[I]] =
-    new Mapping[(I, List[sttp.model.Header]), TracedInput[I]] {
+  def traceHeadersMapping[I](): Mapping[I, TracedInput[I]] =
+    new Mapping[I, TracedInput[I]] {
 
-      override def rawDecode(input: (I, List[Header])): DecodeResult[TracedInput[I]] =
+      override def rawDecode(input: I): DecodeResult[TracedInput[I]] =
         DecodeResult.Value(
           TracedInput(
-            input._1,
-            W3CTraceContext
-              .fromHeaders(input._2.map(h => (h.name, h.value)).toMap)
-              .map(_.toTraceContext)
-              .getOrElse(TraceContext.empty),
+            input
           )
         )
 
-      override def encode(h: TracedInput[I]): (I, List[Header]) =
-        (
-          h.in,
-          W3CTraceContext.extractHeaders(h.traceContext).map { case (k, v) => Header(k, v) }.toList,
-        )
+      override def encode(h: TracedInput[I]): I =
+        h.in
 
       override def validator: Validator[TracedInput[I]] = Validator.pass
     }

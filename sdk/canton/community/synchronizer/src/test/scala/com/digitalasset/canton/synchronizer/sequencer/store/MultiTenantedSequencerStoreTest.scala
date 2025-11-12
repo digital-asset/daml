@@ -103,9 +103,11 @@ trait MultiTenantedSequencerStoreTest
         for {
           registeredAlice <- store.registerMember(alice, ts(0))
           aliceId = registeredAlice.memberId
+          aliceRegisteredFrom = registeredAlice.registeredFrom
 
           registeredBob <- store.registerMember(bob, ts(0))
           bobId = registeredBob.memberId
+          bobRegisteredFrom = registeredBob.registeredFrom
 
           _ <- writeDelivers(sequencer1, bobId)(1)
           _ <- writeDelivers(sequencer2, aliceId)(2, 3, 4, 5)
@@ -114,12 +116,14 @@ trait MultiTenantedSequencerStoreTest
           aliceEvents <- store.readEvents(
             aliceId,
             alice,
+            aliceRegisteredFrom,
             fromExclusiveO = ts(2).some,
             10,
           )
           bobEvents <- store.readEvents(
             bobId,
             bob,
+            bobRegisteredFrom,
             fromExclusiveO = ts(2).some,
             10,
           )
@@ -138,6 +142,7 @@ trait MultiTenantedSequencerStoreTest
         for {
           registeredAlice <- store.registerMember(alice, ts(0))
           aliceId = registeredAlice.memberId
+          aliceRegisteredFrom = registeredAlice.registeredFrom
 
           _ <- writeDelivers(sequencer1, aliceId)(1, 4)
           _ <- writeDelivers(sequencer2, aliceId)(2, 5)
@@ -148,6 +153,7 @@ trait MultiTenantedSequencerStoreTest
           eventsBefore <- store.readEvents(
             aliceId,
             alice,
+            aliceRegisteredFrom,
             fromExclusiveO = ts(0).some,
             10,
           )
@@ -156,7 +162,7 @@ trait MultiTenantedSequencerStoreTest
           // mark s1 as offline
           _ <- store.markLaggingSequencersOffline(ts(3))
           eventsAfter <- store
-            .readEvents(aliceId, alice, fromExclusiveO = ts(0).some, 10)
+            .readEvents(aliceId, alice, aliceRegisteredFrom, fromExclusiveO = ts(0).some, 10)
         } yield {
           // should now read all events up until the min online sequencer which is ts(6)
           // however it should now include events from sequencers after they went offline (ts(4))
@@ -177,6 +183,7 @@ trait MultiTenantedSequencerStoreTest
         for {
           registeredAlice <- store.registerMember(alice, ts(0))
           aliceId = registeredAlice.memberId
+          aliceRegisteredFrom = registeredAlice.registeredFrom
 
           // deliver event 7 is ahead of all other events, but won't be included in s1's watermark
           _ <- writeDelivers(sequencer1, aliceId)(1, 7, 8)
@@ -188,13 +195,25 @@ trait MultiTenantedSequencerStoreTest
           _ <- sequencer3.saveWatermark(ts(4)).valueOrFail("saveWatermark3")
           // mark s1 as offline
           _ <- sequencer1.goOffline()
-          events1 <- store.readEvents(aliceId, alice, fromExclusiveO = ts(0).some, 10)
+          events1 <- store.readEvents(
+            aliceId,
+            alice,
+            aliceRegisteredFrom,
+            fromExclusiveO = ts(0).some,
+            10,
+          )
           _ = assertTimestamps(events1)(1, 2, 3)
           // when s2&s3 progress past the online watermark of s1 we should see event at ts(7) that s1 wrote
           // but not ts(8) as that was not included by their watermark and will later removed upon recovery
           _ <- sequencer2.saveWatermark(ts(9)).valueOrFail("saveWatermark4")
           _ <- sequencer3.saveWatermark(ts(9)).valueOrFail("saveWatermark5")
-          events2 <- store.readEvents(aliceId, alice, fromExclusiveO = ts(0).some, 10)
+          events2 <- store.readEvents(
+            aliceId,
+            alice,
+            aliceRegisteredFrom,
+            fromExclusiveO = ts(0).some,
+            10,
+          )
         } yield {
           assertTimestamps(events2)(1, 2, 3, 5, 6, 7, 9)
         }
@@ -209,6 +228,7 @@ trait MultiTenantedSequencerStoreTest
         for {
           registeredAlice <- store.registerMember(alice, ts(0))
           aliceId = registeredAlice.memberId
+          aliceRegisteredFrom = registeredAlice.registeredFrom
 
           _ <- writeDelivers(sequencer1, aliceId)(1, 4)
           _ <- writeDelivers(sequencer2, aliceId)(2, 5)
@@ -219,7 +239,13 @@ trait MultiTenantedSequencerStoreTest
           _ <- sequencer3.saveWatermark(ts(3)).valueOrFail("saveWatermark3")
           // mark all sequencers as offline
           _ <- store.markLaggingSequencersOffline(ts(3))
-          readEvents <- store.readEvents(aliceId, alice, fromExclusiveO = ts(0).some, 10)
+          readEvents <- store.readEvents(
+            aliceId,
+            alice,
+            aliceRegisteredFrom,
+            fromExclusiveO = ts(0).some,
+            10,
+          )
         } yield {
           assertTimestamps(readEvents)(1, 2, 3)
         }

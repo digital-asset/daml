@@ -8,17 +8,18 @@ import com.digitalasset.canton.ledger.api
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
 import com.daml.integrationtest._
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.value.Value
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
+import java.time.{Duration, Instant}
 
-class AuthITV2 extends AuthIT(LanguageMajorVersion.V2)
+class AuthITV2 extends AuthIT(LanguageVersion.Major.V2)
 
-class AuthIT(override val majorLanguageVersion: LanguageMajorVersion)
+class AuthIT(override val majorLanguageVersion: LanguageVersion.Major)
     extends AsyncWordSpec
     with AbstractScriptTest
     with Matchers {
@@ -46,7 +47,10 @@ class AuthIT(override val majorLanguageVersion: LanguageMajorVersion)
             case Success(_) => Failure(new Exception("unexpected success"))
           }
           _ = info(s"client creation with wrong token fails with $err")
-          goodToken = config.getToken(userId)
+          goodToken = config.getToken(
+            userId,
+            exp = Some(Instant.now().plusNanos(Duration.ofMinutes(3).toNanos)),
+          )
           clients <- scriptClients(token = goodToken)
           _ = info(s"client creation with valid token succeeds")
           _ <- run(

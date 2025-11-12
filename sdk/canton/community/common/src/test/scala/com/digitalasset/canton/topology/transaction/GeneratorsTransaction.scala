@@ -12,6 +12,7 @@ import com.digitalasset.canton.crypto.{
   PublicKey,
   Signature,
   SigningKeyUsage,
+  SigningKeysWithThreshold,
   SigningPublicKey,
 }
 import com.digitalasset.canton.data.CantonTimestamp
@@ -173,16 +174,28 @@ final class GeneratorsTransaction(
     } yield NamespaceDelegation.tryCreate(namespace, target, delegationRestriction)
   )
 
+  implicit val signingKeysWithThresholdArb: Arbitrary[SigningKeysWithThreshold] = Arbitrary(
+    for {
+      signingKeys <- nonEmptyListGen[SigningPublicKey]
+      threshold <- Gen
+        .choose(1, signingKeys.size)
+        .map(PositiveInt.tryCreate)
+    } yield SigningKeysWithThreshold.tryCreate(
+      signingKeys,
+      threshold,
+    )
+  )
+
   implicit val partyToParticipantTopologyTransactionArb: Arbitrary[PartyToParticipant] = Arbitrary(
     for {
       partyId <- Arbitrary.arbitrary[PartyId]
-      participants <- Arbitrary.arbitrary[NonEmpty[Seq[HostingParticipant]]]
-      // Not using Arbitrary.arbitrary[PositiveInt] for threshold to honor constraint
+      participants <- nonEmptyListGen[HostingParticipant]
       threshold <- Gen
         .choose(1, participants.count(_.permission >= ParticipantPermission.Confirmation).max(1))
         .map(PositiveInt.tryCreate)
+      signingKeysWithThreshold <- Gen.option(Arbitrary.arbitrary[SigningKeysWithThreshold])
     } yield PartyToParticipant
-      .create(partyId, threshold, participants)
+      .create(partyId, threshold, participants, signingKeysWithThreshold)
       .value
   )
 

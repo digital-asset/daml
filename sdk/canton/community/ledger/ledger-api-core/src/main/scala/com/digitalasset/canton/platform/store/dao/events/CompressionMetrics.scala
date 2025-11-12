@@ -10,18 +10,6 @@ object CompressionMetrics {
 
   final class Field(val compressed: Histogram, val uncompressed: Histogram)
 
-  def createArgument(metrics: LedgerApiServerMetrics): CompressionMetrics.Field =
-    new Field(
-      compressed = metrics.index.db.compression.createArgumentCompressed,
-      uncompressed = metrics.index.db.compression.createArgumentUncompressed,
-    )
-
-  def createKeyValue(metrics: LedgerApiServerMetrics) =
-    new Field(
-      compressed = metrics.index.db.compression.createKeyValueCompressed,
-      uncompressed = metrics.index.db.compression.createKeyValueUncompressed,
-    )
-
   def exerciseArgument(metrics: LedgerApiServerMetrics) =
     new Field(
       compressed = metrics.index.db.compression.exerciseArgumentCompressed,

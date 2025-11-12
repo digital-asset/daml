@@ -3,7 +3,7 @@
 Daml Codegen for JavaScript
 ===========================
 
-Use the Daml Codegen for JavaScript (``daml codegen js``) to generate JavaScript/TypeScript code representing all Daml data types
+Use the Daml Codegen for JavaScript (``dpm codegen-js``) to generate JavaScript/TypeScript code representing all Daml data types
 defined in a Daml Archive (.dar) file.
 
 
@@ -30,7 +30,7 @@ To configure the Daml Codegen, choose one of the two following methods:
 Command line configuration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-To view all available command line configuration options for Daml Codegen for JavaScript, run ``daml codegen js --help`` in your terminal:
+To view all available command line configuration options for Daml Codegen for JavaScript, run ``dpm codegen-js --help`` in your terminal:
 
 .. code-block:: none
 
@@ -49,7 +49,7 @@ Specify the above settings in the ``codegen`` element of the Daml project file `
 
 Here is an example::
 
-    sdk-version: 3.3.0-snapshot.20250507.0
+    sdk-version: 3.4.0-rc2
     name: quickstart
     source: daml
     init-script: Main:initialize
@@ -74,11 +74,11 @@ Operate
 
 Run the Daml Codegen using project file configuration with::
 
-    $ daml codegen js
+    $ dpm codegen-js
 
 or using command line configuration with::
 
-    $ daml codegen js ./.daml/dist/quickstart-0.0.1.dar -o ui/daml.js -s daml.js
+    $ dpm codegen-js ./.daml/dist/quickstart-0.0.1.dar -o ui/daml.js -s daml.js
 
 References
 ----------
@@ -280,7 +280,7 @@ Here is a Daml template of a basic 'IOU' contract.
          do
            create this with owner = newOwner
 
-The ``daml codegen js`` command generates types for each of the choices defined on the template as well as the template itself.
+The ``dpm codegen-js`` command generates types for each of the choices defined on the template as well as the template itself.
 
 .. code-block:: typescript
    :linenos:

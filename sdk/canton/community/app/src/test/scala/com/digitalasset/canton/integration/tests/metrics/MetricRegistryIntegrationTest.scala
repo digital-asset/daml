@@ -7,10 +7,7 @@ import com.daml.metrics.MetricsFilterConfig
 import com.daml.metrics.api.MetricQualification
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
@@ -175,5 +172,5 @@ sealed trait MetricRegistryIntegrationTest
 
 class MetricRegistryIntegrationTestDefault extends MetricRegistryIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }

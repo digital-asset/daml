@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf
 package speedy
 
 import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.interpretation.Error.Dev.TranslationError
+import com.digitalasset.daml.lf.interpretation.Error.Upgrade.TranslationFailed
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.{LookupError, TypeDestructor}
 import com.digitalasset.daml.lf.value.Value
@@ -16,32 +16,37 @@ import scala.collection.immutable.ArraySeq
 private[lf] final class ValueTranslator(
     pkgInterface: language.PackageInterface,
     forbidLocalContractIds: Boolean,
-    shouldCheckDataSerializable: Boolean = true,
+    forbidTrailingNones: Boolean,
 ) {
 
-  @throws[TranslationError.Error]
+  @throws[TranslationFailed.Error]
   private[this] def handleLookup[X](either: Either[LookupError, X]): X = either match {
     case Right(v) => v
     case Left(error) =>
-      throw TranslationError.LookupError(error)
-
+      throw TranslationFailed.LookupError(error)
   }
 
   val validateCid: ContractId => Unit =
     if (forbidLocalContractIds) {
       case cid: ContractId.V1 =>
         if (cid.suffix.isEmpty)
-          throw TranslationError.NonSuffixedV1ContractId(cid)
+          throw TranslationFailed.NonSuffixedV1ContractId(cid)
 
       case cid: ContractId.V2 =>
         // We forbid only local contract IDs in Engine commands, but not relative contract IDs
         // because relative contract IDs may appear in reinterpretation of projections
         if (cid.suffix.isEmpty)
-          throw TranslationError.NonSuffixedV2ContractId(cid)
+          throw TranslationFailed.NonSuffixedV2ContractId(cid)
     }
     else { _ => () }
 
-  @throws[TranslationError.Error]
+  private[this] def toText(str: String): Text =
+    Text.fromString(str) match {
+      case Right(value) => value
+      case Left(err) => throw TranslationFailed.MalformedText(err)
+    }
+
+  @throws[TranslationFailed.Error]
   def unsafeTranslateCid(cid: ContractId): SValue.SContractId = {
     validateCid(cid)
     SValue.SContractId(cid)
@@ -49,7 +54,7 @@ private[lf] final class ValueTranslator(
 
   // For efficiency reasons we do not produce here the monad Result[SValue] but rather throw
   // exceptions in case of error or package missing.
-  @throws[TranslationError.Error]
+  @throws[TranslationFailed.Error]
   def unsafeTranslateValue(
       ty: Type,
       value: Value,
@@ -58,31 +63,23 @@ private[lf] final class ValueTranslator(
     val Destructor = TypeDestructor(pkgInterface)
 
     def go(ty0: Type, value0: Value, nesting: Int): SValue =
-      if (nesting > Value.MAXIMUM_NESTING) {
-        throw TranslationError.ValueNesting(value)
-
-      } else {
+      if (nesting > Value.MAXIMUM_NESTING) throw TranslationFailed.ValueNesting
+      else {
         val newNesting = nesting + 1
         def typeError(msg: String = s"mismatching type: ${ty0.pretty} and value: $value0") =
-          throw TranslationError.TypeMismatch(ty0, value0, msg)
+          throw TranslationFailed.TypeMismatch(ty0, value0, msg)
+
+        def invalidValueError(msg: String) =
+          throw TranslationFailed.InvalidValue(value0, msg)
 
         def destruct(typ: Type): TypeDestructor.SerializableTypeF[Type] =
-          Destructor.destruct(typ, shouldCheckDataSerializable) match {
+          Destructor.destruct(typ) match {
             case Right(value) => value
             case Left(TypeDestructor.Error.TypeError(err)) =>
               typeError(err)
             case Left(TypeDestructor.Error.LookupError(err)) =>
-              throw TranslationError.LookupError(err)
+              throw TranslationFailed.LookupError(err)
           }
-
-        def checkUserTypeId(targetType: Ref.TypeConId, mbSourceType: Option[Ref.TypeConId]): Unit =
-          mbSourceType.foreach(sourceType =>
-            // In case of upgrade we simply ignore the package ID.
-            if (targetType.qualifiedName != sourceType.qualifiedName)
-              typeError(
-                s"Mismatching variant id, the type tells us ${targetType.qualifiedName}, but the value tells us ${sourceType.qualifiedName}"
-              )
-          )
 
         (destruct(ty0), value0) match {
           case (UnitF, ValueUnit) =>
@@ -96,10 +93,15 @@ private[lf] final class ValueTranslator(
           case (DateF, ValueDate(t)) =>
             SValue.SDate(t)
           case (TextF, ValueText(t)) =>
-            SValue.SText(t)
+            SValue.SText(toText(t))
           case (PartyF, ValueParty(p)) =>
             SValue.SParty(p)
           case (NumericF(s), ValueNumeric(d)) =>
+            val dScale = Numeric.scale(d)
+            if (dScale != s)
+              typeError(
+                s"Non-normalized Numeric: the type expects scale $s, but the value has scale ${dScale}"
+              )
             Numeric.fromBigDecimal(s, d) match {
               case Right(value) => SValue.SNumeric(value)
               case Left(message) => typeError(message)
@@ -136,7 +138,7 @@ private[lf] final class ValueTranslator(
                 )
               } catch {
                 case _: RuntimeException =>
-                  throw TranslationError.InvalidValue(
+                  throw TranslationFailed.InvalidValue(
                     value0,
                     s"Unexpected non-strictly ordered GenMap value",
                   )
@@ -149,7 +151,7 @@ private[lf] final class ValueTranslator(
               SValue.SMap(
                 isTextMap = true,
                 entries = entries.toImmArray.toSeq.view.map { case (k, v) =>
-                  SValue.SText(k) -> go(a, v, newNesting)
+                  SValue.SText(toText(k)) -> go(a, v, newNesting)
                 }.toList,
               )
             }
@@ -157,7 +159,8 @@ private[lf] final class ValueTranslator(
                 vF @ VariantF(tyCon, _, _, consTyp),
                 ValueVariant(mbId, constructorName, val0),
               ) =>
-            checkUserTypeId(tyCon, mbId)
+            if (mbId.isDefined)
+              invalidValueError(s"Unexpected type id ${mbId.get} in variant value.")
             val i = handleLookup(vF.consRank(constructorName))
             SValue.SVariant(
               tyCon,
@@ -172,17 +175,14 @@ private[lf] final class ValueTranslator(
               ) =>
             // Fail if the record ID or any label is present in the record value.
             if (mbId.isDefined)
-              throw TranslationError.InvalidValue(
-                value0,
-                s"Unexpected type id ${mbId} in record value.",
-              )
+              invalidValueError(s"Unexpected type id ${mbId.get} in record value.")
             sourceElements.foreach { case (mbLabel, _) =>
               mbLabel.foreach(label =>
-                throw TranslationError.InvalidValue(
-                  value0,
-                  s"Unexpected label ${label} in record value.",
-                )
+                invalidValueError(s"Unexpected label ${label} in record value.")
               )
+            }
+            if (forbidTrailingNones && sourceElements.toSeq.lastOption.exists(_._2 == ValueNone)) {
+              invalidValueError("Unexpected trailing None in record.")
             }
 
             // This code implements the compatibility transformation used for up/down-grading
@@ -237,7 +237,8 @@ private[lf] final class ValueTranslator(
 
             SValue.SRecord(tyCon, fieldNames.to(ImmArray), values)
           case (eF @ EnumF(tyCon, _, _), ValueEnum(mbId, constructor)) =>
-            checkUserTypeId(tyCon, mbId)
+            if (mbId.isDefined)
+              invalidValueError(s"Unexpected type id ${mbId.get} in enum value.")
             val rank = handleLookup(eF.consRank(constructor))
             SValue.SEnum(tyCon, constructor, rank)
           case _ =>
@@ -251,11 +252,11 @@ private[lf] final class ValueTranslator(
   def translateValue(
       ty: Type,
       value: Value,
-  ): Either[TranslationError.Error, SValue] =
+  ): Either[TranslationFailed.Error, SValue] =
     try {
       Right(unsafeTranslateValue(ty, value))
     } catch {
-      case e: TranslationError.Error =>
+      case e: TranslationFailed.Error =>
         Left(e)
     }
 }

@@ -32,9 +32,7 @@ da_haskell_library(
     ],
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
-    deps = [
-        "//canton:ledger-api-haskellpb",
-    ],
+    deps = ["//libs-haskell/ledger-api-pb"],
 )
 
 daml_compile(

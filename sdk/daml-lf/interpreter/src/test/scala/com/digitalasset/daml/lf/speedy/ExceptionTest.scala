@@ -5,16 +5,15 @@ package com.digitalasset.daml.lf
 package speedy
 
 import com.digitalasset.daml.lf.crypto.Hash
-import com.digitalasset.daml.lf.data.Ref.Party
+import com.digitalasset.daml.lf.data.Ref.{PackageId, PackageName, Party}
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.speedy.SError.{SError, SErrorDamlException}
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SResult.{SResultError, SResultFinal}
 import com.digitalasset.daml.lf.speedy.SValue.{SContractId, SParty, SUnit}
-import com.digitalasset.daml.lf.speedy.Speedy.CachedKey
 import com.digitalasset.daml.lf.speedy.SpeedyTestLib.typeAndCompile
 import com.digitalasset.daml.lf.testing.parser
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
@@ -23,7 +22,7 @@ import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import com.digitalasset.daml.lf.transaction.{
   FatContractInstance,
   GlobalKeyWithMaintainers,
-  TransactionVersion,
+  SerializationVersion,
 }
 import com.digitalasset.daml.lf.value.Value
 import org.scalatest.Inside
@@ -33,23 +32,16 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 
 import scala.collection.immutable.ArraySeq
 
-class ExceptionTestV2 extends ExceptionTest(LanguageMajorVersion.V2)
-
 // TEST_EVIDENCE: Integrity: Exceptions, throw/catch.
-class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
-    extends AnyFreeSpec
-    with Inside
-    with Matchers
-    with TableDrivenPropertyChecks {
+class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDrivenPropertyChecks {
 
   import SpeedyTestLib.loggingContext
 
-  implicit val defaultParserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor[this.type](majorLanguageVersion)
+  implicit val defaultParserParameters: ParserParameters[this.type] = ParserParameters.default
   val defaultPackageId = defaultParserParameters.defaultPackageId
 
   private val stablePackages =
-    com.digitalasset.daml.lf.stablepackages.StablePackages(majorLanguageVersion)
+    com.digitalasset.daml.lf.stablepackages.StablePackages.stablePackages
 
   private val tuple2TyCon: String = {
     import stablePackages.Tuple2
@@ -74,37 +66,33 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
       compiledPackages.compiler.unsafeCompile(expr),
       PartialFunction.empty,
       getKey,
-      Map.empty,
     )
   }
 
   private def runUpdateApp(
       compiledPackages: PureCompiledPackages,
-      packageResolution: Map[Ref.PackageName, Ref.PackageId],
+      packageResolution: Map[PackageName, PackageId],
       expr: Expr,
       args: ArraySeq[SValue],
       getContract: PartialFunction[Value.ContractId, FatContractInstance],
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId],
-      disclosures: Iterable[(Value.ContractId, Speedy.ContractInfo)],
-  ): Either[SError, SValue] = {
+  ) = {
     runUpdateExpr(
       compiledPackages,
       packageResolution,
       SEApp(compiledPackages.compiler.unsafeCompile(expr), args),
       getContract,
       getKey,
-      disclosures,
     )
   }
 
   private def runUpdateExpr(
       compiledPackages: PureCompiledPackages,
-      packageResolution: Map[Ref.PackageName, Ref.PackageId],
+      packageResolution: Map[PackageName, PackageId],
       sexpr: SExpr,
       getContract: PartialFunction[Value.ContractId, FatContractInstance],
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId],
-      disclosures: Iterable[(Value.ContractId, Speedy.ContractInfo)],
-  ): Either[SError, SValue] = {
+  ) = {
     val machine = Speedy.Machine
       .fromUpdateSExpr(
         compiledPackages = compiledPackages,
@@ -113,9 +101,6 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
         updateSE = sexpr,
         committers = Set(alice),
       )
-    disclosures.foreach { case (coid, info) =>
-      machine.addDisclosedContracts(coid, info)
-    }
     SpeedyTestLib
       .run(machine, getContract = getContract, getKey = getKey)
   }
@@ -728,7 +713,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
 
     "works as expected for a contract version POST-dating exceptions" - {
 
-      val pkgs = mkPackagesAtVersion(majorLanguageVersion.dev)
+      val pkgs = mkPackagesAtVersion(LanguageVersion.devLfVersion)
       val res = Speedy.Machine
         .fromUpdateSExpr(
           pkgs,
@@ -788,7 +773,8 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
 
   // Section testing exceptions thrown when computing the metadata of a contract
   {
-    val parserParameters = defaultParserParameters.copy(languageVersion = LanguageVersion.default)
+    val parserParameters =
+      defaultParserParameters.copy(languageVersion = LanguageVersion.defaultLfVersion)
 
     // A package that defines an interface, a key type, an exception, and a party to be used by
     // the packages defined below.
@@ -1214,7 +1200,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
           templateDefsV2PkgId -> templateDefsV2Pkg,
           metadataTestsPkgId -> metadataTestsPkg,
         ),
-        Compiler.Config.Default(majorLanguageVersion),
+        Compiler.Config.Default,
       )
 
     sealed trait ContractOrigin {
@@ -1225,16 +1211,12 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
       override def description: String = "global contract"
       override def testMethodSuffix: String = "Global"
     }
-    case object Disclosure extends ContractOrigin {
-      override def description: String = "disclosed contract"
-      override def testMethodSuffix: String = "Global"
-    }
     case object Local extends ContractOrigin {
       override def description: String = "local contract"
       override def testMethodSuffix: String = "Local"
     }
 
-    val contractOrigins: List[ContractOrigin] = List(Global, Disclosure, Local)
+    val contractOrigins: List[ContractOrigin] = List(Global, Local)
 
     val failingTemplateMetadataTemplates: List[String] = List(
       FailingPrecondition.templateName,
@@ -1329,7 +1311,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
                 templateDefsPkgName,
               )
               val globalContract = TransactionBuilder.fatContractInstanceWithDummyDefaults(
-                version = TransactionVersion.StableVersions.max,
+                version = SerializationVersion.StableVersions.max,
                 packageName = templateDefsV1Pkg.pkgName,
                 template = templateId,
                 arg = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice))),
@@ -1337,20 +1319,6 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
                 observers = List.empty,
                 contractKeyWithMaintainers = Some(globalKey),
               )
-              val disclosedContract = Speedy.ContractInfo(
-                version = TransactionVersion.StableVersions.max,
-                templateDefsPkgName,
-                templateId,
-                SValue.SRecord(
-                  templateId,
-                  ImmArray(Ref.Name.assertFromString("p")),
-                  ArraySeq(SValue.SParty(alice)),
-                ),
-                Set(alice),
-                Set.empty,
-                Some(CachedKey(templateDefsPkgName, globalKey, key)),
-              )
-
               for (origin <- contractOrigins) {
                 origin.description in {
                   inside {
@@ -1363,15 +1331,9 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
                       ArraySeq(argProvider(cid, key)),
                       getContract = origin match {
                         case Global => Map(cid -> globalContract)
-                        case Disclosure => Map.empty
                         case Local => Map.empty
                       },
                       getKey = Map(globalKey -> cid),
-                      disclosures = origin match {
-                        case Global => Map.empty
-                        case Disclosure => Map(cid -> disclosedContract)
-                        case Local => Map.empty
-                      },
                     )
                   } {
                     case Left(

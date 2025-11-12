@@ -3,8 +3,14 @@
 
 package com.digitalasset.canton.participant.topology
 
+import cats.data.EitherT
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, ProcessingTimeout}
+import com.digitalasset.canton.config.{
+  BatchingConfig,
+  CachingConfigs,
+  ProcessingTimeout,
+  TopologyConfig,
+}
 import com.digitalasset.canton.crypto.SynchronizerCrypto
 import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerPredecessor}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -24,9 +30,14 @@ import com.digitalasset.canton.topology.processing.{
   TopologyTransactionProcessor,
 }
 import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
-import com.digitalasset.canton.topology.store.{PackageDependencyResolverUS, TopologyStore}
+import com.digitalasset.canton.topology.store.{
+  NoPackageDependencies,
+  PackageDependencyResolver,
+  TopologyStore,
+}
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import org.apache.pekko.stream.Materializer
 
 import scala.concurrent.ExecutionContext
 
@@ -38,6 +49,7 @@ class TopologyComponentFactory(
     futureSupervisor: FutureSupervisor,
     caching: CachingConfigs,
     batching: BatchingConfig,
+    topologyClient: TopologyClientConfig,
     participantId: ParticipantId,
     unsafeOnlinePartyReplication: Option[UnsafeOnlinePartyReplicationConfig],
     exitOnFatalFailures: Boolean,
@@ -51,6 +63,11 @@ class TopologyComponentFactory(
       topologyClient: SynchronizerTopologyClientWithInit,
       recordOrderPublisher: RecordOrderPublisher,
       lsuCallback: LogicalSynchronizerUpgradeCallback,
+      retrieveAndStoreMissingSequencerIds: TraceContext => EitherT[
+        FutureUnlessShutdown,
+        String,
+        Unit,
+      ],
       sequencedEventStore: SequencedEventStore,
       synchronizerPredecessor: Option[SynchronizerPredecessor],
       ledgerApiStore: LedgerApiStore,
@@ -69,7 +86,8 @@ class TopologyComponentFactory(
         participantId,
         pauseSynchronizerIndexingDuringPartyReplication = unsafeOnlinePartyReplication.nonEmpty,
         synchronizerPredecessor = synchronizerPredecessor,
-        lsuCallback,
+        lsuCallback = lsuCallback,
+        retrieveAndStoreMissingSequencerIds = retrieveAndStoreMissingSequencerIds,
         loggerFactory,
       )
       val terminateTopologyProcessingFUS =
@@ -92,6 +110,7 @@ class TopologyComponentFactory(
         val processor = new TopologyTransactionProcessor(
           crypto.pureCrypto,
           topologyStore,
+          crypto.staticSynchronizerParameters,
           acsCommitmentScheduleEffectiveTime,
           terminateTopologyProcessing,
           futureSupervisor,
@@ -109,18 +128,22 @@ class TopologyComponentFactory(
     }
   }
 
-  def createInitialTopologySnapshotValidator(implicit
-      executionContext: ExecutionContext
+  def createInitialTopologySnapshotValidator(
+      topologyConfig: TopologyConfig
+  )(implicit
+      executionContext: ExecutionContext,
+      materializer: Materializer,
   ): InitialTopologySnapshotValidator =
     new InitialTopologySnapshotValidator(
       crypto.pureCrypto,
       topologyStore,
-      timeouts,
-      loggerFactory,
+      Some(crypto.staticSynchronizerParameters),
+      validateInitialSnapshot = topologyConfig.validateInitialTopologySnapshot,
+      loggerFactory = loggerFactory,
     )
 
   def createCachingTopologyClient(
-      packageDependencyResolver: PackageDependencyResolverUS,
+      packageDependencyResolver: PackageDependencyResolver,
       synchronizerPredecessor: Option[SynchronizerPredecessor],
   )(implicit
       executionContext: ExecutionContext,
@@ -128,11 +151,13 @@ class TopologyComponentFactory(
   ): FutureUnlessShutdown[SynchronizerTopologyClientWithInit] =
     CachingSynchronizerTopologyClient.create(
       clock,
+      crypto.staticSynchronizerParameters,
       topologyStore,
       synchronizerPredecessor,
       packageDependencyResolver,
       caching,
       batching,
+      topologyClient,
       timeouts,
       futureSupervisor,
       loggerFactory,
@@ -140,7 +165,7 @@ class TopologyComponentFactory(
 
   def createTopologySnapshot(
       asOf: CantonTimestamp,
-      packageDependencyResolver: PackageDependencyResolverUS,
+      packageDependencyResolver: PackageDependencyResolver,
       preferCaching: Boolean,
   )(implicit executionContext: ExecutionContext): TopologySnapshot = {
     val snapshot = new StoreBasedTopologySnapshot(
@@ -158,9 +183,5 @@ class TopologyComponentFactory(
   def createHeadTopologySnapshot()(implicit
       executionContext: ExecutionContext
   ): TopologySnapshot =
-    createTopologySnapshot(
-      CantonTimestamp.MaxValue,
-      StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
-      preferCaching = false,
-    )
+    createTopologySnapshot(CantonTimestamp.MaxValue, NoPackageDependencies, preferCaching = false)
 }

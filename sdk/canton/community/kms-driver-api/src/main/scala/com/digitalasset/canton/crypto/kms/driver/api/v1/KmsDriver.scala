@@ -18,6 +18,23 @@ import scala.concurrent.Future
   */
 trait KmsDriver extends api.KmsDriver with AutoCloseable {
 
+  require(
+    supportedSigningKeySpecs.nonEmpty,
+    "Supported signing key specifications must not be empty.",
+  )
+  require(
+    supportedSigningAlgoSpecs.nonEmpty,
+    "Supported signing algorithm specifications must not be empty.",
+  )
+  require(
+    supportedEncryptionKeySpecs.nonEmpty,
+    "Supported encryption key specifications must not be empty.",
+  )
+  require(
+    supportedEncryptionAlgoSpecs.nonEmpty,
+    "Supported encryption algorithm specifications must not be empty.",
+  )
+
   /** Returns the current health of the driver.
     *
     * If the driver reports itself as unhealthy, Canton will close the current driver instance and
@@ -30,16 +47,16 @@ trait KmsDriver extends api.KmsDriver with AutoCloseable {
     */
   def health: Future[KmsDriverHealth]
 
-  /** The supported signing key specifications by the driver */
+  /** The supported signing key specifications by the driver. This must not be empty. */
   def supportedSigningKeySpecs: Set[SigningKeySpec]
 
-  /** The supported signing algorithm specifications by the driver */
+  /** The supported signing algorithm specifications by the driver. This must not be empty. */
   def supportedSigningAlgoSpecs: Set[SigningAlgoSpec]
 
-  /** The supported encryption key specifications by the driver */
+  /** The supported encryption key specifications by the driver. This must not be empty. */
   def supportedEncryptionKeySpecs: Set[EncryptionKeySpec]
 
-  /** The supported encryption algorithm specifications by the driver */
+  /** The supported encryption algorithm specifications by the driver. This must not be empty. */
   def supportedEncryptionAlgoSpecs: Set[EncryptionAlgoSpec]
 
   /** Generate a new signing key pair.

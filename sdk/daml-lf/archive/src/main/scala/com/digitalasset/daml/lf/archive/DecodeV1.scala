@@ -15,7 +15,6 @@ import com.digitalasset.daml.lf.language.{LanguageVersion => LV}
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 
-import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
@@ -34,7 +33,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
   def decodePackage( // entry point
       packageId: PackageId,
       lfPackage: PLF.Package,
-      onlySerializableDataDefs: Boolean,
+      schemaMode: Boolean,
   ): Either[Error, Package] = attempt(NameOf.qualifiedNameOfCurrentFunc) {
 
     val internedStrings = lfPackage.getInternedStringsList.asScala.to(ImmArraySeq)
@@ -65,7 +64,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       IndexedSeq.empty,
       Some(dependencyTracker),
       None,
-      onlySerializableDataDefs,
+      schemaMode,
     )
 
     val internedTypes = Work.run(decodeInternedTypes(env0, lfPackage))
@@ -76,7 +75,10 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       directDeps = dependencyTracker.getDependencies,
       languageVersion = languageVersion,
       metadata = metadata.getOrElse(NoPackageMetadata),
-      imports = Left("package made in com.digitalasset.daml.lf.archive.DecodeV1"),
+      imports = GeneratedImports(
+        reason = "package made in com.digitalasset.daml.lf.archive.DecodeV1",
+        pkgIds = Set.empty,
+      ),
     )
 
   }
@@ -129,7 +131,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       IndexedSeq.empty,
       None,
       None,
-      onlySerializableDataDefs = false,
+      schemaMode = false,
     )
     val internedTypes = Work.run(decodeInternedTypes(env0, lfSingleModule))
     val env = env0.copy(internedTypes = internedTypes)
@@ -200,7 +202,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       internedTypes: collection.IndexedSeq[Type],
       optDependencyTracker: Option[PackageDependencyTracker],
       optModuleName: Option[ModuleName],
-      onlySerializableDataDefs: Boolean,
+      schemaMode: Boolean,
   ) {
 
     // decode*ForTest -- test entry points
@@ -258,7 +260,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
 
       if (versionIsOlderThan(Features.typeSynonyms)) {
         assertEmpty(lfModule.getSynonymsList, "Module.synonyms")
-      } else if (!onlySerializableDataDefs) {
+      } else if (!schemaMode) {
         // collect type synonyms
         lfModule.getSynonymsList.asScala
           .foreach { defn =>
@@ -279,7 +281,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
 
       // collect data types
       lfModule.getDataTypesList.asScala
-        .filter(!onlySerializableDataDefs || _.getSerializable)
+        .filter(!schemaMode || _.getSerializable)
         .foreach { defn =>
           val defName = handleDottedName(
             defn.getNameCase,
@@ -294,7 +296,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
           defs += (defName -> d)
         }
 
-      if (!onlySerializableDataDefs) {
+      if (!schemaMode) {
         // collect values
         lfModule.getValuesList.asScala.foreach { defn =>
           val nameWithType = defn.getNameWithType
@@ -326,7 +328,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
 
       if (versionIsOlderThan(Features.exceptions)) {
         assertEmpty(lfModule.getExceptionsList, "Module.exceptions")
-      } else if (!onlySerializableDataDefs) {
+      } else if (!schemaMode) {
         lfModule.getExceptionsList.asScala
           .foreach { defn =>
             val defName = getInternedDottedName(defn.getNameInternedDname)
@@ -1053,7 +1055,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
 
 private[lf] object DecodeV1 {
 
-  val Features = LV.FeaturesV1
+  val Features = LV.LegacyFeatures
 
   private def eitherToParseError[A](x: Either[String, A]): A =
     x.fold(err => throw Error.Parsing(err), identity)

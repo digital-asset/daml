@@ -21,8 +21,9 @@ import com.digitalasset.daml.lf.engine.{
   UpgradesMatrix,
   UpgradesMatrixCases,
   UpgradesMatrixCasesV2Dev,
+  UpgradesMatrixCasesV2MaxStable,
 }
-import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.value.Value._
 import com.google.protobuf.ByteString
 import io.grpc.{Status, StatusRuntimeException}
@@ -35,14 +36,18 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 
 // Split the tests across eight suites with eight Canton runners, which brings
 // down the runtime from ~4000s on a single suite to ~1400s
-class UpgradesMatrixIntegration0 extends UpgradesMatrixIntegration(8, 0)
-class UpgradesMatrixIntegration1 extends UpgradesMatrixIntegration(8, 1)
-class UpgradesMatrixIntegration2 extends UpgradesMatrixIntegration(8, 2)
-class UpgradesMatrixIntegration3 extends UpgradesMatrixIntegration(8, 3)
-class UpgradesMatrixIntegration4 extends UpgradesMatrixIntegration(8, 4)
-class UpgradesMatrixIntegration5 extends UpgradesMatrixIntegration(8, 5)
-class UpgradesMatrixIntegration6 extends UpgradesMatrixIntegration(8, 6)
-class UpgradesMatrixIntegration7 extends UpgradesMatrixIntegration(8, 5)
+class UpgradesMatrixIntegration0
+    extends UpgradesMatrixIntegration(UpgradesMatrixCasesV2MaxStable, 3, 0)
+class UpgradesMatrixIntegration1
+    extends UpgradesMatrixIntegration(UpgradesMatrixCasesV2MaxStable, 3, 1)
+class UpgradesMatrixIntegration2
+    extends UpgradesMatrixIntegration(UpgradesMatrixCasesV2MaxStable, 3, 2)
+
+class UpgradesMatrixIntegration3 extends UpgradesMatrixIntegration(UpgradesMatrixCasesV2Dev, 5, 0)
+class UpgradesMatrixIntegration4 extends UpgradesMatrixIntegration(UpgradesMatrixCasesV2Dev, 5, 1)
+class UpgradesMatrixIntegration5 extends UpgradesMatrixIntegration(UpgradesMatrixCasesV2Dev, 5, 2)
+class UpgradesMatrixIntegration6 extends UpgradesMatrixIntegration(UpgradesMatrixCasesV2Dev, 5, 3)
+class UpgradesMatrixIntegration7 extends UpgradesMatrixIntegration(UpgradesMatrixCasesV2Dev, 5, 4)
 
 /** A test suite to run the UpgradesMatrix matrix on Canton.
   *
@@ -50,11 +55,11 @@ class UpgradesMatrixIntegration7 extends UpgradesMatrixIntegration(8, 5)
   * different test [[UpgradesMatrixUnit]] to catch simple engine issues early which
   * takes only ~40s.
   */
-abstract class UpgradesMatrixIntegration(n: Int, k: Int)
+abstract class UpgradesMatrixIntegration(upgradesMatrixCases: UpgradesMatrixCases, n: Int, k: Int)
     extends UpgradesMatrix[
       ScriptLedgerClient.SubmitFailure,
       (Seq[ScriptLedgerClient.CommandResult], ScriptLedgerClient.TransactionTree),
-    ](UpgradesMatrixCasesV2Dev, Some((n, k)))
+    ](upgradesMatrixCases, Some((n, k)))
     with CantonFixture {
   def encodeDar(
       mainDalfName: String,
@@ -106,7 +111,6 @@ abstract class UpgradesMatrixIntegration(n: Int, k: Int)
     cases.clientGlobalDalfName,
     cases.clientGlobalDalf,
     List(
-      (cases.templateDefsV1DalfName, cases.templateDefsV1Dalf),
       (cases.templateDefsV2DalfName, cases.templateDefsV2Dalf),
       (cases.commonDefsDalfName, cases.commonDefsDalf),
       (primDATypesDalfName, primDATypesDalf),
@@ -159,8 +163,7 @@ abstract class UpgradesMatrixIntegration(n: Int, k: Int)
           List(ScriptLedgerClient.CommandWithMeta(ApiCommand.Create(tplId.toRef, arg), true)),
         prefetchContractKeys = List(),
         optLocation = None,
-        languageVersionLookup =
-          _ => Right(LanguageVersion.defaultOrLatestStable(LanguageMajorVersion.V2)),
+        languageVersionLookup = _ => Right(LanguageVersion.latestStableLfVersion),
         errorBehaviour = ScriptLedgerClient.SubmissionErrorBehaviour.MustSucceed,
       )
       .flatMap {
@@ -169,7 +172,7 @@ abstract class UpgradesMatrixIntegration(n: Int, k: Int)
       }
 
   private val globalRandom = new scala.util.Random(0)
-  private val converter = Converter(LanguageMajorVersion.V2)
+  private val converter = Converter(LanguageVersion.Major.V2)
 
   private def allocateParty(name: String): Future[Party] =
     Future(
@@ -282,8 +285,7 @@ abstract class UpgradesMatrixIntegration(n: Int, k: Int)
           commands = commands,
           prefetchContractKeys = List(),
           optLocation = None,
-          languageVersionLookup =
-            _ => Right(LanguageVersion.defaultOrLatestStable(LanguageMajorVersion.V2)),
+          languageVersionLookup = _ => Right(LanguageVersion.latestStableLfVersion),
           errorBehaviour = ScriptLedgerClient.SubmissionErrorBehaviour.Try,
         )
       }
@@ -301,15 +303,15 @@ abstract class UpgradesMatrixIntegration(n: Int, k: Int)
         result shouldBe a[Right[_, _]]
       case UpgradesMatrixCases.ExpectUpgradeError =>
         inside(result) { case Left(ScriptLedgerClient.SubmitFailure(_, error)) =>
-          error should (
-            be(a[SubmitError.UpgradeError.ValidationFailed]) or
-              be(a[SubmitError.UpgradeError.DowngradeDropDefinedField]) or
-              be(a[SubmitError.UpgradeError.DowngradeFailed])
-          )
+          error shouldBe a[SubmitError.UpgradeError.ValidationFailed]
+        }
+      case UpgradesMatrixCases.ExpectAuthenticationError =>
+        inside(result) { case Left(ScriptLedgerClient.SubmitFailure(_, error)) =>
+          error shouldBe a[SubmitError.UpgradeError.AuthenticationFailed]
         }
       case UpgradesMatrixCases.ExpectRuntimeTypeMismatchError =>
         inside(result) { case Left(ScriptLedgerClient.SubmitFailure(_, error)) =>
-          error shouldBe a[SubmitError.DevError]
+          error shouldBe a[SubmitError.UpgradeError.TranslationFailed]
         }
       case UpgradesMatrixCases.ExpectPreprocessingError =>
         inside(result) { case Left(ScriptLedgerClient.SubmitFailure(statusError, submitError)) =>

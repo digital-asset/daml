@@ -108,8 +108,8 @@ object ScriptService {
   private def notFoundContextError(id: Long): StatusRuntimeException =
     Status.NOT_FOUND.withDescription(s" context $id not found!").asRuntimeException
 
-  private def unknownMajorVersion(str: String): StatusRuntimeException =
-    Status.INVALID_ARGUMENT.withDescription(s"unknonw major LF version: $str").asRuntimeException
+  private def throwInvalidArgument(str: String): StatusRuntimeException =
+    Status.INVALID_ARGUMENT.withDescription(str).asRuntimeException
 }
 
 sealed abstract class ScriptStream {
@@ -299,18 +299,18 @@ class ScriptService(implicit
       respObs: StreamObserver[NewContextResponse],
   ): Unit = {
     LanguageVersion.Major.fromString(req.getLfMajor) match {
-      case Some(majorVersion) =>
+      case Right(majorVersion) =>
         val lfVersion = LanguageVersion(
           majorVersion,
-          LanguageVersion.Minor(req.getLfMinor),
+          LanguageVersion.Minor.assertFromString(req.getLfMinor),
         )
         val ctx = Context.newContext(lfVersion, req.getEvaluationTimeout.seconds)
         contexts += (ctx.contextId -> ctx)
         val response = NewContextResponse.newBuilder.setContextId(ctx.contextId).build
         respObs.onNext(response)
         respObs.onCompleted()
-      case None =>
-        respObs.onError(unknownMajorVersion(req.getLfMajor))
+      case Left(msg) =>
+        respObs.onError(throwInvalidArgument(msg))
     }
   }
 

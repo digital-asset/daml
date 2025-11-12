@@ -8,6 +8,7 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.crypto.{HashPurpose, Signature}
 import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerSuccessor}
+import com.digitalasset.canton.error.CantonBaseError
 import com.digitalasset.canton.health.HealthListener
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.resource.Storage
@@ -21,6 +22,7 @@ import com.digitalasset.canton.synchronizer.sequencer.admin.data.{
   SequencerAdminStatus,
   SequencerHealthStatus,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.BlockOrderer
 import com.digitalasset.canton.synchronizer.sequencer.errors.{
   CreateSubscriptionError,
   SequencerError,
@@ -95,13 +97,13 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest with FailOnShutdown 
         .Set[Member]() // we're using the scalatest serial execution context so don't need a concurrent collection
     override protected def sendAsyncInternal(submission: SubmissionRequest)(implicit
         traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit] =
+    ): EitherT[FutureUnlessShutdown, CantonBaseError, Unit] =
       EitherTUtil.unitUS
     override protected def sendAsyncSignedInternal(
         signedSubmission: SignedContent[SubmissionRequest]
     )(implicit
         traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit] =
+    ): EitherT[FutureUnlessShutdown, CantonBaseError, Unit] =
       EitherTUtil.unitUS
     override def isRegistered(member: Member)(implicit
         traceContext: TraceContext
@@ -207,6 +209,8 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest with FailOnShutdown 
     override def sequencingTime(implicit
         traceContext: TraceContext
     ): FutureUnlessShutdown[Option[CantonTimestamp]] = ???
+
+    override private[canton] def orderer: Option[BlockOrderer] = ???
   }
 
   "sendAsyncSigned" should {

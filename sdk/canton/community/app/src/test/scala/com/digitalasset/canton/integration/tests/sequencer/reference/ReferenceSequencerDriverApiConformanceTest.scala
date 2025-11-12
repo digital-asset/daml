@@ -6,12 +6,12 @@ package com.digitalasset.canton.integration.tests.sequencer.reference
 import cats.syntax.either.*
 import com.digitalasset.canton.config.{DbConfig, StorageConfig}
 import com.digitalasset.canton.crypto.SynchronizerCryptoClient
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.synchronizer.block.SequencerDriver
 import com.digitalasset.canton.synchronizer.sequencer.SequencerConfig
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.reference.{
-  CommunityReferenceSequencerDriverFactory,
   ReferenceSequencerDriver,
+  ReferenceSequencerDriverFactory,
 }
 import com.digitalasset.canton.time.TimeProvider
 
@@ -22,14 +22,14 @@ class ReferenceSequencerDriverApiConformanceTest
       ReferenceSequencerDriver.Config[StorageConfig]
     ] {
 
-  private val driverFactory = new CommunityReferenceSequencerDriverFactory
+  private val driverFactory = new ReferenceSequencerDriverFactory
 
   override protected final val driverConfig
       : AtomicReference[Option[ReferenceSequencerDriver.Config[StorageConfig]]] =
     new AtomicReference(Some(ReferenceSequencerDriver.Config(StorageConfig.Memory())))
 
   override protected final lazy val plugin =
-    new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory)
+    new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory)
 
   override protected final def parseConfig(
       maybeConfig: Option[SequencerConfig]

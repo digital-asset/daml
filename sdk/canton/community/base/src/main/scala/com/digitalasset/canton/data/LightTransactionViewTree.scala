@@ -12,6 +12,7 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.{v30, *}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.util.RoseTree
 import com.digitalasset.canton.version.*
 import monocle.PLens
 
@@ -161,32 +162,30 @@ object LightTransactionViewTree
     * To make the method more generic, light view trees are represented as `A` and full view trees
     * as `B` and the `lens` parameter is used to convert between these types, as needed.
     *
+    * @tparam C
+    *   Additional data associated with [[LightTransactionViewTree]]s. Each
+    *   [[FullTransactionViewTree]] in the result aggregates the data from all aggregated
+    *   [[LightTransactionViewTree]]s in preorder.
     * @param topLevelOnly
     *   whether to return only top-level full view trees
     * @param lightViewTrees
     *   the light transaction view trees to convert
-    * @return
-    *   A triple consisting of (1) the full view trees that could be converted, (2) the light view
-    *   trees that could not be converted due to missing descendants, and (3) duplicate light view
-    *   trees in the input. The view trees in the output are sorted by view position, i.e., in
-    *   pre-order. If the input contains the same view several times, then the output (1) contains
-    *   one occurrence and the output (3) every other occurrence of the view.
     */
-  def toFullViewTrees[A, B](
-      lens: PLens[A, B, LightTransactionViewTree, FullTransactionViewTree],
+  def toFullViewTrees[A, B, C](
+      lens: PLens[A, B, (LightTransactionViewTree, C), (FullTransactionViewTree, RoseTree[C])],
       protocolVersion: ProtocolVersion,
       hashOps: HashOps,
+      // TODO(#23971) we don't need this parameter any more, only the true case is used.
       topLevelOnly: Boolean,
-  )(
-      lightViewTrees: Seq[A]
-  ): (Seq[B], Seq[A], Seq[A]) = {
+      lightViewTrees: Seq[A],
+  ): ToFullViewTreesResult[A, B] = {
 
     val lightViewTreesBoxedInPostOrder = lightViewTrees
-      .sortBy(lens.get(_).viewPosition)(ViewPosition.orderViewPosition.toOrdering)
+      .sortBy(lens.get(_)._1.viewPosition)(ViewPosition.orderViewPosition.toOrdering)
       .reverse
 
     // All reconstructed full views
-    val fullViewByHash = mutable.Map.empty[ViewHash, TransactionView]
+    val fullViewByHash = mutable.Map.empty[ViewHash, (TransactionView, RoseTree[C])]
     // All reconstructed full view trees, boxed, paired with their view hashes.
     val allFullViewTreesInPreorderB = mutable.ListBuffer.empty[(ViewHash, B)]
     // All light view trees, boxed, that could not be reconstructed to full view trees, due to missing descendants
@@ -197,18 +196,19 @@ object LightTransactionViewTree
     val subviewHashesB = Set.newBuilder[ViewHash]
 
     for (lightViewTreeBoxed <- lightViewTreesBoxedInPostOrder) {
-      val lightViewTree = lens.get(lightViewTreeBoxed)
+      val (lightViewTree, c) = lens.get(lightViewTreeBoxed)
       val subviewHashes = lightViewTree.subviewHashes.toSet
       val missingSubviews = subviewHashes -- fullViewByHash.keys
 
       if (missingSubviews.isEmpty) {
-        val fullSubviewsSeq = lightViewTree.subviewHashes.map(fullViewByHash)
+        val (fullSubviewsSeq, subviewCs) = lightViewTree.subviewHashes.map(fullViewByHash).unzip
         val fullSubviews = TransactionSubviews(fullSubviewsSeq)(protocolVersion, hashOps)
         val fullView = lightViewTree.view.tryCopy(subviews = fullSubviews)
         val fullViewTree = FullTransactionViewTree.tryCreate(
           lightViewTree.tree.mapUnblindedRootViews(_.replace(fullView.viewHash, fullView))
         )
-        val fullViewTreeBoxed = lens.replace(fullViewTree)(lightViewTreeBoxed)
+        val cs = RoseTree(c, subviewCs*)
+        val fullViewTreeBoxed = lens.replace(fullViewTree -> cs)(lightViewTreeBoxed)
 
         if (topLevelOnly)
           subviewHashesB ++= subviewHashes
@@ -217,7 +217,7 @@ object LightTransactionViewTree
           duplicateLightViewTreesB += lightViewTreeBoxed
         } else {
           (fullViewTree.viewHash -> fullViewTreeBoxed) +=: allFullViewTreesInPreorderB
-          fullViewByHash += fullView.viewHash -> fullView
+          fullViewByHash += fullView.viewHash -> (fullView -> cs)
         }
       } else {
         invalidLightViewTreesB += lightViewTreeBoxed
@@ -234,12 +234,31 @@ object LightTransactionViewTree
             fullViewTreeBoxed
         }
 
-    (
+    ToFullViewTreesResult(
       allFullViewTreesInPreorder,
       invalidLightViewTreesB.result().reverse,
       duplicateLightViewTreesB.result().reverse,
     )
   }
+
+  /** The result of the conversion from [[LightTransactionViewTree]]s to
+    * [[FullTransactionViewTree]]s. The view trees in the output are sorted by view position,
+    * i.e., in pre-order. If the input contains the same view several times, then
+    * [[ToFullViewTreesResult.convertedFullViews]] contains one occurrence and
+    * [[ToFullViewTreesResult.duplicateLightViews]] every other occurrence of the view.
+    *
+    * @param convertedFullViews
+    *   the full view trees that could be converted
+    * @param lightViewsWithMissingDescendants
+    *   the light view trees that could not be converted due to missing descendants
+    * @param duplicateLightViews
+    *   duplicate light view trees in the input.
+    */
+  final case class ToFullViewTreesResult[+A, +B](
+      convertedFullViews: Seq[B],
+      lightViewsWithMissingDescendants: Seq[A],
+      duplicateLightViews: Seq[A],
+  )
 
   /** Turns a full transaction view tree into a lightweight one. Not stack-safe. */
   def fromTransactionViewTree(

@@ -9,17 +9,23 @@ import com.daml.integrationtest.CantonConfig
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
 import com.digitalasset.daml.lf.engine.script.test.AbstractScriptTest
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
+import com.digitalasset.daml.lf.language.LanguageVersion
+import com.digitalasset.daml.lf.value.ContractIdVersion
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.matchers.should.Matchers
 
-import java.nio.file.{Files, FileSystems, Path}
+import java.nio.file.{FileSystems, Files, Path}
 
-class ReplayBenchmarkITV2 extends ReplayBenchmarkIT(LanguageMajorVersion.V2)
+// TODO(#23971) This will likely break when Canton starts to produce V2 contract IDs.
+// Ping Andreas Lochbihler on the #team-daml-language slack channel when this happens.
+class ReplayBenchmarkITV2_V1
+    extends ReplayBenchmarkIT(LanguageVersion.Major.V2, ContractIdVersion.V1)
 
-class ReplayBenchmarkIT(override val majorLanguageVersion: LanguageMajorVersion)
-    extends AsyncWordSpec
+class ReplayBenchmarkIT(
+    override val majorLanguageVersion: LanguageVersion.Major,
+    contractIdVersion: ContractIdVersion,
+) extends AsyncWordSpec
     with AbstractScriptTest
     with Matchers
     with BeforeAndAfterEach {
@@ -35,7 +41,7 @@ class ReplayBenchmarkIT(override val majorLanguageVersion: LanguageMajorVersion)
     super.cantonConfig().copy(snapshotDir = Some(snapshotDir.toFile.getAbsolutePath))
 
   override lazy val darPath: Path =
-    Path.of(rlocation(s"daml-lf/snapshot/ReplayBenchmark-v${majorLanguageVersion.pretty}.dar"))
+    Path.of(rlocation(s"daml-lf/snapshot/ReplayBenchmark.dar"))
   override protected lazy val timeMode = ScriptTimeMode.WallClock
 
   override def afterEach(): Unit = {
@@ -65,6 +71,7 @@ class ReplayBenchmarkIT(override val majorLanguageVersion: LanguageMajorVersion)
           benchmark.darFile = darPath.toFile.getAbsolutePath
           benchmark.choiceName = "ReplayBenchmark:T:Add"
           benchmark.entriesFile = snapshotFile.toFile.getAbsolutePath
+          benchmark.contractIdVersion = contractIdVersion.toString
 
           val exn = intercept[RuntimeException] {
             benchmark.init()
@@ -96,6 +103,7 @@ class ReplayBenchmarkIT(override val majorLanguageVersion: LanguageMajorVersion)
           benchmark.darFile = darPath.toFile.getAbsolutePath
           benchmark.choiceName = "ReplayBenchmark:T:Add"
           benchmark.entriesFile = snapshotFile.toFile.getAbsolutePath
+          benchmark.contractIdVersion = contractIdVersion.toString
 
           noException should be thrownBy benchmark.init()
         }
@@ -122,6 +130,7 @@ class ReplayBenchmarkIT(override val majorLanguageVersion: LanguageMajorVersion)
           benchmark.darFile = darPath.toFile.getAbsolutePath
           benchmark.choiceName = "ReplayBenchmark:T:Add"
           benchmark.entriesFile = snapshotFile.toFile.getAbsolutePath
+          benchmark.contractIdVersion = contractIdVersion.toString
 
           noException should be thrownBy benchmark.init()
         }
@@ -164,6 +173,7 @@ class ReplayBenchmarkIT(override val majorLanguageVersion: LanguageMajorVersion)
           benchmark.darFile = darPath.toFile.getAbsolutePath
           benchmark.choiceName = "ReplayBenchmark:T:Add"
           benchmark.entriesFile = snapshotFile.toFile.getAbsolutePath
+          benchmark.contractIdVersion = contractIdVersion.toString
 
           noException should be thrownBy benchmark.init()
         }

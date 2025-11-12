@@ -5,13 +5,14 @@ package com.digitalasset.canton.http.json.v2
 
 import com.daml.ledger.api.v2.interactive.interactive_submission_service
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
+  CostEstimation,
   ExecuteSubmissionResponse,
   GetPreferredPackageVersionRequest,
   InteractiveSubmissionServiceGrpc,
   MinLedgerTime,
 }
-import com.daml.ledger.api.v2.package_reference
 import com.daml.ledger.api.v2.transaction_filter.TransactionFormat
+import com.daml.ledger.api.v2.{crypto as lapicrypto, package_reference}
 import com.digitalasset.canton.auth.AuthInterceptor
 import com.digitalasset.canton.http.json.v2.CirceRelaxedCodec.deriveRelaxedCodec
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput, v2Endpoint}
@@ -24,6 +25,7 @@ import com.digitalasset.canton.http.json.v2.JsSchema.{
   stringSchemaForEnum,
 }
 import com.digitalasset.canton.ledger.client.LedgerClient
+import com.digitalasset.canton.logging.audit.ApiRequestLogger
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.tracing.TraceContext
@@ -42,6 +44,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class JsInteractiveSubmissionService(
     ledgerClient: LedgerClient,
     protocolConverters: ProtocolConverters,
+    override protected val requestLogger: ApiRequestLogger,
     val loggerFactory: NamedLoggerFactory,
 )(implicit
     val executionContext: ExecutionContext,
@@ -88,7 +91,7 @@ class JsInteractiveSubmissionService(
     Either[JsCantonError, JsPrepareSubmissionResponse]
   ] = req => {
     implicit val token: Option[String] = callerContext.token()
-    implicit val tc: TraceContext = req.traceContext
+    implicit val tc: TraceContext = callerContext.traceContext()
     for {
       grpcReq <- protocolConverters.PrepareSubmissionRequest.fromJson(req.in)
       grpcResp <- interactiveSubmissionServiceClient(token).prepareSubmission(grpcReq)
@@ -100,7 +103,7 @@ class JsInteractiveSubmissionService(
     Either[JsCantonError, interactive_submission_service.ExecuteSubmissionResponse]
   ] = req => {
     implicit val token: Option[String] = callerContext.token()
-    implicit val tc: TraceContext = req.traceContext
+    implicit val tc: TraceContext = callerContext.traceContext()
     for {
       grpcReq <- protocolConverters.ExecuteSubmissionRequest.fromJson(req.in)
       grpcResp <- interactiveSubmissionServiceClient(token).executeSubmission(grpcReq).resultToRight
@@ -113,7 +116,7 @@ class JsInteractiveSubmissionService(
     Either[JsCantonError, interactive_submission_service.ExecuteSubmissionAndWaitResponse]
   ] = req => {
     implicit val token: Option[String] = callerContext.token()
-    implicit val tc: TraceContext = req.traceContext
+    implicit val tc: TraceContext = callerContext.traceContext()
     for {
       grpcReq <- protocolConverters.ExecuteSubmissionAndWaitRequest.fromJson(req.in)
       grpcResp <- interactiveSubmissionServiceClient(token)
@@ -127,7 +130,7 @@ class JsInteractiveSubmissionService(
     Either[JsCantonError, JsExecuteSubmissionAndWaitForTransactionResponse]
   ] = req => {
     implicit val token: Option[String] = callerContext.token()
-    implicit val tc: TraceContext = req.traceContext
+    implicit val tc: TraceContext = callerContext.traceContext()
     for {
       grpcReq <- protocolConverters.ExecuteSubmissionAndWaitForTransactionRequest.fromJson(req.in)
       grpcResp <- interactiveSubmissionServiceClient(token)
@@ -144,7 +147,7 @@ class JsInteractiveSubmissionService(
     Either[JsCantonError, interactive_submission_service.GetPreferredPackageVersionResponse]
   ] = { (tracedInput: TracedInput[(List[String], String, Option[Instant], Option[String])]) =>
     implicit val token: Option[String] = callerContext.token()
-    implicit val tc: TraceContext = tracedInput.traceContext
+    implicit val tc: TraceContext = callerContext.traceContext()
     val (parties, packageName, vettingValidAt, synchronizerId) = tracedInput.in
     interactiveSubmissionServiceClient(token)
       .getPreferredPackageVersion(
@@ -163,7 +166,7 @@ class JsInteractiveSubmissionService(
   ): TracedInput[interactive_submission_service.GetPreferredPackagesRequest] => Future[
     Either[JsCantonError, interactive_submission_service.GetPreferredPackagesResponse]
   ] = { (tracedInput: TracedInput[interactive_submission_service.GetPreferredPackagesRequest]) =>
-    implicit val tc: TraceContext = tracedInput.traceContext
+    implicit val tc: TraceContext = callerContext.traceContext()
     val token: Option[String] = callerContext.token()
     val getPreferredPackagesRequest = tracedInput.in
     interactiveSubmissionServiceClient(token)
@@ -184,6 +187,8 @@ final case class JsPrepareSubmissionRequest(
     packageIdSelectionPreference: Seq[String],
     verboseHashing: Boolean = false,
     prefetchContractKeys: Seq[js.PrefetchContractKey] = Seq.empty,
+    maxRecordTime: Option[com.google.protobuf.timestamp.Timestamp],
+    estimateTrafficCost: Option[interactive_submission_service.CostEstimationHints] = None,
 )
 
 final case class JsPrepareSubmissionResponse(
@@ -191,6 +196,7 @@ final case class JsPrepareSubmissionResponse(
     preparedTransactionHash: protobuf.ByteString,
     hashingSchemeVersion: interactive_submission_service.HashingSchemeVersion,
     hashingDetails: Option[String],
+    costEstimation: Option[CostEstimation],
 )
 
 final case class JsExecuteSubmissionRequest(
@@ -339,6 +345,9 @@ object JsInteractiveSubmissionServiceCodecs {
   implicit val minLedgerTimeRW: Codec[interactive_submission_service.MinLedgerTime] =
     deriveRelaxedCodec
 
+  implicit val costEstimationHintsRW: Codec[interactive_submission_service.CostEstimationHints] =
+    deriveConfiguredCodec
+
   implicit val jsPrepareSubmissionRequestRW: Codec[JsPrepareSubmissionRequest] =
     deriveConfiguredCodec
 
@@ -355,6 +364,9 @@ object JsInteractiveSubmissionServiceCodecs {
 
   implicit val executeSubmissionResponseRW
       : Codec[interactive_submission_service.ExecuteSubmissionResponse] =
+    deriveRelaxedCodec
+
+  implicit val estimateTrafficCostResponseRW: Codec[interactive_submission_service.CostEstimation] =
     deriveRelaxedCodec
 
   implicit val executeSubmissionAndWaitResponseRW
@@ -386,19 +398,17 @@ object JsInteractiveSubmissionServiceCodecs {
       : Codec[interactive_submission_service.SinglePartySignatures] =
     deriveRelaxedCodec
 
-  implicit val signatureRW: Codec[interactive_submission_service.Signature] =
+  implicit val signatureRW: Codec[lapicrypto.Signature] =
     deriveRelaxedCodec
 
-  implicit val signingAlgorithmSpecEncoder
-      : Encoder[interactive_submission_service.SigningAlgorithmSpec] =
+  implicit val signingAlgorithmSpecEncoder: Encoder[lapicrypto.SigningAlgorithmSpec] =
     stringEncoderForEnum()
-  implicit val signingAlgorithmSpecDecoder
-      : Decoder[interactive_submission_service.SigningAlgorithmSpec] =
+  implicit val signingAlgorithmSpecDecoder: Decoder[lapicrypto.SigningAlgorithmSpec] =
     stringDecoderForEnum()
 
-  implicit val signatureFormatDecoder: Decoder[interactive_submission_service.SignatureFormat] =
+  implicit val signatureFormatDecoder: Decoder[lapicrypto.SignatureFormat] =
     stringDecoderForEnum()
-  implicit val signatureFormatEncoder: Encoder[interactive_submission_service.SignatureFormat] =
+  implicit val signatureFormatEncoder: Encoder[lapicrypto.SignatureFormat] =
     stringEncoderForEnum()
 
   implicit val jsExecuteSubmissionRequestRW: Codec[JsExecuteSubmissionRequest] =
@@ -432,10 +442,10 @@ object JsInteractiveSubmissionServiceCodecs {
     deriveRelaxedCodec
 
   // Schema mappings are added to align generated tapir docs with a circe mapping of ADTs
-  implicit val signatureFormatSchema: Schema[interactive_submission_service.SignatureFormat] =
+  implicit val signatureFormatSchema: Schema[lapicrypto.SignatureFormat] =
     stringSchemaForEnum()
 
-  implicit val signingAlgorithmSpec: Schema[interactive_submission_service.SigningAlgorithmSpec] =
+  implicit val signingAlgorithmSpec: Schema[lapicrypto.SigningAlgorithmSpec] =
     stringSchemaForEnum()
 
   implicit val timeSchema: Schema[interactive_submission_service.MinLedgerTime.Time] =

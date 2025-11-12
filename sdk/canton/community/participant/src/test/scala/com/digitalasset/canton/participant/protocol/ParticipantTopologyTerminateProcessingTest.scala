@@ -34,7 +34,9 @@ import com.digitalasset.canton.topology.store.{
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.*
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp.Replace
+import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.{
   BaseTest,
   FailOnShutdown,
@@ -102,6 +104,7 @@ class ParticipantTopologyTerminateProcessingTest
       pauseSynchronizerIndexingDuringPartyReplication = false,
       synchronizerPredecessor = synchronizerPredecessor,
       lsuCallback = LogicalSynchronizerUpgradeCallback.NoOp,
+      retrieveAndStoreMissingSequencerIds = _ => EitherTUtil.unitUS,
       loggerFactory,
     )
     (proc, store, eventCaptor, recordOrderPublisher)
@@ -189,8 +192,9 @@ class ParticipantTopologyTerminateProcessingTest
       _ <- store.update(
         SequencedTime(sequencedTimestamp),
         EffectiveTime(effectiveTimestamp),
-        removeMapping = transactions.map(tx => tx.mapping.uniqueKey -> tx.serial).toMap,
-        removeTxs = transactions.map(_.hash).toSet,
+        removals = transactions
+          .map(tx => tx.mapping.uniqueKey -> (Some(tx.serial), Set.empty[TxHash]))
+          .toMap,
         additions = transactions.map(ValidatedTopologyTransaction(_)),
       )
     } yield ()

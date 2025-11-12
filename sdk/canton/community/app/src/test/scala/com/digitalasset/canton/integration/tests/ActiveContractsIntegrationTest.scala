@@ -25,11 +25,10 @@ import com.digitalasset.canton.console.LocalParticipantReference
 import com.digitalasset.canton.crypto.TestSalt
 import com.digitalasset.canton.data.ViewPosition
 import com.digitalasset.canton.examples.java.iou.{Amount, GetCash, Iou}
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
+import com.digitalasset.canton.http.LfValue
+import com.digitalasset.canton.integration.*
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.tests.ActiveContractsIntegrationTest.*
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.util.GrpcAdminCommandSupport.ParticipantReferenceOps
@@ -39,13 +38,6 @@ import com.digitalasset.canton.integration.util.{
   HasCommandRunnersHelpers,
   HasReassignmentCommandsHelpers,
 }
-import com.digitalasset.canton.integration.{
-  CommunityIntegrationTest,
-  ConfigTransforms,
-  EnvironmentDefinition,
-  SharedEnvironment,
-  TestConsoleEnvironment,
-}
 import com.digitalasset.canton.ledger.api.validation.{StricterValueValidator, ValueValidator}
 import com.digitalasset.canton.participant.admin.data.RepairContract
 import com.digitalasset.canton.participant.util.JavaCodegenUtil.ContractIdSyntax
@@ -54,10 +46,12 @@ import com.digitalasset.canton.protocol.ContractIdAbsolutizer.ContractIdAbsoluti
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.{PartyId, PhysicalSynchronizerId, SynchronizerId}
+import com.digitalasset.canton.util.TestEngine
 import com.digitalasset.canton.{BaseTest, ReassignmentCounter, config}
+import com.digitalasset.daml.lf
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.transaction.CreationTime
 import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder
+import com.digitalasset.daml.lf.transaction.{CreationTime, SerializationVersion}
 import org.scalatest.Assertion
 
 import java.util.UUID
@@ -74,7 +68,7 @@ class ActiveContractsIntegrationTest
 
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](
+    new UseReferenceBlockSequencer[DbConfig.Postgres](
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(Set("sequencer1"), Set("sequencer2"), Set("sequencer3"))
@@ -128,7 +122,10 @@ class ActiveContractsIntegrationTest
           party2 = participant2.parties.enable("party2", synchronizer = alias)
         }
 
-        participants.all.dars.upload(BaseTest.CantonExamplesPath)
+        participants.all.dars.upload(BaseTest.CantonExamplesPath, synchronizerId = daId)
+        participants.all.dars.upload(BaseTest.CantonExamplesPath, synchronizerId = acmeId)
+        participants.all.dars
+          .upload(BaseTest.CantonExamplesPath, synchronizerId = repairSynchronizerId)
       }
 
   protected def getActiveContracts(
@@ -169,7 +166,7 @@ class ActiveContractsIntegrationTest
   ): ContractData = {
     import env.*
 
-    val cantonContractIdVersion = AuthenticatedContractIdVersionV11
+    val cantonContractIdVersion = CantonContractIdVersion.maxV1
 
     val pureCrypto = participant1.underlying.map(_.cryptoPureApi).value
     val contractIdSuffixer = new ContractIdSuffixer(pureCrypto, cantonContractIdVersion)
@@ -184,9 +181,11 @@ class ActiveContractsIntegrationTest
       new Amount(new java.math.BigDecimal(new java.math.BigInteger("1000000000000"), 10), "USD"),
       List.empty.asJava,
     )
-    val lfArguments = StricterValueValidator
-      .validateRecord(Record.fromJavaProto(createIou.toValue.toProtoRecord))
-      .getOrElse(throw new IllegalStateException)
+    val lfArguments = normalize(
+      StricterValueValidator
+        .validateRecord(Record.fromJavaProto(createIou.toValue.toProtoRecord))
+        .getOrElse(throw new IllegalStateException)
+    )
     val lfTemplate = ValueValidator
       .validateIdentifier(Identifier.fromJavaProto(Iou.TEMPLATE_ID_WITH_PACKAGE_ID.toProto))
       .getOrElse(throw new IllegalStateException)
@@ -210,9 +209,19 @@ class ActiveContractsIntegrationTest
       createIndex = 0,
       viewPosition = ViewPosition(List.empty),
     )
+
+    val contractHasher = TestEngine.syncContractHasher(BaseTest.CantonExamplesPath)
+    val contractHash =
+      contractHasher.hash(unsuffixedCreateNode, contractIdSuffixer.contractHashingMethod)
+
     val ContractIdSuffixer.RelativeSuffixResult(suffixedCreateNode, _, _, authenticationData) =
       contractIdSuffixer
-        .relativeSuffixForLocalContract(contractSalt, ledgerCreateTime, unsuffixedCreateNode)
+        .relativeSuffixForLocalContract(
+          contractSalt,
+          ledgerCreateTime,
+          unsuffixedCreateNode,
+          contractHash,
+        )
         .valueOr(err => fail("Failed to create contract suffix: " + err))
     val suffixedFci = LfFatContractInst
       .fromCreateNode(suffixedCreateNode, ledgerCreateTime, authenticationData.toLfBytes)
@@ -807,8 +816,6 @@ class ActiveContractsIntegrationTest
           StateService.getActiveContracts(
             proto.state_service.GetActiveContractsRequest(
               activeAtOffset = bigOffset,
-              filter = None,
-              verbose = false,
               eventFormat = Some(getEventFormat(List(party1a.toLf))),
             )
           )
@@ -841,6 +848,14 @@ class ActiveContractsIntegrationTest
 
     unassignedUniqueId shouldBe (out.source, out.reassignmentId)
   }
+
+  private def normalize(value: LfValue): LfValue =
+    lf.transaction.Util
+      .normalizeValue(
+        value,
+        SerializationVersion.V1,
+      )
+      .value
 }
 
 private object ActiveContractsIntegrationTest {

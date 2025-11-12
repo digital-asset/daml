@@ -273,7 +273,7 @@ class TransactionConfirmationResponsesFactory(
                 ConfirmationResponses
                   .tryCreate(
                     requestId,
-                    transactionValidationResult.transactionId.toRootHash,
+                    transactionValidationResult.updateId.toRootHash,
                     synchronizerId,
                     participantId,
                     _,
@@ -287,7 +287,7 @@ class TransactionConfirmationResponsesFactory(
       FutureUnlessShutdown.pure(
         ProcessingSteps.constructResponsesForMalformedPayloads(
           requestId = requestId,
-          rootHash = transactionValidationResult.transactionId.toRootHash,
+          rootHash = transactionValidationResult.updateId.toRootHash,
           malformedPayloads = malformedPayloads,
           synchronizerId = synchronizerId,
           participantId = participantId,

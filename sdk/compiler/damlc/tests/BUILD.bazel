@@ -6,7 +6,7 @@ load("@os_info//:os_info.bzl", "is_darwin", "is_windows")
 load(":util.bzl", "damlc_compile_test")
 load("//rules_daml:daml.bzl", "daml_compile", "daml_compile_with_dalf", "generate_and_track_dar_hash_file")
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
-load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "lf_version_default_or_latest", "mangle_for_damlc")
+load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "mangle_for_damlc")
 load("//compiler/damlc:util.bzl", "ghc_pkg")
 
 # A REPL with all tests, used as bios for HLS
@@ -351,6 +351,7 @@ da_haskell_test(
         "//compiler/damlc/stable-packages",
         "//compiler/script-service/server:script_service_jar",
         "//daml-script/daml:daml-script-2.1.dar",
+        "//daml-script/daml:daml-script-2.2.dar",
         ghc_pkg,
     ],
     hackage_deps = [
@@ -823,7 +824,7 @@ damlc_compile_test(
     enable_scripts = True,
     heap_limit = "200M",
     main = "daml-test-files/Examples.daml",
-    stack_limit = "230K",
+    stack_limit = "500K",
 )
 
 damlc_compile_test(
@@ -832,7 +833,7 @@ damlc_compile_test(
     enable_scripts = True,
     heap_limit = "200M" if is_windows else "100M",
     main = "bond-trading/Test.daml",
-    stack_limit = "100K" if is_windows else "70K",
+    stack_limit = "500K" if is_windows else "500K",
 )
 
 da_haskell_binary(
@@ -1038,10 +1039,12 @@ da_haskell_test(
         "directory",
         "extra",
         "filepath",
+        "jwt",
         "process",
         "tasty",
         "tasty-hunit",
         "text",
+        "time",
         "unordered-containers",
         "zip-archive",
     ],
@@ -1206,6 +1209,7 @@ da_haskell_test(
         "//compiler/daml-lf-proto",
         "//compiler/damlc/daml-extract-dar",
         "//compiler/damlc/daml-ide-core",
+        "//compiler/damlc/stable-packages:stable-packages-lib",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
     ],

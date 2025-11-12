@@ -20,11 +20,11 @@ import com.digitalasset.canton.logging.{
   NamedLogging,
 }
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.participant.store.ContractStore
 import com.digitalasset.canton.platform.InMemoryState
 import com.digitalasset.canton.platform.apiserver.TimedIndexService
 import com.digitalasset.canton.platform.config.IndexServiceConfig
 import com.digitalasset.canton.platform.index.IndexServiceOwner.GetPackagePreferenceForViewsUpgrading
-import com.digitalasset.canton.platform.store.DbSupport
 import com.digitalasset.canton.platform.store.backend.common.MismatchException
 import com.digitalasset.canton.platform.store.cache.*
 import com.digitalasset.canton.platform.store.dao.events.{
@@ -38,7 +38,8 @@ import com.digitalasset.canton.platform.store.dao.{
   LedgerReadDao,
 }
 import com.digitalasset.canton.platform.store.interning.StringInterning
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
+import com.digitalasset.canton.platform.store.{DbSupport, PruningOffsetService}
+import com.digitalasset.canton.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref
 import io.opentelemetry.api.trace.Tracer
@@ -66,6 +67,8 @@ final class IndexServiceOwner(
     lfValueTranslation: LfValueTranslation,
     queryExecutionContext: ExecutionContextExecutorService,
     commandExecutionContext: ExecutionContextExecutorService,
+    participantContractStore: ContractStore,
+    pruningOffsetService: PruningOffsetService,
 ) extends ResourceOwner[IndexService]
     with NamedLogging {
   private val initializationRetryDelay = 100.millis
@@ -77,6 +80,7 @@ final class IndexServiceOwner(
       stringInterning = inMemoryState.stringInterningView,
       contractLoader = contractLoader,
       lfValueTranslation = lfValueTranslation,
+      pruningOffsetService = pruningOffsetService,
       queryExecutionContext = queryExecutionContext,
       commandExecutionContext = commandExecutionContext,
     )
@@ -88,6 +92,7 @@ final class IndexServiceOwner(
         ledgerDao.contractsReader,
         contractStateCaches = inMemoryState.contractStateCaches,
         loggerFactory = loggerFactory,
+        contractStore = participantContractStore,
       )(commandExecutionContext)
 
       bufferedTransactionsReader = BufferedUpdateReader(
@@ -170,7 +175,7 @@ final class IndexServiceOwner(
         .flatMap {
           case Some(`participantId`) =>
             logger.info(s"Found existing participant with ID: $participantId`")
-            Future.successful(())
+            Future.unit
           case Some(foundParticipantId) =>
             Future.failed(
               new MismatchException.ParticipantId(
@@ -191,22 +196,24 @@ final class IndexServiceOwner(
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
       contractLoader: ContractLoader,
+      pruningOffsetService: PruningOffsetService,
       lfValueTranslation: LfValueTranslation,
       queryExecutionContext: ExecutionContextExecutorService,
       commandExecutionContext: ExecutionContextExecutorService,
   ): LedgerReadDao =
-    JdbcLedgerDao.read(
-      dbSupport = dbSupport,
+    new JdbcLedgerDao(
+      dbDispatcher = dbSupport.dbDispatcher,
       queryExecutionContext = queryExecutionContext,
       commandExecutionContext = commandExecutionContext,
       metrics = metrics,
-      participantId = participantId,
+      readStorageBackend = dbSupport.storageBackendFactory
+        .readStorageBackend(ledgerEndCache, stringInterning, loggerFactory),
+      parameterStorageBackend =
+        dbSupport.storageBackendFactory.createParameterStorageBackend(stringInterning),
       ledgerEndCache = ledgerEndCache,
-      stringInterning = stringInterning,
       completionsPageSize = config.completionsPageSize,
       activeContractsServiceStreamsConfig = config.activeContractsServiceStreams,
       updatesStreamsConfig = config.updatesStreams,
-      transactionTreeStreamsConfig = config.transactionTreeStreams,
       globalMaxEventIdQueries = config.globalMaxEventIdQueries,
       globalMaxEventPayloadQueries = config.globalMaxEventPayloadQueries,
       tracer = tracer,
@@ -214,7 +221,9 @@ final class IndexServiceOwner(
       incompleteOffsets = incompleteOffsets,
       contractLoader = contractLoader,
       lfValueTranslation = lfValueTranslation,
-    )
+      pruningOffsetService = pruningOffsetService,
+      contractStore = participantContractStore,
+    )(queryExecutionContext)
 
   private object InMemoryStateNotInitialized extends NoStackTrace
 }

@@ -14,7 +14,11 @@ import scala.util.{Failure, Success, Try}
 
 class ByteStringStreamObserver[T](converter: T => ByteString)
     extends ByteStringStreamObserverWithContext[T, Unit](converter, _ => ()) {
-  def resultBytes(implicit ec: ExecutionContext): Future[ByteString] = result.map(_._1)
+  def resultBytes(implicit ec: ExecutionContext): Future[ByteString] = result.transform {
+    case Success(Some((bytes, _))) => Success(bytes)
+    case Success(None) => Failure(new NoSuchElementException("No elements were received in stream"))
+    case Failure(e) => Failure(e)
+  }
 }
 
 // This observer allows extracting a bytestring, as well as other fields that are part of the request.
@@ -24,11 +28,12 @@ class ByteStringStreamObserverWithContext[T, Context](
     extractContext: T => Context,
 ) extends StreamObserver[T] {
   private val byteBuffer = new AtomicReference(ByteString.EMPTY)
-  private val requestComplete: Promise[(ByteString, Context)] = Promise[(ByteString, Context)]()
+  private val requestComplete: Promise[Option[(ByteString, Context)]] = Promise()
 
   val context = new AtomicReference[Option[Context]](None)
 
-  def result: Future[(ByteString, Context)] =
+  /** result of the stream, which may be None if no element is returned */
+  def result: Future[Option[(ByteString, Context)]] =
     requestComplete.future
 
   private def setOrCheck(current: Context): Try[Unit] =
@@ -63,9 +68,7 @@ class ByteStringStreamObserverWithContext[T, Context](
     val finalResult =
       context
         .get()
-        .map(Success(_))
-        .getOrElse(Failure(new IllegalStateException("Context not set")))
-        .map((finalByteString, _))
-    requestComplete.tryComplete(finalResult).discard
+        .map(ctx => (finalByteString, ctx))
+    requestComplete.tryComplete(Success(finalResult)).discard
   }
 }

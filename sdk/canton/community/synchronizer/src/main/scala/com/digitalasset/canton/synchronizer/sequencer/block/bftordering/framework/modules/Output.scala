@@ -26,9 +26,6 @@ object Output {
 
   final case object Start extends Message[Nothing]
 
-  final case class GetCurrentBftTime(callback: Option[CantonTimestamp] => Unit)
-      extends Message[Nothing]
-
   // From local consensus
   final case class BlockOrdered(orderedBlockForOutput: OrderedBlockForOutput)
       extends Message[Nothing]

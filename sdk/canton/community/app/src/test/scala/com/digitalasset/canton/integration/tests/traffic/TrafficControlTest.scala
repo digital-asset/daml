@@ -28,11 +28,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.integration.EnvironmentDefinition.S1M1
 import com.digitalasset.canton.integration.bootstrap.NetworkBootstrapper
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UseH2,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.plugins.{UseH2, UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.tests.TrafficBalanceSupport
 import com.digitalasset.canton.integration.util.OnboardsNewSequencerNode
 import com.digitalasset.canton.integration.{
@@ -109,11 +105,11 @@ trait TrafficControlTest
         new NetworkBootstrapper(S1M1)
       }
       .addConfigTransforms(
+        ConfigTransforms.useStaticTime,
         ConfigTransforms.updateAllSequencerClientConfigs_(
           // Force the participant to notice quickly that the synchronizer is down
           _.focus(_.warnDisconnectDelay).replace(config.NonNegativeFiniteDuration.ofMillis(1))
         ),
-        ConfigTransforms.useStaticTime,
       )
       .addConfigTransform(
         ConfigTransforms.updateAllSequencerConfigs_(
@@ -206,7 +202,7 @@ trait TrafficControlTest
     val clock = env.environment.simClock.value
     // Re-fill the base rate to give some credit to the mediator, still won't be enough for the submission request though
     clock.advance(trafficControlParameters.maxBaseTrafficAccumulationDuration.asJava)
-    participant1.ledger_api.packages.upload_dar(CantonTestsPath)
+    participant1.ledger_api.packages.upload_dar(CantonTestsPath, synchronizerId = daId)
 
     val alice = participant1.parties.enable(
       "Alice",
@@ -368,13 +364,8 @@ trait TrafficControlTest
     trafficStateBeforeRestart.trafficStates should
       contain theSameElementsAs trafficStateAfterRestart.trafficStates
 
-    clue("advance clock for sequencer pool connection restart") {
+    clue("wait for members to reconnect") {
       eventually() {
-        val clock = env.environment.simClock.value
-        // The sequencer connection pool internal mechanisms to restart connections rely on the clock time advancing.
-        // 1 second is the default subscription pool retry delay.
-        clock.advance(Duration.ofSeconds(1))
-
         participant1.health.status.trySuccess.connectedSynchronizers
           .get(daId) should contain(SubmissionReady(true))
 
@@ -839,12 +830,12 @@ trait TrafficControlTest
 
 class TrafficControlTestH2 extends TrafficControlTest {
   registerPlugin(new UseH2(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 }
 
 class TrafficControlTestPostgres extends TrafficControlTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }
 
 // TODO(#16789) Re-enable test once dynamic onboarding is supported for BFT Orderer

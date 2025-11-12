@@ -16,28 +16,25 @@ import com.digitalasset.canton.participant.protocol.EngineController.{
   EngineAbortStatus,
   GetEngineAbortStatus,
 }
+import com.digitalasset.canton.participant.protocol.TransactionProcessingSteps
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactoryImpl
 import com.digitalasset.canton.participant.protocol.validation.ModelConformanceChecker.*
 import com.digitalasset.canton.participant.protocol.validation.ModelConformanceCheckerTest.HashReInterpretationCounter
-import com.digitalasset.canton.participant.protocol.{
-  DummyContractAuthenticator,
-  TransactionProcessingSteps,
-}
 import com.digitalasset.canton.participant.store.ContractAndKeyLookup
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.participant.util.DAMLe.{
   EngineError,
   HasReinterpret,
-  PackageResolver,
   ReInterpretationResult,
 }
-import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.ContractAuthenticatorFn
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.store.PackageDependencyResolverUS
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ContractValidator.ContractAuthenticatorFn
 import com.digitalasset.canton.util.FutureInstances.*
+import com.digitalasset.canton.util.PackageConsumer.PackageResolver
+import com.digitalasset.canton.util.{ContractValidator, TestContractHasher}
 import com.digitalasset.canton.{
   BaseTest,
   LfCommand,
@@ -49,7 +46,7 @@ import com.digitalasset.canton.{
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.{PackageId, PackageName}
 import com.digitalasset.daml.lf.engine.Error as LfError
-import com.digitalasset.daml.lf.language.Ast.{Expr, GenPackage, PackageMetadata}
+import com.digitalasset.daml.lf.language.Ast.{DeclaredImports, Expr, GenPackage, PackageMetadata}
 import com.digitalasset.daml.lf.language.LanguageVersion
 import org.scalatest.wordspec.AsyncWordSpec
 import pprint.Tree
@@ -71,10 +68,11 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
   val packageMetadata: PackageMetadata = PackageMetadata(packageName, packageVersion, None)
   val genPackage: GenPackage[Expr] =
     GenPackage(
-      Map.empty,
-      Set.empty,
-      LanguageVersion.default,
-      packageMetadata,
+      modules = Map.empty,
+      directDeps = Set.empty,
+      languageVersion = LanguageVersion.default,
+      metadata = packageMetadata,
+      imports = DeclaredImports(Set.empty),
       isUtilityPackage = true,
     )
   val packageResolver: PackageResolver = _ => _ => FutureUnlessShutdown.pure(Some(genPackage))
@@ -172,6 +170,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
         factory.psid,
         factory.cantonContractIdVersion,
         factory.cryptoOps,
+        TestContractHasher.Async,
         loggerFactory,
       )
 
@@ -196,13 +195,15 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
         views: NonEmpty[Seq[(FullTransactionViewTree, Seq[(TransactionView, LfKeyResolver)])]],
         ips: TopologySnapshot = factory.topologySnapshot,
         reInterpretedTopLevelViews: ModelConformanceChecker.LazyAsyncReInterpretationMap = Map.empty,
-    ): EitherT[Future, ErrorWithSubTransaction, Result] = {
+    ): EitherT[Future, ErrorWithSubTransaction[Unit], Result] = {
       val rootViewTrees = views.map(_._1)
       val commonData = TransactionProcessingSteps.tryCommonData(rootViewTrees)
       val keyResolvers = views.forgetNE.flatMap { case (_, resolvers) => resolvers }.toMap
+      val rootViewTreesWithEffects =
+        rootViewTrees.map(tree => (tree, tree.view.allSubviews.map(_ => ())))
       mcc
         .check(
-          rootViewTrees,
+          rootViewTreesWithEffects,
           keyResolvers,
           ips,
           commonData,
@@ -217,7 +218,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
         reinterpretCommand,
         transactionTreeFactory,
         submittingParticipant,
-        DummyContractAuthenticator,
+        ContractValidator.AllowAll,
         packageResolver,
         pureCrypto,
         loggerFactory,
@@ -241,8 +242,8 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
                 check(sut, viewsWithNoInputKeys(example.rootTransactionViewTrees))
               )(s"model conformance check for root views")
             } yield {
-              val Result(transactionId, absoluteTransaction) = result
-              transactionId should equal(example.transactionId)
+              val Result(updateId, absoluteTransaction) = result
+              updateId should equal(example.updateId)
 
               absoluteTransaction.metadata.ledgerTime should equal(factory.ledgerTime)
               absoluteTransaction.unwrap.version should equal(
@@ -288,8 +289,8 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
                 )
               )(s"model conformance check for root views")
             } yield {
-              val Result(transactionId, absoluteTransaction) = result
-              transactionId should equal(example.transactionId)
+              val Result(updateId, absoluteTransaction) = result
+              updateId should equal(example.updateId)
               absoluteTransaction.metadata.ledgerTime should equal(factory.ledgerTime)
               absoluteTransaction.unwrap.version should equal(
                 example.versionedSuffixedTransaction.version
@@ -312,8 +313,8 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
                     s"model conformance check for view at ${viewTree.viewPosition}"
                   )
                 } yield {
-                  val Result(transactionId, absoluteTransaction) = result
-                  transactionId should equal(example.transactionId)
+                  val Result(updateId, absoluteTransaction) = result
+                  updateId should equal(example.updateId)
                   absoluteTransaction.metadata.ledgerTime should equal(factory.ledgerTime)
                 }
               }
@@ -326,14 +327,14 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
         val sut = buildUnderTest(failOnReinterpret)
 
         val singleCreate = factory.SingleCreate(seed = ExampleTransactionFactory.lfHash(0))
-        val viewTreesWithInconsistentTransactionIds = Seq(
+        val viewTreesWithInconsistentUpdateIds = Seq(
           factory.MultipleRootsAndViewNestings.rootTransactionViewTrees.headOption.value,
           singleCreate.rootTransactionViewTrees.headOption.value,
         )
 
         "yield an error" in {
           assertThrows[IllegalArgumentException] {
-            check(sut, viewsWithNoInputKeys(viewTreesWithInconsistentTransactionIds))
+            check(sut, viewsWithNoInputKeys(viewTreesWithInconsistentUpdateIds))
           }
         }
       }
@@ -543,16 +544,6 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
       }
     }
   }
-
-  class TestPackageResolver(result: Either[PackageId, Set[PackageId]])
-      extends PackageDependencyResolverUS {
-    import cats.syntax.either.*
-    override def packageDependencies(packageId: PackageId)(implicit
-        traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
-      result.toEitherT
-  }
-
 }
 
 object ModelConformanceCheckerTest {

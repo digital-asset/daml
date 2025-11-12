@@ -260,10 +260,11 @@ data SandboxPorts = SandboxPorts
   , sequencerPublic :: Int
   , sequencerAdmin :: Int
   , mediatorAdmin :: Int
+  , jsonApi :: Int
   }
 
 defaultSandboxPorts :: SandboxPorts
-defaultSandboxPorts = SandboxPorts 6865 6866 6867 6868 6869
+defaultSandboxPorts = SandboxPorts 6865 6866 6867 6868 6869 6870
 
 runCantonSandbox :: CantonOptions -> [String] -> IO ()
 runCantonSandbox options args = withCantonSandbox options args (const $ pure ())
@@ -304,10 +305,11 @@ withCantonSandbox options remainingArgs k = do
   where
     bootstrapScriptStr =
         unlines
-            [ "import com.digitalasset.canton.config.RequireTypes.PositiveInt"
+            [ "import com.digitalasset.canton.config.NonNegativeFiniteDuration"
+            , "import com.digitalasset.canton.config.RequireTypes.PositiveInt"
             , "import com.digitalasset.canton.version.ProtocolVersion"
             , ""
-            , "val staticSynchronizerParameters = StaticSynchronizerParameters.defaults(sequencer1.config.crypto, ProtocolVersion.latest)"
+            , "val staticSynchronizerParameters = StaticSynchronizerParameters.defaults(sequencer1.config.crypto, ProtocolVersion.latest, topologyChangeDelay = NonNegativeFiniteDuration.Zero)"
             , "val synchronizerOwners = Seq(sequencer1, mediator1)"
             , "bootstrap.synchronizer(\"mysynchronizer\", Seq(sequencer1), Seq(mediator1), synchronizerOwners, PositiveInt.one, staticSynchronizerParameters)"
             , "sandbox.synchronizers.connect_local(sequencer1, \"mysynchronizer\")"
@@ -336,7 +338,7 @@ data CantonOptions = CantonOptions
   , cantonStaticTime :: StaticTime
   , cantonHelp :: Bool
   , cantonConfigFiles :: [FilePath]
-  , cantonJsonApi :: Maybe Int
+  , cantonJsonApi :: Int
   , cantonJsonApiPortFileM :: Maybe FilePath
   }
 
@@ -367,7 +369,7 @@ cantonConfig CantonOptions{..} =
                      ] <>
                      [ "http-ledger-api" Aeson..= Aeson.object
                         [ "server" Aeson..= Aeson.object ( concat
-                            [ [ "port" Aeson..= port | Just port <- [cantonJsonApi] ]
+                            [ [ "port" Aeson..= cantonJsonApi ]
                             , [ "port-file" Aeson..= portFile | Just portFile <- [cantonJsonApiPortFileM] ]
                             ])
                         ]
@@ -378,7 +380,7 @@ cantonConfig CantonOptions{..} =
                 [ "sequencer1" Aeson..= Aeson.object
                     [ "sequencer" Aeson..= Aeson.object
                         [ "config" Aeson..= Aeson.object [ storage ]
-                        , "type" Aeson..= ("community-reference" :: T.Text)
+                        , "type" Aeson..= ("reference" :: T.Text)
                         ]
                     , storage
                     , "public-api" Aeson..= port cantonSequencerPublicApi

@@ -15,10 +15,10 @@ import Control.Concurrent.STM.TChan
 import Control.Concurrent.STM.TVar
 import Control.Concurrent.STM.TMVar
 import Control.Concurrent.MVar
-import Control.Exception (SomeException, displayException)
+import Control.Exception (SomeException)
 import Control.Monad (void)
 import Control.Monad.STM
-import DA.Daml.Project.Types (PackagePath (..), UnresolvedReleaseVersion, unresolvedReleaseVersionToString, parseUnresolvedVersion)
+import DA.Daml.Project.Types (PackagePath (..), UnresolvedReleaseVersion, unresolvedReleaseVersionToString)
 import DA.Daml.Resolution.Config (PackageResolutionData (..), ResolutionData (..), getResolutionData)
 import Data.Aeson
 import qualified Data.ByteString as B
@@ -26,9 +26,10 @@ import qualified Data.ByteString.Lazy as BSL
 import Data.Function (on)
 import qualified Data.IxMap as IM
 import qualified Data.Map as Map
-import Data.Maybe (fromMaybe, listToMaybe)
+import Data.Maybe (fromMaybe, isNothing, listToMaybe)
 import qualified Data.Set as Set
 import qualified Data.Text as T
+import qualified Data.Text.Extended as T
 import Data.Time.Clock (NominalDiffTime, UTCTime, diffUTCTime)
 import qualified Language.LSP.Types as LSP
 import System.IO.Extra
@@ -230,6 +231,9 @@ type SubIdeMessageHandler = IO () -> SubIdeInstance -> B.ByteString -> IO ()
 -- Used to extract the unsafeAddNewSubIdeAndSend function to resolve dependency cycles
 type UnsafeAddNewSubIdeAndSend = SubIdes -> PackageHome -> Maybe LSP.FromClientMessage -> IO SubIdes
 
+-- Used to extract the rebootIdeByHome function to resolve dependency cycles
+type RebootIdeByHome = PackageHome -> IO ()
+
 type GlobalErrorsVar = MVar GlobalErrors
 
 -- Handles errors that prevent environments from starting
@@ -250,8 +254,34 @@ instance Show GlobalErrors where
 emptyGlobalErrors :: GlobalErrors
 emptyGlobalErrors = GlobalErrors Nothing Nothing Set.empty
 
+data SdkVersionData = SdkVersionData
+  { svdVersion :: Maybe UnresolvedReleaseVersion
+  , svdOverrides :: Map.Map T.Text (Maybe T.Text)
+    -- ^ Overrides for checking equality with DPM
+    -- Map from component name to maybe component version (Nothing -> local path)
+  }
+  deriving (Ord, Eq, Show)
+
+-- Shows SDK version with the number of overrides, rather than overrides themselves, to reduce clutter
+renderSdkVersionData :: SdkVersionData -> T.Text
+renderSdkVersionData (SdkVersionData ver overrides) 
+  | Map.null overrides = renderOptionalUnresolvedReleaseVersion ver
+  | otherwise = renderOptionalUnresolvedReleaseVersion ver <> " (with " <> T.show (Map.size overrides) <> " override(s))"
+
+renderOptionalUnresolvedReleaseVersion :: Maybe UnresolvedReleaseVersion -> T.Text
+renderOptionalUnresolvedReleaseVersion ver = T.pack $ maybe "<omitted>" unresolvedReleaseVersionToString ver
+
+
+-- Whether an SDK version uses any local-path overrides, which would mean such an environment should be restarted
+-- more often
+sdkVersionDataUsingLocalOverrides :: SdkVersionData -> Bool
+sdkVersionDataUsingLocalOverrides (SdkVersionData _ overrides) = any isNothing overrides
+
+-- Represents the installation status of a version, where a version (SdkVersionData) is a version string and 0 or more overrides
+-- Contains a status for asking/installation, and a set of packages that are waiting for this SDK version to be installed
+-- Stored in a mapping from SdkVersionData to SdkInstallData, see SdkInstallDatas
 data SdkInstallData = SdkInstallData
-  { sidVersion :: UnresolvedReleaseVersion
+  { sidVersionData :: SdkVersionData
   , sidPendingHomes :: Set.Set PackageHome
   , sidStatus :: SdkInstallStatus
   }
@@ -279,10 +309,10 @@ instance Show SdkInstallStatus where
   show SISDenied = "SISDenied"
   show (SISFailed log err) = "SISFailed (" <> show log <> ") (" <> show err <> ")"
 
-type SdkInstallDatas = Map.Map UnresolvedReleaseVersion SdkInstallData
+type SdkInstallDatas = Map.Map SdkVersionData SdkInstallData
 type SdkInstallDatasVar = TMVar SdkInstallDatas
 
-getSdkInstallData :: UnresolvedReleaseVersion -> SdkInstallDatas -> SdkInstallData
+getSdkInstallData :: SdkVersionData -> SdkInstallDatas -> SdkInstallData
 getSdkInstallData ver = fromMaybe (SdkInstallData ver mempty SISCanAsk) . Map.lookup ver
 
 data DamlSdkInstallProgressNotificationKind
@@ -291,14 +321,18 @@ data DamlSdkInstallProgressNotificationKind
   | InstallProgressEnd
 
 data DamlSdkInstallProgressNotification = DamlSdkInstallProgressNotification
-  { sipSdkVersion :: UnresolvedReleaseVersion
+  { -- Identifier like `3.2.0-<overrides-hash>`
+    sipSdkVersionIdentifier :: T.Text
+  , -- Rendered version like `3.2.0 (with 3 overrides)`
+    sipSdkVersionRendered :: T.Text
   , sipKind :: DamlSdkInstallProgressNotificationKind
   , sipProgress :: Int
   }
 
 instance ToJSON DamlSdkInstallProgressNotification where
   toJSON (DamlSdkInstallProgressNotification {..}) = object
-    [ "sdkVersion" .= unresolvedReleaseVersionToString sipSdkVersion
+    [ "sdkVersionIdentifier" .= sipSdkVersionIdentifier
+    , "sdkVersionRendered" .= sipSdkVersionRendered
     , "kind" .= case sipKind of
         InstallProgressBegin -> "begin" :: T.Text
         InstallProgressReport -> "report"
@@ -310,13 +344,12 @@ damlSdkInstallProgressMethod :: T.Text
 damlSdkInstallProgressMethod = "daml/sdkInstallProgress"
 
 newtype DamlSdkInstallCancelNotification = DamlSdkInstallCancelNotification
-  { sicSdkVersion :: UnresolvedReleaseVersion
+  { sicSdkVersionIdentifier :: T.Text
   }
 
 instance FromJSON DamlSdkInstallCancelNotification where
-  parseJSON = withObject "DamlSdkInstallCancelNotification" $ \v -> do
-    sdkVersionStr <- v .: "sdkVersion"
-    either (fail . displayException) (pure . DamlSdkInstallCancelNotification) $ parseUnresolvedVersion sdkVersionStr
+  parseJSON = withObject "DamlSdkInstallCancelNotification" $ \v ->
+    DamlSdkInstallCancelNotification <$> v .: "sdkVersionidentifier"
 
 damlSdkInstallCancelMethod :: T.Text
 damlSdkInstallCancelMethod = "daml/sdkInstallCancel"
@@ -349,6 +382,7 @@ data MultiIdeState = MultiIdeState
   , misSubIdeArgs :: [String]
   , misSubIdeMessageHandler :: SubIdeMessageHandler
   , misUnsafeAddNewSubIdeAndSend :: UnsafeAddNewSubIdeAndSend
+  , misRebootIdeByHome :: RebootIdeByHome
   , misSdkInstallDatasVar :: SdkInstallDatasVar
   , misIdentifier :: Maybe T.Text
   , misResolutionData :: MultiIdeResolutionDataVar
@@ -375,8 +409,9 @@ newMultiIdeState
   -> [String]
   -> (MultiIdeState -> SubIdeMessageHandler)
   -> (MultiIdeState -> UnsafeAddNewSubIdeAndSend)
+  -> (MultiIdeState -> RebootIdeByHome)
   -> IO MultiIdeState
-newMultiIdeState misMultiPackageHome misDefaultPackagePath logThreshold misIdentifier misSubIdeArgs subIdeMessageHandler unsafeAddNewSubIdeAndSend = do
+newMultiIdeState misMultiPackageHome misDefaultPackagePath logThreshold misIdentifier misSubIdeArgs subIdeMessageHandler unsafeAddNewSubIdeAndSend rebootIdeByHome = do
   (misFromClientMethodTrackerVar :: MethodTrackerVar 'LSP.FromClient) <- newTVarIO IM.emptyIxMap
   (misFromServerMethodTrackerVar :: MethodTrackerVar 'LSP.FromServer) <- newTVarIO IM.emptyIxMap
   misSubIdesVar <- newTMVarIO @SubIdes mempty
@@ -394,6 +429,7 @@ newMultiIdeState misMultiPackageHome misDefaultPackagePath logThreshold misIdent
         MultiIdeState 
           { misSubIdeMessageHandler = subIdeMessageHandler miState
           , misUnsafeAddNewSubIdeAndSend = unsafeAddNewSubIdeAndSend miState
+          , misRebootIdeByHome = rebootIdeByHome miState
           , ..
           }
   pure miState
@@ -469,8 +505,6 @@ data SMethodWithSender (m :: LSP.Method 'LSP.FromServer t) = SMethodWithSender
 data PackageSummary = PackageSummary
   { psUnitId :: UnitId
   , psDeps :: [DarFile]
-  , psReleaseVersion :: UnresolvedReleaseVersion
-  , -- DPM supports local path components, which can change without the path to the component changing.
-    -- In this case, we always reboot this environment, and remember this information in the package summary.
-    psUsingLocalComponents :: Bool
+  , -- Includes overrides, necessary for install and knowing when an environment should be rebooted
+    psSdkVersionData :: SdkVersionData
   }

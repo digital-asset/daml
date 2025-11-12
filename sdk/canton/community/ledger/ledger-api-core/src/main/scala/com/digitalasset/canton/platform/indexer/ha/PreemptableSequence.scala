@@ -27,7 +27,7 @@ trait PreemptableSequence {
     *     functionality finished as well
     *   - The Handle is available immediately
     */
-  def executeSequence(sequence: SequenceHelper => Future[_]): Handle
+  def executeSequence(sequence: SequenceHelper => Future[?]): Handle
 }
 
 /** A collection of helper functions to compose a preemptable-sequence

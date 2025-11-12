@@ -46,7 +46,7 @@ Data Types
 
   **instance** :ref:`Semigroup <class-da-internal-prelude-semigroup-78998>` (`NonEmpty <type-da-nonempty-types-nonempty-16010_>`_ a)
 
-  **instance** :ref:`IsParties <class-da-internal-template-functions-isparties-53750>` a \=\> :ref:`IsParties <class-da-internal-template-functions-isparties-53750>` (`NonEmpty <type-da-nonempty-types-nonempty-16010_>`_ a)
+  **instance** :ref:`IsParties <class-da-internal-template-functions-isparties-53750>` (`NonEmpty <type-da-nonempty-types-nonempty-16010_>`_ :ref:`Party <type-da-internal-lf-party-57932>`)
 
   **instance** :ref:`Traversable <class-da-traversable-traversable-18144>` `NonEmpty <type-da-nonempty-types-nonempty-16010_>`_
 

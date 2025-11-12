@@ -69,12 +69,13 @@ import com.digitalasset.canton.synchronizer.sequencing.traffic.{
   TrafficConsumedManagerFactory,
   TrafficPurchasedManager,
 }
-import com.digitalasset.canton.time.{Clock, SimClock}
+import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration, SimClock}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.PekkoUtil
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{
+  BaseTest,
   FailOnShutdown,
   MockedNodeParameters,
   ProtocolVersionChecksFixtureAsyncWordSpec,
@@ -276,7 +277,13 @@ abstract class ReferenceSequencerWithTrafficControlApiTestBase
       ),
     )
     val topologyFactoryWithSynchronizerParameters = env.topology
-      .copy(synchronizerParameters = parameters)
+      .copy(
+        synchronizerParameters = parameters,
+        staticSynchronizerParameters = BaseTest.defaultStaticSynchronizerParametersWith(
+          topologyChangeDelay = NonNegativeFiniteDuration.Zero,
+          protocolVersion = testedProtocolVersion,
+        ),
+      )
       .build(loggerFactory)
     val params = SequencerNodeParameters(
       general = MockedNodeParameters.cantonNodeParameters(
@@ -404,7 +411,6 @@ abstract class ReferenceSequencerWithTrafficControlApiTestBase
       .create(
         SequencerId(synchronizerId.uid),
         clock,
-        clock,
         topologyFactory.forOwnerAndSynchronizer(
           owner = sequencerId,
           synchronizerId,
@@ -489,7 +495,7 @@ abstract class ReferenceSequencerWithTrafficControlApiTestBase
           _ = traffic1Sender.value.extraTrafficConsumed.value should be > 0L
         } yield {
           val (_, event) = messages1.loneElement
-          inside(event.signedEvent.content) { case deliver: Deliver[_] =>
+          inside(event.signedEvent.content) { case deliver: Deliver[?] =>
             assertLongValue(
               "daml.sequencer.traffic-control.event-delivered-cost",
               deliver.trafficReceipt.value.consumedCost.value,

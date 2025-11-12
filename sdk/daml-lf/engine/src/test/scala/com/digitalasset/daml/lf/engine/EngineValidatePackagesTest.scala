@@ -6,8 +6,8 @@ package engine
 
 import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.language.Ast.Package
-import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.digitalasset.daml.lf.language.Ast._
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.stablepackages.StablePackages
 import com.digitalasset.daml.lf.testing.parser
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
@@ -15,21 +15,26 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class EngineValidatePackagesTestV2 extends EngineValidatePackagesTest(LanguageMajorVersion.V2)
+import java.nio.file.Path
+import com.daml.bazeltools.BazelRunfiles
+import com.digitalasset.daml.lf.archive.DarDecoder
 
-class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
-    extends AnyWordSpec
-    with Matchers
-    with Inside {
+class EngineValidatePackagesTest extends AnyWordSpec with Matchers with Inside {
 
-  val langVersion = LanguageVersion.defaultOrLatestStable(majorLanguageVersion)
+  // TODO: extend with a (set of) compat dar(s), script-test-v2.dev.dar is
+  // tested here as placeholder https://github.com/digital-asset/daml/pull/22101
+  val testDarPath = "daml-script/test/script-test-v2.dev.dar"
+  val testDar = Path.of(BazelRunfiles.rlocation(testDarPath))
+  val dar: Dar[(Ref.PackageId, Package)] = DarDecoder.assertReadArchiveFromFile(testDar.toFile)
+
+  val langVersion = LanguageVersion.latestStableLfVersion
 
   val pkgId = Ref.PackageId.assertFromString("-pkg-")
   val extraPkgId = Ref.PackageId.assertFromString("-extra-")
   val missingPkgId = Ref.PackageId.assertFromString("-missing-")
   val utilityPkgId = Ref.PackageId.assertFromString("-utility-")
   val altUtilityPkgId = Ref.PackageId.assertFromString("-alt-utility-")
-  val (stablePkgId, stablePkg) = StablePackages(majorLanguageVersion).packagesMap.head
+  val (stablePkgId, stablePkg) = StablePackages.stablePackages.packagesMap.head
 
   implicit val parserParameters: parser.ParserParameters[this.type] =
     parser.ParserParameters(pkgId, langVersion)
@@ -68,7 +73,7 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
   )
 
   private def newEngine = new Engine(
-    EngineConfig(LanguageVersion.AllVersions(majorLanguageVersion))
+    EngineConfig(LanguageVersion.allLfVersionsRange)
   )
 
   private def darFromPackageMap(
@@ -78,6 +83,10 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
     Dar(mainPkg, dependentPkgs.toList)
 
   "Engine.validateDar" should {
+    "accept prepackaged dars" in {
+      newEngine.validateDar(dar) shouldBe Right(())
+    }
+
     val pkg =
       p"""
         metadata ( 'pkg' : '1.0.0' )
@@ -92,7 +101,8 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
           s"with $utilityLabel and $stableLabel" in {
             newEngine.validateDar(
               darFromPackageMap(
-                pkgId -> pkg.copy(directDeps = utilityDirectDeps ++ stableDirectDeps),
+                // GeneratedImports or DeclaredImports does not matter here
+                pkgId -> pkg.copy(imports = DeclaredImports(utilityDirectDeps ++ stableDirectDeps)),
                 utilityDependencies ++ stableDependencies: _*
               )
             ) shouldBe Right(())
@@ -116,7 +126,10 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
             inside(
               newEngine.validateDar(
                 darFromPackageMap(
-                  pkgId -> illTypedPackage.copy(directDeps = utilityDirectDeps ++ stableDirectDeps),
+                  pkgId -> illTypedPackage.copy(imports =
+                    // DeclaredImports or DeclaredImports does not matter here
+                    DeclaredImports(utilityDirectDeps ++ stableDirectDeps)
+                  ),
                   utilityDependencies ++ stableDependencies: _*
                 )
               )
@@ -147,12 +160,15 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
 
         utilityPkgChoices.foreach { case (utilityLabel, utilityDirectDeps, utilityDependencies) =>
           stablePkgChoices.foreach { case (stableLabel, stableDirectDeps, stableDependencies) =>
-            s"with $utilityLabel and $stableLabel" in {
+            s"with $utilityLabel and $stableLabel and $stableDirectDeps" in {
               inside(
                 newEngine.validateDar(
                   darFromPackageMap(
-                    pkgId -> dependentPackage.copy(directDeps =
-                      Set(missingPkgId) ++ utilityDirectDeps ++ stableDirectDeps
+                    pkgId -> dependentPackage.copy(imports =
+                      // DeclaredImports or DeclaredImports does not matter here
+                      DeclaredImports(
+                        Set(missingPkgId) ++ utilityDirectDeps ++ stableDirectDeps
+                      )
                     ),
                     utilityDependencies ++ stableDependencies: _*
                   )
@@ -161,13 +177,11 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
                 case Left(
                       err @ Error.Package.DarSelfConsistency(
                         mainPkgId,
-                        transitiveDeps,
                         missingDeps,
                         extraDeps,
                       )
                     ) =>
                   mainPkgId shouldBe pkgId
-                  transitiveDeps shouldBe utilityDirectDeps ++ stableDirectDeps
                   missingDeps shouldBe Set(missingPkgId)
                   extraDeps shouldBe Set.empty
                   err.logReportingEnabled shouldBe false
@@ -192,8 +206,11 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
               inside(
                 newEngine.validateDar(
                   darFromPackageMap(
-                    pkgId -> dependentPackage.copy(directDeps =
-                      utilityDirectDeps ++ stableDirectDeps
+                    pkgId -> dependentPackage.copy(imports =
+                      // DeclaredImports or DeclaredImports does not matter here
+                      DeclaredImports(
+                        utilityDirectDeps ++ stableDirectDeps
+                      )
                     ),
                     Seq(extraPkgId -> extraPkg) ++ utilityDependencies ++ stableDependencies: _*
                   )
@@ -202,13 +219,11 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
                 case Left(
                       err @ Error.Package.DarSelfConsistency(
                         mainPkgId,
-                        transitiveDeps,
                         missingDeps,
                         extraDeps,
                       )
                     ) =>
                   mainPkgId shouldBe pkgId
-                  transitiveDeps shouldBe utilityDirectDeps ++ stableDirectDeps
                   missingDeps shouldBe Set.empty
                   extraDeps shouldBe Set(extraPkgId)
                   err.logReportingEnabled shouldBe true
@@ -233,8 +248,11 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
               inside(
                 newEngine.validateDar(
                   darFromPackageMap(
-                    pkgId -> dependentPackage.copy(directDeps =
-                      Set(missingPkgId) ++ utilityDirectDeps ++ stableDirectDeps
+                    pkgId -> dependentPackage.copy(imports =
+                      // DeclaredImports or DeclaredImports does not matter here
+                      DeclaredImports(
+                        Set(missingPkgId) ++ utilityDirectDeps ++ stableDirectDeps
+                      )
                     ),
                     Seq(extraPkgId -> extraPkg) ++ utilityDependencies ++ stableDependencies: _*
                   )
@@ -243,13 +261,11 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
                 case Left(
                       err @ Error.Package.DarSelfConsistency(
                         mainPkgId,
-                        transitiveDeps,
                         missingDeps,
                         extraDeps,
                       )
                     ) =>
                   mainPkgId shouldBe pkgId
-                  transitiveDeps shouldBe utilityDirectDeps ++ stableDirectDeps
                   missingDeps shouldBe Set(missingPkgId)
                   extraDeps shouldBe Set(extraPkgId)
                   err.logReportingEnabled shouldBe false

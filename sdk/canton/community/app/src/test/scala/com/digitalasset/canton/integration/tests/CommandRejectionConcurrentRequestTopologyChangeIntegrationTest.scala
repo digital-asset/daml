@@ -11,11 +11,11 @@ import com.digitalasset.canton.console.LocalParticipantReference
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.MediatorError.MalformedMessage
 import com.digitalasset.canton.examples.java.iou.{Amount, Iou}
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
 import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
   UsePostgres,
   UseProgrammableSequencer,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.util.{AcsInspection, EntitySyntax, PartiesAllocator}
@@ -86,13 +86,6 @@ sealed trait CommandRejectionConcurrentRequestTopologyChangeIntegrationTest
       )
       .withSetup { implicit env =>
         import env.*
-
-        // So that topology changes become effective as of sequencing time
-        sequencer1.topology.synchronizer_parameters
-          .propose_update(
-            daId,
-            _.update(topologyChangeDelay = config.NonNegativeFiniteDuration.Zero),
-          )
 
         participants.all.synchronizers.connect_local(sequencer1, alias = daName)
         participants.all.dars.upload(BaseTest.CantonExamplesPath)
@@ -430,7 +423,7 @@ class CommandRejectionConcurrentRequestTopologyChangeIntegrationTestPostgres
     extends CommandRejectionConcurrentRequestTopologyChangeIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](
+    new UseReferenceBlockSequencer[DbConfig.Postgres](
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(Set("sequencer1"), Set("sequencer2"))

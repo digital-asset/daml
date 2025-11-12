@@ -6,21 +6,9 @@ package com.digitalasset.canton.platform.apiserver
 import com.daml.jwt.JwtTimestampLeeway
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.tracing.Telemetry
-import com.digitalasset.canton.auth.{
-  AuthInterceptor,
-  AuthService,
-  Authorizer,
-  GrpcAuthInterceptor,
-  JwtVerifierLoader,
-}
+import com.digitalasset.canton.auth.*
+import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.RequireTypes.Port
-import com.digitalasset.canton.config.{
-  KeepAliveServerConfig,
-  NonNegativeDuration,
-  NonNegativeFiniteDuration,
-  ServerConfig,
-  TlsServerConfig,
-}
 import com.digitalasset.canton.interactive.InteractiveSubmissionEnricher
 import com.digitalasset.canton.ledger.api.IdentityProviderConfig
 import com.digitalasset.canton.ledger.api.auth.*
@@ -39,7 +27,6 @@ import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.PackagePreferenceBackend
 import com.digitalasset.canton.platform.apiserver.SeedService.Seeding
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
-import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.ContractAuthenticatorFn
 import com.digitalasset.canton.platform.apiserver.execution.{
   CommandProgressTracker,
   DynamicSynchronizerParameterGetter,
@@ -51,10 +38,12 @@ import com.digitalasset.canton.platform.config.{
   CommandServiceConfig,
   IdentityProviderManagementConfig,
   InteractiveSubmissionServiceConfig,
+  PackageServiceConfig,
   PartyManagementServiceConfig,
   UserManagementServiceConfig,
 }
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ContractValidator.ContractAuthenticatorFn
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.Engine
 import io.grpc.{BindableService, ServerInterceptor}
@@ -110,6 +99,7 @@ object ApiServiceOwner {
       userManagement: UserManagementServiceConfig = ApiServiceOwner.DefaultUserManagement,
       partyManagementServiceConfig: PartyManagementServiceConfig =
         ApiServiceOwner.DefaultPartyManagementServiceConfig,
+      packageServiceConfig: PackageServiceConfig = ApiServiceOwner.DefaultPackageServiceConfig,
       engineLoggingConfig: EngineLoggingConfig,
       telemetry: Telemetry,
       loggerFactory: NamedLoggerFactory,
@@ -119,6 +109,7 @@ object ApiServiceOwner {
       interactiveSubmissionEnricher: InteractiveSubmissionEnricher,
       keepAlive: Option[KeepAliveServerConfig],
       packagePreferenceBackend: PackagePreferenceBackend,
+      apiLoggingConfig: ApiLoggingConfig,
   )(implicit
       actorSystem: ActorSystem,
       materializer: Materializer,
@@ -203,6 +194,7 @@ object ApiServiceOwner {
         maxDeduplicationDuration = maxDeduplicationDuration,
         userManagementServiceConfig = userManagement,
         partyManagementServiceConfig = partyManagementServiceConfig,
+        packageServiceConfig = packageServiceConfig,
         engineLoggingConfig = engineLoggingConfig,
         telemetry = telemetry,
         loggerFactory = loggerFactory,
@@ -221,10 +213,12 @@ object ApiServiceOwner {
         maxInboundMetadataSize,
         address,
         tls,
+        // TODO (i28340) fix order of interceptors
         new GrpcAuthInterceptor(
           userAuthInterceptor,
           telemetry,
           loggerFactory,
+          apiLoggingConfig = apiLoggingConfig,
           commandExecutionContext,
         )
           :: otherInterceptors,
@@ -253,6 +247,8 @@ object ApiServiceOwner {
     UserManagementServiceConfig.default(enabled = false)
   val DefaultPartyManagementServiceConfig: PartyManagementServiceConfig =
     PartyManagementServiceConfig.default
+  val DefaultPackageServiceConfig: PackageServiceConfig =
+    PackageServiceConfig.default
   val DefaultIdentityProviderManagementConfig: IdentityProviderManagementConfig =
     IdentityProviderManagementConfig()
   val DefaultCommandServiceConfig: CommandServiceConfig = CommandServiceConfig.Default

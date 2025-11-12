@@ -5,15 +5,15 @@ package com.digitalasset.canton.integration.tests.repair
 
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.*
 import com.daml.test.evidence.tag.FuncTest
-import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.config.RequireTypes.NonNegativeProportion
+import com.digitalasset.canton.config.{CommitmentSendDelay, DbConfig}
 import com.digitalasset.canton.console.FeatureFlag
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.integration.plugins.{
   UseBftSequencer,
-  UseCommunityReferenceBlockSequencer,
   UsePostgres,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.util.EntitySyntax
 import com.digitalasset.canton.integration.{
@@ -53,7 +53,11 @@ sealed trait OfflinePartyMigrationAcsCommitmentIntegrationTest
       )
       // do no delay sending commitments
       .updateTestingConfig(
-        _.focus(_.maxCommitmentSendDelayMillis).replace(Some(NonNegativeInt.zero))
+        _.focus(_.commitmentSendDelay).replace(
+          Some(
+            CommitmentSendDelay(Some(NonNegativeProportion.zero), Some(NonNegativeProportion.zero))
+          )
+        )
       )
 
   "use repair to migrate a party to a different participant" taggedAs
@@ -177,7 +181,7 @@ sealed trait OfflinePartyMigrationAcsCommitmentIntegrationTest
 
 final class OfflinePartyMigrationAcsCommitmentIntegrationTestPostgres
     extends OfflinePartyMigrationAcsCommitmentIntegrationTest {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
   registerPlugin(new UsePostgres(loggerFactory))
 }
 

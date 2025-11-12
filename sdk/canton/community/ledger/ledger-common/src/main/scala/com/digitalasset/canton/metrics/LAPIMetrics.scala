@@ -4,13 +4,7 @@
 package com.digitalasset.canton.metrics
 
 import com.daml.metrics.api.MetricHandle.{Counter, LabeledMetricsFactory}
-import com.daml.metrics.api.{
-  MetricHandle,
-  MetricInfo,
-  MetricName,
-  MetricQualification,
-  MetricsContext,
-}
+import com.daml.metrics.api.{MetricInfo, MetricName, MetricQualification, MetricsContext}
 
 class LAPIMetrics private[metrics] (
     val prefix: MetricName,
@@ -60,16 +54,6 @@ class LAPIMetrics private[metrics] (
       )
     )
 
-    val updateTrees: Counter = metricsFactory.counter(
-      MetricInfo(
-        prefix :+ "update_trees_sent",
-        summary = "The number of the update trees sent over the ledger api.",
-        description = """The total number of the update trees sent over the ledger api streams to
-                        |all clients.""",
-        qualification = MetricQualification.Traffic,
-      )
-    )
-
     val completions: Counter = metricsFactory.counter(
       MetricInfo(
         prefix :+ "completions_sent",
@@ -91,18 +75,6 @@ class LAPIMetrics private[metrics] (
       )
     )
 
-    val activeName: MetricName = prefix :+ "active"
-
-    val active: MetricHandle.Gauge[Int] =
-      metricsFactory.gauge(
-        MetricInfo(
-          activeName,
-          summary = "The number of the active streams served by the ledger api.",
-          description = "The number of ledger api streams currently being served to all clients.",
-          qualification = MetricQualification.Debug,
-        ),
-        0,
-      )
   }
 
   val streams: StreamsMetrics = new StreamsMetrics

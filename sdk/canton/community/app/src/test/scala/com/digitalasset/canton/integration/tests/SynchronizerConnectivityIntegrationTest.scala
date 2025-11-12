@@ -10,9 +10,8 @@ import com.digitalasset.canton.config.{DbConfig, NonNegativeDuration}
 import com.digitalasset.canton.console.CommandFailure
 import com.digitalasset.canton.integration.plugins.{
   UseBftSequencer,
-  UseCommunityReferenceBlockSequencer,
   UsePostgres,
-  UseReferenceBlockSequencerBase,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -33,7 +32,11 @@ import com.digitalasset.canton.participant.synchronizer.SynchronizerRegistryErro
 import com.digitalasset.canton.participant.synchronizer.SynchronizerRegistryError.InitialOnboardingError
 import com.digitalasset.canton.sequencing.SequencerConnectionValidation.ThresholdActive
 import com.digitalasset.canton.sequencing.authentication.MemberAuthentication.MemberAccessDisabled
-import com.digitalasset.canton.sequencing.{SequencerConnections, SubmissionRequestAmplification}
+import com.digitalasset.canton.sequencing.{
+  SequencerConnectionPoolDelays,
+  SequencerConnections,
+  SubmissionRequestAmplification,
+}
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp
 import com.digitalasset.canton.{SequencerAlias, SynchronizerAlias, config}
@@ -396,12 +399,15 @@ sealed trait SynchronizerConnectivityIntegrationTest
             daName,
             SequencerConnections.tryMany(
               Seq(
-                sequencer1.config.publicApi.clientConfig.asSequencerConnection(seq1Alias),
-                sequencer2.config.publicApi.clientConfig.asSequencerConnection(seq2Alias),
+                sequencer1.config.publicApi.clientConfig
+                  .asSequencerConnection(seq1Alias, sequencerId = None),
+                sequencer2.config.publicApi.clientConfig
+                  .asSequencerConnection(seq2Alias, sequencerId = None),
               ),
               sequencerTrustThreshold = PositiveInt.one,
               sequencerLivenessMargin = NonNegativeInt.zero,
               SubmissionRequestAmplification.NoAmplification,
+              SequencerConnectionPoolDelays.default,
             ),
           ),
           validation = ThresholdActive,
@@ -463,9 +469,9 @@ class SynchronizerConnectivityReferenceIntegrationTestPostgres
     extends SynchronizerConnectivityIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](
+    new UseReferenceBlockSequencer[DbConfig.Postgres](
       loggerFactory,
-      sequencerGroups = UseReferenceBlockSequencerBase.MultiSynchronizer(
+      sequencerGroups = UseReferenceBlockSequencer.MultiSynchronizer(
         Seq(Set(InstanceName.tryCreate("sequencer1")), Set(InstanceName.tryCreate("sequencer2")))
       ),
     )
@@ -478,7 +484,7 @@ class SynchronizerConnectivityBftOrderingIntegrationTestPostgres
   registerPlugin(
     new UseBftSequencer(
       loggerFactory,
-      sequencerGroups = UseReferenceBlockSequencerBase.MultiSynchronizer(
+      sequencerGroups = UseReferenceBlockSequencer.MultiSynchronizer(
         Seq(Set(InstanceName.tryCreate("sequencer1")), Set(InstanceName.tryCreate("sequencer2")))
       ),
     )

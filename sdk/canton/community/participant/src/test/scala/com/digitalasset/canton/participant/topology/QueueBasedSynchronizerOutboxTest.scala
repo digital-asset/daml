@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.topology
 import cats.implicits.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.common.sequencer.RegisterTopologyTransactionHandle
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.config.{NonNegativeFiniteDuration, ProcessingTimeout, TopologyConfig}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{SigningKeyUsage, SynchronizerCrypto}
@@ -24,6 +24,7 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.{
   StoreBasedSynchronizerTopologyClient,
   SynchronizerTopologyClientWithInit,
+  TopologyClientConfig,
 }
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.*
@@ -31,7 +32,10 @@ import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.DelegationRestriction.CanSignAllMappings
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
-import com.digitalasset.canton.topology.transaction.TopologyTransaction.GenericTopologyTransaction
+import com.digitalasset.canton.topology.transaction.TopologyTransaction.{
+  GenericTopologyTransaction,
+  TxHash,
+}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.{
@@ -129,6 +133,8 @@ class QueueBasedSynchronizerOutboxTest
       defaultStaticSynchronizerParameters,
       target,
       queue,
+      dispatchQueueBackpressureLimit = NonNegativeInt.tryCreate(10),
+      disableOptionalTopologyChecks = false,
       // we don't need the validation logic to run, because we control the outcome of transactions manually
       exitOnFatalFailures = true,
       timeouts,
@@ -137,8 +143,10 @@ class QueueBasedSynchronizerOutboxTest
     )
     val client = new StoreBasedSynchronizerTopologyClient(
       clock,
+      defaultStaticSynchronizerParameters,
       store = target,
-      packageDependenciesResolver = StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
+      packageDependencyResolver = NoPackageDependencies,
+      topologyClientConfig = TopologyClientConfig(),
       timeouts = timeouts,
       futureSupervisor = futureSupervisor,
       loggerFactory = loggerFactory,
@@ -163,8 +171,7 @@ class QueueBasedSynchronizerOutboxTest
           .update(
             sequenced = SequencedTime.MinValue,
             effective = EffectiveTime.MinValue,
-            removeMapping = Map.empty,
-            removeTxs = Set.empty,
+            removals = Map.empty,
             additions = Seq(ValidatedTopologyTransaction(rootCert)),
           )
     } yield (target, manager, handle, client)
@@ -214,13 +221,12 @@ class QueueBasedSynchronizerOutboxTest
                 EffectiveTime(ts),
                 additions = List(ValidatedTopologyTransaction(x, rejections.next())),
                 // dumbed down version of how to "append" ValidatedTopologyTransactions:
-                removeMapping = Option
+                removals = Option
                   .when(x.operation == TopologyChangeOp.Remove)(
-                    x.mapping.uniqueKey -> x.serial
+                    x.mapping.uniqueKey -> (x.serial.some, Set.empty[TxHash])
                   )
                   .toList
                   .toMap,
-                removeTxs = Set.empty,
               )
               .flatMap(_ =>
                 targetClient
@@ -444,7 +450,9 @@ class QueueBasedSynchronizerOutboxTest
         (target, manager, handle, client) <-
           mk(
             transactions.size,
-            rejections = Iterator.continually(Some(TopologyTransactionRejection.NotAuthorized)),
+            rejections = Iterator.continually(
+              Some(TopologyTransactionRejection.Authorization.NotAuthorizedByNamespaceKey)
+            ),
           )
         _ <- outboxConnected(manager, handle, client, target)
         res <- push(manager, transactions)

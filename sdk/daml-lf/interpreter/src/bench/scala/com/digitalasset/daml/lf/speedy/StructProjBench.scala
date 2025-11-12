@@ -4,9 +4,9 @@
 package com.digitalasset.daml.lf
 package speedy
 
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml.lf.testing.parser._
 import com.daml.logging.LoggingContext
+import com.digitalasset.daml.lf.language.LanguageVersion
 import org.openjdk.jmh.annotations._
 
 @State(Scope.Benchmark)
@@ -31,14 +31,14 @@ class StructProjBench {
 
   @Param(Array("1", "2"))
   var majorLfVersion: String = _
-  private def MAJOR_LF_VERSION = LanguageMajorVersion
+  private def MAJOR_LF_VERSION = LanguageVersion.Major
     .fromString(majorLfVersion)
     .getOrElse(
       throw new IllegalArgumentException(s"cannot parse major LF version: $majorLfVersion")
     )
 
   implicit def parserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor(MAJOR_LF_VERSION)
+    ParserParameters.default
   private[this] def defaultPackageId = parserParameters.defaultPackageId
 
   private[this] def pkg = {
@@ -65,8 +65,7 @@ class StructProjBench {
   def init(): Unit = {
     assert(m >= n)
     println(s"LF = $MAJOR_LF_VERSION, M = $M, N = $N")
-    val config = Compiler.Config
-      .Dev(MAJOR_LF_VERSION)
+    val config = Compiler.Config.Dev
       .copy(packageValidation = Compiler.NoPackageValidation)
     compiledPackages = PureCompiledPackages.assertBuild(Map(defaultPackageId -> pkg), config)
     sexpr = compiledPackages.compiler.unsafeCompile(e"Mod:bench Mod:struct")

@@ -9,14 +9,10 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.EnvironmentDefinition.S1M1_S1M1
 import com.digitalasset.canton.integration.bootstrap.NetworkBootstrapper
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.tests.upgrade.LogicalUpgradeUtils.SynchronizerNodes
-import com.digitalasset.canton.integration.tests.upgrade.lsu.LSUBase.Fixture
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.sequencing.SequencerConnections
@@ -65,7 +61,8 @@ abstract class LSUReassignmentsIntegrationTest extends LSUBase {
         )
         participants.all.synchronizers.connect_local(sequencer2, acmeName)
 
-        participants.all.dars.upload(CantonExamplesPath)
+        participants.all.dars.upload(CantonExamplesPath, synchronizerId = daId)
+        participants.all.dars.upload(CantonExamplesPath, synchronizerId = acmeId)
 
         synchronizerOwners1.foreach(
           _.topology.synchronizer_parameters.propose_update(
@@ -82,7 +79,7 @@ abstract class LSUReassignmentsIntegrationTest extends LSUBase {
     "work with reassignments" in { implicit env =>
       import env.*
 
-      val fixture = Fixture(daId, upgradeTime)
+      val fixture = fixtureWithDefaults()
 
       val alice = participant1.parties.enable("Alice", synchronizer = Some(daName))
       participant1.parties.enable("Alice", synchronizer = Some(acmeName))
@@ -167,7 +164,7 @@ abstract class LSUReassignmentsIntegrationTest extends LSUBase {
 
 final class LSUReassignmentsReferenceIntegrationTest extends LSUReassignmentsIntegrationTest {
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](
+    new UseReferenceBlockSequencer[DbConfig.Postgres](
       loggerFactory,
       MultiSynchronizer.tryCreate(Set("sequencer1"), Set("sequencer2"), Set("sequencer3")),
     )

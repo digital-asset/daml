@@ -16,7 +16,7 @@ trait PostgresAround {
   import PostgresAround.*
 
   private val server: AtomicReference[PostgresServer] = new AtomicReference
-  private val ownedServerContainer: AtomicReference[Option[PostgreSQLContainer[_]]] =
+  private val ownedServerContainer: AtomicReference[Option[PostgreSQLContainer[?]]] =
     new AtomicReference(None)
 
   protected def connectToPostgresqlServer(): Unit = {

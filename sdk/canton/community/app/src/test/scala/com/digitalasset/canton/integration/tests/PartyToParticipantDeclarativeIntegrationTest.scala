@@ -6,11 +6,8 @@ package com.digitalasset.canton.integration.tests
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.util.{
   EntitySyntax,
@@ -37,7 +34,7 @@ final class PartyToParticipantDeclarativeIntegrationTest
 
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](
+    new UseReferenceBlockSequencer[DbConfig.Postgres](
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(Set("sequencer1"), Set("sequencer2")).map(_.map(InstanceName.tryCreate))
@@ -51,7 +48,8 @@ final class PartyToParticipantDeclarativeIntegrationTest
 
       participants.all.synchronizers.connect_local(sequencer1, daName)
       participants.all.synchronizers.connect_local(sequencer2, acmeName)
-      participants.all.dars.upload(CantonExamplesPath)
+      participants.all.dars.upload(CantonExamplesPath, synchronizerId = daId)
+      participants.all.dars.upload(CantonExamplesPath, synchronizerId = acmeId)
     }
 
   "Party to participant declarative" should {
@@ -103,8 +101,7 @@ final class PartyToParticipantDeclarativeIntegrationTest
 
       val chopperE = participant1.parties.external.enable("chopperE", synchronizer = daName)
 
-      // TODO(#27835) Add multi-synchronizer support
-      // participant1.parties.enable("chopper", synchronizer = acmeName)
+      participant1.parties.external.also_enable(chopperE, synchronizer = acmeName)
 
       def changeTopology(
           newThreshold: PositiveInt,
@@ -138,6 +135,42 @@ final class PartyToParticipantDeclarativeIntegrationTest
         PositiveInt.one,
         Set((participant1, Confirmation), (participant2, Submission)),
       )
+    }
+
+    "support party replication in multi-synchronizer scenario (external)" in { implicit env =>
+      import env.*
+
+      val donaldE = participant1.parties.external.enable("donaldE", synchronizer = daName)
+
+      participant1.parties.external.also_enable(donaldE, synchronizer = acmeName)
+
+      val targetHosting: (PositiveInt, Set[(ParticipantId, ParticipantPermission)]) = (
+        PositiveInt.one,
+        Set(
+          (participant1, Confirmation),
+          (participant2, Confirmation),
+        ),
+      )
+
+      PartyToParticipantDeclarative(Set(participant1, participant2), Set(daId, acmeId))(
+        owningParticipants = Map(),
+        externalParties = Set(donaldE),
+        targetTopology = Map(
+          donaldE.partyId -> Map(
+            daId -> targetHosting,
+            acmeId -> targetHosting,
+          )
+        ),
+      )
+
+      forAll(Seq(daId, acmeId)) { synchronizer =>
+        participant1.topology.party_to_participant_mappings
+          .list(synchronizer, filterParty = donaldE.filterString)
+          .flatMap(_.item.participants.map(_.participantId)) should contain theSameElementsAs Seq(
+          participant1.id,
+          participant2.id,
+        )
+      }
     }
 
     "allow party offboarding from synchronizer (local)" in { implicit env =>

@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.integration.tests.upgrade.lsu
 
-import com.digitalasset.canton.annotations.UnstableTest
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.{DbConfig, SynchronizerTimeTrackerConfig}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -11,15 +10,14 @@ import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.EnvironmentDefinition.S1M1
 import com.digitalasset.canton.integration.bootstrap.NetworkBootstrapper
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
 import com.digitalasset.canton.integration.plugins.{
   UseBftSequencer,
-  UseCommunityReferenceBlockSequencer,
   UsePostgres,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.tests.upgrade.LogicalUpgradeUtils.SynchronizerNodes
-import com.digitalasset.canton.integration.tests.upgrade.lsu.LSUBase.Fixture
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.sequencing.SequencerConnections
 
@@ -79,7 +77,7 @@ abstract class LSUEndToEndIntegrationTest extends LSUBase {
     "work end-to-end" in { implicit env =>
       import env.*
 
-      val fixture = Fixture(daId, upgradeTime)
+      val fixture = fixtureWithDefaults()
 
       participant1.health.ping(participant2)
 
@@ -93,9 +91,6 @@ abstract class LSUEndToEndIntegrationTest extends LSUBase {
 
       eventually() {
         participants.all.forall(_.synchronizers.is_connected(fixture.newPSId)) shouldBe true
-
-        // The sequencer connection pool internal mechanisms to restart connections rely on the clock time advancing.
-        environment.simClock.value.advance(Duration.ofSeconds(1))
       }
 
       oldSynchronizerNodes.all.stop()
@@ -136,19 +131,15 @@ abstract class LSUEndToEndIntegrationTest extends LSUBase {
   }
 }
 
-// TODO(#27960) flaky test
-@UnstableTest
 final class LSUEndToEndReferenceIntegrationTest extends LSUEndToEndIntegrationTest {
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](
+    new UseReferenceBlockSequencer[DbConfig.Postgres](
       loggerFactory,
       MultiSynchronizer.tryCreate(Set("sequencer1"), Set("sequencer2")),
     )
   )
 }
 
-// TODO(#27960) flaky test
-@UnstableTest
 final class LSUEndToEndBftOrderingIntegrationTest extends LSUEndToEndIntegrationTest {
   registerPlugin(
     new UseBftSequencer(

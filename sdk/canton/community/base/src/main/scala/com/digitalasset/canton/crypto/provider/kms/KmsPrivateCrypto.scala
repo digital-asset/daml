@@ -7,9 +7,8 @@ import cats.data.EitherT
 import cats.syntax.bifunctor.*
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.{CryptoProvider, ProcessingTimeout}
+import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.crypto.kms.driver.v1.DriverKms
 import com.digitalasset.canton.crypto.kms.{
   Kms,
   KmsEncryptionPublicKey,
@@ -36,10 +35,8 @@ class KmsPrivateCrypto(
     kms: Kms,
     private[kms] val privateStore: KmsCryptoPrivateStore,
     private[kms] val publicStore: CryptoPublicStore,
-    override val signingAlgorithmSpecs: CryptoScheme[SigningAlgorithmSpec],
-    override val signingKeySpecs: CryptoScheme[SigningKeySpec],
-    override val encryptionAlgorithmSpecs: CryptoScheme[EncryptionAlgorithmSpec],
-    override val encryptionKeySpecs: CryptoScheme[EncryptionKeySpec],
+    override val signingSchemes: SigningCryptoSchemes,
+    override val encryptionSchemes: EncryptionCryptoSchemes,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
@@ -93,7 +90,7 @@ class KmsPrivateCrypto(
       _ <- CryptoKeyValidation
         .ensureCryptoKeySpec(
           publicKey.keySpec,
-          signingKeySpecs.allowed,
+          signingSchemes.keySpecs.allowed,
           SigningKeyGenerationError.UnsupportedKeySpec.apply,
         )
         .toEitherT[FutureUnlessShutdown]
@@ -114,7 +111,7 @@ class KmsPrivateCrypto(
       _ <- CryptoKeyValidation
         .ensureCryptoKeySpec(
           keySpec,
-          signingKeySpecs.allowed,
+          signingSchemes.keySpecs.allowed,
           SigningKeyGenerationError.UnsupportedKeySpec.apply,
         )
         .toEitherT[FutureUnlessShutdown]
@@ -178,7 +175,7 @@ class KmsPrivateCrypto(
                   .selectSigningAlgorithmSpec(
                     pubKey.keySpec,
                     signingAlgorithmSpec,
-                    signingAlgorithmSpecs.allowed,
+                    signingSchemes.algorithmSpecs.allowed,
                     () =>
                       SigningError.NoMatchingAlgorithmSpec(
                         "No matching algorithm spec for key spec " + pubKey.keySpec
@@ -230,7 +227,7 @@ class KmsPrivateCrypto(
       _ <- CryptoKeyValidation
         .ensureCryptoKeySpec(
           publicKey.keySpec,
-          encryptionKeySpecs.allowed,
+          encryptionSchemes.keySpecs.allowed,
           EncryptionKeyGenerationError.UnsupportedKeySpec.apply,
         )
         .toEitherT[FutureUnlessShutdown]
@@ -248,7 +245,7 @@ class KmsPrivateCrypto(
       _ <- CryptoKeyValidation
         .ensureCryptoKeySpec(
           keySpec,
-          encryptionKeySpecs.allowed,
+          encryptionSchemes.keySpecs.allowed,
           EncryptionKeyGenerationError.UnsupportedKeySpec.apply,
         )
         .toEitherT[FutureUnlessShutdown]
@@ -278,7 +275,7 @@ class KmsPrivateCrypto(
       _ <- CryptoKeyValidation
         .ensureCryptoAlgorithmSpec(
           encrypted.encryptionAlgorithmSpec,
-          encryptionAlgorithmSpecs.allowed,
+          encryptionSchemes.algorithmSpecs.allowed,
           DecryptionError.UnsupportedAlgorithmSpec.apply,
         )
         .toEitherT[FutureUnlessShutdown]
@@ -320,91 +317,23 @@ class KmsPrivateCrypto(
 
 object KmsPrivateCrypto {
 
-  /** Check that all allowed schemes except for the pure crypto schemes are actually supported by
-    * the driver too.
-    *
-    * The pure schemes are only supported for the pure crypto provider, e.g., verifying a signature
-    * or asymmetrically encrypt. The private crypto of the driver does not need to support them.
-    */
-  private def ensureSupportedSchemes[S](
-      configuredAllowedSchemes: Set[S],
-      pureSchemes: Set[S],
-      driverSupported: Set[S],
-      description: String,
-  ): Either[String, Unit] =
-    Either.cond(
-      configuredAllowedSchemes.removedAll(pureSchemes).subsetOf(driverSupported),
-      (),
-      s"Allowed $description ${configuredAllowedSchemes.mkString(", ")} not supported by driver: $driverSupported",
-    )
-
   def create(
       kms: Kms,
-      cryptoSchemes: CryptoSchemes,
+      signingSchemes: SigningCryptoSchemes,
+      encryptionSchemes: EncryptionCryptoSchemes,
       cryptoPublicStore: CryptoPublicStore,
       kmsCryptoPrivateStore: KmsCryptoPrivateStore,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
-  )(implicit executionContext: ExecutionContext): Either[String, KmsPrivateCrypto] = kms match {
-
-    // For a Driver KMS we explicitly check that the driver supports the allowed schemes
-    case driverKms: DriverKms =>
-      for {
-        _ <- ensureSupportedSchemes(
-          // Remove the pure signing algorithms from the allowed signing key specs
-          cryptoSchemes.signingKeySpecs.allowed,
-          CryptoProvider.Kms.pureSigningKeys,
-          driverKms.supportedSigningKeySpecs,
-          "signing key specs",
-        )
-
-        _ <- ensureSupportedSchemes(
-          cryptoSchemes.signingAlgoSpecs.allowed,
-          CryptoProvider.Kms.pureSigningAlgorithms,
-          driverKms.supportedSigningAlgoSpecs,
-          "signing algorithm specs",
-        )
-
-        _ <- ensureSupportedSchemes(
-          cryptoSchemes.encryptionKeySpecs.allowed,
-          CryptoProvider.Kms.pureEncryptionKeys,
-          driverKms.supportedEncryptionKeySpecs,
-          "encryption key specs",
-        )
-
-        _ <- ensureSupportedSchemes(
-          cryptoSchemes.encryptionAlgoSpecs.allowed,
-          CryptoProvider.Kms.pureEncryptionAlgorithms,
-          driverKms.supportedEncryptionAlgoSpecs,
-          "encryption algo specs",
-        )
-      } yield new KmsPrivateCrypto(
-        kms,
-        kmsCryptoPrivateStore,
-        cryptoPublicStore,
-        cryptoSchemes.signingAlgoSpecs,
-        cryptoSchemes.signingKeySpecs,
-        cryptoSchemes.encryptionAlgoSpecs,
-        cryptoSchemes.encryptionKeySpecs,
-        timeouts,
-        loggerFactory,
-      )
-
-    // For all other KMSs we create the KMS-based private crypto directly as the schemes have already been checked
-    case _ =>
-      Right(
-        new KmsPrivateCrypto(
-          kms,
-          kmsCryptoPrivateStore,
-          cryptoPublicStore,
-          cryptoSchemes.signingAlgoSpecs,
-          cryptoSchemes.signingKeySpecs,
-          cryptoSchemes.encryptionAlgoSpecs,
-          cryptoSchemes.encryptionKeySpecs,
-          timeouts,
-          loggerFactory,
-        )
-      )
-  }
+  )(implicit executionContext: ExecutionContext): KmsPrivateCrypto =
+    new KmsPrivateCrypto(
+      kms,
+      kmsCryptoPrivateStore,
+      cryptoPublicStore,
+      signingSchemes,
+      encryptionSchemes,
+      timeouts,
+      loggerFactory,
+    )
 
 }

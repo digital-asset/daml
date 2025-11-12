@@ -9,6 +9,7 @@ import "com/digitalasset/canton/crypto/v30/crypto.proto";
 import "com/digitalasset/canton/protocol/v30/common_stable.proto";
 import "com/digitalasset/canton/protocol/v30/traffic_control_parameters.proto";
 import "com/digitalasset/canton/v30/trace_context.proto";
+import "google/protobuf/duration.proto";
 import "google/rpc/status.proto";
 import "scalapb/scalapb.proto";
 
@@ -47,7 +48,7 @@ message ServiceAgreement {
 
 // Submission cost computed by the sender for a SubmissionRequest
 message SequencingSubmissionCost {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
   // Computed cost
   int64 cost = 1;
 }
@@ -68,10 +69,12 @@ message StaticSynchronizerParameters {
 
   // Flag to enable transparency checks.
   bool enable_transparency_checks = 9;
+
+  google.protobuf.Duration topology_change_delay = 10;
 }
 
 message Envelope {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   // Contains a v30.EnvelopeContent if signatures are empty and a v30.TypedSignedProtocolMessageContent otherwise
   bytes content = 1;
@@ -83,13 +86,13 @@ message Envelope {
 }
 
 message Batch {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   repeated Envelope envelopes = 1;
 }
 
 message CompressedBatch {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   enum CompressionAlgorithm {
     COMPRESSION_ALGORITHM_UNSPECIFIED = 0;
@@ -102,7 +105,7 @@ message CompressedBatch {
 }
 
 message SequencedEvent {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   reserved 1; // was the counter of the event, now unused
 
@@ -142,7 +145,7 @@ message SequencedEvent {
 
 // Messages used for synchronization between sequencer nodes
 message SubmissionRequest {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   // Sender of the request.
   // This request must be wrapped in a SignedContent and

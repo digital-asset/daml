@@ -5,6 +5,7 @@ syntax = "proto3";
 
 package com.digitalasset.canton.admin.participant.v30;
 
+import "com/digitalasset/canton/admin/participant/v30/acs_import.proto";
 import "com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
@@ -18,12 +19,18 @@ import "google/protobuf/timestamp.proto";
  */
 service ParticipantRepairService {
   // Export the ACS for the given parties from the participant
-  // DEPRECATED: Use ExportAcs in the party_management_service.proto instead
-  rpc ExportAcsOld(ExportAcsOldRequest) returns (stream ExportAcsOldResponse); // TODO(#24610) - Remove, new ExportAcs lives in the party_management_service.proto
+  // DEPRECATED: Use ExportAcs in this proto file
+  // TODO(#24610) - Remove, replaced with ExportAcs below
+  rpc ExportAcsOld(ExportAcsOldRequest) returns (stream ExportAcsOldResponse) {
+    option deprecated = true;
+  }
 
   // Import an existing export into the participant
   // DEPRECATED: Use ImportAcs in this proto file
-  rpc ImportAcsOld(stream ImportAcsOldRequest) returns (ImportAcsOldResponse); // TODO(#24610) - Remove, replaced with ImportAcs below
+  // TODO(#24610) - Remove, replaced with ImportAcs below
+  rpc ImportAcsOld(stream ImportAcsOldRequest) returns (ImportAcsOldResponse) {
+    option deprecated = true;
+  }
 
   // Export the ACS from the participant.
   rpc ExportAcs(ExportAcsRequest) returns (stream ExportAcsResponse);
@@ -111,15 +118,11 @@ message MigrateSynchronizerRequest {
 message MigrateSynchronizerResponse {}
 
 message ExportAcsOldRequest {
-  message TargetSynchronizer {
-    // The ID of the synchronizer where the contract is supposed to be assigned when the export is being imported
-    string synchronizer_id = 1;
-    // The protocol version associated to the synchronizer where the contract is supposed to be assigned when the contracts snapshot is being imported
-    int32 protocol_version = 2;
-  }
+  option deprecated = true;
 
-  // The parties for which the ACS should be exported
-  // Required
+  // The parties for which the ACS should be exported.
+  // If empty, the ACS of all parties will be exported.
+  // Optional
   repeated string parties = 1;
 
   // The IDs of the synchronizers to filter the contracts by
@@ -136,7 +139,7 @@ message ExportAcsOldRequest {
   // ID in the key will be assigned to the synchronizer id and protocol version in the value. This is not a proper synchronizer
   // migration of contracts and it's supposed to be used only in exceptional cases.
   // Optional, if not provided the contracts will be exported with the same synchronizer id as they are currently assigned
-  map<string, TargetSynchronizer> contract_synchronizer_renames = 4;
+  reserved 4; // was map<string, TargetSynchronizer> contract_synchronizer_renames
 
   // If true, do not check whether the provided timestamp is clean (see `timestamp` field).
   // NOT FOR PRODUCTION USE.
@@ -151,6 +154,8 @@ message ExportAcsOldRequest {
 }
 
 message ExportAcsOldResponse {
+  option deprecated = true;
+
   // The raw binary of the ACS snapshot to be imported
   // This is meant to be streamed and every message should be a chunk of the snapshot
   // Required
@@ -158,6 +163,8 @@ message ExportAcsOldResponse {
 }
 
 message ImportAcsOldRequest {
+  option deprecated = true;
+
   // The raw binary of the ACS snapshot to be imported
   // Required
   bytes acs_snapshot = 1;
@@ -172,6 +179,8 @@ message ImportAcsOldRequest {
 }
 
 message ImportAcsOldResponse {
+  option deprecated = true;
+
   // Mapping from the old contract id to the new contract id
   map<string, string> contract_id_mapping = 1;
 }
@@ -223,40 +232,6 @@ message ExportAcsResponse {
   bytes chunk = 1;
 }
 
-enum ContractImportMode {
-  // Default enum value that indicates the ContractImportMode field was not explicitly set.
-  // Requests with this value will fail validation and be rejected.
-  CONTRACT_IMPORT_MODE_UNSPECIFIED = 0;
-  // A contract is imported without validation or contract-id recomputation.
-  // This option is suitable for large imports when the participant operator is confident that all contracts
-  // are valid for their associated representative package-id.
-  CONTRACT_IMPORT_MODE_ACCEPT = 1;
-  // Upon import, each contract is validated, including authentication of its contract ID.
-  // The operation will fail if any contract does not pass validation.
-  //
-  // This is the recommended option for most import scenarios.
-  CONTRACT_IMPORT_MODE_VALIDATION = 2;
-  // The contract is validated and its contract ID suffix is recomputed.
-  CONTRACT_IMPORT_MODE_RECOMPUTATION = 3;
-}
-
-// Defines override mappings for assigning representative package IDs to contracts upon ACS import.
-message RepresentativePackageIdOverride {
-  // Mapping from contract ID to the target representative package ID.
-  // Only contracts with IDs matching the keys in this map are affected.
-  map<string, string> contract_override = 1;
-
-  // Mapping from a contract's original package IDs (either the creation or the representative package ID) to the target representative package ID.
-  // Affects only contracts with creation or representative package IDs matching the keys in this map,
-  // except if they're not already affected by `contract_override`.
-  map<string, string> package_id_override = 2;
-
-  // Mapping from any contract's package name to the target representative package ID
-  // Affects only contracts with package names matching the keys in this map,
-  // except if they're already affected by `contract_override` or `creation_package_id_override`.
-  map<string, string> package_name_override = 3;
-}
-
 message ImportAcsRequest {
   // The raw binary of the ACS snapshot to be imported
   // The binary contents does not align on individual active contracts! It may contain bytes that are part of
@@ -264,9 +239,11 @@ message ImportAcsRequest {
   // configured gRPC message size.
   // Required
   bytes acs_snapshot = 1;
-  // The synchronizer id prefix to be used for the imported contracts
-  // Optional, if not provided the service will generate a prefix
+
+  // Custom prefix for the workflow ID to easily identify all transactions generated by this import.
+  // Optional. If left empty, the service will generate a prefix such as `import-<random_UUID>`.
   string workflow_id_prefix = 2;
+
   // How imported contracts should be validated upon import
   //
   // NOTE: The representative package IDs assigned to imported contracts must ensure proper type-checking for those contracts.
@@ -277,26 +254,13 @@ message ImportAcsRequest {
   //
   // Required
   ContractImportMode contract_import_mode = 3;
+
   // A list of party IDs to exclude from the import.
   // Any contract that has one or more of these parties as a stakeholder will be omitted during the import.
   // Optional
   repeated string excluded_stakeholder_ids = 4;
 
   // The representative package ID override rules to be applied during import.
-  //
-  // The representative package ID is assigned to a contract upon ACS import based on the following precedence rules.
-  //  1. The associated override for the contract ID in RepresentativePackageIdOverride.contract_override, if specified and present in the package store
-  //  2. The associated override for the contract's original package ID in RepresentativePackageIdOverride.package_id_override, if specified and present in the package store
-  //  3. The contract's representative package ID from the ACS snapshot, if present in the package store
-  //  4. The contract's creation package ID, if present in the package store
-  //  5. The associated override for the contract's package name in RepresentativePackageIdOverride.package_name_override, if specified and present in the package store
-  //  6. The package vetted by all of the contract's stakeholders with the highest version for the contract's package name on the contract's target synchronizer, if existing
-  //  7. The highest-versioned package in the participant's package store for the contract's package name
-  //
-  // If none of the above rules yield a representative package ID, the ACS import request will fail.
-  //
-  // See ``CreatedEvent.representative_package_id`` in ``event.proto`` for more details on the concept of
-  // representative package IDs.
   //
   // Optional
   RepresentativePackageIdOverride representative_package_id_override = 5;

@@ -5,25 +5,31 @@ package com.digitalasset.daml.lf
 package engine
 
 import com.daml.bazeltools.BazelRunfiles
-import com.digitalasset.daml.lf.archive.UniversalArchiveDecoder
+import com.daml.logging.LoggingContext
+import com.digitalasset.daml.lf.archive.DarDecoder
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, Party, QualifiedName}
-import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.language.Ast.Package
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.Versioned
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{ValueBool, ValueInt64, ValueParty, ValueRecord}
-import com.daml.logging.LoggingContext
-
-import java.io.File
+import com.digitalasset.daml.lf.value.Value.{
+  ValueBool,
+  ValueInt64,
+  ValueParty,
+  ValueRecord,
+  ValueUnit,
+  ValueVariant,
+}
 import org.scalatest.EitherValues
 import org.scalatest.Inside.inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
+import java.io.File
 import scala.language.implicitConversions
 
-class InterfaceViewSpecV2 extends InterfaceViewSpec(LanguageMajorVersion.V2)
+class InterfaceViewSpecV2 extends InterfaceViewSpec(LanguageVersion.Major.V2)
 
 @SuppressWarnings(
   Array(
@@ -32,7 +38,7 @@ class InterfaceViewSpecV2 extends InterfaceViewSpec(LanguageMajorVersion.V2)
     "org.wartremover.warts.Product",
   )
 )
-class InterfaceViewSpec(majorLanguageVersion: LanguageMajorVersion)
+class InterfaceViewSpec(majorLanguageVersion: LanguageVersion.Major)
     extends AnyWordSpec
     with Matchers
     with EitherValues
@@ -43,18 +49,16 @@ class InterfaceViewSpec(majorLanguageVersion: LanguageMajorVersion)
   private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
   private def loadPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
-    val packages = UniversalArchiveDecoder.assertReadFile(new File(rlocation(resource)))
+    val packages = DarDecoder.assertReadArchiveFromFile(new File(rlocation(resource)))
     val (mainPkgId, mainPkg) = packages.main
     (mainPkgId, mainPkg, packages.all.toMap)
   }
 
-  private val (interfaceviewsPkgId, interfaceviewsPkg, allPackages) = loadPackage(
+  private val (interfaceviewsPkgId, _, allPackages) = loadPackage(
     s"daml-lf/tests/InterfaceViews-v${majorLanguageVersion.pretty}.dar"
   )
 
-  val interfaceviewsSignatures =
-    language.PackageInterface(Map(interfaceviewsPkgId -> interfaceviewsPkg))
-  val engine = Engine.DevEngine(majorLanguageVersion)
+  val engine = Engine.DevEngine
 
   private def id(s: String) = Identifier(interfaceviewsPkgId, s"InterfaceViews:$s")
 
@@ -67,6 +71,7 @@ class InterfaceViewSpec(majorLanguageVersion: LanguageMajorVersion)
   private val t2 = id("T2")
   private val t3 = id("T3")
   private val t4 = id("T4")
+  private val t5 = id("T5")
   private val i = id("I")
 
   "interface view" should {
@@ -79,7 +84,14 @@ class InterfaceViewSpec(majorLanguageVersion: LanguageMajorVersion)
           i,
         )
       ) { case Right(Versioned(_, v)) =>
-        v shouldBe ValueRecord(None, ImmArray((None, ValueInt64(42)), (None, ValueBool(true))))
+        v shouldBe ValueRecord(
+          None,
+          ImmArray(
+            (None, ValueInt64(42)),
+            (None, ValueBool(true)),
+            (None, ValueVariant(None, Ref.Name.assertFromString("Z"), ValueUnit)),
+          ),
+        )
       }
       inside(
         computeView(
@@ -88,7 +100,14 @@ class InterfaceViewSpec(majorLanguageVersion: LanguageMajorVersion)
           i,
         )
       ) { case Right(Versioned(_, v)) =>
-        v shouldBe ValueRecord(None, ImmArray((None, ValueInt64(23)), (None, ValueBool(false))))
+        v shouldBe ValueRecord(
+          None,
+          ImmArray(
+            (None, ValueInt64(23)),
+            (None, ValueBool(false)),
+            (None, ValueVariant(None, Ref.Name.assertFromString("Z"), ValueUnit)),
+          ),
+        )
       }
     }
     "fail with Error.Interpretation if view crashes" in {
@@ -113,6 +132,17 @@ class InterfaceViewSpec(majorLanguageVersion: LanguageMajorVersion)
         err shouldBe a[Error.Preprocessing]
       }
     }
+    "fail with Error.Interpretation if the view is not serializable (too deeply nested)" in {
+      inside(
+        computeView(
+          t5,
+          ValueRecord(None, ImmArray((None, ValueParty(party)))),
+          i,
+        )
+      ) { case Left(err) =>
+        err shouldBe a[Error.Interpretation]
+      }
+    }
     "fail with Error.Preprocessing if argument has invalid type" in {
       inside(computeView(t1, ValueRecord(None, ImmArray((None, ValueParty(party)))), i)) {
         case Left(err) => err shouldBe a[Error.Preprocessing]
@@ -129,7 +159,7 @@ class InterfaceViewSpec(majorLanguageVersion: LanguageMajorVersion)
         err shouldBe a[Error.Preprocessing]
       }
     }
-    "fail with Error.Preprocessing if   nterface does not exist" in {
+    "fail with Error.Preprocessing if interface does not exist" in {
       inside(
         computeView(
           t1,

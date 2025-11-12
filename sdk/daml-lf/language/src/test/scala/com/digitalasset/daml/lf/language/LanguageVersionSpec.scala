@@ -13,8 +13,9 @@ class LanguageVersionSpec extends AnyWordSpec with Matchers with TableDrivenProp
   "LanguageVersion.ordering order as expected" in {
 
     val versionInOrder = List(
-      LV(LV.Major.V2, LV.Minor("1")),
-      LV(LV.Major.V2, LV.Minor("dev")),
+      LV.v2_1,
+      LV.v2_2,
+      LV.v2_dev,
     )
 
     val versionRank = versionInOrder.zipWithIndex.toMap
@@ -23,9 +24,7 @@ class LanguageVersionSpec extends AnyWordSpec with Matchers with TableDrivenProp
 
     forEvery(versions)(v1 =>
       forEvery(versions)(v2 =>
-        LV.Ordering
-          .compare(v1, v2)
-          .sign shouldBe (versionRank(v1) compareTo versionRank(v2)).sign
+        v1.compare(v2).sign shouldBe (versionRank(v1) compareTo versionRank(v2)).sign
       )
     )
   }
@@ -33,7 +32,7 @@ class LanguageVersionSpec extends AnyWordSpec with Matchers with TableDrivenProp
   "fromString" should {
 
     "recognize known versions" in {
-      val testCases = Table("version", (LV.AllV1 ++ LV.AllV2): _*)
+      val testCases = Table("version", (LV.allLegacyLfVersions ++ LV.allLfVersions): _*)
 
       forEvery(testCases)(v => LV.fromString(v.pretty) shouldBe Right(v))
     }

@@ -13,7 +13,7 @@ import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.http.json.SprayJson
 import com.digitalasset.canton.http.json.v2.JsSchema.JsCantonError
 import com.digitalasset.canton.http.json.v2.{JsCommand, JsCommands}
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.integration.tests.jsonapi.AbstractHttpServiceIntegrationTestFuns.HttpServiceTestFixtureData
 import com.digitalasset.canton.integration.tests.jsonapi.{
   HttpServiceTestFixture,
@@ -50,7 +50,7 @@ class JsonApiAuthIT
     with ErrorsAssertions {
 
   registerPlugin(ExpectedScopeOverrideConfig(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   override protected def packageFiles: List[File] =
     List(super.darFile)
@@ -208,7 +208,7 @@ class JsonApiAuthIT
     issuer = None,
     participantId = None,
     userId = participantAdmin,
-    exp = None,
+    exp = Some(Instant.now().plusNanos(Duration.ofMinutes(5).toNanos)),
     format = StandardJWTTokenFormat.Scope,
     audiences = List.empty,
     scope = Some(defaultScope),
@@ -229,7 +229,7 @@ class JsonApiAuthIT
     issuer = None,
     participantId = None,
     userId = participantAdmin,
-    exp = None,
+    exp = Some(Instant.now().plusNanos(Duration.ofMinutes(5).toNanos)),
     format = StandardJWTTokenFormat.Audience,
     audiences = List(ExpectedAudience),
     scope = None,
@@ -252,7 +252,7 @@ class JsonApiAuthIT
     issuer = None,
     participantId = None,
     userId = privilegedEphemeralUser,
-    exp = None,
+    exp = Some(Instant.now().plusNanos(Duration.ofMinutes(5).toNanos)),
     format = StandardJWTTokenFormat.Scope,
     audiences = List.empty,
     scope = Some(privilegedScope),
@@ -276,7 +276,7 @@ class JsonApiAuthIT
     issuer = None,
     participantId = None,
     userId = privilegedEphemeralUser,
-    exp = None,
+    exp = Some(Instant.now().plusNanos(Duration.ofMinutes(5).toNanos)),
     format = StandardJWTTokenFormat.Audience,
     audiences = List(privilegedAudience),
     scope = None,
@@ -577,8 +577,10 @@ class JsonApiAuthIT
                 ),
             )
           )
-          .focus(_.adminApi.adminTokenConfig.fixedAdminToken)
+          .focus(_.ledgerApi.adminTokenConfig.fixedAdminToken)
           .replace(Some(fallbackToken.secret))
+          .focus(_.ledgerApi.adminTokenConfig.adminClaim)
+          .replace(true)
       }(config)
   }
 }

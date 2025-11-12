@@ -6,6 +6,7 @@ package com.digitalasset.canton.sequencing.protocol
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.networking.grpc.GrpcError
 import com.digitalasset.canton.networking.grpc.GrpcError.GrpcRequestRefusedByServer
+import com.digitalasset.canton.synchronizer.sequencer.errors.SequencerError.ExceededMaxSequencingTime
 
 /** Synchronous error returned by a sequencer. */
 sealed trait SendAsyncError extends PrettyPrinting {
@@ -18,6 +19,9 @@ sealed trait SendAsyncError extends PrettyPrinting {
 
   /** The Sequencer is overloaded and declined to handle the request */
   def isOverload: Boolean
+
+  /** The max sequencing time has elapsed and the request was refused */
+  def hasMaxSequencingTimeElapsed: Boolean
 }
 
 object SendAsyncError {
@@ -33,10 +37,22 @@ object SendAsyncError {
         }
       case _ => false
     }
+
+    /** The max sequencing time has elapsed and the request was refused */
+    override def hasMaxSequencingTimeElapsed: Boolean = error match {
+      case _: GrpcRequestRefusedByServer =>
+        error.decodedCantonError.exists { decoded =>
+          decoded.code.id == ExceededMaxSequencingTime.id
+        }
+      case _ => false
+    }
   }
 
   /** Implementation of [[SendAsyncError]]s for direct transports */
   final case class SendAsyncErrorDirect(override val message: String) extends SendAsyncError {
     override def isOverload: Boolean = false
+
+    override def hasMaxSequencingTimeElapsed: Boolean =
+      message.contains(ExceededMaxSequencingTime.id)
   }
 }

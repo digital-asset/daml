@@ -5,6 +5,7 @@ package com.digitalasset.daml.lf
 package testing.snapshot
 
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.value.ContractIdVersion
 import org.openjdk.jmh.annotations._
 
 import java.nio.file.Paths
@@ -12,6 +13,9 @@ import java.util.concurrent.TimeUnit
 
 @State(Scope.Benchmark)
 class ReplayBenchmark {
+
+  @Param(Array("true", "false"))
+  var gasOn: Boolean = _
 
   @Param(Array())
   // choiceName of the exercise to benchmark
@@ -28,6 +32,10 @@ class ReplayBenchmark {
   @Param(Array())
   // path of the ledger entries - i.e. path to file of saved transaction trees
   var entriesFile: String = _
+
+  @Param(Array("V1"))
+  // the contract ID version to use for locally created contracts
+  var contractIdVersion: String = _
 
   private var benchmark: TransactionSnapshot = _
 
@@ -54,11 +62,17 @@ class ReplayBenchmark {
       ),
       Ref.Name.assertFromString(name),
     )
+    val contractIdVersionParsed = contractIdVersion match {
+      case "V1" => ContractIdVersion.V1
+      case "V2" => ContractIdVersion.V2
+    }
     benchmark = TransactionSnapshot.loadBenchmark(
-      Paths.get(entriesFile),
-      choice,
-      choiceIndex,
-      None,
+      dumpFile = Paths.get(entriesFile),
+      choice = choice,
+      index = choiceIndex,
+      profileDir = None,
+      contractIdVersion = contractIdVersionParsed,
+      gasBudget = Some(Long.MaxValue).filter(_ => gasOn),
     )
     if (darFile.nonEmpty) {
       val loadedPackages = TransactionSnapshot.loadDar(Paths.get(darFile))

@@ -11,7 +11,7 @@ import com.digitalasset.canton.participant.protocol.validation.TimeValidator.{
   LedgerTimeRecordTimeDeltaTooLargeError,
   PreparationTimeRecordTimeDeltaTooLargeError,
 }
-import com.digitalasset.canton.protocol.{ExampleTransactionFactory, TransactionId}
+import com.digitalasset.canton.protocol.{ExampleTransactionFactory, UpdateId}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -22,7 +22,7 @@ class TimeValidatorTest extends AnyWordSpec with BaseTest {
     NonNegativeFiniteDuration.tryOfSeconds(10)
   private val preparationTimeRecordTimeTolerance: NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.tryOfSeconds(60)
-  private val transactionId: TransactionId = ExampleTransactionFactory.transactionId(0)
+  private val updateId: UpdateId = ExampleTransactionFactory.updateId(0)
 
   private def checkTimestamps(
       ledgerTime: CantonTimestamp,
@@ -30,7 +30,7 @@ class TimeValidatorTest extends AnyWordSpec with BaseTest {
       sequencerTimestamp: CantonTimestamp,
   ) =
     TimeValidator.checkTimestamps(
-      CommonData(transactionId, ledgerTime, preparationTime),
+      CommonData(updateId, ledgerTime, preparationTime),
       sequencerTimestamp,
       ledgerTimeRecordTimeTolerance = ledgerTimeRecordTimeTolerance,
       preparationTimeRecordTimeTolerance = preparationTimeRecordTimeTolerance,

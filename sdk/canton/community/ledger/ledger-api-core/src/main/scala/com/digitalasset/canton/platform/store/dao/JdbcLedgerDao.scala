@@ -3,21 +3,18 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.daml.logging.entries.LoggingEntry
-import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.ParticipantId
 import com.digitalasset.canton.ledger.api.health.{HealthStatus, ReportsHealth}
-import com.digitalasset.canton.ledger.participant.state
-import com.digitalasset.canton.ledger.participant.state.TestAcsChangeFactory
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.participant.store.ContractStore
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.config.{
   ActiveContractsServiceStreamsConfig,
-  TransactionTreeStreamsConfig,
   UpdatesStreamsConfig,
 }
 import com.digitalasset.canton.platform.store.*
@@ -25,33 +22,26 @@ import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.Le
 import com.digitalasset.canton.platform.store.backend.{ParameterStorageBackend, ReadStorageBackend}
 import com.digitalasset.canton.platform.store.cache.LedgerEndCache
 import com.digitalasset.canton.platform.store.dao.events.*
-import com.digitalasset.canton.platform.store.interning.StringInterning
 import com.digitalasset.canton.platform.store.utils.QueueBasedConcurrencyLimiter
-import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.data.{Bytes, Ref}
-import com.digitalasset.daml.lf.transaction.CommittedTransaction
+import com.digitalasset.daml.lf.data.Ref
 import io.opentelemetry.api.trace.Tracer
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-private class JdbcLedgerDao(
+private[platform] class JdbcLedgerDao(
     dbDispatcher: DbDispatcher & ReportsHealth,
     queryExecutionContext: ExecutionContext,
     commandExecutionContext: ExecutionContext,
     metrics: LedgerApiServerMetrics,
-    sequentialIndexer: SequentialWriteDao,
-    participantId: Ref.ParticipantId,
     readStorageBackend: ReadStorageBackend,
     parameterStorageBackend: ParameterStorageBackend,
     ledgerEndCache: LedgerEndCache,
     completionsPageSize: Int,
     activeContractsServiceStreamsConfig: ActiveContractsServiceStreamsConfig,
     updatesStreamsConfig: UpdatesStreamsConfig,
-    transactionTreeStreamsConfig: TransactionTreeStreamsConfig,
     globalMaxEventIdQueries: Int,
     globalMaxEventPayloadQueries: Int,
     tracer: Tracer,
@@ -62,9 +52,11 @@ private class JdbcLedgerDao(
         TraceContext,
     ) => FutureUnlessShutdown[Vector[Offset]],
     contractLoader: ContractLoader,
-    translation: LfValueTranslation,
-) extends LedgerReadDao
-    with LedgerWriteDaoForTests
+    lfValueTranslation: LfValueTranslation,
+    contractStore: ContractStore,
+    pruningOffsetService: PruningOffsetService,
+)(implicit ec: ExecutionContext)
+    extends LedgerReadDao
     with NamedLogging {
 
   override def currentHealth(): HealthStatus = dbDispatcher.currentHealth()
@@ -86,78 +78,6 @@ private class JdbcLedgerDao(
       .executeSql(metrics.index.db.getLedgerEnd)(
         parameterStorageBackend.ledgerEnd
       )
-
-  override def initialize(
-      participantId: ParticipantId
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Unit] =
-    dbDispatcher
-      .executeSql(metrics.index.db.initializeLedgerParameters)(
-        parameterStorageBackend.initializeParameters(
-          ParameterStorageBackend.IdentityParams(
-            participantId = participantId
-          ),
-          loggerFactory,
-        )
-      )
-
-  private val NonLocalParticipantId =
-    Ref.ParticipantId.assertFromString("RESTRICTED_NON_LOCAL_PARTICIPANT_ID")
-
-  override def storePartyAdded(
-      offset: Offset,
-      submissionIdOpt: Option[SubmissionId],
-      recordTime: Timestamp,
-      partyDetails: IndexerPartyDetails,
-  )(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Future[PersistenceResponse] = {
-    logger.info("Storing party entry")
-    dbDispatcher.executeSql(metrics.index.db.storePartyEntryDbMetrics) { implicit conn =>
-      sequentialIndexer.store(
-        conn,
-        offset,
-        Some(
-          state.Update.PartyAddedToParticipant(
-            party = partyDetails.party,
-            // HACK: the `PartyAddedToParticipant` transmits `participantId`s, while here we only have the information
-            // whether the party is locally hosted or not. We use the `nonLocalParticipantId` to get the desired effect of
-            // the `isLocal = False` information to be transmitted via a `PartyAddedToParticpant` `Update`.
-            //
-            // This will be properly resolved once we move away from the `sandbox-classic` codebase.
-            participantId = if (partyDetails.isLocal) participantId else NonLocalParticipantId,
-            recordTime = CantonTimestamp(recordTime),
-            submissionId = submissionIdOpt,
-          )
-        ),
-      )
-      PersistenceResponse.Ok
-    }
-  }
-
-  override def storeRejection(
-      completionInfo: Option[state.CompletionInfo],
-      recordTime: Timestamp,
-      offset: Offset,
-      reason: state.Update.CommandRejected.RejectionReasonTemplate,
-  )(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Future[PersistenceResponse] =
-    dbDispatcher
-      .executeSql(metrics.index.db.storeRejectionDbMetrics) { implicit conn =>
-        sequentialIndexer.store(
-          conn,
-          offset,
-          completionInfo.map(info =>
-            state.Update.SequencedCommandRejected(
-              recordTime = CantonTimestamp(recordTime),
-              completionInfo = info,
-              reasonTemplate = reason,
-              synchronizerId = SynchronizerId.tryFromString("invalid::deadbeef"),
-            )
-          ),
-        )
-        PersistenceResponse.Ok
-      }
 
   override def getParties(
       parties: Seq[Party]
@@ -187,6 +107,8 @@ private class JdbcLedgerDao(
     *   Offset up to which to prune archived history inclusively.
     */
   override def prune(
+      previousPruneUpToInclusive: Option[Offset],
+      previousIncompleteReassignmentOffsets: Vector[Offset],
       pruneUpToInclusive: Offset,
       incompleteReassignmentOffsets: Vector[Offset],
   )(implicit loggingContext: LoggingContextWithTrace): Future[Unit] = {
@@ -196,9 +118,19 @@ private class JdbcLedgerDao(
 
     dbDispatcher
       .executeSql(metrics.index.db.pruneDbMetrics) { conn =>
+        // verifying pruning is continuous
+        val prunedUpToInDb = parameterStorageBackend.prunedUpToInclusive(conn)
+        if (prunedUpToInDb != previousPruneUpToInclusive) {
+          throw new IllegalStateException(
+            s"Previous pruned up to ($previousPruneUpToInclusive) is different from the current pruning offset in DB ($prunedUpToInDb)"
+          )
+        }
+
         readStorageBackend.eventStorageBackend.pruneEvents(
-          pruneUpToInclusive,
-          incompleteReassignmentOffsets,
+          previousPruneUpToInclusive = previousPruneUpToInclusive,
+          previousIncompleteReassignmentOffsets = previousIncompleteReassignmentOffsets,
+          pruneUpToInclusive = pruneUpToInclusive,
+          incompleteReassignmentOffsets = incompleteReassignmentOffsets,
         )(
           conn,
           loggingContext.traceContext,
@@ -222,14 +154,24 @@ private class JdbcLedgerDao(
       }
   }
 
+  def indexDbPrunedUpTo(implicit
+      loggingContext: LoggingContextWithTrace
+  ): Future[Option[Offset]] =
+    dbDispatcher
+      .executeSql(metrics.index.db.fetchPruningOffsetsMetrics)(
+        parameterStorageBackend.prunedUpToInclusive
+      )
+
   override def pruningOffset(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Option[Offset]] =
-    dbDispatcher.executeSql(metrics.index.db.fetchPruningOffsetsMetrics)(
-      parameterStorageBackend.prunedUpToInclusive
-    )
+    pruningOffsetService.pruningOffset
 
-  private val queryValidRange = QueryValidRangeImpl(parameterStorageBackend, loggerFactory)
+  private val queryValidRange = QueryValidRangeImpl(
+    ledgerEndCache = ledgerEndCache,
+    pruningOffsetService = pruningOffsetService,
+    loggerFactory = loggerFactory,
+  )
 
   private val globalIdQueriesLimiter = new QueueBasedConcurrencyLimiter(
     parallelism = globalMaxEventIdQueries,
@@ -248,7 +190,8 @@ private class JdbcLedgerDao(
     dispatcher = dbDispatcher,
     queryValidRange = queryValidRange,
     eventStorageBackend = readStorageBackend.eventStorageBackend,
-    lfValueTranslation = translation,
+    lfValueTranslation = lfValueTranslation,
+    contractStore = contractStore,
     incompleteOffsets = incompleteOffsets,
     metrics = metrics,
     tracer = tracer,
@@ -265,17 +208,6 @@ private class JdbcLedgerDao(
     loggerFactory = loggerFactory,
   )(queryExecutionContext)
 
-  private val reassignmentStreamReader = new ReassignmentStreamReader(
-    globalIdQueriesLimiter = globalIdQueriesLimiter,
-    globalPayloadQueriesLimiter = globalPayloadQueriesLimiter,
-    dbDispatcher = dbDispatcher,
-    queryValidRange = queryValidRange,
-    eventStorageBackend = readStorageBackend.eventStorageBackend,
-    lfValueTranslation = translation,
-    metrics = metrics,
-    loggerFactory = loggerFactory,
-  )(queryExecutionContext)
-
   private val updatesStreamReader = new UpdatesStreamReader(
     config = updatesStreamsConfig,
     globalIdQueriesLimiter = globalIdQueriesLimiter,
@@ -283,33 +215,11 @@ private class JdbcLedgerDao(
     dbDispatcher = dbDispatcher,
     queryValidRange = queryValidRange,
     eventStorageBackend = readStorageBackend.eventStorageBackend,
-    lfValueTranslation = translation,
+    lfValueTranslation = lfValueTranslation,
+    contractStore = contractStore,
     metrics = metrics,
     tracer = tracer,
     topologyTransactionsStreamReader = topologyTransactionsStreamReader,
-    reassignmentStreamReader = reassignmentStreamReader,
-    loggerFactory = loggerFactory,
-  )(queryExecutionContext)
-
-  private val treeTransactionsStreamReader = new TransactionsTreeStreamReader(
-    config = transactionTreeStreamsConfig,
-    globalIdQueriesLimiter = globalIdQueriesLimiter,
-    globalPayloadQueriesLimiter = globalPayloadQueriesLimiter,
-    dbDispatcher = dbDispatcher,
-    queryValidRange = queryValidRange,
-    eventStorageBackend = readStorageBackend.eventStorageBackend,
-    lfValueTranslation = translation,
-    metrics = metrics,
-    tracer = tracer,
-    reassignmentStreamReader = reassignmentStreamReader,
-    loggerFactory = loggerFactory,
-  )(queryExecutionContext)
-
-  private val reassignmentPointwiseReader = new ReassignmentPointwiseReader(
-    dbDispatcher = dbDispatcher,
-    eventStorageBackend = readStorageBackend.eventStorageBackend,
-    metrics = metrics,
-    lfValueTranslation = translation,
     loggerFactory = loggerFactory,
   )(queryExecutionContext)
 
@@ -317,15 +227,18 @@ private class JdbcLedgerDao(
     dbDispatcher = dbDispatcher,
     eventStorageBackend = readStorageBackend.eventStorageBackend,
     metrics = metrics,
-    lfValueTranslation = translation,
+    lfValueTranslation = lfValueTranslation,
+    queryValidRange = queryValidRange,
     loggerFactory = loggerFactory,
   )(queryExecutionContext)
 
-  private val transactionPointwiseReader = new TransactionPointwiseReader(
+  private val transactionPointwiseReader = new TransactionOrReassignmentPointwiseReader(
     dbDispatcher = dbDispatcher,
     eventStorageBackend = readStorageBackend.eventStorageBackend,
     metrics = metrics,
-    lfValueTranslation = translation,
+    lfValueTranslation = lfValueTranslation,
+    queryValidRange = queryValidRange,
+    contractStore = contractStore,
     loggerFactory = loggerFactory,
   )(queryExecutionContext)
 
@@ -335,16 +248,7 @@ private class JdbcLedgerDao(
     parameterStorageBackend = parameterStorageBackend,
     metrics = metrics,
     transactionPointwiseReader = transactionPointwiseReader,
-    reassignmentPointwiseReader = reassignmentPointwiseReader,
     topologyTransactionPointwiseReader = topologyTransactionPointwiseReader,
-    loggerFactory = loggerFactory,
-  )(queryExecutionContext)
-
-  private val treeTransactionPointwiseReader = new TransactionTreePointwiseReader(
-    dbDispatcher = dbDispatcher,
-    eventStorageBackend = readStorageBackend.eventStorageBackend,
-    metrics = metrics,
-    lfValueTranslation = translation,
     loggerFactory = loggerFactory,
   )(queryExecutionContext)
 
@@ -356,8 +260,6 @@ private class JdbcLedgerDao(
       metrics = metrics,
       updatesStreamReader = updatesStreamReader,
       updatePointwiseReader = updatePointwiseReader,
-      treeTransactionsStreamReader = treeTransactionsStreamReader,
-      treeTransactionPointwiseReader = treeTransactionPointwiseReader,
       acsReader = acsReader,
     )(queryExecutionContext)
 
@@ -372,13 +274,14 @@ private class JdbcLedgerDao(
 
   override def eventsReader: LedgerDaoEventsReader =
     new EventsReader(
-      dbDispatcher,
-      readStorageBackend.eventStorageBackend,
-      parameterStorageBackend,
-      metrics,
-      translation,
-      ledgerEndCache,
-      loggerFactory,
+      dbDispatcher = dbDispatcher,
+      eventStorageBackend = readStorageBackend.eventStorageBackend,
+      parameterStorageBackend = parameterStorageBackend,
+      metrics = metrics,
+      lfValueTranslation = lfValueTranslation,
+      contractStore = contractStore,
+      ledgerEndCache = ledgerEndCache,
+      loggerFactory = loggerFactory,
     )(queryExecutionContext)
 
   override val completions: CommandCompletionsReader =
@@ -391,170 +294,9 @@ private class JdbcLedgerDao(
       loggerFactory,
     )
 
-  /** This is a combined store transaction method to support tests !!! Usage of this is discouraged
-    */
-  @SuppressWarnings(Array("org.wartremover.warts.Null"))
-  override def storeTransaction(
-      completionInfo: Option[state.CompletionInfo],
-      workflowId: Option[WorkflowId],
-      updateId: UpdateId,
-      ledgerEffectiveTime: Timestamp,
-      offset: Offset,
-      transaction: CommittedTransaction,
-      recordTime: Timestamp,
-      contractActivenessChanged: Boolean,
-  )(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Future[PersistenceResponse] = {
-    logger.info("Storing transaction")
-    dbDispatcher
-      .executeSql(metrics.index.db.storeTransactionDbMetrics) { implicit conn =>
-        sequentialIndexer.store(
-          conn,
-          offset,
-          Some(
-            state.Update.SequencedTransactionAccepted(
-              completionInfoO = completionInfo,
-              transactionMeta = state.TransactionMeta(
-                ledgerEffectiveTime = ledgerEffectiveTime,
-                workflowId = workflowId,
-                preparationTime = null, // not used for DbDto generation
-                submissionSeed = null, // not used for DbDto generation
-                timeBoundaries = null, // not used for DbDto generation
-                optUsedPackages = None, // not used for DbDto generation
-                optNodeSeeds = None, // not used for DbDto generation
-                optByKeyNodes = None, // not used for DbDto generation
-              ),
-              transaction = transaction,
-              updateId = updateId,
-              contractAuthenticationData = new Map[ContractId, Bytes] {
-                override def removed(key: ContractId): Map[ContractId, Bytes] = this
-
-                override def updated[V1 >: Bytes](
-                    key: ContractId,
-                    value: V1,
-                ): Map[ContractId, V1] = this
-
-                override def get(key: ContractId): Option[Bytes] = Some(Bytes.Empty)
-
-                override def iterator: Iterator[(ContractId, Bytes)] = Iterator.empty
-              }, // only for tests
-              synchronizerId = SynchronizerId.tryFromString("invalid::deadbeef"),
-              recordTime = CantonTimestamp(recordTime),
-              externalTransactionHash = None,
-              acsChangeFactory =
-                TestAcsChangeFactory(contractActivenessChanged = contractActivenessChanged),
-            )
-          ),
-        )
-        PersistenceResponse.Ok
-      }
-  }
-
 }
 
 private[platform] object JdbcLedgerDao {
-
-  object Logging {
-    def submissionId(id: String): LoggingEntry =
-      "submissionId" -> id
-
-    def updateId(id: UpdateId): LoggingEntry =
-      "updateId" -> id
-  }
-
-  def read(
-      dbSupport: DbSupport,
-      queryExecutionContext: ExecutionContext,
-      commandExecutionContext: ExecutionContext,
-      metrics: LedgerApiServerMetrics,
-      participantId: Ref.ParticipantId,
-      ledgerEndCache: LedgerEndCache,
-      stringInterning: StringInterning,
-      completionsPageSize: Int,
-      activeContractsServiceStreamsConfig: ActiveContractsServiceStreamsConfig,
-      updatesStreamsConfig: UpdatesStreamsConfig,
-      transactionTreeStreamsConfig: TransactionTreeStreamsConfig,
-      globalMaxEventIdQueries: Int,
-      globalMaxEventPayloadQueries: Int,
-      tracer: Tracer,
-      loggerFactory: NamedLoggerFactory,
-      incompleteOffsets: (
-          Offset,
-          Option[Set[Ref.Party]],
-          TraceContext,
-      ) => FutureUnlessShutdown[Vector[Offset]],
-      contractLoader: ContractLoader = ContractLoader.dummyLoader,
-      lfValueTranslation: LfValueTranslation,
-  ): LedgerReadDao =
-    new JdbcLedgerDao(
-      dbDispatcher = dbSupport.dbDispatcher,
-      queryExecutionContext = queryExecutionContext,
-      commandExecutionContext = commandExecutionContext,
-      metrics = metrics,
-      sequentialIndexer = SequentialWriteDao.noop,
-      participantId = participantId,
-      readStorageBackend = dbSupport.storageBackendFactory
-        .readStorageBackend(ledgerEndCache, stringInterning, loggerFactory),
-      parameterStorageBackend =
-        dbSupport.storageBackendFactory.createParameterStorageBackend(stringInterning),
-      ledgerEndCache = ledgerEndCache,
-      completionsPageSize = completionsPageSize,
-      activeContractsServiceStreamsConfig = activeContractsServiceStreamsConfig,
-      updatesStreamsConfig = updatesStreamsConfig,
-      transactionTreeStreamsConfig = transactionTreeStreamsConfig,
-      globalMaxEventIdQueries = globalMaxEventIdQueries,
-      globalMaxEventPayloadQueries = globalMaxEventPayloadQueries,
-      tracer = tracer,
-      loggerFactory = loggerFactory,
-      incompleteOffsets = incompleteOffsets,
-      contractLoader = contractLoader,
-      translation = lfValueTranslation,
-    )
-
-  def writeForTests(
-      dbSupport: DbSupport,
-      sequentialWriteDao: SequentialWriteDao,
-      servicesExecutionContext: ExecutionContext,
-      metrics: LedgerApiServerMetrics,
-      participantId: Ref.ParticipantId,
-      ledgerEndCache: LedgerEndCache,
-      stringInterning: StringInterning,
-      completionsPageSize: Int,
-      activeContractsServiceStreamsConfig: ActiveContractsServiceStreamsConfig,
-      updatesStreamsConfig: UpdatesStreamsConfig,
-      transactionTreeStreamsConfig: TransactionTreeStreamsConfig,
-      globalMaxEventIdQueries: Int,
-      globalMaxEventPayloadQueries: Int,
-      tracer: Tracer,
-      loggerFactory: NamedLoggerFactory,
-      contractLoader: ContractLoader = ContractLoader.dummyLoader,
-      lfValueTranslation: LfValueTranslation,
-  ): LedgerReadDao with LedgerWriteDaoForTests =
-    new JdbcLedgerDao(
-      dbDispatcher = dbSupport.dbDispatcher,
-      queryExecutionContext = servicesExecutionContext,
-      commandExecutionContext = servicesExecutionContext,
-      metrics = metrics,
-      sequentialIndexer = sequentialWriteDao,
-      participantId = participantId,
-      readStorageBackend = dbSupport.storageBackendFactory
-        .readStorageBackend(ledgerEndCache, stringInterning, loggerFactory),
-      parameterStorageBackend =
-        dbSupport.storageBackendFactory.createParameterStorageBackend(stringInterning),
-      ledgerEndCache = ledgerEndCache,
-      completionsPageSize = completionsPageSize,
-      activeContractsServiceStreamsConfig = activeContractsServiceStreamsConfig,
-      updatesStreamsConfig = updatesStreamsConfig,
-      transactionTreeStreamsConfig = transactionTreeStreamsConfig,
-      globalMaxEventIdQueries = globalMaxEventIdQueries,
-      globalMaxEventPayloadQueries = globalMaxEventPayloadQueries,
-      tracer = tracer,
-      loggerFactory = loggerFactory,
-      incompleteOffsets = (_, _, _) => FutureUnlessShutdown.pure(Vector.empty),
-      contractLoader = contractLoader,
-      translation = lfValueTranslation,
-    )
 
   val acceptType = "accept"
   val rejectType = "reject"

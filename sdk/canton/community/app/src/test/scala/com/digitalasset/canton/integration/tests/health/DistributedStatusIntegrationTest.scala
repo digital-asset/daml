@@ -11,8 +11,8 @@ import com.digitalasset.canton.console.InstanceReference
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.plugins.{
   UseBftSequencer,
-  UseCommunityReferenceBlockSequencer,
   UsePostgres,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.util.ShowUtil.*
 
@@ -46,7 +46,7 @@ trait DistributedStatusIntegrationTest
   }
 
   private def assertNodeIsHealthy[Ref <: InstanceReference](
-      map: Map[String, _ <: NodeStatus.Status],
+      map: Map[String, ? <: NodeStatus.Status],
       node: Ref,
   ) = {
     map should have size 1
@@ -137,7 +137,7 @@ trait DistributedStatusIntegrationTest
 
 class DistributedStatusReferenceIntegrationTestPostgres extends DistributedStatusIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }
 
 class DistributedStatusBftOrderingIntegrationTestPostgres extends DistributedStatusIntegrationTest {

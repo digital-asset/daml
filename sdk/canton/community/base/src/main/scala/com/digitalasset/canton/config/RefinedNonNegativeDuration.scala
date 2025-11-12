@@ -90,14 +90,14 @@ trait RefinedNonNegativeDuration[D <: RefinedNonNegativeDuration[D]] extends Pre
     await(description, logFailing, stackTraceFilter, onTimeout)(futUS.unwrap)
 
   /** Same as await, but not returning a value */
-  def await_(
+  def await_[A](
       description: => String,
       logFailing: Option[Level] = None,
-  )(fut: Future[?])(implicit loggingContext: ErrorLoggingContext): Unit =
+  )(fut: Future[A])(implicit loggingContext: ErrorLoggingContext): Unit =
     await(description, logFailing)(fut).discard
 
-  def awaitUS_(description: => String, logFailing: Option[Level] = None)(
-      fut: FutureUnlessShutdown[?]
+  def awaitUS_[A](description: => String, logFailing: Option[Level] = None)(
+      fut: FutureUnlessShutdown[A]
   )(implicit loggingContext: ErrorLoggingContext): Unit =
     awaitUS(description, logFailing)(fut).discard
 
@@ -372,6 +372,10 @@ object NonNegativeFiniteDuration
     _.asJava
   implicit val forgetRefinementFDuration: Transformer[NonNegativeFiniteDuration, FiniteDuration] =
     _.underlying
+
+  implicit val toInternalTransformer
+      : Transformer[NonNegativeFiniteDuration, NonNegativeFiniteDurationInternal] =
+    _.toInternal
 
   def fromDuration(duration: Duration): Either[String, NonNegativeFiniteDuration] = duration match {
     case x: FiniteDuration =>

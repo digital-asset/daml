@@ -5,7 +5,11 @@ cradle:
   multi:
     - path: "."
       config: { cradle: { bios: { shell: "./.hie-bios //compiler/damlc:damlc@ghci@bios" } } }
+    - path: "./compiler/damlc/daml-package-config/test"
+      config: { cradle: { bios: { shell: "./.hie-bios //compiler/damlc/daml-package-config:tests@ghci@bios" }}}
     - path: "./compiler/damlc/tests"
       config: { cradle: { bios: { shell: "./.hie-bios //compiler/damlc/tests:tests@ghci@bios"}}}
+    - path: "./daml-assistant/integration-tests"
+      config: { cradle: { bios: { shell: "./.hie-bios //daml-assistant/integration-tests:integration-tests@ghci@bios"}}}
     - path: "./release/src"
       config: { cradle: { bios: { shell: "./.hie-bios //release:release@ghci@bios"}}}

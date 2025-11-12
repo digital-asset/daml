@@ -21,7 +21,7 @@ class SValueTest extends AnyWordSpec with Inside with Matchers with TableDrivenP
 
   "SValue#toValue" should {
 
-    val Nat = Ref.Identifier.assertFromString("-pkgId:Mod:Nat")
+    val Nat = Ref.Identifier.assertFromString("-pkgId-:Mod:Nat")
     val Z = Ref.Name.assertFromString("Z")
     val S = Ref.Name.assertFromString("S")
 
@@ -39,6 +39,38 @@ class SValueTest extends AnyWordSpec with Inside with Matchers with TableDrivenP
       inside(x) { case Failure(SError.SErrorDamlException(IError.ValueNesting(limit))) =>
         limit shouldBe Value.MAXIMUM_NESTING
       }
+    }
+
+    "rejects null char in Text" in {
+      import interpretation.{Error => IError}
+
+      val testCases = Table(
+        "value",
+        SValue.SText("->\u0000<-"),
+        SValue.SRecord(
+          Ref.Identifier.assertFromString("-pkgId-:Mod:R"),
+          ImmArray(Ref.Name.assertFromString("f")),
+          ArraySeq(SValue.SText("'\u0001'-'\u0001'='\u0000'")),
+        ),
+        SMap(
+          isTextMap = false,
+          SValue.SText("\u0000") -> SValue.SInt64(0),
+          SValue.SText("\u00001") -> SValue.SInt64(2),
+        ),
+        SMap(
+          isTextMap = true,
+          SValue.SText("\u0000") -> SValue.SInt64(0),
+          SValue.SText("\u0001") -> SValue.SInt64(2),
+        ),
+      )
+
+      forEvery(testCases) { v =>
+        val result = Try(v.toUnnormalizedValue)
+        inside(result) { case Failure(SError.SErrorDamlException(IError.MalformedText(err))) =>
+          err should include("null character")
+        }
+      }
+
     }
 
     "accepts just right nesting" in {

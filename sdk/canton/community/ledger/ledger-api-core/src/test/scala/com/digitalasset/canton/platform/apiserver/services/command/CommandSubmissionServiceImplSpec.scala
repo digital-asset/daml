@@ -27,7 +27,7 @@ import com.digitalasset.canton.platform.apiserver.execution.{
 }
 import com.digitalasset.canton.platform.apiserver.services.{ErrorCause, TimeProviderType}
 import com.digitalasset.canton.platform.apiserver.{FatContractInstanceHelper, SeedService}
-import com.digitalasset.canton.protocol.LfTransactionVersion
+import com.digitalasset.canton.protocol.LfSerializationVersion
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
@@ -237,7 +237,7 @@ class CommandSubmissionServiceImplSpec
         signatories = Set(alice),
         stakeholders = Set(alice),
         keyOpt = None,
-        version = LfTransactionVersion.minVersion,
+        version = LfSerializationVersion.V1,
       )
 
     val disclosedContract = DisclosedContract(

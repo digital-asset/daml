@@ -4,7 +4,6 @@
 package com.digitalasset.canton.integration.tests.multihostedparties
 
 import better.files.File
-import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
 import com.digitalasset.canton.examples.java.iou.Iou
 import com.digitalasset.canton.integration.plugins.UsePostgres
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
@@ -70,15 +69,13 @@ sealed trait AcsImportNoSynchronizerConnectionIntegrationTest
       IouSyntax.createIou(participant1)(alice, alice, amount = amount)
     }
 
-    val aliceAcsOffset = NonNegativeLong.tryCreate(
-      participant1.ledger_api.state.acs
-        .active_contracts_of_party(alice)
-        .lastOption
-        .value
-        .createdEvent
-        .value
-        .offset
-    )
+    val aliceAcsOffset = participant1.ledger_api.state.acs
+      .active_contracts_of_party(alice)
+      .lastOption
+      .value
+      .createdEvent
+      .value
+      .offset
 
     participant1.repair.export_acs(
       parties = Set(alice),
@@ -108,13 +105,16 @@ sealed trait AcsImportNoSynchronizerConnectionIntegrationTest
     "allow importing the ACS" in { implicit env =>
       import env.*
 
-      participant2.dars.upload(CantonExamplesPath)
-      participant3.dars.upload(CantonExamplesPath)
+      participant2.dars.upload(CantonExamplesPath, vetAllPackages = false)
+      val examplesMainPackageId =
+        participant3.dars.upload(CantonExamplesPath, vetAllPackages = false)
 
       participant2.repair.import_acs(acsFilename.canonicalPath)
       participant3.repair.import_acs(acsFilename.canonicalPath)
 
       participants.all.synchronizers.reconnect_all()
+      participant2.dars.vetting.enable(examplesMainPackageId)
+      participant3.dars.vetting.enable(examplesMainPackageId)
 
       Seq(participant1, participant2).foreach(
         _.topology.party_to_participant_mappings.propose_delta(

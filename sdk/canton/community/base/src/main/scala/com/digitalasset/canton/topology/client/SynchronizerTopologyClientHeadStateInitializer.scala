@@ -5,6 +5,8 @@ package com.digitalasset.canton.topology.client
 
 import com.digitalasset.canton.data.SynchronizerPredecessor
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.protocol.StaticSynchronizerParameters
+import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -17,6 +19,7 @@ trait SynchronizerTopologyClientHeadStateInitializer {
   def initialize(
       client: SynchronizerTopologyClientWithInit,
       synchronizerPredecessor: Option[SynchronizerPredecessor],
+      staticSynchronizerParameters: StaticSynchronizerParameters,
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
@@ -35,10 +38,11 @@ object SynchronizerTopologyClientHeadStateInitializer {
   def computeInitialHeadUpdate(
       maxTimestamp: Option[(SequencedTime, EffectiveTime)],
       synchronizerPredecessor: Option[SynchronizerPredecessor],
+      topologyChangeDelay: NonNegativeFiniteDuration,
   ): Option[(SequencedTime, EffectiveTime)] = {
     val upgradeTimestamps: Option[(SequencedTime, EffectiveTime)] = synchronizerPredecessor
       .map(_.upgradeTime)
-      .map(ts => (SequencedTime(ts), EffectiveTime(ts)))
+      .map(ts => (SequencedTime(ts), EffectiveTime(ts) + topologyChangeDelay))
 
     /*
     On the successor (so if the predecessor is defined), then the topology is known until the upgrade time.
@@ -57,26 +61,27 @@ final class DefaultHeadStateInitializer(store: TopologyStore[TopologyStoreId.Syn
   override def initialize(
       client: SynchronizerTopologyClientWithInit,
       synchronizerPredecessor: Option[SynchronizerPredecessor],
+      staticSynchronizerParameters: StaticSynchronizerParameters,
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
   ): FutureUnlessShutdown[SynchronizerTopologyClientWithInit] =
-    store
-      .maxTimestamp(SequencedTime.MaxValue, includeRejected = true)
-      .map { maxTimestamp =>
-        SynchronizerTopologyClientHeadStateInitializer
-          .computeInitialHeadUpdate(
-            maxTimestamp,
-            synchronizerPredecessor,
+    for {
+      maxTimestamp <- store
+        .maxTimestamp(SequencedTime.MaxValue, includeRejected = true)
+      _ = SynchronizerTopologyClientHeadStateInitializer
+        .computeInitialHeadUpdate(
+          maxTimestamp,
+          synchronizerPredecessor,
+          staticSynchronizerParameters.topologyChangeDelay,
+        )
+        .foreach { case (sequenced, effective) =>
+          client.updateHead(
+            sequenced,
+            effective,
+            effective.toApproximate,
           )
-          .foreach { case (sequenced, effective) =>
-            client.updateHead(
-              sequenced,
-              effective,
-              effective.toApproximate,
-              potentialTopologyChange = true,
-            )
-          }
-        client
-      }
+        }
+      _ <- client.initialize()
+    } yield client
 }

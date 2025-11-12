@@ -147,11 +147,6 @@ MalformedSignature :: Text -> CryptoErrorType
 
 signatureValue :: CryptoErrorType -> Text
 
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-malformedcontractid-56895
-MalformedContractId :: Text -> CryptoErrorType
-
-contractIdValue :: CryptoErrorType -> Text
-
 -- | Errors that can be thrown by a command submission via `trySubmit`
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-submiterror-38284
 data SubmitError
@@ -185,6 +180,18 @@ packageName :: SubmitError -> Text
 AuthorizationError :: Text -> SubmitError
 
 authorizationErrorMessage :: SubmitError -> Text
+
+-- | Failed to hash a contract
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-contracthashingerror-75608
+ContractHashingError :: AnyContractId -> TemplateTypeRep -> AnyTemplate -> Text -> SubmitError
+
+contractId :: SubmitError -> AnyContractId
+
+dstTemplateId :: SubmitError -> TemplateTypeRep
+
+createArg :: SubmitError -> AnyTemplate
+
+errorMessage :: SubmitError -> Text
 
 -- | Given disclosed contract key does not match the contract key of the contract on ledger.
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-disclosedcontractkeyhashingerror-69749
@@ -363,7 +370,7 @@ truncatedErrorMessage :: SubmitError -> Text
 data UpgradeErrorType
 
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-validationfailed-35370
-ValidationFailed :: AnyContractId -> TemplateTypeRep -> TemplateTypeRep -> [Party] -> [Party] -> Optional (AnyContractKey, [Party]) -> UpgradeErrorType
+ValidationFailed :: AnyContractId -> TemplateTypeRep -> TemplateTypeRep -> Text -> Text -> [Party] -> [Party] -> Optional (AnyContractKey, [Party]) -> [Party] -> [Party] -> Optional (AnyContractKey, [Party]) -> UpgradeErrorType
 
 coid :: UpgradeErrorType -> AnyContractId
 
@@ -371,23 +378,43 @@ srcTemplateId :: UpgradeErrorType -> TemplateTypeRep
 
 dstTemplateId :: UpgradeErrorType -> TemplateTypeRep
 
-signatories :: UpgradeErrorType -> [Party]
+srcPackageName :: UpgradeErrorType -> Text
 
-observers :: UpgradeErrorType -> [Party]
+dstPackageName :: UpgradeErrorType -> Text
 
-keyOpt :: UpgradeErrorType -> Optional (AnyContractKey, [Party])
+originalSignatories :: UpgradeErrorType -> [Party]
 
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-downgradedropdefinedfield-50092
-DowngradeDropDefinedField :: Text -> Int -> UpgradeErrorType
+originalObservers :: UpgradeErrorType -> [Party]
 
-expectedType :: UpgradeErrorType -> Text
+originalKeyOpt :: UpgradeErrorType -> Optional (AnyContractKey, [Party])
 
-fieldIndex :: UpgradeErrorType -> Int
+recomputedSignatories :: UpgradeErrorType -> [Party]
 
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-downgradefailed-38019
-DowngradeFailed :: Text -> UpgradeErrorType
+recomputedObservers :: UpgradeErrorType -> [Party]
 
-expectedType :: UpgradeErrorType -> Text
+recomputedKeyOpt :: UpgradeErrorType -> Optional (AnyContractKey, [Party])
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-translationfailed-4701
+TranslationFailed :: Optional AnyContractId -> TemplateTypeRep -> TemplateTypeRep -> AnyTemplate -> UpgradeErrorType
+
+mCoid :: UpgradeErrorType -> Optional AnyContractId
+
+srcTemplateId :: UpgradeErrorType -> TemplateTypeRep
+
+dstTemplateId :: UpgradeErrorType -> TemplateTypeRep
+
+createArg :: UpgradeErrorType -> AnyTemplate
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-authenticationfailed-3671
+AuthenticationFailed :: AnyContractId -> TemplateTypeRep -> TemplateTypeRep -> AnyTemplate -> UpgradeErrorType
+
+coid :: UpgradeErrorType -> AnyContractId
+
+srcTemplateId :: UpgradeErrorType -> TemplateTypeRep
+
+dstTemplateId :: UpgradeErrorType -> TemplateTypeRep
+
+createArg :: UpgradeErrorType -> AnyTemplate
 
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-transactiontree-created-98301
 data Created

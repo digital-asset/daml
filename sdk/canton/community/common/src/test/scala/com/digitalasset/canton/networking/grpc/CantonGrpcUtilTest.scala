@@ -56,7 +56,7 @@ object CantonGrpcUtilTest {
     val channelBuilder: ManagedChannelBuilderProxy = ManagedChannelBuilderProxy(
       InProcessChannelBuilder
         .forName(channelName)
-        .intercept(TraceContextGrpc.clientInterceptor)
+        .intercept(TraceContextGrpc.clientInterceptor())
     )
     val managedChannel: GrpcManagedChannel =
       GrpcManagedChannel(

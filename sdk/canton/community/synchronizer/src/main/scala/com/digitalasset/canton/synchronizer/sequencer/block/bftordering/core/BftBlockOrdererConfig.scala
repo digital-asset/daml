@@ -8,9 +8,11 @@ import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port}
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.config.{
+  ActiveRequestLimitsConfig,
   AdminTokenConfig,
   AuthServiceConfig,
   BasicKeepAliveServerConfig,
+  BatchAggregatorConfig,
   CantonConfigValidator,
   CantonConfigValidatorInstances,
   ClientConfig,
@@ -26,6 +28,7 @@ import com.digitalasset.canton.config.{
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenManagerConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig.{
+  BftBlockOrderingStandaloneNetworkConfig,
   DefaultAvailabilityMaxNonOrderedBatchesPerNode,
   DefaultAvailabilityNumberOfAttemptsOfDownloadingOutputFetchBeforeWarning,
   DefaultConsensusQueueMaxSize,
@@ -51,6 +54,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopology
 import io.grpc.netty.shaded.io.netty.handler.ssl.SslContext
 
+import java.io.File
 import scala.concurrent.duration.*
 
 /** @param maxRequestsInBatch
@@ -86,15 +90,19 @@ final case class BftBlockOrdererConfig(
     maxBatchesPerBlockProposal: Short = DefaultMaxBatchesPerProposal,
     consensusQueueMaxSize: Int = DefaultConsensusQueueMaxSize,
     consensusQueuePerNodeQuota: Int = DefaultConsensusQueuePerNodeQuota,
+    consensusBlockCompletionTimeout: FiniteDuration = 10.seconds,
+    consensusEmptyBlockCreationTimeout: FiniteDuration = 5.seconds,
     delayedInitQueueMaxSize: Int = DefaultDelayedInitQueueMaxSize,
     epochStateTransferRetryTimeout: FiniteDuration = DefaultEpochStateTransferTimeout,
     outputFetchTimeout: FiniteDuration = DefaultOutputFetchTimeout,
     outputFetchTimeoutCap: FiniteDuration = DefaultOutputFetchTimeoutCap,
     initialNetwork: Option[P2PNetworkConfig] = None,
+    standalone: Option[BftBlockOrderingStandaloneNetworkConfig] = None,
     leaderSelectionPolicy: LeaderSelectionPolicyConfig = DefaultLeaderSelectionPolicy,
     storage: Option[StorageConfig] = None,
     // We may want to flip the default once we're satisfied with initial performance
     enablePerformanceMetrics: Boolean = true,
+    batchAggregator: BatchAggregatorConfig = BatchAggregatorConfig(),
 ) extends UniformCantonConfigValidation {
   private val maxRequestsPerBlock = maxBatchesPerBlockProposal * maxRequestsInBatch
   require(
@@ -201,9 +209,12 @@ object BftBlockOrdererConfig {
         TlsClientConfig(trustCollectionFile = None, clientCert = None, enabled = true)
       ),
       tls: Option[TlsServerConfig] = None,
-      override val maxInboundMessageSize: NonNegativeInt = ServerConfig.defaultMaxInboundMessageSize,
+      override val maxInboundMessageSize: NonNegativeInt =
+        ServerConfig.defaultMaxInboundMessageSize,
+      override val limits: Option[ActiveRequestLimitsConfig] = None,
   ) extends ServerConfig
       with UniformCantonConfigValidation {
+    override val name: String = "peer-to-peer"
     override val maxTokenLifetime: config.NonNegativeDuration =
       config.NonNegativeDuration(Duration.Inf)
     override val jwksCacheConfig: JwksCacheConfig = JwksCacheConfig()
@@ -310,5 +321,29 @@ object BftBlockOrdererConfig {
         override def howManyCanWeBlacklist(orderingTopology: OrderingTopology): Int = 0
       }
     }
+  }
+
+  final case class BftBlockOrderingStandaloneNetworkConfig(
+      thisSequencerId: String,
+      signingPrivateKeyProtoFile: File,
+      signingPublicKeyProtoFile: File,
+      peers: Seq[BftBlockOrderingStandalonePeerConfig],
+  ) extends UniformCantonConfigValidation
+
+  object BftBlockOrderingStandaloneNetworkConfig {
+    implicit val bftBlockOrderingStandaloneNetworkConfigValidator
+        : CantonConfigValidator[BftBlockOrderingStandaloneNetworkConfig] =
+      CantonConfigValidatorDerivation[BftBlockOrderingStandaloneNetworkConfig]
+  }
+
+  final case class BftBlockOrderingStandalonePeerConfig(
+      sequencerId: String,
+      signingPublicKeyProtoFile: File,
+  ) extends UniformCantonConfigValidation
+
+  object BftBlockOrderingStandalonePeerConfig {
+    implicit val bftBlockOrderingStandalonePeerConfigValidator
+        : CantonConfigValidator[BftBlockOrderingStandalonePeerConfig] =
+      CantonConfigValidatorDerivation[BftBlockOrderingStandalonePeerConfig]
   }
 }

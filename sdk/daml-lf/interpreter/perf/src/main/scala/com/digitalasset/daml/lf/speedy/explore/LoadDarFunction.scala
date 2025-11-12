@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf
 package speedy
 package explore
 
-import com.digitalasset.daml.lf.archive.UniversalArchiveDecoder
+import com.digitalasset.daml.lf.archive.DarDecoder
 import com.digitalasset.daml.lf.data.Ref.{DefinitionRef, Identifier, QualifiedName}
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SResult._
@@ -22,11 +22,10 @@ object LoadDarFunction extends App {
 
   def load(darFile: File, base: String, funcName: String): (Long => Long) = {
 
-    val packages = UniversalArchiveDecoder.assertReadFile(darFile)
+    val packages = DarDecoder.assertReadArchiveFromFile(darFile)
 
     val compilerConfig =
-      Compiler.Config
-        .Default(packages.main._2.languageVersion.major)
+      Compiler.Config.Default
         .copy(stacktracing = Compiler.NoStackTrace)
 
     val compiledPackages: CompiledPackages =

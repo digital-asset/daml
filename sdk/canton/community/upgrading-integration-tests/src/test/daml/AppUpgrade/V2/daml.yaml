@@ -1,0 +1,13 @@
+override-components: 
+  damlc: 
+    version: $DAML_VERSION
+  daml-script: 
+    version: $DAML_VERSION
+build-options: 
+- --target=2.1
+name: AppUpgrade
+source: AppUpgrade.daml
+version: 2.0.0
+dependencies: 
+- daml-prim
+- daml-stdlib

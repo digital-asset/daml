@@ -26,7 +26,6 @@ import com.daml.ledger.api.v2.transaction_filter.{
   Filters,
   ParticipantAuthorizationTopologyFormat,
   TopologyFormat,
-  TransactionFilter,
   TransactionFormat,
   UpdateFormat,
 }
@@ -46,10 +45,7 @@ import org.scalatest.matchers.should.Matchers
 import scalapb.lenses.Lens
 
 import java.util.UUID
-import scala.annotation.nowarn
 
-// TODO(#23504) remove TransactionFilter once all usages are migrated to EventFormat
-@nowarn("cat=deprecation")
 class ApiServicesRequiredClaimSpec extends AsyncFlatSpec with BaseTest with Matchers {
 
   behavior of "CommandCompletionServiceAuthorization.completionStreamClaims"
@@ -127,8 +123,6 @@ class ApiServicesRequiredClaimSpec extends AsyncFlatSpec with BaseTest with Matc
   it should "compute the correct claims in the happy path" in {
     StateServiceAuthorization.getActiveContractsClaims(
       GetActiveContractsRequest(
-        filter = None,
-        verbose = false,
         activeAtOffset = 15,
         eventFormat = Some(
           EventFormat(
@@ -153,8 +147,6 @@ class ApiServicesRequiredClaimSpec extends AsyncFlatSpec with BaseTest with Matc
   it should "compute the correct claims if no filtersForAnyParty" in {
     StateServiceAuthorization.getActiveContractsClaims(
       GetActiveContractsRequest(
-        filter = None,
-        verbose = false,
         activeAtOffset = 15,
         eventFormat = Some(
           EventFormat(
@@ -178,8 +170,6 @@ class ApiServicesRequiredClaimSpec extends AsyncFlatSpec with BaseTest with Matc
   it should "compute the correct claims if no filtersByParty" in {
     StateServiceAuthorization.getActiveContractsClaims(
       GetActiveContractsRequest(
-        filter = None,
-        verbose = false,
         activeAtOffset = 15,
         eventFormat = Some(
           EventFormat(
@@ -195,144 +185,8 @@ class ApiServicesRequiredClaimSpec extends AsyncFlatSpec with BaseTest with Matc
   it should "compute the correct claims if no eventFormat" in {
     StateServiceAuthorization.getActiveContractsClaims(
       GetActiveContractsRequest(
-        filter = None,
-        verbose = true,
         activeAtOffset = 15,
         eventFormat = None,
-      )
-    ) shouldBe Nil
-  }
-
-  // TODO(i23504) Remove
-  it should "compute the aggregated claims if both legacy and new usage" in {
-    StateServiceAuthorization.getActiveContractsClaims(
-      GetActiveContractsRequest(
-        filter = Some(
-          TransactionFilter(
-            filtersByParty = Map(
-              "1" -> Filters(Nil),
-              "2" -> Filters(Nil),
-              "3" -> Filters(Nil),
-            ),
-            filtersForAnyParty = Some(Filters(Nil)),
-          )
-        ),
-        verbose = true,
-        activeAtOffset = 15,
-        eventFormat = Some(
-          EventFormat(
-            filtersByParty = Map(
-              "a" -> Filters(Nil),
-              "b" -> Filters(Nil),
-              "c" -> Filters(Nil),
-            ),
-            filtersForAnyParty = Some(Filters(Nil)),
-            verbose = true,
-          )
-        ),
-      )
-    ) should contain theSameElementsAs RequiredClaims[GetActiveContractsRequest](
-      RequiredClaim.ReadAs("a"),
-      RequiredClaim.ReadAs("b"),
-      RequiredClaim.ReadAs("c"),
-      RequiredClaim.ReadAsAnyParty(),
-      RequiredClaim.ReadAs("1"),
-      RequiredClaim.ReadAs("2"),
-      RequiredClaim.ReadAs("3"),
-      RequiredClaim.ReadAsAnyParty(),
-    )
-  }
-
-  // TODO(i23504) Remove
-  it should "compute the aggregated claims if both legacy and new usage, if one of the any party filters missing" in {
-    StateServiceAuthorization.getActiveContractsClaims(
-      GetActiveContractsRequest(
-        filter = Some(
-          TransactionFilter(
-            filtersByParty = Map(
-              "1" -> Filters(Nil),
-              "2" -> Filters(Nil),
-              "3" -> Filters(Nil),
-            ),
-            filtersForAnyParty = None,
-          )
-        ),
-        verbose = true,
-        activeAtOffset = 15,
-        eventFormat = Some(
-          EventFormat(
-            filtersByParty = Map(
-              "a" -> Filters(Nil),
-              "b" -> Filters(Nil),
-              "c" -> Filters(Nil),
-            ),
-            filtersForAnyParty = Some(Filters(Nil)),
-            verbose = true,
-          )
-        ),
-      )
-    ) should contain theSameElementsAs RequiredClaims[GetActiveContractsRequest](
-      RequiredClaim.ReadAs("a"),
-      RequiredClaim.ReadAs("b"),
-      RequiredClaim.ReadAs("c"),
-      RequiredClaim.ReadAsAnyParty(),
-      RequiredClaim.ReadAs("1"),
-      RequiredClaim.ReadAs("2"),
-      RequiredClaim.ReadAs("3"),
-    )
-  }
-
-  // TODO(i23504) Remove
-  it should "compute the aggregated claims if both legacy and new usage, if only one any party filters, and one by party filters" in {
-    StateServiceAuthorization.getActiveContractsClaims(
-      GetActiveContractsRequest(
-        filter = Some(
-          TransactionFilter(
-            filtersByParty = Map(
-              "1" -> Filters(Nil),
-              "2" -> Filters(Nil),
-              "3" -> Filters(Nil),
-            ),
-            filtersForAnyParty = None,
-          )
-        ),
-        verbose = true,
-        activeAtOffset = 15,
-        eventFormat = Some(
-          EventFormat(
-            filtersByParty = Map.empty,
-            filtersForAnyParty = Some(Filters(Nil)),
-            verbose = true,
-          )
-        ),
-      )
-    ) should contain theSameElementsAs RequiredClaims[GetActiveContractsRequest](
-      RequiredClaim.ReadAsAnyParty(),
-      RequiredClaim.ReadAs("1"),
-      RequiredClaim.ReadAs("2"),
-      RequiredClaim.ReadAs("3"),
-    )
-  }
-
-  // TODO(i23504) Remove
-  it should "compute the aggregated claims if both legacy and new usage, if all empty" in {
-    StateServiceAuthorization.getActiveContractsClaims(
-      GetActiveContractsRequest(
-        filter = Some(
-          TransactionFilter(
-            filtersByParty = Map.empty,
-            filtersForAnyParty = None,
-          )
-        ),
-        verbose = true,
-        activeAtOffset = 15,
-        eventFormat = Some(
-          EventFormat(
-            filtersByParty = Map.empty,
-            filtersForAnyParty = None,
-            verbose = true,
-          )
-        ),
       )
     ) shouldBe Nil
   }
@@ -495,8 +349,6 @@ class ApiServicesRequiredClaimSpec extends AsyncFlatSpec with BaseTest with Matc
       GetUpdatesRequest(
         beginExclusive = 10,
         endInclusive = Some(15),
-        filter = None,
-        verbose = true,
         updateFormat = Some(
           UpdateFormat(
             includeTransactions = Some(
@@ -546,8 +398,6 @@ class ApiServicesRequiredClaimSpec extends AsyncFlatSpec with BaseTest with Matc
       GetUpdatesRequest(
         beginExclusive = 10,
         endInclusive = Some(15),
-        filter = None,
-        verbose = true,
         updateFormat = Some(
           UpdateFormat(
             includeTransactions = Some(
@@ -603,8 +453,6 @@ class ApiServicesRequiredClaimSpec extends AsyncFlatSpec with BaseTest with Matc
       GetUpdatesRequest(
         beginExclusive = 10,
         endInclusive = Some(15),
-        filter = None,
-        verbose = true,
         updateFormat = Some(
           UpdateFormat(
             includeTransactions = Some(
@@ -638,8 +486,6 @@ class ApiServicesRequiredClaimSpec extends AsyncFlatSpec with BaseTest with Matc
       GetUpdatesRequest(
         beginExclusive = 10,
         endInclusive = Some(15),
-        filter = None,
-        verbose = true,
         updateFormat = Some(
           UpdateFormat(
             includeTransactions = Some(
@@ -663,8 +509,6 @@ class ApiServicesRequiredClaimSpec extends AsyncFlatSpec with BaseTest with Matc
       GetUpdatesRequest(
         beginExclusive = 10,
         endInclusive = Some(15),
-        filter = None,
-        verbose = false,
         updateFormat = None,
       )
     ) shouldBe Nil
@@ -675,8 +519,6 @@ class ApiServicesRequiredClaimSpec extends AsyncFlatSpec with BaseTest with Matc
       GetUpdatesRequest(
         beginExclusive = 10,
         endInclusive = Some(15),
-        filter = None,
-        verbose = true,
         updateFormat = Some(
           UpdateFormat(
             includeTransactions = None,
@@ -698,8 +540,6 @@ class ApiServicesRequiredClaimSpec extends AsyncFlatSpec with BaseTest with Matc
       GetUpdatesRequest(
         beginExclusive = 10,
         endInclusive = Some(15),
-        filter = None,
-        verbose = true,
         updateFormat = Some(
           UpdateFormat(
             includeTransactions = Some(
@@ -729,8 +569,6 @@ class ApiServicesRequiredClaimSpec extends AsyncFlatSpec with BaseTest with Matc
       GetUpdatesRequest(
         beginExclusive = 10,
         endInclusive = Some(15),
-        filter = None,
-        verbose = true,
         updateFormat = Some(
           UpdateFormat(
             includeReassignments = Some(
@@ -755,8 +593,6 @@ class ApiServicesRequiredClaimSpec extends AsyncFlatSpec with BaseTest with Matc
       GetUpdatesRequest(
         beginExclusive = 10,
         endInclusive = Some(15),
-        filter = None,
-        verbose = true,
         updateFormat = Some(
           UpdateFormat(
             includeTransactions = None,
@@ -766,79 +602,6 @@ class ApiServicesRequiredClaimSpec extends AsyncFlatSpec with BaseTest with Matc
             ),
           )
         ),
-      )
-    ) should contain theSameElementsAs RequiredClaims[GetActiveContractsRequest](
-      RequiredClaim.ReadAsAnyParty()
-    )
-  }
-
-  // TODO(i23504) Remove
-  it should "compute the aggregated claims if legacy, happy path" in {
-    UpdateServiceAuthorization.getUpdatesClaims(
-      GetUpdatesRequest(
-        beginExclusive = 10,
-        endInclusive = Some(15),
-        filter = Some(
-          TransactionFilter(
-            filtersByParty = Map(
-              "1" -> Filters(Nil),
-              "2" -> Filters(Nil),
-              "3" -> Filters(Nil),
-            ),
-            filtersForAnyParty = Some(Filters(Nil)),
-          )
-        ),
-        verbose = true,
-        updateFormat = None,
-      )
-    ) should contain theSameElementsAs RequiredClaims[GetActiveContractsRequest](
-      RequiredClaim.ReadAs("1"),
-      RequiredClaim.ReadAs("2"),
-      RequiredClaim.ReadAs("3"),
-      RequiredClaim.ReadAsAnyParty(),
-    )
-  }
-
-  // TODO(i23504) Remove
-  it should "compute the aggregated claims if legacy, if the any party filters are missing" in {
-    UpdateServiceAuthorization.getUpdatesClaims(
-      GetUpdatesRequest(
-        beginExclusive = 10,
-        endInclusive = Some(15),
-        filter = Some(
-          TransactionFilter(
-            filtersByParty = Map(
-              "1" -> Filters(Nil),
-              "2" -> Filters(Nil),
-              "3" -> Filters(Nil),
-            ),
-            filtersForAnyParty = None,
-          )
-        ),
-        verbose = true,
-        updateFormat = None,
-      )
-    ) should contain theSameElementsAs RequiredClaims[GetActiveContractsRequest](
-      RequiredClaim.ReadAs("1"),
-      RequiredClaim.ReadAs("2"),
-      RequiredClaim.ReadAs("3"),
-    )
-  }
-
-  // TODO(i23504) Remove
-  it should "compute the aggregated claims if legacy, if only any party filters exist" in {
-    UpdateServiceAuthorization.getUpdatesClaims(
-      GetUpdatesRequest(
-        beginExclusive = 10,
-        endInclusive = Some(15),
-        filter = Some(
-          TransactionFilter(
-            filtersByParty = Map.empty,
-            filtersForAnyParty = Some(Filters(Nil)),
-          )
-        ),
-        verbose = true,
-        updateFormat = None,
       )
     ) should contain theSameElementsAs RequiredClaims[GetActiveContractsRequest](
       RequiredClaim.ReadAsAnyParty()
@@ -920,6 +683,8 @@ object ApiServicesRequiredClaimSpec {
       packageIdSelectionPreference = Seq.empty,
       verboseHashing = true,
       prefetchContractKeys = Seq.empty,
+      maxRecordTime = Option.empty,
+      estimateTrafficCost = None,
     )
 
   val preparedTransaction = PreparedTransaction(
@@ -940,6 +705,7 @@ object ApiServicesRequiredClaimSpec {
         minLedgerEffectiveTime = None,
         maxLedgerEffectiveTime = None,
         globalKeyMapping = Seq.empty,
+        maxRecordTime = Option.empty,
       )
     ),
   )

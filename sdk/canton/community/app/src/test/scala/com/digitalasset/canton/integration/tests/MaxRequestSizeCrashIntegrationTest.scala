@@ -11,8 +11,8 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.examples.java.iou.Dummy
 import com.digitalasset.canton.integration.plugins.{
   UseBftSequencer,
-  UseCommunityReferenceBlockSequencer,
   UsePostgres,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -146,7 +146,7 @@ sealed abstract class MaxRequestSizeCrashIntegrationTest
           }
 
           val matchError =
-            s"MaxViewSizeExceeded\\(view size = .*, max request size configured = .*\\)."
+            s"MaxViewSizeExceeded\\(view size .bytes. = .*, max request size configured .bytes. = .*\\)."
 
           val (commandId, _) = submitCommand(env.participant1)
 
@@ -215,7 +215,7 @@ sealed abstract class MaxRequestSizeCrashIntegrationTest
 class MaxRequestSizeCrashReferenceIntegrationIntegrationTestPostgres
     extends MaxRequestSizeCrashIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }
 
 class MaxRequestSizeCrashBftOrderingIntegrationIntegrationTestPostgres

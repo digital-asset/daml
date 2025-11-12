@@ -4,6 +4,7 @@
 package com.digitalasset.canton.sequencing
 
 import cats.data.EitherT
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.sequencing.ConnectionX.ConnectionXConfig
@@ -23,6 +24,7 @@ import com.digitalasset.canton.sequencing.protocol.{
   SignedContent,
   SubmissionRequest,
   SubscriptionRequest,
+  TopologyStateForInitHashResponse,
   TopologyStateForInitRequest,
   TopologyStateForInitResponse,
 }
@@ -67,9 +69,18 @@ trait SequencerConnectionX extends FlagCloseable with NamedLogging {
 
   def logout()(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, Status, Unit]
 
+  /** Fetches the "current" sequencing time */
+  def getTime(timeout: Duration)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, Option[CantonTimestamp]]
+
   def downloadTopologyStateForInit(request: TopologyStateForInitRequest, timeout: Duration)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, TopologyStateForInitResponse]
+
+  def downloadTopologyStateForInitHash(request: TopologyStateForInitRequest, timeout: Duration)(
+      implicit traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, TopologyStateForInitHashResponse]
 
   def subscribe[E](
       request: SubscriptionRequest,

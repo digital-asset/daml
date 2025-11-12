@@ -8,8 +8,8 @@ import com.digitalasset.canton.console.LocalInstanceReference
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.integration.plugins.{
   UseBftSequencer,
-  UseCommunityReferenceBlockSequencer,
   UsePostgres,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -113,7 +113,7 @@ trait CrashRecoveryDuringAutoInitIntegrationTest
 class CrashRecoveryDuringAutoInitReferenceIntegrationTestPostgres
     extends CrashRecoveryDuringAutoInitIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }
 
 class CrashRecoveryDuringAutoInitBftOrderingIntegrationTestPostgres

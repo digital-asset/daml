@@ -93,10 +93,14 @@ object RunnerMain {
       majorVersion = dar.main._2.languageVersion.major
       compiledPackages = PureCompiledPackages.assertBuild(
         dar.all.toMap,
-        Runner.compilerConfig(majorVersion),
+        Runner.compilerConfig,
       )
       ifaceDar =
-        dar.map(pkg => SignatureReader.readPackageSignature(() => \/-(pkg))._2)
+        dar.map { case (pkgId, _) =>
+          SignatureReader
+            .readPackageSignature(() => \/-(pkgId -> compiledPackages.signatures(pkgId)))
+            ._2
+        }
       envIface = EnvironmentSignature.fromPackageSignatures(ifaceDar)
 
       clients <- connectToParticipants(config, compiledPackages, traceLog, warningLog)

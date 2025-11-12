@@ -41,7 +41,12 @@ class CantonCommunityConfigTest extends AnyWordSpec with BaseTest {
     }
 
     "produce a port definition message" in {
-      config.portDescription shouldBe "participant1:admin-api=5012,ledger-api=5011;participant2:admin-api=5022,ledger-api=5021;sequencer1:admin-api=5002,public-api=5001;mediator1:admin-api=5202"
+      config.portDescription.split(";") should contain theSameElementsAs List(
+        "participant1:admin-api=5012,ledger-api=5011",
+        "participant2:admin-api=5022,ledger-api=5021",
+        "sequencer1:admin-api=5002,public-api=5001",
+        "mediator1:admin-api=5202",
+      )
     }
     "check startup memory checker config" in {
       config.parameters.startupMemoryCheckConfig shouldBe StartupMemoryCheckConfig(
@@ -282,7 +287,7 @@ class CantonCommunityConfigTest extends AnyWordSpec with BaseTest {
       resourcePaths: Seq[String]
   ): Either[CantonConfigError, CantonConfig] = {
     val files = resourcePaths.map(r => (baseDir.toString / r).toJava)
-    CantonConfig.parseAndLoad(files, CommunityCantonEdition)
+    CantonConfig.parseAndLoad(files, CommunityCantonEdition, Some(DefaultPorts.create()))
   }
 
   private lazy val baseDir: File = "community" / "app" / "src" / "test" / "resources"

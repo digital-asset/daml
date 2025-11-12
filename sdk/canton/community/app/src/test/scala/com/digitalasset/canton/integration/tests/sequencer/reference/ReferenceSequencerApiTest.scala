@@ -38,7 +38,6 @@ class ReferenceSequencerApiTest extends SequencerApiTest with RateLimitManagerTe
     val storage = createStorage()
     val params = createSynchronizerNodeParameters()
     clock = createClock()
-    driverClock = createClock()
 
     val factory =
       DriverBlockSequencerFactory.getFactory(
@@ -59,7 +58,6 @@ class ReferenceSequencerApiTest extends SequencerApiTest with RateLimitManagerTe
       .create(
         SequencerId(psid.uid),
         clock,
-        driverClock,
         crypto,
         FutureSupervisor.Noop,
         SequencerTrafficConfig(),

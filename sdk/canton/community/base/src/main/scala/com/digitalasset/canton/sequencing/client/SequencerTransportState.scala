@@ -7,6 +7,7 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.parallel.*
 import com.daml.nameof.NameOf.functionFullName
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -85,6 +86,14 @@ trait SequencerTransportLookup {
   def transport(sequencerId: SequencerId)(implicit
       traceContext: TraceContext
   ): UnlessShutdown[SequencerClientTransport]
+
+  /** Returns all transports known to the client, healthy or otherwise.
+    * @throws java.lang.IllegalStateException
+    *   if there are currently no transports at all
+    */
+  def allTransports(implicit
+      traceContext: TraceContext
+  ): UnlessShutdown[NonEmpty[Map[SequencerId, SequencerClientTransport]]]
 }
 
 class SequencersTransportState(
@@ -187,7 +196,7 @@ class SequencersTransportState(
     */
   private[this] def transportInternal(avoid: Set[SequencerId])(implicit
       traceContext: TraceContext
-  ): SequencerTransportContainer[_] = {
+  ): SequencerTransportContainer[?] = {
     // We can use a plain Random instance across all threads calling this method,
     // because this method anyway uses locking on its own.
     // (In general, ThreadLocalRandom would void contention on the random number generation, but
@@ -209,7 +218,7 @@ class SequencersTransportState(
 
   private[this] def pickUnhealthySequencer(implicit
       traceContext: TraceContext
-  ): SequencerTransportContainer[_] = {
+  ): SequencerTransportContainer[?] = {
     // TODO(i12377): Can we fallback to first sequencer transport here or should we
     //               introduce EitherT and propagate error handling?
     val (_, transportState) = states.headOption.getOrElse(
@@ -223,6 +232,25 @@ class SequencersTransportState(
       traceContext: TraceContext
   ): UnlessShutdown[SequencerClientTransport] =
     transportState(sequencerId).map(_.transport.clientTransport)
+
+  override def allTransports(implicit
+      traceContext: TraceContext
+  ): UnlessShutdown[NonEmpty[Map[SequencerId, SequencerClientTransport]]] =
+    synchronizeWithClosingSync(functionFullName) {
+      blocking(lock.synchronized {
+        NonEmpty
+          .from(
+            states.view.map { case (sequencerId, state) =>
+              sequencerId -> state.transport.clientTransport
+            }.toMap
+          )
+          .getOrElse(
+            ErrorUtil.internalError(
+              new IllegalStateException("No sequencer transports are currently configured")
+            )
+          )
+      })
+    }
 
   def addSubscription(
       sequencerId: SequencerId,
