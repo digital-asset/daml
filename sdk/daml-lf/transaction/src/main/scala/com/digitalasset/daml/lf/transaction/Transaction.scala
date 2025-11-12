@@ -252,6 +252,15 @@ sealed abstract class HasTxNodes {
 
   def roots: ImmArray[NodeId]
 
+  /** Computes a mapping to normalize NodeIds in the transaction, ensuring they are sequential,
+    * starting from zero and incrementing by one, based on the order in which nodes are visited
+    * during a pre-order traversal of the transaction tree.
+    */
+  final def nodeIdNormalization: Map[NodeId, NodeId] =
+    fold(Map.empty[NodeId, NodeId]) { case (remapping, (oldNodeId, _)) =>
+      remapping.updated(oldNodeId, NodeId(remapping.size))
+    }
+
   // We assume that rollback node cannot be a root of a transaction.
   // This is correct for an unprojected transaction. For a project transaction,
   // Canton handles rollback nodes itself so this is assumption still holds
