@@ -18,23 +18,15 @@ final case class VersionedTransaction private[lf] (
     version: SerializationVersion,
     nodes: Map[NodeId, Node],
     override val roots: ImmArray[NodeId],
-) extends HasTxNodes
+) extends HasTxNodes[VersionedTransaction]
     with value.CidContainer[VersionedTransaction]
     with NoCopy {
 
-  override def mapCid(f: ContractId => ContractId): VersionedTransaction =
-    VersionedTransaction(
-      version,
-      nodes = nodes.map { case (nodeId, node) => nodeId -> node.mapCid(f) },
-      roots,
-    )
-
-  def mapNodeId(f: NodeId => NodeId): VersionedTransaction =
-    VersionedTransaction(
-      version,
-      nodes.map { case (nodeId, node) => f(nodeId) -> node.mapNodeId(f) },
-      roots.map(f),
-    )
+  override protected def updated(
+      nodes: Map[NodeId, Node],
+      roots: ImmArray[NodeId],
+  ): VersionedTransaction =
+    VersionedTransaction(version, nodes, roots)
 
   // O(1)
   def transaction: Transaction =
@@ -57,18 +49,13 @@ final case class VersionedTransaction private[lf] (
 final case class Transaction(
     nodes: Map[NodeId, Node],
     roots: ImmArray[NodeId],
-) extends HasTxNodes
+) extends HasTxNodes[Transaction]
     with value.CidContainer[Transaction] {
 
   import Transaction._
 
-  override def mapCid(f: ContractId => ContractId): Transaction =
-    copy(nodes = nodes.map { case (nodeId, node) => nodeId -> node.mapCid(f) })
-  def mapNodeId(f: NodeId => NodeId): Transaction =
-    copy(
-      nodes = nodes.map { case (nodeId, node) => f(nodeId) -> node.mapNodeId(f) },
-      roots = roots.map(f),
-    )
+  override protected def updated(nodes: Map[NodeId, Node], roots: ImmArray[NodeId]): Transaction =
+    Transaction(nodes, roots)
 
   /** This function checks the following properties:
     *
@@ -244,13 +231,27 @@ final case class Transaction(
    */
 }
 
-sealed abstract class HasTxNodes {
+sealed abstract class HasTxNodes[Tx] {
 
   import Transaction.{KeyInput, ChildrenRecursion}
 
   def nodes: Map[NodeId, Node]
 
   def roots: ImmArray[NodeId]
+
+  protected def updated(nodes: Map[NodeId, Node], roots: ImmArray[NodeId]): Tx
+
+  final def mapCid(f: ContractId => ContractId): Tx =
+    updated(
+      nodes = nodes.map { case (nodeId, node) => nodeId -> node.mapCid(f) },
+      roots,
+    )
+
+  final def mapNodeId(f: NodeId => NodeId): Tx =
+    updated(
+      nodes.map { case (nodeId, node) => f(nodeId) -> node.mapNodeId(f) },
+      roots.map(f),
+    )
 
   /** Computes a mapping to normalize NodeIds in the transaction, ensuring they are sequential,
     * starting from zero and incrementing by one, based on the order in which nodes are visited
