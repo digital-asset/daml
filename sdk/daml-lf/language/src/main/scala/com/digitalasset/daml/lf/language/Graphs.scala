@@ -74,4 +74,17 @@ object Graphs {
     }
     go(Set(startNode), Set.empty[A])
   }
+
+  /*
+   * Computes the transitive closure of a directed graph.
+   * The graph is represented as a map from a node to a set of its direct neighbors.
+   *
+   * @param g The graph, represented as an adjacency map.
+   * @tparam A The type of the nodes in the graph.
+   * @return A new graph where each node maps to the set of all nodes reachable from it.
+   */
+  def transitiveClosure[A](g: Graph[A]): Graph[A] = {
+    val allVertices = g.keySet ++ g.values.flatten
+    allVertices.view.map(u => u -> transitiveClosure(g, u)).toMap
+  }
 }
