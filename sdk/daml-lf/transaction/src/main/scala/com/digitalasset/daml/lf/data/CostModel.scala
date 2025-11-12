@@ -364,7 +364,7 @@ private[lf] object CostModel {
           costOfSet(signatories) +
           costOfSet(stakeholders) +
           costOfOption(keyOpt) +
-          costOfLanguageVersion(version)
+          costOfSerializationVersion(version)
       case Node.Fetch(
             coid,
             packageName,
@@ -386,13 +386,13 @@ private[lf] object CostModel {
           costOfOption(keyOpt) +
           costOfBoolean(byKey) +
           costOfOption(interfaceId) +
-          costOfLanguageVersion(version)
+          costOfSerializationVersion(version)
       case Node.LookupByKey(packageName, templateId, key, result, version) =>
         1 + costOfString(packageName) +
           costOfIdentifier(templateId) +
           costOfGlobalKeyWithMaintainers(key) +
           costOfOption(result) +
-          costOfLanguageVersion(version)
+          costOfSerializationVersion(version)
       case Node.Exercise(
             targetCoid,
             packageName,
@@ -428,7 +428,7 @@ private[lf] object CostModel {
           costOfOption(exerciseResult) +
           costOfOption(keyOpt) +
           costOfBoolean(byKey) +
-          costOfLanguageVersion(version)
+          costOfSerializationVersion(version)
       case Node.Rollback(children) =>
         1 + costOfImmArray(children)
     }
