@@ -382,7 +382,10 @@ class EngineTest(majorLanguageVersion: LanguageVersion.Major, contractIdVersion:
     }
 
     "be validated with no change in metrics" in {
-      def newMetricPlugins() = Seq(new StepCount(42), new TxNodeCount)
+      def newMetricPlugins() = Seq(
+        new StepCount(suffixLenientEngine.config.iterationsBetweenInterruptions),
+        new TxNodeCount,
+      )
 
       val sharedEngine = suffixLenientEngine
       val freshEngine1 = newEngine()
