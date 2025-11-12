@@ -18,7 +18,7 @@ final case class LanguageVersion private (
   }
 }
 
-object LanguageVersion extends LanguageVersionGenerated {
+object LanguageVersion extends LanguageFeaturesGenerated {
   sealed abstract class Major(val major: Int)
       extends Product
       with Serializable
@@ -82,6 +82,13 @@ object LanguageVersion extends LanguageVersionGenerated {
     def assertFromString(s: String): Minor = data.assertRight(fromString(s))
   }
 
+  final case class Feature( name: String,
+                            versionReq: VersionRange[LanguageVersion],
+                            cppFlag: String
+                          ) {
+    def enabledIn(lv: LanguageVersion): Boolean = versionReq.contains(lv)
+  }
+
   def fromString(str: String): Either[String, LanguageVersion] =
     (allLegacyLfVersions ++ allLfVersions)
       .find(_.toString == str)
@@ -91,7 +98,7 @@ object LanguageVersion extends LanguageVersionGenerated {
   // TODO: remove after feature rework
   def supportsPackageUpgrades(lv: LanguageVersion): Boolean =
     lv.major match {
-      case Major.V2 => lv >= Features.packageUpgrades
+      case Major.V2 => featurePackageUpgrades.enabledIn(lv)
       case Major.V1 => lv >= LegacyFeatures.packageUpgrades
     }
 
