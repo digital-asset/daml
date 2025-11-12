@@ -658,14 +658,14 @@ class MapImpl<K, V> implements Map<K, V> {
     return _.cloneDeep(this._values[this._idx(k)]);
   }
   set(k: K, v: V): Map<K, V> {
-    if (this.has(k)) {
+    const index = this._idx(k);
+    if (index !== -1) {
       const cpy = this._kvs.slice();
-      cpy[this._idx(k)] = _.cloneDeep([k, v]);
+      cpy[index] = _.cloneDeep([k, v]);
       return new MapImpl(cpy);
-    } else {
-      const head: [K, V][] = _.cloneDeep([[k, v]]);
-      return new MapImpl(head.concat(this._kvs));
     }
+    const head: [K, V][] = _.cloneDeep([[k, v]]);
+    return new MapImpl(head.concat(this._kvs));
   }
   delete(k: K): Map<K, V> {
     const i = this._idx(k);
