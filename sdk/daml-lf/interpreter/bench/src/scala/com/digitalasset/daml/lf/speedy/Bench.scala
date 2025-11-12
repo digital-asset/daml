@@ -182,8 +182,8 @@ object Bench {
     }
 
     def update(metrics: Speedy.Metrics): Unit = {
-      stepCount += metrics.totalCount[Speedy.StepCount].get
-      transactionNodeCount += metrics.totalCount[Speedy.TxNodeCount].get
+      stepCount += metrics.totalCount[StepCount].get
+      transactionNodeCount += metrics.totalCount[TxNodeCount].get
     }
   }
 }

@@ -196,6 +196,7 @@ private[speedy] object SpeedyTestLib {
           initialGasBudget = None,
           initialKontStackSize = 128,
           initialEnvSize = 512,
+          metricPlugins = Seq.empty,
         )
 
       private[speedy] def withLocalContractKey(
