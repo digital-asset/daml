@@ -10,6 +10,7 @@ packages:
   - optparse-applicative-0.17.1.0
   - proto3-wire-1.2.2
   - tasty-1.5.3
+  - fast-logger-3.1.2
 
 # We drop the Win32 package from the stack snapshot so that stack considers it a toolchain library.
 # In this case we will use the Win32 provided by the compiler instead of recompiling it.
