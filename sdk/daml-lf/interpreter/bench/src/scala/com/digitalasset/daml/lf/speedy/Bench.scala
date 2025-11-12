@@ -5,6 +5,7 @@ package com.digitalasset.daml.lf
 package speedy
 
 import com.daml.logging.LoggingContext
+import com.digitalasset.daml.lf.speedy.metrics.{StepCount, TxNodeCount}
 import com.digitalasset.daml.lf.testing.parser._
 import org.openjdk.jmh.annotations._
 
@@ -22,6 +23,9 @@ class Bench {
 
   implicit def parserParameters: ParserParameters[this.type] =
     ParserParameters.default
+
+  private[this] val metricPlugins = Seq(new StepCount(42), new TxNodeCount) // FIXME:
+
   private[this] def defaultPackageId = parserParameters.defaultPackageId
 
   private[this] def pkg = {
@@ -152,9 +156,7 @@ class Bench {
   @Benchmark
   def bench(counters: Bench.EventCounter): SValue = {
     counters.reset()
-    machine = Speedy.Machine.fromPureSExpr(compiledPackages, sexpr)
-    machine.metrics.register(new Speedy.StepCount(machine.iterationsBetweenInterruptions))
-    machine.metrics.register(new Speedy.TxNodeCount)
+    machine = Speedy.Machine.fromPureSExpr(compiledPackages, sexpr, metricPlugins = metricPlugins)
     machine.setExpressionToEvaluate(sexpr)
     machine.run() match {
       case SResult.SResultFinal(v) =>

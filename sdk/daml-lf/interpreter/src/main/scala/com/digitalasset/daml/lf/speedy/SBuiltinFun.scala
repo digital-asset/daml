@@ -14,6 +14,7 @@ import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.data.support._
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.Ast
+import com.digitalasset.daml.lf.speedy.metrics.TxNodeCount
 import com.digitalasset.daml.lf.speedy.SError._
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SValue.{SValue => SV, _}

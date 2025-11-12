@@ -8,6 +8,7 @@ import com.digitalasset.daml.lf.archive.{ArchiveDecoder, DarDecoder}
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
 import com.digitalasset.daml.lf.engine.{Engine, EngineConfig, Error}
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
+import com.digitalasset.daml.lf.speedy.metrics.{StepCount, TxNodeCount}
 import com.digitalasset.daml.lf.speedy.Speedy
 import com.digitalasset.daml.lf.testing.snapshot.Snapshot.SubmissionEntry.EntryCase
 import com.digitalasset.daml.lf.transaction.Transaction.ChildrenRecursion
@@ -46,6 +47,8 @@ final case class TransactionSnapshot(
 
   private[this] implicit def loggingContext: LoggingContext = LoggingContext.ForTesting
 
+  private[this] val metricPlugins = Seq(new StepCount(42), new TxNodeCount) // FIXME:
+
   private[this] lazy val engine =
     TransactionSnapshot.compile(pkgs, profileDir, gasBudget = gasBudget)
 
@@ -59,6 +62,7 @@ final case class TransactionSnapshot(
         preparationTime,
         submissionSeed,
         contractIdVersion,
+        metricPlugins = metricPlugins,
       )
       .consume(contracts, pkgs, contractKeys)
       .map { case (_, _, metrics) => metrics }
@@ -73,6 +77,7 @@ final case class TransactionSnapshot(
         preparationTime,
         submissionSeed,
         contractIdVersion,
+        metricPlugins = metricPlugins,
       )
       .consume(contracts, pkgs, contractKeys)
 

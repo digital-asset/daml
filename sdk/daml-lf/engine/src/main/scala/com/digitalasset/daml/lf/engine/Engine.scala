@@ -11,6 +11,7 @@ import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.interpretation.{Error => IError}
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language._
+import com.digitalasset.daml.lf.speedy.metrics.MetricPlugin
 import com.digitalasset.daml.lf.speedy.Question.Update
 import com.digitalasset.daml.lf.speedy.SBuiltinFun.SBFetchTemplate
 import com.digitalasset.daml.lf.speedy.SExpr.{SEApp, SEMakeClo, SEValue, SExpr}
@@ -265,6 +266,7 @@ class Engine(val config: EngineConfig) {
       contractIdVersion: ContractIdVersion,
       packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
       engineLogger: Option[EngineLogger] = None,
+      metricPlugins: Seq[MetricPlugin] = Seq.empty,
   )(implicit
       loggingContext: LoggingContext
   ): Result[(SubmittedTransaction, Tx.Metadata, Speedy.Metrics)] =
@@ -282,6 +284,7 @@ class Engine(val config: EngineConfig) {
         packageResolution = packageResolution,
         engineLogger = engineLogger,
         submissionInfo = None,
+        metricPlugins = metricPlugins,
       )
     } yield result
 
@@ -307,6 +310,7 @@ class Engine(val config: EngineConfig) {
       preparationTime: Time.Timestamp,
       submissionSeed: crypto.Hash,
       contractIdVersion: ContractIdVersion,
+      metricPlugins: Seq[MetricPlugin] = Seq.empty,
   )(implicit loggingContext: LoggingContext): Result[Unit] = {
     validateAndCollectMetrics(
       submitters,
@@ -316,6 +320,7 @@ class Engine(val config: EngineConfig) {
       preparationTime,
       submissionSeed,
       contractIdVersion,
+      metricPlugins,
     ).map(_ => ())
   }
 
@@ -327,6 +332,7 @@ class Engine(val config: EngineConfig) {
       preparationTime: Time.Timestamp,
       submissionSeed: crypto.Hash,
       contractIdVersion: ContractIdVersion,
+      metricPlugins: Seq[MetricPlugin],
   )(implicit loggingContext: LoggingContext): Result[Speedy.Metrics] = {
     // reinterpret
     for {
@@ -338,6 +344,7 @@ class Engine(val config: EngineConfig) {
         preparationTime,
         submissionSeed,
         contractIdVersion,
+        metricPlugins = metricPlugins,
       )
       (rtx, _, metrics) = result
       validationResult <-
@@ -405,6 +412,7 @@ class Engine(val config: EngineConfig) {
       packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
       engineLogger: Option[EngineLogger] = None,
       submissionInfo: Option[Engine.SubmissionInfo] = None,
+      metricPlugins: Seq[MetricPlugin] = Seq.empty,
   )(implicit
       loggingContext: LoggingContext
   ): Result[(SubmittedTransaction, Tx.Metadata, Speedy.Metrics)] =
@@ -425,6 +433,7 @@ class Engine(val config: EngineConfig) {
         packageResolution,
         engineLogger,
         submissionInfo,
+        metricPlugins,
       )
     } yield result
 
@@ -448,6 +457,7 @@ class Engine(val config: EngineConfig) {
       packageResolution: Map[Ref.PackageName, Ref.PackageId],
       engineLogger: Option[EngineLogger] = None,
       submissionInfo: Option[Engine.SubmissionInfo] = None,
+      metricPlugins: Seq[MetricPlugin] = Seq.empty,
   )(implicit
       loggingContext: LoggingContext
   ): Result[(SubmittedTransaction, Tx.Metadata, Speedy.Metrics)] = {
@@ -468,6 +478,7 @@ class Engine(val config: EngineConfig) {
       limits = config.limits,
       iterationsBetweenInterruptions = config.iterationsBetweenInterruptions,
       initialGasBudget = config.gasBudget,
+      metricPlugins = metricPlugins,
     )
     interpretLoop(machine, ledgerTime, submissionInfo)
   }
