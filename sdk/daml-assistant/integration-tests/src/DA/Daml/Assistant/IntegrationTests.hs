@@ -4,6 +4,8 @@ module DA.Daml.Assistant.IntegrationTests (main) where
 
 {- HLINT ignore "locateRunfiles/package_app" -}
 
+-- import Control.Concurrent
+
 import Control.Lens
 import Control.Monad
 import qualified Data.Aeson as Aeson
@@ -38,6 +40,8 @@ main :: IO ()
 main = withSdkVersions $ do
     yarn : args <- getArgs
     withTempDir $ \tmpDir -> do
+        createDirectory $ tmpDir </> "daml"
+        createDirectory $ tmpDir </> "dpm"
         oldPath <- getSearchPath
         javaPath <- locateRunfiles "local_jdk/bin"
         yarnPath <- takeDirectory <$> locateRunfiles (mainWorkspace </> yarn)
@@ -146,6 +150,13 @@ writeStartProject projDir packageName = do
             , "test x = pure (x, x + 1)"
             ]
 
+-- Gives a platform agnostic dev null (tmp file) and cleanup action
+newDevNull :: IO (Handle, IO ())
+newDevNull = do
+  (devNullFile, removeDevNullFile) <- newTempFile
+  devNull <- openFile devNullFile WriteMode
+  pure (devNull, hClose devNull >> removeDevNullFile)
+
 damlStart :: SdkVersioned => FilePath -> IO DamlStartResource
 damlStart tmpDir = do
     let projDir = tmpDir </> "daml-integration-tests"
@@ -154,6 +165,9 @@ damlStart tmpDir = do
     ports <- sandboxPorts
     jsonApiPort <- getFreePort
     env <- subprocessEnv []
+    -- We need to dev-null the start output as it forwards cantons output
+    -- if we simply create a pipe, we'd need to manually drain it else it'd fill up and crash canton
+    (devNull, cleanupDevNull) <- newDevNull
     let startProc =
             (shell $ unwords
                 [ "daml start"
@@ -164,8 +178,8 @@ damlStart tmpDir = do
                 , "--sandbox-mediator-admin-port", show $ mediatorAdmin ports
                 , "--json-api-port", show jsonApiPort
                 ]
-            ) {std_in = CreatePipe, std_out = CreatePipe, cwd = Just projDir, create_group = True, env = Just env}
-    (Just _, Just _, _, startPh) <- createProcess startProc
+            ) {std_in = CreatePipe, std_out = UseHandle devNull, cwd = Just projDir, create_group = True, env = Just env}
+    (Just _, _, _, startPh) <- createProcess startProc
     let scriptOutputFile = "script-output.json"
     scriptOutput <- readPortFileWith Just startPh maxRetries (projDir </> scriptOutputFile)
     let alice = (read scriptOutput :: String)
@@ -178,7 +192,9 @@ damlStart tmpDir = do
             , jsonApiPort = jsonApiPort
             , alice = alice
             , aliceHeaders = authorizationHeaders "alice"
-            , stop = interruptProcessGroupOf startPh
+            , stop = do
+                interruptProcessGroupOf startPh
+                cleanupDevNull
             }
 
 -- DPM doesn't have dpm start, so instead we'll use `dpm build`, `dpm sandbox --dar`, `dpm codegen` and `dpm script` to replicate the workflow
@@ -236,44 +252,45 @@ dpmStart tmpDir = do
 
 tests :: SdkVersioned => FilePath -> TestTree
 tests tmpDir =
-  testGroup
+  sequentialTestGroup
     "Integration tests"
+    AllFinish
     [ withSdkResource $ \_ ->
         testGroup
           "Daml Assistant"
           [ testCase "daml version" $
-              callCommandSilentIn tmpDir "daml version"
+              callCommandSilentIn damlDir "daml version"
           , testCase "daml --help" $
-              callCommandSilentIn tmpDir "daml --help"
+              callCommandSilentIn damlDir "daml --help"
           , testCase "daml new --list" $
-              callCommandSilentIn tmpDir "daml new --list"
-          , packagingTests Daml tmpDir
-          , withResource (damlStart (tmpDir </> "sandbox-canton-1")) stop (damlStartTests Daml)
-          , cleanTests Daml cleanDir
+              callCommandSilentIn damlDir "daml new --list"
+          , packagingTests Daml damlDir
+          , withResource (damlStart (damlDir </> "sandbox-canton-1")) stop (damlStartTests Daml)
+          , cleanTests Daml $ damlDir </> "clean"
           , templateTests Daml
-          , codegenTests Daml codegenDir
+          , codegenTests Daml $ damlDir </> "codegen"
           , cantonTests Daml
           ]
     , withDpmSdkResource $ \_ ->
         testGroup
           "DPM"
           [ testCase "dpm version" $
-              callCommandSilentIn tmpDir "dpm version"
+              callCommandSilentIn dpmDir "dpm version"
           , testCase "dpm --help" $
-              callCommandSilentIn tmpDir "dpm --help"
+              callCommandSilentIn dpmDir "dpm --help"
           , testCase "dpm new --list" $
-              callCommandSilentIn tmpDir "dpm new --list"
-          , packagingTests DPM tmpDir
-          , withResource (dpmStart (tmpDir </> "sandbox-canton-1")) stop (damlStartTests DPM)
-          , cleanTests DPM cleanDir
+              callCommandSilentIn dpmDir "dpm new --list"
+          , packagingTests DPM dpmDir
+          , withResource (dpmStart (dpmDir </> "sandbox-canton-1")) stop (damlStartTests DPM)
+          , cleanTests DPM $ dpmDir </> "clean"
           , templateTests DPM
-          , codegenTests DPM codegenDir
+          , codegenTests DPM $ dpmDir </> "codegen"
           , cantonTests DPM
           ]
     ]
   where
-    cleanDir = tmpDir </> "clean"
-    codegenDir = tmpDir </> "codegen"
+    damlDir = tmpDir </> "daml"
+    dpmDir = tmpDir </> "dpm"
 
 -- Most of the packaging tests are in the a separate test suite in
 -- //compiler/damlc/tests:packaging. This only has a couple of
@@ -648,6 +665,7 @@ templateTests assistant = testGroup "templates" $
             callCommandSilentIn tmpDir $ unwords [show assistant, "new", dir, "quickstart-java"]
             contents <- readFileUTF8 $ dir </> "daml.yaml"
             assertInfixOf "name: quickstart" contents
+    | assistant == Daml -- Removed old syntax for DPM
     ]
   -- NOTE (MK) We might want to autogenerate this list at some point but for now
   -- this should be good enough.
