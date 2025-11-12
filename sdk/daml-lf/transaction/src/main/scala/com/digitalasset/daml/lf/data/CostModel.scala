@@ -6,12 +6,14 @@ package lf
 package data
 
 import com.digitalasset.daml.lf.command.ApiContractKey
+import com.digitalasset.daml.lf.{transaction => tx}
 import com.digitalasset.daml.lf.transaction.{
   CreationTime,
   FatContractInstance,
   FatContractInstanceImpl,
   GlobalKey,
   GlobalKeyWithMaintainers,
+  Node,
   SerializationVersion,
 }
 import com.digitalasset.daml.lf.value.Value
@@ -47,6 +49,8 @@ private[lf] object CostModel {
     implicit def costOfLong(value: Long): Cost
 
     implicit def costOfUnit(value: Unit): Cost
+
+    implicit def costOfBoolean(value: Boolean): Cost
 
     implicit def costOfValue(value: Value): Cost
 
@@ -87,6 +91,10 @@ private[lf] object CostModel {
     implicit def costOfSet[A](value: Set[A])(implicit elemCost: A => Cost): Cost
 
     implicit def costOfTreeSet[A](value: TreeSet[A])(implicit elemCost: A => Cost): Cost
+
+    implicit def costOfNodeId(value: tx.NodeId): Cost
+
+    implicit def costOfTxNode(value: tx.Node): Cost
   }
 
   object EmptyCostModelImplicits extends CostModelImplicits {
@@ -113,6 +121,8 @@ private[lf] object CostModel {
     implicit def costOfLong(value: Long): Cost = 0L
 
     implicit def costOfUnit(value: Unit): Cost = 0L
+
+    implicit def costOfBoolean(value: Boolean): Cost = 0L
 
     implicit def costOfValue(value: Value): Cost = 0L
 
@@ -154,6 +164,10 @@ private[lf] object CostModel {
     implicit def costOfSet[A](value: Set[A])(implicit elemCost: A => Cost): Cost = 0L
 
     implicit def costOfTreeSet[A](value: TreeSet[A])(implicit elemCost: A => Cost): Cost = 0L
+
+    implicit def costOfNodeId(value: tx.NodeId): Cost = 0L
+
+    implicit def costOfTxNode(value: tx.Node): Cost = 0L
   }
 
   object StructuralCostModelImplicits extends CostModelImplicits {
@@ -182,7 +196,9 @@ private[lf] object CostModel {
 
     implicit def costOfLong(value: Long): Cost = 8
 
-    implicit def costOfUnit(value: Unit): Cost = 0
+    implicit def costOfUnit(value: Unit): Cost = 1
+
+    implicit def costOfBoolean(value: Boolean): Cost = 1
 
     implicit def costOfValue(value: Value): Cost = value match {
       case Value.ValueBool(_) =>
@@ -326,5 +342,95 @@ private[lf] object CostModel {
 
     implicit def costOfTreeSet[A](value: TreeSet[A])(implicit elemCost: A => Cost): Cost =
       1 + value.map(elemCost).sum.toLong
+
+    implicit def costOfNodeId(value: tx.NodeId): Cost =
+      1 + costOfInt(value.index)
+
+    implicit def costOfTxNode(value: tx.Node): Cost = value match {
+      case Node.Create(
+            coid,
+            packageName,
+            templateId,
+            arg,
+            signatories,
+            stakeholders,
+            keyOpt,
+            version,
+          ) =>
+        1 + costOfContractId(coid) +
+          costOfString(packageName) +
+          costOfIdentifier(templateId) +
+          costOfValue(arg) +
+          costOfSet(signatories) +
+          costOfSet(stakeholders) +
+          costOfOption(keyOpt) +
+          costOfSerializationVersion(version)
+      case Node.Fetch(
+            coid,
+            packageName,
+            templateId,
+            actingParties,
+            signatories,
+            stakeholders,
+            keyOpt,
+            byKey,
+            interfaceId,
+            version,
+          ) =>
+        1 + costOfContractId(coid) +
+          costOfString(packageName) +
+          costOfIdentifier(templateId) +
+          costOfSet(actingParties) +
+          costOfSet(signatories) +
+          costOfSet(stakeholders) +
+          costOfOption(keyOpt) +
+          costOfBoolean(byKey) +
+          costOfOption(interfaceId) +
+          costOfSerializationVersion(version)
+      case Node.LookupByKey(packageName, templateId, key, result, version) =>
+        1 + costOfString(packageName) +
+          costOfIdentifier(templateId) +
+          costOfGlobalKeyWithMaintainers(key) +
+          costOfOption(result) +
+          costOfSerializationVersion(version)
+      case Node.Exercise(
+            targetCoid,
+            packageName,
+            templateId,
+            interfaceId,
+            choiceId,
+            consuming,
+            actingParties,
+            chosenValue,
+            stakeholders,
+            signatories,
+            choiceObservers,
+            choiceAuthorizers,
+            children,
+            exerciseResult,
+            keyOpt,
+            byKey,
+            version,
+          ) =>
+        1 + costOfContractId(targetCoid) +
+          costOfString(packageName) +
+          costOfIdentifier(templateId) +
+          costOfOption(interfaceId) +
+          costOfString(choiceId) +
+          costOfBoolean(consuming) +
+          costOfSet(actingParties) +
+          costOfValue(chosenValue) +
+          costOfSet(stakeholders) +
+          costOfSet(signatories) +
+          costOfSet(choiceObservers) +
+          costOfOption(choiceAuthorizers) +
+          costOfImmArray(children) +
+          costOfOption(exerciseResult) +
+          costOfOption(keyOpt) +
+          costOfBoolean(byKey) +
+          costOfSerializationVersion(version)
+      case Node.Rollback(children) =>
+        1 + costOfImmArray(children)
+    }
   }
 }
