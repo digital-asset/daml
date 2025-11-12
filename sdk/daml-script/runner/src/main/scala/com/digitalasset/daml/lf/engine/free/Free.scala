@@ -370,8 +370,7 @@ private[lf] object Free {
     val knownPackages: Map[String, Ref.PackageId] = (for {
       entry <- compiledPackages.signatures.view
       (pkgId, pkg) = entry
-      md = pkg.metadata
-    } yield (s"${md.name}-${md.version}" -> pkgId)).toMap
+    } yield (pkg.metadata.nameDashVersion -> pkgId)).toMap
 
   }
 }
