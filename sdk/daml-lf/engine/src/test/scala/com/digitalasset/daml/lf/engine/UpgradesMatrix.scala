@@ -203,7 +203,7 @@ class UpgradesMatrixCases(
     val pkg = p"${pkgSrc}" (parserParameters(pkgId))
     val archive = Encode.encodeArchive(pkgId -> pkg, lfVersion)
     val computedPkgId = PackageId.assertFromString(archive.getHash)
-    val dalfName = s"${pkg.metadata.name}-${pkg.metadata.version}-$computedPkgId.dalf"
+    val dalfName = s"${pkg.metadata.nameDashVersion}-$computedPkgId.dalf"
     val updatedPkg = (new AstRewriter(packageIdRule = { case `pkgId` => computedPkgId })).apply(pkg)
     (dalfName, archive, updatedPkg, computedPkgId)
   }

@@ -322,6 +322,8 @@ object Ref {
       assertRight(fromString(s))
   }
 
+  final case class ModuleId(pkg: PackageId, moduleName: ModuleName)
+
   type TypeConRef = FullReference[PackageRef]
   val TypeConRef = new FullReferenceCompanion[PackageRef] {
     override def pkgFromString(s: String): Either[String, PackageRef] = PackageRef.fromString(s)
