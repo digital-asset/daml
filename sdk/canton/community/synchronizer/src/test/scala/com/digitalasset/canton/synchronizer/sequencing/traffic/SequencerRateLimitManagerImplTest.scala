@@ -46,7 +46,7 @@ import java.util.UUID
 import scala.concurrent.Future
 import scala.language.implicitConversions
 
-class EnterpriseSequencerRateLimitManagerTest
+class SequencerRateLimitManagerImplTest
     extends FixtureAsyncWordSpec
     with BaseTest
     with HasExecutionContext

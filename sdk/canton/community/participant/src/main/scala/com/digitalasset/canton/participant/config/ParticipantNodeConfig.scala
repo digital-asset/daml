@@ -33,7 +33,6 @@ import com.digitalasset.canton.platform.indexer.IndexerConfig
 import com.digitalasset.canton.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
 import com.digitalasset.canton.store.PrunableByTimeParameters
-import com.digitalasset.canton.topology.client.TopologyClientConfig
 import com.digitalasset.canton.version.{ParticipantProtocolVersion, ProtocolVersion}
 import io.grpc.netty.shaded.io.netty.handler.ssl.SslContext
 import monocle.macros.syntax.lens.*
@@ -89,7 +88,6 @@ final case class ParticipantNodeConfig(
     testingTime: Option[TestingTimeServiceConfig] = None,
     override val parameters: ParticipantNodeParameterConfig = ParticipantNodeParameterConfig(),
     override val sequencerClient: SequencerClientConfig = SequencerClientConfig(),
-    override val topologyClient: TopologyClientConfig = TopologyClientConfig(),
     replication: Option[ReplicationConfig] = None,
     features: ParticipantFeaturesConfig = ParticipantFeaturesConfig.default,
     override val monitoring: NodeMonitoringConfig = NodeMonitoringConfig(),

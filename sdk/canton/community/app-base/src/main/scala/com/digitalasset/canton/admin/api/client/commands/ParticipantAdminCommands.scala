@@ -783,11 +783,10 @@ object ParticipantAdminCommands {
     final case class ImportAcsOld(
         acsChunk: ByteString,
         workflowIdPrefix: String,
-        allowContractIdSuffixRecomputation: Boolean,
     ) extends GrpcAdminCommand[
           v30.ImportAcsOldRequest,
           v30.ImportAcsOldResponse,
-          Map[LfContractId, LfContractId],
+          Unit,
         ] {
 
       override type Svc = ParticipantRepairServiceStub
@@ -800,7 +799,6 @@ object ParticipantAdminCommands {
           v30.ImportAcsOldRequest(
             acsChunk,
             workflowIdPrefix,
-            allowContractIdSuffixRecomputation,
           )
         )
 
@@ -814,22 +812,13 @@ object ParticipantAdminCommands {
             v30.ImportAcsOldRequest(
               ByteString.copyFrom(bytes),
               workflowIdPrefix,
-              allowContractIdSuffixRecomputation,
             ),
           request.acsSnapshot,
         )
 
       override protected def handleResponse(
           response: v30.ImportAcsOldResponse
-      ): Either[String, Map[LfContractId, LfContractId]] =
-        response.contractIdMapping.toSeq
-          .traverse { case (oldCid, newCid) =>
-            for {
-              oldCidParsed <- LfContractId.fromString(oldCid)
-              newCidParsed <- LfContractId.fromString(newCid)
-            } yield oldCidParsed -> newCidParsed
-          }
-          .map(_.toMap)
+      ): Either[String, Unit] = Right(())
     }
 
     final case class ExportAcs(
@@ -893,7 +882,7 @@ object ParticipantAdminCommands {
     ) extends GrpcAdminCommand[
           v30.ImportAcsRequest,
           v30.ImportAcsResponse,
-          Map[LfContractId, LfContractId],
+          Unit,
         ] {
 
       override type Svc = ParticipantRepairServiceStub
@@ -931,15 +920,7 @@ object ParticipantAdminCommands {
 
       override protected def handleResponse(
           response: v30.ImportAcsResponse
-      ): Either[String, Map[LfContractId, LfContractId]] =
-        response.contractIdMappings.toSeq
-          .traverse { case (oldCid, newCid) =>
-            for {
-              oldCidParsed <- LfContractId.fromString(oldCid)
-              newCidParsed <- LfContractId.fromString(newCid)
-            } yield oldCidParsed -> newCidParsed
-          }
-          .map(_.toMap)
+      ): Either[String, Unit] = Right(())
     }
 
     final case class PurgeContracts(

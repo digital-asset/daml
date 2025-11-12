@@ -24,7 +24,6 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.{
   StoreBasedSynchronizerTopologyClient,
   SynchronizerTopologyClientWithInit,
-  TopologyClientConfig,
 }
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.*
@@ -128,7 +127,7 @@ class StoreBasedSynchronizerOutboxTest
       defaultStaticSynchronizerParameters,
       store = target,
       packageDependencyResolver = NoPackageDependencies,
-      TopologyClientConfig(),
+      topologyConfig = TopologyConfig(),
       timeouts = timeouts,
       futureSupervisor = futureSupervisor,
       loggerFactory.append("store", "Synchronizer"),

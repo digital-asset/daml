@@ -33,7 +33,7 @@ import com.digitalasset.canton.synchronizer.sequencer.traffic.{
   SequencerRateLimitManager,
   SequencerTrafficConfig,
 }
-import com.digitalasset.canton.synchronizer.sequencing.traffic.EnterpriseSequencerRateLimitManager.*
+import com.digitalasset.canton.synchronizer.sequencing.traffic.SequencerRateLimitManagerImpl.*
 import com.digitalasset.canton.synchronizer.sequencing.traffic.store.TrafficConsumedStore
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{MediatorId, Member, ParticipantId, SequencerId}
@@ -45,7 +45,7 @@ import com.google.common.annotations.VisibleForTesting
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.ExecutionContext
 
-class EnterpriseSequencerRateLimitManager(
+class SequencerRateLimitManagerImpl(
     @VisibleForTesting
     private[canton] val trafficPurchasedManager: TrafficPurchasedManager,
     override val trafficConsumedStore: TrafficConsumedStore,
@@ -823,7 +823,7 @@ class EnterpriseSequencerRateLimitManager(
       .map(_ => trafficConsumedPerMember.clear())
 }
 
-object EnterpriseSequencerRateLimitManager {
+object SequencerRateLimitManagerImpl {
 
   /** Wrapper class for a cost that is has been validated with the provided parameters and can be
     * consumed. Note that the cost might actually be greater than the cost computed with the

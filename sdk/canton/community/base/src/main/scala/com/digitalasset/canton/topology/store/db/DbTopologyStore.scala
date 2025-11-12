@@ -24,6 +24,7 @@ import com.digitalasset.canton.topology.store.*
 import com.digitalasset.canton.topology.store.StoredTopologyTransaction.GenericStoredTopologyTransaction
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.{
   GenericStoredTopologyTransactions,
+  NegativeStoredTopologyTransactions,
   PositiveStoredTopologyTransactions,
 }
 import com.digitalasset.canton.topology.store.TopologyStore.{
@@ -452,6 +453,24 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       filterNamespace,
       TopologyChangeOp.Replace.some,
     ).map(_.collectOfType[TopologyChangeOp.Replace])
+
+  override def findNegativeTransactions(
+      asOf: CantonTimestamp,
+      asOfInclusive: Boolean,
+      isProposal: Boolean,
+      types: Seq[TopologyMapping.Code],
+      filterUid: Option[NonEmpty[Seq[UniqueIdentifier]]],
+      filterNamespace: Option[NonEmpty[Seq[Namespace]]],
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[NegativeStoredTopologyTransactions] =
+    findTransactionsBatchingUidFilter(
+      asOf,
+      asOfInclusive,
+      isProposal,
+      types.toSet,
+      filterUid,
+      filterNamespace,
+      TopologyChangeOp.Remove.some,
+    ).map(_.collectOfType[TopologyChangeOp.Remove])
 
   override def findFirstSequencerStateForSequencer(sequencerId: SequencerId)(implicit
       traceContext: TraceContext

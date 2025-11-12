@@ -14,7 +14,6 @@ import com.digitalasset.canton.config.{
 }
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.canton.topology.client.TopologyClientConfig
 import com.digitalasset.canton.tracing.TracingConfig
 
 trait CantonNodeParameters extends CantonNodeParameters.General with CantonNodeParameters.Protocol
@@ -28,7 +27,6 @@ object CantonNodeParameters {
     def enablePreviewFeatures: Boolean
     def processingTimeouts: ProcessingTimeout
     def sequencerClient: SequencerClientConfig
-    def topologyClient: TopologyClientConfig
     def cachingConfigs: CachingConfigs
     def batchingConfig: BatchingConfig
     def nonStandardConfig: Boolean
@@ -47,7 +45,6 @@ object CantonNodeParameters {
         override val enablePreviewFeatures: Boolean,
         override val processingTimeouts: ProcessingTimeout,
         override val sequencerClient: SequencerClientConfig,
-        override val topologyClient: TopologyClientConfig,
         override val cachingConfigs: CachingConfigs,
         override val batchingConfig: BatchingConfig,
         override val nonStandardConfig: Boolean,
@@ -82,7 +79,6 @@ trait HasGeneralCantonNodeParameters extends CantonNodeParameters.General {
   override def loggingConfig: LoggingConfig = general.loggingConfig
   override def enableAdditionalConsistencyChecks: Boolean =
     general.enableAdditionalConsistencyChecks
-  override def topologyClient: TopologyClientConfig = general.topologyClient
   override def enablePreviewFeatures: Boolean = general.enablePreviewFeatures
   override def processingTimeouts: ProcessingTimeout = general.processingTimeouts
   override def sequencerClient: SequencerClientConfig = general.sequencerClient

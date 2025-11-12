@@ -28,6 +28,7 @@ import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime
 import com.digitalasset.canton.topology.store.StoredTopologyTransaction.GenericStoredTopologyTransaction
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.{
   GenericStoredTopologyTransactions,
+  NegativeStoredTopologyTransactions,
   PositiveStoredTopologyTransactions,
 }
 import com.digitalasset.canton.topology.store.TopologyStore.{
@@ -340,6 +341,18 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[PositiveStoredTopologyTransactions]
+
+  /** Same as [[findPositiveTransactions]] but returns negative transactions (with a remove
+    * operation)
+    */
+  def findNegativeTransactions(
+      asOf: CantonTimestamp,
+      asOfInclusive: Boolean,
+      isProposal: Boolean,
+      types: Seq[TopologyMapping.Code],
+      filterUid: Option[NonEmpty[Seq[UniqueIdentifier]]],
+      filterNamespace: Option[NonEmpty[Seq[Namespace]]],
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[NegativeStoredTopologyTransactions]
 
   /** Updates topology transactions. The method proceeds as follows: For each mapping hash, it will
     * have optionally a serial and a set of tx hashes. The tx hashes represent proposals which must

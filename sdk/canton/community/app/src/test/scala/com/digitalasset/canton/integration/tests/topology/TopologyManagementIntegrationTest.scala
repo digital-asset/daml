@@ -415,31 +415,32 @@ trait TopologyManagementIntegrationTest
       offboardVladFromParticipants()
     }
 
-    "cannot disable a party if the threshold is not met anymore" in { implicit env =>
-      import env.*
-      val alice2S = "Alice2"
-      val Seq(alice2) = PartiesAllocator(participants.all.toSet)(
-        Seq(alice2S -> participant1),
-        Map(
-          alice2S -> Map(
-            daId -> (PositiveInt.two, Set(
-              (participant1, Submission),
-              (participant2, Submission),
-            ))
-          )
-        ),
-      )
+    "cannot disable a party if the threshold is not met anymore without a force flag" in {
+      implicit env =>
+        import env.*
+        val alice2S = "Alice2"
+        val Seq(alice2) = PartiesAllocator(participants.all.toSet)(
+          Seq(alice2S -> participant1),
+          Map(
+            alice2S -> Map(
+              daId -> (PositiveInt.two, Set(
+                (participant1, Submission),
+                (participant2, Submission),
+              ))
+            )
+          ),
+        )
 
-      assertThrowsAndLogsCommandFailures(
-        participant2.topology.party_to_participant_mappings.propose_delta(
-          PartyId(alice2.uid),
-          removes = List(participant2.id),
-          store = daId,
-        ),
-        _.message should include(
-          "cannot meet threshold of 2 confirming participants with participants"
-        ),
-      )
+        assertThrowsAndLogsCommandFailures(
+          participant2.topology.party_to_participant_mappings.propose_delta(
+            PartyId(alice2.uid),
+            removes = List(participant2.id),
+            store = daId,
+          ),
+          _.message should include(
+            "Tried to set a confirming threshold (2) above the number of hosting nodes (1)"
+          ),
+        )
     }
 
     "participant or party can unilaterally downgrade the hosting permission" in { implicit env =>
@@ -461,6 +462,9 @@ trait TopologyManagementIntegrationTest
           downgradeParty,
           permission.map(targetParticipant -> _).toList,
           store = daId,
+          forceFlags = ForceFlags(
+            Option.when(permission.isEmpty)(ForceFlag.AllowConfirmingThresholdCanBeMet).toList*
+          ),
         )
         eventually() {
           val updatedMapping = verifying.topology.party_to_participant_mappings

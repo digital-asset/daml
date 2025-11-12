@@ -173,6 +173,7 @@ class BlockSequencer(
       blockSequencerConfig.throughputCap,
       clock,
       materializer.system.scheduler,
+      metrics,
       loggerFactory,
     )
 
@@ -687,6 +688,7 @@ class BlockSequencer(
       SyncCloseable("blockOrderer.close()", blockOrderer.close()),
       SyncCloseable("cryptoApi.close()", cryptoApi.close()),
       SyncCloseable("circuitBreaker.close()", circuitBreaker.close()),
+      SyncCloseable("throughputCap.close()", throughputCap.close()),
     )
   }
 

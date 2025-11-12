@@ -4,8 +4,8 @@
 package com.digitalasset.canton.topology.client
 
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.{DefaultProcessingTimeouts, TopologyConfig}
 import com.digitalasset.canton.crypto.{SigningKeyUsage, SigningPublicKey}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -85,7 +85,7 @@ trait StoreBasedTopologySnapshotTest
           defaultStaticSynchronizerParameters,
           store,
           NoPackageDependencies,
-          TopologyClientConfig(),
+          TopologyConfig(),
           DefaultProcessingTimeouts.testing,
           FutureSupervisor.Noop,
           loggerFactory,

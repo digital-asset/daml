@@ -32,6 +32,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.{
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.SimulationBlockSubscription
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BftNodeId,
+  EpochLength,
   EpochNumber,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.OrderingRequest
@@ -105,6 +106,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
 
   def numberOfRuns: Int
   def numberOfInitialNodes: Int
+  def epochLength: EpochLength = DefaultEpochLength
   def generateStages(): NonEmpty[Seq[SimulationTestStageSettings]]
 
   def allowedWarnings: Seq[LogEntry => Assertion] = Seq.empty
@@ -344,7 +346,8 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
               val testClass =
                 s"""class <testName> extends BftOrderingSimulationTest {
                    |  override val numberOfRuns: Int = 1
-                   |  override val numberOfInitialNodes = $numberOfInitialNodes
+                   |  override val numberOfInitialNodes: Int = $numberOfInitialNodes
+                   |  override val epochLength: EpochLength = EpochLength($epochLength)
                    |
                    |  override def generateStages(): NonEmpty[Seq[SimulationTestStageSettings]] = NonEmpty(
                    |    Seq,
@@ -422,7 +425,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
               availabilityNumberOfAttemptsOfDownloadingOutputFetchBeforeWarning = 100
             ),
             initialApplicationHeight,
-            DefaultEpochLength,
+            epochLength,
             stores,
             orderingTopologyProvider,
             new SimulationBlockSubscription(thisBftNodeId, sendQueue),
@@ -742,8 +745,10 @@ class BftOrderingEmptyBlocksSimulationTest extends BftOrderingSimulationTest {
         durationOfFirstPhaseWithFaults,
         durationOfSecondPhaseWithoutFaults,
         // This will result in empty blocks only.
-        clientRequestInterval = None,
-        clientRequestApproximateByteSize = None,
+        clientSettings = ClientSettings(
+          requestInterval = None,
+          requestApproximateByteSize = None,
+        ),
       ),
       TopologySettings(randomSourceToCreateSettings.nextLong()),
       // The purpose of this test is to make sure we progress time by making empty blocks. As such we don't want view
@@ -777,12 +782,14 @@ class BftOrderingSimulationTest2NodesLargeRequests extends BftOrderingSimulation
         ),
         durationOfFirstPhaseWithFaults,
         durationOfSecondPhaseWithoutFaults,
-        // The test is a bit slow with the default interval
-        clientRequestInterval = Some(10.seconds),
-        clientRequestApproximateByteSize =
-          // -100 to account for tags and payloads' prefixes
-          // Exceeding the default size results in warning logs and dropping messages in Mempool
-          Some(PositiveInt.tryCreate(BftBlockOrdererConfig.DefaultMaxRequestPayloadBytes - 100)),
+        clientSettings = ClientSettings(
+          // The test is a bit slow with the default interval
+          requestInterval = Some(10.seconds),
+          requestApproximateByteSize =
+            // -100 to account for tags and payloads' prefixes
+            // Exceeding the default size results in warning logs and dropping messages in Mempool
+            Some(PositiveInt.tryCreate(BftBlockOrdererConfig.DefaultMaxRequestPayloadBytes - 100)),
+        ),
       ),
       TopologySettings(randomSourceToCreateSettings.nextLong()),
     ),

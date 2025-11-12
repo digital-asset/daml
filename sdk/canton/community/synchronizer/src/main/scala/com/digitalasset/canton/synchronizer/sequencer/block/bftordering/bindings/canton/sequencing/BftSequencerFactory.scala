@@ -98,6 +98,7 @@ class BftSequencerFactory(
       metrics.bftOrdering,
       synchronizerLoggerFactory,
       nodeParameters.loggingConfig.queryCost,
+      ec,
     )
   }
 

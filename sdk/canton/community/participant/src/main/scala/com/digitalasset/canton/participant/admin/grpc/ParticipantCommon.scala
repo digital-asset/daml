@@ -117,7 +117,7 @@ private[participant] object ParticipantCommon {
       ec: ExecutionContext,
       elc: ErrorLoggingContext,
       traceContext: TraceContext,
-  ): Future[Map[String, String]] = {
+  ): Future[Unit] = {
 
     val packageMetadataSnapshot = sync.getPackageMetadataSnapshot
     val selectRepresentativePackageIds = new SelectRepresentativePackageIds(
@@ -158,7 +158,7 @@ private[participant] object ParticipantCommon {
     def runImport(
         acsSnapshot: ByteString,
         excludedStakeholders: Set[PartyId],
-    ): Future[Map[String, String]] = {
+    ): Future[Unit] = {
 
       val contractsE = if (excludedStakeholders.isEmpty) {
         RepairContract.loadAcsSnapshot(acsSnapshot)
@@ -175,7 +175,7 @@ private[participant] object ParticipantCommon {
 
     private def importAcsContracts(
         contracts: Either[String, List[RepairContract]]
-    ): Future[Map[String, String]] = {
+    ): Future[Unit] = {
       val resultET = for {
         repairContracts <- contracts
           .toEitherT[FutureUnlessShutdown]
@@ -190,13 +190,10 @@ private[participant] object ParticipantCommon {
           ContractAuthenticationImportProcessor(
             loggerFactory,
             sync.syncPersistentStateManager,
-            sync.pureCryptoApi,
-            sync.contractHasher,
             sync.contractValidator,
             contractImportMode,
           )(contractsWithOverriddenRpId)
-        (activeContractsWithValidContractIds, contractIdRemapping) =
-          activeContractsWithRemapping
+        activeContractsWithValidContractIds = activeContractsWithRemapping
 
         _ <- activeContractsWithValidContractIds.groupBy(_.synchronizerId).toSeq.parTraverse_ {
           case (synchronizerId, contracts) =>
@@ -207,15 +204,11 @@ private[participant] object ParticipantCommon {
               writeContractsBatch(synchronizerId, _).mapK(FutureUnlessShutdown.outcomeK)
             )
         }
-
-      } yield contractIdRemapping
+      } yield ()
 
       resultET.value.flatMap {
         case Left(error) => FutureUnlessShutdown.failed(ImportAcsError.Error(error).asGrpcError)
-        case Right(contractIdRemapping) =>
-          FutureUnlessShutdown.pure(
-            contractIdRemapping.map { case (oldCid, newCid) => (oldCid.coid, newCid.coid) }
-          )
+        case Right(()) => FutureUnlessShutdown.unit
       }.asGrpcFuture
     }
 

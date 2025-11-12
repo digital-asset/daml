@@ -18,6 +18,7 @@ import com.digitalasset.canton.topology.store.*
 import com.digitalasset.canton.topology.store.StoredTopologyTransaction.GenericStoredTopologyTransaction
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.{
   GenericStoredTopologyTransactions,
+  NegativeStoredTopologyTransactions,
   PositiveStoredTopologyTransactions,
 }
 import com.digitalasset.canton.topology.store.TopologyStore.{
@@ -366,6 +367,18 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[PositiveStoredTopologyTransactions] =
     findTransactionsInStore(asOf, asOfInclusive, isProposal, types, filterUid, filterNamespace).map(
       _.collectOfType[TopologyChangeOp.Replace]
+    )
+
+  override def findNegativeTransactions(
+      asOf: CantonTimestamp,
+      asOfInclusive: Boolean,
+      isProposal: Boolean,
+      types: Seq[TopologyMapping.Code],
+      filterUid: Option[NonEmpty[Seq[UniqueIdentifier]]],
+      filterNamespace: Option[NonEmpty[Seq[Namespace]]],
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[NegativeStoredTopologyTransactions] =
+    findTransactionsInStore(asOf, asOfInclusive, isProposal, types, filterUid, filterNamespace).map(
+      _.collectOfType[TopologyChangeOp.Remove]
     )
 
   private def findTransactionsInStore(

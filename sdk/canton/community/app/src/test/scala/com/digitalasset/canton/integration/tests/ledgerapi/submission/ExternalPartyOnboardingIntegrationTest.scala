@@ -5,9 +5,11 @@ package com.digitalasset.canton.integration.tests.ledgerapi.submission
 
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.CommandFailure
 import com.digitalasset.canton.console.commands.PartiesAdministration
+import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -23,7 +25,9 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
   Observation,
 }
 import com.digitalasset.canton.topology.transaction.{HostingParticipant, PartyToParticipant}
+import com.digitalasset.canton.topology.{ForceFlag, ForceFlags, TopologyManagerError}
 
+import java.util.UUID
 import scala.concurrent.Future
 
 trait ExternalPartyOnboardingIntegrationTestSetup
@@ -37,12 +41,94 @@ trait ExternalPartyOnboardingIntegrationTestSetup
       .withSetup { implicit env =>
         import env.*
         participants.all.synchronizers.connect_local(sequencer1, alias = daName)
+        participants.all.foreach(_.dars.upload(CantonExamplesPath))
+
+        runOnAllInitializedSynchronizersForAllOwners((owner, synchronizer) =>
+          owner.topology.synchronizer_parameters.propose_update(
+            synchronizer.synchronizerId,
+            // Lower the confirmation response timeout to observe quickly rejections due to confirming
+            // participants failing to respond in time
+            _.update(confirmationResponseTimeout = config.NonNegativeFiniteDuration.ofSeconds(3)),
+          )
+        )
       }
       .addConfigTransform(ConfigTransforms.enableInteractiveSubmissionTransforms)
 }
 
 class ExternalPartyOnboardingIntegrationTest extends ExternalPartyOnboardingIntegrationTestSetup {
   "External party onboarding" should {
+
+    "handle a party's threshold being higher than its number of hosting nodes" in { implicit env =>
+      import env.*
+      val (onboardingTransactions, externalParty) =
+        participant1.parties.external
+          .onboarding_transactions(
+            "Alice",
+            additionalConfirming = Seq(participant2),
+            confirmationThreshold = PositiveInt.two,
+          )
+          .futureValueUS
+          .value
+
+      Seq(participant1, participant2).map { hostingNode =>
+        hostingNode.ledger_api.parties.allocate_external(
+          synchronizer1Id,
+          onboardingTransactions.transactionsWithSingleSignature,
+          multiSignatures = onboardingTransactions.multiTransactionSignatures,
+        )
+      }
+
+      PartiesAdministration.Allocation.waitForPartyKnown(
+        partyId = externalParty.partyId,
+        hostingParticipant = participant1,
+        synchronizeParticipants = Seq(participant1, participant2, participant3),
+        synchronizerId = synchronizer1Id.logical,
+      )
+
+      // P2 removes itself unilaterally - fails without the force flag
+      loggerFactory.assertThrowsAndLogsSeq[CommandFailure](
+        participant2.topology.party_to_participant_mappings
+          .propose_delta(
+            externalParty.partyId,
+            removes = Seq(participant2),
+            store = synchronizer1Id.logical,
+          ),
+        LogEntry.assertLogSeq(
+          Seq(
+            (
+              _.shouldBeCommandFailure(TopologyManagerError.ConfirmingThresholdCannotBeReached),
+              "expected command failure",
+            )
+          )
+        ),
+      )
+
+      // P2 removes itself unilaterally - with the force flag
+      participant2.topology.party_to_participant_mappings
+        .propose_delta(
+          externalParty.partyId,
+          removes = Seq(participant2),
+          store = synchronizer1Id.logical,
+          forceFlags = ForceFlags(ForceFlag.AllowConfirmingThresholdCanBeMet),
+        )
+
+      // Threshold cannot be reached because there's not enough confirming nodes
+      loggerFactory.assertThrowsAndLogsSeq[CommandFailure](
+        participant1.ledger_api.commands.submit(
+          Seq(externalParty),
+          Seq(createCycleCommand(externalParty, UUID.randomUUID().toString)),
+        ),
+        LogEntry.assertLogSeq(
+          Seq(
+            (
+              _.shouldBeCommandFailure(MediatorError.Timeout),
+              "expected transaction timeout",
+            )
+          )
+        ),
+      )
+    }
+
     "host parties on multiple participants with a threshold" in { implicit env =>
       import env.*
       val (onboardingTransactions, externalParty) =

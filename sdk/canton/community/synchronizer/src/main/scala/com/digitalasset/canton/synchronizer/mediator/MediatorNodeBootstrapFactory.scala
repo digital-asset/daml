@@ -6,21 +6,15 @@ package com.digitalasset.canton.synchronizer.mediator
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.environment.NodeFactoryArguments
-import com.digitalasset.canton.replica.ReplicaManager
-import com.digitalasset.canton.resource.StorageSingleFactory
+import com.digitalasset.canton.resource.{DbLockCounters, StorageMultiFactory}
 import com.digitalasset.canton.synchronizer.metrics.MediatorMetrics
 import org.apache.pekko.actor.ActorSystem
 
 import java.util.concurrent.ScheduledExecutorService
 
 trait MediatorNodeBootstrapFactory {
-
   def create(
-      arguments: NodeFactoryArguments[
-        MediatorNodeConfig,
-        MediatorNodeParameters,
-        MediatorMetrics,
-      ]
+      arguments: NodeFactoryArguments[MediatorNodeConfig, MediatorNodeParameters, MediatorMetrics]
   )(implicit
       executionContext: ExecutionContextIdlenessExecutorService,
       scheduler: ScheduledExecutorService,
@@ -29,7 +23,7 @@ trait MediatorNodeBootstrapFactory {
   ): Either[String, MediatorNodeBootstrap]
 }
 
-object CommunityMediatorNodeBootstrapFactory extends MediatorNodeBootstrapFactory {
+object MediatorNodeBootstrapFactoryImpl extends MediatorNodeBootstrapFactory {
 
   override def create(
       arguments: NodeFactoryArguments[MediatorNodeConfig, MediatorNodeParameters, MediatorMetrics]
@@ -38,20 +32,38 @@ object CommunityMediatorNodeBootstrapFactory extends MediatorNodeBootstrapFactor
       scheduler: ScheduledExecutorService,
       executionSequencerFactory: ExecutionSequencerFactory,
       actorSystem: ActorSystem,
-  ): Either[String, MediatorNodeBootstrap] =
+  ): Either[String, MediatorNodeBootstrap] = {
+    val replicaManager =
+      new MediatorReplicaManager(
+        arguments.parameters.exitOnFatalFailures,
+        arguments.parameters.processingTimeouts,
+        arguments.loggerFactory,
+        arguments.futureSupervisor,
+      )
+
     arguments
       .toCantonNodeBootstrapCommonArguments(
-        new StorageSingleFactory(arguments.config.storage),
-        Option.empty[ReplicaManager],
+        new StorageMultiFactory(
+          arguments.config.storage,
+          exitOnFatalFailures = arguments.parameters.exitOnFatalFailures,
+          arguments.config.replication,
+          () => replicaManager.setActive(),
+          () => replicaManager.setPassive(),
+          DbLockCounters.MEDIATOR_WRITE,
+          DbLockCounters.MEDIATOR_WRITERS,
+          arguments.futureSupervisor,
+          arguments.loggerFactory,
+          initialSessionContext = Some(replicaManager.getSessionContext),
+        ),
+        Some(replicaManager),
       )
       .map { bootstrapArguments =>
-        new MediatorNodeBootstrap(
-          bootstrapArguments,
-          new CommunityMediatorReplicaManager(
-            arguments.parameters.processingTimeouts,
-            arguments.loggerFactory,
-          ),
-        )
+        new MediatorNodeBootstrap(bootstrapArguments, replicaManager) {
+          override def onClosed(): Unit = {
+            this.replicaManager.close()
+            super.onClosed()
+          }
+        }
       }
-
+  }
 }

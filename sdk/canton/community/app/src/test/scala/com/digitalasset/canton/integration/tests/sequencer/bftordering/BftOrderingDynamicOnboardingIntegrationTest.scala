@@ -27,7 +27,7 @@ class BftOrderingDynamicOnboardingIntegrationTest
       existingSequencerReference: SequencerReference,
       newSequencerReference: SequencerReference,
   ): Unit =
-    plugin.sequencerEndpoints.get.foreach { endpoints =>
+    plugin.p2pEndpoints.get.foreach { endpoints =>
       val existingSequencerEndpoint =
         endpoints(InstanceName.tryCreate(existingSequencerReference.name))
       // user-manual-entry-begin: BftSequencerAddPeerEndpoint

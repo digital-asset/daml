@@ -281,6 +281,10 @@ object Update {
 
     def isAcsDelta(contractId: Value.ContractId): Boolean
 
+    /** Maps each contract id (of created or archived events of the transaction) to the
+      * corresponding internal contract id in order to have the internal contract id persisted in
+      * the index db for the corresponding events.
+      */
     def internalContractIds: Map[Value.ContractId, Long]
 
     lazy val blindingInfo: BlindingInfo = Blinding.blind(transaction)
@@ -403,6 +407,9 @@ object Update {
 
     def reassignment: Reassignment.Batch
 
+    /** Maps each contract id to the corresponding internal contract id in order to have the
+      * internal contract id persisted in the index db for the corresponding events.
+      */
     def internalContractIds: Map[Value.ContractId, Long]
 
     override protected def pretty: Pretty[ReassignmentAccepted] =

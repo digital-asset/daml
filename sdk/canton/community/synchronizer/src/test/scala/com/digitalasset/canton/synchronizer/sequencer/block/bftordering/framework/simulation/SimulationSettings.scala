@@ -176,15 +176,20 @@ object LocalSettings {
     PowerDistribution(1.second, 5.seconds)
 }
 
+final case class ClientSettings(
+    requestInterval: Option[FiniteDuration] = Some(1.second),
+    requestApproximateByteSize: Option[PositiveInt] = Some(
+      PositiveInt.three // fully arbitrary
+    ),
+    numberOfRequestsPerInterval: PositiveInt = PositiveInt.one,
+)
+
 final case class SimulationSettings(
     localSettings: LocalSettings,
     networkSettings: NetworkSettings,
     durationOfFirstPhaseWithFaults: FiniteDuration,
     durationOfSecondPhaseWithoutFaults: FiniteDuration = 30.seconds,
-    clientRequestInterval: Option[FiniteDuration] = Some(1.second),
-    clientRequestApproximateByteSize: Option[PositiveInt] = Some(
-      PositiveInt.three // fully arbitrary
-    ),
+    clientSettings: ClientSettings = ClientSettings(),
     livenessCheckInterval: FiniteDuration = 25.seconds,
 ) {
   def totalSimulationTime: FiniteDuration =

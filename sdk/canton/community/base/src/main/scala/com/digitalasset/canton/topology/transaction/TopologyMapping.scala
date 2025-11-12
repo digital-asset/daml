@@ -768,6 +768,8 @@ sealed trait KeyMapping extends TopologyMapping with Product with Serializable {
 
   def namespaceKeyForSelfAuthorization: Option[SigningPublicKey] = None
 
+  def isSelfSigned = namespaceKeyForSelfAuthorization.nonEmpty
+
   require(namespaceKeyForSelfAuthorization.forall(_.fingerprint == namespace.fingerprint))
 }
 
@@ -1739,24 +1741,9 @@ object PartyToParticipant extends TopologyMappingCompanion {
       )
     )
 
-    val confirmationThresholdCanBeMet = {
-      val numConfirmingParticipants =
-        participants.count(_.permission >= ParticipantPermission.Confirmation)
-      Either
-        .cond(
-          // we allow to not meet the threshold criteria if there are only observing participants.
-          // but as soon as there is 1 confirming participant, the threshold must theoretically be satisfiable,
-          // otherwise the party can never confirm a transaction.
-          numConfirmingParticipants == 0 || threshold.value <= numConfirmingParticipants,
-          (),
-          s"Party $partyId cannot meet threshold of $threshold confirming participants with participants $participants",
-        )
-    }
-
     for {
       _ <- noDuplicateParticipants
       _ <- keysValid
-      _ <- confirmationThresholdCanBeMet
     } yield PartyToParticipant(partyId, threshold, participants, partySigningKeysWithThreshold)
   }
 

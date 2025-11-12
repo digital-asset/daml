@@ -453,8 +453,7 @@ class SubmissionTrackerSpec
     val failureInSubmit = new RuntimeException("failure in submit")
     val submitFails: TraceContext => FutureUnlessShutdown[Any] = _ =>
       FutureUnlessShutdown.failed(failureInSubmit)
-    val submitSucceeds: TraceContext => FutureUnlessShutdown[Any] = _ =>
-      FutureUnlessShutdown.pure(())
+    val submitSucceeds: TraceContext => FutureUnlessShutdown[Any] = _ => FutureUnlessShutdown.unit
 
     val submitters: Set[String] = (actAs :+ party).toSet
 

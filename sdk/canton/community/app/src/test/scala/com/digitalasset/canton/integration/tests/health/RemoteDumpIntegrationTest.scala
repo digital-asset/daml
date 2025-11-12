@@ -28,8 +28,8 @@ import com.digitalasset.canton.integration.{
 }
 import com.digitalasset.canton.logging.{LogEntry, NamedLoggerFactory}
 import com.digitalasset.canton.participant.CommunityParticipantNodeBootstrapFactory
-import com.digitalasset.canton.synchronizer.mediator.CommunityMediatorNodeBootstrapFactory
-import com.digitalasset.canton.synchronizer.sequencer.CommunitySequencerNodeBootstrapFactory
+import com.digitalasset.canton.synchronizer.mediator.MediatorNodeBootstrapFactoryImpl
+import com.digitalasset.canton.synchronizer.sequencer.SequencerNodeBootstrapFactoryImpl
 import com.digitalasset.canton.version.{ProtocolVersionCompatibility, ReleaseVersion}
 import com.digitalasset.canton.{HasExecutionContext, config}
 import io.circe.generic.auto.*
@@ -321,8 +321,8 @@ class NegativeRemoteDumpIntegrationTest
         CommunityCantonEdition,
         testingConfigInternal,
         CommunityParticipantNodeBootstrapFactory,
-        CommunitySequencerNodeBootstrapFactory,
-        CommunityMediatorNodeBootstrapFactory,
+        SequencerNodeBootstrapFactoryImpl,
+        MediatorNodeBootstrapFactoryImpl,
         loggerFactory,
       ) {
         override def createHealthDumpGenerator(
