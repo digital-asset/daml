@@ -19,18 +19,40 @@ sealed abstract class VersionRange[V](implicit val ordering: Ordering[V])
 
   def pretty: String
 
+  /** The minimum version of this range, if bounded below. */
+  def minOption: Option[V]
+
+  /** The maximum version of this range, if bounded above. */
+  def maxOption: Option[V]
+
+  /** The minimum version of this range.
+    * @throws NoSuchElementException if the range is empty or unbounded below.
+    */
+  def min: V = minOption.getOrElse(
+    throw new NoSuchElementException(s"Cannot get .min from $pretty (empty or unbounded below)")
+  )
+
+  /** The maximum version of this range.
+    * @throws NoSuchElementException if the range is empty or unbounded above.
+    */
+  def max: V = maxOption.getOrElse(
+    throw new NoSuchElementException(s"Cannot get .max from $pretty (empty or unbounded above)")
+  )
+
   def contains(v: V): Boolean = this match {
     case VersionRange.Empty() => false
-    case VersionRange.From(min) => ordering.gteq(v, min)
-    case VersionRange.Until(max) => ordering.lteq(v, max)
-    case VersionRange.Inclusive(min, max) => ordering.gteq(v, min) && ordering.lteq(v, max)
+    case VersionRange.From(lowerBound) => ordering.gteq(v, lowerBound)
+    case VersionRange.Until(upperBound) => ordering.lteq(v, upperBound)
+    case VersionRange.Inclusive(lowerBound, upperBound) =>
+      ordering.gteq(v, lowerBound) && ordering.lteq(v, upperBound)
   }
 
   def map[W](f: V => W)(implicit ordering: Ordering[W]): VersionRange[W] = this match {
     case VersionRange.Empty() => VersionRange.Empty[W]()
-    case VersionRange.From(min) => VersionRange.From(f(min))
-    case VersionRange.Until(max) => VersionRange.Until(f(max))
-    case VersionRange.Inclusive(min, max) => VersionRange.Inclusive(f(min), f(max))
+    case VersionRange.From(lowerBound) => VersionRange.From(f(lowerBound))
+    case VersionRange.Until(upperBound) => VersionRange.Until(f(upperBound))
+    case VersionRange.Inclusive(lowerBound, upperBound) =>
+      VersionRange.Inclusive(f(lowerBound), f(upperBound))
   }
 }
 
@@ -44,26 +66,45 @@ object VersionRange {
 
   final case class Empty[V: Ordering]() extends VersionRange[V] {
     def pretty: String = "[] (empty range)"
+    override def minOption: Option[V] = None
+    override def maxOption: Option[V] = None
   }
 
   /** Represents a one-sided range `[min..]`. */
-  final case class From[V: Ordering](min: V) extends VersionRange[V] {
-    def pretty: String = s"[${min}..] (all from ${min} upwards)"
+  final case class From[V: Ordering](lowerBound: V) extends VersionRange[V] {
+    def pretty: String = s"[${lowerBound}..] (all from ${lowerBound} upwards)"
+    override def minOption: Option[V] = Some(lowerBound)
+    override def maxOption: Option[V] = None
+
+    override def min: V = lowerBound
   }
 
   /** Represents a one-sided range `[..max]`. */
-  final case class Until[V: Ordering](max: V) extends VersionRange[V] {
-    def pretty: String = s"[..${max}] (all up to and including ${max})"
+  final case class Until[V: Ordering](upperBound: V) extends VersionRange[V] {
+    def pretty: String = s"[..${upperBound}] (all up to and including ${upperBound})"
+    override def minOption: Option[V] = None
+    override def maxOption: Option[V] = Some(upperBound)
+
+    override def max: V = upperBound
   }
 
   /** Represents an inclusive range `[min, max]`. This is the default */
-  final case class Inclusive[V: Ordering](min: V, max: V) extends VersionRange[V] {
-    require(ordering.lteq(min, max), s"Invalid ordering, min (${min}) was not <= max (${max})")
+  final case class Inclusive[V: Ordering](lowerBound: V, upperBound: V) extends VersionRange[V] {
+    require(
+      ordering.lteq(lowerBound, upperBound),
+      s"Invalid ordering, min (${lowerBound}) was not <= max (${upperBound})",
+    )
 
-    def pretty: String = s"[${min}..${max}])"
+    def pretty: String = s"[${lowerBound}..${upperBound}]"
+
+    override def minOption: Option[V] = Some(lowerBound)
+    override def maxOption: Option[V] = Some(upperBound)
+
+    override def min: V = lowerBound
+    override def max: V = upperBound
 
     // override map to get a map from inclusive to inclusive
     override def map[W](f: V => W)(implicit ordering: Ordering[W]): VersionRange.Inclusive[W] =
-      VersionRange.Inclusive(f(min), f(max))
+      VersionRange.Inclusive(f(lowerBound), f(upperBound))
   }
 }
