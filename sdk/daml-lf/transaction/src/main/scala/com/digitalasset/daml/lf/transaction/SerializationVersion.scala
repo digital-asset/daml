@@ -70,11 +70,13 @@ object SerializationVersion {
   val minVersion: SerializationVersion = All.min
   val maxVersion: SerializationVersion = All.max
 
+  //TODO https://github.com/digital-asset/daml/issues/22365 adopt ranges more thoroughly
   private[lf] val minContractKeys: SerializationVersion = assign(
-    LanguageVersion.Features.contractKeys
+    LanguageVersion.featureContractKeys.versionReq.min
   )
 
-  private[lf] val minChoiceAuthorizers = assign(LanguageVersion.Features.choiceAuthority)
+  //TODO https://github.com/digital-asset/daml/issues/22365 adopt ranges more thoroughly
+  private[lf] val minChoiceAuthorizers = assign(LanguageVersion.featureChoiceAuthority.versionReq.min)
 
   private[lf] def txVersion(tx: Transaction): SerializationVersion = {
     import scala.Ordering.Implicits._
