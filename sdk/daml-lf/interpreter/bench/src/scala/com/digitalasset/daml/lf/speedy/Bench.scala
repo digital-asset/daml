@@ -153,6 +153,8 @@ class Bench {
   def bench(counters: Bench.EventCounter): SValue = {
     counters.reset()
     machine = Speedy.Machine.fromPureSExpr(compiledPackages, sexpr)
+    machine.metrics.register(new Speedy.StepCount(machine.iterationsBetweenInterruptions))
+    machine.metrics.register(new Speedy.TxNodeCount)
     machine.setExpressionToEvaluate(sexpr)
     machine.run() match {
       case SResult.SResultFinal(v) =>
@@ -178,9 +180,8 @@ object Bench {
     }
 
     def update(metrics: Speedy.Metrics): Unit = {
-      val (stepBatchCount, stepsCounted) = metrics.totalStepCount
-      stepCount += stepBatchCount * metrics.batchSize + stepsCounted
-      transactionNodeCount += metrics.transactionNodeCount
+      stepCount += metrics.totalCount[Speedy.StepCount].get
+      transactionNodeCount += metrics.totalCount[Speedy.TxNodeCount].get
     }
   }
 }

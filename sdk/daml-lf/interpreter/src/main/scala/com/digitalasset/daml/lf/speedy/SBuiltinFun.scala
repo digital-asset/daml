@@ -1353,7 +1353,7 @@ private[lf] object SBuiltinFun {
                 machine.storeLocalContract(coid, templateId, templateArg)
                 machine.ptx = newPtx
                 machine.insertContractInfoCache(coid, contract)
-                machine.metrics.incrTransactionNodeCount()
+                machine.metrics.incrCount[TxNodeCount]()
                 Control.Value(SContractId(coid))
 
               case Left((newPtx, err)) =>
@@ -1446,7 +1446,7 @@ private[lf] object SBuiltinFun {
           ) match {
           case Right(ptx) =>
             machine.ptx = ptx
-            machine.metrics.incrTransactionNodeCount()
+            machine.metrics.incrCount[TxNodeCount]()
             Control.Value(SUnit)
           case Left(err) =>
             Control.Error(convTxError(err))
@@ -1975,7 +1975,7 @@ private[lf] object SBuiltinFun {
           ) match {
             case Right(ptx) =>
               machine.ptx = ptx
-              machine.metrics.incrTransactionNodeCount()
+              machine.metrics.incrCount[TxNodeCount]()
               Control.Value(templateArg)
             case Left(err) =>
               Control.Error(convTxError(err))
@@ -2016,7 +2016,7 @@ private[lf] object SBuiltinFun {
       ) match {
         case Right(ptx) =>
           machine.ptx = ptx
-          machine.metrics.incrTransactionNodeCount()
+          machine.metrics.incrCount[TxNodeCount]()
           Control.Value(SUnit)
         case Left(err) =>
           Control.Error(convTxError(err))
