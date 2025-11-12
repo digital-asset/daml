@@ -332,7 +332,7 @@ class Engine(val config: EngineConfig) {
       preparationTime: Time.Timestamp,
       submissionSeed: crypto.Hash,
       contractIdVersion: ContractIdVersion,
-      metricPlugins: Seq[MetricPlugin],
+      metricPlugins: Seq[MetricPlugin] = Seq.empty,
   )(implicit loggingContext: LoggingContext): Result[Speedy.Metrics] = {
     // reinterpret
     for {

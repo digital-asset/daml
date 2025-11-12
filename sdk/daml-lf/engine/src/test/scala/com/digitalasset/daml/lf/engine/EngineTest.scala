@@ -20,6 +20,7 @@ import com.digitalasset.daml.lf.engine.Error.Interpretation.DamlException
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.language.{LanguageVersion, PackageInterface}
+import com.digitalasset.daml.lf.speedy.metrics.{StepCount, TxNodeCount}
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.speedy.{InitialSeeding, SValue, svalue}
 import com.digitalasset.daml.lf.stablepackages.StablePackages
@@ -381,6 +382,8 @@ class EngineTest(majorLanguageVersion: LanguageVersion.Major, contractIdVersion:
     }
 
     "be validated with no change in metrics" in {
+      def newMetricPlugins() = Seq(new StepCount(42), new TxNodeCount)
+
       val sharedEngine = suffixLenientEngine
       val freshEngine1 = newEngine()
       val freshEngine2 = newEngine()
@@ -397,6 +400,7 @@ class EngineTest(majorLanguageVersion: LanguageVersion.Major, contractIdVersion:
                 preparationTime = let,
                 seeding = seeding,
                 contractIdVersion = contractIdVersion,
+                metricPlugins = newMetricPlugins(),
               )
               .consume(lookupContract, lookupPackage, lookupKey)
           }
@@ -414,6 +418,7 @@ class EngineTest(majorLanguageVersion: LanguageVersion.Major, contractIdVersion:
                 preparationTime = let,
                 seeding = seeding,
                 contractIdVersion = contractIdVersion,
+                metricPlugins = newMetricPlugins(),
               )
               .consume(lookupContract, lookupPackage, lookupKey)
           }
@@ -428,6 +433,7 @@ class EngineTest(majorLanguageVersion: LanguageVersion.Major, contractIdVersion:
           let,
           submissionSeed,
           contractIdVersion,
+          metricPlugins = newMetricPlugins(),
         )
         .consume(lookupContract, lookupPackage, lookupKey)
       val validatedNoCaching = freshEngine2
@@ -439,18 +445,20 @@ class EngineTest(majorLanguageVersion: LanguageVersion.Major, contractIdVersion:
           let,
           submissionSeed,
           contractIdVersion,
+          metricPlugins = newMetricPlugins(),
         )
         .consume(lookupContract, lookupPackage, lookupKey)
 
       inside((validatedWithCaching, validatedNoCaching)) {
         case (Right(actualWithCaching), Right(actualNoCaching)) =>
-          actualWithCaching.transactionNodeCount shouldBe expectedWithCaching.transactionNodeCount
-          actualNoCaching.transactionNodeCount shouldBe expectedNoCaching.transactionNodeCount
-          actualWithCaching.transactionNodeCount shouldBe actualNoCaching.transactionNodeCount
+          actualWithCaching.totalCount[TxNodeCount] shouldBe expectedWithCaching
+            .totalCount[TxNodeCount]
+          actualNoCaching.totalCount[TxNodeCount] shouldBe expectedNoCaching.totalCount[TxNodeCount]
+          actualWithCaching.totalCount[TxNodeCount] shouldBe actualNoCaching.totalCount[TxNodeCount]
           // SEVal and SDefinition caching effects impact Speedy machine step counts
-          actualWithCaching.totalStepCount shouldBe expectedWithCaching.totalStepCount
-          actualWithCaching.totalStepCount should be <= actualNoCaching.totalStepCount
-          actualNoCaching.totalStepCount should be <= expectedNoCaching.totalStepCount
+          actualWithCaching.totalCount[StepCount] shouldBe expectedWithCaching.totalCount[StepCount]
+          actualWithCaching.totalCount[StepCount] should be <= actualNoCaching.totalCount[StepCount]
+          actualNoCaching.totalCount[StepCount] should be <= expectedNoCaching.totalCount[StepCount]
       }
     }
   }
