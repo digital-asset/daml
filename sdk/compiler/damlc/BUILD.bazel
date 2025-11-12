@@ -244,7 +244,7 @@ da_haskell_library(
         "split",
         "stm",
         "tasty",
-        "tasty-ant-xml",
+        # "tasty-ant-xml",
         "tasty-hunit",
         "temporary",
         "text",
