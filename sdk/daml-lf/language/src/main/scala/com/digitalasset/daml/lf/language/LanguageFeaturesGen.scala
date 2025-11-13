@@ -14,6 +14,7 @@ import com.digitalasset.daml.lf.language.LanguageVersion.Feature
 
 trait LanguageFeaturesGenerated extends LanguageVersionGenerated {
 
+  // TODO (FEATURE): Remove this hardcoded object once V1 features are also generated
   object LegacyFeatures {
     val default = v1_6
     val internedPackageId = v1_6
@@ -43,6 +44,7 @@ trait LanguageFeaturesGenerated extends LanguageVersionGenerated {
     val extendedInterfaces = v1_dev
     val unstable = v1_dev
   }
+
 
   // --- Generated V2 Features ---
 
@@ -112,12 +114,6 @@ trait LanguageFeaturesGenerated extends LanguageVersionGenerated {
     cppFlag = "DAML_COMPLEX_ANY_TYPE",
   )
 
-  val featureCryptoUtility: Feature = Feature(
-    name = "Crypto Utility Function",
-    versionReq = VersionRange.Inclusive(v2_dev, v2_dev),
-    cppFlag = "DAML_CRYPTO_UTILITY",
-  )
-
   val featureExperimental: Feature = Feature(
     name = "Daml Experimental",
     versionReq = VersionRange.Inclusive(v2_dev, v2_dev),
@@ -142,23 +138,6 @@ trait LanguageFeaturesGenerated extends LanguageVersionGenerated {
     cppFlag = "DAML_UnsafeFromInterface",
   )
 
-  val allFeatures: List[Feature] = List(
-    featureUnstable,
-    featureTextMap,
-    featureBigNumeric,
-    featureExceptions,
-    featureExtendedInterfaces,
-    featureChoiceFuncs,
-    featureTemplateTypeRepToText,
-    featureContractKeys,
-    featureFlatArchive,
-    featurePackageImports,
-    featureComplexAnyType,
-    featureCryptoUtility,
-    featureExperimental,
-    featurePackageUpgrades,
-    featureChoiceAuthority,
-    featureUnsafeFromInterface,
-  )
+  val allFeatures: List[Feature] = List(featureUnstable, featureTextMap, featureBigNumeric, featureExceptions, featureExtendedInterfaces, featureChoiceFuncs, featureTemplateTypeRepToText, featureContractKeys, featureFlatArchive, featurePackageImports, featureComplexAnyType, featureExperimental, featurePackageUpgrades, featureChoiceAuthority, featureUnsafeFromInterface,  featureCryptoUtility)
 
 }
