@@ -82,10 +82,11 @@ object LanguageVersion extends LanguageFeaturesGenerated {
     def assertFromString(s: String): Minor = data.assertRight(fromString(s))
   }
 
-  final case class Feature( name: String,
-                            versionReq: VersionRange[LanguageVersion],
-                            cppFlag: String
-                          ) {
+  final case class Feature(
+      name: String,
+      versionReq: VersionRange[LanguageVersion],
+      cppFlag: String,
+  ) {
     def enabledIn(lv: LanguageVersion): Boolean = versionReq.contains(lv)
   }
 

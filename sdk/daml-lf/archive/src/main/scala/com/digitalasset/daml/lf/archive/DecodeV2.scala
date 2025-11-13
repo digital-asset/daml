@@ -221,7 +221,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         Left("PLF.Package.ImportsSumCase.IMPORTSSUM_NOT_SET")
       case PLF.Package.ImportsSumCase.PACKAGE_IMPORTS =>
         val imports = lfPackage.getPackageImports.getImportedPackagesList.asScala.toIndexedSeq
-        if (versionSupports(LV.featurePackageImports))
+        if (!versionSupports(LV.featurePackageImports))
           throw Error.Parsing(
             s"Explicit pkg imports set on unsupported lf version (version ${languageVersion}), case set PACKAGE_IMPORTS, to ${imports}"
           )
@@ -229,7 +229,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           Right(imports)
       case PLF.Package.ImportsSumCase.NO_IMPORTED_PACKAGES_REASON =>
         val reason = lfPackage.getNoImportedPackagesReason
-        if (versionSupports(LV.featurePackageImports))
+        if (!versionSupports(LV.featurePackageImports))
           throw Error.Parsing(
             s"Explicit pkg imports set on unsupported lf version (version ${languageVersion}), case NO_IMPORTED_PACKAGES_REASON, set to ${reason}"
           )
@@ -664,7 +664,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
                   Ret(Some(authorizers))
                 }
               } else {
-                // authorizers are optional post LV.Features.choiceAuthority
+                // authorizers are optional post LV.featureChoiceAuthority
                 Ret(None)
               }
             ) { choiceAuthorizers =>
@@ -1464,7 +1464,10 @@ private[archive] class DecodeV2(minor: LV.Minor) {
             decodeExpr(exercise.getArg, definition) { argE =>
               Work.bind(
                 if (exercise.hasGuard) {
-                  assertVersionSupports(LV.featureExtendedInterfaces, Some("exerciseInterface.guard"))
+                  assertVersionSupports(
+                    LV.featureExtendedInterfaces,
+                    Some("exerciseInterface.guard"),
+                  )
                   decodeExpr(exercise.getGuard, definition) { e =>
                     Ret(Some(e))
                   }
@@ -1618,14 +1621,14 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       }
   }
 
-  private def versionSupports(ft : LV.Feature): Boolean =
+  private def versionSupports(ft: LV.Feature): Boolean =
     ft.versionReq.contains(languageVersion)
 
   def assertVersionSupports(ft: LV.Feature, caseDescription: Option[String] = None): Unit = {
     if (!versionSupports(ft)) {
       val optDescr = caseDescription match {
         case Some(str) => s" (case ${str})"
-        case None      => ""
+        case None => ""
       }
       throw notSupportedError(ft.name ++ optDescr)
     }
@@ -1695,6 +1698,8 @@ private[lf] object DecodeV2 {
   private def eitherToParseError[A](x: Either[String, A]): A =
     x.fold(err => throw Error.Parsing(err), identity)
 
+  // TODO https://github.com/digital-asset/daml/issues/22365
+  // migrate to versionReq
   case class BuiltinTypeInfo(
       proto: PLF.BuiltinType,
       bTyp: BuiltinType,
@@ -1724,8 +1729,18 @@ private[lf] object DecodeV2 {
       BuiltinTypeInfo(NUMERIC, BTNumeric),
       BuiltinTypeInfo(ANY, BTAny),
       BuiltinTypeInfo(TYPE_REP, BTTypeRep),
-      BuiltinTypeInfo(BIGNUMERIC, BTBigNumeric, minVersion = LV.featureBigNumeric.versionReq.min, range = Some(LV.featureBigNumeric.versionReq)),
-      BuiltinTypeInfo(ROUNDING_MODE, BTRoundingMode, minVersion = LV.featureBigNumeric.versionReq.min, range = Some(LV.featureBigNumeric.versionReq)),
+      BuiltinTypeInfo(
+        BIGNUMERIC,
+        BTBigNumeric,
+        minVersion = LV.featureBigNumeric.versionReq.min,
+        range = Some(LV.featureBigNumeric.versionReq),
+      ),
+      BuiltinTypeInfo(
+        ROUNDING_MODE,
+        BTRoundingMode,
+        minVersion = LV.featureBigNumeric.versionReq.min,
+        range = Some(LV.featureBigNumeric.versionReq),
+      ),
       BuiltinTypeInfo(ANY_EXCEPTION, BTAnyException),
       BuiltinTypeInfo(FAILURE_CATEGORY, BTFailureCategory),
     )
@@ -1736,6 +1751,8 @@ private[lf] object DecodeV2 {
       .map(info => info.proto -> info)
       .toMap
 
+  // TODO https://github.com/digital-asset/daml/issues/22365
+  // migrate to versionReq
   case class BuiltinFunctionInfo(
       proto: PLF.BuiltinFunction,
       builtin: BuiltinFunction,
@@ -1814,18 +1831,73 @@ private[lf] object DecodeV2 {
       BuiltinFunctionInfo(EQUAL_LIST, BEqualList),
       BuiltinFunctionInfo(TRACE, BTrace),
       BuiltinFunctionInfo(COERCE_CONTRACT_ID, BCoerceContractId),
-      BuiltinFunctionInfo(SCALE_BIGNUMERIC, BScaleBigNumeric, minVersion = LV.featureBigNumeric.versionReq.min, versionReq = Some(LV.featureBigNumeric.versionReq)),
-      BuiltinFunctionInfo(PRECISION_BIGNUMERIC, BPrecisionBigNumeric, minVersion = LV.featureBigNumeric.versionReq.min, versionReq = Some(LV.featureBigNumeric.versionReq)),
-      BuiltinFunctionInfo(ADD_BIGNUMERIC, BAddBigNumeric, minVersion = LV.featureBigNumeric.versionReq.min, versionReq = Some(LV.featureBigNumeric.versionReq)),
-      BuiltinFunctionInfo(SUB_BIGNUMERIC, BSubBigNumeric, minVersion = LV.featureBigNumeric.versionReq.min, versionReq = Some(LV.featureBigNumeric.versionReq)),
-      BuiltinFunctionInfo(MUL_BIGNUMERIC, BMulBigNumeric, minVersion = LV.featureBigNumeric.versionReq.min, versionReq = Some(LV.featureBigNumeric.versionReq)),
-      BuiltinFunctionInfo(DIV_BIGNUMERIC, BDivBigNumeric, minVersion = LV.featureBigNumeric.versionReq.min, versionReq = Some(LV.featureBigNumeric.versionReq)),
-      BuiltinFunctionInfo(SHIFT_RIGHT_BIGNUMERIC, BShiftRightBigNumeric, minVersion = LV.featureBigNumeric.versionReq.min, versionReq = Some(LV.featureBigNumeric.versionReq)),
-      BuiltinFunctionInfo(BIGNUMERIC_TO_NUMERIC, BBigNumericToNumeric, minVersion = LV.featureBigNumeric.versionReq.min, versionReq = Some(LV.featureBigNumeric.versionReq)),
-      BuiltinFunctionInfo(NUMERIC_TO_BIGNUMERIC, BNumericToBigNumeric, minVersion = LV.featureBigNumeric.versionReq.min, versionReq = Some(LV.featureBigNumeric.versionReq)),
-      BuiltinFunctionInfo(BIGNUMERIC_TO_TEXT, BBigNumericToText, minVersion = LV.featureBigNumeric.versionReq.min, versionReq = Some(LV.featureBigNumeric.versionReq)),
+      BuiltinFunctionInfo(
+        SCALE_BIGNUMERIC,
+        BScaleBigNumeric,
+        minVersion = LV.featureBigNumeric.versionReq.min,
+        versionReq = Some(LV.featureBigNumeric.versionReq),
+      ),
+      BuiltinFunctionInfo(
+        PRECISION_BIGNUMERIC,
+        BPrecisionBigNumeric,
+        minVersion = LV.featureBigNumeric.versionReq.min,
+        versionReq = Some(LV.featureBigNumeric.versionReq),
+      ),
+      BuiltinFunctionInfo(
+        ADD_BIGNUMERIC,
+        BAddBigNumeric,
+        minVersion = LV.featureBigNumeric.versionReq.min,
+        versionReq = Some(LV.featureBigNumeric.versionReq),
+      ),
+      BuiltinFunctionInfo(
+        SUB_BIGNUMERIC,
+        BSubBigNumeric,
+        minVersion = LV.featureBigNumeric.versionReq.min,
+        versionReq = Some(LV.featureBigNumeric.versionReq),
+      ),
+      BuiltinFunctionInfo(
+        MUL_BIGNUMERIC,
+        BMulBigNumeric,
+        minVersion = LV.featureBigNumeric.versionReq.min,
+        versionReq = Some(LV.featureBigNumeric.versionReq),
+      ),
+      BuiltinFunctionInfo(
+        DIV_BIGNUMERIC,
+        BDivBigNumeric,
+        minVersion = LV.featureBigNumeric.versionReq.min,
+        versionReq = Some(LV.featureBigNumeric.versionReq),
+      ),
+      BuiltinFunctionInfo(
+        SHIFT_RIGHT_BIGNUMERIC,
+        BShiftRightBigNumeric,
+        minVersion = LV.featureBigNumeric.versionReq.min,
+        versionReq = Some(LV.featureBigNumeric.versionReq),
+      ),
+      BuiltinFunctionInfo(
+        BIGNUMERIC_TO_NUMERIC,
+        BBigNumericToNumeric,
+        minVersion = LV.featureBigNumeric.versionReq.min,
+        versionReq = Some(LV.featureBigNumeric.versionReq),
+      ),
+      BuiltinFunctionInfo(
+        NUMERIC_TO_BIGNUMERIC,
+        BNumericToBigNumeric,
+        minVersion = LV.featureBigNumeric.versionReq.min,
+        versionReq = Some(LV.featureBigNumeric.versionReq),
+      ),
+      BuiltinFunctionInfo(
+        BIGNUMERIC_TO_TEXT,
+        BBigNumericToText,
+        minVersion = LV.featureBigNumeric.versionReq.min,
+        versionReq = Some(LV.featureBigNumeric.versionReq),
+      ),
       BuiltinFunctionInfo(ANY_EXCEPTION_MESSAGE, BAnyExceptionMessage),
-      BuiltinFunctionInfo(TYPE_REP_TYCON_NAME, BTypeRepTyConName, minVersion = LV.featureUnstable.versionReq.min, versionReq = Some(LV.featureUnstable.versionReq)),
+      BuiltinFunctionInfo(
+        TYPE_REP_TYCON_NAME,
+        BTypeRepTyConName,
+        minVersion = LV.featureUnstable.versionReq.min,
+        versionReq = Some(LV.featureUnstable.versionReq),
+      ),
       BuiltinFunctionInfo(FAIL_WITH_STATUS, BFailWithStatus),
     )
   }
