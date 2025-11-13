@@ -77,6 +77,7 @@ def install_java_deps():
             "com.daml:transcode-codec-json_3:{}".format(transcode_version),
             "com.daml:transcode-codec-proto-scala-daml3.5_3:{}".format(transcode_version),
             "com.daml:transcode-daml-lf-daml3.5_3:{}".format(transcode_version),
+            "com.daml:transcode-schema_3:{}".format(transcode_version),
             "com.fasterxml.jackson.core:jackson-core:2.14.3",
             "com.fasterxml.jackson.core:jackson-databind:2.14.3",
             "com.github.ben-manes.caffeine:caffeine:3.1.2",
