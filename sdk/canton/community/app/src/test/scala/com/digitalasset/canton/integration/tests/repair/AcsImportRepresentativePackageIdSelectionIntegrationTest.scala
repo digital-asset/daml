@@ -251,7 +251,7 @@ abstract class AcsImportRepresentativePackageIdSelectionIntegrationTest
                 entry.shouldBeCantonErrorCode(ImportAcsError)
                 entry.message should include(
                   show"Contract import mode is 'Accept' but the selected representative package-id ${LfPackageId
-                      .assertFromString(FooV1PkgId)} for contract with id $contractId differs from the exported representative package-id ${LfPackageId.assertFromString(FooV2PkgId)}. Please use contract import mode 'Validation' or 'Recomputation' to change the representative package-id."
+                      .assertFromString(FooV1PkgId)} for contract with id $contractId differs from the exported representative package-id ${LfPackageId.assertFromString(FooV2PkgId)}. Please use contract import mode 'Validation' to change the representative package-id."
                 )
               },
             ),

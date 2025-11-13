@@ -438,7 +438,11 @@ private final case class LedgerServicesJson(
   dars.foreach(dar => addDarToPackageMetadataView(Dars.read(dar).newInput()))
 
   private val schemaProcessors =
-    new SchemaProcessorsImpl(_ => packageMetadataView.get().packages, loggerFactory)
+    new SchemaProcessorsImpl(
+      _ => packageMetadataView.get().packages,
+      loggerFactory,
+      allowMissingFields = true,
+    )
   private val protocolConverters =
     new ProtocolConverters(
       schemaProcessors,

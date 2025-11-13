@@ -434,7 +434,7 @@ class InMemoryIncrementalCommitments(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = {
     reinitStarted.set(Some(timestamp))
-    FutureUnlessShutdown.pure(())
+    FutureUnlessShutdown.unit
   }
 
   override def markReinitializationCompleted(timestamp: CantonTimestamp)(implicit

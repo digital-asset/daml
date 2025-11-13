@@ -14,8 +14,7 @@ import com.digitalasset.canton.logging.{
   NamedLogging,
 }
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
-import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown
-import com.digitalasset.canton.participant.store.ContractStore
+import com.digitalasset.canton.participant.store.LedgerApiContractStore
 import com.digitalasset.canton.platform.InternalEventFormat
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   FatCreatedEventProperties,
@@ -35,7 +34,7 @@ private[dao] sealed class EventsReader(
     val parameterStorageBackend: ParameterStorageBackend,
     val metrics: LedgerApiServerMetrics,
     val lfValueTranslation: LfValueTranslation,
-    val contractStore: ContractStore,
+    val contractStore: LedgerApiContractStore,
     val ledgerEndCache: LedgerEndCache,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
@@ -53,7 +52,6 @@ private[dao] sealed class EventsReader(
       internalContractId <- OptionT(
         contractStore
           .lookupBatchedNonCachedInternalIds(List(contractId))
-          .failOnShutdownTo(AbortedDueToShutdown.Error().asGrpcError)
           .map(_.values.headOption)
       )
       (create, archiveO) <- OptionT(

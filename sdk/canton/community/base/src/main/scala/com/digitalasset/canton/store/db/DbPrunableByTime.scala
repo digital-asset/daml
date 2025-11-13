@@ -97,7 +97,7 @@ trait DbPrunableByTime[Idx] extends PrunableByTime {
               )
             case _ =>
           }
-        } else FutureUnlessShutdown.pure(())
+        } else FutureUnlessShutdown.unit
     } yield {
       logger.debug(
         s"Finished setting phase of $pruning_status_table to \"${phase.kind}\" and timestamp to $timestamp"

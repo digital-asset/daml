@@ -27,8 +27,7 @@ import com.digitalasset.canton.logging.{
   TracedLogger,
 }
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
-import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown
-import com.digitalasset.canton.participant.store.ContractStore
+import com.digitalasset.canton.participant.store.LedgerApiContractStore
 import com.digitalasset.canton.platform.InMemoryState
 import com.digitalasset.canton.platform.index.InMemoryStateUpdater
 import com.digitalasset.canton.platform.indexer.ha.Handle
@@ -79,7 +78,7 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
     reassignmentOffsetPersistence: ReassignmentOffsetPersistence,
     postProcessor: (Vector[PostPublishData], TraceContext) => Future[Unit],
     sequentialPostProcessor: Update => Unit,
-    contractStore: ContractStore,
+    contractStore: LedgerApiContractStore,
     disableMonotonicityChecks: Boolean,
     tracer: Tracer,
     loggerFactory: NamedLoggerFactory,
@@ -129,7 +128,6 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
       (contractIds: Iterable[ContractId]) =>
         contractStore
           .lookupBatchedNonCachedInternalIds(contractIds)(tc)
-          .failOnShutdownTo(AbortedDueToShutdown.Error().asGrpcError)(materializer.executionContext)
 
     val ((sourceQueue, uniqueKillSwitch), completionFuture) = Source
       .queue[(Long, Update)](

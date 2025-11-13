@@ -66,7 +66,7 @@ import com.digitalasset.canton.synchronizer.service.GrpcSequencerConnectionServi
 import com.digitalasset.canton.time.{Clock, HasUptime, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.grpc.PSIdLookup
-import com.digitalasset.canton.topology.client.{SynchronizerTopologyClient, TopologyClientConfig}
+import com.digitalasset.canton.topology.client.SynchronizerTopologyClient
 import com.digitalasset.canton.topology.processing.{
   InitialTopologySnapshotValidator,
   TopologyTransactionProcessor,
@@ -145,7 +145,6 @@ final case class MediatorNodeConfig(
     override val init: InitConfig = InitConfig(),
     timeTracker: SynchronizerTimeTrackerConfig = SynchronizerTimeTrackerConfig(),
     override val sequencerClient: SequencerClientConfig = SequencerClientConfig(),
-    override val topologyClient: TopologyClientConfig = TopologyClientConfig(),
     caching: CachingConfigs = CachingConfigs(),
     override val parameters: MediatorNodeParameterConfig = MediatorNodeParameterConfig(),
     mediator: MediatorConfig = MediatorConfig(),
@@ -609,6 +608,7 @@ class MediatorNodeBootstrap(
               synchronizerPredecessor = None,
               crypto.pureCrypto,
               arguments.parameterConfig,
+              arguments.config.topology,
               arguments.clock,
               staticSynchronizerParameters,
               arguments.futureSupervisor,

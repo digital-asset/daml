@@ -789,6 +789,45 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   }
 
   @Explanation(
+    """This error indicates that the namespace has been revoked."""
+  )
+  @Resolution(
+    """Use a different namespace."""
+  )
+  object NamespaceHasBeenRevoked
+      extends ErrorCode(
+        id = "TOPOLOGY_NAMESPACE_HAS_BEEN_REVOKED",
+        ErrorCategory.InvalidGivenCurrentSystemStateResourceExists,
+      ) {
+    final case class Reject(
+        namespace: Namespace
+    )(implicit
+        override val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause = s"The namespace $namespace has been revoked."
+        )
+        with TopologyManagerError
+  }
+
+  @Explanation(
+    "This error indicates that the confirming threshold is higher than the number of hosting nodes, which will result in a non functional party."
+  )
+  @Resolution("Decrease the threshold or increase the number of hosting nodes.")
+  object ConfirmingThresholdCannotBeReached
+      extends ErrorCode(
+        id = "TOPOLOGY_CONFIRMING_THRESHOLD_CANNOT_BE_REACHED",
+        ErrorCategory.InvalidGivenCurrentSystemStateResourceExists,
+      ) {
+    final case class Reject(threshold: PositiveInt, numberOfHostingNodes: Int)(implicit
+        override val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause =
+            s"Tried to set a confirming threshold (${threshold.value}) above the number of hosting nodes ($numberOfHostingNodes)."
+        )
+        with TopologyManagerError
+  }
+
+  @Explanation(
     "This error indicates that the partyId to allocate is the same as an already existing admin party."
   )
   @Resolution("Submit the topology transaction with a changed partyId.")

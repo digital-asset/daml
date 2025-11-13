@@ -8,6 +8,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.protocol.SubmissionRequestType
 import com.digitalasset.canton.synchronizer.block.update.{ChunkUpdate, OrderedBlockUpdate}
+import com.digitalasset.canton.synchronizer.metrics.{SequencerMetrics, ThroughputCapMetrics}
 import com.digitalasset.canton.synchronizer.sequencer.BlockSequencerConfig.{
   IndividualThroughputCapConfig,
   ThroughputCapConfig,
@@ -55,23 +56,34 @@ class BlockSequencerThroughputCap(
     config: ThroughputCapConfig,
     clock: Clock,
     scheduler: Scheduler,
+    metrics: SequencerMetrics,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
-    extends NamedLogging {
+    extends NamedLogging
+    with AutoCloseable {
 
   private val perMessageTypeCaps =
     Map[SubmissionRequestType, IndividualBlockSequencerThroughputCap](
       SubmissionRequestType.ConfirmationRequest -> makeIndividualCap(
-        config.messages.confirmationRequest
+        config.messages.confirmationRequest,
+        SubmissionRequestType.ConfirmationRequest,
       ),
-      SubmissionRequestType.TopologyTransaction -> makeIndividualCap(config.messages.topology),
+      SubmissionRequestType.TopologyTransaction -> makeIndividualCap(
+        config.messages.topology,
+        SubmissionRequestType.TopologyTransaction,
+      ),
     )
 
-  private def makeIndividualCap(individualConfig: IndividualThroughputCapConfig) =
+  private def makeIndividualCap(
+      individualConfig: IndividualThroughputCapConfig,
+      requestType: SubmissionRequestType,
+  ) =
     new IndividualBlockSequencerThroughputCap(
       config.observationPeriodSeconds,
       individualConfig,
+      requestType,
       clock,
+      metrics,
       loggerFactory,
     )
 
@@ -148,6 +160,8 @@ class BlockSequencerThroughputCap(
         },
       )
     )
+
+  override def close(): Unit = perMessageTypeCaps.foreach(_._2.close())
 }
 
 object BlockSequencerThroughputCap {
@@ -170,9 +184,12 @@ object BlockSequencerThroughputCap {
   class IndividualBlockSequencerThroughputCap(
       observationPeriodSeconds: Int,
       config: IndividualThroughputCapConfig,
+      requestType: SubmissionRequestType,
       clock: Clock,
+      parentMetrics: SequencerMetrics,
       override val loggerFactory: NamedLoggerFactory,
-  ) extends NamedLogging {
+  ) extends NamedLogging
+      with AutoCloseable {
 
     private var initialized: Boolean = false
 
@@ -190,6 +207,13 @@ object BlockSequencerThroughputCap {
     private var totalWindowBytes: Long = 0
 
     private val memberUsage = new ConcurrentHashMap[ThroughputCapKey, ThroughputCapValue]().asScala
+
+    private val metrics =
+      new ThroughputCapMetrics(
+        requestType.name,
+        parentMetrics.prefix,
+        parentMetrics.openTelemetryMetricsFactory,
+      )
 
     def shouldRejectTransaction(member: Member, requestLevel: Int): Either[String, Unit] = {
       val key = ThroughputCapKey(member)
@@ -323,15 +347,18 @@ object BlockSequencerThroughputCap {
       }
 
       calculateAndSetThresholdLevel()
+
+      metrics.tps.updateValue(capWindow.size.toDouble / observationPeriodSeconds.toDouble)
+      metrics.bps.updateValue(totalWindowBytes.toDouble / observationPeriodSeconds.toDouble)
     }
 
     private def calculateAndSetThresholdLevel(): Unit = {
       val percentGlobalUtilizationTps =
         capWindow.size.toDouble / maximumGlobalTransactionsPerObservationPeriod
-      val percentGlobalUtilizationKbps =
+      val percentGlobalUtilizationBps =
         totalWindowBytes.toDouble / maximumGlobalBytesPerObservationPeriod
       val highestGlobalUtilization =
-        math.max(percentGlobalUtilizationTps, percentGlobalUtilizationKbps)
+        math.max(percentGlobalUtilizationTps, percentGlobalUtilizationBps)
 
       // TODO(i28703): Make configurable
       currentThresholdLevel =
@@ -344,5 +371,7 @@ object BlockSequencerThroughputCap {
     @VisibleForTesting
     private[block] def getMemberUsage(member: Member): Option[ThroughputCapValue] =
       memberUsage.get(ThroughputCapKey(member))
+
+    override def close(): Unit = metrics.close()
   }
 }

@@ -10,7 +10,7 @@ import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.NonEmptyReturningOps.*
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.concurrent.{DirectExecutionContext, FutureSupervisor}
-import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.{ProcessingTimeout, TopologyConfig}
 import com.digitalasset.canton.crypto.SynchronizerCryptoPureApi
 import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerPredecessor}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -530,6 +530,7 @@ object TopologyTransactionProcessor {
       synchronizerPredecessor: Option[SynchronizerPredecessor],
       pureCrypto: SynchronizerCryptoPureApi,
       parameters: CantonNodeParameters,
+      topologyConfig: TopologyConfig,
       clock: Clock,
       staticSynchronizerParameters: StaticSynchronizerParameters,
       futureSupervisor: FutureSupervisor,
@@ -561,7 +562,7 @@ object TopologyTransactionProcessor {
       NoPackageDependencies,
       parameters.cachingConfigs,
       parameters.batchingConfig,
-      parameters.topologyClient,
+      topologyConfig,
       parameters.processingTimeouts,
       futureSupervisor,
       loggerFactory,

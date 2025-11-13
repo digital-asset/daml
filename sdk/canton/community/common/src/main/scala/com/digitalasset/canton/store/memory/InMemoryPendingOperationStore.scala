@@ -73,7 +73,7 @@ class InMemoryPendingOperationStore[Op <: HasProtocolVersionedWrapper[Op]](
       operationName: NonEmptyString,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     store.remove(compositeKey(synchronizerId, operationKey, operationName)).discard
-    FutureUnlessShutdown.pure(())
+    FutureUnlessShutdown.unit
   }
 
   override def get(

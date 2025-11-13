@@ -31,13 +31,6 @@ object ContractImportMode {
     override def pretty: Pretty[Validation.type] = prettyOfObject[Validation.type]
   }
 
-  case object Recomputation extends ContractImportMode {
-    override def toProtoV30: v30.ContractImportMode =
-      v30.ContractImportMode.CONTRACT_IMPORT_MODE_RECOMPUTATION
-
-    override def pretty: Pretty[Recomputation.type] = prettyOfObject[Recomputation.type]
-  }
-
   def fromProtoV30(
       contractIdReComputationModeP: v30.ContractImportMode
   ): ParsingResult[ContractImportMode] =
@@ -48,8 +41,6 @@ object ContractImportMode {
         Right(Accept)
       case v30.ContractImportMode.CONTRACT_IMPORT_MODE_VALIDATION =>
         Right(Validation)
-      case v30.ContractImportMode.CONTRACT_IMPORT_MODE_RECOMPUTATION =>
-        Right(Recomputation)
       case v30.ContractImportMode.Unrecognized(value) =>
         Left(UnrecognizedEnum(contractIdReComputationModeP.name, value))
     }

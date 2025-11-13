@@ -194,6 +194,11 @@ object RejectionGenerators {
             ) =>
           CommandExecutionErrors.Interpreter.CryptoError.MalformedSignature
             .Reject(renderedMessage, error)
+        case LfInterpretationError.Crypto(
+              error: LfInterpretationError.Crypto.MalformedContractId
+            ) =>
+          CommandExecutionErrors.Interpreter.CryptoError.MalformedContractId
+            .Reject(renderedMessage, error)
         case LfInterpretationError.Dev(_, err) =>
           CommandExecutionErrors.Interpreter.InterpretationDevError
             .Reject(renderedMessage, err)

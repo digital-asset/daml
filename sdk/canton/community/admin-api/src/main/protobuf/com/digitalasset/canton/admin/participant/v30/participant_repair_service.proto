@@ -171,18 +171,18 @@ message ImportAcsOldRequest {
   // The synchronizer id prefix to be used for the imported contracts
   // Optional, if not provided the service will generate a prefix
   string workflow_id_prefix = 2;
+
   // If false, the service will fail if any contract ID suffix doesn't match the scheme
   // associated to the synchronizer where the contract is being assigned as a result of the import.
   // If true, any contract ID suffix will be recomputed to match the scheme associated to the synchronizer.
   // Recommended value is `false`
-  bool allow_contract_id_suffix_recomputation = 3;
+  reserved 3; // was allow_contract_id_suffix_recomputation, default behavior is false
 }
 
 message ImportAcsOldResponse {
   option deprecated = true;
 
-  // Mapping from the old contract id to the new contract id
-  map<string, string> contract_id_mapping = 1;
+  reserved 1; // was map<string, string> contract_id_mapping
 }
 
 message ExportAcsTargetSynchronizer {
@@ -267,9 +267,7 @@ message ImportAcsRequest {
 }
 
 message ImportAcsResponse {
-  // Maps old contract IDs to newly recomputed contract IDs iff the recomputation contract ID import mode has
-  // been selected, empty otherwise.
-  map<string, string> contract_id_mappings = 1;
+  reserved 1; // was map<string, string> contract_id_mappings = 1;
 }
 
 message PurgeDeactivatedSynchronizerRequest {

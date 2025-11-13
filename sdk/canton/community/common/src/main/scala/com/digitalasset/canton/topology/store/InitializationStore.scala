@@ -58,7 +58,7 @@ class InMemoryInitializationStore(override protected val loggerFactory: NamedLog
   override def setUid(
       id: UniqueIdentifier
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    if (myId.compareAndSet(None, Some(id))) FutureUnlessShutdown.pure(())
+    if (myId.compareAndSet(None, Some(id))) FutureUnlessShutdown.unit
     // once we get to this branch, we know that the id is already set (so the logic used here is safe)
     else
       ErrorUtil.requireArgumentAsyncShutdown(

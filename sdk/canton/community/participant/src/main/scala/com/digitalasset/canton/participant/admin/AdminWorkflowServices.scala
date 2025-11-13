@@ -235,7 +235,7 @@ class AdminWorkflowServices(
           _ <-
             if (config.parameters.unsafeOnlinePartyReplication.isDefined)
               load(AdminWorkflowServices.PartyReplicationDarResourceFileName)
-            else FutureUnlessShutdown.pure(())
+            else FutureUnlessShutdown.unit
         } yield ()
 
         resultUS.transform[Unit](

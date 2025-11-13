@@ -445,7 +445,7 @@ class TaskSchedulerTest extends AsyncWordSpec with BaseTest {
           queue.enqueue(1)
           immediate1Executed.trySuccess(())
           ts shouldBe ofEpochMilli(2)
-          FutureUnlessShutdown.pure(())
+          FutureUnlessShutdown.unit
         },
         implicitly,
       ) shouldBe ofEpochMilli(2)
@@ -462,7 +462,7 @@ class TaskSchedulerTest extends AsyncWordSpec with BaseTest {
               queue.enqueue(4)
               immediate2Executed.trySuccess(())
               ts shouldBe ofEpochMilli(10)
-              FutureUnlessShutdown.pure(())
+              FutureUnlessShutdown.unit
             },
             implicitly,
           ) shouldBe ofEpochMilli(10)

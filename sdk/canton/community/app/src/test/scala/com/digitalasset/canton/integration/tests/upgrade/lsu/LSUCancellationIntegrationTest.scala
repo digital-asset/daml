@@ -4,6 +4,7 @@
 package com.digitalasset.canton.integration.tests.upgrade.lsu
 
 import com.digitalasset.canton.admin.api.client.data.DynamicSynchronizerParameters as ConsoleDynamicSynchronizerParameters
+import com.digitalasset.canton.annotations.UnstableTest
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.{DbConfig, SynchronizerTimeTrackerConfig}
 import com.digitalasset.canton.console.CommandFailure
@@ -286,6 +287,7 @@ final class LSUCancellationReferenceIntegrationTest extends LSUCancellationInteg
   )
 }
 
+@UnstableTest
 final class LSUCancellationBftOrderingIntegrationTest extends LSUCancellationIntegrationTest {
   registerPlugin(
     new UseBftSequencer(

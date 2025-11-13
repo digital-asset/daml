@@ -13,7 +13,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
-import com.digitalasset.canton.participant.store.ContractStore
+import com.digitalasset.canton.participant.store.LedgerApiContractStore
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.config.{
   ActiveContractsServiceStreamsConfig,
@@ -59,7 +59,7 @@ private class JdbcLedgerWriteDao(
     ) => FutureUnlessShutdown[Vector[Offset]],
     contractLoader: ContractLoader,
     lfValueTranslation: LfValueTranslation,
-    contractStore: ContractStore,
+    contractStore: LedgerApiContractStore,
     pruningOffsetService: PruningOffsetService,
 )(implicit ec: ExecutionContext)
     extends LedgerReadDao
@@ -242,17 +242,12 @@ private class JdbcLedgerWriteDao(
           )
           .toSeq
       )
-      .failOnShutdownTo(new IllegalStateException("Storing contracts was interrupted"))
 
     contractIds =
       transaction.nodes.values
         .collect { case create: Node.Create => create.coid }
 
-    internalContractIds <- contractStore
-      .lookupBatchedNonCachedInternalIds(contractIds)
-      .failOnShutdownTo(
-        new IllegalStateException("Looking up internal contract ids was interrupted")
-      )
+    internalContractIds <- contractStore.lookupBatchedNonCachedInternalIds(contractIds)
 
     _ <- Future.successful(logger.info("Storing transaction"))
     _ <- dbDispatcher

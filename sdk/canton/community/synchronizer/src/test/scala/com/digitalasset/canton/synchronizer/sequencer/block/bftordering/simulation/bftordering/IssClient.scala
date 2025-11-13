@@ -43,8 +43,20 @@ class IssClient[E <: Env[E]](
       context: E#ActorContextT[Unit],
       traceContext: TraceContext,
   ): Unit = {
+    (0 until simSettings.clientSettings.numberOfRequestsPerInterval.value).foreach(_ => sendRequest)
+
+    simSettings.clientSettings.requestInterval.foreach(interval =>
+      context.delayedEvent(interval, ())
+    )
+  }
+
+  private def sendRequest(implicit
+      context: E#ActorContextT[Unit],
+      traceContext: TraceContext,
+  ): Unit = {
+
     val additionalPayload =
-      simSettings.clientRequestApproximateByteSize
+      simSettings.clientSettings.requestApproximateByteSize
         .map(bytes =>
           ByteString.copyFromUtf8("-").concat(ByteString.copyFrom(random.nextBytes(bytes.value)))
         )
@@ -62,8 +74,6 @@ class IssClient[E <: Env[E]](
     submissionNumber += 1
 
     mempool.asyncSend(request)
-
-    simSettings.clientRequestInterval.foreach(interval => context.delayedEvent(interval, ()))
   }
 }
 
@@ -85,7 +95,7 @@ object IssClient {
       override def init(context: E#ActorContextT[Unit]): Unit =
         // If the interval is None, the progress of the simulation time will solely depend on other delayed events
         // across the BFT Ordering Service (e.g., clock tick events from the Availability module).
-        simSettings.clientRequestInterval.foreach(interval =>
+        simSettings.clientSettings.requestInterval.foreach(interval =>
           context.delayedEventNoTrace(interval, ())
         )
     }

@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.performance.shortcircuit
 
+import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.performance.{
   BftBenchmarkConfig,
   BftBenchmarkTool,
@@ -17,5 +18,5 @@ object ShortcircuitBenchmarkTool extends App {
     .load[BftBenchmarkConfig]
     .getOrElse(throw new RuntimeException("Invalid configuration"))
 
-  new BftBenchmarkTool(ShortCircuitBindingFactory).run(config)
+  new BftBenchmarkTool(ShortCircuitBindingFactory, NamedLoggerFactory.root).run(config)
 }

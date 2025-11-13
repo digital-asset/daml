@@ -27,7 +27,15 @@ import scala.concurrent.duration.*
   *
   * If you want to use this alongside the `UsePostgres` plugin, make sure you register the
   * `UseToxiproxy` plugin second so that it can use the transformations from the `UsePostgres`
-  * plugin
+  * plugin.
+  *
+  * The plugin uses the same `CI` and `MACHINE` environment variables as `UsePostgres`. This means
+  * that if you use a non-docker Postgres instance, you also must use a non-docker Toxiproxy (for
+  * example from Homebrew).
+  *
+  * @see
+  *   [[https://github.com/Shopify/toxiproxy?tab=readme-ov-file#1-installing-toxiproxy]] for
+  *   installation and running instructions
   */
 @SuppressWarnings(Array("org.wartremover.warts.Var", "org.wartremover.warts.Null"))
 final case class UseToxiproxy(toxiproxyConfig: ToxiproxyConfig)

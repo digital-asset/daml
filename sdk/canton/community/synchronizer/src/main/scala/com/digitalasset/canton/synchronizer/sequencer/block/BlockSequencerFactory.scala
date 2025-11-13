@@ -28,7 +28,7 @@ import com.digitalasset.canton.synchronizer.sequencing.traffic.store.{
   TrafficPurchasedStore,
 }
 import com.digitalasset.canton.synchronizer.sequencing.traffic.{
-  EnterpriseSequencerRateLimitManager,
+  SequencerRateLimitManagerImpl,
   TrafficPurchasedManager,
 }
 import com.digitalasset.canton.time.Clock
@@ -175,7 +175,7 @@ abstract class BlockSequencerFactory(
       protocolVersion: ProtocolVersion,
       trafficConfig: SequencerTrafficConfig,
   ): SequencerRateLimitManager =
-    new EnterpriseSequencerRateLimitManager(
+    new SequencerRateLimitManagerImpl(
       trafficPurchasedManager,
       trafficConsumedStore,
       loggerFactory,

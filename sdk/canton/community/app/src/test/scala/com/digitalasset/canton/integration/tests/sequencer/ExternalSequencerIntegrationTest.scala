@@ -85,7 +85,7 @@ abstract class ExternalSequencerIntegrationTest(override val name: String)
   ): Unit = {
     import env.*
     sequencerNamesList.foreach(external.kill(_))
-    sequencerNamesList.foreach(external.start)
+    sequencerNamesList.foreach(external.start(_))
     // wait for the sequencers to have fully restarted
     val sequencers = sequencerNamesList.map(rs)
     sequencers.foreach(_.health.wait_for_running())
@@ -114,7 +114,7 @@ abstract class ExternalSequencerIntegrationTest(override val name: String)
         import env.*
         val sequencers = sequencerNamesList.map(rs)
         logger.info(s"$name external sequencers are starting")
-        sequencerNamesList.foreach(external.start)
+        sequencerNamesList.foreach(external.start(_))
         sequencers.foreach(_.health.wait_for_running())
         logger.info(s"$name external sequencers are running")
       }

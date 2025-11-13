@@ -18,8 +18,7 @@ import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.util.{LfEngineToApi, TimestampConversion}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, LoggingContextWithTrace}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
-import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown
-import com.digitalasset.canton.participant.store.ContractStore
+import com.digitalasset.canton.participant.store.LedgerApiContractStore
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   FatCreatedEventProperties,
@@ -558,7 +557,7 @@ private[dao] object UpdateReader {
     )
   )
 
-  def withFatContractIfNeeded(contractStore: ContractStore)(
+  def withFatContractIfNeeded(contractStore: LedgerApiContractStore)(
       rawEvents: Vector[RawThinEvent]
   )(implicit
       ec: ExecutionContext,
@@ -566,7 +565,6 @@ private[dao] object UpdateReader {
   ): Future[Vector[(RawThinEvent, Option[FatContract])]] =
     contractStore
       .lookupBatchedNonCached(rawEvents.flatMap(getInternalContractIdO))(ecl.traceContext)
-      .failOnShutdownTo(AbortedDueToShutdown.Error().asGrpcError)
       .map(contracts =>
         rawEvents.map(event =>
           event -> getInternalContractIdO(event)

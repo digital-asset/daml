@@ -14,7 +14,7 @@ import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ReassignmentCounter
 import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString
-import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -70,6 +70,7 @@ class DbActiveContractStore(
     protected[this] override val indexedSynchronizer: IndexedSynchronizer,
     enableAdditionalConsistencyChecks: Option[Long],
     batchingParametersConfig: PrunableByTimeParameters,
+    batchingConfig: BatchingConfig,
     val indexedStringStore: IndexedStringStore,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
@@ -167,11 +168,12 @@ class DbActiveContractStore(
             warnFrequency = warnFrequency,
           )
           synchronizeWithClosing("additional-consistency-check") {
-            activeContractsData.asSeq.parTraverse_ { tc =>
-              checkActivationsDeactivationConsistency(
-                tc.contractId,
-                tc.toc,
-              )
+            MonadUtil.parTraverseWithLimit_(batchingConfig.parallelism)(activeContractsData.asSeq) {
+              tc =>
+                checkActivationsDeactivationConsistency(
+                  tc.contractId,
+                  tc.toc,
+                )
             }
           }
         }
@@ -205,7 +207,9 @@ class DbActiveContractStore(
       )
       _ <- enableAdditionalConsistencyChecks.traverse_ { _ =>
         synchronizeWithClosing("additional-consistency-check")(
-          contracts.parTraverse_(checkActivationsDeactivationConsistency tupled)
+          MonadUtil.parTraverseWithLimit_(batchingConfig.parallelism)(contracts)(
+            checkActivationsDeactivationConsistency tupled
+          )
         )
       }
     } yield ()
@@ -324,9 +328,12 @@ class DbActiveContractStore(
 
             storage
               .query(query, functionFullName)
-              .flatMap(_.toList.parTraverse { case (id, contract) =>
-                contract.toContractState.map(cs => (id, cs))
-              })
+              .flatMap(result =>
+                MonadUtil.parTraverseWithLimit(batchingConfig.parallelism)(result) {
+                  case (id, contract) =>
+                    contract.toContractState.map(cs => (id, cs))
+                }
+              )
               .map(foundContracts => foundContracts.toMap)
         }
 
@@ -729,26 +736,45 @@ class DbActiveContractStore(
             FutureUnlessShutdown
               .pure(Map.empty[(TimeOfChange, LfContractId), Option[ReassignmentCounter]])
           ) { cids =>
-            val inClause = DbStorage
-              .toInClause("contract_id", cids)(absCoidSetParameter)
-            val archivalCidsWithoutReassignmentCountersQueries =
-              // Note that the sql query does not filter entries with toc <= toExclusive,
-              // but it also includes the entries between (`fromExclusive`, `toInclusive`].
-              // This is an implementation choice purely to reuse code: we pass the query result into the
-              // function `reassignmentCounterForArchivals` and obtain the reassignment counters for (toc, cid) pairs.
-              // One could have a more restrictive query and compute the reassignment counters in some other way.
-              (sql"""select ts, repair_counter, contract_id, operation, reassignment_counter, remote_synchronizer_idx
+            val resultArchivalReassignmentCounters = MonadUtil.batchedSequentialTraverse[
+              LfContractId,
+              FutureUnlessShutdown,
+              (TimeOfChange, LfContractId, ActivenessChangeDetail),
+            ](
+              batchingConfig.parallelism,
+              batchingConfig.maxItemsInBatch,
+            )(cids) { chunk =>
+              NonEmpty.from(chunk) match {
+                case Some(chunkNE) =>
+                  val inClause = DbStorage.toInClause("contract_id", chunkNE)(absCoidSetParameter)
+                  val archivalCidsWithoutReassignmentCountersQueries =
+                    // Note that the sql query does not filter entries with toc <= toExclusive,
+                    // but it also includes the entries between (`fromExclusive`, `toInclusive`].
+                    // This is an implementation choice purely to reuse code: we pass the query result into the
+                    // function `reassignmentCounterForArchivals` and obtain the reassignment counters for (toc, cid) pairs.
+                    // One could have a more restrictive query and compute the reassignment counters in some other way.
+                    (sql"""select ts, repair_counter, contract_id, operation, reassignment_counter, remote_synchronizer_idx
                    from par_active_contracts where synchronizer_idx = $indexedSynchronizer
                      and (ts, repair_counter) <= ($toInclusiveTs, $toInclusiveRc)
                      and """ ++ inClause ++ sql" order by ts asc, repair_counter asc")
-                .as[(TimeOfChange, LfContractId, ActivenessChangeDetail)]
-            val resultArchivalReassignmentCounters = storage
-              .query(
-                archivalCidsWithoutReassignmentCountersQueries,
-                "ACS: get data to compute the reassignment counters for archived contracts",
-              )
+                      .as[(TimeOfChange, LfContractId, ActivenessChangeDetail)]
+                  storage
+                    .query(
+                      archivalCidsWithoutReassignmentCountersQueries,
+                      "ACS: get data to compute the reassignment counters for archived contracts",
+                    )
+                case None =>
+                  FutureUnlessShutdown.pure(
+                    Vector.empty[(TimeOfChange, LfContractId, ActivenessChangeDetail)]
+                  )
+              }
+            }
 
-            resultArchivalReassignmentCounters.map(reassignmentCounterForArchivals)
+            resultArchivalReassignmentCounters.map { result =>
+              // we need to sort again, because we fetch the data in parallel
+              val sorted = result.sortBy { case (toc, _, _) => (toc.timestamp, toc.counterO) }
+              reassignmentCounterForArchivals(sorted)
+            }
           }
       }
 
@@ -843,11 +869,12 @@ class DbActiveContractStore(
       traceContext: TraceContext
   ): CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Unit] =
     enableAdditionalConsistencyChecks.traverse_ { _ =>
-      reassignments.parTraverse_ { case ((contractId, toc), reassignment) =>
-        for {
-          _ <- checkReassignmentCountersShouldIncrease(contractId, toc, reassignment)
-          _ <- checkActivationsDeactivationConsistency(contractId, toc)
-        } yield ()
+      MonadUtil.parTraverseWithLimit_(batchingConfig.parallelism)(reassignments) {
+        case ((contractId, toc), reassignment) =>
+          for {
+            _ <- checkReassignmentCountersShouldIncrease(contractId, toc, reassignment)
+            _ <- checkActivationsDeactivationConsistency(contractId, toc)
+          } yield ()
       }
     }
 

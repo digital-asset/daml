@@ -4094,20 +4094,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Right'
-    Identifier:
-      title: Identifier
-      type: object
-      required:
-      - packageId
-      - moduleName
-      - entityName
-      properties:
-        packageId:
-          type: string
-        moduleName:
-          type: string
-        entityName:
-          type: string
     IdentifierFilter:
       title: IdentifierFilter
       oneOf:

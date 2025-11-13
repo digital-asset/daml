@@ -67,7 +67,7 @@ object SendResult {
   )(result: SendResult): FutureUnlessShutdown[Unit] =
     result match {
       case SendResult.Success(_) =>
-        FutureUnlessShutdown.pure(())
+        FutureUnlessShutdown.unit
       case SendResult.Error(
             DeliverError(_, _, _, _, SequencerErrors.AggregateSubmissionAlreadySent(_), _)
           ) =>

@@ -216,7 +216,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       ) {
     final case class Reject(reason: String)(implicit errorLoggingContext: ErrorLoggingContext)
         extends DamlErrorWithDefiniteAnswer(
-          cause = s"Could not compute valid package preferences. Reason: $reason"
+          cause = s"Failed to compute package preferences. Reason: $reason"
         )
   }
 
