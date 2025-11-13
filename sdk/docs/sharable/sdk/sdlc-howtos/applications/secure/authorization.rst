@@ -49,8 +49,8 @@ The Daml ledger verifies:
 
 - that the token was issued by one of its trusted token issuers
 - that the token has not been tampered with
-- that the token had not expired
-- that the privileges described in the token authorize the request
+- that the token has not expired
+- that the privileges carried by the token authorize the request
 
 .. image:: ./images/Authentication.svg
    :alt: A flowchart illustrating the process of authentication described in the two paragraphs immediately above.
@@ -59,6 +59,19 @@ How you attach tokens to requests depends on the tool or library you use to inte
 See the tool's or library's documentation for more information. (E.g. relevant documentation to
 :ref:`access the gRPC Ledger API using Java bindings <howto-applications-work-with-contracts-java-authorization>`
 and the :externalref:`JSON Ledger API <json-api-access-tokens>`.)
+
+
+.. _access-token-formats:
+
+Access Token Formats
+********************
+
+Applications should treat access tokens as opaque blobs.
+However, as an application developer it can be helpful to understand the format of access tokens to debug problems.
+
+All Daml ledgers represent access tokens as `JSON Web Tokens (JWTs) <https://datatracker.ietf.org/doc/html/rfc7519>`_.
+
+.. note:: To generate access tokens for testing purposes, you can use the `jwt.io <https://jwt.io/>`__ web site.
 
 
 .. _authorization-claims:
@@ -131,47 +144,32 @@ The following table summarizes the rights required to access each Ledger API end
 +-------------------------------------+-------------------------------+--------------------------------------------------------+
 
 
-.. _access-token-formats:
-
-Access Token Formats
-********************
-
-Applications should treat access tokens as opaque blobs.
-However, as an application developer it can be helpful to understand the format of access tokens to debug problems.
-
-All Daml ledgers represent access tokens as `JSON Web Tokens (JWTs) <https://datatracker.ietf.org/doc/html/rfc7519>`_,
-and there are two formats of the JSON payload used by Daml ledgers.
-
-.. note:: To generate access tokens for testing purposes, you can use the `jwt.io <https://jwt.io/>`__ web site.
-
 .. _user-access-tokens:
 
 User Access Tokens
-==================
+******************
 
-Participant nodes manage a dynamic set of users.
-The corresponding user access tokens do not encode rights directly like the custom Daml claims tokens explained in the following sections.
-Instead, user access tokens encode the participant user on whose behalf the request is issued.
+A participant node stores a dynamic set of users as well as their rights.
+User access tokens encode such participant user on whose behalf the request is issued.
 
 When handling such requests, participant nodes look up the participant user's current rights
 before checking request authorization per the  :ref:`table above <authorization-claims>`.
 Thus the rights granted to an application can be changed dynamically using
-the participant User Management Service *without* issuing new access tokens,
-as would be required for the custom Daml claims tokens.
+the participant User Management Service *without* issuing new access tokens.
 
 User access tokens are `JWTs <https://datatracker.ietf.org/doc/html/rfc7519>`_ that follow the
 `OAuth 2.0 standard <https://datatracker.ietf.org/doc/html/rfc6749>`_. There are two
 different JSON encodings: An audience-based token format that relies
 on the audience field to specify that it is designated for a specific
-Daml participant and a scope-based audience token format which relies on the
+Daml participant and a scope-based token format which relies on the
 scope field to designate the purpose. Both formats can be used interchangeably but
-if possible, use of the audience-based token format is recommend as it
-is compatible with a wider range of IAMs, e.g., Kubernetes does not
+if possible, use of the audience-based token format, as it
+is compatible with a wider range of IAMs, e.g. Kubernetes does not
 support setting the scope field and makes the participant id mandatory
 which prevents misuse of a token on a different participant.
 
 Audience-Based Tokens
----------------------
+=====================
 
 .. code-block:: json
 
@@ -190,7 +188,7 @@ To interpret the above notation:
 - ``exp`` is an optional field which specifies the JWT expiration date (in seconds since EPOCH)
 
 Scope-Based Tokens
-------------------
+==================
 
 .. code-block:: json
 
@@ -212,12 +210,12 @@ To interpret the above notation:
   that must contain the ``"daml_ledger_api"`` scope
 
 Requirements for User IDs
--------------------------
+=========================
 
 User IDs must be non-empty strings of at most 128 characters that are either alphanumeric ASCII characters or one of the symbols "@^$.!`-#+'~_|:".
 
 Identity providers
-------------------
+==================
 
 An identity provider configuration can be thought of as a set of participant users which:
  - Have a defined way to verify their access tokens
@@ -236,7 +234,7 @@ In case of the default identity provider configuration, the ``iss`` field can be
 
 
 Encoding and Signature
-======================
+**********************
 
 Access tokens conforming to the JWT specification are embedded in a larger JSON structure with a separate
 header and payload.
@@ -264,3 +262,20 @@ base64-encoded and appended to the stem. The resulting character string takes a 
 
 Note that access token generation in the correct format is typically delegated to the identity provider
 systems. Client application developers are unlikely to need to deal with it directly.
+
+
+Token expiration
+****************
+
+JWT token-based authorization is inherently stateless, offering excellent scalability and eliminating the need for
+servers to manage client sessions or perform costly claim verification checks. However, this stateless nature means
+JWT tokens cannot be revoked.
+
+To mitigate the risk associated with token loss or theft, we *strongly recommend* to follow the standard practice for
+systems utilizing JWT tokens: configure the IAM system to issue short-lived tokens, ideally lasting between
+5 and 15 minutes. This limits the time window during which unauthorized actors can access the system.
+
+Using long-lived tokens goes against best practices and risks a costly reconfiguration of your IAM token issuance
+mechanism should a token be compromised. A token loss may necessitate rotating the token signing key. This action
+invalidates all outstanding tokens through the JSON Web Key Set (JWKS) mechanism. Consult your IAM system's documentation
+for detailed strategies on mitigating JWT token theft.
