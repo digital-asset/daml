@@ -204,6 +204,7 @@ def _proto_scala_deps(grpc, proto_deps, java_conversions):
 def proto_jars(
         name,
         srcs,
+        scalapb_options_files = [],
         visibility = None,
         strip_import_prefix = "",
         grpc = False,
@@ -260,7 +261,7 @@ def proto_jars(
     # Compiled protobufs.
     proto_library(
         name = name,
-        srcs = srcs,
+        srcs = srcs + scalapb_options_files,
         strip_import_prefix = strip_import_prefix,
         visibility = visibility,
         deps = deps + proto_deps,
