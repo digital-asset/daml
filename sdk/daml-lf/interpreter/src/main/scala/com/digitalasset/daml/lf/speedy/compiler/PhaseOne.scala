@@ -387,6 +387,17 @@ private[lf] final class PhaseOne(
       case BTextMapEmpty => SEValue.EmptyTextMap
       case BGenMapEmpty => SEValue.EmptyGenMap
 
+      case BTextMapInsert => SEVal(CompiledPackages.bMapInsert)
+      case BTextMapLookup => SEVal(CompiledPackages.bMapLookup)
+      case BTextMapDelete => SEVal(CompiledPackages.bMapDelete)
+      case BTextMapSize => SEVal(CompiledPackages.bMapSize)
+      case BGenMapInsert => SEVal(CompiledPackages.bMapInsert)
+      case BGenMapLookup => SEVal(CompiledPackages.bMapLookup)
+      case BGenMapDelete => SEVal(CompiledPackages.bMapDelete)
+      case BGenMapKeys => SEVal(CompiledPackages.bMapKeys)
+      case BGenMapValues => SEVal(CompiledPackages.bMapValues)
+      case BGenMapSize => SEVal(CompiledPackages.bMapSize)
+
       case _ =>
         SEBuiltin(bf match {
           case BTrace => SBTrace
@@ -446,11 +457,7 @@ private[lf] final class PhaseOne(
 
           // TextMap
 
-          case BTextMapInsert => SBMapInsert
-          case BTextMapLookup => SBMapLookup
-          case BTextMapDelete => SBMapDelete
           case BTextMapToList => SBMapToList
-          case BTextMapSize => SBMapSize
 
           // Numeric
           case BLessNumeric => SBLess
@@ -474,13 +481,6 @@ private[lf] final class PhaseOne(
 
           // GenMap
 
-          case BGenMapInsert => SBMapInsert
-          case BGenMapLookup => SBMapLookup
-          case BGenMapDelete => SBMapDelete
-          case BGenMapKeys => SBMapKeys
-          case BGenMapValues => SBMapValues
-          case BGenMapSize => SBMapSize
-
           case BScaleBigNumeric => SBScaleBigNumeric
           case BPrecisionBigNumeric => SBPrecisionBigNumeric
           case BAddBigNumeric => SBAddBigNumeric
@@ -494,7 +494,9 @@ private[lf] final class PhaseOne(
           case BTypeRepTyConName => SBTypeRepTyConName
 
           // Implemented using SExpr
-          case BCoerceContractId | BTextMapEmpty | BGenMapEmpty =>
+          case BCoerceContractId | BTextMapEmpty | BGenMapEmpty | BTextMapInsert | BTextMapLookup |
+              BTextMapDelete | BTextMapSize | BGenMapInsert | BGenMapLookup | BGenMapDelete |
+              BGenMapKeys | BGenMapValues | BGenMapSize =>
             throw CompilationError(s"unexpected $bf")
 
           case BAnyExceptionMessage => SBAnyExceptionMessage

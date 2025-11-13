@@ -31,9 +31,9 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
 
   // We unconditionally load stable packages
   this.synchronized {
-    val _ = signatures.addAll(CompiledPackages.stablePackageSignatures)
-    val _ = definitions.addAll(CompiledPackages.stableDefs)
-    val _ = packageDeps.addAll(CompiledPackages.stableDeps)
+    val _ = signatures.addAll(CompiledPackages.preloadedPackageSignatures)
+    val _ = definitions.addAll(CompiledPackages.preloadedDefs)
+    val _ = packageDeps.addAll(CompiledPackages.preloadedDeps)
   }
 
   /** Might ask for a package if the package you're trying to add references it.

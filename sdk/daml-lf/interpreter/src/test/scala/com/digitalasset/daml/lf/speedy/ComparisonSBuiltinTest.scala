@@ -369,7 +369,9 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
         } {
           val diff = i compare j
           forEvery(builtins) { case (bi, result) =>
-            eval(bi, typ, x, y) shouldBe Right(SValue.SBool(result(diff)))
+            val z= eval(bi, typ, x, y)
+            if (z != Right(SValue.SBool(result(diff))))
+              z shouldBe Right(SValue.SBool(result(diff)))
           }
         }
       }

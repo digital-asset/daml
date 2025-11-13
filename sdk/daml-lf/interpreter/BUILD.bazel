@@ -41,6 +41,7 @@ da_scala_library(
         "//daml-lf/stable-packages",
         "//daml-lf/transaction",
         "//daml-lf/validation",
+        "//daml-lf/parser",
         "//libs-scala/contextualized-logging",
         "//libs-scala/crypto",
         "//libs-scala/nameof",

@@ -396,8 +396,8 @@ object SValue {
     val False = new SBool(false)
     val EmptyList = SList(FrontStack.empty)
     val None = SOptional(Option.empty)
-    val EmptyTextMap = SMap(true)
-    val EmptyGenMap = SMap(false)
+    val EmptyTextMap = //SMap(true)
+    val EmptyGenMap = //SMap(false)
     val Token = SToken
   }
 
