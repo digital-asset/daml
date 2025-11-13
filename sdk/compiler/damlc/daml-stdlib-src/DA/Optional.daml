@@ -13,6 +13,8 @@
 -- error action can be built using the `Either` type.
 module DA.Optional(Optional(..), optional, module DA.Optional) where
 
+import DA.Functor (void)
+
 -- | The `fromSome` function extracts the element out of a `Some` and
 -- throws an error if its argument is `None`.
 --
@@ -85,8 +87,8 @@ whenNone o m = optional m pure o
 
 -- | Perform some operation on `None`. Do nothing for `Some`.
 -- Convenient for discarding `Some` content.
-whenNone_ : Applicative m => Optional a -> m () -> m ()
-whenNone_ o m = optional m (const $ pure ()) o
+whenNone_ : Applicative m => Optional a -> m b -> m ()
+whenNone_ o m = optional (void m) (const $ pure ()) o
 
 -- | The `findOptional` returns the value of the predicate at the first
 -- element where it returns `Some`. `findOptional` is similar to `find` but it

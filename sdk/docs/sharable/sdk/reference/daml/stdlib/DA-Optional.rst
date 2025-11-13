@@ -116,7 +116,7 @@ Functions
 .. _function-da-optional-whennone-43843:
 
 `whenNone_ <function-da-optional-whennone-43843_>`_
-  \: :ref:`Applicative <class-da-internal-prelude-applicative-9257>` m \=\> :ref:`Optional <type-da-internal-prelude-optional-37153>` a \-\> m () \-\> m ()
+  \: :ref:`Applicative <class-da-internal-prelude-applicative-9257>` m \=\> :ref:`Optional <type-da-internal-prelude-optional-37153>` a \-\> m b \-\> m ()
 
   Perform some operation on ``None``\. Do nothing for ``Some``\.
   Convenient for discarding ``Some`` content\.

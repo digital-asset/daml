@@ -3805,7 +3805,7 @@ whenNone :: (Applicative m) => Optional a -> m a -> m a
 -- | Perform some operation on `None`. Do nothing for `Some`.
 --   Convenient for discarding `Some` content.
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Optional.html#function-da-optional-whennone-43843
-whenNone_ :: (Applicative m) => Optional a -> m () -> m ()
+whenNone_ :: (Applicative m) => Optional a -> m b -> m ()
 
 -- | The `findOptional` returns the value of the predicate at the first
 --   element where it returns `Some`. `findOptional` is similar to `find` but it
