@@ -129,12 +129,12 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
     @Resolution("Inspect the error message and contact support.")
     object ParseError
         extends ErrorCode(id = "DAR_PARSE_ERROR", ErrorCategory.InvalidIndependentOfSystemState) {
-      final case class Error(reason: String, throwableO: Option[Throwable] = None)(implicit
+      final case class Error(reason: String, throwable: Option[Throwable] = None)(implicit
           val loggingContext: ErrorLoggingContext
       ) extends ContextualizedDamlError(
             cause = "Failed to parse the dar file content.",
             extraContext = Map("cause" -> reason),
-            throwableO = throwableO
+            throwableO = throwable
           )
     }
 
@@ -202,7 +202,7 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
         case LfArchiveError.ZipBomb =>
           PackageServiceErrors.Reading.ZipBomb.Error(LfArchiveError.ZipBomb.getMessage)
         case e: LfArchiveError =>
-          PackageServiceErrors.Reading.ParseError.Error(e.msg, throwable0 = e)
+          PackageServiceErrors.Reading.ParseError.Error(e.msg, throwable = Some(e))
         case e =>
           PackageServiceErrors.InternalError.Unhandled(e)
       }
