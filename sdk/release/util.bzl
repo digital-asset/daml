@@ -121,7 +121,7 @@ def dpm_sdk_tarball(name, version):
           mkdir -p $$TMP/{name}
           DIR=$$TMP/{name}
 
-          DPM_VERSION=$$(HOME=. $(location @dpm_binary//:dpm) -v | head -n 1 | sed -e "s/^version: //")
+          DPM_VERSION=$$(HOME=. DPM_HOME=. $(location @dpm_binary//:dpm) -v | head -n 1 | sed -e "s/^version: //")
           
           # Need to build the installation directory, can't build the oci thing, its too hard
           mkdir $$DIR/bin
