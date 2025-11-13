@@ -3,6 +3,7 @@
 
 load("//daml-lf/language:daml-lf.bzl", "SUPPORTED_PROTO_STABLE_LF_VERSIONS")
 load("@build_environment//:configuration.bzl", "sdk_version")
+load("@os_info//:os_info.bzl", "is_windows")
 
 inputs = {
     "sdk_config": ":sdk-config.yaml.tmpl",
@@ -114,6 +115,29 @@ dpm_inputs = {
     "canton-enterprise": "//canton:canton-community-oci.tar.gz",
 }
 
+not_windows_wrapper_script = """
+cat > "$$DIR/bin/dpm" << EOF
+#!/usr/bin/env bash
+set -euo pipefail
+SCRIPT_DIR=\\$$( cd -- "\\$$( dirname -- "\\$${{BASH_SOURCE[0]}}" )" &> /dev/null && pwd )
+export DPM_HOME=\\$$(dirname -- \\$$SCRIPT_DIR)
+export HOME=\\$$DPM_HOME
+\\$$DPM_HOME/cache/components/dpm/$$DPM_VERSION/dpm \\$$@
+EOF
+chmod +x $$DIR/bin/dpm
+"""
+
+windows_wrapper_script = """
+cat > "$$DIR/bin/dpm.cmd" << EOF
+@echo off
+FOR %%A IN ("%~dp0.") DO SET DPM_HOME=%%~dpA
+set HOME=%DPM_HOME%
+
+"%DPM_HOME%\\cache\\components\\dpm\\\\$$DPM_VERSION\\dpm.exe" %*
+EOF
+chmod +x $$DIR/bin/dpm.cmd
+"""
+
 def dpm_sdk_tarball(name, version):
     native.genrule(
         name = name,
@@ -130,16 +154,7 @@ def dpm_sdk_tarball(name, version):
           
           # Need to build the installation directory, can't build the oci thing, its too hard
           mkdir $$DIR/bin
-          cat > "$$DIR/bin/dpm" << EOF
-#!/usr/bin/env bash
-set -euo pipefail
-SCRIPT_DIR=\\$$( cd -- "\\$$( dirname -- "\\$${{BASH_SOURCE[0]}}" )" &> /dev/null && pwd )
-export DPM_HOME=\\$$(dirname -- \\$$SCRIPT_DIR)
-export HOME=\\$$DPM_HOME
-export USERPROFILE=\\$$DPM_HOME
-\\$$DPM_HOME/cache/components/dpm/$$DPM_VERSION/dpm \\$$@
-EOF
-          chmod +x $$DIR/bin/dpm
+          {wrapper_script}
 
           cat > "$$DIR/dpm-config.yaml" << EOF
 edition: open-source
@@ -184,6 +199,7 @@ EOF
                 ),
             component_versions =
                 "\n    ".join(["{name}:\n      version: {version}".format(name = name, version = version) for name in dpm_inputs.keys()]),
+            wrapper_script = windows_wrapper_script if not is_windows else not_windows_wrapper_script,
         ),
         visibility = ["//visibility:public"],
     )
