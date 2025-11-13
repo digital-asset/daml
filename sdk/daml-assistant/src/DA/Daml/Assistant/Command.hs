@@ -43,7 +43,7 @@ tryBuiltinCommand = do
     unless (disableLegacyAssistantWarning `elem` args) $
       hPutStrLn stderr $ unlines
         [ "WARNING: Daml Assistant has been deprecated and replaced with the Digital Asset Package Manager (DPM)"
-        , "See intallation here: https://docs.digitalasset.com/build/3.4/dpm/dpm.html"
+        , "See installation here: https://docs.digitalasset.com/build/3.4/dpm/dpm.html"
         , "Daml Assistant will be removed in 3.5"
         , "You can disable this warning with --no-legacy-assistant-warning"
         ]
