@@ -328,9 +328,7 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
           case _ => typ0 -> ImmArray.Empty
         }
       val builder = PLF.Type.newBuilder()
-      // Be warned: Both the use of the unapply pattern TForalls and the pattern
-      //    case TBuiltin(BTArrow) if versionIsOlderThan(LV.Features.arrowType) =>
-      // cause scala's exhaustivty checking to be disabled in the following match.
+      // Be warned: Both the use of the unapply pattern TForalls cause scala's exhaustivty checking to be disabled in the following match.
       (typ: @unchecked) match {
         case TVar(varName) =>
           val b = PLF.Type.Var.newBuilder()
@@ -1066,14 +1064,14 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
   private[this] def notSupportedError(description: String): EncodeError =
     EncodeError(s"$description is not supported by Daml-LF $languageVersion")
 
-  private def versionSupports(ft : LV.Feature): Boolean =
+  private def versionSupports(ft: LV.Feature): Boolean =
     ft.versionReq.contains(languageVersion)
 
   def assertVersionSupports(ft: LV.Feature, caseDescription: Option[String] = None): Unit = {
     if (!versionSupports(ft)) {
       val optDescr = caseDescription match {
         case Some(str) => s" (case ${str})"
-        case None      => ""
+        case None => ""
       }
       throw notSupportedError(ft.name ++ optDescr)
     }
@@ -1168,7 +1166,5 @@ object EncodeV2 {
     def build: Iterable[Proto] = buffer.result()
     def toProto(x: Scala): Proto
   }
-
-
 
 }
