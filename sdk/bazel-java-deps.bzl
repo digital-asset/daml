@@ -45,6 +45,7 @@ protobuf_version = "3.25.5"
 pekko_version = "1.1.5"
 pekko_http_version = "1.1.0"
 tapir_version = "1.8.5"
+transcode_version = "0.1.1-main.20251112.144.829.v5cc568a"
 upickle_version = "4.1.0"
 ujson_version = "4.0.2"
 
@@ -73,6 +74,9 @@ def install_java_deps():
             "com.auth0:java-jwt:4.2.1",
             "com.auth0:jwks-rsa:0.21.2",
             "com.chuusai:shapeless_{}:2.3.7".format(scala_major_version),
+            "com.daml:transcode-codec-json_3:{}".format(transcode_version),
+            "com.daml:transcode-codec-proto-scala-daml3.5_3:{}".format(transcode_version),
+            "com.daml:transcode-daml-lf-daml3.5_3:{}".format(transcode_version),
             "com.fasterxml.jackson.core:jackson-core:2.14.3",
             "com.fasterxml.jackson.core:jackson-databind:2.14.3",
             "com.github.ben-manes.caffeine:caffeine:3.1.2",
@@ -99,6 +103,7 @@ def install_java_deps():
             "com.lihaoyi:ammonite-runtime_{}:3.0.2".format(scala_version),
             "com.lihaoyi:ammonite-util_{}:3.0.2".format(scala_major_version),
             "com.lihaoyi:ammonite_{}:3.0.2".format(scala_version),
+            "com.lihaoyi:fastparse_{}:3.1.1".format(scala_major_version),
             "com.lihaoyi:fansi_{}:0.4.0".format(scala_major_version),
             "com.lihaoyi:geny_{}:1.1.1".format(scala_major_version),
             "com.lihaoyi:os-lib_{}:0.10.7".format(scala_major_version),
@@ -243,6 +248,7 @@ def install_java_deps():
             "org.reflections:reflections:0.9.12",
             "org.sangria-graphql:sangria-spray-json_{}:1.0.2".format(scala_major_version),
             "org.sangria-graphql:sangria_{}:4.0.2".format(scala_major_version),
+            "org.scala-lang:scala3-library_3:3.7.1",
             "org.scala-lang.modules:scala-collection-contrib_{}:0.2.2".format(scala_major_version),
             "org.scala-lang.modules:scala-java8-compat_{}:1.0.2".format(scala_major_version),
             "org.scala-lang.modules:scala-parallel-collections_{}:1.0.4".format(scala_major_version),
