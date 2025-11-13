@@ -1695,7 +1695,7 @@ ledger_api_proto_source_root = "canton/community/ledger-api/src/main/protobuf"
 
 proto_jars(
     name = "ledger_api_proto",
-    srcs = glob(["community/ledger-api/src/main/protobuf/com/daml/ledger/api/**/*.proto"]),
+    srcs = glob(["community/ledger-api/src/main/protobuf/com/daml/ledger/api/v*/**/*.proto"]),
     grpc = True,
     java_conversions = True,
     java_deps = [
@@ -1706,6 +1706,9 @@ proto_jars(
     maven_artifact_scala_suffix = "scalapb",
     maven_group = "com.daml",
     proto_deps = ["//daml-lf/ledger-api-value:ledger_api_value_proto"],
+    scalapb_options_files = [
+        "community/ledger-api/src/main/protobuf/com/daml/ledger/api/scalapb/package.proto",
+    ],
     strip_import_prefix = "community/ledger-api/src/main/protobuf",
     visibility = ["//visibility:public"],
     deps = [
