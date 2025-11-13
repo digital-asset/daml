@@ -45,7 +45,6 @@ trait LanguageFeaturesGenerated extends LanguageVersionGenerated {
     val unstable = v1_dev
   }
 
-
   // --- Generated V2 Features ---
 
   val featureUnstable: Feature = Feature(
@@ -138,6 +137,22 @@ trait LanguageFeaturesGenerated extends LanguageVersionGenerated {
     cppFlag = "DAML_UnsafeFromInterface",
   )
 
-  val allFeatures: List[Feature] = List(featureUnstable, featureTextMap, featureBigNumeric, featureExceptions, featureExtendedInterfaces, featureChoiceFuncs, featureTemplateTypeRepToText, featureContractKeys, featureFlatArchive, featurePackageImports, featureComplexAnyType, featureExperimental, featurePackageUpgrades, featureChoiceAuthority, featureUnsafeFromInterface,  featureCryptoUtility)
+  val allFeatures: List[Feature] = List(
+    featureUnstable,
+    featureTextMap,
+    featureBigNumeric,
+    featureExceptions,
+    featureExtendedInterfaces,
+    featureChoiceFuncs,
+    featureTemplateTypeRepToText,
+    featureContractKeys,
+    featureFlatArchive,
+    featurePackageImports,
+    featureComplexAnyType,
+    featureExperimental,
+    featurePackageUpgrades,
+    featureChoiceAuthority,
+    featureUnsafeFromInterface,
+  )
 
 }
