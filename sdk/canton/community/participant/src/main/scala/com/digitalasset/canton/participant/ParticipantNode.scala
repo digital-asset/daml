@@ -48,6 +48,7 @@ import com.digitalasset.canton.participant.protocol.submission.{
   InFlightSubmissionTracker,
 }
 import com.digitalasset.canton.participant.pruning.{AcsCommitmentProcessor, PruningProcessor}
+import com.digitalasset.canton.participant.replica.ParticipantReplicaManager
 import com.digitalasset.canton.participant.scheduler.ParticipantPruningScheduler
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore.Active
@@ -96,8 +97,8 @@ class ParticipantNodeBootstrap(
       ParticipantNodeParameters,
       ParticipantMetrics,
     ],
+    replicaManager: ParticipantReplicaManager,
     engine: Engine,
-    cantonSyncServiceFactory: CantonSyncService.Factory[CantonSyncService],
     resourceManagementServiceFactory: Eval[ParticipantSettingsStore] => ResourceManagementService,
     replicationServiceFactory: Storage => ServerServiceDefinition,
     ledgerApiServerBootstrapUtils: LedgerApiServerBootstrapUtils,
@@ -444,6 +445,7 @@ class ParticipantNodeBootstrap(
           indexedStringStore,
           persistentState.map(_.acsCounterParticipantConfigStore).value,
           parameters,
+          arguments.config.topology,
           synchronizerConnectionConfigStore,
           (staticSynchronizerParameters: StaticSynchronizerParameters) =>
             SynchronizerCrypto(crypto, staticSynchronizerParameters),
@@ -506,7 +508,9 @@ class ParticipantNodeBootstrap(
                 clock = clock,
                 commandProgressTracker = commandProgressTracker,
                 ledgerApiStore = persistentState.map(_.ledgerApiStore),
-                contractStore = persistentState.map(_.contractStore),
+                contractStore = persistentState.map(state =>
+                  LedgerApiContractStoreImpl(state.contractStore, loggerFactory)
+                ),
                 ledgerApiIndexerConfig = LedgerApiIndexerConfig(
                   storageConfig = config.storage,
                   processingTimeout = parameters.processingTimeouts,
@@ -684,7 +688,7 @@ class ParticipantNodeBootstrap(
             .map(_.topologyManager)
 
         // Sync Service
-        sync = cantonSyncServiceFactory.create(
+        sync = CantonSyncService.create(
           participantId,
           synchronizerRegistry,
           synchronizerConnectionConfigStore,
@@ -692,6 +696,7 @@ class ParticipantNodeBootstrap(
           persistentState,
           ephemeralState,
           syncPersistentStateManager,
+          replicaManager,
           packageService,
           new PartyOps(activeTopologyManagerGetter, loggerFactory),
           topologyDispatcher,
@@ -705,9 +710,7 @@ class ParticipantNodeBootstrap(
           resourceManagementService,
           parameters,
           pruningProcessor,
-          schedulers,
           arguments.metrics,
-          exitOnFatalFailures = arguments.parameterConfig.exitOnFatalFailures,
           sequencerInfoLoader,
           arguments.futureSupervisor,
           loggerFactory,

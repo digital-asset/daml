@@ -3,14 +3,18 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block
 
+import com.daml.metrics.api.{HistogramInventory, MetricName}
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.RequireTypes.PositiveDouble
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.metrics.MetricsUtils
+import com.digitalasset.canton.sequencing.protocol.SubmissionRequestType
 import com.digitalasset.canton.sequencing.protocol.SubmissionRequestType.{
   ConfirmationRequest,
   ConfirmationResponse,
   TopologyTransaction,
 }
+import com.digitalasset.canton.synchronizer.metrics.{SequencerHistograms, SequencerMetrics}
 import com.digitalasset.canton.synchronizer.sequencer.BlockSequencerConfig.{
   IndividualThroughputCapConfig,
   ThroughputCapByMessageTypeConfig,
@@ -29,7 +33,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import java.time.Duration
 
-class BlockSequencerThroughputCapTest extends AsyncWordSpec with BaseTest {
+class BlockSequencerThroughputCapTest extends AsyncWordSpec with BaseTest with MetricsUtils {
 
   private def createIndividualConfig(
       globalTpsCap: Double = defaultGlobalTpsCap,
@@ -56,6 +60,16 @@ class BlockSequencerThroughputCapTest extends AsyncWordSpec with BaseTest {
       ),
     )
 
+  private def sequencerMetrics = {
+    val histogramInventory = new HistogramInventory()
+    val sequencerHistograms = new SequencerHistograms(MetricName.Daml)(histogramInventory)
+    val factory = metricsFactory(histogramInventory)
+    new SequencerMetrics(
+      sequencerHistograms,
+      factory,
+    )
+  }
+
   "BlockSequencerThroughputCap" should {
     "have separate caps per message type and update based on scheduler" in {
       val clock = new SimClock(CantonTimestamp.Epoch, loggerFactory)
@@ -64,6 +78,7 @@ class BlockSequencerThroughputCapTest extends AsyncWordSpec with BaseTest {
         createConfig(observationPeriodSeconds),
         clock,
         mockScheduler(clock),
+        sequencerMetrics,
         loggerFactory,
       )
 
@@ -128,7 +143,9 @@ class BlockSequencerThroughputCapTest extends AsyncWordSpec with BaseTest {
       val tpsCap = new IndividualBlockSequencerThroughputCap(
         observationPeriodSeconds,
         config,
+        SubmissionRequestType.ConfirmationRequest,
         clock,
+        sequencerMetrics,
         loggerFactory = loggerFactory,
       )
       val thresholdLevel = 0
@@ -161,7 +178,9 @@ class BlockSequencerThroughputCapTest extends AsyncWordSpec with BaseTest {
       val tpsCap = new IndividualBlockSequencerThroughputCap(
         observationPeriodSeconds,
         config,
+        SubmissionRequestType.ConfirmationRequest,
         clock,
+        sequencerMetrics,
         loggerFactory = loggerFactory,
       )
       val thresholdLevel = 0
@@ -196,7 +215,9 @@ class BlockSequencerThroughputCapTest extends AsyncWordSpec with BaseTest {
       val tpsCap = new IndividualBlockSequencerThroughputCap(
         observationPeriodSeconds,
         config,
+        SubmissionRequestType.ConfirmationRequest,
         clock,
+        sequencerMetrics,
         loggerFactory = loggerFactory,
       )
       val thresholdLevel = 0
@@ -258,7 +279,9 @@ class BlockSequencerThroughputCapTest extends AsyncWordSpec with BaseTest {
       val tpsCap = new IndividualBlockSequencerThroughputCap(
         observationPeriodSeconds,
         config,
+        SubmissionRequestType.ConfirmationRequest,
         clock,
+        sequencerMetrics,
         loggerFactory = loggerFactory,
       )
       val eventSize: Long = 128
@@ -318,7 +341,9 @@ class BlockSequencerThroughputCapTest extends AsyncWordSpec with BaseTest {
       val tpsCap = new IndividualBlockSequencerThroughputCap(
         observationPeriodSeconds,
         config,
+        SubmissionRequestType.ConfirmationRequest,
         clock,
+        sequencerMetrics,
         loggerFactory = loggerFactory,
       )
       val bytesCap = config.globalKbpsCap.value * 1024 * observationPeriodSeconds
@@ -380,7 +405,9 @@ class BlockSequencerThroughputCapTest extends AsyncWordSpec with BaseTest {
       val tpsCap = new IndividualBlockSequencerThroughputCap(
         observationPeriodSeconds,
         config,
+        SubmissionRequestType.ConfirmationRequest,
         clock,
+        sequencerMetrics,
         loggerFactory = loggerFactory,
       )
       val eventSize: Long = 128
@@ -442,7 +469,9 @@ class BlockSequencerThroughputCapTest extends AsyncWordSpec with BaseTest {
       val tpsCap = new IndividualBlockSequencerThroughputCap(
         observationPeriodSeconds,
         config,
+        SubmissionRequestType.ConfirmationRequest,
         clock,
+        sequencerMetrics,
         loggerFactory = loggerFactory,
       )
       val eventSize = (bytesCap * 0.1).toLong
@@ -504,7 +533,9 @@ class BlockSequencerThroughputCapTest extends AsyncWordSpec with BaseTest {
       val tpsCap = new IndividualBlockSequencerThroughputCap(
         observationPeriodSeconds,
         config,
+        SubmissionRequestType.ConfirmationRequest,
         clock,
+        sequencerMetrics,
         loggerFactory = loggerFactory,
       )
       val eventSize: Long = 128

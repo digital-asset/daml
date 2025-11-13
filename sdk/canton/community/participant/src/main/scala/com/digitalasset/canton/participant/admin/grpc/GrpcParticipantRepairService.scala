@@ -172,30 +172,23 @@ final class GrpcParticipantRepairService(
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
     val outputStream = new ByteArrayOutputStream()
-    val args = new AtomicReference[Option[(String, Boolean)]](None)
-    def tryArgs: (String, Boolean) =
+    val args = new AtomicReference[Option[String]](None)
+    def tryArgs: String =
       args
         .get()
         .getOrElse(throw new IllegalStateException("The import ACS request fields are not set"))
 
     new StreamObserver[ImportAcsOldRequest] {
       def setOrCheck(
-          workflowIdPrefix: String,
-          allowContractIdSuffixRecomputation: Boolean,
+          workflowIdPrefix: String
       ): Try[Unit] =
         Try {
-          val newOrMatchingValue = Some((workflowIdPrefix, allowContractIdSuffixRecomputation))
+          val newOrMatchingValue = Some(workflowIdPrefix)
           if (!args.compareAndSet(None, newOrMatchingValue)) {
-            val (oldWorkflowIdPrefix, oldAllowContractIdSuffixRecomputation) = tryArgs
+            val oldWorkflowIdPrefix = tryArgs
             if (workflowIdPrefix != oldWorkflowIdPrefix) {
               throw new IllegalArgumentException(
                 s"Workflow ID prefix cannot be changed from $oldWorkflowIdPrefix to $workflowIdPrefix"
-              )
-            } else if (
-              oldAllowContractIdSuffixRecomputation != allowContractIdSuffixRecomputation
-            ) {
-              throw new IllegalArgumentException(
-                s"Contract ID suffix recomputation cannot be changed from $oldAllowContractIdSuffixRecomputation to $allowContractIdSuffixRecomputation"
               )
             }
           }
@@ -204,7 +197,7 @@ final class GrpcParticipantRepairService(
       override def onNext(request: ImportAcsOldRequest): Unit = {
         val processRequest =
           for {
-            _ <- setOrCheck(request.workflowIdPrefix, request.allowContractIdSuffixRecomputation)
+            _ <- setOrCheck(request.workflowIdPrefix)
             _ <- Try(outputStream.write(request.acsSnapshot.toByteArray))
           } yield ()
 
@@ -223,18 +216,17 @@ final class GrpcParticipantRepairService(
       }
 
       override def onCompleted(): Unit = {
-        val (workflowIdPrefix, allowContractIdSuffixRecomputation) = tryArgs
+        val workflowIdPrefix = tryArgs
 
         val res = importAcsSnapshotOld(
           data = ByteString.copyFrom(outputStream.toByteArray),
           workflowIdPrefix = workflowIdPrefix,
-          allowContractIdSuffixRecomputation = allowContractIdSuffixRecomputation,
         )
 
         Try(Await.result(res, processingTimeout.unbounded.duration)) match {
           case Failure(exception) => responseObserver.onError(exception)
-          case Success(contractIdRemapping) =>
-            responseObserver.onNext(ImportAcsOldResponse(contractIdRemapping))
+          case Success(()) =>
+            responseObserver.onNext(ImportAcsOldResponse())
             responseObserver.onCompleted()
         }
         outputStream.close()
@@ -245,13 +237,10 @@ final class GrpcParticipantRepairService(
   private def importAcsSnapshotOld(
       data: ByteString,
       workflowIdPrefix: String,
-      allowContractIdSuffixRecomputation: Boolean,
-  )(implicit traceContext: TraceContext): Future[Map[String, String]] =
+  )(implicit traceContext: TraceContext): Future[Unit] =
     importAcsContractsOld(
       loadFromByteString(data).map(contracts => contracts.map(_.toRepairContract)),
       workflowIdPrefix,
-      if (allowContractIdSuffixRecomputation) ContractImportMode.Recomputation
-      else ContractImportMode.Validation,
     )
 
   override def exportAcs(
@@ -454,7 +443,7 @@ final class GrpcParticipantRepairService(
 
       override def onCompleted(): Unit = {
 
-        val result: EitherT[Future, Throwable, Map[String, String]] = for {
+        val result: EitherT[Future, Throwable, Unit] = for {
 
           argsTuple <- EitherT.fromEither[Future](
             recordedArgs.leftMap(new IllegalStateException(_))
@@ -470,7 +459,7 @@ final class GrpcParticipantRepairService(
             Try(ByteString.copyFrom(outputStream.toByteArray)).toEither
           )
 
-          contractIdRemapping <- EitherT.liftF[Future, Throwable, Map[String, String]](
+          _ <- EitherT.liftF[Future, Throwable, Unit](
             ParticipantCommon.importAcsNewSnapshot(
               acsSnapshot = acsSnapshot,
               workflowIdPrefix = workflowIdPrefix,
@@ -482,12 +471,10 @@ final class GrpcParticipantRepairService(
               loggerFactory = loggerFactory,
             )
           )
-        } yield contractIdRemapping
+        } yield ()
 
         result
-          .thereafter { _ =>
-            outputStream.close()
-          }
+          .thereafter(_ => outputStream.close())
           .value // Get the underlying Future[Either[...]]
           .onComplete {
             // The Future itself failed (e.g., a fatal error in `thereafter`)
@@ -498,8 +485,8 @@ final class GrpcParticipantRepairService(
               result match {
                 case Left(exception) =>
                   responseObserver.onError(exception)
-                case Right(contractIdRemapping) =>
-                  responseObserver.onNext(ImportAcsResponse(contractIdRemapping))
+                case Right(()) =>
+                  responseObserver.onNext(ImportAcsResponse())
                   responseObserver.onCompleted()
               }
           }
@@ -510,8 +497,7 @@ final class GrpcParticipantRepairService(
   private def importAcsContractsOld(
       contracts: Either[String, List[RepairContract]],
       workflowIdPrefix: String,
-      contractImportMode: ContractImportMode,
-  )(implicit traceContext: TraceContext): Future[Map[String, String]] = {
+  )(implicit traceContext: TraceContext): Future[Unit] = {
     val resultET = for {
       repairContracts <- contracts
         .toEitherT[FutureUnlessShutdown]
@@ -525,13 +511,10 @@ final class GrpcParticipantRepairService(
         ContractAuthenticationImportProcessor(
           loggerFactory,
           sync.syncPersistentStateManager,
-          sync.pureCryptoApi,
-          sync.contractHasher,
           sync.contractValidator,
-          contractImportMode,
+          ContractImportMode.Validation,
         )(repairContracts)
-      (activeContractsWithValidContractIds, contractIdRemapping) =
-        activeContractsWithRemapping
+      activeContractsWithValidContractIds = activeContractsWithRemapping
 
       _ <- activeContractsWithValidContractIds.groupBy(_.synchronizerId).toSeq.parTraverse_ {
         case (synchronizerId, contracts) =>
@@ -544,14 +527,11 @@ final class GrpcParticipantRepairService(
           )
       }
 
-    } yield contractIdRemapping
+    } yield ()
 
     resultET.value.flatMap {
       case Left(error) => FutureUnlessShutdown.failed(ImportAcsError.Error(error).asGrpcError)
-      case Right(contractIdRemapping) =>
-        FutureUnlessShutdown.pure(
-          contractIdRemapping.map { case (oldCid, newCid) => (oldCid.coid, newCid.coid) }
-        )
+      case Right(()) => FutureUnlessShutdown.unit
     }.asGrpcFuture
   }
 

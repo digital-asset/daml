@@ -12,8 +12,7 @@ import com.digitalasset.canton.ledger.participant.state.index.{
 }
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
-import com.digitalasset.canton.participant.store
+import com.digitalasset.canton.participant.store.LedgerApiContractStore
 import com.digitalasset.canton.platform.store.cache.ContractKeyStateValue.*
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.KeyState
@@ -25,7 +24,7 @@ private[platform] class MutableCacheBackedContractStore(
     contractsReader: LedgerDaoContractsReader,
     val loggerFactory: NamedLoggerFactory,
     private[cache] val contractStateCaches: ContractStateCaches,
-    contractStore: store.ContractStore,
+    contractStore: LedgerApiContractStore,
 )(implicit executionContext: ExecutionContext)
     extends ContractStore
     with NamedLogging {
@@ -47,7 +46,6 @@ private[platform] class MutableCacheBackedContractStore(
         case ContractStateStatus.Active =>
           contractStore
             .lookupPersisted(contractId)
-            .failOnShutdownTo(GrpcErrors.AbortedDueToShutdown.Error().asGrpcError)
             .map {
               case Some(persistedContract) => ContractState.Active(persistedContract.inst)
               case None =>

@@ -45,6 +45,7 @@ protobuf_version = "3.25.5"
 pekko_version = "1.1.5"
 pekko_http_version = "1.1.0"
 tapir_version = "1.8.5"
+transcode_version = "0.1.1-main.20251112.144.829.v5cc568a"
 upickle_version = "4.1.0"
 ujson_version = "4.0.2"
 
@@ -73,6 +74,22 @@ def install_java_deps():
             "com.auth0:java-jwt:4.2.1",
             "com.auth0:jwks-rsa:0.21.2",
             "com.chuusai:shapeless_{}:2.3.7".format(scala_major_version),
+            maven.artifact(
+                group = "com.daml",
+                artifact = "transcode-codec-json_3",
+                version = transcode_version,
+                # exclude conflicting Scala 3 dependencies, we use ujson_2.13 instead
+                exclusions = ["com.lihaoyi:ujson_3"],
+            ),
+            "com.daml:transcode-codec-proto-scala-daml3.5_3:{}".format(transcode_version),
+            "com.daml:transcode-daml-lf-daml3.5_3:{}".format(transcode_version),
+            maven.artifact(
+                group = "com.daml",
+                artifact = "transcode-schema_3",
+                version = transcode_version,
+                # exclude conflicting Scala 3 dependencies, we use fastparse_2.13 instead
+                exclusions = ["com.lihaoyi:fastparse_3"],
+            ),
             "com.fasterxml.jackson.core:jackson-core:2.14.3",
             "com.fasterxml.jackson.core:jackson-databind:2.14.3",
             "com.github.ben-manes.caffeine:caffeine:3.1.2",

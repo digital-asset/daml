@@ -20,7 +20,7 @@ import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.Error.Preprocessing
 import com.digitalasset.daml.lf.language.Ast.TVar
 import com.digitalasset.daml.lf.value.Value.ValueUnit
-import com.digitalasset.transcode.{MissingFieldException, UnexpectedFieldsException}
+import com.digitalasset.transcode.{MissingFieldsException, UnexpectedFieldsException}
 import io.circe.{Decoder, Encoder}
 import io.grpc.stub.StreamObserver
 import io.grpc.{Status, StatusRuntimeException}
@@ -367,7 +367,7 @@ trait Endpoints extends NamedLogging {
           ),
         )
       )
-    case fieldMissing: MissingFieldException =>
+    case fieldMissing: MissingFieldsException =>
       Left(
         (
           StatusCode.BadRequest,
@@ -376,7 +376,7 @@ trait Endpoints extends NamedLogging {
               Preprocessing.TypeMismatch(
                 TVar(Ref.Name.assertFromString("unknown")),
                 ValueUnit,
-                s"Missing non-optional field: ${fieldMissing.missingField}",
+                s"Missing non-optional fields: ${fieldMissing.missingFields}",
               )
             )
           ),

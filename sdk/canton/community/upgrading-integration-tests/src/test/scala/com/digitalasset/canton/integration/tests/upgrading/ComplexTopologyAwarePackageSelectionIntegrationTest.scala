@@ -28,6 +28,7 @@ import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors.Interp
 import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
 import com.digitalasset.canton.topology.{PartyId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.util.SetupPackageVetting
+import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.{LfPackageName, SynchronizerAlias}
 import com.digitalasset.daml.lf.data.Ref
 import monocle.macros.syntax.lens.*
@@ -379,7 +380,14 @@ final class ComplexTopologyAwarePackageSelectionIntegrationTest
               ).create().commands().asScala.toSeq,
               userPackageSelectionPreference = userPackagePreferenceSet,
             ),
-          _.shouldBeCantonErrorCode(CommandExecutionErrors.UserPackagePreferenceNotVetted),
+          entry => {
+            entry.shouldBeCantonErrorCode(CommandExecutionErrors.PackageSelectionFailed)
+            entry.message should (include(
+              "No synchronizers satisfy the topology requirements for the submitted command"
+            ) and include(
+              show"$GlobalSynchronizerId: Failed to select package-id for package-name '${FeaturedAppRightImplV1.PACKAGE_NAME}' appearing in a command root node due to: No vetted package candidate satisfies the package-id filter 'Commands.package_id_selection_preference'=${FeaturedAppRightImplV1.PACKAGE_NAME} -> $AppRightV2"
+            ) and include(show"Candidates: $AppRightV1"))
+          },
         )
       }
     }

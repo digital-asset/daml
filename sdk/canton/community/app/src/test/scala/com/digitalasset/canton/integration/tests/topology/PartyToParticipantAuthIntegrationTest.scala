@@ -28,10 +28,12 @@ import com.digitalasset.canton.integration.{
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
+import com.digitalasset.canton.topology.transaction.TopologyChangeOp.Remove
 import com.digitalasset.canton.topology.{ParticipantId, PartyId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.protobuf.ByteString
 import org.scalatest.Assertion
+import org.slf4j.event.Level
 
 import java.util.UUID
 
@@ -206,7 +208,7 @@ trait PartyToParticipantAuthIntegrationTest
           )
         },
         logEntrySeqAssertion(
-          detailedWarning = "Topology transaction is missing authorizations by namespaces"
+          detailed = "Topology transaction is missing authorizations by namespaces"
         ),
       )
     }
@@ -318,7 +320,7 @@ trait PartyToParticipantAuthIntegrationTest
             )
           },
           logEntrySeqAssertion(
-            detailedWarning = "Topology transaction is not properly authorized by any namespace key"
+            detailed = "Topology transaction is not properly authorized by any namespace key"
           ),
         )
     }
@@ -367,7 +369,7 @@ trait PartyToParticipantAuthIntegrationTest
             )
           },
           logEntrySeqAssertion(
-            detailedWarning = "Topology transaction is not properly authorized by any namespace key"
+            detailed = "Topology transaction is not properly authorized by any namespace key"
           ),
         )
     }
@@ -469,7 +471,7 @@ trait PartyToParticipantAuthIntegrationTest
             )
           },
           logEntrySeqAssertion(
-            detailedWarning =
+            detailed =
               "Topology transaction authorization cannot be verified due to missing namespace delegations for keys"
           ),
         )
@@ -613,7 +615,7 @@ trait PartyToParticipantAuthIntegrationTest
           )
         },
         logEntrySeqAssertion(
-          detailedWarning = "Topology transaction is missing authorizations by namespaces"
+          detailed = "Topology transaction is missing authorizations by namespaces"
         ),
       )
     }
@@ -625,73 +627,76 @@ trait PartyToParticipantAuthIntegrationTest
       4. Remove intermediate NSD: NS-ABC123 -> K-XYZ789
       5. change PTP:              Alice@ABC123 -> keys=K-ABC123 -> SignedBy K-ABC123
      */
-    "allow self-signing after PTP with intermediate namespace delegation" in { implicit env =>
-      import env.*
+    "allow updates to self-signed PTP after intermediate namespace delegation has been revoked" in {
+      implicit env =>
+        import env.*
 
-      val namespaceKey = generateSigningKey(forNamespace = true)
-      val partyId = PartyId(
-        UniqueIdentifier.tryCreate("test", namespaceKey.fingerprint)
-      )
+        val namespaceKey = generateSigningKey(forNamespace = true)
+        val partyId = PartyId(
+          UniqueIdentifier.tryCreate("test", namespaceKey.fingerprint)
+        )
 
-      val rootSignedNamespaceDelegation = loadNamespaceDelegation(
-        partyId = partyId,
-        partyNamespaceKey = namespaceKey,
-        fingerprint = namespaceKey.fingerprint,
-        participant = participant1,
-      )
+        val rootSignedNamespaceDelegation = loadNamespaceDelegation(
+          partyId = partyId,
+          partyNamespaceKey = namespaceKey,
+          fingerprint = namespaceKey.fingerprint,
+          participant = participant1,
+        )
 
-      NamespaceDelegation.isRootCertificate(rootSignedNamespaceDelegation) shouldBe true
-      participant1.topology.namespace_delegations
-        .list(synchronizer1Id, filterNamespace = partyId.namespace.filterString)
-        .length shouldBe 1
+        NamespaceDelegation.isRootCertificate(rootSignedNamespaceDelegation) shouldBe true
+        participant1.topology.namespace_delegations
+          .list(synchronizer1Id, filterNamespace = partyId.namespace.filterString)
+          .length shouldBe 1
 
-      val delegatedNamespaceKey = generateSigningKey(forNamespace = true)
-      val nonRootSignedNamespaceDelegation = loadNamespaceDelegation(
-        partyId = partyId,
-        partyNamespaceKey = delegatedNamespaceKey,
-        fingerprint = namespaceKey.fingerprint,
-        participant = participant1,
-      )
+        val delegatedNamespaceKey = generateSigningKey(forNamespace = true)
+        val nonRootSignedNamespaceDelegation = loadNamespaceDelegation(
+          partyId = partyId,
+          partyNamespaceKey = delegatedNamespaceKey,
+          fingerprint = namespaceKey.fingerprint,
+          participant = participant1,
+        )
 
-      NamespaceDelegation.isRootCertificate(nonRootSignedNamespaceDelegation) shouldBe false
-      participant1.topology.namespace_delegations
-        .list(synchronizer1Id, filterNamespace = partyId.namespace.filterString)
-        .length shouldBe 2
+        NamespaceDelegation.isRootCertificate(nonRootSignedNamespaceDelegation) shouldBe false
+        participant1.topology.namespace_delegations
+          .list(synchronizer1Id, filterNamespace = partyId.namespace.filterString)
+          .length shouldBe 2
 
-      testLoadingPartyToParticipantSigningKeys(
-        partyId = partyId,
-        protocolSigningKeys = NonEmpty.mk(Seq, delegatedNamespaceKey),
-        signingFingerprints = NonEmpty.mk(Seq, delegatedNamespaceKey.fingerprint),
-        hostingParticipants = Seq(hostingParticipant(participant1)),
-        signingParticipants = Seq(participant1),
-      )
+        testLoadingPartyToParticipantSigningKeys(
+          partyId = partyId,
+          protocolSigningKeys = NonEmpty.mk(Seq, delegatedNamespaceKey),
+          signingFingerprints = NonEmpty.mk(Seq, delegatedNamespaceKey.fingerprint),
+          hostingParticipants = Seq(hostingParticipant(participant1)),
+          signingParticipants = Seq(participant1),
+        )
 
-      loadNamespaceDelegation(
-        partyId = partyId,
-        partyNamespaceKey = delegatedNamespaceKey,
-        fingerprint = namespaceKey.fingerprint,
-        participant = participant1,
-        serial = PositiveInt.two,
-        topologyChangeOp = TopologyChangeOp.Remove,
-      )
+        // Revoking the intermediate delegation should not prevent usage of the namespace key
+        loadNamespaceDelegation(
+          partyId = partyId,
+          partyNamespaceKey = delegatedNamespaceKey,
+          fingerprint = namespaceKey.fingerprint,
+          participant = participant1,
+          serial = PositiveInt.two,
+          topologyChangeOp = TopologyChangeOp.Remove,
+        )
 
-      testLoadingPartyToParticipantSigningKeys(
-        partyId = partyId,
-        protocolSigningKeys = NonEmpty.mk(Seq, namespaceKey),
-        signingFingerprints = NonEmpty.mk(Seq, namespaceKey.fingerprint),
-        hostingParticipants = Seq(hostingParticipant(participant1)),
-        signingParticipants = Seq.empty,
-        serial = PositiveInt.two,
-      )
+        // We can re-create the PTP
+        testLoadingPartyToParticipantSigningKeys(
+          partyId = partyId,
+          protocolSigningKeys = NonEmpty.mk(Seq, namespaceKey),
+          signingFingerprints = NonEmpty.mk(Seq, namespaceKey.fingerprint),
+          hostingParticipants = Seq(hostingParticipant(participant1)),
+          signingParticipants = Seq.empty,
+          serial = PositiveInt.two,
+        )
     }
 
     /*
       1. NSD-RootCert            NS-ABC123 -> K-ABC123
       2. PTP:                    Alice@ABC123 -> keys=K-ABC123 -> SignedBy K-ABC123
       3. Remove NSD-RootCert     NS-ABC123 -> K-ABC123
-      4. change PTP self-authorized: Alice@ABC123 -> keys=K-ABC123 -> SignedBy K-ABC123
+      4. change PTP self-authorized: Alice@ABC123 -> keys=K-ABC123 -> SignedBy K-ABC123 => DISALLOWED
      */
-    "allow self-signing PTP after removal of the root certificate" in { implicit env =>
+    "not allow self-signing PTP after removal of the root certificate" in { implicit env =>
       import env.*
 
       val namespaceKey = generateSigningKey(forNamespace = true)
@@ -738,13 +743,22 @@ trait PartyToParticipantAuthIntegrationTest
 
       val newSigningKey = generateSigningKey(forNamespace = false)
 
-      testLoadingPartyToParticipantSigningKeys(
-        partyId = partyId,
-        protocolSigningKeys = NonEmpty.mk(Seq, namespaceKey, newSigningKey),
-        signingFingerprints = NonEmpty.mk(Seq, namespaceKey.fingerprint, newSigningKey.fingerprint),
-        hostingParticipants = Seq(hostingParticipant(participant1)),
-        signingParticipants = Seq.empty,
-        serial = PositiveInt.two,
+      loggerFactory.assertLoggedWarningsAndErrorsSeq(
+        intercept[CommandFailure] {
+          testLoadingPartyToParticipantSigningKeys(
+            partyId = partyId,
+            protocolSigningKeys = NonEmpty.mk(Seq, namespaceKey, newSigningKey),
+            signingFingerprints =
+              NonEmpty.mk(Seq, namespaceKey.fingerprint, newSigningKey.fingerprint),
+            hostingParticipants = Seq(hostingParticipant(participant1)),
+            signingParticipants = Seq.empty,
+            serial = PositiveInt.two,
+          )
+        },
+        logEntrySeqAssertion(
+          detailed = "has been revoked",
+          level = Level.ERROR,
+        ),
       )
     }
 
@@ -836,7 +850,7 @@ trait PartyToParticipantAuthIntegrationTest
           )
         },
         logEntrySeqAssertion(
-          detailedWarning =
+          detailed =
             " Topology transaction authorization cannot be verified due to missing namespace delegations for keys"
         ),
       )
@@ -854,7 +868,7 @@ trait PartyToParticipantAuthIntegrationTest
           )
         },
         logEntrySeqAssertion(
-          detailedWarning = " Topology transaction is not properly authorized by any namespace key"
+          detailed = " Topology transaction is not properly authorized by any namespace key"
         ),
       )
     }
@@ -930,13 +944,87 @@ trait PartyToParticipantAuthIntegrationTest
           )
         },
         logEntrySeqAssertion(
-          detailedWarning = " Topology transaction is missing authorizations"
+          detailed = " Topology transaction is missing authorizations"
         ),
       )
     }
+
+    "allow recreating a previously revoked self signed PTP as long as no corresponding NSD has been revoked" in {
+      implicit env =>
+        import env.*
+
+        val namespaceKey = generateSigningKey(forNamespace = true)
+        val partyId = PartyId(
+          UniqueIdentifier.tryCreate("test", namespaceKey.fingerprint)
+        )
+
+        testLoadingPartyToParticipantSigningKeys(
+          partyId = partyId,
+          protocolSigningKeys = NonEmpty.mk(Seq, namespaceKey),
+          signingFingerprints = NonEmpty.mk(Seq, namespaceKey.fingerprint),
+          hostingParticipants = Seq(hostingParticipant(participant1)),
+          signingParticipants = Seq(participant1),
+        )
+
+        // Revoke it
+        testLoadingPartyToParticipantSigningKeys(
+          partyId = partyId,
+          protocolSigningKeys = NonEmpty.mk(Seq, namespaceKey),
+          signingFingerprints = NonEmpty.mk(Seq, namespaceKey.fingerprint),
+          hostingParticipants = Seq(hostingParticipant(participant1)),
+          signingParticipants = Seq.empty,
+          topologyChangeOp = Remove,
+          serial = PositiveInt.two,
+        )
+
+        // Recreate it
+        testLoadingPartyToParticipantSigningKeys(
+          partyId = partyId,
+          protocolSigningKeys = NonEmpty.mk(Seq, namespaceKey),
+          signingFingerprints = NonEmpty.mk(Seq, namespaceKey.fingerprint),
+          hostingParticipants = Seq(hostingParticipant(participant1)),
+          signingParticipants = Seq(participant1),
+          serial = PositiveInt.three,
+        )
+    }
+
+    "disallow self-signed PTP creation by revoking the namespace key ahead of time" in {
+      implicit env =>
+        import env.*
+
+        val namespaceKey = generateSigningKey(forNamespace = true)
+        val partyId = PartyId(
+          UniqueIdentifier.tryCreate("test", namespaceKey.fingerprint)
+        )
+
+        loadNamespaceDelegation(
+          partyId,
+          namespaceKey,
+          partyId.fingerprint,
+          participant1,
+          PositiveInt.one,
+          TopologyChangeOp.Remove,
+        )
+
+        loggerFactory.assertLoggedWarningsAndErrorsSeq(
+          intercept[CommandFailure] {
+            testLoadingPartyToParticipantSigningKeys(
+              partyId = partyId,
+              protocolSigningKeys = NonEmpty.mk(Seq, namespaceKey),
+              signingFingerprints = NonEmpty.mk(Seq, namespaceKey.fingerprint),
+              hostingParticipants = Seq(hostingParticipant(participant1)),
+              signingParticipants = Seq(participant1),
+            )
+          },
+          logEntrySeqAssertion(
+            detailed = " has been revoked",
+            level = Level.ERROR,
+          ),
+        )
+    }
   }
 
-  private def logEntrySeqAssertion(detailedWarning: String) =
+  private def logEntrySeqAssertion(detailed: String, level: Level = Level.WARN) =
     LogEntry.assertLogSeq(
       Seq(
         (
@@ -945,7 +1033,10 @@ trait PartyToParticipantAuthIntegrationTest
           "Expected generic error",
         ),
         (
-          _.warningMessage should include(detailedWarning),
+          { le =>
+            le.message should include(detailed)
+            le.level shouldBe level
+          },
           "Expected warning message with more details",
         ),
       )

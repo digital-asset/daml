@@ -39,7 +39,7 @@ trait RateLimitManagerTesting { this: BaseTest with HasExecutionContext =>
       .forOwnerAndSynchronizer(DefaultTestIdentities.participant1)
 
   def defaultRateLimiterWithEventCostCalculator(eventCostCalculator: EventCostCalculator) =
-    new EnterpriseSequencerRateLimitManager(
+    new SequencerRateLimitManagerImpl(
       defaultTrafficPurchasedManager,
       trafficConsumedStore,
       loggerFactory,
@@ -52,7 +52,7 @@ trait RateLimitManagerTesting { this: BaseTest with HasExecutionContext =>
     )
 
   def mkRateLimiter(store: TrafficPurchasedStore) =
-    new EnterpriseSequencerRateLimitManager(
+    new SequencerRateLimitManagerImpl(
       mkTrafficPurchasedManager(store),
       trafficConsumedStore,
       loggerFactory,
@@ -69,7 +69,7 @@ trait RateLimitManagerTesting { this: BaseTest with HasExecutionContext =>
       trafficConsumedStore: TrafficConsumedStore = trafficConsumedStore,
       eventCostCalculator: EventCostCalculator = new EventCostCalculator(loggerFactory),
   ) =
-    new EnterpriseSequencerRateLimitManager(
+    new SequencerRateLimitManagerImpl(
       manager,
       trafficConsumedStore,
       loggerFactory,

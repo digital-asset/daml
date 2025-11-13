@@ -356,7 +356,7 @@ class HeterogeneousDependenciesVettingIntegrationTest
           entry => {
             entry.shouldBeCantonErrorCode(NoPreferredPackagesFound)
             entry.message should include regex
-              s"Could not compute valid package preferences. Reason: No synchronizer satisfies the vetting requirements.*Party ${registry.show}.* has no vetted packages for 'dvp-asset-factory'"
+              s"Failed to compute package preferences. Reason: No synchronizer satisfies the vetting requirements.*No package with package-name 'dvp-asset-factory' is consistently vetted by all hosting participants of party ${registry.show}"
           },
         )
       }

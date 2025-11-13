@@ -193,7 +193,7 @@ class GrpcSequencerAuthenticationService(
       }
       logoutResult <- authenticationService.invalidateMemberWithToken(providedToken)
       _ <- logoutResult match {
-        case Right(()) => FutureUnlessShutdown.pure(())
+        case Right(()) => FutureUnlessShutdown.unit
         case Left(err @ LogoutTokenDoesNotExist) =>
           FutureUnlessShutdown.failed(
             Status.FAILED_PRECONDITION

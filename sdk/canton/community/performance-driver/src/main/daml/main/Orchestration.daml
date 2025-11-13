@@ -1,0 +1,160 @@
+module Orchestration where
+
+import DA.Foldable qualified as F
+import DA.Assert
+
+data Mode = PrepareIssuer | PrepareTrader | Throughput | Done deriving (Eq, Show)
+data ParticipantFlag = Initialising | Ready | Finished deriving (Eq, Show)
+data Role = Issuer | Trader deriving (Eq, Show)
+data RunType =
+  DvpRun
+    with
+      numAssetsPerIssuer: Int
+      -- optional growth factor which means that the ACS will grow by x on every transfer
+      withAcsGrowth: Int
+      payloadSize: Int
+      -- optional party growth factor to simulate many parties
+      withPartyGrowth: Int |
+    NoRun
+    deriving (Eq, Show)
+
+validRunType : RunType -> Bool
+validRunType a = case a of
+  DvpRun numAssets acsGrowth payloadSize partyGrowth -> numAssets > 0 && acsGrowth > -1 && payloadSize >= 0 && partyGrowth >= 0
+  NoRun -> False
+
+runTypeCode : RunType -> Int
+runTypeCode a =  case a of
+  DvpRun {} -> 0
+  NoRun -> -1
+
+template TestRun
+  with
+    mode : Mode
+    issuers : [Party]
+    traders : [Party]
+    master : Party
+    totalCycles : Int
+    reportFrequency: Int
+    runType: RunType
+  where
+
+    ensure (mode /= Throughput || ((length traders) > 1 && (length issuers) > 0)) && validRunType runType
+
+    signatory master
+    observer traders, issuers
+
+
+    choice ToggleMode : ContractId TestRun
+       with
+          newMode : Mode
+       controller master
+       do
+          create this with mode = newMode
+
+    choice ToggleRunType : ContractId TestRun
+       with
+          newType : RunType
+          newTotalCycles : Int
+          newReportFrequency: Int
+       controller master
+       do
+          assertEq (runTypeCode newType) (runTypeCode runType)
+          assert (validRunType newType)
+          create this with runType = newType, totalCycles = newTotalCycles, reportFrequency = newReportFrequency
+
+    choice AddParticipant : (ContractId TestRun, ContractId TestParticipant)
+       with
+          party : Party
+          role : Role
+       controller master
+       do
+          let
+            addParty = \party lst expectedRole ->
+              if (role == expectedRole) then
+                party :: (filter (/= party) lst)
+              else
+                lst
+          ts <- create this with issuers = (addParty party issuers Issuer), traders = (addParty party traders Trader)
+          rs <- create TestParticipant with master = master, party = party, role, flag = Initialising, proposed = 0, accepted = 0
+          return(ts, rs)
+
+    choice RemoveParticipant : ContractId TestRun
+        with
+          party : Party
+        controller master
+        do
+          let
+            removeParty = \party lst -> filter (/= party) lst
+          create this with issuers = (removeParty party issuers), traders = (removeParty party traders)
+
+data ProbeType = Proposal | Acceptance deriving (Eq, Show)
+data TestProbeData = TestProbeData with typ: ProbeType, timestamp: Time, count: Int deriving (Eq, Show)
+
+template TestProbe
+  with
+    master : Party
+    party : Party
+    typ : ProbeType
+    timestamp : Time
+    count : Int
+  where
+    signatory master, party
+
+
+    choice Acknowledge : ()
+      controller master
+        do
+          return ()
+
+updateStats: (Int,Int) -> TestProbeData -> (Int,Int)
+updateStats acc elem = case elem.typ of
+  Acceptance -> (fst acc, max (snd acc) elem.count)
+  Proposal -> (max (fst acc) elem.count, snd acc)
+
+
+template TestParticipant
+  with
+    master : Party
+    party : Party
+    role : Role
+    flag : ParticipantFlag
+    proposed : Int
+    accepted : Int
+  where
+    signatory master
+    observer party
+
+    choice UpdateStats : ContractId TestParticipant
+        with
+          probes: [TestProbeData]
+        controller party
+        do
+          let (newProposed, newAccepted) = foldl updateStats (proposed, accepted) probes
+          F.forA_ probes $ \probe -> create TestProbe with master, party, typ = probe.typ, timestamp = probe.timestamp, count =probe.count
+          create this with proposed = newProposed, accepted = newAccepted
+
+    choice ToggleFlag : ContractId TestParticipant
+        with
+          newFlag : ParticipantFlag
+        controller party
+        do
+          create this with flag = newFlag
+
+template ParticipationRequest
+  with
+    party : Party
+    role : Role
+    master : Party
+  where
+    signatory party
+    observer master
+
+    choice Accept : (ContractId TestRun, ContractId TestParticipant)
+        with
+          masterCid : ContractId TestRun
+        controller master
+        do
+          exercise masterCid AddParticipant with party, role
+
+

@@ -39,7 +39,7 @@ enum ContractImportMode {
   // Default enum value that indicates the ContractImportMode field was not explicitly set.
   // Requests with this value will fail validation and be rejected.
   CONTRACT_IMPORT_MODE_UNSPECIFIED = 0;
-  // A contract is imported without validation or contract-id recomputation.
+  // A contract is imported without validation.
   // This option is suitable for large imports when the participant operator is confident that all contracts
   // are valid for their associated representative package-id.
   CONTRACT_IMPORT_MODE_ACCEPT = 1;
@@ -48,6 +48,4 @@ enum ContractImportMode {
   //
   // This is the recommended option for most import scenarios.
   CONTRACT_IMPORT_MODE_VALIDATION = 2;
-  // The contract is validated and its contract ID suffix is recomputed.
-  CONTRACT_IMPORT_MODE_RECOMPUTATION = 3;
 }

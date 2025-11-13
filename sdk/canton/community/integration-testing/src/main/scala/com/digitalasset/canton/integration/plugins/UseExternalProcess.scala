@@ -283,7 +283,12 @@ class UseExternalProcess(
     newConfig
   }
 
-  def start(instanceName: String): Unit = handler.tryStart(instanceName)
+  /** Start with additional environment variables
+    */
+  def start(instanceName: String, addEnvironment: Map[String, String] = Map.empty): Unit = {
+    handler.addEnvironmentIfNotStarted(instanceName, addEnvironment)
+    handler.tryStart(instanceName)
+  }
 
   /** Start a specific Canton version */
   def start(instanceName: String, cantonVersion: RunVersion): Unit = {

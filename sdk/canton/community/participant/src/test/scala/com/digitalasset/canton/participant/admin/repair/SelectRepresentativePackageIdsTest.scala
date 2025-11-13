@@ -135,19 +135,9 @@ private[repair] class SelectRepresentativePackageIdsTest extends AnyWordSpec wit
         expectation = Left(
           show"Contract import mode is 'Accept' but the selected representative package-id $contractRpIdOverride " +
             show"for contract with id ${repairContract.contract.contractId} differs from the exported representative package-id ${repairContract.representativePackageId}. " +
-            show"Please use contract import mode '${ContractImportMode.Validation}' or '${ContractImportMode.Recomputation}' to change the representative package-id."
+            show"Please use contract import mode '${ContractImportMode.Validation}' to change the representative package-id."
         ),
         contractImportMode = ContractImportMode.Accept,
-      )
-    }
-
-    s"succeed if the selected package-id differs from the exported representative package-id in ${ContractImportMode.Recomputation}" in {
-      import TestValues.*
-
-      testPrecedence(
-        knownPackages = Set(contractRpIdOverride),
-        expectation = Right(contractRpIdOverride),
-        contractImportMode = ContractImportMode.Recomputation,
       )
     }
   }

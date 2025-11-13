@@ -15,7 +15,7 @@ import com.digitalasset.canton.ledger.api.TransactionShape
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
-import com.digitalasset.canton.participant.store.ContractStore
+import com.digitalasset.canton.participant.store.LedgerApiContractStore
 import com.digitalasset.canton.platform.InternalUpdateFormat
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.SequentialIdBatch.IdRange
@@ -38,7 +38,7 @@ final class TransactionOrReassignmentPointwiseReader(
     val metrics: LedgerApiServerMetrics,
     val lfValueTranslation: LfValueTranslation,
     val queryValidRange: QueryValidRange,
-    val contractStore: ContractStore,
+    val contractStore: LedgerApiContractStore,
     val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
     extends NamedLogging {

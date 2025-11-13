@@ -5,19 +5,18 @@ package com.digitalasset.canton.synchronizer.sequencer
 
 import cats.data.EitherT
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, ProcessingTimeout}
 import com.digitalasset.canton.crypto.SynchronizerCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, HasCloseContext}
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.synchronizer.block.SequencerDriver
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
+import com.digitalasset.canton.synchronizer.sequencer.HASequencerExclusiveStorageBuilder.ExclusiveStorage
+import com.digitalasset.canton.synchronizer.sequencer.SequencerConfig.{BftSequencer, External}
 import com.digitalasset.canton.synchronizer.sequencer.block.DriverBlockSequencerFactory
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.canton.sequencing.BftSequencerFactory
 import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeParameters
-import com.digitalasset.canton.synchronizer.sequencer.store.SequencerStore
 import com.digitalasset.canton.synchronizer.sequencer.traffic.SequencerTrafficConfig
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.SequencerId
@@ -56,110 +55,9 @@ trait SequencerFactory extends FlagCloseable with HasCloseContext {
   ): FutureUnlessShutdown[Sequencer]
 }
 
-abstract class DatabaseSequencerFactory(
-    config: DatabaseSequencerConfig,
-    storage: Storage,
-    cachingConfigs: CachingConfigs,
-    batchingConfig: BatchingConfig,
-    override val timeouts: ProcessingTimeout,
-    protocolVersion: ProtocolVersion,
-    sequencerId: SequencerId,
-    blockSequencerMode: Boolean,
-    metrics: SequencerMetrics,
-)(implicit ec: ExecutionContext)
-    extends SequencerFactory
-    with NamedLogging {
+object SequencerMetaFactory {
 
-  val sequencerStore: SequencerStore =
-    SequencerStore(
-      storage = storage,
-      protocolVersion = protocolVersion,
-      bufferedEventsMaxMemory = config.writer.bufferedEventsMaxMemory,
-      bufferedEventsPreloadBatchSize = config.writer.bufferedEventsPreloadBatchSize,
-      timeouts = timeouts,
-      loggerFactory = loggerFactory,
-      sequencerMember = sequencerId,
-      blockSequencerMode = blockSequencerMode,
-      cachingConfigs = cachingConfigs,
-      batchingConfig = batchingConfig,
-      // Overriding the store's close context with the writers, so that when the writer gets closed, the store
-      // stops retrying forever
-      overrideCloseContext = Some(this.closeContext),
-      sequencerMetrics = metrics,
-    )
-
-  override def initialize(
-      initialState: SequencerInitialState,
-      sequencerId: SequencerId,
-  )(implicit
-      ec: ExecutionContext,
-      traceContext: TraceContext,
-  ): EitherT[FutureUnlessShutdown, String, Unit] =
-    sequencerStore.initializeFromSnapshot(initialState)
-}
-
-class CommunityDatabaseSequencerFactory(
-    config: DatabaseSequencerConfig,
-    metrics: SequencerMetrics,
-    storage: Storage,
-    sequencerProtocolVersion: ProtocolVersion,
-    sequencerId: SequencerId,
-    nodeParameters: CantonNodeParameters,
-    override val loggerFactory: NamedLoggerFactory,
-)(implicit ec: ExecutionContext)
-    extends DatabaseSequencerFactory(
-      config,
-      storage,
-      nodeParameters.cachingConfigs,
-      nodeParameters.batchingConfig,
-      nodeParameters.processingTimeouts,
-      sequencerProtocolVersion,
-      sequencerId,
-      blockSequencerMode = false,
-      metrics,
-    ) {
-
-  override def create(
-      sequencerId: SequencerId,
-      clock: Clock,
-      synchronizerSyncCryptoApi: SynchronizerCryptoClient,
-      futureSupervisor: FutureSupervisor,
-      trafficConfig: SequencerTrafficConfig,
-      sequencingTimeLowerBoundExclusive: Option[CantonTimestamp],
-      runtimeReady: FutureUnlessShutdown[Unit],
-      sequencerSnapshot: Option[SequencerSnapshot],
-      authenticationServices: Option[AuthenticationServices],
-  )(implicit
-      traceContext: TraceContext,
-      tracer: Tracer,
-      actorMaterializer: Materializer,
-  ): FutureUnlessShutdown[Sequencer] = {
-    val sequencer = DatabaseSequencer.single(
-      config,
-      None,
-      nodeParameters.processingTimeouts,
-      storage,
-      sequencerStore,
-      sequencingTimeLowerBoundExclusive,
-      clock,
-      sequencerId,
-      synchronizerSyncCryptoApi,
-      metrics,
-      loggerFactory,
-    )
-
-    FutureUnlessShutdown.pure(
-      config.testingInterceptor.map(_(clock)(sequencer)(ec)).getOrElse(sequencer)
-    )
-  }
-
-}
-
-/** Artificial interface for dependency injection
-  */
-trait MkSequencerFactory {
-
-  def apply(
+  def createFactory(
       protocolVersion: ProtocolVersion,
       health: Option[SequencerHealthConfig],
       clock: Clock,
@@ -172,68 +70,110 @@ trait MkSequencerFactory {
       loggerFactory: NamedLoggerFactory,
   )(
       sequencerConfig: SequencerConfig
-  )(implicit ececutionContext: ExecutionContext): SequencerFactory
+  )(implicit executionContext: ExecutionContext): SequencerFactory =
+    sequencerConfig match {
+      case databaseConfig: SequencerConfig.Database =>
+        // if we're configured for high availability switch to using a writer storage factory that will
+        // dynamically determine a node instance index and ensure that all sensitive writes are performed
+        // while holding an exclusive lock for that instance.
+        val writerStorageFactory =
+          if (databaseConfig.highAvailabilityEnabled)
+            new HASequencerWriterStoreFactory(
+              protocolVersion,
+              databaseConfig.highAvailability.getOrElse(
+                throw new IllegalStateException("HA config not set despite being enabled")
+              ),
+              nodeParameters.loggingConfig.queryCost,
+              Some(scheduler),
+              sequencerId,
+              nodeParameters.cachingConfigs,
+              nodeParameters.batchingConfig,
+              metrics,
+              nodeParameters.processingTimeouts,
+              exitOnFatalFailures = nodeParameters.exitOnFatalFailures,
+              futureSupervisor,
+              loggerFactory,
+            )
+          else
+            SequencerWriterStoreFactory.singleInstance
 
-}
+        // under high availability create a separate, exclusive DbStorageMulti to manage
+        // configuration stored in the database and also for use by pruning.
+        val exclusiveStorageBuilder =
+          Option.when[
+            Storage => Either[HASequencerExclusiveStorageBuilder.CreateError, ExclusiveStorage]
+          ](
+            databaseConfig.highAvailabilityEnabled
+          )(
+            new HASequencerExclusiveStorageBuilder(
+              databaseConfig.highAvailability
+                .getOrElse(
+                  throw new IllegalStateException("HA config not set despite being enabled")
+                )
+                .exclusiveStorage,
+              nodeParameters.loggingConfig.queryCost,
+              scheduler,
+              nodeParameters.processingTimeouts,
+              exitOnFatalFailures = nodeParameters.exitOnFatalFailures,
+              futureSupervisor,
+              loggerFactory,
+            ).create
+          )
 
-object CommunitySequencerFactory extends MkSequencerFactory {
-  override def apply(
-      protocolVersion: ProtocolVersion,
-      health: Option[SequencerHealthConfig],
-      clock: Clock,
-      scheduler: ScheduledExecutorService,
-      metrics: SequencerMetrics,
-      storage: Storage,
-      sequencerId: SequencerId,
-      nodeParameters: SequencerNodeParameters,
-      futureSupervisor: FutureSupervisor,
-      loggerFactory: NamedLoggerFactory,
-  )(sequencerConfig: SequencerConfig)(implicit
-      executionContext: ExecutionContext
-  ): SequencerFactory = sequencerConfig match {
-    case communityDbConfig: SequencerConfig.Database =>
-      new CommunityDatabaseSequencerFactory(
-        communityDbConfig,
-        metrics,
-        storage,
-        protocolVersion,
-        sequencerId,
-        nodeParameters,
-        loggerFactory,
-      )
+        val pruningSchedulerBuilder: (Storage, Sequencer) => DatabaseSequencerPruningScheduler = {
+          case (storage, sequencer) =>
+            new DatabaseSequencerPruningScheduler(
+              clock,
+              sequencer,
+              storage,
+              databaseConfig.pruning,
+              nodeParameters.processingTimeouts,
+              loggerFactory,
+            )
+        }
 
-    case SequencerConfig.BftSequencer(blockSequencerConfig, config) =>
-      new BftSequencerFactory(
-        config,
-        blockSequencerConfig,
-        health,
-        storage,
-        protocolVersion,
-        sequencerId,
-        nodeParameters,
-        metrics,
-        loggerFactory,
-        blockSequencerConfig.testingInterceptor,
-      )
+        new HADatabaseSequencerFactory(
+          databaseConfig,
+          storage,
+          protocolVersion,
+          writerStorageFactory,
+          exclusiveStorageBuilder,
+          pruningSchedulerBuilder,
+          health,
+          metrics,
+          sequencerId,
+          nodeParameters,
+          loggerFactory,
+        )
 
-    case SequencerConfig.External(
-          sequencerType,
-          blockSequencerConfig,
+      case BftSequencer(blockSequencerConfig, config) =>
+        new BftSequencerFactory(
           config,
-        ) =>
-      DriverBlockSequencerFactory(
-        sequencerType,
-        SequencerDriver.DriverApiVersion,
-        config,
-        blockSequencerConfig,
-        health,
-        storage,
-        protocolVersion,
-        sequencerId,
-        nodeParameters,
-        metrics,
-        loggerFactory,
-        blockSequencerConfig.testingInterceptor,
-      )
-  }
+          blockSequencerConfig,
+          health,
+          storage,
+          protocolVersion,
+          sequencerId,
+          nodeParameters,
+          metrics,
+          loggerFactory,
+          blockSequencerConfig.testingInterceptor,
+        )
+
+      case External(sequencerType, blockSequencerConfig, rawConfig) =>
+        DriverBlockSequencerFactory(
+          sequencerType,
+          SequencerDriver.DriverApiVersion,
+          rawConfig,
+          blockSequencerConfig,
+          health,
+          storage,
+          protocolVersion,
+          sequencerId,
+          nodeParameters,
+          metrics,
+          loggerFactory,
+          blockSequencerConfig.testingInterceptor,
+        )
+    }
 }

@@ -29,6 +29,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref
 import com.google.protobuf.ByteString
+import com.google.rpc.Code
 import io.scalaland.chimney.Transformer
 import io.scalaland.chimney.dsl.*
 import ujson.StringRenderer
@@ -338,7 +339,6 @@ class ProtocolConverters(
         .withFieldConst(_.commands, transcodedCommands)
         .withFieldConst(_.prefetchContractKeys, prefetchContractKeys)
         .transform
-
   }
 
   object InterfaceView extends ProtocolConverter[lapi.event.InterfaceView, JsInterfaceView] {
@@ -369,17 +369,28 @@ class ProtocolConverters(
         obj: lapi.event.InterfaceView
     )(implicit
         traceContext: TraceContext
-    ): Future[JsInterfaceView] =
-      for {
-        record <- schemaProcessors.contractArgFromProtoToJson(
-          obj.getInterfaceId,
-          obj.getViewValue,
+    ): Future[JsInterfaceView] = {
+      val viewStatus = obj.getViewStatus
+      if (viewStatus.code != Code.OK.getNumber) {
+        Future.successful(
+          JsInterfaceView(
+            interfaceId = obj.getInterfaceId,
+            viewStatus = viewStatus,
+            viewValue = None,
+          )
         )
-      } yield JsInterfaceView(
-        interfaceId = obj.getInterfaceId,
-        viewStatus = obj.getViewStatus,
-        viewValue = obj.viewValue.map(_ => record),
-      )
+      } else
+        for {
+          record <- schemaProcessors.contractArgFromProtoToJson(
+            obj.getInterfaceId,
+            obj.getViewValue,
+          )
+        } yield JsInterfaceView(
+          interfaceId = obj.getInterfaceId,
+          viewStatus = viewStatus,
+          viewValue = obj.viewValue.map(_ => record),
+        )
+    }
   }
 
   object Event extends ProtocolConverter[lapi.event.Event.Event, JsEvent.Event] {

@@ -496,7 +496,7 @@ class GrpcPartyManagementService(
 
       override def onCompleted(): Unit = {
         // Synchronously try to get the snapshot and start the import
-        val result: EitherT[Future, Throwable, Map[String, String]] = for {
+        val result: EitherT[Future, Throwable, Unit] = for {
 
           argsTuple <- EitherT.fromEither[Future](
             recordedArgs.leftMap(new IllegalStateException(_))
@@ -505,7 +505,7 @@ class GrpcPartyManagementService(
           acsSnapshot <- EitherT.fromEither[Future](
             Try(ByteString.copyFrom(outputStream.toByteArray)).toEither
           )
-          contractIdRemapping <- EitherT.liftF[Future, Throwable, Map[String, String]](
+          _ <- EitherT.liftF[Future, Throwable, Unit](
             ParticipantCommon.importAcsNewSnapshot(
               acsSnapshot = acsSnapshot,
               batching = batching,
@@ -517,12 +517,10 @@ class GrpcPartyManagementService(
               workflowIdPrefix = workflowIdPrefix,
             )
           )
-        } yield contractIdRemapping
+        } yield ()
 
         result
-          .thereafter { _ =>
-            outputStream.close()
-          }
+          .thereafter(_ => outputStream.close())
           .value
           .onComplete {
             case Failure(exception) =>

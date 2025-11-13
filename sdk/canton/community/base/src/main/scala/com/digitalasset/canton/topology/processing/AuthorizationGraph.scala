@@ -181,7 +181,7 @@ class AuthorizationGraph(
         if (graph.degree(node) == 0) graph.removeNode(node).discard
       }
     } else {
-      logger.warn(s"Superfluous removal of namespace delegation $item")
+      logger.info(s"Revocation of previously unknown namespace delegation $item")
     }
   }
 

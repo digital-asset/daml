@@ -925,7 +925,7 @@ class AcsCommitmentProcessor private (
             )
             lastCheckpointTs = checkpointTs
             res
-          } else FutureUnlessShutdown.pure(())
+          } else FutureUnlessShutdown.unit
         // always checkpoint when we complete a period
         _ <- completedPeriod match {
           case Some(period) =>
@@ -940,7 +940,7 @@ class AcsCommitmentProcessor private (
             )
             lastCheckpointTs = period.toInclusive.forgetRefinement
             res
-          case None => FutureUnlessShutdown.pure(())
+          case None => FutureUnlessShutdown.unit
         }
       } yield ()
 

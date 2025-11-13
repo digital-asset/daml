@@ -80,6 +80,15 @@ class BackgroundRunnerHandler[ProcessInfo](
     external.put(instanceName, if (!manualStart) configured.start() else configured).discard
   }
 
+  def addEnvironmentIfNotStarted(instanceName: String, addEnvironment: Map[String, String]): Unit =
+    external
+      .updateWith(instanceName) {
+        case Some(configured: Configured) =>
+          Some(configured.copy(addEnvironment = configured.addEnvironment ++ addEnvironment))
+        case other => other
+      }
+      .discard
+
   /** Stop and remove a background process. Idempotent as it doesn't require that the background
     * process was previously added.
     */

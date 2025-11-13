@@ -9,6 +9,7 @@ import com.daml.metrics.api.MetricsContext
 import com.daml.tracing.NoOpTelemetry
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.*
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.SynchronizerCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -137,13 +138,25 @@ final class BftBlockOrderer(
     metrics: BftOrderingMetrics,
     override val loggerFactory: NamedLoggerFactory,
     queryCostMonitoring: Option[QueryCostMonitoringConfig],
-)(implicit executionContext: ExecutionContext, materializer: Materializer, tracer: Tracer)
+    executionContext: ExecutionContext,
+)(implicit materializer: Materializer, tracer: Tracer)
     extends BlockOrderer
     with NamedLogging
     with FlagCloseableAsync
     with HasCloseContext {
 
   import BftBlockOrderer.*
+
+  implicit val ec: ExecutionContext =
+    config.dedicatedExecutionContextDivisor.fold(executionContext) { divisor =>
+      Threading.newExecutionContext(
+        "bft-orderer-dedicated-ec",
+        noTracingLogger,
+        PositiveInt.tryCreate(
+          Threading.detectNumberOfThreads(noTracingLogger).value / divisor
+        ),
+      )
+    }
 
   require(
     sequencerSubscriptionInitialHeight >= BlockNumber.First,

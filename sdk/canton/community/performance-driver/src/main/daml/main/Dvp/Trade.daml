@@ -1,0 +1,42 @@
+module Dvp.Trade where
+
+import Dvp.Asset
+
+template Propose
+  with
+    proposer : Party
+    transferCid : ContractId AssetTransfer
+    counterparty : Party
+    issuer : Party
+    bystanderA : Party
+  where
+    signatory proposer
+    observer counterparty
+
+    ensure proposer /= counterparty
+
+    choice GarbageCollectPropose : ()
+      with
+        party : Party
+      controller party
+        do
+          return ()
+
+
+    choice Accept : (ContractId Asset, ContractId Asset)
+        with
+          assetCid : ContractId Asset
+          bystanderB: Party
+          random : Text
+        controller counterparty
+        do
+          prop <- fetch transferCid
+          assert (prop.owner == proposer)
+          other <- fetch assetCid
+          assert (other.owner == counterparty)
+          otherTransferId <- exercise assetCid ProposeTransfer with newOwner = proposer, growthFactor = prop.growthFactor
+          -- we add a T (take) and G (give) to the random string to avoid key collision
+          tm2 <- exercise otherTransferId AcceptTransfer with bystander = bystanderB, random = random <> "T"
+          tm3 <- exercise transferCid AcceptTransfer with bystander = bystanderA, random = random <> "G"
+          return (tm2, tm3)
+

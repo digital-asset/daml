@@ -41,7 +41,7 @@ class CancellableTimeoutSupportSpec
 
   it should "cancel a scheduled task on close" in new TestFixture {
     override def run(): Unit = {
-      val timeoutDuration = config.NonNegativeFiniteDuration.ofMillis(10L)
+      val timeoutDuration = config.NonNegativeFiniteDuration.ofMillis(100L)
       val exception = new RuntimeException("on failure")
       val failure = Failure(exception)
       val promise = Promise[String]()

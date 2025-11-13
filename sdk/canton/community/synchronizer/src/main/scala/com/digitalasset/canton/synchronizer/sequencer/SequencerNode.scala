@@ -123,8 +123,7 @@ class SequencerNodeBootstrap(
       SequencerNodeConfig,
       SequencerNodeParameters,
       SequencerMetrics,
-    ],
-    mkSequencerFactory: MkSequencerFactory,
+    ]
 )(implicit
     executionContext: ExecutionContextIdlenessExecutorService,
     scheduler: ScheduledExecutorService,
@@ -246,11 +245,11 @@ class SequencerNodeBootstrap(
       }
     })
 
-    private def mkFactory(
+    private def createSequencerFactory(
         protocolVersion: ProtocolVersion
     )(implicit traceContext: TraceContext) = {
       logger.debug(s"Creating sequencer factory with ${config.sequencer}")
-      val ret = mkSequencerFactory(
+      val factory = SequencerMetaFactory.createFactory(
         protocolVersion,
         Some(config.health),
         clock,
@@ -262,8 +261,8 @@ class SequencerNodeBootstrap(
         arguments.futureSupervisor,
         loggerFactory,
       )(config.sequencer)
-      addCloseable(ret)
-      ret
+      addCloseable(factory)
+      factory
     }
 
     /** if node is not initialized, create a dynamic synchronizer server such that we can serve a
@@ -298,7 +297,7 @@ class SequencerNodeBootstrap(
               Some(
                 StageResult(
                   existing.synchronizerParameters,
-                  mkFactory(existing.synchronizerParameters.protocolVersion),
+                  createSequencerFactory(existing.synchronizerParameters.protocolVersion),
                   topologyManager,
                   topologyAndSequencerSnapshot = None,
                 )
@@ -397,7 +396,8 @@ class SequencerNodeBootstrap(
             s"Assigning sequencer to synchronizer ${if (request.sequencerSnapshot.isEmpty) "from beginning"
               else "with existing snapshot"}"
           )
-          val sequencerFactory = mkFactory(request.synchronizerParameters.protocolVersion)
+          val sequencerFactory =
+            createSequencerFactory(request.synchronizerParameters.protocolVersion)
           val synchronizerIds = request.topologySnapshot.result
             .map(_.mapping)
             .collect { case SequencerSynchronizerState(synchronizer, _, _, _) => synchronizer }
@@ -607,6 +607,7 @@ class SequencerNodeBootstrap(
                 synchronizerPredecessor = None,
                 crypto.pureCrypto,
                 parameters,
+                arguments.config.topology,
                 clock,
                 crypto.staticSynchronizerParameters,
                 futureSupervisor,

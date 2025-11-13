@@ -18,11 +18,9 @@ import com.digitalasset.canton.logging.{
   LoggingContextWithTrace,
   NamedLoggerFactory,
   NamedLogging,
-  TracedLogger,
 }
 import com.digitalasset.canton.metrics.{BatchLoaderMetrics, LedgerApiServerMetrics}
-import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown
-import com.digitalasset.canton.participant.store.ContractStore
+import com.digitalasset.canton.participant.store.LedgerApiContractStore
 import com.digitalasset.canton.platform.store.backend.ContractStorageBackend
 import com.digitalasset.canton.platform.store.dao.DbDispatcher
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.{
@@ -170,14 +168,13 @@ object ContractLoader {
     )
 
   private def createContractBatchLoader(
-      contractStore: ContractStore,
+      contractStore: LedgerApiContractStore,
       contractStorageBackend: ContractStorageBackend,
       dbDispatcher: DbDispatcher,
       metrics: LedgerApiServerMetrics,
       maxQueueSize: Int,
       maxBatchSize: Int,
       parallelism: Int,
-      logger: TracedLogger,
       loggerFactory: NamedLoggerFactory,
   )(implicit
       materializer: Materializer,
@@ -197,12 +194,10 @@ object ContractLoader {
               batch,
               metrics.index.db.activeContracts.batchSize,
             )
-            val errorLoggingContext = ErrorLoggingContext(logger, usedLoggingContext)
             val contractIds = batch.map(_._1._1)
             for {
               contractIdToInternalContractId <- contractStore
                 .lookupBatchedNonCachedInternalIds(contractIds)(usedLoggingContext.traceContext)
-                .failOnShutdownTo(AbortedDueToShutdown.Error()(errorLoggingContext).asGrpcError)
               internalContractIds = contractIds.flatMap(contractIdToInternalContractId.get)
               contractStatuses <- dbDispatcher
                 .executeSql(metrics.index.db.lookupActiveContractsDbMetrics)(
@@ -231,7 +226,7 @@ object ContractLoader {
       )(_.closeAsync())
 
   private def createContractKeyBatchLoader(
-      contractStore: ContractStore,
+      contractStore: LedgerApiContractStore,
       contractStorageBackend: ContractStorageBackend,
       dbDispatcher: DbDispatcher,
       metrics: LedgerApiServerMetrics,
@@ -245,8 +240,7 @@ object ContractLoader {
   ): ResourceOwner[PekkoStreamParallelBatchedLoader[
     (GlobalKey, Long),
     KeyState,
-  ]] = {
-    val logger = loggerFactory.getTracedLogger(this.getClass)
+  ]] =
     ResourceOwner
       .forReleasable(() =>
         new PekkoStreamParallelBatchedLoader[
@@ -260,7 +254,6 @@ object ContractLoader {
                 batch,
                 metrics.index.db.activeContracts.batchSize,
               )
-            val errorLoggingContext = ErrorLoggingContext(logger, usedLoggingContext)
             val contractKeys = batch.map(_._1._1)
             for {
               contractKeys <- dbDispatcher
@@ -274,7 +267,6 @@ object ContractLoader {
                 .lookupBatchedNonCachedContractIds(contractKeys.values)(
                   usedLoggingContext.traceContext
                 )
-                .failOnShutdownTo(AbortedDueToShutdown.Error()(errorLoggingContext).asGrpcError)
             } yield batch.view.map { case ((key, eventSeqId), _) =>
               (key, eventSeqId) -> contractKeys
                 .get(key)
@@ -290,19 +282,15 @@ object ContractLoader {
           loggerFactory = loggerFactory,
         )
       )(_.closeAsync())
-  }
 
   private def fetchOneKey(
       contractStorageBackend: ContractStorageBackend,
       dbDispatcher: DbDispatcher,
-      contractStore: ContractStore,
+      contractStore: LedgerApiContractStore,
       metrics: LedgerApiServerMetrics,
-      logger: TracedLogger,
   )(
       keyWithValidAtEventSeqId: (GlobalKey, Long)
   )(implicit loggingContext: LoggingContextWithTrace, ec: ExecutionContext) = {
-    implicit val errorLoggingContext: ErrorLoggingContext =
-      ErrorLoggingContext(logger, loggingContext)
     val (key, validAtEventSeqId) = keyWithValidAtEventSeqId
     dbDispatcher
       .executeSql(metrics.index.db.lookupContractByKeyDbMetrics)(
@@ -317,14 +305,13 @@ object ContractLoader {
             .lookupBatchedNonCachedContractIds(List(internalContractId))(
               loggingContext.traceContext
             )
-            .failOnShutdownTo(AbortedDueToShutdown.Error()(errorLoggingContext).asGrpcError)
             .map(_.get(internalContractId).map(KeyAssigned.apply).getOrElse(KeyUnassigned))
         case None => Future.successful(KeyUnassigned)
       }
   }
 
   def create(
-      participantContractStore: ContractStore,
+      participantContractStore: LedgerApiContractStore,
       contractStorageBackend: ContractStorageBackend,
       dbDispatcher: DbDispatcher,
       metrics: LedgerApiServerMetrics,
@@ -335,8 +322,7 @@ object ContractLoader {
   )(implicit
       materializer: Materializer,
       executionContext: ExecutionContext,
-  ): ResourceOwner[ContractLoader] = {
-    val logger = loggerFactory.getTracedLogger(this.getClass)
+  ): ResourceOwner[ContractLoader] =
     for {
       contractsBatchLoader <- createContractBatchLoader(
         participantContractStore,
@@ -346,7 +332,6 @@ object ContractLoader {
         maxQueueSize,
         maxBatchSize,
         parallelism,
-        logger,
         loggerFactory,
       )
       contractKeysBatchLoader <-
@@ -387,13 +372,11 @@ object ContractLoader {
                   dbDispatcher,
                   participantContractStore,
                   metrics,
-                  logger,
                 )(key).map(Some(_))
               }
           }
       }
     }
-  }
 
   val dummyLoader = new ContractLoader {
     override final val contracts: Loader[(ContractId, Long), ExistingContractStatus] =

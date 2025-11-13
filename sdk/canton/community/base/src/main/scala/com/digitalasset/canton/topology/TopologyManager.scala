@@ -371,6 +371,21 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
     EitherT.rightT(())
   }
 
+  private def checkConfirmingThresholdIsNotAboveNumberOfHostingNodes(
+      threshold: PositiveInt,
+      numberOfHostingNodes: Int,
+      forceFlags: ForceFlags,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] =
+    EitherTUtil.condUnitET[FutureUnlessShutdown][TopologyManagerError](
+      (numberOfHostingNodes == 0 || threshold.value <= numberOfHostingNodes || forceFlags.permits(
+        ForceFlag.AllowConfirmingThresholdCanBeMet
+      )),
+      TopologyManagerError.ConfirmingThresholdCannotBeReached
+        .Reject(threshold, numberOfHostingNodes),
+    )
+
   def checkInsufficientSignatoryAssigningParticipantsForParty(
       @unused partyId: PartyId,
       @unused currentThreshold: PositiveInt,
@@ -1069,6 +1084,12 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
         }
 
     for {
+      _ <- checkConfirmingThresholdIsNotAboveNumberOfHostingNodes(
+        threshold,
+        nextParticipants.length,
+        forceChanges: ForceFlags,
+      )
+
       currentThresholdAndHostingParticipants <- EitherT.right(
         currentThresholdAndHostingParticipants
       )

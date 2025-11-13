@@ -1093,12 +1093,11 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
     }
   }
 
-  // TODO(#25385): Consider moving in dedicated error group
   @Explanation(
-    """This error is a catch-all for errors thrown by topology-aware package selection in command processing."""
+    """This error occurs when topology-aware package selection could not yield a valid candidate set of vetted packages needed for command submission."""
   )
   @Resolution(
-    "Inspect the error message and adjust the topology state to ensure successful submissions"
+    "Inspect the error message and adjust the topology state or the submitted command"
   )
   object PackageSelectionFailed
       extends ErrorCode(
@@ -1112,27 +1111,6 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
         loggingContext: ErrorLoggingContext
     ) extends DamlErrorWithDefiniteAnswer(
           cause = cause
-        ) {}
-  }
-
-  @Explanation(
-    """The package-id selection preference specified in the command does not refer to any package vetted for one or more package-names."""
-  )
-  @Resolution(
-    "Adjust the package-id selection preference in the command or contact the participant operator for updating the participant's vetting state."
-  )
-  object UserPackagePreferenceNotVetted
-      extends ErrorCode(
-        id = "USER_PACKAGE_PREFERENCE_NOT_VETTED",
-        ErrorCategory.InvalidGivenCurrentSystemStateOther,
-      ) {
-
-    final case class Reject(
-        packageName: Ref.PackageName
-    )(implicit
-        loggingContext: ErrorLoggingContext
-    ) extends DamlErrorWithDefiniteAnswer(
-          cause = s"There is no package with valid vetting for package-name $packageName"
         ) {}
   }
 

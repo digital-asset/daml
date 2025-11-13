@@ -16,7 +16,7 @@ class FutureUnlessShutdownTest extends AsyncWordSpec with BaseTest with HasExecu
   "DiscardedFuture" should {
     "detect discarded FutureUnlessShutdown" in {
       val result = WartTestTraverser(DiscardedFuture) {
-        FutureUnlessShutdown.pure(())
+        FutureUnlessShutdown.unit
         ()
       }
       DiscardedFutureTest.assertErrors(result, 1)

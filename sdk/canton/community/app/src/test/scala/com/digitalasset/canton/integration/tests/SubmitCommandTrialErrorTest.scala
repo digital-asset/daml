@@ -18,8 +18,8 @@ import com.digitalasset.canton.integration.{
   SharedEnvironment,
 }
 import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors.PackageSelectionFailed
-import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.NotFound
 import com.digitalasset.canton.topology.PartyId
+import com.digitalasset.canton.util.ShowUtil.*
 
 import scala.jdk.CollectionConverters.*
 
@@ -57,8 +57,8 @@ trait SubmitCommandTrialErrorTest extends CommunityIntegrationTest with SharedEn
       assertThrowsAndLogsCommandFailures(
         participant1.ledger_api.javaapi.commands.submit(Seq(submitterForUnknownPackageTest), cmds),
         x => {
-          x.shouldBeCommandFailure(NotFound.Package)
-          x.message should include("Iou:Iou")
+          x.shouldBeCommandFailure(PackageSelectionFailed)
+          x.message should include(Iou.PACKAGE_NAME)
         },
       )
 
@@ -106,13 +106,9 @@ trait SubmitCommandTrialErrorTest extends CommunityIntegrationTest with SharedEn
 
       assertThrowsAndLogsCommandFailures(
         participant1.ledger_api.javaapi.commands.submit(Seq(Bank), cmds),
-        // TODO(#25385): Improve error assertion once the detailed rejection is propagated
         _.commandFailureMessage should (include(PackageSelectionFailed.id) and include(
-          "No synchronizers satisfy the draft transaction topology requirements"
+          show"$daId: Failed to select package-id for package-name '${Iou.PACKAGE_NAME}' appearing in a command root node due to: No package with package-name '${Iou.PACKAGE_NAME}' is consistently vetted by all hosting participants of party $Alice"
         )),
-        //        _.commandFailureMessage should (include(
-        //          NoSynchronizerForSubmission.id
-        //        ) and include regex "Participant PAR::participant2::.* has not vetted"),
       )
     }
 

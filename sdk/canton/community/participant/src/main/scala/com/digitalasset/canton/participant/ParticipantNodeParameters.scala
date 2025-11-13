@@ -12,7 +12,6 @@ import com.digitalasset.canton.participant.config.*
 import com.digitalasset.canton.participant.sync.CommandProgressTrackerConfig
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
 import com.digitalasset.canton.time
-import com.digitalasset.canton.topology.client.TopologyClientConfig
 import com.digitalasset.canton.tracing.TracingConfig
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
@@ -60,7 +59,6 @@ object ParticipantNodeParameters {
         aggregator = BatchAggregatorConfig.defaultsForTesting,
       ),
       sequencerClient = SequencerClientConfig(),
-      topologyClient = TopologyClientConfig(),
       dbMigrateAndStart = false,
       exitOnFatalFailures = true,
       watchdog = None,
