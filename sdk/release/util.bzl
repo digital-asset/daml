@@ -126,7 +126,7 @@ def dpm_sdk_tarball(name, version):
           mkdir -p $$TMP/{name}
           DIR=$$TMP/{name}
 
-          DPM_VERSION=$$(HOME=. DPM_HOME=. $(location @dpm_binary//:dpm) -v | head -n 1 | sed -e "s/^version: //")
+          DPM_VERSION=$$(HOME=. DPM_HOME=. USERPROFILE=. $(location @dpm_binary//:dpm) -v | head -n 1 | sed -e "s/^version: //")
           
           # Need to build the installation directory, can't build the oci thing, its too hard
           mkdir $$DIR/bin
@@ -136,6 +136,7 @@ set -euo pipefail
 SCRIPT_DIR=\\$$( cd -- "\\$$( dirname -- "\\$${{BASH_SOURCE[0]}}" )" &> /dev/null && pwd )
 export DPM_HOME=\\$$(dirname -- \\$$SCRIPT_DIR)
 export HOME=\\$$DPM_HOME
+export USERPROFILE=\\$$DPM_HOME
 \\$$DPM_HOME/cache/components/dpm/$$DPM_VERSION/dpm \\$$@
 EOF
           chmod +x $$DIR/bin/dpm
