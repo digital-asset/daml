@@ -264,6 +264,8 @@ Note that access token generation in the correct format is typically delegated t
 systems. Client application developers are unlikely to need to deal with it directly.
 
 
+.. _access-token-expiration:
+
 Token expiration
 ****************
 
