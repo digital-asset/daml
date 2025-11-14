@@ -130,9 +130,9 @@ abstract class BaseEngineModeIT(supportDevLanguageVersions: Boolean)
 
     def accept(langVersion: LanguageVersion, version: String, mode: String) = {
       val protocolVersion =
-        if (LanguageVersion.stable.contains(langVersion))
+        if (LanguageVersion.stableLfVersions.contains(langVersion))
           ProtocolVersion.latest
-        else if (LanguageVersion.earlyAccess.contains(langVersion))
+        else if (LanguageVersion.earlyAccessLfVersionsRange.contains(langVersion))
           ProtocolVersion.beta.lastOption.getOrElse(ProtocolVersion.dev)
         else if (supportDevLanguageVersions) ProtocolVersion.dev
         else fail(s"Unsupported language version: $langVersion")
@@ -160,14 +160,14 @@ abstract class BaseEngineModeIT(supportDevLanguageVersions: Boolean)
 
     inside(
       List(
-        LanguageVersion.stableRange.max,
-        LanguageVersion.earlyAccessRange.max,
+        LanguageVersion.stableLfVersionsRange.max,
+        LanguageVersion.earlyAccessLfVersionsRange.max,
         LanguageVersion.v2_dev,
       )
     ) { case List(maxStableVersion, betaVersion, devVersion) =>
       if (!supportDevLanguageVersions) {
         accept(maxStableVersion, "stable", "stable")
-        if (LanguageVersion.earlyAccess == LanguageVersion.stable)
+        if (LanguageVersion.earlyAccessLfVersionsRange == LanguageVersion.stableLfVersionsRange)
           accept(betaVersion, "beta", "beta")
         else
           reject(betaVersion, "beta", "stable")

@@ -459,15 +459,8 @@ final case class CantonConfig(
   private def validate(
       edition: CantonEdition,
       ensurePortsSet: Boolean,
-  ): Validated[NonEmpty[Seq[String]], Unit] = {
-    val validator = edition match {
-      case CommunityCantonEdition =>
-        CommunityConfigValidations
-      case EnterpriseCantonEdition =>
-        EnterpriseConfigValidations
-    }
-    validator.validate(this, edition, ensurePortsSet = ensurePortsSet)
-  }
+  ): Validated[NonEmpty[Seq[String]], Unit] =
+    CommunityConfigValidations.validate(this, edition, ensurePortsSet = ensurePortsSet)
 
   private lazy val participantNodeParameters_ : Map[InstanceName, ParticipantNodeParameters] =
     participants.fmap { participantConfig =>

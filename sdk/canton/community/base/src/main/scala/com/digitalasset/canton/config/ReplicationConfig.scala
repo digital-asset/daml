@@ -17,7 +17,7 @@ final case class ReplicationConfig(
     // default values later on, based on the type of storage used.
     enabled: Option[Boolean] = None,
     connectionPool: DbLockedConnectionPoolConfig = DbLockedConnectionPoolConfig(),
-) extends EnterpriseOnlyCantonConfigValidation {
+) extends UniformCantonConfigValidation {
   lazy val isEnabled: Boolean = enabled.contains(true)
 }
 

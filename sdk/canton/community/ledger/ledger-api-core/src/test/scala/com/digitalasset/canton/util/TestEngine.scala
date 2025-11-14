@@ -98,7 +98,7 @@ class TestEngine(
 
   val engine = new Engine(
     EngineConfig(
-      allowedLanguageVersions = LanguageVersion.allRange,
+      allowedLanguageVersions = LanguageVersion.allLfVersionsRange,
       iterationsBetweenInterruptions = iterationsBetweenInterruptions,
     )
   )
