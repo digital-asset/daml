@@ -1821,7 +1821,9 @@ private[lf] object DecodeV2 {
     builtinFunctionInfos
       .map(info => info.proto -> info)
       .toMap
-      .withDefault(_ => throw Error.Parsing("BuiltinFunction.UNRECOGNIZED"))
+      .withDefault(protoValue =>
+        throw Error.Parsing(s"BuiltinFunction.UNRECOGNIZED, value looked up was ${protoValue}")
+      )
 
   // need to put at central place
   val stableIds: Seq[PackageId] =
