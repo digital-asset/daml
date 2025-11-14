@@ -968,7 +968,7 @@ class DecodeV2Spec
       }
     }
 
-    s"decode extended TypeRep iff version < ${LV.featureTemplateTypeRepToText}" in {
+    s"decode extended TypeRep iff version not in ${LV.featureTemplateTypeRepToText}" in {
       val testCases = {
         val typeRepTyConName = DamlLf2.Expr
           .newBuilder()
@@ -986,7 +986,7 @@ class DecodeV2Spec
       forEveryVersion { version =>
         forEvery(testCases) { (proto, scala) =>
           val result = Try(interfacePrimitivesDecoder(version).decodeExprForTest(proto, "test"))
-          if (LV.featureTemplateTypeRepToText.versionReq.contains(version))
+          if (!LV.featureTemplateTypeRepToText.versionReq.contains(version))
             inside(result) { case Failure(error) => error shouldBe a[Error.Parsing] }
           else
             result shouldBe Success(scala)
