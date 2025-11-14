@@ -15,7 +15,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 import com.daml.logging.ContextualizedLogger
-import com.digitalasset.daml.lf.language.Ast
+import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
 
 import scala.language.implicitConversions
 
@@ -25,8 +25,9 @@ class InterpreterTest extends AnyWordSpec with Inside with Matchers with TableDr
 
   private implicit def id(s: String): Ref.Name = Name.assertFromString(s)
 
-  private val compilerConfig = Compiler.Config.Default
-  private val languageVersion = compilerConfig.allowedLanguageVersions.max
+  private val compilerConfig =
+    Compiler.Config.Default // should contain languageVersion defined below
+  private val languageVersion = LanguageVersion.latestStableLfVersion
 
   private def runExpr(e: Expr): SValue = {
     val machine = Speedy.Machine.fromPureExpr(PureCompiledPackages.Empty(compilerConfig), e)

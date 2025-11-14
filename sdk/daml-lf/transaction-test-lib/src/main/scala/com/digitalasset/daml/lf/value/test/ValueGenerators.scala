@@ -289,7 +289,7 @@ object ValueGenerators {
   def versionedValueGen: Gen[VersionedValue] =
     for {
       value <- valueGen()
-      minVersion = TransactionBuilder.assertAssignVersion(value)
+      minVersion = TransactionBuilder.assignVersion()
       version <- SerializationVersionGen(minVersion)
     } yield Versioned(version, value)
 
