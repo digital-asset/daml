@@ -7,14 +7,8 @@ package test
 
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{
-  ContractId,
-  ThinContractInstance,
-  VersionedThinContractInstance,
-}
+import com.digitalasset.daml.lf.value.Value.ContractId
 
-import scala.Ordering.Implicits.infixOrderingOps
-import scala.annotation.tailrec
 import scala.collection.immutable.{HashMap, TreeSet}
 import scala.language.implicitConversions
 
@@ -79,72 +73,9 @@ object TransactionBuilder {
   val EmptyCommitted: CommittedTransaction = CommittedTransaction(Empty)
 
   def assignVersion[Cid](
-      v0: Value,
-      supportedVersions: VersionRange[SerializationVersion] = SerializationVersion.StableVersions,
-  ): Either[String, SerializationVersion] = {
-    @tailrec
-    def go(
-        currentVersion: SerializationVersion,
-        values0: FrontStack[Value],
-    ): Either[String, SerializationVersion] = {
-      import Value._
-      if (currentVersion >= supportedVersions.max) {
-        Right(currentVersion)
-      } else {
-        values0.pop match {
-          case None => Right(currentVersion)
-          case Some((value, values)) =>
-            value match {
-              // for things supported since version 1, we do not need to check
-              case ValueRecord(_, fs) => go(currentVersion, fs.map(v => v._2) ++: values)
-              case ValueVariant(_, _, arg) => go(currentVersion, arg +: values)
-              case ValueList(vs) => go(currentVersion, vs.toImmArray ++: values)
-              case ValueContractId(_) | ValueInt64(_) | ValueText(_) | ValueTimestamp(_) |
-                  ValueParty(_) | ValueBool(_) | ValueDate(_) | ValueUnit | ValueNumeric(_) =>
-                go(currentVersion, values)
-              case ValueOptional(x) =>
-                go(currentVersion, x.fold(values)(_ +: values))
-              case ValueTextMap(map) =>
-                go(currentVersion, map.values ++: values)
-              case ValueEnum(_, _) =>
-                go(currentVersion, values)
-              case ValueGenMap(entries) =>
-                val newValues = entries.iterator.foldLeft(values) { case (acc, (key, value)) =>
-                  key +: value +: acc
-                }
-                go(currentVersion, newValues)
-            }
-        }
-      }
-    }
-
-    go(supportedVersions.min, FrontStack(v0)) match {
-      case Right(inferredVersion) if supportedVersions.max < inferredVersion =>
-        Left(s"inferred version $inferredVersion is not supported")
-      case res =>
-        res
-    }
-
-  }
-  @throws[IllegalArgumentException]
-  def assertAssignVersion(
-      v0: Value,
-      supportedVersions: VersionRange[SerializationVersion] = SerializationVersion.DevVersions,
-  ): SerializationVersion =
-    data.assertRight(assignVersion(v0, supportedVersions))
-
-  def asVersionedContract(
-      contract: ThinContractInstance,
-      supportedVersions: VersionRange[SerializationVersion] = SerializationVersion.DevVersions,
-  ): Either[String, VersionedThinContractInstance] =
-    assignVersion(contract.arg, supportedVersions)
-      .map(Versioned(_, contract))
-
-  def assertAsVersionedContract(
-      contract: ThinContractInstance,
-      supportedVersions: VersionRange[SerializationVersion] = SerializationVersion.DevVersions,
-  ): VersionedThinContractInstance =
-    data.assertRight(asVersionedContract(contract, supportedVersions))
+      supportedVersions: VersionRange.Inclusive[SerializationVersion] =
+        SerializationVersion.StableVersions
+  ): SerializationVersion = supportedVersions.min
 
   object Implicits {
 

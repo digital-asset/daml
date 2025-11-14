@@ -18,7 +18,7 @@ final case class LanguageVersion private (
   }
 }
 
-object LanguageVersion extends LanguageVersionGenerated {
+object LanguageVersion extends LanguageFeaturesGenerated {
   sealed abstract class Major(val major: Int)
       extends Product
       with Serializable
@@ -82,6 +82,14 @@ object LanguageVersion extends LanguageVersionGenerated {
     def assertFromString(s: String): Minor = data.assertRight(fromString(s))
   }
 
+  final case class Feature(
+      name: String,
+      versionReq: VersionRange[LanguageVersion],
+      cppFlag: String,
+  ) {
+    def enabledIn(lv: LanguageVersion): Boolean = versionReq.contains(lv)
+  }
+
   def fromString(str: String): Either[String, LanguageVersion] =
     (allLegacyLfVersions ++ allLfVersions)
       .find(_.toString == str)
@@ -91,28 +99,15 @@ object LanguageVersion extends LanguageVersionGenerated {
   // TODO: remove after feature rework
   def supportsPackageUpgrades(lv: LanguageVersion): Boolean =
     lv.major match {
-      case Major.V2 => lv >= Features.packageUpgrades
+      case Major.V2 => featurePackageUpgrades.enabledIn(lv)
       case Major.V1 => lv >= LegacyFeatures.packageUpgrades
     }
 
   // TODO: remove after feature rework (this reworks ranges too, so this can be replaced by an Until range)
-  def allUpToVersion(version: LanguageVersion): VersionRange[LanguageVersion] = {
+  def allUpToVersion(version: LanguageVersion): VersionRange.Inclusive[LanguageVersion] = {
     version.major match {
       case Major.V2 => VersionRange(v2_1, version)
       case _ => throw new IllegalArgumentException(s"${version.major.pretty} not supported")
-    }
-  }
-
-  // @deprecated("Actually not sure if deprecated", since="3.5")
-  object LanguageVersionRangeOps {
-    implicit class LanguageVersionRange(val range: VersionRange[LanguageVersion]) {
-      def majorVersion: Major = {
-        require(
-          range.min.major == range.max.major,
-          s"version range ${range} spans over multiple version LF versions",
-        )
-        range.max.major
-      }
     }
   }
 }

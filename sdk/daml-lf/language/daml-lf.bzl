@@ -144,6 +144,31 @@ def _init_data():
             "cpp_flag": "DAML_EXPERIMENTAL",
             "version_req": dev_only,
         },
+        # used only in scala
+        {
+            "name": "featurePackageUpgrades",
+            "name_pretty": "Package upgrades",
+            "cpp_flag": "DAML_PackageUpgrades",
+            "version_req": {"low": V2_1},
+        },
+        # not sure what these below are
+        # not sure what these below are
+        # not sure what these below are
+        {
+            "name": "featureChoiceAuthority",
+            "name_pretty": "ChoiceAuthority???",
+            "cpp_flag": "DAML_ChoiceAuthority",
+            "version_req": dev_only,
+        },
+        {
+            "name": "featureUnsafeFromInterface",
+            "name_pretty": "UnsafeFromInterface???",
+            "cpp_flag": "DAML_UnsafeFromInterface",
+            "version_req": {"high": V2_1},
+        },
+        # not sure what these above are
+        # not sure what these above are
+        # not sure what these above are
     ]
 
     return struct(
