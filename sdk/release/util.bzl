@@ -132,6 +132,7 @@ cat > "$$DIR/bin/dpm.cmd" << EOF
 @echo off
 FOR %%A IN ("%~dp0.") DO SET DPM_HOME=%%~dpA
 set HOME=%DPM_HOME%
+set APPDATA=%DPM_HOME%
 
 "%DPM_HOME%\\cache\\components\\dpm\\\\$$DPM_VERSION\\dpm.exe" %*
 EOF
@@ -199,7 +200,7 @@ EOF
                 ),
             component_versions =
                 "\n    ".join(["{name}:\n      version: {version}".format(name = name, version = version) for name in dpm_inputs.keys()]),
-            wrapper_script = windows_wrapper_script if not is_windows else not_windows_wrapper_script,
+            wrapper_script = windows_wrapper_script if is_windows else not_windows_wrapper_script,
         ),
         visibility = ["//visibility:public"],
     )
