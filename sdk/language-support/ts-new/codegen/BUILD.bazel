@@ -3,7 +3,6 @@
 
 load(
     "//bazel_tools:scala.bzl",
-    "da_scala_benchmark_jmh",
     "da_scala_binary",
     "da_scala_library",
     "da_scala_test",
@@ -28,7 +27,7 @@ load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 
 da_scala_binary(
     name = "codegen",
-    main_class = "com.digitalasset.daml.lf.codegen.StandaloneMain",
+    main_class = "com.digitalasset.daml.lf.codegen.TsCodeGenMain",
     visibility = ["//visibility:public"],
     deps = [":lib"],
 )
@@ -42,25 +41,20 @@ da_scala_library(
     scala_deps = [
         "@maven//:com_github_scopt_scopt",
         "@maven//:com_typesafe_scala_logging_scala_logging",
-        "@maven//:io_circe_circe_core",
         "@maven//:org_scalaz_scalaz_core",
     ],
-    tags = ["maven_coordinates=com.daml:codegen-java-lib:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:codegen-ts-lib:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        "//canton:bindings-java",
-        "//daml-assistant/scala-daml-package-config",
         "//daml-lf/api-type-signature",
         "//daml-lf/archive:daml_lf_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/language",
         "//libs-scala/build-info",
-        "//libs-scala/nonempty",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:com_squareup_javapoet",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -72,25 +66,14 @@ da_scala_test(
     name = "test",
     srcs = glob(["src/test/**/*.scala"]),
     data = [
-        ":test-baz.dar",
-        ":test-daml.dar",
-        ":test-daml-with-same-dependencies.dar",
-        ":test-daml-with-same-dependencies-but-different-target-version.dar",
-        ":test-daml-with-same-source-project-name.dar",
-        ":test-depending-on-bar-template.dar",
-        ":test-template.dar",
+        "//compiler/damlc",
     ],
     resource_strip_prefix = "language-support/ts-new/codegen/src/test/resources/",
     resources = glob(["src/test/resources/**/*"]),
     scala_deps = [
         "@maven//:com_typesafe_scala_logging_scala_logging",
         "@maven//:org_scalatest_scalatest_core",
-        "@maven//:org_scalatest_scalatest_flatspec",
-        "@maven//:org_scalatest_scalatest_matchers_core",
-        "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_scalatest_scalatest_wordspec",
-        "@maven//:org_scalaz_scalaz_core",
-        "@maven//:com_chuusai_shapeless",
     ],
     deps = [
         ":lib",
@@ -160,7 +143,7 @@ copy_file(
     src = "codegen_distribute.jar",
     out = "binary.jar",
     allow_symlink = True,
-    tags = ["maven_coordinates=com.daml:codegen-java:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:codegen-ts:__VERSION__"],
     visibility = ["//visibility:public"],
 )
 
