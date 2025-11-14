@@ -159,3 +159,26 @@ da_haskell_library(
         "//compiler/daml-lf-ast",
     ],
 )
+
+py_binary(
+    name = "generate_scala_stablepackageslist",
+    srcs = ["generate_scala_stablepackageslist.py"],
+    main = "generate_scala_stablepackageslist.py",
+    deps = [
+        "@pip_pyyaml//:pkg",
+    ],
+)
+
+genrule(
+    name = "stable-packages-gen",
+    srcs = [
+        "stable-packages.yaml",
+    ],
+    outs = [
+        "com/digitalasset/daml/lf/language/StablePackagesGen.scala",
+    ],
+    tools = [
+        ":generate_scala_stablepackageslist",
+    ],
+    cmd = "$(location :generate_scala_stablepackageslist) $(location stable-packages.yaml) $(location com/digitalasset/daml/lf/language/StablePackagesGen.scala)",
+)
