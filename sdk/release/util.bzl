@@ -137,13 +137,14 @@ set APPDATA=%DPM_HOME%
 
 echo $$DPM_VERSION
 dir %DPM_HOME%
-echo "%DPM_HOME%\\cache\\components\\dpm\\$$DPM_VERSION\\dpm.exe"
+set DPM_VERSION=$$DPM_VERSION
+echo "%DPM_HOME%\\cache\\components\\dpm\\%DPM_VERSION%\\dpm.exe"
 
 "%DPM_HOME%\\cache\\components\\dpm\\$$DPM_VERSION\\dpm.exe" --help
 
 echo "ran help"
 
-"%DPM_HOME%\\cache\\components\\dpm\\$$DPM_VERSION\\dpm.exe" %*
+"%DPM_HOME%\\cache\\components\\dpm\\\\$$DPM_VERSION\\dpm.exe" %*
 EOF
 chmod +x $$DIR/bin/dpm.cmd
 """
@@ -209,7 +210,7 @@ EOF
                 ),
             component_versions =
                 "\n    ".join(["{name}:\n      version: {version}".format(name = name, version = version) for name in dpm_inputs.keys()]),
-            wrapper_script = windows_wrapper_script if is_windows else not_windows_wrapper_script,
+            wrapper_script = windows_wrapper_script if not is_windows else not_windows_wrapper_script,
         ),
         visibility = ["//visibility:public"],
     )
