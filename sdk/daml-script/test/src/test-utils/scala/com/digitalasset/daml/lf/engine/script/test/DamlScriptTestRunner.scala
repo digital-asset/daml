@@ -19,7 +19,7 @@ trait DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers 
 
   final override protected lazy val timeProviderType = TimeProviderType.Static
 
-  private val exe = if (sys.props("os.name").toLowerCase.contains("windows")) ".exe" else ""
+  import BazelRunfiles.exe
   val scriptPath = BazelRunfiles.rlocation("daml-script/runner/daml-script-binary" + exe)
 
   def assertDamlScriptRunnerResult(
