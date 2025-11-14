@@ -15,6 +15,7 @@ da_scala_benchmark_jmh(
     visibility = ["//visibility:public"],
     deps = [
         "//daml-lf/data",
+        "//daml-lf/engine",
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/parser",

@@ -14,6 +14,7 @@ import com.digitalasset.daml.lf.interpretation.{Error => IError}
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.PackageInterface
 import com.digitalasset.daml.lf.speedy.Compiler.{CompilationError, PackageNotFound}
+import com.digitalasset.daml.lf.speedy.metrics.{MetricPlugin, StepCount}
 import com.digitalasset.daml.lf.speedy.PartialTransaction.NodeSeeds
 import com.digitalasset.daml.lf.speedy.SError._
 import com.digitalasset.daml.lf.speedy.SExpr._
@@ -38,6 +39,7 @@ import com.digitalasset.daml.lf.value.{ContractIdVersion, Value => V}
 
 import scala.annotation.{nowarn, tailrec}
 import scala.collection.immutable.ArraySeq
+import scala.reflect.ClassTag
 import scala.util.control.NonFatal
 
 private[lf] object Speedy {
@@ -45,22 +47,21 @@ private[lf] object Speedy {
   // These have zero cost when not enabled. But they are not switchable at runtime.
   private val enableInstrumentation: Boolean = false
 
-  final class Metrics(val batchSize: Long) {
-    // Speedy evaluates in steps which are grouped into batches of batchSize
-    private[this] var stepBatchCount: Long = 0
-    private[this] var stepCount: Long = 0
-    private[this] var txNodeCount: Long = 0
+  final class Metrics(plugins: Seq[MetricPlugin]) {
+    private[this] val registeredPlugins: Map[String, MetricPlugin] =
+      plugins.map(p => p.getClass.getSimpleName -> p).toMap
 
-    private[speedy] def incrStepCount(): Unit = stepCount += 1
-    private[speedy] def incrStepBatchCount(): Unit = {
-      stepBatchCount += 1
-      stepCount = 0
+    private[speedy] def incrCount[P <: MetricPlugin: ClassTag](ctx: MetricPlugin.Ctx*): Unit = {
+      registeredPlugins.get(implicitly[ClassTag[P]].runtimeClass.getSimpleName).foreach {
+        _.incrCount(ctx: _*)
+      }
     }
-    private[speedy] def incrTransactionNodeCount(): Unit = txNodeCount += 1
 
-    private[lf] def totalStepCount: (Long, Long) = (stepBatchCount, stepCount)
-
-    private[lf] def transactionNodeCount: Long = txNodeCount
+    private[lf] def totalCount[P <: MetricPlugin: ClassTag]: Option[P#Result] = {
+      registeredPlugins
+        .get(implicitly[ClassTag[P]].runtimeClass.getSimpleName)
+        .map(_.totalCount.asInstanceOf[P#Result])
+    }
   }
 
   /** Instrumentation counters. */
@@ -226,12 +227,14 @@ private[lf] object Speedy {
       initialGasBudget: Option[CostModel.Cost],
       initialEnvSize: Int,
       initialKontStackSize: Int,
+      metricPlugins: Seq[MetricPlugin],
   )(implicit loggingContext: LoggingContext)
       extends Machine[Question.Update](
         costModel = costModel,
         initialGasBudget = initialGasBudget,
         initialEnvSize = initialEnvSize,
         initialKontStackSize = initialKontStackSize,
+        metricPlugins = metricPlugins,
       ) {
 
     private[this] var contractLookupCache =
@@ -697,6 +700,7 @@ private[lf] object Speedy {
         initialGasBudget: Option[CostModel.Cost] = None,
         initialEnvSize: Int = 512,
         initialKontStackSize: Int = 128,
+        metricPlugins: Seq[MetricPlugin] = Seq.empty,
     )(implicit loggingContext: LoggingContext): UpdateMachine =
       new UpdateMachine(
         sexpr = expr,
@@ -725,6 +729,7 @@ private[lf] object Speedy {
         initialGasBudget = initialGasBudget,
         initialEnvSize = initialEnvSize,
         initialKontStackSize = initialKontStackSize,
+        metricPlugins = metricPlugins,
       )
 
     private[lf] final case class Result(
@@ -747,12 +752,14 @@ private[lf] object Speedy {
       override val profile: Profile,
       override val iterationsBetweenInterruptions: Long,
       override val convertLegacyExceptions: Boolean,
+      metricPlugins: Seq[MetricPlugin],
   )(implicit loggingContext: LoggingContext)
       extends Machine[Nothing](
         costModel = CostModel.Empty,
         initialGasBudget = None,
         initialEnvSize = 512,
         initialKontStackSize = 128,
+        metricPlugins = metricPlugins,
       ) {
 
     private[speedy] override def asUpdateMachine(location: String)(
@@ -782,6 +789,7 @@ private[lf] object Speedy {
       initialGasBudget: Option[CostModel.Cost],
       initialEnvSize: Int,
       initialKontStackSize: Int,
+      metricPlugins: Seq[MetricPlugin],
   )(implicit
       val loggingContext: LoggingContext
   ) {
@@ -799,7 +807,13 @@ private[lf] object Speedy {
     /* number of iteration between cooperation interruption */
     val iterationsBetweenInterruptions: Long
 
-    private[lf] lazy val metrics = new Speedy.Metrics(iterationsBetweenInterruptions)
+    private[lf] lazy val metrics = {
+      metricPlugins.foreach { plugin =>
+        traceLog.add(s"Enabling metric plugin: ${plugin.getClass.getSimpleName}", None)
+      }
+
+      new Speedy.Metrics(metricPlugins)
+    }
 
     /* Should Daml Exceptions be automatically converted to FailureStatus before throwing from the engine
        Daml-script needs to disable this behaviour in 3.3, thus the flag.
@@ -1097,13 +1111,13 @@ private[lf] object Speedy {
             Classify.classifyMachine(this, track.classifyCounts)
           if (interruptionCountDown == 0) {
             interruptionCountDown = iterationsBetweenInterruptions
-            metrics.incrStepBatchCount()
+            metrics.incrCount[StepCount](StepCount.BatchCtx)
             SResultInterruption
           } else {
             val thisControl = control
             setControl(Control.WeAreUnset)
             interruptionCountDown -= 1
-            metrics.incrStepCount()
+            metrics.incrCount[StepCount](StepCount.StepCtx)
             thisControl match {
               case Control.Value(value) =>
                 popTempStackToBase()
@@ -1315,6 +1329,7 @@ private[lf] object Speedy {
         warningLog: WarningLog = newWarningLog,
         profile: Profile = newProfile,
         convertLegacyExceptions: Boolean = true,
+        metricPlugins: Seq[MetricPlugin] = Seq.empty,
     )(implicit loggingContext: LoggingContext): PureMachine =
       new PureMachine(
         sexpr = expr,
@@ -1324,6 +1339,7 @@ private[lf] object Speedy {
         profile = profile,
         iterationsBetweenInterruptions = iterationsBetweenInterruptions,
         convertLegacyExceptions = convertLegacyExceptions,
+        metricPlugins = metricPlugins,
       )
 
     @throws[PackageNotFound]
