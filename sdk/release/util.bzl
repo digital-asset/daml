@@ -131,12 +131,18 @@ windows_wrapper_script = """
 cat > "$$DIR/bin/dpm.cmd" << EOF
 @echo off
 FOR %%A IN ("%~dp0.") DO SET DPM_HOME=%%~dpA
-echo %HOME%
+
 set HOME=%DPM_HOME%
 set APPDATA=%DPM_HOME%
 
 echo $$DPM_VERSION
 dir %DPM_HOME%
+echo "%DPM_HOME%\\cache\\components\\dpm\\\\$$DPM_VERSION\\dpm.exe"
+
+"%DPM_HOME%\\cache\\components\\dpm\\\\$$DPM_VERSION\\dpm.exe" --help
+
+echo "ran help"
+
 "%DPM_HOME%\\cache\\components\\dpm\\\\$$DPM_VERSION\\dpm.exe" %*
 EOF
 chmod +x $$DIR/bin/dpm.cmd
