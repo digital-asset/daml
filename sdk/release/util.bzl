@@ -137,13 +137,13 @@ set APPDATA=%DPM_HOME%
 
 echo $$DPM_VERSION
 dir %DPM_HOME%
-echo "%DPM_HOME%\\cache\\components\\dpm\\\\$$DPM_VERSION\\dpm.exe"
+echo "%DPM_HOME%\\cache\\components\\dpm\\$$DPM_VERSION\\dpm.exe"
 
-"%DPM_HOME%\\cache\\components\\dpm\\\\$$DPM_VERSION\\dpm.exe" --help
+"%DPM_HOME%\\cache\\components\\dpm\\$$DPM_VERSION\\dpm.exe" --help
 
 echo "ran help"
 
-"%DPM_HOME%\\cache\\components\\dpm\\\\$$DPM_VERSION\\dpm.exe" %*
+"%DPM_HOME%\\cache\\components\\dpm\\$$DPM_VERSION\\dpm.exe" %*
 EOF
 chmod +x $$DIR/bin/dpm.cmd
 """
