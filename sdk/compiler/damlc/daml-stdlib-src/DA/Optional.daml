@@ -80,6 +80,11 @@ mapOptional p = foldr f []
 whenSome : Applicative m => Optional a -> (a -> m ()) -> m ()
 whenSome = flip . optional $ pure ()
 
+-- | Perform some operation on `Some` and discard its result,
+-- given the field inside the `Some`.
+whenSome_ : Applicative m => Optional a -> (a -> m b) -> m ()
+whenSome_ o f = whenSome o (void . f)
+
 -- | Perform some operation on `None`.
 -- Otherwise returns content of `Some` pured to Applicative.
 whenNone : Applicative m => Optional a -> m a -> m a

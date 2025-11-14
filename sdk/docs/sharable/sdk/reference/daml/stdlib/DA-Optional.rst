@@ -105,6 +105,14 @@ Functions
   Perform some operation on ``Some``, given the field inside the
   ``Some``\.
 
+.. _function-da-optional-whensome-5861:
+
+`whenSome_ <function-da-optional-whensome-5861_>`_
+  \: :ref:`Applicative <class-da-internal-prelude-applicative-9257>` m \=\> :ref:`Optional <type-da-internal-prelude-optional-37153>` a \-\> (a \-\> m b) \-\> m ()
+
+  Perform some operation on ``Some`` and discard its result,
+  given the field inside the ``Some``\.
+
 .. _function-da-optional-whennone-99309:
 
 `whenNone <function-da-optional-whennone-99309_>`_

@@ -3797,6 +3797,11 @@ mapOptional :: (a -> Optional b) -> [a] -> [b]
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Optional.html#function-da-optional-whensome-82167
 whenSome :: (Applicative m) => Optional a -> (a -> m ()) -> m ()
 
+-- | Perform some operation on `Some` and discard its result,
+--   given the field inside the `Some`.
+@url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Optional.html#function-da-optional-whensome-5861
+whenSome_ :: (Applicative m) => Optional a -> (a -> m b) -> m ()
+
 -- | Perform some operation on `None`.
 --   Otherwise returns content of `Some` pured to Applicative.
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Optional.html#function-da-optional-whennone-99309
