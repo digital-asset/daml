@@ -119,7 +119,7 @@ not_windows_wrapper_script = """
 cat > "$$DIR/bin/dpm" << EOF
 #!/usr/bin/env bash
 set -euo pipefail
-SCRIPT_DIR=\\$$( cd -- "\\$$( dirname -- "\\$${{BASH_SOURCE[0]}}" )" &> /dev/null && pwd )
+SCRIPT_DIR=\\$$( cd -- "\\$$( dirname -- "\\$${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 export DPM_HOME=\\$$(dirname -- \\$$SCRIPT_DIR)
 export HOME=\\$$DPM_HOME
 \\$$DPM_HOME/cache/components/dpm/$$DPM_VERSION/dpm \\$$@
@@ -131,9 +131,12 @@ windows_wrapper_script = """
 cat > "$$DIR/bin/dpm.cmd" << EOF
 @echo off
 FOR %%A IN ("%~dp0.") DO SET DPM_HOME=%%~dpA
+echo %HOME%
 set HOME=%DPM_HOME%
 set APPDATA=%DPM_HOME%
 
+echo $$DPM_VERSION
+dir %DPM_HOME%
 "%DPM_HOME%\\cache\\components\\dpm\\\\$$DPM_VERSION\\dpm.exe" %*
 EOF
 chmod +x $$DIR/bin/dpm.cmd
