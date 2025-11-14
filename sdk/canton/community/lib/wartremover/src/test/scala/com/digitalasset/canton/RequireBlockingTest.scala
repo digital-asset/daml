@@ -8,7 +8,6 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.wartremover.test.WartTestTraverser
 
-import scala.annotation.nowarn
 import scala.concurrent.blocking
 
 class RequireBlockingTest extends AnyWordSpec with Matchers {
@@ -78,20 +77,15 @@ class RequireBlockingTest extends AnyWordSpec with Matchers {
       assertIsErrorSynchronized(result)
     }
 
-    "fail to detect renamed synchronized" in {
-      /*
-        Because of https://github.com/scala/scala/blob/2.13.x/src/compiler/scala/tools/nsc/typechecker/Typers.scala#L5757-L5758
-        the import/renaming triggers a warning
-       */
-      @nowarn("msg=synchronized not selected from this instance")
+    "detect renamed synchronized (fails on Scala 2)" in {
       val result = WartTestTraverser(RequireBlocking) {
         val x = new Object()
         import x.synchronized as foo
         foo(19)
       }
 
-      // assertIsErrorSynchronized(result)
-      result.errors shouldBe Seq.empty
+      if (ScalaVersion.isScala3) assertIsErrorSynchronized(result)
+      else result.errors shouldBe Seq.empty
     }
 
     "allow synchronized statements inside blocking calls" in {
@@ -110,13 +104,14 @@ class RequireBlockingTest extends AnyWordSpec with Matchers {
       assertIsErrorThreadSleep(result)
     }
 
-    "fail to forbid renamed Thread.sleep" in {
+    "forbid renamed Thread.sleep (fails on Scala 2)" in {
       val result = WartTestTraverser(RequireBlocking) {
         import Thread.sleep as foo
         foo(1)
       }
-      // assertIsErrorThreadSleep(result)
-      result.errors shouldBe Seq.empty
+
+      if (ScalaVersion.isScala3) assertIsErrorThreadSleep(result)
+      else result.errors shouldBe Seq.empty
     }
   }
 }

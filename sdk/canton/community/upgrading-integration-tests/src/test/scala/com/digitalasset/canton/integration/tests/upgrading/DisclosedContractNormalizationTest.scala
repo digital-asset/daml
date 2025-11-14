@@ -40,7 +40,9 @@ class DisclosedContractNormalizationTest
   private val ec: ExecutionContext = executorService
   private implicit val loggingContext: LoggingContext = LoggingContextWithTrace(loggerFactory)
 
-  val engine = new Engine(EngineConfig(allowedLanguageVersions = LanguageVersion.allRange))
+  val engine = new Engine(
+    EngineConfig(allowedLanguageVersions = LanguageVersion.allLfVersionsRange)
+  )
 
   private val testEngine = new TestEngine(packagePaths = Seq(UpgradingBaseTest.UpgradeV2))
 

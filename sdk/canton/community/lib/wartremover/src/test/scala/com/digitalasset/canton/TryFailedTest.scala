@@ -13,7 +13,7 @@ import scala.util.{Success, Try}
 class TryFailedTest extends AnyWordSpec with Matchers {
 
   def assertIsError(result: WartTestTraverser.Result): Assertion = {
-    result.errors.length should be >= 1
+    result.errors.length shouldBe 1
     result.errors.foreach {
       _ should include(TryFailed.message)
     }
@@ -40,7 +40,7 @@ class TryFailedTest extends AnyWordSpec with Matchers {
     "allow other methods" in {
       val result = WartTestTraverser(TryFailed) {
         val attempt = (??? : Try[Int])
-        attempt.get
+        attempt.isFailure
       }
       result.errors shouldBe List.empty
     }

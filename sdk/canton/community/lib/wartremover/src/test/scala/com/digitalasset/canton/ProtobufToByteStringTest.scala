@@ -10,7 +10,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import org.wartremover.test.WartTestTraverser
 import scalapb.GeneratedMessage
 
-class ProtobufToByteStringTest extends AnyWordSpec with Matchers with org.mockito.MockitoSugar {
+class ProtobufToByteStringTest extends AnyWordSpec with Matchers {
   import ProtobufToByteStringTest.*
 
   private def assertErrors(result: WartTestTraverser.Result, expectedErrors: Int): Assertion = {
@@ -41,16 +41,15 @@ class ProtobufToByteStringTest extends AnyWordSpec with Matchers with org.mockit
       assertErrors(result, 0)
     }
 
-    // Limitations follow
-
-    "not detect renamed calls to toByteString on generated protobuf messages" in {
+    "can detect renamed calls to toByteString on generated protobuf messages (fails on Scala 2)" in {
       val result = WartTestTraverser(ProtobufToByteString) {
         val x = ??? : MyGeneratedMessage
         import x.toByteString as foo
         foo
         ()
       }
-      assertErrors(result, 0)
+      if (ScalaVersion.isScala3) assertErrors(result, 1)
+      else assertErrors(result, 0) // Limitations on Scala 2
     }
   }
 }

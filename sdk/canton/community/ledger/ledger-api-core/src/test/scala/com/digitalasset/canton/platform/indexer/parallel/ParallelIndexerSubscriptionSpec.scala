@@ -70,6 +70,7 @@ import org.slf4j.event.Level
 import java.sql.Connection
 import java.time.Instant
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
+import scala.annotation.unused
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 
 class ParallelIndexerSubscriptionSpec
@@ -243,6 +244,25 @@ class ParallelIndexerSubscriptionSpec
           somePartyAllocation.copy(recordTime = somePartyAllocation.recordTime.addMicros(2000)),
         )
       )
+
+  private def mockDbDispatcher(connection: Connection): DbDispatcher = new DbDispatcher {
+    override def executeSql[T](databaseMetrics: DatabaseMetrics)(sql: Connection => T)(implicit
+        loggingContext: LoggingContextWithTrace
+    ): Future[T] =
+      Future.successful(sql(connection))
+
+    override val executor: QueueAwareExecutor & NamedExecutor = new QueueAwareExecutor
+      with NamedExecutor {
+      override def queueSize: Long = 0
+      override def name: String = "test"
+    }
+
+    override def executeSqlUS[T](databaseMetrics: DatabaseMetrics)(sql: Connection => T)(implicit
+        loggingContext: LoggingContextWithTrace,
+        ec: ExecutionContext,
+    ): FutureUnlessShutdown[T] =
+      FutureUnlessShutdown.pure(sql(connection))
+  }
 
   behavior of "inputMapper"
 
@@ -948,7 +968,70 @@ class ParallelIndexerSubscriptionSpec
     )
   }
 
-  // TODO(i25857) add unit tests for dbPrepare
+  behavior of "dbPrepare"
+
+  it should "apply missing deactivated activations" in {
+    def lastActivations(@unused _synchronizerContracts: Iterable[(SynchronizerId, Long)])(
+        @unused _connection: Connection
+    ): Map[(SynchronizerId, Long), Long] = Map(
+      (someSynchronizerId, 5L) -> 2L,
+      (someSynchronizerId2, 15L) -> 4L,
+    )
+
+    def resolveInternalContractIds(@unused _tc: TraceContext)(
+        @unused _contractIds: Iterable[ContractId]
+    ): Future[Map[ContractId, Long]] = Future.successful {
+      Map(
+        hashCid("#1") -> 5L,
+        hashCid("#2") -> 7L,
+        hashCid("#3") -> 15L,
+      )
+    }
+
+    val dtos = Vector(someEventActivate)
+    val ledgerEnd = LedgerEnd(
+      lastOffset = offset(2),
+      lastEventSeqId = 2000,
+      lastStringInterningId = 300,
+      lastPublicationTime = CantonTimestamp.MinValue,
+    )
+    val inBatch = Batch(
+      ledgerEnd = ledgerEnd,
+      batchTraceContext = TraceContext.empty,
+      batch = dtos,
+      batchSize = dtos.size,
+      offsetsUpdates = Vector.empty,
+      missingDeactivatedActivations = Map(
+        SynCon(someSynchronizerId, hashCid("#1")) -> None,
+        SynCon(someSynchronizerId, hashCid("#2")) -> None, // not in last activations
+        SynCon(someSynchronizerId2, hashCid("#3")) -> None,
+      ),
+      activeContracts = ParallelIndexerSubscription.EmptyActiveContracts,
+    )
+
+    val outBatchF = ParallelIndexerSubscription.dbPrepare(
+      lastActivations,
+      mockDbDispatcher(new TestConnection),
+      resolveInternalContractIds,
+      metrics,
+      logger,
+    )(inBatch)
+
+    outBatchF.futureValue shouldBe
+      Batch(
+        ledgerEnd = ledgerEnd,
+        batchTraceContext = TraceContext.empty,
+        batch = dtos,
+        batchSize = dtos.size,
+        offsetsUpdates = Vector.empty,
+        missingDeactivatedActivations = Map(
+          SynCon(someSynchronizerId, hashCid("#1")) -> Some(ActivationRef(2L, 5L)),
+          SynCon(someSynchronizerId, hashCid("#2")) -> None,
+          SynCon(someSynchronizerId2, hashCid("#3")) -> Some(ActivationRef(4L, 15L)),
+        ),
+        activeContracts = ParallelIndexerSubscription.EmptyActiveContracts,
+      )
+  }
 
   behavior of "batcher"
 
@@ -987,24 +1070,6 @@ class ParallelIndexerSubscriptionSpec
 
   it should "apply ingestFunction and cleanUnusedBatch" in {
     val connection = new TestConnection
-    val dbDispatcher = new DbDispatcher {
-      override def executeSql[T](databaseMetrics: DatabaseMetrics)(sql: Connection => T)(implicit
-          loggingContext: LoggingContextWithTrace
-      ): Future[T] =
-        Future.successful(sql(connection))
-
-      override val executor: QueueAwareExecutor & NamedExecutor = new QueueAwareExecutor
-        with NamedExecutor {
-        override def queueSize: Long = 0
-        override def name: String = "test"
-      }
-
-      override def executeSqlUS[T](databaseMetrics: DatabaseMetrics)(sql: Connection => T)(implicit
-          loggingContext: LoggingContextWithTrace,
-          ec: ExecutionContext,
-      ): FutureUnlessShutdown[T] =
-        FutureUnlessShutdown.pure(sql(connection))
-    }
 
     val batchPayload = "Some batch payload"
 
@@ -1043,7 +1108,7 @@ class ParallelIndexerSubscriptionSpec
           }
         },
         "zero",
-        dbDispatcher,
+        mockDbDispatcher(connection),
         metrics,
         logger,
       )(inBatch)

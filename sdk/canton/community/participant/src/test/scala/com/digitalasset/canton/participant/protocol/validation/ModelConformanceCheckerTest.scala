@@ -70,7 +70,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
     GenPackage(
       modules = Map.empty,
       directDeps = Set.empty,
-      languageVersion = LanguageVersion.default,
+      languageVersion = LanguageVersion.defaultLfVersion,
       metadata = packageMetadata,
       imports = DeclaredImports(Set.empty),
       isUtilityPackage = true,

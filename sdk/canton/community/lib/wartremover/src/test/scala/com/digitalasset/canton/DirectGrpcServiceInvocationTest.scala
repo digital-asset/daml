@@ -11,10 +11,7 @@ import org.wartremover.test.WartTestTraverser
 import scala.annotation.unused
 import scala.concurrent.Future
 
-class DirectGrpcServiceInvocationTest
-    extends AnyWordSpec
-    with Matchers
-    with org.mockito.MockitoSugar {
+class DirectGrpcServiceInvocationTest extends AnyWordSpec with Matchers {
 
   import DirectGrpcServiceInvocationTest.*
 
