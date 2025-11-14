@@ -39,6 +39,9 @@ trait BazelRunfiles {
     if (file.exists()) file
     else throw new IllegalStateException(s"File does not exist: ${file.getAbsolutePath}")
   }
+
+  private lazy val isWindows: Boolean = sys.props("os.name").toLowerCase.contains("windows")
+  lazy val exe: String = if (isWindows) s".exe" else ""
 }
 
 object BazelRunfiles extends BazelRunfiles
