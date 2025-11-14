@@ -168,6 +168,9 @@ is compatible with a wider range of IAMs, e.g. Kubernetes does not
 support setting the scope field and makes the participant id mandatory
 which prevents misuse of a token on a different participant.
 
+
+.. _audience-based-tokens:
+
 Audience-Based Tokens
 =====================
 
@@ -186,6 +189,9 @@ To interpret the above notation:
 - ``sub`` is a required field which specifies the participant user's ID
 - ``iss`` is a field which specifies the identity provider id
 - ``exp`` is an optional field which specifies the JWT expiration date (in seconds since EPOCH)
+
+
+.. _scope-based-tokens:
 
 Scope-Based Tokens
 ==================
