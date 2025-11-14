@@ -24,10 +24,13 @@ load(
 da_scala_library(
     name = "language",
     srcs = glob(["src/main/**/*.scala"]) + [
+        ":generated_scala_features_src",
+        ":generated_scala_versions_src",
+    ],
+    generated_srcs = [
         ":generated_scala_versions_src",
         ":generated_scala_features_src",
     ],
-    generated_srcs = [":generated_scala_versions_src", ":generated_scala_features_src"],
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
     ],
@@ -120,7 +123,6 @@ py_binary(
     visibility = _VERSION_GENERATING_PACKAGES,
     deps = [],
 )
-
 
 py_binary(
     name = "generate_scala_features",
