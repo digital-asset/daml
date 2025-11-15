@@ -14,6 +14,7 @@ import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc.ApiInfoServiceS
 import com.digitalasset.canton.connection.v30.GetApiInfoResponse
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{Crypto, Fingerprint, SynchronizerCrypto}
+import com.digitalasset.canton.health.{HealthElement, HealthListener}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasUnlessClosing, LifeCycle}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.{CommonMockMetrics, SequencerConnectionPoolMetrics}
@@ -23,10 +24,17 @@ import com.digitalasset.canton.sequencer.api.v30 as SequencerService
 import com.digitalasset.canton.sequencer.api.v30.SequencerConnect
 import com.digitalasset.canton.sequencer.api.v30.SequencerConnectServiceGrpc.SequencerConnectServiceStub
 import com.digitalasset.canton.sequencer.api.v30.SequencerServiceGrpc.SequencerServiceStub
-import com.digitalasset.canton.sequencing.ConnectionX.ConnectionXConfig
+import com.digitalasset.canton.sequencing.ConnectionX.{ConnectionXConfig, ConnectionXHealth}
+import com.digitalasset.canton.sequencing.GrpcInternalSequencerConnectionX.GrpcSequencerConnectionXHealth
 import com.digitalasset.canton.sequencing.InternalSequencerConnectionX.ConnectionAttributes
-import com.digitalasset.canton.sequencing.SequencerConnectionXPool.SequencerConnectionXPoolConfig
-import com.digitalasset.canton.sequencing.SequencerSubscriptionPool.SequencerSubscriptionPoolConfig
+import com.digitalasset.canton.sequencing.SequencerConnectionXPool.{
+  SequencerConnectionXPoolConfig,
+  SequencerConnectionXPoolHealth,
+}
+import com.digitalasset.canton.sequencing.SequencerSubscriptionPool.{
+  SequencerSubscriptionPoolConfig,
+  SequencerSubscriptionPoolHealth,
+}
 import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenManagerConfig
 import com.digitalasset.canton.sequencing.client.transports.GrpcSequencerClientAuth
 import com.digitalasset.canton.sequencing.client.{
@@ -59,6 +67,7 @@ import org.scalatest.Assertions.fail
 import org.scalatest.matchers.should.Matchers
 
 import scala.collection.concurrent.TrieMap
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future, Promise, blocking}
 import scala.util.Random
 
@@ -122,10 +131,30 @@ trait ConnectionPoolTestHelpers {
     )
   }
 
+  protected def withLowLevelConnection[V]()(
+      f: (ConnectionX, TestHealthListener[ConnectionXHealth]) => V
+  ): V = {
+    val config = mkDummyConnectionConfig(0)
+
+    val connection = GrpcConnectionX(
+      config,
+      CommonMockMetrics.sequencerClient.connectionPool,
+      timeouts,
+      loggerFactory,
+    )
+
+    val listener = new TestHealthListener(connection.health)
+    connection.health.registerOnHealthChange(listener)
+
+    ResourceUtil.withResource(connection)(f(_, listener))
+  }
+
   protected def withConnection[V](
       testResponses: TestResponses,
       expectedSequencerIdO: Option[SequencerId] = None,
-  )(f: (InternalSequencerConnectionX, TestHealthListener) => V): V = {
+  )(
+      f: (InternalSequencerConnectionX, TestHealthListener[GrpcSequencerConnectionXHealth]) => V
+  ): V = {
     val stubFactory = new TestSequencerConnectionXStubFactory(testResponses, loggerFactory)
     val config = mkDummyConnectionConfig(0, expectedSequencerIdO = expectedSequencerIdO)
 
@@ -175,7 +204,14 @@ trait ConnectionPoolTestHelpers {
       testTimeouts: ProcessingTimeout = timeouts,
       poolDelays: SequencerConnectionPoolDelays = SequencerConnectionPoolDelays.default,
       blockValidation: Int => Boolean = _ => false,
-  )(f: (SequencerConnectionXPool, CreatedConnections, TestHealthListener, Int => Unit) => V): V = {
+  )(
+      f: (
+          SequencerConnectionXPool,
+          CreatedConnections,
+          TestHealthListener[SequencerConnectionXPoolHealth],
+          Int => Unit,
+      ) => V
+  ): V = {
     val config = mkPoolConfig(
       nbConnections,
       trustThreshold,
@@ -223,7 +259,7 @@ trait ConnectionPoolTestHelpers {
   protected def withSubscriptionPool[V](
       livenessMargin: NonNegativeInt,
       connectionPool: SequencerConnectionXPool,
-  )(f: (SequencerSubscriptionPool, TestHealthListener) => V): V = {
+  )(f: (SequencerSubscriptionPool, TestHealthListener[SequencerSubscriptionPoolHealth]) => V): V = {
     val config = mkSubscriptionPoolConfig(livenessMargin)
 
     val subscriptionPoolFactory = new SequencerSubscriptionPoolFactoryImpl(
@@ -255,7 +291,7 @@ trait ConnectionPoolTestHelpers {
       responsesForConnection: PartialFunction[Int, TestResponses] = Map(),
       expectedSynchronizerIdO: Option[PhysicalSynchronizerId] = None,
       livenessMargin: NonNegativeInt,
-  )(f: (SequencerSubscriptionPool, TestHealthListener) => V): V =
+  )(f: (SequencerSubscriptionPool, TestHealthListener[SequencerSubscriptionPoolHealth]) => V): V =
     withConnectionPool(
       nbConnections,
       trustThreshold,
@@ -732,6 +768,34 @@ protected object ConnectionPoolTestHelpers {
 
         case _ => throw new IllegalStateException(s"Connection type not supported: $connection")
       }
+  }
+
+  private class TestHealthListener[HE <: HealthElement](val element: HE)
+      extends HealthListener
+      with Matchers {
+    import scala.collection.mutable
+    import BaseTest.eventuallyForever
+
+    private val statesBuffer = mutable.ArrayBuffer[element.State]()
+
+    def shouldStabilizeOn(state: element.State): Assertion =
+      // Check that we reach the given state, and remain on it
+      // The default 2 seconds is a bit short when machines are under heavy load
+      eventuallyForever(timeUntilSuccess = 10.seconds) {
+        statesBuffer.last shouldBe state
+      }
+
+    def clear(): Unit = statesBuffer.clear()
+
+    override def name: String = s"${element.name}-test-listener"
+
+    override def poke()(implicit traceContext: TraceContext): Unit = blocking {
+      synchronized {
+        val state = element.getState
+
+        statesBuffer += state
+      }
+    }
   }
 
   private class TestValidationBlocker(private val blockValidation: Int => Boolean)

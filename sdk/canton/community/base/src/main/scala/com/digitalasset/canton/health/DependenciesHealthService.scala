@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.health
 
+import cats.Eval
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.logging.pretty.Pretty
@@ -29,7 +30,7 @@ final class DependenciesHealthService(
     override protected val logger: TracedLogger,
     override protected val timeouts: ProcessingTimeout,
     private val criticalDependencies: Seq[HealthQuasiComponent],
-    private val softDependencies: Seq[HealthQuasiComponent],
+    private val softDependencies: Eval[Seq[HealthQuasiComponent]],
 ) extends HealthService {
 
   alterDependencies(
@@ -48,7 +49,7 @@ final class DependenciesHealthService(
   override protected def initialHealthState: ServingStatus =
     if (criticalDependencies.isEmpty) ServingStatus.SERVING else ServingStatus.NOT_SERVING
 
-  def dependencies: Seq[HealthQuasiComponent] = criticalDependencies ++ softDependencies
+  def dependencies: Seq[HealthQuasiComponent] = criticalDependencies ++ softDependencies.value
 }
 
 object DependenciesHealthService {
@@ -57,7 +58,7 @@ object DependenciesHealthService {
       logger: TracedLogger,
       timeouts: ProcessingTimeout,
       criticalDependencies: Seq[HealthQuasiComponent] = Seq.empty,
-      softDependencies: Seq[HealthQuasiComponent] = Seq.empty,
+      softDependencies: Eval[Seq[HealthQuasiComponent]] = Eval.now(Seq.empty),
   ): DependenciesHealthService =
     new DependenciesHealthService(name, logger, timeouts, criticalDependencies, softDependencies)
 

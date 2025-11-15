@@ -118,12 +118,12 @@ sealed trait Payload extends IdOrPayload
 /** Payload with a assigned id and content as bytes */
 final case class BytesPayload(id: PayloadId, content: ByteString) extends Payload {
   def decodeBatchAndTrim(
-      maxBytesToDecompress: MaxBytesToDecompress,
       protocolVersion: ProtocolVersion,
       member: Member,
   ): Batch[ClosedEnvelope] = {
+    val noLimitFromStore = MaxBytesToDecompress.MaxValueUnsafe
     val fullBatch = Batch
-      .fromByteString(ProtocolVersionValidation.PV(protocolVersion), maxBytesToDecompress, content)
+      .fromByteString(ProtocolVersionValidation.PV(protocolVersion), noLimitFromStore, content)
       .valueOr(err => throw new DbDeserializationException(err.toString))
     Batch.trimForMember(fullBatch, member)
   }

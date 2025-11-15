@@ -15,8 +15,8 @@ import scala.concurrent.{Future, Promise}
 class SynchronizedFutureTest extends AnyWordSpec with Matchers {
   import SynchronizedFutureTest.*
 
-  def assertIsErrorSynchronized(result: WartTestTraverser.Result): Assertion = {
-    result.errors.length shouldBe 1
+  def assertIsErrorSynchronized(result: WartTestTraverser.Result, count: Int = 1): Assertion = {
+    result.errors.length shouldBe count
     result.errors.foreach(_ should include(SynchronizedFuture.messageSynchronized))
     succeed
   }
@@ -44,7 +44,10 @@ class SynchronizedFutureTest extends AnyWordSpec with Matchers {
           }
         }
       }
-      assertIsErrorSynchronized(result)
+      assertIsErrorSynchronized(
+        result,
+        count = if (ScalaVersion.isScala3) 2 else 1,
+      )
     }
 
     "detect nested synchronized statements in the receiver" in {

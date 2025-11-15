@@ -61,6 +61,7 @@ import com.digitalasset.daml.lf.archive.DarDecoder
 import com.digitalasset.daml.lf.data.Ref
 import com.google.protobuf.timestamp.Timestamp
 import org.scalactic.source.Position
+import org.scalatest.AppendedClues
 import org.scalatest.Inside.inside
 import org.scalatest.Inspectors.*
 import org.scalatest.compatible.Assertion
@@ -70,7 +71,7 @@ import java.util.concurrent.atomic.AtomicReference
 import java.util.zip.ZipInputStream
 import scala.concurrent.{ExecutionContext, Future}
 
-class VettingIT extends LedgerTestSuite {
+class VettingIT extends LedgerTestSuite with AppendedClues {
   private val vettingDepPkgId = Ref.PackageId.assertFromString(DepT.PACKAGE_ID)
   private val vettingAltPkgId = Ref.PackageId.assertFromString(AltT.PACKAGE_ID)
   private val vettingMainPkgIdV1 = Ref.PackageId.assertFromString(MainT_1_0_0.PACKAGE_ID)
@@ -1269,6 +1270,8 @@ class VettingIT extends LedgerTestSuite {
         participant2Id <- participant2.getParticipantId()
         sync1 <- getSynchronizerId(participant1, syncIndex = 1)
         sync2 <- getSynchronizerId(participant1, syncIndex = 2)
+        _ <- getSynchronizerId(participant2, syncIndex = 1)
+        _ <- getSynchronizerId(participant2, syncIndex = 2)
 
         _ <- participant1.uploadDarFile(
           UploadDarFileRequest(
@@ -1624,17 +1627,29 @@ class VettingIT extends LedgerTestSuite {
       } yield ()
   })
 
-  def requestAllPaged(size: Int = 0, token: String = "") = ListVettedPackagesRequest(
+  def requestAllPaged(
+      size: Int = 0,
+      token: String = "",
+      participantIds: Seq[String] = Seq(),
+      synchronizerIds: Seq[String] = Seq(),
+  ) = ListVettedPackagesRequest(
     Some(PackageMetadataFilter(Seq(), Seq()).toProtoLAPI),
-    Some(TopologyStateFilter(participantIds = Seq(), synchronizerIds = Seq())),
+    Some(
+      TopologyStateFilter(
+        participantIds = participantIds,
+        synchronizerIds = synchronizerIds,
+      )
+    ),
     token,
     size,
   )
 
-  def vettedPackagesAreSorted(results: Seq[VettedPackages]): Assertion =
-    results.sortBy(packages => packages.synchronizerId -> packages.participantId) should equal(
-      results
-    )
+  def vettedPackagesAreSorted(results: Seq[VettedPackages], clue: String): Assertion = {
+    val keys = results.map(packages => packages.synchronizerId -> packages.participantId)
+    keys.sorted should equal(
+      keys
+    ) withClue (clue + " is not sorted")
+  }
 
   test(
     "PVListVettedPackagesPagination",
@@ -1649,18 +1664,26 @@ class VettingIT extends LedgerTestSuite {
         sync1 <- getSynchronizerId(participant1, syncIndex = 1)
         sync2 <- getSynchronizerId(participant1, syncIndex = 2)
 
+        // Filter vettedPackages results to only those that are about the two
+        // synchronizers and two participants that are part of this test.
+        filterToLocalNodes = { (results: Seq[VettedPackages]) =>
+          results.filter { result =>
+            val hasSync = Seq(sync1, sync2).contains(result.synchronizerId)
+            val hasParticipant = Seq(participant1Id, participant2Id).contains(result.participantId)
+            hasSync && hasParticipant
+          }
+        }
+
+        allPairsHaveLengthN = { (results: Seq[VettedPackages], expectedLength: Long) =>
+          filterToLocalNodes(results) should have length expectedLength
+        }
+
         // Previous test runs might mean other participant/synchronizer pairs
         // will be left over in vetting states. This filters to just pairs from
         // the changes that we've made, and asserts that they've vetted
         // vetting-main 2.0.0
         allPairsVetMain = { (results: Seq[VettedPackages]) =>
-          val filtered = results.filter { result =>
-            val hasSync = Seq(sync1, sync2).contains(result.synchronizerId)
-            val hasParticipant = Seq(participant1Id, participant2Id).contains(result.participantId)
-            hasSync && hasParticipant
-          }
-          filtered should have length 4
-          forAll(filtered) { result =>
+          forAll(filterToLocalNodes(results)) { result =>
             assertVettedPackagesHasPkgIds(
               result,
               hasPkgIds = Seq(vettingMainPkgIdV2),
@@ -1688,26 +1711,27 @@ class VettingIT extends LedgerTestSuite {
           )
         )
 
-        _ <- vetAllInDar(participant1, VettingMainDar_2_0_0.path, Some(sync1))
-        _ <- vetAllInDar(participant2, VettingMainDar_2_0_0.path, Some(sync1))
-        _ <- vetAllInDar(participant1, VettingMainDar_2_0_0.path, Some(sync2))
         _ <- vetAllInDar(participant2, VettingMainDar_2_0_0.path, Some(sync2))
+        _ <- vetAllInDar(participant1, VettingMainDar_2_0_0.path, Some(sync2))
+        _ <- vetAllInDar(participant2, VettingMainDar_2_0_0.path, Some(sync1))
+        _ <- vetAllInDar(participant1, VettingMainDar_2_0_0.path, Some(sync1))
 
         // Requesting page of size 0 means requesting server's default page
         // size, which is at least 4
         requestZero <- participant1.listVettedPackages(requestAllPaged(size = 0))
+        _ = allPairsHaveLengthN(requestZero.vettedPackages, 4)
         _ = allPairsVetMain(requestZero.vettedPackages)
-        _ = vettedPackagesAreSorted(requestZero.vettedPackages)
+        _ = vettedPackagesAreSorted(requestZero.vettedPackages, "requestZero")
 
         // Requesting page of size 1 gets one result
         requestOne <- participant1.listVettedPackages(requestAllPaged(size = 1))
-        _ = requestOne.vettedPackages should have length 1
+        _ = allPairsHaveLengthN(requestOne.vettedPackages, 1)
 
         // Requesting page with token from last request gives new result
         requestAnotherOne <- participant1.listVettedPackages(
           requestAllPaged(size = 1, token = requestOne.nextPageToken)
         )
-        _ = requestAnotherOne.vettedPackages should have length 1
+        _ = allPairsHaveLengthN(requestAnotherOne.vettedPackages, 1)
 
         // Requesting page of size larger than remaining items returns all
         // remaining items. We assume here that maxPageSize exceeds the number
@@ -1721,8 +1745,92 @@ class VettingIT extends LedgerTestSuite {
         // All chained requests should be sorted
         chainedRequests =
           requestOne.vettedPackages ++ requestAnotherOne.vettedPackages ++ requestRemainder.vettedPackages
+        _ = allPairsHaveLengthN(requestZero.vettedPackages, 4)
         _ = allPairsVetMain(chainedRequests)
-        _ = vettedPackagesAreSorted(chainedRequests)
+        _ = vettedPackagesAreSorted(chainedRequests, "chainedRequests")
+
+        // Requesting page with specific synchronizer adheres to that synchronizer
+        requestJustSync1Step1 <- participant1.listVettedPackages(
+          requestAllPaged(size = 1, synchronizerIds = Seq(sync1))
+        )
+        requestJustSync1Step2 <- participant1.listVettedPackages(
+          requestAllPaged(
+            size = 1,
+            synchronizerIds = Seq(sync1),
+            token = requestJustSync1Step1.nextPageToken,
+          )
+        )
+        requestJustSync1Step3 <- participant1.listVettedPackages(
+          requestAllPaged(
+            size = 1,
+            synchronizerIds = Seq(sync1),
+            token = requestJustSync1Step2.nextPageToken,
+          )
+        )
+        _ = allPairsHaveLengthN(requestJustSync1Step3.vettedPackages, 0)
+
+        requestJustSync1 =
+          requestJustSync1Step1.vettedPackages ++ requestJustSync1Step2.vettedPackages ++ requestJustSync1Step3.vettedPackages
+        _ = allPairsHaveLengthN(requestJustSync1, 2)
+        _ = allPairsVetMain(requestJustSync1)
+        _ = vettedPackagesAreSorted(requestJustSync1, "requestJustSync1")
+
+        // Requesting page with specific participant adheres to that participant
+        requestJustPtcpt1Step1 <- participant1.listVettedPackages(
+          requestAllPaged(size = 1, participantIds = Seq(participant1Id))
+        )
+        requestJustPtcpt1Step2 <- participant1.listVettedPackages(
+          requestAllPaged(
+            size = 1,
+            participantIds = Seq(participant1Id),
+            token = requestJustPtcpt1Step1.nextPageToken,
+          )
+        )
+        requestJustPtcpt1Step3 <- participant1.listVettedPackages(
+          requestAllPaged(
+            size = 1,
+            participantIds = Seq(participant1Id),
+            token = requestJustPtcpt1Step2.nextPageToken,
+          )
+        )
+        _ = allPairsHaveLengthN(requestJustPtcpt1Step3.vettedPackages, 0)
+
+        requestJustPtcpt1 =
+          requestJustPtcpt1Step1.vettedPackages ++ requestJustPtcpt1Step2.vettedPackages ++ requestJustPtcpt1Step3.vettedPackages
+        _ = allPairsHaveLengthN(requestJustPtcpt1, 2)
+        _ = allPairsVetMain(requestJustPtcpt1)
+        _ = vettedPackagesAreSorted(requestJustPtcpt1, "requestJustPtcpt1")
+
+        // Requesting page with specific participant and synchronizer adheres to that participant and synchronizer
+        requestJustPairStep1 <- participant1.listVettedPackages(
+          requestAllPaged(
+            size = 1,
+            synchronizerIds = Seq(sync1),
+            participantIds = Seq(participant1Id),
+          )
+        )
+        requestJustPairStep2 <- participant1.listVettedPackages(
+          requestAllPaged(
+            size = 1,
+            synchronizerIds = Seq(sync1),
+            participantIds = Seq(participant1Id),
+            token = requestJustPairStep1.nextPageToken,
+          )
+        )
+        _ = allPairsHaveLengthN(requestJustPairStep2.vettedPackages, 0)
+
+        requestJustPair = requestJustPairStep1.vettedPackages ++ requestJustPairStep2.vettedPackages
+        _ = allPairsHaveLengthN(requestJustPair, 1)
+        _ = allPairsVetMain(requestJustPair)
+        _ = vettedPackagesAreSorted(requestJustPair, "requestJustPair")
+
+        // Requesting page of size below 0 results in an error
+        _ <- participant1
+          .listVettedPackages(requestAllPaged(size = -1))
+          .mustFailWith(
+            "Requesting page of size below 0 results in an error",
+            ProtoDeserializationFailure,
+          )
 
         // Requesting page of size below 0 results in an error
         _ <- participant1

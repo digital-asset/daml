@@ -4,7 +4,6 @@
 package com.digitalasset.canton.integration.tests.upgrade.lsu
 
 import com.digitalasset.canton.admin.api.client.data.DynamicSynchronizerParameters as ConsoleDynamicSynchronizerParameters
-import com.digitalasset.canton.annotations.UnstableTest
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.{DbConfig, SynchronizerTimeTrackerConfig}
 import com.digitalasset.canton.console.CommandFailure
@@ -265,8 +264,9 @@ abstract class LSUCancellationIntegrationTest extends LSUBase {
 
       // Time offset is applied on the old sequencer
       sequencer1.underlying.value.sequencer.timeTracker
-        .fetchTime()
-        .futureValueUS should be >= upgradeTime2.plus(
+        .fetchTimeProof()
+        .futureValueUS
+        .timestamp should be >= upgradeTime2.plus(
         dynamicSynchronizerParameters.decisionTimeout.asJava
       )
 
@@ -287,7 +287,6 @@ final class LSUCancellationReferenceIntegrationTest extends LSUCancellationInteg
   )
 }
 
-@UnstableTest
 final class LSUCancellationBftOrderingIntegrationTest extends LSUCancellationIntegrationTest {
   registerPlugin(
     new UseBftSequencer(

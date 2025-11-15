@@ -724,6 +724,9 @@ class ParticipantNodeBootstrap(
           connectedSynchronizerHealth.set(sync.connectedSynchronizerHealth)
           connectedSynchronizerEphemeralHealth.set(sync.ephemeralHealth)
           connectedSynchronizerSequencerClientHealth.set(sync.sequencerClientHealth)
+          connectedSynchronizerSequencerConnectionPoolHealthRef.set(
+            sync.sequencerConnectionPoolHealth
+          )
           connectedSynchronizerAcsCommitmentProcessorHealth.set(sync.acsCommitmentProcessorHealth)
         }
 
@@ -898,6 +901,13 @@ class ParticipantNodeBootstrap(
   override protected def mkNodeHealthService(
       storage: Storage
   ): (DependenciesHealthService, LivenessHealthService) = {
+    val constantSoftDependencies = Seq(
+      connectedSynchronizerHealth,
+      connectedSynchronizerEphemeralHealth,
+      connectedSynchronizerSequencerClientHealth,
+      connectedSynchronizerAcsCommitmentProcessorHealth,
+    )
+
     val readiness = DependenciesHealthService(
       "participant",
       logger,
@@ -905,11 +915,9 @@ class ParticipantNodeBootstrap(
       criticalDependencies = storage +: crypto.toList,
       // The sync service won't be reporting Ok until the node is initialized, but that shouldn't prevent traffic from
       // reaching the node
-      Seq(
-        connectedSynchronizerHealth,
-        connectedSynchronizerEphemeralHealth,
-        connectedSynchronizerSequencerClientHealth,
-        connectedSynchronizerAcsCommitmentProcessorHealth,
+      softDependencies = Eval.always(
+        constantSoftDependencies ++
+          connectedSynchronizerSequencerConnectionPoolHealthRef.get.apply()
       ),
     )
     val liveness = LivenessHealthService.alwaysAlive(logger, timeouts)
@@ -950,6 +958,9 @@ class ParticipantNodeBootstrap(
       SequencerClient.healthName,
       timeouts,
     )
+
+  private val connectedSynchronizerSequencerConnectionPoolHealthRef =
+    new AtomicReference[() => Seq[HealthQuasiComponent]](() => Seq.empty)
 
   private lazy val connectedSynchronizerAcsCommitmentProcessorHealth: MutableHealthComponent =
     MutableHealthComponent(

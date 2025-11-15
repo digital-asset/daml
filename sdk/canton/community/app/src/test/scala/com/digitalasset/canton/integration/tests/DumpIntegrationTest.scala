@@ -26,7 +26,6 @@ import com.digitalasset.canton.store.SequencedEventStore.{
   LatestUpto,
   PossiblyIgnoredSequencedEvent,
 }
-import com.digitalasset.canton.util.MaxBytesToDecompress
 import com.digitalasset.canton.{ProtoDeserializationError, SequencerCounter, config}
 import com.google.protobuf.{ByteString, InvalidProtocolBufferException}
 
@@ -112,7 +111,7 @@ sealed trait DumpIntegrationTest extends CommunityIntegrationTest with SharedEnv
       ] =
         PossiblyIgnoredSequencedEvent
           .fromProtoV30(
-            MaxBytesToDecompress.Default,
+            defaultMaxBytesToDecompress,
             testedProtocolVersion,
             cryptoPureApi(participant1.config),
           )(
@@ -151,7 +150,7 @@ sealed trait DumpIntegrationTest extends CommunityIntegrationTest with SharedEnv
       ]] =
         dumpedEventsP.map {
           PossiblyIgnoredSequencedEvent.fromProtoV30(
-            MaxBytesToDecompress.Default,
+            defaultMaxBytesToDecompress,
             testedProtocolVersion,
             cryptoPureApi(participant1.config),
           )(_)
@@ -192,7 +191,7 @@ sealed trait DumpIntegrationTest extends CommunityIntegrationTest with SharedEnv
 
       val dumpedEventsOrErr = dumpedEventsP.map {
         PossiblyIgnoredSequencedEvent.fromProtoV30(
-          MaxBytesToDecompress.Default,
+          defaultMaxBytesToDecompress,
           testedProtocolVersion,
           cryptoPureApi(participant1.config),
         )(_)

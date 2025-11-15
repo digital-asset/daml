@@ -27,6 +27,7 @@ import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.BatchAggregator
 import slick.jdbc.{GetResult, PositionedParameters, SetParameter}
 
+import scala.collection.immutable
 import scala.concurrent.ExecutionContext
 
 class DbAvailabilityStore(
@@ -55,7 +56,7 @@ class DbAvailabilityStore(
         )(implicit
             traceContext: TraceContext,
             callerCloseContext: CloseContext,
-        ): FutureUnlessShutdown[Iterable[Unit]] =
+        ): FutureUnlessShutdown[immutable.Iterable[Unit]] =
           // Sorting should prevent deadlocks in Postgres when using concurrent clashing batched inserts
           //  with idempotency "on conflict do nothing" clauses.
           runAddBatches(items.sortBy(_.value._1).map(_.value))

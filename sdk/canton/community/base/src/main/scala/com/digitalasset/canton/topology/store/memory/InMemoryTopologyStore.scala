@@ -364,8 +364,17 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
       types: Seq[TopologyMapping.Code],
       filterUid: Option[NonEmpty[Seq[UniqueIdentifier]]],
       filterNamespace: Option[NonEmpty[Seq[Namespace]]],
+      pagination: Option[(Option[UniqueIdentifier], Int)] = None,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[PositiveStoredTopologyTransactions] =
-    findTransactionsInStore(asOf, asOfInclusive, isProposal, types, filterUid, filterNamespace).map(
+    findTransactionsInStore(
+      asOf,
+      asOfInclusive,
+      isProposal,
+      types,
+      filterUid,
+      filterNamespace,
+      pagination,
+    ).map(
       _.collectOfType[TopologyChangeOp.Replace]
     )
 
@@ -388,6 +397,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
       types: Seq[TopologyMapping.Code],
       filterUid: Option[NonEmpty[Seq[UniqueIdentifier]]],
       filterNamespace: Option[NonEmpty[Seq[Namespace]]],
+      pagination: Option[(Option[UniqueIdentifier], Int)] = None,
   ): FutureUnlessShutdown[GenericStoredTopologyTransactions] = {
     val timeFilter = asOfFilter(asOf, asOfInclusive)
     def pathFilter(mapping: TopologyMapping): Boolean =
@@ -397,15 +407,40 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
         mapping.maybeUid.exists(uid => filterUid.exists(_.contains(uid))) ||
         filterNamespace.exists(_.contains(mapping.namespace))
       }
+
+    implicit val orderingUid = UniqueIdentifier.orderingIdentifierThenNamespace
+    implicit val orderingParticipantId = ParticipantId.orderingIdentifierThenNamespace
+
+    def paginationFilter(mapping: TopologyMapping): Boolean = {
+      val participantStartExclusive = pagination.flatMap(_._1)
+      val matchesPage =
+        participantStartExclusive.forall(bound => mapping.maybeUid.exists(_ > bound))
+      matchesPage
+    }
+
     filteredState(
       blocking(synchronized(topologyTransactionStore.toSeq)),
       entry => {
         timeFilter(entry.from.value, entry.until.map(_.value)) &&
         types.contains(entry.mapping.code) &&
         pathFilter(entry.mapping) &&
-        entry.transaction.isProposal == isProposal
+        entry.transaction.isProposal == isProposal &&
+        paginationFilter(entry.mapping)
       },
-    )
+    ).map { transactions =>
+      pagination match {
+        case None => transactions
+        case Some((_, pageLimit)) =>
+          StoredTopologyTransactions(
+            transactions
+              .collectOfMapping[VettedPackages]
+              .collectLatestByUniqueKey
+              .result
+              .sortBy(_.mapping.participantId)
+              .take(pageLimit)
+          )
+      }
+    }
   }
 
   override def findFirstSequencerStateForSequencer(

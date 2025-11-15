@@ -6,7 +6,12 @@ package com.digitalasset.canton.util
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 
 final case class MaxBytesToDecompress(limit: NonNegativeInt) extends AnyVal
+
 object MaxBytesToDecompress {
-  // TODO(i10428): Move into BaseTest. In prod code this should be drawn from config.
-  val Default = MaxBytesToDecompress(NonNegativeInt.tryCreate(10 * 1024 * 1024))
+  // TODO(i10428): Can we remove these?
+  val HardcodedDefault: MaxBytesToDecompress = MaxBytesToDecompress(
+    NonNegativeInt.tryCreate(10 * 1024 * 1024)
+  )
+
+  val MaxValueUnsafe: MaxBytesToDecompress = MaxBytesToDecompress(NonNegativeInt.maxValue)
 }

@@ -17,7 +17,7 @@ trait ParticipantPruningStoreTest extends AsyncWordSpec with BaseTest with FailO
 
   protected val name: String36 = String36.tryCreate("ParticipantPruningStoreTest")
 
-  private implicit def toOffset(i: Long): Offset = Offset.tryFromLong(i)
+  protected implicit def toOffset(i: Long): Offset = Offset.tryFromLong(i)
 
   "be not pruning in the beginning" in {
     val store = mk()

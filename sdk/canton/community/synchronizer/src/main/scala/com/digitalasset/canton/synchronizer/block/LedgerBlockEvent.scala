@@ -8,10 +8,13 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.HasLoggerName
 import com.digitalasset.canton.sequencing.protocol.{
   AcknowledgeRequest,
+  AllMembersOfSynchronizer,
+  SequencersOfSynchronizer,
   SignedContent,
   SubmissionRequest,
 }
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.synchronizer.block.BlockEvents.TickTopology
 import com.digitalasset.canton.synchronizer.sequencer.Sequencer.SignedSubmissionRequest
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.Traced
@@ -105,11 +108,19 @@ object LedgerBlockEvent extends HasLoggerName {
       )
 }
 
-/** @param tickTopologyAtLeastAt
+/** @param tickTopology
   *   See [[RawLedgerBlock.tickTopologyAtMicrosFromEpoch]]
   */
 final case class BlockEvents(
     height: Long,
+    baseBlockSequencingTime: CantonTimestamp,
     events: Seq[Traced[LedgerBlockEvent]],
-    tickTopologyAtLeastAt: Option[CantonTimestamp] = None,
+    tickTopology: Option[TickTopology] = None,
 )
+object BlockEvents {
+
+  final case class TickTopology(
+      atLeastAt: CantonTimestamp,
+      recipient: Either[AllMembersOfSynchronizer.type, SequencersOfSynchronizer.type],
+  )
+}

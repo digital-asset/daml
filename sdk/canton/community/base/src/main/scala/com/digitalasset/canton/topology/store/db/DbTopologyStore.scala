@@ -443,6 +443,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       types: Seq[TopologyMapping.Code],
       filterUid: Option[NonEmpty[Seq[UniqueIdentifier]]],
       filterNamespace: Option[NonEmpty[Seq[Namespace]]],
+      pagination: Option[(Option[UniqueIdentifier], Int)] = None,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[PositiveStoredTopologyTransactions] =
     findTransactionsBatchingUidFilter(
       asOf,
@@ -452,6 +453,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       filterUid,
       filterNamespace,
       TopologyChangeOp.Replace.some,
+      pagination,
     ).map(_.collectOfType[TopologyChangeOp.Replace])
 
   override def findNegativeTransactions(
@@ -883,6 +885,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       filterUid: Option[NonEmpty[Seq[UniqueIdentifier]]],
       filterNamespace: Option[NonEmpty[Seq[Namespace]]],
       filterOp: Option[TopologyChangeOp],
+      pagination: Option[(Option[UniqueIdentifier], Int)] = None,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[GenericStoredTopologyTransactions] = {
@@ -898,6 +901,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
         filterUidsNew,
         filterNamespaceNew,
         filterOp,
+        pagination,
       )
 
     // Optimization: remove uid-filters made redundant by namespace filters
@@ -955,6 +959,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       filterUid: Option[NonEmpty[Seq[UniqueIdentifier]]],
       filterNamespace: Option[NonEmpty[Seq[Namespace]]],
       filterOp: Option[TopologyChangeOp],
+      pagination: Option[(Option[UniqueIdentifier], Int)],
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[GenericStoredTopologyTransactions] = {
@@ -982,11 +987,31 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
         sql" AND (" ++ (namespaceFilter ++ uidFilter).intercalate(sql" OR ") ++ sql")"
       } else SQLActionBuilderChain(sql"")
 
+    val nonPaginationFilters =
+      timeRangeFilter ++ isProposalFilter ++ changeOpFilter ++ mappingTypeFilter ++ uidNamespaceFilter
+    val query = pagination match {
+      case Some((participantStartExclusive, pageLimit)) =>
+        val paginationFilter = participantStartExclusive match {
+          case Some(uid) =>
+            sql" AND (identifier, namespace) > (${uid.identifier.toProtoPrimitive}, ${uid.namespace.toProtoPrimitive})"
+          case None =>
+            sql""
+        }
+
+        buildQueryForTransactions(
+          nonPaginationFilters ++ paginationFilter,
+          limit = s" LIMIT $pageLimit ",
+          orderBy = " ORDER BY identifier, namespace ",
+        )
+      case _ =>
+        buildQueryForTransactions(
+          nonPaginationFilters
+        )
+    }
+
     toStoredTopologyTransactions(
       storage.query(
-        buildQueryForTransactions(
-          timeRangeFilter ++ isProposalFilter ++ changeOpFilter ++ mappingTypeFilter ++ uidNamespaceFilter
-        ),
+        query,
         operationName = "singleBatch",
       )
     )
@@ -1112,6 +1137,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
           )
       })
     )
+
   private def toStoredTopologyTransactions(
       result: Vector[QueryResult]
   ): GenericStoredTopologyTransactions =

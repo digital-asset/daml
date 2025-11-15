@@ -48,7 +48,7 @@ trait ReferenceBlockOrderingStoreTest extends AsyncWordSpec with BaseTest with F
 
   private def block(height: Long, tracedEvent: Traced[BlockFormat.OrderedRequest]) =
     TimestampedBlock(
-      BlockFormat.Block(height, Seq(tracedEvent)),
+      BlockFormat.Block(height, tracedEvent.value.microsecondsSinceEpoch, Seq(tracedEvent)),
       CantonTimestamp.ofEpochMicro(tracedEvent.value.microsecondsSinceEpoch),
       SignedTopologyTransaction.InitialTopologySequencingTime,
     )

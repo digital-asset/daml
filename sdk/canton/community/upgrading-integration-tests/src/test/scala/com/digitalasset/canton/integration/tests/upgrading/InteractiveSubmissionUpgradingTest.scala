@@ -72,8 +72,8 @@ class InteractiveSubmissionUpgradingTest
           confirmingParticipant: LocalParticipantReference
       ): Unit =
         PartyToParticipantDeclarative(
-          Set(participant2, participant3),
-          Set(daId),
+          participants = Set(participant1, participant2, participant3),
+          synchronizerIds = Set(daId),
         )(
           owningParticipants = Map.empty,
           targetTopology = Map(

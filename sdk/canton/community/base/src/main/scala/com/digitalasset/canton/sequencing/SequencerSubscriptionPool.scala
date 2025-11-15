@@ -5,7 +5,11 @@ package com.digitalasset.canton.sequencing
 
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.health.{AtomicHealthComponent, ComponentHealthState}
+import com.digitalasset.canton.health.{
+  AtomicHealthComponent,
+  ComponentHealthState,
+  HealthQuasiComponent,
+}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, HasRunOnClosing}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLogging, TracedLogger}
@@ -50,6 +54,9 @@ trait SequencerSubscriptionPool extends FlagCloseable with NamedLogging {
   ): Unit
 
   def health: SequencerSubscriptionPoolHealth
+
+  /** Return the health status of the subscriptions. Only the active subscriptions are reported. */
+  def getSubscriptionsHealthStatus: Seq[HealthQuasiComponent]
 
   /** Return the current active subscriptions in the pool. */
   def subscriptions: Set[SequencerSubscriptionX[SequencerClientSubscriptionError]]

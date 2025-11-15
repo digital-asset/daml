@@ -30,7 +30,7 @@ class GrpcSequencerConnectionXTest
         staticParametersResponses = Seq(correctStaticParametersResponse),
         acknowledgeResponses = Seq(positiveAcknowledgeResponse),
       )
-      withConnection(responses) { case (internalConnection, listener) =>
+      withConnection(responses) { (internalConnection, listener) =>
         internalConnection.start().valueOrFail("start connection")
 
         listener.shouldStabilizeOn(SequencerConnectionXState.Validated)

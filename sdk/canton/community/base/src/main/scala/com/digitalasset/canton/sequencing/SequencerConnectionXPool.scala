@@ -9,7 +9,11 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.health.{AtomicHealthComponent, ComponentHealthState}
+import com.digitalasset.canton.health.{
+  AtomicHealthComponent,
+  ComponentHealthState,
+  HealthQuasiComponent,
+}
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
@@ -96,6 +100,9 @@ trait SequencerConnectionXPool extends FlagCloseable with NamedLogging {
   ): Either[SequencerConnectionXPoolError, Unit]
 
   def health: SequencerConnectionXPoolHealth
+
+  /** Return the health status of the connections. */
+  def getConnectionsHealthStatus: Seq[HealthQuasiComponent]
 
   /** Return the number of different sequencerIds present in the pool (connections for the same
     * sequencerId count for 1).

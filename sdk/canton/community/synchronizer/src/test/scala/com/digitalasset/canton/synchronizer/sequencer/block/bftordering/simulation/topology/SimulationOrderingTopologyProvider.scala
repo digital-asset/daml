@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.topology
 
+import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.canton.crypto.FingerprintKeyId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking.P2PEndpoint
@@ -21,7 +22,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.SimulationModuleSystem.SimulationEnv
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.future.SimulationFuture
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.MaxBytesToDecompress
 
 import scala.util.Success
 
@@ -59,7 +59,7 @@ class SimulationOrderingTopologyProvider(
             )
           }.toMap,
           SequencingParameters.Default,
-          MaxBytesToDecompress.Default,
+          BaseTest.defaultMaxBytesToDecompress,
           activationTime,
           // Switch the value deterministically so that we trigger all code paths.
           areTherePendingCantonTopologyChanges = activationTime.value.toMicros % 2 == 0,

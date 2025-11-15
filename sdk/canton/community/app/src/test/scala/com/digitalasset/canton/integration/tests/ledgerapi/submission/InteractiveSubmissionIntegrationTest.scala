@@ -5,6 +5,7 @@ package com.digitalasset.canton.integration.tests.ledgerapi.submission
 
 import com.daml.ledger.api.v2.event.CreatedEvent
 import com.daml.ledger.api.v2.event.Event.Event
+import com.daml.ledger.api.v2.interactive.interactive_submission_service.HashingSchemeVersion.HASHING_SCHEME_VERSION_V2
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   Metadata,
   PrepareSubmissionResponse,
@@ -19,6 +20,7 @@ import com.daml.ledger.api.v2.value.Value
 import com.daml.ledger.api.v2.value.Value.Sum
 import com.daml.ledger.javaapi.data.DisclosedContract
 import com.daml.ledger.javaapi.data.codegen.ContractId as CodeGenCID
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.TransactionWrapper
 import com.digitalasset.canton.admin.api.client.data.TemplateId
 import com.digitalasset.canton.config
@@ -26,6 +28,7 @@ import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.CommandFailure
+import com.digitalasset.canton.console.commands.PartiesAdministration
 import com.digitalasset.canton.crypto.SigningKeyUsage
 import com.digitalasset.canton.damltests.java.test.DummyFactory
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -44,14 +47,20 @@ import com.digitalasset.canton.integration.{
 }
 import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
 import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
-import com.digitalasset.canton.topology.ExternalParty
+import com.digitalasset.canton.topology.transaction.DelegationRestriction.CanSignAllMappings
 import com.digitalasset.canton.topology.transaction.{
   HostingParticipant,
+  MultiTransactionSignature,
+  NamespaceDelegation,
   ParticipantPermission,
+  PartyToKeyMapping,
   PartyToParticipant,
+  SignedTopologyTransaction,
+  SingleTransactionSignature,
   TopologyChangeOp,
   TopologyTransaction,
 }
+import com.digitalasset.canton.topology.{ExternalParty, Namespace, PartyId}
 import com.google.protobuf.ByteString
 import io.grpc.Status
 import monocle.Optional
@@ -166,6 +175,161 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
         "Dan",
         keysCount = PositiveInt.three,
         keysThreshold = PositiveInt.two,
+      )
+    }
+
+    "require threshold-many signatures from different keys" in { implicit env =>
+      import env.*
+
+      // Onboard the external party the old school way with a PartyToKeyMapping,
+      // Because PTK does not have the check on duplicate keys, on purpose for backwards compatibility with
+      // existing transactions with duplicated keys on mainnet
+      val namespaceKey = global_secret.keys.secret
+        .generate_keys(PositiveInt.one, usage = NonEmpty.mk(Set, SigningKeyUsage.Namespace))
+        .head
+
+      val protocolKeys = global_secret.keys.secret
+        .generate_keys(PositiveInt.two, usage = NonEmpty.mk(Set, SigningKeyUsage.Protocol))
+
+      val protocolKey1 = protocolKeys.head
+      val protocolKey2 = protocolKeys.forgetNE(1)
+
+      val partyId = PartyId.tryCreate("Alice", namespaceKey.fingerprint)
+
+      val namespaceDelegation = TopologyTransaction(
+        mapping = NamespaceDelegation.tryCreate(
+          Namespace(namespaceKey.fingerprint),
+          namespaceKey,
+          CanSignAllMappings,
+        ),
+        op = TopologyChangeOp.Replace,
+        serial = PositiveInt.one,
+        protocolVersion = testedProtocolVersion,
+      )
+
+      val partyToParticipant = TopologyTransaction(
+        mapping = PartyToParticipant.tryCreate(
+          partyId = partyId,
+          threshold = PositiveInt.one,
+          participants = Seq(HostingParticipant(participant1, ParticipantPermission.Confirmation)),
+        ),
+        op = TopologyChangeOp.Replace,
+        serial = PositiveInt.one,
+        protocolVersion = testedProtocolVersion,
+      )
+
+      val partyToKeyMapping = TopologyTransaction(
+        mapping = PartyToKeyMapping.tryCreate(
+          partyId = partyId,
+          threshold = PositiveInt.two,
+          // Use twice the same key.. it will get deduplicated
+          signingKeys = NonEmpty.mk(Seq, protocolKey1, protocolKey1, protocolKey2),
+        ),
+        op = TopologyChangeOp.Replace,
+        serial = PositiveInt.one,
+        protocolVersion = testedProtocolVersion,
+      )
+
+      // The signing keys in the PTK get silently deduplicated
+      partyToKeyMapping.mapping.signingKeys.forgetNE should contain theSameElementsAs
+        List(protocolKey1, protocolKey2)
+
+      val hashSet =
+        NonEmpty.mk(Set, namespaceDelegation.hash, partyToParticipant.hash, partyToKeyMapping.hash)
+
+      val multihash = MultiTransactionSignature.computeCombinedHash(
+        hashSet,
+        tryGlobalCrypto.pureCrypto,
+      )
+
+      val multiHashSignature = global_secret.sign(
+        multihash.getCryptographicEvidence,
+        namespaceKey.fingerprint,
+        SigningKeyUsage.NamespaceOnly,
+      )
+
+      val ptkProofOfOwnershipSignature1 = global_secret.sign(
+        partyToKeyMapping.hash.hash.getCryptographicEvidence,
+        protocolKey1.fingerprint,
+        SigningKeyUsage.ProofOfOwnershipOnly,
+      )
+
+      val ptkProofOfOwnershipSignature2 = global_secret.sign(
+        partyToKeyMapping.hash.hash.getCryptographicEvidence,
+        protocolKey2.fingerprint,
+        SigningKeyUsage.ProofOfOwnershipOnly,
+      )
+
+      val signedNsd = SignedTopologyTransaction
+        .create(
+          transaction = namespaceDelegation,
+          signatures = NonEmpty.mk(Set, MultiTransactionSignature(hashSet, multiHashSignature)),
+          isProposal = false,
+          protocolVersion = testedProtocolVersion,
+        )
+        .value
+
+      val signedPtp = SignedTopologyTransaction
+        .create(
+          transaction = partyToParticipant,
+          signatures = NonEmpty.mk(Set, MultiTransactionSignature(hashSet, multiHashSignature)),
+          isProposal = false,
+          protocolVersion = testedProtocolVersion,
+        )
+        .value
+
+      val signedPtk = SignedTopologyTransaction
+        .create(
+          transaction = partyToKeyMapping,
+          signatures = NonEmpty.mk(
+            Set,
+            MultiTransactionSignature(hashSet, multiHashSignature),
+            SingleTransactionSignature(partyToKeyMapping.hash, ptkProofOfOwnershipSignature1),
+            SingleTransactionSignature(partyToKeyMapping.hash, ptkProofOfOwnershipSignature2),
+          ),
+          isProposal = false,
+          protocolVersion = testedProtocolVersion,
+        )
+        .value
+
+      // Ptp with participant signature
+      val fullySignedPtp =
+        participant1.topology.transactions.sign(Seq(signedPtp), synchronizer1Id).loneElement
+
+      participant1.topology.transactions.load(
+        Seq(signedNsd, fullySignedPtp, signedPtk),
+        synchronizer1Id,
+      )
+
+      PartiesAdministration.Allocation.waitForPartyKnown(
+        partyId = partyId,
+        hostingParticipant = participant1,
+        synchronizeParticipants = Seq(participant1),
+        synchronizerId = synchronizer1Id.logical,
+      )
+
+      val prepared = participant1.ledger_api.interactive_submission.prepare(
+        Seq(partyId),
+        Seq(createCycleCommand(partyId, UUID.randomUUID().toString)),
+      )
+
+      def signWithProtocolKey1 = global_secret.sign(
+        prepared.preparedTransactionHash,
+        protocolKey1.fingerprint,
+        SigningKeyUsage.ProtocolOnly,
+      )
+
+      loggerFactory.assertThrowsAndLogs[CommandFailure](
+        participant1.ledger_api.interactive_submission.execute_and_wait(
+          prepared.getPreparedTransaction,
+          // Provide 2 signatures from the same key
+          Map(partyId -> Seq(signWithProtocolKey1, signWithProtocolKey1)),
+          UUID.randomUUID().toString,
+          HASHING_SCHEME_VERSION_V2,
+        ),
+        _.errorMessage should include(
+          "Received 1 valid signatures from distinct keys (0 invalid), but expected at least 2 valid"
+        ),
       )
     }
 
@@ -661,7 +825,7 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
       execFailure(
         prepared,
         Map(danE.partyId -> Seq(singleSignature)),
-        s"Received 1 valid signatures (0 invalid), but expected at least 2 valid for ${danE.partyId}",
+        s"Received 1 valid signatures from distinct keys (0 invalid), but expected at least 2 valid for ${danE.partyId}",
       )
     }
 
@@ -821,7 +985,7 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
           Seq(
             (
               _.errorMessage should include(
-                "The participant failed to execute the transaction: Received 0 valid signatures (1 invalid)"
+                "The participant failed to execute the transaction: Received 0 valid signatures from distinct keys (1 invalid)"
               ),
               "invalid signature",
             )

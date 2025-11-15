@@ -15,6 +15,8 @@ import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.{LfPartyId, ProtoDeserializationError, checked}
 import slick.jdbc.{GetResult, SetParameter}
 
+import scala.math.Ordering
+
 object Namespace {
   implicit val setParameterNamespace: SetParameter[Namespace] = (v, pp) =>
     pp >> v.toLengthLimitedString
@@ -97,6 +99,13 @@ object UniqueIdentifier {
 
   private def validIdentifier(id: String): Either[String, String185] =
     verifyValidString(id).flatMap(String185.create(_))
+
+  val orderingIdentifierThenNamespace: Ordering[UniqueIdentifier] =
+    Ordering
+      .by[UniqueIdentifier, String](_.identifier.toProtoPrimitive)
+      .orElse(
+        Ordering.by[UniqueIdentifier, String](_.namespace.toProtoPrimitive)
+      )
 
   def create(id: String, namespace: Namespace): Either[String, UniqueIdentifier] =
     for {

@@ -11,7 +11,10 @@ import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 sealed trait BatchAggregatorConfig
     extends Product
     with Serializable
-    with UniformCantonConfigValidation
+    with UniformCantonConfigValidation {
+
+  def maximumBatchSize: PositiveNumeric[Int]
+}
 
 object BatchAggregatorConfig {
   implicit val batchAggregatorConfigCantonConfigValidator
@@ -24,7 +27,7 @@ object BatchAggregatorConfig {
   val defaultMaximumBatchSize: PositiveNumeric[Int] = PositiveNumeric.tryCreate(500)
 
   def defaultsForTesting: BatchAggregatorConfig =
-    Batching(
+    AutoBatching(
       maximumInFlight = PositiveNumeric.tryCreate(2),
       maximumBatchSize = PositiveNumeric.tryCreate(5),
     )
@@ -32,8 +35,8 @@ object BatchAggregatorConfig {
   def apply(
       maximumInFlight: PositiveNumeric[Int] = BatchAggregatorConfig.defaultMaximumInFlight,
       maximumBatchSize: PositiveNumeric[Int] = BatchAggregatorConfig.defaultMaximumBatchSize,
-  ): Batching =
-    Batching(
+  ): AutoBatching =
+    AutoBatching(
       maximumInFlight = maximumInFlight,
       maximumBatchSize = maximumBatchSize,
     )
@@ -43,11 +46,14 @@ object BatchAggregatorConfig {
     * @param maximumBatchSize
     *   Maximum number of queries in a batch.
     */
-  final case class Batching(
+  final case class AutoBatching(
       maximumInFlight: PositiveNumeric[Int] = BatchAggregatorConfig.defaultMaximumInFlight,
-      maximumBatchSize: PositiveNumeric[Int] = BatchAggregatorConfig.defaultMaximumBatchSize,
+      override val maximumBatchSize: PositiveNumeric[Int] =
+        BatchAggregatorConfig.defaultMaximumBatchSize,
   ) extends BatchAggregatorConfig
 
-  final case object NoBatching extends BatchAggregatorConfig
-
+  final case class NoAutoBatching(
+      override val maximumBatchSize: PositiveNumeric[Int] =
+        BatchAggregatorConfig.defaultMaximumBatchSize
+  ) extends BatchAggregatorConfig
 }

@@ -706,9 +706,9 @@ object ParallelIndexerSubscription {
                     .flatMap(internalContractId =>
                       lastActivationsWithInternalContractIds
                         .get(synCon.synchronizerId -> internalContractId)
-                        .map(lastActivtionSequentialId =>
+                        .map(lastActivationSequentialId =>
                           ActivationRef(
-                            eventSeqId = lastActivtionSequentialId,
+                            eventSeqId = lastActivationSequentialId,
                             internalContractId = internalContractId,
                           )
                         )

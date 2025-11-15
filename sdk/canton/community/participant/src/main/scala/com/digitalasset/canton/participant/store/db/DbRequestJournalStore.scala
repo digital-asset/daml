@@ -80,7 +80,7 @@ class DbRequestJournalStore(
       override def executeBatch(items: NonEmpty[Seq[Traced[RequestData]]])(implicit
           traceContext: TraceContext,
           callerCloseContext: CloseContext,
-      ): FutureUnlessShutdown[Iterable[Try[Unit]]] =
+      ): FutureUnlessShutdown[immutable.Iterable[Try[Unit]]] =
         bulkUpdateWithCheck(items, "DbRequestJournalStore.insert")(traceContext, self.closeContext)
 
       override protected def bulkUpdateAction(items: NonEmpty[Seq[Traced[RequestData]]])(implicit
@@ -243,7 +243,7 @@ class DbRequestJournalStore(
           implicit
           traceContext: TraceContext,
           callerCloseContext: CloseContext,
-      ): FutureUnlessShutdown[Iterable[Try[Result]]] =
+      ): FutureUnlessShutdown[immutable.Iterable[Try[Result]]] =
         bulkUpdateWithCheck(items, "DbRequestJournalStore.replace")(traceContext, self.closeContext)
 
       override protected def bulkUpdateAction(items: NonEmpty[Seq[Traced[ReplaceRequest]]])(implicit

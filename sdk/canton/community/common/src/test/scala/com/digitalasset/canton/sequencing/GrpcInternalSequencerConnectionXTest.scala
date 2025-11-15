@@ -48,7 +48,7 @@ class GrpcInternalSequencerConnectionXTest
           {
             connection.start().valueOrFail("start connection")
 
-            listener.shouldStabilizeOn(SequencerConnectionXState.Fatal)
+            listener.shouldStabilizeOn(SequencerConnectionXState.Fatal(Some("Failed validation")))
           },
           LogEntry.assertLogSeq(
             Seq(
@@ -63,7 +63,7 @@ class GrpcInternalSequencerConnectionXTest
         // Try to restart
         inside(connection.start()) {
           case Left(SequencerConnectionXError.InvalidStateError(message)) =>
-            message shouldBe "The connection is in a fatal state and cannot be started"
+            message shouldBe "The connection is in Fatal(Failed validation) state and cannot be started"
         }
 
         responses.assertAllResponsesSent()
@@ -78,7 +78,7 @@ class GrpcInternalSequencerConnectionXTest
         loggerFactory.assertLoggedWarningsAndErrorsSeq(
           {
             connection.start().valueOrFail("start connection")
-            listener.shouldStabilizeOn(SequencerConnectionXState.Fatal)
+            listener.shouldStabilizeOn(SequencerConnectionXState.Fatal(Some("Failed validation")))
             connection.attributes shouldBe None
           },
           LogEntry.assertLogSeq(
@@ -104,7 +104,7 @@ class GrpcInternalSequencerConnectionXTest
         loggerFactory.assertLoggedWarningsAndErrorsSeq(
           {
             connection.start().valueOrFail("start connection")
-            listener.shouldStabilizeOn(SequencerConnectionXState.Fatal)
+            listener.shouldStabilizeOn(SequencerConnectionXState.Fatal(Some("Failed validation")))
             connection.attributes shouldBe None
           },
           LogEntry.assertLogSeq(
@@ -133,7 +133,7 @@ class GrpcInternalSequencerConnectionXTest
           loggerFactory.assertLoggedWarningsAndErrorsSeq(
             {
               connection.start().valueOrFail("start connection")
-              listener.shouldStabilizeOn(SequencerConnectionXState.Fatal)
+              listener.shouldStabilizeOn(SequencerConnectionXState.Fatal(Some("Failed validation")))
               connection.attributes shouldBe None
             },
             LogEntry.assertLogSeq(
@@ -187,14 +187,14 @@ class GrpcInternalSequencerConnectionXTest
 
         listener.clear()
         connection.fail("test")
-        listener.shouldStabilizeOn(SequencerConnectionXState.Stopped)
+        listener.shouldStabilizeOn(SequencerConnectionXState.Stopped(Some("test")))
         listener.clear()
 
         // A different identity triggers a warning and the connection never gets validated
         loggerFactory.assertLoggedWarningsAndErrorsSeq(
           {
             connection.start().valueOrFail("start connection")
-            listener.shouldStabilizeOn(SequencerConnectionXState.Fatal)
+            listener.shouldStabilizeOn(SequencerConnectionXState.Fatal(Some("Attributes mismatch")))
             // Synchronizer info does not change
             connection.attributes shouldBe Some(correctConnectionAttributes)
           },

@@ -358,6 +358,7 @@ class TrafficCostEstimator(
         }
         .take(partyAuth.threshold.value)
         .map(mockSignature)
+        .toSeq
     }
 }
 

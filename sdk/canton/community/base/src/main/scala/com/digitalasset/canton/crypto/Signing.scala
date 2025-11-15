@@ -5,6 +5,7 @@ package com.digitalasset.canton.crypto
 
 import cats.Order
 import cats.data.EitherT
+import cats.instances.order.*
 import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
@@ -2020,29 +2021,28 @@ object SignatureCheckError extends CantonErrorGroups.AuthorizationChecksErrorGro
 
 }
 
-final case class SigningKeysWithThreshold private (
-    keys: NonEmpty[Seq[SigningPublicKey]],
+final case class SigningKeysWithThreshold(
+    keys: NonEmpty[Set[SigningPublicKey]],
     threshold: PositiveInt,
 ) {
   def toProto: v30.SigningKeysWithThreshold = v30.SigningKeysWithThreshold(
-    keys = keys.map(_.toProtoV30),
+    keys = keys.toSeq.sortBy(_.fingerprint).map(_.toProtoV30),
     threshold = threshold.value,
   )
 
   @VisibleForTesting
   private def copy(
-      keys: NonEmpty[Seq[SigningPublicKey]],
+      keys: NonEmpty[Set[SigningPublicKey]],
       threshold: PositiveInt,
   ) = SigningKeysWithThreshold(keys, threshold)
 
   @VisibleForTesting
-  def copyKeysUnsafe(newKeys: NonEmpty[Seq[SigningPublicKey]]): SigningKeysWithThreshold =
+  def copyKeysUnsafe(newKeys: NonEmpty[Set[SigningPublicKey]]): SigningKeysWithThreshold =
     copy(keys = newKeys, threshold = threshold)
 }
 
 object SigningKeysWithThreshold {
-
-  def create(
+  private def createFromSeq(
       keys: NonEmpty[Seq[SigningPublicKey]],
       threshold: PositiveInt,
   ): Either[String, SigningKeysWithThreshold] = {
@@ -2053,20 +2053,14 @@ object SigningKeysWithThreshold {
         (),
         s"All signing keys must be unique. Duplicate keys: $duplicateKeys",
       )
-      _ <- Either
-        .cond(
-          threshold.value <= keys.size,
-          (),
-          s"Cannot meet threshold of $threshold signing keys with participants ${keys.size} keys",
-        )
-    } yield SigningKeysWithThreshold(keys, threshold)
+    } yield SigningKeysWithThreshold(keys.toSet, threshold)
   }
 
   private[canton] def tryCreate(
       keys: NonEmpty[Seq[SigningPublicKey]],
       threshold: PositiveInt,
   ): SigningKeysWithThreshold =
-    create(keys, threshold).valueOr(err => throw new IllegalArgumentException((err)))
+    createFromSeq(keys, threshold).valueOr(err => throw new IllegalArgumentException((err)))
 
   def fromProtoV30(
       value: v30.SigningKeysWithThreshold
@@ -2082,7 +2076,7 @@ object SigningKeysWithThreshold {
         .create(value.threshold)
         .leftMap(InvariantViolation.toProtoDeserializationError("threshold", _))
       signingKeysWithThreshold <- SigningKeysWithThreshold
-        .create(
+        .createFromSeq(
           keysNE,
           threshold,
         )

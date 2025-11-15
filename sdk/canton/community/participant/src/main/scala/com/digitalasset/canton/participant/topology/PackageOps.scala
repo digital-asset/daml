@@ -18,7 +18,6 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.api.{
-  InitialPageToken,
   ListVettedPackagesOpts,
   PageToken,
   ParticipantVettedPackages,
@@ -299,40 +298,38 @@ class PackageOpsImpl(
 
   override def getVettedPackages(
       opts: ListVettedPackagesOpts
-  )(implicit
-      tc: TraceContext
-  ): EitherT[
-    FutureUnlessShutdown,
-    ParticipantTopologyManagerError,
-    Seq[ParticipantVettedPackages],
-  ] = {
-    val sortedSynchronizers: Seq[SynchronizerId] =
-      opts.filterSynchronizersInToken(default = stateManager.getAllLogical.keySet)
-    val initialState: (Int, Seq[ParticipantVettedPackages]) = (opts.pageSize.value, Seq())
+  )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Seq[
+    ParticipantVettedPackages
+  ]] = {
+    val synchronizers =
+      opts.synchronizers.map(_.forgetNE).getOrElse(stateManager.getAllLogical.keys).toSet
+    val pageSynchronizers =
+      opts.pageToken.sortAndFilterSynchronizers(synchronizers, opts.participants)
 
-    sortedSynchronizers
-      .foldM(initialState) { (state, synchronizerId) =>
-        val (remainingPageSize, resultsSoFar) = state
-        if (remainingPageSize <= 0)
-          EitherT.pure[FutureUnlessShutdown, ParticipantTopologyManagerError](state)
-        else
-          opts.userSpecifiedParticipantsInToken(synchronizerId) match {
-            case None =>
-              EitherT.pure[FutureUnlessShutdown, ParticipantTopologyManagerError](state)
-            case Some(userSpecifiedParticipants) =>
-              for {
-                topologyManager <- topologyManagerLookup.activeBySynchronizerId(synchronizerId)
-                vettedPackages <- getVettedPackagesForSynchronizer(
-                  topologyManager,
-                  userSpecifiedParticipants,
-                  pageToken = opts.pageToken,
-                )
-              } yield {
-                val newResultsWithinPage = vettedPackages.take(remainingPageSize)
-                val newRemainingPageSize = remainingPageSize - newResultsWithinPage.length
-                (newRemainingPageSize, resultsSoFar ++ newResultsWithinPage)
-              }
-          }
+    pageSynchronizers
+      .foldM(
+        (opts.pageSize.value, Seq.empty[ParticipantVettedPackages])
+      ) {
+        case (
+              state @ (remainingPageSize, resultsSoFar),
+              (synchronizerId, participantStartExclusive, participantsFilter),
+            ) =>
+          if (remainingPageSize <= 0)
+            EitherT.pure[FutureUnlessShutdown, ParticipantTopologyManagerError](state)
+          else
+            for {
+              topologyManager <- topologyManagerLookup.activeBySynchronizerId(synchronizerId)
+              newResultsWithinPage <- getVettedPackagesForSynchronizer(
+                topologyManager = topologyManager,
+                participantsFilter = participantsFilter,
+                pageLimit = remainingPageSize,
+                participantStartExclusive = participantStartExclusive,
+              )
+            } yield {
+              val newRemainingPageSize = remainingPageSize - newResultsWithinPage.length
+              val newResultsSoFar = resultsSoFar ++ newResultsWithinPage
+              (newRemainingPageSize, newResultsSoFar)
+            }
       }
       .map(_._2)
   }
@@ -347,13 +344,14 @@ class PackageOpsImpl(
     ParticipantTopologyManagerError,
     Option[ParticipantVettedPackages],
   ] =
-    getVettedPackagesForSynchronizer(topologyManager, Some(NonEmpty(Set, participantId)))
+    getVettedPackagesForSynchronizer(topologyManager, Some(NonEmpty(Set, participantId)), 1)
       .map(_.headOption)
 
   private def getVettedPackagesForSynchronizer(
       topologyManager: SynchronizerTopologyManager,
-      participantIds: Option[NonEmpty[Set[ParticipantId]]],
-      pageToken: PageToken = InitialPageToken,
+      participantsFilter: Option[NonEmpty[Set[ParticipantId]]],
+      pageLimit: Int,
+      participantStartExclusive: Option[ParticipantId] = None,
   )(implicit
       tc: TraceContext
   ): EitherT[
@@ -369,27 +367,25 @@ class PackageOpsImpl(
             asOfInclusive = true,
             isProposal = false,
             types = Seq(VettedPackages.code),
-            filterUid = participantIds.map(_.toSeq.map(_.uid)),
+            filterUid = participantsFilter.map(_.toSeq.map(_.uid)),
             filterNamespace = None,
+            pagination = Some((participantStartExclusive.map(_.uid), pageLimit)),
           )
           .map { result =>
             val transactions = result
               .collectOfMapping[VettedPackages]
-              .collectLatestByUniqueKey
               .result
 
-            val vettedPackages =
-              transactions
-                .map { currentMapping =>
-                  ParticipantVettedPackages(
-                    currentMapping.mapping.packages,
-                    currentMapping.mapping.participantId,
-                    topologyManager.psid.logical,
-                    currentMapping.serial,
-                  )
-                }
-
-            pageToken.sortAndFilterVettedPackages(vettedPackages)
+            transactions
+              .map { currentMapping =>
+                ParticipantVettedPackages(
+                  currentMapping.mapping.packages,
+                  currentMapping.mapping.participantId,
+                  topologyManager.psid.logical,
+                  currentMapping.serial,
+                )
+              }
+              .sorted(PageToken.orderingVettedPackages)
           }
       )
     )

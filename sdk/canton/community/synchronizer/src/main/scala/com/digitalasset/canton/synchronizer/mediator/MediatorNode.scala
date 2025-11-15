@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.mediator
 
+import cats.Eval
 import cats.data.{EitherT, OptionT}
 import cats.syntax.either.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
@@ -231,6 +232,9 @@ class MediatorNodeBootstrap(
   private lazy val deferredSequencerClientHealth =
     MutableHealthComponent(loggerFactory, SequencerClient.healthName, timeouts)
 
+  private val deferredSequencerConnectionPoolHealthRef =
+    new AtomicReference[() => Seq[HealthQuasiComponent]](() => Seq.empty)
+
   override protected def mkNodeHealthService(
       storage: Storage
   ): (DependenciesHealthService, LivenessHealthService) = {
@@ -239,8 +243,11 @@ class MediatorNodeBootstrap(
         "mediator",
         logger,
         timeouts,
-        Seq(storage),
-        softDependencies = Seq(deferredSequencerClientHealth),
+        criticalDependencies = Seq(storage),
+        softDependencies = Eval.always(
+          deferredSequencerClientHealth +:
+            deferredSequencerConnectionPoolHealthRef.get.apply()
+        ),
       )
 
     val liveness = LivenessHealthService(
@@ -734,6 +741,9 @@ class MediatorNodeBootstrap(
 
       _ = sequencerClientRef.set(sequencerClient)
       _ = deferredSequencerClientHealth.set(sequencerClient.healthComponent)
+      _ = deferredSequencerConnectionPoolHealthRef.set(() =>
+        sequencerClient.getConnectionPoolHealthStatus
+      )
 
       timeTracker = SynchronizerTimeTracker(
         config.timeTracker,
@@ -826,8 +836,8 @@ object MediatorNodeBootstrap {
     * all sends requested and events received to the directory specified by the recording config. A
     * new recording starts whenever the synchronizer is restarted.
     */
-  @VisibleForTesting
-  val recordSequencerInteractions: AtomicReference[PartialFunction[Member, RecordingConfig]] =
+  private[canton] val recordSequencerInteractions
+      : AtomicReference[PartialFunction[Member, RecordingConfig]] =
     new AtomicReference(PartialFunction.empty)
 
   /** If the function maps `member` to `path`, the sequencer client for `member` will replay events

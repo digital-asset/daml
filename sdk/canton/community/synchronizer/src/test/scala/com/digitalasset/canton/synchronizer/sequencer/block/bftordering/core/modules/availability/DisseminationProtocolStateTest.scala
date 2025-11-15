@@ -21,7 +21,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   SequencingParameters,
 }
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.util.MaxBytesToDecompress
 import org.scalatest.wordspec.AnyWordSpec
 
 class DisseminationProtocolStateTest
@@ -117,6 +116,22 @@ class DisseminationProtocolStateTest
       }
     }
   }
+
+  import DisseminationProtocolStateTest.*
+
+  private def orderingTopologyWith(nodeId: BftNodeId, keyId: BftKeyId): OrderingTopology =
+    OrderingTopology(
+      nodesTopologyInfo = Map(
+        nodeId -> NodeTopologyInfo(
+          AnActivationTime,
+          Set(keyId),
+        )
+      ),
+      SequencingParameters.Default, // irrelevant for this test
+      defaultMaxBytesToDecompress, // irrelevant for this test
+      AnActivationTime, // irrelevant for this test
+      areTherePendingCantonTopologyChanges = false, // irrelevant for this test
+    )
 }
 
 object DisseminationProtocolStateTest {
@@ -128,20 +143,6 @@ object DisseminationProtocolStateTest {
   private val SomeStats = OrderingRequestBatchStats(0, 0)
   private val AnEpochNumber = EpochNumber.First
   private val ANodeId = BftNodeId("node1")
-
-  private def orderingTopologyWith(nodeId: BftNodeId, keyId: BftKeyId): OrderingTopology =
-    OrderingTopology(
-      nodesTopologyInfo = Map(
-        nodeId -> NodeTopologyInfo(
-          AnActivationTime,
-          Set(keyId),
-        )
-      ),
-      SequencingParameters.Default, // irrelevant for this test
-      MaxBytesToDecompress.Default, // irrelevant for this test
-      AnActivationTime, // irrelevant for this test
-      areTherePendingCantonTopologyChanges = false, // irrelevant for this test
-    )
 
   private def disseminatedBatchMetadataWith(
       epochNumber: EpochNumber,

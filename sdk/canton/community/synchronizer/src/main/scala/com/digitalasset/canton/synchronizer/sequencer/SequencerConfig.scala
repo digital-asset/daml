@@ -10,7 +10,6 @@ import com.digitalasset.canton.config.{
   CantonConfigValidator,
   CantonConfigValidatorInstances,
   DbLockedConnectionPoolConfig,
-  EnterpriseOnlyCantonConfigValidation,
   NonNegativeFiniteDuration,
   PositiveDurationSeconds,
   PositiveFiniteDuration,
@@ -135,7 +134,7 @@ object SequencerConfig {
       connectionPool: DbLockedConnectionPoolConfig = DbLockedConnectionPoolConfig(),
       exclusiveStorage: DatabaseSequencerExclusiveStorageConfig =
         DatabaseSequencerExclusiveStorageConfig(),
-  ) extends EnterpriseOnlyCantonConfigValidation {
+  ) extends UniformCantonConfigValidation {
     lazy val isEnabled: Boolean = enabled.contains(true)
     def toOnlineSequencerCheckConfig: OnlineSequencerCheckConfig =
       OnlineSequencerCheckConfig(onlineCheckInterval, offlineDuration)
@@ -163,7 +162,7 @@ object SequencerConfig {
         ),
       // by default provide one connection each for reads and writes to keep exclusive storage light-weight.
       maxConnections: PositiveInt = PositiveInt.tryCreate(2),
-  ) extends EnterpriseOnlyCantonConfigValidation
+  ) extends UniformCantonConfigValidation
 
   object DatabaseSequencerExclusiveStorageConfig {
     implicit val databaseSequencerExclusiveStorageConfigCantonConfigValidator

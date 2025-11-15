@@ -198,7 +198,7 @@ class DbInFlightSubmissionStore(
         override def executeBatch(items: NonEmpty[Seq[Traced[SequencedRootHash]]])(implicit
             traceContext: TraceContext,
             callerCloseContext: CloseContext,
-        ): FutureUnlessShutdown[Iterable[Unit]] = {
+        ): FutureUnlessShutdown[immutable.Iterable[Unit]] = {
           def setParams(pp: PositionedParameters)(data: Traced[SequencedRootHash]): Unit = {
             val Traced(SequencedRootHash(rootHash, submission)) = data
             val SequencedSubmission(ts) = submission
@@ -376,7 +376,7 @@ object DbInFlightSubmissionStore {
     )(implicit
         traceContext: TraceContext,
         callerCloseContext: CloseContext,
-    ): FutureUnlessShutdown[Iterable[Try[Result]]] = {
+    ): FutureUnlessShutdown[immutable.Iterable[Try[Result]]] = {
 
       type SubmissionAndCell =
         BulkUpdatePendingCheck[InFlightSubmission[UnsequencedSubmission], Result]

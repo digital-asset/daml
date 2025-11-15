@@ -99,8 +99,8 @@ sealed abstract class MaxRequestSizeCrashIntegrationTest
 
   // High request size
   private val overrideMaxRequestSize = NonNegativeInt.tryCreate(30_000)
-  // Request size chosen so that even TimeProof requests are rejected
-  private val lowMaxRequestSize = NonNegativeInt.zero
+  // Too low to allow create command to succeed. High enough for parameters to be updatable.
+  private val lowMaxRequestSize = NonNegativeInt.tryCreate(500)
 
   "Canton" should {
     "recover from failure due to too small request size " in { implicit env =>

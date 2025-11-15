@@ -207,7 +207,7 @@ private[endpoint] class ChannelStageSecurelyConnected(data: InternalData)(implic
       //  use SequencerChannelClientEndpoint.timestamp for lookup.
       decompressed <- EitherT.fromEither[FutureUnlessShutdown](
         ByteStringUtil
-          .decompressGzip(decrypted, MaxBytesToDecompress.Default)
+          .decompressGzip(decrypted, MaxBytesToDecompress.HardcodedDefault)
           .leftMap(err => s"Failed to decompress payload: ${err.message}")
       )
       _ <- data.processor.handlePayload(decompressed)(traceContext)

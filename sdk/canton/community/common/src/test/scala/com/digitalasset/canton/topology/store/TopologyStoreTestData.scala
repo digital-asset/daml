@@ -305,4 +305,36 @@ class TopologyStoreTestData(
       )
       .getOrElse(fail())
   )(dnd_p1p2_keys*)
+
+  val vp1Key = factory.SigningKeys.key1
+  val vp1Namespace = Namespace(p1Key.fingerprint)
+  val vp1Id = ParticipantId(UniqueIdentifier.tryCreate("vettingparticipantA", vp1Namespace))
+
+  val vp2Key = factory.SigningKeys.key2
+  val vp2Namespace = Namespace(p2Key.fingerprint)
+  val vp2Id = ParticipantId(UniqueIdentifier.tryCreate("vettingparticipant1", vp2Namespace))
+
+  val vp3Key = factory.SigningKeys.key3
+  val vp3Namespace = Namespace(p3Key.fingerprint)
+  val vp3Id = ParticipantId(UniqueIdentifier.tryCreate("vettingparticipant", vp3Namespace))
+
+  val dnd_vp123_keys = NonEmpty(Seq, vp1Key, vp2Key, vp3Key)
+  val dns_vp123 = DecentralizedNamespaceDefinition.computeNamespace(
+    Set(vp1Namespace, vp2Namespace, vp3Namespace)
+  )
+  val da_vp123_physicalSynchronizerId =
+    SynchronizerId(UniqueIdentifier.tryCreate("da", dns_vp123)).toPhysical
+  val da_vp123_synchronizerId = da_vp123_physicalSynchronizerId.logical
+
+  val vp_vp1_synchronizer1 = makeSignedTx(
+    VettedPackages.tryCreate(vp1Id, Seq())
+  )((vp1Key))
+
+  val vp_vp2_synchronizer1 = makeSignedTx(
+    VettedPackages.tryCreate(vp2Id, Seq())
+  )((vp2Key))
+
+  val vp_vp3_synchronizer1 = makeSignedTx(
+    VettedPackages.tryCreate(vp3Id, Seq())
+  )((vp3Key))
 }

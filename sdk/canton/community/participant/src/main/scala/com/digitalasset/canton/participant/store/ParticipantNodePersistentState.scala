@@ -111,8 +111,6 @@ object ParticipantNodePersistentState extends HasLoggerName {
         loggerFactory = loggerFactory,
       )
 
-    val pruningStore = ParticipantPruningStore(storage, timeouts, loggerFactory)
-
     implicit val loggingContext: NamedLoggingContext =
       NamedLoggingContext(loggerFactory, traceContext)
     val logger = loggingContext.tracedLogger
@@ -174,6 +172,7 @@ object ParticipantNodePersistentState extends HasLoggerName {
     for {
       _ <- settingsStore.refreshCache()
       _ <- maxDeduplicationDurationO.traverse_(checkOrSetMaxDedupDuration)
+      pruningStore <- ParticipantPruningStore(storage, timeouts, loggerFactory)
       ledgerApiStore <-
         LedgerApiStore.initialize(
           storageConfig = storageConfig,

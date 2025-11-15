@@ -291,7 +291,7 @@ final class InteractiveSubmissionServiceIT extends LedgerTestSuite with CommandS
         .mustFailWith(
           "Invalid signature",
           InteractiveSubmissionExecuteError.code,
-          Some("Received 0 valid signatures (1 invalid)"),
+          Some("Received 0 valid signatures from distinct keys (1 invalid)"),
         )
     } yield ()
   })
@@ -321,7 +321,7 @@ final class InteractiveSubmissionServiceIT extends LedgerTestSuite with CommandS
         .mustFailWith(
           "Invalid signature",
           InteractiveSubmissionExecuteError.code,
-          Some("Received 0 valid signatures (1 invalid)"),
+          Some("Received 0 valid signatures from distinct keys (1 invalid)"),
         )
     } yield ()
   })

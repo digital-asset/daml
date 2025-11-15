@@ -221,6 +221,7 @@ final class BlockChunkProcessor(
       state: BlockUpdateGeneratorImpl.State,
       height: Long,
       tickAtLeastAt: CantonTimestamp,
+      groupRecipient: Either[AllMembersOfSynchronizer.type, SequencersOfSynchronizer.type],
   )(implicit ec: ExecutionContext, tc: TraceContext): FutureUnlessShutdown[(State, ChunkUpdate)] = {
     // The block orderer requests a topology tick to advance the topology processor's time knowledge
     //  whenever it assesses that it may need to retrieve an up-to-date topology snapshot at a certain
@@ -264,9 +265,9 @@ final class BlockChunkProcessor(
       _ = logger.debug(
         s"Obtained topology snapshot for topology tick at $tickSequencingTimestamp after processing block $height"
       )
-      sequencerRecipients <-
+      recipients <-
         GroupAddressResolver.resolveGroupsToMembers(
-          Set(SequencersOfSynchronizer),
+          Set(groupRecipient.fold(_ => AllMembersOfSynchronizer, _ => SequencersOfSynchronizer)),
           snapshot.ipsSnapshot,
         )
     } yield {
@@ -293,7 +294,7 @@ final class BlockChunkProcessor(
             protocolVersion = protocolVersion,
           ),
           sequencingTime = tickSequencingTimestamp,
-          deliverToMembers = sequencerRecipients(SequencersOfSynchronizer),
+          deliverToMembers = recipients(groupRecipient.merge),
           batch = Batch.empty(protocolVersion),
           submissionTraceContext = TraceContext.createNew("emit_tick"),
           trafficReceiptO = None,

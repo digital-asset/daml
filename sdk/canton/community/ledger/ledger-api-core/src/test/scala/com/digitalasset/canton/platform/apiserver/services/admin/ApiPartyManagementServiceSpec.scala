@@ -534,7 +534,7 @@ class ApiPartyManagementServiceSpec
                 .fromByteString(testedProtocolVersion, tx.transaction)
                 .value
                 .selectMapping[PartyToKeyMapping]
-                .map(p2k => updatedTransaction(p2k.mapping.signingKeysNE))
+                .map(p2k => updatedTransaction(p2k.mapping.signingKeys.toSeq))
                 .map { updatedTx =>
                   SignedTransaction(updatedTx.toByteString, tx.signatures)
                 }

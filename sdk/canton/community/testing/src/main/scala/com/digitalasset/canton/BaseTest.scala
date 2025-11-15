@@ -16,13 +16,16 @@ import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCryptoProvider
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLogging, SuppressingLogger}
 import com.digitalasset.canton.metrics.OpenTelemetryOnDemandMetricsReader
-import com.digitalasset.canton.protocol.StaticSynchronizerParameters
+import com.digitalasset.canton.protocol.{
+  DynamicSynchronizerParameters,
+  StaticSynchronizerParameters,
+}
 import com.digitalasset.canton.telemetry.ConfiguredOpenTelemetry
 import com.digitalasset.canton.time.{NonNegativeFiniteDuration, WallClock}
 import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext, W3CTraceContext}
-import com.digitalasset.canton.util.CheckedT
 import com.digitalasset.canton.util.FutureInstances.*
+import com.digitalasset.canton.util.{CheckedT, MaxBytesToDecompress}
 import com.digitalasset.canton.version.{
   ProtocolVersion,
   ProtocolVersionValidation,
@@ -70,6 +73,9 @@ trait TestEssentials
     with org.mockito.MockitoSugar
     with ArgumentMatchersSugar
     with NamedLogging {
+
+  protected def defaultMaxBytesToDecompress: MaxBytesToDecompress =
+    BaseTest.defaultMaxBytesToDecompress
 
   protected def timeouts: ProcessingTimeout = DefaultProcessingTimeouts.testing
 
@@ -576,6 +582,11 @@ object BaseTest {
       protocolVersion = protocolVersion,
       serial = NonNegativeInt.zero,
     )
+
+  lazy val defaultMaxBytesToDecompress: MaxBytesToDecompress = MaxBytesToDecompress(
+    // TODO(i29003): Define our own param for this.
+    DynamicSynchronizerParameters.defaultMaxRequestSize.value
+  )
 
   lazy val testedProtocolVersion: ProtocolVersion = ProtocolVersion.forSynchronizer
 

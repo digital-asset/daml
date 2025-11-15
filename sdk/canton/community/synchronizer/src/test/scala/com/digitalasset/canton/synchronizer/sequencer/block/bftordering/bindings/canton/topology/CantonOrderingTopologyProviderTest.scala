@@ -29,7 +29,6 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.MaxBytesToDecompress
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -136,7 +135,7 @@ class CantonOrderingTopologyProviderTest
                     keyIds = Set(FingerprintKeyId.toBftKeyId(pk.id)),
                   )
                 )
-              orderingTopology.maxBytesToDecompress shouldBe MaxBytesToDecompress.Default
+              orderingTopology.maxBytesToDecompress shouldBe defaultMaxBytesToDecompress
             }
       }
     }

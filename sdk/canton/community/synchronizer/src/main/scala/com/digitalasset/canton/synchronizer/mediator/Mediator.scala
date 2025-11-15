@@ -3,12 +3,13 @@
 
 package com.digitalasset.canton.synchronizer.mediator
 
-import cats.data.{EitherT, NonEmptySeq}
+import cats.data.EitherT
 import cats.implicits.toFoldableOps
 import cats.instances.future.*
 import cats.syntax.bifunctor.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.SynchronizerCryptoClient
@@ -46,7 +47,7 @@ import com.digitalasset.canton.topology.{
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.EitherUtil.RichEither
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.{FutureUnlessShutdownUtil, FutureUtil}
+import com.digitalasset.canton.util.{EitherTUtil, FutureUnlessShutdownUtil, FutureUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import io.opentelemetry.api.trace.Tracer
@@ -185,7 +186,7 @@ private[mediator] class Mediator(
             .flatMap(snapshot => snapshot.listDynamicSynchronizerParametersChanges())
         )
 
-      _ <- NonEmptySeq.fromSeq(synchronizerParametersChanges) match {
+      _ <- NonEmpty.from(synchronizerParametersChanges) match {
         case Some(synchronizerParametersChangesNes) =>
           prune(
             pruneAt = timestamp,
@@ -205,25 +206,18 @@ private[mediator] class Mediator(
   private def prune(
       pruneAt: CantonTimestamp,
       cleanTimestamp: CantonTimestamp,
-      synchronizerParametersChanges: NonEmptySeq[DynamicSynchronizerParametersWithValidity],
+      synchronizerParametersChanges: NonEmpty[Seq[DynamicSynchronizerParametersWithValidity]],
   )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, PruningError, Unit] = {
-    val latestSafePruningTsO = Mediator.latestSafePruningTsBefore(
+    val latestSafePruningTs = Mediator.latestSafePruningTsBefore(
       synchronizerParametersChanges,
       cleanTimestamp,
     )
 
     for {
-      _ <- EitherT.fromEither[FutureUnlessShutdown] {
-        latestSafePruningTsO
-          .toRight(PruningError.MissingSynchronizerParametersForValidPruningTsComputation(pruneAt))
-          .flatMap { latestSafePruningTs =>
-            Either.cond[PruningError, Unit](
-              pruneAt <= latestSafePruningTs,
-              (),
-              PruningError.CannotPruneAtTimestamp(pruneAt, latestSafePruningTs),
-            )
-          }
-      }
+      _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
+        pruneAt <= latestSafePruningTs,
+        PruningError.CannotPruneAtTimestamp(pruneAt, latestSafePruningTs),
+      )
 
       _ = logger.debug(show"Pruning finalized responses up to [$pruneAt]")
       _ <- EitherT.right(state.prune(pruneAt))
@@ -361,13 +355,6 @@ private[mediator] object Mediator {
       lazy val message: String = "There is no mediator data available for pruning"
     }
 
-    /** Dynamic synchronizer parameters available for ts were not found */
-    final case class MissingSynchronizerParametersForValidPruningTsComputation(ts: CantonTimestamp)
-        extends PruningError {
-      override def message: String =
-        show"Dynamic synchronizer parameters to compute earliest available pruning timestamp not found for ts [$ts]"
-    }
-
     /** The mediator can prune some data but data for the requested timestamp cannot yet be removed
       */
     final case class CannotPruneAtTimestamp(
@@ -379,35 +366,41 @@ private[mediator] object Mediator {
     }
   }
 
-  sealed trait PruningSafetyCheck extends Product with Serializable
-  case object Safe extends PruningSafetyCheck
-  final case class SafeUntil(ts: CantonTimestamp) extends PruningSafetyCheck
-
-  private[mediator] def checkPruningStatus(
+  /** Returns the latest safe pruning timestamp on behalf of requests governed by the provided
+    * synchronizer parameters and relative to the clean timestamp and the timeout determined by the
+    * "confirmationResponseTimeout" synchronizer parameter.
+    *
+    * If no requests can be pending anymore (or "yet" in the case of future parameters), return the
+    * most "permissive" safe pruning timestamp consisting of the clean timestamp.
+    */
+  private[mediator] def latestSafePruningTsForSynchronizerParameters(
       synchronizerParameters: DynamicSynchronizerParametersWithValidity,
       cleanTs: CantonTimestamp,
-  ): PruningSafetyCheck = {
+  ): CantonTimestamp = {
     lazy val timeout = synchronizerParameters.parameters.confirmationResponseTimeout
     lazy val cappedSafePruningTs = synchronizerParameters.validFrom.max(cleanTs - timeout)
 
     if (cleanTs <= synchronizerParameters.validFrom) // If these parameters apply only to the future
-      Safe
+      cleanTs
     else {
       synchronizerParameters.validUntil match {
-        case None => SafeUntil(cappedSafePruningTs)
-        case Some(validUntil) if cleanTs <= validUntil => SafeUntil(cappedSafePruningTs)
+        case None => cappedSafePruningTs
         case Some(validUntil) =>
-          if (validUntil + timeout <= cleanTs) Safe else SafeUntil(cappedSafePruningTs)
+          // cleanTs falls within the validity period of the synchronizer parameters
+          if (cleanTs <= validUntil) cappedSafePruningTs
+          // requests governed by the synchronizer parameters have all been processed completely
+          else if (validUntil + timeout <= cleanTs) cleanTs
+          // some pending requests governed by the synchronizer parameters could still time out
+          else cappedSafePruningTs
       }
     }
   }
 
   /** Returns the latest safe pruning ts which is <= cleanTs */
   private[mediator] def latestSafePruningTsBefore(
-      allSynchronizerParametersChanges: NonEmptySeq[DynamicSynchronizerParametersWithValidity],
+      allSynchronizerParametersChanges: NonEmpty[Seq[DynamicSynchronizerParametersWithValidity]],
       cleanTs: CantonTimestamp,
-  ): Option[CantonTimestamp] = allSynchronizerParametersChanges
-    .map(checkPruningStatus(_, cleanTs))
-    .collect { case SafeUntil(ts) => ts }
-    .minOption
+  ): CantonTimestamp = allSynchronizerParametersChanges
+    .map(latestSafePruningTsForSynchronizerParameters(_, cleanTs))
+    .min1
 }

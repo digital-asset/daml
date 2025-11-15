@@ -34,7 +34,6 @@ import com.digitalasset.canton.synchronizer.sequencing.traffic.{
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.MaxBytesToDecompress
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import io.opentelemetry.api.trace
@@ -125,7 +124,6 @@ abstract class BlockSequencerFactory(
       rateLimitManager: SequencerRateLimitManager,
       orderingTimeFixMode: OrderingTimeFixMode,
       sequencingTimeLowerBoundExclusive: Option[CantonTimestamp],
-      maxBytesToDecompress: MaxBytesToDecompress,
       synchronizerLoggerFactory: NamedLoggerFactory,
       runtimeReady: FutureUnlessShutdown[Unit],
   )(implicit
@@ -241,8 +239,6 @@ abstract class BlockSequencerFactory(
     val synchronizerLoggerFactory =
       loggerFactory.append("psid", synchronizerSyncCryptoApi.psid.toString)
 
-    val maxBytesToDecompress = MaxBytesToDecompress.Default
-
     for {
       initialBlockHeight <- FutureUnlessShutdown(Future.successful(initialBlockHeight))
       _ <- balanceManager.initialize
@@ -283,7 +279,6 @@ abstract class BlockSequencerFactory(
         rateLimitManager,
         orderingTimeFixMode,
         sequencingTimeLowerBoundExclusive,
-        maxBytesToDecompress,
         synchronizerLoggerFactory,
         runtimeReady,
       )

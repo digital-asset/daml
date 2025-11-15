@@ -113,7 +113,7 @@ class DbContractStore(
         override def executeBatch(ids: NonEmpty[Seq[Traced[LfContractId]]])(implicit
             traceContext: TraceContext,
             callerCloseContext: CloseContext,
-        ): FutureUnlessShutdown[Iterable[Option[PersistedContractInstance]]] =
+        ): FutureUnlessShutdown[immutable.Iterable[Option[PersistedContractInstance]]] =
           storage.query(lookupQuery(ids.map(_.value)), functionFullName)(
             traceContext,
             callerCloseContext,
@@ -281,7 +281,7 @@ class DbContractStore(
       override def executeBatch(items: NonEmpty[Seq[Traced[ContractInstance]]])(implicit
           traceContext: TraceContext,
           callerCloseContext: CloseContext,
-      ): FutureUnlessShutdown[Iterable[Try[Unit]]] =
+      ): FutureUnlessShutdown[immutable.Iterable[Try[Unit]]] =
         bulkUpdateWithCheck(items, "DbContractStore.insert")(traceContext, self.closeContext)
 
       override protected def bulkUpdateAction(items: NonEmpty[Seq[Traced[ContractInstance]]])(

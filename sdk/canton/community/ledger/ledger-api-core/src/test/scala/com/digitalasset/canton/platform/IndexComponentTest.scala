@@ -149,7 +149,7 @@ trait IndexComponentTest
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
 
     val engine = new Engine(
-      EngineConfig(LanguageVersion.stableRange)
+      EngineConfig(LanguageVersion.stableLfVersionsRange)
     )
     val mutableLedgerEndCache = MutableLedgerEndCache()
     val stringInterningView = new StringInterningView(loggerFactory)

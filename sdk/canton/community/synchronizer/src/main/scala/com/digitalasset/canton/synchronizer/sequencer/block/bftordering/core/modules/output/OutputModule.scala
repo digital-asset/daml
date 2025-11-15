@@ -10,6 +10,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.sequencing.protocol.AllMembersOfSynchronizer
 import com.digitalasset.canton.synchronizer.block.BlockFormat
+import com.digitalasset.canton.synchronizer.block.BlockFormat.Block.TickTopology
 import com.digitalasset.canton.synchronizer.block.BlockFormat.OrderedRequest
 import com.digitalasset.canton.synchronizer.block.LedgerBlockEvent.deserializeSignedSubmissionRequest
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
@@ -471,9 +472,15 @@ class OutputModule[E <: Env[E]](
               blockSubscription.receiveBlock(
                 BlockFormat.Block(
                   orderedBlockNumber,
+                  orderedBlockBftTime.toMicros,
                   blockDataToOrderedRequests(orderedBlockData, orderedBlockBftTime),
-                  tickTopologyAtMicrosFromEpoch = Option.when(tickTopology)(
-                    BftTime.epochEndBftTime(orderedBlockBftTime, orderedBlockData).toMicros
+                  tickTopology = Option.when(tickTopology)(
+                    TickTopology(
+                      BftTime
+                        .epochEndBftTime(orderedBlockBftTime, orderedBlockData)
+                        .toMicros,
+                      broadcast = false, // Address only to sequencers
+                    )
                   ),
                 )
               )(blockTraceContext)

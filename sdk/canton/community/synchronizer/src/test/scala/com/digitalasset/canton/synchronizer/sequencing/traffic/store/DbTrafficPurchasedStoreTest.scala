@@ -56,7 +56,7 @@ trait DbTrafficPurchasedStoreTest
 
       (
         new DbTrafficPurchasedStore(
-          BatchAggregatorConfig.NoBatching,
+          BatchAggregatorConfig.NoAutoBatching(),
           storage,
           timeouts,
           loggerFactory,
