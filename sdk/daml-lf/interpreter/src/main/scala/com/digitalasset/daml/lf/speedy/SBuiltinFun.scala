@@ -1668,31 +1668,6 @@ private[lf] object SBuiltinFun {
     }
   }
 
-  final case class SBGuardRequiredInterfaceId(
-      requiredIfaceId: TypeConId,
-      requiringIfaceId: TypeConId,
-  ) extends SBuiltinFun(2) {
-    override private[speedy] def execute[Q](
-        args: ArraySeq[SValue],
-        machine: Machine[Q],
-    ): Control[Nothing] = {
-      val contractId = getSContractId(args, 0)
-      val (actualTmplId, _) = getSAnyContract(args, 1)
-      if (!interfaceInstanceExists(machine, requiringIfaceId, actualTmplId)) {
-        Control.Error(
-          IE.ContractDoesNotImplementRequiringInterface(
-            requiringIfaceId,
-            requiredIfaceId,
-            contractId,
-            actualTmplId,
-          )
-        )
-      } else {
-        Control.Value(SBool(true))
-      }
-    }
-  }
-
   final case class SBResolveSBUBeginExercise(
       interfaceId: TypeConId,
       choiceName: ChoiceName,
