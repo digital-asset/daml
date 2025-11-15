@@ -53,7 +53,7 @@ import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.topology.store.{NoPackageDependencies, ValidatedTopologyTransaction}
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext, Traced}
-import com.digitalasset.canton.util.{MaxBytesToDecompress, PekkoUtil}
+import com.digitalasset.canton.util.PekkoUtil
 import com.digitalasset.canton.{
   BaseTest,
   HasExecutionContext,
@@ -370,7 +370,6 @@ class SequencerStateManagerTest
       orderingTimeFixMode = OrderingTimeFixMode.MakeStrictlyIncreasing,
       sequencingTimeLowerBoundExclusive =
         SequencerNodeParameterConfig.DefaultSequencingTimeLowerBoundExclusive,
-      MaxBytesToDecompress.Default,
       SequencerTestMetrics,
       loggerFactory,
       memberValidator = new SequencerMemberValidator {
@@ -458,7 +457,15 @@ class SequencerStateManagerTest
         .collect { case Send(ts, _, _, _) => ts }
         .maxOption
         .getOrElse(processingTimestampWatermark.get())
-      processingQueue.offer(Traced(BlockEvents(height, events.map(Traced(_)))))
+      processingQueue.offer(
+        Traced(
+          BlockEvents(
+            height,
+            CantonTimestamp.Epoch, // Not relevant for the test
+            events.map(Traced(_)),
+          )
+        )
+      )
       eventually() {
         processingTimestampWatermark.get() should be >= maxTs
       }

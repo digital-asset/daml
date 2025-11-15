@@ -210,6 +210,7 @@ object FutureTraverseTest {
     implicit def wannabeFutureApplicative: Applicative[WannabeFuture] = ???
   }
 
+  @AllowTraverseSingleContainer // Scala 3 impl needs the annotation on the type
   final case class SourceTest[T](value: T)
   object SourceTest {
     @AllowTraverseSingleContainer

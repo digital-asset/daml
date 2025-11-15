@@ -39,7 +39,7 @@ trait DbBulkUpdateProcessor[A, B] extends BatchAggregator.Processor[A, Try[B]] {
   protected def bulkUpdateWithCheck(items: NonEmpty[Seq[Traced[A]]], queryBaseName: String)(implicit
       traceContext: TraceContext,
       closeContext: CloseContext,
-  ): FutureUnlessShutdown[Iterable[Try[B]]] = {
+  ): FutureUnlessShutdown[immutable.Iterable[Try[B]]] = {
     val bulkUpdate = bulkUpdateAction(items)
     for {
       updateCounts <- storage.queryAndUpdate(bulkUpdate, s"$queryBaseName update")

@@ -1671,7 +1671,7 @@ class TopologyAdministrationGroup(
         psid.protocolVersion,
       )
 
-      val newKeys = updatedTransaction.mapping.signingKeysNE.diff(current.item.signingKeysNE)
+      val newKeys = updatedTransaction.mapping.signingKeys.diff(current.item.signingKeys)
       // New keys should sign the transaction
       val newSignatures = newKeys.map { newKey =>
         consoleEnvironment.global_secret.sign(
@@ -1690,7 +1690,7 @@ class TopologyAdministrationGroup(
       val signedTopologyTransaction = SignedTopologyTransaction.withTopologySignatures(
         updatedTransaction,
         NonEmpty
-          .mk(Seq, namespaceSignature, newSignatures*)
+          .mk(Seq, namespaceSignature, newSignatures.toSeq*)
           .map(SingleTransactionSignature(updatedTransaction.hash, _)),
         isProposal = false,
         protocolVersion = psid.protocolVersion,

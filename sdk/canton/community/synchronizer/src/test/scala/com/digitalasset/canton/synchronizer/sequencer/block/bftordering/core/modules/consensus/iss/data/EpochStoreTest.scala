@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data
 
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.BftSequencerBaseTest
@@ -40,6 +41,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   Prepare,
   ViewChange,
 }
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
@@ -66,7 +68,7 @@ trait EpochStoreTest extends AsyncWordSpec {
         )
         val epoch0 = Epoch(
           epochInfo0,
-          commitMessages0,
+          commitMessages0.map(_.value),
         )
 
         val epochNumber1 = 10L
@@ -80,7 +82,7 @@ trait EpochStoreTest extends AsyncWordSpec {
         )
         val epoch1 = Epoch(
           epochInfo1,
-          commitMessages1,
+          commitMessages1.map(_.value),
         )
 
         for {
@@ -161,7 +163,9 @@ trait EpochStoreTest extends AsyncWordSpec {
           _ <- store.startEpoch(activeEpoch0Info)
 
           _ <- store.addPrePrepare(prePrepare(EpochNumber.First, BlockNumber.First))
-          _ <- store.addPreparesAtomically(Seq(prepare(EpochNumber.First, BlockNumber.First)))
+          _ <- store.addPreparesAtomically(
+            NonEmpty(Seq, Traced(prepare(EpochNumber.First, BlockNumber.First)))
+          )
 
           _ <- addOrderedBlock(EpochNumber.First, BlockNumber.First)
           _ <- addOrderedBlock(EpochNumber.First, 1L)
@@ -169,7 +173,7 @@ trait EpochStoreTest extends AsyncWordSpec {
 
           // these will appear in loadEpochProgress as pbftMessagesForIncompleteBlocks because block 3 is not complete
           _ <- store.addPrePrepare(prePrepare(EpochNumber.First, 3L))
-          _ <- store.addPreparesAtomically(Seq(prepare(EpochNumber.First, 3L)))
+          _ <- store.addPreparesAtomically(NonEmpty(Seq, Traced(prepare(EpochNumber.First, 3L))))
 
           // view change messages will appear always because we don't check in the DB if the segment has finished
           _ <- store.addViewChangeMessage(viewChange(EpochNumber.First, 0L))
@@ -180,7 +184,7 @@ trait EpochStoreTest extends AsyncWordSpec {
             prePrepare(EpochNumber.First, 3L, viewNumber = ViewNumber.First + 1)
           )
           _ <- store.addPreparesAtomically(
-            Seq(prepare(EpochNumber.First, 3L, viewNumber = ViewNumber.First + 1))
+            NonEmpty(Seq, Traced(prepare(EpochNumber.First, 3L, viewNumber = ViewNumber.First + 1)))
           )
 
           e0 <- store.loadEpochProgress(activeEpoch0Info)
@@ -212,7 +216,7 @@ trait EpochStoreTest extends AsyncWordSpec {
                     BlockNumber(n),
                     CommitCertificate(
                       prePrepare(activeEpoch0Info.number, n),
-                      commitMessages(activeEpoch0Info.number, n),
+                      commitMessages(activeEpoch0Info.number, n).map(_.value),
                     ),
                   )
                 ) &&
@@ -235,7 +239,7 @@ trait EpochStoreTest extends AsyncWordSpec {
                 BlockNumber(n),
                 CommitCertificate(
                   prePrepare(activeEpoch1Info.number, n),
-                  commitMessages(activeEpoch1Info.number, n),
+                  commitMessages(activeEpoch1Info.number, n).map(_.value),
                 ),
               )
             ),
@@ -282,12 +286,12 @@ trait EpochStoreTest extends AsyncWordSpec {
             Block(
               EpochNumber(1L),
               BlockNumber(1L),
-              CommitCertificate(prePrepare(1L, 1L), commitMessages(1L, 1L)),
+              CommitCertificate(prePrepare(1L, 1L), commitMessages(1L, 1L).map(_.value)),
             ),
             Block(
               EpochNumber(2L),
               BlockNumber(2L),
-              CommitCertificate(prePrepare(2L, 2L), commitMessages(2L, 2L)),
+              CommitCertificate(prePrepare(2L, 2L), commitMessages(2L, 2L).map(_.value)),
             ),
           )
         }
@@ -360,7 +364,7 @@ trait EpochStoreTest extends AsyncWordSpec {
 
           _ <- store.startEpoch(epoch2)
           _ <- store.addPrePrepare(prePrepare(EpochNumber(2L), 3L))
-          _ <- store.addPreparesAtomically(Seq(prepare(EpochNumber(2L), 3L)))
+          _ <- store.addPreparesAtomically(NonEmpty(Seq, Traced(prepare(EpochNumber(2L), 3L))))
           _ <- store.addViewChangeMessage(viewChange(EpochNumber(2L), 3L))
           _ <- store.addViewChangeMessage(newView(EpochNumber(2L), 3L))
 
@@ -435,17 +439,20 @@ object EpochStoreTest {
       epochNumber: Long,
       blockNumber: Long,
       viewNumber: Long = ViewNumber.First,
-  )(implicit synchronizerProtocolVersion: ProtocolVersion) = (0L to 2L).map { i =>
-    Commit
-      .create(
-        BlockMetadata.mk(epochNumber, blockNumber),
-        ViewNumber(viewNumber),
-        Hash.digest(HashPurpose.BftOrderingPbftBlock, ByteString.EMPTY, HashAlgorithm.Sha256),
-        CantonTimestamp.Epoch,
-        from = BftNodeId(s"address$i"),
+  )(implicit synchronizerProtocolVersion: ProtocolVersion, traceContext: TraceContext) =
+    (0L to 2L).map { i =>
+      Traced(
+        Commit
+          .create(
+            BlockMetadata.mk(epochNumber, blockNumber),
+            ViewNumber(viewNumber),
+            Hash.digest(HashPurpose.BftOrderingPbftBlock, ByteString.EMPTY, HashAlgorithm.Sha256),
+            CantonTimestamp.Epoch,
+            from = BftNodeId(s"address$i"),
+          )
+          .fakeSign
       )
-      .fakeSign
-  }
+    }
 
   def viewChange(
       epochNumber: Long,

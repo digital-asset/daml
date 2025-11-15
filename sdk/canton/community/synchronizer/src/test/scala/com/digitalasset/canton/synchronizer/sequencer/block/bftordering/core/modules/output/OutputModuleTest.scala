@@ -9,6 +9,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.sequencer.admin.v30
 import com.digitalasset.canton.synchronizer.block.BlockFormat
+import com.digitalasset.canton.synchronizer.block.BlockFormat.Block.TickTopology
 import com.digitalasset.canton.synchronizer.block.BlockFormat.OrderedRequest
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.BftSequencerBaseTest.FakeSigner
@@ -721,11 +722,13 @@ class OutputModuleTest
             subscriptionBlocks should have size 2
             val block1 = subscriptionBlocks.dequeue().value
             block1.blockHeight shouldBe BlockNumber.First
-            block1.tickTopologyAtMicrosFromEpoch shouldBe None
+            block1.tickTopology shouldBe None
             val block2 = subscriptionBlocks.dequeue().value
             block2.blockHeight shouldBe BlockNumber(1)
             // We should tick even during state transfer if the epoch has potential sequencer topology changes
-            block2.tickTopologyAtMicrosFromEpoch shouldBe Some(anotherTimestamp.toMicros)
+            block2.tickTopology shouldBe Some(
+              TickTopology(anotherTimestamp.toMicros, broadcast = false)
+            )
 
             verify(topologyProviderMock, times(1)).getOrderingTopologyAt(topologyActivationTime)
             // Update the last block if needed and set up the new topology
@@ -1117,7 +1120,7 @@ class OutputModuleTest
             ),
         ),
         SequencingParameters.Default,
-        MaxBytesToDecompress.Default, // irrelevant for this test
+        defaultMaxBytesToDecompress, // irrelevant for this test
         topologyActivationTime,
         areTherePendingCantonTopologyChanges = false,
       )

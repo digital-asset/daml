@@ -207,26 +207,35 @@ object SequencerDriver {
   * @param events
   *   The events in the given block.
   * @param tickTopologyAtMicrosFromEpoch
-  *   Set by the block orderer whenever it assesses that it may need to retrieve an up-to-date
-  *   topology; it is set to the sequencing instant being used to query the topology snapshot. A
-  *   non-byzantine block orderer will set it to a sequencing time later than or equal to all
-  *   already ordered requests and earlier than 1 time tick before all future ordered requests. It
-  *   will also set it as sporadically as possible to reduce sequencer storage consumption. The
-  *   extra time tick reserved between blocks is for the sequencer to use, typically to inject an
-  *   event that will update the topology processor's latest known time, so that the block orderer
-  *   can successfully retrieve an up-to-date topology at [[tickTopologyAtMicrosFromEpoch]]. The
-  *   block orderer needs to communicate this timestamp to the sequencer because the sequencer
-  *   cannot possibly guess it, as some requests in ordered blocks may fail to be validated and be
-  *   dropped by the sequencer after the blocks are ordered.
+  *   Set by either:
+  *   - The block orderer whenever it assesses that it may need to retrieve an up-to-date topology;
+  *     in that case it is set to the sequencing instant being used to query the topology snapshot.
+  *     A non-byzantine block orderer will set it to a sequencing time later than or equal to all
+  *     already ordered requests and earlier than 1 time tick before all future ordered requests. It
+  *     will also set it as sporadically as possible to reduce sequencer storage consumption. The
+  *     extra time tick reserved between blocks is for the sequencer to use, typically to inject an
+  *     event that will update the topology processor's latest known time, so that the block orderer
+  *     can successfully retrieve an up-to-date topology at [[tickTopologyAtMicrosFromEpoch]]. The
+  *     block orderer needs to communicate this timestamp to the sequencer because the sequencer
+  *     cannot possibly guess it, as some requests in ordered blocks may fail to be validated and be
+  *     dropped by the sequencer after the blocks are ordered. In this case, the boolean is set to
+  *     `false` in order to indicate that the time tick should only be addressed to sequencers
+  *   - The sequencer, whenever it wants to inject a time tick event to update the topology
+  *     processor's latest known time because there are newly effective topology transactions, in
+  *     which case the boolean is set to `true` in order to indicate that the time tick should be
+  *     addressed to all members of synchronizer.
   */
 final case class RawLedgerBlock(
     blockHeight: Long,
+    baseSequencingTimeMicrosFromEpoch: Long,
     events: Seq[Traced[RawLedgerBlock.RawBlockEvent]],
-    tickTopologyAtMicrosFromEpoch: Option[Long] = None,
+    tickTopologyAtMicrosFromEpoch: Option[(Long, Boolean)] = None,
 )
 
 object RawLedgerBlock {
-  sealed trait RawBlockEvent extends Product with Serializable
+  sealed trait RawBlockEvent extends Product with Serializable {
+    val microsecondsSinceEpoch: Long
+  }
 
   object RawBlockEvent {
     final case class Send(

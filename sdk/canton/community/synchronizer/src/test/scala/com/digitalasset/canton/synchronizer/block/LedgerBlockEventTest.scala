@@ -55,7 +55,7 @@ class LedgerBlockEventTest extends AnyWordSpec with BaseTest {
     "deserialize submission request under the default max size limit" in {
       LedgerBlockEvent.deserializeSignedSubmissionRequest(
         testedProtocolVersion,
-        MaxBytesToDecompress.Default,
+        defaultMaxBytesToDecompress,
       )(
         byteString
       ) shouldBe Right(signedSubmissionRequest)
@@ -75,7 +75,7 @@ class LedgerBlockEventTest extends AnyWordSpec with BaseTest {
     "deserialize send" in {
       LedgerBlockEvent.fromRawBlockEvent(
         testedProtocolVersion,
-        MaxBytesToDecompress.Default,
+        defaultMaxBytesToDecompress,
       )(
         RawBlockEvent.Send(byteString, 0, sequencer.toProtoPrimitive)
       ) shouldBe Right(

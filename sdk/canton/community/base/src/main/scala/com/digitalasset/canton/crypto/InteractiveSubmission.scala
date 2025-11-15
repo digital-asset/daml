@@ -288,7 +288,7 @@ object InteractiveSubmission {
           _ <- EitherT.cond[FutureUnlessShutdown](
             validSignaturesSet.sizeIs >= signingKeysWithThreshold.threshold.unwrap,
             (),
-            s"Received ${validSignatures.size} valid signatures (${invalidSignatures.size} invalid), but expected at least ${signingKeysWithThreshold.threshold} valid for $party. " +
+            s"Received ${validSignaturesSet.size} valid signatures from distinct keys (${invalidSignatures.size} invalid), but expected at least ${signingKeysWithThreshold.threshold} valid for $party. " +
               s"Transaction hash to be signed: ${hash.toHexString}. Ensure the correct transaction hash is signed with the correct key(s).",
           )
         } yield {

@@ -31,7 +31,7 @@ import com.digitalasset.canton.error.TransactionRoutingError.{
   MalformedInputErrors,
   RoutingInternalError,
 }
-import com.digitalasset.canton.health.MutableHealthComponent
+import com.digitalasset.canton.health.{HealthQuasiComponent, MutableHealthComponent}
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.api.{
   EnrichedVettedPackages,
@@ -223,6 +223,8 @@ class CantonSyncService(
     connectionsManager.connectedSynchronizerHealth
   def ephemeralHealth: MutableHealthComponent = connectionsManager.ephemeralHealth
   def sequencerClientHealth: MutableHealthComponent = connectionsManager.sequencerClientHealth
+  def sequencerConnectionPoolHealth: () => Seq[HealthQuasiComponent] =
+    () => connectionsManager.sequencerConnectionPoolHealthRef.get.apply()
   def acsCommitmentProcessorHealth: MutableHealthComponent =
     connectionsManager.acsCommitmentProcessorHealth
 

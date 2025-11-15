@@ -5,6 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.binding
 
 import better.files.File as BFile
 import com.digitalasset.canton.crypto.{CryptoPureApi, SigningPrivateKey, SigningPublicKey, v30}
+import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.pekko.PekkoModuleSystem.{
   PekkoEnv,
@@ -77,7 +78,7 @@ class FixedFileBasedOrderingTopologyProvider(
           )
       },
       SequencingParameters.Default,
-      MaxBytesToDecompress.Default,
+      MaxBytesToDecompress(DynamicSynchronizerParameters.defaultMaxRequestSize.value),
       Genesis.GenesisTopologyActivationTime,
       areTherePendingCantonTopologyChanges = false,
     )

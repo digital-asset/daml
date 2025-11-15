@@ -122,6 +122,7 @@ class LedgerApiConformanceMultiSynchronizerTest
       lfVersion = UseLedgerApiTestTool.LfVersion.Stable,
       version = LAPITTVersion.LocalJar,
     )
+  registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(ledgerApiTestToolPlugin)
   registerPlugin(
     new UseReferenceBlockSequencer[DbConfig.Postgres](

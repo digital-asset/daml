@@ -29,6 +29,7 @@ import com.digitalasset.canton.crypto.{
 import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerPredecessor}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.health.HealthComponent.AlwaysHealthyComponent
+import com.digitalasset.canton.health.HealthQuasiComponent
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyInstances}
 import com.digitalasset.canton.logging.{LogEntry, NamedLoggerFactory, NamedLogging, TracedLogger}
@@ -1874,6 +1875,8 @@ final class SequencerClientTest
     ): Either[SequencerConnectionXPool.SequencerConnectionXPoolError, Unit] = ???
 
     override def health: SequencerConnectionXPool.SequencerConnectionXPoolHealth = ???
+
+    override def getConnectionsHealthStatus: Seq[HealthQuasiComponent] = ???
 
     override def nbSequencers: NonNegativeInt = ???
 

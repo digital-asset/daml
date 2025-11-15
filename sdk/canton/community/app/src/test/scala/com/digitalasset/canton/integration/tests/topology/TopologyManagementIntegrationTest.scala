@@ -415,6 +415,108 @@ trait TopologyManagementIntegrationTest
       offboardVladFromParticipants()
     }
 
+    "cannot submit a new PartyToParticipant with threshold > number of keys" in { implicit env =>
+      import env.*
+
+      val partyKey =
+        global_secret.keys.secret.generate_keys(PositiveInt.one, usage = SigningKeyUsage.All).head1
+
+      val partyToKeyMapping = TopologyTransaction(
+        TopologyChangeOp.Replace,
+        PositiveInt.one,
+        PartyToParticipant.tryCreate(
+          PartyId.tryCreate("alice", Namespace(partyKey.fingerprint)),
+          threshold = PositiveInt.one,
+          participants = Seq(HostingParticipant(participant2, ParticipantPermission.Confirmation)),
+          partySigningKeysWithThreshold = Some(
+            SigningKeysWithThreshold(NonEmpty.mk(Set, partyKey), PositiveInt.two)
+          ),
+        ),
+        testedProtocolVersion,
+      )
+
+      val signed = SignedTopologyTransaction
+        .create(
+          partyToKeyMapping,
+          NonEmpty.mk(
+            Set,
+            SingleTransactionSignature(
+              partyToKeyMapping.hash,
+              global_secret.sign(
+                partyToKeyMapping.hash.hash.getCryptographicEvidence,
+                partyKey.fingerprint,
+                SigningKeyUsage.All,
+              ),
+            ),
+          ),
+          isProposal = false,
+          testedProtocolVersion,
+        )
+        .value
+
+      val signedByParticipant2 = participant2.topology.transactions.sign(
+        Seq(signed),
+        store = daId,
+      )
+
+      assertThrowsAndLogsCommandFailures(
+        participant2.topology.transactions.load(
+          signedByParticipant2,
+          store = daId,
+        ),
+        _.message should include(
+          "Tried to set a signing threshold (2) above the number of signing keys (1)"
+        ),
+      )
+    }
+
+    "cannot submit a new PartyToKeyMapping with threshold > number of keys" in { implicit env =>
+      import env.*
+
+      val partyKey =
+        global_secret.keys.secret.generate_keys(PositiveInt.one, usage = SigningKeyUsage.All).head1
+
+      val partyToKeyMapping = TopologyTransaction(
+        TopologyChangeOp.Replace,
+        PositiveInt.one,
+        PartyToKeyMapping.tryCreate(
+          PartyId.tryCreate("alice", Namespace(partyKey.fingerprint)),
+          threshold = PositiveInt.two,
+          signingKeys = NonEmpty.mk(Seq, partyKey),
+        ),
+        testedProtocolVersion,
+      )
+
+      val signed = SignedTopologyTransaction
+        .create(
+          partyToKeyMapping,
+          NonEmpty.mk(
+            Set,
+            SingleTransactionSignature(
+              partyToKeyMapping.hash,
+              global_secret.sign(
+                partyToKeyMapping.hash.hash.getCryptographicEvidence,
+                partyKey.fingerprint,
+                SigningKeyUsage.All,
+              ),
+            ),
+          ),
+          isProposal = false,
+          testedProtocolVersion,
+        )
+        .value
+
+      assertThrowsAndLogsCommandFailures(
+        participant2.topology.transactions.load(
+          Seq(signed),
+          store = daId,
+        ),
+        _.message should include(
+          "Tried to set a signing threshold (2) above the number of signing keys (1)"
+        ),
+      )
+    }
+
     "cannot disable a party if the threshold is not met anymore without a force flag" in {
       implicit env =>
         import env.*

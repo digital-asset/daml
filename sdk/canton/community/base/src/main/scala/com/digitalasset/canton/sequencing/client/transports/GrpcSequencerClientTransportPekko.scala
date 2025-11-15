@@ -60,8 +60,6 @@ class GrpcSequencerClientTransportPekko(
 
   override type SubscriptionError = GrpcSequencerSubscriptionError
 
-  private val maxBytesToDecompress = MaxBytesToDecompress.Default
-
   override def subscribe(subscriptionRequest: SubscriptionRequest)(implicit
       traceContext: TraceContext
   ): SequencerSubscriptionPekko[SubscriptionError] = {
@@ -125,7 +123,10 @@ class GrpcSequencerClientTransportPekko(
     val subscriber = sequencerServiceClient.service.subscribe _
 
     mkSubscription(subscriber)(
-      SubscriptionResponse.fromVersionedProtoV30(maxBytesToDecompress, protocolVersion)(_)(_)
+      SubscriptionResponse.fromVersionedProtoV30(
+        MaxBytesToDecompress.HardcodedDefault,
+        protocolVersion,
+      )(_)(_)
     )
   }
 

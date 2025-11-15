@@ -37,8 +37,6 @@ class DbSequencedEventStore(
     with DbStore
     with DbPrunableByTime[IndexedPhysicalSynchronizer] {
 
-  private val maxBytesToDecompress = MaxBytesToDecompress.Default
-
   override protected[this] implicit def setParameterIndexedSynchronizer
       : SetParameter[IndexedPhysicalSynchronizer] = IndexedString.setParameterIndexedString
   override protected[this] def partitionColumn: String = "physical_synchronizer_idx"
@@ -73,7 +71,7 @@ class DbSequencedEventStore(
               _.deserializeContent(
                 SequencedEvent.fromByteString(
                   ProtocolVersionValidation.PV(protocolVersion),
-                  maxBytesToDecompress,
+                  MaxBytesToDecompress.MaxValueUnsafe,
                   _,
                 )
               )

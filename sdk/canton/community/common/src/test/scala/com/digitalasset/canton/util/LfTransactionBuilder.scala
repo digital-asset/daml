@@ -21,7 +21,7 @@ object LfTransactionBuilder {
   type LfAction = (LfNodeId, Map[LfNodeId, LfActionNode])
 
   // Helper methods for Daml-LF types
-  val defaultLanguageVersion: LanguageVersion = LanguageVersion.default
+  val defaultLanguageVersion: LanguageVersion = LanguageVersion.defaultLfVersion
   val defaultSerializationVersion: LfSerializationVersion =
     LfSerializationVersion.V1
 //    LfSerializationVersion.assign(LfLanguageVersion.AllV2.min)

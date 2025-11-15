@@ -9,7 +9,7 @@ import com.digitalasset.canton.config as cantonConfig
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.health.HealthListener
+import com.digitalasset.canton.health.{HealthListener, HealthQuasiComponent}
 import com.digitalasset.canton.lifecycle.LifeCycle
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.SequencerConnectionPoolMetrics
@@ -107,6 +107,9 @@ final class SequencerSubscriptionPoolImpl private[sequencing] (
     associatedHasRunOnClosing = this,
     logger = logger,
   )
+
+  override def getSubscriptionsHealthStatus: Seq[HealthQuasiComponent] =
+    subscriptions.view.map(_.health).toSeq
 
   /** Examine the current number of subscriptions in comparison to the configured trust threshold
     * with liveness margin. If we are under, we request additional connections, and if we can't
@@ -342,8 +345,8 @@ final class SequencerSubscriptionPoolImpl private[sequencing] (
           case SequencerConnectionXState.Validated =>
 
           case SequencerConnectionXState.Initial | SequencerConnectionXState.Started |
-              SequencerConnectionXState.Starting | SequencerConnectionXState.Stopping |
-              SequencerConnectionXState.Stopped | SequencerConnectionXState.Fatal =>
+              SequencerConnectionXState.Starting | SequencerConnectionXState.Stopping(_) |
+              SequencerConnectionXState.Stopped(_) | SequencerConnectionXState.Fatal(_) =>
             removeSubscriptionsFromPool(SubscriptionManager.this)
         }
       }

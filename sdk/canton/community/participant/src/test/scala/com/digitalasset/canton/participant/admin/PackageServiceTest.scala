@@ -152,7 +152,7 @@ abstract class BasePackageServiceTest(enableStrictDarValidation: Boolean)
     examplePackages.map(DamlPackageStore.readPackageId).toSet
 
   protected def mainPkg(
-      lfVersion: LanguageVersion = LanguageVersion.latestStable
+      lfVersion: LanguageVersion = LanguageVersion.latestStableLfVersion
   ): Archive =
     createLfArchiveForLf(lfVersion) { implicit parserParameters =>
       p"""
@@ -163,7 +163,7 @@ abstract class BasePackageServiceTest(enableStrictDarValidation: Boolean)
     }
 
   protected def extraPkg(
-      lfVersion: LanguageVersion = LanguageVersion.latestStable
+      lfVersion: LanguageVersion = LanguageVersion.latestStableLfVersion
   ): Archive =
     createLfArchiveForLf(lfVersion) { implicit parserParameters =>
       p"""
@@ -174,7 +174,7 @@ abstract class BasePackageServiceTest(enableStrictDarValidation: Boolean)
     }
 
   protected def missingPkg(
-      lfVersion: LanguageVersion = LanguageVersion.latestStable
+      lfVersion: LanguageVersion = LanguageVersion.latestStableLfVersion
   ): Archive =
     createLfArchiveForLf(lfVersion) { implicit parserParameters =>
       p"""
@@ -531,7 +531,7 @@ abstract class BasePackageServiceTest(enableStrictDarValidation: Boolean)
     }
 
   private def createLfArchive(defn: ParserParameters[?] => Ast.Package): Archive = {
-    val lfVersion = LanguageVersion.latestStable
+    val lfVersion = LanguageVersion.latestStableLfVersion
     createLfArchiveForLf(lfVersion)(defn)
   }
 

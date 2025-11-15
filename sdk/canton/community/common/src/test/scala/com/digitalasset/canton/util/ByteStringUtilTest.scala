@@ -130,7 +130,7 @@ class ByteStringUtilTest extends AnyWordSpec with BaseTest with GzipCompressionT
   override def compressGzip(str: ByteString): ByteString = ByteStringUtil.compressGzip(str)
 
   override def decompressGzip(str: ByteString): Either[DeserializationError, ByteString] =
-    ByteStringUtil.decompressGzip(str, MaxBytesToDecompress(NonNegativeInt.maxValue))
+    ByteStringUtil.decompressGzip(str, MaxBytesToDecompress.MaxValueUnsafe)
 
   "ByteStringUtilTest" should {
 

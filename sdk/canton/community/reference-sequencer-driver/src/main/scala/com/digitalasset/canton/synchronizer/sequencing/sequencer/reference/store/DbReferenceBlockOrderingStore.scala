@@ -182,13 +182,12 @@ class DbReferenceBlockOrderingStore(
           val blockTimestamp =
             CantonTimestamp.ofEpochMicro(tracedRequest.value.microsecondsSinceEpoch)
           TimestampedBlock(
-            BlockFormat.Block(height, orderedRequests),
+            BlockFormat.Block(height, blockTimestamp.toMicros, orderedRequests),
             blockTimestamp,
             lastTopologyTimestamp,
           )
         }
       }
-
 }
 
 object DbReferenceBlockOrderingStore {

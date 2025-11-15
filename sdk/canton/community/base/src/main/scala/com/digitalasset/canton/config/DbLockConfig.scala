@@ -16,7 +16,7 @@ import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 final case class DbLockConfig(
     healthCheckPeriod: PositiveFiniteDuration = PositiveFiniteDuration.ofSeconds(5),
     healthCheckTimeout: PositiveFiniteDuration = PositiveFiniteDuration.ofSeconds(15),
-) extends EnterpriseOnlyCantonConfigValidation
+) extends UniformCantonConfigValidation
 
 object DbLockConfig {
   implicit val dbLockConfigCanontConfigValidator: CantonConfigValidator[DbLockConfig] =
@@ -73,7 +73,7 @@ final case class DbLockedConnectionConfig(
     initialAcquisitionMaxRetries: Int = 5,
     initialAcquisitionInterval: PositiveFiniteDuration = PositiveFiniteDuration.ofMillis(200),
     lock: DbLockConfig = DbLockConfig(),
-) extends EnterpriseOnlyCantonConfigValidation
+) extends UniformCantonConfigValidation
 
 object DbLockedConnectionConfig {
   implicit val dbLockedConnectionConfigCantonConfigValidator
@@ -94,7 +94,7 @@ final case class DbLockedConnectionPoolConfig(
     healthCheckPeriod: PositiveFiniteDuration = PositiveFiniteDuration.ofSeconds(5),
     connection: DbLockedConnectionConfig = DbLockedConnectionConfig(),
     activeTimeout: PositiveFiniteDuration = PositiveFiniteDuration.ofSeconds(15),
-) extends EnterpriseOnlyCantonConfigValidation
+) extends UniformCantonConfigValidation
 
 object DbLockedConnectionPoolConfig {
   implicit val dbLockedConnectionPoolConfigCantonConfigValidator

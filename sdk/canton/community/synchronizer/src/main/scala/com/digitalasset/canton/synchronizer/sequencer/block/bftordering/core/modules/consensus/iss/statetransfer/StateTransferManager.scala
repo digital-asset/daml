@@ -26,7 +26,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus.StateTransferMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.dependencies.ConsensusModuleDependencies
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.utils.BftNodeShuffler
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.SingleUseCell
 import com.digitalasset.canton.version.ProtocolVersion
 
@@ -276,7 +276,7 @@ class StateTransferManager[E <: Env[E]](
       traceContext: TraceContext,
   ): StateTransferMessageResult = {
     context.pipeToSelf(
-      epochStore.addOrderedBlockAtomically(commitCert.prePrepare, commitCert.commits)
+      epochStore.addOrderedBlockAtomically(commitCert.prePrepare, commitCert.commits.map(Traced(_)))
     ) {
       case Success(_) =>
         Some(StateTransferMessage.BlockStored(commitCert, from))

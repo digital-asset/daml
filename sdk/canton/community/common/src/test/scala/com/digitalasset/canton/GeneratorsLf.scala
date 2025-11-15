@@ -196,6 +196,6 @@ final class GeneratorsLf(val generatorsTopology: GeneratorsTopology) {
   )
 
   implicit val LfLanguageVersionArb: Arbitrary[LfLanguageVersion] =
-    Arbitrary(Gen.oneOf(LfLanguageVersion.all))
+    Arbitrary(Gen.oneOf(LfLanguageVersion.allLfVersions))
 
 }

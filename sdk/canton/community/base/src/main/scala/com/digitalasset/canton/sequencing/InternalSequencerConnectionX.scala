@@ -5,7 +5,12 @@ package com.digitalasset.canton.sequencing
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.crypto.SynchronizerCrypto
-import com.digitalasset.canton.health.HealthElement
+import com.digitalasset.canton.health.ComponentHealthState.UnhealthyState
+import com.digitalasset.canton.health.{
+  ComponentHealthState,
+  HealthQuasiComponent,
+  ToComponentHealthState,
+}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, HasRunOnClosing, OnShutdownRunner}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLogging, TracedLogger}
@@ -86,14 +91,14 @@ object InternalSequencerConnectionX {
       override val name: String,
       override val associatedHasRunOnClosing: HasRunOnClosing,
       protected override val logger: TracedLogger,
-  ) extends HealthElement {
+  ) extends HealthQuasiComponent {
     override type State = SequencerConnectionXState
 
     override protected def prettyState: Pretty[State] = Pretty[State]
 
     override protected def initialHealthState: State = SequencerConnectionXState.Initial
 
-    override protected def closingState: State = SequencerConnectionXState.Fatal
+    override def closingState: State = SequencerConnectionXState.Fatal(Some("Closed"))
   }
 
   object SequencerConnectionXHealth {
@@ -156,44 +161,75 @@ object InternalSequencerConnectionX {
     *                      └─────────┘        └─────────┘
     * }}}
     */
-  sealed trait SequencerConnectionXState extends Product with Serializable with PrettyPrinting
+  sealed trait SequencerConnectionXState
+      extends ToComponentHealthState
+      with Product
+      with Serializable
+      with PrettyPrinting {
+    final def isFatal: Boolean = this match {
+      case SequencerConnectionXState.Fatal(_) => true
+      case _ => false
+    }
+  }
+
   object SequencerConnectionXState {
 
     /** Initial state of the sequencer connection after creation. */
     case object Initial extends SequencerConnectionXState {
       override protected def pretty: Pretty[Initial.type] = prettyOfObject[Initial.type]
+      override def toComponentHealthState: ComponentHealthState =
+        ComponentHealthState.failed("Not initialized")
     }
 
     /** The sequencer connection is starting. */
     case object Starting extends SequencerConnectionXState {
       override protected def pretty: Pretty[Starting.type] = prettyOfObject[Starting.type]
+      override def toComponentHealthState: ComponentHealthState =
+        ComponentHealthState.failed("Starting")
     }
 
     /** The sequencer connection has started, but has not yet been validated. */
     case object Started extends SequencerConnectionXState {
       override protected def pretty: Pretty[Started.type] = prettyOfObject[Started.type]
+      override def toComponentHealthState: ComponentHealthState =
+        ComponentHealthState.failed("Validation in progress")
     }
 
     /** The sequencer connection has been validated. */
     case object Validated extends SequencerConnectionXState {
       override protected def pretty: Pretty[Validated.type] = prettyOfObject[Validated.type]
+      override def toComponentHealthState: ComponentHealthState = ComponentHealthState.Ok()
     }
 
     /** The sequencer connection is stopping. */
-    case object Stopping extends SequencerConnectionXState {
-      override protected def pretty: Pretty[Stopping.type] = prettyOfObject[Stopping.type]
+    final case class Stopping(descriptionO: Option[String] = None)
+        extends SequencerConnectionXState {
+      override protected def pretty: Pretty[Stopping] = prettyOfClass(
+        unnamedParamIfDefined(_.descriptionO.map(_.unquoted))
+      )
+      override def toComponentHealthState: ComponentHealthState =
+        ComponentHealthState.Failed(UnhealthyState(descriptionO))
     }
 
     /** The sequencer connection has either not been started yet, or has stopped for a non-fatal
       * reason. (Re)starting it will possibly bring it back up.
       */
-    case object Stopped extends SequencerConnectionXState {
-      override protected def pretty: Pretty[Stopped.type] = prettyOfObject[Stopped.type]
+    final case class Stopped(descriptionO: Option[String] = None)
+        extends SequencerConnectionXState {
+      override protected def pretty: Pretty[Stopped] = prettyOfClass(
+        unnamedParamIfDefined(_.descriptionO.map(_.unquoted))
+      )
+      override def toComponentHealthState: ComponentHealthState =
+        ComponentHealthState.Failed(UnhealthyState(descriptionO))
     }
 
     /** The sequencer connection has stopped for a fatal reason. It should not be restarted. */
-    case object Fatal extends SequencerConnectionXState {
-      override protected def pretty: Pretty[Fatal.type] = prettyOfObject[Fatal.type]
+    final case class Fatal(descriptionO: Option[String] = None) extends SequencerConnectionXState {
+      override protected def pretty: Pretty[Fatal] = prettyOfClass(
+        unnamedParamIfDefined(_.descriptionO.map(_.unquoted))
+      )
+      override def toComponentHealthState: ComponentHealthState =
+        ComponentHealthState.Fatal(UnhealthyState(descriptionO))
     }
   }
 
