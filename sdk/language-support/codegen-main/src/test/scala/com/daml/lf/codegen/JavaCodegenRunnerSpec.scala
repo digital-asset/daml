@@ -1,78 +1,80 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.codegen.conf
+package com.digitalasset.daml.lf.codegen
 
 import java.nio.file.{Path, Paths}
 
 import ch.qos.logback.classic.Level
-import com.daml.assistant.config.{PackageConfig, ConfigParseError, ConfigMissing}
-import com.digitalasset.daml.lf.codegen.conf.{CodegenConfigReader => CCR}
-import CCR.{Java, Result, CodegenDest}
+import com.daml.assistant.config.{PackageConfig, ConfigLoadingError, ConfigParseError}
 import com.digitalasset.daml.lf.data.Ref.{PackageName, PackageVersion}
+import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
-class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks {
-  import CodegenConfigReaderSpec._
 
-  behavior of "CodegenConfigReader.splitNameAndVersion"
+class JavaCodegenRunnerSpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks {
+  private implicit val packageVersionArb: Arbitrary[PackageVersion] =
+    Arbitrary(
+      Gen
+        .zip(Gen.posNum[Int], Gen.option(Gen.posNum[Int]))
+        .map { case (wholeVersion, decVersion) =>
+          PackageVersion assertFromString s"$wholeVersion${decVersion.fold("")(n => s".$n")}"
+        }
+    )
 
-  it should "correctly split valid strings" in forAll {
-    (name: String, separator: Char, version: String) =>
-      whenever(name.nonEmpty && version.nonEmpty && !version.contains(separator)) {
-        CodegenConfigReader.splitNameAndVersion(
-          s"$name$separator$version",
-          separator,
-        ) shouldBe Some((name, version))
+    behavior of "JavaCodegenRunner.splitNameAndVersion"
+
+    it should "correctly split valid strings" in forAll {
+      (name: String, version: String) =>
+        whenever(name.nonEmpty && version.nonEmpty && !version.contains("-")) {
+          JavaCodegenRunner.splitNameAndVersion(s"$name-$version") shouldBe Some((name, version))
+        }
+    }
+
+    it should "reject empty versions" in forAll { (name: String)  =>
+      JavaCodegenRunner.splitNameAndVersion(s"$name-") shouldBe None
+    }
+
+    it should "reject empty names" in forAll { (version: PackageVersion) =>
+      JavaCodegenRunner.splitNameAndVersion(s"-$version") shouldBe None
+    }
+
+    it should "reject any string where only the separator appears" in {
+      JavaCodegenRunner.splitNameAndVersion("-") shouldBe None
+    }
+
+    it should "reject strings where the separator doesn't appear" in forAll { (string: String) =>
+      whenever(!string.contains("-")) {
+        JavaCodegenRunner.splitNameAndVersion(string) shouldBe None
       }
-  }
+    }
 
-  it should "reject empty versions" in forAll { (name: String, separator: Char) =>
-    CodegenConfigReader.splitNameAndVersion(s"$name$separator", separator) shouldBe None
-  }
+  behavior of JavaCodegenRunner.getClass.getSimpleName
 
-  it should "reject empty names" in forAll { version: PackageVersion =>
-    val separator = CCR.PackageReferenceSeparator
-    CCR.splitNameAndVersion(s"$separator$version", separator) shouldBe None
-  }
-
-  it should "reject any string where only the separator appears" in forAll { (separator: Char) =>
-    CodegenConfigReader.splitNameAndVersion(separator.toString, separator) shouldBe None
-  }
-
-  it should "reject strings where the separator doesn't appear" in forAll {
-    (string: String, separator: Char) =>
-      whenever(!string.contains(separator)) {
-        CodegenConfigReader.splitNameAndVersion(string, separator) shouldBe None
-      }
-  }
-
-  behavior of CodegenConfigReader.getClass.getSimpleName
-
-  private def codegenConf(sdkConfig: String, mode: CodegenDest): Result[Conf] =
+  private def codegenConf(sdkConfig: String): Either[ConfigLoadingError, JavaCodeGenConf] =
     for {
-      PackageConfig <- PackageConfig.loadFromString(projectRoot, sdkConfig)
-      codegenConfig <- CodegenConfigReader.codegenConf(PackageConfig, mode)
+      packageConfig <- PackageConfig.loadFromString(projectRoot, sdkConfig)
+      codegenConfig <- JavaCodegenRunner.configureFromPackageConfig(packageConfig)
     } yield codegenConfig
 
-  private val fullConfig = """|
-    |name: quickstart
-    |version: 1.2.3
-    |codegen:
-    |  java:
-    |    package-prefix: my.company.java.package
-    |    output-directory: path/to/output/java/directory
-    |    decoderClass: my.company.java.DecoderClass
-    |    verbosity: 1
-    |    root:
-    |     - java.root1
-    |     - java.root2
-    |""".stripMargin
-
   it should "load full java config" in {
-    val expected = Conf(
+    val fullConfig = 
+      """|
+         |name: quickstart
+         |version: 1.2.3
+         |codegen:
+         |  java:
+         |    package-prefix: my.company.java.package
+         |    output-directory: path/to/output/java/directory
+         |    decoderClass: my.company.java.DecoderClass
+         |    verbosity: 1
+         |    root:
+         |     - java.root1
+         |     - java.root2
+         |""".stripMargin
+    val expected = JavaCodeGenConf(
       darFiles = Map(
         projectRoot.resolve(".daml/dist/quickstart-1.2.3.dar") -> Some("my.company.java.package")
       ),
@@ -82,27 +84,27 @@ class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers with ScalaCheckP
       roots = List("java.root1", "java.root2"),
     )
 
-    codegenConf(fullConfig, Java) shouldBe Right(expected)
+    codegenConf(fullConfig) shouldBe Right(expected)
   }
 
-  private val requiredFieldsOnlyConfig = """|
-    |name: quickstart
-    |version: 1.2.3
-    |codegen:
-    |  java:
-    |    package-prefix: my.company.java.package
-    |    output-directory: path/to/output/java/directory
-    |""".stripMargin
-
   it should "load required fields only java config" in {
-    val expected = Conf(
+    val requiredFieldsOnlyConfig = 
+      """|
+         |name: quickstart
+         |version: 1.2.3
+         |codegen:
+         |  java:
+         |    package-prefix: my.company.java.package
+         |    output-directory: path/to/output/java/directory
+         |""".stripMargin
+    val expected = JavaCodeGenConf(
       darFiles = Map(
         projectRoot.resolve(".daml/dist/quickstart-1.2.3.dar") -> Some("my.company.java.package")
       ),
       outputDirectory = path("path/to/output/java/directory"),
     )
 
-    codegenConf(requiredFieldsOnlyConfig, Java) shouldBe Right(expected)
+    codegenConf(requiredFieldsOnlyConfig) shouldBe Right(expected)
   }
 
   it should "return error if name is missing" in {
@@ -113,7 +115,7 @@ class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers with ScalaCheckP
        |    package-prefix: my.company.java.package
        |    output-directory: path/to/output/java/directory""".stripMargin
 
-    codegenConf(badConfigStr, Java) shouldBe Left(ConfigMissing("name"))
+    codegenConf(badConfigStr) shouldBe Left(ConfigParseError("missing field name"))
   }
 
   it should "return error if version is missing" in {
@@ -124,7 +126,7 @@ class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers with ScalaCheckP
       |    package-prefix: my.company.java.package
       |    output-directory: path/to/output/java/directory""".stripMargin
 
-    codegenConf(badConfigStr, Java) shouldBe Left(ConfigMissing("version"))
+    codegenConf(badConfigStr) shouldBe Left(ConfigParseError("missing field version"))
   }
 
   it should "return error if codegen is missing" in {
@@ -132,7 +134,7 @@ class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers with ScalaCheckP
       |name: quickstart
       |version: 1.2.3""".stripMargin
 
-    codegenConf(badConfigStr, Java) shouldBe Left(
+    codegenConf(badConfigStr) shouldBe Left(
       ConfigParseError("Missing required field: DownField(codegen)")
     )
   }
@@ -143,7 +145,7 @@ class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers with ScalaCheckP
       |version: 1.2.3
       |codegen:""".stripMargin
 
-    codegenConf(badConfigStr, Java) shouldBe Left(
+    codegenConf(badConfigStr) shouldBe Left(
       ConfigParseError(
         "Missing required field: DownField(java),DownField(codegen)"
       )
@@ -169,7 +171,7 @@ class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers with ScalaCheckP
     val version = PackageVersion.assertFromString("0.0.0")
     val prefix = "a"
 
-    val expected = Conf(
+    val expected = JavaCodeGenConf(
       darFiles = Map(
         projectRoot.resolve(".daml/dist/quickstart-1.2.3.dar") -> Some("my.company.java.package")
       ),
@@ -180,7 +182,7 @@ class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers with ScalaCheckP
         .toMap,
     )
 
-    codegenConf(badConfigStr, Java) shouldBe Right(
+    codegenConf(badConfigStr) shouldBe Right(
       expected
     )
   }
@@ -202,7 +204,7 @@ class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers with ScalaCheckP
     val name = PackageName.assertFromString("a")
     val prefix = "a"
 
-    val expected = Conf(
+    val expected = JavaCodeGenConf(
       darFiles = Map(
         projectRoot.resolve(".daml/dist/quickstart-1.2.3.dar") -> Some("my.company.java.package")
       ),
@@ -213,7 +215,7 @@ class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers with ScalaCheckP
         .toMap,
     )
 
-    codegenConf(badConfigStr, Java) shouldBe Right(
+    codegenConf(badConfigStr) shouldBe Right(
       expected
     )
   }
@@ -230,7 +232,7 @@ class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers with ScalaCheckP
       |module-prefixes:
       |  a: a""".stripMargin
 
-    codegenConf(badConfigStr, Java) shouldBe Left(
+    codegenConf(badConfigStr) shouldBe Left(
       ConfigParseError("Couldn't decode key.: DownField(a),DownField(module-prefixes)")
     )
   }
@@ -247,7 +249,7 @@ class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers with ScalaCheckP
                           |module-prefixes:
                           |  a-: a""".stripMargin
 
-    codegenConf(badConfigStr, Java) shouldBe Left(
+    codegenConf(badConfigStr) shouldBe Left(
       ConfigParseError("Couldn't decode key.: DownField(a-),DownField(module-prefixes)")
     )
   }
@@ -264,7 +266,7 @@ class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers with ScalaCheckP
                           |module-prefixes:
                           |  -1.2.3: a""".stripMargin
 
-    codegenConf(badConfigStr, Java) shouldBe Left(
+    codegenConf(badConfigStr) shouldBe Left(
       ConfigParseError("Couldn't decode key.: DownField(-1.2.3),DownField(module-prefixes)")
     )
   }
@@ -281,7 +283,7 @@ class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers with ScalaCheckP
                           |module-prefixes:
                           |  -: a""".stripMargin
 
-    codegenConf(badConfigStr, Java) shouldBe Left(
+    codegenConf(badConfigStr) shouldBe Left(
       ConfigParseError("Couldn't decode key.: DownField(-),DownField(module-prefixes)")
     )
   }

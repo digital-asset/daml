@@ -13,12 +13,11 @@ import com.digitalasset.daml.lf.codegen.backend.java.inner.{
   PackagePrefixes,
   fullyQualifiedName,
 }
-import com.digitalasset.daml.lf.codegen.conf.{Conf, PackageReference}
+import com.digitalasset.daml.lf.codegen.{JavaCodeGenConf, PackageReference}
 import com.digitalasset.daml.lf.codegen.dependencygraph.DependencyGraph
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId}
 import com.digitalasset.daml.lf.typesig.reader.{Errors, SignatureReader}
 import com.digitalasset.daml.lf.typesig.{EnvironmentSignature, PackageSignature}
-import PackageSignature.TypeDecl
 import com.digitalasset.daml.lf.language.Reference
 import com.daml.nonempty.NonEmpty
 import com.squareup.javapoet.{ClassName, JavaFile}
@@ -29,8 +28,8 @@ import scala.collection.immutable.Map
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutorService, Future}
 
-private final class CodeGenRunner(
-    scope: CodeGenRunner.Scope,
+private final class JavaCodeGen(
+    scope: JavaCodeGen.Scope,
     outputDirectory: Path,
     decoderPackageAndClass: Option[(String, String)],
 ) extends StrictLogging {
@@ -102,22 +101,22 @@ private final class CodeGenRunner(
 
 }
 
-object CodeGenRunner extends StrictLogging {
+object JavaCodeGen extends StrictLogging {
 
   private[codegen] final class Scope(
       val signatures: Seq[PackageSignature],
-      serializableTypes: Vector[(Identifier, TypeDecl)],
+      serializableTypes: Vector[(Identifier, PackageSignature.TypeDecl)],
   )(implicit val packagePrefixes: PackagePrefixes) {
 
     val toBeGenerated: Set[Identifier] = serializableTypes.view.map(_._1).toSet
 
     val templateClassNames: Vector[ClassName] = serializableTypes.collect {
-      case id -> (_: TypeDecl.Template) =>
+      case id -> (_: PackageSignature.TypeDecl.Template) =>
         ClassName.bestGuess(fullyQualifiedName(id))
     }
   }
 
-  def run(conf: Conf): Unit = {
+  def run(conf: JavaCodeGenConf): Unit = {
 
     LoggerFactory
       .getLogger(Logger.ROOT_LOGGER_NAME)
@@ -136,7 +135,7 @@ object CodeGenRunner extends StrictLogging {
 
     val scope = configureCodeGenScope(conf.darFiles, conf.modulePrefixes)
 
-    val codegen = new CodeGenRunner(scope, conf.outputDirectory, conf.decoderPkgAndClass)
+    val codegen = new JavaCodeGen(scope, conf.outputDirectory, conf.decoderPkgAndClass)
     val executionContext: ExecutionContextExecutorService = createExecutionContext()
     val result = codegen.runWith(executionContext)
     Await.result(result, 10.minutes)
@@ -148,7 +147,7 @@ object CodeGenRunner extends StrictLogging {
   private[codegen] def configureCodeGenScope(
       darFiles: Iterable[(Path, Option[String])],
       modulePrefixes: Map[PackageReference, String],
-  ): CodeGenRunner.Scope = {
+  ): Scope = {
     val (signatureMap, packagePrefixes) = signatureMapAndPackagePrefixes(darFiles)
     val signatures = signatureMap.values.toSeq
     val environmentSignature = EnvironmentSignature.fromPackageSignatures(signatures)
@@ -177,7 +176,7 @@ object CodeGenRunner extends StrictLogging {
         )
       )
 
-    new CodeGenRunner.Scope(
+    new JavaCodeGen.Scope(
       signatures,
       transitiveClosure.serializableTypes,
     )

@@ -10,15 +10,15 @@ import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.typesig._
 import com.digitalasset.daml.lf.codegen.backend.java.inner.PackagePrefixes
-import com.digitalasset.daml.lf.codegen.conf.PackageReference
+import com.digitalasset.daml.lf.codegen.PackageReference
 import com.digitalasset.daml.lf.language.Reference
 import com.digitalasset.daml.lf.stablepackages.StablePackagesV2
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
 
-final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
+final class JavaCodeGenTests extends AnyFlatSpec with Matchers {
 
-  import CodeGenRunnerTests._
+  import JavaCodeGenTests._
 
   behavior of "configureCodeGenScope"
 
@@ -26,7 +26,7 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
 
   it should "read interfaces from a single DAR file without a prefix" in {
 
-    val scope = CodeGenRunner.configureCodeGenScope(Map(testDar -> None), Map.empty)
+    val scope = JavaCodeGen.configureCodeGenScope(Map(testDar -> None), Map.empty)
 
     // `daml-prim` + `daml-stdlib` + testDar
     scope.signatures.map(_.packageId).diff(stablePackageIds).length should ===(3)
@@ -37,7 +37,7 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
   it should "read interfaces from 2 DAR files with same dependencies without a prefix" in {
 
     val scope =
-      CodeGenRunner.configureCodeGenScope(
+      JavaCodeGen.configureCodeGenScope(
         Map(testDar -> None, testDarWithSameDependencies -> None),
         Map.empty,
       )
@@ -52,7 +52,7 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
   it should "read interfaces from 2 DAR files with same dependencies but one with different daml compiler version" in {
 
     val scope =
-      CodeGenRunner.configureCodeGenScope(
+      JavaCodeGen.configureCodeGenScope(
         Map(testDar -> None, testDarWithSameDependenciesButDifferentTargetVersion -> None),
         Map.empty,
       )
@@ -70,7 +70,7 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
 
   it should "read interfaces from a single DAR file with a prefix" in {
 
-    val scope = CodeGenRunner.configureCodeGenScope(Map(testDar -> Some("prefix")), Map.empty)
+    val scope = JavaCodeGen.configureCodeGenScope(Map(testDar -> Some("prefix")), Map.empty)
 
     scope.signatures.map(_.packageId).length should ===(dar.all.length)
     val prefixes = scope.packagePrefixes.toMap
@@ -82,7 +82,7 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
   it should "read interfaces from 2 DAR files with same content and same prefixes" in {
 
     val scope =
-      CodeGenRunner.configureCodeGenScope(
+      JavaCodeGen.configureCodeGenScope(
         Map(testDar -> Some("prefix"), testDarWithSameSrcAndProjectNamePathDar -> Some("prefix")),
         Map.empty,
       )
@@ -96,7 +96,7 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
 
   it should "fail if read interfaces from 2 DAR files with same content but different prefixes" in {
     assertThrows[IllegalArgumentException] {
-      CodeGenRunner.configureCodeGenScope(
+      JavaCodeGen.configureCodeGenScope(
         Map(testDar -> Some("prefix1"), testDarWithSameSrcAndProjectNamePathDar -> Some("prefix2")),
         Map.empty,
       )
@@ -105,7 +105,7 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
 
   it should "read interfaces from 2 DAR files with one is depending on other packages using data_dependencies" in {
 
-    val scope = CodeGenRunner.configureCodeGenScope(
+    val scope = JavaCodeGen.configureCodeGenScope(
       Map(testTemplateDar -> Some("prefix1"), testDependsOnBarTplDar -> Some("prefix2")),
       Map.empty,
     )
@@ -139,7 +139,7 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
       interface(pkgId = "pkg1", pkgName = "pkg1", pkgVersion = "1.0.0", "A", "A.B"),
       interface(pkgId = "pkg2", pkgName = "pkg2", pkgVersion = "1.0.0", "B", "A.B.C"),
     )
-    CodeGenRunner.detectModuleCollisions(
+    JavaCodeGen.detectModuleCollisions(
       Map.empty,
       signatures,
       moduleIdSet(signatures),
@@ -152,7 +152,7 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
       interface(pkgId = "pkg2", pkgName = "pkg2", pkgVersion = "1.0.0", "A"),
     )
     assertThrows[IllegalArgumentException] {
-      CodeGenRunner.detectModuleCollisions(
+      JavaCodeGen.detectModuleCollisions(
         Map.empty,
         signatures,
         moduleIdSet(signatures),
@@ -166,7 +166,7 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
       interface(pkgId = "pkg2", pkgName = "pkg2", pkgVersion = "1.0.0", "B"),
     )
     assertThrows[IllegalArgumentException] {
-      CodeGenRunner.detectModuleCollisions(
+      JavaCodeGen.detectModuleCollisions(
         Map(PackageId.assertFromString("pkg2") -> "A"),
         Seq(
           interface(pkgId = "pkg1", pkgName = "pkg1", pkgVersion = "1.0.0", "A.B"),
@@ -182,7 +182,7 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
       interface(pkgId = "pkg1", pkgName = "pkg1", pkgVersion = "1.0.0", "A"),
       interface(pkgId = "pkg2", pkgName = "pkg2", pkgVersion = "1.0.0", "A"),
     )
-    CodeGenRunner.detectModuleCollisions(
+    JavaCodeGen.detectModuleCollisions(
       Map(PackageId.assertFromString("pkg2") -> "Pkg2"),
       signatures,
       moduleIdSet(signatures),
@@ -194,7 +194,7 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
       interface(pkgId = "pkg1", pkgName = "pkg1", pkgVersion = "1.0.0", "A"),
       interface(pkgId = "pkg2", pkgName = "pkg2", pkgVersion = "1.0.0", "A"),
     )
-    CodeGenRunner.detectModuleCollisions(
+    JavaCodeGen.detectModuleCollisions(
       Map.empty,
       signatures,
       Set.empty,
@@ -206,7 +206,7 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
       interface(pkgId = "pkg1", pkgName = "pkg1", pkgVersion = "1.0.0", "A"),
       interface(pkgId = "pkg2", pkgName = "pkg2", pkgVersion = "1.0.0", "A"),
     )
-    CodeGenRunner.detectModuleCollisions(
+    JavaCodeGen.detectModuleCollisions(
       Map.empty,
       signatures,
       Set(Reference.Module(PackageId.assertFromString("pkg1"), ModuleName.assertFromString("A"))),
@@ -228,7 +228,7 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
     )
     val interface1 = interface(pkg1, PackageMetadata(name1, version))
     val interface2 = interface(pkg2, PackageMetadata(name2, version))
-    CodeGenRunner.resolvePackagePrefixes(
+    JavaCodeGen.resolvePackagePrefixes(
       pkgPrefixes,
       modulePrefixes,
       Seq(interface1, interface2),
@@ -242,12 +242,12 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
     val modulePrefixes =
       Map[PackageReference, String](PackageReference.NameVersion(name2, version) -> "A.B")
     assertThrows[IllegalArgumentException] {
-      CodeGenRunner.resolvePackagePrefixes(Map.empty, modulePrefixes, Seq.empty, Set.empty)
+      JavaCodeGen.resolvePackagePrefixes(Map.empty, modulePrefixes, Seq.empty, Set.empty)
     }
   }
 }
 
-object CodeGenRunnerTests {
+object JavaCodeGenTests {
 
   private[this] val testDarPath = "language-support/java/codegen/test-daml.dar"
   private[this] val testDarWithSameDependenciesPath =
