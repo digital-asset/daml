@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.memory
 
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.pekko.PekkoModuleSystem.{
@@ -41,7 +42,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   Prepare,
   ViewChange,
 }
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.TryUtil
 
 import scala.collection.MapView
@@ -157,22 +158,20 @@ abstract class GenericInMemoryEpochStore[E <: Env[E]]
     }
 
   override def addPreparesAtomically(
-      prepares: Seq[SignedMessage[Prepare]]
+      prepares: NonEmpty[Seq[Traced[SignedMessage[Prepare]]]]
   )(implicit traceContext: TraceContext): E#FutureUnlessShutdownT[Unit] =
     createFuture(addPreparesActionName) { () =>
-      prepares.headOption.fold(TryUtil.unit) { head =>
-        preparesMap
-          .putIfAbsent(
-            head.message.blockMetadata.blockNumber,
-            TrieMap[ViewNumber, Seq[SignedMessage[Prepare]]](),
-          )
-          .discard
-        putIfAbsent(
-          store = preparesMap(head.message.blockMetadata.blockNumber),
-          key = head.message.viewNumber,
-          value = prepares,
-        )
-      }
+      val head = prepares.head1
+      val message = head.value.message
+      val blockNumber = message.blockMetadata.blockNumber
+      preparesMap
+        .putIfAbsent(blockNumber, TrieMap[ViewNumber, Seq[SignedMessage[Prepare]]]())
+        .discard
+      putIfAbsent(
+        store = preparesMap(blockNumber),
+        key = message.viewNumber,
+        value = prepares.forgetNE.map(_.value),
+      )
     }
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
@@ -194,7 +193,7 @@ abstract class GenericInMemoryEpochStore[E <: Env[E]]
 
   override def addOrderedBlockAtomically(
       prePrepare: SignedMessage[PrePrepare],
-      commitMessages: Seq[SignedMessage[Commit]],
+      commitMessages: Seq[Traced[SignedMessage[Commit]]],
   )(implicit
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[Unit] = {
@@ -204,7 +203,7 @@ abstract class GenericInMemoryEpochStore[E <: Env[E]]
       putIfAbsent(
         store = blocks,
         key = blockNumber,
-        value = CompletedBlock(prePrepare, commitMessages),
+        value = CompletedBlock(prePrepare, commitMessages.map(_.value)),
       )
     }
   }

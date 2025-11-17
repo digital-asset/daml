@@ -34,7 +34,7 @@ import com.digitalasset.canton.config.{
 final case class SequencerTrafficConfig(
     trafficPurchasedCacheSizePerMember: PositiveInt = PositiveInt.tryCreate(3),
     maximumTrafficPurchasedCacheSize: PositiveInt = PositiveInt.tryCreate(1000),
-    batchAggregatorConfig: BatchAggregatorConfig = BatchAggregatorConfig.Batching(),
+    batchAggregatorConfig: BatchAggregatorConfig = BatchAggregatorConfig.AutoBatching(),
     pruningRetentionWindow: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofHours(2L),
     trafficConsumedCacheTTL: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofHours(2L),
     maximumTrafficConsumedCacheSize: PositiveInt = PositiveInt.tryCreate(1000),

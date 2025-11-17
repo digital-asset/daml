@@ -287,8 +287,6 @@ class GrpcSequencerSubscription[E, R: HasProtoTraceContext] private[transports] 
 }
 
 object GrpcSequencerSubscription {
-  private val maxBytesToDecompress = MaxBytesToDecompress.Default
-
   def fromSubscriptionResponse[E](
       context: CancellableContext,
       handler: SequencedEventHandler[E],
@@ -303,10 +301,12 @@ object GrpcSequencerSubscription {
       hasRunOnClosing,
       deserializingSubscriptionHandler(
         handler,
-        (value, traceContext) =>
-          SubscriptionResponse.fromVersionedProtoV30(maxBytesToDecompress, protocolVersion)(value)(
-            traceContext
-          ),
+        (value, traceContext) => {
+          SubscriptionResponse
+            .fromVersionedProtoV30(MaxBytesToDecompress.HardcodedDefault, protocolVersion)(value)(
+              traceContext
+            )
+        },
       ),
       timeouts,
       loggerFactory,

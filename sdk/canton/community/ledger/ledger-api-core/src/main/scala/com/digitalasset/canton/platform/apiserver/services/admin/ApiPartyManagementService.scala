@@ -863,7 +863,7 @@ private[apiserver] final class ApiPartyManagementService private (
         .mkString("[", ", ", "]")
       val signingKeysString = externalPartyOnboardingDetails.signedPartyToKeyMappingTransaction
         .map { p2k =>
-          s" and ${p2k.mapping.signingKeys.length} signing keys with threshold ${p2k.mapping.threshold.value}"
+          s" and ${p2k.mapping.signingKeys.size} signing keys with threshold ${p2k.mapping.threshold.value}"
         }
         .getOrElse("")
       logger.info(

@@ -7,7 +7,12 @@ import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable}
-import com.digitalasset.canton.sequencing.protocol.{MessageId, SubmissionRequest}
+import com.digitalasset.canton.sequencing.protocol.{
+  AllMembersOfSynchronizer,
+  MessageId,
+  SequencersOfSynchronizer,
+  SubmissionRequest,
+}
 import com.digitalasset.canton.synchronizer.block.update.{
   BlockChunkProcessor,
   BlockUpdateGeneratorImpl,
@@ -17,7 +22,11 @@ import com.digitalasset.canton.synchronizer.sequencer.SubmissionOutcome
 import com.digitalasset.canton.synchronizer.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
 import com.digitalasset.canton.synchronizer.sequencer.store.SequencerMemberValidator
 import com.digitalasset.canton.synchronizer.sequencer.traffic.SequencerRateLimitManager
-import com.digitalasset.canton.topology.DefaultTestIdentities.{physicalSynchronizerId, sequencerId}
+import com.digitalasset.canton.topology.DefaultTestIdentities.{
+  mediatorId,
+  physicalSynchronizerId,
+  sequencerId,
+}
 import com.digitalasset.canton.topology.TestingIdentityFactory
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -60,18 +69,31 @@ class BlockChunkProcessorTest extends AsyncWordSpec with BaseTest {
             memberValidatorMock,
           )
 
-        blockChunkProcessor
-          .emitTick(
-            state = BlockUpdateGeneratorImpl.State(
-              lastBlockTs = aTimestamp,
-              lastChunkTs = aTimestamp,
-              latestSequencerEventTimestamp = None,
-              inFlightAggregations = Map.empty,
-            ),
-            height = aHeight,
-            tickAtLeastAt = tickSequencingTimestamp,
-          )
-          .map { case (state, update) =>
+        def emitTick(
+            recipient: Either[AllMembersOfSynchronizer.type, SequencersOfSynchronizer.type]
+        ) =
+          blockChunkProcessor
+            .emitTick(
+              state = BlockUpdateGeneratorImpl.State(
+                lastBlockTs = aTimestamp,
+                lastChunkTs = aTimestamp,
+                latestSequencerEventTimestamp = None,
+                inFlightAggregations = Map.empty,
+              ),
+              height = aHeight,
+              tickAtLeastAt = tickSequencingTimestamp,
+              groupRecipient = recipient,
+            )
+
+        for {
+          (state1, update1) <- emitTick(Right(SequencersOfSynchronizer))
+          (state2, update2) <- emitTick(Left(AllMembersOfSynchronizer))
+        } yield {
+          Table(
+            ("state", "update", "expected tick recipients"),
+            (state1, update1, Set(sequencerId)),
+            (state2, update2, Set(sequencerId, mediatorId)),
+          ).forEvery { case (state, update, expectedTickRecipients) =>
             state.lastChunkTs shouldBe tickSequencingTimestamp
             state.latestSequencerEventTimestamp shouldBe Some(tickSequencingTimestamp)
             update.submissionsOutcomes should matchPattern {
@@ -94,12 +116,12 @@ class BlockChunkProcessorTest extends AsyncWordSpec with BaseTest {
                       None,
                     )
                   )
-                  if deliverToMembers == Set(sequencerId) &&
+                  if deliverToMembers == expectedTickRecipients &&
                     batch.envelopes.isEmpty =>
             }
           }
-          .failOnShutdown
-      }
+        }
+      }.failOnShutdown
     }
   }
 }

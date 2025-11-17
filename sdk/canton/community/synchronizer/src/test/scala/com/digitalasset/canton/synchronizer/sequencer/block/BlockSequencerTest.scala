@@ -55,7 +55,6 @@ import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.topology.store.{NoPackageDependencies, ValidatedTopologyTransaction}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.util.MaxBytesToDecompress
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.ActorSystem
@@ -195,7 +194,6 @@ class BlockSequencerTest
           ApiLoggingConfig.defaultMaxStringLength,
           ApiLoggingConfig.defaultMaxMessageLines,
         ),
-        maxBytesToDecompress = MaxBytesToDecompress.Default,
         metrics = SequencerMetrics.noop(this.getClass.getName),
         loggerFactory = loggerFactory,
         exitOnFatalFailures = true,
@@ -227,7 +225,14 @@ class BlockSequencerTest
             .map { i =>
               if (n == i + 1)
                 completed.success(())
-              Traced(RawLedgerBlock(i.toLong, Seq.empty))
+              Traced(
+                RawLedgerBlock(
+                  blockHeight = i.toLong,
+                  baseSequencingTimeMicrosFromEpoch =
+                    CantonTimestamp.Epoch.toMicros, // Not relevant for the test
+                  Seq.empty,
+                )
+              )
             }
             .iterator
         }

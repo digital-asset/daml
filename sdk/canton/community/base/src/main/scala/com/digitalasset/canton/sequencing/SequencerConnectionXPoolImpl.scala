@@ -16,7 +16,7 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.{Crypto, SynchronizerCrypto}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.health.HealthListener
+import com.digitalasset.canton.health.{HealthListener, HealthQuasiComponent}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle, PromiseUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.SequencerConnectionPoolMetrics
@@ -114,6 +114,12 @@ class SequencerConnectionXPoolImpl private[sequencing] (
     logger = logger,
   )
 
+  override def getConnectionsHealthStatus: Seq[HealthQuasiComponent] = blocking {
+    lock.synchronized {
+      trackedConnections.toSeq.map { case (connection, _) => connection.health }
+    }
+  }
+
   @VisibleForTesting
   override def contents: Map[SequencerId, Set[SequencerConnectionX]] = blocking {
     lock.synchronized {
@@ -172,9 +178,7 @@ class SequencerConnectionXPoolImpl private[sequencing] (
       // Grab all attributes only once to prevent a race condition if a connection is validated between the next calls
       val nonFatalAttributes = trackedConnections.toSeq.collect {
         case (connection, _validated)
-            if connection.health.getState != SequencerConnectionXState.Fatal && !ignored.contains(
-              connection.config
-            ) =>
+            if !connection.health.getState.isFatal && !ignored.contains(connection.config) =>
           connection.attributes
       }
 
@@ -341,15 +345,15 @@ class SequencerConnectionXPoolImpl private[sequencing] (
             state match {
               case SequencerConnectionXState.Validated => processValidatedConnection(connection)
 
-              case SequencerConnectionXState.Stopped =>
+              case SequencerConnectionXState.Stopped(_) =>
                 removeConnectionFromPool(connection, actionIfPresent = resetRestartDelay())
                 if (!isClosing) scheduleRestart()
 
               // For any other state, ensure the connection is not in the pool
-              case SequencerConnectionXState.Fatal |
-                  SequencerConnectionXState.Initial | SequencerConnectionXState.Starting |
-                  SequencerConnectionXState.Started | SequencerConnectionXState.Stopping =>
-                if (state == SequencerConnectionXState.Fatal)
+              case SequencerConnectionXState.Fatal(_) | SequencerConnectionXState.Initial |
+                  SequencerConnectionXState.Starting | SequencerConnectionXState.Started |
+                  SequencerConnectionXState.Stopping(_) =>
+                if (state.isFatal)
                   checkIfThresholdIsStillReachable(config.trustThreshold)
                 removeConnectionFromPool(connection, actionIfPresent = resetRestartDelay())
             }

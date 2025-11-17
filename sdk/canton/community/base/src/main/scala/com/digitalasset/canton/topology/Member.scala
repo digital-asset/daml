@@ -195,6 +195,11 @@ object SynchronizerId {
   implicit val synchronizerIdEncoder: Encoder[SynchronizerId] =
     Encoder.encodeString.contramap(_.unwrap.toProtoPrimitive)
 
+  val orderingIdentifierThenNamespace =
+    Ordering.by[SynchronizerId, UniqueIdentifier](_.uid)(
+      UniqueIdentifier.orderingIdentifierThenNamespace
+    )
+
   // Instances for slick (db) queries
   implicit val getResultSynchronizerId: GetResult[SynchronizerId] =
     UniqueIdentifier.getResult.andThen(SynchronizerId(_))
@@ -338,6 +343,11 @@ object ParticipantId {
     ParticipantId(UniqueIdentifier.tryCreate(addr, "default"))
 
   implicit val ordering: Ordering[ParticipantId] = Ordering.by(_.uid.toProtoPrimitive)
+
+  val orderingIdentifierThenNamespace =
+    Ordering.by[ParticipantId, UniqueIdentifier](_.uid)(
+      UniqueIdentifier.orderingIdentifierThenNamespace
+    )
 
   def fromProtoPrimitive(
       proto: String,

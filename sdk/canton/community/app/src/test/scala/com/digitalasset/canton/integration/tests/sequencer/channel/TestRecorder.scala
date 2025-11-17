@@ -5,6 +5,7 @@ package com.digitalasset.canton.integration.tests.sequencer.channel
 
 import cats.data.EitherT
 import cats.syntax.either.*
+import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.console.LocalParticipantReference
 import com.digitalasset.canton.crypto.{Encrypted, SymmetricKey, SynchronizerCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -18,7 +19,7 @@ import com.digitalasset.canton.sequencing.protocol.channel.{
 import com.digitalasset.canton.serialization.DefaultDeserializationError
 import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{ByteStringUtil, MaxBytesToDecompress}
+import com.digitalasset.canton.util.ByteStringUtil
 import org.scalatest.{EitherValues, OptionValues}
 
 import scala.collection.mutable
@@ -105,7 +106,7 @@ private[channel] final class TestRecorder(
               case Right(byteString) =>
                 val decompressed =
                   ByteStringUtil
-                    .decompressGzip(byteString, MaxBytesToDecompress.Default)
+                    .decompressGzip(byteString, BaseTest.defaultMaxBytesToDecompress)
                     .value
                 decompressed.toString("UTF-8")
               case Left(error) => error.toString

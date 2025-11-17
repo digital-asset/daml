@@ -28,6 +28,7 @@ import com.digitalasset.canton.health.{
   ComponentHealthState,
   DelegatingMutableHealthComponent,
   HealthComponent,
+  HealthQuasiComponent,
 }
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.lifecycle.LifeCycle.toCloseableOption
@@ -204,6 +205,8 @@ trait SequencerClient extends SequencerClientSend with FlagCloseable {
 trait RichSequencerClient extends SequencerClient {
 
   def healthComponent: CloseableHealthComponent
+
+  def getConnectionPoolHealthStatus: Seq[HealthQuasiComponent]
 
   def changeTransport(
       sequencerTransports: SequencerTransports[?],
@@ -1280,6 +1283,19 @@ class RichSequencerClientImpl(
     Promise.successful(())
   )
   private val handlerIdleLock: Object = new Object
+
+  override def getConnectionPoolHealthStatus: Seq[HealthQuasiComponent] = {
+    val (connectionPoolHealth, connectionsHealth) =
+      (connectionPool.health, connectionPool.getConnectionsHealthStatus)
+
+    sequencerSubscriptionPoolRef.get.fold(connectionPoolHealth +: connectionsHealth) {
+      subscriptionPool =>
+        Seq(
+          connectionPoolHealth,
+          subscriptionPool.health,
+        ) ++ connectionsHealth ++ subscriptionPool.getSubscriptionsHealthStatus
+    }
+  }
 
   override protected def subscribeAfterInternal(
       priorTimestamp: CantonTimestamp,

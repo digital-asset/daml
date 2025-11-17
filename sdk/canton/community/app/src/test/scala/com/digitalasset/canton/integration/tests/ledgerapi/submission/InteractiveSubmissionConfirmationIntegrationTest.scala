@@ -145,7 +145,7 @@ final class InteractiveSubmissionConfirmationIntegrationTest
             (
               e => {
                 e.warningMessage should (include(
-                  s"Received 1 valid signatures (0 invalid), but expected at least 2 valid for ${aliceE.partyId}"
+                  s"Received 1 valid signatures from distinct keys (0 invalid), but expected at least 2 valid for ${aliceE.partyId}"
                 ))
                 e.mdc.get("participant") shouldBe Some(s"participant$p")
               },
@@ -205,7 +205,7 @@ final class InteractiveSubmissionConfirmationIntegrationTest
               (
                 e => {
                   e.warningMessage should (include(
-                    s"Received 0 valid signatures (3 invalid), but expected at least 2 valid for ${aliceE.partyId}"
+                    s"Received 0 valid signatures from distinct keys (3 invalid), but expected at least 2 valid for ${aliceE.partyId}"
                   ))
                   e.mdc.get("participant") shouldBe Some(s"participant$p")
                 },
@@ -222,7 +222,7 @@ final class InteractiveSubmissionConfirmationIntegrationTest
         val (submissionId, ledgerEnd) = exec(prepared, signatures, epn)
 
         val newKeys = NonEmptyUtil.fromUnsafe(
-          Seq.fill(3)(
+          Set.fill(3)(
             env.global_secret.keys.secret.generate_key(usage = SigningKeyUsage.ProtocolOnly)
           )
         )
@@ -235,7 +235,7 @@ final class InteractiveSubmissionConfirmationIntegrationTest
         )
 
         // Update alice with the new keys for subsequent tests
-        aliceE = aliceE.copy(signingFingerprints = newKeys.map(_.fingerprint))
+        aliceE = aliceE.copy(signingFingerprints = newKeys.map(_.fingerprint).toSeq)
         releaseSubmission.success(())
         val completion = findCompletion(
           submissionId,
@@ -260,7 +260,7 @@ final class InteractiveSubmissionConfirmationIntegrationTest
           cpn.topology.party_to_key_mappings.sign_and_update(
             aliceE.partyId,
             env.daId,
-            _.tryCopy(threshold = PositiveInt.two, signingKeys = newKeys),
+            _.tryCopy(threshold = PositiveInt.two, signingKeys = newKeys.toSet),
           )
 
           // Update alice with the new keys for subsequent tests

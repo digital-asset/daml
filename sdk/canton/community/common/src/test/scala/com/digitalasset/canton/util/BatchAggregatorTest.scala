@@ -7,8 +7,7 @@ import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.Threading
-import com.digitalasset.canton.config.BatchAggregatorConfig
-import com.digitalasset.canton.config.RequireTypes.PositiveNumeric
+import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveNumeric}
 import com.digitalasset.canton.lifecycle.{
   CloseContext,
   FutureUnlessShutdown,
@@ -26,6 +25,7 @@ import org.scalatest.Assertion
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.collection.concurrent.TrieMap
+import scala.collection.immutable
 import scala.util.Random
 
 class BatchAggregatorTest
@@ -35,10 +35,11 @@ class BatchAggregatorTest
     with HasTestCloseContext {
   type K = Int
   type V = String
-  type BatchGetterType = NonEmpty[Seq[Traced[K]]] => FutureUnlessShutdown[Iterable[V]]
+  type BatchGetterType = NonEmpty[Seq[Traced[K]]] => FutureUnlessShutdown[immutable.Iterable[V]]
 
   private val defaultKeyToValue: K => V = _.toString
-  private val defaultBatchGetter: NonEmpty[Seq[Traced[K]]] => FutureUnlessShutdown[Iterable[V]] =
+  private val defaultBatchGetter
+      : NonEmpty[Seq[Traced[K]]] => FutureUnlessShutdown[immutable.Iterable[V]] =
     keys => FutureUnlessShutdown.pure(keys.map(item => defaultKeyToValue(item.value)))
 
   private val defaultMaximumInFlight: Int = 5
@@ -47,23 +48,24 @@ class BatchAggregatorTest
   private def aggregatorWithDefaults(
       maximumInFlight: Int = defaultMaximumInFlight,
       batchGetter: BatchGetterType,
-  ): BatchAggregator[K, V] = {
-    val processor = new BatchAggregator.Processor[K, V] {
-      override def kind: String = "item"
-      override def logger: TracedLogger = BatchAggregatorTest.this.logger
-      override def executeBatch(items: NonEmpty[Seq[Traced[K]]])(implicit
-          traceContext: TraceContext,
-          callerCloseContext: CloseContext,
-      ): FutureUnlessShutdown[Iterable[V]] = batchGetter(items)
-      override def prettyItem: Pretty[K] = implicitly
-    }
+  ): BatchAggregatorImpl[K, V] = {
 
-    val config = BatchAggregatorConfig(
-      maximumInFlight = PositiveNumeric.tryCreate(maximumInFlight),
+    val processor =
+      new BatchAggregator.Processor[K, V] {
+        override def kind: String = "item"
+        override def logger: TracedLogger = BatchAggregatorTest.this.logger
+        override def executeBatch(items: NonEmpty[Seq[Traced[K]]])(implicit
+            traceContext: TraceContext,
+            callerCloseContext: CloseContext,
+        ): FutureUnlessShutdown[immutable.Iterable[V]] = batchGetter(items)
+        override def prettyItem: Pretty[K] = implicitly
+      }
+
+    new BatchAggregatorImpl(
+      processor,
+      maximumInFlight = maximumInFlight,
       maximumBatchSize = PositiveNumeric.tryCreate(defaultMaximumBatchSize),
     )
-
-    BatchAggregator[K, V](processor, config)
   }
 
   /** @param requestsCountPerSize
@@ -100,159 +102,240 @@ class BatchAggregatorTest
     }
   }
 
-  "BatchAggregator" should {
-    "batch queries when the number of in-flight queries is too big" in {
-      val blocker = PromiseUnlessShutdown.unsupervised[Unit]()
+  "BatchAggregator" when {
 
-      val requestsCountPerSize = TrieMap[Int, Int]()
-      val aggregator = aggregatorWithDefaults(
-        maximumInFlight = 1,
-        batchGetter = batchGetterWithCounter(requestsCountPerSize, blocker.futureUS),
-      )
+    "invoked with a single item" should {
+      "batch queries when the number of in-flight queries is too big" in {
+        val blocker = PromiseUnlessShutdown.unsupervised[Unit]()
 
-      val resultF = List(1, 2, 3).parTraverse(aggregator.run)
-
-      blocker.success(UnlessShutdown.unit)
-
-      resultF.futureValueUS shouldBe List("1", "2", "3")
-      requestsCountPerSize.toMap shouldBe Map(
-        1 -> 1, // One request for a single element
-        2 -> 1, // One request for two elements
-      )
-    }
-
-    "propagate an error thrown when issuing a single request" in {
-      val exception = new RuntimeException("sad getter")
-
-      val cache = CacheWithAggregator(batchGetter = _ => FutureUnlessShutdown.failed(exception))
-      val key = 42
-
-      loggerFactory
-        .assertThrowsAndLogsAsync[RuntimeException](
-          cache.get(key).unwrap,
-          _.getCause.getCause shouldBe exception,
-          logEntry => {
-            logEntry.errorMessage shouldBe s"Failed to process item $key"
-            logEntry.throwable shouldBe Some(exception)
-          },
-        )
-        .futureValue
-    }
-
-    "propagate an error when no result is returned" in {
-      val key = 41
-
-      val aggregator =
-        aggregatorWithDefaults(
+        val requestsCountPerSize = TrieMap[Int, Int]()
+        val aggregator = aggregatorWithDefaults(
           maximumInFlight = 1,
-          batchGetter = _ => FutureUnlessShutdown.pure(Nil),
+          batchGetter = batchGetterWithCounter(requestsCountPerSize, blocker.futureUS),
         )
 
-      val result = loggerFactory
-        .assertLogs(
-          aggregator.run(key).failed.futureValueUS,
-          _.errorMessage should include("executeBatch returned an empty sequence of results"),
-          _.errorMessage shouldBe s"Failed to process item $key",
+        val resultF = List(1, 2, 3).parTraverse(aggregator.run)
+
+        blocker.success(UnlessShutdown.unit)
+
+        val result = resultF.futureValueUS
+        result shouldBe List("1", "2", "3")
+        requestsCountPerSize.toMap shouldBe Map(
+          1 -> 1, // One request for a single element
+          2 -> 1, // One request for two elements
         )
-
-      result shouldBe a[RuntimeException]
-    }
-
-    "propagate an error thrown by the getter" in {
-      val blocker = PromiseUnlessShutdown.unsupervised[Unit]()
-
-      val exception = new RuntimeException("sad getter")
-
-      val aggregator = aggregatorWithDefaults(
-        maximumInFlight = 1,
-        batchGetter =
-          _ => blocker.futureUS.flatMap(_ => FutureUnlessShutdown.failed[Iterable[V]](exception)),
-      )
-
-      val results = List(1, 2, 3).map(aggregator.run)
-
-      loggerFactory.assertLogsUnordered(
-        {
-          blocker.success(UnlessShutdown.unit)
-          results.foreach(_.failed.futureValueUS shouldBe exception)
-        },
-        _.errorMessage shouldBe "Failed to process item 1",
-        _.errorMessage shouldBe show"Batch request failed for items ${Seq(2, 3)}",
-      )
-    }
-
-    "support many requests" in {
-      val aggregator = aggregatorWithDefaults(
-        maximumInFlight = 2,
-        batchGetter = keys =>
-          FutureUnlessShutdown.pure {
-            Threading.sleep(Random.nextLong(50))
-            keys.toList.map(key => defaultKeyToValue(key.value))
-          },
-      )
-
-      val requests = (0 until 100).map(_ => Random.nextInt(20)).toList
-      val expectedResult = requests.map(key => (key, defaultKeyToValue(key)))
-
-      val results = requests.parTraverse(key => aggregator.run(key).map((key, _))).futureValueUS
-      results shouldBe expectedResult
-    }
-
-    "complain about too few results in the batch response" in {
-      val blocker = PromiseUnlessShutdown.unsupervised[Unit]()
-
-      val aggregator = aggregatorWithDefaults(
-        maximumInFlight = 1,
-        batchGetter = keys =>
-          blocker.futureUS.flatMap { _ =>
-            if (keys.sizeIs == 1) FutureUnlessShutdown.pure(List("0"))
-            else
-              FutureUnlessShutdown.pure(Iterable.empty)
-          },
-      )
-
-      val results = List(0, 1, 2).map(aggregator.run)
-
-      def tooFewResponses(key: K)(logEntry: LogEntry): Assertion = {
-        logEntry.errorMessage shouldBe ErrorUtil.internalErrorMessage
-        logEntry.throwable.value.getMessage should include(show"No response for item $key")
       }
 
-      loggerFactory.assertLogs(
-        {
-          blocker.success(UnlessShutdown.unit)
+      "propagate an error thrown when issuing a single request" in {
+        val exception = new RuntimeException("sad getter")
 
-          results(0).futureValueUS shouldBe "0"
-          results(1).failed.futureValueUS.getMessage shouldBe "No response for item 1"
-          results(2).failed.futureValueUS.getMessage shouldBe "No response for item 2"
-        },
-        tooFewResponses(1),
-        tooFewResponses(2),
-      )
+        val cache = CacheWithAggregator(batchGetter = _ => FutureUnlessShutdown.failed(exception))
+        val key = 42
+
+        loggerFactory
+          .assertThrowsAndLogsAsync[RuntimeException](
+            cache.get(key).unwrap,
+            _.getCause.getCause shouldBe exception,
+            logEntry => {
+              logEntry.errorMessage shouldBe s"Failed to process item $key"
+              logEntry.throwable shouldBe Some(exception)
+            },
+          )
+          .futureValue
+      }
+
+      "propagate an error when no result is returned" in {
+        val key = 41
+
+        val aggregator =
+          aggregatorWithDefaults(
+            maximumInFlight = 1,
+            batchGetter = _ => FutureUnlessShutdown.pure(Nil),
+          )
+
+        val result = loggerFactory
+          .assertLogs(
+            aggregator.run(key).failed.futureValueUS,
+            _.errorMessage should include("executeBatch returned an empty sequence of results"),
+            _.errorMessage shouldBe s"Failed to process item $key",
+          )
+
+        result shouldBe a[RuntimeException]
+      }
+
+      "propagate an error thrown by the getter" in {
+        val blocker = PromiseUnlessShutdown.unsupervised[Unit]()
+
+        val exception = new RuntimeException("sad getter")
+
+        val aggregator = aggregatorWithDefaults(
+          maximumInFlight = 1,
+          batchGetter = _ =>
+            blocker.futureUS.flatMap(_ =>
+              FutureUnlessShutdown.failed[immutable.Iterable[V]](exception)
+            ),
+        )
+
+        val results = List(1, 2, 3).map(aggregator.run)
+
+        loggerFactory.assertLogsUnordered(
+          {
+            blocker.success(UnlessShutdown.unit)
+            results.foreach(_.failed.futureValueUS shouldBe exception)
+          },
+          _.errorMessage shouldBe "Failed to process item 1",
+          _.errorMessage shouldBe show"Batch request failed for items ${Seq(2, 3)}",
+        )
+      }
+
+      "support many requests" in {
+        val aggregator = aggregatorWithDefaults(
+          maximumInFlight = 2,
+          batchGetter = keys =>
+            FutureUnlessShutdown.pure {
+              Threading.sleep(Random.nextLong(50))
+              keys.toList.map(key => defaultKeyToValue(key.value))
+            },
+        )
+
+        val requests = (0 until 100).map(_ => Random.nextInt(20)).toList
+        val expectedResult = requests.map(key => (key, defaultKeyToValue(key)))
+
+        val results = requests.parTraverse(key => aggregator.run(key).map((key, _))).futureValueUS
+        results shouldBe expectedResult
+      }
+
+      "complain about too few results in the batch response" in {
+        val blocker = PromiseUnlessShutdown.unsupervised[Unit]()
+
+        val aggregator = aggregatorWithDefaults(
+          maximumInFlight = 1,
+          batchGetter = keys =>
+            blocker.futureUS.flatMap { _ =>
+              if (keys.sizeIs == 1) FutureUnlessShutdown.pure(List("0"))
+              else
+                FutureUnlessShutdown.pure(immutable.Iterable.empty)
+            },
+        )
+
+        val results = List(0, 1, 2).map(aggregator.run)
+
+        def tooFewResponses(key: K)(logEntry: LogEntry): Assertion = {
+          logEntry.errorMessage shouldBe ErrorUtil.internalErrorMessage
+          logEntry.throwable.value.getMessage should include(
+            show"BatchAggregatorImpl.runTogether returned an empty Iterable for item $key"
+          )
+        }
+
+        loggerFactory.assertLogsUnordered(
+          {
+            blocker.success(UnlessShutdown.unit)
+
+            results(0).futureValueUS shouldBe "0"
+            results(
+              1
+            ).failed.futureValueUS.getMessage shouldBe "BatchAggregatorImpl.runTogether returned an empty Iterable for item 1"
+            results(
+              2
+            ).failed.futureValueUS.getMessage shouldBe "BatchAggregatorImpl.runTogether returned an empty Iterable for item 2"
+          },
+          tooFewResponses(1),
+          tooFewResponses(2),
+          logEntry =>
+            logEntry.errorMessage should include(
+              "Detected 2 excess items for item batch"
+            ),
+        )
+      }
+
+      "complain about too many results in the batch response" in {
+        val blocker = PromiseUnlessShutdown.unsupervised[Unit]()
+
+        val aggregator = aggregatorWithDefaults(
+          maximumInFlight = 1,
+          batchGetter = keys =>
+            blocker.futureUS.flatMap { _ =>
+              if (keys.sizeIs == 1) FutureUnlessShutdown.pure(List("0"))
+              else
+                defaultBatchGetter(keys).map(_.toList).map(_ :+ "42")
+            },
+        )
+
+        val results = List(0, 1, 2).map(aggregator.run)
+
+        loggerFactory.assertLogs(
+          {
+            blocker.success(UnlessShutdown.unit)
+            results.sequence.futureValueUS shouldBe List("0", "1", "2")
+          },
+          _.errorMessage should include("Received 1 excess responses for item batch"),
+        )
+      }
     }
 
-    "complain about too many results in the batch response" in {
-      val blocker = PromiseUnlessShutdown.unsupervised[Unit]()
+    "invoked with multiple items that must end up in the same batch" should {
 
-      val aggregator = aggregatorWithDefaults(
-        maximumInFlight = 1,
-        batchGetter = keys =>
-          blocker.futureUS.flatMap { _ =>
-            if (keys.sizeIs == 1) FutureUnlessShutdown.pure(List("0"))
-            else
-              defaultBatchGetter(keys).map(_.toList).map(_ :+ "42")
-          },
-      )
+      "batch the items together if they fit" in {
+        val blocker = PromiseUnlessShutdown.unsupervised[Unit]()
 
-      val results = List(0, 1, 2).map(aggregator.run)
+        val requestsCountPerSize = TrieMap[Int, Int]()
+        val aggregator =
+          aggregatorWithDefaults(
+            maximumInFlight = 5,
+            batchGetter = batchGetterWithCounter(requestsCountPerSize, blocker.futureUS),
+          )
 
-      loggerFactory.assertLogs(
-        {
-          blocker.success(UnlessShutdown.unit)
-          results.sequence.futureValueUS shouldBe List("0", "1", "2")
-        },
-        _.errorMessage should include("Received 1 excess responses for item batch"),
-      )
+        val resultF =
+          Seq(
+            NonEmpty(Seq, Traced(0)),
+            NonEmpty.from(1 to 5).map(_.map(Traced(_))).getOrElse(fail()),
+            NonEmpty(Seq, Traced(6)),
+          ).map(items => aggregator.runInSameBatch(items))
+            .map {
+              case Right(fus) => fus
+              case Left(_) => fail("Did not expect a batch size rejection")
+            }
+            .parTraverse(identity)
+
+        blocker.success(UnlessShutdown.unit)
+
+        resultF.futureValueUS shouldBe Seq(
+          List("0"),
+          List("1", "2", "3", "4", "5"),
+          List("6"),
+        )
+        requestsCountPerSize.toMap shouldBe Map(
+          5 -> 1, // One batch for the five elements request
+          1 -> 2,
+        )
+      }
+
+      "reject a batch if it exceeds the maximum batch size" in {
+        val blocker = PromiseUnlessShutdown.unsupervised[Unit]()
+
+        val requestsCountPerSize = TrieMap[Int, Int]()
+        val aggregator =
+          aggregatorWithDefaults(
+            maximumInFlight = 5,
+            batchGetter = batchGetterWithCounter(requestsCountPerSize, blocker.futureUS),
+          )
+
+        val result =
+          Vector(
+            NonEmpty(Seq, Traced(0)),
+            NonEmpty.from(1 to 6).map(_.map(Traced(_))).getOrElse(fail()),
+            NonEmpty(Seq, Traced(7)),
+          ).map(items => aggregator.runInSameBatch(items))
+
+        blocker.success(UnlessShutdown.unit)
+
+        result(1) shouldBe Left(PositiveInt.tryCreate(defaultMaximumBatchSize))
+
+        val resultF = result.collect { case Right(fus) => fus }.parTraverse(identity)
+
+        resultF.futureValueUS shouldBe Seq(List("0"), List("7"))
+        requestsCountPerSize.toMap shouldBe Map(1 -> 2)
+      }
     }
   }
 }
