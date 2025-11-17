@@ -193,26 +193,6 @@ scala_macro_library(
     ],
 )
 
-### community/lib/wartremover ###
-
-da_scala_library(
-    name = "community_lib_wartremover",
-    srcs = glob(["community/lib/wartremover/src/main/**/*.scala"]),
-    scala_deps = [
-        "@maven//:com_thesamet_scalapb_scalapb_runtime",
-    ],
-    scalacopts = canton_scalacopts + ["-Wconf:cat=unused-pat-vars:s"],
-    unused_dependency_checker_mode = "error",
-    deps = [
-        ":community_lib_wartremover-annotations",
-        "@maven//:com_google_guava_guava",
-        "@maven//:io_grpc_grpc_stub",
-        "@maven//:org_typelevel_cats_core_2_13",
-        "@maven//:org_typelevel_cats_kernel_2_13",
-        "@maven//:org_wartremover_wartremover_2_13_16",
-    ],
-)
-
 ### community/lib/wartremover-annotations ###
 
 da_scala_library(
