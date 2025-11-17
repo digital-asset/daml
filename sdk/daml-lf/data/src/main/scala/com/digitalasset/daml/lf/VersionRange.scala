@@ -39,21 +39,8 @@ sealed abstract class VersionRange[V](implicit val ordering: Ordering[V])
     throw new NoSuchElementException(s"Cannot get .max from $pretty (empty or unbounded above)")
   )
 
-  def contains(v: V): Boolean = this match {
-    case VersionRange.Empty() => false
-    case VersionRange.From(lowerBound) => ordering.gteq(v, lowerBound)
-    case VersionRange.Until(upperBound) => ordering.lteq(v, upperBound)
-    case VersionRange.Inclusive(lowerBound, upperBound) =>
-      ordering.gteq(v, lowerBound) && ordering.lteq(v, upperBound)
-  }
-
-  def map[W](f: V => W)(implicit ordering: Ordering[W]): VersionRange[W] = this match {
-    case VersionRange.Empty() => VersionRange.Empty[W]()
-    case VersionRange.From(lowerBound) => VersionRange.From(f(lowerBound))
-    case VersionRange.Until(upperBound) => VersionRange.Until(f(upperBound))
-    case VersionRange.Inclusive(lowerBound, upperBound) =>
-      VersionRange.Inclusive(f(lowerBound), f(upperBound))
-  }
+  def contains(v: V): Boolean
+  def map[W](f: V => W)(implicit ordering: Ordering[W]): VersionRange[W]
 }
 
 object VersionRange {
@@ -68,6 +55,10 @@ object VersionRange {
     def pretty: String = "[] (empty range)"
     override def minOption: Option[V] = None
     override def maxOption: Option[V] = None
+
+    def contains(v: V): Boolean = false
+    override def map[W](f: V => W)(implicit ordering: Ordering[W]): VersionRange.Empty[W] =
+      VersionRange.Empty[W]()
   }
 
   /** Represents a one-sided range `[min..]`. */
@@ -77,6 +68,10 @@ object VersionRange {
     override def maxOption: Option[V] = None
 
     override def min: V = lowerBound
+
+    def contains(v: V): Boolean = ordering.gteq(v, lowerBound)
+    override def map[W](f: V => W)(implicit ordering: Ordering[W]): VersionRange.From[W] =
+      VersionRange.From(f(lowerBound))
   }
 
   /** Represents a one-sided range `[..max]`. */
@@ -86,6 +81,10 @@ object VersionRange {
     override def maxOption: Option[V] = Some(upperBound)
 
     override def max: V = upperBound
+
+    def contains(v: V): Boolean = ordering.lteq(v, upperBound)
+    override def map[W](f: V => W)(implicit ordering: Ordering[W]): VersionRange.Until[W] =
+      VersionRange.Until(f(upperBound))
   }
 
   /** Represents an inclusive range `[min, max]`. This is the default */
@@ -103,7 +102,7 @@ object VersionRange {
     override def min: V = lowerBound
     override def max: V = upperBound
 
-    // override map to get a map from inclusive to inclusive
+    def contains(v: V): Boolean = ordering.gteq(v, lowerBound) && ordering.lteq(v, upperBound)
     override def map[W](f: V => W)(implicit ordering: Ordering[W]): VersionRange.Inclusive[W] =
       VersionRange.Inclusive(f(lowerBound), f(upperBound))
   }
