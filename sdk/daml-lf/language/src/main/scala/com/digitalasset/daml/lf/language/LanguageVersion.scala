@@ -96,23 +96,10 @@ object LanguageVersion extends LanguageVersionGenerated {
     }
 
   // TODO: remove after feature rework (this reworks ranges too, so this can be replaced by an Until range)
-  def allUpToVersion(version: LanguageVersion): VersionRange[LanguageVersion] = {
+  def allUpToVersion(version: LanguageVersion): VersionRange.Inclusive[LanguageVersion] = {
     version.major match {
       case Major.V2 => VersionRange(v2_1, version)
       case _ => throw new IllegalArgumentException(s"${version.major.pretty} not supported")
-    }
-  }
-
-  // @deprecated("Actually not sure if deprecated", since="3.5")
-  object LanguageVersionRangeOps {
-    implicit class LanguageVersionRange(val range: VersionRange[LanguageVersion]) {
-      def majorVersion: Major = {
-        require(
-          range.min.major == range.max.major,
-          s"version range ${range} spans over multiple version LF versions",
-        )
-        range.max.major
-      }
     }
   }
 }
