@@ -78,7 +78,7 @@ mapOptional p = foldr f []
 -- | Perform some operation on `Some`, given the field inside the
 -- `Some`.
 whenSome : Applicative m => Optional a -> (a -> m ()) -> m ()
-whenSome = flip . optional $ pure ()
+whenSome o f = optional (pure ()) f o
 
 -- | Perform some operation on `Some` and discard its result,
 -- given the field inside the `Some`.
