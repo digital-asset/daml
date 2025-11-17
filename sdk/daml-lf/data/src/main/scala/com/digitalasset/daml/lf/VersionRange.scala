@@ -25,20 +25,6 @@ sealed abstract class VersionRange[V](implicit val ordering: Ordering[V])
   /** The maximum version of this range, if bounded above. */
   def maxOption: Option[V]
 
-  /** The minimum version of this range.
-    * @throws NoSuchElementException if the range is empty or unbounded below.
-    */
-  def min: V = minOption.getOrElse(
-    throw new NoSuchElementException(s"Cannot get .min from $pretty (empty or unbounded below)")
-  )
-
-  /** The maximum version of this range.
-    * @throws NoSuchElementException if the range is empty or unbounded above.
-    */
-  def max: V = maxOption.getOrElse(
-    throw new NoSuchElementException(s"Cannot get .max from $pretty (empty or unbounded above)")
-  )
-
   def contains(v: V): Boolean = this match {
     case VersionRange.Empty() => false
     case VersionRange.From(lowerBound) => ordering.gteq(v, lowerBound)
@@ -71,40 +57,33 @@ object VersionRange {
   }
 
   /** Represents a one-sided range `[min..]`. */
-  final case class From[V: Ordering](lowerBound: V) extends VersionRange[V] {
-    def pretty: String = s"[${lowerBound}..] (all from ${lowerBound} upwards)"
-    override def minOption: Option[V] = Some(lowerBound)
+  final case class From[V: Ordering](min: V) extends VersionRange[V] {
+    def pretty: String = s"[${min}..] (all from ${min} upwards)"
+    override def minOption: Option[V] = Some(min)
     override def maxOption: Option[V] = None
-
-    override def min: V = lowerBound
   }
 
   /** Represents a one-sided range `[..max]`. */
-  final case class Until[V: Ordering](upperBound: V) extends VersionRange[V] {
-    def pretty: String = s"[..${upperBound}] (all up to and including ${upperBound})"
+  final case class Until[V: Ordering](max: V) extends VersionRange[V] {
+    def pretty: String = s"[..${max}] (all up to and including ${max})"
     override def minOption: Option[V] = None
-    override def maxOption: Option[V] = Some(upperBound)
-
-    override def max: V = upperBound
+    override def maxOption: Option[V] = Some(max)
   }
 
   /** Represents an inclusive range `[min, max]`. This is the default */
-  final case class Inclusive[V: Ordering](lowerBound: V, upperBound: V) extends VersionRange[V] {
+  final case class Inclusive[V: Ordering](min: V, max: V) extends VersionRange[V] {
     require(
-      ordering.lteq(lowerBound, upperBound),
-      s"Invalid ordering, min (${lowerBound}) was not <= max (${upperBound})",
+      ordering.lteq(min, max),
+      s"Invalid ordering, min (${min}) was not <= max (${max})",
     )
 
-    def pretty: String = s"[${lowerBound}..${upperBound}]"
+    def pretty: String = s"[${min}..${max}]"
 
-    override def minOption: Option[V] = Some(lowerBound)
-    override def maxOption: Option[V] = Some(upperBound)
-
-    override def min: V = lowerBound
-    override def max: V = upperBound
+    override def minOption: Option[V] = Some(min)
+    override def maxOption: Option[V] = Some(max)
 
     // override map to get a map from inclusive to inclusive
     override def map[W](f: V => W)(implicit ordering: Ordering[W]): VersionRange.Inclusive[W] =
-      VersionRange.Inclusive(f(lowerBound), f(upperBound))
+      VersionRange.Inclusive(f(min), f(max))
   }
 }
