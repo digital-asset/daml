@@ -135,7 +135,7 @@ generate_and_track_yaml_file(
 )
 
 da_haskell_library(
-    name = "stable-package-list-reader",
+    name = "stable-package-list-reader-hs",
     srcs = [
         "src/DA/Daml/EmbedFileAndDecode.hs",
         "src/DA/Daml/StablePackagesListReader.hs",
@@ -158,4 +158,20 @@ da_haskell_library(
     deps = [
         "//compiler/daml-lf-ast",
     ],
+)
+
+
+genrule(
+    name = "stable-package-list-reader-scala",
+    srcs = [
+        "stable-packages.yaml",
+        "generate_scala_stablepackageslist.py",
+    ],
+    outs = [
+        "com/digitalasset/daml/lf/language/StablePackagesGen.scala",
+    ],
+    cmd = "python3 $(location generate_scala_stablepackageslist.py) $(location stable-packages.yaml) $(location com/digitalasset/daml/lf/language/StablePackagesGen.scala)",
+    # running locally since we need PyYAML dep and adding it to nix for this
+    # noncritical part is the simplest
+    local = True,
 )
