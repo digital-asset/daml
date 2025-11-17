@@ -126,6 +126,7 @@ windows_wrapper_script = """
 cat > "$$DIR/bin/dpm.cmd" << EOF
 @echo off
 FOR %%A IN ("%~dp0.") DO SET DPM_HOME=%%~dpA
+IF %DPM_HOME:~-1%==\\ SET DPM_HOME=%DPM_HOME:~0,-1%
 
 set HOME=%DPM_HOME%
 set APPDATA=%DPM_HOME%
