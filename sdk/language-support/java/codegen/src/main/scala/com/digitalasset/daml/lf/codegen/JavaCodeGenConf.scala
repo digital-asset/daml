@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.codegen.conf
+package com.digitalasset.daml.lf.codegen
 
 import java.nio.file.{Path, Paths}
 
@@ -28,7 +28,7 @@ object PackageReference {
   * @param outputDirectory The directory where the code will be generated
   * @param decoderPkgAndClass the fully qualified name of the generated decoder class (optional)
   */
-final case class Conf(
+final case class JavaCodeGenConf(
     darFiles: Map[Path, Option[String]] = Map(),
     outputDirectory: Path,
     modulePrefixes: Map[PackageReference, String] = Map.empty,
@@ -37,15 +37,15 @@ final case class Conf(
     roots: List[String] = Nil,
 )
 
-object Conf {
+object JavaCodeGenConf {
 
-  private[conf] final val PackageAndClassRegex =
+  private final val PackageAndClassRegex =
     """(?:(\p{javaJavaIdentifierStart}\p{javaJavaIdentifierPart}+(?:\.\p{javaJavaIdentifierStart}\p{javaJavaIdentifierPart}+)*)\.)(\p{javaJavaIdentifierStart}\p{javaJavaIdentifierPart}+)""".r
 
-  def parse(args: Array[String], parserName: String = "codegen"): Option[Conf] =
-    parser(parserName).parse(args, Conf(darFiles = Map.empty, outputDirectory = Paths.get(".")))
+  def parse(args: Array[String], parserName: String = "codegen"): Option[JavaCodeGenConf] =
+    parser(parserName).parse(args, JavaCodeGenConf(darFiles = Map.empty, outputDirectory = Paths.get(".")))
 
-  def parser(parserName: String): OptionParser[Conf] = new scopt.OptionParser[Conf](parserName) {
+  def parser(parserName: String): OptionParser[JavaCodeGenConf] = new scopt.OptionParser[JavaCodeGenConf](parserName) {
     head(parserName, BuildInfo.Version)
     note("Code generator for the Daml ledger bindings.\n")
 
@@ -83,7 +83,7 @@ object Conf {
 
   }
 
-  private[conf] val readPath: scopt.Read[Path] = scopt.Read.stringRead.map(s => Paths.get(s))
+  private val readPath: scopt.Read[Path] = scopt.Read.stringRead.map(s => Paths.get(s))
 
   val readClassName: scopt.Read[(String, String)] = scopt.Read.stringRead.map {
     case PackageAndClassRegex(p, c) => (p, c)
@@ -103,7 +103,7 @@ object Conf {
       )
   }
 
-  private[conf] def optTupleRead[A: Read, B: Read]: Read[(A, Option[B])] =
+  private def optTupleRead[A: Read, B: Read]: Read[(A, Option[B])] =
     new Read[(A, Option[B])] {
       override def arity: Int = 2
 

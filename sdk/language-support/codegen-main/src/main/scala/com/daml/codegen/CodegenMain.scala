@@ -3,83 +3,59 @@
 
 package com.daml.codegen
 
-import com.digitalasset.daml.lf.codegen.conf.CodegenConfigReader.{CodegenDest, Java}
-import com.digitalasset.daml.lf.codegen.conf.{CodegenConfigReader, Conf}
-import com.digitalasset.daml.lf.codegen.{CodeGenRunner => JavaCodegen}
+import com.daml.assistant.config.PackageConfig
+import com.digitalasset.daml.lf.codegen.{CodegenRunner, JavaCodegenRunner}
 
 import scala.util.{Failure, Success, Try}
+import scopt.OptionParser
 
 object CodegenMain {
+  private lazy val isDpm = !sys.env.contains("DAML_SDK")
 
   sealed abstract class ExitCode(val code: Int)
   object OK extends ExitCode(0)
   object UsageError extends ExitCode(101)
   object CodegenError extends ExitCode(201)
 
-  private final case class FrontEndConfig(mode: Option[CodegenDest])
-
   def main(args: Array[String]): Unit = {
-    val exitCode: ExitCode = parseFrontEndConfig(args) match {
-      case Some(FrontEndConfig(Some(Java))) =>
-        javaCodegen(args.tail)
-      case Some(FrontEndConfig(None)) | None =>
-        println("\n")
-        cliConfigParser.displayToOut(cliConfigParser.usage)
-        UsageError
+    val codegenRunner = commandParser.parse(args, JavaCodegenRunner)
+    val exitCode: ExitCode = codegenRunner match {
+      case Some(runner) =>
+        readConfiguration(runner, args.tail) match {
+          case Some(config) =>
+            Try(runner.generateCode(config)) match {
+              case Success(_) => OK
+              case Failure(t) =>
+                println(s"Error generating code: ${t.getMessage}")
+                CodegenError
+            }
+          case None => displayUsage(runner.configParser(isDpm))
+        }
+      case None => displayUsage(commandParser)
     }
     sys.exit(exitCode.code)
   }
 
-  private def javaCodegen(args: Array[String]): ExitCode = {
-    println("Java codegen")
-    // Check if we're running in daml-assistant or DPM
-    val parserName = sys.env.get("DAML_SDK").fold("codegen-java")(_ => "codegen")
-    runCodegen(JavaCodegen.run, codegenConfig(args, Java, parserName), parserName)
+  private def displayUsage(parser: OptionParser[_]): ExitCode = {
+    println("\n")
+    parser.displayToOut(parser.usage)
+    UsageError
   }
 
-  private def runCodegen(
-      generate: Conf => Unit,
-      configO: Option[Conf],
-      parserName: String,
-  ): ExitCode =
-    configO match {
-      case None =>
-        println("\n")
-        Conf.parser(parserName).displayToOut(Conf.parser(parserName).usage)
-        UsageError
-      case Some(conf) =>
-        Try(generate(conf)) match {
-          case Success(_) =>
-            OK
-          case Failure(t) =>
-            println(s"Error generating code: ${t.getMessage}")
-            CodegenError
-        }
-    }
-
-  private def codegenConfig(
-      args: Array[String],
-      mode: CodegenDest,
-      parserName: String,
-  ): Option[Conf] =
+  private def readConfiguration(runner: CodegenRunner, args: Array[String]): Option[runner.Config] =
     if (args.nonEmpty) {
       println(s"Reading configuration from command line input: ${args.mkString(",")}")
-      Conf.parse(args, parserName)
+      runner.configureFromArgs(args, isDpm)
     } else {
-      println(s"Reading configuration from project configuration file")
-      CodegenConfigReader.readFromEnv(mode) match {
-        case Left(e) => println(s"Error reading project configuration file: $e"); None
+      println(s"Reading configuration from package configuration file")
+      PackageConfig.loadFromEnv().flatMap(runner.configureFromPackageConfig) match {
+        case Left(e) =>
+          println(s"Error reading package configuration file: ${e.reason}")
+          None
         case Right(c) => Some(c)
       }
     }
-
-  private def parseFrontEndConfig(args: collection.Seq[String]): Option[FrontEndConfig] =
-    args match {
-      case h +: _ => cliConfigParser.parse(Seq(h), FrontEndConfig(None))
-      case _ => None
-    }
-
-  private val cliConfigParser = new scopt.OptionParser[FrontEndConfig]("codegen-front-end") {
+  private val commandParser = new scopt.OptionParser[CodegenRunner]("codegen-front-end") {
     head("Codegen front end")
 
     override val showUsageOnError = Some(false)
@@ -88,7 +64,7 @@ object CodegenMain {
     note("\n")
 
     cmd("java")
-      .action((_, c) => c.copy(mode = Some(Java)))
+      .action((_, _) => JavaCodegenRunner)
       .text("To generate Java code:\n")
       .children(help("help").text("Java codegen help"))
     note("\n")

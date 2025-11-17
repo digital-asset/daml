@@ -5,6 +5,7 @@ load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
     "da_scala_library",
+    "da_scala_test",
     "scala_source_jar",
     "scaladoc_jar",
 )
@@ -17,8 +18,10 @@ da_scala_library(
     name = "codegen-main-lib",
     srcs = glob(["src/main/**/*.scala"]),
     scala_deps = [
+        "@maven//:org_typelevel_cats_core",
         "@maven//:com_github_scopt_scopt",
         "@maven//:com_typesafe_scala_logging_scala_logging",
+        "@maven//:io_circe_circe_core",
     ],
     visibility = ["//visibility:public"],
     runtime_deps = [
@@ -26,8 +29,9 @@ da_scala_library(
     ],
     deps = [
         "//daml-assistant/scala-daml-package-config",
-        "//language-support/codegen-common",
+        "//daml-lf/data",
         "//language-support/java/codegen:lib",
+        "@maven//:ch_qos_logback_logback_classic",
     ],
 )
 
@@ -36,20 +40,42 @@ da_scala_binary(
     srcs = glob(["src/main/**/*.scala"]),
     main_class = "com.daml.codegen.CodegenMain",
     scala_deps = [
+        "@maven//:org_typelevel_cats_core",
         "@maven//:com_github_scopt_scopt",
         "@maven//:com_typesafe_scala_logging_scala_logging",
+        "@maven//:io_circe_circe_core",
     ],
     visibility = ["//visibility:public"],
-    runtime_deps = [
-        "@maven//:ch_qos_logback_logback_classic",
-    ],
     deps = [
         "//daml-assistant/scala-daml-package-config",
-        "//language-support/codegen-common",
+        "//daml-lf/data",
         "//language-support/java/codegen:lib",
+        "@maven//:ch_qos_logback_logback_classic",
     ],
 )
 
+########################################################
+####  Unit Tests
+########################################################
+da_scala_test(
+    name = "test",
+    srcs = glob(["src/test/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalatestplus_scalacheck_1_15",
+    ],
+    deps = [
+        ":codegen-main-lib",
+        "//daml-assistant/scala-daml-package-config",
+        "//daml-lf/data",
+        "//language-support/java/codegen:lib",
+        "@maven//:ch_qos_logback_logback_classic",
+    ],
+)
+
+########################################################
+####  Distrib
+########################################################
 package_oci_component(
     name = "codegen-java-oci",
     component_manifest = ":component.yaml",
