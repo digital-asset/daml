@@ -17,7 +17,7 @@ Note that this section only covers testing your Daml contracts.
 
 .. hint::
 
-  Remember that you can load all the code for this section into a folder called ``intro12`` by running ``dpm new intro-test  --template daml-intro-test``
+  Remember that you can load all the code for this section into a folder called ``intro-test`` by running ``dpm new intro-test  --template daml-intro-test``
 
 Multi-package project structure
 -------------------------------
