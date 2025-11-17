@@ -56,7 +56,7 @@ object VersionRange {
     override def minOption: Option[V] = None
     override def maxOption: Option[V] = None
 
-    def contains(v: V): Boolean = false
+    override def contains(v: V): Boolean = false
     override def map[W](f: V => W)(implicit ordering: Ordering[W]): VersionRange.Empty[W] =
       VersionRange.Empty[W]()
   }
@@ -69,7 +69,7 @@ object VersionRange {
 
     override def min: V = lowerBound
 
-    def contains(v: V): Boolean = ordering.gteq(v, lowerBound)
+    override def contains(v: V): Boolean = ordering.gteq(v, lowerBound)
     override def map[W](f: V => W)(implicit ordering: Ordering[W]): VersionRange.From[W] =
       VersionRange.From(f(lowerBound))
   }
@@ -82,7 +82,7 @@ object VersionRange {
 
     override def max: V = upperBound
 
-    def contains(v: V): Boolean = ordering.lteq(v, upperBound)
+    override def contains(v: V): Boolean = ordering.lteq(v, upperBound)
     override def map[W](f: V => W)(implicit ordering: Ordering[W]): VersionRange.Until[W] =
       VersionRange.Until(f(upperBound))
   }
@@ -102,7 +102,8 @@ object VersionRange {
     override def min: V = lowerBound
     override def max: V = upperBound
 
-    def contains(v: V): Boolean = ordering.gteq(v, lowerBound) && ordering.lteq(v, upperBound)
+    override def contains(v: V): Boolean =
+      ordering.gteq(v, lowerBound) && ordering.lteq(v, upperBound)
     override def map[W](f: V => W)(implicit ordering: Ordering[W]): VersionRange.Inclusive[W] =
       VersionRange.Inclusive(f(lowerBound), f(upperBound))
   }
