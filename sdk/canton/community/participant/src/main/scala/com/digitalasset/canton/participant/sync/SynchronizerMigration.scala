@@ -171,7 +171,6 @@ class SynchronizerMigration(
         target.unwrap,
         SynchronizerConnectionConfigStore.HardMigratingTarget,
         KnownPhysicalSynchronizerId(psid),
-        // TODO(#26263) Ensure that this None is fine
         synchronizerPredecessor = None,
       )
       .leftMap[SynchronizerMigrationError](_ =>

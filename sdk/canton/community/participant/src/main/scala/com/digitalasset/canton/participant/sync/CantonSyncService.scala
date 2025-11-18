@@ -53,7 +53,7 @@ import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
 import com.digitalasset.canton.participant.*
 import com.digitalasset.canton.participant.Pruning.*
 import com.digitalasset.canton.participant.admin.*
-import com.digitalasset.canton.participant.admin.data.UploadDarData
+import com.digitalasset.canton.participant.admin.data.{ManualLSURequest, UploadDarData}
 import com.digitalasset.canton.participant.admin.grpc.PruningServiceError
 import com.digitalasset.canton.participant.admin.inspection.{
   JournalGarbageCollectorControl,
@@ -205,6 +205,7 @@ class CantonSyncService(
     parameters,
     connectedSynchronizerFactory,
     metrics,
+    sequencerInfoLoader,
     isActive,
     declarativeChangeTrigger,
     futureSupervisor,
@@ -1029,14 +1030,7 @@ class CantonSyncService(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] =
-    sequencerInfoLoader // TODO(i27622): use the connection pool to validate the config
-      .validateSequencerConnection(
-        config.synchronizerAlias,
-        config.synchronizerId,
-        config.sequencerConnections,
-        sequencerConnectionValidation,
-      )
-      .leftMap(SyncServiceError.SyncServiceInconsistentConnectivity.Error(_): SyncServiceError)
+    connectionsManager.validateSequencerConnection(config, sequencerConnectionValidation)
 
   /** Modifies the settings of the synchronizer connection
     *
@@ -1275,6 +1269,11 @@ class CantonSyncService(
       synchronizerAlias: SynchronizerAlias
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] =
     connectionsManager.disconnectSynchronizer(synchronizerAlias)
+
+  def manuallyUpgradeSynchronizerTo(
+      request: ManualLSURequest
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] =
+    connectionsManager.manuallyUpgradeSynchronizerTo(request)
 
   def logout(synchronizerAlias: SynchronizerAlias)(implicit
       traceContext: TraceContext

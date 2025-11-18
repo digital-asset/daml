@@ -8,6 +8,7 @@ import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
 import com.digitalasset.canton.crypto.SynchronizerCryptoClient
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
@@ -29,6 +30,7 @@ import com.digitalasset.canton.sequencer.api.v30.SequencerConnect.{
 }
 import com.digitalasset.canton.synchronizer.sequencing.authentication.grpc.IdentityContextHelper
 import com.digitalasset.canton.synchronizer.service.HandshakeValidator
+import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.store.TopologyStore
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
@@ -43,11 +45,13 @@ import scala.concurrent.{ExecutionContext, Future}
 /** Sequencer connect service on gRPC
   */
 class GrpcSequencerConnectService(
-    synchronizerId: PhysicalSynchronizerId,
+    psid: PhysicalSynchronizerId,
     sequencerId: SequencerId,
     staticSynchronizerParameters: StaticSynchronizerParameters,
     synchronizerTopologyManager: SynchronizerTopologyManager,
     cryptoApi: SynchronizerCryptoClient,
+    clock: Clock,
+    sequencingTimeLowerBoundExclusive: Option[CantonTimestamp],
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends proto.SequencerConnectServiceGrpc.SequencerConnectService
@@ -61,7 +65,7 @@ class GrpcSequencerConnectService(
   ): Future[GetSynchronizerIdResponse] =
     Future.successful(
       GetSynchronizerIdResponse(
-        physicalSynchronizerId = synchronizerId.toProtoPrimitive,
+        physicalSynchronizerId = psid.toProtoPrimitive,
         sequencerUid = sequencerId.uid.toProtoPrimitive,
       )
     )
@@ -127,11 +131,32 @@ class GrpcSequencerConnectService(
   ): Future[SequencerConnect.RegisterOnboardingTopologyTransactionsResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val resultET = for {
+
       member <- EitherT.fromEither[Future](
         IdentityContextHelper.getCurrentStoredMember.toRight(
           invalidRequest("Unable to find member id in gRPC context")
         )
       )
+
+      now = clock.now
+
+      /*
+      This checks allows for a better UX. Without it, the sequencer will fail to dispatch the onboarding
+      topology transactions, which causes
+      - unnecessary warnings in the logs
+      - unnecessary delay for the participant to figure out that onboarding has failed
+       */
+      _ <- sequencingTimeLowerBoundExclusive match {
+        case Some(boundExclusive) if now <= boundExclusive =>
+          EitherT.leftT[Future, Unit](
+            failedPrecondition(
+              s"Onboarding is possible only from $boundExclusive but current time is $now"
+            )
+          )
+
+        case _ => EitherTUtil.unit[StatusRuntimeException]
+      }
+
       isKnown <- CantonGrpcUtil.mapErrNewETUS(
         EitherT.right(
           cryptoApi.ips.headSnapshot.isMemberKnown(member)
@@ -180,7 +205,7 @@ class GrpcSequencerConnectService(
     val unexpectedNamespaces = transactions.filter(_.mapping.namespace != member.namespace)
 
     val expectedMappings =
-      if (member.code == ParticipantId.Code) TopologyStore.initialParticipantDispatchingSet
+      if (member.code == ParticipantId.Code) TopologyStore.initialParticipantDispatchingSet.forgetNE
       else Set(TopologyMapping.Code.NamespaceDelegation, TopologyMapping.Code.OwnerToKeyMapping)
     val submittedMappings = transactions.map(_.mapping.code).toSet
     val unexpectedMappings = submittedMappings -- expectedMappings

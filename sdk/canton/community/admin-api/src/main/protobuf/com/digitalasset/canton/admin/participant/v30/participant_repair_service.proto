@@ -7,6 +7,7 @@ package com.digitalasset.canton.admin.participant.v30;
 
 import "com/digitalasset/canton/admin/participant/v30/acs_import.proto";
 import "com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity.proto";
+import "com/digitalasset/canton/admin/sequencer/v30/sequencer_connection.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 
@@ -60,6 +61,17 @@ service ParticipantRepairService {
   rpc RollbackUnassignment(RollbackUnassignmentRequest) returns (RollbackUnassignmentResponse);
 
   rpc RepairCommitmentsUsingAcs(RepairCommitmentsUsingAcsRequest) returns (RepairCommitmentsUsingAcsResponse);
+
+  /**
+     Perform a logical synchronizer upgrade
+     This endpoint should ONLY be used when the following two conditions are met:
+     - The participant node missed the upgrade on the old synchronizer, and
+     - The old synchronizer has been decommissioned in the meantime.
+
+     After the upgrade has been done, other repair operations might need to be done.
+     This includes manually repairing the ACS to account for missed activity on both the old and new synchronizer.
+  */
+  rpc PerformSynchronizerUpgrade(PerformSynchronizerUpgradeRequest) returns (PerformSynchronizerUpgradeResponse);
 }
 
 message PurgeContractsRequest {
@@ -349,3 +361,21 @@ message RepairCommitmentsStatus {
     google.protobuf.Timestamp completed_repair_timestamp = 3;
   }
 }
+
+message PerformSynchronizerUpgradeRequest {
+  message Successor {
+    string physical_synchronizer_id = 1;
+
+    // Value should be provided by synchronizer owners
+    google.protobuf.Timestamp announced_upgrade_time = 2;
+
+    SynchronizerConnectionConfig config = 3;
+
+    com.digitalasset.canton.admin.sequencer.v30.SequencerConnectionValidation sequencer_connection_validation = 4;
+  }
+
+  string physical_synchronizer_id = 1;
+  Successor successor = 2;
+}
+
+message PerformSynchronizerUpgradeResponse {}

@@ -386,6 +386,9 @@ object TestingTimeServiceConfig {
   *   Checkpoint interval for commitments. Smaller intervals lead to less resource-intensive crash
   *   recovery, at the cost of more frequent DB writing of checkpoints. Regardless of this
   *   checkpoint interval, checkpointing is also performed at reconciliation interval boundaries.
+  * @param autoSyncProtocolFeatureFlags
+  *   When true (default), protocol feature flags will be automatically updated when the node
+  *   connects to a synchronizer.
   */
 final case class ParticipantNodeParameterConfig(
     adminWorkflow: AdminWorkflowConfig = AdminWorkflowConfig(),
@@ -422,6 +425,7 @@ final case class ParticipantNodeParameterConfig(
     doNotAwaitOnCheckingIncomingCommitments: Boolean = false,
     commitmentCheckpointInterval: config.PositiveDurationSeconds =
       config.PositiveDurationSeconds.ofMinutes(1),
+    autoSyncProtocolFeatureFlags: Boolean = true,
 ) extends LocalNodeParametersConfig
     with UniformCantonConfigValidation
 

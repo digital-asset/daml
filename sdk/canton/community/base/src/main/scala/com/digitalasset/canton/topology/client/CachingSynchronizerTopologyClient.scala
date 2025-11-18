@@ -507,8 +507,9 @@ private class ForwardingTopologySnapshotClient(
   override def inspectKnownParties(
       filterParty: String,
       filterParticipant: String,
+      limit: Int,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Set[PartyId]] =
-    parent.inspectKnownParties(filterParty, filterParticipant)
+    parent.inspectKnownParties(filterParty, filterParticipant, limit)
 
   override def loadVettedPackages(participant: ParticipantId)(implicit
       traceContext: TraceContext
@@ -781,8 +782,9 @@ class CachingTopologySnapshot(
   override def inspectKnownParties(
       filterParty: String,
       filterParticipant: String,
+      limit: Int,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Set[PartyId]] =
-    parent.inspectKnownParties(filterParty, filterParticipant)
+    parent.inspectKnownParties(filterParty, filterParticipant, limit)
 
   /** returns the list of currently known mediators */
   override def mediatorGroups()(implicit

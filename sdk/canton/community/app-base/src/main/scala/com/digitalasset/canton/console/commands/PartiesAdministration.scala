@@ -19,7 +19,11 @@ import com.digitalasset.canton.admin.api.client.commands.{
   ParticipantAdminCommands,
   TopologyAdminCommands,
 }
-import com.digitalasset.canton.admin.api.client.data.{AddPartyStatus, ListPartiesResult}
+import com.digitalasset.canton.admin.api.client.data.{
+  AddPartyStatus,
+  ListPartiesResult,
+  PartyOnboardingFlagStatus,
+}
 import com.digitalasset.canton.admin.participant.v30.ExportPartyAcsResponse
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.config.{ConsoleCommandTimeout, NonNegativeDuration}
@@ -35,7 +39,7 @@ import com.digitalasset.canton.console.{
   ParticipantReference,
 }
 import com.digitalasset.canton.crypto.{Fingerprint, SigningKeyUsage}
-import com.digitalasset.canton.data.{CantonTimestamp, OnboardingTransactions}
+import com.digitalasset.canton.data.OnboardingTransactions
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.grpc.FileStreamObserver
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -1203,30 +1207,34 @@ class ParticipantPartiesAdministrationGroup(
     """Instructs the participant to unilaterally clear the 'onboarding' flag on the
       |party-to-participant topology mapping.
       |
-      |This operation is time-sensitive. If run too soon, the flag cannot be safely cleared,
-      |and another attempt needs to be made.
+      |This operation is time-sensitive. It will first attempt to authorize the
+      |flag's clearance immediately.
       |
-      |This endpoint is idempotent and can be safely called multiple times. Polling is
-      |necessary because the flag can only be cleared after a specific time has passed, and
-      |the underlying change may take time to become effective.
+      |If the flag cannot be safely cleared, this command schedules an idempotent
+      |background task to propose the clearance at the appropriate "safe time".
+      |This safe time (the "latest decision deadline") is computed from the
+      |synchronizer's parameter history to ensure all prior in-flight
+      |transactions are finalized.
       |
-      |Prerequisite: A prior party-to-participant mapping topology transaction must exist
-      |that activates the party on the participant with the onboarding flag set to
-      |true.
+      |The command is idempotent and designed to be polled. You can re-run
+      |it safely to check the status.
       |
-      |Returns a tuple with the current status:
-      |- Cleared: (true, None) – The flag is successfully cleared.
-      |- Pending: (false, Some(timestamp)) – The flag is still set. The timestamp indicates
-      |           the earliest safe time to clear the flag. You may wait until after this
-      |           time to run the command again.
+      |Prerequisite:
+      |- A prior party-to-participant mapping must exist that activates the party
+      |  on this participant with the `onboarding` flag set to `true`.
+      |
+      |Returns the current the current status as `PartyOnboardingFlagStatus`:
+      |- `FlagNotSet`: The flag is successfully cleared (or was already clear).
+      |- `FlagSet`: The flag is still set. A clearance task is pending and scheduled
+      |             to run at or after the given timestamp.
       |
       |The arguments are:
-      |- party: The party being onboarded, it must already be active on the participant.
-      |- synchronizerId: Restricts the party onboarding to the given synchronizer.
+      |- party: The party being onboarded. It must already be active on the participant.
+      |- synchronizerId: Restricts the operation to the given synchronizer.
       |- beginOffsetExclusive: Exclusive ledger offset used as a starting point to find the
-      |                        party's activation on the participant.
-      |- waitForActivationTimeout: The maximum duration the service will wait to find the
-      |                            topology transaction that activates the party.
+      |                        party's activation.
+      |- waitForActivationTimeout: Max duration to wait to find the party's activation
+      |                            topology transaction.
     """
   )
   def clear_party_onboarding_flag(
@@ -1236,7 +1244,7 @@ class ParticipantPartiesAdministrationGroup(
       waitForActivationTimeout: Option[config.NonNegativeFiniteDuration] = Some(
         config.NonNegativeFiniteDuration.ofMinutes(2)
       ),
-  ): (Boolean, Option[CantonTimestamp]) =
+  ): PartyOnboardingFlagStatus =
     consoleEnvironment.run {
       reference.adminCommand(
         ParticipantAdminCommands.PartyManagement.ClearPartyOnboardingFlag(

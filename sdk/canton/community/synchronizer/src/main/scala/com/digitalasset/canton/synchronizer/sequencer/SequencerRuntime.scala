@@ -266,6 +266,9 @@ class SequencerRuntime(
             staticSynchronizerParameters,
             synchronizerTopologyManager,
             syncCrypto,
+            clock,
+            sequencingTimeLowerBoundExclusive =
+              localNodeParameters.sequencingTimeLowerBoundExclusive,
             loggerFactory,
           )(
             ec

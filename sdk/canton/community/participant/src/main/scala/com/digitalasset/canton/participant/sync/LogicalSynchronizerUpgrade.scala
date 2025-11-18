@@ -7,16 +7,19 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.data.SynchronizerSuccessor
+import com.digitalasset.canton.data.{SynchronizerPredecessor, SynchronizerSuccessor}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.LifeCycleContainer
+import com.digitalasset.canton.participant.admin.data.ManualLSURequest
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
+import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore.UnknownPSId
 import com.digitalasset.canton.participant.store.{
   StoredSynchronizerConnectionConfig,
   SynchronizerConnectionConfigStore,
 }
 import com.digitalasset.canton.participant.sync.AutomaticLogicalSynchronizerUpgrade.UpgradabilityCheckResult
+import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.resource.DbExceptionRetryPolicy
 import com.digitalasset.canton.topology.transaction.{
   SynchronizerUpgradeAnnouncement,
@@ -462,6 +465,102 @@ class AutomaticLogicalSynchronizerUpgrade(
       if (isDone) EitherT.pure[FutureUnlessShutdown, String](UpgradabilityCheckResult.UpgradeDone)
       else upgradeCheck().map(_ => UpgradabilityCheckResult.ReadyToUpgrade)
     }
+  }
+}
+
+/** This class implements manual LSU. It should be called for participants that are upgrading
+  * manually:
+  *   - because automatic LSU failed, or
+  *   - because the node is upgrading after the old synchronizer has been decomissioned.
+  */
+class ManualLogicalSynchronizerUpgrade(
+    synchronizerConnectionConfigStore: SynchronizerConnectionConfigStore,
+    executionQueue: SimpleExecutionQueue,
+    connectedSynchronizersLookup: ConnectedSynchronizersLookup,
+    disconnectSynchronizer: Traced[SynchronizerAlias] => EitherT[
+      FutureUnlessShutdown,
+      SyncServiceError,
+      Unit,
+    ],
+    override val timeouts: ProcessingTimeout,
+    override val loggerFactory: NamedLoggerFactory,
+)(implicit executionContext: ExecutionContext)
+    extends LogicalSynchronizerUpgrade[SynchronizerConnectionConfig](
+      synchronizerConnectionConfigStore,
+      executionQueue,
+      connectedSynchronizersLookup,
+      disconnectSynchronizer,
+      timeouts,
+      loggerFactory,
+    ) {
+
+  override def kind: String = "manual"
+
+  def upgrade(
+      request: ManualLSURequest
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] = {
+    val currentPSId = request.currentPSId
+    val successorPSId = request.successorPSId
+    val upgradeTime = request.upgradeTime
+    val alias = request.successorConfig.synchronizerAlias
+    val synchronizerSuccessor = SynchronizerSuccessor(successorPSId, upgradeTime)
+
+    EitherT.liftF[FutureUnlessShutdown, String, Unit](
+      retryPolicy
+        .unlessShutdown(
+          performUpgrade(
+            alias,
+            currentPSId,
+            synchronizerSuccessor,
+            request.successorConfig,
+          ).value,
+          DbExceptionRetryPolicy,
+        )
+        .map(_ => ())
+    )
+  }
+
+  override protected def performUpgradeInternal(
+      alias: SynchronizerAlias,
+      currentPSId: PhysicalSynchronizerId,
+      synchronizerSuccessor: SynchronizerSuccessor,
+      successorConfig: SynchronizerConnectionConfig,
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] = {
+    logger.info(s"Marking synchronizer connection $currentPSId as inactive")
+    val successorPSId = synchronizerSuccessor.psid
+
+    for {
+      _ <- synchronizerConnectionConfigStore
+        .setStatus(
+          successorConfig.synchronizerAlias,
+          KnownPhysicalSynchronizerId(currentPSId),
+          SynchronizerConnectionConfigStore.Inactive,
+        )
+        .leftMap(_.message)
+
+      _ <- synchronizerConnectionConfigStore.get(successorPSId) match {
+        case Left(_: UnknownPSId) =>
+          logger.info(s"Storing synchronizer connection config for $successorPSId")
+          synchronizerConnectionConfigStore
+            .put(
+              successorConfig,
+              SynchronizerConnectionConfigStore.Active,
+              KnownPhysicalSynchronizerId(successorPSId),
+              Some(SynchronizerPredecessor(currentPSId, synchronizerSuccessor.upgradeTime)),
+            )
+            .leftMap(err => s"Unable to store connection config for $successorPSId: $err")
+
+        case Right(foundConfig) =>
+          logger.info(s"Marking synchronizer connection $successorPSId as active")
+          synchronizerConnectionConfigStore
+            .setStatus(
+              successorConfig.synchronizerAlias,
+              foundConfig.configuredPSId,
+              SynchronizerConnectionConfigStore.Active,
+            )
+            .leftMap(err => s"Unable to mark successor synchronizer $successorPSId as active: $err")
+      }
+    } yield ()
   }
 }
 

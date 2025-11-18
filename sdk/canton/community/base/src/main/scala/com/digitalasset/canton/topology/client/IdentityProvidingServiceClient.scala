@@ -352,6 +352,7 @@ trait PartyTopologySnapshotClient {
   def inspectKnownParties(
       filterParty: String,
       filterParticipant: String,
+      limit: Int,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Set[PartyId]]
 }
 

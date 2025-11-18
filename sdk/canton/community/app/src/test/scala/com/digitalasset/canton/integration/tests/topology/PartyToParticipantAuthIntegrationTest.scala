@@ -146,7 +146,7 @@ trait PartyToParticipantAuthIntegrationTest
 
     result.item.partyId shouldBe partyId
     result.item.partySigningKeys.toSeq should contain theSameElementsAs protocolSigningKeys
-    result.item.participants shouldBe hostingParticipants
+    result.item.participants should contain theSameElementsAs hostingParticipants
   }
 
   "PartyToParticipant auth mechanism" should {

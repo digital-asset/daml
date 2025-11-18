@@ -12,6 +12,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.SynchronizerIndex
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, PromiseUnlessShutdownFactory}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.participant.admin.party.OnboardingClearanceScheduler
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
 import com.digitalasset.canton.participant.metrics.ConnectedSynchronizerMetrics
@@ -45,6 +46,7 @@ trait SyncEphemeralStateFactory {
       promiseUSFactory: PromiseUnlessShutdownFactory,
       metrics: ConnectedSynchronizerMetrics,
       sessionKeyCacheConfig: SessionEncryptionKeyCacheConfig,
+      onboardingClearanceScheduler: OnboardingClearanceScheduler,
       participantId: ParticipantId,
   )(implicit
       traceContext: TraceContext
@@ -71,6 +73,7 @@ class SyncEphemeralStateFactoryImpl(
       promiseUSFactory: PromiseUnlessShutdownFactory,
       metrics: ConnectedSynchronizerMetrics,
       sessionKeyCacheConfig: SessionEncryptionKeyCacheConfig,
+      onboardingClearanceScheduler: OnboardingClearanceScheduler,
       participantId: ParticipantId,
   )(implicit
       traceContext: TraceContext
@@ -130,6 +133,7 @@ class SyncEphemeralStateFactoryImpl(
         recordOrderPublisher,
         timeTracker,
         inFlightSubmissionSynchronizerTracker,
+        onboardingClearanceScheduler,
         persistentState,
         ledgerApiIndexer.value,
         contractStore.value,

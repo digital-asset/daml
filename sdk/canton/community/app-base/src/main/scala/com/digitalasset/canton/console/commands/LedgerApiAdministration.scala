@@ -396,10 +396,10 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           |events until either `completeAfter` updates have been received or `timeout` has elapsed.
           |If the party ids seq is empty then the topology transactions for all the parties will be fetched.
           |The returned updates can be filtered to be between the given offsets (default: no filtering).
-          |If the participant has been pruned via `pruning.prune` and if `beginOffset` is lower than the pruning offset,
+          |If the participant has been pruned via `pruning.prune` and if `beginOffsetExclusive` is lower than the pruning offset,
           |this command fails with a `NOT_FOUND` error.
-          |If the beginOffset is zero then the participant begin is taken as beginning offset.
-          |If the endOffset is None then a continuous stream is returned."""
+          |If the beginOffsetExclusive is zero then the participant begin is taken as beginning offset.
+          |If the endOffsetInclusive is None then a continuous stream is returned."""
       )
       def topology_transactions(
           completeAfter: PositiveInt,

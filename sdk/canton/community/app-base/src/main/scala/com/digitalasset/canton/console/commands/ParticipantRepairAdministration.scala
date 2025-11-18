@@ -18,6 +18,7 @@ import com.digitalasset.canton.console.{
   Help,
   Helpful,
 }
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.grpc.FileStreamObserver
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.admin.data.{
@@ -28,6 +29,7 @@ import com.digitalasset.canton.participant.admin.data.{
 }
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.protocol.{ContractInstance, LfContractId}
+import com.digitalasset.canton.sequencing.SequencerConnectionValidation
 import com.digitalasset.canton.topology.{PartyId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.ResourceUtil
@@ -38,6 +40,7 @@ import io.grpc.Context
 
 import java.time.Instant
 import java.util.UUID
+import scala.util.{Failure, Success, Try}
 
 class ParticipantRepairAdministration(
     val consoleEnvironment: ConsoleEnvironment,
@@ -314,6 +317,38 @@ class ParticipantRepairAdministration(
       )
     }
 
+  @Help.Summary("Write active contracts to a file")
+  @Help.Description(
+    """The file can be imported using command `import_acs`.
+      |
+      |The arguments are:
+      |- contracts: Contracts to be written
+      |- protocolVersion: Protocol version of the synchronizer of the contracts
+      |"""
+  )
+  def write_contracts_to_file(
+      contracts: Seq[com.daml.ledger.api.v2.state_service.ActiveContract],
+      protocolVersion: ProtocolVersion,
+      exportFilePath: String = "canton-acs-export.gz",
+  ): Unit = {
+    val output = File(exportFilePath).newGzipOutputStream()
+    val res = contracts.traverse_ { lapiContract =>
+      val contract = com.digitalasset.canton.participant.admin.data.ActiveContract
+        .create(lapiContract)(protocolVersion)
+
+      Try(contract.writeDelimitedTo(output))
+    }
+    output.close()
+
+    res match {
+      case Failure(exception) =>
+        consoleEnvironment.raiseError(
+          s"Unable to write contracts to file $exportFilePath: ${exception.getMessage}"
+        )
+      case Success(()) =>
+    }
+  }
+
   @Help.Summary("Import active contracts from an Active Contract Set (ACS) snapshot file.")
   @Help.Description(
     """This command imports contracts from an ACS snapshot file into the participant's ACS. It
@@ -518,10 +553,49 @@ class ParticipantRepairAdministration(
       consoleEnvironment.run {
         runner.adminCommand(
           ParticipantAdminCommands.ParticipantRepairManagement
-            .RollbackUnassignment(reassignmentId = reassignmentId, source = source, target = target)
+            .RollbackUnassignment(
+              reassignmentId = reassignmentId,
+              source = source,
+              target = target,
+            )
         )
       }
     }
+
+  // TODO(#28972) Remove preview flag
+  @Help.Summary("Perform a logical synchronizer upgrade")
+  @Help.Description("""This command allows to perform an offline logical synchronizer upgrade.
+       It should only be used if the node was offline at the time of the upgrade and the synchronizer was decommissioned.
+
+       Arguments:
+       - currentPhysicalSynchronizerId - id of the synchronizer that should be upgraded
+       - successorPhysicalSynchronizerId - id of the new synchronizer
+       - announcedUpgradeTime - time at which the upgrade happened
+       - successorConfig - configuration to connect to the new synchronizer
+       - validation - The validations which need to be done to the connection.
+      """)
+  def perform_synchronizer_upgrade(
+      currentPhysicalSynchronizerId: PhysicalSynchronizerId,
+      successorPhysicalSynchronizerId: PhysicalSynchronizerId,
+      announcedUpgradeTime: CantonTimestamp,
+      successorConfig: SynchronizerConnectionConfig,
+      validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
+  ): Unit = check(FeatureFlag.Preview) {
+    check(FeatureFlag.Repair) {
+      consoleEnvironment.run {
+        runner.adminCommand(
+          ParticipantAdminCommands.ParticipantRepairManagement
+            .PerformSynchronizerUpgrade(
+              currentPSId = currentPhysicalSynchronizerId,
+              successorPSId = successorPhysicalSynchronizerId,
+              upgradeTime = announcedUpgradeTime,
+              successorConfig = successorConfig,
+              sequencerConnectionValidation = validation,
+            )
+        )
+      }
+    }
+  }
 }
 
 object ParticipantRepairAdministration {

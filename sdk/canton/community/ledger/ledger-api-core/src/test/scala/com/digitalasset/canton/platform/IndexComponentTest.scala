@@ -225,7 +225,7 @@ trait IndexComponentTest
           loggerFactory = loggerFactory,
           dataSourceProperties = IndexerConfig.createDataSourcePropertiesForTesting(indexerConfig),
           highAvailability = HaConfig(),
-          indexSericeDbDispatcher = Some(dbSupport.dbDispatcher),
+          indexSericeDbDispatcher = None,
           clock = clock,
           reassignmentOffsetPersistence = NoOpReassignmentOffsetPersistence,
           postProcessor = (_, _) => Future.unit,

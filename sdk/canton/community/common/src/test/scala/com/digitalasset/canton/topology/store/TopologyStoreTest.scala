@@ -619,6 +619,16 @@ trait TopologyStoreTest
               filterParty = `fred::p2Namepsace`.uid.toProtoPrimitive,
               filterParticipant = p1Id.uid.toProtoPrimitive,
             )
+            onlyParticipant2ViaParticipantFilter <- inspectKnownParties(
+              store,
+              ts6,
+              filterParticipant = "participant2",
+            )
+            onlyParticipant2ViaPartyFilter <- inspectKnownParties(
+              store,
+              ts6,
+              filterParty = "participant2",
+            )
             onlyParticipant3 <- inspectKnownParties(store, ts6, filterParticipant = "participant3")
             neitherParty <- inspectKnownParties(store, ts6, "fred::canton", "participant3")
           } yield {
@@ -683,6 +693,12 @@ trait TopologyStoreTest
             )
             onlyFred shouldBe Set(ptp_fred_p1.mapping.partyId)
             fredFullySpecified shouldBe Set(ptp_fred_p1.mapping.partyId)
+            onlyParticipant2ViaParticipantFilter shouldBe Set(
+              dtc_p2_synchronizer1.mapping.participantId.adminParty
+            )
+            onlyParticipant2ViaPartyFilter shouldBe Set(
+              dtc_p2_synchronizer1.mapping.participantId.adminParty
+            )
             onlyParticipant3 shouldBe Set() // p3 cannot appear as OTK3 is only a proposal
             neitherParty shouldBe Set.empty
           }

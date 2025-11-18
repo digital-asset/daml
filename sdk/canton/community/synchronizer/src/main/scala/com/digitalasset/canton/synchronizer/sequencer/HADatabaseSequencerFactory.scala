@@ -7,8 +7,6 @@ import cats.syntax.either.*
 import cats.syntax.option.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.crypto.SynchronizerCryptoClient
-import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.Storage
@@ -17,6 +15,7 @@ import com.digitalasset.canton.scheduler.PruningScheduler
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.HASequencerExclusiveStorageBuilder.ExclusiveStorage
 import com.digitalasset.canton.synchronizer.sequencer.HASequencerExclusiveStorageNotifier.FailoverNotification
+import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeParameters
 import com.digitalasset.canton.synchronizer.sequencer.traffic.SequencerTrafficConfig
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.SequencerId
@@ -42,7 +41,7 @@ class HADatabaseSequencerFactory(
     health: Option[SequencerHealthConfig],
     metrics: SequencerMetrics,
     sequencerId: SequencerId,
-    nodeParameters: CantonNodeParameters,
+    nodeParameters: SequencerNodeParameters,
     val loggerFactory: NamedLoggerFactory,
 )(implicit ex: ExecutionContext)
     extends DatabaseSequencerFactory(
@@ -64,7 +63,6 @@ class HADatabaseSequencerFactory(
       synchronizerSyncCryptoApi: SynchronizerCryptoClient,
       futureSupervisor: FutureSupervisor,
       trafficConfig: SequencerTrafficConfig,
-      sequencingTimeLowerBoundExclusive: Option[CantonTimestamp],
       runtimeReady: FutureUnlessShutdown[Unit],
       sequencerSnapshot: Option[SequencerSnapshot],
       authenticationServices: Option[AuthenticationServices],
@@ -103,9 +101,7 @@ class HADatabaseSequencerFactory(
     val exclusiveStorage = exclusiveStorageBuilder.map(
       _(storage).valueOr(err => throw new StorageCreationException(err.message))
     )
-    logger.info(
-      s"Creating database sequencer"
-    )
+    logger.info(s"Creating database sequencer")
 
     val sequencer = new DatabaseSequencer(
       writerStorageFactory,
@@ -126,7 +122,7 @@ class HADatabaseSequencerFactory(
       metrics,
       loggerFactory,
       blockSequencerMode = false,
-      sequencingTimeLowerBoundExclusive = sequencingTimeLowerBoundExclusive,
+      sequencingTimeLowerBoundExclusive = nodeParameters.sequencingTimeLowerBoundExclusive,
       rateLimitManagerO = None,
     ) {
       override def pruningSchedulerBuilder: Option[Storage => PruningScheduler] = {

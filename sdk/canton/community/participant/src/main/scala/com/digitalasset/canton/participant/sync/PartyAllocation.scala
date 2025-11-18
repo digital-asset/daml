@@ -7,7 +7,7 @@ import cats.data.EitherT
 import cats.implicits.showInterpolator
 import cats.syntax.bifunctor.*
 import cats.syntax.either.*
-import cats.syntax.parallel.*
+import cats.syntax.traverse.*
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.ledger.participant.state.*
@@ -137,21 +137,24 @@ private[sync] class PartyAllocation(
             x
           }
         // TODO(i25076) remove this waiting logic once topology events are published on the ledger api
-        // wait for parties to be available on the currently connected synchronizers
+        // wait for parties to be available on the specified connected synchronizers
         waitingSuccessful <- EitherT
           .right[SubmissionResult](
             if (externalPartyOnboardingDetails.forall(_.fullyAllocatesParty)) {
-              connectedSynchronizersLookup.snapshot.toSeq.parTraverse {
-                case (synchronizerId, connectedSynchronizer) =>
-                  connectedSynchronizer.topologyClient
-                    .awaitUS(
-                      _.inspectKnownParties(partyId.filterString, participantId.filterString)
-                        .map(_.nonEmpty),
-                      timeouts.network.duration,
+              connectedSynchronizersLookup.get(synchronizerId).traverse { connectedSynchronizer =>
+                connectedSynchronizer.topologyClient
+                  .awaitUS(
+                    _.inspectKnownParties(
+                      partyId.filterString,
+                      participantId.filterString,
+                      limit = 1,
                     )
-                    .map(synchronizerId -> _)
+                      .map(_.nonEmpty),
+                    timeouts.network.duration,
+                  )
+                  .map(synchronizerId -> _)
               }
-            } else FutureUnlessShutdown.pure(Seq.empty)
+            } else FutureUnlessShutdown.pure(None)
           )
         _ = waitingSuccessful.foreach { case (synchronizerId, successful) =>
           if (!successful)

@@ -2940,11 +2940,6 @@ object AcsCommitmentProcessor extends HasLoggerName {
 
   object ReceivedCmtState {
 
-//    case object Match { val toInt = 1 }
-//    case object Mismatch { val toInt = 3 }
-//    case object Buffered extends CommitmentPeriodState { val toInt = 3 }
-//    case object Outstanding extends ValidSentPeriodState { val toInt = 4 }
-
     case object Match extends ReceivedCmtState {
       override val toProtoV30: ReceivedCommitmentState =
         ReceivedCommitmentState.RECEIVED_COMMITMENT_STATE_MATCH

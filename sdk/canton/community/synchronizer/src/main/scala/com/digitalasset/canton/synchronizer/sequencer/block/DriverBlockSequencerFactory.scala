@@ -5,7 +5,6 @@ package com.digitalasset.canton.synchronizer.sequencer.block
 
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.crypto.SynchronizerCryptoClient
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.Storage
@@ -103,7 +102,6 @@ class DriverBlockSequencerFactory[C](
       clock: Clock,
       rateLimitManager: SequencerRateLimitManager,
       orderingTimeFixMode: OrderingTimeFixMode,
-      sequencingTimeLowerBoundExclusive: Option[CantonTimestamp],
       synchronizerLoggerFactory: NamedLoggerFactory,
       runtimeReady: FutureUnlessShutdown[Unit],
   )(implicit
@@ -127,7 +125,7 @@ class DriverBlockSequencerFactory[C](
       clock,
       rateLimitManager,
       orderingTimeFixMode,
-      sequencingTimeLowerBoundExclusive,
+      sequencingTimeLowerBoundExclusive = nodeParameters.sequencingTimeLowerBoundExclusive,
       nodeParameters.processingTimeouts,
       nodeParameters.loggingConfig.eventDetails,
       nodeParameters.loggingConfig.api.printer,

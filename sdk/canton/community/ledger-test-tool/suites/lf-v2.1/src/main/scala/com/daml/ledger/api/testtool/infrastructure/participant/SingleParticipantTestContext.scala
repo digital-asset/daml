@@ -98,6 +98,7 @@ import com.digitalasset.canton.ledger.api.TransactionShape
 import com.digitalasset.canton.ledger.api.TransactionShape.{AcsDelta, LedgerEffects, toProto}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.{PartyId, UniqueIdentifier}
+import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{MonadUtil, OptionUtil}
 import com.google.protobuf.ByteString
 import io.grpc.StatusRuntimeException
@@ -489,17 +490,18 @@ final class SingleParticipantTestContext private[participant] (
   ): Future[UpdatePartyIdentityProviderIdResponse] =
     services.partyManagement.updatePartyIdentityProviderId(request)
 
-  override def allocateParties(partiesCount: Int, minSynchronizers: Int): Future[Vector[Party]] =
-    Future.sequence(
-      Vector.fill(partiesCount)(
-        allocateParty(
-          partyIdHint = Some(nextPartyHintId()),
-          localMetadata = None,
-          identityProviderId = None,
-          minSynchronizers = Some(minSynchronizers),
-        )
+  override def allocateParties(partiesCount: Int, minSynchronizers: Int): Future[Vector[Party]] = {
+    MonadUtil.parTraverseWithLimit(
+      PositiveInt.tryCreate(16)
+    )(1 to partiesCount) { _ =>
+      allocateParty(
+        partyIdHint = Some(nextPartyHintId()),
+        localMetadata = None,
+        identityProviderId = None,
+        minSynchronizers = Some(minSynchronizers),
       )
-    )
+    }
+  }.map(_.toVector)
 
   override def allocateExternalParties(
       partiesCount: Int,

@@ -1732,15 +1732,19 @@ object PartyToParticipant extends TopologyMappingCompanion {
       participants: Seq[HostingParticipant],
       partySigningKeysWithThreshold: Option[SigningKeysWithThreshold] = None,
   ): Either[String, PartyToParticipant] = {
-    val noDuplicateParticipants = {
-      val duplicatePermissions =
-        participants.groupBy(_.participantId).values.filter(_.sizeIs > 1).toList
-      Either.cond(
-        duplicatePermissions.isEmpty,
-        (),
-        s"Participants may only be assigned one permission: $duplicatePermissions",
-      )
-    }
+
+    // If a participant is listed several times with different permissions, take the one with the higher
+    // Needed for backwards compatibility with existing topologies
+    val deduplicateParticipantsWithDifferentPermissionsMap =
+      participants
+        .groupMapReduce(_.participantId)(identity) { case (first, second) =>
+          Ordering.by[HostingParticipant, ParticipantPermission](_.permission).max(first, second)
+        }
+
+    val deduplicateParticipantsWithDifferentPermissions = participants
+      .map(_.participantId)
+      .distinct
+      .flatMap(deduplicateParticipantsWithDifferentPermissionsMap.get)
 
     val keysValid = partySigningKeysWithThreshold.traverse_(signingKeysWithThreshold =>
       KeyMapping.validateKeysSizeSet(
@@ -1750,9 +1754,13 @@ object PartyToParticipant extends TopologyMappingCompanion {
     )
 
     for {
-      _ <- noDuplicateParticipants
       _ <- keysValid
-    } yield PartyToParticipant(partyId, threshold, participants, partySigningKeysWithThreshold)
+    } yield PartyToParticipant(
+      partyId,
+      threshold,
+      deduplicateParticipantsWithDifferentPermissions,
+      partySigningKeysWithThreshold,
+    )
   }
 
   def tryCreate(

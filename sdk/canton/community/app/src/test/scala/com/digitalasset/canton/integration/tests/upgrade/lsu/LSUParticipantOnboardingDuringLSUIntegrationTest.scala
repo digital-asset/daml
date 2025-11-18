@@ -4,8 +4,8 @@
 package com.digitalasset.canton.integration.tests.upgrade.lsu
 
 import com.digitalasset.canton.config.DbConfig
+import com.digitalasset.canton.console.CommandFailure
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.EnvironmentDefinition.S1M1
 import com.digitalasset.canton.integration.bootstrap.NetworkBootstrapper
@@ -18,13 +18,10 @@ import com.digitalasset.canton.integration.plugins.{
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 
 import java.time.Duration
-import scala.jdk.CollectionConverters.*
 
-/*
- * This test is used to test the logical synchronizer upgrade.
- * It uses 2 participants, 2 sequencers and 2 mediators.
- */
-abstract class LSUEndToEndIntegrationTest extends LSUBase {
+/** Ensures that no participant can onboard on the new synchronizer before the upgrade time.
+  */
+abstract class LSUParticipantOnboardingDuringLSUIntegrationTest extends LSUBase {
 
   override protected def testName: String = "logical-synchronizer-upgrade"
 
@@ -42,68 +39,49 @@ abstract class LSUEndToEndIntegrationTest extends LSUBase {
       }
       .addConfigTransforms(configTransforms*)
       .withSetup { implicit env =>
-        defaultEnvironmentSetup()
+        defaultEnvironmentSetup(participantsOverride = Some(Seq(env.participant1)))
       }
 
-  "Logical synchronizer upgrade" should {
-    "work end-to-end" in { implicit env =>
+  "Onboarding on the new synchronizer" should {
+    "not be possible before upgrade time" in { implicit env =>
       import env.*
 
       val fixture = fixtureWithDefaults()
 
-      participant1.health.ping(participant2)
-
       val alice = participant1.parties.enable("Alice")
-      val bank = participant2.parties.enable("Bank")
-      IouSyntax.createIou(participant2)(bank, alice).discard
+      IouSyntax.createIou(participant1)(alice, alice)
+
+      // P2 does not know any synchronizer
+      participant2.synchronizers.list_registered() shouldBe empty
 
       performSynchronizerNodesLSU(fixture)
+
+      loggerFactory.assertThrowsAndLogs[CommandFailure](
+        participant2.synchronizers.connect(sequencer2, daName),
+        _.errorMessage should include(
+          s"Onboarding is possible only from $upgradeTime but current time is"
+        ),
+      )
 
       environment.simClock.value.advanceTo(upgradeTime.immediateSuccessor)
 
       eventually() {
-        participants.all.forall(_.synchronizers.is_connected(fixture.newPSId)) shouldBe true
+        participant1.synchronizers.is_connected(fixture.newPSId) shouldBe true
+
+        // P2 can now join
+        participant2.synchronizers.connect(sequencer2, daName)
       }
 
       oldSynchronizerNodes.all.stop()
 
       environment.simClock.value.advance(Duration.ofSeconds(1))
-
       waitForTargetTimeOnSequencer(sequencer2, environment.clock.now)
-
-      /*
-      We do several ping, disconnect, reconnect because reconnect comes with crash-recovery
-      and acknowledgements to the sequencers.
-       */
-      (0 to 2).foreach { i =>
-        logger.debug(s"Round $i of ping")
-        participant1.health.ping(participant2)
-        participants.all.synchronizers.disconnect_all()
-        participants.all.synchronizers.reconnect_all()
-      }
-
-      val aliceIou =
-        participant1.ledger_api.javaapi.state.acs.await(IouSyntax.modelCompanion)(alice)
-      val bob = participant1.parties.enable("Bob")
-
-      participant1.ledger_api.javaapi.commands
-        .submit(Seq(alice), aliceIou.id.exerciseTransfer(bob.toLf).commands().asScala.toSeq)
-
-      val bobIou = participant1.ledger_api.javaapi.state.acs.await(IouSyntax.modelCompanion)(bob)
-
-      participant2.ledger_api.javaapi.commands
-        .submit(Seq(bank), bobIou.id.exerciseArchive().commands().asScala.toSeq)
-
-      // Subsequent call should be successful
-      participant1.underlying.value.sync
-        .upgradeSynchronizerTo(daId, fixture.synchronizerSuccessor)
-        .futureValueUS
-        .value shouldBe ()
     }
   }
 }
 
-final class LSUEndToEndReferenceIntegrationTest extends LSUEndToEndIntegrationTest {
+final class LSUParticipantOnboardingDuringLSUReferenceIntegrationTest
+    extends LSUParticipantOnboardingDuringLSUIntegrationTest {
   registerPlugin(
     new UseReferenceBlockSequencer[DbConfig.Postgres](
       loggerFactory,
@@ -112,7 +90,8 @@ final class LSUEndToEndReferenceIntegrationTest extends LSUEndToEndIntegrationTe
   )
 }
 
-final class LSUEndToEndBftOrderingIntegrationTest extends LSUEndToEndIntegrationTest {
+final class LSUParticipantOnboardingDuringLSUBftOrderingIntegrationTest
+    extends LSUParticipantOnboardingDuringLSUIntegrationTest {
   registerPlugin(
     new UseBftSequencer(
       loggerFactory,

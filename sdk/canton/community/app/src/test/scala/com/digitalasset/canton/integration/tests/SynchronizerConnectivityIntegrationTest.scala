@@ -24,6 +24,7 @@ import com.digitalasset.canton.participant.sync.SyncServiceError
 import com.digitalasset.canton.participant.sync.SyncServiceError.{
   SyncServiceInconsistentConnectivity,
   SyncServiceSynchronizerDisabledUs,
+  SyncServiceSynchronizerDisconnect,
   SyncServiceUnknownSynchronizer,
 }
 import com.digitalasset.canton.participant.sync.SyncServiceInjectionError.NotConnectedToAnySynchronizer
@@ -327,7 +328,10 @@ sealed trait SynchronizerConnectivityIntegrationTest
               ) or include("Token refresh aborted due to shutdown")
               // the participant might not actually get the dispatched transaction delivered,
               // because the sequencer may cut the participant's connection before delivering the topology broadcast
-              or include regex ("Waiting for transaction .* to be observed"))
+              or include regex "Waiting for transaction .* to be observed"
+              or (include(SyncServiceSynchronizerDisconnect.id) and include(
+                "fatally disconnected because of Trust threshold 1 is no longer reachable"
+              )))
           },
         )
 

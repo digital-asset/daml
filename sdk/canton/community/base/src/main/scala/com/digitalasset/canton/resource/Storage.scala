@@ -461,7 +461,7 @@ object DbStorage {
         op.toActionBuilder
       implicit def mapBuilderChain(op: Option[SQLActionBuilderChain]): Option[SQLActionBuilder] =
         op.map(_.toActionBuilder)
-      implicit def mergeBuildersIntoChain(op: Seq[SQLActionBuilder]): SQLActionBuilderChain =
+      implicit def mergeBuildersIntoChain(op: Iterable[SQLActionBuilder]): SQLActionBuilderChain =
         SQLActionBuilderChain(op)
 
     }
@@ -499,8 +499,8 @@ object DbStorage {
     def apply(item: SQLActionBuilder): SQLActionBuilderChain = new SQLActionBuilderChain(
       Chain.one(item)
     )
-    def apply(items: Seq[SQLActionBuilder]): SQLActionBuilderChain = new SQLActionBuilderChain(
-      Chain.fromSeq(items)
+    def apply(items: Iterable[SQLActionBuilder]): SQLActionBuilderChain = new SQLActionBuilderChain(
+      Chain.fromIterableOnce(items)
     )
   }
 
@@ -777,7 +777,7 @@ object DbStorage {
     */
   def toInClause[T](
       field: String,
-      values: NonEmpty[Seq[T]],
+      values: NonEmpty[immutable.Iterable[T]],
   )(implicit f: SetParameter[T]): SQLActionBuilder = {
     import DbStorage.Implicits.BuilderChain.*
     sql"#$field in (" ++

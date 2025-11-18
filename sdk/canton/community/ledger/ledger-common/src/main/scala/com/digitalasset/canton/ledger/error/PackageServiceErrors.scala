@@ -133,8 +133,8 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
           val loggingContext: ErrorLoggingContext
       ) extends ContextualizedDamlError(
             cause = "Failed to parse the dar file content.",
-            extraContext = Map("cause" -> reason),
-            throwableO = throwable
+            extraContext = Map("reason" -> reason),
+            throwableO = throwable,
           )
     }
 

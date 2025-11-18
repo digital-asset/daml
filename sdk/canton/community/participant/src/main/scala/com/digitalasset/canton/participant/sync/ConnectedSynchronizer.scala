@@ -9,6 +9,7 @@ import cats.syntax.functor.*
 import cats.syntax.parallel.*
 import cats.{Eval, Monad}
 import com.daml.nameof.NameOf.functionFullName
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
@@ -93,11 +94,34 @@ import com.digitalasset.canton.topology.processing.{
   SequencedTime,
   TopologyTransactionProcessor,
 }
-import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
+import com.digitalasset.canton.topology.store.StoredTopologyTransactions.PositiveStoredTopologyTransactions
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
+import com.digitalasset.canton.topology.transaction.SynchronizerTrustCertificate.ParticipantTopologyFeatureFlag
+import com.digitalasset.canton.topology.transaction.{
+  SynchronizerTrustCertificate,
+  TopologyChangeOp,
+  TopologyMapping,
+  TopologyTransaction,
+}
+import com.digitalasset.canton.topology.{
+  ForceFlags,
+  ParticipantId,
+  PhysicalSynchronizerId,
+  SynchronizerId,
+  TopologyManagerError,
+}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.PackageConsumer.PackageResolver
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
+import com.digitalasset.canton.util.{
+  ContractHasher,
+  ContractValidator,
+  EitherTUtil,
+  ErrorUtil,
+  FutureUnlessShutdownUtil,
+  MonadUtil,
+}
+import com.digitalasset.canton.version.ParticipantProtocolFeatureFlags
 import com.digitalasset.daml.lf.engine.Engine
 import io.grpc.Status
 import io.opentelemetry.api.trace.Tracer
@@ -601,6 +625,94 @@ class ConnectedSynchronizer(
             )
         )
 
+      // Update the synchronizer trust certificate if the feature flags are out of sync
+      def synchronizeFeatureFlagsAsync(implicit initializationTraceContext: TraceContext): Unit = {
+        val synchronizerId = synchronizerHandle.psid.logical
+        val protocolVersion =
+          synchronizerHandle.staticParameters.protocolVersion
+
+        val featureFlagsForPV: Set[ParticipantTopologyFeatureFlag] =
+          ParticipantProtocolFeatureFlags.supportedFeatureFlagsByPV.getOrElse(
+            protocolVersion,
+            Set.empty,
+          )
+
+        val topologyManager =
+          synchronizerHandle.syncPersistentState.topologyManager
+
+        def updateSTCWithFeatureFlags(
+            existingSynchronizerTrustCertificate: TopologyTransaction[
+              TopologyChangeOp.Replace,
+              SynchronizerTrustCertificate,
+            ]
+        ): EitherT[FutureUnlessShutdown, TopologyManagerError, GenericSignedTopologyTransaction] =
+          synchronizeWithClosing("updating STC for feature flags auto sync")(
+            topologyManager.proposeAndAuthorize(
+              op = TopologyChangeOp.Replace,
+              mapping = existingSynchronizerTrustCertificate.mapping.copy(
+                featureFlags = featureFlagsForPV.toSeq
+              ),
+              serial = Some(existingSynchronizerTrustCertificate.serial.increment),
+              signingKeys = Seq.empty,
+              protocolVersion = protocolVersion,
+              expectFullAuthorization = false,
+              forceChanges = ForceFlags.none,
+              waitToBecomeEffective = None,
+            )
+          )
+
+        val result = for {
+          // Lookup the existing STCs for the node
+          stcTransactions <- EitherT.liftF[
+            FutureUnlessShutdown,
+            TopologyManagerError,
+            PositiveStoredTopologyTransactions,
+          ](
+            topologyManager.store
+              .findPositiveTransactions(
+                // We want the current effective STC
+                asOf = CantonTimestamp.MaxValue,
+                asOfInclusive = true,
+                isProposal = false,
+                types = Seq(TopologyMapping.Code.SynchronizerTrustCertificate),
+                filterUid = Some(NonEmpty.mk(Seq, participantId.uid)),
+                filterNamespace = None,
+              )
+          )
+          currentStcO = stcTransactions.result
+            .maxByOption(_.validFrom)
+            .flatMap(
+              _.transaction
+                .select[TopologyChangeOp.Replace, SynchronizerTrustCertificate]
+            )
+          _ <- currentStcO match {
+            // There should already be an STC present, so we only update if the feature flags differ
+            case Some(currentStc) if currentStc.mapping.featureFlags.toSet != featureFlagsForPV =>
+              logger.info(
+                s"Synchronizer Trust Certificate in the synchronizer store $synchronizerId for $participantId does not have the expected set of feature flags, they will be updated. " +
+                  s"Current: ${currentStc.mapping.featureFlags.toSet}. Expected: $featureFlagsForPV"
+              )
+              updateSTCWithFeatureFlags(currentStc.transaction)
+            case Some(_) =>
+              EitherT.pure[FutureUnlessShutdown, TopologyManagerError](
+                logger.debug(
+                  s"Synchronizer Trust Certificate in the synchronizer store $synchronizerId for $participantId already has the correct feature flags $featureFlagsForPV. No update necessary."
+                )
+              )
+            // This is unexpected as the node is connected to the synchronizer, so it should have an STC in the synchronizer store
+            // (unless it was revoked concurrently but that's very unlikely and still worth logging a warning)
+            case None =>
+              EitherT.pure[FutureUnlessShutdown, TopologyManagerError](
+                logger.warn(
+                  s"Expected a Synchronizer Trust Certificate to be present in the synchronizer store $synchronizerId for $participantId but none was found. Feature flags will not be updated"
+                )
+              )
+          }
+        } yield ()
+
+        EitherTUtil.doNotAwaitUS(result, "Feature flag synchronization")
+      }
+
       // Initialize, replay and process stored events, then subscribe to new events
       (for {
         _ <- initialize(initializationTraceContext)
@@ -679,6 +791,8 @@ class ConnectedSynchronizer(
         // wait for initial topology transactions to be sequenced and received before we start computing pending
         // topology transactions to push for IDM approval
         _ <- waitForParticipantToBeInTopology(initializationTraceContext)
+        _ = if (parameters.autoSyncProtocolFeatureFlags)
+          synchronizeFeatureFlagsAsync(initializationTraceContext)
         _ <-
           registerIdentityTransactionHandle
             .synchronizerConnected()(initializationTraceContext)

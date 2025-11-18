@@ -20,6 +20,7 @@ import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.data.ActiveContractOld.loadFromByteString
 import com.digitalasset.canton.participant.admin.data.{
   ContractImportMode,
+  ManualLSURequest,
   RepairContract,
   RepresentativePackageIdOverride,
 }
@@ -851,6 +852,23 @@ final class GrpcParticipantRepairService(
     }.toSeq)
 
     CantonGrpcUtil.mapErrNewEUS(result)
+  }
+
+  override def performSynchronizerUpgrade(
+      request: PerformSynchronizerUpgradeRequest
+  ): Future[PerformSynchronizerUpgradeResponse] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+
+    val res = for {
+      validatedRequest <- CantonGrpcUtil.wrapErrUS(ManualLSURequest.fromProtoV30(request))
+      _ <- sync
+        .manuallyUpgradeSynchronizerTo(validatedRequest)
+        .leftMap[RpcError](
+          RepairServiceError.SynchronizerUpgradeError.Error(validatedRequest.successorPSId, _)
+        )
+    } yield PerformSynchronizerUpgradeResponse()
+
+    CantonGrpcUtil.mapErrNewEUS(res)
   }
 }
 

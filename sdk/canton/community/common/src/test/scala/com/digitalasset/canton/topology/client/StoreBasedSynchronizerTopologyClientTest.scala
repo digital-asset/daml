@@ -9,11 +9,9 @@ import com.digitalasset.canton.config.{DefaultProcessingTimeouts, TopologyConfig
 import com.digitalasset.canton.crypto.{SigningKeyUsage, SigningPublicKey}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.SuppressionRule
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
 import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.PartyInfo
 import com.digitalasset.canton.topology.processing.{ApproximateTime, EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.db.DbTopologyStoreHelper
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
@@ -26,16 +24,8 @@ import com.digitalasset.canton.topology.store.{
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.*
 import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
-import com.digitalasset.canton.util.MonadUtil
-import com.digitalasset.canton.{
-  BaseTest,
-  FailOnShutdown,
-  HasExecutionContext,
-  LfPartyId,
-  SequencerCounter,
-}
+import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext, SequencerCounter}
 import org.scalatest.wordspec.AsyncWordSpec
-import org.slf4j.event.Level
 
 @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
 trait StoreBasedTopologySnapshotTest
@@ -370,224 +360,6 @@ trait StoreBasedTopologySnapshotTest
         compareMappings(admin1b, Map(participant1 -> ParticipantPermission.Observation))
       }
     }
-
-    "filter out participants without stc" in {
-      val fixture = new Fixture()
-      val party1participant1 = mkAdd(
-        PartyToParticipant.tryCreate(
-          party1,
-          PositiveInt.one,
-          Seq(
-            HostingParticipant(participant1, Submission)
-          ),
-        )
-      )
-
-      val party3participant1_3 = mkAdd(
-        PartyToParticipant.tryCreate(
-          party3,
-          PositiveInt.one,
-          Seq(
-            HostingParticipant(participant1, Submission),
-            HostingParticipant(participant3, Submission),
-          ),
-        )
-      )
-      val lfParty1 = party1.toLf
-
-      val lfParty3 = party3.toLf
-      val allParticipants = Seq(participant1, participant3)
-      val allParties = Seq(party1, party3).map(_.toLf)
-      val allPartiesAndParticipants =
-        Seq((party1, participant1), (party3, participant3))
-      loggerFactory.assertLogsSeq(SuppressionRule.LevelAndAbove(Level.WARN))(
-        {
-          for {
-            _ <- fixture.add(
-              ts,
-              Seq(
-                dpc1,
-                p1_otk, // we have OTK for P1, but no STC
-                p3_otk,
-                p3_dtc,
-                party1participant1,
-                party3participant1_3,
-              ),
-            )
-            _ = fixture.client.observed(
-              ts.immediateSuccessor,
-              ts.immediateSuccessor,
-              SequencerCounter(0),
-              Seq(),
-            )
-            snapshot <- fixture.client.snapshot(ts.immediateSuccessor)
-            // PartyKeyTopologySnapshotClient
-            activeParticipantsOfParties <- snapshot.activeParticipantsOfParties(allParties)
-            activeParticipantsOfPartiesWithInfo <- snapshot.activeParticipantsOfPartiesWithInfo(
-              allParties
-            )
-            activeParticipantsOf <- MonadUtil
-              .sequentialTraverse(allParties)(p =>
-                snapshot.activeParticipantsOf(p).map(r => (p, r))
-              )
-              .map(_.toMap)
-            allHaveActiveParticipants <- MonadUtil
-              .sequentialTraverse(allParties)(p =>
-                snapshot.allHaveActiveParticipants(Set(p)).value.map((p, _))
-              )
-              .map(_.toMap)
-            isHostedByAtLeastOneParticipantF <- MonadUtil
-              .sequentialTraverse(allParties)(p =>
-                snapshot
-                  .isHostedByAtLeastOneParticipantF(Set(p), { case (_, _) => true })
-                  .map((p, _))
-              )
-              .map(_.toMap)
-            hostedOn <- MonadUtil
-              .sequentialTraverse(Seq(participant1, participant3))(par =>
-                snapshot.hostedOn(allParties.toSet, par).map((par, _))
-              )
-              .map(_.toMap)
-            allHostedOn <- MonadUtil
-              .sequentialTraverse(
-                allPartiesAndParticipants
-              ) { case (party, participant) =>
-                snapshot.allHostedOn(Set(party.toLf), participant).map((party, _))
-              }
-              .map(_.toMap)
-            canConfirm <- MonadUtil
-              .sequentialTraverse(allPartiesAndParticipants) { case (party, participant) =>
-                snapshot.canConfirm(participant, Set(party.toLf)).map((party, _))
-              }
-              .map(_.toMap)
-            hasNoConfirmer <- MonadUtil
-              .sequentialTraverse(allParties)(p =>
-                snapshot
-                  .hasNoConfirmer(Set(p))
-                  .map((p, _))
-              )
-              .map(_.toMap)
-            canNotSubmit <- MonadUtil
-              .sequentialTraverse(allPartiesAndParticipants) { case (party, participant) =>
-                snapshot.canNotSubmit(participant, Seq(party.toLf)).map(c => (party, c.toSeq))
-              }
-              .map(_.toMap)
-            activeParticipantsOfAll <- MonadUtil
-              .sequentialTraverse(allParties)(p =>
-                snapshot.activeParticipantsOfAll(List(p)).value.map((p, _))
-              )
-              .map(_.toMap)
-            knownParties <- snapshot.inspectKnownParties(filterParty = "", filterParticipant = "")
-            // KeyTopologySnapshotClient
-            signingKeys <- MonadUtil
-              .sequentialTraverse(allParticipants)(p =>
-                snapshot
-                  .signingKeys(
-                    p,
-                    filterUsage = SigningKeyUsage.ProtocolWithProofOfOwnership,
-                  )
-                  .map((p, _))
-              )
-              .map(_.toMap)
-            encryptionKeys <- MonadUtil
-              .sequentialTraverse(allParticipants)(p => snapshot.encryptionKeys(p).map((p, _)))
-              .map(_.toMap)
-            // ParticipantTopologySnapshotClient
-            isParticipantActive <- MonadUtil
-              .sequentialTraverse(allParticipants)(p => snapshot.isParticipantActive(p).map((p, _)))
-              .map(_.toMap)
-            isParticipantActiveAndCanLoginAt <- MonadUtil
-              .sequentialTraverse(allParticipants)(p =>
-                snapshot.isParticipantActiveAndCanLoginAt(p, ts.plusSeconds(1)).map((p, _))
-              )
-              .map(_.toMap)
-            // MembersTopologySnapshotClient
-            allMembers <- snapshot.allMembers()
-            isMemberKnown <- MonadUtil
-              .sequentialTraverse(allParticipants)(p => snapshot.isMemberKnown(p).map((p, _)))
-              .map(_.toMap)
-          } yield {
-            activeParticipantsOfParties shouldBe Map(
-              lfParty1 -> Set.empty,
-              lfParty3 -> Set(participant3),
-            )
-            activeParticipantsOfPartiesWithInfo shouldBe Map(
-              lfParty1 -> PartyInfo(threshold = PositiveInt.one, participants = Map()),
-              lfParty3 -> PartyInfo(
-                threshold = PositiveInt.one,
-                participants =
-                  Map(participant3 -> ParticipantAttributes(ParticipantPermission.Submission)),
-              ),
-            )
-            activeParticipantsOf shouldBe Map(
-              lfParty1 -> Map(),
-              lfParty3 -> Map(
-                participant3 -> ParticipantAttributes(ParticipantPermission.Submission)
-              ),
-            )
-            allHaveActiveParticipants shouldBe Map(
-              lfParty1 -> Left(Set(lfParty1)),
-              lfParty3 -> Right(()),
-            )
-            isHostedByAtLeastOneParticipantF shouldBe Map(
-              lfParty1 -> Set.empty[LfPartyId],
-              lfParty3 -> Set(lfParty3),
-            )
-            hostedOn shouldBe Map(
-              participant1 -> Map(),
-              participant3 -> Map(
-                lfParty3 -> ParticipantAttributes(ParticipantPermission.Submission)
-              ),
-            )
-            allHostedOn shouldBe Map(party1 -> false, party3 -> true)
-            canConfirm shouldBe Map(
-              party1 -> Set.empty,
-              party3 -> Set(lfParty3),
-            )
-            hasNoConfirmer shouldBe Map(
-              lfParty1 -> Set(lfParty1),
-              lfParty3 -> Set.empty,
-            )
-            canNotSubmit shouldBe Map(
-              party1 -> List(lfParty1),
-              party3 -> List.empty,
-            )
-            activeParticipantsOfAll shouldBe Map(
-              lfParty1 -> Left(Set(lfParty1)),
-              lfParty3 -> Right(Set(participant3)),
-            )
-            knownParties shouldBe Set(participant3.adminParty, party3)
-            signingKeys(participant1) should not be empty
-            signingKeys(participant3) should not be empty
-            encryptionKeys(participant1) should not be empty
-            encryptionKeys(participant3) should not be empty
-            isParticipantActive shouldBe Map(
-              participant1 -> false,
-              participant3 -> true,
-            )
-            isParticipantActiveAndCanLoginAt shouldBe Map(
-              participant1 -> false,
-              participant3 -> true,
-            )
-            allMembers should contain(participant3)
-            allMembers should not contain (participant1)
-            isMemberKnown shouldBe Map(
-              participant1 -> false,
-              participant3 -> true,
-            )
-            succeed
-          }
-        },
-        seq => {
-          forAll(seq) { msg =>
-            msg.warningMessage should include(
-              "has a synchronizer trust certificate, but no keys on synchronizer"
-            )
-          }
-        },
-      )
-    }
-
   }
 }
 
