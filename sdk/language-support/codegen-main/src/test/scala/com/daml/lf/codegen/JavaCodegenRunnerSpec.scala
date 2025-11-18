@@ -13,8 +13,9 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
-
 class JavaCodegenRunnerSpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks {
+  private val projectRoot = Paths.get("/project/root")
+
   private implicit val packageVersionArb: Arbitrary[PackageVersion] =
     Arbitrary(
       Gen
@@ -24,32 +25,31 @@ class JavaCodegenRunnerSpec extends AnyFlatSpec with Matchers with ScalaCheckPro
         }
     )
 
-    behavior of "JavaCodegenRunner.splitNameAndVersion"
+  behavior of "JavaCodegenRunner.splitNameAndVersion"
 
-    it should "correctly split valid strings" in forAll {
-      (name: String, version: String) =>
-        whenever(name.nonEmpty && version.nonEmpty && !version.contains("-")) {
-          JavaCodegenRunner.splitNameAndVersion(s"$name-$version") shouldBe Some((name, version))
-        }
+  it should "correctly split valid strings" in forAll { (name: String, version: String) =>
+    whenever(name.nonEmpty && version.nonEmpty && !version.contains("-")) {
+      JavaCodegenRunner.splitNameAndVersion(s"$name-$version") shouldBe Some((name, version))
     }
+  }
 
-    it should "reject empty versions" in forAll { (name: String)  =>
-      JavaCodegenRunner.splitNameAndVersion(s"$name-") shouldBe None
-    }
+  it should "reject empty versions" in forAll { (name: String) =>
+    JavaCodegenRunner.splitNameAndVersion(s"$name-") shouldBe None
+  }
 
-    it should "reject empty names" in forAll { (version: PackageVersion) =>
-      JavaCodegenRunner.splitNameAndVersion(s"-$version") shouldBe None
-    }
+  it should "reject empty names" in forAll { (version: PackageVersion) =>
+    JavaCodegenRunner.splitNameAndVersion(s"-$version") shouldBe None
+  }
 
-    it should "reject any string where only the separator appears" in {
-      JavaCodegenRunner.splitNameAndVersion("-") shouldBe None
-    }
+  it should "reject any string where only the separator appears" in {
+    JavaCodegenRunner.splitNameAndVersion("-") shouldBe None
+  }
 
-    it should "reject strings where the separator doesn't appear" in forAll { (string: String) =>
-      whenever(!string.contains("-")) {
-        JavaCodegenRunner.splitNameAndVersion(string) shouldBe None
-      }
+  it should "reject strings where the separator doesn't appear" in forAll { (string: String) =>
+    whenever(!string.contains("-")) {
+      JavaCodegenRunner.splitNameAndVersion(string) shouldBe None
     }
+  }
 
   behavior of JavaCodegenRunner.getClass.getSimpleName
 
@@ -60,7 +60,7 @@ class JavaCodegenRunnerSpec extends AnyFlatSpec with Matchers with ScalaCheckPro
     } yield codegenConfig
 
   it should "load full java config" in {
-    val fullConfig = 
+    val fullConfig =
       """|
          |name: quickstart
          |version: 1.2.3
@@ -88,7 +88,7 @@ class JavaCodegenRunnerSpec extends AnyFlatSpec with Matchers with ScalaCheckPro
   }
 
   it should "load required fields only java config" in {
-    val requiredFieldsOnlyConfig = 
+    val requiredFieldsOnlyConfig =
       """|
          |name: quickstart
          |version: 1.2.3
@@ -289,19 +289,4 @@ class JavaCodegenRunnerSpec extends AnyFlatSpec with Matchers with ScalaCheckPro
   }
 
   private def path(s: String): Path = Paths.get(s)
-
-  private val projectRoot = Paths.get("/project/root")
-}
-
-object CodegenConfigReaderSpec {
-  import org.scalacheck.{Arbitrary, Gen}
-
-  implicit def `package Version Arb`: Arbitrary[PackageVersion] =
-    Arbitrary(
-      Gen
-        .zip(Gen.posNum[Int], Gen.option(Gen.posNum[Int]))
-        .map { case (wholeVersion, decVersion) =>
-          PackageVersion assertFromString s"$wholeVersion${decVersion.fold("")(n => s".$n")}"
-        }
-    )
 }

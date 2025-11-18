@@ -4,7 +4,7 @@
 package com.daml.codegen
 
 import com.daml.assistant.config.PackageConfig
-import com.digitalasset.daml.lf.codegen.{CodegenRunner, JavaCodegenRunner}
+import com.digitalasset.daml.lf.codegen._
 
 import scala.util.{Failure, Success, Try}
 import scopt.OptionParser
@@ -18,12 +18,13 @@ object CodegenMain {
   object CodegenError extends ExitCode(201)
 
   def main(args: Array[String]): Unit = {
-    val codegenRunner = commandParser.parse(args, JavaCodegenRunner)
+    val codegenRunner = commandParser.parse(args.headOption.toList, JavaCodegenRunner)
     val exitCode: ExitCode = codegenRunner match {
       case Some(runner) =>
         readConfiguration(runner, args.tail) match {
           case Some(config) =>
-            Try(runner.generateCode(config)) match {
+            val damlVersion = sys.env.getOrElse("DAML_SDK_VERSION", "0.0.0")
+            Try(runner.generateCode(config, damlVersion)) match {
               case Success(_) => OK
               case Failure(t) =>
                 println(s"Error generating code: ${t.getMessage}")
@@ -55,13 +56,10 @@ object CodegenMain {
         case Right(c) => Some(c)
       }
     }
-  private val commandParser = new scopt.OptionParser[CodegenRunner]("codegen-front-end") {
-    head("Codegen front end")
+  private val commandParser = new scopt.OptionParser[CodegenRunner]("codegen") {
+    head("Daml Codegen")
 
     override val showUsageOnError = Some(false)
-
-    help("help").text("Prints this usage text")
-    note("\n")
 
     cmd("java")
       .action((_, _) => JavaCodegenRunner)
@@ -69,5 +67,10 @@ object CodegenMain {
       .children(help("help").text("Java codegen help"))
     note("\n")
 
+    cmd("js")
+      .action((_, _) => JsCodegenRunner)
+      .text("To generate Javascript code and Typescript declarations:\n")
+      .children(help("help").text("JS codegen help"))
+    note("\n")
   }
 }

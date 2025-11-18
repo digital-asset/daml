@@ -43,45 +43,49 @@ object JavaCodeGenConf {
     """(?:(\p{javaJavaIdentifierStart}\p{javaJavaIdentifierPart}+(?:\.\p{javaJavaIdentifierStart}\p{javaJavaIdentifierPart}+)*)\.)(\p{javaJavaIdentifierStart}\p{javaJavaIdentifierPart}+)""".r
 
   def parse(args: Array[String], parserName: String = "codegen"): Option[JavaCodeGenConf] =
-    parser(parserName).parse(args, JavaCodeGenConf(darFiles = Map.empty, outputDirectory = Paths.get(".")))
-
-  def parser(parserName: String): OptionParser[JavaCodeGenConf] = new scopt.OptionParser[JavaCodeGenConf](parserName) {
-    head(parserName, BuildInfo.Version)
-    note("Code generator for the Daml ledger bindings.\n")
-
-    arg[(Path, Option[String])]("<DAR-file[=package-prefix]>...")(
-      optTupleRead(readPath, Read.stringRead)
+    parser(parserName).parse(
+      args,
+      JavaCodeGenConf(darFiles = Map.empty, outputDirectory = Paths.get(".")),
     )
-      .unbounded()
-      .action((p, c) => c.copy(darFiles = c.darFiles + p))
-      .required()
-      .text(
-        "DAR file to use as input of the codegen with an optional, but recommend, package prefix for the generated sources."
+
+  def parser(parserName: String): OptionParser[JavaCodeGenConf] =
+    new scopt.OptionParser[JavaCodeGenConf](parserName) {
+      head(parserName, BuildInfo.Version)
+      note("Code generator for the Daml ledger bindings.\n")
+
+      arg[(Path, Option[String])]("<DAR-file[=package-prefix]>...")(
+        optTupleRead(readPath, Read.stringRead)
       )
+        .unbounded()
+        .action((p, c) => c.copy(darFiles = c.darFiles + p))
+        .required()
+        .text(
+          "DAR file to use as input of the codegen with an optional, but recommend, package prefix for the generated sources."
+        )
 
-    opt[Path]('o', "output-directory")(readPath)
-      .action((p, c) => c.copy(outputDirectory = p))
-      .required()
-      .text("Output directory for the generated sources")
+      opt[Path]('o', "output-directory")(readPath)
+        .action((p, c) => c.copy(outputDirectory = p))
+        .required()
+        .text("Output directory for the generated sources")
 
-    opt[(String, String)]('d', "decoderClass")(readClassName)
-      .action((className, c) => c.copy(decoderPkgAndClass = Some(className)))
-      .text("Fully Qualified Class Name of the optional Decoder utility")
+      opt[(String, String)]('d', "decoderClass")(readClassName)
+        .action((className, c) => c.copy(decoderPkgAndClass = Some(className)))
+        .text("Fully Qualified Class Name of the optional Decoder utility")
 
-    opt[Level]('V', "verbosity")(readVerbosity)
-      .action((l, c) => c.copy(verbosity = l))
-      .text("Verbosity between 0 (only show errors) and 4 (show all messages) -- defaults to 0")
+      opt[Level]('V', "verbosity")(readVerbosity)
+        .action((l, c) => c.copy(verbosity = l))
+        .text("Verbosity between 0 (only show errors) and 4 (show all messages) -- defaults to 0")
 
-    opt[String]('r', "root")(Read.stringRead)
-      .unbounded()
-      .action((rexp, c) => c.copy(roots = rexp :: c.roots))
-      .text(
-        "Regular expression for fully-qualified names of templates to generate -- defaults to .*"
-      )
+      opt[String]('r', "root")(Read.stringRead)
+        .unbounded()
+        .action((rexp, c) => c.copy(roots = rexp :: c.roots))
+        .text(
+          "Regular expression for fully-qualified names of templates to generate -- defaults to .*"
+        )
 
-    help("help").text("This help text")
+      help("help").text("This help text")
 
-  }
+    }
 
   private val readPath: scopt.Read[Path] = scopt.Read.stringRead.map(s => Paths.get(s))
 

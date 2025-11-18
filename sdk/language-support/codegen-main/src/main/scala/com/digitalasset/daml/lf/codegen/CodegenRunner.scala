@@ -6,12 +6,11 @@ package com.digitalasset.daml.lf.codegen
 import com.daml.assistant.config.{ConfigLoadingError, PackageConfig}
 import scopt.OptionParser
 
-
 trait CodegenRunner {
   type Config
 
   def configParser(isDpm: Boolean): OptionParser[Config]
   def configureFromArgs(args: Array[String], isDpm: Boolean): Option[Config]
   def configureFromPackageConfig(packageConfig: PackageConfig): Either[ConfigLoadingError, Config]
-  def generateCode(config: Config): Unit
+  def generateCode(config: Config, damlVersion: String): Unit
 }

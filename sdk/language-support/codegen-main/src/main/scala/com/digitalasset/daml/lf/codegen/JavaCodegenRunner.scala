@@ -18,7 +18,9 @@ object JavaCodegenRunner extends CodegenRunner {
   override def configureFromArgs(args: Array[String], isDpm: Boolean): Option[JavaCodeGenConf] =
     JavaCodeGenConf.parse(args, parserName(isDpm))
 
-  override def configureFromPackageConfig(sdkConf: PackageConfig): Either[ConfigLoadingError, JavaCodeGenConf] =
+  override def configureFromPackageConfig(
+      sdkConf: PackageConfig
+  ): Either[ConfigLoadingError, JavaCodeGenConf] =
     for {
       dar <- ConfigReader.darPath(sdkConf)
       packagePrefix <- packagePrefix(sdkConf)
@@ -37,7 +39,8 @@ object JavaCodegenRunner extends CodegenRunner {
       roots = root.getOrElse(Nil),
     )
 
-  override def generateCode(config: JavaCodeGenConf): Unit = JavaCodeGen.run(config)
+  override def generateCode(config: JavaCodeGenConf, damlVersion: String): Unit =
+    JavaCodeGen.run(config)
 
   private def parserName(isDpm: Boolean): String = if (isDpm) "codegen-java" else "codegen"
 
@@ -72,7 +75,9 @@ object JavaCodegenRunner extends CodegenRunner {
   ): ConfigReader.Result[Option[(String, String)]] =
     codegenCursor
       .downField("decoderClass")
-      .as[Option[(String, String)]](Decoder[Option[String]].map(_.map(JavaCodeGenConf.readClassName.reads)))
+      .as[Option[(String, String)]](
+        Decoder[Option[String]].map(_.map(JavaCodeGenConf.readClassName.reads))
+      )
       .left
       .map(ConfigReader.toConfigParseError)
 
