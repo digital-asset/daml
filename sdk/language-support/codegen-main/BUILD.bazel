@@ -31,6 +31,7 @@ da_scala_library(
         "//daml-assistant/scala-daml-package-config",
         "//daml-lf/data",
         "//language-support/java/codegen:lib",
+        "//language-support/js/codegen:lib",
         "@maven//:ch_qos_logback_logback_classic",
     ],
 )
@@ -50,6 +51,7 @@ da_scala_binary(
         "//daml-assistant/scala-daml-package-config",
         "//daml-lf/data",
         "//language-support/java/codegen:lib",
+        "//language-support/js/codegen:lib",
         "@maven//:ch_qos_logback_logback_classic",
     ],
 )
@@ -69,6 +71,7 @@ da_scala_test(
         "//daml-assistant/scala-daml-package-config",
         "//daml-lf/data",
         "//language-support/java/codegen:lib",
+        "//language-support/js/codegen:lib",
         "@maven//:ch_qos_logback_logback_classic",
     ],
 )

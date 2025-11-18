@@ -34,7 +34,9 @@ class JavaCodeGenConfSpec extends AnyFlatSpec with Matchers with OptionValues {
   }
 
   it should "return a JavaCodeGenConf when input, output, a known backend and deocder FQCN are passed" in {
-    JavaCodeGenConf.parse(Array("-o", "output", "-d", "package.ClassName", "input")) shouldNot be(empty)
+    JavaCodeGenConf.parse(Array("-o", "output", "-d", "package.ClassName", "input")) shouldNot be(
+      empty
+    )
   }
 
   it should "return a JavaCodeGenConf with expected single unmapped input and output" in {
