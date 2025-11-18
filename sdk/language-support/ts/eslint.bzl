@@ -1,7 +1,7 @@
 # Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@language_support_ts_deps//eslint:index.bzl", _eslint_test = "eslint_test")
+load("@language_support_js_deps//eslint:index.bzl", _eslint_test = "eslint_test")
 load("@os_info//:os_info.bzl", "is_windows")
 
 def eslint_test(name, srcs, tsconfig = ":tsconfig.json", eslintrc = ":.eslintrc.json", data = [], **kwargs):
@@ -15,8 +15,8 @@ def eslint_test(name, srcs, tsconfig = ":tsconfig.json", eslintrc = ":.eslintrc.
       data: Additional runtime dependencies.
     """
     eslint_deps = [
-        "@language_support_ts_deps//@typescript-eslint",
-        "@language_support_ts_deps//@typescript-eslint/eslint-plugin",
+        "@language_support_js_deps//@typescript-eslint",
+        "@language_support_js_deps//@typescript-eslint/eslint-plugin",
     ] if not is_windows else []
     templated_args = [
         "--config",

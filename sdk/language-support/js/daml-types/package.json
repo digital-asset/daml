@@ -13,7 +13,7 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/digital-asset/daml.git",
-    "directory": "language-support/ts/daml-types"
+    "directory": "language-support/js/daml-types"
   },
   "main": "index.js",
   "types": "index.d.ts",
