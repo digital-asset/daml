@@ -1,0 +1,10 @@
+import java.nio.file.{Files, Paths}
+import java.nio.charset.StandardCharsets
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.version.ProtocolVersion
+
+val staticSynchronizerParameters = StaticSynchronizerParameters.defaults(sequencer1.config.crypto, ProtocolVersion.dev)
+val synchronizerOwners = Seq(sequencer1, mediator1)
+bootstrap.synchronizer("mysynchronizer", Seq(sequencer1), Seq(mediator1), synchronizerOwners, PositiveInt.one, staticSynchronizerParameters)
+`build-and-lint-test`.synchronizers.connect_local(sequencer1, "mysynchronizer")
+Files.write(Paths.get("completion_marker"), "Completed".getBytes(StandardCharsets.UTF_8))
