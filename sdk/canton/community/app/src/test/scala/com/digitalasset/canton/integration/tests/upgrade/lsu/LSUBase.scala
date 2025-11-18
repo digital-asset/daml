@@ -6,7 +6,8 @@ package com.digitalasset.canton.integration.tests.upgrade.lsu
 import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameters
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.console.InstanceReference
+import com.digitalasset.canton.config.SynchronizerTimeTrackerConfig
+import com.digitalasset.canton.console.{InstanceReference, ParticipantReference}
 import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerSuccessor}
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.plugins.UsePostgres
@@ -14,6 +15,8 @@ import com.digitalasset.canton.integration.tests.upgrade.LogicalUpgradeUtils
 import com.digitalasset.canton.integration.tests.upgrade.LogicalUpgradeUtils.SynchronizerNodes
 import com.digitalasset.canton.integration.tests.upgrade.lsu.LSUBase.Fixture
 import com.digitalasset.canton.integration.util.EntitySyntax
+import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
+import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.version.ProtocolVersion
 import monocle.macros.syntax.lens.*
@@ -51,6 +54,43 @@ trait LSUBase
       ConfigTransforms.disableAutoInit(newOldNodesResolution.keySet),
       ConfigTransforms.useStaticTime,
     ) ++ ConfigTransforms.enableAlphaVersionSupport
+
+  /** Prepare the environment for LSU with default values.
+    *   - Connect `participants.all` (except if override is used) to synchronizer and upload dar
+    *   - Set oldSynchronizerNodes and newSynchronizerNodes
+    *   - Set reconciliation interval to 1s
+    */
+  protected def defaultEnvironmentSetup(
+      participantsOverride: Option[Seq[ParticipantReference]] = None
+  )(implicit env: TestConsoleEnvironment): Unit = {
+    import env.{participants as _, *}
+
+    val participants = participantsOverride.getOrElse(env.participants.all)
+
+    val daSequencerConnection =
+      SequencerConnections.single(env.sequencer1.sequencerConnection.withAlias(daName.toString))
+
+    participants.synchronizers.connect(
+      SynchronizerConnectionConfig(
+        synchronizerAlias = daName,
+        sequencerConnections = daSequencerConnection,
+        timeTracker =
+          SynchronizerTimeTrackerConfig(observationLatency = config.NonNegativeFiniteDuration.Zero),
+      )
+    )
+
+    participants.dars.upload(CantonExamplesPath)
+
+    synchronizerOwners1.foreach(
+      _.topology.synchronizer_parameters.propose_update(
+        daId,
+        _.copy(reconciliationInterval = config.PositiveDurationSeconds.ofSeconds(1)),
+      )
+    )
+
+    oldSynchronizerNodes = SynchronizerNodes(Seq(sequencer1), Seq(mediator1))
+    newSynchronizerNodes = SynchronizerNodes(Seq(sequencer2), Seq(mediator2))
+  }
 
   protected def fixtureWithDefaults(upgradeTime: CantonTimestamp = upgradeTime)(implicit
       env: TestConsoleEnvironment

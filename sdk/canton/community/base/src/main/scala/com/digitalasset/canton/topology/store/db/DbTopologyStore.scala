@@ -111,18 +111,20 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       parallelism = batchingConfig.parallelism,
       chunkSize = batchingConfig.maxItemsInBatch,
     )(hashes.toSeq) { batch =>
-      toStoredTopologyTransactions(
+      toSignedTopologyTransactions(
         storage.query(
-          buildFindAsOfExclusiveQuery(
-            asOfExclusive,
-            sql" AND is_proposal = true AND (" ++ batch
+          buildQueryForTransactions(
+            asOfQuery(
+              asOfExclusive.value,
+              asOfInclusive = false,
+            ) ++ sql" AND is_proposal = true AND (" ++ batch
               .map(txHash => sql"tx_hash = ${txHash.hash}")
               .toList
-              .intercalate(sql" OR ") ++ sql")",
+              .intercalate(sql" OR ") ++ sql")"
           ),
           operationName = "proposalsByTxHash",
         )
-      ).map(_.result.map(_.transaction))
+      )
     }
   }
 
@@ -139,18 +141,20 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       parallelism = batchingConfig.parallelism,
       chunkSize = batchingConfig.maxItemsInBatch,
     )(hashes.toSeq) { batch =>
-      toStoredTopologyTransactions(
+      toSignedTopologyTransactions(
         storage.query(
-          buildFindAsOfExclusiveQuery(
-            asOfExclusive,
-            sql" AND is_proposal = false AND (" ++ batch
+          buildQueryForTransactions(
+            asOfQuery(
+              asOfExclusive.value,
+              asOfInclusive = false,
+            ) ++ sql" AND is_proposal = false AND (" ++ batch
               .map(mappingHash => sql"mapping_key_hash = ${mappingHash.hash}")
               .toList
-              .intercalate(sql" OR ") ++ sql")",
+              .intercalate(sql" OR ") ++ sql")"
           ),
           operationName = "transactionsForMapping",
         )
-      ).map(_.result.map(_.transaction))
+      )
     }
   }
 
@@ -369,6 +373,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       asOfExclusive: CantonTimestamp,
       filterParty: String,
       filterParticipant: String,
+      limit: Int,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Set[PartyId]] = {
     logger.debug(
       s"Inspecting known parties at t=$asOfExclusive with filterParty=$filterParty and filterParticipant=$filterParticipant"
@@ -387,53 +392,103 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
         filter: String,
         filterIdentifier: String,
         filterNamespaceO: Option[String],
-    ): SQLActionBuilder =
-      if (filter.nonEmpty) {
-        getIdFilter(Some(filterIdentifier), exactMatch = filterNamespaceO.nonEmpty) ++
-          getNamespaceFilter(filterNamespaceO)
+    ): Option[SQLActionBuilder] =
+      Option
+        .when[SQLActionBuilder](filter.nonEmpty)(
+          getIdFilter(Some(filterIdentifier), exactMatch = filterNamespaceO.nonEmpty) ++
+            getNamespaceFilter(filterNamespaceO)
+        )
 
-      } else sql""
-
-    val query = buildQueryForTransactions(
+    val baseQuery =
       asOfQuery(asOfExclusive, asOfInclusive = false) ++
-        sql" AND NOT is_proposal AND operation = ${TopologyChangeOp.Replace} AND ("
-        // PartyToParticipant filtering
-        ++ Seq(
-          sql"(transaction_type = ${PartyToParticipant.code}"
-            ++ conditionalAppend(filterParty, filterPartyIdentifier, filterPartyNamespaceO)
-            ++ sql")"
+        sql" AND NOT is_proposal AND operation = ${TopologyChangeOp.Replace} AND "
+
+    // PartyToParticipant filtering
+    val ptpFilter: SQLActionBuilder =
+      sql"(transaction_type = ${PartyToParticipant.code}"
+        ++ conditionalAppend(
+          filterParty,
+          filterPartyIdentifier,
+          filterPartyNamespaceO,
+        ).toList ++ sql")"
+
+    val adminPartyConditions =
+      // SynchronizerTrustCertificate filtering for admin parties party
+      conditionalAppend(filterParty, filterPartyIdentifier, filterPartyNamespaceO)
+        .map[SQLActionBuilder](
+          // prepending with TRUE, because the result of conditionalAppend starts with an AND
+          sql"(TRUE " ++ _ ++ sql")"
         )
-        ++ sql" OR "
-        // SynchronizerTrustCertificate filtering for the party
-        ++ Seq(
-          sql"(transaction_type = ${SynchronizerTrustCertificate.code}"
-          // In SynchronizerTrustCertificate part of the filter, compare not only to participant, but also to party identifier
-          // to enable searching for the admin party
-            ++ conditionalAppend(filterParty, filterPartyIdentifier, filterPartyNamespaceO)
-            ++ sql")"
+        .toList ++
+        // SynchronizerTrustCertificate filtering for the participant filter
+        conditionalAppend(
+          filterParticipant,
+          filterParticipantIdentifier,
+          filterParticipantNamespaceO,
+        ).map[SQLActionBuilder](
+          // prepending with TRUE, because the result of conditionalAppend starts with an AND
+          sql"(TRUE" ++ _ ++ sql")"
         )
-        ++ sql" OR "
-        // SynchronizerTrustCertificate filtering for the participant state
-        ++ Seq(
-          sql"(transaction_type = ${SynchronizerTrustCertificate.code}"
-            ++ conditionalAppend(
-              filterParticipant,
-              filterParticipantIdentifier,
-              filterParticipantNamespaceO,
-            )
-            ++ sql")"
-        )
-        ++ sql")"
-    )
-    toStoredTopologyTransactions(storage.query(query, operationName = functionFullName))
-      .map { txs =>
-        val mappings = txs.result.map(_.mapping)
-        TopologyStore.determineValidParties(
+
+    val adminPartyConditionsSql: SQLActionBuilder =
+      (if (adminPartyConditions.nonEmpty)
+         sql" AND (" ++ SQLActionBuilderChain.intercalate(
+           adminPartyConditions,
+           sql" OR ",
+         ) ++ sql")"
+       else sql"")
+
+    val adminPartiesQuery: SQLActionBuilder =
+      sql"(transaction_type = ${SynchronizerTrustCertificate.code}" ++ adminPartyConditionsSql ++ sql")"
+
+    val queryWithoutIdFilter =
+      baseQuery ++ sql"(" ++ Seq(ptpFilter, adminPartiesQuery).intercalate(
+        sql" OR "
+      ) ++ sql")"
+
+    def inspectKnownPartiesRec(
+        idOffset: Option[Long],
+        partiesFoundSoFar: Vector[PartyId],
+    ): FutureUnlessShutdown[Set[PartyId]] = {
+      val query = buildQueryForTransactionsWithId[QueryResult](
+        selectFields = TxEntryWithIdFields,
+        queryWithoutIdFilter ++ idOffset.map(offset => sql" AND id > $offset").toList,
+        limit = storage.limit(batchingConfig.maxItemsInBatch.value),
+        // explicitly ordering by id, since we use it for paging
+        orderBy = " order by id ",
+        includeRejected = false,
+      )
+      storage.query(query, operationName = functionFullName).flatMap { rows =>
+        val mappings = rows.map { case (_, (tx, _, _, _, _)) => tx.mapping }
+        val parties = TopologyStore.determineValidParties(
           mappings,
           filterParty = filterParty,
           filterParticipant = filterParticipant,
+          limit = limit,
         )
+        val result = (partiesFoundSoFar ++ parties).distinct
+        // no need to recurse, if
+        // * enough parties have been found
+        // * the current query didn't yield any results
+        // * the current query didn't fill the batch size, therefore there are no more results
+        if (
+          result.sizeIs >= limit || rows.isEmpty || rows.sizeIs < batchingConfig.maxItemsInBatch.value
+        ) {
+          // only converting to a Set with the final result, to return the parties as they are found in id-order.
+          // additionally, since we could have fetched more parties, we need to respect the user provided limit.
+          FutureUnlessShutdown.pure(result.distinct.take(limit).toSet)
+        } else {
+          // the results are ordered by id, so we can just take the last instead of the max
+          val highestIdFound = rows.lastOption.map { case (id, _) => id }
+          inspectKnownPartiesRec(
+            highestIdFound,
+            result,
+          )
+        }
       }
+    }
+
+    inspectKnownPartiesRec(None, Vector.empty)
   }
 
   override def findPositiveTransactions(
@@ -816,19 +871,17 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       s"Querying participant onboarding transactions for participant $participantId on synchronizer $synchronizerId"
     )
     val query = buildQueryForTransactions(
-      sql" AND not is_proposal " ++
-        sql" AND transaction_type IN (" ++ TopologyStore.initialParticipantDispatchingSet.toList
-          .map(s => sql"$s")
-          .intercalate(sql", ") ++ sql") "
+      sql" AND not is_proposal AND " ++
+        DbStorage.toInClause("transaction_type", TopologyStore.initialParticipantDispatchingSet)
     )
 
-    toStoredTopologyTransactions(
+    toSignedTopologyTransactions(
       storage.query(query, operationName = "participantOnboardingTransactions")
     ).map { transactions =>
       TopologyStore.filterInitialParticipantDispatchingTransactions(
         participantId,
         synchronizerId,
-        transactions.result,
+        transactions,
       )
     }
   }
@@ -1018,19 +1071,10 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
   }
 
   private def typeFilter(types: Set[TopologyMapping.Code]): SQLActionBuilderChain =
-    if (types.isEmpty) sql""
-    else
-      sql" AND transaction_type IN (" ++ types.toSeq
-        .map(t => sql"$t")
-        .intercalate(sql", ") ++ sql")"
-
-  private def buildFindAsOfExclusiveQuery(
-      effective: EffectiveTime,
-      subQuery: SQLActionBuilder,
-  ): QueryAction =
-    buildQueryForTransactions(
-      asOfQuery(effective.value, asOfInclusive = false) ++ subQuery
-    )
+    NonEmpty
+      .from(types)
+      .map(typesNE => sql" AND " ++ DbStorage.toInClause("transaction_type", typesNE))
+      .getOrElse(sql"")
 
   private def findStoredSql(
       asOfExclusive: CantonTimestamp,
@@ -1152,6 +1196,11 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
         )
       }
     )
+
+  private def toSignedTopologyTransactions(
+      resultF: FutureUnlessShutdown[Vector[QueryResult]]
+  ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransaction]] =
+    resultF.map(_.map { case (tx, _, _, _, _) => tx })
 
   override def currentDispatchingWatermark(implicit
       traceContext: TraceContext

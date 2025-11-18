@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.integration.tests.upgrade.lsu
 
-import com.digitalasset.canton.config
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
@@ -16,7 +15,6 @@ import com.digitalasset.canton.integration.plugins.{
   UsePostgres,
   UseReferenceBlockSequencer,
 }
-import com.digitalasset.canton.integration.tests.upgrade.LogicalUpgradeUtils.SynchronizerNodes
 import com.digitalasset.canton.topology.TopologyManagerError
 import com.digitalasset.canton.topology.store.TimeQuery
 import com.digitalasset.canton.topology.transaction.TopologyMapping
@@ -43,20 +41,7 @@ abstract class LSUTopologyIntegrationTest extends LSUBase {
       }
       .addConfigTransforms(configTransforms*)
       .withSetup { implicit env =>
-        import env.*
-
-        participants.all.synchronizers.connect_local(sequencer1, alias = daName)
-        participants.all.dars.upload(CantonExamplesPath)
-
-        synchronizerOwners1.foreach(
-          _.topology.synchronizer_parameters.propose_update(
-            daId,
-            _.copy(reconciliationInterval = config.PositiveDurationSeconds.ofSeconds(1)),
-          )
-        )
-
-        oldSynchronizerNodes = SynchronizerNodes(Seq(sequencer1), Seq(mediator1))
-        newSynchronizerNodes = SynchronizerNodes(Seq(sequencer2), Seq(mediator2))
+        defaultEnvironmentSetup()
       }
 
   "Logical synchronizer upgrade" should {

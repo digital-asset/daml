@@ -5,6 +5,7 @@ package com.digitalasset.canton.integration.tests.multihostedparties
 
 import com.daml.ledger.javaapi.data.*
 import com.daml.ledger.javaapi.data.codegen.HasCommands
+import com.digitalasset.canton.admin.api.client.data.FlagNotSet
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.damltests.java.explicitdisclosure.PriceQuotation
 import com.digitalasset.canton.integration.EnvironmentDefinition
@@ -75,9 +76,9 @@ sealed trait OfflinePartyReplicationExplicitDisclosureIntegrationTest
     target.synchronizers.reconnect_all()
 
     eventually(timeUntilSuccess = 2.minutes, maxPollInterval = 30.seconds) {
-      val (onboard, earliestRetryTimestamp) =
+      val status =
         target.parties.clear_party_onboarding_flag(alice, daId, beforeTargetReconnectOffset)
-      (onboard, earliestRetryTimestamp) shouldBe (true, None)
+      status shouldBe FlagNotSet
     }
 
     // Verify that `alice` can see the contract with explicit disclosure

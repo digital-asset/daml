@@ -14,6 +14,7 @@ import com.digitalasset.base.error.RpcError
 import com.digitalasset.canton.*
 import com.digitalasset.canton.common.sequencer.SequencerConnectClient
 import com.digitalasset.canton.common.sequencer.SequencerConnectClient.SynchronizerClientBootstrapInfo
+import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
 import com.digitalasset.canton.crypto.SyncCryptoApiParticipantProvider
@@ -33,6 +34,11 @@ import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.*
 import com.digitalasset.canton.participant.admin.*
+import com.digitalasset.canton.participant.admin.data.ManualLSURequest
+import com.digitalasset.canton.participant.admin.party.{
+  OnboardingClearanceScheduler,
+  PartyReplicationTopologyWorkflow,
+}
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentCoordination
@@ -57,9 +63,9 @@ import com.digitalasset.canton.participant.synchronizer.*
 import com.digitalasset.canton.participant.topology.*
 import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
-import com.digitalasset.canton.sequencing.SequencerConnection
 import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.sequencing.client.SequencerClient.CloseReason
+import com.digitalasset.canton.sequencing.{SequencerConnection, SequencerConnectionValidation}
 import com.digitalasset.canton.store.SequencedEventStore.SearchCriterion
 import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.*
@@ -121,6 +127,7 @@ private[sync] class SynchronizerConnectionsManager(
     parameters: ParticipantNodeParameters,
     connectedSynchronizerFactory: ConnectedSynchronizer.Factory[ConnectedSynchronizer],
     metrics: ParticipantMetrics,
+    sequencerInfoLoader: SequencerInfoLoader,
     isActive: () => Boolean,
     declarativeChangeTrigger: () => Unit,
     futureSupervisor: FutureSupervisor,
@@ -237,6 +244,21 @@ private[sync] class SynchronizerConnectionsManager(
       psid: PhysicalSynchronizerId
   ): Option[SynchronizerTopologyClientWithInit] =
     connectedSynchronizers.get(psid).map(_.topologyClient)
+
+  def validateSequencerConnection(
+      config: SynchronizerConnectionConfig,
+      sequencerConnectionValidation: SequencerConnectionValidation,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] =
+    sequencerInfoLoader // TODO(i27622): use the connection pool to validate the config
+      .validateSequencerConnection(
+        config.synchronizerAlias,
+        config.synchronizerId,
+        config.sequencerConnections,
+        sequencerConnectionValidation,
+      )
+      .leftMap(SyncServiceError.SyncServiceInconsistentConnectivity.Error(_): SyncServiceError)
 
   /** Reconnect configured synchronizers
     *
@@ -921,6 +943,18 @@ private[sync] class SynchronizerConnectionsManager(
           promiseUSFactory: DefaultPromiseUnlessShutdownFactory =
             new DefaultPromiseUnlessShutdownFactory(timeouts, loggerFactory)
 
+          onboardingClearanceScheduler = new OnboardingClearanceScheduler(
+            participantId,
+            psid,
+            () => this.readyConnectedSynchronizerById(psid.logical),
+            loggerFactory,
+            new PartyReplicationTopologyWorkflow(
+              participantId,
+              parameters.processingTimeouts,
+              loggerFactory,
+            ),
+          )
+
           ephemeral <- EitherT.right[SyncServiceError](
             syncEphemeralStateFactory
               .createFromPersistent(
@@ -943,6 +977,7 @@ private[sync] class SynchronizerConnectionsManager(
                 promiseUSFactory,
                 connectedSynchronizerMetrics,
                 parameters.cachingConfigs.sessionEncryptionKeyCache,
+                onboardingClearanceScheduler,
                 participantId,
               )
           )
@@ -999,6 +1034,7 @@ private[sync] class SynchronizerConnectionsManager(
                   partyNotifier,
                   missingKeysAlerter,
                   sequencerConnectionSuccessorListener,
+                  onboardingClearanceScheduler,
                   synchronizerHandle.topologyClient,
                   ephemeral.recordOrderPublisher,
                   lsuCallback = lsuCallback,
@@ -1262,6 +1298,35 @@ private[sync] class SynchronizerConnectionsManager(
 
     } yield ()
   }
+
+  /** Perform a manual LSU. This method should ONLY be used when the following two conditions are
+    * met:
+    *   - The participant node missed the upgrade on the old synchronizer, and
+    *   - The old synchronizer has been decommissioned in the meantime.
+    *
+    * After the upgrade has been done, other repair operations might need to be done. This includes
+    * manually repairing the ACS to account for missed activity on both the old and new
+    * synchronizer.
+    */
+  def manuallyUpgradeSynchronizerTo(
+      request: ManualLSURequest
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] =
+    for {
+      _ <- validateSequencerConnection(
+        request.successorConfig,
+        request.successorConnectionValidation,
+      ).leftMap(_.toString)
+      _ <-
+        new ManualLogicalSynchronizerUpgrade(
+          synchronizerConnectionConfigStore,
+          connectQueue,
+          connectedSynchronizers,
+          disconnectSynchronizer = (alias: Traced[SynchronizerAlias]) =>
+            disconnectSynchronizer(alias.value)(alias.traceContext),
+          timeouts,
+          loggerFactory,
+        ).upgrade(request)
+    } yield ()
 
   // Write health requires the ability to transact, i.e. connectivity to at least one synchronizer and HA-activeness.
   def currentWriteHealth(): HealthStatus = {

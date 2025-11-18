@@ -431,8 +431,9 @@ class StoreBasedTopologySnapshot(
   override def inspectKnownParties(
       filterParty: String,
       filterParticipant: String,
+      limit: Int,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Set[PartyId]] =
-    store.inspectKnownParties(timestamp, filterParty, filterParticipant)
+    store.inspectKnownParties(timestamp, filterParty, filterParticipant, limit)
 
   /** Returns a list of owner's keys (at most limit) */
   override def inspectKeys(

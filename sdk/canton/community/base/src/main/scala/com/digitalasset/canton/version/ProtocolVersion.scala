@@ -249,7 +249,7 @@ object ProtocolVersion {
     NonEmpty.mk(List, ProtocolVersion.v35, ProtocolVersion.dev)
 
   val beta: List[ProtocolVersionWithStatus[ProtocolVersionAnnotation.Beta]] =
-    parseFromBuildInfo(BuildInfo.betaProtocolVersions.toSeq)
+    parseFromBuildInfo(BuildInfo.betaProtocolVersions)
       .map(pv => ProtocolVersion.createBeta(pv.v))
 
   val supported: NonEmpty[List[ProtocolVersion]] = (alpha ++ beta ++ stable).sorted

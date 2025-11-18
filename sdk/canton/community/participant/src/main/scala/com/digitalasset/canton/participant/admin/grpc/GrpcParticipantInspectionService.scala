@@ -552,6 +552,8 @@ class GrpcParticipantInspectionService(
               .inspectKnownParties(
                 filterParty = "",
                 filterParticipant = counterParticipant.filterString,
+                // we cannot filter by participant in the db, therefore we also cannot impose a limit.
+                limit = Int.MaxValue,
               ),
             err => ParticipantInspectionServiceError.InternalServerError.Error(err.toString),
           )

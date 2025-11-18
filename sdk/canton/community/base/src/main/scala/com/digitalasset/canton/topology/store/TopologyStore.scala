@@ -13,7 +13,6 @@ import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -415,6 +414,7 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       asOfExclusive: CantonTimestamp,
       filterParty: String,
       filterParticipant: String,
+      limit: Int,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Set[PartyId]]
 
   /** Finds the topology transaction that first onboarded the sequencer with ID `sequencerId`
@@ -609,7 +609,8 @@ object TopologyStore {
       }
     }
 
-  lazy val initialParticipantDispatchingSet: Set[TopologyMapping.Code] = Set(
+  lazy val initialParticipantDispatchingSet: NonEmpty[Set[TopologyMapping.Code]] = NonEmpty(
+    Set,
     TopologyMapping.Code.SynchronizerTrustCertificate,
     TopologyMapping.Code.OwnerToKeyMapping,
     TopologyMapping.Code.NamespaceDelegation,
@@ -618,9 +619,9 @@ object TopologyStore {
   def filterInitialParticipantDispatchingTransactions(
       participantId: ParticipantId,
       synchronizerId: SynchronizerId,
-      transactions: Seq[GenericStoredTopologyTransaction],
+      transactions: Seq[GenericSignedTopologyTransaction],
   ): Seq[GenericSignedTopologyTransaction] =
-    transactions.map(_.transaction).filter { signedTx =>
+    transactions.filter { signedTx =>
       initialParticipantDispatchingSet.contains(signedTx.mapping.code) &&
       signedTx.mapping.maybeUid.forall(_ == participantId.uid) &&
       signedTx.mapping.namespace == participantId.namespace &&
@@ -661,41 +662,35 @@ object TopologyStore {
       mappings: Seq[TopologyMapping],
       filterParty: String,
       filterParticipant: String,
+      limit: Int,
   ): Set[PartyId] = {
     val (filterPartyIdentifier, filterPartyNamespaceO) =
       UniqueIdentifier.splitFilter(filterParty)
     val (
       filterParticipantIdentifier,
       filterParticipantNamespaceO,
-    ) =
-      UniqueIdentifier.splitFilter(filterParticipant)
-    val validParticipants = mappings.collect { case SynchronizerTrustCertificate(pid, _, _) =>
-      pid
-    }.toSet
-    val validParties = mutable.HashSet[PartyId]()
-    mappings.foreach {
-      case ptp: PartyToParticipant
-          if (filterParty.isEmpty || ptp.partyId.uid
-            .matchesFilters(filterPartyIdentifier, filterPartyNamespaceO)) &&
-            (filterParticipant.isEmpty || ptp.participants
-              .exists(
-                _.participantId.uid
-                  .matchesFilters(filterParticipantIdentifier, filterParticipantNamespaceO)
-              )) && ptp.participants.exists(h => validParticipants.contains(h.participantId)) =>
-        validParties.add(ptp.partyId).discard
-      case cert: SynchronizerTrustCertificate
-          if (filterParty.isEmpty || cert.participantId.adminParty.uid
-            .matchesFilters(filterPartyIdentifier, filterPartyNamespaceO))
-            && (filterParticipant.isEmpty || cert.participantId.adminParty.uid.matchesFilters(
-              filterParticipantIdentifier,
-              filterParticipantNamespaceO,
-            ))
-            && validParticipants
-              .contains(cert.participantId) =>
-        validParties.add(cert.participantId.adminParty).discard
-      case _ => ()
-    }
-    validParties.toSet
+    ) = UniqueIdentifier.splitFilter(filterParticipant)
+
+    val validParties = mappings.view
+      .collect {
+        case ptp: PartyToParticipant => (ptp.partyId, ptp.participantIds)
+        case cert: SynchronizerTrustCertificate =>
+          (cert.participantId.adminParty, Seq(cert.participantId))
+      }
+      .filter { case (partyId, participants) =>
+        lazy val matchesPartyFilter =
+          partyId.uid.matchesFilters(filterPartyIdentifier, filterPartyNamespaceO)
+        lazy val matchesParticipantFilter = participants.exists(
+          _.uid.matchesFilters(filterParticipantIdentifier, filterParticipantNamespaceO)
+        )
+
+        (filterParty.isEmpty || matchesPartyFilter) && (filterParticipant.isEmpty || matchesParticipantFilter)
+      }
+      .map { case (partyId, _) => partyId }
+      // use LinkedHashSet so that in the end we can return a result that is limited and stable, based on the order
+      // of appearance in mappings
+      .to(mutable.LinkedHashSet)
+    validParties.take(limit).toSet
   }
 
 }

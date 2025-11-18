@@ -32,6 +32,7 @@ import com.digitalasset.canton.lifecycle.{
   UnlessShutdown,
 }
 import com.digitalasset.canton.logging.pretty.Pretty
+import com.digitalasset.canton.participant.admin.party.OnboardingClearanceScheduler
 import com.digitalasset.canton.participant.config.LedgerApiServerConfig
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
@@ -348,6 +349,7 @@ class ProtocolProcessorTest
         recordOrderPublisher,
         timeTracker,
         inFlightSubmissionSynchronizerTracker,
+        mock[OnboardingClearanceScheduler],
         persistentState,
         ledgerApiIndexer,
         contractStore,

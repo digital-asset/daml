@@ -15,10 +15,7 @@ import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.synchronizer.block.{AsyncWriterParameters, SequencerDriver}
 import com.digitalasset.canton.synchronizer.metrics.SequencerTestMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.DriverBlockSequencerFactory
-import com.digitalasset.canton.synchronizer.sequencer.config.{
-  SequencerNodeParameterConfig,
-  SequencerNodeParameters,
-}
+import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeParameters
 import com.digitalasset.canton.synchronizer.sequencer.traffic.SequencerTrafficConfig
 import com.digitalasset.canton.synchronizer.sequencer.{
   BlockSequencerConfig,
@@ -61,8 +58,6 @@ class ReferenceSequencerApiTest extends SequencerApiTest with RateLimitManagerTe
         crypto,
         FutureSupervisor.Noop,
         SequencerTrafficConfig(),
-        sequencingTimeLowerBoundExclusive =
-          SequencerNodeParameterConfig.DefaultSequencingTimeLowerBoundExclusive,
         runtimeReady = FutureUnlessShutdown.unit,
       )
       .futureValueUS
@@ -86,6 +81,7 @@ class ReferenceSequencerApiTest extends SequencerApiTest with RateLimitManagerTe
         dontWarnOnDeprecatedPV = false,
       ),
       maxConfirmationRequestsBurstFactor = PositiveDouble.tryCreate(1.0),
+      sequencingTimeLowerBoundExclusive = None,
       asyncWriter = AsyncWriterParameters(),
     )
 

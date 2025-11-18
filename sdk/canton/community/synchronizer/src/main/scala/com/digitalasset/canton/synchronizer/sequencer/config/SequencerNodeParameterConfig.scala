@@ -57,8 +57,8 @@ object AsyncWriterConfig {
   *   how forgiving the rate limit is in case of bursts (so rate limit starts after observing an
   *   initial burst of factor * max_rate commands)
   * @param sequencingTimeLowerBoundExclusive
-  *   if defined, the sequencer will only send events with to subscribers with sequencing time
-  *   strictly greater than sequencingTimeLowerBoundExclusive
+  *   if defined, the sequencer will only send events with sequencing time strictly greater than
+  *   sequencingTimeLowerBoundExclusive
   * @param asyncWriter
   *   controls the async writer
   */

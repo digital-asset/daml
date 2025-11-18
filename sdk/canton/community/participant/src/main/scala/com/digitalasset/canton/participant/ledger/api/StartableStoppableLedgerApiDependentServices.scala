@@ -150,7 +150,6 @@ class StartableStoppableLedgerApiDependentServices(
                     new GrpcPartyManagementService(
                       participantId,
                       partyReplicationAdminWorkflowO,
-                      parameters.processingTimeouts,
                       syncService,
                       parameters,
                       loggerFactory,

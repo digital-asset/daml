@@ -70,19 +70,23 @@ service PartyManagementService {
 
   // Offline party replication endpoint.
   //
-  // Instructs the target participant to unilaterally clear the 'onboarding' flag on the
-  // party-to-participant topology mapping.
+  // Instructs the participant to unilaterally clear the 'onboarding' flag for a
+  // given party on its party-to-participant topology mapping.
   //
-  // This operation is time-sensitive and will only be attempted after a specific safe
-  // timestamp has passed.
+  // The RPC first attempts to clear the flag immediately. If this is not yet safe
+  // (e.g., due to potential in-flight transactions), it schedules an idempotent
+  // background task to propose the clearance at the appropriate, safe time.
   //
-  // Because the effect of the topology transaction is not instantaneous, this endpoint is
-  // designed to be polled. Callers should invoke it repeatedly until the response confirms
-  // the flag has been cleared.
+  // This RPC is idempotent and designed to be polled.
   //
-  // Prerequisite: A prior party-to-participant mapping topology transaction must exist
-  // that activates the party on the target participant with the onboarding flag set to
-  // `true`.
+  // Response status:
+  // - onboarded = true: The flag is successfully cleared or was already clear.
+  // - onboarded = false: The flag is not yet cleared. A background task is scheduled
+  //   (or was already pending).
+  //
+  // Prerequisites:
+  // - An 'onboarding=true' mapping must exist for the party on this participant.
+  // - The participant must be connected to the requested synchronizer.
   rpc ClearPartyOnboardingFlag(ClearPartyOnboardingFlagRequest) returns (ClearPartyOnboardingFlagResponse);
 }
 
@@ -325,6 +329,13 @@ message GetHighestOffsetByTimestampResponse {
   int64 ledger_offset = 1;
 }
 
+// Request to clear the 'onboarding' flag for a party.
+//
+// The participant uses the `begin_offset_exclusive` and `wait_for_activation_timeout` to find the
+// effective timestamp of the topology transaction that set the `onboarding = true` flag.
+//
+// This effective timestamp serves as the "lower bound" for calculating the "latest decision deadline"
+// which determines the earliest safe time to clear the flag.
 message ClearPartyOnboardingFlagRequest {
   // The identifier of the party whose onboarding flag is being cleared. This party must
   // already be active on the target participant.
@@ -347,8 +358,10 @@ message ClearPartyOnboardingFlagRequest {
   google.protobuf.Duration wait_for_activation_timeout = 4;
 }
 
-//  Responds with the current status:
+//  Responds with the current status of the onboarding flag:
+//
 //  - Cleared: (true, None) – The flag is successfully cleared.
+//
 //  - Pending: (false, Some(timestamp)) – The flag is still set. The timestamp indicates
 //             the earliest safe time to clear the flag.
 //             Calling the service (repeatedly) after that specific time will eventually confirm
@@ -364,6 +377,8 @@ message ClearPartyOnboardingFlagResponse {
 
   // The earliest time for the safe clearance of the onboarding flag.
   //
-  // This field is only present when `onboarded` is `false`.
+  // This field is only present when `onboarded` is `false`. It represents the
+  // computed "latest decision deadline", which is the maximum of all `validUntil + decisionTimeout`
+  // from the synchronizer's parameter history, ensuring all past in-flight transactions are finalized.
   optional google.protobuf.Timestamp earliest_retry_timestamp = 2;
 }

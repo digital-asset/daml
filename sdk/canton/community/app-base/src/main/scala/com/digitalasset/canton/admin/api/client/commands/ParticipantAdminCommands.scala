@@ -20,6 +20,7 @@ import com.digitalasset.canton.admin.api.client.data.{
   PackageDescription,
   ParticipantPruningSchedule,
   ParticipantStatus,
+  PartyOnboardingFlagStatus,
 }
 import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.admin.participant.v30.PackageServiceGrpc.PackageServiceStub
@@ -691,7 +692,7 @@ object ParticipantAdminCommands {
     ) extends GrpcAdminCommand[
           v30.ClearPartyOnboardingFlagRequest,
           v30.ClearPartyOnboardingFlagResponse,
-          (Boolean, Option[CantonTimestamp]),
+          PartyOnboardingFlagStatus,
         ] {
 
       override type Svc = PartyManagementServiceStub
@@ -716,16 +717,9 @@ object ParticipantAdminCommands {
 
       override protected def handleResponse(
           response: v30.ClearPartyOnboardingFlagResponse
-      ): Either[String, (Boolean, Option[CantonTimestamp])] =
-        response.earliestRetryTimestamp
-          .traverse(
-            CantonTimestamp
-              .fromProtoTimestamp(_)
-              .leftMap(_.message)
-          )
-          .map(tsOption => (response.onboarded, tsOption))
+      ): Either[String, PartyOnboardingFlagStatus] =
+        PartyOnboardingFlagStatus.fromProtoV30(response).leftMap(_.message)
     }
-
   }
 
   object ParticipantRepairManagement {
@@ -1161,6 +1155,49 @@ object ParticipantAdminCommands {
 
       override protected def handleResponse(
           response: v30.RollbackUnassignmentResponse
+      ): Either[String, Unit] = Either.unit
+    }
+
+    final case class PerformSynchronizerUpgrade(
+        currentPSId: PhysicalSynchronizerId,
+        successorPSId: PhysicalSynchronizerId,
+        upgradeTime: CantonTimestamp,
+        successorConfig: SynchronizerConnectionConfig,
+        sequencerConnectionValidation: SequencerConnectionValidation,
+    ) extends GrpcAdminCommand[
+          v30.PerformSynchronizerUpgradeRequest,
+          v30.PerformSynchronizerUpgradeResponse,
+          Unit,
+        ] {
+      override type Svc = ParticipantRepairServiceStub
+
+      override def createService(channel: ManagedChannel): ParticipantRepairServiceStub =
+        v30.ParticipantRepairServiceGrpc.stub(channel)
+
+      override protected def createRequest()
+          : Either[String, v30.PerformSynchronizerUpgradeRequest] =
+        Right(
+          v30.PerformSynchronizerUpgradeRequest(
+            physicalSynchronizerId = currentPSId.toProtoPrimitive,
+            successor = v30.PerformSynchronizerUpgradeRequest
+              .Successor(
+                physicalSynchronizerId = successorPSId.toProtoPrimitive,
+                announcedUpgradeTime = upgradeTime.toProtoTimestamp.some,
+                config = successorConfig.toProtoV30.some,
+                sequencerConnectionValidation = sequencerConnectionValidation.toProtoV30,
+              )
+              .some,
+          )
+        )
+
+      override protected def submitRequest(
+          service: ParticipantRepairServiceStub,
+          request: v30.PerformSynchronizerUpgradeRequest,
+      ): Future[v30.PerformSynchronizerUpgradeResponse] =
+        service.performSynchronizerUpgrade(request)
+
+      override protected def handleResponse(
+          response: v30.PerformSynchronizerUpgradeResponse
       ): Either[String, Unit] = Either.unit
     }
   }

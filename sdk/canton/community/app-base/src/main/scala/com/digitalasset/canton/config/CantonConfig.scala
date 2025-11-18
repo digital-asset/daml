@@ -493,6 +493,7 @@ final case class CantonConfig(
           participantParameters.doNotAwaitOnCheckingIncomingCommitments,
         disableOptionalTopologyChecks = participantConfig.topology.disableOptionalTopologyChecks,
         commitmentCheckpointInterval = participantParameters.commitmentCheckpointInterval,
+        autoSyncProtocolFeatureFlags = participantParameters.autoSyncProtocolFeatureFlags,
       )
     }
 
@@ -515,6 +516,8 @@ final case class CantonConfig(
         maxConfirmationRequestsBurstFactor =
           sequencerNodeConfig.parameters.maxConfirmationRequestsBurstFactor,
         asyncWriter = sequencerNodeConfig.parameters.asyncWriter.toParameters,
+        sequencingTimeLowerBoundExclusive =
+          sequencerNodeConfig.parameters.sequencingTimeLowerBoundExclusive,
         unsafeEnableOnlinePartyReplication =
           sequencerNodeConfig.parameters.unsafeEnableOnlinePartyReplication,
         requestLimits = sequencerNodeConfig.publicApi.limits,

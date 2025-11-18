@@ -3,14 +3,8 @@
 
 package com.digitalasset.canton.integration.tests.upgrade.lsu
 
-import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.NonNegativeProportion
-import com.digitalasset.canton.config.{
-  CommitmentSendDelay,
-  DbConfig,
-  PositiveDurationSeconds,
-  SynchronizerTimeTrackerConfig,
-}
+import com.digitalasset.canton.config.{CommitmentSendDelay, DbConfig}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.integration.*
@@ -23,9 +17,6 @@ import com.digitalasset.canton.integration.plugins.{
   UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
-import com.digitalasset.canton.integration.tests.upgrade.LogicalUpgradeUtils.SynchronizerNodes
-import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
-import com.digitalasset.canton.sequencing.SequencerConnections
 import monocle.macros.syntax.lens.*
 
 import java.time.Duration
@@ -71,30 +62,7 @@ abstract class LSUPruningIntegrationTest extends LSUBase {
         ConfigTransforms.updateMaxDeduplicationDurations(10.minutes.toJava)
       )
       .withSetup { implicit env =>
-        import env.*
-
-        val daSequencerConnection =
-          SequencerConnections.single(sequencer1.sequencerConnection.withAlias(daName.toString))
-        participants.all.synchronizers.connect(
-          SynchronizerConnectionConfig(
-            synchronizerAlias = daName,
-            sequencerConnections = daSequencerConnection,
-            timeTracker = SynchronizerTimeTrackerConfig(observationLatency =
-              config.NonNegativeFiniteDuration.Zero
-            ),
-          )
-        )
-        participants.all.dars.upload(CantonExamplesPath)
-
-        synchronizerOwners1.foreach(
-          _.topology.synchronizer_parameters.propose_update(
-            daId,
-            _.copy(reconciliationInterval = PositiveDurationSeconds.ofSeconds(1)),
-          )
-        )
-
-        oldSynchronizerNodes = SynchronizerNodes(Seq(sequencer1), Seq(mediator1))
-        newSynchronizerNodes = SynchronizerNodes(Seq(sequencer2), Seq(mediator2))
+        defaultEnvironmentSetup()
       }
 
   "Pruning after a logical synchronizer upgrade" should {

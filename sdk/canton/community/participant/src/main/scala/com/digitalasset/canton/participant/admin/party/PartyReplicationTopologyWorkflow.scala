@@ -10,6 +10,11 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.participant.admin.data.{
+  FlagNotSet,
+  FlagSet,
+  PartyOnboardingFlagStatus,
+}
 import com.digitalasset.canton.participant.sync.ConnectedSynchronizer
 import com.digitalasset.canton.protocol.DynamicSynchronizerParametersHistory
 import com.digitalasset.canton.topology.TopologyManagerError.NoAppropriateSigningKeyInStore
@@ -36,7 +41,7 @@ import scala.util.chaining.scalaUtilChainingOps
 
 /** The OnPR topology workflow manages the interaction with topology processing with respect to
   * authorizing PartyToParticipant topology changes and verifying that authorized topology changes
-  * permit party replication for a particular connected synchronizer.
+  * permit party replication.
   */
 class PartyReplicationTopologyWorkflow(
     participantId: ParticipantId,
@@ -357,10 +362,10 @@ class PartyReplicationTopologyWorkflow(
       connectedSynchronizer,
       Some(requestId),
     )
-    res.map { case (partyHasBeenOnboarded, _) => partyHasBeenOnboarded }
+    res.map(_.status._1)
   }
 
-  private[party] def authorizeOnboardedTopology(
+  private[admin] def authorizeOnboardedTopology(
       partyId: PartyId,
       targetParticipantId: ParticipantId,
       onboardingEffectiveAt: CantonTimestamp,
@@ -368,7 +373,7 @@ class PartyReplicationTopologyWorkflow(
       requestId: Option[Hash] = None,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, String, (Boolean, Option[CantonTimestamp])] = {
+  ): EitherT[FutureUnlessShutdown, String, PartyOnboardingFlagStatus] = {
     val synchronizerId = connectedSynchronizer.psid.logical
     val requestIdLogPart = if (requestId.nonEmpty) s"For request $requestId: " else ""
     val synchronizerTimeTracker = connectedSynchronizer.ephemeral.timeTracker
@@ -390,32 +395,34 @@ class PartyReplicationTopologyWorkflow(
         String,
         StoredTopologyTransaction[Replace, PartyToParticipant],
       ]
-      onboardedPtpProposalO = Option.when(
-        ptpHeadTxn.mapping.participants.exists(p =>
-          p.participantId == targetParticipantId && p.onboarding
-        )
-      )(
-        (
-          PartyToParticipant.tryCreate(
-            ptpHeadTxn.mapping.partyId,
-            ptpHeadTxn.mapping.threshold,
-            ptpHeadTxn.mapping.participants.map {
-              case HostingParticipant(`targetParticipantId`, permission, true) =>
-                HostingParticipant(targetParticipantId, permission, onboarding = false)
-              case otherParticipant => otherParticipant
-            },
-          ),
-          ptpHeadTxn.serial.increment,
-        )
+      onboardedPtpProposalO <- EitherT.fromEither[FutureUnlessShutdown](
+        if (
+          ptpHeadTxn.mapping.participants
+            .exists(p => p.participantId == targetParticipantId && p.onboarding)
+        ) {
+          PartyToParticipant
+            .create(
+              ptpHeadTxn.mapping.partyId,
+              ptpHeadTxn.mapping.threshold,
+              ptpHeadTxn.mapping.participants.map {
+                case HostingParticipant(`targetParticipantId`, permission, true) =>
+                  HostingParticipant(targetParticipantId, permission, onboarding = false)
+                case otherParticipant => otherParticipant
+              },
+            )
+            .map(ptp => Some(ptp -> ptpHeadTxn.serial.increment))
+        } else Right(None)
       )
-      partyHasBeenOnboarded = true
-      noDecisionDeadline = None
       latestSynchronizerTimestampObservedO = synchronizerTimeTracker.latestTime
-      isPartyVerifiedOnboarded <- onboardedPtpProposalO match {
+
+      partyOnboardingStatus <- onboardedPtpProposalO match {
         case None =>
-          EitherT.rightT[FutureUnlessShutdown, String]((partyHasBeenOnboarded, noDecisionDeadline))
+          // The party does not have the 'onboarding' flag set, return FlagNotSet flag status
+          EitherT.rightT[FutureUnlessShutdown, String](FlagNotSet)
+
         case Some((ptpProposal, serial))
             if participantId == targetParticipantId && latestSynchronizerTimestampObservedO.isDefined =>
+          // This is the target participant, and it is responsible for clearing the flag
           logger.info(
             s"${requestIdLogPart}About to mark party $partyId as onboarded on target participant"
           )
@@ -437,12 +444,13 @@ class PartyReplicationTopologyWorkflow(
                 synchronizerParameterHistory,
                 onboardingEffectiveAt,
               )
-            _ = if (logger.underlying.isDebugEnabled) {
-              logger.debug(
-                s"safe timestamp: $decisionDeadline compared to latest synchronizer ts $latestSynchronizerTimestampObservedO" +
-                  s" with onboardingEffectiveAt $onboardingEffectiveAt"
-              )
-            }
+            _ = logger.debug(
+              s"""safe timestamp: $decisionDeadline compared to
+                   |latest synchronizer ts $latestSynchronizerTimestampObservedO
+                   |with onboardingEffectiveAt $onboardingEffectiveAt"
+                """.stripMargin
+            )
+
             isSafeToOnboard = latestSynchronizerTimestampObservedO.exists(_ > decisionDeadline)
             _ <-
               if (isSafeToOnboard) {
@@ -484,12 +492,14 @@ class PartyReplicationTopologyWorkflow(
                 synchronizerTimeTracker.requestTick(decisionDeadline.immediateSuccessor).discard
                 EitherTUtil.unitUS[String]
               }
-          } yield (!partyHasBeenOnboarded, Some(decisionDeadline))
+          } yield FlagSet(decisionDeadline)
+
         case Some((_, _)) =>
-          // for any participant other than the target participant which is
-          EitherT.rightT[FutureUnlessShutdown, String]((!partyHasBeenOnboarded, noDecisionDeadline))
+          // This case handles a non-target participant or a target participant whose synchronizer has not yet observed time.
+          // In either case, this node takes no action, so the flag status is effectively FlagNotSet.
+          EitherT.rightT[FutureUnlessShutdown, String](FlagNotSet)
       }
-    } yield isPartyVerifiedOnboarded
+    } yield partyOnboardingStatus
   }
 
   private def partyToParticipantTopologyHeadO(
@@ -522,11 +532,7 @@ class PartyReplicationTopologyWorkflow(
       topologyStore: TopologyStore[SynchronizerStore],
   )(implicit
       traceContext: TraceContext
-  ): EitherT[
-    FutureUnlessShutdown,
-    String,
-    StoredTopologyTransaction[Replace, PartyToParticipant],
-  ] =
+  ): EitherT[FutureUnlessShutdown, String, StoredTopologyTransaction[Replace, PartyToParticipant]] =
     EitherT(
       partyToParticipantTopologyHeadO(partyId, topologyStore).map(
         _.toRight(

@@ -280,6 +280,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
       asOfExclusive: CantonTimestamp,
       filterParty: String,
       filterParticipant: String,
+      limit: Int,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Set[PartyId]] = {
 
     def filter(entry: TopologyStoreEntry): Boolean =
@@ -293,11 +294,16 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
         // is of type Replace
         entry.operation == TopologyChangeOp.Replace
 
-    val mappings =
-      blocking(synchronized(topologyTransactionStore.toSeq)).filter(filter).map(_.mapping)
+    val transactions = blocking(synchronized(topologyTransactionStore.toSeq))
+    val mappings = transactions.filter(filter).map(_.mapping)
 
     FutureUnlessShutdown.pure(
-      TopologyStore.determineValidParties(mappings, filterParty, filterParticipant)
+      TopologyStore.determineValidParties(
+        mappings,
+        filterParty,
+        filterParticipant,
+        limit,
+      )
     )
 
   }
@@ -666,7 +672,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
       TopologyStore.filterInitialParticipantDispatchingTransactions(
         participantId,
         synchronizerId,
-        res.map(_.toStoredTransaction).toSeq,
+        res.map(_.transaction).toSeq,
       )
     )
   }

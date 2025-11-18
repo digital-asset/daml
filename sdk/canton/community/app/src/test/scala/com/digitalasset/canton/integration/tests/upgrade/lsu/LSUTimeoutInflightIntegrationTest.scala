@@ -4,7 +4,7 @@
 package com.digitalasset.canton.integration.tests.upgrade.lsu
 
 import com.digitalasset.canton.config
-import com.digitalasset.canton.config.{DbConfig, SynchronizerTimeTrackerConfig}
+import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.LocalSequencerReference
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.integration.*
@@ -17,12 +17,9 @@ import com.digitalasset.canton.integration.plugins.{
   UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
-import com.digitalasset.canton.integration.tests.upgrade.LogicalUpgradeUtils.SynchronizerNodes
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.SubmissionErrors
-import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.protocol.LocalRejectError
-import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.synchronizer.sequencer.{
   HasProgrammableSequencer,
   ProgrammableSequencerPolicies,
@@ -66,32 +63,10 @@ abstract class LSUTimeoutInFlightIntegrationTest extends LSUBase with HasProgram
       }
       .addConfigTransforms(configTransforms*)
       .withSetup { implicit env =>
+        defaultEnvironmentSetup()
+      }
+      .withSetup { implicit env =>
         import env.*
-
-        val daSequencerConnection =
-          SequencerConnections.single(sequencer1.sequencerConnection.withAlias(daName.toString))
-        participants.all.synchronizers.connect(
-          SynchronizerConnectionConfig(
-            synchronizerAlias = daName,
-            sequencerConnections = daSequencerConnection,
-            timeTracker = SynchronizerTimeTrackerConfig(observationLatency =
-              config.NonNegativeFiniteDuration.Zero
-            ),
-          )
-        )
-
-        participants.all.dars.upload(CantonExamplesPath)
-
-        synchronizerOwners1.foreach(
-          _.topology.synchronizer_parameters.propose_update(
-            daId,
-            _.copy(reconciliationInterval = config.PositiveDurationSeconds.ofSeconds(1)),
-          )
-        )
-
-        oldSynchronizerNodes = SynchronizerNodes(Seq(sequencer1), Seq(mediator1))
-        newSynchronizerNodes = SynchronizerNodes(Seq(sequencer2), Seq(mediator2))
-
         decisionTimeout = sequencer1.topology.synchronizer_parameters.latest(daId).decisionTimeout
 
         // Ensures the decision time is sufficiently big that there is something meaningful to be measured

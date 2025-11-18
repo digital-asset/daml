@@ -221,10 +221,12 @@ class Env(override val loggerFactory: SuppressingLogger)(implicit
         )
     }
   def makeConnectService(sequencerId: SequencerId) = new GrpcSequencerConnectService(
-    synchronizerId = synchronizerId,
+    psid = synchronizerId,
     sequencerId = sequencerId,
     staticSynchronizerParameters = BaseTest.defaultStaticSynchronizerParameters,
     cryptoApi = cryptoApi,
+    clock = clock,
+    sequencingTimeLowerBoundExclusive = None,
     synchronizerTopologyManager = mockSynchronizerTopologyManager,
     loggerFactory = loggerFactory,
   )

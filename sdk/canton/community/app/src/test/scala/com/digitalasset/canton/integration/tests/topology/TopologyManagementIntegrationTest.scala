@@ -53,6 +53,7 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
   Submission,
 }
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
+import com.digitalasset.canton.version.v1.UntypedVersionedMessage
 import org.slf4j.event.Level.DEBUG
 
 import scala.annotation.nowarn
@@ -415,13 +416,133 @@ trait TopologyManagementIntegrationTest
       offboardVladFromParticipants()
     }
 
+    "deserialize a PTK with threshold > number of keys" in { implicit env =>
+      import env.*
+
+      val partyKey =
+        global_secret.keys.secret.generate_keys(PositiveInt.one, usage = SigningKeyUsage.All).head1
+
+      val party = PartyId.tryCreate("alice", Namespace(partyKey.fingerprint))
+
+      val ptkProto = com.digitalasset.canton.protocol.v30.PartyToKeyMapping(
+        party.toProtoPrimitive,
+        threshold = 5,
+        Seq(partyKey.toProtoV30),
+      )
+
+      PartyToKeyMapping.fromProtoV30(ptkProto).isRight shouldBe true
+    }
+
+    "deserialize a PTK with duplicate keys" in { implicit env =>
+      import env.*
+
+      val partyKey =
+        global_secret.keys.secret.generate_keys(PositiveInt.one, usage = SigningKeyUsage.All).head1
+
+      val party = PartyId.tryCreate("alice", Namespace(partyKey.fingerprint))
+
+      val ptkProto = com.digitalasset.canton.protocol.v30.PartyToKeyMapping(
+        party.toProtoPrimitive,
+        threshold = 1,
+        signingKeys = Seq(partyKey.toProtoV30, partyKey.toProtoV30),
+      )
+
+      val transaction = com.digitalasset.canton.protocol.v30.TopologyTransaction(
+        com.digitalasset.canton.protocol.v30.Enums.TopologyChangeOp.TOPOLOGY_CHANGE_OP_ADD_REPLACE,
+        serial = 1,
+        mapping = Some(
+          com.digitalasset.canton.protocol.v30.TopologyMapping(
+            com.digitalasset.canton.protocol.v30.TopologyMapping.Mapping.PartyToKeyMapping(ptkProto)
+          )
+        ),
+      )
+
+      val wrapped = UntypedVersionedMessage(
+        UntypedVersionedMessage.Wrapper.Data(transaction.toByteString),
+        version = testedProtocolVersion.v,
+      )
+
+      val originalByteString = wrapped.toByteString
+
+      val deserialized: TopologyTransaction[TopologyChangeOp, TopologyMapping] =
+        TopologyTransaction.fromByteString(testedProtocolVersion, originalByteString).value
+      val ptkMappingDeserialized = deserialized.mapping.select[PartyToKeyMapping].value
+      ptkMappingDeserialized.signingKeys.forgetNE should have size 1
+      ptkMappingDeserialized.signingKeys.forgetNE.toSeq should contain theSameElementsAs Seq(
+        partyKey
+      )
+
+      // Sanity check that the memoized bytes are the same as the original
+      deserialized.getCryptographicEvidence shouldBe originalByteString
+    }
+
+    "deserialize a PTP with conflicting permissions for the same participant" in { implicit env =>
+      import env.*
+
+      val partyKey =
+        global_secret.keys.secret.generate_keys(PositiveInt.one, usage = SigningKeyUsage.All).head1
+
+      val party = PartyId.tryCreate("alice", Namespace(partyKey.fingerprint))
+
+      val ptpProto = com.digitalasset.canton.protocol.v30.PartyToParticipant(
+        party.toProtoPrimitive,
+        threshold = 1,
+        Seq(
+          // Participant 2 is listed twice with different permissions
+          com.digitalasset.canton.protocol.v30.PartyToParticipant.HostingParticipant(
+            participant2.toProtoPrimitive,
+            com.digitalasset.canton.protocol.v30.Enums.ParticipantPermission.PARTICIPANT_PERMISSION_CONFIRMATION,
+            None,
+          ),
+          com.digitalasset.canton.protocol.v30.PartyToParticipant.HostingParticipant(
+            participant2.toProtoPrimitive,
+            com.digitalasset.canton.protocol.v30.Enums.ParticipantPermission.PARTICIPANT_PERMISSION_SUBMISSION,
+            None,
+          ),
+        ),
+        None,
+      )
+
+      val transaction = com.digitalasset.canton.protocol.v30.TopologyTransaction(
+        com.digitalasset.canton.protocol.v30.Enums.TopologyChangeOp.TOPOLOGY_CHANGE_OP_ADD_REPLACE,
+        serial = 1,
+        mapping = Some(
+          com.digitalasset.canton.protocol.v30.TopologyMapping(
+            com.digitalasset.canton.protocol.v30.TopologyMapping.Mapping
+              .PartyToParticipant(ptpProto)
+          )
+        ),
+      )
+
+      val wrapped = UntypedVersionedMessage(
+        UntypedVersionedMessage.Wrapper.Data(transaction.toByteString),
+        version = testedProtocolVersion.v,
+      )
+
+      val originalByteString = wrapped.toByteString
+
+      val deserialized: TopologyTransaction[TopologyChangeOp, TopologyMapping] =
+        TopologyTransaction.fromByteString(testedProtocolVersion, originalByteString).value
+      val ptpMappingDeserialized = deserialized.mapping.select[PartyToParticipant].value
+      val hosting = ptpMappingDeserialized.participants
+      hosting should have size 1
+      // Submission is higher than confirmation - p2 should have submission
+      hosting
+        .find(_.participantId == participant2.id)
+        .value
+        .permission shouldBe ParticipantPermission.Submission
+
+      // Sanity check that the memoized bytes are the same as the original
+      deserialized.getCryptographicEvidence shouldBe originalByteString
+    }
+
     "cannot submit a new PartyToParticipant with threshold > number of keys" in { implicit env =>
       import env.*
 
       val partyKey =
         global_secret.keys.secret.generate_keys(PositiveInt.one, usage = SigningKeyUsage.All).head1
 
-      val partyToKeyMapping = TopologyTransaction(
+      val partyToParticipantMapping = TopologyTransaction(
         TopologyChangeOp.Replace,
         PositiveInt.one,
         PartyToParticipant.tryCreate(
@@ -437,13 +558,13 @@ trait TopologyManagementIntegrationTest
 
       val signed = SignedTopologyTransaction
         .create(
-          partyToKeyMapping,
+          partyToParticipantMapping,
           NonEmpty.mk(
             Set,
             SingleTransactionSignature(
-              partyToKeyMapping.hash,
+              partyToParticipantMapping.hash,
               global_secret.sign(
-                partyToKeyMapping.hash.hash.getCryptographicEvidence,
+                partyToParticipantMapping.hash.hash.getCryptographicEvidence,
                 partyKey.fingerprint,
                 SigningKeyUsage.All,
               ),

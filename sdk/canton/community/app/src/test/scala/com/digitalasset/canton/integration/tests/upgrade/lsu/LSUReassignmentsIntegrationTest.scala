@@ -3,8 +3,7 @@
 
 package com.digitalasset.canton.integration.tests.upgrade.lsu
 
-import com.digitalasset.canton.config
-import com.digitalasset.canton.config.{DbConfig, SynchronizerTimeTrackerConfig}
+import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.EnvironmentDefinition.S1M1_S1M1
@@ -13,9 +12,7 @@ import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.Mu
 import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.tests.upgrade.LogicalUpgradeUtils.SynchronizerNodes
-import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.protocol.LfContractId
-import com.digitalasset.canton.sequencing.SequencerConnections
 
 /** The goal of this test is to ensure that LSU can happen between unassign and assign:
   *   - Two IOUs are created: one on da and the other on acme
@@ -46,30 +43,15 @@ abstract class LSUReassignmentsIntegrationTest extends LSUBase {
       }
       .addConfigTransforms(configTransforms*)
       .withSetup { implicit env =>
+        defaultEnvironmentSetup()
+      }
+      .withSetup { implicit env =>
         import env.*
 
-        val daSequencerConnection =
-          SequencerConnections.single(sequencer1.sequencerConnection.withAlias(daName.toString))
-        participants.all.synchronizers.connect(
-          SynchronizerConnectionConfig(
-            synchronizerAlias = daName,
-            sequencerConnections = daSequencerConnection,
-            timeTracker = SynchronizerTimeTrackerConfig(observationLatency =
-              config.NonNegativeFiniteDuration.Zero
-            ),
-          )
-        )
         participants.all.synchronizers.connect_local(sequencer2, acmeName)
 
         participants.all.dars.upload(CantonExamplesPath, synchronizerId = daId)
         participants.all.dars.upload(CantonExamplesPath, synchronizerId = acmeId)
-
-        synchronizerOwners1.foreach(
-          _.topology.synchronizer_parameters.propose_update(
-            daId,
-            _.copy(reconciliationInterval = config.PositiveDurationSeconds.ofSeconds(1)),
-          )
-        )
 
         oldSynchronizerNodes = SynchronizerNodes(Seq(sequencer1), Seq(mediator1))
         newSynchronizerNodes = SynchronizerNodes(Seq(sequencer3), Seq(mediator3))

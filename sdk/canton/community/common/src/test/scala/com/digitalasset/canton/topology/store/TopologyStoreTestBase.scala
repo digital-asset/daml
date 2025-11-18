@@ -67,6 +67,7 @@ private[store] trait TopologyStoreTestBase extends BaseTest with HasExecutionCon
       timestamp,
       filterParty,
       filterParticipant,
+      limit = Int.MaxValue, // we don't care about the limit in tests
     )
 
   protected def findPositiveTransactions(
