@@ -4,6 +4,7 @@
 package com.digitalasset.canton.util
 
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.util.BestFittingBatcher.CapacityLeft
 
@@ -13,7 +14,18 @@ import scala.collection.immutable.SortedMap
 
 import BestFittingBatcher.Sized
 
-class BestFittingBatcher[ItemsT <: Sized](maxBatchSize: Int) {
+/** A mutable, thread-safe (and lock-free) batcher that groups items into batches such that the
+  * batches are as full as possible and a set of items is always kept together in a batch.
+  *
+  * It uses a best-fitting algorithm (https://en.wikipedia.org/wiki/Best-fit_bin_packing) to place
+  * items into existing batches or create new batches as needed.
+  *
+  * @param maxBatchSize
+  *   The maximum batch size
+  * @tparam ItemsT
+  *   The type of items to be batched. Must implement `Sized` to provide size information.
+  */
+class BestFittingBatcher[ItemsT <: Sized](maxBatchSize: PositiveInt) {
 
   private type BatchT = NonEmpty[Vector[ItemsT]]
 
@@ -22,18 +34,26 @@ class BestFittingBatcher[ItemsT <: Sized](maxBatchSize: Int) {
       Option.empty[BatchT] -> SortedMap.empty[CapacityLeft, NonEmpty[Vector[BatchT]]]
     )
 
+  /** Inserts a set of items together into the fullest batch that can contain them.
+    *
+    * @param items
+    *   The items to be inserted
+    * @return
+    *   `true` if the items were inserted successfully, `false` if the items exceed the maximum
+    *   batch size
+    */
   def add(items: ItemsT): Boolean =
-    if (items.sizeIs > maxBatchSize) {
+    if (items.sizeIs > maxBatchSize.value) {
       false
     } else {
       stateRef.updateAndGet { case (extracted, batches) =>
-        batches.iteratorFrom(items.size).nextOption() match {
+        batches.iteratorFrom(items.size.value).nextOption() match {
 
           case Some((capacityLeft, batchesWithCapacityLeft)) =>
             val (head, updatedBatchesWithUpdatedCapacityLeft) =
               pollHead(batches, capacityLeft, batchesWithCapacityLeft)
             val updatedBatch = head :+ items
-            val newCapacityLeft = capacityLeft - items.size
+            val newCapacityLeft = capacityLeft - items.size.value
             val updatedBatchesWithNewCapacityLeft =
               updatedBatchesWithUpdatedCapacityLeft.updatedWith(newCapacityLeft) {
                 case Some(existingBatches) =>
@@ -45,7 +65,7 @@ class BestFittingBatcher[ItemsT <: Sized](maxBatchSize: Int) {
 
           case None =>
             val newBatch = NonEmpty(Vector, items)
-            val newCapacityLeft = maxBatchSize - items.size
+            val newCapacityLeft = maxBatchSize.value - items.size.value
             val updatedBatches =
               batches.updatedWith(newCapacityLeft) {
                 case Some(existingBatches) =>
@@ -59,26 +79,28 @@ class BestFittingBatcher[ItemsT <: Sized](maxBatchSize: Int) {
       true
     }
 
+  /** Extracts the fullest pending batch, if any.
+    */
   def poll(): Option[BatchT] =
-    stateRef.updateAndGet { case (extracted, packings) =>
-      packings.headOption
-        .fold(Option.empty[BatchT] -> packings) { case (capacityLeft, fullestPackings) =>
-          val (head, newPackings) = pollHead(packings, capacityLeft, fullestPackings)
-          Some(head) -> newPackings
+    stateRef.updateAndGet { case (extracted, batches) =>
+      batches.headOption
+        .fold(Option.empty[BatchT] -> batches) { case (capacityLeft, fullestBatches) =>
+          val (head, newBatches) = pollHead(batches, capacityLeft, fullestBatches)
+          Some(head) -> newBatches
         }
     }._1
 
   private def pollHead(
-      packings: SortedMap[CapacityLeft, NonEmpty[Vector[BatchT]]],
+      batches: SortedMap[CapacityLeft, NonEmpty[Vector[BatchT]]],
       capacityLeft: CapacityLeft,
-      packingsWithCapacityLeft: NonEmpty[Vector[BatchT]],
+      batchesWithCapacityLeft: NonEmpty[Vector[BatchT]],
   ): (BatchT, SortedMap[CapacityLeft, NonEmpty[Vector[BatchT]]]) =
-    packingsWithCapacityLeft.head1 -> {
-      NonEmpty.from(packingsWithCapacityLeft.tail1) match {
-        case Some(packingsWithCapacityLeftNE) =>
-          packings.updated(capacityLeft, packingsWithCapacityLeftNE)
+    batchesWithCapacityLeft.head1 -> {
+      NonEmpty.from(batchesWithCapacityLeft.tail1) match {
+        case Some(batchesWithCapacityLeftNE) =>
+          batches.updated(capacityLeft, batchesWithCapacityLeftNE)
         case None =>
-          packings.removed(capacityLeft)
+          batches.removed(capacityLeft)
       }
     }
 }
@@ -88,7 +110,7 @@ object BestFittingBatcher {
   type CapacityLeft = Int
 
   trait Sized {
-    def size: Int
+    def size: PositiveInt
     def sizeIs: IterableOps.SizeCompareOps
   }
 }

@@ -66,3 +66,7 @@ final case class ChunkUpdate(
     inFlightAggregations: InFlightAggregations,
     submissionsOutcomes: Seq[SubmissionOutcome] = Seq.empty,
 ) extends OrderedBlockUpdate
+
+object ChunkUpdate {
+  val noop = ChunkUpdate(lastSequencerEventTimestamp = None, inFlightAggregations = Map.empty)
+}

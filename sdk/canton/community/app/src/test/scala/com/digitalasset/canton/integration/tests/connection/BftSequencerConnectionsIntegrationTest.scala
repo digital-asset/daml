@@ -24,6 +24,7 @@ import com.digitalasset.canton.integration.{
 }
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.sequencing.{
+  SequencerConnectionPoolDelays,
   SequencerConnectionValidation,
   SequencerConnections,
   SubmissionRequestAmplification,
@@ -158,7 +159,9 @@ sealed trait BftSequencerConnectionsIntegrationTest
             sequencerTrustThreshold = old.sequencerTrustThreshold,
             sequencerLivenessMargin = old.sequencerLivenessMargin,
             submissionRequestAmplification = amplification,
-            sequencerConnectionPoolDelays = old.sequencerConnectionPoolDelays,
+            // Make the warning delay large to avoid these warnings in the test
+            sequencerConnectionPoolDelays =
+              old.sequencerConnectionPoolDelays.copy(warnValidationDelay = 1.day),
           )
         }
       }
@@ -167,6 +170,7 @@ sealed trait BftSequencerConnectionsIntegrationTest
         s.config.publicApi
           .asSequencerConnection(SequencerAlias.tryCreate(s.name), sequencerId = None)
       )
+      val delays = SequencerConnectionPoolDelays.default.copy(warnValidationDelay = 1.day)
 
       clue("connect participant1 to all sequencers") {
         participant1.start()
@@ -175,6 +179,7 @@ sealed trait BftSequencerConnectionsIntegrationTest
           sequencerTrustThreshold = PositiveInt.two,
           sequencerLivenessMargin = NonNegativeInt.zero,
           submissionRequestAmplification = amplification,
+          sequencerConnectionPoolDelays = delays,
           synchronizerAlias = daName,
           physicalSynchronizerId = Some(daId),
           validation = SequencerConnectionValidation.Disabled,
@@ -188,6 +193,7 @@ sealed trait BftSequencerConnectionsIntegrationTest
           sequencerTrustThreshold = PositiveInt.two,
           sequencerLivenessMargin = NonNegativeInt.zero,
           submissionRequestAmplification = amplification,
+          sequencerConnectionPoolDelays = delays,
           synchronizerAlias = daName,
           physicalSynchronizerId = Some(daId),
           validation = SequencerConnectionValidation.Disabled,

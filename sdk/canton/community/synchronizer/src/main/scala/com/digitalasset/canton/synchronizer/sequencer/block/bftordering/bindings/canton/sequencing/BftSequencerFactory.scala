@@ -40,6 +40,7 @@ import scala.concurrent.ExecutionContext
 class BftSequencerFactory(
     config: BftBlockOrdererConfig,
     blockSequencerConfig: BlockSequencerConfig,
+    useTimeProofsToObserveEffectiveTime: Boolean,
     health: Option[SequencerHealthConfig],
     storage: Storage,
     protocolVersion: ProtocolVersion,
@@ -129,6 +130,7 @@ class BftSequencerFactory(
       store,
       sequencerStore,
       blockSequencerConfig,
+      useTimeProofsToObserveEffectiveTime,
       balanceStore,
       storage,
       futureSupervisor,
