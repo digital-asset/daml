@@ -133,6 +133,9 @@ set APPDATA=%DPM_HOME%
 
 set DPM_VERSION=$$DPM_VERSION
 
+dir "%DPM_HOME%\\cache\\components\\dpm\\%DPM_VERSION%"
+dir %DPM_HOME%\\cache\\components\\dpm\\%DPM_VERSION%
+
 "%DPM_HOME%\\cache\\components\\dpm\\%DPM_VERSION%\\dpm.exe" %*
 EOF
 chmod +x $$DIR/bin/dpm.cmd
