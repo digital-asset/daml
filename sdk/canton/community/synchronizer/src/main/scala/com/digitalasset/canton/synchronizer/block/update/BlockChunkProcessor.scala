@@ -20,6 +20,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.GroupAddressResolver
 import com.digitalasset.canton.sequencing.client.SequencedEventValidator
 import com.digitalasset.canton.sequencing.protocol.*
+import com.digitalasset.canton.sequencing.protocol.SubmissionRequestType.TopologyTransaction
 import com.digitalasset.canton.synchronizer.block.LedgerBlockEvent
 import com.digitalasset.canton.synchronizer.block.LedgerBlockEvent.{Acknowledgment, Send}
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
@@ -110,6 +111,13 @@ final class BlockChunkProcessor(
 
     for {
       validatedSequencedSubmissions <- validatedSequencedSubmissionsF
+      pendingTopologyTimestamps =
+        state.pendingTopologyTimestamps ++ validatedSequencedSubmissions.collect {
+          case submission
+              if submission.submissionRequest.content.requestType == TopologyTransaction =>
+            submission.sequencingTimestamp
+        }
+
       acksValidationResult <- acksValidationResultF
       (acksByMember, invalidAcks) = acksValidationResult
 
@@ -156,6 +164,7 @@ final class BlockChunkProcessor(
           lastChunkTsOfSuccessfulEvents,
           lastSequencerEventTimestamp.orElse(state.latestSequencerEventTimestamp),
           finalInFlightAggregationsWithAggregationExpiry,
+          pendingTopologyTimestamps,
         )
     } yield (newState, chunkUpdate)
   }

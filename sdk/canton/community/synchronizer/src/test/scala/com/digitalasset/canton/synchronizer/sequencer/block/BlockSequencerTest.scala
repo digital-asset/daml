@@ -179,6 +179,7 @@ class BlockSequencerTest
         store,
         dbSequencerStore = fakeDbSequencerStore,
         BlockSequencerConfig(),
+        useTimeProofsToObserveEffectiveTime = true,
         balanceStore,
         storage,
         FutureSupervisor.Noop,

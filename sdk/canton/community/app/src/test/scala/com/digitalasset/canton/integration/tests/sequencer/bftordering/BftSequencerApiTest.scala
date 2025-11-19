@@ -62,6 +62,7 @@ class BftSequencerApiTest extends SequencerApiTest with RateLimitManagerTesting 
       new BftSequencerFactory(
         BftBlockOrdererConfig(),
         BlockSequencerConfig(),
+        useTimeProofsToObserveEffectiveTime = true,
         health = None,
         storage,
         testedProtocolVersion,

@@ -183,7 +183,7 @@ class BatchAggregatorImpl[A, B](
 
   private val batcher =
     new BestFittingBatcher[ItemsAndCompletionPromise[A, B]](
-      maxBatchSize = maximumBatchSize.value
+      maxBatchSize = maximumBatchSize
     )
 
   private val inFlight = new AtomicInteger(0)
@@ -362,7 +362,7 @@ object BatchAggregatorImpl {
       items: NonEmpty[Vector[Traced[A]]],
       completionPromise: PromiseUnlessShutdown[immutable.Iterable[B]],
   ) extends BestFittingBatcher.Sized {
-    override def size: Int = items.size
+    override val size: PositiveInt = PositiveInt.tryCreate(items.size)
     override def sizeIs: IterableOps.SizeCompareOps = items.sizeIs
   }
 }

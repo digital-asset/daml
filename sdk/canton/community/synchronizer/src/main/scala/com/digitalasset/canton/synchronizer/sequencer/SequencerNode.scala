@@ -260,7 +260,7 @@ class SequencerNodeBootstrap(
         arguments.parameterConfig,
         arguments.futureSupervisor,
         loggerFactory,
-      )(config.sequencer)
+      )(config.sequencer, config.topology.useTimeProofsToObserveEffectiveTime)
       addCloseable(factory)
       factory
     }

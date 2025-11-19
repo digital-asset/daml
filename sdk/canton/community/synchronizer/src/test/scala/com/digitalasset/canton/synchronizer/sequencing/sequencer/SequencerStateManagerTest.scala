@@ -370,6 +370,7 @@ class SequencerStateManagerTest
       orderingTimeFixMode = OrderingTimeFixMode.MakeStrictlyIncreasing,
       sequencingTimeLowerBoundExclusive =
         SequencerNodeParameterConfig.DefaultSequencingTimeLowerBoundExclusive,
+      useTimeProofsToObserveEffectiveTime = true,
       SequencerTestMetrics,
       loggerFactory,
       memberValidator = new SequencerMemberValidator {

@@ -42,6 +42,7 @@ class ReferenceSequencerApiTest extends SequencerApiTest with RateLimitManagerTe
         SequencerDriver.DriverApiVersion,
         ReferenceSequencerDriver.Config(StorageConfig.Memory()),
         BlockSequencerConfig(),
+        useTimeProofsToObserveEffectiveTime = true,
         health = None,
         storage,
         testedProtocolVersion,
