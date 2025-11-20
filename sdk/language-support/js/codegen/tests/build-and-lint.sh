@@ -34,13 +34,13 @@ echo "Temp directory : $TMP_DIR"
 
 JAVA=$(rlocation "$TEST_WORKSPACE/$1")
 YARN=$(rlocation "$TEST_WORKSPACE/$2")
-DAML2TS=$(rlocation "$TEST_WORKSPACE/$3")
+JS_CODEGEN=$(rlocation "$TEST_WORKSPACE/$3")
 CANTON=$(rlocation "$TEST_WORKSPACE/$4")
-# language-support/ts/codegen/tests/daml/.daml/dist/daml-1.0.0.dar
+# language-support/js/codegen/tests/daml/.daml/dist/daml-1.0.0.dar
 DAR=$(rlocation "$TEST_WORKSPACE/$5")
-# language-support/ts/codegen/tests/ts/package.json
+# language-support/js/codegen/tests/ts/package.json
 PACKAGE_JSON=$(rlocation "$TEST_WORKSPACE/$6")
-# language-support/ts/codegen/tests/ts
+# language-support/js/codegen/tests/ts
 TS_DIR=$(dirname $PACKAGE_JSON)
 DAML_TYPES=$(rlocation "$TEST_WORKSPACE/$7")
 SDK_VERSION=${8}
@@ -59,7 +59,7 @@ cp -rL $DAML_TYPES/* $TMP_DAML_TYPES
 cd $TMP_DIR
 
 # Call daml2js.
-PATH=`dirname $YARN`:$PATH $DAML2TS -o daml2js $DAR
+PATH=`dirname $YARN`:$PATH $JS_CODEGEN -o daml2js -V 2 $DAR
 PATH=$PATH:$GRPCURL
 
 # yarn.lock includes local paths and hashes for daml.js; remove them
@@ -85,5 +85,5 @@ fi
 $YARN run build
 $YARN run lint
 # Invoke 'yarn test'. Control is thereby passed to
-# 'language-support/ts/codegen/tests/ts/build-and-lint-test/src/__tests__/test.ts'.
+# 'language-support/js/codegen/tests/ts/build-and-lint-test/src/__tests__/test.ts'.
 JAVA=$JAVA CANTON=$CANTON DAR=$DAR UPLOAD_DAR=$UPLOAD_DAR HIDDEN_DAR=$HIDDEN_DAR $YARN test -t "${BUILD_AND_LINT_TEST_NAME_PATTERN:-.*}"

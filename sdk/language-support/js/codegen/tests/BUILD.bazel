@@ -93,11 +93,11 @@ sh_test(
     args = [
         "$(location //:java)",
         "$(location //:yarn)",
-        "$(location //:daml2js)",
+        "$(location //language-support/js/codegen:codegen)",
         "$(location //canton:community_app_deploy.jar)",
         "$(location :build-and-lint.dar)",
         "$(location ts/package.json)",
-        "$(location //language-support/ts/daml-types:npm_package)",
+        "$(location //language-support/js/daml-types:npm_package)",
         sdk_version,
         # TODO(#14706): revert to model-tests-default once the default major
         #  version is 2
@@ -109,11 +109,11 @@ sh_test(
     data = [
         ":build-and-lint.dar",
         ":hidden.dar",
-        "//:daml2js",
+        "//language-support/js/codegen",
         "//:java",
         "//:yarn",
         "//canton:community_app_deploy.jar",
-        "//language-support/ts/daml-types:npm_package",
+        "//language-support/js/daml-types:npm_package",
         # TODO(#14706): revert to model-tests-default once the default major
         #  version is 2
         "//test-common:model-tests-2.1.dar",
