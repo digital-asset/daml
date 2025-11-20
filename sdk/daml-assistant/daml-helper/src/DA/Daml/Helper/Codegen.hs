@@ -6,14 +6,8 @@ module DA.Daml.Helper.Codegen
   , showLang
   ) where
 
-import Control.Exception
-import Control.Exception.Safe (catchIO)
 import DA.Daml.Helper.Util
-import DA.Daml.Project.Consts
 import qualified Data.Text as T
-import System.FilePath
-import System.IO.Extra
-import System.Process.Typed
 
 data Lang
   = Java
@@ -27,13 +21,7 @@ showLang = \case
 
 runCodegen :: Lang -> [String] -> IO ()
 runCodegen lang args =
-  case lang of
-    JavaScript -> do
-      daml2js <- fmap (</> "daml2js" </> "daml2js") getSdkPath
-      withProcessWait_' (proc daml2js args) (const $ pure ()) `catchIO`
-        (\e -> hPutStrLn stderr "Failed to invoke daml2js." *> throwIO e)
-    Java ->
-      runJar
-        "daml-sdk/daml-sdk.jar"
-        (Just "daml-sdk/codegen-logback.xml")
-        (["codegen", "java"] ++ args)
+  runJar
+    "daml-sdk/daml-sdk.jar"
+    (Just "daml-sdk/codegen-logback.xml")
+    (["codegen", T.unpack $ showLang lang] ++ args)
