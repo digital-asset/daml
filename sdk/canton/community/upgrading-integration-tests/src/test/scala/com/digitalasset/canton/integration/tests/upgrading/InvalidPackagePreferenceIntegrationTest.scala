@@ -71,7 +71,7 @@ class InvalidPackagePreferenceIntegrationTest
   }
 
   val upgradePackageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)] =
-    TestSubmissionService.buildPackageMap(
+    TestSubmissionService.packageMapOfCompanions(
       Seq(UpgradeItTemplateV1.COMPANION.PACKAGE, UpgradeItTemplateV2.COMPANION.PACKAGE)
     )
 

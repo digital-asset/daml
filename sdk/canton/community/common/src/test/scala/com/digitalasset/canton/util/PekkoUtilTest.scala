@@ -27,32 +27,38 @@ import com.digitalasset.canton.util.PekkoUtil.{
   WithKillSwitch,
   noOpKillSwitch,
 }
+import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.{Flow, Keep, Sink, Source}
-import org.apache.pekko.stream.testkit.StreamSpec
 import org.apache.pekko.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import org.apache.pekko.stream.testkit.scaladsl.{TestSink, TestSource}
 import org.apache.pekko.stream.{KillSwitch, KillSwitches, OverflowStrategy}
+import org.apache.pekko.testkit.TestKit
 import org.apache.pekko.{Done, NotUsed}
 import org.scalacheck.Arbitrary
+import org.scalatest.BeforeAndAfterAll
 import org.scalatest.concurrent.PatienceConfiguration
 import org.scalatest.time.Span
 
 import java.util.concurrent.Semaphore
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger, AtomicLong, AtomicReference}
 import scala.collection.concurrent.TrieMap
-import scala.collection.immutable.List
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Random
 import scala.util.control.NonFatal
 
-class PekkoUtilTest extends StreamSpec with BaseTestWordSpec {
+class PekkoUtilTest
+    extends TestKit(ActorSystem(classOf[PekkoUtilTest].getSimpleName))
+    with BaseTestWordSpec
+    with BeforeAndAfterAll {
   import PekkoUtilTest.*
 
-  // Override the implicit from PekkoSpec so that we don't get ambiguous implicits
-  override val patience: PatienceConfig = defaultPatience
-
   implicit val executionContext: ExecutionContext = system.dispatcher
+
+  override def afterAll(): Unit = {
+    TestKit.shutdownActorSystem(system)
+    super.afterAll()
+  }
 
   private def abortOn(trigger: Int)(x: Int): FutureUnlessShutdown[Int] =
     FutureUnlessShutdown(Future {
@@ -63,8 +69,6 @@ class PekkoUtilTest extends StreamSpec with BaseTestWordSpec {
   private def outcomes(length: Int, abortedFrom: Int): Seq[UnlessShutdown[Int]] =
     (1 until (abortedFrom min (length + 1))).map(UnlessShutdown.Outcome.apply) ++
       Seq.fill((length - abortedFrom + 1) max 0)(UnlessShutdown.AbortedDueToShutdown)
-
-  override val expectedTestDuration: FiniteDuration = 120 seconds
 
   "mapAsyncUS" when {
     "parallelism is 1" should {

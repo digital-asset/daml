@@ -63,3 +63,10 @@ final case class SequencerPostgresInstanceConfig(
     postgres: DbConfig.Postgres,
     dbTimeoutMillis: Long = 10000L,
 ) extends ProxyInstanceConfig
+
+final case class BftSequencerPeerToPeerInstanceConfig(
+    name: String,
+    upstreamHost: String,
+    upstreamPort: Port,
+    from: BftSequencerPeerToPeer,
+) extends ProxyInstanceConfig

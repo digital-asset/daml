@@ -26,24 +26,33 @@ import com.digitalasset.canton.store.SequencedEventStore.SequencedEventWithTrace
 import com.digitalasset.canton.topology.{DefaultTestIdentities, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
+import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
-import org.apache.pekko.stream.testkit.StreamSpec
 import org.apache.pekko.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import org.apache.pekko.stream.testkit.scaladsl.TestSink
+import org.apache.pekko.testkit.TestKit
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.wordspec.AnyWordSpecLike
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.duration.{Deadline, DurationInt, FiniteDuration}
 
-class ResilientSequencerSubscriberPekkoTest extends StreamSpec with BaseTest {
+class ResilientSequencerSubscriberPekkoTest
+    extends TestKit(ActorSystem(classOf[ResilientSequencerSubscriberPekkoTest].getSimpleName))
+    with AnyWordSpecLike
+    with BaseTest
+    with BeforeAndAfterAll {
   import TestSequencerSubscriptionFactoryPekko.*
-
-  // Override the implicit from PekkoSpec so that we don't get ambiguous implicits
-  override val patience: PatienceConfig = defaultPatience
 
   // very short to speedup test
   private val InitialDelay: FiniteDuration = 1.millisecond
   private val MaxDelay: FiniteDuration =
     1025.millis // 1 + power of 2 because InitialDelay keeps being doubled
+
+  override def afterAll(): Unit = {
+    TestKit.shutdownActorSystem(system)
+    super.afterAll()
+  }
 
   private def retryDelay(maxDelay: FiniteDuration = MaxDelay) =
     SubscriptionRetryDelayRule(InitialDelay, maxDelay, maxDelay)

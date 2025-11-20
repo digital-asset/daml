@@ -505,7 +505,6 @@ class GrpcPartyManagementService(
               batching = parameters.batchingConfig,
               contractImportMode = contractImportMode,
               excludedStakeholders = Set.empty,
-              loggerFactory = loggerFactory,
               representativePackageIdOverride = representativePackageIdOverride,
               sync = sync,
               workflowIdPrefix = workflowIdPrefix,

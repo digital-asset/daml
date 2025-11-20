@@ -405,6 +405,7 @@ class CantonSyncService(
     parameters,
     syncPersistentStateManager,
     connectedSynchronizersLookup,
+    contractValidator,
     connectionsManager.connectQueue,
     loggerFactory,
   )

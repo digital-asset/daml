@@ -10,15 +10,8 @@ import cats.syntax.parallel.*
 import com.daml.ledger.api.v2.commands.Command
 import com.daml.ledger.api.v2.completion.Completion
 import com.daml.ledger.api.v2.transaction.Transaction as ApiTransaction
+import com.daml.ledger.api.v2.transaction_filter.*
 import com.daml.ledger.api.v2.transaction_filter.TransactionShape.TRANSACTION_SHAPE_LEDGER_EFFECTS
-import com.daml.ledger.api.v2.transaction_filter.{
-  CumulativeFilter,
-  EventFormat,
-  Filters,
-  TransactionFormat,
-  UpdateFormat,
-  WildcardFilter,
-}
 import com.daml.ledger.javaapi.data.codegen.ContractTypeCompanion
 import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.digitalasset.canton.LfPackageId
@@ -26,6 +19,7 @@ import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.UpdateWrapper
 import com.digitalasset.canton.console.{LocalParticipantReference, ParticipantReference}
+import com.digitalasset.canton.crypto.{RandomOps, SaltSeed}
 import com.digitalasset.canton.data.{DeduplicationPeriod, LedgerTimeBoundaries}
 import com.digitalasset.canton.integration.TestConsoleEnvironment
 import com.digitalasset.canton.integration.util.TestSubmissionService.{
@@ -44,6 +38,7 @@ import com.digitalasset.canton.logging.{
   NamedLoggerFactory,
   NamedLogging,
 }
+import com.digitalasset.canton.participant.ParticipantNode
 import com.digitalasset.canton.platform.apiserver.SeedService.WeakRandom
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
@@ -77,9 +72,10 @@ import com.digitalasset.daml.lf.value.ContractIdVersion
 import io.grpc.stub.StreamObserver
 import org.scalatest.OptionValues.*
 
+import java.security.SecureRandom
 import java.time.Duration
 import java.util.UUID
-import scala.annotation.{tailrec, unused}
+import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success}
 
@@ -91,7 +87,7 @@ class TestSubmissionService(
     keyResolver: TestKeyResolver,
     packageResolver: PackageResolver,
     syncService: SyncService,
-    basePackageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)],
+    mkPackageMap: TraceContext => Future[Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)]],
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging {
@@ -297,17 +293,33 @@ class TestSubmissionService(
       apiCommands: ApiCommands,
       readAs: Seq[PartyId],
       submissionSeed: crypto.Hash = WeakRandom.nextSeed(),
-      @unused packageMapOverride: Option[
+      packageMapOverride: Option[
         Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)]
       ] = None,
-      @unused packagePreferenceOverride: Option[Set[Ref.PackageId]] = None,
+      packagePreferenceOverride: Option[Set[Ref.PackageId]] = None,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, Error, (SubmittedTransaction, Transaction.Metadata)] = {
-    val result =
+  ): EitherT[Future, Error, (SubmittedTransaction, Transaction.Metadata)] = EitherT(for {
+
+    packageMap <- packageMapOverride match {
+      case Some(packageMap) => Future.successful(packageMap)
+      case None => mkPackageMap(traceContext)
+    }
+    packagePreference = packagePreferenceOverride
+      .getOrElse(
+        // Pick the packages with highest versions from packageMap
+        packageMap.groupBy { case (_, (name, _)) => name }.values.map { allPackagesWithGivenName =>
+          val (packageIdWithGivenNameAndMaxVersion, _) =
+            allPackagesWithGivenName.maxBy { case (_, (_, version)) => version }
+          packageIdWithGivenNameAndMaxVersion
+        }
+      )
+      .toSet
+
+    result =
       damle.submit(
-        packageMap = packageMapOverride.getOrElse(basePackageMap),
-        packagePreference = packagePreferenceOverride.getOrElse(basePackageMap.keySet),
+        packageMap = packageMap,
+        packagePreference = packagePreference,
         submitters = actAs.map(_.toLf).toSet,
         readAs = readAs.map(_.toLf).toSet,
         cmds = apiCommands,
@@ -317,8 +329,8 @@ class TestSubmissionService(
         contractIdVersion = ContractIdVersion.V1,
       )
 
-    EitherT(resolve(result))
-  }
+    txOrErr <- resolve(result)
+  } yield txOrErr)
 
   private def resolve(
       result: Result[(SubmittedTransaction, Transaction.Metadata)]
@@ -399,7 +411,6 @@ object TestSubmissionService {
       customKeyResolver: Option[TestKeyResolver] = None,
       checkAuthorization: Boolean = true,
       enableLfDev: Boolean = false,
-      companionPackages: Seq[ContractTypeCompanion.Package] = Seq.empty,
   )(implicit env: TestConsoleEnvironment): TestSubmissionService = {
     import env.*
 
@@ -431,8 +442,6 @@ object TestSubmissionService {
 
     val loggerFactory = participantNode.loggerFactory
 
-    val packageMap = buildPackageMap(companionPackages)
-
     new TestSubmissionService(
       participant.id,
       participantNode.sync.maxDeduplicationDuration,
@@ -441,12 +450,30 @@ object TestSubmissionService {
       keyResolver,
       packageResolver,
       participantNode.sync,
-      packageMap,
+      mkPackageMap(participantNode)(_),
       loggerFactory,
     )
   }
 
-  def buildPackageMap(
+  private def mkPackageMap(
+      participantNode: ParticipantNode
+  )(traceContext: TraceContext)(implicit executionContext: ExecutionContext): Future[
+    Map[LfPackageId, (Ref.PackageName, Ref.PackageVersion)]
+  ] = participantNode.sync.packageService
+    .listPackages()(traceContext)
+    .map(
+      _.map(description =>
+        description.packageId -> (
+          Ref.PackageName.assertFromString(description.name.str),
+          Ref.PackageVersion.assertFromString(description.version.str)
+        )
+      ).toMap
+    )
+    .onShutdown(
+      throw new UnsupportedOperationException("Building package map failed due to shutdown.")
+    )
+
+  def packageMapOfCompanions(
       pkgs: Seq[ContractTypeCompanion.Package]
   ): Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)] =
     pkgs.view.map { p =>
@@ -544,6 +571,12 @@ object TestSubmissionService {
       Future.successful(None)
   }
 
+  private val randomOps: RandomOps = (length: Int) => {
+    val randBytes = new Array[Byte](length)
+    new SecureRandom().nextBytes(randBytes)
+    randBytes
+  }
+
   final case class CommandsWithMetadata(
       commands: Seq[Command],
       actAs: Seq[PartyId],
@@ -554,6 +587,8 @@ object TestSubmissionService {
       deduplicationPeriodO: Option[DeduplicationPeriod] = None,
       ledgerTime: Time.Timestamp = Time.Timestamp.now(),
       submissionSeed: crypto.Hash = WeakRandom.nextSeed(),
+      transactionSeed: SaltSeed = SaltSeed.generate()(randomOps),
+      transactionUuid: UUID = UUID.randomUUID(),
       packageMapOverride: Option[Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)]] = None,
       packagePreferenceOverride: Option[Set[Ref.PackageId]] = None,
   ) {
