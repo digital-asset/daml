@@ -1,3 +1,6 @@
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 import createClient from "openapi-fetch";
 import {ContractTypeCompanion, Choice} from "@daml/types";
 import type {paths, components} from "../codegen/api/ledger-api";
@@ -177,3 +180,4 @@ function assertArchived(contractId: string, events: (components["schemas"]["Even
   console.log("Error", e);
   throw e;
 });
+

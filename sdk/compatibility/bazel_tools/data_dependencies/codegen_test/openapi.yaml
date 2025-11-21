@@ -1,3 +1,6 @@
+# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 openapi: 3.0.3
 info:
   title: JSON Ledger API HTTP endpoints
@@ -7316,3 +7319,4 @@ components:
       type: http
       description: Ledger API standard JWT token
       scheme: bearer
+
