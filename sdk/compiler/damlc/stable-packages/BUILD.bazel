@@ -162,7 +162,6 @@ da_haskell_library(
     ],
 )
 
-
 py_binary(
     name = "stable-packages-py-generator-scala",
     srcs = ["generate_scala_stablepackageslist.py"],

@@ -114,8 +114,8 @@ nixpkgs_cc_configure(
 ) if not is_windows else None
 
 nixpkgs_python_configure(
-    repository = "@nixpkgs",
     python3_attribute_path = "python39.withPackages(ps: [ ps.pyyaml ])",
+    repository = "@nixpkgs",
 ) if not is_windows else None
 
 dev_env_tool(

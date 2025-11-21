@@ -74,10 +74,10 @@ genrule(
     outs = [
         "com/digitalasset/daml/lf/language/StablePackagesList.scala",
     ],
+    cmd = "$(location //compiler/damlc/stable-packages:stable-packages-py-generator-scala) $(location //compiler/damlc/stable-packages:stable-packages.yaml) $(location com/digitalasset/daml/lf/language/StablePackagesList.scala)",
     tools = [
         "//compiler/damlc/stable-packages:stable-packages-py-generator-scala",
     ],
-    cmd = "$(location //compiler/damlc/stable-packages:stable-packages-py-generator-scala) $(location //compiler/damlc/stable-packages:stable-packages.yaml) $(location com/digitalasset/daml/lf/language/StablePackagesList.scala)",
 )
 
 da_scala_library(
@@ -93,7 +93,7 @@ da_scala_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//daml-lf/data",      # Required for Ref.PackageId
+        "//daml-lf/data",  # Required for Ref.PackageId
         "//daml-lf/language",  # Required for LanguageVersion
     ],
 )
