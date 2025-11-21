@@ -172,7 +172,11 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
       else {
         val builder = PLF.SelfOrImportedPackageId.newBuilder()
 
-        if(!StablePackagesV2.allIds.contains(pkgId) && languageVersion >= LV.Features.explicitPkgImports)
+        if (
+          !StablePackagesV2.allIds.contains(
+            pkgId
+          ) && languageVersion >= LV.Features.explicitPkgImports
+        )
           pkgImports match {
             case Right(ids) => builder.setPackageImportId(ids(pkgId))
             case Left(rsn) => sys.error(s"in encodePackageId, did not find imports, reason {$rsn}")

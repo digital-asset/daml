@@ -901,7 +901,10 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           this.packageId
         case SC.IMPORTED_PACKAGE_ID_INTERNED_STR =>
           val id = getInternedPackageId(lfId.getPackageId.getImportedPackageIdInternedStr)
-          if (!StablePackagesList.allStablePackageIds.contains(id) && languageVersion >= LV.Features.explicitPkgImports)
+          if (
+            !StablePackagesList.allStablePackageIds
+              .contains(id) && languageVersion >= LV.Features.explicitPkgImports
+          )
             throw Error.Parsing(
               s"Got explicit non-stable package id (${id}) on lf version (${languageVersion}) that supports explicit package imports, imports: (${imports})"
             )
