@@ -9,6 +9,13 @@ import com.digitalasset.canton.ComparesLfTransactions.{TxTree, buildLfTransactio
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.examples.java.iou
+import com.digitalasset.canton.protocol.ExampleTransactionFactory.{
+  createNode,
+  fetchNode,
+  lfHash,
+  signatory,
+  transaction,
+}
 import com.digitalasset.canton.protocol.RollbackContext.RollbackScope
 import com.digitalasset.canton.protocol.WellFormedTransaction.WithAbsoluteSuffixes
 import com.digitalasset.canton.topology.{PartyId, UniqueIdentifier}
@@ -20,6 +27,7 @@ import com.digitalasset.canton.{
   LfValue,
   NeedsNewLfContractIds,
 }
+import com.digitalasset.daml.lf.transaction.NodeId
 import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.CreateKey
 import com.digitalasset.daml.lf.transaction.test.{TestNodeBuilder, TransactionBuilder}
 import org.scalatest.wordspec.AnyWordSpec
@@ -99,6 +107,8 @@ class WellFormedTransactionMergeTest
       byKey = false,
     )
   )
+
+  private val factory: ExampleTransactionFactory = new ExampleTransactionFactory()()
 
   "WellFormedTransaction.merge" should {
     import scala.language.implicitConversions
@@ -265,6 +275,103 @@ class WellFormedTransactionMergeTest
         assertTransactionsMatch(expected, actual)
       }
     }
+
+    "gracefully reject forward references" in {
+      import ExampleTransactionFactory.*
+      val capturedCid = newLfContractId()
+
+      def mkInput(
+          cid: LfContractId,
+          contractInst: LfThinContractInst,
+      ): WithRollbackScope[WellFormedTransaction[WithAbsoluteSuffixes.type]] =
+        WithRollbackScope(
+          RollbackScope.empty,
+          WellFormedTransaction
+            .check(
+              transaction(
+                Seq(0),
+                createNode(cid, contractInst, Set(signatory)),
+              ),
+              factory.mkMetadata(Map(NodeId(0) -> lfHash(0))),
+              WithAbsoluteSuffixes,
+            )
+            .value,
+        )
+
+      val transactions =
+        NonEmpty(
+          Seq,
+          mkInput(newLfContractId(), contractInstance(Seq(capturedCid))),
+          mkInput(capturedCid, contractInstance()),
+        )
+
+      val (_, errorO) = WellFormedTransaction.merge(transactions)
+      errorO shouldBe Some(
+        s"Contract id ${capturedCid.coid} created in node NodeId(1) is referenced before in NodeId(0)"
+      )
+    }
+
+    "gracefully reject contract ids escaping their rollback context" in {
+      val cid = newLfContractId()
+      val tx1 = WithRollbackScope(
+        Seq(1),
+        WellFormedTransaction
+          .check(
+            transaction(
+              Seq(0),
+              createNode(cid, signatories = Set(signatory)),
+            ),
+            factory.mkMetadata(Map(NodeId(0) -> lfHash(0))),
+            WithAbsoluteSuffixes,
+          )
+          .value,
+      )
+
+      val tx2 = WithRollbackScope(
+        RollbackScope.empty,
+        WellFormedTransaction
+          .check(
+            transaction(
+              Seq(0),
+              fetchNode(cid, Set(signatory), Set(signatory)),
+            ),
+            factory.mkMetadata(Map.empty),
+            WithAbsoluteSuffixes,
+          )
+          .value,
+      )
+
+      val transactions = NonEmpty(Seq, tx1, tx2)
+
+      val (_, errorO) = WellFormedTransaction.merge(transactions)
+      errorO shouldBe Some(
+        s"Contract id ${cid.coid} created node with NodeId(1) in rollback scope 1 referenced outside in rollback scope  of node NodeId(2)"
+      )
+    }
+
+    "gracefully reject on duplicate creates" in {
+      val cid = newLfContractId()
+      val tx1 = WithRollbackScope(
+        RollbackScope.empty,
+        WellFormedTransaction
+          .check(
+            transaction(
+              Seq(0),
+              createNode(cid, signatories = Set(signatory)),
+            ),
+            factory.mkMetadata(Map(NodeId(0) -> lfHash(0))),
+            WithAbsoluteSuffixes,
+          )
+          .value,
+      )
+
+      val transactions = NonEmpty(Seq, tx1, tx1)
+
+      val (_, errorO) = WellFormedTransaction.merge(transactions)
+      errorO shouldBe Some(
+        s"Contract id ${cid.coid} is created in nodes NodeId(0) and NodeId(1)"
+      )
+    }
   }
 
   private def transactionHelper[T](txTrees: TxTree*)(f: LfVersionedTransaction => T): T = f(
@@ -298,12 +405,13 @@ class WellFormedTransactionMergeTest
 
   private def merge(
       transactions: WithRollbackScope[WellFormedTransaction[WithAbsoluteSuffixes]]*
-  ) =
-    valueOrFail(
-      WellFormedTransaction.merge(
-        NonEmpty.from(transactions).valueOrFail("Cannot merge empty list of transactions")
-      )
-    )("unexpectedly failed to merge").unwrap
+  ): LfVersionedTransaction = {
+    val (wftx, errorO) = WellFormedTransaction.merge(
+      NonEmpty.from(transactions).valueOrFail("Cannot merge empty list of transactions")
+    )
+    errorO shouldBe empty
+    wftx.unwrap
+  }
 
   private def create[T](
       cid: LfContractId,

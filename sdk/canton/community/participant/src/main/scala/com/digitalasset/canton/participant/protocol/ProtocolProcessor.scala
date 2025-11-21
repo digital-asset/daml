@@ -1844,6 +1844,7 @@ object ProtocolProcessor {
     "LedgerAuthorizationReferenceIntegrationTestDefault",
     "LedgerAuthorizationBftOrderingIntegrationTestDefault",
     "PackageVettingIntegrationTestInMemory",
+    "ModelConformanceIntegrationTestPostgres",
   )
 
   private[protocol] def isApprovalContradictionCheckEnabled(loggerName: String): Boolean = {
