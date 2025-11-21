@@ -113,7 +113,10 @@ nixpkgs_cc_configure(
     repositories = dev_env_nix_repos,
 ) if not is_windows else None
 
-nixpkgs_python_configure(repository = "@nixpkgs") if not is_windows else None
+nixpkgs_python_configure(
+    repository = "@nixpkgs",
+    python3_attribute_path = "python39.withPackages(ps: [ ps.pyyaml ])",
+) if not is_windows else None
 
 dev_env_tool(
     name = "python_dev_env",
@@ -124,6 +127,14 @@ dev_env_tool(
     win_paths = ["python.exe"],
     win_tool = "python-3.8.2",
 ) if is_windows else None
+
+# nixpkgs_package(
+#     name = "python_yaml_nix",
+#     attribute_path = "python_with_yaml", # Matches the name in nix/bazel.nix
+#     nix_file = "//nix:bazel.nix",
+#     nix_file_deps = common_nix_file_deps,
+#     repositories = dev_env_nix_repos,
+# ) if not is_windows else None
 
 # Curl system dependency
 nixpkgs_package(

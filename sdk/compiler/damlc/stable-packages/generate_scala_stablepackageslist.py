@@ -53,9 +53,7 @@ package com.digitalasset.daml.lf
 package language
 
 import com.digitalasset.daml.lf.language.LanguageVersion._
-import com.digitalasset.daml.lf.language.LanguageVersion.Major._
-import com.digitalasset.daml.lf.language.LanguageVersion.Minor._
-import com.digitalasset.daml.lf.data.Ref // Assuming PackageId is Ref.PackageId
+import com.digitalasset.daml.lf.data.Ref
 
 trait StablePackagesGenerated {{
 
@@ -82,6 +80,8 @@ trait StablePackagesGenerated {{
     stablePackagesByVersion.getOrElse(v, List.empty)
 
 }}
+
+object StablePackagesList extends StablePackagesGenerated
 """
 
 def main():
