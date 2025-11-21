@@ -1065,7 +1065,7 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
     EncodeError(s"$description is not supported by Daml-LF $languageVersion")
 
   private def versionSupports(ft: LV.Feature): Boolean =
-    ft.versionReq.contains(languageVersion)
+    ft.versionRange.contains(languageVersion)
 
   def assertVersionSupports(ft: LV.Feature, caseDescription: Option[String] = None): Unit = {
     if (!versionSupports(ft)) {

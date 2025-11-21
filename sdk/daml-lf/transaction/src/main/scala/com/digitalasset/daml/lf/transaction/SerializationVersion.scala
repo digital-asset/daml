@@ -72,12 +72,12 @@ object SerializationVersion {
 
   // TODO https://github.com/digital-asset/daml/issues/22365 adopt ranges more thoroughly
   private[lf] val minContractKeys: SerializationVersion = assign(
-    LanguageVersion.featureContractKeys.versionReq.min
+    LanguageVersion.featureContractKeys.versionRange.min
   )
 
   // TODO https://github.com/digital-asset/daml/issues/22365 adopt ranges more thoroughly
   private[lf] val minChoiceAuthorizers = assign(
-    LanguageVersion.featureChoiceAuthority.versionReq.min
+    LanguageVersion.featureChoiceAuthority.versionRange.min
   )
 
   private[lf] def txVersion(tx: Transaction): SerializationVersion = {

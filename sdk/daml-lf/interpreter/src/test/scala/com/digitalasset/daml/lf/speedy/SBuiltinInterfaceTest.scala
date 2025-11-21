@@ -45,7 +45,7 @@ class SBuiltinInterfaceUpgradeImplementationTest extends AnyFreeSpec with Matche
 
   // TODO: revert to the default version and compiler config once they support upgrades
   // TODO https://github.com/digital-asset/daml/issues/22365 further adopt feature ranges
-  val languageVersion = LanguageVersion.featurePackageUpgrades.versionReq.min
+  val languageVersion = LanguageVersion.featurePackageUpgrades.versionRange.min
   val compilerConfig = Compiler.Config.Dev
 
   val alice = Ref.Party.assertFromString("Alice")
@@ -221,7 +221,7 @@ class SBuiltinInterfaceUpgradeViewTest extends AnyFreeSpec with Matchers with In
 
   // TODO: revert to the default version and compiler config once they support upgrades
   // TODO https://github.com/digital-asset/daml/issues/22365 further adopt feature ranges
-  val languageVersion = LanguageVersion.featurePackageUpgrades.versionReq.min
+  val languageVersion = LanguageVersion.featurePackageUpgrades.versionRange.min
   val compilerConfig = Compiler.Config.Dev
 
   val alice = Ref.Party.assertFromString("Alice")

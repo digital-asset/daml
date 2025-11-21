@@ -55,7 +55,7 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
         languageVersion = parameters.languageVersion,
         metadata = metadata,
         imports =
-          if (LV.featurePackageImports.versionReq.contains(languageVersion))
+          if (LV.featurePackageImports.versionRange.contains(languageVersion))
             DeclaredImports(pkgIds = mentionedPackageIdsMinusStablePackages)
           else
             GeneratedImports(

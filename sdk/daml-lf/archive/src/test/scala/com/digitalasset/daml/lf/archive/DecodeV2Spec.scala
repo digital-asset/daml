@@ -130,7 +130,7 @@ class DecodeV2Spec
         .setInternedKind(32)
         .build()
 
-      forEveryVersionSuchThat(!LV.featureFlatArchive.versionReq.contains(_)) { version =>
+      forEveryVersionSuchThat(!LV.featureFlatArchive.versionRange.contains(_)) { version =>
         an[Error.Parsing] shouldBe thrownBy(moduleDecoder(version).decodeKindForTest(input))
       }
     }
@@ -162,7 +162,7 @@ class DecodeV2Spec
         )
         .build()
 
-      forEveryVersionSuchThat(LV.featureFlatArchive.versionReq.contains) { version =>
+      forEveryVersionSuchThat(LV.featureFlatArchive.versionRange.contains) { version =>
         inside(Try(moduleDecoder(version).decodeKindForTest(input))) {
           case Failure(Error.Parsing(message)) =>
             message should include("Illegal local flattening")
@@ -180,7 +180,7 @@ class DecodeV2Spec
         .addInternedKinds(kstar)
         .build()
 
-      forEveryVersionSuchThat(!LV.featureFlatArchive.versionReq.contains(_)) { version =>
+      forEveryVersionSuchThat(!LV.featureFlatArchive.versionRange.contains(_)) { version =>
         val decoder = new DecodeV2(version.minor)
         // TODO: https://github.com/digital-asset/daml/issues/21155
         // convert to proper error catching
@@ -198,7 +198,7 @@ class DecodeV2Spec
         .addInternedKinds(kind)
         .build()
 
-      forEveryVersionSuchThat(LV.featureFlatArchive.versionReq.contains) { version =>
+      forEveryVersionSuchThat(LV.featureFlatArchive.versionRange.contains) { version =>
         val decoder = new DecodeV2(version.minor)
         val env = decoder.Env(
           packageId = Ref.PackageId.assertFromString("noPkgId"),
@@ -255,7 +255,7 @@ class DecodeV2Spec
     )
 
     "translate TNumeric as is" in {
-      forEveryVersionSuchThat(!LV.featureFlatArchive.versionReq.contains(_)) { version =>
+      forEveryVersionSuchThat(!LV.featureFlatArchive.versionRange.contains(_)) { version =>
         val decoder = moduleDecoder(version)
         forEvery(numericTestCases) { (input, expectedOutput) =>
           decoder.uncheckedDecodeTypeForTest(input) shouldBe expectedOutput
@@ -271,7 +271,7 @@ class DecodeV2Spec
     }
 
     s"reject BigNumeric and RoundingMode if version < ${LV.featureBigNumeric}" in {
-      forEveryVersionSuchThat(!LV.featureBigNumeric.versionReq.contains(_)) { version =>
+      forEveryVersionSuchThat(!LV.featureBigNumeric.versionRange.contains(_)) { version =>
         val decoder = moduleDecoder(version)
         an[Error.Parsing] shouldBe thrownBy(
           decoder.uncheckedDecodeTypeForTest(buildPrimType(BIGNUMERIC))
@@ -283,7 +283,7 @@ class DecodeV2Spec
     }
 
     s"accept BigNumeric and RoundingMode if version >= ${LV.featureBigNumeric}" in {
-      forEveryVersionSuchThat(LV.featureBigNumeric.versionReq.contains) { version =>
+      forEveryVersionSuchThat(LV.featureBigNumeric.versionRange.contains) { version =>
         val decoder = moduleDecoder(version)
         decoder.uncheckedDecodeTypeForTest(buildPrimType(BIGNUMERIC)) shouldBe TBigNumeric
         decoder.uncheckedDecodeTypeForTest(buildPrimType(ROUNDING_MODE)) shouldBe TRoundingMode
@@ -354,7 +354,7 @@ class DecodeV2Spec
           )
           .build()
 
-        forEveryVersionSuchThat(LV.featureFlatArchive.versionReq.contains) { version =>
+        forEveryVersionSuchThat(LV.featureFlatArchive.versionRange.contains) { version =>
           inside(Try(moduleDecoder(version, stringTable).uncheckedDecodeTypeForTest(input))) {
             case Failure(Error.Parsing(message)) =>
               message should include("Illegal local flattening")
@@ -381,7 +381,7 @@ class DecodeV2Spec
           )
           .build()
 
-        forEveryVersionSuchThat(LV.featureFlatArchive.versionReq.contains) { version =>
+        forEveryVersionSuchThat(LV.featureFlatArchive.versionRange.contains) { version =>
           inside(
             Try(
               moduleDecoder(version, stringTable, dottedNameTable).uncheckedDecodeTypeForTest(input)
@@ -402,7 +402,7 @@ class DecodeV2Spec
           )
           .build()
 
-        forEveryVersionSuchThat(LV.featureFlatArchive.versionReq.contains) { version =>
+        forEveryVersionSuchThat(LV.featureFlatArchive.versionRange.contains) { version =>
           inside(Try(moduleDecoder(version).uncheckedDecodeTypeForTest(input))) {
             case Failure(Error.Parsing(message)) =>
               message should include("Illegal local flattening")
@@ -429,7 +429,7 @@ class DecodeV2Spec
           )
           .build()
 
-        forEveryVersionSuchThat(LV.featureFlatArchive.versionReq.contains) { version =>
+        forEveryVersionSuchThat(LV.featureFlatArchive.versionRange.contains) { version =>
           inside(Try(moduleDecoder(version, stringTable).uncheckedDecodeTypeForTest(input))) {
             case Failure(Error.Parsing(message)) =>
               message should include("Illegal local flattening")
@@ -666,7 +666,7 @@ class DecodeV2Spec
         forEvery(exceptionBuiltinCases) { (proto, scala) =>
           val result = Try(decoder.decodeExprForTest(toProtoExpr(proto), "test"))
 
-          if (LV.featureBigNumeric.versionReq.contains(version))
+          if (LV.featureBigNumeric.versionRange.contains(version))
             result shouldBe Success(scala)
           else
             inside(result) { case Failure(error) => error shouldBe an[Error.Parsing] }
@@ -699,7 +699,7 @@ class DecodeV2Spec
           val result =
             Try(decoder.decodeExprForTest(roundingToProtoExpr(proto), "test"))
 
-          if (LV.featureBigNumeric.versionReq.contains(version))
+          if (LV.featureBigNumeric.versionRange.contains(version))
             result shouldBe Success(Ast.EBuiltinLit(Ast.BLRoundingMode(scala)))
           else
             inside(result) { case Failure(error) => error shouldBe an[Error.Parsing] }
@@ -961,7 +961,7 @@ class DecodeV2Spec
       forEveryVersion { version =>
         val result =
           Try(interfacePrimitivesDecoder(version).decodeExprForTest(unsafeFromInterface, "test"))
-        if (LV.featureUnsafeFromInterface.versionReq.contains(version))
+        if (LV.featureUnsafeFromInterface.versionRange.contains(version))
           // featureUnsafeFromInterface is a removed feature
           result shouldBe Success(expected)
         else inside(result) { case Failure(error) => error shouldBe an[Error.Parsing] }
@@ -986,7 +986,7 @@ class DecodeV2Spec
       forEveryVersion { version =>
         forEvery(testCases) { (proto, scala) =>
           val result = Try(interfacePrimitivesDecoder(version).decodeExprForTest(proto, "test"))
-          if (!LV.featureTemplateTypeRepToText.versionReq.contains(version))
+          if (!LV.featureTemplateTypeRepToText.versionRange.contains(version))
             inside(result) { case Failure(error) => error shouldBe a[Error.Parsing] }
           else
             result shouldBe Success(scala)
@@ -1087,7 +1087,7 @@ class DecodeV2Spec
         Some(EUnit),
       )
 
-      forEveryVersionSuchThat(LV.featureExtendedInterfaces.versionReq.contains) { version =>
+      forEveryVersionSuchThat(LV.featureExtendedInterfaces.versionRange.contains) { version =>
         val decoder =
           moduleDecoder(
             version,
@@ -1107,7 +1107,7 @@ class DecodeV2Spec
         .setInternedExpr(0)
         .build()
 
-      forEveryVersionSuchThat(!LV.featureFlatArchive.versionReq.contains(_)) { version =>
+      forEveryVersionSuchThat(!LV.featureFlatArchive.versionRange.contains(_)) { version =>
         val decoder = new DecodeV2(version.minor)
         val env = decoder.Env(
           packageId = Ref.PackageId.assertFromString("noPkgId"),
@@ -1139,7 +1139,7 @@ class DecodeV2Spec
         .setInternedExpr(0)
         .build()
 
-      forEveryVersionSuchThat(LV.featureFlatArchive.versionReq.contains) { version =>
+      forEveryVersionSuchThat(LV.featureFlatArchive.versionRange.contains) { version =>
         val decoder = new DecodeV2(version.minor)
         val env = decoder.Env(
           packageId = Ref.PackageId.assertFromString("noPkgId"),
@@ -1160,7 +1160,7 @@ class DecodeV2Spec
         .setInternedExpr(1)
         .build()
 
-      forEveryVersionSuchThat(LV.featureFlatArchive.versionReq.contains) { version =>
+      forEveryVersionSuchThat(LV.featureFlatArchive.versionRange.contains) { version =>
         val decoder = new DecodeV2(version.minor)
         val env = decoder.Env(
           packageId = Ref.PackageId.assertFromString("noPkgId"),
@@ -1195,7 +1195,7 @@ class DecodeV2Spec
         .setAbs(ab)
         .build()
 
-      forEveryVersionSuchThat(LV.featureFlatArchive.versionReq.contains) { version =>
+      forEveryVersionSuchThat(LV.featureFlatArchive.versionRange.contains) { version =>
         val decoder = new DecodeV2(version.minor)
         val env = decoder.Env(
           packageId = Ref.PackageId.assertFromString("noPkgId"),
@@ -1237,7 +1237,7 @@ class DecodeV2Spec
           .setAbs(ab)
           .build()
 
-        forEveryVersionSuchThat(LV.featureFlatArchive.versionReq.contains) { version =>
+        forEveryVersionSuchThat(LV.featureFlatArchive.versionRange.contains) { version =>
           val decoder = new DecodeV2(version.minor)
           val env = decoder.Env(
             packageId = Ref.PackageId.assertFromString("noPkgId"),
@@ -1273,7 +1273,7 @@ class DecodeV2Spec
           )
           .build()
 
-        forEveryVersionSuchThat(LV.featureFlatArchive.versionReq.contains) { version =>
+        forEveryVersionSuchThat(LV.featureFlatArchive.versionRange.contains) { version =>
           val decoder = new DecodeV2(version.minor)
           val env = decoder.Env(
             packageId = Ref.PackageId.assertFromString("noPkgId"),
@@ -1313,7 +1313,7 @@ class DecodeV2Spec
           )
           .build()
 
-        forEveryVersionSuchThat(LV.featureFlatArchive.versionReq.contains) { version =>
+        forEveryVersionSuchThat(LV.featureFlatArchive.versionRange.contains) { version =>
           val decoder = new DecodeV2(version.minor)
           val env = decoder.Env(
             packageId = Ref.PackageId.assertFromString("noPkgId"),
@@ -1791,7 +1791,7 @@ class DecodeV2Spec
     }
 
     "gracefully fail when expression too deep when version supports expression interning" in {
-      forEveryVersionSuchThat(LV.featureFlatArchive.versionReq.contains) { _ =>
+      forEveryVersionSuchThat(LV.featureFlatArchive.versionRange.contains) { _ =>
         inside(Decode.decodeArchive(exprToArch(buildLet(500), "dev"))) { case Left(err) =>
           err shouldBe an[Error.IO]
         }
@@ -1799,7 +1799,7 @@ class DecodeV2Spec
     }
 
     "not fail when expression deep but not too deep when version supports expression interning" in {
-      forEveryVersionSuchThat(LV.featureFlatArchive.versionReq.contains) { _ =>
+      forEveryVersionSuchThat(LV.featureFlatArchive.versionRange.contains) { _ =>
         // explanation for "magic" number:
         //
         // The amount of nested lets is not equal to the proto limit since there
@@ -1812,7 +1812,7 @@ class DecodeV2Spec
     }
 
     "still accept reasonably deep expressions when version does not support" in {
-      forEveryVersionSuchThat(!LV.featureFlatArchive.versionReq.contains(_)) { _ =>
+      forEveryVersionSuchThat(!LV.featureFlatArchive.versionRange.contains(_)) { _ =>
         // explanation for "magic" number: see above
         Decode.decodeArchive(exprToArch(buildLet(498), "1")) shouldBe a[Right[_, _]]
       }
@@ -1929,7 +1929,7 @@ class DecodeV2Spec
       )
       .build()
 
-    forEveryVersionSuchThat(!LV.featureUnstable.versionReq.contains(_)) { version =>
+    forEveryVersionSuchThat(!LV.featureUnstable.versionRange.contains(_)) { version =>
       val decoder = moduleDecoder(version)
       an[Error.Parsing] shouldBe thrownBy(decoder.decodeExprForTest(expr, "test"))
     }
