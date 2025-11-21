@@ -141,32 +141,42 @@ object JsIdentityProviderService extends DocumentationEndpoints {
   val listIdpsEndpoint =
     idps.get
       .out(jsonBody[identity_provider_config_service.ListIdentityProviderConfigsResponse])
-      .description("List all identity provider configs")
+      .protoRef(
+        identity_provider_config_service.IdentityProviderConfigServiceGrpc.METHOD_LIST_IDENTITY_PROVIDER_CONFIGS
+      )
 
   val createIdpsEndpoint =
     idps.post
       .in(jsonBody[identity_provider_config_service.CreateIdentityProviderConfigRequest])
       .out(jsonBody[identity_provider_config_service.CreateIdentityProviderConfigResponse])
-      .description("Create identity provider configs")
+      .protoRef(
+        identity_provider_config_service.IdentityProviderConfigServiceGrpc.METHOD_CREATE_IDENTITY_PROVIDER_CONFIG
+      )
 
   val updateIdpEndpoint =
     idps.patch
       .in(path[String](identityProviderPath))
       .in(jsonBody[identity_provider_config_service.UpdateIdentityProviderConfigRequest])
       .out(jsonBody[identity_provider_config_service.UpdateIdentityProviderConfigResponse])
-      .description("Update identity provider config")
+      .protoRef(
+        identity_provider_config_service.IdentityProviderConfigServiceGrpc.METHOD_UPDATE_IDENTITY_PROVIDER_CONFIG
+      )
 
   val getIdpEndpoint =
     idps.get
       .in(path[String](identityProviderPath))
       .out(jsonBody[identity_provider_config_service.GetIdentityProviderConfigResponse])
-      .description("Get identity provider config")
+      .protoRef(
+        identity_provider_config_service.IdentityProviderConfigServiceGrpc.METHOD_GET_IDENTITY_PROVIDER_CONFIG
+      )
 
   val deleteIdpEndpoint =
     idps.delete
       .in(path[String](identityProviderPath))
       .out(jsonBody[identity_provider_config_service.DeleteIdentityProviderConfigResponse])
-      .description("Delete identity provider config")
+      .protoRef(
+        identity_provider_config_service.IdentityProviderConfigServiceGrpc.METHOD_DELETE_IDENTITY_PROVIDER_CONFIG
+      )
 
   override def documentation: Seq[AnyEndpoint] = List(
     createIdpsEndpoint,

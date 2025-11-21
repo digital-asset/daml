@@ -6,6 +6,7 @@ package com.digitalasset.canton.integration.plugins.toxiproxy
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.integration.plugins.toxiproxy.ProxyConfig.*
+import com.digitalasset.canton.synchronizer.sequencer.SequencerConfig.BftSequencer
 import com.typesafe.config.{Config, ConfigFactory}
 import org.scalatest.Assertions.fail
 
@@ -124,6 +125,35 @@ final case class SequencerToPostgres(name: String, sequencer: String, dbTimeout:
 
       case x =>
         throw new RuntimeException(s"Sequencer $sequencer is not using Postgres, instead uses $x")
+    }
+}
+
+final case class BftSequencerPeerToPeer(name: String, toSequencer: String) extends ProxyConfig {
+  override def generate(config: CantonConfig): ProxyInstanceConfig =
+    config.sequencersByString(toSequencer).sequencer match {
+      case BftSequencer(_, bftOrdererConfig) =>
+        val toSequencerEndpoint =
+          bftOrdererConfig.initialNetwork
+            .getOrElse(
+              throw new RuntimeException(
+                s"Sequencer $toSequencer does not have an initial network config"
+              )
+            )
+            .serverEndpoint
+        BftSequencerPeerToPeerInstanceConfig(
+          name,
+          toSequencerEndpoint.address,
+          toSequencerEndpoint.port,
+          this,
+        )
+      // For other sequencers, fall back to config that results in empty config transforms.
+      case _ =>
+        BasicProxyInstanceConfig(
+          name,
+          upstreamHost = "",
+          upstreamPort = Port.tryCreate(Port.maxValidPort),
+          from = this,
+        )
     }
 }
 

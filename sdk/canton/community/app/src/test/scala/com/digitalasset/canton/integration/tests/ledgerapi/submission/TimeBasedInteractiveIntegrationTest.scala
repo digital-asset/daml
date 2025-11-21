@@ -75,7 +75,7 @@ final class TimeBasedInteractiveIntegrationTest
           force = ForceFlags.all,
         )
 
-        aliceE = participant3.parties.external.enable("Alice")
+        aliceE = participant3.parties.testing.external.enable("Alice")
 
       }
       .addConfigTransform(ConfigTransforms.enableInteractiveSubmissionTransforms)
@@ -181,7 +181,7 @@ final class TimeBasedInteractiveIntegrationTest
     "respect max record time" in { implicit env =>
       import env.*
       // Use another party so there's no concurrent updates of its acs with previous tests
-      val johnE = participant3.parties.external.enable("John")
+      val johnE = participant3.parties.testing.external.enable("John")
       val simClock = env.environment.simClock.value
       def getJohnAcsSize = participant3.ledger_api.state.acs.of_party(johnE).size
 

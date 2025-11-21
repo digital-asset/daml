@@ -58,7 +58,6 @@ class TopologyComponentFactory(
     loggerFactory: NamedLoggerFactory,
 ) {
   def createTopologyProcessorFactory(
-      partyNotifier: LedgerServerPartyNotifier,
       missingKeysAlerter: MissingKeysAlerter,
       sequencerConnectionSuccessorListener: SequencerConnectionSuccessorListener,
       onboardingClearanceScheduler: OnboardingClearanceScheduler,
@@ -120,8 +119,6 @@ class TopologyComponentFactory(
           timeouts,
           loggerFactory,
         )
-        // subscribe party notifier to topology processor
-        processor.subscribe(partyNotifier.attachToTopologyProcessor())
         processor.subscribe(missingKeysAlerter.attachToTopologyProcessor())
         processor.subscribe(sequencerConnectionSuccessorListener)
         processor.subscribe(onboardingClearanceScheduler)

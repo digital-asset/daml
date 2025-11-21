@@ -728,6 +728,17 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
     )
   }
 
+  override def findSequencedTimestampsFrom(
+      fromSequencedInclusive: CantonTimestamp
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Vector[CantonTimestamp]] =
+    FutureUnlessShutdown.pure(
+      topologyTransactionStore.view
+        .filter(x => x.sequenced.value >= fromSequencedInclusive)
+        .map(_.sequenced.value)
+        .toVector
+        .sorted
+    )
+
   override def deleteAllData()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     blocking(synchronized {
       topologyTransactionStore.clear()

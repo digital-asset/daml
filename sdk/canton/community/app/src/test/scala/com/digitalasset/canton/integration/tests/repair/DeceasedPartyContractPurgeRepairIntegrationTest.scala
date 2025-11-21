@@ -71,9 +71,9 @@ trait DeceasedPartyContractPurgeRepairIntegrationTest
     iouCarolOwnedByAlice.set(Some(createContract(participant3, carol, alice)))
 
     assertAcsCounts(
-      (participant1, Map(alice -> 4, bob -> 2, carol -> 2)),
-      (participant2, Map(alice -> 2, bob -> 2, carol -> 0)),
-      (participant3, Map(alice -> 2, bob -> 0, carol -> 2)),
+      (participant1, Map(alice.partyId -> 4, bob.partyId -> 2, carol.partyId -> 2)),
+      (participant2, Map(alice.partyId -> 2, bob.partyId -> 2, carol.partyId -> 0)),
+      (participant3, Map(alice.partyId -> 2, bob.partyId -> 0, carol.partyId -> 2)),
     )
   }
 

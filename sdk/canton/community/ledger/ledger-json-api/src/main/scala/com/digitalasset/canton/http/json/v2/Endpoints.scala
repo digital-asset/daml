@@ -531,13 +531,18 @@ object Endpoints {
       override def validator: Validator[StreamList[INPUT]] = Validator.pass
     })
     .description(
-      endpoint.info.description.getOrElse("") +
-        """
-      |Notice: This endpoint should be used for small results set.
-      |When number of results exceeded node configuration limit (`http-list-max-elements-limit`)
-      |there will be an error (`413 Content Too Large`) returned.
-      |Increasing this limit may lead to performance issues and high memory consumption.
-      |Consider using websockets (asyncapi) for better efficiency with larger results.""".stripMargin
+      endpoint.info.description match {
+        case Some(desc) =>
+          s"$desc\n" + """
+                              |Notice: This endpoint should be used for small results set.
+                              |When number of results exceeded node configuration limit (`http-list-max-elements-limit`)
+                              |there will be an error (`413 Content Too Large`) returned.
+                              |Increasing this limit may lead to performance issues and high memory consumption.
+                              |Consider using websockets (asyncapi) for better efficiency with larger results.
+                              |""".stripMargin.trim
+        case None =>
+          throw new IllegalArgumentException(s"Description for ${endpoint.info} is missing")
+      }
     )
 
   private def addPagedListParams[INPUT, OUTPUT, R](
@@ -582,6 +587,19 @@ object Endpoints {
     def inPagedListParams() = addPagedListParams(endpoint)
   }
 
+  def createProtoRef(methodDescriptor: io.grpc.MethodDescriptor[?, ?]): String =
+    ProtoLink(methodDescriptor).toString
+
+  implicit class ProtoRefOps[INPUT, OUTPUT, R](
+      endpoint: Endpoint[CallerContext, INPUT, (StatusCode, JsCantonError), OUTPUT, R]
+  ) {
+
+    def protoRef(
+        methodDescriptor: io.grpc.MethodDescriptor[?, ?]
+    ): Endpoint[CallerContext, INPUT, (StatusCode, JsCantonError), OUTPUT, R] =
+      endpoint.description(createProtoRef(methodDescriptor))
+  }
+
 }
 
 trait DocumentationEndpoints {
@@ -591,3 +609,36 @@ trait DocumentationEndpoints {
 final case class StreamList[INPUT](input: INPUT, limit: Option[Long], waitTime: Option[Long])
 
 final case class PagedList[INPUT](input: INPUT, pageSize: Option[Int], pageToken: Option[String])
+
+final case class ProtoLink(file: String, service: String, method: String) {
+
+  override def toString: String = s"<gRPC:$file/$service/$method>"
+}
+
+object ProtoLink {
+  private val grpcMethodExtractor =
+    raw"com\.daml\.ledger\.api\.v2\.((?:(?:[a-z0-9])*\.)*)([A-Za-z0-9]+)".r
+
+  private val importGRPCCommentPattern =
+    raw"<gRPC:([A-Za-z0-9_/]+\.proto)/([A-Za-z0-9_]+)/([A-Za-z0-9_]+)>".r
+
+  def apply(methodDescriptor: io.grpc.MethodDescriptor[?, ?]): ProtoLink = {
+    val serviceName: String = methodDescriptor.getServiceName
+    val bareMethodName = methodDescriptor.getBareMethodName
+    serviceName match {
+      case grpcMethodExtractor(packageName, service) =>
+        val snake = service.replaceAll("([a-z])([A-Z])", "$1_$2").toLowerCase
+        val pck1 = packageName.replace('.', '/')
+        ProtoLink(pck1 + snake + ".proto", service, bareMethodName)
+      case _ =>
+        throw new IllegalArgumentException(
+          s"Could not create link to proto documentation for: $methodDescriptor"
+        )
+    }
+  }
+  def unapply(link: String): Option[(String, String, String)] = link match {
+    case importGRPCCommentPattern(file, service, method) =>
+      Some((file, service, method))
+    case _ => None
+  }
+}

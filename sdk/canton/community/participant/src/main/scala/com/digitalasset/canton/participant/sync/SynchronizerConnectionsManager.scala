@@ -117,7 +117,6 @@ private[sync] class SynchronizerConnectionsManager(
     syncPersistentStateManager: SyncPersistentStateManager,
     packageService: PackageService,
     identityPusher: ParticipantTopologyDispatcher,
-    partyNotifier: LedgerServerPartyNotifier,
     syncCrypto: SyncCryptoApiParticipantProvider,
     engine: Engine,
     commandProgressTracker: CommandProgressTracker,
@@ -1031,7 +1030,6 @@ private[sync] class SynchronizerConnectionsManager(
               identityPusher,
               synchronizerHandle.topologyFactory
                 .createTopologyProcessorFactory(
-                  partyNotifier,
                   missingKeysAlerter,
                   sequencerConnectionSuccessorListener,
                   onboardingClearanceScheduler,

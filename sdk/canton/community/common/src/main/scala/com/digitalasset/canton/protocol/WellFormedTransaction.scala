@@ -9,13 +9,15 @@ import cats.syntax.foldable.*
 import cats.syntax.functor.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.ActionDescription
+import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.protocol.RollbackContext.{RollbackScope, RollbackSibling}
 import com.digitalasset.canton.protocol.WellFormedTransaction.Stage
 import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.{Checked, LfTransactionUtil, MonadUtil}
+import com.digitalasset.canton.util.{Checked, ErrorUtil, LfTransactionUtil}
 import com.digitalasset.canton.{checked, protocol}
 import com.digitalasset.daml.lf.data.ImmArray
+import monocle.macros.syntax.lens.*
 
 import scala.collection.immutable.HashMap
 import scala.collection.mutable
@@ -48,7 +50,7 @@ import scala.collection.mutable
 final case class WellFormedTransaction[+S <: Stage] private (
     private val tx: LfVersionedTransaction,
     metadata: TransactionMetadata,
-)(stage: S) {
+) {
   def unwrap: LfVersionedTransaction = tx
 
   def withoutVersion: LfTransaction = tx.transaction
@@ -60,25 +62,21 @@ final case class WellFormedTransaction[+S <: Stage] private (
     * For example, an offset of 1 increases the NodeId of every node by 1. Ensures that the
     * transaction stays wellformed.
     *
-    * @throws java.lang.IllegalArgumentException
+    * @throws java.lang.ArithmeticException
     *   if `offset` is negative or a node ID overflow would occur
     */
-  def tryAdjustNodeIds(offset: Int): WellFormedTransaction[S] = {
+  def tryAdjustNodeIds(offset: Int): (LfVersionedTransaction, TransactionMetadata) = {
     require(offset >= 0, s"Offset must be non-negative: $offset")
 
-    def adjustNodeId(nid: LfNodeId): LfNodeId = {
-      val newIndex = nid.index + offset
-      require(newIndex >= 0, s"Overflow for node id ${nid.index}")
-      LfNodeId(nid.index + offset)
-    }
+    def adjustNodeId(nid: LfNodeId): LfNodeId = LfNodeId(Math.addExact(nid.index, offset))
 
-    if (offset == 0) this
+    if (offset == 0) (tx, metadata)
     else {
       val adjustedTx = tx.mapNodeId(adjustNodeId)
       val adjustedMetadata = metadata.copy(
         seeds = metadata.seeds.map { case (nodeId, seed) => adjustNodeId(nodeId) -> seed }
       )
-      new WellFormedTransaction(adjustedTx, adjustedMetadata)(stage)
+      (adjustedTx, adjustedMetadata)
     }
   }
 }
@@ -142,21 +140,26 @@ object WellFormedTransaction {
 
     val result = for {
       _ <- checkForest(tx)
-      _ <- checkNonNegativeNodeIds(tx)
-      _ <- checkSeeds(tx, metadata.seeds)
-      _ <- checkByKeyNodes(tx)
-      _ <- checkCreatedContracts(tx, stage)
-      _ <- checkFetchActors(tx)
-      _ <- checkSignatoriesAndStakeholders(tx)
-      _ <- checkNoContractIdsInKeysAndNonemptyMaintainers(tx)
-      _ <- checkPartyNames(tx)
-      _ <- checkSerialization(tx)
-      _ <- checkRollbackNodes(tx, stage)
-    } yield tx
+      (normalizedTx, normalizedMetadata) = normalizeNodeIds(tx, metadata)
+      _ <- checkNonNegativeNodeIds(normalizedTx)
+      _ <- checkSeeds(normalizedTx, normalizedMetadata.seeds)
+      _ <- checkByKeyNodes(normalizedTx)
+      _ <- checkCreatedContracts(normalizedTx)
+      _ <- checkSuffixes(normalizedTx, stage)
+      _ <- checkFetchActors(normalizedTx)
+      _ <- checkSignatoriesAndStakeholders(normalizedTx)
+      _ <- checkNonemptyMaintainers(normalizedTx)
+      _ <- checkPartyNames(normalizedTx)
+      _ <- checkSerialization(normalizedTx)
+      _ <- checkRollbackNodes(normalizedTx, stage)
+    } yield (normalizedTx, normalizedMetadata)
 
     result.toEitherMergeNonaborts.bimap(
       _.toList.sorted.mkString(", "),
-      new WellFormedTransaction(_, metadata)(stage),
+      (WellFormedTransaction.apply: (
+          LfVersionedTransaction,
+          TransactionMetadata,
+      ) => WellFormedTransaction[S]).tupled,
     )
   }
 
@@ -226,17 +229,11 @@ object WellFormedTransaction {
     )
   }
 
-  private def checkCreatedContracts(
-      tx: LfVersionedTransaction,
-      stage: Stage,
-  ): Checked[Nothing, String, Unit] = {
+  private def checkCreatedContracts(tx: LfVersionedTransaction): Checked[Nothing, String, Unit] = {
     @SuppressWarnings(Array("org.wartremover.warts.Var"))
     var rbContext = RollbackContext.empty
     val referenced = mutable.Map.empty[LfContractId, LfNodeId]
     val created = mutable.Map.empty[LfContractId, (LfNodeId, RollbackScope)]
-
-    val suffixViolations = mutable.ListBuffer.newBuilder[LfNodeId]
-    val absoluteSuffixViolations = mutable.ListBuffer.newBuilder[LfContractId]
 
     // Check that references to a locally created contract are within the rollback scope of the creation.
     // Must only be checked for inputs to a node because reference inside an LF value can happen,
@@ -250,7 +247,7 @@ object WellFormedTransaction {
           Either.cond(
             referenceRbScope.startsWith(createdScope),
             (),
-            s"Contract $refId created node with $createNodeId in rollback scope ${createdScope
+            s"Contract id ${refId.coid} created node with $createNodeId in rollback scope ${createdScope
                 .mkString(".")} referenced outside in rollback scope ${referenceRbScope.mkString(".")} of node $nodeId",
           )
         )
@@ -258,11 +255,8 @@ object WellFormedTransaction {
 
     def addReference(nodeId: LfNodeId)(
         refId: LfContractId
-    ): Unit = {
+    ): Unit =
       referenced += (refId -> nodeId)
-      if (stage.onlyAbsoluteSuffixes && !refId.isAbsolute)
-        absoluteSuffixViolations += refId
-    }
 
     def addReferencesByLfValue(nodeId: LfNodeId, refIds: LazyList[LfContractId]): Unit =
       refIds.foreach(addReference(nodeId))
@@ -297,7 +291,6 @@ object WellFormedTransaction {
                   s"Contract id ${nc.coid.coid} is created in nodes $otherNodeId and $nodeId"
                 )
             }
-            _ = if (nc.coid.isLocal == stage.withSuffixes) suffixViolations += nodeId else ()
           } yield ()
       } { (nodeId, ne, _) =>
         val resultRefs = ne.exerciseResult.map(_.cids).getOrElse(Set.empty)
@@ -310,33 +303,40 @@ object WellFormedTransaction {
         rbContext = rbContext.exitRollback
         Checked.unit
       }
-      .flatMap { _ =>
-        val suffixProblems = suffixViolations.result()
-        Checked.fromEitherNonabort(())(
-          Either.cond(
-            suffixProblems.isEmpty,
-            (),
-            if (stage.withSuffixes)
-              s"Created contracts of nodes lack suffixes: ${suffixProblems.map(_.index).mkString(", ")}"
-            else
-              s"Created contracts have suffixes in nodes ${suffixProblems.map(_.index).mkString(", ")}",
-          )
-        )
-      }
-      .flatMap { _ =>
-        val absoluteSuffixProblems = absoluteSuffixViolations.result()
-        Checked.fromEitherNonabort(())(
-          Either.cond(
-            absoluteSuffixProblems.isEmpty,
-            (),
-            s"Contract IDs without absolute suffixes: ${absoluteSuffixProblems.mkString(", ")}",
-          )
-        )
-      }
-
   }
 
-  private def checkNoContractIdsInKeysAndNonemptyMaintainers(
+  private def checkSuffixes(
+      tx: LfVersionedTransaction,
+      stage: Stage,
+  ): Checked[Nothing, String, Unit] = {
+
+    val absoluteSuffixChecked = if (stage.onlyAbsoluteSuffixes) {
+      val absoluteSuffixProblems = tx.nodes.values.flatMap(_.cids.filter(!_.isAbsolute))
+      if (absoluteSuffixProblems.isEmpty) Checked.unit
+      else
+        Checked.continue(
+          s"Contract IDs without absolute suffixes: ${absoluteSuffixProblems.mkString(", ")}"
+        )
+    } else Checked.unit
+
+    val suffixProblems = tx.nodes.collect {
+      case (nid, nc: LfNodeCreate) if nc.coid.isLocal == stage.withSuffixes => nid
+    }
+
+    val suffixChecked =
+      if (suffixProblems.isEmpty) Checked.unit
+      else
+        Checked.continue(
+          if (stage.withSuffixes)
+            s"Created contracts of nodes lack suffixes: ${suffixProblems.map(_.index).mkString(", ")}"
+          else
+            s"Created contracts have suffixes in nodes ${suffixProblems.map(_.index).mkString(", ")}"
+        )
+
+    absoluteSuffixChecked.product(suffixChecked).void
+  }
+
+  private def checkNonemptyMaintainers(
       tx: LfVersionedTransaction
   ): Checked[Nothing, String, Unit] =
     Checked.fromEitherNonaborts(())(
@@ -346,14 +346,11 @@ object WellFormedTransaction {
           case (nodeId, node: LfActionNode) =>
             node.keyOpt match {
               case Some(k) =>
-                val noCid = Validated.Valid(k.value)
-                val nonemptyMaintainers =
-                  Validated.condNec(
-                    k.maintainers.nonEmpty,
-                    (),
-                    s"Key of node ${nodeId.index} has no maintainer",
-                  )
-                noCid.product(nonemptyMaintainers).void
+                Validated.condNec(
+                  k.maintainers.nonEmpty,
+                  (),
+                  s"Key of node ${nodeId.index} has no maintainer",
+                )
               case None => Validated.Valid(())
             }
           case (_nodeId, _rn: LfNodeRollback) => Validated.Valid(())
@@ -472,6 +469,18 @@ object WellFormedTransaction {
         }
     } yield ()
 
+  private def normalizeNodeIds(
+      tx: LfVersionedTransaction,
+      metadata: TransactionMetadata,
+  ): (LfVersionedTransaction, TransactionMetadata) = {
+    val normalization = tx.nodeIdNormalization
+    val normalizedTransaction = tx.mapNodeId(normalization)
+    val normalizedMetadata =
+      metadata.focus(_.seeds).modify(_.map { case (nid, v) => normalization(nid) -> v })
+
+    (normalizedTransaction, normalizedMetadata)
+  }
+
   sealed trait InvalidInput
   object InvalidInput extends {
     final case class InvalidParty(cause: String) extends InvalidInput
@@ -504,8 +513,7 @@ object WellFormedTransaction {
     check(lfTransaction, metadata, state)
       .valueOr(err => throw new IllegalArgumentException(err))
 
-  /** Merges a list of well-formed transactions into one, adjusting node IDs as necessary. All
-    * transactions must have the same version.
+  /** Merges a list of well-formed transactions into one, adjusting node IDs as necessary.
     *
     * Root-level LfActionNodes with an associated rollback scope are embedded in rollback node
     * ancestors according to this scheme:
@@ -516,12 +524,25 @@ object WellFormedTransaction {
     *   1. While the lf-engine "collapses" away some rollback nodes as part of normalization,
     *      merging does not perform any normalization as the daml indexer/ReadService-consumer does
     *      not require rollback-normalized lf-transactions.
+    *
+    * @throws java.lang.IllegalArgumentException
+    *   if transactions have non-unique ledger times or preparation times
+    * @throws java.lang.IllegalStateException
+    *   on internal programming errors
+    * @throws java.lang.ArithmeticException
+    *   on integer overflows
+    * @return
+    *   the merged WellFormedTransaction as well as any recoverable error encountered during
+    *   merging; in case of errors, the request should be rejected. If the mediator approves
+    *   nevertheless, the transaction should be committed.
     */
   def merge(
-      transactionsWithRollbackScope: NonEmpty[
+      transactionsWithRollbackScopes: NonEmpty[
         Seq[WithRollbackScope[WellFormedTransaction[WithAbsoluteSuffixes]]]
       ]
-  ): Either[String, WellFormedTransaction[WithSuffixesAndMerged]] = {
+  )(implicit
+      loggingContext: ErrorLoggingContext
+  ): (WellFormedTransaction[WithSuffixesAndMerged], Option[String]) = {
     val mergedNodes = HashMap.newBuilder[LfNodeId, LfNode]
     val mergedRoots = Iterable.newBuilder[LfNodeId]
     val mergedSeeds = Map.newBuilder[LfNodeId, LfHash]
@@ -529,97 +550,127 @@ object WellFormedTransaction {
     val mutableRbNodes =
       mutable.HashMap[LfNodeId, mutable.ArrayDeque[LfNodeId]]() // mutable so we can append children
 
-    val transactions = transactionsWithRollbackScope.map(_.unwrap)
+    val transactions = transactionsWithRollbackScopes.map(_.unwrap)
     val ledgerTimes = transactions.map(_.metadata.ledgerTime).distinct
     val preparationTimes = transactions.map(_.metadata.preparationTime).distinct
     val versions = transactions.map(_.tx.version).distinct
-    for {
-      ledgerTime <- Either.cond(
-        ledgerTimes.sizeCompare(1) == 0,
-        ledgerTimes.head1,
-        s"Different ledger times: ${ledgerTimes.mkString(", ")}",
+
+    // Should not happen, as all views have the same root hash.
+    ErrorUtil.requireArgument(
+      ledgerTimes.sizeIs == 1,
+      s"Different ledger times: ${ledgerTimes.mkString(", ")}",
+    )
+    val ledgerTime = ledgerTimes.head1
+
+    // Should not happen, as all views have the same root hash.
+    ErrorUtil.requireArgument(
+      preparationTimes.sizeIs == 1,
+      s"Different preparation times: ${preparationTimes.mkString(", ")}",
+    )
+    val preparationTime = preparationTimes.head1
+
+    val version = protocol.maxSerializationVersion(versions)
+
+    val _ = transactionsWithRollbackScopes.foldLeft(
+      // start after node-id 0 with empty rollback scope
+      (
+        0,
+        List.empty[(RollbackSibling, LfNodeId)],
       )
-      preparationTime <- Either.cond(
-        preparationTimes.sizeCompare(1) == 0,
-        preparationTimes.head1,
-        s"Different preparation times: ${preparationTimes.mkString(", ")}",
-      )
-      version = protocol.maxSerializationVersion(versions)
-      _ <- MonadUtil
-        .foldLeftM[Either[String, *], (Int, List[(RollbackSibling, LfNodeId)]), WithRollbackScope[
-          WellFormedTransaction[WithAbsoluteSuffixes]
-        ]](
-          (0, List.empty), // start after node-id 0 with empty rollback scope
-          transactionsWithRollbackScope.toList,
-        ) { case ((freeNodeId, rbScopeWithNodeIds), WithRollbackScope(rbScope, wfTx)) =>
-          val headNodeIds = wfTx.unwrap.nodes.keys
+    ) { case ((freeNodeId, rbScopeWithNodeIds), WithRollbackScope(rbScope, wfTx)) =>
+      val headNodeIds = wfTx.unwrap.nodes.keys
 
-          val (rbPops, rbPushes) =
-            RollbackScope.popsAndPushes(
-              rbScopeWithNodeIds.map { case (rbSibling, _) => rbSibling },
-              rbScope,
-            )
+      val (rbPops, rbPushes) =
+        RollbackScope.popsAndPushes(
+          rbScopeWithNodeIds.map { case (rbSibling, _) => rbSibling },
+          rbScope,
+        )
 
-          for {
-            _ <- Either.cond(
-              headNodeIds.forall(_.index >= 0),
-              (),
-              s"Cannot merge transactions with negative node ids",
-            )
-            maxNodeIdHead = headNodeIds.map(_.index).maxOption.getOrElse(0)
-            nextFresh =
-              freeNodeId + maxNodeIdHead + 1 + rbPushes // reserve node id space for rollback nodes to be pushed
-            _ <- Either.cond(nextFresh >= 0, (), "Node id overflow during merge")
-          } yield {
-            val rbScopeCommon = rbScopeWithNodeIds.dropRight(rbPops)
-            val rbScopeToPush = rbScope.drop(rbScopeCommon.length).zipWithIndex
+      val maxNodeIdHead = headNodeIds.map(_.index).maxOption.getOrElse(0)
+      val nextFresh =
+        // freeNodeId + maxNodeIdHead + rbPushes + 1
+        Math.incrementExact(Math.addExact(Math.addExact(freeNodeId, maxNodeIdHead), rbPushes))
+      // Addition can overflow, but only in the following cases:
+      // - The total number of nodes exceeds Int.MaxValue. This is tolerated, as such transactions are not supported.
+      // - The total number of nodes is below Int.MaxValue, but some transactions have max(nodeId) >> count(nodeId).
+      //   This is prevented by calling normalizeNodeIds before constructing a WellFormedTransaction.
 
-            // Create new rollback nodes and connect rollback parents and children
-            val newRbScope = rbScopeToPush.foldLeft(rbScopeCommon) {
-              case (rbScopeParent, (rbSiblingIndex, nodeIdIndexIncrement)) =>
-                val childNodeId = LfNodeId(freeNodeId + nodeIdIndexIncrement)
-                rbScopeParent.lastOption match {
-                  case Some((_, parentNodeId)) =>
-                    mutableRbNodes(parentNodeId) += childNodeId
-                  case None =>
-                    mergedRoots += childNodeId
-                }
-                mutableRbNodes += childNodeId -> new mutable.ArrayDeque[LfNodeId]()
-                rbScopeParent :+ ((rbSiblingIndex, childNodeId))
-            }
+      val rbScopeCommon = rbScopeWithNodeIds.dropRight(rbPops)
+      val rbScopeToPush = rbScope.drop(rbScopeCommon.length).zipWithIndex
 
-            require(rbScope == newRbScope.map(_._1))
-
-            // Add regular transaction nodes
-            val adjustedHead = checked(wfTx.tryAdjustNodeIds(freeNodeId + rbPushes))
-            mergedNodes ++= adjustedHead.unwrap.nodes
-
-            // Record regular transaction root as roots in the absence of rollback nodes.
-            newRbScope.lastOption.fold {
-              val _ = mergedRoots ++= adjustedHead.unwrap.roots.toSeq
-            } {
-              // Otherwise place transaction roots under innermost rollback node.
-              case (_rbChildIndex, rbParentNodeId) =>
-                val _ = mutableRbNodes(rbParentNodeId) ++= adjustedHead.unwrap.roots.toSeq
-            }
-            mergedSeeds ++= adjustedHead.metadata.seeds
-            (nextFresh, newRbScope)
+      // Create new rollback nodes and connect rollback parents and children
+      val newRbScope = rbScopeToPush.foldLeft(rbScopeCommon) {
+        case (rbScopeParent, (rbSiblingIndex, nodeIdIndexIncrement)) =>
+          val childNodeId = LfNodeId(freeNodeId + nodeIdIndexIncrement)
+          rbScopeParent.lastOption match {
+            case Some((_, parentNodeId)) =>
+              mutableRbNodes(parentNodeId) += childNodeId
+            case None =>
+              mergedRoots += childNodeId
           }
-        }
-
-      // Build actual rollback nodes now that we know all their children
-      rollbackNodes = mutableRbNodes.map { case (nid, children) =>
-        nid -> LfNodeRollback(children.to(ImmArray))
+          mutableRbNodes += childNodeId -> new mutable.ArrayDeque[LfNodeId]()
+          rbScopeParent :+ ((rbSiblingIndex, childNodeId))
       }
 
-      wrappedTx = LfVersionedTransaction(
+      ErrorUtil.requireState(
+        rbScope == newRbScope.map(_._1),
+        s"Unexpected change of rollback scope. Actual: ${newRbScope.map(_._1)}, expected: $rbScope",
+      )
+
+      // Add regular transaction nodes
+      val (adjustedTx, adjustedMetadata) = checked(wfTx.tryAdjustNodeIds(freeNodeId + rbPushes))
+      mergedNodes ++= adjustedTx.nodes
+
+      // Record regular transaction root as roots in the absence of rollback nodes.
+      newRbScope.lastOption.fold {
+        val _ = mergedRoots ++= adjustedTx.roots.toSeq
+      } {
+        // Otherwise place transaction roots under innermost rollback node.
+        case (_rbChildIndex, rbParentNodeId) =>
+          val _ = mutableRbNodes(rbParentNodeId) ++= adjustedTx.roots.toSeq
+      }
+      mergedSeeds ++= adjustedMetadata.seeds
+      (nextFresh, newRbScope)
+    }
+
+    // Build actual rollback nodes now that we know all their children
+    val rollbackNodes = mutableRbNodes.map { case (nid, children) =>
+      nid -> LfNodeRollback(children.to(ImmArray))
+    }
+
+    val (mergedTx, mergedMetadata) = normalizeNodeIds(
+      LfVersionedTransaction(
         version,
         mergedNodes.result() ++ rollbackNodes,
         mergedRoots.result().to(ImmArray),
-      )
-      mergedMetadata = TransactionMetadata(ledgerTime, preparationTime, mergedSeeds.result())
-      // TODO(M98) With tighter conditions on freshness of contract IDs, we shouldn't need this check.
-      result <- check(wrappedTx, mergedMetadata, WithSuffixesAndMerged)
-    } yield result
+      ),
+      TransactionMetadata(ledgerTime, preparationTime, mergedSeeds.result()),
+    )
+
+    // Finally, we repeat some of the checks from `check` to assert that the result is really well-formed.
+    // Firstly, we repeat checks that would fail in case of programming errors.
+    // We throw in case of failures.
+
+    def throwOnError(result: Checked[NonEmptyChain[String], String, Unit]): Unit =
+      result.toEitherMergeNonaborts.valueOr { err =>
+        val details = err.toList.sorted.mkString(", ")
+        ErrorUtil.internalError(
+          new IllegalStateException(s"Transaction is malformed after merging: $details")
+        )
+      }
+
+    throwOnError(checkForest(mergedTx))
+    throwOnError(checkSeeds(mergedTx, mergedMetadata.seeds))
+    throwOnError(checkRollbackNodes(mergedTx, WithSuffixesAndMerged))
+
+    // checkCreatedContracts is not entirely redundant.
+    // If such a check fails, the error is propagated to the caller.
+    val error =
+      NonEmpty.from(checkCreatedContracts(mergedTx).nonaborts.toList).map(_.sorted.mkString(", "))
+
+    val wellFormedTransaction =
+      WellFormedTransaction(mergedTx, mergedMetadata)
+
+    (wellFormedTransaction, error)
   }
 }

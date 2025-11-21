@@ -45,7 +45,7 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.ContractIdAbsolutizer.ContractIdAbsolutizationDataV1
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
-import com.digitalasset.canton.topology.{PartyId, PhysicalSynchronizerId, SynchronizerId}
+import com.digitalasset.canton.topology.{Party, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.util.TestEngine
 import com.digitalasset.canton.{BaseTest, ReassignmentCounter, config}
 import com.digitalasset.daml.lf
@@ -77,9 +77,9 @@ class ActiveContractsIntegrationTest
     )
   )
 
-  private var party1a: PartyId = _
-  private var party1b: PartyId = _
-  private var party2: PartyId = _
+  private var party1a: Party = _
+  private var party1b: Party = _
+  private var party2: Party = _
 
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P2_S1M1_S1M1_S1M1
@@ -129,7 +129,7 @@ class ActiveContractsIntegrationTest
       }
 
   protected def getActiveContracts(
-      party: PartyId,
+      party: Party,
       validAt: Long,
       participant: LocalParticipantReference,
       filterTemplates: Option[Seq[TemplateId]] = None,
@@ -142,8 +142,8 @@ class ActiveContractsIntegrationTest
 
   private def create(
       psid: PhysicalSynchronizerId,
-      signatory: PartyId,
-      observer: PartyId,
+      signatory: Party,
+      observer: Party,
   )(implicit
       env: TestConsoleEnvironment
   ): ContractData = {
@@ -159,8 +159,8 @@ class ActiveContractsIntegrationTest
 
   private def createViaRepair(
       psid: PhysicalSynchronizerId,
-      signatory: PartyId,
-      observer: PartyId,
+      signatory: Party,
+      observer: Party,
   )(implicit
       env: TestConsoleEnvironment
   ): ContractData = {
@@ -258,7 +258,7 @@ class ActiveContractsIntegrationTest
 
   private def submitAssignments(
       out: UnassignedWrapper,
-      submitter: PartyId,
+      submitter: Party,
       participantOverride: Option[LocalParticipantReference],
   )(implicit
       env: TestConsoleEnvironment
@@ -271,17 +271,17 @@ class ActiveContractsIntegrationTest
       participantOverride = participantOverride,
     )
 
-  private def normalizeEvent(event: CreatedEvent, party: PartyId): CreatedEvent =
+  private def normalizeEvent(event: CreatedEvent, party: Party): CreatedEvent =
     event.copy(witnessParties = List(party.toLf))
 
   private def normalizeEvent(
       event: proto.reassignment.UnassignedEvent,
-      party: PartyId,
+      party: Party,
   ): proto.reassignment.UnassignedEvent =
     event.copy(witnessParties = List(party.toLf))
 
   private def buildExpectedActiveContractsFromCreate(
-      party: PartyId
+      party: Party
   )(
       contracts: Seq[(CreatedEvent, SynchronizerId, ReassignmentCounter)]
   ): Seq[WrappedContractEntry] =
@@ -297,7 +297,7 @@ class ActiveContractsIntegrationTest
       .map(WrappedContractEntry.apply)
 
   private def buildExpectedActiveContractsFromAssigned(
-      party: PartyId
+      party: Party
   )(
       activationFromAssigned: Seq[AssignedWrapper]
   ): Seq[WrappedContractEntry] =
@@ -316,7 +316,7 @@ class ActiveContractsIntegrationTest
         }
     )
 
-  private def buildExpectedIncompletesUnassigned(party: PartyId)(
+  private def buildExpectedIncompletesUnassigned(party: Party)(
       incompleteUnassigned: Seq[
         (ContractData, UnassignedWrapper)
       ]
@@ -339,7 +339,7 @@ class ActiveContractsIntegrationTest
       WrappedContractEntry(incompleteUnassigned)
     }
 
-  private def buildExpectedResponse(party: PartyId)(
+  private def buildExpectedResponse(party: Party)(
       activationFromCreate: Seq[(CreatedEvent, SynchronizerId, ReassignmentCounter)],
       activationFromAssigned: Seq[AssignedWrapper],
       incompletesUnassigned: Seq[
@@ -770,7 +770,7 @@ class ActiveContractsIntegrationTest
       def checkACS(
           activeOn: Option[AssignedWrapper],
           incompleteReassignment: Boolean,
-          acsFor: PartyId,
+          acsFor: Party,
       ): Assertion = {
 
         // We check for the two parties
@@ -829,7 +829,7 @@ class ActiveContractsIntegrationTest
 
   private def assertObservationOfUnassignedEvent(
       participant: LocalParticipantReference,
-      observer: PartyId,
+      observer: Party,
       out: UnassignedWrapper,
       startFromExclusive: Long,
   ) = {

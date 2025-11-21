@@ -132,156 +132,160 @@ class TransactionConfirmationResponsesFactory(
 
     def responsesForWellformedPayloads(
         transactionValidationResult: TransactionValidationResult
-    ): FutureUnlessShutdown[Option[ConfirmationResponses]] =
-      transactionValidationResult.viewValidationResults.toSeq
-        .parTraverseFilter { case (viewPosition, viewValidationResult) =>
-          for {
-            hostedConfirmingParties <-
-              hostedConfirmingPartiesOfView(viewValidationResult)
+    ): FutureUnlessShutdown[Option[ConfirmationResponses]] = {
+      for {
+        modelConformanceResultE <- transactionValidationResult.modelConformanceResultET.value
 
-            modelConformanceResultE <- transactionValidationResult.modelConformanceResultET.value
-          } yield {
+        // Rejections due to a failed model conformance check
+        // Aborts are logged by the Engine callback when the abort happens
+        modelConformanceRejections =
+          modelConformanceResultE.swap.toSeq.flatMap(error =>
+            error.nonAbortErrors.map(cause =>
+              logged(
+                requestId,
+                LocalRejectError.MalformedRejects.ModelConformance.Reject(cause.toString),
+              ).toLocalReject(protocolVersion)
+            )
+          )
 
-            // Rejections due to a failed model conformance check
-            // Aborts are logged by the Engine callback when the abort happens
-            val modelConformanceRejections =
-              modelConformanceResultE.swap.toSeq.flatMap(error =>
-                error.nonAbortErrors.map(cause =>
+        responses <- transactionValidationResult.viewValidationResults.toSeq
+          .parTraverseFilter { case (viewPosition, viewValidationResult) =>
+            for {
+              hostedConfirmingParties <-
+                hostedConfirmingPartiesOfView(viewValidationResult)
+
+            } yield {
+
+              // Rejections due to a failed internal consistency check
+              val internalConsistencyRejections =
+                transactionValidationResult.internalConsistencyResultE.swap.toOption.map(cause =>
                   logged(
                     requestId,
                     LocalRejectError.MalformedRejects.ModelConformance.Reject(cause.toString),
                   ).toLocalReject(protocolVersion)
                 )
-              )
 
-            // Rejections due to a failed internal consistency check
-            val internalConsistencyRejections =
-              transactionValidationResult.internalConsistencyResultE.swap.toOption.map(cause =>
-                logged(
-                  requestId,
-                  LocalRejectError.MalformedRejects.ModelConformance.Reject(cause.toString),
-                ).toLocalReject(protocolVersion)
-              )
-
-            // Rejections due to a failed authentication check
-            val authenticationRejections =
-              transactionValidationResult.authenticationResult
-                .get(viewPosition)
-                .map(err =>
-                  logged(
-                    requestId,
-                    LocalRejectError.MalformedRejects.MalformedRequest.Reject(err.message),
-                  ).toLocalReject(protocolVersion)
-                )
-
-            // Rejections due to a transaction detected as a replay
-            val replayRejections =
-              transactionValidationResult.replayCheckResult
-                .map(err =>
-                  logged(
-                    requestId,
-                    // Conceptually, a normal LocalReject for the admin party should suffice for rejecting replays.
-                    // However, we nevertheless use a `Malformed` rejection here so that the rejection preference sorting
-                    // ensures that this rejection or something at least as strong will make it to the mediator.
-                    LocalRejectError.MalformedRejects.MalformedRequest.Reject(
-                      err.format(viewPosition)
-                    ),
-                  ).toLocalReject(protocolVersion)
-                )
-
-            // Rejections due to a failed authorization check
-            val authorizationRejections =
-              transactionValidationResult.authorizationResult
-                .get(viewPosition)
-                .map(cause =>
-                  logged(
-                    requestId,
-                    LocalRejectError.MalformedRejects.MalformedRequest.Reject(cause),
-                  ).toLocalReject(protocolVersion)
-                )
-
-            // Rejections due to a failed time validation
-            val timeValidationRejections =
-              transactionValidationResult.timeValidationResultE.swap.toOption
-                .map {
-                  case TimeValidator.LedgerTimeRecordTimeDeltaTooLargeError(
-                        ledgerTime,
-                        recordTime,
-                        maxDelta,
-                      ) =>
-                    LocalRejectError.TimeRejects.LedgerTime.Reject(
-                      s"ledgerTime=$ledgerTime, recordTime=$recordTime, maxDelta=$maxDelta"
-                    )
-                  case TimeValidator.PreparationTimeRecordTimeDeltaTooLargeError(
-                        preparationTime,
-                        recordTime,
-                        maxDelta,
-                      ) =>
-                    LocalRejectError.TimeRejects.PreparationTime.Reject(
-                      s"preparationTime=$preparationTime, recordTime=$recordTime, maxDelta=$maxDelta"
-                    )
-                }
-                .map(logged(requestId, _))
-                .map(_.toLocalReject(protocolVersion))
-
-            val contractConsistencyRejections =
-              transactionValidationResult.contractConsistencyResultE.swap.toOption.map(err =>
-                logged(
-                  requestId,
-                  LocalRejectError.MalformedRejects.MalformedRequest.Reject(err.toString),
-                ).toLocalReject(protocolVersion)
-              )
-
-            // Approve if the consistency check succeeded, reject otherwise.
-            val consistencyVerdicts = verdictsForView(viewValidationResult, hostedConfirmingParties)
-
-            val localVerdicts: Seq[LocalVerdict] =
-              consistencyVerdicts.toList ++ timeValidationRejections ++ contractConsistencyRejections ++
-                authenticationRejections ++ authorizationRejections ++
-                modelConformanceRejections ++ internalConsistencyRejections ++
-                replayRejections
-
-            val localVerdictAndPartiesO = localVerdicts
-              .collectFirst[(LocalVerdict, Set[LfPartyId])] {
-                case malformed: LocalReject if malformed.isMalformed => malformed -> Set.empty
-                case localReject: LocalReject if hostedConfirmingParties.nonEmpty =>
-                  localReject -> hostedConfirmingParties
-              }
-              .orElse(
-                Option.when(hostedConfirmingParties.nonEmpty)(
-                  LocalApprove(protocolVersion) -> hostedConfirmingParties
-                )
-              )
-
-            localVerdictAndPartiesO.map { case (localVerdict, parties) =>
-              checked(
-                ConfirmationResponse
-                  .tryCreate(
-                    Some(viewPosition),
-                    localVerdict,
-                    parties,
+              // Rejections due to a failed authentication check
+              val authenticationRejections =
+                transactionValidationResult.authenticationResult
+                  .get(viewPosition)
+                  .map(err =>
+                    logged(
+                      requestId,
+                      LocalRejectError.MalformedRejects.MalformedRequest.Reject(err.message),
+                    ).toLocalReject(protocolVersion)
                   )
-              )
+
+              // Rejections due to a transaction detected as a replay
+              val replayRejections =
+                transactionValidationResult.replayCheckResult
+                  .map(err =>
+                    logged(
+                      requestId,
+                      // Conceptually, a normal LocalReject for the admin party should suffice for rejecting replays.
+                      // However, we nevertheless use a `Malformed` rejection here so that the rejection preference sorting
+                      // ensures that this rejection or something at least as strong will make it to the mediator.
+                      LocalRejectError.MalformedRejects.MalformedRequest.Reject(
+                        err.format(viewPosition)
+                      ),
+                    ).toLocalReject(protocolVersion)
+                  )
+
+              // Rejections due to a failed authorization check
+              val authorizationRejections =
+                transactionValidationResult.authorizationResult
+                  .get(viewPosition)
+                  .map(cause =>
+                    logged(
+                      requestId,
+                      LocalRejectError.MalformedRejects.MalformedRequest.Reject(cause),
+                    ).toLocalReject(protocolVersion)
+                  )
+
+              // Rejections due to a failed time validation
+              val timeValidationRejections =
+                transactionValidationResult.timeValidationResultE.swap.toOption
+                  .map {
+                    case TimeValidator.LedgerTimeRecordTimeDeltaTooLargeError(
+                          ledgerTime,
+                          recordTime,
+                          maxDelta,
+                        ) =>
+                      LocalRejectError.TimeRejects.LedgerTime.Reject(
+                        s"ledgerTime=$ledgerTime, recordTime=$recordTime, maxDelta=$maxDelta"
+                      )
+                    case TimeValidator.PreparationTimeRecordTimeDeltaTooLargeError(
+                          preparationTime,
+                          recordTime,
+                          maxDelta,
+                        ) =>
+                      LocalRejectError.TimeRejects.PreparationTime.Reject(
+                        s"preparationTime=$preparationTime, recordTime=$recordTime, maxDelta=$maxDelta"
+                      )
+                  }
+                  .map(logged(requestId, _))
+                  .map(_.toLocalReject(protocolVersion))
+
+              val contractConsistencyRejections =
+                transactionValidationResult.contractConsistencyResultE.swap.toOption.map(err =>
+                  logged(
+                    requestId,
+                    LocalRejectError.MalformedRejects.MalformedRequest.Reject(err.toString),
+                  ).toLocalReject(protocolVersion)
+                )
+
+              // Approve if the consistency check succeeded, reject otherwise.
+              val consistencyVerdicts =
+                verdictsForView(viewValidationResult, hostedConfirmingParties)
+
+              val localVerdicts: Seq[LocalVerdict] =
+                consistencyVerdicts.toList ++ timeValidationRejections ++ contractConsistencyRejections ++
+                  authenticationRejections ++ authorizationRejections ++
+                  modelConformanceRejections ++ internalConsistencyRejections ++
+                  replayRejections
+
+              val localVerdictAndPartiesO = localVerdicts
+                .collectFirst[(LocalVerdict, Set[LfPartyId])] {
+                  case malformed: LocalReject if malformed.isMalformed => malformed -> Set.empty
+                  case localReject: LocalReject if hostedConfirmingParties.nonEmpty =>
+                    localReject -> hostedConfirmingParties
+                }
+                .orElse(
+                  Option.when(hostedConfirmingParties.nonEmpty)(
+                    LocalApprove(protocolVersion) -> hostedConfirmingParties
+                  )
+                )
+
+              localVerdictAndPartiesO.map { case (localVerdict, parties) =>
+                checked(
+                  ConfirmationResponse
+                    .tryCreate(
+                      Some(viewPosition),
+                      localVerdict,
+                      parties,
+                    )
+                )
+              }
             }
           }
-        }
-        .map(responses =>
-          checked(
-            NonEmpty
-              .from(responses)
-              .map(
-                ConfirmationResponses
-                  .tryCreate(
-                    requestId,
-                    transactionValidationResult.updateId.toRootHash,
-                    synchronizerId,
-                    participantId,
-                    _,
-                    protocolVersion,
-                  )
-              )
-          )
+      } yield {
+        checked(
+          NonEmpty
+            .from(responses)
+            .map(
+              ConfirmationResponses
+                .tryCreate(
+                  requestId,
+                  transactionValidationResult.updateId.toRootHash,
+                  synchronizerId,
+                  participantId,
+                  _,
+                  protocolVersion,
+                )
+            )
         )
+      }
+    }
 
     if (malformedPayloads.nonEmpty) {
       FutureUnlessShutdown.pure(

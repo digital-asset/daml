@@ -59,7 +59,7 @@ sealed trait MultiHostingInteractiveSubmissionIntegrationTest
 
         // Create a multi hosted party for this test suite
         val (onboardingTransactions, externalParty) =
-          participant1.parties.external
+          participant1.parties.testing.external
             .onboarding_transactions(
               "Alice",
               additionalConfirming = Seq(participant2),

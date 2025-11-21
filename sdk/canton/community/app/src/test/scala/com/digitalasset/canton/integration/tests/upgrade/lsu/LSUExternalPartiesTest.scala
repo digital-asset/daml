@@ -45,9 +45,9 @@ abstract class LSUExternalPartiesIntegrationTest extends LSUBase {
 
       val fixture = fixtureWithDefaults()
 
-      val alice = participant1.parties.external.enable("AliceE")
+      val alice = participant1.parties.testing.external.enable("AliceE")
       val bob = participant2.parties.enable("Bob")
-      val charlie = participant2.parties.external.enable("CharlieE")
+      val charlie = participant2.parties.testing.external.enable("CharlieE")
 
       // Submission is done on P2 not hosting alice
       val txIouAlice = participant2.ledger_api.javaapi.commands

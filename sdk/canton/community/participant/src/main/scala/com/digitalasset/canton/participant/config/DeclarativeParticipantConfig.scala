@@ -33,6 +33,7 @@ import com.google.protobuf.ByteString
 import pureconfig.error.CannotConvert
 
 import java.io.File
+import java.nio.file.Files
 
 /** Declarative participant config
   *
@@ -62,7 +63,7 @@ import java.io.File
   */
 final case class DeclarativeParticipantConfig(
     checkSelfConsistency: Boolean = true,
-    fetchedDarDirectory: File = new File("fetched-dars"),
+    fetchedDarDirectory: File = Files.createTempDirectory("fetched-dars").toFile,
     dars: Seq[DeclarativeDarConfig] = Seq(),
     parties: Seq[DeclarativePartyConfig] = Seq(),
     removeParties: Boolean = false,

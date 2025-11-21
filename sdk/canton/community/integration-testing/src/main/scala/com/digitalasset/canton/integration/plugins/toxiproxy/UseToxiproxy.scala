@@ -4,14 +4,18 @@
 package com.digitalasset.canton.integration.plugins.toxiproxy
 
 import com.digitalasset.canton.config.*
+import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.integration.ConfigTransforms.*
 import com.digitalasset.canton.integration.plugins.toxiproxy.ProxyConfig.postgresConfig
 import com.digitalasset.canton.integration.plugins.toxiproxy.UseToxiproxy.*
 import com.digitalasset.canton.integration.{ConfigTransform, EnvironmentSetupPlugin}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
+import com.digitalasset.canton.synchronizer.sequencer.SequencerConfig.BftSequencer
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig.P2PNetworkConfig
 import com.digitalasset.canton.{BaseTest, SequencerAlias, UniquePortGenerator}
 import eu.rekawek.toxiproxy.ToxiproxyClient
+import monocle.macros.GenLens
 import monocle.macros.syntax.lens.*
 import org.testcontainers.Testcontainers
 import org.testcontainers.containers.GenericContainer
@@ -260,6 +264,41 @@ final case class UseToxiproxy(toxiproxyConfig: ToxiproxyConfig)
               postgresConfig(dbName, proxy, dbTimeoutMillis, postgres)
             }
           )
+        )
+
+      case BftSequencerPeerToPeerInstanceConfig(
+            name,
+            upstreamHost,
+            upstreamPort,
+            from,
+          ) =>
+        val proxy = tryProxy(proxies, name)
+        List(
+          updateAllSequencerConfigs { case (_, cfg) =>
+            val updatedSequencerConfig = cfg.sequencer match {
+              case BftSequencer(blockSequencerConfig, bftOrdererConfig) =>
+                val updatedOrdererConfig = bftOrdererConfig
+                  .focus(_.initialNetwork)
+                  .some
+                  .andThen(GenLens[P2PNetworkConfig](_.peerEndpoints))
+                  .modify { peerEndpoints =>
+                    peerEndpoints.map {
+                      case peerEndpoint
+                          if peerEndpoint.address == upstreamHost && peerEndpoint.port == upstreamPort =>
+                        peerEndpoint
+                          .copy(
+                            address = proxy.ipFromHost,
+                            port = Port.tryCreate(proxy.portFromHost),
+                          )
+                      case x => x
+                    }
+                  }
+                BftSequencer(blockSequencerConfig, updatedOrdererConfig)
+
+              case x => x
+            }
+            cfg.focus(_.sequencer).replace(updatedSequencerConfig)
+          }
         )
 
       case _: BasicProxyInstanceConfig => List.empty

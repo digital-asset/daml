@@ -40,6 +40,7 @@ import com.digitalasset.canton.topology.store.TopologyStoreId
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{MonadUtil, StampedLockWithHandle}
+import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.annotation.unused
 import scala.collection.concurrent
@@ -67,6 +68,7 @@ trait SyncPersistentStateLookup {
       .toMap
 
   def latestKnownPSId(synchronizerId: SynchronizerId): Option[PhysicalSynchronizerId]
+  def latestKnownProtocolVersion(synchronizerId: SynchronizerId): Option[ProtocolVersion]
 
   def topologyFactoryFor(psid: PhysicalSynchronizerId): Option[TopologyComponentFactory]
 
