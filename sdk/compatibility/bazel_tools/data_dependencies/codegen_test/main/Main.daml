@@ -1,0 +1,16 @@
+module Main where
+
+import qualified Dep
+
+template MainData with
+    mainParty: Party
+    value: Int
+    dep: ContractId Dep.DepData
+  where
+    signatory mainParty
+
+    choice Consume : Int
+      controller mainParty
+      do
+        depValue <- exercise dep Dep.Consume
+        pure (value * depValue)

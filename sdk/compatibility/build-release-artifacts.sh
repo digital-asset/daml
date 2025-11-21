@@ -24,7 +24,9 @@ bazel build \
   --tool_java_runtime_version=nixpkgs_java_17 \
   --tool_java_language_version=17 \
   //release:sdk-release-tarball \
-  //daml-assistant:daml
+  //daml-assistant:daml \
+  //canton:community_app_deploy.jar
 
+cp -f bazel-bin/canton/community_app_deploy.jar "$HEAD_TARGET_DIR"
 cp -f bazel-bin/release/sdk-release-tarball-ce.tar.gz "$HEAD_TARGET_DIR"
 cp -f bazel-bin/daml-assistant/daml "$HEAD_TARGET_DIR"

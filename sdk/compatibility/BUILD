@@ -13,6 +13,7 @@ load(
     "data_dependencies_coins",
     "data_dependencies_daml_script_test",
     "data_dependencies_upgrade_test",
+    "data_dependencies_codegen_test",
 )
 load("//bazel_tools:versions.bzl", "versions")
 load("//:versions.bzl", "platform_versions", "sdk_versions", "stable_versions")
@@ -108,7 +109,7 @@ head = "0.0.0"
     # Test that the Daml script runner can run DARs built with an older SDK
     # version. I.e. where the runner version is at least the SDK version or
     # more recent.
-    if versions.is_at_least(sdk_version, platform_version)
+    if versions.is_at_least(sdk_version, platform_version) and versions.is_at_least("3.0.0", sdk_version)
 ] if not is_windows else None
 
 [
@@ -131,18 +132,27 @@ head = "0.0.0"
 ]
 
 [
-    data_dependencies_daml_script_test(
+    data_dependencies_codegen_test(
+        new_sdk_version = new_sdk_version,
         old_sdk_version = old_sdk_version,
     )
+    for new_sdk_version in sdk_versions
     for old_sdk_version in sdk_versions
-    # Tests that we can run a daml script from a package built with an older
-    # SDK version even when exposed through an import in a package built with
-    # the latest SDK version.
-    # (regression test for https://github.com/digital-asset/daml/issues/14291)
-    if old_sdk_version != "0.0.0"
-    # These tests use data-dependency reexports (#11147), so the earliest
-    # supported SDK is 1.18.0
-    if versions.is_at_least("3.0.0", old_sdk_version)
+    # Tests that we can build a package with a newer SDK version that has
+    # data-dependencies on packages built with an older SDK version.
+    if versions.is_at_least(old_sdk_version, new_sdk_version) and old_sdk_version != new_sdk_version
+]
+
+[
+    data_dependencies_daml_script_test(
+        new_sdk_version = new_sdk_version,
+        old_sdk_version = old_sdk_version,
+    )
+    for new_sdk_version in sdk_versions
+    for old_sdk_version in sdk_versions
+    # Tests that we can build a package with a newer SDK version that has
+    # data-dependencies on packages built with an older SDK version.
+    if versions.is_at_least(old_sdk_version, new_sdk_version) and old_sdk_version != new_sdk_version
 ]
 
 os_name = "linux" if not is_windows else "windows"

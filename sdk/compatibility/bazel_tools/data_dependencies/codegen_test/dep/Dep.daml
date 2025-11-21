@@ -1,0 +1,12 @@
+module Dep where
+
+template DepData with
+    depParty: Party
+    value: Int
+  where
+    signatory depParty
+
+    choice Consume : Int
+      controller depParty
+      do
+        pure value
