@@ -25,6 +25,9 @@ let shared = rec {
     patchelf
     protobuf3_20
     python3
+#   python_with_yaml = pkgs.python3.withPackages (ps: [
+#       ps.pyyaml
+#   ]);
     toxiproxy
     zip
   ;

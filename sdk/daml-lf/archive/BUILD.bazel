@@ -99,6 +99,7 @@ da_scala_library(
         ":daml_lf_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/language",
+        "//daml-lf/stable-packages:stable-package-list-reader-scala",
         "//libs-scala/crypto",
         "//libs-scala/nameof",
         "//libs-scala/safe-proto",
