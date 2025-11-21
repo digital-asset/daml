@@ -17,7 +17,7 @@ jobs:
   timeoutInMinutes: 60
   pool:
     name: 'ubuntu_20_04'
-    demands: assignment -equals default
+    demands: assignment -equals default-new
   steps:
   - checkout: self
     clean: true
