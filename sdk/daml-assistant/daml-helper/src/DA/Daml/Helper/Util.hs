@@ -313,6 +313,7 @@ withCantonSandbox options remainingArgs k = do
             , "val synchronizerOwners = Seq(sequencer1, mediator1)"
             , "bootstrap.synchronizer(\"mysynchronizer\", Seq(sequencer1), Seq(mediator1), synchronizerOwners, PositiveInt.one, staticSynchronizerParameters)"
             , "sandbox.synchronizers.connect_local(sequencer1, \"mysynchronizer\")"
+            , "utils.retry_until_true { sandbox.synchronizers.list_connected().length > 0 }"
             ]
 
 -- | Obtain a path to use as canton portfile, and give updated options.
