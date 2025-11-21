@@ -85,7 +85,6 @@ object LanguageVersion extends LanguageFeaturesGenerated {
   final case class Feature(
       name: String,
       versionReq: VersionRange[LanguageVersion],
-      cppFlag: String,
   ) {
     def enabledIn(lv: LanguageVersion): Boolean = versionReq.contains(lv)
   }
@@ -96,14 +95,14 @@ object LanguageVersion extends LanguageFeaturesGenerated {
       .toRight(s"${str} is not supported")
   def assertFromString(s: String): LanguageVersion = data.assertRight(fromString(s))
 
-  // TODO: remove after feature rework
+  // TODO: remove after https://github.com/digital-asset/daml/issues/22403
   def supportsPackageUpgrades(lv: LanguageVersion): Boolean =
     lv.major match {
       case Major.V2 => featurePackageUpgrades.enabledIn(lv)
       case Major.V1 => lv >= LegacyFeatures.packageUpgrades
     }
 
-  // TODO: remove after feature rework (this reworks ranges too, so this can be replaced by an Until range)
+  // TODO: remove after feature https://github.com/digital-asset/daml/issues/22403
   def allUpToVersion(version: LanguageVersion): VersionRange.Inclusive[LanguageVersion] = {
     version.major match {
       case Major.V2 => VersionRange(v2_1, version)

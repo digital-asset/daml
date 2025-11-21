@@ -50,91 +50,76 @@ trait LanguageFeaturesGenerated extends LanguageVersionGenerated {
   val featureUnstable: Feature = Feature(
     name = "Unstable, experimental features",
     versionReq = VersionRange.Inclusive(v2_dev, v2_dev),
-    cppFlag = "DAML_UNSTABLE",
   )
 
   val featureTextMap: Feature = Feature(
     name = "TextMap type",
     versionReq = VersionRange.Inclusive(v2_dev, v2_dev),
-    cppFlag = "DAML_TEXTMAP",
   )
 
   val featureBigNumeric: Feature = Feature(
     name = "BigNumeric type",
     versionReq = VersionRange.Inclusive(v2_dev, v2_dev),
-    cppFlag = "DAML_BIGNUMERIC",
   )
 
   val featureExceptions: Feature = Feature(
     name = "Daml Exceptions",
     versionReq = VersionRange.From(v2_1),
-    cppFlag = "DAML_EXCEPTIONS",
   )
 
   val featureExtendedInterfaces: Feature = Feature(
     name = "Guards in interfaces",
     versionReq = VersionRange.Inclusive(v2_dev, v2_dev),
-    cppFlag = "DAML_INTERFACE_EXTENDED",
   )
 
   val featureChoiceFuncs: Feature = Feature(
     name = "choiceController and choiceObserver functions",
     versionReq = VersionRange.Empty(),
-    cppFlag = "DAML_CHOICE_FUNCS",
   )
 
   val featureTemplateTypeRepToText: Feature = Feature(
     name = "templateTypeRepToText function",
     versionReq = VersionRange.Inclusive(v2_dev, v2_dev),
-    cppFlag = "DAML_TEMPLATE_TYPEREP_TO_TEXT",
   )
 
   val featureContractKeys: Feature = Feature(
     name = "Contract Keys",
     versionReq = VersionRange.Inclusive(v2_dev, v2_dev),
-    cppFlag = "DAML_CONTRACT_KEYS",
   )
 
   val featureFlatArchive: Feature = Feature(
     name = "Flat Archive",
     versionReq = VersionRange.From(v2_2),
-    cppFlag = "DAML_FLATARCHIVE",
   )
 
   val featurePackageImports: Feature = Feature(
     name = "Explicit package imports",
     versionReq = VersionRange.From(v2_2),
-    cppFlag = "DAML_PackageImports",
   )
 
   val featureComplexAnyType: Feature = Feature(
     name = "Complex Any type",
     versionReq = VersionRange.Inclusive(v2_dev, v2_dev),
-    cppFlag = "DAML_COMPLEX_ANY_TYPE",
   )
 
   val featureExperimental: Feature = Feature(
     name = "Daml Experimental",
     versionReq = VersionRange.Inclusive(v2_dev, v2_dev),
-    cppFlag = "DAML_EXPERIMENTAL",
   )
 
   val featurePackageUpgrades: Feature = Feature(
     name = "Package upgrades",
     versionReq = VersionRange.From(v2_1),
-    cppFlag = "DAML_PackageUpgrades",
   )
 
   val featureChoiceAuthority: Feature = Feature(
     name = "ChoiceAuthority???",
     versionReq = VersionRange.Inclusive(v2_dev, v2_dev),
-    cppFlag = "DAML_ChoiceAuthority",
   )
 
   val featureUnsafeFromInterface: Feature = Feature(
     name = "UnsafeFromInterface???",
     versionReq = VersionRange.Until(v2_1),
-    cppFlag = "DAML_UnsafeFromInterface",
   )
 
   val allFeatures: List[Feature] = List(
