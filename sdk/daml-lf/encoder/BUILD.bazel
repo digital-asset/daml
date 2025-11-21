@@ -34,6 +34,7 @@ da_scala_library(
         "//daml-lf/archive:daml_lf_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
+        "//daml-lf/stable-packages",
         "//daml-lf/language",
         "//libs-scala/crypto",
         "//libs-scala/safe-proto",
