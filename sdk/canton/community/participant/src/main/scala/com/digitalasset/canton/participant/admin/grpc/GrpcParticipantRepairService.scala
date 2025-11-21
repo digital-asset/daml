@@ -28,11 +28,8 @@ import com.digitalasset.canton.participant.admin.grpc.GrpcParticipantRepairServi
   ValidExportAcsOldRequest,
   ValidExportAcsRequest,
 }
+import com.digitalasset.canton.participant.admin.repair.RepairServiceError
 import com.digitalasset.canton.participant.admin.repair.RepairServiceError.ImportAcsError
-import com.digitalasset.canton.participant.admin.repair.{
-  ContractAuthenticationImportProcessor,
-  RepairServiceError,
-}
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.protocol.LfContractId
@@ -469,7 +466,6 @@ final class GrpcParticipantRepairService(
               representativePackageIdOverride = representativePackageIdOverride,
               sync = sync,
               batching = batching,
-              loggerFactory = loggerFactory,
             )
           )
         } yield ()
@@ -508,16 +504,7 @@ final class GrpcParticipantRepairService(
 
       workflowIdPrefixO = Option.when(workflowIdPrefix != "")(workflowIdPrefix)
 
-      activeContractsWithRemapping <-
-        ContractAuthenticationImportProcessor(
-          loggerFactory,
-          sync.syncPersistentStateManager,
-          sync.contractValidator,
-          ContractImportMode.Validation,
-        )(repairContracts)
-      activeContractsWithValidContractIds = activeContractsWithRemapping
-
-      _ <- activeContractsWithValidContractIds.groupBy(_.synchronizerId).toSeq.parTraverse_ {
+      _ <- repairContracts.groupBy(_.synchronizerId).toSeq.parTraverse_ {
         case (synchronizerId, contracts) =>
           MonadUtil.batchedSequentialTraverse_(
             batching.parallelism,
@@ -552,6 +539,9 @@ final class GrpcParticipantRepairService(
         sync.repairService.addContracts(
           alias,
           contracts,
+          contractImportMode = ContractImportMode.Validation,
+          packageMetadataSnapshot = sync.getPackageMetadataSnapshot,
+          representativePackageIdOverride = RepresentativePackageIdOverride.NoOverride,
           ignoreAlreadyAdded = true,
           ignoreStakeholderCheck = true,
           workflowIdPrefix = workflowIdPrefixO,

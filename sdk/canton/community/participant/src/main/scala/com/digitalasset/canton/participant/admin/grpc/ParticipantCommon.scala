@@ -11,7 +11,7 @@ import com.digitalasset.canton.config.BatchingConfig
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.InternalIndexService
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory}
+import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.participant.admin.data.{
   ContractImportMode,
   RepairContract,
@@ -19,10 +19,6 @@ import com.digitalasset.canton.participant.admin.data.{
 }
 import com.digitalasset.canton.participant.admin.party.LapiAcsHelper
 import com.digitalasset.canton.participant.admin.repair.RepairServiceError.ImportAcsError
-import com.digitalasset.canton.participant.admin.repair.{
-  ContractAuthenticationImportProcessor,
-  SelectRepresentativePackageIds,
-}
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -109,7 +105,6 @@ private[participant] object ParticipantCommon {
       batching: BatchingConfig,
       contractImportMode: ContractImportMode,
       excludedStakeholders: Set[PartyId],
-      loggerFactory: NamedLoggerFactory,
       representativePackageIdOverride: RepresentativePackageIdOverride,
       sync: CantonSyncService,
       workflowIdPrefix: String,
@@ -117,35 +112,21 @@ private[participant] object ParticipantCommon {
       ec: ExecutionContext,
       elc: ErrorLoggingContext,
       traceContext: TraceContext,
-  ): Future[Unit] = {
-
-    val packageMetadataSnapshot = sync.getPackageMetadataSnapshot
-    val selectRepresentativePackageIds = new SelectRepresentativePackageIds(
-      representativePackageIdOverride = representativePackageIdOverride,
-      knownPackages = packageMetadataSnapshot.packages.keySet,
-      packageNameMap = packageMetadataSnapshot.packageNameMap,
-      contractImportMode = contractImportMode,
-      loggerFactory = loggerFactory,
-    )
-    val importer = new AcsImporter(
+  ): Future[Unit] =
+    new AcsImporter(
       sync,
       batching,
-      loggerFactory,
       workflowIdPrefix,
       contractImportMode,
-      selectRepresentativePackageIds,
-    )
-
-    importer.runImport(acsSnapshot, excludedStakeholders)
-  }
+      representativePackageIdOverride,
+    ).runImport(acsSnapshot, excludedStakeholders)
 
   private final class AcsImporter(
       sync: CantonSyncService,
       batching: BatchingConfig,
-      loggerFactory: NamedLoggerFactory,
       workflowIdPrefix: String,
       contractImportMode: ContractImportMode,
-      selectRepresentativePackageIds: SelectRepresentativePackageIds,
+      representativePackageIdOverride: RepresentativePackageIdOverride,
   )(implicit
       ec: ExecutionContext,
       elc: ErrorLoggingContext,
@@ -170,11 +151,12 @@ private[participant] object ParticipantCommon {
           )
       }
 
-      importAcsContracts(contractsE)
+      importAcsContracts(contractsE, contractImportMode)
     }
 
     private def importAcsContracts(
-        contracts: Either[String, List[RepairContract]]
+        contracts: Either[String, List[RepairContract]],
+        contractImportMode: ContractImportMode,
     ): Future[Unit] = {
       val resultET = for {
         repairContracts <- contracts
@@ -183,25 +165,19 @@ private[participant] object ParticipantCommon {
             "Found at least one contract with a non-zero reassignment counter. ACS import does not yet support it."
           )(_.forall(_.reassignmentCounter == ReassignmentCounter.Genesis))
 
-        contractsWithOverriddenRpId <- selectRepresentativePackageIds(repairContracts)
-          .toEitherT[FutureUnlessShutdown]
-
-        activeContractsWithRemapping <-
-          ContractAuthenticationImportProcessor(
-            loggerFactory,
-            sync.syncPersistentStateManager,
-            sync.contractValidator,
-            contractImportMode,
-          )(contractsWithOverriddenRpId)
-        activeContractsWithValidContractIds = activeContractsWithRemapping
-
-        _ <- activeContractsWithValidContractIds.groupBy(_.synchronizerId).toSeq.parTraverse_ {
+        _ <- repairContracts.groupBy(_.synchronizerId).toSeq.parTraverse_ {
           case (synchronizerId, contracts) =>
             MonadUtil.batchedSequentialTraverse_(
               batching.parallelism,
               batching.maxAcsImportBatchSize,
             )(contracts)(
-              writeContractsBatch(synchronizerId, _).mapK(FutureUnlessShutdown.outcomeK)
+              writeContractsBatch(
+                synchronizerId,
+                _,
+                contractImportMode,
+                representativePackageIdOverride,
+              )
+                .mapK(FutureUnlessShutdown.outcomeK)
             )
         }
       } yield ()
@@ -215,6 +191,8 @@ private[participant] object ParticipantCommon {
     private def writeContractsBatch(
         synchronizerId: SynchronizerId,
         contracts: Seq[RepairContract],
+        contractImportMode: ContractImportMode,
+        representativePackageIdOverride: RepresentativePackageIdOverride,
     ): EitherT[Future, String, Unit] =
       for {
         alias <- EitherT.fromEither[Future](
@@ -229,6 +207,9 @@ private[participant] object ParticipantCommon {
             contracts,
             ignoreAlreadyAdded = true,
             ignoreStakeholderCheck = true,
+            contractImportMode,
+            sync.getPackageMetadataSnapshot,
+            representativePackageIdOverride,
             workflowIdPrefix = workflowIdPrefixO,
           )
         )

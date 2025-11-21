@@ -12,11 +12,28 @@ import com.digitalasset.canton.integration.TestConsoleEnvironment
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 
 import scala.concurrent.Future
+import scala.concurrent.duration.FiniteDuration
 
 final class ParticipantPruningAuthIT extends AdminServiceCallAuthTests {
   registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   override def serviceCallName: String = "ParticipantPruningService#Prune"
+
+  override protected def additionalEnvironmentSetup(
+      testConsoleEnvironment: TestConsoleEnvironment
+  ): Unit = {
+    import testConsoleEnvironment.*
+    // ensure pruning call can succeed eventually, by bumping time with ledger-traffic for make ACS commitment reconciliation bounds happy
+    eventually() {
+      participant1.health.ping(participant1)
+      environment.simClock.value.advanceTo(
+        environment.simClock.value.now.add(FiniteDuration(2, "seconds"))
+      )
+      expectSuccess(serviceCall(canReadAsAdminExpiresInAnHour)(testConsoleEnvironment))
+    }
+    // ensure subsequent pruning call succeeds
+    expectSuccess(serviceCall(canReadAsAdminExpiresInAnHour)(testConsoleEnvironment))
+  }
 
   override def serviceCall(
       context: ServiceCallContext

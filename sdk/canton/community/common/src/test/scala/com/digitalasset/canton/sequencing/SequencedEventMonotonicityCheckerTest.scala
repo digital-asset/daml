@@ -16,7 +16,7 @@ import com.digitalasset.canton.util.{ErrorUtil, ResourceUtil}
 import com.digitalasset.canton.{
   BaseTest,
   HasExecutionContext,
-  ProtocolVersionChecksFixtureAnyWordSpec,
+  TestPredicateFiltersFixtureAnyWordSpec,
 }
 import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 import org.scalatest.Outcome
@@ -28,7 +28,7 @@ class SequencedEventMonotonicityCheckerTest
     extends FixtureAnyWordSpec
     with BaseTest
     with HasExecutionContext
-    with ProtocolVersionChecksFixtureAnyWordSpec {
+    with TestPredicateFiltersFixtureAnyWordSpec {
   import SequencedEventMonotonicityCheckerTest.*
 
   override protected type FixtureParam = SequencedEventTestFixture

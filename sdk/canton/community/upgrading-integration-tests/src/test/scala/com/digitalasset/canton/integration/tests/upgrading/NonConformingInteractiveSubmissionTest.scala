@@ -49,9 +49,9 @@ class NonConformingInteractiveSubmissionTest
         import env.*
         participant1.synchronizers.connect_local(sequencer1, alias = daName)
         participant1.dars.upload(UpgradingBaseTest.NonConformingX)
-        payer = participant1.parties.external.enable("Payer")
-        payee = participant1.parties.external.enable("Payee")
-        bank = participant1.parties.external.enable("Bank")
+        payer = participant1.parties.testing.external.enable("Payer")
+        payee = participant1.parties.testing.external.enable("Payee")
+        bank = participant1.parties.testing.external.enable("Bank")
       }
 
   "Interactive submission" should {

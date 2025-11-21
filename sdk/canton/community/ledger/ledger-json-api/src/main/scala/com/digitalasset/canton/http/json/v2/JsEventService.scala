@@ -79,7 +79,7 @@ object JsEventService extends DocumentationEndpoints {
     .in(sttp.tapir.stringToPath("events-by-contract-id"))
     .in(jsonBody[event_query_service.GetEventsByContractIdRequest])
     .out(jsonBody[JsGetEventsByContractIdResponse])
-    .description("Get events by contract Id")
+    .protoRef(event_query_service.EventQueryServiceGrpc.METHOD_GET_EVENTS_BY_CONTRACT_ID)
 
   override def documentation: Seq[AnyEndpoint] = Seq(
     getEventsByContractIdEndpoint

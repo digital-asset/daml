@@ -7,20 +7,20 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service.Prepare
 import com.daml.nonempty.NonEmptyUtil
 import com.daml.scalautil.future.FutureConversion.*
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.console.CommandFailure
+import com.digitalasset.canton.console.{CommandFailure, LocalParticipantReference}
 import com.digitalasset.canton.crypto.InteractiveSubmission.TransactionMetadataForHashing
 import com.digitalasset.canton.crypto.{InteractiveSubmission, Signature, SigningKeyUsage}
 import com.digitalasset.canton.damltests.java.statictimetest.Pass
 import com.digitalasset.canton.data.DeduplicationPeriod.DeduplicationOffset
 import com.digitalasset.canton.examples.java.cycle as M
 import com.digitalasset.canton.integration.plugins.UseProgrammableSequencer
-import com.digitalasset.canton.integration.tests.ledgerapi.submission.BaseInteractiveSubmissionTest.defaultConfirmingParticipant
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
   EnvironmentDefinition,
   HasCycleUtils,
   SharedEnvironment,
+  TestConsoleEnvironment,
 }
 import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.ExecuteRequest
 import com.digitalasset.canton.logging.SuppressionRule.LevelAndAbove
@@ -32,6 +32,7 @@ import com.digitalasset.canton.logging.{
 }
 import com.digitalasset.canton.platform.apiserver.execution.CommandInterpretationResult
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.codec.PreparedTransactionDecoder
+import com.digitalasset.canton.protocol.LocalRejectError.MalformedRejects.MalformedRequest
 import com.digitalasset.canton.protocol.hash.HashTracer
 import com.digitalasset.canton.sequencing.protocol.MemberRecipient
 import com.digitalasset.canton.synchronizer.sequencer.{HasProgrammableSequencer, SendDecision}
@@ -62,14 +63,14 @@ final class InteractiveSubmissionConfirmationIntegrationTest
   private var aliceE: ExternalParty = _
 
   override def environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P3_S1M1
+    EnvironmentDefinition.P1_S1M1
       .withSetup { implicit env =>
         import env.*
         participants.all.synchronizers.connect_local(sequencer1, alias = daName)
         participants.all.dars.upload(CantonExamplesPath)
         participants.all.dars.upload(CantonTestsPath)
 
-        aliceE = cpn.parties.external.enable(
+        aliceE = cpn.parties.testing.external.enable(
           "Alice",
           // Use 3 keys but start with a threshold of 1
           keysCount = PositiveInt.three,
@@ -80,109 +81,63 @@ final class InteractiveSubmissionConfirmationIntegrationTest
 
   registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
 
+  override def cpn(implicit env: TestConsoleEnvironment): LocalParticipantReference =
+    env.participant1
+
   "Interactive submission in phase 3" should {
-    "fail if the number of signatures is under the threshold" in { implicit env =>
-      val sequencer = getProgrammableSequencer(env.sequencer1.name)
-
-      val prepared = ppn.ledger_api.javaapi.interactive_submission.prepare(
-        Seq(aliceE.partyId),
-        Seq(
-          new M.Cycle(
-            "test-external-signing",
-            aliceE.toProtoPrimitive,
-          ).create.commands.loneElement
-        ),
+    val malformedRequestLogAssertion: Seq[(LogEntry => Assertion, String)] = Seq(
+      (
+        _.warningMessage should (include regex s"${MalformedRequest.id}.*with a view that is not correctly authenticated"),
+        "Expected malformed request log",
       )
+    )
 
-      // Sign with a single key
-      val singleSignature = env.global_secret.sign(
-        prepared.preparedTransactionHash,
-        aliceE.signingFingerprints.head1,
-        SigningKeyUsage.ProtocolOnly,
-      )
-
-      val localVerdictWarning = Seq(2, 3).map[(LogEntry => Assertion, String)]({ p =>
-        (
-          e => {
-            e.warningMessage should (include regex "LOCAL_VERDICT_MALFORMED_REQUEST.*with a view that is not correctly authenticated")
-            e.mdc.get("participant") shouldBe Some(s"participant$p")
-          },
-          s"participant$p authentication",
-        )
-      })
-
-      // To bypass the checks in phase 1 we play a trick by holding back the submission request in the sequencer
-      // while we increase the key threshold, and release afterwards
-      val releaseSubmission = Promise[Unit]()
-      sequencer.setPolicy_("hold submission") {
-        case submission if submission.batch.envelopes.exists(_.recipients.allRecipients.exists {
-              case MemberRecipient(member) => member == defaultConfirmingParticipant(env).id
-              case _ => false
-            }) =>
-          SendDecision.HoldBack(releaseSubmission.future)
-        case _ => SendDecision.Process
-      }
-      loggerFactory.assertEventuallyLogsSeq(LevelAndAbove(Level.WARN))(
+    def invalidSignaturesLogAssertion(
+        valid: Int,
+        invalid: Int,
+        expectedValid: Int,
+    ): Seq[(LogEntry => Assertion, String)] = Seq(
+      (
         {
-          val (submissionId, ledgerEnd) =
-            exec(prepared, Map(aliceE.partyId -> Seq(singleSignature)), epn)
-
-          cpn.topology.party_to_key_mappings
-            .sign_and_update(aliceE.partyId, env.daId, _.tryCopy(threshold = PositiveInt.two))
-
-          releaseSubmission.success(())
-          val completion = findCompletion(
-            submissionId,
-            ledgerEnd,
-            aliceE,
-            epn,
+          _.warningMessage should include(
+            s"Received $valid valid signatures from distinct keys ($invalid invalid), but expected at least $expectedValid valid for ${aliceE.partyId}"
           )
-          // Transaction should fail
-          completion.status.value.code shouldBe Status.Code.INVALID_ARGUMENT.value()
         },
-        LogEntry.assertLogSeq(
-          localVerdictWarning ++ Seq(2, 3).map({ p =>
-            (
-              e => {
-                e.warningMessage should (include(
-                  s"Received 1 valid signatures from distinct keys (0 invalid), but expected at least 2 valid for ${aliceE.partyId}"
-                ))
-                e.mdc.get("participant") shouldBe Some(s"participant$p")
-              },
-              s"participant$p authentication",
-            )
-          }),
-          Seq.empty,
-        ),
+        "Expected invalid signature log",
       )
-    }
+    )
 
-    def testInvalidSignatures(
+    def bypassPhase1Validations(
         assertion: (
             PrepareSubmissionResponse,
             Map[PartyId, Seq[Signature]],
             Promise[Unit],
         ) => Assertion,
-        additionalExpectedLogs: Seq[(LogEntry => Assertion, String)] = Seq.empty,
+        expectedLogs: Seq[(LogEntry => Assertion, String)],
+        signaturesModifier: Map[PartyId, Seq[Signature]] => Map[PartyId, Seq[Signature]] = identity,
+        externalParty: ExternalParty = aliceE,
+        expectMalformedRequest: Boolean = true,
     )(implicit env: FixtureParam): Unit = {
       import env.*
 
       val sequencer = getProgrammableSequencer(env.sequencer1.name)
 
-      val prepared = ppn.ledger_api.javaapi.interactive_submission.prepare(
-        Seq(aliceE.partyId),
+      val prepared = cpn.ledger_api.javaapi.interactive_submission.prepare(
+        Seq(externalParty.partyId),
         Seq(
           new M.Cycle(
             "test-external-signing",
-            aliceE.toProtoPrimitive,
+            externalParty.toProtoPrimitive,
           ).create.commands.loneElement
         ),
       )
-      val signatures = Map(
-        aliceE.partyId -> global_secret.sign(
-          prepared.preparedTransactionHash,
-          aliceE,
-          useAllKeys = true,
+      val signatures = signaturesModifier(
+        Map(
+          externalParty.partyId -> global_secret.sign(
+            prepared.preparedTransactionHash,
+            externalParty,
+            useAllKeys = true,
+          )
         )
       )
 
@@ -191,8 +146,10 @@ final class InteractiveSubmissionConfirmationIntegrationTest
       val releaseSubmission = Promise[Unit]()
       sequencer.setPolicy_("hold submission") {
         case submission if submission.batch.envelopes.exists(_.recipients.allRecipients.exists {
-              case MemberRecipient(member) => member == defaultConfirmingParticipant(env).id
-              case _ => false
+              case MemberRecipient(member) =>
+                member == cpn.id
+              case _ =>
+                false
             }) =>
           SendDecision.HoldBack(releaseSubmission.future)
         case _ => SendDecision.Process
@@ -200,58 +157,81 @@ final class InteractiveSubmissionConfirmationIntegrationTest
       loggerFactory.assertEventuallyLogsSeq(LevelAndAbove(Level.WARN))(
         assertion(prepared, signatures, releaseSubmission),
         LogEntry.assertLogSeq(
-          additionalExpectedLogs ++
-            Seq(2, 3).map({ p =>
-              (
-                e => {
-                  e.warningMessage should (include(
-                    s"Received 0 valid signatures from distinct keys (3 invalid), but expected at least 2 valid for ${aliceE.partyId}"
-                  ))
-                  e.mdc.get("participant") shouldBe Some(s"participant$p")
-                },
-                s"participant$p authentication",
-              )
-            }),
+          Option
+            .when(expectMalformedRequest)(malformedRequestLogAssertion)
+            .getOrElse(Seq.empty) ++ expectedLogs,
           Seq.empty,
         ),
       )
     }
 
-    "fail if the signatures are invalid" in { implicit env =>
-      testInvalidSignatures { (prepared, signatures, releaseSubmission) =>
-        val (submissionId, ledgerEnd) = exec(prepared, signatures, epn)
+    "fail if the number of signatures is under the threshold" in { implicit env =>
+      bypassPhase1Validations(
+        { (prepared, signatures, releaseSubmission) =>
+          val (submissionId, ledgerEnd) = exec(prepared, signatures, cpn)
 
-        val newKeys = NonEmptyUtil.fromUnsafe(
-          Set.fill(3)(
-            env.global_secret.keys.secret.generate_key(usage = SigningKeyUsage.ProtocolOnly)
+          // Change the protocol keys and threshold
+          cpn.topology.party_to_key_mappings.sign_and_update(
+            aliceE.partyId,
+            env.daId,
+            _.tryCopy(threshold = PositiveInt.two),
           )
-        )
 
-        // Change the protocol keys and threshold
-        cpn.topology.party_to_key_mappings.sign_and_update(
-          aliceE.partyId,
-          env.daId,
-          _.tryCopy(threshold = PositiveInt.two, signingKeys = newKeys),
-        )
+          // Update alice with the new threshold for subsequent tests
+          aliceE = aliceE.copy(signingThreshold = PositiveInt.two)
+          releaseSubmission.success(())
+          val completion = findCompletion(
+            submissionId,
+            ledgerEnd,
+            aliceE,
+            cpn,
+          )
+          // Transaction should fail
+          completion.status.value.code shouldBe Status.Code.INVALID_ARGUMENT.value()
+        },
+        signaturesModifier = _.updatedWith(aliceE.partyId)(_.map(_.take(1))),
+        expectedLogs = invalidSignaturesLogAssertion(valid = 1, invalid = 0, expectedValid = 2),
+      )
+    }
 
-        // Update alice with the new keys for subsequent tests
-        aliceE = aliceE.copy(signingFingerprints = newKeys.map(_.fingerprint).toSeq)
-        releaseSubmission.success(())
-        val completion = findCompletion(
-          submissionId,
-          ledgerEnd,
-          aliceE,
-          epn,
-        )
-        // Transaction should fail
-        completion.status.value.code shouldBe Status.Code.INVALID_ARGUMENT.value()
-      }
+    "fail if the signatures are invalid" in { implicit env =>
+      bypassPhase1Validations(
+        { (prepared, signatures, releaseSubmission) =>
+          val (submissionId, ledgerEnd) = exec(prepared, signatures, cpn)
+
+          val newKeys = NonEmptyUtil.fromUnsafe(
+            Set.fill(3)(
+              env.global_secret.keys.secret.generate_key(usage = SigningKeyUsage.ProtocolOnly)
+            )
+          )
+
+          // Change the protocol keys and threshold
+          cpn.topology.party_to_key_mappings.sign_and_update(
+            aliceE.partyId,
+            env.daId,
+            _.tryCopy(signingKeys = newKeys),
+          )
+
+          // Update alice with the new keys for subsequent tests
+          aliceE = aliceE.copy(signingFingerprints = newKeys.map(_.fingerprint).toSeq)
+          releaseSubmission.success(())
+          val completion = findCompletion(
+            submissionId,
+            ledgerEnd,
+            aliceE,
+            cpn,
+          )
+          // Transaction should fail
+          completion.status.value.code shouldBe Status.Code.INVALID_ARGUMENT.value()
+        },
+        expectedLogs = invalidSignaturesLogAssertion(valid = 0, invalid = 3, expectedValid = 2),
+      )
     }
 
     "fail execute and wait if the signatures are invalid" in { implicit env =>
-      testInvalidSignatures(
+      bypassPhase1Validations(
         { (prepared, signatures, releaseSubmission) =>
-          val response = Future(execAndWait(prepared, signatures))
+          val response = Future(execAndWait(prepared, signatures, execParticipant = _ => cpn))
 
           val newKeys = env.global_secret.keys.secret
             .generate_keys(PositiveInt.three, usage = SigningKeyUsage.ProtocolOnly)
@@ -272,14 +252,15 @@ final class InteractiveSubmissionConfirmationIntegrationTest
             case _ => fail("Expected a command failure")
           }
         },
-        Seq(
-          (
-            _.errorMessage should include(
-              s"Request failed for participant2"
-            ),
-            "expect invalid signatures",
-          )
-        ),
+        expectedLogs =
+          invalidSignaturesLogAssertion(valid = 0, invalid = 3, expectedValid = 2) ++ Seq(
+            (
+              _.errorMessage should include(
+                s"Request failed for ${cpn.name}"
+              ),
+              "expect invalid signatures",
+            )
+          ),
       )
     }
 
@@ -291,7 +272,7 @@ final class InteractiveSubmissionConfirmationIntegrationTest
         new Pass("create-and-exe", aliceE.toProtoPrimitive, env.environment.clock.now.toInstant)
           .createAnd()
           .exerciseGetTime()
-      val prepared = ppn.ledger_api.javaapi.interactive_submission
+      val prepared = cpn.ledger_api.javaapi.interactive_submission
         .prepare(Seq(aliceE.partyId), Seq(pass.commands().loneElement))
       val signatures = Map(
         aliceE.partyId -> global_secret.sign(
@@ -304,20 +285,10 @@ final class InteractiveSubmissionConfirmationIntegrationTest
       val completion =
         loggerFactory.assertEventuallyLogsSeq(SuppressionRule.LevelAndAbove(Level.WARN))(
           {
-            val (submissionId, ledgerEnd) = exec(prepared, signatures, epn)
-            findCompletion(submissionId, ledgerEnd, aliceE, epn)
+            val (submissionId, ledgerEnd) = exec(prepared, signatures, cpn)
+            findCompletion(submissionId, ledgerEnd, aliceE, cpn)
           },
-          LogEntry.assertLogSeq(
-            Seq(2, 3).map({ p =>
-              (
-                e => {
-                  e.warningMessage should (include regex "LOCAL_VERDICT_MALFORMED_REQUEST.*with a view that is not correctly authenticated")
-                  e.mdc.get("participant") shouldBe Some(s"participant$p")
-                },
-                s"participant$p authentication",
-              )
-            })
-          ),
+          LogEntry.assertLogSeq(malformedRequestLogAssertion),
         )
       completion.status.value.code shouldBe Status.Code.INVALID_ARGUMENT.value()
     }
@@ -409,7 +380,7 @@ final class InteractiveSubmissionConfirmationIntegrationTest
 
       loggerFactory.assertEventuallyLogsSeq(LevelAndAbove(Level.WARN))(
         {
-          val participant = participant3.runningNode.value.getNode.value
+          val participant = cpn.runningNode.value.getNode.value
           val routingSynchronizerState = participant.sync.getRoutingSynchronizerState
           val synchronizerRank = participant.sync
             .selectRoutingSynchronizer(
@@ -442,14 +413,11 @@ final class InteractiveSubmissionConfirmationIntegrationTest
             .futureValue
         },
         LogEntry.assertLogSeq(
-          Seq(
-            (
-              // This is logged during phase 3 when the CPN does not recognize the signature
-              _.warningMessage should include("with a view that is not correctly authenticated"),
-              "expected invalid signature check",
-            )
-          ),
-          Seq.empty,
+          malformedRequestLogAssertion ++ invalidSignaturesLogAssertion(
+            valid = 0,
+            invalid = 1,
+            expectedValid = 1,
+          )
         ),
       )
     }

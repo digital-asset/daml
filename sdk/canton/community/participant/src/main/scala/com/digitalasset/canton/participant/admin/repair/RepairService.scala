@@ -27,7 +27,11 @@ import com.digitalasset.canton.lifecycle.{
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
 import com.digitalasset.canton.participant.ParticipantNodeParameters
-import com.digitalasset.canton.participant.admin.data.RepairContract
+import com.digitalasset.canton.participant.admin.data.{
+  ContractImportMode,
+  RepairContract,
+  RepresentativePackageIdOverride,
+}
 import com.digitalasset.canton.participant.admin.repair.RepairService.ContractToAdd
 import com.digitalasset.canton.participant.event.RecordTime
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
@@ -42,6 +46,7 @@ import com.digitalasset.canton.participant.synchronizer.SynchronizerAliasManager
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.{LfChoiceName, *}
 import com.digitalasset.canton.store.SequencedEventStore
+import com.digitalasset.canton.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.*
@@ -89,6 +94,7 @@ final class RepairService(
     parameters: ParticipantNodeParameters,
     syncPersistentStateLookup: SyncPersistentStateLookup,
     connectedSynchronizersLookup: ConnectedSynchronizersLookup,
+    contractValidator: ContractValidator,
     @VisibleForTesting
     private[canton] val executionQueue: SimpleExecutionQueue,
     protected val loggerFactory: NamedLoggerFactory,
@@ -265,6 +271,12 @@ final class RepairService(
     *   this to true (at least on retries) enables writing idempotent repair scripts.
     * @param ignoreStakeholderCheck
     *   do not check for stakeholder presence for the given parties
+    * @param contractImportMode
+    *   Whether contract ids should be validated
+    * @param packageMetadataSnapshot
+    *   Snapshot of the packages metadata
+    * @param representativePackageIdOverride
+    *   Description for the override of the representative package ids
     * @param workflowIdPrefix
     *   If present, each transaction generated for added contracts will have a workflow ID whose
     *   prefix is the one set and the suffix is a sequential number and the number of transactions
@@ -275,6 +287,9 @@ final class RepairService(
       contracts: Seq[RepairContract],
       ignoreAlreadyAdded: Boolean,
       ignoreStakeholderCheck: Boolean,
+      contractImportMode: ContractImportMode,
+      packageMetadataSnapshot: PackageMetadata,
+      representativePackageIdOverride: RepresentativePackageIdOverride,
       workflowIdPrefix: Option[String] = None,
   )(implicit traceContext: TraceContext): Either[String, Unit] = {
     logger.info(
@@ -286,6 +301,14 @@ final class RepairService(
       runConsecutiveAndAwaitUS(
         "repair.add",
         withRepairIndexer { repairIndexer =>
+          val selectRepresentativePackageIds = new SelectRepresentativePackageIds(
+            representativePackageIdOverride = representativePackageIdOverride,
+            knownPackages = packageMetadataSnapshot.packages.keySet,
+            packageNameMap = packageMetadataSnapshot.packageNameMap,
+            contractImportMode = contractImportMode,
+            loggerFactory = loggerFactory,
+          )
+
           (for {
             synchronizerId <- EitherT.fromEither[FutureUnlessShutdown](
               aliasManager
@@ -295,21 +318,33 @@ final class RepairService(
 
             synchronizer <- readSynchronizerData(synchronizerId, synchronizerAlias)
 
+            contractsWithOverriddenRpId <- selectRepresentativePackageIds(contracts)
+              .toEitherT[FutureUnlessShutdown]
+
+            _ <- ContractAuthenticationImportProcessor.validate(
+              loggerFactory,
+              syncPersistentStateLookup,
+              contractValidator,
+              contractImportMode,
+            )(contractsWithOverriddenRpId)
+
             contractStates <- EitherT.right[String](
               readContractAcsStates(
                 synchronizer.persistentState,
-                contracts.map(_.contract.contractId),
+                contractsWithOverriddenRpId.map(_.contract.contractId),
               )
             )
 
             contractInstances <-
               logOnFailureWithInfoLevel(
-                contractStore.value.lookupManyUncached(contracts.map(_.contract.contractId)),
+                contractStore.value.lookupManyUncached(
+                  contractsWithOverriddenRpId.map(_.contract.contractId)
+                ),
                 "Unable to lookup contracts in contract store",
               ).map(_.flatten)
 
             storedContracts = contractInstances.map(c => c.contractId -> c).toMap
-            filteredContracts <- contracts.zip(contractStates).parTraverseFilter {
+            filteredContracts <- contractsWithOverriddenRpId.zip(contractStates).parTraverseFilter {
               case (contract, acsState) =>
                 contractToAdd(
                   repairContract = contract,

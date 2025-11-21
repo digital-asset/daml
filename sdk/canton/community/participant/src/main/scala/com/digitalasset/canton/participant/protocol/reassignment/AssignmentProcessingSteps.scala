@@ -372,7 +372,12 @@ private[reassignment] class AssignmentProcessingSteps(
 
     } yield {
       val confirmationResponseF =
-        if (
+        if (assignmentValidationResult.hostedConfirmingReassigningParties.isEmpty) {
+          logger.debug(
+            "Not sending a verdict because the list of hosted confirming parties is empty"
+          )
+          FutureUnlessShutdown.pure(None)
+        } else if (
           assignmentValidationResult.reassigningParticipantValidationResult.isUnassignmentDataNotFound && isReassigningParticipant
         ) {
           logger.info(

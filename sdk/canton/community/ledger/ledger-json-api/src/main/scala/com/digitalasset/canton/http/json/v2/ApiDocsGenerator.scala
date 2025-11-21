@@ -5,17 +5,17 @@ package com.digitalasset.canton.http.json.v2
 
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.apiserver.services.VersionFile
-import com.digitalasset.canton.tracing.TraceContext
 import com.softwaremill.quicklens.*
+import monocle.macros.syntax.lens.*
 import sttp.apispec
-import sttp.apispec.asyncapi.AsyncAPI
-import sttp.apispec.openapi.OpenAPI
+import sttp.apispec.asyncapi.{AsyncAPI, ChannelItem, ReferenceOr}
+import sttp.apispec.openapi.{OpenAPI, Operation, PathItem}
 import sttp.apispec.{Schema, SchemaLike, asyncapi, openapi}
 import sttp.tapir.AnyEndpoint
 import sttp.tapir.docs.asyncapi.AsyncAPIInterpreter
 import sttp.tapir.docs.openapi.OpenAPIDocsInterpreter
 
-import scala.collection.immutable.{ListMap, SortedMap}
+import scala.collection.immutable.ListMap
 
 class ApiDocsGenerator(override protected val loggerFactory: NamedLoggerFactory)
     extends NamedLogging {
@@ -44,12 +44,77 @@ class ApiDocsGenerator(override protected val loggerFactory: NamedLoggerFactory)
   private def supplyProtoDocs(initial: openapi.OpenAPI, proto: ProtoInfo): openapi.OpenAPI = {
 
     val updatedComponents = initial.components.map(component => supplyComponents(component, proto))
-    initial.copy(components = updatedComponents)
+    val updatedPaths =
+      initial.paths.pathItems.map { case (path, pathItem) =>
+        (path, supplyPathItem(pathItem, proto))
+      }
+    initial.copy(
+      components = updatedComponents,
+      paths = initial.paths.copy(pathItems = updatedPaths),
+    )
   }
+  private def supplyPathItem(pathItem: PathItem, proto: ProtoInfo) =
+    pathItem.copy(
+      get = pathItem.get.map(withSuppliedServiceDescription(_, proto)),
+      put = pathItem.put.map(withSuppliedServiceDescription(_, proto)),
+      post = pathItem.post.map(withSuppliedServiceDescription(_, proto)),
+      delete = pathItem.delete.map(withSuppliedServiceDescription(_, proto)),
+      options = pathItem.options.map(withSuppliedServiceDescription(_, proto)),
+      head = pathItem.head.map(withSuppliedServiceDescription(_, proto)),
+      patch = pathItem.patch.map(withSuppliedServiceDescription(_, proto)),
+      trace = pathItem.trace.map(withSuppliedServiceDescription(_, proto)),
+    )
+
+  private def supplyServiceDescriptions(description: String, proto: ProtoInfo) = {
+    val lines: Seq[String] = description
+      .split("\n")
+      .toSeq
+      .flatMap { (line: String) =>
+        line match {
+          case ProtoLink(protoFile, serviceName, methodName) =>
+            Seq(proto.findServiceDescription(protoFile, serviceName, methodName))
+          case other => Seq(other)
+        }
+      }
+    lines.mkString("\n")
+  }
+
+  private def withSuppliedServiceDescription(operation: Operation, proto: ProtoInfo) =
+    operation.focus(_.description).some.modify(supplyServiceDescriptions(_, proto))
 
   private def supplyProtoDocs(initial: asyncapi.AsyncAPI, proto: ProtoInfo): asyncapi.AsyncAPI = {
     val updatedComponents = initial.components.map(component => supplyComponents(component, proto))
-    initial.copy(components = updatedComponents)
+    val updateChannels = initial.channels.map { case (channelName, channel) =>
+      (channelName, updateChannel(channel, proto))
+    }
+    initial.copy(components = updatedComponents, channels = updateChannels)
+  }
+
+  private def updateChannel(
+      channel: ReferenceOr[ChannelItem],
+      proto: ProtoInfo,
+  ): ReferenceOr[ChannelItem] = {
+    def fixOpDescription(operation: Option[asyncapi.Operation], ch: ChannelItem) = operation.map {
+      op =>
+        op.copy(
+          description = if (op.description == ch.description) {
+            // Remove redundant descriptions
+            None
+          } else {
+            op.description.map(description => supplyServiceDescriptions(description, proto))
+          }
+        )
+    }
+    channel.map { ch =>
+      val subscribe = fixOpDescription(ch.subscribe, ch)
+      val publish = fixOpDescription(ch.publish, ch)
+
+      // format: off
+      ch.focus(_.description).some.modify(supplyServiceDescriptions(_, proto))
+        .focus(_.subscribe).replace(subscribe)
+        .focus(_.publish).replace(publish)
+      // format: on
+    }
   }
 
   private def supplyComponents(
@@ -135,14 +200,12 @@ class ApiDocsGenerator(override protected val loggerFactory: NamedLoggerFactory)
       }
       .getOrElse((componentName, componentSchema))
 
-  def loadProtoData()(implicit traceContext: TraceContext): ProtoInfo =
+  def loadProtoData(): ProtoInfo =
     ProtoInfo
       .loadData()
       .fold(
         error => {
-          logger.warn(s"Cannot load proto data for documentation $error")
-          // If we cannot load protoInfo data then we  generate docs with no supplemented comments
-          ProtoInfo(ExtractedProtoComments(SortedMap.empty, SortedMap.empty))
+          throw new IllegalStateException(s"Cannot load proto data for documentation $error")
         },
         identity,
       )

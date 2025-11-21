@@ -7,6 +7,7 @@ import com.digitalasset.canton.protocol.ExampleTransactionFactory.*
 import com.digitalasset.canton.protocol.WellFormedTransaction.{Stage, WithSuffixes, WithoutSuffixes}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, LfPackageName, LfPartyId}
 import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.transaction.{NodeId, SerializationVersion}
 import com.digitalasset.daml.lf.value.Value
 import org.scalatest.prop.{TableFor3, TableFor4}
 import org.scalatest.wordspec.AnyWordSpec
@@ -17,7 +18,7 @@ class WellFormedTransactionTest extends AnyWordSpec with BaseTest with HasExecut
 
   val lfAbs: LfContractId = suffixedId(0, 0)
 
-  val contractInst = contractInstance()
+  val contractInst: LfThinContractInst = contractInstance()
 
   def createNode(
       cid: LfContractId,
@@ -81,12 +82,6 @@ class WellFormedTransactionTest extends AnyWordSpec with BaseTest with HasExecut
         factory.versionedTransactionWithSeeds(Seq(0, 0), fetchNode(lfAbs)),
         WithSuffixes,
         "AliasedNode: 0",
-      ),
-      (
-        "Negative node ID",
-        transactionFrom(Seq(-1), -1, fetchNode(lfAbs)) -> factory.mkMetadata(),
-        WithoutSuffixes,
-        "Negative node IDs: -1",
       ),
       (
         "byKey node with no key",
@@ -286,6 +281,37 @@ class WellFormedTransactionTest extends AnyWordSpec with BaseTest with HasExecut
             .check(transaction, metadata, state)
             .value shouldBe a[WellFormedTransaction[?]]
         }
+      }
+    }
+
+    "node ids are not normalized" should {
+      "be normalized" in {
+        val tx = LfVersionedTransaction(
+          SerializationVersion.V1,
+          Map(
+            NodeId(-3) -> createNode(unsuffixedId(0)),
+            NodeId(0) -> exerciseNode(unsuffixedId(0), 10),
+            NodeId(10) -> fetchNode(lfAbs),
+          ),
+          ImmArray.from(Seq(NodeId(-3), NodeId(0))),
+        )
+        val expectedTx = LfVersionedTransaction(
+          SerializationVersion.V1,
+          Map(
+            NodeId(0) -> createNode(unsuffixedId(0)),
+            NodeId(1) -> exerciseNode(unsuffixedId(0), 2),
+            NodeId(2) -> fetchNode(lfAbs),
+          ),
+          ImmArray.from(Seq(NodeId(0), NodeId(1))),
+        )
+
+        val metadata = factory.mkMetadata(Map(NodeId(-3) -> lfHash(0), NodeId(0) -> lfHash(1)))
+        val expectedMetadata =
+          factory.mkMetadata(Map(NodeId(0) -> lfHash(0), NodeId(1) -> lfHash(1)))
+
+        val wfTx = WellFormedTransaction.check(tx, metadata, WithoutSuffixes).value
+        wfTx.unwrap shouldBe expectedTx
+        wfTx.metadata shouldBe expectedMetadata
       }
     }
   }

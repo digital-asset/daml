@@ -23,7 +23,7 @@ import com.digitalasset.canton.performance.model.java as M
 import com.digitalasset.canton.time.{NonNegativeFiniteDuration, WallClock}
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
-import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
+import com.digitalasset.canton.topology.{Party, PartyId, SynchronizerId}
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{FutureUtil, PekkoUtil}
@@ -476,7 +476,7 @@ object PerformanceRunner {
     }
 
     logger.info(s"Creating the registry issuer delegation contract for each issuer")
-    issuers.map(_._1).toSet.foreach { (issuer: PartyId) =>
+    issuers.map(_._1).toSet.foreach { (issuer: Party) =>
       one.ledger_api.commands
         .submit(
           Seq(dso),

@@ -53,8 +53,8 @@ import com.digitalasset.canton.synchronizer.sequencer.traffic.{
 }
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId.Authorized
 import com.digitalasset.canton.topology.transaction.DelegationRestriction.CanSignAllMappings
-import com.digitalasset.canton.topology.{Member, PartyId}
-import com.digitalasset.canton.{ProtocolVersionChecksFixtureAnyWordSpec, config}
+import com.digitalasset.canton.topology.{Member, Party}
+import com.digitalasset.canton.{TestPredicateFiltersFixtureAnyWordSpec, config}
 import monocle.macros.syntax.lens.*
 import org.scalatest.Assertion
 
@@ -65,7 +65,7 @@ trait TrafficControlTest
     extends CommunityIntegrationTest
     with SharedEnvironment
     with OnboardsNewSequencerNode
-    with ProtocolVersionChecksFixtureAnyWordSpec
+    with TestPredicateFiltersFixtureAnyWordSpec
     with TrafficBalanceSupport {
 
   private val baseEventCost = 500L
@@ -204,7 +204,7 @@ trait TrafficControlTest
     clock.advance(trafficControlParameters.maxBaseTrafficAccumulationDuration.asJava)
     participant1.ledger_api.packages.upload_dar(CantonTestsPath, synchronizerId = daId)
 
-    val alice = participant1.parties.enable(
+    val alice = participant1.parties.testing.enable(
       "Alice",
       synchronizeParticipants = Seq(participant1),
     )
@@ -260,7 +260,7 @@ trait TrafficControlTest
 
     val clock = env.environment.simClock.value
 
-    val alice = participant1.parties.find("Alice")
+    val alice = participant1.parties.testing.find("Alice")
     val pkg = participant1.packages.find_by_module("Test").headOption.map(_.packageId).value
 
     val exerciseCommand = getExerciseCommand(alice, pkg)
@@ -776,7 +776,7 @@ trait TrafficControlTest
     )
   }
 
-  private def getExerciseCommand(alice: PartyId, pkg: String)(implicit
+  private def getExerciseCommand(alice: Party, pkg: String)(implicit
       env: TestConsoleEnvironment
   ): Command = {
     import env.*

@@ -187,18 +187,20 @@ object JsStateService extends DocumentationEndpoints {
         CodecFormat.Json,
       ](PekkoStreams)
     )
-    .description("Get active contracts stream")
+    .protoRef(state_service.StateServiceGrpc.METHOD_GET_ACTIVE_CONTRACTS)
 
   val activeContractsListEndpoint = state.post
     .in(sttp.tapir.stringToPath("active-contracts"))
     .in(jsonBody[LegacyDTOs.GetActiveContractsRequest])
     .out(jsonBody[Seq[JsGetActiveContractsResponse]])
     .description(
-      """Query active contracts list (blocking call).
+      s"""Query active contracts list (blocking call).
         |Querying active contracts is an expensive operation and if possible should not be repeated often.
         |Consider querying active contracts initially (for a given offset)
         |and then repeatedly call one of `/v2/updates/...`endpoints  to get subsequent modifications.
         |You can also use websockets to get updates with better performance.
+        |
+        |${createProtoRef(state_service.StateServiceGrpc.METHOD_GET_ACTIVE_CONTRACTS)}
         |""".stripMargin
     )
     .inStreamListParamsAndDescription()
@@ -209,17 +211,17 @@ object JsStateService extends DocumentationEndpoints {
     .in(query[Option[String]]("participantId"))
     .in(query[Option[String]]("identityProviderId"))
     .out(jsonBody[state_service.GetConnectedSynchronizersResponse])
-    .description("Get connected synchronizers")
+    .protoRef(state_service.StateServiceGrpc.METHOD_GET_CONNECTED_SYNCHRONIZERS)
 
   val getLedgerEndEndpoint = state.get
     .in(sttp.tapir.stringToPath("ledger-end"))
     .out(jsonBody[state_service.GetLedgerEndResponse])
-    .description("Get ledger end")
+    .protoRef(state_service.StateServiceGrpc.METHOD_GET_LEDGER_END)
 
   val getLastPrunedOffsetsEndpoint = state.get
     .in(sttp.tapir.stringToPath("latest-pruned-offsets"))
     .out(jsonBody[state_service.GetLatestPrunedOffsetsResponse])
-    .description("Get latest pruned offsets")
+    .protoRef(state_service.StateServiceGrpc.METHOD_GET_LATEST_PRUNED_OFFSETS)
 
   override def documentation: Seq[AnyEndpoint] = Seq(
     activeContractsEndpoint,

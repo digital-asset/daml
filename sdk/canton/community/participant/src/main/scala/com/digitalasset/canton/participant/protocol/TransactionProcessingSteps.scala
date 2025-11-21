@@ -962,13 +962,6 @@ class TransactionProcessingSteps(
             reInterpretedTopLevelViews,
           )
 
-        globalKeyHostedParties <-
-          InternalConsistencyChecker.hostedGlobalKeyParties(
-            parsedRequest.rootViewTrees,
-            participantId,
-            snapshot.ipsSnapshot,
-          )
-
         internalConsistencyResultE = internalConsistencyChecker.check(
           parsedRequest.rootViewTrees
         )

@@ -3,7 +3,9 @@
 
 package com.digitalasset.canton
 
+import com.digitalasset.canton.BaseTest.UnsupportedExternalPartyTest
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.topology.PartyKind
 import com.digitalasset.canton.version.ProtocolVersion
 import org.scalactic.source
 import org.scalatest.compatible.Assertion
@@ -14,9 +16,10 @@ import org.scalatest.wordspec.{
   FixtureAsyncWordSpecLike,
 }
 
+import scala.annotation.nowarn
 import scala.concurrent.Future
 
-/** Adds utilities for checking protocol versions in FixtureAnyWordSpec tests. For example:
+/** Adds utilities for ignoring tests based on a predicate in FixtureAnyWordSpec tests. For example:
   * {{{
   * class MyTest extends EnterpriseIntegrationTest with ProtocolVersionChecksFixtureAnyWordSpec {
   *   "some feature" onlyRunWithOrGreaterThan ProtocolVersion.v4 in { implicit env =>
@@ -30,10 +33,10 @@ import scala.concurrent.Future
   * See [[com.digitalasset.canton.BaseTest.testedProtocolVersion]] on how to set the protocol
   * version for tests at runtime.
   */
-trait ProtocolVersionChecksFixtureAnyWordSpec {
+trait TestPredicateFiltersFixtureAnyWordSpec {
   this: TestEssentials & FixtureAnyWordSpecLike =>
 
-  implicit class ProtocolCheckString(verb: String) {
+  implicit class CheckString(verb: String) {
     def onlyRunWhen(condition: Boolean): OnlyRunWhenWordSpecStringWrapper =
       new OnlyRunWhenWordSpecStringWrapper(verb, condition)
     def onlyRunWithOrGreaterThan(
@@ -43,6 +46,14 @@ trait ProtocolVersionChecksFixtureAnyWordSpec {
 
     def onlyRunWith(protocolVersion: ProtocolVersion): OnlyRunWhenWordSpecStringWrapper =
       new OnlyRunWhenWordSpecStringWrapper(verb, testedProtocolVersion == protocolVersion)
+
+    @nowarn(
+      "cat=unused"
+    ) // Reason is not used but forces us to identify the reason which can be linked to a T O D O
+    def onlyRunWithLocalParty(
+        reason: UnsupportedExternalPartyTest
+    ): OnlyRunWhenWordSpecStringWrapper =
+      new OnlyRunWhenWordSpecStringWrapper(verb, partiesKind == PartyKind.Local)
 
     def onlyRunWhen(condition: ProtocolVersion => Boolean): OnlyRunWhenWordSpecStringWrapper =
       new OnlyRunWhenWordSpecStringWrapper(verb, condition(testedProtocolVersion))

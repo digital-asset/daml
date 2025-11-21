@@ -9,33 +9,40 @@ import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyInstances, PrettyPrinting}
 import com.digitalasset.canton.tracing.{HasTraceContext, TraceContext}
-import com.digitalasset.canton.util.OrderedBucketMergeHub.{
-  ActiveSourceTerminated,
-  DeadlockDetected,
-  DeadlockTrigger,
-  NewConfiguration,
-  Output,
-  OutputElement,
-}
+import com.digitalasset.canton.util.OrderedBucketMergeHub.*
 import com.digitalasset.canton.util.PekkoUtil.noOpKillSwitch
+import com.typesafe.config.ConfigFactory
 import org.apache.pekko.Done
+import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.QueueOfferResult.Enqueued
 import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
+import org.apache.pekko.stream.testkit.TestPublisher
 import org.apache.pekko.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import org.apache.pekko.stream.testkit.scaladsl.{TestSink, TestSource}
-import org.apache.pekko.stream.testkit.{StreamSpec, TestPublisher}
 import org.apache.pekko.stream.{BoundedSourceQueue, KillSwitch, KillSwitches}
-import org.apache.pekko.testkit.EventFilter
 import org.apache.pekko.testkit.TestEvent.{Mute, UnMute}
+import org.apache.pekko.testkit.{EventFilter, TestKit}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.wordspec.AnyWordSpecLike
 
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
-class OrderedBucketMergeHubTest extends StreamSpec with BaseTest {
-  // Override the implicit from PekkoSpec so that we don't get ambiguous implicits
-  override val patience: PatienceConfig = defaultPatience
+class OrderedBucketMergeHubTest
+    extends TestKit(
+      ActorSystem(
+        classOf[OrderedBucketMergeHubTest].getSimpleName,
+        // Requires `TestEventListener` to mute/unmute events
+        ConfigFactory.parseString(
+          """pekko.loggers = ["org.apache.pekko.testkit.TestEventListener"]"""
+        ),
+      )
+    )
+    with AnyWordSpecLike
+    with BeforeAndAfterAll
+    with BaseTest {
 
   private implicit val executionContext: ExecutionContext = system.dispatcher
 
@@ -45,6 +52,7 @@ class OrderedBucketMergeHubTest extends StreamSpec with BaseTest {
   private type Config = Int
   private type Offset = Int
   private type M = String
+
   private case class Bucket(offset: Int, discriminator: Int) extends PrettyPrinting {
     override protected def pretty: Pretty[Bucket] = prettyOfClass(
       param("offset", _.offset),
@@ -54,6 +62,11 @@ class OrderedBucketMergeHubTest extends StreamSpec with BaseTest {
   private case class Elem(bucket: Bucket, description: String) extends HasTraceContext {
     override val traceContext: TraceContext =
       TraceContext.withNewTraceContext("test")(Predef.identity)
+  }
+
+  override def afterAll(): Unit = {
+    TestKit.shutdownActorSystem(system)
+    super.afterAll()
   }
 
   private def mkHub(

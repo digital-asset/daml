@@ -214,8 +214,8 @@ class FirstUnsafeOffsetComputation(
       }
     participantNodePersistentState.value.ledgerApiStore
       .firstSynchronizerOffsetAfterOrAtPublicationTime(dedupStartLowerBound)
-      .map(
-        _.map(synchronizerOffset =>
+      .map { firstSynchronizerOffsetAfterOrAtDedupStartLowerBound =>
+        val result = firstSynchronizerOffsetAfterOrAtDedupStartLowerBound.map(synchronizerOffset =>
           UnsafeOffset(
             offset = synchronizerOffset.offset,
             synchronizerId = synchronizerOffset.synchronizerId,
@@ -223,7 +223,11 @@ class FirstUnsafeOffsetComputation(
             cause = s"max deduplication duration of $maxDedupDuration",
           )
         )
-      )
+        errorLoggingContext.debug(
+          s"First unsafe pruning offset for deduplication (computed with lower bound $dedupStartLowerBound) $result"
+        )
+        result
+      }
   }
 }
 

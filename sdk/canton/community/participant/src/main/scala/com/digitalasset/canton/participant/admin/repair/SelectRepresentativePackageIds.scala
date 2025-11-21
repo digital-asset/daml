@@ -35,7 +35,7 @@ private[admin] class SelectRepresentativePackageIds(
 ) extends NamedLogging {
 
   def apply(
-      contracts: List[RepairContract]
+      contracts: Seq[RepairContract]
   )(implicit traceContext: TraceContext): Either[String, Seq[RepairContract]] =
     contracts.traverse(selectRpId)
 

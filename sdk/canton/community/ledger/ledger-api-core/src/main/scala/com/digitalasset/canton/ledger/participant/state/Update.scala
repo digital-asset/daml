@@ -412,6 +412,10 @@ object Update {
       */
     def internalContractIds: Map[Value.ContractId, Long]
 
+    def kind: String = if (reassignmentInfo.sourceSynchronizer.unwrap == synchronizerId)
+      "unassignment"
+    else "assignment"
+
     override protected def pretty: Pretty[ReassignmentAccepted] =
       prettyOfClass(
         param("recordTime", _.recordTime),
@@ -420,6 +424,7 @@ object Update {
         paramIfDefined("completion", _.optCompletionInfo),
         param("source", _.reassignmentInfo.sourceSynchronizer),
         param("target", _.reassignmentInfo.targetSynchronizer),
+        param("kind", _.kind.unquoted),
         indicateOmittedFields,
       )
   }

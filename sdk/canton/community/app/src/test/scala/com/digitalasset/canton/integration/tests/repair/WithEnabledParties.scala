@@ -4,7 +4,7 @@
 package com.digitalasset.canton.integration.tests.repair
 
 import com.digitalasset.canton.console.LocalParticipantReference
-import com.digitalasset.canton.topology.PartyId
+import com.digitalasset.canton.topology.Party
 
 import java.util.concurrent.atomic.AtomicLong
 
@@ -17,7 +17,7 @@ private[repair] object WithEnabledParties {
   def apply[A](
       p: (LocalParticipantReference, Seq[String]),
       ps: (LocalParticipantReference, Seq[String])*
-  )(test: PartialFunction[Seq[PartyId], A]): A = {
+  )(test: PartialFunction[Seq[Party], A]): A = {
 
     val enabledParties =
       for {

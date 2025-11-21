@@ -41,9 +41,9 @@ class InteractiveSubmissionUpgradingTest
         participant2.dars.upload(UpgradingBaseTest.UpgradeV2)
         participant3.dars.upload(UpgradingBaseTest.UpgradeV1)
 
-        lse = participant1.parties.external.enable("LSE")
-        alice = participant2.parties.external.enable("Alice")
-        bob = participant3.parties.external.enable("Bob")
+        lse = participant1.parties.testing.external.enable("LSE")
+        alice = participant2.parties.testing.external.enable("Alice")
+        bob = participant3.parties.testing.external.enable("Bob")
 
       }
 

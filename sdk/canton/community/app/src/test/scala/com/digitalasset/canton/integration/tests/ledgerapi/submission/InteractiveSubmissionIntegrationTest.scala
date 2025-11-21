@@ -32,6 +32,7 @@ import com.digitalasset.canton.console.commands.PartiesAdministration
 import com.digitalasset.canton.crypto.SigningKeyUsage
 import com.digitalasset.canton.damltests.java.test.DummyFactory
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.error.TransactionRoutingError.TopologyErrors.UnknownInformees
 import com.digitalasset.canton.examples.java.cycle.Cycle
 import com.digitalasset.canton.examples.java.trailingnone.TrailingNone
 import com.digitalasset.canton.examples.java.{cycle as M, trailingnone as T}
@@ -60,7 +61,7 @@ import com.digitalasset.canton.topology.transaction.{
   TopologyChangeOp,
   TopologyTransaction,
 }
-import com.digitalasset.canton.topology.{ExternalParty, Namespace, PartyId}
+import com.digitalasset.canton.topology.{DefaultTestIdentities, ExternalParty, Namespace, PartyId}
 import com.google.protobuf.ByteString
 import io.grpc.Status
 import monocle.Optional
@@ -103,7 +104,7 @@ trait InteractiveSubmissionIntegrationTestSetup
         participants.all.dars.upload(CantonExamplesPath, synchronizerId = daId)
         participants.all.dars.upload(CantonTestsPath, synchronizerId = daId)
 
-        aliceE = cpn.parties.external.enable("Alice")
+        aliceE = cpn.parties.testing.external.enable("Alice")
       }
       .addConfigTransform(ConfigTransforms.enableInteractiveSubmissionTransforms)
 
@@ -171,7 +172,7 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
     var danE: ExternalParty = null
 
     "onboard a new party with external keys" in { implicit env =>
-      danE = cpn.parties.external.enable(
+      danE = cpn.parties.testing.external.enable(
         "Dan",
         keysCount = PositiveInt.three,
         keysThreshold = PositiveInt.two,
@@ -337,7 +338,7 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
       implicit env =>
         import env.*
 
-        val partyE = cpn.parties.external.enable("Party")
+        val partyE = cpn.parties.testing.external.enable("Party")
 
         // Change cpn to observation rights
         val newPTP = TopologyTransaction(
@@ -995,6 +996,53 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
       )
     }
 
+    "fail to prepare if the party does not exist on the synchronizer" in { implicit env =>
+      val nonExistingParty = DefaultTestIdentities.party1
+      loggerFactory.assertThrowsAndLogs[CommandFailure](
+        ppn.ledger_api.javaapi.interactive_submission.prepare(
+          Seq(nonExistingParty),
+          Seq(
+            new M.Cycle(
+              "test-external-signing",
+              nonExistingParty.toProtoPrimitive,
+            ).create.commands.loneElement
+          ),
+        ),
+        _.errorMessage should (include(UnknownInformees.id) and include(
+          s"unknownInformees=>Set(${nonExistingParty.partyId.toProtoPrimitive})"
+        )),
+      )
+    }
+
+    "fail to execute if the party does not exist on the synchronizer" in { implicit env =>
+      import env.*
+      val temporaryPartyE = ppn.parties.testing.external.enable("temp")
+      val prepared = ppn.ledger_api.javaapi.interactive_submission.prepare(
+        Seq(temporaryPartyE.partyId),
+        Seq(
+          new M.Cycle(
+            "test-external-signing",
+            temporaryPartyE.partyId.toProtoPrimitive,
+          ).create.commands.loneElement
+        ),
+      )
+      // Offboard the party from the synchronizer before executing
+      offboardParty(temporaryPartyE, ppn, synchronizer1Id)
+
+      // Execute should fail
+      val signatures = global_secret.sign(prepared.preparedTransactionHash, temporaryPartyE)
+      loggerFactory.assertThrowsAndLogs[CommandFailure](
+        ppn.ledger_api.interactive_submission.execute(
+          prepared.getPreparedTransaction,
+          Map(temporaryPartyE.partyId -> signatures),
+          UUID.randomUUID().toString,
+          HASHING_SCHEME_VERSION_V2,
+        ),
+        _.errorMessage should (include(UnknownInformees.id) and include(
+          s"unknownInformees=>Set(${temporaryPartyE.partyId.toProtoPrimitive})"
+        )),
+      )
+    }
   }
 
 }
@@ -1035,7 +1083,8 @@ class InteractiveSubmissionMultiSynchronizerIntegrationTest
     "can be allocated in a multi-synchronizer scenario" in { implicit env =>
       import env.*
 
-      val aliceE = participant1.parties.external.enable("Alice", synchronizer = Some(daName))
+      val aliceE =
+        participant1.parties.testing.external.enable("Alice", synchronizer = Some(daName))
 
       // Check that alice is hosted on `hostedCount` synchronizers
       def ensureCorrectHosting(hostedCount: Int) = {
@@ -1056,10 +1105,10 @@ class InteractiveSubmissionMultiSynchronizerIntegrationTest
 
       ensureCorrectHosting(1)
 
-      participant1.parties.external.also_enable(aliceE, acmeName)
+      participant1.parties.testing.external.also_enable(aliceE, acmeName)
       ensureCorrectHosting(2)
 
-      participant1.parties.external.also_enable(aliceE, repairSynchronizerName)
+      participant1.parties.testing.external.also_enable(aliceE, repairSynchronizerName)
       ensureCorrectHosting(3)
     }
   }
