@@ -83,8 +83,8 @@ object LanguageVersion extends LanguageFeaturesGenerated {
   }
 
   final case class Feature(
-                            name: String,
-                            versionRange: VersionRange[LanguageVersion],
+      name: String,
+      versionRange: VersionRange[LanguageVersion],
   ) {
     def enabledIn(lv: LanguageVersion): Boolean = versionRange.contains(lv)
   }

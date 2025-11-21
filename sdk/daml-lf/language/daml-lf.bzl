@@ -151,24 +151,18 @@ def _init_data():
             "cpp_flag": "DAML_PackageUpgrades",
             "version_req": {"low": V2_1},
         },
-        # not sure what these below are
-        # not sure what these below are
-        # not sure what these below are
         {
             "name": "featureChoiceAuthority",
-            "name_pretty": "ChoiceAuthority???",
+            "name_pretty": "Choice Authorizers",
             "cpp_flag": "DAML_ChoiceAuthority",
             "version_req": dev_only,
         },
         {
             "name": "featureUnsafeFromInterface",
-            "name_pretty": "UnsafeFromInterface???",
+            "name_pretty": "UnsafeFromInterface builtin",
             "cpp_flag": "DAML_UnsafeFromInterface",
             "version_req": {"high": V2_1},
         },
-        # not sure what these above are
-        # not sure what these above are
-        # not sure what these above are
     ]
 
     return struct(

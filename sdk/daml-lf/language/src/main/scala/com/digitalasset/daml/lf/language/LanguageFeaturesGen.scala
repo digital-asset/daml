@@ -113,12 +113,12 @@ trait LanguageFeaturesGenerated extends LanguageVersionGenerated {
   )
 
   val featureChoiceAuthority: Feature = Feature(
-    name = "ChoiceAuthority???",
+    name = "Choice Authorizers",
     versionReq = VersionRange.Inclusive(v2_dev, v2_dev),
   )
 
   val featureUnsafeFromInterface: Feature = Feature(
-    name = "UnsafeFromInterface???",
+    name = "UnsafeFromInterface builtin",
     versionReq = VersionRange.Until(v2_1),
   )
 
