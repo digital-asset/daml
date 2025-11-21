@@ -171,9 +171,50 @@ uriToVirtualResource uri = do
           $ BS.fromString
           $ URI.unEscapeString u
 
+-- | Enhance parse error messages with more helpful, context-specific information
+enhanceParseErrorDiagnostics :: [FileDiagnostic] -> [FileDiagnostic]
+enhanceParseErrorDiagnostics = map enhanceSingleDiagnostic
+  where
+    enhanceSingleDiagnostic :: FileDiagnostic -> FileDiagnostic
+    enhanceSingleDiagnostic fd@(file, showDiag, diag@Diagnostic{..}) =
+      case _severity of
+        Just DsError | isParseError _message ->
+          let enhancedMessage = enhanceParseErrorMessage _message
+          in (file, showDiag, diag { _message = enhancedMessage })
+        _ -> fd
+
+    isParseError :: T.Text -> Bool
+    isParseError msg = "parse error" `T.isInfixOf` msg
+
+    enhanceParseErrorMessage :: T.Text -> T.Text
+    enhanceParseErrorMessage msg
+      -- Issue #22354: Improve error for badly indented 'choice'
+      | "parse error on input 'choice'" `T.isInfixOf` msg =
+          msg <> "\n\nHint: This often occurs when 'choice' is not properly indented.\n" <>
+                 "Make sure 'choice' is indented at the same level as other template clauses like 'signatory' and 'observer'.\n" <>
+                 "Example:\n" <>
+                 "  template MyTemplate\n" <>
+                 "    with ...\n" <>
+                 "    where\n" <>
+                 "      signatory ...\n" <>
+                 "      choice MyChoice : ..."
+
+      -- Issue #22361: Improve generic parse error with template-related hints
+      -- The missing key type signature produces a very generic error, so we provide
+      -- general hints that cover common template parsing issues
+      | "parse error (possibly incorrect indentation or mismatched brackets)" `T.isInfixOf` msg =
+          msg <> "\n\nHint: Common causes of this error in templates include:\n" <>
+                 "  - Missing type signature on 'key' (unlike 'signatory', 'key' requires a type)\n" <>
+                 "    Example: key owner : Party\n" <>
+                 "  - Incorrect indentation of template clauses\n" <>
+                 "  - Mismatched brackets or parentheses"
+
+      | otherwise = msg
+
 sendFileDiagnostics :: [FileDiagnostic] -> Action ()
 sendFileDiagnostics diags =
-    mapM_ (uncurry sendDiagnostics) (groupSort $ map (\(file, _showDiag, diag) -> (file, diag)) diags)
+    let enhancedDiags = enhanceParseErrorDiagnostics diags
+    in mapM_ (uncurry sendDiagnostics) (groupSort $ map (\(file, _showDiag, diag) -> (file, diag)) enhancedDiags)
 
 sendDiagnostics :: NormalizedFilePath -> [Diagnostic] -> Action ()
 sendDiagnostics fp diags = do
