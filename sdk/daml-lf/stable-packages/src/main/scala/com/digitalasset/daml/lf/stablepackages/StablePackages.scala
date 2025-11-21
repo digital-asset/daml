@@ -8,8 +8,8 @@ import com.digitalasset.daml.lf.VersionRange
 import com.digitalasset.daml.lf.archive
 import com.digitalasset.daml.lf.archive.ArchiveDecoder
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
-
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, StablePackage, StablePackages}
+import com.digitalasset.daml.lf.stablepackages.StablePackages.ids
 
 final object StablePackagesV2
     extends StablePackagesImpl("compiler/damlc/stable-packages/stable-packages-manifest-v2.txt")
@@ -33,6 +33,8 @@ private[daml] object StablePackages {
 private[daml] sealed class StablePackagesImpl(
     protected val manifestResourcePath: String
 ) extends StablePackages {
+
+  lazy val allIds = ids(LanguageVersion.allLfVersionsRange)
 
   override lazy val allPackages: Seq[StablePackage] = allPackagesByName.values.toSeq
 
