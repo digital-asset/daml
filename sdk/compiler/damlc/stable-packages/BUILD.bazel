@@ -1,6 +1,8 @@
 # Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+exports_files(["stable-packages.yaml"])
+
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "generate_and_track_cabal")
 load("//rules_daml:daml.bzl", "generate_and_track_yaml_file")
 load(
@@ -161,17 +163,9 @@ da_haskell_library(
 )
 
 
-genrule(
-    name = "stable-package-list-reader-scala",
-    srcs = [
-        "stable-packages.yaml",
-        "generate_scala_stablepackageslist.py",
-    ],
-    outs = [
-        "com/digitalasset/daml/lf/language/StablePackagesGen.scala",
-    ],
-    cmd = "python3 $(location generate_scala_stablepackageslist.py) $(location stable-packages.yaml) $(location com/digitalasset/daml/lf/language/StablePackagesGen.scala)",
-    # running locally since we need PyYAML dep and adding it to nix for this
-    # noncritical part is the simplest
-    local = True,
+py_binary(
+    name = "stable-packages-py-generator-scala",
+    srcs = ["generate_scala_stablepackageslist.py"],
+    main = "generate_scala_stablepackageslist.py",
+    visibility = ["//visibility:public"],
 )
