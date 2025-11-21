@@ -2,10 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools/daml_script:daml_script.bzl", "daml_script_test")
+load("//bazel_tools:testing.bzl", "extra_tags")
 load("@daml//bazel_tools/sh:sh.bzl", "sh_inline_test")
 load(
     "@daml//bazel_tools/client_server:client_server_test.bzl",
     "client_server_test",
+    "client_server_test_canton_sh",
 )
 
 def _build_dar(
@@ -159,19 +161,13 @@ def data_dependencies_codegen_test(new_sdk_version, old_sdk_version):
       srcs = ["//bazel_tools/data_dependencies:codegen_test/dep/Dep.daml"],
     )
 
-    daml_old = "@daml-sdk-{old_sdk_version}//:daml".format(
-        old_sdk_version = old_sdk_version,
-    )
-
     daml_new = "@daml-sdk-{new_sdk_version}//:daml".format(
         new_sdk_version = new_sdk_version,
     )
 
-    native.genrule(
-        name = name + "-client-sh",
-        outs = [name + "-client.sh"],
-        tools = [
-            daml_old,
+    client_server_test_canton_sh(
+        name = name,
+        data = [
             daml_new,
             ":" + name + "-main.dar",
             "//bazel_tools/data_dependencies:codegen_test/openapi.yaml",
@@ -183,57 +179,20 @@ def data_dependencies_codegen_test(new_sdk_version, old_sdk_version):
             "@nodejs//:npm",
             "@head_sdk//:community_app_deploy.jar",
         ],
-        cmd = """\
-cat >$(OUTS) <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-canonicalize_rlocation() {{
-  # Note (MK): This is a fun one: Let's say $$TEST_WORKSPACE is "compatibility"
-  # and the argument points to a target from an external workspace, e.g.,
-  # @daml-sdk-0.0.0//:daml. Then the short path will point to
-  # ../daml-sdk-0.0.0/daml. Putting things together we end up with
-  # compatibility/../daml-sdk-0.0.0/daml. On Linux and MacOS this works
-  # just fine. However, on windows we need to normalize the path
-  # or rlocation will fail to find the path in the manifest file.
-  rlocation $$(realpath -L -s -m --relative-to=$$PWD $$TEST_WORKSPACE/$$1)
-}}
-
-get_exe() {{
-  if [[ %os% = windows ]]; then
-    for arg in "$$@"; do
-      if [[ $$arg = *.exe ]]; then
-        echo "$$arg"
-        return
-      fi
-    done
-    echo "$$1"
-  else
-    echo "$$1"
-  fi
-}}
-
+        additional_canton_args = ["--json-api-port", "7575"],
+        tags = extra_tags(old_sdk_version, new_sdk_version),
+        src = """\
 yarn=$$(canonicalize_rlocation $$(get_exe $(rootpaths {yarn})))
 node=$$(canonicalize_rlocation $$(get_exe $(rootpaths {node})))
 npm=$$(canonicalize_rlocation $$(get_exe $(rootpaths {npm})))
 canton_jar=$$(canonicalize_rlocation $$(get_exe $(rootpaths {community_app_deploy})))
 
 daml_new=$$(canonicalize_rlocation $$(get_exe $(rootpaths {daml_new})))
-daml_old=$$(canonicalize_rlocation $$(get_exe $(rootpaths {daml_old})))
 
 openapi=$$(canonicalize_rlocation $$(get_exe $(rootpaths {openapi})))
 packagejson=$$(canonicalize_rlocation $$(get_exe $(rootpaths {packagejson})))
 tsconfig=$$(canonicalize_rlocation $$(get_exe $(rootpaths {tsconfig})))
 indexts=$$(canonicalize_rlocation $$(get_exe $(rootpaths {indexts})))
-
-timeout=60
-while [ ! -e _port_file ]; do
-    if [ "$$timeout" = 0 ]; then
-        echo "Timed out waiting for Canton startup" >&2
-        exit 1
-    fi
-    sleep 1
-    timeout=$$((timeout - 1))
-done
 
 mkdir -p ./client/src
 cp $$openapi ./client
@@ -250,10 +209,7 @@ rm -rf dist
 $$yarn install
 $$npm run build
 $$node dist/index.js
-EOF
-chmod +x $(OUTS)
 """.format(
-            daml_old = daml_old,
             daml_new = daml_new,
             dar = ":" + name + "-main.dar",
             old_sdk_version = old_sdk_version,
@@ -268,47 +224,6 @@ chmod +x $(OUTS)
             npx = "@nodejs//:npx_bin",
             community_app_deploy = "@head_sdk//:community_app_deploy.jar",
         ),
-    )
-
-    native.sh_binary(
-        name = name + "-client",
-        srcs = [name + "-client.sh"],
-        data = [
-            daml_old,
-            daml_new,
-            ":" + name + "-main.dar",
-            "//bazel_tools/data_dependencies:codegen_test/openapi.yaml",
-            "//bazel_tools/data_dependencies:codegen_test/package.json",
-            "//bazel_tools/data_dependencies:codegen_test/tsconfig.json",
-            "//bazel_tools/data_dependencies:codegen_test/index.ts",
-            "@yarn//:yarn",
-            "@nodejs//:node",
-            "@nodejs//:npm",
-            "@head_sdk//:community_app_deploy.jar",
-        ],
-    )
-
-    daml_runner = "@daml-sdk-{version}//:daml".format(
-        version = "0.0.0",
-    )
-    server = daml_runner
-    server_args = ["sandbox", "--canton-port-file", "_port_file", "--json-api-port", "7575"]
-    server_files = []
-    server_files_prefix = "--dar="
-
-    client_server_test(
-        name = name,
-        client = "{}-client".format(name),
-        client_args = [],
-        client_files = [],
-        data = [],
-        runner = "//bazel_tools/client_server:runner",
-        runner_args = ["6865"],
-        server = server,
-        server_args = server_args,
-        server_files = server_files,
-        server_files_prefix = server_files_prefix,
-        tags = ["exclusive"],
     )
 
 # regression test for https://github.com/digital-asset/daml/issues/14291

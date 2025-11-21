@@ -98,3 +98,85 @@ $$runner $$client "$$client_args" $$server "$$server_args" "$$runner_args"
         ),
         **kwargs
     )
+
+def client_server_test_canton_sh(
+    name, data, src,
+    additional_canton_args = [],
+    server_files = [],
+    tags = [],
+):
+    native.genrule(
+        name = name + "-client-sh",
+        outs = [name + "-client.sh"],
+        tools = data,
+        cmd = """\
+cat >$(OUTS) <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+canonicalize_rlocation() {{
+  # Note (MK): This is a fun one: Let's say $$TEST_WORKSPACE is "compatibility"
+  # and the argument points to a target from an external workspace, e.g.,
+  # @daml-sdk-0.0.0//:daml. Then the short path will point to
+  # ../daml-sdk-0.0.0/daml. Putting things together we end up with
+  # compatibility/../daml-sdk-0.0.0/daml. On Linux and MacOS this works
+  # just fine. However, on windows we need to normalize the path
+  # or rlocation will fail to find the path in the manifest file.
+  rlocation $$(realpath -L -s -m --relative-to=$$PWD $$TEST_WORKSPACE/$$1)
+}}
+
+get_exe() {{
+  if [[ %os% = windows ]]; then
+    for arg in "$$@"; do
+      if [[ $$arg = *.exe ]]; then
+        echo "$$arg"
+        return
+      fi
+    done
+    echo "$$1"
+  else
+    echo "$$1"
+  fi
+}}
+
+trap 'status=$$?; kill -TERM $$PID; wait $$PID; exit $$status' INT TERM
+
+timeout=60
+while [ ! -e _port_file ]; do
+    if [ "$$timeout" = 0 ]; then
+        echo "Timed out waiting for Canton startup" >&2
+        exit 1
+    fi
+    sleep 1
+    timeout=$$((timeout - 1))
+done
+
+{src}
+EOF
+chmod +x $(OUTS)
+""".format(src = src),
+    )
+
+    native.sh_binary(
+        name = name + "-client",
+        srcs = [name + "-client.sh"],
+        data = data,
+    )
+
+    server = "@daml-sdk-0.0.0//:daml"
+    server_args = ["sandbox", "--canton-port-file", "_port_file"] + additional_canton_args
+    server_files_prefix = "--dar="
+
+    client_server_test(
+        name = name,
+        client = "{}-client".format(name),
+        client_args = [],
+        client_files = [],
+        data = [],
+        runner = "//bazel_tools/client_server:runner",
+        runner_args = ["6865"],
+        server = server,
+        server_args = server_args,
+        server_files = server_files,
+        server_files_prefix = server_files_prefix,
+        tags = tags + ["exclusive"],
+    )
