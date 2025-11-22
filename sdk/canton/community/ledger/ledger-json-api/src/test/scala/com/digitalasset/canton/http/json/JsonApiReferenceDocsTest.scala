@@ -77,7 +77,12 @@ object GenerateJSONApiDocs extends App {
       .createFileIfNotExists()
       .overwrite(protoData.toYaml())
       .discard
-    ProtoInfo(protoData)
+    ProtoInfo
+      .loadData() match {
+      case Right(protoInfo) => protoInfo
+      case Left(err) =>
+        throw new IllegalStateException(s"cannot load saved proto data after regenerating: $err")
+    }
   }
   def regenerateJsonApi(protoData: ProtoInfo) = {
     val apiDocs = apiDocsGenerator.createStaticDocs(protoData)

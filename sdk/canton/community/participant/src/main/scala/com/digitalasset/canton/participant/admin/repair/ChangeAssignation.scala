@@ -41,10 +41,9 @@ private final class ChangeAssignation(
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging {
 
-  private val sourceSynchronizerId = repairSource.map(_.synchronizer.psid.logical)
-  private val sourceSynchronizerAlias = repairSource.map(_.synchronizer.alias)
+  private val sourceLSId = repairSource.map(_.synchronizer.psid.logical)
   private val sourcePersistentState = repairSource.map(_.synchronizer.persistentState)
-  private val targetSynchronizerId = repairTarget.map(_.synchronizer.psid.logical)
+  private val targetLSId = repairTarget.map(_.synchronizer.psid.logical)
   private val targetPersistentState = repairTarget.map(_.synchronizer.persistentState)
 
   import com.digitalasset.canton.util.MonadUtil
@@ -68,7 +67,7 @@ private final class ChangeAssignation(
         EitherT.cond[FutureUnlessShutdown](
           contractStatusAtSource.get(contractId).exists(_.status.isReassignedAway),
           (),
-          s"Contract $contractId is not unassigned in source synchronizer $sourceSynchronizerAlias. " +
+          s"Contract $contractId is not unassigned in source synchronizer $sourceLSId. " +
             s"Current status: ${contractStatusAtSource.get(contractId).map(_.status.toString).getOrElse("NOT_FOUND")}.",
         )
       }
@@ -258,9 +257,7 @@ private final class ChangeAssignation(
   ): EitherT[FutureUnlessShutdown, String, Map[LfContractId, Set[LfPartyId]]] =
     contractStore
       .lookupStakeholders(contractIds)
-      .leftMap(e =>
-        s"Failed to look up stakeholder of contracts in synchronizer $sourceSynchronizerAlias: $e"
-      )
+      .leftMap(e => s"Failed to look up stakeholder of contracts in synchronizer $sourceLSId: $e")
 
   private def atLeastOneHostedStakeholderAtTarget(
       contractId: LfContractId,
@@ -290,9 +287,7 @@ private final class ChangeAssignation(
   ): EitherT[FutureUnlessShutdown, String, List[ContractInstance]] =
     contractStore
       .lookupManyExistingUncached(contractIds)
-      .leftMap(contractId =>
-        s"Failed to look up contract $contractId in synchronizer $sourceSynchronizerAlias"
-      )
+      .leftMap(contractId => s"Failed to look up contract $contractId in synchronizer $sourceLSId")
 
   private def readContracts(
       contractIds: Seq[(LfContractId, ReassignmentCounter)]
@@ -331,12 +326,13 @@ private final class ChangeAssignation(
   private def persistContracts(changes: Changes)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] = {
-    val batches = changes.batches.map { batch =>
+    val contracts = changes.batches.flatMap { batch =>
       batch.contracts.collect {
         case c if changes.isNew(c.contract.contractId) => c.contract
       }
     }
-    EitherT.right(batches.parTraverse_(contractStore.storeContracts))
+
+    EitherT.right(contractStore.storeContracts(contracts))
   }
 
   /** Get the internal contract ids by the contract id mapping of [[ContractStore]]
@@ -344,13 +340,11 @@ private final class ChangeAssignation(
   private def getInternalContractIds(changes: Changes)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[LfContractId, Long]] = {
-    val batches = changes.batches.map { batch =>
+    val cids = changes.batches.flatMap { batch =>
       batch.contracts.map(_.contract.contractId)
     }
 
-    batches
-      .parTraverse(contractStore.lookupBatchedNonCachedInternalIds(_))
-      .map(_.foldLeft(Map.empty[LfContractId, Long])(_ ++ _))
+    contractStore.lookupBatchedNonCachedInternalIds(cids)
   }
 
   private def persistAssignments(
@@ -364,7 +358,7 @@ private final class ChangeAssignation(
         contracts.map { case (cid, reassignmentCounter) =>
           (
             cid,
-            sourceSynchronizerId,
+            sourceLSId,
             reassignmentCounter,
             timeOfRepair.unwrap.toToc,
           )
@@ -384,7 +378,7 @@ private final class ChangeAssignation(
         contractIdCounters.map { case (cid, reassignmentCounter) =>
           (
             cid,
-            targetSynchronizerId,
+            targetLSId,
             reassignmentCounter,
             changes.sourceTimeOfRepair.unwrap.toToc,
           )
@@ -434,8 +428,8 @@ private final class ChangeAssignation(
   ): Seq[RepairUpdate] =
     changes.payload.batches.map { case batch =>
       val reassignmentId = ReassignmentId(
-        sourceSynchronizerId,
-        targetSynchronizerId,
+        sourceLSId,
+        targetLSId,
         unassignmentTs,
         batch.contractIdCounters,
       )
@@ -443,8 +437,8 @@ private final class ChangeAssignation(
         workflowId = None,
         updateId = randomUpdateId(syncCrypto),
         reassignmentInfo = ReassignmentInfo(
-          sourceSynchronizer = sourceSynchronizerId,
-          targetSynchronizer = targetSynchronizerId,
+          sourceSynchronizer = sourceLSId,
+          targetSynchronizer = targetLSId,
           submitter = None,
           reassignmentId = reassignmentId,
           isReassigningParticipant = false,
@@ -462,7 +456,7 @@ private final class ChangeAssignation(
         }),
         repairCounter = changes.sourceTimeOfRepair.unwrap.repairCounter,
         recordTime = changes.sourceTimeOfRepair.unwrap.timestamp,
-        synchronizerId = sourceSynchronizerId.unwrap,
+        synchronizerId = sourceLSId.unwrap,
         // no internal contract ids since no create nodes are involved
         internalContractIds = Map.empty,
       )
@@ -477,8 +471,8 @@ private final class ChangeAssignation(
   ): Seq[RepairUpdate] =
     changes.payload.batches.map { case batch =>
       val reassignmentId = ReassignmentId(
-        sourceSynchronizerId,
-        targetSynchronizerId,
+        sourceLSId,
+        targetLSId,
         unassignmentTs,
         batch.contractIdCounters,
       )
@@ -486,8 +480,8 @@ private final class ChangeAssignation(
         workflowId = None,
         updateId = randomUpdateId(syncCrypto),
         reassignmentInfo = ReassignmentInfo(
-          sourceSynchronizer = sourceSynchronizerId,
-          targetSynchronizer = targetSynchronizerId,
+          sourceSynchronizer = sourceLSId,
+          targetSynchronizer = targetLSId,
           submitter = None,
           reassignmentId = reassignmentId,
           isReassigningParticipant = false,
@@ -506,7 +500,7 @@ private final class ChangeAssignation(
         }),
         repairCounter = changes.targetTimeOfRepair.unwrap.repairCounter,
         recordTime = changes.targetTimeOfRepair.unwrap.timestamp,
-        synchronizerId = targetSynchronizerId.unwrap,
+        synchronizerId = targetLSId.unwrap,
         internalContractIds = internalContractIds,
       )
     }

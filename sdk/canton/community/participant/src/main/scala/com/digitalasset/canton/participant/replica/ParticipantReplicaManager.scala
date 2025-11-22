@@ -73,7 +73,6 @@ class ParticipantReplicaManager(
           _ = logger.info("Participant replica is becoming active: Ledger API Indexer started")
           _ <- participantServices.cantonSyncService.refreshCaches()
           // Run participant node state recovery
-          _ = participantServices.cantonSyncService.initializeState()
           _ = logger.info("Participant replica is becoming active: SyncService initialized")
           // Start up the Ledger API server
           _ <- participantServices.ledgerApiServerContainer.initializeNext()

@@ -261,7 +261,9 @@ object JsInteractiveSubmissionService extends DocumentationEndpoints {
     .in(stringToPath("prepare"))
     .in(jsonBody[JsPrepareSubmissionRequest])
     .out(jsonBody[JsPrepareSubmissionResponse])
-    .description("Prepare commands for signing")
+    .protoRef(
+      interactive_submission_service.InteractiveSubmissionServiceGrpc.METHOD_PREPARE_SUBMISSION
+    )
 
   val executeEndpoint: Endpoint[
     CallerContext,
@@ -273,7 +275,9 @@ object JsInteractiveSubmissionService extends DocumentationEndpoints {
     .in(stringToPath("execute"))
     .in(jsonBody[JsExecuteSubmissionRequest])
     .out(jsonBody[interactive_submission_service.ExecuteSubmissionResponse])
-    .description("Execute a signed transaction")
+    .protoRef(
+      interactive_submission_service.InteractiveSubmissionServiceGrpc.METHOD_EXECUTE_SUBMISSION
+    )
 
   val executeAndWaitEndpoint: Endpoint[
     CallerContext,
@@ -285,7 +289,9 @@ object JsInteractiveSubmissionService extends DocumentationEndpoints {
     .in(stringToPath("executeAndWait"))
     .in(jsonBody[JsExecuteSubmissionAndWaitRequest])
     .out(jsonBody[interactive_submission_service.ExecuteSubmissionAndWaitResponse])
-    .description("Execute a signed transaction and wait for its completion")
+    .protoRef(
+      interactive_submission_service.InteractiveSubmissionServiceGrpc.METHOD_EXECUTE_SUBMISSION_AND_WAIT
+    )
 
   val executeAndWaitForTransactionEndpoint: Endpoint[
     CallerContext,
@@ -297,7 +303,9 @@ object JsInteractiveSubmissionService extends DocumentationEndpoints {
     .in(stringToPath("executeAndWaitForTransaction"))
     .in(jsonBody[JsExecuteSubmissionAndWaitForTransactionRequest])
     .out(jsonBody[JsExecuteSubmissionAndWaitForTransactionResponse])
-    .description("Execute a signed transaction and wait for the transaction response")
+    .protoRef(
+      interactive_submission_service.InteractiveSubmissionServiceGrpc.METHOD_EXECUTE_SUBMISSION_AND_WAIT_FOR_TRANSACTION
+    )
 
   val preferredPackageVersionEndpoint =
     preferredPackageVersion.get
@@ -306,16 +314,16 @@ object JsInteractiveSubmissionService extends DocumentationEndpoints {
       .in(sttp.tapir.query[Option[Instant]](timestampVettingValidityQueryParam))
       .in(sttp.tapir.query[Option[String]](synchronizerIdQueryParam))
       .out(jsonBody[interactive_submission_service.GetPreferredPackageVersionResponse])
-      .description(
-        "Get the preferred package version for constructing a command submission"
+      .protoRef(
+        interactive_submission_service.InteractiveSubmissionServiceGrpc.METHOD_GET_PREFERRED_PACKAGE_VERSION
       )
 
   val preferredPackagesEndpoint =
     preferredPackages.post
       .in(jsonBody[interactive_submission_service.GetPreferredPackagesRequest])
       .out(jsonBody[interactive_submission_service.GetPreferredPackagesResponse])
-      .description(
-        "Get the version of preferred packages for constructing a command submission"
+      .protoRef(
+        interactive_submission_service.InteractiveSubmissionServiceGrpc.METHOD_GET_PREFERRED_PACKAGES
       )
 
   override def documentation: Seq[AnyEndpoint] =

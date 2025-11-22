@@ -252,7 +252,7 @@ abstract class CliIntegrationTest extends ReleaseArtifactIntegrationTestUtils {
               "--log-file-name",
               "log/" + logFileName,
               "-c",
-              "demo/demo.conf",
+              "examples/01-simple-topology/simple-topology.conf",
             ),
             Some(new java.io.File(cantonDir)),
           ) ! processLogger
