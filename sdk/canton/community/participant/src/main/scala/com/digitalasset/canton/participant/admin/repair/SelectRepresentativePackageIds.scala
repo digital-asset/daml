@@ -78,23 +78,24 @@ private[admin] class SelectRepresentativePackageIds(
 
     rpIdSelectionPrecedence.view
       .map(_.evaluated)
-      .collectFirst { case Some(RPIdSelection(selectedRpId, sourceDescription)) =>
-        logger.debug(
-          show"Selected representative package-id $selectedRpId for ${repairContract.contract.contractId} ($sourceDescription)"
-        )
-        selectedRpId
-      }
+      .collectFirst { case Some(rpIdSelection) => rpIdSelection }
       .toRight(
         show"Could not select a representative package-id for contract with id ${repairContract.contract.contractId}. No package in store for the contract's package-name '${repairContract.contract.packageName}'."
       )
-      .flatMap { selectedPkgId =>
-        Either.cond(
-          selectedPkgId == repairContract.representativePackageId || contractImportMode == Validation,
-          selectedPkgId,
-          show"Contract import mode is '$contractImportMode' but the selected representative package-id $selectedPkgId " +
-            show"for contract with id ${repairContract.contract.contractId} differs from the exported representative package-id ${repairContract.representativePackageId}. " +
-            show"Please use contract import mode '${ContractImportMode.Validation}' to change the representative package-id.",
-        )
+      .flatMap { case RPIdSelection(selectedRpId, sourceDescription) =>
+        if (selectedRpId != repairContract.representativePackageId) {
+          if (contractImportMode == Validation) {
+            logger.debug(
+              show"Representative package-id changed from ${repairContract.representativePackageId} to $selectedRpId for contract ${repairContract.contract.contractId}. Reason: $sourceDescription"
+            )
+            Right(selectedRpId)
+          } else
+            Left(
+              show"Contract import mode is '$contractImportMode' but the selected representative package-id $selectedRpId " +
+                show"for contract with id ${repairContract.contract.contractId} differs from the exported representative package-id ${repairContract.representativePackageId}. " +
+                show"Please use contract import mode '${ContractImportMode.Validation}' to change the representative package-id."
+            )
+        } else Right(selectedRpId)
       }
       .map(selectedRPId => repairContract.copy(representativePackageId = selectedRPId))
   }

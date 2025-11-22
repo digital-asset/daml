@@ -25,7 +25,6 @@ import com.digitalasset.canton.data.{
   ReassignmentSubmitterMetadata,
   SynchronizerSuccessor,
 }
-import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.*
 import com.digitalasset.canton.error.TransactionRoutingError.{
   MalformedInputErrors,
@@ -157,7 +156,6 @@ class CantonSyncService(
     private[canton] val packageService: PackageService,
     partyOps: PartyOps,
     identityPusher: ParticipantTopologyDispatcher,
-    partyNotifier: LedgerServerPartyNotifier,
     val syncCrypto: SyncCryptoApiParticipantProvider,
     val pruningProcessor: PruningProcessor,
     engine: Engine,
@@ -195,7 +193,6 @@ class CantonSyncService(
     syncPersistentStateManager,
     packageService,
     identityPusher,
-    partyNotifier,
     syncCrypto,
     engine,
     commandProgressTracker,
@@ -241,7 +238,6 @@ class CantonSyncService(
   private val partyAllocation = new PartyAllocation(
     participantId,
     partyOps,
-    partyNotifier,
     isActive,
     connectedSynchronizersLookup,
     timeouts,
@@ -381,12 +377,6 @@ class CantonSyncService(
     parameters = parameters,
     loggerFactory = loggerFactory,
   )(ec)
-
-  if (isActive()) {
-    TraceContext.withNewTraceContext("initialize_state") { implicit traceContext =>
-      initializeState()
-    }
-  }
 
   private val packageResolver: PackageResolver = packageId =>
     traceContext => packageService.getPackage(packageId)(traceContext)
@@ -910,28 +900,6 @@ class CantonSyncService(
   override def getPackageMetadataSnapshot(implicit
       errorLoggingContext: ErrorLoggingContext
   ): PackageMetadata = getPackageMetadataView.getSnapshot
-
-  /** Executes ordered sequence of steps to recover any state that might have been lost if the
-    * participant previously crashed. Needs to be invoked after the input stores have been created,
-    * but before they are made available to dependent components.
-    */
-  private def recoverParticipantNodeState()(implicit traceContext: TraceContext): Unit = {
-    // also resume pending party notifications
-    val resumePendingF = partyNotifier.resumePending()
-
-    parameters.processingTimeouts.unbounded
-      .awaitUS(
-        "Wait for party-notifier recovery to finish"
-      )(resumePendingF)
-      .discard
-  }
-
-  def initializeState()(implicit traceContext: TraceContext): Unit = {
-    logger.debug("Invoke crash recovery or initialize active participant")
-
-    // Important to invoke recovery before we do anything else with persisted stores.
-    recoverParticipantNodeState()
-  }
 
   /** Returns the ready synchronizers this sync service is connected to. */
   def readySynchronizers: Map[SynchronizerAlias, (PhysicalSynchronizerId, SubmissionReady)] =
@@ -1728,7 +1696,6 @@ object CantonSyncService {
       packageService: PackageService,
       partyOps: PartyOps,
       identityPusher: ParticipantTopologyDispatcher,
-      partyNotifier: LedgerServerPartyNotifier,
       syncCrypto: SyncCryptoApiParticipantProvider,
       engine: Engine,
       commandProgressTracker: CommandProgressTracker,
@@ -1765,7 +1732,6 @@ object CantonSyncService {
         packageService,
         partyOps,
         identityPusher,
-        partyNotifier,
         syncCrypto,
         pruningProcessor,
         engine,

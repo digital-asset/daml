@@ -11,7 +11,12 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.v30
 import com.digitalasset.canton.topology.transaction.*
 
-final case class ListPartiesResult(party: PartyId, participants: Seq[ParticipantSynchronizers])
+final case class ListPartiesResult(
+    partyResult: Party,
+    participants: Seq[ParticipantSynchronizers],
+) {
+  def party: PartyId = partyResult.partyId
+}
 
 object ListPartiesResult {
   final case class SynchronizerPermission(

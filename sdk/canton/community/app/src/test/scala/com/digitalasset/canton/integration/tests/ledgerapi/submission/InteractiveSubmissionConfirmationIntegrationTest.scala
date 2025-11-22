@@ -70,7 +70,7 @@ final class InteractiveSubmissionConfirmationIntegrationTest
         participants.all.dars.upload(CantonExamplesPath)
         participants.all.dars.upload(CantonTestsPath)
 
-        aliceE = cpn.parties.external.enable(
+        aliceE = cpn.parties.testing.external.enable(
           "Alice",
           // Use 3 keys but start with a threshold of 1
           keysCount = PositiveInt.three,

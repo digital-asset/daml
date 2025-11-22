@@ -64,7 +64,7 @@ final class ExportContractsIntegrationTest
         IouSyntax.createIou(participant1)(payer, owner)
 
         val uninformedOffset = participant1.parties.find_party_max_activation_offset(
-          partyId = uninformed,
+          partyId = uninformed.partyId,
           participantId = participant1.id,
           synchronizerId = daId,
           completeAfter = PositiveInt.one,
@@ -72,7 +72,7 @@ final class ExportContractsIntegrationTest
 
         File.usingTemporaryFile() { file =>
           participant1.repair.export_acs(
-            parties = Set(uninformed),
+            parties = Set(uninformed.partyId),
             exportFilePath = file.toString,
             synchronizerId = Some(daId),
             ledgerOffset = uninformedOffset,
@@ -90,7 +90,7 @@ final class ExportContractsIntegrationTest
           IouSyntax.createIou(participant1)(payer, owner)
 
           val payerOffset = participant1.parties.find_party_max_activation_offset(
-            partyId = payer,
+            partyId = payer.partyId,
             participantId = participant1.id,
             synchronizerId = daId,
             completeAfter = PositiveInt.one,
@@ -100,7 +100,7 @@ final class ExportContractsIntegrationTest
             loggerFactory.assertThrowsAndLogs[CommandFailure](
               participant1.repair
                 .export_acs(
-                  parties = Set(payer),
+                  parties = Set(payer.partyId),
                   exportFilePath = file.toString,
                   synchronizerId = Some(
                     SynchronizerId(UniqueIdentifier.tryCreate("synchronizer", "id"))
@@ -138,13 +138,13 @@ final class ExportContractsIntegrationTest
             // exporting contracts from the participant where they are not hosted
             participant1.repair
               .export_acs(
-                parties = Set(bob),
+                parties = Set(bob.partyId),
                 exportFilePath = dumpForAlice.canonicalPath,
                 ledgerOffset = ledgerEndP1,
               )
             participant2.repair
               .export_acs(
-                parties = Set(alice),
+                parties = Set(alice.partyId),
                 exportFilePath = dumpForBob.canonicalPath,
                 ledgerOffset = ledgerEndP2,
               )

@@ -4,45 +4,50 @@ info:
   version: 3.5.0-SNAPSHOT
 channels:
   /v2/commands/completions:
-    description: Get completions stream
+    description: Subscribe to command completion events.
     subscribe:
       operationId: onV2CommandsCompletions
-      description: Get completions stream
       message:
         $ref: '#/components/messages/Either_JsCantonError_CompletionStreamResponse'
     publish:
       operationId: sendV2CommandsCompletions
-      description: Get completions stream
       message:
         $ref: '#/components/messages/CompletionStreamRequest'
     bindings:
       ws:
         method: GET
   /v2/state/active-contracts:
-    description: Get active contracts stream
+    description: |-
+      Returns a stream of the snapshot of the active contracts and incomplete (un)assignments at a ledger offset.
+      Once the stream of GetActiveContractsResponses completes,
+      the client SHOULD begin streaming updates from the update service,
+      starting at the GetActiveContractsRequest.active_at_offset specified in this request.
+      Clients SHOULD NOT assume that the set of active contracts they receive reflects the state at the ledger end.
     subscribe:
       operationId: onV2StateActive-contracts
-      description: Get active contracts stream
       message:
         $ref: '#/components/messages/Either_JsCantonError_JsGetActiveContractsResponse'
     publish:
       operationId: sendV2StateActive-contracts
-      description: Get active contracts stream
       message:
         $ref: '#/components/messages/GetActiveContractsRequest'
     bindings:
       ws:
         method: GET
   /v2/updates:
-    description: Get updates stream
+    description: |-
+      Read the ledger's filtered update stream for the specified contents and filters.
+      It returns the event types in accordance with the stream contents selected. Also the selection criteria
+      for individual events depends on the transaction shape chosen.
+
+      - ACS delta: a requesting party must be a stakeholder of an event for it to be included.
+      - ledger effects: a requesting party must be a witness of an en event for it to be included.
     subscribe:
       operationId: onV2Updates
-      description: Get updates stream
       message:
         $ref: '#/components/messages/Either_JsCantonError_JsGetUpdatesResponse'
     publish:
       operationId: sendV2Updates
-      description: Get updates stream
       message:
         $ref: '#/components/messages/GetUpdatesRequest'
     bindings:
@@ -53,14 +58,10 @@ channels:
       it will be removed in the Canton version 3.5.0, use v2/updates instead.
     subscribe:
       operationId: onV2UpdatesFlats
-      description: Get flat transactions update stream. Provided for backwards compatibility,
-        it will be removed in the Canton version 3.5.0, use v2/updates instead.
       message:
         $ref: '#/components/messages/Either_JsCantonError_JsGetUpdatesResponse'
     publish:
       operationId: sendV2UpdatesFlats
-      description: Get flat transactions update stream. Provided for backwards compatibility,
-        it will be removed in the Canton version 3.5.0, use v2/updates instead.
       message:
         $ref: '#/components/messages/GetUpdatesRequest'
     bindings:
@@ -71,14 +72,10 @@ channels:
       it will be removed in the Canton version 3.5.0, use v2/updates instead.
     subscribe:
       operationId: onV2UpdatesTrees
-      description: Get update transactions tree stream. Provided for backwards compatibility,
-        it will be removed in the Canton version 3.5.0, use v2/updates instead.
       message:
         $ref: '#/components/messages/Either_JsCantonError_JsGetUpdateTreesResponse'
     publish:
       operationId: sendV2UpdatesTrees
-      description: Get update transactions tree stream. Provided for backwards compatibility,
-        it will be removed in the Canton version 3.5.0, use v2/updates instead.
       message:
         $ref: '#/components/messages/GetUpdatesRequest'
     bindings:

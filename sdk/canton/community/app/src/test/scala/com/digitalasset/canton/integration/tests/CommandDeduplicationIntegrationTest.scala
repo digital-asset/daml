@@ -9,6 +9,7 @@ import com.daml.ledger.api.v2.completion.Completion
 import com.daml.ledger.javaapi.data.Transaction
 import com.digitalasset.base
 import com.digitalasset.base.error.GrpcStatuses
+import com.digitalasset.canton.BaseTest.UnsupportedExternalPartyTest.MultiPartySubmission
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.{DbConfig, StorageConfig}
@@ -50,7 +51,7 @@ import com.digitalasset.canton.synchronizer.sequencer.{HasProgrammableSequencer,
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.{
   ParticipantId,
-  PartyId,
+  Party,
   PhysicalSynchronizerId,
   SynchronizerId,
 }
@@ -97,8 +98,8 @@ trait CommandDeduplicationIntegrationTest
         participant1.synchronizers.connect_local(sequencer2, alias = acmeName)
         participant1.dars.upload(CantonExamplesPath, synchronizerId = daId)
         participant1.dars.upload(CantonExamplesPath, synchronizerId = acmeId)
-        participant1.parties.enable("Alice", synchronizer = daName)
-        participant1.parties.enable("Alice", synchronizer = acmeName)
+        val alice = participant1.parties.testing.enable("Alice", synchronizer = daName)
+        participant1.parties.testing.also_enable(alice, synchronizer = acmeName)
       }
 
   private def checkAccepted(
@@ -327,11 +328,11 @@ trait CommandDeduplicationIntegrationTest
 
     }
 
-  "do not deduplicate across submitters" in
+  "do not deduplicate across submitters" onlyRunWithLocalParty (MultiPartySubmission) in
     WithContext { (alice, _) => implicit env =>
       import env.*
 
-      val bob = participant1.parties.enable("Bob", synchronizer = daName)
+      val bob = participant1.parties.testing.enable("Bob", synchronizer = daName)
 
       val createCycleContract =
         new C.Cycle(
@@ -340,7 +341,7 @@ trait CommandDeduplicationIntegrationTest
         ).create.commands.loneElement
       val commandId = "do-not-deduplicate-across-submitters"
 
-      def submit(actAs: Seq[PartyId]): Unit =
+      def submit(actAs: Seq[Party]): Unit =
         participant1.ledger_api.javaapi.commands.submit(
           actAs,
           Seq(createCycleContract),
@@ -378,7 +379,7 @@ trait CommandDeduplicationIntegrationTest
 
   private def submissionAlreadyInFlightError(
       commandId: String,
-      submitter: PartyId,
+      submitter: Party,
       submissionId: String,
       synchronizerId: PhysicalSynchronizerId,
   )(logEntry: LogEntry): Assertion =
@@ -696,12 +697,12 @@ trait CommandDeduplicationIntegrationTest
 
 trait CommandDeduplicationTestHelpers { this: BaseTest with HasProgrammableSequencer =>
   protected def WithContext(
-      code: (PartyId, SimClock) => TestConsoleEnvironment => Unit
+      code: (Party, SimClock) => TestConsoleEnvironment => Unit
   ): TestConsoleEnvironment => Unit = { implicit env =>
     import env.*
 
-    val alices = participant1.parties.list(filterParty = "Alice", limit = 1)
-    val alice = alices.headOption.value.party
+    val alices = participant1.parties.testing.list(filterParty = "Alice", limit = 1)
+    val alice = alices.headOption.value.partyResult
 
     val simClock = env.environment.simClock.value
     code(alice, simClock)(env)
@@ -709,7 +710,7 @@ trait CommandDeduplicationTestHelpers { this: BaseTest with HasProgrammableSeque
 
   protected def findCompletionFor(
       participant: ParticipantReference,
-      party: PartyId,
+      party: Party,
       startOffset: Long,
       commandId: String,
       submissionId: String,
@@ -718,7 +719,7 @@ trait CommandDeduplicationTestHelpers { this: BaseTest with HasProgrammableSeque
       s"Finding completion for submission $commandId / $submissionId of $party, starting at $startOffset"
     )
     val completions = participant.ledger_api.completions.list(
-      party,
+      party.partyId,
       atLeastNumCompletions = 1,
       startOffset,
       filter = completion =>

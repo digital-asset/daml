@@ -5,7 +5,9 @@ info:
 paths:
   /v2/commands/submit-and-wait:
     post:
-      description: Submit a batch of commands and wait for the completion details
+      description: |-
+        Submits a single composite command and waits for its result.
+        Propagates the gRPC error of failed submissions including Daml interpretation errors.
       operationId: postV2CommandsSubmit-and-wait
       requestBody:
         content:
@@ -37,7 +39,9 @@ paths:
       - apiKeyAuth: []
   /v2/commands/submit-and-wait-for-transaction:
     post:
-      description: Submit a batch of commands and wait for the transaction response
+      description: |-
+        Submits a single composite command, waits for its result, and returns the transaction.
+        Propagates the gRPC error of failed submissions including Daml interpretation errors.
       operationId: postV2CommandsSubmit-and-wait-for-transaction
       requestBody:
         content:
@@ -69,8 +73,9 @@ paths:
       - apiKeyAuth: []
   /v2/commands/submit-and-wait-for-reassignment:
     post:
-      description: Submit a batch of reassignment commands and wait for the reassignment
-        response
+      description: |-
+        Submits a single composite reassignment command, waits for its result, and returns the reassignment.
+        Propagates the gRPC error of failed submission.
       operationId: postV2CommandsSubmit-and-wait-for-reassignment
       requestBody:
         content:
@@ -137,7 +142,7 @@ paths:
       - apiKeyAuth: []
   /v2/commands/async/submit:
     post:
-      description: Submit a command asynchronously
+      description: Submit a single composite command.
       operationId: postV2CommandsAsyncSubmit
       requestBody:
         content:
@@ -169,7 +174,7 @@ paths:
       - apiKeyAuth: []
   /v2/commands/async/submit-reassignment:
     post:
-      description: Submit reassignment command asynchronously
+      description: Submit a single reassignment.
       operationId: postV2CommandsAsyncSubmit-reassignment
       requestBody:
         content:
@@ -203,6 +208,8 @@ paths:
     post:
       description: |-
         Query completions list (blocking call)
+
+        Subscribe to command completion events.
         Notice: This endpoint should be used for small results set.
         When number of results exceeded node configuration limit (`http-list-max-elements-limit`)
         there will be an error (`413 Content Too Large`) returned.
@@ -259,7 +266,11 @@ paths:
       - apiKeyAuth: []
   /v2/events/events-by-contract-id:
     post:
-      description: Get events by contract Id
+      description: |-
+        Get the create and the consuming exercise event for the contract with the provided ID.
+        No events will be returned for contracts that have been pruned because they
+        have already been archived before the latest pruning offset.
+        If the contract cannot be found for the request, or all the contract-events are filtered, a CONTRACT_EVENTS_NOT_FOUND error will be raised.
       operationId: postV2EventsEvents-by-contract-id
       requestBody:
         content:
@@ -291,7 +302,7 @@ paths:
       - apiKeyAuth: []
   /v2/version:
     get:
-      description: Get the version details of the participant node
+      description: Read the Ledger API version
       operationId: getV2Version
       responses:
         '200':
@@ -317,8 +328,13 @@ paths:
       - apiKeyAuth: []
   /v2/dars/validate:
     post:
-      description: Validates a DAR for upgrade-compatibility against the current vetting
-        state on the target synchronizer
+      description: |-
+        Validates the DAR and checks the upgrade compatibility of the DAR's packages
+        with the set of the already vetted packages on the target vetting synchronizer.
+        See ValidateDarFileRequest for details regarding the target vetting synchronizer.
+
+        The operation has no effect on the state of the participant or the Canton ledger:
+        the DAR payload and its packages are not persisted neither are the packages vetted.
       operationId: postV2DarsValidate
       parameters:
       - name: synchronizerId
@@ -399,7 +415,7 @@ paths:
       - apiKeyAuth: []
   /v2/packages:
     get:
-      description: List all packages uploaded on the participant node
+      description: Returns the identifiers of all supported packages.
       operationId: getV2Packages
       responses:
         '200':
@@ -424,8 +440,13 @@ paths:
       - httpAuth: []
       - apiKeyAuth: []
     post:
-      description: Upload a DAR to the participant node. Behaves the same as /dars.
-        This endpoint will be deprecated and removed in a future release.
+      description: |-
+        Behaves the same as /dars. This endpoint will be deprecated and removed in a future release.
+        Upload a DAR file to the participant.
+
+        If vetting is enabled in the request, the DAR is checked for upgrade compatibility
+        with the set of the already vetted packages on the target vetting synchronizer
+        See UploadDarFileRequest for details regarding vetting and the target vetting synchronizer.
       operationId: postV2Packages
       parameters:
       - name: vetAllPackages
@@ -470,7 +491,7 @@ paths:
       - apiKeyAuth: []
   /v2/packages/{package-id}:
     get:
-      description: Download the package for the requested package-id
+      description: Returns the contents of a single package.
       operationId: getV2PackagesPackage-id
       parameters:
       - name: package-id
@@ -508,7 +529,7 @@ paths:
       - apiKeyAuth: []
   /v2/packages/{package-id}/status:
     get:
-      description: Get package status
+      description: Returns the status of a single package.
       operationId: getV2PackagesPackage-idStatus
       parameters:
       - name: package-id
@@ -540,7 +561,9 @@ paths:
       - apiKeyAuth: []
   /v2/package-vetting:
     get:
-      description: List vetted packages
+      description: |-
+        Lists which participant node vetted what packages on which synchronizer.
+        Can be called by any authenticated user.
       operationId: getV2Package-vetting
       requestBody:
         content:
@@ -571,7 +594,7 @@ paths:
       - httpAuth: []
       - apiKeyAuth: []
     post:
-      description: Update vetted packages
+      description: Update the vetted packages of this participant
       operationId: postV2Package-vetting
       requestBody:
         content:
@@ -603,7 +626,10 @@ paths:
       - apiKeyAuth: []
   /v2/parties:
     get:
-      description: List all known parties.
+      description: |-
+        List the parties known by the participant.
+        The list returned contains parties whose ledger access is facilitated by
+        the participant and the ones maintained elsewhere.
       operationId: getV2Parties
       parameters:
       - name: pageSize
@@ -645,7 +671,24 @@ paths:
       - httpAuth: []
       - apiKeyAuth: []
     post:
-      description: Allocate a new party to the participant node
+      description: |-
+        Allocates a new party on a ledger and adds it to the set managed by the participant.
+        Caller specifies a party identifier suggestion, the actual identifier
+        allocated might be different and is implementation specific.
+        Caller can specify party metadata that is stored locally on the participant.
+        This call may:
+
+        - Succeed, in which case the actual allocated identifier is visible in
+          the response.
+        - Respond with a gRPC error
+
+        daml-on-kv-ledger: suggestion's uniqueness is checked by the validators in
+        the consensus layer and call rejected if the identifier is already present.
+        canton: completely different globally unique identifier is allocated.
+        Behind the scenes calls to an internal protocol are made. As that protocol
+        is richer than the surface protocol, the arguments take implicit values
+        The party identifier suggestion must be a valid party name. Party names are required to be non-empty US-ASCII strings built from letters, digits, space,
+        colon, minus and underscore limited to 255 chars
       operationId: postV2Parties
       requestBody:
         content:
@@ -677,7 +720,20 @@ paths:
       - apiKeyAuth: []
   /v2/parties/external/allocate:
     post:
-      description: Allocate a new external party
+      description: |-
+        Alpha 3.3: Endpoint to allocate a new external party on a synchronizer
+
+        Expected to be stable in 3.5
+
+        The external party must be hosted (at least) on this node with either confirmation or observation permissions
+        It can optionally be hosted on other nodes (then called a multi-hosted party).
+        If hosted on additional nodes, explicit authorization of the hosting relationship must be performed on those nodes
+        before the party can be used.
+        Decentralized namespaces are supported but must be provided fully authorized by their owners.
+        The individual owner namespace transactions can be submitted in the same call (fully authorized as well).
+        In the simple case of a non-multi hosted, non-decentralized party, the RPC will return once the party is
+        effectively allocated and ready to use, similarly to the AllocateParty behavior.
+        For more complex scenarios applications may need to query the party status explicitly (only through the admin API as of now).
       operationId: postV2PartiesExternalAllocate
       requestBody:
         content:
@@ -709,7 +765,11 @@ paths:
       - apiKeyAuth: []
   /v2/parties/participant-id:
     get:
-      description: Get participant id
+      description: |-
+        Return the identifier of the participant.
+        All horizontally scaled replicas should return the same id.
+        daml-on-kv-ledger: returns an identifier supplied on command line at launch time
+        canton: returns globally unique identifier of the participant
       operationId: getV2PartiesParticipant-id
       responses:
         '200':
@@ -735,7 +795,9 @@ paths:
       - apiKeyAuth: []
   /v2/parties/{party}:
     get:
-      description: Get party details
+      description: |-
+        Get the party details of the given parties. Only known parties will be
+        returned in the list.
       operationId: getV2PartiesParty
       parameters:
       - name: party
@@ -779,7 +841,9 @@ paths:
       - httpAuth: []
       - apiKeyAuth: []
     patch:
-      description: Allocate a new party to the participant node
+      description: |-
+        Update selected modifiable participant-local attributes of a party details resource.
+        Can update the participant's local information for local parties.
       operationId: patchV2PartiesParty
       parameters:
       - name: party
@@ -817,7 +881,17 @@ paths:
       - apiKeyAuth: []
   /v2/parties/external/generate-topology:
     post:
-      description: Generate a topology for an external party
+      description: |-
+        Alpha 3.3: Convenience endpoint to generate topology transactions for external signing
+
+        Expected to be stable in 3.5
+
+        You may use this endpoint to generate the common external topology transactions
+        which can be signed externally and uploaded as part of the allocate party process
+
+        Note that this request will create a normal namespace using the same key for the
+        identity as for signing. More elaborate schemes such as multi-signature
+        or decentralized parties require you to construct the topology transactions yourself.
       operationId: postV2PartiesExternalGenerate-topology
       requestBody:
         content:
@@ -855,6 +929,12 @@ paths:
         Consider querying active contracts initially (for a given offset)
         and then repeatedly call one of `/v2/updates/...`endpoints  to get subsequent modifications.
         You can also use websockets to get updates with better performance.
+
+        Returns a stream of the snapshot of the active contracts and incomplete (un)assignments at a ledger offset.
+        Once the stream of GetActiveContractsResponses completes,
+        the client SHOULD begin streaming updates from the update service,
+        starting at the GetActiveContractsRequest.active_at_offset specified in this request.
+        Clients SHOULD NOT assume that the set of active contracts they receive reflects the state at the ledger end.
 
         Notice: This endpoint should be used for small results set.
         When number of results exceeded node configuration limit (`http-list-max-elements-limit`)
@@ -912,7 +992,7 @@ paths:
       - apiKeyAuth: []
   /v2/state/connected-synchronizers:
     get:
-      description: Get connected synchronizers
+      description: Get the list of connected synchronizers at the time of the query.
       operationId: getV2StateConnected-synchronizers
       parameters:
       - name: party
@@ -956,7 +1036,9 @@ paths:
       - apiKeyAuth: []
   /v2/state/ledger-end:
     get:
-      description: Get ledger end
+      description: |-
+        Get the current ledger end.
+        Subscriptions started with the returned offset will serve events after this RPC was called.
       operationId: getV2StateLedger-end
       responses:
         '200':
@@ -982,7 +1064,7 @@ paths:
       - apiKeyAuth: []
   /v2/state/latest-pruned-offsets:
     get:
-      description: Get latest pruned offsets
+      description: Get the latest successfully pruned ledger offsets
       operationId: getV2StateLatest-pruned-offsets
       responses:
         '200':
@@ -1009,7 +1091,12 @@ paths:
   /v2/updates:
     post:
       description: |-
-        Query updates list (blocking call)
+        Read the ledger's filtered update stream for the specified contents and filters.
+        It returns the event types in accordance with the stream contents selected. Also the selection criteria
+        for individual events depends on the transaction shape chosen.
+
+        - ACS delta: a requesting party must be a stakeholder of an event for it to be included.
+        - ledger effects: a requesting party must be a witness of an en event for it to be included.
         Notice: This endpoint should be used for small results set.
         When number of results exceeded node configuration limit (`http-list-max-elements-limit`)
         there will be an error (`413 Content Too Large`) returned.
@@ -1263,7 +1350,9 @@ paths:
       - apiKeyAuth: []
   /v2/updates/update-by-offset:
     post:
-      description: Get update by offset
+      description: |-
+        Lookup an update by its offset.
+        If there is no update with this offset, or all the events are filtered, an UPDATE_NOT_FOUND error will be raised.
       operationId: postV2UpdatesUpdate-by-offset
       requestBody:
         content:
@@ -1329,7 +1418,9 @@ paths:
       - apiKeyAuth: []
   /v2/updates/update-by-id:
     post:
-      description: Get update by id
+      description: |-
+        Lookup an update by its ID.
+        If there is no update with this ID, or all the events are filtered, an UPDATE_NOT_FOUND error will be raised.
       operationId: postV2UpdatesUpdate-by-id
       requestBody:
         content:
@@ -1403,7 +1494,7 @@ paths:
       - apiKeyAuth: []
   /v2/users:
     get:
-      description: List all users.
+      description: List all existing users.
       operationId: getV2Users
       parameters:
       - name: pageSize
@@ -1445,7 +1536,7 @@ paths:
       - httpAuth: []
       - apiKeyAuth: []
     post:
-      description: Create user.
+      description: Create a new user.
       operationId: postV2Users
       requestBody:
         content:
@@ -1477,7 +1568,7 @@ paths:
       - apiKeyAuth: []
   /v2/users/{user-id}:
     get:
-      description: Get user details.
+      description: Get the user data of a specific user or the authenticated user.
       operationId: getV2UsersUser-id
       parameters:
       - name: user-id
@@ -1513,7 +1604,7 @@ paths:
       - httpAuth: []
       - apiKeyAuth: []
     delete:
-      description: Delete user.
+      description: Delete an existing user and all its rights.
       operationId: deleteV2UsersUser-id
       parameters:
       - name: user-id
@@ -1544,7 +1635,8 @@ paths:
       - httpAuth: []
       - apiKeyAuth: []
     patch:
-      description: Update  user.
+      description: Update selected modifiable attribute of a user resource described
+        by the ``User`` message.
       operationId: patchV2UsersUser-id
       parameters:
       - name: user-id
@@ -1582,7 +1674,7 @@ paths:
       - apiKeyAuth: []
   /v2/authenticated-user:
     get:
-      description: Get current user details (uses user for JWT).
+      description: Get the user data of the current authenticated user.
       operationId: getV2Authenticated-user
       parameters:
       - name: identity-provider-id
@@ -1614,7 +1706,7 @@ paths:
       - apiKeyAuth: []
   /v2/users/{user-id}/rights:
     get:
-      description: List user rights.
+      description: List the set of all rights granted to a user.
       operationId: getV2UsersUser-idRights
       parameters:
       - name: user-id
@@ -1645,7 +1737,9 @@ paths:
       - httpAuth: []
       - apiKeyAuth: []
     post:
-      description: Grant user rights.
+      description: |-
+        Grant rights to a user.
+        Granting rights does not affect the resource version of the corresponding user.
       operationId: postV2UsersUser-idRights
       parameters:
       - name: user-id
@@ -1682,7 +1776,9 @@ paths:
       - httpAuth: []
       - apiKeyAuth: []
     patch:
-      description: Revoke user rights.
+      description: |-
+        Revoke rights from a user.
+        Revoking rights does not affect the resource version of the corresponding user.
       operationId: patchV2UsersUser-idRights
       parameters:
       - name: user-id
@@ -1720,7 +1816,7 @@ paths:
       - apiKeyAuth: []
   /v2/users/{user-id}/identity-provider-id:
     patch:
-      description: Update user identity provider.
+      description: Update the assignment of a user from one IDP to another.
       operationId: patchV2UsersUser-idIdentity-provider-id
       parameters:
       - name: user-id
@@ -1758,7 +1854,7 @@ paths:
       - apiKeyAuth: []
   /v2/idps:
     get:
-      description: List all identity provider configs
+      description: List all existing identity provider configurations.
       operationId: getV2Idps
       responses:
         '200':
@@ -1783,7 +1879,9 @@ paths:
       - httpAuth: []
       - apiKeyAuth: []
     post:
-      description: Create identity provider configs
+      description: |-
+        Create a new identity provider configuration.
+        The request will fail if the maximum allowed number of separate configurations is reached.
       operationId: postV2Idps
       requestBody:
         content:
@@ -1815,7 +1913,7 @@ paths:
       - apiKeyAuth: []
   /v2/idps/{idp-id}:
     get:
-      description: Get identity provider config
+      description: Get the identity provider configuration data by id.
       operationId: getV2IdpsIdp-id
       parameters:
       - name: idp-id
@@ -1846,7 +1944,7 @@ paths:
       - httpAuth: []
       - apiKeyAuth: []
     delete:
-      description: Delete identity provider config
+      description: Delete an existing identity provider configuration.
       operationId: deleteV2IdpsIdp-id
       parameters:
       - name: idp-id
@@ -1877,7 +1975,9 @@ paths:
       - httpAuth: []
       - apiKeyAuth: []
     patch:
-      description: Update identity provider config
+      description: |-
+        Update selected modifiable attribute of an identity provider config resource described
+        by the ``IdentityProviderConfig`` message.
       operationId: patchV2IdpsIdp-id
       parameters:
       - name: idp-id
@@ -1915,7 +2015,8 @@ paths:
       - apiKeyAuth: []
   /v2/interactive-submission/prepare:
     post:
-      description: Prepare commands for signing
+      description: Requires `readAs` scope for the submitting party when LAPI User
+        authorization is enabled
       operationId: postV2Interactive-submissionPrepare
       requestBody:
         content:
@@ -1947,7 +2048,9 @@ paths:
       - apiKeyAuth: []
   /v2/interactive-submission/execute:
     post:
-      description: Execute a signed transaction
+      description: |-
+        Execute a prepared submission _asynchronously_ on the ledger.
+        Requires a signature of the transaction from the submitting external party.
       operationId: postV2Interactive-submissionExecute
       requestBody:
         content:
@@ -1979,7 +2082,10 @@ paths:
       - apiKeyAuth: []
   /v2/interactive-submission/executeAndWait:
     post:
-      description: Execute a signed transaction and wait for its completion
+      description: |-
+        Similar to ExecuteSubmission but _synchronously_ wait for the completion of the transaction
+        IMPORTANT: Relying on the response from this endpoint requires trusting the Participant Node to be honest.
+        A malicious node could make a successfully committed request appeared failed and vice versa
       operationId: postV2Interactive-submissionExecuteandwait
       requestBody:
         content:
@@ -2011,7 +2117,10 @@ paths:
       - apiKeyAuth: []
   /v2/interactive-submission/executeAndWaitForTransaction:
     post:
-      description: Execute a signed transaction and wait for the transaction response
+      description: |-
+        Similar to ExecuteSubmissionAndWait but additionally returns the transaction
+        IMPORTANT: Relying on the response from this endpoint requires trusting the Participant Node to be honest.
+        A malicious node could make a successfully committed request appear as failed and vice versa
       operationId: postV2Interactive-submissionExecuteandwaitfortransaction
       requestBody:
         content:
@@ -2043,7 +2152,19 @@ paths:
       - apiKeyAuth: []
   /v2/interactive-submission/preferred-package-version:
     get:
-      description: Get the preferred package version for constructing a command submission
+      description: |-
+        A preferred package is the highest-versioned package for a provided package-name
+        that is vetted by all the participants hosting the provided parties.
+
+        Ledger API clients should use this endpoint for constructing command submissions
+        that are compatible with the provided preferred package, by making informed decisions on:
+        - which are the compatible packages that can be used to create contracts
+        - which contract or exercise choice argument version can be used in the command
+        - which choices can be executed on a template or interface of a contract
+
+        Can be accessed by any Ledger API client with a valid token when Ledger API authorization is enabled.
+
+        Provided for backwards compatibility, it will be removed in the Canton version 3.4.0
       operationId: getV2Interactive-submissionPreferred-package-version
       parameters:
       - name: parties
@@ -2095,8 +2216,23 @@ paths:
       - apiKeyAuth: []
   /v2/interactive-submission/preferred-packages:
     post:
-      description: Get the version of preferred packages for constructing a command
-        submission
+      description: |-
+        Compute the preferred packages for the vetting requirements in the request.
+        A preferred package is the highest-versioned package for a provided package-name
+        that is vetted by all the participants hosting the provided parties.
+
+        Ledger API clients should use this endpoint for constructing command submissions
+        that are compatible with the provided preferred packages, by making informed decisions on:
+        - which are the compatible packages that can be used to create contracts
+        - which contract or exercise choice argument version can be used in the command
+        - which choices can be executed on a template or interface of a contract
+
+        If the package preferences could not be computed due to no selection satisfying the requirements,
+        a `FAILED_PRECONDITION` error will be returned.
+
+        Can be accessed by any Ledger API client with a valid token when Ledger API authorization is enabled.
+
+        Experimental API: this endpoint is not guaranteed to provide backwards compatibility in future releases
       operationId: postV2Interactive-submissionPreferred-packages
       requestBody:
         content:

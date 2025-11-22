@@ -104,7 +104,7 @@ trait InteractiveSubmissionIntegrationTestSetup
         participants.all.dars.upload(CantonExamplesPath, synchronizerId = daId)
         participants.all.dars.upload(CantonTestsPath, synchronizerId = daId)
 
-        aliceE = cpn.parties.external.enable("Alice")
+        aliceE = cpn.parties.testing.external.enable("Alice")
       }
       .addConfigTransform(ConfigTransforms.enableInteractiveSubmissionTransforms)
 
@@ -172,7 +172,7 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
     var danE: ExternalParty = null
 
     "onboard a new party with external keys" in { implicit env =>
-      danE = cpn.parties.external.enable(
+      danE = cpn.parties.testing.external.enable(
         "Dan",
         keysCount = PositiveInt.three,
         keysThreshold = PositiveInt.two,
@@ -338,7 +338,7 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
       implicit env =>
         import env.*
 
-        val partyE = cpn.parties.external.enable("Party")
+        val partyE = cpn.parties.testing.external.enable("Party")
 
         // Change cpn to observation rights
         val newPTP = TopologyTransaction(
@@ -1016,7 +1016,7 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
 
     "fail to execute if the party does not exist on the synchronizer" in { implicit env =>
       import env.*
-      val temporaryPartyE = ppn.parties.external.enable("temp")
+      val temporaryPartyE = ppn.parties.testing.external.enable("temp")
       val prepared = ppn.ledger_api.javaapi.interactive_submission.prepare(
         Seq(temporaryPartyE.partyId),
         Seq(
@@ -1083,7 +1083,8 @@ class InteractiveSubmissionMultiSynchronizerIntegrationTest
     "can be allocated in a multi-synchronizer scenario" in { implicit env =>
       import env.*
 
-      val aliceE = participant1.parties.external.enable("Alice", synchronizer = Some(daName))
+      val aliceE =
+        participant1.parties.testing.external.enable("Alice", synchronizer = Some(daName))
 
       // Check that alice is hosted on `hostedCount` synchronizers
       def ensureCorrectHosting(hostedCount: Int) = {
@@ -1104,10 +1105,10 @@ class InteractiveSubmissionMultiSynchronizerIntegrationTest
 
       ensureCorrectHosting(1)
 
-      participant1.parties.external.also_enable(aliceE, acmeName)
+      participant1.parties.testing.external.also_enable(aliceE, acmeName)
       ensureCorrectHosting(2)
 
-      participant1.parties.external.also_enable(aliceE, repairSynchronizerName)
+      participant1.parties.testing.external.also_enable(aliceE, repairSynchronizerName)
       ensureCorrectHosting(3)
     }
   }

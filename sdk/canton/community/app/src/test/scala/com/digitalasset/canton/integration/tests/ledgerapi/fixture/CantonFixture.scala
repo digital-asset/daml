@@ -4,7 +4,7 @@
 package com.digitalasset.canton.integration.tests.ledgerapi.fixture
 
 import com.digitalasset.canton.config
-import com.digitalasset.canton.config.AuthServiceConfig
+import com.digitalasset.canton.config.{AuthServiceConfig, PositiveDurationSeconds}
 import com.digitalasset.canton.console.LocalParticipantReference
 import com.digitalasset.canton.integration.tests.ledgerapi.auth.SandboxRequiringAuthorizationFuns
 import com.digitalasset.canton.integration.{
@@ -90,11 +90,24 @@ trait CantonFixtureAbstract
         import env.*
 
         participant1.synchronizers.connect_local(sequencer1, alias = daName)
+        // to enable tests related to pruning
+        env.runOnAllInitializedSynchronizersForAllOwners((owner, synchronizer) =>
+          owner.topology.synchronizer_parameters
+            .propose_update(
+              synchronizer.synchronizerId,
+              _.update(reconciliationInterval = PositiveDurationSeconds.ofSeconds(1)),
+            )
+        )
 
         createChannel(participant1)
 
         participant1.dars.upload(CantonTestsPath, synchronizerId = daId)
+
+        additionalEnvironmentSetup(env)
       }
+
+  protected def additionalEnvironmentSetup(testConsoleEnvironment: TestConsoleEnvironment): Unit =
+    ()
 
   protected val channels = TrieMap[String, CloseableChannel]()
 

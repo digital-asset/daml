@@ -12,7 +12,6 @@ import com.digitalasset.canton.topology.processing.{
   InitialTopologySnapshotValidator,
   SequencedTime,
 }
-import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
 import com.digitalasset.canton.topology.transaction.{
   MediatorSynchronizerState,
   SynchronizerTrustCertificate,
@@ -33,7 +32,7 @@ trait SynchronizerTopologyInitializationCallback {
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[FutureUnlessShutdown, String, GenericStoredTopologyTransactions]
+  ): EitherT[FutureUnlessShutdown, String, Unit]
 }
 
 class StoreBasedSynchronizerTopologyInitializationCallback(
@@ -47,7 +46,7 @@ class StoreBasedSynchronizerTopologyInitializationCallback(
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[FutureUnlessShutdown, String, GenericStoredTopologyTransactions] =
+  ): EitherT[FutureUnlessShutdown, String, Unit] =
     for {
       topologyTransactions <- sequencerClient
         .downloadTopologyStateForInit(maxRetries = retry.Forever, retryLogLevel = None)
@@ -104,9 +103,7 @@ class StoreBasedSynchronizerTopologyInitializationCallback(
         .foreach { case (sequenced, effective) =>
           updateTopologyClientHead(topologyClient, sequenced, effective)
         }
-    } yield {
-      topologyTransactions
-    }
+    } yield ()
 
   private def updateTopologyClientHead(
       topologyClient: SynchronizerTopologyClientWithInit,
