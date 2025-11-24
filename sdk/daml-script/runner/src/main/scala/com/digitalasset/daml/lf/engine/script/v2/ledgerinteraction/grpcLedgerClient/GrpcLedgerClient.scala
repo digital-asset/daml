@@ -754,24 +754,6 @@ class GrpcLedgerClient(
     _ <- Future.traverse(clients)(_.allocatePartyOnMultipleParticipants(party, participantIds))
   } yield ()
 
-  override def proposePartyReplication(party: Ref.Party, toParticipantId: String): Future[Unit] = {
-    val adminClient = oAdminClient.getOrElse(
-      throw new IllegalArgumentException(
-        "Attempted to use exportParty without specifying a adminPort"
-      )
-    )
-    adminClient.proposePartyReplication(party, toParticipantId)
-  }
-
-//  override def waitUntilHostingVisible(party: Ref.Party, onParticipantUid: String): Future[Unit] = {
-//    val adminClient = oAdminClient.getOrElse(
-//      throw new IllegalArgumentException(
-//        "Attempted to use waitUntilHostingVisible without specifying a adminPort"
-//      )
-//    )
-//    adminClient.waitUntilHostingVisible(party, onParticipantUid)
-//  }
-
   override def waitUntilHostingVisible(
       party: Ref.Party,
       onParticipantUids: Iterable[String],

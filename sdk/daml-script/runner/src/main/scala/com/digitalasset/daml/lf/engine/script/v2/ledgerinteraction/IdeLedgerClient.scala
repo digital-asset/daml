@@ -1071,12 +1071,6 @@ class IdeLedgerClient(
     _ <- allocateParty(party)
   } yield ()
 
-  override def proposePartyReplication(party: Ref.Party, toParticipantId: String): Future[Unit] =
-    Future.successful(())
-
-//  override def waitUntilHostingVisible(party: Ref.Party, onParticipantUid: String): Future[Unit] =
-//    Future.successful(())
-
   override def waitUntilHostingVisible(
       party: Ref.Party,
       onParticipantUid: Iterable[String],

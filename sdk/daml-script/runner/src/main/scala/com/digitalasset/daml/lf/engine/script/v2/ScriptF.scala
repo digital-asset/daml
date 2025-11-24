@@ -517,10 +517,11 @@ object ScriptF {
         )
       } yield SEValue(SOptional(optR))
   }
-
   final case class AllocParty(
       idHint: String,
-      participants: Option[(Participant, List[Participant])],
+      participants: Option[
+        (Participant, List[Participant])
+      ], // Option of pair since when called from v1 it may be None in which case we use the default_participant of clients, handled by assertGetParticipantFuture
   ) extends Cmd {
     override def execute(env: Env)(implicit
         ec: ExecutionContext,
@@ -553,7 +554,6 @@ object ScriptF {
           client.waitUntilHostingVisible(party, participantIds)
         )
 
-        // do the waiting
       } yield {
         owningParticipant.foreach(env.addPartyParticipantMapping(party, _))
         SEValue(SParty(party))
