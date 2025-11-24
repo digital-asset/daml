@@ -19,4 +19,10 @@ object MessageSignature {
       publicKey,
     )
   }
+
+  @throws(classOf[NoSuchProviderException])
+  @throws(classOf[InvalidKeyException])
+  def validateKey(publicKey: PublicKey): Boolean = {
+    MessageSignaturePrototype.Secp256k1.validateKey(publicKey)
+  }
 }
