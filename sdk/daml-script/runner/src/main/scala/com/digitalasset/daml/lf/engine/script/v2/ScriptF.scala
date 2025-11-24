@@ -35,6 +35,7 @@ import scalaz.{Foldable, OneAnd}
 import java.security.{KeyFactory, SecureRandom}
 import java.security.spec.PKCS8EncodedKeySpec
 import java.time.Clock
+import java.util.UUID
 import scala.collection.immutable.ArraySeq
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -517,44 +518,73 @@ object ScriptF {
         )
       } yield SEValue(SOptional(optR))
   }
+//  final case class AllocParty(
+//      idHint: String,
+//      participants: List[Participant],
+//  ) extends Cmd {
+//    override def execute(env: Env)(implicit
+//        ec: ExecutionContext,
+//        mat: Materializer,
+//        esf: ExecutionSequencerFactory,
+//    ): Future[SExpr] = {
+//      def replicateParty(
+//          party: Party,
+//          fromClient: ScriptLedgerClient,
+//          toParticipant: Participant,
+//      ): Future[Unit] = for {
+//        toClient <- env.clients.assertGetParticipantFuture(toParticipant)
+//
+//        _ <- toClient.proposePartyReplication(party, toClient.getParticipantUid)
+//        _ <- fromClient.proposePartyReplication(party, toClient.getParticipantUid)
+//        _ <- Future.traverse(env.clients.participants.values)(client =>
+//          client.waitUntilHostingVisible(party, toClient.getParticipantUid)
+//        )
+//      } yield ()
+//
+//      val mainParticipant = participants.headOption
+//      val additionalParticipants = if (participants.isEmpty) List.empty else participants.tail
+//      for {
+//        mainClient <- env.clients.assertGetParticipantFuture(mainParticipant)
+//        party <- mainClient.allocateParty(idHint)
+//        _ <- Future.traverse(additionalParticipants)(toParticipant =>
+//          replicateParty(party, mainClient, toParticipant)
+//        )
+//      } yield {
+//        mainParticipant.foreach(env.addPartyParticipantMapping(party, _))
+//        SEValue(SParty(party))
+//      }
+//    }
+//  }
   final case class AllocParty(
       idHint: String,
-      participants: List[Participant],
+      participants: List[Participant], // make nonempty
   ) extends Cmd {
     override def execute(env: Env)(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] = {
-      def replicateParty(
-          party: Party,
-          fromClient: ScriptLedgerClient,
-          toParticipant: Participant,
-      ): Future[Unit] = for {
-        toClient <- env.clients.getParticipant(Some(toParticipant)) match {
-          case Right(client) => Future.successful(client)
-          case Left(err) => Future.failed(new RuntimeException(err))
-        }
-        _ <- toClient.proposePartyReplication(party, toClient.getParticipantUid)
-        _ <- fromClient.proposePartyReplication(party, toClient.getParticipantUid)
-        _ <- Future.traverse(env.clients.participants.values)(client =>
-          client.waitUntilHostingVisible(party, toClient.getParticipantUid)
-        )
-      } yield ()
 
-      val mainParticipant = participants.headOption
-      val additionalParticipants = if (participants.isEmpty) List.empty else participants.tail
+      val party = Party.assertFromString(idHint + "::" + UUID.randomUUID)
+
       for {
-        mainClient <- env.clients.getParticipant(mainParticipant) match {
-          case Right(client) => Future.successful(client)
-          case Left(err) => Future.failed(new RuntimeException(err))
-        }
-        party <- mainClient.allocateParty(idHint)
-        _ <- Future.traverse(additionalParticipants)(toParticipant =>
-          replicateParty(party, mainClient, toParticipant)
+        clients <- Future.traverse(participants)(toParticipant =>
+          env.clients.assertGetParticipantFuture(Some(toParticipant))
         )
+
+//        party <- clients.head.allocateParty(idHint)
+
+        participantIds = clients.map(_.getParticipantUid)
+
+        _ <- Future.traverse(clients)(_.allocatePartyOnMultipleParticipants(party, participantIds))
+
+        _ <- Future.traverse(env.clients.participants.values)(client =>
+          client.waitUntilHostingVisible(party, participantIds)
+        )
+
+        // do the waiting
       } yield {
-        mainParticipant.foreach(env.addPartyParticipantMapping(party, _))
+        participants.headOption.foreach(env.addPartyParticipantMapping(party, _))
         SEValue(SParty(party))
       }
     }

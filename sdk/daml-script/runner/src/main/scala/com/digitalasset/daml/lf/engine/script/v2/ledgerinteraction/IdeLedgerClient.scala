@@ -1049,10 +1049,27 @@ class IdeLedgerClient(
   ): Future[List[ScriptLedgerClient.ReadablePackageId]] =
     Future.successful(getPackageIdMap().keys.toList)
 
+  override def allocatePartyOnMultipleParticipants(
+      party: Ref.Party,
+      toParticipantIds: Iterable[String],
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Unit] = for {
+    parties <- listKnownParties()
+    _ <- if (!parties.contains(party)) allocateParty(party) else Future.successful(())
+  } yield ()
+
   override def proposePartyReplication(party: Ref.Party, toParticipantId: String): Future[Unit] =
     Future.successful(())
 
-  override def waitUntilHostingVisible(party: Ref.Party, onParticipantUid: String): Future[Unit] =
+//  override def waitUntilHostingVisible(party: Ref.Party, onParticipantUid: String): Future[Unit] =
+//    Future.successful(())
+
+  override def waitUntilHostingVisible(
+      party: Ref.Party,
+      onParticipantUid: Iterable[String],
+  ): Future[Unit] =
     Future.successful(())
 
   override def getParticipantUid: String = ""

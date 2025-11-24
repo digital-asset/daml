@@ -110,6 +110,15 @@ case class Participants[+T](
           .toRight(s"No participant $participant and no default participant")
     }
 
+  def assertGetParticipantFuture(participant: Option[Participant]): Future[T] =
+    getParticipant(participant) match {
+      case Right(p) => Future.successful(p)
+      case Left(err) => Future.failed(new RuntimeException(err))
+    }
+
+  def assertGetParticipantFuture(participant: Participant): Future[T] =
+    assertGetParticipantFuture(Some(participant))
+
   def map[A](f: T => A): Participants[A] =
     copy(
       default_participant = default_participant.map(f),

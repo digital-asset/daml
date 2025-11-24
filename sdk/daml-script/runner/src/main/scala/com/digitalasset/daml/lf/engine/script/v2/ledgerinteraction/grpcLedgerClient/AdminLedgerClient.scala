@@ -284,6 +284,21 @@ class AdminLedgerClient private[grpcLedgerClient] (
         }
       }
 
+  def allocatePartyOnMultipleParticipants(
+      partyId: String,
+      toParticipantUids: Iterable[String],
+  ): Future[Unit] =
+    for {
+      synchronizerId <- getSynchronizerId
+      _ <- topologyWriteServiceStub.authorize(
+        makeAllocatePartyOnMultipleParticipantsRequest(
+          partyId,
+          toParticipantUids,
+          synchronizerId,
+        )
+      )
+    } yield ()
+
   def proposePartyReplication(partyId: String, toParticipantUid: String): Future[Unit] = {
     for {
       synchronizerId <- getSynchronizerId
@@ -299,26 +314,51 @@ class AdminLedgerClient private[grpcLedgerClient] (
     } yield ()
   }
 
+//  def waitUntilHostingVisible(
+//      partyId: String,
+//      onParticipantUid: String,
+//      attempts: Int = 10,
+//      firstWaitTime: Duration = 100.millis,
+//  ): Future[Unit] = for {
+//    synchronizerId <- getSynchronizerId
+//    _ <- RetryStrategy
+//      .exponentialBackoff(attempts, firstWaitTime) { (_, _) =>
+//        for {
+//          hostingParticipants <- listHostingParticipants(partyId, synchronizerId)
+//          _ <- Future {
+//            assert(
+//              hostingParticipants.exists(_.participantUid == onParticipantUid),
+//              s"Participant $participantUid does not yet see that $onParticipantUid hosts $partyId",
+//            )
+//          }
+//        } yield ()
+//      }
+//  } yield ()
+
   def waitUntilHostingVisible(
       partyId: String,
-      onParticipantUid: String,
+      onParticipantUids: Iterable[String],
       attempts: Int = 10,
       firstWaitTime: Duration = 100.millis,
-  ): Future[Unit] = for {
-    synchronizerId <- getSynchronizerId
-    _ <- RetryStrategy
-      .exponentialBackoff(attempts, firstWaitTime) { (_, _) =>
-        for {
-          hostingParticipants <- listHostingParticipants(partyId, synchronizerId)
-          _ <- Future {
-            assert(
-              hostingParticipants.exists(_.participantUid == onParticipantUid),
-              s"Participant $participantUid does not yet see that $onParticipantUid hosts $partyId",
-            )
-          }
-        } yield ()
-      }
-  } yield ()
+  ): Future[Unit] = {
+    val expectedSet = onParticipantUids.toSet
+    for {
+      synchronizerId <- getSynchronizerId
+      _ <- RetryStrategy
+        .exponentialBackoff(attempts, firstWaitTime) { (_, _) =>
+          for {
+            hostingParticipants <- listHostingParticipants(partyId, synchronizerId)
+            visibleSet = hostingParticipants.map(_.participantUid).toSet
+            _ <- Future {
+              assert(
+                visibleSet == expectedSet,
+                s"Participant $participantUid does not yet see that $expectedSet host $partyId but instead lists $visibleSet",
+              )
+            }
+          } yield ()
+        }
+    } yield ()
+  }
 
   private[this] def getSynchronizerId: Future[String] =
     synchronizerConnectivityStub
@@ -367,6 +407,54 @@ class AdminLedgerClient private[grpcLedgerClient] (
       filterParty = partyId,
       filterParticipant = "",
     )
+
+  private[this] def makeAllocatePartyOnMultipleParticipantsRequest(
+      partyId: String,
+      participantIds: Iterable[String],
+      synchronizerId: String,
+  ): admin_topology.AuthorizeRequest = {
+
+    val entries = participantIds.map(
+      protocol.PartyToParticipant.HostingParticipant(
+        _,
+        protocol.Enums.ParticipantPermission.PARTICIPANT_PERMISSION_SUBMISSION,
+        None,
+      )
+    )
+    admin_topology.AuthorizeRequest(
+      admin_topology.AuthorizeRequest.Type.Proposal(
+        admin_topology.AuthorizeRequest.Proposal(
+          protocol.Enums.TopologyChangeOp.TOPOLOGY_CHANGE_OP_ADD_REPLACE,
+          0, // will be picked by the participant
+          Some(
+            protocol.TopologyMapping(
+              protocol.TopologyMapping.Mapping.PartyToParticipant(
+                protocol.PartyToParticipant(
+                  partyId,
+                  1,
+                  entries.toSeq,
+                  None,
+                )
+              )
+            )
+          ),
+        )
+      ),
+      mustFullyAuthorize = false,
+      forceChanges = Seq.empty,
+      signedBy = Seq.empty,
+      store = Some(
+        admin_topology.StoreId(
+          admin_topology.StoreId.Store.Synchronizer(
+            admin_topology.Synchronizer(
+              admin_topology.Synchronizer.Kind.Id(synchronizerId)
+            )
+          )
+        )
+      ),
+      waitToBecomeEffective = Some(com.google.protobuf.duration.Duration(1, 0)),
+    )
+  }
 
   private[this] def makePartyReplicationAuthorizeRequest(
       currentHostingParticipants: Seq[protocol.PartyToParticipant.HostingParticipant],
