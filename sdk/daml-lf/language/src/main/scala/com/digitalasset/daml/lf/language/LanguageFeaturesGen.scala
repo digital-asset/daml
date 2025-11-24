@@ -45,99 +45,84 @@ trait LanguageFeaturesGenerated extends LanguageVersionGenerated {
     val unstable = v1_dev
   }
 
+
   // --- Generated V2 Features ---
 
   val featureUnstable: Feature = Feature(
     name = "Unstable, experimental features",
-    versionReq = VersionRange.Inclusive(v2_dev, v2_dev),
+    versionRange = VersionRange.Inclusive(v2_dev, v2_dev),
   )
 
   val featureTextMap: Feature = Feature(
     name = "TextMap type",
-    versionReq = VersionRange.Inclusive(v2_dev, v2_dev),
+    versionRange = VersionRange.Inclusive(v2_dev, v2_dev),
   )
 
   val featureBigNumeric: Feature = Feature(
     name = "BigNumeric type",
-    versionReq = VersionRange.Inclusive(v2_dev, v2_dev),
+    versionRange = VersionRange.Inclusive(v2_dev, v2_dev),
   )
 
   val featureExceptions: Feature = Feature(
     name = "Daml Exceptions",
-    versionReq = VersionRange.From(v2_1),
+    versionRange = VersionRange.From(v2_1),
   )
 
   val featureExtendedInterfaces: Feature = Feature(
     name = "Guards in interfaces",
-    versionReq = VersionRange.Inclusive(v2_dev, v2_dev),
+    versionRange = VersionRange.Inclusive(v2_dev, v2_dev),
   )
 
   val featureChoiceFuncs: Feature = Feature(
     name = "choiceController and choiceObserver functions",
-    versionReq = VersionRange.Empty(),
+    versionRange = VersionRange.Empty(),
   )
 
   val featureTemplateTypeRepToText: Feature = Feature(
     name = "templateTypeRepToText function",
-    versionReq = VersionRange.Inclusive(v2_dev, v2_dev),
+    versionRange = VersionRange.Inclusive(v2_dev, v2_dev),
   )
 
   val featureContractKeys: Feature = Feature(
     name = "Contract Keys",
-    versionReq = VersionRange.Inclusive(v2_dev, v2_dev),
+    versionRange = VersionRange.Inclusive(v2_dev, v2_dev),
   )
 
   val featureFlatArchive: Feature = Feature(
     name = "Flat Archive",
-    versionReq = VersionRange.From(v2_2),
+    versionRange = VersionRange.From(v2_2),
   )
 
   val featurePackageImports: Feature = Feature(
     name = "Explicit package imports",
-    versionReq = VersionRange.From(v2_2),
+    versionRange = VersionRange.From(v2_2),
   )
 
   val featureComplexAnyType: Feature = Feature(
     name = "Complex Any type",
-    versionReq = VersionRange.Inclusive(v2_dev, v2_dev),
+    versionRange = VersionRange.Inclusive(v2_dev, v2_dev),
   )
 
   val featureExperimental: Feature = Feature(
     name = "Daml Experimental",
-    versionReq = VersionRange.Inclusive(v2_dev, v2_dev),
+    versionRange = VersionRange.Inclusive(v2_dev, v2_dev),
   )
 
   val featurePackageUpgrades: Feature = Feature(
     name = "Package upgrades",
-    versionReq = VersionRange.From(v2_1),
+    versionRange = VersionRange.From(v2_1),
   )
 
   val featureChoiceAuthority: Feature = Feature(
     name = "Choice Authorizers",
-    versionReq = VersionRange.Inclusive(v2_dev, v2_dev),
+    versionRange = VersionRange.Inclusive(v2_dev, v2_dev),
   )
 
   val featureUnsafeFromInterface: Feature = Feature(
     name = "UnsafeFromInterface builtin",
-    versionReq = VersionRange.Until(v2_1),
+    versionRange = VersionRange.Until(v2_1),
   )
 
-  val allFeatures: List[Feature] = List(
-    featureUnstable,
-    featureTextMap,
-    featureBigNumeric,
-    featureExceptions,
-    featureExtendedInterfaces,
-    featureChoiceFuncs,
-    featureTemplateTypeRepToText,
-    featureContractKeys,
-    featureFlatArchive,
-    featurePackageImports,
-    featureComplexAnyType,
-    featureExperimental,
-    featurePackageUpgrades,
-    featureChoiceAuthority,
-    featureUnsafeFromInterface,
-  )
+  val allFeatures: List[Feature] = List(featureUnstable, featureTextMap, featureBigNumeric, featureExceptions, featureExtendedInterfaces, featureChoiceFuncs, featureTemplateTypeRepToText, featureContractKeys, featureFlatArchive, featurePackageImports, featureComplexAnyType, featureExperimental, featurePackageUpgrades, featureChoiceAuthority, featureUnsafeFromInterface)
 
 }
