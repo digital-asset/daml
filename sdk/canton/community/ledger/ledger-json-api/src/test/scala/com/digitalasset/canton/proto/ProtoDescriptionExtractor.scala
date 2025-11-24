@@ -4,7 +4,13 @@
 package com.digitalasset.canton.proto
 
 import com.digitalasset.canton.http.json.v2.ProtoInfo.{camelToSnake, normalizeName}
-import com.digitalasset.canton.http.json.v2.{ExtractedProtoComments, FieldData, MessageInfo}
+import com.digitalasset.canton.http.json.v2.{
+  ExtractedProtoComments,
+  ExtractedProtoFileComments,
+  MessageData,
+  MessageInfo,
+  ServiceMethod,
+}
 import io.protostuff.compiler.model.{FieldContainer, Proto}
 
 import scala.collection.immutable.SortedMap
@@ -15,25 +21,44 @@ import scala.jdk.CollectionConverters.CollectionHasAsScala
 object ProtoDescriptionExtractor {
 
   def extract(protos: Seq[Proto]): ExtractedProtoComments = {
-    val messages = protos.flatMap(_.getMessages().asScala)
-    val componentsMessages =
-      messages.map(msg => (msg.getName(), MessageInfo(toFieldData(msg)))).toMap
-    val oneOfMessages = messages.map { msg =>
-      msg.getName -> SortedMap.from {
-        msg.getOneofs().asScala.map { oneOf =>
-          camelToSnake(normalizeName(oneOf.getName)) -> MessageInfo(toFieldData(oneOf))
-        }
+    // Create a map of file names to ExtractedProtoFileComments
+    val fileCommentsMap = protos
+      .map { proto =>
+        val fileName = proto.getFilename
+        val messages = proto.getMessages.asScala.map { msg =>
+          msg.getName -> MessageInfo(toFieldData(msg))
+        }.toMap
+
+        val oneOfs = proto.getMessages.asScala.map { msg =>
+          msg.getName -> SortedMap.from {
+            msg.getOneofs.asScala.map { oneOf =>
+              camelToSnake(normalizeName(oneOf.getName)) -> MessageInfo(toFieldData(oneOf))
+            }
+          }
+        }.toMap
+
+        val services: Map[String, Seq[ServiceMethod]] = proto.getServices.asScala.map { service =>
+          service.getName -> service.getMethods.asScala.map { method =>
+            ServiceMethod(method.getName, Option(method.getComments))
+          }.toSeq
+        }.toMap
+
+        fileName -> ExtractedProtoFileComments(
+          SortedMap.from(messages),
+          SortedMap.from(oneOfs),
+          services,
+        )
       }
-    }.toMap
+      .filter { case (_, fileComments) => !fileComments.isEmpty }
+      .toMap
 
     ExtractedProtoComments(
-      SortedMap.from(componentsMessages),
-      SortedMap.from(oneOfMessages),
+      SortedMap.from(fileCommentsMap)
     )
   }
 
   private def toFieldData(message: FieldContainer) =
-    FieldData(
+    MessageData(
       Option(message.getComments).filter(!_.isEmpty),
       message.getFields.asScala.map { field =>
         (field.getName, field.getComments)

@@ -501,6 +501,12 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
     SQL"DELETE FROM lapi_ledger_end_synchronizer_index".executeUpdate()(connection).discard
     SQL"DELETE FROM par_command_deduplication".executeUpdate()(connection).discard
     SQL"DELETE FROM par_in_flight_submission".executeUpdate()(connection).discard
+    // clean these tables manually, as the ledger_end=1 is an actual ledger-end, and as these tables are cleaned by
+    // initialization based on offsets, some rubbish can remains (which can cause problems for example for integrity
+    // checking which motivated this change)
+    SQL"DELETE FROM lapi_command_completions".executeUpdate()(connection).discard
+    SQL"DELETE FROM lapi_party_entries".executeUpdate()(connection).discard
+    SQL"DELETE FROM lapi_update_meta".executeUpdate()(connection).discard
   }
 
   private final case class CompletionEntry(

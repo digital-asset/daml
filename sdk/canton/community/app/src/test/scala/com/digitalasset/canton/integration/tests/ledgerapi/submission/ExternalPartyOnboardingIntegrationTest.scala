@@ -61,7 +61,7 @@ class ExternalPartyOnboardingIntegrationTest extends ExternalPartyOnboardingInte
     "handle a party's threshold being higher than its number of hosting nodes" in { implicit env =>
       import env.*
       val (onboardingTransactions, externalParty) =
-        participant1.parties.external
+        participant1.parties.testing.external
           .onboarding_transactions(
             "Alice",
             additionalConfirming = Seq(participant2),
@@ -132,7 +132,7 @@ class ExternalPartyOnboardingIntegrationTest extends ExternalPartyOnboardingInte
     "host parties on multiple participants with a threshold" in { implicit env =>
       import env.*
       val (onboardingTransactions, externalParty) =
-        participant1.parties.external
+        participant1.parties.testing.external
           .onboarding_transactions(
             "Alice",
             additionalConfirming = Seq(participant2),
@@ -161,7 +161,7 @@ class ExternalPartyOnboardingIntegrationTest extends ExternalPartyOnboardingInte
     "allocate a party from one of their observing nodes" in { implicit env =>
       import env.*
 
-      val (onboardingTransactions, externalParty) = participant1.parties.external
+      val (onboardingTransactions, externalParty) = participant1.parties.testing.external
         .onboarding_transactions(
           "Bob",
           observing = Seq(participant2),
@@ -207,9 +207,9 @@ class ExternalPartyOnboardingIntegrationTest extends ExternalPartyOnboardingInte
       import env.*
 
       // Create the namespace owners first
-      val namespace1 = participant1.parties.external.create_external_namespace()
-      val namespace2 = participant1.parties.external.create_external_namespace()
-      val namespace3 = participant1.parties.external.create_external_namespace()
+      val namespace1 = participant1.parties.testing.external.create_external_namespace()
+      val namespace2 = participant1.parties.testing.external.create_external_namespace()
+      val namespace3 = participant1.parties.testing.external.create_external_namespace()
       val namespaceOwners = NonEmpty.mk(Set, namespace1, namespace2, namespace3)
 
       val confirmationThreshold = PositiveInt.two
@@ -218,7 +218,7 @@ class ExternalPartyOnboardingIntegrationTest extends ExternalPartyOnboardingInte
       val namespaceThreshold = PositiveInt.three
 
       // Generate the corresponding onboarding transactions
-      val onboardingData = participant1.parties.external.onboarding_transactions(
+      val onboardingData = participant1.parties.testing.external.onboarding_transactions(
         name = "Emily",
         additionalConfirming = Seq(participant2),
         observing = Seq(participant3),
@@ -289,7 +289,7 @@ class ExternalPartyOnboardingIntegrationTest extends ExternalPartyOnboardingInte
       implicit env =>
         import env.*
         val (onboardingTransactions, _) =
-          participant1.parties.external.onboarding_transactions("Alice").futureValueUS.value
+          participant1.parties.testing.external.onboarding_transactions("Alice").futureValueUS.value
 
         participant1.synchronizers.disconnect_all()
 
@@ -311,7 +311,7 @@ class ExternalPartyOnboardingIntegrationTest extends ExternalPartyOnboardingInte
       import env.*
 
       val (onboardingTransactions, partyE) =
-        participant1.parties.external.onboarding_transactions("Alice").futureValueUS.value
+        participant1.parties.testing.external.onboarding_transactions("Alice").futureValueUS.value
 
       def allocate() =
         participant1.ledger_api.parties.allocate_external(
@@ -345,7 +345,7 @@ class ExternalPartyOnboardingIntegrationTest extends ExternalPartyOnboardingInte
         import env.*
 
         val (onboardingTransactions, partyE) =
-          participant1.parties.external.onboarding_transactions("Alice").futureValueUS.value
+          participant1.parties.testing.external.onboarding_transactions("Alice").futureValueUS.value
 
         def allocate() =
           participant1.ledger_api.parties.allocate_external(

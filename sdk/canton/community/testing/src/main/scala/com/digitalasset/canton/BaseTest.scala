@@ -22,7 +22,7 @@ import com.digitalasset.canton.protocol.{
 }
 import com.digitalasset.canton.telemetry.ConfiguredOpenTelemetry
 import com.digitalasset.canton.time.{NonNegativeFiniteDuration, WallClock}
-import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
+import com.digitalasset.canton.topology.{PartyKind, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext, W3CTraceContext}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{CheckedT, MaxBytesToDecompress}
@@ -79,6 +79,7 @@ trait TestEssentials
 
   protected def timeouts: ProcessingTimeout = DefaultProcessingTimeouts.testing
 
+  protected implicit lazy val partiesKind: PartyKind = BaseTest.testedPartiesKind
   protected lazy val testedProtocolVersion: ProtocolVersion = BaseTest.testedProtocolVersion
   protected lazy val testedProtocolVersionValidation: ProtocolVersionValidation =
     BaseTest.testedProtocolVersionValidation
@@ -588,7 +589,18 @@ object BaseTest {
     DynamicSynchronizerParameters.defaultMaxRequestSize.value
   )
 
+  sealed trait UnsupportedExternalPartyTest
+  object UnsupportedExternalPartyTest {
+    // TODO(i27461): Support multi party submissions for external parties
+    case object MultiPartySubmission extends UnsupportedExternalPartyTest
+  }
+
   lazy val testedProtocolVersion: ProtocolVersion = ProtocolVersion.forSynchronizer
+  lazy val testedPartiesKind: PartyKind = sys.env
+    .get("CANTON_TEST_EXTERNAL_PARTIES")
+    .filter(_ == "true")
+    .map[PartyKind](_ => PartyKind.External)
+    .getOrElse[PartyKind](PartyKind.Local)
 
   lazy val testedProtocolVersionValidation: ProtocolVersionValidation =
     ProtocolVersionValidation(testedProtocolVersion)

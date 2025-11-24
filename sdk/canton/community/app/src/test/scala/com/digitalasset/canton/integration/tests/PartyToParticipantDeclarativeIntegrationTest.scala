@@ -65,8 +65,8 @@ final class PartyToParticipantDeclarativeIntegrationTest
           newThreshold: PositiveInt,
           newPermissions: Set[(ParticipantId, ParticipantPermission)],
       ): Unit = PartyToParticipantDeclarative(Set(participant1, participant2), Set(daId))(
-        owningParticipants = Map(chopper -> participant1),
-        targetTopology = Map(chopper -> Map(daId -> (newThreshold, newPermissions))),
+        owningParticipants = Map(chopper.partyId -> participant1),
+        targetTopology = Map(chopper.partyId -> Map(daId -> (newThreshold, newPermissions))),
       )
 
       // replication on p2
@@ -99,9 +99,9 @@ final class PartyToParticipantDeclarativeIntegrationTest
 
       // We consider only one synchronizer in this case since changes are per synchronizer
 
-      val chopperE = participant1.parties.external.enable("chopperE", synchronizer = daName)
+      val chopperE = participant1.parties.testing.external.enable("chopperE", synchronizer = daName)
 
-      participant1.parties.external.also_enable(chopperE, synchronizer = acmeName)
+      participant1.parties.testing.external.also_enable(chopperE, synchronizer = acmeName)
 
       def changeTopology(
           newThreshold: PositiveInt,
@@ -140,9 +140,9 @@ final class PartyToParticipantDeclarativeIntegrationTest
     "support party replication in multi-synchronizer scenario (external)" in { implicit env =>
       import env.*
 
-      val donaldE = participant1.parties.external.enable("donaldE", synchronizer = daName)
+      val donaldE = participant1.parties.testing.external.enable("donaldE", synchronizer = daName)
 
-      participant1.parties.external.also_enable(donaldE, synchronizer = acmeName)
+      participant1.parties.testing.external.also_enable(donaldE, synchronizer = acmeName)
 
       val targetHosting: (PositiveInt, Set[(ParticipantId, ParticipantPermission)]) = (
         PositiveInt.one,
@@ -182,7 +182,7 @@ final class PartyToParticipantDeclarativeIntegrationTest
         .list(daId, filterParty = bob.filterString) should not be empty
 
       PartyToParticipantDeclarative(Set(participant1), Set(daId))(
-        Map(bob -> participant1),
+        Map(bob.partyId -> participant1),
         // Offboarding from da
         Map(),
       )
@@ -194,7 +194,7 @@ final class PartyToParticipantDeclarativeIntegrationTest
     "allow party offboarding from synchronizer (external)" in { implicit env =>
       import env.*
 
-      val bobE = participant1.parties.external.enable("bobE", synchronizer = daName)
+      val bobE = participant1.parties.testing.external.enable("bobE", synchronizer = daName)
 
       participant1.topology.party_to_participant_mappings
         .list(daId, filterParty = bobE.filterString) should not be empty

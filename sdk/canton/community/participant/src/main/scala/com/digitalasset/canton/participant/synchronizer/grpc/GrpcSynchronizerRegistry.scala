@@ -34,7 +34,6 @@ import com.digitalasset.canton.participant.sync.SyncPersistentStateManager
 import com.digitalasset.canton.participant.synchronizer.*
 import com.digitalasset.canton.participant.synchronizer.SynchronizerRegistryError.SynchronizerRegistryInternalError
 import com.digitalasset.canton.participant.topology.{
-  LedgerServerPartyNotifier,
   ParticipantTopologyDispatcher,
   TopologyComponentFactory,
 }
@@ -90,7 +89,6 @@ class GrpcSynchronizerRegistry(
     packageMetadataView: PackageMetadataView,
     metrics: SynchronizerAlias => ConnectedSynchronizerMetrics,
     sequencerInfoLoader: SequencerInfoLoader,
-    partyNotifier: LedgerServerPartyNotifier,
     override protected val futureSupervisor: FutureSupervisor,
     protected val loggerFactory: NamedLoggerFactory,
 )(
@@ -333,7 +331,6 @@ class GrpcSynchronizerRegistry(
         replaySequencerConfig,
         topologyDispatcher,
         packageMetadataView,
-        partyNotifier,
         metrics,
       )
     } yield {
