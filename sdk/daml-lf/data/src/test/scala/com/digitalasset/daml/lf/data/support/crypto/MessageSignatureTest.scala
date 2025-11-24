@@ -4,6 +4,7 @@
 package com.digitalasset.daml.lf.data
 package support.crypto
 
+import java.security.interfaces.ECPublicKey
 import java.security.spec.ECGenParameterSpec
 import java.security.{InvalidKeyException, KeyPairGenerator, SignatureException}
 import org.scalatest.freespec.AnyFreeSpec
@@ -91,8 +92,11 @@ class MessageSignatureTest extends AnyFreeSpec with Matchers {
     // Use a different EC curve to generate a ECDSA public key that is not on the secp256k1 curve
     // - we do this as raw ECPoints are checked as being on the secp256k1 curve during key generation!
     keyPairGen.initialize(new ECGenParameterSpec("secp256r1"))
-    val fakePublicKey = keyPairGen.generateKeyPair().getPublic
+    val fakePublicKey = keyPairGen.generateKeyPair().getPublic.asInstanceOf[ECPublicKey]
 
+    // Ensure we do not have POINT_INFINITY
+    fakePublicKey.getW.getAffineX should not be null
+    fakePublicKey.getW.getAffineY should not be null
     MessageSignature.validateKey(fakePublicKey) shouldBe false
   }
 }
