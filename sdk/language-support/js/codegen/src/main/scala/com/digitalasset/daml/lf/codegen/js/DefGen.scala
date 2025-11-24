@@ -7,18 +7,20 @@ import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.language.Ast
 
 private[codegen] sealed trait DefGen {
-  def renderJsSource: String
-  def renderTsExport: String
+  def renderJsSource(b: CodeBuilder): Unit
+  def renderTsExport(b: CodeBuilder): Unit
 }
 
 private[codegen] final case class NamespaceGen(name: Name, definitions: Seq[TypeConGen])
     extends DefGen {
-  override def renderJsSource: String = ""
+  override def renderJsSource(b: CodeBuilder): Unit = ()
 
-  override def renderTsExport: String =
-    s"""|export namespace $name {
-        |  ${definitions.map(_.renderTsDecl(indent = "  ")).mkString("\n  ")}
-        |} // namespace""".stripMargin
+  override def renderTsExport(b: CodeBuilder): Unit = {
+    b.addEmptyLine()
+    b.addBlock(s"export namespace $name {", "}") {
+      definitions.foreach(_.renderTsDecl(b))
+    }
+  }
 }
 
 private[codegen] final case class TemplateGen(
@@ -33,39 +35,37 @@ private[codegen] final case class TemplateGen(
     implements: Seq[TypeConId],
 ) extends DefGen {
   private val templateId = s"#$packageName:${moduleId.moduleName}:$name"
-  override def renderJsSource: String = {
+  override def renderJsSource(b: CodeBuilder): Unit = {
     val keyDecoder =
       keyDecoderOpt.map(LazyDecoder(_)).getOrElse(ConstantRefDecoder(Seq("undefined")))
-    s"""|exports.$name = damlTypes.assembleTemplate(
-        |  {
-        |    templateId: '$templateId',
-        |    keyDecoder: ${keyDecoder.render(moduleId, indent = "    ")},
-        |    keyEncode: ${keyEncode.render(moduleId, indent = "    ")},
-        |    decoder: ${LazyDecoder(decoder).render(moduleId, indent = "    ")},
-        |    encode: ${encode.render(moduleId, indent = "    ")},
-        |    ${choices.map(_.renderJsField(moduleId, name, indent = "    ")).mkString("\n    ")}
-        |  },
-        |  ${implements.map(TypeGen.renderSerializable(moduleId, _)).mkString(",\n  ")} 
-        |);""".stripMargin
+    b.addEmptyLine()
+    b.addBlock(s"exports.$name = damlTypes.assembleTemplate(", ");") {
+      b.addBlock("{", "},") {
+        b.addLine(s"templateId: '$templateId',")
+        b.addInline("keyDecoder: ", ",")(keyDecoder.render(moduleId, b))
+        b.addInline("keyEncode: ", ",")(keyEncode.render(moduleId, b))
+        b.addInline("decoder: ", ",")(LazyDecoder(decoder).render(moduleId, b))
+        b.addInline("encode: ", ",")(encode.render(moduleId, b))
+        choices.foreach(_.renderJsField(moduleId, name, b))
+      }
+      implements.foreach(tpe => b.addLine(s"${TypeGen.renderSerializable(moduleId, tpe)},"))
+    }
   }
 
-  override def renderTsExport: String = {
-    val renderKeyType = keyDecoderOpt.map(_ => s"$name.Key").getOrElse("undefined")
-    val renderImplsUnion =
-      if (implements.nonEmpty)
-        implements.map(TypeGen.renderType(moduleId, _)).mkString(" | ")
+  override def renderTsExport(b: CodeBuilder): Unit = {
+    val keyType = keyDecoderOpt.map(_ => s"$name.Key").getOrElse("undefined")
+    val implementsUnion =
+      if (implements.nonEmpty) implements.map(TypeGen.renderType(moduleId, _)).mkString(" | ")
       else "never"
-    s"""|export declare interface ${name}Interface {
-        |  ${choices
-        .map(_.renderTsTemplateField(moduleId, name, renderKeyType, indent = "  "))
-        .mkString("\n  ")}
-        |}
-        |
-        |export declare const $name:
-        |  damlTypes.Template<$name, $renderKeyType, '$templateId'> &
-        |  damlTypes.ToInterface<$name, $renderImplsUnion> &
-        |  ${name}Interface
-        |""".stripMargin
+    b.addEmptyLine()
+    b.addBlock(s"export declare interface ${name}Interface {", "}") {
+      choices.foreach(_.renderTsTemplateField(moduleId, name, keyType, b))
+    }
+    b.addBlock(s"export declare const $name:", "") {
+      b.addLine(s"damlTypes.Template<$name, $keyType, '$templateId'> &")
+      b.addLine(s"damlTypes.ToInterface<$name, $implementsUnion> &")
+      b.addLine(s"${name}Interface")
+    }
   }
 }
 
@@ -74,12 +74,13 @@ private[codegen] final case class TemplateNamespaceGen(
     name: Name,
     key: Ast.Type,
 ) extends DefGen {
-  override def renderJsSource: String = ""
-  override def renderTsExport: String =
-    s"""|export declare namespace $name {
-        |  export type Key = ${TypeGen.renderType(moduleId, key)}
-        |}
-        |""".stripMargin
+  override def renderJsSource(b: CodeBuilder): Unit = ()
+  override def renderTsExport(b: CodeBuilder): Unit = {
+    b.addEmptyLine()
+    b.addBlock(s"export declare namespace $name {", "}") {
+      b.addLine(s"export type Key = ${TypeGen.renderType(moduleId, key)}")
+    }
+  }
 }
 
 private[codegen] final case class TemplateRegistrationGen(
@@ -87,10 +88,12 @@ private[codegen] final case class TemplateRegistrationGen(
     packageName: PackageName,
     name: Name,
 ) extends DefGen {
-  override def renderJsSource: String =
-    s"damlTypes.registerTemplate(exports.$name, ['$packageId', '#$packageName']);"
+  override def renderJsSource(b: CodeBuilder): Unit = {
+    b.addEmptyLine()
+    b.addLine(s"damlTypes.registerTemplate(exports.$name, ['$packageId', '#$packageName']);")
+  }
 
-  override def renderTsExport: String = ""
+  override def renderTsExport(b: CodeBuilder): Unit = ()
 }
 
 private[codegen] final case class TypeConGen(
@@ -99,37 +102,35 @@ private[codegen] final case class TypeConGen(
     paramNames: Seq[Ast.TypeVarName],
     cons: Ast.DataCons,
 ) extends DefGen {
-  override def renderJsSource: String = ""
+  override def renderJsSource(b: CodeBuilder): Unit = ()
 
-  override def renderTsExport: String = s"export declare ${renderTsDecl(indent = "")}"
+  override def renderTsExport(b: CodeBuilder): Unit = {
+    b.addEmptyLine()
+    b.addInline("export declare ", "")(renderTsDecl(b))
+  }
 
-  def renderTsDecl(indent: String): String = {
+  def renderTsDecl(b: CodeBuilder): Unit = {
     val typeDecl =
       if (paramNames.sizeIs == 0) s"type $name"
       else s"type $name<${paramNames.mkString(", ")}>"
     cons match {
       case Ast.DataRecord(fields) =>
-        val renderFields = fields.toSeq
-          .map { case (name, tpe) => s"$name: ${TypeGen.renderType(moduleId, tpe)};" }
-        s"""|$typeDecl = {
-            |$indent  ${renderFields.mkString(s"\n$indent  ")}
-            |$indent};""".stripMargin
+        b.addBlock(s"$typeDecl = {", "}") {
+          fields.foreach { case (name, tpe) => b.addLine(s"$name: ${renderType(tpe)},") }
+        }
       case Ast.DataVariant(variants) =>
-        val renderVariants = variants.toSeq
-          .map { case (name, tpe) =>
-            s"| { tag: '$name'; value: ${TypeGen.renderType(moduleId, tpe)} }"
+        b.addBlock(s"$typeDecl =", "") {
+          variants.foreach { case (name, tpe) =>
+            b.addLine(s"| { tag: '$name'; value: ${renderType(tpe)} }")
           }
-        s"""|$typeDecl =
-            |$indent  ${renderVariants.mkString(s"\n|$indent  ")}
-            |$indent;""".stripMargin
+        }
       case Ast.DataEnum(constructors) =>
-        val renderConstructors = constructors.toSeq.map(name => s"| '$name'")
-        s"""|$typeDecl =
-            |$indent  ${renderConstructors.mkString(s"\n|$indent  ")}
-            |$indent;""".stripMargin
+        b.addBlock(s"$typeDecl =", "")(constructors.foreach(name => b.addLine(s"| '$name'")))
       case Ast.DataInterface => throw new RuntimeException("interfaces are not serializable")
     }
   }
+
+  private def renderType(tpe: Ast.Type): String = TypeGen.renderType(moduleId, tpe)
 }
 
 private[codegen] final case class SerializableGen(
@@ -139,53 +140,58 @@ private[codegen] final case class SerializableGen(
     keys: Seq[Ast.EnumConName],
     decoder: Decoder,
     encode: Encode,
-    nestedSerializable: Seq[NestedSerializable],
+    nestedSerializables: Seq[NestedSerializable],
 ) extends DefGen {
-  override def renderJsSource: String =
+  override def renderJsSource(b: CodeBuilder): Unit = {
+    b.addEmptyLine()
     if (paramNames.isEmpty) {
-      val renderKeys =
-        if (keys.nonEmpty)
-          s"""|  ${keys.map(k => s"$k: '$k',").mkString("\n  ")}
-              |  keys: [${keys.map(k => s"'$k'").mkString(", ")}],""".stripMargin
-        else ""
-      val renderNested = nestedSerializable.map(_.renderJsField(moduleId, indent = "  "))
-      s"""|exports.$name = {
-          |  $renderKeys
-          |  decoder: ${LazyDecoder(decoder).render(moduleId, indent = "  ")},
-          |  encode: ${encode.render(moduleId, indent = "  ")},
-          |  ${renderNested.mkString("\n  ")}
-          |};""".stripMargin
+      b.addBlock(s"exports.$name = {", "};") {
+        keys.foreach(k => b.addLine(s"$k: '$k',"))
+        b.addLine(s"keys: [${keys.map(k => s"'$k'").mkString(", ")}],")
+        b.addInline("decoder: ", ",")(LazyDecoder(decoder).render(moduleId, b))
+        b.addInline("encode: ", ",")(encode.render(moduleId, b))
+        nestedSerializables.foreach(_.renderJsField(moduleId, b))
+      }
     } else {
       val params = paramNames.mkString(", ")
-      val renderNested = nestedSerializable.map(_.renderJsFunction(moduleId, params))
-      s"""|exports.$name = function ($params) {
-          |  return ({
-          |    decoder: ${LazyDecoder(decoder).render(moduleId, indent = "  ")},
-          |    encode: ${encode.render(moduleId, indent = "    ")},
-          |  });
-          |};
-          |${renderNested.mkString("\n")}
-          |""".stripMargin
+      b.addBlock(s"exports.$name = function ($params) {", "};") {
+        b.addBlock("return ({", "});") {
+          b.addInline("decoder: ", ",")(LazyDecoder(decoder).render(moduleId, b))
+          b.addInline("encode: ", ",")(encode.render(moduleId, b))
+        }
+      }
+      nestedSerializables.foreach(_.renderJsFunction(moduleId, params, b))
     }
+  }
 
-  override def renderTsExport: String =
+  override def renderTsExport(b: CodeBuilder): Unit = {
+    b.addEmptyLine()
     if (paramNames.isEmpty) {
-      val renderKeys =
-        if (keys.nonEmpty) s" & { readonly keys: $name[] } & { readonly [e in $name]: e }" else ""
-      s"""|export declare const $name:
-          |  damlTypes.Serializable<$name> & {
-          |    ${nestedSerializable.map(_.renderTsField).mkString("\n    ")}
-          |  }$renderKeys;
-          |""".stripMargin
+      b.addBlock(s"export declare const $name:", "") {
+        b.addInline(s"damlTypes.Serializable<$name>", "") {
+          if (nestedSerializables.nonEmpty) {
+            b.addBlock(" & {", "}")(nestedSerializables.foreach(_.renderTsField(b)))
+          }
+          if (keys.nonEmpty) {
+            b.addLine(s" & { readonly keys: $name[] } & { readonly [e in $name]: e }")
+          }
+        }
+      }
     } else {
       val args = paramNames.map(name => s"$name: damlTypes.Serializable<$name>").mkString(", ")
       val params = paramNames.mkString(", ")
-      s"""|export declare const $name:
-          |  (<$params>($args) => damlTypes.Serializable<$name<$params>>) & {
-          |    ${nestedSerializable.map(_.renderTsFunction(args, params)).mkString("\n    ")}
-          |  };
-          |""".stripMargin
+      b.addBlock(s"export declare const $name:", "") {
+        b.addInline(s"<$params>($args) => ", "") {
+          b.addLine(s"damlTypes.Serializable<$name<$params>>")
+          if (nestedSerializables.nonEmpty) {
+            b.addBlock("& {", "}") {
+              nestedSerializables.foreach(_.renderTsFunction(args, params, b))
+            }
+          }
+        }
+      }
     }
+  }
 }
 
 private[codegen] final case class NestedSerializable(
@@ -195,25 +201,25 @@ private[codegen] final case class NestedSerializable(
 ) {
   val name = dottedName.segments.last
 
-  def renderJsField(moduleId: ModuleId, indent: String): String =
-    s"""|$name: {
-        |$indent  decoder: ${LazyDecoder(decoder).render(moduleId, indent + "  ")},
-        |$indent  encode: ${encode.render(moduleId, indent + "  ")},
-        |$indent},""".stripMargin
+  def renderJsField(moduleId: ModuleId, b: CodeBuilder): Unit =
+    b.addBlock(s"$name: {", "},") {
+      b.addInline("decoder: ", ",")(LazyDecoder(decoder).render(moduleId, b))
+      b.addInline("encode: ", ",")(encode.render(moduleId, b))
+    }
 
-  def renderJsFunction(moduleId: ModuleId, params: String): String =
-    s"""|exports.$dottedName = function ($params) {
-        |  return ({
-        |    decoder: ${LazyDecoder(decoder).render(moduleId, indent = "    ")},
-        |    encode: ${encode.render(moduleId, indent = "    ")},
-        |  });
-        |};""".stripMargin
+  def renderJsFunction(moduleId: ModuleId, params: String, b: CodeBuilder): Unit =
+    b.addBlock(s"exports.$dottedName = function ($params) {", "};") {
+      b.addBlock("return ({", "})") {
+        b.addInline("decoder: ", ",")(LazyDecoder(decoder).render(moduleId, b))
+        b.addInline("encode: ", ",")(encode.render(moduleId, b))
+      }
+    }
 
-  def renderTsField: String = s"$name: damlTypes.Serializable<$dottedName>;"
+  def renderTsField(b: CodeBuilder): Unit =
+    b.addLine(s"$name: damlTypes.Serializable<$dottedName>;")
 
-  def renderTsFunction(args: String, params: String): String = {
-    s"$name: (<$params>($args) => damlTypes.Serializable<$dottedName<$params>>);"
-  }
+  def renderTsFunction(args: String, params: String, b: CodeBuilder): Unit =
+    b.addLine(s"$name: (<$params>($args) => damlTypes.Serializable<$dottedName<$params>>);")
 }
 
 private[codegen] final case class InterfaceGen(
@@ -224,69 +230,63 @@ private[codegen] final case class InterfaceGen(
     view: TypeConId,
 ) extends DefGen {
   private val interfaceId = s"#$packageName:${moduleId.moduleName}:$name"
-  override def renderJsSource: String =
-    s"""|exports.$name = damlTypes.assembleInterface(
-        |  '$interfaceId',
-        |  function () { return ${TypeGen.renderSerializable(moduleId, view)}; },
-        |  {
-        |    ${choices.map(_.renderJsField(moduleId, name, indent = "    ")).mkString("\n    ")}
-        |  }
-        |);
-        |""".stripMargin
+  override def renderJsSource(b: CodeBuilder): Unit = {
+    b.addEmptyLine()
+    b.addBlock(s"exports.$name = damlTypes.assembleInterface(", ")") {
+      b.addLine(s"'$interfaceId',")
+      b.addLine(s"function () { return ${TypeGen.renderSerializable(moduleId, view)}; },")
+      b.addBlock("{", "}") {
+        choices.foreach(_.renderJsField(moduleId, name, b))
+      }
+    }
+  }
 
-  override def renderTsExport: String = {
+  override def renderTsExport(b: CodeBuilder): Unit = {
     val renderType = TypeGen.renderType(moduleId, view)
-    val renderChoices = choices.map(_.renderTsInterfaceField(moduleId, name, indent = "  "))
-    s"""|export declare type $name = damlTypes.Interface<'$interfaceId'> & $renderType;
-        |export declare interface ${name}Interface {
-        |  ${renderChoices.mkString("\n  ")}
-        |}
-        |export declare const $name:
-        |  damlTypes.InterfaceCompanion<$name, undefined, '$interfaceId'> &
-        |  damlTypes.FromTemplate<$name, unknown> &
-        |  ${name}Interface;
-        |""".stripMargin
+    b.addEmptyLine()
+    b.addLine(s"export declare type $name = damlTypes.Interface<'$interfaceId'> & $renderType")
+    b.addBlock(s"export declare interface ${name}Interface {", "}") {
+      choices.foreach(_.renderTsInterfaceField(moduleId, name, b))
+    }
+    b.addBlock(s"export declare const $name:", "") {
+      b.addLine(s"damlTypes.InterfaceCompanion<$name, undefined, '$interfaceId'> &")
+      b.addLine(s"damlTypes.FromTemplate<$name, unknown> &")
+      b.addLine(s"${name}Interface")
+    }
   }
 }
 
 private[codegen] final case class ChoiceGen(name: Name, argType: Ast.Type, returnType: Ast.Type) {
-  def renderJsField(
-      currentModule: ModuleId,
-      templateOrInterfaceName: Name,
-      indent: String,
-  ): String = {
-    def renderDecoder(tpe: Ast.Type): String =
-      LazyDecoder(TypeDecoder(tpe)).render(currentModule, indent + "  ")
-    s"""|$name: {
-        |$indent  template: function () { return exports.${templateOrInterfaceName}; },
-        |$indent  choiceName: '$name',
-        |$indent  argumentDecoder: ${renderDecoder(argType)},
-        |$indent  argumentEncode: ${TypeEncode(argType).render(currentModule, indent + "  ")},
-        |$indent  resultDecoder: ${renderDecoder(returnType)},
-        |$indent  resultEncode: ${TypeEncode(returnType).render(currentModule, indent + "  ")},
-        |$indent},""".stripMargin
-  }
+  def renderJsField(moduleId: ModuleId, templateOrInterfaceName: Name, b: CodeBuilder): Unit =
+    b.addBlock(s"$name: {", "},") {
+      b.addLine(s"template: function () { return exports.$templateOrInterfaceName; },")
+      b.addLine(s"choiceName: '$name',")
+      b.addInline("argumentDecoder: ", ",")(LazyDecoder(TypeDecoder(argType)).render(moduleId, b))
+      b.addInline("argumentEncoder: ", ",")(TypeEncode(argType).render(moduleId, b))
+      b.addInline("resultDecoder: ", ",")(LazyDecoder(TypeDecoder(returnType)).render(moduleId, b))
+      b.addInline("resultEncode: ", ",")(TypeEncode(returnType).render(moduleId, b))
+    }
 
   def renderTsTemplateField(
-      currentModule: ModuleId,
+      moduleId: ModuleId,
       templateName: Name,
       keyType: String,
-      indent: String,
-  ): String = {
-    val renderArgType: String = TypeGen.renderType(currentModule, argType)
-    val renderReturnType: String = TypeGen.renderType(currentModule, argType)
-    s"""|$name: damlTypes.Choice<$templateName, $renderArgType, $renderReturnType, $keyType> &
-        |$indent  damlTypes.ChoiceFrom<damlTypes.Template<$templateName, $keyType>>;""".stripMargin
+      b: CodeBuilder,
+  ): Unit = {
+    val renderArgType: String = TypeGen.renderType(moduleId, argType)
+    val renderReturnType: String = TypeGen.renderType(moduleId, returnType)
+    b.addBlock(s"$name: ", "") {
+      b.addLine(s"damlTypes.Choice<$templateName, $renderArgType, $renderReturnType, $keyType> &")
+      b.addLine(s"damlTypes.ChoiceFrom<damlTypes.Template<$templateName, $keyType>>;")
+    }
   }
 
-  def renderTsInterfaceField(
-      currentModule: ModuleId,
-      interfaceName: Name,
-      indent: String,
-  ): String = {
-    val renderArgType: String = TypeGen.renderType(currentModule, argType)
-    val renderReturnType: String = TypeGen.renderType(currentModule, argType)
-    s"""|$name: damlTypes.Choice<$interfaceName, $renderArgType, $renderReturnType, undefined> &
-        |$indent  damlTypes.ChoiceFrom<damlTypes.InterfaceCompanion<$interfaceName, undefined>>;""".stripMargin
+  def renderTsInterfaceField(moduleId: ModuleId, interfaceName: Name, b: CodeBuilder): Unit = {
+    val renderArgType: String = TypeGen.renderType(moduleId, argType)
+    val renderReturnType: String = TypeGen.renderType(moduleId, returnType)
+    b.addBlock(s"$name:", "") {
+      b.addLine(s"damlTypes.Choice<$interfaceName, $renderArgType, $renderReturnType, undefined> &")
+      b.addLine(s"damlTypes.ChoiceFrom<damlTypes.InterfaceCompanion<$interfaceName, undefined>>;")
+    }
   }
 }

@@ -60,32 +60,11 @@ private final class JsCodeGen(
   }
 
   private def writeIndexFiles(srcDir: Path, packageId: PackageId, rootTree: ModuleTree): Unit = {
-    Files.write(
-      srcDir.resolve("index.d.ts"),
-      s"""|${rootTree.renderTsExports}
-          |export declare const packageId = '$packageId';
-          |""".stripMargin.getBytes,
-    )
-    Files.write(
-      srcDir.resolve("index.js"),
-      s"""|${GenHelper.commonjsHeader}
-          |${rootTree.renderJsExports}
-          |exports.packageId = '$packageId'
-          |""".stripMargin.getBytes,
-    )
+    Files.write(srcDir.resolve("index.d.ts"), rootTree.renderTsExports(Some(packageId)).getBytes)
+    Files.write(srcDir.resolve("index.js"), rootTree.renderJsExports(Some(packageId)).getBytes)
     def writeModuleIndex(dir: Path, moduleTree: ModuleTree): Unit = {
-      def notVirtual(str: String): String = if (!moduleTree.isVirtual) str + "\n" else ""
-      Files.write(
-        dir.resolve("index.d.ts"),
-        s"""|${moduleTree.renderTsExports}
-            |${notVirtual("export * from './module';")}""".stripMargin.getBytes,
-      )
-      Files.write(
-        dir.resolve("index.js"),
-        s"""|${GenHelper.commonjsHeader}
-            |${moduleTree.renderJsExports}
-            |${notVirtual("__export(require('./module'));")}""".stripMargin.getBytes,
-      )
+      Files.write(dir.resolve("index.d.ts"), moduleTree.renderTsExports(packageId = None).getBytes)
+      Files.write(dir.resolve("index.js"), moduleTree.renderJsExports(packageId = None).getBytes)
       moduleTree.children
         .foreach { case (name, tree) => writeModuleIndex(dir.resolve(name), tree) }
     }

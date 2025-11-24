@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.codegen.js
 
-import com.digitalasset.daml.lf.data.Ref.{ModuleName, Name}
+import com.digitalasset.daml.lf.data.Ref.{PackageId, ModuleName, Name}
 
 // The module structure of a Daml package can have "holes", i.e.,
 // you can have modules `A` and `A.B.C` but no module `A.B`. We call such a
@@ -28,21 +28,43 @@ private[codegen] final case class ModuleTree(
       this.copy(children = children + (head -> child))
   }
 
-  def renderTsExports: String =
-    childNames
-      .map { name =>
-        s"""|${GenHelper.renderES6Import(name, s"./$name")}
-            |export { $name };""".stripMargin
-      }
-      .mkString("\n")
+  def renderJsExports(packageId: Option[PackageId]): String = {
+    val b = new CodeBuilder()
+    b.addLine(GenHelper.commonjsHeader)
+    if (childNames.nonEmpty) {
+      b.addEmptyLine()
+      childNames.foreach(name => b.addLine(GenHelper.renderES5Import(name, s"./$name")))
+      b.addEmptyLine()
+      childNames.foreach(name => b.addLine(s"exports.$name = $name;"))
+    }
+    if (!isVirtual) {
+      b.addEmptyLine()
+      b.addLine("__export(require('./module'));")
+    }
+    packageId.foreach { packageId =>
+      b.addEmptyLine()
+      b.addLine(s"exports.packageId = '$packageId';")
+    }
+    b.toString
+  }
 
-  def renderJsExports: String =
-    childNames
-      .map { name =>
-        s"""|${GenHelper.renderES5Import(name, s"./$name")}
-            |exports.$name = $name;""".stripMargin
-      }
-      .mkString("\n")
+  def renderTsExports(packageId: Option[PackageId]): String = {
+    val b = new CodeBuilder()
+    if (childNames.nonEmpty) {
+      childNames.foreach(name => b.addLine(GenHelper.renderES6Import(name, s"./$name")))
+      b.addEmptyLine()
+      childNames.foreach(name => b.addLine(s"export { $name };"))
+    }
+    if (!isVirtual) {
+      if (childNames.nonEmpty) b.addEmptyLine()
+      b.addLine("export * from './module';")
+    }
+    packageId.foreach { packageId =>
+      b.addEmptyLine()
+      b.addLine(s"export declare const packageId = '$packageId';")
+    }
+    b.toString
+  }
 }
 
 private[codegen] object ModuleTree {

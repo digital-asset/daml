@@ -8,52 +8,58 @@ import com.digitalasset.daml.lf.data.Ref.{DottedName, ModuleId, Name}
 import com.digitalasset.daml.lf.language.Ast
 
 private[codegen] sealed trait Encode {
-  def render(currentModule: ModuleId, indent: String): String
+  def render(moduleId: ModuleId, b: CodeBuilder): Unit
 }
 
 private[codegen] final case class VariantEncode(
     conName: DottedName,
     variants: Seq[(Name, Ast.Type)],
 ) extends Encode {
-  override def render(currentModule: ModuleId, indent: String): String = {
-    val cases = variants.map { case (name, tpe) =>
-      s"case '$name': return {tag: __typed__.tag, value: ${TypeGen.renderSerializable(currentModule, tpe)}.encode(__typed__.value)};"
+  override def render(moduleId: ModuleId, b: CodeBuilder): Unit = {
+    def renderSer(tpe: Ast.Type): String = TypeGen.renderSerializable(moduleId, tpe)
+    b.addBlock("function (__typed__) {", "}") {
+      b.addBlock("switch(__typed__.tag) {", "}") {
+        variants.foreach { case (name, tpe) =>
+          b.addLine(
+            s"case '$name': return {tag: __typed__.tag, value: ${renderSer(tpe)}.encode(__typed__.value)};"
+          )
+        }
+        b.addLine(
+          s"default: throw 'unrecognized type tag: ' + __typed__.tag + ' while serializing a value of type $conName';"
+        )
+      }
     }
-    s"""|function (__typed__) {
-        |$indent  switch(__typed__.tag) {
-        |$indent    ${cases.mkString(s"\n$indent    ")}
-        |$indent    default: throw 'unrecognized type tag: ' + __typed__.tag + ' while serializing a value of type $conName';
-        |$indent  }
-        |$indent}""".stripMargin
   }
 }
 
 private[codegen] final case class RecordEncode(fields: Seq[(Name, Ast.Type)]) extends Encode {
-  override def render(currentModule: ModuleId, indent: String): String = {
-    val fieldsEncode = fields.map { case (name, tpe) =>
-      s"$name: ${TypeGen.renderSerializable(currentModule, tpe)}.encode(__typed__.$name),"
+  override def render(moduleId: ModuleId, b: CodeBuilder): Unit =
+    b.addBlock("function (__typed__) {", "}") {
+      if (fields.nonEmpty) {
+        b.addBlock("return {", "};") {
+          fields.foreach { case (name, tpe) =>
+            s"$name: ${TypeGen.renderSerializable(moduleId, tpe)}.encode(__typed__.$name),"
+          }
+        }
+      } else b.addLine("return {};")
     }
-    s"""|function (__typed__) {
-        |$indent  return {
-        |$indent    ${fieldsEncode.mkString(s"\n$indent    ")}
-        |$indent  };
-        |$indent}""".stripMargin
-  }
 }
 
 private[codegen] object IdentityEncode extends Encode {
-  override def render(currentModule: ModuleId, indent: String): String =
-    "function (__typed__) { return __typed__; }"
+  override def render(moduleId: ModuleId, b: CodeBuilder): Unit =
+    b.addLine("function (__typed__) { return __typed__; }")
 }
 
 private[codegen] object ThrowEncode extends Encode {
-  override def render(currentModule: ModuleId, indent: String): String =
-    "function () { throw 'EncodeError'; }"
+  override def render(moduleId: ModuleId, b: CodeBuilder): Unit =
+    b.addLine("function () { throw 'EncodeError'; }")
 }
 
 private[codegen] final case class TypeEncode(tpe: Ast.Type) extends Encode {
-  override def render(currentModule: ModuleId, indent: String): String =
-    s"function (__typed__) { return ${TypeGen.renderSerializable(currentModule, tpe)}.encode(__typed__); }"
+  override def render(moduleId: ModuleId, b: CodeBuilder): Unit = {
+    val ser = TypeGen.renderSerializable(moduleId, tpe)
+    b.addLine(s"function (__typed__) { return $ser.encode(__typed__); }")
+  }
 }
 
 private[codegen] object Encode {

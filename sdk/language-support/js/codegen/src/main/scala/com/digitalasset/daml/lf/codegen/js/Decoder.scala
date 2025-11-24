@@ -8,53 +8,51 @@ import com.digitalasset.daml.lf.data.Ref.{DottedName, ModuleId, Name}
 import com.digitalasset.daml.lf.language.Ast
 
 private[codegen] sealed trait Decoder {
-  def render(currentModule: ModuleId, indent: String): String
+  def render(moduleId: ModuleId, builder: CodeBuilder): Unit
 }
 
 private[codegen] final case class OneOfDecoder(decoders: Seq[Decoder]) extends Decoder {
-  override def render(currentModule: ModuleId, indent: String): String = {
-    val branches = decoders.map(_.render(currentModule, indent + "  "))
-    s"""|jtv.oneOf(
-        |$indent  ${branches.mkString(s",\n$indent  ")}
-        |$indent)""".stripMargin
-  }
+  override def render(moduleId: ModuleId, b: CodeBuilder): Unit =
+    b.addBlock("jtv.oneOf(", ")") {
+      decoders.foreach(d => b.addInline("", ",")(d.render(moduleId, b)))
+    }
 }
 
 private[codegen] final case class ObjectDecoder(fields: Seq[(String, Decoder)]) extends Decoder {
-  override def render(currentModule: ModuleId, indent: String): String = {
-    val decodedFields = fields
-      .map { case (name, field) => s"$name: ${field.render(currentModule, indent + "  ")}" }
-    s"""|jtv.object({
-        |$indent  ${decodedFields.mkString(s",\n$indent  ")}
-        |$indent})""".stripMargin
-  }
+  override def render(moduleId: ModuleId, b: CodeBuilder): Unit =
+    b.addBlock("jtv.object({", "})") {
+      fields.foreach { case (name, field) =>
+        b.addInline(s"$name: ", ",")(field.render(moduleId, b))
+      }
+    }
 }
 
 private[codegen] final case class ConstantStringDecoder(value: String) extends Decoder {
-  override def render(currentModule: ModuleId, indent: String): String =
-    s"""jtv.constant("$value")"""
+  override def render(moduleId: ModuleId, b: CodeBuilder): Unit =
+    b.addLine(s"""jtv.constant("$value")""")
 }
 
 private[codegen] final case class ConstantRefDecoder(ref: Seq[String]) extends Decoder {
-  override def render(currentModule: ModuleId, indent: String): String =
-    s"""jtv.constant(${ref.mkString(".")})"""
+  override def render(moduleId: ModuleId, b: CodeBuilder): Unit =
+    b.addLine(s"""jtv.constant(${ref.mkString(".")})""")
 }
 
 private[codegen] final case class TypeDecoder(tpe: Ast.Type) extends Decoder {
-  override def render(currentModule: ModuleId, indent: String): String = {
-    val decoder = TypeGen.renderSerializable(currentModule, tpe) + ".decoder"
+  override def render(moduleId: ModuleId, b: CodeBuilder): Unit = {
+    val decoder = TypeGen.renderSerializable(moduleId, tpe) + ".decoder"
     tpe match {
-      case Ast.TApp(Ast.TBuiltin(Ast.BTOptional), _) => s"jtv.Decoder.withDefault(null, $decoder)"
-      case _ => decoder
+      case Ast.TApp(Ast.TBuiltin(Ast.BTOptional), _) =>
+        b.addLine(s"jtv.Decoder.withDefault(null, $decoder)")
+      case _ => b.addLine(decoder)
     }
   }
 }
 
 private[codegen] final case class LazyDecoder(underlying: Decoder) extends Decoder {
-  override def render(currentModule: ModuleId, indent: String): String =
-    s"""|damlTypes.lazyMemo(function () {
-        |$indent  return ${underlying.render(currentModule, indent + "  ")};
-        |$indent})""".stripMargin
+  override def render(moduleId: ModuleId, b: CodeBuilder): Unit =
+    b.addBlock("damlTypes.lazyMemo(function () {", "})") {
+      b.addInline("return ", ";")(underlying.render(moduleId, b))
+    }
 }
 
 private[codegen] object Decoder {
