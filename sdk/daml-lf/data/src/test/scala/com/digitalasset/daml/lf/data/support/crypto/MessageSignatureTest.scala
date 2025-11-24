@@ -88,8 +88,8 @@ class MessageSignatureTest extends AnyFreeSpec with Matchers {
 
   "correctly identify off curve ECDSA public keys" in {
     val keyPairGen = KeyPairGenerator.getInstance("EC", "BC")
-    // Use a different curve to generate a ECDSA public key that is not on the secp256k1 curve
-    // - we do this as raw ECPoints are checked as being on the curve during key generation!
+    // Use a different EC curve to generate a ECDSA public key that is not on the secp256k1 curve
+    // - we do this as raw ECPoints are checked as being on the secp256k1 curve during key generation!
     keyPairGen.initialize(new ECGenParameterSpec("secp256r1"))
     val fakePublicKey = keyPairGen.generateKeyPair().getPublic
 
