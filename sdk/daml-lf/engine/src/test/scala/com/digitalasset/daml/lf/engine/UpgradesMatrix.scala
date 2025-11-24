@@ -189,7 +189,7 @@ class UpgradesMatrixCases(
     )
 
   def ifKeys[A](ifTrue: => A, ifFalse: => A): A =
-    if (LanguageVersion.featureContractKeys.versionRange.contains(langVersion)) ifTrue else ifFalse
+    if (LanguageVersion.featureContractKeys.enabledIn(langVersion)) ifTrue else ifFalse
   def whenKeysOtherwiseNone[A](a: => A): Option[A] = ifKeys(Some(a), None)
   def whenKeysOtherwiseEmpty[A](a: => A)(implicit m: Monoid[A]) = ifKeys(a, m.empty)
 

@@ -328,7 +328,7 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
           case _ => typ0 -> ImmArray.Empty
         }
       val builder = PLF.Type.newBuilder()
-      // Be warned: Both the use of the unapply pattern TForalls cause scala's exhaustivty checking to be disabled in the following match.
+      // Be warned: The use of the unapply pattern TForalls cause scala's exhaustivty checking to be disabled in the following match.
       (typ: @unchecked) match {
         case TVar(varName) =>
           val b = PLF.Type.Var.newBuilder()
@@ -495,7 +495,7 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
           b.setCid(cid)
           b.setArg(arg)
           guard.foreach { g =>
-            assertVersionSupports(LV.featureExtendedInterfaces, Some("ExerciseInterface.guard"))
+            assertVersionSupports(LV.featureExtendedInterfaces, "ExerciseInterface.guard")
             b.setGuard(g)
           }
           builder.setExerciseInterface(b)
@@ -823,7 +823,7 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
               .setExpr(value)
           )
         case EChoiceController(ty, choiceName, contract, choiceArg) =>
-          assertVersionSupports(LV.featureChoiceFuncs, Some("Expr.ChoiceController"))
+          assertVersionSupports(LV.featureChoiceFuncs, "Expr.ChoiceController")
           val b = PLF.Expr.ChoiceController
             .newBuilder()
             .setTemplate(ty)
@@ -832,7 +832,7 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
           setInternedString(choiceName, b.setChoiceInternedStr)
           builder.setChoiceController(b)
         case EChoiceObserver(ty, choiceName, contract, choiceArg) =>
-          assertVersionSupports(LV.featureChoiceFuncs, Some("Expr.ChoiceObserver"))
+          assertVersionSupports(LV.featureChoiceFuncs, "Expr.ChoiceObserver")
           val b = PLF.Expr.ChoiceObserver
             .newBuilder()
             .setTemplate(ty)
@@ -968,7 +968,7 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
       }
       choice.choiceAuthorizers match {
         case Some(value) =>
-          assertVersionSupports(LV.featureChoiceAuthority, Some("TemplateChoice.authority"))
+          assertVersionSupports(LV.featureChoiceAuthority, "TemplateChoice.authority")
           b.setAuthorizers(value)
         case None =>
       }
@@ -1065,18 +1065,13 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
     EncodeError(s"$description is not supported by Daml-LF $languageVersion")
 
   private def versionSupports(ft: LV.Feature): Boolean =
-    ft.versionRange.contains(languageVersion)
+    ft.enabledIn(languageVersion)
 
-  def assertVersionSupports(ft: LV.Feature, caseDescription: Option[String] = None): Unit = {
-    if (!versionSupports(ft)) {
-      val optDescr = caseDescription match {
-        case Some(str) => s" (case ${str})"
-        case None => ""
-      }
-      throw notSupportedError(ft.name ++ optDescr)
-    }
-  }
+  def assertVersionSupports(ft: LV.Feature): Unit =
+    if (!versionSupports(ft)) throw notSupportedError(ft.name)
 
+  def assertVersionSupports(ft: LV.Feature, caseDescription: String): Unit =
+    if (!versionSupports(ft)) throw notSupportedError(s"${ft.name} (case ${caseDescription})")
 }
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))

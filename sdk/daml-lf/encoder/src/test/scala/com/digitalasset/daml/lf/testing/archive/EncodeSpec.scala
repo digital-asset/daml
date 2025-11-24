@@ -100,7 +100,7 @@ abstract class EncodeSpec(languageVersion: LanguageVersion)
                 method asParty = Mod:Person {person} this;
                 method getName = Mod:Person {name} this;
               };
-${onlyIf(LanguageVersion.featureContractKeys.versionRange.contains(languageVersion))("""
+${onlyIf(LanguageVersion.featureContractKeys.enabledIn(languageVersion))("""
               key @Party (Mod:Person {person} this) (\ (p: Party) -> Cons @Party [p] (Nil @Party));
 """)}
             };
@@ -173,7 +173,7 @@ ${onlyIf(LanguageVersion.featureContractKeys.versionRange.contains(languageVersi
            val anExercise: (ContractId Mod:Person) -> Update Unit = \(cId: ContractId Mod:Person) ->
              exercise @Mod:Person Sleep (Mod:identity @(ContractId Mod:Person) cId) ();
 
-${onlyIf(LanguageVersion.featureContractKeys.versionRange.contains(languageVersion))(s"""
+${onlyIf(LanguageVersion.featureContractKeys.enabledIn(languageVersion))(s"""
            val aFecthByKey: Party -> Update ($tuple2TyCon (ContractId Mod:Person) Mod:Person) = \\(party: Party) ->
              fetch_by_key @Mod:Person party;
            val aLookUpByKey: Party -> Update (Option (ContractId Mod:Person)) =\\(party: Party) ->
@@ -187,7 +187,7 @@ ${onlyIf(LanguageVersion.featureContractKeys.versionRange.contains(languageVersi
              uembed_expr @a x;
            val isZero: Int64 -> Bool = EQUAL @Int64 0;
 
-${onlyIf(LanguageVersion.featureContractKeys.versionRange.contains(languageVersion))("""
+${onlyIf(LanguageVersion.featureContractKeys.enabledIn(languageVersion))("""
            val isOne: BigNumeric -> Bool = EQUAL @BigNumeric (NUMERIC_TO_BIGNUMERIC @10 1.0000000000);
            val defaultRounding: RoundingMode = ROUNDING_UP;
 """)}
@@ -216,7 +216,7 @@ ${onlyIf(LanguageVersion.featureContractKeys.versionRange.contains(languageVersi
            val concrete_from_interface: Mod:Human -> Option Mod:Person  =
              \ (h: Mod:Human) -> from_interface @Mod:Human @Mod:Person h;
 
-${onlyIf(LanguageVersion.featureUnsafeFromInterface.versionRange.contains(languageVersion))("""
+${onlyIf(LanguageVersion.featureUnsafeFromInterface.enabledIn(languageVersion))("""
            val concrete_unsafe_from_interface: ContractId Mod:Human -> Mod:Human -> Mod:Person  =
              \ (cid: ContractId Mod:Human) (h: Mod:Human) -> unsafe_from_interface @Mod:Human @Mod:Person cid h;
 """)}
@@ -239,7 +239,7 @@ ${onlyIf(LanguageVersion.featureUnsafeFromInterface.versionRange.contains(langua
            val concrete_observer_interface: Mod:Planet -> List Party =
              \ (p: Mod:Planet) -> observer_interface @Mod:Planet p;
 
-${onlyIf(LanguageVersion.featureChoiceFuncs.versionRange.contains(languageVersion))("""
+${onlyIf(LanguageVersion.featureChoiceFuncs.enabledIn(languageVersion))("""
            val concrete_template_choice_controller: Mod:Person -> Int64 -> List Party =
              \ (p : Mod:Person) (i : Int64) -> choice_controller @Mod:Person Nap p i;
            val concrete_template_choice_observer: Mod:Person -> Int64 -> List Party =

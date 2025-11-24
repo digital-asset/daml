@@ -1366,7 +1366,7 @@ private[validation] object Typing {
     }
 
     private def checkAnyType(typ: Type): Unit = {
-      if (LanguageVersion.featureComplexAnyType.versionRange.contains(languageVersion))
+      if (LanguageVersion.featureComplexAnyType.enabledIn(languageVersion))
         checkAnyType_(typ)
       else
         typ match {

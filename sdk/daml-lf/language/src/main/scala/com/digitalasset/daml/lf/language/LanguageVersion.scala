@@ -86,7 +86,7 @@ object LanguageVersion extends LanguageFeaturesGenerated {
       name: String,
       versionRange: VersionRange[LanguageVersion],
   ) {
-    def enabledIn(lv: LanguageVersion): Boolean = versionRange.contains(lv)
+    def enabledIn(lv: LanguageVersion): Boolean = enabledIn(lv)
   }
 
   def fromString(str: String): Either[String, LanguageVersion] =

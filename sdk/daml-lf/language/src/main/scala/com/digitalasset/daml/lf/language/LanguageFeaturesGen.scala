@@ -45,7 +45,6 @@ trait LanguageFeaturesGenerated extends LanguageVersionGenerated {
     val unstable = v1_dev
   }
 
-
   // --- Generated V2 Features ---
 
   val featureUnstable: Feature = Feature(
@@ -123,6 +122,22 @@ trait LanguageFeaturesGenerated extends LanguageVersionGenerated {
     versionRange = VersionRange.Until(v2_1),
   )
 
-  val allFeatures: List[Feature] = List(featureUnstable, featureTextMap, featureBigNumeric, featureExceptions, featureExtendedInterfaces, featureChoiceFuncs, featureTemplateTypeRepToText, featureContractKeys, featureFlatArchive, featurePackageImports, featureComplexAnyType, featureExperimental, featurePackageUpgrades, featureChoiceAuthority, featureUnsafeFromInterface)
+  val allFeatures: List[Feature] = List(
+    featureUnstable,
+    featureTextMap,
+    featureBigNumeric,
+    featureExceptions,
+    featureExtendedInterfaces,
+    featureChoiceFuncs,
+    featureTemplateTypeRepToText,
+    featureContractKeys,
+    featureFlatArchive,
+    featurePackageImports,
+    featureComplexAnyType,
+    featureExperimental,
+    featurePackageUpgrades,
+    featureChoiceAuthority,
+    featureUnsafeFromInterface,
+  )
 
 }
