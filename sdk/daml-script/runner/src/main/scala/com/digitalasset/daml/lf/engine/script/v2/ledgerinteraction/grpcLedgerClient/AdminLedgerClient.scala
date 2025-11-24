@@ -425,7 +425,7 @@ class AdminLedgerClient private[grpcLedgerClient] (
       admin_topology.AuthorizeRequest.Type.Proposal(
         admin_topology.AuthorizeRequest.Proposal(
           protocol.Enums.TopologyChangeOp.TOPOLOGY_CHANGE_OP_ADD_REPLACE,
-          0, // will be picked by the participant
+          1, //first topology transaction for this party
           Some(
             protocol.TopologyMapping(
               protocol.TopologyMapping.Mapping.PartyToParticipant(

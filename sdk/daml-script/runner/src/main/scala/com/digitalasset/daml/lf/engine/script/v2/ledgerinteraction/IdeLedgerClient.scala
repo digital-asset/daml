@@ -1060,6 +1060,17 @@ class IdeLedgerClient(
     _ <- if (!parties.contains(party)) allocateParty(party) else Future.successful(())
   } yield ()
 
+  override def aggregateAllocatePartyOnMultipleParticipants(
+      clients: List[ScriptLedgerClient],
+      party: Ref.Party,
+      toParticipantIds: Iterable[String],
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Unit] = for {
+    _ <- allocateParty(party)
+  } yield ()
+
   override def proposePartyReplication(party: Ref.Party, toParticipantId: String): Future[Unit] =
     Future.successful(())
 

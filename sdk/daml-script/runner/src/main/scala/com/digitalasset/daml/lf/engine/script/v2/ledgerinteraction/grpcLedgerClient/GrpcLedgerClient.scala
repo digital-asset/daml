@@ -730,7 +730,7 @@ class GrpcLedgerClient(
 
   override def allocatePartyOnMultipleParticipants(
       party: Ref.Party,
-      toParticipantIds: Iterable[String],
+      participantIds: Iterable[String],
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -740,8 +740,19 @@ class GrpcLedgerClient(
         "Attempted to use exportParty without specifying a adminPort"
       )
     )
-    adminClient.allocatePartyOnMultipleParticipants(party, toParticipantIds)
+    adminClient.allocatePartyOnMultipleParticipants(party, participantIds)
   }
+
+  override def aggregateAllocatePartyOnMultipleParticipants(
+      clients: List[ScriptLedgerClient],
+      party: Ref.Party,
+      participantIds: Iterable[String],
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Unit] = for {
+    _ <- Future.traverse(clients)(_.allocatePartyOnMultipleParticipants(party, participantIds))
+  } yield ()
 
   override def proposePartyReplication(party: Ref.Party, toParticipantId: String): Future[Unit] = {
     val adminClient = oAdminClient.getOrElse(

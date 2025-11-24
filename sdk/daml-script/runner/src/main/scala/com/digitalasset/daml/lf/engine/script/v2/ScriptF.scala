@@ -35,7 +35,6 @@ import scalaz.{Foldable, OneAnd}
 import java.security.{KeyFactory, SecureRandom}
 import java.security.spec.PKCS8EncodedKeySpec
 import java.time.Clock
-import java.util.UUID
 import scala.collection.immutable.ArraySeq
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -518,65 +517,37 @@ object ScriptF {
         )
       } yield SEValue(SOptional(optR))
   }
-//  final case class AllocParty(
-//      idHint: String,
-//      participants: List[Participant],
-//  ) extends Cmd {
-//    override def execute(env: Env)(implicit
-//        ec: ExecutionContext,
-//        mat: Materializer,
-//        esf: ExecutionSequencerFactory,
-//    ): Future[SExpr] = {
-//      def replicateParty(
-//          party: Party,
-//          fromClient: ScriptLedgerClient,
-//          toParticipant: Participant,
-//      ): Future[Unit] = for {
-//        toClient <- env.clients.assertGetParticipantFuture(toParticipant)
-//
-//        _ <- toClient.proposePartyReplication(party, toClient.getParticipantUid)
-//        _ <- fromClient.proposePartyReplication(party, toClient.getParticipantUid)
-//        _ <- Future.traverse(env.clients.participants.values)(client =>
-//          client.waitUntilHostingVisible(party, toClient.getParticipantUid)
-//        )
-//      } yield ()
-//
-//      val mainParticipant = participants.headOption
-//      val additionalParticipants = if (participants.isEmpty) List.empty else participants.tail
-//      for {
-//        mainClient <- env.clients.assertGetParticipantFuture(mainParticipant)
-//        party <- mainClient.allocateParty(idHint)
-//        _ <- Future.traverse(additionalParticipants)(toParticipant =>
-//          replicateParty(party, mainClient, toParticipant)
-//        )
-//      } yield {
-//        mainParticipant.foreach(env.addPartyParticipantMapping(party, _))
-//        SEValue(SParty(party))
-//      }
-//    }
-//  }
+
   final case class AllocParty(
       idHint: String,
-      participants: List[Participant], // make nonempty
+      participants: Option[(Participant, List[Participant])],
   ) extends Cmd {
     override def execute(env: Env)(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] = {
-
-      val party = Party.assertFromString(idHint + "::" + UUID.randomUUID)
-
+      val owningParticipant = participants.map(_._1)
       for {
-        clients <- Future.traverse(participants)(toParticipant =>
-          env.clients.assertGetParticipantFuture(Some(toParticipant))
+        owningClient <- env.clients.assertGetParticipantFuture(owningParticipant)
+
+        party = Party.assertFromString(
+          idHint + "::" + owningClient.getParticipantUid.split("::").last
         )
 
-//        party <- clients.head.allocateParty(idHint)
+        otherClients <- Future.traverse(participants.map(_._2).getOrElse(List.empty))(participant =>
+          env.clients.assertGetParticipantFuture(participant)
+        )
+        clients = owningClient +: otherClients
 
         participantIds = clients.map(_.getParticipantUid)
 
-        _ <- Future.traverse(clients)(_.allocatePartyOnMultipleParticipants(party, participantIds))
+        // we defer to the owningClient to implement the foreach(client) such that in the case of IDE ledger we can instead allocate a party once
+        _ <- owningClient.aggregateAllocatePartyOnMultipleParticipants(
+          clients,
+          party,
+          participantIds,
+        )
 
         _ <- Future.traverse(env.clients.participants.values)(client =>
           client.waitUntilHostingVisible(party, participantIds)
@@ -584,7 +555,7 @@ object ScriptF {
 
         // do the waiting
       } yield {
-        participants.headOption.foreach(env.addPartyParticipantMapping(party, _))
+        owningParticipant.foreach(env.addPartyParticipantMapping(party, _))
         SEValue(SParty(party))
       }
     }
@@ -1158,7 +1129,7 @@ object ScriptF {
         for {
           participantName <- Converter.toOptionalParticipantName(participantName)
           idHint <- Converter.toPartyIdHint(givenHint, requestedName, globalRandom)
-        } yield AllocParty(idHint, participantName.toList)
+        } yield AllocParty(idHint, participantName.map(p => (p, List.empty)))
       case _ => Left(s"Expected AllocParty payload but got $v")
     }
 
@@ -1168,7 +1139,11 @@ object ScriptF {
         for {
           participantNames <- Converter.toParticipantNames(participantNames)
           idHint <- Converter.toPartyIdHint(givenHint, requestedName, globalRandom)
-        } yield AllocParty(idHint, participantNames)
+          allocArg = participantNames match {
+            case head :: tail => Some((head, tail))
+            case Nil => None
+          }
+        } yield AllocParty(idHint, allocArg)
       case _ => Left(s"Expected AllocParty payload but got $v")
     }
 
