@@ -11,7 +11,7 @@ import scala.util.control.NonFatal
 private[codegen] object JsCodeGenMain extends StrictLogging {
   def main(args: Array[String]): Unit =
     try {
-      JsCodeGenConf.parse(args, parserName = "codegen") match {
+      JsCodeGenConf.parse(args, parserName = "codegen-js") match {
         case Some(conf) =>
           val damlVersion = sys.env.getOrElse("DAML_SDK_VERSION", "0.0.0")
           JsCodeGen.run(conf, damlVersion)
@@ -22,7 +22,7 @@ private[codegen] object JsCodeGenMain extends StrictLogging {
       }
     } catch {
       case NonFatal(t) =>
-        logger.error(s"Error generating code: {}", t.getMessage)
+        logger.error(s"Error generating js code: {}", t.getMessage)
         sys.exit(-1)
     }
 }
