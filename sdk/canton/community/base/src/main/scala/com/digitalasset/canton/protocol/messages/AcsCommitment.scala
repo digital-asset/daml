@@ -16,7 +16,6 @@ import com.digitalasset.canton.data.{
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.messages.SignedProtocolMessageContent.SignedMessageContentCast
 import com.digitalasset.canton.protocol.v30
-import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.serialization.DeserializationError
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbDeserializationException
@@ -33,7 +32,7 @@ import com.digitalasset.canton.version.{
 }
 import com.google.protobuf.ByteString
 import io.scalaland.chimney.dsl.*
-import slick.jdbc.{GetResult, GetTupleResult, SetParameter}
+import slick.jdbc.{GetResult, GetTupleResult}
 
 import scala.math.Ordering.Implicits.*
 
@@ -182,11 +181,6 @@ object AcsCommitment extends VersioningCompanionMemoization[AcsCommitment] {
   )
 
   type CommitmentType = ByteString
-  implicit val getResultCommitmentType: GetResult[CommitmentType] =
-    DbStorage.Implicits.getResultByteString
-  implicit val setCommitmentType: SetParameter[CommitmentType] =
-    DbStorage.Implicits.setParameterByteString
-
   type HashedCommitmentType = Hash
 
   def hashedCommitmentTypeToProto(commitment: HashedCommitmentType): ByteString =

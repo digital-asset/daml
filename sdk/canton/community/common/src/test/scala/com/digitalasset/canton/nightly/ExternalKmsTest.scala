@@ -6,7 +6,7 @@ package com.digitalasset.canton.nightly
 import cats.data.EitherT
 import com.digitalasset.canton.crypto.kms.KmsError.KmsEncryptError
 import com.digitalasset.canton.crypto.kms.{KmsError, KmsKeyId, KmsTest}
-import com.digitalasset.canton.crypto.provider.kms.PredefinedKmsKeys
+import com.digitalasset.canton.crypto.provider.kms.HasPredefinedKmsKeys
 import com.digitalasset.canton.crypto.{
   EncryptionAlgorithmSpec,
   EncryptionKeySpec,
@@ -20,11 +20,11 @@ import com.digitalasset.canton.util.{ByteString4096, ResourceUtil}
 import org.scalatest.Assertion
 import org.scalatest.wordspec.FixtureAsyncWordSpec
 
-/** Implements all tests that are shared among 'external' KMSs that require an access point and a
+/** Implements all tests that are shared among 'external' KMSs that require an access point and an
   * SDK client (i.e. AWS and GCP vs Symbolic).
   */
 trait ExternalKmsTest extends KmsTest {
-  self: FixtureAsyncWordSpec & PredefinedKmsKeys =>
+  self: FixtureAsyncWordSpec & HasPredefinedKmsKeys =>
 
   def kmsSymmetricEncryptionKeyId: FutureUnlessShutdown[KmsKeyId] =
     FutureUnlessShutdown.pure(predefinedSymmetricEncryptionKey)

@@ -15,6 +15,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.sequencing.client.SequencerSubscription
 import com.digitalasset.canton.sequencing.client.SequencerSubscriptionError.SequencedEventError
+import com.digitalasset.canton.sequencing.client.transports.ServerSubscriptionCloseReason
 import com.digitalasset.canton.synchronizer.sequencer.errors.CreateSubscriptionError
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
@@ -41,6 +42,14 @@ trait ManagedSubscription extends FlagCloseable with CloseNotification {
     * @return
     */
   def isCancelled: Boolean
+
+  /** Close the subscription for a transient reason, using an UNAVAILABLE status and the provided
+    * reason.
+    *
+    * The client can match on the provided reason, and should interpret this as an indication that
+    * the connection to the sequencer itself is not terminated, and the subscription can be retried.
+    */
+  def transientClose(reason: ServerSubscriptionCloseReason.TransientCloseReason): Unit
 }
 
 /** Creates and manages a SequencerSubscription for the given grpc response observer. The sequencer
@@ -82,6 +91,11 @@ private[service] class GrpcManagedSubscription[T](
     setCloseSignal(signal)
     close()
   }
+
+  override def transientClose(reason: ServerSubscriptionCloseReason.TransientCloseReason): Unit =
+    signalAndClose(
+      ErrorSignal(Status.UNAVAILABLE.withDescription(reason.description).asException())
+    )
 
   private val handler: SequencedEventOrErrorHandler[SequencedEventError] = {
     case Right(event) =>
@@ -164,8 +178,6 @@ private[service] class GrpcManagedSubscription[T](
           .fold(logger.debug("Closing but underlying subscription has not been created"))(_.close())
 
         closeSignal match {
-          case NoSignal =>
-            () // don't send anything, likely as the underlying channel is already cancelled
           case CompleteSignal => observer.onCompleted()
           case ErrorSignal(cause) => observer.onError(cause)
         }
@@ -180,7 +192,6 @@ private object GrpcManagedSubscription {
   /** How should the response observer be closed
     */
   private sealed trait ObserverCloseSignal extends Product with Serializable
-  private case object NoSignal extends ObserverCloseSignal
   private case object CompleteSignal extends ObserverCloseSignal
   private final case class ErrorSignal(cause: Throwable) extends ObserverCloseSignal
 }

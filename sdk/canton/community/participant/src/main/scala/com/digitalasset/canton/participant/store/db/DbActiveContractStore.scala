@@ -13,7 +13,6 @@ import cats.syntax.traverse.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ReassignmentCounter
-import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString
 import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -84,8 +83,8 @@ class DbActiveContractStore(
   override protected[this] def partitionColumn: String = "synchronizer_idx"
 
   import ActiveContractStore.*
-  import DbStorage.Implicits.*
   import storage.api.*
+  import storage.converters.*
 
   override protected def batchingParameters: Option[PrunableByTimeParameters] = Some(
     batchingParametersConfig
@@ -346,8 +345,6 @@ class DbActiveContractStore(
     // The contractStore is unused
     // As we can directly query daml_contracts from the database
 
-    import DbStorage.Implicits.*
-
     // TODO(i9480): Integrate with performance tests to check that we can remove packages when there are many contracts.
 
     val query =
@@ -427,7 +424,7 @@ class DbActiveContractStore(
     if (contractIds.isEmpty) FutureUnlessShutdown.pure(Map.empty)
     else
       storage
-        .query(snapshotQuery(timeOfChange, Some(contractIds)), functionFullName)
+        .query(snapshotQuery(timeOfChange, NonEmpty.from(contractIds)), functionFullName)
         .map(_.view.map { case (cid, toc, _) => cid -> toc }.toMap)
 
   override def contractsReassignmentCounterSnapshotBefore(
@@ -447,7 +444,7 @@ class DbActiveContractStore(
             .query(
               snapshotQuery(
                 TimeOfChange.immediatePredecessor(timestampExclusive),
-                Some(contractIds),
+                NonEmpty.from(contractIds),
               ),
               functionFullName,
             )
@@ -473,14 +470,11 @@ class DbActiveContractStore(
 
   private[this] def snapshotQuery(
       tocToInclusive: TimeOfChange,
-      contractIds: Option[Set[LfContractId]],
+      contractIds: Option[NonEmpty[Set[LfContractId]]],
   ): DbAction.ReadOnly[Seq[(LfContractId, TimeOfChange, ReassignmentCounter)]] = {
     import DbStorage.Implicits.BuilderChain.*
-
-    val idsO = contractIds.map { ids =>
-      sql"(" ++ ids.toList.map(id => sql"$id").intercalate(sql", ") ++ sql")"
-    }
-
+    val inClause =
+      contractIds.fold(sql"")(ids => sql" and " ++ DbStorage.toInClause("AC.contract_id", ids))
     val ordering = sql" order by ts asc, repair_counter asc"
 
     TimeOfChange.withMinAsNoneRepairCounter(tocToInclusive) { case (tsToInclusive, rcToInclusive) =>
@@ -496,7 +490,7 @@ class DbActiveContractStore(
               or ((AC.ts, AC.repair_counter) = (AC2.ts, AC2.repair_counter) and AC2.change = CAST(${ChangeType.Deactivation} as change_type))))
             and (AC.ts, AC.repair_counter) <= ($tsToInclusive, $rcToInclusive)
             and synchronizer_idx = $indexedSynchronizer and AC.change = CAST(${ChangeType.Activation} as change_type)""" ++
-        idsO.fold(sql"")(ids => sql" and AC.contract_id in " ++ ids) ++ ordering)
+        inClause ++ ordering)
         .as[(LfContractId, TimeOfChange, ReassignmentCounter)]
     }
   }
@@ -736,39 +730,24 @@ class DbActiveContractStore(
             FutureUnlessShutdown
               .pure(Map.empty[(TimeOfChange, LfContractId), Option[ReassignmentCounter]])
           ) { cids =>
-            val resultArchivalReassignmentCounters = MonadUtil.batchedSequentialTraverse[
-              LfContractId,
-              FutureUnlessShutdown,
-              (TimeOfChange, LfContractId, ActivenessChangeDetail),
-            ](
-              batchingConfig.parallelism,
-              batchingConfig.maxItemsInBatch,
-            )(cids) { chunk =>
-              NonEmpty.from(chunk) match {
-                case Some(chunkNE) =>
-                  val inClause = DbStorage.toInClause("contract_id", chunkNE)(absCoidSetParameter)
-                  val archivalCidsWithoutReassignmentCountersQueries =
-                    // Note that the sql query does not filter entries with toc <= toExclusive,
-                    // but it also includes the entries between (`fromExclusive`, `toInclusive`].
-                    // This is an implementation choice purely to reuse code: we pass the query result into the
-                    // function `reassignmentCounterForArchivals` and obtain the reassignment counters for (toc, cid) pairs.
-                    // One could have a more restrictive query and compute the reassignment counters in some other way.
-                    (sql"""select ts, repair_counter, contract_id, operation, reassignment_counter, remote_synchronizer_idx
+            val inClause = DbStorage.toInClause("contract_id", cids)
+            val archivalCidsWithoutReassignmentCountersQueries =
+              // Note that the sql query does not filter entries with toc <= toExclusive,
+              // but it also includes the entries between (`fromExclusive`, `toInclusive`].
+              // This is an implementation choice purely to reuse code: we pass the query result into the
+              // function `reassignmentCounterForArchivals` and obtain the reassignment counters for (toc, cid) pairs.
+              // One could have a more restrictive query and compute the reassignment counters in some other way.
+              (sql"""select ts, repair_counter, contract_id, operation, reassignment_counter, remote_synchronizer_idx
                    from par_active_contracts where synchronizer_idx = $indexedSynchronizer
                      and (ts, repair_counter) <= ($toInclusiveTs, $toInclusiveRc)
                      and """ ++ inClause ++ sql" order by ts asc, repair_counter asc")
-                      .as[(TimeOfChange, LfContractId, ActivenessChangeDetail)]
-                  storage
-                    .query(
-                      archivalCidsWithoutReassignmentCountersQueries,
-                      "ACS: get data to compute the reassignment counters for archived contracts",
-                    )
-                case None =>
-                  FutureUnlessShutdown.pure(
-                    Vector.empty[(TimeOfChange, LfContractId, ActivenessChangeDetail)]
-                  )
-              }
-            }
+                .as[(TimeOfChange, LfContractId, ActivenessChangeDetail)]
+            val resultArchivalReassignmentCounters =
+              storage
+                .query(
+                  archivalCidsWithoutReassignmentCountersQueries,
+                  "ACS: get data to compute the reassignment counters for archived contracts",
+                )
 
             resultArchivalReassignmentCounters.map { result =>
               // we need to sort again, because we fetch the data in parallel
@@ -1061,7 +1040,6 @@ class DbActiveContractStore(
   ): DbAction.ReadOnly[Option[StoredActiveContract]] =
     fetchContractStateQuery(
       contractId,
-      operationFilter = None,
       tocFilter = Some(toc),
       descending = false,
     )
@@ -1070,11 +1048,10 @@ class DbActiveContractStore(
       contractId: LfContractId,
       toc: TimeOfChange,
   ): DbAction.ReadOnly[Option[StoredActiveContract]] =
-    fetchContractStateQuery(contractId, operationFilter = None, tocFilter = Some(toc))
+    fetchContractStateQuery(contractId, tocFilter = Some(toc))
 
   private def fetchContractStateQuery(
       contractId: LfContractId,
-      operationFilter: Option[LengthLimitedString] = None,
       tocFilter: Option[TimeOfChange] = None,
       descending: Boolean = true,
   ): DbAction.ReadOnly[Option[StoredActiveContract]] = {
@@ -1084,8 +1061,6 @@ class DbActiveContractStore(
     val baseQuery =
       sql"""select operation, reassignment_counter, remote_synchronizer_idx, ts, repair_counter from par_active_contracts
             where synchronizer_idx = $indexedSynchronizer and contract_id = $contractId"""
-    val opFilterQuery =
-      operationFilter.fold(sql" ")(o => sql" and operation = CAST($o as operation_type)")
     val tocFilterQuery =
       tocFilter.fold(sql" ")(TimeOfChange.withMinAsNoneRepairCounter(_) { case (ts, rc) =>
         sql" and " ++
@@ -1098,7 +1073,7 @@ class DbActiveContractStore(
     val orderQuery =
       sql" order by ts #$normalOrder, repair_counter #$normalOrder, change #$reversedOrder #${storage
           .limit(1)}"
-    val query = baseQuery ++ opFilterQuery ++ tocFilterQuery ++ orderQuery
+    val query = baseQuery ++ tocFilterQuery ++ orderQuery
     query.as[StoredActiveContract].headOption
   }
 }

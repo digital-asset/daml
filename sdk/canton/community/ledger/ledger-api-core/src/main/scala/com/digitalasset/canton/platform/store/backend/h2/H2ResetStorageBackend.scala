@@ -35,6 +35,8 @@ object H2ResetStorageBackend extends ResetStorageBackend {
       truncate table lapi_user_rights;
       truncate table lapi_user_annotations;
       truncate table lapi_identity_provider_config;
+      truncate table par_pruning_operation;
+      truncate table par_contracts;
       set referential_integrity true;
     """
       .execute()(connection)
