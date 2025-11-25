@@ -80,7 +80,7 @@ da_scala_test(
 ####  Distrib
 ########################################################
 package_oci_component(
-    name = "codegen-java-oci",
+    name = "codegen-oci",
     component_manifest = ":component.yaml",
     platform_agnostic = True,
     resources = [
