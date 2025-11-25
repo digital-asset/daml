@@ -355,6 +355,26 @@ export class DamlLanguageClient {
     throw new Error("Failed to locate assistant.");
   }
 
+  // Once an assistant has been selected, we can find out the sdk version
+  // however if the sdk version is too low, it overrides the selected assistant
+  // this wrapper function handles that edge case
+  static async findAssistantCommandAndSdkVersion(
+    rootPath: string,
+    config: vscode.WorkspaceConfiguration,
+  ): Promise<[string, string | undefined]> {
+    const [command, isUsingDPM] =
+      DamlLanguageClient.findAssistantCommand(config);
+    const sdkVersion = isUsingDPM
+      ? await DamlLanguageClient.getSdkVersionDPM(command, rootPath)
+      : await DamlLanguageClient.getSdkVersionDamlAssistant(command, rootPath);
+
+    if (sdkVersion && sdkVersion != "0.0.0" && semver.lt(sdkVersion, "3.4.0")) {
+      const damlPath = DamlLanguageClient.findDamlCommand();
+      if (!damlPath) throw new Error("Failed to locate assistant.");
+      return [damlPath, sdkVersion];
+    } else return [command, sdkVersion];
+  }
+
   private static async createLanguageClient(
     rootPath: string,
     envVars: EnvVars,
@@ -371,11 +391,11 @@ export class DamlLanguageClient {
       ],
     };
 
-    const [command, isUsingDPM] =
-      DamlLanguageClient.findAssistantCommand(config);
-    const sdkVersion = isUsingDPM
-      ? await DamlLanguageClient.getSdkVersionDPM(command, rootPath)
-      : await DamlLanguageClient.getSdkVersionDamlAssistant(command, rootPath);
+    const [command, sdkVersion] =
+      await DamlLanguageClient.findAssistantCommandAndSdkVersion(
+        rootPath,
+        config,
+      );
     const multiIdeSupport = DamlLanguageClient.getMultiIdeSupport(
       config,
       sdkVersion,
