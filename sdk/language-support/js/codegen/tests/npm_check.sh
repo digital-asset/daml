@@ -18,7 +18,7 @@ set -eou pipefail
       { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
 # --- end runfiles.bash initialization v2 ---
 
-DAMLJS=$(rlocation "$TEST_WORKSPACE/$1")
+CODEGEN_JS=$(rlocation "$TEST_WORKSPACE/$1")
 NPM=$(rlocation "$TEST_WORKSPACE/$2")
 JQ=$(rlocation "$TEST_WORKSPACE/$3")
 DAR1=$(rlocation "$TEST_WORKSPACE/$4")
@@ -28,10 +28,12 @@ TMP_DIR=$(mktemp -d)
 mkdir -p "$TMP_DIR/.npm"
 export npm_config_cache="$TMP_DIR/.npm"
 
-cleanup() {
-    rm -rf "$TMP_DIR"
-}
-trap cleanup EXIT
+echo "Temporary directory: $TMP_DIR"
+
+# cleanup() {
+#     rm -rf "$TMP_DIR"
+# }
+# trap cleanup EXIT
 
 cat <<EOF > "$TMP_DIR"/package.json
 {
@@ -44,7 +46,7 @@ cat <<EOF > "$TMP_DIR"/package.json
 }
 EOF
 
-$DAMLJS "$DAR1" -o "$TMP_DIR"/daml.js
+$CODEGEN_JS "$DAR1" -o "$TMP_DIR"/daml.js
 cd "$TMP_DIR"
 export PATH=$NODE_PATH:$PATH
 $NPM install
@@ -64,7 +66,7 @@ cat <<EOF > "$TMP_DIR"/package.json
 }
 EOF
 
-$DAMLJS "$DAR2" -o "$TMP_DIR"/daml.js
+$CODEGEN_JS "$DAR2" -o "$TMP_DIR"/daml.js
 $NPM install
 PACKAGELOCK2=$($JQ '.dependencies | length' < "$TMP_DIR"/package-lock.json)
 

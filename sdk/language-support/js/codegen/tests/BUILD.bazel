@@ -141,7 +141,7 @@ sh_test(
     name = "npm-update-check",
     srcs = ["npm_check.sh"],
     args = [
-        "$(location //:daml2js)",
+        "$(location //language-support/js/codegen)",
         "$(location @nodejs//:npm_bin)",
         "$(location @jq_dev_env//:jq)",
         "$(location :npmcheck1.dar)",
@@ -152,7 +152,7 @@ sh_test(
     data = [
         ":npmcheck1.dar",
         ":npmcheck2.dar",
-        "//:daml2js",
+        "//language-support/js/codegen",
         "@jq_dev_env//:jq",
         "@nodejs//:node",
         "@nodejs//:npm_bin",
