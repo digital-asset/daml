@@ -1055,21 +1055,21 @@ class IdeLedgerClient(
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-  ): Future[Unit] = for {
-    parties <- listKnownParties()
-    _ <- if (!parties.contains(party)) allocateParty(party) else Future.successful(())
-  } yield ()
+  ): Future[Unit] = Future.failed(
+    new RuntimeException(
+      "allocatePartyOnMultipleParticipants should not be called on IDE ledger, use aggregateAllocatePartyOnMultipleParticipants instead"
+    )
+  )
 
   override def aggregateAllocatePartyOnMultipleParticipants(
       clients: List[ScriptLedgerClient],
-      party: Ref.Party,
+      partyHint: String,
+      namespace: String,
       toParticipantIds: Iterable[String],
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-  ): Future[Unit] = for {
-    _ <- allocateParty(party)
-  } yield ()
+  ): Future[Ref.Party] = allocateParty(partyHint)
 
   override def waitUntilHostingVisible(
       party: Ref.Party,

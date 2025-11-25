@@ -745,14 +745,18 @@ class GrpcLedgerClient(
 
   override def aggregateAllocatePartyOnMultipleParticipants(
       clients: List[ScriptLedgerClient],
-      party: Ref.Party,
+      partyHint: String,
+      namespace: String,
       participantIds: Iterable[String],
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-  ): Future[Unit] = for {
-    _ <- Future.traverse(clients)(_.allocatePartyOnMultipleParticipants(party, participantIds))
-  } yield ()
+  ): Future[Ref.Party] = {
+    val party = Party.assertFromString(partyHint + "::" + namespace)
+    for {
+      _ <- Future.traverse(clients)(_.allocatePartyOnMultipleParticipants(party, participantIds))
+    } yield party
+  }
 
   override def waitUntilHostingVisible(
       party: Ref.Party,

@@ -518,7 +518,7 @@ object ScriptF {
       } yield SEValue(SOptional(optR))
   }
   final case class AllocParty(
-      idHint: String,
+      partyHint: String,
       participants: Option[
         (Participant, List[Participant])
       ], // Option of pair since when called from v1 it may be None in which case we use the default_participant of clients, handled by assertGetParticipantFuture
@@ -532,10 +532,6 @@ object ScriptF {
       for {
         owningClient <- env.clients.assertGetParticipantFuture(owningParticipant)
 
-        party = Party.assertFromString(
-          idHint + "::" + owningClient.getParticipantUid.split("::").last
-        )
-
         otherClients <- Future.traverse(participants.map(_._2).getOrElse(List.empty))(participant =>
           env.clients.assertGetParticipantFuture(participant)
         )
@@ -544,9 +540,11 @@ object ScriptF {
         participantIds = clients.map(_.getParticipantUid)
 
         // we defer to the owningClient to implement the foreach(client) such that in the case of IDE ledger we can instead allocate a party once
-        _ <- owningClient.aggregateAllocatePartyOnMultipleParticipants(
+        // aggregateAllocatePartyOnMultipleParticipants also returns a party, since IDE ledger allocates parties without namespace or leading "::"
+        party <- owningClient.aggregateAllocatePartyOnMultipleParticipants(
           clients,
-          party,
+          partyHint,
+          owningClient.getParticipantUid.split("::").last,
           participantIds,
         )
 

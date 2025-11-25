@@ -303,12 +303,13 @@ trait ScriptLedgerClient {
 
   def aggregateAllocatePartyOnMultipleParticipants(
       clients: List[ScriptLedgerClient],
-      party: Ref.Party,
+      partyHint: String,
+      namespace: String,
       toParticipantIds: Iterable[String],
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-  ): Future[Unit]
+  ): Future[Ref.Party]
 
   def waitUntilHostingVisible(party: Ref.Party, onParticipantUid: Iterable[String]): Future[Unit]
 
