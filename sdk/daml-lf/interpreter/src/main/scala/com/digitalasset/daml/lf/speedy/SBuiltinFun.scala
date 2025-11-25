@@ -806,7 +806,7 @@ private[lf] object SBuiltinFun {
     }
   }
 
-  final case object SBSECP256K1ValidateKeyBool extends SBuiltinFun(1) {
+  final case object SBSECP256K1ValidateKey extends SBuiltinFun(1) {
     private[speedy] def execute[Q](
         args: ArraySeq[SValue],
         machine: Machine[Q],

@@ -55,6 +55,9 @@ da_scala_library(
     name = "interpreter-test-lib",
     srcs = glob(["src/test/**/*Lib.scala"]),
     scalacopts = lf_scalacopts_stricter,
+    scala_deps = [
+        "@maven//:org_scalacheck_scalacheck",
+    ],
     deps = [
         ":interpreter",
         "//daml-lf/data",
@@ -65,6 +68,8 @@ da_scala_library(
         "//daml-lf/validation",
         "//libs-scala/contextualized-logging",
         "//libs-scala/scala-utils",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_bouncycastle_bcprov_jdk15on",
     ],
 )
 
