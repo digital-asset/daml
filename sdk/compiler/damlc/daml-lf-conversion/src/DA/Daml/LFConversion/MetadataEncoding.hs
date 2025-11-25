@@ -44,6 +44,13 @@ module DA.Daml.LFConversion.MetadataEncoding
     -- * Type Synonyms
     , encodeTypeSynonym
     , decodeTypeSynonym
+    -- * Pattern Synonyms
+    , LFCompleteMatch (..)
+    , encodeFieldNames
+    , encodeLFCompleteMatch
+    , decodeFieldNames
+    , decodeLFCompleteMatch
+    , completeMatchToLf
     ) where
 
 import Safe (readMay)
@@ -60,6 +67,7 @@ import qualified "ghc-lib-parser" BasicTypes as GHC
 import qualified "ghc-lib-parser" BooleanFormula as BF
 import qualified "ghc-lib-parser" Class as GHC
 import qualified "ghc-lib-parser" FieldLabel as GHC
+import qualified "ghc-lib-parser" HscTypes as GHC
 import qualified "ghc-lib-parser" Name as GHC
 import qualified "ghc-lib-parser" SrcLoc as GHC
 import "ghc-lib-parser" FastString (FastString)
@@ -264,6 +272,7 @@ newtype QualName = QualName (LF.Qualified GHC.OccName)
 -- | Identical to Avail.AvailInfo, but with QualName instead of GHC.Name.
 data ExportInfo
     = ExportInfoVal QualName
+    | ExportInfoPattern QualName
     | ExportInfoTC QualName [QualName] [FieldLbl QualName]
     deriving (Eq)
 
@@ -271,6 +280,8 @@ encodeExportInfo :: ExportInfo -> LF.Type
 encodeExportInfo = \case
     ExportInfoVal qualName ->
         TEncodedCon "ExportInfoVal" (encodeExportInfoVal qualName)
+    ExportInfoPattern qualName ->
+        TEncodedCon "ExportInfoPattern" (encodeExportInfoVal qualName)
     ExportInfoTC qualName pieces fields ->
         TEncodedCon "ExportInfoTC" (encodeExportInfoTC qualName pieces fields)
 
@@ -308,6 +319,24 @@ encodeExportInfoTC name pieces fields = encodeTypeList id
     , encodeTypeList (encodeFieldLbl encodeQualName) fields
     ]
 
+encodeFieldNames :: [QualName] -> LF.Type
+encodeFieldNames = encodeTypeList encodeQualName
+
+data LFCompleteMatch name = LFCompleteMatch
+  { matchers :: [name]
+  , subject :: name
+  }
+  deriving (Foldable, Functor, Traversable)
+
+completeMatchToLf :: GHC.CompleteMatch -> LFCompleteMatch GHC.Name
+completeMatchToLf (GHC.CompleteMatch matchers subject) = LFCompleteMatch {..}
+
+encodeLFCompleteMatch :: LFCompleteMatch QualName -> LF.Type
+encodeLFCompleteMatch LFCompleteMatch {..} = encodeTypeList id
+    [ encodeQualName subject
+    , encodeTypeList encodeQualName matchers
+    ]
+
 encodeFieldLbl :: (a -> LF.Type) -> FieldLbl a -> LF.Type
 encodeFieldLbl encodeSelector field = encodeTypeList id
     [ encodeFastString (GHC.flLabel field)
@@ -327,6 +356,8 @@ decodeExportInfo :: LF.Type -> Maybe ExportInfo
 decodeExportInfo = \case
     TEncodedCon "ExportInfoVal" t ->
         decodeExportInfoVal t
+    TEncodedCon "ExportInfoPattern" t ->
+        decodeExportInfoPattern t
     TEncodedCon "ExportInfoTC" t -> do
         decodeExportInfoTC t
     _ -> Nothing
@@ -365,11 +396,17 @@ decodeFastString = \case
     TEncodedStr s -> Just (fsFromText s)
     _ -> Nothing
 
-decodeExportInfoVal :: LF.Type -> Maybe ExportInfo
-decodeExportInfoVal t = do
+decodeExportInfoNamed :: (QualName -> ExportInfo) -> LF.Type -> Maybe ExportInfo
+decodeExportInfoNamed f t = do
     [name] <- decodeTypeList Just t
-    ExportInfoVal
+    f
         <$> decodeQualName name
+
+decodeExportInfoVal :: LF.Type -> Maybe ExportInfo
+decodeExportInfoVal = decodeExportInfoNamed ExportInfoVal
+
+decodeExportInfoPattern :: LF.Type -> Maybe ExportInfo
+decodeExportInfoPattern = decodeExportInfoNamed ExportInfoPattern
 
 decodeExportInfoTC :: LF.Type -> Maybe ExportInfo
 decodeExportInfoTC t = do
@@ -378,6 +415,16 @@ decodeExportInfoTC t = do
         <$> decodeQualName name
         <*> decodeTypeList decodeQualName pieces
         <*> decodeTypeList (decodeFieldLbl decodeQualName) fields
+
+decodeFieldNames :: LF.Type -> Maybe [QualName]
+decodeFieldNames = decodeTypeList decodeQualName
+
+decodeLFCompleteMatch :: LF.Type -> Maybe (LFCompleteMatch QualName)
+decodeLFCompleteMatch t = do
+  [subject, matchers] <- decodeTypeList Just t
+  LFCompleteMatch
+    <$> decodeTypeList decodeQualName matchers
+    <*> decodeQualName subject
 
 decodeFieldLbl :: (LF.Type -> Maybe a) -> LF.Type -> Maybe (FieldLbl a)
 decodeFieldLbl decodeSelector t = do
