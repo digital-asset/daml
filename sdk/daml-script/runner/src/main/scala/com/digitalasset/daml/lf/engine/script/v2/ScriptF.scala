@@ -529,32 +529,43 @@ object ScriptF {
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] = {
       val owningParticipant = participants.map(_._1)
-      for {
-        owningClient <- env.clients.assertGetParticipantFuture(owningParticipant)
+      if (participants.map(_._2.isEmpty).getOrElse(true)) {
+        // old, one-participant workflow
+        for {
+          owningClient <- env.clients.assertGetParticipantFuture(owningParticipant)
+          party <- owningClient.allocateParty(partyHint)
+        } yield {
+          owningParticipant.foreach(env.addPartyParticipantMapping(party, _))
+          SEValue(SParty(party))
+        }
+      } else {
+        for {
+          owningClient <- env.clients.assertGetParticipantFuture(owningParticipant)
 
-        otherClients <- Future.traverse(participants.map(_._2).getOrElse(List.empty))(participant =>
-          env.clients.assertGetParticipantFuture(participant)
-        )
-        clients = owningClient +: otherClients
+          otherClients <- Future.traverse(participants.map(_._2).getOrElse(List.empty))(
+            participant => env.clients.assertGetParticipantFuture(participant)
+          )
+          clients = owningClient +: otherClients
 
-        participantIds = clients.map(_.getParticipantUid)
+          participantIds = clients.map(_.getParticipantUid)
 
-        // we defer to the owningClient to implement the foreach(client) such that in the case of IDE ledger we can instead allocate a party once
-        // aggregateAllocatePartyOnMultipleParticipants also returns a party, since IDE ledger allocates parties without namespace or leading "::"
-        party <- owningClient.aggregateAllocatePartyOnMultipleParticipants(
-          clients,
-          partyHint,
-          owningClient.getParticipantUid.split("::").last,
-          participantIds,
-        )
+          // we defer to the owningClient to implement the foreach(client) such that in the case of IDE ledger we can instead allocate a party once
+          // aggregateAllocatePartyOnMultipleParticipants also returns a party, since IDE ledger allocates parties without namespace or leading "::"
+          party <- owningClient.aggregateAllocatePartyOnMultipleParticipants(
+            clients,
+            partyHint,
+            owningClient.getParticipantUid.split("::").last,
+            participantIds,
+          )
 
-        _ <- Future.traverse(env.clients.participants.values)(client =>
-          client.waitUntilHostingVisible(party, participantIds)
-        )
+          _ <- Future.traverse(env.clients.participants.values)(client =>
+            client.waitUntilHostingVisible(party, participantIds)
+          )
 
-      } yield {
-        owningParticipant.foreach(env.addPartyParticipantMapping(party, _))
-        SEValue(SParty(party))
+        } yield {
+          owningParticipant.foreach(env.addPartyParticipantMapping(party, _))
+          SEValue(SParty(party))
+        }
       }
     }
   }
