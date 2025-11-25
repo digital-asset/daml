@@ -37,6 +37,7 @@ private final class JsCodeGen(
     val moduleGens = packageSig.modules
       .filter { case (_, module) => !module.isUtilityModule }
       .toSeq
+      .sortBy(_._1)
       .map { case (moduleName, module) =>
         genModule(ModuleId(packageId, moduleName), packageName, module)
       }
@@ -52,7 +53,8 @@ private final class JsCodeGen(
       moduleGens.foldLeft(ModuleTree.empty)((tree, module) => tree.add(module.moduleName))
     writeIndexFiles(srcDir, packageId, moduleTree)
     Files.write(packageDir.resolve("tsconfig.json"), tsConfig.getBytes)
-    val dependencies = moduleGens.flatMap(_.externalImports).distinctBy(_._1).map(_._2)
+    val dependencies =
+      moduleGens.flatMap(_.externalImports).distinctBy(_._1).map(_._2).sortBy(_.name)
     val _ = Files.write(
       packageDir.resolve("package.json"),
       renderPackageJson(packageSig.metadata, dependencies).getBytes,
@@ -65,10 +67,11 @@ private final class JsCodeGen(
     def writeModuleIndex(dir: Path, moduleTree: ModuleTree): Unit = {
       Files.write(dir.resolve("index.d.ts"), moduleTree.renderTsExports(packageId = None).getBytes)
       Files.write(dir.resolve("index.js"), moduleTree.renderJsExports(packageId = None).getBytes)
-      moduleTree.children
+      moduleTree.childTrees
         .foreach { case (name, tree) => writeModuleIndex(dir.resolve(name), tree) }
     }
-    rootTree.children.foreach { case (name, tree) => writeModuleIndex(srcDir.resolve(name), tree) }
+    rootTree.childTrees
+      .foreach { case (name, tree) => writeModuleIndex(srcDir.resolve(name), tree) }
   }
 
   private def renderPackageJson(
@@ -107,17 +110,21 @@ private final class JsCodeGen(
     // map top level name to list of nested definitions
     val nestedDefinitionMap = nestedDefinitions.groupBy { case (name, _) => name.segments.head }
 
-    val templateAndDataDefs = topLevelDefinitions.toSeq.flatMap { case (dottedName, dataDef) =>
-      val dataConsName = dottedName.segments.head
-      module.templates.get(dottedName) match {
-        case Some(template) =>
-          genTemplate(moduleId, packageName, dataConsName, template, dataDef)
-        case None =>
-          val nestedDefs = nestedDefinitionMap.getOrElse(dataConsName, Map.empty)
-          genDataDef(moduleId, dataConsName, dataDef, nestedDefs.toSeq)
+    val templateAndDataDefs = topLevelDefinitions.toSeq
+      .sortBy(_._1)
+      .flatMap { case (dottedName, dataDef) =>
+        val dataConsName = dottedName.segments.head
+        module.templates.get(dottedName) match {
+          case Some(template) =>
+            genTemplate(moduleId, packageName, dataConsName, template, dataDef)
+          case None =>
+            val nestedDefs =
+              nestedDefinitionMap.getOrElse(dataConsName, Map.empty).toSeq.sortBy(_._1)
+            genDataDef(moduleId, dataConsName, dataDef, nestedDefs)
+        }
       }
-    }
-    val interfaces = module.interfaces
+    val interfaces = module.interfaces.toSeq
+      .sortBy(_._1)
       .map { case (name, interface) => genInterface(moduleId, packageName, name, interface) }
     val imports = (
       module.serializableDefinitions.valuesIterator.map(collectModuleRefs) ++
@@ -145,9 +152,9 @@ private final class JsCodeGen(
   ): Seq[DefGen] = {
     val paramNames = dataDef.params.toSeq.map { case (name, _) => name }
     val typeCon = TypeConGen(moduleId, templateName, paramNames, dataDef.cons)
-    val choices = templateSig.choices.toSeq.map { case (name, choice) =>
-      ChoiceGen(name, choice.argBinder._2, choice.returnType)
-    }
+    val choices = templateSig.choices.toSeq
+      .sortBy(_._1)
+      .map { case (name, choice) => ChoiceGen(name, choice.argBinder._2, choice.returnType) }
     val implements = templateSig.implements.keys
     val template = TemplateGen(
       moduleId,
@@ -215,9 +222,9 @@ private final class JsCodeGen(
       case ImmArray(name) => name
       case _ => error(s"invalid multi-part name for interface")
     }
-    val choices = interface.choices.toSeq.map { case (name, choice) =>
-      ChoiceGen(name, choice.argBinder._2, choice.returnType)
-    }
+    val choices = interface.choices.toSeq
+      .sortBy(_._1)
+      .map { case (name, choice) => ChoiceGen(name, choice.argBinder._2, choice.returnType) }
     val view = interface.view match {
       case Ast.TTyCon(tycon) => tycon
       case _ => error(s"invalid view type for $interfaceName: ${interface.view}")
@@ -284,8 +291,7 @@ private final class JsCodeGen(
   private def toModuleId(identifier: Identifier): ModuleId =
     ModuleId(identifier.pkg, identifier.qualifiedName.module)
 
-  private def error(message: String): Nothing =
-    throw new RuntimeException(message)
+  private def error(message: String): Nothing = throw new RuntimeException(message)
 }
 
 object JsCodeGen extends StrictLogging {
@@ -318,17 +324,20 @@ object JsCodeGen extends StrictLogging {
         .traverse(darFiles)(path => Future(decodeDar(path)))
         .map(_.fold(Map.empty)(_ ++ _))
       _ = checkAndCreateOutputDir(outputDir)
-      filteredPackages = allPackages.filterNot { case (pkgId, pkg) =>
-        val skip = pkg.isUtilityPackage
-        if (skip)
-          logger.info(
-            s"Skipping ${pkg.metadata.nameDashVersion} (hash: $pkgId) as it does not define any serializable types"
-          )
-        skip
-      }
-      _ = assertNoDuplicateNameAndVersion(filteredPackages)
+      filteredPackages = allPackages
+        .filterNot { case (pkgId, pkg) =>
+          val skip = pkg.isUtilityPackage
+          if (skip)
+            logger.info(
+              s"Skipping ${pkg.metadata.nameDashVersion} (hash: $pkgId) as it does not define any serializable types"
+            )
+          skip
+        }
+      sortedPackages = filteredPackages.toSeq
+        .sortBy { case (_, pkg) => (pkg.metadata.name, pkg.metadata.version) }
+      _ = assertNoDuplicateNameAndVersion(sortedPackages)
       codegen = new JsCodeGen(outputDir, scope, damlVersion, allPackages)
-      _ <- Future.traverse(filteredPackages.toSeq) { case (pkgId, pkg) =>
+      _ <- Future.traverse(sortedPackages) { case (pkgId, pkg) =>
         Future {
           logger.info(s"Generating ${pkg.metadata.nameDashVersion} (hash: $pkgId)")
           codegen.writePackage(pkgId, pkg)
@@ -337,7 +346,7 @@ object JsCodeGen extends StrictLogging {
     } yield ()
 
   private def assertNoDuplicateNameAndVersion(
-      packages: Map[PackageId, Ast.PackageSignature]
+      packages: Seq[(PackageId, Ast.PackageSignature)]
   ): Unit = {
     val _ = packages
       .groupMapReduce { case (_, pkg) =>
@@ -351,7 +360,7 @@ object JsCodeGen extends StrictLogging {
       }
   }
 
-  private[codegen] def decodeDar(path: Path): Map[PackageId, Ast.PackageSignature] =
+  private def decodeDar(path: Path): Map[PackageId, Ast.PackageSignature] =
     DarParser.assertReadArchiveFromFile(path.toFile).all.map(tryDecodeArchive).toMap
 
   private def tryDecodeArchive(archive: DamlLf.Archive): (PackageId, Ast.PackageSignature) = {

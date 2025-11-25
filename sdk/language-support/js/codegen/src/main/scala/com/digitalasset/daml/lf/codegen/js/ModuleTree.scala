@@ -19,6 +19,8 @@ private[codegen] final case class ModuleTree(
 ) {
   private lazy val childNames = children.keys.toSeq.sorted
 
+  def childTrees: Seq[(Name, ModuleTree)] = children.toSeq.sortBy(_._1)
+
   def add(module: ModuleName): ModuleTree = add(module.segments.toList)
 
   def add(parts: List[Name]): ModuleTree = parts match {
