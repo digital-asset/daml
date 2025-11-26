@@ -352,7 +352,9 @@ export class DamlLanguageClient {
     vscode.window.showErrorMessage(
       "Failed to start the Daml language server. Make sure an assistant (daml assistant or DPM) is installed.",
     );
-    throw new Error("Failed to locate assistant.");
+    throw new Error(
+      "Failed to locate any assistant. Daml Assistant or DPM must be installed to use Daml Studio.",
+    );
   }
 
   // Once an assistant has been selected, we can find out the sdk version
@@ -370,7 +372,10 @@ export class DamlLanguageClient {
 
     if (sdkVersion && sdkVersion != "0.0.0" && semver.lt(sdkVersion, "3.4.0")) {
       const damlPath = DamlLanguageClient.findDamlCommand();
-      if (!damlPath) throw new Error("Failed to locate assistant.");
+      if (!damlPath)
+        throw new Error(
+          "Failed to locate Daml Assistant. Daml Assistant must be installed in order to use SDK Versions <= 3.3.",
+        );
       return [damlPath, sdkVersion];
     } else return [command, sdkVersion];
   }
