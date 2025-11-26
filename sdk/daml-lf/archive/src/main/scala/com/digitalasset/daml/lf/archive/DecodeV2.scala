@@ -14,7 +14,6 @@ import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.language.{LanguageVersion => LV}
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
-import com.digitalasset.daml.lf.speedy.SBuiltinFun.SBSECP256K1ValidateKey
 
 import scala.annotation.nowarn
 import scala.collection.mutable
