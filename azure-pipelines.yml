@@ -30,7 +30,7 @@ jobs:
                  eq(variables['Build.SourceBranchName'], 'main'))
   pool:
     name: 'ubuntu_20_04'
-    demands: assignment -equals default
+    demands: assignment -equals default-new
   variables:
     release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
     release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
