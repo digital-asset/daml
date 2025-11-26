@@ -38,7 +38,7 @@ has_regenerate_stackage_trailer() {
   [[ $regenerate_stackage == "true" ]]
 }
 
-tag_filter=""
+tag_filter="run1000xplease"
 
 if [[ "$(uname)" == "Darwin" ]]; then
   tag_filter="$tag_filter,-dont-run-on-darwin,-scaladoc,-pdfdocs"
@@ -164,18 +164,21 @@ esac
 
 echo "Running bazel test with the following tag filters: ${tag_filter}"
 
-$bazel test //... \
-  --build_tag_filters "${tag_filter}" \
-  --test_tag_filters "${tag_filter}" \
-  --test_env "POSTGRESQL_HOST=${POSTGRESQL_HOST}" \
-  --test_env "POSTGRESQL_PORT=${POSTGRESQL_PORT}" \
-  --test_env "POSTGRESQL_USERNAME=${POSTGRESQL_USERNAME}" \
-  --test_env "POSTGRESQL_PASSWORD=${POSTGRESQL_PASSWORD}" \
-  --profile test-profile.json \
-  --experimental_profile_include_target_label \
-  --build_event_json_file test-events.json \
-  --build_event_publish_all_actions \
-  --execution_log_json_file "$ARTIFACT_DIRS/logs/test_execution${execution_log_postfix}.json.gz"
+
+$bazel test //daml-script/test:test_test_suite_src_main_scala_com_digitalasset_daml_lf_engine_script_test_FuncWallClockIT.scala --runs_per_test=10000
+
+# $bazel test //... \
+#   --build_tag_filters "${tag_filter}" \
+#   --test_tag_filters "${tag_filter}" \
+#   --test_env "POSTGRESQL_HOST=${POSTGRESQL_HOST}" \
+#   --test_env "POSTGRESQL_PORT=${POSTGRESQL_PORT}" \
+#   --test_env "POSTGRESQL_USERNAME=${POSTGRESQL_USERNAME}" \
+#   --test_env "POSTGRESQL_PASSWORD=${POSTGRESQL_PASSWORD}" \
+#   --profile test-profile.json \
+#   --experimental_profile_include_target_label \
+#   --build_event_json_file test-events.json \
+#   --build_event_publish_all_actions \
+#   --execution_log_json_file "$ARTIFACT_DIRS/logs/test_execution${execution_log_postfix}.json.gz"
 
 # Make sure that Bazel query works.
 $bazel query 'deps(//...)' >/dev/null

@@ -355,6 +355,7 @@ da_scala_test_suite(
     ],
     tags = [
         "cpu:4",
+        "run1000xplease"
     ],
     deps = [
         ":test-utils",
