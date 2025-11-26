@@ -139,6 +139,12 @@ def _init_data():
             "version_req": dev_only,
         },
         {
+            "name": "featureCryptoValidateKey",
+            "name_pretty": "Crypto primitive key validation",
+            "cpp_flag": "DAML_VALIDATE_CRYPTO_KEY",
+            "version_req": dev_only,
+        },
+        {
             "name": "featureExperimental",
             "name_pretty": "Daml Experimental",
             "cpp_flag": "DAML_EXPERIMENTAL",
