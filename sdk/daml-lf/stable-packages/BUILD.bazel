@@ -65,3 +65,35 @@ da_scala_test_suite(
         "//daml-lf/language",
     ],
 )
+
+genrule(
+    name = "stable-package-list-reader-scala-src",
+    srcs = [
+        "//compiler/damlc/stable-packages:stable-packages.yaml",
+    ],
+    outs = [
+        "com/digitalasset/daml/lf/language/StablePackagesList.scala",
+    ],
+    cmd = "$(location //compiler/damlc/stable-packages:stable-packages-py-generator-scala) $(location //compiler/damlc/stable-packages:stable-packages.yaml) $(location com/digitalasset/daml/lf/language/StablePackagesList.scala)",
+    tools = [
+        "//compiler/damlc/stable-packages:stable-packages-py-generator-scala",
+    ],
+)
+
+da_scala_library(
+    name = "stable-package-list-reader-scala",
+    srcs = [
+        ":stable-package-list-reader-scala-src",
+    ],
+    generated_srcs = [
+        ":stable-package-list-reader-scala-src",
+    ],
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//daml-lf/data",  # Required for Ref.PackageId
+        "//daml-lf/language",  # Required for LanguageVersion
+    ],
+)
