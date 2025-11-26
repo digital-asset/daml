@@ -54,8 +54,10 @@ trait CantonFixtureAbstract
   private def getLAPIClientConfig(participant: LocalParticipantReference) =
     participant.config.ledgerApi.clientConfig
 
+  protected def baseEnvironmentDefinition: EnvironmentDefinition = EnvironmentDefinition.P1_S1M1
+
   override def environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P1_S1M1
+    baseEnvironmentDefinition
       .addConfigTransforms(
         ConfigTransforms.updateParticipantConfig("participant1") {
           _.focus(_.ledgerApi.authServices).replace(

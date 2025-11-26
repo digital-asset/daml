@@ -8,6 +8,7 @@ import cats.syntax.either.*
 import com.digitalasset.canton.LfTimestamp
 import com.digitalasset.canton.ProtoDeserializationError.TimestampConversionError
 import com.digitalasset.canton.data.CantonTimestamp.TimeGranularity
+import com.digitalasset.canton.resource.ToDbPrimitive
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.time.RefinedDuration
@@ -136,8 +137,9 @@ object CantonTimestamp {
   // Timestamps are stored as microseconds relative to EPOCH in a `bigint` rather than a SQL `timestamp`.
   // This avoids all the time zone conversions introduced by various layers that are hard to make consistent
   // across databases.
-  implicit val setParameterTimestamp: SetParameter[CantonTimestamp] = (v, pp) =>
-    pp.setLong(v.toMicros)
+  implicit val cantonTimestampToDbPrimitive: ToDbPrimitive[CantonTimestamp, Long] = ToDbPrimitive(
+    _.toMicros
+  )
   implicit val setParameterOptionTimestamp: SetParameter[Option[CantonTimestamp]] = (v, pp) =>
     pp.setLongOption(v.map(_.toMicros))
   implicit val getResultTimestamp: GetResult[CantonTimestamp] =

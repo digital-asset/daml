@@ -309,18 +309,18 @@ class ParticipantPartiesAdministrationGroup(
         synchronizer: SynchronizerAlias,
         synchronizeParticipants: Seq[ParticipantReference] = consoleEnvironment.participants.all,
         synchronize: Option[config.NonNegativeDuration] = Some(timeouts.unbounded),
-    )(implicit partyKind: PartyKind): Unit = partyKind match {
-      case PartyKind.Local =>
+    ): Unit = party match {
+      case partyId: PartyId =>
         reference.parties
           .enable(
-            party.partyId.uid.identifier.str,
+            partyId.uid.identifier.str,
             synchronizer = Some(synchronizer),
             synchronizeParticipants = synchronizeParticipants,
             synchronize = synchronize,
           )
           .discard[PartyId]
-      case PartyKind.External =>
-        external.also_enable(party, synchronizer, synchronizeParticipants, synchronize)
+      case externalParty: ExternalParty =>
+        external.also_enable(externalParty, synchronizer, synchronizeParticipants, synchronize)
     }
   }
 

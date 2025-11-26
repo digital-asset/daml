@@ -105,7 +105,7 @@ class MockKmsDriverFactory extends KmsDriverFactory {
           timeouts,
           namedLoggerFactory,
         )
-
+      // The Mock KMS driver supports all schemes supported by JCE
       supportedSigningKeySpecs = convertSpec(
         CryptoProvider.Jce.signingKeys.supported,
         KmsDriverSpecsConverter.convertToDriverSigningKeySpec,

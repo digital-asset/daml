@@ -16,10 +16,17 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 trait EncryptionTest extends AsyncWordSpec with BaseTest with CryptoTestHelper with FailOnShutdown {
 
+  /** @param newCryptoRestricted
+    *   An optional crypto instance with a restricted set of supported algorithms, used to test
+    *   encryption/decryption behavior under stricter constraints.
+    * @param unsupportedEncryptionAlgorithmSpec
+    *   An optional algorithm spec unsupported by `newCryptoRestricted`, used for testing.
+    */
   def encryptionProvider(
       supportedEncryptionAlgorithmSpecs: Set[EncryptionAlgorithmSpec],
       supportedSymmetricKeySchemes: Set[SymmetricKeyScheme],
       newCrypto: => FutureUnlessShutdown[Crypto],
+      newCryptoRestricted: => Option[FutureUnlessShutdown[Crypto]] = None,
       unsupportedEncryptionAlgorithmSpec: Option[EncryptionAlgorithmSpec] = None,
   ): Unit = {
 
@@ -129,7 +136,9 @@ trait EncryptionTest extends AsyncWordSpec with BaseTest with CryptoTestHelper w
     unsupportedEncryptionAlgorithmSpec.foreach { unsupported =>
       s"Fail random hybrid encrypt/decrypt with an unsupported algorithm: $unsupported" in {
         for {
-          crypto <- newCrypto
+          crypto <- newCryptoRestricted.valueOrFail(
+            "no configured crypto with a restricted set of supported schemes"
+          )
           publicKey <- getEncryptionPublicKey(
             crypto,
             supportedEncryptionAlgorithmSpecs.head.supportedEncryptionKeySpecs.head,
@@ -271,9 +280,9 @@ trait EncryptionTest extends AsyncWordSpec with BaseTest with CryptoTestHelper w
           LogEntry.assertLogSeq(
             Seq.empty,
             Seq(
-              _.warningMessage should include(
-                "KMS operation `asymmetric decrypting with key KmsKeyId(canton-kms-test-another-asymmetric-key)` failed: KmsDecryptError"
-              ),
+              // if this test runs for a KMS this warning message will be emitted by the KMS
+              _.warningMessage should include regex
+                s"KMS operation `asymmetric decrypting with key KmsKeyId\\(.*\\)` failed: KmsDecryptError",
               // Aws logs a failure here
               _.warningMessage should (include("Request") and include("failed")),
             ),

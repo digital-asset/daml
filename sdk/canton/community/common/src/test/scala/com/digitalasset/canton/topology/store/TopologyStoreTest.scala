@@ -1836,19 +1836,6 @@ trait TopologyStoreTest
 
       }
 
-      "query sequenced timestamps" should {
-        "return timestamps since" in {
-          val store = mk(synchronizer1_p1p2_physicalSynchronizerId, "caseQueryTs")
-          for {
-            _ <- update(store, ts1, add = Seq(nsd_p1, dop_synchronizer1_proposal))
-            _ <- update(store, ts2, add = Seq(otk_p1))
-            _ <- update(store, ts5, add = Seq(dtc_p2_synchronizer1))
-            result <- store.findSequencedTimestampsFrom(ts2)
-          } yield {
-            result shouldBe Vector(ts2, ts5)
-          }
-        }
-      }
     }
   }
 }

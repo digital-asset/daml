@@ -223,8 +223,7 @@ class PartyOps(
           .add(
             externalPartyOnboardingDetails.partyNamespace.toList
               .flatMap(_.signedTransactions) ++ Seq(
-              externalPartyOnboardingDetails.signedPartyToKeyMappingTransaction,
-              partyToParticipantSignedO,
+              partyToParticipantSignedO
             ).flatten,
             ForceFlags.none,
             expectFullAuthorization = externalPartyOnboardingDetails.fullyAllocatesParty,

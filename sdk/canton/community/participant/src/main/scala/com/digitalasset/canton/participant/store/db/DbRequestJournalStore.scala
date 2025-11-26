@@ -45,8 +45,8 @@ class DbRequestJournalStore(
     extends RequestJournalStore
     with DbStore { self =>
 
-  import DbStorage.Implicits.*
   import storage.api.*
+  import storage.converters.*
 
   implicit val getResultRequestState: GetResult[RequestState] = GetResult { r =>
     val index = r.nextInt()

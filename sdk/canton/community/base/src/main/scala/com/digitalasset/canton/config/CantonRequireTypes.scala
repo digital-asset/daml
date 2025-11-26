@@ -13,6 +13,7 @@ import com.digitalasset.canton.config.CantonRequireTypes.InstanceName.InvalidIns
 import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.InvalidLengthString
 import com.digitalasset.canton.config.RequireTypes.{InvariantViolation, NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.resource.ToDbPrimitive
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.util.NoCopy
@@ -142,12 +143,6 @@ object CantonRequireTypes {
         )
       }
 
-    // In general, if you would create a case class that would simply wrap a `LengthLimitedString`, use a type alias instead
-    // Some very frequently-used classes (like `Identifier` or `SynchronizerAlias`) are however given their 'own' case class
-    // despite essentially being a wrapper around `LengthLimitedString255` (because the documentation UX is nicer this way,
-    // and one can e.g. write `Fingerprint.tryCreate` instead of `LengthLimitedString68.tryCreate`)
-    type TopologyRequestId = String255
-
     def errorMsg(tooLongStr: String, maxLength: PositiveInt, name: Option[String] = None): String =
       s"The given ${name.getOrElse("string")} has a maximum length of $maxLength but a ${name
           .getOrElse("string")} of length ${tooLongStr.length} ('${tooLongStr.limit(maxLength.unwrap + 50)}.') was given"
@@ -173,18 +168,6 @@ object CantonRequireTypes {
         LengthLimitedStringVar(str, maxLength)(name),
         errorMsg(str, maxLength, name),
       )
-
-    // Should be used rarely - most of the time SetParameter[String255] etc.
-    // (defined through LengthLimitedStringCompanion) should be used
-    implicit val setParameterLengthLimitedString: SetParameter[LengthLimitedString] = (v, pp) =>
-      pp.setString(v.unwrap)
-    // Commented out so this function never accidentally throws
-    //    implicit def getResultLengthLimitedString: GetResult[LengthLimitedString] =
-    //      throw new UnsupportedOperationException(
-    //        "Avoid attempting to read a generic LengthLimitedString from the database, as this may lead to unexpected " +
-    //          "equality-comparisons (since a LengthLimitedString comparison also includes the maximum length and not only the string-content). " +
-    //          "Instead refactor your code to expect a specific LengthLimitedString when reading from the database (e.g. via GetResult[String255]). " +
-    //          "If you really need this functionality, then you can add this method again. ")
 
     implicit val orderingLengthLimitedString: Ordering[LengthLimitedString] =
       Ordering.by[LengthLimitedString, String](_.str)
@@ -440,8 +423,8 @@ object CantonRequireTypes {
     implicit val encodeLengthLimitedString: Encoder[A] =
       Encoder.encodeString.contramap[A](_.unwrap)
 
-    implicit val setParameterLengthLimitedString: SetParameter[A] = (v, pp) =>
-      pp.setString(v.unwrap)
+    implicit val lengthLimitedStringToDbPrimitive: ToDbPrimitive[A, String] =
+      ToDbPrimitive(_.unwrap)
     implicit val getResultLengthLimitedString: GetResult[A] =
       GetResult(r => tryCreate(r.nextString()))
 
