@@ -29,7 +29,7 @@ import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.synchronizer.sequencer.HasProgrammableSequencer
-import com.digitalasset.canton.topology.{ExternalParty, Member, Party, PartyId}
+import com.digitalasset.canton.topology.{ExternalParty, Member, Party}
 
 import java.util.UUID
 import scala.jdk.CollectionConverters.*
@@ -46,7 +46,7 @@ final class InteractiveSubmissionTrafficCostEstimationTest
   private var bobE: ExternalParty = _
   private var danE: ExternalParty = _
   private var bankE: ExternalParty = _
-  private var localEmily: PartyId = _
+  private var localEmily: Party = _
 
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P3_S1M1
@@ -65,18 +65,18 @@ final class InteractiveSubmissionTrafficCostEstimationTest
         )
         participants.all.dars.upload(CantonExamplesPath)
         participants.all.dars.upload(CantonTestsPath)
-        aliceE = cpn.parties.external.enable(
+        aliceE = cpn.parties.testing.external.enable(
           "Alice",
           keysCount = PositiveInt.three,
           keysThreshold = PositiveInt.one,
         )
-        bobE = epn.parties.external.enable("Bob")
-        danE = cpn.parties.external.enable(
+        bobE = epn.parties.testing.external.enable("Bob")
+        danE = cpn.parties.testing.external.enable(
           "Dan",
           keysCount = PositiveInt.three,
           keysThreshold = PositiveInt.three,
         )
-        bankE = ppn.parties.external.enable("Bank")
+        bankE = ppn.parties.testing.external.enable("Bank")
         localEmily = participant1.parties.enable("Emily")
       }
       .withTrafficControl(
@@ -125,12 +125,13 @@ final class InteractiveSubmissionTrafficCostEstimationTest
       expectedPrecision: Double,
       preparingPn: LocalParticipantReference,
       submittingPn: LocalParticipantReference,
-      partyId: PartyId,
+      partyId: Party,
       commands: Seq[Command],
       submit: PrepareSubmissionResponse => Unit,
       disclosedContracts: Seq[DisclosedContract] = Seq.empty,
   )(implicit env: FixtureParam) = {
     import env.*
+    participant1
     val prepared = preparingPn.ledger_api.javaapi.interactive_submission.prepare(
       Seq(partyId),
       commands,
@@ -310,13 +311,13 @@ final class InteractiveSubmissionTrafficCostEstimationTest
       estimateTrafficCost(
         None,
         // Expect less than 1% error when all nodes align
-        0.01d,
+        0.01,
         preparingPn = cpn,
         submittingPn = cpn,
-        aliceE.partyId,
-        commands = Seq(createCycleCmdFromParty(aliceE)),
+        bobE.partyId,
+        commands = Seq(createCycleCmdFromParty(bobE)),
         prepared => {
-          cpn.ledger_api.commands.external.submit_prepared(aliceE, prepared)
+          cpn.ledger_api.commands.external.submit_prepared(bobE, prepared)
         },
       )
     }

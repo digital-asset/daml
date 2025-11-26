@@ -236,7 +236,10 @@ class DbTrafficConsumedStore(
           FutureUnlessShutdown.pure(0)
         } else {
           MonadUtil
-            .batchedSequentialTraverse(batchingConfig.parallelism, batchingConfig.maxItemsInBatch)(
+            .batchedSequentialTraverse(
+              batchingConfig.pruningParallelism,
+              batchingConfig.maxItemsInBatch,
+            )(
               membersTimestamps
             ) { membersTimestampsChunk =>
               val bulkDelete = DbStorage

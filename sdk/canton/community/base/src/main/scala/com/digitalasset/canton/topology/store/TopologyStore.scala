@@ -559,16 +559,6 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[EffectiveStateChange]]
 
-  /** Find the sequencing timestamps of all topology transactions from the given timestamp
-    * @param fromSequencedInclusive
-    *   The initial timestamp from which to find all topology transactions timestamps, inclusive
-    * @return
-    *   Timestamps in increasing order
-    */
-  def findSequencedTimestampsFrom(
-      fromSequencedInclusive: CantonTimestamp
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Vector[CantonTimestamp]]
-
   def deleteAllData()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 }
 

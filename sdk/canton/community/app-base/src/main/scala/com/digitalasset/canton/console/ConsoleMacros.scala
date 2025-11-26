@@ -341,7 +341,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
       val x: Value.Sum = value match {
         case x: Int => Value.Sum.Int64(x.toLong)
         case x: Long => Value.Sum.Int64(x)
-        case x: PartyId => Value.Sum.Party(x.toLf)
+        case x: Party => Value.Sum.Party(x.toLf)
         case x: Float => Value.Sum.Numeric(s"$x")
         case x: Double => Value.Sum.Numeric(s"$x")
         case x: String => Value.Sum.Text(x)

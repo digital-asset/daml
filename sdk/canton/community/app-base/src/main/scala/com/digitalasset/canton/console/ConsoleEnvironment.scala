@@ -83,15 +83,15 @@ class ConsoleEnvironment(
 
   def consoleLogger: Logger = super.noTracingLogger
 
+  private lazy val health_ = new CantonHealthAdministration(this)
   @Help.Summary("Environment health inspection")
   @Help.Group("Health")
-  private lazy val health_ = new CantonHealthAdministration(this)
   def health: CantonHealthAdministration = health_
 
-  @Help.Summary("Global secret operations")
-  @Help.Group("Secret keys")
   protected lazy val global_secret_ = new GlobalSecretKeyAdministration(this, loggerFactory)
   // Overridden in TestEnvironment
+  @Help.Summary("Global secret operations")
+  @Help.Group("Secret keys")
   private[canton] def global_secret: GlobalSecretKeyAdministration = throw new RuntimeException(
     "Supported only in tests"
   )

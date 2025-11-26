@@ -7,9 +7,9 @@ import anorm.SqlParser.{byteArray, int, long, str}
 import anorm.{RowParser, ~}
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.platform.store.backend.IntegrityStorageBackend
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.`SimpleSql ops`
+import com.digitalasset.canton.platform.store.backend.{IntegrityStorageBackend, PersistentEventType}
 import com.digitalasset.canton.protocol.UpdateId
 import com.digitalasset.canton.topology.SynchronizerId
 import com.google.common.annotations.VisibleForTesting
@@ -307,13 +307,14 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
         s"duplicate internal_contract_id-s found in table par_contracts (first 10 shown) $firstTenDuplicatedInternalIds"
       )
 
-    val pruning_started_up_to_inclusive =
-      SQL"""SELECT started_up_to_inclusive FROM par_pruning_operation
-          """
-        .asSingleOpt(long("started_up_to_inclusive"))(connection)
-        .getOrElse(-1L)
-
     if (!inMemoryCantonStore) {
+      val pruning_started_up_to_inclusive =
+        SQL"""SELECT started_up_to_inclusive FROM par_pruning_operation
+          """
+          .asSingleOpt(long("started_up_to_inclusive").?)(connection)
+          .flatten
+          .getOrElse(-1L)
+
       val referencedInternalContractIdsWithOffset = SQL"""
               SELECT internal_contract_id, event_offset
               FROM lapi_events_activate_contract
@@ -368,7 +369,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
         )
         AND lapi_parameters.ledger_end is not null
         AND event_offset <= lapi_parameters.ledger_end
-    """
+      """
         .asVectorOf(
           long("lapi_events_deactivate_contract.deactivated_event_sequential_id") ~ long(
             "event_offset"
@@ -457,6 +458,68 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
             .take(10)
             .mkString("[", ", ", "]")}"
       )
+
+    val lapi_pruning_started_up_to_inclusive =
+      SQL"""SELECT participant_pruned_up_to_inclusive FROM lapi_parameters"""
+        .asSingleOpt(long("participant_pruned_up_to_inclusive").?)(connection)
+        .flatten
+        .getOrElse(-1L)
+
+    val witnessedShouldHavePruned =
+      SQL"""
+        SELECT event_offset
+        FROM lapi_events_various_witnessed
+        WHERE event_offset <= $lapi_pruning_started_up_to_inclusive
+      """
+        .asVectorOf(long("event_offset"))(connection)
+        .sorted
+    if (witnessedShouldHavePruned.nonEmpty)
+      throw new RuntimeException(
+        s"some events in various_witnessed have not been pruned, offsets (first 10 shown) ${witnessedShouldHavePruned
+            .take(10)
+            .mkString("[", ", ", "]")}"
+      )
+
+    val activateShouldHavePruned =
+      SQL"""
+        SELECT event_offset
+        FROM lapi_events_activate_contract
+        WHERE event_offset <= $lapi_pruning_started_up_to_inclusive
+        AND EXISTS (
+          SELECT 1
+          FROM lapi_events_deactivate_contract
+          WHERE lapi_events_deactivate_contract.deactivated_event_sequential_id = lapi_events_activate_contract.event_sequential_id
+          AND lapi_events_deactivate_contract.event_offset <= $lapi_pruning_started_up_to_inclusive
+          AND lapi_events_activate_contract.event_type <> ${PersistentEventType.Assign.asInt}
+          AND lapi_events_deactivate_contract.event_type <> ${PersistentEventType.Unassign.asInt}
+        )
+      """
+        .asVectorOf(long("event_offset"))(connection)
+        .sorted
+
+    if (activateShouldHavePruned.nonEmpty)
+      throw new RuntimeException(
+        s"some events in activate have not been pruned, offsets (first 10 shown) ${activateShouldHavePruned
+            .take(10)
+            .mkString("[", ", ", "]")}"
+      )
+
+    val deactivateShouldHavePruned =
+      SQL"""
+        SELECT event_offset
+        FROM lapi_events_deactivate_contract
+        WHERE event_offset < $lapi_pruning_started_up_to_inclusive
+        AND deactivated_event_sequential_id IS NULL
+      """
+        .asVectorOf(long("event_offset"))(connection)
+        .sorted
+
+    if (deactivateShouldHavePruned.nonEmpty)
+      throw new RuntimeException(
+        s"some events in deactivate have not been pruned, offsets (first 10 shown) ${deactivateShouldHavePruned
+            .take(10)
+            .mkString("[", ", ", "]")}"
+      )
   } catch {
     case t: Throwable if !failForEmptyDB =>
       val failure = t.getMessage
@@ -501,6 +564,12 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
     SQL"DELETE FROM lapi_ledger_end_synchronizer_index".executeUpdate()(connection).discard
     SQL"DELETE FROM par_command_deduplication".executeUpdate()(connection).discard
     SQL"DELETE FROM par_in_flight_submission".executeUpdate()(connection).discard
+    // clean these tables manually, as the ledger_end=1 is an actual ledger-end, and as these tables are cleaned by
+    // initialization based on offsets, some rubbish can remains (which can cause problems for example for integrity
+    // checking which motivated this change)
+    SQL"DELETE FROM lapi_command_completions".executeUpdate()(connection).discard
+    SQL"DELETE FROM lapi_party_entries".executeUpdate()(connection).discard
+    SQL"DELETE FROM lapi_update_meta".executeUpdate()(connection).discard
   }
 
   private final case class CompletionEntry(

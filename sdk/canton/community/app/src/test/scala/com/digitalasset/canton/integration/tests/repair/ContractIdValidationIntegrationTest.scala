@@ -100,12 +100,12 @@ final class ContractIdValidationIntegrationTest
     import env.*
 
     WithEnabledParties(participant1 -> Seq("alice")) { case Seq(alice) =>
-      setup(participant1, alice)
+      setup(participant1, alice.partyId)
 
       // Remove the party from participant1 so that its ACS commitment
       // cannot mismatch
       participant1.topology.party_to_participant_mappings.propose_delta(
-        party = alice,
+        party = alice.partyId,
         removes = List(participant1.id),
         store = daId,
         forceFlags = ForceFlags(DisablePartyWithActiveContracts),
@@ -115,7 +115,7 @@ final class ContractIdValidationIntegrationTest
       // party in case the ACS is exported successfully
       for (participant <- Seq(participant1, participant2)) {
         participant.topology.party_to_participant_mappings.propose_delta(
-          party = alice,
+          party = alice.partyId,
           adds = List(participant2.id -> ParticipantPermission.Submission),
           store = daId,
         )
@@ -134,7 +134,7 @@ final class ContractIdValidationIntegrationTest
       val aliceAddedOnP2Offset = eventually() {
         participant1.parties
           .find_party_max_activation_offset(
-            partyId = alice,
+            partyId = alice.partyId,
             participantId = participant2.id,
             synchronizerId = daId,
           )
@@ -157,7 +157,7 @@ final class ContractIdValidationIntegrationTest
             .valueOrFail("Failed to write contract to broken export")
         }
         brokenExportStream.close()
-        f(brokenExportFile, brokenExport.size.toLong, alice)
+        f(brokenExportFile, brokenExport.size.toLong, alice.partyId)
       }
 
       result.get()

@@ -28,8 +28,8 @@ class NoSubmitterPackageIntegrationTest
         ppn.dars.upload(CantonTestsPath, synchronizerId = daId)
         cpn.dars.upload(CantonTestsPath, synchronizerId = daId)
 
-        bobE = ppn.parties.external.enable("Bob")
-        aliceE = cpn.parties.external.enable("Alice")
+        bobE = ppn.parties.testing.external.enable("Bob")
+        aliceE = cpn.parties.testing.external.enable("Alice")
       }
       .addConfigTransform(ConfigTransforms.enableInteractiveSubmissionTransforms)
 

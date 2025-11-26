@@ -8,6 +8,7 @@ import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.sequencing.client.transports.ServerSubscriptionCloseReason
 import com.digitalasset.canton.synchronizer.metrics.SequencerTestMetrics
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.{Member, ParticipantId, UniqueIdentifier}
@@ -65,6 +66,9 @@ class SubscriptionPoolTest extends AnyWordSpec with BaseTest with HasExecutionCo
     override def toString: String = s"Subscription($name)"
 
     override def isCancelled: Boolean = isRequestCancelled
+
+    override def transientClose(reason: ServerSubscriptionCloseReason.TransientCloseReason): Unit =
+      ()
   }
 
   def createSubscription(name: String): FutureUnlessShutdown[MockSubscription] =

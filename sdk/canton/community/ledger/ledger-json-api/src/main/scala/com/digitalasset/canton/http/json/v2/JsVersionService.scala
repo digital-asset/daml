@@ -54,7 +54,7 @@ object JsVersionService extends DocumentationEndpoints {
 
   val versionEndpoint = version.get
     .out(jsonBody[version_service.GetLedgerApiVersionResponse])
-    .description("Get the version details of the participant node")
+    .protoRef(version_service.VersionServiceGrpc.METHOD_GET_LEDGER_API_VERSION)
 
   override def documentation: Seq[AnyEndpoint] = Seq(versionEndpoint)
 }

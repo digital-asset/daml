@@ -15,6 +15,7 @@ import com.digitalasset.canton.networking.grpc.GrpcError
 import com.digitalasset.canton.networking.grpc.GrpcError.GrpcServiceUnavailable
 import com.digitalasset.canton.sequencer.api.v30
 import com.digitalasset.canton.sequencing.SequencedEventHandler
+import com.digitalasset.canton.sequencing.client.SubscriptionCloseReason.TokenExpiration
 import com.digitalasset.canton.sequencing.client.{SequencerSubscription, SubscriptionCloseReason}
 import com.digitalasset.canton.sequencing.protocol.SubscriptionResponse
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -238,11 +239,19 @@ abstract class ConsumesCancellableGrpcStreamObserver[
           }
         case s: StatusRuntimeException =>
           val grpcError = GrpcError(request, "sequencer", s)
-          complete(
-            if (s.getStatus.getCode == Status.Code.PERMISSION_DENIED)
-              GrpcPermissionDeniedError(grpcError)
-            else GrpcSubscriptionError(grpcError)
-          )
+          if (
+            s.getStatus.getCode == Status.Code.UNAVAILABLE &&
+            s.getStatus.getDescription == ServerSubscriptionCloseReason.TokenExpired.description
+          ) {
+            logger.info(
+              "The sequencer subscription has been terminated by the server due to a token expiration."
+            )
+            complete(TokenExpiration)
+          } else if (s.getStatus.getCode == Status.Code.PERMISSION_DENIED) {
+            complete(GrpcPermissionDeniedError(grpcError))
+          } else {
+            complete(GrpcSubscriptionError(grpcError))
+          }
         case exception: Throwable =>
           logger.error("The sequencer subscription failed unexpectedly.", t)
           complete(GrpcSubscriptionUnexpectedException(exception))
@@ -251,11 +260,24 @@ abstract class ConsumesCancellableGrpcStreamObserver[
 
     override def onCompleted(): Unit = {
       import TraceContext.Implicits.Empty.*
-      // Info level, as this occurs from time to time due to the invalidation of the authentication token.
+      // Info level, as this occurs from time to time when a member is disconnected.
       logger.info("The sequencer subscription has been terminated by the server.")
       complete(onCompleteCloseReason)
     }
 
+  }
+}
+
+/** Reasons for closing a subscription on the server side. */
+object ServerSubscriptionCloseReason {
+
+  /** Transient reasons associated to an UNAVAILABLE status. */
+  sealed trait TransientCloseReason {
+    def description: String
+  }
+
+  case object TokenExpired extends TransientCloseReason {
+    override def description: String = "Subscription token has expired"
   }
 }
 

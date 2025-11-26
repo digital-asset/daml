@@ -12,6 +12,7 @@ import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.sequencing.SequencerTestUtils.MockMessageContent
 import com.digitalasset.canton.sequencing.client.SequencerSubscription
 import com.digitalasset.canton.sequencing.client.SequencerSubscriptionError.SequencedEventError
+import com.digitalasset.canton.sequencing.client.transports.ServerSubscriptionCloseReason
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.store.SequencedEventStore.SequencedEventWithTraceContext
@@ -24,7 +25,10 @@ import com.digitalasset.canton.topology.{
 }
 import com.digitalasset.canton.tracing.SerializableTraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
+import io.grpc.Status.Code
+import io.grpc.StatusException
 import io.grpc.stub.ServerCallStreamObserver
+import org.mockito.ArgumentCaptor
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.concurrent.Await
@@ -111,6 +115,21 @@ class GrpcManagedSubscriptionTest extends AnyWordSpec with BaseTest with HasExec
       subscription.close()
       verify(sequencerSubscription).close()
       verify(observer).onCompleted()
+    }
+
+    "if the close is transient, the observer receives an UNAVAILABLE status with the transient reason, the subscription is closed, but the closed callback is not called" in new Env {
+      val subscription = createManagedSubscription()
+      val closeReason = ServerSubscriptionCloseReason.TokenExpired
+      subscription.transientClose(closeReason)
+
+      verify(sequencerSubscription).close()
+      val argCapture = ArgumentCaptor.forClass(classOf[Throwable])
+      verify(observer).onError(argCapture.capture())
+      inside(argCapture.getValue) { case exc: StatusException =>
+        val status = exc.getStatus
+        status.getCode shouldBe Code.UNAVAILABLE
+        status.getDescription shouldBe closeReason.description
+      }
     }
   }
 }

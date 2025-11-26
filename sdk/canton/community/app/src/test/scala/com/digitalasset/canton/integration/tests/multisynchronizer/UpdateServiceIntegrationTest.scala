@@ -30,7 +30,7 @@ import com.digitalasset.canton.integration.{
 }
 import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
 import com.digitalasset.canton.participant.util.JavaCodegenUtil.*
-import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
+import com.digitalasset.canton.topology.{Party, PartyId, SynchronizerId}
 
 import scala.jdk.CollectionConverters.*
 
@@ -311,7 +311,7 @@ abstract class UpdateServiceIntegrationTest
   }
 
   private def checkReassignments(
-      partyIds: Set[PartyId],
+      partyIds: Set[Party],
       templateIds: Seq[Identifier],
       ledgerEndBeforeUnassignments: Long,
       ledgerEndAfterAssignments: Long,

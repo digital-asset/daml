@@ -241,8 +241,6 @@ object SignedTopologyTransaction
     )
   )
 
-  import com.digitalasset.canton.resource.DbStorage.Implicits.*
-
   def withTopologySignatures[Op <: TopologyChangeOp, M <: TopologyMapping](
       transaction: TopologyTransaction[Op, M],
       signatures: NonEmpty[Seq[TopologyTransactionSignature]],
@@ -490,7 +488,9 @@ object SignedTopologyTransaction
     } yield SignedTopologyTransaction(transaction, allSignaturesWithoutDuplicates, isProposal)(rpv)
   }
 
-  def createGetResultSynchronizerTopologyTransaction: GetResult[GenericSignedTopologyTransaction] =
+  def createGetResultSynchronizerTopologyTransaction(implicit
+      getByteString: GetResult[ByteString]
+  ): GetResult[GenericSignedTopologyTransaction] =
     GetResult { r =>
       fromTrustedByteStringPVV(r.<<[ByteString]).valueOr(err =>
         throw new DbSerializationException(
@@ -501,10 +501,8 @@ object SignedTopologyTransaction
 
   implicit def setParameterTopologyTransaction(implicit
       setParameterByteArray: SetParameter[Array[Byte]]
-  ): SetParameter[GenericSignedTopologyTransaction] = {
-    (d: GenericSignedTopologyTransaction, pp: PositionedParameters) =>
-      pp >> d.toByteArray
-  }
+  ): SetParameter[GenericSignedTopologyTransaction] =
+    (d: GenericSignedTopologyTransaction, pp: PositionedParameters) => pp >> d.toByteArray
 }
 
 final case class SignedTopologyTransactions[

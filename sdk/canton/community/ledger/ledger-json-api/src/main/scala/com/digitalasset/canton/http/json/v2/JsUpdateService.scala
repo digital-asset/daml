@@ -443,13 +443,13 @@ object JsUpdateService extends DocumentationEndpoints {
         CodecFormat.Json,
       ](PekkoStreams)
     )
-    .description("Get updates stream")
+    .protoRef(update_service.UpdateServiceGrpc.METHOD_GET_UPDATES)
 
   val getUpdatesListEndpoint =
     updates.post
       .in(jsonBody[LegacyDTOs.GetUpdatesRequest])
       .out(jsonBody[Seq[JsGetUpdatesResponse]])
-      .description("Query updates list (blocking call)")
+      .protoRef(update_service.UpdateServiceGrpc.METHOD_GET_UPDATES)
       .inStreamListParamsAndDescription()
 
   val getUpdatesFlatEndpoint = updates.get
@@ -549,14 +549,14 @@ object JsUpdateService extends DocumentationEndpoints {
       .in(sttp.tapir.stringToPath("update-by-offset"))
       .in(jsonBody[update_service.GetUpdateByOffsetRequest])
       .out(jsonBody[JsGetUpdateResponse])
-      .description("Get update by offset")
+      .protoRef(update_service.UpdateServiceGrpc.METHOD_GET_UPDATE_BY_OFFSET)
 
   val getUpdateByIdEndpoint =
     updates.post
       .in(sttp.tapir.stringToPath("update-by-id"))
       .in(jsonBody[update_service.GetUpdateByIdRequest])
       .out(jsonBody[JsGetUpdateResponse])
-      .description("Get update by id")
+      .protoRef(update_service.UpdateServiceGrpc.METHOD_GET_UPDATE_BY_ID)
 
   override def documentation: Seq[AnyEndpoint] = List(
     getUpdatesEndpoint,

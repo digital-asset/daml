@@ -29,6 +29,7 @@ import com.digitalasset.canton.topology.{ForceFlag, ForceFlags, PartyId, Topolog
 import com.digitalasset.daml.lf.archive.DarParser
 
 import java.io.File
+import scala.annotation.nowarn
 
 trait TopologyAdministrationTest extends CommunityIntegrationTest with SharedEnvironment {
 
@@ -219,12 +220,16 @@ trait TopologyAdministrationTest extends CommunityIntegrationTest with SharedEnv
         _.shouldBeCommandFailure(TopologyManagerError.NoAppropriateSigningKeyInStore),
       )
 
-      participant1.topology.party_to_key_mappings.propose(
-        PartyId.tryCreate("nsd-test", participant1.namespace),
-        PositiveInt.one,
-        NonEmpty(Seq, restrictedKey),
-        signedBy = Some(restrictedKey.fingerprint),
-      )
+      @nowarn("cat=deprecation")
+      def updateP2k =
+        participant1.topology.party_to_key_mappings.propose(
+          PartyId.tryCreate("nsd-test", participant1.namespace),
+          PositiveInt.one,
+          NonEmpty(Seq, restrictedKey),
+          signedBy = Some(restrictedKey.fingerprint),
+        )
+
+      updateP2k
     }
 
   }
@@ -312,6 +317,7 @@ trait TopologyAdministrationTest extends CommunityIntegrationTest with SharedEnv
 
     val bob = participant1.ledger_api.parties.allocate("Bob")
 
+    @nowarn("cat=deprecation")
     def ptkForP1(key: SigningPublicKey) =
       participant1.topology.party_to_key_mappings.propose(
         bob.party,

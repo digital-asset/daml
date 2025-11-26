@@ -7,7 +7,10 @@ import com.digitalasset.canton.config.KmsConfig
 import com.digitalasset.canton.crypto.kms.Kms
 import com.digitalasset.canton.crypto.kms.aws.AwsKms
 
-class AwsKmsCryptoTest extends KmsCryptoTest with HasPredefinedAwsKmsKeys {
+class AwsKmsCryptoTest
+    extends KmsCryptoTest
+    with PredefinedKmsKeysRegistration
+    with HasPredefinedAwsKmsKeys {
   override protected def kmsConfig: Option[KmsConfig.Aws] = Some(KmsConfig.Aws.defaultTestConfig)
   override protected def supportedSchemes: Kms.SupportedSchemes = AwsKms
 }

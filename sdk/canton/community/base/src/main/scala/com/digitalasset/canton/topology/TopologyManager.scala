@@ -1250,7 +1250,7 @@ object TopologyManager {
         }.toMap
 
       case _ =>
-        // If strict namespace authorization is not true, either a namespace key or an identity delegation can sign
+        // If strict namespace authorization is true, either a namespace key or an identity delegation can sign
         signingKeys.map(_ -> SigningKeyUsage.NamespaceOnly).toMap
 
     }
