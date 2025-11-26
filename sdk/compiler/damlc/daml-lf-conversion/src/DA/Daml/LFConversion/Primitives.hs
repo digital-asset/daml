@@ -46,6 +46,8 @@ convertPrim _ "BESecp256k1Bool" (TText :-> TText :-> TText :-> TBool) =
     pure $ EBuiltinFun BESecp256k1Bool
 convertPrim _ "BESecp256k1WithEcdsaBool" (TText :-> TText :-> TText :-> TBool) =
     pure $ EBuiltinFun BESecp256k1WithEcdsaBool
+convertPrim _ "BESecp256k1ValidateKey" (TText :-> TBool) =
+    pure $ EBuiltinFun BESecp256k1ValidateKey
 
 -- Integer arithmetic
 convertPrim _ "BEAddInt64" (TInt64 :-> TInt64 :-> TInt64) =
