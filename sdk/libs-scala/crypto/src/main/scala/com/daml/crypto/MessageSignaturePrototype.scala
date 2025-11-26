@@ -4,7 +4,9 @@
 package com.daml.crypto
 
 import org.bouncycastle.jce.provider.BouncyCastleProvider
+import org.bouncycastle.math.ec.custom.sec.SecP256K1Curve
 
+import java.security.interfaces.ECPublicKey
 import java.security.{
   InvalidKeyException,
   NoSuchProviderException,
@@ -31,6 +33,21 @@ final class MessageSignaturePrototype(val algorithm: String) {
     signatureVerify.update(message)
 
     signatureVerify.verify(signature)
+  }
+
+  @throws(classOf[NoSuchProviderException])
+  @throws(classOf[InvalidKeyException])
+  def validateKey(publicKey: PublicKey): Boolean = {
+    publicKey match {
+      case key: ECPublicKey =>
+        val x = key.getW.getAffineX
+        val y = key.getW.getAffineY
+        val point = new SecP256K1Curve().createPoint(x, y)
+        point.isValid && !point.isInfinity
+
+      case _ =>
+        throw new InvalidKeyException("Invalid type for public key")
+    }
   }
 }
 
