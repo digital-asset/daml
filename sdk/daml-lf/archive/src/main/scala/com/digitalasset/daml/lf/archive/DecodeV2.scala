@@ -14,6 +14,7 @@ import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.language.{LanguageVersion => LV}
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
+import com.digitalasset.daml.lf.speedy.SBuiltinFun.SBSECP256K1ValidateKey
 
 import scala.annotation.nowarn
 import scala.collection.mutable
@@ -1784,6 +1785,7 @@ private[lf] object DecodeV2 {
       BuiltinFunctionInfo(KECCAK256_TEXT, BKECCAK256Text),
       BuiltinFunctionInfo(SECP256K1_BOOL, BSECP256K1Bool),
       BuiltinFunctionInfo(SECP256K1_WITH_ECDSA_BOOL, BSECP256K1WithEcdsaBool),
+      BuiltinFunctionInfo(SECP256K1_VALIDATE_KEY, BSECP256K1ValidateKey),
       BuiltinFunctionInfo(HEX_TO_TEXT, BDecodeHex),
       BuiltinFunctionInfo(TEXT_TO_HEX, BEncodeHex),
       BuiltinFunctionInfo(DATE_TO_UNIX_DAYS, BDateToUnixDays),
