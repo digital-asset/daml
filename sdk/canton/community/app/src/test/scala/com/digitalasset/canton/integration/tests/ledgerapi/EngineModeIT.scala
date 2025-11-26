@@ -8,7 +8,7 @@ import com.daml.ledger.api.v2.commands.{Command, Commands, CreateCommand}
 import com.daml.ledger.api.v2.value.{Identifier, Record, RecordField, Value}
 import com.daml.ledger.resources.ResourceContext
 import com.daml.ports.Port
-import com.digitalasset.canton.ProtocolVersionChecksFixtureAnyWordSpec
+import com.digitalasset.canton.TestPredicateFiltersFixtureAnyWordSpec
 import com.digitalasset.canton.config.AuthServiceConfig.Wildcard
 import com.digitalasset.canton.config.{CantonConfig, DbConfig}
 import com.digitalasset.canton.integration.ConfigTransforms.{
@@ -40,7 +40,7 @@ import scala.util.{Failure, Success}
 
 abstract class BaseEngineModeIT(supportDevLanguageVersions: Boolean)
     extends CantonFixtureIsolated
-    with ProtocolVersionChecksFixtureAnyWordSpec {
+    with TestPredicateFiltersFixtureAnyWordSpec {
 
   registerPlugin(EngineModePlugin(loggerFactory))
   registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))

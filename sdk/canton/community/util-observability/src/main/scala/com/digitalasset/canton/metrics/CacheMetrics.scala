@@ -82,5 +82,4 @@ final class CacheMetrics(cacheName: String, factory: LabeledMetricsFactory) {
       )
     val _ = acquired.updateAndGet(m +: _)
   }
-
 }

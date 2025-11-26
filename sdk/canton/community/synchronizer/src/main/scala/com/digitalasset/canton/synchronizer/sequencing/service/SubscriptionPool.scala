@@ -9,6 +9,7 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.sequencing.client.transports.ServerSubscriptionCloseReason
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencing.service.SubscriptionPool.{
   PoolClosed,
@@ -98,7 +99,11 @@ class SubscriptionPool[Subscription <: ManagedSubscription](
               clock.scheduleAt(
                 _ => {
                   logger.debug(s"Expiring subscription for $member")
-                  closeSubscription(member, subscription)
+                  closeSubscription(
+                    member,
+                    subscription,
+                    transientReason = Some(ServerSubscriptionCloseReason.TokenExpired),
+                  )
                 },
                 ts,
               )
@@ -135,12 +140,13 @@ class SubscriptionPool[Subscription <: ManagedSubscription](
       member: Member,
       subscription: Subscription,
       waitForClosed: Boolean = false,
+      transientReason: Option[ServerSubscriptionCloseReason.TransientCloseReason] = None,
   )(implicit traceContext: TraceContext): Unit =
     blocking {
       synchronized {
         try {
           logger.debug(s"Closing subscription for $member")
-          subscription.close()
+          transientReason.fold(subscription.close())(reason => subscription.transientClose(reason))
           if (waitForClosed)
             timeouts.unbounded.await(s"closing subscription for $member")(subscription.closedF)
         } catch {

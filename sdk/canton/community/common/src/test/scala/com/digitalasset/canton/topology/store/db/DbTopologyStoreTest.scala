@@ -27,10 +27,6 @@ import com.digitalasset.canton.topology.transaction.{
 trait DbTopologyStoreTest extends TopologyStoreTest with DbTopologyStoreHelper {
   this: DbTest =>
 
-  "DbPartyMetadataStore" should {
-    behave like partyMetadataStore(() => new DbPartyMetadataStore(storage, timeouts, loggerFactory))
-  }
-
   private lazy val largeTestSnapshot = {
     val synchronizerSetup = Seq(
       0 -> testData.nsd_p1,

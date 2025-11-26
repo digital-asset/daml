@@ -3,12 +3,13 @@
 
 package com.digitalasset.canton.topology
 
+import cats.data.Ior
 import cats.syntax.alternative.*
 import cats.syntax.option.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.crypto.Signature
+import com.digitalasset.canton.crypto.{Signature, SigningKeyUsage}
 import com.digitalasset.canton.topology.ExternalPartyOnboardingDetails.{
   Centralized,
   Decentralized,
@@ -78,18 +79,27 @@ final case class ExternalPartyOnboardingDetails private (
   /** Return true if we expect the party to be fully allocated and authorized with the provided
     * transactions
     */
-  def fullyAllocatesParty: Boolean =
-    // Expect fully allocated if there's a centralized namespace
-    // (It could be fully allocated as well with a decentralized namespace but checking this
-    // would require re-running the authorization checks implemented in the topology manager)
-    partyNamespace.exists {
+  def fullyAllocatesParty: Boolean = {
+    val isCentralizedNamespace = partyNamespace.exists {
       case _: Centralized => true
       case _ => false
-    } &&
-      // and a party to key
-      signedPartyToKeyMappingTransaction.isDefined &&
-      // and is not multi hosted
-      hostingParticipants.sizeIs == 1
+    }
+    // Of course we don't know here if the signature is valid, but that will be checked
+    // in the topology manager. Here we just see if there's a signature on the PTP supposed to cover the namespace
+    val isSelfSignedPTP = optionallySignedPartyToParticipant match {
+      case ExternalPartyOnboardingDetails.SignedPartyToParticipant(signed) =>
+        signed.signatures.map(_.authorizingLongTermKey).contains(namespace.fingerprint)
+      case ExternalPartyOnboardingDetails.UnsignedPartyToParticipant(unsigned) =>
+        false
+    }
+    // Expect fully allocated if there's a centralized namespace, as we expect a signed root NSD
+    // OR if it's a self-signed PTP
+    // AND is not multi hosted
+    (isCentralizedNamespace || isSelfSignedPTP) && hostingParticipants.sizeIs == 1
+
+    // Note: It could be fully allocated as well with a decentralized namespace but checking this
+    // would require re-running the authorization checks implemented in the topology manager
+  }
 
   /** Namespace of the external party.
     */
@@ -367,6 +377,7 @@ object ExternalPartyOnboardingDetails {
         signedTopologyTransactions,
         unsignedTopologyTransactions,
       )
+      signingKeys = optionallySignedPartyToParticipant.mapping.partySigningKeys
       hostingParticipants = optionallySignedPartyToParticipant.mapping.participants
       nodePermissionsMap = optionallySignedPartyToParticipant.mapping.participants
         .groupMap(_.permission)(_.participantId)
@@ -395,6 +406,21 @@ object ExternalPartyOnboardingDetails {
         (),
         "The PartyToParticipant transaction must contain at least one node with Confirmation permission",
       )
+      _ <- Either.cond(
+        signingKeys.forall(_.usage.contains(SigningKeyUsage.Protocol)),
+        (),
+        "Missing Protocol usage on signing keys",
+      )
+      _ <- Either.cond(
+        signingKeys
+          .find(_.fingerprint == optionallySignedPartyToParticipant.mapping.partyId.fingerprint)
+          .forall(key =>
+            key.usage.contains(SigningKeyUsage.Namespace) && key.usage
+              .contains(SigningKeyUsage.Protocol)
+          ),
+        (),
+        "Missing Namespace and Protocol usage on the party namespace key",
+      )
       isConfirmingNode = confirmingNodes.contains(participantId)
       _ <- Either.cond(
         // If it's not a confirming node it should be an observing one, as external parties are not expected
@@ -411,23 +437,35 @@ object ExternalPartyOnboardingDetails {
       )
     } yield (optionallySignedPartyToParticipant, isConfirmingNode)
 
-  /** Find at most one PartyToKeyMapping. Optional because one may only provide a PartyToParticipant
-    * transaction to authorize the hosting. If provided, validate the namespace matches the
-    * PartyToParticipant one.
+  /** Find at most one PartyToKeyMapping, for backwards compatibility of the endpoint. New parties
+    * should be created with their keys in the PartyToParticipant
     */
   private def validatePartyToKey(
       signedTopologyTransactions: List[PositiveSignedTopologyTransaction],
-      p2pNamespace: Namespace,
+      ptpNamespace: Namespace,
   ): Either[String, Option[SignedPartyToKeyMapping]] = for {
     signedPartyToKeyO <- validateMaximumOneMapping[PartyToKeyMapping](signedTopologyTransactions)
     _ <- signedPartyToKeyO.traverse(signedPartyToKey =>
       Either.cond(
-        signedPartyToKey.mapping.namespace == p2pNamespace,
+        signedPartyToKey.mapping.namespace == ptpNamespace,
         (),
-        s"The PartyToKeyMapping namespace (${signedPartyToKey.mapping.namespace}) does not match the PartyToParticipant namespace ($p2pNamespace)",
+        s"The PartyToKeyMapping namespace (${signedPartyToKey.mapping.namespace}) does not match the PartyToParticipant namespace ($ptpNamespace)",
       )
     )
   } yield signedPartyToKeyO
+
+  private def validateExactlyOneSetOfSigningKeys(
+      partyToParticipant: PartyToParticipant,
+      partyToKeyMappingO: Option[PartyToKeyMapping],
+  ) =
+    Either.cond(
+      Ior
+        .fromOptions(partyToParticipant.partySigningKeysWithThreshold, partyToKeyMappingO)
+        // Validate that exactly one of them is defined
+        .exists(!_.isBoth),
+      (),
+      "Party signing keys must be supplied either in the PartyToParticipant or in a PartyToKeyMapping transaction. Not in both.",
+    )
 
   private def failOnUnwantedTransactionTypes(transactions: Seq[PositiveTopologyTransaction]) = {
     val unwantedTransactions =
@@ -469,6 +507,7 @@ object ExternalPartyOnboardingDetails {
         signedTopologyTransactions,
         partyToParticipant.mapping.namespace,
       )
+      _ <- validateExactlyOneSetOfSigningKeys(partyToParticipant.mapping, partyToKey.map(_.mapping))
       partyNamespace <- validatePartyNamespace(
         signedTopologyTransactions,
         partyToParticipant.mapping.namespace,

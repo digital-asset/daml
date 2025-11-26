@@ -146,9 +146,43 @@ class SequencerMetrics(
         qualification = MetricQualification.Debug,
       )
     )
+
+    val subscriptionLastTimestamp: Gauge[Long] =
+      openTelemetryMetricsFactory.gauge[Long](
+        MetricInfo(
+          prefix :+ "subscription-last-timestamp",
+          summary = "Last timestamp read via subscription per member",
+          description =
+            """This metric tracks the last timestamp that was read via a subscription for each member.
+              |The timestamp is reported in microseconds since epoch. This metric is labeled with the
+              |subscriber member to allow tracking per-member progress.""",
+          qualification = MetricQualification.Debug,
+        ),
+        0L,
+      )
   }
 
   val publicApi = new PublicApiMetrics
+
+  val headTimestamp: Gauge[Long] = openTelemetryMetricsFactory.gauge[Long](
+    MetricInfo(
+      prefix :+ "head_timestamp",
+      summary = "Timestamp of the head (oldest) event in the buffer",
+      description = "The timestamp of the first event in the buffer, or 0 if the buffer is empty",
+      qualification = MetricQualification.Debug,
+    ),
+    0L,
+  )
+
+  val lastTimestamp: Gauge[Long] = openTelemetryMetricsFactory.gauge[Long](
+    MetricInfo(
+      prefix :+ "last_timestamp",
+      summary = "Timestamp of the last (newest) event in the buffer",
+      description = "The timestamp of the last event in the buffer, or 0 if the buffer is empty",
+      qualification = MetricQualification.Debug,
+    ),
+    0L,
+  )
 
   val maxEventAge: Gauge[Long] =
     openTelemetryMetricsFactory.gauge[Long](

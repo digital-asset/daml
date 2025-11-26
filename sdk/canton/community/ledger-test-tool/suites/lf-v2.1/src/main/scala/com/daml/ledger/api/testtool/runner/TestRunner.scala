@@ -8,16 +8,18 @@ import com.daml.ledger.api.testtool.runner.TestRunner.*
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.TlsClientConfig
 import com.digitalasset.canton.networking.grpc.ClientChannelBuilder
-import com.typesafe.scalalogging.Logger
 import io.grpc.Channel
 import io.grpc.netty.shaded.io.grpc.netty.{NegotiationType, NettyChannelBuilder}
-import org.slf4j.LoggerFactory
+import monocle.Monocle.toAppliedFocusOps
+import org.slf4j.{Logger, LoggerFactory}
 
 import java.io.File
 import java.nio.file.{Files, Paths, StandardCopyOption}
 import java.util.concurrent.Executors
+import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.chaining.scalaUtilChainingOps
 import scala.util.{Failure, Success}
 
 object TestRunner {
@@ -83,7 +85,7 @@ final class TestRunner(availableTests: AvailableTests, config: Config, lfVersion
     ExecutionContext.fromExecutorService(Executors.newSingleThreadExecutor())
 
   def runAndExit(): Unit = {
-    val (result, excludedTests) = runInProcess()
+    val (result, excludedTests) = runInternal(System.out.println)
     result.onComplete {
       case Success(summaries) =>
         sys.exit(exitCode(summaries, config.mustFail))
@@ -98,7 +100,22 @@ final class TestRunner(availableTests: AvailableTests, config: Config, lfVersion
     }
   }
 
-  def runInProcess(): (Future[Vector[LedgerTestSummary]], Vector[LedgerTestCase]) = {
+  def runInProcess(logger: Logger): (Future[Vector[LedgerTestSummary]], Vector[LedgerTestCase]) = {
+    val reportLogBuilder = new mutable.StringBuilder()
+    reportLogBuilder.addOne('\n')
+    val addReportLineToLogEntry: String => Unit = reportLogBuilder.addAll(_).addOne('\n')
+
+    runInternal(reporterPrintln = addReportLineToLogEntry)
+      .focus(_._1)
+      .modify(_.map(_.tap { _ =>
+        // Log the full report at info level
+        logger.info(reportLogBuilder.result())
+      }))
+  }
+
+  private def runInternal(
+      reporterPrintln: String => Unit
+  ): (Future[Vector[LedgerTestSummary]], Vector[LedgerTestCase]) = {
     val tests = new ConfiguredTests(availableTests, config)
 
     if (tests.missingTests.nonEmpty) {
@@ -148,7 +165,9 @@ final class TestRunner(availableTests: AvailableTests, config: Config, lfVersion
     val runner = newLedgerCasesRunner(config, testsToRun)
     val testsF = runner.asFuture
       .flatMap(
-        _.runTests(Threading.newExecutionContext("TestRunner", Logger(logger)))
+        _.runTests(
+          Threading.newExecutionContext("TestRunner", com.typesafe.scalalogging.Logger(logger))
+        )
           .transformWith {
             case scala.util.Success(summaries) => runner.release().map(_ => summaries)
             case scala.util.Failure(error) => runner.release().flatMap(_ => Future.failed(error))
@@ -165,7 +184,7 @@ final class TestRunner(availableTests: AvailableTests, config: Config, lfVersion
             )
           }
         new Reporter.ColorizedPrintStreamReporter(
-          System.out,
+          reporterPrintln,
           config.verbose,
           config.reportOnFailuresOnly,
         ).report(

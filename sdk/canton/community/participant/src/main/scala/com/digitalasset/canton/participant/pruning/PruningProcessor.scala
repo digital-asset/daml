@@ -193,12 +193,18 @@ class PruningProcessor(
             .perform(
               rewoundBoundInclusive
             )
-            .map(
-              _.map(_.offset)
+            .map { firstUnsafeOffset =>
+              val result = firstUnsafeOffset
+                .map(_.offset)
                 .flatMap(_.decrement)
-                .filter(_ < rewoundBoundInclusive)
-                .orElse(Some(rewoundBoundInclusive))
-            )
+                .map(safeOffset =>
+                  if (safeOffset > rewoundBoundInclusive) rewoundBoundInclusive else safeOffset
+                )
+              logger.debug(
+                s"BoundInclusive: $boundInclusive, beforeOrAtPublicationTime: $beforeOrAt beforeOrAtOffset: $beforeOrAtOffset, rewoundBoundInclusive: $rewoundBoundInclusive, first unsafe offset for rewound-bound: $firstUnsafeOffset, result: $result"
+              )
+              result
+            }
             .value
 
         case None =>

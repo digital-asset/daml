@@ -7,6 +7,7 @@ module Optional where
 import Daml.Script
 import DA.Optional
 import DA.Assert
+import DA.Functor (void)
 import ScriptAssertHelpers
 
 template Foo
@@ -15,13 +16,12 @@ template Foo
   where
     signatory p
 
-    nonconsuming choice ConsumeIfPositive : ()
+    nonconsuming choice UpdateCidIfPositive : ContractId Foo
       with x : Int
-           cid : ContractId Foo
       controller p
       do if x > 0
-           then archive cid
-           else pure ()
+          then archive self *> create this
+          else pure self
 
 -- @ERROR range=27:1-27:13; fromSome: None
 testFromSome = script @(Optional ()) do
@@ -70,13 +70,47 @@ testMapOptional = script do
 
 testWhenSome = script do
   p <- allocateParty "p"
-  cid <- submit p (createCmd Foo with p)
-  whenSome None (\x -> submit p $ exerciseCmd cid $ ConsumeIfPositive x cid)
+  cid <- submit p $ createCmd Foo with p
+  let submitUpdateCidIfPositive = submit p . exerciseCmd cid . UpdateCidIfPositive
+  whenSome None $ void . submitUpdateCidIfPositive
   p `canSee` cid
-  whenSome (Some (-5)) (\x -> submit p $ exerciseCmd cid $ ConsumeIfPositive x cid)
+  whenSome (Some (-5)) $ void . submitUpdateCidIfPositive
   p `canSee` cid
-  whenSome (Some 5) (\x -> submit p $ exerciseCmd cid $ ConsumeIfPositive x cid)
+  whenSome (Some 5) $ void . submitUpdateCidIfPositive
   p `cantSee` cid
+
+testWhenSome_ = script do
+  p <- allocateParty "p"
+  cid <- submit p $ createCmd Foo with p
+  let submitUpdateCidIfPositive = submit p . exerciseCmd cid . UpdateCidIfPositive
+  whenSome_ None submitUpdateCidIfPositive
+  p `canSee` cid
+  whenSome_ (Some (-5)) submitUpdateCidIfPositive
+  p `canSee` cid
+  whenSome_ (Some 5) submitUpdateCidIfPositive
+  p `cantSee` cid
+
+testWhenNone_ = script do
+  p <- allocateParty "p"
+  cid <- submit p $ createCmd Foo with p
+  let submitUpdateCid = submit p . exerciseCmd cid $ UpdateCidIfPositive 1
+  whenNone_ (Some "str") submitUpdateCid
+  p `canSee` cid
+  whenNone_ None submitUpdateCid
+  p `cantSee` cid
+
+testWhenNone = script do
+  p <- allocateParty "p"
+  cid <- submit p $ createCmd Foo with p
+  let submitUpdateCid = submit p . exerciseCmd cid $ UpdateCidIfPositive 1
+  cid' <- whenNone (Some cid) submitUpdateCid
+  cid' === cid
+  p `canSee` cid
+  p `canSee` cid'
+  cid' <- whenNone None submitUpdateCid
+  cid' =/= cid
+  p `cantSee` cid
+  p `canSee` cid'
 
 testFindOptional = script do
   findOptional toLeft [] === (None : Optional ())

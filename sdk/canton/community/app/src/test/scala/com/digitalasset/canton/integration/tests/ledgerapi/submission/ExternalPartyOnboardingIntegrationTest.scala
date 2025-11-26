@@ -9,6 +9,7 @@ import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.CommandFailure
 import com.digitalasset.canton.console.commands.PartiesAdministration
+import com.digitalasset.canton.crypto.{SigningKeyUsage, SigningKeysWithThreshold}
 import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -20,12 +21,28 @@ import com.digitalasset.canton.integration.{
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerError.ExternalPartyAlreadyExists
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
+import com.digitalasset.canton.topology.transaction.DelegationRestriction.CanSignAllMappings
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
   Confirmation,
   Observation,
 }
-import com.digitalasset.canton.topology.transaction.{HostingParticipant, PartyToParticipant}
-import com.digitalasset.canton.topology.{ForceFlag, ForceFlags, TopologyManagerError}
+import com.digitalasset.canton.topology.transaction.{
+  HostingParticipant,
+  MultiTransactionSignature,
+  NamespaceDelegation,
+  ParticipantPermission,
+  PartyToKeyMapping,
+  PartyToParticipant,
+  TopologyChangeOp,
+  TopologyTransaction,
+}
+import com.digitalasset.canton.topology.{
+  ForceFlag,
+  ForceFlags,
+  Namespace,
+  PartyId,
+  TopologyManagerError,
+}
 
 import java.util.UUID
 import scala.concurrent.Future
@@ -57,11 +74,159 @@ trait ExternalPartyOnboardingIntegrationTestSetup
 
 class ExternalPartyOnboardingIntegrationTest extends ExternalPartyOnboardingIntegrationTestSetup {
   "External party onboarding" should {
+    "allocate a party with a PartyToKeyMapping" in { implicit env =>
+      import env.*
+      val namespaceKey = global_secret.keys.secret
+        .generate_keys(PositiveInt.one, usage = NonEmpty.mk(Set, SigningKeyUsage.Namespace))
+        .head
+      val protocolKey = global_secret.keys.secret
+        .generate_keys(PositiveInt.one, usage = NonEmpty.mk(Set, SigningKeyUsage.Protocol))
+        .head
+      val partyId = PartyId.tryCreate("Alice", namespaceKey.fingerprint)
+
+      val namespaceDelegation = TopologyTransaction(
+        mapping = NamespaceDelegation.tryCreate(
+          Namespace(namespaceKey.fingerprint),
+          namespaceKey,
+          CanSignAllMappings,
+        ),
+        op = TopologyChangeOp.Replace,
+        serial = PositiveInt.one,
+        protocolVersion = testedProtocolVersion,
+      )
+
+      val partyToParticipant = TopologyTransaction(
+        mapping = PartyToParticipant.tryCreate(
+          partyId = partyId,
+          threshold = PositiveInt.one,
+          participants = Seq(HostingParticipant(participant1, ParticipantPermission.Confirmation)),
+          partySigningKeysWithThreshold = Option.empty,
+        ),
+        op = TopologyChangeOp.Replace,
+        serial = PositiveInt.one,
+        protocolVersion = testedProtocolVersion,
+      )
+
+      val partyToKeyMapping = TopologyTransaction(
+        mapping = PartyToKeyMapping.tryCreate(
+          partyId = partyId,
+          threshold = PositiveInt.one,
+          signingKeys = NonEmpty.mk(Seq, protocolKey),
+        ),
+        op = TopologyChangeOp.Replace,
+        serial = PositiveInt.one,
+        protocolVersion = testedProtocolVersion,
+      )
+
+      val multihash = MultiTransactionSignature.computeCombinedHash(
+        NonEmpty.mk(Set, namespaceDelegation.hash, partyToParticipant.hash, partyToKeyMapping.hash),
+        tryGlobalCrypto.pureCrypto,
+      )
+
+      val signedMultiHash = global_secret.sign(
+        multihash.getCryptographicEvidence,
+        namespaceKey.fingerprint,
+        SigningKeyUsage.NamespaceOnly,
+      )
+      val signedPtkWithProtocolKey = global_secret.sign(
+        partyToKeyMapping.hash.hash.getCryptographicEvidence,
+        protocolKey.fingerprint,
+        SigningKeyUsage.ProofOfOwnershipOnly,
+      )
+
+      participant1.ledger_api.parties.allocate_external(
+        synchronizer1Id,
+        Seq(
+          namespaceDelegation -> Seq.empty,
+          partyToParticipant -> Seq.empty,
+          partyToKeyMapping -> Seq(signedPtkWithProtocolKey),
+        ),
+        multiSignatures = Seq(signedMultiHash),
+      )
+
+      PartiesAdministration.Allocation.waitForPartyKnown(
+        partyId = partyId,
+        hostingParticipant = participant1,
+        synchronizeParticipants = Seq(participant1),
+        synchronizerId = synchronizer1Id.logical,
+      )
+    }
+
+    "allocate a party with an explicit NamespaceDelegation" in { implicit env =>
+      import env.*
+      val namespaceKey = global_secret.keys.secret
+        .generate_keys(PositiveInt.one, usage = NonEmpty.mk(Set, SigningKeyUsage.Namespace))
+        .head
+      val protocolKey = global_secret.keys.secret
+        .generate_keys(PositiveInt.one, usage = NonEmpty.mk(Set, SigningKeyUsage.Protocol))
+        .head
+      val partyId = PartyId.tryCreate("Alice", namespaceKey.fingerprint)
+
+      val namespaceDelegation = TopologyTransaction(
+        mapping = NamespaceDelegation.tryCreate(
+          Namespace(namespaceKey.fingerprint),
+          namespaceKey,
+          CanSignAllMappings,
+        ),
+        op = TopologyChangeOp.Replace,
+        serial = PositiveInt.one,
+        protocolVersion = testedProtocolVersion,
+      )
+
+      val partyToParticipant = TopologyTransaction(
+        mapping = PartyToParticipant.tryCreate(
+          partyId = partyId,
+          threshold = PositiveInt.one,
+          participants = Seq(HostingParticipant(participant1, ParticipantPermission.Confirmation)),
+          partySigningKeysWithThreshold = Some(
+            SigningKeysWithThreshold.tryCreate(
+              NonEmpty.mk(Seq, protocolKey),
+              PositiveInt.one,
+            )
+          ),
+        ),
+        op = TopologyChangeOp.Replace,
+        serial = PositiveInt.one,
+        protocolVersion = testedProtocolVersion,
+      )
+
+      val multihash = MultiTransactionSignature.computeCombinedHash(
+        NonEmpty.mk(Set, namespaceDelegation.hash, partyToParticipant.hash),
+        tryGlobalCrypto.pureCrypto,
+      )
+
+      val signedMultiHash = global_secret.sign(
+        multihash.getCryptographicEvidence,
+        namespaceKey.fingerprint,
+        SigningKeyUsage.NamespaceOnly,
+      )
+      val signedPtpWithProtocolKey = global_secret.sign(
+        partyToParticipant.hash.hash.getCryptographicEvidence,
+        protocolKey.fingerprint,
+        SigningKeyUsage.ProofOfOwnershipOnly,
+      )
+
+      participant1.ledger_api.parties.allocate_external(
+        synchronizer1Id,
+        Seq(
+          namespaceDelegation -> Seq.empty,
+          partyToParticipant -> Seq(signedPtpWithProtocolKey),
+        ),
+        multiSignatures = Seq(signedMultiHash),
+      )
+
+      PartiesAdministration.Allocation.waitForPartyKnown(
+        partyId = partyId,
+        hostingParticipant = participant1,
+        synchronizeParticipants = Seq(participant1),
+        synchronizerId = synchronizer1Id.logical,
+      )
+    }
 
     "handle a party's threshold being higher than its number of hosting nodes" in { implicit env =>
       import env.*
       val (onboardingTransactions, externalParty) =
-        participant1.parties.external
+        participant1.parties.testing.external
           .onboarding_transactions(
             "Alice",
             additionalConfirming = Seq(participant2),
@@ -110,7 +275,20 @@ class ExternalPartyOnboardingIntegrationTest extends ExternalPartyOnboardingInte
           removes = Seq(participant2),
           store = synchronizer1Id.logical,
           forceFlags = ForceFlags(ForceFlag.AllowConfirmingThresholdCanBeMet),
+          mustFullyAuthorize = true,
         )
+
+      eventually() {
+        participant1.topology.party_to_participant_mappings
+          .list(
+            synchronizerId = synchronizer1Id.logical,
+            filterParty = externalParty.filterString,
+          )
+          .loneElement
+          .item
+          .participants
+          .size shouldBe 1
+      }
 
       // Threshold cannot be reached because there's not enough confirming nodes
       loggerFactory.assertThrowsAndLogsSeq[CommandFailure](
@@ -132,7 +310,7 @@ class ExternalPartyOnboardingIntegrationTest extends ExternalPartyOnboardingInte
     "host parties on multiple participants with a threshold" in { implicit env =>
       import env.*
       val (onboardingTransactions, externalParty) =
-        participant1.parties.external
+        participant1.parties.testing.external
           .onboarding_transactions(
             "Alice",
             additionalConfirming = Seq(participant2),
@@ -161,7 +339,7 @@ class ExternalPartyOnboardingIntegrationTest extends ExternalPartyOnboardingInte
     "allocate a party from one of their observing nodes" in { implicit env =>
       import env.*
 
-      val (onboardingTransactions, externalParty) = participant1.parties.external
+      val (onboardingTransactions, externalParty) = participant1.parties.testing.external
         .onboarding_transactions(
           "Bob",
           observing = Seq(participant2),
@@ -207,9 +385,9 @@ class ExternalPartyOnboardingIntegrationTest extends ExternalPartyOnboardingInte
       import env.*
 
       // Create the namespace owners first
-      val namespace1 = participant1.parties.external.create_external_namespace()
-      val namespace2 = participant1.parties.external.create_external_namespace()
-      val namespace3 = participant1.parties.external.create_external_namespace()
+      val namespace1 = participant1.parties.testing.external.create_external_namespace()
+      val namespace2 = participant1.parties.testing.external.create_external_namespace()
+      val namespace3 = participant1.parties.testing.external.create_external_namespace()
       val namespaceOwners = NonEmpty.mk(Set, namespace1, namespace2, namespace3)
 
       val confirmationThreshold = PositiveInt.two
@@ -218,7 +396,7 @@ class ExternalPartyOnboardingIntegrationTest extends ExternalPartyOnboardingInte
       val namespaceThreshold = PositiveInt.three
 
       // Generate the corresponding onboarding transactions
-      val onboardingData = participant1.parties.external.onboarding_transactions(
+      val onboardingData = participant1.parties.testing.external.onboarding_transactions(
         name = "Emily",
         additionalConfirming = Seq(participant2),
         observing = Seq(participant3),
@@ -250,27 +428,18 @@ class ExternalPartyOnboardingIntegrationTest extends ExternalPartyOnboardingInte
 
       // Eventually everything should be authorized correctly
       eventually() {
-        val p2p = participant1.topology.party_to_participant_mappings
+        val ptp = participant1.topology.party_to_participant_mappings
           .list(filterParty = emilyE.partyId.filterString, synchronizerId = synchronizer1Id)
 
-        p2p.loneElement.item.partyId shouldBe emilyE.partyId
-        p2p.loneElement.item.threshold shouldBe confirmationThreshold
-        p2p.loneElement.item.participants contains HostingParticipant(participant1, Confirmation)
-        p2p.loneElement.item.participants contains HostingParticipant(participant2, Confirmation)
-        p2p.loneElement.item.participants contains HostingParticipant(participant3, Observation)
-      }
+        ptp.loneElement.item.partyId shouldBe emilyE.partyId
+        ptp.loneElement.item.threshold shouldBe confirmationThreshold
+        ptp.loneElement.item.participants contains HostingParticipant(participant1, Confirmation)
+        ptp.loneElement.item.participants contains HostingParticipant(participant2, Confirmation)
+        ptp.loneElement.item.participants contains HostingParticipant(participant3, Observation)
 
-      eventually() {
-        val p2k = participant1.topology.party_to_key_mappings.list(
-          filterParty = emilyE.partyId.filterString,
-          store = synchronizer1Id,
-        )
-
-        p2k.loneElement.item.party shouldBe emilyE.partyId
-        p2k.loneElement.item.threshold shouldBe keysThreshold
-        p2k.loneElement.item.signingKeys
-          .map(_.fingerprint)
-          .forgetNE should contain theSameElementsAs emilyE.signingFingerprints.forgetNE
+        ptp.loneElement.item.partySigningKeysWithThreshold.value.threshold shouldBe keysThreshold
+        ptp.loneElement.item.partySigningKeys
+          .map(_.fingerprint) should contain theSameElementsAs emilyE.signingFingerprints.forgetNE
       }
 
       eventually() {
@@ -289,7 +458,7 @@ class ExternalPartyOnboardingIntegrationTest extends ExternalPartyOnboardingInte
       implicit env =>
         import env.*
         val (onboardingTransactions, _) =
-          participant1.parties.external.onboarding_transactions("Alice").futureValueUS.value
+          participant1.parties.testing.external.onboarding_transactions("Alice").futureValueUS.value
 
         participant1.synchronizers.disconnect_all()
 
@@ -311,7 +480,7 @@ class ExternalPartyOnboardingIntegrationTest extends ExternalPartyOnboardingInte
       import env.*
 
       val (onboardingTransactions, partyE) =
-        participant1.parties.external.onboarding_transactions("Alice").futureValueUS.value
+        participant1.parties.testing.external.onboarding_transactions("Alice").futureValueUS.value
 
       def allocate() =
         participant1.ledger_api.parties.allocate_external(
@@ -345,7 +514,7 @@ class ExternalPartyOnboardingIntegrationTest extends ExternalPartyOnboardingInte
         import env.*
 
         val (onboardingTransactions, partyE) =
-          participant1.parties.external.onboarding_transactions("Alice").futureValueUS.value
+          participant1.parties.testing.external.onboarding_transactions("Alice").futureValueUS.value
 
         def allocate() =
           participant1.ledger_api.parties.allocate_external(

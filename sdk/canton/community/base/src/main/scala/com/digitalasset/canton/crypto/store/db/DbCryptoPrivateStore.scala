@@ -15,7 +15,6 @@ import com.digitalasset.canton.crypto.store.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.DbStorage.DbAction
-import com.digitalasset.canton.resource.DbStorage.Implicits.*
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ReleaseProtocolVersion
@@ -76,6 +75,7 @@ class DbCryptoPrivateStore(
     with DbStore {
 
   import storage.api.*
+  import storage.converters.*
 
   private def queryKeys(): DbAction.ReadOnly[Set[StoredPrivateKey]] =
     sql"select key_id, data, purpose, name, wrapper_key_id from common_crypto_private_keys"

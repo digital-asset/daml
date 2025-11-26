@@ -192,7 +192,7 @@ You will now also need to test the release using DPM, please follow the instruct
    Use the following to install the DPM sdk on windows.
    If you do not know the version string, and are testing the weekly release, go to this URL for the latest SDK:
    ```
-   https://get.digitalasset-staging.com/install/latest-windows.html
+   https://get.digitalasset.com/install/latest-windows.html
    ```
    If you do know the version string, interpolate it into this string as `${version}` and go to the resulting URL:
    ```
