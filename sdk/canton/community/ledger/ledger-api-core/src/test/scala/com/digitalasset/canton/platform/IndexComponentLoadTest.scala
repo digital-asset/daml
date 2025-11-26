@@ -123,48 +123,16 @@ class IndexComponentLoadTest extends AnyFlatSpec with IndexComponentTest {
     indexUpdates(allUpdates)
   }
 
-  it should "Index CN ACS Export NFR fixture updates" ignore {
-    val nextRecordTime: () => CantonTimestamp = nextRecordTimeFactory()
-    def ingestionIteration(): Unit = {
-      logger.warn(s"start preparing updates...")
-      if (1 == "1".toInt)
-        fail(
-          "WARNING! Please check if you really want to do this! The following parameters result in a fixture probably not fitting in the memory. Please verify parameters. Bigger workloads are possible with doing multiple iterations."
-        )
-      val passes = 4320
-      val txSize = 5
-      // 2000*5 = 10'000 contracts created then archived in a pass,
-      // 10'000*4320 = 43'200'000 contracts created and archived at the end
-      val txsCreatedAndArchivedPerPass = 2000
-      // 23*5 = 115 contracts staying active per pass,
-      // 115*4320 = 496'800 contracts staying alive at the end
-      val txsStayingActivePerPass = 23
-      val createPayloadLength = 300
-      val archiveArgumentPayloadLengthFromTo = (13, 38)
-      val archiveResultPayloadLengthFromTo = (13, 58)
-      val allUpdates = (1 to passes).toVector
-        .flatMap(_ =>
-          createsAndArchives(
-            nextRecordTime = nextRecordTime,
-            txSize = txSize,
-            txsCreatedThenArchived = txsCreatedAndArchivedPerPass,
-            txsCreatedNotArchived = txsStayingActivePerPass,
-            createPayloadLength = createPayloadLength,
-            archiveArgumentPayloadLengthFromTo = archiveArgumentPayloadLengthFromTo,
-            archiveResultPayloadLengthFromTo = archiveResultPayloadLengthFromTo,
-          )
-        )
-      val allUpdateSize = allUpdates.size
-      logger.warn(s"prepared $allUpdateSize updates")
-      indexUpdates(allUpdates)
-    }
+  // will fail without an explicit flag
+  it should "Index CN ACS Export NFR fixture updates" ignore cnNFRIngestionFixture()
 
-    (1 to 1).foreach { i =>
-      logger.warn(s"ingestion iteration: $i started")
-      ingestionIteration()
-      logger.warn(s"ingestion iteration: $i finished")
-    }
-  }
+  it should "10% CN NFR" ignore cnNFRIngestionFixture(passes = 432)
+
+  it should "Cycle Contract Case" ignore cnNFRIngestionFixture(
+    passes = 43,
+    txsPerPass = 10000,
+    activeTxsPerPass = 2,
+  )
 
   it should "Fetch ACS" ignore TraceContext.withNewTraceContext("ACS fetch") {
     implicit traceContext =>
@@ -183,13 +151,20 @@ class IndexComponentLoadTest extends AnyFlatSpec with IndexComponentTest {
         .map { case (last, lastIndex) =>
           val totalMillis = System.currentTimeMillis() - startTime
           logger.warn(
-            s"finished fetching acs in $totalMillis ms, ${lastIndex + 1} active contracts returned."
+            s"finished fetching acs in ${seconds(totalMillis)} s, ${lastIndex + 1} active contracts returned."
           )
           logger.warn(s"last active contract acs: $last")
         }
         .futureValue(
           PatienceConfiguration.Timeout(Span.convertDurationToSpan(Duration(2000, "seconds")))
         )
+  }
+
+  private def seconds(milliseconds: Long): String = {
+    val secs = milliseconds / 1000
+    val millis = milliseconds.abs - secs.abs * 1000
+    val milliString = (1000 + millis).toString.substring(1)
+    secs.toString + '.' + milliString
   }
 
   private def nextRecordTimeFactory(): () => CantonTimestamp = {
@@ -230,6 +205,51 @@ class IndexComponentLoadTest extends AnyFlatSpec with IndexComponentTest {
     () => recordTime.updateAndGet(_.immediateSuccessor)
   }
 
+  /** Creates and ingests passes * txsPerPass transactions, each with 5 contracts. After each pass,
+    * all but activeTxsPerPass of the txsPerPass transactions are archived.
+    */
+  private def cnNFRIngestionFixture(
+      passes: Int = 4320,
+      txsPerPass: Int = 2023,
+      activeTxsPerPass: Int = 23,
+      yesIReallyWantToRunIt: Boolean = false,
+  ): Unit = {
+    val nextRecordTime: () => CantonTimestamp = nextRecordTimeFactory()
+    def ingestionIteration(): Unit = {
+      logger.warn(s"start preparing updates...")
+      if (!yesIReallyWantToRunIt)
+        fail(
+          "WARNING! Please check if you really want to do this! The following parameters result in a fixture probably not fitting in the memory. Please verify parameters. Bigger workloads are possible with doing multiple iterations."
+        )
+      val txSize = 5
+      val txsCreatedAndArchivedPerPass = txsPerPass - activeTxsPerPass
+      val createPayloadLength = 300
+      val archiveArgumentPayloadLengthFromTo = (13, 38)
+      val archiveResultPayloadLengthFromTo = (13, 58)
+      val allUpdates = (1 to passes).toVector
+        .flatMap(_ =>
+          createsAndArchives(
+            nextRecordTime = nextRecordTime,
+            txSize = txSize,
+            txsCreatedThenArchived = txsCreatedAndArchivedPerPass,
+            txsCreatedNotArchived = activeTxsPerPass,
+            createPayloadLength = createPayloadLength,
+            archiveArgumentPayloadLengthFromTo = archiveArgumentPayloadLengthFromTo,
+            archiveResultPayloadLengthFromTo = archiveResultPayloadLengthFromTo,
+          )
+        )
+      val allUpdateSize = allUpdates.size
+      logger.warn(s"prepared $allUpdateSize updates")
+      indexUpdates(allUpdates)
+    }
+
+    (1 to 1).foreach { i =>
+      logger.warn(s"ingestion iteration: $i started")
+      ingestionIteration()
+      logger.warn(s"ingestion iteration: $i finished")
+    }
+  }
+
   private def withReporter[UpdateT, ResultT, Out](
       updates: Vector[UpdateT],
       parallelism: Int,
@@ -251,8 +271,7 @@ class IndexComponentLoadTest extends AnyFlatSpec with IndexComponentTest {
       val lastState = new AtomicLong(0L)
       override def run(): Unit = {
         val current = state.get()
-        val last = lastState.get()
-        lastState.set(current)
+        val last = lastState.getAndSet(current)
         val reportRate = (current - last) / reportingSeconds
         val avgRate = current * 1000 / (System.currentTimeMillis() - startTime)
         val minutesLeft = (numOfUpdates - current) / avgRate / 60
@@ -292,6 +311,7 @@ class IndexComponentLoadTest extends AnyFlatSpec with IndexComponentTest {
   }
 
   private def indexUpdates(updates: Vector[(Update, Vector[ContractInstance])]): Unit = {
+    val startTime = System.currentTimeMillis
     val updatesWithIds = fillUpdatesWithInternalContractIds(updates)
     val ledgerEndLongBefore = index.currentLedgerEnd().futureValue.map(_.positive).getOrElse(0L)
     withReporter(
@@ -308,6 +328,8 @@ class IndexComponentLoadTest extends AnyFlatSpec with IndexComponentTest {
           .map(_.positive)
           .getOrElse(0L) - ledgerEndLongBefore) shouldBe updates.size,
     ).discard
+    val timeSpan = seconds(System.currentTimeMillis - startTime)
+    logger.warn(s"Ingestion cycle completed in $timeSpan seconds")
   }
 
   private def fillUpdatesWithInternalContractIds(

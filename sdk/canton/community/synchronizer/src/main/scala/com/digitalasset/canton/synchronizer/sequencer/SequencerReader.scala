@@ -38,6 +38,7 @@ import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.sequencing.{GroupAddressResolver, SequencedSerializedEvent}
 import com.digitalasset.canton.store.SequencedEventStore.SequencedEventWithTraceContext
 import com.digitalasset.canton.store.db.DbDeserializationException
+import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.SequencerReader.{
   OngoingSynchronizerUpgrade,
   ReadState,
@@ -127,6 +128,7 @@ class SequencerReader(
     syncCryptoApi: SyncCryptoClient[SyncCryptoApi],
     eventSignaller: EventSignaller,
     topologyClientMember: Member,
+    metrics: SequencerMetrics,
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext, tracer: Tracer)
@@ -667,8 +669,16 @@ class SequencerReader(
           // Neither do we have evidence that parallel processing helps, as a single sequencer reader
           // will typically serve many subscriptions in parallel.
           parallelism = 1
-        )(
-          signValidatedEvent(_).value
+        )(unsignedEventData =>
+          signValidatedEvent(unsignedEventData).value.map { errorOrEvent =>
+            // Update subscription last timestamp metric on successful event delivery
+            errorOrEvent.foreach { signedEvent =>
+              metrics.publicApi.subscriptionLastTimestamp.updateValue(
+                signedEvent.timestamp.toMicros
+              )(metricsContext)
+            }
+            errorOrEvent
+          }
         )
     }
 

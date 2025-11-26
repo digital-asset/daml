@@ -311,13 +311,13 @@ final class InteractiveSubmissionTrafficCostEstimationTest
       estimateTrafficCost(
         None,
         // Expect less than 1% error when all nodes align
-        0.01d,
+        0.01,
         preparingPn = cpn,
         submittingPn = cpn,
-        aliceE.partyId,
-        commands = Seq(createCycleCmdFromParty(aliceE)),
+        bobE.partyId,
+        commands = Seq(createCycleCmdFromParty(bobE)),
         prepared => {
-          cpn.ledger_api.commands.external.submit_prepared(aliceE, prepared)
+          cpn.ledger_api.commands.external.submit_prepared(bobE, prepared)
         },
       )
     }

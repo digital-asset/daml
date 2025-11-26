@@ -114,6 +114,9 @@ class ResilientSequencerSubscription[HandlerError](
           case Success(_: SubscriptionCloseReason.SubscriptionError) if isClosing =>
             giveUp(Success(SubscriptionCloseReason.Shutdown))
 
+          case Success(SubscriptionCloseReason.TokenExpiration) =>
+            delayAndRestartSubscription(hasReceivedEvent.hasReceivedEvent, delayOnRestart)
+
           case error @ Success(subscriptionError: SubscriptionCloseReason.SubscriptionError) =>
             val canRetry =
               retryPolicy.retryOnError(subscriptionError, hasReceivedEvent.hasReceivedEvent)

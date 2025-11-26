@@ -37,7 +37,7 @@ import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.retry.RetryEither
 import com.digitalasset.canton.{LfPackageId, LfPartyId, RichGeneratedMessage}
-import com.digitalasset.daml.lf.data.Bytes
+import com.digitalasset.daml.lf.data.{Bytes, StringModule}
 import com.google.protobuf.ByteString
 import com.typesafe.config.{Config, ConfigValueFactory}
 import com.typesafe.scalalogging.Logger
@@ -64,6 +64,7 @@ import scala.collection.immutable
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.*
 import scala.language.implicitConversions
+import scala.reflect.ClassTag
 
 /** Storage resources (e.g., a database connection pool) that must be released on shutdown.
   *
@@ -91,7 +92,11 @@ final class MemoryStorage(
   override def isActive: Boolean = true
 }
 
-trait DbStore extends FlagCloseable with NamedLogging with HasCloseContext {
+trait DbStore
+    extends FlagCloseable
+    with NamedLogging
+    with HasCloseContext
+    with DbStorage.Implicits {
   protected val storage: DbStorage
 }
 
@@ -136,6 +141,72 @@ trait DbStorage extends Storage { self: NamedLogging =>
         GetResult(_.nextBlobOption().map(blobToBytes))
       else
         GetResult(_.nextBytesOption())
+
+    implicit val setParameterByteString: SetParameter[ByteString] =
+      SetParameter[Array[Byte]].contramap(_.toByteArray)
+    implicit val getResultByteString: GetResult[ByteString] =
+      GetResult[Array[Byte]].andThen(ByteString.copyFrom)
+
+    @SuppressWarnings(Array("org.wartremover.warts.Null"))
+    implicit val setParameterByteStringOption: SetParameter[Option[ByteString]] =
+      SetParameter[Option[Array[Byte]]].contramap[Option[ByteString]](_.map(_.toByteArray))
+    implicit val getResultByteStringOption: GetResult[Option[ByteString]] =
+      GetResult[Option[Array[Byte]]].andThen(_.map(ByteString.copyFrom))
+
+    implicit val absCoidToDbPrimitive: ToDbPrimitive[LfContractId, Array[Byte]] =
+      ToDbPrimitive(_.toBytes.toByteArray)
+
+    implicit val absCoidGetResult: GetResult[LfContractId] =
+      getResultByteArray.andThen(array =>
+        LfContractId
+          .fromBytes(Bytes.fromByteArray(array))
+          .fold(err => throw new DbDeserializationException(err), Predef.identity)
+      )
+
+    implicit val setContractSaltOption: SetParameter[Option[Salt]] =
+      (c, pp) => pp >> c.map(_.toProtoV30.checkedToByteString)
+
+    implicit val setContractSalt: SetParameter[Salt] =
+      (c, pp) => pp >> c.toProtoV30.checkedToByteString
+
+    private val parseSalt: ByteString => Salt = bytes =>
+      ProtoConverter
+        .parse(
+          // Even though it is versioned, the Salt is considered static
+          // as it's used for authenticating contract ids which are immutable
+          com.digitalasset.canton.crypto.v30.Salt.parseFrom,
+          Salt.fromProtoV30,
+          bytes,
+        )
+        .valueOr(err =>
+          throw new DbDeserializationException(
+            s"Failed to deserialize contract salt: $err"
+          )
+        )
+
+    implicit val getContractSaltOption: GetResult[Option[Salt]] =
+      implicitly[GetResult[Option[ByteString]]] andThen { _.map(parseSalt) }
+
+    implicit val getContractSalt: GetResult[Salt] =
+      implicitly[GetResult[ByteString]] andThen { parseSalt }
+
+    implicit val setParameterArrayInt: SetParameter[Array[Int]] = (v, pp) => {
+      // the values in the array don't need to get boxed for postgres
+      val possiblyBoxed = profile match {
+        case _: H2 => v.map(Int.box)
+        case _: Postgres => v
+      }
+      pp.setObject(possiblyBoxed, java.sql.Types.ARRAY)
+    }
+
+    implicit val setParameterArrayLong: SetParameter[Array[Long]] = (v, pp) => {
+      // the values in the array don't need to get boxed for postgres
+      val possiblyBoxed = profile match {
+        case _: H2 => v.map(Long.box)
+        case _: Postgres => v
+      }
+      pp.setObject(possiblyBoxed, java.sql.Types.ARRAY)
+    }
 
     private def blobToBytes(blob: Blob): Array[Byte] =
       if (blob.length() == 0) Array[Byte]() else blob.getBytes(1, blob.length().toInt)
@@ -344,7 +415,8 @@ object DbStorage {
     val unit: DBIOAction[Unit, NoStream, Effect] = DBIOAction.successful(())
   }
 
-  object Implicits {
+  object Implicits extends Implicits
+  trait Implicits {
 
     implicit def functorDBIO[E <: Effect](implicit
         ec: ExecutionContext
@@ -381,14 +453,6 @@ object DbStorage {
         )
     }
 
-    implicit val absCoidGetResult: GetResult[LfContractId] = GetResult(r =>
-      LfContractId
-        .fromBytes(Bytes.fromByteArray(r.nextBytes()))
-        .fold(err => throw new DbDeserializationException(err), Predef.identity)
-    )
-    implicit val absCoidSetParameter: SetParameter[LfContractId] =
-      (c, pp) => pp.setBytes(c.toBytes.toByteArray)
-
     // We assume that the HexString of the hash of the global key will fit into 255 characters
     // Please consult the team, if you want to increase this limit
     implicit val lfGlobalKeySetParameter: SetParameter[LfGlobalKey] =
@@ -402,8 +466,8 @@ object DbStorage {
         )
     }
 
-    // LfPackageIds are length-limited
-    implicit val setParameterLfPackageId: SetParameter[LfPackageId] = (v, pp) => pp.setString(v)
+    implicit val lfPackageIdToDbPrimitive: ToDbPrimitive[LfPackageId, String] =
+      ToDbPrimitive(v => v)
     implicit val getResultPackageId: GetResult[LfPackageId] =
       GetResult(r => r.nextString()).andThen {
         LfPackageId
@@ -413,44 +477,21 @@ object DbStorage {
           )
       }
 
-    implicit val setParameterByteString: SetParameter[ByteString] = (bs, pp) =>
-      pp.setBytes(bs.toByteArray)
-    implicit val getResultByteString: GetResult[ByteString] =
-      GetResult(r => ByteString.copyFrom(r.nextBytes()))
+    // similarly, we can derive `SetParameter[Array[From]]`, give `SetParameter[Array[To]]` and `ToDbPrimitive[From, To]]`.
+    // this can also chain multiple ToDbPrimitive conversion, eg ToDbPrimitive[SynchronizerId, String255] => ToDbPrimitive[LengthLimitedString, String]
+    implicit def setParameterArrayFromToDbPrimitive[From, To](implicit
+        toDbPrimitive: ToDbPrimitive[From, To],
+        setArrayParameter: SetParameter[Array[To]],
+        ct: ClassTag[To],
+    ): SetParameter[Array[From]] =
+      setArrayParameter.contramap(_.map(toDbPrimitive.toDbPrimitive))
 
-    @SuppressWarnings(Array("org.wartremover.warts.Null"))
-    implicit val setParameterByteStringOption: SetParameter[Option[ByteString]] = (b, pp) =>
-      // Postgres profile will fail with setBytesOption if given None. Easy fix is to use setBytes with null instead
-      pp.setBytes(b.map(_.toByteArray).orNull)
-    implicit val getResultByteStringOption: GetResult[Option[ByteString]] =
-      GetResult(r => r.nextBytesOption().map(ByteString.copyFrom))
+    // this is not defined by slick, so need to do define this explicitly for all primitive types
+    implicit val setParameterArrayString: SetParameter[Array[String]] = (v, pp) =>
+      pp.setObject(v, java.sql.Types.ARRAY)
 
-    implicit val setContractSaltOption: SetParameter[Option[Salt]] =
-      (c, pp) => pp >> c.map(_.toProtoV30.checkedToByteString)
-
-    implicit val setContractSalt: SetParameter[Salt] =
-      (c, pp) => pp >> c.toProtoV30.checkedToByteString
-
-    private val parseSalt: ByteString => Salt = bytes =>
-      ProtoConverter
-        .parse(
-          // Even though it is versioned, the Salt is considered static
-          // as it's used for authenticating contract ids which are immutable
-          com.digitalasset.canton.crypto.v30.Salt.parseFrom,
-          Salt.fromProtoV30,
-          bytes,
-        )
-        .valueOr(err =>
-          throw new DbDeserializationException(
-            s"Failed to deserialize contract salt: $err"
-          )
-        )
-
-    implicit val getContractSaltOption: GetResult[Option[Salt]] =
-      implicitly[GetResult[Option[ByteString]]] andThen { _.map(parseSalt) }
-
-    implicit val getContractSalt: GetResult[Salt] =
-      implicitly[GetResult[ByteString]] andThen { parseSalt }
+    implicit val setParameterArrayArayByte: SetParameter[Array[Array[Byte]]] = (v, pp) =>
+      pp.setObject(v, java.sql.Types.ARRAY)
 
     object BuilderChain {
 
@@ -465,7 +506,6 @@ object DbStorage {
         SQLActionBuilderChain(op)
 
     }
-
   }
 
   class SQLActionBuilderChain(private val builders: Chain[SQLActionBuilder]) extends AnyVal {
@@ -772,21 +812,33 @@ object DbStorage {
 
   /** Construct an in clause for a given field.
     *
+    * The implicit parameter `SetParameter[Array[T]]` can be derived automatically, if instances for
+    * `ToDbPrimitive[T, Prim]` and `SetParameter[Array[Prim]]` are in scope.
+    * @return
+    *   An iterable of the grouped values and the in clause for the grouped values
+    */
+  def toInClause[T: ClassTag](
+      field: String,
+      values: NonEmpty[immutable.Iterable[T]],
+  )(implicit
+      arraySetParameter: SetParameter[Array[T]]
+  ): SQLActionBuilder =
+    sql"#$field = ANY(${values.toArray[T]})"
+
+  /** Construct an in clause for a given field, where the values are one of the LF string types (eg.
+    * [[com.digitalasset.daml.lf.data.Ref.PackageId]], for which scala cannot generate a `ClassTag`.
+    *
     * @return
     *   An iterable of the grouped values and the in clause for the grouped values
     */
   def toInClause[T](
       field: String,
       values: NonEmpty[immutable.Iterable[T]],
-  )(implicit f: SetParameter[T]): SQLActionBuilder = {
-    import DbStorage.Implicits.BuilderChain.*
-    sql"#$field in (" ++
-      values
-        .map(value => sql"$value")
-        .forgetNE
-        .intercalate(sql", ") ++ sql")"
-
-  }
+      stringModule: StringModule[T],
+  )(implicit
+      arraySetParameter: SetParameter[Array[T]]
+  ): SQLActionBuilder =
+    sql"#$field = ANY(${stringModule.Array.apply((values.forgetNE.toSeq)*)})"
 
   class DbStorageCreationException(message: String) extends RuntimeException(message)
 

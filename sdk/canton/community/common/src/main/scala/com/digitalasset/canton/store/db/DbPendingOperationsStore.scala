@@ -37,6 +37,7 @@ class DbPendingOperationsStore[Op <: HasProtocolVersionedWrapper[Op]](
     with PendingOperationStore[Op] {
 
   import storage.api.*
+  import storage.converters.*
 
   implicit val tryPendingOperationGetResult: GetResult[PendingOperation[Op]] =
     DbPendingOperationsStore.tryGetPendingOperationResult(opCompanion.fromTrustedByteString)
@@ -70,7 +71,6 @@ class DbPendingOperationsStore[Op <: HasProtocolVersionedWrapper[Op]](
       case Some(_) => DBIO.successful(Right(()))
 
       case None =>
-        import com.digitalasset.canton.resource.DbStorage.Implicits.setParameterByteString
         @unused
         implicit val setParameter: SetParameter[Op] = (v: Op, pp) => pp >> v.toByteString
         @unused
@@ -141,19 +141,18 @@ private object DbPendingOperationsStore {
     */
   private def tryGetPendingOperationResult[Op <: HasProtocolVersionedWrapper[Op]](
       operationDeserializer: ByteString => ParsingResult[Op]
-  ): GetResult[PendingOperation[Op]] = GetResult { r =>
-    import DbStorage.Implicits.getResultByteString
-
-    PendingOperation
-      .create(
-        trigger = r.<<[String],
-        name = r.<<[String],
-        key = r.<<[String],
-        operationBytes = r.<<[ByteString],
-        operationDeserializer,
-        synchronizerId = r.<<[String],
-      )
-      .valueOr(errorMessage => throw new DbDeserializationException(errorMessage))
+  )(implicit getByteString: GetResult[ByteString]): GetResult[PendingOperation[Op]] = GetResult {
+    r =>
+      PendingOperation
+        .create(
+          trigger = r.<<[String],
+          name = r.<<[String],
+          key = r.<<[String],
+          operationBytes = r.<<[ByteString],
+          operationDeserializer,
+          synchronizerId = r.<<[String],
+        )
+        .valueOr(errorMessage => throw new DbDeserializationException(errorMessage))
   }
 
   // For PostgreSQL, `setObject` with `Types.OTHER` is required for handling the custom enum type

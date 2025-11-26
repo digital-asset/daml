@@ -258,6 +258,7 @@ class DatabaseSequencer(
       cryptoApi,
       eventSignaller,
       topologyClientMember,
+      metrics,
       timeouts,
       loggerFactory,
     )

@@ -494,8 +494,8 @@ class DbIncrementalCommitmentStore(
     extends IncrementalCommitmentStore
     with DbStore {
 
-  import DbStorage.Implicits.*
   import storage.api.*
+  import storage.converters.*
 
   private implicit val getLfPartyIdSortedSet: GetResult[Vector[Int]] =
     DbParameterUtils.getIntArrayResultsDb.andThen(_.toVector)
@@ -719,6 +719,7 @@ class DbCommitmentQueue(
     with DbStore {
 
   import storage.api.*
+  import storage.converters.*
 
   private implicit val acsCommitmentReader: GetResult[BufferedAcsCommitment] =
     new GetTupleResult[(ParticipantId, ParticipantId, CommitmentPeriod, HashedCommitmentType)](

@@ -20,7 +20,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.Bft
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.p2p.data.P2PEndpointsStore
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.protobuf.ByteString
-import slick.jdbc.{GetResult, SetParameter}
+import slick.jdbc.GetResult
 
 import scala.concurrent.ExecutionContext
 
@@ -75,10 +75,6 @@ final class DbP2PEndpointsStore(
         P2PGrpcNetworking.PlainTextP2PEndpoint(address, port)
       }
     }
-
-  private implicit val setOptionalBlobParameter: SetParameter[Option[ByteString]] =
-    (maybeByteString, positionedParameter) =>
-      positionedParameter >> maybeByteString.map(_.toByteArray)
 
   private val profile = storage.profile
 

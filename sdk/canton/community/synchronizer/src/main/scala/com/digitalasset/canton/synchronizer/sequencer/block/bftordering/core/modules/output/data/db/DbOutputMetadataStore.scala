@@ -29,8 +29,6 @@ import slick.jdbc.{GetResult, SetParameter}
 
 import scala.concurrent.ExecutionContext
 
-import DbStorage.Implicits.*
-
 class DbOutputMetadataStore(
     override protected val storage: DbStorage,
     override protected val timeouts: ProcessingTimeout,

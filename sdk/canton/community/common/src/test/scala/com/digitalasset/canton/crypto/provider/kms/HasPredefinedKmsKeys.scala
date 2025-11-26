@@ -7,7 +7,7 @@ import com.digitalasset.canton.crypto.kms.KmsKeyId
 import com.digitalasset.canton.crypto.{EncryptionKeySpec, SigningKeySpec}
 
 /** Stores the pre-generated keys for the different KMSs */
-trait PredefinedKmsKeys {
+trait HasPredefinedKmsKeys {
   def predefinedSymmetricEncryptionKey: KmsKeyId
   def predefinedSigningKeys: Map[SigningKeySpec, (KmsKeyId, KmsKeyId)]
   def predefinedAsymmetricEncryptionKeys: Map[EncryptionKeySpec, (KmsKeyId, KmsKeyId)]

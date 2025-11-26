@@ -6,6 +6,9 @@ package com.digitalasset.canton.crypto.kms.mock.v1
 import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.traverse.*
+import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config.CryptoProvider.Jce
+import com.digitalasset.canton.crypto.kms.Kms
 import com.digitalasset.canton.crypto.kms.driver.api.v1.*
 import com.digitalasset.canton.crypto.kms.driver.api.v1.KmsDriverHealth.Ok
 import com.digitalasset.canton.crypto.kms.driver.v1.KmsDriverSpecsConverter
@@ -295,4 +298,23 @@ class MockKmsDriver(
       }
 
   override def close(): Unit = crypto.close()
+}
+
+object MockKmsDriver extends Kms.SupportedSchemes {
+
+  import com.digitalasset.canton.crypto.{
+    EncryptionAlgorithmSpec,
+    EncryptionKeySpec,
+    SigningAlgorithmSpec,
+    SigningKeySpec,
+  }
+
+  // The Mock KMS driver supports all schemes supported by JCE
+  val supportedSigningKeySpecs: NonEmpty[Set[SigningKeySpec]] = Jce.signingKeys.supported
+  val supportedSigningAlgoSpecs: NonEmpty[Set[SigningAlgorithmSpec]] =
+    Jce.signingAlgorithms.supported
+  val supportedEncryptionKeySpecs: NonEmpty[Set[EncryptionKeySpec]] = Jce.encryptionKeys.supported
+  val supportedEncryptionAlgoSpecs: NonEmpty[Set[EncryptionAlgorithmSpec]] =
+    Jce.encryptionAlgorithms.supported
+
 }

@@ -108,8 +108,7 @@ final class PartyToParticipantDeclarativeIntegrationTest
           newPermissions: Set[(ParticipantId, ParticipantPermission)],
       ): Unit = PartyToParticipantDeclarative(Set(participant1, participant2), Set(daId))(
         owningParticipants = Map(),
-        externalParties = Set(chopperE),
-        targetTopology = Map(chopperE.partyId -> Map(daId -> (newThreshold, newPermissions))),
+        targetTopology = Map(chopperE -> Map(daId -> (newThreshold, newPermissions))),
       )
 
       // replication on p2
@@ -154,9 +153,8 @@ final class PartyToParticipantDeclarativeIntegrationTest
 
       PartyToParticipantDeclarative(Set(participant1, participant2), Set(daId, acmeId))(
         owningParticipants = Map(),
-        externalParties = Set(donaldE),
         targetTopology = Map(
-          donaldE.partyId -> Map(
+          donaldE -> Map(
             daId -> targetHosting,
             acmeId -> targetHosting,
           )
@@ -202,8 +200,7 @@ final class PartyToParticipantDeclarativeIntegrationTest
       PartyToParticipantDeclarative(Set(participant1), Set(daId))(
         Map(),
         // Offboarding from da
-        Map(),
-        externalParties = Set(bobE),
+        Map(bobE -> Map.empty),
       )
 
       participant1.topology.party_to_participant_mappings

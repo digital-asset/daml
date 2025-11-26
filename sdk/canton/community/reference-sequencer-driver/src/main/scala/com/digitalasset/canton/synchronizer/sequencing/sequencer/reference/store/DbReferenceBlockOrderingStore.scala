@@ -145,7 +145,7 @@ class DbReferenceBlockOrderingStore(
     storage
       .query(
         sql"""select id, request, uuid from blocks where id >= $initialHeight order by id LIMIT $maxQueryBlockCount"""
-          .as[(Long, Traced[BlockFormat.OrderedRequest], String)]
+          .as[(Long, Traced[BlockFormat.OrderedRequest], UUID)]
           .transactionally
           // Serializable isolation level to prevent skipping over blocks producing gaps
           .withTransactionIsolation(TransactionIsolation.Serializable),
@@ -159,7 +159,7 @@ class DbReferenceBlockOrderingStore(
             (initialHeight - 1, List[(Long, Traced[BlockFormat.OrderedRequest], UUID)]())
           ) { case ((previousHeight, list), (currentHeight, element, uuid)) =>
             if (currentHeight == previousHeight + 1)
-              (currentHeight, list :+ (currentHeight, element, UUID.fromString(uuid)))
+              (currentHeight, list :+ (currentHeight, element, uuid))
             else (previousHeight, list)
           }
           ._2
