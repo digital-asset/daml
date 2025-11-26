@@ -152,12 +152,14 @@ damlStart tmpDir = do
                 , "--sandbox-sequencer-admin-port", show $ sequencerAdmin ports
                 , "--sandbox-mediator-admin-port", show $ mediatorAdmin ports
                 , "--json-api-port", show jsonApiPort
+                , "--sandbox-option=--debug"
                 ]
             ) {std_in = CreatePipe, std_out = CreatePipe, cwd = Just projDir, create_group = True, env = Just env}
     (Just startStdin, Just startStdout, _, startPh) <- createProcess startProc
     outChan <- newBroadcastTChanIO
     outReader <- forkIO $ forever $ do
         line <- hGetLine startStdout
+        putStrLn line
         atomically $ writeTChan outChan line
     scriptOutput <- readPortFileWith Just startPh maxRetries (projDir </> scriptOutputFile)
     let alice = (read scriptOutput :: String)
