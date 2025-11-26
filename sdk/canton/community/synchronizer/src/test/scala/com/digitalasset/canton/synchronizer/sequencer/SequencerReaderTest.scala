@@ -6,6 +6,8 @@ package com.digitalasset.canton.synchronizer.sequencer
 import cats.syntax.foldable.*
 import cats.syntax.functorFilter.*
 import cats.syntax.option.*
+import com.daml.metrics.api.testing.InMemoryMetricsFactory
+import com.daml.metrics.api.{HistogramInventory, MetricName, MetricsContext}
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
@@ -17,7 +19,7 @@ import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.sequencing.SequencedSerializedEvent
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
-import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
+import com.digitalasset.canton.synchronizer.metrics.{SequencerHistograms, SequencerMetrics}
 import com.digitalasset.canton.synchronizer.sequencer.SynchronizerSequencingTestUtils.*
 import com.digitalasset.canton.synchronizer.sequencer.errors.CreateSubscriptionError
 import com.digitalasset.canton.synchronizer.sequencer.store.*
@@ -120,12 +122,21 @@ class SequencerReaderTest
       new AtomicBoolean(true) // should the latest timestamp be added to the signaller when stored
     val actorSystem: ActorSystem = ActorSystem(classOf[SequencerReaderTest].getSimpleName)
     implicit val materializer: Materializer = Materializer(actorSystem)
+
+    val metricsFactory = new InMemoryMetricsFactory
+    val sequencerMetrics: SequencerMetrics = {
+      val (_, metrics) = HistogramInventory.create(implicit inventory =>
+        new SequencerMetrics(new SequencerHistograms(MetricName.Daml), metricsFactory)
+      )
+      metrics
+    }
+
     val store = new InMemorySequencerStore(
       protocolVersion = testedProtocolVersion,
       sequencerMember = topologyClientMember,
       blockSequencerMode = true,
       loggerFactory = loggerFactory,
-      sequencerMetrics = SequencerMetrics.noop("sequencer-reader-test"),
+      sequencerMetrics = sequencerMetrics,
     )
     val instanceIndex: Int = 0
     // create a spy so we can add verifications on how many times methods were called
@@ -142,11 +153,23 @@ class SequencerReaderTest
       cryptoD,
       eventSignaller,
       topologyClientMember,
+      sequencerMetrics,
       timeouts,
       loggerFactory,
     )
     val defaultTimeout: FiniteDuration = 20.seconds
     implicit val closeContext: CloseContext = CloseContext(reader)
+
+    /** Helper to read the subscriptionLastTimestamp metric value */
+    def subscriptionLastTimestampMetric(): Long = {
+      val metricName =
+        MetricName.Daml :+ "sequencer" :+ "public-api" :+ "subscription-last-timestamp"
+      metricsFactory.metrics.gauges
+        .get(metricName)
+        .flatMap(_.get(MetricsContext.Empty))
+        .map(_.getValue.asInstanceOf[Long])
+        .getOrElse(0L)
+    }
 
     def ts(epochSeconds: Int): CantonTimestamp = CantonTimestamp.ofEpochSecond(epochSeconds.toLong)
 
@@ -895,6 +918,60 @@ class SequencerReaderTest
               }
             }
         }
+      }
+    }
+
+    "report subscriptionLastTimestamp metric" in { env =>
+      import env.*
+
+      for {
+        _ <- store.registerMember(topologyClientMember, ts0).failOnShutdown
+        registeredAlice <- store.registerMember(alice, ts0).failOnShutdown
+
+        // generate 5 delivers starting at ts0+1s
+        events = (1L to 5L)
+          .map(ts0.plusSeconds)
+          .map(
+            Sequenced(
+              _,
+              mockDeliverStoreEvent(
+                sender = registeredAlice.memberId,
+                traceContext = traceContext,
+              )(),
+            )
+          )
+        _ <- storeAndWatermark(events)
+
+        // Initial metric value should be 0
+        _ = subscriptionLastTimestampMetric() shouldBe 0L
+
+        // Read 3 events for alice
+        aliceQueue = readWithQueue(alice, timestampInclusive = None)
+        _ <- MonadUtil.sequentialTraverse((1 to 3).toList) { idx =>
+          for {
+            eventO <- pullFromQueue(aliceQueue)
+          } yield {
+            eventO.value.timestamp shouldBe ts0.plusSeconds(idx.toLong)
+            // Metric should be updated with the timestamp of the last event delivered
+            subscriptionLastTimestampMetric() shouldBe ts0.plusSeconds(idx.toLong).toMicros
+          }
+        }
+
+        // Read the remaining 2 events
+        _ <- MonadUtil.sequentialTraverse((4 to 5).toList) { idx =>
+          for {
+            eventO <- pullFromQueue(aliceQueue)
+          } yield {
+            eventO.value.timestamp shouldBe ts0.plusSeconds(idx.toLong)
+            // Metric continues to be updated
+            subscriptionLastTimestampMetric() shouldBe ts0.plusSeconds(idx.toLong).toMicros
+          }
+        }
+
+        _ = aliceQueue.cancel()
+      } yield {
+        // Final verification - metric should show the last event timestamp
+        subscriptionLastTimestampMetric() shouldBe ts0.plusSeconds(5L).toMicros
       }
     }
   }

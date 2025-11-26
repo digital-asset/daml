@@ -8,7 +8,6 @@ import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.setParameterLengthLimitedString
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.PackageDescription
@@ -184,12 +183,11 @@ class DbDamlPackageStore(
       limit: Option[Int],
   )(implicit traceContext: TraceContext) = {
     import DbStorage.Implicits.BuilderChain.*
-    import com.digitalasset.canton.resource.DbStorage.Implicits.getResultPackageId
 
     val limitClause = limit.map(l => sql"#${storage.limit(l)}").getOrElse(sql"")
-
     val query = {
-      val inClause = DbStorage.toInClause(field = "package_id", values = nonEmptyPackages)
+      val inClause =
+        DbStorage.toInClause(field = "package_id", values = nonEmptyPackages, LfPackageId)
       (sql"""select package_id
              from par_dar_packages remove_candidates
              where """ ++ inClause ++
@@ -199,7 +197,7 @@ class DbDamlPackageStore(
                  where
                    remove_candidates.package_id = other_dars.package_id
                    and main_package_id != ${mainPackageId.value}
-               )""" ++ limitClause).as[LfPackageId]
+               )""" ++ limitClause).as[PackageId](getResultPackageId)
     }
 
     storage.query(query, functionFullName).map(_.toSeq)

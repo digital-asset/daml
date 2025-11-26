@@ -33,7 +33,7 @@ import com.digitalasset.canton.util.{EitherTUtil, OrderedBucketMergeConfig, Reso
 import com.digitalasset.canton.{
   BaseTest,
   HasExecutionContext,
-  ProtocolVersionChecksFixtureAnyWordSpec,
+  TestPredicateFiltersFixtureAnyWordSpec,
 }
 import com.google.protobuf.ByteString
 import org.apache.pekko.stream.scaladsl.{Keep, Source}
@@ -49,7 +49,7 @@ class SequencerAggregatorPekkoTest
     extends FixtureAnyWordSpec
     with BaseTest
     with HasExecutionContext
-    with ProtocolVersionChecksFixtureAnyWordSpec {
+    with TestPredicateFiltersFixtureAnyWordSpec {
 
   override protected type FixtureParam = SequencedEventTestFixture
 

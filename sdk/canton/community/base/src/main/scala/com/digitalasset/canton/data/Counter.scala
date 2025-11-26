@@ -4,6 +4,7 @@
 package com.digitalasset.canton.data
 
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.resource.ToDbPrimitive
 import slick.jdbc.{GetResult, SetParameter}
 
 final case class Counter[Discr](v: Long) extends Ordered[Counter[Discr]] with PrettyPrinting {
@@ -60,7 +61,7 @@ object Counter {
   implicit def getResultO[Discr]: GetResult[Option[Counter[Discr]]] =
     GetResult(r => r.nextLongOption().map(Counter[Discr]))
 
-  implicit def setParameter[Discr]: SetParameter[Counter[Discr]] = { (value, pp) => pp >> value.v }
+  implicit def discrToDbPrimitive[Discr]: ToDbPrimitive[Counter[Discr], Long] = ToDbPrimitive(_.v)
   implicit def setParameterO[Discr]: SetParameter[Option[Counter[Discr]]] = { (value, pp) =>
     pp >> value.map(_.v)
   }

@@ -6,8 +6,9 @@ package com.digitalasset.canton.participant.protocol.submission
 import com.digitalasset.canton.ledger.participant.state.ChangeId
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.LfHash
+import com.digitalasset.canton.resource.ToDbPrimitive
 import com.digitalasset.canton.store.db.DbDeserializationException
-import slick.jdbc.{GetResult, SetParameter}
+import slick.jdbc.GetResult
 
 final case class ChangeIdHash(hash: LfHash) extends PrettyPrinting {
   override protected def pretty: Pretty[ChangeIdHash] = prettyOfClass(
@@ -28,6 +29,7 @@ object ChangeIdHash {
     )
   }
 
-  implicit val setParameterChangeId: SetParameter[ChangeIdHash] = (changeIdHash, pp) =>
-    pp.setString(changeIdHash.hash.toHexString)
+  implicit val changeIdToDbPrimitive: ToDbPrimitive[ChangeIdHash, String] =
+    ToDbPrimitive(_.hash.toHexString)
+
 }

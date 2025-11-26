@@ -19,7 +19,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
+import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage, ToDbPrimitive}
 import com.digitalasset.canton.sequencing.protocol.{Batch, ClosedEnvelope, MessageId}
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -95,10 +95,9 @@ final case class PayloadId(private val id: CantonTimestamp)
 }
 
 object PayloadId {
-  implicit def payloadIdSetParameter(implicit
-      tsSetParameter: SetParameter[CantonTimestamp]
-  ): SetParameter[PayloadId] =
-    (payloadId, pp) => tsSetParameter(payloadId.unwrap, pp)
+  implicit val payloadIdToDbPrimitive: ToDbPrimitive[PayloadId, CantonTimestamp] = ToDbPrimitive(
+    _.unwrap
+  )
   implicit def payloadIdGetResult(implicit
       tsGetResult: GetResult[CantonTimestamp]
   ): GetResult[PayloadId] =
@@ -562,7 +561,11 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
   lazy val eventsBufferEnabled: Boolean = bufferedEventsMaxMemory.toLong > 0L
 
   protected val eventsBuffer =
-    new EventsBuffer(bufferedEventsMaxMemory, loggerFactory, sequencerMetrics.eventBuffer)
+    new EventsBuffer(
+      bufferedEventsMaxMemory,
+      loggerFactory,
+      sequencerMetrics,
+    )
 
   /** In case of single instance sequencer we can use in-memory fanout buffer for events */
   final def bufferEvents(

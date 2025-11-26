@@ -5,7 +5,6 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.CantonRequireTypes.String68
 import com.digitalasset.canton.config.{BatchAggregatorConfig, ProcessingTimeout}
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.pretty.Pretty
@@ -105,8 +104,6 @@ class DbAvailabilityStore(
         batchId
     }
   }
-
-  import String68.setParameterLengthLimitedString
 
   private implicit val setBatchIdParameter: SetParameter[BatchId] =
     (batchId, pp) => pp >> batchId.hash.toLengthLimitedHexString

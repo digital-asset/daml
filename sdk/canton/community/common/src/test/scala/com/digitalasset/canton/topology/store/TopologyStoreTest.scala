@@ -5,7 +5,7 @@ package com.digitalasset.canton.topology.store
 
 import cats.syntax.option.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.CantonRequireTypes.{String255, String300}
+import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.topology.TopologyStateHash
 import com.digitalasset.canton.data.CantonTimestamp
@@ -20,9 +20,9 @@ import com.digitalasset.canton.topology.processing.{
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.PositiveStoredTopologyTransactions
 import com.digitalasset.canton.topology.store.TopologyStore.EffectiveStateChange
 import com.digitalasset.canton.topology.store.db.DbTopologyStore
-import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyMapping.Code
+import com.digitalasset.canton.topology.transaction.{TopologyMapping, *}
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{FailOnShutdown, HasActorSystem}
@@ -39,137 +39,6 @@ trait TopologyStoreTest
 
   val testData = new TopologyStoreTestData(testedProtocolVersion, loggerFactory, executionContext)
   import testData.*
-
-  private lazy val submissionId = String255.tryCreate("submissionId")
-  private lazy val submissionId2 = String255.tryCreate("submissionId2")
-  private lazy val submissionId3 = String255.tryCreate("submissionId3")
-
-  protected def partyMetadataStore(mk: () => PartyMetadataStore): Unit = {
-    import DefaultTestIdentities.*
-    "inserting new succeeds" in {
-      val store = mk()
-      for {
-        _ <- insertOrUpdatePartyMetadata(store)(
-          party1,
-          Some(participant1),
-          CantonTimestamp.Epoch,
-          submissionId,
-        )
-        fetch <- store.metadataForParties(Seq(party1))
-      } yield {
-        fetch shouldBe NonEmpty(
-          Seq,
-          Some(PartyMetadata(party1, Some(participant1))(CantonTimestamp.Epoch, submissionId)),
-        )
-      }
-    }
-
-    "updating existing succeeds" in {
-      val store = mk()
-      for {
-        _ <- insertOrUpdatePartyMetadata(store)(
-          party1,
-          None,
-          CantonTimestamp.Epoch,
-          submissionId,
-        )
-        _ <- insertOrUpdatePartyMetadata(store)(
-          party2,
-          None,
-          CantonTimestamp.Epoch,
-          submissionId,
-        )
-        _ <- insertOrUpdatePartyMetadata(store)(
-          party1,
-          Some(participant1),
-          CantonTimestamp.Epoch,
-          submissionId,
-        )
-        _ <- insertOrUpdatePartyMetadata(store)(
-          party2,
-          Some(participant3),
-          CantonTimestamp.Epoch,
-          submissionId,
-        )
-        metadata <- store.metadataForParties(Seq(party1, party2))
-      } yield {
-        metadata shouldBe NonEmpty(
-          Seq,
-          Some(
-            PartyMetadata(party1, Some(participant1))(
-              CantonTimestamp.Epoch,
-              String255.empty,
-            )
-          ),
-          Some(
-            PartyMetadata(party2, Some(participant3))(
-              CantonTimestamp.Epoch,
-              String255.empty,
-            )
-          ),
-        )
-      }
-    }
-
-    "updating existing succeeds via batch" in {
-      val store = mk()
-      for {
-        _ <- store.insertOrUpdatePartyMetadata(
-          Seq(
-            PartyMetadata(party1, None)(CantonTimestamp.Epoch, submissionId),
-            PartyMetadata(party2, None)(CantonTimestamp.Epoch, submissionId),
-            PartyMetadata(party1, Some(participant1))(CantonTimestamp.Epoch, submissionId),
-            PartyMetadata(party2, Some(participant3))(CantonTimestamp.Epoch, submissionId),
-          )
-        )
-        metadata <- store.metadataForParties(Seq(party1, party3, party2))
-      } yield {
-        metadata shouldBe NonEmpty(
-          Seq,
-          Some(
-            PartyMetadata(party1, Some(participant1))(CantonTimestamp.Epoch, String255.empty)
-          ),
-          None, // checking that unknown party appears in the matching slot
-          Some(
-            PartyMetadata(party2, Some(participant3))(CantonTimestamp.Epoch, String255.empty)
-          ),
-        )
-      }
-    }
-
-    "deal with delayed notifications" in {
-      val store = mk()
-      val rec1 =
-        PartyMetadata(party1, Some(participant1))(CantonTimestamp.Epoch, submissionId)
-      val rec2 =
-        PartyMetadata(party2, Some(participant3))(CantonTimestamp.Epoch, submissionId2)
-      val rec3 =
-        PartyMetadata(party2, Some(participant1))(
-          CantonTimestamp.Epoch.immediateSuccessor,
-          submissionId3,
-        )
-      val rec4 =
-        PartyMetadata(party3, Some(participant2))(CantonTimestamp.Epoch, submissionId3)
-      for {
-        _ <- store.insertOrUpdatePartyMetadata(Seq(rec1, rec2, rec3, rec4))
-        _ <- store.markNotified(rec2.effectiveTimestamp, Seq(rec2.partyId, rec4.partyId))
-        notNotified <- store.fetchNotNotified().map(_.toSet)
-      } yield {
-        notNotified shouldBe Set(rec1, rec3)
-      }
-    }
-
-  }
-
-  private def insertOrUpdatePartyMetadata(store: PartyMetadataStore)(
-      partyId: PartyId,
-      participantId: Option[ParticipantId],
-      effectiveTimestamp: CantonTimestamp,
-      submissionId: String255,
-  ) =
-    store.insertOrUpdatePartyMetadata(
-      Seq(PartyMetadata(partyId, participantId)(effectiveTimestamp, submissionId))
-    )
 
   // TODO(#14066): Test coverage is rudimentary - enough to convince ourselves that queries basically seem to work.
   //  Increase coverage.
@@ -1967,19 +1836,6 @@ trait TopologyStoreTest
 
       }
 
-      "query sequenced timestamps" should {
-        "return timestamps since" in {
-          val store = mk(synchronizer1_p1p2_physicalSynchronizerId, "caseQueryTs")
-          for {
-            _ <- update(store, ts1, add = Seq(nsd_p1, dop_synchronizer1_proposal))
-            _ <- update(store, ts2, add = Seq(otk_p1))
-            _ <- update(store, ts5, add = Seq(dtc_p2_synchronizer1))
-            result <- store.findSequencedTimestampsFrom(ts2)
-          } yield {
-            result shouldBe Vector(ts2, ts5)
-          }
-        }
-      }
     }
   }
 }

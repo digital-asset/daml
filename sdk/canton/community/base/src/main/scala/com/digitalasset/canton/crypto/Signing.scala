@@ -2039,6 +2039,10 @@ final case class SigningKeysWithThreshold(
   @VisibleForTesting
   def copyKeysUnsafe(newKeys: NonEmpty[Set[SigningPublicKey]]): SigningKeysWithThreshold =
     copy(keys = newKeys, threshold = threshold)
+
+  @VisibleForTesting
+  def copyThresholdUnsafe(threshold: PositiveInt): SigningKeysWithThreshold =
+    copy(keys = keys, threshold = threshold)
 }
 
 object SigningKeysWithThreshold {

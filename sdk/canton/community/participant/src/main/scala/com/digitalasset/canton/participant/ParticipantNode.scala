@@ -73,7 +73,7 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.grpc.PSIdLookup
 import com.digitalasset.canton.topology.client.SynchronizerTopologyClient
 import com.digitalasset.canton.topology.store.TopologyStoreId.{AuthorizedStore, SynchronizerStore}
-import com.digitalasset.canton.topology.store.{PartyMetadataStore, TopologyStore, TopologyStoreId}
+import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.HostingParticipant
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{EitherTUtil, SingleUseCell}
@@ -576,22 +576,6 @@ class ParticipantNodeBootstrap(
           loggerFactory,
         )
 
-        partyMetadataStore =
-          PartyMetadataStore(storage, parameters.processingTimeouts, loggerFactory)
-
-        partyNotifier = new LedgerServerPartyNotifier(
-          participantId,
-          ephemeralState.participantEventPublisher,
-          partyMetadataStore,
-          clock,
-          arguments.futureSupervisor,
-          mustTrackSubmissionIds = true,
-          exitOnFatalFailures = parameters.exitOnFatalFailures,
-          parameters.batchingConfig.maxItemsInBatch,
-          parameters.processingTimeouts,
-          loggerFactory,
-        )
-
         synchronizerRegistry = new GrpcSynchronizerRegistry(
           participantId,
           syncPersistentStateManager,
@@ -608,7 +592,6 @@ class ParticipantNodeBootstrap(
           mutablePackageMetadataView,
           arguments.metrics.connectedSynchronizerMetrics,
           sequencerInfoLoader,
-          partyNotifier,
           futureSupervisor,
           loggerFactory,
         )
@@ -700,7 +683,6 @@ class ParticipantNodeBootstrap(
           packageService,
           new PartyOps(activeTopologyManagerGetter, loggerFactory),
           topologyDispatcher,
-          partyNotifier,
           syncCryptoSignerWithSessionKeys,
           engine,
           commandProgressTracker,
@@ -858,11 +840,9 @@ class ParticipantNodeBootstrap(
         addCloseable(syncPersistentStateManager)
         addCloseable(synchronizerRegistry)
         addCloseable(resourceManagementService)
-        addCloseable(partyMetadataStore)
         persistentState.map(addCloseable).discard
         addCloseable(packageService)
         addCloseable(indexedStringStore)
-        addCloseable(partyNotifier)
         addCloseable(ephemeralState.participantEventPublisher)
         addCloseable(topologyDispatcher)
         addCloseable(schedulers)

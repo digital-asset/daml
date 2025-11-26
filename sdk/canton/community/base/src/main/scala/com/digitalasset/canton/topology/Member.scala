@@ -12,6 +12,7 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.Fingerprint
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
+import com.digitalasset.canton.resource.ToDbPrimitive
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
@@ -136,9 +137,8 @@ object Member {
     * [[Member]] have their own persistence schemes ([[ParticipantId]]).
     */
   object DbStorageImplicits {
-    implicit val setParameterMember: SetParameter[Member] = (v: Member, pp) =>
-      pp >> v.toLengthLimitedString
-
+    implicit val memberIdToDbPrimitive: ToDbPrimitive[Member, String300] =
+      ToDbPrimitive(_.toLengthLimitedString)
     implicit val getResultMember: GetResult[Member] = GetResult { r =>
       Member
         .fromProtoPrimitive_(r.nextString())
@@ -207,10 +207,8 @@ object SynchronizerId {
   implicit val getResultSynchronizerIdO: GetResult[Option[SynchronizerId]] =
     UniqueIdentifier.getResultO.andThen(_.map(SynchronizerId(_)))
 
-  implicit val setParameterSynchronizerId: SetParameter[SynchronizerId] =
-    (d: SynchronizerId, pp: PositionedParameters) => pp >> d.toLengthLimitedString
-  implicit val setParameterSynchronizerIdO: SetParameter[Option[SynchronizerId]] =
-    (d: Option[SynchronizerId], pp: PositionedParameters) => pp >> d.map(_.toLengthLimitedString)
+  implicit val synchronizerIdToDbPrimitive: ToDbPrimitive[SynchronizerId, String255] =
+    ToDbPrimitive(_.toLengthLimitedString)
 
   def fromProtoPrimitive(
       proto: String,
@@ -232,7 +230,6 @@ final case class PhysicalSynchronizerId(
     serial: NonNegativeInt,
 ) extends Synchronizer {
   def suffix: String = s"$protocolVersion${PhysicalSynchronizerId.secondaryDelimiter}$serial"
-
   def uid: UniqueIdentifier = logical.uid
 
   def toLengthLimitedString: String300 =
@@ -242,7 +239,7 @@ final case class PhysicalSynchronizerId(
 
   def toProtoPrimitive: String = toLengthLimitedString.unwrap
 
-  override protected def pretty: Pretty[PhysicalSynchronizerId.this.type] =
+  override protected def pretty: Pretty[PhysicalSynchronizerId] =
     prettyOfString(_ =>
       logical.show ++ PhysicalSynchronizerId.primaryDelimiter ++ protocolVersion.show ++
         PhysicalSynchronizerId.secondaryDelimiter ++ serial.show
@@ -368,8 +365,8 @@ object ParticipantId {
   // Instances for slick (db) queries
   implicit val getResultParticipantId: GetResult[ParticipantId] =
     UniqueIdentifier.getResult.andThen(ParticipantId(_))
-  implicit val setParameterParticipantId: SetParameter[ParticipantId] =
-    (p: ParticipantId, pp: PositionedParameters) => pp >> p.uid.toLengthLimitedString
+  implicit val participantIdToDbPrimitive: ToDbPrimitive[ParticipantId, String255] =
+    ToDbPrimitive(_.uid.toLengthLimitedString)
 }
 
 sealed trait Party extends Identity with Product with Serializable {
@@ -422,8 +419,8 @@ object PartyId {
   implicit val ordering: Ordering[PartyId] = Ordering.by(x => x.toProtoPrimitive)
   implicit val getResultPartyId: GetResult[PartyId] =
     UniqueIdentifier.getResult.andThen(PartyId(_))
-  implicit val setParameterPartyId: SetParameter[PartyId] =
-    (p: PartyId, pp: PositionedParameters) => pp >> p.uid.toLengthLimitedString
+  implicit val partyIdToDbPrimitive: ToDbPrimitive[PartyId, String255] =
+    ToDbPrimitive(_.uid.toLengthLimitedString)
 
   def tryCreate(identifier: String, namespace: Namespace): PartyId =
     PartyId(UniqueIdentifier.tryCreate(identifier, namespace))

@@ -88,6 +88,7 @@ object RequireTypes {
 
     def map[U](f: T => U)(implicit num: Numeric[U]) = NonNegativeNumeric.tryCreate(f(value))
     def increment: PositiveNumeric[T] = PositiveNumeric.tryCreate(value + num.one)
+    def toPositiveNumeric: Option[PositiveNumeric[T]] = PositiveNumeric.create(value).toOption
 
     def +(other: NonNegativeNumeric[T]): NonNegativeNumeric[T] =
       NonNegativeNumeric.tryCreate(value + other.value)

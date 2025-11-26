@@ -15,6 +15,7 @@ import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.sequencer.api.v30 as v30Sequencer
 import com.digitalasset.canton.sequencing.SequencerTestUtils.MockMessageContent
 import com.digitalasset.canton.sequencing.client.SubscriptionCloseReason
+import com.digitalasset.canton.sequencing.client.SubscriptionCloseReason.TokenExpiration
 import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.SerializableTraceContext
 import com.digitalasset.canton.util.ByteStringUtil
@@ -151,6 +152,18 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
           status.getCode shouldBe UNAVAILABLE
           status.getDescription shouldBe "Connection terminated by the server."
       }
+    }
+
+    "close with `TokenExpiration` when closed by the server for an expired token" in {
+      val sut = createSubscription()
+
+      sut.observer.onError(
+        Status.UNAVAILABLE
+          .withDescription(ServerSubscriptionCloseReason.TokenExpired.description)
+          .asRuntimeException()
+      )
+
+      sut.closeReason.futureValue shouldBe TokenExpiration
     }
 
     "use the given handler to process received messages" in {

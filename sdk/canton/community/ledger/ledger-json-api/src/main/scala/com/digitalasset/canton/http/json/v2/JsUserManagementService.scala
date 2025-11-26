@@ -257,39 +257,39 @@ object JsUserManagementService extends DocumentationEndpoints {
     users.get
       .out(jsonBody[user_management_service.ListUsersResponse])
       .inPagedListParams()
-      .description("List all users.")
+      .protoRef(user_management_service.UserManagementServiceGrpc.METHOD_LIST_USERS)
 
   val createUserEndpoint =
     users.post
       .in(jsonBody[user_management_service.CreateUserRequest])
       .out(jsonBody[user_management_service.CreateUserResponse])
-      .description("Create user.")
+      .protoRef(user_management_service.UserManagementServiceGrpc.METHOD_CREATE_USER)
 
   val getUserEndpoint =
     users.get
       .in(path[String](userIdPath))
       .in(query[Option[String]]("identity-provider-id"))
       .out(jsonBody[user_management_service.GetUserResponse])
-      .description("Get user details.")
+      .protoRef(user_management_service.UserManagementServiceGrpc.METHOD_GET_USER)
 
   val getCurrentUserEndpoint =
     authenticatedUser.get
       .in(query[Option[String]]("identity-provider-id"))
       .out(jsonBody[user_management_service.GetUserResponse])
-      .description("Get current user details (uses user for JWT).")
+      .description("Get the user data of the current authenticated user.")
 
   val updateUserEndpoint =
     users.patch
       .in(path[String](userIdPath))
       .in(jsonBody[user_management_service.UpdateUserRequest])
       .out(jsonBody[user_management_service.UpdateUserResponse])
-      .description("Update  user.")
+      .protoRef(user_management_service.UserManagementServiceGrpc.METHOD_UPDATE_USER)
 
   val deleteUserEndpoint =
     users.delete
       .in(path[String](userIdPath))
       .out(jsonBody[Unit])
-      .description("Delete user.")
+      .protoRef(user_management_service.UserManagementServiceGrpc.METHOD_DELETE_USER)
 
   val grantUserRightsEndpoint =
     users.post
@@ -297,21 +297,22 @@ object JsUserManagementService extends DocumentationEndpoints {
       .in("rights")
       .in(jsonBody[user_management_service.GrantUserRightsRequest])
       .out(jsonBody[user_management_service.GrantUserRightsResponse])
-      .description("Grant user rights.")
+      .protoRef(user_management_service.UserManagementServiceGrpc.METHOD_GRANT_USER_RIGHTS)
+
   val revokeUserRightsEndpoint =
     users.patch
       .in(path[String](userIdPath))
       .in("rights")
       .in(jsonBody[user_management_service.RevokeUserRightsRequest])
       .out(jsonBody[user_management_service.RevokeUserRightsResponse])
-      .description("Revoke user rights.")
+      .protoRef(user_management_service.UserManagementServiceGrpc.METHOD_REVOKE_USER_RIGHTS)
 
   val listUserRightsEndpoint =
     users.get
       .in(path[String](userIdPath))
       .in("rights")
       .out(jsonBody[user_management_service.ListUserRightsResponse])
-      .description("List user rights.")
+      .protoRef(user_management_service.UserManagementServiceGrpc.METHOD_LIST_USER_RIGHTS)
 
   val updateUserIdentityProviderEndpoint =
     users.patch
@@ -319,7 +320,9 @@ object JsUserManagementService extends DocumentationEndpoints {
       .in("identity-provider-id")
       .in(jsonBody[user_management_service.UpdateUserIdentityProviderIdRequest])
       .out(jsonBody[user_management_service.UpdateUserIdentityProviderIdResponse])
-      .description("Update user identity provider.")
+      .protoRef(
+        user_management_service.UserManagementServiceGrpc.METHOD_UPDATE_USER_IDENTITY_PROVIDER_ID
+      )
 
   override def documentation: Seq[AnyEndpoint] = List(
     listUsersEndpoint,

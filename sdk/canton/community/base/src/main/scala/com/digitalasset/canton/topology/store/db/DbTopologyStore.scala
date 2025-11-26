@@ -1290,14 +1290,6 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
     ).map(_.toEffectiveStateChanges(fromEffectiveInclusive, onlyAtEffective))
   }
 
-  override def findSequencedTimestampsFrom(
-      fromSequencedInclusive: CantonTimestamp
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Vector[CantonTimestamp]] = {
-    val query =
-      sql"SELECT sequenced FROM common_topology_transactions WHERE store_id = $storeIndex AND sequenced >= $fromSequencedInclusive ORDER BY sequenced"
-    storage.query(query.as[CantonTimestamp], functionFullName)
-  }
-
   private def asOfQuery(asOf: CantonTimestamp, asOfInclusive: Boolean): SQLActionBuilder =
     if (asOfInclusive)
       sql" AND valid_from <= $asOf AND (valid_until is NULL OR $asOf < valid_until)"
