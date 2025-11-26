@@ -31,7 +31,12 @@ import com.daml.ledger.api.v2.{
 import com.digitalasset.canton.auth.AuthInterceptor
 import com.digitalasset.canton.http.WebsocketConfig
 import com.digitalasset.canton.http.json.v2.CirceRelaxedCodec.deriveRelaxedCodec
-import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput, v2Endpoint}
+import com.digitalasset.canton.http.json.v2.Endpoints.{
+  CallerContext,
+  TracedInput,
+  createProtoRef,
+  v2Endpoint,
+}
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
 import com.digitalasset.canton.http.json.v2.JsSchema.{
   JsCantonError,
@@ -328,13 +333,13 @@ object JsCommandService extends DocumentationEndpoints {
     .in(sttp.tapir.stringToPath("submit-and-wait-for-transaction"))
     .in(jsonBody[JsSubmitAndWaitForTransactionRequest])
     .out(jsonBody[JsSubmitAndWaitForTransactionResponse])
-    .description("Submit a batch of commands and wait for the transaction response")
+    .protoRef(command_service.CommandServiceGrpc.METHOD_SUBMIT_AND_WAIT_FOR_TRANSACTION)
 
   val submitAndWaitForReassignmentEndpoint = commands.post
     .in(sttp.tapir.stringToPath("submit-and-wait-for-reassignment"))
     .in(jsonBody[command_service.SubmitAndWaitForReassignmentRequest])
     .out(jsonBody[JsSubmitAndWaitForReassignmentResponse])
-    .description("Submit a batch of reassignment commands and wait for the reassignment response")
+    .protoRef(command_service.CommandServiceGrpc.METHOD_SUBMIT_AND_WAIT_FOR_REASSIGNMENT)
 
   val submitAndWaitForTransactionTree = commands.post
     .in(sttp.tapir.stringToPath("submit-and-wait-for-transaction-tree"))
@@ -349,14 +354,14 @@ object JsCommandService extends DocumentationEndpoints {
     .in(sttp.tapir.stringToPath("submit-and-wait"))
     .in(jsonBody[JsCommands])
     .out(jsonBody[SubmitAndWaitResponse])
-    .description("Submit a batch of commands and wait for the completion details")
+    .protoRef(command_service.CommandServiceGrpc.METHOD_SUBMIT_AND_WAIT)
 
   val submitAsyncEndpoint = commands.post
     .in(sttp.tapir.stringToPath("async"))
     .in(sttp.tapir.stringToPath("submit"))
     .in(jsonBody[JsCommands])
     .out(jsonBody[command_submission_service.SubmitResponse])
-    .description("Submit a command asynchronously")
+    .protoRef(command_submission_service.CommandSubmissionServiceGrpc.METHOD_SUBMIT)
 
   val submitReassignmentAsyncEndpoint =
     commands.post
@@ -364,7 +369,7 @@ object JsCommandService extends DocumentationEndpoints {
       .in(sttp.tapir.stringToPath("submit-reassignment"))
       .in(jsonBody[command_submission_service.SubmitReassignmentRequest])
       .out(jsonBody[command_submission_service.SubmitReassignmentResponse])
-      .description("Submit reassignment command asynchronously")
+      .protoRef(command_submission_service.CommandSubmissionServiceGrpc.METHOD_SUBMIT_REASSIGNMENT)
 
   val completionStreamEndpoint =
     commands.get
@@ -377,14 +382,20 @@ object JsCommandService extends DocumentationEndpoints {
           CodecFormat.Json,
         ](PekkoStreams)
       )
-      .description("Get completions stream")
+      .protoRef(command_completion_service.CommandCompletionServiceGrpc.METHOD_COMPLETION_STREAM)
 
   val completionListEndpoint =
     commands.post
       .in(sttp.tapir.stringToPath("completions"))
       .in(jsonBody[command_completion_service.CompletionStreamRequest])
       .out(jsonBody[Seq[command_completion_service.CompletionStreamResponse]])
-      .description("Query completions list (blocking call)")
+      .description(s"""|
+           |Query completions list (blocking call)
+           |
+           |${createProtoRef(
+          command_completion_service.CommandCompletionServiceGrpc.METHOD_COMPLETION_STREAM
+        )}
+       """.stripMargin.trim)
       .inStreamListParamsAndDescription()
 
   override def documentation: Seq[AnyEndpoint] = Seq(

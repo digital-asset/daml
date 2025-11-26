@@ -34,7 +34,7 @@ import com.daml.tracing.Telemetry
 import com.digitalasset.canton.auth.AuthorizationChecksErrors
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.v30.{SigningKeyScheme, SigningKeyUsage}
-import com.digitalasset.canton.crypto.{Signature, SigningPublicKey, v30}
+import com.digitalasset.canton.crypto.{Signature, SigningKeysWithThreshold, SigningPublicKey, v30}
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.validation.FieldValidator.*
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.requirePresence
@@ -87,7 +87,6 @@ import com.digitalasset.canton.platform.apiserver.update.PartyRecordUpdateMapper
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.*
-import com.digitalasset.canton.topology.transaction.DelegationRestriction.CanSignAllMappings
 import com.digitalasset.canton.topology.transaction.TopologyTransaction.PositiveTopologyTransaction
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionValidation}
@@ -861,11 +860,12 @@ private[apiserver] final class ApiPartyManagementService private (
           s"$participantId -> $permission"
         }
         .mkString("[", ", ", "]")
-      val signingKeysString = externalPartyOnboardingDetails.signedPartyToKeyMappingTransaction
-        .map { p2k =>
-          s" and ${p2k.mapping.signingKeys.size} signing keys with threshold ${p2k.mapping.threshold.value}"
-        }
-        .getOrElse("")
+      val signingKeysString =
+        externalPartyOnboardingDetails.optionallySignedPartyToParticipant.mapping.partySigningKeysWithThreshold
+          .map { case SigningKeysWithThreshold(keys, threshold) =>
+            s" and ${keys.size} signing keys with threshold ${threshold.value}"
+          }
+          .getOrElse("")
       logger.info(
         s"Allocating external party ${externalPartyOnboardingDetails.partyId.toProtoPrimitive} on" +
           s" $hostingParticipantsString with confirmation threshold ${externalPartyOnboardingDetails.confirmationThreshold.value}" + signingKeysString
@@ -1008,12 +1008,6 @@ private[apiserver] final class ApiPartyManagementService private (
         if (confirmationThreshold == 0) availableConfirmers
         else confirmationThreshold
       party = PartyId(uid)
-      nsd <- NamespaceDelegation.create(namespace, pubKey, CanSignAllMappings)
-      p2k <- PartyToKeyMapping.create(
-        party,
-        threshold = PositiveInt.one,
-        signingKeys = NonEmpty.mk(Seq, pubKey),
-      )
       p2p <- PartyToParticipant.create(
         party,
         threshold = PositiveInt.tryCreate(threshold),
@@ -1026,12 +1020,18 @@ private[apiserver] final class ApiPartyManagementService private (
         ) ++ observingPids.map(uid =>
           HostingParticipant(ParticipantId(uid), ParticipantPermission.Observation)
         )),
+        partySigningKeysWithThreshold = Some(
+          SigningKeysWithThreshold.tryCreate(
+            keys = NonEmpty.mk(Seq, pubKey),
+            threshold = PositiveInt.one,
+          )
+        ),
       )
     } yield {
       val (_synchronizerId, protocolVersion) = synchronizerIdWithVersion
       val transactions =
         NonEmpty
-          .mk(List, nsd, p2k, p2p)
+          .mk(List, p2p)
           .map(mapping =>
             TopologyTransaction(
               op = TopologyChangeOp.Replace,

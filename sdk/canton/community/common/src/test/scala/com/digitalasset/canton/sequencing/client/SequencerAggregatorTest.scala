@@ -12,7 +12,7 @@ import com.digitalasset.canton.util.ResourceUtil
 import com.digitalasset.canton.{
   BaseTest,
   HasExecutionContext,
-  ProtocolVersionChecksFixtureAnyWordSpec,
+  TestPredicateFiltersFixtureAnyWordSpec,
 }
 import com.google.protobuf.ByteString
 import org.scalatest.concurrent.ScalaFutures
@@ -25,7 +25,7 @@ class SequencerAggregatorTest
     extends FixtureAnyWordSpec
     with BaseTest
     with ScalaFutures
-    with ProtocolVersionChecksFixtureAnyWordSpec
+    with TestPredicateFiltersFixtureAnyWordSpec
     with HasExecutionContext {
 
   override type FixtureParam = SequencedEventTestFixture

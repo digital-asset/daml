@@ -29,21 +29,21 @@ trait KmsCryptoTest
     with SigningTest
     with EncryptionTest
     with RandomTest
-    with BeforeAndAfterAll
-    with KmsKeysRegistration {
+    with BeforeAndAfterAll {
 
   protected def kmsConfig: Option[KmsConfig]
 
   protected def supportedSchemes: Kms.SupportedSchemes
 
   private def createCryptoConfig(
-      paramSigningAlgorithmSpecs: NonEmpty[Set[SigningAlgorithmSpec]]
+      paramSigningAlgorithmSpecs: NonEmpty[Set[SigningAlgorithmSpec]],
+      paramEncryptionAlgorithmSpecs: NonEmpty[Set[EncryptionAlgorithmSpec]],
   ) =
     CryptoConfig(
       provider = CryptoProvider.Kms,
       encryption = EncryptionSchemeConfig(
         algorithms = CryptoSchemeConfig(
-          allowed = Some(supportedSchemes.supportedEncryptionAlgoSpecs)
+          allowed = Some(paramEncryptionAlgorithmSpecs)
         )
       ),
       signing = SigningSchemeConfig(
@@ -56,14 +56,20 @@ trait KmsCryptoTest
     )
 
   lazy val cryptoConfig: CryptoConfig =
-    createCryptoConfig(supportedSchemes.supportedSigningAlgoSpecs)
+    createCryptoConfig(
+      supportedSchemes.supportedSigningAlgoSpecs,
+      supportedSchemes.supportedEncryptionAlgoSpecs,
+    )
 
   /* A crypto configuration with a restricted set of signing algorithm specifications to test that
    * the sign/verify function fails when called with an unsupported one (or with a key not supported
    * by any of them).
    */
   lazy val cryptoConfigRestricted: CryptoConfig =
-    createCryptoConfig(NonEmpty.mk(Set, SigningAlgorithmSpec.EcDsaSha256))
+    createCryptoConfig(
+      NonEmpty.mk(Set, SigningAlgorithmSpec.EcDsaSha256),
+      NonEmpty.mk(Set, EncryptionAlgorithmSpec.RsaOaepSha256),
+    )
 
   private def createKmsCrypto(config: CryptoConfig) =
     Crypto
@@ -92,6 +98,10 @@ trait KmsCryptoTest
   "KmsCrypto" must {
 
     "fail if the default scheme is not supported" in {
+      // our Mock KMS driver supports all available crypto schemes. Unlike AWS and GCP,
+      // which for example do not support ECIES for encryption and fail if that scheme
+      // is selected, the Mock KMS driver will not fail in such cases.
+      assume(!kmsConfig.exists(_.isInstanceOf[KmsConfig.Driver]))
       for {
         // we check that if a particular scheme is set as the default, but is not supported by the KMS, it fails.
         res <- createKmsCrypto(
@@ -129,6 +139,7 @@ trait KmsCryptoTest
       supportedSchemes.supportedEncryptionAlgoSpecs,
       CryptoProvider.Kms.symmetric.supported,
       kmsCryptoF,
+      Some(kmsCryptoRestrictedF),
       Some(EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Cbc), // unsupported
     )
 

@@ -91,7 +91,7 @@ sealed trait CommandInterpretationIntegrationTest
       participant1.synchronizers.connect_local(sequencer1, alias = daName)
       participant1.dars.upload(BaseTest.CantonTestsPath)
 
-      val alice = participant1.parties.enable("Alice")
+      val alice = participant1.parties.testing.enable("Alice")
 
       val moduleName = "Loop"
       val templateName = "Helper"
@@ -134,7 +134,6 @@ sealed trait CommandInterpretationIntegrationTest
 //  registerPlugin(new UseH2(loggerFactory))
 //  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 //}
-
 class CommandInterpretationReferenceIntegrationTestPostgres
     extends CommandInterpretationIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))

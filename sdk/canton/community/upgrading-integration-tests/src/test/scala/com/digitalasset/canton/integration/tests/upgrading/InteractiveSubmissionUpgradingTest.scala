@@ -41,9 +41,9 @@ class InteractiveSubmissionUpgradingTest
         participant2.dars.upload(UpgradingBaseTest.UpgradeV2)
         participant3.dars.upload(UpgradingBaseTest.UpgradeV1)
 
-        lse = participant1.parties.external.enable("LSE")
-        alice = participant2.parties.external.enable("Alice")
-        bob = participant3.parties.external.enable("Bob")
+        lse = participant1.parties.testing.external.enable("LSE")
+        alice = participant2.parties.testing.external.enable("Alice")
+        bob = participant3.parties.testing.external.enable("Bob")
 
       }
 
@@ -77,13 +77,12 @@ class InteractiveSubmissionUpgradingTest
         )(
           owningParticipants = Map.empty,
           targetTopology = Map(
-            bob.partyId -> Map(
+            bob -> Map(
               daId -> (PositiveInt.one, Set(
                 (confirmingParticipant, ParticipantPermission.Confirmation)
               ))
             )
           ),
-          externalParties = Set(bob),
         )(executorService, env)
 
       // Set Bob confirmer to participant2 so that V2 gets used for the prepare step

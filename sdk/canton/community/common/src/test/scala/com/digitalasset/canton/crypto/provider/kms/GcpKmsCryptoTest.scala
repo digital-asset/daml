@@ -7,7 +7,10 @@ import com.digitalasset.canton.config.KmsConfig
 import com.digitalasset.canton.crypto.kms.Kms
 import com.digitalasset.canton.crypto.kms.gcp.GcpKms
 
-class GcpKmsCryptoTest extends KmsCryptoTest with PredefinedGcpKmsKeys {
+class GcpKmsCryptoTest
+    extends KmsCryptoTest
+    with PredefinedKmsKeysRegistration
+    with HasPredefinedGcpKmsKeys {
   override protected def kmsConfig: Option[KmsConfig.Gcp] = Some(KmsConfig.Gcp.defaultTestConfig)
   override protected def supportedSchemes: Kms.SupportedSchemes = GcpKms
 }

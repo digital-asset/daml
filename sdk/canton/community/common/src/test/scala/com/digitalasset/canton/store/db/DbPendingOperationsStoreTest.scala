@@ -44,8 +44,8 @@ sealed trait DbPendingOperationsStoreTest
       store: Option[PendingOperationStore[TestPendingOperationMessage]] = None,
       corruptOperationBytes: Option[ByteString] = None,
   ): Future[Unit] = {
-    import DbStorage.Implicits.setParameterByteString
     import storage.api.*
+    import storage.converters.*
     @unused
     implicit val setParameter: SetParameter[TestPendingOperationMessage] =
       (v: TestPendingOperationMessage, pp) => pp >> v.toByteString
@@ -84,8 +84,8 @@ sealed trait DbPendingOperationsStoreTest
     )
 
     "fail on write when inserting an invalid trigger type" in {
-      import DbStorage.Implicits.setParameterByteString
       import storage.api.*
+      import storage.converters.*
 
       val insertInvalidTriggerType =
         sqlu"""

@@ -38,7 +38,6 @@ import com.digitalasset.canton.participant.sync.SyncPersistentStateManager
 import com.digitalasset.canton.participant.synchronizer.SynchronizerRegistryError.HandshakeErrors.SynchronizerIdMismatch
 import com.digitalasset.canton.participant.synchronizer.SynchronizerRegistryHelpers.SynchronizerHandle
 import com.digitalasset.canton.participant.topology.{
-  LedgerServerPartyNotifier,
   ParticipantTopologyDispatcher,
   TopologyComponentFactory,
 }
@@ -92,7 +91,6 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
       replaySequencerConfig: AtomicReference[Option[ReplayConfig]],
       topologyDispatcher: ParticipantTopologyDispatcher,
       packageMetadataView: PackageMetadataView,
-      partyNotifier: LedgerServerPartyNotifier,
       metrics: SynchronizerAlias => ConnectedSynchronizerMetrics,
   )(implicit
       traceContext: TraceContext
@@ -318,7 +316,6 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
         topologyFactory.createInitialTopologySnapshotValidator(topologyConfig),
         topologyClient,
         sequencerClient,
-        partyNotifier,
         sequencerAggregatedInfo,
       ).thereafter {
         case Success(AbortedDueToShutdown) =>
@@ -368,7 +365,6 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
       topologySnapshotValidator: InitialTopologySnapshotValidator,
       topologyClient: SynchronizerTopologyClientWithInit,
       sequencerClient: SequencerClient,
-      partyNotifier: LedgerServerPartyNotifier,
       sequencerAggregatedInfo: SequencerAggregatedInfo,
   )(implicit
       ec: ExecutionContextExecutor,
@@ -390,22 +386,6 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
             sequencerClient,
             sequencerAggregatedInfo.staticSynchronizerParameters.protocolVersion,
           )
-          // notify the ledger api server about regular and admin parties contained
-          // in the topology snapshot for this synchronizer
-          .semiflatMap { storedTopologyTransactions =>
-            import cats.syntax.parallel.*
-            storedTopologyTransactions.result
-              .groupBy(stt => (stt.sequenced, stt.validFrom))
-              .toSeq
-              .sortBy(_._1)
-              .parTraverse_ { case ((sequenced, effective), topologyTransactions) =>
-                partyNotifier.observeTopologyTransactions(
-                  sequenced,
-                  effective,
-                  topologyTransactions.map(_.transaction),
-                )
-              }
-          }
           .leftMap[SynchronizerRegistryError](
             SynchronizerRegistryError.ConnectionErrors.FailedToConnectToSequencer.Error(_)
           )

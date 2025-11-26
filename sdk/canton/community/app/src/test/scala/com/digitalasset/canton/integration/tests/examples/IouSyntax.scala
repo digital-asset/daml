@@ -102,8 +102,8 @@ object IouSyntax {
       participant: ParticipantReference,
       synchronizerId: Option[SynchronizerId] = None,
   )(
-      payer: PartyId,
-      owner: PartyId,
+      payer: Party,
+      owner: Party,
       amount: Double = 100.0,
   ): (Iou.Contract, Transaction, Completion) =
     complete(participant, payer) {
@@ -193,7 +193,7 @@ object IouSyntax {
 
   def archive(participant: ParticipantReference, synchronizerId: Option[SynchronizerId] = None)(
       contract: Iou.Contract,
-      submittingParty: PartyId,
+      submittingParty: Party,
   ): Unit =
     participant.ledger_api.commands
       .submit(
@@ -208,7 +208,7 @@ object IouSyntax {
       )
       .discard
 
-  private def complete[T](participant: ParticipantReference, submitterParty: PartyId)(
+  private def complete[T](participant: ParticipantReference, submitterParty: Party)(
       submission: => T
   ): (T, Transaction, Completion) = {
     val ledgerEnd = participant.ledger_api.state.end()

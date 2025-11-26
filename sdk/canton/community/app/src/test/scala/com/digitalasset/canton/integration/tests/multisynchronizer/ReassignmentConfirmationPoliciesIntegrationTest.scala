@@ -166,10 +166,10 @@ sealed trait ReassignmentConfirmationPoliciesPartyIntegrationTest
       .reassignmentId
 
     PartyToParticipantDeclarative(Set(participant1, participant2), Set(daId, acmeId))(
-      owningParticipants = Map(alice -> participant1),
+      owningParticipants = Map(alice.partyId -> participant1),
       targetTopology = Map(
         // Only: alice -> P2 -> acme
-        alice -> Map(
+        alice.partyId -> Map(
           acmeId -> (PositiveInt.one, Set((participant2, Confirmation)))
         )
       ),
