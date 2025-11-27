@@ -249,7 +249,7 @@ genModule pkgMap (Scope scope) curPkgId curPkgNameVer mod
     Nothing -- If no serializable types or interfaces, nothing to do.
   | otherwise =
     let (decls, refs) = unzip (map (genDataDef curPkgId curPkgNameVer mod (interfaceChoices pkgMap curPkgId) tpls) serDefs)
-        (ifaceDecls, ifaceRefs) = unzip (map (genIfaceDecl curPkgNameVer mod) $ NM.toList ifaces)
+        (ifaceDecls, ifaceRefs) = unzip (map (genIfaceDecl curPkgId curPkgNameVer mod) $ NM.toList ifaces)
         imports = (SelfPackageId, modName) `Set.delete` Set.unions (refs ++ ifaceRefs)
         (internalImports, externalImports) = splitImports imports
         rootPath = map (const "..") (unModuleName modName)
@@ -353,11 +353,12 @@ genDataDef curPkgId curPkgNameVer mod ifcChoices tpls def = case unTypeConName (
         (decls, refs) = genDefDataType curPkgId curPkgNameVer c2 mod ifcChoices tpls def
         tyDecls = [d | DeclTypeDef d <- decls]
 
-genIfaceDecl :: PackageNameVersion -> Module -> DefInterface -> ([TsDecl], Set.Set ModuleRef)
-genIfaceDecl curPkgNameVer mod DefInterface {intName, intChoices, intView} =
+genIfaceDecl :: PackageId -> PackageNameVersion -> Module -> DefInterface -> ([TsDecl], Set.Set ModuleRef)
+genIfaceDecl curPkgId curPkgNameVer mod DefInterface {intName, intChoices, intView} =
   ( [ DeclInterface
         (InterfaceDef
            { ifName = name
+           , ifPkgId = curPkgId
            , ifPkgNameVer = curPkgNameVer
            , ifChoices = choices
            , ifModule = moduleName mod
@@ -434,6 +435,7 @@ renderTemplateRegistration (TemplateRegistration t pkgId pkgNameVer) = T.unlines
 
 data TemplateDef = TemplateDef
   { tplName :: T.Text
+  , tplPkgId :: PackageId
   , tplPkgNameVer :: PackageNameVersion
   , tplModule :: ModuleName
   , tplDecoder :: Decoder
@@ -455,6 +457,7 @@ renderTemplateDef TemplateDef {..} =
               concat
                 [ ["{"]
                 , [ "  templateId: '" <> templateId <> "',"
+                  , "  templateIdWithPackageId: '" <> templateIdWithPackageId <> "',"
                   , "  keyDecoder: " <> renderDecoder (DecoderLazy keyDec) <> ","
                   , "  keyEncode: " <> renderEncode tplKeyEncode <> ","
                   , "  decoder: " <> renderDecoder (DecoderLazy tplDecoder) <> ","
@@ -498,9 +501,14 @@ renderTemplateDef TemplateDef {..} =
             pkgNameVerToPackageRef tplPkgNameVer <> ":" <>
             T.intercalate "." (unModuleName tplModule) <> ":" <>
             tplName
+        templateIdWithPackageId = unPackageId tplPkgId <> ":" <>
+            T.intercalate "." (unModuleName tplModule) <> ":" <>
+            tplName
+
 
 data InterfaceDef = InterfaceDef
   { ifName :: T.Text
+  , ifPkgId :: PackageId
   , ifPkgNameVer :: PackageNameVersion
   , ifModule :: ModuleName
   , ifChoices :: [ChoiceDef]
@@ -508,12 +516,12 @@ data InterfaceDef = InterfaceDef
   }
 
 renderInterfaceDef :: InterfaceDef -> (T.Text, T.Text)
-renderInterfaceDef InterfaceDef{ifName, ifPkgNameVer, ifChoices,
-                                ifModule, ifView} = (jsSource, tsDecl)
+renderInterfaceDef InterfaceDef{..} = (jsSource, tsDecl)
   where
     jsSource = T.unlines $ concat
       [ [ "exports." <> ifName <> " = damlTypes.assembleInterface("
         , "  '" <> ifaceId <> "',"
+        , "  '" <> ifaceIdWithPackageId <> "',"
         , "  function () { return " <> viewCompanion <> "; },"
         , "  {"
         ]
@@ -544,6 +552,10 @@ renderInterfaceDef InterfaceDef{ifName, ifPkgNameVer, ifChoices,
     (TsTypeConRef viewTy, JsSerializerConRef viewCompanion) = ifView
     ifaceId =
         pkgNameVerToPackageRef ifPkgNameVer <> ":" <>
+        T.intercalate "." (unModuleName ifModule) <> ":" <>
+        ifName
+    ifaceIdWithPackageId =
+        unPackageId ifPkgId <> ":" <>
         T.intercalate "." (unModuleName ifModule) <> ":" <>
         ifName
 
@@ -887,6 +899,7 @@ genDefDataType curPkgId curPkgNameVer conName mod (InterfaceChoices ifcChoices) 
                             , let ifaceRefs = Set.setOf qualifiedModuleRef impl]
                         dict = TemplateDef
                             { tplName = conName
+                            , tplPkgId = curPkgId
                             , tplPkgNameVer = curPkgNameVer
                             , tplModule = moduleName mod
                             , tplDecoder = DecoderObject [(x, DecoderRef ser) | (x, ser) <- zip fieldNames fieldTypes]
