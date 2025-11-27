@@ -97,7 +97,10 @@ object BlockUpdateGenerator {
       tickAtLeastAt: CantonTimestamp,
       groupRecipient: Either[AllMembersOfSynchronizer.type, SequencersOfSynchronizer.type],
   ) extends BlockChunk
-  final case class MaybeTopologyTickChunk(blockHeight: Long) extends BlockChunk
+  final case class MaybeTopologyTickChunk(
+      blockHeight: Long,
+      baseBlockSequencingTime: CantonTimestamp,
+  ) extends BlockChunk
   final case class EndOfBlock(blockHeight: Long) extends BlockChunk
 }
 
@@ -139,6 +142,8 @@ class BlockUpdateGeneratorImpl(
     lastBlockTs = state.latestBlock.lastTs,
     lastChunkTs = state.latestBlock.lastTs,
     latestSequencerEventTimestamp = state.latestBlock.latestSequencerEventTimestamp,
+    latestTopologyTransactionTimestamp =
+      CantonTimestamp.MinValue, // TODO(#29314): initialize value from database
     inFlightAggregations = state.inFlightAggregations,
   )
 
@@ -203,7 +208,7 @@ class BlockUpdateGeneratorImpl(
         blockEvents.tickTopology.map { case TickTopology(micros, recipient) =>
           TopologyTickChunk(blockHeight, micros, recipient)
         }
-      else Some(MaybeTopologyTickChunk(blockHeight))
+      else Some(MaybeTopologyTickChunk(blockHeight, blockEvents.baseBlockSequencingTime))
 
     // We must start a new chunk whenever the chunk processing advances lastSequencerEventTimestamp,
     //  otherwise the logic for retrieving a topology snapshot or traffic state could deadlock.
@@ -248,23 +253,34 @@ class BlockUpdateGeneratorImpl(
         blockChunkProcessor.processDataChunk(state, height, index, chunksEvents)
       case TopologyTickChunk(blockHeight, tickAtLeastAt, groupRecipient) =>
         blockChunkProcessor.emitTick(state, blockHeight, tickAtLeastAt, groupRecipient)
-      case MaybeTopologyTickChunk(blockHeight) =>
-        val (activeTopologyTimestamps, pendingTopologyTimestamps) = state.pendingTopologyTimestamps
-          .partition(_ + epsilon < state.lastBlockTs.immediateSuccessor)
-        val newState = state.copy(pendingTopologyTimestamps = pendingTopologyTimestamps)
-
-        activeTopologyTimestamps.maxOption match {
-          // if there is a pending potential topology transaction whose sequencing timestamp is after the activation time of the
-          // most recent newly active topology transaction in this block, it acts as a tick too, so no need for a dedicated tick event
-          case Some(timestamp) if !pendingTopologyTimestamps.exists(_ > timestamp + epsilon) =>
-            blockChunkProcessor.emitTick(
-              newState,
-              blockHeight,
-              timestamp,
-              Left(AllMembersOfSynchronizer),
-            )
-          case _ => FutureUnlessShutdown.pure((newState, ChunkUpdate.noop))
+      case MaybeTopologyTickChunk(blockHeight, baseBlockSequencingTime) =>
+        val createTick = {
+          // If the latest topology transaction becomes effective between the end of the previous block and the end of
+          // the current block, we will broadcast a tick at the end of the current block so all sequencer clients can
+          // notice that enough time has passed for the topology state to be effective.
+          //
+          // We only keep track of the latest topology transaction instead of all currently non-effective transactions.
+          // Reasoning: let's say we get 2 consecutive topology transactions T1 and T2, so either:
+          // - T1 becomes effective in block B1, and T2 comes in a later block B2, in that case a tick is created in block B1.
+          // - T1 becomes effective in block B1, and T2 comes in the same block after T1's effective time.
+          //    We stop keeping track of T1's timestamp, but that's ok, because T2 acts as a tick for T1.
+          // - T2 comes before T1 becomes effective. In that case, we stop keeping track of T1's timestamp, in favor of T2's.
+          //    If T2 becomes effective on the same block as T1, then it makes no difference.
+          //    If T2 becomes effective on the next block from where T1 becomes effective, then it means T1's tick will get
+          //    delayed by one block and that, in general, fewer ticks are potentially created, which is a desirable outcome.
+          val latestTopologyTransactionEffectiveTime =
+            state.latestTopologyTransactionTimestamp + epsilon
+          val blockEnd = state.lastChunkTs.immediateSuccessor.max(baseBlockSequencingTime)
+          state.lastBlockTs < latestTopologyTransactionEffectiveTime && latestTopologyTransactionEffectiveTime < blockEnd
         }
+        if (createTick) {
+          blockChunkProcessor.emitTick(
+            state,
+            blockHeight,
+            state.lastChunkTs.max(baseBlockSequencingTime),
+            Left(AllMembersOfSynchronizer),
+          )
+        } else FutureUnlessShutdown.pure((state, ChunkUpdate.noop))
     }
 }
 
@@ -274,9 +290,8 @@ object BlockUpdateGeneratorImpl {
       lastBlockTs: CantonTimestamp,
       lastChunkTs: CantonTimestamp,
       latestSequencerEventTimestamp: Option[CantonTimestamp],
+      latestTopologyTransactionTimestamp: CantonTimestamp,
       inFlightAggregations: InFlightAggregations,
-      // The sequencing times of potential topology transactions that are not yet effective
-      pendingTopologyTimestamps: Vector[CantonTimestamp] = Vector.empty,
   )
 
   private[update] final case class SequencedValidatedSubmission(

@@ -315,7 +315,15 @@ private final class ChangeAssignation(
 
         val contractCounters =
           contractIds.flatMap { case (cid, counter) =>
-            contractsById.get(cid).map { case contract => (contract, counter) }
+            // TODO(#26468): Use representative package
+            contractsById.get(cid).map { contract =>
+              (
+                contract,
+                Source(contract.templateId.packageId),
+                Target(contract.templateId.packageId),
+                counter,
+              )
+            }
           }
         val batches = ContractsReassignmentBatch.partition(contractCounters)
         EitherT.rightT[FutureUnlessShutdown, String](Changes(batches, newContractIds))

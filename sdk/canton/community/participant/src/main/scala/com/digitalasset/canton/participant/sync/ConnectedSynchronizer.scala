@@ -974,6 +974,8 @@ class ConnectedSynchronizer(
                 submitterMetadata,
                 contractIds,
                 targetSynchronizer,
+                overrideSourceValidationPkgIds = Map.empty,
+                overrideTargetValidationPkgIds = Map.empty,
               ),
             sourceTopology.unwrap,
           )

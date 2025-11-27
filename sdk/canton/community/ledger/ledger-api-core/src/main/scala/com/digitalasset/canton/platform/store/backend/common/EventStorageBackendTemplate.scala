@@ -830,30 +830,42 @@ abstract class EventStorageBackendTemplate(
   override def lastSynchronizerOffsetBeforeOrAtRecordTime(
       synchronizerId: SynchronizerId,
       beforeOrAtRecordTimeInclusive: Timestamp,
-  )(connection: Connection): Option[SynchronizerOffset] = {
+  )(connection: Connection)(implicit traceContext: TraceContext): Option[SynchronizerOffset] = {
     val ledgerEndOffset = ledgerEndCache().map(_.lastOffset)
-    List(
+
+    logger.debug(
+      s"Querying lastSynchronizerOffset: beforeOrAtRecordTime=$beforeOrAtRecordTimeInclusive, ledgerEndOffset=$ledgerEndOffset, synchronizerId=$synchronizerId"
+    )
+
+    val completionQueryResult =
       SQL"""
-          SELECT completion_offset, record_time, publication_time, synchronizer_id
-          FROM lapi_command_completions
-          WHERE
-            synchronizer_id = ${stringInterning.synchronizerId.internalize(synchronizerId)} AND
-            record_time <= ${beforeOrAtRecordTimeInclusive.micros} AND
-            ${QueryStrategy.offsetIsLessOrEqual("completion_offset", ledgerEndOffset)}
-          ORDER BY synchronizer_id DESC, record_time DESC, completion_offset DESC
-          ${QueryStrategy.limitClause(Some(1))}
-          """.asSingleOpt(completionSynchronizerOffsetParser(stringInterning))(connection),
+        SELECT completion_offset, record_time, publication_time, synchronizer_id
+        FROM lapi_command_completions
+        WHERE
+          synchronizer_id = ${stringInterning.synchronizerId.internalize(synchronizerId)} AND
+          record_time <= ${beforeOrAtRecordTimeInclusive.micros} AND
+          ${QueryStrategy.offsetIsLessOrEqual("completion_offset", ledgerEndOffset)}
+        ORDER BY synchronizer_id DESC, record_time DESC, completion_offset DESC
+        ${QueryStrategy.limitClause(Some(1))}
+        """.asSingleOpt(completionSynchronizerOffsetParser(stringInterning))(connection)
+
+    logger.debug(s"lapi_command_completions query result: $completionQueryResult")
+
+    val metaQueryResult =
       SQL"""
-          SELECT event_offset, record_time, publication_time, synchronizer_id
-          FROM lapi_update_meta
-          WHERE
-            synchronizer_id = ${stringInterning.synchronizerId.internalize(synchronizerId)} AND
-            record_time <= ${beforeOrAtRecordTimeInclusive.micros} AND
-            ${QueryStrategy.offsetIsLessOrEqual("event_offset", ledgerEndOffset)}
-          ORDER BY synchronizer_id DESC, record_time DESC, event_offset DESC
-          ${QueryStrategy.limitClause(Some(1))}
-          """.asSingleOpt(metaSynchronizerOffsetParser(stringInterning))(connection),
-    ).flatten
+        SELECT event_offset, record_time, publication_time, synchronizer_id
+        FROM lapi_update_meta
+        WHERE
+          synchronizer_id = ${stringInterning.synchronizerId.internalize(synchronizerId)} AND
+          record_time <= ${beforeOrAtRecordTimeInclusive.micros} AND
+          ${QueryStrategy.offsetIsLessOrEqual("event_offset", ledgerEndOffset)}
+        ORDER BY synchronizer_id DESC, record_time DESC, event_offset DESC
+        ${QueryStrategy.limitClause(Some(1))}
+        """.asSingleOpt(metaSynchronizerOffsetParser(stringInterning))(connection)
+
+    logger.debug(s"lapi_update_meta query result: $metaQueryResult")
+
+    List(completionQueryResult, metaQueryResult).flatten
       .sortBy(_.offset)
       .reverse
       .headOption

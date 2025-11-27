@@ -164,7 +164,7 @@ class OnboardingClearanceScheduler(
               case Success(_) =>
                 // Time has come, attempt to trigger the clearance
                 triggerClearanceAttempt(task)
-              // TODO(#28258) – Add a re-try for retriable errors
+              // TODO(#29427) – Add a re-try for retriable errors
               case Failure(e) =>
                 logger.warn(
                   s"Failed to await tick for onboarding clearance task (party: ${task.partyId}).",

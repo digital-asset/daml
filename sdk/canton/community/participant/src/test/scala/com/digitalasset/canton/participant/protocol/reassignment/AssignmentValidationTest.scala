@@ -410,7 +410,12 @@ final class AssignmentValidationTest
         seed,
         reassignmentId,
         submitterInfo(submitter),
-        ContractsReassignmentBatch(contract, reassignmentCounter),
+        ContractsReassignmentBatch(
+          contract,
+          Source(contract.templateId.packageId),
+          Target(contract.templateId.packageId),
+          reassignmentCounter,
+        ),
         sourceSynchronizer,
         targetSynchronizer,
         targetMediator,

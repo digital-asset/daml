@@ -103,7 +103,14 @@ object UnassignmentData
           ContractInstance
             .decodeWithCreatedAt(contractP)
             .leftMap(err => ContractDeserializationError(err))
-            .map(_ -> ReassignmentCounter(reassignmentCounterP))
+            .map(c =>
+              (
+                c,
+                Source(c.templateId.packageId),
+                Target(c.templateId.packageId),
+                ReassignmentCounter(reassignmentCounterP),
+              )
+            )
       }
       .flatMap(
         ContractsReassignmentBatch
