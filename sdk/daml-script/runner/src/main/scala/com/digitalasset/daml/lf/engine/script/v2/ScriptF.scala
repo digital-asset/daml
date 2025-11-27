@@ -517,11 +517,19 @@ object ScriptF {
         )
       } yield SEValue(SOptional(optR))
   }
+
+  /** Allocate a party on the default, a singular, or multiple participants
+    *
+    *  @param participants if None we use default_participant. If None or Some
+    *  with empty list in second position, we use the old allocateParty logic. If
+    *  Some and list in second position not empty, we have the multi participant
+    *  workflow.
+    */
   final case class AllocParty(
       partyHint: String,
       participants: Option[
         (Participant, List[Participant])
-      ], // Option of pair since when called from v1 it may be None in which case we use the default_participant of clients, handled by assertGetParticipantFuture
+      ],
   ) extends Cmd {
     override def execute(env: Env)(implicit
         ec: ExecutionContext,
@@ -529,43 +537,34 @@ object ScriptF {
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] = {
       val owningParticipant = participants.map(_._1)
-      if (participants.map(_._2.isEmpty).getOrElse(true)) {
-        // old, one-participant workflow
-        for {
-          owningClient <- env.clients.assertGetParticipantFuture(owningParticipant)
-          party <- owningClient.allocateParty(partyHint)
-        } yield {
-          owningParticipant.foreach(env.addPartyParticipantMapping(party, _))
-          SEValue(SParty(party))
-        }
-      } else {
-        for {
-          owningClient <- env.clients.assertGetParticipantFuture(owningParticipant)
+      for {
+        owningClient <- env.clients.assertGetParticipantFuture(owningParticipant)
 
-          otherClients <- Future.traverse(participants.map(_._2).getOrElse(List.empty))(
-            participant => env.clients.assertGetParticipantFuture(participant)
-          )
-          clients = owningClient +: otherClients
+        party <-
+          if (participants.map(_._2.isEmpty).getOrElse(true)) {
+            owningClient.allocateParty(partyHint)
+          } else {
+            for {
+              otherClients <- Future.traverse(participants.map(_._2).getOrElse(List.empty))(
+                participant => env.clients.assertGetParticipantFuture(participant)
+              )
+              clients = owningClient +: otherClients
+              participantIds = clients.map(_.getParticipantUid)
 
-          participantIds = clients.map(_.getParticipantUid)
-
-          // we defer to the owningClient to implement the foreach(client) such that in the case of IDE ledger we can instead allocate a party once
-          // aggregateAllocatePartyOnMultipleParticipants also returns a party, since IDE ledger allocates parties without namespace or leading "::"
-          party <- owningClient.aggregateAllocatePartyOnMultipleParticipants(
-            clients,
-            partyHint,
-            owningClient.getParticipantUid.split("::").last,
-            participantIds,
-          )
-
-          _ <- Future.traverse(env.clients.participants.values)(client =>
-            client.waitUntilHostingVisible(party, participantIds)
-          )
-
-        } yield {
-          owningParticipant.foreach(env.addPartyParticipantMapping(party, _))
-          SEValue(SParty(party))
-        }
+              p <- owningClient.aggregateAllocatePartyOnMultipleParticipants(
+                clients,
+                partyHint,
+                owningClient.getParticipantUid.split("::").last,
+                participantIds,
+              )
+              _ <- Future.traverse(env.clients.participants.values)(
+                _.waitUntilHostingVisible(p, participantIds)
+              )
+            } yield p
+          }
+      } yield {
+        owningParticipant.foreach(env.addPartyParticipantMapping(party, _))
+        SEValue(SParty(party))
       }
     }
   }

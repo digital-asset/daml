@@ -314,27 +314,6 @@ class AdminLedgerClient private[grpcLedgerClient] (
     } yield ()
   }
 
-//  def waitUntilHostingVisible(
-//      partyId: String,
-//      onParticipantUid: String,
-//      attempts: Int = 10,
-//      firstWaitTime: Duration = 100.millis,
-//  ): Future[Unit] = for {
-//    synchronizerId <- getSynchronizerId
-//    _ <- RetryStrategy
-//      .exponentialBackoff(attempts, firstWaitTime) { (_, _) =>
-//        for {
-//          hostingParticipants <- listHostingParticipants(partyId, synchronizerId)
-//          _ <- Future {
-//            assert(
-//              hostingParticipants.exists(_.participantUid == onParticipantUid),
-//              s"Participant $participantUid does not yet see that $onParticipantUid hosts $partyId",
-//            )
-//          }
-//        } yield ()
-//      }
-//  } yield ()
-
   def waitUntilHostingVisible(
       partyId: String,
       onParticipantUids: Iterable[String],

@@ -111,10 +111,10 @@ case class Participants[+T](
     }
 
   def assertGetParticipantFuture(participant: Option[Participant]): Future[T] =
-    getParticipant(participant) match {
-      case Right(p) => Future.successful(p)
-      case Left(err) => Future.failed(new RuntimeException(err))
-    }
+    getParticipant(participant).fold(
+      err => Future.failed(new RuntimeException(err)),
+      p => Future.successful(p),
+    )
 
   def assertGetParticipantFuture(participant: Participant): Future[T] =
     assertGetParticipantFuture(Some(participant))
