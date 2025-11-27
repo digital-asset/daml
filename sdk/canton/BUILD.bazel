@@ -1237,6 +1237,7 @@ scala_library(
         ":community_sequencer-driver",
         ":community_util-observability",
         "//daml-lf/data",
+        "//daml-lf/transaction",
         "//observability/metrics",
         "@maven//:com_chuusai_shapeless_2_13",
         "@maven//:com_github_pureconfig_pureconfig_core_2_13",

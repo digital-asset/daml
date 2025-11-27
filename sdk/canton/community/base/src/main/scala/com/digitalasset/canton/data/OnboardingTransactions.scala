@@ -7,14 +7,20 @@ import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.topology.transaction.*
 
 /** Onboarding transactions for an external party
+  * @param partyToParticipant
+  *   is mandatory and can be enough if self-authorized (i.e one of the protocol signing keys
+  *   controls the party's namespace)
+  * @param optionalDecentralizedNamespace
+  *   optional to create external parties controlled by a decentralized namespace
   */
 final case class OnboardingTransactions(
-    namespace: SignedTopologyTransaction[TopologyChangeOp.Replace, TopologyMapping],
     partyToParticipant: SignedTopologyTransaction[TopologyChangeOp.Replace, PartyToParticipant],
-    partyToKeyMapping: SignedTopologyTransaction[TopologyChangeOp.Replace, PartyToKeyMapping],
+    optionalDecentralizedNamespace: Option[
+      SignedTopologyTransaction[TopologyChangeOp.Replace, DecentralizedNamespaceDefinition]
+    ] = None,
 ) {
   def toSeq: Seq[SignedTopologyTransaction[TopologyChangeOp.Replace, TopologyMapping]] =
-    Seq(namespace, partyToParticipant, partyToKeyMapping)
+    Seq(partyToParticipant) ++ optionalDecentralizedNamespace.toList
 
   def transactionsWithSingleSignature
       : Seq[(TopologyTransaction[TopologyChangeOp.Replace, TopologyMapping], Seq[Signature])] =

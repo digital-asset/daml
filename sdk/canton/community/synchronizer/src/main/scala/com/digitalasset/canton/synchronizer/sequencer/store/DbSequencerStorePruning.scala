@@ -46,7 +46,7 @@ trait DbSequencerStorePruning {
       functionName: String = functionFullName,
   )(implicit ec: ExecutionContext, tc: TraceContext): FutureUnlessShutdown[Seq[Int]] =
     MonadUtil.batchedSequentialTraverse(
-      batchingConfig.parallelism,
+      batchingConfig.pruningParallelism,
       batchingConfig.maxItemsInBatch,
     )(intervals) { intervalsChunk =>
       val chunkDBIO = DbStorage.bulkOperation(

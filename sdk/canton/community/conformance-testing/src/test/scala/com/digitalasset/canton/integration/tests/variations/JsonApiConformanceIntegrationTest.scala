@@ -64,7 +64,7 @@ sealed trait JsonApiConformanceBase
     val config = Config.default.copy(
       verbose = true,
       timeoutScaleFactor = 3.0,
-      reportOnFailuresOnly = true,
+      reportOnFailuresOnly = false,
       jsonApiMode = useJson,
       participantsEndpoints = participants,
       participantsAdminEndpoints = adminParticipants,
@@ -167,7 +167,7 @@ sealed trait JsonApiConformanceBase
           s"Running ${testsToBeRun.mkString("[", ", ", "]")} in current shard $shard/$numShards"
         )
 
-        val (resultF, _testCases) = testRunner.runInProcess()
+        val (resultF, _testCases) = testRunner.runInProcess(logger.underlying)
         resultF
           .map { summaries =>
             val failures = summaries

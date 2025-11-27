@@ -434,6 +434,25 @@ class GlobalSecretKeyAdministration(
   private implicit val tc: TraceContext = TraceContext.empty
   private implicit val ce: ConsoleEnvironment = consoleEnvironment
 
+  @Help.Summary("Get the SigningPublicKey for a fingerprint")
+  @Help.Description(
+    """Get the SigningPublicKey for a fingerprint.
+      |
+      |The arguments are:
+      |  - fingerprint: Fingerprint of the key to lookup
+      |
+      |Fails if the corresponding keys are not in the global crypto.
+      |"""
+  )
+  def get_signing_key(fingerprint: Fingerprint): SigningPublicKey =
+    consoleEnvironment.run(
+      ConsoleCommandResult.fromEitherTUS(
+        consoleEnvironment.tryGlobalCrypto.cryptoPublicStore
+          .signingKey(fingerprint)
+          .toRight(s"Signing key not found for fingerprint $fingerprint")
+      )
+    )
+
   @Help.Summary("Sign the given hash on behalf of the external party")
   @Help.Description(
     """Sign the given hash on behalf of the external party with signingThreshold keys.

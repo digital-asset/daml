@@ -339,6 +339,10 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
         import env.*
 
         val partyE = cpn.parties.testing.external.enable("Party")
+        val currentP2P = cpn.topology.party_to_participant_mappings
+          .list(synchronizer1Id, filterParty = partyE.filterString)
+          .loneElement
+          .item
 
         // Change cpn to observation rights
         val newPTP = TopologyTransaction(
@@ -351,6 +355,7 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
               Seq(
                 HostingParticipant(cpn, ParticipantPermission.Observation, false)
               ),
+              partySigningKeysWithThreshold = currentP2P.partySigningKeysWithThreshold,
             )
             .value,
           protocolVersion = testedProtocolVersion,
@@ -1038,9 +1043,9 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
           UUID.randomUUID().toString,
           HASHING_SCHEME_VERSION_V2,
         ),
-        _.errorMessage should (include(UnknownInformees.id) and include(
-          s"unknownInformees=>Set(${temporaryPartyE.partyId.toProtoPrimitive})"
-        )),
+        _.errorMessage should include(
+          s"Could not find party signing keys for ${temporaryPartyE.partyId}"
+        ),
       )
     }
   }

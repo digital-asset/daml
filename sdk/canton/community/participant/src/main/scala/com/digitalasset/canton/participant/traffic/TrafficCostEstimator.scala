@@ -348,16 +348,16 @@ class TrafficCostEstimator(
   ): Seq[Signature] =
     // If hints are provided, use them to mock a signature with the expected algorithm
     if (costHints.signingAlgorithmSpec.nonEmpty) {
-      costHints.signingAlgorithmSpec.map(mockSignature)
+      costHints.signingAlgorithmSpec.map(mockSignature(_, None))
     } else {
       // Otherwise mock threshold-many signatures from the first keys in the party to key mapping
       partyAuth.keys.forgetNE
         .flatMap { key =>
           synchronizerCrypto.pureCrypto.signingAlgorithmSpecs.allowed
             .find(_.supportedSigningKeySpecs.contains(key.keySpec))
+            .map(mockSignature(_, Some(key.fingerprint)))
         }
         .take(partyAuth.threshold.value)
-        .map(mockSignature)
         .toSeq
     }
 }
@@ -469,7 +469,7 @@ object TrafficCostEstimator {
             Seq.empty,
           ): SyncCryptoError,
         )
-      } yield mockSignature(signingAlgorithm)
+      } yield mockSignature(signingAlgorithm, Some(key.fingerprint))
   }
 
   private def mockHash = Hash
@@ -480,11 +480,12 @@ object TrafficCostEstimator {
     )
 
   private def mockSignature(
-      spec: SigningAlgorithmSpec
+      spec: SigningAlgorithmSpec,
+      signedBy: Option[Fingerprint],
   ) = Signature.create(
     spec.supportedSignatureFormats.head1,
     ByteString.copyFrom(Random.nextBytes(spec.approximateSignatureSize)),
-    Fingerprint.tryFromString(mockHash.toHexString),
+    signedBy.getOrElse(Fingerprint.tryFromString(mockHash.toHexString)),
     Some(spec),
     None,
   )

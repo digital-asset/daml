@@ -145,18 +145,19 @@ object UpdateId {
     prettyOfParam(_.hash)
   }
 
-  implicit val setParameterUpdateId: SetParameter[UpdateId] = (v, pp) => pp.>>(v.hash)
+  implicit def setParameterUpdateId(implicit setHash: SetParameter[Hash]): SetParameter[UpdateId] =
+    setHash.contramap(_.hash)
 
-  implicit val getResultUpdateId: GetResult[UpdateId] = GetResult { r =>
-    UpdateId(r.<<)
-  }
+  implicit def getResultUpdateId(implicit getHash: GetResult[Hash]): GetResult[UpdateId] =
+    getHash.andThen(UpdateId(_))
 
-  implicit val setParameterOptionUpdateId: SetParameter[Option[UpdateId]] = (v, pp) =>
-    pp.>>(v.map(_.hash))
+  implicit def setParameterOptionUpdateId(implicit
+      setHash: SetParameter[Option[Hash]]
+  ): SetParameter[Option[UpdateId]] = setHash.contramap(_.map(_.hash))
 
-  implicit val getResultOptionUpdateId: GetResult[Option[UpdateId]] = GetResult { r =>
-    (r.<<[Option[Hash]]).map(UpdateId(_))
-  }
+  implicit def getResultOptionUpdateId(implicit
+      getHash: GetResult[Option[Hash]]
+  ): GetResult[Option[UpdateId]] = getHash.andThen(_.map(UpdateId(_)))
 }
 
 /** A hash-based transaction view id

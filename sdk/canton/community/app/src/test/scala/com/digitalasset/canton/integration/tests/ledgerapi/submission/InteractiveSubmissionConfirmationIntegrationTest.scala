@@ -4,7 +4,7 @@
 package com.digitalasset.canton.integration.tests.ledgerapi.submission
 
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.PrepareSubmissionResponse
-import com.daml.nonempty.NonEmptyUtil
+import com.daml.nonempty.NonEmpty
 import com.daml.scalautil.future.FutureConversion.*
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{CommandFailure, LocalParticipantReference}
@@ -46,6 +46,7 @@ import org.scalatest.Assertion
 import org.slf4j.event.Level
 
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
 import scala.collection.immutable.Seq
 import scala.concurrent.{Await, Future, Promise}
 import scala.util.Failure
@@ -112,6 +113,7 @@ final class InteractiveSubmissionConfirmationIntegrationTest
             PrepareSubmissionResponse,
             Map[PartyId, Seq[Signature]],
             Promise[Unit],
+            AtomicBoolean,
         ) => Assertion,
         expectedLogs: Seq[(LogEntry => Assertion, String)],
         signaturesModifier: Map[PartyId, Seq[Signature]] => Map[PartyId, Seq[Signature]] = identity,
@@ -121,6 +123,7 @@ final class InteractiveSubmissionConfirmationIntegrationTest
       import env.*
 
       val sequencer = getProgrammableSequencer(env.sequencer1.name)
+      val hasReachedSequencer = new AtomicBoolean(false)
 
       val prepared = cpn.ledger_api.javaapi.interactive_submission.prepare(
         Seq(externalParty.partyId),
@@ -151,11 +154,12 @@ final class InteractiveSubmissionConfirmationIntegrationTest
               case _ =>
                 false
             }) =>
+          hasReachedSequencer.set(true)
           SendDecision.HoldBack(releaseSubmission.future)
         case _ => SendDecision.Process
       }
       loggerFactory.assertEventuallyLogsSeq(LevelAndAbove(Level.WARN))(
-        assertion(prepared, signatures, releaseSubmission),
+        assertion(prepared, signatures, releaseSubmission, hasReachedSequencer),
         LogEntry.assertLogSeq(
           Option
             .when(expectMalformedRequest)(malformedRequestLogAssertion)
@@ -167,15 +171,21 @@ final class InteractiveSubmissionConfirmationIntegrationTest
 
     "fail if the number of signatures is under the threshold" in { implicit env =>
       bypassPhase1Validations(
-        { (prepared, signatures, releaseSubmission) =>
+        { (prepared, signatures, releaseSubmission, _) =>
           val (submissionId, ledgerEnd) = exec(prepared, signatures, cpn)
 
           // Change the protocol keys and threshold
-          cpn.topology.party_to_key_mappings.sign_and_update(
-            aliceE.partyId,
-            env.daId,
-            _.tryCopy(threshold = PositiveInt.two),
-          )
+          cpn.topology.party_to_participant_mappings
+            .sign_and_update(
+              aliceE.partyId,
+              env.daId,
+              ptp =>
+                ptp.tryCopy(partySigningKeysWithThreshold =
+                  ptp.partySigningKeysWithThreshold.map(
+                    _.copyThresholdUnsafe(PositiveInt.two)
+                  )
+                ),
+            )
 
           // Update alice with the new threshold for subsequent tests
           aliceE = aliceE.copy(signingThreshold = PositiveInt.two)
@@ -196,21 +206,29 @@ final class InteractiveSubmissionConfirmationIntegrationTest
 
     "fail if the signatures are invalid" in { implicit env =>
       bypassPhase1Validations(
-        { (prepared, signatures, releaseSubmission) =>
+        { (prepared, signatures, releaseSubmission, _) =>
           val (submissionId, ledgerEnd) = exec(prepared, signatures, cpn)
 
-          val newKeys = NonEmptyUtil.fromUnsafe(
-            Set.fill(3)(
-              env.global_secret.keys.secret.generate_key(usage = SigningKeyUsage.ProtocolOnly)
-            )
+          val newKeys = NonEmpty.mk(
+            Set,
+            env.global_secret.get_signing_key(aliceE.fingerprint),
+            env.global_secret.keys.secret.generate_key(usage = SigningKeyUsage.ProtocolOnly),
+            env.global_secret.keys.secret.generate_key(usage = SigningKeyUsage.ProtocolOnly),
           )
 
           // Change the protocol keys and threshold
-          cpn.topology.party_to_key_mappings.sign_and_update(
-            aliceE.partyId,
-            env.daId,
-            _.tryCopy(signingKeys = newKeys),
-          )
+          cpn.topology.party_to_participant_mappings
+            .sign_and_update(
+              aliceE.partyId,
+              env.daId,
+              ptp =>
+                ptp.tryCopy(partySigningKeysWithThreshold =
+                  ptp.partySigningKeysWithThreshold.map(
+                    _.copyThresholdUnsafe(PositiveInt.two)
+                      .copyKeysUnsafe(newKeys)
+                  )
+                ),
+            )
 
           // Update alice with the new keys for subsequent tests
           aliceE = aliceE.copy(signingFingerprints = newKeys.map(_.fingerprint).toSeq)
@@ -224,24 +242,36 @@ final class InteractiveSubmissionConfirmationIntegrationTest
           // Transaction should fail
           completion.status.value.code shouldBe Status.Code.INVALID_ARGUMENT.value()
         },
-        expectedLogs = invalidSignaturesLogAssertion(valid = 0, invalid = 3, expectedValid = 2),
+        // One is valid (the party namespace one, which has not changed)
+        expectedLogs = invalidSignaturesLogAssertion(valid = 1, invalid = 2, expectedValid = 2),
       )
     }
 
     "fail execute and wait if the signatures are invalid" in { implicit env =>
       bypassPhase1Validations(
-        { (prepared, signatures, releaseSubmission) =>
+        { (prepared, signatures, releaseSubmission, _) =>
           val response = Future(execAndWait(prepared, signatures, execParticipant = _ => cpn))
 
-          val newKeys = env.global_secret.keys.secret
-            .generate_keys(PositiveInt.three, usage = SigningKeyUsage.ProtocolOnly)
+          val newKeys = NonEmpty.mk(
+            Seq,
+            env.global_secret.get_signing_key(aliceE.fingerprint),
+            env.global_secret.keys.secret
+              .generate_keys(PositiveInt.three, usage = SigningKeyUsage.ProtocolOnly)*
+          )
 
           // Change the protocol keys
-          cpn.topology.party_to_key_mappings.sign_and_update(
-            aliceE.partyId,
-            env.daId,
-            _.tryCopy(threshold = PositiveInt.two, signingKeys = newKeys.toSet),
-          )
+          cpn.topology.party_to_participant_mappings
+            .sign_and_update(
+              aliceE.partyId,
+              env.daId,
+              ptp =>
+                ptp.tryCopy(partySigningKeysWithThreshold =
+                  ptp.partySigningKeysWithThreshold.map(
+                    _.copyThresholdUnsafe(PositiveInt.two)
+                      .copyKeysUnsafe(newKeys.toSet)
+                  )
+                ),
+            )
 
           // Update alice with the new keys for subsequent tests
           aliceE = aliceE.copy(signingFingerprints = newKeys.map(_.fingerprint))
@@ -253,7 +283,8 @@ final class InteractiveSubmissionConfirmationIntegrationTest
           }
         },
         expectedLogs =
-          invalidSignaturesLogAssertion(valid = 0, invalid = 3, expectedValid = 2) ++ Seq(
+          // One is valid (the party namespace one, which has not changed)
+          invalidSignaturesLogAssertion(valid = 1, invalid = 2, expectedValid = 2) ++ Seq(
             (
               _.errorMessage should include(
                 s"Request failed for ${cpn.name}"
@@ -298,11 +329,17 @@ final class InteractiveSubmissionConfirmationIntegrationTest
       import monocle.syntax.all.*
 
       // Set Alice back to threshold one
-      cpn.topology.party_to_key_mappings.sign_and_update(
-        aliceE.partyId,
-        env.daId,
-        _.tryCopy(threshold = PositiveInt.one),
-      )
+      cpn.topology.party_to_participant_mappings
+        .sign_and_update(
+          aliceE.partyId,
+          env.daId,
+          ptp =>
+            ptp.tryCopy(partySigningKeysWithThreshold =
+              ptp.partySigningKeysWithThreshold.map(
+                _.copyThresholdUnsafe(PositiveInt.one)
+              )
+            ),
+        )
 
       // Exercise the Repeat choice
       val exerciseRepeatOnCycleContract =

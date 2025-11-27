@@ -6,12 +6,14 @@ module DA.Daml.Assistant.IntegrationTests (main) where
 
 import Control.Concurrent
 import Control.Concurrent.STM
+import Control.Exception (onException)
 import Control.Lens
 import Control.Monad
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens
 import Data.List.Extra
 import Data.Maybe (maybeToList, isJust, fromJust)
+import Data.IORef
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.Vector as Vector
@@ -151,14 +153,20 @@ damlStart tmpDir = do
                 , "--sandbox-sequencer-admin-port", show $ sequencerAdmin ports
                 , "--sandbox-mediator-admin-port", show $ mediatorAdmin ports
                 , "--json-api-port", show jsonApiPort
+                , "--sandbox-option=--debug"
                 ]
             ) {std_in = CreatePipe, std_out = CreatePipe, cwd = Just projDir, create_group = True, env = Just env}
     (Just startStdin, Just startStdout, _, startPh) <- createProcess startProc
     outChan <- newBroadcastTChanIO
+    historyRef <- newIORef []
     outReader <- forkIO $ forever $ do
         line <- hGetLine startStdout
+        atomicModifyIORef' historyRef (\logs -> (line : logs, ()))
         atomically $ writeTChan outChan line
-    scriptOutput <- readPortFileWith Just startPh maxRetries (projDir </> scriptOutputFile)
+    -- scriptOutput <- readPortFileWith Just startPh maxRetries (projDir </> scriptOutputFile)
+    scriptOutput <- onException (readPortFileWith Just startPh maxRetries (projDir </> scriptOutputFile)) $ do
+      storedLogs <- readIORef historyRef
+      mapM_ putStrLn (reverse storedLogs)
     let alice = (read scriptOutput :: String)
     pure $
         DamlStartResource

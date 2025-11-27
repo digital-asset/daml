@@ -23,7 +23,9 @@ import scala.concurrent.ExecutionContext
 import scala.util.Try
 
 /** Implementation of aggregated bulk update operations for DB stores */
-trait DbBulkUpdateProcessor[A, B] extends BatchAggregator.Processor[A, Try[B]] {
+trait DbBulkUpdateProcessor[A, B]
+    extends BatchAggregator.Processor[A, Try[B]]
+    with DbStorage.Implicits {
 
   protected implicit def executionContext: ExecutionContext
   protected def storage: DbStorage

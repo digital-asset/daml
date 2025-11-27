@@ -19,9 +19,9 @@ import com.digitalasset.canton.crypto.{
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import org.scalatest.wordspec.AsyncWordSpec
 
-/** Defines the necessary methods to register KMS keys in Canton.
+/** Defines the necessary methods to register predefined KMS keys in Canton.
   */
-trait KmsKeysRegistration extends CryptoTestHelper with PredefinedKmsKeys {
+trait PredefinedKmsKeysRegistration extends CryptoTestHelper with HasPredefinedKmsKeys {
   this: AsyncWordSpec =>
 
   /** Gets a new signing key by registering and returning a KMS pre-generated key.

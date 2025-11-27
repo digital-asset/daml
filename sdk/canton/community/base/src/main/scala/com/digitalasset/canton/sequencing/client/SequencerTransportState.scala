@@ -380,6 +380,9 @@ class SequencersTransportState(
 
     val maybeCloseReason: Try[Either[SequencerClient.CloseReason, Unit]] =
       subscriptionCloseReason.map[Either[SequencerClient.CloseReason, Unit]] {
+        case SubscriptionCloseReason.TokenExpiration =>
+          // TokenExpiration is not propagated here
+          ErrorUtil.invalidState("CompletedByServer should not be propagated here")
         case SubscriptionCloseReason.HandlerException(ex) =>
           Left(SequencerClient.CloseReason.UnrecoverableException(ex))
         case SubscriptionCloseReason.HandlerError(ApplicationHandlerPassive(_reason)) =>

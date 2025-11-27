@@ -7,7 +7,7 @@ import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.crypto.kms.KmsKeyId
 import com.digitalasset.canton.crypto.{EncryptionKeySpec, SigningKeySpec}
 
-trait PredefinedGcpKmsKeys extends PredefinedKmsKeys {
+trait HasPredefinedGcpKmsKeys extends HasPredefinedKmsKeys {
 
   override val predefinedSymmetricEncryptionKey: KmsKeyId =
     KmsKeyId(String300.tryCreate("canton-kms-test-key"))

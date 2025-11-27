@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.store
 import cats.syntax.foldable.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.ReassignmentCounter
-import com.digitalasset.canton.config.CantonRequireTypes.{LengthLimitedString, String36}
+import com.digitalasset.canton.config.CantonRequireTypes.String36
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.ErrorLoggingContext
@@ -371,7 +371,7 @@ object ActiveContractStore {
   }
 
   sealed trait ActivenessChangeDetail extends Product with Serializable with PrettyPrinting {
-    def name: LengthLimitedString
+    def name: String36
 
     def reassignmentCounterO: Option[ReassignmentCounter]
     def remoteSynchronizerIdxO: Option[Int]
