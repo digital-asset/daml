@@ -1049,10 +1049,32 @@ class IdeLedgerClient(
   ): Future[List[ScriptLedgerClient.ReadablePackageId]] =
     Future.successful(getPackageIdMap().keys.toList)
 
-  override def proposePartyReplication(party: Ref.Party, toParticipantId: String): Future[Unit] =
-    Future.successful(())
+  override def allocatePartyOnMultipleParticipants(
+      party: Ref.Party,
+      toParticipantIds: Iterable[String],
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Unit] = Future.failed(
+    new RuntimeException(
+      "allocatePartyOnMultipleParticipants should not be called on IDE ledger, use aggregateAllocatePartyOnMultipleParticipants instead"
+    )
+  )
 
-  override def waitUntilHostingVisible(party: Ref.Party, onParticipantUid: String): Future[Unit] =
+  override def aggregateAllocatePartyOnMultipleParticipants(
+      clients: List[ScriptLedgerClient],
+      partyHint: String,
+      namespace: String,
+      toParticipantIds: Iterable[String],
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Ref.Party] = allocateParty(partyHint)
+
+  override def waitUntilHostingVisible(
+      party: Ref.Party,
+      onParticipantUid: Iterable[String],
+  ): Future[Unit] =
     Future.successful(())
 
   override def getParticipantUid: String = ""

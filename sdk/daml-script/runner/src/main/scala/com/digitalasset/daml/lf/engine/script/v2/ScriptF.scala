@@ -517,44 +517,53 @@ object ScriptF {
         )
       } yield SEValue(SOptional(optR))
   }
+
+  /** Allocate a party on the default, a singular, or multiple participants
+    *
+    *  @param participants if None we use default_participant. If None or Some
+    *  with empty list in second position, we use the old allocateParty logic. If
+    *  Some and list in second position not empty, we have the multi participant
+    *  workflow.
+    */
   final case class AllocParty(
-      idHint: String,
-      participants: List[Participant],
+      partyHint: String,
+      participants: Option[
+        (Participant, List[Participant])
+      ],
   ) extends Cmd {
     override def execute(env: Env)(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] = {
-      def replicateParty(
-          party: Party,
-          fromClient: ScriptLedgerClient,
-          toParticipant: Participant,
-      ): Future[Unit] = for {
-        toClient <- env.clients.getParticipant(Some(toParticipant)) match {
-          case Right(client) => Future.successful(client)
-          case Left(err) => Future.failed(new RuntimeException(err))
-        }
-        _ <- toClient.proposePartyReplication(party, toClient.getParticipantUid)
-        _ <- fromClient.proposePartyReplication(party, toClient.getParticipantUid)
-        _ <- Future.traverse(env.clients.participants.values)(client =>
-          client.waitUntilHostingVisible(party, toClient.getParticipantUid)
-        )
-      } yield ()
-
-      val mainParticipant = participants.headOption
-      val additionalParticipants = if (participants.isEmpty) List.empty else participants.tail
+      val owningParticipant = participants.map(_._1)
       for {
-        mainClient <- env.clients.getParticipant(mainParticipant) match {
-          case Right(client) => Future.successful(client)
-          case Left(err) => Future.failed(new RuntimeException(err))
-        }
-        party <- mainClient.allocateParty(idHint)
-        _ <- Future.traverse(additionalParticipants)(toParticipant =>
-          replicateParty(party, mainClient, toParticipant)
-        )
+        owningClient <- env.clients.assertGetParticipantFuture(owningParticipant)
+
+        party <-
+          if (participants.map(_._2.isEmpty).getOrElse(true)) {
+            owningClient.allocateParty(partyHint)
+          } else {
+            for {
+              otherClients <- Future.traverse(participants.map(_._2).getOrElse(List.empty))(
+                participant => env.clients.assertGetParticipantFuture(participant)
+              )
+              clients = owningClient +: otherClients
+              participantIds = clients.map(_.getParticipantUid)
+
+              p <- owningClient.aggregateAllocatePartyOnMultipleParticipants(
+                clients,
+                partyHint,
+                owningClient.getParticipantUid.split("::").last,
+                participantIds,
+              )
+              _ <- Future.traverse(env.clients.participants.values)(
+                _.waitUntilHostingVisible(p, participantIds)
+              )
+            } yield p
+          }
       } yield {
-        mainParticipant.foreach(env.addPartyParticipantMapping(party, _))
+        owningParticipant.foreach(env.addPartyParticipantMapping(party, _))
         SEValue(SParty(party))
       }
     }
@@ -1128,7 +1137,7 @@ object ScriptF {
         for {
           participantName <- Converter.toOptionalParticipantName(participantName)
           idHint <- Converter.toPartyIdHint(givenHint, requestedName, globalRandom)
-        } yield AllocParty(idHint, participantName.toList)
+        } yield AllocParty(idHint, participantName.map(p => (p, List.empty)))
       case _ => Left(s"Expected AllocParty payload but got $v")
     }
 
@@ -1138,7 +1147,11 @@ object ScriptF {
         for {
           participantNames <- Converter.toParticipantNames(participantNames)
           idHint <- Converter.toPartyIdHint(givenHint, requestedName, globalRandom)
-        } yield AllocParty(idHint, participantNames)
+          allocArg = participantNames match {
+            case head :: tail => Some((head, tail))
+            case Nil => None
+          }
+        } yield AllocParty(idHint, allocArg)
       case _ => Left(s"Expected AllocParty payload but got $v")
     }
 
