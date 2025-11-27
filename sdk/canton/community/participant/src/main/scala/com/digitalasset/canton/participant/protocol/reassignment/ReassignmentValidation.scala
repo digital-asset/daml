@@ -7,15 +7,16 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.functor.*
 import com.daml.logging.LoggingContext
-import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.*
+import com.digitalasset.canton.data.ReassignmentRef.ContractIdRef
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.protocol.ReassignmentId
+import com.digitalasset.canton.protocol.{ContractInstance, ReassignmentId}
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ContractValidator, EitherTUtil, MonadUtil, ReassignmentTag}
+import com.digitalasset.canton.{LfPackageId, LfPartyId}
 
 import scala.concurrent.ExecutionContext
 
@@ -88,23 +89,58 @@ object ReassignmentValidation {
         )
       )
 
-      _ <- MonadUtil.sequentialTraverse(reassignmentRequest.contracts.contracts.forgetNE) {
-        reassign =>
-          contractValidator
-            .authenticate(reassign.contract.inst, reassign.contract.templateId.packageId)(
-              ec,
-              traceContext,
-              LoggingContext.empty,
-            )
-            .leftMap { reason =>
-              ReassignmentValidationError.ContractAuthenticationFailure(
-                reassignmentRequest.reassignmentRef,
-                reason,
-                reassign.contract.contractId,
-              ): ReassignmentValidationError
-            }
-      }
+      _ <- authenticateContracts(
+        contractValidator,
+        reassignmentRequest.contracts.contracts.forgetNE,
+        reassignmentRef = Some(reassignmentRequest.reassignmentRef),
+      )
+
     } yield ()
+  }
+
+  def authenticateContracts(
+      contractValidator: ContractValidator,
+      reassignments: Seq[ContractReassignment],
+      reassignmentRef: Option[ReassignmentRef] = None,
+  )(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+  ): EitherT[FutureUnlessShutdown, ReassignmentValidationError, Unit] = {
+
+    def authenticate(
+        contract: ContractInstance,
+        rpId: LfPackageId,
+    ): EitherT[FutureUnlessShutdown, ReassignmentValidationError, Unit] =
+      contractValidator
+        .authenticate(contract.inst, rpId)(
+          ec,
+          traceContext,
+          LoggingContext.empty,
+        )
+        .leftMap { reason =>
+          ReassignmentValidationError.ContractValidationError(
+            reassignmentRef.getOrElse(ContractIdRef(Set(contract.contractId))),
+            contract.contractId,
+            rpId,
+            reason,
+          ): ReassignmentValidationError
+        }
+
+    MonadUtil
+      .sequentialTraverse(reassignments) { reassign =>
+        for {
+          _ <- authenticate(reassign.contract, reassign.sourceValidationPackageId.unwrap)
+          _ <-
+            if (
+              reassign.sourceValidationPackageId.unwrap != reassign.targetValidationPackageId.unwrap
+            ) {
+              authenticate(reassign.contract, reassign.targetValidationPackageId.unwrap)
+            } else {
+              EitherTUtil.unitUS[ReassignmentValidationError]
+            }
+        } yield ()
+      }
+      .map(_ => ())
   }
 
   def ensureMediatorActive(

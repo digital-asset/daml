@@ -37,7 +37,9 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.ConflictDe
   mkActivenessResult,
   mkActivenessSet,
 }
+import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentDataHelpers.TestValidator
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
+import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentValidationError.ContractValidationError
 import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentProcessingSteps.PendingUnassignment
 import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentProcessorError.*
 import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentValidationError.PackageIdUnknownOrUnvetted
@@ -92,7 +94,7 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
-import com.digitalasset.canton.util.{ContractValidator, ResourceUtil}
+import com.digitalasset.canton.util.{ContractValidator, ReassignmentTag, ResourceUtil}
 import com.digitalasset.canton.version.HasTestCloseContext
 import com.digitalasset.canton.{
   BaseTest,
@@ -108,6 +110,7 @@ import com.digitalasset.canton.{
 }
 import com.google.rpc.status.Status
 import io.grpc.Status.Code.FAILED_PRECONDITION
+import org.scalatest
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.time.Instant
@@ -228,6 +231,8 @@ final class UnassignmentProcessingStepsTest
     reassigningParticipants = Set(submittingParticipant),
     ContractsReassignmentBatch(
       contract,
+      sourceValidationPackageId,
+      targetValidationPackageId,
       initialReassignmentCounter,
     ),
     sourceSynchronizer,
@@ -310,6 +315,7 @@ final class UnassignmentProcessingStepsTest
   private def createUnassignmentProcessingSteps(
       reassignmentCoordination: ReassignmentCoordination = coordination,
       cryptoClient: SynchronizerCryptoClient = cryptoClient,
+      contractValidator: ContractValidator = ContractValidator.AllowAll,
   ) =
     new UnassignmentProcessingSteps(
       sourceSynchronizer,
@@ -318,7 +324,7 @@ final class UnassignmentProcessingStepsTest
       cryptoClient,
       seedGenerator,
       Source(defaultStaticSynchronizerParameters),
-      ContractValidator.AllowAll,
+      contractValidator,
       Source(testedProtocolVersion),
       loggerFactory,
     )(executorService)
@@ -346,6 +352,13 @@ final class UnassignmentProcessingStepsTest
     stakeholders = Set(submitter, party1),
   )
   private lazy val contractId = contract.contractId
+
+  private lazy val sourceValidationPackageId = Source(
+    LfPackageId.assertFromString("source-rep-pkg-id")
+  )
+  private lazy val targetValidationPackageId = Target(
+    LfPackageId.assertFromString("target-rep-pkg-id")
+  )
 
   private val reassignmentId = ReassignmentId.tryCreate("00")
 
@@ -382,6 +395,7 @@ final class UnassignmentProcessingStepsTest
     def mkUnassignmentResult(
         sourceTopologySnapshot: TopologySnapshot,
         targetTopologySnapshot: TopologySnapshot,
+        contractValidator: ContractValidator = ContractValidator.AllowAll,
         stakeholdersOverride: Option[Stakeholders] = None,
     ): Either[ReassignmentValidationError, UnassignmentRequestValidated] = {
       val updatedContract = stakeholdersOverride.fold(contract)(stakeholders =>
@@ -395,6 +409,7 @@ final class UnassignmentProcessingStepsTest
         sourceTopologySnapshot,
         targetTopologySnapshot,
         updatedContract,
+        contractValidator: ContractValidator,
       )
     }
 
@@ -402,14 +417,18 @@ final class UnassignmentProcessingStepsTest
         sourceTopologySnapshot: TopologySnapshot,
         targetTopologySnapshot: TopologySnapshot,
         updatedContract: ContractInstance,
+        contractValidator: ContractValidator = ContractValidator.AllowAll,
     ): Either[ReassignmentValidationError, UnassignmentRequestValidated] =
       UnassignmentRequest
         .validated(
           submittingParticipant,
           ContractsReassignmentBatch(
             updatedContract,
+            sourceValidationPackageId,
+            targetValidationPackageId,
             initialReassignmentCounter,
           ),
+          contractValidator,
           submitterMetadata(submitter),
           sourceSynchronizer,
           sourceMediator,
@@ -432,6 +451,38 @@ final class UnassignmentProcessingStepsTest
         submitter,
         stakeholders.all,
       )
+    }
+
+    def testInvalidRepresentativeContract(invalidPackageId: LfPackageId): scalatest.Assertion = {
+      val expected = "invalid-contract"
+
+      val contractValidator =
+        new ReassignmentDataHelpers.TestValidator(
+          Map(
+            (contract.contractId, invalidPackageId) -> expected
+          )
+        )
+
+      inside(
+        mkUnassignmentResult(
+          testingTopology,
+          testingTopology,
+          contractValidator = contractValidator,
+        ).left.value
+      ) { case actual: ContractValidationError =>
+        actual.reassignmentRef shouldBe ReassignmentRef(contract.contractId)
+        actual.contractId shouldBe contract.contractId
+        actual.representativePackageId shouldBe invalidPackageId
+        actual.reason should include(expected)
+      }
+    }
+
+    "fail if contract does not authenticate against source validation package" in {
+      testInvalidRepresentativeContract(sourceValidationPackageId.unwrap)
+    }
+
+    "fail if contract does not authenticate against target validation package" in {
+      testInvalidRepresentativeContract(targetValidationPackageId.unwrap)
     }
 
     "fail if submitting party is not hosted on participant" in {
@@ -599,6 +650,8 @@ final class UnassignmentProcessingStepsTest
             reassigningParticipants = Set(submittingParticipant, participant1),
             contracts = ContractsReassignmentBatch(
               contract,
+              sourceValidationPackageId,
+              targetValidationPackageId,
               initialReassignmentCounter,
             ),
             sourceSynchronizer = sourceSynchronizer,
@@ -639,6 +692,8 @@ final class UnassignmentProcessingStepsTest
               Set(submittingParticipant, participant1, participant3, participant4),
             contracts = ContractsReassignmentBatch(
               contract,
+              sourceValidationPackageId,
+              targetValidationPackageId,
               initialReassignmentCounter,
             ),
             sourceSynchronizer = sourceSynchronizer,
@@ -668,6 +723,8 @@ final class UnassignmentProcessingStepsTest
           reassigningParticipants = Set(submittingParticipant, participant1),
           contracts = ContractsReassignmentBatch(
             updatedContract,
+            sourceValidationPackageId,
+            targetValidationPackageId,
             initialReassignmentCounter,
           ),
           sourceSynchronizer = sourceSynchronizer,
@@ -690,6 +747,8 @@ final class UnassignmentProcessingStepsTest
           submitterMetadata = submitterMetadata(party1),
           Seq(contractId),
           targetSynchronizer,
+          overrideSourceValidationPkgIds = Map.empty,
+          overrideTargetValidationPkgIds = Map.empty,
         )
 
       for {
@@ -719,6 +778,8 @@ final class UnassignmentProcessingStepsTest
         submitterMetadata = submitterMetadata(party1),
         Seq(contract.contractId),
         Target(sourceSynchronizer.unwrap),
+        overrideSourceValidationPkgIds = Map.empty,
+        overrideTargetValidationPkgIds = Map.empty,
       )
 
       for {
@@ -735,6 +796,68 @@ final class UnassignmentProcessingStepsTest
         submissionResult shouldBe a[TargetSynchronizerIsSourceSynchronizer]
       }
     }
+
+    def checkContractsValidateAgainstRepresentativePackage(
+        invalidPackageId: ReassignmentTag[LfPackageId]
+    ): Future[scalatest.Assertion] = {
+      val state = mkState
+      val submissionParam =
+        UnassignmentProcessingSteps.SubmissionParam(
+          submitterMetadata = submitterMetadata(party1),
+          Seq(contractId),
+          targetSynchronizer,
+          overrideSourceValidationPkgIds = invalidPackageId match {
+            case Source(rpId) => Map(contractId -> rpId)
+            case Target(_) => Map.empty
+          },
+          overrideTargetValidationPkgIds = invalidPackageId match {
+            case Source(_) => Map.empty
+            case Target(rpId) => Map(contractId -> rpId)
+          },
+        )
+
+      val contractValidator =
+        new TestValidator(Map((contractId, invalidPackageId.unwrap) -> "Invalid, as expected"))
+
+      val unassignmentProcessingSteps =
+        createUnassignmentProcessingSteps(contractValidator = contractValidator)
+
+      for {
+        _ <- state.contractStore.storeContract(contract)
+        _ <- persistentState.activeContractStore
+          .markContractsCreated(
+            Seq(contractId -> initialReassignmentCounter),
+            TimeOfChange(targetTs.unwrap),
+          )
+          .value
+        submissionResult <- leftOrFail(
+          unassignmentProcessingSteps
+            .createSubmission(
+              submissionParam,
+              sourceMediator,
+              state,
+              cryptoSnapshot,
+            )
+        )("prepare submission succeeded unexpectedly")
+      } yield {
+        inside(submissionResult) { case SubmissionValidationError(message) =>
+          message should include regex (s"contract authentication failure.*${contract.contractId.coid}.*${invalidPackageId.unwrap}")
+        }
+      }
+    }
+
+    "check that the contracts validate against the source validation package" in {
+      checkContractsValidateAgainstRepresentativePackage(
+        Source(LfPackageId.assertFromString("rep-pkg"))
+      )
+    }
+
+    "check that the contracts validate against the target validation package" in {
+      checkContractsValidateAgainstRepresentativePackage(
+        Target(LfPackageId.assertFromString("rep-pkg"))
+      )
+    }
+
   }
 
   "receive request" should {
@@ -790,6 +913,8 @@ final class UnassignmentProcessingStepsTest
         reassigningParticipants = Set(submittingParticipant),
         ContractsReassignmentBatch(
           contract,
+          sourceValidationPackageId,
+          targetValidationPackageId,
           ReassignmentCounter(1),
         ),
         sourceSynchronizer,

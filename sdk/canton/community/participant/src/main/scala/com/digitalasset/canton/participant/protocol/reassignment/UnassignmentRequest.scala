@@ -15,6 +15,7 @@ import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ContractValidator
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 
 import java.util.UUID
@@ -84,6 +85,7 @@ object UnassignmentRequest {
   def validated(
       participantId: ParticipantId,
       contracts: ContractsReassignmentBatch,
+      contractValidator: ContractValidator,
       submitterMetadata: ReassignmentSubmitterMetadata,
       sourcePSId: Source[PhysicalSynchronizerId],
       sourceMediator: MediatorGroupRecipient,
@@ -136,6 +138,12 @@ object UnassignmentRequest {
         .leftMap[ReassignmentValidationError](unknownPackage =>
           PackageIdUnknownOrUnvetted(contractIds, unknownPackage.unknownTo)
         )
+
+      _ <- ReassignmentValidation.authenticateContracts(
+        contractValidator,
+        contracts.contracts,
+      )
+
     } yield {
       val unassignmentRequest = UnassignmentRequest(
         submitterMetadata,

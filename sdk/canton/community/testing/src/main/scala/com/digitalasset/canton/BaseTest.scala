@@ -467,6 +467,7 @@ trait BaseTest
   lazy val VettingMainCompatPath: String = BaseTest.VettingMainCompatPath
   lazy val VettingMainIncompatPath: String = BaseTest.VettingMainIncompatPath
   lazy val VettingMainSubstitutionPath: String = BaseTest.VettingMainSubstitutionPath
+  lazy val ModelTestsPath: String = BaseTest.ModelTestsPath
 
   implicit class RichSynchronizerId(val id: SynchronizerId) {
     def toPhysical: PhysicalSynchronizerId =
@@ -633,6 +634,7 @@ object BaseTest {
   lazy val VettingMainCompatPath: String = getResourcePath("VettingMain-2.0.0.dar")
   lazy val VettingMainIncompatPath: String = getResourcePath("VettingMain-3.0.0.dar")
   lazy val VettingMainSubstitutionPath: String = getResourcePath("VettingMain-4.0.0.dar")
+  lazy val ModelTestsPath: String = getResourcePath("model-tests-1.0.0.dar")
 
   def getResourcePath(name: String): String =
     Option(getClass.getClassLoader.getResource(name))

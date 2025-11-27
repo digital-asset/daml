@@ -35,6 +35,7 @@ import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.{ContractInstance, LfContractId, ReassignmentId, UpdateId}
 import com.digitalasset.canton.topology.{PartyId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{EitherTUtil, ReassignmentTag}
 import com.google.protobuf.ByteString
 
@@ -155,7 +156,8 @@ class PartyReplicationTargetParticipantProcessor(
             repairCounter = processorStore.getAndIncrementRepairCounter()
             toc = TimeOfChange(partyToParticipantEffectiveAt, Some(repairCounter))
             replicatedContracts = validatedActivations.map {
-              case ContractReassignment(contract, reassignmentCounter) =>
+              // TODO(#26468): Use validation packages
+              case ContractReassignment(contract, _, _, reassignmentCounter) =>
                 (
                   contract.contractId,
                   ReassignmentTag.Source(psid.logical),
@@ -210,7 +212,16 @@ class PartyReplicationTargetParticipantProcessor(
               s"Received contract ${repairContract.contractId} has unexpected synchronizer ${repairContract.synchronizerId}",
             )
             contractInstance <- ContractInstance.create(repairContract.contract)
-          } yield ContractReassignment(contractInstance, repairContract.reassignmentCounter)
+
+          } yield {
+            // TODO(#26468): Use representative package
+            ContractReassignment(
+              contractInstance,
+              Source(contractInstance.templateId.packageId),
+              Target(contractInstance.templateId.packageId),
+              repairContract.reassignmentCounter,
+            )
+          }
         )
     )
 
@@ -304,17 +315,20 @@ class PartyReplicationTargetParticipantProcessor(
             .build(HashPurpose.OnlinePartyReplicationId)
             .add(indexerUpdateIdBaseHash.unwrap)
             .add(repairCounter.unwrap)
-        } { case (builder, ContractReassignment(contract, reassignmentCounter)) =>
-          builder
-            .add(reassignmentCounter.v)
-            .add(contract.contractId.coid)
+        } {
+          // TODO(#26468): Use validation packages
+          case (builder, ContractReassignment(contract, _, _, reassignmentCounter)) =>
+            builder
+              .add(reassignmentCounter.v)
+              .add(contract.contractId.coid)
         }
         .finish()
       UpdateId(hash)
     }
 
     val contractIdCounters = activeContracts.map {
-      case ContractReassignment(contract, reassignmentCounter) =>
+      // TODO(#26468): Use validation packages
+      case ContractReassignment(contract, _, _, reassignmentCounter) =>
         (contract.contractId, reassignmentCounter)
     }
 
@@ -342,7 +356,8 @@ class PartyReplicationTargetParticipantProcessor(
       reassignmentInfo = artificialReassignmentInfo,
       reassignment = Reassignment.Batch(
         activeContracts.zipWithIndex.map {
-          case (ContractReassignment(contract, reassignmentCounter), idx) =>
+          // TODO(#26468): Use validation packages
+          case (ContractReassignment(contract, _, _, reassignmentCounter), idx) =>
             Reassignment.Assign(
               ledgerEffectiveTime = contract.inst.createdAt.time,
               createNode = contract.toLf,

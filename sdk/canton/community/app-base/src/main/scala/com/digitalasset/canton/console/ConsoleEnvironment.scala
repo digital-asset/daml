@@ -5,6 +5,7 @@ package com.digitalasset.canton.console
 
 import ammonite.util.Bind
 import cats.syntax.either.*
+import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveDouble, PositiveInt}
@@ -591,135 +592,69 @@ object ConsoleEnvironment {
     implicit def toParticipantIds(references: Seq[ParticipantReference]): Seq[ParticipantId] =
       references.map(_.id)
 
-    /** Implicitly map an `Int` to a `NonNegativeInt`.
-      * @throws java.lang.IllegalArgumentException
-      *   if `n` is negative
-      */
+    // Non-empty
+    implicit def toNonEmptySeq[T](seq: Seq[T]): NonEmpty[Seq[T]] = NonEmptyUtil.fromUnsafe(seq)
+    implicit def toNonEmptySet[T](set: Set[T]): NonEmpty[Set[T]] = NonEmptyUtil.fromUnsafe(set)
+    implicit def toNonEmptyList[T](list: List[T]): NonEmpty[List[T]] = NonEmptyUtil.fromUnsafe(list)
+
+    // Refined numerics
     implicit def toNonNegativeInt(n: Int): NonNegativeInt = NonNegativeInt.tryCreate(n)
-
-    /** Implicitly map an `Int` to a `PositiveInt`.
-      * @throws java.lang.IllegalArgumentException
-      *   if `n` is not positive
-      */
     implicit def toPositiveInt(n: Int): PositiveInt = PositiveInt.tryCreate(n)
-
-    /** Implicitly map a Double to a `PositiveDouble`
-      * @throws java.lang.IllegalArgumentException
-      *   if `n` is not positive
-      */
     implicit def toPositiveDouble(n: Double): PositiveDouble = PositiveDouble.tryCreate(n)
 
-    /** Implicitly map a `CantonTimestamp` to a `CreationTime.CreatedAt`
-      */
-    implicit def toLedgerCreateTime(ts: CantonTimestamp): CreationTime.CreatedAt =
-      CreationTime.CreatedAt(ts.toLf)
-
-    /** Implicitly convert a duration to a [[com.digitalasset.canton.config.NonNegativeDuration]]
-      * @throws java.lang.IllegalArgumentException
-      *   if `duration` is negative
-      */
+    // Refined durations
     implicit def durationToNonNegativeDuration(duration: SDuration): NonNegativeDuration =
       NonNegativeDuration.tryFromDuration(duration)
-
-    /** Implicitly convert a duration to a
-      * [[com.digitalasset.canton.config.NonNegativeFiniteDuration]]
-      * @throws java.lang.IllegalArgumentException
-      *   if `duration` is negative or infinite
-      */
     implicit def durationToNonNegativeFiniteDuration(
         duration: SDuration
     ): NonNegativeFiniteDuration =
       NonNegativeFiniteDuration.tryFromDuration(duration)
-
-    /** Implicitly convert a duration to a [[com.digitalasset.canton.config.PositiveFiniteDuration]]
-      * @throws java.lang.IllegalArgumentException
-      *   if `duration` is negative, zero, or infinite
-      */
     implicit def durationToPositiveFiniteDuration(
         duration: SDuration
     ): PositiveFiniteDuration =
       PositiveFiniteDuration.tryFromDuration(duration)
-
-    /** Implicitly convert a duration to a
-      * [[com.digitalasset.canton.config.PositiveDurationSeconds]]
-      * @throws java.lang.IllegalArgumentException
-      *   if `duration` is not positive or not rounded to the second.
-      */
     implicit def durationToPositiveDurationRoundedSeconds(
         duration: SDuration
     ): PositiveDurationSeconds =
       PositiveDurationSeconds.tryFromDuration(duration)
 
-    /** Implicitly convert a [[com.digitalasset.canton.topology.PhysicalSynchronizerId]] to
-      * [[scala.Option]] of [[com.digitalasset.canton.topology.SynchronizerId]]
-      */
+    implicit def toLedgerCreateTime(ts: CantonTimestamp): CreationTime.CreatedAt =
+      CreationTime.CreatedAt(ts.toLf)
+
+    // Physical <-> logical synchronizer ids, lifting ids
     implicit def physicalSynchronizerIdIsSomeLogical(
         synchronizerId: PhysicalSynchronizerId
     ): Option[SynchronizerId] = Some(synchronizerId.logical)
-
-    /** Implicitly convert a [[com.digitalasset.canton.topology.PhysicalSynchronizerId]] to
-      * [[scala.Option]] of
-      * [[com.digitalasset.canton.topology.admin.grpc.TopologyStoreId.Synchronizer]]
-      */
     implicit def physicalSynchronizerIdIsSomeTopologyStoreId(
         synchronizerId: PhysicalSynchronizerId
-    ): Option[TopologyStoreId.Synchronizer] = Some(
-      TopologyStoreId.Synchronizer(synchronizerId)
-    )
+    ): Option[TopologyStoreId.Synchronizer] = Some(TopologyStoreId.Synchronizer(synchronizerId))
 
-    /** Implicitly convert a [[com.digitalasset.canton.topology.PhysicalSynchronizerId]] to
-      * [[scala.collection.immutable.Set]] of [[com.digitalasset.canton.topology.SynchronizerId]]
-      */
     implicit def physicalSynchronizerIdIsLogicalSet(
         synchronizerId: PhysicalSynchronizerId
-    ): Set[SynchronizerId] = Set(
-      synchronizerId.logical
-    )
+    ): Set[SynchronizerId] = Set(synchronizerId.logical)
 
-    /** Implicitly convert a [[com.digitalasset.canton.topology.PhysicalSynchronizerId]] to
-      * [[scala.collection.immutable.Set]] of
-      * [[com.digitalasset.canton.topology.PhysicalSynchronizerId]]
-      */
     implicit def physicalSynchronizerIdIsSome(
         synchronizerId: PhysicalSynchronizerId
     ): Option[PhysicalSynchronizerId] = Some(synchronizerId)
 
-    /** Implicitly convert a [[com.digitalasset.canton.topology.SynchronizerId]] to [[scala.Option]]
-      * of [[com.digitalasset.canton.topology.admin.grpc.TopologyStoreId.Synchronizer]]
-      */
     implicit def synchronizerIdIsSomeTopologyStoreId(
         synchronizerId: SynchronizerId
-    ): Option[TopologyStoreId.Synchronizer] =
-      Some(synchronizerId)
+    ): Option[TopologyStoreId.Synchronizer] = Some(synchronizerId)
 
-    /** Implicitly convert a [[com.digitalasset.canton.topology.SynchronizerId]] to [[scala.Option]]
-      * of [[com.digitalasset.canton.topology.SynchronizerId]]
-      */
     implicit def synchronizerIdIsSome(synchronizerId: SynchronizerId): Option[SynchronizerId] =
       Some(synchronizerId)
 
-    /** Implicitly convert an [[scala.Option]] of
-      * [[com.digitalasset.canton.topology.SynchronizerId]] to [[scala.Option]] of
-      * [[com.digitalasset.canton.topology.SynchronizerId]]
-      */
+    // Topology store <-> synchronizer id
     implicit def optionSynchronizerIdIsOptionTopologyStoreId(
         synchronizerId: Option[SynchronizerId]
     ): Option[TopologyStoreId] =
       synchronizerId.map(id => TopologyStoreId.Synchronizer(id))
 
-    /** Implicitly convert a [[com.digitalasset.canton.topology.admin.grpc.TopologyStoreId]] to
-      * [[scala.Option]] of
-      * [[com.digitalasset.canton.topology.admin.grpc.TopologyStoreId.Synchronizer]]
-      */
     implicit def topologyStoreIdIsSome(topologyStoreId: TopologyStoreId): Option[TopologyStoreId] =
       Some(topologyStoreId)
 
-    /** Implicitly convert a [[com.digitalasset.canton.topology.SynchronizerId]] to
-      * [[scala.collection.immutable.Set]] of [[com.digitalasset.canton.topology.SynchronizerId]]
-      */
-    implicit def synchronizerIdIsSet(synchronizerId: SynchronizerId): Set[SynchronizerId] = Set(
-      synchronizerId
-    )
+    implicit def synchronizerIdIsSet(synchronizerId: SynchronizerId): Set[SynchronizerId] =
+      Set(synchronizerId)
   }
 
   object Implicits extends Implicits
