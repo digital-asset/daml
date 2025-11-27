@@ -9,5 +9,7 @@ cradle:
       config: { cradle: { bios: { shell: "./.hie-bios //compiler/damlc/tests:tests@ghci@bios"}}}
     - path: "./daml-assistant/integration-tests"
       config: { cradle: { bios: { shell: "./.hie-bios //daml-assistant/integration-tests:integration-tests@ghci@bios"}}}
+    - path: "./language-support/ts/codegen"
+      config: { cradle: { bios: { shell: "./.hie-bios //language-support/ts/codegen:daml2js@ghci@bios"}}}
     - path: "./release/src"
       config: { cradle: { bios: { shell: "./.hie-bios //release:release@ghci@bios"}}}
