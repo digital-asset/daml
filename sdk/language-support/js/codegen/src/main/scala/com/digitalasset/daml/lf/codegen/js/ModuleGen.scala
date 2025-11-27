@@ -8,7 +8,7 @@ import com.digitalasset.daml.lf.language.Ast
 
 private[codegen] final case class ModuleGen(
     moduleName: ModuleName,
-    scope: String,
+    npmScope: String,
     externalImports: Seq[(PackageId, Ast.PackageMetadata)],
     internalImports: Seq[ModuleName],
     definitions: Seq[DefGen],
@@ -58,7 +58,7 @@ private[codegen] final case class ModuleGen(
 
   private def modulePath(module: ModuleName) =
     s"$rootPath/${module.segments.toSeq.mkString("/")}/module"
-  private def packagePath(pkg: Ast.PackageMetadata) = s"@$scope/${pkg.nameDashVersion}"
+  private def packagePath(pkg: Ast.PackageMetadata) = s"@$npmScope/${pkg.nameDashVersion}"
 
   private val jsHeader: String =
     s"""|${GenHelper.commonjsHeader}

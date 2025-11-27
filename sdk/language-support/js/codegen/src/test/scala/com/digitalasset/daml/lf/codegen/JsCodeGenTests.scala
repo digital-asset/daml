@@ -115,7 +115,7 @@ final class JsCodeGenTests extends AsyncWordSpec with Assertions {
 
   private def runGen(dars: Path*)(implicit dir: TestDir): Future[Path] = {
     val outputDir = dir / "out"
-    JsCodeGen.run(dars, outputDir, scope = "daml2js", damlVersion = "0.0.0").map(_ => outputDir)
+    JsCodeGen.run(dars, outputDir, npmScope = "daml2js", damlVersion = "0.0.0").map(_ => outputDir)
   }
 
   private def buildDar(name: String, sources: Seq[(String, String)])(implicit

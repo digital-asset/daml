@@ -30,12 +30,12 @@ class JsCodegenRunnerSpec extends AnyFlatSpec with Matchers {
          |  js:
          |    output-directory: path/to/output/js/directory
          |    verbosity: 2
-         |    scope: foobar
+         |    npm-scope: foobar
          |""".stripMargin
     val expected = JsCodeGenConf(
       darFiles = Seq(projectRoot.resolve(".daml/dist/quickstart-1.2.3.dar")),
       outputDirectory = Path.of("path/to/output/js/directory"),
-      scope = "foobar",
+      npmScope = "foobar",
       verbosity = Level.INFO,
     )
 

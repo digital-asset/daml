@@ -24,7 +24,7 @@ import scalaz.{-\/, \/-}
 
 private final class JsCodeGen(
     outputDirectory: Path,
-    scope: String,
+    npmScope: String,
     damlVersion: String,
     allPackages: Map[PackageId, Ast.PackageSignature],
 ) extends StrictLogging {
@@ -79,10 +79,11 @@ private final class JsCodeGen(
       dependencies: Seq[Ast.PackageMetadata],
   ): String = {
     val deps = Seq(""""@mojotech/json-type-validation": "^3.1.0"""") ++
-      dependencies.map(d => s""""@$scope/${d.nameDashVersion}": "file:../${d.nameDashVersion}"""")
+      dependencies
+        .map(d => s""""@$npmScope/${d.nameDashVersion}": "file:../${d.nameDashVersion}"""")
     s"""|{
         |  "private": true,
-        |  "name": "@$scope/${packageMetadata.nameDashVersion}",
+        |  "name": "@$npmScope/${packageMetadata.nameDashVersion}",
         |  "version": "$damlVersion",
         |  "license": "UNLICENSED",
         |  "main": "lib/index.js",
@@ -134,7 +135,7 @@ private final class JsCodeGen(
     val (internalImports, externalImports) = imports.partition(_.pkg == moduleId.pkg)
     ModuleGen(
       moduleId.moduleName,
-      scope,
+      npmScope,
       externalImports.map(_.pkg).toSeq.sorted.map(pkg => (pkg, allPackages(pkg).metadata)),
       internalImports.filterNot(_ == moduleId).map(_.moduleName).toSeq.sorted,
       // interfaces need to come before data definitions, otherwise template object would not
@@ -308,14 +309,14 @@ object JsCodeGen extends StrictLogging {
 
     implicit val executionContext: ExecutionContextExecutorService = createExecutionContext()
 
-    val future = run(conf.darFiles, conf.outputDirectory, conf.scope, damlVersion)
+    val future = run(conf.darFiles, conf.outputDirectory, conf.npmScope, damlVersion)
 
     Await.result(future, 10.minutes)
     executionContext.shutdownNow()
     ()
   }
 
-  def run(darFiles: Seq[Path], outputDir: Path, scope: String, damlVersion: String)(implicit
+  def run(darFiles: Seq[Path], outputDir: Path, npmScope: String, damlVersion: String)(implicit
       ec: ExecutionContext
   ): Future[Unit] =
     for {
@@ -336,7 +337,7 @@ object JsCodeGen extends StrictLogging {
       sortedPackages = filteredPackages.toSeq
         .sortBy { case (_, pkg) => (pkg.metadata.name, pkg.metadata.version) }
       _ = assertNoDuplicateNameAndVersion(sortedPackages)
-      codegen = new JsCodeGen(outputDir, scope, damlVersion, allPackages)
+      codegen = new JsCodeGen(outputDir, npmScope, damlVersion, allPackages)
       _ <- Future.traverse(sortedPackages) { case (pkgId, pkg) =>
         Future {
           logger.info(s"Generating ${pkg.metadata.nameDashVersion} (hash: $pkgId)")

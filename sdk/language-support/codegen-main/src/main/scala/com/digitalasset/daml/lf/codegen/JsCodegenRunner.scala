@@ -24,12 +24,12 @@ object JsCodegenRunner extends CodegenRunner {
       dar <- ConfigReader.darPath(sdkConf)
       codegenCursor = ConfigReader.codegen(sdkConf, target = "js")
       outputDirectory <- ConfigReader.outputDirectory(codegenCursor)
-      scope <- scope(codegenCursor, "daml.js")
+      npmScope <- npmScope(codegenCursor, "daml.js")
       verbosity <- ConfigReader.verbosity(codegenCursor, Level.ERROR)
     } yield JsCodeGenConf(
       darFiles = Seq(dar),
       outputDirectory = outputDirectory,
-      scope = scope,
+      npmScope = npmScope,
       verbosity = verbosity,
     )
 
@@ -38,9 +38,9 @@ object JsCodegenRunner extends CodegenRunner {
 
   private def parserName(isDpm: Boolean): String = if (isDpm) "codegen-js" else "codegen"
 
-  private def scope(codegenCursor: ACursor, defaultScope: String): ConfigReader.Result[String] =
+  private def npmScope(codegenCursor: ACursor, defaultScope: String): ConfigReader.Result[String] =
     codegenCursor
-      .downField("scope")
+      .downField("npm-scope")
       .as[Option[String]]
       .map(_.getOrElse(defaultScope))
       .left

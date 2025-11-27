@@ -12,12 +12,12 @@ import scopt.OptionParser
 /** @param darFiles The [[Set]] of Daml-LF [[Path]]s to convert into code. It MUST contain
   *                 all the Daml-LF packages dependencies.
   * @param outputDirectory The directory where the code will be generated
-  * @param scope The NPM scope name for the generated packages; defaults to daml.js
+  * @param npmScope The NPM scope name for the generated packages; defaults to daml.js
   */
 final case class JsCodeGenConf(
     darFiles: Seq[Path],
     outputDirectory: Path,
-    scope: String = "daml.js",
+    npmScope: String = "daml.js",
     verbosity: Level = Level.ERROR,
 )
 
@@ -48,8 +48,8 @@ object JsCodeGenConf {
         .action((l, c) => c.copy(verbosity = l))
         .text("Verbosity between 0 (only show errors) and 4 (show all messages) -- defaults to 0")
 
-      opt[String]('s', "scope")
-        .action((s, c) => c.copy(scope = "@" + s))
+      opt[String]('s', "npm-scope")
+        .action((s, c) => c.copy(npmScope = s))
         .text("The NPM scope name for the generated packages; defaults to daml.js")
 
       help("help").text("This help text")
