@@ -10,11 +10,11 @@ import com.digitalasset.canton.integration.tests.release.kms.KmsCliIntegrationTe
   */
 class AwsCliIntegrationTest extends KmsCliIntegrationTest {
   override lazy val kmsConfigs: Seq[String] = Seq(
-    "enterprise/app/src/test/resources/aws-kms-provider-tagged.conf",
-    "enterprise/app/src/test/resources/participant1-manual-init.conf",
+    "community/app/src/test/resources/aws-kms-provider-tagged.conf",
+    "community/app/src/test/resources/participant1-manual-init.conf",
   )
   override lazy val cantonProcessEnvVar: Seq[(String, String)] = Seq("AWS_PROFILE" -> "sts")
   override lazy val bootstrapScript: String =
-    "enterprise/app/src/test/resources/scripts/aws_kms_participant1.canton"
+    "community/app/src/test/resources/scripts/aws_kms_participant1.canton"
   override lazy val testName: String = "aws"
 }

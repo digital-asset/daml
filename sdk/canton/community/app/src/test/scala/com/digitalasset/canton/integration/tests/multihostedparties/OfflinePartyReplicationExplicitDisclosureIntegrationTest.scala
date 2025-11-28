@@ -48,7 +48,7 @@ sealed trait OfflinePartyReplicationExplicitDisclosureIntegrationTest
       )
       val tx = participant1.ledger_api.javaapi.updates
         .transactions_with_tx_format(
-          transactionFormat = transactionFormat(alice -> PriceQuotation.TEMPLATE_ID),
+          transactionFormat = transactionFormat(alice.partyId -> PriceQuotation.TEMPLATE_ID),
           completeAfter = 1,
         )
         .loneElement
