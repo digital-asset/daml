@@ -8,4 +8,4 @@ version: 1.0.0
 dependencies:
   - daml-prim
   - daml-stdlib
-  - daml-script-lts
+  - daml-script

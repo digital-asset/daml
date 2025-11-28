@@ -8,6 +8,6 @@ version: 1.0.0
 dependencies:
   - daml-prim
   - daml-stdlib
-  - daml-script-lts
+  - daml-script
 data-dependencies:
   - ../interfaces/.daml/dist/__PROJECT_NAME__-interfaces-1.0.0.dar
