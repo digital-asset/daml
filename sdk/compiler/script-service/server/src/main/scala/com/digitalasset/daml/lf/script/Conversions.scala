@@ -911,6 +911,8 @@ final class Conversions(
           ()
         }
         builder.setMap(mapBuilder)
+      case _: V.ValueBlackbox =>
+        sys.error("Encountered blackbox when serializing for script service")
     }
     builder.build
   }

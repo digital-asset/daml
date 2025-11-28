@@ -45,10 +45,21 @@ sealed abstract class SValue extends AnyRef {
       keepTrailingNoneFields = false,
     )
 
+  /** Convert a speedy-value to a value normalized according to the LF version.
+    */
+  def toUnnormalizedValueWithClosures: V =
+    toValue(
+      keepTypeInfo = true,
+      keepFieldName = true,
+      keepTrailingNoneFields = true,
+      encodeSPAPBlackbox = true,
+    )
+
   private[lf] def toValue(
       keepTypeInfo: Boolean,
       keepFieldName: Boolean,
       keepTrailingNoneFields: Boolean,
+      encodeSPAPBlackbox: Boolean = false,
   ): V = {
 
     def go(v: SValue, maxNesting: Int = V.MAXIMUM_NESTING): V = {
@@ -114,6 +125,7 @@ sealed abstract class SValue extends AnyRef {
           )
         case SContractId(coid) =>
           V.ValueContractId(coid)
+        case s: SPAP if encodeSPAPBlackbox => new V.ValueBlackbox(s)
         case _: SStruct | _: SAny | _: SBigNumeric | _: STypeRep | _: SPAP | SToken =>
           throw SError.SErrorCrash(
             NameOf.qualifiedNameOfCurrentFunc,

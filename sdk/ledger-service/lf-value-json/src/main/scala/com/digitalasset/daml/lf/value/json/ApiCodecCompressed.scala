@@ -73,6 +73,7 @@ class ApiCodecCompressed(val encodeDecimalAsString: Boolean, val encodeInt64AsSt
       apiMapToJsValue(textMap)
     case genMap: V.ValueGenMap =>
       apiGenMapToJsValue(genMap)
+    case _: V.ValueBlackbox => sys.error("Encountered blackbox when converting to JS")
   }
 
   @throws[SerializationException]
