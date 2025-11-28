@@ -854,6 +854,14 @@ describe("interface definition", () => {
     expect(if1.templateId).not.toEqual(tpl.templateId);
     expect(if2.templateId).not.toEqual(tpl.templateId);
   });
+  test("template IDs with package IDs not overwritten", () => {
+    expect(if1.templateIdWithPackageId).not.toEqual(
+      tpl.templateIdWithPackageId,
+    );
+    expect(if2.templateIdWithPackageId).not.toEqual(
+      tpl.templateIdWithPackageId,
+    );
+  });
   test("choices not copied to interfaces", () => {
     const key1 = "Transfer";
     const key2 = "Something";
@@ -865,8 +873,10 @@ describe("interface definition", () => {
   test("even with no choices", () => {
     const emptyIfc = buildAndLint.Lib.EmptyIfaceOnly.NoChoices;
     const emptyIfcId: string = emptyIfc.templateId;
+    const emptyIfcIdWithPackageId: string = emptyIfc.templateIdWithPackageId;
     expect(emptyIfc).toMatchObject({
       templateId: emptyIfcId,
+      templateIdWithPackageId: emptyIfcIdWithPackageId,
     });
   });
   describe("choice name collision", () => {
