@@ -35,6 +35,7 @@ private[codegen] final case class TemplateGen(
     implements: Seq[TypeConId],
 ) extends DefGen {
   private val templateId = s"#$packageName:${moduleId.moduleName}:$name"
+  private val templateIdWithPackageId = s"#${moduleId.pkg}:${moduleId.moduleName}:$name"
   override def renderJsSource(b: CodeBuilder): Unit = {
     val keyDecoder =
       keyDecoderOpt.map(LazyDecoder(_)).getOrElse(ConstantRefDecoder(Seq("undefined")))
@@ -42,6 +43,7 @@ private[codegen] final case class TemplateGen(
     b.addBlock(s"exports.$name = damlTypes.assembleTemplate(", ");") {
       b.addBlock("{", "},") {
         b.addLine(s"templateId: '$templateId',")
+        b.addLine(s"templateIdWithPackageId: '$templateIdWithPackageId',")
         b.addInline("keyDecoder: ", ",")(keyDecoder.render(moduleId, b))
         b.addInline("keyEncode: ", ",")(keyEncode.render(moduleId, b))
         b.addInline("decoder: ", ",")(LazyDecoder(decoder).render(moduleId, b))
@@ -232,10 +234,12 @@ private[codegen] final case class InterfaceGen(
     view: TypeConId,
 ) extends DefGen {
   private val interfaceId = s"#$packageName:${moduleId.moduleName}:$name"
+  private val interfaceIdWithPackageId = s"#${moduleId.pkg}:${moduleId.moduleName}:$name"
   override def renderJsSource(b: CodeBuilder): Unit = {
     b.addEmptyLine()
     b.addBlock(s"exports.$name = damlTypes.assembleInterface(", ");") {
       b.addLine(s"'$interfaceId',")
+      b.addLine(s"'$interfaceIdWithPackageId',")
       b.addLine(s"function () { return ${TypeGen.renderSerializable(moduleId, view)}; },")
       b.addBlock("{", "}") {
         choices.foreach(_.renderJsField(moduleId, name, b))

@@ -29,6 +29,7 @@ export interface Serializable<T> {
  */
 export interface ContractTypeCompanion<T extends object, K, I extends string> {
   templateId: I;
+  templateIdWithPackageId: string;
   /**
    * @internal
    */
@@ -120,8 +121,8 @@ export type InterfaceCompanion<
 export type TemplateOrInterface<
   T extends object,
   K = unknown,
-  I extends string = string,
-> = Template<T, K, I> | InterfaceCompanion<T, K, I>;
+  Id extends string = string,
+> = Template<T, K, Id> | InterfaceCompanion<T, K, Id>;
 
 const FromTemplateBrand: unique symbol = Symbol();
 
@@ -220,11 +221,13 @@ export function assembleInterface<
   C extends object,
 >(
   templateId: I,
+  templatIdWithPackageId: string,
   decoderSource: () => Serializable<T>,
   choices: C,
 ): InterfaceCompanion<Interface<I> & T, unknown, I> & C {
   return {
     templateId: templateId,
+    templateIdWithPackageId: templatIdWithPackageId,
     sdkVersion: "0.0.0-SDKVERSION",
     // `Interface<I> &` is a phantom intersection
     decoder: lazyMemo(
