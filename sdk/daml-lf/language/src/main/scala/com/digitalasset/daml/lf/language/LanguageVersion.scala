@@ -18,7 +18,7 @@ final case class LanguageVersion private (
   }
 }
 
-object LanguageVersion extends LanguageVersionGenerated {
+object LanguageVersion extends LanguageFeaturesGenerated {
   sealed abstract class Major(val major: Int)
       extends Product
       with Serializable
@@ -82,20 +82,27 @@ object LanguageVersion extends LanguageVersionGenerated {
     def assertFromString(s: String): Minor = data.assertRight(fromString(s))
   }
 
+  final case class Feature(
+      name: String,
+      versionRange: VersionRange[LanguageVersion],
+  ) {
+    def enabledIn(lv: LanguageVersion): Boolean = versionRange.contains(lv)
+  }
+
   def fromString(str: String): Either[String, LanguageVersion] =
     (allLegacyLfVersions ++ allLfVersions)
       .find(_.toString == str)
       .toRight(s"${str} is not supported")
   def assertFromString(s: String): LanguageVersion = data.assertRight(fromString(s))
 
-  // TODO: remove after feature rework
+  // TODO: remove after https://github.com/digital-asset/daml/issues/22403
   def supportsPackageUpgrades(lv: LanguageVersion): Boolean =
     lv.major match {
-      case Major.V2 => lv >= Features.packageUpgrades
+      case Major.V2 => featurePackageUpgrades.enabledIn(lv)
       case Major.V1 => lv >= LegacyFeatures.packageUpgrades
     }
 
-  // TODO: remove after feature rework (this reworks ranges too, so this can be replaced by an Until range)
+  // TODO: remove after feature https://github.com/digital-asset/daml/issues/22403
   def allUpToVersion(version: LanguageVersion): VersionRange.Inclusive[LanguageVersion] = {
     version.major match {
       case Major.V2 => VersionRange(v2_1, version)

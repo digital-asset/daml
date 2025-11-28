@@ -108,7 +108,7 @@ class IdeLedgerClient(
       .lookupPackage(packageId)
       .fold(
         _ => false,
-        pkgSig => pkgSig.languageVersion >= LanguageVersion.Features.packageUpgrades,
+        pkgSig => LanguageVersion.featurePackageUpgrades.enabledIn(pkgSig.languageVersion),
       )
 
   private var _ledger: IdeLedger = IdeLedger.initialLedger(Time.Timestamp.Epoch)
