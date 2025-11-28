@@ -34,11 +34,14 @@ def extract_failed_tests(report_filename: str):
     Extracts the names of the failed tests from the given report file.
     """
     with open(report_filename) as f:
+        print("extract_failed_tests BEFORE")
         for line in f:
             entry = json.loads(line)
+            print("line")
+            print(entry)
             if "testResult" in entry and entry["testResult"]["status"] == "FAILED":
                 yield entry["id"]["testResult"]["label"]
-
+        print("extract_failed_tests AFTER")
 
 def report_failed_test(branch: str, test_name: str):
     """
