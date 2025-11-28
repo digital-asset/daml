@@ -30,7 +30,7 @@ Add the following to your ``daml.yaml``, replacing the ``<place-holders>`` as ap
 
 .. code:: yaml
 
-  sdk-version: <such as 2.10.0>
+  sdk-version: <such as 3.4.8>
   name: <your-package-name>
   version: 1.0.0
   source: daml
