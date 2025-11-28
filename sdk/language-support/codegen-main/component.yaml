@@ -9,3 +9,7 @@ spec:
       name: codegen-java
       desc: Daml to Java compiler
       jar-args: ["java"]
+    - path: binary.jar
+      name: codegen-js
+      desc: Daml to Javascript compiler
+      jar-args: ["js"]

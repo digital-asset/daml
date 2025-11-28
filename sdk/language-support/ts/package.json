@@ -1,7 +1,0 @@
-{
-  "private": true,
-  "workspaces": [
-    "daml-types",
-    "daml-ledger"
-  ]
-}

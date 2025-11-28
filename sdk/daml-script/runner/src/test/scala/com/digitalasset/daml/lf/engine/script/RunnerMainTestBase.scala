@@ -33,7 +33,7 @@ trait RunnerMainTestBase {
 
   private implicit val ec: ExecutionContext = ExecutionContext.global
 
-  val exe = if (sys.props("os.name").toLowerCase.contains("windows")) ".exe" else ""
+  import BazelRunfiles.exe
   val damlScript = BazelRunfiles.rlocation(Paths.get(s"daml-script/runner/daml-script-binary$exe"))
 
   // Runs process with args, returns status and stdout <> stderr

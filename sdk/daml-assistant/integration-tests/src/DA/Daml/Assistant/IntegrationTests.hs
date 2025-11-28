@@ -32,8 +32,6 @@ import Test.Tasty.HUnit
 import DA.Bazel.Runfiles
 import DA.Daml.Assistant.IntegrationTestUtils
 import DA.Daml.Helper.Util (tokenFor, decodeCantonSandboxPort)
-import DA.Test.Daml2jsUtils
-    ( setupYarnEnv, TsLibrary(DamlTypes), Workspaces(Workspaces) )
 import DA.Test.Process (callCommandIn, callCommandFailingIn, callCommandSilent, callCommandSilentIn, subprocessEnv)
 import DA.Test.Util
 import DA.PortFile

@@ -65,6 +65,10 @@
   type: jar-jarjar
 - target: //language-support/java/json:json
   type: jar-scala
+- target: //language-support/js/codegen:lib
+  type: jar-scala
+- target: //language-support/js/codegen:binary
+  type: jar-jarjar
 - target: //canton:ledger_api_proto_jar
   type: jar-lib
 - target: //canton:ledger_api_proto_java

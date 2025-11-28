@@ -138,7 +138,7 @@ main = do
 
       -- NPM packages we want to publish
       let npmPackages =
-              [ "//language-support/ts/daml-types"
+              [ "//language-support/js/daml-types"
               ]
 
       when (getIncludeTypescript optIncludeTypescript) $ do

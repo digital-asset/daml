@@ -44,6 +44,7 @@ da_scala_library(
         "src/main/resources/logback.xml",
     ],
     scala_deps = [
+        "@maven//:com_github_scopt_scopt",
         "@maven//:com_typesafe_scala_logging_scala_logging",
         "@maven//:org_scalaz_scalaz_core",
     ],
@@ -57,6 +58,7 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/language",
         "//language-support/codegen-common",
+        "//libs-scala/build-info",
         "//libs-scala/nonempty",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
@@ -104,7 +106,6 @@ da_scala_test(
         "//daml-lf/data",
         "//daml-lf/language",
         "//daml-lf/stable-packages",
-        "//language-support/codegen-common",
         "@maven//:com_squareup_javapoet",
         "@maven//:org_scalatest_scalatest_compatible",
         "@maven//:org_slf4j_slf4j_api",
@@ -152,8 +153,8 @@ daml_compile(
     name = "test-depending-on-bar-template",
     srcs = ["src/test/daml/UsingBar.daml"],
     data_dependencies = [
-        "//language-support/java/codegen:test-template.dar",
-        "//language-support/java/codegen:test-another-bar.dar",
+        "test-template.dar",
+        "test-another-bar.dar",
     ],
 )
 
@@ -177,9 +178,12 @@ dar_to_java(
     package_prefix = "baz",
 )
 
+########################################################
+####  Distribution
+########################################################
 copy_file(
     name = "binary",
-    src = "//language-support/java/codegen:codegen_distribute.jar",
+    src = "codegen_distribute.jar",
     out = "binary.jar",
     allow_symlink = True,
     tags = ["maven_coordinates=com.daml:codegen-java:__VERSION__"],

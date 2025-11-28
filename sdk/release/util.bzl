@@ -16,7 +16,6 @@ inputs = {
     "damlc_dist": "//compiler/damlc:damlc-dist",
     "daml_extension": "//compiler/daml-extension:vsix",
     "daml_extension_stylesheet": "//compiler/daml-extension:webview-stylesheet.css",
-    "daml2js_dist": "//language-support/ts/codegen:daml2js-dist",
     "templates": "//templates:templates-tarball.tar.gz",
     "script_dars": "//daml-script/daml:daml-script-dars",
     "canton": "//canton:community_app_deploy.jar",
@@ -72,9 +71,6 @@ def sdk_tarball(name, version, config):
 
           mkdir -p $$OUT/daml-helper
           tar xf $(location {daml_helper_dist}) --strip-components=1 -C $$OUT/daml-helper
-
-          mkdir -p $$OUT/daml2js
-          tar xf $(location {daml2js_dist}) --strip-components=1 -C $$OUT/daml2js
 
           mkdir -p $$OUT/studio
           cp $(location {daml_extension}) $$OUT/studio/daml-bundled.vsix

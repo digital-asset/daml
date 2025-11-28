@@ -1,8 +1,19 @@
 # Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_test")
+load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_repl", "da_haskell_test")
 load("@os_info//:os_info.bzl", "is_windows")
 load("@build_environment//:configuration.bzl", "mvn_version")
+
+# A REPL with all tests, used as bios for HLS
+da_haskell_repl(
+    name = "tests@ghci",
+    testonly = True,
+    deps = [
+        ":integration-test-utils",
+        ":integration-tests",
+        ":quickstart-tests",
+    ],
+)
 
 genrule(
     name = "integration-tests-mvn",
@@ -14,6 +25,8 @@ genrule(
         "//canton:bindings-java_pom.xml",
         "//language-support/java/codegen:binary.jar",
         "//language-support/java/codegen:binary_pom.xml",
+        "//language-support/js/codegen:binary.jar",
+        "//language-support/js/codegen:binary_pom.xml",
         "//libs-scala/rs-grpc-bridge:librs-grpc-bridge.jar",
         "//libs-scala/rs-grpc-bridge:rs-grpc-bridge_pom.xml",
         "//docs:quickstart-java.tar.gz",
@@ -49,6 +62,10 @@ genrule(
         $(location //language-support/java/codegen:binary.jar) \\
         $(location //language-support/java/codegen:binary_pom.xml)
       install_mvn \\
+        "com.daml" "codegen-js" \\
+        $(location //language-support/js/codegen:binary.jar) \\
+        $(location //language-support/js/codegen:binary_pom.xml)
+      install_mvn \\
         "com.daml" "rs-grpc-bridge" \\
         $(location //libs-scala/rs-grpc-bridge:librs-grpc-bridge.jar) \\
         $(location //libs-scala/rs-grpc-bridge:rs-grpc-bridge_pom.xml)
@@ -58,21 +75,26 @@ genrule(
     tools = ["//bazel_tools/sh:mktar"],
 )
 
-ts_libraries = [
-    "//language-support/ts/daml-types:npm_package",
+not_for_windows_libraries = [] if is_windows else [
+    "//language-support/js/daml-types:npm_package",
+    "@script_nix//:bin/script",
 ]
 
 da_haskell_library(
     name = "integration-test-utils",
     srcs = ["src/DA/Daml/Assistant/IntegrationTestUtils.hs"],
     hackage_deps = [
+        "aeson",
         "base",
+        "bytestring",
         "conduit",
         "conduit-extra",
         "extra",
         "filepath",
+        "hashable",
         "tasty",
         "text",
+        "unordered-containers",
     ],
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
@@ -97,7 +119,7 @@ da_haskell_test(
         "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
         "//:yarn",
         "//compiler/damlc/tests:generate-simple-dalf",
-    ] + ([] if is_windows else ts_libraries + ["@script_nix//:bin/script"]),
+    ] + not_for_windows_libraries,
     # marked flaky for mvn originally; still flaky now? #14281
     flaky = False,
     hackage_deps = [
@@ -125,7 +147,6 @@ da_haskell_test(
         ":integration-test-utils",
         "//daml-assistant/daml-helper:daml-helper-lib",
         "//language-support/hs/bindings:hs-ledger",
-        "//language-support/ts/codegen/tests:daml2js-test-helpers",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
@@ -146,7 +167,7 @@ da_haskell_test(
         "//compiler/damlc/tests:generate-simple-dalf",
         "@mvn_dev_env//:mvn",
         "@tar_dev_env//:tar",
-    ] + ([] if is_windows else ts_libraries + ["@script_nix//:bin/script"]),
+    ] + not_for_windows_libraries,
     # I’m sure the mvn stuff will be flaky.
     flaky = True,
     hackage_deps = [
@@ -169,7 +190,6 @@ da_haskell_test(
         "//daml-assistant:daml-project-config",
         "//daml-assistant/daml-helper:daml-helper-lib",
         "//language-support/hs/bindings:hs-ledger",
-        "//language-support/ts/codegen/tests:daml2js-test-helpers",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",

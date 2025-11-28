@@ -3,14 +3,14 @@
 
 package com.digitalasset.daml.lf.codegen
 
-import com.digitalasset.daml.lf.codegen.conf.Conf
+import com.digitalasset.daml.lf.codegen.JavaCodeGenConf
 import com.typesafe.scalalogging.StrictLogging
 
 import scala.util.control.NonFatal
 
 object StandaloneMain extends StrictLogging {
 
-  @deprecated("Use codegen font-end: com.daml.codegen.CodegenMain.main", "0.13.23")
+  @deprecated("Use codegen front-end: com.daml.codegen.CodegenMain.main", "0.13.23")
   def main(args: Array[String]): Unit =
     try {
       Main.main(args)
@@ -22,10 +22,10 @@ object StandaloneMain extends StrictLogging {
 }
 
 object Main {
-  @deprecated("Use codegen font-end: com.daml.codegen.CodegenMain.main", "0.13.23")
+  @deprecated("Use codegen front-end: com.daml.codegen.CodegenMain.main", "0.13.23")
   def main(args: Array[String]): Unit =
-    Conf.parse(args) match {
-      case Some(conf) => CodeGenRunner.run(conf)
+    JavaCodeGenConf.parse(args) match {
+      case Some(conf) => JavaCodeGen.run(conf)
       case None =>
         throw new IllegalArgumentException(s"Invalid command line arguments: ${args.mkString(" ")}")
     }

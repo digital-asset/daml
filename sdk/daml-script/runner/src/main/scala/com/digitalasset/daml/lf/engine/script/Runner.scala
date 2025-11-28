@@ -535,8 +535,7 @@ private[lf] class Runner(
   val knownPackages: Map[String, PackageId] = (for {
     entry <- compiledPackages.signatures
     (pkgId, pkg) = entry
-    md = pkg.metadata
-  } yield (s"${md.name}-${md.version}" -> pkgId)).toMap
+  } yield (pkg.metadata.nameDashVersion -> pkgId)).toMap
 
   def runWithClients(
       initialClients: Participants[ScriptLedgerClient],

@@ -5,12 +5,24 @@ module DA.Daml.Assistant.IntegrationTestUtils
   , SandboxPorts(..)
   , sandboxPorts
   , throwError
+  , TsLibrary (..)
+  , Workspaces (..)
+  , allTsLibraries
+  , tsLibraryName
+  , setupYarnEnv
   ) where
 
 {- HLINT ignore "locateRunfiles/package_app" -}
 
 import Conduit hiding (connect)
 import Control.Monad (forM_)
+import DA.Bazel.Runfiles
+import DA.Directory
+import DA.Test.Process (callProcessSilent)
+import DA.Test.Util
+import Data.Aeson
+import qualified Data.Aeson.Key as Aeson
+import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Conduit.Tar.Extra as Tar.Conduit.Extra
 import qualified Data.Conduit.Zlib as Zlib
 import Data.List.Extra
@@ -22,10 +34,6 @@ import System.Directory.Extra
 import System.IO.Extra
 import System.Info.Extra
 import Test.Tasty
-
-import DA.Bazel.Runfiles
-import DA.Test.Process (callProcessSilent)
-import DA.Test.Util
 
 -- | Install the SDK in a temporary directory and provide the path to the SDK directory.
 -- This also adds the bin directory to PATH so calling assistant commands works without
@@ -83,3 +91,37 @@ damlInstallerName :: String
 damlInstallerName
     | isWindows = "daml.exe"
     | otherwise = "daml"
+
+data TsLibrary
+    = DamlTypes
+    deriving (Bounded, Enum)
+
+newtype Workspaces = Workspaces [FilePath]
+
+allTsLibraries :: [TsLibrary]
+allTsLibraries = [minBound .. maxBound]
+
+tsLibraryName :: TsLibrary -> String
+tsLibraryName = \case
+    DamlTypes -> "daml-types"
+
+-- NOTE(MH): In some tests we need our TS libraries like `@daml/types` in
+-- scope. We achieve this by putting a `package.json` file further up in the
+-- directory tree. This file sets up a yarn workspace that includes the TS
+-- libraries via the `resolutions` field.
+setupYarnEnv :: FilePath -> Workspaces -> [TsLibrary] -> IO ()
+setupYarnEnv rootDir (Workspaces workspaces) tsLibs = do
+    jsLibsRoot <- locateRunfiles $ mainWorkspace </> "language-support" </> "js"
+    forM_  tsLibs $ \tsLib -> do
+        let name = tsLibraryName tsLib
+        copyDirectory (jsLibsRoot </> name </> "npm_package") (rootDir </> name)
+    BSL.writeFile (rootDir </> "package.json") $ encode $ object
+        [ "private" .= True
+        , "workspaces" .= workspaces
+        , "resolutions" .= object
+            [ Aeson.fromText pkgName .= ("file:./" ++ name)
+            | tsLib <- tsLibs
+            , let name = tsLibraryName tsLib
+            , let pkgName = "@" <> T.replace "-" "/"  (T.pack name)
+            ]
+        ]

@@ -234,7 +234,7 @@ genrule(
     srcs = [
         ":hoogle_db.tar.gz",
         "//language-support/java:javadoc",
-        "//language-support/ts/daml-types:docs",
+        "//language-support/js/daml-types:docs",
     ],
     outs = ["non-sphinx-html-docs.tar.gz"],
     cmd = """
@@ -250,7 +250,7 @@ genrule(
 
     # Copy generated documentation for typescript libraries
     mkdir -p $$DIR/html/sdk/sdlc-howtos/applications/integrate/bindings-ts/daml-types
-    tar -xzf $(location //language-support/ts/daml-types:docs) --strip-components 1 -C $$DIR/html/sdk/sdlc-howtos/applications/integrate/bindings-ts/daml-types/
+    tar -xzf $(location //language-support/js/daml-types:docs) --strip-components 1 -C $$DIR/html/sdk/sdlc-howtos/applications/integrate/bindings-ts/daml-types/
 
     # Copy in hoogle DB
     cp -L $(location :hoogle_db.tar.gz) $$DIR/html/hoogle_db.tar.gz
