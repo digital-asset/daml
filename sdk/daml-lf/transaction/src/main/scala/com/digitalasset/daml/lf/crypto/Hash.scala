@@ -733,6 +733,7 @@ object Hash {
           iterateOver(entries.iterator, entries.length)((acc, x) =>
             acc.addTypedValue(x._1).addTypedValue(x._2)
           )
+        case _: Value.ValueBlackbox => sys.error("Encountered blackbox when hashing")
       }
   }
 
@@ -840,6 +841,7 @@ object Hash {
           addString(v)
         case Value.ValueGenMap(entries) =>
           addGenMap(entries)
+        case _: Value.ValueBlackbox => sys.error("Encountered blackbox when hashing")
       }
 
     private def addGenMap(entries: ImmArray[(Value, Value)]): this.type =
@@ -890,6 +892,7 @@ object Hash {
                   discard(addField.addByte(1.toByte, s"true (bool)"))
               case Value.ValueUnit =>
               // We never write unit
+              case _: Value.ValueBlackbox => sys.error("Encountered blackbox when hashing")
             }
           case Value.ValueRecord(_, fields) =>
             // No default value for records

@@ -162,6 +162,7 @@ object LfEngineToApi {
               )
             )
           }
+      case _: Lf.ValueBlackbox => sys.error("Encountered blackbox when converting to API")
     }
 
   @throws[RuntimeException]

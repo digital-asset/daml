@@ -773,12 +773,14 @@ private[lf] object Speedy {
 
     @nowarn("msg=dead code following this construct")
     @tailrec
-    def runPure(): Either[SError, SValue] =
+    def runPure(cancelled: () => Boolean = () => false): Either[SError, SValue] =
       run() match {
         case SResultError(err) => Left(err)
         case SResultFinal(v) => Right(v)
+        case SResultInterruption if cancelled() =>
+          Left(SErrorCrash("runPure", "cancelled"))
         case SResultInterruption =>
-          runPure()
+          runPure(cancelled)
         case SResultQuestion(nothing) => nothing
       }
   }
@@ -1370,6 +1372,42 @@ private[lf] object Speedy {
         iterationsBetweenInterruptions: Long = Long.MaxValue,
     )(implicit loggingContext: LoggingContext): Either[SError, SValue] =
       fromPureSExpr(compiledPackages, expr, iterationsBetweenInterruptions).runPure()
+
+    @throws[PackageNotFound]
+    @throws[CompilationError]
+    // Returns a value with blackboxes
+    // Arguments cannot contain blackboxes
+    def runPureValueBlackboxClosure(
+        f: V.ValueBlackbox,
+        args: List[(Type, V)],
+        cancelled: () => Boolean,
+        compiledPackages: CompiledPackages,
+        iterationsBetweenInterruptions: Long = Long.MaxValue,
+    )(implicit loggingContext: LoggingContext): Either[String, V] =
+      f.getContent match {
+        case spap: SValue.SPAP => {
+          import scalaz.syntax.traverse._
+          import scalaz.std.list._
+          import scalaz.std.either._
+          val translator = new ValueTranslator(
+            compiledPackages.pkgInterface,
+            forbidLocalContractIds = true,
+            forbidTrailingNones = false,
+          )
+          for {
+            sArgs <- args
+              .traverse { case (ty, v) => translator.translateValue(ty, v).map(SEValue(_)) }
+              .left
+              .map(err => err.getMessage)
+            sRes <- fromPureSExpr(
+              compiledPackages,
+              SEAppAtomicGeneral(SEValue(spap), ArraySeq.from(sArgs)),
+              iterationsBetweenInterruptions,
+            ).runPure(cancelled).left.map(err => err.getMessage)
+          } yield sRes.toUnnormalizedValueWithClosures
+        }
+        case _ => sys.error("Got non SPAP blackbox")
+      }
 
     def tmplId2TxVersion(pkgInterface: PackageInterface, tmplId: TypeConId): SerializationVersion =
       SerializationVersion.assign(pkgInterface.packageLanguageVersion(tmplId.packageId))

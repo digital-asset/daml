@@ -588,6 +588,7 @@ private[lf] object Pretty {
           prettyValue(verbose)(k) + text(" -> ") + prettyValue(verbose)(v)
         }
         text("GenMap(") + intercalate(text(", "), list.toSeq) + text(")")
+      case _: ValueBlackbox => text("Blackbox(<omitted>)")
     }
 
   object SExpr {

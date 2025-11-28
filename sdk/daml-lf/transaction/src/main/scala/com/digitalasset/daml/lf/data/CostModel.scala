@@ -237,6 +237,7 @@ private[lf] object CostModel {
         1 + costOfUnit(())
       case Value.ValueVariant(tycon, variant, value) =>
         1 + costOfOption(tycon) + costOfString(variant) + costOfValue(value)
+      case _: Value.ValueBlackbox => sys.error("Encountered blackbox when calculating cost")
     }
 
     implicit def costOfFatContractInstance(value: FatContractInstance): Cost = {

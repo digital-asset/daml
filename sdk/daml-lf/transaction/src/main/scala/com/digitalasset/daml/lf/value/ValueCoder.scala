@@ -446,7 +446,7 @@ class ValueCoder(allowNullCharacters: Boolean) {
                 )
               }
               builder.setMap(protoMap).build()
-
+            case _: Value.ValueBlackbox => sys.error("Encountered blackbox when serializing")
           }
         }
       }
