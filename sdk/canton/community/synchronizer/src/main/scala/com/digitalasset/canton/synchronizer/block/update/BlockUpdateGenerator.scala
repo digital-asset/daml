@@ -111,7 +111,7 @@ class BlockUpdateGeneratorImpl(
     rateLimitManager: SequencerRateLimitManager,
     orderingTimeFixMode: OrderingTimeFixMode,
     sequencingTimeLowerBoundExclusive: Option[CantonTimestamp],
-    useTimeProofsToObserveEffectiveTime: Boolean,
+    producePostOrderingTopologyTicks: Boolean,
     metrics: SequencerMetrics,
     protected val loggerFactory: NamedLoggerFactory,
     memberValidator: SequencerMemberValidator,
@@ -204,11 +204,16 @@ class BlockUpdateGeneratorImpl(
     metrics.block.height.updateValue(blockHeight)
 
     val tickChunk =
-      if (useTimeProofsToObserveEffectiveTime)
+      if (protocolVersion >= ProtocolVersion.v35 && producePostOrderingTopologyTicks) {
+        // Starting with protocol version 35, topology ticks can be deterministically injected
+        //  post-ordering by sequencers, allowing to disable time proofs.
+        Some(MaybeTopologyTickChunk(blockHeight, blockEvents.baseBlockSequencingTime))
+      } else {
+        // Up to and including protocol version 34, only the BFT sequencer can request to inject topology ticks.
         blockEvents.tickTopology.map { case TickTopology(micros, recipient) =>
           TopologyTickChunk(blockHeight, micros, recipient)
         }
-      else Some(MaybeTopologyTickChunk(blockHeight, blockEvents.baseBlockSequencingTime))
+      }
 
     // We must start a new chunk whenever the chunk processing advances lastSequencerEventTimestamp,
     //  otherwise the logic for retrieving a topology snapshot or traffic state could deadlock.

@@ -1,0 +1,15 @@
+override-components: 
+  damlc: 
+    version: $DAML_VERSION
+  daml-script: 
+    version: $DAML_VERSION
+build-options: 
+- --target=2.dev
+- --enable-interfaces=yes
+name: DamlTestLfDevFiles
+source: daml
+version: 3.4.0
+dependencies: 
+- daml-prim
+- daml-stdlib
+- daml-script

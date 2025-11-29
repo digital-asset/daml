@@ -8,11 +8,7 @@ import cats.data.EitherT
 import cats.implicits.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.{
-  CachingConfigs,
-  DefaultProcessingTimeouts,
-  SessionEncryptionKeyCacheConfig,
-}
+import com.digitalasset.canton.config.{DefaultProcessingTimeouts, SessionEncryptionKeyCacheConfig}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{
   Signature,
@@ -865,7 +861,7 @@ final class UnassignmentProcessingStepsTest
     "succeed without errors" in {
       ResourceUtil.withResourceM(
         new SessionKeyStoreWithInMemoryCache(
-          CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
+          SessionEncryptionKeyCacheConfig(),
           timeouts,
           loggerFactory,
         )

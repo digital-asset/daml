@@ -67,7 +67,8 @@ trait StoreBasedTopologySnapshotTest
       )
     )
 
-    class Fixture {
+    class Fixture(val useTimeProofsToObserveEffectiveTime: Boolean = true) {
+
       val store: TopologyStore[TopologyStoreId.SynchronizerStore] = mk()
       val client =
         new StoreBasedSynchronizerTopologyClient(
@@ -75,7 +76,7 @@ trait StoreBasedTopologySnapshotTest
           defaultStaticSynchronizerParameters,
           store,
           NoPackageDependencies,
-          TopologyConfig(),
+          TopologyConfig(useTimeProofsToObserveEffectiveTime = useTimeProofsToObserveEffectiveTime),
           DefaultProcessingTimeouts.testing,
           FutureSupervisor.Noop,
           loggerFactory,
@@ -159,21 +160,25 @@ trait StoreBasedTopologySnapshotTest
         awaitSequencedTimestampF.isCompleted shouldBe true
       }
 
-      "await tick when effective time is in the future" in {
-        val fixture = new Fixture()
-        import fixture.*
+      "await tick when effective time is in the future only when enabled" in {
+        forEvery(Table("useTimeProofsToObserveEffectiveTime", true, false)) {
+          useTimeProofsToObserveEffectiveTime =>
+            val fixture = new Fixture(useTimeProofsToObserveEffectiveTime)
+            import fixture.*
 
-        // given
-        val timeTracker = mock[SynchronizerTimeTracker]
-        when(timeTracker.awaitTick(ts2)).thenReturn(None)
-        client.setSynchronizerTimeTracker(timeTracker)
+            // given
+            val timeTracker = mock[SynchronizerTimeTracker]
+            when(timeTracker.awaitTick(ts2)).thenReturn(None)
+            client.setSynchronizerTimeTracker(timeTracker)
 
-        // when
-        observed(SequencedTime(ts1), EffectiveTime(ts2))
+            // when
+            observed(SequencedTime(ts1), EffectiveTime(ts2))
 
-        // then
-        verify(timeTracker).awaitTick(ts2)
-        succeed
+            // then
+            val howOften = if (fixture.useTimeProofsToObserveEffectiveTime) times(1) else never
+            verify(timeTracker, howOften).awaitTick(ts2)
+            succeed
+        }
       }
 
       "correctly get notified on updateHead" in {

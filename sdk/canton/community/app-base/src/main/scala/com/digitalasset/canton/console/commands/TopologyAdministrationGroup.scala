@@ -65,7 +65,6 @@ import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionValidation}
 import com.digitalasset.canton.{config, networking}
 import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 import io.grpc.Context
 
@@ -1642,7 +1641,7 @@ class TopologyAdministrationGroup(
   @Help.Group("Party to participant mappings")
   object party_to_participant_mappings extends Helpful {
 
-    private def findCurrent(party: PartyId, store: TopologyStoreId) =
+    private[canton] def findCurrent(party: PartyId, store: TopologyStoreId) =
       store match {
         case synchronizerStore @ TopologyStoreId.Synchronizer(_) =>
           expectAtMostOneResult(
@@ -1666,6 +1665,51 @@ class TopologyAdministrationGroup(
             )
           )
       }
+
+    private[canton] def computeDelta(
+        party: PartyId,
+        adds: Seq[(ParticipantId, ParticipantPermission)] = Nil,
+        removes: Seq[ParticipantId] = Nil,
+        store: TopologyStoreId = TopologyStoreId.Authorized,
+        serial: Option[PositiveInt] = None,
+    ) = {
+      val currentO = findCurrent(party, store)
+      val (existingPermissions, nextSerial, threshold, partySigningKeys) = currentO match {
+        case Some(current) if current.context.operation == TopologyChangeOp.Remove =>
+          (
+            // if the existing mapping was REMOVEd, we start from scratch
+            SeqMap.empty[ParticipantId, ParticipantPermission],
+            Some(current.context.serial.increment),
+            current.item.threshold,
+            None,
+          )
+        case Some(current) =>
+          (
+            SeqMap.from(current.item.participants.map(p => p.participantId -> p.permission)),
+            Some(current.context.serial.increment),
+            current.item.threshold,
+            current.item.partySigningKeysWithThreshold,
+          )
+        case None =>
+          (
+            SeqMap.empty[ParticipantId, ParticipantPermission],
+            Some(PositiveInt.one),
+            PositiveInt.one,
+            None,
+          )
+      }
+      val newSerial = if (serial.nonEmpty) serial else nextSerial
+
+      val newPermissions = new PartyToParticipantComputations(loggerFactory)
+        .computeNewPermissions(
+          existingPermissions = existingPermissions,
+          adds = adds,
+          removes = removes,
+        )
+        .valueOr(err => throw new IllegalArgumentException(err))
+
+      (existingPermissions, newPermissions, newSerial, threshold, partySigningKeys)
+    }
 
     @Help.Summary("Change party to participant mapping")
     @Help.Description("""Change the association of a party to hosting participants.
@@ -1708,40 +1752,8 @@ class TopologyAdministrationGroup(
         requiresPartyToBeOnboarded: Boolean = false,
     ): SignedTopologyTransaction[TopologyChangeOp, PartyToParticipant] = {
 
-      val currentO = findCurrent(party, store)
-      val (existingPermissions, nextSerial, threshold, partySigningKeys) = currentO match {
-        case Some(current) if current.context.operation == TopologyChangeOp.Remove =>
-          (
-            // if the existing mapping was REMOVEd, we start from scratch
-            SeqMap.empty[ParticipantId, ParticipantPermission],
-            Some(current.context.serial.increment),
-            current.item.threshold,
-            current.item.partySigningKeysWithThreshold,
-          )
-        case Some(current) =>
-          (
-            SeqMap.from(current.item.participants.map(p => p.participantId -> p.permission)),
-            Some(current.context.serial.increment),
-            current.item.threshold,
-            current.item.partySigningKeysWithThreshold,
-          )
-        case None =>
-          (
-            SeqMap.empty[ParticipantId, ParticipantPermission],
-            Some(PositiveInt.one),
-            PositiveInt.one,
-            None,
-          )
-      }
-      val newSerial = if (serial.nonEmpty) serial else nextSerial
-
-      val newPermissions = new PartyToParticipantComputations(loggerFactory)
-        .computeNewPermissions(
-          existingPermissions = existingPermissions,
-          adds = adds,
-          removes = removes,
-        )
-        .valueOr(err => throw new IllegalArgumentException(err))
+      val (existingPermissions, newPermissions, newSerial, threshold, partySigningKeys) =
+        computeDelta(party, adds, removes, store, serial)
 
       if (newPermissions.nonEmpty) {
         // issue a REPLACE
@@ -1851,45 +1863,6 @@ class TopologyAdministrationGroup(
 
       runAdminCommand(command)
     }
-
-    @VisibleForTesting
-    @Help.Summary("Remove the party from the synchronizer")
-    @Help.Description("Unlike propose above, sign the new transaction using the global store")
-    private[canton] def sign_and_remove(
-        party: ExternalParty,
-        synchronizer: Synchronizer,
-        forceFlags: ForceFlags = ForceFlags.none,
-        synchronize: Option[config.NonNegativeDuration] = Some(
-          consoleEnvironment.commandTimeouts.bounded
-        ),
-    ): Unit =
-      findCurrent(party.partyId, synchronizer) match {
-        case Some(current) =>
-          val psid = current.context.storeId match {
-            case TopologyStoreId.Synchronizer(Right(psid)) => psid
-            case other =>
-              consoleEnvironment.raiseError(
-                s"Expected topology store id to be physical but found: $other"
-              )
-          }
-
-          val transaction = TopologyTransaction(
-            TopologyChangeOp.Remove,
-            serial = current.context.serial.increment,
-            mapping = current.item,
-            protocolVersion = psid.protocolVersion,
-          )
-
-          transactions.load(
-            Seq(consoleEnvironment.global_secret.sign(transaction, party, psid.protocolVersion)),
-            psid,
-            synchronize = synchronize,
-            forceFlags = forceFlags,
-          )
-
-        case None =>
-          consoleEnvironment.raiseError(s"Unable to find mapping for party $party")
-      }
 
     @Help.Summary("List party to participant mapping transactions from synchronizer store")
     @Help.Description(
@@ -2132,78 +2105,6 @@ class TopologyAdministrationGroup(
           filterParticipant,
         )
       )
-    }
-
-    @VisibleForTesting
-    @Help.Summary("Propose an update of the party to participant mapping")
-    @Help.Description("Unlike propose above, sign the new transaction using the global store")
-    private[canton] def sign_and_update(
-        party: PartyId,
-        synchronizerId: SynchronizerId,
-        updater: PartyToParticipant => PartyToParticipant,
-        synchronize: Option[config.NonNegativeDuration] = Some(
-          consoleEnvironment.commandTimeouts.unbounded
-        ),
-    ): PartyToParticipant = {
-
-      val current = expectExactlyOneResult(
-        list(
-          synchronizerId = synchronizerId,
-          filterParty = party.filterString,
-          // fetch both REPLACE and REMOVE to correctly determine the next serial
-          operation = None,
-        )
-      )
-
-      val psid = current.context.storeId match {
-        case TopologyStoreId.Synchronizer(Right(psid)) => psid
-        case other =>
-          consoleEnvironment.raiseError(
-            s"Expected topology store id to be physical but found: $other"
-          )
-      }
-
-      val updatedMapping = updater(current.item)
-
-      val updatedTransaction = TopologyTransaction(
-        TopologyChangeOp.Replace,
-        current.context.serial.increment,
-        updatedMapping,
-        psid.protocolVersion,
-      )
-
-      val newKeys = updatedTransaction.mapping.partySigningKeys.diff(current.item.partySigningKeys)
-      // New keys should sign the transaction
-      val newSignatures = newKeys.map { newKey =>
-        consoleEnvironment.global_secret.sign(
-          updatedTransaction.hash.hash.getCryptographicEvidence,
-          newKey.fingerprint,
-          NonEmpty.mk(Set, SigningKeyUsage.Protocol: SigningKeyUsage),
-        )
-      }
-
-      val namespaceSignature = consoleEnvironment.global_secret.sign(
-        updatedTransaction.hash.hash.getCryptographicEvidence,
-        party.fingerprint,
-        NonEmpty.mk(Set, SigningKeyUsage.Namespace: SigningKeyUsage),
-      )
-
-      val signedTopologyTransaction = SignedTopologyTransaction.withTopologySignatures(
-        updatedTransaction,
-        NonEmpty
-          .mk(Seq, namespaceSignature, newSignatures.toSeq*)
-          .map(SingleTransactionSignature(updatedTransaction.hash, _)),
-        isProposal = false,
-        protocolVersion = psid.protocolVersion,
-      )
-
-      transactions.load(
-        Seq(signedTopologyTransaction),
-        synchronizerId,
-        synchronize = synchronize,
-      )
-
-      updatedMapping
     }
   }
 

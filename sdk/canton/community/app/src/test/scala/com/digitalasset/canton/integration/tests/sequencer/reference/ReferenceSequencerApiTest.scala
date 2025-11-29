@@ -15,7 +15,10 @@ import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.synchronizer.block.{AsyncWriterParameters, SequencerDriver}
 import com.digitalasset.canton.synchronizer.metrics.SequencerTestMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.DriverBlockSequencerFactory
-import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeParameters
+import com.digitalasset.canton.synchronizer.sequencer.config.{
+  SequencerNodeParameters,
+  TimeAdvancingTopologyConfig,
+}
 import com.digitalasset.canton.synchronizer.sequencer.traffic.SequencerTrafficConfig
 import com.digitalasset.canton.synchronizer.sequencer.{
   BlockSequencerConfig,
@@ -42,7 +45,7 @@ class ReferenceSequencerApiTest extends SequencerApiTest with RateLimitManagerTe
         SequencerDriver.DriverApiVersion,
         ReferenceSequencerDriver.Config(StorageConfig.Memory()),
         BlockSequencerConfig(),
-        useTimeProofsToObserveEffectiveTime = true,
+        producePostOrderingTopologyTicks = false,
         health = None,
         storage,
         testedProtocolVersion,
@@ -84,6 +87,7 @@ class ReferenceSequencerApiTest extends SequencerApiTest with RateLimitManagerTe
       maxConfirmationRequestsBurstFactor = PositiveDouble.tryCreate(1.0),
       sequencingTimeLowerBoundExclusive = None,
       asyncWriter = AsyncWriterParameters(),
+      timeAdvancingTopology = TimeAdvancingTopologyConfig(),
     )
 
   "Reference sequencer" when runSequencerApiTests()

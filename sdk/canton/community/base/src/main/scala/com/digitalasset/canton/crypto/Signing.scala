@@ -12,13 +12,8 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.base.error.*
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.ProtoDeserializationError.InvariantViolation
+import com.digitalasset.canton.config.PositiveFiniteDuration
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
-import com.digitalasset.canton.config.{
-  CantonConfigValidator,
-  PositiveFiniteDuration,
-  UniformCantonConfigValidation,
-}
 import com.digitalasset.canton.crypto.CryptoPureApiError.KeyParseAndValidateError
 import com.digitalasset.canton.crypto.SigningKeyUsage.encodeUsageForHash
 import com.digitalasset.canton.crypto.SigningPublicKey.getDataForFingerprint
@@ -871,11 +866,7 @@ object SigningKeyUsage {
 }
 
 /** A signing key specification. */
-sealed trait SigningKeySpec
-    extends Product
-    with Serializable
-    with PrettyPrinting
-    with UniformCantonConfigValidation {
+sealed trait SigningKeySpec extends Product with Serializable with PrettyPrinting {
   def name: String
   def toProtoEnum: v30.SigningKeySpec
   override val pretty: Pretty[this.type] = prettyOfString(_.name)
@@ -885,9 +876,6 @@ object SigningKeySpec {
 
   implicit val signingKeySpecOrder: Order[SigningKeySpec] =
     Order.by[SigningKeySpec, String](_.name)
-
-  implicit val signingKeySpecCantonConfigValidation: CantonConfigValidator[SigningKeySpec] =
-    CantonConfigValidatorDerivation[SigningKeySpec]
 
   /** Elliptic Curve Key from the Curve25519 curve as defined in http://ed25519.cr.yp.to/
     */
@@ -990,11 +978,7 @@ object SigningKeySpec {
 }
 
 /** Algorithm schemes for signing. */
-sealed trait SigningAlgorithmSpec
-    extends Product
-    with Serializable
-    with PrettyPrinting
-    with UniformCantonConfigValidation {
+sealed trait SigningAlgorithmSpec extends Product with Serializable with PrettyPrinting {
   def name: String
   def supportedSigningKeySpecs: NonEmpty[Set[SigningKeySpec]]
   def supportedSignatureFormats: NonEmpty[Set[SignatureFormat]]
@@ -1011,10 +995,6 @@ object SigningAlgorithmSpec {
 
   implicit val signingAlgorithmSpecOrder: Order[SigningAlgorithmSpec] =
     Order.by[SigningAlgorithmSpec, String](_.name)
-
-  implicit val signingAlgorithmSpecCantonConfigValidator
-      : CantonConfigValidator[SigningAlgorithmSpec] =
-    CantonConfigValidatorDerivation[SigningAlgorithmSpec]
 
   /** EdDSA signature scheme based on Curve25519 and SHA512 as defined in http://ed25519.cr.yp.to/
     */

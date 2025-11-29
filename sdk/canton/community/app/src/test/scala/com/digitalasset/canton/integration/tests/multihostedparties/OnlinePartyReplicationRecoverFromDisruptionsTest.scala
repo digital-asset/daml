@@ -22,6 +22,8 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.version.ProtocolVersion
 import org.slf4j.event.Level
 
+import scala.concurrent.duration.DurationInt
+
 /** Objective: Ensure OnPR is resilient against sequencer restarts and SP-synchronizer reconnects.
   *
   * Setup:
@@ -124,9 +126,11 @@ sealed trait OnlinePartyReplicationRecoverFromDisruptionsTest
       )
     )
 
-    clue("Wait until OnPR has begun replicating contracts and SP is paused")(eventually() {
-      hasSourceParticipantBeenPaused shouldBe true
-    })
+    clue("Wait until OnPR has begun replicating contracts and SP is paused")(
+      eventually(timeUntilSuccess = 1.minute) {
+        hasSourceParticipantBeenPaused shouldBe true
+      }
+    )
 
     (requestId, onPRSetup.expectedNumContracts)
   }

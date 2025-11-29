@@ -1821,7 +1821,7 @@ object PartyToParticipant extends TopologyMappingCompanion {
       partyId: PartyId,
       threshold: PositiveInt,
       participants: Seq[HostingParticipant],
-      partySigningKeysWithThreshold: Option[SigningKeysWithThreshold] = None,
+      partySigningKeysWithThreshold: Option[SigningKeysWithThreshold],
   ): Either[String, PartyToParticipant] = {
 
     // If a participant is listed several times with different permissions, take the one with the higher

@@ -16,7 +16,10 @@ import com.digitalasset.canton.synchronizer.block.AsyncWriterParameters
 import com.digitalasset.canton.synchronizer.metrics.SequencerTestMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.canton.sequencing.BftSequencerFactory
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig
-import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeParameters
+import com.digitalasset.canton.synchronizer.sequencer.config.{
+  SequencerNodeParameters,
+  TimeAdvancingTopologyConfig,
+}
 import com.digitalasset.canton.synchronizer.sequencer.traffic.SequencerTrafficConfig
 import com.digitalasset.canton.synchronizer.sequencer.{
   BlockSequencerConfig,
@@ -49,6 +52,7 @@ class BftSequencerApiTest extends SequencerApiTest with RateLimitManagerTesting 
       maxConfirmationRequestsBurstFactor = PositiveDouble.tryCreate(1.0),
       sequencingTimeLowerBoundExclusive = None,
       asyncWriter = AsyncWriterParameters(),
+      timeAdvancingTopology = TimeAdvancingTopologyConfig(),
     )
 
   override final def createSequencer(crypto: SynchronizerCryptoClient)(implicit
@@ -62,7 +66,7 @@ class BftSequencerApiTest extends SequencerApiTest with RateLimitManagerTesting 
       new BftSequencerFactory(
         BftBlockOrdererConfig(),
         BlockSequencerConfig(),
-        useTimeProofsToObserveEffectiveTime = true,
+        producePostOrderingTopologyTicks = false,
         health = None,
         storage,
         testedProtocolVersion,

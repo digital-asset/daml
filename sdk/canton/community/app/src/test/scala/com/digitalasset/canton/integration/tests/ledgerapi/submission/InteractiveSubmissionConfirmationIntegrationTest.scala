@@ -9,7 +9,12 @@ import com.daml.scalautil.future.FutureConversion.*
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{CommandFailure, LocalParticipantReference}
 import com.digitalasset.canton.crypto.InteractiveSubmission.TransactionMetadataForHashing
-import com.digitalasset.canton.crypto.{InteractiveSubmission, Signature, SigningKeyUsage}
+import com.digitalasset.canton.crypto.{
+  InteractiveSubmission,
+  Signature,
+  SigningKeyUsage,
+  SigningKeysWithThreshold,
+}
 import com.digitalasset.canton.damltests.java.statictimetest.Pass
 import com.digitalasset.canton.data.DeduplicationPeriod.DeduplicationOffset
 import com.digitalasset.canton.examples.java.cycle as M
@@ -36,6 +41,7 @@ import com.digitalasset.canton.protocol.LocalRejectError.MalformedRejects.Malfor
 import com.digitalasset.canton.protocol.hash.HashTracer
 import com.digitalasset.canton.sequencing.protocol.MemberRecipient
 import com.digitalasset.canton.synchronizer.sequencer.{HasProgrammableSequencer, SendDecision}
+import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.{ExternalParty, PartyId}
 import com.digitalasset.canton.version.HashingSchemeVersion
 import com.digitalasset.canton.{HasExecutionContext, LfTimestamp}
@@ -174,17 +180,12 @@ final class InteractiveSubmissionConfirmationIntegrationTest
         { (prepared, signatures, releaseSubmission, _) =>
           val (submissionId, ledgerEnd) = exec(prepared, signatures, cpn)
 
-          // Change the protocol keys and threshold
-          cpn.topology.party_to_participant_mappings
-            .sign_and_update(
-              aliceE.partyId,
-              env.daId,
-              ptp =>
-                ptp.tryCopy(partySigningKeysWithThreshold =
-                  ptp.partySigningKeysWithThreshold.map(
-                    _.copyThresholdUnsafe(PositiveInt.two)
-                  )
-                ),
+          // Change the threshold
+          aliceE.topology.party_to_participant_mappings
+            .propose_delta(
+              cpn,
+              store = env.daId,
+              newSigningThreshold = Some(PositiveInt.two),
             )
 
           // Update alice with the new threshold for subsequent tests
@@ -210,24 +211,24 @@ final class InteractiveSubmissionConfirmationIntegrationTest
           val (submissionId, ledgerEnd) = exec(prepared, signatures, cpn)
 
           val newKeys = NonEmpty.mk(
-            Set,
+            Seq,
             env.global_secret.get_signing_key(aliceE.fingerprint),
             env.global_secret.keys.secret.generate_key(usage = SigningKeyUsage.ProtocolOnly),
             env.global_secret.keys.secret.generate_key(usage = SigningKeyUsage.ProtocolOnly),
           )
 
           // Change the protocol keys and threshold
-          cpn.topology.party_to_participant_mappings
-            .sign_and_update(
-              aliceE.partyId,
-              env.daId,
-              ptp =>
-                ptp.tryCopy(partySigningKeysWithThreshold =
-                  ptp.partySigningKeysWithThreshold.map(
-                    _.copyThresholdUnsafe(PositiveInt.two)
-                      .copyKeysUnsafe(newKeys)
-                  )
-                ),
+          aliceE.topology.party_to_participant_mappings
+            .propose(
+              cpn,
+              Seq(cpn.id -> ParticipantPermission.Confirmation),
+              store = env.daId,
+              partySigningKeys = Some(
+                SigningKeysWithThreshold.tryCreate(
+                  newKeys,
+                  PositiveInt.two,
+                )
+              ),
             )
 
           // Update alice with the new keys for subsequent tests
@@ -260,17 +261,17 @@ final class InteractiveSubmissionConfirmationIntegrationTest
           )
 
           // Change the protocol keys
-          cpn.topology.party_to_participant_mappings
-            .sign_and_update(
-              aliceE.partyId,
-              env.daId,
-              ptp =>
-                ptp.tryCopy(partySigningKeysWithThreshold =
-                  ptp.partySigningKeysWithThreshold.map(
-                    _.copyThresholdUnsafe(PositiveInt.two)
-                      .copyKeysUnsafe(newKeys.toSet)
-                  )
-                ),
+          aliceE.topology.party_to_participant_mappings
+            .propose(
+              cpn,
+              Seq(cpn.id -> ParticipantPermission.Confirmation),
+              store = env.daId,
+              partySigningKeys = Some(
+                SigningKeysWithThreshold.tryCreate(
+                  newKeys,
+                  PositiveInt.two,
+                )
+              ),
             )
 
           // Update alice with the new keys for subsequent tests
@@ -329,16 +330,11 @@ final class InteractiveSubmissionConfirmationIntegrationTest
       import monocle.syntax.all.*
 
       // Set Alice back to threshold one
-      cpn.topology.party_to_participant_mappings
-        .sign_and_update(
-          aliceE.partyId,
-          env.daId,
-          ptp =>
-            ptp.tryCopy(partySigningKeysWithThreshold =
-              ptp.partySigningKeysWithThreshold.map(
-                _.copyThresholdUnsafe(PositiveInt.one)
-              )
-            ),
+      aliceE.topology.party_to_participant_mappings
+        .propose_delta(
+          cpn,
+          store = env.daId,
+          newSigningThreshold = Some(PositiveInt.one),
         )
 
       // Exercise the Repeat choice

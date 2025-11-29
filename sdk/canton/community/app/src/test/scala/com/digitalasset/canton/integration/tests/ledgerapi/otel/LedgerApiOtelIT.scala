@@ -487,7 +487,7 @@ class LedgerApiOtelIT extends LedgerApiOtelITBase {
 class LedgerApiOtelTlsIT extends LedgerApiOtelITBase {
 
   protected override lazy val useOtlp: UseOtlp = {
-    val pathPrefix = "./enterprise/app/src/test/resources/tls"
+    val pathPrefix = "./community/app/src/test/resources/tls"
     val certChainFile = PemFile(ExistingFile.tryCreate(s"$pathPrefix/ledger-api.crt"))
     val privateKeyFile = PemFile(ExistingFile.tryCreate(s"$pathPrefix/ledger-api.pem"))
     val trustCertCollectionFile = PemFile(ExistingFile.tryCreate(s"$pathPrefix/root-ca.crt"))
