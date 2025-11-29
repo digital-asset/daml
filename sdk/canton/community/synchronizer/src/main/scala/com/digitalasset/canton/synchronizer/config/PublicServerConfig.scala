@@ -7,7 +7,6 @@ import com.daml.jwt.JwtTimestampLeeway
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port}
-import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import io.grpc.netty.shaded.io.netty.handler.ssl.SslContext
 
@@ -53,8 +52,7 @@ final case class PublicServerConfig(
     override val maxTokenLifetime: NonNegativeDuration = config.NonNegativeDuration(Duration.Inf),
     override val jwksCacheConfig: JwksCacheConfig = JwksCacheConfig(),
     limits: Option[ActiveRequestLimitsConfig] = None,
-) extends ServerConfig
-    with UniformCantonConfigValidation {
+) extends ServerConfig {
 
   override val name: String = "sequencer-api"
 
@@ -80,13 +78,5 @@ final case class PublicServerConfig(
   def connection: String = {
     val scheme = tls.fold("http")(_ => "https")
     s"$scheme://$address:$port"
-  }
-}
-
-object PublicServerConfig {
-  implicit val publicServerConfigCantonConfigValidator
-      : CantonConfigValidator[PublicServerConfig] = {
-    import CantonConfigValidatorInstances.*
-    CantonConfigValidatorDerivation[PublicServerConfig]
   }
 }

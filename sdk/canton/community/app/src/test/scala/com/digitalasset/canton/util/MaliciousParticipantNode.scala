@@ -9,7 +9,7 @@ import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.{CachingConfigs, ProcessingTimeout}
+import com.digitalasset.canton.config.{ProcessingTimeout, SessionEncryptionKeyCacheConfig}
 import com.digitalasset.canton.console.LocalParticipantReference
 import com.digitalasset.canton.crypto.{
   CryptoPureApi,
@@ -134,7 +134,7 @@ class MaliciousParticipantNode(
 
     ResourceUtil.withResourceM(
       new SessionKeyStoreWithInMemoryCache(
-        CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
+        SessionEncryptionKeyCacheConfig(),
         timeouts,
         loggerFactory,
       )
@@ -261,7 +261,7 @@ class MaliciousParticipantNode(
 
     ResourceUtil.withResourceM(
       new SessionKeyStoreWithInMemoryCache(
-        CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
+        SessionEncryptionKeyCacheConfig(),
         timeouts,
         loggerFactory,
       )
@@ -408,7 +408,7 @@ class MaliciousParticipantNode(
   ): EitherT[FutureUnlessShutdown, String, SendResult.Success] =
     ResourceUtil.withResourceM(
       new SessionKeyStoreWithInMemoryCache(
-        CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
+        SessionEncryptionKeyCacheConfig(),
         timeouts,
         loggerFactory,
       )

@@ -80,7 +80,7 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
     override val sequencerClient: SequencerClientConfig = SequencerClientConfig()
     override def nodeTypeName: String = "test-node"
     override def clientAdminApi = adminApi.clientConfig
-    override def withDefaults(ports: Option[DefaultPorts], edition: CantonEdition): TestNodeConfig =
+    override def withDefaults(ports: Option[DefaultPorts]): TestNodeConfig =
       this
     override val monitoring: NodeMonitoringConfig = NodeMonitoringConfig()
     override val topology: TopologyConfig = TopologyConfig.NotUsed

@@ -4,7 +4,6 @@
 package com.digitalasset.canton.config
 
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.crypto.{
   CryptoKeyFormat,
   EncryptionAlgorithmSpec,
@@ -49,10 +48,7 @@ sealed trait CryptoProvider extends PrettyPrinting {
 
 object CryptoProvider {
 
-  implicit val cryptoProviderCantonConfigValidator: CantonConfigValidator[CryptoProvider] =
-    CantonConfigValidatorDerivation[CryptoProvider]
-
-  case object Jce extends CryptoProvider with UniformCantonConfigValidation {
+  case object Jce extends CryptoProvider {
     override def name: String = "JCE"
 
     override def signingAlgorithms: CryptoProviderScheme[SigningAlgorithmSpec] =
@@ -158,7 +154,7 @@ object CryptoProvider {
     * applies to the key specifications. However, if the chosen KMS supports any of these
     * algorithms, the default scheme can be configured accordingly.
     */
-  case object Kms extends CryptoProvider with UniformCantonConfigValidation {
+  case object Kms extends CryptoProvider {
     override def name: String = "KMS"
 
     override def signingAlgorithms: CryptoProviderScheme[SigningAlgorithmSpec] =

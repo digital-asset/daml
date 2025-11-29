@@ -5,7 +5,6 @@ package com.digitalasset.canton.config
 
 import com.daml.jwt.JwtTimestampLeeway
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port}
-import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import io.grpc.netty.shaded.io.netty.handler.ssl.SslContext
 
 import scala.concurrent.duration.Duration
@@ -22,8 +21,7 @@ final case class GrpcHealthServerConfig(
     ),
     jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
     parallelism: Int = 4,
-) extends ServerConfig
-    with UniformCantonConfigValidation {
+) extends ServerConfig {
   override val name: String = "grpc-health"
   override def authServices: Seq[AuthServiceConfig] = Seq.empty
   override def adminTokenConfig: AdminTokenConfig = AdminTokenConfig()
@@ -36,25 +34,9 @@ final case class GrpcHealthServerConfig(
   def toRemoteConfig: FullClientConfig =
     FullClientConfig(address, port, keepAliveClient = keepAliveServer.map(_.clientConfigFor))
 }
-object GrpcHealthServerConfig {
-  implicit val grpcHealthServerConfigCanontConfigValidator
-      : CantonConfigValidator[GrpcHealthServerConfig] = {
-    import CantonConfigValidatorInstances.*
-    CantonConfigValidatorDerivation[GrpcHealthServerConfig]
-  }
-}
 
 /** Configuration of health server backend. */
 final case class HttpHealthServerConfig(address: String = "0.0.0.0", port: Port)
-    extends UniformCantonConfigValidation
-
-object HttpHealthServerConfig {
-  implicit val httpHealthServerConfigCanontConfigValidator
-      : CantonConfigValidator[HttpHealthServerConfig] = {
-    import CantonConfigValidatorInstances.*
-    CantonConfigValidatorDerivation[HttpHealthServerConfig]
-  }
-}
 
 /** Monitoring configuration for a canton node.
   * @param grpcHealthServer
@@ -65,10 +47,4 @@ object HttpHealthServerConfig {
 final case class NodeMonitoringConfig(
     grpcHealthServer: Option[GrpcHealthServerConfig] = None,
     httpHealthServer: Option[HttpHealthServerConfig] = None,
-) extends UniformCantonConfigValidation
-
-object NodeMonitoringConfig {
-  implicit val nodeMonitoringConfigCanontConfigValidator
-      : CantonConfigValidator[NodeMonitoringConfig] =
-    CantonConfigValidatorDerivation[NodeMonitoringConfig]
-}
+)

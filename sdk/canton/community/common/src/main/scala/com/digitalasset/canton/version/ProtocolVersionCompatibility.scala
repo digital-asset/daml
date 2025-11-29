@@ -9,7 +9,6 @@ import com.digitalasset.base.error.ErrorCategory.SecurityAlert
 import com.digitalasset.base.error.{ErrorCode, Explanation, Resolution}
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.config.{CantonConfigValidator, UniformCantonConfigValidation}
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.error.CantonErrorGroups.HandshakeErrorGroup
@@ -221,14 +220,10 @@ object SynchronizerProtocolVersion {
   * [[com.digitalasset.canton.participant.config.ParticipantNodeConfig]] which is supported by the
   * corresponding participant release.
   */
-final case class ParticipantProtocolVersion(version: ProtocolVersion)
-    extends UniformCantonConfigValidation {
+final case class ParticipantProtocolVersion(version: ProtocolVersion) {
   def unwrap: ProtocolVersion = version
 }
 object ParticipantProtocolVersion {
-  implicit val participantProtocolVersionCanontConfigValidator
-      : CantonConfigValidator[ParticipantProtocolVersion] =
-    CantonConfigValidator.validateAll
 
   implicit val participantProtocolVersionWriter: ConfigWriter[ParticipantProtocolVersion] =
     ConfigWriter.toString(_.version.toProtoPrimitiveS)

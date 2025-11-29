@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant.protocol.party
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
+import com.digitalasset.canton.RepairCounter
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
@@ -16,10 +17,12 @@ import com.digitalasset.canton.ledger.participant.state.InternalIndexService
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.admin.data.ActiveContract
+import com.digitalasset.canton.participant.admin.party.PartyReplicationStatus.AcsReplicationProgressRuntime
 import com.digitalasset.canton.participant.admin.party.{
   LapiAcsHelper,
   PartyReplicationTestInterceptor,
 }
+import com.digitalasset.canton.participant.store.AcsReplicationProgress
 import com.digitalasset.canton.topology.{PartyId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{EitherTUtil, MonadUtil}
@@ -47,8 +50,8 @@ import scala.concurrent.ExecutionContext
   *   The synchronizer id of the synchronizer to replicate active contracts within.
   * @param createLedgerApiAcsSource
   *   Creates the ledger Api ACS pekko source.
-  * @param onAcsFullyReplicated
-  *   Callback notification that the source participant has sent the entire ACS.
+  * @param replicationProgressState
+  *   Interface for processor to read and update ACS replication progress.
   * @param onError
   *   Callback notification that the source participant has encountered an error.
   * @param onDisconnect
@@ -57,9 +60,10 @@ import scala.concurrent.ExecutionContext
   *   Test interceptor only alters behavior in integration tests.
   */
 final class PartyReplicationSourceParticipantProcessor private (
+    requestId: Hash,
     val psid: PhysicalSynchronizerId,
     createLedgerApiAcsSource: TraceContext => Source[ActiveContract, NotUsed],
-    protected val onAcsFullyReplicated: TraceContext => Unit,
+    protected val replicationProgressState: AcsReplicationProgress,
     protected val onError: String => Unit,
     protected val onDisconnect: (String, TraceContext) => Unit,
     protected val futureSupervisor: FutureSupervisor,
@@ -196,8 +200,7 @@ final class PartyReplicationSourceParticipantProcessor private (
           processorStore.acsReaderO.toRight("ACS reader not initialized")
         )
 
-        res = acsReader.readContracts(maxNumActiveContractsToProcess)
-        (haveReachedEndOfAcs, contracts) = res
+        (haveReachedEndOfAcs, contracts) = acsReader.readContracts(maxNumActiveContractsToProcess)
         numContractsSending = contracts.size
 
         _ <- EitherTUtil.ifThenET(numContractsSending > 0) {
@@ -212,14 +215,23 @@ final class PartyReplicationSourceParticipantProcessor private (
           )
         }
 
+        sentContractCount = processorStore.sentContractsCount
+
         // If there aren't enough contracts, send that we have reached the end of the ACS.
-        _ <- EitherTUtil.ifThenET(haveReachedEndOfAcs) {
-          val numSentInTotal = processorStore.sentContractsCount
-          sendEndOfAcs(s"End of ACS after $numSentInTotal contracts").map(_ =>
+        _ <- EitherTUtil.ifThenET(haveReachedEndOfAcs)(
+          sendEndOfAcs(s"End of ACS after $sentContractCount contracts")
+        )
+
+        _ <- replicationProgressState.updateAcsReplicationProgress(
+          requestId,
+          AcsReplicationProgressRuntime(
+            sentContractCount,
+            RepairCounter.Genesis, // write-persistence not used by SP
             // Let the PartyReplicator know the SP is done, but let the TP, the channel owner, close the channel.
-            onAcsFullyReplicated(traceContext)
-          )
-        }
+            fullyProcessedAcs = haveReachedEndOfAcs,
+            this,
+          ),
+        )
       } yield ()
     }
 
@@ -287,7 +299,7 @@ object PartyReplicationSourceParticipantProcessor {
       //  as the set of other parties would change dynamically.
       partiesHostedByTargetParticipant: Set[PartyId],
       lapiIndexService: InternalIndexService,
-      onAcsFullyReplicated: TraceContext => Unit,
+      replicationProgressState: AcsReplicationProgress,
       onError: String => Unit,
       onDisconnect: (String, TraceContext) => Unit,
       futureSupervisor: FutureSupervisor,
@@ -301,6 +313,7 @@ object PartyReplicationSourceParticipantProcessor {
       actorSystem: ActorSystem,
   ): PartyReplicationSourceParticipantProcessor =
     new PartyReplicationSourceParticipantProcessor(
+      requestId,
       psid,
       createLedgerApiAcsSource = LapiAcsHelper.ledgerApiAcsSource(
         lapiIndexService,
@@ -309,7 +322,7 @@ object PartyReplicationSourceParticipantProcessor {
         partiesHostedByTargetParticipant,
         Some(psid.logical),
       )(_),
-      onAcsFullyReplicated,
+      replicationProgressState,
       onError,
       onDisconnect,
       futureSupervisor,

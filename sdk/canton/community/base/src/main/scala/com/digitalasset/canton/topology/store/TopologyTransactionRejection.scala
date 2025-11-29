@@ -36,7 +36,7 @@ object TopologyTransactionRejection {
     final case class SerialMismatch(actual: PositiveInt, expected: PositiveInt)
         extends TopologyTransactionRejection {
       override def asString: String =
-        show"The given serial $expected does not match the actual serial $expected"
+        show"The actual serial $actual does not match the expected serial $expected"
       override protected def pretty: Pretty[SerialMismatch] =
         prettyOfClass(param("expected", _.expected), param("actual", _.actual))
       override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =

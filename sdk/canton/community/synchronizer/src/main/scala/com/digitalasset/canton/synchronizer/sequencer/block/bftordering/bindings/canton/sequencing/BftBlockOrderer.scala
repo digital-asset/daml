@@ -571,7 +571,7 @@ final class BftBlockOrderer(
     config.standalone.fold {
       logger.debug(
         "sending submission " +
-          s"with message ID ${signedSubmissionRequest.content.sender} " +
+          s"with message ID ${signedSubmissionRequest.content.messageId} " +
           s"from ${signedSubmissionRequest.content.sender} " +
           s"to ${signedSubmissionRequest.content.batch.allRecipients} "
       )

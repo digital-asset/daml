@@ -49,6 +49,7 @@ import com.digitalasset.canton.integration.{
 import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
 import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
 import com.digitalasset.canton.topology.transaction.DelegationRestriction.CanSignAllMappings
+import com.digitalasset.canton.topology.transaction.TopologyMapping.Code
 import com.digitalasset.canton.topology.transaction.{
   HostingParticipant,
   MultiTransactionSignature,
@@ -308,6 +309,18 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
         synchronizeParticipants = Seq(participant1),
         synchronizerId = synchronizer1Id.logical,
       )
+
+      // Wait until the PartyToKey mapping is also there.
+      // The outbox may dispatch it in a different batch than the PartyToParticipant mapping.
+      eventually() {
+        val ptks = participant1.topology.transactions.list(
+          store = daId,
+          filterMappings = Seq(Code.PartyToKeyMapping),
+          filterNamespace = partyId.namespace.filterString,
+        )
+        ptks should not be Seq.empty
+      }
+      participant1.topology.synchronisation.await_idle()
 
       val prepared = participant1.ledger_api.interactive_submission.prepare(
         Seq(partyId),

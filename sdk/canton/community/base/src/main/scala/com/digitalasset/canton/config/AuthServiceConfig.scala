@@ -15,12 +15,11 @@ import com.digitalasset.canton.auth.{
 }
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.CantonRequireTypes.*
-import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.logging.NamedLoggerFactory
 
 import scala.concurrent.duration.Duration
 
-sealed trait AuthServiceConfig extends UniformCantonConfigValidation {
+sealed trait AuthServiceConfig {
 
   def create(
       jwksCacheConfig: JwksCacheConfig,
@@ -37,11 +36,6 @@ sealed trait AuthServiceConfig extends UniformCantonConfigValidation {
 
 object AuthServiceConfig {
   import NonNegativeDurationConverter.*
-
-  implicit val authServiceConfigCantonConfigValidator: CantonConfigValidator[AuthServiceConfig] = {
-    import CantonConfigValidatorInstances.*
-    CantonConfigValidatorDerivation[AuthServiceConfig]
-  }
 
   /** [default] Allows everything */
   case object Wildcard extends AuthServiceConfig {

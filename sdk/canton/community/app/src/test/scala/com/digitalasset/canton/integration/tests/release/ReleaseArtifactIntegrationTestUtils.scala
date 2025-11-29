@@ -14,11 +14,9 @@ trait ReleaseArtifactIntegrationTestUtils extends FixtureAnyWordSpec with BaseTe
 
   override protected def withFixture(test: OneArgTest): Outcome = test(new BufferedProcessLogger)
 
-  protected def isEnterprise: Boolean
-
   override type FixtureParam = BufferedProcessLogger
 
-  protected lazy val packageName = if (isEnterprise) "enterprise" else "community"
+  protected lazy val packageName = "community"
   protected lazy val cantonDir = s"$packageName/app/target/release/canton"
   protected lazy val repositoryRootFromCantonDir = "../../../../.."
   protected lazy val cantonBin = s"$cantonDir/bin/canton"

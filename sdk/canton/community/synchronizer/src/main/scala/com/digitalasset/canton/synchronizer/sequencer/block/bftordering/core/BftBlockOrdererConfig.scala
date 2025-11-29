@@ -6,15 +6,12 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core
 import com.daml.jwt.JwtTimestampLeeway
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port}
-import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.config.{
   ActiveRequestLimitsConfig,
   AdminTokenConfig,
   AuthServiceConfig,
   BasicKeepAliveServerConfig,
   BatchAggregatorConfig,
-  CantonConfigValidator,
-  CantonConfigValidatorInstances,
   ClientConfig,
   JwksCacheConfig,
   KeepAliveClientConfig,
@@ -23,7 +20,6 @@ import com.digitalasset.canton.config.{
   StorageConfig,
   TlsClientConfig,
   TlsServerConfig,
-  UniformCantonConfigValidation,
 }
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenManagerConfig
@@ -107,7 +103,7 @@ final case class BftBlockOrdererConfig(
     enablePerformanceMetrics: Boolean = true,
     batchAggregator: BatchAggregatorConfig = BatchAggregatorConfig(),
     dedicatedExecutionContextDivisor: Option[Int] = DefaultDedicatedExecutionContextDivisor,
-) extends UniformCantonConfigValidation {
+) {
   private val maxRequestsPerBlock = maxBatchesPerBlockProposal * maxRequestsInBatch
   require(
     maxRequestsPerBlock < BftTime.MaxRequestsPerBlock,
@@ -153,9 +149,6 @@ object BftBlockOrdererConfig {
     def howManyCanWeBlacklist: LeaderSelectionPolicyConfig.HowManyCanWeBlacklist
   }
 
-  implicit val configCantonConfigValidator: CantonConfigValidator[BftBlockOrdererConfig] =
-    CantonConfigValidatorDerivation[BftBlockOrdererConfig]
-
   val DefaultAuthenticationTokenManagerConfig: AuthenticationTokenManagerConfig =
     AuthenticationTokenManagerConfig()
 
@@ -165,21 +158,12 @@ object BftBlockOrdererConfig {
       connectionManagementConfig: P2PConnectionManagementConfig = P2PConnectionManagementConfig(),
       peerEndpoints: Seq[P2PEndpointConfig] = Seq.empty,
       overwriteStoredEndpoints: Boolean = false,
-  ) extends UniformCantonConfigValidation
-  object P2PNetworkConfig {
-    implicit val p2pNetworkCantonConfigValidator: CantonConfigValidator[P2PNetworkConfig] =
-      CantonConfigValidatorDerivation[P2PNetworkConfig]
-  }
+  )
 
   final case class P2PNetworkAuthenticationConfig(
       authToken: AuthenticationTokenManagerConfig = DefaultAuthenticationTokenManagerConfig,
       enabled: Boolean = true,
-  ) extends UniformCantonConfigValidation
-  object P2PNetworkAuthenticationConfig {
-    implicit val bftNetworkAuthenticationCantonConfigValidator
-        : CantonConfigValidator[P2PNetworkAuthenticationConfig] =
-      CantonConfigValidatorDerivation[P2PNetworkAuthenticationConfig]
-  }
+  )
 
   final case class P2PConnectionManagementConfig(
       // The maximum number of connection attempts before we log a warning.
@@ -194,14 +178,7 @@ object BftBlockOrdererConfig {
       maxConnectionRetryDelay: config.NonNegativeFiniteDuration =
         config.NonNegativeFiniteDuration.ofMinutes(2),
       connectionRetryDelayMultiplier: NonNegativeInt = NonNegativeInt.two,
-  ) extends UniformCantonConfigValidation
-  object P2PConnectionManagementConfig {
-    implicit val bftNetworkP2PConnectionManagementConfig
-        : CantonConfigValidator[P2PConnectionManagementConfig] = {
-      import CantonConfigValidatorInstances.*
-      CantonConfigValidatorDerivation[P2PConnectionManagementConfig]
-    }
-  }
+  )
 
   /** The [[externalAddress]], [[externalPort]] and [[externalTlsConfig]] must be configured
     * correctly for the client to correctly authenticate the server, as the client tells the server
@@ -219,8 +196,7 @@ object BftBlockOrdererConfig {
       override val maxInboundMessageSize: NonNegativeInt =
         ServerConfig.defaultMaxInboundMessageSize,
       override val limits: Option[ActiveRequestLimitsConfig] = None,
-  ) extends ServerConfig
-      with UniformCantonConfigValidation {
+  ) extends ServerConfig {
     override val name: String = "peer-to-peer"
     override val maxTokenLifetime: config.NonNegativeDuration =
       config.NonNegativeDuration(Duration.Inf)
@@ -237,12 +213,6 @@ object BftBlockOrdererConfig {
     private[bftordering] def serverToClientAuthenticationEndpointConfig: P2PEndpointConfig =
       P2PEndpointConfig(externalAddress, externalPort, externalTlsConfig)
   }
-  object P2PServerConfig {
-    implicit val adminServerConfigCantonConfigValidator: CantonConfigValidator[P2PServerConfig] = {
-      import CantonConfigValidatorInstances.*
-      CantonConfigValidatorDerivation[P2PServerConfig]
-    }
-  }
 
   final case class P2PEndpointConfig(
       override val address: String,
@@ -250,16 +220,8 @@ object BftBlockOrdererConfig {
       override val tlsConfig: Option[TlsClientConfig] = Some(
         TlsClientConfig(trustCollectionFile = None, clientCert = None, enabled = true)
       ),
-  ) extends ClientConfig
-      with UniformCantonConfigValidation {
+  ) extends ClientConfig {
     override val keepAliveClient: Option[KeepAliveClientConfig] = None
-  }
-  object P2PEndpointConfig {
-    implicit val p2pEndpointConfigCantonConfigValidator
-        : CantonConfigValidator[P2PEndpointConfig] = {
-      import CantonConfigValidatorInstances.*
-      CantonConfigValidatorDerivation[P2PEndpointConfig]
-    }
   }
 
   final case class EndpointId(
@@ -268,17 +230,11 @@ object BftBlockOrdererConfig {
       tls: Boolean,
   )
 
-  sealed trait LeaderSelectionPolicyConfig extends UniformCantonConfigValidation
+  sealed trait LeaderSelectionPolicyConfig
 
   object LeaderSelectionPolicyConfig {
-    implicit val leaderSelectionPolicyConfigValidator
-        : CantonConfigValidator[LeaderSelectionPolicyConfig] =
-      CantonConfigValidatorDerivation[LeaderSelectionPolicyConfig]
 
-    final case object Simple extends LeaderSelectionPolicyConfig {
-      implicit val simpleValidator: CantonConfigValidator[Simple.type] =
-        CantonConfigValidatorDerivation[Simple.type]
-    }
+    final case object Simple extends LeaderSelectionPolicyConfig
 
     final case class Blacklisting(
         override val howLongToBlackList: LeaderSelectionPolicyConfig.HowLongToBlacklist =
@@ -288,18 +244,11 @@ object BftBlockOrdererConfig {
     ) extends LeaderSelectionPolicyConfig
         with BlacklistLeaderSelectionPolicyConfig
 
-    object Blacklisting {
-      implicit val blacklistingValidator: CantonConfigValidator[Blacklisting] =
-        CantonConfigValidatorDerivation[Blacklisting]
-    }
-
-    sealed trait HowLongToBlacklist extends UniformCantonConfigValidation {
+    sealed trait HowLongToBlacklist {
       def compute(failedEpochSoFar: Long): BlacklistStatus
     }
 
     object HowLongToBlacklist {
-      implicit val howLongToBlacklistConfigValidator: CantonConfigValidator[HowLongToBlacklist] =
-        CantonConfigValidatorDerivation[HowLongToBlacklist]
 
       case object Linear extends HowLongToBlacklist {
         override def compute(failedEpochSoFar: Long): BlacklistStatus =
@@ -311,13 +260,11 @@ object BftBlockOrdererConfig {
       }
     }
 
-    sealed trait HowManyCanWeBlacklist extends UniformCantonConfigValidation {
+    sealed trait HowManyCanWeBlacklist {
       def howManyCanWeBlacklist(orderingTopology: OrderingTopology): Int
     }
 
     object HowManyCanWeBlacklist {
-      implicit val howManyCanWeBlacklist: CantonConfigValidator[HowManyCanWeBlacklist] =
-        CantonConfigValidatorDerivation[HowManyCanWeBlacklist]
 
       case object NumFaultsTolerated extends HowManyCanWeBlacklist {
         override def howManyCanWeBlacklist(orderingTopology: OrderingTopology): Int =
@@ -335,22 +282,11 @@ object BftBlockOrdererConfig {
       signingPrivateKeyProtoFile: File,
       signingPublicKeyProtoFile: File,
       peers: Seq[BftBlockOrderingStandalonePeerConfig],
-  ) extends UniformCantonConfigValidation
-
-  object BftBlockOrderingStandaloneNetworkConfig {
-    implicit val bftBlockOrderingStandaloneNetworkConfigValidator
-        : CantonConfigValidator[BftBlockOrderingStandaloneNetworkConfig] =
-      CantonConfigValidatorDerivation[BftBlockOrderingStandaloneNetworkConfig]
-  }
+  )
 
   final case class BftBlockOrderingStandalonePeerConfig(
       sequencerId: String,
       signingPublicKeyProtoFile: File,
-  ) extends UniformCantonConfigValidation
+  )
 
-  object BftBlockOrderingStandalonePeerConfig {
-    implicit val bftBlockOrderingStandalonePeerConfigValidator
-        : CantonConfigValidator[BftBlockOrderingStandalonePeerConfig] =
-      CantonConfigValidatorDerivation[BftBlockOrderingStandalonePeerConfig]
-  }
 }

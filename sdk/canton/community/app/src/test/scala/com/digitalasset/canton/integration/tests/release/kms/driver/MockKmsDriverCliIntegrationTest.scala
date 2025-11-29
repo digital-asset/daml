@@ -25,7 +25,7 @@ class MockKmsDriverCliIntegrationTest extends KmsCliIntegrationTest {
     Seq("EXTRA_CLASSPATH" -> driverJar)
 
   override protected def bootstrapScript: String =
-    "enterprise/app/src/test/resources/scripts/mock_kms_participant1.canton"
+    "community/app/src/test/resources/scripts/mock_kms_participant1.canton"
 
   override lazy val testName: String = s"mock-kms-$packageName"
 }

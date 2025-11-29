@@ -6,17 +6,24 @@ package com.digitalasset.canton.store
 import cats.data.{EitherT, OptionT}
 import cats.syntax.either.*
 import com.digitalasset.canton.config.CantonRequireTypes.NonEmptyString
+import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.PendingOperation.{
   ConflictingPendingOperationError,
   PendingOperationTriggerType,
 }
+import com.digitalasset.canton.store.db.DbPendingOperationsStore
+import com.digitalasset.canton.store.memory.InMemoryPendingOperationStore
 import com.digitalasset.canton.topology.{SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{HasProtocolVersionedWrapper, VersioningCompanion}
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
+
+import scala.concurrent.ExecutionContext
 
 /** @tparam Op
   *   A protobuf message that implements
@@ -41,8 +48,6 @@ trait PendingOperationStore[Op <: HasProtocolVersionedWrapper[Op]] {
     *
     * @param operation
     *   The `PendingOperation` to insert.
-    * @param traceContext
-    *   The context for tracing and logging.
     * @return
     *   An `EitherT` that completes with:
     *   - `Right(())` if the operation was successfully stored or an identical one already existed.
@@ -51,6 +56,30 @@ trait PendingOperationStore[Op <: HasProtocolVersionedWrapper[Op]] {
   def insert(operation: PendingOperation[Op])(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ConflictingPendingOperationError, Unit]
+
+  /** Updates a pending operation identified by its unique composite key (`synchronizerId`,
+    * `operationKey`, `operationName`) if such a pending operation already exists, else no update is
+    * applied.
+    *
+    * @param operation
+    *   The new value of the operation to update.
+    * @param synchronizerId
+    *   The ID of the synchronizer scoping the operation application.
+    * @param operationName
+    *   The name of the operation to be executed.
+    * @param operationKey
+    *   A key to distinguish between multiple instances of the same operation.
+    * @return
+    *   A future that completes when the update has finished.
+    */
+  def updateOperation(
+      operation: Op,
+      synchronizerId: SynchronizerId,
+      operationName: NonEmptyString,
+      operationKey: String,
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit]
 
   /** Deletes a pending operation identified by its unique composite key (`synchronizerId`,
     * `operationKey`, `operationName`).
@@ -64,8 +93,6 @@ trait PendingOperationStore[Op <: HasProtocolVersionedWrapper[Op]] {
     *   A key to distinguish between multiple instances of the same operation.
     * @param operationName
     *   The name of the operation to be executed.
-    * @param traceContext
-    *   The context for tracing and logging.
     * @return
     *   A future that completes when the deletion has finished.
     */
@@ -96,6 +123,17 @@ trait PendingOperationStore[Op <: HasProtocolVersionedWrapper[Op]] {
       operationName: NonEmptyString,
   )(implicit traceContext: TraceContext): OptionT[FutureUnlessShutdown, PendingOperation[Op]]
 
+  /** Fetches all pending operations matching `operationName`.
+    *
+    * @param operationName
+    *   The name of the operation to be executed.
+    * @return
+    *   A future that completes with `Set(operations)` of operations matching the above criteria,
+    *   fails with a `DbDeserializationException` if the stored data is corrupt.
+    */
+  def getAll(
+      operationName: NonEmptyString
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Set[PendingOperation[Op]]]
 }
 
 /** @tparam Op
@@ -103,7 +141,7 @@ trait PendingOperationStore[Op <: HasProtocolVersionedWrapper[Op]] {
   *   [[com.digitalasset.canton.version.HasProtocolVersionedWrapper]] that contains the relevant
   *   data for executing the pending operation.
   */
-final case class PendingOperation[Op <: HasProtocolVersionedWrapper[Op]] private (
+final case class PendingOperation[Op <: HasProtocolVersionedWrapper[Op]](
     trigger: PendingOperationTriggerType,
     name: NonEmptyString,
     key: String,
@@ -126,6 +164,20 @@ final case class PendingOperation[Op <: HasProtocolVersionedWrapper[Op]] private
   private[store] def compositeKey: (SynchronizerId, String, NonEmptyString) =
     (synchronizerId, key, name)
 
+}
+
+object PendingOperationStore {
+  def apply[Op <: HasProtocolVersionedWrapper[Op]](
+      storage: Storage,
+      timeouts: ProcessingTimeout,
+      loggerFactory: NamedLoggerFactory,
+      opCompanion: VersioningCompanion[Op],
+  )(implicit executionContext: ExecutionContext): PendingOperationStore[Op] =
+    storage match {
+      case _: MemoryStorage => new InMemoryPendingOperationStore[Op](opCompanion)
+      case jdbc: DbStorage =>
+        new DbPendingOperationsStore[Op](jdbc, timeouts, loggerFactory, opCompanion)
+    }
 }
 
 object PendingOperation {

@@ -57,16 +57,16 @@ class PartyOnboardingClearanceSchedulerTest
 
     def addFailure(error: String): Unit = responses.enqueue(Left(error))
 
-    override def authorizeOnboardedTopology(
+    override def authorizeClearingOnboardingFlag(
         partyId: PartyId,
         targetParticipantId: ParticipantId,
-        onboardingEffectiveAt: CantonTimestamp,
+        onboardingEffectiveAt: EffectiveTime,
         connectedSynchronizer: ConnectedSynchronizer,
         requestId: Option[Hash] = None,
     )(implicit
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, String, PartyOnboardingFlagStatus] = {
-      calls.add((partyId, onboardingEffectiveAt))
+      calls.add((partyId, onboardingEffectiveAt.value))
       val result = if (responses.isEmpty) {
         EitherT.leftT[FutureUnlessShutdown, PartyOnboardingFlagStatus](
           "FakePartyReplicationTopologyWorkflow has no more responses"

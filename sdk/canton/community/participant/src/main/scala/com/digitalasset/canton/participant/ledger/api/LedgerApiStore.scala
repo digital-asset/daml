@@ -13,7 +13,11 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.config.ServerRole
-import com.digitalasset.canton.platform.store.backend.EventStorageBackend.SynchronizerOffset
+import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
+  RawParticipantAuthorization,
+  SequentialIdBatch,
+  SynchronizerOffset,
+}
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.digitalasset.canton.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.digitalasset.canton.platform.store.cache.MutableLedgerEndCache
@@ -110,6 +114,13 @@ class LedgerApiStore(
   ): FutureUnlessShutdown[Option[LedgerEnd]] =
     executeSqlUS(metrics.index.db.getLedgerEnd)(
       parameterStorageBackend.ledgerEnd
+    )
+
+  def topologyPartyEventBatch(eventSequentialIds: SequentialIdBatch)(implicit
+      traceContext: TraceContext
+  ): Future[Vector[RawParticipantAuthorization]] =
+    executeSql(metrics.index.db.getTopologyEventOffsetPublishedOnRecordTime)(
+      eventStorageBackend.topologyPartyEventBatch(eventSequentialIds)
     )
 
   def topologyEventOffsetPublishedOnRecordTime(

@@ -11,7 +11,7 @@ import java.util.concurrent.atomic.AtomicReference
 trait ConfigDefaults[Defaults, Self] { self: Self =>
 
   /** Returns this configuration with defaults set for the given edition if necessary. */
-  def withDefaults(defaults: Defaults, edition: CantonEdition): Self
+  def withDefaults(defaults: Defaults): Self
 }
 
 /*

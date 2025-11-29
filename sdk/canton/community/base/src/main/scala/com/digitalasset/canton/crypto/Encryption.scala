@@ -11,8 +11,6 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.base.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
-import com.digitalasset.canton.config.{CantonConfigValidator, UniformCantonConfigValidation}
 import com.digitalasset.canton.crypto.provider.jce.JcePrivateCrypto
 import com.digitalasset.canton.crypto.store.{CryptoPrivateStoreError, CryptoPrivateStoreExtended}
 import com.digitalasset.canton.error.{CantonBaseError, CantonErrorGroups}
@@ -246,11 +244,7 @@ object AsymmetricEncrypted extends HasVersionedMessageCompanion[AsymmetricEncryp
 }
 
 /** An encryption key specification. */
-sealed trait EncryptionKeySpec
-    extends Product
-    with Serializable
-    with PrettyPrinting
-    with UniformCantonConfigValidation {
+sealed trait EncryptionKeySpec extends Product with Serializable with PrettyPrinting {
   def name: String
   def toProtoEnum: v30.EncryptionKeySpec
   override val pretty: Pretty[this.type] = prettyOfString(_.name)
@@ -260,9 +254,6 @@ object EncryptionKeySpec {
 
   implicit val encryptionKeySpecOrder: Order[EncryptionKeySpec] =
     Order.by[EncryptionKeySpec, String](_.name)
-
-  implicit val encryptionKeySpecCantonConfigValidator: CantonConfigValidator[EncryptionKeySpec] =
-    CantonConfigValidatorDerivation[EncryptionKeySpec]
 
   /** Elliptic Curve Key from the P-256 curve (aka Secp256r1) as defined in
     * https://doi.org/10.6028/NIST.FIPS.186-4
@@ -334,11 +325,7 @@ object EncryptionKeySpec {
 }
 
 /** Algorithm schemes for asymmetric/hybrid encryption. */
-sealed trait EncryptionAlgorithmSpec
-    extends Product
-    with Serializable
-    with PrettyPrinting
-    with UniformCantonConfigValidation {
+sealed trait EncryptionAlgorithmSpec extends Product with Serializable with PrettyPrinting {
   def name: String
   def supportDeterministicEncryption: Boolean
   def supportedEncryptionKeySpecs: NonEmpty[Set[EncryptionKeySpec]]
@@ -350,10 +337,6 @@ object EncryptionAlgorithmSpec {
 
   implicit val encryptionAlgorithmSpecOrder: Order[EncryptionAlgorithmSpec] =
     Order.by[EncryptionAlgorithmSpec, String](_.name)
-
-  implicit val encryptionAlgorithmSpecCantonConfigValidator
-      : CantonConfigValidator[EncryptionAlgorithmSpec] =
-    CantonConfigValidatorDerivation[EncryptionAlgorithmSpec]
 
   /* This hybrid scheme (https://www.secg.org/sec1-v2.pdf) from JCE/Bouncy Castle is intended to be used to encrypt
    * the key for the view payload data and can be made deterministic (e.g. using the hash(message ++ public key)
@@ -456,11 +439,7 @@ object RequiredEncryptionSpecs {
 }
 
 /** Key schemes for symmetric encryption. */
-sealed trait SymmetricKeyScheme
-    extends Product
-    with Serializable
-    with PrettyPrinting
-    with UniformCantonConfigValidation {
+sealed trait SymmetricKeyScheme extends Product with Serializable with PrettyPrinting {
   def name: String
   def toProtoEnum: v30.SymmetricKeyScheme
   def keySizeInBytes: Int
@@ -471,9 +450,6 @@ object SymmetricKeyScheme {
 
   implicit val symmetricKeySchemeOrder: Order[SymmetricKeyScheme] =
     Order.by[SymmetricKeyScheme, String](_.name)
-
-  implicit val symmetricKeySchemeCantonConfigValidator: CantonConfigValidator[SymmetricKeyScheme] =
-    CantonConfigValidatorDerivation[SymmetricKeyScheme]
 
   /** AES with 128bit key in GCM */
   case object Aes128Gcm extends SymmetricKeyScheme {

@@ -19,8 +19,8 @@ import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTr
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown
-import com.digitalasset.canton.participant.store.LedgerApiContractStore
 import com.digitalasset.canton.platform.config.ActiveContractsServiceStreamsConfig
+import com.digitalasset.canton.platform.store.LedgerApiContractStore
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.SequentialIdBatch.Ids
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{

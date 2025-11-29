@@ -83,8 +83,9 @@ final class OffPROnboardingFlagClearanceIntegrationTest
 
     val sourceLedgerEnd = source.ledger_api.state.end()
 
-    source.topology.party_to_participant_mappings.propose_delta(
-      party = alice,
+    // Alice also needs to authorize the transaction
+    alice.topology.party_to_participant_mappings.propose_delta(
+      source,
       adds = Seq(target.id -> ParticipantPermission.Submission),
       store = daId,
       requiresPartyToBeOnboarded = true,
@@ -133,7 +134,7 @@ final class OffPROnboardingFlagClearanceIntegrationTest
     val lastPTP =
       source.topology.party_to_participant_mappings.list(synchronizerId = daId).last.item
 
-    lastPTP.partyId shouldBe alice
+    lastPTP.partyId shouldBe alice.partyId
     lastPTP.participants should have size 2
 
     forExactly(1, lastPTP.participants) { p =>

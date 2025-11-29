@@ -9,8 +9,9 @@ import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.participant.admin.workflows.java.canton.internal as M
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
+import io.scalaland.chimney.dsl.*
 
-final case class PartyReplicationAgreementParams private (
+final case class PartyReplicationAgreementParams(
     requestId: Hash,
     partyId: PartyId,
     synchronizerId: SynchronizerId,
@@ -80,29 +81,17 @@ object PartyReplicationAgreementParams {
       proposal: PartyReplicationProposalParams,
       sourceParticipantId: ParticipantId,
       sequencerId: SequencerId,
-  ): PartyReplicationAgreementParams =
-    PartyReplicationAgreementParams(
-      proposal.requestId,
-      proposal.partyId,
-      proposal.synchronizerId,
-      sourceParticipantId,
-      proposal.targetParticipantId,
-      sequencerId,
-      proposal.serial,
-      proposal.participantPermission,
-    )
+  ): PartyReplicationAgreementParams = proposal
+    .into[PartyReplicationAgreementParams]
+    .withFieldConst(_.sourceParticipantId, sourceParticipantId)
+    .withFieldConst(_.sequencerId, sequencerId)
+    .transform
 
   def fromAgreedReplicationStatus(
-      agreedStatus: PartyReplicationStatus.AgreedReplicationStatus
-  ): PartyReplicationAgreementParams =
-    PartyReplicationAgreementParams(
-      agreedStatus.params.requestId,
-      agreedStatus.params.partyId,
-      agreedStatus.params.synchronizerId,
-      agreedStatus.params.sourceParticipantId,
-      agreedStatus.params.targetParticipantId,
-      agreedStatus.sequencerId,
-      agreedStatus.params.serial,
-      agreedStatus.params.participantPermission,
-    )
+      params: PartyReplicationStatus.ReplicationParams,
+      sequencerId: SequencerId,
+  ): PartyReplicationAgreementParams = params
+    .into[PartyReplicationAgreementParams]
+    .withFieldConst(_.sequencerId, sequencerId)
+    .transform
 }

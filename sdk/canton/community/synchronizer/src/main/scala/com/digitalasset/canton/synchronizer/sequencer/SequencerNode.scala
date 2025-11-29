@@ -260,7 +260,7 @@ class SequencerNodeBootstrap(
         arguments.parameterConfig,
         arguments.futureSupervisor,
         loggerFactory,
-      )(config.sequencer, config.topology.useTimeProofsToObserveEffectiveTime)
+      )(config.sequencer, config.parameters.producePostOrderingTopologyTicks)
       addCloseable(factory)
       factory
     }
@@ -862,6 +862,7 @@ class SequencerNodeBootstrap(
             Some(
               TopologyManagerStatus.combined(authorizedTopologyManager, synchronizerTopologyManager)
             ),
+            arguments.config.topology,
             storage,
             clock,
             Seq(sequencerId) ++ membersToRegister,

@@ -158,8 +158,9 @@ trait TimeAdvancingTopologySubscriberIntegrationTest
       timeProofRequestCounter.get() shouldBe 0
 
       val broadcasts = broadcastsObservedByP1.get().map(_.underlying.value.content)
-      // We expect two broadcasts: One for the topology transaction and one for the aggregated notification message
-      broadcasts should have size 2
+      // We expect at least two broadcasts: One for the topology transaction and one for the aggregated notification message
+      // If the sequencing of the notification message is slow, we may see more of them.
+      broadcasts.size shouldBe >=(2)
 
       progSeqs.foreach(_.resetPolicy())
     }

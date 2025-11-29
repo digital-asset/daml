@@ -5,7 +5,6 @@ package com.digitalasset.canton.config
 
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.config.TopologyConfig.*
-import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 
 /** @param topologyTransactionRegistrationTimeout
   *   Used to determine the max sequencing time for topology transaction broadcasts.
@@ -42,14 +41,10 @@ final case class TopologyConfig(
     validateInitialTopologySnapshot: Boolean = true,
     disableOptionalTopologyChecks: Boolean = false,
     dispatchQueueBackpressureLimit: NonNegativeInt = defaultMaxUnsentTopologyQueueSize,
-    useTimeProofsToObserveEffectiveTime: Boolean = true,
-) extends UniformCantonConfigValidation
+    useTimeProofsToObserveEffectiveTime: Boolean = false,
+)
 
 object TopologyConfig {
-  implicit val topologyConfigCantonConfigValidator: CantonConfigValidator[TopologyConfig] = {
-    import CantonConfigValidatorInstances.*
-    CantonConfigValidatorDerivation[TopologyConfig]
-  }
 
   private[TopologyConfig] val defaultMaxUnsentTopologyQueueSize: NonNegativeInt =
     NonNegativeInt.tryCreate(100)

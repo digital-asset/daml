@@ -278,11 +278,11 @@ trait LedgerApiTlsConformanceBase extends SingleVersionLedgerApiConformanceBase 
   override def connectedSynchronizersCount = 1
 
   private val certChainFile =
-    PemFile(ExistingFile.tryCreate("./enterprise/app/src/test/resources/tls/ledger-api.crt"))
+    PemFile(ExistingFile.tryCreate("./community/app/src/test/resources/tls/ledger-api.crt"))
   private val privateKeyFile =
-    PemFile(ExistingFile.tryCreate("./enterprise/app/src/test/resources/tls/ledger-api.pem"))
+    PemFile(ExistingFile.tryCreate("./community/app/src/test/resources/tls/ledger-api.pem"))
   private val trustCertCollectionFile =
-    PemFile(ExistingFile.tryCreate("./enterprise/app/src/test/resources/tls/root-ca.crt"))
+    PemFile(ExistingFile.tryCreate("./community/app/src/test/resources/tls/root-ca.crt"))
 
   private val tls = TlsServerConfig(
     certChainFile = certChainFile,

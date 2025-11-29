@@ -61,7 +61,6 @@ import scala.util.control.NonFatal
   */
 class Environment(
     initialConfig: CantonConfig,
-    edition: CantonEdition,
     val testingConfig: TestingConfigInternal,
     participantNodeFactory: ParticipantNodeBootstrapFactory,
     sequencerNodeFactory: SequencerNodeBootstrapFactory,
@@ -142,8 +141,6 @@ class Environment(
     baseFilter,
     loggerFactory,
   )
-
-  def isEnterprise: Boolean = edition == EnterpriseCantonEdition
 
   def createConsole(
       consoleOutput: ConsoleOutput = StandardConsoleOutput

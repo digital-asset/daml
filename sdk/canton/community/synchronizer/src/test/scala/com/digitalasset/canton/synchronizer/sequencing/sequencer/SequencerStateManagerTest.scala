@@ -297,7 +297,10 @@ class SequencerStateManagerTest
 
     val initialSynchronizerParametersMapping =
       SynchronizerParametersState(synchronizerId.logical, TestSynchronizerParameters.defaultDynamic)
-
+    val syncParamTx = topologyTransactionFactory.mkAdd[SynchronizerParametersState](
+      initialSynchronizerParametersMapping,
+      topologyTransactionFactory.SigningKeys.key1,
+    )
     topologyStore
       .update(
         SequencedTime(CantonTimestamp.Epoch),
@@ -307,10 +310,7 @@ class SequencerStateManagerTest
           topologyTransactionFactory.ns1k1_k1,
           topologyTransactionFactory.okmS1k7_k1,
           topologyTransactionFactory.dtcp1_k1,
-          topologyTransactionFactory.mkAdd(
-            initialSynchronizerParametersMapping,
-            topologyTransactionFactory.SigningKeys.key1,
-          )(executorService),
+          syncParamTx,
           topologyTransactionFactory.okm1bk5k1E_k1, // this one to allow verification of the sender's signature
         ).map(ValidatedTopologyTransaction(_, rejectionReason = None)),
       )
@@ -370,7 +370,7 @@ class SequencerStateManagerTest
       orderingTimeFixMode = OrderingTimeFixMode.MakeStrictlyIncreasing,
       sequencingTimeLowerBoundExclusive =
         SequencerNodeParameterConfig.DefaultSequencingTimeLowerBoundExclusive,
-      useTimeProofsToObserveEffectiveTime = true,
+      producePostOrderingTopologyTicks = false,
       SequencerTestMetrics,
       loggerFactory,
       memberValidator = new SequencerMemberValidator {

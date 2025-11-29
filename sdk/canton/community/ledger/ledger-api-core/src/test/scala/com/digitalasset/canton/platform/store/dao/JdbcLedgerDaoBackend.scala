@@ -15,10 +15,6 @@ import com.digitalasset.canton.logging.LoggingContextWithTrace.withNewLoggingCon
 import com.digitalasset.canton.logging.SuppressingLogger
 import com.digitalasset.canton.metrics.{LedgerApiServerHistograms, LedgerApiServerMetrics}
 import com.digitalasset.canton.participant.store.memory.InMemoryContractStore
-import com.digitalasset.canton.participant.store.{
-  LedgerApiContractStore,
-  LedgerApiContractStoreImpl,
-}
 import com.digitalasset.canton.platform.config.{
   ActiveContractsServiceStreamsConfig,
   ServerRole,
@@ -38,6 +34,8 @@ import com.digitalasset.canton.platform.store.{
   DbSupport,
   DbType,
   FlywayMigrations,
+  LedgerApiContractStore,
+  LedgerApiContractStoreImpl,
   PruningOffsetService,
 }
 import com.digitalasset.canton.tracing.TraceContext
@@ -200,7 +198,11 @@ private[dao] trait JdbcLedgerDaoBackend extends PekkoBeforeAndAfterAll with Base
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
     ledgerEndCache = MutableLedgerEndCache()
     val inMemoryContractStore = new InMemoryContractStore(timeouts, loggerFactory)
-    contractStore = LedgerApiContractStoreImpl(inMemoryContractStore, loggerFactory)
+    contractStore = LedgerApiContractStoreImpl(
+      inMemoryContractStore,
+      loggerFactory,
+      LedgerApiServerMetrics.ForTesting,
+    )
     stringInterningView = new StringInterningView(loggerFactory)
     resource = withNewLoggingContext() { implicit loggingContext =>
       for {

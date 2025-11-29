@@ -3,9 +3,8 @@
 
 package com.digitalasset.canton.participant.protocol.party
 
-import com.digitalasset.canton.RepairCounter
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FlagCloseable
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -138,7 +137,6 @@ object TargetParticipantStore {
   /** The target participant (TP) tracks receive-related contract counts in particular:
     *   1. how many contracts have been requested,
     *   1. how many contracts have been processed,
-    *   1. the next repair counter to use for publishing the next ACS batch to the indexer, and
     *   1. once initialized, the initial contract ordinal according to the most recent
     *      initialization.
     *   1. whether the TP has been notified that end of the ACS has been reached.
@@ -146,7 +144,6 @@ object TargetParticipantStore {
   private final case class TPState(
       requestedContractsCount: NonNegativeInt,
       processedContractsCount: NonNegativeInt,
-      nextRepairCounter: RepairCounter,
       initialContractOrdinalInclusiveO: Option[NonNegativeInt],
       hasEndOfACSBeenReached: Boolean,
   )
@@ -157,7 +154,6 @@ final class TargetParticipantStore extends PartyReplicationProcessorStore {
     TargetParticipantStore.TPState(
       requestedContractsCount = NonNegativeInt.zero,
       processedContractsCount = NonNegativeInt.zero,
-      nextRepairCounter = RepairCounter.Genesis,
       initialContractOrdinalInclusiveO = None,
       hasEndOfACSBeenReached = false,
     )
@@ -170,20 +166,8 @@ final class TargetParticipantStore extends PartyReplicationProcessorStore {
       .discard
 
   def processedContractsCount: NonNegativeInt = state.get().processedContractsCount
-
-  /** Increase the number of processed contracts and return the increased processed contract count.
-    */
-  private[party] def increaseProcessedContractsCount(delta: PositiveInt): NonNegativeInt =
-    state
-      .updateAndGet(state =>
-        state.copy(processedContractsCount = state.processedContractsCount.map(_ + delta.unwrap))
-      )
-      .processedContractsCount
-
-  private[party] def getAndIncrementRepairCounter(): RepairCounter =
-    state
-      .updateAndGet(state => state.copy(nextRepairCounter = state.nextRepairCounter + 1))
-      .nextRepairCounter
+  private[party] def setProcessedContractsCount(count: NonNegativeInt): Unit =
+    state.updateAndGet(_.copy(processedContractsCount = count)).discard
 
   private[party] def initialContractOrdinalInclusiveO: Option[NonNegativeInt] =
     state.get().initialContractOrdinalInclusiveO

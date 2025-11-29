@@ -20,7 +20,6 @@ trait KmsCliIntegrationTest extends ReleaseArtifactIntegrationTestUtils {
   protected def bootstrapScript: String
   protected def testName: String
 
-  override protected val isEnterprise: Boolean = false
   override protected def withFixture(test: OneArgTest): Outcome = test(new BufferedProcessLogger)
 
   override type FixtureParam = BufferedProcessLogger

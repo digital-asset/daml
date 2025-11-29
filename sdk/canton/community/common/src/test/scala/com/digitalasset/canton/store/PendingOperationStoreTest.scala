@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.store
 
+import cats.data.EitherT
 import cats.syntax.either.*
 import com.digitalasset.canton.config.CantonRequireTypes.NonEmptyString
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -22,7 +23,8 @@ import com.digitalasset.canton.store.PendingOperationStoreTest.{
   op3,
 }
 import com.digitalasset.canton.store.db.DbDeserializationException
-import com.digitalasset.canton.topology.DefaultTestIdentities
+import com.digitalasset.canton.topology.{DefaultTestIdentities, SynchronizerId}
+import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.version.*
 import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext}
 import com.google.protobuf.ByteString
@@ -92,6 +94,50 @@ trait PendingOperationStoreTest[Op <: HasProtocolVersionedWrapper[Op]]
           name = op1.name,
         )
         result shouldBe Left(expectedError)
+      }
+    }
+
+    "insert and update an operation" in withStore { store =>
+      for {
+        insertResult <- store.insert(op1).value
+        _ = insertResult shouldBe Right(())
+        retrievedBefore <- store.get(op1.synchronizerId, op1.key, op1.name).value
+        _ = retrievedBefore shouldBe Some(op1)
+        _ <- store.updateOperation(op1Modified.operation, op1.synchronizerId, op1.name, op1.key)
+        retrievedAfter <- store.get(op1.synchronizerId, op1.key, op1.name).value
+      } yield {
+        retrievedBefore shouldBe Some(op1)
+        retrievedAfter shouldBe Some(op1Modified)
+      }
+    }
+
+    "succeed when updating a non-existent operation" in withStore { store =>
+      for {
+        _ <- store.updateOperation(op1.operation, op1.synchronizerId, op1.name, op1.key)
+        notUpdated <- store.get(op1.synchronizerId, op1.key, op1.name).value
+      } yield notUpdated shouldBe None
+    }
+
+    "retrieve only operations matching operation name" in withStore { store =>
+      val da = SynchronizerId.tryFromString("da::default")
+      val acme = SynchronizerId.tryFromString("acme::default")
+      val onpr = NonEmptyString.tryCreate("onpr")
+      val offpr = NonEmptyString.tryCreate("offpr")
+      val onprDa = (1 to 5).toList.map(i => createOp(onpr.unwrap, s"key$i", s"onpr$i", da))
+      val offprDa = (6 to 10).toList.map(i => createOp(offpr.unwrap, s"key$i", s"offpr$i", da))
+      val onprAcme = (11 to 15).toList.map(i => createOp(onpr.unwrap, s"key$i", s"onpr$i", acme))
+      val offprAcme = (16 to 20).toList.map(i => createOp(offpr.unwrap, s"key$i", s"offpr$i", acme))
+      val allOperations = onprDa ++ offprDa ++ onprAcme ++ offprAcme
+
+      for {
+        empty <- EitherT.right[ConflictingPendingOperationError](store.getAll(onpr))
+        _ <- MonadUtil.sequentialTraverse(allOperations)(store.insert)
+        onprs <- EitherT.right[ConflictingPendingOperationError](store.getAll(onpr))
+        offprs <- EitherT.right[ConflictingPendingOperationError](store.getAll(offpr))
+      } yield {
+        empty shouldBe Set.empty
+        onprs shouldBe onprDa.toSet ++ onprAcme
+        offprs shouldBe offprDa.toSet ++ offprAcme.toSet
       }
     }
 
@@ -204,6 +250,7 @@ object PendingOperationStoreTest {
       name: String,
       key: String,
       data: String,
+      synchronizerId: SynchronizerId = DefaultTestIdentities.synchronizerId,
   ): PendingOperation[TestPendingOperationMessage] =
     PendingOperation
       .create(
@@ -212,7 +259,7 @@ object PendingOperationStoreTest {
         key = key,
         operationBytes = createMessage(data).toByteString,
         operationDeserializer = TestPendingOperationMessage.fromTrustedByteString,
-        synchronizerId = DefaultTestIdentities.synchronizerId.toProtoPrimitive,
+        synchronizerId = synchronizerId.toProtoPrimitive,
       )
       .valueOr(errorMessage => throw new DbDeserializationException(errorMessage))
 

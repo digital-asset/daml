@@ -12,7 +12,7 @@ import scala.sys.process.Process
 /** Test _some_ exemples from the release artifact. In particular the ones requiring external
   * scripts to be run on the participant.
   */
-abstract class ReleaseExamplesIntegrationTest extends ReleaseArtifactIntegrationTestUtils {
+class ReleaseExamplesIntegrationTest extends ReleaseArtifactIntegrationTestUtils {
   "The release examples" should {
     "successfully initialize participant with offline root namespace key" in { processLogger =>
       val offlineExampleDir = File(s"$cantonDir/examples/10-offline-root-namespace-init")
@@ -56,7 +56,3 @@ abstract class ReleaseExamplesIntegrationTest extends ReleaseArtifactIntegration
     }
   }
 }
-
-class CommunityReleaseExamplesIntegrationTest
-    extends ReleaseExamplesIntegrationTest
-    with CommunityReleaseTest

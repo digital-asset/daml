@@ -63,7 +63,7 @@ class BftOrderingSequencerWithTrafficControlApiTestPostgres
     new BftSequencerFactory(
       BftBlockOrdererConfig(),
       BlockSequencerConfig(),
-      useTimeProofsToObserveEffectiveTime = true,
+      producePostOrderingTopologyTicks = false,
       health = None,
       storage,
       testedProtocolVersion,

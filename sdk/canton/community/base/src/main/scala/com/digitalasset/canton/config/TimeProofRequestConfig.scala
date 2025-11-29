@@ -5,7 +5,6 @@ package com.digitalasset.canton.config
 
 import cats.syntax.option.*
 import com.digitalasset.canton.admin.time.v30
-import com.digitalasset.canton.config.semiauto.CantonConfigValidatorDerivation
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -22,8 +21,7 @@ final case class TimeProofRequestConfig(
     initialRetryDelay: NonNegativeFiniteDuration = TimeProofRequestConfig.defaultInitialRetryDelay,
     maxRetryDelay: NonNegativeFiniteDuration = TimeProofRequestConfig.defaultMaxRetryDelay,
     maxSequencingDelay: NonNegativeFiniteDuration = TimeProofRequestConfig.defaultMaxSequencingDelay,
-) extends PrettyPrinting
-    with UniformCantonConfigValidation {
+) extends PrettyPrinting {
   private[config] def toProtoV30: v30.TimeProofRequestConfig = v30.TimeProofRequestConfig(
     initialRetryDelay.toProtoPrimitive.some,
     maxRetryDelay.toProtoPrimitive.some,
@@ -50,10 +48,6 @@ final case class TimeProofRequestConfig(
 }
 
 object TimeProofRequestConfig {
-
-  implicit val timeProofRequestConfigCantonConfigValidator
-      : CantonConfigValidator[TimeProofRequestConfig] =
-    CantonConfigValidatorDerivation[TimeProofRequestConfig]
 
   private val defaultInitialRetryDelay: NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.ofMillis(200)

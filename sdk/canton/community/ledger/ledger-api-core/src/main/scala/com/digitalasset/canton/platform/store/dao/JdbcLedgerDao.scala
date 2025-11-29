@@ -11,7 +11,6 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
-import com.digitalasset.canton.participant.store.LedgerApiContractStore
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.config.{
   ActiveContractsServiceStreamsConfig,

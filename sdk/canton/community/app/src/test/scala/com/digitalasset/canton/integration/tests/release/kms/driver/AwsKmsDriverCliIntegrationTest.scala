@@ -18,14 +18,14 @@ class AwsKmsDriverCliIntegrationTest extends KmsCliIntegrationTest {
     s"community/aws-kms-driver/target/scala-2.13/aws-kms-driver_2.13-$driverVersion.jar"
 
   override lazy val kmsConfigs: Seq[String] =
-    Seq("enterprise/app/src/test/resources/aws-kms-driver.conf")
+    Seq("community/app/src/test/resources/aws-kms-driver.conf")
 
   // Run Canton with EXTRA_CLASSPATH set to the driver.jar
   override lazy val cantonProcessEnvVar: Seq[(String, String)] =
     Seq("AWS_PROFILE" -> "sts", "EXTRA_CLASSPATH" -> driverJar)
 
   override lazy val bootstrapScript: String =
-    "enterprise/app/src/test/resources/scripts/aws_kms_participant1.canton"
+    "community/app/src/test/resources/scripts/aws_kms_participant1.canton"
 
   override lazy val testName: String = s"aws-kms-$packageName"
 }

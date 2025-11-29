@@ -58,8 +58,9 @@ private[integration] trait BaseIntegrationTest
     extends FixtureAnyWordSpec
     with BaseTest
     with RepeatableTestSuiteTest
+    with PartyTopologyUtils
     with TestPredicateFiltersFixtureAnyWordSpec {
-  this: EnvironmentSetup =>
+  self: EnvironmentSetup =>
 
   type FixtureParam = TestConsoleEnvironment
 

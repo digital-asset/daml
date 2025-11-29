@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.http
 
-import com.digitalasset.canton.config.CantonConfigValidator
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.http.WebsocketConfig as WSC
 import org.apache.pekko.stream.ThrottleMode
@@ -33,8 +32,6 @@ final case class JsonApiConfig(
 }
 
 object JsonApiConfig {
-  implicit val jsonApiConfigCantonConfigValidator: CantonConfigValidator[JsonApiConfig] =
-    CantonConfigValidator.validateAll // Do not recurse as there are no enterprise features on the JSON API
   private val defaultAddress: String = java.net.InetAddress.getLoopbackAddress.getHostAddress
   private val defaultRequestTimeout: FiniteDuration = 20.seconds
 }

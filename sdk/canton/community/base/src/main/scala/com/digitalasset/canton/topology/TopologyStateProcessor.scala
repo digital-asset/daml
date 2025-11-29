@@ -279,7 +279,8 @@ class TopologyStateProcessor private (
       Either.cond(
         expected == toValidate.serial,
         (),
-        TopologyTransactionRejection.Processor.SerialMismatch(expected, toValidate.serial),
+        TopologyTransactionRejection.Processor
+          .SerialMismatch(actual = toValidate.serial, expected = expected),
       )
     case None => Either.unit
   }

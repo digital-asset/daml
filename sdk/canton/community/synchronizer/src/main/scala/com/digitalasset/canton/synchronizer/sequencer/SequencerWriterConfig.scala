@@ -6,13 +6,8 @@ package com.digitalasset.canton.synchronizer.sequencer
 import cats.syntax.option.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config
+import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
-import com.digitalasset.canton.config.{
-  CantonConfigValidator,
-  NonNegativeFiniteDuration,
-  UniformCantonConfigValidation,
-}
 import com.digitalasset.canton.util.BytesUnit
 
 sealed trait CommitMode {
@@ -21,20 +16,17 @@ sealed trait CommitMode {
 
 object CommitMode {
 
-  implicit val commitModeCantonConfigValidator: CantonConfigValidator[CommitMode] =
-    CantonConfigValidatorDerivation[CommitMode]
-
   /** Synchronously commit to local and replicas (in psql this means synchronous_commit='on' or
     * 'remote_write' and that synchronous_standby_names have been appropriately set)
     */
-  case object Synchronous extends CommitMode with UniformCantonConfigValidation {
+  case object Synchronous extends CommitMode {
     override private[sequencer] val postgresSettings = NonEmpty(Seq, "on", "remote_write")
   }
 
   /** Synchronously commit to the local database alone (in psql this means
     * synchronous_commit='local')
     */
-  case object Local extends CommitMode with UniformCantonConfigValidation {
+  case object Local extends CommitMode {
     override private[sequencer] val postgresSettings = NonEmpty(Seq, "local")
   }
 
@@ -137,11 +129,6 @@ sealed trait SequencerWriterConfig {
   * only a default so they can also be easily overridden if required.
   */
 object SequencerWriterConfig {
-  implicit val sequencerWriterConfigCantonConfigValidator
-      : CantonConfigValidator[SequencerWriterConfig] = {
-    import com.digitalasset.canton.config.CantonConfigValidatorInstances.*
-    CantonConfigValidatorDerivation[SequencerWriterConfig]
-  }
 
   val DefaultPayloadTimestampMargin: NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.ofSeconds(60L)
@@ -172,7 +159,6 @@ object SequencerWriterConfig {
       override val bufferedEventsPreloadBatchSize: PositiveInt =
         DefaultBufferedEventsPreloadBatchSize,
   ) extends SequencerWriterConfig
-      with UniformCantonConfigValidation
 
   /** Creates batches of incoming events to minimize the number of writes to the database. Useful
     * for a high throughput usecase when batches will be quickly filled and written. Will be
@@ -194,5 +180,5 @@ object SequencerWriterConfig {
       override val bufferedEventsPreloadBatchSize: PositiveInt =
         DefaultBufferedEventsPreloadBatchSize,
   ) extends SequencerWriterConfig
-      with UniformCantonConfigValidation
+
 }

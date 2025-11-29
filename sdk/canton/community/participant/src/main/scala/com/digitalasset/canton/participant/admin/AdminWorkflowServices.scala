@@ -33,6 +33,7 @@ import com.digitalasset.canton.participant.config.ParticipantNodeConfig
 import com.digitalasset.canton.participant.ledger.api.client.LedgerConnection
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerError
+import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration}
 import com.digitalasset.canton.topology.TopologyManagerError.{
   NoAppropriateSigningKeyInStore,
@@ -64,6 +65,7 @@ class AdminWorkflowServices(
     syncService: CantonSyncService,
     participantId: ParticipantId,
     adminTokenDispenser: CantonAdminTokenDispenser,
+    storage: Storage,
     futureSupervisor: FutureSupervisor,
     protected val loggerFactory: NamedLoggerFactory,
     protected val clock: Clock,
@@ -142,6 +144,7 @@ class AdminWorkflowServices(
           syncService,
           clock,
           config,
+          storage,
           futureSupervisor,
           parameters.exitOnFatalFailures,
           timeouts,

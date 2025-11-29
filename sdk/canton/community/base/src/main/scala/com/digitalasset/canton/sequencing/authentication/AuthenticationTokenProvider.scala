@@ -11,13 +11,8 @@ import com.daml.metrics.api.MetricsContext
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config
+import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
-import com.digitalasset.canton.config.{
-  CantonConfigValidator,
-  ProcessingTimeout,
-  UniformCantonConfigValidation,
-}
 import com.digitalasset.canton.crypto.{Fingerprint, Nonce, SynchronizerCrypto}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, UnlessShutdown}
@@ -65,7 +60,7 @@ final case class AuthenticationTokenManagerConfig(
     minRetryInterval: config.NonNegativeFiniteDuration =
       AuthenticationTokenManagerConfig.defaultMinRetryInterval,
     backoff: Option[AuthenticationTokenManagerExponentialBackoffConfig] = None,
-) extends UniformCantonConfigValidation
+)
 
 final case class AuthenticationTokenManagerExponentialBackoffConfig(
     base: NonNegativeInt = NonNegativeInt.tryCreate(2),
@@ -73,17 +68,11 @@ final case class AuthenticationTokenManagerExponentialBackoffConfig(
       AuthenticationTokenManagerExponentialBackoffConfig.defaultMaxRetryInterval,
     jitter: Option[AuthenticationTokenManagerExponentialBackoffJitterConfig] =
       AuthenticationTokenManagerExponentialBackoffConfig.defaultJitter,
-) extends UniformCantonConfigValidation
+)
 
 sealed trait AuthenticationTokenManagerExponentialBackoffJitterConfig
-    extends UniformCantonConfigValidation
 
 object AuthenticationTokenManagerConfig {
-  implicit val authenticationTokenManagerConfigCantonConfigValidator
-      : CantonConfigValidator[AuthenticationTokenManagerConfig] = {
-    import com.digitalasset.canton.config.CantonConfigValidatorInstances.*
-    CantonConfigValidatorDerivation[AuthenticationTokenManagerConfig]
-  }
   private val defaultRefreshAuthTokenBeforeExpiry: config.NonNegativeFiniteDuration =
     config.NonNegativeFiniteDuration.ofSeconds(20)
   private val defaultRetries: NonNegativeInt = NonNegativeInt.tryCreate(20)
@@ -92,11 +81,6 @@ object AuthenticationTokenManagerConfig {
 }
 
 object AuthenticationTokenManagerExponentialBackoffConfig {
-  implicit val authenticationTokenManagerExponentialBackoffConfigValidator
-      : CantonConfigValidator[AuthenticationTokenManagerExponentialBackoffConfig] = {
-    import com.digitalasset.canton.config.CantonConfigValidatorInstances.*
-    CantonConfigValidatorDerivation[AuthenticationTokenManagerExponentialBackoffConfig]
-  }
   private val defaultMaxRetryInterval: config.NonNegativeFiniteDuration =
     config.NonNegativeFiniteDuration.ofMinutes(2)
   private val defaultJitter: Option[AuthenticationTokenManagerExponentialBackoffJitterConfig] =
@@ -106,10 +90,6 @@ object AuthenticationTokenManagerExponentialBackoffConfig {
 object AuthenticationTokenManagerExponentialBackoffJitterConfig {
   final case object Equal extends AuthenticationTokenManagerExponentialBackoffJitterConfig
   final case object Full extends AuthenticationTokenManagerExponentialBackoffJitterConfig
-
-  implicit val authenticationTokenManagerExponentialBackoffJitterConfigValidator
-      : CantonConfigValidator[AuthenticationTokenManagerExponentialBackoffJitterConfig] =
-    CantonConfigValidatorDerivation[AuthenticationTokenManagerExponentialBackoffJitterConfig]
 }
 
 /** Fetch an authentication token from the sequencer by using the sequencer authentication service

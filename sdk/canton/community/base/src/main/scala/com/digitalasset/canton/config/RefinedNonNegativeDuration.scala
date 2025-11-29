@@ -109,9 +109,6 @@ trait RefinedNonNegativeDuration[D <: RefinedNonNegativeDuration[D]] extends Pre
 
 trait RefinedNonNegativeDurationCompanion[D <: RefinedNonNegativeDuration[D]] {
 
-  implicit val refinedNonNegativeDurationCantonConfigValidator: CantonConfigValidator[D] =
-    CantonConfigValidator.validateAll[D]
-
   protected[this] def apply(newDuration: Duration): D
 
   implicit val timeoutDurationEncoder: Encoder[D] =

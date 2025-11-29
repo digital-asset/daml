@@ -5,7 +5,6 @@ package com.digitalasset.canton.config
 
 import cats.syntax.option.*
 import com.digitalasset.canton.admin.time.v30
-import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -39,8 +38,7 @@ final case class SynchronizerTimeTrackerConfig(
     minObservationDuration: NonNegativeFiniteDuration =
       SynchronizerTimeTrackerConfig.defaultMinObservationDuration,
     timeRequest: TimeProofRequestConfig = TimeProofRequestConfig(),
-) extends PrettyPrinting
-    with UniformCantonConfigValidation {
+) extends PrettyPrinting {
   def toProtoV30: v30.SynchronizerTimeTrackerConfig = v30.SynchronizerTimeTrackerConfig(
     observationLatency.toProtoPrimitive.some,
     patienceDuration.toProtoPrimitive.some,
@@ -70,10 +68,6 @@ final case class SynchronizerTimeTrackerConfig(
 }
 
 object SynchronizerTimeTrackerConfig {
-
-  implicit val synchronizerTimeTrackerConfigCantonConfigValidator
-      : CantonConfigValidator[SynchronizerTimeTrackerConfig] =
-    CantonConfigValidatorDerivation[SynchronizerTimeTrackerConfig]
 
   private val defaultObservationLatency: NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.ofMillis(250)

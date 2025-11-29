@@ -79,7 +79,7 @@ private[canton] class ExternalPartiesTestingAdministration(
     *   Participants that need to see activation of the party
     */
   @VisibleForTesting
-  def enable(
+  private[canton] def enable(
       name: String,
       synchronizer: Option[SynchronizerAlias] = None,
       synchronizeParticipants: Seq[ParticipantReference] = consoleEnvironment.participants.all,
@@ -205,7 +205,7 @@ private[canton] class ExternalPartiesTestingAdministration(
     *   Namespace
     */
   @VisibleForTesting // Ensures external this is only used in testing
-  def create_external_namespace(
+  private[canton] def create_external_namespace(
       synchronizer: Option[SynchronizerAlias] = None,
       synchronize: Option[config.NonNegativeDuration] = Some(timeouts.unbounded),
   ): Namespace = {
@@ -276,7 +276,7 @@ private[canton] class ExternalPartiesTestingAdministration(
     *   empty.
     */
   @VisibleForTesting // Ensures external parties are created only in tests
-  def onboarding_transactions(
+  private[canton] def onboarding_transactions(
       name: String,
       synchronizer: Option[SynchronizerAlias] = None,
       additionalConfirming: Seq[ParticipantId] = Seq.empty,
@@ -446,7 +446,7 @@ private[canton] class ExternalPartiesTestingAdministration(
     *   Participants that need to see activation of the party
     */
   @VisibleForTesting // Ensures external parties are created only in tests
-  def also_enable(
+  private[canton] def also_enable(
       party: ExternalParty,
       synchronizer: SynchronizerAlias,
       synchronizeParticipants: Seq[ParticipantReference] = consoleEnvironment.participants.all,

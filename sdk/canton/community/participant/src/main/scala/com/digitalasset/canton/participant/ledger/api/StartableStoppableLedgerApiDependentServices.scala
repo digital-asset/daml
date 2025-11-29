@@ -25,6 +25,7 @@ import com.digitalasset.canton.participant.admin.party.PartyReplicationAdminWork
 import com.digitalasset.canton.participant.admin.{AdminWorkflowServices, PackageService}
 import com.digitalasset.canton.participant.config.ParticipantNodeConfig
 import com.digitalasset.canton.participant.sync.CantonSyncService
+import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.tracing.{TraceContext, TracerProvider}
@@ -53,6 +54,7 @@ class StartableStoppableLedgerApiDependentServices(
     clock: Clock,
     registry: CantonMutableHandlerRegistry,
     adminTokenDispenser: CantonAdminTokenDispenser,
+    storage: Storage,
     futureSupervisor: FutureSupervisor,
     val loggerFactory: NamedLoggerFactory,
     tracerProvider: TracerProvider,
@@ -102,6 +104,7 @@ class StartableStoppableLedgerApiDependentServices(
                 syncService,
                 participantId,
                 adminTokenDispenser,
+                storage,
                 futureSupervisor,
                 loggerFactory,
                 clock,

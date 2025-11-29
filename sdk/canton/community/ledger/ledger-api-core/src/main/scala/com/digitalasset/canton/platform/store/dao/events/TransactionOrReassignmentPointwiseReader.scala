@@ -15,8 +15,8 @@ import com.digitalasset.canton.ledger.api.TransactionShape
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
-import com.digitalasset.canton.participant.store.LedgerApiContractStore
 import com.digitalasset.canton.platform.InternalUpdateFormat
+import com.digitalasset.canton.platform.store.LedgerApiContractStore
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.SequentialIdBatch.IdRange
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{

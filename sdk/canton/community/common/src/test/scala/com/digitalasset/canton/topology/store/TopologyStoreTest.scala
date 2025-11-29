@@ -1086,6 +1086,7 @@ trait TopologyStoreTest
                       permission = ParticipantPermission.Submission,
                     )
                   ),
+                  partySigningKeysWithThreshold = None,
                 )
                 .value
             )(p1Key)
@@ -1100,6 +1101,7 @@ trait TopologyStoreTest
                       permission = ParticipantPermission.Submission,
                     )
                   ),
+                  partySigningKeysWithThreshold = None,
                 )
                 .value,
               isProposal = true,
@@ -1115,6 +1117,7 @@ trait TopologyStoreTest
                       permission = ParticipantPermission.Submission,
                     )
                   ),
+                  partySigningKeysWithThreshold = None,
                 )
                 .value
             )(p1Key)
@@ -1223,6 +1226,7 @@ trait TopologyStoreTest
                       permission = ParticipantPermission.Submission,
                     ),
                   ),
+                  partySigningKeysWithThreshold = None,
                 )
                 .value,
               serial = PositiveInt.two,
@@ -1242,6 +1246,7 @@ trait TopologyStoreTest
                       permission = ParticipantPermission.Submission,
                     ),
                   ),
+                  partySigningKeysWithThreshold = None,
                 )
                 .value,
               serial = PositiveInt.three,
@@ -1261,6 +1266,7 @@ trait TopologyStoreTest
                       permission = ParticipantPermission.Submission,
                     ),
                   ),
+                  partySigningKeysWithThreshold = None,
                 )
                 .value,
               op = TopologyChangeOp.Remove,
@@ -1281,6 +1287,7 @@ trait TopologyStoreTest
                       permission = ParticipantPermission.Submission,
                     ),
                   ),
+                  partySigningKeysWithThreshold = None,
                 )
                 .value,
               serial = PositiveInt.tryCreate(5),
@@ -1300,6 +1307,7 @@ trait TopologyStoreTest
                       permission = ParticipantPermission.Observation,
                     ),
                   ),
+                  partySigningKeysWithThreshold = None,
                 )
                 .value,
               serial = PositiveInt.one,
@@ -1440,6 +1448,7 @@ trait TopologyStoreTest
                       permission = ParticipantPermission.Submission,
                     ),
                   ),
+                  partySigningKeysWithThreshold = None,
                 )
                 .value,
               op = TopologyChangeOp.Remove,
@@ -1558,6 +1567,7 @@ trait TopologyStoreTest
                       permission = ParticipantPermission.Observation,
                     )
                   ),
+                  partySigningKeysWithThreshold = None,
                 )
                 .value,
               op = TopologyChangeOp.Replace,
@@ -1574,6 +1584,7 @@ trait TopologyStoreTest
                       permission = ParticipantPermission.Observation,
                     )
                   ),
+                  partySigningKeysWithThreshold = None,
                 )
                 .value,
               op = TopologyChangeOp.Remove,
@@ -1590,6 +1601,7 @@ trait TopologyStoreTest
                       permission = ParticipantPermission.Confirmation,
                     )
                   ),
+                  partySigningKeysWithThreshold = None,
                 )
                 .value,
               op = TopologyChangeOp.Replace,
@@ -1606,6 +1618,7 @@ trait TopologyStoreTest
                       permission = ParticipantPermission.Observation,
                     )
                   ),
+                  partySigningKeysWithThreshold = None,
                 )
                 .value,
               op = TopologyChangeOp.Remove,
@@ -1688,6 +1701,7 @@ trait TopologyStoreTest
                       permission = ParticipantPermission.Submission,
                     )
                   ),
+                  partySigningKeysWithThreshold = None,
                 )
                 .value,
               op = TopologyChangeOp.Replace,

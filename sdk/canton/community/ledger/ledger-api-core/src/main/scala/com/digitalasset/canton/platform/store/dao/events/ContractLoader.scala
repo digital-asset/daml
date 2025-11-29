@@ -20,7 +20,7 @@ import com.digitalasset.canton.logging.{
   NamedLogging,
 }
 import com.digitalasset.canton.metrics.{BatchLoaderMetrics, LedgerApiServerMetrics}
-import com.digitalasset.canton.participant.store.LedgerApiContractStore
+import com.digitalasset.canton.platform.store.LedgerApiContractStore
 import com.digitalasset.canton.platform.store.backend.ContractStorageBackend
 import com.digitalasset.canton.platform.store.dao.DbDispatcher
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.{

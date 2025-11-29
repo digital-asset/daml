@@ -11,8 +11,6 @@ import com.daml.jwt.{
   JwtVerifierBase,
   StandardJWTPayload,
 }
-import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
-import com.digitalasset.canton.config.{CantonConfigValidator, UniformCantonConfigValidation}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
 import spray.json.JsonParser
@@ -20,12 +18,9 @@ import spray.json.JsonParser
 import scala.concurrent.Future
 import scala.util.Try
 
-sealed trait AccessLevel extends Product with Serializable with UniformCantonConfigValidation
+sealed trait AccessLevel extends Product with Serializable
 
 object AccessLevel {
-  implicit val accessLevelCantonConfigValidator: CantonConfigValidator[AccessLevel] =
-    CantonConfigValidatorDerivation[AccessLevel]
-
   case object Admin extends AccessLevel
   case object Wildcard extends AccessLevel
 }
@@ -33,12 +28,7 @@ object AccessLevel {
 final case class AuthorizedUser(
     userId: String,
     allowedServices: Seq[String],
-) extends UniformCantonConfigValidation
-
-object AuthorizedUser {
-  implicit val accessLevelCantonConfigValidator: CantonConfigValidator[AuthorizedUser] =
-    CantonConfigValidatorDerivation[AuthorizedUser]
-}
+)
 
 /** An AuthService that reads a JWT token from a `Authorization: Bearer` HTTP header. The token is
   * expected to use the format as defined in [[com.daml.jwt.AuthServiceJWTPayload]]:

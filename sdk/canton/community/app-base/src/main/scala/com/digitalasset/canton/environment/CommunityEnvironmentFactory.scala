@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.environment
 
-import com.digitalasset.canton.config.{CantonConfig, CommunityCantonEdition, TestingConfigInternal}
+import com.digitalasset.canton.config.{CantonConfig, TestingConfigInternal}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.ParticipantNodeBootstrapFactoryImpl
 import com.digitalasset.canton.synchronizer.mediator.MediatorNodeBootstrapFactoryImpl
@@ -18,7 +18,6 @@ object CommunityEnvironmentFactory extends EnvironmentFactory {
   ): Environment =
     new Environment(
       config,
-      CommunityCantonEdition,
       testingConfigInternal,
       ParticipantNodeBootstrapFactoryImpl,
       SequencerNodeBootstrapFactoryImpl,

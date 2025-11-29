@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.config
 
-import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
-
 /** Stores the configuration for a private store
   *
   * @param encryption
@@ -13,10 +11,4 @@ import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
   */
 final case class PrivateKeyStoreConfig(
     encryption: Option[EncryptedPrivateStoreConfig] = None
-) extends UniformCantonConfigValidation
-
-object PrivateKeyStoreConfig {
-  implicit val privateKeyStoreConfigCantonConfigValidator
-      : CantonConfigValidator[PrivateKeyStoreConfig] =
-    CantonConfigValidatorDerivation[PrivateKeyStoreConfig]
-}
+)

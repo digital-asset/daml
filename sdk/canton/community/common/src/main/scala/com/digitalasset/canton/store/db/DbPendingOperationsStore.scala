@@ -99,6 +99,25 @@ class DbPendingOperationsStore[Op <: HasProtocolVersionedWrapper[Op]](
     )
   }
 
+  override def updateOperation(
+      operation: Op,
+      synchronizerId: SynchronizerId,
+      name: NonEmptyString,
+      key: String,
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit] = {
+    @unused
+    implicit val setParameter: SetParameter[Op] = (v: Op, pp) => pp >> v.toByteString
+    val updateAction =
+      sqlu"""
+          update common_pending_operations
+          set operation = $operation
+          where synchronizer_id = $synchronizerId and operation_key = $key and operation_name = ${name.unwrap}
+        """
+    storage.update_(updateAction, functionFullName)
+  }
+
   override def delete(
       synchronizerId: SynchronizerId,
       operationKey: String,
@@ -130,6 +149,17 @@ class DbPendingOperationsStore[Op <: HasProtocolVersionedWrapper[Op]](
     OptionT.apply(storage.query(selectAction, functionFullName))
   }
 
+  override def getAll(operationName: NonEmptyString)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Set[PendingOperation[Op]]] = {
+    val selectAction =
+      sql"""
+        select operation_trigger, operation_name, operation_key, operation, synchronizer_id
+        from common_pending_operations
+        where operation_name = ${operationName.unwrap}
+      """.as[PendingOperation[Op]]
+    storage.query(selectAction, functionFullName).map(_.toSet)
+  }
 }
 
 private object DbPendingOperationsStore {

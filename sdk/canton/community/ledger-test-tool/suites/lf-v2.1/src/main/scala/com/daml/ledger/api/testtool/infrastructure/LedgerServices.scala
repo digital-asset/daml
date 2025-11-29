@@ -272,8 +272,12 @@ private final case class LedgerServicesJson(
   implicit val token: Option[String] = tokenParam
 
   private val backend = PekkoHttpBackend(
-    customConnectionPoolSettings =
-      Some(ConnectionPoolSettings.apply(mat.system).withMaxOpenRequests(256)),
+    customConnectionPoolSettings = Some(
+      ConnectionPoolSettings
+        .apply(mat.system)
+        .withMaxConnections(16)
+        .withMaxOpenRequests(256)
+    ),
     customizeRequest = { request =>
       logger.debug(s"JSON Request ${request.method} ${request.uri}")
       request

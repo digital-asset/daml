@@ -5,7 +5,6 @@ package com.digitalasset.canton.config
 
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveNumeric}
-import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLogging, TracedLogger}
 import com.digitalasset.canton.tracing.TraceContext
@@ -67,8 +66,7 @@ final case class DbParametersConfig(
     unsafeCleanOnValidationError: Boolean = false,
     unsafeBaselineOnMigrate: Boolean = false,
     migrateAndStart: Boolean = false,
-) extends PrettyPrinting
-    with UniformCantonConfigValidation {
+) extends PrettyPrinting {
   override protected def pretty: Pretty[DbParametersConfig] =
     prettyOfClass(
       paramIfDefined(
@@ -132,13 +130,9 @@ final case class BatchingConfig(
     maxPruningBatchSize: PositiveNumeric[Int] = BatchingConfig.defaultMaxPruningBatchSize,
     maxPruningTimeInterval: PositiveFiniteDuration = BatchingConfig.defaultMaxPruningTimeInterval,
     pruningParallelism: PositiveNumeric[Int] = BatchingConfig.defaultPruningParallelism,
-) extends UniformCantonConfigValidation
+)
 
 object BatchingConfig {
-  implicit val batchingConfigCantonConfigValidator: CantonConfigValidator[BatchingConfig] = {
-    import CantonConfigValidatorInstances.*
-    CantonConfigValidatorDerivation[BatchingConfig]
-  }
 
   private val defaultMaxItemsBatch: PositiveInt = PositiveNumeric.tryCreate(100)
   private val defaultMaxTopologyWriteBatchSize: PositiveInt = PositiveNumeric.tryCreate(1000)
@@ -164,8 +158,7 @@ final case class ConnectionAllocation(
     numReads: Option[PositiveInt] = None,
     numWrites: Option[PositiveInt] = None,
     numLedgerApi: Option[PositiveInt] = None,
-) extends PrettyPrinting
-    with UniformCantonConfigValidation {
+) extends PrettyPrinting {
   override protected def pretty: Pretty[ConnectionAllocation] =
     prettyOfClass(
       paramIfDefined("numReads", _.numReads),
@@ -174,19 +167,7 @@ final case class ConnectionAllocation(
     )
 }
 
-object ConnectionAllocation {
-  implicit val connectionAllocationCantonConfigValidator
-      : CantonConfigValidator[ConnectionAllocation] = {
-    import CantonConfigValidatorInstances.*
-    CantonConfigValidatorDerivation[ConnectionAllocation]
-  }
-}
-
 object DbParametersConfig {
-  import CantonConfigValidatorInstances.*
-
-  implicit val dbParametersConfigCantonConfigValidator: CantonConfigValidator[DbParametersConfig] =
-    CantonConfigValidatorDerivation[DbParametersConfig]
 
   private val defaultWarnOnSlowQueryInterval: PositiveFiniteDuration =
     PositiveFiniteDuration.ofSeconds(5)
@@ -194,7 +175,7 @@ object DbParametersConfig {
 
 /** Determines how a node stores persistent data.
   */
-sealed trait StorageConfig extends UniformCantonConfigValidation {
+sealed trait StorageConfig {
   type Self <: StorageConfig
 
   /** Database specific configuration parameters used by Slick. Also available for in-memory storage
@@ -325,9 +306,6 @@ sealed trait StorageConfig extends UniformCantonConfigValidation {
 
 object StorageConfig {
 
-  implicit val storageConfigCantonConfigValidator: CantonConfigValidator[StorageConfig] =
-    CantonConfigValidatorDerivation[StorageConfig]
-
   /** Dictates that persistent data is stored in memory. So in fact, the data is not persistent. It
     * is deleted whenever the node is stopped.
     *
@@ -340,15 +318,6 @@ object StorageConfig {
       override val parameters: DbParametersConfig = DbParametersConfig(),
   ) extends StorageConfig {
     override type Self = Memory
-
-  }
-
-  object Memory {
-    implicit val memoryCantonConfigValidator: CantonConfigValidator[Memory] = {
-      implicit val configCantonConfigValidator: CantonConfigValidator[Config] =
-        CantonConfigValidator.validateAll
-      CantonConfigValidatorDerivation[Memory]
-    }
   }
 }
 
@@ -405,12 +374,6 @@ object DbConfig {
   }
 
   object H2 {
-    implicit val h2CantonConfigValidator: CantonConfigValidator[H2] = {
-      implicit val configCantonConfigValidator: CantonConfigValidator[Config] =
-        CantonConfigValidator.validateAll
-      CantonConfigValidatorDerivation[H2]
-    }
-
     private val defaultDriver: String = "org.h2.Driver"
     val defaultConfig: Config = DbConfig.toConfig(Map("driver" -> defaultDriver))
   }
@@ -430,11 +393,6 @@ object DbConfig {
   }
 
   object Postgres {
-    implicit val postgresCantonConfigValidator: CantonConfigValidator[Postgres] = {
-      implicit val configCantonConfigValidator: CantonConfigValidator[Config] =
-        CantonConfigValidator.validateAll
-      CantonConfigValidatorDerivation[Postgres]
-    }
 
     // We enable `tcpKeepAlive` in the Postgres JDBC driver in order to improve detection of
     // failed connections in the Hikari connection pool.

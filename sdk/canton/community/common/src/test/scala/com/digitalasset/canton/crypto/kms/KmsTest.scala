@@ -13,6 +13,7 @@ import com.digitalasset.canton.config.{
   CryptoProvider,
   CryptoSchemeConfig,
   EncryptionSchemeConfig,
+  SessionEncryptionKeyCacheConfig,
   SigningSchemeConfig,
 }
 import com.digitalasset.canton.crypto.kms.KmsError.{
@@ -90,7 +91,7 @@ trait KmsTest extends BaseTest with BeforeAndAfterAll {
   lazy val pureCrypto: CryptoPureApi = JcePureCrypto
     .create(
       config,
-      CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
+      SessionEncryptionKeyCacheConfig(),
       CachingConfigs.defaultPublicKeyConversionCache,
       CryptoSchemes.tryFromConfig(config),
       loggerFactory,

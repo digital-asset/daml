@@ -179,7 +179,7 @@ class BlockSequencerTest
         store,
         dbSequencerStore = fakeDbSequencerStore,
         BlockSequencerConfig(),
-        useTimeProofsToObserveEffectiveTime = true,
+        producePostOrderingTopologyTicks = false,
         balanceStore,
         storage,
         FutureSupervisor.Noop,

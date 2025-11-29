@@ -77,8 +77,8 @@ sealed trait OfflinePartyReplicationPreventDuplicateContractsIntegrationTest
 
       ledgerEndP1 = source.ledger_api.state.end()
 
-      source.topology.party_to_participant_mappings.propose_delta(
-        party = alice,
+      alice.topology.party_to_participant_mappings.propose_delta(
+        source,
         adds = Seq(target.id -> ParticipantPermission.Submission),
         store = daId,
         requiresPartyToBeOnboarded = true,

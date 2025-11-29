@@ -20,11 +20,7 @@ import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, H
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.{CommonMockMetrics, LedgerApiServerMetrics}
 import com.digitalasset.canton.participant.ledger.api.LedgerApiJdbcUrl
-import com.digitalasset.canton.participant.store.{
-  ContractStore,
-  LedgerApiContractStore,
-  LedgerApiContractStoreImpl,
-}
+import com.digitalasset.canton.participant.store.ContractStore
 import com.digitalasset.canton.platform.IndexComponentTest.TestServices
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.platform.config.{IndexServiceConfig, ServerRole}
@@ -36,7 +32,13 @@ import com.digitalasset.canton.platform.store.DbSupport.{ConnectionPoolConfig, D
 import com.digitalasset.canton.platform.store.cache.MutableLedgerEndCache
 import com.digitalasset.canton.platform.store.dao.events.{ContractLoader, LfValueTranslation}
 import com.digitalasset.canton.platform.store.interning.StringInterningView
-import com.digitalasset.canton.platform.store.{DbSupport, FlywayMigrations, PruningOffsetService}
+import com.digitalasset.canton.platform.store.{
+  DbSupport,
+  FlywayMigrations,
+  LedgerApiContractStore,
+  LedgerApiContractStoreImpl,
+  PruningOffsetService,
+}
 import com.digitalasset.canton.protocol.ContractInstance
 import com.digitalasset.canton.resource.DbStorageSingle
 import com.digitalasset.canton.store.db.DbStorageSetup.DbBasicConfig
@@ -188,7 +190,11 @@ trait IndexComponentTest
                 loggerFactory = loggerFactory,
               )
             )
-        participantContractStore = LedgerApiContractStoreImpl(contractStore, loggerFactory)
+        participantContractStore = LedgerApiContractStoreImpl(
+          contractStore,
+          loggerFactory,
+          LedgerApiServerMetrics.ForTesting,
+        )
         (inMemoryState, updaterFlow) <- LedgerApiServerInternals.createInMemoryStateAndUpdater(
           participantId = participantId,
           commandProgressTracker = CommandProgressTracker.NoOp,

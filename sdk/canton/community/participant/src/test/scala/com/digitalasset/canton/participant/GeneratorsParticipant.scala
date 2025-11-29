@@ -4,10 +4,24 @@
 package com.digitalasset.canton.participant
 
 import com.digitalasset.canton.config.GeneratorsConfig
-import com.digitalasset.canton.data.DeduplicationPeriod
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.crypto.Hash
+import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.{CompletionInfo, Update}
 import com.digitalasset.canton.participant.admin.data.{ActiveContract, ActiveContractOld}
+import com.digitalasset.canton.participant.admin.party.PartyReplicationStatus
+import com.digitalasset.canton.participant.admin.party.PartyReplicationStatus.{
+  AcsIndexingProgress,
+  AcsReplicationProgress,
+  AcsReplicationProgressSerializable,
+  Disconnected,
+  PartyReplicationAuthorization,
+  PartyReplicationError,
+  PartyReplicationFailed,
+  ReplicationParams,
+  SequencerChannelAgreement,
+}
 import com.digitalasset.canton.participant.protocol.party.{
   PartyReplicationSourceParticipantMessage,
   PartyReplicationTargetParticipantMessage,
@@ -21,10 +35,26 @@ import com.digitalasset.canton.participant.protocol.submission.{
   SubmissionTrackingData,
   TransactionSubmissionTrackingData,
 }
-import com.digitalasset.canton.protocol.GeneratorsProtocol
-import com.digitalasset.canton.topology.{GeneratorsTopology, PhysicalSynchronizerId, SynchronizerId}
+import com.digitalasset.canton.protocol.{GeneratorsProtocol, LfContractId}
+import com.digitalasset.canton.topology.processing.EffectiveTime
+import com.digitalasset.canton.topology.transaction.ParticipantPermission
+import com.digitalasset.canton.topology.{
+  GeneratorsTopology,
+  ParticipantId,
+  PartyId,
+  PhysicalSynchronizerId,
+  SequencerId,
+  SynchronizerId,
+}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{GeneratorsLf, LedgerUserId, LfPartyId, ReassignmentCounter}
+import com.digitalasset.canton.{
+  GeneratorsLf,
+  LedgerUserId,
+  LfPartyId,
+  ReassignmentCounter,
+  RepairCounter,
+}
+import magnolify.scalacheck.auto.*
 import org.scalacheck.{Arbitrary, Gen}
 
 final class GeneratorsParticipant(
@@ -40,6 +70,7 @@ final class GeneratorsParticipant(
   import generatorsLf.*
   import generatorsProtocol.*
   import com.digitalasset.canton.ledger.api.GeneratorsApi.*
+  import com.digitalasset.canton.crypto.GeneratorsCrypto.*
 
   implicit val completionInfoArb: Arbitrary[CompletionInfo] = Arbitrary {
     for {
@@ -126,6 +157,102 @@ final class GeneratorsParticipant(
       case PartyReplicationSourceParticipantMessage.EndOfACS => ()
     }).discard
   }
+
+  implicit val replicationParamsArb: Arbitrary[ReplicationParams] =
+    Arbitrary(
+      for {
+        requestId <- Arbitrary.arbitrary[Hash]
+        partyId <- Arbitrary.arbitrary[PartyId]
+        synchronizerId <- Arbitrary.arbitrary[SynchronizerId]
+        sourceParticipantId <- Arbitrary.arbitrary[ParticipantId]
+        targetParticipantId <- Arbitrary.arbitrary[ParticipantId]
+        serial <- Arbitrary.arbitrary[PositiveInt]
+        participantPermission <- Arbitrary.arbitrary[ParticipantPermission]
+      } yield ReplicationParams(
+        requestId,
+        partyId,
+        synchronizerId,
+        sourceParticipantId,
+        targetParticipantId,
+        serial,
+        participantPermission,
+      )
+    )
+
+  implicit val sequencerChannelAgreementArb: Arbitrary[SequencerChannelAgreement] =
+    Arbitrary(
+      for {
+        damlAgreementContractId <- Arbitrary.arbitrary[LfContractId]
+        sequencerId <- Arbitrary.arbitrary[SequencerId]
+      } yield SequencerChannelAgreement(damlAgreementContractId, sequencerId)
+    )
+
+  implicit val partyReplicationAuthorizationArb: Arbitrary[PartyReplicationAuthorization] =
+    Arbitrary(
+      for {
+        onboardingAt <- Arbitrary.arbitrary[CantonTimestamp]
+        fullyOnboarded <- Arbitrary.arbitrary[Boolean]
+      } yield PartyReplicationAuthorization(EffectiveTime(onboardingAt), fullyOnboarded)
+    )
+
+  implicit val repairCounterArb: Arbitrary[RepairCounter] =
+    Arbitrary(Gen.chooseNum(0L, Long.MaxValue).map(RepairCounter(_)))
+
+  implicit val acsReplicationProgressArb: Arbitrary[AcsReplicationProgress] =
+    Arbitrary(
+      for {
+        replicatedContractCount <- Arbitrary.arbitrary[NonNegativeInt]
+        nextPersistenceCounter <- Arbitrary.arbitrary[RepairCounter]
+        fullyReplicatedAcs <- Arbitrary.arbitrary[Boolean]
+      } yield {
+        // Alternative AcsReplicationProgressRuntime is not serializable (due to processor field)
+        AcsReplicationProgressSerializable(
+          replicatedContractCount,
+          nextPersistenceCounter,
+          fullyReplicatedAcs,
+        )
+      }
+    )
+
+  implicit val acsIndexingProgressArb: Arbitrary[AcsIndexingProgress] =
+    Arbitrary(
+      for {
+        indexedContractCount <- Arbitrary.arbitrary[NonNegativeInt]
+        nextIndexingCounter <- Arbitrary.arbitrary[RepairCounter]
+      } yield AcsIndexingProgress(indexedContractCount, nextIndexingCounter)
+    )
+
+  implicit val partyReplicationErrorArb: Arbitrary[PartyReplicationError] =
+    Arbitrary(
+      for {
+        message <- Arbitrary.arbitrary[String]
+        error <- Gen
+          .oneOf[PartyReplicationError](Disconnected(message), PartyReplicationFailed(message))
+      } yield error
+    )
+
+  implicit val partyReplicationStatusArb: Arbitrary[PartyReplicationStatus] =
+    Arbitrary(
+      for {
+        params <- Arbitrary.arbitrary[ReplicationParams]
+        agreementO <- Gen.option(Arbitrary.arbitrary[SequencerChannelAgreement])
+        authorizationO <- Gen.option(Arbitrary.arbitrary[PartyReplicationAuthorization])
+        replicationO <- Gen.option(Arbitrary.arbitrary[AcsReplicationProgress])
+        indexingO <- Gen.option(Arbitrary.arbitrary[AcsIndexingProgress])
+        hasCompleted <- Arbitrary.arbitrary[Boolean]
+        errorO <- Gen.option(Arbitrary.arbitrary[PartyReplicationError])
+      } yield PartyReplicationStatus.apply(
+        params,
+        version,
+        agreementO,
+        authorizationO,
+        replicationO,
+        // Can only have indexing status if we have replication status
+        replicationO.flatMap(_ => indexingO),
+        hasCompleted,
+        errorO,
+      )
+    )
 
   implicit val partyReplicationSourceParticipantMessageArb
       : Arbitrary[PartyReplicationSourceParticipantMessage] =

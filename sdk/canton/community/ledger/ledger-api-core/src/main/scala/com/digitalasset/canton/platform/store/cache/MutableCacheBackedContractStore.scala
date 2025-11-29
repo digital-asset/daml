@@ -12,7 +12,7 @@ import com.digitalasset.canton.ledger.participant.state.index.{
 }
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.store.LedgerApiContractStore
+import com.digitalasset.canton.platform.store.LedgerApiContractStore
 import com.digitalasset.canton.platform.store.cache.ContractKeyStateValue.*
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.KeyState

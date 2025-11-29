@@ -279,8 +279,8 @@ final class CachingSynchronizerTopologyClient(
         .map(_.map { case (validFrom, validUntil) =>
           // topology snapshots are exclusive on effective time, the below "emulates" inclusivity for the given effective time,
           // as we want to make topology changes observable as part of the topology snapshot for the given time
-          val validFromAsInclusive = validFrom.immediateSuccessor().value
-          val validUntilAsExclusive = validUntil.map(_.immediateSuccessor().value)
+          val validFromAsInclusive = validFrom.immediateSuccessor.value
+          val validUntilAsExclusive = validUntil.map(_.immediateSuccessor.value)
           val newEntry = SnapshotEntry(validFromAsInclusive, validUntilAsExclusive)
           logger.debug(
             s"Caching new snapshot interval for timestamp $timestamp, validFrom=$validFromAsInclusive, validUntil=$validUntilAsExclusive"

@@ -9,7 +9,6 @@ import com.digitalasset.canton.config.PackageMetadataViewConfig.{
   DefaultInitTakesTooLongInitialDelay,
   DefaultInitTakesTooLongInterval,
 }
-import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 
 import scala.concurrent.duration.{FiniteDuration, *}
 
@@ -18,13 +17,9 @@ final case class PackageMetadataViewConfig(
     initProcessParallelism: Int = DefaultInitProcessParallelism,
     initTakesTooLongInitialDelay: FiniteDuration = DefaultInitTakesTooLongInitialDelay,
     initTakesTooLongInterval: FiniteDuration = DefaultInitTakesTooLongInterval,
-) extends UniformCantonConfigValidation
+)
 
 object PackageMetadataViewConfig {
-  implicit val packageMetadataViewConfigCantonConfigValidator
-      : CantonConfigValidator[PackageMetadataViewConfig] =
-    CantonConfigValidatorDerivation[PackageMetadataViewConfig]
-
   val DefaultInitLoadParallelism: Int = 16
   val DefaultInitProcessParallelism: Int = 16
   val DefaultInitTakesTooLongInitialDelay: FiniteDuration = 1.minute

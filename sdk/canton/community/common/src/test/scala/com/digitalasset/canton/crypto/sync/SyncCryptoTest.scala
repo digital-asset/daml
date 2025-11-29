@@ -10,6 +10,7 @@ import com.digitalasset.canton.config.{
   CachingConfigs,
   CryptoConfig,
   CryptoProvider,
+  SessionEncryptionKeyCacheConfig,
   SessionSigningKeysConfig,
 }
 import com.digitalasset.canton.crypto.signer.SyncCryptoSigner
@@ -122,7 +123,7 @@ trait SyncCryptoTest
     .create(
       cryptoConfig,
       CachingConfigs.defaultKmsMetadataCache,
-      CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
+      SessionEncryptionKeyCacheConfig(),
       CachingConfigs.defaultPublicKeyConversionCache,
       new MemoryStorage(loggerFactory, timeouts),
       Option.empty[ReplicaManager],

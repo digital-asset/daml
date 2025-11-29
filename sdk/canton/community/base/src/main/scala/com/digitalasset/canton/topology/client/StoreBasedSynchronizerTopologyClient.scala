@@ -135,7 +135,7 @@ class StoreBasedSynchronizerTopologyClient(
     new TimeAwaiter(
       getCurrentKnownTime = () => topologyKnownUntilTimestamp,
       timeouts,
-      loggerFactory,
+      loggerFactory.append("await", "effective"),
     )
 
   private val sequencedTimeAwaiter =
@@ -143,7 +143,7 @@ class StoreBasedSynchronizerTopologyClient(
       // waiting for a sequenced time has "inclusive" semantics
       getCurrentKnownTime = () => head.get().sequencedTimestamp.value,
       timeouts,
-      loggerFactory,
+      loggerFactory.append("await", "sequenced"),
     )
 
   private val pendingChanges = new AtomicInteger(0)
@@ -248,7 +248,6 @@ class StoreBasedSynchronizerTopologyClient(
         // only the head approximate timestamp is actually advanced,
         // because the head sequenced and effective timestamps
         // have already been advanced synchronously above.
-
         def advanceApproximateTimeToEffectiveTime(): Unit = {
           updateHeadWithApproximateTime(effectiveTimestamp.value)
           if (pendingChanges.decrementAndGet() == 0) {
@@ -259,15 +258,15 @@ class StoreBasedSynchronizerTopologyClient(
           checkAwaitingConditions()
         }
 
-        if (topologyConfig.useTimeProofsToObserveEffectiveTime)
-          timeTracker
-            .awaitTick(effectiveTimestamp.value)
-            .fold {
-              // Effective time already reached on the synchronizer
-              advanceApproximateTimeToEffectiveTime()
-            } { awaitTickF =>
-              awaitTickF.foreach(_ => advanceApproximateTimeToEffectiveTime())
-            }
+        val awaitFO =
+          if (topologyConfig.useTimeProofsToObserveEffectiveTime)
+            timeTracker.awaitTick(effectiveTimestamp.value).map(FutureUnlessShutdown.outcomeF)
+          else sequencedTimeAwaiter.awaitKnownTimestamp(effectiveTimestamp.value)
+        awaitFO
+          // if the effective timestamp has already been witnessed, run immediately
+          .getOrElse(FutureUnlessShutdown.unit)
+          .unwrap
+          .foreach(_ => advanceApproximateTimeToEffectiveTime())
       }
     }
   }

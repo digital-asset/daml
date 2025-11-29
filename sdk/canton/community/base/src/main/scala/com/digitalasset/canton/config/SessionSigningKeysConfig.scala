@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.config
 
-import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.crypto.{SigningAlgorithmSpec, SigningKeySpec}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 
@@ -49,8 +48,7 @@ final case class SessionSigningKeysConfig(
     // TODO(#13649): be sure these are supported by all the synchronizers the participant will connect to
     signingAlgorithmSpec: SigningAlgorithmSpec = SigningAlgorithmSpec.Ed25519,
     signingKeySpec: SigningKeySpec = SigningKeySpec.EcCurve25519,
-) extends PrettyPrinting
-    with UniformCantonConfigValidation {
+) extends PrettyPrinting {
 
   override protected def pretty: Pretty[SessionSigningKeysConfig] =
     prettyOfClass(
@@ -65,10 +63,6 @@ final case class SessionSigningKeysConfig(
 }
 
 object SessionSigningKeysConfig {
-  implicit val sessionSigningKeysConfigCantonConfigValidator
-      : CantonConfigValidator[SessionSigningKeysConfig] =
-    CantonConfigValidatorDerivation[SessionSigningKeysConfig]
-
   val disabled: SessionSigningKeysConfig = SessionSigningKeysConfig(enabled = false)
   val default: SessionSigningKeysConfig = SessionSigningKeysConfig(enabled = true)
 }

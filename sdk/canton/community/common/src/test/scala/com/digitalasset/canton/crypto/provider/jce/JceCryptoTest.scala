@@ -5,7 +5,12 @@ package com.digitalasset.canton.crypto.provider.jce
 
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.CryptoProvider.Jce
-import com.digitalasset.canton.config.{CachingConfigs, CryptoConfig, PositiveFiniteDuration}
+import com.digitalasset.canton.config.{
+  CachingConfigs,
+  CryptoConfig,
+  PositiveFiniteDuration,
+  SessionEncryptionKeyCacheConfig,
+}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.CryptoTestHelper.TestMessage
 import com.digitalasset.canton.crypto.SigningKeySpec.EcSecp256k1
@@ -41,7 +46,7 @@ class JceCryptoTest
         .create(
           CryptoConfig(provider = Jce),
           CachingConfigs.defaultKmsMetadataCache,
-          CachingConfigs.defaultSessionEncryptionKeyCacheConfig
+          SessionEncryptionKeyCacheConfig()
             .focus(_.senderCache.expireAfterTimeout)
             .replace(javaKeyCacheDuration),
           CachingConfigs.defaultPublicKeyConversionCache.copy(expireAfterAccess =

@@ -5,7 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer
 
 import cats.data.EitherT
 import cats.syntax.parallel.*
-import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.{ProcessingTimeout, TopologyConfig}
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.crypto.{SigningKeyUsage, SynchronizerCryptoClient}
@@ -37,7 +37,11 @@ import com.digitalasset.canton.synchronizer.sequencer.admin.data.{
   SequencerHealthStatus,
 }
 import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeParameters
-import com.digitalasset.canton.synchronizer.sequencer.time.TimeAdvancingTopologySubscriber
+import com.digitalasset.canton.synchronizer.sequencer.time.{
+  BroadcastTimeTrackerImpl,
+  TimeAdvancingTopologySubscriberV1,
+  TimeAdvancingTopologySubscriberV2,
+}
 import com.digitalasset.canton.synchronizer.sequencing.authentication.grpc.SequencerConnectServerInterceptor
 import com.digitalasset.canton.synchronizer.sequencing.service.*
 import com.digitalasset.canton.synchronizer.sequencing.service.channel.GrpcSequencerChannelService
@@ -110,6 +114,7 @@ class SequencerRuntime(
     topologyClient: SynchronizerTopologyClientWithInit,
     topologyProcessor: TopologyTransactionProcessor,
     topologyManagerStatusO: Option[TopologyManagerStatus],
+    topologyConfig: TopologyConfig,
     storage: Storage,
     clock: Clock,
     staticMembersToRegister: Seq[Member],
@@ -363,17 +368,33 @@ class SequencerRuntime(
     }
   })
 
+  private val broadcastTimeTracker = new BroadcastTimeTrackerImpl(loggerFactory)
+
+  private val timeAdvancingTopologySubscriber
+      : TopologyTransactionProcessingSubscriber & AutoCloseable =
+    if (topologyConfig.useTimeProofsToObserveEffectiveTime)
+      new TimeAdvancingTopologySubscriberV1(
+        clock,
+        client,
+        topologyClient,
+        psid,
+        sequencerId,
+        loggerFactory,
+      )
+    else
+      new TimeAdvancingTopologySubscriberV2(
+        clock,
+        client,
+        topologyClient,
+        psid,
+        sequencerId,
+        broadcastTimeTracker,
+        localNodeParameters.timeAdvancingTopology,
+        timeouts,
+        loggerFactory,
+      )
   logger.info("Subscribing to topology transactions for time-advancing broadcast")
-  topologyProcessor.subscribe(
-    new TimeAdvancingTopologySubscriber(
-      clock,
-      client,
-      topologyClient,
-      psid,
-      sequencerId,
-      loggerFactory,
-    )
-  )
+  topologyProcessor.subscribe(timeAdvancingTopologySubscriber)
 
   private lazy val synchronizerOutboxO: Option[SynchronizerOutboxHandle] =
     maybeSynchronizerOutboxFactory
@@ -398,7 +419,9 @@ class SequencerRuntime(
 
   sequencer.rateLimitManager.foreach(rlm => trafficProcessor.subscribe(rlm.balanceUpdateSubscriber))
 
-  private val eventHandler = StripSignature(topologyHandler.combineWith(trafficProcessor))
+  private val eventHandler = StripSignature(
+    broadcastTimeTracker.combineWith(topologyHandler).combineWith(trafficProcessor)
+  )
 
   private val sequencerAdministrationService =
     new GrpcSequencerAdministrationService(
@@ -446,6 +469,7 @@ class SequencerRuntime(
 
   override def onClosed(): Unit =
     LifeCycle.close(
+      timeAdvancingTopologySubscriber,
       LifeCycle.toCloseableOption(sequencer.rateLimitManager),
       timeTracker,
       syncCrypto,

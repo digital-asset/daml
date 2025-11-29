@@ -211,15 +211,9 @@ class TopologyTransactionTestFactory(
     serial = PositiveInt.two,
     isProposal = true,
   )
-  val dns3 = mkAdd(
-    DecentralizedNamespaceDefinition
-      .create(ns7, PositiveInt.one, NonEmpty(Set, ns1))
-      .fold(
-        err => sys.error(s"Failed to create DecentralizedNamespaceDefinition 3: $err"),
-        identity,
-      ),
-    key8,
-    serial = PositiveInt.two,
+  val dns3 = mkTrans(
+    dns2.transaction, // needs to be the same as our byte serialisation is intentionally non-deterministic
+    signingKeys = NonEmpty.mk(Set, key8),
     isProposal = true,
   )
   val decentralizedNamespaceOwners = List(ns1k1_k1, ns8k8_k8, ns9k9_k9)
@@ -240,15 +234,9 @@ class TopologyTransactionTestFactory(
     signingKey = key1,
     isProposal = true,
   )
-  val dnd_proposal_k2 = mkAdd(
-    DecentralizedNamespaceDefinition
-      .create(
-        dndNamespace,
-        PositiveInt.two,
-        NonEmpty(Set, key1.fingerprint, key2.fingerprint, key3.fingerprint).map(Namespace(_)),
-      )
-      .fold(sys.error, identity),
-    signingKey = key2,
+  val dnd_proposal_k2 = mkTrans(
+    dnd_proposal_k1.transaction,
+    signingKeys = NonEmpty.mk(Set, key2),
     isProposal = true,
   )
   // this only differs from dnd_proposal_k2 by having a different threshold
@@ -264,15 +252,9 @@ class TopologyTransactionTestFactory(
     isProposal = true,
   )
 
-  val dnd_proposal_k3 = mkAdd(
-    DecentralizedNamespaceDefinition
-      .create(
-        dndNamespace,
-        PositiveInt.two,
-        NonEmpty(Set, key1.fingerprint, key2.fingerprint, key3.fingerprint).map(Namespace(_)),
-      )
-      .fold(sys.error, identity),
-    signingKey = key3,
+  val dnd_proposal_k3 = mkTrans(
+    dnd_proposal_k1.transaction,
+    signingKeys = NonEmpty.mk(Set, key3),
     isProposal = true,
   )
 }

@@ -98,7 +98,7 @@ class UseExternalProcess(
       case _ =>
         Seq(
           "java"
-        ) ++ classpathProps ++ threadingProps ++ loggingProps :+ "com.digitalasset.canton.CantonEnterpriseApp"
+        ) ++ classpathProps ++ threadingProps ++ loggingProps :+ "com.digitalasset.canton.CantonCommunityApp"
     }
     command ++ cantonInvocationArgs(
       logFile(name, config).toString,

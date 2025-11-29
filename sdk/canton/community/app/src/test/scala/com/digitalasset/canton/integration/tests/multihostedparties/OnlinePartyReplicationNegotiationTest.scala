@@ -10,7 +10,7 @@ import com.daml.ledger.api.v2.transaction_filter.TransactionShape.TRANSACTION_SH
 import com.daml.ledger.api.v2.value.Value.Sum.Party
 import com.daml.ledger.api.v2.value.{RecordField, Value}
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.TransactionWrapper
-import com.digitalasset.canton.admin.api.client.data.{AddPartyStatus, TemplateId}
+import com.digitalasset.canton.admin.api.client.data.TemplateId
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.config.{DbConfig, SynchronizerTimeTrackerConfig}
 import com.digitalasset.canton.console.{
@@ -291,14 +291,8 @@ sealed trait OnlinePartyReplicationNegotiationTest
         )
         logger.info(s"TP status: $tpStatus")
         logger.info(s"SP status: $spStatus")
-        assert(
-          tpStatus.status.isInstanceOf[AddPartyStatus.Completed],
-          "Target participant must complete",
-        )
-        assert(
-          spStatus.status.isInstanceOf[AddPartyStatus.Completed],
-          "Source participant must complete",
-        )
+        assert(tpStatus.hasCompleted, "Target participant must complete")
+        assert(spStatus.hasCompleted, "Source participant must complete")
       }
   }
 

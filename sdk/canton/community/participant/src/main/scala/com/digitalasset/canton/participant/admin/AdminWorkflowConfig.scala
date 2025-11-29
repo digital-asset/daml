@@ -3,13 +3,8 @@
 
 package com.digitalasset.canton.participant.admin
 
+import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
-import com.digitalasset.canton.config.{
-  CantonConfigValidator,
-  NonNegativeFiniteDuration,
-  UniformCantonConfigValidation,
-}
 
 /** Configuration options for Canton admin workflows like `participant.health.ping`
   *
@@ -34,12 +29,4 @@ final case class AdminWorkflowConfig(
     maxBongDuration: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofMinutes(15),
     retries: Boolean = true,
     autoLoadDar: Boolean = true,
-) extends UniformCantonConfigValidation
-
-object AdminWorkflowConfig {
-  implicit val adminWorkflowConfigCantonConfigValidator
-      : CantonConfigValidator[AdminWorkflowConfig] = {
-    import com.digitalasset.canton.config.CantonConfigValidatorInstances.*
-    CantonConfigValidatorDerivation[AdminWorkflowConfig]
-  }
-}
+)
