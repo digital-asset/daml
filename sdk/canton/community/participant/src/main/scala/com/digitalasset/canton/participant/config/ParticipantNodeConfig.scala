@@ -107,8 +107,7 @@ final case class ParticipantNodeConfig(
     RemoteParticipantConfig(adminApi.clientConfig, ledgerApi.clientConfig)
 
   override def withDefaults(
-      ports: Option[DefaultPorts],
-      edition: CantonEdition,
+      ports: Option[DefaultPorts]
   ): ParticipantNodeConfig =
     ports.fold(this)(ports =>
       this
@@ -117,7 +116,7 @@ final case class ParticipantNodeConfig(
         .focus(_.adminApi.internalPort)
         .modify(ports.participantAdminApiPort.setDefaultPort)
         .focus(_.replication)
-        .modify(ReplicationConfig.withDefaultO(storage, _, edition))
+        .modify(ReplicationConfig.withDefaultO(storage, _))
         .focus(_.httpLedgerApi.internalPort)
         .modify(ports.jsonLedgerApiPort.setDefaultPort)
     )

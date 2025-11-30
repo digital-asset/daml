@@ -241,6 +241,7 @@ class DeclarativeParticipantApi(
           Seq(
             HostingParticipant(participantId, permission)
           ),
+          partySigningKeysWithThreshold = None,
         )
         _ <- queryAdminApi(
           TopologyAdminCommands.Write.Propose(

@@ -15,10 +15,10 @@ trait SynchronizerConnectivityTlsIntegrationTests
     with HasCycleUtils {
 
   private val certChainFile = PemFile(
-    ExistingFile.tryCreate("enterprise/app/src/test/resources/tls/public-api.crt")
+    ExistingFile.tryCreate("community/app/src/test/resources/tls/public-api.crt")
   )
   private val privateKeyFile = PemFile(
-    ExistingFile.tryCreate("enterprise/app/src/test/resources/tls/public-api.pem")
+    ExistingFile.tryCreate("community/app/src/test/resources/tls/public-api.pem")
   )
 
   override lazy val environmentDefinition: EnvironmentDefinition =

@@ -1671,6 +1671,7 @@ trait TopologyManagementIntegrationTest
               ParticipantPermission.Confirmation,
             )
           ),
+          partySigningKeysWithThreshold = None,
         )
         .value
 
@@ -1797,6 +1798,7 @@ trait TopologyManagementIntegrationTest
               ParticipantPermission.Submission,
             ),
           ),
+          partySigningKeysWithThreshold = None,
         )
         .value
 

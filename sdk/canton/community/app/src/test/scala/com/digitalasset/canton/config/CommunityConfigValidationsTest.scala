@@ -125,7 +125,7 @@ class CommunityConfigValidationsTest extends BaseTestWordSpec {
             ),
           )
         ),
-      ).withDefaults(Some(DefaultPorts.create()), EnterpriseCantonEdition)
+      ).withDefaults(Some(DefaultPorts.create()))
 
     val defaultEnabledMatrix: TableFor2[StorageConfig, Boolean] = Table(
       ("storage", "isEnabled"),

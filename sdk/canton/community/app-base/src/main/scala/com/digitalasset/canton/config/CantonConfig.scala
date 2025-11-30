@@ -616,13 +616,12 @@ final case class CantonConfig(
     )
 
   override def withDefaults(
-      defaults: Option[DefaultPorts],
-      edition: CantonEdition,
+      defaults: Option[DefaultPorts]
   ): CantonConfig = {
     def mapWithDefaults[K, V](
         m: Map[K, V with ConfigDefaults[Option[DefaultPorts], V]]
     ): Map[K, V] =
-      m.fmap(_.withDefaults(defaults, edition))
+      m.fmap(_.withDefaults(defaults))
 
     this
       .focus(_.participants)
@@ -2251,7 +2250,7 @@ object CantonConfig {
       case Right(resolvedConfig) =>
         loadRawConfig(resolvedConfig)
           .flatMap { conf =>
-            val confWithDefaults = conf.withDefaults(defaultPorts, edition)
+            val confWithDefaults = conf.withDefaults(defaultPorts)
             confWithDefaults
               .validate(edition, ensurePortsSet = defaultPorts.isEmpty)
               .toEither

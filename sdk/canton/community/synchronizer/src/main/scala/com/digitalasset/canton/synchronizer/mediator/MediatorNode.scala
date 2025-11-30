@@ -164,14 +164,13 @@ final case class MediatorNodeConfig(
   def replicationEnabled: Boolean = replication.exists(_.isEnabled)
 
   override def withDefaults(
-      ports: Option[DefaultPorts],
-      edition: CantonEdition,
+      ports: Option[DefaultPorts]
   ): MediatorNodeConfig = ports.fold(this)(ports =>
     this
       .focus(_.adminApi.internalPort)
       .modify(ports.mediatorAdminApiPort.setDefaultPort)
       .focus(_.replication)
-      .modify(ReplicationConfig.withDefaultO(storage, _, edition))
+      .modify(ReplicationConfig.withDefaultO(storage, _))
   )
 }
 

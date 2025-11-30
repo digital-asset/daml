@@ -60,6 +60,7 @@ import com.digitalasset.canton.participant.synchronizer.grpc.GrpcSynchronizerReg
 import com.digitalasset.canton.participant.topology.*
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.platform.apiserver.services.admin.PackageUpgradeValidator
+import com.digitalasset.canton.platform.store.LedgerApiContractStoreImpl
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.resource.*
@@ -509,7 +510,11 @@ class ParticipantNodeBootstrap(
                 commandProgressTracker = commandProgressTracker,
                 ledgerApiStore = persistentState.map(_.ledgerApiStore),
                 contractStore = persistentState.map(state =>
-                  LedgerApiContractStoreImpl(state.contractStore, loggerFactory)
+                  LedgerApiContractStoreImpl(
+                    state.contractStore,
+                    loggerFactory,
+                    metrics.ledgerApiServer,
+                  )
                 ),
                 ledgerApiIndexerConfig = LedgerApiIndexerConfig(
                   storageConfig = config.storage,

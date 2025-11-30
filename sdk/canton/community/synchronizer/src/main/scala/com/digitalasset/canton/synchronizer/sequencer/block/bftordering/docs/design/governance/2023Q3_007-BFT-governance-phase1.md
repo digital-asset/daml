@@ -569,7 +569,7 @@ Additional BFT ordering reconfiguration benchmarks are a possible future improve
 [ISS introductory video]: https://www.youtube.com/watch?v=zhu4b88wLKE
 [ISS paper]: https://arxiv.org/abs/2203.05681
 [BFT domain bootstrap]: https://github.com/DACH-NY/canton/blob/834ef2d934a5f83a332858f549ffae084b105b58/enterprise/app-base/src/main/scala/com/digitalasset/canton/console/EnterpriseConsoleMacros.scala#L126
-[Newly onboarded sequencers are actively initialized with the topology snapshot and the sequencer snapshot]: https://github.com/DACH-NY/canton/blob/8106fa7d640005cbcc7eb2e01c8c3b7babf7de94/enterprise/app/src/test/scala/com/digitalasset/canton/integration/OnboardsNewSequencerNodeX.scala#L119-L133
+[Newly onboarded sequencers are actively initialized with the topology snapshot and the sequencer snapshot]: https://github.com/DACH-NY/canton/blob/8106fa7d640005cbcc7eb2e01c8c3b7babf7de94/community/app/src/test/scala/com/digitalasset/canton/integration/OnboardsNewSequencerNodeX.scala#L119-L133
 [Domain fees]: https://docs.google.com/document/d/1_GTssleED5UPv4Ikc9GkEo56RP7g6ZgRvConUOt8uc0/edit#heading=h.j1o9vy5fqmrz
 [Participant deny lists]: https://github.com/DACH-NY/canton/blob/efee2ded6b96115f3ce1f077c1bef2af018df026/community/base/src/main/protobuf/com/digitalasset/canton/protocol/v2/topology.proto#L129
 [preliminary support for TLS distribution and TLS-based authentication]: https://github.com/DACH-NY/canton/blob/b7f0ef130a5fc41f7895d748b611938e19df1518/community/base/src/main/scala/com/digitalasset/canton/topology/transaction/TopologyMapping.scala#L284-L311

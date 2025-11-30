@@ -354,9 +354,10 @@ class ParticipantPartiesAdministrationGroup(
       synchronize: Option[config.NonNegativeDuration],
   ): ConsoleCommandResult[SignedTopologyTransaction[TopologyChangeOp, PartyToParticipant]] = {
     // determine the next serial
-    val nextSerial = reference.topology.party_to_participant_mappings
+    val currentTransaction = reference.topology.party_to_participant_mappings
       .list(synchronizerId, filterParty = partyId.filterString)
       .maxByOption(_.context.serial)
+    val nextSerial = currentTransaction
       .map(_.context.serial.increment)
 
     reference
@@ -371,6 +372,8 @@ class ParticipantPartiesAdministrationGroup(
                 ParticipantPermission.Submission,
               )
             ),
+            partySigningKeysWithThreshold =
+              currentTransaction.flatMap(_.item.partySigningKeysWithThreshold),
           ),
           // let the topology service determine the appropriate keys to use
           signedBy = Seq.empty,
