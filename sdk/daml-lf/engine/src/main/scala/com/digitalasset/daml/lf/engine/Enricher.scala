@@ -33,7 +33,7 @@ object Enricher {
         value0 match {
           case Value.ValueEnum(_, cons) =>
             Value.ValueEnum(None, cons)
-          case _: Value.ValueCidlessLeaf | _: Value.ValueContractId => value0
+          case _: Value.ValueCidLessAtom | _: Value.ValueContractId => value0
           case Value.ValueRecord(_, fields) =>
             val n = fields.reverseIterator.dropWhile(_._2 == Value.ValueNone).size
             Value.ValueRecord(
