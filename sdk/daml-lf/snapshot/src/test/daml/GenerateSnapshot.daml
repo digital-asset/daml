@@ -13,8 +13,9 @@ localCreateAndExercise = do
 
 globalCreateAndExercise = do
   alice <- allocateParty "alice"
-  cid <- submit alice (createCmd (T alice 13))
-  _ <- submit alice (exerciseCmd cid (Add 7))
+  cid1 <- submit alice (createCmd (T alice 13))
+  cid2 <- submit alice (exerciseCmd cid1 (Add 7))
+  _ <- submit alice (exerciseCmd cid2 (Sub 3))
   pure ()
 
 createOnly = do

@@ -72,187 +72,308 @@ A choice may now be benchmarked by JMH using:
 
     bazel run //daml-lf/snapshot:replay-benchmark -- \
       -p entriesFile=$SNAPSHOT_DIR/ReplayBenchmark.dar/globalCreateAndExercise/snapshot-participant.bin \
-      -p choiceName=$CHOICE_NAME \
+      -p choiceName=$CHOICE_NAME1,$CHOICE_NAME2,.. \
       -p darFile=$DAR_FILE
 
-Which should generate console output similar to:
+With `CHOICE_NAME1=ReplayBenchmark:T:Add` and `CHOICE_NAME2=ReplayBenchmark:T:Sub` we should generate console output similar to:
 ```text
 # JMH version: 1.36
 # VM version: JDK 17.0.10, OpenJDK 64-Bit Server VM, 17.0.10+7-LTS
 # VM invoker: /nix/store/c4spavgjc3v6h1yxl7h61gj11lpfb5dw-zulu-ca-jdk-17.0.10/zulu-17.jdk/Contents/Home/bin/java
 # VM options: <none>
 # Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
-# Warmup: 5 iterations, 10 s each
-# Measurement: 5 iterations, 10 s each
+# Warmup: 1 iterations, 500 ms each
+# Measurement: 3 iterations, 200 ms each
 # Timeout: 10 min per iteration
 # Threads: 1 thread, will synchronize iterations
 # Benchmark mode: Average time, time/op
 # Benchmark: com.digitalasset.daml.lf.testing.snapshot.ReplayBenchmark.bench
-# Parameters: (choiceIndex = 0, choiceName = ReplayBenchmark:T:Add, darFile = $SAVED/ReplayBenchmark.dar, entriesFile = $SAVED/snapshot-participant.bin)
+# Parameters: (choiceIndex = 0, choiceName = ReplayBenchmark:T:Add, contractIdVersion = V1, darFile = $DAR_FILE, entriesFile = $SNAPSHOT_DIR/ReplayBenchmark.dar/globalCreateAndExercise/snapshot-participant.bin, gasOn = true)
 
-# Run progress: 0.00% complete, ETA 00:08:20
-# Fork: 1 of 5
-# Warmup Iteration   1: %%% loading submission entries from $SAVED/snapshot-participant.bin...
-%%% loading dar file $SAVED/ReplayBenchmark.dar ...
+# Run progress: 0.00% complete, ETA 00:00:08
+# Warmup Fork: 1 of 1
+# Warmup Iteration   1: %%% loading submission entries from $SNAPSHOT_DIR/ReplayBenchmark.dar/globalCreateAndExercise/snapshot-participant.bin...
+%%% loading dar file $DAR_FILE ...
 SLF4J: No SLF4J providers were found.
 SLF4J: Defaulting to no-operation (NOP) logger implementation
 SLF4J: See https://www.slf4j.org/codes.html#noProviders for further details.
-%%% compile 30 packages ...
-0.033 ms/op
-# Warmup Iteration   2: 0.027 ms/op
-# Warmup Iteration   3: 0.027 ms/op
-# Warmup Iteration   4: 0.027 ms/op
-# Warmup Iteration   5: 0.027 ms/op
-Iteration   1: 0.027 ms/op
-                 stepCount:            194.000 #
-                 transactionNodeCount: 2.000 #
-Iteration   2: 0.027 ms/op
-                 stepCount:            194.000 #
-                 transactionNodeCount: 2.000 #
-Iteration   3: 0.027 ms/op
-                 stepCount:            194.000 #
-                 transactionNodeCount: 2.000 #
-Iteration   4: 0.027 ms/op
-                 stepCount:            194.000 #
-                 transactionNodeCount: 2.000 #
-Iteration   5: 0.027 ms/op
-                 stepCount:            194.000 #
-                 transactionNodeCount: 2.000 #
+%%% compile 31 packages ...
+0.222 ms/op
+Iteration   1: 0.081 ms/op
+                 stepCount:            898374.000 #
+                 transactionNodeCount: 9608.000 #
 
-# Run progress: 20.00% complete, ETA 00:06:48
-# Fork: 2 of 5
-# Warmup Iteration   1: %%% loading submission entries from $SAVED/snapshot-participant.bin...
-%%% loading dar file $SAVED/ReplayBenchmark.dar ...
+Iteration   2: 0.065 ms/op
+                 stepCount:            1484058.000 #
+                 transactionNodeCount: 15872.000 #
+
+Iteration   3: 0.049 ms/op
+                 stepCount:            2270393.000 #
+                 transactionNodeCount: 24282.000 #
+
+
+# Run progress: 12.50% complete, ETA 00:00:27
+# Fork: 1 of 1
+# Warmup Iteration   1: %%% loading submission entries from $SNAPSHOT_DIR/ReplayBenchmark.dar/globalCreateAndExercise/snapshot-participant.bin...
+%%% loading dar file $DAR_FILE ...
 SLF4J: No SLF4J providers were found.
 SLF4J: Defaulting to no-operation (NOP) logger implementation
 SLF4J: See https://www.slf4j.org/codes.html#noProviders for further details.
-%%% compile 30 packages ...
-0.030 ms/op
-# Warmup Iteration   2: 0.028 ms/op
-# Warmup Iteration   3: 0.028 ms/op
-# Warmup Iteration   4: 0.028 ms/op
-# Warmup Iteration   5: 0.028 ms/op
-Iteration   1: 0.028 ms/op
-                 stepCount:            194.000 #
-                 transactionNodeCount: 2.000 #
-Iteration   2: 0.028 ms/op
-                 stepCount:            194.000 #
-                 transactionNodeCount: 2.000 #
-Iteration   3: 0.028 ms/op
-                 stepCount:            194.000 #
-                 transactionNodeCount: 2.000 #
-Iteration   4: 0.028 ms/op
-                 stepCount:            194.000 #
-                 transactionNodeCount: 2.000 #
-Iteration   5: 0.028 ms/op
-                 stepCount:            194.000 #
-                 transactionNodeCount: 2.000 #
+%%% compile 31 packages ...
+0.250 ms/op
+Iteration   1: 0.082 ms/op
+                 stepCount:            843957.000 #
+                 transactionNodeCount: 9026.000 #
 
-# Run progress: 40.00% complete, ETA 00:05:06
-# Fork: 3 of 5
-# Warmup Iteration   1: %%% loading submission entries from $SAVED/snapshot-participant.bin...
-%%% loading dar file $SAVED/ReplayBenchmark.dar ...
-SLF4J: No SLF4J providers were found.
-SLF4J: Defaulting to no-operation (NOP) logger implementation
-SLF4J: See https://www.slf4j.org/codes.html#noProviders for further details.
-%%% compile 30 packages ...
-0.030 ms/op
-# Warmup Iteration   2: 0.027 ms/op
-# Warmup Iteration   3: 0.028 ms/op
-# Warmup Iteration   4: 0.027 ms/op
-# Warmup Iteration   5: 0.027 ms/op
-Iteration   1: 0.027 ms/op
-                 stepCount:            194.000 #
-                 transactionNodeCount: 2.000 #
-Iteration   2: 0.027 ms/op
-                 stepCount:            194.000 #
-                 transactionNodeCount: 2.000 #
-Iteration   3: 0.027 ms/op
-                 stepCount:            194.000 #
-                 transactionNodeCount: 2.000 #
-Iteration   4: 0.027 ms/op
-                 stepCount:            194.000 #
-                 transactionNodeCount: 2.000 #
-Iteration   5: 0.028 ms/op
-                 stepCount:            194.000 #
-                 transactionNodeCount: 2.000 #
+Iteration   2: 0.063 ms/op
+                 stepCount:            1452081.000 #
+                 transactionNodeCount: 15530.000 #
 
-# Run progress: 60.00% complete, ETA 00:03:24
-# Fork: 4 of 5
-# Warmup Iteration   1: %%% loading submission entries from $SAVED/snapshot-participant.bin...
-%%% loading dar file $SAVED/ReplayBenchmark.dar ...
-SLF4J: No SLF4J providers were found.
-SLF4J: Defaulting to no-operation (NOP) logger implementation
-SLF4J: See https://www.slf4j.org/codes.html#noProviders for further details.
-%%% compile 30 packages ...
-0.030 ms/op
-# Warmup Iteration   2: 0.028 ms/op
-# Warmup Iteration   3: 0.028 ms/op
-# Warmup Iteration   4: 0.028 ms/op
-# Warmup Iteration   5: 0.028 ms/op
-Iteration   1: 0.028 ms/op
-                 stepCount:            194.000 #
-                 transactionNodeCount: 2.000 #
-Iteration   2: 0.028 ms/op
-                 stepCount:            194.000 #
-                 transactionNodeCount: 2.000 #
-Iteration   3: 0.028 ms/op
-                 stepCount:            194.000 #
-                 transactionNodeCount: 2.000 #
-Iteration   4: 0.028 ms/op
-                 stepCount:            194.000 #
-                 transactionNodeCount: 2.000 #
-Iteration   5: 0.028 ms/op
-                 stepCount:            194.000 #
-                 transactionNodeCount: 2.000 #
+Iteration   3: 0.048 ms/op
+                 stepCount:            2235985.000 #
+                 transactionNodeCount: 23914.000 #
 
-# Run progress: 80.00% complete, ETA 00:01:42
-# Fork: 5 of 5
-# Warmup Iteration   1: %%% loading submission entries from $SAVED/snapshot-participant.bin...
-%%% loading dar file $SAVED/ReplayBenchmark.dar ...
-SLF4J: No SLF4J providers were found.
-SLF4J: Defaulting to no-operation (NOP) logger implementation
-SLF4J: See https://www.slf4j.org/codes.html#noProviders for further details.
-%%% compile 30 packages ...
-0.030 ms/op
-# Warmup Iteration   2: 0.028 ms/op
-# Warmup Iteration   3: 0.028 ms/op
-# Warmup Iteration   4: 0.028 ms/op
-# Warmup Iteration   5: 0.028 ms/op
-Iteration   1: 0.028 ms/op
-                 stepCount:            194.000 #
-                 transactionNodeCount: 2.000 #
-Iteration   2: 0.028 ms/op
-                 stepCount:            194.000 #
-                 transactionNodeCount: 2.000 #
-Iteration   3: 0.028 ms/op
-                 stepCount:            194.000 #
-                 transactionNodeCount: 2.000 #
-Iteration   4: 0.028 ms/op
-                 stepCount:            194.000 #
-                 transactionNodeCount: 2.000 #
-Iteration   5: 0.028 ms/op
-                 stepCount:            194.000 #
-                 transactionNodeCount: 2.000 #
 
 
 Result "com.digitalasset.daml.lf.testing.snapshot.ReplayBenchmark.bench":
-  0.028 ±(99.9%) 0.001 ms/op [Average]
-  (min, avg, max) = (0.027, 0.028, 0.028), stdev = 0.001
-  CI (99.9%): [0.028, 0.028] (assumes normal distribution)
+  0.064 ±(99.9%) 0.305 ms/op [Average]
+  (min, avg, max) = (0.048, 0.064, 0.082), stdev = 0.017
+  CI (99.9%): [≈ 0, 0.369] (assumes normal distribution)
 
 Secondary result "com.digitalasset.daml.lf.testing.snapshot.ReplayBenchmark.bench:stepCount":
-  4850.000 ±(99.9%) 0.001 # [Sum]
-  (min, avg, max) = (194.000, 194.000, 194.000), stdev = 0.001
-  CI (99.9%): [4850.000, 4850.000] (assumes normal distribution)
+  4532023.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (843957.000, 1510674.333, 2235985.000), stdev = 697861.284
+  CI (99.9%): [4532023.000, 4532023.000] (assumes normal distribution)
 
 Secondary result "com.digitalasset.daml.lf.testing.snapshot.ReplayBenchmark.bench:transactionNodeCount":
-  50.000 ±(99.9%) 0.001 # [Sum]
-  (min, avg, max) = (2.000, 2.000, 2.000), stdev = 0.001
-  CI (99.9%): [50.000, 50.000] (assumes normal distribution)
+  48470.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (9026.000, 16156.667, 23914.000), stdev = 7463.757
+  CI (99.9%): [48470.000, 48470.000] (assumes normal distribution)
 
 
-# Run complete. Total time: 00:08:30
+# JMH version: 1.36
+# VM version: JDK 17.0.10, OpenJDK 64-Bit Server VM, 17.0.10+7-LTS
+# VM invoker: /nix/store/c4spavgjc3v6h1yxl7h61gj11lpfb5dw-zulu-ca-jdk-17.0.10/zulu-17.jdk/Contents/Home/bin/java
+# VM options: <none>
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 1 iterations, 500 ms each
+# Measurement: 3 iterations, 200 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: com.digitalasset.daml.lf.testing.snapshot.ReplayBenchmark.bench
+# Parameters: (choiceIndex = 0, choiceName = ReplayBenchmark:T:Add, contractIdVersion = V1, darFile = $DAR_FILE, entriesFile = $SNAPSHOT_DIR/ReplayBenchmark.dar/globalCreateAndExercise/snapshot-participant.bin, gasOn = false)
+
+# Run progress: 25.00% complete, ETA 00:00:23
+# Warmup Fork: 1 of 1
+# Warmup Iteration   1: %%% loading submission entries from $SNAPSHOT_DIR/ReplayBenchmark.dar/globalCreateAndExercise/snapshot-participant.bin...
+%%% loading dar file $DAR_FILE ...
+SLF4J: No SLF4J providers were found.
+SLF4J: Defaulting to no-operation (NOP) logger implementation
+SLF4J: See https://www.slf4j.org/codes.html#noProviders for further details.
+%%% compile 31 packages ...
+0.235 ms/op
+Iteration   1: 0.080 ms/op
+                 stepCount:            878926.000 #
+                 transactionNodeCount: 9400.000 #
+
+Iteration   2: 0.062 ms/op
+                 stepCount:            1489668.000 #
+                 transactionNodeCount: 15932.000 #
+
+Iteration   3: 0.046 ms/op
+                 stepCount:            2320322.000 #
+                 transactionNodeCount: 24816.000 #
+
+
+# Run progress: 37.50% complete, ETA 00:00:19
+# Fork: 1 of 1
+# Warmup Iteration   1: %%% loading submission entries from $SNAPSHOT_DIR/ReplayBenchmark.dar/globalCreateAndExercise/snapshot-participant.bin...
+%%% loading dar file $DAR_FILE ...
+SLF4J: No SLF4J providers were found.
+SLF4J: Defaulting to no-operation (NOP) logger implementation
+SLF4J: See https://www.slf4j.org/codes.html#noProviders for further details.
+%%% compile 31 packages ...
+0.221 ms/op
+Iteration   1: 0.079 ms/op
+                 stepCount:            906976.000 #
+                 transactionNodeCount: 9700.000 #
+
+Iteration   2: 0.063 ms/op
+                 stepCount:            1500888.000 #
+                 transactionNodeCount: 16052.000 #
+
+Iteration   3: 0.050 ms/op
+                 stepCount:            2259734.000 #
+                 transactionNodeCount: 24168.000 #
+
+
+
+Result "com.digitalasset.daml.lf.testing.snapshot.ReplayBenchmark.bench":
+  0.064 ±(99.9%) 0.258 ms/op [Average]
+  (min, avg, max) = (0.050, 0.064, 0.079), stdev = 0.014
+  CI (99.9%): [≈ 0, 0.322] (assumes normal distribution)
+
+Secondary result "com.digitalasset.daml.lf.testing.snapshot.ReplayBenchmark.bench:stepCount":
+  4667598.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (906976.000, 1555866.000, 2259734.000), stdev = 678052.717
+  CI (99.9%): [4667598.000, 4667598.000] (assumes normal distribution)
+
+Secondary result "com.digitalasset.daml.lf.testing.snapshot.ReplayBenchmark.bench:transactionNodeCount":
+  49920.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (9700.000, 16640.000, 24168.000), stdev = 7251.901
+  CI (99.9%): [49920.000, 49920.000] (assumes normal distribution)
+
+
+# JMH version: 1.36
+# VM version: JDK 17.0.10, OpenJDK 64-Bit Server VM, 17.0.10+7-LTS
+# VM invoker: /nix/store/c4spavgjc3v6h1yxl7h61gj11lpfb5dw-zulu-ca-jdk-17.0.10/zulu-17.jdk/Contents/Home/bin/java
+# VM options: <none>
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 1 iterations, 500 ms each
+# Measurement: 3 iterations, 200 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: com.digitalasset.daml.lf.testing.snapshot.ReplayBenchmark.bench
+# Parameters: (choiceIndex = 0, choiceName = ReplayBenchmark:T:Sub, contractIdVersion = V1, darFile = $DAR_FILE, entriesFile = $SNAPSHOT_DIR/ReplayBenchmark.dar/globalCreateAndExercise/snapshot-participant.bin, gasOn = true)
+
+# Run progress: 50.00% complete, ETA 00:00:15
+# Warmup Fork: 1 of 1
+# Warmup Iteration   1: %%% loading submission entries from $SNAPSHOT_DIR/ReplayBenchmark.dar/globalCreateAndExercise/snapshot-participant.bin...
+%%% loading dar file $DAR_FILE ...
+SLF4J: No SLF4J providers were found.
+SLF4J: Defaulting to no-operation (NOP) logger implementation
+SLF4J: See https://www.slf4j.org/codes.html#noProviders for further details.
+%%% compile 31 packages ...
+0.226 ms/op
+Iteration   1: 0.080 ms/op
+                 stepCount:            897439.000 #
+                 transactionNodeCount: 9598.000 #
+
+Iteration   2: 0.064 ms/op
+                 stepCount:            1499392.000 #
+                 transactionNodeCount: 16036.000 #
+
+Iteration   3: 0.048 ms/op
+                 stepCount:            2302744.000 #
+                 transactionNodeCount: 24628.000 #
+
+
+# Run progress: 62.50% complete, ETA 00:00:11
+# Fork: 1 of 1
+# Warmup Iteration   1: %%% loading submission entries from $SNAPSHOT_DIR/ReplayBenchmark.dar/globalCreateAndExercise/snapshot-participant.bin...
+%%% loading dar file $DAR_FILE ...
+SLF4J: No SLF4J providers were found.
+SLF4J: Defaulting to no-operation (NOP) logger implementation
+SLF4J: See https://www.slf4j.org/codes.html#noProviders for further details.
+%%% compile 31 packages ...
+0.240 ms/op
+Iteration   1: 0.081 ms/op
+                 stepCount:            867145.000 #
+                 transactionNodeCount: 9274.000 #
+
+Iteration   2: 0.063 ms/op
+                 stepCount:            1476952.000 #
+                 transactionNodeCount: 15796.000 #
+
+Iteration   3: 0.047 ms/op
+                 stepCount:            2290963.000 #
+                 transactionNodeCount: 24502.000 #
+
+
+
+Result "com.digitalasset.daml.lf.testing.snapshot.ReplayBenchmark.bench":
+  0.064 ±(99.9%) 0.309 ms/op [Average]
+  (min, avg, max) = (0.047, 0.064, 0.081), stdev = 0.017
+  CI (99.9%): [≈ 0, 0.373] (assumes normal distribution)
+
+Secondary result "com.digitalasset.daml.lf.testing.snapshot.ReplayBenchmark.bench:stepCount":
+  4635060.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (867145.000, 1545020.000, 2290963.000), stdev = 714345.409
+  CI (99.9%): [4635060.000, 4635060.000] (assumes normal distribution)
+
+Secondary result "com.digitalasset.daml.lf.testing.snapshot.ReplayBenchmark.bench:transactionNodeCount":
+  49572.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (9274.000, 16524.000, 24502.000), stdev = 7640.058
+  CI (99.9%): [49572.000, 49572.000] (assumes normal distribution)
+
+
+# JMH version: 1.36
+# VM version: JDK 17.0.10, OpenJDK 64-Bit Server VM, 17.0.10+7-LTS
+# VM invoker: /nix/store/c4spavgjc3v6h1yxl7h61gj11lpfb5dw-zulu-ca-jdk-17.0.10/zulu-17.jdk/Contents/Home/bin/java
+# VM options: <none>
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 1 iterations, 500 ms each
+# Measurement: 3 iterations, 200 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: com.digitalasset.daml.lf.testing.snapshot.ReplayBenchmark.bench
+# Parameters: (choiceIndex = 0, choiceName = ReplayBenchmark:T:Sub, contractIdVersion = V1, darFile = $DAR_FILE, entriesFile = $SNAPSHOT_DIR/ReplayBenchmark.dar/globalCreateAndExercise/snapshot-participant.bin, gasOn = false)
+
+# Run progress: 75.00% complete, ETA 00:00:07
+# Warmup Fork: 1 of 1
+# Warmup Iteration   1: %%% loading submission entries from $SNAPSHOT_DIR/ReplayBenchmark.dar/globalCreateAndExercise/snapshot-participant.bin...
+%%% loading dar file $DAR_FILE ...
+SLF4J: No SLF4J providers were found.
+SLF4J: Defaulting to no-operation (NOP) logger implementation
+SLF4J: See https://www.slf4j.org/codes.html#noProviders for further details.
+%%% compile 31 packages ...
+0.232 ms/op
+Iteration   1: 0.083 ms/op
+                 stepCount:            869389.000 #
+                 transactionNodeCount: 9298.000 #
+
+Iteration   2: 0.064 ms/op
+                 stepCount:            1466854.000 #
+                 transactionNodeCount: 15688.000 #
+
+Iteration   3: 0.048 ms/op
+                 stepCount:            2265344.000 #
+                 transactionNodeCount: 24228.000 #
+
+
+# Run progress: 87.50% complete, ETA 00:00:03
+# Fork: 1 of 1
+# Warmup Iteration   1: %%% loading submission entries from $SNAPSHOT_DIR/ReplayBenchmark.dar/globalCreateAndExercise/snapshot-participant.bin...
+%%% loading dar file $DAR_FILE ...
+SLF4J: No SLF4J providers were found.
+SLF4J: Defaulting to no-operation (NOP) logger implementation
+SLF4J: See https://www.slf4j.org/codes.html#noProviders for further details.
+%%% compile 31 packages ...
+0.211 ms/op
+Iteration   1: 0.080 ms/op
+                 stepCount:            923993.000 #
+                 transactionNodeCount: 9882.000 #
+
+Iteration   2: 0.061 ms/op
+                 stepCount:            1545020.000 #
+                 transactionNodeCount: 16524.000 #
+
+Iteration   3: 0.049 ms/op
+                 stepCount:            2321631.000 #
+                 transactionNodeCount: 24830.000 #
+
+
+
+Result "com.digitalasset.daml.lf.testing.snapshot.ReplayBenchmark.bench":
+  0.064 ±(99.9%) 0.285 ms/op [Average]
+  (min, avg, max) = (0.049, 0.064, 0.080), stdev = 0.016
+  CI (99.9%): [≈ 0, 0.349] (assumes normal distribution)
+
+Secondary result "com.digitalasset.daml.lf.testing.snapshot.ReplayBenchmark.bench:stepCount":
+  4790644.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (923993.000, 1596881.333, 2321631.000), stdev = 700260.804
+  CI (99.9%): [4790644.000, 4790644.000] (assumes normal distribution)
+
+Secondary result "com.digitalasset.daml.lf.testing.snapshot.ReplayBenchmark.bench:transactionNodeCount":
+  51236.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (9882.000, 17078.667, 24830.000), stdev = 7489.420
+  CI (99.9%): [51236.000, 51236.000] (assumes normal distribution)
+
+
+# Run complete. Total time: 00:00:30
 
 REMEMBER: The numbers below are just data. To gain reusable insights, you need to follow up on
 why the numbers are the way they are. Use profilers (see -prof, -lprof), design factorial
@@ -266,10 +387,19 @@ works, and factor in a small probability of new VM bugs. Additionally, while com
 different JVMs are already problematic, the performance difference caused by different Blackhole
 modes can be very significant. Please make sure you use the consistent Blackhole mode for comparisons.
 
-Benchmark                      (choiceIndex)           (choiceName)                      (darFile)                    (entriesFile)  Mode  Cnt  Score    Error  Units
-ReplayBenchmark.bench                      0  ReplayBenchmark:T:Add  $SAVED/ReplayBenchmark.dar  $SAVED/snapshot-participant.bin  avgt   25  0.028 ±  0.001  ms/op
-ReplayBenchmark.bench:stepCount            0  ReplayBenchmark:T:Add  $SAVED/ReplayBenchmark.dar  $SAVED/snapshot-participant.bin  avgt   25  4850.000        #
-ReplayBenchmark.bench:transactionNodeCount 0  ReplayBenchmark:T:Add  $SAVED/ReplayBenchmark.dar  $SAVED/snapshot-participant.bin  avgt   25  50.000          #
+Benchmark                                   (choiceIndex)           (choiceName)  (contractIdVersion)  (darFile)                                                                       (entriesFile)  (gasOn)  Mode  Cnt        Score   Error  Units
+ReplayBenchmark.bench                                   0  ReplayBenchmark:T:Add                   V1  $DAR_FILE  $SNAPSHOT_DIR/ReplayBenchmark.dar/globalCreateAndExercise/snapshot-participant.bin     true  avgt    3        0.064 ± 0.305  ms/op
+ReplayBenchmark.bench:stepCount                         0  ReplayBenchmark:T:Add                   V1  $DAR_FILE  $SNAPSHOT_DIR/ReplayBenchmark.dar/globalCreateAndExercise/snapshot-participant.bin     true  avgt    3  4532023.000              #
+ReplayBenchmark.bench:transactionNodeCount              0  ReplayBenchmark:T:Add                   V1  $DAR_FILE  $SNAPSHOT_DIR/ReplayBenchmark.dar/globalCreateAndExercise/snapshot-participant.bin     true  avgt    3    48470.000              #
+ReplayBenchmark.bench                                   0  ReplayBenchmark:T:Add                   V1  $DAR_FILE  $SNAPSHOT_DIR/ReplayBenchmark.dar/globalCreateAndExercise/snapshot-participant.bin    false  avgt    3        0.064 ± 0.258  ms/op
+ReplayBenchmark.bench:stepCount                         0  ReplayBenchmark:T:Add                   V1  $DAR_FILE  $SNAPSHOT_DIR/ReplayBenchmark.dar/globalCreateAndExercise/snapshot-participant.bin    false  avgt    3  4667598.000              #
+ReplayBenchmark.bench:transactionNodeCount              0  ReplayBenchmark:T:Add                   V1  $DAR_FILE  $SNAPSHOT_DIR/ReplayBenchmark.dar/globalCreateAndExercise/snapshot-participant.bin    false  avgt    3    49920.000              #
+ReplayBenchmark.bench                                   0  ReplayBenchmark:T:Sub                   V1  $DAR_FILE  $SNAPSHOT_DIR/ReplayBenchmark.dar/globalCreateAndExercise/snapshot-participant.bin     true  avgt    3        0.064 ± 0.309  ms/op
+ReplayBenchmark.bench:stepCount                         0  ReplayBenchmark:T:Sub                   V1  $DAR_FILE  $SNAPSHOT_DIR/ReplayBenchmark.dar/globalCreateAndExercise/snapshot-participant.bin     true  avgt    3  4635060.000              #
+ReplayBenchmark.bench:transactionNodeCount              0  ReplayBenchmark:T:Sub                   V1  $DAR_FILE  $SNAPSHOT_DIR/ReplayBenchmark.dar/globalCreateAndExercise/snapshot-participant.bin     true  avgt    3    49572.000              #
+ReplayBenchmark.bench                                   0  ReplayBenchmark:T:Sub                   V1  $DAR_FILE  $SNAPSHOT_DIR/ReplayBenchmark.dar/globalCreateAndExercise/snapshot-participant.bin    false  avgt    3        0.064 ± 0.285  ms/op
+ReplayBenchmark.bench:stepCount                         0  ReplayBenchmark:T:Sub                   V1  $DAR_FILE  $SNAPSHOT_DIR/ReplayBenchmark.dar/globalCreateAndExercise/snapshot-participant.bin    false  avgt    3  4790644.000              #
+ReplayBenchmark.bench:transactionNodeCount              0  ReplayBenchmark:T:Sub                   V1  $DAR_FILE  $SNAPSHOT_DIR/ReplayBenchmark.dar/globalCreateAndExercise/snapshot-participant.bin    false  avgt    3    51236.000              #
 ```
 
 # `replay-profile`

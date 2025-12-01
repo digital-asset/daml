@@ -40,7 +40,12 @@ class ReplayBenchmark {
 
   private var benchmark: TransactionSnapshot = _
 
-  @Benchmark @BenchmarkMode(Array(Mode.AverageTime)) @OutputTimeUnit(TimeUnit.MILLISECONDS)
+  @Fork(value = 1, warmups = 1)
+  @Warmup(iterations = 1, time = 500, timeUnit = TimeUnit.MILLISECONDS)
+  @Measurement(iterations = 3, time = 200, timeUnit = TimeUnit.MILLISECONDS)
+  @Benchmark
+  @BenchmarkMode(Array(Mode.AverageTime))
+  @OutputTimeUnit(TimeUnit.MILLISECONDS)
   def bench(counters: ReplayBenchmark.EventCounter): Unit = {
     counters.reset()
     val result = benchmark.replay()
