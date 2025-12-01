@@ -45,7 +45,7 @@ object Util {
           )
         case ValueVariant(tyCon, variant, value) =>
           ValueVariant(handleTypeInfo(tyCon), variant, go(value))
-        case _: ValueCidlessLeaf | _: ValueContractId => value
+        case _: ValueCidLessAtom | _: ValueContractId => value
         case ValueList(values) =>
           ValueList(values.map(go))
         case ValueOptional(value) =>

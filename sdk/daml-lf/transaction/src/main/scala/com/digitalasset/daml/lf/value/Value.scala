@@ -25,7 +25,7 @@ sealed abstract class GenValue[+X]
 
 object GenValue {
 
-  sealed abstract class CidlessAtom extends GenValue[Nothing] with CidContainer[CidlessAtom] {
+  sealed abstract class CidLessAtom extends GenValue[Nothing] with CidContainer[CidLessAtom] {
     final override def mapCid(f: Value.ContractId => Value.ContractId): this.type = this
   }
 
@@ -66,7 +66,7 @@ object GenValue {
       Variant(None, variant, value.nonVerboseWithoutTrailingNones)
   }
   final case class Enum(tycon: Option[Identifier], value: Name)
-      extends CidlessAtom
+      extends CidLessAtom
       with CidContainer[Enum] {
     override def nonVerboseWithoutTrailingNones: Value =
       Enum(None, value)
@@ -96,28 +96,28 @@ object GenValue {
     )
   }
 
-  final case class Int64(value: Long) extends CidlessAtom with CidContainer[Int64] {
+  final case class Int64(value: Long) extends CidLessAtom with CidContainer[Int64] {
     override def nonVerboseWithoutTrailingNones: this.type = this
   }
-  final case class Numeric(value: data.Numeric) extends CidlessAtom with CidContainer[Numeric] {
+  final case class Numeric(value: data.Numeric) extends CidLessAtom with CidContainer[Numeric] {
     override def nonVerboseWithoutTrailingNones: this.type = this
   }
   // Note that Text are assume to be UTF8
-  final case class Text(value: String) extends CidlessAtom with CidContainer[Text] {
+  final case class Text(value: String) extends CidLessAtom with CidContainer[Text] {
     override def nonVerboseWithoutTrailingNones: this.type = this
   }
   final case class Timestamp(value: Time.Timestamp)
-      extends CidlessAtom
+      extends CidLessAtom
       with CidContainer[Timestamp] {
     override def nonVerboseWithoutTrailingNones: this.type = this
   }
-  final case class Date(value: Time.Date) extends CidlessAtom with CidContainer[Date] {
+  final case class Date(value: Time.Date) extends CidLessAtom with CidContainer[Date] {
     override def nonVerboseWithoutTrailingNones: this.type = this
   }
-  final case class Party(value: Ref.Party) extends CidlessAtom with CidContainer[Party] {
+  final case class Party(value: Ref.Party) extends CidLessAtom with CidContainer[Party] {
     override def nonVerboseWithoutTrailingNones: this.type = this
   }
-  final case class Bool(value: Boolean) extends CidlessAtom with CidContainer[Bool] {
+  final case class Bool(value: Boolean) extends CidLessAtom with CidContainer[Bool] {
     override def nonVerboseWithoutTrailingNones: this.type = this
   }
   object Bool {
@@ -126,7 +126,7 @@ object GenValue {
     def apply(value: Boolean): Bool =
       if (value) True else False
   }
-  case object Unit extends CidlessAtom {
+  case object Unit extends CidLessAtom {
     override def nonVerboseWithoutTrailingNones: this.type = this
   }
 
@@ -194,12 +194,7 @@ object Value {
 
   type VersionedValue = transaction.Versioned[Value]
 
-  /** The parent of all [[Value]] cases that cannot possibly have a Cid.
-    * NB: use only in pattern-matching [[Value]]; the ''type'' of a cid-less
-    * Value is `Value[Nothing]`.
-    */
-
-  type ValueCidlessLeaf = GenValue.CidlessAtom
+  type ValueCidLessAtom = GenValue.CidLessAtom
 
   type ValueRecord = GenValue.Record[Nothing]
   val ValueRecord: GenValue.Record.type = GenValue.Record
