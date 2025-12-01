@@ -2,8 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //
-// THIS FILE IS-GENERATED FROM //daml-lf/language/daml-lf.bzl
+// THIS FILE WAS GENERATED FROM //daml-lf/language/daml-lf.bzl
 // DO NOT EDIT MANUALLY
+//
+// IT IS CHECKED IN AS A TEMPORARY MEASURE FOR THE MIGRATION OF LF/ENGINE TO THE
+// CANTON REPO IN THE FUTURE, IT WILL BE AUTO-GENERATED ONCE MORE
 //
 
 package com.digitalasset.daml.lf
@@ -17,9 +20,10 @@ import scala.annotation.nowarn
 trait LanguageVersionGenerated {
   val allStableLegacyLfVersions: List[LanguageVersion] =
     List(6, 7, 8, 11, 12, 13, 14, 15, 17).map(i => LanguageVersion(V1, Stable(i)))
-  val List(v1_6, v1_7, v1_8, v1_11, v1_12, v1_13, v1_14, v1_15, v1_17) = allStableLegacyLfVersions: @nowarn(
-    "msg=match may not be exhaustive"
-  )
+  val List(v1_6, v1_7, v1_8, v1_11, v1_12, v1_13, v1_14, v1_15, v1_17) =
+    allStableLegacyLfVersions: @nowarn(
+      "msg=match may not be exhaustive"
+    )
   val v1_dev: LanguageVersion = LanguageVersion(V1, Dev)
   val allLegacyLfVersions: List[LanguageVersion] = allStableLegacyLfVersions.appended(v1_dev)
 
@@ -38,7 +42,7 @@ trait LanguageVersionGenerated {
   val stableLfVersions: List[LanguageVersion] = List(v2_1, v2_2)
   val stagingLfVersion: LanguageVersion = v2_2
 
-  //ranges hardcoded (for now)
+  // ranges hardcoded (for now)
   val allLfVersionsRange: VersionRange.Inclusive[LanguageVersion] = VersionRange(v2_1, v2_dev)
   val stableLfVersionsRange: VersionRange.Inclusive[LanguageVersion] = VersionRange(v2_1, v2_2)
   val earlyAccessLfVersionsRange: VersionRange.Inclusive[LanguageVersion] = VersionRange(v2_1, v2_2)

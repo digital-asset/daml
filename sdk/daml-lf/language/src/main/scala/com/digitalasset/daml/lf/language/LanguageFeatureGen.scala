@@ -2,9 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //
-// THIS FILE IS-GENERATED FROM //daml-lf/language/daml-lf.bzl
+// THIS FILE WAS GENERATED FROM //daml-lf/language/daml-lf.bzl
 // (via generate_features.py)
-// DO NOT EDIT MANUALLY
+//
+// IT IS CHECKED IN AS A TEMPORARY MEASURE FOR THE MIGRATION OF LF/ENGINE TO THE
+// CANTON REPO IN THE FUTURE, IT WILL BE AUTO-GENERATED ONCE MORE
 //
 
 package com.digitalasset.daml.lf
@@ -45,8 +47,7 @@ trait LanguageFeaturesGenerated extends LanguageVersionGenerated {
     val unstable = v1_dev
   }
 
-
-  // --- Generated V2 Features --- 
+  // --- Generated V2 Features ---
 
   val featureUnstable: Feature = Feature(
     name = "Unstable, experimental features",
@@ -123,6 +124,22 @@ trait LanguageFeaturesGenerated extends LanguageVersionGenerated {
     versionRange = VersionRange.Until(v2_1),
   )
 
-  val allFeatures: List[Feature] = List(featureUnstable, featureTextMap, featureBigNumeric, featureExceptions, featureExtendedInterfaces, featureChoiceFuncs, featureTemplateTypeRepToText, featureContractKeys, featureFlatArchive, featurePackageImports, featureComplexAnyType, featureExperimental, featurePackageUpgrades, featureChoiceAuthority, featureUnsafeFromInterface)
+  val allFeatures: List[Feature] = List(
+    featureUnstable,
+    featureTextMap,
+    featureBigNumeric,
+    featureExceptions,
+    featureExtendedInterfaces,
+    featureChoiceFuncs,
+    featureTemplateTypeRepToText,
+    featureContractKeys,
+    featureFlatArchive,
+    featurePackageImports,
+    featureComplexAnyType,
+    featureExperimental,
+    featurePackageUpgrades,
+    featureChoiceAuthority,
+    featureUnsafeFromInterface,
+  )
 
 }
