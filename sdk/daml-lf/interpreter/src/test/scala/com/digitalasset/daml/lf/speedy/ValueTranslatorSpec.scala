@@ -441,7 +441,7 @@ class ValueTranslatorSpec(languageVersion: LanguageVersion, forbidTrailingNones:
             ),
           )
 
-        val testCases = Table(
+        val testCases = Table[ValueRecord](
           "record",
           ValueRecord(
             "",
@@ -707,7 +707,7 @@ class ValueTranslatorSpec(languageVersion: LanguageVersion, forbidTrailingNones:
           ValueRecord(
             "",
             ImmArray(
-              "" -> ValueRecord(
+              "" -> ValueRecord[Nothing](
                 "Mod:Upgradeable", // outer record is fine but the nested record has a typeCon ID
                 ImmArray(
                   "" -> ValueInt64(1),
@@ -819,10 +819,10 @@ class ValueTranslatorSpec(languageVersion: LanguageVersion, forbidTrailingNones:
         ),
         (
           t"Mod:Record (Mod:Record Int64 Text Party Unit) Text Party Unit",
-          ValueRecord(
+          ValueRecord[Nothing](
             "",
             ImmArray(
-              "" -> ValueRecord(
+              "" -> ValueRecord[Nothing](
                 "",
                 ImmArray(
                   "" -> ValueInt64(1),
@@ -890,7 +890,7 @@ class ValueTranslatorSpec(languageVersion: LanguageVersion, forbidTrailingNones:
           ValueRecord(
             "",
             ImmArray(
-              "" -> ValueRecord(
+              "" -> ValueRecord[Nothing](
                 "",
                 ImmArray(
                   "" -> ValueInt64(1),
