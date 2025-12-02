@@ -80,7 +80,6 @@ preprocessorExceptions = Set.fromList $ map GHC.mkModuleName
     , "DA.Fail"
     , "DA.ContractKeys"
 
-
     -- These modules need to have the record preprocessor disabled.
     , "DA.NonEmpty.Types"
     , "DA.Monoid.Types"
