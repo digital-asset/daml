@@ -28,12 +28,10 @@ TMP_DIR=$(mktemp -d)
 mkdir -p "$TMP_DIR/.npm"
 export npm_config_cache="$TMP_DIR/.npm"
 
-echo "Temporary directory: $TMP_DIR"
-
-# cleanup() {
-#     rm -rf "$TMP_DIR"
-# }
-# trap cleanup EXIT
+cleanup() {
+    rm -rf "$TMP_DIR"
+}
+trap cleanup EXIT
 
 cat <<EOF > "$TMP_DIR"/package.json
 {
