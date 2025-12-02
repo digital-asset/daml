@@ -8,13 +8,13 @@ import com.daml.integrationtest.CantonConfig
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
 import com.digitalasset.daml.lf.engine.script.test.AbstractScriptTest
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
+import com.digitalasset.daml.lf.language.LanguageVersion
 import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.matchers.should.Matchers
 
 import java.nio.file.{Files, FileSystems, Path}
 
-class GenerateSnapshotsV2 extends GenerateSnapshots(LanguageMajorVersion.V2)
+class GenerateSnapshotsV2 extends GenerateSnapshots(LanguageVersion.Major.V2)
 
 /** Generate and save snapshot data by running Daml script code.
   *
@@ -24,7 +24,7 @@ class GenerateSnapshotsV2 extends GenerateSnapshots(LanguageMajorVersion.V2)
   * - SNAPSHOT_DIR: defines the (base) directory used for storing snapshot data. Snapshot files are saved in the file with
   *   path $SNAPSHOT_DIR/$(basename DAR_FILE)/Script/snapshot-participant0*.bin (where Script is the script function name defined by $SCRIPT_NAME)
   */
-class GenerateSnapshots(override val majorLanguageVersion: LanguageMajorVersion)
+class GenerateSnapshots(override val majorLanguageVersion: LanguageVersion.Major)
     extends AsyncWordSpec
     with AbstractScriptTest
     with Matchers {
