@@ -5,7 +5,6 @@ package com.digitalasset.canton.config
 
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.KmsConfig.RetryConfig
-import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.util.retry
 import com.typesafe.config.ConfigValue
 
@@ -20,9 +19,6 @@ sealed trait KmsConfig {
 
 object KmsConfig {
 
-  implicit val kmsConfigCantonConfigValidator: CantonConfigValidator[KmsConfig] =
-    CantonConfigValidatorDerivation[KmsConfig]
-
   /** Exponential backoff configuration for retries of network failures
     *
     * @param initialDelay
@@ -36,13 +32,7 @@ object KmsConfig {
       initialDelay: config.NonNegativeFiniteDuration,
       maxDelay: config.NonNegativeDuration,
       maxRetries: Int,
-  ) extends UniformCantonConfigValidation
-
-  object ExponentialBackoffConfig {
-    implicit val exponentialBackoffConfigCantonConfigValidator
-        : CantonConfigValidator[ExponentialBackoffConfig] =
-      CantonConfigValidatorDerivation[ExponentialBackoffConfig]
-  }
+  )
 
   /** Retry configuration for KMS operations
     *
@@ -63,12 +53,7 @@ object KmsConfig {
         maxDelay = config.NonNegativeDuration.ofSeconds(10),
         maxRetries = 20,
       ),
-  ) extends UniformCantonConfigValidation
-
-  object RetryConfig {
-    implicit val retryConfigCantonConfigValidator: CantonConfigValidator[RetryConfig] =
-      CantonConfigValidatorDerivation[RetryConfig]
-  }
+  )
 
   /** A KMS configuration for an external KMS driver.
     *
@@ -91,15 +76,6 @@ object KmsConfig {
       override val sessionSigningKeys: SessionSigningKeysConfig = SessionSigningKeysConfig.disabled,
       override val retries: RetryConfig = RetryConfig(),
   ) extends KmsConfig
-      with UniformCantonConfigValidation
-
-  object Driver {
-    // Don't try to validate anything inside the config value of the driver
-    private implicit def configValueCantonConfigValidator: CantonConfigValidator[ConfigValue] =
-      CantonConfigValidator.validateAll
-    implicit val driverCantonConfigValidator: CantonConfigValidator[Driver] =
-      CantonConfigValidatorDerivation[Driver]
-  }
 
   /** Stores the configuration for AWS KMS. This configuration is mandatory if we want to protect
     * Canton's private keys using an AWS KMS.
@@ -130,7 +106,6 @@ object KmsConfig {
       disableSslVerification: Boolean = false,
       endpointOverride: Option[String] = None,
   ) extends KmsConfig
-      with UniformCantonConfigValidation
 
   object Aws {
     val defaultTestConfig: Aws = Aws(region = "us-east-1")
@@ -167,7 +142,6 @@ object KmsConfig {
       override val retries: RetryConfig = RetryConfig(),
       endpointOverride: Option[String] = None,
   ) extends KmsConfig
-      with UniformCantonConfigValidation
 
   object Gcp {
     val defaultTestConfig: Gcp = Gcp(

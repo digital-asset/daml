@@ -1,7 +1,10 @@
 import createClient from "openapi-fetch";
 import type {paths} from "../generated/api/ledger-api";
+import {PARTICIPANT_HOST, PARTICIPANT_PORT} from "./environment";
 
-export const client = createClient<paths>({baseUrl: "http://localhost:7575"});
+const baseUrl = `http://${PARTICIPANT_HOST}:${PARTICIPANT_PORT}`;
+
+export const client = createClient<paths>({baseUrl});
 
 export function valueOrError<T>(response: { data?: T, error?: any }): Promise<T> {
     if (response.data === undefined) {

@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.config
 
-import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
-
 /** Configuration of node replication for high availability
   *
   * @param enabled
@@ -17,13 +15,11 @@ final case class ReplicationConfig(
     // default values later on, based on the type of storage used.
     enabled: Option[Boolean] = None,
     connectionPool: DbLockedConnectionPoolConfig = DbLockedConnectionPoolConfig(),
-) extends UniformCantonConfigValidation {
+) {
   lazy val isEnabled: Boolean = enabled.contains(true)
 }
 
 object ReplicationConfig {
-  implicit val replicationConfigCantonConfigValidator: CantonConfigValidator[ReplicationConfig] =
-    CantonConfigValidatorDerivation[ReplicationConfig]
 
   def withDefault(
       storage: StorageConfig,

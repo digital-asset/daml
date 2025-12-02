@@ -8,6 +8,7 @@ import com.digitalasset.canton.crypto.{SymmetricKey, TestHash}
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.participant.GeneratorsParticipant
 import com.digitalasset.canton.participant.admin.data.ActiveContractOld
+import com.digitalasset.canton.participant.admin.party.PartyReplicationStatus
 import com.digitalasset.canton.participant.protocol.party.{
   PartyReplicationSourceParticipantMessage,
   PartyReplicationTargetParticipantMessage,
@@ -185,6 +186,7 @@ final class SerializationDeserializationTest
           test(SequencerChannelSessionKey, version)
           test(SequencerChannelSessionKeyAck, version)
 
+          test(PartyReplicationStatus, version)
           test(PartyReplicationSourceParticipantMessage, version)
           test(PartyReplicationTargetParticipantMessage, version)
         }

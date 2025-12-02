@@ -33,6 +33,7 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.SynchronizerTopologyClientWithInit
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
+import com.digitalasset.canton.util.EitherUtil.*
 import com.digitalasset.canton.util.Thereafter.syntax.ThereafterAsyncOps
 import com.digitalasset.canton.util.{EitherTUtil, GrpcStreamingUtils}
 import com.google.protobuf.ByteString
@@ -140,32 +141,19 @@ class GrpcPartyManagementService(
             s"Add party request id ${request.addPartyRequestId} not found"
           )
         )
-    } yield {
-      val statusP = v30.GetAddPartyStatusResponse.Status(status.toProto)
-      v30.GetAddPartyStatusResponse(
-        partyId = status.params.partyId.toProtoPrimitive,
-        synchronizerId = status.params.synchronizerId.toProtoPrimitive,
-        sourceParticipantUid = status.params.sourceParticipantId.uid.toProtoPrimitive,
-        targetParticipantUid = status.params.targetParticipantId.uid.toProtoPrimitive,
-        topologySerial = status.params.serial.unwrap,
-        participantPermission =
-          PartyParticipantPermission.toProtoPrimitive(status.params.participantPermission),
-        status = Some(statusP),
-      )
-    })
-      .fold(Future.failed, Future.successful)
+      apiStatus = com.digitalasset.canton.participant.admin.data.PartyReplicationStatus
+        .fromInternal(status)
+    } yield v30.GetAddPartyStatusResponse(Some(apiStatus.toProtoV30))).toFuture(identity)
 
   private def toStatusRuntimeException(status: Status)(err: String): StatusRuntimeException =
     status.withDescription(err).asRuntimeException()
 
-  private def ensureAdminWorkflowIfOnlinePartyReplicationEnabled() = (adminWorkflowO match {
-    case Some(value) => Right(value)
-    case None =>
-      Left(
+  private def ensureAdminWorkflowIfOnlinePartyReplicationEnabled() = adminWorkflowO
+    .toRight(
+      toStatusRuntimeException(Status.UNIMPLEMENTED)(
         "The add_party_async command requires the `unsafe_online_party_replication` configuration"
       )
-  })
-    .leftMap(toStatusRuntimeException(Status.UNIMPLEMENTED))
+    )
 
   override def exportPartyAcs(
       request: v30.ExportPartyAcsRequest,

@@ -21,7 +21,6 @@ class SequencerDriverConfigTest extends BaseTestWordSpec {
         val configE =
           CantonConfig.parseAndLoad(
             Seq(dummySequencerConfigFile.toJava),
-            EnterpriseCantonEdition,
             Some(DefaultPorts.create()),
           )
         val cantonConfig = valueOrFail(configE)("loading dummy sequencer config")
@@ -41,7 +40,6 @@ class SequencerDriverConfigTest extends BaseTestWordSpec {
       val configE =
         CantonConfig.parseAndLoad(
           Seq(dummySequencerConfigFile.toJava),
-          EnterpriseCantonEdition,
           Some(DefaultPorts.create()),
         )
       val cantonConfig = valueOrFail(configE)("loading dummy sequencer config")

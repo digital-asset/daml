@@ -85,7 +85,7 @@ final class CachingSynchronizerTopologyClient(
     SequencedTime,
     Option[(SequencedTime, EffectiveTime)],
   ](
-    cache = cachingConfigs.synchronizerClientMaxTimestamp.buildScaffeine(),
+    cache = cachingConfigs.synchronizerClientMaxTimestamp.buildScaffeine(loggerFactory),
     loader = traceContext => delegate.awaitMaxTimestamp(_)(traceContext),
   )(logger, "maxTimestampCache")
 
@@ -159,7 +159,7 @@ final class CachingSynchronizerTopologyClient(
     */
   private val pointwise =
     cachingConfigs.topologySnapshot
-      .buildScaffeine()
+      .buildScaffeine(loggerFactory)
       .evictionListener[Traced[CantonTimestamp], CachingTopologySnapshot] {
         case (tracedKey, _value, _cause) =>
           val key = tracedKey.unwrap
@@ -279,8 +279,8 @@ final class CachingSynchronizerTopologyClient(
         .map(_.map { case (validFrom, validUntil) =>
           // topology snapshots are exclusive on effective time, the below "emulates" inclusivity for the given effective time,
           // as we want to make topology changes observable as part of the topology snapshot for the given time
-          val validFromAsInclusive = validFrom.immediateSuccessor().value
-          val validUntilAsExclusive = validUntil.map(_.immediateSuccessor().value)
+          val validFromAsInclusive = validFrom.immediateSuccessor.value
+          val validUntilAsExclusive = validUntil.map(_.immediateSuccessor.value)
           val newEntry = SnapshotEntry(validFromAsInclusive, validUntilAsExclusive)
           logger.debug(
             s"Caching new snapshot interval for timestamp $timestamp, validFrom=$validFromAsInclusive, validUntil=$validUntilAsExclusive"
@@ -613,7 +613,7 @@ class CachingTopologySnapshot(
 
   private val partyCache: TracedAsyncLoadingCache[FutureUnlessShutdown, PartyId, PartyInfo] =
     ScaffeineCache.buildTracedAsync[FutureUnlessShutdown, PartyId, PartyInfo](
-      cache = cachingConfigs.partyCache.buildScaffeine(),
+      cache = cachingConfigs.partyCache.buildScaffeine(loggerFactory),
       loader = implicit traceContext =>
         party => parent.loadActiveParticipantsOf(party, loadParticipantStates(_)),
       allLoader = Some(implicit traceContext =>
@@ -626,7 +626,7 @@ class CachingTopologySnapshot(
   ]] =
     ScaffeineCache
       .buildTracedAsync[FutureUnlessShutdown, ParticipantId, Option[ParticipantAttributes]](
-        cache = cachingConfigs.participantCache.buildScaffeine(),
+        cache = cachingConfigs.participantCache.buildScaffeine(loggerFactory),
         loader = implicit traceContext => pid => parent.findParticipantState(pid),
         allLoader = Some { implicit traceContext => pids =>
           parent
@@ -640,7 +640,7 @@ class CachingTopologySnapshot(
 
   private val keyCache: TracedAsyncLoadingCache[FutureUnlessShutdown, Member, KeyCollection] =
     ScaffeineCache.buildTracedAsync[FutureUnlessShutdown, Member, KeyCollection](
-      cache = cachingConfigs.keyCache.buildScaffeine(),
+      cache = cachingConfigs.keyCache.buildScaffeine(loggerFactory),
       loader = implicit traceContext => member => parent.allKeys(member),
       allLoader = Some(implicit traceContext =>
         members =>
@@ -661,7 +661,7 @@ class CachingTopologySnapshot(
     Map[PackageId, VettedPackage],
   ] = ScaffeineCache
     .buildTracedAsync[FutureUnlessShutdown, ParticipantId, Map[PackageId, VettedPackage]](
-      cache = cachingConfigs.packageVettingCache.buildScaffeine(),
+      cache = cachingConfigs.packageVettingCache.buildScaffeine(loggerFactory),
       loader = implicit traceContext => x => parent.loadVettedPackages(x),
       allLoader =
         Some(implicit traceContext => participants => parent.loadVettedPackages(participants.toSet)),
@@ -676,7 +676,7 @@ class CachingTopologySnapshot(
   private val allMembersCache = new AtomicReference[Option[FutureUnlessShutdown[Set[Member]]]](None)
   private val memberCache: TracedAsyncLoadingCache[FutureUnlessShutdown, Member, Boolean] =
     ScaffeineCache.buildTracedAsync[FutureUnlessShutdown, Member, Boolean](
-      cache = cachingConfigs.memberCache.buildScaffeine(),
+      cache = cachingConfigs.memberCache.buildScaffeine(loggerFactory),
       loader = implicit traceContext => member => parent.isMemberKnown(member),
       allLoader = Some(implicit traceContext =>
         members =>
@@ -712,7 +712,7 @@ class CachingTopologySnapshot(
     PartyId,
     Option[SigningKeysWithThreshold],
   ](
-    cache = cachingConfigs.partyCache.buildScaffeine(),
+    cache = cachingConfigs.partyCache.buildScaffeine(loggerFactory),
     loader = implicit traceContext => party => parent.signingKeysWithThreshold(party),
   )(logger, "signingKeysWithThresholdCache")
 

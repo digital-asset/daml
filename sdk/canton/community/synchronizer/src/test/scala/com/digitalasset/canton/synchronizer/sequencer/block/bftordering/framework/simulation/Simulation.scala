@@ -334,7 +334,9 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
       clock.advanceTo(whatToDo.at, logAdvancementAtInfo = false)(TraceContext.empty)
       local.tick(clock.now)
       network.tick()
-      val _ = currentHistory.addOne(whatToDo.command)
+      if (simSettings.shouldRecordHistory) {
+        val _ = currentHistory.addOne(whatToDo.command)
+      }
 
       logger.trace(s"Simulation will run ${whatToDo.command}")(TraceContext.empty)
 

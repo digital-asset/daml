@@ -3,8 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation
 
-import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.RequireTypes.{Port, PositiveInt}
+import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{LogEntry, NamedLoggerFactory, NamedLogging, TracedLogger}
@@ -47,11 +46,10 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.bftordering.{
   BftOrderingVerifier,
   IssClient,
+  SimulationTestSettings,
   SimulationTestStageSettings,
-  TopologySettings,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.topology.SequencerSnapshotOnboardingManager.BftOnboardingData
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.topology.SimulationTopologyHelpers.generateNodeOnboardingDelay
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.topology.{
   NodeSimulationTopologyData,
   NodeSimulationTopologyDataFactory,
@@ -75,15 +73,14 @@ import pprint.PPrinter
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.mutable
-import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.Random
 
 /** Simulation testing troubleshooting tips & tricks:
   *
   *   - When a test fails, it prints the configuration it failed with (including all the seeds that
   *     were necessary for the failure). The configuration can then be copy-pasted one-to-one into
-  *     [[generateStages]] of a new or existing test case. Then, the [[numberOfRuns]] can be lowered
-  *     down to 1. This narrows the investigation scope and makes logs shorter. If you take
+  *     [[generateSettings]] of a new or existing test case. Then, the [[numberOfRuns]] can be
+  *     lowered down to 1. This narrows the investigation scope and makes logs shorter. If you take
   *     advantage of the logs, remember to remove the log file before investigating such a run. It
   *     can be automated using the command line or in IntelliJ by specifying a "Run external tool"
   *     under "Before launch" in the Run Configurations with "rm" as a program and
@@ -105,9 +102,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
   import BftOrderingSimulationTest.*
 
   def numberOfRuns: Int
-  def numberOfInitialNodes: Int
-  def epochLength: EpochLength = DefaultEpochLength
-  def generateStages(): NonEmpty[Seq[SimulationTestStageSettings]]
+  def generateSettings: SimulationTestSettings
 
   def allowedWarnings: Seq[LogEntry => Assertion] = Seq.empty
 
@@ -132,8 +127,11 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
   it should "run with no issues" in {
 
     for (runNumber <- 1 to numberOfRuns) {
-
       logger.info(s"Starting run $runNumber (of $numberOfRuns)")
+
+      val simulationTestSettings = generateSettings
+      val numberOfInitialNodes = simulationTestSettings.numberOfInitialNodes
+      val epochLength = simulationTestSettings.epochLength
 
       val sendQueue = mutable.Queue.empty[(BftNodeId, Traced[BlockFormat.Block])]
 
@@ -143,7 +141,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
 
       val clock = new SimClock(SimulationStartTime, loggerFactory)
 
-      val stages = generateStages()
+      val stages = simulationTestSettings.stages
       val stagesCount = stages.size
 
       val initialEndpoints =
@@ -249,6 +247,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
                 },
               stores,
               sendQueue,
+              epochLength,
               clock,
               availabilityRandom,
               epochChecker,
@@ -382,6 +381,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
       getAllEndpointsToTopologyData: () => Map[P2PEndpoint, NodeSimulationTopologyData],
       stores: BftOrderingStores[SimulationEnv],
       sendQueue: mutable.Queue[(BftNodeId, Traced[BlockFormat.Block])],
+      epochLength: EpochLength,
       clock: Clock,
       availabilityRandom: Random,
       epochChecker: EpochChecker,
@@ -500,407 +500,5 @@ object BftOrderingSimulationTest {
       simulation: SimulationT,
       model: BftOrderingVerifier,
       onboardingManager: SequencerSnapshotOnboardingManager,
-  )
-}
-
-class BftOrderingSimulationTest1NodeNoFaults extends BftOrderingSimulationTest {
-  override val numberOfRuns: Int = 10
-  override val numberOfInitialNodes = 1
-
-  private val durationOfFirstPhaseWithFaults = 1.minute
-  private val durationOfSecondPhaseWithoutFaults = 1.minute
-
-  private val randomSourceToCreateSettings: Random =
-    new Random(4) // Manually remove the seed for fully randomized local runs.
-
-  override def generateStages(): NonEmpty[Seq[SimulationTestStageSettings]] = NonEmpty(
-    Seq,
-    SimulationTestStageSettings(
-      simulationSettings = SimulationSettings(
-        LocalSettings(
-          randomSeed = randomSourceToCreateSettings.nextLong()
-        ),
-        NetworkSettings(
-          randomSeed = randomSourceToCreateSettings.nextLong()
-        ),
-        durationOfFirstPhaseWithFaults,
-        durationOfSecondPhaseWithoutFaults,
-      ),
-      TopologySettings(randomSourceToCreateSettings.nextLong()),
-    ),
-  )
-}
-
-class BftOrderingSimulationTestWithProgressiveOnboardingAndDelayNoFaults
-    extends BftOrderingSimulationTest {
-  override val numberOfRuns: Int = 2
-  override val numberOfInitialNodes: Int = 1
-
-  private val durationOfFirstPhaseWithFaults = 1.minute
-  private val durationOfSecondPhaseWithoutFaults = 1.minute
-
-  private val randomSourceToCreateSettings: Random =
-    new Random(4) // Manually remove the seed for fully randomized local runs.
-
-  override def generateStages(): NonEmpty[Seq[SimulationTestStageSettings]] = {
-    val stagesCount = 4 // 1 -> 2, 2 -> 3, 3 -> 4, 4 -> 5 with delay
-    val extraStages = 2 to stagesCount
-
-    for (i <- NonEmpty(Seq, 1, extraStages*)) yield {
-      val stage = generateStage()
-      if (i < stagesCount) {
-        stage
-      } else {
-        // Let the last stage have some delay after onboarding to test onboarding with more epochs to transfer,
-        //  i.e, higher end epoch calculated.
-        stage.copy(
-          topologySettings = stage.topologySettings.copy(
-            becomingOnlineAfterOnboardingDelay =
-              TopologySettings.DefaultBecomingOnlineAfterOnboardingDelay
-          )
-        )
-      }
-    }
-  }
-
-  private def generateStage() =
-    SimulationTestStageSettings(
-      simulationSettings = SimulationSettings(
-        LocalSettings(
-          randomSeed = randomSourceToCreateSettings.nextLong()
-        ),
-        NetworkSettings(
-          randomSeed = randomSourceToCreateSettings.nextLong()
-        ),
-        durationOfFirstPhaseWithFaults,
-        durationOfSecondPhaseWithoutFaults,
-      ),
-      TopologySettings(
-        randomSeed = randomSourceToCreateSettings.nextLong(),
-        nodeOnboardingDelays = List(newOnboardingDelay()),
-        // Delay of zero doesn't make the test rely on catch-up, as onboarded nodes will buffer all messages since
-        //  the activation, and thus won't fall behind.
-        becomingOnlineAfterOnboardingDelay = 0.seconds,
-      ),
-    )
-
-  private def newOnboardingDelay(): FiniteDuration =
-    generateNodeOnboardingDelay(
-      durationOfFirstPhaseWithFaults,
-      randomSourceToCreateSettings,
-    )
-}
-
-class BftOrderingSimulationTestWithConcurrentOnboardingsNoFaults extends BftOrderingSimulationTest {
-  override val numberOfRuns: Int = 3
-  override val numberOfInitialNodes: Int = 1 // f = 0
-
-  private val numberOfOnboardedNodes = 6 // n = 7, f = 2
-
-  private val randomSourceToCreateSettings: Random =
-    new Random(3) // Manually remove the seed for fully randomized local runs.
-
-  // Onboard all nodes around the same time in the middle of the first phase.
-  private val baseOnboardingDelay = 30.seconds
-  private val durationOfFirstPhase = 1.minute
-  private val durationOfSecondPhase = 1.minute
-
-  override def generateStages(): NonEmpty[Seq[SimulationTestStageSettings]] = NonEmpty(
-    Seq,
-    SimulationTestStageSettings(
-      simulationSettings = SimulationSettings(
-        LocalSettings(
-          randomSeed = randomSourceToCreateSettings.nextLong()
-        ),
-        NetworkSettings(
-          randomSeed = randomSourceToCreateSettings.nextLong()
-        ),
-        durationOfFirstPhase,
-        durationOfSecondPhase,
-      ),
-      TopologySettings(
-        randomSeed = randomSourceToCreateSettings.nextLong(),
-        nodeOnboardingDelays = LazyList
-          .continually {
-            val onboardingTimeDriftProbability = Probability(0.3)
-            // The idea is to test scenarios where onboarding times are both the same and slightly different.
-            //  Hopefully, the onboarding times land in the same epoch. It can be ensured with higher probability
-            //  by increasing the numbers of runs and nodes.
-            if (onboardingTimeDriftProbability.flipCoin(randomSourceToCreateSettings))
-              baseOnboardingDelay.plus(1.microsecond)
-            else baseOnboardingDelay
-          }
-          .take(numberOfOnboardedNodes),
-        // Delay of zero doesn't make the test rely on catch-up, as onboarded nodes will buffer all messages since
-        //  the activation, and thus won't fall behind.
-        becomingOnlineAfterOnboardingDelay = 0.seconds,
-      ),
-    ),
-  )
-}
-
-class BftOrderingSimulationTestWithOnboardingAndKeyRotationsNoFaults
-    extends BftOrderingSimulationTest {
-  override def numberOfRuns: Int = 5
-  override def numberOfInitialNodes: Int = 2
-
-  private val random = new Random(4)
-  private val durationOfFirstPhaseWithFaults = 1.minute
-
-  override def generateStages(): NonEmpty[Seq[SimulationTestStageSettings]] =
-    NonEmpty(
-      Seq,
-      SimulationTestStageSettings(
-        SimulationSettings(
-          LocalSettings(random.nextLong()),
-          NetworkSettings(random.nextLong()),
-          durationOfFirstPhaseWithFaults,
-        ),
-        TopologySettings(
-          random.nextLong(),
-          shouldDoKeyRotations = true,
-          nodeOnboardingDelays =
-            Seq(generateNodeOnboardingDelay(durationOfFirstPhaseWithFaults, random)),
-        ),
-      ),
-    )
-}
-
-// Allows catch-up state transfer testing without requiring CFT.
-class BftOrderingSimulationTestWithPartitions extends BftOrderingSimulationTest {
-  override val numberOfRuns: Int = 4
-  override val numberOfInitialNodes = 4
-
-  private val durationOfFirstPhaseWithPartitions = 2.minutes
-
-  // Manually remove the seed for fully randomized local runs.
-  private val randomSourceToCreateSettings: Random = new Random(4)
-
-  override def generateStages(): NonEmpty[Seq[SimulationTestStageSettings]] = NonEmpty(
-    Seq,
-    SimulationTestStageSettings(
-      SimulationSettings(
-        LocalSettings(randomSourceToCreateSettings.nextLong()),
-        NetworkSettings(
-          randomSourceToCreateSettings.nextLong(),
-          partitionStability = 20.seconds,
-          unPartitionStability = 10.seconds,
-          partitionProbability = Probability(0.1),
-          partitionMode = PartitionMode.IsolateSingle,
-          partitionSymmetry = PartitionSymmetry.Symmetric,
-        ),
-        durationOfFirstPhaseWithPartitions,
-      ),
-      TopologySettings(randomSourceToCreateSettings.nextLong()),
-    ),
-  )
-}
-
-class BftOrderingSimulationTest2NodesBootstrap extends BftOrderingSimulationTest {
-  override val numberOfRuns: Int = 100
-  override val numberOfInitialNodes: Int = 2
-
-  private val durationOfFirstPhaseWithFaults = 2.seconds
-  private val durationOfSecondPhaseWithoutFaults = 2.seconds
-
-  private val randomSourceToCreateSettings: Random =
-    new Random(4) // Manually remove the seed for fully randomized local runs.
-
-  override def generateStages(): NonEmpty[Seq[SimulationTestStageSettings]] = NonEmpty(
-    Seq,
-    SimulationTestStageSettings(
-      simulationSettings = SimulationSettings(
-        LocalSettings(
-          randomSeed = randomSourceToCreateSettings.nextLong()
-        ),
-        NetworkSettings(
-          randomSeed = randomSourceToCreateSettings.nextLong()
-        ),
-        durationOfFirstPhaseWithFaults,
-        durationOfSecondPhaseWithoutFaults,
-      ),
-      TopologySettings(randomSourceToCreateSettings.nextLong()),
-    ),
-  )
-}
-
-// Simulation test about empty blocks, needed to pass the liveness check.
-class BftOrderingEmptyBlocksSimulationTest extends BftOrderingSimulationTest {
-  override val numberOfRuns: Int = 15
-  override val numberOfInitialNodes: Int = 2
-
-  private val durationOfFirstPhaseWithFaults = 1.minute
-  private val durationOfSecondPhaseWithoutFaults = 1.minute
-
-  private val randomSourceToCreateSettings: Random = new Random(4)
-
-  override def generateStages(): NonEmpty[Seq[SimulationTestStageSettings]] = NonEmpty(
-    Seq,
-    SimulationTestStageSettings(
-      simulationSettings = SimulationSettings(
-        LocalSettings(
-          randomSeed = randomSourceToCreateSettings.nextLong()
-        ),
-        NetworkSettings(
-          randomSeed = randomSourceToCreateSettings.nextLong()
-        ),
-        durationOfFirstPhaseWithFaults,
-        durationOfSecondPhaseWithoutFaults,
-        // This will result in empty blocks only.
-        clientSettings = ClientSettings(
-          requestInterval = None,
-          requestApproximateByteSize = None,
-        ),
-      ),
-      TopologySettings(randomSourceToCreateSettings.nextLong()),
-      // The purpose of this test is to make sure we progress time by making empty blocks. As such we don't want view
-      // changes to happen (since they would also make the network do progress). So we need to explicitly check that
-      // no ViewChanges happened.
-      failOnViewChange = true,
-    ),
-  )
-}
-
-// Note that simulation tests don't use a real network, so this test doesn't cover gRPC messages.
-class BftOrderingSimulationTest2NodesLargeRequests extends BftOrderingSimulationTest {
-  override val numberOfRuns: Int = 1
-  override val numberOfInitialNodes: Int = 2
-
-  private val durationOfFirstPhaseWithFaults = 1.minute
-  private val durationOfSecondPhaseWithoutFaults = 1.minute
-
-  private val randomSourceToCreateSettings: Random =
-    new Random(4) // Manually remove the seed for fully randomized local runs.
-
-  override def generateStages(): NonEmpty[Seq[SimulationTestStageSettings]] = NonEmpty(
-    Seq,
-    SimulationTestStageSettings(
-      simulationSettings = SimulationSettings(
-        LocalSettings(
-          randomSeed = randomSourceToCreateSettings.nextLong()
-        ),
-        NetworkSettings(
-          randomSeed = randomSourceToCreateSettings.nextLong()
-        ),
-        durationOfFirstPhaseWithFaults,
-        durationOfSecondPhaseWithoutFaults,
-        clientSettings = ClientSettings(
-          // The test is a bit slow with the default interval
-          requestInterval = Some(10.seconds),
-          requestApproximateByteSize =
-            // -100 to account for tags and payloads' prefixes
-            // Exceeding the default size results in warning logs and dropping messages in Mempool
-            Some(PositiveInt.tryCreate(BftBlockOrdererConfig.DefaultMaxRequestPayloadBytes - 100)),
-        ),
-      ),
-      TopologySettings(randomSourceToCreateSettings.nextLong()),
-    ),
-  )
-}
-
-class BftOrderingSimulationTest2NodesCrashFaults extends BftOrderingSimulationTest {
-  override val numberOfRuns: Int = 10
-  override val numberOfInitialNodes: Int = 2
-
-  private val durationOfFirstPhaseWithFaults = 2.minutes
-  private val durationOfSecondPhaseWithoutFaults = 1.minute
-
-  private val randomSourceToCreateSettings: Random =
-    new Random(4) // remove seed to randomly explore seeds
-
-  override def generateStages(): NonEmpty[Seq[SimulationTestStageSettings]] = NonEmpty(
-    Seq,
-    SimulationTestStageSettings(
-      simulationSettings = SimulationSettings(
-        LocalSettings(
-          randomSeed = randomSourceToCreateSettings.nextLong(),
-          crashRestartChance = Probability(0.02),
-        ),
-        NetworkSettings(
-          randomSeed = randomSourceToCreateSettings.nextLong()
-        ),
-        durationOfFirstPhaseWithFaults,
-        durationOfSecondPhaseWithoutFaults,
-      ),
-      TopologySettings(randomSourceToCreateSettings.nextLong()),
-    ),
-  )
-}
-
-class BftOrderingSimulationTest4NodesCrashFaults extends BftOrderingSimulationTest {
-  override val numberOfRuns: Int = 5
-  override val numberOfInitialNodes: Int = 4
-
-  private val durationOfFirstPhaseWithFaults = 2.minutes
-  private val durationOfSecondPhaseWithoutFaults = 1.minute
-
-  private val randomSourceToCreateSettings: Random =
-    new Random(4) // remove seed to randomly explore seeds
-
-  override def generateStages(): NonEmpty[Seq[SimulationTestStageSettings]] = NonEmpty(
-    Seq,
-    SimulationTestStageSettings(
-      simulationSettings = SimulationSettings(
-        LocalSettings(
-          randomSeed = randomSourceToCreateSettings.nextLong(),
-          crashRestartChance = Probability(0.01),
-        ),
-        NetworkSettings(
-          randomSeed = randomSourceToCreateSettings.nextLong()
-        ),
-        durationOfFirstPhaseWithFaults,
-        durationOfSecondPhaseWithoutFaults,
-      ),
-      TopologySettings(randomSourceToCreateSettings.nextLong()),
-    ),
-  )
-}
-
-class BftOrderingSimulationTestOffboarding extends BftOrderingSimulationTest {
-  override val numberOfRuns: Int = 4
-  override val numberOfInitialNodes = 5
-
-  private val durationOfFirstPhaseWithFaults = 1.minute
-  private val durationOfSecondPhaseWithoutFaults = 1.minute
-
-  private val randomSourceToCreateSettings: Random =
-    new Random(4) // Manually remove the seed for fully randomized local runs.
-
-  override def allowedWarnings: Seq[LogEntry => Assertion] = Seq(
-    // We might get messages from off boarded nodes, don't count these as errors.
-    { logEntry =>
-      logEntry.message should include(
-        "but it cannot be verified in the currently known dissemination topology"
-      )
-      logEntry.loggerName should include("AvailabilityModule")
-    },
-    { logEntry =>
-      logEntry.message should include(
-        "sent invalid ACK for batch"
-      )
-      logEntry.loggerName should include("AvailabilityModule")
-    },
-  )
-
-  override def generateStages(): NonEmpty[Seq[SimulationTestStageSettings]] = NonEmpty(
-    Seq,
-    SimulationTestStageSettings(
-      simulationSettings = SimulationSettings(
-        LocalSettings(
-          randomSeed = randomSourceToCreateSettings.nextLong(),
-          crashRestartChance = Probability(0.02),
-        ),
-        NetworkSettings(
-          randomSeed = randomSourceToCreateSettings.nextLong(),
-          packetLoss = Probability(0.2),
-        ),
-        durationOfFirstPhaseWithFaults,
-        durationOfSecondPhaseWithoutFaults,
-      ),
-      TopologySettings(
-        randomSeed = randomSourceToCreateSettings.nextLong(),
-        nodesToOffboard = Seq(makeEndpoint(2), makeEndpoint(4)),
-      ),
-    ),
   )
 }

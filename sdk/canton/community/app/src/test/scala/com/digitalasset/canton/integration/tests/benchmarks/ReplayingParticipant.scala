@@ -245,7 +245,7 @@ object ReplayingParticipant extends FutureHelpers with EitherValues with OptionV
       .create(
         cryptoConfig,
         CachingConfigs.defaultKmsMetadataCache,
-        CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
+        SessionEncryptionKeyCacheConfig(),
         CachingConfigs.defaultPublicKeyConversionCache,
         storage,
         Option.empty[ReplicaManager],

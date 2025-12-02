@@ -5,12 +5,7 @@ package com.digitalasset.canton.integration
 
 import com.digitalasset.canton.CloseableTest
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.{
-  CantonConfig,
-  CantonEdition,
-  DefaultPorts,
-  TestingConfigInternal,
-}
+import com.digitalasset.canton.config.{CantonConfig, DefaultPorts, TestingConfigInternal}
 import com.digitalasset.canton.environment.EnvironmentFactory
 import com.digitalasset.canton.integration.plugins.{UseH2, UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.logging.{LogEntry, NamedLogging, SuppressingLogger}
@@ -32,8 +27,6 @@ sealed trait EnvironmentSetup extends BeforeAndAfterAll {
   private lazy val envDef: EnvironmentDefinition = environmentDefinition
 
   protected def environmentFactory: EnvironmentFactory
-
-  val edition: CantonEdition
 
   // plugins are registered during construction from a single thread
   @SuppressWarnings(Array("org.wartremover.warts.Var"))

@@ -3,16 +3,14 @@
 
 package com.digitalasset.canton.integration.tests.multihostedparties
 
-import com.digitalasset.canton.admin.api.client.data.{
-  AddPartyStatus,
-  DynamicSynchronizerParameters as ConsoleDynamicSynchronizerParameters,
-}
+import com.digitalasset.canton.admin.api.client.data.DynamicSynchronizerParameters as ConsoleDynamicSynchronizerParameters
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.{InstanceReference, ParticipantReference}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.tests.multihostedparties.OnlinePartyReplicationTestHelpers.PreparedOnPRSetup
+import com.digitalasset.canton.participant.admin.data.PartyReplicationStatus
 import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.topology.transaction.{
   ParticipantPermission,
@@ -258,20 +256,22 @@ private[tests] trait OnlinePartyReplicationTestHelpers {
       val spStatusO =
         Try(sourceParticipant.parties.get_add_party_status(addPartyRequestId)).toOption
       val tpStatus = targetParticipant.parties.get_add_party_status(addPartyRequestId)
-      (spStatusO.map(_.status), tpStatus.status) match {
-        case (
-              Some(spStatus @ AddPartyStatus.Completed(_, _, `expectedNumContracts`)),
-              AddPartyStatus.Completed(_, _, `expectedNumContracts`),
-            ) =>
+
+      def finished(status: PartyReplicationStatus) =
+        status.hasCompleted && status.errorO.isEmpty
+      def countsMatch(status: PartyReplicationStatus) =
+        finished(status) && status.replicationO.exists(r =>
+          r.fullyProcessedAcs && r.processedContractCount == expectedNumContracts
+        )
+
+      (spStatusO, tpStatus) match {
+        case (Some(spStatus), tp) if countsMatch(spStatus) && countsMatch(tp) =>
           logger.info(
             s"SP and TP completed party replication with status $spStatus and $tpStatus"
           )
-        case (
-              Some(AddPartyStatus.Completed(_, _, numSpContracts)),
-              AddPartyStatus.Completed(_, _, numTpContracts),
-            ) =>
+        case (Some(spStatus), tp) if finished(spStatus) && finished(tp) =>
           logger.warn(
-            s"SP and TP completed party replication but had unexpected number of contracts: $numSpContracts and $numTpContracts, expected $expectedNumContracts"
+            s"SP and TP completed party replication but had unexpected number of contracts: $spStatus and $tpStatus, expected $expectedNumContracts"
           )
         case (sourceStatusO, targetStatus) =>
           fail(

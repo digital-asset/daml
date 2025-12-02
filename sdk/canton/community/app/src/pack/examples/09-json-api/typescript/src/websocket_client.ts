@@ -1,6 +1,7 @@
 import WebSocket from "isomorphic-ws";
+import {PARTICIPANT_HOST, PARTICIPANT_PORT} from "./environment";
 
-const BASE_WS_URL = 'ws://localhost:7575';
+const BASE_WS_URL = `ws://${PARTICIPANT_HOST}:${PARTICIPANT_PORT}`;
 
 export async function connectWs(uri: string): Promise<WebSocket> {
     return new Promise<WebSocket>((resolve, reject) => {

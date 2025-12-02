@@ -1,4 +1,4 @@
-sdk-version: 3.5.0-snapshot.20251107.14409.0.vce1523c9
+sdk-version: 3.5.0-snapshot.20251114.1744.c6bbf10
 build-options:
   - --enable-interfaces=yes
 name: model-tests

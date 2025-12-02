@@ -7,6 +7,7 @@ import com.daml.ledger.api.v2.event.CreatedEvent
 import com.daml.ledger.api.v2.event.Event.Event
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.HashingSchemeVersion.HASHING_SCHEME_VERSION_V2
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
+  HashingSchemeVersion,
   Metadata,
   PrepareSubmissionResponse,
   PreparedTransaction,
@@ -49,6 +50,7 @@ import com.digitalasset.canton.integration.{
 import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
 import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
 import com.digitalasset.canton.topology.transaction.DelegationRestriction.CanSignAllMappings
+import com.digitalasset.canton.topology.transaction.TopologyMapping.Code
 import com.digitalasset.canton.topology.transaction.{
   HostingParticipant,
   MultiTransactionSignature,
@@ -176,6 +178,41 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
         "Dan",
         keysCount = PositiveInt.three,
         keysThreshold = PositiveInt.two,
+      )
+    }
+
+    "fail preparing multiple commands" in { implicit env =>
+      val commands = Seq(
+        createCycleCommand(aliceE, "a"),
+        createCycleCommand(aliceE, "b"),
+      )
+
+      loggerFactory.assertThrowsAndLogs[CommandFailure](
+        cpn.ledger_api.interactive_submission.prepare(Seq(aliceE), commands),
+        _.errorMessage should include("Preparing multiple commands is currently not supported"),
+      )
+    }
+
+    "fail executing multiple root nodes" in { implicit env =>
+      import env.*
+
+      val prepared = cpn.ledger_api.interactive_submission
+        .prepare(Seq(aliceE), Seq(createCycleCommand(aliceE, "a")))
+      val preparedWithAddedRootNode = prepared.preparedTransaction.value.update(
+        _.transaction.update(_.roots.modify(_ :+ "new_node"))
+      )
+      // The hash is technically wrong but the root node check happens even before we verify the signature so it
+      // doesn't matter
+      val signature = global_secret.sign(prepared.preparedTransactionHash, aliceE)
+
+      loggerFactory.assertThrowsAndLogs[CommandFailure](
+        cpn.ledger_api.interactive_submission.execute(
+          preparedWithAddedRootNode,
+          Map(aliceE.partyId -> signature),
+          UUID.randomUUID().toString,
+          HashingSchemeVersion.HASHING_SCHEME_VERSION_V2,
+        ),
+        _.errorMessage should include("Transaction with multiple root nodes are not supported"),
       )
     }
 
@@ -308,6 +345,18 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
         synchronizeParticipants = Seq(participant1),
         synchronizerId = synchronizer1Id.logical,
       )
+
+      // Wait until the PartyToKey mapping is also there.
+      // The outbox may dispatch it in a different batch than the PartyToParticipant mapping.
+      eventually() {
+        val ptks = participant1.topology.transactions.list(
+          store = daId,
+          filterMappings = Seq(Code.PartyToKeyMapping),
+          filterNamespace = partyId.namespace.filterString,
+        )
+        ptks should not be Seq.empty
+      }
+      participant1.topology.synchronisation.await_idle()
 
       val prepared = participant1.ledger_api.interactive_submission.prepare(
         Seq(partyId),

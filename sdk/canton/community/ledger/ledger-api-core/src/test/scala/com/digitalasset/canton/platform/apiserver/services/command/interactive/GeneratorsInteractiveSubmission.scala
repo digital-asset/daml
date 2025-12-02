@@ -82,7 +82,7 @@ final class GeneratorsInteractiveSubmission(
       Value.ValueGenMap(entries.map { case (k, v) =>
         (normalizeValue(k), normalizeValue(v))
       })
-    case atom: Value.ValueCidLessAtom => atom
+    case leaf: Value.ValueCidlessLeaf => leaf
   }
 
   // Updated nodes that filter out fields not supported in LF 2.1

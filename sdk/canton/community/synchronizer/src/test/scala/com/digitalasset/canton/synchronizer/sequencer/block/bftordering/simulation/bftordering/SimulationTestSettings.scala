@@ -3,7 +3,10 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.bftordering
 
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking.P2PEndpoint
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig.DefaultEpochLength
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.EpochLength
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.{
   PowerDistribution,
   SimulationSettings,
@@ -44,4 +47,10 @@ final case class SimulationTestStageSettings(
     simulationSettings: SimulationSettings,
     topologySettings: TopologySettings,
     failOnViewChange: Boolean = false,
+)
+
+final case class SimulationTestSettings(
+    numberOfInitialNodes: Int,
+    epochLength: EpochLength = DefaultEpochLength,
+    stages: NonEmpty[Seq[SimulationTestStageSettings]],
 )

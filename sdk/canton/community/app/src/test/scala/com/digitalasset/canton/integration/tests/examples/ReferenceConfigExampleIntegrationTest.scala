@@ -7,12 +7,7 @@ import better.files.*
 import com.daml.metrics.api.testing.InMemoryMetricsFactory
 import com.digitalasset.canton.*
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.{
-  CantonConfig,
-  DefaultPorts,
-  EnterpriseCantonEdition,
-  TestingConfigInternal,
-}
+import com.digitalasset.canton.config.{CantonConfig, DefaultPorts, TestingConfigInternal}
 import com.digitalasset.canton.console.{LocalInstanceReference, RemoteInstanceReference}
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
@@ -207,7 +202,6 @@ class AdvancedConfigFilesTest extends BaseTestWordSpec {
       val files = config.map(file => (referenceConfiguration / file).toJava)
       CantonConfig.parseAndLoadOrExit(
         files,
-        EnterpriseCantonEdition,
         Some(DefaultPorts.create()),
       )
     }

@@ -318,7 +318,6 @@ class NegativeRemoteDumpIntegrationTest
     ) =>
       new Environment(
         config,
-        CommunityCantonEdition,
         testingConfigInternal,
         ParticipantNodeBootstrapFactoryImpl,
         SequencerNodeBootstrapFactoryImpl,

@@ -582,6 +582,7 @@ class MajorUpgradeSimpleReaderIntegrationTest
                */
               _.warningMessage should include("Request failed for sequencer."),
               _.warningMessage should include("RequestFailed(No connection available)"),
+              _.warningMessage should include("failed the following topology transactions"),
             ),
           ),
         )

@@ -4,24 +4,15 @@
 package com.digitalasset.canton.config
 
 import com.digitalasset.canton.config.RequireTypes.PositiveNumeric
-import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 
 /** Parameters for that batcher that batches queries (e.g., to a DB).
   */
-sealed trait BatchAggregatorConfig
-    extends Product
-    with Serializable
-    with UniformCantonConfigValidation {
+sealed trait BatchAggregatorConfig extends Product with Serializable {
 
   def maximumBatchSize: PositiveNumeric[Int]
 }
 
 object BatchAggregatorConfig {
-  implicit val batchAggregatorConfigCantonConfigValidator
-      : CantonConfigValidator[BatchAggregatorConfig] = {
-    import CantonConfigValidatorInstances.*
-    CantonConfigValidatorDerivation[BatchAggregatorConfig]
-  }
 
   val defaultMaximumInFlight: PositiveNumeric[Int] = PositiveNumeric.tryCreate(2)
   val defaultMaximumBatchSize: PositiveNumeric[Int] = PositiveNumeric.tryCreate(500)

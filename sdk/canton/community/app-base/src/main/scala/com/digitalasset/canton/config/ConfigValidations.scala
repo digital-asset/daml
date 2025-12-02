@@ -5,7 +5,6 @@ package com.digitalasset.canton.config
 
 import cats.data.Validated
 import cats.instances.list.*
-import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
@@ -25,41 +24,25 @@ import com.digitalasset.canton.version.ProtocolVersion
 
 import java.net.URI
 
-private[config] trait ConfigValidations {
-  final def validate[T >: CantonConfig](
-      config: CantonConfig,
-      edition: CantonEdition,
-      ensurePortsSet: Boolean,
-  )(implicit
-      validator: CantonConfigValidator[T]
-  ): Validated[NonEmpty[Seq[String]], Unit] =
-    config
-      .validate[T](edition)
-      .toValidated
-      .leftMap(_.map(_.toString))
-      .combine(validations(ensurePortsSet = ensurePortsSet).traverse_(_(config)))
+object ConfigValidations extends NamedLogging {
+  import TraceContext.Implicits.Empty.*
+
+  override protected def loggerFactory: NamedLoggerFactory = NamedLoggerFactory.root
 
   type Validation = CantonConfig => Validated[NonEmpty[Seq[String]], Unit]
 
-  /** Return the list of validations
-    * @param ensurePortsSet
-    *   If set to true, will validate that ports are set. Should be true in `main`.
-    * @return
-    */
-  protected def validations(ensurePortsSet: Boolean): List[Validation]
+  private val Valid: Validated[NonEmpty[Seq[String]], Unit] = Validated.valid(())
 
   protected def toValidated(errors: Seq[String]): Validated[NonEmpty[Seq[String]], Unit] = NonEmpty
     .from(errors)
     .map(Validated.invalid[NonEmpty[Seq[String]], Unit])
     .getOrElse(Validated.Valid(()))
-}
 
-object CommunityConfigValidations extends ConfigValidations with NamedLogging {
-  import TraceContext.Implicits.Empty.*
-
-  override protected def loggerFactory: NamedLoggerFactory = NamedLoggerFactory.root
-
-  private val Valid: Validated[NonEmpty[Seq[String]], Unit] = Validated.valid(())
+  def validate[T >: CantonConfig](
+      config: CantonConfig,
+      ensurePortsSet: Boolean,
+  ): Validated[NonEmpty[Seq[String]], Unit] =
+    validations(ensurePortsSet = ensurePortsSet).traverse_(_(config))
 
   final case class DbAccess(url: String, user: Option[String]) {
     private lazy val urlNoPassword = {
@@ -81,7 +64,12 @@ object CommunityConfigValidations extends ConfigValidations with NamedLogging {
       s"DbAccess($urlNoPassword, $user)"
   }
 
-  override protected def validations(ensurePortsSet: Boolean): List[Validation] =
+  /** Return the list of validations
+    * @param ensurePortsSet
+    *   If set to true, will validate that ports are set. Should be true in `main`.
+    * @return
+    */
+  protected def validations(ensurePortsSet: Boolean): List[Validation] =
     List(
       alphaProtocolVersionRequiresNonStandard,
       dbSequencerRequiresNonStandard,
@@ -737,7 +725,7 @@ object CommunityConfigValidations extends ConfigValidations with NamedLogging {
         nodes
       ) || allHighlyAvailableMediators(nodes)
 
-    val dbAccessToNodes = CommunityConfigValidations.extractNormalizedDbAccess(
+    val dbAccessToNodes = ConfigValidations.extractNormalizedDbAccess(
       config.participantsByString,
       config.sequencersByString,
       config.mediatorsByString,

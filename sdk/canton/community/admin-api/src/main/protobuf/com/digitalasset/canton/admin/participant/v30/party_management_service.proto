@@ -129,89 +129,86 @@ message GetAddPartyStatusRequest {
 message GetAddPartyStatusResponse {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
-  string party_id = 1;
-  string synchronizer_id = 2;
-  string source_participant_uid = 3;
-  string target_participant_uid = 4;
-  uint32 topology_serial = 5;
-  ParticipantPermission participant_permission = 6;
+  PartyReplicationStatus status = 1;
+}
 
-  message Status {
-    // The add-party request has been submitted by the target participant, or accepted by the
-    // source participant.
-    message ProposalProcessed {}
-    // The add-party request has been observed as agreed to by all participants.
-    message AgreementAccepted {
-      string sequencer_uid = 1;
-    }
-    // The PartyToParticipant topology transaction has been authorized by all party and
-    // participant signers.
-    message TopologyAuthorized {
-      string sequencer_uid = 1;
-      // The timestamp at which the ACS snapshot for replication is taken.
-      google.protobuf.Timestamp timestamp = 2;
-    }
-    // This participant has connected to the sequencer channel for ACS replication.
-    message ConnectionEstablished {
-      string sequencer_uid = 1;
-      google.protobuf.Timestamp timestamp = 2;
-    }
-    // This participant is ready for ACS replication or has started replicating the ACS.
-    message ReplicatingAcs {
-      string sequencer_uid = 1;
-      google.protobuf.Timestamp timestamp = 2;
-      uint32 contracts_replicated = 3;
-    }
-    // This participant has completed its part of the ACS replication: In case of the source participant
-    // all contracts have been sent, and for the target participant all contracts have been received.
-    message FullyReplicatedAcs {
-      string sequencer_uid = 1;
-      google.protobuf.Timestamp timestamp = 2;
-      uint32 contracts_replicated = 3;
-    }
-    // The party has been added to the target participant.
-    message Completed {
-      string sequencer_uid = 1;
-      google.protobuf.Timestamp timestamp = 2;
-      uint32 contracts_replicated = 3;
-    }
-    // The add-party request has failed after the specified last successful status.
-    message Error {
-      string error_message = 1;
-      Status status_prior_to_error = 2;
-    }
-    // The participant has disconnected from the sequencer channel used for ACS replication.
-    message Disconnected {
-      string disconnect_message = 1;
-      // Prior status is one of ConnectionEstablished or ReplicatingAcs.
-      Status status_prior_to_disconnect = 2;
-    }
+// The PartyReplicationStatus describes the various pieces of state of a party replication.
+message PartyReplicationStatus {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
-    oneof status {
-      // Party Replication Daml admin workflow proposal and agreement handling
-      ProposalProcessed proposal_processed = 1;
-      AgreementAccepted agreement_accepted = 2;
-
-      // Topology management
-      TopologyAuthorized topology_authorized = 3;
-
-      // Party Replication ACS replication
-      ConnectionEstablished connection_established = 4;
-      ReplicatingAcs replicating_acs = 5;
-      FullyReplicatedAcs fully_replicated_acs = 6;
-
-      // Completed indicating that party successfully has been added to target participant.
-      Completed completed = 7;
-
-      // Error indicating that party replication has failed.
-      Error error = 8;
-
-      // Conditions that party replication is attempting to recover from.
-      Disconnected disconnected = 9;
-    }
+  // Static parameters that do not change throughout a single party replication operation.
+  message ReplicationParameters {
+    string request_id = 1;
+    string party_id = 2;
+    string synchronizer_id = 3;
+    string source_participant_uid = 4;
+    string target_participant_uid = 5;
+    uint32 topology_serial = 6;
   }
 
-  Status status = 7;
+  // Agreement among participants to replicate the ACS via sequencer channel.
+  message SequencerChannelAgreement {
+    // Sequencer hosting the channel for ACS replication.
+    string sequencer_uid = 1;
+  }
+
+  // Authorization by party owners and target participant to onboard the party.
+  message PartyReplicationAuthorization {
+    // The timestamp at which the party onboarding authorization becomes effective
+    // and the ACS snapshot for replication is based on.
+    // required
+    google.protobuf.Timestamp onboarding_at = 1;
+
+    // Whether the party is fully onboarded to the target participant.
+    // A value of true means:
+    // - The party's ACS has been completely replicated to the target participant, and
+    // - the party participates in Daml transactions according to its target participant hosting permission.
+    // required
+    bool is_onboarding_flag_cleared = 2;
+  }
+
+  // Progress of ACS replication.
+  message AcsReplicationProgress {
+    // Non negative number of ACS contracts sent by the source or persisted by the target participant.
+    // required
+    uint32 processed_contract_count = 1;
+    // Whether replication has been fully processed the ACS.
+    // required
+    bool fully_processed_acs = 2;
+  }
+
+  // Progress of ACS indexing the Ledger Api.
+  message AcsIndexingProgress {}
+
+  // Error message when disconnected or operator intervention needed.
+  message PartyReplicationError {
+    // Error message.
+    // required
+    string error_message = 2;
+  }
+
+  // Static party replication parameters.
+  // required
+  ReplicationParameters parameters = 1;
+  // Sequencer channel agreement.
+  // optional, set if there is an agreement to replicate the ACS via sequencer channel.
+  SequencerChannelAgreement agreement = 2;
+  // Topology authorization.
+  // optional, set once the party onboarding has been authorized via topology.
+  PartyReplicationAuthorization authorization = 3;
+  // ACS replication progress.
+  // optional, set once the ACS replication has started.
+  AcsReplicationProgress replication = 4;
+  // Indexing progress.
+  // optional, set once indexing of the ACS has started.
+  AcsIndexingProgress indexing = 5;
+  // Whether the party has been successfully replicated to the target participant,
+  // i.e. whether party replication has succeeded and is done.
+  // required
+  bool has_completed = 6;
+  // Error details.
+  // optional, set when there is a transient or terminal error.
+  PartyReplicationError error_message = 7;
 }
 
 // Enum indicating the permission level of the party on the target participant.
