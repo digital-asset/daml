@@ -9,7 +9,7 @@ import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.SExpr.SExpr
 import com.digitalasset.daml.lf.value.Value.ValueArithmeticError
-import com.digitalasset.daml.lf.value.{Value => V}
+import com.digitalasset.daml.lf.value.{GenValue, Value => V}
 import com.daml.scalautil.Statement.discard
 import com.daml.nameof.NameOf
 import com.digitalasset.daml.lf.speedy.iterable.SValueIterable
@@ -29,29 +29,40 @@ sealed abstract class SValue extends AnyRef {
     * And so the resulting value should not be serialized.
     */
   def toUnnormalizedValue: V = {
-    toValue(
+    toValue[Nothing](
       keepTypeInfo = true,
       keepFieldName = true,
       keepTrailingNoneFields = true,
     )
   }
 
+  def toUnnormalizedValueWithClosures: GenValue[GenValue.Blob[SPAP]] =
+    toValue[GenValue.Blob[SPAP]](
+      keepTypeInfo = true,
+      keepFieldName = true,
+      keepTrailingNoneFields = true,
+      handleOther = { case s: SPAP =>
+        GenValue.Blob(s)
+      },
+    )
+
   /** Convert a speedy-value to a value normalized according to the LF version.
     */
   def toNormalizedValue: V =
-    toValue(
+    toValue[Nothing](
       keepTypeInfo = false,
       keepFieldName = false,
       keepTrailingNoneFields = false,
     )
 
-  private[lf] def toValue(
+  private[lf] def toValue[X](
       keepTypeInfo: Boolean,
       keepFieldName: Boolean,
       keepTrailingNoneFields: Boolean,
-  ): V = {
+      handleOther: PartialFunction[SValue, GenValue[X]] = PartialFunction.empty,
+  ): GenValue[X] = {
 
-    def go(v: SValue, maxNesting: Int = V.MAXIMUM_NESTING): V = {
+    def go(v: SValue, maxNesting: Int = V.MAXIMUM_NESTING): GenValue[X] = {
       if (maxNesting < 0)
         throw SError.SErrorDamlException(
           interpretation.Error.ValueNesting(V.MAXIMUM_NESTING)
@@ -114,6 +125,7 @@ sealed abstract class SValue extends AnyRef {
           )
         case SContractId(coid) =>
           V.ValueContractId(coid)
+        case handleOther(v) => v
         case _: SStruct | _: SAny | _: SBigNumeric | _: STypeRep | _: SPAP | SToken =>
           throw SError.SErrorCrash(
             NameOf.qualifiedNameOfCurrentFunc,
