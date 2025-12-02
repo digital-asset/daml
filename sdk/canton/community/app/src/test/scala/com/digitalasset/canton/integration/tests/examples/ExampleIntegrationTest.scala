@@ -73,6 +73,7 @@ object `ExampleIntegrationTest` {
   lazy val interactiveSubmissionFolder: File =
     examplesPath / "08-interactive-submission"
   lazy val jsonApiFolder: File = examplesPath / "09-json-api"
+  lazy val jsonApiTypescriptFolder: File = jsonApiFolder / "typescript"
   lazy val advancedConfTestEnv: File =
     "community" / "app" / "src" / "test" / "resources" / "advancedConfDef.env"
   lazy val bftSequencerConfigurationFolder: File = examplesPath / "11-bft-sequencer"

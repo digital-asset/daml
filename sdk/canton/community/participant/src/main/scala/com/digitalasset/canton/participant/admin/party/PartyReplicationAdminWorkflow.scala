@@ -33,6 +33,7 @@ import com.digitalasset.canton.participant.ledger.api.client.{
 }
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.protocol.LfContractId
+import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.{ParticipantId, PartyId, SequencerId, SynchronizerId}
@@ -53,6 +54,7 @@ class PartyReplicationAdminWorkflow(
     syncService: CantonSyncService,
     clock: Clock,
     config: UnsafeOnlinePartyReplicationConfig,
+    storage: Storage,
     futureSupervisor: FutureSupervisor,
     exitOnFatalFailures: Boolean,
     override protected val timeouts: ProcessingTimeout,
@@ -72,6 +74,7 @@ class PartyReplicationAdminWorkflow(
       clock,
       config,
       markOnPRAgreementDone,
+      storage,
       futureSupervisor,
       exitOnFatalFailures,
       timeouts,

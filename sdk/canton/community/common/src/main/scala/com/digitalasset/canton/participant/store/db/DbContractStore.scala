@@ -91,7 +91,7 @@ class DbContractStore(
   private val cache
       : ScaffeineCache.TunnelledAsyncCache[LfContractId, Option[PersistedContractInstance]] =
     ScaffeineCache.buildMappedAsync[LfContractId, Option[PersistedContractInstance]](
-      cacheConfig.buildScaffeine()
+      cacheConfig.buildScaffeine(loggerFactory)
     )(logger, "DbContractStore.cache")
 
   private def invalidateCache(key: LfContractId): Unit =

@@ -10,8 +10,10 @@ import scala.concurrent.Future
 
 /** The interface for a pluggable KMS implementation, that is, a KMS Driver.
   *
-  * Cryptographic operations are async, i.e., they return a Future. In case of failures, the future
-  * must be failed with a [[KmsDriverException]].
+  * Cryptographic operations are asynchronous, i.e., they return a Future. In case of failure, the
+  * Future must fail with a [[KmsDriverException]]. Transient failures should still fail the Future,
+  * but the exception’s `retryable` flag should be set to true. An exception should only be thrown
+  * for driver operations (e.g., sign), and not, for example, for health checks.
   *
   * Each KMS operation takes an OpenTelemetry [[io.opentelemetry.context.Context]] as a trace
   * context that can optionally be propagated to the external KMS.
@@ -38,9 +40,9 @@ trait KmsDriver extends api.KmsDriver with AutoCloseable {
   /** Returns the current health of the driver.
     *
     * If the driver reports itself as unhealthy, Canton will close the current driver instance and
-    * create a new one to recover from the unhealthy state. Transient failures should be reported by
-    * throwing an [[com.digitalasset.canton.crypto.kms.driver.api.v1.KmsDriverException]] with
-    * `retryable` true on driver operations.
+    * create a new one to recover from the unhealthy state. The driver should not throw an
+    * exception; instead, it should return a
+    * [[com.digitalasset.canton.crypto.kms.driver.api.v1.KmsDriverHealth]] value.
     *
     * @return
     *   A future that completes with the driver's health.

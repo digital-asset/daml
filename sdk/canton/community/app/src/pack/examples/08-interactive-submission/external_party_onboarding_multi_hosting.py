@@ -177,7 +177,7 @@ def update_party_to_participant_transaction(
         topology_manager_read_service_pb2.ListPartyToParticipantResponse
     ) = topology_read_client.ListPartyToParticipant(list_party_to_participant_request)
     if len(party_to_participant_response.results) == 0:
-        current_serial = 1
+        current_serial = 0
         current_participants_list = []
     else:
         # Sort the results by serial in descending order and take the first one

@@ -6,7 +6,6 @@ package com.digitalasset.canton.participant.admin.party
 import cats.data.EitherT
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.Hash
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -18,6 +17,7 @@ import com.digitalasset.canton.participant.admin.data.{
 import com.digitalasset.canton.participant.sync.ConnectedSynchronizer
 import com.digitalasset.canton.protocol.DynamicSynchronizerParametersHistory
 import com.digitalasset.canton.topology.TopologyManagerError.NoAppropriateSigningKeyInStore
+import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.{StoredTopologyTransaction, TimeQuery, TopologyStore}
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp.Replace
@@ -69,7 +69,7 @@ class PartyReplicationTopologyWorkflow(
       connectedSynchronizer: ConnectedSynchronizer,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, String, Option[CantonTimestamp]] = {
+  ): EitherT[FutureUnlessShutdown, String, Option[EffectiveTime]] = {
     val PartyReplicationStatus
       .ReplicationParams(
         requestId,
@@ -116,7 +116,7 @@ class PartyReplicationTopologyWorkflow(
       _ <- partyToParticipantTopologyPartyAddedO.fold(
         EitherT.rightT[FutureUnlessShutdown, String](())
       )(verifyAuthorizedTopology(params, _))
-    } yield partyToParticipantTopologyPartyAddedO.map(_.validFrom.value)
+    } yield partyToParticipantTopologyPartyAddedO.map(_.validFrom)
   }
 
   /** Only called on the target participant. Authorize party replication onboarding from the target
@@ -324,10 +324,10 @@ class PartyReplicationTopologyWorkflow(
     } yield ()
   }
 
-  /** Attempt to authorize the onboarded topology for the party replication request on the target
-    * participant. Once the onboarded topology is authorized, verify the topology transaction, e.g.
-    * the party has a hosting permission on the target participants without the onboarding flag. Do
-    * so in an idempotent way such that this function can be retried.
+  /** Authorize clearing of the target participant onboarding topology flag on the target
+    * participant. Once the cleared onboarding flag is authorized, verify the topology transaction,
+    * e.g. the party has a hosting permission on the target participants without the onboarding
+    * flag. Do so in an idempotent way such that this function can be retried.
     *
     * @param params
     *   party replication parameters
@@ -337,11 +337,11 @@ class PartyReplicationTopologyWorkflow(
     * @param connectedSynchronizer
     *   connected synchronizer
     * @return
-    *   whether the onboarded topology has been authorized
+    *   whether the onboarding flag clearing has been authorized
     */
-  private[party] def authorizeOnboardedTopology(
+  private[party] def authorizeClearingOnboardingFlag(
       params: PartyReplicationStatus.ReplicationParams,
-      onboardingEffectiveAt: CantonTimestamp,
+      onboardingEffectiveAt: EffectiveTime,
       connectedSynchronizer: ConnectedSynchronizer,
   )(implicit
       traceContext: TraceContext
@@ -356,20 +356,20 @@ class PartyReplicationTopologyWorkflow(
         _,
         _,
       ) = params
-    val res = authorizeOnboardedTopology(
+    val res = authorizeClearingOnboardingFlag(
       partyId,
       targetParticipantId,
       onboardingEffectiveAt,
       connectedSynchronizer,
       Some(requestId),
     )
-    res.map(_.status._1)
+    res.map(_.status match { case (isFlagCleared, _tsSafeToClearO) => isFlagCleared })
   }
 
-  private[admin] def authorizeOnboardedTopology(
+  private[admin] def authorizeClearingOnboardingFlag(
       partyId: PartyId,
       targetParticipantId: ParticipantId,
-      onboardingEffectiveAt: CantonTimestamp,
+      onboardingEffectiveAt: EffectiveTime,
       connectedSynchronizer: ConnectedSynchronizer,
       requestId: Option[Hash] = None,
   )(implicit
@@ -426,17 +426,17 @@ class PartyReplicationTopologyWorkflow(
             if participantId == targetParticipantId && latestSynchronizerTimestampObservedO.isDefined =>
           // This is the target participant, and it is responsible for clearing the flag
           logger.info(
-            s"${requestIdLogPart}About to mark party $partyId as onboarded on target participant"
+            s"${requestIdLogPart}About to clear party $partyId onboarding flag on target participant"
           )
 
           for {
             _ <- EitherT.cond[FutureUnlessShutdown](
-              topologyClient.snapshotAvailable(onboardingEffectiveAt),
+              topologyClient.snapshotAvailable(onboardingEffectiveAt.value),
               (),
               s"Synchronizer $synchronizerId does not have a snapshot at onboarding effective time $onboardingEffectiveAt",
             )
             onboardingTsSnapshot <- EitherT.right[String](
-              topologyClient.snapshot(onboardingEffectiveAt)
+              topologyClient.snapshot(onboardingEffectiveAt.value)
             )
             synchronizerParameterHistory <- EitherT.right[String](
               onboardingTsSnapshot.listDynamicSynchronizerParametersChanges()
@@ -444,7 +444,7 @@ class PartyReplicationTopologyWorkflow(
             decisionDeadline = DynamicSynchronizerParametersHistory
               .latestDecisionDeadlineEffectiveAt(
                 synchronizerParameterHistory,
-                onboardingEffectiveAt,
+                onboardingEffectiveAt.value,
               )
             _ = logger.debug(
               s"""safe timestamp: $decisionDeadline compared to
@@ -489,7 +489,7 @@ class PartyReplicationTopologyWorkflow(
                 // serve any load, so that the party does not stay in the onboarding state until the next
                 // "minObservationDuration" (24 hours by default).
                 logger.info(
-                  s"Requesting time proof to advance synchronizer time to the safe onboarded timestamp $decisionDeadline"
+                  s"Requesting time proof to advance synchronizer time to the safe timestamp $decisionDeadline for clearing the onboarding flag"
                 )
                 synchronizerTimeTracker.requestTick(decisionDeadline.immediateSuccessor).discard
                 EitherTUtil.unitUS[String]

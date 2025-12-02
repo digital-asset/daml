@@ -1197,6 +1197,9 @@ object ConnectedSynchronizer {
           doNotAwaitOnCheckingIncomingCommitments =
             parameters.doNotAwaitOnCheckingIncomingCommitments,
           commitmentCheckpointInterval = parameters.commitmentCheckpointInterval,
+          commitmentMismatchDebugging = parameters.commitmentMismatchDebugging,
+          commitmentProcessorNrAcsChangesBehindToTriggerCatchUp =
+            parameters.commitmentProcessorNrAcsChangesBehindToTriggerCatchUp,
         )
         topologyProcessor <- topologyProcessorFactory.create(
           acsCommitmentProcessor.scheduleTopologyTick

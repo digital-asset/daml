@@ -17,7 +17,7 @@ final case class EffectiveTime(value: CantonTimestamp) {
   def toLf: LfTimestamp = value.toLf
   def max(that: EffectiveTime): EffectiveTime =
     EffectiveTime(value.max(that.value))
-  def immediateSuccessor(): EffectiveTime = EffectiveTime(value.immediateSuccessor)
+  def immediateSuccessor: EffectiveTime = EffectiveTime(value.immediateSuccessor)
   def +(duration: RefinedDuration): EffectiveTime = EffectiveTime(value + duration)
 }
 object EffectiveTime {

@@ -47,11 +47,12 @@ import com.digitalasset.canton.topology.transaction.DelegationRestriction.{
 }
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp.{Remove, Replace}
 import com.digitalasset.canton.topology.{Member, PartyId, QueueBasedSynchronizerOutbox}
-import com.digitalasset.canton.util.{MaliciousParticipantNode, SingleUseCell}
+import com.digitalasset.canton.util.{ErrorUtil, MaliciousParticipantNode, SingleUseCell}
 import com.google.protobuf.ByteString
 import org.slf4j.event.Level
 import org.slf4j.event.Level.WARN
 
+import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.nowarn
 import scala.collection.mutable
 
@@ -523,22 +524,39 @@ class InvalidTopologyBroadcastIntegrationTest
     "detect a timeout when broadcasting topology transactions" in { implicit env =>
       import env.*
 
+      // Arbitrary number of time advancements we want to drop.
+      // This thereby tests that the sequencer retries sending its time advancement broadcast.
+      val timeAdvancementsToDrop = 3
+
       val s1 = getProgrammableSequencer(sequencer1.name)
       val droppedBatch = new SingleUseCell[Batch[ClosedEnvelope]]
-      s1.setPolicy_("drop topology broadcasts")(SendPolicy.processTimeProofs_ {
-        case r if r.messageId.unwrap.startsWith(TimeAdvanceBroadcastMessageIdPrefix) =>
-          SendDecision.Drop
-        case r if r.batch.allRecipients.contains(AllMembersOfSynchronizer) =>
-          droppedBatch.putIfAbsent(r.batch) match {
-            case None =>
-              // this is the first topology broadcast, so we drop it to simulate the message getting lost
-              SendDecision.Drop
-            case Some(droppedBatch) =>
-              assert(r.batch == droppedBatch, "dropped batch is not the same as retried batch")
-              SendDecision.Process
-          }
-        case _ => SendDecision.Process
-      })
+      val droppedTimeAdvancement = new AtomicReference[Option[(CantonTimestamp, Int)]](None)
+      s1.setPolicy("drop topology broadcasts")(
+        SendPolicy.processTimeProofs(implicit traceContext => {
+          case r if r.messageId.unwrap.startsWith(TimeAdvanceBroadcastMessageIdPrefix) =>
+            val Some((_, retryCount)) = droppedTimeAdvancement.updateAndGet {
+              case None => Some(r.maxSequencingTime -> 0)
+              case Some((previousTime, count)) =>
+                ErrorUtil.requireState(
+                  previousTime == r.maxSequencingTime.immediatePredecessor,
+                  "dropped time advancement is not the same as retried time advancement",
+                )
+                Some(r.maxSequencingTime -> (count + 1))
+            }: @unchecked
+            if (retryCount > timeAdvancementsToDrop) SendDecision.Process
+            else SendDecision.Drop
+          case r if r.batch.allRecipients.contains(AllMembersOfSynchronizer) =>
+            droppedBatch.putIfAbsent(r.batch) match {
+              case None =>
+                // this is the first topology broadcast, so we drop it to simulate the message getting lost
+                SendDecision.Drop
+              case Some(droppedBatch) =>
+                assert(r.batch == droppedBatch, "dropped batch is not the same as retried batch")
+                SendDecision.Process
+            }
+          case _ => SendDecision.Process
+        })
+      )
 
       val beforeUpdate =
         sequencer1.topology.synchronizer_parameters.get_dynamic_synchronizer_parameters(daId)

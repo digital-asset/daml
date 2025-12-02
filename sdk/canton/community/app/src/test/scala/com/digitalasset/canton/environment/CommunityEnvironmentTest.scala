@@ -11,7 +11,7 @@ import com.daml.metrics.api.{HistogramInventory, MetricName}
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.RequireTypes.Port
-import com.digitalasset.canton.config.{CantonConfig, CommunityCantonEdition, TestingConfigInternal}
+import com.digitalasset.canton.config.{CantonConfig, TestingConfigInternal}
 import com.digitalasset.canton.integration.ConfigTransforms
 import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.participant.config.*
@@ -126,7 +126,6 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
 
     val environment = new Environment(
       config,
-      CommunityCantonEdition,
       TestingConfigInternal(initializeGlobalOpenTelemetry = false),
       new ParticipantNodeBootstrapFactory {
         override protected def createLedgerApiBootstrapUtils(

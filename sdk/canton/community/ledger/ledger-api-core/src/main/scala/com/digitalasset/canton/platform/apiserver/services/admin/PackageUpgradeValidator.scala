@@ -38,7 +38,9 @@ class PackageUpgradeValidator(
   }
 
   private val upgradeCompatCache =
-    cacheConfig.buildScaffeine().build[(PackageId, PackageId), Either[TopologyManagerError, Unit]]()
+    cacheConfig
+      .buildScaffeine(loggerFactory)
+      .build[(PackageId, PackageId), Either[TopologyManagerError, Unit]]()
 
   /** Validate the upgrade-compatibility of the vetted lineages that are affected by a new package
     * to vet. That is,

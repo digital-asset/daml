@@ -139,6 +139,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
     interactiveSubmissionEnricher,
     contractStore,
     syncService,
+    config,
     loggerFactory,
   )
 
@@ -177,13 +178,21 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
           request.commands.submissionId.map(SubmissionId.unwrap),
         )
 
-      evaluateAndHash(
-        seedService.nextSeed(),
-        request.commands,
-        request.verboseHashing,
-        request.maxRecordTime,
-        request.costEstimationHints,
-      )
+      if (config.enforceSingleRootNode && cmds.length > 1) {
+        FutureUnlessShutdown.failed(
+          InteractiveSubmissionPreparationError
+            .Reject("Preparing multiple commands is currently not supported")
+            .asGrpcError
+        )
+      } else {
+        evaluateAndHash(
+          seedService.nextSeed(),
+          request.commands,
+          request.verboseHashing,
+          request.maxRecordTime,
+          request.costEstimationHints,
+        )
+      }
     }
 
   private def evaluateAndHash(

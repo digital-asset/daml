@@ -48,6 +48,7 @@ import com.digitalasset.canton.{HasExecutionContext, LfTimestamp}
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.{SubmissionId, UserId}
 import io.grpc.Status
+import monocle.macros.syntax.lens.*
 import org.scalatest.Assertion
 import org.slf4j.event.Level
 
@@ -85,6 +86,14 @@ final class InteractiveSubmissionConfirmationIntegrationTest
         )
       }
       .addConfigTransform(ConfigTransforms.enableInteractiveSubmissionTransforms)
+      .addConfigTransform(
+        ConfigTransforms
+          .updateAllParticipantConfigs_(
+            // Disable in this suite so we can perform phase 3 assertions
+            _.focus(_.ledgerApi.interactiveSubmissionService.enforceSingleRootNode)
+              .replace(false)
+          )
+      )
 
   registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
 
@@ -313,7 +322,6 @@ final class InteractiveSubmissionConfirmationIntegrationTest
           useAllKeys = true,
         )
       )
-      // This is only currently detected in phase III, at which point warnings are issued
       val completion =
         loggerFactory.assertEventuallyLogsSeq(SuppressionRule.LevelAndAbove(Level.WARN))(
           {

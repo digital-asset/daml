@@ -344,7 +344,7 @@ class DbSequencerStore(
   private val payloadCache: TracedAsyncLoadingCache[FutureUnlessShutdown, PayloadId, BytesPayload] =
     ScaffeineCache.buildTracedAsync[FutureUnlessShutdown, PayloadId, BytesPayload](
       cache = cachingConfigs.sequencerPayloadCache
-        .buildScaffeine()
+        .buildScaffeine(loggerFactory)
         .weigher((_: Any, v: Any) => v.asInstanceOf[BytesPayload].content.size),
       loader = implicit traceContext =>
         payloadId => readPayloadsFromStore(Seq(payloadId)).map(_(payloadId)),

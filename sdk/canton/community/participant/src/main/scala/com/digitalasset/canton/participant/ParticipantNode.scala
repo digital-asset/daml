@@ -757,6 +757,7 @@ class ParticipantNodeBootstrap(
             clock,
             adminServerRegistry,
             adminTokenDispenser,
+            storage,
             futureSupervisor,
             loggerFactory,
             tracerProvider,

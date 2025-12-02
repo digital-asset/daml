@@ -55,7 +55,7 @@ class DbKmsMetadataStore(
       ]] = {
     val loader: Fingerprint => FutureUnlessShutdown[Option[KmsMetadata]] = getMetadata
     ScaffeineCache.buildAsync[FutureUnlessShutdown, Fingerprint, Option[KmsMetadata]](
-      cache = kmsCacheConfig.buildScaffeine(),
+      cache = kmsCacheConfig.buildScaffeine(loggerFactory),
       loader = loader,
     )(logger, "kmsMetadata")
   }

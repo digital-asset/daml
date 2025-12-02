@@ -20,7 +20,6 @@ class KmsDriverConfigTest extends BaseTestWordSpec {
       val cantonConfig = CantonConfig
         .parseAndLoad(
           Seq(testKmsDriverConfigFile.toJava),
-          EnterpriseCantonEdition,
           Some(DefaultPorts.create()),
         )
         .valueOrFail("loading test KMS driver config")
@@ -43,7 +42,6 @@ class KmsDriverConfigTest extends BaseTestWordSpec {
       val config = CantonConfig
         .parseAndLoad(
           Seq(testKmsDriverConfigFile.toJava),
-          EnterpriseCantonEdition,
           Some(DefaultPorts.create()),
         )
         .valueOrFail("loading test KMS driver config")

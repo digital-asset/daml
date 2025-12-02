@@ -4,7 +4,6 @@
 package com.digitalasset.canton.synchronizer.sequencer.config
 
 import com.digitalasset.canton.config.*
-import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
 import com.digitalasset.canton.synchronizer.config.PublicServerConfig
 import com.digitalasset.canton.synchronizer.sequencer.SequencerConfig.SequencerHighAvailabilityConfig
@@ -60,8 +59,7 @@ final case class SequencerNodeConfig(
       PositiveFiniteDuration.ofSeconds(45)
     ),
 ) extends LocalNodeConfig
-    with ConfigDefaults[Option[DefaultPorts], SequencerNodeConfig]
-    with UniformCantonConfigValidation {
+    with ConfigDefaults[Option[DefaultPorts], SequencerNodeConfig] {
 
   override def clientAdminApi: ClientConfig = adminApi.clientConfig
 
@@ -111,10 +109,4 @@ final case class SequencerNodeConfig(
         else replication.map(_.copy(enabled = Some(false)))
       )
   }
-}
-
-object SequencerNodeConfig {
-  implicit val sequencerNodeConfigCantonConfigValidator
-      : CantonConfigValidator[SequencerNodeConfig] =
-    CantonConfigValidatorDerivation[SequencerNodeConfig]
 }

@@ -4,7 +4,6 @@
 package com.digitalasset.canton.integration.tests.multihostedparties
 
 import com.digitalasset.canton.BaseTest.CantonLfV21
-import com.digitalasset.canton.admin.api.client.data.AddPartyStatus
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.LocalInstanceReference
@@ -188,13 +187,7 @@ sealed trait OnlinePartyReplicationDecentralizedPartyTest
     eventually() {
       val tpStatus = targetParticipant.parties.get_add_party_status(addPartyRequestId)
       logger.info(s"Waiting until party onboarding topology has been authorized: $tpStatus")
-      val hasConnected = tpStatus.status match {
-        case AddPartyStatus.TopologyAuthorized(_, _) | AddPartyStatus.ConnectionEstablished(_, _) |
-            AddPartyStatus.ReplicatingAcs(_, _, _) =>
-          true
-        case _ => false
-      }
-      hasConnected shouldBe true
+      tpStatus.authorizationO.nonEmpty shouldBe true
     }
     val sequencer = getProgrammableSequencer(sequencer1.name)
     sequencer.setPolicy_("hold SP exercise confirmation until OnPR contract replicated") {

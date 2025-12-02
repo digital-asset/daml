@@ -69,7 +69,7 @@ class CantonConfigTest extends AnyWordSpec with BaseTest {
       resourcePaths: Seq[String]
   ): Either[CantonConfigError, CantonConfig] = {
     val files = resourcePaths.map(r => (baseDir.toString / r).toJava)
-    CantonConfig.parseAndLoad(files, CommunityCantonEdition, Some(DefaultPorts.create()))
+    CantonConfig.parseAndLoad(files, Some(DefaultPorts.create()))
   }
 
   "the example simple topology configuration" should {
@@ -326,7 +326,6 @@ class CantonConfigTest extends AnyWordSpec with BaseTest {
       val config =
         CantonConfig.parseAndLoadOrExit(
           files,
-          EnterpriseCantonEdition,
           Some(DefaultPorts.create()),
         )
 
@@ -373,7 +372,6 @@ class CantonConfigTest extends AnyWordSpec with BaseTest {
     "load / save / load" in {
       val config = CantonConfig.parseAndLoadOrExit(
         files,
-        EnterpriseCantonEdition,
         Some(DefaultPorts.create()),
       )
 
@@ -381,7 +379,6 @@ class CantonConfigTest extends AnyWordSpec with BaseTest {
         CantonConfig.save(config, file.toString)
         val loaded = CantonConfig.parseAndLoadOrExit(
           Seq(file.toJava),
-          EnterpriseCantonEdition,
           Some(DefaultPorts.create()),
         )
         config shouldBe loaded
@@ -392,7 +389,6 @@ class CantonConfigTest extends AnyWordSpec with BaseTest {
       val configE =
         CantonConfig.parseAndLoad(
           Seq(remoteSequencerHAConfig.toJava),
-          EnterpriseCantonEdition,
           Some(DefaultPorts.create()),
         )
       valueOrFail(configE)("loading remote sequencer ha config")
@@ -401,7 +397,6 @@ class CantonConfigTest extends AnyWordSpec with BaseTest {
     "distributed topology produce a port definition message" in {
       val configE = CantonConfig.parseAndLoad(
         Seq(distributedConf.toJava),
-        EnterpriseCantonEdition,
         Some(DefaultPorts.create()),
       )
       val config = valueOrFail(configE)("loading distributed synchronizer topology config")
@@ -430,7 +425,6 @@ class CantonConfigTest extends AnyWordSpec with BaseTest {
         val config = CantonConfig
           .parseAndLoad(
             Seq(simpleConf, file).map(_.toJava),
-            EnterpriseCantonEdition,
             Some(DefaultPorts.create()),
           )
           .value
@@ -448,7 +442,6 @@ class CantonConfigTest extends AnyWordSpec with BaseTest {
       val result = loggerFactory.assertLogs(
         CantonConfig.parseAndLoad(
           Seq(simpleConf.toJava, duplicateStorageWithoutReplicationConfig.toJava),
-          EnterpriseCantonEdition,
           Some(DefaultPorts.create()),
         ),
         _.errorMessage should (include("Failed to validate the configuration") and include(
@@ -462,7 +455,6 @@ class CantonConfigTest extends AnyWordSpec with BaseTest {
       CantonConfig
         .parseAndLoad(
           Seq(simpleConf.toJava, duplicateStorageWithReplicationConfig.toJava),
-          EnterpriseCantonEdition,
           Some(DefaultPorts.create()),
         )
         .valueOrFail("loading config")
@@ -474,7 +466,6 @@ class CantonConfigTest extends AnyWordSpec with BaseTest {
       val result = loggerFactory.assertLogs(
         CantonConfig.parseAndLoad(
           Seq(simpleConf.toJava, unsupportedMinProtocolVersionConfig.toJava),
-          EnterpriseCantonEdition,
           Some(DefaultPorts.create()),
         ),
         _.errorMessage should (include("unsupported-minimum-protocol-version.conf") and include(
@@ -517,7 +508,6 @@ class CantonConfigTest extends AnyWordSpec with BaseTest {
               perf / "config" / "postgres" / "_persistence.conf",
               perf / "config" / file,
             ).map(_.toJava),
-            EnterpriseCantonEdition,
             Some(DefaultPorts.create()),
           )
           .valueOrFail("loading config")
@@ -560,7 +550,6 @@ class CantonConfigTest extends AnyWordSpec with BaseTest {
                 .map(
                   _.toJava
                 ),
-              EnterpriseCantonEdition,
               Some(DefaultPorts.create()),
             )
             .value
@@ -593,7 +582,6 @@ class CantonConfigTest extends AnyWordSpec with BaseTest {
               ).map(
                 _.toJava
               ),
-              EnterpriseCantonEdition,
               Some(DefaultPorts.create()),
             )
             .value

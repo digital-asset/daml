@@ -137,7 +137,7 @@ final class SessionKeyStoreWithInMemoryCache(
     */
   override protected lazy val sessionKeysCacheRecipients: Cache[RecipientGroup, SessionKeyInfo] =
     sessionKeysCacheConfig.senderCache
-      .buildScaffeine()
+      .buildScaffeine(loggerFactory)
       .scheduler(Scheduler.forScheduledExecutorService(scheduledExecutorService))
       .build()
 
@@ -148,7 +148,7 @@ final class SessionKeyStoreWithInMemoryCache(
     */
   override protected lazy val transparencyCheckCache: Cache[Hash, Unit] =
     sessionKeysCacheConfig.receiverCache
-      .buildScaffeine()
+      .buildScaffeine(loggerFactory)
       .build()
 
   /** This cache keeps track of the matching encrypted randomness for the session keys and their
@@ -158,7 +158,7 @@ final class SessionKeyStoreWithInMemoryCache(
   override protected lazy val sessionKeysCacheDecryptions
       : Cache[AsymmetricEncrypted[SecureRandomness], SecureRandomness] =
     sessionKeysCacheConfig.receiverCache
-      .buildScaffeine()
+      .buildScaffeine(loggerFactory)
       .scheduler(Scheduler.forScheduledExecutorService(scheduledExecutorService))
       .build()
 

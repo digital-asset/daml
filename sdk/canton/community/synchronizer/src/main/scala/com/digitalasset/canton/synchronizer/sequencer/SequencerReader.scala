@@ -12,15 +12,7 @@ import cats.syntax.traverse.*
 import com.daml.metrics.api.MetricsContext
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config
-import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
-import com.digitalasset.canton.config.{
-  CantonConfigValidationError,
-  CantonConfigValidator,
-  CantonEdition,
-  CustomCantonConfigValidation,
-  EnterpriseCantonEdition,
-  ProcessingTimeout,
-}
+import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.SyncCryptoError.KeyNotAvailable
 import com.digitalasset.canton.crypto.{HashPurpose, SyncCryptoApi, SyncCryptoClient}
 import com.digitalasset.canton.data.{CantonTimestamp, LogicalUpgradeTime, SynchronizerSuccessor}
@@ -91,21 +83,9 @@ final case class SequencerReaderConfig(
       SequencerReaderConfig.defaultPayloadBatchWindow,
     payloadFetchParallelism: Int = SequencerReaderConfig.defaultPayloadFetchParallelism,
     eventGenerationParallelism: Int = SequencerReaderConfig.defaultEventGenerationParallelism,
-) extends CustomCantonConfigValidation {
-  override protected def doValidate(edition: CantonEdition): Seq[CantonConfigValidationError] =
-    Option
-      .when(pollingInterval.nonEmpty && edition != EnterpriseCantonEdition)(
-        CantonConfigValidationError(
-          s"Configuration polling-interval is supported only in $EnterpriseCantonEdition"
-        )
-      )
-      .toList
-}
+)
 
 object SequencerReaderConfig {
-  implicit val sequencerReaderConfigCantonConfigValidator
-      : CantonConfigValidator[SequencerReaderConfig] =
-    CantonConfigValidatorDerivation[SequencerReaderConfig]
 
   val defaultReadBatchSize: Int = 100
   val defaultCheckpointInterval: config.NonNegativeFiniteDuration =

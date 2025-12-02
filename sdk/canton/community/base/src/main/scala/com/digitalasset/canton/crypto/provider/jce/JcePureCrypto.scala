@@ -102,7 +102,7 @@ class JcePureCrypto(
   // Caches for the java key conversion results
   private val javaPublicKeyCache: Cache[Fingerprint, Either[KeyParseAndValidateError, JPublicKey]] =
     publicKeyConversionCacheConfig
-      .buildScaffeine()
+      .buildScaffeine(loggerFactory)
       // allow the JVM garbage collector to remove entries from it when there is pressure on memory
       .softValues()
       .build()
@@ -118,7 +118,7 @@ class JcePureCrypto(
           expireAfterAccess = config.NonNegativeFiniteDuration(expire)
         )
       case None => publicKeyConversionCacheConfig
-    }).buildScaffeine()
+    }).buildScaffeine(loggerFactory)
       // allow the JVM garbage collector to remove entries from it when there is pressure on memory
       .softValues()
       .build()

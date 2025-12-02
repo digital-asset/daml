@@ -287,7 +287,7 @@ class IndexedStringCache(
   private val str2Index
       : TracedAsyncLoadingCache[FutureUnlessShutdown, (String300, IndexedStringType), Int] =
     ScaffeineCache.buildTracedAsync[FutureUnlessShutdown, (String300, IndexedStringType), Int](
-      cache = config.buildScaffeine(),
+      cache = config.buildScaffeine(loggerFactory),
       loader = implicit tc => { case (str, typ) =>
         parent
           .getOrCreateIndex(typ, str)
@@ -303,7 +303,7 @@ class IndexedStringCache(
       : TracedAsyncLoadingCache[FutureUnlessShutdown, (Int, IndexedStringType), Option[String300]] =
     ScaffeineCache
       .buildTracedAsync[FutureUnlessShutdown, (Int, IndexedStringType), Option[String300]](
-        cache = config.buildScaffeine(),
+        cache = config.buildScaffeine(loggerFactory),
         loader = implicit tc => { case (idx, typ) =>
           parent
             .getForIndex(typ, idx)

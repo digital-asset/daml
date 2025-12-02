@@ -11,7 +11,6 @@ import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
 }
 import com.digitalasset.canton.admin.api.client.data.PackageDescription.PackageContents
 import com.digitalasset.canton.admin.api.client.data.{
-  AddPartyStatus,
   DarContents,
   DarDescription,
   InFlightCount,
@@ -47,6 +46,7 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.admin.ResourceLimits
 import com.digitalasset.canton.participant.admin.data.{
   ContractImportMode,
+  PartyReplicationStatus,
   RepresentativePackageIdOverride,
 }
 import com.digitalasset.canton.participant.admin.party.PartyParticipantPermission
@@ -535,7 +535,7 @@ object ParticipantAdminCommands {
         extends GrpcAdminCommand[
           v30.GetAddPartyStatusRequest,
           v30.GetAddPartyStatusResponse,
-          AddPartyStatus,
+          PartyReplicationStatus,
         ] {
       override type Svc = PartyManagementServiceStub
 
@@ -552,7 +552,11 @@ object ParticipantAdminCommands {
 
       override protected def handleResponse(
           response: v30.GetAddPartyStatusResponse
-      ): Either[String, AddPartyStatus] = AddPartyStatus.fromProtoV30(response).leftMap(_.toString)
+      ): Either[String, PartyReplicationStatus] =
+        ProtoConverter
+          .required("status", response.status)
+          .flatMap(PartyReplicationStatus.fromProtoV30)
+          .leftMap(_.toString)
     }
 
     final case class GetHighestOffsetByTimestamp(

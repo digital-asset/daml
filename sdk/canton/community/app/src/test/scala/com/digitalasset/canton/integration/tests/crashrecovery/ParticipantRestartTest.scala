@@ -380,7 +380,7 @@ abstract class ParticipantRestartTest
           .create(
             cryptoConfig,
             CachingConfigs.defaultKmsMetadataCache,
-            CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
+            SessionEncryptionKeyCacheConfig(),
             CachingConfigs.defaultPublicKeyConversionCache,
             storage,
             Option.empty[ReplicaManager],

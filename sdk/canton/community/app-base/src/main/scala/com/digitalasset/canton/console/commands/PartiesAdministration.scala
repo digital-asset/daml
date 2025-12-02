@@ -15,11 +15,7 @@ import com.digitalasset.canton.admin.api.client.commands.{
   ParticipantAdminCommands,
   TopologyAdminCommands,
 }
-import com.digitalasset.canton.admin.api.client.data.{
-  AddPartyStatus,
-  ListPartiesResult,
-  PartyOnboardingFlagStatus,
-}
+import com.digitalasset.canton.admin.api.client.data.{ListPartiesResult, PartyOnboardingFlagStatus}
 import com.digitalasset.canton.admin.participant.v30.ExportPartyAcsResponse
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.config.{ConsoleCommandTimeout, NonNegativeDuration}
@@ -39,6 +35,7 @@ import com.digitalasset.canton.grpc.FileStreamObserver
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.admin.data.{
   ContractImportMode,
+  PartyReplicationStatus,
   RepresentativePackageIdOverride,
 }
 import com.digitalasset.canton.serialization.ProtoConverter
@@ -435,13 +432,14 @@ class ParticipantPartiesAdministrationGroup(
     """Retrieve status information on a party previously added via the `add_party_async` endpoint
       |by specifying the previously returned `addPartyRequestId` parameter."""
   )
-  def get_add_party_status(addPartyRequestId: String): AddPartyStatus = check(FeatureFlag.Preview) {
-    consoleEnvironment.run {
-      reference.adminCommand(
-        ParticipantAdminCommands.PartyManagement.GetAddPartyStatus(addPartyRequestId)
-      )
+  def get_add_party_status(addPartyRequestId: String): PartyReplicationStatus =
+    check(FeatureFlag.Preview) {
+      consoleEnvironment.run {
+        reference.adminCommand(
+          ParticipantAdminCommands.PartyManagement.GetAddPartyStatus(addPartyRequestId)
+        )
+      }
     }
-  }
 
   @Help.Summary("Finds a party's highest activation offset.")
   @Help.Description(
