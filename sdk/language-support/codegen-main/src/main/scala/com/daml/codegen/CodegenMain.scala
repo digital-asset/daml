@@ -23,7 +23,10 @@ object CodegenMain {
       case Some(runner) =>
         readConfiguration(runner, args.tail) match {
           case Some(config) =>
-            val damlVersion = sys.env.getOrElse("DAML_SDK_VERSION", "0.0.0")
+            val damlVersion = sys.env
+              .get("DPM_SDK_VERSION")
+              .orElse(sys.env.get("DAML_SDK_VERSION"))
+              .getOrElse("0.0.0")
             Try(runner.generateCode(config, damlVersion)) match {
               case Success(_) => OK
               case Failure(t) =>
