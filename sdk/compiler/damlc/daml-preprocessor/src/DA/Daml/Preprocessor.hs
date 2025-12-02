@@ -80,13 +80,15 @@ preprocessorExceptions = Set.fromList $ map GHC.mkModuleName
     , "DA.Fail"
     , "DA.ContractKeys"
 
-
     -- These modules need to have the record preprocessor disabled.
     , "DA.NonEmpty.Types"
     , "DA.Monoid.Types"
     , "DA.Set.Types"
     , "DA.Internal.Fail"
     , "DA.Internal.Fail.Types"
+
+    -- This module needs to use the PatternSynonyms extension.
+    -- , "DA.NonEmpty"
     ]
 
 -- Following daml-script modules import Internal for creating psuedo exceptions
