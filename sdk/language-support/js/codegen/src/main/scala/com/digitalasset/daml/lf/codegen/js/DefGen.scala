@@ -146,8 +146,10 @@ private[codegen] final case class SerializableGen(
     b.addEmptyLine()
     if (paramNames.isEmpty) {
       b.addBlock(s"exports.$name = {", "};") {
-        keys.foreach(k => b.addLine(s"$k: '$k',"))
-        b.addLine(s"keys: [${keys.map(k => s"'$k'").mkString(", ")}],")
+        if (keys.nonEmpty) {
+          keys.foreach(k => b.addLine(s"$k: '$k',"))
+          b.addLine(s"keys: [${keys.map(k => s"'$k'").mkString(", ")}],")
+        }
         b.addInline("decoder: ", ",")(LazyDecoder(decoder).render(moduleId, b))
         b.addInline("encode: ", ",")(encode.render(moduleId, b))
         nestedSerializables.foreach(_.renderJsField(moduleId, b))
@@ -232,7 +234,7 @@ private[codegen] final case class InterfaceGen(
   private val interfaceId = s"#$packageName:${moduleId.moduleName}:$name"
   override def renderJsSource(b: CodeBuilder): Unit = {
     b.addEmptyLine()
-    b.addBlock(s"exports.$name = damlTypes.assembleInterface(", ")") {
+    b.addBlock(s"exports.$name = damlTypes.assembleInterface(", ");") {
       b.addLine(s"'$interfaceId',")
       b.addLine(s"function () { return ${TypeGen.renderSerializable(moduleId, view)}; },")
       b.addBlock("{", "}") {
@@ -262,7 +264,7 @@ private[codegen] final case class ChoiceGen(name: Name, argType: Ast.Type, retur
       b.addLine(s"template: function () { return exports.$templateOrInterfaceName; },")
       b.addLine(s"choiceName: '$name',")
       b.addInline("argumentDecoder: ", ",")(LazyDecoder(TypeDecoder(argType)).render(moduleId, b))
-      b.addInline("argumentEncoder: ", ",")(TypeEncode(argType).render(moduleId, b))
+      b.addInline("argumentEncode: ", ",")(TypeEncode(argType).render(moduleId, b))
       b.addInline("resultDecoder: ", ",")(LazyDecoder(TypeDecoder(returnType)).render(moduleId, b))
       b.addInline("resultEncode: ", ",")(TypeEncode(returnType).render(moduleId, b))
     }
