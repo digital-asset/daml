@@ -19,7 +19,13 @@ import com.digitalasset.daml.lf.speedy.PartialTransaction.NodeSeeds
 import com.digitalasset.daml.lf.speedy.SError._
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SResult._
-import com.digitalasset.daml.lf.speedy.SValue.{SAnyException, SArithmeticError, SRecord, SText}
+import com.digitalasset.daml.lf.speedy.SValue.{
+  SAnyException,
+  SArithmeticError,
+  SPAP,
+  SRecord,
+  SText,
+}
 import com.digitalasset.daml.lf.speedy.Speedy.Machine.{newTraceLog, newWarningLog}
 import com.digitalasset.daml.lf.stablepackages.StablePackages
 import com.digitalasset.daml.lf.transaction.ContractStateMachine.KeyMapping
@@ -35,7 +41,7 @@ import com.digitalasset.daml.lf.transaction.{
   IncompleteTransaction => IncompleteTx,
 }
 import com.digitalasset.daml.lf.value.Value.ValueArithmeticError
-import com.digitalasset.daml.lf.value.{ContractIdVersion, Value => V}
+import com.digitalasset.daml.lf.value.{ContractIdVersion, GenValue, Value => V}
 
 import scala.annotation.{nowarn, tailrec}
 import scala.collection.immutable.ArraySeq
@@ -773,12 +779,14 @@ private[lf] object Speedy {
 
     @nowarn("msg=dead code following this construct")
     @tailrec
-    def runPure(): Either[SError, SValue] =
+    def runPure(cancelled: () => Boolean = () => false): Either[SError, SValue] =
       run() match {
         case SResultError(err) => Left(err)
         case SResultFinal(v) => Right(v)
+        case SResultInterruption if cancelled() =>
+          Left(SErrorCrash("runPure", "cancelled"))
         case SResultInterruption =>
-          runPure()
+          runPure(cancelled)
         case SResultQuestion(nothing) => nothing
       }
   }
@@ -1370,6 +1378,41 @@ private[lf] object Speedy {
         iterationsBetweenInterruptions: Long = Long.MaxValue,
     )(implicit loggingContext: LoggingContext): Either[SError, SValue] =
       fromPureSExpr(compiledPackages, expr, iterationsBetweenInterruptions).runPure()
+
+    type ClosureBlob = GenValue.Blob[SPAP]
+    type ValueWithClosure = GenValue[ClosureBlob]
+
+    @throws[PackageNotFound]
+    @throws[CompilationError]
+    // Returns a value with blackboxes
+    // Arguments cannot contain blackboxes
+    def runPureValueWithClosures(
+        f: ClosureBlob,
+        args: List[(Type, V)],
+        cancelled: () => Boolean,
+        compiledPackages: CompiledPackages,
+        iterationsBetweenInterruptions: Long = Long.MaxValue,
+    )(implicit loggingContext: LoggingContext): Either[String, ValueWithClosure] = {
+      import scalaz.syntax.traverse._
+      import scalaz.std.list._
+      import scalaz.std.either._
+      val translator = new ValueTranslator(
+        compiledPackages.pkgInterface,
+        forbidLocalContractIds = true,
+        forbidTrailingNones = false,
+      )
+      for {
+        sArgs <- args
+          .traverse { case (ty, v) => translator.translateValue(ty, v).map(SEValue(_)) }
+          .left
+          .map(err => err.getMessage)
+        sRes <- fromPureSExpr(
+          compiledPackages,
+          SEAppAtomicGeneral(SEValue(f.getContent), ArraySeq.from(sArgs)),
+          iterationsBetweenInterruptions,
+        ).runPure(cancelled).left.map(err => err.getMessage)
+      } yield sRes.toUnnormalizedValueWithClosures
+    }
 
     def tmplId2TxVersion(pkgInterface: PackageInterface, tmplId: TypeConId): SerializationVersion =
       SerializationVersion.assign(pkgInterface.packageLanguageVersion(tmplId.packageId))

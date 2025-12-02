@@ -166,7 +166,7 @@ object GenValue {
 
   // This case class exists solely to ensure that pattern matching on GenValue[X] is exhaustive when X != Nothing.
   // To be replaced, by something more usefull, in following PR
-  final case class Blob(value: Any) extends GenValue[Blob] {
+  final case class Blob[Content](value: Content) extends GenValue[Blob[Content]] {
     override def nonVerboseWithoutTrailingNones: Nothing =
       throw new UnsupportedOperationException(
         "Blob values do not support nonVerboseWithoutTrailingNones"
@@ -176,6 +176,7 @@ object GenValue {
       throw new UnsupportedOperationException(
         "Blob values do not support nonVerboseWithoutTrailingNones"
       )
+    private[lf] def getContent: Content = value
   }
 
 }
