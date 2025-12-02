@@ -75,7 +75,7 @@ genrule(
     tools = ["//bazel_tools/sh:mktar"],
 )
 
-not_for_windows_libraries = [] if is_windows else [
+os_dependent_libraries = [] if is_windows else [
     "//language-support/js/daml-types:npm_package",
     "@script_nix//:bin/script",
 ]
@@ -119,7 +119,7 @@ da_haskell_test(
         "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
         "//:yarn",
         "//compiler/damlc/tests:generate-simple-dalf",
-    ] + not_for_windows_libraries,
+    ] + os_dependent_libraries,
     # marked flaky for mvn originally; still flaky now? #14281
     flaky = False,
     hackage_deps = [
@@ -167,7 +167,7 @@ da_haskell_test(
         "//compiler/damlc/tests:generate-simple-dalf",
         "@mvn_dev_env//:mvn",
         "@tar_dev_env//:tar",
-    ] + not_for_windows_libraries,
+    ] + os_dependent_libraries,
     # I’m sure the mvn stuff will be flaky.
     flaky = True,
     hackage_deps = [
