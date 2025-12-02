@@ -11,6 +11,16 @@ import java.util.UUID
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.ledger.api.{PartyDetails, User, UserRight}
+import com.daml.ledger.api.v2.admin.package_management_service.{
+  UpdateVettedPackagesRequest,
+  VettedPackagesChange,
+  VettedPackagesRef,
+}
+import com.daml.ledger.api.v2.admin.package_management_service.VettedPackagesChange.{
+  Operation,
+  Vet,
+  Unvet,
+}
 import com.daml.ledger.api.v2.commands.Commands
 import com.daml.ledger.api.v2.commands._
 import com.daml.ledger.api.v2.event.InterfaceView
@@ -675,10 +685,28 @@ class GrpcLedgerClient(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Unit] = {
-    val adminClient = oAdminClient.getOrElse(
-      throw new IllegalArgumentException("Attempted to use unvetDar without specifying a adminPort")
-    )
-    adminClient.vetPackages(packages)
+    // TODO: check packages are now vetted
+    grpcClient.packageManagementClient
+      .updateVettedPackages(
+        UpdateVettedPackagesRequest.of(
+          Seq(
+            VettedPackagesChange.of(
+              Operation.Vet(
+                Vet(
+                  packages.map(pkg => VettedPackagesRef("", pkg.name, pkg.version.toString)),
+                  newValidFromInclusive = None,
+                  newValidUntilExclusive = None,
+                )
+              )
+            )
+          ),
+          dryRun = false,
+          synchronizerId = "",
+          expectedTopologySerial = None,
+          updateVettedPackagesForceFlags = Seq.empty,
+        )
+      )
+      .map(_ => ())
   }
 
   override def waitUntilVettingVisible(
@@ -698,10 +726,24 @@ class GrpcLedgerClient(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Unit] = {
-    val adminClient = oAdminClient.getOrElse(
-      throw new IllegalArgumentException("Attempted to use unvetDar without specifying a adminPort")
-    )
-    adminClient.unvetPackages(packages)
+    // TODO: check packages are now unvetted
+    grpcClient.packageManagementClient
+      .updateVettedPackages(
+        UpdateVettedPackagesRequest.of(
+          Seq(
+            VettedPackagesChange.of(
+              Operation.Unvet(
+                Unvet(packages.map(pkg => VettedPackagesRef("", pkg.name, pkg.version.toString)))
+              )
+            )
+          ),
+          dryRun = false,
+          synchronizerId = "",
+          expectedTopologySerial = None,
+          updateVettedPackagesForceFlags = Seq.empty,
+        )
+      )
+      .map(_ => ())
   }
 
   override def waitUntilUnvettingVisible(
