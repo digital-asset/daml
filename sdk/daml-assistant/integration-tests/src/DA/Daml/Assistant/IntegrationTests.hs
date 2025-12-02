@@ -30,7 +30,6 @@ import Test.Tasty.HUnit
 import DA.Bazel.Runfiles
 import DA.Daml.Assistant.IntegrationTestUtils
 import DA.Daml.Helper.Util (tokenFor, decodeCantonSandboxPort)
-import DA.Test.Daml2jsUtils
 import DA.Test.Process (callCommandIn, callCommandFailingIn, callCommandSilent, callCommandSilentIn, subprocessEnv)
 import DA.Test.Util
 import DA.PortFile
@@ -381,7 +380,7 @@ packagingTests tmpDir =
                         "data MyFunc = MyFunc with f : Int -> Int"
                       ]
               callCommandSilentIn (tmpDir </> "allowed-util-defs") "daml build"
-              
+
         ]
     where
         disallowedUtilityTest name dirName errName content = do
@@ -401,7 +400,7 @@ packagingTests tmpDir =
                 (_out, err) <- callCommandFailingIn (tmpDir </> dirName) "daml build"
                 assertBool ("Error not found in\n" <> err) $
                     ("No " <> errName <> " definitions permitted in forced utility packages (Module A)") `isInfixOf` err
-          
+
 
 
 -- We are trying to run as many tests with the same `daml start` process as possible to safe time.

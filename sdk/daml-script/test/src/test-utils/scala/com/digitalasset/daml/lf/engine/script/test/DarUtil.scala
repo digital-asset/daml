@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.engine.script
 package test
 
-import com.daml.bazeltools.BazelRunfiles.requiredResource
+import com.daml.bazeltools.BazelRunfiles.{exe, requiredResource}
 import com.digitalasset.daml.lf.archive.DarParser
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.language.LanguageVersion
@@ -14,7 +14,6 @@ import java.nio.file.{Files, Path, Paths}
 import scala.sys.process._
 
 object DarUtil {
-  private val exe = if (sys.props("os.name").toLowerCase.contains("windows")) ".exe" else ""
   private val damlc = requiredResource(s"compiler/damlc/damlc$exe")
 
   def dummy(): Unit = {

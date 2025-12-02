@@ -215,7 +215,7 @@ package object inner {
       constructor: String,
       identifier: Identifier,
   ): Boolean = {
-    typeWithContext.interface.typeDecls.get(identifier.qualifiedName).exists(isRecord) &&
+    typeWithContext.signature.typeDecls.get(identifier.qualifiedName).exists(isRecord) &&
     typeWithContext.identifier.qualifiedName.module == identifier.qualifiedName.module &&
     typeWithContext.identifier.qualifiedName.name.segments == identifier.qualifiedName.name.segments.init &&
     constructor == identifier.qualifiedName.name.segments.last
