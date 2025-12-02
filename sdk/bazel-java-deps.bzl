@@ -83,6 +83,7 @@ def install_java_deps():
             ),
             "com.daml:transcode-codec-proto-scala-daml3.5_3:{}".format(transcode_version),
             "com.daml:transcode-daml-lf-daml3.5_3:{}".format(transcode_version),
+            "com.digitalasset.canton:base-errors_{}:3.5.0-snapshot.20251209.17623.0.v952abbab".format(scala_major_version),
             maven.artifact(
                 group = "com.daml",
                 artifact = "transcode-schema_3",
@@ -313,6 +314,7 @@ def install_java_deps():
         },
         repositories = [
             "https://repo1.maven.org/maven2",
+            "https://europe-maven.pkg.dev/da-images/public-maven",
         ],
         # The strict_visibility attribute controls whether all artifacts should
         # be visible (including transitive dependencies), or whether only
