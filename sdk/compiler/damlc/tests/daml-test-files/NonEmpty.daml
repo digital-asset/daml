@@ -27,6 +27,7 @@ testOrd = script do
 
 testCons = script do
   cons "a" (NonEmpty "b" []) === NonEmpty "a" ["b"]
+  cons 1 (NonEmpty 2 [3, 4]) === 1 <| 2 :| [3, 4]
 
 testFind = script do
   find (== 1) (NonEmpty 0 []) === None
@@ -47,7 +48,6 @@ testDelete = script do
   delete 1 (NonEmpty 0 [2, 1]) === [0, 2]
   delete 1 (NonEmpty 0 [1, 2, 1]) === [0, 2, 1]
 
-
 testDeleteBy = script do
     deleteBy eq 1 (NonEmpty 0 []) === [0]
     deleteBy eq 1 (NonEmpty 1 []) === []
@@ -55,3 +55,7 @@ testDeleteBy = script do
   where
     -- Get dlint to stop complaining.
     eq = (==)
+
+testShow = script do
+  show (NonEmpty 1 []) === "1 :| []"
+  show (NonEmpty "a" ["b", "c"]) === "\"a\" :| [\"b\",\"c\"]"
