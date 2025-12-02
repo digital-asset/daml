@@ -155,8 +155,13 @@ parsed as ``x + (y * z)``. Operator precedence is expressed as a number, where a
 higher number indicates a higher precedense. Operators of same precidence are
 associated to the right (e.g. ``x + y - z`` is parsed as ``(x + y) - z``.
 
-This gives us the following associativity and precedence table of Damls built-in
-operators:
+The fixity and precedence is declared using the ``infixl``, ``infix``, and
+``infixr`` (denoting left-, non-, and right-associativity, respectfully)
+keywords that take an integer between 0 and 9 inclusive and an operator the
+fixity applies to. For example, ``infixl 6 +`` declares ``+`` as a
+``left-associative`` operator with precedence ``6``. These keywords can be used
+for user-defined operators as well. As for built-ins, the following table shows
+the fixity and precedence of of Damls built-in operators:
 
 +------------+-----------------------------------------------+---------------------------------------------------------+--------------------+
 | Precedence | Left-associative                              | Non-associative                                         | Right-associative  |
@@ -172,7 +177,6 @@ operators:
 | 1          | |>>|, |>>=|                                   |                                                         |                    |
 | 0          |                                               |                                                         | |$|, |$!|, |`seq`| |
 +------------+-----------------------------------------------+---------------------------------------------------------+--------------------+
-
 
 Type constraints
 ................
