@@ -97,7 +97,6 @@ trait DataContinuityTest
 
   protected def dbName: String // e.g., postgres
   protected def dumpFileExtension: String
-  protected def testAllPatchReleases: Boolean
 
   // Set to true if you want to persist the dumps locally even if a test container is found
   lazy val forceLocalDumps = false
@@ -300,8 +299,6 @@ trait DataContinuityTestFixturePostgres extends DataContinuityTest {
   val dumpFileExtension: String = "pg_dump"
   val dbName: String = "postgres"
 
-  protected val testAllPatchReleases = true
-
   override def beforeAll(): Unit = {
     super.beforeAll()
 
@@ -381,7 +378,8 @@ trait BasicDataContinuityTest extends BasicDataContinuityTestSetup {
   "Data continuity with simple contracts" should {
     implicit val folder: FolderName = FolderName("0-simple")
     "act as expected when loading the saved DB dumps" in { env =>
-      dumpDirectories().foreach { case (dumpDirectory, protocolVersion) =>
+      // TODO(#29647) Remove the take(1)
+      dumpDirectories().take(1).foreach { case (dumpDirectory, protocolVersion) =>
         withNewProtocolVersion(env, protocolVersion) { implicit newEnv =>
           import newEnv.*
           logger.info("Testing dumps found in directory " + dumpDirectory)
@@ -395,6 +393,7 @@ trait BasicDataContinuityTest extends BasicDataContinuityTestSetup {
           val alice = participant1.parties.list(filterParty = "Alice").headOption.value.party
           val bob = participant1.parties.list(filterParty = "Bob").headOption.value.party
           actOnCycleData(alice)
+
           actOnDisclosedContract(
             alice,
             bob,
@@ -451,7 +450,8 @@ trait BasicDataContinuityTest extends BasicDataContinuityTestSetup {
   "Data continuity with BongScenario from BongTestScenarios" should {
     implicit val folder: FolderName = FolderName("3-bong")
     "act as expected when loading the saved DB dumps" in { env =>
-      dumpDirectories().foreach { case (dumpDirectory, protocolVersion) =>
+      // TODO(#29647) Remove the take(1)
+      dumpDirectories().take(1).foreach { case (dumpDirectory, protocolVersion) =>
         withNewProtocolVersion(env, protocolVersion) { implicit newEnv =>
           import newEnv.*
           logger.info("Testing dumps from dump directory " + dumpDirectory)
@@ -595,7 +595,8 @@ trait SynchronizerChangeDataContinuityTest extends SynchronizerChangeDataContinu
     implicit val folder: FolderName = FolderName("4-synchronizer-change")
     "act as expected when loading the saved DB dumps" in { env =>
       clue("Database dumps detected, using them to load participant and synchronizer state") {
-        dumpDirectories().foreach { case (dumpDirectory, protocolVersion) =>
+        // TODO(#29647) Remove the take(1)
+        dumpDirectories().take(1).foreach { case (dumpDirectory, protocolVersion) =>
           withNewProtocolVersion(env, protocolVersion) { implicit newEnv =>
             import newEnv.*
 

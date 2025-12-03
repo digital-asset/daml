@@ -12,6 +12,8 @@ import com.digitalasset.canton.crypto.provider.jce.{JceJavaKeyConverter, JceSecu
 import com.digitalasset.canton.util.{EitherUtil, ErrorUtil}
 import com.google.common.annotations.VisibleForTesting
 import com.google.crypto.tink.internal.EllipticCurvesUtil
+import com.google.protobuf.ByteString
+import org.bouncycastle.jcajce.provider.asymmetric.edec.{BCEdDSAPrivateKey, BCEdDSAPublicKey}
 import org.bouncycastle.math.ec.rfc8032.Ed25519.{SECRET_KEY_SIZE, validatePublicKeyFull}
 
 import java.math.BigInteger
@@ -107,11 +109,18 @@ object CryptoKeyValidation {
     * the key is encoded using the DER-encoded PKCS#8 structure.
     */
   private def validateEd25519PrivateKey(
-      privateKey: PrivateKey
+      privateKey: JPrivateKey
   ): Either[KeyParseAndValidateError, Unit] =
     for {
+      edPrivateKey <- privateKey match {
+        case k: BCEdDSAPrivateKey => Right(k)
+        case _ =>
+          Left(KeyParseAndValidateError(s"Private key is not an ED25519 private key"))
+      }
       // Extract raw 32-byte Ed25519 private key from PKCS #8 PKI
-      rawPrivateKey <- CryptoKeyFormat.extractPrivateKeyFromPkcs8Pki(privateKey.key)
+      rawPrivateKey <- CryptoKeyFormat.extractPrivateKeyFromPkcs8Pki(
+        ByteString.copyFrom(edPrivateKey.getEncoded)
+      )
       _ <- EitherUtil.condUnit(
         rawPrivateKey.length == SECRET_KEY_SIZE,
         KeyParseAndValidateError(
@@ -126,11 +135,18 @@ object CryptoKeyValidation {
     * SubjectPublicKeyInfo (SPKI) format.
     */
   private def validateEd25519PublicKey(
-      pubKey: PublicKey
+      pubKey: JPublicKey
   ): Either[KeyParseAndValidateError, Unit] =
     for {
+      edPublicKey <- pubKey match {
+        case k: BCEdDSAPublicKey => Right(k)
+        case _ =>
+          Left(KeyParseAndValidateError(s"Public key is not an ED25519 public key"))
+      }
       // Extract raw 32-byte Ed25519 public key from DER-encoded SPKI
-      rawKeyBytes <- CryptoKeyFormat.extractPublicKeyFromX509Spki(pubKey.key)
+      rawKeyBytes <- CryptoKeyFormat.extractPublicKeyFromX509Spki(
+        ByteString.copyFrom(edPublicKey.getEncoded)
+      )
       _ <- Either
         .catchOnly[GeneralSecurityException] {
           validatePublicKeyFull(rawKeyBytes, 0)
@@ -327,7 +343,7 @@ object CryptoKeyValidation {
               }
             case signKey: SigningPrivateKey =>
               signKey.keySpec match {
-                case SigningKeySpec.EcCurve25519 => validateEd25519PrivateKey(privateKey)
+                case SigningKeySpec.EcCurve25519 => validateEd25519PrivateKey(jKey)
                 case ks: EcKeySpec => validateEcPrivateKey(jKey, ks)
               }
             case _ => Left(KeyParseAndValidateError("Unknown key type"))
@@ -383,7 +399,7 @@ object CryptoKeyValidation {
               }
             case signKey: SigningPublicKey =>
               signKey.keySpec match {
-                case SigningKeySpec.EcCurve25519 => validateEd25519PublicKey(publicKey)
+                case SigningKeySpec.EcCurve25519 => validateEd25519PublicKey(jKey)
                 case ks: EcKeySpec => validateEcPublicKey(jKey, ks)
               }
             case _ => Left(KeyParseAndValidateError("Unknown key type"))

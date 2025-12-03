@@ -91,9 +91,6 @@ object ReleaseUtils {
         .map(TestedRelease(releaseVersion, _))
     }
 
-  lazy val reducedScopeOfPreviousSupportedStableReleases: List[TestedRelease] =
-    reduceToLatestSupportedStablesReleases(previousSupportedStableReleases)
-
   private def reduceToLatestSupportedStablesReleases(releases: List[TestedRelease]) =
     releases.sortBy(_.releaseVersion).foldLeft(List.empty[TestedRelease]) {
       case (one :: rest, item)

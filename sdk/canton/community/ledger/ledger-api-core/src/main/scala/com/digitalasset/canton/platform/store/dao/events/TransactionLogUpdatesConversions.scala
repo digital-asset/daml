@@ -469,6 +469,16 @@ private[events] object TransactionLogUpdatesConversions {
       loggingContext: LoggingContextWithTrace,
       executionContext: ExecutionContext,
   ): Future[apiEvent.CreatedEvent] = {
+    val keyOpt = createdEvent.contractKey
+      .zip(createdEvent.createKeyMaintainers)
+      .map { case (keyVersionedValue, maintainers) =>
+        GlobalKeyWithMaintainers.assertBuild(
+          templateId = createdEvent.templateId,
+          value = keyVersionedValue.unversioned,
+          maintainers = maintainers,
+          packageName = createdEvent.packageName,
+        )
+      }
     val createNode = Node.Create(
       coid = createdEvent.contractId,
       templateId = createdEvent.templateId,
@@ -476,9 +486,7 @@ private[events] object TransactionLogUpdatesConversions {
       arg = createdEvent.createArgument.unversioned,
       signatories = createdEvent.createSignatories,
       stakeholders = createdEvent.createSignatories ++ createdEvent.createObservers,
-      keyOpt = createdEvent.createKey.flatMap(k =>
-        createdEvent.createKeyMaintainers.map(GlobalKeyWithMaintainers(k, _))
-      ),
+      keyOpt = keyOpt,
       version = createdEvent.createArgument.version,
     )
     createdToApiCreatedEvent(

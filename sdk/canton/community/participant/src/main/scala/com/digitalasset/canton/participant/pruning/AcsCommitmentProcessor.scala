@@ -826,7 +826,7 @@ class AcsCommitmentProcessor private (
               _ = logger.info(
                 s"Computed and stored ${msgs.size} commitment messages for period $completedPeriod"
               )
-              _ <- MarkOutstandingIfNonEmpty(completedPeriod, msgs.keySet)
+              _ <- markOutstandingIfNonEmpty(completedPeriod, msgs.keySet)
               _ <- persistRunningCommitments(
                 snapshotRes,
                 UpdateMode.Efficiency,
@@ -2182,7 +2182,7 @@ class AcsCommitmentProcessor private (
   /** takes a period and set of participants, handles splitting and conversion to NonEmpty does
     * nothing if the period is non-valid or the participant set is empty.
     */
-  private def MarkOutstandingIfNonEmpty(
+  private def markOutstandingIfNonEmpty(
       completedPeriod: CommitmentPeriod,
       participants: Set[ParticipantId],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
