@@ -46,22 +46,9 @@ jobs:
         }
 
         if changes_release_files; then
-            if changes_one_line_in_latest; then
-                setvar is_release true
-                setvar trigger_sha $(branch_sha)
-                setvar release_sha "$(added_line | awk '{print $1}')"
-                RELEASE_TAG="$(added_line | awk '{print $2}')"
-                if [ "$(added_line | awk '{print $3}')" == "SPLIT_RELEASE" ]; then
-                  setvar split_release_process true
-                else
-                  setvar split_release_process false
-                fi
-            else
-                echo "Not a release commit despite changes to LATEST."
-                setvar split_release_process false
-                setvar is_release false
-                RELEASE_TAG="0.0.0"
-            fi
+            # TODO: remove after the repo reshuffle is complete
+            echo "ERROR: Changes to the LATEST file are only allowed on the release-trigger branch."
+            exit 1
         else
             RELEASE_TAG="0.0.0"
             setvar is_release false
