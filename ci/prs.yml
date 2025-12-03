@@ -10,6 +10,7 @@ pr:
       - main
       - main-2.x
       - release/*
+      - release-trigger
 
 jobs:
 - template: build.yml
