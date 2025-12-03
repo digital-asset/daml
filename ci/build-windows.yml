@@ -107,12 +107,12 @@ steps:
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
-                   in(variables['Build.SourceBranchName'], 'main', 'main-2.x', 'release-trigger'))
+                   in(variables['Build.SourceBranchName'], 'main', 'main-2.x'))
 
   - task: PublishPipelineArtifact@0
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
-                   in(variables['Build.SourceBranchName'], 'main', 'main-2.x', 'release-trigger'))
+                   in(variables['Build.SourceBranchName'], 'main', 'main-2.x'))
     inputs:
       targetPath: $(Build.StagingDirectory)/release
       artifactName: windows-release
