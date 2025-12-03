@@ -114,9 +114,9 @@ If we want to partially apply an infix operation we can also do that as follows:
   :start-after: -- INFIX2_BEGIN
   :end-before: -- INFIX2_END
 
-<!-- .. note:: -->
+.. note::
 
-<!--   While function application is left associative by default, infix operators can be declared left or right associative and given a precedence. Good examples are the boolean operations ``&&`` and ``||``, which are declared right associative with precedences 3 and 2, respectively. This allows you to write ``True || True && False`` and get value ``True``. See section 4.4.2 of `the Haskell 98 report <https://www.haskell.org/onlinereport/decls.html>`_ for more on fixities. -->
+  While function application is left associative by default, infix operators can be declared left or right associative and given a precedence. Good examples are the boolean operations ``&&`` and ``||``, which are declared right associative with precedences 3 and 2, respectively. This allows you to write ``True || True && False`` and get value ``True``. See section 4.4.2 of `the Haskell 98 report <https://www.haskell.org/onlinereport/decls.html>`_ for more on fixities.
 
 Associativity and Precedence
 ............................
@@ -163,20 +163,22 @@ fixity applies to. For example, ``infixl 6 +`` declares ``+`` as a
 for user-defined operators as well. As for built-ins, the following table shows
 the fixity and precedence of of Damls built-in operators:
 
-+------------+-----------------------------------------------+---------------------------------------------------------+--------------------+
-| Precedence | Left-associative                              | Non-associative                                         | Right-associative  |
-+============+===============================================+=========================================================+====================+
-| 9          | |!!|                                          |                                                         | |.|                |
-| 8          |                                               |                                                         | |^|, |^^|, |**|    |
-| 7          | |*|, |/|, |`div`|, |`mod`|, |`rem`|, |`quot`| |                                                         |                    |
-| 6          | |+|, |-|                                      |                                                         |                    |
-| 5          |                                               |                                                         | |:|, |++|          |
-| 4          |                                               | |==|, |/=|, |<|, |<=|, |>|, |>=|, |`elem`|, |`notElem`| | |&&|               |
-| 3          |                                               |                                                         | ``||``             |
-| 2          |                                               |                                                         |                    |
-| 1          | |>>|, |>>=|                                   |                                                         |                    |
-| 0          |                                               |                                                         | |$|, |$!|, |`seq`| |
-+------------+-----------------------------------------------+---------------------------------------------------------+--------------------+
+==========  =========================================================  =======================================================================  ========================
+Precedence  Left-associative                                           Non-associative                                                          Right-associative
+==========  =========================================================  =======================================================================  ========================
+9           ```!``                                                                                                                              ``.``
+8                                                                                                                                               ``^``, ``^^``, ``**``
+7           ``*``, ``/``, ```div```, ```mod```, ```rem```, ```quot```
+6           ``+``, ``-``
+5                                                                                                                                               ``:``, ``++``
+4                                                                      ``==``, ``/=``, ``<``, ``<=``, ``>``, ``>=``, ```elem```, ```notElem```
+3                                                                                                                                               ``&&``
+2                                                                                                                                               ``||``
+1           ``>>``, ``>>=``
+0                                                                                                                                               ``$``, ``$!``, ```seq```
+==========  =========================================================  =======================================================================  ========================
+
+
 
 Type constraints
 ................
@@ -192,10 +194,7 @@ Unlike interfaces, typeclasses can have multiple type parameters. A good example
   exercise : (Template t, Choice t c r) => ContractId t -> c -> Update r
 
 Let's turn this into prose: Given that ``t`` is the type of a template, and that ``t`` has a choice ``c`` with return type ``r``, the ``exercise`` function maps a ``ContractId`` for a contract of type ``t`` to a function that takes the choice arguments of type ``c`` and returns an ``Update`` resulting in type ``r``.
-
-That's quite a mouthful, and does require one to know what *meaning* the typeclass ``Choice`` gives to parameters ``t`` ``c`` and ``r``, but in many cases, that's obvious from the context or names of typeclasses and variables.
-
-Using single letters, while common, is not mandatory. The above may be made a little bit clearer by expanding the type parameter names, at the cost of making the code a bit longer:
+That's quite a mouthful, and does require one to know what *meaning* the typeclass ``Choice`` gives to parameters ``t`` ``c`` and ``r``, but in many cases, that's obvious from the context or names of typeclasses and variables. Using single letters, while common, is not mandatory. The above may be made a little bit clearer by expanding the type parameter names, at the cost of making the code a bit longer:
 
 .. code-block:: daml
 

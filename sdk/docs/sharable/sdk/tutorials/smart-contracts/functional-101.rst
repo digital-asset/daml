@@ -93,7 +93,7 @@ So if we have a function ``f : a -> b -> c -> d`` and a value ``valA : a``, we g
 Infix functions
 ...............
 
-Now ``add`` is clearly just an alias for ``+``, but what is ``+``? ``+`` is just a function. It's only special because it starts with a symbol. Functions that start with a symbol are *infix* by default which means they can be written between two arguments. That's why we can write ``1 + 2`` rather than ``+ 1 2``. The rules for converting between normal and infix functions are simple. Wrap an infix function in parentheses to use it as a normal function, and wrap a normal function in backticks to make it infix:
+Now ``add`` is clearly just an alias for ``+``, but what is ``+``? ``+`` is just a function. It's only special because it starts with a symbol. Functions that start with a symbol are *infix* by default which means they can be written between two arguments. That's why we can write ``1 + 2`` rather than ``+ 1 2``. The rules for converting between normal and infix functions are simple. Wrap an infix function in parentheses to use it as a normal function (e.g. *prefix*), and wrap a normal function in backticks to make it infix:
 
 .. literalinclude:: daml/daml-intro-functional-101/daml/Main.daml
   :language: daml
@@ -118,6 +118,68 @@ If we want to partially apply an infix operation we can also do that as follows:
 
   While function application is left associative by default, infix operators can be declared left or right associative and given a precedence. Good examples are the boolean operations ``&&`` and ``||``, which are declared right associative with precedences 3 and 2, respectively. This allows you to write ``True || True && False`` and get value ``True``. See section 4.4.2 of `the Haskell 98 report <https://www.haskell.org/onlinereport/decls.html>`_ for more on fixities.
 
+Associativity and Precedence
+............................
+
+With normal, *prefix* operators (e.g. functions), the semantics of ``f g h`` is
+clear: ``f`` is a function that takes ``g`` and ``h`` as parameters. If we want
+``f`` to take the result of applying ``g`` to ``h`` we write ``f (g h)``.
+
+In the case of *infix* operators, it is less clear. What does ``x - y - z``
+mean? Subtracting ``x`` from ``y`` first (i.e. ``(x - y) - z``) generally yields
+different results than subtracting ``z`` from ``y`` first (i.e. `x - (y - z)`).
+In Daml, the subraction operator ``-`` is defined as a *left-assocative*
+operator. That is, when we write ``x - y - z - ...`` we associate *to the left*,
+i.e. ``((x - y) - z) - ...``.
+
+Some operators are *right-associative*. We have already encountered one:
+function application! A function signature of ``a -> b -> c -> ...`` is parsed
+as ``(a -> (b -> c)) -> ...``.
+
+Finally, some operators are non-associative. A good example are comparisson
+oparetors (e.g. `a == b == c`, ``a > b > c``). This means any ambiguous usage of
+these operators results in a **parse error**.
+
+.. note::
+
+  Non-associative operators are not to be confused with operators that are both
+  left- *and* right-associative, such as ``+`` (since ``(x + y) + z = x + (y + z))``). 
+  To obtain a deterministic parser, these operators can be declared either as
+  left or right associative. In Daml the ``+`` operator has been declared as
+  left-associative
+  
+The *precedence* of operators defines, when combinding different operators,
+which operator is processed first. For example, in general (and in Daml),
+multiplication *takes precedence* over addition, that is, ``x + y * z`` is
+parsed as ``x + (y * z)``. Operator precedence is expressed as a number, where a
+higher number indicates a higher precedense. Operators of same precidence are
+associated to the right (e.g. ``x + y - z`` is parsed as ``(x + y) - z``.
+
+The fixity and precedence is declared using the ``infixl``, ``infix``, and
+``infixr`` (denoting left-, non-, and right-associativity, respectfully)
+keywords that take an integer between 0 and 9 inclusive and an operator the
+fixity applies to. For example, ``infixl 6 +`` declares ``+`` as a
+``left-associative`` operator with precedence ``6``. These keywords can be used
+for user-defined operators as well. As for built-ins, the following table shows
+the fixity and precedence of of Damls built-in operators:
+
+==========  =========================================================  =======================================================================  ========================
+Precedence  Left-associative                                           Non-associative                                                          Right-associative
+==========  =========================================================  =======================================================================  ========================
+9           ```!``                                                                                                                              ``.``
+8                                                                                                                                               ``^``, ``^^``, ``**``
+7           ``*``, ``/``, ```div```, ```mod```, ```rem```, ```quot```
+6           ``+``, ``-``
+5                                                                                                                                               ``:``, ``++``
+4                                                                      ``==``, ``/=``, ``<``, ``<=``, ``>``, ``>=``, ```elem```, ```notElem```
+3                                                                                                                                               ``&&``
+2                                                                                                                                               ``||``
+1           ``>>``, ``>>=``
+0                                                                                                                                               ``$``, ``$!``, ```seq```
+==========  =========================================================  =======================================================================  ========================
+
+
+
 Type constraints
 ................
 
@@ -132,10 +194,7 @@ Unlike interfaces, typeclasses can have multiple type parameters. A good example
   exercise : (Template t, Choice t c r) => ContractId t -> c -> Update r
 
 Let's turn this into prose: Given that ``t`` is the type of a template, and that ``t`` has a choice ``c`` with return type ``r``, the ``exercise`` function maps a ``ContractId`` for a contract of type ``t`` to a function that takes the choice arguments of type ``c`` and returns an ``Update`` resulting in type ``r``.
-
-That's quite a mouthful, and does require one to know what *meaning* the typeclass ``Choice`` gives to parameters ``t`` ``c`` and ``r``, but in many cases, that's obvious from the context or names of typeclasses and variables.
-
-Using single letters, while common, is not mandatory. The above may be made a little bit clearer by expanding the type parameter names, at the cost of making the code a bit longer:
+That's quite a mouthful, and does require one to know what *meaning* the typeclass ``Choice`` gives to parameters ``t`` ``c`` and ``r``, but in many cases, that's obvious from the context or names of typeclasses and variables. Using single letters, while common, is not mandatory. The above may be made a little bit clearer by expanding the type parameter names, at the cost of making the code a bit longer:
 
 .. code-block:: daml
 
