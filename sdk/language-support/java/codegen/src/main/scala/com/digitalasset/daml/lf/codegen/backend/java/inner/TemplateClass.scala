@@ -8,13 +8,7 @@ import ClassGenUtils.{companionFieldName, generateGetCompanion, templateIdFieldN
 import com.digitalasset.daml.lf.codegen.TypeWithContext
 import com.digitalasset.daml.lf.data.Ref
 import Ref.ChoiceName
-import com.daml.ledger.javaapi.data.codegen.{
-  Choice,
-  Created,
-  Exercised,
-  Update,
-  ContractTypeCompanion,
-}
+import com.daml.ledger.javaapi.data.codegen.{Choice, Created, Update, ContractTypeCompanion}
 import com.digitalasset.daml.lf.codegen.backend.java.inner.ToValueGenerator.generateToValueConverter
 import com.digitalasset.daml.lf.typesig
 import typesig._
@@ -107,7 +101,6 @@ private[inner] object TemplateClass extends StrictLogging {
   private val updateClassName = ClassName get classOf[Update[_]]
   private val createUpdateClassName = ClassName get classOf[Update.CreateUpdate[_, _]]
   private val createdClassName = ClassName get classOf[Created[_]]
-  private val exercisedClassName = ClassName get classOf[Exercised[_]]
   private def parameterizedTypeName(raw: ClassName, arg: TypeName*) =
     ParameterizedTypeName.get(raw, arg: _*)
 
