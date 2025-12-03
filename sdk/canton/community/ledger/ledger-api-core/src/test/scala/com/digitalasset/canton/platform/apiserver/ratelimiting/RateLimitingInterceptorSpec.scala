@@ -43,6 +43,7 @@ import java.io.IOException
 import java.lang.management.*
 import java.net.{InetAddress, InetSocketAddress}
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
+import scala.annotation.nowarn
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Future, Promise}
 
@@ -102,6 +103,7 @@ final class RateLimitingInterceptorSpec
       .meter(MetricRegistry.name(metrics.daml.lapi.threadpool.apiServices, "submitted"))
       .mark(config.maxApiServicesQueueSize.toLong + 1) // Over limit
 
+    @nowarn("cat=deprecation")
     val protoService = ProtoReflectionService.newInstance()
 
     withChannel(metrics, protoService, config).use { channel =>

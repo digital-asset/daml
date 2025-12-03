@@ -1,8 +1,8 @@
-sdk-version: 2.10.2-snapshot.20250710.13186.3.v5f60a768
+sdk-version: 2.10.3-snapshot.20251127.13192.0.v740ebeac
 name: bank
 source: Bank.daml
 init-script: Bank:setup
-version: 2.10.2
+version: 2.10.3
 dependencies: 
 - daml-prim
 - daml-stdlib

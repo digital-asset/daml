@@ -61,6 +61,7 @@ import io.grpc.protobuf.services.ProtoReflectionService
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.Materializer
 
+import scala.annotation.nowarn
 import scala.collection.immutable
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
@@ -274,6 +275,7 @@ object ApiServices {
           checkOverloaded,
         )
 
+      @nowarn("cat=deprecation")
       val apiReflectionService = ProtoReflectionService.newInstance()
 
       val apiHealthService = new GrpcHealthService(healthChecks, telemetry, loggerFactory)

@@ -72,6 +72,7 @@ import org.slf4j.event.Level
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import java.util.concurrent.{Executors, ScheduledExecutorService}
+import scala.annotation.nowarn
 import scala.concurrent.duration.*
 import scala.concurrent.{Future, blocking}
 
@@ -220,6 +221,7 @@ abstract class CantonNodeBootstrapBase[
 
     val registry = builder.mutableHandlerRegistry()
 
+    @nowarn("cat=deprecation")
     val server = builder
       .addService(
         StatusServiceGrpc.bindService(

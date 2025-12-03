@@ -13,7 +13,12 @@ import com.digitalasset.canton.*
 import com.digitalasset.canton.common.domain.SequencerConnectClient
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader.SequencerAggregatedInfo
 import com.digitalasset.canton.concurrent.HasFutureSupervision
-import com.digitalasset.canton.config.{CryptoConfig, ProcessingTimeout, TestingConfigInternal}
+import com.digitalasset.canton.config.{
+  CryptoConfig,
+  NonNegativeFiniteDuration as NonNegativeFiniteDurationConfig,
+  ProcessingTimeout,
+  TestingConfigInternal,
+}
 import com.digitalasset.canton.crypto.{CryptoHandshakeValidator, SyncCryptoApiProvider}
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLogging}
@@ -33,7 +38,7 @@ import com.digitalasset.canton.participant.topology.{
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.sequencing.SequencerConnection
 import com.digitalasset.canton.sequencing.client.*
-import com.digitalasset.canton.time.Clock
+import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
 import com.digitalasset.canton.topology.store.PackageDependencyResolverUS
@@ -153,16 +158,31 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
       )
 
       sequencerClientFactory = {
+        def logOverrideFromDomainConnectionParameter(
+            name: String,
+            nodeParameter: NonNegativeFiniteDurationConfig,
+            domainConnectionParameter: Option[NonNegativeFiniteDuration],
+        ): NonNegativeFiniteDurationConfig = domainConnectionParameter match {
+          case None => nodeParameter
+          case Some(timeout) =>
+            logger.info(
+              s"Setting the parameter \"$name=$timeout\", overriding the value from the config $nodeParameter"
+            )
+            timeout.toConfig
+        }
+
         // apply optional domain specific overrides to the nodes general sequencer client config
         val sequencerClientConfig = participantNodeParameters.sequencerClient.copy(
-          initialConnectionRetryDelay = config.initialRetryDelay
-            .map(_.toConfig)
-            .getOrElse(participantNodeParameters.sequencerClient.initialConnectionRetryDelay),
-          maxConnectionRetryDelay = config.maxRetryDelay
-            .map(_.toConfig)
-            .getOrElse(
-              participantNodeParameters.sequencerClient.maxConnectionRetryDelay
-            ),
+          initialConnectionRetryDelay = logOverrideFromDomainConnectionParameter(
+            "initialConnectionRetryDelay",
+            participantNodeParameters.sequencerClient.initialConnectionRetryDelay,
+            config.initialRetryDelay,
+          ),
+          maxConnectionRetryDelay = logOverrideFromDomainConnectionParameter(
+            "maxConnectionRetryDelay",
+            participantNodeParameters.sequencerClient.maxConnectionRetryDelay,
+            config.maxRetryDelay,
+          ),
         )
 
         // Yields a unique path inside the given directory for record/replay purposes.

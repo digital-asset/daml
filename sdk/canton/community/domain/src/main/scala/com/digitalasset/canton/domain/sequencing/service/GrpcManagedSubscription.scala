@@ -53,7 +53,7 @@ private[service] class GrpcManagedSubscription[T](
     override protected val timeouts: ProcessingTimeout,
     baseLoggerFactory: NamedLoggerFactory,
     toSubscriptionResponse: OrdinarySerializedEvent => T,
-)(implicit ec: ExecutionContext)
+)(implicit ec: ExecutionContext, traceContext: TraceContext)
     extends ManagedSubscription
     with NamedLogging {
 
@@ -84,7 +84,10 @@ private[service] class GrpcManagedSubscription[T](
 
   // if the underlying grpc call is cancelled then close the subscription
   // as the underlying channel is cancelled we can no longer send a response
-  observer.setOnCancelHandler(() => signalAndClose(NoSignal))
+  observer.setOnCancelHandler { () =>
+    logger.info(s"Subscription cancelled by client $member.")
+    signalAndClose(NoSignal)
+  }
 
   private val handler: SerializedEventOrErrorHandler[SequencedEventError] = {
     case Right(event) =>

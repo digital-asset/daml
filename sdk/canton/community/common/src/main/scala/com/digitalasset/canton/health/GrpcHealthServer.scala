@@ -31,6 +31,8 @@ class GrpcHealthServer(
     healthManager: io.grpc.protobuf.services.HealthStatusManager,
 ) extends NamedLogging
     with FlagCloseable {
+
+  @nowarn("cat=deprecation")
   private val server = CantonServerBuilder
     .forConfig(
       config,
