@@ -912,7 +912,6 @@ object InMemoryStateUpdaterSpec {
       createSignatories = createdNode.signatories,
       createObservers = createdNode.stakeholders.diff(createdNode.signatories),
       createKeyHash = createdNode.keyOpt.map(_.globalKey.hash),
-      createKey = createdNode.keyOpt.map(_.globalKey),
       createKeyMaintainers = createdNode.keyOpt.map(_.maintainers),
       authenticationData = someContractMetadataBytes,
       representativePackageId = representativePackageId,

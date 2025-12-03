@@ -184,7 +184,7 @@ class MajorUpgradeSimpleWriterIntegrationTest
  *
  * Read side is reading the data and acting on it.
  */
-class MajorUpgradeSimpleReaderIntegrationTest
+final class MajorUpgradeSimpleReaderIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment
     with EntitySyntax

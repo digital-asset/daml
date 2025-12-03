@@ -16,7 +16,7 @@ class BasicDataContinuityTestPostgres_1
     with DataContinuityTestFixturePostgres {
   registerPlugin(plugin)
   override def dumpDirectories(): List[(ContinuityDumpRef, ProtocolVersion)] =
-    SplitReleaseVersion.split(S3Dump.getDumpDirectories(testAllPatchReleases)).first
+    SplitReleaseVersion.split(S3Dump.getDumpDirectories()).first
 }
 
 class BasicDataContinuityTestPostgres_2
@@ -25,7 +25,7 @@ class BasicDataContinuityTestPostgres_2
   registerPlugin(plugin)
 
   override def dumpDirectories(): List[(ContinuityDumpRef, ProtocolVersion)] =
-    SplitReleaseVersion.split(S3Dump.getDumpDirectories(testAllPatchReleases)).second
+    SplitReleaseVersion.split(S3Dump.getDumpDirectories()).second
 }
 
 class BasicDataContinuityTestPostgres_3
@@ -34,7 +34,7 @@ class BasicDataContinuityTestPostgres_3
   registerPlugin(plugin)
 
   override def dumpDirectories(): List[(ContinuityDumpRef, ProtocolVersion)] =
-    SplitReleaseVersion.split(S3Dump.getDumpDirectories(testAllPatchReleases)).third
+    SplitReleaseVersion.split(S3Dump.getDumpDirectories()).third
 }
 
 class BasicDataContinuityTestPostgres_4
@@ -43,7 +43,7 @@ class BasicDataContinuityTestPostgres_4
   registerPlugin(plugin)
 
   override def dumpDirectories(): List[(ContinuityDumpRef, ProtocolVersion)] =
-    SplitReleaseVersion.split(S3Dump.getDumpDirectories(testAllPatchReleases)).fourth
+    SplitReleaseVersion.split(S3Dump.getDumpDirectories()).fourth
 }
 
 class SynchronizerChangeDataContinuityTestPostgres_1
@@ -51,7 +51,7 @@ class SynchronizerChangeDataContinuityTestPostgres_1
     with DataContinuityTestFixturePostgres {
   registerPlugin(plugin)
   override def dumpDirectories(): List[(ContinuityDumpRef, ProtocolVersion)] =
-    SplitReleaseVersion.split(S3Dump.getDumpDirectories(testAllPatchReleases)).first
+    SplitReleaseVersion.split(S3Dump.getDumpDirectories()).first
 }
 
 class SynchronizerChangeDataContinuityTestPostgres_2
@@ -59,7 +59,7 @@ class SynchronizerChangeDataContinuityTestPostgres_2
     with DataContinuityTestFixturePostgres {
   registerPlugin(plugin)
   override def dumpDirectories(): List[(ContinuityDumpRef, ProtocolVersion)] =
-    SplitReleaseVersion.split(S3Dump.getDumpDirectories(testAllPatchReleases)).second
+    SplitReleaseVersion.split(S3Dump.getDumpDirectories()).second
 }
 
 class SynchronizerChangeDataContinuityTestPostgres_3
@@ -68,7 +68,7 @@ class SynchronizerChangeDataContinuityTestPostgres_3
   registerPlugin(plugin)
 
   override def dumpDirectories(): List[(ContinuityDumpRef, ProtocolVersion)] =
-    SplitReleaseVersion.split(S3Dump.getDumpDirectories(testAllPatchReleases)).third
+    SplitReleaseVersion.split(S3Dump.getDumpDirectories()).third
 }
 
 class SynchronizerChangeDataContinuityTestPostgres_4
@@ -76,7 +76,7 @@ class SynchronizerChangeDataContinuityTestPostgres_4
     with DataContinuityTestFixturePostgres {
   registerPlugin(plugin)
   override def dumpDirectories(): List[(ContinuityDumpRef, ProtocolVersion)] =
-    SplitReleaseVersion.split(S3Dump.getDumpDirectories(testAllPatchReleases)).fourth
+    SplitReleaseVersion.split(S3Dump.getDumpDirectories()).fourth
 }
 
 // If you want locally to run the test on all the folders, uncomment this class
@@ -87,8 +87,9 @@ class BasicDataContinuityTestPostgres_all
   override def dumpDirectories(): List[(ContinuityDumpRef, ProtocolVersion)] =
     // In order to load dumps produced locally by a previous local run of
     // CreateBasicDataContinuityDumpsPostgres_all, replace S3Dump with LocalDump.
-    S3Dump.getDumpDirectories(testAllPatchReleases)
+    S3Dump.getDumpDirectories()
 }
+
 class SynchronizerChangeDataContinuityTestPostgres_all
     extends SynchronizerChangeDataContinuityTest
     with DataContinuityTestFixturePostgres {
@@ -96,7 +97,7 @@ class SynchronizerChangeDataContinuityTestPostgres_all
   override def dumpDirectories(): List[(ContinuityDumpRef, ProtocolVersion)] =
     // In order to load dumps produced locally by a previous local run of
     // CreateSynchronizerChangeDataContinuityDumpsPostgres_all, replace S3Dump with LocalDump.
-    S3Dump.getDumpDirectories(testAllPatchReleases)
+    S3Dump.getDumpDirectories()
 }
 
 object SplitReleaseVersion {

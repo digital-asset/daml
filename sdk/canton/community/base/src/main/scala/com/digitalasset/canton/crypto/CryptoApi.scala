@@ -50,6 +50,7 @@ import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.{TraceContext, TracerProvider}
+import com.digitalasset.canton.util.ResourceUtil
 import com.digitalasset.canton.version.{HasToByteString, ReleaseProtocolVersion}
 import com.google.protobuf.ByteString
 
@@ -483,17 +484,15 @@ object Crypto {
           CryptoSchemes
             .selectKmsSchemes(cryptoSchemes, kmsSupportedSchemes)
             .toEitherT[FutureUnlessShutdown]
-        kms <- kmsClient()
-        kmsCryptoStatic <- createCryptoWithKmsProvider(
-          kms,
-          cryptoSchemes,
-          staticKmsSchemes,
-          cryptoPublicStore,
-        ) // TODO(#28253): replace with a "withResource..." that only closes a resource on failures.
-          .leftMap { err =>
-            kms.close()
-            err
-          }
+        kmsClient <- kmsClient()
+        kmsCryptoStatic <- ResourceUtil.withResourceCloseOnlyOnError(kmsClient) { kms =>
+          createCryptoWithKmsProvider(
+            kms,
+            cryptoSchemes,
+            staticKmsSchemes,
+            cryptoPublicStore,
+          )
+        }
       } yield kmsCryptoStatic
 
     // Creates a [[Crypto]] instance using a KMS driver and its supported schemes.
@@ -501,25 +500,19 @@ object Crypto {
         cryptoSchemes: CryptoSchemes,
         cryptoPublicStore: CryptoPublicStore,
     ): EitherT[FutureUnlessShutdown, String, Crypto] =
-      for {
-        kms <- kmsClient()
-        staticKmsSchemes <- resolveDriverKmsSupportedSchemes(cryptoSchemes, kms)
-          // TODO(#28253): replace with a "withResource..." that only closes a resource on failures.
-          .leftMap { err =>
-            kms.close()
-            err
-          }
-        kmsCryptoDriver <- createCryptoWithKmsProvider(
-          kms,
-          cryptoSchemes,
-          staticKmsSchemes,
-          cryptoPublicStore,
-        ) // TODO(#28253): replace with a "withResource..." that only closes a resource on failures.
-          .leftMap { err =>
-            kms.close()
-            err
-          }
-      } yield kmsCryptoDriver
+      kmsClient().flatMap(
+        ResourceUtil.withResourceCloseOnlyOnError(_) { kms =>
+          for {
+            staticKmsSchemes <- resolveDriverKmsSupportedSchemes(cryptoSchemes, kms)
+            kmsCryptoDriver <- createCryptoWithKmsProvider(
+              kms,
+              cryptoSchemes,
+              staticKmsSchemes,
+              cryptoPublicStore,
+            )
+          } yield kmsCryptoDriver
+        }
+      )
 
     for {
       // initial selection of schemes by intersecting those supported by the provider with
@@ -533,35 +526,29 @@ object Crypto {
         case CryptoProvider.Jce =>
           config.privateKeyStore.encryption match {
             case Some(EncryptedPrivateStoreConfig.Kms(wrapperKeyId, reverted)) =>
-              for {
-                kms <- kmsClient()
-                cryptoPrivateStore <- CryptoPrivateStore
-                  .createEncrypted(
-                    storage,
-                    kms,
-                    wrapperKeyId,
-                    reverted,
-                    replicaManager,
-                    releaseProtocolVersion,
-                    timeouts,
-                    loggerFactory,
-                  )
-                  // TODO(#28253): replace with a "withResource..." that only closes a resource on failures.
-                  .leftMap { err =>
-                    kms.close()
-                    show"Failed to create crypto private store: $err"
-                  }
-                jceCrypto <- createCryptoWithJceProvider(
-                  cryptoSchemes,
-                  cryptoPublicStore,
-                  cryptoPrivateStore,
-                )
-                  // TODO(#28253): replace with a "withResource..." that only closes a resource on failures.
-                  .leftMap { err =>
-                    kms.close()
-                    err
-                  }
-              } yield jceCrypto
+              kmsClient().flatMap(
+                ResourceUtil.withResourceCloseOnlyOnError(_) { kms =>
+                  for {
+                    cryptoPrivateStore <- CryptoPrivateStore
+                      .createEncrypted(
+                        storage,
+                        kms,
+                        wrapperKeyId,
+                        reverted,
+                        replicaManager,
+                        releaseProtocolVersion,
+                        timeouts,
+                        loggerFactory,
+                      )
+                      .leftMap(err => show"Failed to create crypto private store: $err")
+                    jceCrypto <- createCryptoWithJceProvider(
+                      cryptoSchemes,
+                      cryptoPublicStore,
+                      cryptoPrivateStore,
+                    )
+                  } yield jceCrypto
+                }
+              )
             case None =>
               for {
                 cryptoPrivateStore <- CryptoPrivateStore

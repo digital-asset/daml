@@ -11,12 +11,12 @@ import com.digitalasset.canton.integration.tests.manual.S3Synchronization.{
   ContinuityDumpRef,
   ContinuityDumpS3Ref,
 }
-import com.digitalasset.canton.util.ReleaseUtils
 import com.digitalasset.canton.version.{ProtocolVersion, ReleaseVersion}
 
 import java.nio.file.Files
 import scala.concurrent.blocking
 import scala.jdk.CollectionConverters.*
+import scala.math.Ordering.Implicits.*
 import scala.sys.process.*
 
 trait S3Synchronization { self: BaseTest =>
@@ -31,18 +31,22 @@ trait S3Synchronization { self: BaseTest =>
     def listPvDirectories(): List[String]
     def mkContinuityDumpRef(path: String): ContinuityDumpRef
 
+    /** List the dumps on S3
+      * @param majorUpgradeTestFrom
+      *   If defined, tests major upgrade from the specified version
+      */
     private def releaseDumpDirectories(
-        filterVersionMajorMinor: (Int, Int)
+        majorUpgradeTestFrom: Option[(Int, Int)]
     ): List[(ReleaseVersion, ContinuityDumpRef)] = {
-      val listing = listPvDirectories()
-        .filterNot(_.matches(s".*-ad-hoc.*"))
+      val onlyLatestDump = majorUpgradeTestFrom.isDefined
+      val listing = listPvDirectories().filterNot(_.matches(s".*-ad-hoc.*"))
 
       def getReleaseVersion(directory: String): ReleaseVersion =
         ReleaseVersion.tryCreate(directory.split("/").head)
 
       val latestDumpReleaseVersion = listing
         .map(getReleaseVersion)
-        .filter(v => v.majorMinor == filterVersionMajorMinor)
+        .filter(v => majorUpgradeTestFrom.forall(_ == v.majorMinor))
         .max
 
       listing
@@ -52,28 +56,29 @@ trait S3Synchronization { self: BaseTest =>
             mkContinuityDumpRef(directory),
           )
         )
-        .filter { case (version, _) =>
-          // During the early main net Canton releases we only test data continuity against the latest snapshot of the release-line
-          // TODO(#16458): Once back to stable releases, select multiple older releases for testing, e.g. 2.3,2.4,2.5 -> 2.6
-          version == latestDumpReleaseVersion
-        }
+        // Data continuity started with 3.4
+        .filter { case (version, _) => version.majorMinor >= (3, 4) }
+        // Additional filtering
+        .filter { case (version, _) => !onlyLatestDump || version == latestDumpReleaseVersion }
+        /*
+        We want to keep:
+        - all stable releases
+        - at most one snapshot: the one that is higher than the latest release. It allows to detect breaking changes early.
+         */
+        .sortBy { case (version, _) => version }(implicitly[Ordering[ReleaseVersion]].reverse)
+        .zipWithIndex
+        .collect { case ((version, ref), idx) if version.isStable || idx == 0 => (version, ref) }
     }
 
+    /** Returns the list of dumps and protocol versions to be tested.
+      * @param majorUpgradeTestFrom
+      *   If defined, tests major upgrade from the specified version
+      * @return
+      */
     def getDumpDirectories(
-        testAllPatchReleases: Boolean,
-        includeDeletedPV: Boolean = false,
-        filterVersionMajorMinor: (Int, Int) = ReleaseVersion.current.majorMinor,
+        majorUpgradeTestFrom: Option[(Int, Int)] = None
     ): List[(ContinuityDumpRef, ProtocolVersion)] = {
-      val testedReleaseDirectories =
-        if (testAllPatchReleases) releaseDumpDirectories(filterVersionMajorMinor)
-        else
-          releaseDumpDirectories(filterVersionMajorMinor).collect {
-            case (rv, file)
-                if ReleaseUtils.reducedScopeOfPreviousSupportedStableReleases.exists(
-                  _.releaseVersion == rv
-                ) =>
-              (rv, file)
-          }
+      val testedReleaseDirectories = releaseDumpDirectories(majorUpgradeTestFrom)
 
       val dumps: List[(ContinuityDumpRef, ProtocolVersion)] = testedReleaseDirectories.flatMap {
         case (_, releaseDirectory) =>
@@ -85,13 +90,14 @@ trait S3Synchronization { self: BaseTest =>
                 .toInt
 
               val pv = ProtocolVersion
-                .fromProtoPrimitive(rawPv, allowDeleted = includeDeletedPV)
+                .fromProtoPrimitive(rawPv)
                 .valueOrFail(s"Unsupported protocol version $rawPv")
 
-              if (pv.isDeleted && !includeDeletedPV)
+              if (pv.isDeleted)
                 Nil
               else
                 List((releaseDirectory, pv))
+
             case file =>
               logger.warn(s"""
                              |This directory's name $file doesn't start with ${DataContinuityTest.protocolVersionPrefix}

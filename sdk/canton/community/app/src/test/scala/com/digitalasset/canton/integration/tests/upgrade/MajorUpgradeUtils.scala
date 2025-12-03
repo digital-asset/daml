@@ -79,11 +79,7 @@ trait MajorUpgradeUtils extends S3Synchronization { self: BaseTest =>
 
     forceContinuityDumpRef.getOrElse {
       val (ref, _) = S3Dump
-        .getDumpDirectories(
-          testAllPatchReleases = true,
-          includeDeletedPV = true,
-          filterVersionMajorMinor = (major, minor - 1),
-        )
+        .getDumpDirectories(majorUpgradeTestFrom = Some((major, minor - 1)))
         .loneElement
 
       ref

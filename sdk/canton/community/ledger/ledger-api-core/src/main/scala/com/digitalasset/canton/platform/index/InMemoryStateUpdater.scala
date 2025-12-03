@@ -455,7 +455,6 @@ private[platform] object InMemoryStateUpdater {
           createSignatories = create.signatories,
           createObservers = create.stakeholders.diff(create.signatories),
           createKeyHash = create.keyOpt.map(_.globalKey.hash),
-          createKey = create.keyOpt.map(_.globalKey),
           createKeyMaintainers = create.keyOpt.map(_.maintainers),
           authenticationData = txAccepted.contractAuthenticationData.getOrElse(
             contractId,

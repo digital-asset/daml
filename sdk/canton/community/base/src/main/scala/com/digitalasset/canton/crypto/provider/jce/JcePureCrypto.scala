@@ -31,16 +31,12 @@ import com.digitalasset.canton.util.{EitherUtil, ErrorUtil, ShowUtil}
 import com.digitalasset.canton.version.HasToByteString
 import com.github.blemale.scaffeine.Cache
 import com.google.common.annotations.VisibleForTesting
-import com.google.crypto.tink.internal.EllipticCurvesUtil
 import com.google.crypto.tink.subtle.*
-import com.google.crypto.tink.subtle.EllipticCurves.EcdsaEncoding
-import com.google.crypto.tink.subtle.Enums.HashType
-import com.google.crypto.tink.{PublicKeySign, PublicKeyVerify}
 import com.google.protobuf.ByteString
 import org.bouncycastle.crypto.DataLengthException
 import org.bouncycastle.crypto.generators.Argon2BytesGenerator
 import org.bouncycastle.crypto.params.Argon2Parameters
-import org.bouncycastle.jcajce.provider.asymmetric.edec.BCEdDSAPublicKey
+import org.bouncycastle.jcajce.provider.asymmetric.edec.{BCEdDSAPrivateKey, BCEdDSAPublicKey}
 import org.bouncycastle.jce.spec.IESParameterSpec
 
 import java.security.interfaces.*
@@ -107,11 +103,9 @@ class JcePureCrypto(
       .softValues()
       .build()
   // We must ensure that private key conversions are retained in memory no longer than the session
-  // encryption/signing keys. We store an `Either` because for Ed25519 the parsing is done directly
-  // into the raw key byte representation, not into a JPrivateKey, since the Tink signing primitive
-  // `Ed25519Sign` expects a raw key.
+  // encryption/signing keys.
   private val javaPrivateKeyCache
-      : Cache[Fingerprint, Either[KeyParseAndValidateError, Either[ByteString, JPrivateKey]]] =
+      : Cache[Fingerprint, Either[KeyParseAndValidateError, JPrivateKey]] =
     (privateKeyConversionCacheTtl match {
       case Some(expire) =>
         publicKeyConversionCacheConfig.copy(
@@ -181,6 +175,8 @@ class JcePureCrypto(
               ),
         )
         .leftMap(err => errFn(s"Failed to deserialize ${publicKey.format} public key: $err"))
+      // The public key is already validated, including its type, during creation/deserialization,
+      // so we can throw an exception here. This type check should never fail, except in case of an internal error.
       checkedPublicKey <- typeMatcher(javaPublicKey)
     } yield checkedPublicKey
 
@@ -195,49 +191,22 @@ class JcePureCrypto(
       errFn: String => E,
   ): Either[E, T] =
     for {
-      privateKeyE <- javaPrivateKeyCache
+      privateKey <- javaPrivateKeyCache
         .get(
           privateKey.id,
           _ =>
             JceJavaKeyConverter
               .toJava(privateKey)
               .leftMap(err =>
-                KeyParseAndValidateError(s"Failed to convert private key to java key: ${err.show}")
-              )
-              .map(Right(_)),
+                KeyParseAndValidateError(
+                  s"Failed to convert private key to java key: ${err.show}"
+                )
+              ),
         )
         .leftMap(err => errFn(s"Failed to deserialize ${privateKey.format} private key: $err"))
-      checkedPrivateKey <- privateKeyE match {
-        case Left(_) => Left(errFn(s"Expected java private key but got raw key bytes"))
-        case Right(javaPrivateKey) => typeMatcher(javaPrivateKey)
-      }
-    } yield checkedPrivateKey
-
-  /** Parses and converts a private key. We store the deserialization result in a cache. The raw key
-    * bytes are extracted directly from the PKCS #8 encoding.
-    *
-    * @return
-    *   Either an error or the converted key
-    */
-  private def parseAndGetRawPrivateKey[E, T](
-      privateKey: PrivateKey,
-      typeMatcher: PartialFunction[ByteString, Either[E, T]],
-      errFn: String => E,
-  ): Either[E, T] =
-    for {
-      privateKeyE <- javaPrivateKeyCache
-        .get(
-          privateKey.id,
-          _ =>
-            CryptoKeyFormat
-              .extractPrivateKeyFromPkcs8Pki(privateKey.key)
-              .map(rawPrivKey => Left(ByteString.copyFrom(rawPrivKey))),
-        )
-        .leftMap(err => errFn(s"Failed to deserialize ${privateKey.format} private key: $err"))
-      checkedPrivateKey <- privateKeyE match {
-        case Left(rawKeyBytes) => typeMatcher(rawKeyBytes)
-        case Right(_) => Left(errFn(s"Expected raw key bytes but got a java private key"))
-      }
+      // The private key is already validated, including its type, during creation/deserialization,
+      // so we can throw an exception here. This type check should never fail, except in case of an internal error.
+      checkedPrivateKey <- typeMatcher(privateKey)
     } yield checkedPrivateKey
 
   private def encryptAes128Gcm(
@@ -270,165 +239,6 @@ class JcePureCrypto(
         .leftMap(err => DecryptionError.FailedToDecrypt(err.toString))
     } yield ByteString.copyFrom(plaintext)
 
-  /** Produces an EC-DSA signature with the given private signing key.
-    *
-    * NOTE: `signingKey` must be an EC-DSA signing key, not an Ed-DSA key.
-    */
-  private def ecDsaSigner(
-      signingKey: SigningPrivateKey,
-      hashType: HashType,
-  )(implicit traceContext: TraceContext): Either[SigningError, PublicKeySign] =
-    for {
-      ecPrivateKey <- toJavaPrivateKey(
-        signingKey,
-        { case k: ECPrivateKey => Right(k) },
-        SigningError.InvalidSigningKey.apply,
-      )
-      signer <- {
-        signingKey.keySpec match {
-          case SigningKeySpec.EcP256 | SigningKeySpec.EcP384 =>
-            Either
-              .catchOnly[GeneralSecurityException](
-                new EcdsaSignJce(ecPrivateKey, hashType, EcdsaEncoding.DER)
-              )
-              .leftMap(err =>
-                SigningError.InvalidSigningKey(show"Failed to get signer for EC-DSA: $err")
-              )
-          case SigningKeySpec.EcSecp256k1 =>
-            // Use BC and not Tink as Tink rejects keys from the curve secp256k1
-            Right {
-              new PublicKeySign {
-                override def sign(data: Array[Byte]): Array[Byte] = {
-                  val signer = JSignature.getInstance(
-                    "SHA256withECDSA",
-                    JceSecurityProvider.bouncyCastleProvider,
-                  )
-                  signer.initSign(ecPrivateKey)
-                  signer.update(data)
-                  signer.sign()
-                }
-              }
-            }
-
-          case SigningKeySpec.EcCurve25519 =>
-            ErrorUtil.invalidArgument(
-              s"Private key ${signingKey.id} must be EC-DSA but is for Ed-DSA."
-            )
-        }
-      }
-    } yield signer
-
-  /** Verifies an EC-DSA signature with the given public signing key. Only supports signatures
-    * encoded as DER.
-    *
-    * NOTE: `publicKey` must be an EC-DSA public key, not an Ed-DSA key.
-    */
-  private def ecDsaVerifier(
-      publicKey: SigningPublicKey,
-      hashType: HashType,
-  )(implicit traceContext: TraceContext): Either[SignatureCheckError, PublicKeyVerify] =
-    for {
-      ecPublicKey <- toJavaPublicKey(
-        publicKey,
-        { case k: ECPublicKey => Right(k) },
-        SignatureCheckError.InvalidKeyError.apply,
-      )
-      verifier <- {
-        publicKey.keySpec match {
-          case SigningKeySpec.EcP256 | SigningKeySpec.EcP384 =>
-            Either
-              .catchOnly[GeneralSecurityException](
-                new EcdsaVerifyJce(ecPublicKey, hashType, EcdsaEncoding.DER)
-              )
-              .leftMap(err =>
-                SignatureCheckError.InvalidKeyError(s"Failed to get verifier for EC-DSA: $err")
-              )
-
-          case SigningKeySpec.EcSecp256k1 =>
-            // Use BC and not Tink as Tink rejects keys from the curve secp256k1
-            for {
-              _ <- Either
-                .catchOnly[GeneralSecurityException](
-                  EllipticCurvesUtil
-                    .checkPointOnCurve(ecPublicKey.getW, ecPublicKey.getParams.getCurve)
-                )
-                .leftMap(err =>
-                  SignatureCheckError.InvalidKeyError(
-                    s"EC point of public key ${publicKey.id} is not on curve `secp256k1`: $err"
-                  )
-                )
-            } yield {
-              new PublicKeyVerify {
-                override def verify(signature: Array[Byte], data: Array[Byte]): Unit = {
-                  // Ensure signature is in DER
-                  if (!EllipticCurves.isValidDerEncoding(signature))
-                    throw new GeneralSecurityException("Invalid signature")
-
-                  val verifier = JSignature.getInstance(
-                    "SHA256withECDSA",
-                    JceSecurityProvider.bouncyCastleProvider,
-                  )
-                  verifier.initVerify(ecPublicKey)
-                  verifier.update(data)
-                  val verified = verifier.verify(signature)
-                  if (!verified) throw new GeneralSecurityException("Invalid signature")
-                }
-              }
-            }
-
-          case SigningKeySpec.EcCurve25519 =>
-            ErrorUtil.invalidArgument(
-              s"Public key ${publicKey.id} must be EC-DSA but is for Ed-DSA."
-            )
-        }
-
-      }
-    } yield verifier
-
-  private def edDsaSigner(signingKey: SigningPrivateKey): Either[SigningError, PublicKeySign] =
-    for {
-      // Extract the Ed25519 raw key bytes directly from the PKCS #8 encoding
-      edPrivateKey <- parseAndGetRawPrivateKey(
-        signingKey,
-        { case k => Right(k) },
-        SigningError.InvalidSigningKey.apply,
-      )
-      signer <- Either
-        .catchOnly[GeneralSecurityException](new Ed25519Sign(edPrivateKey.toByteArray))
-        .leftMap(err =>
-          SigningError.InvalidSigningKey(show"Failed to get signer for Ed25519: $err")
-        )
-    } yield signer
-
-  private def edDsaVerifier(
-      publicKey: SigningPublicKey
-  ): Either[SignatureCheckError, PublicKeyVerify] =
-    for {
-      ed25519PublicKey <- toJavaPublicKey(
-        publicKey,
-        { case k: BCEdDSAPublicKey => Right(k) },
-        SignatureCheckError.InvalidKeyError.apply,
-      )
-      verifier <- Either
-        .catchOnly[GeneralSecurityException] {
-          new PublicKeyVerify {
-            override def verify(signature: Array[Byte], data: Array[Byte]): Unit = {
-              val verifier = JSignature.getInstance(
-                "Ed25519",
-                JceSecurityProvider.bouncyCastleProvider,
-              )
-              verifier.initVerify(ed25519PublicKey)
-              verifier.update(data)
-              val verified = verifier.verify(signature)
-              if (!verified) throw new GeneralSecurityException("Invalid signature")
-            }
-          }
-        }
-        .leftMap(err =>
-          SignatureCheckError.InvalidKeyError(show"Failed to get verifier for Ed25519: $err")
-        )
-    } yield verifier
-
   override def generateSymmetricKey(
       scheme: SymmetricKeyScheme
   ): Either[EncryptionKeyGenerationError, SymmetricKey] =
@@ -456,19 +266,50 @@ class JcePureCrypto(
       signingAlgorithmSpec: SigningAlgorithmSpec = signingAlgorithmSpecs.default,
   )(implicit traceContext: TraceContext): Either[SigningError, Signature] = {
 
-    def signWithSigner(signer: PublicKeySign): Either[SigningError, Signature] =
-      Either
-        .catchOnly[GeneralSecurityException](signer.sign(bytes.toByteArray))
-        .bimap(
-          err => SigningError.FailedToSign(show"$err"),
-          signatureBytes =>
-            Signature.create(
-              SignatureFormat.fromSigningAlgoSpec(signingAlgorithmSpec),
-              ByteString.copyFrom(signatureBytes),
-              signingKey.id,
-              Some(signingAlgorithmSpec),
-            ),
-        )
+    def sign(
+        bytes: ByteString,
+        signingKey: SigningPrivateKey,
+        signingAlgorithmSpec: SigningAlgorithmSpec,
+    ): Either[SigningError, Signature] =
+      for {
+        // Parse and convert the private key. The deserialized result is stored in a cache. Private key
+        // validation is already performed during proto parsing of the private key (i.e.
+        // [[com.digitalasset.canton.crypto.CryptoKeyValidation.parseAndValidatePrivateKey]]).
+        privateKeyParsed <- signingAlgorithmSpec match {
+          case SigningAlgorithmSpec.Ed25519 =>
+            toJavaPrivateKey(
+              signingKey,
+              { case k: BCEdDSAPrivateKey => Right(k) },
+              SigningError.InvalidSigningKey.apply,
+            )
+          case SigningAlgorithmSpec.EcDsaSha256 | SigningAlgorithmSpec.EcDsaSha384 =>
+            toJavaPrivateKey(
+              signingKey,
+              { case k: ECPrivateKey => Right(k) },
+              SigningError.InvalidSigningKey.apply,
+            )
+        }
+        signature <- Either
+          .catchOnly[GeneralSecurityException] {
+            val signer = JSignature.getInstance(
+              signingAlgorithmSpec.jcaAlgorithmName,
+              JceSecurityProvider.bouncyCastleProvider,
+            )
+            signer.initSign(privateKeyParsed)
+            signer.update(bytes.toByteArray)
+            signer.sign()
+          }
+          .bimap(
+            err => SigningError.FailedToSign(show"$err"),
+            signatureBytes =>
+              Signature.create(
+                SignatureFormat.fromSigningAlgoSpec(signingAlgorithmSpec),
+                ByteString.copyFrom(signatureBytes),
+                signingKey.id,
+                Some(signingAlgorithmSpec),
+              ),
+          )
+      } yield signature
 
     for {
       _ <- CryptoKeyValidation
@@ -488,13 +329,9 @@ class JcePureCrypto(
               "No matching algorithm spec for key spec " + signingKey.keySpec
             ),
         )
-      signer <- validAlgorithmSpec match {
-        case SigningAlgorithmSpec.Ed25519 => edDsaSigner(signingKey)
-        case SigningAlgorithmSpec.EcDsaSha256 => ecDsaSigner(signingKey, HashType.SHA256)
-        case SigningAlgorithmSpec.EcDsaSha384 => ecDsaSigner(signingKey, HashType.SHA384)
-      }
-      signature <- signWithSigner(signer)
+      signature <- sign(bytes, signingKey, validAlgorithmSpec)
     } yield signature
+
   }
 
   override def verifySignature(
@@ -504,15 +341,42 @@ class JcePureCrypto(
       usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit traceContext: TraceContext): Either[SignatureCheckError, Unit] = {
 
-    def verify(verifier: PublicKeyVerify): Either[SignatureCheckError, Unit] =
-      Either
-        .catchOnly[GeneralSecurityException](
-          verifier.verify(signature.unwrap.toByteArray, bytes.toByteArray)
-        )
-        .leftMap(err =>
-          SignatureCheckError
-            .InvalidSignature(signature, bytes, s"Failed to verify signature: $err")
-        )
+    def verify(signingAlgorithmSpec: SigningAlgorithmSpec): Either[SignatureCheckError, Unit] =
+      for {
+        // Parse and convert the public key. The deserialized result is stored in a cache. Public key
+        // validation is already performed during proto parsing of the public key (i.e.
+        // [[com.digitalasset.canton.crypto.CryptoKeyValidation.parseAndValidatePublicKey]]).
+        publicKeyParsed <- signingAlgorithmSpec match {
+          case SigningAlgorithmSpec.Ed25519 =>
+            toJavaPublicKey(
+              publicKey,
+              { case k: BCEdDSAPublicKey => Right(k) },
+              SignatureCheckError.InvalidKeyError.apply,
+            )
+          case SigningAlgorithmSpec.EcDsaSha256 | SigningAlgorithmSpec.EcDsaSha384 =>
+            toJavaPublicKey(
+              publicKey,
+              { case k: ECPublicKey => Right(k) },
+              SignatureCheckError.InvalidKeyError.apply,
+            )
+        }
+        _ <- Either
+          .catchOnly[GeneralSecurityException] {
+            val signatureBytes = signature.unwrap.toByteArray
+            val verifier = JSignature.getInstance(
+              signingAlgorithmSpec.jcaAlgorithmName,
+              JceSecurityProvider.bouncyCastleProvider,
+            )
+            verifier.initVerify(publicKeyParsed)
+            verifier.update(bytes.toByteArray)
+            val verified = verifier.verify(signatureBytes)
+            if (!verified) throw new GeneralSecurityException("Invalid signature")
+          }
+          .leftMap(err =>
+            SignatureCheckError
+              .InvalidSignature(signature, bytes, s"Failed to verify signature: $err")
+          )
+      } yield ()
 
     for {
       _ <- EitherUtil.condUnit(
@@ -568,12 +432,7 @@ class JcePureCrypto(
         SignatureCheckError.KeyAlgoSpecsMismatch(_, signingAlgorithmSpec, _),
         SignatureCheckError.UnsupportedAlgorithmSpec.apply,
       )
-      verifier <- signingAlgorithmSpec match {
-        case SigningAlgorithmSpec.Ed25519 => edDsaVerifier(publicKey)
-        case SigningAlgorithmSpec.EcDsaSha256 => ecDsaVerifier(publicKey, HashType.SHA256)
-        case SigningAlgorithmSpec.EcDsaSha384 => ecDsaVerifier(publicKey, HashType.SHA384)
-      }
-      _ <- verify(verifier)
+      _ <- verify(signingAlgorithmSpec)
     } yield ()
   }
 

@@ -68,7 +68,7 @@ class FlywayChecksumsTest extends AnyWordSpec {
             )
         )
 
-    val stableReleasedVersions = ReleaseUtils.reducedScopeOfPreviousSupportedStableReleases
+    val stableReleasedVersions = ReleaseUtils.previousSupportedStableReleases
       .map(_.releaseVersion)
       .map { case ReleaseVersion(major, minor, _, _) => s"$major.$minor" }
 

@@ -303,7 +303,6 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
         keyIds.forgetNE.flatMap(keyId => cache.get(keyId).map(_.privateKey))
       })
     } yield keys.toSet
-
   }
 
   /** Returns the wrapper key used to encrypt the private key or None if private key is not

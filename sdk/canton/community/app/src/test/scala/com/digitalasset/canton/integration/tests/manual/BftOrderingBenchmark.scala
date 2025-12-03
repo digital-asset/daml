@@ -17,14 +17,11 @@ import com.digitalasset.canton.integration.plugins.toxiproxy.{
   UseToxiproxy,
 }
 import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
+import com.digitalasset.canton.integration.tests.bftsynchronizer.CountsAuthenticatedBftPeers
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
   SharedEnvironment,
-}
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.SequencerBftAdminData.{
-  PeerConnectionStatus,
-  PeerEndpointHealthStatus,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig.{
   DefaultConsensusEmptyBlockCreationTimeout,
@@ -74,7 +71,10 @@ import scala.concurrent.duration.{Duration, DurationInt, FiniteDuration}
   * com.digitalasset.canton.integration.tests.manual.BftOrderingBenchmark"
   */
 @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
-class BftOrderingBenchmark extends CommunityIntegrationTest with SharedEnvironment {
+class BftOrderingBenchmark
+    extends CommunityIntegrationTest
+    with SharedEnvironment
+    with CountsAuthenticatedBftPeers {
 
   private val BFTOrderingBenchmarkPrefix = "bft-ordering-benchmark"
   private val PostgresProxyNameSuffix = "postgres"
@@ -308,23 +308,12 @@ class BftOrderingBenchmark extends CommunityIntegrationTest with SharedEnvironme
     )
     mediators.local.foreach(_.stop())
 
-    clue("make sure ordering nodes have connected to enough other nodes") {
+    val weakQuorumSize = OrderingTopology.weakQuorumSize(sequencers.all.size)
+    clue(
+      s"make sure ordering nodes have connected to at least weak quorum of $weakQuorumSize other nodes"
+    ) {
       eventually() {
-        forAll(sequencers.all)(sequencer =>
-          sequencer.bft
-            .get_peer_network_status(None)
-            .endpointStatuses
-            .collect {
-              case PeerConnectionStatus
-                    .PeerEndpointStatus(_, _, health) =>
-                health.status match {
-                  case PeerEndpointHealthStatus.Authenticated(_) => true
-                  case _ => false
-                }
-              case PeerConnectionStatus.PeerIncomingConnection(_) => true
-            }
-            .size should be >= OrderingTopology.weakQuorumSize(sequencers.all.size)
-        )
+        forAll(sequencers.all)(numberAuthenticatedPeers(_) should be >= weakQuorumSize)
       }
     }
 

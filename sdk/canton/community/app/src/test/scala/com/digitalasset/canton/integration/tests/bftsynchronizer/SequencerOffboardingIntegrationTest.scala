@@ -19,17 +19,14 @@ import com.digitalasset.canton.integration.{
   SharedEnvironment,
 }
 import com.digitalasset.canton.sequencing.{SequencerConnections, SubmissionRequestAmplification}
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.SequencerBftAdminData.{
-  PeerConnectionStatus,
-  PeerEndpointHealthStatus,
-}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopology
 import com.digitalasset.canton.topology.SynchronizerId
 
 trait SequencerOffboardingIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment
-    with OffboardsSequencerNode {
+    with OffboardsSequencerNode
+    with CountsAuthenticatedBftPeers {
 
   // For full correctness we need to use >= 4 sequencers to test off-boarding because, when using the BFT sequencer,
   //  if the P2P gRPC channel crashes after the sequencer is off-boarded from Canton topology, but
@@ -82,27 +79,16 @@ trait SequencerOffboardingIntegrationTest
     }
   }
 
-  "Onboard participantX to sequencerX and send a ping" in { implicit env =>
+  "Onboard participants to sequencer and send a ping" in { implicit env =>
     import env.*
 
     if (isBftOrderer) {
-      clue("make sure sequencer1 have connected to enough other sequencers") {
+      val weakQuorumSize = OrderingTopology.weakQuorumSize(sequencers.all.size)
+      clue(
+        s"make sure all sequencers have connected to a weak quorum of at least $weakQuorumSize other sequencers"
+      ) {
         eventually() {
-          forAll(env.sequencers.all)(sequencer =>
-            sequencer.bft
-              .get_peer_network_status(None)
-              .endpointStatuses
-              .collect {
-                case PeerConnectionStatus
-                      .PeerEndpointStatus(_, _, health) =>
-                  health.status match {
-                    case PeerEndpointHealthStatus.Authenticated(_) => true
-                    case _ => false
-                  }
-                case PeerConnectionStatus.PeerIncomingConnection(_) => true
-              }
-              .size should be >= OrderingTopology.weakQuorumSize(sequencers.all.size)
-          )
+          forAll(env.sequencers.all)(numberAuthenticatedPeers(_) should be >= weakQuorumSize)
         }
       }
     }
