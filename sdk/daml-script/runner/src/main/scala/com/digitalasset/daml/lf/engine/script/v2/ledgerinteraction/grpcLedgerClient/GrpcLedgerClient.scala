@@ -24,6 +24,11 @@ import com.daml.ledger.api.v2.admin.package_management_service.VettedPackagesCha
 import com.daml.ledger.api.v2.commands.Commands
 import com.daml.ledger.api.v2.commands._
 import com.daml.ledger.api.v2.event.InterfaceView
+import com.daml.ledger.api.v2.package_service.{
+  ListVettedPackagesRequest,
+  PackageMetadataFilter,
+  TopologyStateFilter,
+}
 import com.daml.ledger.api.v2.testing.time_service.TimeServiceGrpc.TimeServiceStub
 import com.daml.ledger.api.v2.testing.time_service.{GetTimeRequest, SetTimeRequest, TimeServiceGrpc}
 import com.daml.ledger.api.v2.transaction_filter.CumulativeFilter.IdentifierFilter
@@ -461,7 +466,7 @@ class GrpcLedgerClient(
             if (res.connectedSynchronizers.isEmpty)
               Future.failed(
                 new java.util.concurrent.TimeoutException(
-                  "Party not allocated on any synchonizer within 1 second"
+                  "Party not allocated on any synchronizer within 1 second"
                 )
               )
             else Future.unit
@@ -709,18 +714,6 @@ class GrpcLedgerClient(
       .map(_ => ())
   }
 
-  override def waitUntilVettingVisible(
-      packages: Iterable[ScriptLedgerClient.ReadablePackageId],
-      onParticipantUid: String,
-  ): Future[Unit] = {
-    val adminClient = oAdminClient.getOrElse(
-      throw new IllegalArgumentException(
-        "Attempted to use waitUntilVettingVisible without specifying a adminPort"
-      )
-    )
-    adminClient.waitUntilVettingVisible(packages, onParticipantUid)
-  }
-
   override def unvetPackages(packages: List[ScriptLedgerClient.ReadablePackageId])(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -746,17 +739,78 @@ class GrpcLedgerClient(
       .map(_ => ())
   }
 
+  override def waitUntilVettingVisible(
+      packages: Iterable[ScriptLedgerClient.ReadablePackageId],
+      onParticipantUid: String,
+  )(implicit ec: ExecutionContext): Future[Unit] = {
+    RetryStrategy.constant(25, 200.milliseconds) { case (_, _) =>
+      for {
+        vettedPackages <- listPackages(packages, onParticipantUid, "")
+        _ <-
+          if (packages.forall(vettedPackages.contains(_)))
+            Future.unit
+          else
+            Future.failed(
+              new java.util.concurrent.TimeoutException(
+                s"Not all packages on participant $onParticipantUid have been vetted within 5 seconds: $packages"
+              )
+            )
+      } yield ()
+    }
+  }
+
   override def waitUntilUnvettingVisible(
       packages: Iterable[ScriptLedgerClient.ReadablePackageId],
       onParticipantUid: String,
-  ): Future[Unit] = {
-    val adminClient = oAdminClient.getOrElse(
-      throw new IllegalArgumentException(
-        "Attempted to use waitUntilUnvettingVisible without specifying a adminPort"
+  )(implicit ec: ExecutionContext): Future[Unit] = {
+    RetryStrategy.constant(25, 200.milliseconds) { case (_, _) =>
+      for {
+        vettedPackages <- listPackages(packages, onParticipantUid, "")
+        _ <-
+          if (packages.forall(!vettedPackages.contains(_)))
+            Future.unit
+          else
+            Future.failed(
+              new java.util.concurrent.TimeoutException(
+                s"Not all packages on participant $onParticipantUid have been unvetted within 5 seconds: $packages"
+              )
+            )
+      } yield ()
+    }
+  }
+
+  private def listPackages(
+      packages: Iterable[ScriptLedgerClient.ReadablePackageId],
+      onParticipantUid: String,
+      pageToken: String,
+  )(implicit ec: ExecutionContext): Future[Seq[ScriptLedgerClient.ReadablePackageId]] = for {
+    response <- grpcClient.packageService
+      .listVettedPackages(
+        ListVettedPackagesRequest.of(
+          packageMetadataFilter = Some(
+            PackageMetadataFilter
+              .of(packageIds = Seq.empty, packageNamePrefixes = packages.map(_.name).toSeq)
+          ),
+          topologyStateFilter = Some(
+            TopologyStateFilter
+              .of(participantIds = Seq(onParticipantUid), synchronizerIds = Seq.empty)
+          ),
+          pageToken = pageToken,
+          pageSize = 0,
+        )
+      )
+    tail <-
+      if (response.nextPageToken.isEmpty) Future.successful(Nil)
+      else listPackages(packages, onParticipantUid, response.nextPageToken)
+    readableVettedPackages = response.vettedPackages.flatMap(
+      _.packages.map(pkg =>
+        ScriptLedgerClient.ReadablePackageId(
+          Ref.PackageName.assertFromString(pkg.packageName),
+          Ref.PackageVersion.assertFromString(pkg.packageVersion),
+        )
       )
     )
-    adminClient.waitUntilUnvettingVisible(packages, onParticipantUid)
-  }
+  } yield readableVettedPackages ++ tail
 
   override def listVettedPackages()(implicit
       ec: ExecutionContext,
