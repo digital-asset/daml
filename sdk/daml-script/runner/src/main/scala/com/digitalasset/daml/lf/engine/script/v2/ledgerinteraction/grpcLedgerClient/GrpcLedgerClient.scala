@@ -690,7 +690,6 @@ class GrpcLedgerClient(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Unit] = {
-    // TODO: check packages are now vetted
     grpcClient.packageManagementClient
       .updateVettedPackages(
         UpdateVettedPackagesRequest.of(
@@ -719,7 +718,6 @@ class GrpcLedgerClient(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Unit] = {
-    // TODO: check packages are now unvetted
     grpcClient.packageManagementClient
       .updateVettedPackages(
         UpdateVettedPackagesRequest.of(
