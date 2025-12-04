@@ -49,11 +49,11 @@ final class Conversions(
     convertScriptStep(idx.toInt, step)
   }
 
-  def convertScriptResult(svalue: SValue): proto.ScriptResult = {
+  def convertScriptResult(value: V): proto.ScriptResult = {
     val builder = proto.ScriptResult.newBuilder
       .addAllNodes(nodes.asJava)
       .addAllScriptSteps(steps.asJava)
-      .setReturnValue(convertSValue(svalue))
+      .setReturnValue(convertValue(value))
       .setFinalTime(ledger.currentTime.micros)
       .addAllActiveContracts(
         ledger.ledgerData.activeContracts.view
@@ -395,24 +395,6 @@ final class Conversions(
       .setName(globalKey.qualifiedName.toString)
       .setKey(convertValue(globalKey.key))
       .build
-  }
-
-  def convertSValue(svalue: SValue): proto.Value = {
-    def unserializable(what: String): proto.Value =
-      proto.Value.newBuilder.setUnserializable(what).build
-    try {
-      convertValue(svalue.toUnnormalizedValue)
-    } catch {
-      case _: SError.SErrorCrash => {
-        // We cannot rely on serializability information since we do not have that available in the IDE.
-        // We also cannot simply pattern match on SValue since the unserializable values can be nested, e.g.,
-        // a function ina record.
-        // We could recurse on SValue to produce slightly better error messages if we
-        // encounter an unserializable type but that doesn’t seem worth the effort, especially
-        // given that the error would still be on speedy expressions.
-        unserializable("Unserializable script result")
-      }
-    }
   }
 
   def convertSTraceMessage(msgAndLoc: (String, Option[Ref.Location])): proto.TraceMessage = {

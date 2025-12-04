@@ -8,41 +8,48 @@ package v2
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.daml.lf.CompiledPackages
-import com.digitalasset.daml.lf.data.support.crypto.MessageSignatureUtil
-import com.digitalasset.daml.lf.data.{Bytes, FrontStack, Utf8}
+// import com.digitalasset.daml.lf.data.support.crypto.MessageSignatureUtil
+// import com.digitalasset.daml.lf.data.{Bytes, FrontStack, Utf8}
+import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.preprocessing.ValueTranslator
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
-import com.digitalasset.daml.lf.interpretation.{Error => IE}
+// import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
-import com.digitalasset.daml.lf.speedy.SBuiltinFun.{SBThrow, SBToAny, SBVariantCon}
+import com.digitalasset.daml.lf.language.Util._
+// import com.digitalasset.daml.lf.speedy.SBuiltinFun.{SBThrow, SBToAny, SBVariantCon}
+import com.digitalasset.daml.lf.speedy.SBuiltinFun.SBVariantCon
 import com.digitalasset.daml.lf.speedy.SExpr._
-import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.speedy.{SError, SValue}
+// import com.digitalasset.daml.lf.speedy.SValue._
+// import com.digitalasset.daml.lf.speedy.{SError, SValue}
+import com.digitalasset.daml.lf.speedy.SValue
 import com.digitalasset.daml.lf.speedy.Speedy.Machine.ValueWithClosure
 import com.digitalasset.daml.lf.stablepackages.StablePackagesV2
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.ContractId
-import com.daml.script.converter.Converter.{makeTuple, toContractId, toText}
-import com.digitalasset.canton.ledger.api.{User, UserRight}
+import com.digitalasset.daml.lf.value.Value._
+// import com.digitalasset.daml.lf.value.Value.ContractId
+// import com.daml.script.converter.Converter.{makeTuple, toContractId, toText}
+// import com.digitalasset.canton.ledger.api.{User, UserRight}
 import org.apache.pekko.stream.Materializer
-import scalaz.std.either._
-import scalaz.std.list._
-import scalaz.std.option._
-import scalaz.syntax.traverse._
-import scalaz.{Foldable, OneAnd}
+// import scalaz.std.either._
+// import scalaz.std.list._
+// import scalaz.std.option._
+// import scalaz.syntax.traverse._
+// import scalaz.{Foldable, OneAnd}
 
-import java.security.{KeyFactory, SecureRandom}
-import java.security.spec.PKCS8EncodedKeySpec
+// import java.security.{KeyFactory, SecureRandom}
+// import java.security.spec.PKCS8EncodedKeySpec
 import java.time.Clock
-import scala.collection.immutable.ArraySeq
+// import scala.collection.immutable.ArraySeq
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
+// import scala.util.{Failure, Success}
+
+import annotation.unused
 
 object ScriptF {
 
-  private val globalRandom = new scala.util.Random(0)
+  // private val globalRandom = new scala.util.Random(0)
 
   val left = SEBuiltinFun(
     SBVariantCon(StablePackagesV2.Either, Name.assertFromString("Left"), 0)
@@ -590,31 +597,30 @@ object ScriptF {
   //     } yield SEValue(SList(partyDetails_.to(FrontStack)))
 
   // }
-  // final case class GetTime() extends Cmd {
-  //   override def execute(env: Env)(implicit
-  //       ec: ExecutionContext,
-  //       mat: Materializer,
-  //       esf: ExecutionSequencerFactory,
-  //   ): Future[(Value, Ast.Type)] =
-  //     for {
-  //       time <- env.timeMode match {
-  //         case ScriptTimeMode.Static => {
-  //           // We don’t parametrize this by participant since this
-  //           // is only useful in static time mode and using the time
-  //           // service with multiple participants is very dodgy.
-  //           for {
-  //             client <- Converter.toFuture(env.clients.getParticipant(None))
-  //             t <- client.getStaticTime()
-  //           } yield t
-  //         }
-  //         case ScriptTimeMode.WallClock =>
-  //           Future {
-  //             Timestamp.assertFromInstant(env.utcClock.instant())
-  //           }
-  //       }
-  //     } yield SEValue(STimestamp(time))
-
-  // }
+  final case class GetTime() extends Cmd {
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[(Value, Ast.Type)] =
+      for {
+        time <- env.timeMode match {
+          case ScriptTimeMode.Static => {
+            // We don’t parametrize this by participant since this
+            // is only useful in static time mode and using the time
+            // service with multiple participants is very dodgy.
+            for {
+              client <- Converter.toFuture(env.clients.getParticipant(None))
+              t <- client.getStaticTime()
+            } yield t
+          }
+          case ScriptTimeMode.WallClock =>
+            Future {
+              Timestamp.assertFromInstant(env.utcClock.instant())
+            }
+        }
+      } yield (ValueTimestamp(time), TTimestamp)
+  }
   // final case class SetTime(time: Timestamp) extends Cmd {
   //   override def execute(env: Env)(implicit
   //       ec: ExecutionContext,
@@ -700,27 +706,26 @@ object ScriptF {
   //   }
   // }
 
-  // final case class Secp256k1GenerateKeyPair() extends Cmd {
-  //   override def execute(env: Env)(implicit
-  //       ec: ExecutionContext,
-  //       mat: Materializer,
-  //       esf: ExecutionSequencerFactory,
-  //   ): Future[(Value, Ast.Type)] = Future {
-  //     val keyPair = MessageSignatureUtil.generateKeyPair
-  //     val privateKey = HexString.encode(Bytes.fromByteArray(keyPair.getPrivate.getEncoded))
-  //     val publicKey = HexString.encode(Bytes.fromByteArray(keyPair.getPublic.getEncoded))
+  final case class Secp256k1GenerateKeyPair() extends Cmd {
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[(Value, Ast.Type)] = Future {
+      val keyPair = MessageSignatureUtil.generateKeyPair
+      val privateKey = HexString.encode(Bytes.fromByteArray(keyPair.getPrivate.getEncoded))
+      val publicKey = HexString.encode(Bytes.fromByteArray(keyPair.getPublic.getEncoded))
 
-  //     import com.daml.script.converter.Converter.record
-  //     SEValue(
-  //       record(
-  //         env.scriptIds
-  //           .damlScriptModule("Daml.Script.Internal.Questions.Crypto.Text", "Secp256k1KeyPair"),
-  //         "privateKey" -> SText(privateKey),
-  //         "publicKey" -> SText(publicKey),
-  //       )
-  //     )
-  //   }
-  // }
+      import com.daml.script.converter.Converter.record
+      record(
+        env.scriptIds
+          .damlScriptModule("Daml.Script.Internal.Questions.Crypto.Text", "Secp256k1KeyPair"),
+        "privateKey" -> SText(privateKey),
+        "publicKey" -> SText(publicKey),
+      )
+
+    }
+  }
 
   // final case class ValidateUserId(
   //     userName: String
@@ -1165,11 +1170,11 @@ object ScriptF {
   //     case _ => Left(s"Expected ListKnownParties payload but got $v")
   //   }
 
-  // private def parseEmpty[A](result: A)(v: SValue): Either[String, A] =
-  //   v match {
-  //     case SRecord(_, _, ArraySeq()) => Right(result)
-  //     case _ => Left(s"Expected ${result.getClass.getSimpleName} payload but got $v")
-  //   }
+  private def parseEmpty[A](result: A)(v: ValueWithClosure): Either[String, A] =
+    v match {
+      case ValueRecord(_, ImmArray()) => Right(result)
+      case _ => Left(s"Expected ${result.getClass.getSimpleName} payload but got $v")
+    }
 
   // private def parseSetTime(v: SValue): Either[String, SetTime] =
   //   v match {
@@ -1365,46 +1370,45 @@ object ScriptF {
       commandName: String,
       version: Long,
       v: ValueWithClosure,
-      knownPackages: KnownPackages,
+      @unused knownPackages: KnownPackages,
   ): Either[String, Cmd] = {
-    ???
-    // (commandName, version) match {
-    //   case ("Submit", 1) => parseSubmit(v, knownPackages)
-    //   case ("QueryACS", 1) => parseQueryACS(v)
-    //   case ("QueryContractId", 1) => parseQueryContractId(v)
-    //   case ("QueryInterface", 1) => parseQueryInterface(v)
-    //   case ("QueryInterfaceContractId", 1) => parseQueryInterfaceContractId(v)
-    //   case ("QueryContractKey", 1) => parseQueryContractKey(v)
-    //   case ("AllocateParty", 1) => parseAllocPartyV1(v)
-    //   case ("AllocateParty", 2) => parseAllocPartyV2(v)
-    //   case ("ListKnownParties", 1) => parseListKnownParties(v)
-    //   case ("GetTime", 1) => parseEmpty(GetTime())(v)
-    //   case ("SetTime", 1) => parseSetTime(v)
-    //   case ("Sleep", 1) => parseSleep(v)
-    //   case ("Secp256k1Sign", 1) => parseSecp256k1Sign(v)
-    //   case ("Secp256k1WithEcdsaSign", 1) => parseSecp256k1WithEcdsaSign(v)
-    //   case ("Secp256k1GenerateKeyPair", 1) => parseEmpty(Secp256k1GenerateKeyPair())(v)
-    //   case ("Catch", 1) => parseCatch(v)
-    //   case ("Throw", 1) => parseThrow(v)
-    //   case ("ValidateUserId", 1) => parseValidateUserId(v)
-    //   case ("CreateUser", 1) => parseCreateUser(v)
-    //   case ("GetUser", 1) => parseGetUser(v)
-    //   case ("DeleteUser", 1) => parseDeleteUser(v)
-    //   case ("ListAllUsers", 1) => parseListAllUsers(v)
-    //   case ("GrantUserRights", 1) => parseGrantUserRights(v)
-    //   case ("RevokeUserRights", 1) => parseRevokeUserRights(v)
-    //   case ("ListUserRights", 1) => parseListUserRights(v)
-    //   case ("VetPackages", 1) => parseChangePackages(v, VetPackages)
-    //   case ("UnvetPackages", 1) => parseChangePackages(v, UnvetPackages)
-    //   case ("ListVettedPackages", 1) => parseEmpty(ListVettedPackages())(v)
-    //   case ("ListAllPackages", 1) => parseEmpty(ListAllPackages())(v)
-    //   case ("TryCommands", 1) => parseTryCommands(v)
-    //   case ("FailWithStatus", 1) => parseFailWithStatus(v)
-    //   case ("TryFailureStatus", 1) => parseTryFailureStatus(v)
-    //   case _ => Left(s"Unknown command $commandName - Version $version")
-    // }
+    (commandName, version) match {
+      //   case ("Submit", 1) => parseSubmit(v, knownPackages)
+      //   case ("QueryACS", 1) => parseQueryACS(v)
+      //   case ("QueryContractId", 1) => parseQueryContractId(v)
+      //   case ("QueryInterface", 1) => parseQueryInterface(v)
+      //   case ("QueryInterfaceContractId", 1) => parseQueryInterfaceContractId(v)
+      //   case ("QueryContractKey", 1) => parseQueryContractKey(v)
+      //   case ("AllocateParty", 1) => parseAllocPartyV1(v)
+      //   case ("AllocateParty", 2) => parseAllocPartyV2(v)
+      //   case ("ListKnownParties", 1) => parseListKnownParties(v)
+      case ("GetTime", 1) => parseEmpty(GetTime())(v)
+      //   case ("SetTime", 1) => parseSetTime(v)
+      //   case ("Sleep", 1) => parseSleep(v)
+      //   case ("Secp256k1Sign", 1) => parseSecp256k1Sign(v)
+      //   case ("Secp256k1WithEcdsaSign", 1) => parseSecp256k1WithEcdsaSign(v)
+      case ("Secp256k1GenerateKeyPair", 1) => parseEmpty(Secp256k1GenerateKeyPair())(v)
+      //   case ("Catch", 1) => parseCatch(v)
+      //   case ("Throw", 1) => parseThrow(v)
+      //   case ("ValidateUserId", 1) => parseValidateUserId(v)
+      //   case ("CreateUser", 1) => parseCreateUser(v)
+      //   case ("GetUser", 1) => parseGetUser(v)
+      //   case ("DeleteUser", 1) => parseDeleteUser(v)
+      //   case ("ListAllUsers", 1) => parseListAllUsers(v)
+      //   case ("GrantUserRights", 1) => parseGrantUserRights(v)
+      //   case ("RevokeUserRights", 1) => parseRevokeUserRights(v)
+      //   case ("ListUserRights", 1) => parseListUserRights(v)
+      //   case ("VetPackages", 1) => parseChangePackages(v, VetPackages)
+      //   case ("UnvetPackages", 1) => parseChangePackages(v, UnvetPackages)
+      case ("ListVettedPackages", 1) => parseEmpty(ListVettedPackages())(v)
+      case ("ListAllPackages", 1) => parseEmpty(ListAllPackages())(v)
+      //   case ("TryCommands", 1) => parseTryCommands(v)
+      //   case ("FailWithStatus", 1) => parseFailWithStatus(v)
+      //   case ("TryFailureStatus", 1) => parseTryFailureStatus(v)
+      case _ => Left(s"Unknown command $commandName - Version $version")
+    }
   }
 
-  private def toOneAndSet[F[_], A](x: OneAnd[F, A])(implicit fF: Foldable[F]): OneAnd[Set, A] =
-    OneAnd(x.head, x.tail.toSet - x.head)
+  // private def toOneAndSet[F[_], A](x: OneAnd[F, A])(implicit fF: Foldable[F]): OneAnd[Set, A] =
+  //   OneAnd(x.head, x.tail.toSet - x.head)
 }
