@@ -52,7 +52,7 @@ one in ``TX 1`` and one in ``TX 2``.
 .. https://lucid.app/lucidchart/9fb12975-8d57-4f73-9c81-0154879c3cc9/edit
 .. image:: ./images/asset-double-spend.svg
    :align: center
-   :width: 90%
+   :width: 75%
    :alt: An inconsistent ledger where Alice double-spends her asset
 
 Conformance violation example
@@ -125,6 +125,109 @@ The transaction structure provides no evidence that the actor Carol has agreed t
    :alt: A ledger with an authorization failure where Alice allocates Carol's asset to her DvP with Bob
 
 
+.. _da-model-consistency:
+
+Consistency
+***********
+
+Consistency can be summarized on one sentence:
+Contracts must be created before they are used, and they cannot be used once they are consumed.
+
+Execution order
+===============
+
+To define this precisely, notions of "before" and "after" are needed.
+These are given by establishing an execution order on the nodes of a ledger.
+The ledger's graph structure already defines a :ref:`happens-before order <da-ledger-definition>` on ledger commits.
+
+The execution order extends this happens-before order to all the nodes within the commits' transactions
+so that "before" and "after" are also defined for the nodes of a single transaction.
+This is necessary because a contract can be created and used multiple times within a transaction.
+In the ``AcceptAndSettle`` :ref:`action of the DvP example <da-dvp-propose-accept-and-settle-action>`, for example,
+contract #3 is used twice (once in the non-consuming exercise at the root and once consumingly in the first consequence)
+and contract #4 is created and consumed in the same action.
+
+.. admonition:: Definiton: execution order
+
+   For a ledger, a node `n`:sub:`1` in commit `c`:sub:`1` **executes before** `n`:sub:`2` in commit `c`:sub:`2`
+   if the commit `c`:sub:`1` happens before `c`:sub:`2` or
+   if `c`:sub:`1` is the same commit as `c`:sub:`2` and `n`:sub:`1` appears before `n`:sub:`2` in the preorder traversal
+   of the transaction in this commit, noting that the transaction is an ordered forest.
+     
+Diagrammatically, the execution order is given by traversing the trees from root to leaf and left to right:
+the node of a parent action executes before the nodes in the subactions, and otherwise the nodes on the left precede the nodes on the right.
+For example, the following diagram shows the execution order with bold green arrows for the running DvP example.
+So a node `n`:sub:`1` executes before `n`:sub:`2` if and only if there is a non-empty path of green arrows from `n`:sub:`1` to `n`:sub:`2`.
+
+.. https://lucid.app/lucidchart/e3e9a609-b5bd-4faf-beb8-cd1166b160f1/edit
+.. image:: ./images/dvp-ledger-execution-order.svg
+   :align: center
+   :width: 100%
+   :alt: The execution order of the DvP ledger
+
+The execution order is always a strict partial order.
+That is, no node executes before itself (irreflexivity) and whenever node `n`:sub:`1` executes before `n`:sub:`2` and `n`:sub:`2` executes before `n`:sub:`3`, then `n`:sub:`1` also executes before `n`:sub:`3` (transitivity).
+This property follows from the ledger being a directed acyclic graph of commits.
+
+The execution order extends naturally to actions on the ledger by looking at how the action's nodes are ordered.
+
+
+Input and output contracts
+==========================
+
+The :ref:`ledger structure section <da-ledger-input-output>` already introduced the idea of input and output contracts.
+We now 
+
+
+
+.. _da-model-contract-consistency:
+
+Contract consistency
+====================
+
+Contract consistency ensures that contracts are used only after they have been created and before they are consumed.
+
+.. _def-contract-consistency:
+
+.. admonition:: Definition: contract consistency
+
+   An action, transaction or ledger is **consistent for a contract** `c`
+   if for any two distinct nodes `n`:sub:`1` and `n`:sub:`2` on `c` in the action, transaction, or ledger,
+   all of the following hold:
+
+   * If `n`:sub:`1` is a **Create** node, `n`:sub:`1` executes before `n`:sub:`2`.
+
+   * If `n`:sub:`2` is a consuming **Exercise** node, then `n`:sub:`1` executes before `n`:sub:`2`.
+
+   It is **initial-complete for a contract** `c` if
+
+   An action, transaction or ledger is **consistent** for a set of contracts `C` and inputs `I`
+   if 
+.. admonition:: Definition: 
+     
+     
+Contra
+
+
+#. :ref:`Key consistency <da-model-key-consistency>`: Keys are unique and key assertions are satisfied.
+
+These are given by putting all actions in a sequence. Technically, the
+sequence is obtained by a pre-order traversal of the ledger's actions,
+noting that these actions form an (ordered) forest. Intuitively, it is obtained
+by always picking parent actions before their proper subactions, and otherwise
+always picking the actions on the left before the actions on the right. The image
+below depicts the resulting order on the paint offer example:
+
+.. https://www.lucidchart.com/documents/edit/1ef6debb-b89a-4529-84b6-fc2c3e1857e8
+.. image:: ./images/consistency-order-on-actions.svg
+   :align: center
+   :width: 100%
+   :alt: The time sequence of commits. In the first commit, Iou Bank A is requested by the bank. In the second, PaintOffer P A P123 is requested by P. In the last commit, requested by A, Exe A (PaintOffer P A P123) leads to Exe A (Iou Bank A) leads to Iou Bank P leads to PaintAgree P A P123
+
+In the image, an action `act` happens before action `act'` if there is
+a (non-empty) path from `act` to `act'`.
+Then, `act'` happens after `act`.
+
          
 .. wip::
 
@@ -164,34 +267,6 @@ The transaction structure provides no evidence that the actor Carol has agreed t
   
 
 
-.. _da-model-consistency:
-
-Consistency
-***********
-
-Consistency consists of two parts:
-
-#. :ref:`Contract consistency <da-model-contract-consistency>`: Contracts must be created before they are used, and they cannot be used once they are consumed.
-
-#. :ref:`Key consistency <da-model-key-consistency>`: Keys are unique and key assertions are satisfied.
-
-To define this precisely, notions of "before" and "after" are needed.
-These are given by putting all actions in a sequence. Technically, the
-sequence is obtained by a pre-order traversal of the ledger's actions,
-noting that these actions form an (ordered) forest. Intuitively, it is obtained
-by always picking parent actions before their proper subactions, and otherwise
-always picking the actions on the left before the actions on the right. The image
-below depicts the resulting order on the paint offer example:
-
-.. https://www.lucidchart.com/documents/edit/1ef6debb-b89a-4529-84b6-fc2c3e1857e8
-.. image:: ./images/consistency-order-on-actions.svg
-   :align: center
-   :width: 100%
-   :alt: The time sequence of commits. In the first commit, Iou Bank A is requested by the bank. In the second, PaintOffer P A P123 is requested by P. In the last commit, requested by A, Exe A (PaintOffer P A P123) leads to Exe A (Iou Bank A) leads to Iou Bank P leads to PaintAgree P A P123
-
-In the image, an action `act` happens before action `act'` if there is
-a (non-empty) path from `act` to `act'`.
-Then, `act'` happens after `act`.
 
 .. _da-model-contract-consistency:
 

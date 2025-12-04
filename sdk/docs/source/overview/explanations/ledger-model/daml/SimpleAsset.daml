@@ -1,11 +1,11 @@
 -- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-
 module SimpleAsset where
 
 import Daml.Script
 import Daml.Script.Internal
+import DA.Either
 
 -- SNIPPET-ASSET-START
 template SimpleAsset with
@@ -39,13 +39,13 @@ doubleSpend = script do
     carol <- allocateParty "Carol"
     bank <- allocateParty "Bank"
 
-    result <- tryCommands do
+    result <- tryCommands $ do
 -- SNIPPET-double-spend-START
       let eurAsset = SimpleAsset with
-            issuer = bank1
+            issuer = bank
             owner = alice
             asset = "1 EUR"
-      aliceEur <- submit bank1 do createCmd eurAsset
+      aliceEur <- submit bank do createCmd eurAsset
 
       bobEur <- submit alice $ do
         exerciseCmd aliceEur $ Transfer with
@@ -54,9 +54,9 @@ doubleSpend = script do
       carolEur <- submit alice $ do
         exerciseCmd aliceEur $ Transfer with
           newOwner = carol
--- SNIPPET-double-spend-END
       pure ()
-   assert $ isLeft result
+-- SNIPPET-double-spend-END
+    assert $ isLeft result
       
 
 stealAsset = script do
@@ -64,17 +64,18 @@ stealAsset = script do
     bob <- allocateParty "Bob"
     bank <- allocateParty "Bank"
 
-    result <- tryCommands do
+    result <- tryCommands $ do
 -- SNIPPET-steal-START
       let usdAsset = SimpleAsset with
             issuer = bank
             owner = bob
             asset = "1 USD"
-      bobUsd <- submit bank do createCmd usdAsset
+      bobUsd <- submit bank $ do createCmd usdAsset
 
       aliceUsd <- submit alice $ do
         exerciseCmd bobUsd $ Transfer with
-          newOwner = alice
+            newOwner = alice
 -- SNIPPET-steal-END
       pure ()
-   assert $ isLeft result
+
+    assert $ isLeft result

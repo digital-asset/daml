@@ -29,14 +29,14 @@ At the core is the concept of a *valid ledger*; a change is permissible if addin
   The parties who may request a particular change are restricted.
 
 Later sections add further validity conditions as they increase the expressivity of the ledger model.
+Intuitively, the :ref:`running example of the DvP workflow <da-dvp-ledger>` should be and actually is valid.
+It is instructive to look at examples that violate some validity condition though,
+even before they are defined precisely.
 
-Examples
-========
+Consistency violation example
+=============================
 
-Clearly, the :ref:`running example of the DvP workflow <da-dvp-ledger>` should be and actually is valid.
-It is more instructive to look at examples that violate some validity condition though.
-
-In the first example, Alice tries to transfer her asset twice ("double spend"), once to Bob and once to Charlie,
+In this example, Alice tries to transfer her asset twice ("double spend"), once to Bob and once to Charlie,
 as shown in the following Daml script excerpt.
 This script is expected to fail at runtime.
 
@@ -46,18 +46,23 @@ This script is expected to fail at runtime.
    :end-before: SNIPPET-double-spend-END
 
 The corresponding Canton ledger looks as shown below.
-This ledger violates the consistency condition because contract #1 is the input to two consuming exercise nodes, one in ``TX 1`` and one in ``TX 2``.
+This ledger violates the consistency condition because contract #1 is the input to two consuming exercise nodes,
+one in ``TX 1`` and one in ``TX 2``.
 
 .. https://lucid.app/lucidchart/9fb12975-8d57-4f73-9c81-0154879c3cc9/edit
 .. image:: ./images/asset-double-spend.svg
    :align: center
-   :width: 90%
+   :width: 75%
    :alt: An inconsistent ledger where Alice double-spends her asset
 
+Conformance violation example
+=============================
+         
 In the second example, the last transaction ``TX 4`` omits one leg of the DvP workflow:
 Bob exercises the ``Settle`` choice, but it has only one subaction, namely Alice transferring her IOU.
 This violates conformance because the implementation of the ``Settle`` choice on a ``SimpleAsset`` mandates that there are two consequences.
-(This situation cannot be expressed as a Daml script scenario because Daml script ensures that all generated transactions conform to the Daml code.)
+(This situation cannot be expressed as a Daml script scenario
+because Daml script ensures that all generated transactions conform to the Daml code.)
 
 .. https://lucid.app/lucidchart/30be82bc-9d5c-4531-b7ff-3762eaa0a72d/edit
 .. image:: ./images/dvp-ledger-one-leg-only.svg
@@ -65,6 +70,9 @@ This violates conformance because the implementation of the ``Settle`` choice on
    :width: 100%
    :alt: A non-conformant ledger where one leg of the DvP settlement is missing
 
+Authorization violation examples
+================================
+         
 The next three examples show different kinds of authorization violations.
 First, Alice attempts to steal Bob's asset by requesting a transfer in his name.
 This results in an authorization failure because for ``TX 1`` the actor of the exercise root action differs from the requester.
@@ -107,6 +115,8 @@ because Carol did not agree to have her asset transferred away.
    :start-after: SNIPPET-nested-auth-error-START
    :end-before: SNIPPET-nested-auth-error-END
 
+The ledger produced by this script has an authorization failure for the Exercise node on contract #1:
+The transaction structure provides no evidence that the actor Carol has agreed to exercising the ``Transfer`` choice on her asset.
 
 .. https://lucid.app/lucidchart/50e2ad7a-ef88-4fb8-bf62-44027034a3dd/edit
 .. image:: ./images/dvp-ledger-nested-auth-error.svg
@@ -114,6 +124,71 @@ because Carol did not agree to have her asset transferred away.
    :width: 100%
    :alt: A ledger with an authorization failure where Alice allocates Carol's asset to her DvP with Bob
 
+
+.. _da-model-consistency:
+
+Consistency
+***********
+
+Consistency can be summarized on one sentence:
+Contracts must be created before they are used, and they cannot be used once they are consumed.
+
+Execution order
+===============
+
+To define this precisely, notions of "before" and "after" are needed.
+These are given by establishing an execution order on the nodes of a ledger.
+The ledger's graph structure already defines a :ref:`happens-before order <da-ledger-definition>` on ledger commits.
+
+The execution order extends this happens-before order to all the nodes within the commits' transactions
+so that "before" and "after" are also defined for the nodes of a single transaction.
+This is necessary because a contract can be created and used multiple times within a transaction.
+In the ``AcceptAndSettle`` :ref:`action of the DvP example <da-dvp-propose-accept-and-settle-action>`, for example,
+contract #3 is used twice (once in the non-consuming exercise at the root and once consumingly in the first consequence)
+and contract #4 is created and consumed in the same action.
+
+.. admonition:: Definiton: execution order
+
+   For a ledger, a node `n`:sub:`1` in commit `c`:sub:`1` executes before `n`:sub:`2` in commit `c`:sub:`2`
+   if the commit `c`:sub:`1` happens before `c`:sub:`2` or
+   if `c`:sub:`1` is the same commit as `c`:sub:`2` and `n`:sub:`1` appears before `n`:sub:`2` in the preorder traversal
+   of the transaction in this commit, noting that the transaction is an ordered forest.
+     
+Intuitively, the order is given by traversing the trees from root to leaf and left to right:
+the node of a parent action executes before the nodes in the subactions, and otherwise the nodes on the left precede the nodes on the right.
+For example, the following image shows the execution order with dashed arrows for the running DvP example:
+
+.. https://lucid.app/lucidchart/e3e9a609-b5bd-4faf-beb8-cd1166b160f1/edit
+.. image:: ./images/dvp-ledger-execution-order.svg
+   :align: center
+   :width: 100%
+   :alt: The execution order of the DvP ledger
+
+
+
+For now, we assume that all transactions 
+
+
+#. :ref:`Contract consistency <da-model-contract-consistency>`: 
+
+#. :ref:`Key consistency <da-model-key-consistency>`: Keys are unique and key assertions are satisfied.
+
+These are given by putting all actions in a sequence. Technically, the
+sequence is obtained by a pre-order traversal of the ledger's actions,
+noting that these actions form an (ordered) forest. Intuitively, it is obtained
+by always picking parent actions before their proper subactions, and otherwise
+always picking the actions on the left before the actions on the right. The image
+below depicts the resulting order on the paint offer example:
+
+.. https://www.lucidchart.com/documents/edit/1ef6debb-b89a-4529-84b6-fc2c3e1857e8
+.. image:: ./images/consistency-order-on-actions.svg
+   :align: center
+   :width: 100%
+   :alt: The time sequence of commits. In the first commit, Iou Bank A is requested by the bank. In the second, PaintOffer P A P123 is requested by P. In the last commit, requested by A, Exe A (PaintOffer P A P123) leads to Exe A (Iou Bank A) leads to Iou Bank P leads to PaintAgree P A P123
+
+In the image, an action `act` happens before action `act'` if there is
+a (non-empty) path from `act` to `act'`.
+Then, `act'` happens after `act`.
 
          
 .. wip::
@@ -126,57 +201,6 @@ because Carol did not agree to have her asset transferred away.
    * Move the examples to valid ledgers
 
 
-This section addresses the question of who can request which
-changes.
-
-To answer the next question, "who can request which changes",
-a precise definition is needed of which ledgers are permissible,
-and which are not. For example, the above
-paint offer ledger is intuitively permissible, while all of the
-following ledgers are not.
-
-.. figure:: ./images/double-spend.svg
-   :align: center
-   :alt: Described in the caption.
-
-   Alice spending her IOU twice ("double spend"), once transferring it
-   to `B` and once to `P`.
-
-.. figure:: ./images/non-conformant-action.svg
-   :align: center
-   :name: alice-changes-offer
-   :alt: Described in the caption.
-
-   Alice changing the offer's outcome by removing the transfer of the `Iou`.
-
-.. figure:: ./images/invalid-obligation.svg
-   :align: center
-   :name: obligation-imposed-on-painter
-   :alt: Described in the caption.
-
-   An obligation imposed on the painter without his consent.
-
-.. figure:: ./images/stealing-ious.svg
-   :align: center
-   :name: painter-stealing-ious
-   :alt: Described in the caption.
-
-   Painter stealing Alice's IOU. Note that the ledger would be
-   intuitively permissible if it was Alice performing the last commit.
-
-.. figure:: ./images/failed-key-assertion.svg
-   :align: center
-   :name: alice-claiming-retracted-offer
-   :alt: Described in the caption.
-
-   Painter falsely claiming that there is no offer.
-
-.. figure:: ./images/double-key-creation.svg
-   :align: center
-   :name: painter-creating-two-offers-with-same-key
-   :alt: Described in the caption.
-
-   Painter trying to create two different paint offers with the same reference number.
 
 
 .. 
@@ -205,34 +229,6 @@ following ledgers are not.
   
 
 
-.. _da-model-consistency:
-
-Consistency
-***********
-
-Consistency consists of two parts:
-
-#. :ref:`Contract consistency <da-model-contract-consistency>`: Contracts must be created before they are used, and they cannot be used once they are consumed.
-
-#. :ref:`Key consistency <da-model-key-consistency>`: Keys are unique and key assertions are satisfied.
-
-To define this precisely, notions of "before" and "after" are needed.
-These are given by putting all actions in a sequence. Technically, the
-sequence is obtained by a pre-order traversal of the ledger's actions,
-noting that these actions form an (ordered) forest. Intuitively, it is obtained
-by always picking parent actions before their proper subactions, and otherwise
-always picking the actions on the left before the actions on the right. The image
-below depicts the resulting order on the paint offer example:
-
-.. https://www.lucidchart.com/documents/edit/1ef6debb-b89a-4529-84b6-fc2c3e1857e8
-.. image:: ./images/consistency-order-on-actions.svg
-   :align: center
-   :width: 100%
-   :alt: The time sequence of commits. In the first commit, Iou Bank A is requested by the bank. In the second, PaintOffer P A P123 is requested by P. In the last commit, requested by A, Exe A (PaintOffer P A P123) leads to Exe A (Iou Bank A) leads to Iou Bank P leads to PaintAgree P A P123
-
-In the image, an action `act` happens before action `act'` if there is
-a (non-empty) path from `act` to `act'`.
-Then, `act'` happens after `act`.
 
 .. _da-model-contract-consistency:
 

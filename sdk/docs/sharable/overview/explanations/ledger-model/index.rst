@@ -83,4 +83,3 @@ The ``counterparty`` can accept the proposal with the ``Accept`` choice to creat
    ledger-privacy
    ledger-daml
    ledger-exceptions
-   ledger-validity
