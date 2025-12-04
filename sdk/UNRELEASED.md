@@ -9,6 +9,20 @@ schedule, i.e. if you add an entry effective at or after the first
 header, prepend the new date header that corresponds to the
 Wednesday after your change.
 
+## Until 2025-12-11 (Exclusive)
+- Changed java codegen to drop methods deprecated since 2.3.0. 
+  Given template `Pizza` and choice `Bake`, Following methods will no longer be generated:
+  ```
+  createAndExerciseArchive(Archive arg)
+  createAndExerciseArchive()
+  createAndExerciseBake(Pizza_Bake arg)
+  createAndExerciseBake(String pizzaiolo)
+  exerciseByKeyArchive(PizzaKey key, Archive arg)
+  exerciseByKeyArchive(PizzaKey key)
+  exerciseByKeyBake(PizzaKey key, Pizza_Bake arg)
+  exerciseByKeyBake(PizzaKey key, String pizzaiolo)
+  ```
+
 ## Until 2025-12-04 (Exclusive)
 - Added `templateIdWithPackageId` in generated typescript instances of `Template` and `InterfaceCompanion`.
 
