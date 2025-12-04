@@ -1,14 +1,13 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.sequencing
+package com.digitalasset.canton.admin.api.client.data
 
-import com.digitalasset.canton.admin.sequencer.v30
+import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.serialization.ProtoConverter
-import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.time.NonNegativeFiniteDuration
+import com.digitalasset.canton.sequencing.SubmissionRequestAmplification as SubmissionRequestAmplificationInternal
+import io.scalaland.chimney.dsl.*
 
 /** Configures the submission request amplification. Amplification makes sequencer clients send
   * eligible submission requests to multiple sequencers to overcome message loss in faulty
@@ -23,36 +22,18 @@ import com.digitalasset.canton.time.NonNegativeFiniteDuration
   */
 final case class SubmissionRequestAmplification(
     factor: PositiveInt,
-    patience: NonNegativeFiniteDuration,
+    patience: config.NonNegativeFiniteDuration,
 ) extends PrettyPrinting {
-
-  private[sequencing] def toProtoV30: v30.SubmissionRequestAmplification =
-    v30.SubmissionRequestAmplification(
-      factor = factor.unwrap,
-      patience = Some(patience.toProtoPrimitive),
-    )
-
   override protected def pretty: Pretty[SubmissionRequestAmplification] = prettyOfClass(
     param("factor", _.factor),
     param("patience", _.patience),
   )
+
+  def toInternal: SubmissionRequestAmplificationInternal =
+    this.transformInto[SubmissionRequestAmplificationInternal]
 }
 
 object SubmissionRequestAmplification {
   val NoAmplification: SubmissionRequestAmplification =
-    SubmissionRequestAmplification(PositiveInt.one, NonNegativeFiniteDuration.Zero)
-
-  private[sequencing] def fromProtoV30(
-      proto: v30.SubmissionRequestAmplification
-  ): ParsingResult[SubmissionRequestAmplification] = {
-    val v30.SubmissionRequestAmplification(factorP, patienceP) = proto
-    for {
-      factor <- ProtoConverter.parsePositiveInt("factor", factorP)
-      patience <- ProtoConverter.parseRequired(
-        NonNegativeFiniteDuration.fromProtoPrimitive("patience"),
-        "patience",
-        patienceP,
-      )
-    } yield SubmissionRequestAmplification(factor, patience)
-  }
+    SubmissionRequestAmplification(PositiveInt.one, config.NonNegativeFiniteDuration.Zero)
 }

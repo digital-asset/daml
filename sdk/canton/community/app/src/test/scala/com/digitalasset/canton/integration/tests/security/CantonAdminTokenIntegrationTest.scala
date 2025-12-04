@@ -12,7 +12,7 @@ import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.CantonRequireTypes.{InstanceName, NonEmptyString}
 import com.digitalasset.canton.console.CommandFailure
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -45,9 +45,8 @@ class CantonAdminTokenIntegrationTest(elevatedRights: Boolean)
     with SecurityTestSuite
     with AccessTestScenario {
 
-  registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory)
-  )
+  registerPlugin(new UseH2(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   private val mySecret = NonEmptyString.tryCreate("pyjama")
 

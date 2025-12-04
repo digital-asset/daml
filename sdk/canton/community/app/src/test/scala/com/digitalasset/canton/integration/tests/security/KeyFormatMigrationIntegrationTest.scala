@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.integration.tests.security
 
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.LocalInstanceReference
 import com.digitalasset.canton.crypto.store.{CryptoPrivateStoreExtended, CryptoPublicStore}
 import com.digitalasset.canton.crypto.{
@@ -13,7 +12,7 @@ import com.digitalasset.canton.crypto.{
   SigningPrivateKey,
   SigningPublicKey,
 }
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.tests.security.kms.EncryptedCryptoPrivateStoreTestHelpers
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -157,6 +156,6 @@ trait KeyFormatMigrationIntegrationTest
 }
 
 class KeyFormatMigrationIntegrationTestPostgres extends KeyFormatMigrationIntegrationTest {
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
   registerPlugin(new UsePostgres(loggerFactory))
 }

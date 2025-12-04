@@ -414,23 +414,15 @@ class TestingIdentityFactory(
 
         override def psid: PhysicalSynchronizerId = dId
 
-        override protected[topology] def trySnapshot(timestamp: CantonTimestamp)(implicit
-            traceContext: TraceContext
-        ): TopologySnapshotLoader = {
-          require(
-            timestamp <= upToInclusive,
-            s"Topology information not yet available for $timestamp, known until $upToInclusive",
-          )
-          topologySnapshot(synchronizerId, timestampForSynchronizerParameters = timestamp)
-        }
-
         override def currentSnapshotApproximation(implicit
             traceContext: TraceContext
-        ): TopologySnapshot =
-          topologySnapshot(
-            synchronizerId,
-            timestampForSynchronizerParameters = currentSnapshotApproximationTimestamp,
-            timestampOfSnapshot = currentSnapshotApproximationTimestamp,
+        ): FutureUnlessShutdown[TopologySnapshot] =
+          FutureUnlessShutdown.pure(
+            topologySnapshot(
+              synchronizerId,
+              timestampForSynchronizerParameters = currentSnapshotApproximationTimestamp,
+              timestampOfSnapshot = currentSnapshotApproximationTimestamp,
+            )
           )
 
         override def snapshotAvailable(timestamp: CantonTimestamp): Boolean =
@@ -459,13 +451,18 @@ class TestingIdentityFactory(
             )
           }
 
-        override def approximateTimestamp: CantonTimestamp =
-          currentSnapshotApproximation(TraceContext.empty).timestamp
+        override def approximateTimestamp: CantonTimestamp = currentSnapshotApproximationTimestamp
 
         override def awaitSnapshot(timestamp: CantonTimestamp)(implicit
             traceContext: TraceContext
         ): FutureUnlessShutdown[TopologySnapshot] =
-          FutureUnlessShutdown.fromTry(Try(trySnapshot(timestamp)))
+          FutureUnlessShutdown.fromTry(Try {
+            require(
+              timestamp <= upToInclusive,
+              s"Topology information not yet available for $timestamp, known until $upToInclusive",
+            )
+            topologySnapshot(synchronizerId, timestampForSynchronizerParameters = timestamp)
+          })
 
         override def close(): Unit = ()
 
@@ -499,7 +496,13 @@ class TestingIdentityFactory(
           FutureUnlessShutdown.pure(None)
 
         override def headSnapshot(implicit traceContext: TraceContext): TopologySnapshot =
-          trySnapshot(topologyKnownUntilTimestamp)
+          topologySnapshot(
+            synchronizerId,
+            timestampForSynchronizerParameters = latestTopologyChangeTimestamp,
+          )
+
+        override def latestTopologyChangeTimestamp: CantonTimestamp =
+          currentSnapshotApproximationTimestamp
       })(TraceContext.empty)
     )
     ips

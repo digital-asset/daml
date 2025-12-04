@@ -14,11 +14,7 @@ import com.digitalasset.canton.integration.bootstrap.{
   NetworkBootstrapper,
   NetworkTopologyDescription,
 }
-import com.digitalasset.canton.integration.plugins.{
-  UseBftSequencer,
-  UsePostgres,
-  UseReferenceBlockSequencer,
-}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.tests.docs.DocsGenerationSynchronization.{
   cleanUpDarsSimlink,
   createDarsSimlink,
@@ -488,7 +484,7 @@ class SynchronizerInstallationManual
     ) {
 
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   private val tmpPath = File("tmp/synchronizer-bootstrapping-files")
 
@@ -696,11 +692,7 @@ class SequencerConnectivityDocumentationIntegrationTest
     ) {
 
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.Postgres](
-      loggerFactory
-    )
-  )
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   private val target = File("./tls")
 
@@ -817,11 +809,7 @@ class OperateTrafficSnippetGeneratorTest
       }
 
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.Postgres](
-      loggerFactory
-    )
-  )
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }
 
 class HowtosHealthIntegrationTest

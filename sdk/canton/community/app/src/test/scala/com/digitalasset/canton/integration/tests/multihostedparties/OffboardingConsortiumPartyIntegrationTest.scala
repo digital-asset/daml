@@ -5,11 +5,10 @@ package com.digitalasset.canton.integration.tests.multihostedparties
 
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.BaseTest.CantonLfV21
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.LocalParticipantReference
 import com.digitalasset.canton.integration.EnvironmentDefinition
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.topology.store.TimeQuery
 import com.digitalasset.canton.topology.transaction.{
   DecentralizedNamespaceDefinition,
@@ -246,5 +245,5 @@ sealed trait OffboardingConsortiumPartyIntegrationTest extends ConsortiumPartyIn
 final class OffboardingConsortiumPartyIntegrationTestPostgres
     extends OffboardingConsortiumPartyIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }

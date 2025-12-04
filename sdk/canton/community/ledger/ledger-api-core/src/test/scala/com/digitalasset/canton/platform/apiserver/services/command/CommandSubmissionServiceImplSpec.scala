@@ -304,7 +304,9 @@ class CommandSubmissionServiceImplSpec
       routingSynchronizerState = routingSynchronizerState,
     )
 
-    when(syncService.getRoutingSynchronizerState(traceContext)).thenReturn(routingSynchronizerState)
+    when(syncService.getRoutingSynchronizerState(traceContext)).thenReturn(
+      FutureUnlessShutdown.pure(routingSynchronizerState)
+    )
 
     when(
       commandExecutor.execute(

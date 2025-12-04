@@ -86,10 +86,10 @@ class PackagePreferenceBackend(
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Either[String, (Seq[PackageReference], PhysicalSynchronizerId)]] = {
-    val routingSynchronizerState = syncService.getRoutingSynchronizerState
     val packageMetadataSnapshot = syncService.getPackageMetadataSnapshot
 
     for {
+      routingSynchronizerState <- syncService.getRoutingSynchronizerState
       _ <- ensurePackageNamesKnown(packageVettingRequirements, packageMetadataSnapshot)
       packageMapForRequest <- syncService.computePartyVettingMap(
         submitters = Set.empty,

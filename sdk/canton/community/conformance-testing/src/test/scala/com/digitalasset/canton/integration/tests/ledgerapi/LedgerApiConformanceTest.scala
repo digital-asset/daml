@@ -125,7 +125,7 @@ class LedgerApiConformanceMultiSynchronizerTest
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(ledgerApiTestToolPlugin)
   registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.Postgres](
+    new UseBftSequencer(
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(
@@ -174,7 +174,8 @@ class LedgerApiConformanceWithTrafficControlTest
       version = LAPITTVersion.LocalJar,
     )
   registerPlugin(ledgerApiTestToolPlugin)
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UsePostgres(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   "Ledger API test tool on a synchronizer with traffic control enabled" can {
     "pass traffic control related conformance tests" in { implicit env =>
@@ -302,7 +303,7 @@ trait LedgerApiConformanceSuppressedLogs extends SingleVersionLedgerApiConforman
 
 class LedgerApiConformanceSuppressedLogsPostgres extends LedgerApiConformanceSuppressedLogs {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }
 
 trait LedgerApiShard0ConformanceTest extends LedgerApiShardedConformanceBase {
@@ -313,7 +314,7 @@ trait LedgerApiShard0ConformanceTest extends LedgerApiShardedConformanceBase {
 
 class LedgerApiShard0ConformanceTestPostgres extends LedgerApiShard0ConformanceTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }
 
 trait LedgerApiShard1ConformanceTest extends LedgerApiShardedConformanceBase {
@@ -324,7 +325,7 @@ trait LedgerApiShard1ConformanceTest extends LedgerApiShardedConformanceBase {
 
 class LedgerApiShard1ConformanceTestPostgres extends LedgerApiShard1ConformanceTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }
 
 trait LedgerApiShard2ConformanceTest extends LedgerApiShardedConformanceBase {
@@ -335,7 +336,7 @@ trait LedgerApiShard2ConformanceTest extends LedgerApiShardedConformanceBase {
 
 class LedgerApiShard2ConformanceTestPostgres extends LedgerApiShard2ConformanceTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }
 
 trait LedgerApiExperimentalConformanceTest extends SingleVersionLedgerApiConformanceBase {
@@ -390,7 +391,7 @@ trait LedgerApiExperimentalConformanceTest extends SingleVersionLedgerApiConform
 
 class LedgerApiExperimentalConformanceTest_Postgres extends LedgerApiExperimentalConformanceTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }
 
 trait LedgerApiParticipantPruningConformanceTest extends SingleVersionLedgerApiConformanceBase {
@@ -432,7 +433,7 @@ trait LedgerApiParticipantPruningConformanceTest extends SingleVersionLedgerApiC
 class LedgerApiParticipantPruningConformanceTestPostgres
     extends LedgerApiParticipantPruningConformanceTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }
 
 trait LedgerApiOffsetCheckpointsConformanceTest extends SingleVersionLedgerApiConformanceBase {
@@ -470,13 +471,13 @@ trait LedgerApiOffsetCheckpointsConformanceTest extends SingleVersionLedgerApiCo
 class LedgerApiOffsetCheckpointsConformanceTestPostgres
     extends LedgerApiOffsetCheckpointsConformanceTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }
 
 // simple class which can be used to test a single test in the Ledger API conformance suite
 class LedgerApiSingleTest extends SingleVersionLedgerApiConformanceBase {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   override def connectedSynchronizersCount = 1
 

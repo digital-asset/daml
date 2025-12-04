@@ -5,15 +5,14 @@ package com.digitalasset.canton.integration.tests.toxiproxy.slow
 
 import com.digitalasset.canton
 import com.digitalasset.canton.config.DbConfig.Postgres
+import com.digitalasset.canton.config.LocalNodeConfig
 import com.digitalasset.canton.config.RequireTypes.Port
-import com.digitalasset.canton.config.{DbConfig, LocalNodeConfig}
 import com.digitalasset.canton.integration.ConfigTransforms.ConfigNodeType
 import com.digitalasset.canton.integration.plugins.toxiproxy.*
 import com.digitalasset.canton.integration.plugins.{
   UseBftSequencer,
   UseConfigTransforms,
   UsePostgres,
-  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.tests.health.HealthReportingTestHelper
 import com.digitalasset.canton.integration.tests.toxiproxy.ToxiproxyHelpers
@@ -177,55 +176,6 @@ trait HealthServiceSequencerDatabaseFaultTest extends HealthServiceDatabaseFault
     }
   }
 
-}
-
-class HealthServiceParticipantFaultReferenceIntegrationTestPostgres
-    extends HealthServiceDatabaseFaultTest {
-
-  override def proxyConf: ProxyConfig =
-    ParticipantToPostgres(s"participant1-to-postgres", "participant1")
-
-  override protected def nodeConfig(
-      env: TestConsoleEnvironment
-  ): ParticipantNodeConfig =
-    env.actualConfig.participantsByString("participant1")
-
-  override protected val getToxiProxy: () => RunningProxy =
-    setupPluginsWithToxiproxy(
-      new UsePostgres(loggerFactory),
-      new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory),
-    )
-}
-
-class HealthServiceSequencerFaultReferenceIntegrationTestPostgres
-    extends HealthServiceSequencerDatabaseFaultTest {
-
-  override protected def nodeConfig(env: TestConsoleEnvironment): LocalNodeConfig =
-    env.actualConfig.sequencersByString("sequencer1")
-
-  override protected val getToxiProxy: () => RunningProxy =
-    setupPluginsWithToxiproxy(
-      new UsePostgres(loggerFactory),
-      // Run after the DB plugin to alter the DB configuration
-      new UseConfigTransforms(Seq(lowerFailedToFatalDelay), loggerFactory),
-      new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory),
-    )
-}
-
-class HealthServiceMediatorFaultReferenceIntegrationTestPostgres
-    extends HealthServiceDatabaseFaultTest {
-
-  override def proxyConf: ProxyConfig =
-    MediatorToPostgres(s"mediator1-to-postgres", "mediator1")
-
-  override protected def nodeConfig(env: TestConsoleEnvironment): LocalNodeConfig =
-    env.actualConfig.mediatorsByString("mediator1")
-
-  override protected val getToxiProxy: () => RunningProxy =
-    setupPluginsWithToxiproxy(
-      new UsePostgres(loggerFactory),
-      new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory),
-    )
 }
 
 class HealthServiceParticipantFaultBftOrderingIntegrationTestPostgres

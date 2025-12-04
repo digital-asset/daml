@@ -5,16 +5,12 @@ package com.digitalasset.canton.integration.tests.repair
 
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.*
 import com.daml.test.evidence.tag.FuncTest
+import com.digitalasset.canton.config.CommitmentSendDelay
 import com.digitalasset.canton.config.RequireTypes.NonNegativeProportion
-import com.digitalasset.canton.config.{CommitmentSendDelay, DbConfig}
 import com.digitalasset.canton.console.FeatureFlag
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.integration.plugins.{
-  UseBftSequencer,
-  UsePostgres,
-  UseReferenceBlockSequencer,
-}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.util.EntitySyntax
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -181,23 +177,12 @@ sealed trait OfflinePartyMigrationAcsCommitmentIntegrationTest
 
 final class OfflinePartyMigrationAcsCommitmentIntegrationTestPostgres
     extends OfflinePartyMigrationAcsCommitmentIntegrationTest {
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
-  registerPlugin(new UsePostgres(loggerFactory))
-}
-
-final class OfflinePartyMigrationAcsCommitmentBftOrderingIntegrationTestPostgres
-    extends OfflinePartyMigrationAcsCommitmentIntegrationTest {
   registerPlugin(new UseBftSequencer(loggerFactory))
   registerPlugin(new UsePostgres(loggerFactory))
 }
 
 //class OfflinePartyMigrationAcsCommitmentIntegrationTestH2
 //    extends OfflinePartyMigrationAcsCommitmentIntegrationTest {
-//  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
-//  registerPlugin(new UseH2(loggerFactory))
-//}
-
-//class OfflinePartyMigrationAcsCommitmentBftOrderingIntegrationTestH2 extends OfflinePartyMigrationAcsCommitmentIntegrationTest {
-//  registerPlugin(new UseBftOrderingBlockSequencer(loggerFactory))
+//  registerPlugin(new UseBftSequencer(loggerFactory))
 //  registerPlugin(new UseH2(loggerFactory))
 //}

@@ -6,7 +6,7 @@ package com.digitalasset.canton.integration.tests.security
 import com.digitalasset.canton.BigDecimalImplicits.*
 import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameters
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.{CryptoConfig, CryptoProvider, DbConfig}
+import com.digitalasset.canton.config.{CryptoConfig, CryptoProvider}
 import com.digitalasset.canton.console.InstanceReference
 import com.digitalasset.canton.crypto.{
   CryptoKeyPair,
@@ -22,8 +22,9 @@ import com.digitalasset.canton.integration.bootstrap.{
   NetworkTopologyDescription,
 }
 import com.digitalasset.canton.integration.plugins.{
+  UseBftSequencer,
+  UseH2,
   UseProgrammableSequencer,
-  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -174,7 +175,9 @@ trait LedgerTransparencyIntegrationTest
 
 }
 
-class LedgerTransparencyReferenceIntegrationTestDefault extends LedgerTransparencyIntegrationTest {
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+class LedgerTransparencyBftOrderingIntegrationTestDefault
+    extends LedgerTransparencyIntegrationTest {
+  registerPlugin(new UseH2(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
   registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
 }

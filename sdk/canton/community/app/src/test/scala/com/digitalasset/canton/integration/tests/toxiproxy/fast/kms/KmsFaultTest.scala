@@ -3,16 +3,15 @@
 
 package com.digitalasset.canton.integration.tests.toxiproxy.fast.kms
 
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.integration.plugins.toxiproxy.{
   ProxyConfig,
   RunningProxy,
   UseToxiproxy,
 }
 import com.digitalasset.canton.integration.plugins.{
+  UseBftSequencer,
   UseConfigTransforms,
   UsePostgres,
-  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.tests.security.kms.KmsCryptoIntegrationTestBase
 import com.digitalasset.canton.integration.tests.toxiproxy.ToxiproxyHelpers
@@ -48,7 +47,7 @@ trait KmsFaultTest
   setupPlugins(
     withAutoInit = false,
     storagePlugin = Some(new UsePostgres(loggerFactory)),
-    sequencerPlugin = new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory),
+    sequencerPlugin = new UseBftSequencer(loggerFactory),
   )
   registerPlugin(
     new UseConfigTransforms(

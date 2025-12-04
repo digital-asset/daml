@@ -7,18 +7,16 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.BigDecimalImplicits.*
 import com.digitalasset.canton.admin.api.client.data.TemplateId
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.examples.java.iou.{Amount, Iou}
 import com.digitalasset.canton.integration.bootstrap.{
   NetworkBootstrapper,
   NetworkTopologyDescription,
 }
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.util.{EntitySyntax, PartiesAllocator}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
-  ConfigTransforms,
   EnvironmentDefinition,
   HasCycleUtils,
   SharedEnvironment,
@@ -43,7 +41,6 @@ trait MediatorOnboardingTest
         numSequencers = 1,
         numMediators = 2,
       )
-      .addConfigTransform(ConfigTransforms.useStaticTime)
       .withNetworkBootstrap { implicit env =>
         import env.*
         new NetworkBootstrapper(
@@ -249,5 +246,5 @@ trait MediatorOnboardingTest
 
 class MediatorOnboardingTestPostgres extends MediatorOnboardingTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }

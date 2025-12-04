@@ -2068,6 +2068,7 @@ trait LedgerAuthorizationIntegrationTest
     participant1.underlying.value.sync.syncCrypto
       .tryForSynchronizer(daId, defaultStaticSynchronizerParameters)
       .currentSnapshotApproximation
+      .futureValueUS
   }
 
   private def assertPhase3Alert(

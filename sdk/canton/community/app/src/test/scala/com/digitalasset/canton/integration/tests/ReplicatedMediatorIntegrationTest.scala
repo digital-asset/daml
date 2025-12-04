@@ -4,19 +4,15 @@
 package com.digitalasset.canton.integration.tests
 
 import cats.syntax.option.*
+import com.digitalasset.canton.config.AdminServerConfig
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.{AdminServerConfig, DbConfig}
 import com.digitalasset.canton.console.InstanceReference
 import com.digitalasset.canton.integration.bootstrap.{
   NetworkBootstrapper,
   NetworkTopologyDescription,
 }
-import com.digitalasset.canton.integration.plugins.{
-  UsePostgres,
-  UseReferenceBlockSequencer,
-  UseSharedStorage,
-}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres, UseSharedStorage}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransform,
@@ -43,7 +39,7 @@ trait ReplicatedMediatorTestSetup extends ReplicatedNodeHelper {
   protected def setupPluginsReplicatedMediator(
       storagePlugin: EnvironmentSetupPlugin
   ): Unit = {
-    registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+    registerPlugin(new UseBftSequencer(loggerFactory))
     registerPlugin(storagePlugin)
     registerPlugin(UseSharedStorage.forMediators(mediator1Name, Seq(mediator2Name), loggerFactory))
   }

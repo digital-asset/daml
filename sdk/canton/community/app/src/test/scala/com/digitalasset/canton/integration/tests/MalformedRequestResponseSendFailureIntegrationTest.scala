@@ -4,13 +4,12 @@
 package com.digitalasset.canton.integration.tests
 
 import com.daml.ledger.api.v2.commands.Command
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.crypto.TestHash
 import com.digitalasset.canton.damltests.java.universal.UniversalContract
 import com.digitalasset.canton.integration.plugins.{
+  UseBftSequencer,
   UseH2,
   UseProgrammableSequencer,
-  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.util.TestSubmissionService.CommandsWithMetadata
 import com.digitalasset.canton.integration.util.{EntitySyntax, TestSubmissionService}
@@ -162,6 +161,6 @@ trait MalformedRequestResponseSendFailureIntegrationTest
 class MalformedRequestResponseSendFailureIntegrationTestH2
     extends MalformedRequestResponseSendFailureIntegrationTest {
   registerPlugin(new UseH2(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
   registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
 }

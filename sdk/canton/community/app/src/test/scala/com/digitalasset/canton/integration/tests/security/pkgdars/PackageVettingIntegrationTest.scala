@@ -10,7 +10,6 @@ import com.daml.test.evidence.tag.Security.SecurityTest.Property.Integrity
 import com.daml.test.evidence.tag.Security.{Attack, SecurityTest, SecurityTestSuite}
 import com.digitalasset.base.error.ErrorCode
 import com.digitalasset.canton.BigDecimalImplicits.*
-import com.digitalasset.canton.config.StorageConfig
 import com.digitalasset.canton.console.CommandFailure
 import com.digitalasset.canton.crypto.{CryptoPureApi, SigningKeyUsage}
 import com.digitalasset.canton.damltests.java.conflicttest.Many
@@ -18,10 +17,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.TransactionRoutingError.ConfigurationErrors.InvalidPrescribedSynchronizerId
 import com.digitalasset.canton.examples.java as M
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
-import com.digitalasset.canton.integration.plugins.{
-  UseProgrammableSequencer,
-  UseReferenceBlockSequencer,
-}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseProgrammableSequencer}
 import com.digitalasset.canton.integration.tests.pkgdars.PackageUsableMixin
 import com.digitalasset.canton.integration.tests.security.SecurityTestHelpers
 import com.digitalasset.canton.integration.util.TestSubmissionService.CommandsWithMetadata
@@ -874,7 +870,7 @@ trait PackageVettingIntegrationTest
 
 class PackageVettingIntegrationTestInMemory extends PackageVettingIntegrationTest {
   registerPlugin(
-    new UseReferenceBlockSequencer[StorageConfig.Memory](
+    new UseBftSequencer(
       loggerFactory,
       MultiSynchronizer.tryCreate(Set("sequencer1"), Set("sequencer2")),
     )

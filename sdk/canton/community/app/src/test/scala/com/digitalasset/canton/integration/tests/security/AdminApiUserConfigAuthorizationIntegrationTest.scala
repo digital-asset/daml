@@ -10,13 +10,13 @@ import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authenticity
 import com.daml.test.evidence.tag.Security.{Attack, SecurityTest, SecurityTestSuite}
 import com.digitalasset.canton.auth.{AuthorizationChecksErrors, AuthorizedUser, CantonAdminToken}
 import com.digitalasset.canton.config
+import com.digitalasset.canton.config.AuthServiceConfig
 import com.digitalasset.canton.config.AuthServiceConfig.Wildcard
 import com.digitalasset.canton.config.CantonRequireTypes.{InstanceName, NonEmptyString}
-import com.digitalasset.canton.config.{AuthServiceConfig, DbConfig}
 import com.digitalasset.canton.connection.v30.{ApiInfoServiceGrpc, GetApiInfoRequest}
 import com.digitalasset.canton.console.RemoteInstanceReference
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2, UsePostgres}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransform,
@@ -624,11 +624,14 @@ trait AdminApiUserConfigAuthorizationIntegrationTest
 // Don't run in-memory because this may fail due to stale reads in H2.
 class AdminApiUserConfigAuthorizationIntegrationTestDefault
     extends AdminApiUserConfigAuthorizationIntegrationTest {
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseH2(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
+
 }
 
 class AdminApiUserConfigAuthorizationIntegrationTestPostgres
     extends AdminApiUserConfigAuthorizationIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
+
 }

@@ -8,12 +8,12 @@ import com.digitalasset.canton.admin.api.client.data.ParticipantStatus.Submissio
 import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameters
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.{CryptoConfig, CryptoProvider, DbConfig}
+import com.digitalasset.canton.config.{CryptoConfig, CryptoProvider}
 import com.digitalasset.canton.console.CommandFailure
 import com.digitalasset.canton.crypto.SigningKeyUsage
 import com.digitalasset.canton.integration.bootstrap.InitializedSynchronizer
+import com.digitalasset.canton.integration.plugins.UseBftSequencer
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
-import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -26,14 +26,6 @@ import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.topology.transaction.DelegationRestriction.CanSignAllButNamespaceDelegations
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import org.slf4j.event.Level
-
-class JceCryptoReferenceIntegrationTest
-    extends CryptoIntegrationTest(CryptoConfig(provider = CryptoProvider.Jce))
-    with ReconnectSynchronizerAutoInitIntegrationTest {
-  registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory, sequencerGroups)
-  )
-}
 
 class JceCryptoBftOrderingIntegrationTest
     extends CryptoIntegrationTest(CryptoConfig(provider = CryptoProvider.Jce))

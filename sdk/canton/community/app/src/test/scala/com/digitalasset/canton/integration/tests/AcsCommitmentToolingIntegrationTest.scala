@@ -6,7 +6,7 @@ package com.digitalasset.canton.integration.tests
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeProportion}
-import com.digitalasset.canton.config.{CommitmentSendDelay, DbConfig, SynchronizerTimeTrackerConfig}
+import com.digitalasset.canton.config.{CommitmentSendDelay, SynchronizerTimeTrackerConfig}
 import com.digitalasset.canton.console.{
   CommandFailure,
   LocalParticipantReference,
@@ -17,9 +17,9 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.examples.java.iou.Iou
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
 import com.digitalasset.canton.integration.plugins.{
+  UseBftSequencer,
   UsePostgres,
   UseProgrammableSequencer,
-  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.tests.util.{CommitmentTestUtil, IntervalDuration}
 import com.digitalasset.canton.integration.util.AcsInspection.assertInAcsSync
@@ -1080,7 +1080,7 @@ trait AcsCommitmentToolingIntegrationTest
 class AcsCommitmentToolingIntegrationTestPostgres extends AcsCommitmentToolingIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.Postgres](
+    new UseBftSequencer(
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(
@@ -1096,7 +1096,7 @@ class AcsCommitmentToolingIntegrationTestPostgres extends AcsCommitmentToolingIn
 //class AcsCommitmentToolingIntegrationTestH2 extends AcsCommitmentToolingIntegrationTest {
 //  registerPlugin(new UseH2(loggerFactory))
 //  registerPlugin(
-//    new UseCommunityReferenceBlockSequencer[DbConfig.H2](
+//    new UseBftSequencer(
 //      loggerFactory,
 //      sequencerGroups = MultiSynchronizer(
 //        Seq(

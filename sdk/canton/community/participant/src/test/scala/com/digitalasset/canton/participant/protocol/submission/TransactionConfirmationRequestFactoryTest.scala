@@ -97,6 +97,7 @@ class TransactionConfirmationRequestFactoryTest
       .build(loggerFactory)
       .forOwnerAndSynchronizer(submittingParticipant, physicalSynchronizerId)
       .currentSnapshotApproximation
+      .futureValueUS
   }
 
   val defaultTopology: Map[ParticipantId, Seq[LfPartyId]] = Map(

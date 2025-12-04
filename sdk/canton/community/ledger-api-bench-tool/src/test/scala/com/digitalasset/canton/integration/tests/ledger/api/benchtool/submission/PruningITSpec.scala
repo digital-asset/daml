@@ -4,8 +4,7 @@
 package com.digitalasset.canton.integration.tests.ledger.api.benchtool.submission
 
 import com.daml.ledger.javaapi.data.Party
-import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2}
 import com.digitalasset.canton.integration.tests.ledgerapi.NoAuthPlugin
 import com.digitalasset.canton.ledger.api.benchtool.config.{Config, WorkflowConfig}
 import com.digitalasset.canton.ledger.api.benchtool.services.LedgerApiServices
@@ -31,7 +30,8 @@ class PruningITSpec
     with OptionValues
     with Checkpoints {
   registerPlugin(NoAuthPlugin(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseH2(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   private var system: ActorSystem[SpawnProtocol.Command] = _
 

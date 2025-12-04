@@ -1387,10 +1387,17 @@ class CantonSyncService(
             ifNone = RequestValidationErrors.InvalidArgument
               .Reject(s"Synchronizer id not found: $psid"): RpcError,
           )
-          topologySnapshot <- EitherT.fromOption[Future](
-            syncCrypto.ips.forSynchronizer(psid).map(_.currentSnapshotApproximation),
+          topologyClient <- EitherT.fromOption[Future](
+            syncCrypto.ips.forSynchronizer(psid),
             ifNone = RequestValidationErrors.InvalidArgument
               .Reject(s"Synchronizer id not found: $psid"): RpcError,
+          )
+          topologySnapshot <- EitherT(
+            topologyClient.currentSnapshotApproximation
+              .map(Right(_))
+              .onShutdown(
+                Left(GrpcErrors.AbortedDueToShutdown.Error())
+              )
           )
           _ <- reassign(connectedSynchronizer, topologySnapshot)
             .leftMap(error =>
@@ -1497,7 +1504,7 @@ class CantonSyncService(
             s"Failed retrieving SynchronizerTopologyClient for synchronizer `$synchronizerId` with alias $synchronizerAlias"
           )
         )
-        .map(_.currentSnapshotApproximation)
+        .flatMap(_.currentSnapshotApproximation)
 
     val result = readySynchronizers
       // keep only healthy synchronizers
@@ -1630,26 +1637,27 @@ class CantonSyncService(
 
   override def getRoutingSynchronizerState(implicit
       traceContext: TraceContext
-  ): RoutingSynchronizerState = {
+  ): FutureUnlessShutdown[RoutingSynchronizerState] = {
     val syncCryptoPureApi: RoutingSynchronizerStateFactory.SyncCryptoPureApiLookup =
       (synchronizerId, staticSyncParameters) =>
         syncCrypto.forSynchronizer(synchronizerId, staticSyncParameters).map(_.pureCrypto)
-    val routingState =
-      RoutingSynchronizerStateFactory.create(
+    RoutingSynchronizerStateFactory
+      .create(
         connectedSynchronizersLookup,
         syncCryptoPureApi,
       )
+      .map { routingState =>
+        val connectedSynchronizers = routingState.connectedSynchronizers.keySet.mkString(", ")
+        val topologySnapshotInfo = routingState.topologySnapshots.view
+          .map { case (psid, loader) => s"$psid at ${loader.timestamp}" }
+          .mkString(", ")
 
-    val connectedSynchronizers = routingState.connectedSynchronizers.keySet.mkString(", ")
-    val topologySnapshotInfo = routingState.topologySnapshots.view
-      .map { case (psid, loader) => s"$psid at ${loader.timestamp}" }
-      .mkString(", ")
+        logger.info(
+          show"Routing state contains connected synchronizers $connectedSynchronizers and topology $topologySnapshotInfo"
+        )
 
-    logger.info(
-      show"Routing state contains connected synchronizers $connectedSynchronizers and topology $topologySnapshotInfo"
-    )
-
-    routingState
+        routingState
+      }
   }
 
   override def estimateTrafficCost(

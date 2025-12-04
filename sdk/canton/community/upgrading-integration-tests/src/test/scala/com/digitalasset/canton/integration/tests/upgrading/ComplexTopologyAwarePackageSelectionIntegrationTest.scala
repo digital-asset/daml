@@ -5,7 +5,6 @@ package com.digitalasset.canton.integration.tests.upgrading
 
 import com.daml.ledger.javaapi.data.CreatedEvent
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.LocalParticipantReference
 import com.digitalasset.canton.damltests.appinstall.v2.java.appinstall.{
   AppInstall as AppInstallV2,
@@ -15,8 +14,8 @@ import com.digitalasset.canton.damltests.featuredapprightimpl.v1.java.featuredap
 import com.digitalasset.canton.damltests.featuredapprightimpl.v2.java.featuredapprightimpl.FeaturedAppRightImpl as FeaturedAppRightImplV2
 import com.digitalasset.canton.damltests.featuredapprightimpl.v2.java.featuredapprightv1.FeaturedAppRight
 import com.digitalasset.canton.damltests.{appinstall, featuredapprightimpl}
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -43,9 +42,9 @@ import UpgradingBaseTest.Syntax.*
 final class ComplexTopologyAwarePackageSelectionIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment {
-
+  registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.Postgres](
+    new UseBftSequencer(
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(

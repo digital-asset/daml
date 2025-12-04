@@ -5,8 +5,7 @@ package com.digitalasset.canton.integration.tests.ledger.api.benchtool.submissio
 
 import com.daml.ledger.javaapi.data.Party
 import com.daml.scalautil.Statement.discard
-import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2}
 import com.digitalasset.canton.integration.tests.ledgerapi.NoAuthPlugin
 import com.digitalasset.canton.ledger.api.benchtool.BenchtoolSandboxFixture
 import com.digitalasset.canton.ledger.api.benchtool.config.WorkflowConfig
@@ -26,7 +25,8 @@ class FooCommandSubmitterITSpec
     with AppendedClues
     with Checkpoints {
   registerPlugin(NoAuthPlugin(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseH2(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   "FooCommandSubmitter" should {
     "populate participant with create, consuming and non consuming exercises" onlyRunWithOrGreaterThan ProtocolVersion.dev in {

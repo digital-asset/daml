@@ -53,7 +53,14 @@ import com.digitalasset.canton.topology.transaction.{
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{BaseTest, LedgerCommandId, LfPartyId, WorkflowId, checked}
+import com.digitalasset.canton.{
+  BaseTest,
+  FutureHelpers,
+  LedgerCommandId,
+  LfPartyId,
+  WorkflowId,
+  checked,
+}
 import com.digitalasset.daml.lf.data.Ref.UserId
 import com.digitalasset.daml.lf.transaction.SubmittedTransaction
 import com.digitalasset.daml.lf.transaction.test.TestIdFactory
@@ -471,7 +478,7 @@ class MaliciousParticipantNode(
     }
 }
 
-object MaliciousParticipantNode {
+object MaliciousParticipantNode extends FutureHelpers {
   def apply(
       participant: LocalParticipantReference,
       synchronizerId: PhysicalSynchronizerId,
@@ -510,6 +517,7 @@ object MaliciousParticipantNode {
     def currentCryptoSnapshot(): SynchronizerSnapshotSyncCryptoApi = sync.syncCrypto
       .tryForSynchronizer(synchronizerId, BaseTest.defaultStaticSynchronizerParameters)
       .currentSnapshotApproximation
+      .futureValueUS
 
     new MaliciousParticipantNode(
       participant.id,

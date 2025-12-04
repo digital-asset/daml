@@ -144,7 +144,8 @@ class TimeAdvancingTopologySubscriberV2Test extends AnyWordSpec with BaseTest {
       when(snapshot.sequencerGroup()(any[TraceContext]))
         .thenReturn(FutureUnlessShutdown.pure(Some(sequencerGroup)))
       val topologyClient = mock[SynchronizerTopologyClientWithInit]
-      when(topologyClient.currentSnapshotApproximation(any[TraceContext])).thenReturn(snapshot)
+      when(topologyClient.currentSnapshotApproximation(any[TraceContext]))
+        .thenReturn(FutureUnlessShutdown.pure(snapshot))
       val staticSynchronizerParameters = BaseTest.defaultStaticSynchronizerParametersWith()
       when(topologyClient.staticSynchronizerParameters).thenReturn(staticSynchronizerParameters)
       val topologyChangeDelay = staticSynchronizerParameters.topologyChangeDelay
@@ -225,7 +226,8 @@ class TimeAdvancingTopologySubscriberV2Test extends AnyWordSpec with BaseTest {
         )
       )
       val topologyClient = mock[SynchronizerTopologyClientWithInit]
-      when(topologyClient.currentSnapshotApproximation(any[TraceContext])).thenReturn(snapshot)
+      when(topologyClient.currentSnapshotApproximation(any[TraceContext]))
+        .thenReturn(FutureUnlessShutdown.pure(snapshot))
       val staticSynchronizerParameters = BaseTest.defaultStaticSynchronizerParametersWith()
       when(topologyClient.staticSynchronizerParameters).thenReturn(staticSynchronizerParameters)
 
@@ -284,7 +286,9 @@ class TimeAdvancingTopologySubscriberV2Test extends AnyWordSpec with BaseTest {
         )
       when(snapshot.sequencerGroup()).thenReturn(FutureUnlessShutdown.pure(Some(sequencerGroup)))
       val topologyClient = mock[SynchronizerTopologyClientWithInit]
-      when(topologyClient.currentSnapshotApproximation).thenReturn(snapshot)
+      when(topologyClient.currentSnapshotApproximation).thenReturn(
+        FutureUnlessShutdown.pure(snapshot)
+      )
       val staticSynchronizerParameters = BaseTest.defaultStaticSynchronizerParametersWith()
       when(topologyClient.staticSynchronizerParameters).thenReturn(staticSynchronizerParameters)
 
@@ -343,7 +347,9 @@ class TimeAdvancingTopologySubscriberV2Test extends AnyWordSpec with BaseTest {
         )
       when(snapshot.sequencerGroup()).thenReturn(FutureUnlessShutdown.pure(Some(sequencerGroup)))
       val topologyClient = mock[SynchronizerTopologyClientWithInit]
-      when(topologyClient.currentSnapshotApproximation).thenReturn(snapshot)
+      when(topologyClient.currentSnapshotApproximation).thenReturn(
+        FutureUnlessShutdown.pure(snapshot)
+      )
       val staticSynchronizerParameters = BaseTest.defaultStaticSynchronizerParametersWith()
       when(topologyClient.staticSynchronizerParameters).thenReturn(staticSynchronizerParameters)
 
@@ -409,7 +415,8 @@ class TimeAdvancingTopologySubscriberV2Test extends AnyWordSpec with BaseTest {
       when(snapshot.sequencerGroup()(any[TraceContext]))
         .thenReturn(FutureUnlessShutdown.pure(Some(sequencerGroup)))
       val topologyClient = mock[SynchronizerTopologyClientWithInit]
-      when(topologyClient.currentSnapshotApproximation(any[TraceContext])).thenReturn(snapshot)
+      when(topologyClient.currentSnapshotApproximation(any[TraceContext]))
+        .thenReturn(FutureUnlessShutdown.pure(snapshot))
       val staticSynchronizerParameters = BaseTest.defaultStaticSynchronizerParametersWith()
       when(topologyClient.staticSynchronizerParameters).thenReturn(staticSynchronizerParameters)
       val topologyChangeDelay = staticSynchronizerParameters.topologyChangeDelay
@@ -504,7 +511,8 @@ class TimeAdvancingTopologySubscriberV2Test extends AnyWordSpec with BaseTest {
       when(snapshot.sequencerGroup()(any[TraceContext]))
         .thenReturn(FutureUnlessShutdown.pure(Some(sequencerGroup)))
       val topologyClient = mock[SynchronizerTopologyClientWithInit]
-      when(topologyClient.currentSnapshotApproximation(any[TraceContext])).thenReturn(snapshot)
+      when(topologyClient.currentSnapshotApproximation(any[TraceContext]))
+        .thenReturn(FutureUnlessShutdown.pure(snapshot))
       val staticSynchronizerParameters = BaseTest.defaultStaticSynchronizerParametersWith()
       when(topologyClient.staticSynchronizerParameters).thenReturn(staticSynchronizerParameters)
       val topologyChangeDelay = staticSynchronizerParameters.topologyChangeDelay

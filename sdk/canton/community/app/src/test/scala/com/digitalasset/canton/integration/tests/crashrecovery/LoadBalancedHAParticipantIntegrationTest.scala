@@ -200,7 +200,7 @@ class LoadBalancedHAParticipantIntegrationTest
       loggerFactory,
     )
   )
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   "load balanced participant should eventually appear running" in { implicit env =>
     // This basically means that one of the participant instances have become healthy and that the load balancer

@@ -278,15 +278,26 @@ class ReassignmentCoordination(
       )
     } yield snapshot
 
+  import cats.implicits.*
+
   private def getRecentTopologyTimestamp[T[X] <: ReassignmentTag[X]
     : SameReassignmentType: SingletonTraverse](
       psid: T[PhysicalSynchronizerId]
   )(implicit
       traceContext: TraceContext
-  ): Either[UnknownPhysicalSynchronizer, T[CantonTimestamp]] = for {
-    staticSynchronizerParameters <- getStaticSynchronizerParameter(psid)
-    topoClient <- getTopologyClient(psid, staticSynchronizerParameters)
-  } yield topoClient.map(_.currentSnapshotApproximation.ipsSnapshot.timestamp)
+  ): EitherT[FutureUnlessShutdown, UnknownPhysicalSynchronizer, T[CantonTimestamp]] = for {
+    staticSynchronizerParameters <- EitherT.fromEither[FutureUnlessShutdown](
+      getStaticSynchronizerParameter(psid)
+    )
+    topoClient <- EitherT.fromEither[FutureUnlessShutdown](
+      getTopologyClient(psid, staticSynchronizerParameters)
+    )
+    snapshot <- topoClient.traverseSingleton { case (_, client) =>
+      EitherT.right[UnknownPhysicalSynchronizer](
+        client.currentSnapshotApproximation.map(_.ipsSnapshot.timestamp)
+      )
+    }
+  } yield snapshot
 
   override def maybeAwaitTopologySnapshot(
       targetPSId: Target[PhysicalSynchronizerId],
@@ -302,9 +313,8 @@ class ReassignmentCoordination(
       getStaticSynchronizerParameter(targetPSId)
     )
 
-    recentTimestamp <- EitherT.fromEither[FutureUnlessShutdown](
-      getRecentTopologyTimestamp(targetPSId)
-    )
+    recentTimestamp <- getRecentTopologyTimestamp(targetPSId)
+
     timestampUpperBound = recentTimestamp.map(_ + targetTimestampForwardTolerance)
     topology <-
       if (requestedTimestamp <= timestampUpperBound) {
@@ -343,9 +353,7 @@ class ReassignmentCoordination(
     Target[TopologySnapshot],
   ] =
     for {
-      timestamp <- EitherT.fromEither[FutureUnlessShutdown](
-        getRecentTopologyTimestamp(targetSynchronizerId)
-      )
+      timestamp <- getRecentTopologyTimestamp(targetSynchronizerId)
       // Since events are stored before they are processed, we wait just to be sure.
       targetCrypto <- awaitTimestampAndGetTaggedCryptoSnapshot(
         targetSynchronizerId,

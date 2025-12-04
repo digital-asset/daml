@@ -12,12 +12,18 @@ import com.digitalasset.base.error.utils.DecodedCantonError
 import com.digitalasset.canton.*
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config as cantonConfig
-import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.RequireTypes.{
   NonNegativeInt,
   NonNegativeLong,
   Port,
   PositiveInt,
+}
+import com.digitalasset.canton.config.{
+  DefaultProcessingTimeouts,
+  LoggingConfig,
+  ProcessingTimeout,
+  SynchronizerTimeTrackerConfig,
+  TestingConfigInternal,
 }
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{
@@ -94,7 +100,12 @@ import com.digitalasset.canton.store.{
   SequencedEventStore,
   SequencerCounterTrackerStore,
 }
-import com.digitalasset.canton.time.{MockTimeRequestSubmitter, SimClock, SynchronizerTimeTracker}
+import com.digitalasset.canton.time.{
+  MockTimeRequestSubmitter,
+  NonNegativeFiniteDuration,
+  SimClock,
+  SynchronizerTimeTracker,
+}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.DefaultTestIdentities.{
   daSequencerId,
@@ -1087,7 +1098,7 @@ final class SequencerClientTest
     "a synchronous error" should {
       val amplificationConfig = SubmissionRequestAmplification(
         factor = PositiveInt.two,
-        patience = config.NonNegativeFiniteDuration.Zero,
+        patience = NonNegativeFiniteDuration.Zero,
       )
 
       "trigger amplification if it is 'overloaded' and the flag is set" in {
@@ -1136,7 +1147,7 @@ final class SequencerClientTest
     "amplification" should {
       val amplificationConfig = SubmissionRequestAmplification(
         factor = PositiveInt.two,
-        patience = config.NonNegativeFiniteDuration.tryFromDuration(10.seconds),
+        patience = NonNegativeFiniteDuration.tryOfSeconds(10),
       )
 
       def lastSubmissionTime(env: Env[?]): CantonTimestamp =
@@ -2015,7 +2026,7 @@ final class SequencerClientTest
       val topologyClient = mock[SynchronizerTopologyClient]
       val mockTopologySnapshot = mock[TopologySnapshot]
       when(topologyClient.currentSnapshotApproximation(any[TraceContext]))
-        .thenReturn(mockTopologySnapshot)
+        .thenReturn(FutureUnlessShutdown.pure(mockTopologySnapshot))
       when(
         mockTopologySnapshot.findDynamicSynchronizerParametersOrDefault(
           any[ProtocolVersion],

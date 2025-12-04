@@ -1466,15 +1466,13 @@ class AcsCommitmentProcessor private (
 
   private def checkCommitmentSignature(
       message: SignedProtocolMessage[AcsCommitment]
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Boolean] = {
-    val cryptoSnapshot = synchronizerCrypto.currentSnapshotApproximation
-
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Boolean] =
     for {
+      cryptoSnapshot <- synchronizerCrypto.currentSnapshotApproximation
       result <- message.verifySignature(cryptoSnapshot, message.typedMessage.content.sender).value
     } yield result
       .tapLeft(err => logger.error(s"Commitment signature verification failed with $err"))
       .isRight
-  }
 
   private def checkCommitment(
       commitment: AcsCommitment
@@ -1921,18 +1919,16 @@ class AcsCommitmentProcessor private (
 
     // filter the commitments to send based on the participants active at the "current time",
     // and not the ones active at the period end of the commitment
-    def filterByActiveParticipants(): FutureUnlessShutdown[Seq[(ParticipantId, AcsCommitment)]] = {
-      val cryptoSnapshot = synchronizerCrypto.currentSnapshotApproximation
-      val ipsSnapshot = cryptoSnapshot.ipsSnapshot
-
+    def filterByActiveParticipants(): FutureUnlessShutdown[Seq[(ParticipantId, AcsCommitment)]] =
       for {
+        cryptoSnapshot <- synchronizerCrypto.currentSnapshotApproximation
+        ipsSnapshot = cryptoSnapshot.ipsSnapshot
         activeParticipants <- ipsSnapshot.areMembersKnown(msgs.map {
           case (participant, _commitment) => participant.member
         }.toSet)
       } yield msgs.filter { case (participant, _commitment) =>
         activeParticipants.contains(participant.member)
       }
-    }
 
     def retryLogic(
         msgsFiltered: Seq[(ParticipantId, AcsCommitment)],
@@ -1970,10 +1966,10 @@ class AcsCommitmentProcessor private (
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, CommitmentSendState, Unit] = {
       implicit val metricsContext: MetricsContext = MetricsContext("type" -> "send-commitment")
-      val cryptoSnapshot = synchronizerCrypto.currentSnapshotApproximation
       val sendCallback = SendCallback.future
 
       for {
+        cryptoSnapshot <- EitherT.liftF(synchronizerCrypto.currentSnapshotApproximation)
         signedCmtMsgs <- EitherT.right(
           msgsFiltered.parTraverse { case (participant, commitment) =>
             SignedProtocolMessage

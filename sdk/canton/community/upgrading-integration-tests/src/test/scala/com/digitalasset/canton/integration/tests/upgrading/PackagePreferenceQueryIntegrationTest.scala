@@ -7,14 +7,13 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service.GetPref
 import com.daml.ledger.api.v2.package_reference.PackageReference
 import com.digitalasset.canton.LfPackageName
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.LocalParticipantReference
 import com.digitalasset.canton.damltests.appinstall.v1.java.appinstall.AppInstall as AppInstallV1
 import com.digitalasset.canton.damltests.appinstall.v2.java.appinstall.AppInstall as AppInstallV2
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.integration.*
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.ledger.error.LedgerApiErrors.NoPreferredPackagesFound
 import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.util.SetupPackageVetting
@@ -28,8 +27,9 @@ class PackagePreferenceQueryIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment
     with UpgradingBaseTest.WhenPV {
+  registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.Postgres](
+    new UseBftSequencer(
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(

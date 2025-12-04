@@ -4,25 +4,25 @@
 package com.digitalasset.canton.integration.tests.connection
 
 import com.digitalasset.canton.SequencerAlias
-import com.digitalasset.canton.admin.api.client.data.{ComponentHealthState, ComponentStatus}
-import com.digitalasset.canton.config.DbConfig
+import com.digitalasset.canton.admin.api.client.data.{
+  ComponentHealthState,
+  ComponentStatus,
+  SubmissionRequestAmplification,
+}
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.{InstanceReference, LocalInstanceReference}
 import com.digitalasset.canton.integration.bootstrap.{
   NetworkBootstrapper,
   NetworkTopologyDescription,
 }
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
   EnvironmentDefinition,
   SharedEnvironment,
 }
-import com.digitalasset.canton.sequencing.{
-  SequencerConnectionValidation,
-  SubmissionRequestAmplification,
-}
+import com.digitalasset.canton.sequencing.SequencerConnectionValidation
 
 /** This test checks that the sequencer connection pool properly reports the status of its
   * components through the health status API.
@@ -165,5 +165,5 @@ sealed trait ConnectionPoolHealthIntegrationTest
 
 class ConnectionPoolHealthIntegrationTestDefault extends ConnectionPoolHealthIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }
