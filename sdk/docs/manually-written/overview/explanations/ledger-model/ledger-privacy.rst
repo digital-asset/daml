@@ -436,7 +436,8 @@ For example, the shape-revealing projection of the :ref:`above DvP ledger <da-dv
 Node shapes are shown as empty boxes with a `?` inside and annotated with the informees and the required confirmers (underlined).
 Importantly, the shape-revealing projection retains the requesters and the empty projected transactions, unlike for normal projections.
 Conversely, the node shapes do not show the inputs and outputs.
-This means that parties do not see the transaction graph that is outside their projection.
+Thus despite the shape of individual transactions being visible to all parties, 
+the structure of the overall transaction graph remains private. 
 
 .. https://lucid.app/lucidchart/1cbf8e33-4ab8-4c30-a208-5a3e8de85e5d/edit
 .. image:: ./images/dvp-ledger-projection-reveal-shape.svg
