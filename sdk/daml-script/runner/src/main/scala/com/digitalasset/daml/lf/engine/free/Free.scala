@@ -11,10 +11,11 @@ import language.Ast._
 import language.Util._
 import speedy._
 import speedy.Speedy.Machine.{
-  ValueWithClosure,
-  ClosureBlob,
-  ValueWithClosuresComputationMode,
-  runValueWithClosuresComputation,
+  ExtendedValue,
+  ExtendedValueAny,
+  ExtendedValueClosureBlob,
+  ExtendedValueComputationMode,
+  runExtendedValueComputation,
 }
 import value._
 import value.Value._
@@ -110,7 +111,7 @@ private[lf] object Free {
   case class Question(
       name: String,
       version: Long,
-      payload: ValueWithClosure,
+      payload: ExtendedValue,
       private val stackTrace: StackTrace,
   )
 
@@ -121,7 +122,7 @@ private[lf] object Free {
   }
 
   def getResult(
-      freeClosure: ClosureBlob, // LF Type: () -> Free ScriptF (a, ())
+      freeClosure: ExtendedValueClosureBlob, // LF Type: () -> Free ScriptF (a, ())
       compiledPackages: CompiledPackages,
       traceLog: TraceLog,
       warningLog: WarningLog,
@@ -140,7 +141,7 @@ private[lf] object Free {
     ).getResult()
 
   def getResultF(
-      freeClosure: ClosureBlob, // LF Type: () -> Free ScriptF (a, ())
+      freeClosure: ExtendedValueClosureBlob, // LF Type: () -> Free ScriptF (a, ())
       compiledPackages: CompiledPackages,
       traceLog: TraceLog,
       warningLog: WarningLog,
@@ -150,7 +151,7 @@ private[lf] object Free {
       cancelled: () => Option[RuntimeException],
   )(implicit ec: ExecutionContext): Future[Result[Value, Question, (Value, Type)]] =
     new Runner(
-      freeClosure: ClosureBlob,
+      freeClosure: ExtendedValueClosureBlob,
       compiledPackages: CompiledPackages,
       traceLog: TraceLog,
       warningLog: WarningLog,
@@ -161,7 +162,7 @@ private[lf] object Free {
     ).getResultF()
 
   private class Runner(
-      freeClosure: ClosureBlob, // LF Type: () -> Free ScriptF (a, ())
+      freeClosure: ExtendedValueClosureBlob, // LF Type: () -> Free ScriptF (a, ())
       compiledPackages: CompiledPackages,
       traceLog: TraceLog,
       warningLog: WarningLog,
@@ -184,11 +185,11 @@ private[lf] object Free {
       Future { getResult() }
 
     private[this] def runClosure(
-        closure: ClosureBlob,
+        closure: ExtendedValueClosureBlob,
         args: List[(Value, Type)],
-    ): Result.NoQuestion[ValueWithClosure] =
-      runValueWithClosuresComputation(
-        computationMode = ValueWithClosuresComputationMode.ClosureWithArgs(closure, args),
+    ): Result.NoQuestion[ExtendedValue] =
+      runExtendedValueComputation(
+        computationMode = ExtendedValueComputationMode.ClosureWithArgs(closure, args),
         cancelled = cancelled,
         compiledPackages = compiledPackages,
         iterationsBetweenInterruptions = 100000,
@@ -201,7 +202,9 @@ private[lf] object Free {
         Result.successful(_),
       )
 
-    def parseQuestion(v: ValueWithClosure): ErrOr[Either[Value, (Question, ClosureBlob)]] = {
+    def parseQuestion(
+        v: ExtendedValue
+    ): ErrOr[Either[Value, (Question, ExtendedValueClosureBlob)]] = {
       v match {
         case ValueVariant(
               _,
@@ -218,7 +221,7 @@ private[lf] object Free {
                         (_, ValueInt64(version)),
                         (_, payload),
                         (_, locations),
-                        (_, continue: ClosureBlob),
+                        (_, continue: ExtendedValueClosureBlob),
                       ),
                     ),
                   )
@@ -231,7 +234,8 @@ private[lf] object Free {
         case ValueVariant(_, "Pure", v) =>
           castToPureValue(
             v,
-            (_: ClosureBlob) => Left(new RuntimeException("Blob in return value!")),
+            (_: ExtendedValueClosureBlob) => Left(new RuntimeException("Blob in return value!")),
+            (_: ExtendedValueAny) => Left(new RuntimeException("Any in return value!")),
           ).map(Left(_))
         case _ =>
           convError(s"Expected Free Question or Pure, got $v")
@@ -239,7 +243,7 @@ private[lf] object Free {
     }
 
     private[lf] def runFreeMonad(
-        freeValue: ValueWithClosure
+        freeValue: ExtendedValue
     ): Result[Value, Question, (Value, Type)] = {
       for {
         free <- parseQuestion(freeValue).toResult
@@ -247,7 +251,7 @@ private[lf] object Free {
           case Right((question, continue)) =>
             for {
               nextFreeValue <- {
-                def resume(answer: ErrOr[(Value, Type)]): Result.NoQuestion[ValueWithClosure] =
+                def resume(answer: ErrOr[(Value, Type)]): Result.NoQuestion[ExtendedValue] =
                   answer.fold(Result.failed, answer => runClosure(continue, List(answer)))
                 Result.Ask(question, resume)
               }
@@ -260,7 +264,9 @@ private[lf] object Free {
                 Result.Final(
                   castToPureValue(
                     result,
-                    (_: ClosureBlob) => Left(new RuntimeException("Blob in return value!")),
+                    (_: ExtendedValueClosureBlob) =>
+                      Left(new RuntimeException("Blob in return value!")),
+                    (_: ExtendedValueAny) => Left(new RuntimeException("Any in return value!")),
                   )
                 )
               case _ =>
@@ -270,7 +276,7 @@ private[lf] object Free {
       } yield result
     }
 
-    private def toSrcLoc(v: ValueWithClosure): ErrOr[SrcLoc] =
+    private def toSrcLoc(v: ExtendedValue): ErrOr[SrcLoc] =
       v match {
         case ValueRecord(
               _,
@@ -302,24 +308,24 @@ private[lf] object Free {
         case _ => convError(s"Expected SrcLoc but got $v")
       }
 
-    def toInt(v: ValueWithClosure): ErrOr[Int] =
+    def toInt(v: ExtendedValue): ErrOr[Int] =
       toLong(v).map(_.toInt)
 
-    def toLong(v: ValueWithClosure): ErrOr[Long] = {
+    def toLong(v: ExtendedValue): ErrOr[Long] = {
       v match {
         case ValueInt64(i) => Right(i)
         case _ => convError(s"Expected SInt64 but got ${v.getClass.getSimpleName}")
       }
     }
 
-    def toText(v: ValueWithClosure): ErrOr[String] = {
+    def toText(v: ExtendedValue): ErrOr[String] = {
       v match {
         case ValueText(text) => Right(text)
         case _ => convError(s"Expected ValueText but got ${v.getClass.getSimpleName}")
       }
     }
 
-    def toLocation(v: ValueWithClosure): ErrOr[Ref.Location] =
+    def toLocation(v: ExtendedValue): ErrOr[Ref.Location] =
       v match {
         case ValueRecord(_, ImmArray((_, definition), (_, loc))) =>
           for {
@@ -333,7 +339,7 @@ private[lf] object Free {
       }
 
     def toStackTrace(
-        v: ValueWithClosure
+        v: ExtendedValue
     ): ErrOr[StackTrace] =
       v match {
         case ValueList(frames) =>

@@ -18,9 +18,9 @@ import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerC
 import com.digitalasset.daml.lf.script.{IdeLedger, IdeLedgerRunner}
 import com.digitalasset.daml.lf.speedy.{Profile, TraceLog, WarningLog}
 import com.digitalasset.daml.lf.speedy.Speedy.Machine.{
-  ClosureBlob,
-  ValueWithClosuresComputationMode,
-  runValueWithClosuresComputation,
+  ExtendedValueClosureBlob,
+  ExtendedValueComputationMode,
+  runExtendedValueComputation,
   newTraceLog,
   newWarningLog,
   newProfile,
@@ -99,14 +99,14 @@ private[lf] class Runner(
     }
 
   // Takes something that resolves to type Script X
-  def run(comp: ValueWithClosuresComputationMode, convertLegacyExceptions: Boolean = true)(implicit
+  def run(comp: ExtendedValueComputationMode, convertLegacyExceptions: Boolean = true)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Value] =
     for {
       scriptValue <-
-        runValueWithClosuresComputation(
+        runExtendedValueComputation(
           comp,
           canceled,
           unversionedRunner.extendedCompiledPackages,
@@ -121,7 +121,7 @@ private[lf] class Runner(
         )
 
       freeClosure <- scriptValue match {
-        case ValueRecord(_, ImmArray((_, freeClosure: ClosureBlob), _)) =>
+        case ValueRecord(_, ImmArray((_, freeClosure: ExtendedValueClosureBlob), _)) =>
           Future.successful(freeClosure)
         case a => Future.failed(new RuntimeException(s"Expected Script a but got $a"))
       }
@@ -162,9 +162,9 @@ private[lf] class Runner(
       (
         unversionedRunner.script match {
           case ScriptAction.NoParam(id, _) =>
-            run(ValueWithClosuresComputationMode.IdentifierWithoutArgs(id))
+            run(ExtendedValueComputationMode.IdentifierWithoutArgs(id))
           case ScriptAction.Param(id, paramType, Some(param), _) =>
-            run(ValueWithClosuresComputationMode.IdentifierWithArgs(id, List((param, paramType))))
+            run(ExtendedValueComputationMode.IdentifierWithArgs(id, List((param, paramType))))
           case _ =>
             Future.failed(
               new RuntimeException("impossible")

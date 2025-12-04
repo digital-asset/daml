@@ -24,7 +24,7 @@ import com.digitalasset.daml.lf.speedy.SExpr._
 // import com.digitalasset.daml.lf.speedy.SValue._
 // import com.digitalasset.daml.lf.speedy.{SError, SValue}
 import com.digitalasset.daml.lf.speedy.SValue
-import com.digitalasset.daml.lf.speedy.Speedy.Machine.ValueWithClosure
+import com.digitalasset.daml.lf.speedy.Speedy.Machine.ExtendedValue
 import com.digitalasset.daml.lf.stablepackages.StablePackagesV2
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value._
@@ -1170,7 +1170,7 @@ object ScriptF {
   //     case _ => Left(s"Expected ListKnownParties payload but got $v")
   //   }
 
-  private def parseEmpty[A](result: A)(v: ValueWithClosure): Either[String, A] =
+  private def parseEmpty[A](result: A)(v: ExtendedValue): Either[String, A] =
     v match {
       case ValueRecord(_, ImmArray()) => Right(result)
       case _ => Left(s"Expected ${result.getClass.getSimpleName} payload but got $v")
@@ -1369,7 +1369,7 @@ object ScriptF {
   def parse(
       commandName: String,
       version: Long,
-      v: ValueWithClosure,
+      v: ExtendedValue,
       @unused knownPackages: KnownPackages,
   ): Either[String, Cmd] = {
     (commandName, version) match {
