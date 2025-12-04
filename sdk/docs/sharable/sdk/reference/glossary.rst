@@ -1,168 +1,505 @@
 .. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
+
 .. _glossary:
 
 Glossary of concepts
 ####################
+..  .
+     ▗▄▖
+    ▐▌ ▐▌
+    ▐▛▀▜▌
+    ▐▌ ▐▌
 
-Key Concepts
-************
+Archived Contract
+*****************
 
-Daml
-====
+See :ref:`glos-active-contract`.
 
-Daml is a platform for building and running sophisticated, multi-party applications. At its core, it contains a smart contract `language <#daml-language>`__ and `tooling <#developer-tools>`__
-that defines the schema, semantics, and execution of transactions between parties. Daml includes `Canton <#canton-ledger>`__, a privacy-enabled distributed ledger that is enhanced when deployed
-with complementary blockchains.
 
-Daml Language
-=============
+.. _glos-active-contract:
 
-The Daml language is a purpose-built language for rapid development of composable multi-party applications. It is a modern, ergonomically designed functional language that carefully avoids many
-of the pitfalls that hinder multi-party application development in other languages.
+Active Contract
+***************
 
-Daml Ledger
-===========
+When a `contract <#contract>`__ is created on a `ledger <#daml-ledger>`__, it
+becomes **active**. But that doesn't mean it will remain active forever: it can
+be **archived**. This can happen:
 
-A Daml ledger is a distributed ledger system running `Daml smart contracts <#contract>`__ according to the :externalref:`Daml ledger model <da-ledgers>` and exposes the Daml Ledger APIs.
-All current implementations of Daml ledgers consist of a Daml driver that utilizes an underlying Synchronization Technology to either implement the Daml ledger directly or to run the Canton protocol.
+- if the `signatories <#signatory>`__ of the contract decide to archive it
+- if a `consuming choice <#consuming-choice>`__ is exercised on the contract
+
+Once the contract is archived, it is no longer valid, and `choices <#choice>`__
+on the contract can no longer be exercised.
+
+..  .
+    ▗▄▄▖
+    ▐▌ ▐▌
+    ▐▛▀▚▖
+    ▐▙▄▞▘
+
+
+
+..  .
+     ▗▄▄▖
+    ▐▌
+    ▐▌
+    ▝▚▄▄▖
+
+Canton
+******
+
+
+.. _glos-canton-ledger:
 
 Canton Ledger
--------------
+*************
 
-A Canton ledger is a privacy-enabled Daml ledger implemented using the Canton application, nodes, and protocol.
+A Canton ledger is a privacy-enabled Daml ledger implemented using the Canton
+application, nodes, and protocol.
+
+
+.. _glos-canton-protocol:
 
 Canton Protocol
-===============
+***************
 
-The Canton protocol is the technology that synchronizes `participant nodes <#participant-node>`__ across any Daml-enabled blockchain or database.  The Canton protocol not only makes Daml
-applications portable between different underlying `synchronization technologies <#synchronization-technology>`__, but also allows applications to transact with each other across them.
-
-.. Synchronization technology.  Not 'Environment', 'Infrastructure layer', 'Messaging layer', 'Topology layer', 'Underlying <enter-any-previous-term>'
-
-Synchronization Technology
-==========================
-
-The synchronization technology is the database or blockchain that Daml uses for synchronization, messaging, and topology. Daml runs on a range of synchronization technologies, from centralized
-databases to fully distributed deployments, and users can employ the technology that best suits their technical and operational needs.
-
-Daml Drivers
-============
-
-Daml drivers enable a `ledger <#daml-ledger>`__ to be implemented on top of different `synchronization technologies <#synchronization-technology>`__; a database or distributed ledger technology.
-
-Daml Language Concepts
-**********************
+The Canton protocol is the technology that synchronizes `participant nodes
+<#participant-node>`__ across any Daml-enabled blockchain or database. The
+Canton protocol not only makes Daml applications portable between different
+underlying `synchronization technologies <#synchronization-technology>`__, but
+also allows applications to transact with each other across them.
 
 Contract
-========
+********
 
-**Contracts** are items on a `ledger <#daml-ledger>`__. They are created from blueprints called `templates <#template>`__, and include:
+**Contracts** are items on a `ledger <#daml-ledger>`__. They are created from
+ blueprints called `templates <#template>`__, and include:
 
 - data (parameters)
 - roles (`signatory`_, `observer`_)
 - `choices <#choice>`__ (and `controllers <#controller>`__)
 
-Contracts are immutable: once they are created on the ledger, the information in the contract cannot be changed. The only thing that can happen to them is that they can be `archived <#active-contract-archived-contract>`__.
+Contracts are immutable: once they are created on the ledger, the information in
+the contract cannot be changed. The only thing that can happen to them is that
+they can be `archived <#active-contract-archived-contract>`__.
 
-Active Contract, Archived Contract
-----------------------------------
+Controller
+----------
 
-When a `contract <#contract>`__ is created on a `ledger <#daml-ledger>`__, it becomes **active**. But that doesn't mean it will remain active forever: it can be **archived**. This can happen:
+A **controller** is a `party <#party>`__ that is able to `exercise
+<#exercise>`__ a particular `choice <#choice>`__ on a particular `contract
+<#contract>`__.
 
-- if the `signatories <#signatory>`__ of the contract decide to archive it
-- if a `consuming choice <#consuming-choice>`__ is exercised on the contract
+Controllers must be at least an `observer`_, otherwise they can't see the
+contract to exercise it on. But they don't have to be a `signatory`_. this
+enables the :ref:`propose-accept pattern <propose-accept>`.
 
-Once the contract is archived, it is no longer valid, and `choices <#choice>`__ on the contract can no longer be exercised.
 
-Template
-========
-
-A **template** is a blueprint for creating a `contract <#contract>`__. This is the Daml code you write.
-
-For full documentation on what can be in a template, see :ref:`reference-templates`.
+.. _glos-choice:
 
 Choice
-======
+******
 
-A **choice** is something that a `party <#party>`__ can `exercise <#exercise>`__ on a `contract <#contract>`__. You write code in the choice body that specifies what happens when the choice is exercised: for example, it could create a new contract.
+A **choice** is something that a `party <#party>`__ can `exercise <#exercise>`__
+on a `contract <#contract>`__. You write code in the choice body that specifies
+what happens when the choice is exercised: for example, it could create a new
+contract.
 
-Choices give one a way to transform the data in a contract: while the contract itself is immutable, you can write a choice that `archives <#active-contract-archived-contract>`__ the contract and creates a new version of it with updated data.
+Choices give one a way to transform the data in a contract: while the contract
+itself is immutable, you can write a choice that `archives
+<#active-contract-archived-contract>`__ the contract and creates a new version
+of it with updated data.
 
-A choice can only be exercised by its `controller <#controller>`__. Within the choice body, you have the `authorization <#authorization-signing>`__ of all of the contract's `signatories <#signatory>`__.
+A choice can only be exercised by its `controller <#controller>`__. Within the
+choice body, you have the `authorization <#authorization-signing>`__ of all of
+the contract's `signatories <#signatory>`__.
 
 For full documentation on choices, see :ref:`reference-choices`.
 
+See also :ref:`glos-consuming-choice`, :ref:`glos-preconsuming-choice`,
+:ref:`glos-postconsuming-choice`, :ref:`glos-nonconsuming-choice`.
+
+Choice Observer
+---------------
+
+A **choice observer** is a `party <#party>`__ on a `choice <#choice>`__. Choice observers are guaranteed to see the choice being exercised and all its consequences with it.
+
+
+.. _glos-consuming-choice:
+
 Consuming Choice
-----------------
+****************
 
-A **consuming choice** means that, when the choice is exercised, the `contract <#contract>`__ it is on will be `archived <#active-contract-archived-contract>`__. The alternative is a `nonconsuming choice <#nonconsuming-choice>`__.
+A **consuming choice** means that, when the choice is exercised, the `contract
+<#contract>`__ it is on will be `archived
+<#active-contract-archived-contract>`__. The alternative is a `nonconsuming
+choice <#nonconsuming-choice>`__.
 
-Consuming choices can be `preconsuming <#preconsuming-choice>`__ or `postconsuming <#postconsuming-choice>`__.
+Consuming choices can be `preconsuming <#preconsuming-choice>`__ or
+:ref:`postconsuming<glos-postconsuming-choice>`.
 
-Preconsuming Choice
-~~~~~~~~~~~~~~~~~~~
+See also :ref:`glos-choice`.
 
-A `choice <#choice>`__ marked **preconsuming** will be `archived <#active-contract-archived-contract>`__ at the start of that `exercise <#exercise>`__.
 
-Postconsuming Choice
-~~~~~~~~~~~~~~~~~~~~
+..  .
+    ▗▄▄▄
+    ▐▌  █
+    ▐▌  █
+    ▐▙▄▄▀
 
-A `choice <#choice>`__ marked **postconsuming** will not be `archived <#active-contract-archived-contract>`__ until the end of the `exercise <#exercise>`__ choice body.
+Daml
+****
 
-Nonconsuming Choice
---------------------
+Daml is a platform for building and running sophisticated, multi-party
+applications. At its core, it contains a smart contract :ref:`language
+<glos-daml-language>` and `tooling <#developer-tools>`__ that defines the
+schema, semantics, and execution of transactions between parties. Daml includes
+`Canton <#canton-ledger>`__, a privacy-enabled distributed ledger that is
+enhanced when deployed with complementary blockchains.
 
-A **nonconsuming choice** does NOT `archive <#active-contract-archived-contract>`__ the `contract <#contract>`__ it is on when `exercised <#exercise>`__. This means the choice can be exercised more than once on the same `contract <#contract>`__.
 
-Disjunction Choice, Flexible Controllers
-----------------------------------------
+.. _glos-daml-language:
+
+Daml Language
+*************
+
+The Daml language is a purpose-built language for rapid development of
+composable multi-party applications. It is a modern, ergonomically designed
+functional language that carefully avoids many of the pitfalls that hinder
+multi-party application development in other languages.
+
+
+.. _glos-daml-ledger:
+
+Daml Ledger
+***********
+
+A Daml ledger is a distributed ledger system running `Daml smart contracts
+<#contract>`__ according to the :externalref:`Daml ledger model <da-ledgers>`
+and exposes the Daml Ledger APIs. All current implementations of Daml ledgers
+consist of a Daml driver that utilizes an underlying Synchronization Technology
+to either implement the Daml ledger directly or to run the Canton protocol.
+
+
+.. _glos-daml-drivers:
+
+Daml Drivers
+**************
+
+Daml drivers enable a `ledger <#daml-ledger>`__ to be implemented on top of
+different `synchronization technologies <#synchronization-technology>`__; a
+database or distributed ledger technology.
+
+Disjunction Choice
+******************
+
+See :ref:`glos-flexible-controllers`.
+
+
+Drivers
+*******
+
+See :ref:`glos-daml-drivers`.
+
+
+..  .
+    ▗▄▄▄▖
+    ▐▌
+    ▐▛▀▀▘
+    ▐▙▄▄▖
+
+
+
+..  .
+    ▗▄▄▄▖
+    ▐▌
+    ▐▛▀▀▘
+    ▐▌
+
+.. _glos-flexible-controllers:
+
+Flexible Controllers
+********************
 
 A **disjunction choice** has more than one `controller <#controller>`__.
 
-If a contract uses **flexible controllers**, this means you don't specify the controller of the `choice <#choice>`__ at `creation <#create>`__ time of the `contract <#contract>`__, but at `exercise <#exercise>`__ time.
+If a contract uses **flexible controllers**, this means you don't specify the
+controller of the `choice <#choice>`__ at `creation <#create>`__ time of the
+`contract <#contract>`__, but at `exercise <#exercise>`__ time.
 
+
+..  .
+     ▗▄▄▖
+    ▐▌
+    ▐▌▝▜▌
+    ▝▚▄▞▘
+
+
+
+..  .
+    ▗▖ ▗▖
+    ▐▌ ▐▌
+    ▐▛▀▜▌
+    ▐▌ ▐▌
+
+
+
+..  .
+    ▗▄▄▄▖
+      █
+      █
+    ▗▄█▄▖
+
+      
+
+..  .
+       ▗▖
+       ▐▌
+       ▐▌
+    ▗▄▄▞▘
+
+
+
+..  .
+    ▗▖ ▗▖
+    ▐▌▗▞▘
+    ▐▛▚▖
+    ▐▌ ▐▌
+
+
+
+..  .
+    ▗▖
+    ▐▌
+    ▐▌
+    ▐▙▄▄▖
+
+Language
+********
+
+See :ref:`glos-daml-language`.
+
+Ledger
+******
+
+See :ref:`glos-canton-ledger` or :ref:`glos-daml-ledger`.
+
+..  .
+     ▖  ▗▖
+    ▐▛▚▞▜▌
+    ▐▌  ▐▌
+    ▐▌  ▐▌
+
+
+
+..  .
+    ▗▖  ▗▖
+    ▐▛▚▖▐▌
+    ▐▌ ▝▜▌
+    ▐▌  ▐▌
+
+.. _glos-nonconsuming-choice:
+
+Nonconsuming Choice
+*******************
+
+A **nonconsuming choice** does NOT `archive
+<#active-contract-archived-contract>`__ the `contract <#contract>`__ it is on
+when `exercised <#exercise>`__. This means the choice can be exercised more than
+once on the same `contract <#contract>`__.
+
+See also :ref:`glos-choice`.
+
+..  .
+     ▗▄▖
+    ▐▌ ▐▌
+    ▐▌ ▐▌
+    ▝▚▄▞▘
+
+Observer
+--------
+
+An **observer** is a `party <#party>`__ on a `contract <#contract>`__. Being an
+observer allows them to see that instance and all the information about it. They
+do NOT have to `consent to <#authorization-signing>`__ the creation.
+
+For documentation on observers, see :ref:`reference-templates`.
+
+
+
+..  .
+    ▗▄▄▖
+    ▐▌ ▐▌
+    ▐▛▀▘
+    ▐▌
 
 .. _glossary-party:
 
 Party
 =====
 
-A **party** represents a person or legal entity. Parties can `create contracts <#create>`__ and `exercise choices <#exercise>`__.
+A **party** represents a person or legal entity. Parties can `create contracts
+<#create>`__ and `exercise choices <#exercise>`__.
 
-`Signatories <#signatory>`_, `observers <#observer>`__, `controllers <#controller>`__, and `maintainers <#maintainer>`__ all must be parties, represented by the ``Party`` data type in Daml and determine who may see
-  contract data.
+`Signatories <#signatory>`_, `observers <#observer>`__,
+`controllers <#controller>`__, and `maintainers <#maintainer>`__ all must be
+parties, represented by the ``Party`` data type in Daml and determine who may
+see contract data.
 
-Parties are hosted on participant nodes and a participant node can host more than one party. A party can be hosted on several participant nodes simultaneously.
+Parties are hosted on participant nodes and a participant node can host more
+than one party. A party can be hosted on several participant nodes
+simultaneously.
 
 .. Something about how they work in the `execution engine`.
+
+
+.. _glos-preconsuming-choice:
+
+Preconsuming Choice
+*******************
+
+A `choice <#choice>`__ marked **preconsuming** will be `archived
+<#active-contract-archived-contract>`__ at the start of that `exercise
+<#exercise>`__.
+
+See also :ref:`glos-choice`.
+
+
+.. _glos-postconsuming-choice:
+
+Postconsuming Choice
+********************
+
+A `choice <#choice>`__ marked **postconsuming** will not be `archived
+<#active-contract-archived-contract>`__ until the end of the `exercise
+<#exercise>`__ choice body.
+
+See also :ref:`glos-choice`.
+
+Protocol
+********
+
+See :ref:`glos-canton-protocol`.
+
+
+..  .
+    ▗▄▄▄▖
+    ▐▌ ▐▌
+    ▐▌ ▐▌
+    ▐▙▄▟▙▖
+
+
+
+..  .
+    ▗▄▄▖
+    ▐▌ ▐▌
+    ▐▛▀▚▖
+    ▐▌ ▐▌
+
+
+
+..  .
+     ▗▄▄▖
+    ▐▌
+     ▝▀▚▖
+    ▗▄▄▞▘
 
 Signatory
 ---------
 
-A **signatory** is a `party <#party>`__ on a `contract <#contract>`__. The signatories MUST consent to the `creation <#create>`__ of the contract by `authorizing <#authorization-signing>`__ it: if they don't, contract creation will fail. Once the contract is created, signatories can see the contracts and all exercises of that contract.
+A **signatory** is a `party <#party>`__ on a `contract <#contract>`__. The
+signatories MUST consent to the `creation <#create>`__ of the contract by
+`authorizing <#authorization-signing>`__ it: if they don't, contract creation
+will fail. Once the contract is created, signatories can see the contracts and
+all exercises of that contract.
 
 For documentation on signatories, see :ref:`reference-templates`.
 
-Observer
---------
 
-An **observer** is a `party <#party>`__ on a `contract <#contract>`__. Being an observer allows them to see that instance and all the information about it. They do NOT have to `consent to <#authorization-signing>`__ the creation.
+Synchronization Technology
+**************************
 
-For documentation on observers, see :ref:`reference-templates`.
+.. Synchronization technology.  Not 'Environment', 'Infrastructure layer', 'Messaging layer', 'Topology layer', 'Underlying <enter-any-previous-term>'
 
-Controller
-----------
+The synchronization technology is the database or blockchain that Daml uses for
+synchronization, messaging, and topology. Daml runs on a range of
+synchronization technologies, from centralized databases to fully distributed
+deployments, and users can employ the technology that best suits their technical
+and operational needs.
 
-A **controller** is a `party <#party>`__ that is able to `exercise <#exercise>`__ a particular `choice <#choice>`__ on a particular `contract <#contract>`__.
 
-Controllers must be at least an `observer`_, otherwise they can't see the contract to exercise it on. But they don't have to be a `signatory`_. this enables the :ref:`propose-accept pattern <propose-accept>`.
+..  .
+    ▗▄▄▄▖
+      █
+      █
+      █
 
-Choice Observer
----------------
+Template
+********
 
-A **choice observer** is a `party <#party>`__ on a `choice <#choice>`__. Choice observers are guaranteed to see the choice being exercised and all its consequences with it.
+A **template** is a blueprint for creating a `contract <#contract>`__. This is
+the Daml code you write.
+
+For full documentation on what can be in a template, see
+:ref:`reference-templates`.
+
+
+
+
+..  .
+    ▗▖ ▗▖
+    ▐▌ ▐▌
+    ▐▌ ▐▌
+    ▝▚▄▞▘
+
+
+
+..  .
+    ▗▖  ▗▖
+    ▐▌  ▐▌
+    ▐▌  ▐▌
+     ▝▚▞▘
+
+
+
+..  .
+    ▗▖ ▗▖
+    ▐▌ ▐▌
+    ▐▌ ▐▌
+    ▐▙█▟▌
+
+
+
+..  .
+    ▗▖  ▗▖
+     ▝▚▞▘
+      ▐▌
+    ▗▞▘▝▚▖
+
+
+
+..  .
+    ▗▖  ▗▖
+     ▝▚▞▘
+      ▐▌
+      ▐▌
+
+
+
+..  .
+    ▗▄▄▄▄▖
+       ▗▞▘
+     ▗▞▘
+    ▐▙▄▄▄▖
+
+
+..
+    ▗▄▄▄▖▗▄▖     ▗▄▄▖ ▗▄▄▄▖     ▗▄▄▖ ▗▄▖ ▗▄▄▖▗▄▄▄▖▗▄▄▄▖▗▄▄▄
+      █ ▐▌ ▐▌    ▐▌ ▐▌▐▌       ▐▌   ▐▌ ▐▌▐▌ ▐▌ █  ▐▌   ▐▌  █
+      █ ▐▌ ▐▌    ▐▛▀▚▖▐▛▀▀▘     ▝▀▚▖▐▌ ▐▌▐▛▀▚▖ █  ▐▛▀▀▘▐▌  █
+      █ ▝▚▄▞▘    ▐▙▄▞▘▐▙▄▄▖    ▗▄▄▞▘▝▚▄▞▘▐▌ ▐▌ █  ▐▙▄▄▖▐▙▄▄▀
 
 .. _stakeholder:
 
@@ -297,21 +634,21 @@ Developer Tools
 ***************
 
 Assistant
-=========
+*********
 
 **Daml Assistant** is a command-line tool for many tasks related to Daml. Using it, you can create Daml projects, compile Daml projects into `.dar files <#dar-file-dalf-file>`__, launch other developer tools, and download new SDK versions.
 
 See :ref:`daml-assistant`.
 
 Studio
-======
+******
 
 **Daml Studio** is a plugin for Visual Studio Code, and is the IDE for writing Daml code.
 
 See :ref:`daml-studio`.
 
 Sandbox
-=======
+*******
 
 **Sandbox** is a lightweight ledger implementation. In its normal mode, you can use it for testing.
 
@@ -323,7 +660,7 @@ Building Applications
 *********************
 
 Application, Ledger Client, Integration
-=======================================
+***************************************
 
 **Application**, **ledger client**, and **integration** are all terms for an application that sits on top of the `ledger <#daml-ledger>`__. These usually `read from the ledger <#reading-from-the-ledger>`_, `send commands <#submitting-commands-writing-to-the-ledger>`__ to the ledger, or both.
 
@@ -332,7 +669,7 @@ There's a lot of information available about application development, starting w
 .. _ledger-api:
 
 Ledger API
-==========
+**********
 
 The **Ledger API** is an API that's exposed by any `ledger <#daml-ledger>`__ on a participant node. Users access and manipulate the ledger state through the Ledger API.
 There are two protocols available for the Ledger API: gRPC and JSON.
@@ -340,49 +677,49 @@ See the :subsiteref:`Ledger API reference <build_reference_ledger_api>`.
 
 
 Command Submission Service
---------------------------
+**************************
 
 Use the **Command Submission Service** to `submit commands <#submitting-commands-writing-to-the-ledger>`__ - either create commands or exercise commands - to the `ledger <#daml-ledger>`__. See :ref:`command-submission-service`.
 
 Command Completion Service
---------------------------
+**************************
 
 Use the **Command Completion Service** to find out whether or not `commands you have submitted <#submitting-commands-writing-to-the-ledger>`__ have completed, and what their status was. See :ref:`command-completion-service`.
 
 Command Service
----------------
+***************
 
 Use the **Command Service** when you want to `submit a command <#submitting-commands-writing-to-the-ledger>`__ and wait for it to be executed. See :ref:`command-service`.
 
 Update Service
---------------
+**************
 
 Use the **Update Service** to listen to changes in the `ledger <#daml-ledger>`__, reported as a stream of `transactions <#transactions>`__. See :ref:`update-service`.
 
 State Service
--------------
+*************
 
 Use the **State Service** to obtain a party-specific view of all `contracts <#contract>`__ currently `active <#active-contract-archived-contract>`__ on the `ledger <#daml-ledger>`__. See :ref:`state-service`.
 
 Package Service
----------------
+***************
 
 Use the **Package Service** to obtain information about Daml packages available on the `ledger <#daml-ledger>`__. See :ref:`package-service`.
 
 Java Bindings
--------------
+*************
 
 An idiomatic Java library for writing `ledger applications <#application-ledger-client-integration>`__. See :ref:`component-howtos-application-development-java-client-libraries`.
 
 
 Reading From the Ledger
-=======================
+***********************
 
 `Applications <#application-ledger-client-integration>`__ get information about the `ledger <#daml-ledger>`__ by **reading** from it. You can't query the ledger, but you can subscribe to the update stream to get the events, or the more sophisticated State Service.
 
 
 Submitting Commands, Writing To the Ledger
-==========================================
+******************************************
 
 `Applications <#application-ledger-client-integration>`__ make changes to the `ledger <#daml-ledger>`__ by **submitting commands**. You can't change it directly: an application submits a command of `transactions <#transactions>`__. The command gets evaluated by the runtime, and will only be accepted if it's valid.
 
@@ -391,7 +728,7 @@ For example, a command might get rejected because the transactions aren't `well-
 This is echoed in :ref:`Daml script <daml-script>`, where you can mock an application by having parties submit transactions/updates to the ledger. You can use ``submit`` or ``submitMustFail`` to express what should succeed and what shouldn't.
 
 Commands
---------
+********
 
 A **command** is an instruction to add a transaction to the `ledger <#daml-ledger>`__.
 
@@ -403,13 +740,13 @@ A **command** is an instruction to add a transaction to the `ledger <#daml-ledge
 .. _participant-node:
 
 Participant Node
-================
+****************
 
 The participant node is a server that provides users with consistent programmatic access to a ledger through the `Ledger API <#ledger-api>`__. The participant nodes handle transaction signing and
 validation, such that users don't have to deal with cryptographic primitives but can trust the participant node that the data they are observing has been properly verified to be correct.
 
 Sub-transaction Privacy
-=======================
+***********************
 
 Sub-transaction privacy means that participants in a transaction only :externalref:`learn about the subset of the transaction <da-model-privacy>` they are
 directly involved in, but not about any other part of the transaction. This applies to both the content of the transaction as well as other involved participants.
@@ -417,7 +754,7 @@ directly involved in, but not about any other part of the transaction. This appl
 .. _daml-lf:
 
 Daml-LF
-=======
+*******
 
 When you compile Daml source code into a `.dar file <#dar-file-dalf-file>`__, the underlying format is **Daml-LF**. Daml-LF is similar to Daml, but is stripped down to a core set of features. The relationship between the surface Daml syntax and Daml-LF is loosely similar to that between Java and JVM bytecode.
 
@@ -428,7 +765,7 @@ As a user, you don't need to interact with Daml-LF directly. But internally, it'
 - generating code in other languages for interacting with Daml models (often called “codegen”)
 
 Composability
-=============
+*************
 
 Composability is the ability of a participant to extend an existing system with new Daml applications or new topologies unilaterally without requiring cooperation from anyone except the
 directly involved participants who wish to be part of the new application functionality.
@@ -436,7 +773,7 @@ directly involved participants who wish to be part of the new application functi
 .. _trust-domain:
 
 Trust Domain
-============
+************
 
 A trust domain encompasses a part of the system (in particular, a Daml ledger) operated by a single real-world entity. This subsystem may consist of one or more physical nodes. A single physical machine is always assumed to be controlled by exactly one real-world entity.
 
@@ -448,7 +785,7 @@ Canton Concepts
 ***************
 
 Synchronization Domain
-======================
+**********************
 
 The sync domain provides total ordered, guaranteed delivery multi-cast to the participants. This means that participant nodes communicate with each other by sending end-to-end encrypted messages
 through the sync domain.
@@ -460,12 +797,12 @@ The other services of the sync domain are the `mediator <#mediator>`__ and the `
 .. _private-contract-store:
 
 Private Contract Store
-======================
+**********************
 
 Every participant node manages its own private contract store (PCS) which contains only contracts the participant is privy to. There is no global state or global contract store.
 
 Virtual Global Ledger
-=====================
+*********************
 
 While every participant has their own private contract store (PCS), the `Canton protocol <#canton-protocol>`__ guarantees that the contracts which are stored in the PCS are well-authorized
 and that any change to the store is justified, authorized, and valid. The result is that every participant only possesses a small part of the *virtual global ledger*. All the local
@@ -473,26 +810,26 @@ stores together make up that *virtual global ledger* and they are thus synchroni
 transparency, and auditability. The ledger is logically global, even though physically, it runs on segregated and isolated sync domains that are not aware of each other.
 
 Mediator
-========
+********
 
 The mediator is a service provided by the `sync domain <#domain>`__ and used by the `Canton protocol <#canton-protocol>`__. The mediator acts as commit coordinator, collecting individual transaction verdicts issued by validating
 participants and aggregating them into a single result. The mediator does not learn about the content of the transaction, they only learn about the involved participants.
 
 Sequencer
-=========
+*********
 
 The sequencer is a service provided by the `sync domain <#domain>`__, used by the `Canton protocol <#canton-protocol>`__. The sequencer forwards encrypted addressed messages from participants and ensures that every member receives
 the messages in the same order. Think about registered and sealed mail delivered according to the postal datestamp.
 
 Synchronization Domain Identity Manager
-=======================================
+***************************************
 
 The sync domain identity manager is a service provided by the `sync domain <#domain>`__, used by the `Canton protocol <#canton-protocol>`__. Participants join a new sync domain by registering with the sync domain identity manager. The sync domain
 identity manager establishes a consistent identity state among all participants. The sync domain identity manager only forwards identity updates. It can not invent them.
 
 
 Consensus
-=========
+*********
 
 The Canton protocol does not use PBFT or any similar consensus algorithm. There is no proof of work or proof of stake involved. Instead, Canton uses a variant of a stakeholder-based
 two-phase commit protocol. As such, only stakeholders of a transaction are involved in it and need to process it, providing efficiency, privacy, and horizontal scalability. Canton-based
