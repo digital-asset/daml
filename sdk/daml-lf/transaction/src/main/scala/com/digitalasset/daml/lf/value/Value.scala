@@ -25,6 +25,8 @@ sealed abstract class GenValue[+X]
 
 object GenValue {
 
+  sealed abstract class Extended[+B]
+
   sealed abstract class CidLessAtom extends GenValue[Nothing] with CidContainer[CidLessAtom] {
     final override def mapCid(f: Value.ContractId => Value.ContractId): this.type = this
   }
@@ -164,9 +166,7 @@ object GenValue {
     })
   }
 
-  // This case class exists solely to ensure that pattern matching on GenValue[X] is exhaustive when X != Nothing.
-  // To be replaced, by something more usefull, in following PR
-  final case class Blob[Content](value: Content) extends GenValue[Blob[Content]] {
+  final case class Blob[Content](value: Content) extends GenValue[Extended[Content]] {
     override def nonVerboseWithoutTrailingNones: Nothing =
       throw new UnsupportedOperationException(
         "Blob values do not support nonVerboseWithoutTrailingNones"
@@ -177,6 +177,19 @@ object GenValue {
         "Blob values do not support nonVerboseWithoutTrailingNones"
       )
     private[lf] def getContent: Content = value
+  }
+
+  final case class Any[Content](ty: Ast.Type, any: GenValue[Extended[Content]])
+      extends GenValue[Extended[Content]] {
+    override def nonVerboseWithoutTrailingNones: Nothing =
+      throw new UnsupportedOperationException(
+        "Any values do not support nonVerboseWithoutTrailingNones"
+      )
+
+    override def mapCid(f: Value.ContractId => Value.ContractId): Nothing =
+      throw new UnsupportedOperationException(
+        "Any values do not support nonVerboseWithoutTrailingNones"
+      )
   }
 
 }
@@ -250,28 +263,33 @@ object Value {
   import scalaz.std.option._
 
   def castToPureValue[B](
-      value: GenValue[GenValue.Blob[B]],
+      value: GenValue[GenValue.Extended[B]],
       handleBlob: GenValue.Blob[B] => Either[RuntimeException, GenValue[Nothing]],
+      handleAny: GenValue.Any[B] => Either[RuntimeException, GenValue[Nothing]],
   ): Either[RuntimeException, GenValue[Nothing]] =
     value match {
       case b: GenValue.Blob[B] => handleBlob(b)
+      case a: GenValue.Any[B] => handleAny(a)
       case ValueRecord(tycon, content) =>
         content
-          .traverse { case (label, value) => castToPureValue(value, handleBlob).map((label, _)) }
+          .traverse { case (label, value) =>
+            castToPureValue(value, handleBlob, handleAny).map((label, _))
+          }
           .map(ValueRecord(tycon, _))
       case ValueVariant(tycon, variant, content) =>
-        castToPureValue(content, handleBlob).map(ValueVariant(tycon, variant, _))
-      case ValueList(content) => content.traverse(castToPureValue(_, handleBlob)).map(ValueList(_))
+        castToPureValue(content, handleBlob, handleAny).map(ValueVariant(tycon, variant, _))
+      case ValueList(content) =>
+        content.traverse(castToPureValue(_, handleBlob, handleAny)).map(ValueList(_))
       case ValueOptional(content) =>
-        content.traverse(castToPureValue(_, handleBlob)).map(ValueOptional(_))
+        content.traverse(castToPureValue(_, handleBlob, handleAny)).map(ValueOptional(_))
       case ValueTextMap(content) =>
-        content.traverse(castToPureValue(_, handleBlob)).map(ValueTextMap(_))
+        content.traverse(castToPureValue(_, handleBlob, handleAny)).map(ValueTextMap(_))
       case ValueGenMap(content) =>
         content
           .traverse { case (key, value) =>
             for {
-              pureKey <- castToPureValue(key, handleBlob)
-              pureValue <- castToPureValue(value, handleBlob)
+              pureKey <- castToPureValue(key, handleBlob, handleAny)
+              pureValue <- castToPureValue(value, handleBlob, handleAny)
             } yield (pureKey, pureValue)
           }
           .map(ValueGenMap(_))

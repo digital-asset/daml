@@ -1377,18 +1377,19 @@ private[lf] object Speedy {
     )(implicit loggingContext: LoggingContext): Either[SError, SValue] =
       fromPureSExpr(compiledPackages, expr, iterationsBetweenInterruptions).runPure()
 
-    type ClosureBlob = GenValue.Blob[SPAP]
-    type ValueWithClosure = GenValue[ClosureBlob]
+    type ExtendedValueClosureBlob = GenValue.Blob[SPAP]
+    type ExtendedValueAny = GenValue.Any[SPAP]
+    type ExtendedValue = GenValue[GenValue.Extended[SPAP]]
 
-    sealed trait ValueWithClosuresComputationMode {
+    sealed trait ExtendedValueComputationMode {
       def buildSExpr(
           compiledPackages: CompiledPackages,
           translator: ValueTranslator,
       ): Either[RuntimeException, SExpr]
     }
-    object ValueWithClosuresComputationMode {
-      final case class ClosureWithArgs(f: ClosureBlob, args: List[(V, Type)])
-          extends ValueWithClosuresComputationMode {
+    object ExtendedValueComputationMode {
+      final case class ClosureWithArgs(f: ExtendedValueClosureBlob, args: List[(V, Type)])
+          extends ExtendedValueComputationMode {
         def buildSExpr(
             compiledPackages: CompiledPackages,
             translator: ValueTranslator,
@@ -1401,8 +1402,7 @@ private[lf] object Speedy {
             .map(sArgs => SEAppAtomicGeneral(SEValue(f.getContent), ArraySeq.from(sArgs)))
         }
       }
-      final case class IdentifierWithoutArgs(id: Identifier)
-          extends ValueWithClosuresComputationMode {
+      final case class IdentifierWithoutArgs(id: Identifier) extends ExtendedValueComputationMode {
         def buildSExpr(
             compiledPackages: CompiledPackages,
             translator: ValueTranslator,
@@ -1413,7 +1413,7 @@ private[lf] object Speedy {
           }
       }
       final case class IdentifierWithArgs(id: Identifier, args: List[(V, Type)])
-          extends ValueWithClosuresComputationMode {
+          extends ExtendedValueComputationMode {
         def buildSExpr(
             compiledPackages: CompiledPackages,
             translator: ValueTranslator,
@@ -1438,8 +1438,8 @@ private[lf] object Speedy {
     @throws[CompilationError]
     // Returns a value with blackboxes
     // Arguments cannot contain blackboxes
-    def runValueWithClosuresComputation(
-        computationMode: ValueWithClosuresComputationMode,
+    def runExtendedValueComputation(
+        computationMode: ExtendedValueComputationMode,
         cancelled: () => Option[RuntimeException],
         compiledPackages: CompiledPackages,
         iterationsBetweenInterruptions: Long = Long.MaxValue,
@@ -1449,7 +1449,7 @@ private[lf] object Speedy {
         convertLegacyExceptions: Boolean = true,
     )(implicit
         loggingContext: LoggingContext
-    ): Either[Either[RuntimeException, SError], ValueWithClosure] = {
+    ): Either[Either[RuntimeException, SError], ExtendedValue] = {
       val translator = new ValueTranslator(
         compiledPackages.pkgInterface,
         forbidLocalContractIds = true,
