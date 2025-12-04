@@ -37,7 +37,7 @@ da_scala_library(
         "//libs-scala/ports:ports-testing",
         "//libs-scala/resources",
         "//libs-scala/rs-grpc-bridge",
-        "//libs-scala/scala-utils",
+        "//canton:scala-utils",
         "//libs-scala/testing-utils",
         "//libs-scala/timer-utils",
         "@maven//:ch_qos_logback_logback_classic",

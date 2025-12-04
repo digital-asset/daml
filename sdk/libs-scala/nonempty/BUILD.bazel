@@ -29,7 +29,7 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
-        "//libs-scala/scala-utils",
+        "//canton:scala-utils",
     ],
 )
 

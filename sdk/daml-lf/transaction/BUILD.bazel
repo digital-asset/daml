@@ -36,7 +36,7 @@ da_scala_library(
         "//libs-scala/crypto",
         "//libs-scala/nameof",
         "//libs-scala/safe-proto",
-        "//libs-scala/scala-utils",
+        "//canton:scala-utils",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )

@@ -26,7 +26,7 @@ da_scala_library(
         "//daml-lf/language",
         "//libs-scala/contextualized-logging",
         "//libs-scala/logging-entries",
-        "//libs-scala/scala-utils",
+        "//canton:scala-utils",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_protobuf",

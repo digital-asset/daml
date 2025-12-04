@@ -12,6 +12,6 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:executors:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        "//libs-scala/scala-utils",
+        "//canton:scala-utils",
     ],
 )

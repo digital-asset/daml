@@ -12,7 +12,7 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
-        "//libs-scala/scala-utils",
+        "//canton:scala-utils",
         "@maven//:org_bouncycastle_bcprov_jdk15on",
         "@maven//:org_slf4j_slf4j_api",
     ],

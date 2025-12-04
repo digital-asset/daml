@@ -24,7 +24,7 @@ da_scala_library(
     runtime_deps = [],
     deps = [
         "//libs-scala/concurrent",
-        "//libs-scala/scala-utils",
+        "//canton:scala-utils",
         "@maven//:com_google_code_findbugs_jsr305",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",
@@ -47,7 +47,7 @@ da_scala_library(
     runtime_deps = [],
     deps = [
         ":metrics",
-        "//libs-scala/scala-utils",
+        "//canton:scala-utils",
     ],
 )
 

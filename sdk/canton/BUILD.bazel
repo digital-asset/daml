@@ -35,6 +35,24 @@ load("//rules_daml:daml.bzl", "daml_compile")
 
 canton_scalacopts = ["-Xsource:3-cross"]
 
+da_scala_library(
+    name = "scala-utils",
+    srcs = glob(["community/scala-utils/src/main/scala/**/*.scala"]),
+    plugins = [
+        kind_projector_plugin,
+    ],
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    override_scalacopts = canton_scalacopts + ["-language:postfixOps"],
+    tags = ["maven_coordinates=com.daml:scala-utils:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+    ],
+)
+
 genrule(
     name = "community_buildinfo_src",
     srcs = ["VERSION"],
@@ -219,7 +237,7 @@ da_scala_library(
         "//libs-scala/grpc-utils",
         "//libs-scala/logging-entries",
         "//libs-scala/nonempty",
-        "//libs-scala/scala-utils",
+        "//canton:scala-utils",
         "//observability/metrics",
         "//observability/tracing",
         "@maven//:com_github_pathikrit_better_files_2_13",
@@ -513,7 +531,7 @@ scala_library(
         "//libs-scala/nonempty-cats",
         "//libs-scala/rs-grpc-bridge",
         "//libs-scala/rs-grpc-pekko",
-        "//libs-scala/scala-utils",
+        "//canton:scala-utils",
         "//observability/metrics",
         "//observability/tracing",
         "@canton_maven//:com_google_api_api_common",
@@ -764,7 +782,7 @@ scala_library(
         "//libs-scala/resources-pekko",
         "//libs-scala/rs-grpc-bridge",
         "//libs-scala/rs-grpc-pekko",
-        "//libs-scala/scala-utils",
+        "//canton:scala-utils",
         "//libs-scala/timer-utils",
         "//observability/metrics",
         "//observability/tracing",
@@ -857,7 +875,7 @@ scala_library(
         "//libs-scala/resources-pekko",
         "//libs-scala/rs-grpc-bridge",
         "//libs-scala/rs-grpc-pekko",
-        "//libs-scala/scala-utils",
+        "//canton:scala-utils",
         "//libs-scala/struct-json/struct-spray-json",
         "//observability/metrics",
         "//observability/pekko-http-metrics",
@@ -984,7 +1002,7 @@ scala_library(
         "//libs-scala/nonempty-cats",
         "//libs-scala/rs-grpc-bridge",
         "//libs-scala/rs-grpc-pekko",
-        "//libs-scala/scala-utils",
+        "//canton:scala-utils",
         "//observability/metrics",
         "//observability/tracing",
         "@maven//:com_github_ben_manes_caffeine_caffeine",
@@ -1145,7 +1163,7 @@ scala_library(
         "//libs-scala/resources-grpc",
         "//libs-scala/resources-pekko",
         "//libs-scala/rs-grpc-bridge",
-        "//libs-scala/scala-utils",
+        "//canton:scala-utils",
         "//libs-scala/timer-utils",
         "//observability/metrics",
         "//observability/tracing",
@@ -1338,7 +1356,7 @@ scala_library(
         "//libs-scala/nonempty",
         "//libs-scala/nonempty-cats",
         "//libs-scala/rs-grpc-bridge",
-        "//libs-scala/scala-utils",
+        "//canton:scala-utils",
         "//observability/metrics",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",

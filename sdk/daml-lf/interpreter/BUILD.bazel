@@ -44,7 +44,7 @@ da_scala_library(
         "//libs-scala/contextualized-logging",
         "//libs-scala/crypto",
         "//libs-scala/nameof",
-        "//libs-scala/scala-utils",
+        "//canton:scala-utils",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_apache_commons_commons_text",
         "@maven//:org_slf4j_slf4j_api",
@@ -64,7 +64,7 @@ da_scala_library(
         "//daml-lf/transaction",
         "//daml-lf/validation",
         "//libs-scala/contextualized-logging",
-        "//libs-scala/scala-utils",
+        "//canton:scala-utils",
     ],
 )
 
@@ -111,7 +111,7 @@ da_scala_test_suite(
         "//daml-lf/transaction-test-lib",
         "//libs-scala/contextualized-logging",
         "//libs-scala/crypto",
-        "//libs-scala/scala-utils",
+        "//canton:scala-utils",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_bouncycastle_bcprov_jdk15on",
         "@maven//:org_scalatest_scalatest_compatible",
