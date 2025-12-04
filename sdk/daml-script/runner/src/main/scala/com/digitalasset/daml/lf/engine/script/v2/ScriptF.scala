@@ -457,7 +457,7 @@ object ScriptF {
   //                     env.valueTranslator,
   //                     viewType,
   //                     view,
-  //                   )
+  //                   ) // Just use view and viewType, fromInterfaceView is deleted
   //                 } yield {
   //                   makeTuple(SContractId(cid), SOptional(Some(view)))
   //                 }
@@ -483,7 +483,7 @@ object ScriptF {
   //       client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
   //       optR <- client.queryInterfaceContractId(parties, interfaceId, viewType, cid)
   //       optR <- Converter.toFuture(
-  //         optR.traverse(Converter.fromInterfaceView(env.valueTranslator, viewType, _))
+  //         optR.traverse(Converter.fromInterfaceView(env.valueTranslator, viewType, _)) // Just use view and viewType, fromInterfaceView is deleted
   //       )
   //     } yield SEValue(SOptional(optR))
   //   }
