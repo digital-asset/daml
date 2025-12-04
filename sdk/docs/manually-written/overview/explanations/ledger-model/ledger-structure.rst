@@ -391,6 +391,8 @@ This workflow gives rise to the ledger shown below with four commits:
 
 * In the forth commit, Bob requests to exercise the ``AcceptAndSettle`` choice on the DvP proposal.
 
+.. _da-dvp-ledger:
+  
 .. https://lucid.app/lucidchart/3ef6e9da-b534-4640-bc19-8fa5c7fb3a71/edit
 .. image:: ./images/dvp-ledger.svg
    :align: center

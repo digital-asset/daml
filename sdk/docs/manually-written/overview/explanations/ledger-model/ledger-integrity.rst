@@ -6,6 +6,126 @@
 Integrity
 #########
 
+The section on the :ref:`ledger structure <ledger-structure>` section answered the question “What does the Ledger looks like?” by introducing a hierarchical format to record the party interactions as changes.
+The section on `privacy <ledger-privacy>` answered the question “Who sees which changes and data?” by introducing projections.
+This section addresses the question "Who can request which changes?" by defining which ledgers are valid.
+
+.. _da-model-validity:
+
+Validity
+********
+
+At the core is the concept of a *valid ledger*; a change is permissible if adding the corresponding commit to the ledger results in a valid ledger.
+**Valid ledgers** are those that fulfill three conditions:
+
+* :ref:`Consistency <da-model-consistency>`:
+  Exercises and fetches on inactive contracts are not allowed, i.e. contracts that have not yet been created or have already been consumed by an exercise.
+
+* :ref:`Conformance <da-model-conformance>`:
+  Only a restricted set of actions is allowed on a given contract.
+  This restriction is encoded via the Daml templates that implement the smart contract logic.
+
+* :ref:`Authorization <da-model-authorization>`:
+  The parties who may request a particular change are restricted.
+
+Later sections add further validity conditions as they increase the expressivity of the ledger model.
+Intuitively, the :ref:`running example of the DvP workflow <da-dvp-ledger>` should be and actually is valid.
+It is instructive to look at examples that violate some validity condition though,
+even before they are defined precisely.
+
+Consistency violation example
+=============================
+
+In this example, Alice tries to transfer her asset twice ("double spend"), once to Bob and once to Charlie,
+as shown in the following Daml script excerpt.
+This script is expected to fail at runtime.
+
+.. literalinclude:: ./daml/SimpleAsset.daml
+   :language: daml
+   :start-after: SNIPPET-double-spend-START
+   :end-before: SNIPPET-double-spend-END
+
+The corresponding Canton ledger looks as shown below.
+This ledger violates the consistency condition because contract #1 is the input to two consuming exercise nodes,
+one in ``TX 1`` and one in ``TX 2``.
+
+.. https://lucid.app/lucidchart/9fb12975-8d57-4f73-9c81-0154879c3cc9/edit
+.. image:: ./images/asset-double-spend.svg
+   :align: center
+   :width: 90%
+   :alt: An inconsistent ledger where Alice double-spends her asset
+
+Conformance violation example
+=============================
+         
+In the second example, the last transaction ``TX 4`` omits one leg of the DvP workflow:
+Bob exercises the ``Settle`` choice, but it has only one subaction, namely Alice transferring her IOU.
+This violates conformance because the implementation of the ``Settle`` choice on a ``SimpleAsset`` mandates that there are two consequences.
+(This situation cannot be expressed as a Daml script scenario
+because Daml script ensures that all generated transactions conform to the Daml code.)
+
+.. https://lucid.app/lucidchart/30be82bc-9d5c-4531-b7ff-3762eaa0a72d/edit
+.. image:: ./images/dvp-ledger-one-leg-only.svg
+   :align: center
+   :width: 100%
+   :alt: A non-conformant ledger where one leg of the DvP settlement is missing
+
+Authorization violation examples
+================================
+         
+The next three examples show different kinds of authorization violations.
+First, Alice attempts to steal Bob's asset by requesting a transfer in his name.
+This results in an authorization failure because for ``TX 1`` the actor of the exercise root action differs from the requester.
+
+.. literalinclude:: ./daml/SimpleAsset.daml
+   :language: daml
+   :start-after: SNIPPET-steal-START
+   :end-before: SNIPPET-steal-END
+
+.. https://lucid.app/lucidchart/c26ab5f9-b2e2-4ed5-82d4-2af02fec2edc/edit
+.. image:: ./images/asset-steal.svg
+   :align: center
+   :width: 50%
+   :alt: A ledger where Alice submits a transaction where Bob exercises the transfer choice on his asset
+
+Next, Bob wants to skip the propose-accept workflow for creating the ``SimpleDvP`` contract and instead creates it out of nowhere and immediately settles it.
+This must be treated as an authorization failure, as Alice did not consent to swapping her EUR asset against Bob's USD asset.
+
+.. literalinclude:: ./daml/SimpleDvP.daml
+   :language: daml
+   :start-after: SNIPPET-create-auth-error-START
+   :end-before: SNIPPET-create-auth-error-END
+
+On the ledger, the first root action of ``TX 2`` is not properly authorized
+because Alice is a signatory of the contract #3 created in the first root action even though she did not request the update.
+
+.. https://lucid.app/lucidchart/cd2cef11-6f69-4f9c-8e1e-d79488547de2/edit
+.. image:: ./images/dvp-ledger-create-auth-failure.svg
+   :align: center
+   :width: 100%
+   :alt: A ledger with an authorization violation on the creation of the DvP contract
+
+The third example shows that authorization failures may not only happen at root actions.
+Here, Alice allocates Carol's CHF asset in the DvP proposal.
+When Bob tries to settle the DvP, the Exercise to transfer Carol's asset in the first leg is not properly authorized
+because Carol did not agree to have her asset transferred away.
+
+.. literalinclude:: ./daml/SimpleDvP.daml
+   :language: daml
+   :start-after: SNIPPET-nested-auth-error-START
+   :end-before: SNIPPET-nested-auth-error-END
+
+The ledger produced by this script has an authorization failure for the Exercise node on contract #1:
+The transaction structure provides no evidence that the actor Carol has agreed to exercising the ``Transfer`` choice on her asset.
+
+.. https://lucid.app/lucidchart/50e2ad7a-ef88-4fb8-bf62-44027034a3dd/edit
+.. image:: ./images/dvp-ledger-nested-auth-error.svg
+   :align: center
+   :width: 100%
+   :alt: A ledger with an authorization failure where Alice allocates Carol's asset to her DvP with Bob
+
+
+         
 .. wip::
 
    * Key consistency (should be transaction-internal only: consistent lookups)
@@ -16,57 +136,6 @@ Integrity
    * Move the examples to valid ledgers
 
 
-This section addresses the question of who can request which
-changes.
-
-To answer the next question, "who can request which changes",
-a precise definition is needed of which ledgers are permissible,
-and which are not. For example, the above
-paint offer ledger is intuitively permissible, while all of the
-following ledgers are not.
-
-.. figure:: ./images/double-spend.svg
-   :align: center
-   :alt: Described in the caption.
-
-   Alice spending her IOU twice ("double spend"), once transferring it
-   to `B` and once to `P`.
-
-.. figure:: ./images/non-conformant-action.svg
-   :align: center
-   :name: alice-changes-offer
-   :alt: Described in the caption.
-
-   Alice changing the offer's outcome by removing the transfer of the `Iou`.
-
-.. figure:: ./images/invalid-obligation.svg
-   :align: center
-   :name: obligation-imposed-on-painter
-   :alt: Described in the caption.
-
-   An obligation imposed on the painter without his consent.
-
-.. figure:: ./images/stealing-ious.svg
-   :align: center
-   :name: painter-stealing-ious
-   :alt: Described in the caption.
-
-   Painter stealing Alice's IOU. Note that the ledger would be
-   intuitively permissible if it was Alice performing the last commit.
-
-.. figure:: ./images/failed-key-assertion.svg
-   :align: center
-   :name: alice-claiming-retracted-offer
-   :alt: Described in the caption.
-
-   Painter falsely claiming that there is no offer.
-
-.. figure:: ./images/double-key-creation.svg
-   :align: center
-   :name: painter-creating-two-offers-with-same-key
-   :alt: Described in the caption.
-
-   Painter trying to create two different paint offers with the same reference number.
 
 
 .. 

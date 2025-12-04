@@ -124,3 +124,70 @@ simpleDvp = script do
   submit bank2 do exerciseCmd newEur Archive
   submit bank1 do exerciseCmd newUsd Archive
 
+
+createAuthError = script do
+    alice <- allocateParty "Alice"
+    bob <- allocateParty "Bob"
+    bank1 <- allocateParty "Bank1"
+    bank2 <- allocateParty "Bank2"
+
+    result <- tryCommands do
+-- SNIPPET-create-auth-error-START
+      let eurAsset = SimpleAsset with
+            issuer = bank1
+            owner = alice
+            asset = "1 EUR"
+      eur <- submit bank1 do createCmd eurAsset
+    
+      let usdAsset = SimpleAsset with
+            issuer = bank2
+            owner = bob
+            asset = "1 USD"
+      usd <- submit bank2 do createCmd usdAsset
+
+      let dvp = SimpleDvp with
+            party1 = alice
+            party2 = bob
+            asset1 = eur
+            asset2 = usd
+      (newUsd, newEur) <- submit bob $ do
+         createAndExerciseCmd dvp Settle 
+-- SNIPPET-create-auth-error-END
+      pure ()
+   assert $ isLeft result
+
+
+nestedAuthError = script do
+    alice <- allocateParty "Alice"
+    bob <- allocateParty "Bob"
+    carol <- allocateParty "Carol"
+    bank1 <- allocateParty "Bank1"
+    bank2 <- allocateParty "Bank2"
+
+    result <- tryCommands do
+-- SNIPPET-nested-auth-error-START
+      let chfAsset = SimpleAsset with
+            issuer = bank1
+            owner = carol
+            asset = "1 CHF"
+      chf <- submit bank1 do createCmd chfAsset
+      disclosedChf <- fromSome <$> queryDisclosure carol chf
+    
+      let usdAsset = SimpleAsset with
+            issuer = bank2
+            owner = bob
+            asset = "1 USD"
+      usd <- submit bank2 do createCmd usdAsset
+
+      proposeDvP <- submit alice $ do
+        createCmd ProposeSimpleDvP with
+           proposer = alice
+           counterparty = bob
+           allocated = chf
+           expected = usdAsset
+           
+      (newUsd, newEur) <- submitWithDisclosures bob [disclosedChf] do
+          exerciseCmd proposeDvP $ AcceptAndSettle with toBeAllocated = usd
+-- SNIPPET-nested-auth-error-END
+      pure ()
+   assert $ isLeft result
