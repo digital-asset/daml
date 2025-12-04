@@ -175,7 +175,7 @@ steps:
                    eq(variables.skip, 'false'),
                    eq(${{parameters.is_release}}, 'true'),
                    eq(${{parameters.name_exp}}, 'linux-intel'),
-                   in(variables['Build.SourceBranchName'], 'main', 'main-2.x'))
+                   in(variables['Build.SourceBranchName'], 'main', 'main-2.x', 'release-trigger'))
   - template: bash-lib.yml
     parameters:
       var_name: bash-lib
