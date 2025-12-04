@@ -265,10 +265,19 @@ In Daml Studio, Daml Script runs in an emulated ledger. You specify a linear seq
 
 See :ref:`test-using-scripts`.
 
-.. Damle, Daml runtime, Daml execution engine
-.. ==========================================
+.. _glos-daml-test:
 
-.. The **Daml runtime** (sometimes also called the Daml execution engine or Damle)...
+Daml Test
+===========
+
+Test by executing :ref:`daml-script` against the :ref:`glos-ide-ledger`.
+
+.. _glos-ide-ledger:
+
+IDE ledger
+==========
+
+A simulated/mocked version of the ledger, intened for unit tests.
 
 Contract Key
 ============
@@ -292,6 +301,90 @@ A ``.dar`` contains multiple ``.dalf`` files. A ``.dalf`` file is the output of 
 
 .. Package, module, library
 .. ========================
+
+.. _glos-daml-package:
+
+Package
+=======
+
+This is a stub, documentation has yet to be written.
+
+.. _glos-package-database:
+
+Package Database
+================
+
+This is a stub, documentation has yet to be written.
+
+.. _glos-multi-package:
+
+Multi-package
+=============
+
+This is a stub, documentation has yet to be written.
+
+.. _glos-shake:
+
+Shake
+=====
+
+.. TODO verify if we actually need this entry or just Shake Profiling Reports is
+   enough
+
+This is a stub, documentation has yet to be written.
+
+.. _glos-shake-profiling-reports:
+
+Shake Profiling Reports
+=======================
+
+This is a stub, documentation has yet to be written. See :ref:`glos-shake`.
+
+.. _glos-damlc-log-level:
+
+(damlc) Log Level
+=======================
+
+.. TODO describe what (kind of) information is printed at what level (DEBUG,
+   INFO, WARNING, ERROR)
+
+This is a stub, documentation has yet to be written.
+
+.. _glos-daml-test-coverage:
+
+Coverage
+========
+
+This is a stub, documentation has yet to be written.
+
+.. _glos-ghc:
+
+GHC, and GHC as foundation of the Daml Compiler
+===============================================
+
+This is a stub, documentation has yet to be written.
+
+.. _glos-dar-upgrades:
+
+Dar Upgrading
+=============
+
+This is a stub, documentation has yet to be written.
+
+.. _glos-data-dependencies:
+
+Data Dependencies
+=================
+
+This is a stub, documentation has yet to be written.
+
+.. _glos-incremental-builds:
+
+Incremental Builds
+==================
+
+This is a stub, documentation has yet to be written.
+
 
 Developer Tools
 ***************
@@ -367,7 +460,7 @@ Use the **State Service** to obtain a party-specific view of all `contracts <#co
 Package Service
 ---------------
 
-Use the **Package Service** to obtain information about Daml packages available on the `ledger <#daml-ledger>`__. See :ref:`package-service`.
+Use the **Package Service** to obtain information about :ref:`Daml packages<glos-daml-package>` available on the `ledger <#daml-ledger>`__. See :ref:`package-service`.
 
 Java Bindings
 -------------
@@ -419,13 +512,58 @@ directly involved in, but not about any other part of the transaction. This appl
 Daml-LF
 =======
 
-When you compile Daml source code into a `.dar file <#dar-file-dalf-file>`__, the underlying format is **Daml-LF**. Daml-LF is similar to Daml, but is stripped down to a core set of features. The relationship between the surface Daml syntax and Daml-LF is loosely similar to that between Java and JVM bytecode.
+When you compile Daml source code into a :ref:`.dar file <dar-file-dalf-file>`, the underlying format is **Daml-LF**. Daml-LF is similar to Daml, but is stripped down to a core set of features. The relationship between the surface Daml syntax and Daml-LF is loosely similar to that between Java and JVM bytecode.
 
 As a user, you don't need to interact with Daml-LF directly. But internally, it's used for:
 
 - executing Daml code on the Ledger
 - sending and receiving values via the Ledger API
 - generating code in other languages for interacting with Daml models (often called “codegen”)
+
+Daml-LF, when stored as a DALF file, can be inspected using :ref:`damlc's
+inspect <glos-damlc-inspect>`
+
+.. _glos-daml-source-files:
+
+Daml Files
+==========
+
+Daml Files are files of extension ``.daml`` that contain programs in the Daml
+smart contract language. :ref:`smart-contract-development`.
+
+.. _glos-daml-compiler:
+
+The Daml Compiler
+=================
+
+The Daml Compiler ``damlc`` compiles :ref:`glos-daml-source-files` into
+:ref:`Daml archives<dar-file-dalf-file>`, and can run tests wriiten in
+:ref:`daml-script`. It is recommended to use ``damlc`` trough :ref:`glos-dpm`.
+See :ref:`howto-daml-compiler`.
+
+.. _glos-damlc:
+
+Damlc
+=================
+
+See :ref:`glos-daml-compiler`.
+
+.. _glos-damlc-inspect:
+
+Inspect
+=======
+
+The inspection tool of :ref:`glos-damlc` (called on the command line, using :ref:`glos-dpm`,
+``dpm damlc inspect``), allows you to parse and inspect both :ref:`.dar and
+.dalf files<dar-file-dalf-file>`. See :ref:`how-to-parse-daml-archive-files`.
+
+.. _glos-dpm:
+
+DPM
+===
+
+See :subsiteref:`DPM<dpm>`.
+
 
 Composability
 =============
