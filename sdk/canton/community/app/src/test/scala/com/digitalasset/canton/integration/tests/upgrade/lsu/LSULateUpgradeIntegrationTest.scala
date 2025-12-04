@@ -6,7 +6,6 @@ package com.digitalasset.canton.integration.tests.upgrade.lsu
 import better.files.File
 import com.daml.ledger.api.v2.topology_transaction.TopologyEvent.Event
 import com.digitalasset.canton.admin.api.client.data.TemplateId
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.ParticipantReference
 import com.digitalasset.canton.data.CantonTimestamp
@@ -15,7 +14,7 @@ import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.EnvironmentDefinition.S1M1
 import com.digitalasset.canton.integration.bootstrap.NetworkBootstrapper
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.PartyId
@@ -309,9 +308,9 @@ abstract class LSULateUpgradeIntegrationTest extends LSUBase {
   }
 }
 
-final class LSULateUpgradeReferenceIntegrationTest extends LSULateUpgradeIntegrationTest {
+final class LSULateUpgradeBftOrderingIntegrationTest extends LSULateUpgradeIntegrationTest {
   registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.Postgres](
+    new UseBftSequencer(
       loggerFactory,
       MultiSynchronizer.tryCreate(Set("sequencer1"), Set("sequencer2")),
     )

@@ -7,7 +7,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.admin.api.client.commands.TopologyAdminCommands
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config
-import com.digitalasset.canton.config.{DbConfig, NonNegativeFiniteDuration}
+import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.console.ConsoleEnvironment.Implicits.*
 import com.digitalasset.canton.console.{
   InstanceReference,
@@ -16,7 +16,7 @@ import com.digitalasset.canton.console.{
 }
 import com.digitalasset.canton.crypto.{PublicKey, SigningKeyUsage, SigningPublicKey}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.UseBftSequencer
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -231,11 +231,6 @@ trait StressTopologyDispatcherIntegrationTest
         eventually()(assumeGeneratedEvents(participant2))
     }
   }
-}
-
-class StressTopologyDispatcherReferenceIntegrationTestPostgres
-    extends StressTopologyDispatcherIntegrationTest {
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }
 
 class StressTopologyDispatcherBftOrderingIntegrationTestPostgres

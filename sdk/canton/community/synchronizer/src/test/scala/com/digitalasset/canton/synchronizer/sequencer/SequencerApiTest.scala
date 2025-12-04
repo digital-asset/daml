@@ -93,7 +93,10 @@ abstract class SequencerApiTest
         request: SubmissionRequest
     ): SignedContent[SubmissionRequest] = {
       val cryptoSnapshot =
-        topologyFactory.forOwnerAndSynchronizer(request.sender).currentSnapshotApproximation
+        topologyFactory
+          .forOwnerAndSynchronizer(request.sender)
+          .currentSnapshotApproximation
+          .futureValueUS
       SignedContent
         .create(
           cryptoSnapshot.pureCrypto,
@@ -1155,7 +1158,7 @@ trait SequencerApiTestUtils
       envelope: ClosedEnvelope,
   ): FutureUnlessShutdown[ClosedEnvelope] = {
     val hash = crypto.pureCrypto.digest(HashPurpose.SignedProtocolMessageSignature, envelope.bytes)
-    crypto.currentSnapshotApproximation
+    crypto.currentSnapshotApproximation.futureValueUS
       .sign(hash, SigningKeyUsage.ProtocolOnly)
       .map(sig => envelope.copy(signatures = Seq(sig)))
       .valueOrFail(s"Failed to sign $envelope")

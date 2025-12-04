@@ -43,6 +43,7 @@ import com.digitalasset.canton.sequencing.client.{
   SequencedEventValidatorFactory,
   SequencerClientImplPekko,
 }
+import com.digitalasset.canton.store.SequencedEventStore.SearchCriterion
 import com.digitalasset.canton.store.{
   IndexedPhysicalSynchronizer,
   IndexedStringStore,
@@ -58,6 +59,7 @@ import com.digitalasset.canton.synchronizer.sequencer.admin.grpc.{
   InitializeSequencerRequest,
   InitializeSequencerResponse,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.canton.sequencing.BftSequencerFactory
 import com.digitalasset.canton.synchronizer.sequencer.config.{
   SequencerNodeConfig,
   SequencerNodeParameters,
@@ -78,17 +80,16 @@ import com.digitalasset.canton.synchronizer.sequencing.service.{
   GrpcSequencerService,
   GrpcSequencerStatusService,
 }
-import com.digitalasset.canton.synchronizer.sequencing.topology.{
-  SequencedEventStoreBasedTopologyHeadInitializer,
-  SequencerSnapshotBasedTopologyHeadInitializer,
-}
 import com.digitalasset.canton.synchronizer.server.DynamicGrpcServer
 import com.digitalasset.canton.time.*
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.grpc.PSIdLookup
 import com.digitalasset.canton.topology.client.SynchronizerTopologyClient
 import com.digitalasset.canton.topology.processing.{
+  ApproximateTime,
+  EffectiveTime,
   InitialTopologySnapshotValidator,
+  SequencedTime,
   TopologyTransactionProcessor,
 }
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
@@ -505,13 +506,6 @@ class SequencerNodeBootstrap(
             IndexedPhysicalSynchronizer.indexed(indexedStringStore)(psid)
           )
 
-          sequencedEventStore = SequencedEventStore(
-            storage,
-            physicalSynchronizerIdx,
-            timeouts,
-            loggerFactory,
-          )
-
           membersToRegister <- {
             topologyAndSequencerSnapshot match {
               case None =>
@@ -591,15 +585,9 @@ class SequencerNodeBootstrap(
             }
           }
 
-          topologyHeadInitializer = topologyAndSequencerSnapshot.flatMap(_._2) match {
-            case Some(snapshot) =>
-              new SequencerSnapshotBasedTopologyHeadInitializer(snapshot, synchronizerTopologyStore)
-            case None =>
-              new SequencedEventStoreBasedTopologyHeadInitializer(
-                sequencedEventStore,
-                synchronizerTopologyStore,
-              )
-          }
+          sequencerSnapshotTimestamp = topologyAndSequencerSnapshot
+            .flatMap(_._2)
+            .map(sequencerSnapshot => EffectiveTime(sequencerSnapshot.lastTs))
           processorAndClient <- EitherT
             .right(
               TopologyTransactionProcessor.createProcessorAndClientForSynchronizer(
@@ -612,12 +600,43 @@ class SequencerNodeBootstrap(
                 crypto.staticSynchronizerParameters,
                 futureSupervisor,
                 synchronizerLoggerFactory,
-              )(topologyHeadInitializer)
+              )(sequencerSnapshotTimestamp)
             )
           (topologyProcessor, topologyClient) = processorAndClient
           _ = addCloseable(topologyProcessor)
           _ = addCloseable(topologyClient)
           _ = ips.add(topologyClient)
+
+          sequencedEventStore = SequencedEventStore(
+            storage,
+            physicalSynchronizerIdx,
+            timeouts,
+            loggerFactory,
+          )
+
+          // TODO(#29474): Using the latest sequenced event for initializing the topology client's head is a BUG.
+          //  However, currently, BFT sequencers are getting stuck on restart without this, see the issue for details.
+          _ <- sequencerFactory match {
+            case _: BftSequencerFactory =>
+              EitherT.right[String](
+                sequencedEventStore
+                  .find(SearchCriterion.Latest)
+                  // If events cannot be found, an error is returned. Translate it into an `Option`.
+                  .map(Some(_))
+                  .getOrElse(None)
+                  .map(latestSequencedEventO =>
+                    latestSequencedEventO.foreach(latestSequencedEvent =>
+                      topologyClient.updateHead(
+                        SequencedTime(latestSequencedEvent.timestamp),
+                        EffectiveTime(latestSequencedEvent.timestamp),
+                        ApproximateTime(latestSequencedEvent.timestamp),
+                      )
+                    )
+                  )
+              )
+            case _ =>
+              EitherT.pure(())
+          }
 
           _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
             SequencerNodeBootstrap.this.topologyClient.putIfAbsent(topologyClient).isEmpty,

@@ -10,7 +10,6 @@ import com.digitalasset.canton.HasExecutionContext
 import com.digitalasset.canton.admin.api.client.data.NodeStatus
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{
-  DbConfig,
   NonNegativeDuration,
   PositiveFiniteDuration,
   ReplicationConfig,
@@ -131,7 +130,7 @@ trait ReplicatedParticipantTestSetup extends ReplicatedNodeHelper {
         loggerFactory,
       )
     )
-    registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+    registerPlugin(new UseBftSequencer(loggerFactory))
 
     additionalPlugins.foreach(registerPlugin)
 

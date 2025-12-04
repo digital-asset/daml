@@ -4,7 +4,6 @@
 package com.digitalasset.canton.integration.tests
 
 import com.digitalasset.canton.BigDecimalImplicits.*
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.CommandFailure
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.examples.java.iou.{Amount, Iou}
@@ -12,7 +11,6 @@ import com.digitalasset.canton.integration.plugins.{
   UseBftSequencer,
   UsePostgres,
   UseProgrammableSequencer,
-  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.util.EntitySyntax
 import com.digitalasset.canton.integration.{
@@ -55,8 +53,10 @@ trait DeliverErrorIntegrationTest
     val participant1Id = participant1.id
     val sequencer = getProgrammableSequencer(sequencer1.name)
 
-    val alice = participant1.parties.enable("Alice", synchronizeParticipants = Seq(participant2))
-    val bob = participant2.parties.enable("Bob", synchronizeParticipants = Seq(participant1))
+    val alice =
+      participant1.parties.testing.enable("Alice", synchronizeParticipants = Seq(participant2))
+    val bob =
+      participant2.parties.testing.enable("Bob", synchronizeParticipants = Seq(participant1))
 
     val syncCrypto = participant1.underlying.value.sync.syncCrypto
 
@@ -100,12 +100,6 @@ trait DeliverErrorIntegrationTest
     sequencer.resetPolicy()
     participant1.health.ping(participant2)
   }
-}
-
-class DeliverErrorReferenceIntegrationTestPostgres extends DeliverErrorIntegrationTest {
-  registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
-  registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
 }
 
 class DeliverErrorBftOrderingIntegrationTestPostgres extends DeliverErrorIntegrationTest {

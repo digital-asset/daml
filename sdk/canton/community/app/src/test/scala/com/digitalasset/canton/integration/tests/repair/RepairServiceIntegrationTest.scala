@@ -9,7 +9,6 @@ import com.daml.test.evidence.scalatest.ScalaTestSupport.TagContainer
 import com.daml.test.evidence.tag.EvidenceTag
 import com.daml.test.evidence.tag.Security.{Attack, SecurityTest, SecurityTestSuite}
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{CommandFailure, FeatureFlag}
 import com.digitalasset.canton.crypto.TestSalt
@@ -17,11 +16,7 @@ import com.digitalasset.canton.data.{CantonTimestamp, ViewPosition}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
-import com.digitalasset.canton.integration.plugins.{
-  UseBftSequencer,
-  UsePostgres,
-  UseReferenceBlockSequencer,
-}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.util.{EntitySyntax, PartiesAllocator}
 import com.digitalasset.canton.participant.admin.data.RepairContract
 import com.digitalasset.canton.participant.util.JavaCodegenUtil.ContractIdSyntax
@@ -914,22 +909,6 @@ sealed trait RepairServiceIntegrationTestDevLf extends RepairServiceIntegrationT
   }
 }
 
-sealed trait RepairServiceReferenceSequencerPostgresTest {
-  self: SharedEnvironment =>
-  registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.Postgres](
-      loggerFactory,
-      sequencerGroups = MultiSynchronizer(
-        Seq(
-          Set(InstanceName.tryCreate("sequencer1")),
-          Set(InstanceName.tryCreate("sequencer2")),
-        )
-      ),
-    )
-  )
-}
-
 sealed trait RepairServiceBftSequencerPostgresTest {
   self: SharedEnvironment =>
   registerPlugin(new UsePostgres(loggerFactory))
@@ -948,16 +927,8 @@ sealed trait RepairServiceBftSequencerPostgresTest {
 
 class RepairServiceIntegrationTestPostgresStableLf
     extends RepairServiceIntegrationTestStableLf
-    with RepairServiceReferenceSequencerPostgresTest
-
-class RepairServiceBftOrderingIntegrationTestPostgresStableLf
-    extends RepairServiceIntegrationTestStableLf
     with RepairServiceBftSequencerPostgresTest
 
 class RepairServiceIntegrationTestPostgresDevLf
-    extends RepairServiceIntegrationTestDevLf
-    with RepairServiceReferenceSequencerPostgresTest
-
-class RepairServiceBftOrderingIntegrationTestPostgresDevLf
     extends RepairServiceIntegrationTestDevLf
     with RepairServiceBftSequencerPostgresTest

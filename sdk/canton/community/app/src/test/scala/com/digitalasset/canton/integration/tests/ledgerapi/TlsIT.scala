@@ -7,13 +7,12 @@ import com.digitalasset.canton.config.AuthServiceConfig.Wildcard
 import com.digitalasset.canton.config.RequireTypes.{ExistingFile, Port}
 import com.digitalasset.canton.config.{
   CantonConfig,
-  DbConfig,
   PemFile,
   TlsClientCertificate,
   TlsClientConfig,
   TlsServerConfig,
 }
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2}
 import com.digitalasset.canton.integration.tests.ledgerapi.fixture.CantonFixture
 import com.digitalasset.canton.integration.{
   ConfigTransforms,
@@ -35,7 +34,8 @@ import org.scalatest.RecoverMethods.recoverToSucceededIf
 class TlsIT extends CantonFixture {
 
   registerPlugin(TLSPlugin(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseH2(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   private def getPemFile(fileName: String): PemFile =
     PemFile(ExistingFile.tryCreate(JarResourceUtils.resourceFile("test-certificates/" + fileName)))

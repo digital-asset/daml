@@ -345,8 +345,8 @@ class SynchronizerCryptoClient private (
 
   override def currentSnapshotApproximation(implicit
       traceContext: TraceContext
-  ): SynchronizerSnapshotSyncCryptoApi =
-    create(ips.currentSnapshotApproximation)
+  ): FutureUnlessShutdown[SynchronizerSnapshotSyncCryptoApi] =
+    ips.currentSnapshotApproximation.map(create)
 
   override def topologyKnownUntilTimestamp: CantonTimestamp = ips.topologyKnownUntilTimestamp
 
@@ -363,6 +363,8 @@ class SynchronizerCryptoClient private (
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]] =
     ips.awaitMaxTimestamp(sequencedTime)
+
+  override def latestTopologyChangeTimestamp: CantonTimestamp = ips.latestTopologyChangeTimestamp
 }
 
 object SynchronizerCryptoClient {

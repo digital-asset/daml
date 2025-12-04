@@ -4,14 +4,13 @@
 package com.digitalasset.canton.integration.tests.toxiproxy.fast
 
 import com.digitalasset.canton.HasExecutionContext
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.integration.EnvironmentDefinition.P2_S1M1
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.integration.plugins.toxiproxy.UseToxiproxy.ToxiproxyConfig
 import com.digitalasset.canton.integration.plugins.toxiproxy.{
   ParticipantToSequencerPublicApi,
   UseToxiproxy,
 }
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2}
 import com.digitalasset.canton.integration.util.EntitySyntax
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -29,7 +28,9 @@ class ToxiproxyPluginTest
   override lazy val environmentDefinition: EnvironmentDefinition =
     P2_S1M1
 
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseH2(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
+
   private val p1ProxyConf =
     ParticipantToSequencerPublicApi("sequencer1", name = "participant1-to-sequencer1")
   private val toxiProxy = new UseToxiproxy(ToxiproxyConfig(List(p1ProxyConf)))

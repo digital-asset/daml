@@ -5,14 +5,13 @@ package com.digitalasset.canton.integration.tests.security
 
 import com.daml.ledger.api.v2.commands.Command
 import com.daml.ledger.javaapi.data
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.crypto.CryptoPureApi
 import com.digitalasset.canton.damltests.java.refs.Refs
 import com.digitalasset.canton.damltestsdev.java.basickeys.{BasicKey, KeyOps}
 import com.digitalasset.canton.integration.plugins.{
+  UseBftSequencer,
   UsePostgres,
   UseProgrammableSequencer,
-  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.util.TestSubmissionService.CommandsWithMetadata
 import com.digitalasset.canton.integration.util.TestUtils.damlSet
@@ -241,6 +240,6 @@ trait ModelConformanceIntegrationTest
 
 class ModelConformanceIntegrationTestPostgres extends ModelConformanceIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
   registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
 }

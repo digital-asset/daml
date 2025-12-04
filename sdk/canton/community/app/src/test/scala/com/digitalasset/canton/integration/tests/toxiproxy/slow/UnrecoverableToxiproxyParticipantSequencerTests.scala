@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.integration.tests.toxiproxy.slow
 
-import com.digitalasset.canton.config.{DbConfig, PositiveDurationSeconds}
+import com.digitalasset.canton.config.PositiveDurationSeconds
 import com.digitalasset.canton.console.CommandFailure
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.integration.plugins.toxiproxy.ParticipantToSequencerPublicApi
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2}
 import com.digitalasset.canton.integration.tests.toxiproxy.ToxiproxyHelpers.{
   bongWithKillConnection,
   checkLogs,
@@ -32,7 +32,8 @@ class UnrecoverableToxiproxyParticipantSequencerTests
     with IsolatedEnvironments
     with ToxiproxyParticipantSynchronizerBase {
 
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseH2(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
   registerPlugin(toxiProxy)
 
   override def proxyConf: () => ParticipantToSequencerPublicApi =

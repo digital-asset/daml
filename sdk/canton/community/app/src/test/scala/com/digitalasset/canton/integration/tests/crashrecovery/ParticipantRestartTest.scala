@@ -70,10 +70,10 @@ import com.digitalasset.canton.integration.bootstrap.{
 }
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
 import com.digitalasset.canton.integration.plugins.{
+  UseBftSequencer,
   UseExternalProcess,
   UsePostgres,
   UseProgrammableSequencer,
-  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.tests.crashrecovery.ParticipantRestartTest.*
 import com.digitalasset.canton.integration.util.TestUtils.damlSet
@@ -181,7 +181,7 @@ abstract class ParticipantRestartTest
   registerPlugin(external)
 
   registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.Postgres](
+    new UseBftSequencer(
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(

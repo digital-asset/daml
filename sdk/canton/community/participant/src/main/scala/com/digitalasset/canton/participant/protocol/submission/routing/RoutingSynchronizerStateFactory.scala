@@ -21,6 +21,7 @@ import com.digitalasset.canton.protocol.{LfContractId, StaticSynchronizerParamet
 import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.topology.client.TopologySnapshotLoader
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.MonadUtil
 
 import scala.concurrent.ExecutionContext
 
@@ -32,19 +33,27 @@ object RoutingSynchronizerStateFactory {
       connectedSynchronizers: ConnectedSynchronizersLookup,
       syncCryptoPureApiLookup: SyncCryptoPureApiLookup,
   )(implicit
-      traceContext: TraceContext
-  ): RoutingSynchronizerStateImpl = {
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+  ): FutureUnlessShutdown[RoutingSynchronizerStateImpl] = {
     val connectedSynchronizersSnapshot = connectedSynchronizers.snapshot.toMap
 
     // Ensure we have a constant snapshot for the lifetime of this object.
-    val topologySnapshots = connectedSynchronizersSnapshot.view.mapValues {
-      _.topologyClient.currentSnapshotApproximation
-    }.toMap
+    val topologySnapshotsUS = MonadUtil
+      .sequentialTraverse(connectedSynchronizersSnapshot.toList) {
+        case (psid, connectedSynchronizer) =>
+          connectedSynchronizer.topologyClient.currentSnapshotApproximation.map { snapshot =>
+            (psid, snapshot)
+          }
+      }
+      .map(_.toMap)
 
-    new RoutingSynchronizerStateImpl(
-      connectedSynchronizers = connectedSynchronizersSnapshot,
-      topologySnapshots = topologySnapshots,
-      syncCryptoPureApiLookup = syncCryptoPureApiLookup,
+    topologySnapshotsUS.map(topologySnapshots =>
+      new RoutingSynchronizerStateImpl(
+        connectedSynchronizers = connectedSynchronizersSnapshot,
+        topologySnapshots = topologySnapshots,
+        syncCryptoPureApiLookup = syncCryptoPureApiLookup,
+      )
     )
   }
 }

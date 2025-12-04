@@ -32,8 +32,9 @@ class MissingKeysAlerter(
 
   def init()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     for {
-      encryptionKeys <- client.currentSnapshotApproximation.encryptionKeys(participantId)
-      signingKeys <- client.currentSnapshotApproximation.signingKeys(
+      approximateSnapshot <- client.currentSnapshotApproximation
+      encryptionKeys <- approximateSnapshot.encryptionKeys(participantId)
+      signingKeys <- approximateSnapshot.signingKeys(
         participantId,
         SigningKeyUsage.All,
       )

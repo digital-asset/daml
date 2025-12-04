@@ -479,7 +479,7 @@ trait HasProgrammableSequencer {
     SignedContent
       .create(
         syncCrypto.pureCrypto,
-        syncCrypto.currentSnapshotApproximation,
+        syncCrypto.currentSnapshotApproximation.futureValueUS,
         request,
         None,
         HashPurpose.SubmissionRequestSignature,

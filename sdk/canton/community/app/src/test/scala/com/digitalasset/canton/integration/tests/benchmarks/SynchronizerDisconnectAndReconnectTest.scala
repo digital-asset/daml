@@ -4,12 +4,12 @@
 package com.digitalasset.canton.integration.tests.benchmarks
 
 import com.digitalasset.canton.concurrent.ExecutionContextMonitor
+import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.{DbConfig, NonNegativeFiniteDuration}
 import com.digitalasset.canton.integration.plugins.{
+  UseBftSequencer,
   UseConfigTransforms,
   UsePostgres,
-  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -87,7 +87,7 @@ sealed trait SynchronizerDisconnectAndReconnectTest
 class SynchronizerDisconnectAndReconnectTestPostgres
     extends SynchronizerDisconnectAndReconnectTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
   registerPlugin(
     new UseConfigTransforms(
       Seq(

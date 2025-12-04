@@ -16,10 +16,9 @@ import com.daml.metrics.api.{MetricHandle, MetricInfo, MetricName, MetricQualifi
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.BigDecimalImplicits.DoubleToBigDecimal
 import com.digitalasset.canton.UniquePortGenerator
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.LocalParticipantReference
 import com.digitalasset.canton.examples.java.iou.{Amount, Iou}
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -522,7 +521,7 @@ trait AcsCommitmentBenchmark
 
 class AcsCommitmentBenchmarkPostgres extends AcsCommitmentBenchmark {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }
 
 //class AcsCommitmentBenchmarkH2 extends AcsCommitmentBenchmark {

@@ -207,20 +207,22 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
   ): FutureUnlessShutdown[proto.PrepareSubmissionResponse] = {
     val result: EitherT[FutureUnlessShutdown, RpcError, proto.PrepareSubmissionResponse] = for {
       commandExecutionResult <- withSpan("InteractiveSubmissionService.evaluate") { _ => _ =>
-        val synchronizerState = syncService.getRoutingSynchronizerState
-        commandExecutor
-          .execute(
-            commands = commands,
-            submissionSeed = submissionSeed,
-            routingSynchronizerState = synchronizerState,
-            forExternallySigned = true,
-          )
-          .leftFlatMap { errCause =>
-            metrics.commands.failedCommandInterpretations.mark()
-            EitherT.right[RpcError](
-              RejectionGenerators.commandExecutorErrorFUS[CommandExecutionResult](errCause)
+        for {
+          synchronizerState <- EitherT.liftF(syncService.getRoutingSynchronizerState)
+          result <- commandExecutor
+            .execute(
+              commands = commands,
+              submissionSeed = submissionSeed,
+              routingSynchronizerState = synchronizerState,
+              forExternallySigned = true,
             )
-          }
+            .leftFlatMap { errCause =>
+              metrics.commands.failedCommandInterpretations.mark()
+              EitherT.right[RpcError](
+                RejectionGenerators.commandExecutorErrorFUS[CommandExecutionResult](errCause)
+              )
+            }
+        } yield result
       }
       hashTracer: HashTracer =
         if (config.enableVerboseHashing && verboseHashing)

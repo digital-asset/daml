@@ -8,7 +8,6 @@ import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.api.v2.{state_service, transaction_filter, value as apiValue}
 import com.digitalasset.canton
 import com.digitalasset.canton.admin.api.client.data.TemplateId
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{LocalParticipantReference, ParticipantReference}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -19,7 +18,7 @@ import com.digitalasset.canton.http.json.v2.JsStateServiceCodecs.{
   getActiveContractsRequestRW,
   jsGetActiveContractsResponseRW,
 }
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.util.PartyToParticipantDeclarative
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -86,7 +85,7 @@ abstract class AcsImportRepresentativePackageIdSelectionIntegrationTest
       }
 
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   protected def importAcs(
       importParticipant: ParticipantReference,

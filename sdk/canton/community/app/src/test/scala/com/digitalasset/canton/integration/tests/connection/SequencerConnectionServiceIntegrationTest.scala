@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.integration.tests.connection
 
+import com.digitalasset.canton.admin.api.client.data.SubmissionRequestAmplification
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.InstanceReference
@@ -23,7 +24,6 @@ import com.digitalasset.canton.sequencing.{
   SequencerConnectionXPool,
   SequencerConnections,
   SequencerSubscriptionPool,
-  SubmissionRequestAmplification,
 }
 import com.digitalasset.canton.{SequencerAlias, config}
 import monocle.macros.syntax.lens.*

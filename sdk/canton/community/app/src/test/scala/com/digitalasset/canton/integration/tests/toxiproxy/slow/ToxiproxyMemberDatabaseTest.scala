@@ -3,13 +3,12 @@
 
 package com.digitalasset.canton.integration.tests.toxiproxy.slow
 
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.integration.plugins.toxiproxy.{
   ParticipantToPostgres,
   ProxyConfig,
   SequencerToPostgres,
 }
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.tests.toxiproxy.ToxiproxyDatabase
 import org.scalatest.Ignore
 
@@ -28,7 +27,7 @@ class ToxiproxyParticipantPostgres extends ToxiproxyDatabase {
   val postgres = new UsePostgres(loggerFactory)
 
   registerPlugin(postgres)
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
   registerPlugin(toxiProxy)
 
   override def proxyConf: ParticipantToPostgres =
@@ -47,7 +46,7 @@ class ToxiproxySequencerPostgres extends ToxiproxyDatabase {
   override def component: String = "sequencer"
 
   registerPlugin(postgres)
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
   registerPlugin(toxiProxy)
 
   override def proxyConf: ProxyConfig =

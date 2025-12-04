@@ -74,7 +74,7 @@ class MemberAuthenticationService(
   ): EitherT[FutureUnlessShutdown, AuthenticationError, (Nonce, NonEmpty[Seq[Fingerprint]])] =
     for {
       _ <- EitherT.right(waitForInitialized)
-      snapshot = cryptoApi.ips.currentSnapshotApproximation
+      snapshot <- EitherT.liftF(cryptoApi.ips.currentSnapshotApproximation)
       _ <- isActive(member)
       fingerprints <- EitherT(
         snapshot
@@ -127,7 +127,7 @@ class MemberAuthenticationService(
       StoredNonce(_, nonce, generatedAt, _expireAt) = value
       authentication <- EitherT.fromEither[FutureUnlessShutdown](MemberAuthentication(member))
       hash = authentication.hashSynchronizerNonce(nonce, synchronizerId, cryptoApi.pureCrypto)
-      snapshot = cryptoApi.currentSnapshotApproximation
+      snapshot <- EitherT.liftF(cryptoApi.currentSnapshotApproximation)
 
       _ <- snapshot
         .verifySignature(
@@ -245,9 +245,9 @@ class MemberAuthenticationService(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Boolean] =
     // we are a bit more conservative here. a member needs to be active NOW and the head state (i.e. effective in the future)
-    Seq(cryptoApi.headSnapshot, cryptoApi.currentSnapshotApproximation)
-      .map(_.ipsSnapshot)
-      .parTraverse(check(_))
+    Seq(FutureUnlessShutdown.pure(cryptoApi.headSnapshot), cryptoApi.currentSnapshotApproximation)
+      .map(_.map(_.ipsSnapshot))
+      .parTraverse(_.flatMap(check(_)))
       .map(_.forall(identity))
 
   protected def isParticipantActive(participant: ParticipantId)(implicit

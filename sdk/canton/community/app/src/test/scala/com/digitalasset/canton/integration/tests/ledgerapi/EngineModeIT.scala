@@ -10,12 +10,12 @@ import com.daml.ledger.resources.ResourceContext
 import com.daml.ports.Port
 import com.digitalasset.canton.TestPredicateFiltersFixtureAnyWordSpec
 import com.digitalasset.canton.config.AuthServiceConfig.Wildcard
-import com.digitalasset.canton.config.{CantonConfig, DbConfig}
+import com.digitalasset.canton.config.CantonConfig
 import com.digitalasset.canton.integration.ConfigTransforms.{
   enableAlphaVersionSupport,
   setBetaSupport,
 }
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2}
 import com.digitalasset.canton.integration.tests.ledgerapi.fixture.CantonFixtureIsolated
 import com.digitalasset.canton.integration.{ConfigTransforms, EnvironmentSetupPlugin}
 import com.digitalasset.canton.ledger.api.grpc.GrpcClientResource
@@ -43,7 +43,8 @@ abstract class BaseEngineModeIT(supportDevLanguageVersions: Boolean)
     with TestPredicateFiltersFixtureAnyWordSpec {
 
   registerPlugin(EngineModePlugin(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseH2(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   private[this] val userId = UserId("EngineModeIT")
 

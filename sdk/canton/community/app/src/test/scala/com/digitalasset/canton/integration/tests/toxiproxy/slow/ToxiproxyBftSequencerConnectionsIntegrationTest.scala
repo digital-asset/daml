@@ -3,9 +3,11 @@
 
 package com.digitalasset.canton.integration.tests.toxiproxy.slow
 
-import com.digitalasset.canton.admin.api.client.data.ParticipantStatus
+import com.digitalasset.canton.admin.api.client.data.{
+  ParticipantStatus,
+  SubmissionRequestAmplification,
+}
 import com.digitalasset.canton.config
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.{CommandFailure, InstanceReference}
 import com.digitalasset.canton.error.TransactionRoutingError.TopologyErrors.UnknownContractSynchronizers
@@ -18,7 +20,7 @@ import com.digitalasset.canton.integration.plugins.toxiproxy.{
   RunningProxy,
   UseToxiproxy,
 }
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -28,7 +30,7 @@ import com.digitalasset.canton.integration.{
   TestConsoleEnvironment,
 }
 import com.digitalasset.canton.logging.LogEntry
-import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SubmissionRequestAmplification}
+import com.digitalasset.canton.sequencing.GrpcSequencerConnection
 import com.digitalasset.canton.util.collection.SeqUtil
 import com.digitalasset.canton.util.{FutureUnlessShutdownUtil, LoggerUtil}
 import eu.rekawek.toxiproxy.model.{Toxic, ToxicDirection}
@@ -465,6 +467,6 @@ sealed trait ToxiproxyBftSequencerConnectionsIntegrationTest
 class ToxiproxyBftSequencerConnectionsIntegrationTestDefault
     extends ToxiproxyBftSequencerConnectionsIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
   registerPlugin(toxiproxyPlugin)
 }

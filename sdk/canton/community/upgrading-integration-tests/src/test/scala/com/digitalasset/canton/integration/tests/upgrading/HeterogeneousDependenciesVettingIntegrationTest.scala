@@ -8,12 +8,11 @@ import com.daml.ledger.api.v2.transaction_filter.TransactionShape.TRANSACTION_SH
 import com.daml.ledger.api.v2.value.Identifier.toJavaProto
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.javaapi.data.Identifier
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{LocalParticipantReference, ParticipantReference}
 import com.digitalasset.canton.damltests.{dvpassets, dvpoffer}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.util.PartiesAllocator
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -44,7 +43,8 @@ class HeterogeneousDependenciesVettingIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment {
 
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UsePostgres(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   @volatile var registryParticipant1, registryParticipant2, sellerParticipant,
       buyerParticipant: LocalParticipantReference = _

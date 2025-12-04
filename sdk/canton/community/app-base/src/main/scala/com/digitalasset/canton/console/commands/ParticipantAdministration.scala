@@ -18,8 +18,11 @@ import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommand
   GetResourceLimits,
   SetResourceLimits,
 }
-import com.digitalasset.canton.admin.api.client.data.*
 import com.digitalasset.canton.admin.api.client.data.PackageDescription.PackageContents
+import com.digitalasset.canton.admin.api.client.data.{
+  SubmissionRequestAmplification as ConsoleSubmissionRequestAmplification,
+  *,
+}
 import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.admin.participant.v30.PruningServiceGrpc
 import com.digitalasset.canton.admin.participant.v30.PruningServiceGrpc.PruningServiceStub
@@ -1986,8 +1989,8 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         ),
         sequencerTrustThreshold: PositiveInt = PositiveInt.one,
         sequencerLivenessMargin: NonNegativeInt = NonNegativeInt.zero,
-        submissionRequestAmplification: SubmissionRequestAmplification =
-          SubmissionRequestAmplification.NoAmplification,
+        submissionRequestAmplification: ConsoleSubmissionRequestAmplification =
+          ConsoleSubmissionRequestAmplification.NoAmplification,
         sequencerConnectionPoolDelays: SequencerConnectionPoolDelays =
           SequencerConnectionPoolDelays.default,
         validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
@@ -2001,7 +2004,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         priority = priority,
         sequencerTrustThreshold = sequencerTrustThreshold,
         sequencerLivenessMargin = sequencerLivenessMargin,
-        submissionRequestAmplification = submissionRequestAmplification,
+        submissionRequestAmplification = submissionRequestAmplification.toInternal,
         sequencerConnectionPoolDelays = sequencerConnectionPoolDelays,
       )
       connect_by_config(config, validation, synchronize)
@@ -2035,8 +2038,8 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         ),
         sequencerTrustThreshold: PositiveInt = PositiveInt.one,
         sequencerLivenessMargin: NonNegativeInt = NonNegativeInt.zero,
-        submissionRequestAmplification: SubmissionRequestAmplification =
-          SubmissionRequestAmplification.NoAmplification,
+        submissionRequestAmplification: ConsoleSubmissionRequestAmplification =
+          ConsoleSubmissionRequestAmplification.NoAmplification,
         sequencerConnectionPoolDelays: SequencerConnectionPoolDelays =
           SequencerConnectionPoolDelays.default,
         validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
@@ -2049,7 +2052,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         priority,
         sequencerTrustThreshold = sequencerTrustThreshold,
         sequencerLivenessMargin = sequencerLivenessMargin,
-        submissionRequestAmplification = submissionRequestAmplification,
+        submissionRequestAmplification = submissionRequestAmplification.toInternal,
         sequencerConnectionPoolDelays = sequencerConnectionPoolDelays,
       )
       connect_by_config(config, validation, synchronize)

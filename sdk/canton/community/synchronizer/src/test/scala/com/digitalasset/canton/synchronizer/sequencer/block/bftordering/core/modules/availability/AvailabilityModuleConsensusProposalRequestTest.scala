@@ -529,11 +529,20 @@ class AvailabilityModuleConsensusProposalRequestTest
             val poa = proposedProofsOfAvailability.getOrElse(
               fail("PoA should be ready in new topology but isn't")
             )
-            consensusBuffer should contain only
+            consensusBuffer should contain theSameElementsInOrderAs Seq(
               Consensus.LocalAvailability.ProposalCreated(
                 OrderingBlock(Seq(poa)),
                 EpochNumber.First,
-              )
+              ),
+              Consensus.LocalAvailability.ProposalCreated(
+                OrderingBlock(Seq.empty),
+                EpochNumber.First,
+              ),
+              Consensus.LocalAvailability.ProposalCreated(
+                OrderingBlock(Seq.empty),
+                EpochNumber.First,
+              ),
+            )
 
             val selfMessages = pipeToSelfQueue.flatMap(_.apply())
             selfMessages should contain only Availability.LocalDissemination

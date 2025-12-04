@@ -5,13 +5,8 @@ package com.digitalasset.canton.integration.tests
 
 import com.daml.ledger.javaapi.data.Identifier
 import com.digitalasset.canton.ComparesLfTransactions.{TxTree, buildLfTransaction}
-import com.digitalasset.canton.config.DbConfig.Postgres
 import com.digitalasset.canton.console.{LocalParticipantReference, ParticipantReference}
-import com.digitalasset.canton.integration.plugins.{
-  UseBftSequencer,
-  UsePostgres,
-  UseReferenceBlockSequencer,
-}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.tests.DamlRollbackTest.TbContext
 import com.digitalasset.canton.integration.util.EntitySyntax
 import com.digitalasset.canton.integration.{
@@ -22,7 +17,7 @@ import com.digitalasset.canton.integration.{
 }
 import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.topology.PartyId
+import com.digitalasset.canton.topology.{Party, PartyId}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{ComparesLfTransactions, LfPackageName}
 import com.digitalasset.daml.lf.data.FrontStack
@@ -35,10 +30,8 @@ import com.digitalasset.daml.lf.transaction.test.{TestNodeBuilder, TransactionBu
 import com.digitalasset.daml.lf.value.Value as LfValue
 import monocle.Monocle.toAppliedFocusOps
 
-import scala.annotation.nowarn
 import scala.jdk.CollectionConverters.*
 
-@nowarn("msg=match may not be exhaustive")
 trait DamlRollbackTest
     extends CommunityIntegrationTest
     with SharedEnvironment
@@ -57,12 +50,14 @@ trait DamlRollbackTest
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private var initialized = false
 
-  private val Seq(aliceS, bobS, carolS) = Seq("Alice", "Bob", "Carol")
+  private var alice: Party = _
+  private var bob: Party = _
+  private var carol: Party = _
 
   // Placing this helper in every test enables running any subset of tests in any order and provides syntactic sugar
   // providing parties Alice and Bob to every test.
   protected def withParticipantInitialized[A](
-      test: (PartyId, PartyId, PartyId) => A
+      test: (Party, Party, Party) => A
   )(implicit env: TestConsoleEnvironment): A = {
     import env.*
 
@@ -79,16 +74,12 @@ trait DamlRollbackTest
           _.synchronizers.list_connected().map(_.synchronizerAlias).loneElement shouldBe daName
         }
       }
-      participant1.parties.enable(aliceS)
-      participant1.parties.enable(bobS)
-      participant2.parties.enable(carolS)
+      alice = participant1.parties.testing.enable("Alice")
+      bob = participant1.parties.testing.enable("Bob")
+      carol = participant2.parties.testing.enable("Carol")
       initialized = true
     }
 
-    val Seq(alice, bob, carol) =
-      Seq((aliceS, participant1), (bobS, participant1), (carolS, participant2)).map {
-        case (party, participant) => party.toPartyId(participant)
-      }
     test(alice, bob, carol)
   }
 
@@ -173,7 +164,7 @@ trait DamlRollbackTestStableLf extends DamlRollbackTest {
   override def cantonTestsPath: String = CantonTestsPath
 
   private def createExceptionsTester(
-      signatory: PartyId,
+      signatory: Party,
       participant: ParticipantReference,
   ): ExceptionsTester.ContractId = {
     val createCmd =
@@ -193,8 +184,8 @@ trait DamlRollbackTestStableLf extends DamlRollbackTest {
   }
 
   private def createInformeesContract(
-      signatories: List[PartyId],
-      observers: List[PartyId],
+      signatories: List[Party],
+      observers: List[Party],
       participant: ParticipantReference,
   ): exceptionstester.Informees.ContractId = {
     val createCmd =
@@ -215,7 +206,7 @@ trait DamlRollbackTestStableLf extends DamlRollbackTest {
 
   private def signOn(
       informees: exceptionstester.Informees.ContractId,
-      observer: PartyId,
+      observer: Party,
       participant: ParticipantReference,
   ): exceptionstester.Informees.ContractId = {
     val cmdSignOn = informees.exerciseSignOn(observer.toProtoPrimitive).commands.asScala.toSeq
@@ -230,8 +221,8 @@ trait DamlRollbackTestStableLf extends DamlRollbackTest {
   private def create[T](
       id: Int,
       template: Identifier,
-      sig: Seq[PartyId],
-      obs: Seq[PartyId] = Seq.empty, // additional observers in addition to signatories
+      sig: Seq[Party],
+      obs: Seq[Party] = Seq.empty, // additional observers in addition to signatories
       arg: LfValue = notUsed,
   )(implicit tbCtx: TbContext): LfNodeCreate = {
     val signatories = sig.map(_.toLf)
@@ -642,7 +633,7 @@ trait DamlRollbackTestDevLf extends DamlRollbackTest {
   override def cantonTestsPath: String = CantonTestsDevPath
 
   private def createExceptionsTester(
-      signatory: PartyId,
+      signatory: Party,
       participant: ParticipantReference,
   ): ExceptionsTester.ContractId = {
     val createCmd =
@@ -664,8 +655,8 @@ trait DamlRollbackTestDevLf extends DamlRollbackTest {
   private def create[T](
       id: Int,
       template: Identifier,
-      sig: Seq[PartyId],
-      obs: Seq[PartyId] = Seq.empty, // additional observers in addition to signatories
+      sig: Seq[Party],
+      obs: Seq[Party] = Seq.empty, // additional observers in addition to signatories
       arg: LfValue = notUsed,
   )(implicit tbCtx: TbContext): LfNodeCreate = {
     val signatories = sig.map(_.toLf)
@@ -699,7 +690,7 @@ trait DamlRollbackTestDevLf extends DamlRollbackTest {
   private def createWithKey[T](
       id: Int,
       template: Identifier,
-      party: PartyId,
+      party: Party,
       observers: Seq[PartyId] = Seq.empty,
   )(implicit tbCtx: TbContext): LfNodeCreate = {
     val lfParty = party.toLf
@@ -1161,29 +1152,15 @@ trait DamlRollbackTestDevLf extends DamlRollbackTest {
   }
 }
 
-trait DamlRollbackReferenceSequencerPostgresTest {
-  self: SharedEnvironment =>
-  registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[Postgres](loggerFactory))
-}
-
 trait DamlRollbackBftSequencerPostgresTest {
   self: SharedEnvironment =>
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(new UseBftSequencer(loggerFactory))
 }
 
-class DamlRollbackReferenceIntegrationTestPostgresStableLf
-    extends DamlRollbackTestStableLf
-    with DamlRollbackReferenceSequencerPostgresTest
-
 class DamlRollbackBftOrderingIntegrationTestPostgresStableLf
     extends DamlRollbackTestStableLf
     with DamlRollbackBftSequencerPostgresTest
-
-class DamlRollbackReferenceIntegrationTestPostgresDevLf
-    extends DamlRollbackTestDevLf
-    with DamlRollbackReferenceSequencerPostgresTest
 
 class DamlRollbackBftOrderingIntegrationTestPostgresDevLf
     extends DamlRollbackTestDevLf

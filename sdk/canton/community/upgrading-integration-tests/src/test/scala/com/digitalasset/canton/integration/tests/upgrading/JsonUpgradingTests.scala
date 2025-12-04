@@ -7,7 +7,6 @@ import com.daml.ledger.api.v2.commands.Commands.DeduplicationPeriod
 import com.daml.ledger.api.v2.{state_service, transaction_filter}
 import com.daml.ledger.javaapi.data.Identifier
 import com.digitalasset.canton.admin.api.client.data.TemplateId
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.damltests.upgrade.v1.java as v1
 import com.digitalasset.canton.damltests.upgrade.v2.java as v2
 import com.digitalasset.canton.http
@@ -17,7 +16,7 @@ import com.digitalasset.canton.http.json.v2.JsContractEntry.JsActiveContract
 import com.digitalasset.canton.http.json.v2.JsStateServiceCodecs.*
 import com.digitalasset.canton.http.json.v2.{JsCommand, JsCommands, JsGetActiveContractsResponse}
 import com.digitalasset.canton.integration.TestConsoleEnvironment
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2}
 import com.digitalasset.canton.integration.tests.jsonapi.AbstractHttpServiceIntegrationTestFuns.HttpServiceTestFixtureData
 import com.digitalasset.canton.integration.tests.jsonapi.{HttpServiceUserFixture, HttpTestFuns}
 import com.digitalasset.canton.integration.tests.upgrading.UpgradingBaseTest.{UpgradeV1, UpgradeV2}
@@ -35,7 +34,8 @@ import scala.concurrent.Future
 /** Smart contract upgrading JSON API integration tests.
   */
 class JsonUpgradingTests extends HttpTestFuns with HttpServiceUserFixture.UserToken {
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseH2(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   private def party(name: String)(implicit env: TestConsoleEnvironment): PartyId =
     env.participant1.parties.list(name).headOption.valueOrFail("where is " + name).party

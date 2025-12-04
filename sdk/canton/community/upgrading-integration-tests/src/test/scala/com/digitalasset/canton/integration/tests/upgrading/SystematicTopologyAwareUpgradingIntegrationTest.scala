@@ -15,7 +15,6 @@ import com.daml.ledger.api.v2.transaction_filter.{
 }
 import com.daml.ledger.javaapi.data.Transaction
 import com.digitalasset.canton.LfPackageName
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{LocalParticipantReference, ParticipantReference}
 import com.digitalasset.canton.damltests.bar.v1.java.bar.Bar as BarV1
@@ -29,7 +28,7 @@ import com.digitalasset.canton.damltests.foo.v3.java.foo.Foo as FooV3
 import com.digitalasset.canton.damltests.foo.v4.java.foo.Foo as FooV4
 import com.digitalasset.canton.damltests.ibaz.v1.java.ibaz.IBaz
 import com.digitalasset.canton.error.TransactionRoutingError.ConfigurationErrors.InvalidPrescribedSynchronizerId
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.tests.upgrading.UpgradingBaseTest.Syntax.*
 import com.digitalasset.canton.integration.util.PartiesAllocator
 import com.digitalasset.canton.integration.{
@@ -59,7 +58,8 @@ class SystematicTopologyAwareUpgradingIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment {
 
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UsePostgres(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   @volatile private var aliceParticipant, bobParticipant,
       charlieParticipant: LocalParticipantReference = _

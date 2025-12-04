@@ -7,11 +7,10 @@ import better.files.*
 import cats.implicits.*
 import com.daml.ledger.api.v2.state_service.ActiveContract as LapiActiveContract
 import com.daml.ledger.api.v2.state_service.ActiveContract.*
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.{CommandFailure, LocalParticipantReference}
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.examples.java.iou.Iou
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.util.EntitySyntax
 import com.digitalasset.canton.integration.{
@@ -44,9 +43,7 @@ final class ContractIdValidationIntegrationTest
     }
 
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory)
-  )
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   /** Create contracts `participant` for the given `party` -- these will be the contracts exported
     * as part of the test setup.

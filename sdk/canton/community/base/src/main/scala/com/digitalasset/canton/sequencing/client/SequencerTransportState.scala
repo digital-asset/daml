@@ -8,6 +8,7 @@ import cats.syntax.either.*
 import cats.syntax.parallel.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.SequencerAlias
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -31,12 +32,12 @@ import com.digitalasset.canton.sequencing.client.transports.{
   SequencerClientTransport,
   SequencerClientTransportCommon,
 }
+import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.Thereafter.syntax.*
-import com.digitalasset.canton.{SequencerAlias, config}
 import io.grpc.Status
 
 import java.util.concurrent.atomic.AtomicReference
@@ -74,7 +75,7 @@ trait SequencerTransportLookup {
       SequencerAlias,
       SequencerId,
       SequencerClientTransportCommon,
-      Option[config.NonNegativeFiniteDuration],
+      Option[NonNegativeFiniteDuration],
   )
 
   /** Returns the transport for the given [[com.digitalasset.canton.topology.SequencerId]].
@@ -177,7 +178,7 @@ class SequencersTransportState(
       SequencerAlias,
       SequencerId,
       SequencerClientTransportCommon,
-      Option[config.NonNegativeFiniteDuration],
+      Option[NonNegativeFiniteDuration],
   ) =
     blocking(lock.synchronized {
       val SubmissionRequestAmplification(factor, patience) = submissionRequestAmplification.get()

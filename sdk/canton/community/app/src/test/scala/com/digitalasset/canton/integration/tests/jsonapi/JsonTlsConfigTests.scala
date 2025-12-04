@@ -6,14 +6,13 @@ package com.digitalasset.canton.integration.tests.jsonapi
 import com.digitalasset.canton.config.RequireTypes.ExistingFile
 import com.digitalasset.canton.config.ServerAuthRequirementConfig.Require
 import com.digitalasset.canton.config.{
-  DbConfig,
   PemFile,
   TlsClientCertificate,
   TlsClientConfig,
   TlsServerConfig,
 }
 import com.digitalasset.canton.http.HttpService
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2}
 import com.digitalasset.canton.integration.tests.jsonapi.HttpServiceTestFixture.{
   UseTls,
   clientTlsConfig,
@@ -37,7 +36,8 @@ class JsonTlsConfigTests
     extends AbstractHttpServiceIntegrationTestFuns
     with HttpServiceUserFixture.UserToken
     with TableDrivenPropertyChecks {
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseH2(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   override def useTls: UseTls = UseTls.Tls
 

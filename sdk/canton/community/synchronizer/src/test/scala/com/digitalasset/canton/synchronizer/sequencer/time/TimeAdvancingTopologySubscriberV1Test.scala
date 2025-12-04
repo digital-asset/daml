@@ -118,7 +118,9 @@ class TimeAdvancingTopologySubscriberV1Test extends AnyWordSpec with BaseTest {
         )
       when(snapshot.sequencerGroup()).thenReturn(FutureUnlessShutdown.pure(Some(sequencerGroup)))
       val topologyClient = mock[SynchronizerTopologyClientWithInit]
-      when(topologyClient.currentSnapshotApproximation).thenReturn(snapshot)
+      when(topologyClient.currentSnapshotApproximation).thenReturn(
+        FutureUnlessShutdown.pure(snapshot)
+      )
       val staticSynchronizerParameters = BaseTest.defaultStaticSynchronizerParametersWith()
       when(topologyClient.staticSynchronizerParameters).thenReturn(staticSynchronizerParameters)
 
@@ -193,7 +195,9 @@ class TimeAdvancingTopologySubscriberV1Test extends AnyWordSpec with BaseTest {
         )
       )
       val topologyClient = mock[SynchronizerTopologyClientWithInit]
-      when(topologyClient.currentSnapshotApproximation).thenReturn(snapshot)
+      when(topologyClient.currentSnapshotApproximation).thenReturn(
+        FutureUnlessShutdown.pure(snapshot)
+      )
       val staticSynchronizerParameters = BaseTest.defaultStaticSynchronizerParametersWith()
       when(topologyClient.staticSynchronizerParameters).thenReturn(staticSynchronizerParameters)
 
@@ -233,7 +237,9 @@ class TimeAdvancingTopologySubscriberV1Test extends AnyWordSpec with BaseTest {
         )
       when(snapshot.sequencerGroup()).thenReturn(FutureUnlessShutdown.pure(Some(sequencerGroup)))
       val topologyClient = mock[SynchronizerTopologyClientWithInit]
-      when(topologyClient.currentSnapshotApproximation).thenReturn(snapshot)
+      when(topologyClient.currentSnapshotApproximation).thenReturn(
+        FutureUnlessShutdown.pure(snapshot)
+      )
 
       val mockSequencerClient = mock[SequencerClient]
       when(
@@ -280,7 +286,9 @@ class TimeAdvancingTopologySubscriberV1Test extends AnyWordSpec with BaseTest {
         )
       when(snapshot.sequencerGroup()).thenReturn(FutureUnlessShutdown.pure(Some(sequencerGroup)))
       val topologyClient = mock[SynchronizerTopologyClientWithInit]
-      when(topologyClient.currentSnapshotApproximation).thenReturn(snapshot)
+      when(topologyClient.currentSnapshotApproximation).thenReturn(
+        FutureUnlessShutdown.pure(snapshot)
+      )
 
       val subscriber =
         new TimeAdvancingTopologySubscriberV1(

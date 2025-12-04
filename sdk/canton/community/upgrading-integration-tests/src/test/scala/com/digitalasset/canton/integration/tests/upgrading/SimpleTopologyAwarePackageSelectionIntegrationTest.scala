@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.integration.tests.upgrading
 
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.LocalParticipantReference
 import com.digitalasset.canton.damltests.appupgrade.v1.java.appupgrade.{
   AppInstall as AppInstall_V1,
@@ -12,7 +11,7 @@ import com.digitalasset.canton.damltests.appupgrade.v1.java.appupgrade.{
 }
 import com.digitalasset.canton.damltests.token
 import com.digitalasset.canton.error.TransactionRoutingError.ConfigurationErrors.InvalidPrescribedSynchronizerId
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -29,7 +28,8 @@ import scala.util.chaining.scalaUtilChainingOps
 abstract class SimpleTopologyAwarePackageSelectionIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment {
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UsePostgres(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   @volatile var v2Hash: String = _
   @volatile var appInstallRequest: AppInstallRequest.Contract = _

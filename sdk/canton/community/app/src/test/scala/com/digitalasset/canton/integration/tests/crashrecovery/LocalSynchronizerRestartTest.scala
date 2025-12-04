@@ -3,8 +3,7 @@
 
 package com.digitalasset.canton.integration.tests.crashrecovery
 
-import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
@@ -13,7 +12,7 @@ import com.digitalasset.canton.integration.{
 
 final class LocalSynchronizerRestartTest extends CommunityIntegrationTest with SharedEnvironment {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P1_S1M1.withSetup { implicit env =>

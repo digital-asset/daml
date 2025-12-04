@@ -106,7 +106,7 @@ class GrpcSequencerServiceTest
     private val topologyClient = mock[SynchronizerTopologyClient]
     private val mockTopologySnapshot = mock[TopologySnapshot]
     when(topologyClient.currentSnapshotApproximation(any[TraceContext]))
-      .thenReturn(mockTopologySnapshot)
+      .thenReturn(FutureUnlessShutdown.pure(mockTopologySnapshot))
     when(
       mockTopologySnapshot.findDynamicSynchronizerParametersOrDefault(
         any[ProtocolVersion],

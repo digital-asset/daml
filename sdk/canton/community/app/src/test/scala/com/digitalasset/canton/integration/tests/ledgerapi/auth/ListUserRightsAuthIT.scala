@@ -5,9 +5,8 @@ package com.digitalasset.canton.integration.tests.ledgerapi.auth
 
 import com.daml.ledger.api.v2.admin.user_management_service.*
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.*
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.integration.TestConsoleEnvironment
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2}
 import com.digitalasset.canton.integration.tests.ledgerapi.SuppressionRules.ApiUserManagementServiceSuppressionRule
 import io.grpc.Status
 
@@ -15,7 +14,8 @@ import java.util.UUID
 import scala.concurrent.Future
 
 class ListUserRightsAuthIT extends AdminOrIDPAdminServiceCallAuthTests with UserManagementAuth {
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseH2(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   override def serviceCallName: String = "UserManagementService#ListUserRights"
 

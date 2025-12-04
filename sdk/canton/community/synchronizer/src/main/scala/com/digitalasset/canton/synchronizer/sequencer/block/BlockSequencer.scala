@@ -404,12 +404,15 @@ class BlockSequencer(
       //  aggregated submissions with signed envelopes define a topology snapshot
       _ <- validateMaxSequencingTime(submission)
       // TODO(#19476): Why we don't check group recipients here?
+      approximateSnapshot <- EitherT.liftF(
+        cryptoApi.currentSnapshotApproximation
+      )
       _ <- SubmissionRequestValidations
         .checkSenderAndRecipientsAreRegistered(
           submission,
           // Using currentSnapshotApproximation due to members registration date
           // expected to be before submission sequencing time
-          cryptoApi.currentSnapshotApproximation.ipsSnapshot,
+          approximateSnapshot.ipsSnapshot,
         )
         .leftMap(_.toSequencerDeliverError)
       _ = if (logEventDetails)
@@ -767,12 +770,13 @@ class BlockSequencer(
       traceContext: TraceContext
   ): FutureUnlessShutdown[SequencerTrafficStatus] =
     for {
+      topologySnapshot <- cryptoApi.currentSnapshotApproximation
       members <-
         if (requestedMembers.isEmpty) {
           // If requestedMembers is not set get the traffic states of all known members
-          cryptoApi.currentSnapshotApproximation.ipsSnapshot.allMembers()
+          topologySnapshot.ipsSnapshot.allMembers()
         } else {
-          cryptoApi.currentSnapshotApproximation.ipsSnapshot
+          topologySnapshot.ipsSnapshot
             .allMembers()
             .map { registered =>
               requestedMembers.toSet.intersect(registered)

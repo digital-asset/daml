@@ -7,13 +7,12 @@ import com.daml.ledger.api.v2.commands.{Command, ExerciseCommand}
 import com.daml.ledger.api.v2.transaction_filter.TransactionShape.TRANSACTION_SHAPE_LEDGER_EFFECTS
 import com.daml.ledger.javaapi
 import com.daml.ledger.javaapi.data.codegen.{Exercised, Update}
-import com.digitalasset.canton.config.DbConfig.Postgres
 import com.digitalasset.canton.console.LocalParticipantReference
 import com.digitalasset.canton.damltests.nonconforming.v1.java as v1
 import com.digitalasset.canton.damltests.nonconforming.v1.java.nonconforming.BankTransfer
 import com.digitalasset.canton.damltests.nonconforming.v2.java as v2
 import com.digitalasset.canton.integration.ConfigTransforms.disableUpgradeValidation
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
@@ -30,7 +29,8 @@ import scala.jdk.OptionConverters.*
   */
 class NonConformingUpgradeIntegrationTest extends CommunityIntegrationTest with SharedEnvironment {
 
-  registerPlugin(new UseReferenceBlockSequencer[Postgres](loggerFactory))
+  registerPlugin(new UsePostgres(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   private var bank: PartyId = _
   private var alice: PartyId = _

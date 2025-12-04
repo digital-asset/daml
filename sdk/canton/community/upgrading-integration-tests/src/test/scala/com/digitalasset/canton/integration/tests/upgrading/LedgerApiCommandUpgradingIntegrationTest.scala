@@ -11,12 +11,11 @@ import com.daml.ledger.javaapi
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.javaapi.data.codegen.{Contract, ContractCompanion}
 import com.daml.ledger.javaapi.data.{Unit as _, *}
-import com.digitalasset.canton.config.DbConfig.Postgres
 import com.digitalasset.canton.console.{CommandFailure, LocalParticipantReference}
 import com.digitalasset.canton.damltests.upgrade.v1.java as v1
 import com.digitalasset.canton.damltests.upgrade.v2.java as v2
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
@@ -381,5 +380,6 @@ sealed abstract class LedgerApiCommandUpgradingIntegrationTest
 
 final class ReferenceLedgerApiCommandUpgradingIntegrationTestPostgres
     extends LedgerApiCommandUpgradingIntegrationTest {
-  registerPlugin(new UseReferenceBlockSequencer[Postgres](loggerFactory))
+  registerPlugin(new UsePostgres(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }

@@ -1088,16 +1088,18 @@ final class SyncStateInspection(
     MonadUtil
       .sequentialTraverse(filteredSynchronizerIds) { synchronizerId =>
         val synchronizerTopoClient = syncCrypto.ips.tryForSynchronizer(synchronizerId)
-        val ipsSnapshot = synchronizerTopoClient.currentSnapshotApproximation
+        val ipsSnapshotFUS = synchronizerTopoClient.currentSnapshotApproximation
 
-        ipsSnapshot
-          .allMembers()
-          .map(
-            _.collect {
-              case id: ParticipantId if participantFilter.fold(true)(_.contains(id)) => id
-            }
+        ipsSnapshotFUS
+          .flatMap(
+            _.allMembers()
+              .map(
+                _.collect {
+                  case id: ParticipantId if participantFilter.fold(true)(_.contains(id)) => id
+                }
+              )
+              .map(synchronizerId -> _)
           )
-          .map(synchronizerId -> _)
       }
       .map(_.toMap)
   }

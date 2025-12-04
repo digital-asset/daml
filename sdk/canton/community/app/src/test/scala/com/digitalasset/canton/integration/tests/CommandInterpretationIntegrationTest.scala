@@ -3,9 +3,8 @@
 
 package com.digitalasset.canton.integration.tests
 
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.CommandFailure
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -132,10 +131,10 @@ sealed trait CommandInterpretationIntegrationTest
 
 //class CommandInterpretationIntegrationTestH2 extends CommandInterpretationIntegrationTest {
 //  registerPlugin(new UseH2(loggerFactory))
-//  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+//  registerPlugin(new UseBftSequencer(loggerFactory))
 //}
 class CommandInterpretationReferenceIntegrationTestPostgres
     extends CommandInterpretationIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }
