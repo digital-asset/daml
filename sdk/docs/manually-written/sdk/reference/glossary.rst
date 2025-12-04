@@ -433,6 +433,129 @@ Daml Studio
 
 See :ref:`daml-studio`.
 
+=======
+A **contract key** allows you to uniquely identify a `contract <#contract>`__ of a particular `template <#template>`__, similar to a primary key in a database table.
+
+A contract key requires a `maintainer <#maintainer>`__: a simple key would be something like a tuple of text and maintainer, like ``(accountId, bank)``.
+
+See :ref:`contractkeys`.
+
+.. _dar-file-dalf-file:
+
+DAR File, DALF File
+===================
+
+A Daml Archive file, known as a ``.dar`` file is the result of compiling Daml code using the `Assistant <#assistant>`__ which can be interpreted using a Daml interpreter.
+
+You upload ``.dar`` files to a `ledger <#daml-ledger>`__ in order to be able to create contracts from the templates in that file.
+
+A ``.dar`` contains multiple ``.dalf`` files. A ``.dalf`` file is the output of a compiled Daml package or library. Its underlying format is `Daml-LF <#daml-lf>`__.
+
+.. Package, module, library
+.. ========================
+
+.. _glos-daml-package:
+
+Package
+=======
+
+This is a stub, documentation has yet to be written.
+
+.. _glos-package-database:
+
+Package Database
+================
+
+This is a stub, documentation has yet to be written.
+
+.. _glos-multi-package:
+
+Multi-package
+=============
+
+This is a stub, documentation has yet to be written.
+
+.. _glos-shake:
+
+Shake
+=====
+
+.. TODO verify if we actually need this entry or just Shake Profiling Reports is
+   enough
+
+This is a stub, documentation has yet to be written.
+
+.. _glos-shake-profiling-reports:
+
+Shake Profiling Reports
+=======================
+
+This is a stub, documentation has yet to be written. See :ref:`glos-shake`.
+
+.. _glos-damlc-log-level:
+
+(damlc) Log Level
+=======================
+
+.. TODO describe what (kind of) information is printed at what level (DEBUG,
+   INFO, WARNING, ERROR)
+
+This is a stub, documentation has yet to be written.
+
+.. _glos-daml-test-coverage:
+
+Coverage
+========
+
+This is a stub, documentation has yet to be written.
+
+.. _glos-ghc:
+
+GHC, and GHC as foundation of the Daml Compiler
+===============================================
+
+This is a stub, documentation has yet to be written.
+
+.. _glos-dar-upgrades:
+
+Dar Upgrading
+=============
+
+This is a stub, documentation has yet to be written.
+
+.. _glos-data-dependencies:
+
+Data Dependencies
+=================
+
+This is a stub, documentation has yet to be written.
+
+.. _glos-incremental-builds:
+
+Incremental Builds
+==================
+
+This is a stub, documentation has yet to be written.
+
+
+Developer Tools
+***************
+
+Assistant
+=========
+
+**Daml Assistant** is a command-line tool for many tasks related to Daml. Using it, you can create Daml projects, compile Daml projects into `.dar files <#dar-file-dalf-file>`__, launch other developer tools, and download new SDK versions.
+
+See :ref:`daml-assistant`.
+
+Studio
+======
+
+**Daml Studio** is a plugin for Visual Studio Code, and is the IDE for writing Daml code.
+
+See :ref:`daml-studio`.
+
+Sandbox
 
 .. _daml-lf:
 
@@ -454,6 +577,38 @@ it's used for:
 
 Damle, Daml runtime, Daml execution engine
 ******************************************
+=======
+Daml-LF, when stored as a DALF file, can be inspected using :ref:`damlc's
+inspect <glos-damlc-inspect>`
+
+.. _glos-daml-source-files:
+
+Daml Files
+==========
+
+Daml Files are files of extension ``.daml`` that contain programs in the Daml
+smart contract language. :ref:`smart-contract-development`.
+
+.. _glos-daml-compiler:
+
+The Daml Compiler
+=================
+
+The Daml Compiler ``damlc`` compiles :ref:`glos-daml-source-files` into
+:ref:`Daml archives<dar-file-dalf-file>`, and can run tests wriiten in
+:ref:`daml-script`. It is recommended to use ``damlc`` trough :ref:`glos-dpm`.
+See :ref:`howto-daml-compiler`.
+
+.. _glos-damlc:
+
+Damlc
+=================
+
+See :ref:`glos-daml-compiler`.
+
+.. _glos-damlc-inspect:
+
+Inspect
 
 .. TODO: when writing out this stub, splut into thee separate entries. One that
    contains the bulk of the explanation, and the two others a short sentence,
@@ -595,7 +750,7 @@ Integration (application)
 application that sits on top of the `ledger <#daml-ledger>`__. See
 :ref:`glos-application`.
 
-      
+
 
 ..  .
        ▗▖
