@@ -779,14 +779,12 @@ private[lf] object Speedy {
 
     @nowarn("msg=dead code following this construct")
     @tailrec
-    def runPure(cancelled: () => Boolean = () => false): Either[SError, SValue] =
+    def runPure(): Either[SError, SValue] =
       run() match {
         case SResultError(err) => Left(err)
         case SResultFinal(v) => Right(v)
-        case SResultInterruption if cancelled() =>
-          Left(SErrorCrash("runPure", "cancelled"))
         case SResultInterruption =>
-          runPure(cancelled)
+          runPure()
         case SResultQuestion(nothing) => nothing
       }
   }
@@ -1382,35 +1380,106 @@ private[lf] object Speedy {
     type ClosureBlob = GenValue.Blob[SPAP]
     type ValueWithClosure = GenValue[ClosureBlob]
 
+    sealed trait ValueWithClosuresComputationMode {
+      def buildSExpr(
+          compiledPackages: CompiledPackages,
+          translator: ValueTranslator,
+      ): Either[RuntimeException, SExpr]
+    }
+    object ValueWithClosuresComputationMode {
+      final case class ClosureWithArgs(f: ClosureBlob, args: List[(V, Type)])
+          extends ValueWithClosuresComputationMode {
+        def buildSExpr(
+            compiledPackages: CompiledPackages,
+            translator: ValueTranslator,
+        ): Either[RuntimeException, SExpr] = {
+          import scalaz.syntax.traverse._
+          import scalaz.std.list._
+          import scalaz.std.either._
+          args
+            .traverse { case (v, ty) => translator.translateValue(ty, v).map(SEValue(_)) }
+            .map(sArgs => SEAppAtomicGeneral(SEValue(f.getContent), ArraySeq.from(sArgs)))
+        }
+      }
+      final case class IdentifierWithoutArgs(id: Identifier)
+          extends ValueWithClosuresComputationMode {
+        def buildSExpr(
+            compiledPackages: CompiledPackages,
+            translator: ValueTranslator,
+        ): Either[RuntimeException, SExpr] =
+          compiledPackages.getDefinition(LfDefRef(id)) match {
+            case None => Left(new RuntimeException(s"Failed to find value $id in package"))
+            case Some(SDefinition(sExpr)) => Right(sExpr)
+          }
+      }
+      final case class IdentifierWithArgs(id: Identifier, args: List[(V, Type)])
+          extends ValueWithClosuresComputationMode {
+        def buildSExpr(
+            compiledPackages: CompiledPackages,
+            translator: ValueTranslator,
+        ): Either[RuntimeException, SExpr] = {
+          import scalaz.syntax.traverse._
+          import scalaz.std.list._
+          import scalaz.std.either._
+          for {
+            sExpr <-
+              compiledPackages.getDefinition(LfDefRef(id)) match {
+                case None => Left(new RuntimeException(s"Failed to find value $id in package"))
+                case Some(SDefinition(sExpr)) => Right(sExpr)
+              }
+            sValueArgs <-
+              args.traverse { case (v, ty) => translator.translateValue(ty, v) }
+          } yield SEApp(sExpr, sValueArgs.to(ArraySeq))
+        }
+      }
+    }
+
     @throws[PackageNotFound]
     @throws[CompilationError]
     // Returns a value with blackboxes
     // Arguments cannot contain blackboxes
-    def runPureValueWithClosures(
-        f: ClosureBlob,
-        args: List[(Type, V)],
-        cancelled: () => Boolean,
+    def runValueWithClosuresComputation(
+        computationMode: ValueWithClosuresComputationMode,
+        cancelled: () => Option[RuntimeException],
         compiledPackages: CompiledPackages,
         iterationsBetweenInterruptions: Long = Long.MaxValue,
-    )(implicit loggingContext: LoggingContext): Either[String, ValueWithClosure] = {
-      import scalaz.syntax.traverse._
-      import scalaz.std.list._
-      import scalaz.std.either._
+        traceLog: TraceLog = newTraceLog,
+        warningLog: WarningLog = newWarningLog,
+        profile: Profile = newProfile,
+        convertLegacyExceptions: Boolean = true,
+    )(implicit
+        loggingContext: LoggingContext
+    ): Either[Either[RuntimeException, SError], ValueWithClosure] = {
       val translator = new ValueTranslator(
         compiledPackages.pkgInterface,
         forbidLocalContractIds = true,
         forbidTrailingNones = false,
       )
+      @nowarn("msg=dead code following this construct")
+      @tailrec
+      def runMachine(machine: PureMachine): Either[Either[RuntimeException, SError], SValue] =
+        machine.run() match {
+          case SResultError(err) => Left(Right(err))
+          case SResultFinal(v) => Right(v)
+          case SResultInterruption =>
+            cancelled() match {
+              case Some(err) => Left(Left(err))
+              case None => runMachine(machine)
+            }
+          case SResultQuestion(nothing) => nothing
+        }
       for {
-        sArgs <- args
-          .traverse { case (ty, v) => translator.translateValue(ty, v).map(SEValue(_)) }
-          .left
-          .map(err => err.getMessage)
-        sRes <- fromPureSExpr(
+        sExpr <- computationMode.buildSExpr(compiledPackages, translator).left.map(Left(_))
+        machine = fromPureSExpr(
           compiledPackages,
-          SEAppAtomicGeneral(SEValue(f.getContent), ArraySeq.from(sArgs)),
+          sExpr,
           iterationsBetweenInterruptions,
-        ).runPure(cancelled).left.map(err => err.getMessage)
+          traceLog,
+          warningLog,
+          profile,
+          convertLegacyExceptions,
+        )
+        sRes <- runMachine(machine)
       } yield sRes.toUnnormalizedValueWithClosures
     }
 

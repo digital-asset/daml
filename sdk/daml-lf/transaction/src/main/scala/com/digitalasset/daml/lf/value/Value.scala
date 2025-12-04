@@ -245,6 +245,48 @@ object Value {
   type ValueUnit = GenValue.Unit.type
   val ValueUnit: GenValue.Unit.type = GenValue.Unit
 
+  import scalaz.syntax.traverse._
+  import scalaz.std.either._
+  import scalaz.std.option._
+
+  def castToPureValue[B](
+      value: GenValue[GenValue.Blob[B]],
+      handleBlob: GenValue.Blob[B] => Either[RuntimeException, GenValue[Nothing]],
+  ): Either[RuntimeException, GenValue[Nothing]] =
+    value match {
+      case b: GenValue.Blob[B] => handleBlob(b)
+      case ValueRecord(tycon, content) =>
+        content
+          .traverse { case (label, value) => castToPureValue(value, handleBlob).map((label, _)) }
+          .map(ValueRecord(tycon, _))
+      case ValueVariant(tycon, variant, content) =>
+        castToPureValue(content, handleBlob).map(ValueVariant(tycon, variant, _))
+      case ValueList(content) => content.traverse(castToPureValue(_, handleBlob)).map(ValueList(_))
+      case ValueOptional(content) =>
+        content.traverse(castToPureValue(_, handleBlob)).map(ValueOptional(_))
+      case ValueTextMap(content) =>
+        content.traverse(castToPureValue(_, handleBlob)).map(ValueTextMap(_))
+      case ValueGenMap(content) =>
+        content
+          .traverse { case (key, value) =>
+            for {
+              pureKey <- castToPureValue(key, handleBlob)
+              pureValue <- castToPureValue(value, handleBlob)
+            } yield (pureKey, pureValue)
+          }
+          .map(ValueGenMap(_))
+      case v: ValueEnum => Right(v)
+      case v: ValueContractId => Right(v)
+      case v: ValueInt64 => Right(v)
+      case v: ValueNumeric => Right(v)
+      case v: ValueText => Right(v)
+      case v: ValueTimestamp => Right(v)
+      case v: ValueDate => Right(v)
+      case v: ValueParty => Right(v)
+      case v: ValueBool => Right(v)
+      case v: ValueUnit => Right(v)
+    }
+
   class ValueArithmeticError(stablePackages: StablePackages) {
     val tyCon: TypeConId = stablePackages.ArithmeticError
     val typ: Ast.Type = Ast.TTyCon(tyCon)

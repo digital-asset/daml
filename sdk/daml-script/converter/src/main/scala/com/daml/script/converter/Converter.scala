@@ -41,19 +41,6 @@ object Converter {
   def makeTuple(v1: SValue, v2: SValue, v3: SValue): SValue =
     record(StablePackagesV2.Tuple3, ("_1", v1), ("_2", v2), ("_3", v3))
 
-  /** Unpack one step of a Pure/Roll-style free monad representation,
-    * with the assumption that `f` is a variant type.
-    */
-  def unrollFree(v: SValue): ErrorOr[SValue Either (Ast.VariantConName, SValue)] =
-    v.expect(
-      "Free with variant or Pure",
-      {
-        case SVariant(_, "Free", _, SVariant(_, variant, _, vv)) =>
-          Right((variant, vv))
-        case SVariant(_, "Pure", _, v) => Left(v)
-      },
-    )
-
   private[this] val DaTypesTuple2 =
     QualifiedName(DottedName.assertFromString("DA.Types"), DottedName.assertFromString("Tuple2"))
 
