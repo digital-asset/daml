@@ -533,10 +533,9 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
   private[lf] def fromJsonValue(
       ctx: QualifiedName,
       environmentSignature: EnvironmentSignature,
-      compiledPackages: CompiledPackages,
       ty: Type,
       jsValue: JsValue,
-  ): Either[String, SValue] = {
+  ): Either[String, Value] = {
     def damlLfTypeLookup(id: Identifier): Option[typesig.DefDataType.FWT] =
       environmentSignature.typeDecls.get(id).map(_.`type`)
     for {
@@ -553,16 +552,7 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
         } catch {
           case e: Exception => Left(s"LF conversion failed: ${e.toString}")
         }
-      valueTranslator =
-        new preprocessing.ValueTranslator(
-          compiledPackages.pkgInterface,
-          forbidLocalContractIds = false,
-        )
-      sValue <- valueTranslator
-        .translateValue(ty, lfValue)
-        .left
-        .map(_.message)
-    } yield sValue
+    } yield lfValue
   }
 
   def toDisclosure(v: SValue): Either[String, Disclosure] =

@@ -323,38 +323,13 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
       payload: A,
       stackTrace: StackTrace,
       continue: SValue,
-  ) extends script.Script.FailableCmd {
-    override def description = name.toString
-  }
+  )
 
   def toPackageId(v: SValue): Either[String, PackageId] =
     v match {
       case SRecord(_, _, ArraySeq(SText(packageId))) =>
         Right(PackageId.assertFromString(packageId))
       case _ => Left(s"Expected PackageId but got $v")
-    }
-
-  def unrollFree(ctx: ScriptF.Ctx, v: SValue): ErrorOr[SValue Either Question[SValue]] =
-    // ScriptF is a newtype over the question with its payload, locations and continue. It's modelled as a record with a single field.
-    // Thus the extra SRecord
-    v match {
-      case SVariant(
-            _,
-            "Free",
-            _,
-            SRecord(
-              _,
-              _,
-              ArraySeq(
-                SRecord(_, _, ArraySeq(SText(name), SInt64(version), payload, locations, continue))
-              ),
-            ),
-          ) =>
-        for {
-          stackTrace <- toStackTrace(ctx.knownPackages, locations)
-        } yield Right(Question(name, version.toInt, payload, stackTrace, continue))
-      case SVariant(_, "Pure", _, v) => Right(Left(v))
-      case _ => Left(s"Expected Free Question or Pure, got $v")
     }
 
   def toCommandWithMeta(v: SValue): Either[String, ScriptLedgerClient.CommandWithMeta] =

@@ -14,11 +14,11 @@ import scalaz.\/-
 import scalaz.syntax.traverse._
 import spray.json._
 import com.digitalasset.daml.lf.PureCompiledPackages
-import com.digitalasset.daml.lf.speedy.{SValue, Speedy, TraceLog, WarningLog}
+import com.digitalasset.daml.lf.speedy.{Speedy, TraceLog, WarningLog}
+import com.digitalasset.daml.lf.value._
 import com.digitalasset.daml.lf.archive.{Dar, DarDecoder}
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
-import com.digitalasset.daml.lf.language.Ast.Package
-import com.digitalasset.daml.lf.language.Ast.Type
+import com.digitalasset.daml.lf.language.Ast.{Package, Type}
 import com.digitalasset.daml.lf.typesig.EnvironmentSignature
 import com.digitalasset.daml.lf.typesig.reader.SignatureReader
 import com.daml.grpc.adapter.{ExecutionSequencerFactory, PekkoExecutionSequencerPool}
@@ -118,7 +118,7 @@ object RunnerMain {
           scriptId: Identifier,
           inputFile: Option[File],
           outputFile: Option[File],
-          convertInputValue: Option[(JsValue, Type) => Either[String, SValue]],
+          convertInputValue: Option[(JsValue, Type) => Either[String, Value]],
       ) =>
         for {
           result <- Runner
@@ -134,7 +134,7 @@ object RunnerMain {
             )
           _ <- Future {
             outputFile.foreach { outputFile =>
-              val jsVal = LfValueCodec.apiValueToJsValue(result.toUnnormalizedValue)
+              val jsVal = LfValueCodec.apiValueToJsValue(result)
               val outDir = outputFile.getParentFile
               if (outDir != null) {
                 val _ = Files.createDirectories(outDir.toPath)
@@ -151,9 +151,9 @@ object RunnerMain {
             case (moduleName, module) =>
               module.definitions.collect(Function.unlift { case (name, _) =>
                 val id = Identifier(dar.main._1, QualifiedName(moduleName, name))
-                Script.fromIdentifier(compiledPackages, id) match {
+                ScriptAction.fromIdentifier(compiledPackages, id) match {
                   // We exclude generated identifiers starting with `$`.
-                  case Right(_: Script.Action) if !name.dottedName.startsWith("$") =>
+                  case Right(_: ScriptAction.NoParam) if !name.dottedName.startsWith("$") =>
                     Some(id)
                   case _ => None
                 }
@@ -180,7 +180,6 @@ object RunnerMain {
             Converter(majorVersion).fromJsonValue(
               scriptId.qualifiedName,
               envIface,
-              compiledPackages,
               typ,
               json,
             )
