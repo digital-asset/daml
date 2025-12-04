@@ -7,6 +7,7 @@ on:
       - main
       - 'release/**'
       - 'main-2x*'
+      - 'release-trigger'
     types: [opened, reopened, closed, synchronize]
 
 
