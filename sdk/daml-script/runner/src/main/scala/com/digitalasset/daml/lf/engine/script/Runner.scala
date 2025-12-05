@@ -37,14 +37,14 @@ import com.digitalasset.daml.lf.speedy.{
   Profile,
   SDefinition,
   SError,
-  SValue,
   Speedy,
   TraceLog,
   WarningLog,
 }
 import com.digitalasset.daml.lf.typesig.EnvironmentSignature
 import com.digitalasset.daml.lf.typesig.reader.SignatureReader
-import com.digitalasset.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.value._
+import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.pekko.stream.Materializer
@@ -189,24 +189,25 @@ object ParticipantsJsonProtocol extends DefaultJsonProtocol {
 
 // Daml script, either an Action that can be executed immediately, or a
 // Function that requires an argument.
-sealed abstract class Script extends Product with Serializable
-object Script {
-
-  // For now, we do not care of the logging context for Daml-Script, so we create a
-  // global dummy context, we can feed the Speedy Machine and the Script service with.
-  private[script] val DummyLoggingContext: LoggingContext =
-    LoggingContext.newLoggingContext(identity)
-
-  final case class Action(expr: SExpr, scriptIds: ScriptIds) extends Script
-  final case class Function(expr: SExpr, param: Type, scriptIds: ScriptIds) extends Script {
-    def apply(arg: SValue): Script.Action = Script.Action(SEApp(expr, ArraySeq(arg)), scriptIds)
+sealed abstract class ScriptAction extends Product with Serializable {
+  def id: Identifier
+  def scriptIds: ScriptIds
+}
+object ScriptAction {
+  final case class NoParam(id: Identifier, scriptIds: ScriptIds) extends ScriptAction
+  final case class Param(
+      id: Identifier,
+      paramType: Type,
+      param: Option[Value] = None,
+      scriptIds: ScriptIds,
+  ) extends ScriptAction {
+    def apply(arg: Value): Param = Param(id, paramType, Some(arg), scriptIds)
   }
 
   def fromIdentifier(
       compiledPackages: CompiledPackages,
       scriptId: Identifier,
-  ): Either[String, Script] = {
-    val scriptExpr = SEVal(LfDefRef(scriptId))
+  ): Either[String, ScriptAction] = {
     val script = compiledPackages.pkgInterface.lookupValue(scriptId).left.map(_.pretty)
     def getScriptIds(ty: Type): Either[String, ScriptIds] =
       ScriptIds.fromType(ty)
@@ -214,19 +215,20 @@ object Script {
       case GenDValue(TApp(TApp(TBuiltin(BTArrow), param), result), _) =>
         for {
           scriptIds <- getScriptIds(result)
-        } yield Script.Function(scriptExpr, param, scriptIds)
+        } yield ScriptAction.Param(scriptId, param, None, scriptIds)
       case GenDValue(ty, _) =>
         for {
           scriptIds <- getScriptIds(ty)
-        } yield Script.Action(scriptExpr, scriptIds)
+        } yield ScriptAction.NoParam(scriptId, scriptIds)
     }
   }
+}
 
-  trait FailableCmd {
-    def stackTrace: StackTrace
-    // Human-readable description of the command used in error messages.
-    def description: String
-  }
+object Script {
+  // For now, we do not care of the logging context for Daml-Script, so we create a
+  // global dummy context, we can feed the Speedy Machine and the Script service with.
+  private[script] val DummyLoggingContext: LoggingContext =
+    LoggingContext.newLoggingContext(identity)
 
   final case class FailedCmd(description: String, stackTrace: StackTrace, cause: Throwable)
       extends RuntimeException(
@@ -357,7 +359,7 @@ object Runner {
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[SValue] = {
+  ): Future[Value] = {
     val darMap = dar.all.toMap
     val majorVersion = dar.main._2.languageVersion.major
     val compiledPackages =
@@ -372,7 +374,6 @@ object Runner {
       Converter(majorVersion).fromJsonValue(
         scriptId.qualifiedName,
         envIface,
-        compiledPackages,
         typ,
         json,
       )
@@ -395,7 +396,7 @@ object Runner {
   def run[X](
       compiledPackages: PureCompiledPackages,
       scriptId: Identifier,
-      convertInputValue: Option[(X, Type) => Either[String, SValue]],
+      convertInputValue: Option[(X, Type) => Either[String, Value]],
       inputValue: Option[X],
       initialClients: Participants[ScriptLedgerClient],
       timeMode: ScriptTimeMode,
@@ -407,7 +408,7 @@ object Runner {
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[SValue] =
+  ): Future[Value] =
     runWithOptionalIdeContext(
       compiledPackages,
       scriptId,
@@ -425,7 +426,7 @@ object Runner {
   def runIdeLedgerClient[X](
       compiledPackages: PureCompiledPackages,
       scriptId: Identifier,
-      convertInputValue: Option[(X, Type) => Either[String, SValue]],
+      convertInputValue: Option[(X, Type) => Either[String, Value]],
       inputValue: Option[X],
       initialClient: IdeLedgerClient,
       timeMode: ScriptTimeMode,
@@ -437,7 +438,7 @@ object Runner {
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): (Future[SValue], IdeLedgerContext) = {
+  ): (Future[Value], IdeLedgerContext) = {
     val initialClients = Participants(Some(initialClient), Map.empty, Map.empty)
     val (resultF, oIdeLedgerContext) = runWithOptionalIdeContext(
       compiledPackages,
@@ -457,7 +458,7 @@ object Runner {
   private def runWithOptionalIdeContext[X](
       compiledPackages: PureCompiledPackages,
       scriptId: Identifier,
-      convertInputValue: Option[(X, Type) => Either[String, SValue]],
+      convertInputValue: Option[(X, Type) => Either[String, Value]],
       inputValue: Option[X],
       initialClients: Participants[ScriptLedgerClient],
       timeMode: ScriptTimeMode,
@@ -469,14 +470,14 @@ object Runner {
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): (Future[SValue], Option[IdeLedgerContext]) = {
-    val script = data.assertRight(Script.fromIdentifier(compiledPackages, scriptId))
-    val scriptAction: Script.Action = (script, inputValue) match {
-      case (script: Script.Action, None) => script
-      case (script: Script.Function, Some(input)) =>
+  ): (Future[Value], Option[IdeLedgerContext]) = {
+    val script = data.assertRight(ScriptAction.fromIdentifier(compiledPackages, scriptId))
+    val scriptAction: ScriptAction = (script, inputValue) match {
+      case (script: ScriptAction.NoParam, None) => script
+      case (script: ScriptAction.Param, Some(input)) =>
         convertInputValue match {
           case Some(f) =>
-            f(input, script.param) match {
+            f(input, script.paramType) match {
               case Left(msg) => throw new ConverterException(msg)
               case Right(arg) => script.apply(arg)
             }
@@ -485,9 +486,9 @@ object Runner {
               s"The script ${scriptId} requires an argument, but a converter was not provided"
             )
         }
-      case (_: Script.Action, Some(_)) =>
+      case (_: ScriptAction.NoParam, Some(_)) =>
         throw new RuntimeException(s"The script ${scriptId} does not take arguments.")
-      case (_: Script.Function, None) =>
+      case (_: ScriptAction.Param, None) =>
         throw new RuntimeException(s"The script ${scriptId} requires an argument.")
     }
     val runner = new Runner(compiledPackages, scriptAction, timeMode)
@@ -503,7 +504,7 @@ object Runner {
 
 private[lf] class Runner(
     val compiledPackages: CompiledPackages,
-    val script: Script.Action,
+    val script: ScriptAction,
     val timeMode: ScriptTimeMode,
 ) extends StrictLogging {
 
@@ -547,7 +548,7 @@ private[lf] class Runner(
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): (Future[SValue], Option[Runner.IdeLedgerContext]) = {
+  ): (Future[Value], Option[Runner.IdeLedgerContext]) = {
     val damlScriptName = Runner.getPackageName(compiledPackages, script.scriptIds.scriptPackageId)
 
     damlScriptName.getOrElse(

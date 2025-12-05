@@ -25,6 +25,8 @@ sealed abstract class GenValue[+X]
 
 object GenValue {
 
+  sealed abstract class Extended[+B]
+
   sealed abstract class CidLessAtom extends GenValue[Nothing] with CidContainer[CidLessAtom] {
     final override def mapCid(f: Value.ContractId => Value.ContractId): this.type = this
   }
@@ -164,9 +166,7 @@ object GenValue {
     })
   }
 
-  // This case class exists solely to ensure that pattern matching on GenValue[X] is exhaustive when X != Nothing.
-  // To be replaced, by something more usefull, in following PR
-  final case class Blob(value: Any) extends GenValue[Blob] {
+  final case class Blob[Content](value: Content) extends GenValue[Extended[Content]] {
     override def nonVerboseWithoutTrailingNones: Nothing =
       throw new UnsupportedOperationException(
         "Blob values do not support nonVerboseWithoutTrailingNones"
@@ -175,6 +175,20 @@ object GenValue {
     override def mapCid(f: Value.ContractId => Value.ContractId): Nothing =
       throw new UnsupportedOperationException(
         "Blob values do not support nonVerboseWithoutTrailingNones"
+      )
+    private[lf] def getContent: Content = value
+  }
+
+  final case class Any[Content](ty: Ast.Type, any: GenValue[Extended[Content]])
+      extends GenValue[Extended[Content]] {
+    override def nonVerboseWithoutTrailingNones: Nothing =
+      throw new UnsupportedOperationException(
+        "Any values do not support nonVerboseWithoutTrailingNones"
+      )
+
+    override def mapCid(f: Value.ContractId => Value.ContractId): Nothing =
+      throw new UnsupportedOperationException(
+        "Any values do not support nonVerboseWithoutTrailingNones"
       )
   }
 
@@ -243,6 +257,53 @@ object Value {
 
   type ValueUnit = GenValue.Unit.type
   val ValueUnit: GenValue.Unit.type = GenValue.Unit
+
+  import scalaz.syntax.traverse._
+  import scalaz.std.either._
+  import scalaz.std.option._
+
+  def castToPureValue[B](
+      value: GenValue[GenValue.Extended[B]],
+      handleBlob: GenValue.Blob[B] => Either[RuntimeException, GenValue[Nothing]],
+      handleAny: GenValue.Any[B] => Either[RuntimeException, GenValue[Nothing]],
+  ): Either[RuntimeException, GenValue[Nothing]] =
+    value match {
+      case b: GenValue.Blob[B] => handleBlob(b)
+      case a: GenValue.Any[B] => handleAny(a)
+      case ValueRecord(tycon, content) =>
+        content
+          .traverse { case (label, value) =>
+            castToPureValue(value, handleBlob, handleAny).map((label, _))
+          }
+          .map(ValueRecord(tycon, _))
+      case ValueVariant(tycon, variant, content) =>
+        castToPureValue(content, handleBlob, handleAny).map(ValueVariant(tycon, variant, _))
+      case ValueList(content) =>
+        content.traverse(castToPureValue(_, handleBlob, handleAny)).map(ValueList(_))
+      case ValueOptional(content) =>
+        content.traverse(castToPureValue(_, handleBlob, handleAny)).map(ValueOptional(_))
+      case ValueTextMap(content) =>
+        content.traverse(castToPureValue(_, handleBlob, handleAny)).map(ValueTextMap(_))
+      case ValueGenMap(content) =>
+        content
+          .traverse { case (key, value) =>
+            for {
+              pureKey <- castToPureValue(key, handleBlob, handleAny)
+              pureValue <- castToPureValue(value, handleBlob, handleAny)
+            } yield (pureKey, pureValue)
+          }
+          .map(ValueGenMap(_))
+      case v: ValueEnum => Right(v)
+      case v: ValueContractId => Right(v)
+      case v: ValueInt64 => Right(v)
+      case v: ValueNumeric => Right(v)
+      case v: ValueText => Right(v)
+      case v: ValueTimestamp => Right(v)
+      case v: ValueDate => Right(v)
+      case v: ValueParty => Right(v)
+      case v: ValueBool => Right(v)
+      case v: ValueUnit => Right(v)
+    }
 
   class ValueArithmeticError(stablePackages: StablePackages) {
     val tyCon: TypeConId = stablePackages.ArithmeticError
