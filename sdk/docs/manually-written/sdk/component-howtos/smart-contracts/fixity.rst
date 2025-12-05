@@ -14,7 +14,7 @@ In the case of *infix* operators (e.g. symbol operators such as ``+`` and ``*``,
 or functions surrounded by backticks, for example ```elem```), it is less clear.
 What does ``x - y - z`` mean? Subtracting ``x`` from ``y`` first (i.e.
 ``(x - y) - z``) generally yields different results than subtracting ``z`` from
-``y`` first (i.e. ``x - (y - z)``). In Daml, the subraction operator ``-`` is
+``y`` first (i.e. ``x - (y - z)``). In Daml, the subtraction operator ``-`` is
 defined as a *left-assocative* operator. That is, when we write ``x - y - z -
 ...`` the parser associates *to the left*, meaning the parser interprets this as
 ``((x - y) - z) - ...``.
@@ -23,7 +23,7 @@ Some operators are *right-associative*. We have already encountered one:
 function application! A function signature of ``a -> b -> c -> ...`` is parsed
 as ``(a -> (b -> c)) -> ...``.
 
-Finally, some operators are non-associative. A good example are comparisson
+Finally, some operators are non-associative. A good example are comparison
 operators such as ``=`` and ``>``. This means any ambiguous usage of these
 operators (e.g. ``a == b == c`` or ``a > b > c``) results in a **parse error**.
 
@@ -39,10 +39,10 @@ The *precedence* of operators defines, when combinding different operators,
 which operator is processed first. For example, in general (and in Daml),
 multiplication *takes precedence* over addition. That is, ``x + y * z`` is
 parsed as ``x + (y * z)``. Operator precedence is expressed as a number, where a
-higher number indicates a higher precedense. Operators of same precidence are
+higher number indicates a higher precedence. Operators of same precedence are
 associated to the right (e.g. ``x + y - z`` is parsed as ``(x + y) - z``.
 
-The fixity and precedence is declared using the ``infixl``, ``infix``, and
+The fixity and precedence are declared using the ``infixl``, ``infix``, and
 ``infixr`` keywords (denoting left-, non-, and right-associativity,
 respectfully) that take an integer between 0 and 9 inclusive and an operator the
 fixity applies to. For example, ``infixl 6 +`` declares ``+`` as a
