@@ -3,7 +3,7 @@ Command line tools
 
 .. list-table::
 
-   * - Install the daml assistant
+   * - Install DPM
      - ``curl -sSL https://get.digitalasset.com/install/install.sh | sh``
    * - Create a new Daml project
      - ``dpm new <myproject>``
