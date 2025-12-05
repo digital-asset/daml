@@ -640,13 +640,22 @@ private[speedy] case class PartialTransaction(
       case info: TryContextInfo =>
         // In the case of there being no children we could drop the entire rollback node.
         // But we do that in a later normalization phase, not here.
-        val rollbackNode = Node.Rollback(context.children.toImmArray)
-        copy(
-          context = info.parent
-            .addNonActionChild(info.nodeId, context.minChildVersion, context.nextActionChildIdx),
-          nodes = nodes.updated(info.nodeId, rollbackNode),
-          contractState = contractState.endRollback(),
-        )
+        val (needRollback, contractState1) = contractState.endRollback()
+        if (needRollback)
+          copy(
+            context = info.parent
+              .addNonActionChild(info.nodeId, context.minChildVersion, context.nextActionChildIdx),
+            nodes = nodes.updated(info.nodeId, Node.Rollback(context.children.toImmArray)),
+            contractState = contractState1,
+          )
+        else
+          copy(
+            context = info.parent.copy(
+              children = info.parent.children :++ context.children.toImmArray,
+              nextActionChildIdx = context.nextActionChildIdx,
+            ),
+            contractState = contractState1,
+          )
       case _ =>
         InternalError.runtimeException(
           NameOf.qualifiedNameOfCurrentFunc,

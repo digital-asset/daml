@@ -31,6 +31,9 @@ private[lf] object NormalizeRollbacks {
 
     txOriginal match {
       case Transaction(nodesOriginal, rootsOriginal) =>
+        def g(x: NodeId) =
+          nodesOriginal(x)
+
         def traverseNodeIds[R](
             xs: List[NodeId]
         )(k: Vector[Norm] => Trampoline[R]): Trampoline[R] = {
@@ -38,7 +41,7 @@ private[lf] object NormalizeRollbacks {
             xs match {
               case Nil => k(Vector.empty)
               case x :: xs =>
-                traverseNode(nodesOriginal(x)) { norms1 =>
+                traverseNode(nodesOriginal.getOrElse(x, g(x))) { norms1 =>
                   traverseNodeIds(xs) { norms2 =>
                     Bounce { () =>
                       k(norms1 ++ norms2)
