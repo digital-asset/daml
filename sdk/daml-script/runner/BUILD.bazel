@@ -81,7 +81,7 @@ da_scala_library(
         "//ledger-service/lf-value-json",
         "//libs-scala/auth-utils",
         "//libs-scala/contextualized-logging",
-        "//libs-scala/nonempty",
+        "//canton:nonempty",
         "//libs-scala/rs-grpc-bridge",
         "//libs-scala/rs-grpc-pekko",
         "//libs-scala/timer-utils",

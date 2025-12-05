@@ -107,9 +107,9 @@
   type: jar-scala
 - target: //libs-scala/logging-entries:logging-entries
   type: jar-scala
-- target: //libs-scala/nonempty:nonempty
+- target: //canton:nonempty
   type: jar-scala
-- target: //libs-scala/nonempty-cats:nonempty-cats
+- target: //canton:nonempty-cats
   type: jar-scala
 - target: //libs-scala/ports:ports
   type: jar-scala
