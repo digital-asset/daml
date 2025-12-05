@@ -124,7 +124,7 @@ Connecting to Sandbox's console
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Once you have a Sandbox running locally (i.e. after running ``dpm sandbox``)
-you may connect to Sandbox remotely by running the ``daml canton-console``
+you may connect to Sandbox remotely by running the ``dpm canton-console``
 command in a separate terminal:
 
 .. code-block:: none

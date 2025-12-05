@@ -41,7 +41,7 @@ via the sandbox. It can manifest on upload as:
 
 .. code:: text
 
-  upload-dar did not succeed: DAR_PARSE_ERROR(8,b5935497): Failed to parse the dar file content.
+  {"code":"DAR_PARSE_ERROR", "cause": "Failed to parse the dar file content.", ...}
 
 or in your logs as:
 

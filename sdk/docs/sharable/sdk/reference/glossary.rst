@@ -284,7 +284,7 @@ See :ref:`contractkeys`.
 DAR File, DALF File
 ===================
 
-A Daml Archive file, known as a ``.dar`` file is the result of compiling Daml code using the `Assistant <#assistant>`__ which can be interpreted using a Daml interpreter.
+A Daml Archive file, known as a ``.dar`` file is the result of compiling Daml code using :subsiteref:`dpm` which can be interpreted using a Daml interpreter.
 
 You upload ``.dar`` files to a `ledger <#daml-ledger>`__ in order to be able to create contracts from the templates in that file.
 
@@ -298,6 +298,13 @@ Developer Tools
 
 Assistant
 =========
+
+.. warning::
+
+   Daml Assistant is deprecated from 3.4.x onwards. Use :subsiteref:`dpm <dpm>`
+   instead. Refer to the ``dpm`` :subsiteref:`migration guide
+   <dpm-daml-assistant-to-dpm-migration>` for more details.
+
 
 **Daml Assistant** is a command-line tool for many tasks related to Daml. Using it, you can create Daml projects, compile Daml projects into `.dar files <#dar-file-dalf-file>`__, launch other developer tools, and download new SDK versions.
 
