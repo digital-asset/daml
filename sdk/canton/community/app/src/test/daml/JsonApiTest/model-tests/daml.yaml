@@ -1,7 +1,7 @@
 override-components: 
   damlc: 
     version: $DAML_VERSION
-  codegen-java: 
+  codegen: 
     version: $DAML_VERSION
 name: model-tests
 source: .

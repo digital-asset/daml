@@ -837,7 +837,7 @@ class ParallelIndexerSubscriptionSpec
 
   it should "correctly refill the missing activations" in {
     ParallelIndexerSubscription
-      .refillMissingDeactivatedActivations(logger)(
+      .refillMissingDeactivatedActivations(LedgerApiServerMetrics.ForTesting, logger)(
         Batch(
           ledgerEnd = previousLedgerEnd,
           batch = Vector(
@@ -904,7 +904,7 @@ class ParallelIndexerSubscriptionSpec
       LoggerNameContains("ParallelIndexerSubscription") && SuppressionRule.Level(Level.WARN)
     )(
       ParallelIndexerSubscription
-        .refillMissingDeactivatedActivations(logger)(
+        .refillMissingDeactivatedActivations(LedgerApiServerMetrics.ForTesting, logger)(
           Batch(
             ledgerEnd = previousLedgerEnd,
             batch = Vector(
@@ -942,7 +942,10 @@ class ParallelIndexerSubscriptionSpec
 
   it should "report error and fail, if activation was not even requested" in {
     loggerFactory.assertInternalError[IllegalStateException](
-      ParallelIndexerSubscription.refillMissingDeactivatedActivations(logger)(
+      ParallelIndexerSubscription.refillMissingDeactivatedActivations(
+        LedgerApiServerMetrics.ForTesting,
+        logger,
+      )(
         Batch(
           ledgerEnd = previousLedgerEnd,
           batch = Vector(
@@ -1039,6 +1042,7 @@ class ParallelIndexerSubscriptionSpec
     val result = ParallelIndexerSubscription.batcher(
       batchF = _ => "bumm",
       logger = logger,
+      metrics = LedgerApiServerMetrics.ForTesting,
     )(
       Batch(
         ledgerEnd = ZeroLedgerEnd.copy(lastOffset = offset(2)),

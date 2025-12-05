@@ -5,7 +5,7 @@ package com.digitalasset.canton.integration.tests.multihostedparties
 
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.integration
-import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2, UsePostgres}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -35,7 +35,6 @@ sealed trait OnlinePartyReplicationRecoverFromDisruptionsTest
     with OnlinePartyReplicationTestHelpers
     with SharedEnvironment {
 
-  registerPlugin(new UseH2(loggerFactory))
   registerPlugin(new UseBftSequencer(loggerFactory))
 
   private var alice: PartyId = _

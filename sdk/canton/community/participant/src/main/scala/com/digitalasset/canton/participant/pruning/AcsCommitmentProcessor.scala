@@ -2188,12 +2188,29 @@ class AcsCommitmentProcessor private (
       )
       counterParticipantsNE = NonEmpty.from(participants)
       _ <- counterParticipantsNE.fold(FutureUnlessShutdown.unit)(counterParticipants =>
-        splitPeriod.fold(FutureUnlessShutdown.unit)(period =>
-          store.markOutstanding(
-            period,
-            counterParticipants,
-          )
-        )
+        splitPeriod.fold(FutureUnlessShutdown.unit) { periods =>
+          MonadUtil
+            .batchedSequentialTraverse[
+              CommitmentPeriod,
+              FutureUnlessShutdown,
+              Unit,
+            ](
+              batchingConfig.parallelism,
+              batchingConfig.maxItemsInBatch,
+            )(periods.forgetNE.toSeq) { chunk =>
+              NonEmpty.from(chunk) match {
+                case Some(chunkNE) =>
+                  store
+                    .markOutstanding(
+                      chunkNE.toSet,
+                      counterParticipants,
+                    )
+                    .map(_ => Seq(()))
+                case None => FutureUnlessShutdown.pure(Seq.empty[Unit])
+              }
+            }
+            .map(_ => ())
+        }
       )
     } yield ()
 
