@@ -104,7 +104,7 @@ transformSubmatch = fmap (fmap toSubMatch . Array.elems) . Array.elems
     toSubMatch :: (Text, (Int, Int)) -> SubMatch
     toSubMatch (smText, (smStart, smLength)) = let smEnd = smStart + smLength in SubMatch {..}
 
--- Replaces all occurences of a regex pattern in a string using a replacement function
+-- Replaces all occurrences of a regex pattern in a string using a replacement function
 -- Replacement function runs in a monad
 replaceAllInM :: forall m. Monad m => String -> Text -> ([SubMatch] -> m Text) -> m Text
 replaceAllInM needle haystack replacer = do
