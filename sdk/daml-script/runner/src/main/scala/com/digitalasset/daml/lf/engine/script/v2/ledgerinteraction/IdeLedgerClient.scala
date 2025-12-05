@@ -39,7 +39,7 @@ import com.digitalasset.daml.lf.transaction.{
   TransactionCoder,
 }
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.value.Value.{ContractId, ValueUnit}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.ledger.localstore.InMemoryUserManagementStore
@@ -771,7 +771,7 @@ class IdeLedgerClient(
                     exercise.targetCoid,
                     exercise.choiceId,
                     exercise.chosenValue,
-                    exercise.exerciseResult.get,
+                    exercise.exerciseResult.getOrElse(ValueUnit),
                     exercise.children.collect(Function.unlift(convEvent(_, None))).toList,
                   )
                 )

@@ -1052,7 +1052,7 @@ object TransactionTreeFactoryImpl {
 
     def signalRollbackScope(target: RollbackScope): Unit = {
       val (pops, pushes) = RollbackScope.popsAndPushes(rollbackScope, target)
-      for (_ <- 1 to pops) { csmState = csmState.endRollback() }
+      for (_ <- 1 to pops) { csmState = csmState.endRollback()._2 }
       for (_ <- 1 to pushes) { csmState = csmState.beginRollback() }
       rollbackScope = target
     }

@@ -505,7 +505,7 @@ sealed abstract class HasTxNodes[Tx] {
       exerciseEnd = (acc, _, _) => acc,
       rollbackBegin =
         (acc, _, _) => (acc.map(_.beginRollback()), Transaction.ChildrenRecursion.DoRecurse),
-      rollbackEnd = (acc, _, _) => acc.map(_.endRollback()),
+      rollbackEnd = (acc, _, _) => acc.map(_.endRollback()._2),
       leaf = (
           acc,
           nid,

@@ -118,4 +118,6 @@ object ContractKeyUniquenessMode {
 
   /** Considers all nodes mentioning keys as byKey operations and checks for contract key uniqueness. */
   case object Strict extends ContractKeyUniquenessMode
+
+  case object NoKey extends ContractKeyUniquenessMode
 }

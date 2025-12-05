@@ -822,7 +822,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
         visitSubtrees(nodes, children(node).toSeq, resolver, next)
       }
       exited = node match {
-        case _: Node.Rollback => afterChildren.endRollback()
+        case _: Node.Rollback => afterChildren.endRollback()._2
         case _ => afterChildren
       }
     } yield exited

@@ -324,6 +324,8 @@ object ContractStateMachine {
       case fetch: Node.Fetch => handleFetch(fetch)
       case lookup: Node.LookupByKey =>
         mode match {
+          case ContractKeyUniquenessMode.NoKey =>
+            throw new IllegalStateException("Keys are disabled")
           case ContractKeyUniquenessMode.Strict => handleLookup(lookup)
           case ContractKeyUniquenessMode.Off => handleLookupWith(lookup, keyInput)
         }
@@ -340,9 +342,11 @@ object ContractStateMachine {
     /** To be called when interpretation does insert a Rollback node or iteration leaves a Rollback node.
       * Must be matched by a [[beginRollback]].
       */
-    def endRollback(): State[Nid] = rollbackStack match {
+    def endRollback(): (Boolean, State[Nid]) = rollbackStack match {
       case Nil => throw new IllegalStateException("Not inside a rollback scope")
-      case headState :: tailStack => this.copy(activeState = headState, rollbackStack = tailStack)
+      case headState :: tailStack =>
+        (activeState != headState) ->
+          this.copy(activeState = headState, rollbackStack = tailStack)
     }
 
     /** To be called if interpretation notices that a try block did not lead to a Rollback node
