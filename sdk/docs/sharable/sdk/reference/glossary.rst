@@ -595,7 +595,7 @@ Integration (application)
 application that sits on top of the `ledger <#daml-ledger>`__. See
 :ref:`glos-application`.
 
-      
+
 
 ..  .
        ▗▖

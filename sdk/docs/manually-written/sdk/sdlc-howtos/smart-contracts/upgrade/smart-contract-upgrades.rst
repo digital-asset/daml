@@ -1659,7 +1659,7 @@ There are two ways to work around this:
   - change the version name of the package before each rebuild
 
 :brokenref:`Environment variable interpolation <environment-variable-interpolation>`
-in the Daml Assistant can help with the latter. In the ``daml.yaml`` file of each
+in DPM can help with the latter. In the ``daml.yaml`` file of each
 of your packages, append an environment variable to the name of the package:
 
 .. code:: daml
