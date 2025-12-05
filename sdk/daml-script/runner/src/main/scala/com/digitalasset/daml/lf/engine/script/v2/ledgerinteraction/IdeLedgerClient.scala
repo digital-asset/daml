@@ -1012,7 +1012,7 @@ class IdeLedgerClient(
   override def waitUntilVettingVisible(
       packages: Iterable[ScriptLedgerClient.ReadablePackageId],
       onParticipantUid: String,
-  ): Future[Unit] =
+  )(implicit ec: ExecutionContext): Future[Unit] =
     Future.successful(())
 
   override def unvetPackages(packages: List[ScriptLedgerClient.ReadablePackageId])(implicit
@@ -1032,7 +1032,7 @@ class IdeLedgerClient(
   override def waitUntilUnvettingVisible(
       packages: Iterable[ScriptLedgerClient.ReadablePackageId],
       onParticipantUid: String,
-  ): Future[Unit] =
+  )(implicit ec: ExecutionContext): Future[Unit] =
     Future.successful(())
 
   override def listVettedPackages()(implicit
