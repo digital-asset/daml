@@ -638,8 +638,6 @@ private[speedy] case class PartialTransaction(
   def rollbackTry(): PartialTransaction = {
     context.info match {
       case info: TryContextInfo =>
-        // In the case of there being no children we could drop the entire rollback node.
-        // But we do that in a later normalization phase, not here.
         val (needRollback, contractState1) = contractState.endRollback()
         if (needRollback)
           copy(
