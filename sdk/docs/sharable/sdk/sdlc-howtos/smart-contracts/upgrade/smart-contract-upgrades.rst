@@ -1595,8 +1595,7 @@ reupload the two versions:
   > dpm build
   > curl -XPOST -T .daml/dist/my-pkg-1.0.0.dar http://localhost:7575/v2/packages
   ...
-  Uploading .daml/dist/my-pkg-2.0.0.dar to localhost:6865
-  upload-dar did not succeed: ... Implementation of interface ...:MyIface:HasValue by template IOU appears in package that is being upgraded, but does not appear in this package.
+  Implementation of interface ...:MyIface:HasValue by template IOU appears in package that is being upgraded, but does not appear in this package.
 
 As another example, restore the instance deleted in the previous step
 and remove the ``HasValue`` interface from ``v2/my-pkg/daml/Main.daml`` instead.
