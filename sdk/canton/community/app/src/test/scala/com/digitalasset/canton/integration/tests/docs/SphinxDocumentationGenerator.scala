@@ -9,7 +9,7 @@ import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameter
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.console.{HeadlessConsole, InstanceReference}
+import com.digitalasset.canton.console.{BufferedProcessLogger, HeadlessConsole, InstanceReference}
 import com.digitalasset.canton.integration.bootstrap.{
   NetworkBootstrapper,
   NetworkTopologyDescription,
@@ -38,6 +38,7 @@ import org.flywaydb.core.Flyway
 import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.mutable
 import scala.concurrent.blocking
+import scala.sys.process.Process
 import scala.util.{Failure, Success, Using}
 
 /** Sphinx documentation generator
@@ -151,9 +152,11 @@ abstract class SphinxDocumentationGenerator(
 
     def toRstCodeBlock(acc: String, stepResult: SnippetStepResult) = {
       val (indent, cmd, out) = stepResult.truncatedOutput
+      val atSign = if (stepResult.prependAtSign) "@ " else ""
+      val language = stepResult.language
       val sb = new mutable.StringBuilder
       if (cmd.nonEmpty) {
-        sb.append(s".. code-block:: none\n\n$indent@ $cmd\n")
+        sb.append(s".. code-block:: $language\n\n$indent$atSign$cmd\n")
       }
       val stepOutputLines = if (out.isEmpty) Array.empty[String] else out.split("\n")
       stepOutputLines.foreach(line => sb.append(s"$indent    $line\n"))
@@ -259,6 +262,9 @@ class ScenarioRunner(console: HeadlessConsole, scenario: SnippetScenario)(
 
         case step: SnippetStep.Hidden =>
           runHiddenStep(step)
+
+        case step: SnippetStep.Shell =>
+          runShellStep(step)
       }
     )
   }
@@ -344,6 +350,29 @@ class ScenarioRunner(console: HeadlessConsole, scenario: SnippetScenario)(
         fail(s"scenario ${scenario.name} failed at $step: $value")
       case Right(_) => ()
     }
+    SnippetStepResult(step, Seq())
+  }
+
+  private def runShellStep(step: SnippetStep.Shell) = {
+    val cmd = step.cmd
+    val cwd = step.cwd.map(better.files.File(_)).getOrElse(File.currentWorkingDirectory)
+
+    val processLogger = new BufferedProcessLogger {
+      override def out(s: => String): Unit = {
+        logger.info(s)
+        super.out(s)
+      }
+      override def err(s: => String): Unit = {
+        logger.error(s)
+        super.err(s)
+      }
+    }
+
+    logger.debug(s"Running shell $cmd of line ${step.line}")
+    assert(
+      Process(Seq("/bin/sh", "-c", cmd), cwd = cwd.toJava).!(processLogger) == 0,
+      s"Shell command $cmd exited with non 0 code:\n ${processLogger.output()}",
+    )
     SnippetStepResult(step, Seq())
   }
 

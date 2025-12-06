@@ -8,7 +8,8 @@ import cats.implicits.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String300
-import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.KeyPurpose.{Encryption, Signing}
 import com.digitalasset.canton.crypto.kms.{Kms, KmsKeyId}
 import com.digitalasset.canton.crypto.store.CryptoPrivateStoreError.{
@@ -28,7 +29,13 @@ import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.ThereafterAsyncOps
 import com.digitalasset.canton.util.retry.{NoExceptionRetryPolicy, Success}
-import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, StampedLockWithHandle, retry}
+import com.digitalasset.canton.util.{
+  EitherTUtil,
+  ErrorUtil,
+  MonadUtil,
+  StampedLockWithHandle,
+  retry,
+}
 import com.digitalasset.canton.version.ReleaseProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 
@@ -47,12 +54,15 @@ class EncryptedCryptoPrivateStore(
     private val initialWrapperKeyId: KmsKeyId,
     override protected val releaseProtocolVersion: ReleaseProtocolVersion,
     override protected val timeouts: ProcessingTimeout,
+    private val batchingConfig: BatchingConfig,
     override protected val loggerFactory: NamedLoggerFactory,
 )(override implicit val ec: ExecutionContext)
     extends CryptoPrivateStoreExtended
     with FlagCloseable
     with NamedLogging
     with EncryptedCryptoPrivateStoreHelper {
+
+  override protected val parallelismForParsing: PositiveInt = batchingConfig.parallelism
 
   private val lock = new StampedLockWithHandle()
 
@@ -101,7 +111,9 @@ class EncryptedCryptoPrivateStore(
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Set[StoredPrivateKey]] =
     for {
       storedKeys <- store.listPrivateKeys(purpose, encrypted = true)
-      keys <- storedKeys.toList.parTraverse(decryptStoredKey(kms, _))
+      keys <- MonadUtil.parTraverseWithLimit(parallelismForParsing)(storedKeys.toList)(
+        decryptStoredKey(kms, _)
+      )
     } yield keys.toSet
 
   @VisibleForTesting
@@ -110,7 +122,9 @@ class EncryptedCryptoPrivateStore(
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Set[StoredPrivateKey]] =
     for {
       storedKeys <- store.listPrivateKeys()
-      keys <- storedKeys.toList.parTraverse(decryptStoredKey(kms, _))
+      keys <- MonadUtil.parTraverseWithLimit(parallelismForParsing)(storedKeys.toList)(
+        decryptStoredKey(kms, _)
+      )
     } yield keys.toSet
 
   private[crypto] def deletePrivateKey(keyId: Fingerprint)(implicit
@@ -135,7 +149,9 @@ class EncryptedCryptoPrivateStore(
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Unit] =
     for {
       // step3: encrypt keys with new wrapper key
-      encryptedKeys <- newKeys.parTraverse(encryptStoredKey(kms, wrapperKeyId, _))
+      encryptedKeys <- MonadUtil.parTraverseWithLimit(parallelismForParsing)(newKeys)(
+        encryptStoredKey(kms, wrapperKeyId, _)
+      )
       // step4: replace keys
       _ <- store.replaceStoredPrivateKeys(encryptedKeys)
     } yield ()
@@ -162,7 +178,9 @@ class EncryptedCryptoPrivateStore(
           allPrivateKeys = (signingKeys ++ encryptionKeys).toSeq
           // step2: decrypt all keys
           decryptedKeys <-
-            allPrivateKeys.parTraverse(decryptStoredKey(kms, _))
+            MonadUtil.parTraverseWithLimit(parallelismForParsing)(allPrivateKeys)(
+              decryptStoredKey(kms, _)
+            )
 
           // step3: encrypt and replace keys
           oldWrapperKeyId = wrapperKeyIdRef.getAndSet(newWrapperKeyId)
@@ -226,6 +244,7 @@ object EncryptedCryptoPrivateStore extends EncryptedCryptoPrivateStoreHelper wit
       wrapperKeyId: KmsKeyId,
       releaseProtocolVersion: ReleaseProtocolVersion,
       timeouts: ProcessingTimeout,
+      batchingConfig: BatchingConfig,
       loggerFactory: NamedLoggerFactory,
   )(implicit ec: ExecutionContext): EncryptedCryptoPrivateStore =
     new EncryptedCryptoPrivateStore(
@@ -234,6 +253,7 @@ object EncryptedCryptoPrivateStore extends EncryptedCryptoPrivateStoreHelper wit
       wrapperKeyId,
       releaseProtocolVersion,
       timeouts,
+      batchingConfig,
       loggerFactory,
     )
 
@@ -241,28 +261,45 @@ object EncryptedCryptoPrivateStore extends EncryptedCryptoPrivateStoreHelper wit
       dbCryptoPrivateStore: DbCryptoPrivateStore,
       kms: Kms,
       wrapperKeyId: KmsKeyId,
+      batchingConfig: BatchingConfig,
       loggerFactory: NamedLoggerFactory,
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Unit] =
-    migrate(clearToEncrypted = true, dbCryptoPrivateStore, kms, Some(wrapperKeyId), loggerFactory)
+    migrate(
+      clearToEncrypted = true,
+      dbCryptoPrivateStore,
+      kms,
+      Some(wrapperKeyId),
+      batchingConfig,
+      loggerFactory,
+    )
 
   private def migrateToClear(
       dbCryptoPrivateStore: DbCryptoPrivateStore,
       kms: Kms,
+      batchingConfig: BatchingConfig,
       loggerFactory: NamedLoggerFactory,
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Unit] =
-    migrate(clearToEncrypted = false, dbCryptoPrivateStore, kms, None, loggerFactory)
+    migrate(
+      clearToEncrypted = false,
+      dbCryptoPrivateStore,
+      kms,
+      None,
+      batchingConfig,
+      loggerFactory,
+    )
 
   private def migrate(
       clearToEncrypted: Boolean,
       dbCryptoPrivateStore: DbCryptoPrivateStore,
       kms: Kms,
       wrapperKeyId: Option[KmsKeyId],
+      batchingConfig: BatchingConfig,
       loggerFactory: NamedLoggerFactory,
   )(implicit
       executionContext: ExecutionContext,
@@ -291,7 +328,10 @@ object EncryptedCryptoPrivateStore extends EncryptedCryptoPrivateStoreHelper wit
                   show"storing the following keys ${storedKeys.map(_.id)} in encrypted form"
                 )
                 wrapperKeyId match {
-                  case Some(keyId) => storedKeys.parTraverse(encryptStoredKey(kms, keyId, _))
+                  case Some(keyId) =>
+                    MonadUtil.parTraverseWithLimit(batchingConfig.parallelism)(storedKeys)(
+                      encryptStoredKey(kms, keyId, _)
+                    )
                   case None =>
                     EitherT.leftT[FutureUnlessShutdown, Seq[StoredPrivateKey]](
                       EncryptedPrivateStoreError(
@@ -303,7 +343,9 @@ object EncryptedCryptoPrivateStore extends EncryptedCryptoPrivateStoreHelper wit
                 logger.info(
                   show"decrypting and storing the following keys ${storedKeys.map(_.id)} in clear form"
                 )
-                storedKeys.parTraverse(decryptStoredKey(kms, _))
+                MonadUtil.parTraverseWithLimit(batchingConfig.parallelism)(storedKeys)(
+                  decryptStoredKey(kms, _)
+                )
               }
             _ <- dbCryptoPrivateStore
               .replaceStoredPrivateKeys(keysToReplace)
@@ -333,6 +375,7 @@ object EncryptedCryptoPrivateStore extends EncryptedCryptoPrivateStoreHelper wit
       dbCryptoPrivateStore: DbCryptoPrivateStore,
       kms: Kms,
       kmsKeyId: Option[KmsKeyId],
+      batchingConfig: BatchingConfig,
       logger: NamedLoggingContext,
   )(implicit
       ec: ExecutionContext,
@@ -352,7 +395,13 @@ object EncryptedCryptoPrivateStore extends EncryptedCryptoPrivateStoreHelper wit
         case None =>
           getFromStoreOrCreateNewKmsKey(dbCryptoPrivateStore, kms)
       }
-      _ <- migrateToEncrypted(dbCryptoPrivateStore, kms, keyId, logger.loggerFactory)
+      _ <- migrateToEncrypted(
+        dbCryptoPrivateStore,
+        kms,
+        keyId,
+        batchingConfig,
+        logger.loggerFactory,
+      )
     } yield keyId
   }
 
@@ -360,6 +409,7 @@ object EncryptedCryptoPrivateStore extends EncryptedCryptoPrivateStoreHelper wit
   private[canton] def activeReplicaRevertEncryptedStore(
       dbCryptoPrivateStore: DbCryptoPrivateStore,
       kms: Kms,
+      batchingConfig: BatchingConfig,
       logger: NamedLoggingContext,
   )(implicit
       ec: ExecutionContext,
@@ -371,6 +421,7 @@ object EncryptedCryptoPrivateStore extends EncryptedCryptoPrivateStoreHelper wit
     EncryptedCryptoPrivateStore.migrateToClear(
       dbCryptoPrivateStore,
       kms,
+      batchingConfig,
       logger.loggerFactory,
     )
   }
@@ -443,6 +494,7 @@ object EncryptedCryptoPrivateStore extends EncryptedCryptoPrivateStoreHelper wit
       reverted: Boolean,
       releaseProtocolVersion: ReleaseProtocolVersion,
       timeouts: ProcessingTimeout,
+      batchingConfig: BatchingConfig,
       loggerFactory: NamedLoggerFactory,
   )(implicit
       ec: ExecutionContext
@@ -463,6 +515,7 @@ object EncryptedCryptoPrivateStore extends EncryptedCryptoPrivateStoreHelper wit
                 wrapperKeyId,
                 releaseProtocolVersion,
                 timeouts,
+                batchingConfig,
                 loggerFactory,
               )
             }
@@ -471,6 +524,7 @@ object EncryptedCryptoPrivateStore extends EncryptedCryptoPrivateStoreHelper wit
             dbCryptoPrivateStore,
             kms,
             kmsKeyId,
+            batchingConfig,
             logger,
           )
             .map { wrapperKeyId =>
@@ -480,6 +534,7 @@ object EncryptedCryptoPrivateStore extends EncryptedCryptoPrivateStoreHelper wit
                 wrapperKeyId,
                 releaseProtocolVersion,
                 timeouts,
+                batchingConfig,
                 loggerFactory,
               )
             }
@@ -498,6 +553,7 @@ object EncryptedCryptoPrivateStore extends EncryptedCryptoPrivateStoreHelper wit
           activeReplicaRevertEncryptedStore(
             dbCryptoPrivateStore,
             kms,
+            batchingConfig,
             logger,
           )
             .thereafter { _ =>

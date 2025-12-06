@@ -43,6 +43,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   BlockNumber,
   EpochNumber,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.iss.BlockMetadata
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.{
   OrderedBlock,
   OrderedBlockForOutput,
@@ -95,6 +96,7 @@ import io.opentelemetry.api.trace.{Span, Tracer}
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.mutable
+import scala.util.chaining.scalaUtilChainingOps
 import scala.util.{Failure, Success}
 
 /** A module responsible for calculating the [[time.BftTime]], querying the topology at epoch ends
@@ -691,9 +693,11 @@ class OutputModule[E <: Env[E]](
     emitOrderingStageLatency(
       labels.stage.values.output.Inspection,
       () =>
-        orderedBlockData.requestsView.toSeq.findLast {
-          case tracedOrderingRequest @ Traced(orderingRequest) =>
+        orderedBlockData.requestsView.zipWithIndex.toSeq.findLast {
+          case (tracedOrderingRequest @ Traced(orderingRequest), idx) =>
             requestInspector.isRequestToAllMembersOfSynchronizer(
+              orderedBlockData.orderedBlockForOutput.orderedBlock.metadata,
+              idx,
               orderingRequest,
               currentEpochOrderingTopology.maxBytesToDecompress,
               logger,
@@ -863,7 +867,7 @@ class OutputModule[E <: Env[E]](
       blockBftTime: CantonTimestamp,
   ): Seq[Traced[OrderedRequest]] =
     blockData.requestsView.zipWithIndex.map {
-      case (tracedRequest @ Traced(OrderingRequest(tag, body, _)), index) =>
+      case (tracedRequest @ Traced(OrderingRequest(tag, _, body, _)), index) =>
         val timestamp = BftTime.requestBftTime(blockBftTime, index)
         // "You [were supposed to] propose for ordering, you are responsible for the traffic" policy: all
         //  requests in a block are marked, for accounting purposes, as having gone through ordering because of the
@@ -943,6 +947,8 @@ object OutputModule {
   trait RequestInspector {
 
     def isRequestToAllMembersOfSynchronizer(
+        blockMetadata: BlockMetadata,
+        requestNumber: Int,
         request: OrderingRequest,
         maxBytesToDecompress: MaxBytesToDecompress,
         logger: TracedLogger,
@@ -953,6 +959,8 @@ object OutputModule {
   object DefaultRequestInspector extends RequestInspector {
 
     override def isRequestToAllMembersOfSynchronizer(
+        blockMetadata: BlockMetadata,
+        requestNumber: Int,
         request: OrderingRequest,
         maxBytesToDecompress: MaxBytesToDecompress,
         logger: TracedLogger,
@@ -966,9 +974,14 @@ object OutputModule {
         case Right(signedSubmissionRequest) =>
           signedSubmissionRequest.content.batch.allRecipients
             .contains(AllMembersOfSynchronizer)
+            .tap(result =>
+              logger.debug(
+                s"BFT ordering request at index $requestNumber in output block $blockMetadata with message ID ${signedSubmissionRequest.content.messageId} is to all members of synchronizer: $result"
+              )(traceContext)
+            )
         case Left(error) =>
           logger.debug(
-            s"Skipping ordering request while looking for sequencer events as it failed to deserialize: $error"
+            s"Skipping BFT ordering ordering request in output while looking for sequencer events as it failed to deserialize: $error"
           )(traceContext)
           false
       }
@@ -977,6 +990,8 @@ object OutputModule {
   class FixedResultRequestInspector(result: Boolean) extends RequestInspector {
 
     override def isRequestToAllMembersOfSynchronizer(
+        blockMetadata: BlockMetadata,
+        requestNumber: Int,
         request: OrderingRequest,
         maxBytesToDecompress: MaxBytesToDecompress,
         logger: TracedLogger,

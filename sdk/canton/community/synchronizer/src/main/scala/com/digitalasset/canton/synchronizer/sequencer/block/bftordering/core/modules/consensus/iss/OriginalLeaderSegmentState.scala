@@ -17,9 +17,9 @@ import scala.collection.mutable
 
 import EpochState.Epoch
 
-/** Keeps track of progress of the segment this node is responsible for filling (leader)
+/** Keeps track of progress of the segment this node is originally responsible for filling (leader)
   */
-class LeaderSegmentState(
+class OriginalLeaderSegmentState(
     state: SegmentState,
     epoch: Epoch,
     initialCompletedBlocks: Seq[Block],
@@ -56,7 +56,7 @@ class LeaderSegmentState(
     completedBlockIsEmpty.put(blockNumber, isEmpty).discard
 
   def isProgressBlocked: Boolean =
-    moreSlotsToAssign && blockedProgressDetector.isProgressBlocked(nextRelativeBlockToOrder)
+    canReceiveProposals && blockedProgressDetector.isProgressBlocked(nextRelativeBlockToOrder)
 
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private var nextRelativeBlockToOrder =
@@ -65,17 +65,19 @@ class LeaderSegmentState(
     // However, this may change in the future as we look to improve performance.
     segment.slotNumbers.count(initialCompletedBlocks.map(_.blockNumber).contains)
 
-  // `moreSlotsToAssign` determines whether this ordering node should request a proposal
-  // (of transactions) from the Availability module to sequence within the locally-owned segment.
-  // Reasons that `moreSlotsToAssign` returns false include:
-  //   - If there are no more slots left to assign in the local segment
-  //   - If at least one view change occurred, the original segment leader is no longer in control,
+  // `canReceiveProposals` determines whether this ordering node should request a proposal
+  //  (of batches of submission requests) from the Availability module to sequence within the locally-owned segment.
+  //
+  // `canReceiveProposals` returns `false` if and only if any of the following conditions is met:
+  //   - There are no more slots left to assign in the local segment
+  //   - At least one view change occurred, the original segment leader is no longer in control,
   //       and only preexisting (partially progressed) or bottom blocks are allowed for the rest of the epoch
   //   - The previous local segment slot is still in progress (not yet completed)
-  // It is important to return false in these cases to prevent multiple outstanding proposal requests
-  // from being provided simultaneously, which would potentially overwhelm the Consensus module, resulting
-  // in a potential `IndexOutOfBounds` exception.
-  def moreSlotsToAssign: Boolean =
+  //
+  // It is important to return `false` in these cases to prevent multiple outstanding proposal requests
+  //  from being provided simultaneously, which would potentially exceed the Consensus segment module
+  //  original leader's segment size, resulting in a potential `IndexOutOfBounds` exception in `assignToSlot`.
+  def canReceiveProposals: Boolean =
     segment.slotNumbers.sizeIs > nextRelativeBlockToOrder && // we haven't filled all slots
       !viewChangeOccurred && // we haven't entered a view change ever in this epoch for our segment (view = 0)
       (nextRelativeBlockToOrder == 0 || state.isBlockComplete(

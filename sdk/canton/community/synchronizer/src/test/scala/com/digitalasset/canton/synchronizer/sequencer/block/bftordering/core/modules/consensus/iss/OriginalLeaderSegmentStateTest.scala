@@ -37,25 +37,25 @@ import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
 
-class LeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
+class OriginalLeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
   private val metrics = SequencerMetrics.noop(getClass.getSimpleName).bftOrdering
   private implicit val mc: MetricsContext = MetricsContext.Empty
   private implicit val config: BftBlockOrdererConfig = BftBlockOrdererConfig()
   private val clock = new SimClock(loggerFactory = loggerFactory)
 
-  import LeaderSegmentStateTest.*
+  import OriginalLeaderSegmentStateTest.*
 
   "LeaderSegmentState" should {
     "assign blocks until all slots in segment are filled" in {
       val slots = NonEmpty.apply(Seq, BlockNumber.First, 1L, 2L, 3L, 4L, 5L, 6L).map(BlockNumber(_))
       val segmentState = createSegmentState(slots)
-      val leaderSegmentState = new LeaderSegmentState(segmentState, epoch, Seq.empty)
+      val leaderSegmentState = new OriginalLeaderSegmentState(segmentState, epoch, Seq.empty)
       // Emulate the first epoch behavior
       val initialCommits = Seq.empty
 
       slots.foreach { blockNumber =>
-        leaderSegmentState.moreSlotsToAssign shouldBe true
+        leaderSegmentState.canReceiveProposals shouldBe true
         val orderedBlock = leaderSegmentState.assignToSlot(
           OrderingBlock.empty,
           latestCompletedEpochLastCommits = initialCommits,
@@ -70,7 +70,7 @@ class LeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         }
       }
 
-      leaderSegmentState.moreSlotsToAssign shouldBe false
+      leaderSegmentState.canReceiveProposals shouldBe false
       segmentState.isSegmentComplete shouldBe true
     }
 
@@ -105,16 +105,16 @@ class LeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           metrics,
           loggerFactory,
         )
-      val leaderSegmentState = new LeaderSegmentState(segmentState, epoch, completedBlocks)
+      val leaderSegmentState = new OriginalLeaderSegmentState(segmentState, epoch, completedBlocks)
 
       segmentState.isSegmentComplete shouldBe false
-      leaderSegmentState.moreSlotsToAssign shouldBe true
+      leaderSegmentState.canReceiveProposals shouldBe true
 
       // Self has one slot left to assign (block=4); assign and verify
       val orderedBlock = leaderSegmentState.assignToSlot(OrderingBlock.empty, commits.take(1))
       orderedBlock.metadata.blockNumber shouldBe 4L
       orderedBlock.canonicalCommitSet.sortedCommits shouldBe commits
-      leaderSegmentState.moreSlotsToAssign shouldBe false
+      leaderSegmentState.canReceiveProposals shouldBe false
     }
 
     "assign block with empty canonical commit set just after genesis" in {
@@ -129,7 +129,7 @@ class LeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           metrics,
           loggerFactory,
         )
-      val leaderSegmentState = new LeaderSegmentState(segmentState, epoch, Seq.empty)
+      val leaderSegmentState = new OriginalLeaderSegmentState(segmentState, epoch, Seq.empty)
 
       val orderedBlock = leaderSegmentState.assignToSlot(
         OrderingBlock.empty,
@@ -163,7 +163,7 @@ class LeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           metrics,
           loggerFactory,
         )
-      val leaderSegmentState = new LeaderSegmentState(segmentState, epoch, Seq.empty)
+      val leaderSegmentState = new OriginalLeaderSegmentState(segmentState, epoch, Seq.empty)
 
       val anotherNodeSegment =
         epoch.segments
@@ -240,7 +240,7 @@ class LeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
   }
 }
 
-object LeaderSegmentStateTest {
+object OriginalLeaderSegmentStateTest {
 
   private val myId = BftNodeId("self")
   private val otherIds = (1 to 3).map { index =>

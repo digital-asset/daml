@@ -4,7 +4,6 @@
 package com.digitalasset.canton.integration.tests.crashrecovery
 
 import cats.syntax.either.*
-import com.digitalasset.canton.annotations.UnstableTest
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
@@ -150,7 +149,6 @@ trait LoadBalancedHAParticipantIntegrationTestBase { self: CommunityIntegrationT
     }
 }
 
-@UnstableTest
 class LoadBalancedHAParticipantIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment
@@ -173,6 +171,22 @@ class LoadBalancedHAParticipantIntegrationTest
           .focus(_.parameters.timeouts.processing.unbounded)
           .replace(config.NonNegativeDuration.tryFromDuration(3.minutes))
       )
+      .withSetup { implicit env =>
+        import env.*
+        sequencer1.start()
+        mediator1.start()
+        external.start(remoteParticipant1.name)
+        external.start(remoteParticipant2.name)
+
+        bootstrap.synchronizer(
+          daName.unwrap,
+          sequencers = Seq(sequencer1),
+          mediators = Seq(mediator1),
+          synchronizerOwners = Seq(sequencer1),
+          synchronizerThreshold = PositiveInt.one,
+          staticSynchronizerParameters = EnvironmentDefinition.defaultStaticSynchronizerParameters,
+        )
+      }
 
   protected val external =
     new UseExternalProcess(
@@ -206,6 +220,7 @@ class LoadBalancedHAParticipantIntegrationTest
     // This basically means that one of the participant instances have become healthy and that the load balancer
     // has noticed that instance is healthy and is forwarding requests to it.
     loadBalancedParticipant.health.wait_for_running()
+    loadBalancedParticipant.health.wait_for_initialized()
 
     // this should be the case for the load balancer to have forwarded requests to it,
     // but double check as this is a test

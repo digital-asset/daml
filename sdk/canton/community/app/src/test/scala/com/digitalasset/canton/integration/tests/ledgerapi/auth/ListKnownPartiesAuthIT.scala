@@ -24,6 +24,7 @@ final class ListKnownPartiesAuthIT extends AdminOrIDPAdminServiceCallAuthTests {
           pageToken = "",
           pageSize = 0,
           identityProviderId = context.identityProviderId,
+          filterParty = "",
         )
       )
 
