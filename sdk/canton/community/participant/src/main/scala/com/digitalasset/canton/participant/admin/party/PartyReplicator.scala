@@ -736,6 +736,8 @@ final class PartyReplicator(
               )
             }
           (processor, counterParticipantId, isSessionKeyOwner) = processorInfo
+          // Set replication state before channel connect so that processor always finds "progress" state.
+          _ <- partyReplicationStateManager.update_(requestId, _.setProcessor(processor))
           _ <- channelClient
             .connectToSequencerChannel(
               sequencerId,
@@ -746,11 +748,9 @@ final class PartyReplicator(
               onboardingAt.value,
             )
             .mapK(FutureUnlessShutdown.liftK)
-          _ <- {
-            logger.info(s"Party replication $requestId connected to sequencer $sequencerId")
-            partyReplicationStateManager.update_(requestId, _.setProcessor(processor))
-          }
-        } yield {}
+        } yield {
+          logger.info(s"Party replication $requestId connected to sequencer $sequencerId")
+        }
     }
   }
 

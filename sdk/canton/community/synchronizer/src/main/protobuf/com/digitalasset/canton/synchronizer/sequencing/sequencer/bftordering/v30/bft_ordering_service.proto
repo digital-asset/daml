@@ -70,10 +70,11 @@ message Batch {
 message OrderingRequest {
   string trace_context = 1;
   string tag = 2;
-  bytes payload = 3;
+  string message_id = 3;
+  bytes payload = 4;
 
   // The following field is only used for metrics.
-  google.protobuf.Timestamp ordering_start_instant = 4;
+  google.protobuf.Timestamp ordering_start_instant = 5;
 }
 
 message StoreResponse {

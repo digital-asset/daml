@@ -632,6 +632,16 @@ paths:
         the participant and the ones maintained elsewhere.
       operationId: getV2Parties
       parameters:
+      - name: identity-provider-id
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: filter-party
+        in: query
+        required: false
+        schema:
+          type: string
       - name: pageSize
         in: query
         description: maximum number of elements in a returned page
@@ -655,8 +665,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/ListKnownPartiesResponse'
         '400':
-          description: 'Invalid value, Invalid value for: query parameter pageSize,
-            Invalid value for: query parameter pageToken'
+          description: 'Invalid value, Invalid value for: query parameter identity-provider-id,
+            Invalid value for: query parameter filter-party, Invalid value for: query
+            parameter pageSize, Invalid value for: query parameter pageToken'
           content:
             text/plain:
               schema:

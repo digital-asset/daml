@@ -74,6 +74,20 @@ class SnippetStepTest extends BaseTestWordSpec {
     }
   }
 
+  "shell regex" when {
+    "not match at the beginning of the line" in {
+      val m = snippetShell.findAllIn(".. shell:: nope")
+      m.isEmpty shouldBe true
+    }
+    "match correctly" in {
+      val m = snippetShell.findAllIn("  .. shell(cwd=/run/in/this/dir):: command")
+      m.groupCount shouldBe 3
+      m.group(1) shouldBe "  "
+      m.group(2) shouldBe "(cwd=/run/in/this/dir)"
+      m.group(3).trim shouldBe "command"
+    }
+  }
+
   "scenario parser" should {
     "parse correctly" in {
       SnippetScenario.parse("""

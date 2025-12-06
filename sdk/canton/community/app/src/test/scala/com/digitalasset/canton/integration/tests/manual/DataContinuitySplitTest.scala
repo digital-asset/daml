@@ -79,7 +79,10 @@ class SynchronizerChangeDataContinuityTestPostgres_4
     SplitReleaseVersion.split(S3Dump.getDumpDirectories()).fourth
 }
 
-// If you want locally to run the test on all the folders, uncomment this class
+/*
+If you want to run the test locally on all the folders, uncomment this class
+Because of hardcoded ports, this should be ran locally only.
+
 class BasicDataContinuityTestPostgres_all
     extends BasicDataContinuityTest
     with DataContinuityTestFixturePostgres {
@@ -99,6 +102,7 @@ class SynchronizerChangeDataContinuityTestPostgres_all
     // CreateSynchronizerChangeDataContinuityDumpsPostgres_all, replace S3Dump with LocalDump.
     S3Dump.getDumpDirectories()
 }
+ */
 
 object SplitReleaseVersion {
 

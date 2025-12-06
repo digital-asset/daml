@@ -476,7 +476,7 @@ class OutputModuleTest
           initialBlock,
           batches = Seq(
             OrderingRequestBatch.create(
-              Seq(Traced(OrderingRequest(aTag, ByteString.EMPTY))),
+              Seq(Traced(OrderingRequest(aTag, messageId = "", ByteString.EMPTY))),
               EpochNumber.First,
             )
           ).map(x => BatchId.from(x) -> x),
@@ -1327,7 +1327,7 @@ class OutputModuleTest
       ),
       batches = Seq(
         OrderingRequestBatch.create(
-          Seq(Traced(OrderingRequest(aTag, ByteString.EMPTY))),
+          Seq(Traced(OrderingRequest(aTag, messageId = "", ByteString.EMPTY))),
           epochNumber,
         )
       ).map(x => BatchId.from(x) -> x),
@@ -1410,6 +1410,8 @@ object OutputModuleTest {
     private var outcome = true
 
     override def isRequestToAllMembersOfSynchronizer(
+        blockMetadata: BlockMetadata,
+        requestNumber: Int,
         _request: OrderingRequest,
         _maxBytesToDecompress: MaxBytesToDecompress,
         _logger: TracedLogger,

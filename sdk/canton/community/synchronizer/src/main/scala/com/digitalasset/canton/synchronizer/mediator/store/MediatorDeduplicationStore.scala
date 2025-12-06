@@ -14,7 +14,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, Traced
 import com.digitalasset.canton.resource.{DbStorage, DbStore, MemoryStorage, Storage}
 import com.digitalasset.canton.time.PositiveFiniteDuration
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.util.BatchAggregatorUS
+import com.digitalasset.canton.util.BatchAggregator
 import com.google.common.annotations.VisibleForTesting
 import slick.jdbc.{GetResult, SetParameter}
 
@@ -308,8 +308,8 @@ private[mediator] class DbMediatorDeduplicationStore(
     batchAggregator.run(data)(executionContext, traceContext, callerCloseContext)
 
   private val batchAggregator = {
-    val processor: BatchAggregatorUS.ProcessorUS[DeduplicationData, Unit] =
-      new BatchAggregatorUS.ProcessorUS[DeduplicationData, Unit] {
+    val processor: BatchAggregator.Processor[DeduplicationData, Unit] =
+      new BatchAggregator.Processor[DeduplicationData, Unit] {
         override val kind: String = "deduplication data"
 
         override def logger: TracedLogger = DbMediatorDeduplicationStore.this.logger
@@ -340,7 +340,7 @@ private[mediator] class DbMediatorDeduplicationStore(
         override def prettyItem: Pretty[DeduplicationData] = implicitly
       }
 
-    BatchAggregatorUS(
+    BatchAggregator(
       processor,
       persistBatching,
     )

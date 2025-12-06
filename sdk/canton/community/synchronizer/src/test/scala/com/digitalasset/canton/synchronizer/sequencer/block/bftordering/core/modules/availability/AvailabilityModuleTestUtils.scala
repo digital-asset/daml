@@ -80,13 +80,13 @@ private[availability] trait AvailabilityModuleTestUtils { self: BftSequencerBase
   protected val AnotherBatchId = BatchId.createForTesting("AnotherBatchId")
   protected val anEpochNumber = EpochNumber.First
   protected val anOrderingRequest: Traced[OrderingRequest] = Traced(
-    OrderingRequest(BlockFormat.SendTag, ByteString.EMPTY)
+    OrderingRequest(BlockFormat.SendTag, messageId = "", ByteString.EMPTY)
   )
   protected val anOrderingRequestWithInvalidTag: Traced[OrderingRequest] = Traced(
-    OrderingRequest("invalidTag", ByteString.EMPTY)
+    OrderingRequest("invalidTag", messageId = "", ByteString.EMPTY)
   )
   protected val aNonEmptyOrderingRequest: Traced[OrderingRequest] = Traced(
-    OrderingRequest(BlockFormat.SendTag, ByteString.copyFromUtf8("request"))
+    OrderingRequest(BlockFormat.SendTag, messageId = "", ByteString.copyFromUtf8("request"))
   )
   protected val ABatch = OrderingRequestBatch.create(
     Seq(anOrderingRequest),

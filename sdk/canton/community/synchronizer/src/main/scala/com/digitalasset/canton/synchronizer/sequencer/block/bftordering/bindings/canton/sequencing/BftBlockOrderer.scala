@@ -577,6 +577,7 @@ final class BftBlockOrderer(
       )
       sendToMempool(
         SendTag,
+        signedSubmissionRequest.content.messageId.unwrap,
         signedSubmissionRequest.content.sender,
         signedSubmissionRequest.toByteString,
       )
@@ -597,6 +598,7 @@ final class BftBlockOrderer(
     logger.debug(s"member ${request.member} acknowledging timestamp ${request.timestamp}")
     sendToMempool(
       AcknowledgeTag,
+      "ACK-" + request.timestamp,
       signedAcknowledgeRequest.content.member,
       signedAcknowledgeRequest.toByteString,
     ).value.map(_ => ())
@@ -748,19 +750,21 @@ final class BftBlockOrderer(
 
   private def sendToMempool(
       tag: String,
+      messageId: String,
       sender: Member,
       payload: ByteString,
   )(implicit traceContext: TraceContext): EitherT[Future, SequencerDeliverError, Unit] =
-    sendToMempoolGeneric(tag, payload, Some(sender))
+    sendToMempoolGeneric(tag, messageId, payload, Some(sender))
 
   private def orderSendRequest(
       request: SendRequest
   )(implicit traceContext: TraceContext): Future[SendResponse] =
-    sendToMempoolGeneric(request.tag, request.payload)
+    sendToMempoolGeneric(request.tag, "standalone", request.payload)
       .fold(e => SendResponse(Some(e.cause)), _ => SendResponse(None))
 
   private def sendToMempoolGeneric(
       tag: String,
+      messageId: String,
       payload: ByteString,
       sender: Option[Member] = None,
   )(implicit traceContext: TraceContext): EitherT[Future, SequencerDeliverError, Unit] = {
@@ -777,6 +781,7 @@ final class BftBlockOrderer(
         Traced(
           OrderingRequest(
             tag,
+            messageId,
             payload,
             orderingStartInstant = Some(Instant.now),
           )

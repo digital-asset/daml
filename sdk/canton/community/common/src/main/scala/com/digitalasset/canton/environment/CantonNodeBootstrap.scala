@@ -480,6 +480,7 @@ abstract class CantonNodeBootstrapImpl[
             arguments.clock,
             executionContext,
             bootstrapStageCallback.timeouts,
+            arguments.config.parameters.batching,
             bootstrapStageCallback.loggerFactory,
             tracerProvider,
           )

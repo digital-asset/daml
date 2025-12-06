@@ -55,6 +55,8 @@ trait PartyManagementIntegrationTest extends CommunityIntegrationTest with Share
     participant2.ledger_api.parties.list().map(_.party.uid.identifier.str) should contain(
       "IsInOnboardingSnapshot"
     )
+    participant1.ledger_api.parties
+      .list(filterParty = participant2.adminParty.filterString) should have length (1)
 
     participant1.ledger_api.users
       .create(id = "testUser", primaryParty = Some(participant1.adminParty))

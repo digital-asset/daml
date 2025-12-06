@@ -1737,7 +1737,8 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             for {
               parties <- ledgerApiCommand(
                 LedgerApiCommands.PartyManagementService.ListKnownParties(
-                  identityProviderId = identityProviderId
+                  identityProviderId = identityProviderId,
+                  filterParty = "",
                 )
               ).toEither
               localParties <- parties.filter(_.isLocal).map(_.party).traverse(LfPartyId.fromString)
@@ -1909,13 +1910,15 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
       @Help.Summary("List parties known by the Ledger API server")
       @Help.Description(
         """Lists parties known by the Ledger API server.
-           identityProviderId: identity provider id"""
+           identityProviderId: identity provider id
+           filterParty: Filter party by name"""
       )
-      def list(identityProviderId: String = ""): Seq[PartyDetails] = {
+      def list(identityProviderId: String = "", filterParty: String = ""): Seq[PartyDetails] = {
         val proto = consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiCommands.PartyManagementService.ListKnownParties(
-              identityProviderId = identityProviderId
+              identityProviderId = identityProviderId,
+              filterParty = filterParty,
             )
           )
         }

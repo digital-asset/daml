@@ -389,6 +389,7 @@ abstract class ParticipantRestartTest
             wallClock,
             executionContext,
             timeouts,
+            BatchingConfig(),
             loggerFactory,
             NoReportingTracerProvider,
           )

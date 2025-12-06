@@ -12,6 +12,7 @@ import com.digitalasset.canton.integration.plugins.{
   UsePostgres,
   UseReferenceBlockSequencer,
 }
+import com.digitalasset.canton.integration.tests.bftsequencer.AwaitsBftSequencerAuthenticationDisseminationQuorum
 import com.digitalasset.canton.integration.util.OffboardsSequencerNode
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -19,14 +20,13 @@ import com.digitalasset.canton.integration.{
   SharedEnvironment,
 }
 import com.digitalasset.canton.sequencing.{SequencerConnections, SubmissionRequestAmplification}
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopology
 import com.digitalasset.canton.topology.SynchronizerId
 
 trait SequencerOffboardingIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment
     with OffboardsSequencerNode
-    with CountsAuthenticatedBftPeers {
+    with AwaitsBftSequencerAuthenticationDisseminationQuorum {
 
   // For full correctness we need to use >= 4 sequencers to test off-boarding because, when using the BFT sequencer,
   //  if the P2P gRPC channel crashes after the sequencer is off-boarded from Canton topology, but
@@ -83,14 +83,7 @@ trait SequencerOffboardingIntegrationTest
     import env.*
 
     if (isBftOrderer) {
-      val weakQuorumSize = OrderingTopology.weakQuorumSize(sequencers.all.size)
-      clue(
-        s"make sure all sequencers have connected to a weak quorum of at least $weakQuorumSize other sequencers"
-      ) {
-        eventually() {
-          forAll(env.sequencers.all)(numberAuthenticatedPeers(_) should be >= weakQuorumSize)
-        }
-      }
+      waitUntilAllBftSequencersAuthenticateDisseminationQuorum()
     }
     clue("participant1 connects to sequencer1") {
       participant1.synchronizers.connect_local(sequencer1, daName)

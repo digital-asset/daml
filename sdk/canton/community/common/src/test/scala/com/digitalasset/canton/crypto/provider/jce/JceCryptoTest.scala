@@ -6,6 +6,7 @@ package com.digitalasset.canton.crypto.provider.jce
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.CryptoProvider.Jce
 import com.digitalasset.canton.config.{
+  BatchingConfig,
   CachingConfigs,
   CryptoConfig,
   PositiveFiniteDuration,
@@ -59,6 +60,7 @@ class JceCryptoTest
           wallClock,
           executionContext,
           timeouts,
+          BatchingConfig(),
           loggerFactory,
           NoReportingTracerProvider,
         )

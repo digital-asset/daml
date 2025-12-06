@@ -8,7 +8,8 @@ import cats.syntax.bifunctor.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String300
-import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.KeyPurpose.{Encryption, Signing}
 import com.digitalasset.canton.crypto.store.*
@@ -69,6 +70,7 @@ class DbCryptoPrivateStore(
     override protected val storage: DbStorage,
     override protected val releaseProtocolVersion: ReleaseProtocolVersion,
     override protected val timeouts: ProcessingTimeout,
+    batchingConfig: BatchingConfig,
     override protected val loggerFactory: NamedLoggerFactory,
 )(override implicit val ec: ExecutionContext)
     extends CryptoPrivateStoreExtended
@@ -76,6 +78,8 @@ class DbCryptoPrivateStore(
 
   import storage.api.*
   import storage.converters.*
+
+  override protected val parallelismForParsing: PositiveInt = batchingConfig.parallelism
 
   private def queryKeys(): DbAction.ReadOnly[Set[StoredPrivateKey]] =
     sql"select key_id, data, purpose, name, wrapper_key_id from common_crypto_private_keys"

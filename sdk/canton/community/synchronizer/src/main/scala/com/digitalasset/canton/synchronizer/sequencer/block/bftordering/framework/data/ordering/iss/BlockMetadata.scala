@@ -20,6 +20,9 @@ final case class BlockMetadata(
       epochNumber,
       blockNumber,
     )
+
+  override def toString: String =
+    s"(epochNumber=$epochNumber, blockNumber=$blockNumber)"
 }
 
 object BlockMetadata {

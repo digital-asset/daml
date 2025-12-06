@@ -66,6 +66,7 @@ class IssClient[E <: Env[E]](
         Traced(
           OrderingRequest(
             BlockFormat.SendTag,
+            s"$name-submission-$submissionNumber",
             ByteString.copyFromUtf8(s"$name-submission-$submissionNumber").concat(additionalPayload),
           )
         )

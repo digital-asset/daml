@@ -5,6 +5,7 @@ package com.digitalasset.canton.platform.store.backend.common
 
 import anorm.SqlParser.{bool, str}
 import anorm.{RowParser, ~}
+import com.digitalasset.canton.config.CantonRequireTypes.String185
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
 import com.digitalasset.canton.platform.Party
 import com.digitalasset.canton.platform.store.backend.PartyStorageBackend
@@ -57,12 +58,22 @@ class PartyStorageBackendTemplate(ledgerEndCache: LedgerEndCache) extends PartyS
     queryParties(partyFilter, cSQL"", connection).toList
   }
 
-  override def knownParties(fromExcl: Option[Party], maxResults: Int)(
+  override def knownParties(
+      fromExcl: Option[Party],
+      filterString: Option[String185],
+      maxResults: Int,
+  )(
       connection: Connection
   ): List[IndexerPartyDetails] = {
-    val partyFilter = fromExcl match {
+
+    val offsetPartyFilter = fromExcl match {
       case Some(id: String) => cSQL"lapi_party_entries.party > $id AND"
       case None => cSQL""
+    }
+    val partyFilter = filterString match {
+      case Some(filter) =>
+        cSQL"$offsetPartyFilter lapi_party_entries.party LIKE ${filter.str + "%"} AND"
+      case None => offsetPartyFilter
     }
     queryParties(
       partyFilter,

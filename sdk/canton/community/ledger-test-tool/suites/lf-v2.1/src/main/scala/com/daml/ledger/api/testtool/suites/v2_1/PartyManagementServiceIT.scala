@@ -24,6 +24,7 @@ import com.daml.ledger.api.v2.crypto as lapicrypto
 import com.daml.ledger.javaapi.data.Party as ApiParty
 import com.daml.ledger.test.java.model.test.Dummy
 import com.digitalasset.canton.ledger.error.groups.{AdminServiceErrors, RequestValidationErrors}
+import com.digitalasset.canton.topology.UniqueIdentifier
 import com.digitalasset.daml.lf.data.Ref
 import com.google.protobuf.ByteString
 
@@ -828,6 +829,7 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
           pageToken = "",
           pageSize = 10,
           identityProviderId = "",
+          filterParty = "",
         )
       )
       // Construct an party-id that with high probability will be the first on the first page
@@ -849,6 +851,7 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
           pageToken = "",
           pageSize = 10,
           identityProviderId = "",
+          filterParty = "",
         )
       )
       _ = assertPartyPresentIn(
@@ -892,13 +895,19 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
       )
       // Fetch the first two full pages
       page1 <- ledger.listKnownParties(
-        ListKnownPartiesRequest(pageToken = "", pageSize = 2, identityProviderId = "")
+        ListKnownPartiesRequest(
+          pageToken = "",
+          pageSize = 2,
+          identityProviderId = "",
+          filterParty = "",
+        )
       )
       page2 <- ledger.listKnownParties(
         ListKnownPartiesRequest(
           pageToken = page1.nextPageToken,
           pageSize = 2,
           identityProviderId = "",
+          filterParty = "",
         )
       )
       // Verify that the second page stays the same even after we have created a new party that is lexicographically smaller than the last party on the first page
@@ -918,6 +927,7 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
           pageToken = page1.nextPageToken,
           pageSize = 2,
           identityProviderId = "",
+          filterParty = "",
         )
       )
       _ = assertEquals("after creating new party before the second page", page2, page2B)
@@ -941,6 +951,7 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
             pageSize = pageSize,
             pageToken = pageToken,
             identityProviderId = "",
+            filterParty = "",
           )
         )
         _ = if (page.nextPageToken != "") {
@@ -970,13 +981,19 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
             pageToken = UUID.randomUUID().toString,
             pageSize = 0,
             identityProviderId = "",
+            filterParty = "",
           )
         )
         .mustFail("using invalid page token string")
       // Using negative pageSize
       onNegativePageSizeError <- ledger
         .listKnownParties(
-          ListKnownPartiesRequest(pageToken = "", pageSize = -100, identityProviderId = "")
+          ListKnownPartiesRequest(
+            pageToken = "",
+            pageSize = -100,
+            identityProviderId = "",
+            filterParty = "",
+          )
         )
         .mustFail("using negative page size")
     } yield {
@@ -1013,10 +1030,20 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
         p.minSynchronizers,
       )
       pageSizeZero <- ledger.listKnownParties(
-        ListKnownPartiesRequest(pageToken = "", pageSize = 0, identityProviderId = "")
+        ListKnownPartiesRequest(
+          pageToken = "",
+          pageSize = 0,
+          identityProviderId = "",
+          filterParty = "",
+        )
       )
       pageSizeOne <- ledger.listKnownParties(
-        ListKnownPartiesRequest(pageToken = "", pageSize = 1, identityProviderId = "")
+        ListKnownPartiesRequest(
+          pageToken = "",
+          pageSize = 1,
+          identityProviderId = "",
+          filterParty = "",
+        )
       )
     } yield {
       assert(
@@ -1024,6 +1051,44 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
         "First page with requested pageSize zero should return some parties",
       )
       assertEquals(pageSizeZero.partyDetails.head, pageSizeOne.partyDetails.head)
+    }
+  })
+
+  test(
+    "PMListFilteredKnownParties",
+    "Exercise ListKnownParties rpc: Use a filter to find exactly the party in question",
+    allocate(NoParties),
+  )(implicit ec => { case p @ Participants(Participant(ledger, Seq())) =>
+    def alloc() = ledger
+      .allocateParty(
+        AllocatePartyRequest(UUID.randomUUID().toString, None, "", "", ""),
+        p.minSynchronizers,
+      )
+      .map { case (resp, _) =>
+        UniqueIdentifier.tryFromProtoPrimitive(resp.getPartyDetails.party)
+      }
+    def grab(filterString: String) = ledger.listKnownParties(
+      ListKnownPartiesRequest(
+        pageToken = "",
+        pageSize = 0,
+        identityProviderId = "",
+        filterParty = filterString,
+      )
+    )
+    // let's be a bit annoying and start three requests in parallel
+    val partyId1 = alloc()
+    val partyId2 = alloc()
+    val partyId3 = alloc()
+    for {
+      // Allocate both parties
+      party1 <- partyId1
+      party2 <- partyId2
+      findFull1 <- grab(party1.toProtoPrimitive)
+      findPartial2 <- grab(party2.identifier.str)
+      _ <- partyId3 // just doing a bit racy work here
+    } yield {
+      assertEquals(findFull1.partyDetails.map(_.party), Seq(party1.toProtoPrimitive))
+      assertEquals(findPartial2.partyDetails.map(_.party), Seq(party2.toProtoPrimitive))
     }
   })
 
@@ -1044,6 +1109,7 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
             pageSize = maxPartiesPageSize + 1,
             pageToken = "",
             identityProviderId = "",
+            filterParty = "",
           )
         )
         .mustFail("using too large a page size")

@@ -9,6 +9,7 @@ import cats.syntax.show.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{
+  BatchingConfig,
   CacheConfig,
   CryptoConfig,
   CryptoProvider,
@@ -361,6 +362,7 @@ object Crypto {
       clock: Clock,
       executionContext: ExecutionContext,
       timeouts: ProcessingTimeout,
+      batchingConfig: BatchingConfig,
       loggerFactory: NamedLoggerFactory,
       tracerProvider: TracerProvider,
   )(implicit
@@ -538,6 +540,7 @@ object Crypto {
                         replicaManager,
                         releaseProtocolVersion,
                         timeouts,
+                        batchingConfig,
                         loggerFactory,
                       )
                       .leftMap(err => show"Failed to create crypto private store: $err")
@@ -552,7 +555,7 @@ object Crypto {
             case None =>
               for {
                 cryptoPrivateStore <- CryptoPrivateStore
-                  .create(storage, releaseProtocolVersion, timeouts, loggerFactory)
+                  .create(storage, releaseProtocolVersion, timeouts, batchingConfig, loggerFactory)
                   .leftMap(err => show"Failed to create crypto private store: $err")
                 jceCrypto <- createCryptoWithJceProvider(
                   cryptoSchemes,

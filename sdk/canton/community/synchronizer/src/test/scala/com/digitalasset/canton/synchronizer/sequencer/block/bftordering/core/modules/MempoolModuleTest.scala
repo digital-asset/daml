@@ -39,7 +39,7 @@ class MempoolModuleTest extends AnyWordSpec with BftSequencerBaseTest {
   import MempoolModuleTest.*
 
   private val AnOrderRequest = Mempool.OrderRequest(
-    Traced(OrderingRequest(BlockFormat.SendTag, ByteString.copyFromUtf8("b")))
+    Traced(OrderingRequest(BlockFormat.SendTag, messageId = "", ByteString.copyFromUtf8("b")))
   )
 
   private val requestRefusedHandler = Some(new ModuleRef[SequencerNode.Message] {
@@ -64,7 +64,7 @@ class MempoolModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           createMempool[UnitTestEnv](fakeModuleExpectingSilence, maxMempoolQueueSize = 0)
         mempool.receiveInternal(
           Mempool.OrderRequest(
-            Traced(OrderingRequest(BlockFormat.SendTag, ByteString.EMPTY)),
+            Traced(OrderingRequest(BlockFormat.SendTag, messageId = "", ByteString.EMPTY)),
             requestRefusedHandler,
           )
         )
@@ -79,7 +79,9 @@ class MempoolModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         suppressProblemLogs(
           mempool.receiveInternal(
             Mempool.OrderRequest(
-              Traced(OrderingRequest(BlockFormat.SendTag, ByteString.copyFromUtf8("c"))),
+              Traced(
+                OrderingRequest(BlockFormat.SendTag, messageId = "", ByteString.copyFromUtf8("c"))
+              ),
               requestRefusedHandler,
             )
           )
@@ -95,7 +97,7 @@ class MempoolModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         suppressProblemLogs(
           mempool.receiveInternal(
             Mempool.OrderRequest(
-              Traced(OrderingRequest("invalidTag", ByteString.copyFromUtf8("c"))),
+              Traced(OrderingRequest("invalidTag", messageId = "", ByteString.copyFromUtf8("c"))),
               requestRefusedHandler,
             )
           )
@@ -114,7 +116,9 @@ class MempoolModuleTest extends AnyWordSpec with BftSequencerBaseTest {
 
         mempool.receiveInternal(
           Mempool.OrderRequest(
-            Traced(OrderingRequest(BlockFormat.SendTag, ByteString.copyFromUtf8("c"))),
+            Traced(
+              OrderingRequest(BlockFormat.SendTag, messageId = "", ByteString.copyFromUtf8("c"))
+            ),
             requestRefusedHandler,
           )
         )

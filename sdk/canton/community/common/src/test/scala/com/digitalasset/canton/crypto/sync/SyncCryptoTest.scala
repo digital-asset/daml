@@ -7,6 +7,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.KmsConfig.Driver
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.config.{
+  BatchingConfig,
   CachingConfigs,
   CryptoConfig,
   CryptoProvider,
@@ -132,6 +133,7 @@ trait SyncCryptoTest
       wallClock,
       executorService,
       timeouts,
+      BatchingConfig(),
       loggerFactory,
       NoReportingTracerProvider,
     )

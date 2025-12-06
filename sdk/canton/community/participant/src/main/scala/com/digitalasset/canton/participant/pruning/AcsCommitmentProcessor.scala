@@ -801,7 +801,8 @@ class AcsCommitmentProcessor private (
             snapshotRes.active,
             activeContractStore,
             contractStore,
-            enableAdditionalConsistencyChecks || commitmentMismatchDebugging,
+            enableAdditionalConsistencyChecks,
+            commitmentMismatchDebugging,
             completedPeriod,
             batchingConfig,
             lastIntervalActivations,
@@ -2823,6 +2824,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
       activeContractStore: ActiveContractStore,
       contractStore: ContractStore,
       enableAdditionalConsistencyChecks: Boolean,
+      commitmentMismatchDebugging: Boolean,
       completedPeriod: CommitmentPeriod,
       batchingConfig: BatchingConfig,
       lastIntervalActivations: TrieMap[(LfContractId, ReassignmentCounter), Int],
@@ -2832,7 +2834,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
       namedLoggingContext: NamedLoggingContext,
   ): FutureUnlessShutdown[Unit] = {
     val acsTimestamp = TimeOfChange(completedPeriod.toInclusive.forgetRefinement)
-    val res = if (enableAdditionalConsistencyChecks) {
+    val res = if (enableAdditionalConsistencyChecks || commitmentMismatchDebugging) {
       for {
         (rc, activations) <- computeRunningCommitmentsFromAcs(
           activeContractStore,
@@ -2851,9 +2853,14 @@ object AcsCommitmentProcessor extends HasLoggerName {
                   toc.timestamp > completedPeriod.fromExclusive.forgetRefinement
                 }}"
           )
-          Errors.InternalError
-            .InconsistentRunningCommitmentAndACS(acsTimestamp, acsCommitments, runningCommitments)
-            .discard
+          if (enableAdditionalConsistencyChecks)
+            Errors.InternalError
+              .InconsistentRunningCommitmentAndACS(acsTimestamp, acsCommitments, runningCommitments)
+              .discard
+          else if (commitmentMismatchDebugging)
+            namedLoggingContext.info(
+              "Detected an inconsistency between the running commitments and the ACS"
+            )
         }
       }
     } else FutureUnlessShutdown.unit

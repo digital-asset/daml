@@ -77,6 +77,11 @@ class DbKmsMetadataStore(
   )(implicit tc: TraceContext): FutureUnlessShutdown[Option[KmsMetadataStore.KmsMetadata]] =
     cache.get(fingerprint)
 
+  override def getAll(fingerprints: Seq[Fingerprint])(implicit
+      tc: TraceContext
+  ): FutureUnlessShutdown[Map[Fingerprint, Option[KmsMetadata]]] =
+    cache.getAll(fingerprints)
+
   /** Store kms metadata in the store
     */
   override def store(metadata: KmsMetadataStore.KmsMetadata)(implicit

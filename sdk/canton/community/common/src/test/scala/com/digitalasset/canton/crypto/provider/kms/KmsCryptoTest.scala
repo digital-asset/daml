@@ -5,6 +5,7 @@ package com.digitalasset.canton.crypto.provider.kms
 
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.{
+  BatchingConfig,
   CachingConfigs,
   CryptoConfig,
   CryptoProvider,
@@ -86,6 +87,7 @@ trait KmsCryptoTest
         wallClock,
         executorService,
         timeouts,
+        BatchingConfig(),
         loggerFactory,
         NoReportingTracerProvider,
       )

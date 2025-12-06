@@ -16,6 +16,7 @@ import com.digitalasset.canton.integration.bootstrap.{
   NetworkTopologyDescription,
 }
 import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
+import com.digitalasset.canton.integration.tests.bftsequencer.AwaitsBftSequencerAuthenticationDisseminationQuorum
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -29,7 +30,8 @@ import com.digitalasset.canton.sequencing.SequencerConnectionValidation
   */
 sealed trait ConnectionPoolHealthIntegrationTest
     extends CommunityIntegrationTest
-    with SharedEnvironment {
+    with SharedEnvironment
+    with AwaitsBftSequencerAuthenticationDisseminationQuorum {
 
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P2S4M1_Config
@@ -58,6 +60,8 @@ sealed trait ConnectionPoolHealthIntegrationTest
   "Member nodes" must {
     "Initialize the setup" in { implicit env =>
       import env.*
+
+      waitUntilAllBftSequencersAuthenticateDisseminationQuorum()
 
       val connectionsConfig = sequencers.local.map(s =>
         s.config.publicApi.clientConfig

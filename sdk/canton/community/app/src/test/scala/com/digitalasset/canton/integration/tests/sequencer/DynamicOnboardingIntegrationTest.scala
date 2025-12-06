@@ -233,13 +233,11 @@ abstract class DynamicOnboardingIntegrationTest(val name: String)
       sequencer2.health.initialized() shouldBe true
 
       // Restart the new sequencer to make sure that the initialization survives a restart
-      // TODO(#25004): restart the BFT sequencer too once it's fully crash fault-tolerant (and remove the flag).
+      // TODO(#25004): restart the BFT sequencer too once it's fully crash fault-tolerant
       // Currently this fails because we're stopping the sequencer before it finished its initial state transfer process.
       // Ideally we wait for that to be concluded before considering the sequencer initialized and ready to tolerate crashes.
-      if (!isBftSequencer) {
-        sequencer2.stop()
-        sequencer2.start()
-      }
+      // sequencer2.stop()
+      // sequencer2.start()
 
       participant2.synchronizers.connect_local(sequencer2, daName)
       participant1.health.ping(participant2, timeout = 30.seconds)

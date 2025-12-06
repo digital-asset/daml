@@ -104,7 +104,7 @@ class PbftMessageValidatorImplTest extends AnyWordSpec with BftSequencerBaseTest
           aMembership,
           aMembership,
           Left(
-            "The canonical commit set is empty for block BlockMetadata(1,12) with 1 proofs of availability, " +
+            "The canonical commit set is empty for block (epochNumber=1, blockNumber=12) with 1 proofs of availability, " +
               "but it can only be empty for empty blocks or the first segment block"
           ),
         ),
@@ -118,7 +118,7 @@ class PbftMessageValidatorImplTest extends AnyWordSpec with BftSequencerBaseTest
           aMembership,
           aMembership,
           Left(
-            "The PrePrepare for block BlockMetadata(1,12) has 17 proofs of availability, but it should have up to " +
+            "The PrePrepare for block (epochNumber=1, blockNumber=12) has 17 proofs of availability, but it should have up to " +
               "the maximum batch number per proposal of 16; the maximum batch number per proposal " +
               "should be configured with the same value across all nodes"
           ),
@@ -134,7 +134,7 @@ class PbftMessageValidatorImplTest extends AnyWordSpec with BftSequencerBaseTest
           aMembership,
           aMembership,
           Left(
-            "The PrePrepare for block BlockMetadata(0,0) has 1 proofs of availability, but it should be empty"
+            "The PrePrepare for block (epochNumber=0, blockNumber=0) has 1 proofs of availability, but it should be empty"
           ),
         ),
         // positive: block is not empty, and it's the first epoch, but it's not the first block in the segment
@@ -274,7 +274,7 @@ class PbftMessageValidatorImplTest extends AnyWordSpec with BftSequencerBaseTest
           aMembership,
           Membership.forTesting(myId, Set(otherId)),
           Left(
-            "The canonical commit set for block BlockMetadata(1,12) has size 1 " +
+            "The canonical commit set for block (epochNumber=1, blockNumber=12) has size 1 " +
               "which is below the strong quorum of 2 for current topology Set(otherId, self)"
           ),
         ),
@@ -308,7 +308,7 @@ class PbftMessageValidatorImplTest extends AnyWordSpec with BftSequencerBaseTest
           aMembership,
           Membership.forTesting(myId, Set(otherId)),
           Left(
-            "The canonical commit set for block BlockMetadata(1,13) has size 1 " +
+            "The canonical commit set for block (epochNumber=1, blockNumber=13) has size 1 " +
               "which is below the strong quorum of 2 for current topology Set(otherId, self)"
           ),
         ),
@@ -325,7 +325,7 @@ class PbftMessageValidatorImplTest extends AnyWordSpec with BftSequencerBaseTest
           aMembership,
           Membership.forTesting(myId),
           Left(
-            "The canonical commit set for block BlockMetadata(1,13) contains a commit from 'otherId' " +
+            "The canonical commit set for block (epochNumber=1, blockNumber=13) contains a commit from 'otherId' " +
               "that is not part of current topology Set(self)"
           ),
         ),
@@ -370,7 +370,7 @@ class PbftMessageValidatorImplTest extends AnyWordSpec with BftSequencerBaseTest
           aMembership,
           Membership.forTesting(myId, Set(otherId)),
           Left(
-            "The canonical commit set for block BlockMetadata(1,13) contains duplicate senders: List(otherId, otherId)"
+            "The canonical commit set for block (epochNumber=1, blockNumber=13) contains duplicate senders: List(otherId, otherId)"
           ),
         ),
         // negative: non-empty block needs availability acks
@@ -384,7 +384,7 @@ class PbftMessageValidatorImplTest extends AnyWordSpec with BftSequencerBaseTest
           aMembership,
           Left(
             "The proof of availability for batch BatchId(SHA-256:d624dc8a1022...) " +
-              "in PrePrepare for block BlockMetadata(1,12) " +
+              "in PrePrepare for block (epochNumber=1, blockNumber=12) " +
               "has 0 dissemination acknowledgements, but it should have at least 1"
           ),
         ),
@@ -402,7 +402,7 @@ class PbftMessageValidatorImplTest extends AnyWordSpec with BftSequencerBaseTest
           aMembership,
           aMembership,
           Left(
-            s"The PrePrepare for block BlockMetadata(${5L + OrderingRequestBatch.BatchValidityDurationEpochs},100) " +
+            s"The PrePrepare for block (epochNumber=${5L + OrderingRequestBatch.BatchValidityDurationEpochs}, blockNumber=100) " +
               s"has an expired proof of availability at 5, " +
               s"which is ${OrderingRequestBatch.BatchValidityDurationEpochs} epochs or more " +
               s"older than current epoch ${5L + OrderingRequestBatch.BatchValidityDurationEpochs}."
@@ -422,7 +422,7 @@ class PbftMessageValidatorImplTest extends AnyWordSpec with BftSequencerBaseTest
           aMembership,
           aMembership,
           Left(
-            "The PrePrepare for block BlockMetadata(5,100) has a proof of availability for future epoch 6 (current epoch is 5)"
+            "The PrePrepare for block (epochNumber=5, blockNumber=100) has a proof of availability for future epoch 6 (current epoch is 5)"
           ),
         ),
         // positive: poa just one epoch away from expiration is good
@@ -460,7 +460,7 @@ class PbftMessageValidatorImplTest extends AnyWordSpec with BftSequencerBaseTest
           aMembership,
           Left(
             "The proof of availability for batch BatchId(SHA-256:d624dc8a1022...) " +
-              "in PrePrepare for block BlockMetadata(1,12) has duplicated dissemination acknowledgements"
+              "in PrePrepare for block (epochNumber=1, blockNumber=12) has duplicated dissemination acknowledgements"
           ),
         ),
         // negative: ack from sequencer not in topology

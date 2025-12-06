@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao
 
+import com.digitalasset.canton.config.CantonRequireTypes.String185
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.ParticipantId
 import com.digitalasset.canton.ledger.api.health.{HealthStatus, ReportsHealth}
@@ -91,13 +92,14 @@ private[platform] class JdbcLedgerDao(
 
   override def listKnownParties(
       fromExcl: Option[Party],
+      filterParty: Option[String185],
       maxResults: Int,
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[List[IndexerPartyDetails]] =
     dbDispatcher
       .executeSql(metrics.index.db.loadAllParties)(
-        readStorageBackend.partyStorageBackend.knownParties(fromExcl, maxResults)
+        readStorageBackend.partyStorageBackend.knownParties(fromExcl, filterParty, maxResults)
       )
 
   /** Prunes the events and command completions tables.

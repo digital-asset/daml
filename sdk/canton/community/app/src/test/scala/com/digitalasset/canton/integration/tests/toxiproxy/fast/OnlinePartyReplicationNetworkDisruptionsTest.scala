@@ -355,6 +355,11 @@ sealed trait OnlinePartyReplicationNetworkDisruptionsTest
   }
 }
 
+// class OnlinePartyReplicationNetworkDisruptionsTestH2
+//   extends OnlinePartyReplicationNetworkDisruptionsTest {
+//   registerPlugin(new UseH2(loggerFactory))
+// }
+
 class OnlinePartyReplicationNetworkDisruptionsTestPostgres
     extends OnlinePartyReplicationNetworkDisruptionsTest {
   registerPlugin(new UsePostgres(loggerFactory))

@@ -43,6 +43,7 @@ trait CreatesUsers {
             pageToken = "",
             pageSize = 0,
             identityProviderId = "",
+            filterParty = "",
           )
         )
         .map(

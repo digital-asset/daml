@@ -20,13 +20,13 @@ trait AvailabilityStoreTest extends AsyncWordSpec with BftSequencerBaseTest {
   def createStore(): AvailabilityStore[PekkoEnv]
 
   private val request1 = Traced(
-    OrderingRequest(BlockFormat.SendTag, ByteString.copyFromUtf8("payload1"))
+    OrderingRequest(BlockFormat.SendTag, messageId = "mid1", ByteString.copyFromUtf8("payload1"))
   )
   private val request2 = Traced(
-    OrderingRequest(BlockFormat.SendTag, ByteString.copyFromUtf8("payload2"))
+    OrderingRequest(BlockFormat.SendTag, messageId = "mid2", ByteString.copyFromUtf8("payload2"))
   )
   private val request3 = Traced(
-    OrderingRequest(BlockFormat.SendTag, ByteString.copyFromUtf8("payload3"))
+    OrderingRequest(BlockFormat.SendTag, messageId = "mid3", ByteString.copyFromUtf8("payload3"))
   )
 
   private val batch1 = OrderingRequestBatch.create(Seq(request1, request3), EpochNumber.First)

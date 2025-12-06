@@ -415,6 +415,11 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
   }
 }
 
+// final class OnlinePartyReplicationParticipantProtocolTestH2
+//   extends OnlinePartyReplicationParticipantProtocolTest {
+//   registerPlugin(new UseH2(loggerFactory))
+// }
+
 final class OnlinePartyReplicationParticipantProtocolTestPostgres
     extends OnlinePartyReplicationParticipantProtocolTest {
   registerPlugin(new UsePostgres(loggerFactory))

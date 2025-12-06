@@ -7,7 +7,7 @@ import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.base.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.digitalasset.canton.config.CantonRequireTypes.String300
-import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.kms.{Kms, KmsKeyId}
 import com.digitalasset.canton.crypto.store.db.DbCryptoPrivateStore
@@ -131,6 +131,7 @@ object CryptoPrivateStore {
       storage: Storage,
       releaseProtocolVersion: ReleaseProtocolVersion,
       timeouts: ProcessingTimeout,
+      batchingConfig: BatchingConfig,
       loggerFactory: NamedLoggerFactory,
   )(implicit
       ec: ExecutionContext,
@@ -142,6 +143,7 @@ object CryptoPrivateStore {
           jdbc,
           releaseProtocolVersion,
           timeouts,
+          batchingConfig,
           loggerFactory,
         )
         dbCryptoPrivateStore
@@ -168,6 +170,7 @@ object CryptoPrivateStore {
       replicaManager: Option[ReplicaManager],
       releaseProtocolVersion: ReleaseProtocolVersion,
       timeouts: ProcessingTimeout,
+      batchingConfig: BatchingConfig,
       loggerFactory: NamedLoggerFactory,
   )(implicit
       ec: ExecutionContext,
@@ -181,6 +184,7 @@ object CryptoPrivateStore {
               jdbc,
               releaseProtocolVersion,
               timeouts,
+              batchingConfig,
               loggerFactory,
             )
           )
@@ -200,6 +204,7 @@ object CryptoPrivateStore {
           reverted,
           releaseProtocolVersion,
           timeouts,
+          batchingConfig,
           loggerFactory,
         )
         .flatMap(migratePrivateKeys(storage, _, timeouts))

@@ -341,6 +341,11 @@ sealed trait OnlinePartyReplicationCascadingRepetitionsTest
       .discard
 }
 
+// class OnlinePartyReplicationCascadingRepetitionsTestH2
+//   extends OnlinePartyReplicationCascadingRepetitionsTest {
+//   registerPlugin(new UseH2(loggerFactory))
+// }
+
 class OnlinePartyReplicationCascadingRepetitionsTestPostgres
     extends OnlinePartyReplicationCascadingRepetitionsTest {
   registerPlugin(new UsePostgres(loggerFactory))

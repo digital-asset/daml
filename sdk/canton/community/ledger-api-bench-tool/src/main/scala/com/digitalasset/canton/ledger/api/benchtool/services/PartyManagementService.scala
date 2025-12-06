@@ -30,6 +30,7 @@ class PartyManagementService(channel: Channel, authorizationToken: Option[String
           pageToken = "",
           pageSize = 0,
           identityProviderId = "",
+          filterParty = "",
         )
       )
       .map(_.partyDetails.map(_.party).toSet)

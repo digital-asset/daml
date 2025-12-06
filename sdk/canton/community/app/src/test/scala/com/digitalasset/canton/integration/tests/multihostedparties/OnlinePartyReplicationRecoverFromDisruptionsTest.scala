@@ -5,7 +5,7 @@ package com.digitalasset.canton.integration.tests.multihostedparties
 
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.integration
-import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2, UsePostgres}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -332,6 +332,11 @@ sealed trait OnlinePartyReplicationRecoverFromDisruptionsTest
         },
       )
   }
+}
+
+class OnlinePartyReplicationRecoverFromDisruptionsTestH2
+    extends OnlinePartyReplicationRecoverFromDisruptionsTest {
+  registerPlugin(new UseH2(loggerFactory))
 }
 
 class OnlinePartyReplicationRecoverFromDisruptionsTestPostgres
