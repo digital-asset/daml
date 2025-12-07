@@ -21,6 +21,22 @@ sealed trait SnippetStep extends Product with Serializable {
 
 object SnippetStep extends LazyLogging {
 
+  /** A shell command that will be run using a scala.sys.process.Process. The command itself is run
+    * within a shell via `/bin/sh -c` such that redirections (|, >, < etc..) work
+    * @param cmd
+    *   command to run
+    * @param cwd
+    *   current working directory: directory where to run the command
+    * @param line
+    *   line in the docs page at which the snippet is located
+    * @param indent
+    *   indentation string
+    */
+  final case class Shell(cmd: String, cwd: Option[String], line: Int, indent: String = "")
+      extends SnippetStep {
+    override def truncateOutput: Option[Int] = None
+    override def appendToCmd(string: String): SnippetStep = this.copy(cmd = cmd + string)
+  }
   final case class Success(cmd: String, truncateOutput: Option[Int], line: Int, indent: String = "")
       extends SnippetStep {
     override def appendToCmd(string: String): SnippetStep = this.copy(cmd = cmd + string)
@@ -38,7 +54,17 @@ object SnippetStep extends LazyLogging {
     override def appendToCmd(string: String): SnippetStep = this.copy(cmd = cmd + string)
   }
 
-  private def extractOutputLines(str: String): Option[Int] = if (str.length < 2) None
+  /** Extract the value of a single parameter in a snippet command e.g: str = ..success(output=14)::
+    * ... parameterKey = output will return "14"
+    * @param str
+    *   snippet command
+    * @param parameterKey
+    *   snippet parameter key to extract
+    * @return
+    */
+  private def extractParameter(str: String, parameterKey: String): Option[String] = if (
+    str.length < 2
+  ) None
   else {
     // this piece of code is neither correct, nor checking really for errors
     // or anything like that, except, we'll just dump at least some error
@@ -47,8 +73,8 @@ object SnippetStep extends LazyLogging {
       .split(",")
       .map(_.split("=").toList)
       .map {
-        case "output" :: value :: Nil =>
-          value.toInt.some
+        case `parameterKey` :: value :: Nil =>
+          value.some
 
         case x =>
           throw new IllegalArgumentException(s"Invalid arguments ${x.toString} in $str")
@@ -60,11 +86,21 @@ object SnippetStep extends LazyLogging {
   def parse(line: String, idx: Int): Option[SnippetStep] = Seq[Option[SnippetStep]](
     snippetSuccess.findFirstMatchIn(line).map { matched =>
       logger.debug(s"Matches success: $line")
-      Success(matched.group(3).trim, extractOutputLines(matched.group(2)), idx, matched.group(1))
+      Success(
+        matched.group(3).trim,
+        extractParameter(matched.group(2), "output").map(_.toInt),
+        idx,
+        matched.group(1),
+      )
     },
     snippetFailure.findFirstMatchIn(line).map { matched =>
       logger.debug(s"Matches failure: $line")
-      Failure(matched.group(3).trim, extractOutputLines(matched.group(2)), idx, matched.group(1))
+      Failure(
+        matched.group(3).trim,
+        extractParameter(matched.group(2), "output").map(_.toInt),
+        idx,
+        matched.group(1),
+      )
     },
     snippetAssert.findFirstMatchIn(line).map { matched =>
       logger.debug(s"Matches assert: $line")
@@ -74,10 +110,15 @@ object SnippetStep extends LazyLogging {
       logger.debug(s"Matches hidden: $line")
       Hidden(matched.group(2).trim, idx, matched.group(1))
     },
+    snippetShell.findFirstMatchIn(line).map { matched =>
+      logger.debug(s"Matches shell: $line")
+      Shell(matched.group(3).trim, extractParameter(matched.group(2), "cwd"), idx, matched.group(1))
+    },
   ).flatten.headOption
 
   private[docs] val snippetKey = "^\\s*\\.\\. snippet::(.*)$".r
   private[docs] val snippetSuccess = "^(\\s+)\\.\\. success(.*?)::(.*)$".r
+  private[docs] val snippetShell = "^(\\s+)\\.\\. shell(.*?)::(.*)$".r
   private[docs] val snippetFailure = "^(\\s+)\\.\\. failure(.*?)::(.*)$".r
   private[docs] val snippetAssert = "^(\\s+)\\.\\. assert::(.*)$".r
   private[docs] val snippetHidden = "^(\\s+)\\.\\. hidden::(.*)$".r

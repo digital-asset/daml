@@ -527,6 +527,10 @@ sealed trait OnlinePartyReplicationNegotiationTest
   }
 }
 
+// class OnlinePartyReplicationNegotiationTestH2 extends OnlinePartyReplicationNegotiationTest {
+//   registerPlugin(new UseH2(loggerFactory))
+// }
+
 class OnlinePartyReplicationNegotiationTestPostgres extends OnlinePartyReplicationNegotiationTest {
   registerPlugin(new UsePostgres(loggerFactory))
 }

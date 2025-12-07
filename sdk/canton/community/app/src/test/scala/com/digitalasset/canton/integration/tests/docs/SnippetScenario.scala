@@ -11,6 +11,17 @@ final case class SnippetScenario(name: String, steps: Seq[Seq[SnippetStep]])
 
 final case class SnippetStepResult(step: SnippetStep, output: Seq[String]) extends LazyLogging {
 
+  def prependAtSign: Boolean = step match {
+    // Don't prepend the @ sign in the code block for shell scripts
+    case _: SnippetStep.Shell => false
+    case _ => true
+  }
+
+  def language: String = step match {
+    case _: SnippetStep.Shell => "shell"
+    case _ => "none"
+  }
+
   /** prepare the output for our sphinx document
     *
     * @return
@@ -23,6 +34,7 @@ final case class SnippetStepResult(step: SnippetStep, output: Seq[String]) exten
       case SnippetStep.Failure(cmd, _, _, _) => cmd
       case SnippetStep.Assert(_, _, _) => ""
       case SnippetStep.Hidden(_, _, _) => ""
+      case SnippetStep.Shell(cmd, _, _, _) => cmd
     }
     val tmp = output.flatMap(_.split('\n').toList)
 

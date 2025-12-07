@@ -254,6 +254,7 @@ object ReplayingParticipant extends FutureHelpers with EitherValues with OptionV
         clock,
         executionContext,
         timeouts,
+        BatchingConfig(),
         loggerFactory,
         NoReportingTracerProvider,
       )

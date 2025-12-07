@@ -271,7 +271,11 @@ final class AvailabilityModule[E <: Env[E]](
           },
         )
 
-        logger.debug(s"$messageType: received $batchId from local mempool")
+        logger.debug(
+          s"$messageType: received batch from local mempool containing messages ${requests
+              .map(_.value.headerString)
+              .mkString(", ")}; created batch ID $batchId with reference epoch $lastKnownEpochNumber, storing locally"
+        )
         disseminationProtocolState.beingFirstSaved
           .put(batchId, InitialSaveInProgress(availabilityEnterInstant = Some(Instant.now)))
           .discard

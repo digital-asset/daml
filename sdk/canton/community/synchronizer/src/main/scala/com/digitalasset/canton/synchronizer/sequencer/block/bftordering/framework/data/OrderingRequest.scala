@@ -27,6 +27,7 @@ import java.time.Instant
 
 final case class OrderingRequest(
     tag: String,
+    messageId: String,
     payload: ByteString,
     orderingStartInstant: Option[Instant] =
       None, // Used for metrics support only, unset in unit and simulation tests
@@ -41,6 +42,9 @@ final case class OrderingRequest(
       .add(tag)
       .add(orderingStartInstant.toString)
       .discard
+
+  def headerString: String =
+    s"(tag=$tag, messageId=$messageId, payloadSize=${payload.size()}, orderingStartInstant=$orderingStartInstant)"
 }
 
 object OrderingRequest {
@@ -83,6 +87,7 @@ final case class OrderingRequestBatch private (
   ): v30.OrderingRequest = v30.OrderingRequest(
     traceContext = traceContext.getOrElse(""),
     orderingRequest.tag,
+    orderingRequest.messageId,
     orderingRequest.payload,
     orderingRequest.orderingStartInstant.map(i =>
       com.google.protobuf.timestamp.Timestamp(i.getEpochSecond, i.getNano)
@@ -132,6 +137,7 @@ object OrderingRequestBatch extends VersioningCompanion[OrderingRequestBatch] {
           (
             OrderingRequest(
               protoOrderingRequest.tag,
+              protoOrderingRequest.messageId,
               protoOrderingRequest.payload,
               protoOrderingRequest.orderingStartInstant.map(_.asJavaInstant),
             ),

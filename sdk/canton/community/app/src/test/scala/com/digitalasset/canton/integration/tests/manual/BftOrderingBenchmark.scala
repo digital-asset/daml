@@ -17,7 +17,7 @@ import com.digitalasset.canton.integration.plugins.toxiproxy.{
   UseToxiproxy,
 }
 import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
-import com.digitalasset.canton.integration.tests.bftsynchronizer.CountsAuthenticatedBftPeers
+import com.digitalasset.canton.integration.tests.bftsequencer.AwaitsBftSequencerAuthenticationDisseminationQuorum
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
@@ -31,7 +31,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.Bft
   DefaultMinRequestsInBatch,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.EpochLength
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopology
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.performance.dabft.DaBftBindingFactory
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.performance.{
   BftBenchmarkConfig,
@@ -74,7 +73,7 @@ import scala.concurrent.duration.{Duration, DurationInt, FiniteDuration}
 class BftOrderingBenchmark
     extends CommunityIntegrationTest
     with SharedEnvironment
-    with CountsAuthenticatedBftPeers {
+    with AwaitsBftSequencerAuthenticationDisseminationQuorum {
 
   private val BFTOrderingBenchmarkPrefix = "bft-ordering-benchmark"
   private val PostgresProxyNameSuffix = "postgres"
@@ -308,14 +307,7 @@ class BftOrderingBenchmark
     )
     mediators.local.foreach(_.stop())
 
-    val weakQuorumSize = OrderingTopology.weakQuorumSize(sequencers.all.size)
-    clue(
-      s"make sure ordering nodes have connected to at least weak quorum of $weakQuorumSize other nodes"
-    ) {
-      eventually() {
-        forAll(sequencers.all)(numberAuthenticatedPeers(_) should be >= weakQuorumSize)
-      }
-    }
+    waitUntilAllBftSequencersAuthenticateDisseminationQuorum()
 
     val benchmarkTool = new BftBenchmarkTool(DaBftBindingFactory, loggerFactory)
     val benchmarkToolConfig =
