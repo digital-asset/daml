@@ -270,7 +270,7 @@ trait ScriptLedgerClient {
   def waitUntilVettingVisible(
       packages: Iterable[ScriptLedgerClient.ReadablePackageId],
       onParticipantUid: String,
-  ): Future[Unit]
+  )(implicit ec: ExecutionContext): Future[Unit]
 
   def unvetPackages(packages: List[ScriptLedgerClient.ReadablePackageId])(implicit
       ec: ExecutionContext,
@@ -281,7 +281,7 @@ trait ScriptLedgerClient {
   def waitUntilUnvettingVisible(
       packages: Iterable[ScriptLedgerClient.ReadablePackageId],
       onParticipantUid: String,
-  ): Future[Unit]
+  )(implicit ec: ExecutionContext): Future[Unit]
 
   def listVettedPackages()(implicit
       ec: ExecutionContext,
