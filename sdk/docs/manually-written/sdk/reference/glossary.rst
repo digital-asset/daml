@@ -439,10 +439,11 @@ See :ref:`daml-studio`.
 Daml-LF
 *******
 
-When you compile Daml source code into a `.dar file <#glos-dar-file>`__, the
-underlying format is **Daml-LF**. Daml-LF is similar to Daml, but is stripped
-down to a core set of features. The relationship between the surface Daml syntax
-and Daml-LF is loosely similar to that between Java and JVM bytecode.
+When you compile Daml source code into a :ref:`.dar file <glos-dar-file>`,
+the underlying format is **Daml-LF**. Daml-LF is similar to Daml, but is
+stripped down to a core set of features. The relationship between the surface
+Daml syntax and Daml-LF is loosely similar to that between Java and JVM
+bytecode.
 
 As a user, you don't need to interact with Daml-LF directly. But internally,
 it's used for:
@@ -451,6 +452,9 @@ it's used for:
 - sending and receiving values via the Ledger API
 - generating code in other languages for interacting with Daml models (often
   called “codegen”)
+
+Daml-LF, when stored as a DALF file, can be inspected using :ref:`damlc's
+inspect <glos-damlc-inspect>`
 
 Damle, Daml runtime, Daml execution engine
 ******************************************
@@ -752,8 +756,11 @@ Package
 Package Service
 ***************
 
-Use the **Package Service** to obtain information about Daml packages available
-on the `ledger <#daml-ledger>`__. See :ref:`package-service`.
+Use the **Package Service** to obtain information about :ref:`Daml
+packages<glos-daml-package>` available on the `ledger <#daml-ledger>`__. See
+:ref:`package-service`.
+
+
 
 
 .. _participant-node:
