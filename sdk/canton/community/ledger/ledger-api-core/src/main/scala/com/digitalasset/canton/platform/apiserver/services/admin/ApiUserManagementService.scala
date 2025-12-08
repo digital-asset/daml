@@ -238,6 +238,8 @@ private[apiserver] final class ApiUserManagementService(
   override def deleteUser(request: proto.DeleteUserRequest): Future[proto.DeleteUserResponse] =
     withSubmissionId(loggerFactory, telemetry) { implicit loggingContext =>
       implicit val errorLoggingContext = ErrorLoggingContext(logger, loggingContext)
+      val authorizedUserContextF: Future[AuthenticatedUserContext] =
+        resolveAuthenticatedUserContext
       withValidation {
         for {
           userId <- requireUserId(request.userId, "user_id")
@@ -247,10 +249,25 @@ private[apiserver] final class ApiUserManagementService(
           )
         } yield (userId, identityProviderId)
       } { case (userId, identityProviderId) =>
-        userManagementStore
-          .deleteUser(userId, identityProviderId)
-          .flatMap(Utils.handleResult("deleting user"))
-          .map(_ => proto.DeleteUserResponse())
+        for {
+          authorizedUserContext <- authorizedUserContextF
+          _ <-
+            if (authorizedUserContext.userId.contains(userId)) {
+              Future.failed(
+                RequestValidationErrors.InvalidArgument
+                  .Reject(
+                    "Requesting user cannot delete itself"
+                  )
+                  .asGrpcError
+              )
+            } else {
+              Future.unit
+            }
+          resp <- userManagementStore
+            .deleteUser(userId, identityProviderId)
+            .flatMap(Utils.handleResult("deleting user"))
+            .map(_ => proto.DeleteUserResponse())
+        } yield resp
       }
     }
 
@@ -348,6 +365,11 @@ private[apiserver] final class ApiUserManagementService(
       ) { case (userId, rights, identityProviderId) =>
         for {
           authorizedUserContext <- authorizedUserContextF
+          _ <- verifyNotRemovingOwnAdminRights(
+            authorizedUserId = authorizedUserContext.userId.getOrElse(""),
+            userId = userId,
+            rights = rights,
+          )
           _ <- verifyPartiesExistInIdp(
             rights,
             identityProviderId,
@@ -457,6 +479,26 @@ private[apiserver] final class ApiUserManagementService(
           partiesNotExistsError(unknownParties, identityProviderId)
       }
   }
+
+  private def verifyNotRemovingOwnAdminRights(
+      authorizedUserId: String,
+      userId: String,
+      rights: Set[UserRight],
+  )(implicit errorLogger: ErrorLoggingContext): Future[Unit] =
+    if (
+      authorizedUserId == userId && rights.collect { case UserRight.ParticipantAdmin =>
+        true
+      }.nonEmpty
+    )
+      Future.failed(
+        RequestValidationErrors.InvalidArgument
+          .Reject(
+            "Requesting user cannot remove own admin rights"
+          )
+          .asGrpcError
+      )
+    else
+      Future.successful(())
 
   private def indexKnownParties(
       parties: Set[Ref.Party]
