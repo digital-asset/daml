@@ -67,7 +67,7 @@ you can create Daml projects, compile Daml projects into
 `.dar files <#glos-dar-file>`__, launch other developer tools, and download new
 SDK versions.
 
-See :ref:`daml-assistant`.
+See :subsiteref:`daml-assistant`.
 
 
 .. _glos-authorization:
