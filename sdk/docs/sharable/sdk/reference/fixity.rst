@@ -21,34 +21,35 @@ defined as a *left-assocative* operator. That is, when we write ``x - y - z -
 
 Some operators are *right-associative*. We have already encountered one:
 function application! A function signature of ``a -> b -> c -> ...`` is parsed
-as ``(a -> (b -> c)) -> ...``.
+as ``(a -> (b -> (c -> ...)))``.
 
 Finally, some operators are non-associative. A good example are comparison
-operators such as ``=`` and ``>``. This means any ambiguous usage of these
+operators such as ``==`` and ``>``. This means any ambiguous usage of these
 operators (e.g. ``a == b == c`` or ``a > b > c``) results in a **parse error**.
 
 .. note::
 
   Non-associative operators are not to be confused with operators that are both
-  left- *and* right-associative, such as ``+`` (since ``(x + y) + z = x + (y + z))``).
-  To obtain a deterministic parser, these operators can be declared either as
-  left or right associative. In Daml the ``+`` operator has been declared as
-  left-associative
+  left- *and* right-associative, such as ``+`` (since ``(x + y) + z = x + (y +
+  z))``). To obtain a deterministic parser, such operators must be declared as
+  one of either left-associative or right-associative. In Daml the ``+``
+  operator has been declared as left-associative
 
-The *precedence* of operators defines, when combinding different operators,
-which operator is processed first. For example, in general (and in Daml),
+The *precedence* of operators defines, when combining different operators, which
+operator is processed first. For example, in general (and in Daml),
 multiplication *takes precedence* over addition. That is, ``x + y * z`` is
 parsed as ``x + (y * z)``. Operator precedence is expressed as a number, where a
 higher number indicates a higher precedence. Operators of same precedence are
-associated to the right (e.g. ``x + y - z`` is parsed as ``(x + y) - z``.
+associated to the left (e.g. ``x + y - z`` is parsed as ``(x + y) - z``.
 
-The fixity and precedence are declared using the ``infixl``, ``infix``, and
-``infixr`` keywords (denoting left-, non-, and right-associativity,
-respectfully) that take an integer between 0 and 9 inclusive and an operator the
-fixity applies to. For example, ``infixl 6 +`` declares ``+`` as a
-``left-associative`` operator with precedence ``6``. These keywords can be used
-for user-defined operators as well. As for built-ins, the following table shows
-the fixity and precedence of of Damls built-in operators:
+The fixity and precedence of an operator are declared using the ``infixl``,
+``infix``, and ``infixr`` keywords (denoting left-, non-, and
+right-associativity, respectfully) that take an integer between 0 and 9
+inclusive and an operator the fixity applies to. For example, ``infixl 6 +``
+declares that ``+`` is a ``left-associative`` operator with precedence ``6``.
+These keywords can be used for user-defined operators as well. The following
+table shows the fixity and precedence for operators that are built-in to the
+Daml language, such as ``+`` and ``-``:
 
 ==========  =========================================================  =======================================================================  ========================
 Precedence  Left-associative                                           Non-associative                                                          Right-associative

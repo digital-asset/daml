@@ -118,11 +118,13 @@ If we want to partially apply an infix operation we can also do that as follows:
 Associativity and Precedence
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-When dealing with multiple infix operators, associativity determines whether to
-parese ``x + y + z`` as ``(x + y) + z`` or ``x + (y + z)``, and precedende
-determines whether to parse ``x + y * z`` as ``(x + y) * z`` or ``x + (y * z)``.
+When dealing with multiple infix operators, precedence determines that the Daml
+compiler should parse ``x + y * z`` as ``x + (y * z)`` instead of ``(x + y) *
+z``. For infix operators with the same precedence, associativity determines that
+``x + y - z`` should be parsed as ``(x + y) - z`` instead of ``x + (y - z)``.
 For built-in operators this has been predefined, for user-defined operators, it
-must be user-defined. See :ref:`the reference on Fixity, Associativity and Precedence <reference-fixity-and-associativity>`
+must be user-defined. See :ref:`the reference on Fixity, Associativity and
+Precedence <reference-fixity-and-associativity>`
 
 
 Type constraints
@@ -138,8 +140,12 @@ Unlike interfaces, typeclasses can have multiple type parameters. A good example
 
   exercise : (Template t, Choice t c r) => ContractId t -> c -> Update r
 
-Let's turn this into prose: Given that ``t`` is the type of a template, and that ``t`` has a choice ``c`` with return type ``r``, the ``exercise`` function maps a ``ContractId`` for a contract of type ``t`` to a function that takes the choice arguments of type ``c`` and returns an ``Update`` resulting in type ``r``.
-That's quite a mouthful, and does require one to know what *meaning* the typeclass ``Choice`` gives to parameters ``t`` ``c`` and ``r``, but in many cases, that's obvious from the context or names of typeclasses and variables. Using single letters, while common, is not mandatory. The above may be made a little bit clearer by expanding the type parameter names, at the cost of making the code a bit longer:
+Let's turn this into prose: Given that ``t`` is the type of a template, and that ``t`` has a choice ``c`` with return type ``r``, the ``exercise`` function maps a ``ContractId`` for a contract of type ``t`` to a function that takes the choice arguments of type ``c`` and returns an ``Update`` resulting in type
+``r``.
+
+That's quite a mouthful, and does require one to know what *meaning* the typeclass ``Choice`` gives to parameters ``t`` ``c`` and ``r``, but in many cases, that's obvious from the context or names of typeclasses and variables.
+
+Using single letters, while common, is not mandatory. The above may be made a little bit clearer by expanding the type parameter names, at the cost of making the code a bit longer:
 
 .. code-block:: daml
 
