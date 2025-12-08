@@ -17,12 +17,12 @@ or alternatively, by calling ``damlc`` directly, the Daml Compiler goes through
 the following stages:
 
 
-#. The input ``.daml`` :ref:`files<glos-daml-source-files>` are type-checked (i.e. it is verified if they are
-   well-formed or not)
+#. The input ``.daml`` :ref:`files<glos-daml-source-files>` are type-checked
+   (i.e. it is verified if they are well-formed or not)
 #. The type-checked ```.daml`` code is transformed to
    :ref:`Daml-LF<daml-lf-intro>`.
 #. The Daml-LF is packaged together with its dependency in a ``.dar``
-   :ref:`file<dar-file-dalf-file>`, which essentially is an archive of Daml-LF
+   :ref:`file<glos-dar-file>`, which essentially is an archive of Daml-LF
    files with metadata.
 
 Build files can be cleaned using ``dpm clean``.

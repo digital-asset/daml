@@ -708,7 +708,7 @@ Inspect
 
 The inspection tool of :ref:`glos-damlc` (called on the command line, using
 :ref:`glos-dpm`, ``dpm damlc inspect``), allows you to parse and inspect both
-:ref:`.dar and .dalf files<dar-file-dalf-file>`. See
+:ref:`.dar and .dalf files<glos-dar-file>`. See
 :ref:`how-to-parse-daml-archive-files`.
 
 Integration (application)
@@ -888,6 +888,9 @@ For documentation on observers, see :ref:`reference-templates`.
     ▐▌ ▐▌
     ▐▛▀▘
     ▐▌
+
+
+.. _glos-daml-package:
 
 Package
 *******
@@ -1214,7 +1217,7 @@ The Daml Compiler
 *****************
 
 The Daml Compiler ``damlc`` compiles :ref:`glos-daml-source-files` into
-:ref:`Daml archives<dar-file-dalf-file>`, and can run tests wriiten in
+:ref:`Daml archives<glos-dar-file>`, and can run tests wriiten in
 :ref:`daml-script`. It is recommended to use ``damlc`` trough :ref:`glos-dpm`.
 See :ref:`howto-daml-compiler`.
 
