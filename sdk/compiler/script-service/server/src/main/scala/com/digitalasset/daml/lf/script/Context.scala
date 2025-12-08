@@ -10,13 +10,15 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.daml.lf.data.{ImmArray, assertRight}
 import com.digitalasset.daml.lf.data.Ref.{Identifier, ModuleName, PackageId, QualifiedName}
 import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
+import com.digitalasset.daml.lf.engine.script.v2.Converter
 import com.digitalasset.daml.lf.engine.script.ledgerinteraction.IdeLedgerClient
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
 import com.digitalasset.daml.lf.script.api.v1.{ScriptModule => ProtoScriptModule}
 import com.digitalasset.daml.lf.speedy.{Compiler, SDefinition, Speedy}
 import com.digitalasset.daml.lf.speedy.SExpr.SDefinitionRef
 import com.digitalasset.daml.lf.validation.Validation
-import com.daml.script.converter
+import com.digitalasset.daml.lf.value.Value.ValueText
+import com.digitalasset.daml.lf.script.converter
 import com.google.protobuf.ByteString
 import com.digitalasset.daml.lf.engine.script.{Runner, Script}
 import com.daml.logging.LoggingContext
@@ -258,7 +260,7 @@ class Context(
             profile,
             dummyDuration,
             dummySteps,
-            v,
+            Converter.castCommandExtendedValue(v).getOrElse(ValueText("Unserializable")),
           )
         )
       case Failure(e: Error) => handleFailure(e)

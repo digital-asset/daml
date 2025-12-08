@@ -192,6 +192,18 @@ object GenValue {
       )
   }
 
+  final case class TypeRep[Content](ty: Ast.Type) extends GenValue[Extended[Content]] {
+    override def nonVerboseWithoutTrailingNones: Nothing =
+      throw new UnsupportedOperationException(
+        "TypeRep values do not support nonVerboseWithoutTrailingNones"
+      )
+
+    override def mapCid(f: Value.ContractId => Value.ContractId): Nothing =
+      throw new UnsupportedOperationException(
+        "TypeRep values do not support nonVerboseWithoutTrailingNones"
+      )
+  }
+
 }
 
 object Value {
@@ -262,34 +274,45 @@ object Value {
   import scalaz.std.either._
   import scalaz.std.option._
 
-  def castToPureValue[B](
-      value: GenValue[GenValue.Extended[B]],
-      handleBlob: GenValue.Blob[B] => Either[RuntimeException, GenValue[Nothing]],
-      handleAny: GenValue.Any[B] => Either[RuntimeException, GenValue[Nothing]],
-  ): Either[RuntimeException, GenValue[Nothing]] =
+  // Casts from GenValue[Extended[FromContent]] to GenValue[To], where `To` may or may not be Extended
+  def castExtendedValue[FromContent, To](
+      value: GenValue[GenValue.Extended[FromContent]],
+      handleBlob: GenValue.Blob[FromContent] => Either[RuntimeException, GenValue[To]],
+      handleAny: GenValue.Any[FromContent] => Either[RuntimeException, GenValue[To]],
+      handleTypeRep: GenValue.TypeRep[FromContent] => Either[RuntimeException, GenValue[To]],
+  ): Either[RuntimeException, GenValue[To]] =
     value match {
-      case b: GenValue.Blob[B] => handleBlob(b)
-      case a: GenValue.Any[B] => handleAny(a)
+      case b: GenValue.Blob[FromContent] => handleBlob(b)
+      case a: GenValue.Any[FromContent] => handleAny(a)
+      case tr: GenValue.TypeRep[FromContent] => handleTypeRep(tr)
       case ValueRecord(tycon, content) =>
         content
           .traverse { case (label, value) =>
-            castToPureValue(value, handleBlob, handleAny).map((label, _))
+            castExtendedValue(value, handleBlob, handleAny, handleTypeRep).map((label, _))
           }
           .map(ValueRecord(tycon, _))
       case ValueVariant(tycon, variant, content) =>
-        castToPureValue(content, handleBlob, handleAny).map(ValueVariant(tycon, variant, _))
+        castExtendedValue(content, handleBlob, handleAny, handleTypeRep).map(
+          ValueVariant(tycon, variant, _)
+        )
       case ValueList(content) =>
-        content.traverse(castToPureValue(_, handleBlob, handleAny)).map(ValueList(_))
+        content
+          .traverse(castExtendedValue(_, handleBlob, handleAny, handleTypeRep))
+          .map(ValueList(_))
       case ValueOptional(content) =>
-        content.traverse(castToPureValue(_, handleBlob, handleAny)).map(ValueOptional(_))
+        content
+          .traverse(castExtendedValue(_, handleBlob, handleAny, handleTypeRep))
+          .map(ValueOptional(_))
       case ValueTextMap(content) =>
-        content.traverse(castToPureValue(_, handleBlob, handleAny)).map(ValueTextMap(_))
+        content
+          .traverse(castExtendedValue(_, handleBlob, handleAny, handleTypeRep))
+          .map(ValueTextMap(_))
       case ValueGenMap(content) =>
         content
           .traverse { case (key, value) =>
             for {
-              pureKey <- castToPureValue(key, handleBlob, handleAny)
-              pureValue <- castToPureValue(value, handleBlob, handleAny)
+              pureKey <- castExtendedValue(key, handleBlob, handleAny, handleTypeRep)
+              pureValue <- castExtendedValue(value, handleBlob, handleAny, handleTypeRep)
             } yield (pureKey, pureValue)
           }
           .map(ValueGenMap(_))

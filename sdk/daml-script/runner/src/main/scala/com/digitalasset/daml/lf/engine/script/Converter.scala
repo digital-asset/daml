@@ -12,10 +12,15 @@ import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.typesig.EnvironmentSignature
 import com.digitalasset.daml.lf.typesig.reader.SignatureReader
+import com.digitalasset.daml.lf.speedy.Speedy.Machine.{
+  ExtendedValue,
+  ExtendedValueAny,
+  ExtendedValueTypeRep,
+}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value._
-// import com.digitalasset.canton.ledger.api.util.LfEngineToApi.toApiIdentifier
-import com.daml.script.converter.ConverterException
+import com.digitalasset.canton.ledger.api.util.LfEngineToApi.toApiIdentifier
+import com.digitalasset.daml.lf.script.converter.ConverterException
 import com.digitalasset.canton.ledger.api.{PartyDetails, User, UserRight}
 import scalaz.std.list._
 import scalaz.std.either._
@@ -59,9 +64,9 @@ object ScriptIds {
   }
 }
 
-// final case class AnyTemplate(ty: Identifier, arg: SValue)
-// final case class AnyChoice(name: ChoiceName, arg: SValue)
-// final case class AnyContractKey(templateId: Identifier, ty: Type, key: SValue)
+final case class AnyTemplate(ty: Identifier, arg: ExtendedValue)
+final case class AnyChoice(name: ChoiceName, arg: ExtendedValue)
+final case class AnyContractKey(templateId: Identifier, ty: Type, key: ExtendedValue)
 // frames ordered from most-recent to least-recent
 
 final case class Disclosure(templatedId: TypeConId, contractId: ContractId, blob: Bytes)
@@ -76,176 +81,138 @@ object Converter {
 }
 
 abstract class ConverterMethods(stablePackages: language.StablePackages) {
-  import com.daml.script.converter.Converter._
+  import com.digitalasset.daml.lf.script.converter.Converter._
 
   private def toNonEmptySet[A](as: OneAnd[FrontStack, A]): OneAnd[Set, A] = {
     import scalaz.syntax.foldable._
     OneAnd(as.head, as.tail.toSet - as.head)
   }
 
-  // private def fromIdentifier(id: value.Identifier): SValue = {
-  //   STypeRep(
-  //     TTyCon(
-  //       TypeConId(
-  //         PackageId.assertFromString(id.packageId),
-  //         QualifiedName(
-  //           DottedName.assertFromString(id.moduleName),
-  //           DottedName.assertFromString(id.entityName),
-  //         ),
-  //       )
-  //     )
-  //   )
-  // }
+  private def fromIdentifier(id: value.Identifier): ExtendedValue = {
+    ExtendedValueTypeRep(
+      TTyCon(
+        TypeConId(
+          PackageId.assertFromString(id.packageId),
+          QualifiedName(
+            DottedName.assertFromString(id.moduleName),
+            DottedName.assertFromString(id.entityName),
+          ),
+        )
+      )
+    )
+  }
 
-  // private[lf] def fromTemplateTypeRep(templateId: SValue): SValue =
-  //   record(stablePackages.TemplateTypeRep, ("getTemplateTypeRep", templateId))
+  private[lf] def fromTemplateTypeRep(templateId: ExtendedValue): ExtendedValue =
+    record(stablePackages.TemplateTypeRep, ("getTemplateTypeRep", templateId))
 
-  // private[lf] def fromTemplateTypeRep(templateId: value.Identifier): SValue =
-  //   fromTemplateTypeRep(fromIdentifier(templateId))
+  private[lf] def fromTemplateTypeRep(templateId: value.Identifier): ExtendedValue =
+    fromTemplateTypeRep(fromIdentifier(templateId))
 
-  // private[lf] def fromTemplateTypeRep(templateId: Identifier): SValue =
-  //   fromTemplateTypeRep(STypeRep(TTyCon(templateId)))
+  private[lf] def fromTemplateTypeRep(templateId: Identifier): ExtendedValue =
+    fromTemplateTypeRep(ExtendedValueTypeRep(TTyCon(templateId)))
 
-  // private[lf] def fromAnyContractId(
-  //     scriptIds: ScriptIds,
-  //     templateId: value.Identifier,
-  //     contractId: ContractId,
-  // ): SValue = {
-  //   val contractIdTy =
-  //     scriptIds.damlScriptModule("Daml.Script.Internal.Questions.Util", "AnyContractId")
-  //   record(
-  //     contractIdTy,
-  //     ("templateId", fromTemplateTypeRep(templateId)),
-  //     ("contractId", SContractId(contractId)),
-  //   )
-  // }
+  private[lf] def fromAnyContractId(
+      scriptIds: ScriptIds,
+      templateId: value.Identifier,
+      contractId: ContractId,
+  ): ExtendedValue = {
+    val contractIdTy =
+      scriptIds.damlScriptModule("Daml.Script.Internal.Questions.Util", "AnyContractId")
+    record(
+      contractIdTy,
+      ("templateId", fromTemplateTypeRep(templateId)),
+      ("contractId", ValueContractId(contractId)),
+    )
+  }
+
+  private[lf] def fromAnyException(
+      tycon: Identifier,
+      v: ExtendedValue,
+  ): ExtendedValue = ExtendedValueAny(TTyCon(tycon), v)
 
   def toFuture[T](s: Either[String, T]): Future[T] = s match {
     case Left(err) => Future.failed(new ConverterException(err))
     case Right(s) => Future.successful(s)
   }
 
-  // private[lf] def fromAnyTemplate(
-  //     translator: preprocessing.ValueTranslator,
-  //     templateId: Identifier,
-  //     argument: Value,
-  // ): Either[String, SValue] = {
-  //   for {
-  //     translated <- translator
-  //       .translateValue(
-  //         TTyCon(templateId),
-  //         argument,
-  //       )
-  //       .left
-  //       .map(err => s"Failed to translate create argument: $err")
-  //   } yield record(
-  //     stablePackages.AnyTemplate,
-  //     ("getAnyTemplate", SAny(TTyCon(templateId), translated)),
-  //   )
-  // }
+  private[lf] def fromAnyTemplate(
+      templateId: Identifier,
+      argument: Value,
+  ): ExtendedValue =
+    record(
+      stablePackages.AnyTemplate,
+      ("getAnyTemplate", ExtendedValueAny(TTyCon(templateId), argument)),
+    )
 
-  // def toAnyTemplate(v: SValue): Either[String, AnyTemplate] = {
-  //   v match {
-  //     case SRecord(_, _, vals) if vals.size == 1 => {
-  //       vals(0) match {
-  //         case SAny(TTyCon(ty), templateVal) => Right(AnyTemplate(ty, templateVal))
-  //         case v => Left(s"Expected SAny but got $v")
-  //       }
-  //     }
-  //     case _ => Left(s"Expected AnyTemplate but got $v")
-  //   }
-  // }
+  def toAnyTemplate(v: ExtendedValue): Either[String, AnyTemplate] = {
+    v match {
+      case ValueRecord(_, ImmArray((_, ExtendedValueAny(TTyCon(ty), templateVal)))) =>
+        Right(AnyTemplate(ty, templateVal))
+      case _ => Left(s"Expected AnyTemplate but got $v")
+    }
+  }
 
-  // private[lf] def fromAnyChoice(
-  //     lookupChoice: (
-  //         Identifier,
-  //         Option[Identifier],
-  //         ChoiceName,
-  //     ) => Either[String, TemplateChoiceSignature],
-  //     translator: preprocessing.ValueTranslator,
-  //     templateId: Identifier,
-  //     interfaceId: Option[Identifier],
-  //     choiceName: ChoiceName,
-  //     argument: Value,
-  // ): Either[String, SValue] = {
-  //   for {
-  //     choice <- lookupChoice(templateId, interfaceId, choiceName)
-  //     translated <- translator
-  //       .translateValue(
-  //         choice.argBinder._2,
-  //         argument,
-  //       )
-  //       .left
-  //       .map(err => s"Failed to translate exercise argument: $err")
-  //   } yield record(
-  //     stablePackages.AnyChoice,
-  //     ("getAnyChoice", SAny(choice.argBinder._2, translated)),
-  //     (
-  //       "getAnyChoiceTemplateTypeRep",
-  //       fromTemplateTypeRep(toApiIdentifier(interfaceId.getOrElse(templateId))),
-  //     ),
-  //   )
-  // }
+  private[lf] def fromAnyChoice(
+      lookupChoice: (
+          Identifier,
+          Option[Identifier],
+          ChoiceName,
+      ) => Either[String, TemplateChoiceSignature],
+      templateId: Identifier,
+      interfaceId: Option[Identifier],
+      choiceName: ChoiceName,
+      argument: Value,
+  ): Either[String, ExtendedValue] =
+    for {
+      choice <- lookupChoice(templateId, interfaceId, choiceName)
+    } yield record(
+      stablePackages.AnyChoice,
+      ("getAnyChoice", ExtendedValueAny(choice.argBinder._2, argument)),
+      (
+        "getAnyChoiceTemplateTypeRep",
+        fromTemplateTypeRep(toApiIdentifier(interfaceId.getOrElse(templateId))),
+      ),
+    )
 
-  // private[this] def choiceArgTypeToChoiceName(choiceCons: TypeConId) = {
-  //   // This exploits the fact that in Daml, choice argument type names
-  //   // and choice names match up.
-  //   assert(choiceCons.qualifiedName.name.segments.length == 1)
-  //   choiceCons.qualifiedName.name.segments.head
-  // }
+  private[this] def choiceArgTypeToChoiceName(choiceCons: TypeConId) = {
+    // This exploits the fact that in Daml, choice argument type names
+    // and choice names match up.
+    assert(choiceCons.qualifiedName.name.segments.length == 1)
+    choiceCons.qualifiedName.name.segments.head
+  }
 
-  // private[lf] def toAnyChoice(v: SValue): Either[String, AnyChoice] =
-  //   v match {
-  //     case SRecord(_, _, ArraySeq(SAny(TTyCon(choiceCons), choiceVal), _)) =>
-  //       Right(AnyChoice(choiceArgTypeToChoiceName(choiceCons), choiceVal))
-  //     case SRecord(
-  //           _,
-  //           _,
-  //           ArraySeq(
-  //             SAny(
-  //               TStruct(Struct((_, TTyCon(choiceCons)), _)),
-  //               SStruct(_, ArraySeq(choiceVal, _)),
-  //             ),
-  //             _,
-  //           ),
-  //         ) =>
-  //       Right(AnyChoice(choiceArgTypeToChoiceName(choiceCons), choiceVal))
-  //     case _ =>
-  //       Left(s"Expected AnyChoice but got $v")
-  //   }
+  private[lf] def toAnyChoice(v: ExtendedValue): Either[String, AnyChoice] =
+    v match {
+      case ValueRecord(_, ImmArray((_, ExtendedValueAny(TTyCon(choiceCons), choiceVal)), _)) =>
+        Right(AnyChoice(choiceArgTypeToChoiceName(choiceCons), choiceVal))
+      case _ =>
+        Left(s"Expected AnyChoice but got $v")
+    }
 
-  // def toAnyContractKey(v: SValue): Either[String, AnyContractKey] = {
-  //   v match {
-  //     case SRecord(_, _, ArraySeq(SAny(ty, key), templateRep)) =>
-  //       typeRepToIdentifier(templateRep).map(templateId => AnyContractKey(templateId, ty, key))
-  //     case _ => Left(s"Expected AnyContractKey but got $v")
-  //   }
-  // }
+  def toAnyContractKey(v: ExtendedValue): Either[String, AnyContractKey] = {
+    v match {
+      case ValueRecord(_, ImmArray((_, ExtendedValueAny(ty, key)), (_, templateRep))) =>
+        typeRepToIdentifier(templateRep).map(templateId => AnyContractKey(templateId, ty, key))
+      case _ => Left(s"Expected AnyContractKey but got $v")
+    }
+  }
 
-  // def typeRepToIdentifier(v: SValue): Either[String, Identifier] = {
-  //   v match {
-  //     case SRecord(_, _, vals) if vals.size == 1 => {
-  //       vals(0) match {
-  //         case STypeRep(TTyCon(ty)) => Right(ty)
-  //         case x => Left(s"Expected STypeRep but got $x")
-  //       }
-  //     }
-  //     case _ => Left(s"Expected TemplateTypeRep but got $v")
-  //   }
-  // }
+  def typeRepToIdentifier(v: ExtendedValue): Either[String, Identifier] = {
+    v match {
+      case ValueRecord(_, ImmArray((_, ExtendedValueTypeRep(TTyCon(ty))))) => Right(ty)
+      case _ => Left(s"Expected TemplateTypeRep but got $v")
+    }
+  }
 
-  // def fromAnyContractKey(key: AnyContractKey): SValue =
-  //   record(
-  //     stablePackages.AnyContractKey,
-  //     ("getAnyContractKey", SAny(key.ty, key.key)),
-  //     (
-  //       "getAnyContractKeyTemplateTypeRep",
-  //       fromTemplateTypeRep(key.templateId),
-  //     ),
-  //   )
-
-  private val fstName = Name.assertFromString("fst")
-  private val sndName = Name.assertFromString("snd")
+  def fromAnyContractKey(key: AnyContractKey): ExtendedValue =
+    record(
+      stablePackages.AnyContractKey,
+      ("getAnyContractKey", ExtendedValueAny(key.ty, key.key)),
+      (
+        "getAnyContractKeyTemplateTypeRep",
+        fromTemplateTypeRep(key.templateId),
+      ),
+    )
 
   def toParty(v: Value): Either[String, Party] =
     v match {
@@ -402,34 +369,37 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
       entityName <- DottedName.fromString(id.entityName)
     } yield Identifier(packageId, QualifiedName(moduleName, entityName))
 
-  def fromPartyDetails(scriptIds: ScriptIds, details: PartyDetails): Either[String, Value] = {
+  def fromPartyDetails(
+      scriptIds: ScriptIds,
+      details: PartyDetails,
+  ): Either[String, ExtendedValue] = {
     Right(
       record(
         scriptIds
           .damlScriptModule("Daml.Script.Internal.Questions.PartyManagement", "PartyDetails"),
         ("party", ValueParty(details.party)),
         ("isLocal", ValueBool(details.isLocal)),
-      )._1
+      )
     )
   }
 
   def fromOptional[A](x: Option[A], f: A => Either[String, Value]): Either[String, ValueOptional] =
     x.traverse(f).map(ValueOptional(_))
 
-  def fromUser(scriptIds: ScriptIds, user: User): Either[String, Value] =
+  def fromUser(scriptIds: ScriptIds, user: User): Either[String, ExtendedValue] =
     Right(
       record(
         scriptIds.damlScriptModule("Daml.Script.Internal.Questions.UserManagement", "User"),
         ("userId", fromUserId(scriptIds, user.id)),
         ("primaryParty", ValueOptional(user.primaryParty.map(ValueParty(_)))),
-      )._1
+      )
     )
 
-  def fromUserId(scriptIds: ScriptIds, userId: UserId): Value =
+  def fromUserId(scriptIds: ScriptIds, userId: UserId): ExtendedValue =
     record(
       scriptIds.damlScriptModule("Daml.Script.Internal.Questions.UserManagement", "UserId"),
       ("unpack", ValueText(userId)),
-    )._1
+    )
 
   def toUser(v: Value): Either[String, User] =
     v match {
@@ -532,18 +502,18 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
     } yield lfValue
   }
 
-  // def toDisclosure(v: Value): Either[String, Disclosure] =
-  //   v match {
-  //     case ValueRecord(_, ImmArray((_, tplId), (_, cid), (_, blob))) =>
-  //       for {
-  //         tplId <- typeRepToIdentifier(tplId)
-  //         cid <- toContractId(cid)
-  //         blob <- toText(blob)
-  //         blob <- Bytes.fromString(blob)
-  //       } yield Disclosure(tplId, cid, blob)
-  //     case _ =>
-  //       Left(s"Expected Disclosure but got $v")
-  //   }
+  def toDisclosure(v: ExtendedValue): Either[String, Disclosure] =
+    v match {
+      case ValueRecord(_, ImmArray((_, tplId), (_, cid), (_, blob))) =>
+        for {
+          tplId <- typeRepToIdentifier(tplId)
+          cid <- toContractId(cid)
+          blob <- toText(blob)
+          blob <- Bytes.fromString(blob)
+        } yield Disclosure(tplId, cid, blob)
+      case _ =>
+        Left(s"Expected Disclosure but got $v")
+    }
 
   def noDisclosures(disclosures: List[Disclosure]) = toFuture(
     Either.cond(

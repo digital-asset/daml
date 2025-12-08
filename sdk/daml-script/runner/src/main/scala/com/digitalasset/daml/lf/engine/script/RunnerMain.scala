@@ -13,14 +13,20 @@ import scala.concurrent.duration.Duration
 import scalaz.\/-
 import scalaz.syntax.traverse._
 import spray.json._
-import com.digitalasset.daml.lf.PureCompiledPackages
-import com.digitalasset.daml.lf.speedy.{Speedy, TraceLog, WarningLog}
-import com.digitalasset.daml.lf.value._
 import com.digitalasset.daml.lf.archive.{Dar, DarDecoder}
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
+import com.digitalasset.daml.lf.engine.preprocessing.ValueTranslator
 import com.digitalasset.daml.lf.language.Ast.{Package, Type}
+import com.digitalasset.daml.lf.PureCompiledPackages
+import com.digitalasset.daml.lf.speedy.{Speedy, TraceLog, WarningLog}
+import com.digitalasset.daml.lf.speedy.Speedy.Machine.{
+  ExtendedValueClosureBlob,
+  ExtendedValueAny,
+  ExtendedValueTypeRep,
+}
 import com.digitalasset.daml.lf.typesig.EnvironmentSignature
 import com.digitalasset.daml.lf.typesig.reader.SignatureReader
+import com.digitalasset.daml.lf.value._
 import com.daml.grpc.adapter.{ExecutionSequencerFactory, PekkoExecutionSequencerPool}
 import com.daml.auth.TokenHolder
 import com.digitalasset.daml.lf.engine.script.ledgerinteraction.{
@@ -134,7 +140,18 @@ object RunnerMain {
             )
           _ <- Future {
             outputFile.foreach { outputFile =>
-              val jsVal = LfValueCodec.apiValueToJsValue(result)
+              val pureResult = Value
+                .castExtendedValue(
+                  result,
+                  (_: ExtendedValueClosureBlob) =>
+                    Left(new RuntimeException("Illegal Value Blob in command!")),
+                  (_: ExtendedValueAny) =>
+                    Left(new RuntimeException("Illegal Value Any in command!")),
+                  (_: ExtendedValueTypeRep) =>
+                    Left(new RuntimeException("Illegal Value TypeRep in command!")),
+                )
+                .fold(throw _, identity)
+              val jsVal = LfValueCodec.apiValueToJsValue(pureResult)
               val outDir = outputFile.getParentFile
               if (outDir != null) {
                 val _ = Files.createDirectories(outDir.toPath)
@@ -177,12 +194,20 @@ object RunnerMain {
           val scriptId: Identifier =
             Identifier(dar.main._1, QualifiedName.assertFromString(scriptName))
           val converter = (json: JsValue, typ: Type) =>
-            Converter(majorVersion).fromJsonValue(
-              scriptId.qualifiedName,
-              envIface,
-              typ,
-              json,
-            )
+            Converter(majorVersion)
+              .fromJsonValue(
+                scriptId.qualifiedName,
+                envIface,
+                typ,
+                json,
+              )
+              .flatMap(value =>
+                // Use translator only to verify type, do not use translated value
+                new ValueTranslator(
+                  compiledPackages.pkgInterface,
+                  forbidLocalContractIds = true,
+                ).translateValue(typ, value).fold(err => Left(err.getMessage), _ => Right(value))
+              )
           runScript(scriptId, inputFile, outputFile, Some(converter)).map(_ => true)
         }
 

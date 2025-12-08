@@ -18,6 +18,7 @@ import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerC
 import com.digitalasset.daml.lf.script.{IdeLedger, IdeLedgerRunner}
 import com.digitalasset.daml.lf.speedy.{Profile, TraceLog, WarningLog}
 import com.digitalasset.daml.lf.speedy.Speedy.Machine.{
+  ExtendedValue,
   ExtendedValueClosureBlob,
   ExtendedValueComputationMode,
   runExtendedValueComputation,
@@ -25,10 +26,8 @@ import com.digitalasset.daml.lf.speedy.Speedy.Machine.{
   newWarningLog,
   newProfile,
 }
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.value._
 import com.digitalasset.daml.lf.value.Value._
-import com.daml.script.converter.ConverterException
+import com.digitalasset.daml.lf.script.converter.ConverterException
 import com.digitalasset.canton.logging.NamedLoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -74,8 +73,8 @@ private[lf] class Runner(
     }
 
   def remapQ[X](
-      result: Result[X, Free.Question, (Value, Type)]
-  ): Result[X, ScriptF.Cmd, (Value, Type)] =
+      result: Result[X, Free.Question, ExtendedValue]
+  ): Result[X, ScriptF.Cmd, ExtendedValue] =
     result.remapQ { case Free.Question(name, version, payload, stackTrace) =>
       ScriptF.parse(name, version, payload, knownPackages) match {
         case Right(cmd) =>
@@ -103,7 +102,7 @@ private[lf] class Runner(
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[Value] =
+  ): Future[ExtendedValue] =
     for {
       scriptValue <-
         runExtendedValueComputation(
@@ -137,7 +136,7 @@ private[lf] class Runner(
           canceled,
         )
       result <-
-        remapQ(freeExpr).runF[ScriptF.Cmd, (Value, Type)](
+        remapQ(freeExpr).runF[ScriptF.Cmd, ExtendedValue](
           _.executeWithRunner(env, this, convertLegacyExceptions)
             .map(Result.successful)
             .recover { case err: RuntimeException => Result.failed(err) }
@@ -148,7 +147,7 @@ private[lf] class Runner(
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): (Future[Value], Option[IdeLedgerContext]) =
+  ): (Future[ExtendedValue], Option[IdeLedgerContext]) =
     if (unversionedRunner.script.scriptIds.isLegacy)
       (
         Future.failed(
@@ -164,7 +163,7 @@ private[lf] class Runner(
           case ScriptAction.NoParam(id, _) =>
             run(ExtendedValueComputationMode.IdentifierWithoutArgs(id))
           case ScriptAction.Param(id, paramType, Some(param), _) =>
-            run(ExtendedValueComputationMode.IdentifierWithArgs(id, List((param, paramType))))
+            run(ExtendedValueComputationMode.IdentifierWithArgs(id, List(param)))
           case _ =>
             Future.failed(
               new RuntimeException("impossible")

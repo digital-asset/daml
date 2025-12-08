@@ -58,7 +58,7 @@ import com.digitalasset.canton.ledger.api.util.LfEngineToApi.{
   toApiIdentifier,
   toTimestamp,
 }
-import com.daml.script.converter.ConverterException
+import com.digitalasset.daml.lf.script.converter.ConverterException
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.{Status, StatusRuntimeException}
 import io.grpc.protobuf.StatusProto
@@ -586,7 +586,8 @@ class GrpcLedgerClient(
 
   private def toPrefetchContractKey(key: AnyContractKey): Either[String, PrefetchContractKey] = {
     for {
-      contractKey <- lfValueToApiValue(true, key.key.toUnnormalizedValue)
+      nonExtendedKeyValue <- Converter.castCommandExtendedValue(key.key)
+      contractKey <- lfValueToApiValue(true, nonExtendedKeyValue)
     } yield PrefetchContractKey(
       templateId = Some(toApiIdentifierUpgrades(key.templateId.toRef, false)),
       contractKey = Some(contractKey),

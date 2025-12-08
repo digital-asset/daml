@@ -1378,45 +1378,49 @@ private[lf] object Speedy {
       fromPureSExpr(compiledPackages, expr, iterationsBetweenInterruptions).runPure()
 
     type ExtendedValueClosureBlob = GenValue.Blob[SPAP]
+    val ExtendedValueClosureBlob: GenValue.Blob.type = GenValue.Blob
     type ExtendedValueAny = GenValue.Any[SPAP]
+    val ExtendedValueAny: GenValue.Any.type = GenValue.Any
+    type ExtendedValueTypeRep = GenValue.TypeRep[SPAP]
+    val ExtendedValueTypeRep: GenValue.TypeRep.type = GenValue.TypeRep
     type ExtendedValue = GenValue[GenValue.Extended[SPAP]]
 
     sealed trait ExtendedValueComputationMode {
       def buildSExpr(
           compiledPackages: CompiledPackages,
-          translator: ValueTranslator,
+          translator: ExtendedValueTranslator,
       ): Either[RuntimeException, SExpr]
     }
     object ExtendedValueComputationMode {
-      final case class ClosureWithArgs(f: ExtendedValueClosureBlob, args: List[(V, Type)])
+      final case class ClosureWithArgs(f: ExtendedValueClosureBlob, args: List[ExtendedValue])
           extends ExtendedValueComputationMode {
-        def buildSExpr(
+        override def buildSExpr(
             compiledPackages: CompiledPackages,
-            translator: ValueTranslator,
+            translator: ExtendedValueTranslator,
         ): Either[RuntimeException, SExpr] = {
           import scalaz.syntax.traverse._
           import scalaz.std.list._
           import scalaz.std.either._
           args
-            .traverse { case (v, ty) => translator.translateValue(ty, v).map(SEValue(_)) }
+            .traverse(v => translator.translateExtendedValue(v).map(SEValue(_)))
             .map(sArgs => SEAppAtomicGeneral(SEValue(f.getContent), ArraySeq.from(sArgs)))
         }
       }
       final case class IdentifierWithoutArgs(id: Identifier) extends ExtendedValueComputationMode {
-        def buildSExpr(
+        override def buildSExpr(
             compiledPackages: CompiledPackages,
-            translator: ValueTranslator,
+            translator: ExtendedValueTranslator,
         ): Either[RuntimeException, SExpr] =
           compiledPackages.getDefinition(LfDefRef(id)) match {
             case None => Left(new RuntimeException(s"Failed to find value $id in package"))
             case Some(SDefinition(sExpr)) => Right(sExpr)
           }
       }
-      final case class IdentifierWithArgs(id: Identifier, args: List[(V, Type)])
+      final case class IdentifierWithArgs(id: Identifier, args: List[ExtendedValue])
           extends ExtendedValueComputationMode {
-        def buildSExpr(
+        override def buildSExpr(
             compiledPackages: CompiledPackages,
-            translator: ValueTranslator,
+            translator: ExtendedValueTranslator,
         ): Either[RuntimeException, SExpr] = {
           import scalaz.syntax.traverse._
           import scalaz.std.list._
@@ -1428,7 +1432,7 @@ private[lf] object Speedy {
                 case Some(SDefinition(sExpr)) => Right(sExpr)
               }
             sValueArgs <-
-              args.traverse { case (v, ty) => translator.translateValue(ty, v) }
+              args.traverse(v => translator.translateExtendedValue(v))
           } yield SEApp(sExpr, sValueArgs.to(ArraySeq))
         }
       }
@@ -1450,11 +1454,7 @@ private[lf] object Speedy {
     )(implicit
         loggingContext: LoggingContext
     ): Either[Either[RuntimeException, SError], ExtendedValue] = {
-      val translator = new ValueTranslator(
-        compiledPackages.pkgInterface,
-        forbidLocalContractIds = true,
-        forbidTrailingNones = false,
-      )
+      val translator = new ExtendedValueTranslator(compiledPackages.pkgInterface)
       @nowarn("msg=dead code following this construct")
       @tailrec
       def runMachine(machine: PureMachine): Either[Either[RuntimeException, SError], SValue] =
@@ -1480,7 +1480,7 @@ private[lf] object Speedy {
           convertLegacyExceptions,
         )
         sRes <- runMachine(machine)
-      } yield sRes.toUnnormalizedValueWithClosures
+      } yield sRes.toUnnormalizedExtendedValue
     }
 
     def tmplId2TxVersion(pkgInterface: PackageInterface, tmplId: TypeConId): SerializationVersion =

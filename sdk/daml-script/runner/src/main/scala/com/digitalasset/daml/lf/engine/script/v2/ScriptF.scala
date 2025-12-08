@@ -8,7 +8,8 @@ package v2
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.daml.lf.CompiledPackages
-// import com.digitalasset.daml.lf.data.support.crypto.MessageSignatureUtil
+import com.digitalasset.daml.lf.data.support.crypto.MessageSignatureUtil
+import com.digitalasset.daml.lf.data.{Bytes, FrontStack}
 // import com.digitalasset.daml.lf.data.{Bytes, FrontStack, Utf8}
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref._
@@ -17,7 +18,7 @@ import com.digitalasset.daml.lf.engine.preprocessing.ValueTranslator
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
 // import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
-import com.digitalasset.daml.lf.language.Util._
+// import com.digitalasset.daml.lf.language.Util._
 // import com.digitalasset.daml.lf.speedy.SBuiltinFun.{SBThrow, SBToAny, SBVariantCon}
 import com.digitalasset.daml.lf.speedy.SBuiltinFun.SBVariantCon
 import com.digitalasset.daml.lf.speedy.SExpr._
@@ -29,7 +30,7 @@ import com.digitalasset.daml.lf.stablepackages.StablePackagesV2
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value._
 // import com.digitalasset.daml.lf.value.Value.ContractId
-// import com.daml.script.converter.Converter.{makeTuple, toContractId, toText}
+// import com.digitalasset.daml.lf.script.converter.Converter.{makeTuple, toContractId, toText}
 // import com.digitalasset.canton.ledger.api.{User, UserRight}
 import org.apache.pekko.stream.Materializer
 // import scalaz.std.either._
@@ -67,13 +68,13 @@ object ScriptF {
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
-    ): Future[(Value, Ast.Type)] = execute(env)
+    ): Future[ExtendedValue] = execute(env)
 
     private[lf] def execute(env: Env)(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
-    ): Future[(Value, Ast.Type)]
+    ): Future[ExtendedValue]
   }
   // The environment that the `execute` function gets access to.
   final class Env(
@@ -113,14 +114,11 @@ object ScriptF {
         case Left(err) => Left(err.pretty)
       }
 
-    def lookupVariantConstructorRank(
+    def doesVariantConstructorExist(
         tyCon: Identifier,
         consName: Name,
-    ): Either[String, Int] =
-      compiledPackages.pkgInterface.lookupVariantConstructor(tyCon, consName) match {
-        case Right(info) => Right(info.rank)
-        case Left(err) => Left(err.pretty)
-      }
+    ): Boolean =
+      compiledPackages.pkgInterface.lookupVariantConstructor(tyCon, consName).isRight
 
     def translateValue(ty: Ast.Type, value: Value): Either[String, SValue] =
       valueTranslator.translateValue(ty, value).left.map(_.toString)
@@ -140,7 +138,7 @@ object ScriptF {
   //       ec: ExecutionContext,
   //       mat: Materializer,
   //       esf: ExecutionSequencerFactory,
-  //   ): Future[(Value, Ast.Type)] = {
+  //   ): Future[ExtendedValue] = {
   //     def makeFailureStatus(name: Identifier, msg: String) =
   //       Future.failed(
   //         free.InterpretationError(
@@ -186,7 +184,7 @@ object ScriptF {
   //       ec: ExecutionContext,
   //       mat: Materializer,
   //       esf: ExecutionSequencerFactory,
-  //   ): Future[(Value, Ast.Type)] = Future.failed(new NotImplementedError)
+  //   ): Future[ExtendedValue] = Future.failed(new NotImplementedError)
   // }
 
   // final case class Catch(act: SValue) extends Cmd {
@@ -195,7 +193,7 @@ object ScriptF {
   //       ec: ExecutionContext,
   //       mat: Materializer,
   //       esf: ExecutionSequencerFactory,
-  //   ): Future[(Value, Ast.Type)] =
+  //   ): Future[ExtendedValue] =
   //     runner
   //       .run(SEAppAtomic(SEValue(act), ArraySeq(SEValue(SUnit))), convertLegacyExceptions = false)
   //       .transformWith {
@@ -228,7 +226,7 @@ object ScriptF {
   //       ec: ExecutionContext,
   //       mat: Materializer,
   //       esf: ExecutionSequencerFactory,
-  //   ): Future[(Value, Ast.Type)] = Future.failed(new NotImplementedError)
+  //   ): Future[ExtendedValue] = Future.failed(new NotImplementedError)
   // }
 
   // final case class TryFailureStatus(act: SValue) extends Cmd {
@@ -237,7 +235,7 @@ object ScriptF {
   //       ec: ExecutionContext,
   //       mat: Materializer,
   //       esf: ExecutionSequencerFactory,
-  //   ): Future[(Value, Ast.Type)] =
+  //   ): Future[ExtendedValue] =
   //     runner
   //       .run(SEAppAtomic(SEValue(act), ArraySeq(SEValue(SUnit))), convertLegacyExceptions = true)
   //       .transformWith {
@@ -250,7 +248,7 @@ object ScriptF {
   //                 )
   //               )
   //             ) =>
-  //           import com.daml.script.converter.Converter.record
+  //           import com.digitalasset.daml.lf.script.converter.Converter.record
   //           Future.successful(
   //             SEAppAtomic(
   //               left,
@@ -277,7 +275,7 @@ object ScriptF {
   //       ec: ExecutionContext,
   //       mat: Materializer,
   //       esf: ExecutionSequencerFactory,
-  //   ): Future[(Value, Ast.Type)] = Future.failed(new NotImplementedError)
+  //   ): Future[ExtendedValue] = Future.failed(new NotImplementedError)
   // }
 
   // final case class Submission(
@@ -406,7 +404,7 @@ object ScriptF {
   //       ec: ExecutionContext,
   //       mat: Materializer,
   //       esf: ExecutionSequencerFactory,
-  //   ): Future[(Value, Ast.Type)] =
+  //   ): Future[ExtendedValue] =
   //     for {
   //       client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
   //       optR <- client.queryContractId(parties, tplId, cid)
@@ -438,7 +436,7 @@ object ScriptF {
   //       ec: ExecutionContext,
   //       mat: Materializer,
   //       esf: ExecutionSequencerFactory,
-  //   ): Future[(Value, Ast.Type)] = {
+  //   ): Future[ExtendedValue] = {
 
   //     for {
   //       viewType <- Converter.toFuture(env.lookupInterfaceViewTy(interfaceId))
@@ -477,7 +475,7 @@ object ScriptF {
   //       ec: ExecutionContext,
   //       mat: Materializer,
   //       esf: ExecutionSequencerFactory,
-  //   ): Future[(Value, Ast.Type)] = {
+  //   ): Future[ExtendedValue] = {
   //     for {
   //       viewType <- Converter.toFuture(env.lookupInterfaceViewTy(interfaceId))
   //       client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
@@ -509,7 +507,7 @@ object ScriptF {
   //       ec: ExecutionContext,
   //       mat: Materializer,
   //       esf: ExecutionSequencerFactory,
-  //   ): Future[(Value, Ast.Type)] =
+  //   ): Future[ExtendedValue] =
   //     for {
   //       client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
   //       optR <- client.queryContractKey(
@@ -543,7 +541,7 @@ object ScriptF {
   //       ec: ExecutionContext,
   //       mat: Materializer,
   //       esf: ExecutionSequencerFactory,
-  //   ): Future[(Value, Ast.Type)] = {
+  //   ): Future[ExtendedValue] = {
   //     val owningParticipant = participants.map(_._1)
   //     for {
   //       owningClient <- env.clients.assertGetParticipantFuture(owningParticipant)
@@ -583,7 +581,7 @@ object ScriptF {
   //       ec: ExecutionContext,
   //       mat: Materializer,
   //       esf: ExecutionSequencerFactory,
-  //   ): Future[(Value, Ast.Type)] =
+  //   ): Future[ExtendedValue] =
   //     for {
   //       client <- env.clients.getParticipant(participant) match {
   //         case Right(client) => Future.successful(client)
@@ -602,7 +600,7 @@ object ScriptF {
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
-    ): Future[(Value, Ast.Type)] =
+    ): Future[ExtendedValue] =
       for {
         time <- env.timeMode match {
           case ScriptTimeMode.Static => {
@@ -619,14 +617,14 @@ object ScriptF {
               Timestamp.assertFromInstant(env.utcClock.instant())
             }
         }
-      } yield (ValueTimestamp(time), TTimestamp)
+      } yield ValueTimestamp(time)
   }
   // final case class SetTime(time: Timestamp) extends Cmd {
   //   override def execute(env: Env)(implicit
   //       ec: ExecutionContext,
   //       mat: Materializer,
   //       esf: ExecutionSequencerFactory,
-  //   ): Future[(Value, Ast.Type)] =
+  //   ): Future[ExtendedValue] =
   //     env.timeMode match {
   //       case ScriptTimeMode.Static =>
   //         for {
@@ -649,7 +647,7 @@ object ScriptF {
   //       ec: ExecutionContext,
   //       mat: Materializer,
   //       esf: ExecutionSequencerFactory,
-  //   ): Future[(Value, Ast.Type)] = Future {
+  //   ): Future[ExtendedValue] = Future {
   //     sleepAtLeast(micros * 1000)
   //     SEValue(SUnit)
   //   }
@@ -672,7 +670,7 @@ object ScriptF {
   //       ec: ExecutionContext,
   //       mat: Materializer,
   //       esf: ExecutionSequencerFactory,
-  //   ): Future[(Value, Ast.Type)] = Future {
+  //   ): Future[ExtendedValue] = Future {
   //     // By using a deterministic PRNG and setting the seed to a fixed value each time we sign a message, we ensure
   //     // that secp256k1 signing uses a deterministic source of randomness and so behaves deterministically.
   //     val deterministicRandomSrc: SecureRandom = SecureRandom.getInstance("SHA1PRNG")
@@ -692,7 +690,7 @@ object ScriptF {
   //       ec: ExecutionContext,
   //       mat: Materializer,
   //       esf: ExecutionSequencerFactory,
-  //   ): Future[(Value, Ast.Type)] = Future {
+  //   ): Future[ExtendedValue] = Future {
   //     // By using a deterministic PRNG and setting the seed to a fixed value each time we sign a message, we ensure
   //     // that secp256k1 signing uses a deterministic source of randomness and so behaves deterministically.
   //     val deterministicRandomSrc: SecureRandom = SecureRandom.getInstance("SHA1PRNG")
@@ -711,17 +709,17 @@ object ScriptF {
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
-    ): Future[(Value, Ast.Type)] = Future {
+    ): Future[ExtendedValue] = Future {
       val keyPair = MessageSignatureUtil.generateKeyPair
       val privateKey = HexString.encode(Bytes.fromByteArray(keyPair.getPrivate.getEncoded))
       val publicKey = HexString.encode(Bytes.fromByteArray(keyPair.getPublic.getEncoded))
 
-      import com.daml.script.converter.Converter.record
+      import com.digitalasset.daml.lf.script.converter.Converter.record
       record(
         env.scriptIds
           .damlScriptModule("Daml.Script.Internal.Questions.Crypto.Text", "Secp256k1KeyPair"),
-        "privateKey" -> SText(privateKey),
-        "publicKey" -> SText(publicKey),
+        "privateKey" -> ValueText(privateKey),
+        "publicKey" -> ValueText(publicKey),
       )
 
     }
@@ -734,7 +732,7 @@ object ScriptF {
   //       ec: ExecutionContext,
   //       mat: Materializer,
   //       esf: ExecutionSequencerFactory,
-  //   ): Future[(Value, Ast.Type)] = {
+  //   ): Future[ExtendedValue] = {
   //     val errorOption =
   //       UserId.fromString(userName) match {
   //         case Right(_) => None // valid
@@ -753,7 +751,7 @@ object ScriptF {
   //       ec: ExecutionContext,
   //       mat: Materializer,
   //       esf: ExecutionSequencerFactory,
-  //   ): Future[(Value, Ast.Type)] =
+  //   ): Future[ExtendedValue] =
   //     for {
   //       client <- Converter.toFuture(env.clients.getParticipant(participant))
   //       res <- client.createUser(user, rights)
@@ -771,7 +769,7 @@ object ScriptF {
   //       ec: ExecutionContext,
   //       mat: Materializer,
   //       esf: ExecutionSequencerFactory,
-  //   ): Future[(Value, Ast.Type)] =
+  //   ): Future[ExtendedValue] =
   //     for {
   //       client <- Converter.toFuture(env.clients.getParticipant(participant))
   //       user <- client.getUser(userId)
@@ -796,7 +794,7 @@ object ScriptF {
   //       ec: ExecutionContext,
   //       mat: Materializer,
   //       esf: ExecutionSequencerFactory,
-  //   ): Future[(Value, Ast.Type)] =
+  //   ): Future[ExtendedValue] =
   //     for {
   //       client <- Converter.toFuture(env.clients.getParticipant(participant))
   //       res <- client.deleteUser(userId)
@@ -813,7 +811,7 @@ object ScriptF {
   //       ec: ExecutionContext,
   //       mat: Materializer,
   //       esf: ExecutionSequencerFactory,
-  //   ): Future[(Value, Ast.Type)] =
+  //   ): Future[ExtendedValue] =
   //     for {
   //       client <- Converter.toFuture(env.clients.getParticipant(participant))
   //       users <- client.listAllUsers()
@@ -832,7 +830,7 @@ object ScriptF {
   //       ec: ExecutionContext,
   //       mat: Materializer,
   //       esf: ExecutionSequencerFactory,
-  //   ): Future[(Value, Ast.Type)] =
+  //   ): Future[ExtendedValue] =
   //     for {
   //       client <- Converter.toFuture(env.clients.getParticipant(participant))
   //       rights <- client.grantUserRights(userId, rights)
@@ -856,7 +854,7 @@ object ScriptF {
   //       ec: ExecutionContext,
   //       mat: Materializer,
   //       esf: ExecutionSequencerFactory,
-  //   ): Future[(Value, Ast.Type)] =
+  //   ): Future[ExtendedValue] =
   //     for {
   //       client <- Converter.toFuture(env.clients.getParticipant(participant))
   //       rights <- client.revokeUserRights(userId, rights)
@@ -879,7 +877,7 @@ object ScriptF {
   //       ec: ExecutionContext,
   //       mat: Materializer,
   //       esf: ExecutionSequencerFactory,
-  //   ): Future[(Value, Ast.Type)] =
+  //   ): Future[ExtendedValue] =
   //     for {
   //       client <- Converter.toFuture(env.clients.getParticipant(participant))
   //       rights <- client.listUserRights(userId)
@@ -902,7 +900,7 @@ object ScriptF {
   //       ec: ExecutionContext,
   //       mat: Materializer,
   //       esf: ExecutionSequencerFactory,
-  //   ): Future[(Value, Ast.Type)] =
+  //   ): Future[ExtendedValue] =
   //     for {
   //       client <- Converter.toFuture(env.clients.getParticipant(participant))
   //       _ <- client.vetPackages(packages)
@@ -920,7 +918,7 @@ object ScriptF {
   //       ec: ExecutionContext,
   //       mat: Materializer,
   //       esf: ExecutionSequencerFactory,
-  //   ): Future[(Value, Ast.Type)] =
+  //   ): Future[ExtendedValue] =
   //     for {
   //       client <- Converter.toFuture(env.clients.getParticipant(participant))
   //       _ <- client.unvetPackages(packages)
@@ -930,33 +928,33 @@ object ScriptF {
   //     } yield SEValue(SUnit)
   // }
 
-  // final case class ListVettedPackages() extends Cmd {
-  //   override def execute(env: Env)(implicit
-  //       ec: ExecutionContext,
-  //       mat: Materializer,
-  //       esf: ExecutionSequencerFactory,
-  //   ): Future[(Value, Ast.Type)] =
-  //     for {
-  //       client <- Converter.toFuture(env.clients.getParticipant(None))
-  //       packages <- client.listVettedPackages()
-  //     } yield SEValue(
-  //       SList(packages.to(FrontStack).map(Converter.fromReadablePackageId(env.scriptIds, _)))
-  //     )
-  // }
+  final case class ListVettedPackages() extends Cmd {
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[ExtendedValue] =
+      for {
+        client <- Converter.toFuture(env.clients.getParticipant(None))
+        packages <- client.listVettedPackages()
+      } yield ValueList(
+        packages.to(FrontStack).map(Converter.fromReadablePackageId(env.scriptIds, _))
+      )
+  }
 
-  // final case class ListAllPackages() extends Cmd {
-  //   override def execute(env: Env)(implicit
-  //       ec: ExecutionContext,
-  //       mat: Materializer,
-  //       esf: ExecutionSequencerFactory,
-  //   ): Future[(Value, Ast.Type)] =
-  //     for {
-  //       client <- Converter.toFuture(env.clients.getParticipant(None))
-  //       packages <- client.listAllPackages()
-  //     } yield SEValue(
-  //       SList(packages.to(FrontStack).map(Converter.fromReadablePackageId(env.scriptIds, _)))
-  //     )
-  // }
+  final case class ListAllPackages() extends Cmd {
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[ExtendedValue] =
+      for {
+        client <- Converter.toFuture(env.clients.getParticipant(None))
+        packages <- client.listAllPackages()
+      } yield ValueList(
+        packages.to(FrontStack).map(Converter.fromReadablePackageId(env.scriptIds, _))
+      )
+  }
 
   // final case class TryCommands(act: SValue) extends Cmd {
   //   override def executeWithRunner(env: Env, runner: v2.Runner, convertLegacyExceptions: Boolean)(
@@ -964,7 +962,7 @@ object ScriptF {
   //       ec: ExecutionContext,
   //       mat: Materializer,
   //       esf: ExecutionSequencerFactory,
-  //   ): Future[(Value, Ast.Type)] =
+  //   ): Future[ExtendedValue] =
   //     runner.run(SEValue(act), convertLegacyExceptions).transformWith {
   //       case Success(v) =>
   //         Future.successful(SEAppAtomic(right, ArraySeq(SEValue(v))))
@@ -983,7 +981,7 @@ object ScriptF {
   //           case e => e.getClass.getSimpleName
   //         }
 
-  //         import com.daml.script.converter.Converter.record
+  //         import com.digitalasset.daml.lf.script.converter.Converter.record
   //         Future.successful(
   //           SEApp(
   //             left,
@@ -1004,7 +1002,7 @@ object ScriptF {
   //       ec: ExecutionContext,
   //       mat: Materializer,
   //       esf: ExecutionSequencerFactory,
-  //   ): Future[(Value, Ast.Type)] = Future.failed(new NotImplementedError)
+  //   ): Future[ExtendedValue] = Future.failed(new NotImplementedError)
   // }
 
   // final case class FailWithStatus(failureStatus: IE.FailureStatus) extends Cmd {
@@ -1012,7 +1010,7 @@ object ScriptF {
   //       ec: ExecutionContext,
   //       mat: Materializer,
   //       esf: ExecutionSequencerFactory,
-  //   ): Future[(Value, Ast.Type)] =
+  //   ): Future[ExtendedValue] =
   //     Future.failed(free.InterpretationError(SError.SErrorDamlException(failureStatus)))
   // }
 

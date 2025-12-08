@@ -224,6 +224,8 @@ object Error {
 
       final case class InvalidValue(value: Value, message: String) extends Error
 
+      final case class InvalidExtendedValue(message: String) extends Error
+
       final case class MalformedText(message: String) extends Error
     }
   }

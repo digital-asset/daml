@@ -7,7 +7,7 @@ package script
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.logging.LoggingContext
-import com.daml.script.converter.ConverterException
+import com.digitalasset.daml.lf.script.converter.ConverterException
 import com.daml.tls.TlsConfiguration
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.ledger.client.configuration.{
@@ -30,16 +30,21 @@ import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerCli
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.script.{IdeLedger, IdeLedgerRunner}
-import com.digitalasset.daml.lf.speedy.SExpr._
+import com.digitalasset.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
 import com.digitalasset.daml.lf.speedy.{
   Compiler,
   Pretty,
   Profile,
   SDefinition,
   SError,
-  Speedy,
   TraceLog,
   WarningLog,
+}
+import com.digitalasset.daml.lf.speedy.Speedy.Machine.{
+  ExtendedValue,
+  newTraceLog,
+  newWarningLog,
+  newProfile,
 }
 import com.digitalasset.daml.lf.typesig.EnvironmentSignature
 import com.digitalasset.daml.lf.typesig.reader.SignatureReader
@@ -58,7 +63,6 @@ import scalaz.syntax.traverse._
 import scalaz.{Applicative, NonEmptyList, OneAnd, Traverse, \/-}
 import spray.json._
 
-import scala.collection.immutable.ArraySeq
 import scala.concurrent.{ExecutionContext, Future}
 
 object LfValueCodec extends ApiCodecCompressed(false, false)
@@ -359,7 +363,7 @@ object Runner {
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[Value] = {
+  ): Future[ExtendedValue] = {
     val darMap = dar.all.toMap
     val majorVersion = dar.main._2.languageVersion.major
     val compiledPackages =
@@ -400,15 +404,15 @@ object Runner {
       inputValue: Option[X],
       initialClients: Participants[ScriptLedgerClient],
       timeMode: ScriptTimeMode,
-      traceLog: TraceLog = Speedy.Machine.newTraceLog,
-      warningLog: WarningLog = Speedy.Machine.newWarningLog,
-      profile: Profile = Speedy.Machine.newProfile,
+      traceLog: TraceLog = newTraceLog,
+      warningLog: WarningLog = newWarningLog,
+      profile: Profile = newProfile,
       canceled: () => Option[RuntimeException] = () => None,
   )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[Value] =
+  ): Future[ExtendedValue] =
     runWithOptionalIdeContext(
       compiledPackages,
       scriptId,
@@ -430,15 +434,15 @@ object Runner {
       inputValue: Option[X],
       initialClient: IdeLedgerClient,
       timeMode: ScriptTimeMode,
-      traceLog: TraceLog = Speedy.Machine.newTraceLog,
-      warningLog: WarningLog = Speedy.Machine.newWarningLog,
-      profile: Profile = Speedy.Machine.newProfile,
+      traceLog: TraceLog = newTraceLog,
+      warningLog: WarningLog = newWarningLog,
+      profile: Profile = newProfile,
       canceled: () => Option[RuntimeException] = () => None,
   )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): (Future[Value], IdeLedgerContext) = {
+  ): (Future[ExtendedValue], IdeLedgerContext) = {
     val initialClients = Participants(Some(initialClient), Map.empty, Map.empty)
     val (resultF, oIdeLedgerContext) = runWithOptionalIdeContext(
       compiledPackages,
@@ -470,7 +474,7 @@ object Runner {
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): (Future[Value], Option[IdeLedgerContext]) = {
+  ): (Future[ExtendedValue], Option[IdeLedgerContext]) = {
     val script = data.assertRight(ScriptAction.fromIdentifier(compiledPackages, scriptId))
     val scriptAction: ScriptAction = (script, inputValue) match {
       case (script: ScriptAction.NoParam, None) => script
@@ -507,28 +511,35 @@ private[lf] class Runner(
     val script: ScriptAction,
     val timeMode: ScriptTimeMode,
 ) extends StrictLogging {
-
   // Daml script requires unsafe casting on Value payloads from the engine, for exercise results and such
   // This is implemented as a simple identity in the engine, but is untyped.
   val extendedCompiledPackages = {
-    def getDamlScriptDefs(ref: SDefinitionRef): Option[SDefinition] = ref match {
-      case LfDefRef(id)
-          if id == script.scriptIds.damlScriptModule(
-            "Daml.Script.Internal.LowLevel",
-            "dangerousCast",
-          ) =>
-        Some(SDefinition(SEMakeClo(ArraySeq.empty, 1, SELocA(0))))
-      case _ =>
-        None
-    }
+    // Bit hacky, find any package containing DA.Internal.Prelude (doesn't matter if it's a different stdlib version to the one we're using)
+    // then pull identity out of that.
+    // TODO: consider if theres a better way without SExpr construction
+    val internalPreludeModuleName = ModuleName.assertFromString("DA.Internal.Prelude")
+    val stdlibPkgId = compiledPackages.signatures.collectFirst {
+      case (pkgId, sig) if sig.modules.contains(internalPreludeModuleName) => pkgId
+    }.get
+    val identityRef = LfDefRef(
+      Identifier(
+        stdlibPkgId,
+        QualifiedName(internalPreludeModuleName, DottedName.assertFromString("identity")),
+      )
+    )
+    val dangerousCastRef = LfDefRef(
+      script.scriptIds.damlScriptModule("Daml.Script.Internal.LowLevel", "dangerousCast")
+    )
+    // Replaced the definition of dangerousCast with that of `identity`, without explicitly constructing an SExpr
+    def replaceDangerousCastRef(ref: SDefinitionRef): SDefinitionRef =
+      if (ref == dangerousCastRef) identityRef else ref
 
     new CompiledPackages(
       Runner.compilerConfig
     ) {
       override def signatures = compiledPackages.signatures
-
       override def getDefinition(ref: SDefinitionRef): Option[SDefinition] =
-        getDamlScriptDefs(ref).orElse(compiledPackages.getDefinition(ref))
+        compiledPackages.getDefinition(replaceDangerousCastRef(ref))
     }
   }
 
@@ -540,15 +551,15 @@ private[lf] class Runner(
 
   def runWithClients(
       initialClients: Participants[ScriptLedgerClient],
-      traceLog: TraceLog = Speedy.Machine.newTraceLog,
-      warningLog: WarningLog = Speedy.Machine.newWarningLog,
-      profile: Profile = Speedy.Machine.newProfile,
+      traceLog: TraceLog = newTraceLog,
+      warningLog: WarningLog = newWarningLog,
+      profile: Profile = newProfile,
       canceled: () => Option[RuntimeException] = () => None,
   )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): (Future[Value], Option[Runner.IdeLedgerContext]) = {
+  ): (Future[ExtendedValue], Option[Runner.IdeLedgerContext]) = {
     val damlScriptName = Runner.getPackageName(compiledPackages, script.scriptIds.scriptPackageId)
 
     damlScriptName.getOrElse(

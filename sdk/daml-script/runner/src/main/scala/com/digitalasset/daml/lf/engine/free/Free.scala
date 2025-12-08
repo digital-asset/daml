@@ -7,17 +7,13 @@ package free
 
 import com.daml.logging.LoggingContext
 import data.{ImmArray, Ref}
-import language.Ast._
-import language.Util._
 import speedy._
 import speedy.Speedy.Machine.{
   ExtendedValue,
-  ExtendedValueAny,
   ExtendedValueClosureBlob,
   ExtendedValueComputationMode,
   runExtendedValueComputation,
 }
-import value._
 import value.Value._
 import scalaz.std.either._
 import scalaz.std.vector._
@@ -129,7 +125,7 @@ private[lf] object Free {
       profile: Profile,
       loggingContext: LoggingContext,
       convertLegacyExceptions: Boolean,
-  ): Result[Value, Question, (Value, Type)] =
+  ): Result[ExtendedValue, Question, ExtendedValue] =
     new Runner(
       freeClosure,
       compiledPackages: CompiledPackages,
@@ -149,7 +145,7 @@ private[lf] object Free {
       loggingContext: LoggingContext,
       convertLegacyExceptions: Boolean,
       cancelled: () => Option[RuntimeException],
-  )(implicit ec: ExecutionContext): Future[Result[Value, Question, (Value, Type)]] =
+  )(implicit ec: ExecutionContext): Future[Result[ExtendedValue, Question, ExtendedValue]] =
     new Runner(
       freeClosure: ExtendedValueClosureBlob,
       compiledPackages: CompiledPackages,
@@ -172,21 +168,21 @@ private[lf] object Free {
       cancelled: () => Option[RuntimeException] = () => None,
   ) {
 
-    def getResult(): Result[Value, Question, (Value, Type)] = {
+    def getResult(): Result[ExtendedValue, Question, ExtendedValue] = {
       for {
-        v <- runClosure(freeClosure, List((ValueUnit, TUnit)))
+        v <- runClosure(freeClosure, List(ValueUnit))
         w <- runFreeMonad(v)
       } yield w
     }
 
     def getResultF()(implicit
         ec: ExecutionContext
-    ): Future[Result[Value, Question, (Value, Type)]] =
+    ): Future[Result[ExtendedValue, Question, ExtendedValue]] =
       Future { getResult() }
 
     private[this] def runClosure(
         closure: ExtendedValueClosureBlob,
-        args: List[(Value, Type)],
+        args: List[ExtendedValue],
     ): Result.NoQuestion[ExtendedValue] =
       runExtendedValueComputation(
         computationMode = ExtendedValueComputationMode.ClosureWithArgs(closure, args),
@@ -204,7 +200,7 @@ private[lf] object Free {
 
     def parseQuestion(
         v: ExtendedValue
-    ): ErrOr[Either[Value, (Question, ExtendedValueClosureBlob)]] = {
+    ): ErrOr[Either[ExtendedValue, (Question, ExtendedValueClosureBlob)]] = {
       v match {
         case ValueVariant(
               _,
@@ -231,12 +227,7 @@ private[lf] object Free {
           for {
             stackTrace <- toStackTrace(locations)
           } yield Right(Question(name, version, payload, stackTrace) -> continue)
-        case ValueVariant(_, "Pure", v) =>
-          castToPureValue(
-            v,
-            (_: ExtendedValueClosureBlob) => Left(new RuntimeException("Blob in return value!")),
-            (_: ExtendedValueAny) => Left(new RuntimeException("Any in return value!")),
-          ).map(Left(_))
+        case ValueVariant(_, "Pure", v) => Right(Left(v))
         case _ =>
           convError(s"Expected Free Question or Pure, got $v")
       }
@@ -244,14 +235,14 @@ private[lf] object Free {
 
     private[lf] def runFreeMonad(
         freeValue: ExtendedValue
-    ): Result[Value, Question, (Value, Type)] = {
+    ): Result[ExtendedValue, Question, ExtendedValue] = {
       for {
         free <- parseQuestion(freeValue).toResult
         result <- free match {
           case Right((question, continue)) =>
             for {
               nextFreeValue <- {
-                def resume(answer: ErrOr[(Value, Type)]): Result.NoQuestion[ExtendedValue] =
+                def resume(answer: ErrOr[ExtendedValue]): Result.NoQuestion[ExtendedValue] =
                   answer.fold(Result.failed, answer => runClosure(continue, List(answer)))
                 Result.Ask(question, resume)
               }
@@ -261,14 +252,7 @@ private[lf] object Free {
             v match {
               case ValueRecord(_, ImmArray((_, result), _)) =>
                 // Unwrap the Tuple2 we get from the inlined StateT.
-                Result.Final(
-                  castToPureValue(
-                    result,
-                    (_: ExtendedValueClosureBlob) =>
-                      Left(new RuntimeException("Blob in return value!")),
-                    (_: ExtendedValueAny) => Left(new RuntimeException("Any in return value!")),
-                  )
-                )
+                Result.successful(result)
               case _ =>
                 convError(s"Expected Tuple2 but got $v").toResult
             }

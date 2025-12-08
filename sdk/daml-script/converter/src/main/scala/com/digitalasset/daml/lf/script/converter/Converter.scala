@@ -1,14 +1,13 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.script.converter
+package com.digitalasset.daml.lf
+package script.converter
 
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.language.Ast.Type
-import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.stablepackages.StablePackagesV2
-import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.speedy.Speedy.Machine.ExtendedValue
 import com.digitalasset.daml.lf.value.Value._
 import scalaz.std.either._
 import scalaz.syntax.bind._
@@ -20,46 +19,30 @@ object Converter {
 
   type ErrorOr[+A] = Either[String, A]
 
-  def toContractId(v: Value): ErrorOr[ContractId] =
+  def toContractId(v: ExtendedValue): ErrorOr[ContractId] =
     v.expect("ContractId", { case ValueContractId(cid) => cid })
 
-  def toText(v: Value): ErrorOr[String] =
+  def toText(v: ExtendedValue): ErrorOr[String] =
     v.expect("Text", { case ValueText(s) => s })
 
-  // Helper to make constructing an SRecord more convenient
-  def record(ty: Identifier, fields: (String, Value)*): (Value, Type) =
-    recordWithTypeArgs(ty, List.empty, fields: _*)
-
-  def recordWithTypeArgs(
-      ty: Identifier,
-      tyArgs: List[Type],
-      fields: (String, Value)*
-  ): (Value, Type) =
-    (
-      ValueRecord(
-        Some(ty),
-        fields.view.map { case (n, v) => (Some(Name.assertFromString(n)), v) }.to(ImmArray),
-      ),
-      TTyConApp(ty, tyArgs.to(ImmArray)),
+  // Helper to make constructing a ValueRecord more convenient
+  def record(ty: Identifier, fields: (String, ExtendedValue)*): ExtendedValue =
+    ValueRecord(
+      Some(ty),
+      fields.view.map { case (n, v) => (Some(Name.assertFromString(n)), v) }.to(ImmArray),
     )
 
-  def makeTuple(v1: (Value, Type), v2: (Value, Type)): (Value, Type) =
-    recordWithTypeArgs(StablePackagesV2.Tuple2, List(v1._2, v2._2), ("_1", v1._1), ("_2", v2._1))
+  def makeTuple(v1: ExtendedValue, v2: ExtendedValue): ExtendedValue =
+    record(StablePackagesV2.Tuple2, ("_1", v1), ("_2", v2))
 
-  def makeTuple(v1: (Value, Type), v2: (Value, Type), v3: (Value, Type)): (Value, Type) =
-    recordWithTypeArgs(
-      StablePackagesV2.Tuple3,
-      List(v1._2, v2._2, v3._2),
-      ("_1", v1._1),
-      ("_2", v2._1),
-      ("_3", v3._1),
-    )
+  def makeTuple(v1: ExtendedValue, v2: ExtendedValue, v3: ExtendedValue): ExtendedValue =
+    record(StablePackagesV2.Tuple3, ("_1", v1), ("_2", v2), ("_3", v3))
 
   private[this] val DaTypesTuple2 =
     QualifiedName(DottedName.assertFromString("DA.Types"), DottedName.assertFromString("Tuple2"))
 
   object DamlTuple2 {
-    def unapply(v: ValueRecord): Option[(Value, Value)] = v match {
+    def unapply(v: ValueRecord): Option[(ExtendedValue, ExtendedValue)] = v match {
       case ValueRecord(Some(Identifier(_, DaTypesTuple2)), ImmArray((_, fst), (_, snd))) =>
         Some((fst, snd))
       case _ => None
@@ -67,7 +50,7 @@ object Converter {
   }
 
   object DamlAnyModuleRecord {
-    def unapplySeq(v: ValueRecord): Option[(String, collection.Seq[Value])] = v match {
+    def unapplySeq(v: ValueRecord): Option[(String, collection.Seq[ExtendedValue])] = v match {
       case ValueRecord(Some(Identifier(_, QualifiedName(_, name))), fields) =>
         Some((name.dottedName, fields.map(_._2).toSeq))
       case _ => None

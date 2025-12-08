@@ -36,13 +36,18 @@ sealed abstract class SValue extends AnyRef {
     )
   }
 
-  def toUnnormalizedValueWithClosures: GenValue[GenValue.Extended[SPAP]] =
+  def toUnnormalizedExtendedValue: GenValue[GenValue.Extended[SPAP]] =
     toValue[GenValue.Extended[SPAP]](
       keepTypeInfo = true,
       keepFieldName = true,
       keepTrailingNoneFields = true,
-      handleOther = { case s: SPAP =>
-        GenValue.Blob(s)
+      handleOther = {
+        case s: SPAP =>
+          GenValue.Blob(s)
+        case SAny(ty, v) =>
+          GenValue.Any[SPAP](ty, v.toUnnormalizedExtendedValue)
+        case STypeRep(ty) =>
+          GenValue.TypeRep[SPAP](ty)
       },
     )
 
