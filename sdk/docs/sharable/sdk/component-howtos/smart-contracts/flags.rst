@@ -9,12 +9,12 @@ The Daml Compiler
 
 At the core of the Daml toolchain lies the Daml Compiler, also known as `damlc`.
 Its primary usage is to compile Daml source code (with ``.daml`` extension) into
-a lower-level language called Daml-LF. :ref:`Daml-Lf<daml-lf>` is the language
+a lower-level language called Daml-LF. :ref:`Daml-LF<daml-lf>` is the language
 that canton participants can evaluate.
 
-When building, recommended via :subsiteref:`DPM<dpm>` (i.e. trough ``dpm
-build``), or alternatively, by calling ``damlc`` directly, the Daml Compiler
-goes through the following stages:
+We recommended building via :subsiteref:`DPM<dpm>` (i.e. trough ``dpm build``),
+or alternatively, by calling ``damlc`` directly, the Daml Compiler goes through
+the following stages:
 
 
 #. The input ``.daml`` :ref:`files<glos-daml-source-files>` are type-checked (i.e. it is verified if they are
@@ -27,8 +27,8 @@ goes through the following stages:
 
 Build files can be cleaned using ``dpm clean``.
 
-On top of that, the Daml Compiler offers testing functionality, either by
-calling ``dpm build`` to obtain a ``.dar`` to be used in combination with
+The Daml Compiler also offers testing functionality. It can be invoked either by
+first calling ``dpm build`` to obtain a ``.dar`` which is then used in a call to
 :ref:`daml-script` (i.e. ``dpm script``), or by calling :ref:`glos-daml-test`
 (i.e. ``dpm test``) directly.
 
@@ -64,19 +64,6 @@ These flags are available for both ``--build`` as well as ``--test``.
     should prefer the ``DAML_PACKAGE`` environment variable over this option.
     See :subsiteref:`dpm-configuration` for more details.
 
-- | ``--package-check``
-
-  | Check if running in Daml :ref:`glos-daml-package`.
-
-  | ?????
-
-- | ``--project-check``
-
-  | ``project-check`` is **deprecated**, please use ``--package-check``.
-
-  | Check if running in Daml :ref:`glos-daml-package`. (project-check is
-    deprecated, please use `--package-check`).
-
 - | ``--include INCLUDE-PATH``
 
   | Path to an additional source directory to be included.
@@ -87,9 +74,9 @@ These flags are available for both ``--build`` as well as ``--test``.
 
 - | ``--access-token-file PATH``
 
-  | Path to the token-file for ledger authorization.
+  | **Deprecated command****, use :subsiteref:`DPM-specific<dpm>` instead
 
-  | ?????
+  | Path to the token-file for ledger authorization.
 
 - | ``--shake-profiling PROFILING-REPORT``
 
@@ -113,9 +100,10 @@ These flags are available for both ``--build`` as well as ``--test``.
 
 - | ``--detail LEVEL``
 
-  | Detail level of the pretty printed output (default: 0)>
-
-  | ?????
+  | Detail level of the pretty printed output (default: 0). A higher level of
+    detail will pretty print more information from for example ``damlc inspect``
+    as well as printing source file locations. See
+    :ref:`glos-damlc-detail-level`.
 
 - | ``--ghc-option OPTION``
 
@@ -228,9 +216,9 @@ Test flags
 
 - | ``--junit FILENAME``
 
-  | Filename of JUnit output file.
-
-  | ?????
+  | Filename of JUnit output file. This file contains the test output in the
+    de-facto standard for test output, JUnit XML file format. See
+    https://github.com/testmoapp/junitxml.
 
 - | ``--package-name PACKAGE-NAME``
 
@@ -238,15 +226,15 @@ Test flags
 
 - | ``--table-output ARG``
 
-  | Filename to which table should be output.
-
-  | ?????
+  | Filename to which table should be output. Used to render :subsiteref:`the
+   table view<script-results>` of :subsiteref:`Daml Studio<daml-studio>`, but
+   usable on the cli as well.
 
 - | ``--transactions-output ARG``
 
-  | Filename to which the transaction list should be output
-
-  | ?????
+  | Filename to which the transaction list should be output. Used to render
+    :subsiteref:`the transaction view<script-results>` of
+    :subsiteref:`Daml Studio<daml-studio>`, but usable on the cli as well.
 
 - | ``--load-coverage ARG``
 

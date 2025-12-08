@@ -7,8 +7,8 @@ How to parse Daml archive files
 ###############################
 
 When a Daml project is compiled, it produces a :ref:`DAR<dar-file-dalf-file>`
-DAR (extension ``.dar``), short for Daml Archive. The Daml compiler exposes
-commands for inspecting this archive.
+(extension ``.dar``), short for Daml Archive. The Daml compiler exposes commands
+for inspecting this archive.
 
 .. _inspecting_dars:
 

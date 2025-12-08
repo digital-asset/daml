@@ -495,10 +495,22 @@ This is a stub, documentation has yet to be written. See :ref:`glos-shake`.
 .. _glos-damlc-log-level:
 
 (damlc) Log Level
-=======================
+=================
 
 .. TODO describe what (kind of) information is printed at what level (DEBUG,
    INFO, WARNING, ERROR)
+
+This is a stub, documentation has yet to be written.
+
+
+.. _glos-damlc-detail-level:
+
+(damlc) Log Level
+=================
+
+.. TODO describe what (kind of) information is printed at what detail level
+
+.. TODO when done, REVISE SUMMARY in description of --detail flag
 
 This is a stub, documentation has yet to be written.
 
