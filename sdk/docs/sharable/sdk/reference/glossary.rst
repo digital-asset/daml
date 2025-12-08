@@ -23,7 +23,6 @@ Active Contract
 
 A created contract that is not yet :ref:`archived<glos-archived-contract>`.
 
-
 .. _glos-application:
 
 Application
@@ -218,6 +217,15 @@ Use the **Command Submission Service** to
 commands or exercise commands - to the `ledger <#daml-ledger>`__. See
 :ref:`command-submission-service`.
 
+Commit
+******
+
+.. admonition:: Stub
+   :class: tip
+
+   This is a stub, documentation has yet to be written.
+
+
 Composability
 *************
 
@@ -225,6 +233,14 @@ Composability is the ability of a participant to extend an existing system with
 new Daml applications or new topologies unilaterally without requiring
 cooperation from anyone except the directly involved participants who wish to be
 part of the new application functionality.
+
+Conformance
+***********
+
+.. admonition:: Stub
+   :class: tip
+
+   This is a stub, documentation has yet to be written.
 
 Consensus
 *********
@@ -237,6 +253,14 @@ privacy, and horizontal scalability. Canton-based ledgers are resilient to
 malicious participants as long as there is at least a single honest participant.
 A sync domain integration itself might be using the consensus mechanism of the
 underlying platform, but participant nodes will not be involved in that process.
+
+Consistency
+***********
+
+.. admonition:: Stub
+   :class: tip
+
+   This is a stub, documentation has yet to be written.
 
 
 .. _glos-consuming-choice:
@@ -307,6 +331,14 @@ create `command <#commands>`__.
 
 See :ref:`reference-updates`.
 
+Create (trans)action
+********************
+
+.. admonition:: Stub
+   :class: tip
+
+   This is a stub, documentation has yet to be written.
+
 ..  .
     ▗▄▄▄
     ▐▌  █
@@ -321,31 +353,6 @@ DALF File
 
 A file ``.dafl`` extension that contains :ref:`daml-lf`. Component of a
 :ref:`glos-dar-file`.
-
-
-.. _glos-dar-file:
-
-DAR File
-********
-
-A Daml Archive file, known as a ``.dar`` file is the result of compiling Daml
-code using the `Assistant <#assistant>`__ which can be interpreted using a Daml
-interpreter.
-
-You upload ``.dar`` files to a `ledger <#daml-ledger>`__ in order to be able to
-create contracts from the templates in that file.
-
-A ``.dar`` contains multiple ``.dalf`` :ref:`files<glos-dalf-file>`. A ``.dalf``
-file is the output of a compiled Daml package or library. Its underlying format
-is `Daml-LF <#daml-lf>`__.
-
-
-.. _glos-dpm:
-
-DPM
-***
-
-See :subsiteref:`DPM<dpm>`.
 
 Daml
 ****
@@ -445,6 +452,35 @@ it's used for:
 - generating code in other languages for interacting with Daml models (often
   called “codegen”)
 
+Damle, Daml runtime, Daml execution engine
+******************************************
+
+.. TODO: when writing out this stub, splut into thee separate entries. One that
+   contains the bulk of the explanation, and the two others a short sentence,
+   and a ref to the big explanation.
+
+.. admonition:: Stub
+   :class: tip
+
+   This is a stub, documentation has yet to be written.
+
+
+.. _glos-dar-file:
+
+DAR File
+********
+
+A Daml Archive file, known as a ``.dar`` file is the result of compiling Daml
+code using the `Assistant <#assistant>`__ which can be interpreted using a Daml
+interpreter.
+
+You upload ``.dar`` files to a `ledger <#daml-ledger>`__ in order to be able to
+create contracts from the templates in that file.
+
+A ``.dar`` contains multiple ``.dalf`` :ref:`files<glos-dalf-file>`. A ``.dalf``
+file is the output of a compiled Daml package or library. Its underlying format
+is `Daml-LF <#daml-lf>`__.
+
 Disjunction Choice
 ******************
 
@@ -456,11 +492,27 @@ Drivers
 See :ref:`glos-daml-drivers`.
 
 
+.. _glos-dpm:
+
+DPM
+***
+
+See :subsiteref:`DPM<dpm>`.
+
+
 ..  .
     ▗▄▄▄▖
     ▐▌
     ▐▛▀▀▘
     ▐▙▄▄▖
+
+Events
+******
+
+.. admonition:: Stub
+   :class: tip
+
+   This is a stub, documentation has yet to be written.
 
 Exercise
 ********
@@ -479,11 +531,28 @@ exercise `command <#commands>`__.
 
 See :ref:`reference-updates`.
 
+Exercise (trans)action
+**********************
+
+.. admonition:: Stub
+   :class: tip
+
+   This is a stub, documentation has yet to be written.
+
 ..  .
     ▗▄▄▄▖
     ▐▌
     ▐▛▀▀▘
     ▐▌
+
+Fetch (trans)action
+*******************
+
+.. admonition:: Stub
+   :class: tip
+
+   This is a stub, documentation has yet to be written.
+
 
 .. _glos-flexible-controllers:
 
@@ -584,6 +653,14 @@ Ledger Client (application)
 application that sits on top of the `ledger <#daml-ledger>`__. See
 :ref:`glos-application`.
 
+Library
+*******
+
+.. admonition:: Stub
+   :class: tip
+
+   This is a stub, documentation has yet to be written.
+
 ..  .
      ▖  ▗▖
     ▐▛▚▞▜▌
@@ -613,6 +690,14 @@ coordinator, collecting individual transaction verdicts issued by validating
 participants and aggregating them into a single result. The mediator does not
 learn about the content of the transaction, they only learn about the involved
 participants.
+
+Module
+******
+
+.. admonition:: Stub
+   :class: tip
+
+   This is a stub, documentation has yet to be written.
 
 
 ..  .
@@ -655,6 +740,14 @@ For documentation on observers, see :ref:`reference-templates`.
     ▐▌ ▐▌
     ▐▛▀▘
     ▐▌
+
+Package
+*******
+
+.. admonition:: Stub
+   :class: tip
+
+   This is a stub, documentation has yet to be written.
 
 Package Service
 ***************
@@ -717,6 +810,14 @@ A `choice <#choice>`__ marked **preconsuming** will be `archived
 <#exercise>`__.
 
 See also :ref:`glos-choice`.
+
+Privacy, visibility
+*******************
+
+.. admonition:: Stub
+   :class: tip
+
+   This is a stub, documentation has yet to be written.
 
 
 .. _private-contract-store:
@@ -917,6 +1018,14 @@ the Daml code you write.
 For full documentation on what can be in a template, see
 :ref:`reference-templates`.
 
+Transaction
+***********
+
+.. admonition:: Stub
+   :class: tip
+
+   This is a stub, documentation has yet to be written.
+
 
 .. _trust-domain:
 
@@ -1000,53 +1109,3 @@ See :ref:`glos-submitting-commands`.
        ▗▞▘
      ▗▞▘
     ▐▙▄▄▄▖
-
-
-..
-    ▗▄▄▄▖▗▄▖ ▗▄▄▄  ▗▄▖
-      █ ▐▌ ▐▌▐▌  █▐▌ ▐▌
-      █ ▐▌ ▐▌▐▌  █▐▌ ▐▌
-      █ ▝▚▄▞▘▐▙▄▄▀▝▚▄▞▘
-
-    These were todo's that were in the file prior to the alphabetical sorting
-    rework. These should be removed (and converted to issues, if the todo is
-    still current).
-
-.. Damle, Daml runtime, Daml execution engine
-.. ==========================================
-
-.. The **Daml runtime** (sometimes also called the Daml execution engine or Damle)...
-
-.. Package, module, library
-.. ========================
-
-.. Events
-.. ======
-
-.. TODO.
-
-.. Transaction
-.. ===========
-
-.. A transaction is composed of a series of actions.
-
-.. Create (trans)action
-.. --------------------
-
-.. Exercise (trans)action
-.. ----------------------
-
-.. Fetch (trans)action
-.. -------------------
-
-.. Commit
-.. ======
-
-.. Privacy, visibility
-.. ===================
-
-.. Consistency
-.. ===========
-
-.. Conformance
-.. ===========
