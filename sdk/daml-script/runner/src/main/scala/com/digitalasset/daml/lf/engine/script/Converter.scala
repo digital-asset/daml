@@ -137,7 +137,7 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
 
   private[lf] def fromAnyTemplate(
       templateId: Identifier,
-      argument: Value,
+      argument: ExtendedValue,
   ): ExtendedValue =
     record(
       stablePackages.AnyTemplate,
@@ -161,7 +161,7 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
       templateId: Identifier,
       interfaceId: Option[Identifier],
       choiceName: ChoiceName,
-      argument: Value,
+      argument: ExtendedValue,
   ): Either[String, ExtendedValue] =
     for {
       choice <- lookupChoice(templateId, interfaceId, choiceName)
@@ -214,31 +214,34 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
       ),
     )
 
-  def toParty(v: Value): Either[String, Party] =
+  def toParty(v: ExtendedValue): Either[String, Party] =
     v match {
       case ValueParty(p) => Right(p)
       case _ => Left(s"Expected ValueParty but got $v")
     }
 
-  def toParties(v: Value): Either[String, OneAnd[Set, Party]] =
+  def toParties(v: ExtendedValue): Either[String, OneAnd[Set, Party]] =
     v match {
       case ValueList(FrontStackCons(x, xs)) =>
         OneAnd(x, xs).traverse(toParty(_)).map(toNonEmptySet(_))
       case _ => Left(s"Expected non-empty ValueList but got $v")
     }
 
-  def toTimestamp(v: Value): Either[String, Time.Timestamp] =
+  def toTimestamp(v: ExtendedValue): Either[String, Time.Timestamp] =
     v match {
       case ValueTimestamp(t) => Right(t)
       case _ => Left(s"Expected ValueTimestamp but got $v")
     }
 
-  def toInt(v: Value): Either[String, Int] = v match {
+  def toInt(v: ExtendedValue): Either[String, Int] = v match {
     case ValueInt64(n) => Right(n.toInt)
     case v => Left(s"Expected ValueInt64 but got $v")
   }
 
-  def toList[A](v: Value, convertElem: Value => Either[String, A]): Either[String, List[A]] =
+  def toList[A](
+      v: ExtendedValue,
+      convertElem: ExtendedValue => Either[String, A],
+  ): Either[String, List[A]] =
     v match {
       case ValueList(xs) =>
         xs.toImmArray.toList.traverse(convertElem)
@@ -246,8 +249,8 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
     }
 
   def toOptional[A](
-      v: Value,
-      convertElem: Value => Either[String, A],
+      v: ExtendedValue,
+      convertElem: ExtendedValue => Either[String, A],
   ): Either[String, Option[A]] =
     v match {
       case ValueOptional(v) => v.traverse(convertElem)
@@ -261,7 +264,10 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
       end: (Int, Int),
   )
 
-  private def toSrcLoc(knownPackages: Map[String, PackageId], v: Value): Either[String, SrcLoc] =
+  private def toSrcLoc(
+      knownPackages: Map[String, PackageId],
+      v: ExtendedValue,
+  ): Either[String, SrcLoc] =
     v match {
       case ValueRecord(
             _,
@@ -292,7 +298,10 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
       case _ => Left(s"Expected SrcLoc but got $v")
     }
 
-  def toLocation(knownPackages: Map[String, PackageId], v: Value): Either[String, Location] =
+  def toLocation(
+      knownPackages: Map[String, PackageId],
+      v: ExtendedValue,
+  ): Either[String, Location] =
     v match {
       case ValueRecord(_, ImmArray((_, definition), (_, loc))) =>
         for {
@@ -307,7 +316,7 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
 
   def toStackTrace(
       knownPackages: Map[String, PackageId],
-      v: Value,
+      v: ExtendedValue,
   ): Either[String, StackTrace] =
     v match {
       case ValueList(frames) =>
@@ -317,18 +326,18 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
         Left(s"Expected ValueList but got $v")
     }
 
-  def toParticipantNames(v: Value): Either[String, List[Participant]] = v match {
+  def toParticipantNames(v: ExtendedValue): Either[String, List[Participant]] = v match {
     case ValueList(vs) => vs.toList.traverse(toParticipantName)
     case _ => Left(s"Expected a list of participants but got $v")
   }
 
-  def toOptionalParticipantName(v: Value): Either[String, Option[Participant]] = v match {
+  def toOptionalParticipantName(v: ExtendedValue): Either[String, Option[Participant]] = v match {
     case ValueOptional(Some(ValueText(t))) => Right(Some(Participant(t)))
     case ValueOptional(None) => Right(None)
     case _ => Left(s"Expected optional participant name but got $v")
   }
 
-  def toParticipantName(v: Value): Either[String, Participant] = v match {
+  def toParticipantName(v: ExtendedValue): Either[String, Participant] = v match {
     case ValueText(t) => Right(Participant(t))
     case _ => Left(s"Expected participant name but got $v")
   }
@@ -383,7 +392,10 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
     )
   }
 
-  def fromOptional[A](x: Option[A], f: A => Either[String, Value]): Either[String, ValueOptional] =
+  def fromOptional[A](
+      x: Option[A],
+      f: A => Either[String, ExtendedValue],
+  ): Either[String, ExtendedValue] =
     x.traverse(f).map(ValueOptional(_))
 
   def fromUser(scriptIds: ScriptIds, user: User): Either[String, ExtendedValue] =
@@ -401,7 +413,7 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
       ("unpack", ValueText(userId)),
     )
 
-  def toUser(v: Value): Either[String, User] =
+  def toUser(v: ExtendedValue): Either[String, User] =
     v match {
       case ValueRecord(_, ImmArray((_, idValue), (_, primaryPartyValue))) =>
         for {
@@ -411,7 +423,7 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
       case _ => Left(s"Expected User but got $v")
     }
 
-  def toUserId(v: Value): Either[String, UserId] =
+  def toUserId(v: ExtendedValue): Either[String, UserId] =
     v match {
       case ValueRecord(_, ImmArray((_, userNameValue))) =>
         for {
@@ -424,8 +436,8 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
   def fromUserRight(
       scriptIds: ScriptIds,
       right: UserRight,
-  ): Either[String, Value] = {
-    def toRight(constructor: String, value: Value): Value =
+  ): Either[String, ExtendedValue] = {
+    def toRight(constructor: String, value: ExtendedValue): ExtendedValue =
       ValueVariant(
         Some(
           scriptIds.damlScriptModule("Daml.Script.Internal.Questions.UserManagement", "UserRight")
@@ -447,7 +459,7 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
     })
   }
 
-  def toUserRight(v: Value): Either[String, UserRight] =
+  def toUserRight(v: ExtendedValue): Either[String, UserRight] =
     v match {
       case ValueVariant(_, "ParticipantAdmin", ValueUnit) =>
         Right(UserRight.ParticipantAdmin)

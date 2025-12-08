@@ -14,7 +14,7 @@ import com.digitalasset.daml.lf.data.{Bytes, FrontStack}
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.engine.preprocessing.ValueTranslator
+// import com.digitalasset.daml.lf.engine.preprocessing.ValueTranslator
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
 // import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
@@ -23,21 +23,20 @@ import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
 import com.digitalasset.daml.lf.speedy.SBuiltinFun.SBVariantCon
 import com.digitalasset.daml.lf.speedy.SExpr._
 // import com.digitalasset.daml.lf.speedy.SValue._
-// import com.digitalasset.daml.lf.speedy.{SError, SValue}
-import com.digitalasset.daml.lf.speedy.SValue
+import com.digitalasset.daml.lf.speedy.SError
 import com.digitalasset.daml.lf.speedy.Speedy.Machine.ExtendedValue
 import com.digitalasset.daml.lf.stablepackages.StablePackagesV2
-import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value._
 // import com.digitalasset.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.script.converter.Converter.makeTuple
 // import com.digitalasset.daml.lf.script.converter.Converter.{makeTuple, toContractId, toText}
 // import com.digitalasset.canton.ledger.api.{User, UserRight}
 import org.apache.pekko.stream.Materializer
-// import scalaz.std.either._
-// import scalaz.std.list._
-// import scalaz.std.option._
-// import scalaz.syntax.traverse._
-// import scalaz.{Foldable, OneAnd}
+import scalaz.std.either._
+import scalaz.std.list._
+import scalaz.std.option._
+import scalaz.syntax.traverse._
+import scalaz.{Foldable, OneAnd}
 
 // import java.security.{KeyFactory, SecureRandom}
 // import java.security.spec.PKCS8EncodedKeySpec
@@ -84,12 +83,12 @@ object ScriptF {
       compiledPackages: CompiledPackages,
   ) {
     def clients = _clients
-    val valueTranslator = new ValueTranslator(
-      pkgInterface = compiledPackages.pkgInterface,
-      forbidLocalContractIds = false,
-      // We need to translate pseudo-exceptions that aren't serializable
-      shouldCheckDataSerializable = false,
-    )
+    // val valueTranslator = new ValueTranslator(
+    //   pkgInterface = compiledPackages.pkgInterface,
+    //   forbidLocalContractIds = false,
+    //   // We need to translate pseudo-exceptions that aren't serializable
+    //   shouldCheckDataSerializable = false,
+    // )
     val utcClock = Clock.systemUTC()
     def addPartyParticipantMapping(party: Party, participant: Participant) = {
       _clients =
@@ -119,9 +118,6 @@ object ScriptF {
         consName: Name,
     ): Boolean =
       compiledPackages.pkgInterface.lookupVariantConstructor(tyCon, consName).isRight
-
-    def translateValue(ty: Ast.Type, value: Value): Either[String, SValue] =
-      valueTranslator.translateValue(ty, value).left.map(_.toString)
 
     def lookupLanguageVersion(packageId: PackageId): Either[String, LanguageVersion] = {
       compiledPackages.pkgInterface.lookupPackageLanguageVersion(packageId) match {
@@ -278,155 +274,127 @@ object ScriptF {
   //   ): Future[ExtendedValue] = Future.failed(new NotImplementedError)
   // }
 
-  // final case class Submission(
-  //     actAs: OneAnd[Set, Party],
-  //     readAs: Set[Party],
-  //     cmds: List[ScriptLedgerClient.CommandWithMeta],
-  //     optPackagePreference: Option[List[PackageId]],
-  //     disclosures: List[Disclosure],
-  //     prefetchKeys: List[AnyContractKey],
-  //     errorBehaviour: ScriptLedgerClient.SubmissionErrorBehaviour,
-  //     optLocation: Option[Location],
-  // )
+  final case class Submission(
+      actAs: OneAnd[Set, Party],
+      readAs: Set[Party],
+      cmds: List[ScriptLedgerClient.CommandWithMeta],
+      optPackagePreference: Option[List[PackageId]],
+      disclosures: List[Disclosure],
+      prefetchKeys: List[AnyContractKey],
+      errorBehaviour: ScriptLedgerClient.SubmissionErrorBehaviour,
+      optLocation: Option[Location],
+  )
 
-  // // The one submit to rule them all
-  // final case class Submit(submissions: List[Submission]) extends Cmd {
-  //   import ScriptLedgerClient.SubmissionErrorBehaviour._
+  // The one submit to rule them all
+  final case class Submit(submissions: List[Submission]) extends Cmd {
+    import ScriptLedgerClient.SubmissionErrorBehaviour._
 
-  //   override def execute(
-  //       env: Env
-  //   )(implicit ec: ExecutionContext, mat: Materializer, esf: ExecutionSequencerFactory) =
-  //     Future
-  //       .traverse(submissions)(singleSubmit(_, env))
-  //       .map(results => SEValue(SList(results.to(FrontStack))))
+    override def execute(
+        env: Env
+    )(implicit ec: ExecutionContext, mat: Materializer, esf: ExecutionSequencerFactory) =
+      Future
+        .traverse(submissions)(singleSubmit(_, env))
+        .map(results => ValueList(results.to(FrontStack)))
 
-  //   def singleSubmit(
-  //       submission: Submission,
-  //       env: Env,
-  //   )(implicit ec: ExecutionContext, mat: Materializer): Future[SValue] =
-  //     for {
-  //       client <- Converter.toFuture(
-  //         env.clients
-  //           .getPartiesParticipant(submission.actAs)
-  //       )
-  //       submitRes <- client.submit(
-  //         submission.actAs,
-  //         submission.readAs,
-  //         submission.disclosures,
-  //         submission.optPackagePreference,
-  //         submission.cmds,
-  //         submission.prefetchKeys,
-  //         submission.optLocation,
-  //         env.lookupLanguageVersion,
-  //         submission.errorBehaviour,
-  //       )
-  //       res <- (submitRes, submission.errorBehaviour) match {
-  //         case (Right(_), MustFail) =>
-  //           Future.failed(
-  //             SError.SErrorDamlException(
-  //               interpretation.Error.UserError("Expected submit to fail but it succeeded")
-  //             )
-  //           )
-  //         case (Right((commandResults, tree)), _) =>
-  //           Converter.toFuture(
-  //             commandResults
-  //               .to(FrontStack)
-  //               .traverse(
-  //                 Converter.fromCommandResult(
-  //                   env.lookupChoice,
-  //                   env.valueTranslator,
-  //                   env.scriptIds,
-  //                   _,
-  //                 )
-  //               )
-  //               .flatMap { rs =>
-  //                 Converter
-  //                   .translateTransactionTree(
-  //                     env.lookupChoice,
-  //                     env.valueTranslator,
-  //                     env.scriptIds,
-  //                     tree,
-  //                   )
-  //                   .map((rs, _))
-  //               }
-  //               .map { case (rs, tree) =>
-  //                 SVariant(
-  //                   StablePackagesV2.Either,
-  //                   Name.assertFromString("Right"),
-  //                   1,
-  //                   makeTuple(SList(rs), tree),
-  //                 )
-  //               }
-  //           )
-  //         case (Left(ScriptLedgerClient.SubmitFailure(err, _)), MustSucceed) => Future.failed(err)
-  //         case (Left(ScriptLedgerClient.SubmitFailure(_, submitError)), _) =>
-  //           Future.successful(
-  //             SVariant(
-  //               StablePackagesV2.Either,
-  //               Name.assertFromString("Left"),
-  //               0,
-  //               submitError.toDamlSubmitError(env),
-  //             )
-  //           )
-  //       }
-  //     } yield res
-  // }
+    def singleSubmit(
+        submission: Submission,
+        env: Env,
+    )(implicit ec: ExecutionContext, mat: Materializer): Future[ExtendedValue] =
+      for {
+        client <- Converter.toFuture(
+          env.clients
+            .getPartiesParticipant(submission.actAs)
+        )
+        submitRes <- client.submit(
+          submission.actAs,
+          submission.readAs,
+          submission.disclosures,
+          submission.optPackagePreference,
+          submission.cmds,
+          submission.prefetchKeys,
+          submission.optLocation,
+          env.lookupLanguageVersion,
+          submission.errorBehaviour,
+        )
+        res <- (submitRes, submission.errorBehaviour) match {
+          case (Right(_), MustFail) =>
+            Future.failed(
+              SError.SErrorDamlException(
+                interpretation.Error.UserError("Expected submit to fail but it succeeded")
+              )
+            )
+          case (Right((commandResults, tree)), _) => {
+            val rs =
+              commandResults.to(FrontStack).map(Converter.fromCommandResult(env.scriptIds, _))
+            Converter.toFuture(
+              Converter
+                .translateTransactionTree(
+                  env.lookupChoice,
+                  env.scriptIds,
+                  tree,
+                )
+                .map(tree =>
+                  ValueVariant(
+                    Some(StablePackagesV2.Either),
+                    Name.assertFromString("Right"),
+                    makeTuple(ValueList(rs), tree),
+                  )
+                )
+            )
+          }
+          case (Left(ScriptLedgerClient.SubmitFailure(err, _)), MustSucceed) => Future.failed(err)
+          case (Left(ScriptLedgerClient.SubmitFailure(_, submitError)), _) =>
+            Future.successful(
+              ValueVariant(
+                Some(StablePackagesV2.Either),
+                Name.assertFromString("Left"),
+                submitError.toDamlSubmitError(env),
+              )
+            )
+        }
+      } yield res
+  }
 
-  // final case class QueryACS(
-  //     parties: OneAnd[Set, Party],
-  //     tplId: Identifier,
-  // ) extends Cmd {
-  //   override def execute(
-  //       env: Env
-  //   )(implicit ec: ExecutionContext, mat: Materializer, esf: ExecutionSequencerFactory) =
-  //     for {
-  //       client <- Converter.toFuture(
-  //         env.clients
-  //           .getPartiesParticipant(parties)
-  //       )
-  //       acs <- client.query(parties, tplId)
-  //       res <- Converter.toFuture(
-  //         acs
-  //           .to(FrontStack)
-  //           .traverse(
-  //             Converter.fromCreated(env.valueTranslator, _, tplId)
-  //           )
-  //       )
-  //     } yield SEValue(SList(res))
+  final case class QueryACS(
+      parties: OneAnd[Set, Party],
+      tplId: Identifier,
+  ) extends Cmd {
+    override def execute(
+        env: Env
+    )(implicit ec: ExecutionContext, mat: Materializer, esf: ExecutionSequencerFactory) =
+      for {
+        client <- Converter.toFuture(
+          env.clients
+            .getPartiesParticipant(parties)
+        )
+        acs <- client.query(parties, tplId)
+      } yield ValueList(acs.to(FrontStack).map(Converter.fromCreated(_, tplId)))
+  }
 
-  // }
-  // final case class QueryContractId(
-  //     parties: OneAnd[Set, Party],
-  //     tplId: Identifier,
-  //     cid: ContractId,
-  // ) extends Cmd {
-  //   override def execute(env: Env)(implicit
-  //       ec: ExecutionContext,
-  //       mat: Materializer,
-  //       esf: ExecutionSequencerFactory,
-  //   ): Future[ExtendedValue] =
-  //     for {
-  //       client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
-  //       optR <- client.queryContractId(parties, tplId, cid)
-  //       optR <- Converter.toFuture(
-  //         optR.traverse(c =>
-  //           Converter
-  //             .fromAnyTemplate(
-  //               env.valueTranslator,
-  //               tplId,
-  //               c.argument,
-  //             )
-  //             .map(
-  //               makeTuple(
-  //                 _,
-  //                 Converter.fromTemplateTypeRep(c.templateId),
-  //                 SText(c.blob.toHexString),
-  //               )
-  //             )
-  //         )
-  //       )
-  //     } yield SEValue(SOptional(optR))
-  // }
+  final case class QueryContractId(
+      parties: OneAnd[Set, Party],
+      tplId: Identifier,
+      cid: ContractId,
+  ) extends Cmd {
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[ExtendedValue] =
+      for {
+        client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
+        optR <- client.queryContractId(parties, tplId, cid)
+        optR <- Converter.toFuture(
+          optR.traverse(c =>
+            makeTuple(
+              Converter.fromAnyTemplate(tplId, c.argument),
+              Converter.fromTemplateTypeRep(c.templateId),
+              ValueText(c.blob.toHexString),
+            )
+          )
+        )
+      } yield ValueOptional(optR)
+  }
 
   // final case class QueryInterface(
   //     parties: OneAnd[Set, Party],
@@ -1018,68 +986,69 @@ object ScriptF {
 
   final case class KnownPackages(pkgs: Map[String, PackageId])
 
-  // private def parseErrorBehaviour(
-  //     n: Name
-  // ): Either[String, ScriptLedgerClient.SubmissionErrorBehaviour] =
-  //   n match {
-  //     case "MustSucceed" => Right(ScriptLedgerClient.SubmissionErrorBehaviour.MustSucceed)
-  //     case "MustFail" => Right(ScriptLedgerClient.SubmissionErrorBehaviour.MustFail)
-  //     case "Try" => Right(ScriptLedgerClient.SubmissionErrorBehaviour.Try)
-  //     case _ => Left("Unknown constructor " + n)
-  //   }
+  private def parseErrorBehaviour(
+      n: Name
+  ): Either[String, ScriptLedgerClient.SubmissionErrorBehaviour] =
+    n match {
+      case "MustSucceed" => Right(ScriptLedgerClient.SubmissionErrorBehaviour.MustSucceed)
+      case "MustFail" => Right(ScriptLedgerClient.SubmissionErrorBehaviour.MustFail)
+      case "Try" => Right(ScriptLedgerClient.SubmissionErrorBehaviour.Try)
+      case _ => Left("Unknown constructor " + n)
+    }
 
-  // private def parseSubmission(v: SValue, knownPackages: KnownPackages): Either[String, Submission] =
-  //   v match {
-  //     case SRecord(
-  //           _,
-  //           _,
-  //           ArraySeq(
-  //             SRecord(_, _, ArraySeq(hdAct, SList(tlAct))),
-  //             SList(readAs),
-  //             SList(disclosures),
-  //             SOptional(optPackagePreference),
-  //             SList(prefetchKeys),
-  //             SEnum(_, name, _),
-  //             SList(cmds),
-  //             SOptional(optLocation),
-  //           ),
-  //         ) =>
-  //       for {
-  //         actAs <- OneAnd(hdAct, tlAct.toList).traverse(Converter.toParty)
-  //         readAs <- readAs.traverse(Converter.toParty)
-  //         disclosures <- disclosures.toImmArray.toList.traverse(Converter.toDisclosure)
-  //         optPackagePreference <- optPackagePreference.traverse(
-  //           Converter.toList(_, Converter.toPackageId)
-  //         )
-  //         prefetchKeys <- prefetchKeys.toImmArray.toList.traverse(Converter.toAnyContractKey)
-  //         errorBehaviour <- parseErrorBehaviour(name)
-  //         cmds <- cmds.toList.traverse(Converter.toCommandWithMeta)
-  //         optLocation <- optLocation.traverse(Converter.toLocation(knownPackages.pkgs, _))
-  //       } yield Submission(
-  //         actAs = toOneAndSet(actAs),
-  //         readAs = readAs.toSet,
-  //         disclosures = disclosures,
-  //         optPackagePreference = optPackagePreference,
-  //         prefetchKeys = prefetchKeys,
-  //         errorBehaviour = errorBehaviour,
-  //         cmds = cmds,
-  //         optLocation = optLocation,
-  //       )
-  //     case _ => Left(s"Expected Submission payload but got $v")
-  //   }
+  private def parseSubmission(
+      v: ExtendedValue,
+      knownPackages: KnownPackages,
+  ): Either[String, Submission] =
+    v match {
+      case ValueRecord(
+            _,
+            ImmArray(
+              (_, ValueRecord(_, ImmArray((_, hdAct), (_, ValueList(tlAct))))),
+              (_, ValueList(readAs)),
+              (_, ValueList(disclosures)),
+              (_, ValueOptional(optPackagePreference)),
+              (_, ValueList(prefetchKeys)),
+              (_, ValueEnum(_, name)),
+              (_, ValueList(cmds)),
+              (_, ValueOptional(optLocation)),
+            ),
+          ) =>
+        for {
+          actAs <- OneAnd(hdAct, tlAct.toList).traverse(Converter.toParty)
+          readAs <- readAs.traverse(Converter.toParty)
+          disclosures <- disclosures.toImmArray.toList.traverse(Converter.toDisclosure)
+          optPackagePreference <- optPackagePreference.traverse(
+            Converter.toList(_, Converter.toPackageId)
+          )
+          prefetchKeys <- prefetchKeys.toImmArray.toList.traverse(Converter.toAnyContractKey)
+          errorBehaviour <- parseErrorBehaviour(name)
+          cmds <- cmds.toList.traverse(Converter.toCommandWithMeta)
+          optLocation <- optLocation.traverse(Converter.toLocation(knownPackages.pkgs, _))
+        } yield Submission(
+          actAs = toOneAndSet(actAs),
+          readAs = readAs.toSet,
+          disclosures = disclosures,
+          optPackagePreference = optPackagePreference,
+          prefetchKeys = prefetchKeys,
+          errorBehaviour = errorBehaviour,
+          cmds = cmds,
+          optLocation = optLocation,
+        )
+      case _ => Left(s"Expected Submission payload but got $v")
+    }
 
-  // private def parseSubmit(v: SValue, knownPackages: KnownPackages): Either[String, Submit] =
-  //   v match {
-  //     case SRecord(
-  //           _,
-  //           _,
-  //           ArraySeq(SList(submissions)),
-  //         ) =>
-  //       for {
-  //         submissions <- submissions.traverse(parseSubmission(_, knownPackages))
-  //       } yield Submit(submissions = submissions.toList)
-  //     case _ => Left(s"Expected Submit payload but got $v")
-  //   }
+  private def parseSubmit(v: ExtendedValue, knownPackages: KnownPackages): Either[String, Submit] =
+    v match {
+      case ValueRecord(
+            _,
+            ImmArray((_, ValueList(submissions))),
+          ) =>
+        for {
+          submissions <- submissions.traverse(parseSubmission(_, knownPackages))
+        } yield Submit(submissions = submissions.toList)
+      case _ => Left(s"Expected Submit payload but got $v")
+    }
 
   // private def parseQueryACS(v: SValue): Either[String, QueryACS] =
   //   v match {
@@ -1371,7 +1340,7 @@ object ScriptF {
       @unused knownPackages: KnownPackages,
   ): Either[String, Cmd] = {
     (commandName, version) match {
-      //   case ("Submit", 1) => parseSubmit(v, knownPackages)
+      case ("Submit", 1) => parseSubmit(v, knownPackages)
       //   case ("QueryACS", 1) => parseQueryACS(v)
       //   case ("QueryContractId", 1) => parseQueryContractId(v)
       //   case ("QueryInterface", 1) => parseQueryInterface(v)
@@ -1407,6 +1376,6 @@ object ScriptF {
     }
   }
 
-  // private def toOneAndSet[F[_], A](x: OneAnd[F, A])(implicit fF: Foldable[F]): OneAnd[Set, A] =
-  //   OneAnd(x.head, x.tail.toSet - x.head)
+  private def toOneAndSet[F[_], A](x: OneAnd[F, A])(implicit fF: Foldable[F]): OneAnd[Set, A] =
+    OneAnd(x.head, x.tail.toSet - x.head)
 }
