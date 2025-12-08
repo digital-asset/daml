@@ -220,6 +220,8 @@ This choice is non-consuming so that the ``Accept`` choice exercised in the choi
 As the next diagram shows, non-consuming Exercises yield multiple references to the same input contract #3.
 The diagram also shows that fetches have the same effect: input contract #2 is used twice.
 
+.. _da-dvp-propose-accept-and-settle-action:
+
 .. https://lucid.app/lucidchart/fdcc5894-e013-499e-ba85-de16300381a8/edit
 .. image:: ./images/dvp-propose-accept-and-settle-action.svg
    :align: center

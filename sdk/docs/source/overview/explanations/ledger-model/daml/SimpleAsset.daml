@@ -24,6 +24,18 @@ template SimpleAsset with
         create this with owner = newOwner
 -- SNIPPET-ASSET-END
 
+-- SNIPPET-ASSET-PRESENT-START
+    nonconsuming choice Present : SimpleAsset
+      with
+        actor : Party
+        viewer : Party
+      observer viewer
+      controller actor
+      do
+        assert $ actor == issuer || actor == owner
+        pure this
+-- SNIPPET-ASSET-PRESENT-END
+
 simpleAsset = script do
     alice <- allocateParty "Alice"
     bob <- allocateParty "Bob"
@@ -77,5 +89,32 @@ stealAsset = script do
             newOwner = alice
 -- SNIPPET-steal-END
       pure ()
+
+    assert $ isLeft result
+
+
+projectionReflect = script do
+    alice <- allocateParty "Alice"
+    bob <- allocateParty "Bob"
+    bank <- allocateParty "Bank"
+    vivian <- allocateParty "Vivian"
+
+    result <- tryCommands $ do
+-- SNIPPET-projection-reflect-START
+      let eurAsset = SimpleAsset with
+            issuer = bank
+            owner = alice
+            asset = "1 EUR"
+      aliceEur <- submit bank $ do createCmd eurAsset
+
+      bobEur <- submit alice $ do
+        exerciseCmd aliceEur $ Transfer with
+            newOwner = bob
+
+      submit bank $ do
+        exerciseCmd aliceEur $ Present with
+            actor = bank
+            viewer = vivian
+-- SNIPPET-projection-reflect-END
 
     assert $ isLeft result

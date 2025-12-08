@@ -5,6 +5,8 @@
 module SimpleDvP where
 
 import Daml.Script
+import Daml.Script.Internal
+import DA.Either
 import DA.Optional
 import SimpleAsset
 
@@ -145,16 +147,16 @@ createAuthError = script do
             asset = "1 USD"
       usd <- submit bank2 do createCmd usdAsset
 
-      let dvp = SimpleDvp with
+      let dvp = SimpleDvP with
             party1 = alice
             party2 = bob
             asset1 = eur
             asset2 = usd
       (newUsd, newEur) <- submit bob $ do
-         createAndExerciseCmd dvp Settle 
+         createAndExerciseCmd dvp $ Settle with actor = bob
 -- SNIPPET-create-auth-error-END
       pure ()
-   assert $ isLeft result
+    assert $ isLeft result
 
 
 nestedAuthError = script do
@@ -190,4 +192,4 @@ nestedAuthError = script do
           exerciseCmd proposeDvP $ AcceptAndSettle with toBeAllocated = usd
 -- SNIPPET-nested-auth-error-END
       pure ()
-   assert $ isLeft result
+    assert $ isLeft result
