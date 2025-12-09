@@ -19,6 +19,8 @@ import com.digitalasset.canton.data.ViewType.TransactionViewType
 import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.error.TransactionError
 import com.digitalasset.canton.ledger.participant.state.*
+import com.digitalasset.canton.ledger.participant.state.Update.ContractInfo
+import com.digitalasset.canton.ledger.participant.state.Update.TransactionAccepted.RepresentativePackageId.SameAsContractPackageId
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
 import com.digitalasset.canton.lifecycle.{
   FutureUnlessShutdown,
@@ -1261,6 +1263,8 @@ class TransactionProcessingSteps(
     )
   }
 
+  // Assigning the internal contract ids to the contracts requires that all the contracts are
+  // already persisted in the contract store.
   private def computeCommitAndContractsAndEvent(
       requestTime: CantonTimestamp,
       updateId: UpdateId,
@@ -1308,12 +1312,26 @@ class TransactionProcessingSteps(
             ),
             transaction = LfCommittedTransaction(lfTx.unwrap),
             updateId = updateId,
-            contractAuthenticationData = contractAuthenticationData,
             synchronizerId = psid.logical,
             recordTime = requestTime,
             externalTransactionHash = externalTransactionHash,
             acsChangeFactory = acsChangeFactory,
-            internalContractIds = internalContractIds,
+            contractInfos =
+              contractAuthenticationData.map { case (contractId, contractAuthenticationData) =>
+                contractId -> ContractInfo(
+                  internalContractId = checked {
+                    // the internal contract id must exist since we persisted the contracts before (in the ProtocolProcessor)
+                    internalContractIds.getOrElse(
+                      contractId,
+                      ErrorUtil.invalidState(
+                        s"The internal contract id for the contract $contractId was not found"
+                      ),
+                    )
+                  },
+                  contractAuthenticationData = contractAuthenticationData,
+                  representativePackageId = SameAsContractPackageId,
+                )
+              },
           )
     CommitAndStoreContractsAndPublishEvent(
       Some(commitSetF),

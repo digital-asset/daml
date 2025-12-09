@@ -82,8 +82,8 @@ final class PartyReplicationProcessorTest
     var tpProceedOrWait: PartyReplicationTestInterceptor.ProceedOrWait =
       PartyReplicationTestInterceptor.Proceed
     var tpSendErrorOverrides: Map[String, String] = Map.empty
-    var persistContractResult = EitherTUtil.unitUS[String]
-    var getInternalContractIdsResult = FutureUnlessShutdown.pure(Map.empty[LfContractId, Long])
+    var persistContractResult: EitherT[FutureUnlessShutdown, String, Map[LfContractId, Long]] =
+      EitherT.right[String](FutureUnlessShutdown.pure(Map.empty[LfContractId, Long]))
 
     def targetProcessor: PartyReplicationTargetParticipantProcessor = tp
 
@@ -150,7 +150,6 @@ final class PartyReplicationProcessorTest
         onError = logger.info(_),
         onDisconnect = logger.info(_)(_),
         persistContracts = _ => _ => _ => persistContractResult,
-        getInternalContractIds = _ => _ => getInternalContractIdsResult,
         recordOrderPublisher = rop,
         requestTracker = requestTracker,
         pureCrypto = testSymbolicCrypto,

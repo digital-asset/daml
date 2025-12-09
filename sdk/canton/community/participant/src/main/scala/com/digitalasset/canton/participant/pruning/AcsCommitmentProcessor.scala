@@ -54,6 +54,7 @@ import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.Errors
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.PublishTickData.PersistRunningCommitmentsAtUpgradeTime
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.util.TimeOfChange
+import com.digitalasset.canton.platform.store.interning.StringInterning
 import com.digitalasset.canton.protocol.ContractIdSyntax.*
 import com.digitalasset.canton.protocol.messages.AcsCommitment.{
   CommitmentType,
@@ -223,6 +224,7 @@ class AcsCommitmentProcessor private (
     commitmentCheckpointInterval: PositiveDurationSeconds,
     commitmentMismatchDebugging: Boolean,
     commitmentProcessorNrAcsChangesBehindToTriggerCatchUp: Option[PositiveInt],
+    stringInterning: StringInterning,
 )(implicit ec: ExecutionContext)
     extends AcsChangeListener
     with FlagCloseable
@@ -323,7 +325,12 @@ class AcsCommitmentProcessor private (
     */
   @VisibleForTesting
   private[pruning] val multiHostedPartyTracker =
-    new AcsCommitmentMultiHostedPartyTracker(participantId, timeouts, loggerFactory)
+    new AcsCommitmentMultiHostedPartyTracker(
+      participantId,
+      timeouts,
+      loggerFactory,
+      stringInterning,
+    )
 
   /** A future checking whether the node should enter catch-up mode by computing the catch-up
     * timestamp. At most one future runs computing this
@@ -2453,6 +2460,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
       commitmentCheckpointInterval: PositiveDurationSeconds,
       commitmentMismatchDebugging: Boolean = false,
       commitmentProcessorNrAcsChangesBehindToTriggerCatchUp: Option[PositiveInt] = None,
+      stringInterning: StringInterning,
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -2516,6 +2524,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
         commitmentCheckpointInterval,
         commitmentMismatchDebugging,
         commitmentProcessorNrAcsChangesBehindToTriggerCatchUp,
+        stringInterning,
       )
       // We trigger the processing of the buffered commitments, but we do not wait for it to complete here,
       // because, if processing buffered required topology updates that go through the same queue, we'd create a deadlock.

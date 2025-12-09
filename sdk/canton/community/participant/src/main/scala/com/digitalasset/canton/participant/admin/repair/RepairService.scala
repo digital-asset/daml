@@ -14,7 +14,6 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.SyncCryptoApiParticipantProvider
 import com.digitalasset.canton.data.{CantonTimestamp, LedgerTimeBoundaries}
-import com.digitalasset.canton.ledger.participant.state.Update.TransactionAccepted.RepresentativePackageIds
 import com.digitalasset.canton.ledger.participant.state.{RepairUpdate, TransactionMeta, Update}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, HasCloseContext}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -572,14 +571,11 @@ final class RepairService(
         )
       ),
       updateId = updateId,
-      contractAuthenticationData = Map.empty,
-      // No create nodes so no representative package IDs
-      representativePackageIds = RepresentativePackageIds.Empty,
       synchronizerId = repair.synchronizer.psid.logical,
       repairCounter = repair.tryExactlyOneRepairCounter,
       recordTime = repair.timestamp,
-      // no need to pass the internal contract ids since no create nodes are involved
-      internalContractIds = Map.empty,
+      // no need to pass the contract infos since no create nodes are involved
+      contractInfos = Map.empty,
     )
     // not waiting for Update.persisted, since CommitRepair anyway will be waited for at the end
     repairIndexer.offer(update).map(_ => ())

@@ -4,14 +4,13 @@
 package com.digitalasset.canton.integration.tests.connection
 
 import com.digitalasset.canton.admin.api.client.data.SubmissionRequestAmplification
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.InstanceReference
 import com.digitalasset.canton.integration.bootstrap.{
   NetworkBootstrapper,
   NetworkTopologyDescription,
 }
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -36,7 +35,9 @@ sealed trait SequencerConnectionServiceIntegrationTest
     with SharedEnvironment {
 
   override def environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P2S2M1_Config
+    // even though the test only needs to work with 2 sequencers, we need 4 sequencers
+    // in order to be able to crash one and things still work with the BFT orderer
+    EnvironmentDefinition.P2S4M1_Config
       .addConfigTransforms(
         ConfigTransforms.setConnectionPool(true),
         _.focus(_.parameters.timeouts.processing.sequencerInfo)
@@ -49,7 +50,7 @@ sealed trait SequencerConnectionServiceIntegrationTest
             daName,
             synchronizerOwners = Seq[InstanceReference](sequencer1, mediator1),
             synchronizerThreshold = PositiveInt.one,
-            sequencers = Seq(sequencer1, sequencer2),
+            sequencers = Seq(sequencer1, sequencer2, sequencer3, sequencer4),
             mediators = Seq(mediator1),
             overrideMediatorToSequencers = Some(
               Map(
@@ -157,7 +158,7 @@ sealed trait SequencerConnectionServiceIntegrationTest
         // We possibly need to retry, because if participant1 has a single subscription on sequencer2, it will not detect
         // that sequencer1 is down until it first sends to it, and could therefore still pick it for the first send.
         // An alternative would be to use amplification.
-        eventually() {
+        eventually(timeUntilSuccess = 1.minute) {
           loggerFactory.assertLoggedWarningsAndErrorsSeq(
             participant1.health.maybe_ping(participant1.id, timeout = 2.seconds) shouldBe defined,
             LogEntry.assertLogSeq(
@@ -178,5 +179,10 @@ sealed trait SequencerConnectionServiceIntegrationTest
 class SequencerConnectionServiceIntegrationTestDefault
     extends SequencerConnectionServiceIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(
+    new UseBftSequencer(
+      loggerFactory,
+      consensusBlockCompletionTimeout = 1.second,
+    )
+  )
 }

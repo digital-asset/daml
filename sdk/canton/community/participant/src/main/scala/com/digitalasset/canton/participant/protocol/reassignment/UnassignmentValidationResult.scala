@@ -93,7 +93,7 @@ final case class UnassignmentValidationResult(
         )
       )
     (acsChangeFactory: AcsChangeFactory) =>
-      (internalContractIds: InternalContractIds) =>
+      (_: InternalContractIds) =>
         Update.SequencedReassignmentAccepted(
           optCompletionInfo = completionInfo,
           workflowId = submitterMetadata.workflowId,
@@ -120,7 +120,6 @@ final case class UnassignmentValidationResult(
           recordTime = recordTime,
           synchronizerId = sourceSynchronizer.unwrap.logical,
           acsChangeFactory = acsChangeFactory,
-          internalContractIds = internalContractIds,
         )
   }
 }
