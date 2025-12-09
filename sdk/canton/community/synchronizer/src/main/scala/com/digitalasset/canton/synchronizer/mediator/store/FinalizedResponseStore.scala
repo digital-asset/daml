@@ -218,7 +218,7 @@ private[mediator] class DbFinalizedResponseStore(
     * processing stage, slowing things down quite a bit
     */
   private val finishedRequests = finalizedRequestCache
-    .buildScaffeine()
+    .buildScaffeine(loggerFactory)
     .build[RequestId, FinalizedResponse]()
 
   private implicit val getResultRequestId: GetResult[RequestId] =

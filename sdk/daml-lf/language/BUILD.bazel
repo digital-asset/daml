@@ -23,10 +23,7 @@ load(
 
 da_scala_library(
     name = "language",
-    srcs = glob(["src/main/**/*.scala"]) + [
-        ":generated_scala_versions_src",
-    ],
-    generated_srcs = [":generated_scala_versions_src"],
+    srcs = glob(["src/main/**/*.scala"]),
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
     ],
@@ -91,16 +88,6 @@ py_binary(
 )
 
 genrule(
-    name = "generated_scala_versions_src",
-    srcs = [
-        "//daml-lf/language:version_data_json",
-    ],
-    outs = ["src/main/scala/com/digitalasset/daml/lf/language/LanguageVersionGen.scala"],
-    cmd = "$(location //daml-lf/language:generate_scala_versions) $(location //daml-lf/language:version_data_json) $@",
-    tools = ["//daml-lf/language:generate_scala_versions"],
-)
-
-genrule(
     name = "feature_data_json",
     outs = ["features.json"],
     cmd = """
@@ -113,9 +100,41 @@ EOF
     visibility = _VERSION_GENERATING_PACKAGES,
 )
 
+# TEMPORARILY DISABLED FOR MOVE TO CANTON, GENERATION TARGET CANNOT BE ACTIVE
+# EVEN IF UNUSED (NOT SURE WHY)
+#
+# genrule(
+#     name = "generated_scala_versions_src",
+#     srcs = [
+#         "//daml-lf/language:version_data_json",
+#     ],
+#     outs = ["src/main/scala/com/digitalasset/daml/lf/language/LanguageVersionGen.scala"],
+#     cmd = "$(location //daml-lf/language:generate_scala_versions) $(location //daml-lf/language:version_data_json) $@",
+#     tools = ["//daml-lf/language:generate_scala_versions"],
+# )
+
 py_binary(
     name = "generate_haskell_features",
     srcs = ["generate_haskell_features.py"],
     visibility = _VERSION_GENERATING_PACKAGES,
     deps = [],
 )
+
+py_binary(
+    name = "generate_scala_features",
+    srcs = ["generate_scala_features.py"],
+    visibility = _VERSION_GENERATING_PACKAGES,
+)
+
+# TEMPORARILY DISABLED FOR MOVE TO CANTON, GENERATION TARGET CANNOT BE ACTIVE
+# EVEN IF UNUSED (NOT SURE WHY)
+#
+# genrule(
+#     name = "generated_scala_features_src",
+#     srcs = [
+#         "//daml-lf/language:feature_data_json",
+#     ],
+#     outs = ["src/main/scala/com/digitalasset/daml/lf/language/LanguageFeatureGen.scala"],
+#     cmd = "$(location //daml-lf/language:generate_scala_features) $(location //daml-lf/language:feature_data_json) $@",
+#     tools = ["//daml-lf/language:generate_scala_features"],
+# )

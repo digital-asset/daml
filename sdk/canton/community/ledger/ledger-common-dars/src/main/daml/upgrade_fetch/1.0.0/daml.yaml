@@ -3,6 +3,8 @@ override-components:
     version: $DAML_VERSION
   daml-script: 
     version: $DAML_VERSION
+  codegen: 
+    version: $DAML_VERSION
 name: upgrade-fetch-tests
 source: .
 version: 1.0.0

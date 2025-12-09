@@ -110,6 +110,15 @@ case class Participants[+T](
           .toRight(s"No participant $participant and no default participant")
     }
 
+  def assertGetParticipantFuture(participant: Option[Participant]): Future[T] =
+    getParticipant(participant).fold(
+      err => Future.failed(new RuntimeException(err)),
+      p => Future.successful(p),
+    )
+
+  def assertGetParticipantFuture(participant: Participant): Future[T] =
+    assertGetParticipantFuture(Some(participant))
+
   def map[A](f: T => A): Participants[A] =
     copy(
       default_participant = default_participant.map(f),
@@ -526,8 +535,7 @@ private[lf] class Runner(
   val knownPackages: Map[String, PackageId] = (for {
     entry <- compiledPackages.signatures
     (pkgId, pkg) = entry
-    md = pkg.metadata
-  } yield (s"${md.name}-${md.version}" -> pkgId)).toMap
+  } yield (pkg.metadata.nameDashVersion -> pkgId)).toMap
 
   def runWithClients(
       initialClients: Participants[ScriptLedgerClient],

@@ -7,7 +7,7 @@ import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameter
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.{DbConfig, StorageConfig}
+import com.digitalasset.canton.config.StorageConfig
 import com.digitalasset.canton.console.{
   ConsoleEnvironment,
   LocalParticipantReference,
@@ -15,7 +15,7 @@ import com.digitalasset.canton.console.{
 }
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
-import com.digitalasset.canton.integration.plugins.{UseH2, UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2, UsePostgres}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -240,7 +240,7 @@ sealed trait AlphaVersionSupportIntegrationTest
 class AlphaVersionSupportIntegrationTestH2 extends AlphaVersionSupportIntegrationTest {
   registerPlugin(new UseH2(loggerFactory))
   registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.H2](
+    new UseBftSequencer(
       loggerFactory,
       sequencerGroups = sequencerGroups,
     )
@@ -250,7 +250,7 @@ class AlphaVersionSupportIntegrationTestH2 extends AlphaVersionSupportIntegratio
 class AlphaVersionSupportIntegrationTestPostgres extends AlphaVersionSupportIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.Postgres](
+    new UseBftSequencer(
       loggerFactory,
       sequencerGroups = sequencerGroups,
     )

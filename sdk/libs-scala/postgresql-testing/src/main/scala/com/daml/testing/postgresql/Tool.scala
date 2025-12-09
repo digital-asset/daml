@@ -5,23 +5,14 @@ package com.daml.testing.postgresql
 
 import java.nio.file.{Path, Paths}
 
-import com.daml.bazeltools.BazelRunfiles.rlocation
+import com.daml.bazeltools.BazelRunfiles.{exe, rlocation}
 
 private case class Tool private[postgresql] (name: String) {
-
-  import Tool._
-
-  def path: Path = rlocation(binPath.resolve(name + binExtension))
+  def path: Path = rlocation(Tool.binPath.resolve(name + exe))
 }
 
 private[postgresql] object Tool {
   private val binPath = Paths.get("external", "postgresql_dev_env", "bin")
-
-  private val binExtension =
-    if (isWindows)
-      ".exe"
-    else
-      ""
 
   val createdb: Tool = Tool("createdb")
   val dropdb: Tool = Tool("dropdb")

@@ -5,20 +5,19 @@ package com.digitalasset.canton.integration.tests
 
 import com.daml.ledger.javaapi.data.Command
 import com.digitalasset.canton.BigDecimalImplicits.*
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.error.TransactionRoutingError.TopologyErrors.{
   UnknownInformees,
   UnknownSubmitters,
 }
 import com.digitalasset.canton.examples.java.iou.*
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
   SharedEnvironment,
 }
 import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors.PackageSelectionFailed
-import com.digitalasset.canton.topology.PartyId
+import com.digitalasset.canton.topology.{Party, PartyId}
 import com.digitalasset.canton.util.ShowUtil.*
 
 import scala.jdk.CollectionConverters.*
@@ -34,8 +33,8 @@ trait SubmitCommandTrialErrorTest extends CommunityIntegrationTest with SharedEn
 
   val amount: Amount = new Amount(100.toBigDecimal, "CHF")
 
-  var Bank: PartyId = _
-  var Alice: PartyId = _
+  var Bank: Party = _
+  var Alice: Party = _
   var cmds: Seq[Command] = _
 
   "Canton" can {
@@ -43,9 +42,9 @@ trait SubmitCommandTrialErrorTest extends CommunityIntegrationTest with SharedEn
       import env.*
 
       val submitterForUnknownPackageTest =
-        participant1.parties.enable("SubmitterForUnknownPackageTest")
+        participant1.parties.testing.enable("SubmitterForUnknownPackageTest")
       val observerForUnknownPackageTest =
-        participant1.parties.enable("ObserverForUnknownPackageTest")
+        participant1.parties.testing.enable("ObserverForUnknownPackageTest")
 
       cmds = new Iou(
         submitterForUnknownPackageTest.toProtoPrimitive,
@@ -75,7 +74,7 @@ trait SubmitCommandTrialErrorTest extends CommunityIntegrationTest with SharedEn
         _.commandFailureMessage should include(UnknownSubmitters.id),
       )
 
-      Bank = participant1.parties.enable("Bank")
+      Bank = participant1.parties.testing.enable("Bank")
 
       cmds = new Iou(
         Bank.toProtoPrimitive,
@@ -93,7 +92,7 @@ trait SubmitCommandTrialErrorTest extends CommunityIntegrationTest with SharedEn
     "not execute a command due to missing package on a non-confirmer" in { implicit env =>
       import env.*
 
-      Alice = participant2.parties.enable(
+      Alice = participant2.parties.testing.enable(
         "Alice",
         synchronizeParticipants = Seq(participant1),
       )
@@ -134,14 +133,15 @@ trait SubmitCommandTrialErrorTest extends CommunityIntegrationTest with SharedEn
 }
 
 //class SubmitCommandTrialErrorTestDefault extends SubmitCommandTrialErrorTest {
+//  registerPlugin(new UseH2(loggerFactory))
 //  registerPlugin(
-//    new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory)
+//    new UseBftSequencer(loggerFactory)
 //  )
 //}
 
 class SubmitCommandTrialErrorTestPostgres extends SubmitCommandTrialErrorTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory)
+    new UseBftSequencer(loggerFactory)
   )
 }

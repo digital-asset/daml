@@ -190,7 +190,7 @@ class ValueTranslatorSpec(languageVersion: LanguageVersion)
 
     "handle different representation of the same record" in {
       val typ = t"Mod:Tuple Int64 Text"
-      val testCases = Table(
+      val testCases = Table[ValueRecord](
         "record",
         ValueRecord("Mod:Tuple", ImmArray("x" -> ValueInt64(33), "y" -> ValueText("a"))),
         ValueRecord("Mod:Tuple", ImmArray("y" -> ValueText("a"), "x" -> ValueInt64(33))),
@@ -206,7 +206,7 @@ class ValueTranslatorSpec(languageVersion: LanguageVersion)
 
     "handle different representation of the same static record with upgrades enabled" in {
       val typ = t"Mod:Tuple Int64 Text"
-      val testCases = Table(
+      val testCases = Table[ValueRecord](
         "record",
         ValueRecord("Mod:Tuple", ImmArray("x" -> ValueInt64(33), "y" -> ValueText("a"))),
         ValueRecord("Mod:Tuple", ImmArray("y" -> ValueText("a"), "x" -> ValueInt64(33))),

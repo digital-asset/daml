@@ -5,16 +5,15 @@ package com.digitalasset.canton.integration.tests.multihostedparties
 
 import cats.syntax.parallel.*
 import com.digitalasset.canton.concurrent.Threading
-import com.digitalasset.canton.config
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.{ConsoleCommandTimeout, DbConfig}
+import com.digitalasset.canton.config.ConsoleCommandTimeout
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.TestHash
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.examples.java.cycle as M
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.tests.sequencer.channel.SequencerChannelProtocolTestExecHelpers
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -24,19 +23,25 @@ import com.digitalasset.canton.integration.{
   SharedEnvironment,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.participant.admin.party.PartyReplicationStatus
 import com.digitalasset.canton.participant.party.PartyReplicationTestInterceptorImpl
 import com.digitalasset.canton.participant.protocol.party.{
   PartyReplicationSourceParticipantProcessor,
   PartyReplicationTargetParticipantProcessor,
 }
+import com.digitalasset.canton.participant.store.PartyReplicationStateManager
 import com.digitalasset.canton.participant.util.JavaCodegenUtil.ContractIdSyntax
+import com.digitalasset.canton.resource.MemoryStorage
 import com.digitalasset.canton.sequencing.protocol.channel.SequencerChannelId
-import com.digitalasset.canton.topology.PartyId
+import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
+import com.digitalasset.canton.topology.{ParticipantId, PartyId}
 import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.{RepairCounter, config}
 
 import scala.annotation.nowarn
 import scala.concurrent.Future
+import scala.util.chaining.scalaUtilChainingOps
 
 /** Objectives:
   *   - Test the behavior of the [[PartyReplicationSourceParticipantProcessor]] and
@@ -60,7 +65,7 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
     with SequencerChannelProtocolTestExecHelpers
     with HasCycleUtils {
   registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.H2](
+    new UseBftSequencer(
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(Set("sequencer1"), Set("sequencer2")).map(_.map(InstanceName.tryCreate))
@@ -192,6 +197,35 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
 
       def noOpProgressAndCompletionCallback[T]: T => Unit = _ => ()
       def noOpProgressAndCompletionCallback2[T, U]: (T, U) => Unit = (_, _) => ()
+      val inMemoryStorageForTesting = new MemoryStorage(loggerFactory, timeouts)
+      val initialStatus = PartyReplicationStatus(
+        PartyReplicationStatus.ReplicationParams(
+          requestId,
+          alice,
+          daId,
+          sourceParticipant.id,
+          targetParticipant.id,
+          PositiveInt.one,
+          ParticipantPermission.Observation,
+        ),
+        testedProtocolVersion,
+        replicationO = Some(
+          PartyReplicationStatus.AcsReplicationProgressSerializable(
+            processedContractCount = NonNegativeInt.zero,
+            nextPersistenceCounter = RepairCounter.Genesis,
+            fullyProcessedAcs = false,
+          )
+        ),
+      )
+      def inMemoryStateManager(pid: ParticipantId) =
+        new PartyReplicationStateManager(
+          pid,
+          inMemoryStorageForTesting,
+          futureSupervisor,
+          exitOnFatalFailures = false,
+          loggerFactory,
+          timeouts,
+        ).tap(_.add(initialStatus).value.futureValueUS.value)
 
       val sourceProcessor = PartyReplicationSourceParticipantProcessor(
         daId,
@@ -200,11 +234,11 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
         partyToSourceParticipantEffectiveAtOffset,
         Set.empty,
         sourceParticipant.underlying.value.sync.internalIndexService.value,
-        noOpProgressAndCompletionCallback,
+        inMemoryStateManager(sourceParticipant.id),
         noOpProgressAndCompletionCallback,
         noOpProgressAndCompletionCallback2,
         futureSupervisor,
-        exitOnFatalFailures = true,
+        exitOnFatalFailures = false,
         timeouts,
         loggerFactory,
       )
@@ -217,14 +251,14 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
       val targetProcessor = PartyReplicationTargetParticipantProcessor(
         alice,
         requestId,
-        partyToTargetParticipantEffectiveAt,
-        noOpProgressAndCompletionCallback,
+        EffectiveTime(partyToTargetParticipantEffectiveAt),
+        inMemoryStateManager(targetParticipant.id),
         noOpProgressAndCompletionCallback,
         noOpProgressAndCompletionCallback2,
         targetParticipant.underlying.value.sync.participantNodePersistentState,
         connectedSynchronizer,
         futureSupervisor,
-        exitOnFatalFailures = true,
+        exitOnFatalFailures = false,
         timeouts,
         loggerFactory,
         PartyReplicationTestInterceptorImpl
@@ -380,6 +414,11 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
       targetCantonContracts.size shouldBe sourceContractIds.size
   }
 }
+
+// final class OnlinePartyReplicationParticipantProtocolTestH2
+//   extends OnlinePartyReplicationParticipantProtocolTest {
+//   registerPlugin(new UseH2(loggerFactory))
+// }
 
 final class OnlinePartyReplicationParticipantProtocolTestPostgres
     extends OnlinePartyReplicationParticipantProtocolTest {

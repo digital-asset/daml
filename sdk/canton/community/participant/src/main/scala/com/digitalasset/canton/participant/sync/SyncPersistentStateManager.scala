@@ -495,9 +495,7 @@ class SyncPersistentStateManager(
               // only if the participant's trustCert is not yet in the topology store do we have to initialize it.
               // The callback will fetch the essential topology state from the sequencer
               Option.when(trustCert.isEmpty)(
-                new StoreBasedSynchronizerTopologyInitializationCallback(
-                  participantId
-                )
+                new StoreBasedSynchronizerTopologyInitializationCallback
               )
             )
         )
@@ -505,5 +503,5 @@ class SyncPersistentStateManager(
     }
 
   override def close(): Unit =
-    LifeCycle.close(physicalPersistentStates.values.toSeq :+ aliasResolution: _*)(logger)
+    LifeCycle.close((physicalPersistentStates.values.toSeq :+ aliasResolution)*)(logger)
 }

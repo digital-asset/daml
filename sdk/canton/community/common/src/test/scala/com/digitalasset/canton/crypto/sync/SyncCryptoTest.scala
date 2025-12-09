@@ -7,9 +7,11 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.KmsConfig.Driver
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.config.{
+  BatchingConfig,
   CachingConfigs,
   CryptoConfig,
   CryptoProvider,
+  SessionEncryptionKeyCacheConfig,
   SessionSigningKeysConfig,
 }
 import com.digitalasset.canton.crypto.signer.SyncCryptoSigner
@@ -122,7 +124,7 @@ trait SyncCryptoTest
     .create(
       cryptoConfig,
       CachingConfigs.defaultKmsMetadataCache,
-      CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
+      SessionEncryptionKeyCacheConfig(),
       CachingConfigs.defaultPublicKeyConversionCache,
       new MemoryStorage(loggerFactory, timeouts),
       Option.empty[ReplicaManager],
@@ -131,6 +133,7 @@ trait SyncCryptoTest
       wallClock,
       executorService,
       timeouts,
+      BatchingConfig(),
       loggerFactory,
       NoReportingTracerProvider,
     )

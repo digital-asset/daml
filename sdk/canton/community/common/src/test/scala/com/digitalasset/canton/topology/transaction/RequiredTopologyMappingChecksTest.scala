@@ -775,6 +775,7 @@ class RequiredTopologyMappingChecksTest
               partyId = partyId,
               threshold = PositiveInt.one,
               participants = participants,
+              partySigningKeysWithThreshold = None,
             )
             .value
         )
@@ -866,6 +867,7 @@ class RequiredTopologyMappingChecksTest
               partyId = participant1.adminParty,
               threshold = PositiveInt.one,
               participants = Seq(HostingParticipant(participant1, Submission)),
+              partySigningKeysWithThreshold = None,
             )
             .value
         )
@@ -878,6 +880,7 @@ class RequiredTopologyMappingChecksTest
               partyId = participant2.adminParty,
               threshold = PositiveInt.one,
               participants = Seq(HostingParticipant(participant1, Submission)),
+              partySigningKeysWithThreshold = None,
             )
             .value
         )

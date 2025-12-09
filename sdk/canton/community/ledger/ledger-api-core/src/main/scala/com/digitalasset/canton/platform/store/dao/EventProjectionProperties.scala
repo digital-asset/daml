@@ -3,7 +3,8 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.digitalasset.canton.ledger.api.{CumulativeFilter, EventFormat, TemplateWildcardFilter}
+import cats.syntax.option.*
+import com.digitalasset.canton.ledger.api.{CumulativeFilter, EventFormat}
 import com.digitalasset.canton.platform.index.IndexServiceImpl.InterfaceViewPackageUpgrade
 import com.digitalasset.canton.platform.store.dao.EventProjectionProperties.Projection
 import com.digitalasset.daml.lf.data.Ref
@@ -21,9 +22,6 @@ import scala.concurrent.Future
   *   enriching in verbose mode
   * @param witnessTemplateProjections
   *   per witness party, per template projections
-  * @param templateWildcardCreatedEventBlobParties
-  *   parties for which the created event blob will be populated for all the templates, if None then
-  *   blobs for all the parties and all the templates will be populated
   * @param interfaceViewPackageUpgrade
   *   computes which interface instance version should be used for rendering an interface view for a
   *   given interface instance
@@ -31,27 +29,23 @@ import scala.concurrent.Future
 final case class EventProjectionProperties(
     verbose: Boolean,
     // Map((witness or wildcard) -> Map(template -> projection)), where a None key denotes a party wildcard
-    witnessTemplateProjections: Map[Option[String], Map[Ref.NameTypeConRef, Projection]] =
+    witnessTemplateProjections: Map[Option[String], Map[Option[Ref.NameTypeConRef], Projection]] =
       Map.empty,
-    templateWildcardCreatedEventBlobParties: Option[Set[String]] = Some(
-      Set.empty
-    ),
 )(
     // Note: including this field in a separate argument list to the case class to not affect the deep equality check of the
     //       regular argument list
     val interfaceViewPackageUpgrade: InterfaceViewPackageUpgrade
 ) {
-  def render(witnesses: Set[String], templateId: NameTypeConRef): Projection =
+  def render(witnesses: Set[String], templateId: NameTypeConRef): Projection = {
+    require(witnesses.nonEmpty)
     (witnesses.iterator.map(Some(_))
       ++ Iterator(None)) // for the party-wildcard template specific projections)
       .flatMap(witnessTemplateProjections.get(_).iterator)
-      .flatMap(_.get(templateId).iterator)
+      .flatMap(templateMap => Iterator(Some(templateId), None).flatMap(templateMap.get))
       .foldLeft(
-        Projection(
-          createdEventBlob = templateWildcardCreatedEventBlobParties
-            .fold(witnesses.nonEmpty)(parties => witnesses.exists(parties))
-        )
+        Projection()
       )(_ append _)
+  }
 }
 
 object EventProjectionProperties {
@@ -72,9 +66,6 @@ object EventProjectionProperties {
     * @param interfaceImplementedBy
     *   The relation between an interface id and template id. If template has no relation to the
     *   interface, an empty Set must be returned.
-    * @param alwaysPopulateArguments
-    *   If this flag is set, the witnessTemplate filter will be populated with all the parties, so
-    *   that rendering of contract arguments and contract keys is always true.
     */
   def apply(
       eventFormat: EventFormat,
@@ -84,8 +75,6 @@ object EventProjectionProperties {
   ): EventProjectionProperties =
     EventProjectionProperties(
       verbose = eventFormat.verbose,
-      templateWildcardCreatedEventBlobParties =
-        templateWildcardCreatedEventBlobParties(eventFormat),
       witnessTemplateProjections = witnessTemplateProjections(
         eventFormat,
         interfaceImplementedBy,
@@ -116,33 +105,11 @@ object EventProjectionProperties {
         ),
     )
 
-  private def templateWildcardCreatedEventBlobParties(
-      apiTransactionFilter: EventFormat
-  ): Option[Set[String]] =
-    apiTransactionFilter.filtersForAnyParty match {
-      case Some(CumulativeFilter(_, _, Some(TemplateWildcardFilter(true)))) =>
-        None // include blobs for all templates and all parties
-      // filters for any party (party-wildcard) not defined at all or defined but for specific templates, getting the template wildcard witnesses from the filters by party
-      case _ =>
-        Some(
-          apiTransactionFilter.filtersByParty.iterator
-            .collect {
-              case (
-                    party,
-                    CumulativeFilter(_, _, Some(TemplateWildcardFilter(true))),
-                  ) =>
-                party
-            }
-            .map(_.toString)
-            .toSet
-        )
-    }
-
   private def witnessTemplateProjections(
       apiEventFormat: EventFormat,
       interfaceImplementedBy: FullIdentifier => Set[FullIdentifier],
       resolveTypeConRef: TypeConRef => Set[FullIdentifier],
-  ): Map[Option[String], Map[NameTypeConRef, Projection]] = {
+  ): Map[Option[String], Map[Option[NameTypeConRef], Projection]] = {
     val partyFilterPairs =
       apiEventFormat.filtersByParty.view.map { case (p, f) =>
         (Some(p), f)
@@ -160,14 +127,18 @@ object EventProjectionProperties {
         createdEventBlob = interfaceFilter.includeCreatedEventBlob,
       )
       val templateProjections = getTemplateProjections(cumulativeFilter, resolveTypeConRef)
+      val wildcardTemplateProjectionsForParty =
+        if (cumulativeFilter.templateWildcardFilter.exists(_.includeCreatedEventBlob))
+          Map(None -> Projection(createdEventBlob = true))
+        else Map.empty
       val projectionsForParty =
         (interfaceFilterProjections ++ templateProjections)
-          .groupMap(_._1)(_._2)
+          .groupMap(t => t._1.some)(_._2)
           .view
           .mapValues(_.foldLeft(Projection())(_ append _))
           .toMap
 
-      partyO -> projectionsForParty
+      partyO -> (projectionsForParty ++ wildcardTemplateProjectionsForParty)
     }).toMap
   }
 

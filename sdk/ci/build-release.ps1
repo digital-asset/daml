@@ -62,7 +62,6 @@ bazel build `
   //release:sdk-release-tarball-ce `
   //release:sdk-release-tarball-ee `
   $oci_artifacts `
-  //language-support/ts/codegen:daml2js-dist `
   `-`-profile build-profile.json `
   `-`-experimental_profile_include_target_label `
   `-`-build_event_json_file build-events.json `

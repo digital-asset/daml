@@ -8,7 +8,7 @@ import cats.syntax.either.*
 import cats.syntax.functor.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
-import com.digitalasset.canton.config.{CachingConfigs, LoggingConfig}
+import com.digitalasset.canton.config.{LoggingConfig, SessionEncryptionKeyCacheConfig}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.{SymbolicCrypto, SymbolicPureCrypto}
 import com.digitalasset.canton.data.*
@@ -97,6 +97,7 @@ class TransactionConfirmationRequestFactoryTest
       .build(loggerFactory)
       .forOwnerAndSynchronizer(submittingParticipant, physicalSynchronizerId)
       .currentSnapshotApproximation
+      .futureValueUS
   }
 
   val defaultTopology: Map[ParticipantId, Seq[LfPartyId]] = Map(
@@ -417,7 +418,7 @@ class TransactionConfirmationRequestFactoryTest
 
           ResourceUtil.withResourceM(
             new SessionKeyStoreWithInMemoryCache(
-              CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
+              SessionEncryptionKeyCacheConfig(),
               timeouts,
               loggerFactory,
             )
@@ -503,7 +504,7 @@ class TransactionConfirmationRequestFactoryTest
         ResourceUtil.withResourceM(
           // we use the same store for two requests to simulate what would happen in a real scenario
           new SessionKeyStoreWithInMemoryCache(
-            CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
+            SessionEncryptionKeyCacheConfig(),
             timeouts,
             loggerFactory,
           )
@@ -539,7 +540,7 @@ class TransactionConfirmationRequestFactoryTest
 
         ResourceUtil.withResourceM(
           new SessionKeyStoreWithInMemoryCache(
-            CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
+            SessionEncryptionKeyCacheConfig(),
             timeouts,
             loggerFactory,
           )
@@ -582,7 +583,7 @@ class TransactionConfirmationRequestFactoryTest
 
         ResourceUtil.withResourceM(
           new SessionKeyStoreWithInMemoryCache(
-            CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
+            SessionEncryptionKeyCacheConfig(),
             timeouts,
             loggerFactory,
           )
@@ -622,7 +623,7 @@ class TransactionConfirmationRequestFactoryTest
 
         ResourceUtil.withResourceM(
           new SessionKeyStoreWithInMemoryCache(
-            CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
+            SessionEncryptionKeyCacheConfig(),
             timeouts,
             loggerFactory,
           )
@@ -659,7 +660,7 @@ class TransactionConfirmationRequestFactoryTest
 
         ResourceUtil.withResourceM(
           new SessionKeyStoreWithInMemoryCache(
-            CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
+            SessionEncryptionKeyCacheConfig(),
             timeouts,
             loggerFactory,
           )
@@ -702,7 +703,7 @@ class TransactionConfirmationRequestFactoryTest
 
             ResourceUtil.withResourceM(
               new SessionKeyStoreWithInMemoryCache(
-                CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
+                SessionEncryptionKeyCacheConfig(),
                 timeouts,
                 loggerFactory,
               )

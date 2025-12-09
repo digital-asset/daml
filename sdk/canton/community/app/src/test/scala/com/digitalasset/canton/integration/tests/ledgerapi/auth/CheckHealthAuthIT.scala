@@ -4,15 +4,15 @@
 package com.digitalasset.canton.integration.tests.ledgerapi.auth
 
 import com.daml.grpc.test.StreamConsumer
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.integration.TestConsoleEnvironment
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2}
 import io.grpc.health.v1.{HealthCheckRequest, HealthCheckResponse, HealthGrpc}
 
 import scala.concurrent.Future
 
 final class CheckHealthAuthIT extends UnsecuredServiceCallAuthTests {
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseH2(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   override def serviceCallName: String = "HealthService"
 

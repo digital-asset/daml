@@ -274,10 +274,11 @@ trait ContractStoreTest extends FailOnShutdown { this: AsyncWordSpec & BaseTest 
       val contractIds = contracts.map(_.contractId)
 
       for {
-        _ <- store.storeContracts(contracts)
+        internalIdsMapFromStored <- store.storeContracts(contracts)
         internalIdsMap <- store.lookupBatchedNonCachedInternalIds(contractIds)
         persistedMap <- store.lookupBatchedNonCached(internalIdsMap.values)
       } yield {
+        internalIdsMap should contain theSameElementsAs internalIdsMapFromStored
         internalIdsMap.keys should contain theSameElementsAs contractIds
         internalIdsMap.foreach { case (contractId, internalId) =>
           persistedMap.get(internalId) match {
@@ -287,6 +288,24 @@ trait ContractStoreTest extends FailOnShutdown { this: AsyncWordSpec & BaseTest 
               fail(s"No persisted contract found for internal id $internalId")
           }
         }
+        succeed
+      }
+    }
+
+    "store contracts twice and retrieve the same internal ids" in {
+      val store = mk()
+
+      val contracts = Seq(contract, contract2, contract3, contract4)
+      val contractIds = contracts.map(_.contractId)
+
+      for {
+        internalIdsStored <- store.storeContracts(contracts)
+        internalIdsExisting <- store.storeContracts(contracts)
+        internalIdsLookup <- store.lookupBatchedNonCachedInternalIds(contractIds)
+      } yield {
+        internalIdsExisting should contain theSameElementsAs internalIdsStored
+        internalIdsLookup should contain theSameElementsAs internalIdsStored
+        internalIdsLookup.keys should contain theSameElementsAs contractIds
         succeed
       }
     }

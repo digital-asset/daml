@@ -9,7 +9,7 @@
     "scenario": "node -r tsconfig-paths/register dist/index.js",
     "scenario_websocket": "node -r tsconfig-paths/register dist/index_websocket.js",
     "generate_api": "npx openapi-typescript openapi.yaml -o ./generated/api/ledger-api.d.ts",
-    "generate_daml_bindings" : "daml codegen js ../model/.daml/dist/model-tests-1.0.0.dar -o generated"
+    "generate_daml_bindings" : "dpm codegen-js ../model/.daml/dist/model-tests-1.0.0.dar -o generated"
   },
   "keywords": [],
   "author": "",

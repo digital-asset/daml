@@ -4,7 +4,6 @@
 package com.digitalasset.canton.synchronizer.sequencer.config
 
 import com.digitalasset.canton.config.*
-import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
 import com.digitalasset.canton.synchronizer.config.PublicServerConfig
 import com.digitalasset.canton.synchronizer.sequencer.SequencerConfig.SequencerHighAvailabilityConfig
@@ -60,8 +59,7 @@ final case class SequencerNodeConfig(
       PositiveFiniteDuration.ofSeconds(45)
     ),
 ) extends LocalNodeConfig
-    with ConfigDefaults[Option[DefaultPorts], SequencerNodeConfig]
-    with UniformCantonConfigValidation {
+    with ConfigDefaults[Option[DefaultPorts], SequencerNodeConfig] {
 
   override def clientAdminApi: ClientConfig = adminApi.clientConfig
 
@@ -75,8 +73,7 @@ final case class SequencerNodeConfig(
     )
 
   override def withDefaults(
-      ports: Option[DefaultPorts],
-      edition: CantonEdition,
+      ports: Option[DefaultPorts]
   ): SequencerNodeConfig = {
     val withDefaults = ports
       .fold(this)(ports =>
@@ -90,7 +87,7 @@ final case class SequencerNodeConfig(
       .modify {
         case db: SequencerConfig.Database =>
           val enabled =
-            ReplicationConfig.withDefault(storage, db.highAvailability.flatMap(_.enabled), edition)
+            ReplicationConfig.withDefault(storage, db.highAvailability.flatMap(_.enabled))
           db
             .focus(_.highAvailability)
             .modify(
@@ -108,14 +105,8 @@ final case class SequencerNodeConfig(
         // The block sequencer does not support replicas, so we must not enable replication
         // even if the storage supports it (sse #13844).
         if (withDefaults.sequencer.supportsReplicas)
-          ReplicationConfig.withDefaultO(storage, replication, edition)
+          ReplicationConfig.withDefaultO(storage, replication)
         else replication.map(_.copy(enabled = Some(false)))
       )
   }
-}
-
-object SequencerNodeConfig {
-  implicit val sequencerNodeConfigCantonConfigValidator
-      : CantonConfigValidator[SequencerNodeConfig] =
-    CantonConfigValidatorDerivation[SequencerNodeConfig]
 }

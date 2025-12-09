@@ -9,7 +9,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.BaseTestWordSpec
 import com.digitalasset.canton.auth.AuthorizedUser
 import com.digitalasset.canton.config.CantonRequireTypes.{InstanceName, NonEmptyString}
-import com.digitalasset.canton.config.CommunityConfigValidations.*
+import com.digitalasset.canton.config.ConfigValidations.*
 import com.digitalasset.canton.config.CryptoProvider.Kms
 import com.digitalasset.canton.config.RequireTypes.{Port, PositiveInt}
 import com.digitalasset.canton.crypto.{
@@ -50,9 +50,8 @@ class CommunityConfigValidationsTest extends BaseTestWordSpec {
       expectedMessages: String*
   ): Unit = {
     val validationResult =
-      CommunityConfigValidations.validate(
+      ConfigValidations.validate(
         config,
-        EnterpriseCantonEdition,
         ensurePortsSet = ensurePortsSet,
       )
 
@@ -65,9 +64,8 @@ class CommunityConfigValidationsTest extends BaseTestWordSpec {
 
   def assertValid(config: CantonConfig, ensurePortsSet: Boolean = false): Unit = {
     val validationResult =
-      CommunityConfigValidations.validate(
+      ConfigValidations.validate(
         config,
-        EnterpriseCantonEdition,
         ensurePortsSet = ensurePortsSet,
       )
 
@@ -125,7 +123,7 @@ class CommunityConfigValidationsTest extends BaseTestWordSpec {
             ),
           )
         ),
-      ).withDefaults(Some(DefaultPorts.create()), EnterpriseCantonEdition)
+      ).withDefaults(Some(DefaultPorts.create()))
 
     val defaultEnabledMatrix: TableFor2[StorageConfig, Boolean] = Table(
       ("storage", "isEnabled"),
@@ -250,10 +248,9 @@ class CommunityConfigValidationsTest extends BaseTestWordSpec {
       implicit def toPort(i: Int): Port = Port.tryCreate(i)
 
       def getErrors(config: CantonConfig, ensurePortsSet: Boolean): Seq[String] =
-        CommunityConfigValidations
+        ConfigValidations
           .validate(
             config,
-            EnterpriseCantonEdition,
             ensurePortsSet = ensurePortsSet,
           )
           .toEither

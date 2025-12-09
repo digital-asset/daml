@@ -3,10 +3,9 @@
 
 package com.digitalasset.canton.integration.tests.multihostedparties
 
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.integration
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2, UsePostgres}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -22,6 +21,8 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.version.ProtocolVersion
 import org.slf4j.event.Level
 
+import scala.concurrent.duration.DurationInt
+
 /** Objective: Ensure OnPR is resilient against sequencer restarts and SP-synchronizer reconnects.
   *
   * Setup:
@@ -34,7 +35,7 @@ sealed trait OnlinePartyReplicationRecoverFromDisruptionsTest
     with OnlinePartyReplicationTestHelpers
     with SharedEnvironment {
 
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   private var alice: PartyId = _
   private var carol: PartyId = _
@@ -124,9 +125,11 @@ sealed trait OnlinePartyReplicationRecoverFromDisruptionsTest
       )
     )
 
-    clue("Wait until OnPR has begun replicating contracts and SP is paused")(eventually() {
-      hasSourceParticipantBeenPaused shouldBe true
-    })
+    clue("Wait until OnPR has begun replicating contracts and SP is paused")(
+      eventually(timeUntilSuccess = 1.minute) {
+        hasSourceParticipantBeenPaused shouldBe true
+      }
+    )
 
     (requestId, onPRSetup.expectedNumContracts)
   }
@@ -329,6 +332,11 @@ sealed trait OnlinePartyReplicationRecoverFromDisruptionsTest
         },
       )
   }
+}
+
+class OnlinePartyReplicationRecoverFromDisruptionsTestH2
+    extends OnlinePartyReplicationRecoverFromDisruptionsTest {
+  registerPlugin(new UseH2(loggerFactory))
 }
 
 class OnlinePartyReplicationRecoverFromDisruptionsTestPostgres

@@ -73,7 +73,6 @@ object CantonRunner {
     val sequencerPublicApi = LockedFreePort.find()
     val sequencerAdminApi = LockedFreePort.find()
     val mediatorAdminApi = LockedFreePort.find()
-    val exe = if (sys.props("os.name").toLowerCase.contains("windows")) ".exe" else ""
     val java = s"${System.getenv("JAVA_HOME")}/bin/java${exe}"
     val (timeType, clockType) = config.timeProviderType match {
       case TimeProviderType.Static => (Some("monotonic-time"), Some("sim-clock"))

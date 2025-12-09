@@ -22,7 +22,7 @@ final case class UseExternalConsole(
     cantonBin: String,
     configDirectory: String = "tmp/",
     logDirectory: String = "log/",
-    resourceDirectory: String = "enterprise/app/src/test/resources",
+    resourceDirectory: String = "community/app/src/test/resources",
     extraConfigs: Seq[String] = Nil,
     extraEnv: Seq[(String, String)] = Nil,
     fileNameHint: String,

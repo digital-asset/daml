@@ -4,13 +4,14 @@
 package com.digitalasset.canton.participant.pruning
 
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.CommitmentSnapshot
+import com.digitalasset.canton.platform.store.interning.StringInterning
 import com.digitalasset.canton.protocol.messages.CommitmentPeriod
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -26,6 +27,7 @@ class AcsCommitmentMultiHostedPartyTracker(
     participantId: ParticipantId,
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
+    stringInterning: StringInterning,
 ) extends FlagCloseable
     with NamedLogging {
 
@@ -60,16 +62,23 @@ class AcsCommitmentMultiHostedPartyTracker(
 
         newValues = partyParticipantMap
           .map { case (partyId, partyInfo) =>
-            val participantsExcludingLocal = partyInfo.participants.removed(participantId)
-            val participantsExcludingNoWaits = participantsExcludingLocal.filterNot { case (p, _) =>
-              noWaitParticipants.contains(p)
-            }
+            InternalizedPartyInfo(
+              partyId = stringInterning.party.internalize(partyId),
+              threshold = partyInfo.threshold,
+              participants = partyInfo.participants.keySet,
+            )
+          }
+          .map { partyInfo =>
+            val participantsExcludingLocal =
+              partyInfo.participants - participantId
+            val participantsExcludingNoWaits =
+              participantsExcludingLocal.diff(noWaitParticipants)
             if (participantsExcludingLocal.isEmpty)
               None
             else
               Some(
                 new MultiHostedPartyTracker(
-                  partyId,
+                  partyInfo.partyId,
                   new AtomicInteger(
                     // We take the threshold value -1 (if local participant is contained within the set).
                     // We use math min for the case where a majority of the parties other participants is on the no wait list,
@@ -80,7 +89,7 @@ class AcsCommitmentMultiHostedPartyTracker(
                       participantsExcludingNoWaits.size,
                     )
                   ),
-                  mutable.Set(participantsExcludingNoWaits.keys.toSeq*),
+                  mutable.Set.from(participantsExcludingNoWaits),
                 )
               )
           }
@@ -105,7 +114,11 @@ class AcsCommitmentMultiHostedPartyTracker(
     periods.map { period =>
       val _ = commitmentThresholdsMap.updateWith(period) {
         case Some(trackerSet) =>
-          Some(trackerSet.flatMap(tracker => tracker.reduce(sender)))
+          Some(
+            trackerSet.flatMap { tracker =>
+              tracker.reduce(sender)
+            }
+          )
         case None => None
       }
 
@@ -126,6 +139,7 @@ class AcsCommitmentMultiHostedPartyTracker(
         case None => (period, TrackedPeriodState.NotTracked)
       }
     }
+
   def pruneOldPeriods(until: CantonTimestamp)(implicit traceContext: TraceContext): Unit = {
     logger.debug(s"received pruning with timestamp $until")
     commitmentThresholdsMap.foreach { case (period, _) =>
@@ -137,8 +151,21 @@ class AcsCommitmentMultiHostedPartyTracker(
   }
 }
 
+/** Simplified version of
+  * [[com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.PartyInfo]] and added
+  * internalized partyId.
+  *
+  * @see
+  *   [[com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.PartyInfo]]
+  */
+private[pruning] final case class InternalizedPartyInfo(
+    partyId: Int,
+    threshold: PositiveInt, // > 1 for consortium parties
+    participants: Set[ParticipantId],
+)
+
 private[pruning] class MultiHostedPartyTracker(
-    val partyId: LfPartyId,
+    val partyId: Int,
     val threshold: AtomicInteger,
     val missingParticipants: mutable.Set[ParticipantId],
 ) extends PrettyPrinting {
@@ -162,7 +189,6 @@ private[pruning] class MultiHostedPartyTracker(
       param("threshold", _.threshold.get()),
       param("missingCounterParticipant", _.missingParticipants.toSeq),
     )
-
 }
 
 sealed trait TrackedPeriodState {}

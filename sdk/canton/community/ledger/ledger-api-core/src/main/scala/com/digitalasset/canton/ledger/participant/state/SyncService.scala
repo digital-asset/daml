@@ -176,7 +176,9 @@ trait SyncService
   // temporary implementation, will be removed with the refactoring of the SyncService interface
   /** Constructs and fetches the current synchronizer state, to be used throughout command execution
     */
-  def getRoutingSynchronizerState(implicit traceContext: TraceContext): RoutingSynchronizerState
+  def getRoutingSynchronizerState(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[RoutingSynchronizerState]
 
   /** Estimate the associated traffic cost to submitting and confirming a transaction
     */

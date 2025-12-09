@@ -3,19 +3,14 @@
 
 package com.digitalasset.canton.integration.tests.security.kms
 
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.{LocalInstanceReference, LocalParticipantReference}
 import com.digitalasset.canton.crypto.admin.grpc.PrivateKeyMetadata
 import com.digitalasset.canton.crypto.{KeyPurpose, SigningKeyUsage}
 import com.digitalasset.canton.integration.EnvironmentDefinition.allNodeNames
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.tests.security.kms.aws.AwsKmsCryptoIntegrationTestBase
 import com.digitalasset.canton.integration.tests.security.kms.gcp.GcpKmsCryptoIntegrationTestBase
-import com.digitalasset.canton.integration.{
-  CommunityIntegrationTest,
-  EnvironmentSetupPlugin,
-  SharedEnvironment,
-}
+import com.digitalasset.canton.integration.{CommunityIntegrationTest, SharedEnvironment}
 
 trait RotateKmsKeyIntegrationTest
     extends CommunityIntegrationTest
@@ -80,8 +75,8 @@ trait RotateKmsKeyIntegrationTest
 
   setupPlugins(
     withAutoInit = false,
-    storagePlugin = Option.empty[EnvironmentSetupPlugin],
-    sequencerPlugin = new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory),
+    storagePlugin = Some(new UsePostgres(loggerFactory)),
+    sequencerPlugin = new UseBftSequencer(loggerFactory),
   )
 }
 

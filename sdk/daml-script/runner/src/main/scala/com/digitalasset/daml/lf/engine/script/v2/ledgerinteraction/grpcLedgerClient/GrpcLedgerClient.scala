@@ -11,9 +11,24 @@ import java.util.UUID
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.ledger.api.{PartyDetails, User, UserRight}
+import com.daml.ledger.api.v2.admin.package_management_service.{
+  UpdateVettedPackagesRequest,
+  VettedPackagesChange,
+  VettedPackagesRef,
+}
+import com.daml.ledger.api.v2.admin.package_management_service.VettedPackagesChange.{
+  Operation,
+  Vet,
+  Unvet,
+}
 import com.daml.ledger.api.v2.commands.Commands
 import com.daml.ledger.api.v2.commands._
 import com.daml.ledger.api.v2.event.InterfaceView
+import com.daml.ledger.api.v2.package_service.{
+  ListVettedPackagesRequest,
+  PackageMetadataFilter,
+  TopologyStateFilter,
+}
 import com.daml.ledger.api.v2.testing.time_service.TimeServiceGrpc.TimeServiceStub
 import com.daml.ledger.api.v2.testing.time_service.{GetTimeRequest, SetTimeRequest, TimeServiceGrpc}
 import com.daml.ledger.api.v2.transaction_filter.CumulativeFilter.IdentifierFilter
@@ -451,7 +466,7 @@ class GrpcLedgerClient(
             if (res.connectedSynchronizers.isEmpty)
               Future.failed(
                 new java.util.concurrent.TimeoutException(
-                  "Party not allocated on any synchonizer within 1 second"
+                  "Party not allocated on any synchronizer within 1 second"
                 )
               )
             else Future.unit
@@ -675,22 +690,27 @@ class GrpcLedgerClient(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Unit] = {
-    val adminClient = oAdminClient.getOrElse(
-      throw new IllegalArgumentException("Attempted to use unvetDar without specifying a adminPort")
-    )
-    adminClient.vetPackages(packages)
-  }
-
-  override def waitUntilVettingVisible(
-      packages: Iterable[ScriptLedgerClient.ReadablePackageId],
-      onParticipantUid: String,
-  ): Future[Unit] = {
-    val adminClient = oAdminClient.getOrElse(
-      throw new IllegalArgumentException(
-        "Attempted to use waitUntilVettingVisible without specifying a adminPort"
+    grpcClient.packageManagementClient
+      .updateVettedPackages(
+        UpdateVettedPackagesRequest.of(
+          Seq(
+            VettedPackagesChange.of(
+              Operation.Vet(
+                Vet(
+                  packages.map(pkg => VettedPackagesRef("", pkg.name, pkg.version.toString)),
+                  newValidFromInclusive = None,
+                  newValidUntilExclusive = None,
+                )
+              )
+            )
+          ),
+          dryRun = false,
+          synchronizerId = "",
+          expectedTopologySerial = None,
+          updateVettedPackagesForceFlags = Seq.empty,
+        )
       )
-    )
-    adminClient.waitUntilVettingVisible(packages, onParticipantUid)
+      .map(_ => ())
   }
 
   override def unvetPackages(packages: List[ScriptLedgerClient.ReadablePackageId])(implicit
@@ -698,23 +718,97 @@ class GrpcLedgerClient(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Unit] = {
-    val adminClient = oAdminClient.getOrElse(
-      throw new IllegalArgumentException("Attempted to use unvetDar without specifying a adminPort")
-    )
-    adminClient.unvetPackages(packages)
+    grpcClient.packageManagementClient
+      .updateVettedPackages(
+        UpdateVettedPackagesRequest.of(
+          Seq(
+            VettedPackagesChange.of(
+              Operation.Unvet(
+                Unvet(packages.map(pkg => VettedPackagesRef("", pkg.name, pkg.version.toString)))
+              )
+            )
+          ),
+          dryRun = false,
+          synchronizerId = "",
+          expectedTopologySerial = None,
+          updateVettedPackagesForceFlags = Seq.empty,
+        )
+      )
+      .map(_ => ())
+  }
+
+  override def waitUntilVettingVisible(
+      packages: Iterable[ScriptLedgerClient.ReadablePackageId],
+      onParticipantUid: String,
+  )(implicit ec: ExecutionContext): Future[Unit] = {
+    RetryStrategy.constant(25, 200.milliseconds) { case (_, _) =>
+      for {
+        vettedPackages <- listPackages(packages, onParticipantUid, "")
+        _ <-
+          if (packages.forall(vettedPackages.contains(_)))
+            Future.unit
+          else
+            Future.failed(
+              new java.util.concurrent.TimeoutException(
+                s"Not all packages on participant $onParticipantUid have been vetted within 5 seconds: $packages"
+              )
+            )
+      } yield ()
+    }
   }
 
   override def waitUntilUnvettingVisible(
       packages: Iterable[ScriptLedgerClient.ReadablePackageId],
       onParticipantUid: String,
-  ): Future[Unit] = {
-    val adminClient = oAdminClient.getOrElse(
-      throw new IllegalArgumentException(
-        "Attempted to use waitUntilUnvettingVisible without specifying a adminPort"
+  )(implicit ec: ExecutionContext): Future[Unit] = {
+    RetryStrategy.constant(25, 200.milliseconds) { case (_, _) =>
+      for {
+        vettedPackages <- listPackages(packages, onParticipantUid, "")
+        _ <-
+          if (packages.forall(!vettedPackages.contains(_)))
+            Future.unit
+          else
+            Future.failed(
+              new java.util.concurrent.TimeoutException(
+                s"Not all packages on participant $onParticipantUid have been unvetted within 5 seconds: $packages"
+              )
+            )
+      } yield ()
+    }
+  }
+
+  private def listPackages(
+      packages: Iterable[ScriptLedgerClient.ReadablePackageId],
+      onParticipantUid: String,
+      pageToken: String,
+  )(implicit ec: ExecutionContext): Future[Seq[ScriptLedgerClient.ReadablePackageId]] = for {
+    response <- grpcClient.packageService
+      .listVettedPackages(
+        ListVettedPackagesRequest.of(
+          packageMetadataFilter = Some(
+            PackageMetadataFilter
+              .of(packageIds = Seq.empty, packageNamePrefixes = packages.map(_.name).toSeq)
+          ),
+          topologyStateFilter = Some(
+            TopologyStateFilter
+              .of(participantIds = Seq(onParticipantUid), synchronizerIds = Seq.empty)
+          ),
+          pageToken = pageToken,
+          pageSize = 0,
+        )
+      )
+    tail <-
+      if (response.nextPageToken.isEmpty) Future.successful(Nil)
+      else listPackages(packages, onParticipantUid, response.nextPageToken)
+    readableVettedPackages = response.vettedPackages.flatMap(
+      _.packages.map(pkg =>
+        ScriptLedgerClient.ReadablePackageId(
+          Ref.PackageName.assertFromString(pkg.packageName),
+          Ref.PackageVersion.assertFromString(pkg.packageVersion),
+        )
       )
     )
-    adminClient.waitUntilUnvettingVisible(packages, onParticipantUid)
-  }
+  } yield readableVettedPackages ++ tail
 
   override def listVettedPackages()(implicit
       ec: ExecutionContext,
@@ -728,22 +822,46 @@ class GrpcLedgerClient(
       mat: Materializer,
   ): Future[List[ScriptLedgerClient.ReadablePackageId]] = unsupportedOn("listAllPackages")
 
-  override def proposePartyReplication(party: Ref.Party, toParticipantId: String): Future[Unit] = {
+  override def allocatePartyOnMultipleParticipants(
+      party: Ref.Party,
+      participantIds: Iterable[String],
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Unit] = {
     val adminClient = oAdminClient.getOrElse(
       throw new IllegalArgumentException(
         "Attempted to use exportParty without specifying a adminPort"
       )
     )
-    adminClient.proposePartyReplication(party, toParticipantId)
+    adminClient.allocatePartyOnMultipleParticipants(party, participantIds)
   }
 
-  override def waitUntilHostingVisible(party: Ref.Party, onParticipantUid: String): Future[Unit] = {
+  override def aggregateAllocatePartyOnMultipleParticipants(
+      clients: List[ScriptLedgerClient],
+      partyHint: String,
+      namespace: String,
+      participantIds: Iterable[String],
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Ref.Party] = {
+    val party = Party.assertFromString(partyHint + "::" + namespace)
+    for {
+      _ <- Future.traverse(clients)(_.allocatePartyOnMultipleParticipants(party, participantIds))
+    } yield party
+  }
+
+  override def waitUntilHostingVisible(
+      party: Ref.Party,
+      onParticipantUids: Iterable[String],
+  ): Future[Unit] = {
     val adminClient = oAdminClient.getOrElse(
       throw new IllegalArgumentException(
         "Attempted to use waitUntilHostingVisible without specifying a adminPort"
       )
     )
-    adminClient.waitUntilHostingVisible(party, onParticipantUid)
+    adminClient.waitUntilHostingVisible(party, onParticipantUids)
   }
 
   override def getParticipantUid: String = oAdminClient

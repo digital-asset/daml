@@ -307,12 +307,15 @@ class ConfirmationRequestAndResponseProcessorTest
       testedProtocolVersion,
     )
     val participantCrypto = identityFactory.forOwner(participant)
-    SignedProtocolMessage
-      .trySignAndCreate(
-        confirmationResponses,
-        participantCrypto
-          .tryForSynchronizer(synchronizerId, defaultStaticSynchronizerParameters)
-          .currentSnapshotApproximation,
+    participantCrypto
+      .tryForSynchronizer(synchronizerId, defaultStaticSynchronizerParameters)
+      .currentSnapshotApproximation
+      .flatMap(snapshot =>
+        SignedProtocolMessage
+          .trySignAndCreate(
+            confirmationResponses,
+            snapshot,
+          )
       )
   }
 
@@ -341,12 +344,16 @@ class ConfirmationRequestAndResponseProcessorTest
     )
 
     val participantCrypto = identity.forOwner(participant)
-    SignedProtocolMessage
-      .trySignAndCreate(
-        response,
-        participantCrypto
-          .tryForSynchronizer(synchronizerId, defaultStaticSynchronizerParameters)
-          .currentSnapshotApproximation,
+
+    participantCrypto
+      .tryForSynchronizer(synchronizerId, defaultStaticSynchronizerParameters)
+      .currentSnapshotApproximation
+      .flatMap(snapshot =>
+        SignedProtocolMessage
+          .trySignAndCreate(
+            response,
+            snapshot,
+          )
       )
       .failOnShutdown
   }

@@ -4,16 +4,15 @@
 package com.digitalasset.canton.integration.tests.multihostedparties
 
 import com.digitalasset.canton.BaseTest.CantonLfV21
-import com.digitalasset.canton.admin.api.client.data.AddPartyStatus
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.LocalInstanceReference
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.examples.java.iou.Iou
 import com.digitalasset.canton.integration.plugins.{
+  UseBftSequencer,
+  UseH2,
   UsePostgres,
   UseProgrammableSequencer,
-  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.{
@@ -53,7 +52,7 @@ sealed trait OnlinePartyReplicationDecentralizedPartyTest
     with HasProgrammableSequencer
     with SharedEnvironment {
 
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
   registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
 
   private var alice: PartyId = _
@@ -188,13 +187,7 @@ sealed trait OnlinePartyReplicationDecentralizedPartyTest
     eventually() {
       val tpStatus = targetParticipant.parties.get_add_party_status(addPartyRequestId)
       logger.info(s"Waiting until party onboarding topology has been authorized: $tpStatus")
-      val hasConnected = tpStatus.status match {
-        case AddPartyStatus.TopologyAuthorized(_, _) | AddPartyStatus.ConnectionEstablished(_, _) |
-            AddPartyStatus.ReplicatingAcs(_, _, _) =>
-          true
-        case _ => false
-      }
-      hasConnected shouldBe true
+      tpStatus.authorizationO.nonEmpty shouldBe true
     }
     val sequencer = getProgrammableSequencer(sequencer1.name)
     sequencer.setPolicy_("hold SP exercise confirmation until OnPR contract replicated") {
@@ -256,6 +249,11 @@ sealed trait OnlinePartyReplicationDecentralizedPartyTest
       coinsAtTargetParticipant.size shouldBe numContractsInCreateBatch
     }
   }
+}
+
+class OnlinePartyReplicationDecentralizedPartyTestH2
+    extends OnlinePartyReplicationDecentralizedPartyTest {
+  registerPlugin(new UseH2(loggerFactory))
 }
 
 class OnlinePartyReplicationDecentralizedPartyTestPostgres

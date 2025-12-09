@@ -3,14 +3,7 @@
 
 package com.digitalasset.canton.participant.config
 
-import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
-import com.digitalasset.canton.config.{
-  CantonConfigValidator,
-  IdentityConfig,
-  InitConfigBase,
-  NonNegativeFiniteDuration,
-  UniformCantonConfigValidation,
-}
+import com.digitalasset.canton.config.{IdentityConfig, InitConfigBase, NonNegativeFiniteDuration}
 import com.digitalasset.canton.participant.config.ParticipantInitConfig.ParticipantLedgerApiInitConfig
 
 /** Init configuration specific to participant nodes
@@ -26,13 +19,8 @@ final case class ParticipantInitConfig(
     generateIntermediateKey: Boolean = false,
     generateTopologyTransactionsAndKeys: Boolean = true,
 ) extends InitConfigBase
-    with UniformCantonConfigValidation
 
 object ParticipantInitConfig {
-
-  implicit val participantInitConfigCantonConfigValidator
-      : CantonConfigValidator[ParticipantInitConfig] =
-    CantonConfigValidatorDerivation[ParticipantInitConfig]
 
   /** Init configuration of the ledger API for participant nodes
     * @param maxDeduplicationDuration
@@ -43,12 +31,6 @@ object ParticipantInitConfig {
     */
   final case class ParticipantLedgerApiInitConfig(
       maxDeduplicationDuration: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofDays(7L)
-  ) extends UniformCantonConfigValidation
-
-  object ParticipantLedgerApiInitConfig {
-    implicit val participantLedgerApiInitConfigCantonConfigValidator
-        : CantonConfigValidator[ParticipantLedgerApiInitConfig] =
-      CantonConfigValidatorDerivation[ParticipantLedgerApiInitConfig]
-  }
+  )
 
 }

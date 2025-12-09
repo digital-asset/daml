@@ -631,6 +631,9 @@ fileComments:
             identity_provider_id: |-
               The id of the ``Identity Provider`` whose parties should be retrieved.
               Optional, if not set, assume the party is managed by the default identity provider or party is not hosted by the participant.
+            filter_party: |-
+              An optional filter for the party name, searching for all party names starting with the
+              given prefix.
       ListKnownPartiesResponse:
         message:
           comments: null

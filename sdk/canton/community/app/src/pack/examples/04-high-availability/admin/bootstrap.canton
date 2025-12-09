@@ -1,0 +1,60 @@
+import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.console.InstanceReference
+import com.digitalasset.canton.admin.api.client.data.NodeStatus
+import com.digitalasset.canton.sequencing.SequencerConnection
+import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
+
+// Make sure remote nodes are running
+println("Checking remote nodes are running")
+nodes.remote.foreach { node =>
+  node.health.wait_for_running()
+}
+
+println("Bootstrapping synchronizer")
+
+def isActive(node: InstanceReference): Boolean =
+  node.health.status match {
+    case NodeStatus.Success(nodeStatus) => nodeStatus.active
+    case NodeStatus.Failure(msg) => false
+    case NodeStatus.NotInitialized(active, _) => active
+  }
+
+def findActive[I <: InstanceReference](node1: I, node2: I): I =
+  Seq(node1, node2).find(isActive).getOrElse(sys.error("No node is marked as active"))
+
+val active_mediator = findActive(mediator_a, mediator_b)
+
+// bootstrap the synchronizer with the scaled out mediators and sequencers
+
+val synchronizerOwners = Seq(sequencer_a, sequencer_b)
+val iouId = bootstrap.synchronizer(
+  "ha-synchronizer",
+  sequencers = sequencers.all,
+  mediators = Seq(active_mediator),
+  synchronizerOwners = synchronizerOwners,
+  synchronizerThreshold = PositiveInt.two,
+  staticSynchronizerParameters =
+    StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.forSynchronizer),
+)
+
+val active_participant = findActive(participant_a, participant_b)
+active_participant.health.wait_for_initialized()
+
+println(s"Mediator replica [${active_mediator.name}] is active")
+println(s"Participant replica [${active_participant.name}] is active")
+
+println("Connecting participant to synchronizer")
+
+// connect the active participant to the synchronizer by registering both sequencers
+active_participant.synchronizers.connect_local_bft(
+  Seq(sequencer_a, sequencer_b),
+  synchronizerAlias = "ha-synchronizer",
+)
+
+println("Checking the participant is active on the synchronizer")
+
+// check our participant is active on the connected synchronizer
+logging.set_level("com.daml", "TRACE")
+active_participant.health.ping(active_participant)
+
+println("Successfully setup multi-node canton topology")

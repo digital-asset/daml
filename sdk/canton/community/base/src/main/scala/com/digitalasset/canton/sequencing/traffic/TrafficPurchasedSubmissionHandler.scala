@@ -9,7 +9,7 @@ import cats.syntax.parallel.*
 import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
-import com.digitalasset.canton.crypto.{SynchronizerCryptoClient, SynchronizerSnapshotSyncCryptoApi}
+import com.digitalasset.canton.crypto.SynchronizerCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -67,9 +67,6 @@ class TrafficPurchasedSubmissionHandler(
       ec: ExecutionContext,
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, TrafficControlError, Unit] = {
-    val topology: SynchronizerSnapshotSyncCryptoApi = cryptoApi.currentSnapshotApproximation
-    val snapshot = topology.ipsSnapshot
-
     val protocolVersion: ProtocolVersion = cryptoApi.psid.protocolVersion
 
     def send(
@@ -110,6 +107,8 @@ class TrafficPurchasedSubmissionHandler(
     }
 
     for {
+      topology <- EitherT.liftF(cryptoApi.currentSnapshotApproximation)
+      snapshot = topology.ipsSnapshot
       trafficParams <- EitherT
         .fromOptionF(
           snapshot.trafficControlParameters(protocolVersion),

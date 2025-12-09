@@ -30,6 +30,12 @@ class InMemoryKmsMetadataStore(override val loggerFactory: NamedLoggerFactory)
     metadataStore.get(fingerprint)
   }
 
+  override def getAll(fingerprints: Seq[Fingerprint])(implicit
+      tc: TraceContext
+  ): FutureUnlessShutdown[Map[Fingerprint, Option[KmsMetadata]]] = FutureUnlessShutdown.pure {
+    fingerprints.map(key => key -> metadataStore.get(key)).toMap
+  }
+
   private def storeDuplicateError(
       key: Fingerprint,
       oldValue: KmsMetadata,

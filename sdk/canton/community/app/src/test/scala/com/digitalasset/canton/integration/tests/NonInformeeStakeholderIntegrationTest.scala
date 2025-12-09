@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.integration.tests
 
-import com.digitalasset.canton.config.StorageConfig
+import com.digitalasset.canton.BaseTest.UnsupportedExternalPartyTest.MultiRootNodeSubmission
 import com.digitalasset.canton.damltests.java.noninformeestakeholder.{Inner, Outer}
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseBftSequencer
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
@@ -23,44 +23,45 @@ trait NonInformeeStakeholderIntegrationTest
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P2_S1M1
 
-  "A participant may witness a non-informee stakeholder action" in { implicit env =>
-    import env.*
+  "A participant may witness a non-informee stakeholder action" onlyRunWithLocalParty (MultiRootNodeSubmission) in {
+    implicit env =>
+      import env.*
 
-    participants.all.synchronizers.connect_local(sequencer1, alias = daName)
-    participants.all.dars.upload(CantonTestsPath)
+      participants.all.synchronizers.connect_local(sequencer1, alias = daName)
+      participants.all.dars.upload(CantonTestsPath)
 
-    val alice = participant1.parties.enable(
-      "Alice",
-      synchronizeParticipants = Seq(participant2),
-    )
-    val bob = participant2.parties.enable(
-      "Bob",
-      synchronizeParticipants = Seq(participant1),
-    )
-
-    val createInner =
-      new Inner(alice.toProtoPrimitive, bob.toProtoPrimitive).create.commands.asScala.toSeq
-
-    val createOuter =
-      new Outer(alice.toProtoPrimitive, bob.toProtoPrimitive).create.commands.asScala.toSeq
-
-    val createTx =
-      participant1.ledger_api.javaapi.commands.submit(
-        Seq(alice),
-        createInner ++ createOuter,
+      val alice = participant1.parties.testing.enable(
+        "Alice",
+        synchronizeParticipants = Seq(participant2),
       )
-    val Seq(inner) =
-      JavaDecodeUtil.decodeAllCreated(Inner.COMPANION)(createTx)
-    val Seq(outer) = JavaDecodeUtil.decodeAllCreated(Outer.COMPANION)(createTx)
+      val bob = participant2.parties.testing.enable(
+        "Bob",
+        synchronizeParticipants = Seq(participant1),
+      )
 
-    logger.info("Now sending transaction with a stakeholder witnessing an action")
-    val exercise = outer.id.exerciseUseInner(inner.id).commands.asScala.toSeq
-    participant1.ledger_api.javaapi.commands
-      .submit(Seq(alice), exercise)
+      val createInner =
+        new Inner(alice.toProtoPrimitive, bob.toProtoPrimitive).create.commands.asScala.toSeq
+
+      val createOuter =
+        new Outer(alice.toProtoPrimitive, bob.toProtoPrimitive).create.commands.asScala.toSeq
+
+      val createTx =
+        participant1.ledger_api.javaapi.commands.submit(
+          Seq(alice),
+          createInner ++ createOuter,
+        )
+      val Seq(inner) =
+        JavaDecodeUtil.decodeAllCreated(Inner.COMPANION)(createTx)
+      val Seq(outer) = JavaDecodeUtil.decodeAllCreated(Outer.COMPANION)(createTx)
+
+      logger.info("Now sending transaction with a stakeholder witnessing an action")
+      val exercise = outer.id.exerciseUseInner(inner.id).commands.asScala.toSeq
+      participant1.ledger_api.javaapi.commands
+        .submit(Seq(alice), exercise)
   }
 }
 
-class NonInformeeStakeholderReferenceIntegrationTestInMemory
+class NonInformeeStakeholderBftOrderingIntegrationTestInMemory
     extends NonInformeeStakeholderIntegrationTest {
-  registerPlugin(new UseReferenceBlockSequencer[StorageConfig.Memory](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }

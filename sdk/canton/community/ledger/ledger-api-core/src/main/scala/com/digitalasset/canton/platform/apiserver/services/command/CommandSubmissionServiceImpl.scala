@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver.services.command
 
+import cats.data.EitherT
 import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.daml.timer.Delayed
 import com.digitalasset.base.error.ErrorCode.LoggedApiException
@@ -159,13 +160,15 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
       .map(FutureUnlessShutdown.pure)
       .getOrElse(
         withSpan("ApiSubmissionService.evaluate") { _ => _ =>
-          val synchronizerState = syncService.getRoutingSynchronizerState
-          commandExecutor.execute(
-            commands = commands,
-            submissionSeed = submissionSeed,
-            routingSynchronizerState = synchronizerState,
-            forExternallySigned = false,
-          )
+          for {
+            synchronizerState <- EitherT.liftF(syncService.getRoutingSynchronizerState)
+            result <- commandExecutor.execute(
+              commands = commands,
+              submissionSeed = submissionSeed,
+              routingSynchronizerState = synchronizerState,
+              forExternallySigned = false,
+            )
+          } yield result
         }
           .semiflatMap(submitTransactionWithDelay)
           .valueOrF { error =>

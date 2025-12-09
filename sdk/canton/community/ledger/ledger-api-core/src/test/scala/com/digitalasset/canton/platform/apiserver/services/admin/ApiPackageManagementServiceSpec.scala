@@ -288,7 +288,7 @@ object ApiPackageManagementServiceSpec {
 
     override def getRoutingSynchronizerState(implicit
         traceContext: TraceContext
-    ): RoutingSynchronizerState =
+    ): FutureUnlessShutdown[RoutingSynchronizerState] =
       throw new UnsupportedOperationException()
 
     override def estimateTrafficCost(

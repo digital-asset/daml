@@ -176,7 +176,7 @@ private[inner] object ClassGenUtils {
       choiceName: ChoiceName,
       choice: TemplateChoice[Type],
       fields: Fields,
-  )(alter: MethodSpec.Builder => MethodSpec.Builder)(implicit
+  )(implicit
       packagePrefixes: PackagePrefixes
   ): MethodSpec = {
     val methodName = s"$name${choiceName.capitalize}"
@@ -188,13 +188,15 @@ private[inner] object ClassGenUtils {
     for (FieldInfo(_, _, javaName, javaType) <- fields) {
       choiceBuilder.addParameter(javaType, javaName)
     }
-    choiceBuilder.addStatement(
-      "return $L(new $T($L))",
-      methodName,
-      javaType,
-      generateArgumentList(fields.map(_.javaName)),
-    )
-    alter(choiceBuilder).build()
+    choiceBuilder
+      .addStatement(
+        "return $L(new $T($L))",
+        methodName,
+        javaType,
+        generateArgumentList(fields.map(_.javaName)),
+      )
+      .addModifiers(Modifier.DEFAULT)
+      .build()
   }
 
   def generateGetCompanion(companionType: TypeName, companionName: String): MethodSpec = {

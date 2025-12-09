@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.integration.tests.connection
 
+import com.digitalasset.canton.admin.api.client.data.SubmissionRequestAmplification
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.InstanceReference
@@ -27,7 +28,6 @@ import com.digitalasset.canton.sequencing.{
   SequencerConnectionPoolDelays,
   SequencerConnectionValidation,
   SequencerConnections,
-  SubmissionRequestAmplification,
 }
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.{SequencerAlias, config}
@@ -158,7 +158,8 @@ sealed trait BftSequencerConnectionsIntegrationTest
             connections = old.connections,
             sequencerTrustThreshold = old.sequencerTrustThreshold,
             sequencerLivenessMargin = old.sequencerLivenessMargin,
-            submissionRequestAmplification = amplification,
+            // TODO(i29601): remove `toInternal` when `modify_connections` is converted
+            submissionRequestAmplification = amplification.toInternal,
             // Make the warning delay large to avoid these warnings in the test
             sequencerConnectionPoolDelays =
               old.sequencerConnectionPoolDelays.copy(warnValidationDelay = 1.day),

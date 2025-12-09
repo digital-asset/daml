@@ -3,6 +3,8 @@ override-components:
     version: $DAML_VERSION
   daml-script: 
     version: $DAML_VERSION
+  codegen: 
+    version: $DAML_VERSION
 build-options: 
 - --enable-interfaces=yes
 name: upgrade-iface-tests

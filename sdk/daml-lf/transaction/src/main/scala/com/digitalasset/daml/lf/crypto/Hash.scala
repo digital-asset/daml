@@ -862,7 +862,7 @@ object Hash {
       value.iterator.zipWithIndex.foreach[Unit] { case ((_, value), i) =>
         def addField: this.type = addInt(i)
         value match {
-          case leaf: Value.ValueCidlessLeaf =>
+          case leaf: Value.ValueCidLessAtom =>
             leaf match {
               case Value.ValueEnum(_, value) =>
                 // No default value for enum

@@ -111,6 +111,7 @@ final class AssignmentValidationTest
     identityFactory
       .forOwnerAndSynchronizer(submittingParticipant, sourceSynchronizer.unwrap)
       .currentSnapshotApproximation
+      .futureValueUS
 
   private val pureCrypto = new SymbolicPureCrypto
 
@@ -410,7 +411,12 @@ final class AssignmentValidationTest
         seed,
         reassignmentId,
         submitterInfo(submitter),
-        ContractsReassignmentBatch(contract, reassignmentCounter),
+        ContractsReassignmentBatch(
+          contract,
+          Source(contract.templateId.packageId),
+          Target(contract.templateId.packageId),
+          reassignmentCounter,
+        ),
         sourceSynchronizer,
         targetSynchronizer,
         targetMediator,

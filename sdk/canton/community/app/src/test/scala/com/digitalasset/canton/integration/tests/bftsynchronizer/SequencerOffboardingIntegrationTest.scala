@@ -12,6 +12,7 @@ import com.digitalasset.canton.integration.plugins.{
   UsePostgres,
   UseReferenceBlockSequencer,
 }
+import com.digitalasset.canton.integration.tests.bftsequencer.AwaitsBftSequencerAuthenticationDisseminationQuorum
 import com.digitalasset.canton.integration.util.OffboardsSequencerNode
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -19,17 +20,13 @@ import com.digitalasset.canton.integration.{
   SharedEnvironment,
 }
 import com.digitalasset.canton.sequencing.{SequencerConnections, SubmissionRequestAmplification}
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.SequencerBftAdminData.{
-  PeerConnectionStatus,
-  PeerEndpointHealthStatus,
-}
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopology
 import com.digitalasset.canton.topology.SynchronizerId
 
 trait SequencerOffboardingIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment
-    with OffboardsSequencerNode {
+    with OffboardsSequencerNode
+    with AwaitsBftSequencerAuthenticationDisseminationQuorum {
 
   // For full correctness we need to use >= 4 sequencers to test off-boarding because, when using the BFT sequencer,
   //  if the P2P gRPC channel crashes after the sequencer is off-boarded from Canton topology, but
@@ -82,29 +79,11 @@ trait SequencerOffboardingIntegrationTest
     }
   }
 
-  "Onboard participantX to sequencerX and send a ping" in { implicit env =>
+  "Onboard participants to sequencer and send a ping" in { implicit env =>
     import env.*
 
     if (isBftOrderer) {
-      clue("make sure sequencer1 have connected to enough other sequencers") {
-        eventually() {
-          forAll(env.sequencers.all)(sequencer =>
-            sequencer.bft
-              .get_peer_network_status(None)
-              .endpointStatuses
-              .collect {
-                case PeerConnectionStatus
-                      .PeerEndpointStatus(_, _, health) =>
-                  health.status match {
-                    case PeerEndpointHealthStatus.Authenticated(_) => true
-                    case _ => false
-                  }
-                case PeerConnectionStatus.PeerIncomingConnection(_) => true
-              }
-              .size should be >= OrderingTopology.weakQuorumSize(sequencers.all.size)
-          )
-        }
-      }
+      waitUntilAllBftSequencersAuthenticateDisseminationQuorum()
     }
     clue("participant1 connects to sequencer1") {
       participant1.synchronizers.connect_local(sequencer1, daName)

@@ -48,6 +48,7 @@ class Generator(random: Random, inMemoryStore: InMemoryAvailabilityStore) {
   def genOrderingRequest: Gen[OrderingRequest] = _ => {
     OrderingRequest(
       genString.apply(()),
+      genString.apply(()),
       ByteString.copyFromUtf8(genString.apply(())),
     )
   }

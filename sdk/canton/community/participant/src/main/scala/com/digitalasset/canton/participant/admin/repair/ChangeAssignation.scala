@@ -50,6 +50,9 @@ private final class ChangeAssignation(
 
   /** Completes the processing of unassigned contract. Insert the contract in the target
     * synchronizer and publish the assignment event.
+    *
+    * Note: Assigning the internal contract ids to the contracts requires that all the contracts are
+    * already persisted in the contract store.
     */
   def completeUnassigned(
       unassignmentData: ChangeAssignation.Data[UnassignmentData]
@@ -72,10 +75,7 @@ private final class ChangeAssignation(
         )
       }
       unassignedContracts <- readContracts(contractIdCounters)
-      _ <- persistContracts(unassignedContracts)
-      internalContractIdsForUnassignedContracts <- EitherT.right(
-        getInternalContractIds(unassignedContracts)
-      )
+      internalContractIdsForUnassignedContracts <- persistContracts(unassignedContracts)
       _ <- targetPersistentState.unwrap.reassignmentStore
         .completeReassignment(
           unassignmentData.payload.reassignmentId,
@@ -131,10 +131,9 @@ private final class ChangeAssignation(
       _ = logger.debug(
         s"Contracts that need to change assignation with persistence status: $changeBatch"
       )
-      _ <- persistContracts(changeBatch)
+      internalContractIds <- persistContracts(changeBatch)
       newChanges = changes.map(_ => changeBatch)
       _ <- persistUnassignAndAssign(newChanges).toEitherT
-      internalContractIds <- EitherT.right(getInternalContractIds(changeBatch))
       _ <- EitherT.right(
         publishReassignmentEvents(repairSource.unwrap.timestamp, newChanges, internalContractIds)
       )
@@ -315,7 +314,15 @@ private final class ChangeAssignation(
 
         val contractCounters =
           contractIds.flatMap { case (cid, counter) =>
-            contractsById.get(cid).map { case contract => (contract, counter) }
+            // TODO(#26468): Use representative package
+            contractsById.get(cid).map { contract =>
+              (
+                contract,
+                Source(contract.templateId.packageId),
+                Target(contract.templateId.packageId),
+                counter,
+              )
+            }
           }
         val batches = ContractsReassignmentBatch.partition(contractCounters)
         EitherT.rightT[FutureUnlessShutdown, String](Changes(batches, newContractIds))
@@ -325,26 +332,10 @@ private final class ChangeAssignation(
     */
   private def persistContracts(changes: Changes)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, String, Unit] = {
-    val contracts = changes.batches.flatMap { batch =>
-      batch.contracts.collect {
-        case c if changes.isNew(c.contract.contractId) => c.contract
-      }
-    }
+  ): EitherT[FutureUnlessShutdown, String, Map[LfContractId, Long]] = {
+    val contracts = changes.batches.view.flatMap(_.contracts).map(_.contract).toSeq
 
     EitherT.right(contractStore.storeContracts(contracts))
-  }
-
-  /** Get the internal contract ids by the contract id mapping of [[ContractStore]]
-    */
-  private def getInternalContractIds(changes: Changes)(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Map[LfContractId, Long]] = {
-    val cids = changes.batches.flatMap { batch =>
-      batch.contracts.map(_.contract.contractId)
-    }
-
-    contractStore.lookupBatchedNonCachedInternalIds(cids)
   }
 
   private def persistAssignments(
@@ -426,7 +417,7 @@ private final class ChangeAssignation(
   )(implicit
       traceContext: TraceContext
   ): Seq[RepairUpdate] =
-    changes.payload.batches.map { case batch =>
+    changes.payload.batches.map { batch =>
       val reassignmentId = ReassignmentId(
         sourceLSId,
         targetLSId,
@@ -457,8 +448,6 @@ private final class ChangeAssignation(
         repairCounter = changes.sourceTimeOfRepair.unwrap.repairCounter,
         recordTime = changes.sourceTimeOfRepair.unwrap.timestamp,
         synchronizerId = sourceLSId.unwrap,
-        // no internal contract ids since no create nodes are involved
-        internalContractIds = Map.empty,
       )
     }
 
@@ -496,12 +485,21 @@ private final class ChangeAssignation(
             ),
             reassignmentCounter = reassign.counter.v,
             nodeId = idx,
+            internalContractId = checked {
+              // the internal contract id must exist since we persisted the contracts before
+              internalContractIds
+                .getOrElse(
+                  reassign.contract.contractId,
+                  ErrorUtil.invalidState(
+                    s"The internal contract id for contract ${reassign.contract.contractId} was not found"
+                  ),
+                )
+            },
           )
         }),
         repairCounter = changes.targetTimeOfRepair.unwrap.repairCounter,
         recordTime = changes.targetTimeOfRepair.unwrap.timestamp,
         synchronizerId = targetLSId.unwrap,
-        internalContractIds = internalContractIds,
       )
     }
 }
@@ -543,7 +541,7 @@ private[repair] object ChangeAssignation {
         )
   }
 
-  /** @param contract
+  /** @param batches
     *   Contracts that are reassigned, in batches
     * @param isNew
     *   Contract ids of the contract that were not seen before.

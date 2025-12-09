@@ -7,12 +7,12 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.admin.api.client.data.PruningSchedule
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config
+import com.digitalasset.canton.config.PositiveDurationSeconds
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.{DbConfig, PositiveDurationSeconds}
 import com.digitalasset.canton.console.{CommandFailure, LocalMediatorReference}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.integration.*
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.util.BackgroundWorkloadRunner
 import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.scheduler.IgnoresTransientSchedulerErrors
@@ -22,7 +22,7 @@ import scala.util.chaining.*
 
 class ScheduledMediatorPruningTestPostgres extends ScheduledMediatorPruningTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }
 
 abstract class ScheduledMediatorPruningTest

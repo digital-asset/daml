@@ -1397,7 +1397,7 @@ private[sync] class SynchronizerConnectionsManager(
             s"Failed retrieving SynchronizerTopologyClient for synchronizer `$synchronizerId` with alias $synchronizerAlias"
           )
         )
-        .map(_.currentSnapshotApproximation)
+        .flatMap(_.currentSnapshotApproximation)
 
     val result = readySynchronizers
       // keep only healthy synchronizers

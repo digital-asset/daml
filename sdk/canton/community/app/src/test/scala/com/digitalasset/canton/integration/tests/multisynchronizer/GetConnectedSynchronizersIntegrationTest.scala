@@ -5,10 +5,9 @@ package com.digitalasset.canton.integration.tests.multisynchronizer
 
 import com.daml.ledger.api.v2 as proto
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.LocalParticipantReference
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.util.GrpcAdminCommandSupport.*
 import com.digitalasset.canton.integration.util.GrpcServices.StateService
 import com.digitalasset.canton.integration.{
@@ -22,7 +21,7 @@ abstract class GetConnectedSynchronizerIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment {
   private lazy val plugin =
-    new UseReferenceBlockSequencer[DbConfig.Postgres](
+    new UseBftSequencer(
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(

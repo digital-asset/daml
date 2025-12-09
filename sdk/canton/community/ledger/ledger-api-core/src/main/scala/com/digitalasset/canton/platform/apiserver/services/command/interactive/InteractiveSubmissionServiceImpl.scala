@@ -139,6 +139,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
     interactiveSubmissionEnricher,
     contractStore,
     syncService,
+    config,
     loggerFactory,
   )
 
@@ -177,13 +178,21 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
           request.commands.submissionId.map(SubmissionId.unwrap),
         )
 
-      evaluateAndHash(
-        seedService.nextSeed(),
-        request.commands,
-        request.verboseHashing,
-        request.maxRecordTime,
-        request.costEstimationHints,
-      )
+      if (config.enforceSingleRootNode && cmds.length > 1) {
+        FutureUnlessShutdown.failed(
+          InteractiveSubmissionPreparationError
+            .Reject("Preparing multiple commands is currently not supported")
+            .asGrpcError
+        )
+      } else {
+        evaluateAndHash(
+          seedService.nextSeed(),
+          request.commands,
+          request.verboseHashing,
+          request.maxRecordTime,
+          request.costEstimationHints,
+        )
+      }
     }
 
   private def evaluateAndHash(
@@ -198,20 +207,22 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
   ): FutureUnlessShutdown[proto.PrepareSubmissionResponse] = {
     val result: EitherT[FutureUnlessShutdown, RpcError, proto.PrepareSubmissionResponse] = for {
       commandExecutionResult <- withSpan("InteractiveSubmissionService.evaluate") { _ => _ =>
-        val synchronizerState = syncService.getRoutingSynchronizerState
-        commandExecutor
-          .execute(
-            commands = commands,
-            submissionSeed = submissionSeed,
-            routingSynchronizerState = synchronizerState,
-            forExternallySigned = true,
-          )
-          .leftFlatMap { errCause =>
-            metrics.commands.failedCommandInterpretations.mark()
-            EitherT.right[RpcError](
-              RejectionGenerators.commandExecutorErrorFUS[CommandExecutionResult](errCause)
+        for {
+          synchronizerState <- EitherT.liftF(syncService.getRoutingSynchronizerState)
+          result <- commandExecutor
+            .execute(
+              commands = commands,
+              submissionSeed = submissionSeed,
+              routingSynchronizerState = synchronizerState,
+              forExternallySigned = true,
             )
-          }
+            .leftFlatMap { errCause =>
+              metrics.commands.failedCommandInterpretations.mark()
+              EitherT.right[RpcError](
+                RejectionGenerators.commandExecutorErrorFUS[CommandExecutionResult](errCause)
+              )
+            }
+        } yield result
       }
       hashTracer: HashTracer =
         if (config.enableVerboseHashing && verboseHashing)

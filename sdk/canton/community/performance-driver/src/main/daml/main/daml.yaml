@@ -3,6 +3,8 @@ override-components:
     version: $DAML_VERSION
   daml-script: 
     version: $DAML_VERSION
+  codegen: 
+    version: $DAML_VERSION
 build-options: 
 - --target=2.1
 name: PerformanceTest

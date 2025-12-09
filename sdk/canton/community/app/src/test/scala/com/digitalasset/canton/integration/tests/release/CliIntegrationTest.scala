@@ -15,13 +15,15 @@ import scala.sys.process.*
   * new process with the to-be-tested CLI options as arguments. Before being able to run these tests
   * locally, you need to execute `sbt bundle` and `sbt package`.
   */
-abstract class CliIntegrationTest extends ReleaseArtifactIntegrationTestUtils {
+class CliIntegrationTest extends ReleaseArtifactIntegrationTestUtils {
   // turn off cache-dir to avoid compilation errors due to concurrent cache access
   protected lazy val cacheTurnOff =
     s"$resourceDir/config-snippets/disable-ammonite-cache.conf"
 
   protected lazy val simpleConf =
     "community/app/src/pack/examples/01-simple-topology/simple-topology.conf"
+  private lazy val unsupportedProtocolVersionConfig =
+    "community/app/src/test/resources/unsupported-minimum-protocol-version.conf"
 
   // Message printed out by the bootstrap script if Canton is started successfully
   protected lazy val successMsg = "The last emperor is always the worst."
@@ -223,6 +225,8 @@ abstract class CliIntegrationTest extends ReleaseArtifactIntegrationTestUtils {
       ).foreach { check =>
         val fl = File(check)
         assert(fl.exists, s"$check is missing")
+        // Delete the generate remote configs after checking their existence
+        fl.delete()
       }
     }
 
@@ -318,7 +322,15 @@ abstract class CliIntegrationTest extends ReleaseArtifactIntegrationTestUtils {
         )()
       }
     }
+
+    "return an appropriate error when an invalid config is used" in { processLogger =>
+      s"$cantonBin --config $simpleConf --config $unsupportedProtocolVersionConfig" ! processLogger
+      checkOutput(
+        processLogger,
+        shouldContain = Seq("unsupported-minimum-protocol-version.conf", "42"),
+        shouldSucceed = false,
+      )
+    }
+
   }
 }
-
-class CommunityCliIntegrationTest extends CliIntegrationTest with CommunityReleaseTest

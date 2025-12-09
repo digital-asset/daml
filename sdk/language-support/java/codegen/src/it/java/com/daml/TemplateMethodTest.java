@@ -63,29 +63,6 @@ public class TemplateMethodTest {
   }
 
   @Test
-  void templateHasCreateAndExerciseMethods() {
-    SimpleTemplate simple = new SimpleTemplate("Bob");
-    var fromSplatted = simple.createAndExerciseTestTemplate_Int(42L);
-    var fromRecord = simple.createAndExerciseTestTemplate_Int(new TestTemplate_Int(42L));
-
-    assertNotNull(fromSplatted, "Update<R> from splatted choice was null");
-    assertNotNull(fromRecord, "Update<R> from record choice was null");
-    assertEquals(
-        fromRecord.commands(),
-        fromSplatted.commands(),
-        "Update<R> commands from both methods are not the same");
-
-    assertEquals(
-        1,
-        fromSplatted.commands().size(),
-        "There are not exactly one command from Update<R> from splatted choice");
-    assertEquals(
-        1,
-        fromRecord.commands().size(),
-        "There are not exactly one command from Update<R> from record choice");
-  }
-
-  @Test
   void templateHasArchive() {
     SimpleTemplate.ContractId cid = new SimpleTemplate.ContractId("id");
     Exercises.Archivable<?> wideCid = cid;

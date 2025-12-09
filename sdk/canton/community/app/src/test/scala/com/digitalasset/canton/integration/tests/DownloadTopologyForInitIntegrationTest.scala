@@ -3,14 +3,14 @@
 
 package com.digitalasset.canton.integration.tests
 
+import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.config.{DbConfig, DefaultProcessingTimeouts}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.integration.bootstrap.{
   NetworkBootstrapper,
   NetworkTopologyDescription,
 }
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
@@ -97,7 +97,5 @@ class DownloadTopologyForInitIntegrationTestPostgres
     extends DownloadTopologyForInitIntegrationTest {
 
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory)
-  )
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }

@@ -26,7 +26,6 @@ final class SynchronizerRecoveryTest extends BaseSynchronizerRestartTest with Ha
   def dropSynchronizerStorage(implicit env: TestConsoleEnvironment): Unit = {
     import env.*
     clue("Dropping synchronizer storage ...") {
-      await(sequencerPlugin.recreateDatabases())
       await(postgresPlugin.recreateDatabase(remoteSequencer1).failOnShutdown)
       await(postgresPlugin.recreateDatabase(mediator1).failOnShutdown)
       remoteSequencer1.clear_cache()
@@ -221,13 +220,9 @@ final class SynchronizerRecoveryTest extends BaseSynchronizerRestartTest with Ha
               await(
                 postgresDumpRestore.saveDump(remoteSequencer1, sequencerDump)
               )
-              await(
-                sequencerPlugin.dumpDatabases(tempDirectory)
-              )
             }
 
             def restoreDumps(): Unit = {
-              await(sequencerPlugin.restoreDatabases(tempDirectory))
               await(postgresDumpRestore.restoreDump(remoteSequencer1, sequencerDump.path))
               await(postgresDumpRestore.restoreDump(mediator1, mediatorDump.path))
             }

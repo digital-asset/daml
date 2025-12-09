@@ -16,11 +16,6 @@ import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTr
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.participant.store.memory.InMemoryContractStore
-import com.digitalasset.canton.participant.store.{
-  LedgerApiContractStore,
-  LedgerApiContractStoreImpl,
-  PersistedContractInstance,
-}
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.store.cache.MutableCacheBackedContractStoreRaceTests.{
   IndexViewContractsReader,
@@ -33,7 +28,12 @@ import com.digitalasset.canton.platform.store.cache.MutableCacheBackedContractSt
 import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.*
-import com.digitalasset.canton.protocol.{ExampleContractFactory, ExampleTransactionFactory}
+import com.digitalasset.canton.platform.store.{LedgerApiContractStore, LedgerApiContractStoreImpl}
+import com.digitalasset.canton.protocol.{
+  ContractInstance,
+  ExampleContractFactory,
+  ExampleTransactionFactory,
+}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.transaction.GlobalKey
 import com.digitalasset.daml.lf.value.Value
@@ -67,7 +67,11 @@ class MutableCacheBackedContractStoreRaceTests
       timeouts = timeouts,
       loggerFactory = loggerFactory,
     )(unboundedExecutionContext)
-    val participantContractStore = LedgerApiContractStoreImpl(inMemoryContractStore, loggerFactory)
+    val participantContractStore = LedgerApiContractStoreImpl(
+      inMemoryContractStore,
+      loggerFactory,
+      LedgerApiServerMetrics.ForTesting,
+    )
     val contractStore =
       buildContractStore(
         indexViewContractsReader,
@@ -95,7 +99,11 @@ class MutableCacheBackedContractStoreRaceTests
       timeouts = timeouts,
       loggerFactory = loggerFactory,
     )(unboundedExecutionContext)
-    val participantContractStore = LedgerApiContractStoreImpl(inMemoryContractStore, loggerFactory)
+    val participantContractStore = LedgerApiContractStoreImpl(
+      inMemoryContractStore,
+      loggerFactory,
+      LedgerApiServerMetrics.ForTesting,
+    )
     val contractStore =
       buildContractStore(
         indexViewContractsReader,
@@ -495,9 +503,12 @@ private object MutableCacheBackedContractStoreRaceTests {
       ec: ExecutionContext
   ): Future[Unit] =
     if (event.created) {
-      val contract = PersistedContractInstance(event.contract)
+      val contract =
+        ContractInstance
+          .create(event.contract)
+          .getOrElse(fail(s"Failed creating contract ${event.contract.contractId}"))
       contractStore
-        .storeContracts(Seq(contract.asContractInstance))
+        .storeContracts(Seq(contract))
         .map(_ => ())
     } else Future.unit
 }

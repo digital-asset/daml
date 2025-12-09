@@ -108,7 +108,7 @@ class IdeLedgerClient(
       .lookupPackage(packageId)
       .fold(
         _ => false,
-        pkgSig => pkgSig.languageVersion >= LanguageVersion.Features.packageUpgrades,
+        pkgSig => LanguageVersion.featurePackageUpgrades.enabledIn(pkgSig.languageVersion),
       )
 
   private var _ledger: IdeLedger = IdeLedger.initialLedger(Time.Timestamp.Epoch)
@@ -1012,7 +1012,7 @@ class IdeLedgerClient(
   override def waitUntilVettingVisible(
       packages: Iterable[ScriptLedgerClient.ReadablePackageId],
       onParticipantUid: String,
-  ): Future[Unit] =
+  )(implicit ec: ExecutionContext): Future[Unit] =
     Future.successful(())
 
   override def unvetPackages(packages: List[ScriptLedgerClient.ReadablePackageId])(implicit
@@ -1032,7 +1032,7 @@ class IdeLedgerClient(
   override def waitUntilUnvettingVisible(
       packages: Iterable[ScriptLedgerClient.ReadablePackageId],
       onParticipantUid: String,
-  ): Future[Unit] =
+  )(implicit ec: ExecutionContext): Future[Unit] =
     Future.successful(())
 
   override def listVettedPackages()(implicit
@@ -1049,10 +1049,32 @@ class IdeLedgerClient(
   ): Future[List[ScriptLedgerClient.ReadablePackageId]] =
     Future.successful(getPackageIdMap().keys.toList)
 
-  override def proposePartyReplication(party: Ref.Party, toParticipantId: String): Future[Unit] =
-    Future.successful(())
+  override def allocatePartyOnMultipleParticipants(
+      party: Ref.Party,
+      toParticipantIds: Iterable[String],
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Unit] = Future.failed(
+    new RuntimeException(
+      "allocatePartyOnMultipleParticipants should not be called on IDE ledger, use aggregateAllocatePartyOnMultipleParticipants instead"
+    )
+  )
 
-  override def waitUntilHostingVisible(party: Ref.Party, onParticipantUid: String): Future[Unit] =
+  override def aggregateAllocatePartyOnMultipleParticipants(
+      clients: List[ScriptLedgerClient],
+      partyHint: String,
+      namespace: String,
+      toParticipantIds: Iterable[String],
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Ref.Party] = allocateParty(partyHint)
+
+  override def waitUntilHostingVisible(
+      party: Ref.Party,
+      onParticipantUid: Iterable[String],
+  ): Future[Unit] =
     Future.successful(())
 
   override def getParticipantUid: String = ""

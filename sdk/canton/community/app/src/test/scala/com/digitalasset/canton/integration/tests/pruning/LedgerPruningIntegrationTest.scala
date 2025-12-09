@@ -603,13 +603,19 @@ abstract class LedgerPruningIntegrationTest
 
     // divulgence proxy contract for divulgence operations: divulging to bob
     val (_, divulgeIouByExerciseContract) = participant2.createDivulgeIou(alice, bob)
+    // ping to ensure P1 sees DivulgeIouByExercise contract created above by Bob for use by Alice
+    participant2.health.ping(participant1)
 
     // creating an iou with alice, which will be divulged to bob
     val (immediateDivulgedP1, immediateDivulgedContract) =
       participant1.immediateDivulgeIou(alice, divulgeIouByExerciseContract)
     contractFor(participant1, daId, immediateDivulgedP1.contractId) should not be empty
     // Immediately divulged contracts are stored in the ContractStore
-    contractFor(participant2, daId, immediateDivulgedP1.contractId) should not be empty
+    // eventually since participant1.immediateDivulgeIou() above only waits for participant1
+    logger.debug(s"Find immediately divulged contract ${immediateDivulgedP1.contractId} on P2")
+    eventually() {
+      contractFor(participant2, daId, immediateDivulgedP1.contractId) should not be empty
+    }
     checkCreatedEventFor(participant1, immediateDivulgedP1.contractId, alice)
     participant2
       .acsDeltas(bob, end2AtStart)

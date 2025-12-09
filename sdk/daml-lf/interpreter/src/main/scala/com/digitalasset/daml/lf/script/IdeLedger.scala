@@ -312,7 +312,7 @@ object IdeLedger {
           vs.foreach(collect)
         case ValueContractId(coid) =>
           discard(coids += coid)
-        case _: ValueCidlessLeaf => ()
+        case _: ValueCidLessAtom => ()
         case ValueOptional(mbV) => mbV.foreach(collect)
         case ValueTextMap(map) => map.values.foreach(collect)
         case ValueGenMap(entries) =>
