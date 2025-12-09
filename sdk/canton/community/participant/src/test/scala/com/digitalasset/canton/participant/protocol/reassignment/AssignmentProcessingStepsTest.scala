@@ -803,6 +803,7 @@ final class AssignmentProcessingStepsTest
         ),
         reassigningParticipantValidationResult =
           ReassigningParticipantValidationResult(errors = Seq.empty),
+        loggerFactory = loggerFactory,
       ),
       MediatorGroupRecipient(MediatorGroupIndex.zero),
       locallyRejectedF = FutureUnlessShutdown.pure(false),

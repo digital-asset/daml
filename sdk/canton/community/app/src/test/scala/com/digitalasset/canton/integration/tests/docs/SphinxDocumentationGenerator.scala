@@ -533,11 +533,11 @@ class SynchronizerInstallationManual
   }
 }
 
-/* Synchronization is needed because integration tests run in parallel and 2 tests depend on the same DARs
+/* Synchronization is needed because integration tests run in parallel and 3 tests depend on the same DARs
  */
 private object DocsGenerationSynchronization {
   private val finished: AtomicInteger = new AtomicInteger(0)
-  private val expectedCalls: Int = 2
+  private val expectedCalls: Int = 3
   private val darsSymLink = File("dars")
   private val darsDir = File("community/common/target/scala-2.13/classes")
 
@@ -692,7 +692,6 @@ class PartyReplicationDocumentationIntegrationTest
       File(
         "community/app/src/test/resources/documentation-snippets/simple-topology-party-replication-extension.conf"
       ),
-      File("community/app/src/test/resources/documentation-snippets/preview-and-repair.conf"),
     ) {
 
   registerPlugin(new UsePostgres(loggerFactory))
@@ -701,6 +700,7 @@ class PartyReplicationDocumentationIntegrationTest
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
+    createDarsSimlink()
     val file = File(partyReplicationAcsFilename)
     file.delete(swallowIOExceptions = true)
     file.deleteOnExit(swallowIOExceptions = true)
@@ -708,6 +708,7 @@ class PartyReplicationDocumentationIntegrationTest
 
   override protected def afterAll(): Unit = {
     File(partyReplicationAcsFilename).delete(swallowIOExceptions = true)
+    cleanUpDarsSimlink()
     super.afterAll()
   }
 }

@@ -37,7 +37,7 @@ trait LedgerApiContractStore {
   @VisibleForTesting
   def storeContracts(contracts: Seq[ContractInstance])(implicit
       traceContext: TraceContext
-  ): Future[Unit]
+  ): Future[Map[LfContractId, Long]]
 }
 
 final case class LedgerApiContractStoreImpl(
@@ -96,7 +96,7 @@ final case class LedgerApiContractStoreImpl(
 
   def storeContracts(contracts: Seq[ContractInstance])(implicit
       traceContext: TraceContext
-  ): Future[Unit] =
+  ): Future[Map[LfContractId, Long]] =
     failOnShutdown(
       participantContractStore
         .storeContracts(contracts)

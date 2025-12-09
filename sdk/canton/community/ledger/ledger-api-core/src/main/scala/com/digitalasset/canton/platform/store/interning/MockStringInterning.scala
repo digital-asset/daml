@@ -6,13 +6,15 @@ package com.digitalasset.canton.platform.store.interning
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.Party
+import com.google.common.annotations.VisibleForTesting
 
 import scala.concurrent.blocking
 
 /** This StringInterning implementation is interning in a transparent way everything it sees. This
   * is only for test purposes.
   */
-@SuppressWarnings(Array("org.wartremover.warts.OptionPartial"))
+@SuppressWarnings(Array("org.wartremover.warts.OptionPartial", "org.wartremover.warts.Var"))
+@VisibleForTesting
 class MockStringInterning extends StringInterning {
   private var idToString: Map[Int, String] = Map.empty
   private var stringToId: Map[String, Int] = Map.empty

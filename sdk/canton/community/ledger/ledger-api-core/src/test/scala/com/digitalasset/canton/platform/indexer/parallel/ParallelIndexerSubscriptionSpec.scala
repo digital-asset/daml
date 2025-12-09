@@ -8,7 +8,6 @@ import com.daml.metrics.DatabaseMetrics
 import com.digitalasset.canton.RepairCounter
 import com.digitalasset.canton.data.{CantonTimestamp, LedgerTimeBoundaries, Offset}
 import com.digitalasset.canton.ledger.participant.state
-import com.digitalasset.canton.ledger.participant.state.Update.TransactionAccepted.RepresentativePackageIds
 import com.digitalasset.canton.ledger.participant.state.Update.{
   RepairTransactionAccepted,
   TopologyTransactionEffective,
@@ -1841,12 +1840,10 @@ class ParallelIndexerSubscriptionSpec
       ),
       transaction = CommittedTransaction(TransactionBuilder.Empty),
       updateId = TestUpdateId("15000"),
-      contractAuthenticationData = Map.empty,
-      representativePackageIds = RepresentativePackageIds.Empty,
       synchronizerId = SynchronizerId.tryFromString("x::synchronizer"),
       repairCounter = repairCounter,
       recordTime = recordTime,
-      internalContractIds = Map.empty,
+      contractInfos = Map.empty,
     )(TraceContext.empty)
 
   def floatingUpdate(recordTime: CantonTimestamp): Update =

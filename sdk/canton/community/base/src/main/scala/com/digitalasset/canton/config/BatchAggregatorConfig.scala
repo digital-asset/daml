@@ -43,8 +43,14 @@ object BatchAggregatorConfig {
         BatchAggregatorConfig.defaultMaximumBatchSize,
   ) extends BatchAggregatorConfig
 
+  /** @param maxParallelBatches
+    *   Maximum number of batches to execute in parallel when using runMany.
+    * @param maximumBatchSize
+    *   Maximum number of queries in a batch.
+    */
   final case class NoAutoBatching(
+      maxParallelBatches: PositiveNumeric[Int] = BatchAggregatorConfig.defaultMaximumInFlight,
       override val maximumBatchSize: PositiveNumeric[Int] =
-        BatchAggregatorConfig.defaultMaximumBatchSize
+        BatchAggregatorConfig.defaultMaximumBatchSize,
   ) extends BatchAggregatorConfig
 }
