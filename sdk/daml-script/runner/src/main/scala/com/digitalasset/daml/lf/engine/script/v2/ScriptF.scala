@@ -431,42 +431,26 @@ object ScriptF {
     }
   }
 
-  // final case class QueryContractKey(
-  //     parties: OneAnd[Set, Party],
-  //     tplId: Identifier,
-  //     key: AnyContractKey,
-  // ) extends Cmd {
-  //   private def translateKey(
-  //       env: Env
-  //   )(id: Identifier, v: Value): Either[String, ExtendedValue] =
-  //     for {
-  //       keyTy <- env.lookupKeyTy(id)
-  //       translated <- env.valueTranslator
-  //         .translateValue(keyTy, v)
-  //         .left
-  //         .map(_.message)
-  //     } yield translated
-
-  //   override def execute(env: Env)(implicit
-  //       ec: ExecutionContext,
-  //       mat: Materializer,
-  //       esf: ExecutionSequencerFactory,
-  //   ): Future[ExtendedValue] =
-  //     for {
-  //       client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
-  //       optR <- client.queryContractKey(
-  //         parties,
-  //         tplId,
-  //         key.key,
-  //         translateKey(env),
-  //       )
-  //       optR <- Converter.toFuture(
-  //         optR.traverse(
-  //           Converter.fromCreated(env.valueTranslator, _, tplId)
-  //         )
-  //       )
-  //     } yield SEValue(ValueOptional(optR))
-  // }
+  final case class QueryContractKey(
+      parties: OneAnd[Set, Party],
+      tplId: Identifier,
+      key: AnyContractKey,
+  ) extends Cmd {
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[ExtendedValue] =
+      for {
+        client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
+        keyValue <- Converter.toFuture(Converter.castCommandExtendedValue(key.key))
+        optR <- client.queryContractKey(
+          parties,
+          tplId,
+          keyValue,
+        )
+      } yield ValueOptional(optR.map(Converter.fromCreated(_, tplId)))
+  }
 
   /** Allocate a party on the default, a singular, or multiple participants
     *
@@ -1070,16 +1054,16 @@ object ScriptF {
       case _ => Left(s"Expected QueryInterfaceContractId payload but got $v")
     }
 
-  // private def parseQueryContractKey(v: ExtendedValue): Either[String, QueryContractKey] =
-  //   v match {
-  //     case ValueRecord(_, ImmArray((_, actAs), (_, tplId), (_, key))) =>
-  //       for {
-  //         actAs <- Converter.toParties(actAs)
-  //         tplId <- Converter.typeRepToIdentifier(tplId)
-  //         key <- Converter.toAnyContractKey(key)
-  //       } yield QueryContractKey(actAs, tplId, key)
-  //     case _ => Left(s"Expected QueryContractKey payload but got $v")
-  //   }
+  private def parseQueryContractKey(v: ExtendedValue): Either[String, QueryContractKey] =
+    v match {
+      case ValueRecord(_, ImmArray((_, actAs), (_, tplId), (_, key))) =>
+        for {
+          actAs <- Converter.toParties(actAs)
+          tplId <- Converter.typeRepToIdentifier(tplId)
+          key <- Converter.toAnyContractKey(key)
+        } yield QueryContractKey(actAs, tplId, key)
+      case _ => Left(s"Expected QueryContractKey payload but got $v")
+    }
 
   private def parseAllocPartyV1(v: ExtendedValue): Either[String, AllocParty] =
     v match {
@@ -1294,11 +1278,11 @@ object ScriptF {
     }
   }
 
-  // private def parseTryCommands(v: ExtendedValue): Either[String, TryCommands] =
-  //   v match {
-  //     case ValueRecord(_, ImmArray(act)) => Right(TryCommands(act))
-  //     case _ => Left(s"Expected TryCommands payload but got $v")
-  //   }
+  private def parseTryCommands(v: ExtendedValue): Either[String, TryCommands] =
+    v match {
+      case ValueRecord(_, ImmArray(act)) => Right(TryCommands(act))
+      case _ => Left(s"Expected TryCommands payload but got $v")
+    }
 
   private def parseFailWithStatus(v: ExtendedValue): Either[String, FailWithStatus] =
     v match {
@@ -1342,7 +1326,7 @@ object ScriptF {
       case ("QueryContractId", 1) => parseQueryContractId(v)
       case ("QueryInterface", 1) => parseQueryInterface(v)
       case ("QueryInterfaceContractId", 1) => parseQueryInterfaceContractId(v)
-      // case ("QueryContractKey", 1) => parseQueryContractKey(v)
+      case ("QueryContractKey", 1) => parseQueryContractKey(v)
       case ("AllocateParty", 1) => parseAllocPartyV1(v)
       case ("AllocateParty", 2) => parseAllocPartyV2(v)
       case ("ListKnownParties", 1) => parseListKnownParties(v)

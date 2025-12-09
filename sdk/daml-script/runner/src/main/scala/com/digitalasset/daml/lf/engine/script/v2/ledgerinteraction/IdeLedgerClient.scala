@@ -27,7 +27,7 @@ import com.digitalasset.daml.lf.language.Ast.TTyCon
 import com.digitalasset.daml.lf.script.{IdeLedger, IdeLedgerRunner}
 import com.digitalasset.daml.lf.script
 import com.digitalasset.daml.lf.speedy.Speedy.Machine
-import com.digitalasset.daml.lf.speedy.{Pretty, SError, SValue, TraceLog, WarningLog}
+import com.digitalasset.daml.lf.speedy.{Pretty, SError, TraceLog, WarningLog}
 import com.digitalasset.daml.lf.transaction.{
   CreationTime,
   FatContractInstance,
@@ -282,21 +282,18 @@ class IdeLedgerClient(
   override def queryContractKey(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
-      key: SValue,
-      translateKey: (Identifier, Value) => Either[String, SValue],
+      key: Value,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[Option[ScriptLedgerClient.ActiveContract]] = {
-    val keyValue = key.toUnnormalizedValue
-
     def keyBuilderError(err: crypto.Hash.HashingError): Future[GlobalKey] =
       Future.failed(
         err match {
           case crypto.Hash.HashingError.ForbiddenContractId() =>
             new RuntimeException(
               Pretty
-                .prettyDamlException(ContractIdInContractKey(keyValue))
+                .prettyDamlException(ContractIdInContractKey(key))
                 .renderWideStream
                 .mkString
             )
@@ -308,7 +305,7 @@ class IdeLedgerClient(
       .getOrElse(throw new IllegalArgumentException(s"Unknown package ${templateId.packageId}"))
 
     GlobalKey
-      .build(templateId, keyValue, pkg.pkgName)
+      .build(templateId, key, pkg.pkgName)
       .fold(keyBuilderError(_), Future.successful(_))
       .flatMap { gkey =>
         ledger.ledgerData.activeKeys.get(gkey) match {

@@ -45,11 +45,11 @@ import com.daml.timer.RetryStrategy
 import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.daml.lf.command
+import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
 import com.digitalasset.daml.lf.engine.script.v2.Converter
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
-import com.digitalasset.daml.lf.speedy.{SValue, svalue}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi.{
@@ -342,29 +342,28 @@ class GrpcLedgerClient(
   override def queryContractKey(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
-      key: SValue,
-      translateKey: (Identifier, Value) => Either[String, SValue],
+      key: Value,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[Option[ScriptLedgerClient.ActiveContract]] = {
     // We cannot do better than a linear search over query here.
-    import scalaz.std.option._
-    import scalaz.std.scalaFuture._
-    import scalaz.std.vector._
-    import scalaz.syntax.traverse._
     for {
       activeContracts <- queryWithKey(parties, templateId)
-      speedyContracts <- activeContracts.traverse { case (t, kOpt) =>
-        Converter.toFuture(kOpt.traverse(translateKey(templateId, _)).map(k => (t, k)))
+      ownPackageName <- Converter.toFuture(
+        packageIdToUpgradeName(false, templateId.packageId).toRight("Cannot get package name")
+      )
+      speedyContracts = activeContracts.map { case (t, kOpt) =>
+        (t, kOpt.map(Hash.assertHashContractKey(templateId, ownPackageName, _)))
       }
+      ownHash = Hash.assertHashContractKey(templateId, ownPackageName, key)
     } yield {
       // Note that the Equal instance on Value performs structural equality
       // and also compares optional field and constructor names and is
       // therefore not correct here.
       // Equality.areEqual corresponds to the Daml-LF value equality
       // which we want here.
-      speedyContracts.collectFirst({ case (c, Some(k)) if svalue.Equality.areEqual(k, key) => c })
+      speedyContracts.collectFirst({ case (c, Some(kHash)) if kHash == ownHash => c })
     }
   }
 
