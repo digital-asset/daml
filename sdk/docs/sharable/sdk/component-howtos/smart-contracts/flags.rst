@@ -140,7 +140,7 @@ These flags are available for both ``--build`` as well as ``--test``.
     - ``unused-dependency``
     - ``upgrades-own-dependency``
     - ``template-interface-depends-on-daml-script``
-    - ``template-has-new-interface-instanc``
+    - ``template-has-new-interface-instance``
 
 - | ``--ignore-data-deps-visibility ARG``
 
