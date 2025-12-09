@@ -13,7 +13,7 @@ import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.examples.java.cycle as M
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
-import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2, UsePostgres}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.tests.sequencer.channel.SequencerChannelProtocolTestExecHelpers
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -64,7 +64,6 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
     with SharedEnvironment
     with SequencerChannelProtocolTestExecHelpers
     with HasCycleUtils {
-  registerPlugin(new UseH2(loggerFactory))
   registerPlugin(
     new UseBftSequencer(
       loggerFactory,
@@ -415,6 +414,11 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
       targetCantonContracts.size shouldBe sourceContractIds.size
   }
 }
+
+// final class OnlinePartyReplicationParticipantProtocolTestH2
+//   extends OnlinePartyReplicationParticipantProtocolTest {
+//   registerPlugin(new UseH2(loggerFactory))
+// }
 
 final class OnlinePartyReplicationParticipantProtocolTestPostgres
     extends OnlinePartyReplicationParticipantProtocolTest {

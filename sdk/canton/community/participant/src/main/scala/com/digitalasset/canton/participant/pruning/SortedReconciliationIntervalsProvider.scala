@@ -17,6 +17,7 @@ import com.digitalasset.canton.util.EitherUtil.*
 
 import java.security.InvalidParameterException
 import java.util.concurrent.atomic.AtomicReference
+import scala.annotation.tailrec
 import scala.concurrent.ExecutionContext
 import scala.util.chaining.*
 
@@ -152,39 +153,43 @@ class SortedReconciliationIntervalsProvider(
   def computeReconciliationIntervalsCovering(
       fromExclusive: CantonTimestamp,
       toInclusive: CantonTimestamp,
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[List[CommitmentPeriod]] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[List[CommitmentPeriod]] = {
+    logger.debug(s"Computing covering reconciliation intervals from $fromExclusive to $toInclusive")
     for {
       _ <- tryCheckIsTick(fromExclusive)
       _ <- tryCheckIsTick(toInclusive)
-      res <-
-        if (fromExclusive.getEpochSecond >= toInclusive.getEpochSecond)
-          FutureUnlessShutdown.pure(List.empty[CommitmentPeriod])
-        else
-          for {
-            sortedReconciliationIntervals <- reconciliationIntervals(toInclusive)
-            tickBefore = sortedReconciliationIntervals.tickBefore(toInclusive)
-            wholePeriod = CommitmentPeriod(
-              CantonTimestampSecond.ofEpochSecond(fromExclusive.getEpochSecond),
-              PositiveSeconds.tryOfSeconds((toInclusive - fromExclusive).getSeconds),
-            )
-            lastInterval = tickBefore match {
-              case Some(tick) =>
-                if (tick > fromExclusive)
-                  CommitmentPeriod(
-                    CantonTimestampSecond.ofEpochSecond(tick.getEpochSecond),
-                    PositiveSeconds.tryOfSeconds(
-                      toInclusive.getEpochSecond - tick.getEpochSecond
-                    ),
-                  )
-                else wholePeriod
-              case None => wholePeriod
-            }
-            prevIntervals <- computeReconciliationIntervalsCovering(
-              fromExclusive,
-              lastInterval.fromExclusive.forgetRefinement,
-            )
-          } yield {
-            prevIntervals :+ lastInterval
+      sortedReconciliationIntervals <- reconciliationIntervals(toInclusive)
+    } yield {
+
+      @tailrec
+      def go(to: CantonTimestamp, acc: List[CommitmentPeriod]): List[CommitmentPeriod] =
+        if (fromExclusive.getEpochSecond >= to.getEpochSecond) {
+          acc.reverse // reverse the list as we prepend the lastInterval below
+        } else {
+          val tickBefore = sortedReconciliationIntervals.tickBefore(to)
+          val wholePeriod = CommitmentPeriod(
+            CantonTimestampSecond.ofEpochSecond(fromExclusive.getEpochSecond),
+            PositiveSeconds.tryOfSeconds((to - fromExclusive).getSeconds),
+          )
+          val lastInterval = tickBefore match {
+            case Some(tick) =>
+              if (tick > fromExclusive)
+                CommitmentPeriod(
+                  CantonTimestampSecond.ofEpochSecond(tick.getEpochSecond),
+                  PositiveSeconds.tryOfSeconds(
+                    to.getEpochSecond - tick.getEpochSecond
+                  ),
+                )
+              else wholePeriod
+            case None => wholePeriod
           }
-    } yield res
+          // Prepend the lastInterval for better list performance
+          go(lastInterval.fromExclusive.forgetRefinement, lastInterval :: acc)
+        }
+
+      go(toInclusive, List.empty[CommitmentPeriod]).tap(_ =>
+        logger.debug(s"Computed reconciliation intervals from $fromExclusive to $toInclusive")
+      )
+    }
+  }
 }

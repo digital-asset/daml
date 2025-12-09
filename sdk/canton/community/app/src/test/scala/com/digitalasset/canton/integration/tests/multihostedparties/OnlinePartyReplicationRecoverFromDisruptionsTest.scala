@@ -35,7 +35,6 @@ sealed trait OnlinePartyReplicationRecoverFromDisruptionsTest
     with OnlinePartyReplicationTestHelpers
     with SharedEnvironment {
 
-  registerPlugin(new UseH2(loggerFactory))
   registerPlugin(new UseBftSequencer(loggerFactory))
 
   private var alice: PartyId = _
@@ -333,6 +332,11 @@ sealed trait OnlinePartyReplicationRecoverFromDisruptionsTest
         },
       )
   }
+}
+
+class OnlinePartyReplicationRecoverFromDisruptionsTestH2
+    extends OnlinePartyReplicationRecoverFromDisruptionsTest {
+  registerPlugin(new UseH2(loggerFactory))
 }
 
 class OnlinePartyReplicationRecoverFromDisruptionsTestPostgres

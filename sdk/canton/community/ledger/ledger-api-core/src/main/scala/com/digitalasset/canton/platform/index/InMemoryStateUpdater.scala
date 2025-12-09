@@ -11,7 +11,7 @@ import com.digitalasset.canton.data.DeduplicationPeriod.{DeduplicationDuration, 
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.TopologyEvent.PartyToParticipantAuthorization
-import com.digitalasset.canton.ledger.participant.state.Update.TransactionAccepted.RepresentativePackageIds
+import com.digitalasset.canton.ledger.participant.state.Update.TransactionAccepted.RepresentativePackageId
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
 import com.digitalasset.canton.ledger.participant.state.{CompletionInfo, Update}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
@@ -338,12 +338,13 @@ private[platform] object InMemoryStateUpdater {
       .flatten
       .foreach(partyAllocationTracker.onStreamItem)
 
-  private def updateCaches(
+  private[index] def updateCaches(
       inMemoryState: InMemoryState,
       updates: Vector[TransactionLogUpdate],
       ledgerEnd: LedgerEnd,
       batchTraceContext: TraceContext,
   ): Unit = {
+    inMemoryState.cachesUpdatedUpto.set(None) // mark caches as being updated
     updates.foreach(inMemoryState.inMemoryFanoutBuffer.push)
     NonEmptyVector
       .fromVector(
@@ -429,6 +430,12 @@ private[platform] object InMemoryStateUpdater {
     val events = rawEvents.collect {
       case NodeInfo(nodeId, create: Create, _) =>
         val contractId = create.coid
+        val contractInfo = txAccepted.contractInfos.getOrElse(
+          contractId,
+          throw new IllegalStateException(
+            s"Missing authentication data for contract $contractId"
+          ),
+        )
         TransactionLogUpdate.CreatedEvent(
           eventOffset = offset,
           updateId = txAccepted.updateId.toHexString,
@@ -456,23 +463,13 @@ private[platform] object InMemoryStateUpdater {
           createObservers = create.stakeholders.diff(create.signatories),
           createKeyHash = create.keyOpt.map(_.globalKey.hash),
           createKeyMaintainers = create.keyOpt.map(_.maintainers),
-          authenticationData = txAccepted.contractAuthenticationData.getOrElse(
-            contractId,
-            throw new IllegalStateException(
-              s"missing authentication data for contract $contractId"
-            ),
-          ),
-          representativePackageId = txAccepted.representativePackageIds match {
-            case RepresentativePackageIds.SameAsContractPackageId => create.templateId.packageId
-            case RepresentativePackageIds.DedicatedRepresentativePackageIds(
-                  representativePackageIds
+          authenticationData = contractInfo.contractAuthenticationData,
+          representativePackageId = contractInfo.representativePackageId match {
+            case RepresentativePackageId.SameAsContractPackageId => create.templateId.packageId
+            case RepresentativePackageId.DedicatedRepresentativePackageId(
+                  representativePackageId
                 ) =>
-              representativePackageIds.getOrElse(
-                contractId,
-                throw new IllegalStateException(
-                  s"Missing representative package id for contract $contractId"
-                ),
-              )
+              representativePackageId
           },
         )
       case NodeInfo(nodeId, exercise: Exercise, lastDescendantNodeId) =>

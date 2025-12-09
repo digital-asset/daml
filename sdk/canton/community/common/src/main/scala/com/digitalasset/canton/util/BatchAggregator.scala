@@ -74,6 +74,28 @@ trait BatchAggregator[A, B] {
   ): Either[PositiveInt, FutureUnlessShutdown[immutable.Iterable[B]]] =
     Either.cond(items.sizeIs <= maximumBatchSize.value, runTogether(items), maximumBatchSize)
 
+  /** Runs the processor for the given items, optimizing batch fill by splitting items into multiple
+    * batches. Newly created batches execute immediately if in-flight slots are available.
+    * Otherwise, items from the remaining batches are distributed to fill batches that are already
+    * in the queue if capacity is available; if not, the newly created batches are added to the
+    * queue.
+    *
+    * Unlike [[runInSameBatch]], this method spreads items across existing batches in the queue to
+    * fill them up to [[maximumBatchSize]] (runMany forwards only individual items to
+    * [[com.digitalasset.canton.util.BestFittingBatcher]], which takes care of filling available
+    * slots in existing batches)
+    *
+    * @return
+    *   The [[com.digitalasset.canton.lifecycle.FutureUnlessShutdown]] completes with the
+    *   processor's responses to all items in order, after all batches containing them have
+    *   finished.
+    */
+  def runMany(items: NonEmpty[Seq[Traced[A]]])(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+      callerCloseContext: CloseContext,
+  ): FutureUnlessShutdown[immutable.Iterable[B]]
+
   protected def runTogether(items: NonEmpty[Seq[Traced[A]]])(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -93,10 +115,11 @@ object BatchAggregator {
         maximumBatchSize = maximumBatchSize,
       )
 
-    case BatchAggregatorConfig.NoAutoBatching(maximumBatchSize) =>
+    case BatchAggregatorConfig.NoAutoBatching(maxParallelBatches, maximumBatchSize) =>
       new NoOpBatchAggregator[A, B](
         processor.executeSingle(_)(_, _, _),
         processor.executeBatch(_)(_, _),
+        maxParallelBatches,
         maximumBatchSize,
       )
   }
@@ -158,6 +181,7 @@ class NoOpBatchAggregator[A, B](
         TraceContext,
         CloseContext,
     ) => FutureUnlessShutdown[immutable.Iterable[B]],
+    private val maxParallelBatches: PositiveInt,
     override protected val maximumBatchSize: PositiveInt,
 ) extends BatchAggregator[A, B] {
   override def run(item: A)(implicit
@@ -173,6 +197,29 @@ class NoOpBatchAggregator[A, B](
       callerCloseContext: CloseContext,
   ): FutureUnlessShutdown[immutable.Iterable[B]] =
     executeBatch(items, traceContext, callerCloseContext)
+
+  override def runMany(items: NonEmpty[Seq[Traced[A]]])(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+      callerCloseContext: CloseContext,
+  ): FutureUnlessShutdown[immutable.Iterable[B]] = {
+    val batches = items.grouped(maximumBatchSize.value).toSeq
+    batches match {
+      case Seq(singleBatch) =>
+        NonEmpty.from(singleBatch) match {
+          case Some(singleBatchNE) => executeBatch(singleBatchNE, traceContext, callerCloseContext)
+          case None =>
+            FutureUnlessShutdown.pure(immutable.Iterable.empty[B])
+        }
+      case multipleBatches =>
+        val batchesNE = multipleBatches.flatMap(batch => NonEmpty.from(batch))
+        MonadUtil
+          .parTraverseWithLimit(maxParallelBatches)(batchesNE)(batchNE =>
+            executeBatch(batchNE, traceContext, callerCloseContext)
+          )
+          .map(_.flatten)
+    }
+  }
 }
 
 class BatchAggregatorImpl[A, B](
@@ -225,6 +272,37 @@ class BatchAggregatorImpl[A, B](
       maybeRunQueuedQueries()
       promise.futureUS
     }
+  }
+
+  override def runMany(items: NonEmpty[Seq[Traced[A]]])(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+      callerCloseContext: CloseContext,
+  ): FutureUnlessShutdown[immutable.Iterable[B]] = {
+    val batches: Seq[NonEmpty[Vector[Traced[A]]]] = items
+      .grouped(maximumBatchSize.value)
+      .flatMap { batch =>
+        NonEmpty.from(batch.toVector)
+      }
+      .toSeq
+
+    val futures = batches.flatMap { batch =>
+      val oldInFlight = inFlight.getAndUpdate(v => (v + 1).min(maximumInFlight))
+
+      if (oldInFlight < maximumInFlight) {
+        Seq(runBatchWithoutIncrement(batch))
+      } else {
+        val individualFutures = batch.map { tracedItem =>
+          val promise = PromiseUnlessShutdown.unsupervised[immutable.Iterable[B]]()
+          batcher.add(ItemsAndCompletionPromise(NonEmpty(Vector, tracedItem), promise)).discard
+          promise.futureUS
+        }
+        maybeRunQueuedQueries()
+        individualFutures
+      }
+    }
+
+    FutureUnlessShutdown.sequence(futures).map(_.flatten)
   }
 
   private def runSingleWithoutIncrement(

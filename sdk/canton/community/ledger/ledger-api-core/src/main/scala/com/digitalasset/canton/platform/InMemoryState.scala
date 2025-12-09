@@ -59,6 +59,11 @@ class InMemoryState(
   final def initializeTo(
       ledgerEndO: Option[LedgerEnd]
   )(implicit traceContext: TraceContext): Future[Unit] = {
+    def clearCaches(): Unit = {
+      contractStateCaches.reset(ledgerEndO)
+      inMemoryFanoutBuffer.flush()
+      ledgerEndCache.set(ledgerEndO)
+    }
     def resetInMemoryState(): Future[Unit] =
       for {
         // First stop the active dispatcher (if exists) to ensure
@@ -68,9 +73,7 @@ class InMemoryState(
         _ <- dispatcherState.stopDispatcher()
         // Reset the Ledger API caches to the latest ledger end
         _ <- Future {
-          contractStateCaches.reset(ledgerEndO)
-          inMemoryFanoutBuffer.flush()
-          ledgerEndCache.set(ledgerEndO)
+          clearCaches()
           transactionSubmissionTracker.close()
           reassignmentSubmissionTracker.close()
         }
@@ -90,16 +93,22 @@ class InMemoryState(
     if (!dispatcherState.isRunning) {
       logger.info(s"Initializing participant in-memory state to ledger end: $ledgerEndO")
       resetInMemoryState()
-    } else if (inMemoryStateIsUptodate) {
+    } else if (!inMemoryStateIsUptodate) {
       logger.info(
-        s"Participant in-memory state is uptodate, continue without reset. $ledgerEndComparisonLog"
-      )
-      Future.unit
-    } else {
-      logger.info(
-        s"Participant in-memory state/persisted ledger end mismatch: reseting in-memory state. $ledgerEndComparisonLog"
+        s"Participant in-memory state/persisted ledger end mismatch: resetting in-memory state. $ledgerEndComparisonLog"
       )
       resetInMemoryState()
+    } else if (cachesUpdatedUpto.get().isEmpty) {
+      // cachesUpdatedUpto can signal an incomplete cache state update, therefore we clear the caches
+      logger.info(
+        s"Participant in-memory state with empty cachesUpdatedUpTo: resetting caches. $ledgerEndComparisonLog"
+      )
+      Future(clearCaches())
+    } else {
+      logger.info(
+        s"Participant in-memory state is up-to-date, continue without reset. $ledgerEndComparisonLog"
+      )
+      Future.unit
     }
   }
 }

@@ -10,6 +10,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.examples.java.iou.Iou
 import com.digitalasset.canton.integration.plugins.{
   UseBftSequencer,
+  UseH2,
   UsePostgres,
   UseProgrammableSequencer,
 }
@@ -248,6 +249,11 @@ sealed trait OnlinePartyReplicationDecentralizedPartyTest
       coinsAtTargetParticipant.size shouldBe numContractsInCreateBatch
     }
   }
+}
+
+class OnlinePartyReplicationDecentralizedPartyTestH2
+    extends OnlinePartyReplicationDecentralizedPartyTest {
+  registerPlugin(new UseH2(loggerFactory))
 }
 
 class OnlinePartyReplicationDecentralizedPartyTestPostgres

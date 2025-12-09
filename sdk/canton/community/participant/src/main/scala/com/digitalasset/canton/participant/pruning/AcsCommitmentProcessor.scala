@@ -54,6 +54,7 @@ import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.Errors
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.PublishTickData.PersistRunningCommitmentsAtUpgradeTime
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.util.TimeOfChange
+import com.digitalasset.canton.platform.store.interning.StringInterning
 import com.digitalasset.canton.protocol.ContractIdSyntax.*
 import com.digitalasset.canton.protocol.messages.AcsCommitment.{
   CommitmentType,
@@ -223,6 +224,7 @@ class AcsCommitmentProcessor private (
     commitmentCheckpointInterval: PositiveDurationSeconds,
     commitmentMismatchDebugging: Boolean,
     commitmentProcessorNrAcsChangesBehindToTriggerCatchUp: Option[PositiveInt],
+    stringInterning: StringInterning,
 )(implicit ec: ExecutionContext)
     extends AcsChangeListener
     with FlagCloseable
@@ -323,7 +325,12 @@ class AcsCommitmentProcessor private (
     */
   @VisibleForTesting
   private[pruning] val multiHostedPartyTracker =
-    new AcsCommitmentMultiHostedPartyTracker(participantId, timeouts, loggerFactory)
+    new AcsCommitmentMultiHostedPartyTracker(
+      participantId,
+      timeouts,
+      loggerFactory,
+      stringInterning,
+    )
 
   /** A future checking whether the node should enter catch-up mode by computing the catch-up
     * timestamp. At most one future runs computing this
@@ -801,7 +808,8 @@ class AcsCommitmentProcessor private (
             snapshotRes.active,
             activeContractStore,
             contractStore,
-            enableAdditionalConsistencyChecks || commitmentMismatchDebugging,
+            enableAdditionalConsistencyChecks,
+            commitmentMismatchDebugging,
             completedPeriod,
             batchingConfig,
             lastIntervalActivations,
@@ -2188,12 +2196,29 @@ class AcsCommitmentProcessor private (
       )
       counterParticipantsNE = NonEmpty.from(participants)
       _ <- counterParticipantsNE.fold(FutureUnlessShutdown.unit)(counterParticipants =>
-        splitPeriod.fold(FutureUnlessShutdown.unit)(period =>
-          store.markOutstanding(
-            period,
-            counterParticipants,
-          )
-        )
+        splitPeriod.fold(FutureUnlessShutdown.unit) { periods =>
+          MonadUtil
+            .batchedSequentialTraverse[
+              CommitmentPeriod,
+              FutureUnlessShutdown,
+              Unit,
+            ](
+              batchingConfig.parallelism,
+              batchingConfig.maxItemsInBatch,
+            )(periods.forgetNE.toSeq) { chunk =>
+              NonEmpty.from(chunk) match {
+                case Some(chunkNE) =>
+                  store
+                    .markOutstanding(
+                      chunkNE.toSet,
+                      counterParticipants,
+                    )
+                    .map(_ => Seq(()))
+                case None => FutureUnlessShutdown.pure(Seq.empty[Unit])
+              }
+            }
+            .map(_ => ())
+        }
       )
     } yield ()
 
@@ -2435,6 +2460,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
       commitmentCheckpointInterval: PositiveDurationSeconds,
       commitmentMismatchDebugging: Boolean = false,
       commitmentProcessorNrAcsChangesBehindToTriggerCatchUp: Option[PositiveInt] = None,
+      stringInterning: StringInterning,
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -2498,6 +2524,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
         commitmentCheckpointInterval,
         commitmentMismatchDebugging,
         commitmentProcessorNrAcsChangesBehindToTriggerCatchUp,
+        stringInterning,
       )
       // We trigger the processing of the buffered commitments, but we do not wait for it to complete here,
       // because, if processing buffered required topology updates that go through the same queue, we'd create a deadlock.
@@ -2806,6 +2833,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
       activeContractStore: ActiveContractStore,
       contractStore: ContractStore,
       enableAdditionalConsistencyChecks: Boolean,
+      commitmentMismatchDebugging: Boolean,
       completedPeriod: CommitmentPeriod,
       batchingConfig: BatchingConfig,
       lastIntervalActivations: TrieMap[(LfContractId, ReassignmentCounter), Int],
@@ -2815,7 +2843,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
       namedLoggingContext: NamedLoggingContext,
   ): FutureUnlessShutdown[Unit] = {
     val acsTimestamp = TimeOfChange(completedPeriod.toInclusive.forgetRefinement)
-    val res = if (enableAdditionalConsistencyChecks) {
+    val res = if (enableAdditionalConsistencyChecks || commitmentMismatchDebugging) {
       for {
         (rc, activations) <- computeRunningCommitmentsFromAcs(
           activeContractStore,
@@ -2834,9 +2862,14 @@ object AcsCommitmentProcessor extends HasLoggerName {
                   toc.timestamp > completedPeriod.fromExclusive.forgetRefinement
                 }}"
           )
-          Errors.InternalError
-            .InconsistentRunningCommitmentAndACS(acsTimestamp, acsCommitments, runningCommitments)
-            .discard
+          if (enableAdditionalConsistencyChecks)
+            Errors.InternalError
+              .InconsistentRunningCommitmentAndACS(acsTimestamp, acsCommitments, runningCommitments)
+              .discard
+          else if (commitmentMismatchDebugging)
+            namedLoggingContext.info(
+              "Detected an inconsistency between the running commitments and the ACS"
+            )
         }
       }
     } else FutureUnlessShutdown.unit

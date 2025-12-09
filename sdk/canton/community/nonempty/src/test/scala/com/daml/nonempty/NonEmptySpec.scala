@@ -12,6 +12,8 @@ import scalaz.scalacheck.{ScalazProperties => SZP}
 import scalaz.Foldable
 import shapeless.test.illTyped
 
+import scala.annotation.nowarn
+
 class NonEmptySpec extends AnyWordSpec with Matchers with WordSpecCheckLaws {
   import scala.{collection => col}, col.{mutable => mut}, col.{immutable => imm}
   import NonEmptySpec._
@@ -45,7 +47,7 @@ class NonEmptySpec extends AnyWordSpec with Matchers with WordSpecCheckLaws {
       implicit def foobar(foo: Foo.type): Bar.type = Bar
       illTyped(
         "NonEmpty(List, Foo, Foo): NonEmpty[List[Bar.type]]",
-        "No implicit view available from .*List.type => .*Factory\\[Foo.type,.*Iterable\\[Foo.type] with List\\[Bar.type]].",
+        ".*?No implicit view available from .*List.type => .*Factory\\[Foo.type,.*Iterable\\[Foo.type] with List\\[Bar.type]].*?",
       )
       val bars: NonEmpty[List[Bar.type]] = NonEmpty.mk(List, Foo, Foo)
       (bars: List[Bar.type]).head should ===(Bar)
@@ -54,11 +56,13 @@ class NonEmptySpec extends AnyWordSpec with Matchers with WordSpecCheckLaws {
 
   "unapply" should {
     "compile on immutable maps" in {
+      @nowarn
       val NonEmpty(m) = imm.Map(1 -> 2)
       (m: NonEmpty[imm.Map[Int, Int]]) should ===(imm.Map(1 -> 2))
     }
 
     "compile on immutable seqs and maps" in {
+      @nowarn
       val NonEmpty(s) = imm.Seq(3)
       (s: NonEmpty[imm.Seq[Int]]) should ===(imm.Seq(3))
     }
@@ -115,24 +119,28 @@ class NonEmptySpec extends AnyWordSpec with Matchers with WordSpecCheckLaws {
 
   "toNEF" should {
     "destructure the Set type" in {
+      @nowarn
       val NonEmpty(s) = imm.Set(1)
       val g = Set(s.toNEF)
       g: Set[NonEmptyF[imm.Set, Int]]
     }
 
     "destructure the Map type" in {
+      @nowarn
       val NonEmpty(m) = Map(1 -> 2)
       val g = Set(m.toNEF)
       g: Set[NonEmptyF[Map[Int, *], Int]]
     }
 
     "allow underlying NonEmpty operations" in {
+      @nowarn
       val NonEmpty(s) = imm.Set(1)
       ((s.toNEF incl 2): NonEmpty[imm.Set[Int]]) should ===(imm.Set(1, 2))
     }
 
     "allow access to Scalaz methods" in {
       import scalaz.syntax.functor._, scalaz.std.map._
+      @nowarn
       val NonEmpty(m) = imm.Map(1 -> 2)
       (m.toNEF.map((3, _)): NonEmptyF[imm.Map[Int, *], (Int, Int)]) should ===(
         imm.Map(1 -> ((3, 2)))
@@ -151,7 +159,7 @@ class NonEmptySpec extends AnyWordSpec with Matchers with WordSpecCheckLaws {
       val nhm = (m: NonEmpty[Map[Int, Int]]).updated(1, 2)
       illTyped(
         "nhm: NonEmpty[imm.HashMap[Int, Int]]",
-        "(?s)type mismatch.*?found.*?\\.Map.*?required.*?HashMap.*",
+        "(?s)type mismatch.*?\\.Map.*?\\|.*?HashMap.*",
       )
       (nhm: NonEmpty[Map[Int, Int]]) should ===(m)
     }
@@ -172,7 +180,7 @@ class NonEmptySpec extends AnyWordSpec with Matchers with WordSpecCheckLaws {
       val nhm = (m: NonEmpty[Map[Int, Int]]).transform((_, _) => 2)
       illTyped(
         "nhm: NonEmpty[imm.HashMap[Int, Int]]",
-        "(?s)type mismatch.*?found.*?\\.Map.*?required.*?HashMap.*",
+        "(?s)type mismatch.*?\\.Map.*?\\|.*?HashMap.*?",
       )
       (nhm: NonEmpty[Map[Int, Int]]) should ===(m)
     }
@@ -210,6 +218,7 @@ class NonEmptySpec extends AnyWordSpec with Matchers with WordSpecCheckLaws {
   }
 
   "+-:" should {
+    @nowarn
     val NonEmpty(s) = Vector(1, 2)
 
     "preserve its tail type" in {
@@ -306,7 +315,7 @@ class NonEmptySpec extends AnyWordSpec with Matchers with WordSpecCheckLaws {
     "reject possibly-empty function returns" in {
       illTyped(
         "(_: NonEmpty[List[Int]]) flatMap (x => List(x))",
-        "(?s)type mismatch.*?found.*?List.*?required.*?NonEmpty.*",
+        "(?s).*type mismatch.*?List.*?\\|.*?NonEmpty.*",
       )
     }
   }

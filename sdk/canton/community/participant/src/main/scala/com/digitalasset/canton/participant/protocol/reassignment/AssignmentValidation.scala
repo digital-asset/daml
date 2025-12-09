@@ -120,6 +120,7 @@ private[reassignment] class AssignmentValidation(
       hostedConfirmingReassigningParties = hostedConfirmingReassigningParties,
       commonValidationResult = commonValidationResult,
       reassigningParticipantValidationResult = reassigningParticipantValidationResult,
+      loggerFactory = loggerFactory,
     )
   }
 

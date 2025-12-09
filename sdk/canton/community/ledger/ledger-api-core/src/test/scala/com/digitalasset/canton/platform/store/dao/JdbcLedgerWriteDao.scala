@@ -3,11 +3,14 @@
 
 package com.digitalasset.canton.platform.store.dao
 
+import com.digitalasset.canton.config.CantonRequireTypes.String185
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.api.ParticipantId
 import com.digitalasset.canton.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.TestAcsChangeFactory
+import com.digitalasset.canton.ledger.participant.state.Update.ContractInfo
+import com.digitalasset.canton.ledger.participant.state.Update.TransactionAccepted.RepresentativePackageId.SameAsContractPackageId
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
@@ -176,10 +179,11 @@ private class JdbcLedgerWriteDao(
 
   override def listKnownParties(
       fromExcl: Option[Party],
+      filterParty: Option[String185],
       maxResults: Int,
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[List[IndexerPartyDetails]] = readDao.listKnownParties(fromExcl, maxResults)
+  ): Future[List[IndexerPartyDetails]] = readDao.listKnownParties(fromExcl, filterParty, maxResults)
 
   /** Prunes the events and command completions tables.
     *
@@ -269,24 +273,18 @@ private class JdbcLedgerWriteDao(
               ),
               transaction = transaction,
               updateId = updateId,
-              contractAuthenticationData = new Map[ContractId, Bytes] {
-                override def removed(key: ContractId): Map[ContractId, Bytes] = this
-
-                override def updated[V1 >: Bytes](
-                    key: ContractId,
-                    value: V1,
-                ): Map[ContractId, V1] = this
-
-                override def get(key: ContractId): Option[Bytes] = Some(Bytes.Empty)
-
-                override def iterator: Iterator[(ContractId, Bytes)] = Iterator.empty
-              }, // only for tests
               synchronizerId = SynchronizerId.tryFromString("invalid::deadbeef"),
               recordTime = CantonTimestamp(recordTime),
               externalTransactionHash = None,
               acsChangeFactory =
                 TestAcsChangeFactory(contractActivenessChanged = contractActivenessChanged),
-              internalContractIds = internalContractIds,
+              contractInfos = internalContractIds.map { case (cid, internalContractId) =>
+                cid -> ContractInfo(
+                  internalContractId = internalContractId,
+                  contractAuthenticationData = Bytes.Empty,
+                  representativePackageId = SameAsContractPackageId,
+                )
+              },
             )
           ),
         )

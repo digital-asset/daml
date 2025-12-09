@@ -5,8 +5,9 @@ package com.digitalasset.canton.integration.tests.ledger.api.benchtool.submissio
 
 import com.daml.ledger.javaapi.data.Party
 import com.digitalasset.canton.HasTempDirectory
+import com.digitalasset.canton.config.DbConfig.Postgres
 import com.digitalasset.canton.integration.TestConsoleEnvironment
-import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.tests.ledgerapi.NoAuthPlugin
 import com.digitalasset.canton.ledger.api.benchtool.BenchtoolSandboxFixtureIsolated
 import com.digitalasset.canton.ledger.api.benchtool.config.WorkflowConfig
@@ -27,7 +28,8 @@ class BenchtoolDumpRestoreITSpec extends BenchtoolSandboxFixtureIsolated with Ha
   registerPlugin(NoAuthPlugin(loggerFactory))
 
   private val postgresPlugin = new UsePostgres(loggerFactory)
-  private val sequencerPlugin = new UseBftSequencer(loggerFactory)
+  private val sequencerPlugin =
+    new UseReferenceBlockSequencer[Postgres](loggerFactory, postgres = Some(postgresPlugin))
 
   registerPlugin(postgresPlugin)
   registerPlugin(sequencerPlugin)
@@ -89,6 +91,7 @@ class BenchtoolDumpRestoreITSpec extends BenchtoolSandboxFixtureIsolated with Ha
           _ <- submission.performSubmission(submissionConfig)
           beforeDrop <- acsEvents(apiServices, allocatedParties)
           _ <- Future(stopAll())
+          _ <- sequencerPlugin.dumpAllDatabases(actualConfig, tempDirectory)
           _ <- postgresPlugin
             .recreateDatabases(actualConfig)
             .failOnShutdownToAbortException("recreateDatabases")
@@ -96,6 +99,7 @@ class BenchtoolDumpRestoreITSpec extends BenchtoolSandboxFixtureIsolated with Ha
           apiServices <- ledgerApiServices
           afterDrop <- acsEvents(apiServices, allocatedParties)
           _ <- Future(stopAll())
+          _ <- sequencerPlugin.restoreAllDatabases(actualConfig, tempDirectory)
           _ <- Future(startAll())
           apiServices <- ledgerApiServices
           afterRestore <- acsEvents(apiServices, allocatedParties)

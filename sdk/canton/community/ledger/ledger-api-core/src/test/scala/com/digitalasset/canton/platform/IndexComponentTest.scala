@@ -7,8 +7,9 @@ import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, ProcessingTimeout}
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
-import com.digitalasset.canton.ledger.participant.state.Update
+import com.digitalasset.canton.ledger.participant.state.Update.TransactionAccepted.RepresentativePackageId.SameAsContractPackageId
 import com.digitalasset.canton.ledger.participant.state.Update.{
+  ContractInfo,
   OnPRReassignmentAccepted,
   RepairReassignmentAccepted,
   RepairTransactionAccepted,
@@ -16,6 +17,7 @@ import com.digitalasset.canton.ledger.participant.state.Update.{
   SequencedTransactionAccepted,
 }
 import com.digitalasset.canton.ledger.participant.state.index.IndexService
+import com.digitalasset.canton.ledger.participant.state.{Reassignment, Update}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, HasCloseContext}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.{CommonMockMetrics, LedgerApiServerMetrics}
@@ -39,7 +41,7 @@ import com.digitalasset.canton.platform.store.{
   LedgerApiContractStoreImpl,
   PruningOffsetService,
 }
-import com.digitalasset.canton.protocol.ContractInstance
+import com.digitalasset.canton.protocol.{ContractInstance, LfContractId}
 import com.digitalasset.canton.resource.DbStorageSingle
 import com.digitalasset.canton.store.db.DbStorageSetup.DbBasicConfig
 import com.digitalasset.canton.store.packagemeta.PackageMetadata
@@ -48,7 +50,7 @@ import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext}
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.util.PekkoUtil.{FutureQueue, IndexingFutureQueue}
 import com.digitalasset.canton.{BaseTest, HasExecutorService}
-import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.{Bytes, Ref}
 import com.digitalasset.daml.lf.engine.{Engine, EngineConfig}
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.test.{NodeIdTransactionBuilder, TestNodeBuilder}
@@ -128,18 +130,67 @@ trait IndexComponentTest
       .map { internalContractIds =>
         update match {
           case txAccepted: SequencedTransactionAccepted =>
-            txAccepted.copy(internalContractIds = internalContractIds)
+            txAccepted.copy(contractInfos =
+              injectInternalContractIds(
+                txAccepted.contractInfos,
+                internalContractIds,
+              )
+            )
           case txAccepted: RepairTransactionAccepted =>
-            txAccepted.copy(internalContractIds = internalContractIds)
+            txAccepted.copy(contractInfos =
+              injectInternalContractIds(
+                txAccepted.contractInfos,
+                internalContractIds,
+              )
+            )
           case reassignment: SequencedReassignmentAccepted =>
-            reassignment.copy(internalContractIds = internalContractIds)
+            reassignment.copy(
+              reassignment =
+                injectInternalContractIds(reassignment.reassignment, internalContractIds)
+            )
           case reassignment: RepairReassignmentAccepted =>
-            reassignment.copy(internalContractIds = internalContractIds)
+            reassignment.copy(
+              reassignment =
+                injectInternalContractIds(reassignment.reassignment, internalContractIds)
+            )
           case reassignment: OnPRReassignmentAccepted =>
-            reassignment.copy(internalContractIds = internalContractIds)
+            reassignment.copy(
+              reassignment =
+                injectInternalContractIds(reassignment.reassignment, internalContractIds)
+            )
           case other => other
         }
       }
+
+  private def injectInternalContractIds(
+      contractInfo: Map[LfContractId, ContractInfo],
+      internalContractIds: Map[LfContractId, Long],
+  ): Map[LfContractId, ContractInfo] =
+    internalContractIds.foldLeft(contractInfo) { case (acc, (coid, internalContractId)) =>
+      acc.updated(
+        coid,
+        acc.get(coid) match {
+          case Some(contractInfo) => contractInfo.copy(internalContractId = internalContractId)
+          case None =>
+            ContractInfo(
+              internalContractId = internalContractId,
+              contractAuthenticationData = Bytes.Empty,
+              representativePackageId = SameAsContractPackageId,
+            )
+        },
+      )
+    }
+
+  private def injectInternalContractIds(
+      reassignmentBatch: Reassignment.Batch,
+      internalContractIds: Map[LfContractId, Long],
+  ): Reassignment.Batch = Reassignment.Batch(
+    reassignmentBatch.reassignments.map {
+      case assign: Reassignment.Assign =>
+        assign.copy(internalContractId = internalContractIds.get(assign.createNode.coid).value)
+      case unassign: Reassignment.Unassign => unassign: Reassignment
+    }
+  )
 
   protected def index: IndexService = testServices.index
 

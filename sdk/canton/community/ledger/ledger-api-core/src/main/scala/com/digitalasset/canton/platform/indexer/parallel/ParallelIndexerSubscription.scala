@@ -199,6 +199,7 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
                 inMemoryState.stringInterningView,
               ),
               logger,
+              metrics,
             )
           ),
           ingestingParallelism = ingestionParallelism,
@@ -722,7 +723,8 @@ object ParallelIndexerSubscription {
   }
 
   def refillMissingDeactivatedActivations(
-      logger: TracedLogger
+      metrics: LedgerApiServerMetrics,
+      logger: TracedLogger,
   )(batch: Batch[Vector[DbDto]]): Batch[Vector[DbDto]] = {
     def fillDeactivationRefFor(dbDto: DbDto.EventDeactivate): DbDto.EventDeactivate = {
       val synCon = dbDto.synCon
@@ -753,15 +755,24 @@ object ParallelIndexerSubscription {
 
       case noChange => noChange
     }
+    dbDtosWithDeactivationReferences.foreach {
+      case deactivate: DbDto.EventDeactivate =>
+        deactivate.deactivated_event_sequential_id.foreach { deactivated_event_sequential_id =>
+          val distance = deactivate.event_sequential_id - deactivated_event_sequential_id
+          metrics.indexer.deactivationDistances.update(distance)
+        }
+      case _ => ()
+    }
     batch.copy(batch = dbDtosWithDeactivationReferences)
   }
 
   def batcher[DB_BATCH](
       batchF: Vector[DbDto] => DB_BATCH,
       logger: TracedLogger,
+      metrics: LedgerApiServerMetrics,
   )(inBatch: Batch[Vector[DbDto]]): Batch[DB_BATCH] = {
     val dbBatch = inBatch
-      .pipe(refillMissingDeactivatedActivations(logger))
+      .pipe(refillMissingDeactivatedActivations(metrics, logger))
       .batch
       .pipe(batchF)
     inBatch.copy(batch = dbBatch)

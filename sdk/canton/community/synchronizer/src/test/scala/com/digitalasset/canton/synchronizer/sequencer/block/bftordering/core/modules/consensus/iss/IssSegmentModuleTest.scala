@@ -1024,7 +1024,7 @@ class IssSegmentModuleTest
         )
 
         // Despite completing blocks, no initiatePull is sent to Availability because the view change
-        // occurred before the blocks were completed, and moreSlotsToAssign will return false when
+        // occurred before the blocks were completed, and `canReceiveProposals` will return false when
         // completing blocks with segment.view > 0
         availabilityBuffer shouldBe empty
         consensus.allFuturesHaveFinished shouldBe true

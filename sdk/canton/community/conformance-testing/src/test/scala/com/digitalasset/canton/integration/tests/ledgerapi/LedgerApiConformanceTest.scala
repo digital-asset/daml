@@ -391,7 +391,9 @@ trait LedgerApiExperimentalConformanceTest extends SingleVersionLedgerApiConform
 
 class LedgerApiExperimentalConformanceTest_Postgres extends LedgerApiExperimentalConformanceTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseBftSequencer(loggerFactory))
+  // On registerPlugin(new UseBftSequencer(loggerFactory)) PrefetchContractKeysIT fails with
+  // ABORTED: SEQUENCER_BACKPRESSURE(2,54fe840c): The sequencer is overloaded.
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }
 
 trait LedgerApiParticipantPruningConformanceTest extends SingleVersionLedgerApiConformanceBase {
@@ -488,7 +490,7 @@ class LedgerApiSingleTest extends SingleVersionLedgerApiConformanceBase {
   "Ledger Api Test Tool" can {
     "run a single test" in { implicit env =>
       ledgerApiTestToolPlugin.runSuites(
-        suites = "PartyManagementServiceIT:PMGenerateExternalPartyTopologyTransaction",
+        suites = "PartyManagementServiceIT:PMListFilteredKnownParties",
         exclude = Nil,
         concurrency = 1,
       )
