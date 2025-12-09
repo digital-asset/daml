@@ -139,7 +139,7 @@ da_scala_test_suite(
         "//daml-lf/language",
         "//libs-scala/crypto",
         "//libs-scala/safe-proto",
-        "//libs-scala/scalatest-utils",
+        "//canton:scalatest-utils",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_scalatest_scalatest_compatible",
     ],

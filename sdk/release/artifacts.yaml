@@ -123,7 +123,7 @@
   type: jar-scala
 - target: //canton:scala-utils
   type: jar-scala
-- target: //libs-scala/scalatest-utils:scalatest-utils
+- target: //canton:scalatest-utils
   type: jar-scala
 - target: //libs-scala/test-evidence/scalatest:test-evidence-scalatest
   type: jar-scala

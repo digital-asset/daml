@@ -36,6 +36,32 @@ load("//rules_daml:daml.bzl", "daml_compile")
 canton_scalacopts = ["-Xsource:3-cross"]
 
 da_scala_library(
+    name = "scalatest-utils",
+    srcs = glob(["community/scalatest-utils/src/main/**/*.scala"]),
+    plugins = [
+        kind_projector_plugin,
+    ],
+    scala_deps = [
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_flatspec",
+        "@maven//:org_scalatest_scalatest_freespec",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalatestplus_scalacheck_1_15",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    override_scalacopts = canton_scalacopts + ["-language:postfixOps", "-Wconf:msg=lambda-parens:s"],
+    tags = ["maven_coordinates=com.daml:scalatest-utils:__VERSION__"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "@maven//:org_scalatest_scalatest_compatible",
+    ],
+)
+
+da_scala_library(
     name = "scala-utils",
     srcs = glob(["community/scala-utils/src/main/scala/**/*.scala"]),
     plugins = [
