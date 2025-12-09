@@ -45,7 +45,7 @@ protobuf_version = "3.25.5"
 pekko_version = "1.2.1"
 pekko_http_version = "1.1.0"
 tapir_version = "1.8.5"
-transcode_version = "0.1.1-main.20251112.144.829.v5cc568a"
+transcode_version = "3.5.0-snapshot.20251205.150.903.vc31b0a4"
 upickle_version = "4.1.0"
 ujson_version = "4.0.2"
 
@@ -81,8 +81,8 @@ def install_java_deps():
                 # exclude conflicting Scala 3 dependencies, we use ujson_2.13 instead
                 exclusions = ["com.lihaoyi:ujson_3"],
             ),
-            "com.daml:transcode-codec-proto-scala-daml3.5_3:{}".format(transcode_version),
-            "com.daml:transcode-daml-lf-daml3.5_3:{}".format(transcode_version),
+            "com.daml:transcode-codec-proto-scala_3:{}".format(transcode_version),
+            "com.daml:transcode-daml-lf_3:{}".format(transcode_version),
             maven.artifact(
                 group = "com.daml",
                 artifact = "transcode-schema_3",
