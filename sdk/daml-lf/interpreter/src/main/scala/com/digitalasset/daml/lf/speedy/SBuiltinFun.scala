@@ -831,10 +831,6 @@ private[lf] object SBuiltinFun {
 
         result.fold(Control.Error, Control.Value)
       } catch {
-        case _: NoSuchProviderException =>
-          crash("JCE Provider BouncyCastle not found")
-        case _: NoSuchAlgorithmException =>
-          crash("BouncyCastle provider fails to support SECP256K1")
         case _: IllegalArgumentException =>
           Control.Error(
             IE.Crypto(
@@ -856,6 +852,10 @@ private[lf] object SBuiltinFun {
               IE.Crypto.MalformedKey(getSText(args, 0), exn.getMessage)
             )
           )
+        case _: NoSuchProviderException =>
+          crash("JCE Provider BouncyCastle not found")
+        case _: NoSuchAlgorithmException =>
+          crash("BouncyCastle provider fails to support SECP256K1")
       }
     }
 
