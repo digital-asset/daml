@@ -9,8 +9,7 @@ package v2
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.daml.lf.data.support.crypto.MessageSignatureUtil
-import com.digitalasset.daml.lf.data.{Bytes, FrontStack, Utf8}
-import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.{Bytes, FrontStack, SortedLookupList, Utf8, ImmArray}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.Time.Timestamp
 // import com.digitalasset.daml.lf.engine.preprocessing.ValueTranslator
@@ -21,9 +20,12 @@ import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
 // import com.digitalasset.daml.lf.speedy.SBuiltinFun.{SBThrow, SBToAny, SBVariantCon}
 import com.digitalasset.daml.lf.speedy.SBuiltinFun.SBVariantCon
 import com.digitalasset.daml.lf.speedy.SExpr._
-// import com.digitalasset.daml.lf.speedy.ExtendedValue._
 import com.digitalasset.daml.lf.speedy.SError
-import com.digitalasset.daml.lf.speedy.Speedy.Machine.ExtendedValue
+import com.digitalasset.daml.lf.speedy.Speedy.Machine.{
+  ExtendedValue,
+  ExtendedValueClosureBlob,
+  ExtendedValueComputationMode,
+}
 import com.digitalasset.daml.lf.stablepackages.StablePackagesV2
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.script.converter.Converter.{makeTuple, toContractId, toText}
@@ -39,7 +41,7 @@ import java.security.{KeyFactory, SecureRandom}
 import java.security.spec.PKCS8EncodedKeySpec
 import java.time.Clock
 import scala.concurrent.{ExecutionContext, Future}
-// import scala.util.{Failure, Success}
+import scala.util.{Failure, Success}
 
 import annotation.unused
 
@@ -221,54 +223,58 @@ object ScriptF {
   //   ): Future[ExtendedValue] = Future.failed(new NotImplementedError)
   // }
 
-  // final case class TryFailureStatus(act: ExtendedValue) extends Cmd {
-  //   override def executeWithRunner(env: Env, runner: v2.Runner, convertLegacyExceptions: Boolean)(
-  //       implicit
-  //       ec: ExecutionContext,
-  //       mat: Materializer,
-  //       esf: ExecutionSequencerFactory,
-  //   ): Future[ExtendedValue] =
-  //     runner
-  //       .run(SEAppAtomic(SEValue(act), ImmArray(SEValue(SUnit))), convertLegacyExceptions = true)
-  //       .transformWith {
-  //         case Success(v) =>
-  //           Future.successful(SEAppAtomic(right, ImmArray(SEValue(v))))
-  //         case Failure(
-  //               free.InterpretationError(
-  //                 SError.SErrorDamlException(
-  //                   IE.FailureStatus(errorId, failureCategory, errorMessage, metadata)
-  //                 )
-  //               )
-  //             ) =>
-  //           import com.digitalasset.daml.lf.script.converter.Converter.record
-  //           Future.successful(
-  //             SEAppAtomic(
-  //               left,
-  //               ImmArray(
-  //                 SEValue(
-  //                   record(
-  //                     StablePackagesV2.FailureStatus,
-  //                     ("errorId", ValueText(errorId)),
-  //                     ("category", SInt64(failureCategory.toLong)),
-  //                     ("message", ValueText(errorMessage)),
-  //                     (
-  //                       "meta",
-  //                       SMap(true, metadata.map { case (k, v) => (ValueText(k), ValueText(v)) }),
-  //                     ),
-  //                   )
-  //                 )
-  //               ),
-  //             )
-  //           )
-  //         case Failure(e) => Future.failed(e)
-  //       }
+  final case class TryFailureStatus(act: ExtendedValueClosureBlob) extends Cmd {
+    override def executeWithRunner(env: Env, runner: v2.Runner, convertLegacyExceptions: Boolean)(
+        implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[ExtendedValue] =
+      runner
+        .run(
+          ExtendedValueComputationMode.ClosureWithArgs(act, List(ValueUnit)),
+          convertLegacyExceptions = true,
+        )
+        .transformWith {
+          case Success(v) =>
+            Future.successful(
+              ValueVariant(Some(StablePackagesV2.Either), Name.assertFromString("Right"), v)
+            )
+          case Failure(
+                free.InterpretationError(
+                  SError.SErrorDamlException(
+                    IE.FailureStatus(errorId, failureCategory, errorMessage, metadata)
+                  )
+                )
+              ) =>
+            import com.digitalasset.daml.lf.script.converter.Converter.record
+            Future.successful(
+              ValueVariant(
+                Some(StablePackagesV2.Either),
+                Name.assertFromString("Right"),
+                record(
+                  StablePackagesV2.FailureStatus,
+                  ("errorId", ValueText(errorId)),
+                  ("category", ValueInt64(failureCategory.toLong)),
+                  ("message", ValueText(errorMessage)),
+                  (
+                    "meta",
+                    ValueTextMap(SortedLookupList(metadata.map { case (k, v) =>
+                      (k, ValueText(v))
+                    })),
+                  ),
+                ),
+              )
+            )
+          case Failure(e) => Future.failed(e)
+        }
 
-  //   override def execute(env: Env)(implicit
-  //       ec: ExecutionContext,
-  //       mat: Materializer,
-  //       esf: ExecutionSequencerFactory,
-  //   ): Future[ExtendedValue] = Future.failed(new NotImplementedError)
-  // }
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[ExtendedValue] = Future.failed(new NotImplementedError)
+  }
 
   final case class Submission(
       actAs: OneAnd[Set, Party],
@@ -883,54 +889,56 @@ object ScriptF {
       )
   }
 
-  // final case class TryCommands(act: ExtendedValue) extends Cmd {
-  //   override def executeWithRunner(env: Env, runner: v2.Runner, convertLegacyExceptions: Boolean)(
-  //       implicit
-  //       ec: ExecutionContext,
-  //       mat: Materializer,
-  //       esf: ExecutionSequencerFactory,
-  //   ): Future[ExtendedValue] =
-  //     runner.run(SEValue(act), convertLegacyExceptions).transformWith {
-  //       case Success(v) =>
-  //         Future.successful(SEAppAtomic(right, ImmArray(SEValue(v))))
-  //       case Failure(
-  //             Script.FailedCmd(cmdName, _, err)
-  //           ) =>
-  //         import com.digitalasset.daml.lf.script.{Error, Pretty}
-  //         val msg = err match {
-  //           case e: Error => Pretty.prettyError(e).render(10000)
-  //           case e => e.getMessage
-  //         }
+  final case class TryCommands(act: ExtendedValue) extends Cmd {
+    override def executeWithRunner(env: Env, runner: v2.Runner, convertLegacyExceptions: Boolean)(
+        implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[ExtendedValue] =
+      runner.runResolved(act, convertLegacyExceptions).transformWith {
+        case Success(v) =>
+          Future.successful(
+            ValueVariant(Some(StablePackagesV2.Either), Name.assertFromString("Right"), v)
+          )
+        case Failure(
+              Script.FailedCmd(cmdName, _, err)
+            ) =>
+          import com.digitalasset.daml.lf.script.{Error, Pretty}
+          val msg = err match {
+            case e: Error => Pretty.prettyError(e).render(10000)
+            case e => e.getMessage
+          }
 
-  //         val name = err match {
-  //           case Error.RunnerException(speedy.SError.SErrorDamlException(iErr)) =>
-  //             iErr.getClass.getSimpleName
-  //           case e => e.getClass.getSimpleName
-  //         }
+          val name = err match {
+            case Error.RunnerException(speedy.SError.SErrorDamlException(iErr)) =>
+              iErr.getClass.getSimpleName
+            case e => e.getClass.getSimpleName
+          }
 
-  //         import com.digitalasset.daml.lf.script.converter.Converter.record
-  //         Future.successful(
-  //           SEApp(
-  //             left,
-  //             ImmArray(
-  //               record(
-  //                 StablePackagesV2.Tuple3,
-  //                 ("_1", ValueText(cmdName)),
-  //                 ("_2", ValueText(name)),
-  //                 ("_3", ValueText(msg)),
-  //               )
-  //             ),
-  //           )
-  //         )
-  //       case Failure(e) => Future.failed(e)
-  //     }
+          import com.digitalasset.daml.lf.script.converter.Converter.record
 
-  //   override def execute(env: Env)(implicit
-  //       ec: ExecutionContext,
-  //       mat: Materializer,
-  //       esf: ExecutionSequencerFactory,
-  //   ): Future[ExtendedValue] = Future.failed(new NotImplementedError)
-  // }
+          Future.successful(
+            ValueVariant(
+              Some(StablePackagesV2.Either),
+              Name.assertFromString("Left"),
+              record(
+                StablePackagesV2.Tuple3,
+                ("_1", ValueText(cmdName)),
+                ("_2", ValueText(name)),
+                ("_3", ValueText(msg)),
+              ),
+            )
+          )
+        case Failure(e) => Future.failed(e)
+      }
+
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[ExtendedValue] = Future.failed(new NotImplementedError)
+  }
 
   final case class FailWithStatus(failureStatus: IE.FailureStatus) extends Cmd {
     override def execute(env: Env)(implicit
@@ -1165,12 +1173,13 @@ object ScriptF {
   //     case _ => Left(s"Expected Throw payload but got $v")
   //   }
 
-  // private def parseTryFailureStatus(v: ExtendedValue): Either[String, TryFailureStatus] =
-  //   v match {
-  //     // TryFailureStatus includes a dummy field for old style typeclass LF encoding, we ignore it here.
-  //     case ValueRecord(_, ImmArray((_, act), _)) => Right(TryFailureStatus(act))
-  //     case _ => Left(s"Expected TryFailureStatus payload but got $v")
-  //   }
+  private def parseTryFailureStatus(v: ExtendedValue): Either[String, TryFailureStatus] =
+    v match {
+      // TryFailureStatus includes a dummy field for old style typeclass LF encoding, we ignore it here.
+      case ValueRecord(_, ImmArray((_, act: ExtendedValueClosureBlob), _)) =>
+        Right(TryFailureStatus(act))
+      case _ => Left(s"Expected TryFailureStatus payload but got $v")
+    }
 
   private def parseValidateUserId(v: ExtendedValue): Either[String, ValidateUserId] =
     v match {
@@ -1280,7 +1289,7 @@ object ScriptF {
 
   private def parseTryCommands(v: ExtendedValue): Either[String, TryCommands] =
     v match {
-      case ValueRecord(_, ImmArray(act)) => Right(TryCommands(act))
+      case ValueRecord(_, ImmArray((_, act))) => Right(TryCommands(act))
       case _ => Left(s"Expected TryCommands payload but got $v")
     }
 
@@ -1350,9 +1359,9 @@ object ScriptF {
       case ("UnvetPackages", 1) => parseChangePackages(v, UnvetPackages)
       case ("ListVettedPackages", 1) => parseEmpty(ListVettedPackages())(v)
       case ("ListAllPackages", 1) => parseEmpty(ListAllPackages())(v)
-      //   case ("TryCommands", 1) => parseTryCommands(v)
+      case ("TryCommands", 1) => parseTryCommands(v)
       case ("FailWithStatus", 1) => parseFailWithStatus(v)
-      //   case ("TryFailureStatus", 1) => parseTryFailureStatus(v)
+      case ("TryFailureStatus", 1) => parseTryFailureStatus(v)
       case _ => Left(s"Unknown command $commandName - Version $version")
     }
   }

@@ -97,28 +97,13 @@ private[lf] class Runner(
       }
     }
 
-  // Takes something that resolves to type Script X
-  def run(comp: ExtendedValueComputationMode, convertLegacyExceptions: Boolean = true)(implicit
+  // Takes a Script X and runs it
+  def runResolved(scriptValue: ExtendedValue, convertLegacyExceptions: Boolean = true)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[ExtendedValue] =
     for {
-      scriptValue <-
-        runExtendedValueComputation(
-          comp,
-          canceled,
-          unversionedRunner.extendedCompiledPackages,
-          iterationsBetweenInterruptions = 100000,
-          traceLog,
-          warningLog,
-          profile,
-          convertLegacyExceptions,
-        )(Script.DummyLoggingContext).fold(
-          err => Future.failed(err.fold(identity, script.Runner.InterpretationError(_))),
-          Future.successful(_),
-        )
-
       freeClosure <- scriptValue match {
         case ValueRecord(_, ImmArray((_, freeClosure: ExtendedValueClosureBlob), _)) =>
           Future.successful(freeClosure)
@@ -141,6 +126,30 @@ private[lf] class Runner(
             .map(Result.successful)
             .recover { case err: RuntimeException => Result.failed(err) }
         )
+    } yield result
+
+  // Takes something that resolves/computes to a Script X, then runs the script
+  def run(comp: ExtendedValueComputationMode, convertLegacyExceptions: Boolean = true)(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[ExtendedValue] =
+    for {
+      scriptValue <-
+        runExtendedValueComputation(
+          comp,
+          canceled,
+          unversionedRunner.extendedCompiledPackages,
+          iterationsBetweenInterruptions = 100000,
+          traceLog,
+          warningLog,
+          profile,
+          convertLegacyExceptions,
+        )(Script.DummyLoggingContext).fold(
+          err => Future.failed(err.fold(identity, script.Runner.InterpretationError(_))),
+          Future.successful(_),
+        )
+      result <- runResolved(scriptValue, convertLegacyExceptions)
     } yield result
 
   def getResult()(implicit
