@@ -93,7 +93,7 @@ So if we have a function ``f : a -> b -> c -> d`` and a value ``valA : a``, we g
 Infix functions
 ...............
 
-Now ``add`` is clearly just an alias for ``+``, but what is ``+``? ``+`` is just a function. It's only special because it starts with a symbol. Functions that start with a symbol are *infix* by default which means they can be written between two arguments. That's why we can write ``1 + 2`` rather than ``+ 1 2``. The rules for converting between normal and infix functions are simple. Wrap an infix function in parentheses to use it as a normal function (e.g. *prefix*), and wrap a normal function in backticks to make it infix:
+Now ``add`` is clearly just an alias for ``+``, but what is ``+``? ``+`` is just a function. It's only special because it starts with a symbol. Functions that start with a symbol are *infix* by default which means they can be written between two arguments. That's why we can write ``1 + 2`` rather than ``+ 1 2``. The rules for converting between normal and infix functions are simple. Wrap an infix function in parentheses to use it as a normal function (i.e. *prefix*), and wrap a normal function in backticks to make it infix:
 
 .. literalinclude:: daml/daml-intro-functional-101/daml/Main.daml
   :language: daml
@@ -118,10 +118,9 @@ If we want to partially apply an infix operation we can also do that as follows:
 Associativity and Precedence
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-When dealing with multiple infix operators, precedence determines that the Daml
-compiler should parse ``x + y * z`` as ``x + (y * z)`` instead of ``(x + y) *
-z``. For infix operators with the same precedence, associativity determines that
-``x + y - z`` should be parsed as ``(x + y) - z`` instead of ``x + (y - z)``.
+When dealing with multiple infix operators, precedence determines how the Daml
+compiler should parse an expression. For example, for the expression ``x + y * z``, because `*` has a higher precedence than `+`, the expression is parsed as ``x + (y * z)`` instead of ``(x + y) *
+z``. When dealing with infix operators with the same precedence, associativity determines how the Daml compiler should parse an expression. For example, because `+` and `-` are left-associative, the expression ``x + y - z`` is parsed as ``(x + y) - z`` instead of ``x + (y - z)``.
 For built-in operators this has been predefined, for user-defined operators, it
 must be user-defined. See :ref:`the reference on Fixity, Associativity and
 Precedence <reference-fixity-and-associativity>`
