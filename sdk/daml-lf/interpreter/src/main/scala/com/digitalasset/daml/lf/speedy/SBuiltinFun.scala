@@ -869,69 +869,6 @@ private[lf] object SBuiltinFun {
     }
   }
 
-  final case object SBSECP256K1ValidateKey extends SBuiltinFun(1) {
-    private[speedy] def execute[Q](
-        args: ArraySeq[SValue],
-        machine: Machine[Q],
-    ): Control[Q] = {
-      try {
-        val result = for {
-          derEncodedPublicKey <- Ref.HexString
-            .fromString(getSText(args, 0))
-            .left
-            .map(_ =>
-              IE.Crypto(
-                IE.Crypto.MalformedByteEncoding(
-                  getSText(args, 0),
-                  cause = "can not parse DER encoded public key hex string",
-                )
-              )
-            )
-          publicKey = extractPublicKey(derEncodedPublicKey)
-        } yield {
-          SBool(crypto.MessageSignature.validateKey(publicKey))
-        }
-
-        result.fold(Control.Error, Control.Value)
-      } catch {
-        case _: NoSuchProviderException =>
-          crash("JCE Provider BouncyCastle not found")
-        case _: NoSuchAlgorithmException =>
-          crash("BouncyCastle provider fails to support SECP256K1")
-        case _: IllegalArgumentException =>
-          Control.Error(
-            IE.Crypto(
-              IE.Crypto.MalformedByteEncoding(
-                getSText(args, 0),
-                cause = "can not parse DER encoded public key hex string",
-              )
-            )
-          )
-        case exn: InvalidKeyException =>
-          Control.Error(
-            IE.Crypto(
-              IE.Crypto.MalformedKey(getSText(args, 0), exn.getMessage)
-            )
-          )
-        case exn: InvalidKeySpecException =>
-          Control.Error(
-            IE.Crypto(
-              IE.Crypto.MalformedKey(getSText(args, 0), exn.getMessage)
-            )
-          )
-      }
-    }
-
-    @throws(classOf[IllegalArgumentException])
-    @throws(classOf[NoSuchAlgorithmException])
-    @throws(classOf[InvalidKeySpecException])
-    private[speedy] def extractPublicKey(hexEncodedPublicKey: Ref.HexString): PublicKey = {
-      val byteEncodedPublicKey = Ref.HexString.decode(hexEncodedPublicKey).toByteArray
-
-      KeyFactory.getInstance("EC").generatePublic(new X509EncodedKeySpec(byteEncodedPublicKey))
-    }
-  }
-
   final case object SBDecodeHex extends SBuiltinFun(1) {
     override private[speedy] def execute[Q](
         args: ArraySeq[SValue],
