@@ -381,14 +381,12 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
   def fromPartyDetails(
       scriptIds: ScriptIds,
       details: PartyDetails,
-  ): Either[String, ExtendedValue] = {
-    Right(
-      record(
-        scriptIds
-          .damlScriptModule("Daml.Script.Internal.Questions.PartyManagement", "PartyDetails"),
-        ("party", ValueParty(details.party)),
-        ("isLocal", ValueBool(details.isLocal)),
-      )
+  ): ExtendedValue = {
+    record(
+      scriptIds
+        .damlScriptModule("Daml.Script.Internal.Questions.PartyManagement", "PartyDetails"),
+      ("party", ValueParty(details.party)),
+      ("isLocal", ValueBool(details.isLocal)),
     )
   }
 
