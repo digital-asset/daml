@@ -80,7 +80,14 @@ class DynamicDomainGrpcServer(
 
     serverBuilder
       .addService(grpcDomainHealthManager.manager.getHealthService.bindService())
-      .addService(ProtoReflectionService.newInstance(), withLogging = false)
+      .addService(
+        {
+          @nowarn("cat=deprecation")
+          val service = ProtoReflectionService.newInstance()
+          service
+        },
+        withLogging = false,
+      )
       .discard[CantonServerBuilder]
 
     (toCloseableServer(serverBuilder.build.start(), logger, "PublicServer"), registry)

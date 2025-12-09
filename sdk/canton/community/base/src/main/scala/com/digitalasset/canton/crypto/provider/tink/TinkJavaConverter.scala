@@ -12,7 +12,6 @@ import com.digitalasset.canton.crypto.provider.tink.TinkKeyFormat.{
 }
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.google.crypto.tink.aead.AeadKeyTemplates
-import com.google.crypto.tink.hybrid.HybridKeyTemplates
 import com.google.crypto.tink.proto.KeyData.KeyMaterialType
 import com.google.crypto.tink.proto.*
 import com.google.crypto.tink.subtle.EllipticCurves
@@ -297,14 +296,20 @@ class TinkJavaConverter extends JavaKeyConverter {
             .toEncryptionKeyScheme(algorithmIdentifier)
           keydata <- scheme match {
             case EncryptionKeyScheme.EciesP256HkdfHmacSha256Aes128Gcm =>
-              val eciesParams =
-                HybridKeyTemplates.createEciesAeadHkdfParams(
-                  EllipticCurveType.NIST_P256,
-                  HashType.SHA256,
-                  EcPointFormat.UNCOMPRESSED,
-                  AeadKeyTemplates.AES128_GCM,
-                  Array[Byte](),
-                )
+              val kemParams = EciesHkdfKemParams.newBuilder
+                .setCurveType(EllipticCurveType.NIST_P256)
+                .setHkdfHashType(HashType.SHA256)
+                .setHkdfSalt(ByteString.copyFrom(Array[Byte]()))
+                .build
+              val demParams =
+                EciesAeadDemParams.newBuilder.setAeadDem(AeadKeyTemplates.AES128_GCM).build
+
+              val eciesParams = EciesAeadHkdfParams
+                .newBuilder()
+                .setKemParams(kemParams)
+                .setDemParams(demParams)
+                .setEcPointFormat(EcPointFormat.UNCOMPRESSED)
+                .build()
 
               val ecdsaPubKey = tinkproto.EciesAeadHkdfPublicKey
                 .newBuilder()

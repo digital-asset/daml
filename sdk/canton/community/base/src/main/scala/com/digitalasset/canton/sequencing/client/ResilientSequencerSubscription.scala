@@ -164,13 +164,18 @@ class ResilientSequencerSubscription[HandlerError](
   private def delayAndRestartSubscription(hasReceivedEvent: Boolean, delay: FiniteDuration)(implicit
       traceContext: TraceContext
   ): Unit = {
-    val logMessage = s"Waiting ${LoggerUtil.roundDurationForHumans(delay)} before reconnecting"
-    if (delay < retryDelayRule.warnDelayDuration) {
+    // recalculate the delay to wait. in case the subscription has received events before, this avoids
+    // waiting for the previous, potentially long, delay, and instead starts the reconnection cycle
+    // with the initial retry delay
+    val newDelay = retryDelayRule.nextDelay(delay, hasReceivedEvent)
+    val logMessage = s"Waiting ${LoggerUtil.roundDurationForHumans(newDelay)} before reconnecting"
+    if (newDelay < retryDelayRule.warnDelayDuration) {
       logger.debug(logMessage)
     } else if (isFailed) {
       logger.info(logMessage)
     } else if (!isClosing) {
       TraceContext.withNewTraceContext { tx =>
+        logger.info(logMessage)
         this.failureOccurred(
           LostSequencerSubscription.Warn(SequencerId(domainId))(this.errorLoggingContext(tx))
         )
@@ -180,8 +185,7 @@ class ResilientSequencerSubscription[HandlerError](
     // delay and then restart a subscription with an updated delay duration
     // we effectively throwing away the future here so add some logging in case it fails
     FutureUtil.doNotAwait(
-      DelayUtil.delay(functionFullName, delay, this) map { _ =>
-        val newDelay = retryDelayRule.nextDelay(delay, hasReceivedEvent)
+      DelayUtil.delay(functionFullName, newDelay, this) map { _ =>
         setupNewSubscription(newDelay)
       },
       "Delaying setup of new sequencer subscription failed",
