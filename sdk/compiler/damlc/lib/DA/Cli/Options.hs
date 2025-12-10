@@ -249,10 +249,10 @@ packageLocationOpts name = PackageLocationOpts <$> packageOrProjectRootOpt <*> p
         packageOrProjectLocationCheckOpt cmdName = packageLocationCheckOpt cmdName <|> projectLocationCheckOpt cmdName
         projectLocationCheckOpt cmdName = fmap (PackageLocationCheck cmdName) . switch $
                help "Check if running in Daml package.\n(project-check is deprecated, please use --package-check)"
-            <> long "project-check" <> hidden
+            <> long "project-check" <> internal
         packageLocationCheckOpt cmdName = fmap (PackageLocationCheck cmdName) . switch $
                help "Check if running in Daml package."
-            <> long "package-check"
+            <> long "package-check" <> internal
 
 enableScriptServiceOpt :: Parser EnableScriptService
 enableScriptServiceOpt = fmap EnableScriptService $
@@ -462,7 +462,7 @@ optionsParser numProcessors enableScriptService parsePkgName parseDlintUsage = d
     optAccessTokenPath = optional . optionOnce str
         $ metavar "PATH"
         <> long "access-token-file"
-        <> help "Path to the token-file for ledger authorization."
+        <> help "--access-token-file is deprecated, use DPM instead\nPath to the token-file for ledger authorization."
 
     optImportPath :: Parser [FilePath]
     optImportPath =
