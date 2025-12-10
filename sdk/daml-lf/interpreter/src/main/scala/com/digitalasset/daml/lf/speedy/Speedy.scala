@@ -1392,7 +1392,7 @@ private[lf] object Speedy {
       ): Either[RuntimeException, SExpr]
     }
     object ExtendedValueComputationMode {
-      final case class ClosureWithArgs(f: ExtendedValueClosureBlob, args: List[ExtendedValue])
+      final case class ByClosure(f: ExtendedValueClosureBlob, args: List[ExtendedValue])
           extends ExtendedValueComputationMode {
         override def buildSExpr(
             compiledPackages: CompiledPackages,
@@ -1406,17 +1406,14 @@ private[lf] object Speedy {
             .map(sArgs => SEAppAtomicGeneral(SEValue(f.getContent), ArraySeq.from(sArgs)))
         }
       }
-      final case class IdentifierWithoutArgs(id: Identifier) extends ExtendedValueComputationMode {
-        override def buildSExpr(
-            compiledPackages: CompiledPackages,
-            translator: ExtendedValueTranslator,
-        ): Either[RuntimeException, SExpr] =
-          compiledPackages.getDefinition(LfDefRef(id)) match {
-            case None => Left(new RuntimeException(s"Failed to find value $id in package"))
-            case Some(SDefinition(sExpr)) => Right(sExpr)
-          }
+      object ByIdentifier {
+        def apply(
+            id: Identifier,
+            oArgs: Option[List[ExtendedValue]] = None,
+        ): ExtendedValueComputationMode =
+          BySDefinitionRef(LfDefRef(id), oArgs)
       }
-      final case class IdentifierWithArgs(id: Identifier, args: List[ExtendedValue])
+      final case class BySDefinitionRef(ref: SDefinitionRef, oArgs: Option[List[ExtendedValue]])
           extends ExtendedValueComputationMode {
         override def buildSExpr(
             compiledPackages: CompiledPackages,
@@ -1425,15 +1422,16 @@ private[lf] object Speedy {
           import scalaz.syntax.traverse._
           import scalaz.std.list._
           import scalaz.std.either._
+          import scalaz.std.option._
           for {
             sExpr <-
-              compiledPackages.getDefinition(LfDefRef(id)) match {
-                case None => Left(new RuntimeException(s"Failed to find value $id in package"))
+              compiledPackages.getDefinition(ref) match {
+                case None => Left(new RuntimeException(s"Failed to find ref $ref in package"))
                 case Some(SDefinition(sExpr)) => Right(sExpr)
               }
-            sValueArgs <-
-              args.traverse(v => translator.translateExtendedValue(v))
-          } yield SEApp(sExpr, sValueArgs.to(ArraySeq))
+            oSValueArgs <-
+              oArgs.traverse(args => args.traverse(v => translator.translateExtendedValue(v)))
+          } yield oSValueArgs.fold(sExpr)(sValueArgs => SEApp(sExpr, sValueArgs.to(ArraySeq)))
         }
       }
     }

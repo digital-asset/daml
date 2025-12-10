@@ -185,7 +185,7 @@ private[lf] object Free {
         args: List[ExtendedValue],
     ): Result.NoQuestion[ExtendedValue] =
       runExtendedValueComputation(
-        computationMode = ExtendedValueComputationMode.ClosureWithArgs(closure, args),
+        computationMode = ExtendedValueComputationMode.ByClosure(closure, args),
         cancelled = cancelled,
         compiledPackages = compiledPackages,
         iterationsBetweenInterruptions = 100000,

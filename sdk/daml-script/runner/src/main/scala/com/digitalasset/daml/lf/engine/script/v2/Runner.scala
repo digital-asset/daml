@@ -135,22 +135,27 @@ private[lf] class Runner(
       mat: Materializer,
   ): Future[ExtendedValue] =
     for {
-      scriptValue <-
-        runExtendedValueComputation(
-          comp,
-          canceled,
-          unversionedRunner.extendedCompiledPackages,
-          iterationsBetweenInterruptions = 100000,
-          traceLog,
-          warningLog,
-          profile,
-          convertLegacyExceptions,
-        )(Script.DummyLoggingContext).fold(
-          err => Future.failed(err.fold(identity, script.Runner.InterpretationError(_))),
-          Future.successful(_),
-        )
+      scriptValue <- runComputation(comp, convertLegacyExceptions)
       result <- runResolved(scriptValue, convertLegacyExceptions)
     } yield result
+
+  def runComputation(
+      comp: ExtendedValueComputationMode,
+      convertLegacyExceptions: Boolean = true,
+  ): Future[ExtendedValue] =
+    runExtendedValueComputation(
+      comp,
+      canceled,
+      unversionedRunner.extendedCompiledPackages,
+      iterationsBetweenInterruptions = 100000,
+      traceLog,
+      warningLog,
+      profile,
+      convertLegacyExceptions,
+    )(Script.DummyLoggingContext).fold(
+      err => Future.failed(err.fold(identity, script.Runner.InterpretationError(_))),
+      Future.successful(_),
+    )
 
   def getResult()(implicit
       ec: ExecutionContext,
@@ -170,9 +175,9 @@ private[lf] class Runner(
       (
         unversionedRunner.script match {
           case ScriptAction.NoParam(id, _) =>
-            run(ExtendedValueComputationMode.IdentifierWithoutArgs(id))
+            run(ExtendedValueComputationMode.ByIdentifier(id))
           case ScriptAction.Param(id, paramType, Some(param), _) =>
-            run(ExtendedValueComputationMode.IdentifierWithArgs(id, List(param)))
+            run(ExtendedValueComputationMode.ByIdentifier(id, Some(List(param))))
           case _ =>
             Future.failed(
               new RuntimeException("impossible")

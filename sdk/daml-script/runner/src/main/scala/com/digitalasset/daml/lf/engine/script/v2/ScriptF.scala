@@ -8,21 +8,18 @@ package v2
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.daml.lf.CompiledPackages
-import com.digitalasset.daml.lf.data.support.crypto.MessageSignatureUtil
 import com.digitalasset.daml.lf.data.{Bytes, FrontStack, SortedLookupList, Utf8, ImmArray}
 import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data.support.crypto.MessageSignatureUtil
 import com.digitalasset.daml.lf.data.Time.Timestamp
-// import com.digitalasset.daml.lf.engine.preprocessing.ValueTranslator
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
-// import com.digitalasset.daml.lf.language.Util._
-// import com.digitalasset.daml.lf.speedy.SBuiltinFun.{SBThrow, SBToAny, SBVariantCon}
-import com.digitalasset.daml.lf.speedy.SBuiltinFun.SBVariantCon
-import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SError
+import com.digitalasset.daml.lf.speedy.SExpr.ExceptionMessageDefRef
 import com.digitalasset.daml.lf.speedy.Speedy.Machine.{
   ExtendedValue,
+  ExtendedValueAny,
   ExtendedValueClosureBlob,
   ExtendedValueComputationMode,
 }
@@ -49,13 +46,6 @@ object ScriptF {
 
   private val globalRandom = new scala.util.Random(0)
 
-  val left = SEBuiltinFun(
-    SBVariantCon(StablePackagesV2.Either, Name.assertFromString("Left"), 0)
-  )
-  val right = SEBuiltinFun(
-    SBVariantCon(StablePackagesV2.Either, Name.assertFromString("Right"), 1)
-  )
-
   sealed trait Cmd {
     private[lf] def executeWithRunner(
         env: Env,
@@ -81,12 +71,6 @@ object ScriptF {
       compiledPackages: CompiledPackages,
   ) {
     def clients = _clients
-    // val valueTranslator = new ValueTranslator(
-    //   pkgInterface = compiledPackages.pkgInterface,
-    //   forbidLocalContractIds = false,
-    //   // We need to translate pseudo-exceptions that aren't serializable
-    //   shouldCheckDataSerializable = false,
-    // )
     val utcClock = Clock.systemUTC()
     def addPartyParticipantMapping(party: Party, participant: Participant) = {
       _clients =
@@ -126,102 +110,154 @@ object ScriptF {
 
   }
 
-  // final case class Throw(exc: SAny) extends Cmd {
-  //   override def executeWithRunner(env: Env, runner: v2.Runner, convertLegacyExceptions: Boolean)(
-  //       implicit
-  //       ec: ExecutionContext,
-  //       mat: Materializer,
-  //       esf: ExecutionSequencerFactory,
-  //   ): Future[ExtendedValue] = {
-  //     def makeFailureStatus(name: Identifier, msg: String) =
-  //       Future.failed(
-  //         free.InterpretationError(
-  //           SError.SErrorDamlException(
-  //             IE.FailureStatus(
-  //               "UNHANDLED_EXCEPTION/" + name.qualifiedName.toString,
-  //               Ast.FCInvalidGivenCurrentSystemStateOther.cantonCategoryId,
-  //               msg,
-  //               Map(),
-  //             )
-  //           )
-  //         )
-  //       )
-  //     def userManagementDef(name: String) =
-  //       env.scriptIds.damlScriptModule("Daml.Script.Internal.Questions.UserManagement", name)
-  //     val invalidUserId = userManagementDef("InvalidUserId")
-  //     val userAlreadyExists = userManagementDef("UserAlreadyExists")
-  //     val userNotFound = userManagementDef("UserNotFound")
-  //     (exc, convertLegacyExceptions) match {
-  //       // Pseudo exceptions defined by daml-script need explicit conversion logic, as compiler won't generate them
-  //       // Can be removed in 3.4, when exceptions will be replaced with FailureStatus (https://github.com/DACH-NY/canton/issues/23881)
-  //       case (SAnyException(SRecord(`invalidUserId`, _, ImmArray(ValueText(msg)))), true) =>
-  //         makeFailureStatus(invalidUserId, msg)
-  //       case (
-  //             SAnyException(
-  //               SRecord(`userAlreadyExists`, _, ImmArray(ValueRecord(_, ImmArray(ValueText(userId)))))
-  //             ),
-  //             true,
-  //           ) =>
-  //         makeFailureStatus(userAlreadyExists, "User already exists: " + userId)
-  //       case (
-  //             SAnyException(
-  //               SRecord(`userNotFound`, _, ImmArray(ValueRecord(_, ImmArray(ValueText(userId)))))
-  //             ),
-  //             true,
-  //           ) =>
-  //         makeFailureStatus(userNotFound, "User not found: " + userId)
-  //       case _ => Future.successful(SBThrow(SEValue(exc)))
-  //     }
-  //   }
+  final case class Throw(exc: ExtendedValueAny) extends Cmd {
+    override def executeWithRunner(env: Env, runner: v2.Runner, convertLegacyExceptions: Boolean)(
+        implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[ExtendedValue] = {
+      def makeFailureStatus(name: Identifier, msg: String) =
+        Future.failed(
+          free.InterpretationError(
+            SError.SErrorDamlException(
+              IE.FailureStatus(
+                "UNHANDLED_EXCEPTION/" + name.qualifiedName.toString,
+                Ast.FCInvalidGivenCurrentSystemStateOther.cantonCategoryId,
+                msg,
+                Map(),
+              )
+            )
+          )
+        )
+      def userManagementDef(name: String) =
+        env.scriptIds.damlScriptModule("Daml.Script.Internal.Questions.UserManagement", name)
+      val invalidUserId = userManagementDef("InvalidUserId")
+      val userAlreadyExists = userManagementDef("UserAlreadyExists")
+      val userNotFound = userManagementDef("UserNotFound")
+      (exc, convertLegacyExceptions) match {
+        // Pseudo exceptions defined by daml-script need explicit conversion logic, as compiler won't generate them
+        // Can be removed in 3.4, when exceptions will be replaced with FailureStatus (https://github.com/DACH-NY/canton/issues/23881)
+        case (
+              ExtendedValueAny(
+                _,
+                ValueRecord(Some(`invalidUserId`), ImmArray((_, ValueText(msg)))),
+              ),
+              true,
+            ) =>
+          makeFailureStatus(invalidUserId, msg)
+        case (
+              ExtendedValueAny(
+                _,
+                ValueRecord(
+                  Some(`userAlreadyExists`),
+                  ImmArray((_, ValueRecord(_, ImmArray((_, ValueText(userId)))))),
+                ),
+              ),
+              true,
+            ) =>
+          makeFailureStatus(userAlreadyExists, "User already exists: " + userId)
+        case (
+              ExtendedValueAny(
+                _,
+                ValueRecord(
+                  Some(`userNotFound`),
+                  ImmArray((_, ValueRecord(_, ImmArray((_, ValueText(userId)))))),
+                ),
+              ),
+              true,
+            ) =>
+          makeFailureStatus(userNotFound, "User not found: " + userId)
+        case (any @ ExtendedValueAny(Ast.TTyCon(name), _), true) =>
+          // Since we cannot call `SBThrow` from the engine, we must re-implement the legacy exception to FailureStatus conversion logic here
+          // This involves calculating the exception message by calling the engine again.
+          runner
+            .runComputation(
+              ExtendedValueComputationMode
+                .BySDefinitionRef(ExceptionMessageDefRef(name), Some(List(any))),
+              false,
+            )
+            .transformWith {
+              case Success(ValueText(message)) => makeFailureStatus(name, message)
+              case Success(_) =>
+                Future.failed(
+                  new RuntimeException(s"Message computation for exception $name did not give Text")
+                )
+              case Failure(
+                    free.InterpretationError(
+                      SError.SErrorDamlException(
+                        IE.UnhandledException(Ast.TTyCon(messageExceptionName), _)
+                      )
+                    )
+                  ) =>
+                makeFailureStatus(
+                  name,
+                  s"<Failed to calculate message as ${messageExceptionName.qualifiedName.toString} was thrown during conversion>",
+                )
+              case Failure(e) => Future.failed(e)
+            }
+        case (ExtendedValueAny(ty, _), true) =>
+          Future.failed(
+            new RuntimeException(
+              s"Tried to convert a non-grounded exception type ${ty.pretty} to Failure Status"
+            )
+          )
+        case (ExtendedValueAny(ty, value), false) =>
+          Future.failed(
+            free.InterpretationError(
+              SError.SErrorDamlException(
+                IE.UnhandledException(ty, Converter.castCommandExtendedValue(value).toOption.get)
+              )
+            )
+          )
+      }
+    }
 
-  //   override def execute(env: Env)(implicit
-  //       ec: ExecutionContext,
-  //       mat: Materializer,
-  //       esf: ExecutionSequencerFactory,
-  //   ): Future[ExtendedValue] = Future.failed(new NotImplementedError)
-  // }
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[ExtendedValue] = Future.failed(new NotImplementedError)
+  }
 
-  // final case class Catch(act: ExtendedValue) extends Cmd {
-  //   override def executeWithRunner(env: Env, runner: v2.Runner, convertLegacyExceptions: Boolean)(
-  //       implicit
-  //       ec: ExecutionContext,
-  //       mat: Materializer,
-  //       esf: ExecutionSequencerFactory,
-  //   ): Future[ExtendedValue] =
-  //     runner
-  //       .run(SEAppAtomic(SEValue(act), ImmArray(SEValue(SUnit))), convertLegacyExceptions = false)
-  //       .transformWith {
-  //         case Success(v) =>
-  //           Future.successful(SEAppAtomic(right, ImmArray(SEValue(v))))
-  //         case Failure(
-  //               free.InterpretationError(
-  //                 SError.SErrorDamlException(IE.UnhandledException(typ, value))
-  //               )
-  //             ) =>
-  //           env.translateValue(typ, value) match {
-  //             case Right(sVal) =>
-  //               Future.successful(
-  //                 SELet1(
-  //                   SEAppAtomic(SEBuiltinFun(SBToAny(typ)), ImmArray(SEValue(sVal))),
-  //                   SEAppAtomic(left, ImmArray(SELocS(1))),
-  //                 )
-  //               )
-  //             // This shouldn't ever happen, as these can only come from our engine
-  //             case Left(err) =>
-  //               Future.failed(
-  //                 new RuntimeException(s"Daml-script thrown error couldn't be translated: $err")
-  //               )
-  //           }
+  final case class Catch(act: ExtendedValueClosureBlob) extends Cmd {
+    override def executeWithRunner(env: Env, runner: v2.Runner, convertLegacyExceptions: Boolean)(
+        implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[ExtendedValue] =
+      runner
+        .run(
+          ExtendedValueComputationMode.ByClosure(act, List(ValueUnit)),
+          convertLegacyExceptions = false,
+        )
+        .transformWith {
+          case Success(v) =>
+            Future.successful(
+              ValueVariant(Some(StablePackagesV2.Either), Name.assertFromString("Right"), v)
+            )
+          case Failure(
+                free.InterpretationError(
+                  SError.SErrorDamlException(IE.UnhandledException(typ, value))
+                )
+              ) =>
+            Future.successful(
+              ValueVariant(
+                Some(StablePackagesV2.Either),
+                Name.assertFromString("Left"),
+                ExtendedValueAny(typ, value),
+              )
+            )
+          case Failure(e) => Future.failed(e)
+        }
 
-  //         case Failure(e) => Future.failed(e)
-  //       }
-
-  //   override def execute(env: Env)(implicit
-  //       ec: ExecutionContext,
-  //       mat: Materializer,
-  //       esf: ExecutionSequencerFactory,
-  //   ): Future[ExtendedValue] = Future.failed(new NotImplementedError)
-  // }
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[ExtendedValue] = Future.failed(new NotImplementedError)
+  }
 
   final case class TryFailureStatus(act: ExtendedValueClosureBlob) extends Cmd {
     override def executeWithRunner(env: Env, runner: v2.Runner, convertLegacyExceptions: Boolean)(
@@ -232,7 +268,7 @@ object ScriptF {
     ): Future[ExtendedValue] =
       runner
         .run(
-          ExtendedValueComputationMode.ClosureWithArgs(act, List(ValueUnit)),
+          ExtendedValueComputationMode.ByClosure(act, List(ValueUnit)),
           convertLegacyExceptions = true,
         )
         .transformWith {
@@ -1160,18 +1196,18 @@ object ScriptF {
       case _ => Left(s"Expected Sleep payload but got $v")
     }
 
-  // private def parseCatch(v: ExtendedValue): Either[String, Catch] =
-  //   v match {
-  //     // Catch includes a dummy field for old style typeclass LF encoding, we ignore it here.
-  //     case ValueRecord(_, ImmArray((_, act), _)) => Right(Catch(act))
-  //     case _ => Left(s"Expected Catch payload but got $v")
-  //   }
+  private def parseCatch(v: ExtendedValue): Either[String, Catch] =
+    v match {
+      // Catch includes a dummy field for old style typeclass LF encoding, we ignore it here.
+      case ValueRecord(_, ImmArray((_, act: ExtendedValueClosureBlob), _)) => Right(Catch(act))
+      case _ => Left(s"Expected Catch payload but got $v")
+    }
 
-  // private def parseThrow(v: ExtendedValue): Either[String, Throw] =
-  //   v match {
-  //     case ValueRecord(_, ImmArray(exc: SAny)) => Right(Throw(exc))
-  //     case _ => Left(s"Expected Throw payload but got $v")
-  //   }
+  private def parseThrow(v: ExtendedValue): Either[String, Throw] =
+    v match {
+      case ValueRecord(_, ImmArray((_, exc: ExtendedValueAny))) => Right(Throw(exc))
+      case _ => Left(s"Expected Throw payload but got $v")
+    }
 
   private def parseTryFailureStatus(v: ExtendedValue): Either[String, TryFailureStatus] =
     v match {
@@ -1345,8 +1381,8 @@ object ScriptF {
       case ("Secp256k1Sign", 1) => parseSecp256k1Sign(v)
       case ("Secp256k1WithEcdsaSign", 1) => parseSecp256k1WithEcdsaSign(v)
       case ("Secp256k1GenerateKeyPair", 1) => parseEmpty(Secp256k1GenerateKeyPair())(v)
-      //   case ("Catch", 1) => parseCatch(v)
-      //   case ("Throw", 1) => parseThrow(v)
+      case ("Catch", 1) => parseCatch(v)
+      case ("Throw", 1) => parseThrow(v)
       case ("ValidateUserId", 1) => parseValidateUserId(v)
       case ("CreateUser", 1) => parseCreateUser(v)
       case ("GetUser", 1) => parseGetUser(v)
