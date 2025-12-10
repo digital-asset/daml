@@ -56,15 +56,18 @@ on the contract can no longer be exercised.
 Assistant
 *********
 
-**The Daml Assistent is deprecated, its (drop-in) replacement is**
-:ref:`glos-dpm`.
+.. warning::
+
+   Daml Assistant is deprecated from 3.4.x, and will be removed in 3.5. Use :subsiteref:`dpm <dpm>`
+   instead. Refer to the ``dpm`` :subsiteref:`migration guide
+   <dpm-daml-assistant-to-dpm-migration>` for more details.
 
 Daml Assistant is a command-line tool for many tasks related to Daml. Using it,
 you can create Daml projects, compile Daml projects into
 `.dar files <#glos-dar-file>`__, launch other developer tools, and download new
 SDK versions.
 
-See :ref:`daml-assistant`.
+See :subsiteref:`daml-assistant`.
 
 
 .. _glos-authorization:
@@ -511,8 +514,7 @@ DAR File
 ********
 
 A Daml Archive file, known as a ``.dar`` file is the result of compiling Daml
-code using the `Assistant <#assistant>`__ which can be interpreted using a Daml
-interpreter.
+code using :subsiteref:`dpm` which can be interpreted using a Daml interpreter.
 
 You upload ``.dar`` files to a `ledger <#daml-ledger>`__ in order to be able to
 create contracts from the templates in that file.
@@ -563,11 +565,6 @@ Disjunction Choice
 
 See :ref:`glos-flexible-controllers`.
 
-Drivers
-*******
-
-See :ref:`glos-daml-drivers`.
-
 
 .. _glos-dpm:
 
@@ -575,6 +572,11 @@ DPM
 ***
 
 See :subsiteref:`DPM<dpm>`.
+
+Drivers
+*******
+
+See :ref:`glos-daml-drivers`.
 
 
 ..  .
