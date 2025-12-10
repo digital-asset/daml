@@ -62,7 +62,6 @@ import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.{
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.memory.*
 import com.digitalasset.canton.participant.util.TimeOfChange
-import com.digitalasset.canton.platform.store.interning.MockStringInterning
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.ContractIdSyntax.*
 import com.digitalasset.canton.protocol.messages.*
@@ -389,7 +388,6 @@ sealed trait AcsCommitmentProcessorBaseTest
       // and contract stores correctly, otherwise the tests will fail
       commitmentMismatchDebugging = false,
       commitmentProcessorNrAcsChangesBehindToTriggerCatchUp = Some(PositiveInt.tryCreate(5)),
-      stringInterning = new MockStringInterning,
     )
     (acsCommitmentProcessor, store, sequencerClient, changes, acsCommitmentConfigStore)
   }

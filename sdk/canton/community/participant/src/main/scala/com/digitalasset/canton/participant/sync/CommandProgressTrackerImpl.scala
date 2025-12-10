@@ -26,6 +26,7 @@ import com.digitalasset.canton.platform.apiserver.execution.{
   CommandStatus,
 }
 import com.digitalasset.canton.platform.store.CompletionFromTransaction
+import com.digitalasset.canton.platform.store.CompletionFromTransaction.CommonCompletionProperties
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
 import com.digitalasset.canton.protocol.LfSubmittedTransaction
 import com.digitalasset.canton.time.Clock
@@ -248,18 +249,20 @@ class CommandProgressTrackerImpl(
       started = clock.now,
       completed = None,
       completion = CompletionFromTransaction.toApiCompletion(
-        submitters = Set.empty,
-        commandId = commandId,
+        CommonCompletionProperties(
+          submitters = Set.empty,
+          commandId = commandId,
+          userId = userId,
+          submissionId = submissionId,
+          completionOffset = 0L,
+          synchronizerTime = None,
+          traceContext = traceContext,
+          deduplicationOffset = None,
+          deduplicationDurationSeconds = None,
+          deduplicationDurationNanos = None,
+        ),
         updateId = "",
-        userId = userId,
-        traceContext = traceContext,
         optStatus = None,
-        optSubmissionId = submissionId,
-        optDeduplicationOffset = None,
-        optDeduplicationDurationSeconds = None,
-        optDeduplicationDurationNanos = None,
-        offset = 0L,
-        synchronizerTime = None,
       ),
       state = CommandState.COMMAND_STATE_PENDING,
       commands = commands,

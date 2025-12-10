@@ -30,6 +30,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLogging, TracedLogger}
 import com.digitalasset.canton.participant.protocol.ProcessingSteps.{
+  DecryptedViews,
   ParsedRequest,
   PendingRequestData,
   WrapsProcessorError,
@@ -200,7 +201,7 @@ private[reassignment] trait ReassignmentProcessingSteps[
       sessionKeyStore: ConfirmationRequestSessionKeyStore,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, DecryptedViews] = {
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, DecryptedViews[DecryptedView]] = {
     val result = batch.toNEF
       .parTraverse(
         decryptTree(snapshot, sessionKeyStore)(_).value

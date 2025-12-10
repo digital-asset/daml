@@ -79,7 +79,9 @@ object GenerateJSONApiDocs extends App {
       .discard
     ProtoInfo
       .loadData() match {
-      case Right(protoInfo) => protoInfo
+      // we ignore the file content -> only ensure it can be loaded back
+      // instead we use the freshly generated protoData with loaded overrides
+      case Right(ProtoInfo(_, overrides)) => ProtoInfo(protoData, overrides)
       case Left(err) =>
         throw new IllegalStateException(s"cannot load saved proto data after regenerating: $err")
     }

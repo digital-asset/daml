@@ -284,7 +284,9 @@ class TransactionConfirmationRequestFactory(
           ViewKeyData,
         ],
         recipients: Recipients,
-    ) = {
+    ): EitherT[FutureUnlessShutdown, TransactionConfirmationRequestCreationError, OpenEnvelope[
+      EncryptedViewMessage[TransactionViewType.type]
+    ]] = {
       val subviewsKeys = vt.subviewHashes
         .map(subviewHash => viewsToKeyMap(subviewHash).viewKeyRandomness)
       for {

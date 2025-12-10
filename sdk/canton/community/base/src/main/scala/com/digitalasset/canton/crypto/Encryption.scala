@@ -198,6 +198,13 @@ final case class AsymmetricEncrypted[+M](
 
   override protected def companionObj: AsymmetricEncrypted.type = AsymmetricEncrypted
 
+  @VisibleForTesting
+  private[canton] def copy[M2](
+      ciphertext: ByteString = ciphertext,
+      encryptionAlgorithmSpec: EncryptionAlgorithmSpec = encryptionAlgorithmSpec,
+      encryptedFor: Fingerprint = encryptedFor,
+  ) = new AsymmetricEncrypted[M2](ciphertext, encryptionAlgorithmSpec, encryptedFor)
+
   def toProtoV30: v30.AsymmetricEncrypted = v30.AsymmetricEncrypted(
     ciphertext,
     encryptionAlgorithmSpec.toProtoEnum,
