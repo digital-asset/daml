@@ -62,7 +62,7 @@ genrule(
 
         cd $$PACKAGE_DIR
         $$YARN install \
-            --cache-folder ./yarn-cache \
+            --no-cache \
             --frozen-lockfile \
             --production=false \
             --ignore-optional
