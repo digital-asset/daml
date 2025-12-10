@@ -55,13 +55,20 @@ genrule(
     cmd = """
         set -euo pipefail
 
+        YARN=$$PWD/$(execpath //:yarn)
+        MKTGZ=$(execpath //bazel_tools/sh:mktgz)
+
         PACKAGE_DIR=$$(dirname $(location //compiler/daml-extension:package.json))
 
         cd $$PACKAGE_DIR
-        $$OLDPWD/$(execpath //:yarn) install --cache-folder ./yarn-cache --frozen-lockfile --production=false --ignore-optional
+        $$YARN install \
+            --cache-folder ./yarn-cache \
+            --frozen-lockfile \
+            --production=false \
+            --ignore-optional
 
         cd $$OLDPWD
-        $(execpath //bazel_tools/sh:mktgz) $@ --dereference -C $$PACKAGE_DIR node_modules
+        $$MKTGZ $@ --dereference -C $$PACKAGE_DIR node_modules
     """,
     tools = [
         "//:yarn",
