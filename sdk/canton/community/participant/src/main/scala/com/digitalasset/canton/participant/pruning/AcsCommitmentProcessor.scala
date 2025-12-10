@@ -54,6 +54,7 @@ import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.Errors
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.PublishTickData.PersistRunningCommitmentsAtUpgradeTime
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.util.TimeOfChange
+import com.digitalasset.canton.platform.store.interning.StringInterning
 import com.digitalasset.canton.protocol.ContractIdSyntax.*
 import com.digitalasset.canton.protocol.messages.AcsCommitment.{
   CommitmentType,
@@ -223,6 +224,7 @@ class AcsCommitmentProcessor private (
     commitmentCheckpointInterval: PositiveDurationSeconds,
     commitmentMismatchDebugging: Boolean,
     commitmentProcessorNrAcsChangesBehindToTriggerCatchUp: Option[PositiveInt],
+    stringInterning: StringInterning,
 )(implicit ec: ExecutionContext)
     extends AcsChangeListener
     with FlagCloseable
@@ -317,6 +319,18 @@ class AcsCommitmentProcessor private (
   private val counterParticipantLastMessage =
     TrieMap
       .empty[ParticipantId, CantonTimestamp]
+
+  /** a separate class that keeps track of multi hosted parties and if a period can be considered
+    * done
+    */
+  @VisibleForTesting
+  private[pruning] val multiHostedPartyTracker =
+    new AcsCommitmentMultiHostedPartyTracker(
+      participantId,
+      timeouts,
+      loggerFactory,
+      stringInterning,
+    )
 
   /** A future checking whether the node should enter catch-up mode by computing the catch-up
     * timestamp. At most one future runs computing this
@@ -851,8 +865,21 @@ class AcsCommitmentProcessor private (
         _ <-
           if (!catchingUpInProgress) {
             healthComponent.resolveUnhealthy()
-            indicateReadyForRemote(completedPeriod.toInclusive)
             for {
+              noWait <- acsCounterParticipantConfigStore.getAllActiveNoWaitCounterParticipants(
+                Seq(psid.logical),
+                Seq.empty,
+              )
+              topoSnapshot <- synchronizerCrypto.ipsSnapshot(
+                completedPeriod.fromExclusive.forgetRefinement
+              )
+              _ <- multiHostedPartyTracker.trackPeriod(
+                completedPeriod,
+                topoSnapshot,
+                snapshotRes,
+                noWait.map(_.participantId).toSet,
+              )
+              _ = indicateReadyForRemote(completedPeriod.toInclusive)
               _ <- processBuffered(completedPeriod.toInclusive, endExclusive = false)
               _ <- indicateLocallyProcessed(completedPeriod)
             } yield ()
@@ -1677,6 +1704,7 @@ class AcsCommitmentProcessor private (
               )
               val cmtPeriodsNE = NonEmptyUtil.fromElement(counterCommitment.period)
               for {
+                _ <- multiHostMark(counterCommitment.sender, cmtPeriodsNE)
                 _ <- store.markSafe(
                   counterCommitment.sender,
                   cmtPeriodsNE.toSet,
@@ -2221,6 +2249,7 @@ class AcsCommitmentProcessor private (
             )
           ) {
             for {
+              _ <- multiHostMark(cmt.sender, periods)
               _ <-
                 store.markSafe(
                   cmt.sender,
@@ -2236,6 +2265,25 @@ class AcsCommitmentProcessor private (
         case None => FutureUnlessShutdown.unit
       }
     } yield ()
+
+  private def multiHostMark(sender: ParticipantId, periods: NonEmpty[Set[CommitmentPeriod]])(
+      implicit traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit] =
+    FutureUnlessShutdown
+      .sequence(
+        multiHostedPartyTracker
+          .newCommit(sender, periods)
+          .map { case (period, state) =>
+            state match {
+              case TrackedPeriodState.Cleared => store.markMultiHostedCleared(period)
+              case _ => FutureUnlessShutdown.unit
+            }
+          }
+          .filter(_ =>
+            true
+          ) // this is to remove the NonEmpty, since the sequence does not support it.
+      )
+      .map(_ => ()) // maps FutureUnlessShutdown[Seq[Unit]] to FutureUnlessShutdown[Unit]
 
   /** Reinitialize the running commitments at the given ACS timestamp. This is used to recompute the
     * running commitments from the active contract store. Because the reinitialization task runs on
@@ -2412,6 +2460,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
       commitmentCheckpointInterval: PositiveDurationSeconds,
       commitmentMismatchDebugging: Boolean = false,
       commitmentProcessorNrAcsChangesBehindToTriggerCatchUp: Option[PositiveInt] = None,
+      stringInterning: StringInterning,
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -2475,6 +2524,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
         commitmentCheckpointInterval,
         commitmentMismatchDebugging,
         commitmentProcessorNrAcsChangesBehindToTriggerCatchUp,
+        stringInterning,
       )
       // We trigger the processing of the buffered commitments, but we do not wait for it to complete here,
       // because, if processing buffered required topology updates that go through the same queue, we'd create a deadlock.
