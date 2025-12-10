@@ -315,6 +315,17 @@ Controllers must be at least an `observer`_, otherwise they can't see the
 contract to exercise it on. But they don't have to be a `signatory`_. this
 enables the :ref:`propose-accept pattern <propose-accept>`.
 
+
+.. _glos-daml-test-coverage:
+
+Coverage
+********
+
+.. admonition:: Stub
+   :class: tip
+
+   This is a stub, documentation has yet to be written.
+
 Create
 ******
 
@@ -373,6 +384,15 @@ Daml Drivers
 Daml drivers enable a `ledger <#daml-ledger>`__ to be implemented on top of
 different `synchronization technologies <#synchronization-technology>`__; a
 database or distributed ledger technology.
+
+
+.. _glos-daml-source-files:
+
+Daml Files
+**********
+
+Daml Files are files of extension ``.daml`` that contain programs in the Daml
+smart contract language. :ref:`smart-contract-development`.
 
 
 .. _glos-daml-language:
@@ -434,15 +454,24 @@ Daml Studio
 See :ref:`daml-studio`.
 
 
+.. _glos-daml-test:
+
+Daml Test
+**********
+
+Test by executing :ref:`daml-script` against the :ref:`glos-ide-ledger`.
+
+
 .. _daml-lf:
 
 Daml-LF
 *******
 
-When you compile Daml source code into a `.dar file <#glos-dar-file>`__, the
-underlying format is **Daml-LF**. Daml-LF is similar to Daml, but is stripped
-down to a core set of features. The relationship between the surface Daml syntax
-and Daml-LF is loosely similar to that between Java and JVM bytecode.
+When you compile Daml source code into a :ref:`.dar file <glos-dar-file>`,
+the underlying format is **Daml-LF**. Daml-LF is similar to Daml, but is
+stripped down to a core set of features. The relationship between the surface
+Daml syntax and Daml-LF is loosely similar to that between Java and JVM
+bytecode.
 
 As a user, you don't need to interact with Daml-LF directly. But internally,
 it's used for:
@@ -451,6 +480,17 @@ it's used for:
 - sending and receiving values via the Ledger API
 - generating code in other languages for interacting with Daml models (often
   called “codegen”)
+
+Daml-LF, when stored as a DALF file, can be inspected using :ref:`damlc's
+inspect <glos-damlc-inspect>`
+
+
+.. _glos-damlc:
+
+Damlc
+*****
+
+See :ref:`glos-daml-compiler`.
 
 Damle, Daml runtime, Daml execution engine
 ******************************************
@@ -480,6 +520,43 @@ create contracts from the templates in that file.
 A ``.dar`` contains multiple ``.dalf`` :ref:`files<glos-dalf-file>`. A ``.dalf``
 file is the output of a compiled Daml package or library. Its underlying format
 is `Daml-LF <#daml-lf>`__.
+
+
+.. _glos-dar-upgrades:
+
+Dar Upgrading
+*************
+
+.. admonition:: Stub
+   :class: tip
+
+   This is a stub, documentation has yet to be written.
+
+
+.. _glos-data-dependencies:
+
+Data Dependencies
+*****************
+
+.. admonition:: Stub
+   :class: tip
+
+   This is a stub, documentation has yet to be written.
+
+
+.. _glos-damlc-detail-level:
+
+Detail Level (damlc)
+********************
+
+.. admonition:: Stub
+   :class: tip
+
+   This is a stub, documentation has yet to be written.
+
+.. TODO describe what (kind of) information is printed at what detail level
+
+.. TODO when done, REVISE SUMMARY in description of --detail flag
 
 Disjunction Choice
 ******************
@@ -566,6 +643,17 @@ controller of the `choice <#choice>`__ at `creation <#create>`__ time of the
 `contract <#contract>`__, but at `exercise <#exercise>`__ time.
 
 
+.. _glos-ghc:
+
+GHC, and GHC as foundation of the Daml Compiler
+***********************************************
+
+.. admonition:: Stub
+   :class: tip
+
+   This is a stub, documentation has yet to be written.
+
+
 ..  .
      ▗▄▄▖
     ▐▌
@@ -588,6 +676,41 @@ controller of the `choice <#choice>`__ at `creation <#create>`__ time of the
       █
     ▗▄█▄▖
 
+
+.. _glos-ide-ledger:
+
+IDE ledger
+**********
+
+.. admonition:: Stub
+   :class: tip
+
+   This is a stub, documentation has yet to be written.
+
+A simulated/mocked version of the ledger, intened for unit tests.
+
+
+.. _glos-incremental-builds:
+
+Incremental Builds
+******************
+
+.. admonition:: Stub
+   :class: tip
+
+   This is a stub, documentation has yet to be written.
+
+
+.. _glos-damlc-inspect:
+
+Inspect
+*******
+
+The inspection tool of :ref:`glos-damlc` (called on the command line, using
+:ref:`glos-dpm`, ``dpm damlc inspect``), allows you to parse and inspect both
+:ref:`.dar and .dalf files<glos-dar-file>`. See
+:ref:`how-to-parse-daml-archive-files`.
+
 Integration (application)
 *************************
 
@@ -595,7 +718,7 @@ Integration (application)
 application that sits on top of the `ledger <#daml-ledger>`__. See
 :ref:`glos-application`.
 
-      
+
 
 ..  .
        ▗▖
@@ -661,6 +784,20 @@ Library
 
    This is a stub, documentation has yet to be written.
 
+
+.. _glos-damlc-log-level:
+
+Log Level (damlc)
+*****************
+
+.. admonition:: Stub
+   :class: tip
+
+   This is a stub, documentation has yet to be written.
+
+.. TODO describe what (kind of) information is printed at what level (DEBUG,
+   INFO, WARNING, ERROR)
+
 ..  .
      ▖  ▗▖
     ▐▛▚▞▜▌
@@ -693,6 +830,17 @@ participants.
 
 Module
 ******
+
+.. admonition:: Stub
+   :class: tip
+
+   This is a stub, documentation has yet to be written.
+
+
+.. _glos-multi-package:
+
+Multi-package
+*************
 
 .. admonition:: Stub
    :class: tip
@@ -741,8 +889,22 @@ For documentation on observers, see :ref:`reference-templates`.
     ▐▛▀▘
     ▐▌
 
+
+.. _glos-daml-package:
+
 Package
 *******
+
+.. admonition:: Stub
+   :class: tip
+
+   This is a stub, documentation has yet to be written.
+
+
+.. _glos-package-database:
+
+Package Database
+****************
 
 .. admonition:: Stub
    :class: tip
@@ -752,8 +914,11 @@ Package
 Package Service
 ***************
 
-Use the **Package Service** to obtain information about Daml packages available
-on the `ledger <#daml-ledger>`__. See :ref:`package-service`.
+Use the **Package Service** to obtain information about :ref:`Daml
+packages<glos-daml-package>` available on the `ledger <#daml-ledger>`__. See
+:ref:`package-service`.
+
+
 
 
 .. _participant-node:
@@ -889,6 +1054,33 @@ addressed messages from participants and ensures that every member receives the
 messages in the same order. Think about registered and sealed mail delivered
 according to the postal datestamp.
 
+
+.. _glos-shake:
+
+Shake
+*****
+
+.. admonition:: Stub
+   :class: tip
+
+   This is a stub, documentation has yet to be written.
+
+.. TODO verify if we actually need this entry or just Shake Profiling Reports is
+   enough
+
+
+.. _glos-shake-profiling-reports:
+
+Shake Profiling Reports
+***********************
+
+.. admonition:: Stub
+   :class: tip
+
+   This is a stub, documentation has yet to be written.
+
+See :ref:`glos-shake`.
+
 Signatory
 *********
 
@@ -1017,6 +1209,17 @@ the Daml code you write.
 
 For full documentation on what can be in a template, see
 :ref:`reference-templates`.
+
+
+.. _glos-daml-compiler:
+
+The Daml Compiler
+*****************
+
+The Daml Compiler ``damlc`` compiles :ref:`glos-daml-source-files` into
+:ref:`Daml archives<glos-dar-file>`, and can run tests wriiten in
+:ref:`daml-script`. It is recommended to use ``damlc`` trough :ref:`glos-dpm`.
+See :ref:`howto-daml-compiler`.
 
 Transaction
 ***********
