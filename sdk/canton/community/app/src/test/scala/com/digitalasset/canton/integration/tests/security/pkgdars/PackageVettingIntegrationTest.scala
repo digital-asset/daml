@@ -843,20 +843,32 @@ trait PackageVettingIntegrationTest
           signedBy = Some(sequencer1SigningKey.fingerprint),
           force = ForceFlags(ForceFlag.AlienMember),
         )
+
+        // Only exit test once package vetting is observable to prevent flakes such as #24162.
+        eventually() {
+          unvettedPackages(archive.all) shouldBe empty
+        }
       }
     }
 
-    "the main package is vetted again" must {
+    "the main package is unvetted and vetted again" must {
       "allow us to use the package" taggedAs ledgerIntegrity.setHappyCase(
         "submit a command referring to a package that has been vetted again"
       ) in { implicit env =>
         import env.*
 
+        // unvet main package so that we can test that we can vet and subsequently submit a command
+        vettingCmd(removes = Seq(archive.main))
+        eventually() {
+          unvettedPackages(archive.all) shouldBe Set(archive.main.getHash)
+        }
+
         // and vet again
         participant3.dars.vetting.enable(darMainPackageId.get().getOrElse(fail("Should be here")))
         participant3.packages.synchronize_vetting()
-        unvettedPackages(archive.all) shouldBe empty
-
+        eventually() {
+          unvettedPackages(archive.all) shouldBe empty
+        }
         assertPackageUsable(participant3, participant3, daId)
       }
     }
