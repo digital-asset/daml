@@ -49,7 +49,7 @@ Specify the above settings in the ``codegen`` element of the Daml project file `
 
 Here is an example::
 
-    sdk-version: 3.4.0-rc2
+    sdk-version: 3.4.9
     name: quickstart
     source: daml
     init-script: Main:initialize
