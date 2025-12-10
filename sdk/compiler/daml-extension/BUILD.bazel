@@ -100,29 +100,50 @@ genrule(
         "README.md",
         "yarn.lock",
         ".vscodeignore",
-        "src/*",
-    ]),
+        "src/**",
+    ]) + [
+        ":node_deps_cache",
+    ],
     outs = ["daml-bundled.vsix"],
     cmd = """
-        export HOME=/does-not-exist
         set -euo pipefail
+
+        # #
+        # Prevent write to own home
+        #   Note:
+        #       This should not be needed anymore - TBD
+        export HOME=/does-not-exist
+
+        # #
+        # Create temporary dir to edit files (`src` files are readonly),
+        #   then define function to remove temporary dir,
+        #   which will be executed when cmd will try to exit the `cmd`.
         TMP_DIR=$$(mktemp -d)
-        cleanup () {{ rm -rf $$TMP_DIR || return; }}
+        cleanup() {{ rm -rf $$TMP_DIR || return; }}
         trap cleanup EXIT
+
         DIR=$$PWD
+        YARN=$$DIR/$(location //:yarn)
+        YARN_DIR=$$(dirname $$DIR/$(location //:yarn))
+        VSCE=$$DIR/$(location @daml_extension_deps//@vscode/vsce/bin:vsce)
+
         cp -r compiler/daml-extension $$TMP_DIR
-        echo $(TARGET_CPU) > $$TMP_DIR/target_cpu
         cd $$TMP_DIR/daml-extension
 
-        $$DIR/$(location //:yarn) install --frozen-lockfile --production=false --cache-folder ./yarn-cache
+        echo $(TARGET_CPU) > ../target_cpu
+        tar xzf $$DIR/$(location :node_deps_cache)
 
         sed -i "s/__VERSION__/{npm}/" package.json
         sed -i 's/"name": "daml"/"name": "daml-bundled"/' package.json
-        $$DIR/$(location //:yarn) compile
-        PATH=$$(dirname $$DIR/$(location @nodejs_host//:node_bin)):$$(dirname $$DIR/$(location //:yarn)):$$PATH ./node_modules/.bin/vsce package --yarn -o $$DIR/$@
+
+        # #
+        # Compile,
+        # Generate VSIX file
+        $$YARN compile
+        PATH=$$YARN_DIR:$$PATH $$VSCE package --yarn -o $$DIR/$@
     """.format(npm = npm_version),
     tools = [
         "//:yarn",
-        "@nodejs_host//:node_bin",
+        "@daml_extension_deps//@vscode/vsce/bin:vsce",
     ],
 )
