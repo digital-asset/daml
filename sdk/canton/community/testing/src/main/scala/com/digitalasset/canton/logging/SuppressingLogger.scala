@@ -515,22 +515,22 @@ class SuppressingLogger private[logging] (
 
   def fetchRecordedLogEntries: Seq[LogEntry] = recordedLogEntries.asScala.toSeq
 
-  /** Use this only in very early stages of development. Try to use [[assertLogs]] instead which
-    * lets you specify the specific messages that you expected to suppress. This avoids the risk of
-    * hiding unrelated warnings and errors.
+  /** Use this only in very early stages of development. Try to use [[assertLogs[A](within:=>A*]]
+    * instead which lets you specify the specific messages that you expected to suppress. This
+    * avoids the risk of hiding unrelated warnings and errors.
     */
   def suppressWarnings[A](within: => A): A = suppress(SuppressionRule.Level(WARN))(within)
 
-  /** Use this only in very early stages of development. Try to use [[assertLogs]] instead which
-    * lets you specify the specific messages that you expected to suppress. This avoids the risk of
-    * hiding unrelated warnings and errors.
+  /** Use this only in very early stages of development. Try to use [[assertLogs[A](within:=>A*]]
+    * instead which lets you specify the specific messages that you expected to suppress. This
+    * avoids the risk of hiding unrelated warnings and errors.
     */
   def suppressWarningsAndErrors[A](within: => A): A =
     suppress(SuppressionRule.LevelAndAbove(WARN))(within)
 
-  /** Use this only in very early stages of development. Try to use [[assertLogs]] instead which
-    * lets you specify the specific messages that you expected to suppress. This avoids the risk of
-    * hiding unrelated warnings and errors.
+  /** Use this only in very early stages of development. Try to use [[assertLogs[A](within:=>A*]]
+    * instead which lets you specify the specific messages that you expected to suppress. This
+    * avoids the risk of hiding unrelated warnings and errors.
     */
   def suppressErrors[A](within: => A): A = suppress(SuppressionRule.Level(ERROR))(within)
 

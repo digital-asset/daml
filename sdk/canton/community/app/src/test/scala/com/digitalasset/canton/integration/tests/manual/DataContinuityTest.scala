@@ -168,6 +168,9 @@ trait DataContinuityTest
   ): TempDirectory =
     DataContinuityTest.baseDumpForVersion(protocolVersion) / folderName.name / dbName
 
+  protected def getDumpSaveConfigDirectory: TempDirectory =
+    DataContinuityTest.baseDumpForRelease / "config"
+
   protected def getDisclosureSaveDirectory(protocolVersion: ProtocolVersion)(implicit
       folderName: FolderName
   ): TempDirectory =
@@ -314,13 +317,7 @@ trait DataContinuityTestFixturePostgres extends DataContinuityTest {
     )
 }
 
-trait BasicDataContinuityTestSetup
-    extends DataContinuityTest
-    with HasCycleUtils
-    with HasTrailingNoneUtils
-    with BongTestScenarios
-    with BeforeAndAfterAll
-    with EntitySyntax {
+trait BasicDataContinuityTestEnvironment extends CommunityIntegrationTest with SharedEnvironment {
 
   protected val referenceBlockSequencerPlugin =
     new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory)
@@ -367,7 +364,16 @@ trait BasicDataContinuityTestSetup
           )
         )
       )
+}
 
+trait BasicDataContinuityTestSetup
+    extends DataContinuityTest
+    with BasicDataContinuityTestEnvironment
+    with HasCycleUtils
+    with HasTrailingNoneUtils
+    with BongTestScenarios
+    with BeforeAndAfterAll
+    with EntitySyntax {
   override val defaultParticipant = "participant1"
 }
 
@@ -647,11 +653,17 @@ object DataContinuityTest {
   val releaseVersion: ReleaseVersion = ReleaseVersion.current
   val protocolVersionPrefix = "pv="
 
+  // /tmp/canton/data-continuity-dumps/release version
+  lazy val baseDumpForRelease: TempDirectory =
+    DataContinuityTest.baseDbDumpPath /
+      DataContinuityTest.releaseVersion.fullVersion
+
   // /tmp/canton/data-continuity-dumps/release version/pv=pv
   def baseDumpForVersion(protocolVersion: ProtocolVersion): TempDirectory =
-    DataContinuityTest.baseDbDumpPath /
-      DataContinuityTest.releaseVersion.fullVersion /
+    baseDumpForRelease /
       (DataContinuityTest.protocolVersionPrefix + protocolVersion.v)
+
+  lazy val baseDumpForConfig: TempDirectory = DataContinuityTest.baseDumpForRelease / "config"
 
   // IO around data continuity tests share directories. Allows to lock when required
   def synchronizedOperation(f: => Unit): Unit = blocking(this.synchronized(f))

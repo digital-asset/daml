@@ -29,6 +29,7 @@ trait S3Synchronization { self: BaseTest =>
     */
   sealed trait DumpSource {
     def listPvDirectories(): List[String]
+    def listConfigDirectories(): List[String]
     def mkContinuityDumpRef(path: String): ContinuityDumpRef
 
     /** List the dumps on S3
@@ -36,11 +37,10 @@ trait S3Synchronization { self: BaseTest =>
       *   If defined, tests major upgrade from the specified version
       */
     private def releaseDumpDirectories(
-        majorUpgradeTestFrom: Option[(Int, Int)]
-    ): List[(ReleaseVersion, ContinuityDumpRef)] = {
+        listing: List[String],
+        majorUpgradeTestFrom: Option[(Int, Int)],
+    ): List[(ContinuityDumpRef, ReleaseVersion)] = {
       val onlyLatestDump = majorUpgradeTestFrom.isDefined
-      val listing = listPvDirectories().filterNot(_.matches(s".*-ad-hoc.*"))
-
       def getReleaseVersion(directory: String): ReleaseVersion =
         ReleaseVersion.tryCreate(directory.split("/").head)
 
@@ -67,22 +67,27 @@ trait S3Synchronization { self: BaseTest =>
          */
         .sortBy { case (version, _) => version }(implicitly[Ordering[ReleaseVersion]].reverse)
         .zipWithIndex
-        .collect { case ((version, ref), idx) if version.isStable || idx == 0 => (version, ref) }
+        .collect { case ((version, ref), idx) if version.isStable || idx == 0 => (ref, version) }
     }
 
-    /** Returns the list of dumps and protocol versions to be tested.
-      * @param majorUpgradeTestFrom
-      *   If defined, tests major upgrade from the specified version
-      * @return
-      */
+    def getConfigDumpDirectories(
+        majorUpgradeTestFrom: Option[(Int, Int)] = None
+    ): List[(ContinuityDumpRef, ReleaseVersion)] = {
+      val listing = listConfigDirectories()
+        .filterNot(_.matches(s".*-ad-hoc.*"))
+      releaseDumpDirectories(listing, majorUpgradeTestFrom)
+    }
+
     def getDumpDirectories(
         majorUpgradeTestFrom: Option[(Int, Int)] = None
     ): List[(ContinuityDumpRef, ProtocolVersion)] = {
-      val testedReleaseDirectories = releaseDumpDirectories(majorUpgradeTestFrom)
+      val listing = listPvDirectories()
+        .filterNot(_.matches(s".*-ad-hoc.*"))
+      val testedReleaseDirectories = releaseDumpDirectories(listing, majorUpgradeTestFrom)
 
       val dumps: List[(ContinuityDumpRef, ProtocolVersion)] = testedReleaseDirectories.flatMap {
-        case (_, releaseDirectory) =>
-          val prefix = releaseDirectory.path
+        case (pvDirectory, _) =>
+          val prefix = pvDirectory.path
           prefix.split("/").last match {
             case file if file.startsWith(DataContinuityTest.protocolVersionPrefix) =>
               val rawPv = file
@@ -96,8 +101,7 @@ trait S3Synchronization { self: BaseTest =>
               if (pv.isDeleted)
                 Nil
               else
-                List((releaseDirectory, pv))
-
+                List((pvDirectory, pv))
             case file =>
               logger.warn(s"""
                              |This directory's name $file doesn't start with ${DataContinuityTest.protocolVersionPrefix}
@@ -118,6 +122,13 @@ trait S3Synchronization { self: BaseTest =>
         .filter(_.contains("data-continuity-dumps"))
         .map(_.replace("data-continuity-dumps/", "").replace("/0", ""))
 
+    override def listConfigDirectories(): List[String] =
+      ("""
+         |aws s3api list-objects --bucket canton-public-releases --prefix data-continuity-dumps/ --query 'CommonPrefixes[].{Prefix: Prefix}' --output text --no-sign-request --delimiter "/config"
+         |""".stripMargin.!!).split("\n").toList
+        .filter(_.contains("data-continuity-dumps"))
+        .map(_.replace("data-continuity-dumps/", ""))
+
     override def mkContinuityDumpRef(path: String): ContinuityDumpRef =
       ContinuityDumpS3Ref(path)
   }
@@ -132,6 +143,12 @@ trait S3Synchronization { self: BaseTest =>
       .filter(path => path.matches(".*/pv=\\d+$"))
       .toList
 
+    override def listConfigDirectories(): List[String] =
+      baseDbDumpPath.directory
+        .collectChildren(d => d.isDirectory && d.name == "config", maxDepth = 2)
+        .map(baseDbDumpPath.path.relativize(_).toString)
+        .toList
+
     override def mkContinuityDumpRef(path: String): ContinuityDumpRef =
       ContinuityDumpLocalRef(path)
   }
@@ -143,7 +160,7 @@ object S3Synchronization {
     def localDownloadPath: File
   }
 
-  /** This class incapsulates the path to a data continuity dump in S3 bucket under
+  /** This class encapsulates the path to a data continuity dump in S3 bucket under
     * s3://canton-public-releases/data-continuity-dumps/ and provides a utility to download the dump
     * to a local path under `baseDbDumpPath`.
     * @param path

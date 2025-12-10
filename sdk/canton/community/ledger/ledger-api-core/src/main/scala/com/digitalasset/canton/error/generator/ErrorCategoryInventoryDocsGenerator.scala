@@ -22,7 +22,9 @@ object ErrorCategoryInventoryDocsGenerator {
       val resolution: String = annotations.resolution.getOrElse("").replace("\n", " ")
       val retryStrategy: String = annotations.retryStrategy.getOrElse("").replace("\n", " ")
 
-      s"""$name
+      s""".. _error-categories-inventory_$name:
+         |
+         |$name
          |${"=" * 120}
          |    **Category id**: $categoryId
          |
