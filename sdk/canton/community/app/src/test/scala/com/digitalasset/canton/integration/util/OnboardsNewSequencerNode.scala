@@ -4,20 +4,31 @@
 package com.digitalasset.canton.integration.util
 
 import com.digitalasset.canton.config
+import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.console.{InstanceReference, SequencerReference}
 import com.digitalasset.canton.integration.TestConsoleEnvironment
+import com.digitalasset.canton.integration.plugins.UseBftSequencer
 import com.digitalasset.canton.topology.PhysicalSynchronizerId
 
 import scala.concurrent.duration.DurationInt
 
 trait OnboardsNewSequencerNode {
 
-  protected val isBftSequencer: Boolean = false
+  protected val bftSequencerPlugin: Option[UseBftSequencer] = None
 
   protected def setUpAdditionalConnections(
-      existingSequencer: SequencerReference,
-      newSequencer: SequencerReference,
-  ): Unit = ()
+      existingSequencerReference: SequencerReference,
+      newSequencerReference: SequencerReference,
+  ): Unit = bftSequencerPlugin.foreach { plugin =>
+    plugin.p2pEndpoints.get.foreach { endpoints =>
+      val existingSequencerEndpoint =
+        endpoints(InstanceName.tryCreate(existingSequencerReference.name))
+      // user-manual-entry-begin: BftSequencerAddPeerEndpoint
+      newSequencerReference.bft.add_peer_endpoint(existingSequencerEndpoint)
+    // existingSequencerReference.bft.add_peer_endpoint(newSequencerEndpoint) // Optional, one direction is enough
+    // user-manual-entry-end: BftSequencerAddPeerEndpoint
+    }
+  }
 
   protected def onboardNewSequencer(
       synchronizerId: PhysicalSynchronizerId,
@@ -28,7 +39,7 @@ trait OnboardsNewSequencerNode {
     import env.*
 
     // Split into 2 branches for nicer documentation
-    if (isBftSequencer) {
+    if (bftSequencerPlugin.isDefined) {
       // user-manual-entry-begin: DynamicallyOnboardBftSequencer
       bootstrap
         .onboard_new_sequencer(

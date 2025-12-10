@@ -12,7 +12,13 @@ import com.digitalasset.canton.concurrent.{
   ExecutionContextIdlenessExecutorService,
   FutureSupervisor,
 }
-import com.digitalasset.canton.config.{CachingConfigs, CantonConfig, CryptoConfig}
+import com.digitalasset.canton.config.{
+  BatchingConfig,
+  CachingConfigs,
+  CantonConfig,
+  CryptoConfig,
+  SessionEncryptionKeyCacheConfig,
+}
 import com.digitalasset.canton.console.commands.GlobalSecretKeyAdministration
 import com.digitalasset.canton.console.{
   ConsoleEnvironment,
@@ -57,7 +63,7 @@ trait TestEnvironment
     .create(
       CryptoConfig(),
       CachingConfigs.defaultKmsMetadataCache,
-      CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
+      SessionEncryptionKeyCacheConfig(),
       CachingConfigs.defaultPublicKeyConversionCache,
       storage,
       Option.empty[ReplicaManager],
@@ -66,6 +72,7 @@ trait TestEnvironment
       environment.clock,
       executionContext,
       environmentTimeouts,
+      BatchingConfig(),
       loggerFactory,
       NoReportingTracerProvider,
     )(executionContext, TraceContext.empty)

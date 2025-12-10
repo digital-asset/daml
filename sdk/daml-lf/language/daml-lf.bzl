@@ -150,6 +150,25 @@ def _init_data():
             "cpp_flag": "DAML_EXPERIMENTAL",
             "version_req": dev_only,
         },
+        # used only in scala
+        {
+            "name": "featurePackageUpgrades",
+            "name_pretty": "Package upgrades",
+            "cpp_flag": "DAML_PackageUpgrades",
+            "version_req": {"low": V2_1},
+        },
+        {
+            "name": "featureChoiceAuthority",
+            "name_pretty": "Choice Authorizers",
+            "cpp_flag": "DAML_ChoiceAuthority",
+            "version_req": dev_only,
+        },
+        {
+            "name": "featureUnsafeFromInterface",
+            "name_pretty": "UnsafeFromInterface builtin",
+            "cpp_flag": "DAML_UnsafeFromInterface",
+            "version_req": {"high": V2_1},
+        },
     ]
 
     return struct(

@@ -4,14 +4,14 @@
 package com.digitalasset.canton.integration.tests.multihostedparties
 
 import com.daml.ledger.javaapi.data.Command
-import com.digitalasset.canton.config.DbConfig
+import com.digitalasset.canton.BaseTest.UnsupportedExternalPartyTest.MultiRootNodeSubmission
 import com.digitalasset.canton.console.ParticipantReference
 import com.digitalasset.canton.examples.java.iou.{Amount, Iou}
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.tests.multihostedparties.PartyActivationFlow.authorizeOnly
 import com.digitalasset.canton.integration.{EnvironmentDefinition, TestConsoleEnvironment}
 import com.digitalasset.canton.time.PositiveSeconds
-import com.digitalasset.canton.topology.PartyId
+import com.digitalasset.canton.topology.Party
 
 import java.util.Collections
 
@@ -42,11 +42,12 @@ sealed trait OfflinePartyReplicationWorkflowIdsIntegrationTest
       }
     }
 
-  "Migrations are grouped by ledger time and can be correlated through the workflow ID" in {
+  "Migrations are grouped by ledger time and can be correlated through the workflow ID" onlyRunWithLocalParty (MultiRootNodeSubmission) in {
     implicit env =>
       import env.*
 
-      alice = participant1.parties.enable("Alice", synchronizeParticipants = Seq(participant2))
+      alice =
+        participant1.parties.testing.enable("Alice", synchronizeParticipants = Seq(participant2))
 
       // create some IOUs, we'll expect the migration to group together those sharing the
       // ledger time (i.e. they have been created in the same transaction)
@@ -133,7 +134,7 @@ sealed trait OfflinePartyReplicationWorkflowIdsIntegrationTest
   }
 
   private def replicate(
-      party: PartyId,
+      party: Party,
       source: ParticipantReference,
       target: ParticipantReference,
       beforeActivationOffset: Long,
@@ -157,7 +158,7 @@ sealed trait OfflinePartyReplicationWorkflowIdsIntegrationTest
     )
   }
 
-  private def ious(party: PartyId, n: Int): Seq[Command] = {
+  private def ious(party: Party, n: Int): Seq[Command] = {
     import scala.jdk.CollectionConverters.IteratorHasAsScala
     def iou =
       new Iou(
@@ -174,5 +175,5 @@ sealed trait OfflinePartyReplicationWorkflowIdsIntegrationTest
 final class OfflinePartyReplicationWorkflowIdsIntegrationTestPostgres
     extends OfflinePartyReplicationWorkflowIdsIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }

@@ -106,10 +106,10 @@ class OnboardingClearanceScheduler(
       )
 
       // Attempt to clear the onboarding flag as initial step
-      outcome <- topologyWorkflow.authorizeOnboardedTopology(
+      outcome <- topologyWorkflow.authorizeClearingOnboardingFlag(
         partyId,
         targetParticipantId = participantId,
-        onboardingEffectiveAt,
+        EffectiveTime(onboardingEffectiveAt),
         connectedSynchronizer,
       )
 
@@ -164,7 +164,7 @@ class OnboardingClearanceScheduler(
               case Success(_) =>
                 // Time has come, attempt to trigger the clearance
                 triggerClearanceAttempt(task)
-              // TODO(#28258) – Add a re-try for retriable errors
+              // TODO(#29427) – Add a re-try for retriable errors
               case Failure(e) =>
                 logger.warn(
                   s"Failed to await tick for onboarding clearance task (party: ${task.partyId}).",
@@ -200,10 +200,10 @@ class OnboardingClearanceScheduler(
               s"Safe time for party ${task.partyId} reached. Proposing topology transaction to clear onboarding flag."
             )
             val clearanceF = topologyWorkflow
-              .authorizeOnboardedTopology(
+              .authorizeClearingOnboardingFlag(
                 task.partyId,
                 targetParticipantId = participantId,
-                task.onboardingEffectiveAt,
+                EffectiveTime(task.onboardingEffectiveAt),
                 connectedSynchronizer,
               )
               .value

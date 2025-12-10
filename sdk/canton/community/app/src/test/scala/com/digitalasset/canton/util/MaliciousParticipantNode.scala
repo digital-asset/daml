@@ -9,7 +9,7 @@ import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.{CachingConfigs, ProcessingTimeout}
+import com.digitalasset.canton.config.{ProcessingTimeout, SessionEncryptionKeyCacheConfig}
 import com.digitalasset.canton.console.LocalParticipantReference
 import com.digitalasset.canton.crypto.{
   CryptoPureApi,
@@ -53,7 +53,14 @@ import com.digitalasset.canton.topology.transaction.{
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{BaseTest, LedgerCommandId, LfPartyId, WorkflowId, checked}
+import com.digitalasset.canton.{
+  BaseTest,
+  FutureHelpers,
+  LedgerCommandId,
+  LfPartyId,
+  WorkflowId,
+  checked,
+}
 import com.digitalasset.daml.lf.data.Ref.UserId
 import com.digitalasset.daml.lf.transaction.SubmittedTransaction
 import com.digitalasset.daml.lf.transaction.test.TestIdFactory
@@ -134,7 +141,7 @@ class MaliciousParticipantNode(
 
     ResourceUtil.withResourceM(
       new SessionKeyStoreWithInMemoryCache(
-        CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
+        SessionEncryptionKeyCacheConfig(),
         timeouts,
         loggerFactory,
       )
@@ -261,7 +268,7 @@ class MaliciousParticipantNode(
 
     ResourceUtil.withResourceM(
       new SessionKeyStoreWithInMemoryCache(
-        CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
+        SessionEncryptionKeyCacheConfig(),
         timeouts,
         loggerFactory,
       )
@@ -408,7 +415,7 @@ class MaliciousParticipantNode(
   ): EitherT[FutureUnlessShutdown, String, SendResult.Success] =
     ResourceUtil.withResourceM(
       new SessionKeyStoreWithInMemoryCache(
-        CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
+        SessionEncryptionKeyCacheConfig(),
         timeouts,
         loggerFactory,
       )
@@ -471,7 +478,7 @@ class MaliciousParticipantNode(
     }
 }
 
-object MaliciousParticipantNode {
+object MaliciousParticipantNode extends FutureHelpers {
   def apply(
       participant: LocalParticipantReference,
       synchronizerId: PhysicalSynchronizerId,
@@ -510,6 +517,7 @@ object MaliciousParticipantNode {
     def currentCryptoSnapshot(): SynchronizerSnapshotSyncCryptoApi = sync.syncCrypto
       .tryForSynchronizer(synchronizerId, BaseTest.defaultStaticSynchronizerParameters)
       .currentSnapshotApproximation
+      .futureValueUS
 
     new MaliciousParticipantNode(
       participant.id,

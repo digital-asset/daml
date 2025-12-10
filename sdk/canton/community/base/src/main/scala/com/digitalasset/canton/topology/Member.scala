@@ -24,6 +24,8 @@ import com.google.common.annotations.VisibleForTesting
 import io.circe.Encoder
 import slick.jdbc.{GetResult, PositionedParameters, SetParameter}
 
+import scala.language.implicitConversions
+
 /** Top level trait representing an identity within the system */
 sealed trait Identity
     extends HasUniqueIdentifier
@@ -369,6 +371,10 @@ object ParticipantId {
     ToDbPrimitive(_.uid.toLengthLimitedString)
 }
 
+object Party {
+  implicit def partyToPartyId(party: Party): PartyId = party.partyId
+}
+
 sealed trait Party extends Identity with Product with Serializable {
   override def uid: UniqueIdentifier
   def partyId: PartyId
@@ -388,7 +394,7 @@ final case class ExternalParty private (
   /** The annotation ensures that [[ExternalParty]] is used only in tests.
     */
   @VisibleForTesting
-  def copy(
+  private[canton] def copy(
       partyId: PartyId = partyId,
       signingFingerprints: NonEmpty[Seq[Fingerprint]] = signingFingerprints,
       signingThreshold: PositiveInt = signingThreshold,

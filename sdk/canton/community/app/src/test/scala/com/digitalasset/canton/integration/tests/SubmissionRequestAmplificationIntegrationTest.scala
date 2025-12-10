@@ -4,7 +4,10 @@
 package com.digitalasset.canton.integration.tests
 
 import com.daml.metrics.api.testing.MetricValues.*
-import com.digitalasset.canton.admin.api.client.data.TrafficControlParameters
+import com.digitalasset.canton.admin.api.client.data.{
+  SubmissionRequestAmplification,
+  TrafficControlParameters,
+}
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.{
   NonNegativeInt,
@@ -12,14 +15,13 @@ import com.digitalasset.canton.config.RequireTypes.{
   NonNegativeNumeric,
   PositiveInt,
 }
-import com.digitalasset.canton.config.{DbConfig, NonNegativeFiniteDuration}
 import com.digitalasset.canton.console.LocalSequencerReference
 import com.digitalasset.canton.integration.EnvironmentDefinition.S2M2
 import com.digitalasset.canton.integration.bootstrap.NetworkBootstrapper
 import com.digitalasset.canton.integration.plugins.{
+  UseBftSequencer,
   UsePostgres,
   UseProgrammableSequencer,
-  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -27,14 +29,15 @@ import com.digitalasset.canton.integration.{
   SharedEnvironment,
   TestConsoleEnvironment,
 }
+import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.sequencing.protocol.{MessageId, TrafficState}
-import com.digitalasset.canton.sequencing.{SequencerConnections, SubmissionRequestAmplification}
 import com.digitalasset.canton.synchronizer.sequencer.{
   HasProgrammableSequencer,
   ProgrammableSequencerPolicies,
   SendDecision,
   SendPolicy,
 }
+import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.Member
 import monocle.macros.syntax.lens.*
 
@@ -83,10 +86,11 @@ abstract class SubmissionRequestAmplificationIntegrationTest
           old.connections,
           old.sequencerTrustThreshold,
           old.sequencerLivenessMargin,
+          // TODO(i29601): remove `toInternal` when `modify_connections` is converted
           SubmissionRequestAmplification(
             PositiveInt.tryCreate(2),
             config.NonNegativeFiniteDuration.Zero,
-          ),
+          ).toInternal,
           old.sequencerConnectionPoolDelays,
         )
       }
@@ -334,11 +338,12 @@ abstract class SubmissionRequestAmplificationIntegrationTest
 
     participants.local.foreach { participant =>
       participant.synchronizers.disconnect(daName)
+      // TODO(i29601): remove `toInternal` when `synchronizers.modify` is converted
       participant.synchronizers.modify(
         daName,
         _.focus(_.sequencerConnections).modify(old =>
           old.withSubmissionRequestAmplification(
-            old.submissionRequestAmplification.copy(patience = newPatience)
+            old.submissionRequestAmplification.copy(patience = newPatience.toInternal)
           )
         ),
       )
@@ -346,9 +351,10 @@ abstract class SubmissionRequestAmplificationIntegrationTest
     }
 
     mediators.local.foreach(
+      // TODO(i29601): remove `toInternal` when `synchronizers.modify` is converted
       _.sequencer_connection.modify_connections(old =>
         old.withSubmissionRequestAmplification(
-          old.submissionRequestAmplification.copy(patience = newPatience)
+          old.submissionRequestAmplification.copy(patience = newPatience.toInternal)
         )
       )
     )
@@ -438,7 +444,7 @@ class SubmissionRequestAmplificationReferenceIntegrationTestPostgres
 
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory)
+    new UseBftSequencer(loggerFactory)
   )
   registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
 }

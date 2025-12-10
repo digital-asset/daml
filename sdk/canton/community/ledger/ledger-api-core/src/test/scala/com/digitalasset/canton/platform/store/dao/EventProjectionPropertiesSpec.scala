@@ -46,23 +46,23 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
       interfaceImplementedBy = noInterface,
       resolveTypeConRef = noTemplatesForPackageName,
     )
-      .render(Set.empty, id) shouldBe Projection(Set.empty, false)
+      .render(Set(party), id) shouldBe Projection(Set.empty, false)
   }
 
-  it should "project nothing in case of empty witnesses" in new Scope {
+  it should "project nothing in case of not matching template filter" in new Scope {
     EventProjectionProperties(
       eventFormat = templateWildcardFilter(),
       interfaceImplementedBy = interfaceImpl,
       resolveTypeConRef = noTemplatesForPackageName,
     )
-      .render(Set.empty, id) shouldBe Projection(Set.empty, false)
+      .render(Set(party), id) shouldBe Projection(Set.empty, false)
 
     EventProjectionProperties(
       eventFormat = templateWildcardPartyWildcardFilter(),
       interfaceImplementedBy = interfaceImpl,
       resolveTypeConRef = noTemplatesForPackageName,
     )
-      .render(Set.empty, id) shouldBe Projection(Set.empty, false)
+      .render(Set(party), id) shouldBe Projection(Set.empty, false)
   }
 
   behavior of "projecting interfaces"

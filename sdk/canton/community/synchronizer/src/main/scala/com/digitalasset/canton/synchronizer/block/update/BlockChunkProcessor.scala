@@ -111,12 +111,10 @@ final class BlockChunkProcessor(
 
     for {
       validatedSequencedSubmissions <- validatedSequencedSubmissionsF
-      pendingTopologyTimestamps =
-        state.pendingTopologyTimestamps ++ validatedSequencedSubmissions.collect {
-          case submission
-              if submission.submissionRequest.content.requestType == TopologyTransaction =>
-            submission.sequencingTimestamp
-        }
+      latestTopologyTimestamp = validatedSequencedSubmissions
+        .findLast(_.submissionRequest.content.requestType == TopologyTransaction)
+        .map(_.sequencingTimestamp)
+        .getOrElse(state.latestTopologyTransactionTimestamp)
 
       acksValidationResult <- acksValidationResultF
       (acksByMember, invalidAcks) = acksValidationResult
@@ -163,8 +161,8 @@ final class BlockChunkProcessor(
           state.lastBlockTs,
           lastChunkTsOfSuccessfulEvents,
           lastSequencerEventTimestamp.orElse(state.latestSequencerEventTimestamp),
+          latestTopologyTimestamp,
           finalInFlightAggregationsWithAggregationExpiry,
-          pendingTopologyTimestamps,
         )
     } yield (newState, chunkUpdate)
   }

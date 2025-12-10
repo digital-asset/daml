@@ -4,14 +4,9 @@
 package com.digitalasset.canton.integration.tests.repair
 
 import com.digitalasset.canton.HasExecutionContext
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.FeatureFlag
 import com.digitalasset.canton.examples.java.iou
-import com.digitalasset.canton.integration.plugins.{
-  UseBftSequencer,
-  UsePostgres,
-  UseReferenceBlockSequencer,
-}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.util.EntitySyntax
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -134,12 +129,6 @@ trait DeceasedPartyContractPurgeRepairIntegrationTest
 }
 
 class DeceasedPartyContractPurgeRepairIntegrationTestPostgres
-    extends DeceasedPartyContractPurgeRepairIntegrationTest {
-  registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
-}
-
-class DeceasedPartyContractPurgeRepairBftOrderingIntegrationTestPostgres
     extends DeceasedPartyContractPurgeRepairIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(new UseBftSequencer(loggerFactory))

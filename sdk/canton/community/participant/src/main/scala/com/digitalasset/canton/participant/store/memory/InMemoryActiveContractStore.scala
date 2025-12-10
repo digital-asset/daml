@@ -440,7 +440,7 @@ class InMemoryActiveContractStore(
 
   override def packageUsage(pkg: PackageId, contractStore: ContractStore)(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[(LfContractId)]] =
+  ): FutureUnlessShutdown[Option[LfContractId]] =
     for {
       contracts <- contractStore.find(
         exactId = None,

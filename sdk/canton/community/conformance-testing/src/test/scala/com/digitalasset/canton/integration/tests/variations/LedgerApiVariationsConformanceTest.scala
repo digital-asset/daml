@@ -42,7 +42,7 @@ sealed abstract class LedgerApiInMemoryFanOutConformanceTestShardedPostgres(shar
   protected val numShards: Int = 3
 
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   "A participant with covering in-memory fan-out buffer" can {
     "pass integration tests" in { implicit env =>
@@ -108,7 +108,7 @@ sealed abstract class LedgerApiTinyBuffersConformanceShardedTestPostgres(shard: 
   protected val numShards: Int = 4
 
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   "A participant with tiny buffers" can {
     "pass integration tests" in { implicit env =>
@@ -184,7 +184,7 @@ trait LedgerApiCachesDisabledConformanceTest extends SingleVersionLedgerApiConfo
 class LedgerApiCachesDisabledConformanceTestPostgres
     extends LedgerApiCachesDisabledConformanceTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }
 
 trait LedgerApiStaticTimeConformanceTest extends SingleVersionLedgerApiConformanceBase {
@@ -270,7 +270,7 @@ trait LedgerApiStaticTimeConformanceTest extends SingleVersionLedgerApiConforman
 
 class LedgerApiStaticTimeConformanceTestPostgres extends LedgerApiStaticTimeConformanceTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }
 
 trait LedgerApiTlsConformanceBase extends SingleVersionLedgerApiConformanceBase {
@@ -278,11 +278,11 @@ trait LedgerApiTlsConformanceBase extends SingleVersionLedgerApiConformanceBase 
   override def connectedSynchronizersCount = 1
 
   private val certChainFile =
-    PemFile(ExistingFile.tryCreate("./enterprise/app/src/test/resources/tls/ledger-api.crt"))
+    PemFile(ExistingFile.tryCreate("./community/app/src/test/resources/tls/ledger-api.crt"))
   private val privateKeyFile =
-    PemFile(ExistingFile.tryCreate("./enterprise/app/src/test/resources/tls/ledger-api.pem"))
+    PemFile(ExistingFile.tryCreate("./community/app/src/test/resources/tls/ledger-api.pem"))
   private val trustCertCollectionFile =
-    PemFile(ExistingFile.tryCreate("./enterprise/app/src/test/resources/tls/root-ca.crt"))
+    PemFile(ExistingFile.tryCreate("./community/app/src/test/resources/tls/root-ca.crt"))
 
   private val tls = TlsServerConfig(
     certChainFile = certChainFile,
@@ -314,7 +314,7 @@ trait LedgerApiTlsConformanceBase extends SingleVersionLedgerApiConformanceBase 
 // Only defined postgres to conserve resources
 class LedgerApiTls12ConformanceTestPostgres extends LedgerApiTlsConformanceBase {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
   val minTlsVersion = TlsVersion.V1_2
 
   "Ledger Api Test Tool" can {
@@ -331,7 +331,7 @@ class LedgerApiTls12ConformanceTestPostgres extends LedgerApiTlsConformanceBase 
 
 class LedgerApiTls13ConformanceTestPostgres extends LedgerApiTlsConformanceBase {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
   val minTlsVersion = TlsVersion.V1_3
 
   "Ledger Api Test Tool" can {

@@ -3,6 +3,8 @@ override-components:
     version: $DAML_VERSION
   daml-script: 
     version: $DAML_VERSION
+  codegen: 
+    version: $DAML_VERSION
 name: tests-Token
 data-dependencies: 
 - ../../../scala-2.13/resource_managed/test/tests-Holding-v1-1.0.0.dar

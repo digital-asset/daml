@@ -22,7 +22,9 @@ import com.digitalasset.canton.topology.store.{
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{FailOnShutdown, SequencerCounter}
+import org.scalatest.Assertion
 
 abstract class TopologyTransactionProcessorTest
     extends TopologyTransactionHandlingBase
@@ -142,8 +144,8 @@ abstract class TopologyTransactionProcessorTest
       "idempotent / crash recovery" in {
         val (proc, store) = mkDefault("idempotent")
         val block1 = List(ns1k1_k1, dmp1_k1, ns2k2_k2, ns3k3_k3)
-        val block2 = List(ns1k2_k1, dtcp1_k1)
-        val block3 = List(okm1bk5k1E_k1)
+        val block2 = List(ns1k2_k1, okm1bk5k1E_k1)
+        val block3 = List(dtcp1_k1)
         val block4 = List(dnd_proposal_k1)
         // using two competing proposals in the same block with the same
         // * serial
@@ -184,6 +186,410 @@ abstract class TopologyTransactionProcessorTest
         }
         DNDafterProcessing shouldBe dnd_proposal_k1.mapping
         DNDafterProcessing shouldBe dnd_proposal_k1.mapping
+      }
+
+      // the following suite of tests deals with out of band proposals and transactions
+      // at the same time it tries out the same scenario in a variety of crash scenarios which all should
+      // yield the same result
+      "deal with out of band proposals and txs" should {
+        def prepare(
+            items: Seq[(TopologyTransactionProcessor, List[GenericSignedTopologyTransaction])],
+            offset: Int = 0,
+        ) =
+          items.zipWithIndex.foreach { case ((proc, txs), idx) =>
+            val idxWithOffset = idx + offset
+            process(proc, ts(idxWithOffset), idxWithOffset.toLong, txs)
+          }
+
+        def mkPTP(
+            serial: PositiveInt,
+            isProposal: Boolean,
+            signingKeys: NonEmpty[Set[SigningPublicKey]],
+            permission: ParticipantPermission = ParticipantPermission.Submission,
+        ) =
+          mkAddMultiKey(
+            PartyToParticipant.tryCreate(
+              party6,
+              threshold = PositiveInt.one,
+              Seq(HostingParticipant(participant1, permission)),
+            ),
+            signingKeys = signingKeys,
+            serial = serial,
+            isProposal = isProposal,
+          )
+
+        def mkSetup() = {
+          val (proc, store) = mkDefault()
+          store.deleteAllData().futureValueUS
+          // store first tx to increase test coverage (which now must make sure that initial loading works)
+          store
+            .update(
+              SequencedTime(ts(-1)),
+              EffectiveTime(ts(-1)),
+              removals = Map(),
+              additions = Seq(ns1k1_k1, dmp1_k1).map(ValidatedTopologyTransaction(_, None)),
+            )
+            .futureValueUS
+          (proc, store, List(ns6k6_k6, okm1bk5k1E_k1, dtcp1_k1))
+        }
+
+        def runScenarios(
+            name: String,
+            txs: List[GenericSignedTopologyTransaction],
+            expectRejections: Seq[String] = Seq.empty,
+        )(
+            check: TopologyStore[TopologyStoreId] => Assertion
+        ): Assertion = {
+          def checkAndValidate(store: TopologyStore[TopologyStoreId]): Assertion = {
+            val rejected = store
+              .dumpStoreContent()
+              .futureValueUS
+              .result
+              .filter(_.rejectionReason.nonEmpty)
+            forAll(rejected.zip(expectRejections)) { case (tx, reason) =>
+              tx.rejectionReason.value.str should include(reason)
+            }
+            rejected should have length (expectRejections.length.toLong)
+            check(store)
+          }
+          // run the same test in different scenarios where we crash at different points
+          clue(name + " with all in one batch") {
+            val (proc, store, base) = mkSetup()
+            prepare(Seq((proc, base ++ txs)))
+            checkAndValidate(store)
+          }
+          clue(name + " in separate batches") {
+            val (proc, store, base) = mkSetup()
+            prepare(Seq((proc, base)) ++ txs.map(tx => (proc, List(tx))))
+            checkAndValidate(store)
+          }
+          clue(name + " in separate batches after crash") {
+            val (proc, store, base) = mkSetup()
+            val proc2 = mk(store)._1
+            prepare(Seq((proc, base), (proc2, txs)))
+            checkAndValidate(store)
+          }
+          clue(name + " in same batch with replay after crash") {
+            val (proc, store, base) = mkSetup()
+            val proc2 = mk(store)._1
+            prepare(Seq((proc, base ++ txs)))
+            prepare(Seq((proc2, base ++ txs)))
+            checkAndValidate(store)
+          }
+          clue(name + " in different batches with replay after crash") {
+            val (proc, store, base) = mkSetup()
+            val proc2 = mk(store)._1
+            prepare(Seq((proc, base), (proc, txs)))
+            prepare(Seq((proc2, base), (proc2, txs)))
+            checkAndValidate(store)
+          }
+          clue(name + "in different batches with partial replay after crash") {
+            val (proc, store, base) = mkSetup()
+            val proc2 = mk(store)._1
+            prepare(Seq((proc, base), (proc, txs)))
+            prepare(Seq((proc2, txs)), offset = 1)
+            checkAndValidate(store)
+          }
+          succeed
+        }
+
+        "accept initial proposal with serial 2" in {
+          val prop =
+            mkPTP(
+              serial = PositiveInt.two,
+              isProposal = true,
+              signingKeys = NonEmpty.mk(Set, SigningKeys.key1),
+            )
+          runScenarios(
+            "out-of-band proposal without any existing state",
+            List(prop),
+            if (this.testedProtocolVersion < ProtocolVersion.v35) List()
+            else List("does not match the expected serial"),
+          ) { store =>
+            val txs = fetchTx(store, ts(10), isProposal = true).result.map(_.transaction)
+            if (this.testedProtocolVersion < ProtocolVersion.v35) {
+              txs shouldBe List(prop)
+            } else {
+              txs shouldBe empty
+            }
+          }
+        }
+
+        "accept initial tx with serial 2" in {
+          val tx =
+            mkPTP(
+              serial = PositiveInt.two,
+              isProposal = false,
+              signingKeys = NonEmpty.mk(Set, SigningKeys.key1, SigningKeys.key6),
+            )
+          runScenarios("out-of-band initial tx without any existing state", List(tx)) { store =>
+            fetch(store, ts(10)) should contain(tx.mapping)
+          }
+        }
+
+        "reject update tx with gap between serials" in {
+          val tx =
+            mkPTP(
+              serial = PositiveInt.two,
+              isProposal = false,
+              signingKeys = NonEmpty.mk(Set, SigningKeys.key1, SigningKeys.key6),
+              permission = ParticipantPermission.Confirmation,
+            )
+          val tx2 =
+            mkPTP(
+              serial = PositiveInt.tryCreate(5),
+              isProposal = false,
+              signingKeys = NonEmpty.mk(Set, SigningKeys.key1, SigningKeys.key6),
+            )
+          runScenarios(
+            "update tx with gap between serials",
+            List(tx, tx2),
+            Seq("The actual serial 5 does not match the expected serial 3"),
+          ) { store =>
+            // the second tx should bounce, so we should only find the first one
+            fetch(store, ts(10)) should contain(tx.mapping)
+          }
+        }
+
+        // proposal with gap between active
+        "reject proposal with gap between serials" in {
+          val tx =
+            mkPTP(
+              serial = PositiveInt.one,
+              isProposal = false,
+              signingKeys = NonEmpty.mk(Set, SigningKeys.key1, SigningKeys.key6),
+              permission = ParticipantPermission.Confirmation,
+            )
+          val tx2 =
+            mkPTP(
+              serial = PositiveInt.tryCreate(5),
+              isProposal = true,
+              signingKeys = NonEmpty.mk(Set, SigningKeys.key1),
+            )
+          runScenarios(
+            "reject proposal with gap between serials",
+            List(tx, tx2),
+            Seq("The actual serial 5 does not match the expected serial 2"),
+          ) { store =>
+            // the second tx should bounce
+            fetch(store, ts(10), isProposal = true) shouldBe empty
+          }
+        }
+
+        // proposal with too low serial
+        "reject proposal with too low serial" in {
+          val tx =
+            mkPTP(
+              serial = PositiveInt.two,
+              isProposal = false,
+              signingKeys = NonEmpty.mk(Set, SigningKeys.key1, SigningKeys.key6),
+              permission = ParticipantPermission.Confirmation,
+            )
+          val tx2 =
+            mkPTP(
+              serial = PositiveInt.one,
+              isProposal = true,
+              signingKeys = NonEmpty.mk(Set, SigningKeys.key1),
+            )
+          runScenarios(
+            "reject proposal with too low serial",
+            List(tx, tx2),
+            Seq("The actual serial 1 does not match the expected serial 3"),
+          ) { store =>
+            // the second tx should bounce
+            fetch(store, ts(10), isProposal = true) shouldBe empty
+          }
+        }
+
+        // proposal with conflicting serial
+        "proposals with different serials" in {
+          val tx =
+            mkPTP(
+              serial = PositiveInt.one,
+              isProposal = true,
+              signingKeys = NonEmpty.mk(Set, SigningKeys.key1),
+              permission = ParticipantPermission.Confirmation,
+            )
+          val tx2 =
+            mkPTP(
+              serial = PositiveInt.tryCreate(5),
+              isProposal = true,
+              signingKeys = NonEmpty.mk(Set, SigningKeys.key1),
+            )
+          runScenarios(
+            "update tx with gap between serials",
+            List(tx, tx2),
+            if (testedProtocolVersion < ProtocolVersion.v35) List()
+            else List("does not match the expected serial"),
+          ) { store =>
+            // the second tx should bounce
+            validate(
+              fetch(store, ts(10), isProposal = true),
+              // older PVs allowed out of order proposals
+              if (testedProtocolVersion < ProtocolVersion.v35)
+                List(
+                  tx,
+                  tx2,
+                )
+              else List(tx),
+            )
+          }
+        }
+
+        "archiving proposals" in {
+          val tx =
+            mkPTP(
+              serial = PositiveInt.one,
+              isProposal = true,
+              signingKeys = NonEmpty.mk(Set, SigningKeys.key1),
+              permission = ParticipantPermission.Confirmation,
+            )
+          val tx2 =
+            mkPTP(
+              serial = PositiveInt.one,
+              isProposal = true,
+              signingKeys = NonEmpty.mk(Set, SigningKeys.key1),
+            )
+          val tx3 = // confirms tx
+            mkTrans(
+              tx.transaction,
+              signingKeys = NonEmpty.mk(Set, SigningKeys.key6),
+              isProposal = true,
+            )
+
+          runScenarios("archive competing proposals", List(tx, tx2, tx3)) { store =>
+            validate(
+              fetch(store, ts(10), isProposal = true),
+              List(),
+            )
+            fetch(store, ts(10)) should contain(tx.mapping)
+          }
+        }
+
+        "competing but accumulating proposals" in {
+          // here we will have three proposals that compete (tx1, tx1b, tx2)
+          // tx2 has a different payload, tx1b should have different txHash but same payload
+          val tx1 =
+            mkPTP(
+              serial = PositiveInt.one,
+              isProposal = true,
+              signingKeys = NonEmpty.mk(Set, SigningKeys.key1),
+              permission = ParticipantPermission.Confirmation,
+            )
+          // competes with tx1 subtly, as this is a new transaction
+          // being created. the test tooling here will create a transaction
+          // with some random bytes in the protobuf message such that we simulate
+          // the situation where two transaction may have the same payload, but
+          // different hash
+          val tx1b =
+            mkPTP(
+              serial = PositiveInt.one,
+              isProposal = true,
+              signingKeys = NonEmpty.mk(Set, SigningKeys.key1),
+              permission = ParticipantPermission.Confirmation,
+            )
+          // competes with tx1
+          val tx2 =
+            mkPTP(
+              serial = PositiveInt.one,
+              isProposal = true,
+              signingKeys = NonEmpty.mk(Set, SigningKeys.key1),
+              permission = ParticipantPermission.Submission,
+            )
+          val tx3 = // confirms tx1
+            mkTrans(
+              tx1.transaction,
+              isProposal = true,
+              signingKeys = NonEmpty.mk(Set, SigningKeys.key6),
+            )
+          runScenarios("archive competing proposals", List(tx1, tx1b, tx2, tx3)) { store =>
+            validate(
+              fetch(store, ts(10), isProposal = true),
+              List(),
+            )
+            fetch(store, ts(10)) should contain(tx1.mapping)
+          }
+        }
+
+        "correct proposal aggregation and late signature aggregation" in {
+          import SigningKeys.*
+          val dndNamespace =
+            DecentralizedNamespaceDefinition.computeNamespace(Set(ns1, ns2, ns3))
+          val dnd_s1_k1 =
+            mkAdd(
+              DecentralizedNamespaceDefinition.tryCreate(
+                decentralizedNamespace = dndNamespace,
+                owners = NonEmpty.mk(Set, ns1, ns2, ns3),
+                threshold = PositiveInt.two,
+              ),
+              signingKey = key1,
+              isProposal = true,
+            )
+          val dnd_s1_k2 =
+            mkTrans(dnd_s1_k1.transaction, signingKeys = NonEmpty.mk(Set, key2), isProposal = true)
+          val dnd_s1_k3 =
+            mkTrans(dnd_s1_k1.transaction, signingKeys = NonEmpty.mk(Set, key3), isProposal = true)
+          val dnd_s2_k1 =
+            mkAdd(
+              DecentralizedNamespaceDefinition.tryCreate(
+                decentralizedNamespace = dnd_s1_k1.mapping.namespace,
+                threshold = PositiveInt.two,
+                owners = NonEmpty.mk(Set, ns1, ns2, ns3, ns6),
+              ),
+              signingKey = key1,
+              isProposal = true,
+              serial = PositiveInt.two,
+            )
+          // the latter two will not be the same as we are forcing the hash to be different in mkTrans
+          val dnd_s2_k2p =
+            mkAdd(
+              DecentralizedNamespaceDefinition.tryCreate(
+                decentralizedNamespace = dnd_s1_k1.mapping.namespace,
+                threshold = PositiveInt.two,
+                owners = NonEmpty.mk(Set, ns1, ns2, ns3, ns6),
+              ),
+              signingKey = key2,
+              isProposal = true,
+              serial = PositiveInt.two,
+            )
+          val dnd_s2_k6 =
+            mkTrans(dnd_s2_k1.transaction, signingKeys = NonEmpty.mk(Set, key6), isProposal = true)
+          val dnd_s2_k3 =
+            mkTrans(dnd_s2_k1.transaction, signingKeys = NonEmpty.mk(Set, key3), isProposal = true)
+
+          runScenarios(
+            "archive competing proposals",
+            List(
+              ns2k2_k2,
+              ns3k3_k3,
+              ns3k3_k3,
+              ns2k2_k2,
+              dnd_s1_k1,
+              dnd_s1_k2,
+              dnd_s1_k3,
+              dnd_s2_k6,
+              dnd_s2_k2p,
+              dnd_s2_k1,
+              dnd_s2_k3,
+            ),
+          ) { store =>
+            validate(
+              fetch(store, ts(40), isProposal = true),
+              List(),
+            )
+            fetchTx(store, ts(40)).result
+              .map(c =>
+                (c.mapping, c.transaction.signatures.map(_.signature.authorizingLongTermKey))
+              )
+              .filter(_._1.namespace == dnd_s1_k1.mapping.namespace) shouldBe Seq(
+              (
+                dnd_s2_k1.mapping,
+                Set(key1, key6, key3).map(_.fingerprint),
+              )
+            )
+          }
+        }
+
       }
 
       "trigger topology subscribers with/without transactions" in {
@@ -352,7 +758,8 @@ abstract class TopologyTransactionProcessorTest
         // check that the most recently stored version after ts(0) is the one with 3 signatures
         checkDop(ts(0).immediateSuccessor, expectedSignatures = 3, expectedValidFrom = ts(0))
 
-        val extraDop = mkAdd(dopMapping, signingKey = key9, isProposal = true)
+        val extraDop =
+          mkTrans(dop.transaction, signingKeys = NonEmpty.mk(Set, key9), isProposal = true)
 
         // processing multiple of the same transaction in the same batch works correctly
         val block1 = List[GenericSignedTopologyTransaction](extraDop, extraDop)
@@ -391,10 +798,19 @@ abstract class TopologyTransactionProcessorTest
           )
 
         val dnd = createDnd(ns1)(key1, serial = PositiveInt.one, isProposal = false)
-        val dnd_add_ns2_k2 = createDnd(ns1, ns2)(key2, serial = PositiveInt.two, isProposal = true)
         val dnd_add_ns2_k1 = createDnd(ns1, ns2)(key1, serial = PositiveInt.two, isProposal = true)
-        val dnd_add_ns3_k3 = createDnd(ns1, ns3)(key3, serial = PositiveInt.two, isProposal = true)
+        val dnd_add_ns2_k2 = mkTrans(
+          dnd_add_ns2_k1.transaction,
+          signingKeys = NonEmpty.mk(Set, key2),
+          isProposal = true,
+        )
         val dnd_add_ns3_k1 = createDnd(ns1, ns3)(key1, serial = PositiveInt.two, isProposal = true)
+        val dnd_add_ns3_k3 = mkTrans(
+          dnd_add_ns3_k1.transaction,
+          signingKeys = NonEmpty.mk(Set, key3),
+          isProposal = true,
+        )
+
         val (proc, store) = mkDefault()
 
         val rootCertificates = Seq[GenericSignedTopologyTransaction](ns1k1_k1, ns2k2_k2, ns3k3_k3)
@@ -484,7 +900,7 @@ abstract class TopologyTransactionProcessorTest
           serial = PositiveInt.one,
         )
         val dop1_k8_late_signature =
-          mkAdd(dopMapping1, key8, isProposal = true, serial = PositiveInt.one)
+          mkTrans(dop1_k1k7.transaction, signingKeys = NonEmpty.mk(Set, key8), isProposal = true)
 
         // mapping and transactions for serial=2
         val dopMapping2 = SynchronizerParametersState(
@@ -501,7 +917,11 @@ abstract class TopologyTransactionProcessorTest
         // this transaction is marked as proposal, but the merging of the signatures k1 and k7 will result
         // in a fully authorized transaction
         val dop2_k7_proposal =
-          mkAdd(dopMapping2, signingKey = key7, serial = PositiveInt.two, isProposal = true)
+          mkTrans(
+            dop2_k1_proposal.transaction,
+            signingKeys = NonEmpty.mk(Set, key7),
+            isProposal = true,
+          )
 
         val (proc, store) = mk(mkStore(synchronizerId, "sigs"))
 

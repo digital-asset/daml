@@ -5,7 +5,6 @@ package com.digitalasset.canton.integration.tests.repair
 
 import better.files.*
 import com.daml.test.evidence.scalatest.OperabilityTestHelpers
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{
   LocalInstanceReference,
@@ -22,8 +21,8 @@ import com.digitalasset.canton.integration.bootstrap.{
 }
 import com.digitalasset.canton.integration.plugins.{
   PostgresDumpRestore,
+  UseBftSequencer,
   UsePostgres,
-  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.util.{AcsInspection, PartyToParticipantDeclarative}
@@ -188,9 +187,7 @@ protected abstract class LargeAcsExportAndImportTestBase
   override protected def environmentDefinition: EnvironmentDefinition = baseEnvironmentDefinition
 
   // Need the persistence for dumping and restoring large ACS
-  protected val referenceSequencer = new UseReferenceBlockSequencer[DbConfig.Postgres](
-    loggerFactory
-  )
+  protected val referenceSequencer = new UseBftSequencer(loggerFactory)
   registerPlugin(referenceSequencer)
   protected val pgPlugin = new UsePostgres(loggerFactory)
   registerPlugin(pgPlugin)
@@ -316,15 +313,7 @@ protected abstract class DumpTestSet extends LargeAcsExportAndImportTestBase {
 
     // Stop participants, then synchronizer (order intentional)
     nodes.foreach(_.stop())
-    val res =
-      for {
-        _ <- saveDumps(nodes)
-        _ <- referenceSequencer.dumpDatabases(
-          testSet.dumpDirectory,
-          forceLocal = true,
-        )
-      } yield ()
-    Await.result(res, 30.minutes) // DB dump can be a bit slow
+    Await.result(saveDumps(nodes), 30.minutes) // DB dump can be a bit slow
     nodes.foreach(_.start())
     participants.foreach(_.synchronizers.reconnect_all())
   }
@@ -375,15 +364,7 @@ protected abstract class EstablishTestSet extends LargeAcsExportAndImportTestBas
     nodes.foreach(_.stop())
 
     clue("Restoring database") {
-      val res =
-        for {
-          _ <- MonadUtil.sequentialTraverse_(nodes)(restoreDump(_))
-          _ <- referenceSequencer.restoreDatabases(
-            testSet.dumpDirectory,
-            forceLocal = true,
-          )
-        } yield ()
-      Await.result(res, 15.minutes)
+      Await.result(MonadUtil.sequentialTraverse_(nodes)(restoreDump(_)), 15.minutes)
     }
 
     clue("Starting all nodes") {

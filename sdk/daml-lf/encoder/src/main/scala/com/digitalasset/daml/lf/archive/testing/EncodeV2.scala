@@ -103,7 +103,7 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
       dottedNameTable.build.foreach(builder.addInternedDottedNames)
       stringsTable.build.foreach(builder.addInternedStrings)
 
-      if (languageVersion >= LV.Features.explicitPkgImports) {
+      if (versionSupports(LV.featureFlatArchive)) {
         pkg.imports match {
           case DeclaredImports(importsSet) => builder.setPackageImports(encodeImports(importsSet))
           case GeneratedImports(str, _) =>
@@ -171,7 +171,7 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
       else {
         val builder = PLF.SelfOrImportedPackageId.newBuilder()
 
-        if (!stableIds.contains(pkgId) && languageVersion >= LV.Features.explicitPkgImports)
+        if (!stableIds.contains(pkgId) && versionSupports(LV.featurePackageImports))
           pkgImports match {
             case Right(ids) => builder.setPackageImportId(ids(pkgId))
             case Left(rsn) => sys.error(s"in encodePackageId, did not find imports, reason {$rsn}")
@@ -252,7 +252,7 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
     })
 
     private implicit def encodeKind(k: Kind): PLF.Kind =
-      if (languageVersion >= LV.Features.kindInterning)
+      if (versionSupports(LV.featureFlatArchive))
         PLF.Kind.newBuilder().setInternedKind(kindTable.insert(k)).build()
       else encodeKindBuilder(k).build()
 
@@ -260,7 +260,7 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
       val builder = PLF.Kind.newBuilder()
       // KArrows breaks the exhaustiveness checker.
       (k: @unchecked) match {
-        case KArrows(params, result) if languageVersion < LV.Features.flatArchive =>
+        case KArrows(params, result) if !(versionSupports(LV.featureFlatArchive)) =>
           expect(result == KStar)
           builder
             .setArrow(
@@ -324,13 +324,11 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
     private def encodeTypeBuilder(typ0: Type): PLF.Type.Builder = {
       val (typ, args) =
         typ0 match {
-          case TApps(typ1, args1) if languageVersion < LV.Features.flatArchive => typ1 -> args1
+          case TApps(typ1, args1) if !(versionSupports(LV.featureFlatArchive)) => typ1 -> args1
           case _ => typ0 -> ImmArray.Empty
         }
       val builder = PLF.Type.newBuilder()
-      // Be warned: Both the use of the unapply pattern TForalls and the pattern
-      //    case TBuiltin(BTArrow) if versionIsOlderThan(LV.Features.arrowType) =>
-      // cause scala's exhaustivty checking to be disabled in the following match.
+      // Be warned: The use of the unapply pattern TForalls cause scala's exhaustivty checking to be disabled in the following match.
       (typ: @unchecked) match {
         case TVar(varName) =>
           val b = PLF.Type.Var.newBuilder()
@@ -350,7 +348,7 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
             PLF.Type.Builtin.newBuilder().setBuiltin(proto).accumulateLeft(typs)(_ addArgs _)
           )
         case TApp(lhs, rhs) =>
-          if (languageVersion >= LV.Features.flatArchive)
+          if (versionSupports(LV.featureFlatArchive))
             builder.setTapp(
               PLF.Type.TApp
                 .newBuilder()
@@ -360,12 +358,12 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
           else
             sys.error(s"unexpected TApp on lf version $languageVersion")
         // TODO[RB]: expect args empty???
-        case TForalls(binders, body) if languageVersion < LV.Features.flatArchive =>
+        case TForalls(binders, body) if !(versionSupports(LV.featureFlatArchive)) =>
           expect(args.isEmpty)
           builder.setForall(
             PLF.Type.Forall.newBuilder().accumulateLeft(binders)(_ addVars _).setBody(body)
           )
-        case TForall(binder, body) if languageVersion >= LV.Features.flatArchive =>
+        case TForall(binder, body) if (versionSupports(LV.featureFlatArchive)) =>
           builder.setForall(
             PLF.Type.Forall.newBuilder().addVars(binder).setBody(body)
           )
@@ -447,7 +445,7 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
     }
 
     private implicit def encodeExpr(expr: Expr): PLF.Expr =
-      if (languageVersion >= LV.Features.exprInterning)
+      if (versionSupports(LV.featureFlatArchive))
         PLF.Expr.newBuilder().setInternedExpr(exprTable.insert(expr)).build()
       else
         encodeExprBuilder(expr).build()
@@ -497,7 +495,7 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
           b.setCid(cid)
           b.setArg(arg)
           guard.foreach { g =>
-            assertSince(LV.Features.extendedInterfaces, "ExerciseInterface.guard")
+            assertVersionSupports(LV.featureExtendedInterfaces, "ExerciseInterface.guard")
             b.setGuard(g)
           }
           builder.setExerciseInterface(b)
@@ -669,16 +667,16 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
           b.setStruct(struct)
           b.setUpdate(update)
           builder.setStructUpd(b)
-        case EApps(fun, args) if languageVersion < LV.Features.flatArchive =>
+        case EApps(fun, args) if !(versionSupports(LV.featureFlatArchive)) =>
           builder.setApp(PLF.Expr.App.newBuilder().setFun(fun).accumulateLeft(args)(_ addArgs _))
-        case EApp(fun, arg) if languageVersion >= LV.Features.flatArchive =>
+        case EApp(fun, arg) if versionSupports(LV.featureFlatArchive) =>
           builder.setApp(PLF.Expr.App.newBuilder().setFun(fun).addArgs(arg))
-        case ETyApps(expr: Expr, typs0) if languageVersion < LV.Features.flatArchive =>
+        case ETyApps(expr: Expr, typs0) if !(versionSupports(LV.featureFlatArchive)) =>
           expr match {
             case EBuiltinFun(builtin)
                 if indirectBuiltinFunctionMap.contains(
                   builtin
-                ) && languageVersion < LV.Features.flatArchive =>
+                ) && !(versionSupports(LV.featureFlatArchive)) =>
               val typs = typs0.toSeq.toList
               builder.setBuiltin(indirectBuiltinFunctionMap(builtin)(typs).proto)
             case _ =>
@@ -686,23 +684,23 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
                 PLF.Expr.TyApp.newBuilder().setExpr(expr).accumulateLeft(typs0)(_ addTypes _)
               )
           }
-        case ETyApp(expr, typ) if languageVersion >= LV.Features.flatArchive =>
+        case ETyApp(expr, typ) if versionSupports(LV.featureFlatArchive) =>
           builder.setTyApp(
             PLF.Expr.TyApp.newBuilder().setExpr(expr).addTypes(typ)
           )
-        case EAbss(binders, body) if languageVersion < LV.Features.flatArchive =>
+        case EAbss(binders, body) if !(versionSupports(LV.featureFlatArchive)) =>
           builder.setAbs(
             PLF.Expr.Abs.newBuilder().accumulateLeft(binders)(_ addParam _).setBody(body)
           )
-        case EAbs(binder, body) if languageVersion >= LV.Features.flatArchive =>
+        case EAbs(binder, body) if versionSupports(LV.featureFlatArchive) =>
           builder.setAbs(
             PLF.Expr.Abs.newBuilder().addParam(binder).setBody(body)
           )
-        case ETyAbss(binders, body) if languageVersion < LV.Features.flatArchive =>
+        case ETyAbss(binders, body) if !(versionSupports(LV.featureFlatArchive)) =>
           builder.setTyAbs(
             PLF.Expr.TyAbs.newBuilder().accumulateLeft(binders)(_ addParam _).setBody(body)
           )
-        case ETyAbs(binder, body) if languageVersion >= LV.Features.flatArchive =>
+        case ETyAbs(binder, body) if versionSupports(LV.featureFlatArchive) =>
           builder.setTyAbs(
             PLF.Expr.TyAbs.newBuilder().addParam(binder).setBody(body)
           )
@@ -825,7 +823,7 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
               .setExpr(value)
           )
         case EChoiceController(ty, choiceName, contract, choiceArg) =>
-          assertSince(LV.Features.choiceFuncs, "Expr.ChoiceController")
+          assertVersionSupports(LV.featureChoiceFuncs, "Expr.ChoiceController")
           val b = PLF.Expr.ChoiceController
             .newBuilder()
             .setTemplate(ty)
@@ -834,7 +832,7 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
           setInternedString(choiceName, b.setChoiceInternedStr)
           builder.setChoiceController(b)
         case EChoiceObserver(ty, choiceName, contract, choiceArg) =>
-          assertSince(LV.Features.choiceFuncs, "Expr.ChoiceObserver")
+          assertVersionSupports(LV.featureChoiceFuncs, "Expr.ChoiceObserver")
           val b = PLF.Expr.ChoiceObserver
             .newBuilder()
             .setTemplate(ty)
@@ -843,7 +841,7 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
           setInternedString(choiceName, b.setChoiceInternedStr)
           builder.setChoiceObserver(b)
         case EExperimental(name, ty) =>
-          assertSince(LV.Features.unstable, "Expr.experimental")
+          assertVersionSupports(LV.featureUnstable)
           builder.setExperimental(PLF.Expr.Experimental.newBuilder().setName(name).setType(ty))
 
         case ECallInterface(ty, methodName, expr) =>
@@ -970,7 +968,7 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
       }
       choice.choiceAuthorizers match {
         case Some(value) =>
-          assertSince(LV.Features.choiceAuthority, "TemplateChoice.authority")
+          assertVersionSupports(LV.featureChoiceAuthority, "TemplateChoice.authority")
           b.setAuthorizers(value)
         case None =>
       }
@@ -1063,10 +1061,17 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
 
   }
 
-  private def assertSince(minVersion: LV, description: String): Unit =
-    if (languageVersion < minVersion)
-      throw EncodeError(s"$description is not supported by Daml-LF $languageVersion")
+  private[this] def notSupportedError(description: String): EncodeError =
+    EncodeError(s"$description is not supported by Daml-LF $languageVersion")
 
+  private def versionSupports(ft: LV.Feature): Boolean =
+    ft.enabledIn(languageVersion)
+
+  def assertVersionSupports(ft: LV.Feature): Unit =
+    if (!versionSupports(ft)) throw notSupportedError(ft.name)
+
+  def assertVersionSupports(ft: LV.Feature, caseDescription: String): Unit =
+    if (!versionSupports(ft)) throw notSupportedError(s"${ft.name} (case ${caseDescription})")
 }
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))

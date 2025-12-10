@@ -11,19 +11,18 @@ import com.daml.ports.Port
 import com.daml.scalautil.Statement.discard
 import com.daml.tracing.NoOpTelemetry
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.grpc.sampleservice.HelloServiceReferenceImplementation
 import com.digitalasset.canton.ledger.api.grpc.{GrpcClientResource, GrpcHealthService}
 import com.digitalasset.canton.ledger.api.health.HealthChecks.ComponentName
 import com.digitalasset.canton.ledger.api.health.{HealthChecks, ReportsHealth}
 import com.digitalasset.canton.ledger.resources.TestResourceContext
-import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.networking.grpc.ratelimiting.ActiveRequestCounterInterceptor
 import com.digitalasset.canton.networking.grpc.ratelimiting.LimitResult.LimitResultCheck
 import com.digitalasset.canton.platform.apiserver.configuration.RateLimitingConfig
+import com.digitalasset.canton.util.OptionUtils.OptionExtension
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, protobuf}
-import com.typesafe.scalalogging.Logger
 import io.grpc.*
 import io.grpc.Status.Code
 import io.grpc.health.v1.health.{HealthCheckRequest, HealthCheckResponse, HealthGrpc}
@@ -62,7 +61,6 @@ final class RateLimitingInterceptorChecksSpec
     PatienceConfig(timeout = scaled(Span(1, Second)))
 
   private val config = RateLimitingConfig(100, 10, 75, 100 * RateLimitingConfig.Megabyte)
-
   private val metrics = LedgerApiServerMetrics.ForTesting
 
   behavior of "RateLimitingInterceptor"
@@ -272,7 +270,6 @@ final class RateLimitingInterceptorChecksSpec
 
   it should "limit the number of unary requests" in {
 
-    val logger = loggerFactory.getLogger(getClass)
     val waitService = new WaitService()
     val (activeRpcGauge, _) =
       metrics.requests.getActiveAndLimitGauge(testApiName, testRpcName)
@@ -321,9 +318,55 @@ final class RateLimitingInterceptorChecksSpec
 
   }
 
+  def testExceptionHandling(waitService: WaitService, channel: Channel): Future[Unit] =
+    for {
+      fStatus <- streamHello(channel)
+      _ = waitService.failStream(new Exception("fail-stream"))
+      fHelloStatus1 = singleHello(channel, logger)
+      _ = waitService.failSingle(new Exception("fail-single"))
+      status <- fStatus
+      helloStatus1 <- fHelloStatus1
+    } yield {
+      status.getCode shouldBe Code.UNKNOWN
+      helloStatus1.getCode shouldBe Code.INTERNAL
+    }
+
+  def testCancelStreamHandling(waitService: WaitService, channel: Channel): Future[Unit] =
+    for {
+      (fStatus, cancel) <- streamHelloWithCancel(channel)
+      _ <- waitService.dropObserver()
+      _ = cancel()
+      status <- fStatus
+    } yield {
+      status.getCode shouldBe Code.CANCELLED
+    }
+
+  def testCancelSingleHandling(waitService: WaitService, channel: Channel): Future[Unit] = {
+    val (fHelloStatus, cancel) = singleHelloWithCancel(channel, logger)
+    for {
+      _ <- waitService.dropRequest()
+      _ = cancel()
+      status <- fHelloStatus
+    } yield {
+      status.getCode shouldBe Code.CANCELLED
+    }
+  }
+
+  def testNormalHandling(waitService: WaitService, channel: Channel): Future[Unit] =
+    for {
+      fStatus <- streamHello(channel)
+      fHelloStatus3 = singleHello(channel, logger)
+      _ = waitService.completeStream()
+      _ = waitService.completeSingle()
+      status <- fStatus
+      helloStatus <- fHelloStatus3
+    } yield {
+      status.getCode shouldBe Code.OK
+      helloStatus.getCode shouldBe Code.OK
+    }
+
   it should "properly account for failed requests" in {
 
-    val logger = loggerFactory.getLogger(getClass)
     val waitService = new WaitService()
     val (activeRpcGauge, _) =
       metrics.requests.getActiveAndLimitGauge(testApiName, testRpcName)
@@ -338,53 +381,19 @@ final class RateLimitingInterceptorChecksSpec
     )
       .use { channel =>
         for {
-          // with exceptions first
-          fStatus1 <- streamHello(channel)
-          _ = waitService.failStream(new Exception("fail-stream"))
-          fHelloStatus1 = singleHello(channel, logger)
-          _ = waitService.failSingle(new Exception("fail-single"))
-          status1 <- fStatus1
-          helloStatus1 <- fHelloStatus1
-
-          // cancels second
-          fStatus2 <- streamHello(channel, cancel = true)
-          fHelloStatus2 = singleHello(channel, logger, cancel = true)
-          status2 <- fStatus2
-          helloStatus2 <- fHelloStatus2
-          _ = waitService
-            .dropObserver() // we need to drop the observer as cancel prevents normal completion
-
-          // but also verify we can do successful calls again
-          fStatus3 <- streamHello(channel)
-          fHelloStatus3 = singleHello(channel, logger)
-          _ = waitService.completeStream()
-          _ = waitService.completeSingle()
-          status3 <- fStatus3
-          helloStatus3 <- fHelloStatus3
-
+          _ <- testExceptionHandling(waitService, channel)
+          _ <- testCancelSingleHandling(waitService, channel)
+          _ <- testCancelStreamHandling(waitService, channel)
+          _ <- testNormalHandling(waitService, channel)
         } yield {
-          status1.getCode shouldBe Code.UNKNOWN
-          helloStatus1.getCode shouldBe Code.INTERNAL
-          helloStatus1.getDescription should include("fail-single")
-
-          status2.getCode shouldBe Code.CANCELLED
-          helloStatus2.getCode shouldBe Code.CANCELLED
-
-          status3.getCode shouldBe Code.OK
-          helloStatus3.getCode shouldBe Code.OK
-
           eventually(activeRpcGauge.getValue shouldBe 0)
           eventually(activeStreamGauge.getValue shouldBe 0)
-
         }
-
       }
-
   }
 
   it should "exclude non-stream traffic from stream counts" in {
 
-    val logger = loggerFactory.getLogger(getClass)
     val waitService = new WaitService()
     val (activeGauge, _) =
       metrics.requests.getActiveAndLimitGauge(testApiName, testStreamName)
@@ -440,7 +449,7 @@ final class RateLimitingInterceptorChecksSpec
 
         fStatus1 <- streamHello(channel)
         fStatus2 <- streamHello(channel)
-        fHelloStatus1 = singleHello(channel, loggerFactory.getLogger(getClass))
+        fHelloStatus1 = singleHello(channel, logger)
 
         _ = waitService.completeSingle()
         _ = waitService.completeStream()
@@ -459,7 +468,7 @@ final class RateLimitingInterceptorChecksSpec
   it should "maintain stream count for streams cancellations" in {
 
     val waitService = new WaitService()
-    val (activeGauge, limitGauge) =
+    val (activeGauge, _) =
       metrics.requests.getActiveAndLimitGauge(testApiName, testStreamName)
     withChannel(
       metrics,
@@ -469,11 +478,8 @@ final class RateLimitingInterceptorChecksSpec
       requestLimits = Map(testStreamName -> 2),
     ).use { channel =>
       for {
-        fStatus1 <- streamHello(channel, cancel = true)
-        status1 <- fStatus1
+        _ <- testCancelStreamHandling(waitService, channel)
       } yield {
-        status1.getCode shouldBe Code.CANCELLED
-
         eventually(activeGauge.getValue shouldBe 0)
       }
     }
@@ -607,8 +613,15 @@ object RateLimitingInterceptorChecksSpec extends MockitoSugar {
       responseObserver.onCompleted()
     }
 
-    def dropObserver(): Unit =
-      observers.poll(10, TimeUnit.SECONDS).discard
+    def dropRequest(): Future[Unit] =
+      Option(requests.poll(10, TimeUnit.SECONDS))
+        .map(_ => ())
+        .toFuture(new Exception("Failed to drop request"))
+
+    def dropObserver(): Future[Unit] =
+      Option(observers.poll(10, TimeUnit.SECONDS))
+        .map(_ => ())
+        .toFuture(new Exception("Failed to drop observer"))
 
     def failStream(ex: Exception): Unit = {
       val responseObserver = observers.remove()
@@ -641,19 +654,28 @@ object RateLimitingInterceptorChecksSpec extends MockitoSugar {
 
   }
 
-  def singleHello(channel: Channel, logger: Logger, cancel: Boolean = false): Future[Status] = {
+  def singleHello(channel: Channel, logger: TracedLogger): Future[Status] = {
+    val (f, _) = singleHelloWithCancel(channel, logger)
+    f
+  }
 
-    val status = Promise[Status]()
+  def singleHelloWithCancel(
+      channel: Channel,
+      logger: TracedLogger,
+  ): (Future[Status], () => Unit) = {
+
+    val statusP = Promise[Status]()
+
     val clientCall = channel.newCall(protobuf.HelloServiceGrpc.METHOD_HELLO, CallOptions.DEFAULT)
 
     clientCall.start(
       new ClientCall.Listener[protobuf.Hello.Response] {
         override def onClose(grpcStatus: Status, trailers: Metadata): Unit = {
-          logger.debug(s"Single closed with $grpcStatus")
-          status.success(grpcStatus)
+          logger.underlying.debug(s"Single closed with $grpcStatus")
+          statusP.success(grpcStatus)
         }
         override def onMessage(message: protobuf.Hello.Response): Unit =
-          logger.debug(s"Got single message: $message")
+          logger.underlying.debug(s"Got single message: $message")
       },
       new Metadata(),
     )
@@ -662,12 +684,15 @@ object RateLimitingInterceptorChecksSpec extends MockitoSugar {
     clientCall.halfClose()
     clientCall.request(1)
 
-    if (cancel) clientCall.cancel("Test cancel", new IOException("network down"))
-
-    status.future
+    (statusP.future, () => clientCall.cancel("Test cancel", new IOException("network down")))
   }
 
-  def streamHello(channel: Channel, cancel: Boolean = false): Future[Future[Status]] = {
+  def streamHello(channel: Channel)(implicit ec: ExecutionContext): Future[Future[Status]] =
+    streamHelloWithCancel(channel).map { case (f, _) => f }
+
+  def streamHelloWithCancel(
+      channel: Channel
+  )(implicit ec: ExecutionContext): Future[(Future[Status], () => Unit)] = {
 
     val init = Promise[Future[Status]]()
     val status = Promise[Status]()
@@ -691,9 +716,9 @@ object RateLimitingInterceptorChecksSpec extends MockitoSugar {
     clientCall.halfClose()
     clientCall.request(2) // Request both messages
 
-    if (cancel) clientCall.cancel("Test cancel", new IOException("network down"))
-
-    init.future
+    init.future.map(f =>
+      (f, () => clientCall.cancel("Test cancel", new IOException("network down")))
+    )
   }
 
 }

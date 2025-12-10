@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.config
 
-import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
-
 /** Configuration of a DB lock
   *
   * @param healthCheckPeriod
@@ -16,11 +14,9 @@ import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 final case class DbLockConfig(
     healthCheckPeriod: PositiveFiniteDuration = PositiveFiniteDuration.ofSeconds(5),
     healthCheckTimeout: PositiveFiniteDuration = PositiveFiniteDuration.ofSeconds(15),
-) extends UniformCantonConfigValidation
+)
 
 object DbLockConfig {
-  implicit val dbLockConfigCanontConfigValidator: CantonConfigValidator[DbLockConfig] =
-    CantonConfigValidatorDerivation[DbLockConfig]
 
   /** For locks to be supported we must be using an [[DbConfig]] with it set to Postgres. */
   private[canton] def isSupportedConfig(config: StorageConfig): Boolean =
@@ -73,13 +69,7 @@ final case class DbLockedConnectionConfig(
     initialAcquisitionMaxRetries: Int = 5,
     initialAcquisitionInterval: PositiveFiniteDuration = PositiveFiniteDuration.ofMillis(200),
     lock: DbLockConfig = DbLockConfig(),
-) extends UniformCantonConfigValidation
-
-object DbLockedConnectionConfig {
-  implicit val dbLockedConnectionConfigCantonConfigValidator
-      : CantonConfigValidator[DbLockedConnectionConfig] =
-    CantonConfigValidatorDerivation[DbLockedConnectionConfig]
-}
+)
 
 /** Configuration for the connection pool using DB locks.
   *
@@ -94,10 +84,4 @@ final case class DbLockedConnectionPoolConfig(
     healthCheckPeriod: PositiveFiniteDuration = PositiveFiniteDuration.ofSeconds(5),
     connection: DbLockedConnectionConfig = DbLockedConnectionConfig(),
     activeTimeout: PositiveFiniteDuration = PositiveFiniteDuration.ofSeconds(15),
-) extends UniformCantonConfigValidation
-
-object DbLockedConnectionPoolConfig {
-  implicit val dbLockedConnectionPoolConfigCantonConfigValidator
-      : CantonConfigValidator[DbLockedConnectionPoolConfig] =
-    CantonConfigValidatorDerivation[DbLockedConnectionPoolConfig]
-}
+)

@@ -7,5 +7,6 @@ bootstrap.synchronizer_local()
 // Connect participant1 to da using the connect macro.
 participant1.synchronizers.connect_local(sequencer1, alias = "da1")
 
-participant1.dars.upload("./model/.daml/dist/model-tests-1.0.0.dar")
+val darPath = Option(System.getProperty("model-tests-examples.dar-path")).getOrElse("./model/.daml/dist/model-tests-1.0.0.dar")
+participant1.dars.upload(darPath)
 

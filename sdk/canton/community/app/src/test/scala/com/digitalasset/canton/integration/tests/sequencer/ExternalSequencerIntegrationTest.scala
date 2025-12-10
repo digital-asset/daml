@@ -5,13 +5,11 @@ package com.digitalasset.canton.integration.tests.sequencer
 
 import com.digitalasset.canton.HasExecutionContext
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.config.DbConfig.Postgres
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{
   ApiLoggingConfig,
   CantonConfig,
   CantonFeatures,
-  DbConfig,
   LoggingConfig,
   MonitoringConfig,
   NonNegativeFiniteDuration as NonNegativeFiniteDurationConfig,
@@ -25,7 +23,6 @@ import com.digitalasset.canton.integration.plugins.{
   UseBftSequencer,
   UseExternalProcess,
   UsePostgres,
-  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -179,13 +176,6 @@ private[tests] final case class QuickSequencerReconnection(
         .focus(_.maxConnectionRetryDelay)
         .replace(NonNegativeFiniteDurationConfig.ofSeconds(1))
     )(config)
-}
-
-class ExternalReferenceSequencerIntegrationTest
-    extends ExternalSequencerIntegrationTest("reference") {
-
-  override protected lazy val sequencerPlugin: UseReferenceBlockSequencer[DbConfig.Postgres] =
-    new UseReferenceBlockSequencer[Postgres](loggerFactory)
 }
 
 class ExternalBftOrderingSequencerIntegrationTest

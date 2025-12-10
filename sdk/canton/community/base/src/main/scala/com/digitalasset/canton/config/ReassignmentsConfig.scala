@@ -3,9 +3,6 @@
 
 package com.digitalasset.canton.config
 
-import com.digitalasset.canton.config.NonNegativeFiniteDuration
-import com.digitalasset.canton.config.semiauto.CantonConfigValidatorDerivation
-
 /** Configuration relating to reassignments.
   *
   * @param targetTimestampForwardTolerance
@@ -31,10 +28,4 @@ import com.digitalasset.canton.config.semiauto.CantonConfigValidatorDerivation
 final case class ReassignmentsConfig(
     targetTimestampForwardTolerance: NonNegativeFiniteDuration =
       NonNegativeFiniteDuration.ofSeconds(5)
-) extends UniformCantonConfigValidation
-
-object ReassignmentsConfig {
-  implicit val reassignmentsConfigCantonConfigValidator
-      : CantonConfigValidator[ReassignmentsConfig] =
-    CantonConfigValidatorDerivation[ReassignmentsConfig]
-}
+)

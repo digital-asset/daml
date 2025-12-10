@@ -343,7 +343,8 @@ trait Endpoints extends NamedLogging {
                 sre.getCause,
               )
               JsCantonError(
-                code = sre.getStatus.getDescription,
+                code = Option(sre.getStatus.getDescription)
+                  .getOrElse("Status description not available"),
                 cause = sre.getMessage,
                 correlationId = None,
                 traceId = None,

@@ -16,6 +16,8 @@ import com.digitalasset.canton.ledger.api.{
   TransactionShape,
   UpdateFormat,
 }
+import com.digitalasset.canton.ledger.participant.state.Update.ContractInfo
+import com.digitalasset.canton.ledger.participant.state.Update.TransactionAccepted.RepresentativePackageId.SameAsContractPackageId
 import com.digitalasset.canton.ledger.participant.state.{
   Reassignment,
   ReassignmentInfo,
@@ -580,6 +582,7 @@ class IndexComponentLoadTest extends AnyFlatSpec with IndexComponentTest {
       contractAuthenticationData = Bytes.Empty,
       reassignmentCounter = 10L,
       nodeId = nodeId,
+      internalContractId = -1, // will be filled later
     ) -> contract
   }
 
@@ -619,7 +622,6 @@ class IndexComponentLoadTest extends AnyFlatSpec with IndexComponentTest {
       recordTime = recordTime,
       synchronizerId = synchronizerId,
       acsChangeFactory = testAcsChangeFactory,
-      internalContractIds = Map.empty,
     )
 
   private def transaction(
@@ -643,11 +645,16 @@ class IndexComponentLoadTest extends AnyFlatSpec with IndexComponentTest {
       ),
       transaction = transaction,
       updateId = randomUpdateId,
-      contractAuthenticationData = contractAuthenticationData,
       synchronizerId = synchronizerId,
       recordTime = recordTime,
       acsChangeFactory = testAcsChangeFactory,
       externalTransactionHash = None,
-      internalContractIds = Map.empty,
+      contractInfos = contractAuthenticationData.map { case (cid, authData) =>
+        cid -> ContractInfo(
+          internalContractId = 0L,
+          contractAuthenticationData = authData,
+          representativePackageId = SameAsContractPackageId,
+        )
+      },
     )
 }

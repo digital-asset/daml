@@ -3,15 +3,15 @@
 
 package com.digitalasset.canton.integration.tests.security.kms
 
-import com.digitalasset.canton.config.{DbConfig, KmsConfig, PositiveFiniteDuration}
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.config.DbConfig.Postgres
+import com.digitalasset.canton.config.{KmsConfig, PositiveFiniteDuration}
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.tests.security.kms.mock.MockKmsDriverCryptoIntegrationTestBase
 import com.digitalasset.canton.integration.tests.security.kms.mock.MockKmsDriverCryptoIntegrationTestBase.mockKmsDriverConfig
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransform,
   ConfigTransforms,
-  EnvironmentSetupPlugin,
   SharedEnvironment,
 }
 import monocle.macros.syntax.lens.*
@@ -72,7 +72,7 @@ class MockKmsDriverSessionSigningKeysLifecycleIntegrationTestPostgres
 
   setupPlugins(
     withAutoInit = true,
-    storagePlugin = Option.empty[EnvironmentSetupPlugin],
-    sequencerPlugin = new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory),
+    storagePlugin = Some(new UsePostgres(loggerFactory)),
+    sequencerPlugin = new UseReferenceBlockSequencer[Postgres](loggerFactory),
   )
 }

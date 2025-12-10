@@ -15,21 +15,11 @@ sealed trait PemFileOrString {
   def pemStream: java.io.InputStream = pemBytes.newInput()
 }
 
-object PemFileOrString {
-  implicit def pemFileOrStringCantonConfigValidator: CantonConfigValidator[PemFileOrString] =
-    CantonConfigValidator.validateAll
-}
-
 /** A class representing an existing PEM file path for configuration file fields
   */
 final case class PemFile(pemFile: ExistingFile) extends PemFileOrString {
   override lazy val pemBytes: ByteString =
     ByteString.copyFrom(File(pemFile.unwrap.getAbsolutePath).loadBytes)
-}
-
-object PemFile {
-  implicit def pemFileCantonConfigValidator: CantonConfigValidator[PemFile] =
-    CantonConfigValidator.validateAll
 }
 
 /** A class representing an inlined PEM string for configuration file fields

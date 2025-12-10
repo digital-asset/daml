@@ -829,7 +829,6 @@ object ProcessingSteps {
     override def cancelDecisionTimeTickRequest(): Unit = ()
   }
 
-  // TODO(#27996) remove this type when internal contract ids are no longer fetched from ProtocolProcessor
   type InternalContractIds = Map[LfContractId, Long]
 
 }

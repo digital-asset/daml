@@ -5,62 +5,12 @@ package com.digitalasset.canton.util
 
 import cats.data.NonEmptyList
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.util.ReleaseUtils.{
-  previousSupportedStableReleases,
-  reducedScopeOfPreviousSupportedStableReleases,
-  shard,
-}
-import com.digitalasset.canton.version.ReleaseVersion
+import com.digitalasset.canton.util.ReleaseUtils.shard
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Inside, Inspectors}
 
 final class ReleaseUtilsTest extends AnyFlatSpec with Matchers with Inspectors with Inside {
-
-  behavior of "ReleaseUtils"
-
-  it should "only report versions from the current release version" in {
-
-    val previousSupportedStableReleasesMajor =
-      previousSupportedStableReleases.map(_.releaseVersion.major)
-    all(previousSupportedStableReleasesMajor) shouldBe ReleaseVersion.current.major
-
-    val reducedScopeOfPreviousSupportedStableReleasesMajor =
-      reducedScopeOfPreviousSupportedStableReleases.map(_.releaseVersion.major)
-    all(reducedScopeOfPreviousSupportedStableReleasesMajor) shouldBe ReleaseVersion.current.major
-
-  }
-
-  it should "correctly identify the latest available patch version for every (major, minor) pair" in {
-
-    val allVersionsByMajorMinor =
-      previousSupportedStableReleases.groupBy(v => (v.releaseVersion.major, v.releaseVersion.minor))
-
-    val reducedScopedByMajorMinor =
-      reducedScopeOfPreviousSupportedStableReleases.groupBy(v =>
-        (v.releaseVersion.major, v.releaseVersion.minor)
-      )
-
-    withClue("all (major, minor) pairs covered by the reduced scope") {
-      allVersionsByMajorMinor.keys should contain theSameElementsAs reducedScopedByMajorMinor.keys
-    }
-
-    withClue("exactly one patch version in the reduced scope") {
-      all(reducedScopedByMajorMinor.values) should have length 1
-    }
-
-    withClue("only the latest version in the reduced scope") {
-      forAll(allVersionsByMajorMinor) { case (majorMinor, patches) =>
-        inside(patches.sortBy(_.releaseVersion).reverse) { case latest :: rest =>
-          inside(reducedScopedByMajorMinor.get(majorMinor)) { case Some(List(reduced)) =>
-            reduced shouldBe latest
-            all(rest.map(_.releaseVersion)) should be < reduced.releaseVersion
-          }
-        }
-      }
-    }
-
-  }
 
   private val one = PositiveInt.one
   private val two = PositiveInt.two

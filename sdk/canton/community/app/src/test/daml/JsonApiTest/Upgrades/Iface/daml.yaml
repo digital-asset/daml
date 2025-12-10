@@ -3,6 +3,8 @@ override-components:
     version: $DAML_VERSION
   daml-script: 
     version: $DAML_VERSION
+  codegen: 
+    version: $DAML_VERSION
 name: ifoo
 source: IFoo.daml
 version: 0.0.1

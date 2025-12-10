@@ -930,7 +930,7 @@ class GrpcTopologyManagerReadService(
         )
       )
 
-      topologySnapshot = topologyClient.currentSnapshotApproximation
+      topologySnapshot <- EitherT.liftF(topologyClient.currentSnapshotApproximation)
       _ <- EitherT.fromOptionF(
         fopt = topologySnapshot.synchronizerUpgradeOngoing(),
         ifNone = TopologyManagerError.NoOngoingSynchronizerUpgrade.Failure(): RpcError,

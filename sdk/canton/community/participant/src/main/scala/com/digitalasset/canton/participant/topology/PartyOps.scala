@@ -81,6 +81,7 @@ class PartyOps(
                   threshold = PositiveInt.one,
                   participants =
                     Seq(HostingParticipant(participantId, ParticipantPermission.Submission)),
+                  partySigningKeysWithThreshold = None,
                 )
             )
             .bimap(
@@ -104,6 +105,7 @@ class PartyOps(
                   participantId,
                   ParticipantPermission.Submission,
                 ),
+                partySigningKeysWithThreshold = None,
               )
             )
             .bimap(

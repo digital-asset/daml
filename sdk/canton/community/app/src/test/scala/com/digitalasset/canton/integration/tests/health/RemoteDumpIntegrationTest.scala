@@ -16,9 +16,10 @@ import com.digitalasset.canton.console.{
 }
 import com.digitalasset.canton.environment.{Environment, EnvironmentFactory}
 import com.digitalasset.canton.integration.plugins.{
+  UseBftSequencer,
   UseExternalProcess,
+  UseH2,
   UsePostgres,
-  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -307,7 +308,8 @@ class NegativeRemoteDumpIntegrationTest
 
   private val dumpDelay = 1.second
 
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseH2(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   // Customize the environment factory to tweak the health dump generation
   override protected val environmentFactory: EnvironmentFactory =
@@ -318,7 +320,6 @@ class NegativeRemoteDumpIntegrationTest
     ) =>
       new Environment(
         config,
-        CommunityCantonEdition,
         testingConfigInternal,
         ParticipantNodeBootstrapFactoryImpl,
         SequencerNodeBootstrapFactoryImpl,

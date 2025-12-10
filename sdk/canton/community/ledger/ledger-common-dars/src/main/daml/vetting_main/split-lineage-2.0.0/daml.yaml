@@ -3,6 +3,8 @@ override-components:
     version: $DAML_VERSION
   daml-script: 
     version: $DAML_VERSION
+  codegen: 
+    version: $DAML_VERSION
 canton-daml-plugin-name-suffix: split-lineage
 name: vetting-main
 data-dependencies: 

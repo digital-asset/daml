@@ -774,9 +774,24 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
     )
     storage
       .query(query, operationName = functionFullName)
-      .map(_.headOption.map { case (sequenced @ SequencedTime(_), validFrom @ EffectiveTime(_)) =>
-        (sequenced, validFrom)
-      })
+      .map(_.headOption)
+  }
+
+  override def latestTopologyChangeTimestamp()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]] = {
+    logger.debug(s"Querying latest topology change timestamp")
+
+    // Note: this query uses the index idx_common_topology_transactions_max_timestamp
+    val query = buildQueryForMetadata[(SequencedTime, EffectiveTime)](
+      "sequenced, valid_from",
+      sql" AND sequenced <= ${CantonTimestamp.MaxValue} AND not is_proposal ",
+      includeRejected = false,
+      orderBy = " ORDER BY sequenced DESC",
+    )
+    storage
+      .query(query, operationName = functionFullName)
+      .map(_.headOption)
   }
 
   override def findTopologyIntervalForTimestamp(
@@ -789,21 +804,21 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
     // Note: these queries use the index idx_common_topology_transactions_effective_changes
     val lowerBoundQuery = buildQueryForMetadata[EffectiveTime](
       "valid_from",
-      sql" AND valid_from < $timestamp and not is_proposal",
+      sql" AND valid_from < $timestamp AND not is_proposal",
       includeRejected = false,
       orderBy = " ORDER BY valid_from desc",
     )
     val upperBoundQuery = buildQueryForMetadata[EffectiveTime](
       "valid_from",
-      sql" AND valid_from >= $timestamp and not is_proposal",
+      sql" AND valid_from >= $timestamp AND not is_proposal",
       includeRejected = false,
       orderBy = " ORDER BY valid_from asc",
     )
     val lowerBoundF = storage
-      .query(lowerBoundQuery, operationName = functionFullName)
+      .query(lowerBoundQuery, operationName = functionFullName + "-lower")
       .map(_.headOption)
     val upperBoundF = storage
-      .query(upperBoundQuery, operationName = functionFullName)
+      .query(upperBoundQuery, operationName = functionFullName + "-upper")
       .map(_.headOption)
 
     for {

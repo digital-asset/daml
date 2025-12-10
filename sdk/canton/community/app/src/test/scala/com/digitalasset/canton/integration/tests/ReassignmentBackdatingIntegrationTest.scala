@@ -5,12 +5,12 @@ package com.digitalasset.canton.integration.tests
 
 import com.digitalasset.canton.NeedsNewLfContractIds
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.crypto.{KeyPurpose, SigningPublicKey}
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
 import com.digitalasset.canton.integration.plugins.{
+  UseBftSequencer,
+  UseH2,
   UseProgrammableSequencer,
-  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.synchronizer.sequencer.SendDecision
 import com.digitalasset.canton.synchronizer.sequencer.SendPolicy.processTimeProofs_
@@ -150,8 +150,9 @@ abstract class ReassignmentBackdatingIntegrationTest
 }
 
 class ReassignmentBackdatingIntegrationTestDefault extends ReassignmentBackdatingIntegrationTest {
+  registerPlugin(new UseH2(loggerFactory))
   registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.H2](
+    new UseBftSequencer(
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(

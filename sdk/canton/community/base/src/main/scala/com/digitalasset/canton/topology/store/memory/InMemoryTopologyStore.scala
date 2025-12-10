@@ -579,6 +579,17 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
     }
   }
 
+  override def latestTopologyChangeTimestamp()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]] =
+    FutureUnlessShutdown.wrap {
+      blocking {
+        topologyTransactionStore
+          .findLast(entry => entry.rejected.isEmpty && !entry.transaction.isProposal)
+          .map(x => (x.sequenced, x.from))
+      }
+    }
+
   override def findTopologyIntervalForTimestamp(
       timestamp: CantonTimestamp
   )(implicit

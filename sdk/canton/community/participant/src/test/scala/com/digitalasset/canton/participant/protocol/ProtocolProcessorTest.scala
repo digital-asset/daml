@@ -539,7 +539,7 @@ class ProtocolProcessorTest
         parameters.parameters,
       ).forOwnerAndSynchronizer(participant, psid)
       val (sut, persistent, ephemeral, _) = testProcessingSteps(crypto = crypto2)
-      val topo2 = crypto2.currentSnapshotApproximation.ipsSnapshot
+      val topo2 = crypto2.currentSnapshotApproximation.futureValueUS.ipsSnapshot
       val res = sut.submit(1, topo2).onShutdown(fail("submission shutdown")).value.futureValue
       res shouldBe Left(TestProcessorError(NoMediatorError(CantonTimestamp.Epoch)))
     }

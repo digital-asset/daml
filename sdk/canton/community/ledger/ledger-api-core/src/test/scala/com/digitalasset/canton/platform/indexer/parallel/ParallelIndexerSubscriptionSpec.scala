@@ -8,7 +8,6 @@ import com.daml.metrics.DatabaseMetrics
 import com.digitalasset.canton.RepairCounter
 import com.digitalasset.canton.data.{CantonTimestamp, LedgerTimeBoundaries, Offset}
 import com.digitalasset.canton.ledger.participant.state
-import com.digitalasset.canton.ledger.participant.state.Update.TransactionAccepted.RepresentativePackageIds
 import com.digitalasset.canton.ledger.participant.state.Update.{
   RepairTransactionAccepted,
   TopologyTransactionEffective,
@@ -837,7 +836,7 @@ class ParallelIndexerSubscriptionSpec
 
   it should "correctly refill the missing activations" in {
     ParallelIndexerSubscription
-      .refillMissingDeactivatedActivations(logger)(
+      .refillMissingDeactivatedActivations(LedgerApiServerMetrics.ForTesting, logger)(
         Batch(
           ledgerEnd = previousLedgerEnd,
           batch = Vector(
@@ -904,7 +903,7 @@ class ParallelIndexerSubscriptionSpec
       LoggerNameContains("ParallelIndexerSubscription") && SuppressionRule.Level(Level.WARN)
     )(
       ParallelIndexerSubscription
-        .refillMissingDeactivatedActivations(logger)(
+        .refillMissingDeactivatedActivations(LedgerApiServerMetrics.ForTesting, logger)(
           Batch(
             ledgerEnd = previousLedgerEnd,
             batch = Vector(
@@ -942,7 +941,10 @@ class ParallelIndexerSubscriptionSpec
 
   it should "report error and fail, if activation was not even requested" in {
     loggerFactory.assertInternalError[IllegalStateException](
-      ParallelIndexerSubscription.refillMissingDeactivatedActivations(logger)(
+      ParallelIndexerSubscription.refillMissingDeactivatedActivations(
+        LedgerApiServerMetrics.ForTesting,
+        logger,
+      )(
         Batch(
           ledgerEnd = previousLedgerEnd,
           batch = Vector(
@@ -1039,6 +1041,7 @@ class ParallelIndexerSubscriptionSpec
     val result = ParallelIndexerSubscription.batcher(
       batchF = _ => "bumm",
       logger = logger,
+      metrics = LedgerApiServerMetrics.ForTesting,
     )(
       Batch(
         ledgerEnd = ZeroLedgerEnd.copy(lastOffset = offset(2)),
@@ -1837,12 +1840,10 @@ class ParallelIndexerSubscriptionSpec
       ),
       transaction = CommittedTransaction(TransactionBuilder.Empty),
       updateId = TestUpdateId("15000"),
-      contractAuthenticationData = Map.empty,
-      representativePackageIds = RepresentativePackageIds.Empty,
       synchronizerId = SynchronizerId.tryFromString("x::synchronizer"),
       repairCounter = repairCounter,
       recordTime = recordTime,
-      internalContractIds = Map.empty,
+      contractInfos = Map.empty,
     )(TraceContext.empty)
 
   def floatingUpdate(recordTime: CantonTimestamp): Update =

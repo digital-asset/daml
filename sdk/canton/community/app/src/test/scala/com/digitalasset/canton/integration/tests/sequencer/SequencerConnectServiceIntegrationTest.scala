@@ -11,17 +11,12 @@ import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.{
   CryptoConfig,
   CryptoProvider,
-  DbConfig,
   ProcessingTimeout,
   RequireTypes,
 }
 import com.digitalasset.canton.console.LocalSequencerReference
 import com.digitalasset.canton.integration.*
-import com.digitalasset.canton.integration.plugins.{
-  UseBftSequencer,
-  UsePostgres,
-  UseReferenceBlockSequencer,
-}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.sequencing.GrpcSequencerConnection
@@ -267,17 +262,6 @@ trait GrpcSequencerConnectServiceIntegrationTest extends SequencerConnectService
 abstract class GrpcSequencerConnectServiceIntegrationTestPostgres
     extends GrpcSequencerConnectServiceIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-}
-
-class GrpcSequencerConnectServiceIntegrationTestPostgresReference
-    extends GrpcSequencerConnectServiceIntegrationTestPostgres {
-
-  override lazy val sequencerPlugin =
-    new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory)
-
-  override protected def localSequencer(implicit
-      env: TestConsoleEnvironment
-  ): Option[LocalSequencerReference] = None
 }
 
 class GrpcSequencerConnectServiceIntegrationTestPostgresBft

@@ -7,16 +7,12 @@ import cats.syntax.parallel.*
 import com.daml.ledger.javaapi.data.codegen.ContractId
 import com.digitalasset.base.error.ErrorResource
 import com.digitalasset.base.error.utils.DecodedCantonError
+import com.digitalasset.canton.BaseTest.UnsupportedExternalPartyTest.MultiRootNodeSubmission
 import com.digitalasset.canton.config
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.LocalParticipantReference
 import com.digitalasset.canton.damltests.java.conflicttest.{Many, Single}
 import com.digitalasset.canton.integration.IntegrationTestUtilities.assertIncreasingRecordTime
-import com.digitalasset.canton.integration.plugins.{
-  UseBftSequencer,
-  UseProgrammableSequencer,
-  UseReferenceBlockSequencer,
-}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseProgrammableSequencer}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
@@ -104,7 +100,7 @@ trait ProtocolInterleavingIntegrationTest
   def setupConflictTest(implicit
       env: TestConsoleEnvironment
   ): (
-      PartyId,
+      Party,
       LocalParticipantReference,
       Single.Contract,
       Many.Contract,
@@ -122,14 +118,14 @@ trait ProtocolInterleavingIntegrationTest
     val participantBob = participant2
 
     val alice =
-      participantAlice.parties.enable(
+      participantAlice.parties.testing.enable(
         "Alice",
         synchronizeParticipants = Seq(participantBob),
       )
     val participantAliceId =
       participantAlice.id // Do not inline into the policy because this internally performs a gRPC call
 
-    val bob = participantBob.parties.enable(
+    val bob = participantBob.parties.testing.enable(
       "Bob",
       synchronizeParticipants = Seq(participantAlice),
     )
@@ -210,7 +206,6 @@ trait ProtocolInterleavingIntegrationTest
               """Request failed for participant1.
                         |  GrpcRequestRefusedByServer: ABORTED/LOCAL_VERDICT_LOCKED_CONTRACTS""".stripMargin
             )
-          msg should include("Request: SubmitAndWaitTransaction")
         },
       )
     }
@@ -247,111 +242,113 @@ trait ProtocolInterleavingIntegrationTest
     followUpF.futureValue(patience, Position.here)
   }
 
-  "detect contention on contracts" in { implicit env =>
-    import env.*
+  "detect contention on contracts" onlyRunWithLocalParty (MultiRootNodeSubmission) in {
+    implicit env =>
+      import env.*
 
-    // Create many contracts with Alice and Bob as stakeholders
-    // Then each of them picks many subsets and tries to archive each subset in a single transaction
-    // Check that each contract is archived at most once
-    // We cannot check that there are no unnecessary rejections as Canton uses pessimistic rejections.
+      // Create many contracts with Alice and Bob as stakeholders
+      // Then each of them picks many subsets and tries to archive each subset in a single transaction
+      // Check that each contract is archived at most once
+      // We cannot check that there are no unnecessary rejections as Canton uses pessimistic rejections.
 
-    val total = 200
+      val total = 200
 
-    participants.all.synchronizers.connect_local(sequencer1, daName)
-    participants.all.dars.upload(CantonTestsPath)
+      participants.all.synchronizers.connect_local(sequencer1, daName)
+      participants.all.dars.upload(CantonTestsPath)
 
-    val participantAlice = participant1
-    val participantBob = participant2
+      val participantAlice = participant1
+      val participantBob = participant2
 
-    val alice =
-      participantAlice.parties.enable(
-        "Alice",
-        synchronizeParticipants = Seq(participantBob),
+      val alice =
+        participantAlice.parties.testing.enable(
+          "Alice",
+          synchronizeParticipants = Seq(participantBob),
+        )
+
+      val bob = participantBob.parties.testing.enable(
+        "Bob",
+        synchronizeParticipants = Seq(participantAlice),
       )
 
-    val bob = participantBob.parties.enable(
-      "Bob",
-      synchronizeParticipants = Seq(participantAlice),
-    )
-
-    val createBobMany = new Many(
-      bob.toProtoPrimitive,
-      List(alice.toProtoPrimitive).asJava,
-    ).create.commands.loneElement
-    val manys = JavaDecodeUtil.decodeAllCreated(Many.COMPANION)(
-      participantBob.ledger_api.javaapi.commands
-        .submit(Seq(bob), Seq.fill(total)(createBobMany), commandId = "setup")
-    )
-    manys.size shouldBe total
-
-    val manyIds = manys.map(_.id).to(ImmArray)
-
-    val aliceledgerCompletionOffset = participantAlice.ledger_api.state.end()
-    val bobledgerCompletionOffset = participantBob.ledger_api.state.end()
-
-    val rand = scala.util.Random
-    val batches = new TrieMap[String, Seq[ContractId[Many]]]()
-    val batchSize = 5
-
-    // Batch types
-    // 1. Consecutive contracts
-    //    Alice {0,1,2,3,4}, {10,11,12,13,14}, ...
-    //    Bob   {5,6,7,8,9}, {15,16,17,18,19}, ...
-    val bobOffset = batchSize
-    val consecutiveGroupSize = batchSize
-    val consecutiveBatches = total / (2 * consecutiveGroupSize)
-    val aliceConsecutive =
-      Seq.tabulate(consecutiveBatches)(i =>
-        Seq.tabulate(batchSize)(j => i * (2 * consecutiveGroupSize) + j)
+      val createBobMany = new Many(
+        bob.toProtoPrimitive,
+        List(alice.toProtoPrimitive).asJava,
+      ).create.commands.loneElement
+      val manys = JavaDecodeUtil.decodeAllCreated(Many.COMPANION)(
+        participantBob.ledger_api.javaapi.commands
+          .submit(Seq(bob), Seq.fill(total)(createBobMany), commandId = "setup")
       )
-    val bobConsecutive =
-      Seq.tabulate(consecutiveBatches)(i =>
-        Seq.tabulate(batchSize)(j => i * (2 * consecutiveGroupSize) + j + bobOffset)
-      )
+      manys.size shouldBe total
 
-    // 2. Non-consecutive contracts that the other party tries to archive with #1
-    //    Alice {5,15,25,35,45}, {55,65,75,85,95}, ...
-    //    Bob   {0,10,20,30,40}, {50,60,70,80,90}, ...
-    val otherStep = 2 * batchSize
-    val othersGroupSize = otherStep * batchSize
-    val othersBatches = total / othersGroupSize
-    val aliceBobMixed =
-      Seq.tabulate(othersBatches)(i =>
-        Seq.tabulate(batchSize)(j => i * othersGroupSize + j * otherStep + bobOffset)
-      )
-    val bobAliceMixed =
-      Seq.tabulate(othersBatches)(i =>
-        Seq.tabulate(batchSize)(j => i * othersGroupSize + j * otherStep)
-      )
+      val manyIds = manys.map(_.id).to(ImmArray)
 
-    // 3. Mix contracts archived by own consecutive batches and other's consecutive batches; doesn't overlap with #2.
-    //    Alice {1,6,11,16,21}, {26,31,36,41,46}, ...
-    //    Bob {2,7,12,17,22}, {27,32,37,42,47}, ...
-    val mixedGroupSize = batchSize * batchSize
-    val mixedBatches = total / mixedGroupSize
-    val aliceMixed =
-      Seq.tabulate(mixedBatches)(i =>
-        Seq.tabulate(batchSize)(j => i * mixedGroupSize + j * batchSize + 1)
-      )
-    val bobMixed =
-      Seq.tabulate(mixedBatches)(i =>
-        Seq.tabulate(batchSize)(j => i * mixedGroupSize + j * batchSize + 2)
-      )
+      val aliceledgerCompletionOffset = participantAlice.ledger_api.state.end()
+      val bobledgerCompletionOffset = participantBob.ledger_api.state.end()
 
-    val aliceBatches = rand.shuffle(aliceConsecutive ++ aliceBobMixed ++ aliceMixed)
-    val bobBatches = rand.shuffle(bobConsecutive ++ bobAliceMixed ++ bobMixed)
+      val rand = scala.util.Random
+      val batches = new TrieMap[String, Seq[ContractId[Many]]]()
+      val batchSize = 5
 
-    val delayResults = Promise[Unit]()
-    // Bob's participant must confirm all archivals.
-    // Alice's participant must confirm the archivals where Alice is the actor, i.e., only those requests that Alice submits.
-    // So we expect batchCount * 3 confirmation responses.
-    val batchCount = consecutiveBatches + othersBatches + mixedBatches
-    val expectedResponses = batchCount * 3
-    val outstandingResponses = new AtomicInteger(expectedResponses)
+      // Batch types
+      // 1. Consecutive contracts
+      //    Alice {0,1,2,3,4}, {10,11,12,13,14}, ...
+      //    Bob   {5,6,7,8,9}, {15,16,17,18,19}, ...
+      val bobOffset = batchSize
+      val consecutiveGroupSize = batchSize
+      val consecutiveBatches = total / (2 * consecutiveGroupSize)
+      val aliceConsecutive =
+        Seq.tabulate(consecutiveBatches)(i =>
+          Seq.tabulate(batchSize)(j => i * (2 * consecutiveGroupSize) + j)
+        )
+      val bobConsecutive =
+        Seq.tabulate(consecutiveBatches)(i =>
+          Seq.tabulate(batchSize)(j => i * (2 * consecutiveGroupSize) + j + bobOffset)
+        )
 
-    val sequencer = getProgrammableSequencer(sequencer1.name)
-    sequencer.setPolicy("queue all mediator messages until all confirmation responses are there") {
-      implicit traceContext => submissionRequest =>
+      // 2. Non-consecutive contracts that the other party tries to archive with #1
+      //    Alice {5,15,25,35,45}, {55,65,75,85,95}, ...
+      //    Bob   {0,10,20,30,40}, {50,60,70,80,90}, ...
+      val otherStep = 2 * batchSize
+      val othersGroupSize = otherStep * batchSize
+      val othersBatches = total / othersGroupSize
+      val aliceBobMixed =
+        Seq.tabulate(othersBatches)(i =>
+          Seq.tabulate(batchSize)(j => i * othersGroupSize + j * otherStep + bobOffset)
+        )
+      val bobAliceMixed =
+        Seq.tabulate(othersBatches)(i =>
+          Seq.tabulate(batchSize)(j => i * othersGroupSize + j * otherStep)
+        )
+
+      // 3. Mix contracts archived by own consecutive batches and other's consecutive batches; doesn't overlap with #2.
+      //    Alice {1,6,11,16,21}, {26,31,36,41,46}, ...
+      //    Bob {2,7,12,17,22}, {27,32,37,42,47}, ...
+      val mixedGroupSize = batchSize * batchSize
+      val mixedBatches = total / mixedGroupSize
+      val aliceMixed =
+        Seq.tabulate(mixedBatches)(i =>
+          Seq.tabulate(batchSize)(j => i * mixedGroupSize + j * batchSize + 1)
+        )
+      val bobMixed =
+        Seq.tabulate(mixedBatches)(i =>
+          Seq.tabulate(batchSize)(j => i * mixedGroupSize + j * batchSize + 2)
+        )
+
+      val aliceBatches = rand.shuffle(aliceConsecutive ++ aliceBobMixed ++ aliceMixed)
+      val bobBatches = rand.shuffle(bobConsecutive ++ bobAliceMixed ++ bobMixed)
+
+      val delayResults = Promise[Unit]()
+      // Bob's participant must confirm all archivals.
+      // Alice's participant must confirm the archivals where Alice is the actor, i.e., only those requests that Alice submits.
+      // So we expect batchCount * 3 confirmation responses.
+      val batchCount = consecutiveBatches + othersBatches + mixedBatches
+      val expectedResponses = batchCount * 3
+      val outstandingResponses = new AtomicInteger(expectedResponses)
+
+      val sequencer = getProgrammableSequencer(sequencer1.name)
+      sequencer.setPolicy(
+        "queue all mediator messages until all confirmation responses are there"
+      ) { implicit traceContext => submissionRequest =>
         submissionRequest.sender match {
           case _: MediatorId => SendDecision.HoldBack(delayResults.future)
           case _: SequencerId => SendDecision.Process
@@ -366,117 +363,107 @@ trait ProtocolInterleavingIntegrationTest
             }
             SendDecision.Process
         }
-    }
+      }
 
-    def archiveBatch(
-        name: String,
-        party: PartyId,
-        participant: LocalParticipantReference,
-        batch: Seq[Int],
-    ): Future[Unit] = Future {
-      val cids = batch.map(manyIds(_))
-      val commandId = s"$name-${batch.mkString("-")}"
-      batches.put(commandId, cids)
+      def archiveBatch(
+          name: String,
+          party: PartyId,
+          participant: LocalParticipantReference,
+          batch: Seq[Int],
+      ): Future[Unit] = Future {
+        val cids = batch.map(manyIds(_))
+        val commandId = s"$name-${batch.mkString("-")}"
+        batches.put(commandId, cids)
 
-      val cmds = cids.map(_.exerciseDeleteMany(party.toProtoPrimitive).commands.loneElement)
-      participant.ledger_api.javaapi.commands
-        .submit_async(Seq(party), cmds, commandId = commandId)
-      Thread.`yield`()
-    }
+        val cmds = cids.map(_.exerciseDeleteMany(party.toProtoPrimitive).commands.loneElement)
+        participant.ledger_api.javaapi.commands
+          .submit_async(Seq(party), cmds, commandId = commandId)
+        Thread.`yield`()
+      }
 
-    val aliceSubmissions =
-      aliceBatches.parTraverse_(batch => archiveBatch("Alice", alice, participantAlice, batch))
-    val bobSubmissions =
-      bobBatches.parTraverse_(batch => archiveBatch("Bob", bob, participantBob, batch))
+      val aliceSubmissions =
+        aliceBatches.parTraverse_(batch => archiveBatch("Alice", alice, participantAlice, batch))
+      val bobSubmissions =
+        bobBatches.parTraverse_(batch => archiveBatch("Bob", bob, participantBob, batch))
 
-    val patience = defaultPatience.copy(timeout = defaultPatience.timeout.scaledBy(10))
-    aliceSubmissions.futureValue(patience, Position.here)
-    bobSubmissions.futureValue(patience, Position.here)
+      val patience = defaultPatience.copy(timeout = defaultPatience.timeout.scaledBy(10))
+      aliceSubmissions.futureValue(patience, Position.here)
+      bobSubmissions.futureValue(patience, Position.here)
 
-    val timeout = 2.minutes
-    val aliceCompletions = participant1.ledger_api.completions.list(
-      alice,
-      batchCount,
-      aliceledgerCompletionOffset,
-      timeout = timeout,
-      filter = _.commandId.startsWith("Alice"),
-    )
-    val bobCompletions = participant2.ledger_api.completions.list(
-      bob,
-      batchCount,
-      bobledgerCompletionOffset,
-      timeout = timeout,
-      filter = _.commandId.startsWith("Bob"),
-    )
-    val allCompletions = aliceCompletions ++ bobCompletions
-    val (acceptedCompletions, rejectedCompletions) =
-      allCompletions.partition(_.status.forall(_.code == Status.OK.getCode.value))
+      val timeout = 2.minutes
+      val aliceCompletions = participant1.ledger_api.completions.list(
+        alice,
+        batchCount,
+        aliceledgerCompletionOffset,
+        timeout = timeout,
+        filter = _.commandId.startsWith("Alice"),
+      )
+      val bobCompletions = participant2.ledger_api.completions.list(
+        bob,
+        batchCount,
+        bobledgerCompletionOffset,
+        timeout = timeout,
+        filter = _.commandId.startsWith("Bob"),
+      )
+      val allCompletions = aliceCompletions ++ bobCompletions
+      val (acceptedCompletions, rejectedCompletions) =
+        allCompletions.partition(_.status.forall(_.code == Status.OK.getCode.value))
 
-    // The batches can conflict only groups of size lcm(consecutiveGroupSize, othersGroupSize, mixedGroupSize)
-    val conflictGroupSize =
-      Seq(consecutiveGroupSize, othersGroupSize, mixedGroupSize)
-        .foldLeft(BigInt(1)) { (lcm, next) =>
-          val nextB = BigInt(next)
-          lcm.*(nextB)./(lcm.gcd(nextB))
+      // The batches can conflict only groups of size lcm(consecutiveGroupSize, othersGroupSize, mixedGroupSize)
+      val conflictGroupSize =
+        Seq(consecutiveGroupSize, othersGroupSize, mixedGroupSize)
+          .foldLeft(BigInt(1)) { (lcm, next) =>
+            val nextB = BigInt(next)
+            lcm.*(nextB)./(lcm.gcd(nextB))
+          }
+          .toInt
+
+      val archivedContracts = mutable.Set.empty[ContractId[Many]]
+      acceptedCompletions.foreach { completion =>
+        val commandId = completion.commandId
+        val batch =
+          batches.remove(commandId).getOrElse(fail(s"No batch found for command ID $commandId"))
+        batch.foreach { cid =>
+          val noDoubleSpend = archivedContracts.add(cid)
+          assert(noDoubleSpend, s"double archival of contract $cid in $completion")
         }
-        .toInt
-
-    val archivedContracts = mutable.Set.empty[ContractId[Many]]
-    acceptedCompletions.foreach { completion =>
-      val commandId = completion.commandId
-      val batch =
-        batches.remove(commandId).getOrElse(fail(s"No batch found for command ID $commandId"))
-      batch.foreach { cid =>
-        val noDoubleSpend = archivedContracts.add(cid)
-        assert(noDoubleSpend, s"double archival of contract $cid in $completion")
       }
-    }
 
-    forEvery(rejectedCompletions) { completion =>
-      val status = completion.status.value
-      status.code should be(Status.ABORTED.getCode.value)
-      val errorResources = DecodedCantonError.fromGrpcStatus(status).value.resources
-      errorResources.groupMap(_._1)(_._2).get(ErrorResource.ContractId) match {
-        case Some(lockedMatch :: Nil) =>
-          val batch = batches(completion.commandId).map(_.contractId)
-          // There can only be one contract in each rejection message because each view contains only one create node and
-          // the mediator sends around only the rejection reason for the first view that gets rejected.
-          val prettyCid = lockedMatch
-          assert(batch.contains(prettyCid))
-        case Some(rest) => fail(s"expected exactly one resource info in $rest, $status")
-        case None => fail(s"No locked contract error in completion $completion")
+      forEvery(rejectedCompletions) { completion =>
+        val status = completion.status.value
+        status.code should be(Status.ABORTED.getCode.value)
+        val errorResources = DecodedCantonError.fromGrpcStatus(status).value.resources
+        errorResources.groupMap(_._1)(_._2).get(ErrorResource.ContractId) match {
+          case Some(lockedMatch :: Nil) =>
+            val batch = batches(completion.commandId).map(_.contractId)
+            // There can only be one contract in each rejection message because each view contains only one create node and
+            // the mediator sends around only the rejection reason for the first view that gets rejected.
+            val prettyCid = lockedMatch
+            assert(batch.contains(prettyCid))
+          case Some(rest) => fail(s"expected exactly one resource info in $rest, $status")
+          case None => fail(s"No locked contract error in completion $completion")
+        }
       }
-    }
 
-    assert(
-      acceptedCompletions.size >= total / conflictGroupSize,
-      s"Didn't get a contract accepted from each conflict group of size $conflictGroupSize.",
-    )
+      assert(
+        acceptedCompletions.size >= total / conflictGroupSize,
+        s"Didn't get a contract accepted from each conflict group of size $conflictGroupSize.",
+      )
 
-    val boundOnRejections = batchCount * 2 - (total / batchSize)
-    assert(
-      rejectedCompletions.size >= boundOnRejections,
-      s"Got fewer batches rejected than expected.",
-    )
+      val boundOnRejections = batchCount * 2 - (total / batchSize)
+      assert(
+        rejectedCompletions.size >= boundOnRejections,
+        s"Got fewer batches rejected than expected.",
+      )
   }
 }
 
-// class ProtocolInterleavingReferenceIntegrationTestDefault extends ProtocolInterleavingIntegrationTest {
-//   registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
-//   registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
-// }
-
 // class ProtocolInterleavingBftOrderingIntegrationTestDefault
 //     extends ProtocolInterleavingIntegrationTest {
+//  registerPlugin(new UseH2(loggerFactory))
 //   registerPlugin(new UseBftOrderingBlockSequencer(loggerFactory))
 //   registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
 // }
-
-class ProtocolInterleavingReferenceIntegrationTestPostgres
-    extends ProtocolInterleavingIntegrationTest {
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
-  registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
-}
 
 class ProtocolInterleavingBftOrderingIntegrationTestPostgres
     extends ProtocolInterleavingIntegrationTest {

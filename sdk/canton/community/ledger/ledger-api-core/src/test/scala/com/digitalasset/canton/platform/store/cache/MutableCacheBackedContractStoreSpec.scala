@@ -12,10 +12,6 @@ import com.digitalasset.canton.ledger.participant.state.index.{ContractState, Co
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.participant.store.memory.InMemoryContractStore
-import com.digitalasset.canton.participant.store.{
-  LedgerApiContractStore,
-  LedgerApiContractStoreImpl,
-}
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.store.cache.MutableCacheBackedContractStoreSpec.*
 import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent
@@ -24,6 +20,7 @@ import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReade
   KeyAssigned,
   KeyUnassigned,
 }
+import com.digitalasset.canton.platform.store.{LedgerApiContractStore, LedgerApiContractStoreImpl}
 import com.digitalasset.canton.protocol.ExampleContractFactory
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{HasExecutionContext, TestEssentials}
@@ -369,7 +366,7 @@ object MutableCacheBackedContractStoreSpec {
       contract6,
     )
     store.storeContracts(contracts).discard
-    LedgerApiContractStoreImpl(store, loggerFactory)
+    LedgerApiContractStoreImpl(store, loggerFactory, LedgerApiServerMetrics.ForTesting)
   }
 
   private def contract(

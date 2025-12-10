@@ -35,6 +35,7 @@ import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
 import com.digitalasset.canton.topology.transaction.checks.TopologyMappingChecks
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
+import com.digitalasset.canton.version.ProtocolVersion
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.collection.concurrent.TrieMap
@@ -279,9 +280,24 @@ class TopologyStateProcessor private (
       Either.cond(
         expected == toValidate.serial,
         (),
-        TopologyTransactionRejection.Processor.SerialMismatch(expected, toValidate.serial),
+        TopologyTransactionRejection.Processor
+          .SerialMismatch(actual = toValidate.serial, expected = expected),
       )
-    case None => Either.unit
+    case None =>
+      val sloppyEnforcement =
+        store.storeId.forSynchronizer.exists(_.protocolVersion < ProtocolVersion.v35)
+      if (sloppyEnforcement)
+        Either.unit
+      else {
+        // starting with pv=35, we will require that newly added proposals start with serial 1
+        // topology transactions might start at a later point
+        Either.cond(
+          !toValidate.isProposal || toValidate.serial == PositiveInt.one,
+          (),
+          TopologyTransactionRejection.Processor
+            .SerialMismatch(actual = toValidate.serial, expected = PositiveInt.one),
+        )
+      }
   }
 
   private def transactionIsAuthorized(

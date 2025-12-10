@@ -44,7 +44,7 @@ class CantonDynamicSynchronizerParameterGetter(
           syncCrypto.ips.forSynchronizer(synchronizerId),
           s"Cannot get topology client for synchronizer $synchronizerId",
         )
-        snapshot = topoClient.currentSnapshotApproximation
+        snapshot <- EitherT.liftF(topoClient.currentSnapshotApproximation)
         params <- EitherT.right(
           snapshot.findDynamicSynchronizerParametersOrDefault(
             synchronizerId.protocolVersion,

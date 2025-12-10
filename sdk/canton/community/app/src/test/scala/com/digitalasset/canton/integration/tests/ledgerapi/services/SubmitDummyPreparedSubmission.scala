@@ -33,9 +33,7 @@ trait SubmitDummyPreparedSubmission extends SubmitDummyCommand {
       userId = userId,
       commandId = UUID.randomUUID().toString,
       commands = List(
-        createWithOperator(templateIds.dummy, party),
-        createWithOperator(templateIds.dummyWithParam, party),
-        createWithOperator(templateIds.dummyFactory, party),
+        createWithOperator(templateIds.dummy, party)
       ),
       minLedgerTime = None,
       actAs = Seq(party),

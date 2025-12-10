@@ -19,6 +19,7 @@ import com.digitalasset.canton.integration.util.PartyToParticipantDeclarative
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
+  PartyTopologyUtils,
   SharedEnvironment,
   TestEnvironment,
 }
@@ -33,15 +34,19 @@ import com.digitalasset.canton.topology.transaction.{
   ParticipantPermission,
   ParticipantPermission as PP,
 }
-import com.digitalasset.canton.topology.{PartyId, PhysicalSynchronizerId}
+import com.digitalasset.canton.topology.{Party, PartyId, PhysicalSynchronizerId}
 import com.digitalasset.canton.{HasExecutionContext, HasTempDirectory, config}
+import org.scalatest.{EitherValues, LoneElement}
 
 import java.time.Instant
 
-private[multihostedparties] object PartyActivationFlow {
+private[multihostedparties] object PartyActivationFlow
+    extends LoneElement
+    with EitherValues
+    with PartyTopologyUtils {
 
   def authorizeOnly(
-      party: PartyId,
+      party: Party,
       synchronizerId: PhysicalSynchronizerId,
       source: ParticipantReference,
       target: ParticipantReference,
@@ -55,7 +60,7 @@ private[multihostedparties] object PartyActivationFlow {
     )
 
   def authorizeWithTargetDisconnect(
-      party: PartyId,
+      party: Party,
       synchronizerId: PhysicalSynchronizerId,
       source: ParticipantReference,
       target: ParticipantReference,
@@ -63,7 +68,7 @@ private[multihostedparties] object PartyActivationFlow {
   ): Long = {
     target.topology.party_to_participant_mappings
       .propose_delta(
-        party = party,
+        party = party.partyId,
         adds = Seq(target.id -> ParticipantPermission.Submission),
         store = synchronizerId,
         requiresPartyToBeOnboarded = true,
@@ -75,8 +80,9 @@ private[multihostedparties] object PartyActivationFlow {
 
     val sourceLedgerEnd = source.ledger_api.state.end()
 
-    source.topology.party_to_participant_mappings.propose_delta(
-      party = party,
+    // Authorize the PTP update from the party
+    party.topology.party_to_participant_mappings.propose_delta(
+      source,
       adds = Seq(target.id -> ParticipantPermission.Submission),
       store = synchronizerId,
       requiresPartyToBeOnboarded = true,
@@ -120,8 +126,8 @@ trait OfflinePartyReplicationIntegrationTestBase
 
   protected var source: LocalParticipantReference = _
   protected var target: LocalParticipantReference = _
-  protected var alice: PartyId = _
-  protected var bob: PartyId = _
+  protected var alice: Party = _
+  protected var bob: Party = _
 
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P3_S1M1
@@ -132,8 +138,10 @@ trait OfflinePartyReplicationIntegrationTestBase
         sequencer1.topology.synchronizer_parameters
           .propose_update(daId, _.update(reconciliationInterval = reconciliationInterval.toConfig))
 
-        alice = participant1.parties.enable("Alice", synchronizeParticipants = Seq(participant2))
-        bob = participant2.parties.enable("Bob", synchronizeParticipants = Seq(participant1))
+        alice =
+          participant1.parties.testing.enable("Alice", synchronizeParticipants = Seq(participant2))
+        bob =
+          participant2.parties.testing.enable("Bob", synchronizeParticipants = Seq(participant1))
       }
 
   registerPlugin(new UsePostgres(loggerFactory))
@@ -280,12 +288,14 @@ final class OfflinePartyReplicationAtOffsetIntegrationTest
           exportFilePath = acsSnapshotPath,
           waitForActivationTimeout = Some(config.NonNegativeFiniteDuration.ofSeconds(1)),
         ),
-        _.errorMessage should include(AbortAcsExportForMissingOnboardingFlag(alice, target).cause),
+        _.errorMessage should include(
+          AbortAcsExportForMissingOnboardingFlag(alice.partyId, target).cause
+        ),
       )
 
       // Undo activating Alice on the target participant without onboarding flag set; for the following test
-      source.topology.party_to_participant_mappings.propose_delta(
-        party = alice,
+      alice.topology.party_to_participant_mappings.propose_delta(
+        source,
         removes = Seq(target.id),
         store = daId,
         mustFullyAuthorize = true,
@@ -402,7 +412,11 @@ final class OfflinePartyReplicationWithSilentSynchronizerIntegrationTest
         silenceSynchronizerAndAwaitEffectiveness(daId, sequencer1, source, simClock = None)
 
       val ledgerOffset =
-        source.parties.find_highest_offset_by_timestamp(daId, silentSynchronizerValidFrom)
+        source.parties.find_highest_offset_by_timestamp(
+          daId,
+          silentSynchronizerValidFrom,
+          force = true,
+        )
 
       ledgerOffset should be > 0L
 
@@ -441,7 +455,8 @@ final class OfflinePartyReplicationWithSilentSynchronizerIntegrationTest
 
       val foundOffset = loggerFactory.assertLogsUnorderedOptional(
         eventually(retryOnTestFailuresOnly = false) {
-          val offset = source.parties.find_highest_offset_by_timestamp(daId, requestedTimestamp)
+          val offset =
+            source.parties.find_highest_offset_by_timestamp(daId, requestedTimestamp, force = true)
           offset should be > 0L
           offset
         },
@@ -470,7 +485,7 @@ final class OfflinePartyReplicationFilterAcsExportIntegrationTest
     implicit env =>
       import env.*
 
-      val charlie = target.parties.enable("Charlie")
+      val charlie = target.parties.testing.enable("Charlie")
 
       IouSyntax.createIou(source)(alice, charlie, 99.99).discard
 

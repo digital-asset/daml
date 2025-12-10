@@ -4,6 +4,7 @@
 package com.digitalasset.canton.platform.store.backend
 
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
+import com.digitalasset.canton.config.CantonRequireTypes.String185
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.api.ParticipantId
 import com.digitalasset.canton.ledger.participant.state.SynchronizerIndex
@@ -176,7 +177,7 @@ object ParameterStorageBackend {
 
 trait PartyStorageBackend {
   def parties(parties: Seq[Party])(connection: Connection): List[IndexerPartyDetails]
-  def knownParties(fromExcl: Option[Party], maxResults: Int)(
+  def knownParties(fromExcl: Option[Party], filterString: Option[String185], maxResults: Int)(
       connection: Connection
   ): List[IndexerPartyDetails]
 }
@@ -287,7 +288,7 @@ trait EventStorageBackend {
   def lastSynchronizerOffsetBeforeOrAtRecordTime(
       synchronizerId: SynchronizerId,
       beforeOrAtRecordTimeInclusive: Timestamp,
-  )(connection: Connection): Option[SynchronizerOffset]
+  )(connection: Connection)(implicit traceContext: TraceContext): Option[SynchronizerOffset]
 
   /** The contracts which were archived or participant-divulged in the specified range. These are
     * the contracts in the ContractStore, which can be pruned in a single-synchronizer setup.

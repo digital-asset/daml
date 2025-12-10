@@ -3,6 +3,8 @@
 
 package com.digitalasset.canton.participant.protocol.reassignment
 
+import cats.data.EitherT
+import com.daml.logging.LoggingContext
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.{SynchronizerCryptoClient, SynchronizerCryptoPureApi}
 import com.digitalasset.canton.data.{
@@ -11,13 +13,19 @@ import com.digitalasset.canton.data.{
   ReassignmentSubmitterMetadata,
   UnassignmentData,
 }
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.protocol.submission.SeedGenerator
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ContractValidator
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
+import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.transaction.FatContractInstance
 
 import java.util.UUID
+import scala.concurrent.ExecutionContext
 
 final case class ReassignmentDataHelpers(
     contract: ContractInstance,
@@ -28,6 +36,8 @@ final case class ReassignmentDataHelpers(
     mediatorCryptoClient: Option[SynchronizerCryptoClient] = None,
     sequencerCryptoClient: Option[SynchronizerCryptoClient] = None,
     targetTimestamp: Target[CantonTimestamp] = Target(CantonTimestamp.Epoch),
+    sourceValidationPackageId: Option[LfPackageId] = None,
+    targetValidationPackageId: Option[LfPackageId] = None,
 ) {
 
   private val seedGenerator: SeedGenerator =
@@ -56,7 +66,14 @@ final case class ReassignmentDataHelpers(
     UnassignmentRequest(
       submitterMetadata = submitterInfo(submitter, submittingParticipant),
       reassigningParticipants = reassigningParticipants,
-      contracts = ContractsReassignmentBatch(contract, ReassignmentCounter(1)),
+      contracts = ContractsReassignmentBatch(
+        contract = contract,
+        sourceValidationPackageId =
+          Source(sourceValidationPackageId.getOrElse(contract.templateId.packageId)),
+        targetValidationPackageId =
+          Target(targetValidationPackageId.getOrElse(contract.templateId.packageId)),
+        reassignmentCounter = ReassignmentCounter(1),
+      ),
       sourceSynchronizer = sourceSynchronizer,
       sourceMediator = sourceMediator,
       targetSynchronizer = targetSynchronizer,
@@ -92,7 +109,26 @@ object ReassignmentDataHelpers {
       sourceSynchronizer: Source[PhysicalSynchronizerId],
       targetSynchronizer: Target[PhysicalSynchronizerId],
       identityFactory: TestingIdentityFactory,
+  ): ReassignmentDataHelpers =
+    apply(
+      contract,
+      sourceSynchronizer,
+      targetSynchronizer,
+      identityFactory,
+      targetTimestamp = Target(CantonTimestamp.Epoch),
+      sourceValidationPackageId = None,
+      targetValidationPackageId = None,
+    )
+
+  // Use create to create object with crypto clients based on the provided identity factory
+  def apply(
+      contract: ContractInstance,
+      sourceSynchronizer: Source[PhysicalSynchronizerId],
+      targetSynchronizer: Target[PhysicalSynchronizerId],
+      identityFactory: TestingIdentityFactory,
       targetTimestamp: Target[CantonTimestamp],
+      sourceValidationPackageId: Option[LfPackageId],
+      targetValidationPackageId: Option[LfPackageId],
   ): ReassignmentDataHelpers = {
     val pureCrypto = identityFactory
       .forOwnerAndSynchronizer(DefaultTestIdentities.mediatorId, sourceSynchronizer.unwrap)
@@ -118,20 +154,25 @@ object ReassignmentDataHelpers {
           )
       ),
       targetTimestamp = targetTimestamp,
+      sourceValidationPackageId = sourceValidationPackageId,
+      targetValidationPackageId = targetValidationPackageId,
     )
   }
 
-  def apply(
-      contract: ContractInstance,
-      sourceSynchronizer: Source[PhysicalSynchronizerId],
-      targetSynchronizer: Target[PhysicalSynchronizerId],
-      identityFactory: TestingIdentityFactory,
-  ): ReassignmentDataHelpers =
-    apply(
-      contract,
-      sourceSynchronizer,
-      targetSynchronizer,
-      identityFactory,
-      Target(CantonTimestamp.Epoch),
-    )
+  class TestValidator(invalid: Map[(LfContractId, LfPackageId), String]) extends ContractValidator {
+    override def authenticate(contract: FatContractInstance, targetPackageId: PackageId)(implicit
+        ec: ExecutionContext,
+        traceContext: TraceContext,
+        loggingContext: LoggingContext,
+    ): EitherT[FutureUnlessShutdown, String, Unit] =
+      EitherT.fromEither[FutureUnlessShutdown](
+        invalid.get((contract.contractId, targetPackageId)).toLeft(())
+      )
+
+    override def authenticateHash(
+        contract: FatContractInstance,
+        contractHash: LfHash,
+    ): Either[String, Unit] = Left("Unexpected")
+  }
+
 }

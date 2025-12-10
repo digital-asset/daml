@@ -185,7 +185,7 @@ object ContractIdClass {
         choiceName,
         choice,
         fields,
-      )(_.addModifiers(Modifier.DEFAULT))
+      )
 
     private[ContractIdClass] def generateExerciseMethod(
         choiceName: ChoiceName,

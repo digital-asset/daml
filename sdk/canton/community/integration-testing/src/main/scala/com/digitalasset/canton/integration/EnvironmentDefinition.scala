@@ -16,7 +16,6 @@ import com.digitalasset.canton.config.{
   CantonConfig,
   CantonFeatures,
   DefaultPorts,
-  EnterpriseCantonEdition,
   LoggingConfig,
   MonitoringConfig,
   TestingConfigInternal,
@@ -231,17 +230,8 @@ object EnvironmentDefinition extends LazyLogging {
       }
       else Map.empty
 
-    EnvironmentDefinition(
-      configWithDefaults
-        .validate(EnterpriseCantonEdition)
-        .fold(
-          err =>
-            throw new IllegalArgumentException(
-              s"Error while validating the config: ${err.mkString(",")}"
-            ),
-          _ => configWithDefaults,
-        )
-    ).addConfigTransforms(ConfigTransforms.defaultsForNodes*)
+    EnvironmentDefinition(configWithDefaults)
+      .addConfigTransforms(ConfigTransforms.defaultsForNodes*)
       .addConfigTransform(c =>
         c.focus(_.remoteParticipants)
           .replace(toRemote(c.participants)(_.toRemoteConfig))
@@ -946,7 +936,7 @@ object EnvironmentDefinition extends LazyLogging {
   private def loadConfigFromResource(path: String): CantonConfig = {
     val rawConfig = ConfigFactory.parseString(Resource.getAsString(path))
     CantonConfig
-      .loadAndValidate(rawConfig, EnterpriseCantonEdition, Some(DefaultPorts.create()))
+      .loadAndValidate(rawConfig, Some(DefaultPorts.create()))
       .valueOr { err =>
         // print a useful error message such that the developer can figure out which file failed
         logger.error(s"Failed to load file $path: $err", new Exception("location"))
@@ -957,7 +947,6 @@ object EnvironmentDefinition extends LazyLogging {
   def fromFiles(files: File*): EnvironmentDefinition = {
     val config = CantonConfig.parseAndLoadOrExit(
       files.map(_.toJava),
-      EnterpriseCantonEdition,
       Some(DefaultPorts.create()),
     )
     EnvironmentDefinition(baseConfig = config)

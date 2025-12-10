@@ -876,9 +876,9 @@ class ConnectedSynchronizer(
       _waitForReplay <- FutureUnlessShutdown.outcomeF(
         timeTracker.awaitTick(clock.now).getOrElse(Future.unit)
       )
-
+      approximateSnapshot <- topologyClient.currentSnapshotApproximation
       _params <- synchronizeWithClosing(functionFullName)(
-        topologyClient.currentSnapshotApproximation.findDynamicSynchronizerParametersOrDefault(
+        approximateSnapshot.findDynamicSynchronizerParametersOrDefault(
           staticSynchronizerParameters.protocolVersion
         )
       )
@@ -974,6 +974,8 @@ class ConnectedSynchronizer(
                 submitterMetadata,
                 contractIds,
                 targetSynchronizer,
+                overrideSourceValidationPkgIds = Map.empty,
+                overrideTargetValidationPkgIds = Map.empty,
               ),
             sourceTopology.unwrap,
           )
@@ -1195,10 +1197,15 @@ object ConnectedSynchronizer {
           doNotAwaitOnCheckingIncomingCommitments =
             parameters.doNotAwaitOnCheckingIncomingCommitments,
           commitmentCheckpointInterval = parameters.commitmentCheckpointInterval,
+          commitmentMismatchDebugging = parameters.commitmentMismatchDebugging,
+          commitmentProcessorNrAcsChangesBehindToTriggerCatchUp =
+            parameters.commitmentProcessorNrAcsChangesBehindToTriggerCatchUp,
+          stringInterning = participantNodePersistentState.value.ledgerApiStore.stringInterningView,
         )
         topologyProcessor <- topologyProcessorFactory.create(
           acsCommitmentProcessor.scheduleTopologyTick
         )
+
       } yield {
         val contractValidator = ContractValidator(
           synchronizerCrypto.pureCrypto,
