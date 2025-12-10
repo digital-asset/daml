@@ -6,12 +6,17 @@
 Daml Studio
 ###########
 
-Daml Studio is an integrated development environment (IDE) for Daml. It is an extension on top of `Visual Studio Code <https://code.visualstudio.com>`__ (VS Code), a cross-platform, open-source editor providing a `rich code editing experience <https://code.visualstudio.com/docs/editor/editingevolved>`__.
+Daml Studio is an integrated development environment (IDE) for Daml. It is an
+extension on top of `Visual Studio Code <https://code.visualstudio.com>`__ (VS
+Code), a cross-platform, open-source editor providing a
+`rich code editing experience <https://code.visualstudio.com/docs/editor/editingevolved>`__.
 
 Install
 *******
 
-Install Daml Studio by :ref:`installing the Daml Assistant <daml-assistant-install>`, and ensuring you have `Visual Studio Code <https://code.visualstudio.com>`__ version 1.87 or above installed.
+Install Daml Studio by :subsiteref:`installing the DPM<dpm>`, and ensuring you
+have `Visual Studio Code <https://code.visualstudio.com>`__ version 1.87 or
+above installed.
 
 Configure
 *********
