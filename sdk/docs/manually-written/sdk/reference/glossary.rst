@@ -58,7 +58,7 @@ Assistant
 
 .. warning::
 
-   Daml Assistant is deprecated from 3.4.x onwards. Use :subsiteref:`dpm <dpm>`
+   Daml Assistant is deprecated from 3.4.x, and will be removed in 3.5. Use :subsiteref:`dpm <dpm>`
    instead. Refer to the ``dpm`` :subsiteref:`migration guide
    <dpm-daml-assistant-to-dpm-migration>` for more details.
 
