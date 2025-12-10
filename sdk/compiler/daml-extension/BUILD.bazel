@@ -58,10 +58,7 @@ genrule(
         PACKAGE_DIR=$$(dirname $(location //compiler/daml-extension:package.json))
 
         cd $$PACKAGE_DIR
-        export YARN_CACHE_FOLDER=$$OLDPWD/.yarn-cache
-        du -csh *
-        $$OLDPWD/$(execpath //:yarn) install --frozen-lockfile --production=false --cache-folder ./yarn-cache
-        du -csh *
+        $$OLDPWD/$(execpath //:yarn) install --cache-folder ./yarn-cache --frozen-lockfile --production=false
 
         cd $$OLDPWD
         $(execpath //bazel_tools/sh:mktgz) $@ --dereference -C $$PACKAGE_DIR node_modules
@@ -110,8 +107,6 @@ genrule(
         echo $(TARGET_CPU) > $$TMP_DIR/target_cpu
         cd $$TMP_DIR/daml-extension
 
-        # Set yarn cache location via env var to avoid warnings
-        export YARN_CACHE_FOLDER=$$TMP_DIR/.yarn-cache
         $$DIR/$(location //:yarn) install --frozen-lockfile --production=false --cache-folder $$TMP_DIR/.yarn-cache
 
         sed -i "s/__VERSION__/{npm}/" package.json
