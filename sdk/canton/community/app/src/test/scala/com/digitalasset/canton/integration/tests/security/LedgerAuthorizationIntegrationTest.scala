@@ -1751,7 +1751,7 @@ trait LedgerAuthorizationIntegrationTest
       val cryptoSnapshot = adHocSnapshot
       val hash = cryptoSnapshot.pureCrypto
         .build(HashPurpose.SubmissionRequestSignature)
-        .add("hamburger")
+        .addString("hamburger")
         .finish()
       val signature =
         cryptoSnapshot

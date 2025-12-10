@@ -3,14 +3,14 @@
 
 package com.daml.scalatest
 
-import org.scalatest.wordspec.AnyWordSpec
-import org.scalatestplus.scalacheck.Checkers
 import org.scalacheck.Properties
 import org.scalactic.{Prettifier, source}
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatestplus.scalacheck.Checkers
 
-/** Integration of Scalatest [[AnyWordSpec]] with Scalaz law checkers, or any other
-  * purely Scalacheck-defined tests, for that matter.  Each invocation should go
-  * in a separate `should` category, as test names will collide otherwise.
+/** Integration of Scalatest [[AnyWordSpec]] with Scalaz law checkers, or any other purely
+  * Scalacheck-defined tests, for that matter. Each invocation should go in a separate `should`
+  * category, as test names will collide otherwise.
   *
   * Usage:
   *

@@ -3,8 +3,9 @@
 
 package com.daml.nonempty
 
-import scala.collection.{immutable => imm}
-import NonEmptyCollCompat._
+import scala.collection.immutable as imm
+
+import NonEmptyCollCompat.*
 
 /** Total version of [[+:]]. */
 object +-: {
@@ -18,10 +19,10 @@ object :-+ {
     Some((t.init, t.last))
 }
 
-/** The sole element of an iterable.  Works with sets and maps.
+/** The sole element of an iterable. Works with sets and maps.
   *
-  * These patterns form a complete partition of `NonEmpty[T]` where `T` is
-  * a Seq.  Note that empty is excluded by the type.
+  * These patterns form a complete partition of `NonEmpty[T]` where `T` is a Seq. Note that empty is
+  * excluded by the type.
   *
   * {{{
   *  case Singleton(hd) =>

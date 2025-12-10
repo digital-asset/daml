@@ -3,15 +3,15 @@
 
 package com.daml.scalatest
 
-import org.scalacheck.Gen.listOfN
 import org.scalacheck.Arbitrary
+import org.scalacheck.Gen.listOfN
 import org.scalatest.Assertion
 import org.scalatest.Assertions.succeed
 import org.scalatest.exceptions.TestFailedException
+import scalaz.std.list.*
+import scalaz.std.scalaFuture.*
+import scalaz.syntax.traverse.*
 import scalaz.{Applicative, Monoid}
-import scalaz.std.list._
-import scalaz.std.scalaFuture._
-import scalaz.syntax.traverse._
 
 import scala.concurrent.{ExecutionContext, Future}
 

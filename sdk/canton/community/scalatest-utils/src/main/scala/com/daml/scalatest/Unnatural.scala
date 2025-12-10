@@ -6,9 +6,9 @@ package com.daml.scalatest
 import org.scalacheck.Arbitrary
 import scalaz.Equal
 
-/** `A` whose equalIsNatural == false.  Useful when testing [[Equal]] instances
-  * that short-circuit when the tparam's equalIsNatural, so you're testing the
-  * handwritten paths rather than the compiler-generated ones.
+/** `A` whose equalIsNatural == false. Useful when testing [[Equal]] instances that short-circuit
+  * when the tparam's equalIsNatural, so you're testing the handwritten paths rather than the
+  * compiler-generated ones.
   */
 final case class Unnatural[+A](a: A)
 

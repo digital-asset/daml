@@ -203,5 +203,5 @@ object MemberAuthentication extends MemberAuthentication {
       .addWithoutLengthPrefix(
         nonce.getCryptographicEvidence
       ) // Nonces have a fixed length so it's fine to not add a length prefix
-      .add(synchronizerId.toProtoPrimitive)
+      .addString(synchronizerId.toProtoPrimitive)
 }

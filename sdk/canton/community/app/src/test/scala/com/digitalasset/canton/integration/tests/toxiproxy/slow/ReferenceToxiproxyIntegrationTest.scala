@@ -3,9 +3,10 @@
 
 package com.digitalasset.canton.integration.tests.toxiproxy.slow
 
+import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.integration.EnvironmentSetupPlugin
 import com.digitalasset.canton.integration.plugins.toxiproxy.{ProxyConfig, SequencerToPostgres}
-import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.tests.sequencer.{
   QuickSequencerReconnection,
   ToxiproxyIntegrationTest,
@@ -19,7 +20,10 @@ class ReferenceToxiproxyIntegrationTest extends ToxiproxyIntegrationTest {
 
   override def pluginsToRegister: Seq[EnvironmentSetupPlugin] =
     Seq(
-      new UseBftSequencer(loggerFactory),
+      // TODO(#29603): change this back to use the BFT Orderer.
+      // The test was flaking a lot with the BFT Orderer
+      // registerPlugin(new UseBftSequencer(loggerFactory))
+      new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory),
       QuickSequencerReconnection(loggerFactory),
       new UsePostgres(loggerFactory),
     )

@@ -4,8 +4,8 @@
 package com.daml.nonempty
 package catsinstances.impl
 
-import com.daml.scalautil.ImplicitPreference
 import cats.{Eval, Foldable, Reducible}
+import com.daml.scalautil.ImplicitPreference
 
 abstract class CatsInstancesLow extends CatsInstancesLow1 {
   implicit def `cats nonempty foldable`[F[_]](implicit

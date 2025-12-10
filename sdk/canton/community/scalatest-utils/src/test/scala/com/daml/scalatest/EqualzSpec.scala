@@ -5,11 +5,11 @@ package com.daml.scalatest
 
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import scalaz.std.anyVal._
-import scalaz.std.option._
+import scalaz.std.anyVal.*
+import scalaz.std.option.*
 
 class EqualzSpec extends AnyWordSpec with Matchers {
-  import Equalz._
+  import Equalz.*
 
   "equalz" should {
     "accept left ~ right" in {

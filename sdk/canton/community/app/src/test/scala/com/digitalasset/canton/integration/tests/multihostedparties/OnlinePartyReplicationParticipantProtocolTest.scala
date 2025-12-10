@@ -193,7 +193,8 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
       asyncExec("ping2")(tpClient.ping(sequencer1.id))
 
       val channelId = SequencerChannelId("channel1")
-      val requestId = TestHash.build.add("OnlinePartyReplicationParticipantProtocolTest").finish()
+      val requestId =
+        TestHash.build.addString("OnlinePartyReplicationParticipantProtocolTest").finish()
 
       def noOpProgressAndCompletionCallback[T]: T => Unit = _ => ()
       def noOpProgressAndCompletionCallback2[T, U]: (T, U) => Unit = (_, _) => ()

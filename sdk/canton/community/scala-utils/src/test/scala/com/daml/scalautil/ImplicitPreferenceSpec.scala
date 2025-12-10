@@ -7,7 +7,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 class ImplicitPreferenceSpec extends AnyWordSpec with Matchers {
-  import ImplicitPreferenceSpec._
+  import ImplicitPreferenceSpec.*
 
   "a single preference" should {
     implicit val elephant: Animal with ImplicitPreference[Any] =

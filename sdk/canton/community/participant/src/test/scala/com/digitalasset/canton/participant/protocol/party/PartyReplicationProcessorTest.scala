@@ -82,8 +82,17 @@ final class PartyReplicationProcessorTest
     var tpProceedOrWait: PartyReplicationTestInterceptor.ProceedOrWait =
       PartyReplicationTestInterceptor.Proceed
     var tpSendErrorOverrides: Map[String, String] = Map.empty
-    var persistContractResult: EitherT[FutureUnlessShutdown, String, Map[LfContractId, Long]] =
-      EitherT.right[String](FutureUnlessShutdown.pure(Map.empty[LfContractId, Long]))
+    var persistContractMaybeInjectedError: EitherT[FutureUnlessShutdown, String, Unit] =
+      EitherTUtil.unitUS
+
+    def persistContracts: PartyReplicationTargetParticipantProcessor.PersistContracts = contracts =>
+      _ =>
+        _ =>
+          persistContractMaybeInjectedError.map(_ =>
+            contracts.zipWithIndex.map { case (contract, idx) =>
+              contract.contractId -> idx.toLong
+            }.toMap
+          )
 
     def targetProcessor: PartyReplicationTargetParticipantProcessor = tp
 
@@ -149,7 +158,7 @@ final class PartyReplicationProcessorTest
         replicationProgressState = inMemoryStateManager,
         onError = logger.info(_),
         onDisconnect = logger.info(_)(_),
-        persistContracts = _ => _ => _ => persistContractResult,
+        persistContracts = persistContracts,
         recordOrderPublisher = rop,
         requestTracker = requestTracker,
         pureCrypto = testSymbolicCrypto,
@@ -438,7 +447,7 @@ final class PartyReplicationProcessorTest
       "error when unable to persist contracts" onlyRunWith ProtocolVersion.dev inUS { env =>
         import env.*
 
-        persistContractResult =
+        persistContractMaybeInjectedError =
           EitherT.fromEither[FutureUnlessShutdown](Left("simulated persist contracts error"))
 
         for {

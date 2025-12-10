@@ -212,9 +212,9 @@ final case class AsymmetricEncrypted[+M](
   private[canton] def computeHash(hashAlgorithm: HashAlgorithm): Hash =
     HashBuilderFromMessageDigest
       .apply(hashAlgorithm, HashPurpose.EncryptedSessionKey)
-      .add(ciphertext)
-      .add(DeterministicEncoding.encodeInt(encryptionAlgorithmSpec.toProtoEnum.value))
-      .add(DeterministicEncoding.encodeString(encryptedFor.toProtoPrimitive))
+      .addByteString(ciphertext)
+      .addByteString(DeterministicEncoding.encodeInt(encryptionAlgorithmSpec.toProtoEnum.value))
+      .addByteString(DeterministicEncoding.encodeString(encryptedFor.toProtoPrimitive))
       .finish()
 
 }

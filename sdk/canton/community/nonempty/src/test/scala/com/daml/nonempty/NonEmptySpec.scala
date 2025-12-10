@@ -4,19 +4,17 @@
 package com.daml.nonempty
 
 import com.daml.scalatest.WordSpecCheckLaws
-
-import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.matchers.should.Matchers
-
-import scalaz.scalacheck.{ScalazProperties => SZP}
+import org.scalatest.wordspec.AnyWordSpec
 import scalaz.Foldable
+import scalaz.scalacheck.ScalazProperties as SZP
 import shapeless.test.illTyped
 
 import scala.annotation.nowarn
 
 class NonEmptySpec extends AnyWordSpec with Matchers with WordSpecCheckLaws {
-  import scala.{collection => col}, col.{mutable => mut}, col.{immutable => imm}
-  import NonEmptySpec._
+  import scala.collection as col, col.mutable as mut, col.immutable as imm
+  import NonEmptySpec.*
 
   "apply" should {
     "lub arguments" in {
@@ -83,7 +81,7 @@ class NonEmptySpec extends AnyWordSpec with Matchers with WordSpecCheckLaws {
   }
 
   "groupBy1" should {
-    import NonEmptyReturningOps._
+    import NonEmptyReturningOps.*
 
     // wrapping with Set in a variable is a nice trick to disable subtyping and
     // implicit conversion (strong and weak conformance, SLS §3.5.2-3), so you
@@ -139,7 +137,7 @@ class NonEmptySpec extends AnyWordSpec with Matchers with WordSpecCheckLaws {
     }
 
     "allow access to Scalaz methods" in {
-      import scalaz.syntax.functor._, scalaz.std.map._
+      import scalaz.syntax.functor.*, scalaz.std.map.*
       @nowarn
       val NonEmpty(m) = imm.Map(1 -> 2)
       (m.toNEF.map((3, _)): NonEmptyF[imm.Map[Int, *], (Int, Int)]) should ===(
@@ -213,7 +211,7 @@ class NonEmptySpec extends AnyWordSpec with Matchers with WordSpecCheckLaws {
   "to" should {
     "accept weird type shapes" in {
       val sm = NonEmpty(Map, 1 -> 2).to(imm.HashMap)
-      (sm: NonEmpty[imm.HashMap[Int, Int]]) shouldBe an[imm.HashMap[_, _]]
+      (sm: NonEmpty[imm.HashMap[Int, Int]]) shouldBe an[imm.HashMap[?, ?]]
     }
   }
 
@@ -228,7 +226,7 @@ class NonEmptySpec extends AnyWordSpec with Matchers with WordSpecCheckLaws {
 
     "restructure when used as a method" in {
       val h +-: t = s
-      import NonEmptyReturningOps._
+      import NonEmptyReturningOps.*
       (h +-: t: NonEmpty[Vector[Int]]) should ===(s)
     }
 
@@ -322,13 +320,13 @@ class NonEmptySpec extends AnyWordSpec with Matchers with WordSpecCheckLaws {
 
   "Foldable" should {
     "prefer the substed version over the derived one" in {
-      import scalaz.std.list._
+      import scalaz.std.list.*
       Foldable[NonEmptyF[List, *]].getClass should be theSameInstanceAs Foldable[List].getClass
     }
   }
 
   "Foldable1 from Foldable" should {
-    import scalaz.std.vector._, scalaz.std.anyVal._
+    import scalaz.std.vector.*, scalaz.std.anyVal.*
     checkLaws(SZP.foldable1.laws[NonEmptyF[Vector, *]])
   }
 
@@ -354,7 +352,7 @@ class NonEmptySpec extends AnyWordSpec with Matchers with WordSpecCheckLaws {
 
 object NonEmptySpec {
   import org.scalacheck.Arbitrary, Arbitrary.arbitrary
-  import NonEmptyReturningOps._
+  import NonEmptyReturningOps.*
   import NonEmptyCollCompat.SeqOps
 
   implicit def `ne seq arb`[A: Arbitrary, C[X] <: Seq[X] with SeqOps[X, C, C[X]]](implicit

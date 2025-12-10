@@ -213,7 +213,7 @@ object ConsensusSegment {
       lazy val hash: Hash = {
         val builder = Hash
           .build(HashPurpose.BftOrderingPbftBlock, HashAlgorithm.Sha256)
-          .add(getCryptographicEvidence)
+          .addByteString(getCryptographicEvidence)
         builder.finish()
       }
 

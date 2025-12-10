@@ -7,8 +7,8 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 class StatementSpec extends AnyFlatSpec with Matchers {
-  import com.daml.scalatest.Equalz._
-  import scalaz.std.anyVal._
+  import com.daml.scalatest.Equalz.*
+  import scalaz.std.anyVal.*
 
   behavior of Statement.getClass.getSimpleName
 

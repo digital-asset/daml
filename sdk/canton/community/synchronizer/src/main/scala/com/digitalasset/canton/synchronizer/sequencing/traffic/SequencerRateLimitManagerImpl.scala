@@ -8,8 +8,8 @@ import cats.syntax.bifunctor.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.metrics.api.MetricsContext
-import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
+import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.{SyncCryptoApi, SyncCryptoClient, SynchronizerCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{
@@ -38,7 +38,7 @@ import com.digitalasset.canton.synchronizer.sequencing.traffic.store.TrafficCons
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{MediatorId, Member, ParticipantId, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ErrorUtil
+import com.digitalasset.canton.util.{ErrorUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 
@@ -51,6 +51,7 @@ class SequencerRateLimitManagerImpl(
     override val trafficConsumedStore: TrafficConsumedStore,
     override protected val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
+    batchingConfig: BatchingConfig,
     metrics: SequencerMetrics,
     synchronizerSyncCryptoApi: SynchronizerCryptoClient,
     protocolVersion: ProtocolVersion,
@@ -803,8 +804,8 @@ class SequencerRateLimitManagerImpl(
     }.toSeq
       .filter(isRateLimited)
 
-    membersToGetTrafficFor.toList
-      .parTraverse { member =>
+    MonadUtil
+      .parTraverseWithLimit(batchingConfig.parallelism)(membersToGetTrafficFor) { member =>
         for {
           tcm <- getOrCreateTrafficConsumedManager(member)
           trafficConsumed = tcm.getTrafficConsumed

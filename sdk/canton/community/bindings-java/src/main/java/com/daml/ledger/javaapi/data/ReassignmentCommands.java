@@ -16,16 +16,17 @@ import static java.util.Collections.unmodifiableList;
 import static java.util.Optional.empty;
 
 /**
- * This class can be used to build a valid submission. It provides {@link #create(String, String, String, UnassignCommand)}
- * for initial creation and methods to set optional parameters
- * e.g {@link #withWorkflowId(String)}, {@link #withSubmissionId(String)} etc.
+ * This class can be used to build a valid submission. It provides {@link #create(String, String,
+ * String, UnassignCommand)} for initial creation and methods to set optional parameters e.g {@link
+ * #withWorkflowId(String)}, {@link #withSubmissionId(String)} etc.
  *
- * Usage:
+ * <p>Usage:
+ *
  * <pre>
  *   var submission = ReassignmentCommands.create(userId, commandId, synchronizerId, unassingnCommand)
  *                                   .withWorkflowId(workflowId)
  *                                   .with...
- * <pre/>
+ * </pre>
  */
 public final class ReassignmentCommands {
 

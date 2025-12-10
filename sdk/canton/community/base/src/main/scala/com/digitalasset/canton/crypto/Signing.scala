@@ -519,12 +519,12 @@ object SignatureDelegation {
     val hashBuilder =
       HashBuilderFromMessageDigest(HashAlgorithm.Sha256, HashPurpose.SessionKeyDelegation)
     hashBuilder
-      .add(sessionKey.id.unwrap)
-      .add(sessionKey.keySpec.toProtoEnum.value)
-      .add(sessionKey.format.toProtoEnum.value)
-      .add(encodeUsageForHash(sessionKey.usage))
-      .add(validityPeriod.getCryptographicEvidence)
-      .add(synchronizerId.toProtoPrimitive)
+      .addString(sessionKey.id.unwrap)
+      .addInt(sessionKey.keySpec.toProtoEnum.value)
+      .addInt(sessionKey.format.toProtoEnum.value)
+      .addByteString(encodeUsageForHash(sessionKey.usage))
+      .addByteString(validityPeriod.getCryptographicEvidence)
+      .addString(synchronizerId.toProtoPrimitive)
       .finish()
   }
 

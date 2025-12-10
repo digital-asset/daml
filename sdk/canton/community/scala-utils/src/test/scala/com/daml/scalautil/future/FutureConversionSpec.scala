@@ -3,17 +3,16 @@
 
 package com.daml.scalautil.future
 
-import java.util.concurrent.{CompletableFuture, CompletionException, CompletionStage}
-
 import com.daml.scalautil.future.FutureConversionSpec.TestException
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
+import java.util.concurrent.{CompletableFuture, CompletionException, CompletionStage}
 import scala.concurrent.Future
-import scala.jdk.FutureConverters._
+import scala.jdk.FutureConverters.*
 
 class FutureConversionSpec extends AsyncWordSpec with Matchers {
-  import FutureConversion._
+  import FutureConversion.*
 
   "converting a java CompletionStage into a scala Future" should {
 

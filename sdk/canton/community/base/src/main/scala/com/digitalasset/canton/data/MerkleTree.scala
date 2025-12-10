@@ -147,7 +147,7 @@ abstract class MerkleTreeInnerNode[+A](val hashOps: HashOps) extends MerkleTree[
   this: A =>
 
   override lazy val rootHash: RootHash = {
-    val hashBuilder = hashOps.build(HashPurpose.MerkleTreeInnerNode).add(subtrees.length)
+    val hashBuilder = hashOps.build(HashPurpose.MerkleTreeInnerNode).addInt(subtrees.length)
     subtrees.foreach { subtree =>
       // All hashes within a Merkle tree use the same hash algorithm and are therefore of fixed length,
       // so no length prefix is needed.
@@ -185,8 +185,8 @@ abstract class MerkleTreeLeaf[+A <: HasCryptographicEvidence](val hashOps: HashO
     }
     val hash = hashOps
       .build(hashPurpose)
-      .add(salt.forHashing)
-      .add(tryUnwrap.getCryptographicEvidence)
+      .addByteString(salt.forHashing)
+      .addByteString(tryUnwrap.getCryptographicEvidence)
       .finish()
     RootHash(hash)
   }

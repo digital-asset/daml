@@ -3,8 +3,9 @@
 
 package com.daml.scalautil
 
-import scalaz.{Monoid, Foldable, Semigroup}
-import FoldableContravariant._
+import scalaz.{Foldable, Monoid, Semigroup}
+
+import FoldableContravariant.*
 
 // Specialized overrides for when a Foldable wraps another Foldable.
 // If you need to hand-write some of these, just mix in the traits you

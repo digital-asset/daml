@@ -3,9 +3,9 @@
 
 package com.daml.scalatest
 
-import org.scalatest.matchers.dsl.{MatcherFactory1}
-import org.scalatest.matchers.{MatchResult, Matcher}
+import org.scalatest.matchers.dsl.MatcherFactory1
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.matchers.{MatchResult, Matcher}
 import scalaz.Equal
 
 /** Provides the `equalz` [[Matcher]].
@@ -16,19 +16,17 @@ import scalaz.Equal
   *   none[Int] shouldNot equalz (Some(1))
   * }}}
   *
-  * Why not simply provide [[org.scalactic.Equality]] instances and use
-  * the existing `equal` matcher?  As Scalatest doc mentions,
+  * Why not simply provide [[org.scalactic.Equality]] instances and use the existing `equal`
+  * matcher? As Scalatest doc mentions,
   *
-  * > By default, an implicit `Equality[T]` instance is available for
-  * > any type `T`...
+  * > By default, an implicit `Equality[T]` instance is available for > any type `T`...
   *
-  * In other words `Equality` instances are incoherent, and you get no
-  * notification from the compiler if implicit resolution failed to
-  * assemble the instance you meant.  (NB: never design your own
-  * typeclasses this way in Scala.)
+  * In other words `Equality` instances are incoherent, and you get no notification from the
+  * compiler if implicit resolution failed to assemble the instance you meant. (NB: never design
+  * your own typeclasses this way in Scala.)
   *
-  * Due to scala/bug#5075, you should enable `-Ypartial-unification` and
-  * use `shouldx` instead of `should` where required.
+  * Due to scala/bug#5075, you should enable `-Ypartial-unification` and use `shouldx` instead of
+  * `should` where required.
   */
 trait Equalz extends Matchers {
   import Equalz.{LubEqual, XMatcherFactory1, EqualFactory1}
@@ -68,11 +66,10 @@ object Equalz extends Equalz {
     type TC[A] = LubEqual[SC, A]
   }
 
-  /** scala/bug#5075 triggers in Scala 2.12 with `should equalz` &c, where
-    * function = should.  This could also be fixed by making
-    * `MatcherFactory1` use a HK type member instead of a parameter,
-    * whereupon `should` wouldn't need the TYPECLASS1 parameter that
-    * triggers the 5075 problem, but that's a tall order.
+  /** scala/bug#5075 triggers in Scala 2.12 with `should equalz` &c, where function = should. This
+    * could also be fixed by making `MatcherFactory1` use a HK type member instead of a parameter,
+    * whereupon `should` wouldn't need the TYPECLASS1 parameter that triggers the 5075 problem, but
+    * that's a tall order.
     */
   trait XMatcherFactory1[-SC] {
     type TC[A]

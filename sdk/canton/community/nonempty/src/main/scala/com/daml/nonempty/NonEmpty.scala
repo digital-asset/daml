@@ -3,19 +3,22 @@
 
 package com.daml.nonempty
 
-import scala.collection.{Factory, IterableOnce, immutable => imm}, imm.Iterable, imm.Map, imm.Set
-import scalaz.Id.Id
-import scalaz.{Foldable, Foldable1, Monoid, OneAnd, Semigroup, Traverse}
-import scalaz.Leibniz, Leibniz.===
-import scalaz.Liskov, Liskov.<~<
-import scalaz.syntax.std.option._
-
 import com.daml.scalautil.FoldableContravariant
 import com.daml.scalautil.Statement.discard
-import NonEmptyCollCompat._
+import scalaz.Id.Id
+import scalaz.syntax.std.option.*
+import scalaz.{Foldable, Foldable1, Leibniz, Liskov, Monoid, OneAnd, Semigroup, Traverse}
 
-/** The visible interface of [[NonEmpty]]; use that value to access
-  * these members.
+import scala.collection.{Factory, IterableOnce, immutable as imm}
+
+import imm.Iterable
+import imm.Map
+import imm.Set
+import Leibniz.===
+import Liskov.<~<
+import NonEmptyCollCompat.*
+
+/** The visible interface of [[NonEmpty]]; use that value to access these members.
   */
 sealed abstract class NonEmptyColl {
 
@@ -32,19 +35,18 @@ sealed abstract class NonEmptyColl {
 
 object NonEmpty {
 
-  /** Usable proof that [[NonEmpty]] is a subtype of its argument.  (We cannot put
-    * this in an upper-bound, because that would prevent us from adding implicit
-    * methods that replace the stdlib ones.)
+  /** Usable proof that [[NonEmpty]] is a subtype of its argument. (We cannot put this in an
+    * upper-bound, because that would prevent us from adding implicit methods that replace the
+    * stdlib ones.)
     */
   def subtype[A]: NonEmpty[A] <~< A = {
     type K[F[_]] = F[A] <~< A
     NonEmptyColl.Instance.subst[K](Liskov.refl[A])
   }
 
-  /** Usable proof that [[NonEmptyF]] is actually equivalent to its [[NonEmpty]]
-    * parent type, not a strict subtype.  (We want Scala to treat it as a strict
-    * subtype, usually, so that the type will be deconstructed by
-    * partial-unification correctly.)
+  /** Usable proof that [[NonEmptyF]] is actually equivalent to its [[NonEmpty]] parent type, not a
+    * strict subtype. (We want Scala to treat it as a strict subtype, usually, so that the type will
+    * be deconstructed by partial-unification correctly.)
     */
   def equiv[F[_], A]: NonEmpty[F[A]] === NonEmptyF[F, A] = {
     type K[T[_]] = T[F[A]] === F[A]
@@ -61,48 +63,45 @@ object NonEmpty {
       fct: Fct => Factory[A, C]
   ): NonEmpty[C] = {
     val bb = into.newBuilder
-    discard { (bb += hd) ++= tl }
+    discard((bb += hd) ++= tl)
     NonEmptyColl.Instance.unsafeNarrow(bb.result())
   }
 
-  /** Like `apply`, but because `A` occurs directly in the result type, if the
-    * call to `mk` has an expected `A` type, `hd` and `tl` will have that
-    * expected type as well.  Particularly useful for `Set`s, as expected type
-    * can widen the element type of the produced set, and `_` as an argument,
-    * because the lambda argument type can be inferred from the expected result
-    * type.
+  /** Like `apply`, but because `A` occurs directly in the result type, if the call to `mk` has an
+    * expected `A` type, `hd` and `tl` will have that expected type as well. Particularly useful for
+    * `Set`s, as expected type can widen the element type of the produced set, and `_` as an
+    * argument, because the lambda argument type can be inferred from the expected result type.
     *
-    * However, strictly speaking, it is less general than `apply`; for example,
-    * it doesn't work on `Map`s at all.  So it should only be used when you
-    * need its particular type inference behavior.  See `"mk" should` tests
-    * in `NonEmptySpec.scala` for examples where `mk` works but `apply` doesn't.
+    * However, strictly speaking, it is less general than `apply`; for example, it doesn't work on
+    * `Map`s at all. So it should only be used when you need its particular type inference behavior.
+    * See `"mk" should` tests in `NonEmptySpec.scala` for examples where `mk` works but `apply`
+    * doesn't.
     */
   final def mk[Fct, A, C[X] <: imm.Iterable[X]](into: Fct, hd: A, tl: A*)(implicit
       fct: Fct => Factory[A, C[A]]
   ): NonEmpty[C[A]] =
-    apply(into, hd, tl: _*)
+    apply(into, hd, tl*)
 
-  /** In pattern matching, think of [[NonEmpty]] as a sub-case-class of every
-    * [[imm.Iterable]]; matching `case NonEmpty(ne)` ''adds'' the non-empty type
-    * to `ne` if the pattern matches.
+  /** In pattern matching, think of [[NonEmpty]] as a sub-case-class of every [[imm.Iterable]];
+    * matching `case NonEmpty(ne)` ''adds'' the non-empty type to `ne` if the pattern matches.
     *
-    * You will get an unchecked warning if the selector is not statically of an
-    * immutable type.  So [[scala.collection.Seq]] will not work.
+    * You will get an unchecked warning if the selector is not statically of an immutable type. So
+    * [[scala.collection.Seq]] will not work.
     *
-    * The type-checker will not permit you to apply this to a value that already
-    * has the [[NonEmpty]] type, so don't worry about redundant checks here.
+    * The type-checker will not permit you to apply this to a value that already has the
+    * [[NonEmpty]] type, so don't worry about redundant checks here.
     */
-  def unapply[Self](self: Self with imm.Iterable[_]): Option[NonEmpty[Self]] = {
+  def unapply[Self](self: Self with imm.Iterable[?]): Option[NonEmpty[Self]] = {
     type K[F[_]] = F[Self]
     if (self.nonEmpty) Some(NonEmptyColl.Instance.subst[K](self)) else None
   }
 
   /** Like `unapply`, but when you don't want pattern matching. */
-  final def from[Self](self: Self with imm.Iterable[_]): Option[NonEmpty[Self]] = unapply(self)
+  final def from[Self](self: Self with imm.Iterable[?]): Option[NonEmpty[Self]] = unapply(self)
 }
 
-/** If you ever have to import [[NonEmptyColl]] or anything from it, your Scala
-  * settings are probably wrong.
+/** If you ever have to import [[NonEmptyColl]] or anything from it, your Scala settings are
+  * probably wrong.
   */
 object NonEmptyColl extends NonEmptyCollInstances {
   val Instance: NonEmptyColl = new NonEmptyColl {
@@ -126,45 +125,45 @@ object NonEmptyColl extends NonEmptyCollInstances {
 
   implicit final class UnReshapeOps[F[_], A](private val nfa: NonEmptyF[F, A]) extends AnyVal {
 
-    /** `x.fromNEF` is `(x: NonEmpty[F[A]])` but possibly shorter.  If code
-      * compiles without the call to `fromNEF`, you don't need the call.
+    /** `x.fromNEF` is `(x: NonEmpty[F[A]])` but possibly shorter. If code compiles without the call
+      * to `fromNEF`, you don't need the call.
       */
     def fromNEF: NonEmpty[F[A]] = nfa
   }
 
   implicit final class UnwrapOps[A](private val self: NonEmpty[A]) extends AnyVal {
 
-    /** `x.forgetNE` is `(x: A)` but possibly shorter. If code compiles without
-      * the call to `forgetNE`, you don't need the call.
+    /** `x.forgetNE` is `(x: A)` but possibly shorter. If code compiles without the call to
+      * `forgetNE`, you don't need the call.
       */
     def forgetNE: A = self
   }
 
-  /** Operations that can ''return'' new maps or sets.  There is no reason to include any other
-    * kind of operation here, because they are covered by `#widen`.
+  /** Operations that can ''return'' new maps or sets. There is no reason to include any other kind
+    * of operation here, because they are covered by `#widen`.
     */
   implicit final class `SortedMap Ops`[
       K,
       V,
-      CC[X, +Y] <: imm.SortedMap[X, Y] with imm.SortedMapOps[X, Y, CC, _],
-  ](private val self: NonEmpty[imm.SortedMapOps[K, V, CC, _]])
+      CC[X, +Y] <: imm.SortedMap[X, Y] with imm.SortedMapOps[X, Y, CC, ?],
+  ](private val self: NonEmpty[imm.SortedMapOps[K, V, CC, ?]])
       extends AnyVal {
-    private type ESelf = imm.SortedMapOps[K, V, CC, _]
-    import NonEmptyColl.Instance.{unsafeNarrow => un}
+    private type ESelf = imm.SortedMapOps[K, V, CC, ?]
+    import NonEmptyColl.Instance.unsafeNarrow as un
     def unsorted: NonEmpty[Map[K, V]] = un((self: ESelf).unsorted)
     def updated(key: K, value: V): NonEmpty[CC[K, V]] = un((self: ESelf).updated(key, value))
     def transform[W](f: (K, V) => W): NonEmpty[CC[K, W]] = un((self: ESelf).transform(f))
     def keySet: NonEmpty[imm.SortedSet[K]] = un((self: ESelf).keySet)
   }
 
-  /** Operations that can ''return'' new maps.  There is no reason to include any other
-    * kind of operation here, because they are covered by `#widen`.
+  /** Operations that can ''return'' new maps. There is no reason to include any other kind of
+    * operation here, because they are covered by `#widen`.
     */
-  implicit final class `Map Ops`[K, V, CC[X, +Y] <: imm.Map[X, Y] with imm.MapOps[X, Y, CC, _]](
-      private val self: NonEmpty[imm.MapOps[K, V, CC, _]]
+  implicit final class `Map Ops`[K, V, CC[X, +Y] <: imm.Map[X, Y] with imm.MapOps[X, Y, CC, ?]](
+      private val self: NonEmpty[imm.MapOps[K, V, CC, ?]]
   ) extends AnyVal {
-    private type ESelf = imm.MapOps[K, V, CC, _]
-    import NonEmptyColl.Instance.{unsafeNarrow => un}
+    private type ESelf = imm.MapOps[K, V, CC, ?]
+    import NonEmptyColl.Instance.unsafeNarrow as un
     // You can't have + because of the dumb string-converting thing in stdlib
     def updated(key: K, value: V): NonEmpty[CC[K, V]] = un((self: ESelf).updated(key, value))
     def ++(xs: IterableOnce[(K, V)]): NonEmpty[CC[K, V]] = un((self: ESelf) ++ xs)
@@ -172,14 +171,14 @@ object NonEmptyColl extends NonEmptyCollInstances {
     def transform[W](f: (K, V) => W): NonEmpty[CC[K, W]] = un((self: ESelf) transform f)
   }
 
-  /** Operations that can ''return'' new sets.  There is no reason to include any other
-    * kind of operation here, because they are covered by `#widen`.
+  /** Operations that can ''return'' new sets. There is no reason to include any other kind of
+    * operation here, because they are covered by `#widen`.
     */
   implicit final class `Set Ops`[A, CC[_], C <: imm.SetOps[A, CC, C] with Iterable[A]](
       private val self: NonEmpty[imm.SetOps[A, CC, C]]
   ) extends AnyVal {
     private type ESelf = imm.SetOps[A, CC, C]
-    import NonEmptyColl.Instance.{unsafeNarrow => un}
+    import NonEmptyColl.Instance.unsafeNarrow as un
     // You can't have + because of the dumb string-converting thing in stdlib
     def incl(elem: A): NonEmpty[C] = un((self: ESelf) + elem)
   }
@@ -187,7 +186,7 @@ object NonEmptyColl extends NonEmptyCollInstances {
   implicit final class NEPreservingSeqOps[A, CC[X] <: imm.Seq[X], C](
       private val self: NonEmpty[SeqOps[A, CC, C with imm.Seq[A]]]
   ) extends AnyVal {
-    import NonEmptyColl.Instance.{unsafeNarrow => un}
+    import NonEmptyColl.Instance.unsafeNarrow as un
     private type ESelf = SeqOps[A, CC, C with imm.Iterable[A]]
     // the +: :+ set here is so you don't needlessly "lose" your NE-ness
     def +:[B >: A](elem: B): NonEmpty[CC[B]] = un(elem +: (self: ESelf))
@@ -218,7 +217,7 @@ object NonEmptyColl extends NonEmptyCollInstances {
   implicit final class NEPseudofunctorOps[A, CC[X] <: imm.Iterable[X], C](
       private val self: NonEmpty[IterableOps[A, CC, C with imm.Iterable[A]]]
   ) extends AnyVal {
-    import NonEmptyColl.Instance.{unsafeNarrow => un}
+    import NonEmptyColl.Instance.unsafeNarrow as un
     private type ESelf = IterableOps[A, CC, C with imm.Iterable[A]]
 
     def map[B](f: A => B): NonEmpty[CC[B]] = un((self: ESelf) map f)
@@ -234,7 +233,7 @@ object NonEmptyColl extends NonEmptyCollInstances {
   // by requiring Monoid instead of Semigroup, we exclude intersection semigroups,
   // which are not legitimate for lifting into NonEmpty
   implicit def semigroup[A](implicit A: Monoid[A]): Semigroup[NonEmpty[A]] =
-    NonEmptyColl.Instance.subst[Lambda[k[_] => Semigroup[k[A]]]](A)
+    NonEmptyColl.Instance.subst[Lambda[`k[_]` => Semigroup[k[A]]]](A)
 }
 
 sealed abstract class NonEmptyCollInstances extends NonEmptyCollInstances0 {
@@ -257,14 +256,14 @@ object NonEmptyCollInstances {
   final class NEPreservingOps[A, CC[X] <: imm.Iterable[X], C](
       private val self: NonEmpty[IterableOps[A, CC, C with imm.Iterable[A]]]
   ) extends AnyVal {
-    import NonEmptyColl.Instance.{unsafeNarrow => un}
+    import NonEmptyColl.Instance.unsafeNarrow as un
     private type ESelf = IterableOps[A, CC, C with imm.Iterable[A]]
     def groupBy[K](f: A => K): NonEmpty[Map[K, NonEmpty[C]]] =
-      NonEmptyColl.Instance.subst[Lambda[f[_] => f[Map[K, f[C]]]]]((self: ESelf) groupBy f)
+      NonEmptyColl.Instance.subst[Lambda[`f[_]` => f[Map[K, f[C]]]]]((self: ESelf) groupBy f)
     def groupBy1[K](f: A => K): NonEmpty[Map[K, NonEmpty[C]]] = self groupBy f
     def groupMap[K, B](key: A => K)(f: A => B): NonEmpty[Map[K, NonEmpty[CC[B]]]] =
       NonEmptyColl.Instance
-        .subst[Lambda[f[_] => f[Map[K, f[CC[B]]]]]]((self: ESelf).groupMap(key)(f))
+        .subst[Lambda[`f[_]` => f[Map[K, f[CC[B]]]]]]((self: ESelf).groupMap(key)(f))
     def groupMap1[K, B](key: A => K)(f: A => B): NonEmpty[Map[K, NonEmpty[CC[B]]]] =
       self.groupMap(key)(f)
     def toList: NonEmpty[List[A]] = un((self: ESelf).toList)
@@ -294,12 +293,12 @@ object NonEmptyCollInstances {
 sealed abstract class NonEmptyCollInstances0 {
   implicit def foldable1[F[_]](implicit F: Foldable[F]): Foldable1[NonEmptyF[F, *]] =
     NonEmptyColl.Instance.substF(new Foldable1[F] with FoldableContravariant[F, F] {
-      private[this] def errEmpty(fa: F[_]) =
+      private[this] def errEmpty(fa: F[?]) =
         throw new IllegalArgumentException(
           s"empty structure coerced to non-empty: $fa: ${fa.getClass.getSimpleName}"
         )
 
-      private[this] def assertNE[Z](original: F[_], fa: Option[Z]) =
+      private[this] def assertNE[Z](original: F[?], fa: Option[Z]) =
         fa.cata(identity, errEmpty(original))
 
       override def foldMap1[A, B: Semigroup](fa: F[A])(f: A => B) =
@@ -318,10 +317,9 @@ sealed abstract class NonEmptyCollInstances0 {
 
   import scala.language.implicitConversions
 
-  /** This adds the rest of the `A` API to `na`.  However, because it is in the
-    * most distant parent class from `object NonEmptyColl`, it is tried last
-    * during method resolution.  That's why our custom `+`, `transform`,
-    * `toList`, and other such methods win; their implicit conversions are
+  /** This adds the rest of the `A` API to `na`. However, because it is in the most distant parent
+    * class from `object NonEmptyColl`, it is tried last during method resolution. That's why our
+    * custom `+`, `transform`, `toList`, and other such methods win; their implicit conversions are
     * defined '''in a subclass''' of this one.
     */
   implicit def widen[A](na: NonEmpty[A]): A = NonEmpty.subtype[A](na)

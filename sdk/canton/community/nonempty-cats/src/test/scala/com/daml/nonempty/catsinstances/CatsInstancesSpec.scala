@@ -4,21 +4,22 @@
 package com.daml.nonempty
 package catsinstances
 
-import com.daml.scalatest.WordSpecCheckLaws
-import NonEmptyReturningOps._
-
-import cats.{Foldable, Functor, Reducible, Traverse}
 import cats.kernel.Eq
-import org.scalacheck.Arbitrary, Arbitrary.arbitrary
-import org.scalatest.wordspec.AnyWordSpec
+import cats.{Foldable, Functor, Reducible, Traverse}
+import com.daml.scalatest.WordSpecCheckLaws
+import org.scalacheck.Arbitrary
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+
+import NonEmptyReturningOps.*
+import Arbitrary.arbitrary
 
 class CatsInstancesSpec extends AnyWordSpec with Matchers with WordSpecCheckLaws {
-  import CatsInstancesSpec._
+  import CatsInstancesSpec.*
 
   "Foldable" should {
     "be preferred if Reducible isn't need" in {
-      import cats.instances.list._
+      import cats.instances.list.*
       Foldable[NonEmptyF[List, *]].getClass should be theSameInstanceAs Foldable[List].getClass
     }
   }
@@ -35,7 +36,7 @@ class CatsInstancesSpec extends AnyWordSpec with Matchers with WordSpecCheckLaws
     )
 
     "find the instance" in {
-      import cats.syntax.functor._
+      import cats.syntax.functor.*
       val x: NonEmpty[Map[Int, String]] = NonEmpty(scala.collection.immutable.HashMap, (1 -> "one"))
       x.toNEF.fmap(_.length).forgetNE shouldBe Map(1 -> 3)
     }

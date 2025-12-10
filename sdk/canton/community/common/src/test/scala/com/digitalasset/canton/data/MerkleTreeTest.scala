@@ -53,22 +53,22 @@ class MerkleTreeTest extends AnyWordSpec with BaseTest {
     val data = DeterministicEncoding.encodeInt(index)
     val hashBuilder = TestHash.build
     hashBuilder
-      .add(salt.forHashing)
-      .add(data)
+      .addByteString(salt.forHashing)
+      .addByteString(data)
       .finish()
   }
 
   private val singletonInnerNode: InnerNode1 = InnerNode1()
   private val singletonInnerNodeHash: RootHash = RootHash {
     val hashBuilder = TestHash.build(HashPurpose.MerkleTreeInnerNode)
-    hashBuilder.add(0).finish()
+    hashBuilder.addInt(0).finish()
   }
 
   private val innerNodeWithSingleChild: InnerNode1 = InnerNode1(singletonLeaf1)
   private val innerNodeWithSingleChildHash: RootHash = RootHash {
     val hashBuilder = TestHash.build(HashPurpose.MerkleTreeInnerNode)
     hashBuilder
-      .add(1)
+      .addInt(1)
       .addWithoutLengthPrefix(singletonLeafHash(1).getCryptographicEvidence)
       .finish()
   }
@@ -77,7 +77,7 @@ class MerkleTreeTest extends AnyWordSpec with BaseTest {
   private val innerNodeWithTwoChildrenHash: RootHash = RootHash {
     val hashBuilder = TestHash.build(HashPurpose.MerkleTreeInnerNode)
     hashBuilder
-      .add(2)
+      .addInt(2)
       .addWithoutLengthPrefix(singletonLeafHash(2).getCryptographicEvidence)
       .addWithoutLengthPrefix(singletonLeafHash(3).getCryptographicEvidence)
       .finish()
@@ -87,7 +87,7 @@ class MerkleTreeTest extends AnyWordSpec with BaseTest {
   private val threeLevelTreeHash: RootHash = RootHash {
     val hashBuilder = TestHash.build(HashPurpose.MerkleTreeInnerNode)
     hashBuilder
-      .add(2)
+      .addInt(2)
       .addWithoutLengthPrefix(singletonLeafHash(1).getCryptographicEvidence)
       .addWithoutLengthPrefix(innerNodeWithTwoChildrenHash.getCryptographicEvidence)
       .finish()

@@ -3,7 +3,7 @@
 
 package com.daml.scalautil
 
-import com.daml.{nonempty => dne}
+import com.daml.nonempty as dne
 
 package object nonempty {
   @deprecated("use com.daml.nonempty.NonEmpty instead", since = "2.1.0")

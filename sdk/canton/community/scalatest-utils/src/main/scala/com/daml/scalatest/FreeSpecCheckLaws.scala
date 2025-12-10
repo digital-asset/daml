@@ -3,14 +3,14 @@
 
 package com.daml.scalatest
 
-import org.scalatest.freespec.AnyFreeSpec
-import org.scalatestplus.scalacheck.Checkers
 import org.scalacheck.Properties
 import org.scalactic.{Prettifier, source}
+import org.scalatest.freespec.AnyFreeSpec
+import org.scalatestplus.scalacheck.Checkers
 
-/** Integration of Scalatest [[AnyFreeSpec]] with Scalaz law checkers, or any other
-  * purely Scalacheck-defined tests, for that matter.  Each invocation should go
-  * in a separate `should` category, as test names will collide otherwise.
+/** Integration of Scalatest [[AnyFreeSpec]] with Scalaz law checkers, or any other purely
+  * Scalacheck-defined tests, for that matter. Each invocation should go in a separate `should`
+  * category, as test names will collide otherwise.
   *
   * Usage:
   *
@@ -27,9 +27,8 @@ trait FreeSpecCheckLaws extends Checkers { this: AnyFreeSpec =>
       generatorDrivenConfig: PropertyCheckConfiguration,
       prettifier: Prettifier,
       pos: source.Position,
-  ): Unit = {
+  ): Unit =
     // FreeSpec can't deal with duplicate test names; a duplicate name
     // means test reached by diamond inheritance twice anyway so just skip it
     props.properties.distinctBy(_._1) foreach { case (s, p) => s in check(p) }
-  }
 }

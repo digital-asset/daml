@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.mediator
 
+import com.digitalasset.canton.config.BatchingConfig
 import com.digitalasset.canton.crypto.SynchronizerCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -29,6 +30,7 @@ class TestVerdictSender(
       sequencerSend,
       crypto,
       mediatorId,
+      BatchingConfig(),
       loggerFactory,
     ) {
 

@@ -340,5 +340,13 @@
             <maxLevel>INFO</maxLevel>
             <testing>true</testing>
         </rewrite>
+
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.digitalasset.canton.synchronizer.sequencer.time.TimeAdvancingTopologySubscriberV1</logger>
+            <contains>Could not send a time-advancing message</contains>
+            <maxLevel>INFO</maxLevel>
+            <testing>true</testing>
+        </rewrite>
+
    </appender>
 </included>

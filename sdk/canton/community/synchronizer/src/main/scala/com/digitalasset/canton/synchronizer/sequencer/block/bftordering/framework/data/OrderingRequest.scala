@@ -38,9 +38,9 @@ final case class OrderingRequest(
 
   def addToHashBuilder(hashBuilder: HashBuilder): Unit =
     hashBuilder
-      .add(payload)
-      .add(tag)
-      .add(orderingStartInstant.toString)
+      .addByteString(payload)
+      .addString(tag)
+      .addString(orderingStartInstant.toString)
       .discard
 
   def headerString: String =
@@ -67,10 +67,10 @@ final case class OrderingRequestBatch private (
 ) extends HasProtocolVersionedWrapper[OrderingRequestBatch] {
 
   def addToHashBuilder(hashBuilder: HashBuilder): Unit = {
-    hashBuilder.add(epochNumber)
+    hashBuilder.addLong(epochNumber)
     requests.foreach { request =>
-      hashBuilder.add(representativeProtocolVersion.representative.toProtoPrimitive)
-      hashBuilder.add(request.traceContext.toString)
+      hashBuilder.addInt(representativeProtocolVersion.representative.toProtoPrimitive)
+      hashBuilder.addString(request.traceContext.toString)
       request.value.addToHashBuilder(hashBuilder)
     }
   }

@@ -76,9 +76,11 @@ import TestingTopology.*
   * transaction protocol.
   *
   * Therefore, all the key crypto operations hide behind the so-called crypto-api which splits into
-  * the pure part [[CryptoPureApi]] and the more complicated part, the [[SyncCryptoApi]] such that
-  * from the transaction protocol perspective, we can conveniently use methods like
-  * [[SyncCryptoApi.sign]] or [[SyncCryptoApi.encryptFor]]
+  * the pure part [[com.digitalasset.canton.crypto.CryptoPureApi]] and the more complicated part,
+  * the [[com.digitalasset.canton.crypto.SyncCryptoApi]] such that from the transaction protocol
+  * perspective, we can conveniently use methods like
+  * [[com.digitalasset.canton.crypto.SyncCryptoApi.sign]] or
+  * [[com.digitalasset.canton.crypto.SyncCryptoApi.encryptFor]]
   *
   * The abstraction creates the following hierarchy of classes to resolve the state for a given
   * [[Member]] on a per (synchronizerId, timestamp)
@@ -88,8 +90,9 @@ import TestingTopology.*
   * \= SynchronizerSyncCryptoApi .snapshot(timestamp) | recentState - method to get the view for a
   * specific time \= SynchronizerSnapshotSyncCryptoApi (extends SyncCryptoApi)
   *
-  * All these object carry the necessary objects ([[CryptoPureApi]], [[TopologySnapshot]],
-  * [[KeyVaultApi]]) as arguments with them.
+  * All these objects carry the necessary objects ([[com.digitalasset.canton.crypto.CryptoPureApi]],
+  * [[com.digitalasset.canton.topology.client.TopologySnapshot]],
+  * [[com.digitalasset.canton.crypto.CryptoPrivateApi]]) as arguments with them.
   *
   * Now, in order to conveniently create a static topology for testing, we provide a <ul>
   * <li>[[TestingTopology]] which allows us to define a certain static topology</li>
@@ -97,10 +100,12 @@ import TestingTopology.*
   * components and objects that a unit test might need.</li> <li>[[DefaultTestIdentities]] which
   * provides a predefined set of identities that can be used for unit tests.</li> </ul>
   *
-  * Common usage patterns are: <ul> <li>Get a [[SynchronizerCryptoClient]] with an empty topology:
+  * Common usage patterns are: <ul> <li>Get a
+  * [[com.digitalasset.canton.crypto.SynchronizerCryptoClient]] with an empty topology:
   * `TestingIdentityFactory().forOwnerAndSynchronizer(participant1)`</li> <li>To get a
-  * [[SynchronizerSnapshotSyncCryptoApi]]: same as above, just add `.recentState`.</li> <li>Define a
-  * specific topology and get the [[SyncCryptoApiProvider]]:
+  * [[com.digitalasset.canton.crypto.SynchronizerSnapshotSyncCryptoApi]]: same as above, just add
+  * `.recentState`.</li> <li>Define a specific topology and get the
+  * [[com.digitalasset.canton.crypto.SyncCryptoApiParticipantProvider]]:
   * `TestingTopology().withTopology(Map(party1 -> participant1)).build()`.</li> </ul>
   *
   * @param synchronizers

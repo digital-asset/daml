@@ -3,7 +3,7 @@
 
 package com.daml.nonempty
 
-import scala.{collection => sc}
+import scala.collection as sc
 
 private[nonempty] object NonEmptyCollCompat {
   type IterableOps[+A, +CC[_], +C] = sc.IterableOps[A, CC, C]
