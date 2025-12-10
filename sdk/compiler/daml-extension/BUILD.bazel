@@ -45,29 +45,32 @@ sh_test(
 # tarball and be fast.
 # Also for some reason on Windows I get "cannot ceate node_modules: file
 # exists", so at this point I'm completely out of trust.
-# genrule(
-#     name = "node_deps_cache",
-#     srcs = [
-#         "//compiler/daml-extension:package.json",
-#         "//compiler/daml-extension:yarn.lock",
-#     ],
-#     outs = ["node_modules.tar.gz"],
-#     cmd = """
-#         set -euo pipefail
-#
-#         PACKAGE_DIR=$$(dirname $(location //compiler/daml-extension:package.json))
-#
-#         cd $$PACKAGE_DIR
-#         $$OLDPWD/$(execpath //:yarn) install --frozen-lockfile --production=false
-#
-#         cd $$OLDPWD
-#         $(execpath //bazel_tools/sh:mktgz) $@ --dereference -C $$PACKAGE_DIR node_modules
-#     """,
-#     tools = [
-#         "//:yarn",
-#         "//bazel_tools/sh:mktgz",
-#     ],
-# )
+genrule(
+    name = "node_deps_cache",
+    srcs = [
+        "//compiler/daml-extension:package.json",
+        "//compiler/daml-extension:yarn.lock",
+    ],
+    outs = ["node_modules.tar.gz"],
+    cmd = """
+        set -euo pipefail
+
+        PACKAGE_DIR=$$(dirname $(location //compiler/daml-extension:package.json))
+
+        cd $$PACKAGE_DIR
+        export YARN_CACHE_FOLDER=$$OLDPWD/.yarn-cache
+        du -csh *
+        $$OLDPWD/$(execpath //:yarn) install --frozen-lockfile --production=false --cache-folder ./yarn-cache
+        du -csh *
+
+        cd $$OLDPWD
+        $(execpath //bazel_tools/sh:mktgz) $@ --dereference -C $$PACKAGE_DIR node_modules
+    """,
+    tools = [
+        "//:yarn",
+        "//bazel_tools/sh:mktgz",
+    ],
+)
 
 genrule(
     name = "webview-stylesheet",
