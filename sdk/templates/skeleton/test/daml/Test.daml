@@ -1,24 +1,8 @@
-module Main where
+module Test where
+
+import Main
 
 import Daml.Script
-
-type AssetId = ContractId Asset
-
-template Asset
-  with
-    issuer : Party
-    owner  : Party
-    name   : Text
-  where
-    ensure name /= ""
-    signatory issuer
-    observer owner
-    choice Give : AssetId
-      with
-        newOwner : Party
-      controller owner
-      do create this with
-           owner = newOwner
 
 setup : Script AssetId
 setup = script do
