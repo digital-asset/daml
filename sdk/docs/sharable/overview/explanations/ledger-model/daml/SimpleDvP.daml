@@ -63,6 +63,22 @@ template ProposeSimpleDvP with
         exercise dvp $ Settle with actor = counterparty
 -- SNIPPET-PROPOSAL-END
 
+-- SNIPPET-ACCEPTANDSETTLEDVP-BEGIN
+template AcceptAndSettleDvP with
+    counterparty : Party
+  where
+    signatory counterparty
+
+    choice Execute : (ContractId SimpleAsset, ContractId SimpleAsset)
+      with
+        proposal : ContractId ProposeSimpleDvP
+        toBeAllocated: ContractId SimpleAsset
+      controller counterparty
+      do
+        dvp <- exercise proposal $ Accept with ..
+        exercise dvp $ Settle with actor = counterparty
+-- SNIPPET-ACCEPTANDSETTLEDVP-END
+
 setup alice bob bank1 bank2 = script do
     -- SNIPPET-SCRIPT-BEGIN
   let eurAsset = SimpleAsset with
@@ -123,6 +139,24 @@ simpleDvp = script do
         expected = eurAsset
   -- SNIPPET-REVERT-PROPOSAL-END
 
+  submit bank2 do exerciseCmd newEur Archive
+  submit bank1 do exerciseCmd newUsd Archive
+
+simpleDvpHelperContract = script do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  bank1 <- allocateParty "Bank1"
+  bank2 <- allocateParty "Bank2"
+
+  (_, eur, usd, proposeDvP, disclosedEur) <- setup alice bob bank1 bank2
+
+  -- SNIPPET-ACCEPT_AND_SETTLE_DVP-BEGIN
+  (newUsd, newEur) <- submitWithDisclosures bob [disclosedEur] do
+      createAndExerciseCmd (AcceptAndSettleDvP with counterparty = bob) $
+        Execute with
+          proposal = proposeDvP
+          toBeAllocated = usd
+  -- SNIPPET-ACCEPT_AND_SETTLE_DVP-END
   submit bank2 do exerciseCmd newEur Archive
   submit bank1 do exerciseCmd newUsd Archive
 

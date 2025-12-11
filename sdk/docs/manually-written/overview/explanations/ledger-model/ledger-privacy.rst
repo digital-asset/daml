@@ -149,6 +149,8 @@ Transaction projection
 
 The next diagram gives an example for a transaction with the ``AcceptAndSettle`` Exercise action as the only root action, whose informees are shown in the diagrams above.
 
+.. _da-dvp-acceptandsettle-projection:
+
 .. https://lucid.app/lucidchart/9b3762db-66b4-4e72-94cb-bcefd4c1a5ea/edit
 .. image:: ./images/dvp-acceptandsettle-projection.svg
    :align: center
