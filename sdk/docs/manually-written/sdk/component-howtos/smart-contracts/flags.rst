@@ -13,7 +13,7 @@ and their behaviours, into a lower-level language called
 :ref:`Daml-LF<daml-lf>`, which Canton participants can evaluate in order to run
 those smart contracts.
 
-We recommended running the compiler via :subsiteref:`DPM<dpm>` (i.e. through
+We recommend running the compiler via :subsiteref:`DPM<dpm>` (i.e. through
 ``dpm build``), or alternatively, by calling ``damlc`` directly. When compiling
 code, the Daml Compiler goes through the following stages:
 
