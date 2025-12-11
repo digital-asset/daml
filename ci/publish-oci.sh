@@ -90,7 +90,7 @@ function publish_artifact {
       fi
       platform_args+=( "--platform ${arch}=dist/${arch}/${artifact_name} " )
     done
-    if [[ "${RELEASE_TAG}" != *"-adhoc-"* ]] then
+    if [[ "${RELEASE_TAG}" != *"-adhoc"* ]] then
       extra_tags_args+=( "--extra-tags main" )
       extra_tags_args+=( "--extra-tags $(extract_major_minor ${RELEASE_TAG})" )
     fi
