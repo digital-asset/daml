@@ -13,6 +13,8 @@ import com.digitalasset.daml.lf.value.Value
 import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.matchers.should.Matchers
 
+import scala.annotation.unused
+
 import java.nio.file.{Path, Paths}
 
 class AttestationITV2 extends AttestationIT(LanguageVersion.Major.V2)
@@ -27,14 +29,8 @@ class AttestationIT(languageVersion: LanguageVersion.Major)
   )
   private val dar = CompiledDar.read(darPath, Runner.compilerConfig)
 
-  private def converter(input: Value, typ: Ast.Type) =
-    new com.digitalasset.daml.lf.engine.preprocessing.ValueTranslator(
-      dar.compiledPackages.pkgInterface,
-      false,
-    )
-      .translateValue(typ, input)
-      .left
-      .map(_.message)
+  private def converter(input: Value, @unused typ: Ast.Type): Either[String, Value] =
+    Right(input)
 
   "Attestation test data can be successfully processed" in {
     val scriptEntryPoint =

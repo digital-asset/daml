@@ -135,6 +135,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
   def fromTransaction(
       tx: Transaction,
       intendedPackageIds: List[PackageId],
+      enricher: Enricher,
   ): Either[String, ScriptLedgerClient.TransactionTree] = {
     def convEvent(
         ev: Int,
@@ -154,11 +155,17 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
                     .validateRecord(created.getCreateArguments)
                     .left
                     .map(err => s"Failed to validate create argument: $err")
+                intendedTplId = oIntendedPackageId
+                  .fold(tplId)(intendedPackageId => tplId.copy(pkg = intendedPackageId))
+                enrichedArg <- enricher
+                  .enrichContract(intendedTplId, arg)
+                  .consume()
+                  .left
+                  .map(_.toString)
               } yield ScriptLedgerClient.Created(
-                oIntendedPackageId
-                  .fold(tplId)(intendedPackageId => tplId.copy(pkg = intendedPackageId)),
+                intendedTplId,
                 cid,
-                arg,
+                enrichedArg,
                 Bytes.fromByteString(created.createdEventBlob),
               )
             case Event.Event.Exercised(exercised) =>
@@ -167,12 +174,24 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
                 ifaceId <- exercised.interfaceId.traverse(Converter.fromApiIdentifier)
                 cid <- ContractId.fromString(exercised.contractId)
                 choice <- ChoiceName.fromString(exercised.choice)
+                intendedTplId = oIntendedPackageId
+                  .fold(tplId)(intendedPackageId => tplId.copy(pkg = intendedPackageId))
                 choiceArg <- NoLoggingValueValidator
                   .validateValue(exercised.getChoiceArgument)
                   .left
                   .map(err => s"Failed to validate exercise argument: $err")
+                enrichedChoiceArg <- enricher
+                  .enrichChoiceArgument(intendedTplId, ifaceId, choice, choiceArg)
+                  .consume()
+                  .left
+                  .map(_.toString)
                 choiceResult <- NoLoggingValueValidator
                   .validateValue(exercised.getExerciseResult)
+                  .left
+                  .map(_.toString)
+                enrichedChoiceResult <- enricher
+                  .enrichChoiceResult(intendedTplId, ifaceId, choice, choiceResult)
+                  .consume()
                   .left
                   .map(_.toString)
                 childEvents <- javaTx
@@ -183,13 +202,12 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
                   .toList
                   .traverse(convEvent(_, None))
               } yield ScriptLedgerClient.Exercised(
-                oIntendedPackageId
-                  .fold(tplId)(intendedPackageId => tplId.copy(pkg = intendedPackageId)),
+                intendedTplId,
                 ifaceId,
                 cid,
                 choice,
-                choiceArg,
-                choiceResult,
+                enrichedChoiceArg,
+                enrichedChoiceResult,
                 childEvents,
               )
             case Event.Event.Archived(_) =>
@@ -215,14 +233,6 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
       ScriptLedgerClient.TransactionTree(rootEvents)
     }
   }
-
-  // final case class Question[A](
-  //     name: String,
-  //     version: Int,
-  //     payload: A,
-  //     stackTrace: StackTrace,
-  //     continue: SValue,
-  // )
 
   def toPackageId(v: ExtendedValue): Either[String, PackageId] =
     v match {

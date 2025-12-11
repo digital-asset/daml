@@ -10,9 +10,9 @@ import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{FrontStack, FrontStackCons, Numeric}
 import com.digitalasset.daml.lf.engine.free.InterpretationError
-import com.digitalasset.daml.lf.speedy.SValue
-import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value._
+import com.digitalasset.daml.lf.speedy.Speedy.Machine.ExtendedValue
 import io.grpc.{Status, StatusRuntimeException}
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
@@ -27,10 +27,10 @@ abstract class AbstractFuncIT
     with Matchers
     with Inside {
 
-  def assertSTimestamp(v: SValue) =
+  def assertValueTimestamp(v: ExtendedValue) =
     v match {
-      case STimestamp(t0) => t0
-      case _ => fail(s"Expected STimestamp but got $v")
+      case ValueTimestamp(t0) => t0
+      case _ => fail(s"Expected ValueTimestamp but got $v")
     }
 
   s"Daml Script func tests: ${timeProviderType}" can {
@@ -38,36 +38,48 @@ abstract class AbstractFuncIT
       "create two accepted proposals" in {
         for {
           clients <- scriptClients()
-          SRecord(_, _, vals) <- run(
+          ValueRecord(_, vals) <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:test0"),
             dar = dar,
           )
         } yield {
-          assert(vals.size == 5)
-          val alice = vals(0) match {
-            case SParty(alice) => alice
-            case v => fail(s"Expected SParty but got $v")
+          assert(vals.length == 5)
+          val alice = vals(0)._2 match {
+            case ValueParty(alice) => alice
+            case v => fail(s"Expected ValueParty but got $v")
           }
-          val bob = vals(1) match {
-            case SParty(bob) => bob
-            case v => fail(s"Expected SParty but got $v")
+          val bob = vals(1)._2 match {
+            case ValueParty(bob) => bob
+            case v => fail(s"Expected ValueParty but got $v")
           }
           // allocateParty should return a fresh party
           assert(alice != bob)
-          vals(2) match {
-            case SList(
-                  FrontStackCons(SRecord(_, _, t1), FrontStackCons(SRecord(_, _, t2), FrontStack()))
+          vals(2)._2 match {
+            case ValueList(
+                  FrontStackCons(
+                    ValueRecord(_, t1),
+                    FrontStackCons(ValueRecord(_, t2), FrontStack()),
+                  )
                 ) =>
-              t1 should contain theSameElementsInOrderAs (Seq(SParty(alice), SParty(bob)))
-              t2 should contain theSameElementsInOrderAs (Seq(SParty(alice), SParty(bob)))
-            case v => fail(s"Expected SList but got $v")
+              t1.map(_._2).toSeq should contain theSameElementsInOrderAs (Seq(
+                ValueParty(alice),
+                ValueParty(bob),
+              ))
+              t2.map(_._2).toSeq should contain theSameElementsInOrderAs (Seq(
+                ValueParty(alice),
+                ValueParty(bob),
+              ))
+            case v => fail(s"Expected ValueList but got $v")
           }
-          assert(vals(3) == SList(FrontStack.empty))
-          vals(4) match {
-            case SList(FrontStackCons(SRecord(_, _, vals), FrontStack())) =>
-              vals should contain theSameElementsInOrderAs (Seq[SValue](SParty(alice), SInt64(42)))
-            case v => fail(s"Expected a single SRecord but got $v")
+          assert(vals(3)._2 == ValueList(FrontStack.empty))
+          vals(4)._2 match {
+            case ValueList(FrontStackCons(ValueRecord(_, vals), FrontStack())) =>
+              vals.map(_._2).toSeq should contain theSameElementsInOrderAs (Seq[Value](
+                ValueParty(alice),
+                ValueInt64(42),
+              ))
+            case v => fail(s"Expected a single ValueRecord but got $v")
           }
         }
       }
@@ -78,7 +90,7 @@ abstract class AbstractFuncIT
           clients <- scriptClients()
           v <- run(clients, QualifiedName.assertFromString("ScriptTest:test1"), dar = dar)
         } yield {
-          assert(v == SNumeric(Numeric.assertFromString("2.12000000000")))
+          assert(v == ValueNumeric(Numeric.assertFromString("2.12000000000")))
         }
       }
     }
@@ -101,7 +113,7 @@ abstract class AbstractFuncIT
             ),
           )
         } yield {
-          assert(v == SInt64(42))
+          assert(v == ValueInt64(42))
         }
       }
     }
@@ -111,7 +123,7 @@ abstract class AbstractFuncIT
           clients <- scriptClients()
           v <- run(clients, QualifiedName.assertFromString("ScriptTest:test3"), dar = dar)
         } yield {
-          assert(v == SUnit)
+          assert(v == ValueUnit)
         }
       }
     }
@@ -119,14 +131,14 @@ abstract class AbstractFuncIT
       "return new contract in query" in {
         for {
           clients <- scriptClients()
-          SRecord(_, _, vals) <- run(
+          ValueRecord(_, vals) <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:test4"),
             dar = dar,
           )
         } yield {
-          assert(vals.size == 2)
-          assert(vals(0) == vals(1))
+          assert(vals.length == 2)
+          assert(vals(0)._2 == vals(1)._2)
         }
       }
     }
@@ -134,14 +146,14 @@ abstract class AbstractFuncIT
       "support exerciseByKeyCmd" in {
         for {
           clients <- scriptClients()
-          SRecord(_, _, vals) <- run(
+          ValueRecord(_, vals) <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:testKey"),
             dar = dar,
           )
         } yield {
-          assert(vals.size == 2)
-          assert(vals(0) == vals(1))
+          assert(vals.length == 2)
+          assert(vals(0)._2 == vals(1)._2)
         }
       }
     }
@@ -155,7 +167,7 @@ abstract class AbstractFuncIT
             dar = dar,
           )
         } yield {
-          assert(v == SInt64(42))
+          assert(v == ValueInt64(42))
         }
       }
     }
@@ -163,15 +175,15 @@ abstract class AbstractFuncIT
       "not go backwards in time" in {
         for {
           clients <- scriptClients()
-          SRecord(_, _, vals) <- run(
+          ValueRecord(_, vals) <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:testGetTime"),
             dar = dar,
           )
         } yield {
-          assert(vals.size == 2)
-          val t0 = assertSTimestamp(vals(0))
-          val t1 = assertSTimestamp(vals(1))
+          assert(vals.length == 2)
+          val t0 = assertValueTimestamp(vals(0)._2)
+          val t1 = assertValueTimestamp(vals(1)._2)
           // Note that even in wallclock mode we cannot use strict inequality due to time
           // resolution (observed in CI)
           assert(t0 <= t1)
@@ -183,20 +195,20 @@ abstract class AbstractFuncIT
       "allocate a party with the given hint" in {
         for {
           clients <- scriptClients()
-          SRecord(_, _, vals) <- run(
+          ValueRecord(_, vals) <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:partyIdHintTest"),
             dar = dar,
           )
         } yield {
-          assert(vals.size == 2)
-          inside(vals(0)) { case SParty(partyId) =>
+          assert(vals.length == 2)
+          inside(vals(0)._2) { case ValueParty(partyId) =>
             inside(partyId.split("::")) { case Array(prefix, suffix) =>
               prefix shouldBe "carol"
               suffix.length shouldBe 68
             }
           }
-          inside(vals(1)) { case SParty(partyId) =>
+          inside(vals(1)._2) { case ValueParty(partyId) =>
             inside(partyId.split("::")) { case Array(prefix, suffix) =>
               prefix shouldBe "dan"
               suffix.length shouldBe 68
@@ -209,18 +221,19 @@ abstract class AbstractFuncIT
       "list newly allocated parties" in {
         for {
           clients <- scriptClients()
-          SRecord(_, _, vals) <- run(
+          ValueRecord(_, vals) <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:listKnownPartiesTest"),
             dar = dar,
           )
         } yield {
-          assert(vals.size == 2)
-          inside(vals(0)) { case SList(FrontStackCons(SRecord(_, _, details), FrontStack())) =>
-            details should contain theSameElementsInOrderAs (Seq(
-              vals(1),
-              SBool(true),
-            ))
+          assert(vals.length == 2)
+          inside(vals(0)._2) {
+            case ValueList(FrontStackCons(ValueRecord(_, details), FrontStack())) =>
+              details.map(_._2).toSeq should contain theSameElementsInOrderAs (Seq(
+                vals(1)._2,
+                ValueBool(true),
+              ))
           }
         }
       }
@@ -235,7 +248,7 @@ abstract class AbstractFuncIT
             dar = dar,
           )
         } yield {
-          assert(v == SUnit)
+          assert(v == ValueUnit)
         }
       }
     }
@@ -266,7 +279,7 @@ abstract class AbstractFuncIT
           clients <- scriptClients()
           v <- run(clients, QualifiedName.assertFromString("ScriptExample:test"), dar = dar)
         } yield {
-          assert(v == SUnit)
+          assert(v == ValueUnit)
         }
       }
     }
@@ -280,7 +293,7 @@ abstract class AbstractFuncIT
             dar = dar,
           )
         } yield {
-          assert(v == SUnit)
+          assert(v == ValueUnit)
         }
       }
     }
@@ -294,7 +307,7 @@ abstract class AbstractFuncIT
             dar = dar,
           )
         } yield {
-          assert(v == SUnit)
+          assert(v == ValueUnit)
         }
       }
     }
@@ -313,7 +326,7 @@ abstract class AbstractFuncIT
             dar = dar,
           )
         } yield {
-          assert(v == SUnit)
+          assert(v == ValueUnit)
           val logMsgs = LogCollector.events.map(_.getFormattedMessage)
           assert(logMsgs.map(stripLoc(_)) == Seq("abc", "def", "abc", "def"))
         }
@@ -323,17 +336,17 @@ abstract class AbstractFuncIT
       "convert ContractId to Text" in {
         for {
           clients <- scriptClients()
-          SRecord(_, _, vals) <- run(
+          ValueRecord(_, vals) <- run(
             clients,
             QualifiedName.assertFromString("TestContractId:testContractId"),
             dar = dar,
           )
         } yield {
-          assert(vals.size == 2)
-          (vals(0), vals(1)) match {
-            case (SContractId(cid), SText(t)) =>
+          assert(vals.length == 2)
+          (vals(0)._2, vals(1)._2) match {
+            case (ValueContractId(cid), ValueText(t)) =>
               assert(cid.coid == t)
-            case (v0, v1) => fail(s"Expected SContractId, SText but got $v0, $v1")
+            case (v0, v1) => fail(s"Expected ValueContractId, ValueText but got $v0, $v1")
           }
         }
       }
@@ -348,7 +361,7 @@ abstract class AbstractFuncIT
             dar = dar,
           )
         } yield {
-          v shouldBe (SUnit)
+          v shouldBe (ValueUnit)
         }
       }
     }
@@ -416,7 +429,7 @@ abstract class AbstractFuncIT
             dar = dar,
           )
         } yield {
-          v shouldBe (SUnit)
+          v shouldBe (ValueUnit)
         }
       }
     }
@@ -430,7 +443,7 @@ abstract class AbstractFuncIT
             dar = dar,
           )
         } yield {
-          v shouldBe (SUnit)
+          v shouldBe (ValueUnit)
         }
       }
     }
@@ -444,7 +457,7 @@ abstract class AbstractFuncIT
             dar = dar,
           )
         } yield {
-          v shouldBe (SUnit)
+          v shouldBe (ValueUnit)
         }
       }
     }
@@ -458,7 +471,7 @@ abstract class AbstractFuncIT
             dar = dar,
           )
         } yield {
-          assert(v == SUnit)
+          assert(v == ValueUnit)
         }
       }
     }
@@ -471,7 +484,7 @@ abstract class AbstractFuncIT
           dar = dar,
         )
       } yield {
-        assert(v == SUnit)
+        assert(v == ValueUnit)
       }
     }
     "tuple key" in {
@@ -483,7 +496,7 @@ abstract class AbstractFuncIT
           dar = dar,
         )
       } yield {
-        assert(v == SUnit)
+        assert(v == ValueUnit)
       }
     }
     "stack trace" in {
@@ -520,7 +533,7 @@ abstract class AbstractFuncIT
             QualifiedName.assertFromString("ScriptTest:testUserManagement"),
             dar = dar,
           )
-      } yield r shouldBe SUnit
+      } yield r shouldBe ValueUnit
     }
 
     "testUserRightManagement should succeed" in {
@@ -532,7 +545,7 @@ abstract class AbstractFuncIT
             QualifiedName.assertFromString("ScriptTest:testUserRightManagement"),
             dar = dar,
           )
-      } yield r shouldBe SUnit
+      } yield r shouldBe ValueUnit
     }
   }
 }

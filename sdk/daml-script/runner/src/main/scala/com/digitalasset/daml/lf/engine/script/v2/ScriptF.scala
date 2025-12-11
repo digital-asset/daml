@@ -14,7 +14,7 @@ import com.digitalasset.daml.lf.data.support.crypto.MessageSignatureUtil
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
-import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
+import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, Reference}
 import com.digitalasset.daml.lf.speedy.SError
 import com.digitalasset.daml.lf.speedy.SExpr.ExceptionMessageDefRef
 import com.digitalasset.daml.lf.speedy.Speedy.Machine.{
@@ -72,6 +72,17 @@ object ScriptF {
   ) {
     def clients = _clients
     val utcClock = Clock.systemUTC()
+
+    val enricher = new Enricher(
+      compiledPackages = compiledPackages,
+      // Cannot load packages in GrpcLedgerClient
+      loadPackage = { (_: PackageId, _: Reference) => ResultDone(()) },
+      addTypeInfo = true,
+      addFieldNames = true,
+      addTrailingNoneFields = true,
+      forbidLocalContractIds = true,
+    )
+
     def addPartyParticipantMapping(party: Party, participant: Participant) = {
       _clients =
         _clients.copy(party_participants = _clients.party_participants + (party -> participant))
@@ -168,13 +179,13 @@ object ScriptF {
               true,
             ) =>
           makeFailureStatus(userNotFound, "User not found: " + userId)
-        case (any @ ExtendedValueAny(Ast.TTyCon(name), _), true) =>
+        case (ExtendedValueAny(Ast.TTyCon(name), v), true) =>
           // Since we cannot call `SBThrow` from the engine, we must re-implement the legacy exception to FailureStatus conversion logic here
           // This involves calculating the exception message by calling the engine again.
           runner
             .runComputation(
               ExtendedValueComputationMode
-                .BySDefinitionRef(ExceptionMessageDefRef(name), Some(List(any))),
+                .BySDefinitionRef(ExceptionMessageDefRef(name), Some(List(v))),
               false,
             )
             .transformWith {
@@ -287,7 +298,7 @@ object ScriptF {
             Future.successful(
               ValueVariant(
                 Some(StablePackagesV2.Either),
-                Name.assertFromString("Right"),
+                Name.assertFromString("Left"),
                 record(
                   StablePackagesV2.FailureStatus,
                   ("errorId", ValueText(errorId)),

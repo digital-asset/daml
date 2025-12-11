@@ -49,7 +49,8 @@ import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
 import com.digitalasset.daml.lf.engine.script.v2.Converter
-import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
+import com.digitalasset.daml.lf.engine.{Enricher, ResultDone}
+import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, Reference}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi.{
@@ -81,6 +82,16 @@ class GrpcLedgerClient(
 ) extends ScriptLedgerClient {
   override val transport = "gRPC API"
   implicit val traceContext: TraceContext = TraceContext.empty
+
+  val enricher = new Enricher(
+    compiledPackages = compiledPackages,
+    // Cannot load packages in GrpcLedgerClient
+    loadPackage = { (_: PackageId, _: Reference) => ResultDone(()) },
+    addTypeInfo = true,
+    addFieldNames = true,
+    addTrailingNoneFields = true,
+    forbidLocalContractIds = true,
+  )
 
   override def query(
       parties: OneAnd[Set, Ref.Party],
@@ -230,9 +241,20 @@ class GrpcLedgerClient(
         val key: Option[Value] = createdEvent.contractKey.map { key =>
           NoLoggingValueValidator.validateValue(key) match {
             case Left(err) => throw new ConverterException(err.toString)
-            case Right(argument) => argument
+            case Right(key) => key
           }
         }
+        val enrichedArgument = enricher.enrichContract(templateId, argument).consume() match {
+          case Right(arg) => arg
+          case Left(err) => throw new ConverterException(err.toString)
+        }
+        val enrichedKey = key.map { key =>
+          enricher.enrichContractKey(templateId, key).consume() match {
+            case Right(key) => key
+            case Left(err) => throw new ConverterException(err.toString)
+          }
+        }
+
         val cid =
           ContractId
             .fromString(createdEvent.contractId)
@@ -254,10 +276,10 @@ class GrpcLedgerClient(
           ScriptLedgerClient.ActiveContract(
             disclosureTemplateId,
             cid,
-            argument,
+            enrichedArgument,
             blob,
           ),
-          key,
+          enrichedKey,
         )
       })
     )
@@ -313,9 +335,17 @@ class GrpcLedgerClient(
               case Left(err) => throw new ConverterException(err.toString)
               case Right(argument) => argument
             }
+          val enrichedviewValue =
+            if (viewValue.fields.isEmpty)
+              None
+            else
+              Some(enricher.enrichView(interfaceId, viewValue).consume() match {
+                case Right(viewValue) => viewValue
+                case Left(err) => throw new ConverterException(err.toString)
+              })
           // Because we filter for a specific interfaceId,
           // we will get at most one view for a given cid.
-          (cid, if (viewValue.fields.isEmpty) None else Some(viewValue))
+          (cid, enrichedviewValue)
         }
       })
     )
@@ -421,7 +451,7 @@ class GrpcLedgerClient(
         case Right(resp) =>
           for {
             tree <- Converter.toFuture(
-              Converter.fromTransaction(resp.getTransaction, commandResultPackageIds)
+              Converter.fromTransaction(resp.getTransaction, commandResultPackageIds, enricher)
             )
             results = ScriptLedgerClient.transactionTreeToCommandResults(tree)
           } yield Right((results, tree))

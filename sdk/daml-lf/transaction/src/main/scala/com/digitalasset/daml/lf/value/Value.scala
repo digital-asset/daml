@@ -25,7 +25,7 @@ sealed abstract class GenValue[+X]
 
 object GenValue {
 
-  sealed abstract class Extended[+B]
+  sealed trait Extended[+B]
 
   sealed abstract class CidLessAtom extends GenValue[Nothing] with CidContainer[CidLessAtom] {
     final override def mapCid(f: Value.ContractId => Value.ContractId): this.type = this

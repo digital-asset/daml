@@ -75,7 +75,8 @@ object SubmitError {
 
   def globalKeyToAnyContractKey(env: Env, key: GlobalKey): ExtendedValue = {
     val ty = env.lookupKeyTy(key.templateId).toOption.get
-    fromAnyContractKey(AnyContractKey(key.templateId, ty, key.key))
+    val enrichedKey = env.enricher.enrichContractKey(key.templateId, key.key).consume().toOption.get
+    fromAnyContractKey(AnyContractKey(key.templateId, ty, enrichedKey))
   }
 
   def fromNonEmptySet[A](set: NonEmpty[Seq[A]], conv: A => ExtendedValue): ExtendedValue = {
@@ -263,7 +264,9 @@ object SubmitError {
 
   final case class UnhandledException(exc: Option[(Identifier, Value)]) extends SubmitError {
     override def toDamlSubmitError(env: Env): ExtendedValue = {
-      val anyException = exc.map { case (ty, value) => fromAnyException(ty, value) }
+      val anyException = exc.map { case (ty, value) =>
+        fromAnyException(ty, env.enricher.enrichException(ty, value).consume().toOption.get)
+      }
       SubmitErrorConverters(env).damlScriptError(
         "UnhandledException",
         ("exc", ValueOptional(anyException)),
@@ -292,8 +295,11 @@ object SubmitError {
       SubmitErrorConverters(env).damlScriptError(
         "CreateEmptyContractKeyMaintainers",
         (
-          "invalidTemplate",
-          fromAnyTemplate(templateId, templateArg),
+          "invalidTemplate", {
+            val enrichedArg =
+              env.enricher.enrichContract(templateId, templateArg).consume().toOption.get
+            fromAnyTemplate(templateId, enrichedArg)
+          },
         ),
       )
   }
@@ -427,7 +433,7 @@ object SubmitError {
         fields: (String, ExtendedValue)*
     ): ExtendedValue =
       SubmitErrorConverters(env).damlScriptVariant(
-        "Daml.Script.Internal.Questions.Submit.Error.UpgradeErrorType",
+        "UpgradeErrorType",
         variantName,
         fields: _*
       )
@@ -465,7 +471,7 @@ object SubmitError {
               ValueList(originalObservers.toList.map(ValueParty).to(FrontStack)),
             ),
             (
-              "originalOptKey",
+              "originalKeyOpt",
               ValueOptional(originalOptKey.map(key => {
                 val globalKey = globalKeyToAnyContractKey(env, key.globalKey)
                 val maintainers = ValueList(key.maintainers.toList.map(ValueParty).to(FrontStack))
@@ -481,7 +487,7 @@ object SubmitError {
               ValueList(recomputedObservers.toList.map(ValueParty).to(FrontStack)),
             ),
             (
-              "recomputedOptKey",
+              "recomputedKeyOpt",
               ValueOptional(recomputedOptKey.map(key => {
                 val globalKey = globalKeyToAnyContractKey(env, key.globalKey)
                 val maintainers = ValueList(key.maintainers.toList.map(ValueParty).to(FrontStack))
@@ -510,7 +516,7 @@ object SubmitError {
             env,
             "TranslationFailed",
             (
-              "coid",
+              "mCoid",
               ValueOptional.apply(
                 coid.map(id => fromAnyContractId(env.scriptIds, toApiIdentifier(srcTemplateId), id))
               ),
@@ -518,8 +524,11 @@ object SubmitError {
             ("srcTemplateId", fromTemplateTypeRep(srcTemplateId)),
             ("dstTemplateId", fromTemplateTypeRep(dstTemplateId)),
             (
-              "createArg",
-              fromAnyTemplate(srcTemplateId, createArg),
+              "createArg", {
+                val enrichedArg =
+                  env.enricher.enrichContract(srcTemplateId, createArg).consume().toOption.get
+                fromAnyTemplate(srcTemplateId, enrichedArg)
+              },
             ),
           )
         SubmitErrorConverters(env).damlScriptError(
@@ -546,8 +555,11 @@ object SubmitError {
             ("srcTemplateId", fromTemplateTypeRep(srcTemplateId)),
             ("dstTemplateId", fromTemplateTypeRep(dstTemplateId)),
             (
-              "createArg",
-              fromAnyTemplate(srcTemplateId, createArg),
+              "createArg", {
+                val enrichedArg =
+                  env.enricher.enrichContract(srcTemplateId, createArg).consume().toOption.get
+                fromAnyTemplate(srcTemplateId, enrichedArg)
+              },
             ),
           )
         SubmitErrorConverters(env).damlScriptError(
@@ -632,7 +644,7 @@ object SubmitError {
         fields: (String, ExtendedValue)*
     ): ExtendedValue =
       SubmitErrorConverters(env).damlScriptVariant(
-        "Daml.Script.Internal.Questions.Submit.Error.CryptoErrorType",
+        "CryptoErrorType",
         variantName,
         fields: _*
       )

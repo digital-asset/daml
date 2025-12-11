@@ -64,8 +64,8 @@ private[lf] final class ExtendedValueTranslator(
           .toMap
         val values = names.map(name => unsafeTranslateExtendedValue(namedContent(name)))
         SValue.SRecord(tycon, names, values.toList.to(ArraySeq))
-      case ValueRecord(None, _) =>
-        throw TranslationFailed.InvalidExtendedValue("Missing record tycon")
+      case ValueRecord(None, fields) =>
+        throw TranslationFailed.InvalidExtendedValue(s"Missing record tycon with fields: $fields")
       case ValueVariant(Some(tycon), variant, content) =>
         val rank = handleLookup(pkgInterface.lookupVariantConstructor(tycon, variant)).rank
         SValue.SVariant(tycon, variant, rank, unsafeTranslateExtendedValue(content))
