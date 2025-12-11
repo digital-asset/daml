@@ -1,8 +1,19 @@
 .. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Handle exceptions
-=================
+Handle exceptions (Deprecated)
+==============================
+
+.. warning:: User-defined Daml Exceptions, catching, and throwing have been
+   deprecated and are being phased out in favour of the :externalref:`Canton
+   error framework <error_codes>`, which represents Daml errors as
+   :externalref:`InvalidGivenCurrentSystemStateOther
+   <error-categories-inventory_InvalidGivenCurrentSystemStateOther>`.
+
+.. warning::
+
+   In the future, exception handling will be restricted. In particular, it will
+   be not be possible to create and exercise contracts in the ``catch`` clause.
 
 The default behavior in Daml is to abort the transaction on any error
 and roll back all changes that have happened until then. However, this
