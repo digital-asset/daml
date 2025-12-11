@@ -227,7 +227,7 @@ packagingTests tmpDir =
               let dar = projDir </> ".daml/dist/script-example-0.0.1.dar"
               assertFileExists dar -}
         , testCase "Package depending on daml-script can use data-dependencies" $ do
-              callCommandSilent $ unwords ["daml", "new", tmpDir </> "data-dependency"]
+              callCommandSilent $ unwords ["daml", "new", "--template=skeleton-single-package", tmpDir </> "data-dependency"]
               callCommandSilentIn (tmpDir </> "data-dependency") "daml build -o data-dependency.dar"
               createDirectoryIfMissing True (tmpDir </> "proj")
               writeFileUTF8 (tmpDir </> "proj" </> "daml.yaml") $
@@ -533,7 +533,7 @@ damlStartTests getDamlStart =
 -- | Ensure that daml clean removes precisely the files created by daml build.
 cleanTests :: FilePath -> TestTree
 cleanTests baseDir = testGroup "daml clean"
-    [ cleanTestFor "skeleton"
+    [ cleanTestFor "skeleton-single-package"
     , cleanTestFor "quickstart-java"
     ]
     where
@@ -589,7 +589,8 @@ templateTests = testGroup "templates" $
             , "daml-patterns"
             , "quickstart-java"
             , "script-example"
-            , "skeleton"
+            -- , "skeleton"                -- multi-package
+            , "skeleton-single-package"
             ]
 
 -- | Check we can generate language bindings.
@@ -607,7 +608,7 @@ codegenTests codegenDir = testGroup "daml codegen" (
             testCase lang $ do
                 createDirectoryIfMissing True codegenDir
                 let projectDir = codegenDir </> ("proj-" ++ lang)
-                callCommandSilentIn codegenDir $ unwords ["daml new", projectDir, "--template=skeleton"]
+                callCommandSilentIn codegenDir $ unwords ["daml new", projectDir, "--template=skeleton-single-package"]
                 callCommandSilentIn projectDir "daml build"
                 let darFile = projectDir </> ".daml/dist/proj-" ++ lang ++ "-0.0.1.dar"
                     outDir  = projectDir </> "generated" </> lang
@@ -625,7 +626,7 @@ cantonTests :: TestTree
 cantonTests = testGroup "daml sandbox"
     [ testCaseSteps "Can start Canton sandbox and run script" $ \step -> withTempDir $ \dir -> do
         step "Creating package"
-        callCommandSilentIn dir $ unwords ["daml new", "skeleton", "--template=skeleton"]
+        callCommandSilentIn dir $ unwords ["daml new", "skeleton", "--template=skeleton-single-package"]
         step "Building package"
         -- TODO(#14706): remove explicit target once the default major version is 2
         callCommandSilentIn (dir </> "skeleton") "daml build --target=2.1"

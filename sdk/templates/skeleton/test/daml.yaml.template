@@ -1,0 +1,9 @@
+sdk-version: __VERSION__
+name: __PROJECT_NAME__-test
+source: daml
+version: 0.0.1
+dependencies:
+  - daml-prim
+  - daml-stdlib
+  - daml-script
+  - ../main/.daml/dist/__PROJECT_NAME__-main-0.0.1.dar
