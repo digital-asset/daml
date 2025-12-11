@@ -3546,6 +3546,10 @@ module DA.NonEmpty
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-NonEmpty.html#function-da-nonempty-cons-63704
 cons :: a -> NonEmpty a -> NonEmpty a
 
+-- | Alias for `cons`.
+@url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-NonEmpty.html#function-da-nonempty-ltpipe-87825
+(<|) :: a -> NonEmpty a -> NonEmpty a
+
 -- | Append or concatenate two non-empty lists.
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-NonEmpty.html#function-da-nonempty-append-34337
 append :: NonEmpty a -> NonEmpty a -> NonEmpty a
