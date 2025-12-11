@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.crypto
 
+import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.{
   DefaultDeserializationError,
   DeserializationError,
@@ -31,10 +32,18 @@ trait RandomOps {
   */
 final case class SecureRandomness private[crypto] (unwrap: ByteString)
     extends HasCryptographicEvidence
-    with HasToByteString {
+    with HasToByteString
+    with PrettyPrinting {
   override def toByteString: ByteString = getCryptographicEvidence
 
   override def getCryptographicEvidence: ByteString = unwrap
+
+  /** Indicates how to pretty print this instance. See `PrettyPrintingTest` for examples on how to
+    * implement this method.
+    */
+  override protected def pretty: Pretty[SecureRandomness.this.type] = prettyOfClass(
+    unnamedParam(_.unwrap)
+  )
 }
 
 /** Cryptographically-secure randomness */

@@ -190,16 +190,13 @@ class InMemoryAcsCommitmentStore(
         for {
           lastTs <- lastComputed.get
           adjustedTs = lastTs.forgetRefinement.min(beforeOrAt)
-
           periods = _outstanding
             .get()
             .collect {
               case (period, participantId, state, multiHostedCleared)
                   if state != CommitmentPeriodState.Matched &&
                     !ignoredParticipants
-                      .exists(config =>
-                        config.participantId == participantId
-                      ) && !multiHostedCleared =>
+                      .exists(config => config.participantId == participantId) =>
                 period.fromExclusive.forgetRefinement -> period.toInclusive.forgetRefinement
             }
           safe = AcsCommitmentStore.latestCleanPeriod(
@@ -319,19 +316,6 @@ class InMemoryAcsCommitmentStore(
 
   override def close(): Unit = ()
 
-  override def markMultiHostedCleared(
-      period: CommitmentPeriod
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    FutureUnlessShutdown.pure {
-      val _ = _outstanding.getAndUpdate { currentOutstanding =>
-        currentOutstanding.map {
-          case (outstandingPeriod, counterParticipant, state, _multiHosted)
-              if outstandingPeriod == period =>
-            (outstandingPeriod, counterParticipant, state, true)
-          case x => x
-        }
-      }
-    }
 }
 
 /* An in-memory, mutable running ACS snapshot */

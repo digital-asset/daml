@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.block.update
 
-import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.sequencing.protocol.{
@@ -73,6 +73,7 @@ class BlockUpdateGeneratorImplTest
             sequencingTimeLowerBoundExclusive = Some(sequencingTimeLowerBoundExclusive),
             producePostOrderingTopologyTicks = false,
             SequencerTestMetrics,
+            BatchingConfig(),
             loggerFactory,
             memberValidatorMock,
           )
@@ -185,6 +186,7 @@ class BlockUpdateGeneratorImplTest
               SequencerNodeParameterConfig.DefaultSequencingTimeLowerBoundExclusive,
             producePostOrderingTopologyTicks = false,
             SequencerTestMetrics,
+            BatchingConfig(),
             loggerFactory,
             memberValidatorMock,
           )
@@ -238,6 +240,7 @@ class BlockUpdateGeneratorImplTest
               SequencerNodeParameterConfig.DefaultSequencingTimeLowerBoundExclusive,
             producePostOrderingTopologyTicks = false,
             SequencerTestMetrics,
+            BatchingConfig(),
             loggerFactory,
             mock[SequencerMemberValidator],
           )
@@ -327,6 +330,7 @@ class BlockUpdateGeneratorImplTest
                 SequencerNodeParameterConfig.DefaultSequencingTimeLowerBoundExclusive,
               producePostOrderingTopologyTicks = true,
               SequencerTestMetrics,
+              BatchingConfig(),
               loggerFactory,
               mock[SequencerMemberValidator],
             )
@@ -397,6 +401,7 @@ class BlockUpdateGeneratorImplTest
                 SequencerNodeParameterConfig.DefaultSequencingTimeLowerBoundExclusive,
               producePostOrderingTopologyTicks = true,
               SequencerTestMetrics,
+              BatchingConfig(),
               loggerFactory,
               mock[SequencerMemberValidator],
             )

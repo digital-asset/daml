@@ -1,17 +1,13 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.integration.tests.bftsynchronizer
+package com.digitalasset.canton.integration.tests.offboarding
 
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameters
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.InstanceReference
-import com.digitalasset.canton.integration.plugins.{
-  UseBftSequencer,
-  UsePostgres,
-  UseReferenceBlockSequencer,
-}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.tests.bftsequencer.AwaitsBftSequencerAuthenticationDisseminationQuorum
 import com.digitalasset.canton.integration.util.OffboardsSequencerNode
 import com.digitalasset.canton.integration.{
@@ -22,7 +18,7 @@ import com.digitalasset.canton.integration.{
 import com.digitalasset.canton.sequencing.{SequencerConnections, SubmissionRequestAmplification}
 import com.digitalasset.canton.topology.SynchronizerId
 
-trait SequencerOffboardingIntegrationTest
+class SequencerOffboardingIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment
     with OffboardsSequencerNode
@@ -36,7 +32,8 @@ trait SequencerOffboardingIntegrationTest
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P2S4M1_Manual
 
-  protected val isBftOrderer: Boolean
+  registerPlugin(new UsePostgres(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   private var synchronizerId: SynchronizerId = _
   private var staticParameters: StaticSynchronizerParameters = _
@@ -69,7 +66,7 @@ trait SequencerOffboardingIntegrationTest
         //  because changing a mediator's connection is currently unsupported and
         //  the goal of this test is not to check sequencer connection fail-over.
         mediatorsToSequencers =
-          Map(mediator1 -> (Seq(sequencer1), PositiveInt.one, NonNegativeInt.zero)),
+          Map(mediator1 -> (Seq(sequencer2), PositiveInt.one, NonNegativeInt.zero)),
         synchronizerOwners = synchronizerOwners,
         synchronizerThreshold = PositiveInt.two,
         staticParameters,
@@ -79,16 +76,15 @@ trait SequencerOffboardingIntegrationTest
     }
   }
 
-  "Onboard participants to sequencer and send a ping" in { implicit env =>
+  "Onboard participants to sequencers and send a ping" in { implicit env =>
     import env.*
 
-    if (isBftOrderer) {
-      waitUntilAllBftSequencersAuthenticateDisseminationQuorum()
-    }
+    waitUntilAllBftSequencersAuthenticateDisseminationQuorum()
+
     clue("participant1 connects to sequencer1") {
       participant1.synchronizers.connect_local(sequencer1, daName)
     }
-    clue("participant2 connects to sequencer1") {
+    clue("participant2 connects to sequencer2") {
       participant2.synchronizers.connect_local(sequencer2, daName)
     }
     participant2.health.ping(participant1.id)
@@ -105,19 +101,21 @@ trait SequencerOffboardingIntegrationTest
     participant2.synchronizers.reconnect(daName)
   }
 
+  "Reconnect mediator2 to sequencer1" in { implicit env =>
+    import env.*
+
+    mediator1.sequencer_connection.set(SequencerConnections.single(sequencer1.sequencerConnection))
+  }
+
   "Off-board sequencer2" in { implicit env =>
     import env.*
 
-    // Note that we're just off-boarding but not stopping `sequencer2` because, if the epoch is not over,
-    //  it's still part of the ordering topology.
-    //  Since we're using just 2 sequencers, there is no fault tolerance, which means consensus may rely
-    //  on `sequencer2` and get stuck if it's switched off before it's also off-boarded from the ordering
-    //  topology.
     offboardSequencer(
       synchronizerId,
       sequencerToOffboard = sequencer2,
-      sequencerOnSynchronizer = sequencer1,
+      sequencersOnSynchronizer = NonEmpty(Seq, sequencer1),
       synchronizerOwners = synchronizerOwners.toSet,
+      isBftOrderer = true,
     )
   }
 
@@ -128,18 +126,4 @@ trait SequencerOffboardingIntegrationTest
 
     participant2.health.ping(participant1.id)
   }
-}
-
-class SequencerOffboardingReferenceIntegrationTestPostgres
-    extends SequencerOffboardingIntegrationTest {
-  override val isBftOrderer: Boolean = false
-  registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
-}
-
-class SequencerOffboardingBftOrderingIntegrationTestPostgres
-    extends SequencerOffboardingIntegrationTest {
-  override val isBftOrderer: Boolean = true
-  registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseBftSequencer(loggerFactory))
 }

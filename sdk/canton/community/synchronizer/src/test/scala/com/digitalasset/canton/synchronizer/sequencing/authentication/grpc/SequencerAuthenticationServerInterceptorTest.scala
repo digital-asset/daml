@@ -5,8 +5,8 @@ package com.digitalasset.canton.synchronizer.sequencing.authentication.grpc
 
 import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.config.RequireTypes.Port
+import com.digitalasset.canton.config.{BatchingConfig, DefaultProcessingTimeouts}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -77,6 +77,7 @@ class SequencerAuthenticationServerInterceptorTest
       _ => (),
       FutureUnlessShutdown.unit,
       DefaultProcessingTimeouts.testing,
+      BatchingConfig(),
       loggerFactory,
     ) {
       override protected def isParticipantActive(participant: ParticipantId)(implicit

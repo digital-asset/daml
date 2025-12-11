@@ -8,9 +8,9 @@ import cats.implicits.catsStdInstancesForFuture
 import cats.kernel.Monoid
 import cats.syntax.either.*
 import cats.syntax.foldable.*
-import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.digitalasset.base.error.BaseAlarm
+import com.digitalasset.canton.config.BatchingConfig
 import com.digitalasset.canton.crypto.{HashPurpose, SyncCryptoApi, SynchronizerCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -29,7 +29,7 @@ import com.digitalasset.canton.synchronizer.sequencer.store.SequencerMemberValid
 import com.digitalasset.canton.synchronizer.sequencer.traffic.SequencerRateLimitManager
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
+import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, MonadUtil}
 import monocle.Monocle.toAppliedFocusOps
 
 import scala.concurrent.ExecutionContext
@@ -42,6 +42,7 @@ private[update] final class SubmissionRequestValidator(
     synchronizerSyncCryptoApi: SynchronizerCryptoClient,
     sequencerId: SequencerId,
     rateLimitManager: SequencerRateLimitManager,
+    batchingConfig: BatchingConfig,
     override val loggerFactory: NamedLoggerFactory,
     metrics: SequencerMetrics,
     memberValidator: SequencerMemberValidator,
@@ -352,15 +353,14 @@ private[update] final class SubmissionRequestValidator(
               ),
             ): SubmissionOutcome
           )
-        _ <- groups.parTraverse { group =>
+        _ <- MonadUtil.parTraverseWithLimit(batchingConfig.parallelism)(groups) { group =>
           val nonRegisteredF =
-            (group.active ++ group.passive).parTraverseFilter { member =>
-              memberValidator
-                .isMemberRegisteredAt(member, sequencingTimestamp)
-                .map { isRegistered =>
-                  Option.when(!isRegistered)(member)
-                }
-            }
+            memberValidator
+              .areMembersRegisteredAt(group.active ++ group.passive, sequencingTimestamp)
+              .map(_.flatMap {
+                case (member, false) => Some(member)
+                case (member, true) => None
+              })
 
           EitherT(
             nonRegisteredF.map { nonRegistered =>
@@ -390,12 +390,13 @@ private[update] final class SubmissionRequestValidator(
       traceContext: TraceContext,
       executionContext: ExecutionContext,
   ): EitherT[FutureUnlessShutdown, SubmissionOutcome, Unit] =
-    submissionRequest.batch.envelopes
-      .parTraverse_ { closedEnvelope =>
-        closedEnvelope.verifySignatures(
-          topologyOrSequencingSnapshot,
-          submissionRequest.sender,
-        )
+    MonadUtil
+      .parTraverseWithLimit_(batchingConfig.parallelism)(submissionRequest.batch.envelopes) {
+        closedEnvelope =>
+          closedEnvelope.verifySignatures(
+            topologyOrSequencingSnapshot,
+            submissionRequest.sender,
+          )
       }
       .leftMap { error =>
         SequencerError.InvalidEnvelopeSignature
@@ -461,12 +462,13 @@ private[update] final class SubmissionRequestValidator(
       unknownRecipients <-
         EitherT
           .right(
-            submissionRequest.batch.allMembers.toList.parTraverseFilter { member =>
-              memberValidator.isMemberRegisteredAt(member, sequencingTimestamp).map {
-                case true => None
-                case false => Some(member)
-              }
-            }
+            memberValidator
+              .areMembersRegisteredAt(submissionRequest.batch.allMembers.toSeq, sequencingTimestamp)
+              .map(_.flatMap {
+                case (_, true) => None
+                case (member, false) =>
+                  Some(member)
+              }.toSeq)
           )
       res <- EitherT.cond[FutureUnlessShutdown](
         unknownRecipients.isEmpty,
@@ -743,12 +745,12 @@ private[update] final class SubmissionRequestValidator(
 
       unregisteredEligibleMembers <-
         EitherT.right(
-          rule.eligibleSenders.forgetNE.parTraverseFilter { member =>
-            memberValidator.isMemberRegisteredAt(member, sequencingTimestamp).map {
-              case true => None
-              case false => Some(member)
-            }
-          }
+          memberValidator
+            .areMembersRegisteredAt(rule.eligibleSenders.forgetNE, sequencingTimestamp)
+            .map(_.flatMap {
+              case (member, true) => None
+              case (member, false) => Some(member)
+            })
         )
 
       _ <- EitherTUtil

@@ -176,6 +176,7 @@ abstract class BlockSequencerFactory(
       trafficConsumedStore,
       loggerFactory,
       nodeParameters.processingTimeouts,
+      nodeParameters.batchingConfig,
       metrics,
       synchronizerSyncCryptoApi,
       protocolVersion,

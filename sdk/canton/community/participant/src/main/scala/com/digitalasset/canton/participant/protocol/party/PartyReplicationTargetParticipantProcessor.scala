@@ -98,9 +98,9 @@ class PartyReplicationTargetParticipantProcessor(
   // The base hash for all indexer UpdateIds to avoid repeating this for all ACS batches.
   private lazy val indexerUpdateIdBaseHash = pureCrypto
     .build(HashPurpose.OnlinePartyReplicationId)
-    .add(partyId.toProtoPrimitive)
-    .add(psid.toProtoPrimitive)
-    .add(partyOnboardingAt.value.toProtoPrimitive)
+    .addString(partyId.toProtoPrimitive)
+    .addString(psid.toProtoPrimitive)
+    .addLong(partyOnboardingAt.value.toProtoPrimitive)
     .finish()
 
   override def replicatedContractsCount: NonNegativeInt = processorStore.processedContractsCount
@@ -374,14 +374,14 @@ class PartyReplicationTargetParticipantProcessor(
         .foldLeft {
           pureCrypto
             .build(HashPurpose.OnlinePartyReplicationId)
-            .add(indexerUpdateIdBaseHash.unwrap)
-            .add(repairCounter.unwrap)
+            .addByteString(indexerUpdateIdBaseHash.unwrap)
+            .addLong(repairCounter.unwrap)
         } {
           // TODO(#26468): Use validation packages
           case (builder, (ContractReassignment(contract, _, _, reassignmentCounter), _)) =>
             builder
-              .add(reassignmentCounter.v)
-              .add(contract.contractId.coid)
+              .addLong(reassignmentCounter.v)
+              .addString(contract.contractId.coid)
         }
         .finish()
       UpdateId(hash)

@@ -110,13 +110,15 @@ trait LedgerTransparencyIntegrationTest
       } { encryptedViewMessages =>
         // we only expect one encrypted view
         val encryptedViewMessage = encryptedViewMessages.loneElement
-        val sessionKeys = encryptedViewMessage.sessionKeys
+        val viewEncryptionKeyRandomness = encryptedViewMessage.viewEncryptionKeyRandomness
 
         // the session encryption key for the ping message must be encrypted for both `participant1`
         // and `participant2`
-        sessionKeys.map(_.encryptedFor).forgetNE should contain allOf (p1EncId, p2EncId)
+        viewEncryptionKeyRandomness
+          .map(_.encryptedFor)
+          .forgetNE should contain allOf (p1EncId, p2EncId)
 
-        val p1Ciphertext = sessionKeys
+        val p1Ciphertext = viewEncryptionKeyRandomness
           .find(_.encryptedFor == p1EncId)
           .valueOrFail("no encrypted randomness for participant1")
 
@@ -131,7 +133,7 @@ trait LedgerTransparencyIntegrationTest
           )
           .valueOrFail("decrypt encrypted randomness for participant1")
 
-        val p2Ciphertext = encryptedViewMessage.sessionKeys
+        val p2Ciphertext = encryptedViewMessage.viewEncryptionKeyRandomness
           .find(_.encryptedFor == p2EncId)
           .valueOrFail("no encrypted randomness for participant2")
 

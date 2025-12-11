@@ -49,7 +49,6 @@ import com.digitalasset.canton.participant.store.{
   AcsCounterParticipantConfigStore,
 }
 import com.digitalasset.canton.participant.util.TimeOfChange
-import com.digitalasset.canton.platform.store.interning.MockStringInterning
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.{
   AcsCommitment,
@@ -480,7 +479,6 @@ class AcsCommitmentBenchmark
       commitmentCheckpointInterval = PositiveDurationSeconds.ofSeconds(reconciliationInterval),
       commitmentMismatchDebugging = false,
       commitmentProcessorNrAcsChangesBehindToTriggerCatchUp = None,
-      stringInterning = new MockStringInterning,
     )
   }
 

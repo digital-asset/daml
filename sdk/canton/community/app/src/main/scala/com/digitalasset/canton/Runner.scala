@@ -216,7 +216,7 @@ object ConsoleScriptRunner extends NoTracing {
     val normalized = script.replaceAll("\\r\\n|\\r|\\n", "\n")
     Hash
       .build(HashPurpose.CantonScript, HashAlgorithm.Sha256)
-      .add(normalized)
+      .addString(normalized)
       .finish()
   }
 }

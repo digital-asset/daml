@@ -4,7 +4,7 @@
 package com.digitalasset.canton.synchronizer.block.update
 
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable}
 import com.digitalasset.canton.sequencing.protocol.{
@@ -64,6 +64,7 @@ class BlockChunkProcessorTest extends AsyncWordSpec with BaseTest {
             sequencerId,
             rateLimitManagerMock,
             OrderingTimeFixMode.ValidateOnly,
+            BatchingConfig(),
             loggerFactory,
             SequencerTestMetrics,
             memberValidatorMock,

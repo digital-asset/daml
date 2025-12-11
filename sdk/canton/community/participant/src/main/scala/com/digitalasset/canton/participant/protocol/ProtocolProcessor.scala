@@ -33,6 +33,7 @@ import com.digitalasset.canton.participant.protocol.EngineController.EngineAbort
 import com.digitalasset.canton.participant.protocol.Phase37Synchronizer.RequestOutcome
 import com.digitalasset.canton.participant.protocol.ProcessingSteps.{
   CleanReplayData,
+  DecryptedViews,
   PendingRequestData,
   ReplayDataOr,
   Wrapped,
@@ -745,7 +746,7 @@ abstract class ProtocolProcessor[
         }
         (snapshot, uncheckedDecryptedViews, synchronizerParameters) = preliminaryChecks
 
-        steps.DecryptedViews(decryptedViewsWithSignatures, rawDecryptionErrors) =
+        DecryptedViews(decryptedViewsWithSignatures, rawDecryptionErrors) =
           uncheckedDecryptedViews
         _ = rawDecryptionErrors.foreach { decryptionError =>
           logger.warn(s"Request $rc: Decryption error: $decryptionError")

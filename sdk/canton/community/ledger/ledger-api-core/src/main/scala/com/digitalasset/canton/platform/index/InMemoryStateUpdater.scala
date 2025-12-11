@@ -511,18 +511,21 @@ private[platform] object InMemoryStateUpdater {
           deduplicationInfo(completionInfo)
 
         CompletionFromTransaction.acceptedCompletion(
-          submitters = completionInfo.actAs.toSet,
-          recordTime = txAccepted.recordTime.toLf,
-          offset = offset,
-          commandId = completionInfo.commandId,
+          commonCompletionProperties = CompletionFromTransaction.CommonCompletionProperties
+            .createFromRecordTimeAndSynchronizerId(
+              submitters = completionInfo.actAs.toSet,
+              recordTime = txAccepted.recordTime.toLf,
+              completionOffset = offset,
+              commandId = completionInfo.commandId,
+              userId = completionInfo.userId,
+              submissionId = completionInfo.submissionId,
+              deduplicationOffset = deduplicationOffset,
+              deduplicationDurationSeconds = deduplicationDurationSeconds,
+              deduplicationDurationNanos = deduplicationDurationNanos,
+              synchronizerId = txAccepted.synchronizerId.toProtoPrimitive,
+              traceContext = txAccepted.traceContext,
+            ),
           updateId = txAccepted.updateId,
-          userId = completionInfo.userId,
-          optSubmissionId = completionInfo.submissionId,
-          optDeduplicationOffset = deduplicationOffset,
-          optDeduplicationDurationSeconds = deduplicationDurationSeconds,
-          optDeduplicationDurationNanos = deduplicationDurationNanos,
-          synchronizerId = txAccepted.synchronizerId.toProtoPrimitive,
-          traceContext = txAccepted.traceContext,
         )
       }
 
@@ -550,18 +553,20 @@ private[platform] object InMemoryStateUpdater {
     TransactionLogUpdate.TransactionRejected(
       offset = offset,
       completionStreamResponse = CompletionFromTransaction.rejectedCompletion(
-        submitters = u.completionInfo.actAs.toSet,
-        recordTime = u.recordTime.toLf,
-        offset = offset,
-        commandId = u.completionInfo.commandId,
+        CompletionFromTransaction.CommonCompletionProperties.createFromRecordTimeAndSynchronizerId(
+          submitters = u.completionInfo.actAs.toSet,
+          recordTime = u.recordTime.toLf,
+          completionOffset = offset,
+          commandId = u.completionInfo.commandId,
+          userId = u.completionInfo.userId,
+          submissionId = u.completionInfo.submissionId,
+          deduplicationOffset = deduplicationOffset,
+          deduplicationDurationSeconds = deduplicationDurationSeconds,
+          deduplicationDurationNanos = deduplicationDurationNanos,
+          synchronizerId = u.synchronizerId.toProtoPrimitive,
+          traceContext = u.traceContext,
+        ),
         status = u.reasonTemplate.status,
-        userId = u.completionInfo.userId,
-        optSubmissionId = u.completionInfo.submissionId,
-        optDeduplicationOffset = deduplicationOffset,
-        optDeduplicationDurationSeconds = deduplicationDurationSeconds,
-        optDeduplicationDurationNanos = deduplicationDurationNanos,
-        synchronizerId = u.synchronizerId.toProtoPrimitive,
-        traceContext = u.traceContext,
       ),
     )(u.traceContext)
   }
@@ -576,18 +581,21 @@ private[platform] object InMemoryStateUpdater {
           deduplicationInfo(completionInfo)
 
         CompletionFromTransaction.acceptedCompletion(
-          submitters = completionInfo.actAs.toSet,
-          recordTime = u.recordTime.toLf,
-          offset = offset,
-          commandId = completionInfo.commandId,
+          commonCompletionProperties = CompletionFromTransaction.CommonCompletionProperties
+            .createFromRecordTimeAndSynchronizerId(
+              submitters = completionInfo.actAs.toSet,
+              recordTime = u.recordTime.toLf,
+              completionOffset = offset,
+              commandId = completionInfo.commandId,
+              userId = completionInfo.userId,
+              submissionId = completionInfo.submissionId,
+              deduplicationOffset = deduplicationOffset,
+              deduplicationDurationSeconds = deduplicationDurationSeconds,
+              deduplicationDurationNanos = deduplicationDurationNanos,
+              synchronizerId = u.synchronizerId.toProtoPrimitive,
+              traceContext = u.traceContext,
+            ),
           updateId = u.updateId,
-          userId = completionInfo.userId,
-          optSubmissionId = completionInfo.submissionId,
-          optDeduplicationOffset = deduplicationOffset,
-          optDeduplicationDurationSeconds = deduplicationDurationSeconds,
-          optDeduplicationDurationNanos = deduplicationDurationNanos,
-          synchronizerId = u.synchronizerId.toProtoPrimitive,
-          traceContext = u.traceContext,
         )
       }
 

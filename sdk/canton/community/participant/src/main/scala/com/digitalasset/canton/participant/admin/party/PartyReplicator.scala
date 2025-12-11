@@ -177,10 +177,10 @@ final class PartyReplicator(
           requestId =
             syncPersistentState.pureCryptoApi
               .build(HashPurpose.OnlinePartyReplicationId)
-              .add(partyId.toProtoPrimitive)
-              .add(synchronizerId.toProtoPrimitive)
-              .add(sourceParticipantId.toProtoPrimitive)
-              .add(serial.unwrap)
+              .addString(partyId.toProtoPrimitive)
+              .addString(synchronizerId.toProtoPrimitive)
+              .addString(sourceParticipantId.toProtoPrimitive)
+              .addInt(serial.unwrap)
               .finish()
           _ <- EitherT.fromEither[FutureUnlessShutdown](ensureCanAddParty())
           _ <- adminWorkflow.proposePartyReplication(

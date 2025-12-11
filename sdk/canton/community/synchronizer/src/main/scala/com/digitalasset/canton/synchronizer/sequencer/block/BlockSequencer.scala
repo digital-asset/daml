@@ -10,8 +10,8 @@ import cats.syntax.foldable.*
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.RichGeneratedMessage
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
+import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.{Signature, SynchronizerCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonBaseError
@@ -92,6 +92,7 @@ class BlockSequencer(
     logEventDetails: Boolean,
     prettyPrinter: CantonPrettyPrinter,
     metrics: SequencerMetrics,
+    batchingConfig: BatchingConfig,
     loggerFactory: NamedLoggerFactory,
     exitOnFatalFailures: Boolean,
     runtimeReady: FutureUnlessShutdown[Unit],
@@ -185,6 +186,7 @@ class BlockSequencer(
       sequencingTimeLowerBoundExclusive = sequencingTimeLowerBoundExclusive,
       producePostOrderingTopologyTicks,
       metrics,
+      batchingConfig,
       loggerFactory,
       memberValidator = memberValidator,
     )(CloseContext(cryptoApi), tracer)

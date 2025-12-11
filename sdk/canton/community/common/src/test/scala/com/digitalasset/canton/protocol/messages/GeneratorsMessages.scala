@@ -203,7 +203,7 @@ final class GeneratorsMessages(
     } yield EncryptedViewMessage.apply(
       submittingParticipantSignature = signatureO,
       viewHash = viewHash,
-      sessionKeys = sessionKey,
+      viewEncryptionKeyRandomness = sessionKey,
       encryptedView = encryptedView,
       synchronizerId = synchronizerId,
       viewEncryptionScheme = viewEncryptionScheme,

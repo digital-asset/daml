@@ -91,8 +91,8 @@ object CryptoProvider {
   ): Hash =
     Hash
       .build(toHashPurpose(authenticatedMessageType), Sha256)
-      .add(from)
-      .add(messageT.getCryptographicEvidence)
+      .addString(from)
+      .addByteString(messageT.getCryptographicEvidence)
       .finish()
 
   def timeCrypto[T](

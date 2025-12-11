@@ -16,6 +16,7 @@ import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
 import com.digitalasset.canton.participant.protocol.ProcessingSteps.{
+  DecryptedViews,
   InternalContractIds,
   ParsedRequest,
   WrapsProcessorError,
@@ -359,31 +360,7 @@ trait ProcessingSteps[
       sessionKeyStore: ConfirmationRequestSessionKeyStore,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, RequestError, DecryptedViews]
-
-  /** Phase 3, step 1a:
-    *
-    * @param views
-    *   The successfully decrypted views and their signatures. Signatures are only present for
-    *   top-level views (where the submitter metadata is not blinded)
-    * @param decryptionErrors
-    *   The decryption errors while trying to decrypt the views
-    */
-  case class DecryptedViews(
-      views: Seq[(WithRecipients[DecryptedView], Option[Signature])],
-      decryptionErrors: Seq[EncryptedViewMessageError],
-  )
-
-  object DecryptedViews {
-    def apply(
-        all: Seq[
-          Either[EncryptedViewMessageError, (WithRecipients[DecryptedView], Option[Signature])]
-        ]
-    ): DecryptedViews = {
-      val (errors, views) = all.separate
-      DecryptedViews(views, errors)
-    }
-  }
+  ): EitherT[FutureUnlessShutdown, RequestError, DecryptedViews[DecryptedView]]
 
   /** Phase 3, step 1b
     *
@@ -831,4 +808,27 @@ object ProcessingSteps {
 
   type InternalContractIds = Map[LfContractId, Long]
 
+  /** Phase 3, step 1a:
+    *
+    * @param views
+    *   The successfully decrypted views and their signatures. Signatures are only present for
+    *   top-level views (where the submitter metadata is not blinded)
+    * @param decryptionErrors
+    *   The decryption errors while trying to decrypt the views
+    */
+  final case class DecryptedViews[V](
+      views: Seq[(WithRecipients[V], Option[Signature])],
+      decryptionErrors: Seq[EncryptedViewMessageError],
+  )
+
+  object DecryptedViews {
+    def apply[V](
+        all: Seq[
+          Either[EncryptedViewMessageError, (WithRecipients[V], Option[Signature])]
+        ]
+    ): DecryptedViews[V] = {
+      val (errors, views) = all.separate
+      DecryptedViews(views, errors)
+    }
+  }
 }

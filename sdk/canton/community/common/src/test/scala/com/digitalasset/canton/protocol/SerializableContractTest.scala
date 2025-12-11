@@ -80,7 +80,7 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
 
     val contractIdDiscriminator = ExampleTransactionFactory.lfHash(0)
     val contractIdSuffix =
-      Unicum(Hash.build(TestHash.testHashPurpose, HashAlgorithm.Sha256).add(0).finish())
+      Unicum(Hash.build(TestHash.testHashPurpose, HashAlgorithm.Sha256).addInt(0).finish())
 
     val invalidFormatContractId = LfContractId.assertFromString("00" * 34)
 

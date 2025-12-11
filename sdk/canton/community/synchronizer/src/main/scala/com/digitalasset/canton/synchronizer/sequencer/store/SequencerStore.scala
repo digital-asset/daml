@@ -434,6 +434,10 @@ trait SequencerMemberValidator {
   def isMemberRegisteredAt(member: Member, time: CantonTimestamp)(implicit
       tc: TraceContext
   ): FutureUnlessShutdown[Boolean]
+
+  def areMembersRegisteredAt(members: Seq[Member], time: CantonTimestamp)(implicit
+      tc: TraceContext
+  ): FutureUnlessShutdown[Map[Member, Boolean]]
 }
 
 /** Persistence for the Sequencer. Writers are expected to create a [[SequencerWriterStore]] which
@@ -530,6 +534,15 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
         logger.trace(s"Checked if member $member is registered at time $time: $registered")
         registered
       }
+
+  override def areMembersRegisteredAt(members: Seq[Member], time: CantonTimestamp)(implicit
+      tc: TraceContext
+  ): FutureUnlessShutdown[Map[Member, Boolean]] =
+    lookupMembers(members).map(
+      _.view
+        .mapValues(_.exists(_.registeredFrom <= time))
+        .toMap
+    )
 
   /** Save a series of payloads to the store. Is up to the caller to determine a reasonable batch
     * size and no batching is done within the store.
