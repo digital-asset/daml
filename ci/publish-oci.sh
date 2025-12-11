@@ -72,6 +72,7 @@ function publish_artifact {
   local artifact_name="${1}"
   declare -a artifact_platforms=( "linux-intel,linux/amd64" "linux-arm,linux/arm64" "macos,darwin/arm64" "macos,darwin/amd64" "windows,windows/amd64" )
   declare -a platform_args
+  declare -a extra_tags_args
   cd "${STAGING_DIR}" || exit 1
   (
     for item in "${artifact_platforms[@]}"; do
@@ -89,12 +90,15 @@ function publish_artifact {
       fi
       platform_args+=( "--platform ${arch}=dist/${arch}/${artifact_name} " )
     done
+    if [[ "${RELEASE_TAG}" != *"-adhoc-"* ]] then
+      extra_tags_args+=( "--extra-tags main" )
+      extra_tags_args+=( "--extra-tags $(extract_major_minor ${RELEASE_TAG})" )
+    fi
     info "Uploading ${artifact_name} to oci registry...\n"
     "${HOME}"/.dpm/bin/dpm \
       repo publish-component \
         "${artifact_name}" "${RELEASE_TAG}" \
-        --extra-tags main \
-        --extra-tags $(extract_major_minor ${RELEASE_TAG}) \
+        ${extra_tags_args[@]} \
         ${platform_args[@]} \
         --registry "${DPM_REGISTRY}" 2>&1 | tee "${logs}/${artifact_name}-${RELEASE_TAG}.log"
   )
