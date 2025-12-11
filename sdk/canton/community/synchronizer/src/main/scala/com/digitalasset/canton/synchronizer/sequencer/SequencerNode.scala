@@ -651,6 +651,7 @@ class SequencerNodeBootstrap(
             useExponentialRandomTokenExpiration =
               config.publicApi.useExponentialRandomTokenExpiration,
             parameters.processingTimeouts,
+            parameters.batchingConfig,
             synchronizerLoggerFactory,
             topologyProcessor,
           )

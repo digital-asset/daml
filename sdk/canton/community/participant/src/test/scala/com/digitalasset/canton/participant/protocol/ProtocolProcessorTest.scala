@@ -413,7 +413,7 @@ class ProtocolProcessorTest
   private lazy val viewMessage: EncryptedViewMessage[TestViewType] = EncryptedViewMessage(
     submittingParticipantSignature = None,
     viewHash = viewHash,
-    sessionKeys = sessionKeyMapTest,
+    viewEncryptionKeyRandomness = sessionKeyMapTest,
     encryptedView = encryptedView,
     synchronizerId = DefaultTestIdentities.physicalSynchronizerId,
     SymmetricKeyScheme.Aes128Gcm,
@@ -678,7 +678,7 @@ class ProtocolProcessorTest
       val viewMessageWrongRH = EncryptedViewMessage(
         submittingParticipantSignature = None,
         viewHash = viewHash1,
-        sessionKeys = sessionKeyMapTest,
+        viewEncryptionKeyRandomness = sessionKeyMapTest,
         encryptedView = encryptedViewWrongRH,
         synchronizerId = DefaultTestIdentities.physicalSynchronizerId,
         SymmetricKeyScheme.Aes128Gcm,
@@ -713,7 +713,7 @@ class ProtocolProcessorTest
       val viewMessageDecryptError: EncryptedViewMessage[TestViewType] = EncryptedViewMessage(
         submittingParticipantSignature = None,
         viewHash = viewHash,
-        sessionKeys = sessionKeyMapTest,
+        viewEncryptionKeyRandomness = sessionKeyMapTest,
         encryptedView = EncryptedView(TestViewType)(Encrypted.fromByteString(ByteString.EMPTY)),
         synchronizerId = DefaultTestIdentities.physicalSynchronizerId,
         viewEncryptionScheme = SymmetricKeyScheme.Aes128Gcm,

@@ -5,6 +5,7 @@ package com.digitalasset.canton.synchronizer.mediator
 
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.*
+import com.digitalasset.canton.config.BatchingConfig
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
@@ -288,6 +289,7 @@ class ConfirmationRequestAndResponseProcessorTest
       mediatorState,
       loggerFactory,
       timeouts,
+      BatchingConfig(),
     )
   }
 
@@ -972,6 +974,7 @@ class ConfirmationRequestAndResponseProcessorTest
             participantResponseDeadline,
             decisionTime,
             mockTopologySnapshot,
+            BatchingConfig(),
             participantResponseDeadlineTick = None,
           )
 

@@ -1199,6 +1199,7 @@ object ReferenceSequencerWithTrafficControlApiTestBase {
         trafficConsumedStore,
         loggerFactory,
         timeouts,
+        BatchingConfig(),
         metrics,
         synchronizerSyncCryptoApi,
         protocolVersion,

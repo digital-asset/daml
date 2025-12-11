@@ -291,12 +291,6 @@ final class P2PNetworkOutModule[
                   p2pEndpointId,
                   isEndpointOutgoing,
                   health = (isEndpointDefined, isEndpointConnected, maybeBftNodeId) match {
-                    case (false, _, _) =>
-                      PeerEndpointHealth(PeerEndpointHealthStatus.UnknownEndpoint, None)
-                    case (_, false, _) =>
-                      PeerEndpointHealth(PeerEndpointHealthStatus.Disconnected, None)
-                    case (_, _, None) =>
-                      PeerEndpointHealth(PeerEndpointHealthStatus.Unauthenticated, None)
                     case (_, _, Some(nodeId)) =>
                       PeerEndpointHealth(
                         PeerEndpointHealthStatus.Authenticated(
@@ -306,6 +300,12 @@ final class P2PNetworkOutModule[
                         ),
                         None,
                       )
+                    case (false, _, _) =>
+                      PeerEndpointHealth(PeerEndpointHealthStatus.UnknownEndpoint, None)
+                    case (_, false, _) =>
+                      PeerEndpointHealth(PeerEndpointHealthStatus.Disconnected, None)
+                    case (_, _, None) =>
+                      PeerEndpointHealth(PeerEndpointHealthStatus.Unauthenticated, None)
                   },
                 )
               case _ =>

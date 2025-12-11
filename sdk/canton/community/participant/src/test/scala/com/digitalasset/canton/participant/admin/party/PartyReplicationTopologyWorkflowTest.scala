@@ -57,7 +57,8 @@ class PartyReplicationTopologyWorkflowTest
     extends AsyncWordSpec
     with BaseTest
     with HasExecutionContext {
-  private val requestId = Hash.build(TestHash.testHashPurpose, HashAlgorithm.Sha256).add(0).finish()
+  private val requestId =
+    Hash.build(TestHash.testHashPurpose, HashAlgorithm.Sha256).addInt(0).finish()
   private val partyId = PartyId.tryFromProtoPrimitive("onboarding::namespace")
   private val synchronizerId = SynchronizerId.tryFromString("synchronizer::namespace")
   private val physicalSynchronizerId = synchronizerId.toPhysical

@@ -10,6 +10,7 @@ import com.digitalasset.canton.HasExecutionContext
 import com.digitalasset.canton.admin.api.client.data.NodeStatus
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{
+  DbConfig,
   NonNegativeDuration,
   PositiveFiniteDuration,
   ReplicationConfig,
@@ -130,7 +131,10 @@ trait ReplicatedParticipantTestSetup extends ReplicatedNodeHelper {
         loggerFactory,
       )
     )
-    registerPlugin(new UseBftSequencer(loggerFactory))
+    // TODO(#29603): change this back to use the BFT Orderer.
+    // The PerformanceReplicatedParticipantDatabaseFaultIntegrationTest was flaking a lot with the BFT Orderer
+    // registerPlugin(new UseBftSequencer(loggerFactory))
+    registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 
     additionalPlugins.foreach(registerPlugin)
 

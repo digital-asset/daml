@@ -642,7 +642,7 @@ trait InvalidTransactionConfirmationRequestIntegrationTest
 
           val encryptedViewTree = message.encryptedView
           val encryptedViewRandomness =
-            message.sessionKeys.headOption.valueOrFail("retrieve view key")
+            message.viewEncryptionKeyRandomness.headOption.valueOrFail("retrieve view key")
           val viewRandomness = participant1.crypto.privateCrypto
             .decrypt(
               encryptedViewRandomness
@@ -694,7 +694,7 @@ trait InvalidTransactionConfirmationRequestIntegrationTest
           val newEncryptedViewMessage = EncryptedViewMessageFactory
             .create(TransactionViewType)(
               newLtvt,
-              (viewKey, message.sessionKeys),
+              (viewKey, message.viewEncryptionKeyRandomness),
               crypto,
               testedProtocolVersion,
             )

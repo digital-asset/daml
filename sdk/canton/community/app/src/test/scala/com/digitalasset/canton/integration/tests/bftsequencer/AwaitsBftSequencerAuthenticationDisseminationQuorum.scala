@@ -12,6 +12,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.{BaseTest, integration}
 import org.scalatest.Assertion
 
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
+
 trait AwaitsBftSequencerAuthenticationDisseminationQuorum {
   this: BaseTest =>
 
@@ -40,14 +42,16 @@ trait AwaitsBftSequencerAuthenticationDisseminationQuorum {
     * Useful upon test initialization to prevent flaky test log noise such as
     *   - "P2P connectivity is not ready (authenticated = 1 < dissemination quorum = 2)"
     */
-  protected def waitUntilAllBftSequencersAuthenticateDisseminationQuorum()(implicit
+  protected def waitUntilAllBftSequencersAuthenticateDisseminationQuorum(
+      timeUntilSuccess: FiniteDuration = 20.seconds
+  )(implicit
       env: integration.TestConsoleEnvironment
   ): Assertion = {
     val weakQuorumSize = OrderingTopology.weakQuorumSize(env.sequencers.all.size)
     clue(
       s"make sure all sequencers have connected to a dissemination quorum of at least $weakQuorumSize other sequencers"
     ) {
-      eventually() {
+      eventually(timeUntilSuccess) {
         forAll(env.sequencers.all)(authenticatedPeersCount(_) should be >= weakQuorumSize)
       }
     }

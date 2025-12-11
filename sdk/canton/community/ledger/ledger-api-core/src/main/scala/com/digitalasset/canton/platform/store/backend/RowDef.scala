@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.backend
 
-import anorm.{Row, RowParser, SimpleSql, SqlRequestError, ~}
+import anorm.{Row, RowParser, SimpleSql, ~}
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.*
 import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.*
 
@@ -16,9 +16,19 @@ final case class RowDef[+T](
   def queryMultipleRows(sql: CompositeSql => SimpleSql[Row])(implicit
       connection: Connection
   ): Vector[T] =
-    sql(cSQL"#${columns.mkString(", ")}").asVectorOf(rowParser)(connection)
+    sql(columnsCSql).asVectorOf(rowParser)(connection)
 
-  def map[U](f: T => U): RowDef[U] = RowDef(columns, rowParser.map(f))
+  def querySingleOptRow(sql: CompositeSql => SimpleSql[Row])(implicit
+      connection: Connection
+  ): Option[T] =
+    sql(columnsCSql).asSingleOpt(rowParser)(connection)
+
+  private def mapRowParser[U](f: RowParser[T] => RowParser[U]): RowDef[U] =
+    RowDef(columns = columns, rowParser = f(rowParser))
+
+  def map[U](f: T => U): RowDef[U] = mapRowParser(_.map(f))
+
+  def ? : RowDef[Option[T]] = mapRowParser(_.?)
 
   def branch[U, X >: T](branches: (X, RowDef[U])*): RowDef[U] = {
     val branchMap = branches.toMap
@@ -29,17 +39,15 @@ final case class RowDef[+T](
           case Some(rowDef) => rowDef.rowParser
           case None =>
             _ =>
-              anorm.Error(
-                SqlRequestError(
-                  new IllegalStateException(
-                    s"Cannot find suitable branch for result parsing for extracted branch value $branchValue"
-                  )
-                )
+              throw new IllegalStateException(
+                s"Cannot find suitable branch for result parsing for extracted branch value $branchValue"
               )
         }
       },
     )
   }
+
+  private val columnsCSql = cSQL"#${columns.mkString(", ")}"
 }
 
 object RowDef {

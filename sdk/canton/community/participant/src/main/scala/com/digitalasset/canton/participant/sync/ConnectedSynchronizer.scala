@@ -1200,7 +1200,6 @@ object ConnectedSynchronizer {
           commitmentMismatchDebugging = parameters.commitmentMismatchDebugging,
           commitmentProcessorNrAcsChangesBehindToTriggerCatchUp =
             parameters.commitmentProcessorNrAcsChangesBehindToTriggerCatchUp,
-          stringInterning = participantNodePersistentState.value.ledgerApiStore.stringInterningView,
         )
         topologyProcessor <- topologyProcessorFactory.create(
           acsCommitmentProcessor.scheduleTopologyTick

@@ -62,7 +62,6 @@ import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.{
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.memory.*
 import com.digitalasset.canton.participant.util.TimeOfChange
-import com.digitalasset.canton.platform.store.interning.MockStringInterning
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.ContractIdSyntax.*
 import com.digitalasset.canton.protocol.messages.*
@@ -389,7 +388,6 @@ sealed trait AcsCommitmentProcessorBaseTest
       // and contract stores correctly, otherwise the tests will fail
       commitmentMismatchDebugging = false,
       commitmentProcessorNrAcsChangesBehindToTriggerCatchUp = Some(PositiveInt.tryCreate(5)),
-      stringInterning = new MockStringInterning,
     )
     (acsCommitmentProcessor, store, sequencerClient, changes, acsCommitmentConfigStore)
   }
@@ -1756,64 +1754,6 @@ class AcsCommitmentProcessorTest
         assertInIntervalBefore(tsCleanRequest, reconciliationInterval)(res2)
         assertInIntervalBefore(tsCleanRequest2, reconciliationInterval)(res3)
       }
-    }
-
-    "prune multi-hosted correctly with buffered requests that spans several periods" in {
-      val timeProofs = List(3L, 8, 20).map(CantonTimestamp.ofEpochSecond)
-      val contractSetup = Map(
-        // contract ID to stakeholders, creation and archival time
-        (
-          coid(0, 0),
-          (
-            Set(alice, bob),
-            toc(1),
-            toc(9),
-            initialReassignmentCounter,
-            initialReassignmentCounter,
-          ),
-        )
-      )
-
-      val topology = Map(
-        localId -> Set(alice),
-        remoteId1 -> Set(bob),
-        remoteId2 -> Set(bob),
-      )
-
-      val (proc, store, sequencerClient, changes, _) =
-        testSetupDontPublish(
-          timeProofs,
-          contractSetup,
-          topology,
-          acsCommitmentsCatchUpModeEnabled = false,
-        )
-
-      val remoteCommitments = List(
-        (remoteId1, Map((coid(0, 0), initialReassignmentCounter)), ts(0), ts(20), None)
-      )
-
-      (for {
-        processor <- proc
-        remote <- remoteCommitments.parTraverse(commitmentMsg)
-        delivered = remote.map(cmt =>
-          (
-            cmt.message.period.toInclusive.plusSeconds(1),
-            List(OpenEnvelope(cmt, Recipients.cc(localId))(testedProtocolVersion)),
-          )
-        )
-        // First ask for the remote commitments to be processed
-        _ <- delivered.parTraverse_ { case (ts, batch) =>
-          processor.processBatchInternal(ts.forgetRefinement, batch).flatMap(_.unwrap)
-        }
-        _ <- processChanges(processor, store, changes)
-
-        outstanding <- store.noOutstandingCommitments(timeProofs.lastOption.value)
-      } yield {
-        // multi hosted should have cleared since the threshold for bob would be 1 (and we send 1 commitment)
-        processor.multiHostedPartyTracker.commitmentThresholdsMap shouldBe empty
-        // we have not received anything from remoteId2, however because of multi hosted we should be able to advance
-        assert(outstanding.contains(toc(20).timestamp))
-      })
     }
 
     "running commitments work as expected" in {

@@ -6,11 +6,10 @@ package com.digitalasset.canton.synchronizer.sequencing.authentication
 import cats.data.EitherT
 import cats.instances.future.*
 import cats.syntax.bifunctor.*
-import cats.syntax.parallel.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SequencerCounter
-import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -26,6 +25,7 @@ import com.digitalasset.canton.topology.processing.*
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.util.MonadUtil
 
 import java.time.Duration
 import scala.concurrent.ExecutionContext
@@ -60,6 +60,7 @@ class MemberAuthenticationService(
     invalidateMemberCallback: Traced[Member] => Unit,
     isTopologyInitialized: FutureUnlessShutdown[Unit],
     override val timeouts: ProcessingTimeout,
+    batchingConfig: BatchingConfig,
     val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends NamedLogging
@@ -245,9 +246,14 @@ class MemberAuthenticationService(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Boolean] =
     // we are a bit more conservative here. a member needs to be active NOW and the head state (i.e. effective in the future)
-    Seq(FutureUnlessShutdown.pure(cryptoApi.headSnapshot), cryptoApi.currentSnapshotApproximation)
-      .map(_.map(_.ipsSnapshot))
-      .parTraverse(_.flatMap(check(_)))
+    MonadUtil
+      .parTraverseWithLimit(batchingConfig.parallelism)(
+        Seq(
+          FutureUnlessShutdown.pure(cryptoApi.headSnapshot),
+          cryptoApi.currentSnapshotApproximation,
+        )
+          .map(_.map(_.ipsSnapshot))
+      )(_.flatMap(check(_)))
       .map(_.forall(identity))
 
   protected def isParticipantActive(participant: ParticipantId)(implicit
@@ -310,6 +316,7 @@ class MemberAuthenticationServiceImpl(
     invalidateMemberCallback: Traced[Member] => Unit,
     isTopologyInitialized: FutureUnlessShutdown[Unit],
     timeouts: ProcessingTimeout,
+    batchingConfig: BatchingConfig,
     loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends MemberAuthenticationService(
@@ -323,6 +330,7 @@ class MemberAuthenticationServiceImpl(
       invalidateMemberCallback,
       isTopologyInitialized,
       timeouts,
+      batchingConfig,
       loggerFactory,
     )
     with TopologyTransactionProcessingSubscriber {
@@ -390,6 +398,7 @@ object MemberAuthenticationServiceFactory {
       maxTokenExpirationInterval: Duration,
       useExponentialRandomTokenExpiration: Boolean,
       timeouts: ProcessingTimeout,
+      batchingConfig: BatchingConfig,
       loggerFactory: NamedLoggerFactory,
       topologyTransactionProcessor: TopologyTransactionProcessor,
   ): MemberAuthenticationServiceFactory =
@@ -411,6 +420,7 @@ object MemberAuthenticationServiceFactory {
           invalidateMemberCallback,
           isTopologyInitialized,
           timeouts,
+          batchingConfig,
           loggerFactory,
         )
         topologyTransactionProcessor.subscribe(service)

@@ -240,8 +240,8 @@ class TransactionConfirmationRequestFactoryTest
             Ordering.by(_.encryptedFor.unwrap)
           tvm.copy(protocolMessage =
             encViewMessage
-              .copy(sessionKeyRandomness =
-                encViewMessage.sessionKeys
+              .copy(viewEncryptionKeyRandomness =
+                encViewMessage.viewEncryptionKeyRandomness
                   .sorted(encryptedRandomnessOrdering)
               )
           )
@@ -467,7 +467,10 @@ class TransactionConfirmationRequestFactoryTest
           .failOnShutdown
           .map { tcr =>
             tcr.viewEnvelopes.size shouldBe >(1)
-            tcr.viewEnvelopes.map(_.protocolMessage.sessionKeys).distinct.length shouldBe 1
+            tcr.viewEnvelopes
+              .map(_.protocolMessage.viewEncryptionKeyRandomness)
+              .distinct
+              .length shouldBe 1
 
             // cache is disable so session key is not persisted for multiple transactions
             store.convertStore.getSessionKeyInfoIfPresent(defaultRecipientGroup) shouldBe None

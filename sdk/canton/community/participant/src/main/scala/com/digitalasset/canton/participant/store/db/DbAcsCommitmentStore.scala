@@ -397,8 +397,7 @@ class DbAcsCommitmentStore(
           (sql"""select from_exclusive, to_inclusive from par_outstanding_acs_commitments
                where synchronizer_idx=$indexedSynchronizer
                and from_exclusive < $ts
-               and matching_state != ${CommitmentPeriodState.Matched}
-               and multi_hosted_cleared = false""" ++ participantFilter).toActionBuilder
+               and matching_state != ${CommitmentPeriodState.Matched}""" ++ participantFilter).toActionBuilder
         storage.query(
           query
             .as[(CantonTimestamp, CantonTimestamp)]
@@ -469,18 +468,6 @@ class DbAcsCommitmentStore(
       runningCommitments,
       queue,
     )(logger)
-
-  override def markMultiHostedCleared(period: CommitmentPeriod)(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Unit] =
-    storage.update_(
-      sqlu"""update par_outstanding_acs_commitments
-                set multi_hosted_cleared = true
-                where synchronizer_idx = $indexedSynchronizer
-                and from_exclusive = ${period.fromExclusive}
-                and to_inclusive = ${period.toInclusive}""",
-      "markMultiHostedCleared",
-    )
 
 }
 

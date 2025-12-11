@@ -25,6 +25,14 @@ import scala.collection.mutable
   * The `commonMetadata` and `participantMetadata` are also unblinded. The `submitterMetadata` is
   * unblinded if and only if the unblinded view is a root view.
   *
+  * @param subviewHashesAndKeys
+  *   contains the hashes of direct subviews together with their view encryption keys. The view
+  *   encryption keys are already sent as part of
+  *   [[com.digitalasset.canton.protocol.messages.EncryptedViewMessage]]. They need to be sent again
+  *   as part of this class, because a participant that receives this view but does not host an
+  *   informee of a subview will not receive the view encryption key as part of
+  *   [[com.digitalasset.canton.protocol.messages.EncryptedViewMessage]].
+  *
   * @throws LightTransactionViewTree$.InvalidLightTransactionViewTree
   *   if [[tree]] is not a light transaction view tree (i.e. the wrong set of nodes is blinded)
   */
@@ -286,5 +294,11 @@ object LightTransactionViewTree
 
 }
 
-/** A view hash and its corresponding encryption key. */
+/** A view hash and its corresponding encryption key.
+  *
+  * @param viewEncryptionKeyRandomness
+  *   the view key is encoded as SecureRandomness to have a portable representation.
+  *   [[com.digitalasset.canton.crypto.SynchronizerCryptoPureApi.createSymmetricKey]] is used to
+  *   derive the symmetric key.
+  */
 final case class ViewHashAndKey(viewHash: ViewHash, viewEncryptionKeyRandomness: SecureRandomness)
