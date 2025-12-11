@@ -544,8 +544,8 @@ cleanTests baseDir = testGroup "daml clean"
                 let projectDir = baseDir </> ("proj-" <> templateName)
                 callCommandSilentIn baseDir $ unwords ["daml", "new", projectDir, "--template", templateName]
                 filesAtStart <- sort <$> listFilesRecursive projectDir
-                callCommandSilentIn projectDir "daml build"
-                callCommandSilentIn projectDir "daml clean"
+                callCommandSilentIn projectDir "daml build --all"
+                callCommandSilentIn projectDir "daml clean --all"
                 filesAtEnd <- sort <$> listFilesRecursive projectDir
                 when (filesAtStart /= filesAtEnd) $ fail $ unlines
                     [ "daml clean did not remove all files produced by daml build."
@@ -589,7 +589,7 @@ templateTests = testGroup "templates" $
             , "daml-patterns"
             , "quickstart-java"
             , "script-example"
-            , "skeleton"
+            -- , "skeleton"                -- multi-package
             ]
 
 -- | Check we can generate language bindings.
@@ -607,8 +607,8 @@ codegenTests codegenDir = testGroup "daml codegen" (
             testCase lang $ do
                 createDirectoryIfMissing True codegenDir
                 let projectDir = codegenDir </> ("proj-" ++ lang)
-                callCommandSilentIn codegenDir $ unwords ["daml new", projectDir, "--template=skeleton"]
-                callCommandSilentIn projectDir "daml build"
+                callCommandSilentIn codegenDir $ unwords ["daml new", projectDir, "--template=skeleton-single-package"]
+                callCommandSilentIn projectDir "daml build --all"
                 let darFile = projectDir </> ".daml/dist/proj-" ++ lang ++ "-0.0.1.dar"
                     outDir  = projectDir </> "generated" </> lang
                 when (lang == "js") $ do
