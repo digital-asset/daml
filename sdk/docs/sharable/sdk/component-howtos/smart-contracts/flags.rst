@@ -8,24 +8,27 @@ The Daml Compiler
 #################
 
 At the core of the Daml toolchain lies the Daml Compiler, also known as `damlc`.
-Its primary usage is to compile Daml source code (with ``.daml`` extension) into
-a lower-level language called Daml-LF. :ref:`Daml-LF<daml-lf>` is the language
-that canton participants can evaluate.
+Its primary usage is to compile Daml source code, which defines smart contracts
+and their behaviours, into a lower-level language called
+:ref:`Daml-LF<daml-lf>`, which Canton participants can evaluate in order to run
+those smart contracts.
 
-We recommended building via :subsiteref:`DPM<dpm>` (i.e. trough ``dpm build``),
-or alternatively, by calling ``damlc`` directly, the Daml Compiler goes through
-the following stages:
+We recommend running the compiler via :subsiteref:`DPM<dpm>` (i.e. through
+``dpm build``), or alternatively, by calling ``damlc`` directly. When compiling
+code, the Daml Compiler goes through the following stages:
 
 
 #. The input ``.daml`` :ref:`files<glos-daml-source-files>` are type-checked
    (i.e. it is verified if they are well-formed or not)
 #. The type-checked ```.daml`` code is transformed to
    :ref:`Daml-LF<daml-lf-intro>`.
-#. The Daml-LF is packaged together with its dependency in a ``.dar``
-   :ref:`file<glos-dar-file>`, which essentially is an archive of Daml-LF
-   files with metadata.
+#. The produced Daml-LF is packaged together with its dependencies and their
+   metadata into a ``.dar`` :ref:`file<glos-dar-file>`, which essentially is an
+   archive of Daml-LF files with metadata.
 
-Build files can be cleaned using ``dpm clean``.
+Build files produced by a call to ``dpm build`` are stored in a ``.daml``
+directory, local to the project in which ``dpm build`` was run. They can be
+cleaned using ``dpm clean``.
 
 The Daml Compiler also offers testing functionality. It can be invoked either by
 first calling ``dpm build`` to obtain a ``.dar`` which is then used in a call to

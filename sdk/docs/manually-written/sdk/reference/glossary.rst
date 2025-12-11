@@ -681,7 +681,7 @@ GHC, and GHC as foundation of the Daml Compiler
 
 .. _glos-ide-ledger:
 
-IDE ledger
+IDE Ledger
 **********
 
 .. admonition:: Stub
