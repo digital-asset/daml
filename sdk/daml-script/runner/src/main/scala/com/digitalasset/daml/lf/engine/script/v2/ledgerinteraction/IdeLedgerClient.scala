@@ -83,6 +83,16 @@ class IdeLedgerClient(
       forbidLocalContractIds = true,
     )
 
+  val enricher = new Enricher(
+    compiledPackages = compiledPackages,
+    // Cannot load packages in GrpcLedgerClient
+    loadPackage = { (_: PackageId, _: Reference) => ResultDone(()) },
+    addTypeInfo = true,
+    addFieldNames = true,
+    addTrailingNoneFields = true,
+    forbidLocalContractIds = true,
+  )
+
   // Given a set of disabled packages, filter out all definitions from those packages from the original compiled packages
   // Similar logic to Script-services' Context.scala, however here we make no changes on the module level, and never directly add new packages
   // We only maintain a subset of an original known package set.
@@ -173,6 +183,12 @@ class IdeLedgerClient(
     }
   }
 
+  // Maps a result exception to a converter exception and throws it
+  def failResultAsConverterException[X](res: Result[X]): X = {
+    import com.digitalasset.daml.lf.script.converter.ConverterException
+    res.consume().fold(err => throw new ConverterException(err.toString), identity)
+  }
+
   override def queryContractId(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
@@ -180,13 +196,17 @@ class IdeLedgerClient(
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-  ): Future[Option[ScriptLedgerClient.ActiveContract]] = {
-    Future.successful(
-      lookupContractInstance(parties, cid).map(contract =>
-        ScriptLedgerClient.ActiveContract(templateId, cid, contract.createArg, blob(contract))
-      )
-    )
-  }
+  ): Future[Option[ScriptLedgerClient.ActiveContract]] =
+    Future {
+      lookupContractInstance(parties, cid) match {
+        case None => None
+        case Some(contract) => {
+          val arg =
+            failResultAsConverterException(enricher.enrichContract(templateId, contract.createArg))
+          Some(ScriptLedgerClient.ActiveContract(templateId, cid, arg, blob(contract)))
+        }
+      }
+    }
 
   private[this] def computeView(
       templateId: TypeConId,
@@ -211,7 +231,7 @@ class IdeLedgerClient(
 
         machine.runPure() match {
           case Right(svalue) =>
-            Some(svalue.toNormalizedValue)
+            Some(svalue.toUnnormalizedValue)
 
           case Left(_) =>
             None
@@ -746,29 +766,51 @@ class IdeLedgerClient(
           ): Option[ScriptLedgerClient.TreeEvent] =
             transaction.nodes(id) match {
               case create: Node.Create =>
+                val intendedTemplateId =
+                  oIntendedPackageId
+                    .fold(create.templateId)(intendedPackageId =>
+                      create.templateId.copy(pkg = intendedPackageId)
+                    )
                 Some(
                   ScriptLedgerClient.Created(
-                    oIntendedPackageId
-                      .fold(create.templateId)(intendedPackageId =>
-                        create.templateId.copy(pkg = intendedPackageId)
-                      ),
+                    intendedTemplateId,
                     create.coid,
-                    create.arg,
+                    failResultAsConverterException(
+                      enricher.enrichContract(intendedTemplateId, create.arg)
+                    ),
                     blob(create, result.richTransaction.effectiveAt),
                   )
                 )
               case exercise: Node.Exercise =>
+                val intendedTemplateId =
+                  oIntendedPackageId
+                    .fold(exercise.templateId)(intendedPackageId =>
+                      exercise.templateId.copy(pkg = intendedPackageId)
+                    )
+                val enrichedArg = failResultAsConverterException(
+                  enricher.enrichChoiceArgument(
+                    intendedTemplateId,
+                    exercise.interfaceId,
+                    exercise.choiceId,
+                    exercise.chosenValue,
+                  )
+                )
+                val enrichedResult = failResultAsConverterException(
+                  enricher.enrichChoiceResult(
+                    intendedTemplateId,
+                    exercise.interfaceId,
+                    exercise.choiceId,
+                    exercise.exerciseResult.get,
+                  )
+                )
                 Some(
                   ScriptLedgerClient.Exercised(
-                    oIntendedPackageId
-                      .fold(exercise.templateId)(intendedPackageId =>
-                        exercise.templateId.copy(pkg = intendedPackageId)
-                      ),
+                    intendedTemplateId,
                     exercise.interfaceId,
                     exercise.targetCoid,
                     exercise.choiceId,
-                    exercise.chosenValue,
-                    exercise.exerciseResult.get,
+                    enrichedArg,
+                    enrichedResult,
                     exercise.children.collect(Function.unlift(convEvent(_, None))).toList,
                   )
                 )
