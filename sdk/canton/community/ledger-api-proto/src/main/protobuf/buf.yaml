@@ -1,7 +1,6 @@
 version: v1
 build:
   excludes:
-    - com/daml/ledger/api/scalapb
     # exclude testing related protos from buf checks
     - com/daml/ledger/api/v2/testing
 lint:
