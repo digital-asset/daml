@@ -507,7 +507,7 @@ scala_library(
         "//daml-lf/transaction",
         "//canton:concurrent",
         "//canton:contextualized-logging",
-        "//libs-scala/executors",
+        "//canton:executors",
         "//libs-scala/logging-entries",
         "//libs-scala/nameof",
         "//canton:nonempty",
@@ -626,7 +626,7 @@ scala_library(
         "//daml-lf/transaction",
         "//canton:concurrent",
         "//canton:contextualized-logging",
-        "//libs-scala/executors",
+        "//canton:executors",
         "//libs-scala/nameof",
         "//canton:nonempty",
         "//observability/metrics",
@@ -754,7 +754,7 @@ scala_library(
         "//daml-lf/validation",
         "//canton:concurrent",
         "//canton:contextualized-logging",
-        "//libs-scala/executors",
+        "//canton:executors",
         "//libs-scala/ledger-resources",
         "//libs-scala/logging-entries",
         "//libs-scala/nameof",
@@ -979,7 +979,7 @@ scala_library(
         ":ledger_api_proto_scala",
         "//daml-lf/data",
         "//daml-lf/transaction",
-        "//libs-scala/executors",
+        "//canton:executors",
         "//libs-scala/nameof",
         "//canton:nonempty",
         "//canton:nonempty-cats",
@@ -1136,7 +1136,7 @@ scala_library(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//canton:contextualized-logging",
-        "//libs-scala/executors",
+        "//canton:executors",
         "//libs-scala/ledger-resources",
         "//libs-scala/logging-entries",
         "//libs-scala/nameof",
@@ -1332,7 +1332,7 @@ scala_library(
         "//daml-lf/data",
         "//daml-lf/transaction",
         "//canton:contextualized-logging",
-        "//libs-scala/executors",
+        "//canton:executors",
         "//libs-scala/logging-entries",
         "//libs-scala/nameof",
         "//canton:nonempty",
@@ -2224,5 +2224,38 @@ da_scala_benchmark_jmh(
     visibility = ["//visibility:public"],
     deps = [
         ":crypto",
+    ],
+)
+
+da_scala_library(
+    name = "executors",
+    srcs = glob(["canton/base/executors/src/main/scala/**/*.scala"]),
+    tags = ["maven_coordinates=com.daml:executors:__VERSION__"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//canton:scala-utils",
+    ],
+)
+
+da_scala_library(
+    name = "fs-utils",
+    srcs = glob(["canton/base/fs-utils/src/main/scala/**/*.scala"]),
+    tags = ["maven_coordinates=com.daml:fs-utils:__VERSION__"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//canton:resources",
+    ],
+)
+
+da_scala_library(
+    name = "http-test-utils",
+    srcs = glob(["canton/base/http-test-utils/src/main/scala/**/*.scala"]),
+    scala_deps = [
+    ],
+    tags = ["maven_coordinates=com.daml:http-test-utils:__VERSION__"],
+    visibility = [
+        "//:__subpackages__",
+    ],
+    deps = [
     ],
 )

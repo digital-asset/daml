@@ -101,7 +101,7 @@
   type: jar-scala
 - target: //libs-scala/grpc-utils:grpc-utils
   type: jar-scala
-- target: //libs-scala/http-test-utils:http-test-utils
+- target: //canton:http-test-utils
   type: jar-scala
 - target: //libs-scala/ledger-resources:ledger-resources
   type: jar-scala
@@ -139,7 +139,7 @@
   type: jar-scala
 - target: //canton:struct-circe-json
   type: jar-scala
-- target: //libs-scala/executors:executors
+- target: //canton:executors
   type: jar-scala
 - target: //observability/metrics:metrics
   type: jar-scala

@@ -31,7 +31,7 @@ da_scala_library(
         "//canton:community_ledger_ledger-common",
         "//canton:community_util-observability",
         "//daml-lf/data",
-        "//libs-scala/fs-utils",
+        "//canton:fs-utils",
         "//libs-scala/ledger-resources",
         "//libs-scala/ports",
         "//libs-scala/ports:ports-testing",
