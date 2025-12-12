@@ -79,7 +79,7 @@
   type: jar-lib
 - target: //canton:rs-grpc-testing-utils
   type: jar-scala
-- target: //libs-scala/testing-utils:testing-utils
+- target: //canton:testing-utils
   type: jar-scala
 - target: //ledger-service/lf-value-json:lf-value-json
   type: jar-scala
@@ -103,7 +103,7 @@
   type: jar-scala
 - target: //canton:http-test-utils
   type: jar-scala
-- target: //libs-scala/ledger-resources:ledger-resources
+- target: //canton:ledger-resources
   type: jar-scala
 - target: //canton:logging-entries
   type: jar-scala
@@ -111,7 +111,7 @@
   type: jar-scala
 - target: //canton:nonempty-cats
   type: jar-scala
-- target: //libs-scala/ports:ports
+- target: //canton:ports
   type: jar-scala
 - target: //canton:resources
   type: jar-scala

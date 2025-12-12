@@ -2482,7 +2482,7 @@ da_scala_library(
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
         "//libs-scala/ports",
-        "//libs-scala/ports:ports-testing",
+        "//canton:ports-testing",
         "//canton:resources",
         "//libs-scala/testing-utils",
         "@maven//:commons_io_commons_io",

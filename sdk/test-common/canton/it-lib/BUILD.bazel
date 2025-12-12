@@ -34,7 +34,7 @@ da_scala_library(
         "//canton:fs-utils",
         "//libs-scala/ledger-resources",
         "//libs-scala/ports",
-        "//libs-scala/ports:ports-testing",
+        "//canton:ports-testing",
         "//canton:resources",
         "//canton:rs-grpc-bridge",
         "//canton:scala-utils",
