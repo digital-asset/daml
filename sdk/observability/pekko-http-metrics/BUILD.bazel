@@ -70,7 +70,7 @@ da_scala_test_suite(
         ":pekko-http-metrics",
         ":pekko-http-metrics-tests-lib",
         "//canton:rs-grpc-bridge",
-        "//libs-scala/testing-utils",
+        "//canton:testing-utils",
         "//observability/metrics",
         "//observability/metrics:metrics-test-lib",
         "@maven//:com_typesafe_config",

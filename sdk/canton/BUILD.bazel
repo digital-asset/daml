@@ -362,7 +362,7 @@ da_scala_library(
         "//daml-lf/transaction",
         "//daml-lf/validation",
         "//canton:contextualized-logging",
-        "//libs-scala/ledger-resources",
+        "//canton:ledger-resources",
         "//canton:logging-entries",
         "//canton:resources",
         "//canton:rs-grpc-bridge",
@@ -755,11 +755,11 @@ scala_library(
         "//canton:concurrent",
         "//canton:contextualized-logging",
         "//canton:executors",
-        "//libs-scala/ledger-resources",
+        "//canton:ledger-resources",
         "//canton:logging-entries",
         "//canton:nameof",
         "//canton:nonempty",
-        "//libs-scala/ports",
+        "//canton:ports",
         "//canton:resources",
         "//canton:resources-grpc",
         "//canton:resources-pekko",
@@ -849,10 +849,10 @@ scala_library(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//canton:contextualized-logging",
-        "//libs-scala/ledger-resources",
+        "//canton:ledger-resources",
         "//canton:logging-entries",
         "//canton:nonempty",
-        "//libs-scala/ports",
+        "//canton:ports",
         "//canton:resources",
         "//canton:resources-grpc",
         "//canton:resources-pekko",
@@ -1137,7 +1137,7 @@ scala_library(
         "//daml-lf/transaction",
         "//canton:contextualized-logging",
         "//canton:executors",
-        "//libs-scala/ledger-resources",
+        "//canton:ledger-resources",
         "//canton:logging-entries",
         "//canton:nameof",
         "//canton:nonempty",
@@ -1939,8 +1939,8 @@ da_scala_library(
         ":rs-grpc-pekko",
         ":rs-grpc-bridge",
         ":rs-grpc-bridge-test-lib",
-        "//libs-scala/sample-service",
-        "//libs-scala/testing-utils",
+        "//canton:sample-service",
+        "//canton:testing-utils",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_stub",
@@ -1969,8 +1969,8 @@ da_scala_test_suite(
     deps = [
         ":rs-grpc-pekko-tests-lib",
         ":rs-grpc-bridge",
-        "//libs-scala/sample-service",
-        "//libs-scala/testing-utils",
+        "//canton:sample-service",
+        "//canton:testing-utils",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_stub",
@@ -2039,7 +2039,7 @@ da_scala_test(
 
 da_scala_library(
     name = "resources",
-    srcs = glob(["canton/base/resources/src/main/scala/**/*.scala"]) + glob(["canton/base/resources/src/main/{}/**/*.scala".format(scala_major_version)]),
+    srcs = glob(["base/resources/src/main/scala/**/*.scala"]) + glob(["base/resources/src/main/{}/**/*.scala".format(scala_major_version)]),
     tags = ["maven_coordinates=com.daml:resources:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -2051,7 +2051,7 @@ da_scala_library(
 
 da_scala_library(
     name = "resources-test-lib",
-    srcs = glob(["canton/base/resources/src/test/lib/scala/**/*.scala"]),
+    srcs = glob(["base/resources/src/test/lib/scala/**/*.scala"]),
     visibility = [
         "//visibility:public",
     ],
@@ -2062,7 +2062,7 @@ da_scala_library(
 
 da_scala_test_suite(
     name = "resources-tests",
-    srcs = glob(["canton/base/resources/src/test/suite/**/*.scala"]),
+    srcs = glob(["base/resources/src/test/suite/**/*.scala"]),
     scala_deps = [
         "@maven//:org_scalatest_scalatest_wordspec",
     ],
@@ -2075,7 +2075,7 @@ da_scala_test_suite(
 
 da_scala_library(
     name = "resources-grpc",
-    srcs = glob(["canton/base/resources-grpc/src/main/scala/**/*.scala"]),
+    srcs = glob(["base/resources-grpc/src/main/scala/**/*.scala"]),
     tags = ["maven_coordinates=com.daml:resources-grpc:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -2089,10 +2089,10 @@ da_scala_library(
 
 da_scala_test_suite(
     name = "resources-grpc-test",
-    srcs = glob(["canton/base/resources-grpc/src/test/scala/**/*.scala"]),
+    srcs = glob(["base/resources-grpc/src/test/scala/**/*.scala"]),
     resource_strip_prefix = "canton/base/resources-grpc/src/test/resources/",
     resources = [
-        ":canton/base/resources-grpc/src/test/resources/logback-test.xml",
+        ":base/resources-grpc/src/test/resources/logback-test.xml",
     ],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
@@ -2111,7 +2111,7 @@ da_scala_test_suite(
 
 da_scala_library(
     name = "resources-pekko",
-    srcs = glob(["canton/base/resources-pekko/src/main/scala/**/*.scala"]),
+    srcs = glob(["base/resources-pekko/src/main/scala/**/*.scala"]),
     scala_deps = [
         "@maven//:org_apache_pekko_pekko_actor",
         "@maven//:org_apache_pekko_pekko_stream",
@@ -2127,7 +2127,7 @@ da_scala_library(
 
 da_scala_test_suite(
     name = "resources-pekko-tests",
-    srcs = glob(["canton/base/resources-pekko/src/test/suite/**/*.scala"]),
+    srcs = glob(["base/resources-pekko/src/test/suite/**/*.scala"]),
     scala_deps = [
         "@maven//:org_apache_pekko_pekko_actor",
         "@maven//:org_apache_pekko_pekko_stream",
@@ -2144,7 +2144,7 @@ da_scala_test_suite(
 
 da_scala_library(
     name = "contextualized-logging",
-    srcs = glob(["canton/base/contextualized-logging/src/main/scala/**/*.scala"]),
+    srcs = glob(["base/contextualized-logging/src/main/scala/**/*.scala"]),
     scala_deps = [
         "@maven//:org_apache_pekko_pekko_actor",
         "@maven//:org_apache_pekko_pekko_stream",
@@ -2165,8 +2165,8 @@ da_scala_library(
 
 da_scala_test_suite(
     name = "contextualized-logging-tests",
-    srcs = glob(["canton/base/contextualized-logging/src/test/suite/**/*.scala"]),
-    resources = glob(["canton/base/contextualized-logging/src/test/suite/resources/**/*"]),
+    srcs = glob(["base/contextualized-logging/src/test/suite/**/*.scala"]),
+    resources = glob(["base/contextualized-logging/src/test/suite/resources/**/*"]),
     scala_deps = [
         "@maven//:com_chuusai_shapeless",
         "@maven//:org_apache_pekko_pekko_actor",
@@ -2194,7 +2194,7 @@ da_scala_test_suite(
 
 da_scala_library(
     name = "crypto",
-    srcs = glob(["canton/base/crypto/src/main/scala/**/*.scala"]),
+    srcs = glob(["base/crypto/src/main/scala/**/*.scala"]),
     tags = ["maven_coordinates=com.daml:crypto:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -2209,7 +2209,7 @@ da_scala_library(
 da_scala_test(
     name = "crypto-tests",
     size = "small",
-    srcs = glob(["canton/base/crypto/src/test/scala/**/*.scala"]),
+    srcs = glob(["base/crypto/src/test/scala/**/*.scala"]),
     visibility = [
         "//visibility:public",
     ],
@@ -2220,7 +2220,7 @@ da_scala_test(
 
 da_scala_benchmark_jmh(
     name = "crypto-perf",
-    srcs = glob(["canton/base/crypto/src/jmh/scala/**/*.scala"]),
+    srcs = glob(["base/crypto/src/jmh/scala/**/*.scala"]),
     visibility = ["//visibility:public"],
     deps = [
         ":crypto",
@@ -2229,7 +2229,7 @@ da_scala_benchmark_jmh(
 
 da_scala_library(
     name = "executors",
-    srcs = glob(["canton/base/executors/src/main/scala/**/*.scala"]),
+    srcs = glob(["base/executors/src/main/scala/**/*.scala"]),
     tags = ["maven_coordinates=com.daml:executors:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
@@ -2239,7 +2239,7 @@ da_scala_library(
 
 da_scala_library(
     name = "fs-utils",
-    srcs = glob(["canton/base/fs-utils/src/main/scala/**/*.scala"]),
+    srcs = glob(["base/fs-utils/src/main/scala/**/*.scala"]),
     tags = ["maven_coordinates=com.daml:fs-utils:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
@@ -2249,7 +2249,7 @@ da_scala_library(
 
 da_scala_library(
     name = "http-test-utils",
-    srcs = glob(["canton/base/http-test-utils/src/main/scala/**/*.scala"]),
+    srcs = glob(["base/http-test-utils/src/main/scala/**/*.scala"]),
     scala_deps = [
     ],
     tags = ["maven_coordinates=com.daml:http-test-utils:__VERSION__"],
@@ -2262,7 +2262,7 @@ da_scala_library(
 
 da_scala_library(
     name = "timer-utils",
-    srcs = glob(["canton/base/timer-utils/src/main/scala/**/*.scala"]),
+    srcs = glob(["base/timer-utils/src/main/scala/**/*.scala"]),
     tags = ["maven_coordinates=com.daml:timer-utils:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -2272,7 +2272,7 @@ da_scala_library(
 
 da_scala_test_suite(
     name = "timer-utils-test",
-    srcs = glob(["canton/base/timer-utils/src/test/suite/scala/**/*.scala"]),
+    srcs = glob(["base/timer-utils/src/test/suite/scala/**/*.scala"]),
     scala_deps = [
         "@maven//:org_scalatest_scalatest_wordspec",
     ],
@@ -2283,7 +2283,7 @@ da_scala_test_suite(
 
 da_scala_library(
     name = "safe-proto",
-    srcs = glob(["canton/base/safe-proto/src/main/scala/**/*.scala"]),
+    srcs = glob(["base/safe-proto/src/main/scala/**/*.scala"]),
     tags = ["maven_coordinates=com.daml:safe-proto:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = ["@maven//:com_google_protobuf_protobuf_java"],
@@ -2291,7 +2291,7 @@ da_scala_library(
 
 da_scala_test_suite(
     name = "safe-protot-test",
-    srcs = glob(["canton/base/safe-proto/src/test/scala/**/*.scala"]),
+    srcs = glob(["base/safe-proto/src/test/scala/**/*.scala"]),
     max_heap_size = "3g",
     scala_deps = [
         "@maven//:org_scalatest_scalatest_wordspec",
@@ -2304,7 +2304,7 @@ da_scala_test_suite(
 
 da_scala_macro_library(
     name = "nameof",
-    srcs = glob(["canton/base/nameof/src/main/scala/**/*.scala"]),
+    srcs = glob(["base/nameof/src/main/scala/**/*.scala"]),
     scalacopts = ["-Xsource:2.13"],
     tags = ["maven_coordinates=com.daml:nameof:__VERSION__"],
     visibility = [
@@ -2322,8 +2322,8 @@ da_scala_macro_library(
 
 da_scala_test_suite(
     name = "nameof-tests",
-    srcs = glob(["canton/base/nameof/src/test/suite/**/*.scala"]),
-    resources = glob(["canton/base/nameof/src/test/suite/resources/**/*"]),
+    srcs = glob(["base/nameof/src/test/suite/**/*.scala"]),
+    resources = glob(["base/nameof/src/test/suite/resources/**/*"]),
     scala_deps = [
     ],
     deps = [
@@ -2334,7 +2334,7 @@ da_scala_test_suite(
 
 da_scala_library(
     name = "logging-entries",
-    srcs = glob(["canton/base/logging-entries/src/main/scala/**/*.scala"]),
+    srcs = glob(["base/logging-entries/src/main/scala/**/*.scala"]),
     scala_deps = [
         "@maven//:io_spray_spray_json",
     ],
@@ -2347,7 +2347,7 @@ da_scala_library(
 
 da_scala_test_suite(
     name = "logging-entries-tests",
-    srcs = glob(["canton/base/logging-entries/src/test/scala/**/*.scala"]),
+    srcs = glob(["base/logging-entries/src/test/scala/**/*.scala"]),
     scala_deps = [
         "@maven//:org_scalatest_scalatest_wordspec",
     ],
@@ -2358,7 +2358,7 @@ da_scala_test_suite(
 
 da_scala_library(
     name = "grpc-test-utils",
-    srcs = glob(["canton/base/grpc-test-utils/src/main/scala/**/*.scala"]),
+    srcs = glob(["base/grpc-test-utils/src/main/scala/**/*.scala"]),
     scala_deps = [
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_flatspec",
@@ -2386,7 +2386,7 @@ da_scala_library(
 
 da_scala_library(
     name = "ledger-resources",
-    srcs = glob(["canton/base/ledger-resources/src/main/scala/**/*.scala"]),
+    srcs = glob(["base/ledger-resources/src/main/scala/**/*.scala"]),
     scala_deps = [
         "@maven//:org_apache_pekko_pekko_actor",
         "@maven//:org_apache_pekko_pekko_stream",
@@ -2406,7 +2406,7 @@ da_scala_library(
 
 da_scala_library(
     name = "ledger-resources-test-lib",
-    srcs = glob(["canton/base/ledger-resources/src/test/lib/scala/**/*.scala"]),
+    srcs = glob(["base/ledger-resources/src/test/lib/scala/**/*.scala"]),
     scala_deps = [
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest_core",
@@ -2424,9 +2424,9 @@ da_scala_library(
 da_scala_library(
     name = "ports",
     srcs = [
-        "canton/base/ports/src/main/scala/com/daml/ports/Port.scala",
-        "canton/base/ports/src/main/scala/com/daml/ports/PortFiles.scala",
-        "canton/base/ports/src/main/scala/com/daml/ports/PortLock.scala",
+        "base/ports/src/main/scala/com/daml/ports/Port.scala",
+        "base/ports/src/main/scala/com/daml/ports/PortFiles.scala",
+        "base/ports/src/main/scala/com/daml/ports/PortLock.scala",
     ],
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
@@ -2440,8 +2440,8 @@ da_scala_library(
 da_scala_library(
     name = "ports-testing",
     srcs = [
-        "canton/base/ports/src/main/scala/com/daml/ports/FreePort.scala",
-        "canton/base/ports/src/main/scala/com/daml/ports/LockedFreePort.scala",
+        "base/ports/src/main/scala/com/daml/ports/FreePort.scala",
+        "base/ports/src/main/scala/com/daml/ports/LockedFreePort.scala",
     ],
     data = ["@sysctl_nix//:bin/sysctl"] if is_darwin else [],
     visibility = [
@@ -2455,7 +2455,7 @@ da_scala_library(
 
 da_scala_test(
     name = "ports-tests",
-    srcs = glob(["canton/base/ports/src/test/suite/scala/**/*.scala"]),
+    srcs = glob(["base/ports/src/test/suite/scala/**/*.scala"]),
     scala_deps = [
         "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
@@ -2468,7 +2468,7 @@ da_scala_test(
 
 da_scala_library(
     name = "postgresql-testing",
-    srcs = glob(["canton/base/postgresql-testing/src/main/scala/**/*.scala"]),
+    srcs = glob(["base/postgresql-testing/src/main/scala/**/*.scala"]),
     data = [
         "@postgresql_dev_env//:all",
     ],
@@ -2481,10 +2481,10 @@ da_scala_library(
     ],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
-        "//libs-scala/ports",
+        "//canton:ports",
         "//canton:ports-testing",
         "//canton:resources",
-        "//libs-scala/testing-utils",
+        "//canton:testing-utils",
         "@maven//:commons_io_commons_io",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
@@ -2492,12 +2492,12 @@ da_scala_library(
 
 proto_library(
     name = "sample-service-proto",
-    srcs = ["canton/base/sample-service-proto/src/main/protobuf/hello.proto"],
+    srcs = ["base/sample-service/src/main/protobuf/hello.proto"],
 )
 
 proto_gen(
     name = "sample-service-scalapb-sources",
-    srcs = [":sample-service-proto"],
+    srcs = [":sample-service"],
     plugin_exec = "//scala-protoc-plugins/scalapb:protoc-gen-scalapb",
     plugin_name = "scalapb",
     plugin_options = ["grpc"],
@@ -2529,7 +2529,7 @@ scala_library(
 
 da_scala_library(
     name = "sample-service",
-    srcs = glob(["canton/base/sample-service-proto/src/**/*.scala"]),
+    srcs = glob(["base/sample-service/src/**/*.scala"]),
     scala_deps = [
         "@maven//:com_thesamet_scalapb_lenses",
         "@maven//:com_thesamet_scalapb_scalapb_runtime",
@@ -2548,7 +2548,7 @@ da_scala_library(
     ],
     deps = [
         ":sample-service-scalapb",
-        "//libs-scala/testing-utils",
+        "//canton:testing-utils",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_stub",
@@ -2558,7 +2558,7 @@ da_scala_library(
 
 da_scala_library(
     name = "testing-utils",
-    srcs = glob(["canton/base/testing-utils/src/main/scala/**/*.scala"]),
+    srcs = glob(["base/testing-utils/src/main/scala/**/*.scala"]),
     scala_deps = [
         "@maven//:org_apache_pekko_pekko_actor",
         "@maven//:org_apache_pekko_pekko_stream",
@@ -2574,7 +2574,7 @@ da_scala_library(
     ],
     deps = [
         "//canton:contextualized-logging",
-        "//libs-scala/ledger-resources",
+        "//canton:ledger-resources",
         "//canton:resources",
         "//canton:resources-grpc",
         "//canton:resources-pekko",
@@ -2592,7 +2592,7 @@ da_scala_library(
 
 da_scala_test_suite(
     name = "testing-utils-tests",
-    srcs = glob(["canton/base/testing-utils/src/test/scala/**/*.scala"]),
+    srcs = glob(["base/testing-utils/src/test/scala/**/*.scala"]),
     scala_deps = [
         "@maven//:org_scalatest_scalatest_wordspec",
     ],
