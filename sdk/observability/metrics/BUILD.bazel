@@ -70,7 +70,7 @@ da_scala_test_suite(
     deps = [
         ":metrics",
         ":metrics-test-lib",
-        "//libs-scala/grpc-test-utils",
+        "//canton:grpc-test-utils",
         "//libs-scala/ledger-resources",
         "//libs-scala/ledger-resources:ledger-resources-test-lib",
         "//canton:resources",
