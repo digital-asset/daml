@@ -16,6 +16,7 @@ load("//bazel_tools:java.bzl", "da_java_library")
 load("//bazel_tools:proto.bzl", "proto_gen", "proto_jars")
 load(
     "//bazel_tools:scala.bzl",
+    "da_scala_benchmark_jmh",
     "da_scala_library",
     "da_scala_macro_library",
     "da_scala_test",
@@ -2188,5 +2189,40 @@ da_scala_test_suite(
         "@maven//:net_logstash_logback_logstash_logback_encoder",
         "@maven//:org_mockito_mockito_core",
         "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+da_scala_library(
+    name = "crypto",
+    srcs = glob(["canton/base/crypto/src/main/scala/**/*.scala"]),
+    tags = ["maven_coordinates=com.daml:crypto:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        "//canton:scala-utils",
+        "@maven//:org_bouncycastle_bcprov_jdk15on",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+da_scala_test(
+    name = "crypto-tests",
+    size = "small",
+    srcs = glob(["canton/base/crypto/src/test/scala/**/*.scala"]),
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        ":crypto",
+    ],
+)
+
+da_scala_benchmark_jmh(
+    name = "crypto-perf",
+    srcs = glob(["canton/base/crypto/src/jmh/scala/**/*.scala"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":crypto",
     ],
 )
