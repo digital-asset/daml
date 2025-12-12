@@ -2008,7 +2008,7 @@ da_scala_library(
 
 da_scala_library(
     name = "concurrent",
-    srcs = glob(["src/main/scala/**/*.scala"]),
+    srcs = glob(["base/concurrent/src/main/scala/**/*.scala"]),
     plugins = [
         kind_projector_plugin,
     ],
@@ -2024,7 +2024,7 @@ da_scala_library(
 
 da_scala_test(
     name = "concurrent-test",
-    srcs = glob(["src/test/scala/**/*.scala"]),
+    srcs = glob(["base/concurrent/src/test/scala/**/*.scala"]),
     scala_deps = [
         "@maven//:com_chuusai_shapeless",
         "@maven//:org_scalatest_scalatest_wordspec",
