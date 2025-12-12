@@ -450,7 +450,7 @@ da_scala_test(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-script/runner:script-runner-lib",
-        "//libs-scala/contextualized-logging",
+        "//canton:contextualized-logging",
         "//libs-scala/ledger-resources",
         "//libs-scala/ports",
         "//canton:resources",

@@ -24,7 +24,7 @@ da_scala_library(
         "@maven//:org_slf4j_slf4j_api",
     ],
     deps = [
-        "//libs-scala/contextualized-logging",
+        "//canton:contextualized-logging",
         "//libs-scala/ledger-resources",
         "//canton:resources",
         "//canton:resources-grpc",

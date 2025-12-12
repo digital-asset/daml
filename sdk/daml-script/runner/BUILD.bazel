@@ -80,7 +80,7 @@ da_scala_library(
         "//daml-script/converter",
         "//ledger-service/lf-value-json",
         "//canton:auth-utils",
-        "//libs-scala/contextualized-logging",
+        "//canton:contextualized-logging",
         "//canton:nonempty",
         "//canton:rs-grpc-bridge",
         "//canton:rs-grpc-pekko",

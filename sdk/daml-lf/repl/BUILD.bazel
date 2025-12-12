@@ -25,7 +25,7 @@ da_scala_binary(
         "//daml-lf/parser",
         "//daml-lf/transaction",
         "//daml-lf/validation",
-        "//libs-scala/contextualized-logging",
+        "//canton:contextualized-logging",
         "@maven//:org_jline_jline",
     ],
 )

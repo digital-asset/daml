@@ -35,7 +35,7 @@ da_scala_library(
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/transaction",
-        "//libs-scala/contextualized-logging",
+        "//canton:contextualized-logging",
         "//canton:scala-utils",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
@@ -54,6 +54,6 @@ da_scala_test_suite(
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/transaction",
-        "//libs-scala/contextualized-logging",
+        "//canton:contextualized-logging",
     ],
 )

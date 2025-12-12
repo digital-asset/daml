@@ -39,7 +39,7 @@ da_scala_binary(
         "//daml-lf/validation",
         "//daml-script/converter",
         "//daml-script/runner:script-runner-lib",
-        "//libs-scala/contextualized-logging",
+        "//canton:contextualized-logging",
         "//canton:rs-grpc-bridge",
         "//canton:rs-grpc-pekko",
         "@maven//:com_google_protobuf_protobuf_java",

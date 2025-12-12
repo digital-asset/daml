@@ -24,7 +24,7 @@ da_scala_library(
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/language",
-        "//libs-scala/contextualized-logging",
+        "//canton:contextualized-logging",
         "//libs-scala/logging-entries",
         "//canton:scala-utils",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
