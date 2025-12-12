@@ -1,9 +1,9 @@
 # Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-package(default_visibility = ["//visibility:public"])
-
 load("@build_environment//:configuration.bzl", "npm_version")
+
+package(default_visibility = ["//visibility:public"])
 
 filegroup(
     name = "json-files",
@@ -48,31 +48,32 @@ sh_test(
 genrule(
     name = "node_deps_cache",
     srcs = [
-        "@daml_extension_deps//:node_modules",
+        "//compiler/daml-extension:package.json",
         "//compiler/daml-extension:yarn.lock",
     ],
     outs = ["node_modules.tar.gz"],
     cmd = """
-        if [[ -d node_modules ]]; then
-            rm -rf node_modules
-        fi
-        mkdir node_modules
-        cd node_modules
-        for f in $(locations @daml_extension_deps//:node_modules); do
-            # exclude @bazel and @types directories that will be copied later
-            if [[ $$f != *"@"* ]]; then
-              cp -r ../$$f ./
-            fi
-        done
-        cp -r ../$(BINDIR)/external/daml_extension_deps/node_modules/@types ./
-        cp -r ../$(BINDIR)/external/daml_extension_deps/node_modules/@bazel ./
-        cd ..
-        # Check for poison!
-        # Avoid file path too long errors on Windows of the form
-        #   .../tar_dev_env/usr/bin/tar: node_modules/.cache/terser-webpack-plugin/...: file name is too long (cannot be split); not dumped
-        $(execpath //bazel_tools/sh:mktgz) $@ node_modules --dereference
+        set -euo pipefail
+
+        YARN=$$PWD/$(execpath //:yarn)
+        MKTGZ=$(execpath //bazel_tools/sh:mktgz)
+
+        PACKAGE_DIR=$$(dirname $(location //compiler/daml-extension:package.json))
+
+        cd $$PACKAGE_DIR
+        $$YARN install \
+            --no-cache \
+            --frozen-lockfile \
+            --production=false \
+            --ignore-optional
+
+        cd $$OLDPWD
+        $$MKTGZ $@ --dereference -C $$PACKAGE_DIR node_modules
     """,
-    tools = ["//bazel_tools/sh:mktgz"],
+    tools = [
+        "//:yarn",
+        "//bazel_tools/sh:mktgz",
+    ],
 )
 
 genrule(
@@ -99,34 +100,40 @@ genrule(
         "README.md",
         "yarn.lock",
         ".vscodeignore",
-        "src/*",
+        "src/**",
     ]) + [
         ":node_deps_cache",
     ],
     outs = ["daml-bundled.vsix"],
-    # rm -rf can fail with "directory not empty" on Windows.
-    # As a workaround we add `|| return`.
     cmd = """
-        export HOME=/does-not-exist
         set -euo pipefail
+
+        export HOME=/does-not-exist
+
+        # #
+        # Create temporary dir to edit files (`src` files are readonly),
+        #   then define function to remove temporary dir,
+        #   which will be executed when cmd will try to exit the `cmd`.
         TMP_DIR=$$(mktemp -d)
-        cleanup () {{ rm -rf $$TMP_DIR || return; }}
+        cleanup() {{ rm -rf $$TMP_DIR || return; }}
         trap cleanup EXIT
+
         DIR=$$PWD
+        YARN=$$DIR/$(location //:yarn)
+        YARN_DIR=$$(dirname $$DIR/$(location //:yarn))
+        VSCE=$$DIR/$(location @daml_extension_deps//@vscode/vsce/bin:vsce)
+
         cp -r compiler/daml-extension $$TMP_DIR
-        # we store the target cpu value to ensure the archive is platform specific
-        echo $(TARGET_CPU) > $$TMP_DIR/target_cpu
         cd $$TMP_DIR/daml-extension
+
+        echo $(TARGET_CPU) > ../target_cpu
         tar xzf $$DIR/$(location :node_deps_cache)
+
         sed -i "s/__VERSION__/{npm}/" package.json
         sed -i 's/"name": "daml"/"name": "daml-bundled"/' package.json
-        $$DIR/$(location //:yarn) compile
-        # vsce needs Yarn or NPM to get the minimal dependency set to include in the artifact
-        # Using Yarn has a bug whereby some transitive dependencies are not included (specifically concat-map)
-        # NPM can't find npm-cli.js for some reason and won't run
-        # So for now, we explicitly depend on concat-map in `package.json` to avoid this
-        # Check for poison!
-        PATH=$$(dirname $$DIR/$(location //:yarn)):$$PATH $$DIR/$(location @daml_extension_deps//@vscode/vsce/bin:vsce) package --yarn -o $$DIR/$@
+
+        $$YARN compile
+        PATH=$$YARN_DIR:$$PATH $$VSCE package --yarn -o $$DIR/$@
     """.format(npm = npm_version),
     tools = [
         "//:yarn",
