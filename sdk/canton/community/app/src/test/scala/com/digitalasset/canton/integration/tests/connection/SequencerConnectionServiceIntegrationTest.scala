@@ -11,6 +11,7 @@ import com.digitalasset.canton.integration.bootstrap.{
   NetworkTopologyDescription,
 }
 import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
+import com.digitalasset.canton.integration.tests.bftsequencer.AwaitsBftSequencerAuthenticationDisseminationQuorum
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -32,7 +33,8 @@ import scala.concurrent.duration.DurationInt
 
 sealed trait SequencerConnectionServiceIntegrationTest
     extends CommunityIntegrationTest
-    with SharedEnvironment {
+    with SharedEnvironment
+    with AwaitsBftSequencerAuthenticationDisseminationQuorum {
 
   override def environmentDefinition: EnvironmentDefinition =
     // even though the test only needs to work with 2 sequencers, we need 4 sequencers
@@ -70,6 +72,9 @@ sealed trait SequencerConnectionServiceIntegrationTest
         s.config.publicApi.clientConfig
           .asSequencerConnection(SequencerAlias.tryCreate(s.name), sequencerId = None)
       )
+
+      // Before connecting participants to sequencers, ensure a dissemination quorum
+      waitUntilAllBftSequencersAuthenticateDisseminationQuorum()
 
       clue("connect participant1 to all sequencers") {
         participant1.synchronizers.connect_bft(

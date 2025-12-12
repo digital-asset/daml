@@ -41,9 +41,12 @@ trait InternizingStringInterningView {
     *   returned as a interned-id and raw, prefixed string pairs.
     *
     * @note
-    *   This method is thread-safe.
+    *   This method is thread-safe. This method should be called from Indexer, which maintains
+    *   consistency between StringInterning view and persistence.
     */
-  def internize(domainStringIterators: DomainStringIterators): Iterable[(Int, String)]
+  private[platform] def internize(
+      domainStringIterators: DomainStringIterators
+  ): Iterable[(Int, String)]
 }
 
 trait UpdatingStringInterningView {
@@ -64,7 +67,7 @@ trait UpdatingStringInterningView {
     *
     * @note
     *   This method is NOT thread-safe and should not be called concurrently with itself or
-    *   [[InternizingStringInterningView.internize]].
+    *   InternizingStringInterningView.internize.
     */
   def update(lastStringInterningId: Option[Int])(
       loadPrefixedEntries: LoadStringInterningEntries
@@ -178,7 +181,9 @@ class StringInterningView(override protected val loggerFactory: NamedLoggerFacto
       from = _.toString,
     )
 
-  override def internize(domainStringIterators: DomainStringIterators): Iterable[(Int, String)] =
+  override private[platform] def internize(
+      domainStringIterators: DomainStringIterators
+  ): Iterable[(Int, String)] =
     blocking(synchronized {
       val allPrefixedStrings =
         domainStringIterators.parties.map(PartyPrefix + _) ++
