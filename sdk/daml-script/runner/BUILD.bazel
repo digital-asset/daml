@@ -79,7 +79,7 @@ da_scala_library(
         "//daml-lf/transaction",
         "//daml-script/converter",
         "//ledger-service/lf-value-json",
-        "//libs-scala/auth-utils",
+        "//canton:auth-utils",
         "//libs-scala/contextualized-logging",
         "//canton:nonempty",
         "//libs-scala/rs-grpc-bridge",

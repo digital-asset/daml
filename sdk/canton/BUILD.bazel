@@ -1748,7 +1748,7 @@ da_scala_library(
 
 da_scala_library(
     name = "struct-spray-json",
-    srcs = glob(["struct-json/struct-spray-json/src/main/scala/**/*.scala"]),
+    srcs = glob(["base/struct-json/struct-spray-json/src/main/scala/**/*.scala"]),
     scala_deps = [
         "@maven//:com_thesamet_scalapb_lenses",
         "@maven//:com_thesamet_scalapb_scalapb_runtime",
@@ -1761,7 +1761,7 @@ da_scala_library(
 
 da_scala_test_suite(
     name = "struct-spray-json-test",
-    srcs = glob(["struct-json/struct-spray-json/src/test/scala/**/*.scala"]),
+    srcs = glob(["base/struct-json/struct-spray-json/src/test/scala/**/*.scala"]),
     scala_deps = [
         "@maven//:com_thesamet_scalapb_lenses",
         "@maven//:com_thesamet_scalapb_scalapb_runtime",
@@ -1775,7 +1775,7 @@ da_scala_test_suite(
 
 da_scala_library(
     name = "struct-circe-json",
-    srcs = glob(["struct-json/struct-circe-json/src/main/scala/**/*.scala"]),
+    srcs = glob(["base/struct-json/struct-circe-json/src/main/scala/**/*.scala"]),
     scala_deps = [
         "@maven//:com_thesamet_scalapb_lenses",
         "@maven//:com_thesamet_scalapb_scalapb_runtime",
@@ -1790,7 +1790,7 @@ da_scala_library(
 
 da_scala_test_suite(
     name = "struct-circe-json-test",
-    srcs = glob(["struct-json/struct-circe-json/src/test/scala/**/*.scala"]),
+    srcs = glob(["base/struct-json/struct-circe-json/src/test/scala/**/*.scala"]),
     scala_deps = [
         "@maven//:com_thesamet_scalapb_lenses",
         "@maven//:com_thesamet_scalapb_scalapb_runtime",
@@ -1802,5 +1802,17 @@ da_scala_test_suite(
     ],
     deps = [
         ":struct-circe-json",
+    ],
+)
+
+da_scala_library(
+    name = "auth-utils",
+    srcs = glob(["base/auth-utils/src/main/scala/**/*.scala"]),
+    tags = ["maven_coordinates=com.daml:auth-utils:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )
