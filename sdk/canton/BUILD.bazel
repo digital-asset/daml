@@ -1615,7 +1615,7 @@ filegroup(
 filegroup(
     name = "api-version-files",
     srcs = [
-        "community/ledger-api/VERSION",
+        "community/ledger-api-proto/VERSION",
     ],
     visibility = [
         "//visibility:public",
@@ -1624,11 +1624,17 @@ filegroup(
 
 ledger_api_root = "canton/community/ledger-api"
 
-ledger_api_proto_source_root = "canton/community/ledger-api/src/main/protobuf"
+ledger_api_proto_source_root = "canton/community/ledger-api-proto/src/main/protobuf"
+
+copy_file(
+    name = "ledger-api-scala-file-into-proto",
+    src = ":community/ledger-api-scala/src/main/protobuf/com/daml/ledger/api/scalapb/package.proto",
+    out = "community/ledger-api-proto/src/main/protobuf/com/daml/ledger/api/scalapb/package.proto",
+)
 
 proto_jars(
     name = "ledger_api_proto",
-    srcs = glob(["community/ledger-api/src/main/protobuf/com/daml/ledger/api/v*/**/*.proto"]),
+    srcs = glob(["community/ledger-api-proto/src/main/protobuf/com/daml/ledger/api/v*/**/*.proto"]),
     grpc = True,
     java_conversions = True,
     java_deps = [
@@ -1640,9 +1646,9 @@ proto_jars(
     maven_group = "com.daml",
     proto_deps = ["//daml-lf/ledger-api-value:ledger_api_value_proto"],
     scalapb_options_files = [
-        "community/ledger-api/src/main/protobuf/com/daml/ledger/api/scalapb/package.proto",
+        ":ledger-api-scala-file-into-proto",
     ],
-    strip_import_prefix = "community/ledger-api/src/main/protobuf",
+    strip_import_prefix = "community/ledger-api-proto/src/main/protobuf",
     visibility = ["//visibility:public"],
     deps = [
         "@com_google_protobuf//:any_proto",
