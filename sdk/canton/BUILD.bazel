@@ -504,7 +504,7 @@ scala_library(
         "//daml-lf/data",
         "//daml-lf/language",
         "//daml-lf/transaction",
-        "//libs-scala/concurrent",
+        "//canton:concurrent",
         "//libs-scala/contextualized-logging",
         "//libs-scala/executors",
         "//libs-scala/logging-entries",
@@ -623,7 +623,7 @@ scala_library(
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/transaction",
-        "//libs-scala/concurrent",
+        "//canton:concurrent",
         "//libs-scala/contextualized-logging",
         "//libs-scala/executors",
         "//libs-scala/nameof",
@@ -751,7 +751,7 @@ scala_library(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/validation",
-        "//libs-scala/concurrent",
+        "//canton:concurrent",
         "//libs-scala/contextualized-logging",
         "//libs-scala/executors",
         "//libs-scala/ledger-resources",
@@ -2004,4 +2004,34 @@ da_scala_library(
         "//:__subpackages__",
     ],
     deps = [],
+)
+
+da_scala_library(
+    name = "concurrent",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    plugins = [
+        kind_projector_plugin,
+    ],
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    scalacopts = canton_scalacopts + ["-language:postfixOps"],
+    tags = ["maven_coordinates=com.daml:concurrent:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+)
+
+da_scala_test(
+    name = "concurrent-test",
+    srcs = glob(["src/test/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:com_chuusai_shapeless",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    scalacopts = canton_scalacopts + ["-language:postfixOps"],
+    deps = [
+        ":concurrent",
+    ],
 )

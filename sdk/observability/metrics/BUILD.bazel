@@ -23,7 +23,7 @@ da_scala_library(
     ],
     runtime_deps = [],
     deps = [
-        "//libs-scala/concurrent",
+        "//canton:concurrent",
         "//canton:scala-utils",
         "@maven//:com_google_code_findbugs_jsr305",
         "@maven//:com_google_protobuf_protobuf_java",
