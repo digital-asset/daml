@@ -45,11 +45,12 @@ import com.daml.timer.RetryStrategy
 import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.daml.lf.command
+import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
 import com.digitalasset.daml.lf.engine.script.v2.Converter
-import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
-import com.digitalasset.daml.lf.speedy.{SValue, svalue}
+import com.digitalasset.daml.lf.engine.{Enricher, ResultDone}
+import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, Reference}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi.{
@@ -58,7 +59,7 @@ import com.digitalasset.canton.ledger.api.util.LfEngineToApi.{
   toApiIdentifier,
   toTimestamp,
 }
-import com.daml.script.converter.ConverterException
+import com.digitalasset.daml.lf.script.converter.ConverterException
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.{Status, StatusRuntimeException}
 import io.grpc.protobuf.StatusProto
@@ -81,6 +82,16 @@ class GrpcLedgerClient(
 ) extends ScriptLedgerClient {
   override val transport = "gRPC API"
   implicit val traceContext: TraceContext = TraceContext.empty
+
+  val enricher = new Enricher(
+    compiledPackages = compiledPackages,
+    // Cannot load packages in GrpcLedgerClient
+    loadPackage = { (_: PackageId, _: Reference) => ResultDone(()) },
+    addTypeInfo = true,
+    addFieldNames = true,
+    addTrailingNoneFields = true,
+    forbidLocalContractIds = true,
+  )
 
   override def query(
       parties: OneAnd[Set, Ref.Party],
@@ -230,9 +241,20 @@ class GrpcLedgerClient(
         val key: Option[Value] = createdEvent.contractKey.map { key =>
           NoLoggingValueValidator.validateValue(key) match {
             case Left(err) => throw new ConverterException(err.toString)
-            case Right(argument) => argument
+            case Right(key) => key
           }
         }
+        val enrichedArgument = enricher.enrichContract(templateId, argument).consume() match {
+          case Right(arg) => arg
+          case Left(err) => throw new ConverterException(err.toString)
+        }
+        val enrichedKey = key.map { key =>
+          enricher.enrichContractKey(templateId, key).consume() match {
+            case Right(key) => key
+            case Left(err) => throw new ConverterException(err.toString)
+          }
+        }
+
         val cid =
           ContractId
             .fromString(createdEvent.contractId)
@@ -254,10 +276,10 @@ class GrpcLedgerClient(
           ScriptLedgerClient.ActiveContract(
             disclosureTemplateId,
             cid,
-            argument,
+            enrichedArgument,
             blob,
           ),
-          key,
+          enrichedKey,
         )
       })
     )
@@ -313,9 +335,17 @@ class GrpcLedgerClient(
               case Left(err) => throw new ConverterException(err.toString)
               case Right(argument) => argument
             }
+          val enrichedviewValue =
+            if (viewValue.fields.isEmpty)
+              None
+            else
+              Some(enricher.enrichView(interfaceId, viewValue).consume() match {
+                case Right(viewValue) => viewValue
+                case Left(err) => throw new ConverterException(err.toString)
+              })
           // Because we filter for a specific interfaceId,
           // we will get at most one view for a given cid.
-          (cid, if (viewValue.fields.isEmpty) None else Some(viewValue))
+          (cid, enrichedviewValue)
         }
       })
     )
@@ -342,29 +372,28 @@ class GrpcLedgerClient(
   override def queryContractKey(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
-      key: SValue,
-      translateKey: (Identifier, Value) => Either[String, SValue],
+      key: Value,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[Option[ScriptLedgerClient.ActiveContract]] = {
     // We cannot do better than a linear search over query here.
-    import scalaz.std.option._
-    import scalaz.std.scalaFuture._
-    import scalaz.std.vector._
-    import scalaz.syntax.traverse._
     for {
       activeContracts <- queryWithKey(parties, templateId)
-      speedyContracts <- activeContracts.traverse { case (t, kOpt) =>
-        Converter.toFuture(kOpt.traverse(translateKey(templateId, _)).map(k => (t, k)))
+      ownPackageName <- Converter.toFuture(
+        packageIdToUpgradeName(false, templateId.packageId).toRight("Cannot get package name")
+      )
+      speedyContracts = activeContracts.map { case (t, kOpt) =>
+        (t, kOpt.map(Hash.assertHashContractKey(templateId, ownPackageName, _)))
       }
+      ownHash = Hash.assertHashContractKey(templateId, ownPackageName, key)
     } yield {
       // Note that the Equal instance on Value performs structural equality
       // and also compares optional field and constructor names and is
       // therefore not correct here.
       // Equality.areEqual corresponds to the Daml-LF value equality
       // which we want here.
-      speedyContracts.collectFirst({ case (c, Some(k)) if svalue.Equality.areEqual(k, key) => c })
+      speedyContracts.collectFirst({ case (c, Some(kHash)) if kHash == ownHash => c })
     }
   }
 
@@ -422,7 +451,7 @@ class GrpcLedgerClient(
         case Right(resp) =>
           for {
             tree <- Converter.toFuture(
-              Converter.fromTransaction(resp.getTransaction, commandResultPackageIds)
+              Converter.fromTransaction(resp.getTransaction, commandResultPackageIds, enricher)
             )
             results = ScriptLedgerClient.transactionTreeToCommandResults(tree)
           } yield Right((results, tree))
@@ -586,7 +615,8 @@ class GrpcLedgerClient(
 
   private def toPrefetchContractKey(key: AnyContractKey): Either[String, PrefetchContractKey] = {
     for {
-      contractKey <- lfValueToApiValue(true, key.key.toUnnormalizedValue)
+      nonExtendedKeyValue <- Converter.castCommandExtendedValue(key.key)
+      contractKey <- lfValueToApiValue(true, nonExtendedKeyValue)
     } yield PrefetchContractKey(
       templateId = Some(toApiIdentifierUpgrades(key.templateId.toRef, false)),
       contractKey = Some(contractKey),

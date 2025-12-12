@@ -23,7 +23,10 @@ load(
 
 da_scala_library(
     name = "engine",
-    srcs = glob(["src/main/**/*.scala"]),
+    srcs = glob(
+        ["src/main/**/*.scala"],
+        exclude = ["src/main/**/ScriptEngine.scala"],
+    ),
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_typelevel_cats_core",
@@ -46,6 +49,24 @@ da_scala_library(
         "//libs-scala/nameof",
         "//libs-scala/scala-utils",
         "@maven//:com_google_protobuf_protobuf_java",
+    ],
+)
+
+da_scala_library(
+    name = "script-engine",
+    srcs = glob(["src/main/**/ScriptEngine.scala"]),
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    scalacopts = lf_scalacopts_stricter,
+    tags = ["maven_coordinates=com.daml:daml-lf-script-engine:__VERSION__"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//daml-lf/data",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//daml-lf/transaction",
+        "//libs-scala/contextualized-logging",
     ],
 )
 

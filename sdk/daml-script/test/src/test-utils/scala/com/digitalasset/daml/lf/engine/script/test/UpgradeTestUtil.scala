@@ -4,6 +4,7 @@
 package com.digitalasset.daml.lf
 
 import com.daml.scalautil.Statement.discard
+import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.engine.script.test.DarUtil.{Dar, DataDep, buildDar}
 import com.digitalasset.daml.lf.language.LanguageVersion
 import io.circe.{yaml, _}
@@ -20,6 +21,9 @@ class UpgradeTestUtil(upgradeTestLibDar: Path)(implicit executor: ExecutionConte
   import UpgradeTestUtil._
 
   private val tempDir: Path = Files.createTempDirectory("upgrades-it")
+
+  val upgradeTestLibPackageId: PackageId =
+    archive.UniversalArchiveReader.assertReadFile(upgradeTestLibDar.toFile).main.pkgId
 
   private val builtTestCaseDars: mutable.HashMap[TestCase, (Path, Seq[Dar])] =
     new mutable.HashMap[TestCase, (Path, Seq[Dar])]

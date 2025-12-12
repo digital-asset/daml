@@ -280,6 +280,9 @@ final class Enricher(
   def enrichContract(tyCon: Identifier, value: Value): Result[Value] =
     enrichValue(Ast.TTyCon(tyCon), value)
 
+  def enrichException(tyCon: Identifier, value: Value): Result[Value] =
+    enrichValue(Ast.TTyCon(tyCon), value)
+
   private[this] def pkgInterface = compiledPackages.pkgInterface
 
   private[this] def handleLookup[X](lookup: => Either[LookupError, X]): Result[X] = lookup match {

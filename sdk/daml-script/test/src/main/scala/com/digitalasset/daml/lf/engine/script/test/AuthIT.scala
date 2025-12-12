@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf.engine.script
 package test
 
 import com.digitalasset.canton.ledger.api
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
 import com.daml.integrationtest._
 import com.digitalasset.daml.lf.language.LanguageVersion
@@ -57,12 +57,9 @@ class AuthIT(override val majorLanguageVersion: LanguageVersion.Major)
             clients,
             Ref.QualifiedName.assertFromString("ScriptTest:auth"),
             inputValue = Some(
-              Value.ValueRecord(
-                None,
-                ImmArray(
-                  None -> Value.ValueParty(Ref.Party.assertFromString(parties.head)),
-                  None -> Value.ValueParty(Ref.Party.assertFromString(parties.tail.head)),
-                ),
+              tuple(
+                Value.ValueParty(Ref.Party.assertFromString(parties.head)),
+                Value.ValueParty(Ref.Party.assertFromString(parties.tail.head)),
               )
             ),
             dar = dar,

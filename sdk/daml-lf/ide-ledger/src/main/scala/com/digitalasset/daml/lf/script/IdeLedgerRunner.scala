@@ -17,6 +17,7 @@ import com.digitalasset.daml.lf.speedy._
 import com.digitalasset.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.digitalasset.daml.lf.transaction._
 import com.digitalasset.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.value.Value
 
 import scala.annotation.tailrec
 import scala.collection.immutable.ArraySeq
@@ -464,10 +465,9 @@ private[lf] object IdeLedgerRunner {
       ledger: IdeLedger,
       traceLog: TraceLog,
       warningLog: WarningLog,
-      profile: Profile,
       duration: Double,
       steps: Int,
-      resultValue: SValue,
+      resultValue: Value,
   ) extends ScriptResult
 
   final case class ScriptError(

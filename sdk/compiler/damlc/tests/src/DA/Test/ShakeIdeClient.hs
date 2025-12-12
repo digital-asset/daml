@@ -275,7 +275,7 @@ basicTests lfVersion mbScriptService scriptPackageData = Tasty.testGroup "Basic 
             expectVirtualResource va "Return value: &quot;foo&quot;"
             expectVirtualResource vb "Return value: &quot;bar&quot;"
 
-    -- Error throw is com.daml.script.converter.ConverterException
+    -- Error throw is com.digitalasset.daml.lf.script.converter.ConverterException
     , testCaseFails' "non expected non first character" "Script with mangled names (Ticket #16585)" $ do
             a <- makeFile "foo/MangledScript'.daml" $ T.unlines
                 [ "module MangledScript' where"

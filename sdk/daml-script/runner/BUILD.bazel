@@ -72,6 +72,7 @@ da_scala_library(
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/engine",
+        "//daml-lf/engine:script-engine",
         "//daml-lf/ide-ledger",
         "//daml-lf/interpreter",
         "//daml-lf/language",

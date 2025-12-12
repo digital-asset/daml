@@ -15,7 +15,11 @@ import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
 import com.digitalasset.daml.lf.engine.script.test.DarUtil.Dar
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.AdminLedgerClient
 import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.speedy.Speedy.Machine.{newTraceLog, newWarningLog}
+import com.digitalasset.daml.lf.engine.ScriptEngine.{
+  newTraceLog,
+  newWarningLog,
+  defaultCompilerConfig,
+}
 import com.digitalasset.daml.lf.value.Value
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
@@ -68,7 +72,7 @@ class UpgradesIT(
           (testDarPath, _) <- testUtil.buildTestCaseDarMemoized(languageVersion, testCase)
 
           // Create ide ledger client
-          testDar = CompiledDar.read(testDarPath, Runner.compilerConfig)
+          testDar = CompiledDar.read(testDarPath, defaultCompilerConfig)
           participants <- Runner.ideLedgerClient(
             testDar.compiledPackages,
             newTraceLog,
@@ -82,11 +86,16 @@ class UpgradesIT(
             inputValue = Some(
               mkInitialTestState(
                 testCaseName = testCase.name,
-                runMode = runModeIdeLedger,
+                runMode = RunMode.IdeLedger,
+                utilPackageId = testUtil.upgradeTestLibPackageId,
               )
             ),
             dar = testDar,
-          )
+          ).recoverWith {
+            case com.digitalasset.daml.lf.interpretation.Error.Upgrade.TranslationFailed
+                  .InvalidExtendedValue(msg) =>
+              Future.failed(new RuntimeException(msg))
+          }
         } yield succeed
       }
       (testCase.name + " on Canton") in {
@@ -125,41 +134,63 @@ class UpgradesIT(
           _ = println("All packages vetted on all participants")
 
           // Run tests
-          testDar = CompiledDar.read(testDarPath, Runner.compilerConfig)
+          testDar = CompiledDar.read(testDarPath, defaultCompilerConfig)
           _ <- run(
             clients,
             QualifiedName.assertFromString(s"${testCase.name}:main"),
             inputValue = Some(
               mkInitialTestState(
                 testCaseName = testCase.name,
-                runMode = runModeCanton,
+                runMode = RunMode.Canton,
+                utilPackageId = testUtil.upgradeTestLibPackageId,
               )
             ),
             dar = testDar,
-          )
+          ).recoverWith {
+            case com.digitalasset.daml.lf.interpretation.Error.Upgrade.TranslationFailed
+                  .LookupError(err) =>
+              Future.failed(new RuntimeException(err.toString))
+            case com.digitalasset.daml.lf.interpretation.Error.Upgrade.TranslationFailed
+                  .InvalidExtendedValue(err) =>
+              Future.failed(new RuntimeException(err))
+          }
         } yield succeed
       }
     }
   }
 
+  sealed class RunMode(nameString: String) {
+    val name: Name = Name.assertFromString(nameString)
+  }
+  object RunMode {
+    case object Canton extends RunMode("Canton")
+    case object IdeLedger extends RunMode("IdeLedger")
+  }
+
   private def mkInitialTestState(
       testCaseName: String,
-      runMode: Value,
+      runMode: RunMode,
+      utilPackageId: PackageId,
   ): Value = {
     Value.ValueRecord(
-      None,
+      Some(Identifier(utilPackageId, QualifiedName.assertFromString("UpgradeTestLib:TestState"))),
       ImmArray(
-        (None, runMode),
-        (None, Value.ValueList(FrontStack(Value.ValueText(testCaseName)))),
+        (
+          Some(Name.assertFromString("runMode")),
+          Value.ValueEnum(
+            Some(
+              Identifier(utilPackageId, QualifiedName.assertFromString("UpgradeTestLib:RunMode"))
+            ),
+            runMode.name,
+          ),
+        ),
+        (
+          Some(Name.assertFromString("testPath")),
+          Value.ValueList(FrontStack(Value.ValueText(testCaseName))),
+        ),
       ),
     )
   }
-
-  private val runModeCanton: Value =
-    Value.ValueEnum(None, Name.assertFromString("Canton"))
-
-  private val runModeIdeLedger: Value =
-    Value.ValueEnum(None, Name.assertFromString("IdeLedger"))
 
   private def assertDepsVetted(
       client: AdminLedgerClient,
@@ -194,7 +225,7 @@ class UpgradesITSmallStable
       testCaseFilter = _.name != "SubViews",
     )
 
-class UpgradesITSLargeStable
+class UpgradesITLargeStable
     extends UpgradesIT(
       runCantonInDevMode = false,
       languageVersion = LanguageVersion.latestStableLfVersion,
