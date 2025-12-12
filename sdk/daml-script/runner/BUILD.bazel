@@ -84,7 +84,7 @@ da_scala_library(
         "//canton:nonempty",
         "//canton:rs-grpc-bridge",
         "//canton:rs-grpc-pekko",
-        "//libs-scala/timer-utils",
+        "//canton:timer-utils",
         "@maven//:com_google_guava_guava",
         "@maven//:io_grpc_grpc_netty_shaded",
     ],

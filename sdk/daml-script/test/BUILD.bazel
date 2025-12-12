@@ -413,7 +413,7 @@ da_scala_test(
         "//canton:resources",
         "//canton:rs-grpc-bridge",
         "//libs-scala/testing-utils",
-        "//libs-scala/timer-utils",
+        "//canton:timer-utils",
         "//test-common/canton/it-lib",
     ],
 ) if not is_windows else None

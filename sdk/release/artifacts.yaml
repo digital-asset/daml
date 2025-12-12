@@ -105,7 +105,7 @@
   type: jar-scala
 - target: //libs-scala/ledger-resources:ledger-resources
   type: jar-scala
-- target: //libs-scala/logging-entries:logging-entries
+- target: //canton:logging-entries
   type: jar-scala
 - target: //canton:nonempty
   type: jar-scala
@@ -119,7 +119,7 @@
   type: jar-scala
 - target: //canton:resources-grpc
   type: jar-scala
-- target: //libs-scala/safe-proto:safe-proto
+- target: //canton:safe-proto
   type: jar-scala
 - target: //canton:scala-utils
   type: jar-scala
@@ -131,9 +131,9 @@
   type: jar-scala
 - target: //libs-scala/test-evidence/generator:generator
   type: jar-scala
-- target: //libs-scala/timer-utils:timer-utils
+- target: //canton:timer-utils
   type: jar-scala
-- target: //libs-scala/nameof:nameof
+- target: //canton:nameof
   type: jar-scala
 - target: //canton:struct-spray-json
   type: jar-scala
