@@ -1992,3 +1992,16 @@ da_scala_library(
         "@maven//:io_grpc_grpc_stub",
     ],
 )
+
+da_scala_library(
+    name = "build-info",
+    srcs = glob(["base/build-info/src/main/scala/**/*.scala"]),
+    resources = [
+        "//:mvn_version_file",
+    ],
+    tags = ["maven_coordinates=com.daml:build-info:__VERSION__"],
+    visibility = [
+        "//:__subpackages__",
+    ],
+    deps = [],
+)
