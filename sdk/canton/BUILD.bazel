@@ -363,7 +363,7 @@ da_scala_library(
         "//libs-scala/contextualized-logging",
         "//libs-scala/ledger-resources",
         "//libs-scala/logging-entries",
-        "//libs-scala/resources",
+        "//canton:resources",
         "//canton:rs-grpc-bridge",
         "//canton:rs-grpc-pekko",
         "//observability/metrics",
@@ -759,9 +759,9 @@ scala_library(
         "//libs-scala/nameof",
         "//canton:nonempty",
         "//libs-scala/ports",
-        "//libs-scala/resources",
-        "//libs-scala/resources-grpc",
-        "//libs-scala/resources-pekko",
+        "//canton:resources",
+        "//canton:resources-grpc",
+        "//canton:resources-pekko",
         "//canton:rs-grpc-bridge",
         "//canton:rs-grpc-pekko",
         "//canton:scala-utils",
@@ -852,9 +852,9 @@ scala_library(
         "//libs-scala/logging-entries",
         "//canton:nonempty",
         "//libs-scala/ports",
-        "//libs-scala/resources",
-        "//libs-scala/resources-grpc",
-        "//libs-scala/resources-pekko",
+        "//canton:resources",
+        "//canton:resources-grpc",
+        "//canton:resources-pekko",
         "//canton:rs-grpc-bridge",
         "//canton:rs-grpc-pekko",
         "//canton:scala-utils",
@@ -1141,9 +1141,9 @@ scala_library(
         "//libs-scala/nameof",
         "//canton:nonempty",
         "//canton:nonempty-cats",
-        "//libs-scala/resources",
-        "//libs-scala/resources-grpc",
-        "//libs-scala/resources-pekko",
+        "//canton:resources",
+        "//canton:resources-grpc",
+        "//canton:resources-pekko",
         "//canton:rs-grpc-bridge",
         "//canton:scala-utils",
         "//libs-scala/timer-utils",
@@ -2033,5 +2033,110 @@ da_scala_test(
     scalacopts = canton_scalacopts + ["-language:postfixOps"],
     deps = [
         ":concurrent",
+    ],
+)
+
+da_scala_library(
+    name = "resources",
+    srcs = glob(["canton/base/resources/src/main/scala/**/*.scala"]) + glob(["canton/base/resources/src/main/{}/**/*.scala".format(scala_major_version)]),
+    tags = ["maven_coordinates=com.daml:resources:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        "//libs-scala/contextualized-logging",
+    ],
+)
+
+da_scala_library(
+    name = "resources-test-lib",
+    srcs = glob(["canton/base/resources/src/test/lib/scala/**/*.scala"]),
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        ":resources",
+    ],
+)
+
+da_scala_test_suite(
+    name = "resources-tests",
+    srcs = glob(["canton/base/resources/src/test/suite/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest_wordspec",
+    ],
+    deps = [
+        ":resources",
+        ":resources-test-lib",
+        "//libs-scala/timer-utils",
+    ],
+)
+
+da_scala_library(
+    name = "resources-grpc",
+    srcs = glob(["canton/base/resources-grpc/src/main/scala/**/*.scala"]),
+    tags = ["maven_coordinates=com.daml:resources-grpc:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        "//canton:resources",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_netty_shaded",
+    ],
+)
+
+da_scala_test_suite(
+    name = "resources-grpc-test",
+    srcs = glob(["canton/base/resources-grpc/src/test/scala/**/*.scala"]),
+    resource_strip_prefix = "canton/base/resources-grpc/src/test/resources/",
+    resources = [
+        ":canton/base/resources-grpc/src/test/resources/logback-test.xml",
+    ],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+    ],
+    deps = [
+        ":resources-grpc",
+        "//canton:resources",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_inprocess",
+        "@maven//:io_grpc_grpc_netty_shaded",
+        "@maven//:io_grpc_grpc_services",
+        "@maven//:io_grpc_grpc_stub",
+    ],
+)
+
+da_scala_library(
+    name = "resources-pekko",
+    srcs = glob(["canton/base/resources-pekko/src/main/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_apache_pekko_pekko_actor",
+        "@maven//:org_apache_pekko_pekko_stream",
+    ],
+    tags = ["maven_coordinates=com.daml:resources-pekko:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        "//canton:resources",
+    ],
+)
+
+da_scala_test_suite(
+    name = "resources-pekko-tests",
+    srcs = glob(["canton/base/resources-pekko/src/test/suite/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_apache_pekko_pekko_actor",
+        "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:org_scalatest_scalatest_wordspec",
+    ],
+    deps = [
+        ":resources-pekko",
+        "//canton:resources",
+        "//canton:resources-test-lib",
+        "//canton:scala-utils",
+        "//libs-scala/timer-utils",
     ],
 )
