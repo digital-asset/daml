@@ -217,7 +217,7 @@ da_scala_library(
         ":base_errors",
         "//daml-lf/data",
         "//canton:contextualized-logging",
-        "//libs-scala/grpc-utils",
+        ":base_grpc-utils",
         "//canton:logging-entries",
         "//canton:nonempty",
         "//canton:scala-utils",
