@@ -43,6 +43,31 @@ object Question {
         // In case of failure, the callback sets machine control to an SErrorDamlException and return false
         callback: Option[ContractId] => Boolean,
     ) extends Update
+
+    /** Update interpretation requires an external call to a configured extension service.
+      * The engine suspends and asks the participant to make the actual HTTP call,
+      * ensuring connection pooling is managed at the participant level.
+      *
+      * @param extensionId Identifier of the configured extension (from Canton config)
+      * @param functionId Function identifier within the extension
+      * @param configHash Configuration hash (hex) for version validation
+      * @param input Input data (hex)
+      * @param callback Callback to provide the result or error
+      */
+    final case class NeedExternalCall(
+        extensionId: String,
+        functionId: String,
+        configHash: String,
+        input: String,
+        callback: Either[ExternalCallError, String] => Unit,
+    ) extends Update
+
+    /** Error information from external call failures */
+    final case class ExternalCallError(
+        statusCode: Int,
+        message: String,
+        requestId: Option[String],
+    )
   }
 
 }
