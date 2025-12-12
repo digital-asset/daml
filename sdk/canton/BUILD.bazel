@@ -1816,3 +1816,173 @@ da_scala_library(
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
+
+da_java_library(
+    name = "rs-grpc-bridge",
+    srcs = glob(["base/rs-grpc-bridge/src/main/java/**/*.java"]),
+    tags = [
+        "javadoc_root_packages=com.daml.grpc.adapter",
+        "maven_coordinates=com.daml:rs-grpc-bridge:__VERSION__",
+    ],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        "@maven//:com_google_code_findbugs_jsr305",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_stub",
+        "@maven//:org_reactivestreams_reactive_streams",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+da_scala_library(
+    name = "rs-grpc-bridge-test-lib",
+    srcs = glob([
+        "base/rs-grpc-bridge/src/test/lib/java/**/*.java",
+    ]),
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        ":rs-grpc-bridge",
+    ],
+)
+
+da_scala_test(
+    name = "rs-grpc-bridge-test",
+    srcs = glob([
+        "base/rs-grpc-bridge/src/test/suite/scala/**/*.scala",
+    ]),
+    resource_strip_prefix = "canton/base/rs-grpc-bridge/src/test/suite/resources/",
+    resources = glob(["base/rs-grpc-bridge/src/test/suite/resources/**/*"]),
+    scala_deps = [
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalatestplus_testng_7_5",
+    ],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        ":rs-grpc-bridge",
+        ":rs-grpc-bridge-test-lib",
+        "//libs-scala/rs-grpc-testing-utils",
+        "@maven//:io_grpc_grpc_stub",
+        "@maven//:org_reactivestreams_reactive_streams",
+        "@maven//:org_reactivestreams_reactive_streams_examples",
+        "@maven//:org_reactivestreams_reactive_streams_tck",
+        "@maven//:org_scalatest_scalatest_compatible",
+        "@maven//:org_slf4j_slf4j_api",
+        "@maven//:org_testng_testng",
+    ],
+)
+
+da_scala_library(
+    name = "rs-grpc-pekko",
+    srcs = glob(["base/rs-grpc-pekko/src/main/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_apache_pekko_pekko_actor",
+        "@maven//:org_apache_pekko_pekko_stream",
+    ],
+    tags = ["maven_coordinates=com.daml:rs-grpc-pekko:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        ":rs-grpc-bridge",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_stub",
+        "@maven//:org_reactivestreams_reactive_streams",
+    ],
+)
+
+da_scala_library(
+    name = "rs-grpc-pekko-tests-lib",
+    srcs = glob(
+        ["base/rs-grpc-pekko/src/test/**/*.scala"],
+        exclude = [
+            "base/rs-grpc-pekko/src/test/**/*Spec.scala",
+            "base/rs-grpc-pekko/src/test/**/*Test.scala",
+        ],
+    ),
+    scala_deps = [
+        "@maven//:com_thesamet_scalapb_lenses",
+        "@maven//:com_thesamet_scalapb_scalapb_runtime",
+        "@maven//:com_thesamet_scalapb_scalapb_runtime_grpc",
+        "@maven//:org_apache_pekko_pekko_actor",
+        "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+    ],
+    visibility = [
+        "//:__subpackages__",
+    ],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:io_grpc_grpc_netty_shaded",
+    ],
+    deps = [
+        ":rs-grpc-pekko",
+        ":rs-grpc-bridge",
+        ":rs-grpc-bridge-test-lib",
+        "//libs-scala/sample-service",
+        "//libs-scala/testing-utils",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_stub",
+        "@maven//:org_awaitility_awaitility",
+        "@maven//:org_scalatest_scalatest_compatible",
+    ],
+)
+
+da_scala_test_suite(
+    name = "rs-grpc-pekko-tests",
+    srcs = glob([
+        "base/rs-grpc-pekko/src/test/**/*Spec.scala",
+        "base/rs-grpc-pekko/src/test/**/*Test.scala",
+    ]),
+    scala_deps = [
+        "@maven//:com_thesamet_scalapb_lenses",
+        "@maven//:com_thesamet_scalapb_scalapb_runtime_grpc",
+        "@maven//:org_apache_pekko_pekko_actor",
+        "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+    ],
+    deps = [
+        ":rs-grpc-pekko-tests-lib",
+        ":rs-grpc-bridge",
+        "//libs-scala/sample-service",
+        "//libs-scala/testing-utils",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_stub",
+        "@maven//:org_scalatest_scalatest_compatible",
+    ],
+)
+
+da_scala_library(
+    name = "rs-grpc-testing-utils",
+    srcs = glob([
+        "base/rs-grpc-testing-utils/src/main/scala/**/*.scala",
+    ]),
+    tags = [
+        "maven_coordinates=com.daml:rs-grpc-testing-utils:__VERSION__",
+    ],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        "@maven//:io_grpc_grpc_stub",
+    ],
+)
