@@ -16,8 +16,7 @@ import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerC
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, Reference}
 import com.digitalasset.daml.lf.speedy.SError
-import com.digitalasset.daml.lf.speedy.SExpr.ExceptionMessageDefRef
-import com.digitalasset.daml.lf.speedy.Speedy.Machine.{
+import com.digitalasset.daml.lf.engine.ScriptEngine.{
   ExtendedValue,
   ExtendedValueAny,
   ExtendedValueClosureBlob,
@@ -185,7 +184,7 @@ object ScriptF {
           runner
             .runComputation(
               ExtendedValueComputationMode
-                .BySDefinitionRef(ExceptionMessageDefRef(name), Some(List(v))),
+                .ByExceptionMessage(name, v),
               false,
             )
             .transformWith {
@@ -958,7 +957,7 @@ object ScriptF {
           }
 
           val name = err match {
-            case Error.RunnerException(speedy.SError.SErrorDamlException(iErr)) =>
+            case Error.RunnerException(SError.SErrorDamlException(iErr)) =>
               iErr.getClass.getSimpleName
             case e => e.getClass.getSimpleName
           }

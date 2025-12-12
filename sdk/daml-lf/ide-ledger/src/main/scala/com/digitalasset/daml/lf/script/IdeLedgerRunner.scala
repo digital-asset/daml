@@ -465,7 +465,6 @@ private[lf] object IdeLedgerRunner {
       ledger: IdeLedger,
       traceLog: TraceLog,
       warningLog: WarningLog,
-      profile: Profile,
       duration: Double,
       steps: Int,
       resultValue: Value,

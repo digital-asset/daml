@@ -20,6 +20,7 @@ import com.digitalasset.daml.lf.command.ApiCommand
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.preprocessing.ValueTranslator
+import com.digitalasset.daml.lf.engine.ScriptEngine.{TraceLog, WarningLog}
 import com.digitalasset.daml.lf.interpretation.Error.ContractIdInContractKey
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, LookupError, Reference}
 import com.digitalasset.daml.lf.language.Ast.PackageMetadata
@@ -27,7 +28,7 @@ import com.digitalasset.daml.lf.language.Ast.TTyCon
 import com.digitalasset.daml.lf.script.{IdeLedger, IdeLedgerRunner}
 import com.digitalasset.daml.lf.script
 import com.digitalasset.daml.lf.speedy.Speedy.Machine
-import com.digitalasset.daml.lf.speedy.{Pretty, SError, TraceLog, WarningLog}
+import com.digitalasset.daml.lf.speedy.{Pretty, SError}
 import com.digitalasset.daml.lf.transaction.{
   CreationTime,
   FatContractInstance,

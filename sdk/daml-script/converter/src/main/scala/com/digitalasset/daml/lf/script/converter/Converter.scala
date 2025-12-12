@@ -7,7 +7,7 @@ package script.converter
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.stablepackages.StablePackagesV2
-import com.digitalasset.daml.lf.speedy.Speedy.Machine.ExtendedValue
+import com.digitalasset.daml.lf.engine.ScriptEngine.ExtendedValue
 import com.digitalasset.daml.lf.value.Value._
 import scalaz.std.either._
 import scalaz.syntax.bind._

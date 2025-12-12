@@ -16,15 +16,15 @@ import com.digitalasset.daml.lf.engine.script.ledgerinteraction.{
 }
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
 import com.digitalasset.daml.lf.script.{IdeLedger, IdeLedgerRunner}
-import com.digitalasset.daml.lf.speedy.{Profile, TraceLog, WarningLog}
-import com.digitalasset.daml.lf.speedy.Speedy.Machine.{
+import com.digitalasset.daml.lf.engine.ScriptEngine.{
   ExtendedValue,
   ExtendedValueClosureBlob,
   ExtendedValueComputationMode,
   runExtendedValueComputation,
   newTraceLog,
   newWarningLog,
-  newProfile,
+  TraceLog,
+  WarningLog,
 }
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.script.converter.ConverterException
@@ -37,13 +37,12 @@ private[lf] class Runner(
     initialClients: Participants[UnversionedScriptLedgerClient],
     traceLog: TraceLog = newTraceLog,
     warningLog: WarningLog = newWarningLog,
-    profile: Profile = newProfile,
     canceled: () => Option[RuntimeException] = () => None,
 ) {
   import Free.Result
 
   implicit val namedLoggerFactory: NamedLoggerFactory =
-    NamedLoggerFactory("daml-script", profile.name)
+    NamedLoggerFactory("daml-script", "Daml Script")
 
   private val initialClientsV2 = initialClients.map(
     ScriptLedgerClient.realiseScriptLedgerClient(
@@ -115,7 +114,6 @@ private[lf] class Runner(
           unversionedRunner.extendedCompiledPackages,
           traceLog,
           warningLog,
-          profile,
           Script.DummyLoggingContext,
           convertLegacyExceptions,
           canceled,
@@ -151,7 +149,6 @@ private[lf] class Runner(
         iterationsBetweenInterruptions = 100000,
         traceLog,
         warningLog,
-        profile,
         convertLegacyExceptions,
       )(Script.DummyLoggingContext).fold(
         err => throw err.fold(identity, free.InterpretationError(_)),

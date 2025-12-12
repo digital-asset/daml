@@ -210,7 +210,6 @@ class Context(
     val scriptId = Identifier(packageId, QualifiedName.assertFromString(name))
     val traceLog = Speedy.Machine.newTraceLog
     val warningLog = Speedy.Machine.newWarningLog
-    val profile = Speedy.Machine.newProfile
     val timeBomb = TimeBomb(timeout.toMillis)
     val isOverdue = timeBomb.hasExploded
     val ledgerClient = new IdeLedgerClient(compiledPackages, traceLog, warningLog, isOverdue)
@@ -224,7 +223,6 @@ class Context(
       timeMode = ScriptTimeMode.Static,
       traceLog = traceLog,
       warningLog = warningLog,
-      profile = profile,
       canceled = () => {
         if (timeBombCanceller()) Some(Runner.TimedOut)
         else if (canceledByRequest()) Some(Runner.CanceledByRequest)
@@ -257,7 +255,6 @@ class Context(
             ideLedgerContext.ledger,
             traceLog,
             warningLog,
-            profile,
             dummyDuration,
             dummySteps,
             Converter.castCommandExtendedValue(v).getOrElse(ValueText("Unserializable")),

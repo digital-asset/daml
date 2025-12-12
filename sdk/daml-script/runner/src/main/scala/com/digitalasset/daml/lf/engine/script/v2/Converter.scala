@@ -15,7 +15,7 @@ import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.speedy.Speedy.Machine.ExtendedValue
+import com.digitalasset.daml.lf.engine.ScriptEngine.ExtendedValue
 import com.digitalasset.daml.lf.stablepackages.StablePackagesV2
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value._

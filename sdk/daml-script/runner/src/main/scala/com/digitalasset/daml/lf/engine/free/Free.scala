@@ -7,12 +7,14 @@ package free
 
 import com.daml.logging.LoggingContext
 import data.{ImmArray, Ref}
-import speedy._
-import speedy.Speedy.Machine.{
+import speedy.{Pretty, SError}
+import ScriptEngine.{
   ExtendedValue,
   ExtendedValueClosureBlob,
   ExtendedValueComputationMode,
   runExtendedValueComputation,
+  TraceLog,
+  WarningLog,
 }
 import value.Value._
 import scalaz.std.either._
@@ -122,7 +124,6 @@ private[lf] object Free {
       compiledPackages: CompiledPackages,
       traceLog: TraceLog,
       warningLog: WarningLog,
-      profile: Profile,
       loggingContext: LoggingContext,
       convertLegacyExceptions: Boolean,
   ): Result[ExtendedValue, Question, ExtendedValue] =
@@ -131,7 +132,6 @@ private[lf] object Free {
       compiledPackages: CompiledPackages,
       traceLog: TraceLog,
       warningLog: WarningLog,
-      profile: Profile,
       loggingContext: LoggingContext,
       convertLegacyExceptions,
     ).getResult()
@@ -141,7 +141,6 @@ private[lf] object Free {
       compiledPackages: CompiledPackages,
       traceLog: TraceLog,
       warningLog: WarningLog,
-      profile: Profile,
       loggingContext: LoggingContext,
       convertLegacyExceptions: Boolean,
       cancelled: () => Option[RuntimeException],
@@ -151,7 +150,6 @@ private[lf] object Free {
       compiledPackages: CompiledPackages,
       traceLog: TraceLog,
       warningLog: WarningLog,
-      profile: Profile,
       loggingContext: LoggingContext,
       convertLegacyExceptions,
       cancelled,
@@ -162,7 +160,6 @@ private[lf] object Free {
       compiledPackages: CompiledPackages,
       traceLog: TraceLog,
       warningLog: WarningLog,
-      profile: Profile,
       loggingContext: LoggingContext,
       convertLegacyExceptions: Boolean,
       cancelled: () => Option[RuntimeException] = () => None,
@@ -191,7 +188,6 @@ private[lf] object Free {
         iterationsBetweenInterruptions = 100000,
         traceLog = traceLog,
         warningLog = warningLog,
-        profile = profile,
         convertLegacyExceptions = convertLegacyExceptions,
       )(loggingContext).fold(
         err => Result.failed(err.fold(identity, free.InterpretationError(_))),

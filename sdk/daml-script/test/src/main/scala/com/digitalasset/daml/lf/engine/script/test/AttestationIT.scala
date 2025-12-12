@@ -8,7 +8,11 @@ import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.script.{Runner, ScriptTimeMode}
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
-import com.digitalasset.daml.lf.speedy.Speedy.Machine.{newTraceLog, newWarningLog}
+import com.digitalasset.daml.lf.engine.ScriptEngine.{
+  newTraceLog,
+  newWarningLog,
+  defaultCompilerConfig,
+}
 import com.digitalasset.daml.lf.value.Value
 import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.matchers.should.Matchers
@@ -27,7 +31,7 @@ class AttestationIT(languageVersion: LanguageVersion.Major)
   private val darPath: Path = rlocation(
     Paths.get(s"daml-script/test/attestation-test-v${languageVersion.pretty}.dev.dar")
   )
-  private val dar = CompiledDar.read(darPath, Runner.compilerConfig)
+  private val dar = CompiledDar.read(darPath, defaultCompilerConfig)
 
   private def converter(input: Value, @unused typ: Ast.Type): Either[String, Value] =
     Right(input)

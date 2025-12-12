@@ -17,7 +17,7 @@ import com.digitalasset.daml.lf.engine.script.ledgerinteraction.{
 }
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
 import com.digitalasset.daml.lf.stablepackages.StablePackages
-import com.digitalasset.daml.lf.speedy.Speedy.Machine.ExtendedValue
+import com.digitalasset.daml.lf.engine.ScriptEngine.{ExtendedValue, defaultCompilerConfig}
 import com.digitalasset.daml.lf.value.Value
 import org.scalatest.Suite
 
@@ -48,7 +48,7 @@ trait AbstractScriptTest extends CantonFixture with PekkoBeforeAndAfterAll {
     //  non-dev dar
     Paths.get(s"daml-script/test/script-test-v${majorLanguageVersion.pretty}.dev.dar")
   )
-  lazy val dar: CompiledDar = CompiledDar.read(darPath, Runner.compilerConfig)
+  lazy val dar: CompiledDar = CompiledDar.read(darPath, defaultCompilerConfig)
 
   protected def timeMode: ScriptTimeMode
   override protected lazy val darFiles = List(darPath)

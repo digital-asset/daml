@@ -12,7 +12,7 @@ import com.digitalasset.daml.lf.engine.free.InterpretationError
 import com.digitalasset.daml.lf.script.converter.Converter
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value._
-import com.digitalasset.daml.lf.speedy.Speedy.Machine.ExtendedValue
+import com.digitalasset.daml.lf.engine.ScriptEngine.ExtendedValue
 import io.grpc.{Status, StatusRuntimeException}
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers

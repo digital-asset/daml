@@ -28,15 +28,15 @@ import com.digitalasset.daml.lf.engine.script.ledgerinteraction.{
 }
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.AdminLedgerClient
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.script.{IdeLedger, IdeLedgerRunner}
-import com.digitalasset.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
-import com.digitalasset.daml.lf.speedy.{Compiler, Profile, SDefinition, TraceLog, WarningLog}
-import com.digitalasset.daml.lf.speedy.Speedy.Machine.{
+import com.digitalasset.daml.lf.engine.ScriptEngine.{
   ExtendedValue,
   newTraceLog,
   newWarningLog,
-  newProfile,
+  TraceLog,
+  WarningLog,
+  makeUnsafeCoerce,
+  defaultCompilerConfig,
 }
 import com.digitalasset.daml.lf.typesig.EnvironmentSignature
 import com.digitalasset.daml.lf.typesig.reader.SignatureReader
@@ -240,16 +240,6 @@ object Runner {
   final case object CanceledByRequest extends RuntimeException
   final case object TimedOut extends RuntimeException
 
-  private[script] val compilerConfig: Compiler.Config = {
-    import Compiler._
-    Config(
-      allowedLanguageVersions = LanguageVersion.allLfVersionsRange,
-      packageValidation = FullPackageValidation,
-      profiling = NoProfile,
-      stacktracing = FullStackTrace,
-    )
-  }
-
   val namedLoggerFactory: NamedLoggerFactory = NamedLoggerFactory("daml-script", "")
 
   val BLANK_USER_ID: Option[Ref.UserId] = None
@@ -356,7 +346,7 @@ object Runner {
     val darMap = dar.all.toMap
     val majorVersion = dar.main._2.languageVersion.major
     val compiledPackages =
-      PureCompiledPackages.assertBuild(darMap, Runner.compilerConfig)
+      PureCompiledPackages.assertBuild(darMap, defaultCompilerConfig)
     def convert(json: JsValue, typ: Type) = {
       val ifaceDar = dar.map { case (pkgId, _) =>
         SignatureReader
@@ -395,7 +385,6 @@ object Runner {
       timeMode: ScriptTimeMode,
       traceLog: TraceLog = newTraceLog,
       warningLog: WarningLog = newWarningLog,
-      profile: Profile = newProfile,
       canceled: () => Option[RuntimeException] = () => None,
   )(implicit
       ec: ExecutionContext,
@@ -411,7 +400,6 @@ object Runner {
       timeMode,
       traceLog,
       warningLog,
-      profile,
       canceled,
     )._1
 
@@ -425,7 +413,6 @@ object Runner {
       timeMode: ScriptTimeMode,
       traceLog: TraceLog = newTraceLog,
       warningLog: WarningLog = newWarningLog,
-      profile: Profile = newProfile,
       canceled: () => Option[RuntimeException] = () => None,
   )(implicit
       ec: ExecutionContext,
@@ -442,7 +429,6 @@ object Runner {
       timeMode,
       traceLog,
       warningLog,
-      profile,
       canceled,
     )
     (resultF, oIdeLedgerContext.get)
@@ -457,7 +443,6 @@ object Runner {
       timeMode: ScriptTimeMode,
       traceLog: TraceLog,
       warningLog: WarningLog,
-      profile: Profile,
       canceled: () => Option[RuntimeException],
   )(implicit
       ec: ExecutionContext,
@@ -485,7 +470,7 @@ object Runner {
         throw new RuntimeException(s"The script ${scriptId} requires an argument.")
     }
     val runner = new Runner(compiledPackages, scriptAction, timeMode)
-    runner.runWithClients(initialClients, traceLog, warningLog, profile, canceled)
+    runner.runWithClients(initialClients, traceLog, warningLog, canceled)
   }
 
   def getPackageName(compiledPackages: CompiledPackages, pkgId: PackageId): Option[String] =
@@ -502,35 +487,10 @@ private[lf] class Runner(
 ) extends StrictLogging {
   // Daml script requires unsafe casting on Value payloads from the engine, for exercise results and such
   // This is implemented as a simple identity in the engine, but is untyped.
-  val extendedCompiledPackages = {
-    // Bit hacky, find any package containing DA.Internal.Prelude (doesn't matter if it's a different stdlib version to the one we're using)
-    // then pull identity out of that.
-    // TODO: consider if theres a better way without SExpr construction
-    val internalPreludeModuleName = ModuleName.assertFromString("DA.Internal.Prelude")
-    val stdlibPkgId = compiledPackages.signatures.collectFirst {
-      case (pkgId, sig) if sig.modules.contains(internalPreludeModuleName) => pkgId
-    }.get
-    val identityRef = LfDefRef(
-      Identifier(
-        stdlibPkgId,
-        QualifiedName(internalPreludeModuleName, DottedName.assertFromString("identity")),
-      )
-    )
-    val dangerousCastRef = LfDefRef(
-      script.scriptIds.damlScriptModule("Daml.Script.Internal.LowLevel", "dangerousCast")
-    )
-    // Replaced the definition of dangerousCast with that of `identity`, without explicitly constructing an SExpr
-    def replaceDangerousCastRef(ref: SDefinitionRef): SDefinitionRef =
-      if (ref == dangerousCastRef) identityRef else ref
-
-    new CompiledPackages(
-      Runner.compilerConfig
-    ) {
-      override def signatures = compiledPackages.signatures
-      override def getDefinition(ref: SDefinitionRef): Option[SDefinition] =
-        compiledPackages.getDefinition(replaceDangerousCastRef(ref))
-    }
-  }
+  val extendedCompiledPackages = makeUnsafeCoerce(
+    compiledPackages,
+    script.scriptIds.damlScriptModule("Daml.Script.Internal.LowLevel", "dangerousCast"),
+  )
 
   // Maps GHC unit ids to LF package ids. Used for location conversion.
   val knownPackages: Map[String, PackageId] = (for {
@@ -542,7 +502,6 @@ private[lf] class Runner(
       initialClients: Participants[ScriptLedgerClient],
       traceLog: TraceLog = newTraceLog,
       warningLog: WarningLog = newWarningLog,
-      profile: Profile = newProfile,
       canceled: () => Option[RuntimeException] = () => None,
   )(implicit
       ec: ExecutionContext,
@@ -555,7 +514,7 @@ private[lf] class Runner(
       throw new IllegalArgumentException("Couldn't get daml script package name")
     ) match {
       case "daml-script" | "daml3-script" =>
-        new v2.Runner(this, initialClients, traceLog, warningLog, profile, canceled).getResult()
+        new v2.Runner(this, initialClients, traceLog, warningLog, canceled).getResult()
       case pkgName =>
         throw new IllegalArgumentException(
           "Invalid daml script package name. Expected daml-script or daml3-script, got " + pkgName

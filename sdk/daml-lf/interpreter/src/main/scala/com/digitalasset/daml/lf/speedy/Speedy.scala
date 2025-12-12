@@ -19,13 +19,7 @@ import com.digitalasset.daml.lf.speedy.PartialTransaction.NodeSeeds
 import com.digitalasset.daml.lf.speedy.SError._
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SResult._
-import com.digitalasset.daml.lf.speedy.SValue.{
-  SAnyException,
-  SArithmeticError,
-  SPAP,
-  SRecord,
-  SText,
-}
+import com.digitalasset.daml.lf.speedy.SValue.{SAnyException, SArithmeticError, SRecord, SText}
 import com.digitalasset.daml.lf.speedy.Speedy.Machine.{newTraceLog, newWarningLog}
 import com.digitalasset.daml.lf.stablepackages.StablePackages
 import com.digitalasset.daml.lf.transaction.ContractStateMachine.KeyMapping
@@ -41,7 +35,7 @@ import com.digitalasset.daml.lf.transaction.{
   IncompleteTransaction => IncompleteTx,
 }
 import com.digitalasset.daml.lf.value.Value.ValueArithmeticError
-import com.digitalasset.daml.lf.value.{ContractIdVersion, GenValue, Value => V}
+import com.digitalasset.daml.lf.value.{ContractIdVersion, Value => V}
 
 import scala.annotation.{nowarn, tailrec}
 import scala.collection.immutable.ArraySeq
@@ -1376,110 +1370,6 @@ private[lf] object Speedy {
         iterationsBetweenInterruptions: Long = Long.MaxValue,
     )(implicit loggingContext: LoggingContext): Either[SError, SValue] =
       fromPureSExpr(compiledPackages, expr, iterationsBetweenInterruptions).runPure()
-
-    type ExtendedValueClosureBlob = GenValue.Blob[SPAP]
-    val ExtendedValueClosureBlob: GenValue.Blob.type = GenValue.Blob
-    type ExtendedValueAny = GenValue.Any[SPAP]
-    val ExtendedValueAny: GenValue.Any.type = GenValue.Any
-    type ExtendedValueTypeRep = GenValue.TypeRep[SPAP]
-    val ExtendedValueTypeRep: GenValue.TypeRep.type = GenValue.TypeRep
-    type ExtendedValue = GenValue[GenValue.Extension[SPAP]]
-
-    sealed trait ExtendedValueComputationMode {
-      def buildSExpr(
-          compiledPackages: CompiledPackages,
-          translator: ExtendedValueTranslator,
-      ): Either[RuntimeException, SExpr]
-    }
-    object ExtendedValueComputationMode {
-      final case class ByClosure(f: ExtendedValueClosureBlob, args: List[ExtendedValue])
-          extends ExtendedValueComputationMode {
-        override def buildSExpr(
-            compiledPackages: CompiledPackages,
-            translator: ExtendedValueTranslator,
-        ): Either[RuntimeException, SExpr] = {
-          import scalaz.syntax.traverse._
-          import scalaz.std.list._
-          import scalaz.std.either._
-          args
-            .traverse(v => translator.translateExtendedValue(v).map(SEValue(_)))
-            .map(sArgs => SEAppAtomicGeneral(SEValue(f.getContent), ArraySeq.from(sArgs)))
-        }
-      }
-      object ByIdentifier {
-        def apply(
-            id: Identifier,
-            oArgs: Option[List[ExtendedValue]] = None,
-        ): ExtendedValueComputationMode =
-          BySDefinitionRef(LfDefRef(id), oArgs)
-      }
-      final case class BySDefinitionRef(ref: SDefinitionRef, oArgs: Option[List[ExtendedValue]])
-          extends ExtendedValueComputationMode {
-        override def buildSExpr(
-            compiledPackages: CompiledPackages,
-            translator: ExtendedValueTranslator,
-        ): Either[RuntimeException, SExpr] = {
-          import scalaz.syntax.traverse._
-          import scalaz.std.list._
-          import scalaz.std.either._
-          import scalaz.std.option._
-          for {
-            sExpr <-
-              compiledPackages.getDefinition(ref) match {
-                case None => Left(new RuntimeException(s"Failed to find ref $ref in package"))
-                case Some(SDefinition(sExpr)) => Right(sExpr)
-              }
-            oSValueArgs <-
-              oArgs.traverse(args => args.traverse(v => translator.translateExtendedValue(v)))
-          } yield oSValueArgs.fold(sExpr)(sValueArgs => SEApp(sExpr, sValueArgs.to(ArraySeq)))
-        }
-      }
-    }
-
-    @throws[PackageNotFound]
-    @throws[CompilationError]
-    // Returns a value with blackboxes
-    // Arguments cannot contain blackboxes
-    def runExtendedValueComputation(
-        computationMode: ExtendedValueComputationMode,
-        cancelled: () => Option[RuntimeException],
-        compiledPackages: CompiledPackages,
-        iterationsBetweenInterruptions: Long = Long.MaxValue,
-        traceLog: TraceLog = newTraceLog,
-        warningLog: WarningLog = newWarningLog,
-        profile: Profile = newProfile,
-        convertLegacyExceptions: Boolean = true,
-    )(implicit
-        loggingContext: LoggingContext
-    ): Either[Either[RuntimeException, SError], ExtendedValue] = {
-      val translator = new ExtendedValueTranslator(compiledPackages.pkgInterface)
-      @nowarn("msg=dead code following this construct")
-      @tailrec
-      def runMachine(machine: PureMachine): Either[Either[RuntimeException, SError], SValue] =
-        machine.run() match {
-          case SResultError(err) => Left(Right(err))
-          case SResultFinal(v) => Right(v)
-          case SResultInterruption =>
-            cancelled() match {
-              case Some(err) => Left(Left(err))
-              case None => runMachine(machine)
-            }
-          case SResultQuestion(nothing) => nothing
-        }
-      for {
-        sExpr <- computationMode.buildSExpr(compiledPackages, translator).left.map(Left(_))
-        machine = fromPureSExpr(
-          compiledPackages,
-          sExpr,
-          iterationsBetweenInterruptions,
-          traceLog,
-          warningLog,
-          profile,
-          convertLegacyExceptions,
-        )
-        sRes <- runMachine(machine)
-      } yield sRes.toUnnormalizedExtendedValue
-    }
 
     def tmplId2TxVersion(pkgInterface: PackageInterface, tmplId: TypeConId): SerializationVersion =
       SerializationVersion.assign(pkgInterface.packageLanguageVersion(tmplId.packageId))

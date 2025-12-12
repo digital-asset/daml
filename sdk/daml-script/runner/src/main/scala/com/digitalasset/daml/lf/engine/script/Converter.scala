@@ -12,7 +12,7 @@ import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.typesig.EnvironmentSignature
 import com.digitalasset.daml.lf.typesig.reader.SignatureReader
-import com.digitalasset.daml.lf.speedy.Speedy.Machine.{
+import com.digitalasset.daml.lf.engine.ScriptEngine.{
   ExtendedValue,
   ExtendedValueAny,
   ExtendedValueTypeRep,

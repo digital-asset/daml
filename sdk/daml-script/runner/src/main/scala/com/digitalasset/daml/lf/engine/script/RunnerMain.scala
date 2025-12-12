@@ -16,9 +16,15 @@ import spray.json._
 import com.digitalasset.daml.lf.archive.{Dar, DarDecoder}
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.digitalasset.daml.lf.engine.preprocessing.ValueTranslator
+import com.digitalasset.daml.lf.engine.ScriptEngine.{
+  TraceLog,
+  WarningLog,
+  newTraceLog,
+  newWarningLog,
+  defaultCompilerConfig,
+}
 import com.digitalasset.daml.lf.language.Ast.{Package, Type}
 import com.digitalasset.daml.lf.PureCompiledPackages
-import com.digitalasset.daml.lf.speedy.{Speedy, TraceLog, WarningLog}
 import com.digitalasset.daml.lf.typesig.EnvironmentSignature
 import com.digitalasset.daml.lf.typesig.reader.SignatureReader
 import com.digitalasset.daml.lf.value._
@@ -86,15 +92,15 @@ object RunnerMain {
   ): Future[Boolean] =
     for {
       _ <- Future.successful(())
-      traceLog = Speedy.Machine.newTraceLog
-      warningLog = Speedy.Machine.newWarningLog
+      traceLog = newTraceLog
+      warningLog = newWarningLog
 
       dar: Dar[(PackageId, Package)] = DarDecoder.assertReadArchiveFromFile(config.darPath)
 
       majorVersion = dar.main._2.languageVersion.major
       compiledPackages = PureCompiledPackages.assertBuild(
         dar.all.toMap,
-        Runner.compilerConfig,
+        defaultCompilerConfig,
       )
       ifaceDar =
         dar.map { case (pkgId, _) =>
