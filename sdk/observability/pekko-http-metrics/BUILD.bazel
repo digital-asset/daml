@@ -69,7 +69,7 @@ da_scala_test_suite(
     deps = [
         ":pekko-http-metrics",
         ":pekko-http-metrics-tests-lib",
-        "//libs-scala/rs-grpc-bridge",
+        "//canton:rs-grpc-bridge",
         "//libs-scala/testing-utils",
         "//observability/metrics",
         "//observability/metrics:metrics-test-lib",

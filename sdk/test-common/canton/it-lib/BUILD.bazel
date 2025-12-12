@@ -36,7 +36,7 @@ da_scala_library(
         "//libs-scala/ports",
         "//libs-scala/ports:ports-testing",
         "//libs-scala/resources",
-        "//libs-scala/rs-grpc-bridge",
+        "//canton:rs-grpc-bridge",
         "//canton:scala-utils",
         "//libs-scala/testing-utils",
         "//libs-scala/timer-utils",
