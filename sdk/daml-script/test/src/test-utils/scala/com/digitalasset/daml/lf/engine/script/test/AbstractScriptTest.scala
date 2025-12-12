@@ -30,7 +30,7 @@ trait AbstractScriptTest extends CantonFixture with PekkoBeforeAndAfterAll {
 
   val majorLanguageVersion: LanguageVersion.Major;
 
-  def tuple(a: ExtendedValue, b: ExtendedValue) =
+  def tuple(a: Value, b: Value): Value =
     Value.ValueRecord(
       Some(StablePackages.stablePackages.Tuple2),
       ImmArray(

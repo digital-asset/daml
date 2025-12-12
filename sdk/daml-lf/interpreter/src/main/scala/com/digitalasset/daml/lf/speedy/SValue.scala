@@ -36,8 +36,8 @@ sealed abstract class SValue extends AnyRef {
     )
   }
 
-  def toUnnormalizedExtendedValue: GenValue[GenValue.Extended[SPAP]] =
-    toValue[GenValue.Extended[SPAP]](
+  def toUnnormalizedExtendedValue: GenValue[GenValue.Extension[SPAP]] =
+    toValue[GenValue.Extension[SPAP]](
       keepTypeInfo = true,
       keepFieldName = true,
       keepTrailingNoneFields = true,

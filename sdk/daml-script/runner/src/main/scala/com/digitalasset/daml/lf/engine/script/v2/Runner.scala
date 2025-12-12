@@ -142,20 +142,22 @@ private[lf] class Runner(
   def runComputation(
       comp: ExtendedValueComputationMode,
       convertLegacyExceptions: Boolean = true,
-  ): Future[ExtendedValue] =
-    runExtendedValueComputation(
-      comp,
-      canceled,
-      unversionedRunner.extendedCompiledPackages,
-      iterationsBetweenInterruptions = 100000,
-      traceLog,
-      warningLog,
-      profile,
-      convertLegacyExceptions,
-    )(Script.DummyLoggingContext).fold(
-      err => Future.failed(err.fold(identity, script.Runner.InterpretationError(_))),
-      Future.successful(_),
-    )
+  )(implicit ec: ExecutionContext): Future[ExtendedValue] =
+    Future {
+      runExtendedValueComputation(
+        comp,
+        canceled,
+        unversionedRunner.extendedCompiledPackages,
+        iterationsBetweenInterruptions = 100000,
+        traceLog,
+        warningLog,
+        profile,
+        convertLegacyExceptions,
+      )(Script.DummyLoggingContext).fold(
+        err => throw err.fold(identity, free.InterpretationError(_)),
+        identity,
+      )
+    }
 
   def getResult()(implicit
       ec: ExecutionContext,

@@ -1383,7 +1383,7 @@ private[lf] object Speedy {
     val ExtendedValueAny: GenValue.Any.type = GenValue.Any
     type ExtendedValueTypeRep = GenValue.TypeRep[SPAP]
     val ExtendedValueTypeRep: GenValue.TypeRep.type = GenValue.TypeRep
-    type ExtendedValue = GenValue[GenValue.Extended[SPAP]]
+    type ExtendedValue = GenValue[GenValue.Extension[SPAP]]
 
     sealed trait ExtendedValueComputationMode {
       def buildSExpr(

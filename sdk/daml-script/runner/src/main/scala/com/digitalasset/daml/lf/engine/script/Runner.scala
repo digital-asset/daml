@@ -31,15 +31,7 @@ import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.script.{IdeLedger, IdeLedgerRunner}
 import com.digitalasset.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
-import com.digitalasset.daml.lf.speedy.{
-  Compiler,
-  Pretty,
-  Profile,
-  SDefinition,
-  SError,
-  TraceLog,
-  WarningLog,
-}
+import com.digitalasset.daml.lf.speedy.{Compiler, Profile, SDefinition, TraceLog, WarningLog}
 import com.digitalasset.daml.lf.speedy.Speedy.Machine.{
   ExtendedValue,
   newTraceLog,
@@ -244,9 +236,6 @@ object Script {
 }
 
 object Runner {
-
-  final case class InterpretationError(error: SError.SError)
-      extends RuntimeException(s"${Pretty.prettyError(error).render(80)}")
 
   final case object CanceledByRequest extends RuntimeException
   final case object TimedOut extends RuntimeException

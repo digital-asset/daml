@@ -46,7 +46,7 @@ private[lf] final class ExtendedValueTranslator(
   // exceptions in case of error or package missing.
   @throws[TranslationFailed.Error]
   def unsafeTranslateExtendedValue(
-      value: GenValue[GenValue.Extended[SValue.SPAP]]
+      value: GenValue[GenValue.Extension[SValue.SPAP]]
   ): SValue =
     value match {
       case GenValue.Blob(spap) => spap
@@ -123,7 +123,7 @@ private[lf] final class ExtendedValueTranslator(
     }
 
   def translateExtendedValue(
-      value: GenValue[GenValue.Extended[SValue.SPAP]]
+      value: GenValue[GenValue.Extension[SValue.SPAP]]
   ): Either[TranslationFailed.Error, SValue] =
     try {
       Right(unsafeTranslateExtendedValue(value))

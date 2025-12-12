@@ -15,12 +15,7 @@ import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.speedy.Speedy.Machine.{
-  ExtendedValue,
-  ExtendedValueClosureBlob,
-  ExtendedValueAny,
-  ExtendedValueTypeRep,
-}
+import com.digitalasset.daml.lf.speedy.Speedy.Machine.ExtendedValue
 import com.digitalasset.daml.lf.stablepackages.StablePackagesV2
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value._
@@ -251,12 +246,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
     }
 
   def castCommandExtendedValue(value: ExtendedValue): Either[String, Value] =
-    castExtendedValue(
-      value,
-      (_: ExtendedValueClosureBlob) => Left(new RuntimeException("Illegal Value Blob in command!")),
-      (_: ExtendedValueAny) => Left(new RuntimeException("Illegal Value Any in command!")),
-      (_: ExtendedValueTypeRep) => Left(new RuntimeException("Illegal Value TypeRep in command!")),
-    ).left.map(_.getMessage)
+    castExtendedValue(value).left.map(_.getMessage)
 
   def toCommand(v: ExtendedValue): Either[String, command.ApiCommand] =
     v match {

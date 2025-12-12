@@ -19,11 +19,6 @@ import com.digitalasset.daml.lf.engine.preprocessing.ValueTranslator
 import com.digitalasset.daml.lf.language.Ast.{Package, Type}
 import com.digitalasset.daml.lf.PureCompiledPackages
 import com.digitalasset.daml.lf.speedy.{Speedy, TraceLog, WarningLog}
-import com.digitalasset.daml.lf.speedy.Speedy.Machine.{
-  ExtendedValueClosureBlob,
-  ExtendedValueAny,
-  ExtendedValueTypeRep,
-}
 import com.digitalasset.daml.lf.typesig.EnvironmentSignature
 import com.digitalasset.daml.lf.typesig.reader.SignatureReader
 import com.digitalasset.daml.lf.value._
@@ -141,15 +136,7 @@ object RunnerMain {
           _ <- Future {
             outputFile.foreach { outputFile =>
               val pureResult = Value
-                .castExtendedValue(
-                  result,
-                  (_: ExtendedValueClosureBlob) =>
-                    Left(new RuntimeException("Illegal Value Blob in command!")),
-                  (_: ExtendedValueAny) =>
-                    Left(new RuntimeException("Illegal Value Any in command!")),
-                  (_: ExtendedValueTypeRep) =>
-                    Left(new RuntimeException("Illegal Value TypeRep in command!")),
-                )
+                .castExtendedValue(result)
                 .fold(throw _, identity)
               val jsVal = LfValueCodec.apiValueToJsValue(pureResult)
               val outDir = outputFile.getParentFile

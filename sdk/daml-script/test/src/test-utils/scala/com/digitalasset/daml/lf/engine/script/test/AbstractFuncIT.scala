@@ -6,10 +6,10 @@ package engine
 package script
 package test
 
-import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{FrontStack, FrontStackCons, Numeric}
 import com.digitalasset.daml.lf.engine.free.InterpretationError
+import com.digitalasset.daml.lf.script.converter.Converter
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.speedy.Speedy.Machine.ExtendedValue
@@ -103,13 +103,16 @@ abstract class AbstractFuncIT
             QualifiedName.assertFromString("ScriptTest:test2"),
             dar = dar,
             inputValue = Some(
-              Value.ValueRecord(
-                None,
-                ImmArray(
-                  None -> Value.ValueParty(Party.assertFromString("Alice")),
-                  None -> Value.ValueInt64(42),
-                ),
-              )
+              Value
+                .castExtendedValue(
+                  Converter.record(
+                    Identifier(dar.mainPkg, QualifiedName.assertFromString("ScriptTest:C")),
+                    "p" -> Value.ValueParty(Party.assertFromString("Alice")),
+                    "v" -> Value.ValueInt64(42),
+                  )
+                )
+                .toOption
+                .get
             ),
           )
         } yield {

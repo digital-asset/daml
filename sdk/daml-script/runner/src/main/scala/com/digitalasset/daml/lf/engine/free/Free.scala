@@ -194,7 +194,7 @@ private[lf] object Free {
         profile = profile,
         convertLegacyExceptions = convertLegacyExceptions,
       )(loggingContext).fold(
-        err => Result.failed(err.fold(identity, InterpretationError(_))),
+        err => Result.failed(err.fold(identity, free.InterpretationError(_))),
         Result.successful(_),
       )
 

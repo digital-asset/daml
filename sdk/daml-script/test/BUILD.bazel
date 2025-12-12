@@ -260,6 +260,7 @@ da_scala_library(
         "//daml-lf/language",
         "//daml-lf/stable-packages",
         "//daml-lf/transaction",
+        "//daml-script/converter",
         "//daml-script/runner:script-runner-lib",
         "//libs-scala/ledger-resources",
         "//libs-scala/ports",
