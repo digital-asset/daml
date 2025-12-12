@@ -438,7 +438,7 @@ da_scala_test(
         "//libs-scala/ledger-resources",
         "//libs-scala/ledger-resources:ledger-resources-test-lib",
         "//libs-scala/ports",
-        "//libs-scala/resources",
+        "//canton:resources",
         "//canton:rs-grpc-bridge",
         "//libs-scala/testing-utils",
         "//libs-scala/timer-utils",

@@ -26,9 +26,9 @@ da_scala_library(
     deps = [
         "//libs-scala/contextualized-logging",
         "//libs-scala/ledger-resources",
-        "//libs-scala/resources",
-        "//libs-scala/resources-grpc",
-        "//libs-scala/resources-pekko",
+        "//canton:resources",
+        "//canton:resources-grpc",
+        "//canton:resources-pekko",
         "//canton:rs-grpc-bridge",
         "//canton:rs-grpc-pekko",
         "@maven//:com_google_guava_guava",

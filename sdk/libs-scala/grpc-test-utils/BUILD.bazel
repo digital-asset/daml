@@ -19,8 +19,8 @@ da_scala_library(
         "//:__subpackages__",
     ],
     deps = [
-        "//libs-scala/resources",
-        "//libs-scala/resources-grpc",
+        "//canton:resources",
+        "//canton:resources-grpc",
         "//libs-scala/timer-utils",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",

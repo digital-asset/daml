@@ -15,9 +15,9 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
-        "//libs-scala/resources",
-        "//libs-scala/resources-grpc",
-        "//libs-scala/resources-pekko",
+        "//canton:resources",
+        "//canton:resources-grpc",
+        "//canton:resources-pekko",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_netty_shaded",
     ],

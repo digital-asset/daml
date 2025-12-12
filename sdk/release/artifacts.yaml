@@ -113,11 +113,11 @@
   type: jar-scala
 - target: //libs-scala/ports:ports
   type: jar-scala
-- target: //libs-scala/resources:resources
+- target: //canton:resources
   type: jar-scala
-- target: //libs-scala/resources-pekko:resources-pekko
+- target: //canton:resources-pekko
   type: jar-scala
-- target: //libs-scala/resources-grpc:resources-grpc
+- target: //canton:resources-grpc
   type: jar-scala
 - target: //libs-scala/safe-proto:safe-proto
   type: jar-scala

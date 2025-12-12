@@ -73,7 +73,7 @@ da_scala_test_suite(
         "//libs-scala/grpc-test-utils",
         "//libs-scala/ledger-resources",
         "//libs-scala/ledger-resources:ledger-resources-test-lib",
-        "//libs-scala/resources",
+        "//canton:resources",
         "//canton:rs-grpc-bridge",
         "//canton:rs-grpc-pekko-tests-lib",
         "//libs-scala/sample-service",

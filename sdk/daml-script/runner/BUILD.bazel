@@ -138,7 +138,7 @@ da_scala_test(
         "//daml-lf/data",
         "//libs-scala/ledger-resources",
         "//libs-scala/ports",
-        "//libs-scala/resources",
+        "//canton:resources",
         "//canton:rs-grpc-bridge",
         "//canton:scala-utils",
         "//libs-scala/testing-utils",
