@@ -37,12 +37,8 @@ trait KmsDriver extends api.KmsDriver with AutoCloseable {
     "Supported encryption algorithm specifications must not be empty.",
   )
 
-  /** Returns the current health of the driver.
-    *
-    * If the driver reports itself as unhealthy, Canton will close the current driver instance and
-    * create a new one to recover from the unhealthy state. The driver should not throw an
-    * exception; instead, it should return a
-    * [[com.digitalasset.canton.crypto.kms.driver.api.v1.KmsDriverHealth]] value.
+  /** Returns the current health of the driver. The driver should not throw an exception; instead,
+    * it should return a [[com.digitalasset.canton.crypto.kms.driver.api.v1.KmsDriverHealth]] value.
     *
     * @return
     *   A future that completes with the driver's health.

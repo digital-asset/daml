@@ -11,14 +11,14 @@ set -e -o pipefail
 if git rev-parse --is-inside-work-tree &>/dev/null || false; then
     ROOT_PATH=$(git rev-parse --show-toplevel)
     COMMUNITY_PROTO_PATH=$ROOT_PATH/community/base/src/main/protobuf
-    LEDGER_API_PROTO_PATH=$ROOT_PATH/community/ledger-api/src/main/protobuf
+    LEDGER_API_PROTO_PATH=$ROOT_PATH/community/ledger-api-proto/src/main/protobuf
     ADMIN_API_PROTO_PATH=$ROOT_PATH/community/admin-api/src/main/protobuf
     LAPI_VALUE_PROTO_PATH=$ROOT_PATH/community/lib/ledger-api-value/target/protobuf_external/com/daml/ledger/api/v2/value.proto
 else
     # Otherwise assume we're running from the release artifact, in which case the protobuf folder is a few levels above
     ROOT_PATH=../../protobuf
     COMMUNITY_PROTO_PATH=$ROOT_PATH/community
-    LEDGER_API_PROTO_PATH=$ROOT_PATH/ledger-api
+    LEDGER_API_PROTO_PATH=$ROOT_PATH/ledger-api-proto
     ADMIN_API_PROTO_PATH=$ROOT_PATH/admin-api
     LAPI_VALUE_PROTO_PATH=$LEDGER_API_PROTO_PATH/com/daml/ledger/api/v2/value.proto
 fi

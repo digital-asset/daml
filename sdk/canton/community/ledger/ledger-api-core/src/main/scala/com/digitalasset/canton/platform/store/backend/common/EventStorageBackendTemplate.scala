@@ -5,6 +5,7 @@ package com.digitalasset.canton.platform.store.backend.common
 
 import anorm.SqlParser.*
 import anorm.{Row, RowParser, SimpleSql, ~}
+import cats.syntax.all.*
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationEvent
@@ -72,10 +73,10 @@ object EventStorageBackendTemplate {
         stringInterning: StringInterning,
         allQueryingPartiesO: Option[Set[Party]],
     ): RowDef[Option[String]] =
-      combine(
+      (
         CommonRowDefs.commandId.?,
         submitters(stringInterning).?,
-      )(filteredCommandId(_, _, allQueryingPartiesO))
+      ).mapN(filteredCommandId(_, _, allQueryingPartiesO))
 
     val externalTransactionHash: RowDef[Option[Array[Byte]]] =
       column("external_transaction_hash", byteArray(_).?)
@@ -115,10 +116,10 @@ object EventStorageBackendTemplate {
       column("ledger_effective_time", timestampFromMicros)
 
     def templateId(stringInterning: StringInterning): RowDef[FullIdentifier] =
-      combine(
+      (
         column("template_id", int(_).map(stringInterning.templateId.externalize)),
         column("package_id", int(_).map(stringInterning.packageId.externalize)),
-      )(_ toFullIdentifier _)
+      ).mapN(_ toFullIdentifier _)
 
     def filteredStakeholderParties(
         stringInterning: StringInterning,
@@ -182,46 +183,46 @@ object EventStorageBackendTemplate {
     def commonEventPropertiesParser(
         stringInterning: StringInterning
     ): RowDef[CommonEventProperties] =
-      combine(
+      (
         eventSequentialId,
         eventOffset.map(_.unwrap),
         nodeId,
         workflowId,
         synchronizerId(stringInterning).map(_.toProtoPrimitive),
-      )(CommonEventProperties.apply)
+      ).mapN(CommonEventProperties.apply)
 
     def commonUpdatePropertiesParser(
         stringInterning: StringInterning,
         allQueryingPartiesO: Option[Set[Party]],
     ): RowDef[CommonUpdateProperties] =
-      combine(
+      (
         updateIdDef,
         commandId(stringInterning, allQueryingPartiesO),
         traceContext,
         recordTime,
-      )(CommonUpdateProperties.apply)
+      ).mapN(CommonUpdateProperties.apply)
 
     def transactionPropertiesParser(
         stringInterning: StringInterning,
         allQueryingPartiesO: Option[Set[Party]],
     ): RowDef[TransactionProperties] =
-      combine(
+      (
         commonEventPropertiesParser(stringInterning),
         commonUpdatePropertiesParser(stringInterning, allQueryingPartiesO),
         externalTransactionHash,
-      )(TransactionProperties.apply)
+      ).mapN(TransactionProperties.apply)
 
     def reassignmentPropertiesParser(
         stringInterning: StringInterning,
         allQueryingPartiesO: Option[Set[Party]],
     ): RowDef[ReassignmentProperties] =
-      combine(
+      (
         commonEventPropertiesParser(stringInterning),
         commonUpdatePropertiesParser(stringInterning, allQueryingPartiesO),
         reassignmentId,
         submitter(stringInterning),
         reassignmentCounter,
-      )(ReassignmentProperties.apply)
+      ).mapN(ReassignmentProperties.apply)
 
     def thinCreatedEventPropertiesParser(
         stringInterning: StringInterning,
@@ -229,21 +230,21 @@ object EventStorageBackendTemplate {
         witnessIsAcsDelta: Boolean,
         eventIsAcsDeltaForParticipant: Boolean,
     ): RowDef[ThinCreatedEventProperties] =
-      combine(
+      (
         representativePackageId(stringInterning),
         filteredAdditionalWitnesses(stringInterning, allQueryingPartiesO)(witnessIsAcsDelta),
         internalContractId,
         static(allQueryingPartiesO.map(_.map(_.toString))),
         if (eventIsAcsDeltaForParticipant) reassignmentCounter else static(0L),
         static(eventIsAcsDeltaForParticipant),
-      )(ThinCreatedEventProperties.apply)
+      ).mapN(ThinCreatedEventProperties.apply)
 
     // raws
     def rawThinActiveContractParser(
         stringInterning: StringInterning,
         allQueryingPartiesO: Option[Set[Party]],
     ): RowDef[RawThinActiveContract] =
-      combine(
+      (
         commonEventPropertiesParser(stringInterning),
         thinCreatedEventPropertiesParser(
           stringInterning = stringInterning,
@@ -251,7 +252,7 @@ object EventStorageBackendTemplate {
           witnessIsAcsDelta = true,
           eventIsAcsDeltaForParticipant = true,
         ),
-      )(RawThinActiveContract.apply)
+      ).mapN(RawThinActiveContract.apply)
 
     def rawThinCreatedEventParser(
         stringInterning: StringInterning,
@@ -259,7 +260,7 @@ object EventStorageBackendTemplate {
         witnessIsAcsDelta: Boolean,
         eventIsAcsDeltaForParticipant: Boolean,
     ): RowDef[RawThinCreatedEvent] =
-      combine(
+      (
         transactionPropertiesParser(stringInterning, allQueryingPartiesO),
         thinCreatedEventPropertiesParser(
           stringInterning = stringInterning,
@@ -267,13 +268,13 @@ object EventStorageBackendTemplate {
           witnessIsAcsDelta = witnessIsAcsDelta,
           eventIsAcsDeltaForParticipant = eventIsAcsDeltaForParticipant,
         ),
-      )(RawThinCreatedEvent.apply)
+      ).mapN(RawThinCreatedEvent.apply)
 
     def rawThinAssignEventParser(
         stringInterning: StringInterning,
         allQueryingPartiesO: Option[Set[Party]],
     ): RowDef[RawThinAssignEvent] =
-      combine(
+      (
         reassignmentPropertiesParser(stringInterning, allQueryingPartiesO),
         thinCreatedEventPropertiesParser(
           stringInterning = stringInterning,
@@ -282,14 +283,14 @@ object EventStorageBackendTemplate {
           eventIsAcsDeltaForParticipant = true,
         ),
         sourceSynchronizerId(stringInterning).map(_.toProtoPrimitive),
-      )(RawThinAssignEvent.apply)
+      ).mapN(RawThinAssignEvent.apply)
 
     def rawArchivedEventParser(
         stringInterning: StringInterning,
         allQueryingPartiesO: Option[Set[Party]],
         acsDeltaForParticipant: Boolean,
     ): RowDef[RawArchivedEvent] =
-      combine(
+      (
         transactionPropertiesParser(stringInterning, allQueryingPartiesO),
         contractIdDef,
         templateId(stringInterning),
@@ -298,14 +299,14 @@ object EventStorageBackendTemplate {
         ledgerEffectiveTime,
         if (acsDeltaForParticipant) deactivatedEventSeqId
         else static(None),
-      )(RawArchivedEvent.apply)
+      ).mapN(RawArchivedEvent.apply)
 
     def rawExercisedEventParser(
         stringInterning: StringInterning,
         allQueryingPartiesO: Option[Set[Party]],
         eventIsAcsDeltaForParticipant: Boolean,
     ): RowDef[RawExercisedEvent] =
-      combine(
+      (
         transactionPropertiesParser(stringInterning, allQueryingPartiesO),
         contractIdDef,
         templateId(stringInterning),
@@ -328,13 +329,13 @@ object EventStorageBackendTemplate {
         if (eventIsAcsDeltaForParticipant) deactivatedEventSeqId
         else static(Option.empty[Long]),
         static(eventIsAcsDeltaForParticipant),
-      )(RawExercisedEvent.apply)
+      ).mapN(RawExercisedEvent.apply)
 
     def rawUnassignEventParser(
         stringInterning: StringInterning,
         allQueryingPartiesO: Option[Set[Party]],
     ): RowDef[RawUnassignEvent] =
-      combine(
+      (
         reassignmentPropertiesParser(stringInterning, allQueryingPartiesO),
         contractIdDef,
         templateId(stringInterning),
@@ -342,23 +343,21 @@ object EventStorageBackendTemplate {
         assignmentExclusivity,
         targetSynchronizerId(stringInterning).map(_.toProtoPrimitive),
         deactivatedEventSeqId,
-      )(RawUnassignEvent.apply)
+      ).mapN(RawUnassignEvent.apply)
 
     private def authorizationEventParser(
         authorizationLevelColumnName: String,
         authorizationEventTypeColumnName: String,
     ): RowDef[AuthorizationEvent] =
-      RowDef
-        .combine(
-          column(authorizationEventTypeColumnName, int),
-          column(authorizationLevelColumnName, int),
-        )((_, _))
-        .map((Conversions.authorizationEvent _).tupled)
+      (
+        column(authorizationEventTypeColumnName, int),
+        column(authorizationLevelColumnName, int),
+      ).mapN(Conversions.authorizationEvent)
 
     def partyToParticipantEventParser(
         stringInterning: StringInterning
     ): RowDef[RawParticipantAuthorization] =
-      RowDef.combine(
+      (
         eventOffset,
         updateIdDef,
         partyId(stringInterning),
@@ -367,7 +366,7 @@ object EventStorageBackendTemplate {
         recordTime,
         synchronizerId(stringInterning).map(_.toProtoPrimitive),
         traceContext.?,
-      )(
+      ).mapN(
         RawParticipantAuthorization.apply
       )
 
@@ -375,12 +374,12 @@ object EventStorageBackendTemplate {
         offsetColumnName: String,
         stringInterning: StringInterning,
     ): RowDef[SynchronizerOffset] =
-      RowDef.combine(
+      (
         offset(offsetColumnName),
         synchronizerId(stringInterning),
         recordTime,
         publicationTime,
-      )(SynchronizerOffset.apply)
+      ).mapN(SynchronizerOffset.apply)
 
     def completionSynchronizerOffsetParser(
         stringInterning: StringInterning
