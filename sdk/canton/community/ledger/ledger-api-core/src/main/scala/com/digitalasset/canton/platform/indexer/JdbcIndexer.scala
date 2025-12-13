@@ -135,6 +135,7 @@ object JdbcIndexer {
           disableMonotonicityChecks = config.disableMonotonicityChecks,
           tracer = tracer,
           loggerFactory = loggerFactory,
+          executionContext = executionContext,
         ),
         mat = materializer,
         executionContext = executionContext,

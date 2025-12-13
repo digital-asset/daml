@@ -5,6 +5,7 @@ package com.digitalasset.canton.platform.store.backend.common
 
 import anorm.SqlParser.*
 import anorm.{Row, SimpleSql}
+import cats.syntax.all.*
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.platform.v1.index.StatusDetails
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
@@ -50,9 +51,7 @@ class CompletionStorageBackendTemplate(
     private val rejectionStatusDetails: RowDef[Option[Array[Byte]]] =
       column("rejection_status_details", byteArray).?
     private val rejectionStatus: RowDef[StatusProto] =
-      RowDef.combine(rejectionStatusCode, rejectionStatusMessage, rejectionStatusDetails)(
-        buildStatusProto
-      )
+      (rejectionStatusCode, rejectionStatusMessage, rejectionStatusDetails).mapN(buildStatusProto)
 
     // deduplication offset
     val deduplicationOffset: RowDef[Option[Long]] = column("deduplication_offset", long).?
@@ -65,12 +64,12 @@ class CompletionStorageBackendTemplate(
     private val isTransaction: RowDef[Boolean] = column("is_transaction", bool)
 
     private val publishSource: RowDef[PublishSource] =
-      RowDef.combine(messageUuid.?, recordTime)(publishSourceFromColumns)
+      (messageUuid.?, recordTime).mapN(publishSourceFromColumns)
 
     private def commandCompletionSharedColumns(
         stringInterning: StringInterning,
         parties: Set[Party],
-    ): RowDef[CompletionFromTransaction.CommonCompletionProperties] = RowDef.combine(
+    ): RowDef[CompletionFromTransaction.CommonCompletionProperties] = (
       submitters(stringInterning).map(_.view.filter(parties).toSet[String]),
       recordTime,
       completionOffset,
@@ -82,7 +81,9 @@ class CompletionStorageBackendTemplate(
       deduplicationOffset,
       deduplicationDurationSeconds,
       deduplicationDurationNanos,
-    )(CompletionFromTransaction.CommonCompletionProperties.createFromRecordTimeAndSynchronizerId)
+    ).mapN(
+      CompletionFromTransaction.CommonCompletionProperties.createFromRecordTimeAndSynchronizerId
+    )
 
     def commandCompletionParser(
         parties: Set[Party]
@@ -93,19 +94,19 @@ class CompletionStorageBackendTemplate(
 
     private def acceptedCommand(
         parties: Set[Party]
-    ): RowDef[CompletionStreamResponse] = RowDef.combine(
+    ): RowDef[CompletionStreamResponse] = (
       commandCompletionSharedColumns(stringInterning, parties),
       updateId,
-    )(CompletionFromTransaction.acceptedCompletion)
+    ).mapN(CompletionFromTransaction.acceptedCompletion)
 
     private def rejectedCommand(
         parties: Set[Party]
-    ): RowDef[CompletionStreamResponse] = RowDef.combine(
+    ): RowDef[CompletionStreamResponse] = (
       commandCompletionSharedColumns(stringInterning, parties),
       rejectionStatus,
-    )(CompletionFromTransaction.rejectedCompletion)
+    ).mapN(CompletionFromTransaction.rejectedCompletion)
 
-    private def postPublishDataForTransactionParser: RowDef[PostPublishData] = RowDef.combine(
+    private def postPublishDataForTransactionParser: RowDef[PostPublishData] = (
       synchronizerId(stringInterning),
       publishSource,
       userId(stringInterning),
@@ -116,7 +117,7 @@ class CompletionStorageBackendTemplate(
       submissionId.?,
       updateId.?.map(_.isDefined),
       traceContext.?.map(Conversions.traceContextOption(_)(noTracingLogger)),
-    )(PostPublishData.apply)
+    ).mapN(PostPublishData.apply)
 
     def postPublishDataParser: RowDef[Option[PostPublishData]] = isTransaction.branch(
       (true, postPublishDataForTransactionParser.map(Some(_))),

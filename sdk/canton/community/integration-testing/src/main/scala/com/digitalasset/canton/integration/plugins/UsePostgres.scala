@@ -116,8 +116,10 @@ class UsePostgres(
       ExecutorServiceExtensions(dbSetupExecutorService)(logger, DefaultProcessingTimeouts.testing),
     )(logger)
 
-  override def afterTests(): Unit =
+  override def afterTests(): Unit = {
+    dbSetup.analyzeDatabaseStatistics()
     close()
+  }
 
   def generateDbConfig(
       name: String,
