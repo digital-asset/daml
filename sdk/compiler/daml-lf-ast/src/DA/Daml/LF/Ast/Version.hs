@@ -218,6 +218,13 @@ featureCryptoUtility = Feature
     , featureCppFlag = Just "DAML_CRYPTO_UTILITY"
     }
 
+featureValidateCryptoKey :: Feature
+featureValidateCryptoKey = Feature
+    { featureName = "Crypto Key Validation Function"
+    , featureVersionReq = devOnly
+    , featureCppFlag = Just "DAML_VALIDATE_CRYPTO_KEY"
+    }
+
 featureExperimental :: Feature
 featureExperimental = Feature
     { featureName = "Daml Experimental"
@@ -249,6 +256,7 @@ allFeatures =
     , featureUnstable
     , featureExperimental
     , featureCryptoUtility
+    , featureValidateCryptoKey
     ]
 
 -- | A map from feature CPP flags to features.

@@ -7,10 +7,10 @@ package speedy
 import com.digitalasset.daml.lf.data.support.crypto.MessageSignatureUtil
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
-import com.digitalasset.daml.lf.language.Ast
+import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion}
 import com.digitalasset.daml.lf.speedy.SBuiltinFun.{
-  SBSECP256K1WithEcdsaBool,
   SBSECP256K1ValidateKey,
+  SBSECP256K1WithEcdsaBool,
 }
 import com.digitalasset.daml.lf.speedy.SValue.{SBool, SText}
 import com.digitalasset.daml.lf.speedy.Speedy.Control
@@ -33,7 +33,7 @@ class SBSECP256K1CryptoPrimitiveTest
 
   Security.addProvider(new BouncyCastleProvider)
 
-  private val compilerConfig = Compiler.Config.Default
+  private val compilerConfig = Compiler.Config.Default(LanguageMajorVersion.V2)
   private val dummyMachine = Speedy.Machine.fromPureExpr(
     PureCompiledPackages.Empty(compilerConfig),
     Ast.EBuiltinCon(Ast.BCUnit),
