@@ -870,6 +870,15 @@ private[lf] object SBuiltinFun {
           crash("BouncyCastle provider fails to support SECP256K1")
       }
     }
+
+    @throws(classOf[IllegalArgumentException])
+    @throws(classOf[NoSuchAlgorithmException])
+    @throws(classOf[InvalidKeySpecException])
+    private[speedy] def extractPublicKey(hexEncodedPublicKey: Ref.HexString): PublicKey = {
+      val byteEncodedPublicKey = Ref.HexString.decode(hexEncodedPublicKey).toByteArray
+
+      KeyFactory.getInstance("EC").generatePublic(new X509EncodedKeySpec(byteEncodedPublicKey))
+    }
   }
 
   final case object SBDecodeHex extends SBuiltinFun(1) {
