@@ -6,4 +6,5 @@ dependencies:
   - daml-prim
   - daml-stdlib
   - daml-script
+data-dependencies:
   - ../main/.daml/dist/__PROJECT_NAME__-main-0.0.1.dar
