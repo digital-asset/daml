@@ -8,7 +8,7 @@ load(
     "jar_jar",
 )
 load("@io_bazel_rules_scala//scala:scala.bzl", "scala_binary", "scala_library", "scala_macro_library")
-load("@os_info//:os_info.bzl", "is_windows")
+load("@os_info//:os_info.bzl", "is_darwin", "is_windows")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("@scala_version//:index.bzl", "scala_major_version", "scala_major_version_suffix", "scala_version")
 load("//bazel_tools:haskell.bzl", "da_haskell_library")
@@ -752,7 +752,7 @@ scala_library(
         "//canton:logging-entries",
         "//canton:nameof",
         "//canton:nonempty",
-        "//libs-scala:ports",
+        "//canton:ports",
         "//canton:resources",
         "//canton:resources-grpc",
         "//canton:resources-pekko",
@@ -845,7 +845,7 @@ scala_library(
         "//canton:ledger-resources",
         "//canton:logging-entries",
         "//canton:nonempty",
-        "//libs-scala:ports",
+        "//canton:ports",
         "//canton:resources",
         "//canton:resources-grpc",
         "//canton:resources-pekko",
@@ -2425,6 +2425,51 @@ da_scala_library(
 )
 
 da_scala_library(
+    name = "ports",
+    srcs = [
+        "base/ports/src/main/scala/com/daml/ports/Port.scala",
+        "base/ports/src/main/scala/com/daml/ports/PortFiles.scala",
+        "base/ports/src/main/scala/com/daml/ports/PortLock.scala",
+    ],
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    tags = ["maven_coordinates=com.daml:ports:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+)
+
+da_scala_library(
+    name = "ports-testing",
+    srcs = [
+        "base/ports/src/main/scala/com/daml/ports/FreePort.scala",
+        "base/ports/src/main/scala/com/daml/ports/LockedFreePort.scala",
+    ],
+    data = ["@sysctl_nix//:bin/sysctl"] if is_darwin else [],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        ":ports",
+        "//bazel_tools/runfiles:scala_runfiles",
+    ],
+)
+
+da_scala_test(
+    name = "ports-tests",
+    srcs = glob(["base/ports/src/test/suite/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    deps = [
+        ":ports",
+        ":ports-testing",
+    ],
+)
+
+da_scala_library(
     name = "postgresql-testing",
     srcs = glob(["base/postgresql-testing/src/main/scala/**/*.scala"]),
     data = [
@@ -2439,8 +2484,8 @@ da_scala_library(
     ],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
-        "//libs-scala:ports",
-        "//libs-scala:ports-testing",
+        "//canton:ports",
+        "//canton:ports-testing",
         "//canton:resources",
         "//canton:testing-utils",
         "@maven//:commons_io_commons_io",

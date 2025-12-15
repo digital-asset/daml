@@ -436,7 +436,7 @@ da_scala_test(
         "//canton:ledger-resources",
         "//canton:ledger-resources-test-lib",
         "//canton:ledger_api_proto_scala",
-        "//libs-scala:ports",
+        "//canton:ports",
         "//canton:resources",
         "//canton:rs-grpc-bridge",
         "//canton:testing-utils",
