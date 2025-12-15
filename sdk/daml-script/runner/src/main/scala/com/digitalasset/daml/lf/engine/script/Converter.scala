@@ -30,7 +30,6 @@ import scalaz.syntax.traverse._
 import scalaz.{-\/, OneAnd, \/-}
 import spray.json._
 
-// import scala.collection.immutable.ArraySeq
 import scala.concurrent.Future
 import scala.util.Random
 

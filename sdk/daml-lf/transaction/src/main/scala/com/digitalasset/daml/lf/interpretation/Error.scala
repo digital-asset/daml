@@ -204,7 +204,7 @@ object Error {
     object TranslationFailed {
       sealed abstract class Error
           extends RuntimeException
-          // with scala.util.control.NoStackTrace
+          with scala.util.control.NoStackTrace
           with Serializable
           with Product {
         override def toString: String = s"$productPrefix(${productIterator.mkString(",")})"
