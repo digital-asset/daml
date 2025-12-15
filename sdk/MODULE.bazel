@@ -1,0 +1,4 @@
+module(
+    name = "com_github_digital_asset_daml",
+    version = "3.4.x",
+)

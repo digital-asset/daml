@@ -1,4 +1,4 @@
-common --noenable_bzlmod
+# common --noenable_bzlmod
 
 # Bazel distributed cache, can be temporarily disabled by passing the following
 # flag: --noremote_accept_cached
