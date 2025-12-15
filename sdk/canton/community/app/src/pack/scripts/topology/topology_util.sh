@@ -25,7 +25,9 @@ decode_from_base64() {
 
 # Encode bytes read from stdin to hexadecimal
 encode_to_hex() {
-  xxd -ps -c 0
+  local hex; hex=$(xxd -ps -c 0)
+  hex="${hex//$'\n'/}"  # Remove newlines for xxd < 2022-01-14, see https://github.com/vim/vim/commit/c0a1d370fa655cea9eaa74f5e605b95825dc9de1
+  echo "$hex"
 }
 # [end byte utility functions]
 
