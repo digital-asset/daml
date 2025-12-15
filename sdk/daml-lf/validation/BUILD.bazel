@@ -149,7 +149,7 @@ da_scala_library(
         "//canton:crypto",
         "//canton:ledger-resources",
         "//canton:ledger_api_proto_scala",
-        "//canton:ports",
+        "//libs-scala:ports",
         "//canton:resources",
         "//canton:rs-grpc-bridge",
         "//canton:scala-utils",

@@ -109,7 +109,7 @@
   type: jar-scala
 - target: //canton:nonempty-cats
   type: jar-scala
-- target: //canton:ports
+- target: //libs-scala:ports
   type: jar-scala
 - target: //canton:resources
   type: jar-scala
