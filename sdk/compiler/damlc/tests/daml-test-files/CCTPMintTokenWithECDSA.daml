@@ -112,7 +112,7 @@ invalidSignatureMustFail =
         signature = "30450221009944dfb75e1e46006dd6922ba41145ab47dd00da2af75027a95589764fb5e72902200ac5c17d31d102dbdde75e4f5809dccbba9a118cf4a6bffd50108e8444bb69b5"
         owner = alice
 
--- @ERROR range=115:1-115:25; Malformed public key for 30569f300d06092a864886f70d010101050003818d00308189028181009107a23dd899451c443f40f00c43361b5476794ba1c04b83da5a46dc8c6b7ff86e58de42a0a798fc4a85d8b3c63f75b5410a76f2e501c86de2eeeb
+-- @ERROR range=116:1-116:25; Malformed public key for 30569f300d06092a864886f70d010101050003818d00308189028181009107a23dd899451c443f40f00c43361b5476794ba1c04b83da5a46dc8c6b7ff86e58de42a0a798fc4a85d8b3c63f75b5410a76f2e501c86de2eeeb
 invalidPublicKeyMustFail =
   script do
     alice <- allocateParty "Alice"
@@ -123,7 +123,7 @@ invalidPublicKeyMustFail =
         signature = signature1
         owner = alice
 
--- @ERROR range=126:1-126:27; Malformed signature for 3046beefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+-- @ERROR range=127:1-127:27; Malformed signature for 3046beefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
 malformedSignatureMustFail =
   script do
     alice <- allocateParty "Alice"
