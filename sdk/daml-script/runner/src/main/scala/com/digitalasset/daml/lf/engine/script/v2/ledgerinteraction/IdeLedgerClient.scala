@@ -253,8 +253,11 @@ class IdeLedgerClient(
       preferredPkgId <- packageMap.get(PackageName.assertFromString(contract.packageName))
       upgradedTemplateId = contract.templateId.copy(pkg = preferredPkgId)
       if implements(upgradedTemplateId, interfaceId)
+      enrichedCreateArg = failResultAsConverterException(
+        enricher.enrichContract(upgradedTemplateId, contract.createArg)
+      )
     } yield {
-      val viewOpt = computeView(upgradedTemplateId, interfaceId, contract.createArg)
+      val viewOpt = computeView(upgradedTemplateId, interfaceId, enrichedCreateArg)
       (contract.contractId, viewOpt)
     }
     Future.successful(res)
@@ -278,10 +281,14 @@ class IdeLedgerClient(
         Future.successful(
           for {
             preferredPkgId <- packageMap.get(PackageName.assertFromString(contract.packageName))
+            upgradedTemplateId = contract.templateId.copy(pkg = preferredPkgId)
+            enrichedCreateArg = failResultAsConverterException(
+              enricher.enrichContract(upgradedTemplateId, contract.createArg)
+            )
             view <- computeView(
-              contract.templateId.copy(pkg = preferredPkgId),
+              upgradedTemplateId,
               interfaceId,
-              contract.createArg,
+              enrichedCreateArg,
             )
           } yield view
         )
