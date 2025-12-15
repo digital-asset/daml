@@ -19,15 +19,17 @@ import com.digitalasset.canton.ledger.api.{
 import com.digitalasset.daml.lf.command.ApiCommand
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.engine.preprocessing.ValueTranslator
-import com.digitalasset.daml.lf.engine.ScriptEngine.{TraceLog, WarningLog}
+import com.digitalasset.daml.lf.engine.ScriptEngine.{
+  TraceLog,
+  WarningLog,
+  runExtendedValueComputation,
+  ExtendedValueComputationMode,
+}
 import com.digitalasset.daml.lf.interpretation.Error.ContractIdInContractKey
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, LookupError, Reference}
 import com.digitalasset.daml.lf.language.Ast.PackageMetadata
-import com.digitalasset.daml.lf.language.Ast.TTyCon
 import com.digitalasset.daml.lf.script.{IdeLedger, IdeLedgerRunner}
 import com.digitalasset.daml.lf.script
-import com.digitalasset.daml.lf.speedy.Speedy.Machine
 import com.digitalasset.daml.lf.speedy.{Pretty, SError}
 import com.digitalasset.daml.lf.transaction.{
   CreationTime,
@@ -213,32 +215,18 @@ class IdeLedgerClient(
       templateId: TypeConId,
       interfaceId: TypeConId,
       arg: Value,
-  ): Option[Value] = {
-
-    val valueTranslator = new ValueTranslator(
-      pkgInterface = compiledPackages.pkgInterface,
-      forbidLocalContractIds = false,
+  ): Option[Value] =
+    runExtendedValueComputation(
+      computationMode = ExtendedValueComputationMode.ByInterfaceView(templateId, interfaceId, arg),
+      cancelled = () => None,
+      compiledPackages = compiledPackages,
+      iterationsBetweenInterruptions = 100000,
+      traceLog = traceLog,
+      warningLog = warningLog,
+      convertLegacyExceptions = false,
+    )(Script.DummyLoggingContext).toOption.map(ev =>
+      Converter.castCommandExtendedValue(ev).toOption.get
     )
-
-    valueTranslator.translateValue(TTyCon(templateId), arg) match {
-      case Left(e) =>
-        sys.error(s"computeView: translateValue failed: $e")
-
-      case Right(argument) =>
-        val compiler: speedy.Compiler = compiledPackages.compiler
-        val iview = speedy.InterfaceView(templateId, argument, interfaceId)
-        val sexpr = compiler.unsafeCompileInterfaceView(iview)
-        val machine = Machine.fromPureSExpr(compiledPackages, sexpr)(Script.DummyLoggingContext)
-
-        machine.runPure() match {
-          case Right(svalue) =>
-            Some(svalue.toUnnormalizedValue)
-
-          case Left(_) =>
-            None
-        }
-    }
-  }
 
   private[this] def implements(templateId: TypeConId, interfaceId: TypeConId): Boolean = {
     compiledPackages.pkgInterface.lookupInterfaceInstance(interfaceId, templateId).isRight

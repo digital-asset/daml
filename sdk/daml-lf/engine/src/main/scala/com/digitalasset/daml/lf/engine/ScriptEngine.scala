@@ -6,12 +6,13 @@ package engine
 
 import com.daml.logging.LoggingContext
 import com.digitalasset.daml.lf.data.Ref.Identifier
-import com.digitalasset.daml.lf.language.LanguageVersion
+import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
 import com.digitalasset.daml.lf.speedy._
 import com.digitalasset.daml.lf.speedy.Compiler.{CompilationError, PackageNotFound}
 import com.digitalasset.daml.lf.speedy.SError.SError
 import com.digitalasset.daml.lf.speedy.SExpr.{
   SEApp,
+  SEBuiltinFun,
   SEValue,
   SExpr,
   SEAppAtomicGeneral,
@@ -21,10 +22,11 @@ import com.digitalasset.daml.lf.speedy.SExpr.{
   SEMakeClo,
   SELocA,
 }
+import com.digitalasset.daml.lf.speedy.SBuiltinFun.SBViewInterface
 import com.digitalasset.daml.lf.speedy.Speedy.Machine
 import com.digitalasset.daml.lf.speedy.Speedy.PureMachine
 import com.digitalasset.daml.lf.speedy.SResult._
-import com.digitalasset.daml.lf.speedy.SValue.SPAP
+import com.digitalasset.daml.lf.speedy.SValue.{SPAP, SAny}
 import com.digitalasset.daml.lf.value.GenValue
 import scala.annotation.{nowarn, tailrec}
 import scala.collection.immutable.ArraySeq
@@ -111,6 +113,22 @@ object ScriptEngine {
             oArgs.traverse(args => args.traverse(v => translator.translateExtendedValue(v)))
         } yield oSValueArgs.fold(sExpr)(sValueArgs => SEApp(sExpr, sValueArgs.to(ArraySeq)))
       }
+    }
+    final case class ByInterfaceView(
+        templateId: Identifier,
+        interfaceId: Identifier,
+        argument: ExtendedValue,
+    ) extends ExtendedValueComputationMode {
+      override def buildSExpr(
+          compiledPackages: CompiledPackages,
+          translator: ExtendedValueTranslator,
+      ): Either[RuntimeException, SExpr] =
+        for {
+          sValueArgument <- translator.translateExtendedValue(argument)
+        } yield SEApp(
+          SEBuiltinFun(SBViewInterface(interfaceId)),
+          ArraySeq(SAny(Ast.TTyCon(templateId), sValueArgument)),
+        )
     }
   }
 
