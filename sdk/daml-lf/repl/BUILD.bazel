@@ -18,6 +18,7 @@ da_scala_binary(
     tags = ["maven_coordinates=com.daml:daml-lf-repl:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
+        "//canton:contextualized-logging",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/interpreter",
@@ -25,7 +26,6 @@ da_scala_binary(
         "//daml-lf/parser",
         "//daml-lf/transaction",
         "//daml-lf/validation",
-        "//canton:contextualized-logging",
         "@maven//:org_jline_jline",
     ],
 )

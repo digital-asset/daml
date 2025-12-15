@@ -30,13 +30,13 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
+        "//canton:contextualized-logging",
+        "//canton:scala-utils",
         "//daml-lf/data",
         "//daml-lf/engine",
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/transaction",
-        "//canton:contextualized-logging",
-        "//canton:scala-utils",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
@@ -49,11 +49,11 @@ da_scala_test_suite(
     scalacopts = lf_scalacopts,
     deps = [
         ":ide-ledger",
+        "//canton:contextualized-logging",
         "//daml-lf/data",
         "//daml-lf/engine",
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/transaction",
-        "//canton:contextualized-logging",
     ],
 )

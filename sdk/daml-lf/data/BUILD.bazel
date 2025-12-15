@@ -54,8 +54,8 @@ da_scala_test(
     scalacopts = lf_scalacopts,
     deps = [
         ":data",
-        "//daml-lf/data-scalacheck",
         "//canton:scalatest-utils",
+        "//daml-lf/data-scalacheck",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
