@@ -29,7 +29,7 @@ class PekkoExecutionSequencer private (private val actorRef: ActorRef)(implicit
   override def sequence(runnable: Runnable): Unit = actorRef ! runnable
 
   override def close(): Unit = {
-    closeAsync(ExecutionContext.parasitic)
+    closeAsync(ExecutionContext.parasitic): @scala.annotation.nowarn("msg=unused value of type scala.concurrent.Future\\[org.apache.pekko.Done\\]")
     ()
   }
 

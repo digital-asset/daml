@@ -15,6 +15,8 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.Try
 import scala.util.control.{NoStackTrace, NonFatal}
 
+import scala.annotation.nowarn
+
 final class ProgramResource[Context: HasExecutionContext, T](
     owner: => AbstractResourceOwner[Context, T],
     tearDownTimeout: FiniteDuration = 10.seconds,
@@ -61,7 +63,7 @@ final class ProgramResource[Context: HasExecutionContext, T](
 
       // On failure, shut down immediately.
       resource.asFuture.failed.foreach { exception =>
-        exception match {
+        (exception match {
           // The error is suppressed; we don't need to print anything more.
           case _: SuppressedStartupException =>
           case _: StartupException =>
@@ -70,7 +72,7 @@ final class ProgramResource[Context: HasExecutionContext, T](
             )
           case NonFatal(_) =>
             logger.error("Shutting down because of an initialization error.", exception)
-        }
+        }): @nowarn("msg=It would fail on the following input: \\(x: Throwable forSome x not in \\(Throwable with com.daml.resources.ProgramResource.SuppressedStartupException, com.daml.resources.ProgramResource.StartupException\\)\\)");
         sys.exit(1) // `stop` will be triggered by the shutdown hook.
       }(ExecutionContext.global) // Run on the global execution context to avoid deadlock.
     }
