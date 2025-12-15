@@ -858,7 +858,6 @@ scala_library(
         "//libs-scala/rs-grpc-bridge",
         "//libs-scala/rs-grpc-pekko",
         "//libs-scala/scala-utils",
-        "//libs-scala/struct-json/struct-spray-json",
         "//observability/metrics",
         "//observability/pekko-http-metrics",
         "//observability/tracing",
