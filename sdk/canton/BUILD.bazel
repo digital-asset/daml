@@ -861,17 +861,6 @@ scala_library(
         "//daml-lf/engine",
         "//daml-lf/language",
         "//daml-lf/transaction",
-        "//canton:contextualized-logging",
-        "//canton:ledger-resources",
-        "//canton:logging-entries",
-        "//canton:nonempty",
-        "//canton:ports",
-        "//canton:resources",
-        "//canton:resources-grpc",
-        "//canton:resources-pekko",
-        "//canton:rs-grpc-bridge",
-        "//canton:rs-grpc-pekko",
-        "//canton:scala-utils",
         "//observability/metrics",
         "//observability/pekko-http-metrics",
         "//observability/tracing",
@@ -2574,6 +2563,7 @@ da_scala_library(
     visibility = [
         "//visibility:public",
     ],
+)
 
 # For DPM!
 package_oci_component(
