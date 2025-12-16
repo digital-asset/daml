@@ -60,6 +60,7 @@ abstract class CostModel {
   val BKECCAK256Text: CostFunction1[Text]
   val BSECP256K1Bool: CostFunction3[Text, Text, Text]
   val BSECP256K1WithEcdsaBool: CostFunction3[Text, Text, Text]
+  val BSECP256K1ValidateKey: CostFunction1[Text]
   val BDecodeHex: CostFunction1[Text]
   val BEncodeHex: CostFunction1[Text]
   val BTextToContractId: CostFunction1[Text]
@@ -273,6 +274,7 @@ object CostModel {
     override val BKECCAK256Text: CostFunction1[Text] = CostFunction1.Null
     override val BSECP256K1Bool: CostFunction3[Text, Text, Text] = CostFunction3.Null
     override val BSECP256K1WithEcdsaBool: CostFunction3[Text, Text, Text] = CostFunction3.Null
+    override val BSECP256K1ValidateKey: CostFunction1[Text] = CostFunction1.Null
     override val BDecodeHex: CostFunction1[Text] = CostFunction1.Null
     override val BEncodeHex: CostFunction1[Text] = CostFunction1.Null
     override val BTextToContractId: CostFunction1[Text] = CostFunction1.Null
@@ -857,6 +859,8 @@ object CostModel {
       CostFunction3.Constant(SBoolSize)
     override val BSECP256K1WithEcdsaBool: CostFunction3[Text, Text, Text] =
       CostFunction3.Constant(SBoolSize)
+    override val BSECP256K1ValidateKey: CostFunction1[Text] =
+      CostFunction1.Constant(SBoolSize)
     override val BDecodeHex: CostFunction1[Text] = {
       val poly = LinearPolynomial(STextWrapperSize + StringSize.a, StringSize.b / 2)
       (t: String) => poly.calculate(t.length)

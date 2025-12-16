@@ -1785,6 +1785,7 @@ private[lf] object DecodeV2 {
       BuiltinFunctionInfo(KECCAK256_TEXT, BKECCAK256Text),
       BuiltinFunctionInfo(SECP256K1_BOOL, BSECP256K1Bool),
       BuiltinFunctionInfo(SECP256K1_WITH_ECDSA_BOOL, BSECP256K1WithEcdsaBool),
+      BuiltinFunctionInfo(SECP256K1_VALIDATE_KEY, BSECP256K1ValidateKey),
       BuiltinFunctionInfo(HEX_TO_TEXT, BDecodeHex),
       BuiltinFunctionInfo(TEXT_TO_HEX, BEncodeHex),
       BuiltinFunctionInfo(TEXT_TO_CONTRACT_ID, BTextToContractId, minVersion = cryptoUtility),

@@ -403,6 +403,8 @@ enum BuiltinFunction {
   TYPE_REP_TYCON_NAME = 3011;          // *Available in versions >= 2.dev*
 
   TEXT_TO_CONTRACT_ID = 4001;          // *Available in versions >= 2.dev*
+
+  SECP256K1_VALIDATE_KEY = 4002;       // *Available in versions >= 2.dev*
 }
 
 // Builtin literals
