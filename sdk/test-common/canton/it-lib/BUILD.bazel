@@ -33,7 +33,7 @@ da_scala_library(
         "//canton:fs-utils",
         "//canton:ledger-resources",
         "//canton:ports",
-        "//canton:ports-testing",
+        "//test-common/canton/ports-testing",
         "//canton:resources",
         "//canton:rs-grpc-bridge",
         "//canton:scala-utils",

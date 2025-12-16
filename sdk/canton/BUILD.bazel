@@ -8,7 +8,7 @@ load(
     "jar_jar",
 )
 load("@io_bazel_rules_scala//scala:scala.bzl", "scala_binary", "scala_library", "scala_macro_library")
-load("@os_info//:os_info.bzl", "is_darwin", "is_windows")
+load("@os_info//:os_info.bzl", "is_windows")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("@scala_version//:index.bzl", "scala_major_version", "scala_major_version_suffix", "scala_version")
 load("//bazel_tools:haskell.bzl", "da_haskell_library")
@@ -2440,22 +2440,6 @@ da_scala_library(
     ],
 )
 
-da_scala_library(
-    name = "ports-testing",
-    srcs = [
-        "base/ports/src/main/scala/com/daml/ports/FreePort.scala",
-        "base/ports/src/main/scala/com/daml/ports/LockedFreePort.scala",
-    ],
-    data = ["@sysctl_nix//:bin/sysctl"] if is_darwin else [],
-    visibility = [
-        "//visibility:public",
-    ],
-    deps = [
-        ":ports",
-        "//bazel_tools/runfiles:scala_runfiles",
-    ],
-)
-
 da_scala_test(
     name = "ports-tests",
     srcs = glob(["base/ports/src/test/suite/scala/**/*.scala"]),
@@ -2465,7 +2449,7 @@ da_scala_test(
     ],
     deps = [
         ":ports",
-        ":ports-testing",
+        "//test-common/canton/ports-testing",
     ],
 )
 
@@ -2485,7 +2469,7 @@ da_scala_library(
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
         "//canton:ports",
-        "//canton:ports-testing",
+        "//test-common/canton/ports-testing",
         "//canton:resources",
         "//canton:testing-utils",
         "@maven//:commons_io_commons_io",

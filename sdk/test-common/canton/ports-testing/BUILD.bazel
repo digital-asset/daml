@@ -1,0 +1,18 @@
+load("//bazel_tools:scala.bzl", "da_scala_library")
+load("@os_info//:os_info.bzl", "is_darwin")
+
+da_scala_library(
+    name = "ports-testing",
+    srcs = [
+        "src/main/scala/com/daml/ports/FreePort.scala",
+        "src/main/scala/com/daml/ports/LockedFreePort.scala",
+    ],
+    data = ["@sysctl_nix//:bin/sysctl"] if is_darwin else [],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        "//canton:ports",
+        "//bazel_tools/runfiles:scala_runfiles",
+    ],
+)
