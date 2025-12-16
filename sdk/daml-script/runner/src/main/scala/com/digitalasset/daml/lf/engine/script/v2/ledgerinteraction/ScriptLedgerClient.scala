@@ -12,7 +12,6 @@ import com.digitalasset.daml.lf.command.ApiCommand
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
-import com.digitalasset.daml.lf.speedy.SValue
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
 import scalaz.OneAnd
@@ -159,8 +158,7 @@ trait ScriptLedgerClient {
   def queryContractKey(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
-      key: SValue,
-      translateKey: (Identifier, Value) => Either[String, SValue],
+      key: Value,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -270,7 +268,7 @@ trait ScriptLedgerClient {
   def waitUntilVettingVisible(
       packages: Iterable[ScriptLedgerClient.ReadablePackageId],
       onParticipantUid: String,
-  ): Future[Unit]
+  )(implicit ec: ExecutionContext): Future[Unit]
 
   def unvetPackages(packages: List[ScriptLedgerClient.ReadablePackageId])(implicit
       ec: ExecutionContext,
@@ -281,7 +279,7 @@ trait ScriptLedgerClient {
   def waitUntilUnvettingVisible(
       packages: Iterable[ScriptLedgerClient.ReadablePackageId],
       onParticipantUid: String,
-  ): Future[Unit]
+  )(implicit ec: ExecutionContext): Future[Unit]
 
   def listVettedPackages()(implicit
       ec: ExecutionContext,
@@ -295,9 +293,23 @@ trait ScriptLedgerClient {
       mat: Materializer,
   ): Future[List[ScriptLedgerClient.ReadablePackageId]]
 
-  def proposePartyReplication(party: Ref.Party, toParticipantId: String): Future[Unit]
+  def allocatePartyOnMultipleParticipants(party: Ref.Party, toParticipantIds: Iterable[String])(
+      implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Unit]
 
-  def waitUntilHostingVisible(party: Ref.Party, onParticipantUid: String): Future[Unit]
+  def aggregateAllocatePartyOnMultipleParticipants(
+      clients: List[ScriptLedgerClient],
+      partyHint: String,
+      namespace: String,
+      toParticipantIds: Iterable[String],
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Ref.Party]
+
+  def waitUntilHostingVisible(party: Ref.Party, onParticipantUid: Iterable[String]): Future[Unit]
 
   def getParticipantUid: String
 }

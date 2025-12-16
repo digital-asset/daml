@@ -8,14 +8,14 @@ import com.daml.ledger.api.v2.admin.user_management_service.{
   GrantUserRightsRequest,
   UserManagementServiceGrpc,
 }
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.integration.TestConsoleEnvironment
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2}
 
 import scala.concurrent.{ExecutionContext, Future}
 
 final class GrantUserRightsBoxToIDPAuthIT extends IDPBoxingServiceCallOutTests {
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseH2(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   override def serviceCallName: String =
     "UserManagementService#GrantUserRights(<grant-rights-to-IDP-parties>)"

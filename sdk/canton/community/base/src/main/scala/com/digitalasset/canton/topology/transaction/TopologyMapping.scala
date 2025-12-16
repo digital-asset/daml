@@ -142,7 +142,7 @@ object TopologyMapping {
     MappingHash(
       addUniqueKeyToBuilder(
         Hash.build(HashPurpose.TopologyMappingUniqueKey, HashAlgorithm.Sha256)
-      ).add(code.dbInt)
+      ).addInt(code.dbInt)
         .finish()
     )
 
@@ -559,7 +559,9 @@ final case class NamespaceDelegation private (
 object NamespaceDelegation extends TopologyMappingCompanion {
 
   def uniqueKey(namespace: Namespace, target: Fingerprint): MappingHash =
-    TopologyMapping.buildUniqueKey(code)(_.add(namespace.fingerprint.unwrap).add(target.unwrap))
+    TopologyMapping.buildUniqueKey(code)(
+      _.addString(namespace.fingerprint.unwrap).addString(target.unwrap)
+    )
 
   /** Creates a namespace delegation for the given namespace to the given target key with possible
     * restrictions on the topology mappings the target key can authorize.
@@ -715,7 +717,7 @@ final case class DecentralizedNamespaceDefinition private (
 object DecentralizedNamespaceDefinition extends TopologyMappingCompanion {
 
   def uniqueKey(namespace: Namespace): MappingHash =
-    TopologyMapping.buildUniqueKey(code)(_.add(namespace.fingerprint.unwrap))
+    TopologyMapping.buildUniqueKey(code)(_.addString(namespace.fingerprint.unwrap))
 
   override def code: TopologyMapping.Code = Code.DecentralizedNamespaceDefinition
 
@@ -770,7 +772,7 @@ object DecentralizedNamespaceDefinition extends TopologyMappingCompanion {
     val builder = Hash.build(HashPurpose.DecentralizedNamespaceNamespace, HashAlgorithm.Sha256)
     owners.toSeq
       .sorted(Namespace.namespaceOrder.toOrdering)
-      .foreach(ns => builder.add(ns.fingerprint.unwrap))
+      .foreach(ns => builder.addString(ns.fingerprint.unwrap))
     Namespace(Fingerprint.tryFromString(builder.finish().toLengthLimitedHexString))
   }
 }
@@ -880,7 +882,7 @@ object OwnerToKeyMapping extends TopologyMappingCompanion {
     GenLens[OwnerToKeyMapping](_.keys)
 
   def uniqueKey(member: Member): MappingHash =
-    TopologyMapping.buildUniqueKey(code)(_.add(member.uid.toProtoPrimitive))
+    TopologyMapping.buildUniqueKey(code)(_.addString(member.uid.toProtoPrimitive))
 
   override def code: TopologyMapping.Code = Code.OwnerToKeyMapping
 
@@ -1026,7 +1028,7 @@ object PartyToKeyMapping extends TopologyMappingCompanion {
     create(partyId, threshold, signingKeys).valueOr(err => throw new IllegalArgumentException(err))
 
   def uniqueKey(party: PartyId): MappingHash =
-    TopologyMapping.buildUniqueKey(code)(b => b.add(party.uid.toProtoPrimitive))
+    TopologyMapping.buildUniqueKey(code)(b => b.addString(party.uid.toProtoPrimitive))
 
   override def code: TopologyMapping.Code = Code.PartyToKeyMapping
 
@@ -1142,7 +1144,7 @@ object SynchronizerTrustCertificate extends TopologyMappingCompanion {
 
   def uniqueKey(participantId: ParticipantId, synchronizerId: SynchronizerId): MappingHash =
     TopologyMapping.buildUniqueKey(code)(
-      _.add(participantId.toProtoPrimitive).add(synchronizerId.toProtoPrimitive)
+      _.addString(participantId.toProtoPrimitive).addString(synchronizerId.toProtoPrimitive)
     )
 
   override def code: Code = Code.SynchronizerTrustCertificate
@@ -1317,7 +1319,7 @@ object ParticipantSynchronizerPermission extends TopologyMappingCompanion {
   def uniqueKey(synchronizerId: SynchronizerId, participantId: ParticipantId): MappingHash =
     TopologyMapping.buildUniqueKey(
       code
-    )(_.add(synchronizerId.toProtoPrimitive).add(participantId.toProtoPrimitive))
+    )(_.addString(synchronizerId.toProtoPrimitive).addString(participantId.toProtoPrimitive))
 
   override def code: Code = Code.ParticipantSynchronizerPermission
 
@@ -1395,7 +1397,7 @@ object PartyHostingLimits extends TopologyMappingCompanion {
 
   def uniqueKey(synchronizerId: SynchronizerId, partyId: PartyId): MappingHash =
     TopologyMapping.buildUniqueKey(code)(
-      _.add(synchronizerId.toProtoPrimitive).add(partyId.toProtoPrimitive)
+      _.addString(synchronizerId.toProtoPrimitive).addString(partyId.toProtoPrimitive)
     )
 
   override def code: Code = Code.PartyHostingLimits
@@ -1505,7 +1507,7 @@ final case class VettedPackages private (
 object VettedPackages extends TopologyMappingCompanion {
 
   def uniqueKey(participantId: ParticipantId): MappingHash =
-    TopologyMapping.buildUniqueKey(code)(_.add(participantId.toProtoPrimitive))
+    TopologyMapping.buildUniqueKey(code)(_.addString(participantId.toProtoPrimitive))
 
   override def code: Code = Code.VettedPackages
 
@@ -1821,7 +1823,7 @@ object PartyToParticipant extends TopologyMappingCompanion {
       partyId: PartyId,
       threshold: PositiveInt,
       participants: Seq[HostingParticipant],
-      partySigningKeysWithThreshold: Option[SigningKeysWithThreshold] = None,
+      partySigningKeysWithThreshold: Option[SigningKeysWithThreshold],
   ): Either[String, PartyToParticipant] = {
 
     // If a participant is listed several times with different permissions, take the one with the higher
@@ -1865,7 +1867,7 @@ object PartyToParticipant extends TopologyMappingCompanion {
     )
 
   def uniqueKey(partyId: PartyId): MappingHash =
-    TopologyMapping.buildUniqueKey(code)(_.add(partyId.toProtoPrimitive))
+    TopologyMapping.buildUniqueKey(code)(_.addString(partyId.toProtoPrimitive))
 
   override def code: Code = Code.PartyToParticipant
 
@@ -1926,7 +1928,7 @@ final case class SynchronizerParametersState(
 object SynchronizerParametersState extends TopologyMappingCompanion {
 
   def uniqueKey(synchronizerId: SynchronizerId): MappingHash =
-    TopologyMapping.buildUniqueKey(code)(_.add(synchronizerId.toProtoPrimitive))
+    TopologyMapping.buildUniqueKey(code)(_.addString(synchronizerId.toProtoPrimitive))
 
   override def code: TopologyMapping.Code = Code.SynchronizerParametersState
 
@@ -1989,7 +1991,7 @@ final case class DynamicSequencingParametersState(
 object DynamicSequencingParametersState extends TopologyMappingCompanion {
 
   def uniqueKey(synchronizerId: SynchronizerId): MappingHash =
-    TopologyMapping.buildUniqueKey(code)(_.add(synchronizerId.toProtoPrimitive))
+    TopologyMapping.buildUniqueKey(code)(_.addString(synchronizerId.toProtoPrimitive))
 
   override def code: TopologyMapping.Code = Code.SequencingDynamicParametersState
 
@@ -2064,7 +2066,9 @@ final case class MediatorSynchronizerState private (
 object MediatorSynchronizerState extends TopologyMappingCompanion {
 
   def uniqueKey(synchronizerId: SynchronizerId, group: MediatorGroupIndex): MappingHash =
-    TopologyMapping.buildUniqueKey(code)(_.add(synchronizerId.toProtoPrimitive).add(group.unwrap))
+    TopologyMapping.buildUniqueKey(code)(
+      _.addString(synchronizerId.toProtoPrimitive).addInt(group.unwrap)
+    )
 
   override def code: TopologyMapping.Code = Code.MediatorSynchronizerState
 
@@ -2171,7 +2175,7 @@ final case class SequencerSynchronizerState private (
 object SequencerSynchronizerState extends TopologyMappingCompanion {
 
   def uniqueKey(synchronizerId: SynchronizerId): MappingHash =
-    TopologyMapping.buildUniqueKey(code)(_.add(synchronizerId.toProtoPrimitive))
+    TopologyMapping.buildUniqueKey(code)(_.addString(synchronizerId.toProtoPrimitive))
 
   override def code: TopologyMapping.Code = Code.SequencerSynchronizerState
 
@@ -2266,7 +2270,7 @@ final case class SynchronizerUpgradeAnnouncement(
 object SynchronizerUpgradeAnnouncement extends TopologyMappingCompanion {
 
   def uniqueKey(synchronizerId: SynchronizerId): MappingHash =
-    TopologyMapping.buildUniqueKey(code)(_.add(synchronizerId.toProtoPrimitive))
+    TopologyMapping.buildUniqueKey(code)(_.addString(synchronizerId.toProtoPrimitive))
 
   override def code: TopologyMapping.Code = Code.SynchronizerUpgradeAnnouncement
 
@@ -2377,7 +2381,7 @@ object SequencerConnectionSuccessor extends TopologyMappingCompanion {
   override def code: Code = Code.SequencerConnectionSuccessor
   def uniqueKey(sequencerId: SequencerId, synchronizerId: SynchronizerId): MappingHash =
     TopologyMapping.buildUniqueKey(code)(
-      _.add(sequencerId.uid.toProtoPrimitive).add(synchronizerId.toProtoPrimitive)
+      _.addString(sequencerId.uid.toProtoPrimitive).addString(synchronizerId.toProtoPrimitive)
     )
 
   def fromProtoV30(

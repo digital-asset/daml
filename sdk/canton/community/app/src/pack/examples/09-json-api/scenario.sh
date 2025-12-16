@@ -11,13 +11,10 @@ source ./utils.sh
 # Random id to be added as suffix for commandId - this script can be started multiple times
 uniqueId="$RANDOM"
 
-# host on which participant node is running
-participant="localhost"
-
 # Function to create an Iou contract
 create_contract() {
   local appUserParty=$1
-  curl_check "http://$participant:7575/v2/commands/submit-and-wait" "application/json" \
+  curl_check "http://$participant_address/v2/commands/submit-and-wait" "application/json" \
     --data-raw '{
         "commands" : [
            {"CreateCommand": {
@@ -44,7 +41,7 @@ exercise_transfer() {
   local appUserParty=$1
   local contractId=$2
   local receivingUserParty=$3
-  curl_check "http://$participant:7575/v2/commands/submit-and-wait" "application/json" \
+  curl_check "http://$participant_address/v2/commands/submit-and-wait" "application/json" \
     --data-raw '{
         "commands" : [
            {"ExerciseCommand": {
@@ -68,7 +65,7 @@ exercise_transfer() {
 exercise_accept() {
   local appUserParty=$1
   local contractId=$2
-  curl_check "http://$participant:7575/v2/commands/submit-and-wait" "application/json" \
+  curl_check "http://$participant_address/v2/commands/submit-and-wait" "application/json" \
     --data-raw '{
         "commands" : [
            {"ExerciseCommand": {
@@ -87,22 +84,46 @@ exercise_accept() {
 }
 
 showContractsWs() {
-  local contracts=$(echo $1 | jq -s .  )
+  local contracts
+  contracts=$(echo "$1" | jq -s .)
   showContracts "$contracts"
 }
 
 showContracts() {
   local contracts=$1
-  echo "$contracts" | jq '["contract", "owner", "amount", "currency"], (map (.contractEntry.JsActiveContract.createdEvent)
-    | map([.contractId[0:10], .createArgument.owner[0:10], .createArgument.amount,  .createArgument.currency]) )[] | @tsv ' | sed 's/\\t/    /g' | column -t
+  # Produce TSV via jq and align columns using portable awk (avoids dependency on `column`)
+  echo "$contracts" | jq '["contract", "owner", "amount", "currency"], (map (.contractEntry.JsActiveContract.createdEvent) | map([.contractId[0:10], .createArgument.owner[0:10], .createArgument.amount,  .createArgument.currency]) )[] | @tsv' \
+    | awk -v FS="\t" '
+    {
+      rows[NR] = $0
+      nfields[NR] = NF
+      for (i = 1; i <= NF; i++) if (length($i) > w[i]) w[i] = length($i)
+    }
+    END {
+      for (r = 1; r <= NR; r++) {
+        split(rows[r], f, FS)
+        for (i = 1; i <= nfields[r]; i++) {
+          printf "%-*s%s", w[i], f[i], (i == nfields[r] ? ORS : "   ")
+        }
+      }
+    }'
 }
+
+# host on which participant_address node is running
+participant_address="${1}"
+
+if [ -z "$participant_address" ]; then
+  participant_address="localhost:7575"
+fi
+
+echo "'$participant_address'"
 
 echo "Step 1. Creating parties"
 # Initially we create both parties
-aliceParty=$(allocate_party_and_create_user "Alice" "$participant")
+aliceParty=$(allocate_party_and_create_user "Alice" "$participant_address")
 echo "$aliceParty"
 
-bobParty=$(allocate_party_and_create_user "Bob" "$participant")
+bobParty=$(allocate_party_and_create_user "Bob" "$participant_address")
 echo "$bobParty"
 
 echo "Step 2. Alice creates an Iou contract"
@@ -112,21 +133,11 @@ completionOffset=$(echo $create_contract_result  |  jq ".completionOffset")
 echo "created Iou contract at offset ${completionOffset}"
 
 # at this stage ledgerEnd should be same as completionOffset (if no other transactions are in progress)
-ledgerEnd=$(./getledgerend.sh)
+ledgerEnd=$(curl_check "http://$participant_address/v2/state/ledger-end" "application/json" | jq -r ".offset")
 echo "ledger end is $ledgerEnd"
 
-if command -v websocat &>/dev/null; then
-  acsws=$(./wsacs.sh "$participant" "$aliceParty" "$ledgerEnd")
-  echo "Active contracts - read using websocket"
-  showContractsWs "$acsws"
-else
-  echo "websocat not found reading active contracts using http"
-  acs=$(./acs.sh  "$participant" "$aliceParty" "$ledgerEnd")
-  echo "Active contracts - read using websocket"
-  showContractsWs "$acs"
-fi
-
-acs_after_create=$(./acs.sh "$participant" "$aliceParty" "$ledgerEnd")
+acs_after_create=$(./acs.sh "$participant_address" "$aliceParty" "$ledgerEnd")
+showContracts "$acs_after_create"
 
 contractId=$(echo $acs_after_create | jq -r 'reverse | .[0].contractEntry.JsActiveContract.createdEvent.contractId')
 echo "Contract created: $contractId"
@@ -135,7 +146,7 @@ echo "Alice executes Transfer on Iou"
 exercise_contract_result=$(exercise_transfer $aliceParty $contractId $bobParty)
 completionOffset=$(echo $exercise_contract_result  |  jq ".completionOffset")
 
-acs_after_exercise=$(./acs.sh $participant $bobParty $completionOffset)
+acs_after_exercise=$(./acs.sh $participant_address $bobParty $completionOffset)
 contractId=$(echo $acs_after_exercise | jq -r 'reverse | .[0].contractEntry.JsActiveContract.createdEvent.contractId')
 
 echo "Contracts after Transfer"
@@ -145,7 +156,7 @@ echo "Bob accepts Iou_Transfer"
 exercise_contract_result=$(exercise_accept "$bobParty" "$contractId")
 #echo $exercise_contract_result
 completionOffset=$(echo $exercise_contract_result  |  jq ".completionOffset")
-acs_after_exercise_accept=$(./acs.sh "$participant" "$bobParty" "$completionOffset")
+acs_after_exercise_accept=$(./acs.sh "$participant_address" "$bobParty" "$completionOffset")
 
 echo "Contracts after Accept"
 showContracts "$acs_after_exercise_accept"

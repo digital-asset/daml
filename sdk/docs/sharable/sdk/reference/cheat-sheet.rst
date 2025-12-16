@@ -21,18 +21,18 @@ Cheat Sheet
         class="cheat-sheet-container"
         data-layout-small='[
             ["what-is", "concepts", "command-line-tools", "basics", "types", "data", "functions", "contract-templates", "contract-keys"],
-            ["choices", "updates", "scripts", "javascript-react-api", "daml-resources"]
+            ["choices", "updates", "scripts", "daml-resources"]
         ]'
         data-layout-medium='[
             ["what-is", "concepts", "command-line-tools", "basics", "types", "data"],
             ["functions", "contract-templates", "contract-keys", "choices", "updates"],
-            ["scripts", "javascript-react-api", "daml-resources"]
+            ["scripts", "daml-resources"]
         ]'
         data-layout-large='[
             ["what-is", "concepts", "command-line-tools", "basics", "types"],
             ["data", "functions", "contract-templates", "contract-keys", "choices"],
             ["updates", "scripts"],
-            ["javascript-react-api", "daml-resources"]
+            ["daml-resources"]
          ]'
     >
 

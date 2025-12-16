@@ -50,6 +50,8 @@ object Reassignment {
     *   unassignment can initiate the assignment. Defined for reassigning participants.
     * @param reassignmentCounter
     *   The reassignment counter of the underlying contract.
+    * @param nodeId
+    *   The node ID of the unassign node.
     */
   final case class Unassign(
       contractId: Value.ContractId,
@@ -71,6 +73,10 @@ object Reassignment {
     *   The authentication data provided at creation of the underlying contract.
     * @param reassignmentCounter
     *   The reassignment counter of the underlying contract.
+    * @param nodeId
+    *   The node ID of the create node.
+    * @param internalContractId
+    *   The internal contract id of the contract
     */
   final case class Assign(
       ledgerEffectiveTime: Timestamp,
@@ -78,6 +84,7 @@ object Reassignment {
       contractAuthenticationData: Bytes,
       reassignmentCounter: Long,
       nodeId: Int,
+      internalContractId: Long,
   ) extends Reassignment {
     def templateId: Ref.Identifier = createNode.templateId
     def packageName: Ref.PackageName = createNode.packageName

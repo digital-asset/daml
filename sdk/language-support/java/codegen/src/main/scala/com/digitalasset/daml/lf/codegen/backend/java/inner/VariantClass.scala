@@ -59,7 +59,7 @@ private[inner] object VariantClass extends StrictLogging {
             subPackage,
           ).asJava
         )
-        .addField(createPackageIdField(typeWithContext.interface.packageId))
+        .addField(createPackageIdField(typeWithContext.signature.packageId))
         .addType(FromJsonGenerator.decoderAccessorClass(variantClassName, typeArguments))
         .build()
       val (constructors, constructorStaticImports) = generateConstructorClasses(
@@ -218,7 +218,7 @@ private[inner] object VariantClass extends StrictLogging {
         case _ =>
           logger.debug(s"$damlName is trivial")
           val (constructorClasses, constructorStaticImports) = VariantConstructorClass.generate(
-            typeWithContext.interface.packageId,
+            typeWithContext.signature.packageId,
             fullVariantClassName,
             typeArgs,
             damlName,
@@ -240,7 +240,7 @@ private[inner] object VariantClass extends StrictLogging {
           case Some(Normal(DefDataType(typeVars, record: Record.FWT))) =>
             val (klass, recordStaticImports) = VariantRecordClass
               .generate(
-                typeWithContext.interface.packageId,
+                typeWithContext.signature.packageId,
                 typeVars.map(JavaEscaper.escapeString),
                 getFieldsWithTypes(record.fields),
                 child.name,

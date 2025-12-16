@@ -16,9 +16,194 @@ import scalaz.syntax.semigroup._
 
 import java.nio.{ByteBuffer, ByteOrder}
 
-/** Values */
-sealed abstract class Value extends CidContainer[Value] with Product with Serializable {
-  def nonVerboseWithoutTrailingNones: Value
+sealed abstract class GenValue[+X]
+    extends CidContainer[GenValue[X]]
+    with Product
+    with Serializable {
+  def nonVerboseWithoutTrailingNones: GenValue[X]
+}
+
+object GenValue {
+
+  sealed trait Extension[+B]
+
+  sealed abstract class CidLessAtom extends GenValue[Nothing] with CidContainer[CidLessAtom] {
+    final override def mapCid(f: Value.ContractId => Value.ContractId): this.type = this
+  }
+
+  final case class Record[+X](
+      tycon: Option[Identifier],
+      fields: ImmArray[(Option[Name], GenValue[X])],
+  ) extends GenValue[X]
+      with CidContainer[Record[X]] {
+    // TODO (FM) make this tail recursive
+    override def mapCid(f: Value.ContractId => Value.ContractId): Record[X] =
+      Record(
+        tycon,
+        fields.map { case (lbl, value) =>
+          (lbl, value.mapCid(f))
+        },
+      )
+
+    override def nonVerboseWithoutTrailingNones: Record[X] = {
+      val n = fields.reverseIterator.dropWhile(_._2 == Value.ValueNone).size
+      Record(
+        None,
+        fields.iterator
+          .take(n)
+          .map { case (_, v) => (None, v.nonVerboseWithoutTrailingNones) }
+          .to(ImmArray),
+      )
+    }
+  }
+
+  final case class Variant[+X](tycon: Option[Identifier], variant: Name, value: GenValue[X])
+      extends GenValue[X]
+      with CidContainer[Variant[X]] {
+    // TODO (FM) make this tail recursive
+    override def mapCid(f: Value.ContractId => Value.ContractId): Variant[X] =
+      Variant(tycon, variant, value.mapCid(f))
+
+    override def nonVerboseWithoutTrailingNones: Variant[X] =
+      Variant(None, variant, value.nonVerboseWithoutTrailingNones)
+  }
+  final case class Enum(tycon: Option[Identifier], value: Name)
+      extends CidLessAtom
+      with CidContainer[Enum] {
+    override def nonVerboseWithoutTrailingNones: Value =
+      Enum(None, value)
+  }
+
+  final case class ContractId(value: Value.ContractId)
+      extends GenValue[Nothing]
+      with CidContainer[ContractId] {
+    override def mapCid(f: Value.ContractId => Value.ContractId): ContractId = ContractId(f(value))
+
+    override def nonVerboseWithoutTrailingNones: this.type = this
+  }
+
+  /** Daml-LF lists are basically linked lists. However we use FrontQueue since we store list-literals in the Daml-LF
+    * packages and FrontQueue lets prepend chunks rather than only one element.
+    */
+  final case class List[+X](values: FrontStack[GenValue[X]])
+      extends GenValue[X]
+      with CidContainer[List[X]] {
+    // TODO (FM) make this tail recursive
+    override def mapCid(f: Value.ContractId => Value.ContractId): List[X] = List(
+      values.map(_.mapCid(f))
+    )
+
+    override def nonVerboseWithoutTrailingNones: List[X] = List(
+      values.map(_.nonVerboseWithoutTrailingNones)
+    )
+  }
+
+  final case class Int64(value: Long) extends CidLessAtom with CidContainer[Int64] {
+    override def nonVerboseWithoutTrailingNones: this.type = this
+  }
+  final case class Numeric(value: data.Numeric) extends CidLessAtom with CidContainer[Numeric] {
+    override def nonVerboseWithoutTrailingNones: this.type = this
+  }
+  // Note that Text are assume to be UTF8
+  final case class Text(value: String) extends CidLessAtom with CidContainer[Text] {
+    override def nonVerboseWithoutTrailingNones: this.type = this
+  }
+  final case class Timestamp(value: Time.Timestamp)
+      extends CidLessAtom
+      with CidContainer[Timestamp] {
+    override def nonVerboseWithoutTrailingNones: this.type = this
+  }
+  final case class Date(value: Time.Date) extends CidLessAtom with CidContainer[Date] {
+    override def nonVerboseWithoutTrailingNones: this.type = this
+  }
+  final case class Party(value: Ref.Party) extends CidLessAtom with CidContainer[Party] {
+    override def nonVerboseWithoutTrailingNones: this.type = this
+  }
+  final case class Bool(value: Boolean) extends CidLessAtom with CidContainer[Bool] {
+    override def nonVerboseWithoutTrailingNones: this.type = this
+  }
+  object Bool {
+    val True = new Bool(true)
+    val False = new Bool(false)
+    def apply(value: Boolean): Bool =
+      if (value) True else False
+  }
+  case object Unit extends CidLessAtom {
+    override def nonVerboseWithoutTrailingNones: this.type = this
+  }
+
+  final case class Optional[+X](value: Option[GenValue[X]]) extends GenValue[X] {
+    // TODO (FM) make this tail recursive
+    override def mapCid(f: Value.ContractId => Value.ContractId): Optional[X] = Optional(
+      value.map(_.mapCid(f))
+    )
+
+    override def nonVerboseWithoutTrailingNones: Optional[X] = Optional(
+      value.map(_.nonVerboseWithoutTrailingNones)
+    )
+  }
+  final case class TextMap[+X](value: SortedLookupList[GenValue[X]]) extends GenValue[X] {
+    // TODO (FM) make this tail recursive
+    override def mapCid(f: Value.ContractId => Value.ContractId): TextMap[X] = TextMap(
+      value.mapValue(_.mapCid(f))
+    )
+
+    override def nonVerboseWithoutTrailingNones: TextMap[X] = TextMap(
+      value.mapValue(_.nonVerboseWithoutTrailingNones)
+    )
+  }
+  final case class GenMap[+X](entries: ImmArray[(GenValue[X], GenValue[X])])
+      extends GenValue[X]
+      with CidContainer[GenMap[X]] {
+    // TODO (FM) make this tail recursive
+    override def mapCid(f: Value.ContractId => Value.ContractId): GenMap[X] = GenMap(entries.map {
+      case (k, v) => k.mapCid(f) -> v.mapCid(f)
+    })
+    override def toString: String = entries.iterator.mkString("GenMap(", ",", ")")
+
+    override def nonVerboseWithoutTrailingNones: GenMap[X] = GenMap(entries.map { case (k, v) =>
+      k.nonVerboseWithoutTrailingNones -> v.nonVerboseWithoutTrailingNones
+    })
+  }
+
+  final case class Blob[Content](value: Content) extends GenValue[Extension[Content]] {
+    override def nonVerboseWithoutTrailingNones: Nothing =
+      throw new UnsupportedOperationException(
+        "Blob values do not support nonVerboseWithoutTrailingNones"
+      )
+
+    override def mapCid(f: Value.ContractId => Value.ContractId): Nothing =
+      throw new UnsupportedOperationException(
+        "Blob values do not support nonVerboseWithoutTrailingNones"
+      )
+    private[lf] def getContent: Content = value
+  }
+
+  final case class Any[Content](ty: Ast.Type, any: GenValue[Extension[Content]])
+      extends GenValue[Extension[Content]] {
+    override def nonVerboseWithoutTrailingNones: Nothing =
+      throw new UnsupportedOperationException(
+        "Any values do not support nonVerboseWithoutTrailingNones"
+      )
+
+    override def mapCid(f: Value.ContractId => Value.ContractId): Nothing =
+      throw new UnsupportedOperationException(
+        "Any values do not support nonVerboseWithoutTrailingNones"
+      )
+  }
+
+  final case class TypeRep[Content](ty: Ast.Type) extends GenValue[Extension[Content]] {
+    override def nonVerboseWithoutTrailingNones: Nothing =
+      throw new UnsupportedOperationException(
+        "TypeRep values do not support nonVerboseWithoutTrailingNones"
+      )
+
+    override def mapCid(f: Value.ContractId => Value.ContractId): Nothing =
+      throw new UnsupportedOperationException(
+        "TypeRep values do not support nonVerboseWithoutTrailingNones"
+      )
+  }
+
 }
 
 object Value {
@@ -35,39 +220,100 @@ object Value {
 
   type VersionedValue = transaction.Versioned[Value]
 
-  /** The parent of all [[Value]] cases that cannot possibly have a Cid.
-    * NB: use only in pattern-matching [[Value]]; the ''type'' of a cid-less
-    * Value is `Value[Nothing]`.
-    */
-  sealed abstract class ValueCidlessLeaf extends Value with CidContainer[ValueCidlessLeaf] {
-    final override def mapCid(f: ContractId => ContractId): this.type = this
-  }
+  type ValueCidLessAtom = GenValue.CidLessAtom
 
-  final case class ValueRecord(
-      tycon: Option[Identifier],
-      fields: ImmArray[(Option[Name], Value)],
-  ) extends Value
-      with CidContainer[ValueRecord] {
-    // TODO (FM) make this tail recursive
-    override def mapCid(f: ContractId => ContractId): ValueRecord =
-      ValueRecord(
-        tycon,
-        fields.map { case (lbl, value) =>
-          (lbl, value.mapCid(f))
-        },
-      )
+  type ValueRecord = GenValue.Record[Nothing]
+  val ValueRecord: GenValue.Record.type = GenValue.Record
 
-    override def nonVerboseWithoutTrailingNones: Value = {
-      val n = fields.reverseIterator.dropWhile(_._2 == Value.ValueNone).size
-      ValueRecord(
-        None,
-        fields.iterator
-          .take(n)
-          .map { case (_, v) => (None, v.nonVerboseWithoutTrailingNones) }
-          .to(ImmArray),
-      )
+  type ValueVariant = GenValue.Variant[Nothing]
+  val ValueVariant: GenValue.Variant.type = GenValue.Variant
+
+  type ValueEnum = GenValue.Enum
+  val ValueEnum: GenValue.Enum.type = GenValue.Enum
+
+  type ValueContractId = GenValue.ContractId
+  val ValueContractId: GenValue.ContractId.type = GenValue.ContractId
+
+  type ValueList = GenValue.List[Nothing]
+  val ValueList: GenValue.List.type = GenValue.List
+
+  type ValueOptional = GenValue.Optional[Nothing]
+  val ValueOptional: GenValue.Optional.type = GenValue.Optional
+
+  type ValueTextMap = GenValue.TextMap[Nothing]
+  val ValueTextMap: GenValue.TextMap.type = GenValue.TextMap
+
+  type ValueGenMap = GenValue.GenMap[Nothing]
+  val ValueGenMap: GenValue.GenMap.type = GenValue.GenMap
+
+  type ValueInt64 = GenValue.Int64
+  val ValueInt64: GenValue.Int64.type = GenValue.Int64
+
+  type ValueNumeric = GenValue.Numeric
+  val ValueNumeric: GenValue.Numeric.type = GenValue.Numeric
+
+  type ValueText = GenValue.Text
+  val ValueText: GenValue.Text.type = GenValue.Text
+
+  type ValueTimestamp = GenValue.Timestamp
+  val ValueTimestamp: GenValue.Timestamp.type = GenValue.Timestamp
+
+  type ValueDate = GenValue.Date
+  val ValueDate: GenValue.Date.type = GenValue.Date
+
+  type ValueParty = GenValue.Party
+  val ValueParty: GenValue.Party.type = GenValue.Party
+
+  type ValueBool = GenValue.Bool
+  val ValueBool: GenValue.Bool.type = GenValue.Bool
+
+  type ValueUnit = GenValue.Unit.type
+  val ValueUnit: GenValue.Unit.type = GenValue.Unit
+
+  import scalaz.syntax.traverse._
+  import scalaz.std.either._
+  import scalaz.std.option._
+
+  // Casts from GenValue[Extension[From]] to GenValue[Nothing] i.e. `Value`
+  def castExtendedValue[From](
+      value: GenValue[GenValue.Extension[From]]
+  ): Either[RuntimeException, GenValue[Nothing]] =
+    value match {
+      case _: GenValue.Blob[From] => Left(new RuntimeException("Illegal Blob in Value"))
+      case _: GenValue.Any[From] => Left(new RuntimeException("Illegal Any in Value"))
+      case _: GenValue.TypeRep[From] => Left(new RuntimeException("Illegal TypeRep in Value"))
+      case ValueRecord(tycon, content) =>
+        content
+          .traverse { case (label, value) => castExtendedValue(value).map((label, _)) }
+          .map(ValueRecord(tycon, _))
+      case ValueVariant(tycon, variant, content) =>
+        castExtendedValue(content).map(ValueVariant(tycon, variant, _))
+      case ValueList(content) =>
+        content.traverse(castExtendedValue(_)).map(ValueList(_))
+      case ValueOptional(content) =>
+        content.traverse(castExtendedValue(_)).map(ValueOptional(_))
+      case ValueTextMap(content) =>
+        content.traverse(castExtendedValue(_)).map(ValueTextMap(_))
+      case ValueGenMap(content) =>
+        content
+          .traverse { case (key, value) =>
+            for {
+              pureKey <- castExtendedValue(key)
+              pureValue <- castExtendedValue(value)
+            } yield (pureKey, pureValue)
+          }
+          .map(ValueGenMap(_))
+      case v: ValueEnum => Right(v)
+      case v: ValueContractId => Right(v)
+      case v: ValueInt64 => Right(v)
+      case v: ValueNumeric => Right(v)
+      case v: ValueText => Right(v)
+      case v: ValueTimestamp => Right(v)
+      case v: ValueDate => Right(v)
+      case v: ValueParty => Right(v)
+      case v: ValueBool => Right(v)
+      case v: ValueUnit => Right(v)
     }
-  }
 
   class ValueArithmeticError(stablePackages: StablePackages) {
     val tyCon: TypeConId = stablePackages.ArithmeticError
@@ -84,120 +330,6 @@ object Value {
           Some(message)
         case _ => None
       }
-  }
-
-  final case class ValueVariant(tycon: Option[Identifier], variant: Name, value: Value)
-      extends Value
-      with CidContainer[ValueVariant] {
-    // TODO (FM) make this tail recursive
-    override def mapCid(f: ContractId => ContractId): ValueVariant =
-      ValueVariant(tycon, variant, value.mapCid(f))
-
-    override def nonVerboseWithoutTrailingNones: Value =
-      ValueVariant(None, variant, value.nonVerboseWithoutTrailingNones)
-  }
-  final case class ValueEnum(tycon: Option[Identifier], value: Name)
-      extends ValueCidlessLeaf
-      with CidContainer[ValueEnum] {
-    override def nonVerboseWithoutTrailingNones: Value =
-      ValueEnum(None, value)
-  }
-
-  final case class ValueContractId(value: ContractId)
-      extends Value
-      with CidContainer[ValueContractId] {
-    override def mapCid(f: ContractId => ContractId): ValueContractId = ValueContractId(f(value))
-
-    override def nonVerboseWithoutTrailingNones: Value = this
-  }
-
-  /** Daml-LF lists are basically linked lists. However we use FrontQueue since we store list-literals in the Daml-LF
-    * packages and FrontQueue lets prepend chunks rather than only one element.
-    */
-  final case class ValueList(values: FrontStack[Value]) extends Value with CidContainer[ValueList] {
-    // TODO (FM) make this tail recursive
-    override def mapCid(f: ContractId => ContractId): ValueList = ValueList(values.map(_.mapCid(f)))
-
-    override def nonVerboseWithoutTrailingNones: Value = ValueList(
-      values.map(_.nonVerboseWithoutTrailingNones)
-    )
-  }
-  final case class ValueInt64(value: Long) extends ValueCidlessLeaf with CidContainer[ValueInt64] {
-    override def nonVerboseWithoutTrailingNones: Value = this
-  }
-  final case class ValueNumeric(value: Numeric)
-      extends ValueCidlessLeaf
-      with CidContainer[ValueNumeric] {
-    override def nonVerboseWithoutTrailingNones: Value = this
-  }
-  // Note that Text are assume to be UTF8
-  final case class ValueText(value: String) extends ValueCidlessLeaf with CidContainer[ValueText] {
-    override def nonVerboseWithoutTrailingNones: Value = this
-  }
-  final case class ValueTimestamp(value: Time.Timestamp)
-      extends ValueCidlessLeaf
-      with CidContainer[ValueTimestamp] {
-    override def nonVerboseWithoutTrailingNones: Value = this
-  }
-  final case class ValueDate(value: Time.Date)
-      extends ValueCidlessLeaf
-      with CidContainer[ValueDate] {
-    override def nonVerboseWithoutTrailingNones: Value = this
-  }
-  final case class ValueParty(value: Ref.Party)
-      extends ValueCidlessLeaf
-      with CidContainer[ValueParty] {
-    override def nonVerboseWithoutTrailingNones: Value = this
-  }
-  final case class ValueBool(value: Boolean) extends ValueCidlessLeaf with CidContainer[ValueBool] {
-    override def nonVerboseWithoutTrailingNones: Value = this
-  }
-  object ValueBool {
-    val True = new ValueBool(true)
-    val False = new ValueBool(false)
-    def apply(value: Boolean): ValueBool =
-      if (value) ValueTrue else ValueFalse
-  }
-  case object ValueUnit extends ValueCidlessLeaf {
-    override def nonVerboseWithoutTrailingNones: Value = this
-  }
-
-  final case class ValueOptional(value: Option[Value])
-      extends Value
-      with CidContainer[ValueOptional] {
-    // TODO (FM) make this tail recursive
-    override def mapCid(f: ContractId => ContractId): ValueOptional = ValueOptional(
-      value.map(_.mapCid(f))
-    )
-
-    override def nonVerboseWithoutTrailingNones: Value = ValueOptional(
-      value.map(_.nonVerboseWithoutTrailingNones)
-    )
-  }
-  final case class ValueTextMap(value: SortedLookupList[Value])
-      extends Value
-      with CidContainer[ValueTextMap] {
-    // TODO (FM) make this tail recursive
-    override def mapCid(f: ContractId => ContractId): ValueTextMap = ValueTextMap(
-      value.mapValue(_.mapCid(f))
-    )
-
-    override def nonVerboseWithoutTrailingNones: Value = ValueTextMap(
-      value.mapValue(_.nonVerboseWithoutTrailingNones)
-    )
-  }
-  final case class ValueGenMap(entries: ImmArray[(Value, Value)])
-      extends Value
-      with CidContainer[ValueGenMap] {
-    // TODO (FM) make this tail recursive
-    override def mapCid(f: ContractId => ContractId): ValueGenMap = ValueGenMap(entries.map {
-      case (k, v) => k.mapCid(f) -> v.mapCid(f)
-    })
-    override def toString: String = entries.iterator.mkString("ValueGenMap(", ",", ")")
-
-    override def nonVerboseWithoutTrailingNones: Value = ValueGenMap(entries.map { case (k, v) =>
-      k.nonVerboseWithoutTrailingNones -> v.nonVerboseWithoutTrailingNones
-    })
   }
 
   /** The data constructors of a variant or enum, if defined. */

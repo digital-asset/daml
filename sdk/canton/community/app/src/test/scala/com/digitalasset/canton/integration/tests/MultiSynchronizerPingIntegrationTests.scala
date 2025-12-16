@@ -3,16 +3,11 @@
 
 package com.digitalasset.canton.integration.tests
 
-import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.IntegrationTestUtilities.*
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
-import com.digitalasset.canton.integration.plugins.{
-  UseBftSequencer,
-  UsePostgres,
-  UseReferenceBlockSequencer,
-}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 
 sealed trait MultiSynchronizerPingIntegrationTests
     extends CommunityIntegrationTest
@@ -60,22 +55,6 @@ sealed trait MultiSynchronizerPingIntegrationTests
 }
 
 //class MultiSynchronizerPingIntegrationTestsDefault extends MultiSynchronizerPingIntegrationTests
-
-class MultiSynchronizerPingReferenceIntegrationTestsPostgres
-    extends MultiSynchronizerPingIntegrationTests {
-  registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.Postgres](
-      loggerFactory,
-      sequencerGroups = MultiSynchronizer(
-        Seq(
-          Set(InstanceName.tryCreate("sequencer1")),
-          Set(InstanceName.tryCreate("sequencer2")),
-        )
-      ),
-    )
-  )
-}
 
 class MultiSynchronizerPingBftOrderingIntegrationTestsPostgres
     extends MultiSynchronizerPingIntegrationTests {

@@ -37,8 +37,8 @@ class HashBuilderTest extends AnyWordSpec with BaseTest {
 
       val hashArrayL11 =
         defaultBuilder
-          .addWithoutLengthPrefix(new Array[Byte](1))
-          .addWithoutLengthPrefix(new Array[Byte](1))
+          .addWithoutLengthPrefix(ByteString.copyFrom(new Array[Byte](1)))
+          .addWithoutLengthPrefix(ByteString.copyFrom(new Array[Byte](1)))
           .finish()
       "yield the same hash for the same concatenation of chunks" in {
         assert(hashArrayL2.getCryptographicEvidence == hashArrayL11.getCryptographicEvidence)
@@ -50,7 +50,7 @@ class HashBuilderTest extends AnyWordSpec with BaseTest {
       }
 
       val builder2 = defaultBuilder
-      val builder3 = builder2.addWithoutLengthPrefix(new Array[Byte](1))
+      val builder3 = builder2.addWithoutLengthPrefix(ByteString.copyFrom(new Array[Byte](1)))
       "addWithoutLengthPrefix returns the modified builder" in {
         assert(builder2 eq builder3)
       }

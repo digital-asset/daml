@@ -57,7 +57,8 @@ class PartyReplicationTopologyWorkflowTest
     extends AsyncWordSpec
     with BaseTest
     with HasExecutionContext {
-  private val requestId = Hash.build(TestHash.testHashPurpose, HashAlgorithm.Sha256).add(0).finish()
+  private val requestId =
+    Hash.build(TestHash.testHashPurpose, HashAlgorithm.Sha256).addInt(0).finish()
   private val partyId = PartyId.tryFromProtoPrimitive("onboarding::namespace")
   private val synchronizerId = SynchronizerId.tryFromString("synchronizer::namespace")
   private val physicalSynchronizerId = synchronizerId.toPhysical
@@ -250,7 +251,7 @@ class PartyReplicationTopologyWorkflowTest
             .valueOrFail("expect authorization to succeed")
         } yield {
           effectiveTsBeforeO shouldBe None
-          effectiveTsAfterO shouldBe Some(tsSerial)
+          effectiveTsAfterO shouldBe Some(EffectiveTime(tsSerial))
         }
       }.failOnShutdown
 
@@ -291,7 +292,7 @@ class PartyReplicationTopologyWorkflowTest
             .valueOrFail("expect authorization to succeed")
         } yield {
           effectiveTsBeforeO shouldBe None
-          effectiveTsAfterO shouldBe Some(tsSerial)
+          effectiveTsAfterO shouldBe Some(EffectiveTime(tsSerial))
         }
       }.failOnShutdown
 
@@ -338,7 +339,7 @@ class PartyReplicationTopologyWorkflowTest
       }.failOnShutdown
     }
 
-    "onboarded" should {
+    "clear onboarding" should {
       "complete authorization only when prerequisites are met" in {
         val tw = topologyWorkflow()
         val topologyStore = newTopologyStore()
@@ -414,31 +415,31 @@ class PartyReplicationTopologyWorkflowTest
             ),
           )
           errTooEarly <- tw
-            .authorizeOnboardedTopology(
+            .authorizeClearingOnboardingFlag(
               params,
-              tsSerialMinusTwo,
+              EffectiveTime(tsSerialMinusTwo),
               connectedSynchronizerSafe,
             )
             .leftOrFail("expect premature authorization to fail")
           _ <- add(topologyStore)(onboardingTs, serialBefore, ptpProposal)
           isOnboardedAfterUnsafeCall <- tw
-            .authorizeOnboardedTopology(
+            .authorizeClearingOnboardingFlag(
               params,
-              onboardingTs,
+              EffectiveTime(onboardingTs),
               connectedSynchronizerUnsafe,
             )
             .valueOrFail("expect authorization to not happen due to unsafe time")
           isOnboardedAfterFirstSafeCall <- tw
-            .authorizeOnboardedTopology(
+            .authorizeClearingOnboardingFlag(
               params,
-              onboardingTs,
+              EffectiveTime(onboardingTs),
               connectedSynchronizerSafe,
             )
             .valueOrFail("expect authorization to succeed")
           isOnboardedAfterSecondSafeCall <- tw
-            .authorizeOnboardedTopology(
+            .authorizeClearingOnboardingFlag(
               params,
-              onboardingTs,
+              EffectiveTime(onboardingTs),
               connectedSynchronizerSafe,
             )
             .valueOrFail("expect second call observe party onboarded")

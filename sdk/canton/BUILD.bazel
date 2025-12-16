@@ -192,11 +192,8 @@ da_scala_library(
     unused_dependency_checker_mode = "error",
     visibility = ["//visibility:public"],
     deps = [
-        "//libs-scala/nonempty",
         "@maven//:com_softwaremill_magnolia1_2_magnolia_2_13",
         "@maven//:org_scalacheck_scalacheck_2_13",
-        "@maven//:org_typelevel_cats_core_2_13",
-        "@maven//:org_typelevel_cats_kernel_2_13",
     ],
 )
 
@@ -502,7 +499,6 @@ scala_library(
         ":community_kms-driver-api",
         ":community_lib_slick_slick-fork",
         ":community_lib_wartremover-annotations",
-        ":community_magnolify-addon",
         ":community_util-observability",
         ":ledger_api_proto_scala",
         "//daml-lf/data",
@@ -552,7 +548,6 @@ scala_library(
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_lihaoyi_fansi_2_13",
         "@maven//:com_lihaoyi_pprint_2_13",
-        "@maven//:com_softwaremill_magnolia1_2_magnolia_2_13",
         "@maven//:com_thesamet_scalapb_scalapb_runtime_2_13",
         "@maven//:com_typesafe_config",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
@@ -620,7 +615,6 @@ scala_library(
         ":community_lib_Blake2b",
         ":community_lib_slick_slick-fork",
         ":community_lib_wartremover-annotations",
-        ":community_magnolify-addon",
         ":community_util-observability",
         ":ledger_api_proto_scala",
         "//daml-lf/archive:daml_lf_archive_reader",
@@ -645,7 +639,6 @@ scala_library(
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_lihaoyi_pprint_2_13",
-        "@maven//:com_softwaremill_magnolia1_2_magnolia_2_13",
         "@maven//:com_thesamet_scalapb_scalapb_runtime_2_13",
         "@maven//:com_typesafe_config",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
@@ -749,7 +742,6 @@ scala_library(
         ":community_base_proto_scala",
         ":community_common",
         ":community_ledger_ledger-common",
-        ":community_magnolify-addon",
         ":community_util-observability",
         ":ledger_api_proto_scala",
         "//daml-lf/archive:daml_lf_archive_proto_java",
@@ -866,7 +858,6 @@ scala_library(
         "//libs-scala/rs-grpc-bridge",
         "//libs-scala/rs-grpc-pekko",
         "//libs-scala/scala-utils",
-        "//libs-scala/struct-json/struct-spray-json",
         "//observability/metrics",
         "//observability/pekko-http-metrics",
         "//observability/tracing",
@@ -980,7 +971,6 @@ scala_library(
         ":community_common",
         ":community_lib_slick_slick-fork",
         ":community_lib_wartremover-annotations",
-        ":community_magnolify-addon",
         ":community_reference-driver",
         ":community_sequencer-driver",
         ":community_util-observability",
@@ -1004,7 +994,6 @@ scala_library(
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_h2database_h2",
         "@maven//:com_lihaoyi_pprint_2_13",
-        "@maven//:com_softwaremill_magnolia1_2_magnolia_2_13",
         "@maven//:com_thesamet_scalapb_scalapb_runtime_2_13",
         "@maven//:com_typesafe_config",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
@@ -1134,7 +1123,6 @@ scala_library(
         ":community_ledger_ledger-json-api",
         ":community_lib_slick_slick-fork",
         ":community_lib_wartremover-annotations",
-        ":community_magnolify-addon",
         ":community_participant_admin-workflows_java",
         ":community_participant_party-replication_java",
         ":community_util-observability",
@@ -1172,7 +1160,6 @@ scala_library(
         "@maven//:com_lihaoyi_upickle_2_13",
         "@maven//:com_lihaoyi_upickle_core_2_13",
         "@maven//:com_lihaoyi_upickle_implicits_2_13",
-        "@maven//:com_softwaremill_magnolia1_2_magnolia_2_13",
         "@maven//:com_thesamet_scalapb_scalapb_runtime_2_13",
         "@maven//:com_typesafe_config",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
@@ -1233,7 +1220,6 @@ scala_library(
         ":base_util-external",
         ":community_base",
         ":community_lib_slick_slick-fork",
-        ":community_magnolify-addon",
         ":community_sequencer-driver",
         ":community_util-observability",
         "//daml-lf/data",
@@ -1432,7 +1418,6 @@ scala_library(
         ":community_common",
         ":community_ledger_ledger-api-core",
         ":community_ledger_ledger-json-api",
-        ":community_magnolify-addon",
         ":community_participant",
         ":community_synchronizer",
         ":community_util-observability",
@@ -1444,7 +1429,6 @@ scala_library(
         "@maven//:com_github_pathikrit_better_files_2_13",
         "@maven//:com_github_pureconfig_pureconfig_core_2_13",
         "@maven//:com_github_scopt_scopt_2_13",
-        "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_lihaoyi_ammonite_2_13_16",
         "@maven//:com_lihaoyi_ammonite_compiler_2_13_16",
         "@maven//:com_lihaoyi_ammonite_compiler_interface_2_13_16",
@@ -1632,7 +1616,7 @@ filegroup(
 filegroup(
     name = "api-version-files",
     srcs = [
-        "community/ledger-api/VERSION",
+        "community/ledger-api-proto/VERSION",
     ],
     visibility = [
         "//visibility:public",
@@ -1641,11 +1625,17 @@ filegroup(
 
 ledger_api_root = "canton/community/ledger-api"
 
-ledger_api_proto_source_root = "canton/community/ledger-api/src/main/protobuf"
+ledger_api_proto_source_root = "canton/community/ledger-api-proto/src/main/protobuf"
+
+copy_file(
+    name = "ledger-api-scala-file-into-proto",
+    src = ":community/ledger-api-scala/src/main/protobuf/com/daml/ledger/api/scalapb/package.proto",
+    out = "community/ledger-api-proto/src/main/protobuf/com/daml/ledger/api/scalapb/package.proto",
+)
 
 proto_jars(
     name = "ledger_api_proto",
-    srcs = glob(["community/ledger-api/src/main/protobuf/com/daml/ledger/api/v*/**/*.proto"]),
+    srcs = glob(["community/ledger-api-proto/src/main/protobuf/com/daml/ledger/api/v*/**/*.proto"]),
     grpc = True,
     java_conversions = True,
     java_deps = [
@@ -1657,9 +1647,9 @@ proto_jars(
     maven_group = "com.daml",
     proto_deps = ["//daml-lf/ledger-api-value:ledger_api_value_proto"],
     scalapb_options_files = [
-        "community/ledger-api/src/main/protobuf/com/daml/ledger/api/scalapb/package.proto",
+        ":ledger-api-scala-file-into-proto",
     ],
-    strip_import_prefix = "community/ledger-api/src/main/protobuf",
+    strip_import_prefix = "community/ledger-api-proto/src/main/protobuf",
     visibility = ["//visibility:public"],
     deps = [
         "@com_google_protobuf//:any_proto",

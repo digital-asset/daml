@@ -11,6 +11,7 @@ genrule(
             "default-gitignore",
             "default-dlint.yaml",
             "skeleton/**",
+            "skeleton-single-package/**",
             "empty-skeleton/**",
             "upgrades-example/**",
             "multi-package-example/**",
@@ -39,6 +40,7 @@ genrule(
 
         # templates in templates dir
         for d in skeleton \
+                 skeleton-single-package \
                  empty-skeleton \
                  upgrades-example \
                  multi-package-example \

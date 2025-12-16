@@ -3,164 +3,101 @@
 
 package com.digitalasset.canton.http.json
 
-import com.daml.struct.spray.StructJsonFormat
 import com.digitalasset.canton.http
 import com.digitalasset.canton.http.*
 import com.digitalasset.daml.lf.data.Ref
 import com.google.protobuf.struct.Struct
+import io.circe.generic.semiauto.*
+import io.circe.{Decoder, DecodingFailure, Encoder, Json}
 import org.apache.pekko.http.scaladsl.model.StatusCode
 import scalaz.syntax.tag.*
-import scalaz.{@@, NonEmptyList, Tag}
-import spray.json.*
+import scalaz.{@@, Tag}
 
-import scala.reflect.ClassTag
+import scala.concurrent.duration.*
+import scala.util.Try
 
-object JsonProtocol extends JsonProtocolLow {
+object JsonProtocol {
 
-  private def taggedJsonFormat[A: JsonFormat, T]: JsonFormat[A @@ T] =
-    Tag.subst(implicitly[JsonFormat[A]])
-
-  implicit val PartyFormat: JsonFormat[http.Party] =
-    taggedJsonFormat
-
-  /** This intuitively pointless extra type is here to give it specificity so this instance will
-    * beat CollectionFormats#listFormat. You would normally achieve the conflict resolution by
-    * putting this instance in a parent of
-    * [[https://javadoc.io/static/io.spray/spray-json_2.12/1.3.5/spray/json/CollectionFormats.html CollectionFormats]],
-    * but that kind of extension isn't possible here.
-    */
-  final class JsonReaderList[A: JsonReader] extends JsonReader[List[A]] {
-    override def read(json: JsValue) = json match {
-      case JsArray(elements) => elements.iterator.map(_.convertTo[A]).toList
-      case _ => deserializationError(s"must be a list, but got $json")
-    }
+  import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.{
+    decodeStruct,
+    encodeStruct,
   }
 
-  implicit def `List reader only`[A: JsonReader]: JsonReaderList[A] = new JsonReaderList
+  // Helpers for tagged types
+  private def taggedEncoder[A: Encoder, T]: Encoder[A @@ T] =
+    Tag.subst(implicitly(Encoder[A]))
 
-  private def jsonFormatFromADT[T: ClassTag](
-      fromJs: String => JsObject => T,
-      toJs: T => JsValue,
-  ): JsonFormat[T] =
-    new JsonFormat[T] {
-      private val typeDiscriminatorKeyName = "type"
+  private def taggedDecoder[A: Decoder, T]: Decoder[A @@ T] =
+    Tag.subst(implicitly(Decoder[A]))
 
-      override def read(json: JsValue): T = {
-        val fields = json.asJsObject().fields
-        val typeValue = fields.getOrElse(
-          typeDiscriminatorKeyName,
-          deserializationError(
-            s"${implicitly[ClassTag[T]].runtimeClass.getSimpleName} must have a `$typeDiscriminatorKeyName` field"
-          ),
-        ) match {
-          case JsString(value) => value
-          case other =>
-            deserializationError(
-              s"field with key name `$typeDiscriminatorKeyName` must be a JsString, got $other"
-            )
-        }
-        val jsValueWithoutType = JsObject(fields - typeDiscriminatorKeyName)
-        fromJs(typeValue)(jsValueWithoutType)
-      }
-      override def write(obj: T): JsObject = {
-        val typeName = obj.getClass.getSimpleName.replace("$", "")
-        val jsObj = toJs(obj)
-        jsObj.asJsObject.copy(fields =
-          jsObj.asJsObject.fields + (typeDiscriminatorKeyName -> JsString(typeName))
-        )
-      }
-    }
+  implicit val PartyEncoder: Encoder[http.Party] = taggedEncoder
+  implicit val PartyDecoder: Decoder[http.Party] = taggedDecoder
 
-  implicit val hexStringFormat: JsonFormat[Ref.HexString] =
-    xemapStringJsonFormat(Ref.HexString.fromString)(identity)
+  implicit val HexStringDecoder: Decoder[Ref.HexString] =
+    Decoder.decodeString.emap(s => Ref.HexString.fromString(s).left.map(_.toString))
+  implicit val HexStringEncoder: Encoder[Ref.HexString] =
+    Encoder.encodeString.contramap(_.toString)
 
-  implicit val StatusCodeFormat: RootJsonFormat[StatusCode] =
-    new RootJsonFormat[StatusCode] {
-      override def read(json: JsValue): StatusCode = json match {
-        case JsNumber(x) => StatusCode.int2StatusCode(x.toIntExact)
-        case _ => deserializationError(s"Expected JsNumber, got: $json")
-      }
+  implicit val StatusCodeEncoder: Encoder[StatusCode] =
+    Encoder.instance(sc => Json.fromInt(sc.intValue))
+  implicit val StatusCodeDecoder: Decoder[StatusCode] =
+    Decoder.decodeInt.emap(i => Try(StatusCode.int2StatusCode(i)).toEither.left.map(_.getMessage))
 
-      override def write(obj: StatusCode): JsValue = JsNumber(obj.intValue)
-    }
+  implicit val ResourceInfoDetailEncoder: Encoder[http.ResourceInfoDetail] = deriveEncoder
+  implicit val ResourceInfoDetailDecoder: Decoder[http.ResourceInfoDetail] = deriveDecoder
 
-  implicit val ResourceInfoDetailFormat: RootJsonFormat[http.ResourceInfoDetail] = jsonFormat2(
-    http.ResourceInfoDetail.apply
-  )
-  implicit val ErrorInfoDetailFormat: RootJsonFormat[http.ErrorInfoDetail] = jsonFormat2(
-    http.ErrorInfoDetail.apply
-  )
+  implicit val ErrorInfoDetailEncoder: Encoder[http.ErrorInfoDetail] = deriveEncoder
+  implicit val ErrorInfoDetailDecoder: Decoder[http.ErrorInfoDetail] = deriveDecoder
 
-  implicit val durationFormat: JsonFormat[http.RetryInfoDetailDuration] =
-    jsonFormat[http.RetryInfoDetailDuration](
-      JsonReader.func2Reader(
-        (LongJsonFormat.read _)
-          .andThen(scala.concurrent.duration.Duration.fromNanos)
-          .andThen(it => http.RetryInfoDetailDuration(it: scala.concurrent.duration.Duration))
-      ),
-      JsonWriter.func2Writer[http.RetryInfoDetailDuration](duration =>
-        LongJsonFormat.write(duration.unwrap.toNanos)
-      ),
+  implicit val RetryInfoDetailDurationEncoder: Encoder[http.RetryInfoDetailDuration] =
+    Encoder.encodeLong.contramap[http.RetryInfoDetailDuration](_.unwrap.toNanos)
+  implicit val RetryInfoDetailDurationDecoder: Decoder[http.RetryInfoDetailDuration] =
+    Decoder.decodeLong.map[http.RetryInfoDetailDuration](l =>
+      http.RetryInfoDetailDuration(Duration.fromNanos(l): Duration)
     )
 
-  implicit val RetryInfoDetailFormat: RootJsonFormat[http.RetryInfoDetail] =
-    jsonFormat1(http.RetryInfoDetail.apply)
+  implicit val RetryInfoDetailEncoder: Encoder[http.RetryInfoDetail] = deriveEncoder
+  implicit val RetryInfoDetailDecoder: Decoder[http.RetryInfoDetail] = deriveDecoder
 
-  implicit val RequestInfoDetailFormat: RootJsonFormat[http.RequestInfoDetail] = jsonFormat1(
-    http.RequestInfoDetail.apply
-  )
+  implicit val RequestInfoDetailEncoder: Encoder[http.RequestInfoDetail] = deriveEncoder
+  implicit val RequestInfoDetailDecoder: Decoder[http.RequestInfoDetail] = deriveDecoder
 
-  implicit val ErrorDetailsFormat: JsonFormat[http.ErrorDetail] = {
-    val resourceInfoDetailTypeName = classOf[ResourceInfoDetail].getSimpleName
-    val errorInfoDetailTypeName = classOf[ErrorInfoDetail].getSimpleName
-    val retryInfoDetailTypeName = classOf[RetryInfoDetail].getSimpleName
-    val requestInfoDetailTypeName = classOf[RequestInfoDetail].getSimpleName
-
-    jsonFormatFromADT(
-      {
-        case `resourceInfoDetailTypeName` => ResourceInfoDetailFormat.read(_)
-        case `errorInfoDetailTypeName` => ErrorInfoDetailFormat.read(_)
-        case `retryInfoDetailTypeName` => RetryInfoDetailFormat.read(_)
-        case `requestInfoDetailTypeName` => RequestInfoDetailFormat.read(_)
-        case typeName => deserializationError(s"Unknown error detail type: $typeName")
-      },
-      {
-        case resourceInfoDetail: ResourceInfoDetail =>
-          ResourceInfoDetailFormat.write(resourceInfoDetail)
-        case errorInfoDetail: ErrorInfoDetail => ErrorInfoDetailFormat.write(errorInfoDetail)
-        case retryInfoDetail: RetryInfoDetail => RetryInfoDetailFormat.write(retryInfoDetail)
-        case requestInfoDetail: RequestInfoDetail =>
-          RequestInfoDetailFormat.write(requestInfoDetail)
-      },
-    )
+  implicit val ErrorDetailEncoder: Encoder[http.ErrorDetail] = Encoder.instance {
+    case resourceInfoDetail: http.ResourceInfoDetail =>
+      ResourceInfoDetailEncoder(resourceInfoDetail).deepMerge(
+        Json.obj("type" -> Json.fromString(classOf[ResourceInfoDetail].getSimpleName))
+      )
+    case errorInfoDetail: http.ErrorInfoDetail =>
+      ErrorInfoDetailEncoder(errorInfoDetail).deepMerge(
+        Json.obj("type" -> Json.fromString(classOf[ErrorInfoDetail].getSimpleName))
+      )
+    case retryInfoDetail: http.RetryInfoDetail =>
+      RetryInfoDetailEncoder(retryInfoDetail).deepMerge(
+        Json.obj("type" -> Json.fromString(classOf[RetryInfoDetail].getSimpleName))
+      )
+    case requestInfoDetail: http.RequestInfoDetail =>
+      RequestInfoDetailEncoder(requestInfoDetail).deepMerge(
+        Json.obj("type" -> Json.fromString(classOf[RequestInfoDetail].getSimpleName))
+      )
   }
 
-  implicit val LedgerApiErrorFormat: RootJsonFormat[http.LedgerApiError] =
-    jsonFormat3(http.LedgerApiError.apply)
-
-  implicit val ErrorResponseFormat: RootJsonFormat[http.ErrorResponse] =
-    jsonFormat3(http.ErrorResponse.apply)
-
-  implicit val StructFormat: RootJsonFormat[Struct] = StructJsonFormat
-
-  // xmap with an error case for StringJsonFormat
-  def xemapStringJsonFormat[A](readFn: String => Either[String, A])(
-      writeFn: A => String
-  ): RootJsonFormat[A] = new RootJsonFormat[A] {
-    private[this] val base = implicitly[JsonFormat[String]]
-    override def write(obj: A): JsValue = base.write(writeFn(obj))
-    override def read(json: JsValue): A =
-      readFn(base.read(json)).fold(deserializationError(_), identity)
-  }
-}
-
-sealed abstract class JsonProtocolLow extends DefaultJsonProtocol {
-  implicit def NonEmptyListReader[A: JsonReader]: JsonReader[NonEmptyList[A]] = {
-    case JsArray(hd +: tl) =>
-      NonEmptyList(hd.convertTo[A], tl map (_.convertTo[A]): _*)
-    case _ => deserializationError("must be a JSON array with at least 1 element")
+  implicit val ErrorDetailDecoder: Decoder[http.ErrorDetail] = Decoder.instance { c =>
+    c.get[String]("type").flatMap {
+      case t if t == classOf[ResourceInfoDetail].getSimpleName => c.as[http.ResourceInfoDetail]
+      case t if t == classOf[ErrorInfoDetail].getSimpleName => c.as[http.ErrorInfoDetail]
+      case t if t == classOf[RetryInfoDetail].getSimpleName => c.as[http.RetryInfoDetail]
+      case t if t == classOf[RequestInfoDetail].getSimpleName => c.as[http.RequestInfoDetail]
+      case other => Left(DecodingFailure(s"Unknown error detail type: $other", c.history))
+    }
   }
 
-  implicit def NonEmptyListWriter[A: JsonWriter]: JsonWriter[NonEmptyList[A]] =
-    nela => JsArray(nela.map(_.toJson).list.toVector)
+  implicit val LedgerApiErrorEncoder: Encoder[http.LedgerApiError] = deriveEncoder
+  implicit val LedgerApiErrorDecoder: Decoder[http.LedgerApiError] = deriveDecoder
+
+  implicit val ErrorResponseEncoder: Encoder[http.ErrorResponse] = deriveEncoder
+  implicit val ErrorResponseDecoder: Decoder[http.ErrorResponse] = deriveDecoder
+
+  implicit val StructEncoder: Encoder[Struct] = encodeStruct
+
+  implicit val StructDecoder: Decoder[Struct] = decodeStruct
 }

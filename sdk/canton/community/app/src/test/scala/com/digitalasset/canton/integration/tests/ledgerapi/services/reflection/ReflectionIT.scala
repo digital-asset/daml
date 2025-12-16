@@ -4,8 +4,7 @@
 package com.digitalasset.canton.integration.tests.ledgerapi.services.reflection
 
 import com.daml.grpc.test.StreamConsumer
-import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2}
 import com.digitalasset.canton.integration.tests.ledgerapi.fixture.CantonFixture
 import io.grpc.reflection.v1.{
   ServerReflectionGrpc,
@@ -17,7 +16,8 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters.*
 
 final class ReflectionIT extends CantonFixture {
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseH2(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   private val listServices: ServerReflectionRequest =
     ServerReflectionRequest.newBuilder().setHost("127.0.0.1").setListServices("").build()

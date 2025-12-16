@@ -32,6 +32,7 @@ import com.daml.nonempty.NonEmpty
 import com.daml.platform.v1.page_tokens.ListPartiesPageTokenPayload
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.auth.AuthorizationChecksErrors
+import com.digitalasset.canton.config.CantonRequireTypes.String185
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.v30.{SigningKeyScheme, SigningKeyUsage}
 import com.digitalasset.canton.crypto.{Signature, SigningKeysWithThreshold, SigningPublicKey, v30}
@@ -176,50 +177,70 @@ private[apiserver] final class ApiPartyManagementService private (
       }
     }
 
+  private def parsePartyFilter(
+      unsafeString: String
+  )(implicit traceContext: TraceContext): Either[StatusRuntimeException, Option[String185]] = if (
+    unsafeString.isEmpty
+  )
+    Either.right(None)
+  else
+    (for {
+      validated <- Ref.Party.fromString(unsafeString)
+      limited <- String185.create(validated)
+    } yield Some(limited)).leftMap(err =>
+      RequestValidationErrors.InvalidField.Reject("filterString", err).asGrpcError
+    )
+
   override def listKnownParties(
       request: ListKnownPartiesRequest
   ): Future[ListKnownPartiesResponse] = {
     implicit val loggingContext =
       LoggingContextWithTrace(loggerFactory, telemetry)
-
+    val ListKnownPartiesRequest(pageToken, pageSize, identityProviderId, filterString) = request
     logger.info("Listing known parties.")
     withValidation(
       for {
-        fromExcl <- decodePartyFromPageToken(request.pageToken)
+        fromExcl <- decodePartyFromPageToken(pageToken)
         _ <- Either.cond(
-          request.pageSize >= 0,
-          request.pageSize,
+          pageSize >= 0,
+          pageSize,
           RequestValidationErrors.InvalidArgument
             .Reject("Page size must be non-negative")
             .asGrpcError,
         )
         _ <- Either.cond(
-          request.pageSize <= maxPartiesPageSize.value,
-          request.pageSize,
+          pageSize <= maxPartiesPageSize.value,
+          pageSize,
           RequestValidationErrors.InvalidArgument
             .Reject(s"Page size must not exceed the server's maximum of $maxPartiesPageSize")
             .asGrpcError,
         )
         identityProviderId <- optionalIdentityProviderId(
-          request.identityProviderId,
+          identityProviderId,
           "identity_provider_id",
         )
-        pageSize =
-          if (request.pageSize == 0) maxPartiesPageSize.value
-          else request.pageSize
+        pageSizeOrDefault =
+          if (pageSize == 0) maxPartiesPageSize.value
+          else pageSize
+        filterStringParsed <- parsePartyFilter(filterString)
       } yield {
-        (fromExcl, pageSize, identityProviderId)
+        (fromExcl, pageSizeOrDefault, identityProviderId, filterStringParsed)
       }
-    ) { case (fromExcl, pageSize, identityProviderId) =>
+    ) { case (fromExcl, pageSizeOrDefault, identityProviderId, filterStringParsed) =>
       for {
-        partyDetailsSeq <- partyManagementService.listKnownParties(fromExcl, pageSize)
+        partyDetailsSeq <- partyManagementService.listKnownParties(
+          fromExcl,
+          filterStringParsed,
+          pageSizeOrDefault,
+        )
         partyRecords <- fetchPartyRecords(partyDetailsSeq)
       } yield {
         val protoDetails = partyDetailsSeq
           .zip(partyRecords)
           .map(blindAndConvertToProto(identityProviderId))
         val lastParty =
-          if (partyDetailsSeq.sizeIs < pageSize) None else partyDetailsSeq.lastOption.map(_.party)
+          if (partyDetailsSeq.sizeIs < pageSizeOrDefault) None
+          else partyDetailsSeq.lastOption.map(_.party)
         ListKnownPartiesResponse(protoDetails, encodeNextPageToken(lastParty))
       }
     }

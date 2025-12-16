@@ -4,16 +4,11 @@
 package com.digitalasset.canton.integration.tests
 
 import com.digitalasset.base.error.utils.DecodedCantonError
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.console.ParticipantReference
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.examples.java.iou.Dummy
-import com.digitalasset.canton.integration.plugins.{
-  UseBftSequencer,
-  UsePostgres,
-  UseReferenceBlockSequencer,
-}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -210,12 +205,6 @@ sealed abstract class MaxRequestSizeCrashIntegrationTest
       submissionF.futureValue.discard
     }
   }
-}
-
-class MaxRequestSizeCrashReferenceIntegrationIntegrationTestPostgres
-    extends MaxRequestSizeCrashIntegrationTest {
-  registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }
 
 class MaxRequestSizeCrashBftOrderingIntegrationIntegrationTestPostgres

@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.integration.tests.sequencer
 
+import com.digitalasset.canton.admin.api.client.data.SubmissionRequestAmplification
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
@@ -21,7 +22,6 @@ import com.digitalasset.canton.integration.{
   SharedEnvironment,
   TestConsoleEnvironment,
 }
-import com.digitalasset.canton.sequencing.SubmissionRequestAmplification
 import eu.rekawek.toxiproxy.model.{Toxic, ToxicDirection, ToxicList}
 import monocle.macros.syntax.lens.*
 import org.scalatest.BeforeAndAfter
@@ -78,7 +78,7 @@ abstract class ToxiproxyIntegrationTest
           synchronizerThreshold = PositiveInt.one,
           sequencers = testSequencers,
           mediators = testMediators,
-          mediatorRequestAmplification = amplification,
+          mediatorRequestAmplification = amplification.toInternal,
           overrideMediatorToSequencers =
             // Use a threshold of two to ensure that the mediator connects to all sequencers.
             // TODO(#19911) Reduce to one again once this can be configured independently.

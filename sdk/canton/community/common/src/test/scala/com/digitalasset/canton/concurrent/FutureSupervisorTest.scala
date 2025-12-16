@@ -7,8 +7,12 @@ import cats.Monad
 import com.digitalasset.canton.concurrent.FutureSupervisor.Impl.ScheduledFuture
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.*
+import com.digitalasset.canton.logging.SuppressingLogger.LogEntryOptionality.*
+import com.digitalasset.canton.logging.{ErrorLoggingContext, LogEntry, SuppressionRule}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, config}
 import org.scalatest.wordspec.AnyWordSpec
+import org.slf4j.event.Level
 
 import java.util.concurrent.atomic.AtomicBoolean
 import scala.annotation.tailrec
@@ -85,7 +89,7 @@ class FutureSupervisorImplTest extends FutureSupervisorTest {
 
     def complainAboutSlowFuture(supervisor: FutureSupervisor): Unit = {
       val promise = Promise[Unit]()
-      loggerFactory.assertLoggedWarningsAndErrorsSeq(
+      loggerFactory.assertLogsUnorderedOptional(
         {
           val fut = supervisor.supervised("slow-future")(promise.future)
           eventually() {
@@ -94,14 +98,12 @@ class FutureSupervisorImplTest extends FutureSupervisorTest {
           promise.success(())
           fut.futureValue
         },
-        {
-          // If the test is running slow we might get the warning multiple times
-          logEntries =>
-            logEntries should not be empty
-            forAll(logEntries) {
-              _.warningMessage should include("slow-future has not completed after")
-            }
-        },
+        (
+          Optional,
+          isSummary(_) shouldBe true,
+        ), // can produce flakes due to sometimes logging as a summary
+        (Required, _.warningMessage should include("slow-future has not completed after")),
+        (OptionalMany, _.warningMessage should include("slow-future has not completed after")),
       )
     }
 
@@ -122,7 +124,7 @@ class FutureSupervisorImplTest extends FutureSupervisorTest {
 
       val msg = "Description throws"
       val promise1 = Promise[Unit]()
-      val ex = loggerFactory.assertLoggedWarningsAndErrorsSeq(
+      val ex = loggerFactory.assertLogsUnorderedOptional(
         {
           val fut = supervisor.supervised(throw new Exception(msg))(promise1.future)
           eventually() {
@@ -132,12 +134,19 @@ class FutureSupervisorImplTest extends FutureSupervisorTest {
           // The description is used for logging the slow completion, so we need to deal with it here.
           fut.failed.futureValue
         },
-        forAll(_) { entry =>
-          entry.errorMessage should include(
-            "Future supervision has failed with an exception, but will repeat"
-          )
-          entry.throwable.value.getMessage should include(msg)
-        },
+        (
+          Optional,
+          isSummary(_) shouldBe true,
+        ), // can produce flakes due to sometimes logging as a summary
+        (
+          Required,
+          { entry =>
+            entry.errorMessage should include(
+              "Future supervision has failed with an exception, but will repeat"
+            )
+            entry.throwable.value.getMessage should include(msg)
+          },
+        ),
       )
       ex.getMessage shouldBe msg
 
@@ -302,6 +311,126 @@ class FutureSupervisorImplTest extends FutureSupervisorTest {
       }
       supervisor.stop()
     }
+
+    "supervision prints summaries" in {
+      // Creating a lot of log lines in a short amount of time can overwhelm the logging system.
+      // The future supervisor should therefore produce summaries in case futures are piling up.
+
+      def isInitialWarn(entry: LogEntry): Boolean =
+        entry.message.contains(" has not completed after ")
+
+      def isSlowCompletion(entry: LogEntry): Boolean =
+        entry.message.contains(" succeed successfully but slow after ")
+
+      val warnLimit = config.NonNegativeDuration.ofSeconds(1)
+      val supervisor = new FutureSupervisor.Impl(warnLimit, loggerFactory)(scheduledExecutor())
+
+      val tc1 = TraceContext.createNew("group-1")
+      val tc2 = TraceContext.createNew("group-2")
+      val tc3 = TraceContext.createNew("group-3")
+
+      val promise1a = Promise[Unit]()
+      val promise2a = Promise[Unit]()
+      val incompletePromise = Promise[Unit]()
+      loggerFactory.assertLogsSeq(SuppressionRule.LevelAndAbove(Level.INFO))(
+        {
+          supervisor.supervised("future-1a", logLevel = Level.WARN)(promise1a.future)(
+            ErrorLoggingContext.fromTracedLogger(logger)(tc1)
+          )
+          // Same level and trace context as the previous one
+          supervisor.supervised("future-1b", logLevel = Level.WARN)(incompletePromise.future)(
+            ErrorLoggingContext.fromTracedLogger(logger)(tc1)
+          )
+          // Different level
+          supervisor.supervised("future-1c", logLevel = Level.ERROR)(incompletePromise.future)(
+            ErrorLoggingContext.fromTracedLogger(logger)(tc1)
+          )
+          // Different trace context
+          supervisor.supervised("future-2a", logLevel = Level.WARN)(promise2a.future)(
+            ErrorLoggingContext.fromTracedLogger(logger)(tc2)
+          )
+          // Different trace context and level
+          supervisor.supervised("future-2b", logLevel = Level.ERROR)(incompletePromise.future)(
+            ErrorLoggingContext.fromTracedLogger(logger)(tc2)
+          )
+
+          Threading.sleep(FutureSupervisor.Impl.defaultCheckMs + warnLimit.duration.toMillis)
+          // Make sure that we have seen a log entry for each
+          val logs1 = eventually() {
+            val entries = loggerFactory.fetchRecordedLogEntries
+            entries.filter(isInitialWarn) should have size 5
+            entries.size
+          }
+
+          // Add another future that can be summarized
+          supervisor.supervised("future-2c", logLevel = Level.WARN)(incompletePromise.future)(
+            ErrorLoggingContext.fromTracedLogger(logger)(tc2)
+          )
+          // And another one for a fresh trace context
+          supervisor.supervised("future-3a", logLevel = Level.WARN)(incompletePromise.future)(
+            ErrorLoggingContext.fromTracedLogger(logger)(tc3)
+          )
+
+          Threading.sleep(FutureSupervisor.Impl.defaultCheckMs + warnLimit.duration.toMillis)
+
+          val logs2 = eventually() {
+            val entries = loggerFactory.fetchRecordedLogEntries
+            val newEntries = entries.drop(logs1)
+            newEntries.filter(isInitialWarn) should have size 2
+            newEntries.count(isSummary) should be >= 2
+            entries.size
+          }
+
+          promise1a.success(())
+          promise2a.success(())
+
+          Threading.sleep(FutureSupervisor.Impl.defaultCheckMs)
+          eventually() {
+            val entries = loggerFactory.fetchRecordedLogEntries
+            val newEntries = entries.drop(logs2)
+
+            newEntries.filter(isSlowCompletion) should have size 2
+            newEntries.count(isSummary) should be >= 2
+          }
+
+          supervisor.stop()
+        },
+        entries => {
+          def summariesForLevel(level: Level): Seq[LogEntry] =
+            entries.filter(entry => entry.level == level && isSummary(entry))
+
+          val errorSummaries = summariesForLevel(Level.ERROR)
+          val warnSummaries = summariesForLevel(Level.WARN)
+
+          errorSummaries.size should be >= 2
+          warnSummaries.size should be >= 2
+
+          def countSummaryForTraceId(
+              summaries: Seq[LogEntry],
+              traceContext: TraceContext,
+              include: Boolean = true,
+          ): Int =
+            summaries.count(
+              _.message.contains(traceContext.traceId.getOrElse("<no trace id>")) == include
+            )
+
+          countSummaryForTraceId(errorSummaries, tc1) should be >= 2
+          countSummaryForTraceId(errorSummaries, tc2) should be >= 2
+          countSummaryForTraceId(warnSummaries, tc1) should be >= 2
+          countSummaryForTraceId(warnSummaries, tc2) should be >= 2
+
+          countSummaryForTraceId(warnSummaries, tc3) should be >= 1
+          // tc3 was only used later, so we expect at least one summary that does not contain it.
+          countSummaryForTraceId(warnSummaries, tc3, include = false) should be >= 1
+          countSummaryForTraceId(errorSummaries, tc3, include = false) should be >= 2
+        },
+      )
+
+    }
+
+    def isSummary(entry: LogEntry): Boolean = entry.message.contains(
+      s"Supervised futures for the following trace IDs have not completed with alert log level"
+    )
   }
 }
 

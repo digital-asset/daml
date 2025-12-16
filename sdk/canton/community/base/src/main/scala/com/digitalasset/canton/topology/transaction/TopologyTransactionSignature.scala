@@ -88,10 +88,10 @@ object MultiTransactionSignature {
     val hashBuilder: HashBuilder = hashOps.build(HashPurpose.MultiTopologyTransaction)
     // Sort and prefix with the list size
     val resultBuilder =
-      transactionHashes.toSeq.sortBy(_.hash).foldLeft(hashBuilder.add(transactionHashes.size)) {
+      transactionHashes.toSeq.sortBy(_.hash).foldLeft(hashBuilder.addInt(transactionHashes.size)) {
         case (builder, txHash) =>
           // then add the hashes individually, in order. They'll each be prefixed with their byte size as well
-          builder.add(txHash.hash.getCryptographicEvidence)
+          builder.addByteString(txHash.hash.getCryptographicEvidence)
       }
     resultBuilder.finish()
   }

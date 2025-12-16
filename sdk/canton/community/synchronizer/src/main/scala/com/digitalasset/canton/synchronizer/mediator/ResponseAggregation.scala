@@ -6,9 +6,9 @@ package com.digitalasset.canton.synchronizer.mediator
 import cats.Show.Shown
 import cats.data.OptionT
 import cats.syntax.either.*
-import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmptyUtil
 import com.digitalasset.canton.LfPartyId
+import com.digitalasset.canton.config.BatchingConfig
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.data.{
   CantonTimestamp,
@@ -100,6 +100,7 @@ final case class ResponseAggregation[VKEY](
       rootHash: RootHash,
       sender: ParticipantId,
       topologySnapshot: TopologySnapshot,
+      batchingConfig: BatchingConfig,
   )(implicit
       loggingContext: NamedLoggingContext,
       ec: ExecutionContext,
@@ -120,6 +121,7 @@ final case class ResponseAggregation[VKEY](
         localVerdict,
         topologySnapshot,
         confirmingParties,
+        batchingConfig,
       )
 
       // This comes last so that the validation also runs for responses to finalized requests. Benefits:
@@ -513,6 +515,7 @@ object ResponseAggregation {
       responseTimeout: CantonTimestamp,
       decisionTime: CantonTimestamp,
       topologySnapshot: TopologySnapshot,
+      batchingConfig: BatchingConfig,
       participantResponseDeadlineTick: Option[SynchronizerTimeTracker.TickRequest],
   )(implicit
       requestTraceContext: TraceContext,
@@ -522,6 +525,7 @@ object ResponseAggregation {
       initialState <- mkInitialState(
         request.informeesAndConfirmationParamsByViewPosition,
         topologySnapshot,
+        batchingConfig,
       )
     } yield {
       ResponseAggregation[ViewPosition](
@@ -537,9 +541,12 @@ object ResponseAggregation {
   private def mkInitialState[K](
       informeesAndConfirmationParamsByViewPosition: Map[K, ViewConfirmationParameters],
       topologySnapshot: TopologySnapshot,
+      batchingConfig: BatchingConfig,
   )(implicit ec: ExecutionContext, tc: TraceContext): FutureUnlessShutdown[Map[K, ViewState]] =
-    informeesAndConfirmationParamsByViewPosition.toSeq
-      .parTraverse {
+    MonadUtil
+      .parTraverseWithLimit(batchingConfig.parallelism)(
+        informeesAndConfirmationParamsByViewPosition.toSeq
+      ) {
         case (viewKey, viewConfirmationParameters @ ViewConfirmationParameters(_, quorumsState)) =>
           for {
             confirmersPartyInfo <- topologySnapshot.activeParticipantsOfPartiesWithInfo(

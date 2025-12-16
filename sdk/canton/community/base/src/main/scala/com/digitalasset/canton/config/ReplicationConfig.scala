@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.config
 
-import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
-
 /** Configuration of node replication for high availability
   *
   * @param enabled
@@ -17,32 +15,24 @@ final case class ReplicationConfig(
     // default values later on, based on the type of storage used.
     enabled: Option[Boolean] = None,
     connectionPool: DbLockedConnectionPoolConfig = DbLockedConnectionPoolConfig(),
-) extends UniformCantonConfigValidation {
+) {
   lazy val isEnabled: Boolean = enabled.contains(true)
 }
 
 object ReplicationConfig {
-  implicit val replicationConfigCantonConfigValidator: CantonConfigValidator[ReplicationConfig] =
-    CantonConfigValidatorDerivation[ReplicationConfig]
 
   def withDefault(
       storage: StorageConfig,
       enabled: Option[Boolean],
-      edition: CantonEdition,
   ): Option[Boolean] =
     // If replication has not been set explicitly in the conf file and storage supports it, enable it by default
-    enabled.orElse(
-      Option.when(edition == EnterpriseCantonEdition && DbLockConfig.isSupportedConfig(storage))(
-        true
-      )
-    )
+    enabled.orElse(Option.when(DbLockConfig.isSupportedConfig(storage))(true))
 
   def withDefaultO(
       storage: StorageConfig,
       replicationO: Option[ReplicationConfig],
-      edition: CantonEdition,
   ): Option[ReplicationConfig] = {
-    val enabled = withDefault(storage, replicationO.flatMap(_.enabled), edition)
+    val enabled = withDefault(storage, replicationO.flatMap(_.enabled))
     replicationO
       .map(_.copy(enabled = enabled))
       .orElse(enabled.map(enabled => ReplicationConfig(enabled = Some(enabled))))

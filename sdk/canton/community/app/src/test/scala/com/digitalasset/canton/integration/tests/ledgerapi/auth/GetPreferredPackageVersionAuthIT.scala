@@ -8,15 +8,15 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   GetPreferredPackageVersionRequest,
   InteractiveSubmissionServiceGrpc,
 }
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.integration.TestConsoleEnvironment
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2}
 import com.digitalasset.canton.participant.admin.workflows.java.canton.internal.ping.Ping
 
 import scala.concurrent.Future
 
 final class GetPreferredPackageVersionAuthIT extends PublicServiceCallAuthTests {
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseH2(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   override def serviceCallName: String =
     s"${InteractiveSubmissionService.getClass.getSimpleName}#GetPreferredPackageVersion"

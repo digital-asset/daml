@@ -332,14 +332,21 @@
             <maxLevel>INFO</maxLevel>
             <testing>true</testing>
         </rewrite>
-        <!-- TODO(#29244): Prevent cache operations triggering RejectedExecutionException upon shutdown
-        Lowered to INFO level to prevent CI flake management from opening separate GH issues for each occurrence.
-        -->
+
+        <!-- TODO(#29653): fix duplicates introduced by the BFT orderer -->
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.github.benmanes.caffeine.cache.BoundedLocalCache</logger>
-            <contains>Exception thrown when submitting maintenance task</contains>
+            <logger>com.digitalasset.canton.participant.protocol.validation.TransactionConfirmationResponsesFactory</logger>
+            <contains>belongs to a replayed transaction</contains>
             <maxLevel>INFO</maxLevel>
             <testing>true</testing>
         </rewrite>
+
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.digitalasset.canton.synchronizer.sequencer.time.TimeAdvancingTopologySubscriberV1</logger>
+            <contains>Could not send a time-advancing message</contains>
+            <maxLevel>INFO</maxLevel>
+            <testing>true</testing>
+        </rewrite>
+
    </appender>
 </included>

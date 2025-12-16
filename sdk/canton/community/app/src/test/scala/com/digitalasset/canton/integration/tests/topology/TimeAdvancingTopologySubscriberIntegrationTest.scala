@@ -4,17 +4,13 @@
 package com.digitalasset.canton.integration.tests.topology
 
 import com.digitalasset.canton.concurrent.Threading
-import com.digitalasset.canton.config.{
-  DbConfig,
-  SynchronizerTimeTrackerConfig,
-  TestSequencerClientFor,
-}
+import com.digitalasset.canton.config.{SynchronizerTimeTrackerConfig, TestSequencerClientFor}
 import com.digitalasset.canton.console.{ParticipantReference, SequencerReference}
 import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.integration.plugins.{
+  UseBftSequencer,
   UsePostgres,
   UseProgrammableSequencer,
-  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -158,17 +154,18 @@ trait TimeAdvancingTopologySubscriberIntegrationTest
       timeProofRequestCounter.get() shouldBe 0
 
       val broadcasts = broadcastsObservedByP1.get().map(_.underlying.value.content)
-      // We expect two broadcasts: One for the topology transaction and one for the aggregated notification message
-      broadcasts should have size 2
+      // We expect at least two broadcasts: One for the topology transaction and one for the aggregated notification message
+      // If the sequencing of the notification message is slow, we may see more of them.
+      broadcasts.size shouldBe >=(2)
 
       progSeqs.foreach(_.resetPolicy())
     }
   }
 }
 
-class TimeAdvancingTopologySubscriberReferenceIntegrationTestPostgres
+class TimeAdvancingTopologySubscriberBftOrderingIntegrationTestPostgres
     extends TimeAdvancingTopologySubscriberIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
   registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
 }

@@ -3,10 +3,8 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.config
 
-import cats.data.Chain
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.RequireTypes.{PositiveDouble, PositiveInt}
-import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.block.AsyncWriterParameters
 import io.scalaland.chimney.dsl.*
@@ -28,21 +26,7 @@ final case class AsyncWriterConfig(
     aggregationBatchSize: PositiveInt = PositiveInt.tryCreate(1000),
     blockInfoBatchSize: PositiveInt = PositiveInt.tryCreate(1000),
 ) {
-
   def toParameters: AsyncWriterParameters = this.transformInto[AsyncWriterParameters]
-
-}
-
-object AsyncWriterConfig {
-
-  implicit val asyncWriterConfigCantonConfigValidator: CantonConfigValidator[AsyncWriterConfig] =
-    new CantonConfigValidator[AsyncWriterConfig] {
-      override def validate(
-          edition: CantonEdition,
-          config: AsyncWriterConfig,
-      ): Chain[CantonConfigValidationError] = Chain.empty
-    }
-
 }
 
 /** Various parameters for non-standard sequencer settings
@@ -61,6 +45,9 @@ object AsyncWriterConfig {
   *   sequencingTimeLowerBoundExclusive
   * @param asyncWriter
   *   controls the async writer
+  * @param producePostOrderingTopologyTicks
+  *   temporary flag to enable topology ticks produced post-ordering by sequencers (feature in
+  *   development)
   */
 final case class SequencerNodeParameterConfig(
     override val alphaVersionSupport: Boolean = false,
@@ -74,17 +61,13 @@ final case class SequencerNodeParameterConfig(
     sequencingTimeLowerBoundExclusive: Option[CantonTimestamp] =
       SequencerNodeParameterConfig.DefaultSequencingTimeLowerBoundExclusive,
     asyncWriter: AsyncWriterConfig = AsyncWriterConfig(),
+    timeAdvancingTopology: TimeAdvancingTopologyConfig = TimeAdvancingTopologyConfig(),
+    // TODO(#29314) remove this flag once the feature is complete
+    producePostOrderingTopologyTicks: Boolean = false,
 ) extends ProtocolConfig
     with LocalNodeParametersConfig
-    with UniformCantonConfigValidation
 
 object SequencerNodeParameterConfig {
-
-  implicit val sequencerNodeParameterConfigCantonConfigValidator
-      : CantonConfigValidator[SequencerNodeParameterConfig] = {
-    import CantonConfigValidatorInstances.*
-    CantonConfigValidatorDerivation[SequencerNodeParameterConfig]
-  }
 
   val DefaultSequencingTimeLowerBoundExclusive: Option[CantonTimestamp] = None
 }

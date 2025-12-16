@@ -10,8 +10,8 @@ import cats.syntax.foldable.*
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.RichGeneratedMessage
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
+import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.{Signature, SynchronizerCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonBaseError
@@ -79,7 +79,7 @@ class BlockSequencer(
     store: SequencerBlockStore,
     dbSequencerStore: SequencerStore,
     blockSequencerConfig: BlockSequencerConfig,
-    useTimeProofsToObserveEffectiveTime: Boolean,
+    producePostOrderingTopologyTicks: Boolean,
     trafficPurchasedStore: TrafficPurchasedStore,
     storage: Storage,
     futureSupervisor: FutureSupervisor,
@@ -92,6 +92,7 @@ class BlockSequencer(
     logEventDetails: Boolean,
     prettyPrinter: CantonPrettyPrinter,
     metrics: SequencerMetrics,
+    batchingConfig: BatchingConfig,
     loggerFactory: NamedLoggerFactory,
     exitOnFatalFailures: Boolean,
     runtimeReady: FutureUnlessShutdown[Unit],
@@ -183,8 +184,9 @@ class BlockSequencer(
       blockRateLimitManager,
       orderingTimeFixMode,
       sequencingTimeLowerBoundExclusive = sequencingTimeLowerBoundExclusive,
-      useTimeProofsToObserveEffectiveTime,
+      producePostOrderingTopologyTicks,
       metrics,
+      batchingConfig,
       loggerFactory,
       memberValidator = memberValidator,
     )(CloseContext(cryptoApi), tracer)
@@ -404,12 +406,15 @@ class BlockSequencer(
       //  aggregated submissions with signed envelopes define a topology snapshot
       _ <- validateMaxSequencingTime(submission)
       // TODO(#19476): Why we don't check group recipients here?
+      approximateSnapshot <- EitherT.liftF(
+        cryptoApi.currentSnapshotApproximation
+      )
       _ <- SubmissionRequestValidations
         .checkSenderAndRecipientsAreRegistered(
           submission,
           // Using currentSnapshotApproximation due to members registration date
           // expected to be before submission sequencing time
-          cryptoApi.currentSnapshotApproximation.ipsSnapshot,
+          approximateSnapshot.ipsSnapshot,
         )
         .leftMap(_.toSequencerDeliverError)
       _ = if (logEventDetails)
@@ -767,12 +772,13 @@ class BlockSequencer(
       traceContext: TraceContext
   ): FutureUnlessShutdown[SequencerTrafficStatus] =
     for {
+      topologySnapshot <- cryptoApi.currentSnapshotApproximation
       members <-
         if (requestedMembers.isEmpty) {
           // If requestedMembers is not set get the traffic states of all known members
-          cryptoApi.currentSnapshotApproximation.ipsSnapshot.allMembers()
+          topologySnapshot.ipsSnapshot.allMembers()
         } else {
-          cryptoApi.currentSnapshotApproximation.ipsSnapshot
+          topologySnapshot.ipsSnapshot
             .allMembers()
             .map { registered =>
               requestedMembers.toSet.intersect(registered)

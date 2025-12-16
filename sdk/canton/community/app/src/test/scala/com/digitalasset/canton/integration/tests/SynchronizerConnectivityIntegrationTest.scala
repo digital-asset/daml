@@ -5,8 +5,8 @@ package com.digitalasset.canton.integration.tests
 
 import com.daml.test.evidence.scalatest.OperabilityTestHelpers
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
+import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.config.{DbConfig, NonNegativeDuration}
 import com.digitalasset.canton.console.CommandFailure
 import com.digitalasset.canton.integration.plugins.{
   UseBftSequencer,
@@ -468,19 +468,6 @@ sealed trait SynchronizerConnectivityIntegrationTest
 //class SynchronizerConnectivityIntegrationTestH2 extends SynchronizerConnectivityIntegrationTest {
 //  registerPlugin(new UseH2(loggerFactory))
 //}
-
-class SynchronizerConnectivityReferenceIntegrationTestPostgres
-    extends SynchronizerConnectivityIntegrationTest {
-  registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.Postgres](
-      loggerFactory,
-      sequencerGroups = UseReferenceBlockSequencer.MultiSynchronizer(
-        Seq(Set(InstanceName.tryCreate("sequencer1")), Set(InstanceName.tryCreate("sequencer2")))
-      ),
-    )
-  )
-}
 
 class SynchronizerConnectivityBftOrderingIntegrationTestPostgres
     extends SynchronizerConnectivityIntegrationTest {

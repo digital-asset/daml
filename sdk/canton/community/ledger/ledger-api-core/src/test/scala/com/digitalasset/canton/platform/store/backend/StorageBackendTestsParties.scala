@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.platform.store.backend
 
+import com.digitalasset.canton.config.CantonRequireTypes.String185
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
 import com.digitalasset.canton.{HasExecutionContext, LfPartyId}
 import org.scalatest.flatspec.AnyFlatSpec
@@ -28,11 +29,11 @@ private[backend] trait StorageBackendTestsParties
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dtos, _))
-    val partiesBeforeLedgerEndUpdate = executeSql(backend.party.knownParties(None, 10))
+    val partiesBeforeLedgerEndUpdate = executeSql(backend.party.knownParties(None, None, 10))
     executeSql(
       updateLedgerEnd(someOffset, ledgerEndSequentialId = 0)
     )
-    val partiesAfterLedgerEndUpdate = executeSql(backend.party.knownParties(None, 10))
+    val partiesAfterLedgerEndUpdate = executeSql(backend.party.knownParties(None, None, 10))
 
     // The first query is executed before the ledger end is updated.
     // It should not see the already ingested party allocation.
@@ -82,11 +83,11 @@ private[backend] trait StorageBackendTestsParties
     def validateEntries(entry: IndexerPartyDetails): Unit =
       entry.isLocal shouldBe entry.party.lastOption.contains('t')
 
-    val allKnownParties = executeSql(backend.party.knownParties(None, 10))
+    val allKnownParties = executeSql(backend.party.knownParties(None, None, 10))
     allKnownParties.length shouldBe 8
     allKnownParties.foreach(validateEntries)
 
-    val pageOne = executeSql(backend.party.knownParties(None, 4))
+    val pageOne = executeSql(backend.party.knownParties(None, None, 4))
     pageOne.length shouldBe 4
     pageOne.foreach(validateEntries)
     pageOne.exists(_.party == "aaf") shouldBe true
@@ -95,7 +96,7 @@ private[backend] trait StorageBackendTestsParties
     pageOne.exists(_.party == "ddt") shouldBe true
 
     val pageTwo =
-      executeSql(backend.party.knownParties(Some(LfPartyId.assertFromString("ddt")), 10))
+      executeSql(backend.party.knownParties(Some(LfPartyId.assertFromString("ddt")), None, 10))
     pageTwo.length shouldBe 4
     pageTwo.foreach(validateEntries)
     pageTwo.exists(_.party == "eef") shouldBe true
@@ -121,19 +122,23 @@ private[backend] trait StorageBackendTestsParties
       updateLedgerEnd(offset(6), ledgerEndSequentialId = 0)
     )
 
-    val allKnownParties = executeSql(backend.party.knownParties(None, 10))
+    val allKnownParties = executeSql(backend.party.knownParties(None, None, 10))
     allKnownParties.length shouldBe 6
+
+    val filteredParties =
+      executeSql(backend.party.knownParties(None, Some(String185.tryCreate("a-")), 10))
+    filteredParties.length shouldBe 1
 
     allKnownParties
       .map(_.party) shouldBe Seq("-a", "_a", "a", "a-", "a_", "b")
 
-    val pageOne = executeSql(backend.party.knownParties(None, 3))
+    val pageOne = executeSql(backend.party.knownParties(None, None, 3))
     pageOne.length shouldBe 3
     pageOne
       .map(_.party) shouldBe Seq("-a", "_a", "a")
 
     val pageTwo =
-      executeSql(backend.party.knownParties(Some(LfPartyId.assertFromString("a")), 10))
+      executeSql(backend.party.knownParties(Some(LfPartyId.assertFromString("a")), None, 10))
     pageTwo.length shouldBe 3
     pageTwo
       .map(_.party) shouldBe Seq("a-", "a_", "b")

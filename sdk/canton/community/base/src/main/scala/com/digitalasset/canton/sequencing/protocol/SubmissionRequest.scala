@@ -159,23 +159,25 @@ final case class SubmissionRequest private (
       recipientsSerializer: Recipients => ByteString,
   ): AggregationId = {
     val builder = hashOps.build(HashPurpose.AggregationId)
-    builder.add(batch.envelopes.length)
+    builder.addInt(batch.envelopes.length)
     batch.envelopes.foreach { envelope =>
       val ClosedEnvelope(content, recipients, signatures) = envelope
-      builder.add(DeterministicEncoding.encodeBytes(content))
-      builder.add(
+      builder.addByteString(DeterministicEncoding.encodeBytes(content))
+      builder.addByteString(
         DeterministicEncoding.encodeBytes(
           recipientsSerializer(recipients)
         )
       )
-      builder.add(DeterministicEncoding.encodeByte(if (signatures.isEmpty) 0x00 else 0x01))
+      builder.addByteString(
+        DeterministicEncoding.encodeByte(if (signatures.isEmpty) 0x00 else 0x01)
+      )
     }
-    builder.add(maxSequencingTime.underlying.micros)
+    builder.addLong(maxSequencingTime.underlying.micros)
     // CantonTimestamp's microseconds can never be Long.MinValue, so the encoding remains injective if we use Long.MaxValue as the default.
-    builder.add(topologyTimestamp.fold(Long.MinValue)(_.underlying.micros))
-    builder.add(rule.eligibleSenders.size)
-    rule.eligibleSenders.foreach(member => builder.add(member.toProtoPrimitive))
-    builder.add(rule.threshold.value)
+    builder.addLong(topologyTimestamp.fold(Long.MinValue)(_.underlying.micros))
+    builder.addInt(rule.eligibleSenders.size)
+    rule.eligibleSenders.foreach(member => builder.addString(member.toProtoPrimitive))
+    builder.addInt(rule.threshold.value)
     val hash = builder.finish()
     AggregationId(hash)
   }

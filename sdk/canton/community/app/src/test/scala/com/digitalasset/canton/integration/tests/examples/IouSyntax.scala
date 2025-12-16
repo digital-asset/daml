@@ -125,8 +125,8 @@ object IouSyntax {
       participant: ParticipantReference,
       synchronizerId: Option[SynchronizerId] = None,
   )(
-      payer: PartyId,
-      divulgee: PartyId,
+      payer: Party,
+      divulgee: Party,
   ): (DivulgeIouByExercise.Contract, Transaction, Completion) =
     complete(participant, divulgee) {
       val createDivulgeIouByExerciseCmd =
@@ -146,7 +146,7 @@ object IouSyntax {
       participant: ParticipantReference,
       synchronizerId: Option[SynchronizerId] = None,
   )(
-      payer: PartyId,
+      payer: Party,
       divulgenceContract: DivulgeIouByExercise.Contract,
   ): (Iou.Contract, Transaction, Completion) =
     complete(participant, payer) {
@@ -167,7 +167,7 @@ object IouSyntax {
       participant: ParticipantReference,
       synchronizerId: Option[SynchronizerId] = None,
   )(
-      payer: PartyId,
+      payer: Party,
       divulgenceContract: DivulgeIouByExercise.Contract,
       iouContractId: Iou.ContractId,
   ): (Transaction, Completion) = {

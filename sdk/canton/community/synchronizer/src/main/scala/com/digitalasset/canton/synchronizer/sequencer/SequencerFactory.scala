@@ -68,7 +68,7 @@ object SequencerMetaFactory {
       loggerFactory: NamedLoggerFactory,
   )(
       sequencerConfig: SequencerConfig,
-      useTimeProofsToObserveEffectiveTime: Boolean,
+      producePostOrderingTopologyTicks: Boolean,
   )(implicit executionContext: ExecutionContext): SequencerFactory =
     sequencerConfig match {
       case databaseConfig: SequencerConfig.Database =>
@@ -149,7 +149,7 @@ object SequencerMetaFactory {
         new BftSequencerFactory(
           config,
           blockSequencerConfig,
-          useTimeProofsToObserveEffectiveTime,
+          producePostOrderingTopologyTicks,
           health,
           storage,
           protocolVersion,
@@ -166,7 +166,7 @@ object SequencerMetaFactory {
           SequencerDriver.DriverApiVersion,
           rawConfig,
           blockSequencerConfig,
-          useTimeProofsToObserveEffectiveTime,
+          producePostOrderingTopologyTicks,
           health,
           storage,
           protocolVersion,

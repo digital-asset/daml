@@ -19,15 +19,18 @@ import com.digitalasset.canton.ledger.api.{
 import com.digitalasset.daml.lf.command.ApiCommand
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.engine.preprocessing.ValueTranslator
+import com.digitalasset.daml.lf.engine.ScriptEngine.{
+  TraceLog,
+  WarningLog,
+  runExtendedValueComputation,
+  ExtendedValueComputationMode,
+}
 import com.digitalasset.daml.lf.interpretation.Error.ContractIdInContractKey
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, LookupError, Reference}
 import com.digitalasset.daml.lf.language.Ast.PackageMetadata
-import com.digitalasset.daml.lf.language.Ast.TTyCon
 import com.digitalasset.daml.lf.script.{IdeLedger, IdeLedgerRunner}
 import com.digitalasset.daml.lf.script
-import com.digitalasset.daml.lf.speedy.Speedy.Machine
-import com.digitalasset.daml.lf.speedy.{Pretty, SError, SValue, TraceLog, WarningLog}
+import com.digitalasset.daml.lf.speedy.{Pretty, SError}
 import com.digitalasset.daml.lf.transaction.{
   CreationTime,
   FatContractInstance,
@@ -83,6 +86,16 @@ class IdeLedgerClient(
       forbidLocalContractIds = true,
     )
 
+  val enricher = new Enricher(
+    compiledPackages = compiledPackages,
+    // Cannot load packages in GrpcLedgerClient
+    loadPackage = { (_: PackageId, _: Reference) => ResultDone(()) },
+    addTypeInfo = true,
+    addFieldNames = true,
+    addTrailingNoneFields = true,
+    forbidLocalContractIds = true,
+  )
+
   // Given a set of disabled packages, filter out all definitions from those packages from the original compiled packages
   // Similar logic to Script-services' Context.scala, however here we make no changes on the module level, and never directly add new packages
   // We only maintain a subset of an original known package set.
@@ -108,7 +121,7 @@ class IdeLedgerClient(
       .lookupPackage(packageId)
       .fold(
         _ => false,
-        pkgSig => pkgSig.languageVersion >= LanguageVersion.Features.packageUpgrades,
+        pkgSig => LanguageVersion.featurePackageUpgrades.enabledIn(pkgSig.languageVersion),
       )
 
   private var _ledger: IdeLedger = IdeLedger.initialLedger(Time.Timestamp.Epoch)
@@ -173,6 +186,12 @@ class IdeLedgerClient(
     }
   }
 
+  // Maps a result exception to a converter exception and throws it
+  def failResultAsConverterException[X](res: Result[X]): X = {
+    import com.digitalasset.daml.lf.script.converter.ConverterException
+    res.consume().fold(err => throw new ConverterException(err.toString), identity)
+  }
+
   override def queryContractId(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
@@ -180,44 +199,34 @@ class IdeLedgerClient(
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-  ): Future[Option[ScriptLedgerClient.ActiveContract]] = {
-    Future.successful(
-      lookupContractInstance(parties, cid).map(contract =>
-        ScriptLedgerClient.ActiveContract(templateId, cid, contract.createArg, blob(contract))
-      )
-    )
-  }
+  ): Future[Option[ScriptLedgerClient.ActiveContract]] =
+    Future {
+      lookupContractInstance(parties, cid) match {
+        case None => None
+        case Some(contract) => {
+          val arg =
+            failResultAsConverterException(enricher.enrichContract(templateId, contract.createArg))
+          Some(ScriptLedgerClient.ActiveContract(templateId, cid, arg, blob(contract)))
+        }
+      }
+    }
 
   private[this] def computeView(
       templateId: TypeConId,
       interfaceId: TypeConId,
       arg: Value,
-  ): Option[Value] = {
-
-    val valueTranslator = new ValueTranslator(
-      pkgInterface = compiledPackages.pkgInterface,
-      forbidLocalContractIds = false,
+  ): Option[Value] =
+    runExtendedValueComputation(
+      computationMode = ExtendedValueComputationMode.ByInterfaceView(templateId, interfaceId, arg),
+      cancelled = () => None,
+      compiledPackages = compiledPackages,
+      iterationsBetweenInterruptions = 100000,
+      traceLog = traceLog,
+      warningLog = warningLog,
+      convertLegacyExceptions = false,
+    )(Script.DummyLoggingContext).toOption.map(ev =>
+      Converter.castCommandExtendedValue(ev).toOption.get
     )
-
-    valueTranslator.translateValue(TTyCon(templateId), arg) match {
-      case Left(e) =>
-        sys.error(s"computeView: translateValue failed: $e")
-
-      case Right(argument) =>
-        val compiler: speedy.Compiler = compiledPackages.compiler
-        val iview = speedy.InterfaceView(templateId, argument, interfaceId)
-        val sexpr = compiler.unsafeCompileInterfaceView(iview)
-        val machine = Machine.fromPureSExpr(compiledPackages, sexpr)(Script.DummyLoggingContext)
-
-        machine.runPure() match {
-          case Right(svalue) =>
-            Some(svalue.toNormalizedValue)
-
-          case Left(_) =>
-            None
-        }
-    }
-  }
 
   private[this] def implements(templateId: TypeConId, interfaceId: TypeConId): Boolean = {
     compiledPackages.pkgInterface.lookupInterfaceInstance(interfaceId, templateId).isRight
@@ -244,8 +253,11 @@ class IdeLedgerClient(
       preferredPkgId <- packageMap.get(PackageName.assertFromString(contract.packageName))
       upgradedTemplateId = contract.templateId.copy(pkg = preferredPkgId)
       if implements(upgradedTemplateId, interfaceId)
+      enrichedCreateArg = failResultAsConverterException(
+        enricher.enrichContract(upgradedTemplateId, contract.createArg)
+      )
     } yield {
-      val viewOpt = computeView(upgradedTemplateId, interfaceId, contract.createArg)
+      val viewOpt = computeView(upgradedTemplateId, interfaceId, enrichedCreateArg)
       (contract.contractId, viewOpt)
     }
     Future.successful(res)
@@ -269,10 +281,14 @@ class IdeLedgerClient(
         Future.successful(
           for {
             preferredPkgId <- packageMap.get(PackageName.assertFromString(contract.packageName))
+            upgradedTemplateId = contract.templateId.copy(pkg = preferredPkgId)
+            enrichedCreateArg = failResultAsConverterException(
+              enricher.enrichContract(upgradedTemplateId, contract.createArg)
+            )
             view <- computeView(
-              contract.templateId.copy(pkg = preferredPkgId),
+              upgradedTemplateId,
               interfaceId,
-              contract.createArg,
+              enrichedCreateArg,
             )
           } yield view
         )
@@ -282,21 +298,18 @@ class IdeLedgerClient(
   override def queryContractKey(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
-      key: SValue,
-      translateKey: (Identifier, Value) => Either[String, SValue],
+      key: Value,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[Option[ScriptLedgerClient.ActiveContract]] = {
-    val keyValue = key.toUnnormalizedValue
-
     def keyBuilderError(err: crypto.Hash.HashingError): Future[GlobalKey] =
       Future.failed(
         err match {
           case crypto.Hash.HashingError.ForbiddenContractId() =>
             new RuntimeException(
               Pretty
-                .prettyDamlException(ContractIdInContractKey(keyValue))
+                .prettyDamlException(ContractIdInContractKey(key))
                 .renderWideStream
                 .mkString
             )
@@ -308,7 +321,7 @@ class IdeLedgerClient(
       .getOrElse(throw new IllegalArgumentException(s"Unknown package ${templateId.packageId}"))
 
     GlobalKey
-      .build(templateId, keyValue, pkg.pkgName)
+      .build(templateId, key, pkg.pkgName)
       .fold(keyBuilderError(_), Future.successful(_))
       .flatMap { gkey =>
         ledger.ledgerData.activeKeys.get(gkey) match {
@@ -749,29 +762,51 @@ class IdeLedgerClient(
           ): Option[ScriptLedgerClient.TreeEvent] =
             transaction.nodes(id) match {
               case create: Node.Create =>
+                val intendedTemplateId =
+                  oIntendedPackageId
+                    .fold(create.templateId)(intendedPackageId =>
+                      create.templateId.copy(pkg = intendedPackageId)
+                    )
                 Some(
                   ScriptLedgerClient.Created(
-                    oIntendedPackageId
-                      .fold(create.templateId)(intendedPackageId =>
-                        create.templateId.copy(pkg = intendedPackageId)
-                      ),
+                    intendedTemplateId,
                     create.coid,
-                    create.arg,
+                    failResultAsConverterException(
+                      enricher.enrichContract(intendedTemplateId, create.arg)
+                    ),
                     blob(create, result.richTransaction.effectiveAt),
                   )
                 )
               case exercise: Node.Exercise =>
+                val intendedTemplateId =
+                  oIntendedPackageId
+                    .fold(exercise.templateId)(intendedPackageId =>
+                      exercise.templateId.copy(pkg = intendedPackageId)
+                    )
+                val enrichedArg = failResultAsConverterException(
+                  enricher.enrichChoiceArgument(
+                    intendedTemplateId,
+                    exercise.interfaceId,
+                    exercise.choiceId,
+                    exercise.chosenValue,
+                  )
+                )
+                val enrichedResult = failResultAsConverterException(
+                  enricher.enrichChoiceResult(
+                    intendedTemplateId,
+                    exercise.interfaceId,
+                    exercise.choiceId,
+                    exercise.exerciseResult.get,
+                  )
+                )
                 Some(
                   ScriptLedgerClient.Exercised(
-                    oIntendedPackageId
-                      .fold(exercise.templateId)(intendedPackageId =>
-                        exercise.templateId.copy(pkg = intendedPackageId)
-                      ),
+                    intendedTemplateId,
                     exercise.interfaceId,
                     exercise.targetCoid,
                     exercise.choiceId,
-                    exercise.chosenValue,
-                    exercise.exerciseResult.get,
+                    enrichedArg,
+                    enrichedResult,
                     exercise.children.collect(Function.unlift(convEvent(_, None))).toList,
                   )
                 )
@@ -1012,7 +1047,7 @@ class IdeLedgerClient(
   override def waitUntilVettingVisible(
       packages: Iterable[ScriptLedgerClient.ReadablePackageId],
       onParticipantUid: String,
-  ): Future[Unit] =
+  )(implicit ec: ExecutionContext): Future[Unit] =
     Future.successful(())
 
   override def unvetPackages(packages: List[ScriptLedgerClient.ReadablePackageId])(implicit
@@ -1032,7 +1067,7 @@ class IdeLedgerClient(
   override def waitUntilUnvettingVisible(
       packages: Iterable[ScriptLedgerClient.ReadablePackageId],
       onParticipantUid: String,
-  ): Future[Unit] =
+  )(implicit ec: ExecutionContext): Future[Unit] =
     Future.successful(())
 
   override def listVettedPackages()(implicit
@@ -1049,10 +1084,32 @@ class IdeLedgerClient(
   ): Future[List[ScriptLedgerClient.ReadablePackageId]] =
     Future.successful(getPackageIdMap().keys.toList)
 
-  override def proposePartyReplication(party: Ref.Party, toParticipantId: String): Future[Unit] =
-    Future.successful(())
+  override def allocatePartyOnMultipleParticipants(
+      party: Ref.Party,
+      toParticipantIds: Iterable[String],
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Unit] = Future.failed(
+    new RuntimeException(
+      "allocatePartyOnMultipleParticipants should not be called on IDE ledger, use aggregateAllocatePartyOnMultipleParticipants instead"
+    )
+  )
 
-  override def waitUntilHostingVisible(party: Ref.Party, onParticipantUid: String): Future[Unit] =
+  override def aggregateAllocatePartyOnMultipleParticipants(
+      clients: List[ScriptLedgerClient],
+      partyHint: String,
+      namespace: String,
+      toParticipantIds: Iterable[String],
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Ref.Party] = allocateParty(partyHint)
+
+  override def waitUntilHostingVisible(
+      party: Ref.Party,
+      onParticipantUid: Iterable[String],
+  ): Future[Unit] =
     Future.successful(())
 
   override def getParticipantUid: String = ""

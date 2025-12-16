@@ -838,7 +838,7 @@ abstract class CommandDeduplicationPruningIntegrationTest
         participant1.synchronizers.connect_local(sequencer1, alias = daName)
         participant1.dars.upload(CantonExamplesPath)
 
-        participant1.parties.enable("Alice")
+        participant1.parties.testing.enable("Alice")
       }
 
   "block pruning for the max deduplication duration" in

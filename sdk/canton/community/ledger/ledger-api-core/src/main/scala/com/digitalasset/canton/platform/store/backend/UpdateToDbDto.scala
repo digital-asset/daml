@@ -12,7 +12,7 @@ import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransacti
   AuthorizationEvent,
   TopologyEvent,
 }
-import com.digitalasset.canton.ledger.participant.state.Update.TransactionAccepted.RepresentativePackageIds
+import com.digitalasset.canton.ledger.participant.state.Update.TransactionAccepted.RepresentativePackageId
 import com.digitalasset.canton.ledger.participant.state.{CompletionInfo, Reassignment, Update}
 import com.digitalasset.canton.metrics.{IndexerMetrics, LedgerApiServerMetrics}
 import com.digitalasset.canton.platform.*
@@ -331,25 +331,23 @@ object UpdateToDbDto {
       create: Create,
   ): Iterator[DbDto] = {
     val templateId = templateIdWithPackageName(create)
-    val representativePackageId = transactionAccepted.representativePackageIds match {
-      case RepresentativePackageIds.SameAsContractPackageId =>
-        create.templateId.packageId
-      case RepresentativePackageIds.DedicatedRepresentativePackageIds(representativePackageIds) =>
-        representativePackageIds.getOrElse(
-          create.coid,
-          throw new IllegalStateException(
-            s"Missing representative package id for contract $create.coid"
-          ),
-        )
+    val contractInfo = transactionAccepted.contractInfos
+      .getOrElse(
+        create.coid,
+        throw new IllegalStateException(
+          s"Missing contract info for contract ${create.coid}"
+        ),
+      )
+    val representativePackageId: Ref.PackageId = contractInfo.representativePackageId match {
+      case RepresentativePackageId.SameAsContractPackageId => create.templateId.packageId
+      case RepresentativePackageId.DedicatedRepresentativePackageId(
+            representativePackageId
+          ) =>
+        representativePackageId
     }
     val witnesses =
       transactionAccepted.blindingInfo.disclosure.getOrElse(nodeId, Set.empty).map(_.toString)
-    val internal_contract_id = transactionAccepted.internalContractIds.getOrElse(
-      create.coid,
-      throw new IllegalStateException(
-        s"missing internal contract id for contract ${create.coid}"
-      ),
-    )
+    val internal_contract_id = contractInfo.internalContractId
 
     if (transactionAccepted.isAcsDelta(create.coid)) {
       val stakeholders = create.stakeholders.map(_.toString)
@@ -449,7 +447,8 @@ object UpdateToDbDto {
       )
     } else {
       val internal_contract_id =
-        if (exercise.consuming) transactionAccepted.internalContractIds.get(exercise.targetCoid)
+        if (exercise.consuming)
+          transactionAccepted.contractInfos.get(exercise.targetCoid).map(_.internalContractId)
         else None
       val (argumentCompression, resultCompression) =
         if (exercise.consuming)
@@ -616,12 +615,7 @@ object UpdateToDbDto {
       reassignment_id = reassignmentAccepted.reassignmentInfo.reassignmentId.toBytes.toByteArray,
       representative_package_id = assign.createNode.templateId.packageId.toString,
       notPersistedContractId = assign.createNode.coid,
-      internal_contract_id = reassignmentAccepted.internalContractIds.getOrElse(
-        assign.createNode.coid,
-        throw new IllegalStateException(
-          s"missing internal contract id for contract ${assign.createNode.coid}"
-        ),
-      ),
+      internal_contract_id = assign.internalContractId,
     )(
       stakeholders = flatEventWitnesses,
       template_id = templateId,

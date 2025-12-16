@@ -347,7 +347,7 @@ class EnricherSpec extends AnyWordSpec with Matchers with Inside with TableDrive
 
     "enrich transaction as expected" in {
 
-      val inputKey = ValueRecord(
+      val inputKey: ValueRecord = ValueRecord(
         "",
         ImmArray(
           "" -> ValueParty("Alice"),
@@ -355,7 +355,7 @@ class EnricherSpec extends AnyWordSpec with Matchers with Inside with TableDrive
         ),
       )
 
-      val inputContract =
+      val inputContract: ValueRecord =
         ValueRecord(
           "",
           ImmArray(
@@ -373,7 +373,7 @@ class EnricherSpec extends AnyWordSpec with Matchers with Inside with TableDrive
         inputRecord,
       )
 
-      val outputKey = ValueRecord(
+      val outputKey: ValueRecord = ValueRecord(
         "Mod:Key",
         ImmArray(
           "party" -> ValueParty("Alice"),
@@ -381,7 +381,7 @@ class EnricherSpec extends AnyWordSpec with Matchers with Inside with TableDrive
         ),
       )
 
-      val outputContract =
+      val outputContract: ValueRecord =
         ValueRecord(
           "Mod:Contract",
           ImmArray(
@@ -390,7 +390,7 @@ class EnricherSpec extends AnyWordSpec with Matchers with Inside with TableDrive
           ),
         )
 
-      val outputRecord =
+      val outputRecord: ValueRecord =
         ValueRecord("Mod:Record", ImmArray("field" -> ValueInt64(33), "optField" -> ValueNone))
 
       val outputTransaction = buildTransaction(
@@ -452,7 +452,7 @@ class EnricherSpec extends AnyWordSpec with Matchers with Inside with TableDrive
         val expectedPkgId = Order[PackageId].min(pkgId1, pkgId2)
         inside(enrich.enrichContractWithPackages(fcoinst, NonEmptySet.of(pkgId1, pkgId2))) {
           case ResultDone(Right(enriched)) =>
-            enriched.createArg shouldBe ValueRecord(
+            enriched.createArg shouldBe ValueRecord[Nothing](
               Some(Ref.TypeConId(expectedPkgId, "M:T")),
               ImmArray("p" -> ValueParty(alice)),
             )

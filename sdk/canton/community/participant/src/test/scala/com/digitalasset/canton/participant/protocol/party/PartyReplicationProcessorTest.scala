@@ -20,11 +20,18 @@ import com.digitalasset.canton.lifecycle.{
   UnlessShutdown,
 }
 import com.digitalasset.canton.logging.TracedLogger
-import com.digitalasset.canton.participant.admin.party.PartyReplicationTestInterceptor
+import com.digitalasset.canton.participant.admin.party.{
+  PartyReplicationStatus,
+  PartyReplicationTestInterceptor,
+}
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.participant.protocol.conflictdetection.RequestTracker
+import com.digitalasset.canton.participant.store.PartyReplicationStateManager
 import com.digitalasset.canton.participant.util.{CreatesActiveContracts, TimeOfChange}
 import com.digitalasset.canton.protocol.LfContractId
+import com.digitalasset.canton.resource.MemoryStorage
+import com.digitalasset.canton.topology.processing.EffectiveTime
+import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.{
   DefaultTestIdentities,
   PartyId,
@@ -40,6 +47,7 @@ import com.digitalasset.canton.{
   NeedsNewLfContractIds,
   ProtocolVersionChecksFixtureAsyncWordSpec,
   ReassignmentCounter,
+  RepairCounter,
 }
 import com.google.protobuf.ByteString
 import org.scalatest.FutureOutcome
@@ -74,8 +82,17 @@ final class PartyReplicationProcessorTest
     var tpProceedOrWait: PartyReplicationTestInterceptor.ProceedOrWait =
       PartyReplicationTestInterceptor.Proceed
     var tpSendErrorOverrides: Map[String, String] = Map.empty
-    var persistContractResult = EitherTUtil.unitUS[String]
-    var getInternalContractIdsResult = FutureUnlessShutdown.pure(Map.empty[LfContractId, Long])
+    var persistContractMaybeInjectedError: EitherT[FutureUnlessShutdown, String, Unit] =
+      EitherTUtil.unitUS
+
+    def persistContracts: PartyReplicationTargetParticipantProcessor.PersistContracts = contracts =>
+      _ =>
+        _ =>
+          persistContractMaybeInjectedError.map(_ =>
+            contracts.zipWithIndex.map { case (contract, idx) =>
+              contract.contractId -> idx.toLong
+            }.toMap
+          )
 
     def targetProcessor: PartyReplicationTargetParticipantProcessor = tp
 
@@ -101,16 +118,47 @@ final class PartyReplicationProcessorTest
       )
         .thenReturn(EitherTUtil.unitUS)
 
+      val inMemoryStorageForTesting = new MemoryStorage(loggerFactory, timeouts)
+      val sourceParticipantId = DefaultTestIdentities.participant1
+      val targetParticipantId = DefaultTestIdentities.participant2
+      val initialStatus = PartyReplicationStatus(
+        PartyReplicationStatus.ReplicationParams(
+          addPartyRequestId,
+          alice,
+          psid.logical,
+          sourceParticipantId,
+          targetParticipantId,
+          PositiveInt.one,
+          ParticipantPermission.Submission,
+        ),
+        testedProtocolVersion,
+        replicationO = Some(
+          PartyReplicationStatus.AcsReplicationProgressSerializable(
+            processedContractCount = NonNegativeInt.zero,
+            nextPersistenceCounter = RepairCounter.Genesis,
+            fullyProcessedAcs = false,
+          )
+        ),
+      )
+      def inMemoryStateManager =
+        new PartyReplicationStateManager(
+          targetParticipantId,
+          inMemoryStorageForTesting,
+          futureSupervisor,
+          exitOnFatalFailures = false,
+          loggerFactory,
+          timeouts,
+        ).tap(_.add(initialStatus).value.futureValueUS.value)
+
       new PartyReplicationTargetParticipantProcessor(
         partyId = alice,
         requestId = addPartyRequestId,
         psid = psid,
-        partyToParticipantEffectiveAt = CantonTimestamp.ofEpochSecond(10),
-        onAcsFullyReplicated = _ => (),
+        partyOnboardingAt = EffectiveTime(CantonTimestamp.ofEpochSecond(10)),
+        replicationProgressState = inMemoryStateManager,
         onError = logger.info(_),
         onDisconnect = logger.info(_)(_),
-        persistContracts = _ => _ => _ => persistContractResult,
-        getInternalContractIds = _ => _ => getInternalContractIdsResult,
+        persistContracts = persistContracts,
         recordOrderPublisher = rop,
         requestTracker = requestTracker,
         pureCrypto = testSymbolicCrypto,
@@ -399,7 +447,7 @@ final class PartyReplicationProcessorTest
       "error when unable to persist contracts" onlyRunWith ProtocolVersion.dev inUS { env =>
         import env.*
 
-        persistContractResult =
+        persistContractMaybeInjectedError =
           EitherT.fromEither[FutureUnlessShutdown](Left("simulated persist contracts error"))
 
         for {

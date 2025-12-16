@@ -5,7 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencing.authentication
 
 import cats.data.EitherT
 import cats.implicits.*
-import com.digitalasset.canton.config.DefaultProcessingTimeouts
+import com.digitalasset.canton.config.{BatchingConfig, DefaultProcessingTimeouts}
 import com.digitalasset.canton.crypto.Nonce
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.sequencing.authentication.MemberAuthentication
@@ -55,6 +55,7 @@ class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest with F
       memberT => invalidateMemberCallback(memberT.value),
       FutureUnlessShutdown.unit,
       DefaultProcessingTimeouts.testing,
+      BatchingConfig(),
       loggerFactory,
     ) {
       override def isParticipantActive(participant: ParticipantId)(implicit

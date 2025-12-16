@@ -240,6 +240,8 @@ trait ReassignmentStoreTest extends AsyncWordSpec with FailOnShutdown with BaseT
             val newCid = ExampleContractFactory.buildContractId(77)
             (
               ExampleContractFactory.modify(reassign.contract, contractId = Some(newCid)),
+              reassign.sourceValidationPackageId,
+              reassign.targetValidationPackageId,
               reassign.counter,
             )
           })

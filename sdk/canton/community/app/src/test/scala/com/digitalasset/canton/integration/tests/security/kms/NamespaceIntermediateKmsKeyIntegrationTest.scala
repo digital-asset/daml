@@ -3,10 +3,9 @@
 
 package com.digitalasset.canton.integration.tests.security.kms
 
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.InstanceReference
 import com.digitalasset.canton.crypto.{SigningKeyUsage, SigningPublicKey}
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseBftSequencer
 import com.digitalasset.canton.integration.tests.security.KeyManagementIntegrationTestHelper
 import com.digitalasset.canton.integration.tests.security.kms.aws.AwsKmsCryptoIntegrationTestBase
 import com.digitalasset.canton.integration.{
@@ -80,7 +79,7 @@ trait NamespaceIntermediateKmsKeyIntegrationTest
   setupPlugins(
     withAutoInit = false,
     storagePlugin = Option.empty[EnvironmentSetupPlugin],
-    sequencerPlugin = new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory),
+    sequencerPlugin = new UseBftSequencer(loggerFactory),
   )
 }
 

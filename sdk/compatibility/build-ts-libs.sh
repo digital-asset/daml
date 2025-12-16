@@ -18,6 +18,6 @@ function cleanup {
 
 trap cleanup EXIT
 
-bazel run //language-support/ts/daml-types:npm_package.pack
+bazel run //language-support/js/daml-types:npm_package.pack
 
 cp -f daml-types-0.0.0.tgz "$HEAD_TARGET_DIR"

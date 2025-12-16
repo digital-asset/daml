@@ -18,7 +18,7 @@ import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.{ConfigTransforms, EnvironmentDefinition}
 import com.digitalasset.canton.participant.config.ParticipantNodeConfig
 import com.digitalasset.canton.protocol.{ContractInstance, LfContractId}
-import com.digitalasset.canton.topology.PartyId
+import com.digitalasset.canton.topology.{Party, PartyId}
 import monocle.macros.syntax.lens.*
 
 trait DivulgenceIntegrationTest extends OfflinePartyReplicationIntegrationTestBase {
@@ -44,7 +44,7 @@ trait DivulgenceIntegrationTest extends OfflinePartyReplicationIntegrationTestBa
     def checkCreatedEventFor(
         participant: LocalParticipantReference,
         contractId: String,
-        party: PartyId,
+        party: Party,
     ) =
       participant.ledger_api.javaapi.event_query
         .by_contract_id(contractId, Seq(party))
@@ -53,7 +53,7 @@ trait DivulgenceIntegrationTest extends OfflinePartyReplicationIntegrationTestBa
     def checkArchivedEventFor(
         participant: LocalParticipantReference,
         contractId: String,
-        party: PartyId,
+        party: Party,
     ) = {
       checkCreatedEventFor(participant, contractId, party) // ensure created event exists
       participant.ledger_api.javaapi.event_query
@@ -65,7 +65,7 @@ trait DivulgenceIntegrationTest extends OfflinePartyReplicationIntegrationTestBa
     def assertEventNotFound(
         participant: LocalParticipantReference,
         contractId: String,
-        party: PartyId,
+        party: Party,
     ) =
       loggerFactory.assertLogs(
         a[CommandFailure] shouldBe thrownBy {
@@ -406,26 +406,26 @@ object DivulgenceIntegrationTest {
 
   implicit class ParticipantSimpleStreamHelper(val participant: LocalParticipantReference)
       extends AnyVal {
-    def acs(party: PartyId): Seq[OffsetCid] =
+    def acs(party: Party): Seq[OffsetCid] =
       participant.ledger_api.state.acs
         .active_contracts_of_party(party)
         .flatMap(_.createdEvent)
         .map(c => OffsetCid(c.offset, c.contractId))
 
     def acsDeltas(
-        partyId: PartyId,
+        party: Party,
         beginOffsetExclusive: Long = 0L,
     ): Seq[(OffsetCid, EventType)] =
-      updates(TRANSACTION_SHAPE_ACS_DELTA, Seq(partyId), beginOffsetExclusive)
+      updates(TRANSACTION_SHAPE_ACS_DELTA, Seq(party.partyId), beginOffsetExclusive)
 
-    def acsDeltas(parties: Seq[PartyId]): Seq[(OffsetCid, EventType)] =
-      updates(TRANSACTION_SHAPE_ACS_DELTA, parties)
+    def acsDeltas(parties: Seq[Party]): Seq[(OffsetCid, EventType)] =
+      updates(TRANSACTION_SHAPE_ACS_DELTA, parties.map(_.partyId))
 
     def ledgerEffects(
-        partyId: PartyId,
+        party: Party,
         beginOffsetExclusive: Long = 0L,
     ): Seq[(OffsetCid, EventType)] =
-      updates(TRANSACTION_SHAPE_LEDGER_EFFECTS, Seq(partyId), beginOffsetExclusive)
+      updates(TRANSACTION_SHAPE_LEDGER_EFFECTS, Seq(party.partyId), beginOffsetExclusive)
 
     def eventsWithAcsDelta(parties: Seq[PartyId]): Seq[Event] =
       updatesEvents(TRANSACTION_SHAPE_LEDGER_EFFECTS, parties).filter(_.event match {
@@ -434,14 +434,14 @@ object DivulgenceIntegrationTest {
         case _ => false
       })
 
-    def createIou(payer: PartyId, owner: PartyId): (OffsetCid, Iou.Contract) = {
+    def createIou(payer: Party, owner: Party): (OffsetCid, Iou.Contract) = {
       val (contract, transaction, _) = IouSyntax.createIouComplete(participant)(payer, owner)
       OffsetCid(transaction.offset, contract.id.contractId) -> contract
     }
 
     def createDivulgeIou(
-        payer: PartyId,
-        divulgee: PartyId,
+        payer: Party,
+        divulgee: Party,
     ): (OffsetCid, DivulgeIouByExercise.Contract) = {
       val (contract, transaction, _) =
         IouSyntax.createDivulgeIouByExerciseComplete(participant)(payer, divulgee)
@@ -449,7 +449,7 @@ object DivulgenceIntegrationTest {
     }
 
     def immediateDivulgeIou(
-        payer: PartyId,
+        payer: Party,
         divulgeContract: DivulgeIouByExercise.Contract,
     ): (OffsetCid, Iou.Contract) = {
       val (contract, transaction, _) =
@@ -458,7 +458,7 @@ object DivulgenceIntegrationTest {
     }
 
     def retroactiveDivulgeAndArchiveIou(
-        payer: PartyId,
+        payer: Party,
         divulgeContract: DivulgeIouByExercise.Contract,
         iouContractId: Iou.ContractId,
     ): OffsetCid = {
@@ -471,7 +471,7 @@ object DivulgenceIntegrationTest {
       OffsetCid(transaction.offset, iouContractId.contractId)
     }
 
-    def archiveIou(party: PartyId, iou: Iou.Contract): Unit =
+    def archiveIou(party: Party, iou: Iou.Contract): Unit =
       IouSyntax.archive(participant)(iou, party)
 
     private def updatesEvents(

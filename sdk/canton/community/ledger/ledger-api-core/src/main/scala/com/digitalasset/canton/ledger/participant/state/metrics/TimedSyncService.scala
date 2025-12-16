@@ -297,7 +297,7 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
 
   override def getRoutingSynchronizerState(implicit
       traceContext: TraceContext
-  ): RoutingSynchronizerState =
+  ): FutureUnlessShutdown[RoutingSynchronizerState] =
     delegate.getRoutingSynchronizerState
 
   override def estimateTrafficCost(

@@ -13,14 +13,21 @@ import scala.concurrent.duration.Duration
 import scalaz.\/-
 import scalaz.syntax.traverse._
 import spray.json._
-import com.digitalasset.daml.lf.PureCompiledPackages
-import com.digitalasset.daml.lf.speedy.{SValue, Speedy, TraceLog, WarningLog}
 import com.digitalasset.daml.lf.archive.{Dar, DarDecoder}
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
-import com.digitalasset.daml.lf.language.Ast.Package
-import com.digitalasset.daml.lf.language.Ast.Type
+import com.digitalasset.daml.lf.engine.preprocessing.ValueTranslator
+import com.digitalasset.daml.lf.engine.ScriptEngine.{
+  TraceLog,
+  WarningLog,
+  newTraceLog,
+  newWarningLog,
+  defaultCompilerConfig,
+}
+import com.digitalasset.daml.lf.language.Ast.{Package, Type}
+import com.digitalasset.daml.lf.PureCompiledPackages
 import com.digitalasset.daml.lf.typesig.EnvironmentSignature
 import com.digitalasset.daml.lf.typesig.reader.SignatureReader
+import com.digitalasset.daml.lf.value._
 import com.daml.grpc.adapter.{ExecutionSequencerFactory, PekkoExecutionSequencerPool}
 import com.daml.auth.TokenHolder
 import com.digitalasset.daml.lf.engine.script.ledgerinteraction.{
@@ -85,15 +92,15 @@ object RunnerMain {
   ): Future[Boolean] =
     for {
       _ <- Future.successful(())
-      traceLog = Speedy.Machine.newTraceLog
-      warningLog = Speedy.Machine.newWarningLog
+      traceLog = newTraceLog
+      warningLog = newWarningLog
 
       dar: Dar[(PackageId, Package)] = DarDecoder.assertReadArchiveFromFile(config.darPath)
 
       majorVersion = dar.main._2.languageVersion.major
       compiledPackages = PureCompiledPackages.assertBuild(
         dar.all.toMap,
-        Runner.compilerConfig,
+        defaultCompilerConfig,
       )
       ifaceDar =
         dar.map { case (pkgId, _) =>
@@ -118,7 +125,7 @@ object RunnerMain {
           scriptId: Identifier,
           inputFile: Option[File],
           outputFile: Option[File],
-          convertInputValue: Option[(JsValue, Type) => Either[String, SValue]],
+          convertInputValue: Option[(JsValue, Type) => Either[String, Value]],
       ) =>
         for {
           result <- Runner
@@ -134,7 +141,10 @@ object RunnerMain {
             )
           _ <- Future {
             outputFile.foreach { outputFile =>
-              val jsVal = LfValueCodec.apiValueToJsValue(result.toUnnormalizedValue)
+              val pureResult = Value
+                .castExtendedValue(result)
+                .fold(throw _, identity)
+              val jsVal = LfValueCodec.apiValueToJsValue(pureResult)
               val outDir = outputFile.getParentFile
               if (outDir != null) {
                 val _ = Files.createDirectories(outDir.toPath)
@@ -151,9 +161,9 @@ object RunnerMain {
             case (moduleName, module) =>
               module.definitions.collect(Function.unlift { case (name, _) =>
                 val id = Identifier(dar.main._1, QualifiedName(moduleName, name))
-                Script.fromIdentifier(compiledPackages, id) match {
+                ScriptAction.fromIdentifier(compiledPackages, id) match {
                   // We exclude generated identifiers starting with `$`.
-                  case Right(_: Script.Action) if !name.dottedName.startsWith("$") =>
+                  case Right(_: ScriptAction.NoParam) if !name.dottedName.startsWith("$") =>
                     Some(id)
                   case _ => None
                 }
@@ -177,13 +187,20 @@ object RunnerMain {
           val scriptId: Identifier =
             Identifier(dar.main._1, QualifiedName.assertFromString(scriptName))
           val converter = (json: JsValue, typ: Type) =>
-            Converter(majorVersion).fromJsonValue(
-              scriptId.qualifiedName,
-              envIface,
-              compiledPackages,
-              typ,
-              json,
-            )
+            Converter(majorVersion)
+              .fromJsonValue(
+                scriptId.qualifiedName,
+                envIface,
+                typ,
+                json,
+              )
+              .flatMap(value =>
+                // Use translator only to verify type, do not use translated value
+                new ValueTranslator(
+                  compiledPackages.pkgInterface,
+                  forbidLocalContractIds = true,
+                ).translateValue(typ, value).fold(err => Left(err.getMessage), _ => Right(value))
+              )
           runScript(scriptId, inputFile, outputFile, Some(converter)).map(_ => true)
         }
 

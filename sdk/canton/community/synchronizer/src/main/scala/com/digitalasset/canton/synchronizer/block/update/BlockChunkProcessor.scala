@@ -6,12 +6,12 @@ package com.digitalasset.canton.synchronizer.block.update
 import cats.syntax.alternative.*
 import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
-import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.base.error.BaseAlarm
 import com.digitalasset.canton.SequencerCounter
+import com.digitalasset.canton.config.BatchingConfig
 import com.digitalasset.canton.crypto.{HashPurpose, SyncCryptoClient, SynchronizerCryptoClient}
 import com.digitalasset.canton.data.{CantonTimestamp, LogicalUpgradeTime}
 import com.digitalasset.canton.discard.Implicits.*
@@ -51,6 +51,7 @@ final class BlockChunkProcessor(
     sequencerId: SequencerId,
     rateLimitManager: SequencerRateLimitManager,
     orderingTimeFixMode: OrderingTimeFixMode,
+    batchingConfig: BatchingConfig,
     override val loggerFactory: NamedLoggerFactory,
     metrics: SequencerMetrics,
     memberValidator: SequencerMemberValidator,
@@ -63,6 +64,7 @@ final class BlockChunkProcessor(
       synchronizerSyncCryptoApi,
       sequencerId,
       rateLimitManager,
+      batchingConfig,
       loggerFactory,
       metrics,
       memberValidator = memberValidator,
@@ -111,12 +113,10 @@ final class BlockChunkProcessor(
 
     for {
       validatedSequencedSubmissions <- validatedSequencedSubmissionsF
-      pendingTopologyTimestamps =
-        state.pendingTopologyTimestamps ++ validatedSequencedSubmissions.collect {
-          case submission
-              if submission.submissionRequest.content.requestType == TopologyTransaction =>
-            submission.sequencingTimestamp
-        }
+      latestTopologyTimestamp = validatedSequencedSubmissions
+        .findLast(_.submissionRequest.content.requestType == TopologyTransaction)
+        .map(_.sequencingTimestamp)
+        .getOrElse(state.latestTopologyTransactionTimestamp)
 
       acksValidationResult <- acksValidationResultF
       (acksByMember, invalidAcks) = acksValidationResult
@@ -163,8 +163,8 @@ final class BlockChunkProcessor(
           state.lastBlockTs,
           lastChunkTsOfSuccessfulEvents,
           lastSequencerEventTimestamp.orElse(state.latestSequencerEventTimestamp),
+          latestTopologyTimestamp,
           finalInFlightAggregationsWithAggregationExpiry,
-          pendingTopologyTimestamps,
         )
     } yield (newState, chunkUpdate)
   }
@@ -383,7 +383,7 @@ final class BlockChunkProcessor(
   )(implicit
       executionContext: ExecutionContext
   ): FutureUnlessShutdown[Seq[SequencedValidatedSubmission]] =
-    submissionRequests.zipWithIndex.parTraverse {
+    MonadUtil.parTraverseWithLimit(batchingConfig.parallelism)(submissionRequests.zipWithIndex) {
       case ((sequencingTimestamp, tracedSubmissionRequest, orderingSequencerId), requestIndex) =>
         tracedSubmissionRequest.withTraceContext {
           implicit traceContext => signedSubmissionRequest =>

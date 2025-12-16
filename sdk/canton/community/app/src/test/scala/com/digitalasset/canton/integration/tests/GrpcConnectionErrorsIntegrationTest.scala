@@ -5,9 +5,9 @@ package com.digitalasset.canton.integration.tests
 
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.RequireTypes.ExistingFile
-import com.digitalasset.canton.config.{IdentityConfig, PemFile, StorageConfig, TlsBaseServerConfig}
+import com.digitalasset.canton.config.{IdentityConfig, PemFile, TlsBaseServerConfig}
+import com.digitalasset.canton.integration.plugins.UseBftSequencer
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
-import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -24,7 +24,7 @@ import monocle.macros.syntax.lens.*
   */
 trait GrpcConnectionErrorsIntegrationTest extends CommunityIntegrationTest with SharedEnvironment {
 
-  private lazy val certificatesPath = "./enterprise/app/src/test/resources/tls/public-api.crt"
+  private lazy val certificatesPath = "./community/app/src/test/resources/tls/public-api.crt"
 
   override lazy val environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P2_S1M1_S1M1
@@ -39,7 +39,7 @@ trait GrpcConnectionErrorsIntegrationTest extends CommunityIntegrationTest with 
               TlsBaseServerConfig(
                 certChainFile = PemFile(ExistingFile.tryCreate(certificatesPath)),
                 privateKeyFile = PemFile(
-                  ExistingFile.tryCreate("./enterprise/app/src/test/resources/tls/public-api.pem")
+                  ExistingFile.tryCreate("./community/app/src/test/resources/tls/public-api.pem")
                 ),
               )
             )
@@ -140,7 +140,7 @@ trait GrpcConnectionErrorsIntegrationTest extends CommunityIntegrationTest with 
       import env.*
       sequencer2.config.publicApi.port.unwrap
     }
-    lazy val certificatesPath = "./enterprise/app/src/test/resources/tls/public-api.crt"
+    lazy val certificatesPath = "./community/app/src/test/resources/tls/public-api.crt"
 
     "the certificates path is empty" must {
       "fail with an informative error message" in { implicit env =>
@@ -170,7 +170,7 @@ trait GrpcConnectionErrorsIntegrationTest extends CommunityIntegrationTest with 
         import env.*
 
         val url = s"https://$hostname:$port"
-        val incorrectCertificatesPath = "./enterprise/app/src/test/resources/tls/some.crt"
+        val incorrectCertificatesPath = "./community/app/src/test/resources/tls/some.crt"
 
         assertThrowsAndLogsCommandFailures(
           participant1.synchronizers.connect(
@@ -192,7 +192,7 @@ trait GrpcConnectionErrorsIntegrationTest extends CommunityIntegrationTest with 
 
         val url = s"https://$hostname:$port"
         val incorrectCertificatesPath =
-          "./enterprise/app/src/test/resources/tls/schnitzel-mit-pommes.crt"
+          "./community/app/src/test/resources/tls/schnitzel-mit-pommes.crt"
 
         val ex = the[IllegalArgumentException] thrownBy
           participant1.synchronizers.connect(
@@ -241,18 +241,6 @@ trait GrpcConnectionErrorsIntegrationTest extends CommunityIntegrationTest with 
   }
 }
 
-class GrpcConnectionErrorsReferenceIntegrationTestInMemory
-    extends GrpcConnectionErrorsIntegrationTest {
-  registerPlugin(
-    new UseReferenceBlockSequencer[StorageConfig.Memory](
-      loggerFactory,
-      sequencerGroups = MultiSynchronizer(
-        Seq(Set(InstanceName.tryCreate("sequencer1")), Set(InstanceName.tryCreate("sequencer2")))
-      ),
-    )
-  )
-}
-
 class GrpcConnectionErrorsBftOrderingIntegrationTestInMemory
     extends GrpcConnectionErrorsIntegrationTest {
   registerPlugin(
@@ -264,18 +252,6 @@ class GrpcConnectionErrorsBftOrderingIntegrationTestInMemory
     )
   )
 }
-
-// class GrpcConnectionErrorsReferenceIntegrationTestPostgres extends GrpcConnectionErrorsIntegrationTest {
-//   registerPlugin(new UsePostgres(loggerFactory))
-//   registerPlugin(
-//     new UseReferenceBlockSequencer[DbConfig.Postgres](
-//       loggerFactory,
-//       sequencerGroups = MultiSynchronizer(
-//         Seq(Set(InstanceName.tryCreate("sequencer1")), Set(InstanceName.tryCreate("sequencer2")))
-//       ),
-//     )
-//   )
-// }
 
 // class GrpcConnectionErrorsBftOrderingIntegrationTestPostgres extends GrpcConnectionErrorsIntegrationTest {
 //   registerPlugin(new UsePostgres(loggerFactory))

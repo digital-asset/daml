@@ -12,13 +12,8 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.base.error.*
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.ProtoDeserializationError.InvariantViolation
+import com.digitalasset.canton.config.PositiveFiniteDuration
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
-import com.digitalasset.canton.config.{
-  CantonConfigValidator,
-  PositiveFiniteDuration,
-  UniformCantonConfigValidation,
-}
 import com.digitalasset.canton.crypto.CryptoPureApiError.KeyParseAndValidateError
 import com.digitalasset.canton.crypto.SigningKeyUsage.encodeUsageForHash
 import com.digitalasset.canton.crypto.SigningPublicKey.getDataForFingerprint
@@ -524,12 +519,12 @@ object SignatureDelegation {
     val hashBuilder =
       HashBuilderFromMessageDigest(HashAlgorithm.Sha256, HashPurpose.SessionKeyDelegation)
     hashBuilder
-      .add(sessionKey.id.unwrap)
-      .add(sessionKey.keySpec.toProtoEnum.value)
-      .add(sessionKey.format.toProtoEnum.value)
-      .add(encodeUsageForHash(sessionKey.usage))
-      .add(validityPeriod.getCryptographicEvidence)
-      .add(synchronizerId.toProtoPrimitive)
+      .addString(sessionKey.id.unwrap)
+      .addInt(sessionKey.keySpec.toProtoEnum.value)
+      .addInt(sessionKey.format.toProtoEnum.value)
+      .addByteString(encodeUsageForHash(sessionKey.usage))
+      .addByteString(validityPeriod.getCryptographicEvidence)
+      .addString(synchronizerId.toProtoPrimitive)
       .finish()
   }
 
@@ -871,11 +866,7 @@ object SigningKeyUsage {
 }
 
 /** A signing key specification. */
-sealed trait SigningKeySpec
-    extends Product
-    with Serializable
-    with PrettyPrinting
-    with UniformCantonConfigValidation {
+sealed trait SigningKeySpec extends Product with Serializable with PrettyPrinting {
   def name: String
   def toProtoEnum: v30.SigningKeySpec
   override val pretty: Pretty[this.type] = prettyOfString(_.name)
@@ -885,9 +876,6 @@ object SigningKeySpec {
 
   implicit val signingKeySpecOrder: Order[SigningKeySpec] =
     Order.by[SigningKeySpec, String](_.name)
-
-  implicit val signingKeySpecCantonConfigValidation: CantonConfigValidator[SigningKeySpec] =
-    CantonConfigValidatorDerivation[SigningKeySpec]
 
   /** Elliptic Curve Key from the Curve25519 curve as defined in http://ed25519.cr.yp.to/
     */
@@ -906,7 +894,6 @@ object SigningKeySpec {
     override val name: String = "EC-P256"
     override def toProtoEnum: v30.SigningKeySpec =
       v30.SigningKeySpec.SIGNING_KEY_SPEC_EC_P256
-    // Name of the elliptic curve as expected by Java's ECGenParameterSpec (JCA standard name)
     override val jcaCurveName: String = "secp256r1"
   }
 
@@ -917,7 +904,6 @@ object SigningKeySpec {
     override val name: String = "EC-P384"
     override def toProtoEnum: v30.SigningKeySpec =
       v30.SigningKeySpec.SIGNING_KEY_SPEC_EC_P384
-    // Name of the elliptic curve as expected by Java's ECGenParameterSpec (JCA standard name)
     override val jcaCurveName: String = "secp384r1"
   }
 
@@ -928,7 +914,6 @@ object SigningKeySpec {
     override val name: String = "EC-Secp256k1"
     override def toProtoEnum: v30.SigningKeySpec =
       v30.SigningKeySpec.SIGNING_KEY_SPEC_EC_SECP256K1
-    // Name of the elliptic curve as expected by Java's ECGenParameterSpec (JCA standard name)
     override val jcaCurveName: String = "secp256k1"
   }
 
@@ -990,11 +975,7 @@ object SigningKeySpec {
 }
 
 /** Algorithm schemes for signing. */
-sealed trait SigningAlgorithmSpec
-    extends Product
-    with Serializable
-    with PrettyPrinting
-    with UniformCantonConfigValidation {
+sealed trait SigningAlgorithmSpec extends Product with Serializable with PrettyPrinting {
   def name: String
   def supportedSigningKeySpecs: NonEmpty[Set[SigningKeySpec]]
   def supportedSignatureFormats: NonEmpty[Set[SignatureFormat]]
@@ -1004,6 +985,9 @@ sealed trait SigningAlgorithmSpec
     */
   // TODO(i28366): Add a test
   def approximateSignatureSize: Int
+
+  /** Name of the signing algorithm as expected by Java's getInstance (JCA standard name) */
+  def jcaAlgorithmName: String
   override val pretty: Pretty[this.type] = prettyOfString(_.name)
 }
 
@@ -1011,10 +995,6 @@ object SigningAlgorithmSpec {
 
   implicit val signingAlgorithmSpecOrder: Order[SigningAlgorithmSpec] =
     Order.by[SigningAlgorithmSpec, String](_.name)
-
-  implicit val signingAlgorithmSpecCantonConfigValidator
-      : CantonConfigValidator[SigningAlgorithmSpec] =
-    CantonConfigValidatorDerivation[SigningAlgorithmSpec]
 
   /** EdDSA signature scheme based on Curve25519 and SHA512 as defined in http://ed25519.cr.yp.to/
     */
@@ -1027,6 +1007,7 @@ object SigningAlgorithmSpec {
     override def toProtoEnum: v30.SigningAlgorithmSpec =
       v30.SigningAlgorithmSpec.SIGNING_ALGORITHM_SPEC_ED25519
     override def approximateSignatureSize: Int = 64
+    override def jcaAlgorithmName: String = "Ed25519"
   }
 
   /** Elliptic Curve Digital Signature Algorithm with SHA256 as defined in
@@ -1041,6 +1022,7 @@ object SigningAlgorithmSpec {
     override def toProtoEnum: v30.SigningAlgorithmSpec =
       v30.SigningAlgorithmSpec.SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_256
     override def approximateSignatureSize: Int = 64
+    override def jcaAlgorithmName: String = "SHA256withECDSA"
   }
 
   /** Elliptic Curve Digital Signature Algorithm with SHA384 as defined in
@@ -1055,6 +1037,7 @@ object SigningAlgorithmSpec {
     override def toProtoEnum: v30.SigningAlgorithmSpec =
       v30.SigningAlgorithmSpec.SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_384
     override def approximateSignatureSize: Int = 96
+    override def jcaAlgorithmName: String = "SHA384withECDSA"
   }
 
   def toProtoEnumOption(

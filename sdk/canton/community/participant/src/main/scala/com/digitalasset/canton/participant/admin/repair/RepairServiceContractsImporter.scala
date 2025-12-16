@@ -13,7 +13,8 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.SyncCryptoApiParticipantProvider
 import com.digitalasset.canton.data.{CantonTimestamp, LedgerTimeBoundaries}
-import com.digitalasset.canton.ledger.participant.state.Update.TransactionAccepted.RepresentativePackageIds
+import com.digitalasset.canton.ledger.participant.state.Update.ContractInfo
+import com.digitalasset.canton.ledger.participant.state.Update.TransactionAccepted.RepresentativePackageId.DedicatedRepresentativePackageId
 import com.digitalasset.canton.ledger.participant.state.{RepairUpdate, TransactionMeta, Update}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, HasCloseContext}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -185,6 +186,9 @@ final class RepairServiceContractsImporter(
     *   If present, each transaction generated for added contracts will have a workflow ID whose
     *   prefix is the one set and the suffix is a sequential number and the number of transactions
     *   generated as part of the addition (e.g. `import-foo-1-2`, `import-foo-2-2`)
+    *
+    * Note: Assigning the internal contract ids to the contracts requires that all the contracts are
+    * already persisted in the contract store.
     */
   def addContracts(
       synchronizerAlias: SynchronizerAlias,
@@ -306,14 +310,19 @@ final class RepairServiceContractsImporter(
                         ),
                         "Unable to lookup internal contract ids in contract store",
                       )
+                    contractsToAddWithInternalIds = checked(
+                      tryAddInternalContractIds(
+                        contractsToAdd,
+                        internalContractIdsForContractsAdded,
+                      )
+                    )
 
                     // Commit and publish added contracts via the indexer to the ledger api.
                     _ <- EitherT.right[String](
                       writeContractsAddedEvents(
                         synchronizer.psid.logical,
                         recordTime = synchronizer.currentRecordTime,
-                        contractsToAdd,
-                        internalContractIdsForContractsAdded,
+                        contractsToAddWithInternalIds,
                         workflowIds,
                         repairIndexer,
                       )
@@ -326,6 +335,29 @@ final class RepairServiceContractsImporter(
       )
     }
   }
+
+  // This function requires that all contracts in contractsToAdd are already present in the
+  // contract store and therefore their internal contract ids can be looked up.
+  private def tryAddInternalContractIds(
+      contractsToAdd: Seq[(TimeOfRepair, (CreationTime.CreatedAt, Seq[ContractToAdd]))],
+      internalContractIds: Map[LfContractId, Long],
+  )(implicit
+      traceContext: TraceContext
+  ): Seq[(TimeOfRepair, (CreationTime.CreatedAt, Seq[(ContractToAdd, Long)]))] =
+    contractsToAdd.map { case (timeOfRepair, (createdAt, batch)) =>
+      val batchWithInternalIds = batch.map { contractToAdd =>
+        val internalContractId =
+          internalContractIds.getOrElse(
+            contractToAdd.cid,
+            ErrorUtil
+              .invalidState(
+                s"Not found internal contract id for contract ${contractToAdd.cid}"
+              ),
+          )
+        (contractToAdd, internalContractId)
+      }
+      (timeOfRepair, (createdAt, batchWithInternalIds))
+    }
 
   /** Checks that the contracts can be added (packages known, stakeholders hosted, ...)
     */
@@ -497,18 +529,19 @@ final class RepairServiceContractsImporter(
       recordTime: CantonTimestamp,
       repairCounter: RepairCounter,
       ledgerCreateTime: CreationTime.CreatedAt,
-      contractsAdded: Seq[ContractToAdd],
-      internalContractIdsForContractsAdded: Map[LfContractId, Long],
+      contractsAdded: Seq[(ContractToAdd, Long)],
       workflowIdProvider: () => Option[LfWorkflowId],
   )(implicit traceContext: TraceContext): RepairUpdate = {
-    val contractAuthenticationData = contractsAdded.view.map { c =>
-      c.contract.contractId -> c.authenticationData
+    val contractInfos = contractsAdded.view.map { case (c, internalContractId) =>
+      val cid = c.contract.contractId
+      cid -> ContractInfo(
+        internalContractId = internalContractId,
+        contractAuthenticationData = c.authenticationData,
+        representativePackageId = DedicatedRepresentativePackageId(c.representativePackageId),
+      )
     }.toMap
-    val representativePackageIds = contractsAdded.view
-      .map(c => c.contract.contractId -> c.representativePackageId)
-      .toMap
     val nodeIds = LazyList.from(0).map(LfNodeId)
-    val txNodes = nodeIds.zip(contractsAdded.map(_.contract.toLf)).toMap
+    val txNodes = nodeIds.zip(contractsAdded.map(_._1.contract.toLf)).toMap
     Update.RepairTransactionAccepted(
       transactionMeta = TransactionMeta(
         ledgerEffectiveTime = ledgerCreateTime.time,
@@ -527,20 +560,17 @@ final class RepairServiceContractsImporter(
         )
       ),
       updateId = randomUpdateId(syncCrypto),
-      contractAuthenticationData = contractAuthenticationData,
-      representativePackageIds = RepresentativePackageIds.from(representativePackageIds),
       synchronizerId = synchronizerId,
       repairCounter = repairCounter,
       recordTime = recordTime,
-      internalContractIds = internalContractIdsForContractsAdded,
+      contractInfos = contractInfos,
     )
   }
 
   private def writeContractsAddedEvents(
       synchronizerId: SynchronizerId,
       recordTime: CantonTimestamp,
-      contractsAdded: Seq[(TimeOfRepair, (CreationTime.CreatedAt, Seq[ContractToAdd]))],
-      internalContractIdsForContractsAdded: Map[LfContractId, Long],
+      contractsAdded: Seq[(TimeOfRepair, (CreationTime.CreatedAt, Seq[(ContractToAdd, Long)]))],
       workflowIds: Iterator[Option[LfWorkflowId]],
       repairIndexer: FutureQueue[RepairUpdate],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
@@ -555,7 +585,6 @@ final class RepairServiceContractsImporter(
               repairCounter = timeOfChange.repairCounter,
               ledgerCreateTime = timestamp,
               contractsAdded = contractsToAdd,
-              internalContractIdsForContractsAdded = internalContractIdsForContractsAdded,
               workflowIdProvider = () => workflowIds.next(),
             )
           )

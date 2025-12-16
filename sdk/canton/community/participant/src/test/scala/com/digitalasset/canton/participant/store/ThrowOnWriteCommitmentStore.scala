@@ -200,7 +200,4 @@ class ThrowOnWriteCommitmentStore()(override implicit val ec: ExecutionContext)
 
   override def acsCounterParticipantConfigStore: AcsCounterParticipantConfigStore = ???
 
-  override def markMultiHostedCleared(period: CommitmentPeriod)(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Unit] = incrementCounterAndErr()
 }

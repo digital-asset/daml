@@ -278,6 +278,7 @@ private[validation] object Typing {
       BGreaterEq -> tComparison,
       BSECP256K1Bool -> (TText ->: TText ->: TText ->: TBool),
       BSECP256K1WithEcdsaBool -> (TText ->: TText ->: TText ->: TBool),
+      BSECP256K1ValidateKey -> (TText ->: TBool),
       BCoerceContractId ->
         TForall(
           alpha.name -> KStar,
@@ -1366,7 +1367,7 @@ private[validation] object Typing {
     }
 
     private def checkAnyType(typ: Type): Unit = {
-      if (languageVersion >= LanguageVersion.Features.complexAnyType)
+      if (LanguageVersion.featureComplexAnyType.enabledIn(languageVersion))
         checkAnyType_(typ)
       else
         typ match {

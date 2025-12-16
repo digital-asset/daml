@@ -6,11 +6,10 @@ package com.digitalasset.canton.synchronizer.mediator
 import cats.data.{EitherT, OptionT}
 import cats.syntax.foldable.*
 import cats.syntax.functorFilter.*
-import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
-import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.{
   SigningKeyUsage,
   SynchronizerCryptoClient,
@@ -51,6 +50,7 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
     val mediatorState: MediatorState,
     protected val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
+    batchingConfig: BatchingConfig,
 )(implicit ec: ExecutionContext, tracer: Tracer)
     extends NamedLogging
     with Spanning
@@ -215,6 +215,7 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
                     participantResponseDeadline,
                     decisionTime,
                     snapshot.ipsSnapshot,
+                    batchingConfig,
                     Some(participantResponseDeadlineTick),
                   )
                   _ <- mediatorState.add(aggregation)
@@ -645,58 +646,59 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, MediatorVerdict.MediatorReject, Unit] =
-    request.informeesAndConfirmationParamsByViewPosition.toList
-      .parTraverse_ { case (viewPosition, viewConfirmationParameters) =>
-        // sorting parties to get deterministic error messages
-        val declaredConfirmingParties =
-          viewConfirmationParameters.confirmers.toSeq.sortBy(pId => pId)
+    MonadUtil.parTraverseWithLimit_(batchingConfig.parallelism)(
+      request.informeesAndConfirmationParamsByViewPosition.toList
+    ) { case (viewPosition, viewConfirmationParameters) =>
+      // sorting parties to get deterministic error messages
+      val declaredConfirmingParties =
+        viewConfirmationParameters.confirmers.toSeq.sortBy(pId => pId)
 
-        for {
-          hostedConfirmingParties <- EitherT.right[MediatorVerdict.MediatorReject](
-            snapshot
-              .isHostedByAtLeastOneParticipantF(
-                declaredConfirmingParties.toSet,
-                (_, attr) => attr.canConfirm,
+      for {
+        hostedConfirmingParties <- EitherT.right[MediatorVerdict.MediatorReject](
+          snapshot
+            .isHostedByAtLeastOneParticipantF(
+              declaredConfirmingParties.toSet,
+              (_, attr) => attr.canConfirm,
+            )
+        )
+
+        (authorized, unauthorized) = declaredConfirmingParties.partition(
+          hostedConfirmingParties.contains
+        )
+
+        confirmed = viewConfirmationParameters.quorums.forall { quorum =>
+          // For the authorized informees that belong to each quorum, verify if their combined weight is enough
+          // to meet the quorum's threshold.
+          quorum.confirmers
+            .filter { case (partyId, _) => authorized.contains(partyId) }
+            .values
+            .map(_.unwrap)
+            .sum >= quorum.threshold.unwrap
+        }
+
+        _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
+          confirmed, {
+            val insufficientPermissionHint =
+              if (unauthorized.nonEmpty)
+                show"\nParties without participant having permission to confirm: $unauthorized"
+              else ""
+
+            val authorizedPartiesHint =
+              if (authorized.nonEmpty) show"\nAuthorized parties: $authorized" else ""
+
+            val rejection = MediatorError.MalformedMessage
+              .Reject(
+                s"Received a mediator confirmation request with id $requestId with insufficient authorized confirming parties for transaction view at $viewPosition. " +
+                  s"Rejecting request." +
+                  insufficientPermissionHint +
+                  authorizedPartiesHint
               )
-          )
-
-          (authorized, unauthorized) = declaredConfirmingParties.partition(
-            hostedConfirmingParties.contains
-          )
-
-          confirmed = viewConfirmationParameters.quorums.forall { quorum =>
-            // For the authorized informees that belong to each quorum, verify if their combined weight is enough
-            // to meet the quorum's threshold.
-            quorum.confirmers
-              .filter { case (partyId, _) => authorized.contains(partyId) }
-              .values
-              .map(_.unwrap)
-              .sum >= quorum.threshold.unwrap
-          }
-
-          _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
-            confirmed, {
-              val insufficientPermissionHint =
-                if (unauthorized.nonEmpty)
-                  show"\nParties without participant having permission to confirm: $unauthorized"
-                else ""
-
-              val authorizedPartiesHint =
-                if (authorized.nonEmpty) show"\nAuthorized parties: $authorized" else ""
-
-              val rejection = MediatorError.MalformedMessage
-                .Reject(
-                  s"Received a mediator confirmation request with id $requestId with insufficient authorized confirming parties for transaction view at $viewPosition. " +
-                    s"Rejecting request." +
-                    insufficientPermissionHint +
-                    authorizedPartiesHint
-                )
-                .reported()
-              MediatorVerdict.MediatorReject(rejection)
-            },
-          )
-        } yield ()
-      }
+              .reported()
+            MediatorVerdict.MediatorReject(rejection)
+          },
+        )
+      } yield ()
+    }
 
   def processResponses(
       ts: CantonTimestamp,
@@ -794,7 +796,8 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
             }
           }
           nextResponseAggregation <- OptionT(
-            responseAggregation.validateAndProgress(ts, responses, snapshot.ipsSnapshot)
+            responseAggregation
+              .validateAndProgress(ts, responses, snapshot.ipsSnapshot, batchingConfig)
           )
           _unit <- OptionT(
             mediatorState

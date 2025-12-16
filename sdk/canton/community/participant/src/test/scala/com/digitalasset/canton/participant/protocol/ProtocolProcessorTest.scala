@@ -413,7 +413,7 @@ class ProtocolProcessorTest
   private lazy val viewMessage: EncryptedViewMessage[TestViewType] = EncryptedViewMessage(
     submittingParticipantSignature = None,
     viewHash = viewHash,
-    sessionKeys = sessionKeyMapTest,
+    viewEncryptionKeyRandomness = sessionKeyMapTest,
     encryptedView = encryptedView,
     synchronizerId = DefaultTestIdentities.physicalSynchronizerId,
     SymmetricKeyScheme.Aes128Gcm,
@@ -539,7 +539,7 @@ class ProtocolProcessorTest
         parameters.parameters,
       ).forOwnerAndSynchronizer(participant, psid)
       val (sut, persistent, ephemeral, _) = testProcessingSteps(crypto = crypto2)
-      val topo2 = crypto2.currentSnapshotApproximation.ipsSnapshot
+      val topo2 = crypto2.currentSnapshotApproximation.futureValueUS.ipsSnapshot
       val res = sut.submit(1, topo2).onShutdown(fail("submission shutdown")).value.futureValue
       res shouldBe Left(TestProcessorError(NoMediatorError(CantonTimestamp.Epoch)))
     }
@@ -678,7 +678,7 @@ class ProtocolProcessorTest
       val viewMessageWrongRH = EncryptedViewMessage(
         submittingParticipantSignature = None,
         viewHash = viewHash1,
-        sessionKeys = sessionKeyMapTest,
+        viewEncryptionKeyRandomness = sessionKeyMapTest,
         encryptedView = encryptedViewWrongRH,
         synchronizerId = DefaultTestIdentities.physicalSynchronizerId,
         SymmetricKeyScheme.Aes128Gcm,
@@ -713,7 +713,7 @@ class ProtocolProcessorTest
       val viewMessageDecryptError: EncryptedViewMessage[TestViewType] = EncryptedViewMessage(
         submittingParticipantSignature = None,
         viewHash = viewHash,
-        sessionKeys = sessionKeyMapTest,
+        viewEncryptionKeyRandomness = sessionKeyMapTest,
         encryptedView = EncryptedView(TestViewType)(Encrypted.fromByteString(ByteString.EMPTY)),
         synchronizerId = DefaultTestIdentities.physicalSynchronizerId,
         viewEncryptionScheme = SymmetricKeyScheme.Aes128Gcm,

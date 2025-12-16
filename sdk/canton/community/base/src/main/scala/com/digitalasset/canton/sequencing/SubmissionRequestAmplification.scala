@@ -4,11 +4,11 @@
 package com.digitalasset.canton.sequencing
 
 import com.digitalasset.canton.admin.sequencer.v30
-import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.time.NonNegativeFiniteDuration
 
 /** Configures the submission request amplification. Amplification makes sequencer clients send
   * eligible submission requests to multiple sequencers to overcome message loss in faulty
@@ -23,7 +23,7 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
   */
 final case class SubmissionRequestAmplification(
     factor: PositiveInt,
-    patience: config.NonNegativeFiniteDuration,
+    patience: NonNegativeFiniteDuration,
 ) extends PrettyPrinting {
 
   private[sequencing] def toProtoV30: v30.SubmissionRequestAmplification =
@@ -40,7 +40,7 @@ final case class SubmissionRequestAmplification(
 
 object SubmissionRequestAmplification {
   val NoAmplification: SubmissionRequestAmplification =
-    SubmissionRequestAmplification(PositiveInt.one, config.NonNegativeFiniteDuration.Zero)
+    SubmissionRequestAmplification(PositiveInt.one, NonNegativeFiniteDuration.Zero)
 
   private[sequencing] def fromProtoV30(
       proto: v30.SubmissionRequestAmplification
@@ -49,7 +49,7 @@ object SubmissionRequestAmplification {
     for {
       factor <- ProtoConverter.parsePositiveInt("factor", factorP)
       patience <- ProtoConverter.parseRequired(
-        config.NonNegativeFiniteDuration.fromProtoPrimitive("patience"),
+        NonNegativeFiniteDuration.fromProtoPrimitive("patience"),
         "patience",
         patienceP,
       )

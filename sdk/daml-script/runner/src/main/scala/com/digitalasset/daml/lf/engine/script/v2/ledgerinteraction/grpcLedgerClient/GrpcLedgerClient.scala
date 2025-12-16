@@ -11,9 +11,24 @@ import java.util.UUID
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.ledger.api.{PartyDetails, User, UserRight}
+import com.daml.ledger.api.v2.admin.package_management_service.{
+  UpdateVettedPackagesRequest,
+  VettedPackagesChange,
+  VettedPackagesRef,
+}
+import com.daml.ledger.api.v2.admin.package_management_service.VettedPackagesChange.{
+  Operation,
+  Vet,
+  Unvet,
+}
 import com.daml.ledger.api.v2.commands.Commands
 import com.daml.ledger.api.v2.commands._
 import com.daml.ledger.api.v2.event.InterfaceView
+import com.daml.ledger.api.v2.package_service.{
+  ListVettedPackagesRequest,
+  PackageMetadataFilter,
+  TopologyStateFilter,
+}
 import com.daml.ledger.api.v2.testing.time_service.TimeServiceGrpc.TimeServiceStub
 import com.daml.ledger.api.v2.testing.time_service.{GetTimeRequest, SetTimeRequest, TimeServiceGrpc}
 import com.daml.ledger.api.v2.transaction_filter.CumulativeFilter.IdentifierFilter
@@ -30,11 +45,12 @@ import com.daml.timer.RetryStrategy
 import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.daml.lf.command
+import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
 import com.digitalasset.daml.lf.engine.script.v2.Converter
-import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
-import com.digitalasset.daml.lf.speedy.{SValue, svalue}
+import com.digitalasset.daml.lf.engine.{Enricher, ResultDone}
+import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, Reference}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi.{
@@ -43,7 +59,7 @@ import com.digitalasset.canton.ledger.api.util.LfEngineToApi.{
   toApiIdentifier,
   toTimestamp,
 }
-import com.daml.script.converter.ConverterException
+import com.digitalasset.daml.lf.script.converter.ConverterException
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.{Status, StatusRuntimeException}
 import io.grpc.protobuf.StatusProto
@@ -66,6 +82,16 @@ class GrpcLedgerClient(
 ) extends ScriptLedgerClient {
   override val transport = "gRPC API"
   implicit val traceContext: TraceContext = TraceContext.empty
+
+  val enricher = new Enricher(
+    compiledPackages = compiledPackages,
+    // Cannot load packages in GrpcLedgerClient
+    loadPackage = { (_: PackageId, _: Reference) => ResultDone(()) },
+    addTypeInfo = true,
+    addFieldNames = true,
+    addTrailingNoneFields = true,
+    forbidLocalContractIds = true,
+  )
 
   override def query(
       parties: OneAnd[Set, Ref.Party],
@@ -215,9 +241,20 @@ class GrpcLedgerClient(
         val key: Option[Value] = createdEvent.contractKey.map { key =>
           NoLoggingValueValidator.validateValue(key) match {
             case Left(err) => throw new ConverterException(err.toString)
-            case Right(argument) => argument
+            case Right(key) => key
           }
         }
+        val enrichedArgument = enricher.enrichContract(templateId, argument).consume() match {
+          case Right(arg) => arg
+          case Left(err) => throw new ConverterException(err.toString)
+        }
+        val enrichedKey = key.map { key =>
+          enricher.enrichContractKey(templateId, key).consume() match {
+            case Right(key) => key
+            case Left(err) => throw new ConverterException(err.toString)
+          }
+        }
+
         val cid =
           ContractId
             .fromString(createdEvent.contractId)
@@ -239,10 +276,10 @@ class GrpcLedgerClient(
           ScriptLedgerClient.ActiveContract(
             disclosureTemplateId,
             cid,
-            argument,
+            enrichedArgument,
             blob,
           ),
-          key,
+          enrichedKey,
         )
       })
     )
@@ -298,9 +335,17 @@ class GrpcLedgerClient(
               case Left(err) => throw new ConverterException(err.toString)
               case Right(argument) => argument
             }
+          val enrichedviewValue =
+            if (viewValue.fields.isEmpty)
+              None
+            else
+              Some(enricher.enrichView(interfaceId, viewValue).consume() match {
+                case Right(viewValue) => viewValue
+                case Left(err) => throw new ConverterException(err.toString)
+              })
           // Because we filter for a specific interfaceId,
           // we will get at most one view for a given cid.
-          (cid, if (viewValue.fields.isEmpty) None else Some(viewValue))
+          (cid, enrichedviewValue)
         }
       })
     )
@@ -327,29 +372,28 @@ class GrpcLedgerClient(
   override def queryContractKey(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
-      key: SValue,
-      translateKey: (Identifier, Value) => Either[String, SValue],
+      key: Value,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[Option[ScriptLedgerClient.ActiveContract]] = {
     // We cannot do better than a linear search over query here.
-    import scalaz.std.option._
-    import scalaz.std.scalaFuture._
-    import scalaz.std.vector._
-    import scalaz.syntax.traverse._
     for {
       activeContracts <- queryWithKey(parties, templateId)
-      speedyContracts <- activeContracts.traverse { case (t, kOpt) =>
-        Converter.toFuture(kOpt.traverse(translateKey(templateId, _)).map(k => (t, k)))
+      ownPackageName <- Converter.toFuture(
+        packageIdToUpgradeName(false, templateId.packageId).toRight("Cannot get package name")
+      )
+      speedyContracts = activeContracts.map { case (t, kOpt) =>
+        (t, kOpt.map(Hash.assertHashContractKey(templateId, ownPackageName, _)))
       }
+      ownHash = Hash.assertHashContractKey(templateId, ownPackageName, key)
     } yield {
       // Note that the Equal instance on Value performs structural equality
       // and also compares optional field and constructor names and is
       // therefore not correct here.
       // Equality.areEqual corresponds to the Daml-LF value equality
       // which we want here.
-      speedyContracts.collectFirst({ case (c, Some(k)) if svalue.Equality.areEqual(k, key) => c })
+      speedyContracts.collectFirst({ case (c, Some(kHash)) if kHash == ownHash => c })
     }
   }
 
@@ -407,7 +451,7 @@ class GrpcLedgerClient(
         case Right(resp) =>
           for {
             tree <- Converter.toFuture(
-              Converter.fromTransaction(resp.getTransaction, commandResultPackageIds)
+              Converter.fromTransaction(resp.getTransaction, commandResultPackageIds, enricher)
             )
             results = ScriptLedgerClient.transactionTreeToCommandResults(tree)
           } yield Right((results, tree))
@@ -451,7 +495,7 @@ class GrpcLedgerClient(
             if (res.connectedSynchronizers.isEmpty)
               Future.failed(
                 new java.util.concurrent.TimeoutException(
-                  "Party not allocated on any synchonizer within 1 second"
+                  "Party not allocated on any synchronizer within 1 second"
                 )
               )
             else Future.unit
@@ -571,7 +615,8 @@ class GrpcLedgerClient(
 
   private def toPrefetchContractKey(key: AnyContractKey): Either[String, PrefetchContractKey] = {
     for {
-      contractKey <- lfValueToApiValue(true, key.key.toUnnormalizedValue)
+      nonExtendedKeyValue <- Converter.castCommandExtendedValue(key.key)
+      contractKey <- lfValueToApiValue(true, nonExtendedKeyValue)
     } yield PrefetchContractKey(
       templateId = Some(toApiIdentifierUpgrades(key.templateId.toRef, false)),
       contractKey = Some(contractKey),
@@ -675,22 +720,27 @@ class GrpcLedgerClient(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Unit] = {
-    val adminClient = oAdminClient.getOrElse(
-      throw new IllegalArgumentException("Attempted to use unvetDar without specifying a adminPort")
-    )
-    adminClient.vetPackages(packages)
-  }
-
-  override def waitUntilVettingVisible(
-      packages: Iterable[ScriptLedgerClient.ReadablePackageId],
-      onParticipantUid: String,
-  ): Future[Unit] = {
-    val adminClient = oAdminClient.getOrElse(
-      throw new IllegalArgumentException(
-        "Attempted to use waitUntilVettingVisible without specifying a adminPort"
+    grpcClient.packageManagementClient
+      .updateVettedPackages(
+        UpdateVettedPackagesRequest.of(
+          Seq(
+            VettedPackagesChange.of(
+              Operation.Vet(
+                Vet(
+                  packages.map(pkg => VettedPackagesRef("", pkg.name, pkg.version.toString)),
+                  newValidFromInclusive = None,
+                  newValidUntilExclusive = None,
+                )
+              )
+            )
+          ),
+          dryRun = false,
+          synchronizerId = "",
+          expectedTopologySerial = None,
+          updateVettedPackagesForceFlags = Seq.empty,
+        )
       )
-    )
-    adminClient.waitUntilVettingVisible(packages, onParticipantUid)
+      .map(_ => ())
   }
 
   override def unvetPackages(packages: List[ScriptLedgerClient.ReadablePackageId])(implicit
@@ -698,23 +748,97 @@ class GrpcLedgerClient(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Unit] = {
-    val adminClient = oAdminClient.getOrElse(
-      throw new IllegalArgumentException("Attempted to use unvetDar without specifying a adminPort")
-    )
-    adminClient.unvetPackages(packages)
+    grpcClient.packageManagementClient
+      .updateVettedPackages(
+        UpdateVettedPackagesRequest.of(
+          Seq(
+            VettedPackagesChange.of(
+              Operation.Unvet(
+                Unvet(packages.map(pkg => VettedPackagesRef("", pkg.name, pkg.version.toString)))
+              )
+            )
+          ),
+          dryRun = false,
+          synchronizerId = "",
+          expectedTopologySerial = None,
+          updateVettedPackagesForceFlags = Seq.empty,
+        )
+      )
+      .map(_ => ())
+  }
+
+  override def waitUntilVettingVisible(
+      packages: Iterable[ScriptLedgerClient.ReadablePackageId],
+      onParticipantUid: String,
+  )(implicit ec: ExecutionContext): Future[Unit] = {
+    RetryStrategy.constant(25, 200.milliseconds) { case (_, _) =>
+      for {
+        vettedPackages <- listPackages(packages, onParticipantUid, "")
+        _ <-
+          if (packages.forall(vettedPackages.contains(_)))
+            Future.unit
+          else
+            Future.failed(
+              new java.util.concurrent.TimeoutException(
+                s"Not all packages on participant $onParticipantUid have been vetted within 5 seconds: $packages"
+              )
+            )
+      } yield ()
+    }
   }
 
   override def waitUntilUnvettingVisible(
       packages: Iterable[ScriptLedgerClient.ReadablePackageId],
       onParticipantUid: String,
-  ): Future[Unit] = {
-    val adminClient = oAdminClient.getOrElse(
-      throw new IllegalArgumentException(
-        "Attempted to use waitUntilUnvettingVisible without specifying a adminPort"
+  )(implicit ec: ExecutionContext): Future[Unit] = {
+    RetryStrategy.constant(25, 200.milliseconds) { case (_, _) =>
+      for {
+        vettedPackages <- listPackages(packages, onParticipantUid, "")
+        _ <-
+          if (packages.forall(!vettedPackages.contains(_)))
+            Future.unit
+          else
+            Future.failed(
+              new java.util.concurrent.TimeoutException(
+                s"Not all packages on participant $onParticipantUid have been unvetted within 5 seconds: $packages"
+              )
+            )
+      } yield ()
+    }
+  }
+
+  private def listPackages(
+      packages: Iterable[ScriptLedgerClient.ReadablePackageId],
+      onParticipantUid: String,
+      pageToken: String,
+  )(implicit ec: ExecutionContext): Future[Seq[ScriptLedgerClient.ReadablePackageId]] = for {
+    response <- grpcClient.packageService
+      .listVettedPackages(
+        ListVettedPackagesRequest.of(
+          packageMetadataFilter = Some(
+            PackageMetadataFilter
+              .of(packageIds = Seq.empty, packageNamePrefixes = packages.map(_.name).toSeq)
+          ),
+          topologyStateFilter = Some(
+            TopologyStateFilter
+              .of(participantIds = Seq(onParticipantUid), synchronizerIds = Seq.empty)
+          ),
+          pageToken = pageToken,
+          pageSize = 0,
+        )
+      )
+    tail <-
+      if (response.nextPageToken.isEmpty) Future.successful(Nil)
+      else listPackages(packages, onParticipantUid, response.nextPageToken)
+    readableVettedPackages = response.vettedPackages.flatMap(
+      _.packages.map(pkg =>
+        ScriptLedgerClient.ReadablePackageId(
+          Ref.PackageName.assertFromString(pkg.packageName),
+          Ref.PackageVersion.assertFromString(pkg.packageVersion),
+        )
       )
     )
-    adminClient.waitUntilUnvettingVisible(packages, onParticipantUid)
-  }
+  } yield readableVettedPackages ++ tail
 
   override def listVettedPackages()(implicit
       ec: ExecutionContext,
@@ -728,22 +852,46 @@ class GrpcLedgerClient(
       mat: Materializer,
   ): Future[List[ScriptLedgerClient.ReadablePackageId]] = unsupportedOn("listAllPackages")
 
-  override def proposePartyReplication(party: Ref.Party, toParticipantId: String): Future[Unit] = {
+  override def allocatePartyOnMultipleParticipants(
+      party: Ref.Party,
+      participantIds: Iterable[String],
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Unit] = {
     val adminClient = oAdminClient.getOrElse(
       throw new IllegalArgumentException(
         "Attempted to use exportParty without specifying a adminPort"
       )
     )
-    adminClient.proposePartyReplication(party, toParticipantId)
+    adminClient.allocatePartyOnMultipleParticipants(party, participantIds)
   }
 
-  override def waitUntilHostingVisible(party: Ref.Party, onParticipantUid: String): Future[Unit] = {
+  override def aggregateAllocatePartyOnMultipleParticipants(
+      clients: List[ScriptLedgerClient],
+      partyHint: String,
+      namespace: String,
+      participantIds: Iterable[String],
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Ref.Party] = {
+    val party = Party.assertFromString(partyHint + "::" + namespace)
+    for {
+      _ <- Future.traverse(clients)(_.allocatePartyOnMultipleParticipants(party, participantIds))
+    } yield party
+  }
+
+  override def waitUntilHostingVisible(
+      party: Ref.Party,
+      onParticipantUids: Iterable[String],
+  ): Future[Unit] = {
     val adminClient = oAdminClient.getOrElse(
       throw new IllegalArgumentException(
         "Attempted to use waitUntilHostingVisible without specifying a adminPort"
       )
     )
-    adminClient.waitUntilHostingVisible(party, onParticipantUid)
+    adminClient.waitUntilHostingVisible(party, onParticipantUids)
   }
 
   override def getParticipantUid: String = oAdminClient

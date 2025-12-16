@@ -6,7 +6,6 @@ package com.digitalasset.canton.integration.tests.upgrading
 import com.daml.ledger.javaapi.data.CreateCommand
 import com.daml.ledger.javaapi.data.codegen.{Created, Update}
 import com.digitalasset.canton.LfPackageId
-import com.digitalasset.canton.config.DbConfig.Postgres
 import com.digitalasset.canton.damltests.upgrade.v1.java.upgrade.{
   UpgradeItCallInterface as UpgradeItCallInterfaceV1,
   UpgradeItTemplate as UpgradeItTemplateV1,
@@ -16,7 +15,7 @@ import com.digitalasset.canton.damltests.upgrade.v1.java.upgradeif.{
   UpgradeItVersionStamp,
 }
 import com.digitalasset.canton.damltests.upgrade.v2.java.upgrade.UpgradeItTemplate as UpgradeItTemplateV2
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
@@ -176,5 +175,6 @@ sealed abstract class InterfaceResolutionIntegrationTest
 }
 
 final class InterfaceResolutionIntegrationRefTest extends InterfaceResolutionIntegrationTest {
-  registerPlugin(new UseReferenceBlockSequencer[Postgres](loggerFactory))
+  registerPlugin(new UsePostgres(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }

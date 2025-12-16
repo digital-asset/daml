@@ -12,8 +12,6 @@ import com.daml.ledger.api.v2.admin.command_inspection_service.{
 import com.daml.ledger.api.v2.commands.Command
 import com.daml.ledger.api.v2.value.Identifier
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.config.semiauto.CantonConfigValidatorDerivation
-import com.digitalasset.canton.config.{CantonConfigValidator, UniformCantonConfigValidation}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -28,6 +26,7 @@ import com.digitalasset.canton.platform.apiserver.execution.{
   CommandStatus,
 }
 import com.digitalasset.canton.platform.store.CompletionFromTransaction
+import com.digitalasset.canton.platform.store.CompletionFromTransaction.CommonCompletionProperties
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
 import com.digitalasset.canton.protocol.LfSubmittedTransaction
 import com.digitalasset.canton.time.Clock
@@ -48,15 +47,9 @@ final case class CommandProgressTrackerConfig(
     maxFailed: NonNegativeInt = defaultMaxFailed,
     maxPending: NonNegativeInt = defaultMaxPending,
     maxSucceeded: NonNegativeInt = defaultMaxSucceeded,
-) extends UniformCantonConfigValidation
+)
 
 object CommandProgressTrackerConfig {
-  implicit val commandProgressTrackerConfigCantonConfigValidator
-      : CantonConfigValidator[CommandProgressTrackerConfig] = {
-    import com.digitalasset.canton.config.CantonConfigValidatorInstances.*
-    CantonConfigValidatorDerivation[CommandProgressTrackerConfig]
-  }
-
   lazy val defaultMaxFailed: NonNegativeInt = NonNegativeInt.tryCreate(100)
   lazy val defaultMaxPending: NonNegativeInt = NonNegativeInt.tryCreate(1000)
   lazy val defaultMaxSucceeded: NonNegativeInt = NonNegativeInt.tryCreate(100)
@@ -256,18 +249,20 @@ class CommandProgressTrackerImpl(
       started = clock.now,
       completed = None,
       completion = CompletionFromTransaction.toApiCompletion(
-        submitters = Set.empty,
-        commandId = commandId,
+        CommonCompletionProperties(
+          submitters = Set.empty,
+          commandId = commandId,
+          userId = userId,
+          submissionId = submissionId,
+          completionOffset = 0L,
+          synchronizerTime = None,
+          traceContext = traceContext,
+          deduplicationOffset = None,
+          deduplicationDurationSeconds = None,
+          deduplicationDurationNanos = None,
+        ),
         updateId = "",
-        userId = userId,
-        traceContext = traceContext,
         optStatus = None,
-        optSubmissionId = submissionId,
-        optDeduplicationOffset = None,
-        optDeduplicationDurationSeconds = None,
-        optDeduplicationDurationNanos = None,
-        offset = 0L,
-        synchronizerTime = None,
       ),
       state = CommandState.COMMAND_STATE_PENDING,
       commands = commands,

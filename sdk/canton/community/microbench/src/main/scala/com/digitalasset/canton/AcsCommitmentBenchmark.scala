@@ -477,6 +477,8 @@ class AcsCommitmentBenchmark
       Some(CommitmentSendDelay(Some(NonNegativeProportion.zero), Some(NonNegativeProportion.zero))),
       doNotAwaitOnCheckingIncomingCommitments = false,
       commitmentCheckpointInterval = PositiveDurationSeconds.ofSeconds(reconciliationInterval),
+      commitmentMismatchDebugging = false,
+      commitmentProcessorNrAcsChangesBehindToTriggerCatchUp = None,
     )
   }
 

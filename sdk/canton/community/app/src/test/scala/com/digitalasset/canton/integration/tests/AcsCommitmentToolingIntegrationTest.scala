@@ -1080,6 +1080,7 @@ trait AcsCommitmentToolingIntegrationTest
 class AcsCommitmentToolingIntegrationTestPostgres extends AcsCommitmentToolingIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
+    // TODO(#29603): This test fails to advance time properly with BFT sequencer, too flaky (>50% failures).
     new UseReferenceBlockSequencer[DbConfig.Postgres](
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
@@ -1096,7 +1097,7 @@ class AcsCommitmentToolingIntegrationTestPostgres extends AcsCommitmentToolingIn
 //class AcsCommitmentToolingIntegrationTestH2 extends AcsCommitmentToolingIntegrationTest {
 //  registerPlugin(new UseH2(loggerFactory))
 //  registerPlugin(
-//    new UseCommunityReferenceBlockSequencer[DbConfig.H2](
+//    new UseBftSequencer(
 //      loggerFactory,
 //      sequencerGroups = MultiSynchronizer(
 //        Seq(

@@ -540,6 +540,7 @@ object Ast {
   final case object BSECP256K1Bool extends BuiltinFunction // : Text -> Text -> Text -> Bool
   final case object BSECP256K1WithEcdsaBool
       extends BuiltinFunction // : Text -> Text -> Text -> Bool
+  final case object BSECP256K1ValidateKey extends BuiltinFunction // : Text -> Bool
 
   final case object BCoerceContractId
       extends BuiltinFunction // : ∀a b. ContractId a -> ContractId b
@@ -1108,6 +1109,15 @@ object Ast {
       throw PackageError(
         s"Collision between exception and template/interface name ${name.toString}"
       )
+
+    private[daml] def serializableDefinitions: Map[DottedName, DDataType] =
+      definitions.collect {
+        case (name, dataType: DDataType) if dataType.serializable => name -> dataType
+      }
+
+    /** A utility module is a module that does not contain any serializable type */
+    private[daml] def isUtilityModule: Boolean =
+      templates.isEmpty && interfaces.isEmpty && serializableDefinitions.isEmpty
   }
 
   private[this] def toMapWithoutDuplicate[Key, Value](
@@ -1215,7 +1225,9 @@ object Ast {
       name: PackageName,
       version: PackageVersion,
       upgradedPackageId: Option[PackageId],
-  )
+  ) {
+    def nameDashVersion: String = s"$name-$version"
+  }
 
   sealed trait Imports {
     val pkgIds: Set[PackageId]
@@ -1246,7 +1258,7 @@ object Ast {
       imports: Imports,
       // Packages that do not define any serializable types are referred to as utility packages
       // in the context of upgrades. They will not be considered for upgrade checks.
-      private val isUtilityPackage: Boolean,
+      isUtilityPackage: Boolean,
   ) {
     def supportsUpgrades(pkgId: Ref.PackageId) =
       LanguageVersion
@@ -1344,22 +1356,13 @@ object Ast {
         metadata: PackageMetadata,
         imports: Imports,
     ): GenPackage[E] = {
-      val isUtilityPackage =
-        modules.values.forall(mod =>
-          mod.templates.isEmpty &&
-            mod.interfaces.isEmpty &&
-            mod.definitions.values.forall {
-              case DDataType(serializable, _, _) => !serializable
-              case _ => true
-            }
-        )
       GenPackage(
         modules = modules,
         directDeps = directDeps,
         languageVersion = languageVersion,
         metadata = metadata,
-        isUtilityPackage = isUtilityPackage,
         imports = imports,
+        isUtilityPackage = modules.values.forall(_.isUtilityModule),
       )
     }
 

@@ -6,7 +6,6 @@ package com.digitalasset.canton.integration.tests.repair
 import com.daml.ledger.api.v2.commands.Command
 import com.digitalasset.canton.BigDecimalImplicits.*
 import com.digitalasset.canton.config
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.FeatureFlag
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.examples.java.iou
@@ -15,7 +14,6 @@ import com.digitalasset.canton.integration.plugins.{
   UseBftSequencer,
   UsePostgres,
   UseProgrammableSequencer,
-  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.util.EntitySyntax
 import com.digitalasset.canton.ledger.participant.state.SequencerIndex
@@ -429,15 +427,6 @@ trait RepairSynchronizerRecoveryIntegrationTest
       }
     }
   }
-}
-
-class RepairSynchronizerRecoveryIntegrationTestPostgres
-    extends RepairSynchronizerRecoveryIntegrationTest {
-  registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory)
-  )
-  registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
 }
 
 class RepairSynchronizerRecoveryBftOrderingIntegrationTestPostgres

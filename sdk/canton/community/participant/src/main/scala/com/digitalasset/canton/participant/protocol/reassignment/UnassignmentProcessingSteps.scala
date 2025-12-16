@@ -61,7 +61,7 @@ import com.digitalasset.canton.util.EitherTUtil.{condUnitET, ifThenET}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{ContractValidator, MonadUtil}
 import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionValidation}
-import com.digitalasset.canton.{LfPartyId, RequestCounter, SequencerCounter, checked}
+import com.digitalasset.canton.{LfPackageId, LfPartyId, RequestCounter, SequencerCounter, checked}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -126,6 +126,8 @@ private[reassignment] class UnassignmentProcessingSteps(
       submitterMetadata,
       contractIds,
       targetSynchronizer,
+      sourceValidationPackageIds,
+      targetValidationPackageIds,
     ) = submissionParam
     val pureCrypto = sourceRecentSnapshot.pureCrypto
 
@@ -186,7 +188,16 @@ private[reassignment] class UnassignmentProcessingSteps(
                 (UnassignmentProcessorError.ReassignmentCounterOverflow: ReassignmentProcessorError)
               )
           )
-        } yield (contract, newReassignmentCounter)
+          sourceValidationPackageId = sourceValidationPackageIds
+            .getOrElse(contractId, contract.templateId.packageId)
+          targetValidationPackageId = targetValidationPackageIds
+            .getOrElse(contractId, contract.templateId.packageId)
+        } yield (
+          contract,
+          Source(sourceValidationPackageId),
+          Target(targetValidationPackageId),
+          newReassignmentCounter,
+        )
       })
       contracts <- EitherT.fromEither[FutureUnlessShutdown] {
         ContractsReassignmentBatch
@@ -198,6 +209,7 @@ private[reassignment] class UnassignmentProcessingSteps(
         .validated(
           participantId,
           contracts,
+          contractValidator,
           submitterMetadata,
           psid,
           mediator,
@@ -710,6 +722,8 @@ object UnassignmentProcessingSteps {
       submitterMetadata: ReassignmentSubmitterMetadata,
       contractIds: Seq[LfContractId],
       targetSynchronizer: Target[PhysicalSynchronizerId],
+      overrideSourceValidationPkgIds: Map[LfContractId, LfPackageId],
+      overrideTargetValidationPkgIds: Map[LfContractId, LfPackageId],
   ) {
     val submittingParty: LfPartyId = submitterMetadata.submitter
   }

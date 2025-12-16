@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.protocol.reassignment
 
-import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.ReassignmentRef
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -15,6 +14,7 @@ import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId, Stakehold
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.util.ReassignmentTag
+import com.digitalasset.canton.{LfPackageId, LfPartyId}
 
 trait ReassignmentValidationError extends Serializable with Product with PrettyPrinting {
   override protected def pretty: Pretty[ReassignmentValidationError.this.type] =
@@ -57,13 +57,14 @@ object ReassignmentValidationError {
         s"Expected $expectedStakeholders, found $declaredViewStakeholders"
   }
 
-  final case class ContractAuthenticationFailure(
+  final case class ContractValidationError(
       reassignmentRef: ReassignmentRef,
-      reason: String,
       contractId: LfContractId,
+      representativePackageId: LfPackageId,
+      reason: String,
   ) extends ReassignmentValidationError {
     override def message: String =
-      s"For `$reassignmentRef`: contract id authentication failure for $contractId"
+      s"For `$reassignmentRef`: contract authentication failure for $contractId when authenticating against $representativePackageId: $reason"
   }
 
   final case class NotHostedOnParticipant(

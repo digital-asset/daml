@@ -382,7 +382,12 @@ sealed trait AcsCommitmentProcessorBaseTest
         increasePerceivedComputationTimeForCommitments
       )(interval.duration.multipliedBy(2)),
       doNotAwaitOnCheckingIncomingCommitments = false,
-      commitmentCheckpointInterval = PositiveDurationSeconds.ofSeconds(interval.duration.getSeconds),
+      commitmentCheckpointInterval =
+        PositiveDurationSeconds.ofSeconds(interval.duration.getSeconds),
+      // just as for the additional consistency checks flag: if enabled, one needs to populate the above ACS
+      // and contract stores correctly, otherwise the tests will fail
+      commitmentMismatchDebugging = false,
+      commitmentProcessorNrAcsChangesBehindToTriggerCatchUp = Some(PositiveInt.tryCreate(5)),
     )
     (acsCommitmentProcessor, store, sequencerClient, changes, acsCommitmentConfigStore)
   }
@@ -1751,64 +1756,6 @@ class AcsCommitmentProcessorTest
       }
     }
 
-    "prune multi-hosted correctly with buffered requests that spans several periods" in {
-      val timeProofs = List(3L, 8, 20).map(CantonTimestamp.ofEpochSecond)
-      val contractSetup = Map(
-        // contract ID to stakeholders, creation and archival time
-        (
-          coid(0, 0),
-          (
-            Set(alice, bob),
-            toc(1),
-            toc(9),
-            initialReassignmentCounter,
-            initialReassignmentCounter,
-          ),
-        )
-      )
-
-      val topology = Map(
-        localId -> Set(alice),
-        remoteId1 -> Set(bob),
-        remoteId2 -> Set(bob),
-      )
-
-      val (proc, store, sequencerClient, changes, _) =
-        testSetupDontPublish(
-          timeProofs,
-          contractSetup,
-          topology,
-          acsCommitmentsCatchUpModeEnabled = false,
-        )
-
-      val remoteCommitments = List(
-        (remoteId1, Map((coid(0, 0), initialReassignmentCounter)), ts(0), ts(20), None)
-      )
-
-      (for {
-        processor <- proc
-        remote <- remoteCommitments.parTraverse(commitmentMsg)
-        delivered = remote.map(cmt =>
-          (
-            cmt.message.period.toInclusive.plusSeconds(1),
-            List(OpenEnvelope(cmt, Recipients.cc(localId))(testedProtocolVersion)),
-          )
-        )
-        // First ask for the remote commitments to be processed
-        _ <- delivered.parTraverse_ { case (ts, batch) =>
-          processor.processBatchInternal(ts.forgetRefinement, batch).flatMap(_.unwrap)
-        }
-        _ <- processChanges(processor, store, changes)
-
-        outstanding <- store.noOutstandingCommitments(timeProofs.lastOption.value)
-      } yield {
-        // multi hosted should have cleared since the threshold for bob would be 1 (and we send 1 commitment)
-        processor.multiHostedPartyTracker.commitmentThresholdsMap shouldBe empty
-        // we have not received anything from remoteId2, however because of multi hosted we should be able to advance
-        assert(outstanding.contains(toc(20).timestamp))
-      })
-    }
-
     "running commitments work as expected" in {
       val rc = new RunningCommitments(RecordTime.MinValue, TrieMap.empty)
 
@@ -2282,6 +2229,113 @@ class AcsCommitmentProcessorTest
           assert(received.size === 5)
           // all local commitments were matched and can be pruned
           assert(outstanding.contains(toc(55).timestamp))
+        })
+      }
+
+      "enter catch up mode when processing falls behind and enqueued acs changes exceed the threshold" in {
+        val timeProofs = List(3L, 8, 20, 35, 59, 70, 90, 110, 130, 150, 200).map(
+          CantonTimestamp.ofEpochSecond
+        )
+        val contractSetup = (1 to 99).map(i =>
+          // contract ID to stakeholders, creation and archival time
+          coid(0, i) -> (
+            Set(alice, bob),
+            toc(i.toLong),
+            toc(i.toLong + 1),
+            initialReassignmentCounter,
+            initialReassignmentCounter,
+          )
+        ) ++ Seq(
+          coid(0, 100) -> (
+            Set(alice, bob),
+            toc(99),
+            toc(101),
+            initialReassignmentCounter,
+            initialReassignmentCounter,
+          )
+        ) ++ (100 to 199)
+          .map(i =>
+            // contract ID to stakeholders, creation and archival time
+            coid(0, i) -> (
+              Set(alice, carol),
+              toc(i.toLong),
+              toc(i.toLong + 1),
+              initialReassignmentCounter,
+              initialReassignmentCounter,
+            )
+          ) ++ Seq(
+          coid(0, 200) -> (
+            Set(alice, carol),
+            toc(199),
+            toc(201),
+            initialReassignmentCounter,
+            initialReassignmentCounter,
+          )
+        ).toMap
+
+        val topology = Map(
+          localId -> Set(alice),
+          remoteId1 -> Set(bob),
+          remoteId2 -> Set(carol),
+        )
+
+        val (proc, store, sequencerClient, changes, _) =
+          testSetupDontPublish(
+            timeProofs,
+            contractSetup.toMap,
+            topology,
+            acsCommitmentsCatchUpModeEnabled = true,
+            warnOnAcsCommitmentDegradation = true,
+            // this will force us to evaluate the condition for catch-up when acs change queue exceeds a threshold
+            increasePerceivedComputationTimeForCommitments = false,
+          )
+
+        val remoteCommitments = List(
+          (remoteId1, Map((coid(0, 100), initialReassignmentCounter)), ts(95), ts(100), None),
+          (remoteId2, Map((coid(0, 200), initialReassignmentCounter)), ts(195), ts(200), None),
+        )
+
+        (for {
+          processor <- proc
+          _ <- checkCatchUpModeCfgCorrect(processor, timeProofs.head)
+          remote <- remoteCommitments.parTraverse(commitmentMsg)
+          delivered = remote.map(cmt =>
+            (
+              cmt.message.period.toInclusive.plusSeconds(1),
+              List(OpenEnvelope(cmt, Recipients.cc(localId))(testedProtocolVersion)),
+            )
+          )
+          // First ask for the remote commitments to be processed, and then compute locally
+          // This triggers catch-up mode
+          _ <- delivered.parTraverse_ { case (ts, batch) =>
+            processor.processBatchInternal(ts.forgetRefinement, batch).flatMap(_.unwrap)
+          }
+          _ <- processChanges(processor, store, changes)
+
+          outstanding <- store.noOutstandingCommitments(timeProofs.lastOption.value)
+          computedAll <- store
+            .searchComputedBetween(
+              CantonTimestamp.Epoch,
+              timeProofs.lastOption.value,
+            )
+          computed = computedAll.filter(_._2 != localId)
+          received <- store
+            .searchReceivedBetween(
+              CantonTimestamp.Epoch,
+              timeProofs.lastOption.value,
+            )
+        } yield {
+          // the participant doesn't catch up to tick 10, because we're probably too late to see the enqueued acs changes when we
+          // evaluate the catch-up condition, so it'll send commitments for both ticks 5 and 10
+          // after that, the participant catches up to ticks 20, 30, .., 3:20, which corresponds to toc 200
+          // this sums up to 21 commitments
+          sequencerClient.requests.size shouldBe 21
+          assert(computed.size === 21)
+          assert(received.size === 2)
+          // all local commitments were matched and can be pruned
+          eventually() {
+            assert(outstanding.contains(toc(200).timestamp))
+          }
         })
       }
 

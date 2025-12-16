@@ -4,8 +4,11 @@
 package com.digitalasset.canton.util
 
 import cats.MonadThrow
+import cats.data.EitherT
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 
-import scala.util.Try
+import scala.concurrent.ExecutionContext
+import scala.util.{Failure, Success, Try}
 
 /** Utility code for doing proper resource management. A lot of it is based on
   * https://medium.com/@dkomanov/scala-try-with-resources-735baad0fd7d
@@ -46,6 +49,51 @@ object ResourceUtil {
       // See https://docs.oracle.com/javase/specs/jls/se18/html/jls-14.html#jls-14.20.3
       TryUtil.tryCatchAll(f(resource))
     ).get
+
+  final private[util] class ResourceCloseOnErrorUnlessShutdownLeftApplied[L] {
+
+    /** Applies an already created resource to a function returning EitherT, closing the resource
+      * only on Left or failure (including shutdown/interrupt).
+      */
+    def apply[T <: AutoCloseable, V](
+        resource: => T
+    )(f: T => EitherT[FutureUnlessShutdown, L, V])(implicit
+        ec: ExecutionContext
+    ): EitherT[FutureUnlessShutdown, L, V] =
+      EitherT(
+        f(resource).value.transform {
+          case Success(UnlessShutdown.Outcome(Right(v))) =>
+            Success(UnlessShutdown.Outcome(Right(v))) // success → keep resource open
+
+          case Success(UnlessShutdown.Outcome(Left(l))) =>
+            try resource.close()
+            catch {
+              case _: Throwable => ()
+            }
+            Success(UnlessShutdown.Outcome(Left(l))) // left → close
+
+          case Success(UnlessShutdown.AbortedDueToShutdown) =>
+            try resource.close()
+            catch {
+              case _: Throwable => ()
+            }
+            Success(UnlessShutdown.AbortedDueToShutdown) // shutdown → close
+
+          case Failure(t) =>
+            try resource.close()
+            catch {
+              case closeEx: Throwable =>
+                if (closeEx ne t) t.addSuppressed(closeEx)
+            }
+            Failure(t) // exception → close
+        }(ec)
+      )
+  }
+
+  /** Safely uses and closes an already created resource on failure (including shutdown/interrupt).
+    */
+  def withResourceCloseOnlyOnError[L]: ResourceCloseOnErrorUnlessShutdownLeftApplied[L] =
+    new ResourceCloseOnErrorUnlessShutdownLeftApplied[L]()
 
   final private[util] class ResourceMonadApplied[M[_]](
       private val dummy: Boolean = true
