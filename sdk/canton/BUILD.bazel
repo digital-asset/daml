@@ -106,7 +106,8 @@ da_scala_library(
     ],
     deps = [
         "@maven//:com_auth0_java_jwt",
-        "@maven//:io_spray_spray_json_2_13",
+        "@maven//:io_circe_circe_core_2_13",
+        "@maven//:io_circe_circe_parser_2_13",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -558,6 +559,7 @@ scala_library(
         "@maven//:dev_optics_monocle_macro_2_13",
         "@maven//:io_circe_circe_core_2_13",
         "@maven//:io_circe_circe_generic_2_13",
+        "@maven//:io_circe_circe_parser_2_13",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_core",
         "@maven//:io_grpc_grpc_inprocess",
@@ -796,6 +798,7 @@ scala_library(
         "@maven//:io_grpc_grpc_stub",
         "@maven//:io_opentelemetry_opentelemetry_api",
         "@maven//:io_opentelemetry_opentelemetry_context",
+        "@maven//:io_circe_circe_parser_2_13",
         "@maven//:io_scalaland_chimney_2_13",
         "@maven//:io_scalaland_chimney_macro_commons_2_13",
         "@maven//:io_spray_spray_json_2_13",
