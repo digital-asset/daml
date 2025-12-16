@@ -30,7 +30,7 @@ Add the following to your ``daml.yaml``, replacing the ``<place-holders>`` as ap
 
 .. code:: yaml
 
-  sdk-version: <such as 3.4.8>
+  sdk-version: <such as 3.4.9>
   name: <your-package-name>
   version: 1.0.0
   source: daml
@@ -46,7 +46,7 @@ Write your .daml files in this directory, the file name must match the module he
 
 Directory and .daml file names must be in UpperCamel casing.
 
-The ``dpm new <package-name>`` command provides pre-made templates for various package structures and tutorials, see :ref:`Daml Assistant New <daml-assistant-new>` for more information.
+The ``dpm new <package-name>`` command provides pre-made templates for various package structures and tutorials, see :subsiteref:`this DPM page<dpm-operate>` for more information.
 
 
 .. _multi-package-build:
@@ -70,7 +70,7 @@ Environment variables in configuration files
 
 When your project has more than one package, consider using environment variables to avoid duplication of information like the ``sdk-version``.
 Replace the ``sdk-version`` field with ``sdk-version: $SDK_VERSION`` (or any other valid environment variable name), and ensure this variable is set before building.
-``SDK_VERSION=2.10.0 dpm build --all``
+``SDK_VERSION=3.4.9 dpm build --all``
 
 Variables can also be placed inline, and are supported on all string fields in the daml.yaml, as the following example shows:
 

@@ -1411,7 +1411,7 @@ Functions
 
   Set the time via the time service\.
 
-  This is only supported in Daml Studio and ``daml test`` as well as
+  This is only supported in Daml Studio and ``dpm test`` as well as
   when running over the gRPC API against a ledger in static time mode\.
 
   Note that the ledger time service does not support going backwards in time\.
@@ -1436,7 +1436,7 @@ Functions
 
   Advance ledger time by the given interval\.
 
-  This is only supported in Daml Studio and ``daml test`` as well as
+  This is only supported in Daml Studio and ``dpm test`` as well as
   when running over the gRPC API against a ledger in static time mode\.
   Note that this is not an atomic operation over the
   gRPC API so no other clients should try to change time while this is

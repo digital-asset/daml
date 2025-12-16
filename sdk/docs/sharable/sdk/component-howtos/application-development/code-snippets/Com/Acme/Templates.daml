@@ -18,9 +18,6 @@ template Bar
   where
     signatory owner
 
-    key BarKey owner name : BarKey
-    maintainer key.p
-
     choice Bar_SomeChoice: Bool
       with
         aName: Text

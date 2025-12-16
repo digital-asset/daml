@@ -1,11 +1,12 @@
 .. Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-.. warning::
-   Daml Assistant is deprecated from 3.4.x onwards. Use :externalref:`dpm <dpm>` instead.
-   Refer to the ``dpm`` :externalref:`migration guide <dpm-daml-assistant-to-dpm-migration>` for more details.
-
 .. _daml-assistant:
+
+.. warning:: Daml Assistant is deprecated from 3.4.x, and will be removed in
+   3.5. Use :subsiteref:`dpm <dpm>` instead. Refer to the ``dpm``
+   :subsiteref:`migration guide <dpm-daml-assistant-to-dpm-migration>` for more
+   details.
 
 Daml Assistant
 ##############
@@ -23,7 +24,7 @@ For Linux and MacOS, run
 
 .. code:: bash
 
-  curl -sSL https://get.daml.com/ | sh -s 3.4.0-rc2
+  curl -sSL https://get.daml.com/ | sh -s 3.4.9
 
 For Windows 10/11, download and run the installer from the `GitHub releases page <https://github.com/digital-asset/daml/releases>`__.
 
