@@ -1898,6 +1898,7 @@ da_scala_library(
         "@maven//:org_apache_pekko_pekko_actor",
         "@maven//:org_apache_pekko_pekko_stream",
     ],
+    scalacopts = canton_scalacopts + ["-language:postfixOps", "-Wconf:cat=unused-nowarn:s"],
     tags = ["maven_coordinates=com.daml:rs-grpc-pekko:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -1948,7 +1949,7 @@ da_scala_library(
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
     ],
-    scalacopts = canton_scalacopts + ["-language:postfixOps"],
+    scalacopts = canton_scalacopts + ["-language:postfixOps", "-Wconf:cat=unused-nowarn:s"],
     tags = ["maven_coordinates=com.daml:concurrent:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -1979,6 +1980,7 @@ da_scala_library(
     deps = [
         "//canton:contextualized-logging",
     ],
+    scalacopts = canton_scalacopts + ["-language:postfixOps", "-Wconf:cat=unused-nowarn:s"],
 )
 
 da_scala_library(
@@ -2082,7 +2084,7 @@ da_scala_library(
         "@maven//:org_apache_pekko_pekko_stream",
         "@maven//:io_spray_spray_json",
     ],
-    scalacopts = ["-Xsource:2.13"],
+    scalacopts = canton_scalacopts + ["-language:postfixOps", "-Wconf:cat=unused-nowarn:s"],
     tags = ["maven_coordinates=com.daml:contextualized-logging:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -2200,6 +2202,7 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [],
+    scalacopts = canton_scalacopts + ["-Wconf:cat=unused-imports:s"],
 )
 
 da_scala_test_suite(
@@ -2219,6 +2222,7 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:safe-proto:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = ["@maven//:com_google_protobuf_protobuf_java"],
+    scalacopts = canton_scalacopts + ["-Wconf:cat=unused-imports:s"],
 )
 
 da_scala_test_suite(
@@ -2237,7 +2241,7 @@ da_scala_test_suite(
 da_scala_macro_library(
     name = "nameof",
     srcs = glob(["base/nameof/src/main/scala/**/*.scala"]),
-    scalacopts = ["-Xsource:2.13"],
+    scalacopts = canton_scalacopts + ["-Wconf:cat=unused-imports:s"],
     tags = ["maven_coordinates=com.daml:nameof:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -2270,7 +2274,7 @@ da_scala_library(
     scala_deps = [
         "@maven//:io_spray_spray_json",
     ],
-    scalacopts = ["-Xsource:2.13"],
+    scalacopts = canton_scalacopts + ["-language:postfixOps"],
     tags = ["maven_coordinates=com.daml:logging-entries:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -2311,6 +2315,7 @@ da_scala_library(
         "@maven//:io_grpc_grpc_stub",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
+    scalacopts = canton_scalacopts + ["-language:postfixOps"],
 )
 
 da_scala_library(
@@ -2331,6 +2336,7 @@ da_scala_library(
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_netty_shaded",
     ],
+    scalacopts = canton_scalacopts + ["-language:postfixOps"],
 )
 
 da_scala_library(
@@ -2364,6 +2370,7 @@ da_scala_library(
     visibility = [
         "//visibility:public",
     ],
+    scalacopts = canton_scalacopts + ["-language:postfixOps"],
 )
 
 da_scala_test(
@@ -2386,7 +2393,7 @@ proto_library(
 
 proto_gen(
     name = "sample-service-scalapb-sources",
-    srcs = [":sample-service"],
+    srcs = [":sample-service-proto"],
     plugin_exec = "//scala-protoc-plugins/scalapb:protoc-gen-scalapb",
     plugin_name = "scalapb",
     plugin_options = ["grpc"],
@@ -2477,6 +2484,7 @@ da_scala_library(
         "@maven//:org_scalatest_scalatest_compatible",
         "@maven//:org_slf4j_slf4j_api",
     ],
+    scalacopts = canton_scalacopts + ["-language:postfixOps"],
 )
 
 da_scala_test_suite(
@@ -2512,6 +2520,7 @@ da_scala_library(
         "//canton:test-evidence-tag",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
+    scalacopts = canton_scalacopts + ["-language:postfixOps"],
 )
 
 da_scala_library(
@@ -2539,6 +2548,7 @@ da_scala_library(
         "//canton:test-evidence-tag",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
+    scalacopts = canton_scalacopts + ["-language:postfixOps", "-Wconf:cat=unused-nowarn:s"],
 )
 
 da_scala_library(
