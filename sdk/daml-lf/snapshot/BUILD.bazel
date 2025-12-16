@@ -118,6 +118,7 @@ da_scala_benchmark_jmh(
             "//daml-lf/archive:daml_lf_archive_reader",
             "//daml-lf/data",
             "//daml-lf/engine",
+            "//daml-lf/engine:script-engine",
             "//daml-lf/interpreter",
             "//daml-lf/language",
             "//daml-lf/parser",

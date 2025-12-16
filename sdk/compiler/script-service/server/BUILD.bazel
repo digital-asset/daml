@@ -35,6 +35,7 @@ da_scala_binary(
         "//compiler/script-service/protos:script_service_java_proto",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
+        "//daml-lf/engine:script-engine",
         "//daml-lf/ide-ledger",
         "//daml-lf/interpreter",
         "//daml-lf/language",

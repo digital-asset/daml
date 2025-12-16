@@ -43,48 +43,38 @@ Find the available versions in the `Maven Central Repository <https://search.mav
 Access the gRPC Ledger API using Java bindings
 ----------------------------------------------
 
-The :ref:`Java bindings reactive library <component-howtos-application-development-java-client-libraries-bindings-rxjava>` provides a set of classes that allow you to access the gRPC Ledger API.
+The ``bindings-java`` library comes pre-packaged with the generated gRPC stubs allowing you to access the Ledger API.
 
-For each Ledger API service, there is a reactive counterpart with a matching name. For instance, the reactive
-counterpart of ``UpdateServiceGrpc`` is ``UpdateClient``.
-
-The library also exposes the main interface representing a client connecting via the gRPC Ledger API. This interface is
-called ``LedgerClient`` and the main implementation working against a Daml ledger is the ``DamlLedgerClient``.
-
-
-Set up dependencies in your project
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-To use the aforementioned classes, add the following dependencies to your project:
-
-.. literalinclude:: ./code-snippets/pom.xml
-   :language: XML
-   :start-after: <!-- start snippet: dependency bindings rxjava -->
-   :end-before: <!-- end snippet: dependency bindings rxjava -->
-   :dedent: 8
-
-.. note::
-
-  Replace ``YOUR_SDK_VERSION`` with the version of your SDK.
-
-Find the available versions in the `Maven Central Repository <https://search.maven.org/artifact/com.daml/bindings-rxjava>`__.
+For each Ledger API service, there is a dedicated Java class with a matching name. For instance, the gRPC
+counterpart of ``CommandSubmissionService`` is ``CommandSubmissionServiceGrpc``.
 
 .. _howto-applications-work-with-contracts-java-connect:
 
 Connect to the ledger
 ^^^^^^^^^^^^^^^^^^^^^
 
-Create an instance of a ``DamlLedgerClient`` to establish a connection to the ledger and access the Ledger API services.
-To create an instance of a ledger client, use the static ``newBuilder(..)`` method to create a ``DamlLedgerClient.Builder``.
-Then use the builder instance to create the ``DamlLedgerClient``. Finally, call the ``connect()`` method on the client.
+To establish a connection to the ledger and access the Ledger API services create an instance of a ``ManagedChannel``
+using the static ``NettyChannelBuilder.forAddress(..)`` method. Then, call the factory method on the respective service
+to create a stub e.g. ``CommandSubmissionServiceGrpc.newFutureStub``. Use one of the helper classes provided by the
+``bindings-java`` to create an object representing the request service request arguments, convert them to a proto message.
+Finally, call the desired method offered by the service.
 
 .. code-block:: java
 
-    // Create a client object to access services on the ledger.
-    DamlLedgerClient client = DamlLedgerClient.newBuilder(ledgerhost, ledgerport).build();
+    // Create a managed channel object pointing to the Ledger API address.
+    ManagedChannel channel = NettyChannelBuilder.forAddress(host, port).usePlaintext().build();
 
-    // Connects to the ledger and runs initial validation.
-    client.connect();
+    // Create a stub connecting to the desired service on the ledger.
+    CommandSubmissionServiceFutureStub submissionService = CommandSubmissionServiceGrpc.newFutureStub(channel);
+
+    // Create an object representing the service call arguments
+    CommandsSubmission commandsSubmission = CommandsSubmission.create(...);
+
+    // Convert the command submission to a proto data structure
+    final var request = SubmitRequest.toProto(commandsSubmission);
+
+    // Issue the service call
+    final var response = submissionService.submit(request)
 
 .. _howto-applications-work-with-contracts-java-authorization:
 
@@ -94,16 +84,35 @@ Perform authorization
 Some ledgers enforce authorization and require to send an access token along with each request. For more details on
 authorization, read the :ref:`Authorization <authorization>` overview.
 
-To use the same token for all Ledger API requests, use the ``withAccessToken`` method of the ``DamlLedgerClient`` builder.
-This allows you to not pass a token explicitly for every call.
-
-If your application is long-lived and your tokens are bound to expire, reload the necessary token when needed and pass
-it explicitly for every call. Every client method has an overload that allows a token to be passed, as in the following example:
+To use the same token for all Ledger API requests, use the ``withCallCredentials`` method of the service stub class.
+As an argument, this method takes a class that derives from ``CallCredentials``. Implement your own derivation that
+provides the token in the header.
 
 .. code-block:: java
 
-   stateClient.getLedgerEnd(); // Uses the token specified when constructing the client
-   stateClient.getLedgerEnd(accessToken); // Override the token for this call exclusively
+    public final class LedgerCallCredentials extends CallCredentials {
+
+        private static Metadata.Key<String> header =
+                Metadata.Key.of("Authorization", Metadata.ASCII_STRING_MARSHALLER);
+
+        private final String token;
+
+        public LedgerCallCredentials(String token) {
+            super();
+            this.token = token;
+        }
+
+        @Override
+        public void applyRequestMetadata(
+                RequestInfo requestInfo, Executor appExecutor, MetadataApplier applier) {
+            Metadata metadata = new Metadata();
+            metadata.put(LedgerCallCredentials.header, token.startsWith("Bearer ") ? token : "Bearer " + token);
+            applier.apply(metadata);
+        }
+    }
+
+If your application is long-lived and your tokens are bound to expire, reload the necessary token when needed and pass
+it explicitly for every call.
 
 If you are communicating with a ledger that verifies authorization it is very important to secure the communication
 channel to prevent your tokens to be exposed to man-in-the-middle attacks. The next chapter describes how to enable TLS.
@@ -113,13 +122,21 @@ channel to prevent your tokens to be exposed to man-in-the-middle attacks. The n
 Connect securely
 ^^^^^^^^^^^^^^^^
 
-The builders created by ``DamlLedgerClient.newBuilder`` default to a plaintext connection.
-The Java bindings library lets you connect to a ledger via a secure connection. To do so, invoke ``withSslContext`` and
-pass an ``SslContext``.
+The builders created by ``NettyChannelBuilder.forAddress`` default to a tls connection, where the keys are taken from
+the configured Java Keystore. You can override this behavior by providing your own cryptographic settings. To do so,
+invoke ``sslContext`` and pass an ``SslContext``.
+
+.. code-block:: java
+
+    NettyChannelBuilder.forAddress(host, port)
+                .useTransportSecurity()
+                .sslContext(sslContext)
+                .build();
 
 .. warning::
 
-  Use the default plaintext connection only when connecting to a locally running ledger for development purposes.
+  You can also configure a plaintext connection invoking ``usePlaintext()``. Use it only when connecting to a locally
+  running ledger for development purposes.
 
 Secure connections to a ledger must be configured to use client authentication certificates, which can be provided by a ledger operator.
 
@@ -127,25 +144,16 @@ For information on how to set up an ``SslContext`` with the provided certificate
 `TLS with OpenSSL <https://github.com/grpc/grpc-java/blob/master/SECURITY.md#tls-with-openssl>`_ as well as the
 `HelloWorldClientTls <https://github.com/grpc/grpc-java/blob/70b1b1696a258ffe042c7124217e3a7894821444/examples/src/main/java/io/grpc/examples/helloworldtls/HelloWorldClientTls.java#L46-L57>`_ example of the ``grpc-java`` project.
 
-Advanced connection settings
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Use asynchronous stubs
+----------------------
 
-Sometimes the default settings for gRPC connections or channels are not suitable. For such situations, create a custom
-`NettyChannelBuilder <https://grpc.github.io/grpc-java/javadoc/io/grpc/netty/NettyChannelBuilder.html>`_ object and
-pass the it to the ``newBuilder`` static method defined over `DamlLedgerClient </javadocs/3.3/com/daml/ledger/rxjava/DamlLedgerClient.html>`_.
-
-Alternative ways to access the Ledger API
------------------------------------------
-
-The Java bindings client library is not the only way to access the Ledger API. You can also use the gRPC bindings or OpenAPI
-bindings directly.
-
-Use gRPC bindings
-^^^^^^^^^^^^^^^^^
+The classes generated for the Ledger API gRPC services come in several flavors: blocking, future-based and asynchronous.
+The latter is the recommended way of interacting with the gRPC layer. In the example of the ``CommandService`` utilized
+above they are called ``CommandServiceBlockingStub``, ``CommandServiceFutureStub`` and ``CommandServiceStub`` respectively.
 
 For each gRPC endpoint that you want to call from your Java application, create a gRPC `StreamObserver <https://grpc.github.io/grpc-java/javadoc/io/grpc/stub/StreamObserver.html>`_ providing
-implementations of the onNext, onError and onComplete observer methods.
-To decode and encode the gRPC messages, use the fromProto and toProto methods of the generated classes of the :ref:`Java
+implementations of the ``onNext``, ``onError`` and ``onComplete`` observer methods.
+To decode and encode the gRPC messages, use the ``fromProto`` and ``toProto`` methods of the generated classes of the :ref:`Java
 bindings library <component-howtos-application-development-java-client-libraries-bindings-java>`.
 
 
