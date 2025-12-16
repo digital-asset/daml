@@ -9,12 +9,13 @@ import com.daml.jwt.{
   StandardJWTPayload,
   StandardJWTTokenFormat,
 }
+import io.circe.*
+import io.circe.syntax.*
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.TryValues
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
-import spray.json.*
 
 import java.time.Instant
 import scala.util.{Success, Try}
@@ -28,23 +29,20 @@ class AuthServiceJWTCodecSpec
 
   /** Serializes a [[AuthServiceJWTPayload]] to JSON, then parses it back to a AuthServiceJWTPayload
     */
-  private def serializeAndParse(
-      value: AuthServiceJWTPayload
-  )(implicit format: RootJsonFormat[AuthServiceJWTPayload]): Try[AuthServiceJWTPayload] =
+  private def serializeAndParse(value: AuthServiceJWTPayload)(implicit
+      encoder: Encoder[AuthServiceJWTPayload],
+      decoder: Decoder[AuthServiceJWTPayload],
+  ): Try[AuthServiceJWTPayload] =
     for {
-      serialized <- Try(value.toJson.prettyPrint)
-      json <- Try(serialized.parseJson)
-      parsed <- Try(json.convertTo[AuthServiceJWTPayload])
+      serialized <- Try(value.asJson.noSpaces)
+      parsed <- parse(serialized)
     } yield parsed
 
   /** Parses a [[AuthServiceJWTPayload]] */
-  private def parse(
-      serialized: String
-  )(implicit format: RootJsonFormat[AuthServiceJWTPayload]): Try[AuthServiceJWTPayload] =
-    for {
-      json <- Try(serialized.parseJson)
-      parsed <- Try(json.convertTo[AuthServiceJWTPayload])
-    } yield parsed
+  private def parse(serialized: String)(implicit
+      decoder: Decoder[AuthServiceJWTPayload]
+  ): Try[AuthServiceJWTPayload] =
+    Try(parser.decode(serialized).fold(throw _, identity))
 
   private implicit val arbInstant: Arbitrary[Instant] =
     Arbitrary {
@@ -184,7 +182,7 @@ class AuthServiceJWTCodecSpec
     }
 
     val extraScopes = s"dummy-scope1 ${AuthServiceJWTCodec.scopeLedgerApiFull} dummy-scope2"
-    val extraScopesJsArray = extraScopes.split(" ").toJson.prettyPrint
+    val extraScopesJsArray = extraScopes.split(" ").toSeq.asJson.noSpaces
 
     "support standard JWT claims with extra scopes" in {
       val serialized =
@@ -214,7 +212,7 @@ class AuthServiceJWTCodecSpec
 
     val extraCompositeScopes =
       s"dummy-scope1 ${AuthServiceJWTCodec.scopeLedgerApiFull} dummy-scope2"
-    val extraCompositeScopesJsArray = extraCompositeScopes.split(" ").toJson.prettyPrint
+    val extraCompositeScopesJsArray = extraCompositeScopes.split(" ").toSeq.asJson.noSpaces
 
     "support standard JWT claims with extra composite scopes" in {
       val serialized =

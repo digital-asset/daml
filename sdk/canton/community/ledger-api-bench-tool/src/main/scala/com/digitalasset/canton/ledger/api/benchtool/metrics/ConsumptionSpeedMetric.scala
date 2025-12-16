@@ -50,8 +50,8 @@ final case class ConsumptionSpeedMetric[T](
     Value(None)
 
   override def violatedPeriodicObjectives: List[(MinConsumptionSpeed, Value)] =
-    objective.collect {
-      case (obj, value) if value.isDefined => obj -> value.get
+    objective.collect { case (obj, Some(value)) =>
+      obj -> value
     }.toList
 
   override def violatedFinalObjectives(

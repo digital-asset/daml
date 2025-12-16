@@ -40,7 +40,7 @@ final class OpenApiTests
     val staticDocs = apiDocsGenerator.createStaticDocs(protoInfo)
 
     "should be consistent with live docs" in httpTestFixture { fixture =>
-      /** We generate documentation "statically" without starting an http server However, when the
+      /** We generate documentation "statically" without starting an http server. However, when the
         * server is running the documentation is generated from actually running endpoints This test
         * checks that both of them are matching
         * @see

@@ -13,9 +13,9 @@ import com.digitalasset.canton.http.{HttpService, Party, UserId}
 import com.digitalasset.canton.integration.tests.jsonapi.HttpServiceTestFixture.*
 import com.digitalasset.canton.ledger.client.LedgerClient as DamlLedgerClient
 import com.google.protobuf.ByteString as ProtoByteString
-import io.circe.Decoder
-import io.circe.parser.decode
+import io.circe.parser.{decode, parse}
 import io.circe.syntax.EncoderOps
+import io.circe.{Decoder, Json}
 import org.apache.pekko.http.scaladsl.model.*
 import org.apache.pekko.http.scaladsl.model.ws.{
   Message,
@@ -26,11 +26,9 @@ import org.apache.pekko.http.scaladsl.model.ws.{
 import org.apache.pekko.http.scaladsl.{ConnectionContext, Http, HttpsConnectionContext}
 import org.apache.pekko.stream.scaladsl.{Flow, Keep, Sink, Source}
 import org.apache.pekko.util.ByteString
-import spray.json.*
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 trait HttpTestFuns extends HttpJsonApiTestBase with HttpServiceUserFixture {
@@ -72,10 +70,10 @@ trait HttpTestFuns extends HttpJsonApiTestBase with HttpServiceUserFixture {
 
   def postJsonRequest(
       uri: Uri,
-      json: JsValue,
+      json: Json,
       headers: List[HttpHeader],
-  ): Future[(StatusCode, JsValue)] =
-    postJsonStringRequest(uri, json.prettyPrint, headers)
+  ): Future[(StatusCode, Json)] =
+    postJsonStringRequest(uri, json.noSpaces, headers)
 
   def postJsonStringRequestEncoded(
       uri: Uri,
@@ -97,9 +95,9 @@ trait HttpTestFuns extends HttpJsonApiTestBase with HttpServiceUserFixture {
       }
   }
 
-  def getRequestInternal(uri: Uri, headers: List[HttpHeader]): Future[(StatusCode, JsValue)] =
+  def getRequestInternal(uri: Uri, headers: List[HttpHeader]): Future[(StatusCode, Json)] =
     getRequestEncoded(uri, headers).map { case (status, body) =>
-      (status, body.parseJson)
+      (status, extractJsonBody(body))
     }
 
   def getRequestEncoded(
@@ -129,27 +127,27 @@ trait HttpTestFuns extends HttpJsonApiTestBase with HttpServiceUserFixture {
       uri: Uri,
       jsonString: String,
       headers: List[HttpHeader],
-  ): Future[(StatusCode, JsValue)] =
+  ): Future[(StatusCode, Json)] =
     postJsonStringRequestEncoded(uri, jsonString, headers).map { case (status, body) =>
-      (status, body.parseJson)
+      (status, extractJsonBody(body))
     }
 
   def postRequest(
       uri: Uri,
-      json: JsValue,
+      json: Json,
       headers: List[HttpHeader] = Nil,
-  ): Future[(StatusCode, JsValue)] =
+  ): Future[(StatusCode, Json)] =
     singleRequest(
       HttpRequest(
         method = HttpMethods.POST,
         uri = uri,
         headers = headers,
-        entity = HttpEntity(ContentTypes.`application/json`, json.prettyPrint),
+        entity = HttpEntity(ContentTypes.`application/json`, json.noSpaces),
       )
     )
       .flatMap { resp =>
         val bodyF: Future[String] = getResponseDataString(resp, debug = true)
-        bodyF.map(body => (resp.status, body.parseJson))
+        bodyF.map(body => (resp.status, extractJsonBody(body)))
       }
 
   protected def singleRequest(request: HttpRequest): Future[HttpResponse] = {
@@ -195,44 +193,31 @@ trait HttpTestFuns extends HttpJsonApiTestBase with HttpServiceUserFixture {
 
     import self.uri
 
+    // Return a JWT for the default test user "Alice".
     def jwt(uri: Uri): Future[Jwt] =
-      getUniquePartyTokenUserIdAndAuthHeaders("Alice", uri).map(_._2)
+      getUniquePartyTokenUserIdAndAuthHeaders("Alice", uri).map { case (_, jwt, _, _) => jwt }
 
-    def getUniquePartyAndAuthHeaders(
-        name: String
-    ): Future[(Party, List[HttpHeader])] =
+    def getUniquePartyAndAuthHeaders(name: String): Future[(Party, List[HttpHeader])] =
       self
         .getUniquePartyTokenUserIdAndAuthHeaders(name)
         .map { case (p, _, _, h) => (p, h) }
-        .transform {
-          case Success(a) => Success(a)
-          case Failure(err) =>
-            logger.info(s"err: $err")
-            Failure(err)
-        }
 
     def getStream[T](
         path: Uri.Path,
         jwt: Jwt,
         message: TextMessage,
-        decoder: String => T = identity[String],
-        filter: T => Boolean = { (_: Any) => true },
+        decoder: String => T,
+        filter: T => Boolean = (_: T) => true,
         maxMessages: Long = 1,
     ): Future[Seq[T]] = {
       val ac = uri.copy(scheme = "ws") withPath path
       val webSocketFlow =
-        Http().webSocketClientFlow(
-          WebSocketRequest(uri = ac, subprotocol = validSubprotocol(jwt))
-        )
+        Http().webSocketClientFlow(WebSocketRequest(uri = ac, subprotocol = validSubprotocol(jwt)))
       Source
-        .single(
-          message
-        )
+        .single(message)
         .concatMat(Source.maybe[Message])(Keep.left)
         .via(webSocketFlow)
-        .collect { case m: TextMessage =>
-          m.getStrictText
-        }
+        .collect { case m: TextMessage => m.getStrictText }
         .map(decoder)
         .filter(filter)
         .take(maxMessages)
@@ -245,10 +230,7 @@ trait HttpTestFuns extends HttpJsonApiTestBase with HttpServiceUserFixture {
         uriOverride: Uri = uri,
     ): Future[(Party, Jwt, UserId, List[HttpHeader])] = {
       val party = getUniqueParty(name)
-      val jsAllocate = JsonParser(
-        JsAllocatePartyRequest(partyIdHint = party.toString).asJson
-          .toString()
-      )
+      val jsAllocate: Json = JsAllocatePartyRequest(partyIdHint = party.toString).asJson
       for {
         newParty <-
           postJsonRequest(
@@ -258,7 +240,7 @@ trait HttpTestFuns extends HttpJsonApiTestBase with HttpServiceUserFixture {
           )
             .flatMap {
               case (StatusCodes.OK, result) =>
-                decode[AllocatePartyResponse](result.toString()).left
+                decode[AllocatePartyResponse](result.noSpaces).left
                   .map(_.toString)
                   .flatMap(_.partyDetails.toRight("Missing party details"))
                   .map(_.party)
@@ -271,8 +253,8 @@ trait HttpTestFuns extends HttpJsonApiTestBase with HttpServiceUserFixture {
         (jwt, userId) <- jwtUserIdForParties(uriOverride)(
           List(newParty),
           List.empty,
-          false,
-          false,
+          withoutNamespace = false,
+          admin = false,
         )
         headers = authorizationHeader(jwt)
       } yield (newParty, jwt, userId, headers)
@@ -287,36 +269,30 @@ trait HttpTestFuns extends HttpJsonApiTestBase with HttpServiceUserFixture {
         withoutNamespace: Boolean = false,
         admin: Boolean = false,
     )(implicit ec: ExecutionContext): Future[List[HttpHeader]] =
-      jwtForParties(uri)(actAs, readAs, withoutNamespace, admin)(ec)
-        .map(jwt => authorizationHeader(jwt) ++ getTraceContextHeaders())
-
-    def postJsonStringRequest(
-        path: Uri.Path,
-        jsonString: String,
-    ): Future[(StatusCode, JsValue)] =
-      headersWithAuth.flatMap(
-        postJsonStringRequest(uri withPath path, jsonString, _)
+      jwtForParties(uri)(actAs, readAs, withoutNamespace, admin)(ec).map(jwt =>
+        authorizationHeader(jwt) ++ getTraceContextHeaders()
       )
+
+    // Convenience wrappers for JSON requests that return Circe Json
+    def postJsonStringRequest(path: Uri.Path, jsonString: String): Future[(StatusCode, Json)] =
+      headersWithAuth.flatMap(postJsonStringRequest(uri withPath path, jsonString, _))
 
     def jsonRequest(
         method: HttpMethod,
         path: Uri.Path,
-        json: Option[JsValue],
+        json: Option[Json],
         headers: List[HttpHeader],
-    ): Future[(StatusCode, JsValue)] =
-      jsonStringRequest(method, uri withPath path, json.map(_.prettyPrint), headers)
+    ): Future[(StatusCode, Json)] =
+      jsonStringRequest(method, uri withPath path, json.map(_.noSpaces), headers)
 
     def jsonStringRequest(
         method: HttpMethod,
         uri: Uri,
         jsonString: Option[String],
         headers: List[HttpHeader],
-    ): Future[(StatusCode, JsValue)] =
+    ): Future[(StatusCode, Json)] =
       jsonStringRequestEncoded(method, uri, jsonString, headers).map { case (status, body) =>
-        if (status.isSuccess())
-          (status, body.parseJson)
-        else
-          (status, JsObject.empty)
+        if (status.isSuccess()) (status, parse(body).getOrElse(Json.Null)) else (status, Json.obj())
       }
 
     def jsonStringRequestEncoded(
@@ -344,39 +320,19 @@ trait HttpTestFuns extends HttpJsonApiTestBase with HttpServiceUserFixture {
 
     def postJsonRequest(
         path: Uri.Path,
-        json: JsValue,
+        json: Json,
         headers: List[HttpHeader],
-    ): Future[(StatusCode, JsValue)] =
-      postJsonStringRequest(uri withPath path, json.prettyPrint, headers)
+    ): Future[(StatusCode, Json)] =
+      postJsonStringRequest(uri withPath path, json.noSpaces, headers)
 
     def postJsonStringRequest(
         uri: Uri,
         jsonString: String,
         headers: List[HttpHeader],
-    ): Future[(StatusCode, JsValue)] =
+    ): Future[(StatusCode, Json)] =
       postJsonStringRequestEncoded(uri, jsonString, headers).map { case (status, body) =>
-        (status, body.parseJson)
+        (status, extractJsonBody(body))
       }
-
-    def postJsonStringRequestEncoded(
-        uri: Uri,
-        jsonString: String,
-        headers: List[HttpHeader],
-    ): Future[(StatusCode, String)] = {
-      logger.info(s"postJson: ${uri.toString} json: ${jsonString: String}")
-      singleRequest(
-        HttpRequest(
-          method = HttpMethods.POST,
-          uri = uri,
-          headers = headers,
-          entity = HttpEntity(ContentTypes.`application/json`, jsonString),
-        )
-      )
-        .flatMap { resp =>
-          val bodyF: Future[String] = getResponseDataString(resp, debug = true)
-          bodyF.map(body => (resp.status, body))
-        }
-    }
 
     def postBinaryContent(
         path: Uri.Path,
@@ -396,44 +352,31 @@ trait HttpTestFuns extends HttpJsonApiTestBase with HttpServiceUserFixture {
           bodyF.map(body => (resp.status, body))
         }
 
-    def getRequest(
-        path: Uri.Path,
-        headers: List[HttpHeader],
-    ): Future[(StatusCode, JsValue)] =
+    def getRequest(path: Uri.Path, headers: List[HttpHeader]): Future[(StatusCode, Json)] =
       getRequestInternal(uri withPath path, headers)
 
     def getRequestBinary(
         path: Uri.Path,
         headers: List[HttpHeader],
-    ): Future[(StatusCode, ByteString)] =
-      getRequestBinaryData(uri withPath path, headers)
+    ): Future[(StatusCode, ByteString)] = getRequestBinaryData(uri withPath path, headers)
 
-    def getRequestWithMinimumAuth_(
-        path: Uri.Path
-    ): Future[(StatusCode, JsValue)] =
-      headersWithAuth
-        .flatMap(getRequest(path, _))
+    def getRequestString(path: Uri.Path, headers: List[HttpHeader]): Future[(StatusCode, String)] =
+      getRequestEncoded(uri withPath path, headers)
+
+    def getRequestWithMinimumAuth_(path: Uri.Path): Future[(StatusCode, Json)] =
+      headersWithAuth.flatMap(getRequest(path, _))
 
     def getRequestWithMinimumAuth[Resp](
         path: Uri.Path
     )(implicit decoder: Decoder[Resp]): Future[Resp] =
-      headersWithAuth
-        .flatMap(getRequest(path, _))
-        .flatMap {
-          case (StatusCodes.OK, result) =>
-            decode[Resp](result.toString()).left
-              .map(_.toString) match {
-              case Left(err) => Future.failed(new RuntimeException(err))
-              case Right(ok) => Future.successful(ok)
-            }
-          case (status, _) => Future.failed(new RuntimeException(status.value))
-        }
-
-    def getRequestString(
-        path: Uri.Path,
-        headers: List[HttpHeader],
-    ): Future[(StatusCode, String)] =
-      getRequestEncoded(uri withPath path, headers)
+      headersWithAuth.flatMap(getRequest(path, _)).flatMap {
+        case (StatusCodes.OK, result) =>
+          decode[Resp](result.noSpaces) match {
+            case Left(err) => Future.failed(err)
+            case Right(ok) => Future.successful(ok)
+          }
+        case (status, _) => Future.failed(new RuntimeException(status.value))
+      }
 
   }
 
@@ -442,6 +385,10 @@ trait HttpTestFuns extends HttpJsonApiTestBase with HttpServiceUserFixture {
 
   protected def clientConnectionContext(config: TlsClientConfig): HttpsConnectionContext =
     ConnectionContext.httpsClient(HttpService.buildSSLContext(config))
+
+  private def extractJsonBody(body: String): Json = parse(body).left
+    .map(err => new RuntimeException(s"Failed to parse JSON response", err))
+    .value
 
 }
 

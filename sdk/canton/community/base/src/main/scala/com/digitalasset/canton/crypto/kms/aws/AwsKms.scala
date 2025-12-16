@@ -41,6 +41,7 @@ import software.amazon.awssdk.core.SdkBytes
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration
 import software.amazon.awssdk.core.exception.SdkClientException
 import software.amazon.awssdk.http.SdkHttpConfigurationOption
+import software.amazon.awssdk.http.async.SdkAsyncHttpClient
 import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.kms.model.*
@@ -58,6 +59,7 @@ import scala.jdk.FutureConverters.*
 class AwsKms(
     override val config: KmsConfig.Aws,
     private val kmsClient: KmsAsyncClient,
+    httpClientO: Option[SdkAsyncHttpClient],
     override val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
 ) extends Kms
@@ -565,7 +567,7 @@ class AwsKms(
     } yield response.keyMetadata()
 
   override def onClosed(): Unit =
-    LifeCycle.close(kmsClient)(logger)
+    LifeCycle.close(LifeCycle.toCloseableOption(httpClientO), kmsClient)(logger)
 
 }
 
@@ -614,23 +616,21 @@ object AwsKms extends Kms.SupportedSchemes {
       loggerFactory: NamedLoggerFactory,
       tracerProvider: TracerProvider = NoReportingTracerProvider,
   ): Either[KmsError, AwsKms] = {
-    val kmsAsyncClientDefault = {
-      val builder = KmsAsyncClient
-        .builder()
-        .region(Region.of(config.region))
-        /* We can access AWS in multiple ways, for example: (1) using the AWS security token service (sts)
+    val kmsAsyncClientBuilder = KmsAsyncClient
+      .builder()
+      .region(Region.of(config.region))
+      /* We can access AWS in multiple ways, for example: (1) using the AWS security token service (sts)
          profile (2) setting up the following environment variables: AWS_ACCESS_KEY_ID,
          AWS_SECRET_ACCESS_KEY and AWS_SESSION_TOKEN */
-        .credentialsProvider(DefaultCredentialsProvider.create())
+      .credentialsProvider(DefaultCredentialsProvider.create())
 
-      config.endpointOverride.map(URI.create).fold(builder)(builder.endpointOverride)
-    }
+    config.endpointOverride.map(URI.create).foreach(kmsAsyncClientBuilder.endpointOverride)
 
-    val kmsAsyncClientBuilder = if (config.disableSslVerification) {
+    val httpClientO = Option.when(config.disableSslVerification) {
       loggerFactory
         .getLogger(getClass)
         .info("Disabling SSL verification")
-      val httpClient = NettyNioAsyncHttpClient
+      NettyNioAsyncHttpClient
         .builder()
         .buildWithDefaults(
           AttributeMap
@@ -638,44 +638,40 @@ object AwsKms extends Kms.SupportedSchemes {
             .put(SdkHttpConfigurationOption.TRUST_ALL_CERTIFICATES, Boolean.box(true))
             .build()
         )
-      kmsAsyncClientDefault
-        // this disables SSL certificate checks in the underlying http client
-        .httpClient(httpClient)
-    } else kmsAsyncClientDefault
+    }
+    // this disables SSL certificate checks in the underlying http client.
+    // setting the http client explicitly also means we need to close it ourselves.
+    httpClientO.foreach(kmsAsyncClientBuilder.httpClient)
 
-    for {
-      kms <-
-        Either
-          .catchOnly[aws.KmsException] {
-            val builder =
-              if (config.auditLogging)
-                kmsAsyncClientBuilder
-                  .overrideConfiguration(
-                    ClientOverrideConfiguration
-                      .builder()
-                      .addExecutionInterceptor(
-                        new AwsTraceContextInterceptor(loggerFactory, tracerProvider)
-                      )
-                      .addExecutionInterceptor(new AwsRequestResponseLogger(loggerFactory))
-                      .build()
-                  )
-              else
-                kmsAsyncClientBuilder
-
-            new AwsKms(
-              config,
-              builder
-                .region(Region.of(config.region))
-                /* We can access AWS in multiple ways, for example: (1) using the AWS security token service (sts)
-                 profile (2) setting up the following environment variables: AWS_ACCESS_KEY_ID,
-                 AWS_SECRET_ACCESS_KEY and AWS_SESSION_TOKEN */
-                .credentialsProvider(DefaultCredentialsProvider.create())
-                .build(),
-              timeouts,
-              loggerFactory,
+    if (config.auditLogging)
+      kmsAsyncClientBuilder
+        .overrideConfiguration(
+          ClientOverrideConfiguration
+            .builder()
+            .addExecutionInterceptor(
+              new AwsTraceContextInterceptor(loggerFactory, tracerProvider)
             )
-          }
-          .leftMap[KmsError](err => KmsCreateClientError(ErrorUtil.messageWithStacktrace(err)))
-    } yield kms
+            .addExecutionInterceptor(new AwsRequestResponseLogger(loggerFactory))
+            .build()
+        )
+
+    Either
+      .catchOnly[aws.KmsException] {
+        new AwsKms(
+          config,
+          kmsAsyncClientBuilder
+            .region(Region.of(config.region))
+            /* We can access AWS in multiple ways, for example: (1) using the AWS security token service (sts)
+             profile (2) setting up the following environment variables: AWS_ACCESS_KEY_ID,
+             AWS_SECRET_ACCESS_KEY and AWS_SESSION_TOKEN */
+            .credentialsProvider(DefaultCredentialsProvider.create())
+            .build(),
+          httpClientO,
+          timeouts,
+          loggerFactory,
+        )
+      }
+      .leftMap[KmsError](err => KmsCreateClientError(ErrorUtil.messageWithStacktrace(err)))
+
   }
 }

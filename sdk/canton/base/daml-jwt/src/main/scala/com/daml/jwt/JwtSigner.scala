@@ -31,6 +31,7 @@ object JwtSigner extends WithExecuteUnsafe {
       )
   }
 
+  @SuppressWarnings(Array("org.wartremover.warts.Null"))
   object RSA256 {
     def sign(jwt: DecodedJwt[String], privateKey: RSAPrivateKey): Either[Error, Jwt] =
       for {

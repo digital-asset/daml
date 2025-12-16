@@ -148,13 +148,16 @@ class ConsoleEnvironment(
       // due to the use of reflection to grab the help-items, i need to write the following, repetitive stuff explicitly
       val subItems =
         if (participants.local.nonEmpty)
-          participants.local.headOption.toList.flatMap(p =>
-            Help.getItems(p, baseTopic = Seq("$participant"), scope = scope)
+          Help.getItemsForClass[LocalParticipantReference](
+            baseTopic = Seq("$participant"),
+            scope = scope,
           )
         else if (participants.remote.nonEmpty)
-          participants.remote.headOption.toList.flatMap(p =>
-            Help.getItems(p, baseTopic = Seq("$participant"), scope = scope)
-          )
+          Help
+            .getItemsForClass[RemoteParticipantReference](
+              baseTopic = Seq("$participant"),
+              scope = scope,
+            )
         else Seq()
       Help.Item("$participant", None, Summary(""), Description(""), Topic(Seq()), subItems)
     }

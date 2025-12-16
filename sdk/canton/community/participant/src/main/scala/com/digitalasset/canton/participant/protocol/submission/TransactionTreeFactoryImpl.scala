@@ -67,7 +67,7 @@ import scala.concurrent.ExecutionContext
   */
 class TransactionTreeFactoryImpl(
     participantId: ParticipantId,
-    synchronizerId: PhysicalSynchronizerId,
+    psid: PhysicalSynchronizerId,
     override val cantonContractIdVersion: CantonContractIdVersion,
     cryptoOps: HashOps & HmacOps,
     hasher: ContractHasher,
@@ -76,7 +76,7 @@ class TransactionTreeFactoryImpl(
     extends TransactionTreeFactory
     with NamedLogging {
 
-  private val protocolVersion = synchronizerId.protocolVersion
+  private val protocolVersion = psid.protocolVersion
   private val contractIdSuffixer: ContractIdSuffixer =
     new ContractIdSuffixer(cryptoOps, cantonContractIdVersion)
   private val transactionViewDecompositionFactory = TransactionViewDecompositionFactory
@@ -129,7 +129,7 @@ class TransactionTreeFactoryImpl(
 
     val commonMetadata = CommonMetadata
       .create(cryptoOps)(
-        synchronizerId,
+        psid,
         mediator,
         commonMetadataSalt,
         transactionUuid,
@@ -172,7 +172,7 @@ class TransactionTreeFactoryImpl(
           val requiredPackageByParty = requiredPackagesByParty(rootViewDecompositions)
           UsableSynchronizers
             .checkPackagesVetted(
-              synchronizerId = synchronizerId,
+              synchronizerId = psid,
               snapshot = topologySnapshot,
               requiredPackagesByParty = requiredPackageByParty,
               ledgerTime = metadata.ledgerTime,
@@ -504,7 +504,7 @@ class TransactionTreeFactoryImpl(
       case _: CantonContractIdV1Version =>
         ContractSalt.createV1(cryptoOps)(
           state.transactionUUID,
-          synchronizerId,
+          psid,
           state.mediator,
           viewParticipantDataSalt,
           createIndex,

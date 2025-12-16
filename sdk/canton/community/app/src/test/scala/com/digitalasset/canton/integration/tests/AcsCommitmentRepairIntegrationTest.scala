@@ -59,6 +59,9 @@ trait AcsCommitmentRepairIntegrationTest
           _.focus(_.parameters.engine.enableAdditionalConsistencyChecks)
             .replace(true)
         ),
+        ConfigTransforms.updateAllSequencerConfigs_(
+          _.focus(_.timeTracker.observationLatency).replace(config.NonNegativeFiniteDuration.Zero)
+        ),
       )
       .updateTestingConfig(
         _.focus(_.commitmentSendDelay)
@@ -117,8 +120,7 @@ trait AcsCommitmentRepairIntegrationTest
 
     // bump the time past the next reconciliation interval
     val tick1 = tickAfter(initialTimestamp.immediateSuccessor)
-    // we advance the clock some extra seconds further so that the BFT orderer more quickly goes beyond this interval
-    simClock.advanceTo(tick1.forgetRefinement.immediateSuccessor.plusSeconds(100))
+    simClock.advanceTo(tick1.forgetRefinement.immediateSuccessor)
     val now = simClock.now
 
     val p1Computed = eventually() {
@@ -153,6 +155,12 @@ trait AcsCommitmentRepairIntegrationTest
       import env.*
 
       val simClock = environment.simClock.value
+
+      val now = simClock.now
+      // make sure sequencer time is close to the sim clock time from the beginning
+      sequencers.local.foreach(
+        _.underlying.value.sequencer.timeTracker.awaitTick(now).foreach(_.futureValue)
+      )
 
       // Deploy three contracts. P1 and P2 exchange commitments
       createContractsAndCheck(sequencer1, daId)

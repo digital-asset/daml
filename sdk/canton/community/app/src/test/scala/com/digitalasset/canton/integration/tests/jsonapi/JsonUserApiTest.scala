@@ -23,7 +23,6 @@ import monocle.macros.syntax.lens.*
 import org.apache.pekko.http.scaladsl.model.Uri.Query
 import org.apache.pekko.http.scaladsl.model.{HttpHeader, StatusCodes, Uri}
 import org.scalatest.Assertion
-import spray.json.JsonParser
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -53,9 +52,10 @@ class JsonUserApiTest
     scope = Some(defaultScope),
   )
 
-  lazy val adminHeaders = HttpServiceTestFixture.authorizationHeader(
-    Jwt(toScopeContext(adminToken).token.getOrElse(""))
-  )
+  lazy val adminHeaders: List[HttpHeader] =
+    HttpServiceTestFixture.authorizationHeader(
+      Jwt(toScopeContext(adminToken).token.getOrElse(""))
+    )
 
   "Json api" should {
     "return current user using data from token" in httpTestFixture { fixture =>
@@ -91,22 +91,19 @@ class JsonUserApiTest
         _ <- fixture
           .postJsonRequest(
             Uri.Path("/v2/idps"),
-            JsonParser(
-              identity_provider_config_service
-                .CreateIdentityProviderConfigRequest(
-                  Some(
-                    identity_provider_config_service.IdentityProviderConfig(
-                      identityProviderId = "idp-1",
-                      isDeactivated = false,
-                      issuer = "user-idp-test",
-                      jwksUrl = "https://localhost",
-                      audience = "",
-                    )
+            identity_provider_config_service
+              .CreateIdentityProviderConfigRequest(
+                Some(
+                  identity_provider_config_service.IdentityProviderConfig(
+                    identityProviderId = "idp-1",
+                    isDeactivated = false,
+                    issuer = "user-idp-test",
+                    jwksUrl = "https://localhost",
+                    audience = "",
                   )
                 )
-                .asJson
-                .toString()
-            ),
+              )
+              .asJson,
             adminHeaders,
           )
           .map { case (status, result) =>
@@ -115,16 +112,13 @@ class JsonUserApiTest
         _ <- fixture
           .postJsonRequest(
             Uri.Path("/v2/users"),
-            JsonParser(
-              user_management_service
-                .CreateUserRequest(
-                  user =
-                    Some(user_management_service.User(randomUserInIdp, "", false, None, "idp-1")),
-                  rights = Nil,
-                )
-                .asJson
-                .toString()
-            ),
+            user_management_service
+              .CreateUserRequest(
+                user =
+                  Some(user_management_service.User(randomUserInIdp, "", false, None, "idp-1")),
+                rights = Nil,
+              )
+              .asJson,
             adminHeaders,
           )
           .map { case (status, result) =>
@@ -174,15 +168,12 @@ class JsonUserApiTest
       _ <- fixture
         .postJsonRequest(
           Uri.Path("/v2/users"),
-          JsonParser(
-            user_management_service
-              .CreateUserRequest(
-                user = Some(user_management_service.User(randomUser, "", false, None, "")),
-                rights = Nil,
-              )
-              .asJson
-              .toString()
-          ),
+          user_management_service
+            .CreateUserRequest(
+              user = Some(user_management_service.User(randomUser, "", false, None, "")),
+              rights = Nil,
+            )
+            .asJson,
           adminHeaders,
         )
         .map { case (status, _) =>

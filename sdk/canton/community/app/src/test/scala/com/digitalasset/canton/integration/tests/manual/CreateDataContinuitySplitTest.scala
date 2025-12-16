@@ -3,18 +3,11 @@
 
 package com.digitalasset.canton.integration.tests.manual
 
-import com.digitalasset.canton.config.CantonConfig
-import com.digitalasset.canton.integration.tests.manual.DataContinuityTest.{
-  baseDumpForConfig,
-  releaseVersion,
-}
 import com.digitalasset.canton.version.{
   ProtocolVersion,
   ProtocolVersionCompatibility,
   ReleaseVersion,
 }
-
-import java.nio.file.Files
 
 trait CreateContinuityDumpsShard {
   def numShards: Int
@@ -31,23 +24,6 @@ abstract class CreateBasicDataContinuityDumpsPostgres(override val shard: Int)
   registerPlugin(plugin)
 }
 
-final class CreateBasicDataContinuityDumpConfig extends BasicDataContinuityTestEnvironment {
-  // On the first shard, also dump the config
-  "Data continuity for config" should {
-    s"correctly generate default config dump for (release=$releaseVersion)" in { env =>
-      val config = env.actualConfig.copy(
-        mediators = env.actualConfig.mediators.take(1),
-        participants = env.actualConfig.participants.take(1),
-        sequencers = env.actualConfig.sequencers.take(1),
-      )
-      Files.createDirectories(baseDumpForConfig.path)
-      CantonConfig.save(
-        config,
-        (baseDumpForConfig.directory / "default.conf").pathAsString,
-      )
-    }
-  }
-}
 class CreateBasicDataContinuityDumpsPostgres_0
     extends CreateBasicDataContinuityDumpsPostgres(shard = 0)
 class CreateBasicDataContinuityDumpsPostgres_1

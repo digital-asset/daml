@@ -4,7 +4,6 @@
 package com.digitalasset.canton.integration.tests.manual
 
 import better.files.File
-import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.integration.tests.manual.DataContinuityTest.baseDbDumpPath
 import com.digitalasset.canton.integration.tests.manual.S3Synchronization.{
   ContinuityDumpLocalRef,
@@ -12,6 +11,7 @@ import com.digitalasset.canton.integration.tests.manual.S3Synchronization.{
   ContinuityDumpS3Ref,
 }
 import com.digitalasset.canton.version.{ProtocolVersion, ReleaseVersion}
+import com.digitalasset.canton.{FutureHelpers, TestEssentials}
 
 import java.nio.file.Files
 import scala.concurrent.blocking
@@ -19,7 +19,7 @@ import scala.jdk.CollectionConverters.*
 import scala.math.Ordering.Implicits.*
 import scala.sys.process.*
 
-trait S3Synchronization { self: BaseTest =>
+trait S3Synchronization extends FutureHelpers with TestEssentials {
 
   /** A source of data continuity dumps: S3 or local.
     *
@@ -28,19 +28,40 @@ trait S3Synchronization { self: BaseTest =>
     * run by the CI.
     */
   sealed trait DumpSource {
+
+    /** List all the dumps: one entry per (release, pv)
+      */
     def listPvDirectories(): List[String]
-    def listConfigDirectories(): List[String]
+
+    /** List all the dumps: one entry per release
+      */
+    def listVersionDirectories(): List[String] =
+      listPvDirectories().map(_.takeWhile(_ != '/')).distinct
+
     def mkContinuityDumpRef(path: String): ContinuityDumpRef
 
     /** List the dumps on S3
       * @param majorUpgradeTestFrom
       *   If defined, tests major upgrade from the specified version
+      * @param perProtocolVersion
+      *   - If true, returns the reference to the sub-directory corresponding to the pv
+      *   - If false, returns the reference to the top-level directory corresponding to the release
+      *     version
       */
     private def releaseDumpDirectories(
-        listing: List[String],
         majorUpgradeTestFrom: Option[(Int, Int)],
+        perProtocolVersion: Boolean,
     ): List[(ContinuityDumpRef, ReleaseVersion)] = {
       val onlyLatestDump = majorUpgradeTestFrom.isDefined
+      val baseListing = if (perProtocolVersion) listPvDirectories() else listVersionDirectories()
+
+      val listing = baseListing
+        .filter(path =>
+          !path.matches(s".*-ad-hoc.*") || path.contains("3.4.10-ad-hoc.20251211.17454.0.v04f84c64")
+        )
+        // Can be dropped when we have the new non-ad-hoc dumps
+        .filterNot(_.contains("3.4.10-snapshot.20251209.17450.0.vfc6a5830"))
+
       def getReleaseVersion(directory: String): ReleaseVersion =
         ReleaseVersion.tryCreate(directory.split("/").head)
 
@@ -70,20 +91,24 @@ trait S3Synchronization { self: BaseTest =>
         .collect { case ((version, ref), idx) if version.isStable || idx == 0 => (ref, version) }
     }
 
-    def getConfigDumpDirectories(
+    /** Returns the list of dumps, one for each release version (discarding protocol versions)
+      * @param majorUpgradeTestFrom
+      *   If defined, tests major upgrade from the specified version
+      */
+    def getDumpBaseDirectoriesForVersion(
         majorUpgradeTestFrom: Option[(Int, Int)] = None
-    ): List[(ContinuityDumpRef, ReleaseVersion)] = {
-      val listing = listConfigDirectories()
-        .filterNot(_.matches(s".*-ad-hoc.*"))
-      releaseDumpDirectories(listing, majorUpgradeTestFrom)
-    }
+    ): List[(ContinuityDumpRef, ReleaseVersion)] =
+      releaseDumpDirectories(majorUpgradeTestFrom, perProtocolVersion = false)
 
+    /** Returns the list of dumps and protocol versions to be tested.
+      * @param majorUpgradeTestFrom
+      *   If defined, tests major upgrade from the specified version
+      */
     def getDumpDirectories(
         majorUpgradeTestFrom: Option[(Int, Int)] = None
     ): List[(ContinuityDumpRef, ProtocolVersion)] = {
-      val listing = listPvDirectories()
-        .filterNot(_.matches(s".*-ad-hoc.*"))
-      val testedReleaseDirectories = releaseDumpDirectories(listing, majorUpgradeTestFrom)
+      val testedReleaseDirectories =
+        releaseDumpDirectories(majorUpgradeTestFrom, perProtocolVersion = true)
 
       val dumps: List[(ContinuityDumpRef, ProtocolVersion)] = testedReleaseDirectories.flatMap {
         case (pvDirectory, _) =>
@@ -122,13 +147,6 @@ trait S3Synchronization { self: BaseTest =>
         .filter(_.contains("data-continuity-dumps"))
         .map(_.replace("data-continuity-dumps/", "").replace("/0", ""))
 
-    override def listConfigDirectories(): List[String] =
-      ("""
-         |aws s3api list-objects --bucket canton-public-releases --prefix data-continuity-dumps/ --query 'CommonPrefixes[].{Prefix: Prefix}' --output text --no-sign-request --delimiter "/config"
-         |""".stripMargin.!!).split("\n").toList
-        .filter(_.contains("data-continuity-dumps"))
-        .map(_.replace("data-continuity-dumps/", ""))
-
     override def mkContinuityDumpRef(path: String): ContinuityDumpRef =
       ContinuityDumpS3Ref(path)
   }
@@ -142,12 +160,6 @@ trait S3Synchronization { self: BaseTest =>
       .map(baseDbDumpPath.path.relativize(_).toString)
       .filter(path => path.matches(".*/pv=\\d+$"))
       .toList
-
-    override def listConfigDirectories(): List[String] =
-      baseDbDumpPath.directory
-        .collectChildren(d => d.isDirectory && d.name == "config", maxDepth = 2)
-        .map(baseDbDumpPath.path.relativize(_).toString)
-        .toList
 
     override def mkContinuityDumpRef(path: String): ContinuityDumpRef =
       ContinuityDumpLocalRef(path)

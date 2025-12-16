@@ -11,6 +11,7 @@ import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
+@SuppressWarnings(Array("com.digitalasset.canton.DirectGrpcServiceInvocation"))
 final class VersionClient(
     service: VersionServiceStub,
     getDefaultToken: () => Option[String] = () => None,

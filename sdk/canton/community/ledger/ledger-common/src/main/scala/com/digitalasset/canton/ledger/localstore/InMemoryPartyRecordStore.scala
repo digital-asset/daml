@@ -212,11 +212,11 @@ class InMemoryPartyRecordStore(
     }
 
   private def withState[T](t: => T): Future[T] =
-    blocking(
-      state.synchronized(
-        Future.successful(t)
-      )
-    )
+    Future.successful {
+      blocking {
+        state.synchronized(t)
+      }
+    }
 
   private def withoutPartyRecord[T](party: Ref.Party)(t: => Result[T]): Result[T] =
     state.get(party) match {

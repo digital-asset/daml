@@ -7,6 +7,7 @@ import better.files.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.AuthServiceConfig.UnsafeJwtHmac256
+import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.ConfigErrors.{
   CannotParseFilesError,
   CannotReadFilesError,
@@ -516,16 +517,6 @@ class CantonConfigTest extends AnyWordSpec with BaseTest {
   }
 
   "deprecated configs" should {
-    val movedConfigLogs = Seq[(LogEntry => Assertion, String)](
-      (
-        _.message should (include("Config field") and include("is deprecated")),
-        "moved field not logged",
-      ),
-      (
-        _.message should (include("Config path") and include("is deprecated")),
-        "moved path not logged",
-      ),
-    )
 
     def deprecatedConfigChecks(config: CantonConfig) = {
       val participant = config.participants.headOption.value._2
@@ -539,6 +530,12 @@ class CantonConfigTest extends AnyWordSpec with BaseTest {
     // In this test case, both deprecated and new fields are set with opposite values, we make sure the new fields
     // are used
     "load with new fields set" in {
+      val deprecatedConfigLogs = Seq[(LogEntry => Assertion, String)](
+        (
+          _.message should (include("Config field") and include("is deprecated")),
+          "moved field not logged",
+        )
+      )
       loggerFactory.assertLogsSeq(SuppressionRule.Level(org.slf4j.event.Level.INFO))(
         {
           val parsed = CantonConfig
@@ -555,10 +552,7 @@ class CantonConfigTest extends AnyWordSpec with BaseTest {
             .value
           deprecatedConfigChecks(parsed)
         },
-        LogEntry.assertLogSeq(
-          movedConfigLogs,
-          Seq.empty,
-        ),
+        LogEntry.assertLogSeq(deprecatedConfigLogs, Seq.empty),
       )
     }
 
@@ -567,7 +561,7 @@ class CantonConfigTest extends AnyWordSpec with BaseTest {
       val deprecatedConfigLogs = Seq[(LogEntry => Assertion, String)](
         (
           _.message should include(
-            "Config path 'http-ledger-api.server' is deprecated since 3.4.0"
+            "Config field at http-ledger-api.server is deprecated since 3.4.0"
           ),
           "deprecated field not logged",
         )
@@ -587,10 +581,31 @@ class CantonConfigTest extends AnyWordSpec with BaseTest {
             .value
           deprecatedConfigChecks(parsed)
         },
-        LogEntry.assertLogSeq(
-          movedConfigLogs ++ deprecatedConfigLogs,
-          Seq.empty,
-        ),
+        LogEntry.assertLogSeq(deprecatedConfigLogs, Seq.empty),
+      )
+    }
+
+    "tolerate and log removed fields" in {
+      val deprecatedConfigLogs = Seq[(LogEntry => Assertion, String)](
+        (
+          _.message should include(
+            "Config path 'package-dependency-cache' is deprecated since 3.5.0"
+          ),
+          "deprecated path not logged",
+        )
+      )
+      loggerFactory.assertLogsSeq(SuppressionRule.Level(org.slf4j.event.Level.INFO))(
+        {
+          val parsed = CantonConfig.parseAndLoad(
+            Seq(
+              confDir / "storage" / "postgres.conf",
+              deprecatedConfigs / "removed-fields.conf",
+            ).map(_.toJava),
+            Some(DefaultPorts.create()),
+          )
+          parsed.value.participants.keySet should contain(InstanceName.tryCreate("participant1"))
+        },
+        LogEntry.assertLogSeq(deprecatedConfigLogs, Seq.empty),
       )
     }
   }

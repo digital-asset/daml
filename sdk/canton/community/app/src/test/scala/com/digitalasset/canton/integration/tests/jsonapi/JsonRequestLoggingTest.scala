@@ -18,7 +18,6 @@ import com.digitalasset.canton.logging.{LogEntry, NamedLoggerFactory, Suppressio
 import io.circe.syntax.EncoderOps
 import monocle.macros.syntax.lens.*
 import org.apache.pekko.http.scaladsl.model.{StatusCodes, Uri}
-import spray.json.JsonParser
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -47,9 +46,10 @@ class JsonRequestLoggingTest
     scope = Some(defaultScope),
   )
 
-  lazy val adminHeaders = HttpServiceTestFixture.authorizationHeader(
-    Jwt(toScopeContext(adminToken).token.getOrElse(""))
-  )
+  lazy val adminHeaders: List[org.apache.pekko.http.scaladsl.model.HttpHeader] =
+    HttpServiceTestFixture.authorizationHeader(
+      Jwt(toScopeContext(adminToken).token.getOrElse(""))
+    )
 
   "Json api" should {
     "log access to JSON and gRPC Ledger API" in httpTestFixture { fixture =>
@@ -59,15 +59,20 @@ class JsonRequestLoggingTest
           result <- fixture
             .postJsonRequest(
               Uri.Path("/v2/users"),
-              JsonParser(
-                user_management_service
-                  .CreateUserRequest(
-                    user = Some(user_management_service.User(randomUser, "", false, None, "")),
-                    rights = Nil,
-                  )
-                  .asJson
-                  .toString()
-              ),
+              user_management_service
+                .CreateUserRequest(
+                  user = Some(
+                    user_management_service.User(
+                      id = randomUser,
+                      primaryParty = "",
+                      isDeactivated = false,
+                      metadata = None,
+                      identityProviderId = "",
+                    )
+                  ),
+                  rights = Nil,
+                )
+                .asJson,
               adminHeaders,
             )
             .map { case (status, _) =>

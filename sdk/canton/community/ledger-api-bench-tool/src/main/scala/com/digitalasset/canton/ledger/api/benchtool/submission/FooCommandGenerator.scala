@@ -196,10 +196,12 @@ final class FooCommandGenerator(
   ): Seq[Command] = {
     val nonconsumingExercisePayloads: Seq[String] =
       config.nonConsumingExercises.fold(Seq.empty[String]) { config =>
-        var f = config.probability.toInt
-        if (randomnessProvider.randomDouble() <= config.probability - f) {
-          f += 1
-        }
+        val p = config.probability.toInt
+        val f =
+          if (randomnessProvider.randomDouble() <= config.probability - p) {
+            p + 1
+          } else
+            p
         Seq.fill[String](f)(randomPayload(config.payloadSizeBytes))
       }
     val nonconsumingExercises = nonconsumingExercisePayloads.map { payload =>

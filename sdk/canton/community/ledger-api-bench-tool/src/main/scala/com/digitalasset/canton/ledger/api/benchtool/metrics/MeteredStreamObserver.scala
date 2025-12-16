@@ -8,6 +8,7 @@ import org.slf4j.Logger
 
 import scala.concurrent.Future
 
+@SuppressWarnings(Array("org.wartremover.warts.Var"))
 class MeteredStreamObserver[T](
     val streamName: String,
     logger: Logger,
@@ -21,8 +22,9 @@ class MeteredStreamObserver[T](
     itemsCount += itemCountingFunction(value)
     manager.sendNewValue(value)
     super.onNext(value)
-    if (maxItemCount.isDefined && itemsCount >= maxItemCount.get)
+    maxItemCount.filter(_ <= itemsCount).foreach { _ =>
       cancel()
+    }
   }
 
   override def completeWith(): Future[BenchmarkResult] =

@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
+@SuppressWarnings(Array("com.digitalasset.canton.DirectGrpcServiceInvocation"))
 class CommandService(channel: Channel, authorizationToken: Option[String]) {
   private val logger = LoggerFactory.getLogger(getClass)
   private val service: CommandServiceGrpc.CommandServiceStub =

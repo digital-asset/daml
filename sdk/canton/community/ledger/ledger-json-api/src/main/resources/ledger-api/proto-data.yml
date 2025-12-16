@@ -3155,11 +3155,7 @@ fileComments:
             event_format: |-
               Format of the contract_entries in the result. In case of CreatedEvent the presentation will be of
               TRANSACTION_SHAPE_ACS_DELTA.
-              Optional for backwards compatibility, defaults to an EventFormat where:
-
-              - filters_by_party is the filter.filters_by_party from this request
-              - filters_for_any_party is the filter.filters_for_any_party from this request
-              - verbose is the verbose field from this request
+              Required
       GetActiveContractsResponse:
         message:
           comments: null
@@ -3708,17 +3704,7 @@ fileComments:
               The response will only contain transactions whose offset is less than or equal to this.
               Optional, if empty, the stream will not terminate.
               If specified, the stream will terminate after this absolute offset (positive integer) is reached.
-            update_format: |-
-              Must be unset for GetUpdateTrees request.
-              Optional for backwards compatibility for GetUpdates request: defaults to an UpdateFormat where:
-
-              - include_transactions.event_format.filters_by_party = the filter.filters_by_party on this request
-              - include_transactions.event_format.filters_for_any_party = the filter.filters_for_any_party on this request
-              - include_transactions.event_format.verbose = the same flag specified on this request
-              - include_transactions.transaction_shape = TRANSACTION_SHAPE_ACS_DELTA
-              - include_reassignments.filter = the same filter specified on this request
-              - include_reassignments.verbose = the same flag specified on this request
-              - include_topology_events.include_participant_authorization_events.parties = all the parties specified in filter
+            update_format: Required
       GetUpdatesResponse:
         message:
           comments: null

@@ -20,11 +20,6 @@ import java.nio.file.Files
 
 trait CreateBasicDataContinuityDumps extends BasicDataContinuityTestSetup {
 
-  override def beforeAll(): Unit = {
-    ensureDumpsDontExist()
-    super.beforeAll()
-  }
-
   // Copy the generated dumps from docker image to local file system
   override def afterAll(): Unit = {
     DataContinuityTest.synchronizedOperation(
@@ -135,10 +130,6 @@ trait CreateBasicDataContinuityDumps extends BasicDataContinuityTestSetup {
 trait CreateSynchronizerChangeDataContinuityDumps
     extends SynchronizerChangeDataContinuityTestSetup
     with EntitySyntax {
-  override def beforeAll(): Unit = {
-    ensureDumpsDontExist()
-    super.beforeAll()
-  }
 
   // Copy the generated dumps from docker image to local file system
   override def afterAll(): Unit = {

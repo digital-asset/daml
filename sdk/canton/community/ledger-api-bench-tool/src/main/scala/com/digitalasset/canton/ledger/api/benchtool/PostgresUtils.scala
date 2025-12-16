@@ -4,8 +4,9 @@
 package com.digitalasset.canton.ledger.api.benchtool
 
 import com.digitalasset.canton.ledger.api.benchtool.LedgerApiBenchTool.logger
+import com.digitalasset.canton.platform.store.backend.common.QueryStrategy
 
-import java.sql.{Connection, DriverManager, Statement}
+import java.sql.{Connection, DriverManager}
 
 object PostgresUtils {
 
@@ -30,40 +31,17 @@ object PostgresUtils {
   }
 
   private def inspectVacuumAndAnalyzeState(connection: Connection): Unit = {
-    val stmt = connection.createStatement()
     val query =
       "SELECT relname, last_vacuum, last_autovacuum, last_analyze, last_autoanalyze FROM pg_stat_user_tables ORDER BY relname"
-    try {
-      logger.info(
-        "Executing SQL query: " + query
-      )
-      stmt.execute(
-        query
-      )
-      printQueryResult(stmt)
-    } finally {
-      stmt.close()
-    }
-  }
-
-  private def printQueryResult(s: Statement): Unit = {
-    val rs = s.getResultSet
-    val meta = rs.getMetaData
-    val colCount = meta.getColumnCount
-    val buffer = new StringBuffer()
-    try {
-      while (rs.next()) {
-        val text = 1
-          .to(colCount)
-          .map(colNumber =>
-            f"${meta.getColumnName(colNumber)} ${rs.getString(colNumber) + ","}%-45s"
-          )
-          .mkString(" ")
-        buffer.append(text).append("\n")
-      }
-    } finally {
-      logger.info(buffer.toString)
-    }
+    logger.info("Executing SQL query: " + query)
+    val rows = QueryStrategy.plainJdbcQuery(query) { rs =>
+      val meta = rs.getMetaData
+      val colCount = meta.getColumnCount
+      1.to(colCount)
+        .map(colNumber => f"${meta.getColumnName(colNumber)} ${rs.getString(colNumber) + ","}%-45s")
+        .mkString(" ")
+    }(connection)
+    logger.info(rows.mkString("\n"))
   }
 
 }

@@ -159,7 +159,7 @@ class MajorUpgradeSimpleWriterIntegrationTest
 
     File(CantonExamplesPath).copyToDirectory(baseExportDirectory)
 
-    participant1.dars.upload(CantonExamplesPath, synchronizerId = daId)
+    participants.all.dars.upload(CantonExamplesPath, synchronizerId = daId)
 
     // explicitly allocate an admin party
     participant1.topology.party_to_participant_mappings.propose(

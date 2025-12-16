@@ -11,7 +11,7 @@ import com.digitalasset.canton
 import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.config.{AuthServiceConfig, CantonConfig, NonNegativeDuration}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
-import com.digitalasset.canton.http.json.SprayJson
+import com.digitalasset.canton.http.json.Circe
 import com.digitalasset.canton.http.json.v2.{JsCommand, JsCommands}
 import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2}
 import com.digitalasset.canton.integration.tests.jsonapi.AbstractHttpServiceIntegrationTestFuns.HttpServiceTestFixtureData
@@ -98,9 +98,7 @@ class TokenExpirationVerificationIT
     for {
       result <- postJsonRequest(
         uri = fixture.uri.withPath(Uri.Path("/v2/commands/submit-and-wait")),
-        json = SprayJson
-          .parse(jsReq.asJson.noSpaces)
-          .valueOr(err => fail(s"$err")),
+        json = Circe.parse(jsReq.asJson.noSpaces).fold(err => fail(s"$err"), identity),
         headers = headers,
       )
     } yield (result._1)

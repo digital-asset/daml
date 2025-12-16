@@ -18,6 +18,7 @@ import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.{ExecutionContext, Future}
 
+@SuppressWarnings(Array("com.digitalasset.canton.DirectGrpcServiceInvocation"))
 class UserManagementService(channel: Channel, authorizationToken: Option[String]) {
   private val logger: Logger = LoggerFactory.getLogger(getClass)
   private val service: UserManagementServiceGrpc.UserManagementServiceStub =

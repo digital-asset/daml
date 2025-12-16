@@ -352,6 +352,12 @@ trait BasicDataContinuityTestEnvironment extends CommunityIntegrationTest with S
             .replace(Some(RequireTypes.Port.tryCreate(9022)))
         ),
       )
+      .addConfigTransforms(
+        // We don't need it and it is one less port to worry about
+        ConfigTransforms.updateAllParticipantConfigs_(
+          _.focus(_.httpLedgerApi.enabled).replace(false)
+        )
+      )
       .addConfigTransforms(ConfigTransforms.setBetaSupport(testedProtocolVersion.isBeta)*)
       .addConfigTransform(ConfigTransforms.setStartupMemoryReportLevel(Ignore))
       .updateTestingConfig(
@@ -570,6 +576,12 @@ trait SynchronizerChangeDataContinuityTestSetup
             .focus(_.adminApi.internalPort)
             .replace(Some(RequireTypes.Port.tryCreate(11052)))
         ),
+      )
+      .addConfigTransforms(
+        // We don't need it and it is one less port to worry about
+        ConfigTransforms.updateAllParticipantConfigs_(
+          _.focus(_.httpLedgerApi.enabled).replace(false)
+        )
       )
       .addConfigTransform(ConfigTransforms.setStartupMemoryReportLevel(Ignore))
       .updateTestingConfig(

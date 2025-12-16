@@ -16,6 +16,7 @@ import com.digitalasset.canton.ledger.api.benchtool.submission.{
   CompletionsObserver,
   ObservedCompletions,
 }
+import com.digitalasset.canton.util.FutureUtil
 import com.digitalasset.canton.version.ProtocolVersion
 import org.scalatest.concurrent.PatienceConfiguration
 import org.scalatest.{AppendedClues, Checkpoints, OptionValues}
@@ -115,7 +116,12 @@ class WeightedUserIdsAndSubmittersITSpec
       apiServices: LedgerApiServices,
   )(implicit ec: ExecutionContext): Future[ObservedCompletions] = {
     val observer = CompletionsObserver()
-    Delayed.by(t = Duration(5, TimeUnit.SECONDS))(observer.cancel())
+    FutureUtil.doNotAwait(
+      // EC passed explicitly, because otherwise scalac reports a false positive unused warning/error,
+      // but when trying to disable with @nowarn, complains that the latter does not suppress any warnings.
+      Delayed.by(t = Duration(5, TimeUnit.SECONDS))(observer.cancel())(ec),
+      s"Failed to cancel observer $observer",
+    )
     apiServices.commandCompletionService.completions(
       config = WorkflowConfig.StreamConfig.CompletionsStreamConfig(
         name = "dummy-name",
