@@ -151,10 +151,10 @@ object MetricsSet {
     response.contractEntry.activeContract.knownSize
 
   def countCompletions(response: CompletionStreamResponse): Int =
-    response.completionResponse.completion.size
+    response.completionResponse.completion.toList.size
 
   def countTransactionsEvents(response: GetUpdatesResponse): Long =
-    response.update.transaction.foldLeft(0L)((acc, tx) => acc + tx.events.size)
+    response.update.transaction.toList.foldLeft(0L)((acc, tx) => acc + tx.events.size)
 
   private def optionalMaxDurationMetrics[T](
       configO: Option[CommonObjectivesConfig]

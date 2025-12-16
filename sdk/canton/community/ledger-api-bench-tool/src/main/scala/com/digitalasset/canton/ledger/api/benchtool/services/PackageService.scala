@@ -9,6 +9,7 @@ import io.grpc.Channel
 
 import scala.concurrent.Future
 
+@SuppressWarnings(Array("com.digitalasset.canton.DirectGrpcServiceInvocation"))
 class PackageService(channel: Channel, authorizationToken: Option[String]) {
   private val service =
     AuthorizationHelper.maybeAuthedService(authorizationToken)(PackageServiceGrpc.stub(channel))

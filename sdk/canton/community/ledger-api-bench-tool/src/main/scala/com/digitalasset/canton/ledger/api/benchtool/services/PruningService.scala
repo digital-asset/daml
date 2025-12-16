@@ -13,6 +13,7 @@ import io.grpc.Channel
 
 import scala.concurrent.Future
 
+@SuppressWarnings(Array("com.digitalasset.canton.DirectGrpcServiceInvocation"))
 class PruningService(channel: Channel, authorizationToken: Option[String]) {
   private val service: ParticipantPruningServiceGrpc.ParticipantPruningServiceStub =
     AuthorizationHelper.maybeAuthedService(authorizationToken)(

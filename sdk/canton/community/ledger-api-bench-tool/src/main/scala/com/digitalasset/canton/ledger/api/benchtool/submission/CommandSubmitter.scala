@@ -9,6 +9,7 @@ import com.daml.ledger.javaapi.data.Party
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.metrics.api.MetricHandle.{LabeledMetricsFactory, Timer}
 import com.daml.metrics.api.{MetricInfo, MetricName, MetricQualification}
+import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.ledger.api.benchtool.config.WorkflowConfig.SubmissionConfig
 import com.digitalasset.canton.ledger.api.benchtool.infrastructure.TestDars
 import com.digitalasset.canton.ledger.api.benchtool.metrics.LatencyMetric.LatencyNanos
@@ -181,16 +182,15 @@ final case class CommandSubmitter(
     val progressMeter = CommandSubmitter.ProgressMeter(config.numberOfInstances)
     // Output a log line roughly once per 10% progress, or once every 10000 submissions (whichever comes first)
     val progressLogInterval = math.min(config.numberOfInstances / 10 + 1, 10000)
-    val progressLoggingSink = {
-      var lastInterval = 0
-      Sink.foreach[Int](index =>
+    val progressLoggingSink =
+      Sink.fold[Int, Int](0)((lastInterval, index) =>
         if (index / progressLogInterval != lastInterval) {
-          lastInterval = index / progressLogInterval
           logger.info(progressMeter.getProgress(index))
-        }
+          index / progressLogInterval
+        } else
+          lastInterval
       )
 
-    }
     logger.info(
       s"Submitting commands ($numBatches commands, $submissionBatchSize contracts per command)..."
     )
@@ -200,10 +200,10 @@ final case class CommandSubmitter(
           _ <- generator
             .commandBatchSource(config.numberOfInstances, commandGenerationParallelism)
             .groupedWithin(submissionBatchSize, 1.minute)
-            .map(cmds => cmds.head._1 -> cmds.map(_._2).toList)
+            .map(cmds => cmds.headOption.map(cmd => cmd._1 -> cmds.map(_._2).toList))
             .buffer(maxInFlightCommands, OverflowStrategy.backpressure)
             .mapAsync(maxInFlightCommandsOverride.getOrElse(maxInFlightCommands)) {
-              case (index, commands) =>
+              case Some((index, commands)) =>
                 timed(submitLatencyTimer, metricsManager) {
                   submit(
                     id = names.commandId(index),
@@ -218,7 +218,7 @@ final case class CommandSubmitter(
                     case e: io.grpc.StatusRuntimeException
                         if e.getStatus.getCode == Status.Code.ABORTED =>
                       logger.info(s"Flow rate limited at index $index: ${e.getLocalizedMessage}")
-                      Thread.sleep(10) // Small back-off period
+                      Threading.sleep(10) // Small back-off period
                       Future.successful(index + commands.length - 1)
                     case ex =>
                       logger.error(
@@ -229,6 +229,8 @@ final case class CommandSubmitter(
                         CommandSubmitter.CommandSubmitterError(ex.getLocalizedMessage, ex)
                       )
                   }
+              // Impossible, because otherwise division by zero would have thrown an exception earlier.
+              case None => Future.failed(new NoSuchElementException("Empty command group"))
             }
             .runWith(progressLoggingSink)
         } yield ()
@@ -260,6 +262,7 @@ object CommandSubmitter {
 
   final case class SubmissionSummary(observers: List[Party])
 
+  @SuppressWarnings(Array("org.wartremover.warts.Var"))
   class ProgressMeter(totalItems: Int) {
     var startTimeMillis: Long = System.currentTimeMillis()
 

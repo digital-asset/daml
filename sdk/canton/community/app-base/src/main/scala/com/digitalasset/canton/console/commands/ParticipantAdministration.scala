@@ -88,7 +88,6 @@ import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.{SequencerAlias, SynchronizerAlias, config}
 import io.grpc.Context
-import spray.json.DeserializationException
 
 import java.time.Instant
 import scala.concurrent.ExecutionContext
@@ -879,7 +878,7 @@ class CommitmentsAdministrationGroup(
           counterContracts.newInput(),
           CommitmentContractMetadata,
         ) match {
-          case Left(msg) => throw DeserializationException(msg)
+          case Left(msg) => throw new RuntimeException(msg)
           case Right(output) => output
         }
       logger.debug(
@@ -949,7 +948,7 @@ class CommitmentsAdministrationGroup(
           contractsData.newInput(),
           CommitmentInspectContract,
         )
-        .valueOr(msg => throw DeserializationException(msg))
+        .valueOr(msg => throw new RuntimeException(msg))
     logger.debug(
       s"Requested data for ${contracts.size}, retrieved data for ${parsedContractsData.size} contracts at time $timestamp on any synchronizer"
     )

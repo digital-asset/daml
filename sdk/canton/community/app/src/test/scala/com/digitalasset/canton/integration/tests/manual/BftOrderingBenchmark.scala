@@ -308,6 +308,7 @@ class BftOrderingBenchmark
     mediators.local.foreach(_.stop())
 
     // Use a high timeout to allow many nodes in performance testing environments
+
     waitUntilAllBftSequencersAuthenticateDisseminationQuorum(5.minutes)
 
     val benchmarkTool = new BftBenchmarkTool(DaBftBindingFactory, loggerFactory)

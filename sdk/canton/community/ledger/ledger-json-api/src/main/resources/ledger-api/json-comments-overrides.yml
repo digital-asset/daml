@@ -13,6 +13,17 @@ messages:
           Requesting parties with template filters.
           Template filters must be empty for GetUpdateTrees requests.
           Optional for backwards compatibility, if defined update_format must be unset
+        updateFormat: |-
+          Must be unset for GetUpdateTrees request.
+          Optional for backwards compatibility for GetUpdates request: defaults to an UpdateFormat where:
+
+          - include_transactions.event_format.filters_by_party = the filter.filters_by_party on this request
+          - include_transactions.event_format.filters_for_any_party = the filter.filters_for_any_party on this request
+          - include_transactions.event_format.verbose = the same flag specified on this request
+          - include_transactions.transaction_shape = TRANSACTION_SHAPE_ACS_DELTA
+          - include_reassignments.filter = the same filter specified on this request
+          - include_reassignments.verbose = the same flag specified on this request
+          - include_topology_events.include_participant_authorization_events.parties = all the parties specified in filter
   TransactionFilter:
     message:
       comments: |-
@@ -160,6 +171,14 @@ messages:
           Provided for backwards compatibility, it will be removed in the Canton version 3.5.0.
           Templates to include in the served snapshot, per party.
           Optional, if specified event_format must be unset, if not specified event_format must be set.
+        eventFormat: |-
+          Format of the contract_entries in the result. In case of CreatedEvent the presentation will be of
+          TRANSACTION_SHAPE_ACS_DELTA.
+          Optional for backwards compatibility, defaults to an EventFormat where:
+
+          - filters_by_party is the filter.filters_by_party from this request
+          - filters_for_any_party is the filter.filters_for_any_party from this request
+          - verbose is the verbose field from this request
   JsGetUpdateTreesResponse:
     message:
       comments: |-
@@ -180,7 +199,7 @@ messages:
         created: |-
           The event as it appeared in the context of its original daml transaction on this participant node.
           In particular, the offset, node_id pair of the daml transaction are preserved.
-          Required          
+          Required
 # oneOfs overrides are not implemented in ovverides (update code if needed)
 oneOfs: {}
 # services overrides are not implemented in ovverides (update code if needed)

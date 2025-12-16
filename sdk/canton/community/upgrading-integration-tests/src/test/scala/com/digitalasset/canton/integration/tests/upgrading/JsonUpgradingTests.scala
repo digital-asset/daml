@@ -10,7 +10,6 @@ import com.digitalasset.canton.admin.api.client.data.TemplateId
 import com.digitalasset.canton.damltests.upgrade.v1.java as v1
 import com.digitalasset.canton.damltests.upgrade.v2.java as v2
 import com.digitalasset.canton.http
-import com.digitalasset.canton.http.json.SprayJson
 import com.digitalasset.canton.http.json.v2.JsCommandServiceCodecs.*
 import com.digitalasset.canton.http.json.v2.JsContractEntry.JsActiveContract
 import com.digitalasset.canton.http.json.v2.JsStateServiceCodecs.*
@@ -22,11 +21,11 @@ import com.digitalasset.canton.integration.tests.jsonapi.{HttpServiceUserFixture
 import com.digitalasset.canton.integration.tests.upgrading.UpgradingBaseTest.{UpgradeV1, UpgradeV2}
 import com.digitalasset.canton.topology.PartyId
 import io.circe
+import io.circe.Json
 import io.circe.parser.*
 import io.circe.syntax.*
 import org.apache.pekko.http.scaladsl.model.ws.TextMessage
 import org.apache.pekko.http.scaladsl.model.{StatusCode, StatusCodes, Uri}
-import spray.json.JsValue
 
 import java.util.UUID
 import scala.concurrent.Future
@@ -51,7 +50,7 @@ class JsonUpgradingTests extends HttpTestFuns with HttpServiceUserFixture.UserTo
     def testUpDowngrading(fixture: HttpServiceTestFixtureData, alice: PartyId)(
         targetTemplateId: Identifier,
         packageIdSelectionPreference: Seq[String] = Seq.empty,
-    )(jsonDamlValue: String)(asserts: (StatusCode, JsValue) => Unit) =
+    )(jsonDamlValue: String)(asserts: (StatusCode, Json) => Unit) =
       fixture.headersWithAuth.flatMap { headers =>
         val jsCommand = JsCommand.CreateCommand(
           templateId = TemplateId.fromJavaIdentifier(targetTemplateId).toIdentifier,
@@ -77,7 +76,7 @@ class JsonUpgradingTests extends HttpTestFuns with HttpServiceUserFixture.UserTo
         for {
           _ <- postJsonRequest(
             uri = fixture.uri.withPath(Uri.Path("/v2/commands/submit-and-wait")),
-            json = SprayJson.parse(cmds.asJson.noSpaces).valueOr(err => fail(s"$err")),
+            json = cmds.asJson,
             headers = headers,
           ).map { case (statusCode, result) =>
             asserts(statusCode, result)

@@ -22,6 +22,7 @@ import scala.concurrent.Future
   * @param config
   *   Options for changing behavior.
   */
+@SuppressWarnings(Array("com.digitalasset.canton.DirectGrpcServiceInvocation"))
 final class CommandClient(
     commandSubmissionService: CommandSubmissionServiceStub,
     override protected val loggerFactory: NamedLoggerFactory,

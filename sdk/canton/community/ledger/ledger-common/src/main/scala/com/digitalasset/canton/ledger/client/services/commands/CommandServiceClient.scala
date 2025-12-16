@@ -30,6 +30,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.chaining.scalaUtilChainingOps
 import scala.util.{Failure, Success, Using}
 
+@SuppressWarnings(Array("com.digitalasset.canton.DirectGrpcServiceInvocation"))
 class CommandServiceClient(
     service: CommandServiceStub,
     getDefaultToken: () => Option[String] = () => None,

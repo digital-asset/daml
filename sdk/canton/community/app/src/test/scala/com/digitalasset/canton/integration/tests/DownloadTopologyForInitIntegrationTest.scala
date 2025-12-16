@@ -97,6 +97,5 @@ class DownloadTopologyForInitIntegrationTestPostgres
     extends DownloadTopologyForInitIntegrationTest {
 
   registerPlugin(new UsePostgres(loggerFactory))
-  // TODO(#29833): Graceful shutdown of BftBlockOrderer
   registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }

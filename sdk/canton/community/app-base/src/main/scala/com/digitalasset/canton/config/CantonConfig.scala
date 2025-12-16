@@ -35,6 +35,7 @@ import com.digitalasset.canton.console.{AmmoniteConsoleConfig, FeatureFlag}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.kms.KmsKeyId
 import com.digitalasset.canton.crypto.kms.driver.v1.DriverKms
+import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.http.{JsonApiConfig, WebsocketConfig}
 import com.digitalasset.canton.ledger.runner.common.PureConfigReaderWriter.Secure.{
@@ -640,6 +641,7 @@ private[canton] object CantonNodeParameterConverter {
 }
 
 object CantonConfig {
+  import DeprecatedConfigUtils.*
 
   // the great ux of pureconfig expects you to provide this ProductHint such that the created derivedReader fails on
   // unknown keys
@@ -671,7 +673,6 @@ object CantonConfig {
 
   class ConfigReaders(implicit private val elc: ErrorLoggingContext) {
     import BaseCantonConfig.Readers.*
-    import DeprecatedConfigUtils.*
     import ParticipantNodeConfig.DeprecatedImplicits.*
 
     implicit val nonNegativeDurationReader: ConfigReader[config.NonNegativeDuration] =
@@ -1201,7 +1202,15 @@ object CantonConfig {
         deriveReader[CacheConfig]
       implicit val cacheConfigWithSizeOnlyReader: ConfigReader[CacheConfigWithSizeOnly] =
         deriveReader[CacheConfigWithSizeOnly]
-      deriveReader[CachingConfigs]
+
+      implicit val deprecatedFields: DeprecatedFieldsFor[CachingConfigs] =
+        new DeprecatedFieldsFor[CachingConfigs] {
+          override def deprecatePath: List[DeprecatedConfigPath[?]] = List(
+            DeprecatedConfigPath[CacheConfig]("package-dependency-cache", "3.5.0")
+          )
+        }
+
+      deriveReader[CachingConfigs].applyDeprecations
     }
 
     lazy implicit final val ledgerApiServerParametersConfigReader
@@ -2261,8 +2270,8 @@ object CantonConfig {
           .root()
       case _ => unfiltered
     }
-    val _ =
-      BFile(filename).write(value.atKey("canton").root().render(CantonConfig.defaultConfigRenderer))
+    BFile(filename)
+      .write(value.atKey("canton").root().render(CantonConfig.defaultConfigRenderer))
+      .discard
   }
-
 }

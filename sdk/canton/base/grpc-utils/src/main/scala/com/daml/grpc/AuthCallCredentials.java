@@ -32,9 +32,4 @@ public final class AuthCallCredentials extends CallCredentials {
         AuthCallCredentials.header, token.startsWith("Bearer ") ? token : "Bearer " + token);
     applier.apply(metadata);
   }
-
-  @Override
-  public void thisUsesUnstableApi() {
-    // No need to implement this, it's used as a warning from upstream
-  }
 }

@@ -55,6 +55,7 @@ object PartyManagementClient {
   }
 }
 
+@SuppressWarnings(Array("com.digitalasset.canton.DirectGrpcServiceInvocation"))
 final class PartyManagementClient(
     service: PartyManagementServiceStub,
     getDefaultToken: () => Option[String] = () => None,
