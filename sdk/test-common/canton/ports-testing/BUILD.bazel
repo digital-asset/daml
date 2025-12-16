@@ -15,8 +15,7 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
-        "//canton:ports",
         "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:ports",
     ],
 )
-
