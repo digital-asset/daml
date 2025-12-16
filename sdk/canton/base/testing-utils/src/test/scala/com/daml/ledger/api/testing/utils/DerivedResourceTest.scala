@@ -4,8 +4,8 @@
 package com.daml.ledger.api.testing.utils
 
 import org.scalatest.BeforeAndAfterEach
-import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 class DerivedResourceTest extends AnyWordSpec with BeforeAndAfterEach with Matchers {
 
