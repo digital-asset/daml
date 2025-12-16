@@ -2379,30 +2379,6 @@ da_scala_test(
     ],
 )
 
-da_scala_library(
-    name = "postgresql-testing",
-    srcs = glob(["base/postgresql-testing/src/main/scala/**/*.scala"]),
-    data = [
-        "@postgresql_dev_env//:all",
-    ],
-    scala_deps = [
-        "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest_core",
-    ],
-    visibility = [
-        "//visibility:public",
-    ],
-    deps = [
-        "//bazel_tools/runfiles:scala_runfiles",
-        "//canton:ports",
-        "//canton:resources",
-        "//canton:testing-utils",
-        "//test-common/canton/ports-testing",
-        "@maven//:commons_io_commons_io",
-        "@maven//:org_scalatest_scalatest_compatible",
-    ],
-)
-
 proto_library(
     name = "sample-service-proto",
     srcs = ["base/sample-service/src/main/protobuf/hello.proto"],
