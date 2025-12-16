@@ -137,8 +137,6 @@
   type: jar-scala
 - target: //canton:struct-spray-json
   type: jar-scala
-- target: //canton:struct-circe-json
-  type: jar-scala
 - target: //canton:executors
   type: jar-scala
 - target: //observability/metrics:metrics
