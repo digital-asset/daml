@@ -2313,9 +2313,6 @@ da_scala_library(
     ],
 )
 
-# libs-scala/(ledger-resources|ports|postgresql-testing|sample-service|testing-utils)[^:]
-# {ledger-resources,ports,postgresql-testing,sample-service,testing-utils}
-
 da_scala_library(
     name = "ledger-resources",
     srcs = glob(["base/ledger-resources/src/main/scala/**/*.scala"]),
