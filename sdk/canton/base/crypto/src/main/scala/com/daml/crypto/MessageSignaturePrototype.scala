@@ -37,7 +37,7 @@ final class MessageSignaturePrototype(val algorithm: String) {
 
   @throws(classOf[NoSuchProviderException])
   @throws(classOf[InvalidKeyException])
-  def validateKey(publicKey: PublicKey): Boolean = {
+  def validateKey(publicKey: PublicKey): Boolean =
     publicKey match {
       case key: ECPublicKey =>
         val x = key.getW.getAffineX
@@ -48,7 +48,6 @@ final class MessageSignaturePrototype(val algorithm: String) {
       case _ =>
         throw new InvalidKeyException("Invalid type for public key")
     }
-  }
 }
 
 object MessageSignaturePrototype {

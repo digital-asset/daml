@@ -3,15 +3,14 @@
 
 package com.daml.ledger.api.testing.utils
 
-import java.util.concurrent.Executors
-
+import com.daml.grpc.adapter.{ExecutionSequencerFactory, PekkoExecutionSequencerPool}
+import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.Materializer
-import com.daml.grpc.adapter.{PekkoExecutionSequencerPool, ExecutionSequencerFactory}
-import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.scalatest.{BeforeAndAfterAll, Suite}
 import org.slf4j.LoggerFactory
 
+import java.util.concurrent.Executors
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext}
 

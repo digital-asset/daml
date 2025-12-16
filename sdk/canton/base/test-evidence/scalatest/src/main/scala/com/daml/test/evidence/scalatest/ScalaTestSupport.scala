@@ -5,6 +5,7 @@ package com.daml.test.evidence.scalatest
 
 import com.daml.test.evidence.tag.EvidenceTag
 import org.scalatest.Tag
+
 import scala.language.implicitConversions
 
 object ScalaTestSupport {

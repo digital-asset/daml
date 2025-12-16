@@ -3,11 +3,11 @@
 
 package com.daml.ledger.api.testing.utils
 
+import io.grpc.BindableService
+import org.apache.pekko.stream.Materializer
+
 import java.net.SocketAddress
 import java.util.concurrent.TimeUnit
-
-import org.apache.pekko.stream.Materializer
-import io.grpc.BindableService
 
 class PekkoStreamGrpcServerResource(
     constructServices: Materializer => Iterable[BindableService],

@@ -23,10 +23,10 @@ object ContextualizedLogger {
   def createFor(name: String): ContextualizedLogger =
     cache.getOrElseUpdate(name, createFor(LoggerFactory.getLogger(name)))
 
-  /** Gets from cache (or creates) a [[ContextualizedLogger]].
-    * Automatically strips the `$` at the end of Scala `object`s' name.
+  /** Gets from cache (or creates) a [[ContextualizedLogger]]. Automatically strips the `$` at the
+    * end of Scala `object`s' name.
     */
-  def get(clazz: Class[_]): ContextualizedLogger =
+  def get(clazz: Class[?]): ContextualizedLogger =
     createFor(clazz.getName.stripSuffix("$"))
 
 }

@@ -3,7 +3,7 @@
 
 package com.daml.ledger
 
-import com.daml.resources.{AbstractResourceOwner, ResourceFactories, Resource => AbstractResource}
+import com.daml.resources.{AbstractResourceOwner, Resource as AbstractResource, ResourceFactories}
 
 package object resources {
 

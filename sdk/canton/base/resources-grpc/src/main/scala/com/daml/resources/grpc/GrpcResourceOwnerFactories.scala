@@ -3,21 +3,20 @@
 
 package com.daml.resources.grpc
 
-import java.util.concurrent.ThreadFactory
-
 import com.daml.resources.{AbstractResourceOwner, HasExecutionContext, ResourceOwnerFactories}
-import io.grpc.{Channel, ManagedChannel, ManagedChannelBuilder, Server, ServerBuilder}
 import io.grpc.netty.shaded.io.netty.channel.EventLoopGroup
 import io.grpc.netty.shaded.io.netty.channel.nio.NioEventLoopGroup
 import io.grpc.netty.shaded.io.netty.channel.socket.nio.NioSocketChannel
+import io.grpc.{Channel, ManagedChannel, ManagedChannelBuilder, Server, ServerBuilder}
 
+import java.util.concurrent.ThreadFactory
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.FiniteDuration
 
 trait GrpcResourceOwnerFactories[Context] {
   protected implicit val hasExecutionContext: HasExecutionContext[Context]
 
-  val EventLoopGroupChannelType: Class[_ <: io.grpc.netty.shaded.io.netty.channel.Channel] =
+  val EventLoopGroupChannelType: Class[? <: io.grpc.netty.shaded.io.netty.channel.Channel] =
     classOf[NioSocketChannel]
 
   def forEventLoopGroup(
@@ -27,13 +26,13 @@ trait GrpcResourceOwnerFactories[Context] {
     forNioEventLoopGroup(threadCount, threadFactory)
 
   def forServer(
-      builder: ServerBuilder[_],
+      builder: ServerBuilder[?],
       shutdownTimeout: FiniteDuration,
   ): AbstractResourceOwner[Context, Server] =
     new ServerResourceOwner[Context](builder, shutdownTimeout)
 
   def forChannel(
-      builder: ManagedChannelBuilder[_],
+      builder: ManagedChannelBuilder[?],
       shutdownTimeout: FiniteDuration,
   ): AbstractResourceOwner[Context, Channel] =
     forManagedChannel(builder, shutdownTimeout)
@@ -45,7 +44,7 @@ trait GrpcResourceOwnerFactories[Context] {
     new NioEventLoopGroupResourceOwner[Context](threadCount, threadFactory)
 
   private[grpc] def forManagedChannel(
-      builder: ManagedChannelBuilder[_],
+      builder: ManagedChannelBuilder[?],
       shutdownTimeout: FiniteDuration,
   ): AbstractResourceOwner[Context, ManagedChannel] =
     new ManagedChannelResourceOwner(builder, shutdownTimeout)

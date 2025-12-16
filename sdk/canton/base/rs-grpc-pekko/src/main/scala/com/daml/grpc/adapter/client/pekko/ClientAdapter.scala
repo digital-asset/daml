@@ -3,13 +3,13 @@
 
 package com.daml.grpc.adapter.client.pekko
 
-import java.util.function.BiConsumer
-
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.Source
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.client.rs.ClientPublisher
 import io.grpc.stub.StreamObserver
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.Source
+
+import java.util.function.BiConsumer
 
 object ClientAdapter {
 

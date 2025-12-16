@@ -13,9 +13,8 @@ trait PekkoResourceManagement extends SuiteResource[Materializer] {
   override protected lazy val suiteResource: Resource[Materializer] =
     ActorMaterializerResource(actorSystemName)
 
-  protected def actorSystemName: String = {
+  protected def actorSystemName: String =
     this.getClass.getSimpleName.stripSuffix("$")
-  }
 
   implicit protected def system: ActorSystem = suiteResource.value.system
 

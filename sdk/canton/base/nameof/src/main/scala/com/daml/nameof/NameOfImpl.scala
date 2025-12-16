@@ -8,7 +8,7 @@ import scala.reflect.macros.blackbox.Context
 
 object NameOfImpl {
   def qualifiedNameOfCurrentFunc(c: Context): c.Expr[String] = {
-    import c.universe._
+    import c.universe.*
     val cc = c.asInstanceOf[scala.reflect.macros.runtime.Context]
     val owner = cc.callsiteTyper.context.enclMethod.owner
     if (owner == NoSymbol)
@@ -25,16 +25,15 @@ object NameOfImpl {
   private def qualifiedNameOfTree(
       c: Context
   )(macroName: String, tree: c.universe.Tree): c.Expr[String] = {
-    import c.universe._
+    import c.universe.*
 
-    @tailrec def stripFunctionApply(tree: Tree): Tree = {
+    @tailrec def stripFunctionApply(tree: Tree): Tree =
       tree match {
         case Function(_, body) => stripFunctionApply(body)
         case Apply(target, _) => stripFunctionApply(target)
         case TypeApply(target, _) => stripFunctionApply(target)
         case _ => tree
       }
-    }
 
     val symbol = stripFunctionApply(tree).symbol
     if ((symbol eq null) || (symbol == NoSymbol))

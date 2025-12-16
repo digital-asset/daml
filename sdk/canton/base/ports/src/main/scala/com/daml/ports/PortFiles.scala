@@ -3,11 +3,10 @@
 
 package com.daml.ports
 
-import java.nio.file.{Files, Path}
-
 import scalaz.{Show, \/}
 
-import scala.jdk.CollectionConverters._
+import java.nio.file.{Files, Path}
+import scala.jdk.CollectionConverters.*
 
 object PortFiles {
   sealed abstract class Error extends Serializable with Product
@@ -23,8 +22,8 @@ object PortFiles {
     }
   }
 
-  /** Creates a port file and requests that the created file be deleted when the virtual machine terminates.
-    * See [[java.io.File#deleteOnExit()]].
+  /** Creates a port file and requests that the created file be deleted when the virtual machine
+    * terminates. See [[java.io.File#deleteOnExit()]].
     */
   def write(path: Path, port: Port): Error \/ Unit =
     \/.attempt(writeUnsafe(path, port))(identity)

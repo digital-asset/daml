@@ -35,12 +35,11 @@ final class MessageDigestPrototype(val algorithm: String) {
         false
     }
 
-  def newDigest: MessageDigest = {
+  def newDigest: MessageDigest =
     if (supportsClone)
       prototype.clone().asInstanceOf[MessageDigest]
     else
       createDigest
-  }
 }
 
 object MessageDigestPrototype {

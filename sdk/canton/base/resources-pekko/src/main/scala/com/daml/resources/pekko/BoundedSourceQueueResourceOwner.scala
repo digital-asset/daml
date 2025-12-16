@@ -3,9 +3,9 @@
 
 package com.daml.resources.pekko
 
-import org.apache.pekko.stream.{BoundedSourceQueue, Materializer}
-import org.apache.pekko.stream.scaladsl.RunnableGraph
 import com.daml.resources.{AbstractResourceOwner, HasExecutionContext, ReleasableResource, Resource}
+import org.apache.pekko.stream.scaladsl.RunnableGraph
+import org.apache.pekko.stream.{BoundedSourceQueue, Materializer}
 
 import scala.concurrent.Future
 

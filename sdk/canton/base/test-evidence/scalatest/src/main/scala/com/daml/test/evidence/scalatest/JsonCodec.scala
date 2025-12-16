@@ -3,18 +3,18 @@
 
 package com.daml.test.evidence.scalatest
 
-import com.daml.test.evidence.tag._
+import cats.syntax.functor.*
+import com.daml.test.evidence.tag.*
+import io.circe.generic.auto.*
 import io.circe.generic.extras.semiauto.deriveEnumerationCodec
 import io.circe.generic.semiauto.deriveCodec
-import io.circe.{Codec, Json, Decoder, Encoder}
-import cats.syntax.functor._
-import io.circe.generic.auto._
-import io.circe.syntax._
+import io.circe.syntax.*
+import io.circe.{Codec, Decoder, Encoder, Json}
 
 object JsonCodec {
 
   object ReliabilityJson {
-    import com.daml.test.evidence.tag.Reliability._
+    import com.daml.test.evidence.tag.Reliability.*
     implicit val codecRemediation: Codec[Remediation] = deriveCodec[Remediation]
     implicit val codecComponent: Codec[Component] = deriveCodec[Component]
     implicit val codecAdverseScenario: Codec[AdverseScenario] = deriveCodec[AdverseScenario]
@@ -23,7 +23,7 @@ object JsonCodec {
   }
 
   object SecurityJson {
-    import com.daml.test.evidence.tag.Security._
+    import com.daml.test.evidence.tag.Security.*
     implicit val codecAttack: Codec[Attack] = deriveCodec[Attack]
     implicit val codecHappyCase: Codec[HappyCase] = deriveCodec[HappyCase]
     implicit val propertyCodec: Codec[SecurityTest.Property] =
@@ -36,6 +36,7 @@ object JsonCodec {
       (_: SecurityTestSuite) => Json.obj()
   }
 
+  @scala.annotation.nowarn("msg=match may not be exhaustive.")
   implicit val encodeEvidenceTag: Encoder[EvidenceTag] = Encoder.instance {
     case e: Operability.OperabilityTest => e.asJson
     case e: Reliability.ReliabilityTest => e.asJson

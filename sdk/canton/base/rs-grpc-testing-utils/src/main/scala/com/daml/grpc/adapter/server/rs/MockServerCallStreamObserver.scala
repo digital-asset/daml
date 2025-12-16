@@ -3,10 +3,9 @@
 
 package com.daml.grpc.adapter.server.rs
 
-import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger, AtomicReference}
-
 import io.grpc.stub.ServerCallStreamObserver
 
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger, AtomicReference}
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
@@ -42,17 +41,15 @@ class MockServerCallStreamObserver[T] extends ServerCallStreamObserver[T] {
 
   override def isCancelled: Boolean = cancelled.get()
 
-  override def setOnCancelHandler(onCancelHandler: Runnable): Unit = {
+  override def setOnCancelHandler(onCancelHandler: Runnable): Unit =
     this.onCancelHandler.set(onCancelHandler)
-  }
 
   override def setCompression(compression: String): Unit = ???
 
   override def isReady: Boolean = unsatisfiedResponseDemand.get() > 0
 
-  override def setOnReadyHandler(onReadyHandler: Runnable): Unit = {
+  override def setOnReadyHandler(onReadyHandler: Runnable): Unit =
     this.onReadyHandler.set(onReadyHandler)
-  }
 
   override def disableAutoInboundFlowControl(): Unit = ()
 

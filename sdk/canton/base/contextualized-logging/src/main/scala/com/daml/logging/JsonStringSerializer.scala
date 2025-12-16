@@ -3,12 +3,12 @@
 
 package com.daml.logging
 
-import java.io.StringWriter
-
 import com.fasterxml.jackson.core.json.JsonWriteFeature
 import com.fasterxml.jackson.core.util.MinimalPrettyPrinter
 import com.fasterxml.jackson.core.{JsonFactoryBuilder, JsonGenerator}
 import net.logstash.logback.argument.StructuredArgument
+
+import java.io.StringWriter
 
 object JsonStringSerializer {
   private val toStringJsonFactory =

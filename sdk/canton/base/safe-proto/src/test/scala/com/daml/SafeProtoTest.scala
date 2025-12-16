@@ -3,7 +3,7 @@
 
 package com.daml
 
-import com.google.protobuf._
+import com.google.protobuf.*
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -23,18 +23,18 @@ class SafeProtoTest extends AnyWordSpec with Inside with Matchers {
   "toByteString" should {
 
     "fail gracefully if the message to serialize exceeds 2GB" in {
-      SafeProto.toByteString(value0) shouldBe a[Right[_, _]]
-      SafeProto.toByteString(value1) shouldBe a[Left[_, _]]
-      SafeProto.toByteString(value2) shouldBe a[Left[_, _]]
+      SafeProto.toByteString(value0) shouldBe a[Right[?, ?]]
+      SafeProto.toByteString(value1) shouldBe a[Left[?, ?]]
+      SafeProto.toByteString(value2) shouldBe a[Left[?, ?]]
     }
   }
 
   "toByteArray" should {
 
     "fail gracefully if the message to serialize exceeds 2GB" in {
-      SafeProto.toByteArray(value0) shouldBe a[Right[_, _]]
-      SafeProto.toByteArray(value1) shouldBe a[Left[_, _]]
-      SafeProto.toByteArray(value2) shouldBe a[Left[_, _]]
+      SafeProto.toByteArray(value0) shouldBe a[Right[?, ?]]
+      SafeProto.toByteArray(value1) shouldBe a[Left[?, ?]]
+      SafeProto.toByteArray(value2) shouldBe a[Left[?, ?]]
     }
   }
 

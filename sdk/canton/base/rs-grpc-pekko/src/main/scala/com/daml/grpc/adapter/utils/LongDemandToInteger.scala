@@ -6,7 +6,7 @@ package com.daml.grpc.adapter.utils
 object LongDemandToInteger {
   private val intMaxAsLong = Int.MaxValue.toLong
 
-  def apply(l: Long): Int = {
+  def apply(l: Long): Int =
     l match {
       // TODO: should we even support this?
       case Long.MaxValue => Int.MaxValue // According to specification, this means unbounded demand
@@ -14,5 +14,4 @@ object LongDemandToInteger {
         throw new IllegalArgumentException("Failing fast as demanded is higher than Int.MaxValue")
       case fitsInAnInteger => fitsInAnInteger.toInt
     }
-  }
 }

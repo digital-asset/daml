@@ -3,8 +3,8 @@
 
 package com.daml.timer
 
-import scala.concurrent.{ExecutionContext, Future => ScalaFuture}
 import scala.concurrent.duration.Duration
+import scala.concurrent.{ExecutionContext, Future as ScalaFuture}
 import scala.util.control.NonFatal
 
 object Delayed {

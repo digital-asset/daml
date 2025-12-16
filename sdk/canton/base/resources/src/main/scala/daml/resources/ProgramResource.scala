@@ -3,19 +3,17 @@
 
 package com.daml.resources
 
+import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.resources.ProgramResource.*
+
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.{Executors, TimeUnit}
-
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.logging.LoggingContext.newLoggingContext
-import com.daml.resources.ProgramResource._
-
+import scala.annotation.nowarn
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.Try
 import scala.util.control.{NoStackTrace, NonFatal}
-
-import scala.annotation.nowarn
 
 final class ProgramResource[Context: HasExecutionContext, T](
     owner: => AbstractResourceOwner[Context, T],
@@ -30,7 +28,7 @@ final class ProgramResource[Context: HasExecutionContext, T](
     )
   }
 
-  def run(newContext: ExecutionContext => Context): Unit = {
+  def run(newContext: ExecutionContext => Context): Unit =
     newLoggingContext { implicit loggingContext =>
       val resource = {
         implicit val context: Context = newContext(
@@ -72,11 +70,12 @@ final class ProgramResource[Context: HasExecutionContext, T](
             )
           case NonFatal(_) =>
             logger.error("Shutting down because of an initialization error.", exception)
-        }): @nowarn("msg=It would fail on the following input: \\(x: Throwable forSome x not in \\(Throwable with com.daml.resources.ProgramResource.SuppressedStartupException, com.daml.resources.ProgramResource.StartupException\\)\\)");
+        }): @nowarn(
+          "msg=It would fail on the following input: \\(x: Throwable forSome x not in \\(Throwable with com.daml.resources.ProgramResource.SuppressedStartupException, com.daml.resources.ProgramResource.StartupException\\)\\)"
+        );
         sys.exit(1) // `stop` will be triggered by the shutdown hook.
       }(ExecutionContext.global) // Run on the global execution context to avoid deadlock.
     }
-  }
 }
 
 object ProgramResource {

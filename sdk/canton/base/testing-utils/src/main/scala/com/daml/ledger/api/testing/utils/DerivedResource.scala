@@ -4,7 +4,6 @@
 package com.daml.ledger.api.testing.utils
 
 import java.util.concurrent.atomic.AtomicReference
-
 import scala.reflect.ClassTag
 
 abstract class DerivedResource[Source, Target: ClassTag](source: Resource[Source])
@@ -21,9 +20,8 @@ abstract class DerivedResource[Source, Target: ClassTag](source: Resource[Source
       )
   }
 
-  override def value: (Source, Target) = {
+  override def value: (Source, Target) =
     source.value -> derivedValue
-  }
 
   override def setup(): Unit = {
     resourceRef.updateAndGet((resource: Target) =>
@@ -38,13 +36,13 @@ abstract class DerivedResource[Source, Target: ClassTag](source: Resource[Source
   protected def construct(source: Source): Target
 
   override def close(): Unit = {
-    resourceRef.updateAndGet(resource => {
+    resourceRef.updateAndGet { resource =>
       if (resource != null) {
         destruct(resource)
         source.close()
       }
       null.asInstanceOf[Target]
-    })
+    }
     ()
   }
 

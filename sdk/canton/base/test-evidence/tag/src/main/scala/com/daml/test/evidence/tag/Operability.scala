@@ -12,11 +12,16 @@ object Operability {
 
   /** A operability-relevant test
     *
-    * @param component the component that should remain available and safe, continue processing or recover
-    * @param dependency what dependency is affected
-    * @param setting specific setting which test is being executed under
-    * @param cause thing that gives rise to an action, phenomenon, or condition
-    * @param remediation how the system remediates the adverse scenario
+    * @param component
+    *   the component that should remain available and safe, continue processing or recover
+    * @param dependency
+    *   what dependency is affected
+    * @param setting
+    *   specific setting which test is being executed under
+    * @param cause
+    *   thing that gives rise to an action, phenomenon, or condition
+    * @param remediation
+    *   how the system remediates the adverse scenario
     */
   final case class OperabilityTest(
       component: String,

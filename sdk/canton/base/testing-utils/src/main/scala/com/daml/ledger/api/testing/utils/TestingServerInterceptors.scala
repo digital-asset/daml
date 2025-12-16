@@ -3,12 +3,11 @@
 
 package com.daml.ledger.api.testing.utils
 
-import java.net.{InetAddress, InetSocketAddress}
-
-import com.daml.ledger.resources.{ResourceContext, ResourceOwner, Resource => LedgerResource}
+import com.daml.ledger.resources.{Resource as LedgerResource, ResourceContext, ResourceOwner}
 import io.grpc.netty.shaded.io.grpc.netty.{NettyChannelBuilder, NettyServerBuilder}
 import io.grpc.{BindableService, Channel, Server, ServerInterceptor}
 
+import java.net.{InetAddress, InetSocketAddress}
 import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 
@@ -17,7 +16,7 @@ object TestingServerInterceptors {
   def channelOwner(
       interceptor: ServerInterceptor,
       service: BindableService,
-  ): ResourceOwner[Channel] = {
+  ): ResourceOwner[Channel] =
     for {
       server <- serverOwner(interceptor, service)
       channel <- ResourceOwner.forChannel(
@@ -27,7 +26,6 @@ object TestingServerInterceptors {
         shutdownTimeout = 5.seconds,
       )
     } yield channel
-  }
 
   def serverOwner(
       interceptor: ServerInterceptor,

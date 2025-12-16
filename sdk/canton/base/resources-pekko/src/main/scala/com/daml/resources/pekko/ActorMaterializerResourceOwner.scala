@@ -3,8 +3,8 @@
 
 package com.daml.resources.pekko
 
-import org.apache.pekko.stream.Materializer
 import com.daml.resources.{AbstractResourceOwner, HasExecutionContext, ReleasableResource, Resource}
+import org.apache.pekko.stream.Materializer
 
 import scala.concurrent.Future
 

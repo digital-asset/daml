@@ -9,7 +9,9 @@ trait SuiteResource[+T] {
   protected def suiteResource: Resource[T]
 }
 
-/** Serves only to enforce the final mixin of a SuiteResourceManagementAroundAll or a SuiteResourceManagementAroundEach */
+/** Serves only to enforce the final mixin of a SuiteResourceManagementAroundAll or a
+  * SuiteResourceManagementAroundEach
+  */
 trait SuiteResourceManagement {}
 
 trait SuiteResourceManagementAroundAll

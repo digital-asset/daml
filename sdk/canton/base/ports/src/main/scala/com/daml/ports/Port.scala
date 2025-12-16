@@ -4,7 +4,6 @@
 package com.daml.ports
 
 import java.net.{InetAddress, Socket}
-
 import scala.util.{Failure, Success, Try}
 
 final case class Port private (value: Int) extends AnyVal {

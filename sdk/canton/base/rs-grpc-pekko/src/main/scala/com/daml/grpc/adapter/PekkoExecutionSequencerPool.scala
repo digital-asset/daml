@@ -3,11 +3,10 @@
 
 package com.daml.grpc.adapter
 
-import java.util.concurrent.atomic.AtomicInteger
-
 import org.apache.pekko.Done
 import org.apache.pekko.actor.ActorSystem
 
+import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, ExecutionContext, Future}
 
@@ -46,8 +45,8 @@ class PekkoExecutionSequencerPool(
 
 object PekkoExecutionSequencerPool {
 
-  /** Spread 8 actors per virtual core in order to mitigate head of line blocking.
-    * The number 8 was chosen somewhat arbitrarily, but seems to help performance.
+  /** Spread 8 actors per virtual core in order to mitigate head of line blocking. The number 8 was
+    * chosen somewhat arbitrarily, but seems to help performance.
     */
   private val defaultActorCount: Int = Runtime.getRuntime.availableProcessors() * 8
 }

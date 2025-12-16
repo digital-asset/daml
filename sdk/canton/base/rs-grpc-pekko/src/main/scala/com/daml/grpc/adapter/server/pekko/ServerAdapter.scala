@@ -3,11 +3,11 @@
 
 package com.daml.grpc.adapter.server.pekko
 
-import org.apache.pekko.stream.scaladsl.Sink
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.server.rs.ServerSubscriber
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
 import io.grpc.{StatusException, StatusRuntimeException}
+import org.apache.pekko.stream.scaladsl.Sink
 
 import scala.concurrent.{Future, Promise}
 
@@ -23,27 +23,27 @@ object ServerAdapter {
         executionSequencerFactory.getExecutionSequencer,
       ) {
 
-        /** Translate unhandled exceptions arising inside Pekko streaming into self-service error codes.
+        /** Translate unhandled exceptions arising inside Pekko streaming into self-service error
+          * codes.
           */
-        override protected def translateThrowableInOnError(throwable: Throwable): Throwable = {
+        override protected def translateThrowableInOnError(throwable: Throwable): Throwable =
           throwable match {
             case t: StatusException => t
             case t: StatusRuntimeException => t
             case _ => errorHandler(throwable)
           }
-        }
       }
 
     Sink
       .fromSubscriber(subscriber)
-      .mapMaterializedValue(_ => {
+      .mapMaterializedValue { _ =>
         val promise = Promise[Unit]()
 
-        subscriber.completionFuture.handle[Unit]((_, throwable) => {
+        subscriber.completionFuture.handle[Unit] { (_, throwable) =>
           if (throwable == null) promise.success(()) else promise.failure(throwable)
           ()
-        })
+        }
         promise.future
-      })
+      }
   }
 }

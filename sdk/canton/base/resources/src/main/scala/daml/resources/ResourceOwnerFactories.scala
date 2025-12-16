@@ -5,8 +5,8 @@ package com.daml.resources
 
 import java.util.Timer
 import java.util.concurrent.{CompletionStage, ExecutorService}
-import scala.jdk.FutureConverters.CompletionStageOps
 import scala.concurrent.Future
+import scala.jdk.FutureConverters.CompletionStageOps
 import scala.util.Try
 
 /** Convenient [[AbstractResourceOwner]] factory methods.
@@ -64,9 +64,10 @@ trait ResourceOwnerFactories[Context] {
       forcefulAwaitTerminationMillis,
     )
 
-  /** @param waitForRunningTasks If this flag is false, there could be long running scheduled tasks blocking
-    *                            termination of the Timer instance. In this case it is recommended to instantiate
-    *                            Timer with isDaemon = true, to not let it block JVM termination.
+  /** @param waitForRunningTasks
+    *   If this flag is false, there could be long running scheduled tasks blocking termination of
+    *   the Timer instance. In this case it is recommended to instantiate Timer with isDaemon =
+    *   true, to not let it block JVM termination.
     */
   def forTimer(
       acquire: () => Timer,

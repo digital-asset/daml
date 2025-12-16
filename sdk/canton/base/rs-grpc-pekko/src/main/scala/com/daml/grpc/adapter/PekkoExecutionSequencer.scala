@@ -3,6 +3,7 @@
 
 package com.daml.grpc.adapter
 
+import com.daml.grpc.adapter.RunnableSequencingActor.ShutdownRequest
 import org.apache.pekko.Done
 import org.apache.pekko.actor.{
   Actor,
@@ -14,13 +15,13 @@ import org.apache.pekko.actor.{
 }
 import org.apache.pekko.pattern.{AskTimeoutException, ask}
 import org.apache.pekko.util.Timeout
-import com.daml.grpc.adapter.RunnableSequencingActor.ShutdownRequest
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
-/** Implements serial execution semantics by forwarding the Runnables it receives to an underlying actor.
+/** Implements serial execution semantics by forwarding the Runnables it receives to an underlying
+  * actor.
   */
 class PekkoExecutionSequencer private (private val actorRef: ActorRef)(implicit
     terminationTimeout: Timeout
@@ -29,7 +30,9 @@ class PekkoExecutionSequencer private (private val actorRef: ActorRef)(implicit
   override def sequence(runnable: Runnable): Unit = actorRef ! runnable
 
   override def close(): Unit = {
-    closeAsync(ExecutionContext.parasitic): @scala.annotation.nowarn("msg=unused value of type scala.concurrent.Future\\[org.apache.pekko.Done\\]")
+    closeAsync(ExecutionContext.parasitic): @scala.annotation.nowarn(
+      "msg=unused value of type scala.concurrent.Future\\[org.apache.pekko.Done\\]"
+    )
     ()
   }
 
@@ -42,17 +45,16 @@ class PekkoExecutionSequencer private (private val actorRef: ActorRef)(implicit
         Done
     }
 
-  private def actorIsTerminated(askTimeoutException: AskTimeoutException) = {
+  private def actorIsTerminated(askTimeoutException: AskTimeoutException) =
     PekkoExecutionSequencer.actorTerminatedRegex
       .findFirstIn(askTimeoutException.getMessage)
       .nonEmpty
-  }
 }
 
 object PekkoExecutionSequencer {
   def apply(name: String, terminationTimeout: FiniteDuration)(implicit
       system: ActorSystem
-  ): PekkoExecutionSequencer = {
+  ): PekkoExecutionSequencer =
     system match {
       case extendedSystem: ExtendedActorSystem =>
         new PekkoExecutionSequencer(
@@ -64,7 +66,6 @@ object PekkoExecutionSequencer {
         )
 
     }
-  }
 
   private val actorTerminatedRegex = """Recipient\[.*]\] had already been terminated.""".r
 }

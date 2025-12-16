@@ -33,12 +33,11 @@ final class MacPrototype(val algorithm: String) {
 
   private def createMac: Mac = Mac.getInstance(algorithm)
 
-  def newMac: Mac = {
+  def newMac: Mac =
     if (supportsClone)
       prototype.clone().asInstanceOf[Mac]
     else
       createMac
-  }
 }
 
 object MacPrototype {

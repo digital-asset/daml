@@ -10,7 +10,7 @@ trait OperabilityTestHelpers extends AccessTestScenario {
   def operabilityTest(component: String)(dependency: String)(setting: String)(
       cause: String
   )(remediation: String): ResultOfTaggedAsInvocationOnString = {
-    import ScalaTestSupport.Implicits._
+    import ScalaTestSupport.Implicits.*
     new WordSpecStringWrapper(remediation)
       .taggedAs(
         OperabilityTest(

@@ -19,6 +19,7 @@ class HelloServiceReferenceImplementation
 
   override def close(): Unit = ()
 
+  @SuppressWarnings(Array("org.wartremover.warts.GlobalExecutionContext"))
   override def bindService(): ServerServiceDefinition =
     HelloServiceGrpc.bindService(this, ExecutionContext.global)
 

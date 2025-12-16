@@ -3,8 +3,8 @@
 
 package com.daml.ledger.resources
 
-import com.daml.resources.pekko.PekkoResourceOwnerFactories
 import com.daml.resources.grpc.GrpcResourceOwnerFactories
+import com.daml.resources.pekko.PekkoResourceOwnerFactories
 import com.daml.resources.{HasExecutionContext, ResourceOwnerFactories}
 
 object ResourceOwner

@@ -3,10 +3,10 @@
 
 package com.daml.ledger.api.testing.utils
 
+import io.grpc.*
+
 import java.net.SocketAddress
 import java.util.concurrent.TimeUnit
-
-import io.grpc._
 
 final class GrpcServerResource(
     services: () => Iterable[BindableService with AutoCloseable],

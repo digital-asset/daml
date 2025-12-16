@@ -9,13 +9,17 @@ import scala.concurrent.duration.Duration
 
 object FutureCheck {
 
-  /** Creates a special checker task around passed future to check periodically if it was completed or not.
-    * If it was not completed - a passed closure is being called.
+  /** Creates a special checker task around passed future to check periodically if it was completed
+    * or not. If it was not completed - a passed closure is being called.
     *
-    * @param delay  The delay duration before the first check is being done.
-    * @param period The duration between checking tasks are being triggered.
-    * @param onDeadlineExceeded A closure which will be called in case of future is not yet completed.
-    * @param f         The original future.
+    * @param delay
+    *   The delay duration before the first check is being done.
+    * @param period
+    *   The duration between checking tasks are being triggered.
+    * @param onDeadlineExceeded
+    *   A closure which will be called in case of future is not yet completed.
+    * @param f
+    *   The original future.
     */
   def check[T](delay: Duration, period: Duration)(
       f: Future[T]
@@ -26,12 +30,15 @@ object FutureCheck {
       period.toMillis,
     )
 
-  /** Creates a special checker task around passed future to check if it was completed or not after delay.
-    * If it was not completed - a passed closure is being called.
+  /** Creates a special checker task around passed future to check if it was completed or not after
+    * delay. If it was not completed - a passed closure is being called.
     *
-    * @param delay        The delay duration before the check is done.
-    * @param onDeadlineExceeded A closure which will be called in case of future is not yet completed.
-    * @param f            The original future.
+    * @param delay
+    *   The delay duration before the check is done.
+    * @param onDeadlineExceeded
+    *   A closure which will be called in case of future is not yet completed.
+    * @param f
+    *   The original future.
     */
   def check[T](delay: Duration)(
       f: Future[T]

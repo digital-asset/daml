@@ -9,10 +9,8 @@ object Security {
 
   /** Marker trait for security relevant test suites.
     *
-    * If a scalatest suite extends this trait, you should add the following import:
-    * <pre>
-    * import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.*
-    * </pre>
+    * If a scalatest suite extends this trait, you should add the following import: <pre> import
+    * com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.* </pre>
     */
   trait SecurityTestSuite
 
@@ -20,14 +18,22 @@ object Security {
 
   /** A security-relevant test
     *
-    * @param property The security property that is tested
-    * @param asset The asset that needs to be protected. For API-level security tests this should capture the node + interface.
-    * @param scenario The happy case or a particular attack
-    * @param unimplemented indicates whether the test case has not yet been implemented
-    * @param file The filename that contains the test
-    * @param line The line number of the test
+    * @param property
+    *   The security property that is tested
+    * @param asset
+    *   The asset that needs to be protected. For API-level security tests this should capture the
+    *   node + interface.
+    * @param scenario
+    *   The happy case or a particular attack
+    * @param unimplemented
+    *   indicates whether the test case has not yet been implemented
+    * @param file
+    *   The filename that contains the test
+    * @param line
+    *   The line number of the test
     *
-    * TODO test evidencing: Consider to refine the `asset` to capture also interface information for API-level security tests.
+    * TODO test evidencing: Consider to refine the `asset` to capture also interface information for
+    * API-level security tests.
     */
   final case class SecurityTest(
       property: SecurityTest.Property,
@@ -55,7 +61,9 @@ object Security {
     sealed trait Property extends Product with Serializable
     object Property {
 
-      /** Privacy of an asset. We use privacy in a broad sense and also include data confidentiality here. */
+      /** Privacy of an asset. We use privacy in a broad sense and also include data confidentiality
+        * here.
+        */
       case object Privacy extends Property // This is also known as Confidentiality.
 
       case object Integrity extends Property
@@ -117,11 +125,15 @@ object Security {
       apply(property, asset, Some(Right(attack)))
   }
 
-  /** An attack to compromise the security property of an asset and how the system mitigates such an attack.
+  /** An attack to compromise the security property of an asset and how the system mitigates such an
+    * attack.
     *
-    * @param actor who executes the attack
-    * @param threat what the actor does
-    * @param mitigation how the system prevents success of the attack
+    * @param actor
+    *   who executes the attack
+    * @param threat
+    *   what the actor does
+    * @param mitigation
+    *   how the system prevents success of the attack
     */
   sealed abstract case class Attack(actor: String, threat: String, mitigation: String)
 
@@ -136,8 +148,8 @@ object Security {
 
   object CommonAttacks {
 
-    /** An active attacker on the network tries to impersonate a server.
-      * Uses TLS and verification of the server certificate against a trusted root CA to authenticate the server.
+    /** An active attacker on the network tries to impersonate a server. Uses TLS and verification
+      * of the server certificate against a trusted root CA to authenticate the server.
       */
     def impersonateServerWithTls(nodeName: String): Attack =
       Attack(
@@ -155,7 +167,9 @@ object Security {
 
   }
 
-  /** A security test should also cover the happy case when no attack is present to ensure functional correctness */
+  /** A security test should also cover the happy case when no attack is present to ensure
+    * functional correctness
+    */
   sealed abstract case class HappyCase(description: String)
 
   object HappyCase {

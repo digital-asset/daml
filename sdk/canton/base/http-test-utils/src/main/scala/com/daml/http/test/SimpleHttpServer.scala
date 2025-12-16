@@ -3,9 +3,9 @@
 
 package com.daml.http.test
 
-import java.net.InetSocketAddress
-
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
+
+import java.net.InetSocketAddress
 
 /** Helper to create a HTTP server that serves a constant response on the "/result" URL */
 object SimpleHttpServer {

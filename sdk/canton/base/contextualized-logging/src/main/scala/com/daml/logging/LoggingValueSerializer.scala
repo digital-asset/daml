@@ -48,7 +48,7 @@ private[logging] object LoggingValueSerializer {
     write(jsValue)
   }
 
-  def writeValue(value: LoggingValue, generator: JsonGenerator): Unit = {
+  def writeValue(value: LoggingValue, generator: JsonGenerator): Unit =
     value match {
       case LoggingValue.Empty =>
         generator.writeNull()
@@ -73,7 +73,6 @@ private[logging] object LoggingValueSerializer {
         new LoggingMarker(entries.contents).writeTo(generator)
         generator.writeEndObject()
     }
-  }
 }
 
 object LoggingValueStringSerializer {

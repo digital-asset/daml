@@ -4,8 +4,8 @@
 package com.daml.fs
 
 import java.io.IOException
-import java.nio.file.{FileVisitResult, Files, Path, SimpleFileVisitor}
 import java.nio.file.attribute.BasicFileAttributes
+import java.nio.file.{FileVisitResult, Files, Path, SimpleFileVisitor}
 
 object Utils {
   def deleteRecursively(dir: Path): Unit = {

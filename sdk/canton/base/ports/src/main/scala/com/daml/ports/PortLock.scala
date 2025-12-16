@@ -12,7 +12,6 @@ import java.nio.channels.{
   OverlappingFileLockException,
 }
 import java.nio.file.{Files, Path, Paths}
-
 import scala.util.control.NonFatal
 
 object PortLock {

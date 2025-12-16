@@ -7,7 +7,7 @@ import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.Materializer
 
 import scala.concurrent.Await
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 final class ActorMaterializerResource(actorSystemName: String = "")
     extends ManagedResource[Materializer] {

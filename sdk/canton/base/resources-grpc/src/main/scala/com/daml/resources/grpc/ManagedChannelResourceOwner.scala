@@ -10,7 +10,7 @@ import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 
 private[grpc] final class ManagedChannelResourceOwner[Context: HasExecutionContext](
-    builder: ManagedChannelBuilder[_],
+    builder: ManagedChannelBuilder[?],
     shutdownTimeout: FiniteDuration,
 ) extends AbstractResourceOwner[Context, ManagedChannel] {
   override def acquire()(implicit context: Context): Resource[Context, ManagedChannel] =

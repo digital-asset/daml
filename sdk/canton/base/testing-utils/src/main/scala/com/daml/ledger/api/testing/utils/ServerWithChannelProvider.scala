@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.testing.utils
 
-import io.grpc._
+import io.grpc.*
 import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
 import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder
 
@@ -20,7 +20,7 @@ object ServerWithChannelProvider {
       address: Option[SocketAddress],
       serverName: String,
   ): ServerWithChannelProvider = {
-    val serverBuilder = address.fold[ServerBuilder[_ <: ServerBuilder[_]]](
+    val serverBuilder = address.fold[ServerBuilder[? <: ServerBuilder[?]]](
       services.foldLeft(InProcessServerBuilder.forName(serverName))(_ addService _)
     )(a => services.foldLeft(NettyServerBuilder.forAddress(a))(_ addService _))
     val server = serverBuilder
@@ -34,9 +34,9 @@ object ServerWithChannelProvider {
     )
   }
 
-  private def getChannel(port: Option[Int], serverName: String) = {
+  private def getChannel(port: Option[Int], serverName: String) =
     port
-      .fold[ManagedChannelBuilder[_]](
+      .fold[ManagedChannelBuilder[?]](
         InProcessChannelBuilder
           .forName(serverName)
           .usePlaintext()
@@ -46,5 +46,4 @@ object ServerWithChannelProvider {
           .usePlaintext()
       )
       .build()
-  }
 }

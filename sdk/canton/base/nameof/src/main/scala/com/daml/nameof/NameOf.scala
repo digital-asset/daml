@@ -34,7 +34,8 @@ trait NameOf {
   def qualifiedNameOf(x: Any): String = macro NameOfImpl.qualifiedNameOf
 
   /** Obtain the full qualified identifier of the given function if applied to a value of type `A`.
-    * Use this method instead of [[qualifiedNameOf]] when you do not have an value of type `A` at hand.
+    * Use this method instead of [[qualifiedNameOf]] when you do not have an value of type `A` at
+    * hand.
     *
     * Example uasage:
     * {{{

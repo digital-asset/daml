@@ -3,17 +3,16 @@
 
 package com.daml.grpc.test
 
-import com.daml.resources.grpc.{GrpcResourceOwnerFactories => Resources}
+import com.daml.resources.grpc.GrpcResourceOwnerFactories as Resources
 import io.grpc.health.v1.HealthCheckResponse.ServingStatus
 import io.grpc.health.v1.{HealthCheckRequest, HealthGrpc}
 import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
-import io.grpc.protobuf.services.ProtoReflectionServiceV1
+import io.grpc.protobuf.services.{HealthStatusManager, ProtoReflectionServiceV1}
 import io.grpc.reflection.v1alpha.{
   ServerReflectionGrpc,
   ServerReflectionRequest,
   ServerReflectionResponse,
 }
-import io.grpc.protobuf.services.HealthStatusManager
 import io.grpc.stub.StreamObserver
 import io.grpc.{BindableService, Channel, ClientInterceptor}
 import org.scalatest.Assertion
@@ -21,7 +20,7 @@ import org.scalatest.flatspec.AsyncFlatSpec
 
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, Future, Promise}
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 
 trait GrpcServer { this: AsyncFlatSpec =>
 
@@ -41,7 +40,7 @@ trait GrpcServer { this: AsyncFlatSpec =>
       def getHealthStatus(channel: Channel, interceptors: ClientInterceptor*): ServingStatus =
         HealthGrpc
           .newBlockingStub(channel)
-          .withInterceptors(interceptors: _*)
+          .withInterceptors(interceptors*)
           .check(Requests.Check)
           .getStatus
 
@@ -63,7 +62,7 @@ trait GrpcServer { this: AsyncFlatSpec =>
         lazy val serverStream: StreamObserver[ServerReflectionRequest] =
           ServerReflectionGrpc
             .newStub(channel)
-            .withInterceptors(interceptors: _*)
+            .withInterceptors(interceptors*)
             .serverReflectionInfo(new StreamObserver[ServerReflectionResponse] {
               override def onNext(value: ServerReflectionResponse): Unit = {
                 if (value.hasListServicesResponse) {

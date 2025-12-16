@@ -9,7 +9,8 @@ import scala.util.{Failure, Success, Try}
 /** A ResourceOwner of type `A` is can acquire a [[Resource]] of the same type and its operations
   * are applied to the [[Resource]] after it has been acquired.
   *
-  * @tparam A The [[Resource]] value type.
+  * @tparam A
+  *   The [[Resource]] value type.
   */
 abstract class AbstractResourceOwner[Context: HasExecutionContext, +A] {
   self =>
@@ -21,8 +22,10 @@ abstract class AbstractResourceOwner[Context: HasExecutionContext, +A] {
 
   /** Acquires the [[Resource]].
     *
-    * @param context The acquisition context, including the asynchronous task execution engine.
-    * @return The acquired [[Resource]].
+    * @param context
+    *   The acquisition context, including the asynchronous task execution engine.
+    * @return
+    *   The acquired [[Resource]].
     */
   def acquire()(implicit context: Context): Resource[Context, A]
 
@@ -58,10 +61,14 @@ abstract class AbstractResourceOwner[Context: HasExecutionContext, +A] {
 
   /** Acquire the [[Resource]]'s value, use it asynchronously, and release it afterwards.
     *
-    * @param behavior The asynchronous computation on the value.
-    * @param context  The acquisition context, including the asynchronous task execution engine.
-    * @tparam T The asynchronous computation's value type.
-    * @return The asynchronous computation's [[Future]].
+    * @param behavior
+    *   The asynchronous computation on the value.
+    * @param context
+    *   The acquisition context, including the asynchronous task execution engine.
+    * @tparam T
+    *   The asynchronous computation's value type.
+    * @return
+    *   The asynchronous computation's [[Future]].
     */
   def use[T](behavior: A => Future[T])(implicit context: Context): Future[T] = {
     val resource = acquire()

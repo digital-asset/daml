@@ -3,10 +3,9 @@
 
 package com.daml.resources
 
-import java.util.concurrent.atomic.AtomicBoolean
-
 import com.daml.resources.HasExecutionContext.executionContext
 
+import java.util.concurrent.atomic.AtomicBoolean
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success}
 

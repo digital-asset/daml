@@ -3,10 +3,9 @@
 
 package com.daml.fs
 
-import java.nio.file.{Files, Path}
-
 import com.daml.resources.{AbstractResourceOwner, HasExecutionContext, ReleasableResource, Resource}
 
+import java.nio.file.{Files, Path}
 import scala.concurrent.Future
 
 final class TemporaryDirectory[Context: HasExecutionContext](prefix: String)

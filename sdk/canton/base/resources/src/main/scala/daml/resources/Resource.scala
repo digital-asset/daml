@@ -8,9 +8,11 @@ import com.daml.resources.HasExecutionContext.executionContext
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
-/** A [[Resource]] is a [[Future]] that can be (asynchronously) released and will also release automatically upon failure.
+/** A [[Resource]] is a [[Future]] that can be (asynchronously) released and will also release
+  * automatically upon failure.
   *
-  * @tparam A The type of value being protected as a Resource.
+  * @tparam A
+  *   The type of value being protected as a Resource.
   */
 abstract class Resource[Context: HasExecutionContext, +A] {
   self =>
@@ -32,8 +34,8 @@ abstract class Resource[Context: HasExecutionContext, +A] {
     // A mapped Resource is a mapped future plus a nesting of an empty release operation and the actual one
     NestedResource(asFuture.map(f))(_ => Future.unit, release _)
 
-  /** Just like [[Future]]s, [[Resource]]s can be chained. Both component [[Resource]]s will be released correctly
-    * upon failure and explicit release.
+  /** Just like [[Future]]s, [[Resource]]s can be chained. Both component [[Resource]]s will be
+    * released correctly upon failure and explicit release.
     */
   def flatMap[B](f: A => R[B])(implicit context: Context): R[B] = {
     val nextFuture: Future[R[B]] =
@@ -54,7 +56,8 @@ abstract class Resource[Context: HasExecutionContext, +A] {
     ) // Nest next resource release and this resource release
   }
 
-  /** A [[Resource]]'s underlying value can be filtered out and result in a [[Resource]] with a failed [[Future]].
+  /** A [[Resource]]'s underlying value can be filtered out and result in a [[Resource]] with a
+    * failed [[Future]].
     */
   def withFilter(p: A => Boolean)(implicit context: Context): R[A] = {
     val future = asFuture.flatMap(value =>

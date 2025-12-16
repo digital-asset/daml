@@ -3,7 +3,7 @@
 
 package com.daml.resources.grpc
 
-import com.daml.resources.grpc.{GrpcResourceOwnerFactories => Resources}
+import com.daml.resources.grpc.GrpcResourceOwnerFactories as Resources
 import io.grpc.health.v1.{HealthCheckRequest, HealthGrpc}
 import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
 import io.grpc.netty.shaded.io.grpc.netty.{NettyChannelBuilder, NettyServerBuilder}

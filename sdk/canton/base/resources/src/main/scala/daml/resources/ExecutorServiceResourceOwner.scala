@@ -3,10 +3,9 @@
 
 package com.daml.resources
 
+import com.daml.resources.ExecutorServiceResourceOwner.*
+
 import java.util.concurrent.{ExecutorService, TimeUnit}
-
-import com.daml.resources.ExecutorServiceResourceOwner._
-
 import scala.concurrent.{ExecutionContextExecutorService, Future}
 
 class ExecutorServiceResourceOwner[Context: HasExecutionContext, T <: ExecutorService](

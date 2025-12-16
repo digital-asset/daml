@@ -12,7 +12,7 @@ import com.daml.test.evidence.tag.Reliability.{
   Remediation,
 }
 import com.daml.test.evidence.tag.Security.{Attack, HappyCase, HappyOrAttack, SecurityTest}
-import com.github.tototoshi.csv.CSVWriter
+import com.github.tototoshi.csv.{CSVWriter, defaultCSVFormat}
 
 object TestEntryCsvEncoder {
 
@@ -22,11 +22,10 @@ object TestEntryCsvEncoder {
     def values: Seq[Any] = productIterator.toSeq
   }
 
-  def write[A <: TestEntryCsv](file: File, values: Seq[A]): Unit = {
+  def write[A <: TestEntryCsv](file: File, values: Seq[A]): Unit =
     values.headOption.foreach { first =>
       CSVWriter.open(file.toJava).writeAll(first.header +: values.map(_.values))
     }
-  }
 
   /** A flattened representation of a security test entry for CSV exporting. */
   final case class SecurityTestEntryCsv(
@@ -100,8 +99,7 @@ object TestEntryCsvEncoder {
 
   object ReliabilityTestEntryCsv {
 
-    def apply(reliabilityTestEntry: ReliabilityTestEntry): ReliabilityTestEntryCsv = {
-
+    def apply(reliabilityTestEntry: ReliabilityTestEntry): ReliabilityTestEntryCsv =
       reliabilityTestEntry match {
         case ReliabilityTestEntry(
               suiteName,
@@ -131,6 +129,5 @@ object TestEntryCsvEncoder {
             testPath = s"$file:$line",
           )
       }
-    }
   }
 }

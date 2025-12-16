@@ -3,14 +3,14 @@
 
 package com.daml.test.evidence.generator
 
-import cats.syntax.either._
-import cats.syntax.functor._
-import cats.syntax.traverse._
-import cats.syntax.functorFilter._
+import cats.syntax.either.*
+import cats.syntax.functor.*
+import cats.syntax.functorFilter.*
+import cats.syntax.traverse.*
+import com.daml.test.evidence.scalatest.JsonCodec.*
+import com.daml.test.evidence.tag.EvidenceTag
 import io.circe.parser.decode
 import org.scalatest.Suite
-import com.daml.test.evidence.scalatest.JsonCodec._
-import com.daml.test.evidence.tag.EvidenceTag
 import org.scalatest.daml.ScalaTestAdapter
 
 import scala.reflect.ClassTag
@@ -31,7 +31,7 @@ object ScalaTestGeneratorSupport {
   def testEntries[TT: ClassTag, TS: ClassTag, TE](
       suites: List[Suite],
       testEntry: (String, String, TT, Boolean, Option[TS]) => TE,
-  ): List[TE] = {
+  ): List[TE] =
     suites.flatMap { suite =>
       val testSuite = suite match {
         case testSuite: TS => Some(testSuite)
@@ -44,5 +44,4 @@ object ScalaTestGeneratorSupport {
         }
       }
     }
-  }
 }

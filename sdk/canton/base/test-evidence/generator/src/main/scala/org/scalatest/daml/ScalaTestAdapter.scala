@@ -3,8 +3,8 @@
 
 package org.scalatest.daml
 
-import org.scalatest.{DeferredAbortedSuite, Suite}
 import org.scalatest.tools.{DiscoverySuite, Runner, SuiteDiscoveryHelper}
+import org.scalatest.{DeferredAbortedSuite, Suite}
 
 /*
  * This adapter is required to expose internal package-protected Scala Test library

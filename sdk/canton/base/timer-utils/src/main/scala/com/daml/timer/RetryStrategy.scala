@@ -3,7 +3,7 @@
 
 package com.daml.timer
 
-import com.daml.timer.RetryStrategy._
+import com.daml.timer.RetryStrategy.*
 
 import scala.concurrent.duration.{Duration, DurationInt, FiniteDuration, SECONDS}
 import scala.concurrent.{ExecutionContext, Future}
@@ -77,15 +77,15 @@ final class RetryStrategy private (
   private def clip(t: Duration): Duration = t.min(waitTimeCap).max(0.millis)
 
   /** Retries `run` until:
-    * - obtaining a successful future,
-    * - or retry strategy gave up re-trying.
+    *   - obtaining a successful future,
+    *   - or retry strategy gave up re-trying.
     */
   def apply[A](run: (Int, Duration) => Future[A])(implicit ec: ExecutionContext): Future[A] = {
     val startTime = System.nanoTime()
     if (attempts.exists(_ <= 0)) {
       Future.failed(ZeroAttemptsException)
     } else {
-      def go(attempt: Int, wait: Duration): Future[A] = {
+      def go(attempt: Int, wait: Duration): Future[A] =
         run(attempt, wait).recoverWith { case throwable =>
           if (attempts.exists(attempt >= _)) {
             val timeTaken = Duration.fromNanos(System.nanoTime() - startTime)
@@ -101,7 +101,6 @@ final class RetryStrategy private (
             Future.failed(UnhandledFailureException(timeTaken, message, throwable))
           }
         }
-      }
 
       go(1, clip(firstWaitTime))
     }

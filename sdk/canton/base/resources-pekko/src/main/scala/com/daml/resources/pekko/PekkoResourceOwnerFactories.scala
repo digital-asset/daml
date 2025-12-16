@@ -3,10 +3,10 @@
 
 package com.daml.resources.pekko
 
+import com.daml.resources.{AbstractResourceOwner, HasExecutionContext}
 import org.apache.pekko.actor.{ActorSystem, Cancellable}
 import org.apache.pekko.stream.scaladsl.RunnableGraph
 import org.apache.pekko.stream.{BoundedSourceQueue, Materializer}
-import com.daml.resources.{AbstractResourceOwner, HasExecutionContext}
 
 import scala.concurrent.{ExecutionContext, Future}
 

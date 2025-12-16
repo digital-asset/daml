@@ -5,7 +5,8 @@ package com.daml
 
 import com.google.protobuf.Descriptors.FieldDescriptor
 import com.google.protobuf.{AbstractMessageLite, ByteString, CodedOutputStream, Message}
-import scala.jdk.CollectionConverters._
+
+import scala.jdk.CollectionConverters.*
 
 object SafeProto {
 
@@ -21,8 +22,8 @@ object SafeProto {
   //    the serialization throws a `NegativeArraySizeException`
   // This function catches those exceptions.
   private[this] def safelySerialize[X](
-      message: AbstractMessageLite[_, _],
-      serialize: AbstractMessageLite[_, _] => X,
+      message: AbstractMessageLite[?, ?],
+      serialize: AbstractMessageLite[?, ?] => X,
   ): Either[String, X] =
     try {
       Right(serialize(message))
@@ -33,13 +34,13 @@ object SafeProto {
         Left(s"the ${message.getClass.getName} message is too large to be serialized")
     }
 
-  def toByteString(message: AbstractMessageLite[_, _]): Either[String, ByteString] =
+  def toByteString(message: AbstractMessageLite[?, ?]): Either[String, ByteString] =
     safelySerialize(message, _.toByteString)
 
-  def toByteArray(message: AbstractMessageLite[_, _]): Either[String, Array[Byte]] =
+  def toByteArray(message: AbstractMessageLite[?, ?]): Either[String, Array[Byte]] =
     safelySerialize(message, _.toByteArray)
 
-  def ensureNoUnknownFields(msg: Message): Either[String, Unit] = {
+  def ensureNoUnknownFields(msg: Message): Either[String, Unit] =
     msg.getUnknownFields.asMap().keySet().asScala.headOption match {
       case Some(n) =>
         Left(
@@ -68,6 +69,5 @@ object SafeProto {
             }
         }
     }
-  }
 
 }

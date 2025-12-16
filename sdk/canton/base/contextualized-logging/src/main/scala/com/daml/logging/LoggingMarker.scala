@@ -11,12 +11,11 @@ import net.logstash.logback.marker.LogstashMarker
 private[logging] final class LoggingMarker(contents: Map[LoggingKey, LoggingValue])
     extends LogstashMarker(LogstashMarker.MARKER_NAME_PREFIX + "LOGGING_ENTRIES")
     with StructuredArgument {
-  override def writeTo(generator: JsonGenerator): Unit = {
+  override def writeTo(generator: JsonGenerator): Unit =
     contents.foreach { case (key, value) =>
       generator.writeFieldName(key)
       LoggingValueSerializer.writeValue(value, generator)
     }
-  }
 
   override def toStringSelf: String =
     JsonStringSerializer.serialize { generator =>

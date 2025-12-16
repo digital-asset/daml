@@ -10,7 +10,7 @@ import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 
 private[grpc] final class ServerResourceOwner[Context: HasExecutionContext](
-    builder: ServerBuilder[_],
+    builder: ServerBuilder[?],
     shutdownTimeout: FiniteDuration,
 ) extends AbstractResourceOwner[Context, Server] {
   override def acquire()(implicit context: Context): Resource[Context, Server] =

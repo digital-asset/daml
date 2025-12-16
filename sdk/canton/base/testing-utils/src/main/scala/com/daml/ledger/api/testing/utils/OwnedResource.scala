@@ -23,7 +23,6 @@ final class OwnedResource[Context, T: ClassTag](
     Await.result(resource.asFuture, acquisitionTimeout)
   }
 
-  override def destruct(value: T): Unit = {
+  override def destruct(value: T): Unit =
     Await.result(resource.release(), releaseTimeout)
-  }
 }

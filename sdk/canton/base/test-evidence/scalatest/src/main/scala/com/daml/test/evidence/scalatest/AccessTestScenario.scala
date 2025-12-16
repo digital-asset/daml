@@ -7,37 +7,31 @@ import org.scalactic.source
 import org.scalatest.Tag
 import org.scalatest.wordspec.FixtureAnyWordSpec
 
-/** Provides alternative versions `when_`, `can_`, `should_`, `must_` of `when`, `can`, `should`, `must` that expose the description through a variable. I.e.:
-  * <pre>
-  * "my condition" when_ { condition =>
-  *   ...
-  * }
-  * </pre>
+/** Provides alternative versions `when_`, `can_`, `should_`, `must_` of `when`, `can`, `should`,
+  * `must` that expose the description through a variable. I.e.: <pre> "my condition" when_ {
+  * condition => ... } </pre>
   *
-  * This is helpful to avoid duplicating test descriptions when annotating reliability/security/operability tests.
+  * This is helpful to avoid duplicating test descriptions when annotating
+  * reliability/security/operability tests.
   */
 trait AccessTestScenario extends FixtureAnyWordSpec {
   implicit class ScenarioWrapper(str: String) {
 
-    def when_(f: String => Unit)(implicit pos: source.Position): Unit = {
+    def when_(f: String => Unit)(implicit pos: source.Position): Unit =
       new WordSpecStringWrapper(str).when(f(str))
-    }
 
-    def can_(f: String => Unit)(implicit pos: source.Position): Unit = {
+    def can_(f: String => Unit)(implicit pos: source.Position): Unit =
       convertToStringCanWrapper(str).can(f(str))
-    }
 
     def should_(f: String => Unit)(implicit pos: source.Position): Unit = {
-      import org.scalatest.matchers.should.Matchers._
+      import org.scalatest.matchers.should.Matchers.*
       convertToStringShouldWrapper(str).should(f(str))
     }
 
-    def must_(f: String => Unit)(implicit pos: source.Position): Unit = {
+    def must_(f: String => Unit)(implicit pos: source.Position): Unit =
       convertToStringMustWrapperForVerb(str).must(f(str))
-    }
 
-    def taggedAs_(f: String => Tag): ResultOfTaggedAsInvocationOnString = {
+    def taggedAs_(f: String => Tag): ResultOfTaggedAsInvocationOnString =
       convertToWordSpecStringWrapper(str).taggedAs(f(str))
-    }
   }
 }
