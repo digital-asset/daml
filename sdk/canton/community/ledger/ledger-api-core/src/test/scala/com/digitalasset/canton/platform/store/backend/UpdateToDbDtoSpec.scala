@@ -38,7 +38,10 @@ import com.digitalasset.canton.platform.store.backend.Conversions.{
   participantPermissionInt,
 }
 import com.digitalasset.canton.platform.store.backend.DbDto.IdFilter
-import com.digitalasset.canton.platform.store.backend.StorageBackendTestValues.someExternalTransactionHash
+import com.digitalasset.canton.platform.store.backend.StorageBackendTestValues.{
+  someExternalTransactionHash,
+  somePackageId,
+}
 import com.digitalasset.canton.platform.store.backend.UpdateToDbDto.templateIdWithPackageName
 import com.digitalasset.canton.platform.store.dao.JdbcLedgerDao
 import com.digitalasset.canton.platform.store.dao.events.{
@@ -78,8 +81,11 @@ import java.util.UUID
 class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
 
   import TraceContext.Implicits.Empty.*
-  import TransactionBuilder.Implicits.*
+  import TransactionBuilder.Implicits.{defaultPackageId as _, *}
   import UpdateToDbDtoSpec.*
+
+  // Shadow illegal definition in TransactionBuilder.Implicits
+  implicit val defaultPackageId: Ref.PackageId = somePackageId
 
   object TxBuilder {
     def apply(): NodeIdTransactionBuilder & TestNodeBuilder = new NodeIdTransactionBuilder
@@ -1985,7 +1991,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         deactivated_event_sequential_id = None,
         additional_witnesses = Some(Set("divulgee")),
         exercise_choice = Some(exerciseNode.choiceId),
-        exercise_choice_interface_id = Some(interfaceId.toString),
+        exercise_choice_interface_id = Some(interfaceId),
         exercise_argument = Some(compressArrayWith(compressionAlgorithmIdConsumingArg, emptyArray)),
         exercise_result = Some(compressArrayWith(compressionAlgorithmIdConsumingRes, emptyArray)),
         exercise_actors = Some(Set("signatory")),
@@ -2710,8 +2716,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_sequential_id = 0,
           event_offset = someOffset.unwrap,
           update_id = update.updateId.toProtoPrimitive.toByteArray,
-          party_id = partyId,
-          participant_id = participantId,
+          party_id = Ref.Party.assertFromString(partyId),
+          participant_id = Ref.ParticipantId.assertFromString(participantId),
           participant_permission = participantPermissionInt(authorizationEvent),
           participant_authorization_event = authorizationEventInt(authorizationEvent),
           synchronizer_id = someSynchronizerId1,

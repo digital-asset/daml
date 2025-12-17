@@ -29,7 +29,6 @@ import com.digitalasset.canton.ledger.error.groups.{
   UserManagementServiceErrors,
 }
 import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
-import com.digitalasset.canton.ledger.participant.state.index.IndexPartyManagementService
 import com.digitalasset.canton.logging.LoggingContextUtil.createLoggingContext
 import com.digitalasset.canton.logging.LoggingContextWithTrace.withEnrichedLoggingContext
 import com.digitalasset.canton.logging.{
@@ -57,7 +56,6 @@ private[apiserver] final class ApiUserManagementService(
     partyRecordExist: PartyRecordsExist,
     maxUsersPageSize: Int,
     submissionIdGenerator: SubmissionIdGenerator,
-    indexPartyManagementService: IndexPartyManagementService,
     telemetry: Telemetry,
     val loggerFactory: NamedLoggerFactory,
 )(implicit
@@ -465,7 +463,7 @@ private[apiserver] final class ApiUserManagementService(
     val parties = userParties(rights)
     val partiesKnownF =
       if (isParticipantAdmin)
-        indexKnownParties(parties)
+        Future.successful(parties)
       else
         partyRecordExist
           .filterPartiesExistingInPartyRecordStore(identityProviderId, parties)
@@ -499,13 +497,6 @@ private[apiserver] final class ApiUserManagementService(
       )
     else
       Future.successful(())
-
-  private def indexKnownParties(
-      parties: Set[Ref.Party]
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Set[Ref.Party]] =
-    indexPartyManagementService.getParties(parties.toList).map { partyDetails =>
-      partyDetails.map(_.party).toSet
-    }
 
   private def partiesNotExistsError(
       unknownParties: Set[Ref.Party],
