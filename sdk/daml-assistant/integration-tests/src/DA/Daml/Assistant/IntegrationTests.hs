@@ -150,13 +150,6 @@ writeStartProject projDir packageName = do
             , "test x = pure (x, x + 1)"
             ]
 
--- Gives a platform agnostic dev null (tmp file) and cleanup action
-newDevNull :: IO (Handle, IO ())
-newDevNull = do
-  (devNullFile, removeDevNullFile) <- newTempFile
-  devNull <- openFile devNullFile WriteMode
-  pure (devNull, hClose devNull >> removeDevNullFile)
-
 damlStart :: SdkVersioned => FilePath -> IO DamlStartResource
 damlStart tmpDir = do
     let projDir = tmpDir </> "daml-integration-tests"
@@ -167,7 +160,6 @@ damlStart tmpDir = do
     env <- subprocessEnv []
     -- We need to dev-null the start output as it forwards cantons output
     -- if we simply create a pipe, we'd need to manually drain it else it'd fill up and crash canton
-    (devNull, cleanupDevNull) <- newDevNull
     let startProc =
             (shell $ unwords
                 [ "daml start"
