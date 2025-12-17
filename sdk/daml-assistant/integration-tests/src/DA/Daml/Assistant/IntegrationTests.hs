@@ -158,8 +158,6 @@ damlStart tmpDir = do
     ports <- sandboxPorts
     jsonApiPort <- getFreePort
     env <- subprocessEnv []
-    -- We need to dev-null the start output as it forwards cantons output
-    -- if we simply create a pipe, we'd need to manually drain it else it'd fill up and crash canton
     let startProc =
             (shell $ unwords
                 [ "daml start"
@@ -172,6 +170,8 @@ damlStart tmpDir = do
                 , "--sandbox-option=--debug"
                 ]
             ) {std_in = CreatePipe, std_out = CreatePipe, cwd = Just projDir, create_group = True, env = Just env}
+    -- stdout of this process must be consumed by something.
+    -- Currently we consume in a reader to get better output logs when it fails. If we ever remove this, must use devnull
     (Just _, Just startStdout, _, startPh) <- createProcess startProc
     let scriptOutputFile = "script-output.json"
     historyRef <- newIORef []
@@ -494,8 +494,6 @@ packagingTests assistant tmpDir =
                 (_out, err) <- callCommandFailingIn (tmpDir </> dirName) $ unwords [show assistant, "build"]
                 assertBool ("Error not found in\n" <> err) $
                     ("No " <> errName <> " definitions permitted in forced utility packages (Module A)") `isInfixOf` err
-          
--- can't do dpm ledger tests
 
 -- We are trying to run as many tests with the same `daml start` process as possible to save time.
 damlStartTests :: SdkVersioned => Assistant -> IO DamlStartResource -> TestTree
@@ -617,8 +615,6 @@ damlStartTests assistant getDamlStart =
                     , "  - daml-prim"
                     , "  - daml-stdlib"
                     , "  - daml-script"
-                    -- TODO(#14706): remove build-options once the default major version is 2
-                    , "build-options: [--target=2.1]"
                     ]
                 callCommandSilentIn projDir $ unwords ["daml", "deploy", "--host localhost", "--port", show sandboxPort]
                 copyFile (projDir </> "daml.yaml.back") (projDir </> "daml.yaml")
@@ -734,12 +730,10 @@ codegenTests assistant codegenDir = testGroup (show assistant <> " codegen") (
 cantonTests :: Assistant -> TestTree
 cantonTests assistant = testGroup (show assistant <> " sandbox")
     [ testCaseSteps "Can start Canton sandbox and run script" $ \step -> withTempDir $ \dir -> do
-        step dir
         step "Creating package"
         callCommandSilentIn dir $ unwords [show assistant, "new", "skeleton", "--template=skeleton-single-package"]
         step "Building package"
-        -- TODO(#14706): remove explicit target once the default major version is 2
-        callCommandSilentIn (dir </> "skeleton") $ unwords [show assistant, "build", "--target=2.1"]
+        callCommandSilentIn (dir </> "skeleton") $ unwords [show assistant, "build"]
         step "Finding free ports"
         ledgerApiPort <- getFreePort
         adminApiPort <- getFreePort
