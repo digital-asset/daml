@@ -67,8 +67,8 @@ genrule(
         $(location //language-support/js/codegen:binary_pom.xml)
       install_mvn \\
         "com.daml" "rs-grpc-bridge" \\
-        $(location //canton:rs-grpc-bridge:librs-grpc-bridge.jar) \\
-        $(location //canton:rs-grpc-bridge:rs-grpc-bridge_pom.xml)
+        $(location //canton:librs-grpc-bridge.jar) \\
+        $(location //canton:rs-grpc-bridge_pom.xml)
       "$$MVN" -q -Dmaven.repo.local=$$MVN_DB -f "$$TMP_DIR/quickstart-java/pom.xml" dependency:resolve dependency:resolve-plugins
       $(execpath //bazel_tools/sh:mktar) $@ -C $$(dirname $$MVN_DB) $$(basename $$MVN_DB)
     """.format(mvn = mvn_version),
