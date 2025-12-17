@@ -139,15 +139,15 @@
   type: jar-scala
 - target: //canton:executors
   type: jar-scala
-- target: //observability/metrics:metrics
+- target: //canton:metrics
   type: jar-scala
-- target: //observability/metrics:metrics-test-lib
+- target: //canton:metrics-test-lib
   type: jar-scala
-- target: //observability/tracing:tracing
+- target: //canton:tracing
   type: jar-scala
-- target: //observability/tracing:tracing-test-lib
+- target: //canton:tracing-test-lib
   type: jar-scala
-- target: //observability/pekko-http-metrics:pekko-http-metrics
+- target: //canton:pekko-http-metrics
   type: jar-scala
 - target: //canton:community_ledger_ledger-common
   type: jar-scala

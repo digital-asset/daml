@@ -222,8 +222,8 @@ da_scala_library(
         "//canton:nonempty",
         "//canton:scala-utils",
         "//daml-lf/data",
-        "//observability/metrics",
-        "//observability/tracing",
+        "//canton:metrics",
+        "//canton:tracing",
         "@maven//:com_github_pathikrit_better_files_2_13",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
@@ -368,7 +368,7 @@ da_scala_library(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/validation",
-        "//observability/metrics",
+        "//canton:metrics",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_thesamet_scalapb_scalapb_runtime_2_13",
@@ -516,8 +516,8 @@ scala_library(
         "//daml-lf/data",
         "//daml-lf/language",
         "//daml-lf/transaction",
-        "//observability/metrics",
-        "//observability/tracing",
+        "//canton:metrics",
+        "//canton:tracing",
         "@canton_maven//:com_google_api_api_common",
         "@canton_maven//:com_google_api_gax",
         "@canton_maven//:com_google_api_gax_grpc",
@@ -630,8 +630,8 @@ scala_library(
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/transaction",
-        "//observability/metrics",
-        "//observability/tracing",
+        "//canton:metrics",
+        "//canton:tracing",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
         "@maven//:com_github_blemale_scaffeine_2_13",
@@ -768,8 +768,8 @@ scala_library(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/validation",
-        "//observability/metrics",
-        "//observability/tracing",
+        "//canton:metrics",
+        "//canton:tracing",
         "@canton_maven//:org_flywaydb_flyway_core",
         "@maven//:com_auth0_java_jwt",
         "@maven//:com_chuusai_shapeless_2_13",
@@ -861,9 +861,9 @@ scala_library(
         "//daml-lf/engine",
         "//daml-lf/language",
         "//daml-lf/transaction",
-        "//observability/metrics",
-        "//observability/pekko-http-metrics",
-        "//observability/tracing",
+        "//canton:metrics",
+        "//canton:pekko-http-metrics",
+        "//canton:tracing",
         "@maven//:com_chuusai_shapeless_2_13",
         "@maven//:com_daml_transcode_codec_json_3",
         "@maven//:com_daml_transcode_codec_proto_scala_3",
@@ -987,8 +987,8 @@ scala_library(
         "//canton:scala-utils",
         "//daml-lf/data",
         "//daml-lf/transaction",
-        "//observability/metrics",
-        "//observability/tracing",
+        "//canton:metrics",
+        "//canton:tracing",
         "@maven//:com_github_ben_manes_caffeine_caffeine",
         "@maven//:com_github_blemale_scaffeine_2_13",
         "@maven//:com_github_pathikrit_better_files_2_13",
@@ -1149,8 +1149,8 @@ scala_library(
         "//daml-lf/engine",
         "//daml-lf/language",
         "//daml-lf/transaction",
-        "//observability/metrics",
-        "//observability/tracing",
+        "//canton:metrics",
+        "//canton:tracing",
         "@maven//:com_chuusai_shapeless_2_13",
         "@maven//:com_github_pathikrit_better_files_2_13",
         "@maven//:com_github_pureconfig_pureconfig_core_2_13",
@@ -1227,7 +1227,7 @@ scala_library(
         ":community_util-observability",
         "//daml-lf/data",
         "//daml-lf/transaction",
-        "//observability/metrics",
+        "//canton:metrics",
         "@maven//:com_chuusai_shapeless_2_13",
         "@maven//:com_github_pureconfig_pureconfig_core_2_13",
         "@maven//:com_github_pureconfig_pureconfig_generic_2_13",
@@ -1340,7 +1340,7 @@ scala_library(
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/transaction",
-        "//observability/metrics",
+        "//canton:metrics",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
         "@maven//:com_chuusai_shapeless_2_13",
@@ -2590,4 +2590,216 @@ package_oci_component(
     resources = [":community_app_deploy.jar"],
     tags = ["no-cache"],
     visibility = ["//visibility:public"],
+)
+
+# observability
+
+da_scala_library(
+    name = "pekko-http-metrics",
+    srcs = glob(["base/observability/pekko-http-metrics/src/main/scala/**/*.scala"]),
+    resources = glob(["base/observability/pekko-http-metrics/src/main/resources/**/*"]),
+    scala_deps = [
+        "@maven//:org_apache_pekko_pekko_actor",
+        "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:org_apache_pekko_pekko_http",
+        "@maven//:org_apache_pekko_pekko_http_core",
+    ],
+    tags = ["maven_coordinates=com.daml:pekko-http-metrics:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    runtime_deps = [],
+    deps = [
+        "//canton:metrics",
+        "@maven//:com_google_guava_guava",
+    ],
+)
+
+da_scala_library(
+    name = "pekko-http-metrics-tests-lib",
+    srcs = glob(
+        ["base/observability/pekko-http-metrics/src/test/**/*.scala"],
+        exclude = [
+            "base/observability/pekko-http-metrics/src/test/**/*Spec.scala",
+            "base/observability/pekko-http-metrics/src/test/**/*Test.scala",
+        ],
+    ),
+    scala_deps = [
+        "@maven//:org_apache_pekko_pekko_actor",
+        "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:org_apache_pekko_pekko_http_core",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+    ],
+)
+
+da_scala_test_suite(
+    name = "pekko-http-metrics-tests",
+    size = "small",
+    srcs = glob([
+        "base/observability/pekko-http-metrics/src/test/**/*Spec.scala",
+        "base/observability/pekko-http-metrics/src/test/**/*Test.scala",
+    ]),
+    scala_deps = [
+        "@maven//:org_apache_pekko_pekko_actor",
+        "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:org_apache_pekko_pekko_http",
+        "@maven//:org_apache_pekko_pekko_http_core",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_apache_pekko_pekko_http_testkit",
+    ],
+    scala_runtime_deps = [
+        "@maven//:org_apache_pekko_pekko_stream_testkit",
+    ],
+    deps = [
+        ":pekko-http-metrics",
+        ":pekko-http-metrics-tests-lib",
+        "//canton:rs-grpc-bridge",
+        "//canton:testing-utils",
+        "//canton:metrics",
+        ":metrics-test-lib",
+        "@maven//:com_typesafe_config",
+    ],
+)
+
+da_scala_library(
+    name = "tracing",
+    srcs = glob(["base/observability/tracing/src/main/scala/**/*.scala"]),
+    resources = glob(["base/observability/tracing/src/main/resources/**/*"]),
+    scala_deps = [
+    ],
+    tags = ["maven_coordinates=com.daml:tracing:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    runtime_deps = [],
+    deps = [
+        "@maven//:io_opentelemetry_opentelemetry_api",
+        "@maven//:io_opentelemetry_opentelemetry_context",
+    ],
+)
+
+da_scala_library(
+    name = "tracing-test-lib",
+    srcs = glob(["base/observability/tracing/src/test/lib/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest_core",
+    ],
+    tags = ["maven_coordinates=com.daml:tracing-test-lib:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    runtime_deps = [],
+    deps = [
+        ":tracing",
+        "@maven//:io_opentelemetry_opentelemetry_api",
+        "@maven//:io_opentelemetry_opentelemetry_context",
+        "@maven//:io_opentelemetry_opentelemetry_sdk_testing",
+        "@maven//:io_opentelemetry_opentelemetry_sdk_trace",
+        "@maven//:org_scalatest_scalatest_compatible",
+    ],
+)
+
+da_scala_test_suite(
+    name = "tracing-tests",
+    size = "small",
+    srcs = glob(["base/observability/tracing/src/test/suite/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+    ],
+    deps = [
+        ":tracing",
+        ":tracing-test-lib",
+        "@maven//:io_opentelemetry_opentelemetry_api",
+        "@maven//:io_opentelemetry_opentelemetry_context",
+        "@maven//:io_opentelemetry_opentelemetry_sdk_testing",
+        "@maven//:io_opentelemetry_opentelemetry_sdk_trace",
+        "@maven//:org_scalatest_scalatest_compatible",
+    ],
+)
+
+da_scala_library(
+    name = "metrics",
+    srcs = glob(["base/observability/metrics/src/main/scala/**/*.scala"]),
+    resources = glob(["base/observability/metrics/src/main/resources/**/*"]),
+    scala_deps = [
+        "@maven//:com_thesamet_scalapb_scalapb_runtime",
+        "@maven//:org_apache_pekko_pekko_actor",
+        "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    tags = ["maven_coordinates=com.daml:metrics:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    runtime_deps = [],
+    deps = [
+        "//canton:concurrent",
+        "//canton:scala-utils",
+        "@maven//:com_google_code_findbugs_jsr305",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_opentelemetry_opentelemetry_api",
+        "@maven//:io_opentelemetry_opentelemetry_context",
+        "@maven//:io_opentelemetry_opentelemetry_sdk_metrics",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+da_scala_library(
+    name = "metrics-test-lib",
+    srcs = glob(["base/observability/metrics/src/test/lib/scala/**/*.scala"]),
+    scala_deps = [
+    ],
+    tags = ["maven_coordinates=com.daml:metrics-test-lib:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    runtime_deps = [],
+    deps = [
+        ":metrics",
+        "//canton:scala-utils",
+    ],
+)
+
+da_scala_test_suite(
+    name = "metrics-tests",
+    size = "small",
+    srcs = glob(["base/observability/metrics/src/test/suite/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:com_thesamet_scalapb_lenses",
+        "@maven//:com_thesamet_scalapb_scalapb_runtime",
+        "@maven//:com_thesamet_scalapb_scalapb_runtime_grpc",
+        "@maven//:org_apache_pekko_pekko_actor",
+        "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+    ],
+    deps = [
+        ":metrics",
+        ":metrics-test-lib",
+        "//canton:grpc-test-utils",
+        "//canton:ledger-resources",
+        "//canton:ledger-resources-test-lib",
+        "//canton:resources",
+        "//canton:rs-grpc-bridge",
+        "//canton:rs-grpc-pekko-tests-lib",
+        "//canton:sample-service",
+        "//canton:testing-utils",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_stub",
+        "@maven//:io_opentelemetry_opentelemetry_api",
+        "@maven//:org_scalatest_scalatest_compatible",
+    ],
 )

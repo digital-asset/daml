@@ -70,7 +70,7 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/language",
         "//daml-lf/validation",
-        "//observability/metrics",
+        "//canton:metrics",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
         "@maven//:org_slf4j_slf4j_api",
     ],
