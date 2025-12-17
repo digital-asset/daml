@@ -29,11 +29,11 @@ for ((i=0;i<$SIZE;++i)); do
     DAR_FILE="$REPO/$DAR_DIR/$DAR_NAME" \
     SCRIPT_NAME="$SCRIPT" \
     SNAPSHOT_DIR="$SNAPSHOT_DIR" \
-      bazel run --sandbox_debug --action_env="HOME=$HOME" //daml-lf/snapshot:generate-snapshots || true
+      bazel run --sandbox_debug //daml-lf/snapshot:generate-snapshots || true
     DAR_FILE="$REPO/$DAR_DIR/$DAR_NAME" \
     SCRIPT_NAME="$SCRIPT" \
     SNAPSHOT_DIR="$SNAPSHOT_DIR" \
-      bazel run --sandbox_debug --action_env="HOME=$HOME" //daml-lf/snapshot:extract-snapshot-choices || true
+      bazel run --sandbox_debug //daml-lf/snapshot:extract-snapshot-choices || true
   done
 done
 
