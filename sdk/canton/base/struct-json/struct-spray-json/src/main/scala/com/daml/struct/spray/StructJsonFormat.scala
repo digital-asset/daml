@@ -20,16 +20,15 @@ object StructJsonFormat extends RootJsonFormat[Struct] {
   import com.google.protobuf.struct
   import com.google.protobuf.struct.Value.Kind
   import com.google.protobuf.struct.{ListValue, Struct}
-  import spray.json.DefaultJsonProtocol._
-  import struct.Value.Kind._
+  import spray.json.DefaultJsonProtocol.*
+  import struct.Value.Kind.*
 
   private val base: RootJsonFormat[JsObject] = implicitly[RootJsonFormat[JsObject]]
 
-  override def write(obj: Struct): JsValue = {
+  override def write(obj: Struct): JsValue =
     writeValue(struct.Value.of(Kind.StructValue(obj)))
-  }
 
-  private def writeValue(value: struct.Value): JsValue = {
+  private def writeValue(value: struct.Value): JsValue =
     value.kind match {
       case BoolValue(v) => JsBoolean(v)
       case Kind.ListValue(v) => JsArray(v.values.map(writeValue).toVector)
@@ -38,11 +37,9 @@ object StructJsonFormat extends RootJsonFormat[Struct] {
       case StructValue(v) => JsObject(v.fields.view.mapValues(writeValue).toMap)
       case Empty | NullValue(_) => JsNull
     }
-  }
 
-  override def read(json: JsValue): Struct = {
+  override def read(json: JsValue): Struct =
     Struct.of(base.read(json).fields.view.mapValues(readValue).toMap)
-  }
 
   private def readValue(value: JsValue): struct.Value = {
     val kind = value match {

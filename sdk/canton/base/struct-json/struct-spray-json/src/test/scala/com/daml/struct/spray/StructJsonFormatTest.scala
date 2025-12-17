@@ -5,7 +5,7 @@ package com.daml.struct.spray
 
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import spray.json._
+import spray.json.*
 
 class StructJsonFormatTest extends AnyWordSpec with Matchers {
 

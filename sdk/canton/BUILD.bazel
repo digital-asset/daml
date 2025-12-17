@@ -1768,6 +1768,7 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:struct-spray-json:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [],
+    override_scalacopts = canton_scalacopts + ["-language:postfixOps"],
 )
 
 da_scala_test_suite(
@@ -1782,6 +1783,7 @@ da_scala_test_suite(
     deps = [
         ":struct-spray-json",
     ],
+    override_scalacopts = canton_scalacopts + ["-language:postfixOps"],
 )
 
 da_scala_library(
