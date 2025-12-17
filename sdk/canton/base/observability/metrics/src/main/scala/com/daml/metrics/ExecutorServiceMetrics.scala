@@ -3,15 +3,6 @@
 
 package com.daml.metrics
 
-import java.util
-import java.util.concurrent.{
-  Callable,
-  ExecutorService,
-  ForkJoinPool,
-  Future,
-  ThreadPoolExecutor,
-  TimeUnit,
-}
 import com.daml.metrics.ExecutorServiceMetrics.{
   CommonMetricsName,
   ExecutorServiceWithCleanup,
@@ -21,10 +12,19 @@ import com.daml.metrics.ExecutorServiceMetrics.{
   TypeLabelKey,
 }
 import com.daml.metrics.InstrumentedExecutorServiceMetrics.InstrumentedExecutorService
-import com.daml.metrics.api.MetricQualification
 import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
-import com.daml.metrics.api.{MetricInfo, MetricName, MetricsContext}
+import com.daml.metrics.api.{MetricInfo, MetricName, MetricQualification, MetricsContext}
 import org.slf4j.LoggerFactory
+
+import java.util
+import java.util.concurrent.{
+  Callable,
+  ExecutorService,
+  ForkJoinPool,
+  Future,
+  ThreadPoolExecutor,
+  TimeUnit,
+}
 
 class ExecutorServiceMetrics(factory: LabeledMetricsFactory) {
 
@@ -34,7 +34,7 @@ class ExecutorServiceMetrics(factory: LabeledMetricsFactory) {
   def monitorExecutorService(
       name: String,
       executor: ExecutorService,
-  ): ExecutorService = {
+  ): ExecutorService =
     /* Handles the removal of registered gauges for the executor service.
      * As all the gauges registered are async the removal could've been also done when
      * trying to read the value of a gauge, but this would not prevent warnings being logged when an executor with
@@ -65,7 +65,6 @@ class ExecutorServiceMetrics(factory: LabeledMetricsFactory) {
         )
         other
     }
-  }
 
   private def monitorForkJoin(
       executor: ForkJoinPool
@@ -275,21 +274,21 @@ object ExecutorServiceMetrics {
         runnable: Runnable,
         t: T,
     ): Future[T] = delegate.submit(runnable, t)
-    override def submit(runnable: Runnable): Future[_] =
+    override def submit(runnable: Runnable): Future[?] =
       delegate.submit(runnable)
     override def invokeAll[T](
-        collection: util.Collection[_ <: Callable[T]]
+        collection: util.Collection[? <: Callable[T]]
     ): util.List[Future[T]] = delegate.invokeAll(collection)
     override def invokeAll[T](
-        collection: util.Collection[_ <: Callable[T]],
+        collection: util.Collection[? <: Callable[T]],
         l: Long,
         timeUnit: TimeUnit,
     ): util.List[Future[T]] = delegate.invokeAll(collection, l, timeUnit)
     override def invokeAny[T](
-        collection: util.Collection[_ <: Callable[T]]
+        collection: util.Collection[? <: Callable[T]]
     ): T = delegate.invokeAny(collection)
     override def invokeAny[T](
-        collection: util.Collection[_ <: Callable[T]],
+        collection: util.Collection[? <: Callable[T]],
         l: Long,
         timeUnit: TimeUnit,
     ): T = delegate.invokeAny(collection, l, timeUnit)

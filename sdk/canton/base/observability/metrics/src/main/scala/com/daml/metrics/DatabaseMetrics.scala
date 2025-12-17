@@ -3,12 +3,11 @@
 
 package com.daml.metrics
 
-import com.daml.metrics.api.MetricQualification.Debug
-import com.daml.metrics.api.MetricHandle.{LabeledMetricsFactory, Timer}
-import com.daml.metrics.api.noop.NoOpMetricsFactory
-import com.daml.metrics.api.{MetricName, MetricsContext}
-import com.daml.metrics.api.HistogramInventory
 import com.daml.metrics.api.HistogramInventory.Item
+import com.daml.metrics.api.MetricHandle.{LabeledMetricsFactory, Timer}
+import com.daml.metrics.api.MetricQualification.Debug
+import com.daml.metrics.api.noop.NoOpMetricsFactory
+import com.daml.metrics.api.{HistogramInventory, MetricName, MetricsContext}
 
 class DatabaseMetricsHistograms(implicit
     inventory: HistogramInventory

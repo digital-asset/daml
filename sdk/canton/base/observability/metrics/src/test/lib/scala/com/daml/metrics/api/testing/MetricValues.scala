@@ -4,7 +4,6 @@
 package com.daml.metrics.api.testing
 
 import com.daml.metrics.api.MetricHandle.{Counter, Histogram, Meter, Timer}
-import com.daml.metrics.api.{MetricName, MetricsContext}
 import com.daml.metrics.api.testing.InMemoryMetricsFactory.{
   InMemoryCounter,
   InMemoryHistogram,
@@ -12,6 +11,7 @@ import com.daml.metrics.api.testing.InMemoryMetricsFactory.{
   InMemoryTimer,
 }
 import com.daml.metrics.api.testing.MetricValues.singleValueFromContexts
+import com.daml.metrics.api.{MetricName, MetricsContext}
 
 trait MetricValues {
 
@@ -43,7 +43,7 @@ trait MetricValues {
 
   class InMemoryMetricFactoryValues(factory: InMemoryMetricsFactory) {
 
-    def asyncGaugeValue(metricName: MetricName, labelFilter: LabelFilter*): Any = {
+    def asyncGaugeValue(metricName: MetricName, labelFilter: LabelFilter*): Any =
       singleValueFromContexts(
         factory.metrics
           .asyncGauges(metricName)
@@ -57,7 +57,6 @@ trait MetricValues {
           }
           .toMap
       )
-    }
 
   }
 
@@ -89,7 +88,7 @@ trait MetricValues {
     }
 
     def valueFilteredOnLabels(labelFilters: LabelFilter*): Long =
-      singleValueFromContextsFilteredOnLabels(valuesWithContext, labelFilters: _*)
+      singleValueFromContextsFilteredOnLabels(valuesWithContext, labelFilters*)
 
   }
 
@@ -110,7 +109,7 @@ trait MetricValues {
     }
 
     def valuesFilteredOnLabels(labelFilters: LabelFilter*): Seq[Long] =
-      singleValueFromContextsFilteredOnLabels(valuesWithContext, labelFilters: _*)
+      singleValueFromContextsFilteredOnLabels(valuesWithContext, labelFilters*)
   }
 
   class TimerValues(timer: Timer) {
@@ -144,7 +143,7 @@ trait MetricValues {
     }
 
     def valuesFilteredOnLabels(labelFilters: LabelFilter*): Seq[Long] =
-      singleValueFromContextsFilteredOnLabels(valuesWithContext, labelFilters: _*)
+      singleValueFromContextsFilteredOnLabels(valuesWithContext, labelFilters*)
   }
 
   case class LabelFilter(name: String, value: String)

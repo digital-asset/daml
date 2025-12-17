@@ -3,52 +3,56 @@
 
 package com.daml.tracing
 
-import java.util.concurrent.TimeUnit
-import java.util.{Map => jMap}
-
 import io.opentelemetry.api.common.{AttributeKey, Attributes}
-import io.opentelemetry.api.{OpenTelemetry, trace}
 import io.opentelemetry.api.trace.{Span, SpanBuilder, SpanContext, Tracer}
+import io.opentelemetry.api.{OpenTelemetry, trace}
 import io.opentelemetry.context.Context
 
+import java.util.Map as jMap
+import java.util.concurrent.TimeUnit
 import scala.concurrent.Future
 
 /** @param tracer An OpenTelemetry Tracer that can be used for building spans. */
 abstract class Telemetry(protected val tracer: Tracer) {
 
-  /** Returns a telemetry context from the OpenTelemetry context stored in the gRPC
-    * thread local context.
-    * This is used to recover the tracing metadata from an incoming gRPC call,
-    * and used for the subsequent spans.
+  /** Returns a telemetry context from the OpenTelemetry context stored in the gRPC thread local
+    * context. This is used to recover the tracing metadata from an incoming gRPC call, and used for
+    * the subsequent spans.
     */
   def contextFromGrpcThreadLocalContext(): TelemetryContext
 
   /** Returns a telemetry context from the metadata encoded in the given key-value map.
     *
-    * Typically, the metadata map has been encoded in a message, which has been sent
-    * across boundaries, from a different process.
-    * Originally, it has been created to carry tracing metadata across boundaries, and
-    * to create complete traces.
+    * Typically, the metadata map has been encoded in a message, which has been sent across
+    * boundaries, from a different process. Originally, it has been created to carry tracing
+    * metadata across boundaries, and to create complete traces.
     *
-    * @see [[com.daml.tracing.TelemetryContext.encodeMetadata()]]
+    * @see
+    *   [[com.daml.tracing.TelemetryContext.encodeMetadata()]]
     */
   def contextFromMetadata(metadata: Option[jMap[String, String]]): TelemetryContext
 
-  /** Allows to transform an Open Telemetry context into a telemetry context.
-    * Makes integration easier for consumers that are using the Open Telemetry API directly.
-    * Consider using other factory methods.
+  /** Allows to transform an Open Telemetry context into a telemetry context. Makes integration
+    * easier for consumers that are using the Open Telemetry API directly. Consider using other
+    * factory methods.
     *
-    * @param context raw Open Telemetry context
+    * @param context
+    *   raw Open Telemetry context
     */
   def contextFromOpenTelemetryContext(context: Context): TelemetryContext
 
   /** Creates the first span of a new trace, and runs the computation inside it.
     *
-    * @param spanName the name of the new span.
-    * @param kind the kind of the new span.
-    * @param attributes the key-value pairs to be set as attributes to the new span.
-    * @param body the code to be run in the new span.
-    * @return the context based on the new span.
+    * @param spanName
+    *   the name of the new span.
+    * @param kind
+    *   the kind of the new span.
+    * @param attributes
+    *   the key-value pairs to be set as attributes to the new span.
+    * @param body
+    *   the code to be run in the new span.
+    * @return
+    *   the context based on the new span.
     */
   def runFutureInSpan[T](
       spanName: String,
@@ -56,23 +60,26 @@ abstract class Telemetry(protected val tracer: Tracer) {
       attributes: (SpanAttribute, String)*
   )(
       body: TelemetryContext => Future[T]
-  ): Future[T] = {
-    rootContext.runFutureInNewSpan(spanName, kind, attributes: _*)(body)
-  }
+  ): Future[T] =
+    rootContext.runFutureInNewSpan(spanName, kind, attributes*)(body)
 
   /** Creates the first span of a new trace, and runs the computation inside it.
     *
-    * @param spanName the name of the new span.
-    * @param kind the kind of the new span.
-    * @param attributes the key-value pairs to be set as attributes to the new span.
-    * @param body the code to be run in the new span.
-    * @return the context based on the new span.
+    * @param spanName
+    *   the name of the new span.
+    * @param kind
+    *   the kind of the new span.
+    * @param attributes
+    *   the key-value pairs to be set as attributes to the new span.
+    * @param body
+    *   the code to be run in the new span.
+    * @return
+    *   the context based on the new span.
     */
   def runInSpan[T](spanName: String, kind: SpanKind, attributes: (SpanAttribute, String)*)(
       body: TelemetryContext => T
-  ): T = {
-    rootContext.runInNewSpan(spanName, kind, attributes: _*)(body)
-  }
+  ): T =
+    rootContext.runInNewSpan(spanName, kind, attributes*)(body)
 
   /** Returns a new root context for this implementation of Telemetry.
     *
@@ -80,9 +87,8 @@ abstract class Telemetry(protected val tracer: Tracer) {
     */
   protected def rootContext: TelemetryContext
 
-  /** Returns the trace-id of the telemetry context from the OpenTelemetry context stored in the gRPC
-    * thread local context.
-    * This is used to obtain the tracing id from an incoming gRPC call.
+  /** Returns the trace-id of the telemetry context from the OpenTelemetry context stored in the
+    * gRPC thread local context. This is used to obtain the tracing id from an incoming gRPC call.
     */
   def traceIdFromGrpcContext: Option[String] = contextFromGrpcThreadLocalContext().traceId
 
@@ -90,11 +96,10 @@ abstract class Telemetry(protected val tracer: Tracer) {
 
 abstract class DefaultTelemetry(override protected val tracer: Tracer) extends Telemetry(tracer) {
 
-  override def contextFromGrpcThreadLocalContext(): TelemetryContext = {
+  override def contextFromGrpcThreadLocalContext(): TelemetryContext =
     DefaultTelemetryContext(tracer, Span.current)
-  }
 
-  override def contextFromMetadata(metadata: Option[jMap[String, String]]): TelemetryContext = {
+  override def contextFromMetadata(metadata: Option[jMap[String, String]]): TelemetryContext =
     metadata
       .flatMap(Tracing.decodeTraceMetadata) match {
       case None =>
@@ -102,7 +107,6 @@ abstract class DefaultTelemetry(override protected val tracer: Tracer) extends T
       case Some(context) =>
         DefaultTelemetryContext(tracer, Span.fromContext(context))
     }
-  }
 
   override def contextFromOpenTelemetryContext(context: Context): TelemetryContext =
     Option(Span.fromContextOrNull(context))
@@ -118,7 +122,8 @@ class DefaultOpenTelemetry(openTelemetry: OpenTelemetry)
 
 /** Implementation of Telemetry that does nothing.
   *
-  * It always returns NoOpTelemetryContext, and just executes without modification any given code block function.
+  * It always returns NoOpTelemetryContext, and just executes without modification any given code
+  * block function.
   */
 object NoOpTelemetry extends Telemetry(NoOpTracer) {
 

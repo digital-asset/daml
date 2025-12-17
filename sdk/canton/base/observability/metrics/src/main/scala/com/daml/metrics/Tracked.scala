@@ -3,12 +3,11 @@
 
 package com.daml.metrics
 
-import java.util.concurrent.CompletionStage
-
 import com.daml.metrics.api.MetricHandle.{Counter, Meter}
 import com.daml.metrics.api.MetricsContext
 import com.daml.metrics.api.MetricsContext.withEmptyMetricsContext
 
+import java.util.concurrent.CompletionStage
 import scala.concurrent.{ExecutionContext, Future}
 
 object Tracked {

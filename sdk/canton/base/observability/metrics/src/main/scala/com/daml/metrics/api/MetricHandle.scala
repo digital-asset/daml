@@ -3,20 +3,22 @@
 
 package com.daml.metrics.api
 
+import com.daml.metrics.api.MetricHandle.Gauge.CloseableGauge
+import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
 import com.daml.metrics.{MetricsFilter, MetricsFilterConfig}
 
 import java.time.Duration
 import java.util.concurrent.TimeUnit
-import com.daml.metrics.api.MetricHandle.Gauge.CloseableGauge
-import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
-
 import scala.concurrent.{ExecutionContext, Future}
 
 /** Information about a metric used for documentation and online help
   *
-  * @param name of the metric
-  * @param description description exposed on prometheus and in the docs
-  * @param qualification the qualification of the metric
+  * @param name
+  *   of the metric
+  * @param description
+  *   description exposed on prometheus and in the docs
+  * @param qualification
+  *   the qualification of the metric
   */
 final case class MetricInfo(
     name: MetricName,
@@ -36,9 +38,8 @@ class MetricsInfoFilter(
 
   private val nameFilter = new MetricsFilter(filters)
 
-  def includeMetric(info: MetricInfo): Boolean = {
+  def includeMetric(info: MetricInfo): Boolean =
     nameFilter.includeMetric(info.name.toString()) && qualifications.contains(info.qualification)
-  }
 
 }
 
@@ -53,21 +54,22 @@ object MetricHandle {
   trait LabeledMetricsFactory {
 
     /** A timer represented as a histogram
-      *  - For `OpenTelemetry` the timer is represented by a histogram.
+      *   - For `OpenTelemetry` the timer is represented by a histogram.
       */
     def timer(info: MetricInfo)(implicit
         context: MetricsContext = MetricsContext.Empty
     ): Timer
 
-    /** A gauge represents the current value being monitored, such as queue size, requests in flight, etc.
-      * The values being monitored should be numeric for compatibility with multiple metric systems
-      * (e.g. Prometheus).
+    /** A gauge represents the current value being monitored, such as queue size, requests in
+      * flight, etc. The values being monitored should be numeric for compatibility with multiple
+      * metric systems (e.g. Prometheus).
       */
     def gauge[T](info: MetricInfo, initial: T)(implicit
         context: MetricsContext
     ): Gauge[T]
 
-    /** Same as a gauge, but the value is read using the `gaugeSupplier` only when the metrics are observed.
+    /** Same as a gauge, but the value is read using the `gaugeSupplier` only when the metrics are
+      * observed.
       */
     def gaugeWithSupplier[T](
         info: MetricInfo,
@@ -76,24 +78,23 @@ object MetricHandle {
         context: MetricsContext
     ): CloseableGauge
 
-    /** A meter represents a monotonically increasing value.
-      * In Prometheus this is actually represented by a `Counter`.
-      * Note that meters should never decrease as the data is then skewed and unusable!
+    /** A meter represents a monotonically increasing value. In Prometheus this is actually
+      * represented by a `Counter`. Note that meters should never decrease as the data is then
+      * skewed and unusable!
       */
     def meter(info: MetricInfo)(implicit
         context: MetricsContext
     ): Meter
 
-    /** A counter represents a value that can go up and down.
-      *  A counter is actually represented as a gauge.
-      *  We can think of a counter as a gauge with a richer API.
+    /** A counter represents a value that can go up and down. A counter is actually represented as a
+      * gauge. We can think of a counter as a gauge with a richer API.
       */
     def counter(info: MetricInfo)(implicit
         context: MetricsContext = MetricsContext.Empty
     ): Counter
 
-    /** A histogram represents a `bucketized` view of the data.
-      *  In most cases the boundaries of the buckets should be manually configured for the monitored data.
+    /** A histogram represents a `bucketized` view of the data. In most cases the boundaries of the
+      * buckets should be manually configured for the monitored data.
       */
     def histogram(info: MetricInfo)(implicit
         context: MetricsContext = MetricsContext.Empty
@@ -158,9 +159,10 @@ object MetricHandle {
 
   object Gauge {
 
-    /** Because gauges represent a specific value at a given time, there is a distinction between the value of a gauge no
-      * longer being updated vs. the value no longer existing (contrary to how meters, histograms work). Because of this reasoning
-      * gauges have to be closed after usage.
+    /** Because gauges represent a specific value at a given time, there is a distinction between
+      * the value of a gauge no longer being updated vs. the value no longer existing (contrary to
+      * how meters, histograms work). Because of this reasoning gauges have to be closed after
+      * usage.
       */
     trait CloseableGauge extends AutoCloseable with MetricHandle
 

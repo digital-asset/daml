@@ -4,6 +4,7 @@
 package com.daml.metrics.grpc
 
 import com.daml.metrics.api.HistogramInventory.Item
+import com.daml.metrics.api.MetricHandle.{Histogram, LabeledMetricsFactory}
 import com.daml.metrics.api.{
   HistogramInventory,
   MetricHandle,
@@ -12,7 +13,6 @@ import com.daml.metrics.api.{
   MetricQualification,
   MetricsContext,
 }
-import com.daml.metrics.api.MetricHandle.{Histogram, LabeledMetricsFactory}
 
 class DamlGrpcServerHistograms(implicit
     inventory: HistogramInventory

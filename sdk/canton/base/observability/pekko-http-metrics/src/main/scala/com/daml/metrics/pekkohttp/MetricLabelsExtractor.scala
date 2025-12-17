@@ -3,8 +3,8 @@
 
 package com.daml.metrics.pekkohttp
 
+import com.daml.metrics.http.Labels.*
 import org.apache.pekko.http.scaladsl.model.{HttpRequest, HttpResponse}
-import com.daml.metrics.http.Labels._
 
 object MetricLabelsExtractor {
 
@@ -24,8 +24,7 @@ object MetricLabelsExtractor {
 
   def labelsFromResponse(
       response: HttpResponse
-  ): Seq[(String, String)] = {
+  ): Seq[(String, String)] =
     Seq((HttpStatusLabel, response.status.intValue.toString))
-  }
 
 }

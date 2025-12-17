@@ -3,12 +3,12 @@
 
 package com.daml.metrics.pekkohttp
 
+import org.apache.pekko.http.scaladsl.model.HttpEntity
+import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.util.ByteString
-import org.apache.pekko.http.scaladsl.model.HttpEntity
-import scala.concurrent.Future
-import scala.concurrent.ExecutionContext
-import org.apache.pekko.stream.Materializer
+
+import scala.concurrent.{ExecutionContext, Future}
 
 object PekkoUtils {
 

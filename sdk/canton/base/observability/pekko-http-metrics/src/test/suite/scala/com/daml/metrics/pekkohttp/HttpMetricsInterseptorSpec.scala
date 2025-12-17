@@ -3,8 +3,11 @@
 
 package com.daml.metrics.pekkohttp
 
-import com.daml.metrics.api.MetricQualification
-import org.apache.pekko.util.ByteString
+import com.daml.metrics.api.MetricHandle.{Histogram, Meter, Timer}
+import com.daml.metrics.api.testing.{InMemoryMetricsFactory, MetricValues}
+import com.daml.metrics.api.{MetricInfo, MetricName, MetricQualification, MetricsContext}
+import com.daml.metrics.http.HttpMetrics
+import com.daml.metrics.pekkohttp.PekkoUtils.*
 import org.apache.pekko.http.scaladsl.model.{
   ContentTypes,
   HttpEntity,
@@ -14,21 +17,16 @@ import org.apache.pekko.http.scaladsl.model.{
   ResponseEntity,
   StatusCodes,
 }
-import org.apache.pekko.http.scaladsl.server.Route
-import org.apache.pekko.http.scaladsl.server.Directives
-import org.apache.pekko.http.scaladsl.server.Directives._
+import org.apache.pekko.http.scaladsl.server.Directives.*
+import org.apache.pekko.http.scaladsl.server.{Directives, Route}
 import org.apache.pekko.http.scaladsl.testkit.ScalatestRouteTest
 import org.apache.pekko.stream.scaladsl.Source
-import com.daml.metrics.pekkohttp.PekkoUtils._
-import com.daml.metrics.api.{MetricInfo, MetricName, MetricsContext}
-import com.daml.metrics.api.MetricHandle.{Histogram, Meter, Timer}
-import com.daml.metrics.api.testing.{InMemoryMetricsFactory, MetricValues}
-import com.daml.metrics.http.HttpMetrics
+import org.apache.pekko.util.ByteString
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.concurrent.Future
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class HttpMetricsInterseptorSpec
     extends AnyWordSpec
@@ -36,7 +34,7 @@ class HttpMetricsInterseptorSpec
     with ScalatestRouteTest
     with MetricValues {
 
-  import PekkoHttpMetricsSpec._
+  import PekkoHttpMetricsSpec.*
 
   // test data
   private val byteString1 = ByteString(Array[Byte](1, 12, -7, -124, 0, 127))
@@ -79,13 +77,9 @@ class HttpMetricsInterseptorSpec
       Directives.complete(throw new NotImplementedError)
     },
     path("mirror" / IntNumber) { statusCode: Int =>
-      {
-        handle { request: HttpRequest =>
-          {
-            mirrorRequestEntity(request.entity).map { entity =>
-              HttpResponse(status = statusCode, entity = entity)
-            }
-          }
+      handle { request: HttpRequest =>
+        mirrorRequestEntity(request.entity).map { entity =>
+          HttpResponse(status = statusCode, entity = entity)
         }
       }
     },
@@ -97,11 +91,10 @@ class HttpMetricsInterseptorSpec
     },
   )
 
-  private def routeWithRateDurationSizeMetrics(route: Route, metrics: TestMetrics): Route = {
+  private def routeWithRateDurationSizeMetrics(route: Route, metrics: TestMetrics): Route =
     HttpMetricsInterceptor.rateDurationSizeMetrics(
       metrics
     ) apply route
-  }
 
   // Provides an environment to perform the tests.
   private def withRouteAndMetrics[T](f: (Route, TestMetrics) => T): T = {
@@ -642,16 +635,16 @@ object PekkoHttpMetricsSpec extends MetricValues {
 
     def requestsTotalValue: Long = requestsTotal.value
     def requestsTotalValue(method: String, path: String): Long =
-      requestsTotal.valueFilteredOnLabels(labelFilters(method, path): _*)
+      requestsTotal.valueFilteredOnLabels(labelFilters(method, path)*)
     def latencyValues: Seq[Long] = latency.values
     def latencyValues(method: String, path: String): Seq[Long] =
-      latency.valuesFilteredOnLabels(labelFilters(method, path): _*)
+      latency.valuesFilteredOnLabels(labelFilters(method, path)*)
     def requestsPayloadBytesValues: Seq[Long] = requestsPayloadBytes.values
     def requestsPayloadBytesValues(method: String, path: String): Seq[Long] =
-      requestsPayloadBytes.valuesFilteredOnLabels(labelFilters(method, path): _*)
+      requestsPayloadBytes.valuesFilteredOnLabels(labelFilters(method, path)*)
     def responsesPayloadBytesValues: Seq[Long] = responsesPayloadBytes.values
     def responsesPayloadBytesValues(method: String, path: String): Seq[Long] =
-      responsesPayloadBytes.valuesFilteredOnLabels(labelFilters(method, path): _*)
+      responsesPayloadBytes.valuesFilteredOnLabels(labelFilters(method, path)*)
 
     private def labelFilters(method: String, path: String): Seq[LabelFilter] =
       Seq(LabelFilter("http_verb", method), LabelFilter("path", path))

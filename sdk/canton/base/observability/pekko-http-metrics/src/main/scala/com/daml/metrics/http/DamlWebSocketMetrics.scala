@@ -3,11 +3,15 @@
 
 package com.daml.metrics.http
 
-import com.daml.metrics.api.MetricQualification
-import com.daml.metrics.api.MetricHandle.{Histogram, LabeledMetricsFactory, Meter}
-import com.daml.metrics.api.{MetricInfo, MetricName, MetricsContext}
-import com.daml.metrics.api.HistogramInventory
 import com.daml.metrics.api.HistogramInventory.Item
+import com.daml.metrics.api.MetricHandle.{Histogram, LabeledMetricsFactory, Meter}
+import com.daml.metrics.api.{
+  HistogramInventory,
+  MetricInfo,
+  MetricName,
+  MetricQualification,
+  MetricsContext,
+}
 
 class DamlWebSocketsHistograms(implicit
     inventory: HistogramInventory

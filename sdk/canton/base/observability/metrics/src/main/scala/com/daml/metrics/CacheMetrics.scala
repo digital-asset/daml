@@ -3,8 +3,8 @@
 
 package com.daml.metrics
 
-import com.daml.metrics.api.MetricQualification.Debug
 import com.daml.metrics.api.MetricHandle.{Counter, LabeledMetricsFactory}
+import com.daml.metrics.api.MetricQualification.Debug
 import com.daml.metrics.api.{MetricInfo, MetricName, MetricsContext}
 import com.daml.scalautil.Statement.discard
 

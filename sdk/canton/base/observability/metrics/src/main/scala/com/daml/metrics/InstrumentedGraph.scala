@@ -3,6 +3,9 @@
 
 package com.daml.metrics
 
+import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
+import com.daml.metrics.api.MetricHandle.{Counter, Timer}
+import com.daml.metrics.api.MetricsContext
 import org.apache.pekko.stream.scaladsl.{Flow, Source}
 import org.apache.pekko.stream.{
   BoundedSourceQueue,
@@ -10,11 +13,8 @@ import org.apache.pekko.stream.{
   OverflowStrategy,
   QueueOfferResult,
 }
-import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
-import com.daml.metrics.api.MetricHandle.{Counter, Timer}
-import com.daml.metrics.api.MetricsContext
 
-import scala.util.chaining._
+import scala.util.chaining.*
 
 object InstrumentedGraph {
 
@@ -53,21 +53,20 @@ object InstrumentedGraph {
 
   /** Returns a `Source` that can be fed via the materialized queue.
     *
-    * The queue length counter can at most be eventually consistent due to
-    * the counter increment and decrement operation being scheduled separately
-    * and possibly not in the same order as the actual enqueuing and dequeueing
-    * of items.
+    * The queue length counter can at most be eventually consistent due to the counter increment and
+    * decrement operation being scheduled separately and possibly not in the same order as the
+    * actual enqueuing and dequeueing of items.
     *
-    * For this reason, you may also read values on the saturation counter which
-    * are negative or exceed `bufferSize`.
+    * For this reason, you may also read values on the saturation counter which are negative or
+    * exceed `bufferSize`.
     *
-    * Note that the fact that the count is decremented in a second operator means
-    * that its buffering will likely skew the measurements to be greater than the
-    * actual value, rather than the other way around.
+    * Note that the fact that the count is decremented in a second operator means that its buffering
+    * will likely skew the measurements to be greater than the actual value, rather than the other
+    * way around.
     *
-    * We track the queue capacity as a counter as we may want to aggregate
-    * the metrics for multiple individual queues of the same kind and we want to be able
-    * to decrease the capacity when the queue gets completed.
+    * We track the queue capacity as a counter as we may want to aggregate the metrics for multiple
+    * individual queues of the same kind and we want to be able to decrease the capacity when the
+    * queue gets completed.
     */
   def queue[T](
       bufferSize: Int,
@@ -99,19 +98,22 @@ object InstrumentedGraph {
 
   implicit class BufferedFlow[In, Out, Mat](val original: Flow[In, Out, Mat]) extends AnyVal {
 
-    /** Adds a buffer to the output of the [[original]] flow, and adds a Counter metric for buffer size.
+    /** Adds a buffer to the output of the [[original]] flow, and adds a Counter metric for buffer
+      * size.
       *
-      * Good for detecting bottlenecks and speed difference between consumer and producer.
-      * In case producer is faster, this buffer should be mostly empty.
-      * In case producer is slower, this buffer should be mostly full.
+      * Good for detecting bottlenecks and speed difference between consumer and producer. In case
+      * producer is faster, this buffer should be mostly empty. In case producer is slower, this
+      * buffer should be mostly full.
       *
-      * @param counter the counter to track the actual size of the buffer
-      * @param size the maximum size of the buffer.
-      *             In case of a bottleneck in producer this will be mostly full,
-      *             so careful estimation is needed to prevent excessive memory pressure.
-      * @param metricsContext metrics context for the counter.
-      *                        Can be used to re-use one counter with different contexts
-      * @return the instrumented flow
+      * @param counter
+      *   the counter to track the actual size of the buffer
+      * @param size
+      *   the maximum size of the buffer. In case of a bottleneck in producer this will be mostly
+      *   full, so careful estimation is needed to prevent excessive memory pressure.
+      * @param metricsContext
+      *   metrics context for the counter. Can be used to re-use one counter with different contexts
+      * @return
+      *   the instrumented flow
       */
     def buffered(counter: Counter, size: Int)(implicit
         metricsContext: MetricsContext = MetricsContext.Empty

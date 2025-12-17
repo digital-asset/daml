@@ -3,12 +3,13 @@
 
 package com.daml.metrics.api.noop
 
-import java.time.Duration
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicReference
 import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
 import com.daml.metrics.api.MetricHandle.{Counter, Gauge, Histogram, Meter, Timer}
 import com.daml.metrics.api.{MetricInfo, MetricsContext}
+
+import java.time.Duration
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 
 final case class NoOpTimer(info: MetricInfo) extends Timer {
   override def update(duration: Long, unit: TimeUnit)(implicit

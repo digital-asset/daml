@@ -3,11 +3,10 @@
 
 package com.daml.tracing
 
-import java.util.{HashMap => jHashMap, Map => jMap}
-
 import io.opentelemetry.api.trace.{Span, Tracer}
 import io.opentelemetry.context.Context
 
+import java.util.{HashMap as jHashMap, Map as jMap}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -17,15 +16,20 @@ trait TelemetryContext {
     */
   def setAttribute(attribute: SpanAttribute, value: String): TelemetryContext
 
-  /** Creates a new span and runs the computation inside it.
-    * The new span has its parent set as the span associated with the current context.
-    * A new context containing the new span is passed as parameter to the computation.
+  /** Creates a new span and runs the computation inside it. The new span has its parent set as the
+    * span associated with the current context. A new context containing the new span is passed as
+    * parameter to the computation.
     *
-    * @param spanName   the name of the new span
-    * @param kind       the kind of the new span
-    * @param attributes the key-value pairs to be set as attributes to the new span
-    * @param body       the computation to be run in the new span
-    * @return the result of the computation
+    * @param spanName
+    *   the name of the new span
+    * @param kind
+    *   the kind of the new span
+    * @param attributes
+    *   the key-value pairs to be set as attributes to the new span
+    * @param body
+    *   the computation to be run in the new span
+    * @return
+    *   the result of the computation
     */
   def runFutureInNewSpan[T](
       spanName: String,
@@ -35,15 +39,20 @@ trait TelemetryContext {
       body: TelemetryContext => Future[T]
   ): Future[T]
 
-  /** Creates a new span and runs the computation inside it.
-    * The new span has its parent set as the span associated with the current context.
-    * A new context containing the new span is passed as parameter to the computation.
+  /** Creates a new span and runs the computation inside it. The new span has its parent set as the
+    * span associated with the current context. A new context containing the new span is passed as
+    * parameter to the computation.
     *
-    * @param spanName the name of the new span
-    * @param kind the kind of the new span
-    * @param attributes the key-value pairs to be set as attributes to the new span
-    * @param body the computation to be run in the new span
-    * @return the result of the computation
+    * @param spanName
+    *   the name of the new span
+    * @param kind
+    *   the kind of the new span
+    * @param attributes
+    *   the key-value pairs to be set as attributes to the new span
+    * @param body
+    *   the computation to be run in the new span
+    * @return
+    *   the result of the computation
     */
   def runInNewSpan[T](
       spanName: String,
@@ -55,31 +64,35 @@ trait TelemetryContext {
 
   /** Runs the computation inside an OpenTelemetry scope.
     *
-    * This is used to set the tracing metadata in the gRPC local thread context, so it
-    * can be accessed and used by the OpenTelemetry instrumentation to create complete traces.
+    * This is used to set the tracing metadata in the gRPC local thread context, so it can be
+    * accessed and used by the OpenTelemetry instrumentation to create complete traces.
     *
-    * It should be used around gRPC calls, to ensure that the tracing metadata is correctly used
-    * and transferred.
+    * It should be used around gRPC calls, to ensure that the tracing metadata is correctly used and
+    * transferred.
     *
-    * @param body the computation to be run in the Telemetry scope
-    * @return the result of the computation
+    * @param body
+    *   the computation to be run in the Telemetry scope
+    * @return
+    *   the result of the computation
     */
   def runInOpenTelemetryScope[T](body: => T): T
 
   /** Encode the metadata of the context in a key-value map.
     *
     * Typically, metadata is encoded in a map to allow transporting it across process boundaries.
-    * Originally, it has been created to carry tracing metadata across boundaries, and
-    * to create complete traces.
+    * Originally, it has been created to carry tracing metadata across boundaries, and to create
+    * complete traces.
     *
-    * @see [[com.daml.tracing.Telemetry.contextFromMetadata(java.util.Map)]]
+    * @see
+    *   [[com.daml.tracing.Telemetry.contextFromMetadata(java.util.Map)]]
     */
   def encodeMetadata(): jMap[String, String]
 
-  /** Returns a raw Open Telemetry context.
-    * Should only be used by consumers that are using the Open Telemetry API directly.
+  /** Returns a raw Open Telemetry context. Should only be used by consumers that are using the Open
+    * Telemetry API directly.
     *
-    * @return Open Telemetry context
+    * @return
+    *   Open Telemetry context
     */
   def openTelemetryContext: Context
 
@@ -104,7 +117,7 @@ protected class DefaultTelemetryContext(protected val tracer: Tracer, protected 
   )(
       body: TelemetryContext => Future[T]
   ): Future[T] = {
-    val subSpan = createSubSpan(spanName, kind, attributes: _*)
+    val subSpan = createSubSpan(spanName, kind, attributes*)
 
     val result = body(DefaultTelemetryContext(tracer, subSpan))
     result.andThen {
@@ -123,7 +136,7 @@ protected class DefaultTelemetryContext(protected val tracer: Tracer, protected 
   )(
       body: TelemetryContext => T
   ): T = {
-    val subSpan = createSubSpan(spanName, kind, attributes: _*)
+    val subSpan = createSubSpan(spanName, kind, attributes*)
 
     try {
       body(DefaultTelemetryContext(tracer, subSpan))
@@ -165,7 +178,7 @@ protected class DefaultTelemetryContext(protected val tracer: Tracer, protected 
   }
 
   override def encodeMetadata(): jMap[String, String] = {
-    import scala.jdk.CollectionConverters._
+    import scala.jdk.CollectionConverters.*
     Tracing.encodeTraceMetadata(openTelemetryContext).asJava
   }
 
@@ -207,7 +220,8 @@ object RootDefaultTelemetryContext {
 
 /** Implementation of Telemetry that does nothing.
   *
-  * It always returns NoOpTelemetryContext, and just executes without modification any given code block function.
+  * It always returns NoOpTelemetryContext, and just executes without modification any given code
+  * block function.
   */
 object NoOpTelemetryContext extends TelemetryContext {
 
@@ -219,9 +233,8 @@ object NoOpTelemetryContext extends TelemetryContext {
       attributes: (SpanAttribute, String)*
   )(
       body: TelemetryContext => Future[T]
-  ): Future[T] = {
+  ): Future[T] =
     body(this)
-  }
 
   override def runInNewSpan[T](
       spanName: String,
@@ -229,13 +242,11 @@ object NoOpTelemetryContext extends TelemetryContext {
       attributes: (SpanAttribute, String)*
   )(
       body: TelemetryContext => T
-  ): T = {
+  ): T =
     body(this)
-  }
 
-  override def runInOpenTelemetryScope[T](body: => T): T = {
+  override def runInOpenTelemetryScope[T](body: => T): T =
     body
-  }
 
   override def encodeMetadata(): jMap[String, String] = new jHashMap()
 

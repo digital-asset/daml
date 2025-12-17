@@ -8,7 +8,7 @@ import io.opentelemetry.context.Context
 import io.opentelemetry.context.propagation.{TextMapGetter, TextMapSetter}
 
 import scala.collection.mutable
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 
 object Tracing {
 
@@ -33,19 +33,16 @@ object Tracing {
   /** Helper object used by TextMapPropagator.inject().
     */
   object TracingMetadataSetter extends TextMapSetter[mutable.Map[String, String]] {
-    override def set(carrier: mutable.Map[String, String], key: String, value: String): Unit = {
+    override def set(carrier: mutable.Map[String, String], key: String, value: String): Unit =
       carrier += ((key, value))
-    }
   }
 
   /** Helper object used by TextMapPropagator.extract().
     */
   object TracingMetadataGetter extends TextMapGetter[Map[String, String]] {
-    override def get(carrier: Map[String, String], key: String): String = {
+    override def get(carrier: Map[String, String], key: String): String =
       carrier.get(key).orNull
-    }
-    override def keys(carrier: Map[String, String]): java.lang.Iterable[String] = {
+    override def keys(carrier: Map[String, String]): java.lang.Iterable[String] =
       carrier.keys.asJava
-    }
   }
 }

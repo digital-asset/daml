@@ -3,8 +3,8 @@
 
 package com.daml.metrics
 
-import com.daml.metrics.api.MetricQualification.Debug
 import com.daml.metrics.api.MetricHandle.{Counter, LabeledMetricsFactory, Meter, Timer}
+import com.daml.metrics.api.MetricQualification.Debug
 import com.daml.metrics.api.{MetricInfo, MetricsContext}
 
 import java.util
@@ -78,10 +78,10 @@ object InstrumentedExecutorServiceMetrics {
 
   private val Prefix = ExecutorServiceMetrics.Prefix :+ "runtime"
 
-  /** Provides instrumentation for all the submissions to the executor service.
-    * Note that when instrumenting the `invokeAll`/`invokeAny` methods we
-    * currently treat all tasks as individual tasks and don't necessarily report a metric that makes sense semantically
-    * (e.g., in case of 1 transaction made up of multiple tasks).
+  /** Provides instrumentation for all the submissions to the executor service. Note that when
+    * instrumenting the `invokeAll`/`invokeAny` methods we currently treat all tasks as individual
+    * tasks and don't necessarily report a metric that makes sense semantically (e.g., in case of 1
+    * transaction made up of multiple tasks).
     */
   class InstrumentedExecutorService(
       delegate: ExecutorService,
@@ -110,20 +110,20 @@ object InstrumentedExecutorServiceMetrics {
       delegate.submit(new InstrumentedRunnable(runnable), t)
     }
 
-    override def submit(runnable: Runnable): Future[_] = {
+    override def submit(runnable: Runnable): Future[?] = {
       metrics.submitted.mark()
       delegate.submit(new InstrumentedRunnable(runnable))
     }
 
     override def invokeAll[T](
-        collection: util.Collection[_ <: Callable[T]]
+        collection: util.Collection[? <: Callable[T]]
     ): util.List[Future[T]] = {
       metrics.submitted.mark(collection.size().toLong)
       delegate.invokeAll(collection.asScala.map(new InstrumentedCallable(_)).toSeq.asJava)
     }
 
     override def invokeAll[T](
-        collection: util.Collection[_ <: Callable[T]],
+        collection: util.Collection[? <: Callable[T]],
         l: Long,
         timeUnit: TimeUnit,
     ): util.List[Future[T]] = {
@@ -135,7 +135,7 @@ object InstrumentedExecutorServiceMetrics {
       )
     }
 
-    override def invokeAny[T](collection: util.Collection[_ <: Callable[T]]): T = {
+    override def invokeAny[T](collection: util.Collection[? <: Callable[T]]): T = {
       metrics.submitted.mark(collection.size().toLong)
       delegate.invokeAny(
         collection.asScala.map(new InstrumentedCallable(_)).toSeq.asJava
@@ -143,7 +143,7 @@ object InstrumentedExecutorServiceMetrics {
     }
 
     override def invokeAny[T](
-        collection: util.Collection[_ <: Callable[T]],
+        collection: util.Collection[? <: Callable[T]],
         l: Long,
         timeUnit: TimeUnit,
     ): T = {

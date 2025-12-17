@@ -2613,6 +2613,7 @@ da_scala_library(
         "//canton:metrics",
         "@maven//:com_google_guava_guava",
     ],
+    scalacopts = canton_scalacopts + ["-language:postfixOps"],
 )
 
 da_scala_library(
@@ -2632,6 +2633,7 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
     ],
+    scalacopts = canton_scalacopts + ["-language:postfixOps"],
 )
 
 da_scala_test_suite(
@@ -2662,6 +2664,7 @@ da_scala_test_suite(
         ":metrics-test-lib",
         "@maven//:com_typesafe_config",
     ],
+    scalacopts = canton_scalacopts + ["-language:postfixOps", "-Wconf:msg=lambda-parens:s"],
 )
 
 da_scala_library(
@@ -2679,6 +2682,7 @@ da_scala_library(
         "@maven//:io_opentelemetry_opentelemetry_api",
         "@maven//:io_opentelemetry_opentelemetry_context",
     ],
+    scalacopts = canton_scalacopts + ["-language:postfixOps"],
 )
 
 da_scala_library(
@@ -2701,6 +2705,7 @@ da_scala_library(
         "@maven//:io_opentelemetry_opentelemetry_sdk_trace",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
+    scalacopts = canton_scalacopts + ["-language:postfixOps"],
 )
 
 da_scala_test_suite(
@@ -2723,6 +2728,7 @@ da_scala_test_suite(
         "@maven//:io_opentelemetry_opentelemetry_sdk_trace",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
+    scalacopts = canton_scalacopts + ["-language:postfixOps"],
 )
 
 da_scala_library(
@@ -2751,6 +2757,7 @@ da_scala_library(
         "@maven//:io_opentelemetry_opentelemetry_sdk_metrics",
         "@maven//:org_slf4j_slf4j_api",
     ],
+    scalacopts = canton_scalacopts + ["-language:postfixOps"],
 )
 
 da_scala_library(
@@ -2767,4 +2774,5 @@ da_scala_library(
         ":metrics",
         "//canton:scala-utils",
     ],
+    scalacopts = canton_scalacopts + ["-language:postfixOps"],
 )

@@ -3,16 +3,15 @@
 
 package com.daml.metrics.pekkohttp
 
+import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
+import com.daml.metrics.api.MetricHandle.{Histogram, Meter}
+import com.daml.metrics.api.testing.{InMemoryMetricsFactory, MetricValues}
+import com.daml.metrics.api.{MetricInfo, MetricName, MetricQualification, MetricsContext}
+import com.daml.metrics.http.WebSocketMetrics
+import com.daml.metrics.pekkohttp.PekkoUtils.*
 import org.apache.pekko.http.scaladsl.model.ws.{BinaryMessage, Message, TextMessage}
 import org.apache.pekko.stream.scaladsl.{Flow, Sink, Source}
 import org.apache.pekko.util.ByteString
-import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
-import com.daml.metrics.api.MetricQualification
-import com.daml.metrics.pekkohttp.PekkoUtils._
-import com.daml.metrics.api.MetricHandle.{Histogram, Meter}
-import com.daml.metrics.api.testing.{InMemoryMetricsFactory, MetricValues}
-import com.daml.metrics.api.{MetricInfo, MetricName, MetricsContext}
-import com.daml.metrics.http.WebSocketMetrics
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -24,7 +23,7 @@ class WebSocketMetricsInterceptorSpec
     with PekkoBeforeAndAfterAll
     with Matchers {
 
-  import WebSocketMetricsSpec._
+  import WebSocketMetricsSpec.*
 
   // test data
   private val strictTextMessageData = "test01"
@@ -57,13 +56,13 @@ class WebSocketMetricsInterceptorSpec
 
   // provides an enviroment to perform the tests
   private def withDuplicatingFlowAndMetrics[T](
-      f: (Flow[Message, Message, _], TestMetrics) => T
+      f: (Flow[Message, Message, ?], TestMetrics) => T
   ): T = {
     val metrics = TestMetrics()
     val duplicatingFlowWithMetrics = WebSocketMetricsInterceptor.withRateSizeMetrics(
       metrics,
       testFlow,
-    )(MetricsContext(labels: _*))
+    )(MetricsContext(labels*))
     f(duplicatingFlowWithMetrics, metrics)
   }
 
@@ -102,7 +101,7 @@ class WebSocketMetricsInterceptorSpec
         List(strictTextMessage),
         getMessagesReceivedTotalValue,
         1L,
-        labelFilters: _*
+        labelFilters*
       )
     }
   }
@@ -145,7 +144,7 @@ class WebSocketMetricsInterceptorSpec
         List(strictTextMessage),
         getMessagesSentTotalValue,
         2L,
-        labelFilters: _*
+        labelFilters*
       )
     }
   }
@@ -206,7 +205,7 @@ class WebSocketMetricsInterceptorSpec
         List(strictTextMessage),
         getMessagesReceivedBytesValues,
         Seq(strictTextMessageSize),
-        labelFilters: _*
+        labelFilters*
       )
     }
   }
@@ -274,7 +273,7 @@ class WebSocketMetricsInterceptorSpec
         List(strictTextMessage),
         getMessagesSentBytesValues,
         Seq(strictTextMessageSize, strictTextMessageSize),
-        labelFilters: _*
+        labelFilters*
       )
     }
   }
@@ -298,52 +297,49 @@ class WebSocketMetricsInterceptorSpec
   }
 
   private def getMessagesReceivedTotalValue(metrics: TestMetrics, labels: Seq[LabelFilter]): Long =
-    metrics.messagesReceivedTotalValue(labels: _*)
+    metrics.messagesReceivedTotalValue(labels*)
 
   private def getMessagesSentTotalValue(metrics: TestMetrics, labels: Seq[LabelFilter]): Long =
-    metrics.messagesSentTotalValue(labels: _*)
+    metrics.messagesSentTotalValue(labels*)
 
   private def getMessagesReceivedBytesValues(
       metrics: TestMetrics,
       labels: Seq[LabelFilter],
   ): Seq[Long] =
-    metrics.messagesReceivedBytesValues(labels: _*)
+    metrics.messagesReceivedBytesValues(labels*)
 
   private def getMessagesSentBytesValues(
       metrics: TestMetrics,
       labels: Seq[LabelFilter],
   ): Seq[Long] =
-    metrics.messagesSentBytesValues(labels: _*)
+    metrics.messagesSentBytesValues(labels*)
 
   private def checkCountThroughFlowForLabels[T](
       messages: List[Message],
       metricExtractor: (TestMetrics, Seq[LabelFilter]) => T,
       expected: T,
       labels: LabelFilter*
-  ): Future[Assertion] = {
+  ): Future[Assertion] =
     withDuplicatingFlowAndMetrics { (flow, metrics) =>
       val done = Source(messages).via(flow).runWith(drainStreamedMessages)
       done.map { _ =>
         metricExtractor(metrics, labels) should be(expected)
       }
     }
-  }
 
   private def checkCountThroughFlow[T](
       messages: List[Message],
       metricExtractor: (TestMetrics, Seq[LabelFilter]) => T,
       expected: T,
-  ): Future[Assertion] = {
+  ): Future[Assertion] =
     checkCountThroughFlowForLabels(messages, metricExtractor, expected)
-  }
 
   private def checkCountThroughFlow[T](
       message: Message,
       metricExtractor: (TestMetrics, Seq[LabelFilter]) => T,
       expected: T,
-  ): Future[Assertion] = {
+  ): Future[Assertion] =
     checkCountThroughFlow(List(message), metricExtractor, expected)
-  }
 
   private def checkMessageContentThroughFlow(testMessage: Message) =
     withDuplicatingFlowAndMetrics { (flow, _) =>
@@ -405,13 +401,13 @@ object WebSocketMetricsSpec extends MetricValues {
   ) extends WebSocketMetrics {
 
     def messagesReceivedTotalValue(labels: LabelFilter*): Long =
-      messagesReceivedTotal.valueFilteredOnLabels(labels: _*)
+      messagesReceivedTotal.valueFilteredOnLabels(labels*)
     def messagesReceivedBytesValues(labels: LabelFilter*): Seq[Long] =
-      messagesReceivedBytes.valuesFilteredOnLabels(labels: _*)
+      messagesReceivedBytes.valuesFilteredOnLabels(labels*)
     def messagesSentTotalValue(labels: LabelFilter*): Long =
-      messagesSentTotal.valueFilteredOnLabels(labels: _*)
+      messagesSentTotal.valueFilteredOnLabels(labels*)
     def messagesSentBytesValues(labels: LabelFilter*): Seq[Long] =
-      messagesSentBytes.valuesFilteredOnLabels(labels: _*)
+      messagesSentBytes.valuesFilteredOnLabels(labels*)
 
   }
 

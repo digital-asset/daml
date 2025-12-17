@@ -3,9 +3,10 @@
 
 package com.daml.metrics.api.opentelemetry
 
+import com.daml.metrics.api.*
+import com.daml.metrics.api.MetricHandle.*
 import com.daml.metrics.api.MetricHandle.Gauge.{CloseableGauge, SimpleCloseableGauge}
 import com.daml.metrics.api.MetricHandle.Timer.TimerHandle
-import com.daml.metrics.api.MetricHandle._
 import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.daml.metrics.api.opentelemetry.OpenTelemetryTimer.{
   DurationSuffix,
@@ -13,7 +14,6 @@ import com.daml.metrics.api.opentelemetry.OpenTelemetryTimer.{
   TimerUnitAndSuffix,
   convertNanosecondsToSeconds,
 }
-import com.daml.metrics.api._
 import com.daml.scalautil.Statement.discard
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.metrics.{
@@ -21,7 +21,7 @@ import io.opentelemetry.api.metrics.{
   LongCounter,
   LongHistogram,
   LongUpDownCounter,
-  Meter => OtelMeter,
+  Meter as OtelMeter,
 }
 import org.slf4j.Logger
 
@@ -235,12 +235,11 @@ case class OpenTelemetryTimer(
   override def startAsync()(implicit startContext: MetricsContext): TimerHandle = {
     val start = System.nanoTime()
     new TimerHandle {
-      override def stop()(implicit stopContext: MetricsContext): Unit = {
+      override def stop()(implicit stopContext: MetricsContext): Unit =
         histogram.record(
           convertNanosecondsToSeconds(System.nanoTime() - start),
           AttributesHelper.multiContextAsAttributes(timerContext, startContext, stopContext),
         )
-      }
     }
   }
 
@@ -257,9 +256,8 @@ object OpenTelemetryTimer {
 
   private val NanosecondsInASecond = 1_000_000_000
 
-  private def convertNanosecondsToSeconds(nanoseconds: Long): Double = {
+  private def convertNanosecondsToSeconds(nanoseconds: Long): Double =
     nanoseconds.toDouble / NanosecondsInASecond
-  }
 }
 
 case class OpenTelemetryGauge[T](override val info: MetricInfo, initial: T, context: MetricsContext)
@@ -337,9 +335,9 @@ case class OpenTelemetryHistogram(
 
 private object AttributesHelper {
 
-  /** Merges multiple [[MetricsContext]] into a single [[Attributes]] object.
-    * The labels from all the contexts are added as attributes.
-    * If the same label key is defined in multiple contexts, the value from the last metric context will be used.
+  /** Merges multiple [[MetricsContext]] into a single [[Attributes]] object. The labels from all
+    * the contexts are added as attributes. If the same label key is defined in multiple contexts,
+    * the value from the last metric context will be used.
     */
   private[opentelemetry] def multiContextAsAttributes(
       rootContext: MetricsContext,

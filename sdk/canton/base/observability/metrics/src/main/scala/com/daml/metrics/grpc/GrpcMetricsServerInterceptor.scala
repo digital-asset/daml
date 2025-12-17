@@ -16,7 +16,7 @@ import com.daml.metrics.grpc.GrpcMetricsServerInterceptor.{
   MetricsRequestTypeStreaming,
   MetricsRequestTypeUnary,
 }
-import com.google.protobuf.{GeneratedMessage => JavaGeneratedMessage}
+import com.google.protobuf.GeneratedMessage as JavaGeneratedMessage
 import io.grpc.ForwardingServerCall.SimpleForwardingServerCall
 import io.grpc.ServerCall.Listener
 import io.grpc.{
@@ -27,7 +27,7 @@ import io.grpc.{
   ServerInterceptor,
   Status,
 }
-import scalapb.{GeneratedMessage => ScalapbGeneratedMessage}
+import scalapb.GeneratedMessage as ScalapbGeneratedMessage
 
 class GrpcMetricsServerInterceptor(metrics: GrpcServerMetrics) extends ServerInterceptor {
 
@@ -109,7 +109,7 @@ class GrpcMetricsServerInterceptor(metrics: GrpcServerMetrics) extends ServerInt
   private def updateHistogramWithSerializedSize[T](
       histogram: Histogram,
       message: T,
-  )(implicit metricsContext: MetricsContext): Unit = {
+  )(implicit metricsContext: MetricsContext): Unit =
     message match {
       case generatedMessage: JavaGeneratedMessage =>
         histogram.update(generatedMessage.getSerializedSize)
@@ -117,7 +117,6 @@ class GrpcMetricsServerInterceptor(metrics: GrpcServerMetrics) extends ServerInt
         histogram.update(generatedMessage.serializedSize)
       case _ =>
     }
-  }
 }
 object GrpcMetricsServerInterceptor {
 

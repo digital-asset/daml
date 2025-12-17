@@ -3,9 +3,6 @@
 
 package com.daml.metrics.api.testing
 
-import java.time.Duration
-import java.util.concurrent.{ConcurrentLinkedQueue, TimeUnit}
-import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong, AtomicReference}
 import com.daml.metrics.api.MetricHandle.Gauge.{CloseableGauge, SimpleCloseableGauge}
 import com.daml.metrics.api.MetricHandle.{
   Counter,
@@ -26,7 +23,10 @@ import com.daml.metrics.api.testing.InMemoryMetricsFactory.{
 import com.daml.metrics.api.{MetricHandle, MetricInfo, MetricName, MetricsContext}
 import com.daml.scalautil.Statement.discard
 
-import scala.collection.concurrent.{TrieMap, Map => ConcurrentMap}
+import java.time.Duration
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong, AtomicReference}
+import java.util.concurrent.{ConcurrentLinkedQueue, TimeUnit}
+import scala.collection.concurrent.{Map as ConcurrentMap, TrieMap}
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 class InMemoryMetricsFactory extends LabeledMetricsFactory {
@@ -56,7 +56,7 @@ class InMemoryMetricsFactory extends LabeledMetricsFactory {
     metrics.addAsyncGauge(info.name, context, gaugeSupplier)
     SimpleCloseableGauge(
       info,
-      () => discard { metrics.asyncGauges.get(info.name).foreach(_.remove(context)) },
+      () => discard(metrics.asyncGauges.get(info.name).foreach(_.remove(context))),
     )
   }
 
@@ -80,7 +80,7 @@ object InMemoryMetricsFactory extends InMemoryMetricsFactory {
   type MetricsByName[Metric] = ConcurrentMap[MetricName, StoredMetric[Metric]]
   case class MetricsState(
       timers: MetricsByName[InMemoryTimer],
-      gauges: MetricsByName[InMemoryGauge[_]],
+      gauges: MetricsByName[InMemoryGauge[?]],
       meters: MetricsByName[InMemoryMeter],
       counters: MetricsByName[InMemoryCounter],
       histograms: MetricsByName[InMemoryHistogram],
@@ -135,9 +135,8 @@ object InMemoryMetricsFactory extends InMemoryMetricsFactory {
         context: MetricsContext,
         metric: T,
         state: MetricsByName[T],
-    ): Unit = {
+    ): Unit =
       discard(state.getOrElseUpdate(name, TrieMap.empty).addOne(context -> metric))
-    }
   }
 
   private def addToContext(

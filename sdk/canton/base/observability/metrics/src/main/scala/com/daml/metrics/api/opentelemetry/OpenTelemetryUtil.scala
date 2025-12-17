@@ -8,7 +8,7 @@ import com.daml.metrics.HistogramDefinition.AggregationType
 import com.daml.metrics.api.MetricHandle.Histogram
 import com.daml.metrics.api.opentelemetry.OpenTelemetryTimer
 import com.daml.metrics.api.{HistogramInventory, MetricsInfoFilter}
-import io.opentelemetry.sdk.metrics._
+import io.opentelemetry.sdk.metrics.*
 
 import scala.jdk.CollectionConverters.SeqHasAsJava
 
@@ -16,12 +16,14 @@ object OpenTelemetryUtil {
 
   /** Add views to providers
     *
-    * In open telemetry, you have to define the histogram views separately from the metric itself. Even worse,
-    * you need to define it before you define the metrics. If you define two views that match to the same metrics,
-    * you end up with ugly warning messages and errors: https://opentelemetry.io/docs/specs/otel/metrics/sdk/#measurement-processing
+    * In open telemetry, you have to define the histogram views separately from the metric itself.
+    * Even worse, you need to define it before you define the metrics. If you define two views that
+    * match to the same metrics, you end up with ugly warning messages and errors:
+    * https://opentelemetry.io/docs/specs/otel/metrics/sdk/#measurement-processing
     *
-    * The solution to this is to statically define all the metric names in advance separately, create appropriate views
-    * and then, on each histogram definition check that an appropriate static definition exists.
+    * The solution to this is to statically define all the metric names in advance separately,
+    * create appropriate views and then, on each histogram definition check that an appropriate
+    * static definition exists.
     */
   def addViewsToProvider(
       builder: SdkMeterProviderBuilder,
@@ -81,7 +83,7 @@ object OpenTelemetryUtil {
             .groupBy(_.viewName.getOrElse(item.name.toString))
             .toSeq
             .flatMap { case (_, allMatchingDefinitions) =>
-              allMatchingDefinitions.headOption.map { first => (item, first) }
+              allMatchingDefinitions.headOption.map(first => (item, first))
             }
           if (instrumentConfigs.nonEmpty) instrumentConfigs
           else

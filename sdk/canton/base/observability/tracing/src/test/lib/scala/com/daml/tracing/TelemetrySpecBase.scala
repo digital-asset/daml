@@ -3,15 +3,15 @@
 
 package com.daml.tracing
 
-import com.daml.tracing.TelemetrySpecBase._
+import com.daml.tracing.TelemetrySpecBase.*
 import io.opentelemetry.api.trace.{Span, Tracer}
 import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter
 import io.opentelemetry.sdk.trace.SdkTracerProvider
-import io.opentelemetry.sdk.trace.data.SpanData
 import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor
+import io.opentelemetry.sdk.trace.data.SpanData
 import org.scalatest.{BeforeAndAfterEach, Suite}
 
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 
 trait TelemetrySpecBase extends BeforeAndAfterEach { self: Suite =>
   protected val spanExporter: InMemorySpanExporter = InMemorySpanExporter.create

@@ -3,13 +3,12 @@
 
 package com.daml.metrics
 
-import java.util.concurrent.CompletionStage
-
-import org.apache.pekko.Done
-import org.apache.pekko.stream.scaladsl.{Keep, Source}
 import com.daml.concurrent
 import com.daml.metrics.api.MetricHandle.{Counter, Timer}
+import org.apache.pekko.Done
+import org.apache.pekko.stream.scaladsl.{Keep, Source}
 
+import java.util.concurrent.CompletionStage
 import scala.concurrent.{ExecutionContext, Future}
 
 object Timed {
@@ -17,9 +16,8 @@ object Timed {
   def value[T](timer: Timer, value: => T): T =
     timer.time(value)
 
-  def timedAndTrackedValue[T](timer: Timer, counter: Counter, value: => T): T = {
+  def timedAndTrackedValue[T](timer: Timer, counter: Counter, value: => T): T =
     Timed.value(timer, Tracked.value(counter, value))
-  }
 
   def completionStage[T](timer: Timer, future: => CompletionStage[T]): CompletionStage[T] = {
     val timerHandle = timer.startAsync()
@@ -33,13 +31,11 @@ object Timed {
       timer: Timer,
       counter: Counter,
       future: => CompletionStage[T],
-  ): CompletionStage[T] = {
+  ): CompletionStage[T] =
     Timed.completionStage(timer, Tracked.completionStage(counter, future))
-  }
 
-  def future[T](timer: Timer, future: => Future[T]): Future[T] = {
+  def future[T](timer: Timer, future: => Future[T]): Future[T] =
     timer.timeFuture(future)
-  }
 
   def future[EC, T](timer: Timer, future: => concurrent.Future[EC, T]): concurrent.Future[EC, T] = {
     val timerHandle = timer.startAsync()
@@ -48,9 +44,8 @@ object Timed {
     result
   }
 
-  def timedAndTrackedFuture[T](timer: Timer, counter: Counter, future: => Future[T]): Future[T] = {
+  def timedAndTrackedFuture[T](timer: Timer, counter: Counter, future: => Future[T]): Future[T] =
     Timed.future(timer, Tracked.future(counter, future))
-  }
 
   /** Be advised that this will time the source when it's created and not when it's actually run.
     */

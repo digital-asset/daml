@@ -3,14 +3,15 @@
 
 package com.daml.metrics.pekkohttp
 
-import org.apache.pekko.stream.scaladsl.{Source, Flow, Sink}
-import org.apache.pekko.util.ByteString
-import org.apache.pekko.http.scaladsl.model.{RequestEntity, ResponseEntity, HttpEntity}
-import org.apache.pekko.http.scaladsl.server.{Directive, Route}
-import org.apache.pekko.http.scaladsl.server.RouteResult._
 import com.daml.metrics.api.MetricHandle.Histogram
 import com.daml.metrics.api.MetricsContext
 import com.daml.metrics.http.HttpMetrics
+import org.apache.pekko.http.scaladsl.model.{HttpEntity, RequestEntity, ResponseEntity}
+import org.apache.pekko.http.scaladsl.server.RouteResult.*
+import org.apache.pekko.http.scaladsl.server.{Directive, Route}
+import org.apache.pekko.stream.scaladsl.{Flow, Sink, Source}
+import org.apache.pekko.util.ByteString
+
 import scala.concurrent.ExecutionContext
 import scala.util.Success
 
@@ -28,7 +29,7 @@ object HttpMetricsInterceptor {
   )(implicit ec: ExecutionContext) =
     Directive { (fn: Unit => Route) => ctx =>
       implicit val metricsContext: MetricsContext =
-        MetricsContext(MetricLabelsExtractor.labelsFromRequest(ctx.request): _*)
+        MetricsContext(MetricLabelsExtractor.labelsFromRequest(ctx.request)*)
 
       // process the query, using a copy of the httpRequest, with size metric computation
       val newCtx = ctx.withRequest(
@@ -45,7 +46,7 @@ object HttpMetricsInterceptor {
         result match {
           case Success(Complete(httpResponse)) =>
             MetricsContext.withExtraMetricLabels(
-              MetricLabelsExtractor.labelsFromResponse(httpResponse): _*
+              MetricLabelsExtractor.labelsFromResponse(httpResponse)*
             ) { implicit metricsContext: MetricsContext =>
               metrics.requestsTotal.mark()
               // return a copy of the httpResponse, with size metric computation

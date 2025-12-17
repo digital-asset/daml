@@ -3,7 +3,7 @@
 
 package com.daml.tracing
 
-import io.opentelemetry.api.trace.{SpanKind => Kind}
+import io.opentelemetry.api.trace.SpanKind as Kind
 
 sealed case class SpanKind(kind: Kind)
 

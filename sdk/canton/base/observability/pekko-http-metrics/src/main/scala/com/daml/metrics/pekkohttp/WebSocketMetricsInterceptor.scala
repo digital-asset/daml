@@ -3,13 +3,13 @@
 
 package com.daml.metrics.pekkohttp
 
-import org.apache.pekko.http.scaladsl.model.ws.{Message, TextMessage, BinaryMessage}
-import org.apache.pekko.stream.scaladsl.{Flow, Sink}
-import org.apache.pekko.util.ByteString
 import com.daml.metrics.api.MetricHandle.{Histogram, Meter}
 import com.daml.metrics.api.MetricsContext
 import com.daml.metrics.http.WebSocketMetrics
 import com.google.common.base.Utf8
+import org.apache.pekko.http.scaladsl.model.ws.{BinaryMessage, Message, TextMessage}
+import org.apache.pekko.stream.scaladsl.{Flow, Sink}
+import org.apache.pekko.util.ByteString
 
 // Support to capture metrics on websockets on pekko http
 object WebSocketMetricsInterceptor {
@@ -22,7 +22,7 @@ object WebSocketMetricsInterceptor {
   def withRateSizeMetrics[M](
       metrics: WebSocketMetrics,
       flow: Flow[Message, Message, M],
-  )(implicit mc: MetricsContext): Flow[Message, Message, M] = {
+  )(implicit mc: MetricsContext): Flow[Message, Message, M] =
     Flow[Message]
       .map(
         messageCountAndSizeReportMetric(
@@ -39,7 +39,6 @@ object WebSocketMetricsInterceptor {
           metrics.messagesSentBytes,
         )
       )
-  }
 
   // support for message counting, and computation and report of the size of a message
   // for streaming content, creates a copy of the message, with embedded support
