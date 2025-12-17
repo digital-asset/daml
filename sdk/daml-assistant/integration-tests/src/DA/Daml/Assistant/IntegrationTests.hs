@@ -661,8 +661,8 @@ templateTests assistant = testGroup "templates" $
     [ testCase name $ do
         withTempDir $ \tmpDir -> do
             let dir = tmpDir </> "foobar"
-            callCommandSilentIn tmpDir $ unwords ["daml", "new", dir, "--template", name]
-            callCommandSilentIn dir "daml build --all"
+            callCommandSilentIn tmpDir $ unwords [show assistant, "new", dir, "--template", name]
+            callCommandSilentIn dir $ unwords [show assistant, "build", "--all"]
     | name <- multipackageTemplateNames
     ] <>
     [ testCase "quickstart-java, positional template" $ do
