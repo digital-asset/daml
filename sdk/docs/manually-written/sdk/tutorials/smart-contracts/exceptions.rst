@@ -7,8 +7,7 @@ Handle exceptions (Deprecated)
 .. warning:: User-defined Daml Exceptions, catching, and throwing have been
    deprecated and are being phased out in favour of the :externalref:`Canton
    error framework <error_codes>`, which represents Daml errors as
-   :externalref:`InvalidGivenCurrentSystemStateOther
-   <error-categories-inventory_InvalidGivenCurrentSystemStateOther>`.
+   ``InvalidGivenCurrentSystemStateOther``.
 
 .. warning::
 
@@ -47,7 +46,7 @@ outside of Daml.
 
 .. hint::
 
-  Remember that you can load all the code for this section into a folder called ``intro-exceptions`` by running ``dpm new intro-exceptions  --template daml-intro-exceptions``
+  Remember that you can load all the code for this section into a folder called ``intro8`` by running ``dpm new intro-exceptions  --template daml-intro-exceptions``
 
 Our example for the use of exceptions will be a simple shop
 template. Users can order items by calling a choice and transfer money
