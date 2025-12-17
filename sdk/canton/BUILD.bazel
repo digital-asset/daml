@@ -2401,7 +2401,7 @@ da_scala_test(
 
 proto_library(
     name = "sample-service-proto",
-    srcs = ["base/sample-service/src/main/protobuf/hello.proto"],
+    srcs = ["base/sample-service/src/main/protobuf/com/daml/platform/hello/package.proto"],
 )
 
 proto_gen(

@@ -3,9 +3,9 @@
 
 syntax = "proto3";
 
-package com.daml.platform;
+package com.daml.platform.hello;
 
-option java_package = "com.daml.platform";
+option java_package = "com.daml.platform.hello";
 
 
 message HelloRequest {
