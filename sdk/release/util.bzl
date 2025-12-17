@@ -168,7 +168,7 @@ EOF
           {unpack_inputs}
 
           mkdir -p $$DIR/cache/components/dpm/$$DPM_VERSION
-          cp $(location @dpm_binary//:dpm) $$DIR/cache/components/dpm/$$DPM_VERSION/dpm
+          cp $(location @dpm_binary//:dpm) $$DIR/cache/components/dpm/$$DPM_VERSION/dpm{exe}
 
           mkdir -p $$DIR/cache/sdk/open-source
 
@@ -203,6 +203,7 @@ EOF
             component_versions =
                 "\n    ".join(["{name}:\n      version: {version}".format(name = name, version = version) for name in dpm_inputs.keys()]),
             wrapper_script = windows_wrapper_script if is_windows else not_windows_wrapper_script,
+            exe = ".exe" if is_windows else "",
         ),
         visibility = ["//visibility:public"],
     )
