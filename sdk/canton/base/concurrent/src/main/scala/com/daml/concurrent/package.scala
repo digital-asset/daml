@@ -12,7 +12,7 @@ import scala.{concurrent => sc}
   * control `ExecutionContext`s.  Deliberately uses the same names as the
   * equivalent concepts in `scala.concurrent`.
   *
-  * The trouble with [[sc.ExecutionContext]] is that it is used incoherently.
+  * The trouble with [[scala.concurrent.ExecutionContext]] is that it is used incoherently.
   * This leads to the problems described in
   * https://failex.blogspot.com/2020/05/global-typeclass-coherence-principles-3.html
   * .  The extension layer in this package adds a phantom type parameter to
@@ -38,7 +38,7 @@ import scala.{concurrent => sc}
   * can even be singleton types, so you might use `x.type` to suggest that the
   * context is associated with the exact value of the `x` variable.
   *
-  * If you want to, say, refer to both [[sc.Future]] and [[concurrent.Future]]
+  * If you want to, say, refer to both [[scala.concurrent.Future]] and [[concurrent.Future]]
   * in the same file, we recommend importing *the containing package* with an
   * alias rather than renaming each individual class you import.  For example,
   *
@@ -69,7 +69,7 @@ package object concurrent {
     */
   type Future[-EC, +A] = FutureOf.Instance.T[EC, A]
 
-  /** A subtype of [[sc.ExecutionContext]], more specific as `P` gets more
+  /** A subtype of [[scala.concurrent.ExecutionContext]], more specific as `P` gets more
     * specific.
     */
   type ExecutionContext[+P] = ExecutionContextOf.Instance.T[P]
@@ -104,7 +104,7 @@ package concurrent {
 
   object ExecutionContext {
 
-    /** Explicitly tag an [[sc.ExecutionContext]], or replace the tag on an
+    /** Explicitly tag an [[scala.concurrent.ExecutionContext]], or replace the tag on an
       * [[ExecutionContext]].
       */
     def apply[EC](ec: sc.ExecutionContext): ExecutionContext[EC] =

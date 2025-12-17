@@ -14,9 +14,9 @@ import scalaz.std.scalaFuture._
 
 sealed abstract class FutureOf {
 
-  /** We don't use [[sc.Future]] as the upper bound because it has methods that
+  /** We don't use [[scala.concurrent.Future]] as the upper bound because it has methods that
     * collide with the versions we want to use, i.e. those that preserve the
-    * phantom `EC` type parameter.  By contrast, [[sc.Awaitable]] has only the
+    * phantom `EC` type parameter.  By contrast, [[scala.concurrent.Awaitable]] has only the
     * `ready` and `result` methods, which are mostly useless.
     */
   type T[-EC, +A] <: sc.Awaitable[A]
@@ -48,7 +48,7 @@ object FutureOf {
   implicit def `future is any type`[A]: sc.Future[A] === Future[Any, A] =
     Instance.subst[Lambda[`t[+_]` => sc.Future[A] === t[A]], Any](Leibniz.refl)
 
-  /** A [[sc.Future]] converts to our [[Future]] with any choice of EC type. */
+  /** A [[scala.concurrent.Future]] converts to our [[Future]] with any choice of EC type. */
   implicit def `future is any`[A](sf: sc.Future[A]): Future[Any, A] =
     `future is any type`(sf)
 
@@ -148,7 +148,7 @@ object FutureOf {
       swapExecutionContext[Nothing, NEC].to(self)
 
     /** The "unsafe" conversion to Future.  Does nothing itself, but removes
-      * the control on which [[sc.ExecutionContext]] is used for later
+      * the control on which [[scala.concurrent.ExecutionContext]] is used for later
       * operations.
       */
     def removeExecutionContext: sc.Future[A] =
@@ -164,7 +164,7 @@ object FutureOf {
 
     /** The "safe" conversion to Future.  `EC = Any` already means "use any
       * ExecutionContext", so there is little harm in restating that by
-      * referring directly to [[sc.Future]].
+      * referring directly to [[scala.concurrent.Future]].
       */
     def asScala: sc.Future[A] = `future is any type`[A].flip(self)
   }
