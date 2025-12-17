@@ -2768,38 +2768,3 @@ da_scala_library(
         "//canton:scala-utils",
     ],
 )
-
-da_scala_test_suite(
-    name = "metrics-tests",
-    size = "small",
-    srcs = glob(["base/observability/metrics/src/test/suite/scala/**/*.scala"]),
-    scala_deps = [
-        "@maven//:com_thesamet_scalapb_lenses",
-        "@maven//:com_thesamet_scalapb_scalapb_runtime",
-        "@maven//:com_thesamet_scalapb_scalapb_runtime_grpc",
-        "@maven//:org_apache_pekko_pekko_actor",
-        "@maven//:org_apache_pekko_pekko_stream",
-        "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest_core",
-        "@maven//:org_scalatest_scalatest_matchers_core",
-        "@maven//:org_scalatest_scalatest_shouldmatchers",
-        "@maven//:org_scalatest_scalatest_wordspec",
-    ],
-    deps = [
-        ":metrics",
-        ":metrics-test-lib",
-        "//canton:grpc-test-utils",
-        "//canton:ledger-resources",
-        "//canton:ledger-resources-test-lib",
-        "//canton:resources",
-        "//canton:rs-grpc-bridge",
-        "//canton:rs-grpc-pekko-tests-lib",
-        "//canton:sample-service",
-        "//canton:testing-utils",
-        "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:io_grpc_grpc_api",
-        "@maven//:io_grpc_grpc_stub",
-        "@maven//:io_opentelemetry_opentelemetry_api",
-        "@maven//:org_scalatest_scalatest_compatible",
-    ],
-)
