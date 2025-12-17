@@ -18,7 +18,7 @@ import com.digitalasset.daml.lf.data.Ref.{
   *
   * @note
   *   The accessors defined in this interface are thread-safe and can be used concurrently with
-  *   [[StringInterningView.internize]] and [[StringInterningView.update]].
+  *   StringInterningView.internize and [[StringInterningView.update]].
   */
 trait StringInterning {
   def templateId: StringInterningDomain[NameTypeConRef]

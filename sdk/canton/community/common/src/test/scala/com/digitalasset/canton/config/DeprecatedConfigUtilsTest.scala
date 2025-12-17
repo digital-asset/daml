@@ -19,8 +19,8 @@ class DeprecatedConfigUtilsTest extends AnyWordSpec with BaseTest {
   private implicit val deprecations: DeprecatedFieldsFor[TestConfig] =
     new DeprecatedFieldsFor[TestConfig] {
       override val movedFields: List[MovedConfigPath] = List(
-        MovedConfigPath("i", "nested.new-i", "nested.new-j"),
-        MovedConfigPath("s", "nested.new-s"),
+        MovedConfigPath("i", since = "1.2.3", to = Seq("nested.new-i", "nested.new-j")),
+        MovedConfigPath("s", since = "1.2.3", to = Seq("nested.new-s")),
       )
     }
 
@@ -32,11 +32,11 @@ class DeprecatedConfigUtilsTest extends AnyWordSpec with BaseTest {
   private val expectedLogs = LogEntry.assertLogSeq(
     Seq(
       (
-        _.message shouldBe "Config field at s is deprecated. Please use the following path(s) instead: nested.new-s.",
+        _.message shouldBe "Config field at s is deprecated since 1.2.3. Please use the following path(s) instead: nested.new-s.",
         "deprecated field not logged",
       ),
       (
-        _.message shouldBe "Config field at i is deprecated. Please use the following path(s) instead: nested.new-i, nested.new-j.",
+        _.message shouldBe "Config field at i is deprecated since 1.2.3. Please use the following path(s) instead: nested.new-i, nested.new-j.",
         "deprecated field not logged",
       ),
     ),

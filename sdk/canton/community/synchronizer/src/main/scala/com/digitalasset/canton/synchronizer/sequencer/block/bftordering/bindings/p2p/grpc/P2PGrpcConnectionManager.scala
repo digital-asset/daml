@@ -407,12 +407,14 @@ private[bftordering] final class P2PGrpcConnectionManager(
           loggerFactory = loggerFactory,
         )
       )
-    mutex(this) {
-      val p2pEndpointId = p2pEndpoint.id
-      channels.put(p2pEndpointId, channel).discard
+    val p2pEndpointId = p2pEndpoint.id
+    val previousChannel = mutex(this) {
+      val previousChannel = channels.put(p2pEndpointId, channel)
       maybeAuthenticationContext.foreach(grpcSequencerClientAuths.put(p2pEndpointId, _).discard)
-      logger.info(s"Created gRPC channel to $p2pEndpointId")
+      previousChannel
     }
+    previousChannel.foreach(shutdownGrpcChannel(p2pEndpointId, _))
+    logger.info(s"Created gRPC channel $channel to $p2pEndpointId")
 
     // When authentication is enabled, the external address normally also
     //  appears as peer endpoint for this peer in other peers' configurations, so
@@ -572,7 +574,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
       val peerSenderPromiseUS =
         PromiseUnlessShutdown.unsupervised[StreamObserver[BftOrderingMessage]]()
       logger.info(
-        s"Creating a P2P gRPC stream receiver for new outgoing connection to $p2pEndpointId"
+        s"Creating a P2P gRPC stream receiver for new outgoing connection to $p2pEndpointId using channel $channel"
       )
       val peerReceiver =
         new P2PGrpcStreamingReceiver(
@@ -601,7 +603,9 @@ private[bftordering] final class P2PGrpcConnectionManager(
           random.nextLong(0, initialConnectionMaxDelay.length),
           initialConnectionMaxDelay.unit,
         )
-      logger.info(s"Trying to create a stream $p2pEndpointId in $jitteredConnectDelay")
+      logger.info(
+        s"Trying to create a stream $p2pEndpointId in $jitteredConnectDelay using channel $channel"
+      )
       for {
         _ <- OptionT[FutureUnlessShutdown, Unit](
           DelayUtil
@@ -619,7 +623,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
             case Failure(exception) =>
               // No need to complete the peer sender promise nor fail the receiver, as the receiver wasn't installed
               retry(
-                failedOperationName = s"create a stream to $p2pEndpointId",
+                failedOperationName = s"create a stream to $p2pEndpointId using channel $channel",
                 exception,
                 connectRetryDelay,
                 attemptNumber + 1,
@@ -641,7 +645,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
                   //  uninstalled by closing the connection and no state has been updated yet.
                   failGrpcStreamObserver(peerSender, exception, logger)
                   retry(
-                    failedOperationName = s"open endpoint $p2pEndpointId",
+                    failedOperationName = s"open endpoint $p2pEndpointId using channel $channel",
                     exception,
                     connectRetryDelay,
                     attemptNumber + 1,
@@ -649,7 +653,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
 
                 case Success(_) =>
                   logger.info(
-                    s"Sending connection opener to $p2pEndpointId succeeded, waiting for authentication"
+                    s"Sending connection opener to $p2pEndpointId using channel $channel succeeded, waiting for authentication"
                   )
                   // Retry also if the sequencer ID couldn't be retrieved
                   val sequencerIdFUS = sequencerIdPromiseUS.futureUS
@@ -659,20 +663,20 @@ private[bftordering] final class P2PGrpcConnectionManager(
                       case Success(_) =>
                         sequencerIdFUS.map { sequencerId =>
                           logger.info(
-                            s"P2P endpoint $p2pEndpointId successfully authenticated as ${sequencerId.toProtoPrimitive}"
+                            s"P2P endpoint $p2pEndpointId using channel $channel successfully authenticated as ${sequencerId.toProtoPrimitive}"
                           )
                           Option(peerSender)
                         }
 
                       case Failure(exception) =>
                         logger.info(
-                          s"P2P endpoint $p2pEndpointId authentication failed, notifying an error to the sender"
+                          s"P2P endpoint $p2pEndpointId using channel $channel authentication failed, notifying an error to the sender"
                         )
                         // Close the connection by failing the sender; no need to close the receiver as it will be
                         //  uninstalled by closing the connection and no state has been updated yet.
                         failGrpcStreamObserver(peerSender, exception, logger)
                         retry(
-                          s"create a stream to $p2pEndpointId",
+                          s"create a stream to $p2pEndpointId using channel $channel",
                           exception,
                           connectRetryDelay,
                           attemptNumber + 1,
@@ -705,7 +709,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
       channel: ManagedChannel,
   )(implicit executionContext: ExecutionContext, traceContext: TraceContext): Unit =
     Future {
-      logger.info(s"Terminating gRPC channel to $p2pEndpointId")
+      logger.info(s"Terminating gRPC channel $channel to $p2pEndpointId")
       val shutDownChannel = channel.shutdownNow()
       val terminated =
         blocking {
@@ -717,11 +721,11 @@ private[bftordering] final class P2PGrpcConnectionManager(
         }
       if (!terminated) {
         logger.warn(
-          s"Failed to terminate in ${timeouts.closing.duration} the gRPC channel to $p2pEndpointId"
+          s"Failed to terminate in ${timeouts.closing.duration} the gRPC channel $channel to $p2pEndpointId"
         )
       } else {
         logger.info(
-          s"Successfully terminated gRPC channel to $p2pEndpointId"
+          s"Successfully terminated gRPC channel $channel to $p2pEndpointId"
         )
       }
     }.discard

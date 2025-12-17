@@ -14,12 +14,11 @@ class Base64StringParserTest
     with ErrorsAssertions {
 
   "json api should reject invalid base64 string in body payload" in httpTestFixture { fixture =>
-    fixture
-      .postJsonStringRequestEncoded(
-        fixture.uri withPath Uri.Path("/v2/parties/external/generate-topology"),
-        generateInvalidJson(),
-        headersWithAdminAuth,
-      )
+    postJsonStringRequestEncoded(
+      fixture.uri withPath Uri.Path("/v2/parties/external/generate-topology"),
+      generateInvalidJson(),
+      headersWithAdminAuth,
+    )
       .map { case (status, result) =>
         status should be(StatusCodes.BadRequest)
         import com.digitalasset.canton.http.json.v2.JsSchema.BYTE_STRING_PARSE_ERROR_TEMPLATE

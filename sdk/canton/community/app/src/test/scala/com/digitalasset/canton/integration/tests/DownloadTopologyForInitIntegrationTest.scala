@@ -97,7 +97,5 @@ class DownloadTopologyForInitIntegrationTestPostgres
     extends DownloadTopologyForInitIntegrationTest {
 
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory)
-  )
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }

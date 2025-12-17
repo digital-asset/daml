@@ -271,7 +271,11 @@ final class AvailabilityModule[E <: Env[E]](
           },
         )
 
-        logger.debug(s"$messageType: received $batchId from local mempool")
+        logger.debug(
+          s"$messageType: received batch from local mempool containing messages ${requests
+              .map(_.value.headerString)
+              .mkString(", ")}; created batch ID $batchId with reference epoch $lastKnownEpochNumber, storing locally"
+        )
         disseminationProtocolState.beingFirstSaved
           .put(batchId, InitialSaveInProgress(availabilityEnterInstant = Some(Instant.now)))
           .discard
@@ -592,7 +596,7 @@ final class AvailabilityModule[E <: Env[E]](
     removeOrderedBatchesAndPullFromMempool(actingOnMessageType, orderedBatchIds)
 
     logger.debug(
-      s"$actingOnMessageType: recording block request from local consensus and reviewing progress"
+      s"$actingOnMessageType: recording proposal request from local consensus and reviewing progress"
     )
     disseminationProtocolState.toBeProvidedToConsensus enqueue ToBeProvidedToConsensus(
       config.maxBatchesPerBlockProposal,
@@ -1252,31 +1256,37 @@ final class AvailabilityModule[E <: Env[E]](
   @SuppressWarnings(Array("org.wartremover.warts.While"))
   private def shipAvailableConsensusProposals(
       actingOnMessageType: => String
-  )(implicit context: E#ActorContextT[Availability.Message[E]]): Unit =
-    while (
-      disseminationProtocolState.batchesReadyForOrdering.nonEmpty &&
-      disseminationProtocolState.toBeProvidedToConsensus.nonEmpty
-    ) {
+  )(implicit context: E#ActorContextT[Availability.Message[E]]): Unit = {
+    var proposalPool: Iterable[(BatchId, DisseminatedBatchMetadata)] =
+      disseminationProtocolState.batchesReadyForOrdering
+    // Satisfy all accumulated proposal requests from local consensus to unblock progress,
+    //  producing however different (potentially empty) proposals to avoid duplicates.
+    while (disseminationProtocolState.toBeProvidedToConsensus.nonEmpty) {
       val maxBatchesPerProposal =
         disseminationProtocolState.toBeProvidedToConsensus.dequeue()
-      assembleAndSendConsensusProposal(
+      proposalPool = assembleAndSendConsensusProposal(
         actingOnMessageType,
+        proposalPool,
         maxBatchesPerProposal,
       )
     }
+  }
 
   @SuppressWarnings(Array("org.wartremover.warts.While"))
   private def assembleAndSendConsensusProposal(
       actingOnMessageType: => String,
+      proposalPool: Iterable[(BatchId, DisseminatedBatchMetadata)],
       toBeProvidedToConsensus: ToBeProvidedToConsensus,
-  )(implicit context: E#ActorContextT[Availability.Message[E]]): Unit = {
-    val batchesToBeProposed = // May be empty if no batches are ready for ordering
-      disseminationProtocolState.batchesReadyForOrdering.take(
+  )(implicit
+      context: E#ActorContextT[Availability.Message[E]]
+  ): Iterable[(BatchId, DisseminatedBatchMetadata)] = {
+    val (batchesToBeProposed, remaining) = // May be empty if no batches are ready for ordering
+      proposalPool.splitAt(
         toBeProvidedToConsensus.maxBatchesPerProposal.toInt
       )
     emitBatchesQueuedForBlockInclusionLatencies(batchesToBeProposed)
     locally {
-      val tracedProofOfAvailabilities = batchesToBeProposed.view.values.map(_.proofOfAvailability)
+      val tracedProofOfAvailabilities = batchesToBeProposed.view.map(_._2.proofOfAvailability)
       val proposal =
         Consensus.LocalAvailability.ProposalCreated(
           OrderingBlock(tracedProofOfAvailabilities.map(_.value).toSeq),
@@ -1298,6 +1308,7 @@ final class AvailabilityModule[E <: Env[E]](
     }
     disseminationProtocolState.lastProposalTime = Some(clock.now)
     emitDisseminationStateStats(metrics, disseminationProtocolState)
+    remaining
   }
 
   private def initiateMempoolPull(
@@ -1489,12 +1500,12 @@ final class AvailabilityModule[E <: Env[E]](
   }
 
   private def emitBatchesQueuedForBlockInclusionLatencies(
-      batchesToBeProposed: collection.Map[BatchId, DisseminatedBatchMetadata]
+      batchesToBeProposed: Iterable[(BatchId, DisseminatedBatchMetadata)]
   ): Unit = {
     val now = Instant.now
     import metrics.performance.orderingStageLatency.*
-    batchesToBeProposed.values
-      .map(_.readyForOrderingInstant)
+    batchesToBeProposed
+      .map(_._2.readyForOrderingInstant)
       .foreach(
         emitOrderingStageLatency(
           labels.stage.values.availability.dissemination.BatchQueuedForBlockInclusion,

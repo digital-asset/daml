@@ -6,8 +6,7 @@ package com.digitalasset.canton.integration.tests.metrics
 import com.daml.metrics.MetricsFilterConfig
 import com.daml.metrics.api.MetricQualification
 import com.digitalasset.canton.config
-import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
@@ -89,6 +88,9 @@ sealed trait MetricRegistryIntegrationTest
       participant1.metrics
         .get_long_point("daml.participant.api.index.ledger_end_sequential_id")
         .value
+    val deactivationDistanceCountBefore = participant1.metrics
+      .get_histogram("daml.participant.api.indexer.deactivation_distances")
+      .count
 
     participant1.health.ping(participant1)
 
@@ -100,7 +102,12 @@ sealed trait MetricRegistryIntegrationTest
       participant1.metrics
         .get_long_point("daml.participant.api.index.ledger_end_sequential_id")
         .value
+    val deactivationDistanceCountAfter = participant1.metrics
+      .get_histogram("daml.participant.api.indexer.deactivation_distances")
+      .count
+
     ledgerEndAfter should be > ledgerEndBefore
+    deactivationDistanceCountAfter should be > deactivationDistanceCountBefore
   }
 
   "verify that metrics go up when we bong" in { implicit env =>
@@ -172,5 +179,5 @@ sealed trait MetricRegistryIntegrationTest
 
 class MetricRegistryIntegrationTestDefault extends MetricRegistryIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }

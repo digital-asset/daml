@@ -167,7 +167,7 @@ final class AssignmentProcessingStepsTest
   private lazy val cryptoClient =
     identityFactory.forOwnerAndSynchronizer(participant, targetPSId.unwrap)
 
-  private lazy val cryptoSnapshot = cryptoClient.currentSnapshotApproximation
+  private lazy val cryptoSnapshot = cryptoClient.currentSnapshotApproximation.futureValueUS
 
   private lazy val assignmentProcessingSteps = testInstance(targetPSId, cryptoClient, None)
 
@@ -803,6 +803,7 @@ final class AssignmentProcessingStepsTest
         ),
         reassigningParticipantValidationResult =
           ReassigningParticipantValidationResult(errors = Seq.empty),
+        loggerFactory = loggerFactory,
       ),
       MediatorGroupRecipient(MediatorGroupIndex.zero),
       locallyRejectedF = FutureUnlessShutdown.pure(false),
@@ -934,7 +935,7 @@ final class AssignmentProcessingStepsTest
       TestReassignmentCoordination.apply(
         Set(),
         CantonTimestamp.Epoch,
-        Some(snapshotOverride.currentSnapshotApproximation),
+        Some(snapshotOverride.currentSnapshotApproximation.futureValueUS),
         Some(awaitTimestampOverride),
         loggerFactory,
       ),

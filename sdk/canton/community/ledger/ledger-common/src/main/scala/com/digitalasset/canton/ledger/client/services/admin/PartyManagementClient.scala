@@ -37,11 +37,12 @@ object PartyManagementClient {
 
   private val getParticipantIdRequest = GetParticipantIdRequest()
 
-  private def listKnownPartiesRequest(pageToken: String, pageSize: Int) =
+  private def listKnownPartiesRequest(pageToken: String, pageSize: Int, filterParty: String) =
     ListKnownPartiesRequest(
       pageToken = pageToken,
       pageSize = pageSize,
       identityProviderId = "",
+      filterParty = filterParty,
     )
 
   private def getPartiesRequest(parties: OneAnd[Set, Ref.Party]) = {
@@ -54,6 +55,7 @@ object PartyManagementClient {
   }
 }
 
+@SuppressWarnings(Array("com.digitalasset.canton.DirectGrpcServiceInvocation"))
 final class PartyManagementClient(
     service: PartyManagementServiceStub,
     getDefaultToken: () => Option[String] = () => None,
@@ -73,10 +75,14 @@ final class PartyManagementClient(
       token: Option[String] = None,
       pageToken: String = "",
       pageSize: Int = 1000,
+      filterParty: String = "",
   )(implicit traceContext: TraceContext): Future[(List[PartyDetails], String)] =
     LedgerClient
       .stubWithTracing(service, token.orElse(getDefaultToken()))
-      .listKnownParties(PartyManagementClient.listKnownPartiesRequest(pageToken, pageSize))
+      .listKnownParties(
+        PartyManagementClient
+          .listKnownPartiesRequest(pageToken, pageSize, filterParty = filterParty)
+      )
       .map(resp =>
         (resp.partyDetails.view.map(PartyManagementClient.details).toList, resp.nextPageToken)
       )

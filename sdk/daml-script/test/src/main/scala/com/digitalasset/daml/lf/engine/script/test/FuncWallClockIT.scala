@@ -7,7 +7,7 @@ import java.time.Duration
 import com.digitalasset.daml.lf.data.Ref.QualifiedName
 import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
 import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.speedy.SValue.SRecord
+import com.digitalasset.daml.lf.value.Value._
 
 class FuncWallClockITV2 extends FuncWallClockIT(LanguageVersion.Major.V2)
 
@@ -19,16 +19,16 @@ class FuncWallClockIT(override val majorLanguageVersion: LanguageVersion.Major)
     "sleep for specified duration" in {
       for {
         clients <- scriptClients()
-        SRecord(_, _, vals) <- run(
+        ValueRecord(_, vals) <- run(
           clients,
           QualifiedName.assertFromString("ScriptTest:sleepTest"),
           dar = dar,
         )
       } yield {
-        assert(vals.size == 3)
-        val t0 = assertSTimestamp(vals(0)).toInstant
-        val t1 = assertSTimestamp(vals(1)).toInstant
-        val t2 = assertSTimestamp(vals(2)).toInstant
+        assert(vals.length == 3)
+        val t0 = assertValueTimestamp(vals(0)._2).toInstant
+        val t1 = assertValueTimestamp(vals(1)._2).toInstant
+        val t2 = assertValueTimestamp(vals(2)._2).toInstant
 
         val duration1 = Duration.between(t0, t1)
         val duration2 = Duration.between(t1, t2)

@@ -21,6 +21,7 @@ object ParticipantPruningManagementClient {
 
 }
 
+@SuppressWarnings(Array("com.digitalasset.canton.DirectGrpcServiceInvocation"))
 final class ParticipantPruningManagementClient(
     service: ParticipantPruningServiceStub,
     getDefaultToken: () => Option[String] = () => None,

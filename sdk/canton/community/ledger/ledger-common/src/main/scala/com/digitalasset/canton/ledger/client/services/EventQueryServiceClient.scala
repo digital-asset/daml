@@ -13,6 +13,7 @@ import com.digitalasset.canton.ledger.client.LedgerClient
 
 import scala.concurrent.Future
 
+@SuppressWarnings(Array("com.digitalasset.canton.DirectGrpcServiceInvocation"))
 class EventQueryServiceClient(
     service: EventQueryServiceStub,
     getDefaultToken: () => Option[String] = () => None,

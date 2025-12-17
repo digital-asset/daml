@@ -5,10 +5,8 @@ package com.digitalasset.canton.platform.indexer.parallel
 
 import com.daml.executors.executors.{NamedExecutor, QueueAwareExecutor}
 import com.daml.metrics.DatabaseMetrics
-import com.digitalasset.canton.RepairCounter
 import com.digitalasset.canton.data.{CantonTimestamp, LedgerTimeBoundaries, Offset}
 import com.digitalasset.canton.ledger.participant.state
-import com.digitalasset.canton.ledger.participant.state.Update.TransactionAccepted.RepresentativePackageIds
 import com.digitalasset.canton.ledger.participant.state.Update.{
   RepairTransactionAccepted,
   TopologyTransactionEffective,
@@ -51,6 +49,7 @@ import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.SerializableTraceContextConverter.SerializableTraceContextExtension
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
+import com.digitalasset.canton.{HasExecutionContext, RepairCounter}
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.{Ref, Time}
@@ -77,7 +76,10 @@ class ParallelIndexerSubscriptionSpec
     extends AnyFlatSpec
     with ScalaFutures
     with Matchers
+    with HasExecutionContext
     with NamedLogging {
+
+  private def myExecutionContext = implicitly[ExecutionContext]
 
   implicit private val DbDtoEqual: org.scalactic.Equality[DbDto] = ScalatestEqualityHelpers.DbDtoEq
   implicit val traceContext: TraceContext = TraceContext.empty
@@ -837,7 +839,7 @@ class ParallelIndexerSubscriptionSpec
 
   it should "correctly refill the missing activations" in {
     ParallelIndexerSubscription
-      .refillMissingDeactivatedActivations(logger)(
+      .refillMissingDeactivatedActivations(LedgerApiServerMetrics.ForTesting, logger)(
         Batch(
           ledgerEnd = previousLedgerEnd,
           batch = Vector(
@@ -904,7 +906,7 @@ class ParallelIndexerSubscriptionSpec
       LoggerNameContains("ParallelIndexerSubscription") && SuppressionRule.Level(Level.WARN)
     )(
       ParallelIndexerSubscription
-        .refillMissingDeactivatedActivations(logger)(
+        .refillMissingDeactivatedActivations(LedgerApiServerMetrics.ForTesting, logger)(
           Batch(
             ledgerEnd = previousLedgerEnd,
             batch = Vector(
@@ -942,7 +944,10 @@ class ParallelIndexerSubscriptionSpec
 
   it should "report error and fail, if activation was not even requested" in {
     loggerFactory.assertInternalError[IllegalStateException](
-      ParallelIndexerSubscription.refillMissingDeactivatedActivations(logger)(
+      ParallelIndexerSubscription.refillMissingDeactivatedActivations(
+        LedgerApiServerMetrics.ForTesting,
+        logger,
+      )(
         Batch(
           ledgerEnd = previousLedgerEnd,
           batch = Vector(
@@ -1013,6 +1018,7 @@ class ParallelIndexerSubscriptionSpec
       lastActivations,
       mockDbDispatcher(new TestConnection),
       resolveInternalContractIds,
+      myExecutionContext,
       metrics,
       logger,
     )(inBatch)
@@ -1039,6 +1045,7 @@ class ParallelIndexerSubscriptionSpec
     val result = ParallelIndexerSubscription.batcher(
       batchF = _ => "bumm",
       logger = logger,
+      metrics = LedgerApiServerMetrics.ForTesting,
     )(
       Batch(
         ledgerEnd = ZeroLedgerEnd.copy(lastOffset = offset(2)),
@@ -1109,6 +1116,7 @@ class ParallelIndexerSubscriptionSpec
         },
         "zero",
         mockDbDispatcher(connection),
+        myExecutionContext,
         metrics,
         logger,
       )(inBatch)
@@ -1168,6 +1176,7 @@ class ParallelIndexerSubscriptionSpec
     val outBatchF =
       ParallelIndexerSubscription.ingestTail(
         storeLedgerEndF,
+        myExecutionContext,
         logger,
       )(
         traceContext
@@ -1461,6 +1470,7 @@ class ParallelIndexerSubscriptionSpec
         updateInMemoryState = _ => updateInMemoryStatePromise.success(()),
         aggregatedLedgerEnd = aggregatedLedgerEnd,
         logger = loggerFactory.getTracedLogger(this.getClass),
+        executionContext = myExecutionContext,
       )(implicitly)(input)
       .futureValue shouldBe input
     ledgerEndStoredPromise.future.isCompleted shouldBe true
@@ -1500,6 +1510,7 @@ class ParallelIndexerSubscriptionSpec
         updateInMemoryState = _ => updateInMemoryStatePromise.success(()),
         aggregatedLedgerEnd = aggregatedLedgerEnd,
         logger = loggerFactory.getTracedLogger(this.getClass),
+        executionContext = myExecutionContext,
       )(implicitly)(input)
       .futureValue shouldBe input
     ledgerEndStoredPromise.future.isCompleted shouldBe false
@@ -1532,6 +1543,7 @@ class ParallelIndexerSubscriptionSpec
             ParallelIndexerSubscription.monotonicityValidator(
               initialOffset = None,
               loadPreviousState = _ => Future.successful(None),
+              executionContext = myExecutionContext,
             )(logger)
           )
           .runWith(TestSink.probe)
@@ -1559,6 +1571,7 @@ class ParallelIndexerSubscriptionSpec
             ParallelIndexerSubscription.monotonicityValidator(
               initialOffset = Some(Offset.tryFromLong(2)),
               loadPreviousState = _ => Future.successful(None),
+              executionContext = myExecutionContext,
             )(logger)
           )
           .runWith(TestSink.probe)
@@ -1588,6 +1601,7 @@ class ParallelIndexerSubscriptionSpec
             ParallelIndexerSubscription.monotonicityValidator(
               initialOffset = None,
               loadPreviousState = _ => Future.successful(None),
+              executionContext = myExecutionContext,
             )(logger)
           )
           .runWith(TestSink.probe[(Offset, Update)])
@@ -1624,6 +1638,7 @@ class ParallelIndexerSubscriptionSpec
                     )
                   )
                 ),
+              executionContext = myExecutionContext,
             )(logger)
           )
           .runWith(TestSink.probe[(Offset, Update)])
@@ -1653,6 +1668,7 @@ class ParallelIndexerSubscriptionSpec
             ParallelIndexerSubscription.monotonicityValidator(
               initialOffset = None,
               loadPreviousState = _ => Future.successful(None),
+              executionContext = myExecutionContext,
             )(logger)
           )
           .runWith(TestSink.probe[(Offset, Update)])
@@ -1689,6 +1705,7 @@ class ParallelIndexerSubscriptionSpec
                     )
                   )
                 ),
+              executionContext = myExecutionContext,
             )(logger)
           )
           .runWith(TestSink.probe[(Offset, Update)])
@@ -1712,6 +1729,7 @@ class ParallelIndexerSubscriptionSpec
             ParallelIndexerSubscription.monotonicityValidator(
               initialOffset = None,
               loadPreviousState = _ => Future.successful(None),
+              executionContext = myExecutionContext,
             )(logger)
           )
           .runWith(TestSink.probe[(Offset, Update)])
@@ -1731,7 +1749,6 @@ class ParallelIndexerSubscriptionSpec
         val offsetsUpdates: Vector[(Offset, Update)] = Vector(
           offset(1L) -> repairUpdate(CantonTimestamp.ofEpochSecond(10), RepairCounter(15L))
         )
-
         val testSink = Source(offsetsUpdates)
           .via(
             ParallelIndexerSubscription.monotonicityValidator(
@@ -1747,6 +1764,7 @@ class ParallelIndexerSubscriptionSpec
                     )
                   )
                 ),
+              executionContext = myExecutionContext,
             )(logger)
           )
           .runWith(TestSink.probe[(Offset, Update)])
@@ -1772,6 +1790,7 @@ class ParallelIndexerSubscriptionSpec
             ParallelIndexerSubscription.monotonicityValidator(
               initialOffset = None,
               loadPreviousState = _ => Future.successful(None),
+              executionContext = myExecutionContext,
             )(logger)
           )
           .runWith(TestSink.probe[(Offset, Update)])
@@ -1791,7 +1810,6 @@ class ParallelIndexerSubscriptionSpec
         val offsetsUpdates: Vector[(Offset, Update)] = Vector(
           offset(1L) -> floatingUpdate(CantonTimestamp.ofEpochSecond(10))
         )
-
         val testSink = Source(offsetsUpdates)
           .via(
             ParallelIndexerSubscription.monotonicityValidator(
@@ -1804,6 +1822,7 @@ class ParallelIndexerSubscriptionSpec
                     )
                   )
                 ),
+              executionContext = myExecutionContext,
             )(logger)
           )
           .runWith(TestSink.probe[(Offset, Update)])
@@ -1837,12 +1856,10 @@ class ParallelIndexerSubscriptionSpec
       ),
       transaction = CommittedTransaction(TransactionBuilder.Empty),
       updateId = TestUpdateId("15000"),
-      contractAuthenticationData = Map.empty,
-      representativePackageIds = RepresentativePackageIds.Empty,
       synchronizerId = SynchronizerId.tryFromString("x::synchronizer"),
       repairCounter = repairCounter,
       recordTime = recordTime,
-      internalContractIds = Map.empty,
+      contractInfos = Map.empty,
     )(TraceContext.empty)
 
   def floatingUpdate(recordTime: CantonTimestamp): Update =

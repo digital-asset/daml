@@ -18,9 +18,9 @@ object PartyAllocation {
   ) {
     lazy val submissionId = {
       val builder = Hash.build(HashPurpose.PartyUpdateId, HashAlgorithm.Sha256)
-      builder.add(party.split("::")(0))
-      builder.add(participantId)
-      builder.add(authorizationEvent.toString)
+      builder.addString(party.split("::")(0))
+      builder.addString(participantId)
+      builder.addString(authorizationEvent.toString)
       val hash = builder.finish()
 
       Ref.SubmissionId.assertFromString(hash.toHexString)

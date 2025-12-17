@@ -4,6 +4,7 @@
 package com.digitalasset.canton.store.db
 
 import com.daml.nameof.NameOf.functionFullName
+import com.digitalasset.canton.LogReporter
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.DbConfig.{H2, Postgres}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -24,8 +25,10 @@ import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import com.github.dockerjava.api.model.Bind
 import com.typesafe.config.{Config, ConfigFactory}
 import org.postgresql.util.PSQLException
+import org.scalatest.Args
 import org.scalatest.Assertions.fail
 import org.testcontainers.postgresql.PostgreSQLContainer
+import org.testcontainers.utility.DockerImageName
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters.*
@@ -53,6 +56,8 @@ trait DbStorageSetup extends FlagCloseable with HasCloseContext with NamedLoggin
   def migrationMode: MigrationMode
 
   protected def destroyDatabase(): Unit
+
+  def analyzeDatabaseStatistics(): Unit = ()
 
   override protected val timeouts: ProcessingTimeout = DefaultProcessingTimeouts.testing
 
@@ -240,12 +245,41 @@ class PostgresTestContainerSetup(
 ) extends PostgresDbStorageSetup(loggerFactory)
     with NamedLogging {
 
-  private lazy val postgresContainer = new PostgreSQLContainer(s"${PostgreSQLContainer.IMAGE}:17")
+  private lazy val postgresContainer =
+    // TODO(#29774): switch to always running with the published `query-stats-postgres` image when available
+    if (DbStorageSetup.collectQueryStats) {
+      new PostgreSQLContainer(
+        DockerImageName
+          .parse("digitalasset/query-stats-postgres:local")
+          .asCompatibleSubstituteFor("postgres:17")
+      )
+    } else {
+      new PostgreSQLContainer(s"${PostgreSQLContainer.IMAGE}:17")
+    }
 
   override protected def prepareDatabase(): Unit = {
     // up the connection limit to deal with everyone using connection pools in tests that can run concurrently.
     // we also have a matching max connections limit set in the CircleCI postgres executor (`.circle/config.yml`)
-    val command = postgresContainer.getCommandParts.toSeq :+ "-c" :+ "max_connections=500"
+    val command =
+      // TODO(#29774): switch to always running with the published `query-stats-postgres` image when available
+      if (DbStorageSetup.collectQueryStats) {
+        postgresContainer.getCommandParts.toSeq ++ Seq(
+          "-c",
+          "max_connections=500",
+          "-c",
+          "shared_preload_libraries=pg_store_plans,pg_stat_statements",
+          "-c",
+          "pg_store_plans.plan_format=json",
+          "-c",
+          "pg_store_plans.max=100000",
+          "-c",
+          "pg_store_plans.max_plan_length=10240",
+          "-c",
+          "pg_stat_statements.max=100000",
+        )
+      } else {
+        postgresContainer.getCommandParts.toSeq :+ "-c" :+ "max_connections=500"
+      }
     postgresContainer.setCommandParts(command.toArray)
     val binds = java.util.List.of(
       Bind.parse("/tmp/canton/data-continuity-dumps:/tmp/canton/data-continuity-dumps")
@@ -268,6 +302,29 @@ class PostgresTestContainerSetup(
   def getContainerID: String = postgresContainer.getContainerId
 
   override protected def destroyDatabase(): Unit = postgresContainer.close()
+
+  override def analyzeDatabaseStatistics(): Unit =
+    if (DbStorageSetup.collectQueryStats) {
+      logger.info("Analyzing postgres stats")
+      if (storage.isClosing) {
+        logger.warn("Storage is already closed, skipping analysis")
+      } else {
+        val pgAnalysis = new PostgresStatsAnalysis(storage, timeouts)
+        // Note: this prints directly to the stdout, and this is exactly what we want,
+        // since testcontainers are used for local test runs
+        pgAnalysis.run(
+          testName = None,
+          args = Args(reporter = new LogReporter),
+        )
+      }
+    } else {
+      logger.info(
+        "Skipping Postgres stats analysis, to enable it set CANTON_COLLECT_QUERY_STATS env var " +
+          "and have locally built `digitalasset/query-stats-postgres:local` container image available, " +
+          "by running locally: 'docker build -f .ci/Dockerfile.query-stats-postgres .ci " +
+          "-t digitalasset/query-stats-postgres:local' from the canton repository root"
+      )
+    }
 }
 
 class H2DbStorageSetup(
@@ -366,4 +423,7 @@ object DbStorageSetup {
 
     def toH2DbConfig: H2 = H2(toH2Config)
   }
+
+  // TODO(#29774): Remove this flag when we can always use the `query-stats-postgres` image.
+  val collectQueryStats = sys.env.contains("CANTON_COLLECT_QUERY_STATS")
 }

@@ -124,10 +124,10 @@ class InMemoryIdentityProviderConfigStore(
     state.get(id).toRight(IdentityProviderConfigNotFound(id))
 
   private def withState[T](t: => T): Future[T] =
-    blocking(
-      state.synchronized(
-        Future.successful(t)
-      )
-    )
+    Future.successful {
+      blocking {
+        state.synchronized(t)
+      }
+    }
 
 }

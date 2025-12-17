@@ -16,7 +16,7 @@ da_scala_library(
     ],
     resources = ["src/main/resources/logback.xml"],
     scala_deps = [
-        "@maven//:io_spray_spray_json",
+        "@maven//:io_circe_circe_core",
         "@maven//:org_apache_pekko_pekko_actor",
         "@maven//:org_apache_pekko_pekko_stream",
         "@maven//:org_scalactic_scalactic",

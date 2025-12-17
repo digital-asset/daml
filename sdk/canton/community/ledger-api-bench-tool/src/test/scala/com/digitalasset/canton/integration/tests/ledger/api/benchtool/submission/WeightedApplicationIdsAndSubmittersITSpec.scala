@@ -6,8 +6,7 @@ package com.digitalasset.canton.integration.tests.ledger.api.benchtool.submissio
 import com.daml.ledger.javaapi.data.Party
 import com.daml.scalautil.Statement.discard
 import com.daml.timer.Delayed
-import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2}
 import com.digitalasset.canton.integration.tests.ledgerapi.NoAuthPlugin
 import com.digitalasset.canton.ledger.api.benchtool.BenchtoolSandboxFixture
 import com.digitalasset.canton.ledger.api.benchtool.config.WorkflowConfig
@@ -17,6 +16,7 @@ import com.digitalasset.canton.ledger.api.benchtool.submission.{
   CompletionsObserver,
   ObservedCompletions,
 }
+import com.digitalasset.canton.util.FutureUtil
 import com.digitalasset.canton.version.ProtocolVersion
 import org.scalatest.concurrent.PatienceConfiguration
 import org.scalatest.{AppendedClues, Checkpoints, OptionValues}
@@ -31,7 +31,8 @@ class WeightedUserIdsAndSubmittersITSpec
     with OptionValues
     with Checkpoints {
   registerPlugin(NoAuthPlugin(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseH2(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   private val timeout: FiniteDuration = 2.minutes
 
@@ -115,7 +116,12 @@ class WeightedUserIdsAndSubmittersITSpec
       apiServices: LedgerApiServices,
   )(implicit ec: ExecutionContext): Future[ObservedCompletions] = {
     val observer = CompletionsObserver()
-    Delayed.by(t = Duration(5, TimeUnit.SECONDS))(observer.cancel())
+    FutureUtil.doNotAwait(
+      // EC passed explicitly, because otherwise scalac reports a false positive unused warning/error,
+      // but when trying to disable with @nowarn, complains that the latter does not suppress any warnings.
+      Delayed.by(t = Duration(5, TimeUnit.SECONDS))(observer.cancel())(ec),
+      s"Failed to cancel observer $observer",
+    )
     apiServices.commandCompletionService.completions(
       config = WorkflowConfig.StreamConfig.CompletionsStreamConfig(
         name = "dummy-name",

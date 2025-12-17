@@ -4,7 +4,6 @@
 package com.digitalasset.canton.integration.tests.multihostedparties
 
 import com.digitalasset.canton.BaseTest.CantonLfV21
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.{CommandFailure, InstanceReference, ParticipantReference}
 import com.digitalasset.canton.crypto.CryptoPureApi
@@ -14,9 +13,9 @@ import com.digitalasset.canton.integration
 import com.digitalasset.canton.integration.EnvironmentDefinition.S1M1
 import com.digitalasset.canton.integration.bootstrap.NetworkBootstrapper
 import com.digitalasset.canton.integration.plugins.{
+  UseBftSequencer,
   UsePostgres,
   UseProgrammableSequencer,
-  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.tests.security.SecurityTestHelpers
@@ -64,7 +63,7 @@ sealed trait OnlinePartyReplicationCascadingRepetitionsTest
     with HasProgrammableSequencer
     with SharedEnvironment {
 
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
   registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
 
   // Needed by SecurityTestHelpers:
@@ -341,6 +340,11 @@ sealed trait OnlinePartyReplicationCascadingRepetitionsTest
       )
       .discard
 }
+
+// class OnlinePartyReplicationCascadingRepetitionsTestH2
+//   extends OnlinePartyReplicationCascadingRepetitionsTest {
+//   registerPlugin(new UseH2(loggerFactory))
+// }
 
 class OnlinePartyReplicationCascadingRepetitionsTestPostgres
     extends OnlinePartyReplicationCascadingRepetitionsTest {

@@ -14,7 +14,6 @@ import com.daml.test.evidence.tag.Security.SecurityTest.Property.{Integrity, Pri
 import com.daml.test.evidence.tag.Security.{Attack, SecurityTest, SecurityTestSuite}
 import com.digitalasset.canton.LfValue
 import com.digitalasset.canton.admin.api.client.data.DynamicSynchronizerParameters
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.crypto.{CryptoPureApi, SecureRandomness}
 import com.digitalasset.canton.damltests.java.explicitdisclosure.PriceQuotation
 import com.digitalasset.canton.damltests.java.universal.UniversalContract
@@ -26,9 +25,9 @@ import com.digitalasset.canton.data.{
   ViewHashAndKey,
 }
 import com.digitalasset.canton.integration.plugins.{
+  UseBftSequencer,
   UsePostgres,
   UseProgrammableSequencer,
-  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.util.TestSubmissionService.CommandsWithMetadata
 import com.digitalasset.canton.integration.{
@@ -643,7 +642,7 @@ trait InvalidTransactionConfirmationRequestIntegrationTest
 
           val encryptedViewTree = message.encryptedView
           val encryptedViewRandomness =
-            message.sessionKeys.headOption.valueOrFail("retrieve view key")
+            message.viewEncryptionKeyRandomness.headOption.valueOrFail("retrieve view key")
           val viewRandomness = participant1.crypto.privateCrypto
             .decrypt(
               encryptedViewRandomness
@@ -690,11 +689,12 @@ trait InvalidTransactionConfirmationRequestIntegrationTest
           val crypto = participant1.underlying.value.sync.syncCrypto
             .tryForSynchronizer(daId, defaultStaticSynchronizerParameters)
             .currentSnapshotApproximation
+            .futureValueUS
 
           val newEncryptedViewMessage = EncryptedViewMessageFactory
             .create(TransactionViewType)(
               newLtvt,
-              (viewKey, message.sessionKeys),
+              (viewKey, message.viewEncryptionKeyRandomness),
               crypto,
               testedProtocolVersion,
             )
@@ -750,13 +750,14 @@ trait InvalidTransactionConfirmationRequestIntegrationTest
 
 //class InvalidTransactionConfirmationRequestIntegrationTestDefault
 //    extends InvalidTransactionConfirmationRequestIntegrationTest {
-//  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+//  registerPlugin(new UseH2(loggerFactory))
+//  registerPlugin(new UseBftSequencer(loggerFactory))
 //  registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
 //}
 
 class InvalidTransactionConfirmationRequestIntegrationTestPostgres
     extends InvalidTransactionConfirmationRequestIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
   registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
 }

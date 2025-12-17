@@ -111,13 +111,13 @@ dpm_binary(
     # Hashes taken from the files themselves, not the OCI artifacts
     # See `layers[0].digest` in the manifest for each platform
     sha256 = {
-        "linux_arm64": "e682044d247e4d62ced962cd79d8aa1cdd2fe7f1c57f31d4a77e9311df95de90",
-        "darwin_amd64": "524371fca184941054897a2ba6a21467ac76aab30b7e498b6befb37310fa4c8d",
-        "darwin_arm64": "19f80240bdb2ba414f5c5582c8e12799aa8ddcb578e9c2dde7dee68075ecded1",
-        "linux_amd64": "66dd1872030033f387f783e21f897b3ee880a720b9fb81340560b03569c8d36a",
-        "windows_amd64": "f0669e5839610fca639acfdd283f6bfee412e1dafc641c6722053016fca59998",
+        "linux_arm64": "69dc1bc658eb415a674789cae2f95f0fec26ec10a0eaab2f539730bdd3fa4ed5",
+        "darwin_amd64": "036dc56b4c00ff1cd340ddffc367644e23e00c9631dc03202ab5dc616287b0be",
+        "darwin_arm64": "4d444818cd614984b0dd7e4a2d9d9615801b3ec9a9b0829ed5eb0d0f3957025f",
+        "linux_amd64": "0514a3f79015fec0c73b8cdc21919043b8168882cf3ca63cfa782bf2ad84413b",
+        "windows_amd64": "6ad83d3b3a9a1f61edb69884274906d9518cc14f672c9d5371632eed6e7b791e",
     },
-    version = "1.0.4",
+    version = "1.0.6",
 )
 
 # Use Nix provisioned cc toolchain

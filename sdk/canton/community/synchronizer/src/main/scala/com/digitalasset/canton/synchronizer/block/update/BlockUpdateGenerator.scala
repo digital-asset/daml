@@ -5,6 +5,7 @@ package com.digitalasset.canton.synchronizer.block.update
 
 import cats.syntax.functorFilter.*
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config.BatchingConfig
 import com.digitalasset.canton.crypto.{SyncCryptoApi, SynchronizerCryptoClient}
 import com.digitalasset.canton.data.{CantonTimestamp, LogicalUpgradeTime}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -113,6 +114,7 @@ class BlockUpdateGeneratorImpl(
     sequencingTimeLowerBoundExclusive: Option[CantonTimestamp],
     producePostOrderingTopologyTicks: Boolean,
     metrics: SequencerMetrics,
+    batchingConfig: BatchingConfig,
     protected val loggerFactory: NamedLoggerFactory,
     memberValidator: SequencerMemberValidator,
 )(implicit val closeContext: CloseContext, tracer: Tracer)
@@ -131,6 +133,7 @@ class BlockUpdateGeneratorImpl(
       sequencerId,
       rateLimitManager,
       orderingTimeFixMode,
+      batchingConfig,
       loggerFactory,
       metrics,
       memberValidator = memberValidator,

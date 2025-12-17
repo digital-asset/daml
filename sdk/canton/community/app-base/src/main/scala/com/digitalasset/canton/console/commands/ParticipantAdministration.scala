@@ -18,8 +18,11 @@ import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommand
   GetResourceLimits,
   SetResourceLimits,
 }
-import com.digitalasset.canton.admin.api.client.data.*
 import com.digitalasset.canton.admin.api.client.data.PackageDescription.PackageContents
+import com.digitalasset.canton.admin.api.client.data.{
+  SubmissionRequestAmplification as ConsoleSubmissionRequestAmplification,
+  *,
+}
 import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.admin.participant.v30.PruningServiceGrpc
 import com.digitalasset.canton.admin.participant.v30.PruningServiceGrpc.PruningServiceStub
@@ -85,7 +88,6 @@ import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.{SequencerAlias, SynchronizerAlias, config}
 import io.grpc.Context
-import spray.json.DeserializationException
 
 import java.time.Instant
 import scala.concurrent.ExecutionContext
@@ -876,7 +878,7 @@ class CommitmentsAdministrationGroup(
           counterContracts.newInput(),
           CommitmentContractMetadata,
         ) match {
-          case Left(msg) => throw DeserializationException(msg)
+          case Left(msg) => throw new RuntimeException(msg)
           case Right(output) => output
         }
       logger.debug(
@@ -946,7 +948,7 @@ class CommitmentsAdministrationGroup(
           contractsData.newInput(),
           CommitmentInspectContract,
         )
-        .valueOr(msg => throw DeserializationException(msg))
+        .valueOr(msg => throw new RuntimeException(msg))
     logger.debug(
       s"Requested data for ${contracts.size}, retrieved data for ${parsedContractsData.size} contracts at time $timestamp on any synchronizer"
     )
@@ -1986,8 +1988,8 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         ),
         sequencerTrustThreshold: PositiveInt = PositiveInt.one,
         sequencerLivenessMargin: NonNegativeInt = NonNegativeInt.zero,
-        submissionRequestAmplification: SubmissionRequestAmplification =
-          SubmissionRequestAmplification.NoAmplification,
+        submissionRequestAmplification: ConsoleSubmissionRequestAmplification =
+          ConsoleSubmissionRequestAmplification.NoAmplification,
         sequencerConnectionPoolDelays: SequencerConnectionPoolDelays =
           SequencerConnectionPoolDelays.default,
         validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
@@ -2001,7 +2003,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         priority = priority,
         sequencerTrustThreshold = sequencerTrustThreshold,
         sequencerLivenessMargin = sequencerLivenessMargin,
-        submissionRequestAmplification = submissionRequestAmplification,
+        submissionRequestAmplification = submissionRequestAmplification.toInternal,
         sequencerConnectionPoolDelays = sequencerConnectionPoolDelays,
       )
       connect_by_config(config, validation, synchronize)
@@ -2035,8 +2037,8 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         ),
         sequencerTrustThreshold: PositiveInt = PositiveInt.one,
         sequencerLivenessMargin: NonNegativeInt = NonNegativeInt.zero,
-        submissionRequestAmplification: SubmissionRequestAmplification =
-          SubmissionRequestAmplification.NoAmplification,
+        submissionRequestAmplification: ConsoleSubmissionRequestAmplification =
+          ConsoleSubmissionRequestAmplification.NoAmplification,
         sequencerConnectionPoolDelays: SequencerConnectionPoolDelays =
           SequencerConnectionPoolDelays.default,
         validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
@@ -2049,7 +2051,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         priority,
         sequencerTrustThreshold = sequencerTrustThreshold,
         sequencerLivenessMargin = sequencerLivenessMargin,
-        submissionRequestAmplification = submissionRequestAmplification,
+        submissionRequestAmplification = submissionRequestAmplification.toInternal,
         sequencerConnectionPoolDelays = sequencerConnectionPoolDelays,
       )
       connect_by_config(config, validation, synchronize)

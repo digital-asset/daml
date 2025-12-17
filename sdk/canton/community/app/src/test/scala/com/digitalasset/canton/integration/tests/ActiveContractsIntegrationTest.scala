@@ -18,7 +18,6 @@ import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.Updat
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.WrappedContractEntry
 import com.digitalasset.canton.admin.api.client.data.TemplateId
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.CommandErrors.GenericCommandError
 import com.digitalasset.canton.console.LocalParticipantReference
@@ -28,7 +27,7 @@ import com.digitalasset.canton.examples.java.iou.{Amount, GetCash, Iou}
 import com.digitalasset.canton.http.LfValue
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.tests.ActiveContractsIntegrationTest.*
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.util.GrpcAdminCommandSupport.ParticipantReferenceOps
@@ -68,7 +67,7 @@ class ActiveContractsIntegrationTest
 
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.Postgres](
+    new UseBftSequencer(
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(Set("sequencer1"), Set("sequencer2"), Set("sequencer3"))
@@ -116,10 +115,14 @@ class ActiveContractsIntegrationTest
           )
         } yield p.synchronizers.connect_local(d, alias = a)
 
-        Seq(daName, acmeName, repairSynchronizerName).foreach { alias =>
-          party1a = participant1.parties.enable("party1", synchronizer = alias)
-          party1b = participant1.parties.enable("party1b", synchronizer = alias)
-          party2 = participant2.parties.enable("party2", synchronizer = alias)
+        party1a = participant1.parties.testing.enable("party1", synchronizer = daName)
+        party1b = participant1.parties.testing.enable("party1b", synchronizer = daName)
+        party2 = participant2.parties.testing.enable("party2", synchronizer = daName)
+
+        Seq(acmeName, repairSynchronizerName).foreach { alias =>
+          participant1.parties.testing.also_enable(party1a, synchronizer = alias)
+          participant1.parties.testing.also_enable(party1b, synchronizer = alias)
+          participant2.parties.testing.also_enable(party2, synchronizer = alias)
         }
 
         participants.all.dars.upload(BaseTest.CantonExamplesPath, synchronizerId = daId)

@@ -540,6 +540,7 @@ object Ast {
   final case object BSECP256K1Bool extends BuiltinFunction // : Text -> Text -> Text -> Bool
   final case object BSECP256K1WithEcdsaBool
       extends BuiltinFunction // : Text -> Text -> Text -> Bool
+  final case object BSECP256K1ValidateKey extends BuiltinFunction // : Text -> Bool
 
   final case object BCoerceContractId
       extends BuiltinFunction // : ∀a b. ContractId a -> ContractId b

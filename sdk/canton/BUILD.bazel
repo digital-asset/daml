@@ -107,7 +107,8 @@ da_scala_library(
     ],
     deps = [
         "@maven//:com_auth0_java_jwt",
-        "@maven//:io_spray_spray_json_2_13",
+        "@maven//:io_circe_circe_core_2_13",
+        "@maven//:io_circe_circe_parser_2_13",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -559,6 +560,7 @@ scala_library(
         "@maven//:dev_optics_monocle_macro_2_13",
         "@maven//:io_circe_circe_core_2_13",
         "@maven//:io_circe_circe_generic_2_13",
+        "@maven//:io_circe_circe_parser_2_13",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_core",
         "@maven//:io_grpc_grpc_inprocess",
@@ -789,6 +791,7 @@ scala_library(
         "@maven//:dev_optics_monocle_core_2_13",
         "@maven//:dev_optics_monocle_macro_2_13",
         "@maven//:io_circe_circe_core_2_13",
+        "@maven//:io_circe_circe_parser_2_13",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_inprocess",
         "@maven//:io_grpc_grpc_netty_shaded",
@@ -859,7 +862,6 @@ scala_library(
         "//libs-scala/rs-grpc-bridge",
         "//libs-scala/rs-grpc-pekko",
         "//libs-scala/scala-utils",
-        "//libs-scala/struct-json/struct-spray-json",
         "//observability/metrics",
         "//observability/pekko-http-metrics",
         "//observability/tracing",
@@ -1431,7 +1433,6 @@ scala_library(
         "@maven//:com_github_pathikrit_better_files_2_13",
         "@maven//:com_github_pureconfig_pureconfig_core_2_13",
         "@maven//:com_github_scopt_scopt_2_13",
-        "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_lihaoyi_ammonite_2_13_16",
         "@maven//:com_lihaoyi_ammonite_compiler_2_13_16",
         "@maven//:com_lihaoyi_ammonite_compiler_interface_2_13_16",
@@ -1619,7 +1620,7 @@ filegroup(
 filegroup(
     name = "api-version-files",
     srcs = [
-        "community/ledger-api/VERSION",
+        "community/ledger-api-proto/VERSION",
     ],
     visibility = [
         "//visibility:public",
@@ -1628,11 +1629,17 @@ filegroup(
 
 ledger_api_root = "canton/community/ledger-api"
 
-ledger_api_proto_source_root = "canton/community/ledger-api/src/main/protobuf"
+ledger_api_proto_source_root = "canton/community/ledger-api-proto/src/main/protobuf"
+
+copy_file(
+    name = "ledger-api-scala-file-into-proto",
+    src = ":community/ledger-api-scala/src/main/protobuf/com/daml/ledger/api/scalapb/package.proto",
+    out = "community/ledger-api-proto/src/main/protobuf/com/daml/ledger/api/scalapb/package.proto",
+)
 
 proto_jars(
     name = "ledger_api_proto",
-    srcs = glob(["community/ledger-api/src/main/protobuf/com/daml/ledger/api/v*/**/*.proto"]),
+    srcs = glob(["community/ledger-api-proto/src/main/protobuf/com/daml/ledger/api/v*/**/*.proto"]),
     grpc = True,
     java_conversions = True,
     java_deps = [
@@ -1644,9 +1651,9 @@ proto_jars(
     maven_group = "com.daml",
     proto_deps = ["//daml-lf/ledger-api-value:ledger_api_value_proto"],
     scalapb_options_files = [
-        "community/ledger-api/src/main/protobuf/com/daml/ledger/api/scalapb/package.proto",
+        ":ledger-api-scala-file-into-proto",
     ],
-    strip_import_prefix = "community/ledger-api/src/main/protobuf",
+    strip_import_prefix = "community/ledger-api-proto/src/main/protobuf",
     visibility = ["//visibility:public"],
     deps = [
         "@com_google_protobuf//:any_proto",

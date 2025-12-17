@@ -4,17 +4,16 @@
 package com.digitalasset.canton.integration.tests.bftsynchronizer
 
 import com.digitalasset.canton.SequencerAlias
-import com.digitalasset.canton.config.DbConfig
+import com.digitalasset.canton.admin.api.client.data.SubmissionRequestAmplification
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.CommandFailure
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
   SharedEnvironment,
   TestConsoleEnvironment,
 }
-import com.digitalasset.canton.sequencing.SubmissionRequestAmplification
 import com.digitalasset.canton.topology.PartyId
 
 import scala.concurrent.duration.DurationInt
@@ -97,23 +96,26 @@ sealed trait BftSynchronizerBootstrapTemplateTest
     "modify submissionRequestAmplification" in { implicit env =>
       import env.*
 
+      // TODO(i29601): remove `toInternal` when `synchronizers.config` is converted
       participant2.synchronizers
         .config(daName)
         .map(_.sequencerConnections.submissionRequestAmplification) shouldBe
-        Some(SubmissionRequestAmplification.NoAmplification)
+        Some(SubmissionRequestAmplification.NoAmplification.toInternal)
 
       val amplification = SubmissionRequestAmplification(PositiveInt.two, 0.second)
+      // TODO(i29601): remove `toInternal` when `synchronizers.modify` is converted
       participant2.synchronizers.modify(
         daName,
         _.withSubmissionRequestAmplification(
-          SubmissionRequestAmplification(PositiveInt.two, 0.second)
+          SubmissionRequestAmplification(PositiveInt.two, 0.second).toInternal
         ),
       )
 
+      // TODO(i29601): remove `toInternal` when `synchronizers.config` is converted
       participant2.synchronizers
         .config(daName)
         .map(_.sequencerConnections.submissionRequestAmplification) shouldBe
-        Some(amplification)
+        Some(amplification.toInternal)
     }
 
   }
@@ -142,14 +144,11 @@ sealed trait BftSynchronizerBootstrapTemplateTest
 }
 
 class BftSynchronizerBootstrapTemplateTestDefault extends BftSynchronizerBootstrapTemplateTest {
-  registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.H2](
-      loggerFactory
-    )
-  )
+  registerPlugin(new UseH2(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }
 
 //class BftSynchronizerBootstrapTemplateTestPostgres extends BftSynchronizerBootstrapTemplateTest {
 //  registerPlugin(new UsePostgres(loggerFactory))
-//  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+//  registerPlugin(new UseBftSequencer(loggerFactory))
 //}

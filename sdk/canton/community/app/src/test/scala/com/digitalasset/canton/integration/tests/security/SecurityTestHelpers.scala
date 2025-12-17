@@ -520,7 +520,7 @@ trait SecurityTestHelpers extends SecurityTestLensUtils {
       useCurrentSnapshot: Boolean,
   ): A => Option[SyncCryptoApi] =
     message => {
-      if (useCurrentSnapshot) Some(syncCrypto.currentSnapshotApproximation)
+      if (useCurrentSnapshot) Some(syncCrypto.currentSnapshotApproximation.futureValueUS)
       else
         Some(
           message.signingTimestamp

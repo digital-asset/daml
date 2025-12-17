@@ -759,6 +759,7 @@ create index idx_common_topology_transactions_effective_changes
 create index idx_common_topology_transactions_for_valid_until_update
   on common_topology_transactions (store_id, mapping_key_hash, serial_counter, valid_from);
 
+-- TODO(#282923) validate whether this index is still necessary
 create index idx_common_topology_transactions_for_old_unique_idx
     on common_topology_transactions (store_id, mapping_key_hash, serial_counter, valid_from, operation, representative_protocol_version, tx_hash);
 

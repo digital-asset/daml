@@ -211,7 +211,7 @@ trait HttpJsonApiTestBase extends CantonFixture {
     )
     val header = """{"alg": "HS256", "typ": "JWT"}"""
     val jwt =
-      DecodedJwt[String](header, AuthServiceJWTCodec.writePayload(payload).compactPrint)
+      DecodedJwt[String](header, AuthServiceJWTCodec.writePayload(payload).noSpaces)
     JwtSigner.HMAC256.sign(jwt, secret) match {
       case Right(a) => a.value
       case Left(e) => throw new IllegalStateException(e.toString)

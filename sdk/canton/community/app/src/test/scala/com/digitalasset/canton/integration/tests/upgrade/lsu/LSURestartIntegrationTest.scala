@@ -4,17 +4,12 @@
 package com.digitalasset.canton.integration.tests.upgrade.lsu
 
 import com.digitalasset.canton.config
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.EnvironmentDefinition.S1M1
 import com.digitalasset.canton.integration.bootstrap.NetworkBootstrapper
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
-import com.digitalasset.canton.integration.plugins.{
-  UseBftSequencer,
-  UsePostgres,
-  UseReferenceBlockSequencer,
-}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.tests.upgrade.LogicalUpgradeUtils.SynchronizerNodes
 import monocle.macros.syntax.lens.*
 
@@ -95,15 +90,6 @@ abstract class LSURestartIntegrationTest extends LSUBase {
       }
     }
   }
-}
-
-final class LSURestartReferenceIntegrationTest extends LSURestartIntegrationTest {
-  registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.Postgres](
-      loggerFactory,
-      MultiSynchronizer.tryCreate(Set("sequencer1"), Set("sequencer2")),
-    )
-  )
 }
 
 final class LSURestartBftOrderingIntegrationTest extends LSURestartIntegrationTest {

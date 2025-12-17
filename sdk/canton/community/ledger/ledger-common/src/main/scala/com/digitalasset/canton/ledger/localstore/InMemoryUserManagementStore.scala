@@ -174,11 +174,11 @@ class InMemoryUserManagementStore(
     }
 
   private def withState[T](t: => T): Future[T] =
-    blocking(
-      state.synchronized(
-        Future.successful(t)
-      )
-    )
+    Future.successful {
+      blocking {
+        state.synchronized(t)
+      }
+    }
 
   private def withUser[T](id: Ref.UserId, identityProviderId: IdentityProviderId)(
       f: InMemUserInfo => Result[T]

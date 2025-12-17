@@ -5,7 +5,6 @@ package com.digitalasset.canton.integration.tests
 
 import com.daml.ledger.api.v2.completion.Completion
 import com.digitalasset.canton.config
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.console.ParticipantReference
 import com.digitalasset.canton.error.CantonBaseError
@@ -17,9 +16,9 @@ import com.digitalasset.canton.error.TransactionRoutingError.TopologyErrors.{
 import com.digitalasset.canton.error.TransactionRoutingError.UnableToQueryTopologySnapshot
 import com.digitalasset.canton.examples.java.cycle
 import com.digitalasset.canton.integration.plugins.{
+  UseBftSequencer,
   UsePostgres,
   UseProgrammableSequencer,
-  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -311,13 +310,13 @@ trait InFlightSubmissionTrackingIntegrationTest
 // class InFlightSubmissionTrackingIntegrationTestH2
 //     extends InFlightSubmissionTrackingIntegrationTest {
 //   registerPlugin(new UseH2(loggerFactory))
-//   registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+//   registerPlugin(new UseBftSequencer(loggerFactory))
 //   registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
 // }
 
 class InFlightSubmissionTrackingIntegrationTestPostgres
     extends InFlightSubmissionTrackingIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
   registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
 }

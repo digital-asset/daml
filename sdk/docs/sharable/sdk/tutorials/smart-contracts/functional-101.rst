@@ -93,7 +93,7 @@ So if we have a function ``f : a -> b -> c -> d`` and a value ``valA : a``, we g
 Infix functions
 ...............
 
-Now ``add`` is clearly just an alias for ``+``, but what is ``+``? ``+`` is just a function. It's only special because it starts with a symbol. Functions that start with a symbol are *infix* by default which means they can be written between two arguments. That's why we can write ``1 + 2`` rather than ``+ 1 2``. The rules for converting between normal and infix functions are simple. Wrap an infix function in parentheses to use it as a normal function, and wrap a normal function in backticks to make it infix:
+Now ``add`` is clearly just an alias for ``+``, but what is ``+``? ``+`` is just a function. It's only special because it starts with a symbol. Functions that start with a symbol are *infix* by default which means they can be written between two arguments. That's why we can write ``1 + 2`` rather than ``+ 1 2``. The rules for converting between normal and infix functions are simple. Wrap an infix function in parentheses to use it as a normal function (i.e. *prefix*), and wrap a normal function in backticks to make it infix:
 
 .. literalinclude:: daml/daml-intro-functional-101/daml/Main.daml
   :language: daml
@@ -114,9 +114,17 @@ If we want to partially apply an infix operation we can also do that as follows:
   :start-after: -- INFIX2_BEGIN
   :end-before: -- INFIX2_END
 
-.. note::
 
-  While function application is left associative by default, infix operators can be declared left or right associative and given a precedence. Good examples are the boolean operations ``&&`` and ``||``, which are declared right associative with precedences 3 and 2, respectively. This allows you to write ``True || True && False`` and get value ``True``. See section 4.4.2 of `the Haskell 98 report <https://www.haskell.org/onlinereport/decls.html>`_ for more on fixities.
+Associativity and Precedence
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When dealing with multiple infix operators, precedence determines how the Daml
+compiler should parse an expression. For example, for the expression ``x + y * z``, because `*` has a higher precedence than `+`, the expression is parsed as ``x + (y * z)`` instead of ``(x + y) *
+z``. When dealing with infix operators with the same precedence, associativity determines how the Daml compiler should parse an expression. For example, because `+` and `-` are left-associative, the expression ``x + y - z`` is parsed as ``(x + y) - z`` instead of ``x + (y - z)``.
+For built-in operators this has been predefined, for user-defined operators, it
+must be user-defined. See :ref:`the reference on Fixity, Associativity and
+Precedence <reference-fixity-and-associativity>`
+
 
 Type constraints
 ................
@@ -131,7 +139,8 @@ Unlike interfaces, typeclasses can have multiple type parameters. A good example
 
   exercise : (Template t, Choice t c r) => ContractId t -> c -> Update r
 
-Let's turn this into prose: Given that ``t`` is the type of a template, and that ``t`` has a choice ``c`` with return type ``r``, the ``exercise`` function maps a ``ContractId`` for a contract of type ``t`` to a function that takes the choice arguments of type ``c`` and returns an ``Update`` resulting in type ``r``.
+Let's turn this into prose: Given that ``t`` is the type of a template, and that ``t`` has a choice ``c`` with return type ``r``, the ``exercise`` function maps a ``ContractId`` for a contract of type ``t`` to a function that takes the choice arguments of type ``c`` and returns an ``Update`` resulting in type
+``r``.
 
 That's quite a mouthful, and does require one to know what *meaning* the typeclass ``Choice`` gives to parameters ``t`` ``c`` and ``r``, but in many cases, that's obvious from the context or names of typeclasses and variables.
 

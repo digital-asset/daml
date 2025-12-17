@@ -41,7 +41,7 @@ object UniquePortGenerator {
     *
     * May throw an exception, in particular an instance of
     * [[java.nio.channels.OverlappingFileLockException]] when failing to get an exclusive file lock
-    * after exhausting retries. (See [[com.digitalasset.canton.UniqueBoundedCounter#maxRetries]])
+    * after exhausting retries. (See [[com.digitalasset.canton.UniqueBoundedCounter]].maxRetries)
     *
     * @return
     *   unique port for canton tests, throws otherwise

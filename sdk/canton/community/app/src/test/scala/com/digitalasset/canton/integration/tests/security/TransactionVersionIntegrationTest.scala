@@ -8,7 +8,7 @@ import com.digitalasset.canton.config.DbConfig.Postgres
 import com.digitalasset.canton.crypto.CryptoPureApi
 import com.digitalasset.canton.damltests.java.universal.UniversalContract
 import com.digitalasset.canton.data.*
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres, UseH2}
 import com.digitalasset.canton.integration.util.TestSubmissionService.CommandsWithMetadata
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -166,6 +166,7 @@ sealed abstract class TransactionVersionIntegrationTest
 
 final class ReferenceTransactionVersionIntegrationTestPostgres
     extends TransactionVersionIntegrationTest {
-  registerPlugin(new UseReferenceBlockSequencer[Postgres](loggerFactory))
+  registerPlugin(new UsePostgres(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }
  */

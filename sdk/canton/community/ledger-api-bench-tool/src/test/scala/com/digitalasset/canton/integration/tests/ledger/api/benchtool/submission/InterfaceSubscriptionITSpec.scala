@@ -4,8 +4,7 @@
 package com.digitalasset.canton.integration.tests.ledger.api.benchtool.submission
 
 import com.daml.ledger.javaapi.data.Party
-import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2}
 import com.digitalasset.canton.integration.tests.ledgerapi.NoAuthPlugin
 import com.digitalasset.canton.ledger.api.benchtool.config.WorkflowConfig
 import com.digitalasset.canton.ledger.api.benchtool.services.LedgerApiServices
@@ -22,7 +21,8 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class InterfaceSubscriptionITSpec extends BenchtoolSandboxFixture with AppendedClues {
   registerPlugin(NoAuthPlugin(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseH2(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   "interface subscriptions" should {
     "be exposed to the benchtool" onlyRunWithOrGreaterThan ProtocolVersion.dev in { env =>

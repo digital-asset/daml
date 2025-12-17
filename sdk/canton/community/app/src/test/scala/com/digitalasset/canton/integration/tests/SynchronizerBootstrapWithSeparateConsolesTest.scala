@@ -6,9 +6,8 @@ package com.digitalasset.canton.integration.tests
 import better.files.*
 import com.digitalasset.canton.HasExecutionContext
 import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameters
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.integration.plugins.{UseH2, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
@@ -271,5 +270,5 @@ trait SynchronizerBootstrapWithSeparateConsolesIntegrationTest
 class SynchronizerBootstrapWithSeparateConsolesIntegrationTestH2
     extends SynchronizerBootstrapWithSeparateConsolesIntegrationTest {
   registerPlugin(new UseH2(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }

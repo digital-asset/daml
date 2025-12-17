@@ -178,6 +178,7 @@ abstract class ReferenceSequencerWithTrafficControlApiTestBase
           .build(loggerFactory)
           .forOwnerAndSynchronizer(request.sender)
           .currentSnapshotApproximation
+          .futureValueUS
       SignedContent
         .create(
           cryptoSnapshot.pureCrypto,
@@ -1198,6 +1199,7 @@ object ReferenceSequencerWithTrafficControlApiTestBase {
         trafficConsumedStore,
         loggerFactory,
         timeouts,
+        BatchingConfig(),
         metrics,
         synchronizerSyncCryptoApi,
         protocolVersion,

@@ -7,13 +7,9 @@ import com.daml.test.evidence.scalatest.AccessTestScenario
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.*
 import com.daml.test.evidence.tag.Reliability.*
 import com.digitalasset.canton.concurrent.Threading
-import com.digitalasset.canton.config.{DbConfig, DbLockedConnectionConfig}
+import com.digitalasset.canton.config.DbLockedConnectionConfig
 import com.digitalasset.canton.integration.plugins.toxiproxy.*
-import com.digitalasset.canton.integration.plugins.{
-  UsePostgres,
-  UseReferenceBlockSequencer,
-  UseSharedStorage,
-}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres, UseSharedStorage}
 import com.digitalasset.canton.integration.tests.*
 import com.digitalasset.canton.integration.tests.toxiproxy.ToxiproxyHelpers
 import com.digitalasset.canton.integration.{
@@ -43,7 +39,7 @@ trait ReplicatedParticipantDatabaseFaultIntegrationTest
 
   protected def setupPluginsWithToxiproxy(
       storagePlugin: EnvironmentSetupPlugin,
-      blockSequencerPlugin: UseReferenceBlockSequencer[?],
+      blockSequencerPlugin: UseBftSequencer,
   ): () => RunningProxy = {
     registerPlugin(storagePlugin)
     registerPlugin(blockSequencerPlugin)
@@ -267,7 +263,7 @@ class ActiveParticipantDatabaseFaultIntegrationTestPostgres
   override protected val getToxiProxy: () => RunningProxy =
     setupPluginsWithToxiproxy(
       new UsePostgres(loggerFactory),
-      new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory),
+      new UseBftSequencer(loggerFactory),
     )
 }
 
@@ -281,7 +277,7 @@ class PassiveParticipantDatabaseFaultIntegrationTestPostgres
   override protected val getToxiProxy: () => RunningProxy =
     setupPluginsWithToxiproxy(
       new UsePostgres(loggerFactory),
-      new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory),
+      new UseBftSequencer(loggerFactory),
     )
 
 }
@@ -352,6 +348,6 @@ class AllParticipantDatabaseFaultIntegrationTestPostgres
   override protected val getToxiProxy: () => RunningProxy =
     setupPluginsWithToxiproxy(
       new UsePostgres(loggerFactory),
-      new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory),
+      new UseBftSequencer(loggerFactory),
     )
 }

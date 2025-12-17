@@ -6,6 +6,7 @@ package com.digitalasset.canton.ledger.api.benchtool.submission
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 
 import scala.collection.mutable
+import scala.concurrent.blocking
 
 /** Keeps track of contract keys of contracts that haven't been used up (archived) yet. Allows to
   * select the next contract key to use up at random.
@@ -14,17 +15,23 @@ final class ActiveContractKeysPool[T](randomnessProvider: RandomnessProvider) {
 
   private val poolsPerTemplate = mutable.Map.empty[String, DepletingUniformRandomPool[T]]
 
-  def getAndRemoveContractKey(templateName: String): T = synchronized {
-    val pool = poolsPerTemplate(templateName)
-    pool.pop()
+  def getAndRemoveContractKey(templateName: String): T = blocking {
+    synchronized {
+      val pool = poolsPerTemplate(templateName)
+      pool.pop()
+    }
   }
 
-  def addContractKey(templateName: String, value: T): Unit = synchronized {
-    if (!poolsPerTemplate.contains(templateName)) {
-      poolsPerTemplate.put(templateName, new DepletingUniformRandomPool(randomnessProvider)).discard
+  def addContractKey(templateName: String, value: T): Unit = blocking {
+    synchronized {
+      if (!poolsPerTemplate.contains(templateName)) {
+        poolsPerTemplate
+          .put(templateName, new DepletingUniformRandomPool(randomnessProvider))
+          .discard
+      }
+      val pool = poolsPerTemplate(templateName)
+      pool.put(value)
     }
-    val pool = poolsPerTemplate(templateName)
-    pool.put(value)
   }
 }
 
@@ -36,7 +43,10 @@ final class DepletingUniformRandomPool[V](randomnessProvider: RandomnessProvider
   private val buffer = mutable.ArrayBuffer.empty[V]
 
   def pop(): V = {
-    val v = buffer.last
+    val v = buffer.lastOption match {
+      case Some(last) => last
+      case _ => throw new NoSuchElementException("empty.last")
+    }
     buffer.remove(index = buffer.size - 1, count = 1)
     v
   }

@@ -318,13 +318,6 @@ class AcsCommitmentProcessor private (
     TrieMap
       .empty[ParticipantId, CantonTimestamp]
 
-  /** a separate class that keeps track of multi hosted parties and if a period can be considered
-    * done
-    */
-  @VisibleForTesting
-  private[pruning] val multiHostedPartyTracker =
-    new AcsCommitmentMultiHostedPartyTracker(participantId, timeouts, loggerFactory)
-
   /** A future checking whether the node should enter catch-up mode by computing the catch-up
     * timestamp. At most one future runs computing this
     */
@@ -801,7 +794,8 @@ class AcsCommitmentProcessor private (
             snapshotRes.active,
             activeContractStore,
             contractStore,
-            enableAdditionalConsistencyChecks || commitmentMismatchDebugging,
+            enableAdditionalConsistencyChecks,
+            commitmentMismatchDebugging,
             completedPeriod,
             batchingConfig,
             lastIntervalActivations,
@@ -826,7 +820,7 @@ class AcsCommitmentProcessor private (
               _ = logger.info(
                 s"Computed and stored ${msgs.size} commitment messages for period $completedPeriod"
               )
-              _ <- MarkOutstandingIfNonEmpty(completedPeriod, msgs.keySet)
+              _ <- markOutstandingIfNonEmpty(completedPeriod, msgs.keySet)
               _ <- persistRunningCommitments(
                 snapshotRes,
                 UpdateMode.Efficiency,
@@ -857,21 +851,8 @@ class AcsCommitmentProcessor private (
         _ <-
           if (!catchingUpInProgress) {
             healthComponent.resolveUnhealthy()
+            indicateReadyForRemote(completedPeriod.toInclusive)
             for {
-              noWait <- acsCounterParticipantConfigStore.getAllActiveNoWaitCounterParticipants(
-                Seq(psid.logical),
-                Seq.empty,
-              )
-              topoSnapshot <- synchronizerCrypto.ipsSnapshot(
-                completedPeriod.fromExclusive.forgetRefinement
-              )
-              _ <- multiHostedPartyTracker.trackPeriod(
-                completedPeriod,
-                topoSnapshot,
-                snapshotRes,
-                noWait.map(_.participantId).toSet,
-              )
-              _ = indicateReadyForRemote(completedPeriod.toInclusive)
               _ <- processBuffered(completedPeriod.toInclusive, endExclusive = false)
               _ <- indicateLocallyProcessed(completedPeriod)
             } yield ()
@@ -1466,15 +1447,13 @@ class AcsCommitmentProcessor private (
 
   private def checkCommitmentSignature(
       message: SignedProtocolMessage[AcsCommitment]
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Boolean] = {
-    val cryptoSnapshot = synchronizerCrypto.currentSnapshotApproximation
-
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Boolean] =
     for {
+      cryptoSnapshot <- synchronizerCrypto.currentSnapshotApproximation
       result <- message.verifySignature(cryptoSnapshot, message.typedMessage.content.sender).value
     } yield result
       .tapLeft(err => logger.error(s"Commitment signature verification failed with $err"))
       .isRight
-  }
 
   private def checkCommitment(
       commitment: AcsCommitment
@@ -1698,7 +1677,6 @@ class AcsCommitmentProcessor private (
               )
               val cmtPeriodsNE = NonEmptyUtil.fromElement(counterCommitment.period)
               for {
-                _ <- multiHostMark(counterCommitment.sender, cmtPeriodsNE)
                 _ <- store.markSafe(
                   counterCommitment.sender,
                   cmtPeriodsNE.toSet,
@@ -1921,18 +1899,16 @@ class AcsCommitmentProcessor private (
 
     // filter the commitments to send based on the participants active at the "current time",
     // and not the ones active at the period end of the commitment
-    def filterByActiveParticipants(): FutureUnlessShutdown[Seq[(ParticipantId, AcsCommitment)]] = {
-      val cryptoSnapshot = synchronizerCrypto.currentSnapshotApproximation
-      val ipsSnapshot = cryptoSnapshot.ipsSnapshot
-
+    def filterByActiveParticipants(): FutureUnlessShutdown[Seq[(ParticipantId, AcsCommitment)]] =
       for {
+        cryptoSnapshot <- synchronizerCrypto.currentSnapshotApproximation
+        ipsSnapshot = cryptoSnapshot.ipsSnapshot
         activeParticipants <- ipsSnapshot.areMembersKnown(msgs.map {
           case (participant, _commitment) => participant.member
         }.toSet)
       } yield msgs.filter { case (participant, _commitment) =>
         activeParticipants.contains(participant.member)
       }
-    }
 
     def retryLogic(
         msgsFiltered: Seq[(ParticipantId, AcsCommitment)],
@@ -1970,10 +1946,10 @@ class AcsCommitmentProcessor private (
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, CommitmentSendState, Unit] = {
       implicit val metricsContext: MetricsContext = MetricsContext("type" -> "send-commitment")
-      val cryptoSnapshot = synchronizerCrypto.currentSnapshotApproximation
       val sendCallback = SendCallback.future
 
       for {
+        cryptoSnapshot <- EitherT.liftF(synchronizerCrypto.currentSnapshotApproximation)
         signedCmtMsgs <- EitherT.right(
           msgsFiltered.parTraverse { case (participant, commitment) =>
             SignedProtocolMessage
@@ -2182,7 +2158,7 @@ class AcsCommitmentProcessor private (
   /** takes a period and set of participants, handles splitting and conversion to NonEmpty does
     * nothing if the period is non-valid or the participant set is empty.
     */
-  private def MarkOutstandingIfNonEmpty(
+  private def markOutstandingIfNonEmpty(
       completedPeriod: CommitmentPeriod,
       participants: Set[ParticipantId],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
@@ -2192,12 +2168,29 @@ class AcsCommitmentProcessor private (
       )
       counterParticipantsNE = NonEmpty.from(participants)
       _ <- counterParticipantsNE.fold(FutureUnlessShutdown.unit)(counterParticipants =>
-        splitPeriod.fold(FutureUnlessShutdown.unit)(period =>
-          store.markOutstanding(
-            period,
-            counterParticipants,
-          )
-        )
+        splitPeriod.fold(FutureUnlessShutdown.unit) { periods =>
+          MonadUtil
+            .batchedSequentialTraverse[
+              CommitmentPeriod,
+              FutureUnlessShutdown,
+              Unit,
+            ](
+              batchingConfig.parallelism,
+              batchingConfig.maxItemsInBatch,
+            )(periods.forgetNE.toSeq) { chunk =>
+              NonEmpty.from(chunk) match {
+                case Some(chunkNE) =>
+                  store
+                    .markOutstanding(
+                      chunkNE.toSet,
+                      counterParticipants,
+                    )
+                    .map(_ => Seq(()))
+                case None => FutureUnlessShutdown.pure(Seq.empty[Unit])
+              }
+            }
+            .map(_ => ())
+        }
       )
     } yield ()
 
@@ -2228,7 +2221,6 @@ class AcsCommitmentProcessor private (
             )
           ) {
             for {
-              _ <- multiHostMark(cmt.sender, periods)
               _ <-
                 store.markSafe(
                   cmt.sender,
@@ -2244,25 +2236,6 @@ class AcsCommitmentProcessor private (
         case None => FutureUnlessShutdown.unit
       }
     } yield ()
-
-  private def multiHostMark(sender: ParticipantId, periods: NonEmpty[Set[CommitmentPeriod]])(
-      implicit traceContext: TraceContext
-  ): FutureUnlessShutdown[Unit] =
-    FutureUnlessShutdown
-      .sequence(
-        multiHostedPartyTracker
-          .newCommit(sender, periods)
-          .map { case (period, state) =>
-            state match {
-              case TrackedPeriodState.Cleared => store.markMultiHostedCleared(period)
-              case _ => FutureUnlessShutdown.unit
-            }
-          }
-          .filter(_ =>
-            true
-          ) // this is to remove the NonEmpty, since the sequence does not support it.
-      )
-      .map(_ => ()) // maps FutureUnlessShutdown[Seq[Unit]] to FutureUnlessShutdown[Unit]
 
   /** Reinitialize the running commitments at the given ACS timestamp. This is used to recompute the
     * running commitments from the active contract store. Because the reinitialization task runs on
@@ -2810,6 +2783,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
       activeContractStore: ActiveContractStore,
       contractStore: ContractStore,
       enableAdditionalConsistencyChecks: Boolean,
+      commitmentMismatchDebugging: Boolean,
       completedPeriod: CommitmentPeriod,
       batchingConfig: BatchingConfig,
       lastIntervalActivations: TrieMap[(LfContractId, ReassignmentCounter), Int],
@@ -2819,7 +2793,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
       namedLoggingContext: NamedLoggingContext,
   ): FutureUnlessShutdown[Unit] = {
     val acsTimestamp = TimeOfChange(completedPeriod.toInclusive.forgetRefinement)
-    val res = if (enableAdditionalConsistencyChecks) {
+    val res = if (enableAdditionalConsistencyChecks || commitmentMismatchDebugging) {
       for {
         (rc, activations) <- computeRunningCommitmentsFromAcs(
           activeContractStore,
@@ -2838,9 +2812,14 @@ object AcsCommitmentProcessor extends HasLoggerName {
                   toc.timestamp > completedPeriod.fromExclusive.forgetRefinement
                 }}"
           )
-          Errors.InternalError
-            .InconsistentRunningCommitmentAndACS(acsTimestamp, acsCommitments, runningCommitments)
-            .discard
+          if (enableAdditionalConsistencyChecks)
+            Errors.InternalError
+              .InconsistentRunningCommitmentAndACS(acsTimestamp, acsCommitments, runningCommitments)
+              .discard
+          else if (commitmentMismatchDebugging)
+            namedLoggingContext.info(
+              "Detected an inconsistency between the running commitments and the ACS"
+            )
         }
       }
     } else FutureUnlessShutdown.unit

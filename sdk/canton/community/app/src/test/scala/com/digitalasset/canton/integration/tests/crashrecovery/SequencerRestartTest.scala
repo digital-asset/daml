@@ -27,7 +27,6 @@ import com.digitalasset.canton.config.{
   BatchingConfig,
   CachingConfigs,
   CantonConfig,
-  DbConfig,
   DefaultProcessingTimeouts,
   RequireTypes,
 }
@@ -46,9 +45,9 @@ import com.digitalasset.canton.integration.bootstrap.{
 import com.digitalasset.canton.integration.plugins.UseExternalProcess.ShutdownPhase
 import com.digitalasset.canton.integration.plugins.{
   PostgresDumpRestore,
+  UseBftSequencer,
   UseExternalProcess,
   UsePostgres,
-  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -147,7 +146,7 @@ abstract class BaseSynchronizerRestartTest
         sys.error(s"logging was used but shouldn't be")
     }
   )
-  val sequencerPlugin = new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory)
+  val sequencerPlugin = new UseBftSequencer(loggerFactory)
   registerPlugin(sequencerPlugin)
   registerPlugin(external)
 

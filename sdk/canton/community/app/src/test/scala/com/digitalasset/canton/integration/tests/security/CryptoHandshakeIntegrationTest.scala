@@ -13,7 +13,6 @@ import com.digitalasset.canton.config.{
   CryptoConfig,
   CryptoProvider,
   CryptoSchemeConfig,
-  DbConfig,
   SigningSchemeConfig,
 }
 import com.digitalasset.canton.crypto.{
@@ -23,7 +22,7 @@ import com.digitalasset.canton.crypto.{
 }
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.synchronizer.config.SynchronizerParametersConfig
 import monocle.macros.syntax.lens.*
 
@@ -237,7 +236,7 @@ trait CryptoHandshakeIntegrationTest
 class CryptoHandshakeIntegrationTestPostgres extends CryptoHandshakeIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.Postgres](
+    new UseBftSequencer(
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(Set(seq1), Set(seq2), Set(seq3))

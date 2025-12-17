@@ -47,7 +47,7 @@ private[daml] sealed class StablePackagesImpl(
   override lazy val NonEmpty: Ref.TypeConId = DA_NonEmpty_Types.assertIdentifier("NonEmpty")
   override lazy val Tuple2: Ref.TypeConId = DA_Types.assertIdentifier("Tuple2")
   override lazy val Tuple3: Ref.TypeConId = DA_Types.assertIdentifier("Tuple3")
-  override lazy val Either: Ref.TypeConId = GHC_Tuple.assertIdentifier("Either")
+  override lazy val Either: Ref.TypeConId = DA_Types.assertIdentifier("Either")
   override lazy val FailureStatus: Ref.TypeConId =
     DA_Internal_Fail_Types.assertIdentifier("FailureStatus")
 
@@ -55,7 +55,6 @@ private[daml] sealed class StablePackagesImpl(
   private lazy val DA_Internal_Any = allPackagesByName("DA.Internal.Any")
   private lazy val DA_NonEmpty_Types = allPackagesByName("DA.NonEmpty.Types")
   private lazy val DA_Types = allPackagesByName("DA.Types")
-  private lazy val GHC_Tuple = allPackagesByName("GHC.Tuple")
   private lazy val DA_Internal_Fail_Types = allPackagesByName("DA.Internal.Fail.Types")
 
   /** All stable packages, indexed by module name. */

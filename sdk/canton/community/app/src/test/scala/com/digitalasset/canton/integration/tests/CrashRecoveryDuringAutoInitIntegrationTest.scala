@@ -3,14 +3,10 @@
 
 package com.digitalasset.canton.integration.tests
 
-import com.digitalasset.canton.config.{DbConfig, DefaultProcessingTimeouts}
+import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.console.LocalInstanceReference
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.integration.plugins.{
-  UseBftSequencer,
-  UsePostgres,
-  UseReferenceBlockSequencer,
-}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
@@ -108,12 +104,6 @@ trait CrashRecoveryDuringAutoInitIntegrationTest
       participant1.health.ping(participant1)
     }
   }
-}
-
-class CrashRecoveryDuringAutoInitReferenceIntegrationTestPostgres
-    extends CrashRecoveryDuringAutoInitIntegrationTest {
-  registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }
 
 class CrashRecoveryDuringAutoInitBftOrderingIntegrationTestPostgres

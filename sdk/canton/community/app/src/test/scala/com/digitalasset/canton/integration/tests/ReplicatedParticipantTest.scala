@@ -131,6 +131,9 @@ trait ReplicatedParticipantTestSetup extends ReplicatedNodeHelper {
         loggerFactory,
       )
     )
+    // TODO(#29603): change this back to use the BFT Orderer.
+    // The PerformanceReplicatedParticipantDatabaseFaultIntegrationTest was flaking a lot with the BFT Orderer
+    // registerPlugin(new UseBftSequencer(loggerFactory))
     registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 
     additionalPlugins.foreach(registerPlugin)

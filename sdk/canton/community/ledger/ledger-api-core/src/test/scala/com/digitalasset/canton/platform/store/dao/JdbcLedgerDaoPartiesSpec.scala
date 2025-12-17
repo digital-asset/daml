@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao
 
+import com.digitalasset.canton.config.CantonRequireTypes.String185
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
 import com.digitalasset.canton.util.MonadUtil
@@ -33,9 +34,46 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
       _ = response should be(PersistenceResponse.Ok)
       response <- storePartyEntry(bob, nextOffset())
       _ = response should be(PersistenceResponse.Ok)
-      parties <- ledgerDao.listKnownParties(None, 1000)
+      parties <- ledgerDao.listKnownParties(None, filterParty = None, 1000)
     } yield {
       parties should contain.allOf(alice, bob)
+    }
+  }
+
+  it should "filter parties" in {
+    val randomSuffix = UUID.randomUUID()
+    val alice = IndexerPartyDetails(
+      party = "FilterAlice::" + randomSuffix,
+      isLocal = true,
+    )
+    val bob = IndexerPartyDetails(
+      party = "FilterBob::" + randomSuffix,
+      isLocal = true,
+    )
+    val storeF = MonadUtil.sequentialTraverse_(
+      Seq(alice, bob)
+    )(storePartyEntry(_, nextOffset()))
+    for {
+      _ <- storeF
+      onlyAlicePartial <- ledgerDao.listKnownParties(
+        None,
+        filterParty = Some(String185.tryCreate("FilterAlice")),
+        1000,
+      )
+      onlyAliceFull <- ledgerDao.listKnownParties(
+        None,
+        filterParty = Some(String185.tryCreate(alice.party)),
+        1000,
+      )
+      bothFilter <- ledgerDao.listKnownParties(
+        None,
+        filterParty = Some(String185.tryCreate("Filter")),
+        1000,
+      )
+    } yield {
+      onlyAlicePartial shouldBe List(alice)
+      onlyAliceFull shouldBe List(alice)
+      bothFilter shouldBe List(alice, bob)
     }
   }
 
@@ -49,11 +87,12 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
     val newParties = List("Wes", "Zeb", "Les", "Mel").map(genParty)
 
     for {
-      partiesBefore <- ledgerDao.listKnownParties(None, 1000)
+      partiesBefore <- ledgerDao.listKnownParties(None, filterParty = None, 1000)
       _ <- MonadUtil.sequentialTraverse_(newParties)(storePartyEntry(_, nextOffset()))
-      parties1 <- ledgerDao.listKnownParties(None, partiesBefore.size + 1)
+      parties1 <- ledgerDao.listKnownParties(None, filterParty = None, partiesBefore.size + 1)
       parties2 <- ledgerDao.listKnownParties(
         parties1.lastOption.map(_.party),
+        filterParty = None,
         partiesBefore.size + newParties.size,
       )
     } yield {

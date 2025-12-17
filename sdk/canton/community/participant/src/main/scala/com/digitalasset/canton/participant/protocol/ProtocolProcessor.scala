@@ -33,6 +33,7 @@ import com.digitalasset.canton.participant.protocol.EngineController.EngineAbort
 import com.digitalasset.canton.participant.protocol.Phase37Synchronizer.RequestOutcome
 import com.digitalasset.canton.participant.protocol.ProcessingSteps.{
   CleanReplayData,
+  DecryptedViews,
   PendingRequestData,
   ReplayDataOr,
   Wrapped,
@@ -745,7 +746,7 @@ abstract class ProtocolProcessor[
         }
         (snapshot, uncheckedDecryptedViews, synchronizerParameters) = preliminaryChecks
 
-        steps.DecryptedViews(decryptedViewsWithSignatures, rawDecryptionErrors) =
+        DecryptedViews(decryptedViewsWithSignatures, rawDecryptionErrors) =
           uncheckedDecryptedViews
         _ = rawDecryptionErrors.foreach { decryptionError =>
           logger.warn(s"Request $rc: Decryption error: $decryptionError")
@@ -1510,7 +1511,9 @@ abstract class ProtocolProcessor[
     EitherT.pure(res)
   }
 
-  // The processing in this method is done in the asynchronous part of the processing
+  // The processing in this method is done in the asynchronous part of the processing.
+  // Assigning the internal contract ids to the contracts requires that all the contracts are
+  // already persisted in the contract store.
   private[this] def processResultInternal3(
       event: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
       verdict: Verdict,
@@ -1587,7 +1590,9 @@ abstract class ProtocolProcessor[
         synchronizerParameters,
       ).leftMap(err => steps.embedResultError(RequestTrackerError(err)))
 
-      _ <- EitherT.right(ephemeral.contractStore.storeContracts(contractsToBeStored))
+      internalContractIdsForStoredContracts <- EitherT.right(
+        ephemeral.contractStore.storeContracts(contractsToBeStored)
+      )
 
       _ <- ifThenET(!cleanReplay) {
         logger.info(
@@ -1595,12 +1600,6 @@ abstract class ProtocolProcessor[
         )
         for {
           commitSet <- EitherT.right[steps.ResultError](commitSetF)
-          // TODO(#27996) getting the internal contract ids will not be done here and will be part of indexing
-          internalContractIdsForStoredContracts <- EitherT.right[steps.ResultError](
-            ephemeral.contractStore.lookupBatchedNonCachedInternalIds(
-              contractsToBeStored.map(_.contractId)
-            )
-          )
           eventO = eventFactoryO.map(
             _(AcsChangeSupport.fromCommitSet(commitSet))(internalContractIdsForStoredContracts)
           )

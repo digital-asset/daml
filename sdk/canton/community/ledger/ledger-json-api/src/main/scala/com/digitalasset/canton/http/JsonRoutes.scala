@@ -8,13 +8,13 @@ import com.daml.logging.LoggingContextOf.withEnrichedLoggingContext
 import com.digitalasset.canton.http.json.v2.V2Routes
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.NoTracing
+import io.circe.syntax.*
 import org.apache.pekko.http.scaladsl.model.*
 import org.apache.pekko.http.scaladsl.server
 import org.apache.pekko.http.scaladsl.server.Directives.{extractClientIP, *}
 import org.apache.pekko.http.scaladsl.server.RouteResult.*
 import org.apache.pekko.http.scaladsl.server.{Directive, Directive0, PathMatcher, Route}
 import scalaz.EitherT
-import spray.json.*
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
@@ -98,7 +98,7 @@ class JsonRoutes(
             httpMessage
               .transformEntityDataBytes(
                 Flow.fromFunction { it =>
-                  try logWithBodyInCtx(it.utf8String.parseJson)
+                  try logWithBodyInCtx(it.utf8String.asJson.noSpaces)
                   catch {
                     case NonFatal(ex) =>
                       logger.error(s"Failed to log message body, ${lc.makeString}: ", ex)

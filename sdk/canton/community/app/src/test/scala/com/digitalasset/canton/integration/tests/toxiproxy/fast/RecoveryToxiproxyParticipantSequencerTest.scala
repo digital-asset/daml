@@ -11,9 +11,9 @@ import com.daml.test.evidence.tag.Reliability.{
   ReliabilityTest,
   Remediation,
 }
-import com.digitalasset.canton.config.{DbConfig, PositiveDurationSeconds}
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.config.PositiveDurationSeconds
 import com.digitalasset.canton.integration.plugins.toxiproxy.ParticipantToSequencerPublicApi
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2}
 import com.digitalasset.canton.integration.tests.toxiproxy.ToxiproxyHelpers.bongWithToxic
 import com.digitalasset.canton.integration.tests.toxiproxy.ToxiproxyParticipantSynchronizerHelpers.connectParticipantsToDa
 import com.digitalasset.canton.integration.tests.toxiproxy.{
@@ -40,7 +40,8 @@ class RecoveryToxiproxyParticipantSequencerTest
     with ToxiproxyParticipantSynchronizerBase
     with AccessTestScenario {
 
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseH2(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
   registerPlugin(toxiProxy)
 
   override def proxyConf: () => ParticipantToSequencerPublicApi =

@@ -27,7 +27,7 @@ class WebSocketToPekkoPipe[R](implicit ec: ExecutionContext) extends WebSocketTo
 
     val sink = Flow[REQ]
       .map(o.requests.encode)
-      .mapAsync(1)(ws.send(_, isContinuation = false)) // TODO support fragmented frames
+      .mapAsync(1)(ws.send(_, isContinuation = false))
       .to(Sink.ignore)
 
     val source = Source

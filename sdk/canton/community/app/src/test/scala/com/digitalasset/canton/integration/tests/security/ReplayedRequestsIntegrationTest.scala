@@ -8,15 +8,15 @@ import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.*
 import com.daml.test.evidence.tag.Security.SecurityTest.Property.{Availability, Integrity}
 import com.daml.test.evidence.tag.Security.{Attack, SecurityTest, SecurityTestSuite}
 import com.digitalasset.canton.BigDecimalImplicits.*
-import com.digitalasset.canton.config.{DbConfig, NonNegativeDuration}
+import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.console.{CommandFailure, ParticipantReference}
 import com.digitalasset.canton.crypto.{CryptoPureApi, SynchronizerCrypto}
 import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.examples.java.iou.{Amount, Iou}
 import com.digitalasset.canton.integration.plugins.{
+  UseBftSequencer,
   UsePostgres,
   UseProgrammableSequencer,
-  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.util.EntitySyntax
 import com.digitalasset.canton.integration.{
@@ -547,6 +547,6 @@ trait ReplayedRequestsIntegrationTest
 
 class ReplayedRequestsIntegrationTestPostgres extends ReplayedRequestsIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
   registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
 }

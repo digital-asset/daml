@@ -6,7 +6,6 @@ package com.digitalasset.canton.protocol.hash
 import com.digitalasset.canton.crypto.{Hash, HashPurpose}
 import com.digitalasset.canton.data.LedgerTimeBoundaries
 import com.digitalasset.canton.protocol.LfHash
-import com.digitalasset.canton.protocol.hash.HashTracer
 import com.digitalasset.canton.protocol.hash.TransactionHash.NodeHashingError
 import com.digitalasset.daml.lf.data.{Ref, Time}
 import com.digitalasset.daml.lf.transaction.{CreationTime, FatContractInstance}
@@ -39,33 +38,33 @@ object TransactionMetadataHashBuilder {
       HashPurpose.PreparedSubmission,
       hashTracer,
       enforceNodeSeedForCreateNodes = false,
-    ).addPurpose
+    ).addPurpose()
       .addMetadataEncodingVersion(1)
       .withContext("Act As Parties")(
-        _.iterateOver(metadata.actAs.iterator, metadata.actAs.size)(_ add _)
+        _.addIterator(metadata.actAs.iterator, metadata.actAs.size)(_ addString _)
       )
-      .withContext("Command Id")(_.add(metadata.commandId))
-      .withContext("Transaction UUID")(_.add(metadata.transactionUUID.toString))
-      .withContext("Mediator Group")(_.add(metadata.mediatorGroup))
-      .withContext("Synchronizer Id")(_.add(metadata.synchronizerId))
+      .withContext("Command Id")(_.addString(metadata.commandId))
+      .withContext("Transaction UUID")(_.addString(metadata.transactionUUID.toString))
+      .withContext("Mediator Group")(_.addInt(metadata.mediatorGroup))
+      .withContext("Synchronizer Id")(_.addString(metadata.synchronizerId))
       .withContext("Min Time Boundary")(
         _.addOptional(
           metadata.timeBoundaries.minConstraint,
-          b => (v: Time.Timestamp) => b.add(v.micros),
+          b => (v: Time.Timestamp) => b.addLong(v.micros),
         )
       )
       .withContext("Max Time Boundary")(
         _.addOptional(
           metadata.timeBoundaries.maxConstraint,
-          b => (v: Time.Timestamp) => b.add(v.micros),
+          b => (v: Time.Timestamp) => b.addLong(v.micros),
         )
       )
-      .withContext("Preparation Time")(_.add(metadata.preparationTime.micros))
+      .withContext("Preparation Time")(_.addLong(metadata.preparationTime.micros))
       .withContext("Disclosed Contracts")(
-        _.iterateOver(metadata.disclosedContracts.valuesIterator, metadata.disclosedContracts.size)(
+        _.addIterator(metadata.disclosedContracts.valuesIterator, metadata.disclosedContracts.size)(
           (builder, fatInstance) =>
             builder
-              .withContext("Created At")(_.add(CreationTime.encode(fatInstance.createdAt)))
+              .withContext("Created At")(_.addLong(CreationTime.encode(fatInstance.createdAt)))
               .withContext("Create Contract")(builder =>
                 builder.addHash(
                   builder.hashNode(

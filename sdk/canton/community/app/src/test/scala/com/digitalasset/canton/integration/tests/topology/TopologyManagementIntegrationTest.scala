@@ -9,8 +9,8 @@ import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.*
 import com.daml.test.evidence.tag.Security.SecurityTest.Property.*
 import com.daml.test.evidence.tag.Security.{Attack, SecurityTest, SecurityTestSuite}
 import com.digitalasset.canton.admin.api.client.commands.TopologyAdminCommands.Write.GenerateTransactions
+import com.digitalasset.canton.config.PositiveDurationSeconds
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.config.{DbConfig, PositiveDurationSeconds}
 import com.digitalasset.canton.console.{
   CommandFailure,
   LocalParticipantReference,
@@ -21,11 +21,7 @@ import com.digitalasset.canton.crypto.admin.grpc.PrivateKeyMetadata
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.examples.java.cycle as C
 import com.digitalasset.canton.integration.*
-import com.digitalasset.canton.integration.plugins.{
-  UseBftSequencer,
-  UsePostgres,
-  UseReferenceBlockSequencer,
-}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.util.{PartiesAllocator, PartyToParticipantDeclarative}
 import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
@@ -68,8 +64,6 @@ trait TopologyManagementIntegrationTest
     with HasCycleUtils
     with SecurityTestSuite
     with AccessTestScenario {
-
-  protected val isBftSequencer: Boolean = false
 
   // TODO(#16283): disable participant / roll keys while the affected nodes are busy
 
@@ -1431,8 +1425,6 @@ trait TopologyManagementIntegrationTest
           .map(_.item.namespace.fingerprint) shouldBe Seq(key1.fingerprint)
       })
 
-      val timestamp = env.environment.clock.now
-
       // remove
       Seq(key1, key2).map(key =>
         clue(s"removing $key")(
@@ -1451,21 +1443,6 @@ trait TopologyManagementIntegrationTest
         forAll(Seq(key1.fingerprint, key2.fingerprint)) { fp =>
           known should not contain fp
         }
-      }
-
-      // WARNING: Skipping BFT Ordering Sequencer because it implements BFT Time, which does not depend on the current
-      // clock time for any given block; it depends on previous block times. Therefore, the current clock time cannot be
-      // used to query for a snapshot.
-      if (!isBftSequencer) clue(s"querying snapshot at $timestamp") {
-        // querying for snapshots should work
-        val sp = participant1.topology.namespace_delegations
-          .list(
-            daId,
-            timeQuery = TimeQuery.Snapshot(timestamp),
-            filterNamespace = key1.fingerprint.unwrap,
-          )
-          .map(_.item.namespace.fingerprint)
-        sp shouldBe Seq(key1.fingerprint)
       }
 
       // add and remove txs should be found
@@ -1934,16 +1911,8 @@ trait TopologyManagementIntegrationTest
 
 }
 
-class TopologyManagementReferenceIntegrationTestPostgres extends TopologyManagementIntegrationTest {
-  registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
-}
-
 class TopologyManagementBftOrderingIntegrationTestPostgres
     extends TopologyManagementIntegrationTest {
-
-  override protected val isBftSequencer: Boolean = true
-
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(new UseBftSequencer(loggerFactory))
 }

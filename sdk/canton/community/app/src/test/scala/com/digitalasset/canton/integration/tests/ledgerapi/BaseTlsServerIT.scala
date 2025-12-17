@@ -10,13 +10,12 @@ import com.digitalasset.canton.config.AuthServiceConfig.Wildcard
 import com.digitalasset.canton.config.RequireTypes.ExistingFile
 import com.digitalasset.canton.config.{
   CantonConfig,
-  DbConfig,
   PemFile,
   TlsClientCertificate,
   TlsClientConfig,
   TlsServerConfig,
 }
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2}
 import com.digitalasset.canton.integration.tests.ledgerapi.fixture.CantonFixture
 import com.digitalasset.canton.integration.{
   ConfigTransforms,
@@ -44,7 +43,8 @@ abstract class BaseTlsServerIT(minimumServerProtocolVersion: Option[TlsVersion])
     extends CantonFixture {
 
   registerPlugin(TLSPlugin(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseH2(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   minimumServerProtocolVersion match {
     case Some(TlsVersion.V1_3) =>

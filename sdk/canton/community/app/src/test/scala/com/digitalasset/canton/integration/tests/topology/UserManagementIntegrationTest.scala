@@ -8,9 +8,8 @@ import com.digitalasset.canton.admin.api.client.data.{
   User,
   UserRights,
 }
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.CommandFailure
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2, UsePostgres}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -468,12 +467,14 @@ trait UserManagementIntegrationTest extends CommunityIntegrationTest with Shared
   }
 }
 
-class UserManagementReferenceIntegrationTestDefault extends UserManagementIntegrationTest {
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+class UserManagementBftOrderingIntegrationTestDefault extends UserManagementIntegrationTest {
+  registerPlugin(new UseH2(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }
 
-class UserManagementReferenceIntegrationTestPostgres extends UserManagementIntegrationTest {
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+class UserManagementBftOrderingIntegrationTestPostgres extends UserManagementIntegrationTest {
+  registerPlugin(new UsePostgres(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }
 
 trait UserManagementNoExtraAdminIntegrationTest
@@ -500,7 +501,8 @@ trait UserManagementNoExtraAdminIntegrationTest
   }
 }
 
-class UserManagementNoExtraAdminReferenceIntegrationTestPostgres
+class UserManagementNoExtraAdminBftOrderingIntegrationTestPostgres
     extends UserManagementNoExtraAdminIntegrationTest {
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UsePostgres(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }

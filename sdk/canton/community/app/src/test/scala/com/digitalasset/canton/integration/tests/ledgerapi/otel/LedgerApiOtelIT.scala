@@ -29,8 +29,8 @@ import com.daml.ledger.api.v2.value.{Record, RecordField, Value}
 import com.digitalasset.canton.UniquePortGenerator
 import com.digitalasset.canton.config.AuthServiceConfig.Wildcard
 import com.digitalasset.canton.config.RequireTypes.ExistingFile
-import com.digitalasset.canton.config.{CantonConfig, DbConfig, PemFile, TlsServerConfig}
-import com.digitalasset.canton.integration.plugins.{UseOtlp, UseReferenceBlockSequencer}
+import com.digitalasset.canton.config.{CantonConfig, PemFile, TlsServerConfig}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2, UseOtlp}
 import com.digitalasset.canton.integration.tests.ledgerapi.fixture.ValueConversions.*
 import com.digitalasset.canton.integration.tests.ledgerapi.fixture.{CantonFixture, CreatesParties}
 import com.digitalasset.canton.integration.tests.ledgerapi.services.TestCommands
@@ -64,7 +64,8 @@ trait LedgerApiOtelITBase
   val otlpHeaders = Map("custom-key" -> "custom-value")
 
   registerPlugin(LedgerApiOtelOverrideConfig(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseH2(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   protected def useOtlp: UseOtlp
   registerPlugin(useOtlp)

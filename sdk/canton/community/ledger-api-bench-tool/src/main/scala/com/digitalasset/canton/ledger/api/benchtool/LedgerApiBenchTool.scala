@@ -7,6 +7,7 @@ import cats.syntax.either.*
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.api.opentelemetry.OpenTelemetryMetricsFactory
+import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.TlsClientConfig
 import com.digitalasset.canton.ledger.api.benchtool.config.WorkflowConfig.{
   FibonacciSubmissionConfig,
@@ -27,6 +28,7 @@ import com.digitalasset.canton.ledger.api.benchtool.util.TypedActorSystemResourc
 import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.networking.grpc.ClientChannelBuilder
+import com.typesafe.scalalogging
 import io.grpc.Channel
 import io.grpc.netty.shaded.io.grpc.netty.{NegotiationType, NettyChannelBuilder}
 import io.opentelemetry.api.metrics.MeterProvider
@@ -47,7 +49,8 @@ object LedgerApiBenchTool {
   private[benchtool] def prettyPrint(x: Any): String = printer(x).toString()
 
   def main(args: Array[String]): Unit = {
-    import scala.concurrent.ExecutionContext.Implicits.global
+    implicit val ec =
+      Threading.newExecutionContext("LedgerApiBenchTool", scalalogging.Logger(logger))
     ConfigMaker.make(args) match {
       case Left(error) =>
         logger.error(s"Configuration error: ${error.details}")
@@ -55,7 +58,7 @@ object LedgerApiBenchTool {
       case Right(config) =>
         logger.info(s"Starting benchmark with configuration:\n${prettyPrint(config)}")
         val result = LedgerApiBenchTool(config)
-          .run()(ExecutionContext.Implicits.global)
+          .run()
           .map {
             case Right(()) =>
               logger.info(s"Benchmark finished successfully.")
@@ -65,7 +68,7 @@ object LedgerApiBenchTool {
           .recover { case ex =>
             logger.error(s"ledger-api-bench-tool failure: ${ex.getMessage}", ex)
             sys.exit(1)
-          }(scala.concurrent.ExecutionContext.Implicits.global)
+          }
         Await.result(result, atMost = Duration.Inf)
         ()
     }

@@ -5,12 +5,12 @@ package com.digitalasset.canton.integration.tests.toxiproxy.fast
 
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.StorageConfig.Memory
-import com.digitalasset.canton.config.{DbConfig, ModifiableDbConfig, StorageConfig}
+import com.digitalasset.canton.config.{ModifiableDbConfig, StorageConfig}
 import com.digitalasset.canton.console.{CommandFailure, LocalInstanceReference}
 import com.digitalasset.canton.integration.ConfigTransforms.modifyAllStorageConfigs
 import com.digitalasset.canton.integration.plugins.toxiproxy.*
 import com.digitalasset.canton.integration.plugins.toxiproxy.UseToxiproxy.ToxiproxyConfig
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.tests.toxiproxy.ToxiproxyHelpers
 import com.digitalasset.canton.integration.tests.toxiproxy.fast.ToxiproxyDbStartupTest.noFailFastForNode
 import com.digitalasset.canton.integration.{
@@ -244,7 +244,7 @@ abstract class ToxiproxySequencerStartupTestPostgres extends ToxiproxyDbStartupT
   override def storagePlugin: EnvironmentSetupPlugin =
     new UsePostgres(loggerFactory)
 
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   def proxyConf: ProxyConfig =
     SequencerToPostgres("sequencer-to-postgres-startup", "sequencer1", dbTimeout = 1000L)
@@ -265,7 +265,7 @@ abstract class ToxiproxyMediatorStartupTestPostgres extends ToxiproxyDbStartupTe
   override def storagePlugin: EnvironmentSetupPlugin =
     new UsePostgres(loggerFactory)
 
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   def proxyConf: ProxyConfig =
     MediatorToPostgres("mediator-to-postgres-startup", "mediator1", dbTimeout = 1000L)
@@ -286,7 +286,7 @@ abstract class ToxiproxyParticipantStartupTestPostgres extends ToxiproxyDbStartu
   override def storagePlugin: EnvironmentSetupPlugin =
     new UsePostgres(loggerFactory)
 
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   def proxyConf: ProxyConfig =
     ParticipantToPostgres("Participant-to-postgres-startup", "participant1")

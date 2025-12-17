@@ -17,14 +17,11 @@ import com.digitalasset.canton.integration.plugins.toxiproxy.{
   UseToxiproxy,
 }
 import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
+import com.digitalasset.canton.integration.tests.bftsequencer.AwaitsBftSequencerAuthenticationDisseminationQuorum
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
   SharedEnvironment,
-}
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.SequencerBftAdminData.{
-  PeerConnectionStatus,
-  PeerEndpointHealthStatus,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig.{
   DefaultConsensusEmptyBlockCreationTimeout,
@@ -34,7 +31,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.Bft
   DefaultMinRequestsInBatch,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.EpochLength
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopology
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.performance.dabft.DaBftBindingFactory
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.performance.{
   BftBenchmarkConfig,
@@ -74,7 +70,10 @@ import scala.concurrent.duration.{Duration, DurationInt, FiniteDuration}
   * com.digitalasset.canton.integration.tests.manual.BftOrderingBenchmark"
   */
 @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
-class BftOrderingBenchmark extends CommunityIntegrationTest with SharedEnvironment {
+class BftOrderingBenchmark
+    extends CommunityIntegrationTest
+    with SharedEnvironment
+    with AwaitsBftSequencerAuthenticationDisseminationQuorum {
 
   private val BFTOrderingBenchmarkPrefix = "bft-ordering-benchmark"
   private val PostgresProxyNameSuffix = "postgres"
@@ -308,25 +307,9 @@ class BftOrderingBenchmark extends CommunityIntegrationTest with SharedEnvironme
     )
     mediators.local.foreach(_.stop())
 
-    clue("make sure ordering nodes have connected to enough other nodes") {
-      eventually() {
-        forAll(sequencers.all)(sequencer =>
-          sequencer.bft
-            .get_peer_network_status(None)
-            .endpointStatuses
-            .collect {
-              case PeerConnectionStatus
-                    .PeerEndpointStatus(_, _, health) =>
-                health.status match {
-                  case PeerEndpointHealthStatus.Authenticated(_) => true
-                  case _ => false
-                }
-              case PeerConnectionStatus.PeerIncomingConnection(_) => true
-            }
-            .size should be >= OrderingTopology.weakQuorumSize(sequencers.all.size)
-        )
-      }
-    }
+    // Use a high timeout to allow many nodes in performance testing environments
+
+    waitUntilAllBftSequencersAuthenticateDisseminationQuorum(5.minutes)
 
     val benchmarkTool = new BftBenchmarkTool(DaBftBindingFactory, loggerFactory)
     val benchmarkToolConfig =

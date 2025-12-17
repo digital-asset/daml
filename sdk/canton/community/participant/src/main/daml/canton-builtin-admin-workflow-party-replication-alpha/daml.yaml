@@ -3,7 +3,7 @@ override-components:
     version: $DAML_VERSION
   daml-script: 
     version: $DAML_VERSION
-  codegen-java: 
+  codegen: 
     version: $DAML_VERSION
 build-options: 
 - --target=2.2

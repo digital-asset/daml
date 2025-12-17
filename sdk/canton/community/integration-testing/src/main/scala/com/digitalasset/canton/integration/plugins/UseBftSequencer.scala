@@ -21,6 +21,7 @@ import com.digitalasset.canton.synchronizer.sequencer.SequencerConfig.BftSequenc
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig.{
   BftBlockOrderingStandalonePeerConfig,
+  DefaultConsensusBlockCompletionTimeout,
   DefaultDedicatedExecutionContextDivisor,
   DefaultEpochLength,
   DefaultMaxBatchCreationInterval,
@@ -71,6 +72,7 @@ final class UseBftSequencer(
     // Use a shorter empty block creation timeout by default to speed up tests that stop sequencing
     //  and use `GetTime` to await an effective time to be reached on the synchronizer.
     consensusEmptyBlockCreationTimeout: FiniteDuration = 250.millis,
+    consensusBlockCompletionTimeout: FiniteDuration = DefaultConsensusBlockCompletionTimeout,
     maxRequestsInBatch: Short = DefaultMaxRequestsInBatch,
     minRequestsInBatch: Short = DefaultMinRequestsInBatch,
     maxBatchCreationInterval: FiniteDuration = DefaultMaxBatchCreationInterval,
@@ -102,6 +104,7 @@ final class UseBftSequencer(
                   .copy(
                     epochLength = epochLength,
                     consensusEmptyBlockCreationTimeout = consensusEmptyBlockCreationTimeout,
+                    consensusBlockCompletionTimeout = consensusBlockCompletionTimeout,
                     maxRequestsInBatch = maxRequestsInBatch,
                     minRequestsInBatch = minRequestsInBatch,
                     maxBatchCreationInterval = maxBatchCreationInterval,
@@ -229,6 +232,7 @@ final class UseBftSequencer(
             config = BftBlockOrdererConfig(
               epochLength = epochLength,
               consensusEmptyBlockCreationTimeout = consensusEmptyBlockCreationTimeout,
+              consensusBlockCompletionTimeout = consensusBlockCompletionTimeout,
               maxRequestsInBatch = maxRequestsInBatch,
               minRequestsInBatch = minRequestsInBatch,
               maxBatchCreationInterval = maxBatchCreationInterval,

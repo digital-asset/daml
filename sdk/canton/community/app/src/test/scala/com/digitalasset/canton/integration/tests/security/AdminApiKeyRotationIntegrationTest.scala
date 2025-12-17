@@ -10,10 +10,10 @@ import com.digitalasset.canton.admin.api.client.commands.VaultAdminCommands
 import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.CantonRequireTypes.NonEmptyString
-import com.digitalasset.canton.config.{AuthServiceConfig, DbConfig, PositiveFiniteDuration}
+import com.digitalasset.canton.config.{AuthServiceConfig, PositiveFiniteDuration}
 import com.digitalasset.canton.console.CommandFailure
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2, UsePostgres}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -211,10 +211,11 @@ trait AdminApiKeyRotationIntegrationTest
 
 // Don't run in-memory because this may fail due to stale reads in H2.
 class AdminApiKeyRotationIntegrationTestDefault extends AdminApiKeyRotationIntegrationTest {
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseH2(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }
 
 class AdminApiKeyRotationIntegrationTestPostgres extends AdminApiKeyRotationIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }

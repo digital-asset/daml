@@ -13,6 +13,7 @@ import com.digitalasset.canton.concurrent.{
   FutureSupervisor,
 }
 import com.digitalasset.canton.config.{
+  BatchingConfig,
   CachingConfigs,
   CantonConfig,
   CryptoConfig,
@@ -71,6 +72,7 @@ trait TestEnvironment
       environment.clock,
       executionContext,
       environmentTimeouts,
+      BatchingConfig(),
       loggerFactory,
       NoReportingTracerProvider,
     )(executionContext, TraceContext.empty)

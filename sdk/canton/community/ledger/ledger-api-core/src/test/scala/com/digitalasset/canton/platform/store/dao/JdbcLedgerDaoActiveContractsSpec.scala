@@ -133,7 +133,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
               witnessTemplateProjections =
-                Map(Some(party1) -> Map(otherTemplateIdFull.toNameTypeConRef -> Projection())),
+                Map(Some(party1) -> Map(Some(otherTemplateIdFull.toNameTypeConRef) -> Projection())),
             )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
           )
       )
@@ -172,8 +172,8 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
               witnessTemplateProjections = Map(
-                Some(party1) -> Map(otherTemplateIdFull.toNameTypeConRef -> Projection()),
-                Some(party2) -> Map(otherTemplateIdFull.toNameTypeConRef -> Projection()),
+                Some(party1) -> Map(Some(otherTemplateIdFull.toNameTypeConRef) -> Projection()),
+                Some(party2) -> Map(Some(otherTemplateIdFull.toNameTypeConRef) -> Projection()),
               ),
             )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
           )
@@ -220,8 +220,8 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
               witnessTemplateProjections = Map(
-                Some(party1) -> Map(otherTemplateId2Full.toNameTypeConRef -> Projection()),
-                Some(party2) -> Map(otherTemplateId2Full.toNameTypeConRef -> Projection()),
+                Some(party1) -> Map(Some(otherTemplateId2Full.toNameTypeConRef) -> Projection()),
+                Some(party2) -> Map(Some(otherTemplateId2Full.toNameTypeConRef) -> Projection()),
               ),
             )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
           )
@@ -269,8 +269,8 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
               witnessTemplateProjections = Map(
-                Some(party1) -> Map(otherTemplateIdFull.toNameTypeConRef -> Projection()),
-                Some(party2) -> Map(otherTemplateIdFull.toNameTypeConRef -> Projection()),
+                Some(party1) -> Map(Some(otherTemplateIdFull.toNameTypeConRef) -> Projection()),
+                Some(party2) -> Map(Some(otherTemplateIdFull.toNameTypeConRef) -> Projection()),
               ),
             )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
           )
@@ -362,7 +362,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
               witnessTemplateProjections = Map(
-                Some(party1) -> Map(someTemplateIdFull.toNameTypeConRef -> Projection())
+                Some(party1) -> Map(Some(someTemplateIdFull.toNameTypeConRef) -> Projection())
               ),
             )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
           )
@@ -409,7 +409,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
               witnessTemplateProjections = Map(
-                Some(party1) -> Map(otherTemplateId5Full.toNameTypeConRef -> Projection())
+                Some(party1) -> Map(Some(otherTemplateId5Full.toNameTypeConRef) -> Projection())
               ),
             )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
           )
@@ -464,7 +464,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
               witnessTemplateProjections = Map(
-                Some(party1) -> Map(someTemplateIdFull.toNameTypeConRef -> Projection())
+                Some(party1) -> Map(Some(someTemplateIdFull.toNameTypeConRef) -> Projection())
               ),
             )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
           )
@@ -482,7 +482,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
               witnessTemplateProjections = Map(
-                Some(party1) -> Map(someTemplateIdFull.toNameTypeConRef -> Projection())
+                Some(party1) -> Map(Some(someTemplateIdFull.toNameTypeConRef) -> Projection())
               ),
             )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
           )
@@ -502,8 +502,8 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
               verbose = true,
               witnessTemplateProjections = Map(
                 Some(party1) -> Map(
-                  someTemplateIdFull.toNameTypeConRef -> Projection(),
-                  unknownTemplateFull.toNameTypeConRef -> Projection(),
+                  Some(someTemplateIdFull.toNameTypeConRef) -> Projection(),
+                  Some(unknownTemplateFull.toNameTypeConRef) -> Projection(),
                 )
               ),
             )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
@@ -524,10 +524,10 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
               verbose = true,
               witnessTemplateProjections = Map(
                 Some(party1) -> Map(
-                  someTemplateIdFull.toNameTypeConRef -> Projection()
+                  Some(someTemplateIdFull.toNameTypeConRef) -> Projection()
                 ),
                 None -> Map(
-                  unknownTemplateFull.toNameTypeConRef -> Projection()
+                  Some(unknownTemplateFull.toNameTypeConRef) -> Projection()
                 ),
               ),
             )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
@@ -548,8 +548,8 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
               verbose = true,
               witnessTemplateProjections = Map(
                 Some(party1) -> Map(
-                  someTemplateIdFull.toNameTypeConRef -> Projection(),
-                  unknownTemplateFull.toNameTypeConRef -> Projection(),
+                  Some(someTemplateIdFull.toNameTypeConRef) -> Projection(),
+                  Some(unknownTemplateFull.toNameTypeConRef) -> Projection(),
                 )
               ),
             )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
@@ -569,7 +569,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
               verbose = true,
               witnessTemplateProjections = Map(
                 Some(unknownParty) -> Map(
-                  unknownTemplateFull.toNameTypeConRef -> Projection()
+                  Some(unknownTemplateFull.toNameTypeConRef) -> Projection()
                 )
               ),
             )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),

@@ -11,9 +11,8 @@ import com.daml.ledger.api.v2.admin.user_management_service.{
   UserManagementServiceGrpc,
 }
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.*
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.integration.TestConsoleEnvironment
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2}
 import com.digitalasset.canton.integration.tests.ledgerapi.SuppressionRules.AuthInterceptorSuppressionRule
 import org.scalatest.Assertion
 
@@ -22,7 +21,8 @@ import scala.concurrent.Future
 
 /** Tests covering the special behaviour of GetUser wrt the authenticated user. */
 class GetAuthenticatedUserAuthIT extends ServiceCallAuthTests {
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseH2(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   private val testId = UUID.randomUUID().toString
 

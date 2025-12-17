@@ -271,6 +271,7 @@ class TopologyStateVerification(
             clock,
             executionContext,
             timeouts,
+            BatchingConfig(),
             replayLoggerFactory,
             NoReportingTracerProvider,
           )

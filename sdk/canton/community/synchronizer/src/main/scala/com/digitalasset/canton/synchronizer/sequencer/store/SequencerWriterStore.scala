@@ -37,6 +37,14 @@ trait SequencerWriterStore extends AutoCloseable {
   ): FutureUnlessShutdown[Option[RegisteredMember]] =
     store.lookupMember(member)
 
+  /** Lookup several existing member ids for given members. Return [[scala.None]] if no id exists
+    * for a member
+    */
+  def lookupMembers(members: Seq[Member])(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[Member, Option[RegisteredMember]]] =
+    store.lookupMembers(members)
+
   /** Save a series of payloads to the store. Is up to the caller to determine a reasonable batch
     * size and no batching is done within the store.
     */

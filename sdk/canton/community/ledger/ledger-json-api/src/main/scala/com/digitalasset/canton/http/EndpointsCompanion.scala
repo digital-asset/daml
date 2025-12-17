@@ -6,7 +6,6 @@ package com.digitalasset.canton.http
 import com.daml.logging.LoggingContextOf
 import com.digitalasset.base.error.utils.ErrorDetails
 import com.digitalasset.base.error.utils.ErrorDetails.ErrorDetail
-import com.digitalasset.canton.http.json.SprayJson
 import com.digitalasset.canton.http.util.Logging.{
   InstanceUUID,
   RequestID,
@@ -16,12 +15,12 @@ import com.digitalasset.canton.ledger.service.Grpc.StatusEnvelope
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.tracing.NoTracing
 import com.google.rpc.{Code as GrpcCode, Status}
+import io.circe.Json
 import org.apache.pekko.http.scaladsl.model.*
 import org.apache.pekko.http.scaladsl.server.RouteResult.Complete
 import org.apache.pekko.http.scaladsl.server.{RequestContext, Route}
 import org.apache.pekko.util.ByteString
 import scalaz.Show
-import spray.json.JsValue
 
 import scala.concurrent.Future
 import scala.util.control.NonFatal
@@ -29,6 +28,8 @@ import scala.util.control.NonFatal
 import util.GrpcHttpErrorCodes.*
 
 object EndpointsCompanion extends NoTracing {
+
+  import com.digitalasset.canton.http.json.JsonProtocol.ErrorResponseEncoder
 
   sealed abstract class Error extends Product with Serializable
 
@@ -86,9 +87,9 @@ object EndpointsCompanion extends NoTracing {
       error: Error,
       logger: TracedLogger,
   )(implicit lc: LoggingContextOf[InstanceUUID with RequestID]): HttpResponse = {
-    import com.digitalasset.canton.http.json.JsonProtocol.*
     val resp = errorResponse(error, logger)
-    httpResponse(resp.status, SprayJson.encodeUnsafe(resp))
+    import io.circe.syntax.*
+    httpResponse(resp.status, resp.asJson)
   }
 
   def errorResponse(
@@ -127,11 +128,11 @@ object EndpointsCompanion extends NoTracing {
     }
   }
 
-  def httpResponse(status: StatusCode, data: JsValue): HttpResponse =
+  def httpResponse(status: StatusCode, data: Json): HttpResponse =
     HttpResponse(
       status = status,
       entity = HttpEntity.Strict(ContentTypes.`application/json`, format(data)),
     )
 
-  def format(a: JsValue): ByteString = ByteString(a.compactPrint)
+  def format(a: Json): ByteString = ByteString(a.noSpaces)
 }

@@ -13,7 +13,7 @@ import com.daml.jwt.{
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
-import spray.json.JsonParser
+import io.circe.parser
 
 import scala.concurrent.Future
 import scala.util.Try
@@ -96,21 +96,21 @@ abstract class AuthServiceJWTBase(
 
   private[this] def parseAuthServicePayload(jwtPayload: String): AuthServiceJWTPayload = {
     import AuthServiceJWTCodec.JsonImplicits.*
-    JsonParser(jwtPayload).convertTo[AuthServiceJWTPayload]
+    parser.decode(jwtPayload).fold(throw _, identity)
   }
 
   private[this] def parseAudienceBasedPayload(
       jwtPayload: String
   ): AuthServiceJWTPayload = {
     import AuthServiceJWTCodec.AudienceBasedTokenJsonImplicits.*
-    JsonParser(jwtPayload).convertTo[AuthServiceJWTPayload]
+    parser.decode(jwtPayload).fold(throw _, identity)
   }
 
   private[this] def parseScopeBasedPayload(
       jwtPayload: String
   ): AuthServiceJWTPayload = {
     import AuthServiceJWTCodec.ScopeBasedTokenJsonImplicits.*
-    JsonParser(jwtPayload).convertTo[AuthServiceJWTPayload]
+    parser.decode(jwtPayload).fold(throw _, identity)
   }
 
   private[this] def parseJWTPayload(header: String): Either[Error, AuthServiceJWTPayload] =

@@ -8,14 +8,7 @@ import ClassGenUtils.{companionFieldName, generateGetCompanion, templateIdFieldN
 import com.digitalasset.daml.lf.codegen.TypeWithContext
 import com.digitalasset.daml.lf.data.Ref
 import Ref.ChoiceName
-import com.daml.ledger.javaapi.data.codegen.{
-  Choice,
-  Created,
-  Exercised,
-  Update,
-  ContractTypeCompanion,
-}
-import com.digitalasset.daml.lf.codegen.NodeWithContext.AuxiliarySignatures
+import com.daml.ledger.javaapi.data.codegen.{Choice, Created, Update, ContractTypeCompanion}
 import com.digitalasset.daml.lf.codegen.backend.java.inner.ToValueGenerator.generateToValueConverter
 import com.digitalasset.daml.lf.typesig
 import typesig._
@@ -54,19 +47,6 @@ private[inner] object TemplateClass extends StrictLogging {
         .addField(generatePackageNameField(typeWithContext))
         .addField(generatePackageVersionField(typeWithContext))
         .addMethod(generateCreateMethod(className))
-        .addMethods(
-          generateDeprecatedStaticExerciseByKeyMethods(
-            templateChoices,
-            template.key,
-            typeWithContext.auxiliarySignatures,
-          )
-        )
-        .addMethods(
-          generateDeprecatedCreateAndExerciseMethods(
-            templateChoices,
-            typeWithContext.auxiliarySignatures,
-          )
-        )
         .addMethod(staticCreateMethod)
         .addType(
           ContractIdClass
@@ -121,7 +101,6 @@ private[inner] object TemplateClass extends StrictLogging {
   private val updateClassName = ClassName get classOf[Update[_]]
   private val createUpdateClassName = ClassName get classOf[Update.CreateUpdate[_, _]]
   private val createdClassName = ClassName get classOf[Created[_]]
-  private val exercisedClassName = ClassName get classOf[Exercised[_]]
   private def parameterizedTypeName(raw: ClassName, arg: TypeName*) =
     ParameterizedTypeName.get(raw, arg: _*)
 
@@ -242,113 +221,6 @@ private[inner] object TemplateClass extends StrictLogging {
       .build()
   }
 
-  // TODO #14039 delete
-  private def generateDeprecatedStaticExerciseByKeyMethods(
-      choices: Map[ChoiceName, TemplateChoice[Type]],
-      maybeKey: Option[Type],
-      typeDeclarations: AuxiliarySignatures,
-  )(implicit
-      packagePrefixes: PackagePrefixes
-  ) =
-    maybeKey.fold(java.util.Collections.emptyList[MethodSpec]()) { key =>
-      val methods = for ((choiceName, choice) <- choices.toList) yield {
-        val raw = generateDeprecatedStaticExerciseByKeyMethod(
-          choiceName,
-          choice,
-          key,
-        )
-        val flattened =
-          for (
-            record <- choice.param
-              .fold(
-                ClassGenUtils.getRecord(_, typeDeclarations),
-                _ => None,
-                _ => None,
-                _ => None,
-              )
-          )
-            yield {
-              generateDeprecatedFlattenedStaticExerciseByKeyMethod(
-                choiceName,
-                choice,
-                key,
-                getFieldsWithTypes(record.fields),
-              )
-            }
-        raw :: flattened.toList
-      }
-      methods.flatten.asJava
-    }
-
-  // TODO #14039 delete
-  private def generateDeprecatedStaticExerciseByKeyMethod(
-      choiceName: ChoiceName,
-      choice: TemplateChoice[Type],
-      key: Type,
-  )(implicit
-      packagePrefixes: PackagePrefixes
-  ): MethodSpec =
-    MethodSpec
-      .methodBuilder(s"exerciseByKey${choiceName.capitalize}")
-      .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-      .returns(
-        parameterizedTypeName(
-          updateClassName,
-          parameterizedTypeName(
-            exercisedClassName,
-            toJavaTypeName(choice.returnType),
-          ),
-        )
-      )
-      .makeDeprecated(
-        howToFix = s"use {@code byKey(key).exercise${choiceName.capitalize}} instead",
-        sinceDaml = "2.3.0",
-      )
-      .addParameter(toJavaTypeName(key), "key")
-      .addParameter(toJavaTypeName(choice.param), "arg")
-      .addStatement(
-        "return byKey(key).exercise$L(arg)",
-        choiceName.capitalize,
-      )
-      .build()
-
-  // TODO #14039 delete
-  private def generateDeprecatedFlattenedStaticExerciseByKeyMethod(
-      choiceName: ChoiceName,
-      choice: TemplateChoice[Type],
-      key: Type,
-      fields: Fields,
-  )(implicit
-      packagePrefixes: PackagePrefixes
-  ): MethodSpec = {
-    val methodName = s"exerciseByKey${choiceName.capitalize}"
-    val exerciseByKeyBuilder = MethodSpec
-      .methodBuilder(methodName)
-      .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-      .returns(
-        parameterizedTypeName(
-          updateClassName,
-          parameterizedTypeName(
-            exercisedClassName,
-            toJavaTypeName(choice.returnType),
-          ),
-        )
-      )
-      .addParameter(toJavaTypeName(key), "key")
-    for (FieldInfo(_, _, javaName, javaType) <- fields) {
-      exerciseByKeyBuilder.addParameter(javaType, javaName)
-    }
-    val expansion = CodeBlock.of(
-      "byKey(key).exercise$L($L)",
-      choiceName.capitalize,
-      generateArgumentList(fields.map(_.javaName)),
-    )
-    exerciseByKeyBuilder
-      .makeDeprecated(CodeBlock.of("use {@code $L} instead", expansion), sinceDaml = "2.3.0")
-      .addStatement("return $L", expansion)
-      .build()
-  }
-
   private[this] def generateCreateAndMethod(className: ClassName) = {
     val createAndClassName = nestedClassName(className, "CreateAnd")
     MethodSpec
@@ -409,100 +281,6 @@ private[inner] object TemplateClass extends StrictLogging {
       )
       .build()
   }
-
-  // TODO #14039 delete
-  private def generateDeprecatedCreateAndExerciseMethods(
-      choices: Map[ChoiceName, TemplateChoice[typesig.Type]],
-      typeDeclarations: AuxiliarySignatures,
-  )(implicit
-      packagePrefixes: PackagePrefixes
-  ) = {
-    val methods = for ((choiceName, choice) <- choices) yield {
-      val createAndExerciseChoiceMethod =
-        generateDeprecatedCreateAndExerciseMethod(
-          choiceName,
-          choice,
-        )
-      val splatted =
-        for (
-          record <- choice.param
-            .fold(
-              ClassGenUtils.getRecord(_, typeDeclarations),
-              _ => None,
-              _ => None,
-              _ => None,
-            )
-        ) yield {
-          generateDeprecatedFlattenedCreateAndExerciseMethod(
-            choiceName,
-            choice,
-            getFieldsWithTypes(record.fields),
-          )
-        }
-      createAndExerciseChoiceMethod :: splatted.toList
-    }
-    methods.flatten.asJava
-  }
-
-  // TODO #14039 delete
-  private def generateDeprecatedCreateAndExerciseMethod(
-      choiceName: ChoiceName,
-      choice: TemplateChoice[Type],
-  )(implicit
-      packagePrefixes: PackagePrefixes
-  ): MethodSpec = {
-    val methodName = s"createAndExercise${choiceName.capitalize}"
-    val javaType = toJavaTypeName(choice.param)
-    MethodSpec
-      .methodBuilder(methodName)
-      .addModifiers(Modifier.PUBLIC)
-      .makeDeprecated(
-        howToFix = s"use {@code createAnd().exercise${choiceName.capitalize}} instead",
-        sinceDaml = "2.3.0",
-      )
-      .returns(
-        parameterizedTypeName(
-          updateClassName,
-          parameterizedTypeName(
-            exercisedClassName,
-            toJavaTypeName(choice.returnType),
-          ),
-        )
-      )
-      .addParameter(javaType, "arg")
-      .addStatement(
-        "return createAnd().exercise$L(arg)",
-        choiceName.capitalize,
-      )
-      .build()
-  }
-
-  // TODO #14039 delete
-  private def generateDeprecatedFlattenedCreateAndExerciseMethod(
-      choiceName: ChoiceName,
-      choice: TemplateChoice[Type],
-      fields: Fields,
-  )(implicit
-      packagePrefixes: PackagePrefixes
-  ): MethodSpec =
-    ClassGenUtils.generateFlattenedCreateOrExerciseMethod(
-      "createAndExercise",
-      parameterizedTypeName(
-        updateClassName,
-        parameterizedTypeName(
-          exercisedClassName,
-          toJavaTypeName(choice.returnType),
-        ),
-      ),
-      choiceName,
-      choice,
-      fields,
-    )(
-      _.makeDeprecated(
-        howToFix = s"use {@code createAnd().exercise${choiceName.capitalize}} instead",
-        sinceDaml = "2.3.0",
-      )
-    )
 
   private def generateTemplateIdFields(typeWithContext: TypeWithContext): Seq[FieldSpec] =
     ClassGenUtils.generateTemplateIdFields(
@@ -675,24 +453,6 @@ private[inner] object TemplateClass extends StrictLogging {
         },
         _ => self,
       )
-
-    private[TemplateClass] def makeDeprecated(
-        howToFix: String,
-        sinceDaml: String,
-    ): MethodSpec.Builder =
-      self.makeDeprecated(howToFix = CodeBlock.of("$L", howToFix), sinceDaml = sinceDaml)
-
-    private[TemplateClass] def makeDeprecated(
-        howToFix: CodeBlock,
-        sinceDaml: String,
-    ): MethodSpec.Builder =
-      self
-        .addAnnotation(classOf[Deprecated])
-        .addJavadoc(
-          "@deprecated since Daml $L; $L",
-          sinceDaml,
-          howToFix,
-        )
   }
 
   private implicit final class `TypeSpec extensions`(private val self: TypeSpec.Builder)

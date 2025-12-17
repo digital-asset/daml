@@ -10,7 +10,7 @@ import pureconfig.{ConfigCursor, ConfigReader, PathSegment}
 import scala.jdk.CollectionConverters.*
 
 object DeprecatedConfigUtils {
-  final case class MovedConfigPath(from: String, to: String*)
+  final case class MovedConfigPath(from: String, since: String, to: Seq[String])
 
   /** Deprecate a config path. A message will be logged at INFO level if the config path is used
     * @param path
@@ -64,7 +64,7 @@ object DeprecatedConfigUtils {
       * @return
       *   config reader with fallback values from the deprecated fields
       */
-    def moveDeprecatedField(from: String, to: Seq[String])(implicit
+    def moveDeprecatedField(from: String, since: String, to: Seq[String])(implicit
         elc: ErrorLoggingContext
     ): ConfigReader[T] = {
       val fromPathSegment =
@@ -82,7 +82,7 @@ object DeprecatedConfigUtils {
               .map { deprecated =>
                 // Log a message if it turns out there's a value defined at the deprecated path
                 elc.info(
-                  s"Config field at $from is deprecated. Please use the following path(s) instead: ${to
+                  s"Config field at $from is deprecated since $since. Please use the following path(s) instead: ${to
                       .mkString(", ")}."
                 )
                 // Build a new config from scratch by
@@ -121,15 +121,21 @@ object DeprecatedConfigUtils {
           // Get the config value at "path"
           cursorAtFrom <- cursor.fluent.at(fromPathSegment*).cursor
           fromValueOpt = cursorAtFrom.valueOpt
-          _ = fromValueOpt.map { fromValue =>
-            if (deprecated.isDeprecatedValue(fromValue))
+          adjustedConfig = fromValueOpt
+            .filter(deprecated.isDeprecatedValue)
+            .map { _ =>
               elc.info(
                 s"Config path '${deprecated.path}'${deprecated.valueFilter
                     .map(v => s" with value '$v' ")
                     .getOrElse(" ")}is deprecated since ${deprecated.since}"
               )
-          }
-        } yield ConfigCursor(cursorConfigValue, cursor.pathElems)
+              // Build a new config from scratch by adding all the values from the original config
+              val originalConfig = ConfigFactory.empty().withFallback(cursorConfigValue)
+              // Deleting the deprecated value from the config, so that we don't get an "Unknown key" error later
+              originalConfig.withoutPath(deprecated.path).root()
+            }
+            .getOrElse(cursorConfigValue)
+        } yield ConfigCursor(adjustedConfig, cursor.pathElems)
 
         result.getOrElse(cursor)
       }
@@ -145,7 +151,7 @@ object DeprecatedConfigUtils {
     ): ConfigReader[T] = {
       val moved = implicitly[DeprecatedFieldsFor[T]].movedFields
         .foldLeft(configReader) { case (reader, field) =>
-          reader.moveDeprecatedField(field.from, field.to)
+          reader.moveDeprecatedField(field.from, field.since, field.to)
         }
 
       implicitly[DeprecatedFieldsFor[T]].deprecatePath

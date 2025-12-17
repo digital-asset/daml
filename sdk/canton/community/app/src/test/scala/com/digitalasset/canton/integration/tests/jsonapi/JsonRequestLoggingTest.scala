@@ -6,10 +6,10 @@ package com.digitalasset.canton.integration.tests.jsonapi
 import com.daml.jwt.{Jwt, StandardJWTPayload, StandardJWTTokenFormat}
 import com.daml.ledger.api.v2.admin.user_management_service
 import com.digitalasset.base.error.ErrorsAssertions
-import com.digitalasset.canton.config.{CantonConfig, DbConfig}
+import com.digitalasset.canton.config.CantonConfig
 import com.digitalasset.canton.http.json.v2.JsUserManagementCodecs.*
 import com.digitalasset.canton.integration.EnvironmentSetupPlugin
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2}
 import com.digitalasset.canton.integration.tests.ledgerapi.auth.ServiceCallContext
 import com.digitalasset.canton.integration.tests.ledgerapi.fixture.CantonFixture
 import com.digitalasset.canton.integration.tests.ledgerapi.services.TestCommands
@@ -18,7 +18,6 @@ import com.digitalasset.canton.logging.{LogEntry, NamedLoggerFactory, Suppressio
 import io.circe.syntax.EncoderOps
 import monocle.macros.syntax.lens.*
 import org.apache.pekko.http.scaladsl.model.{StatusCodes, Uri}
-import spray.json.JsonParser
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -32,7 +31,8 @@ class JsonRequestLoggingTest
     with ErrorsAssertions {
 
   registerPlugin(ExpectedScopeOverrideConfig(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseH2(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   override val defaultScope: String = ExpectedScope
 
@@ -46,9 +46,10 @@ class JsonRequestLoggingTest
     scope = Some(defaultScope),
   )
 
-  lazy val adminHeaders = HttpServiceTestFixture.authorizationHeader(
-    Jwt(toScopeContext(adminToken).token.getOrElse(""))
-  )
+  lazy val adminHeaders: List[org.apache.pekko.http.scaladsl.model.HttpHeader] =
+    HttpServiceTestFixture.authorizationHeader(
+      Jwt(toScopeContext(adminToken).token.getOrElse(""))
+    )
 
   "Json api" should {
     "log access to JSON and gRPC Ledger API" in httpTestFixture { fixture =>
@@ -58,15 +59,20 @@ class JsonRequestLoggingTest
           result <- fixture
             .postJsonRequest(
               Uri.Path("/v2/users"),
-              JsonParser(
-                user_management_service
-                  .CreateUserRequest(
-                    user = Some(user_management_service.User(randomUser, "", false, None, "")),
-                    rights = Nil,
-                  )
-                  .asJson
-                  .toString()
-              ),
+              user_management_service
+                .CreateUserRequest(
+                  user = Some(
+                    user_management_service.User(
+                      id = randomUser,
+                      primaryParty = "",
+                      isDeactivated = false,
+                      metadata = None,
+                      identityProviderId = "",
+                    )
+                  ),
+                  rights = Nil,
+                )
+                .asJson,
               adminHeaders,
             )
             .map { case (status, _) =>

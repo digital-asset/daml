@@ -19,10 +19,9 @@ import com.daml.ledger.api.v2.transaction_filter.TransactionShape.TRANSACTION_SH
 import com.daml.ledger.api.v2.transaction_filter.{EventFormat, Filters, TransactionFormat}
 import com.daml.ledger.api.v2.value.{Record, RecordField, Value}
 import com.daml.ledger.javaapi.data.Transaction
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.damltests.java.divulgence.DivulgeIouByExercise
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2}
 import com.digitalasset.canton.integration.tests.ledgerapi.fixture.ValueConversions.*
 import com.digitalasset.canton.integration.tests.ledgerapi.fixture.{CantonFixture, CreatesParties}
 import com.digitalasset.canton.integration.tests.ledgerapi.services.TestCommands
@@ -243,5 +242,6 @@ sealed trait SuperReaderUserIT extends CantonFixture with CreatesParties with Te
 }
 
 class SuperReaderUserITDefault extends SuperReaderUserIT {
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseH2(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }

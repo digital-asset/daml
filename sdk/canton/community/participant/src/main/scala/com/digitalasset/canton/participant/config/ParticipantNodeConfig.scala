@@ -126,12 +126,11 @@ object ParticipantNodeConfig {
     implicit def deprecatedParticipantNodeConfig[X <: ParticipantNodeConfig]
         : DeprecatedFieldsFor[X] = new DeprecatedFieldsFor[ParticipantNodeConfig] {
       override def movedFields: List[DeprecatedConfigUtils.MovedConfigPath] = List(
-        DeprecatedConfigUtils.MovedConfigPath("http-ledger-api.server", "http-ledger-api")
-      )
-
-      override def deprecatePath: List[DeprecatedConfigUtils.DeprecatedConfigPath[?]] = List(
-        DeprecatedConfigUtils
-          .DeprecatedConfigPath[Boolean]("http-ledger-api.server", "3.4.0")
+        DeprecatedConfigUtils.MovedConfigPath(
+          "http-ledger-api.server",
+          since = "3.4.0",
+          to = Seq("http-ledger-api"),
+        )
       )
     }
   }

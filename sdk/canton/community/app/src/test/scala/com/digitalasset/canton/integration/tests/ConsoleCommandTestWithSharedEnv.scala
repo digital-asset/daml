@@ -5,12 +5,11 @@ package com.digitalasset.canton.integration.tests
 
 import com.daml.ledger.javaapi.data.Command
 import com.digitalasset.canton.BigDecimalImplicits.*
-import com.digitalasset.canton.config.DbConfig.Postgres
 import com.digitalasset.canton.console.ParticipantReference
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.examples.java.iou.{Amount, Iou}
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.util.EntitySyntax
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -196,11 +195,12 @@ sealed trait ConsoleCommandIntegrationTestWithSharedEnv
 }
 
 //class ConsoleCommandReferenceIntegrationTestWithSharedEnvDefault extends ConsoleCommandIntegrationTestWithSharedEnv {
-//  registerPlugin(new UseReferenceBlockSequencer[H2](loggerFactory))
+//  registerPlugin(new UseH2(loggerFactory))
+//  registerPlugin(new UseBftSequencer(loggerFactory))
 //}
 
 final class ConsoleCommandReferenceIntegrationTestWithSharedEnvPostgres
     extends ConsoleCommandIntegrationTestWithSharedEnv {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }

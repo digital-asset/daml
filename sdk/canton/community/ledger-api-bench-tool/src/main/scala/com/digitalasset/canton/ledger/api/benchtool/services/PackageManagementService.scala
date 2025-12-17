@@ -14,6 +14,7 @@ import io.grpc.Channel
 
 import scala.concurrent.{ExecutionContext, Future}
 
+@SuppressWarnings(Array("com.digitalasset.canton.DirectGrpcServiceInvocation"))
 class PackageManagementService(channel: Channel, authorizationToken: Option[String]) {
   private val service =
     AuthorizationHelper.maybeAuthedService(authorizationToken)(

@@ -12,7 +12,7 @@ import com.daml.ledger.api.v2.value.{RecordField, Value}
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.TransactionWrapper
 import com.digitalasset.canton.admin.api.client.data.TemplateId
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.config.{DbConfig, SynchronizerTimeTrackerConfig}
+import com.digitalasset.canton.config.SynchronizerTimeTrackerConfig
 import com.digitalasset.canton.console.{
   CommandFailure,
   InstanceReference,
@@ -25,7 +25,7 @@ import com.digitalasset.canton.integration.bootstrap.{
   NetworkBootstrapper,
   NetworkTopologyDescription,
 }
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -91,7 +91,7 @@ sealed trait OnlinePartyReplicationNegotiationTest
       .focus(_.parameters.unsafeEnableOnlinePartyReplication)
       .replace(sequencer != "sequencer3")
 
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   private val aliceName = "Alice"
 
@@ -526,6 +526,10 @@ sealed trait OnlinePartyReplicationNegotiationTest
       }
   }
 }
+
+// class OnlinePartyReplicationNegotiationTestH2 extends OnlinePartyReplicationNegotiationTest {
+//   registerPlugin(new UseH2(loggerFactory))
+// }
 
 class OnlinePartyReplicationNegotiationTestPostgres extends OnlinePartyReplicationNegotiationTest {
   registerPlugin(new UsePostgres(loggerFactory))

@@ -8,7 +8,6 @@ import com.daml.metrics.InstrumentedGraph.*
 import com.daml.metrics.Timed
 import com.daml.metrics.api.MetricsContext
 import com.daml.scalautil.Statement.discard
-import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.Update.CommitRepair
@@ -81,6 +80,7 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
     contractStore: LedgerApiContractStore,
     disableMonotonicityChecks: Boolean,
     tracer: Tracer,
+    executionContext: ExecutionContext,
     loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging
     with Spanning {
@@ -152,6 +152,7 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
           monotonicityValidator(
             initialOffset = initialLedgerEnd.map(_.lastOffset),
             loadPreviousState = loadPreviousSynchronizerIndexF,
+            executionContext = executionContext,
           )(logger)
       )
       .via(
@@ -190,6 +191,7 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
             resolveInternalContractIds = resolveInternalContractIdsF,
             logger = logger,
             metrics = metrics,
+            executionContext = executionContext,
           ),
           batchingParallelism = batchingParallelism,
           batcher = batcherExecutor.execute(
@@ -199,6 +201,7 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
                 inMemoryState.stringInterningView,
               ),
               logger,
+              metrics,
             )
           ),
           ingestingParallelism = ingestionParallelism,
@@ -212,6 +215,7 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
             dbDispatcher = dbDispatcher,
             logger = logger,
             metrics = metrics,
+            executionContext = executionContext,
           ),
           maxTailerBatchSize = maxTailerBatchSize,
           ingestTail =
@@ -221,6 +225,7 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
             } else
               ingestTail[DB_BATCH](
                 storeLedgerEndF,
+                executionContext,
                 logger,
               ),
         )
@@ -230,7 +235,7 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
       .mapAsync(postProcessingParallelism)(
         postProcess(
           postProcessor,
-          logger,
+          executionContext,
         )
       )
       .batch(maxTailerBatchSize.toLong, Vector(_))(_ :+ _)
@@ -242,6 +247,7 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
           Flow.apply.mapAsync(1)(
             ingestPostProcessEnd[DB_BATCH](
               storePostProcessingEndF,
+              executionContext,
               logger,
             )
           )
@@ -268,6 +274,7 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
                   logger,
                 ),
               aggregatedLedgerEndForRepair,
+              executionContext,
               logger,
             )
           )
@@ -385,8 +392,8 @@ object ParallelIndexerSubscription {
   def monotonicityValidator(
       initialOffset: Option[Offset],
       loadPreviousState: SynchronizerId => Future[Option[SynchronizerIndex]],
+      executionContext: ExecutionContext,
   )(implicit logger: TracedLogger): Flow[(Offset, Update), (Offset, Update), NotUsed] = {
-    implicit val directExecutionContext: ExecutionContext = DirectExecutionContext(logger)
     val stateRef = new AtomicReference[Map[SynchronizerId, SynchronizerIndex]](Map.empty)
     val lastOffset = new AtomicReference[Option[Offset]](initialOffset)
 
@@ -418,7 +425,7 @@ object ParallelIndexerSubscription {
                 prevSynchronizerIndexO.map(_ max synchronizerIndex).getOrElse(synchronizerIndex),
               )
           )
-        }
+        }(executionContext)
 
     Flow[(Offset, Update)].mapAsync(1) { case (offset, update) =>
       implicit val traceContext: TraceContext = update.traceContext
@@ -430,7 +437,7 @@ object ParallelIndexerSubscription {
         }
         .map(idAndIndex => checkAndUpdateSynchronizerIndex(offset)(idAndIndex._1, idAndIndex._2))
         .getOrElse(Future.unit)
-        .map(_ => (offset, update))
+        .map(_ => (offset, update))(executionContext)
     }
   }
 
@@ -665,64 +672,65 @@ object ParallelIndexerSubscription {
       resolveInternalContractIds: TraceContext => Iterable[ContractId] => Future[
         Map[ContractId, Long]
       ],
+      executionContext: ExecutionContext,
       metrics: LedgerApiServerMetrics,
       logger: TracedLogger,
-  ): Batch[Vector[DbDto]] => Future[Batch[Vector[DbDto]]] = {
-    implicit val directExecutionContext: ExecutionContext = DirectExecutionContext(logger)
-    batch =>
-      val missingActivations = batch.missingDeactivatedActivations.keys
-      val missingContracts = missingActivations.map(_.contractId)
-      if (missingActivations.isEmpty) Future.successful(batch)
-      else {
-        implicit val loggingContextWithTrace: LoggingContextWithTrace =
-          new LoggingContextWithTrace(LoggingEntries.empty, batch.batchTraceContext)
-        for {
-          resolvedInternalContractIds <- resolveInternalContractIds(batch.batchTraceContext)(
-            missingContracts
-          )
-          missingActivationsWithInternalContractIds =
-            missingActivations.view
-              .flatMap(synCon =>
-                resolvedInternalContractIds.get(synCon.contractId) match {
-                  case Some(internalContractId) => Some(synCon.synchronizerId -> internalContractId)
-                  case None =>
-                    logger.warn(
-                      s"internal_contract_id for contract ID:${synCon.contractId} not found, deactivation reference cannot be computed"
-                    )
-                    None
-                }
-              )
-              .toVector
-          lastActivationsWithInternalContractIds <-
-            dbDispatcher.executeSql(metrics.index.db.lookupLastActivationsDbMetrics)(
-              lastActivations(missingActivationsWithInternalContractIds)
-            )
-          updatedMissingDeactivatedActivations =
-            missingActivations.view
-              .map(synCon =>
-                synCon ->
-                  resolvedInternalContractIds
-                    .get(synCon.contractId)
-                    .flatMap(internalContractId =>
-                      lastActivationsWithInternalContractIds
-                        .get(synCon.synchronizerId -> internalContractId)
-                        .map(lastActivationSequentialId =>
-                          ActivationRef(
-                            eventSeqId = lastActivationSequentialId,
-                            internalContractId = internalContractId,
-                          )
-                        )
-                    )
-              )
-              .toMap
-        } yield batch.copy(
-          missingDeactivatedActivations = updatedMissingDeactivatedActivations
+  ): Batch[Vector[DbDto]] => Future[Batch[Vector[DbDto]]] = { batch =>
+    val missingActivations = batch.missingDeactivatedActivations.keys
+    val missingContracts = missingActivations.map(_.contractId)
+    if (missingActivations.isEmpty) Future.successful(batch)
+    else {
+      implicit val loggingContextWithTrace: LoggingContextWithTrace =
+        new LoggingContextWithTrace(LoggingEntries.empty, batch.batchTraceContext)
+      implicit val ec = executionContext
+      for {
+        resolvedInternalContractIds <- resolveInternalContractIds(batch.batchTraceContext)(
+          missingContracts
         )
-      }
+        missingActivationsWithInternalContractIds =
+          missingActivations.view
+            .flatMap(synCon =>
+              resolvedInternalContractIds.get(synCon.contractId) match {
+                case Some(internalContractId) => Some(synCon.synchronizerId -> internalContractId)
+                case None =>
+                  logger.warn(
+                    s"internal_contract_id for contract ID:${synCon.contractId} not found, deactivation reference cannot be computed"
+                  )
+                  None
+              }
+            )
+            .toVector
+        lastActivationsWithInternalContractIds <-
+          dbDispatcher.executeSql(metrics.index.db.lookupLastActivationsDbMetrics)(
+            lastActivations(missingActivationsWithInternalContractIds)
+          )
+        updatedMissingDeactivatedActivations =
+          missingActivations.view
+            .map(synCon =>
+              synCon ->
+                resolvedInternalContractIds
+                  .get(synCon.contractId)
+                  .flatMap(internalContractId =>
+                    lastActivationsWithInternalContractIds
+                      .get(synCon.synchronizerId -> internalContractId)
+                      .map(lastActivationSequentialId =>
+                        ActivationRef(
+                          eventSeqId = lastActivationSequentialId,
+                          internalContractId = internalContractId,
+                        )
+                      )
+                  )
+            )
+            .toMap
+      } yield batch.copy(
+        missingDeactivatedActivations = updatedMissingDeactivatedActivations
+      )
+    }
   }
 
   def refillMissingDeactivatedActivations(
-      logger: TracedLogger
+      metrics: LedgerApiServerMetrics,
+      logger: TracedLogger,
   )(batch: Batch[Vector[DbDto]]): Batch[Vector[DbDto]] = {
     def fillDeactivationRefFor(dbDto: DbDto.EventDeactivate): DbDto.EventDeactivate = {
       val synCon = dbDto.synCon
@@ -753,15 +761,24 @@ object ParallelIndexerSubscription {
 
       case noChange => noChange
     }
+    dbDtosWithDeactivationReferences.foreach {
+      case deactivate: DbDto.EventDeactivate =>
+        deactivate.deactivated_event_sequential_id.foreach { deactivated_event_sequential_id =>
+          val distance = deactivate.event_sequential_id - deactivated_event_sequential_id
+          metrics.indexer.deactivationDistances.update(distance)
+        }
+      case _ => ()
+    }
     batch.copy(batch = dbDtosWithDeactivationReferences)
   }
 
   def batcher[DB_BATCH](
       batchF: Vector[DbDto] => DB_BATCH,
       logger: TracedLogger,
+      metrics: LedgerApiServerMetrics,
   )(inBatch: Batch[Vector[DbDto]]): Batch[DB_BATCH] = {
     val dbBatch = inBatch
-      .pipe(refillMissingDeactivatedActivations(logger))
+      .pipe(refillMissingDeactivatedActivations(metrics, logger))
       .batch
       .pipe(batchF)
     inBatch.copy(batch = dbBatch)
@@ -772,30 +789,29 @@ object ParallelIndexerSubscription {
       reassignmentOffsetPersistence: ReassignmentOffsetPersistence,
       zeroDbBatch: DB_BATCH,
       dbDispatcher: DbDispatcher,
+      executionContext: ExecutionContext,
       metrics: LedgerApiServerMetrics,
       logger: TracedLogger,
-  ): Batch[DB_BATCH] => Future[Batch[DB_BATCH]] = {
-    val directExecutionContext = DirectExecutionContext(logger)
-    batch =>
-      LoggingContextWithTrace.withNewLoggingContext(
-        "updateOffsets" -> batch.offsetsUpdates.map(_._1)
-      ) { implicit loggingContext =>
-        val batchTraceContext: TraceContext = TraceContext.ofBatch("ingest_batch")(
-          batch.offsetsUpdates.iterator.map(_._2)
-        )(logger)
-        reassignmentOffsetPersistence
-          .persist(
-            batch.offsetsUpdates,
-            logger,
-          )(batchTraceContext)
-          .flatMap(_ =>
-            dbDispatcher.executeSql(metrics.indexer.ingestion) { connection =>
-              metrics.indexer.updates.inc(batch.batchSize.toLong)(MetricsContext.Empty)
-              ingestFunction(connection, batch.batch)
-              cleanUnusedBatch(zeroDbBatch)(batch)
-            }
-          )(directExecutionContext)
-      }(batch.batchTraceContext)
+  ): Batch[DB_BATCH] => Future[Batch[DB_BATCH]] = { batch =>
+    LoggingContextWithTrace.withNewLoggingContext(
+      "updateOffsets" -> batch.offsetsUpdates.map(_._1)
+    ) { implicit loggingContext =>
+      val batchTraceContext: TraceContext = TraceContext.ofBatch("ingest_batch")(
+        batch.offsetsUpdates.iterator.map(_._2)
+      )(logger)
+      reassignmentOffsetPersistence
+        .persist(
+          batch.offsetsUpdates,
+          logger,
+        )(batchTraceContext)
+        .flatMap(_ =>
+          dbDispatcher.executeSql(metrics.indexer.ingestion) { connection =>
+            metrics.indexer.updates.inc(batch.batchSize.toLong)(MetricsContext.Empty)
+            ingestFunction(connection, batch.batch)
+            cleanUnusedBatch(zeroDbBatch)(batch)
+          }
+        )(executionContext)
+    }(batch.batchTraceContext)
   }
 
   def ledgerEndSynchronizerIndexFrom(
@@ -805,30 +821,29 @@ object ParallelIndexerSubscription {
 
   def ingestTail[DB_BATCH](
       storeLedgerEnd: (LedgerEnd, Map[SynchronizerId, SynchronizerIndex]) => Future[Unit],
+      executionContext: ExecutionContext,
       logger: TracedLogger,
   )(implicit
       traceContext: TraceContext
-  ): Vector[Batch[DB_BATCH]] => Future[Vector[Batch[DB_BATCH]]] = {
-    val directExecutionContext = DirectExecutionContext(logger)
-    batchOfBatches =>
-      batchOfBatches.lastOption match {
-        case Some(lastBatch) =>
-          storeLedgerEnd(
-            lastBatch.ledgerEnd,
-            ledgerEndSynchronizerIndexFrom(
-              batchOfBatches
-                .flatMap(_.offsetsUpdates)
-                .collect { case (_, update: SynchronizerIndexUpdate) =>
-                  update.synchronizerIndex
-                }
-            ),
-          ).map(_ => batchOfBatches)(directExecutionContext)
+  ): Vector[Batch[DB_BATCH]] => Future[Vector[Batch[DB_BATCH]]] = { batchOfBatches =>
+    batchOfBatches.lastOption match {
+      case Some(lastBatch) =>
+        storeLedgerEnd(
+          lastBatch.ledgerEnd,
+          ledgerEndSynchronizerIndexFrom(
+            batchOfBatches
+              .flatMap(_.offsetsUpdates)
+              .collect { case (_, update: SynchronizerIndexUpdate) =>
+                update.synchronizerIndex
+              }
+          ),
+        ).map(_ => batchOfBatches)(executionContext)
 
-        case None =>
-          val message = "Unexpectedly encountered a zero-sized batch in ingestTail"
-          logger.error(message)
-          Future.failed(new IllegalStateException(message))
-      }
+      case None =>
+        val message = "Unexpectedly encountered a zero-sized batch in ingestTail"
+        logger.error(message)
+        Future.failed(new IllegalStateException(message))
+    }
   }
 
   private def storeLedgerEnd(
@@ -887,19 +902,16 @@ object ParallelIndexerSubscription {
 
   def postProcess[DB_BATCH](
       processor: (Vector[PostPublishData], TraceContext) => Future[Unit],
-      logger: TracedLogger,
-  ): Batch[DB_BATCH] => Future[Batch[DB_BATCH]] = {
-    val directExecutionContext = DirectExecutionContext(logger)
-    batch => {
-      val postPublishData = batch.offsetsUpdates.flatMap { case (offset, update) =>
-        PostPublishData.from(
-          update,
-          offset,
-          batch.ledgerEnd.lastPublicationTime,
-        )
-      }
-      processor(postPublishData, batch.batchTraceContext).map(_ => batch)(directExecutionContext)
+      executionContext: ExecutionContext,
+  ): Batch[DB_BATCH] => Future[Batch[DB_BATCH]] = { batch =>
+    val postPublishData = batch.offsetsUpdates.flatMap { case (offset, update) =>
+      PostPublishData.from(
+        update,
+        offset,
+        batch.ledgerEnd.lastPublicationTime,
+      )
     }
+    processor(postPublishData, batch.batchTraceContext).map(_ => batch)(executionContext)
   }
 
   def sequentialPostProcess[DB_BATCH](
@@ -913,21 +925,20 @@ object ParallelIndexerSubscription {
 
   def ingestPostProcessEnd[DB_BATCH](
       storePostProcessingEnd: Offset => Future[Unit],
+      executionContext: ExecutionContext,
       logger: TracedLogger,
   )(implicit
       traceContext: TraceContext
-  ): Vector[Batch[DB_BATCH]] => Future[Vector[Batch[DB_BATCH]]] = {
-    val directExecutionContext = DirectExecutionContext(logger)
-    batchOfBatches =>
-      batchOfBatches.lastOption match {
-        case Some(lastBatch) =>
-          storePostProcessingEnd(lastBatch.ledgerEnd.lastOffset)
-            .map(_ => batchOfBatches)(directExecutionContext)
-        case None =>
-          val message = "Unexpectedly encountered a zero-sized batch in ingestPostProcessEnd"
-          logger.error(message)
-          Future.failed(new IllegalStateException(message))
-      }
+  ): Vector[Batch[DB_BATCH]] => Future[Vector[Batch[DB_BATCH]]] = { batchOfBatches =>
+    batchOfBatches.lastOption match {
+      case Some(lastBatch) =>
+        storePostProcessingEnd(lastBatch.ledgerEnd.lastOffset)
+          .map(_ => batchOfBatches)(executionContext)
+      case None =>
+        val message = "Unexpectedly encountered a zero-sized batch in ingestPostProcessEnd"
+        logger.error(message)
+        Future.failed(new IllegalStateException(message))
+    }
   }
 
   def storePostProcessingEnd(
@@ -953,42 +964,42 @@ object ParallelIndexerSubscription {
       aggregatedLedgerEnd: AtomicReference[
         Option[(LedgerEnd, Map[SynchronizerId, SynchronizerIndex])]
       ],
+      executionContext: ExecutionContext,
       logger: TracedLogger,
   )(implicit
       traceContext: TraceContext
   ): Vector[(Offset, Update)] => Future[
     Vector[(Offset, Update)]
-  ] = {
-    implicit val ec: DirectExecutionContext = DirectExecutionContext(logger)
-    offsetsAndUpdates =>
-      offsetsAndUpdates.lastOption match {
-        case Some((_, commitRepair: CommitRepair)) =>
-          aggregatedLedgerEnd.get() match {
-            case Some((ledgerEnd, synchronizerIndexes)) =>
-              for {
-                // this order is important to respect crash recovery rules
-                _ <- storeLedgerEnd(ledgerEnd, synchronizerIndexes)
-                _ <- storePostProcessingEnd(ledgerEnd.lastOffset)
-                _ = updateInMemoryState(ledgerEnd)
-                _ = commitRepair.persisted.trySuccess(())
-              } yield {
-                logger.info("Repair committed, Ledger End stored and updated successfully.")
-                offsetsAndUpdates
-              }
-            case None =>
-              val message = "Unexpectedly the Repair committed did not update the Ledger End."
-              logger.error(message)
-              Future.failed(new IllegalStateException(message))
-          }
+  ] = { offsetsAndUpdates =>
+    implicit val ec = executionContext
+    offsetsAndUpdates.lastOption match {
+      case Some((_, commitRepair: CommitRepair)) =>
+        aggregatedLedgerEnd.get() match {
+          case Some((ledgerEnd, synchronizerIndexes)) =>
+            for {
+              // this order is important to respect crash recovery rules
+              _ <- storeLedgerEnd(ledgerEnd, synchronizerIndexes)
+              _ <- storePostProcessingEnd(ledgerEnd.lastOffset)
+              _ = updateInMemoryState(ledgerEnd)
+              _ = commitRepair.persisted.trySuccess(())
+            } yield {
+              logger.info("Repair committed, Ledger End stored and updated successfully.")
+              offsetsAndUpdates
+            }
+          case None =>
+            val message = "Unexpectedly the Repair committed did not update the Ledger End."
+            logger.error(message)
+            Future.failed(new IllegalStateException(message))
+        }
 
-        case Some(_) =>
-          Future.successful(offsetsAndUpdates)
+      case Some(_) =>
+        Future.successful(offsetsAndUpdates)
 
-        case None =>
-          val message = "Unexpectedly encountered a zero-sized batch in ingestTail"
-          logger.error(message)
-          Future.failed(new IllegalStateException(message))
-      }
+      case None =>
+        val message = "Unexpectedly encountered a zero-sized batch in ingestTail"
+        logger.error(message)
+        Future.failed(new IllegalStateException(message))
+    }
   }
 
   private def cleanUnusedBatch[DB_BATCH](

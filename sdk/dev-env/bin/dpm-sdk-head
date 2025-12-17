@@ -108,16 +108,21 @@ if [[ "$NUKE" -ne 0 ]]; then
   echo "$(tput setaf 3)Removed DPM from system.$(tput sgr 0)"
 fi
 
-if [ ! -d "$DPM_HOME" ]; then
-  echo "$(tput setaf 5)DPM is not installed, installing from bazel...$(tput sgr 0)"
-
+get_dpm() {
   bazel build @dpm_binary//:dpm
   dpm_bazel_path=$(bazel cquery "${BAZEL_MODE_FLAGS[@]}" "@dpm_binary//:dpm" --output=files 2> /dev/null)
-  dpm_version=$(HOME=. $dpm_bazel_path -v | head -n 1 | sed -e "s/^version: //")
+  dpm_version=$(HOME=. $dpm_bazel_path -v 2> /dev/null | head -n 1 | sed -e "s/^version: //")
   mkdir -p "$DPM_HOME/cache/components/dpm/${dpm_version}" "$DPM_HOME/bin" "$DPM_HOME/cache/sdk/open-source"
   cp $dpm_bazel_path "$DPM_HOME/cache/components/dpm/${dpm_version}/dpm"
   # Create symlink for .dpm/bin, to match DPM's current behaviour
   ln -sf "${DPM_HOME}/cache/components/dpm/${dpm_version}/dpm" "${DPM_HOME}/bin/dpm"
+  echo $dpm_version
+}
+
+if [ ! -d "$DPM_HOME" ]; then
+  echo "$(tput setaf 5)DPM is not installed, installing from bazel...$(tput sgr 0)"
+
+  get_dpm
 
   cat > "${DPM_HOME}/dpm-config.yaml" << EOF
 edition: open-source
@@ -172,7 +177,7 @@ all_dpm_components=(canton-community damlc daml-script codegen daml-new upgrade-
 # Create a `RELEASE_VERSION.yaml` if it doesn't exist already with only daml components
 if [ ! -f "$assembly_location" ]; then
   assembly_location="$DPM_HOME/cache/sdk/open-source/$RELEASE_VERSION.yaml"
-  dpm_version=$(HOME=. $DPM_HOME/bin/dpm -v | head -n 1 | sed -e "s/^version: //")
+  dpm_version=$(HOME=. $DPM_HOME/bin/dpm -v 2> /dev/null | head -n 1 | sed -e "s/^version: //")
 
   component_versions=""
   # Macos got angry with value loops, so looping keys
@@ -230,11 +235,7 @@ update_component() {
     # For DPM, we pull down from OCI again
     echo "$(tput setaf 5)$progress_marker Pulling down new DPM binary.$(tput sgr 0)"
 
-    # get-dpm script doesn't delete, it only updates
-    # use it to pull down a new dpm
-    "$REPO_ROOT/../ci/get-dpm.sh" "europe-docker.pkg.dev/da-images/public-unstable/components/dpm:latest"
-    version_line=$("$DPM_HOME/bin/dpm" --version | grep -o 'version: .*')
-    DPM_VERSION=${version_line#version: }
+    DPM_VERSION=$(get_dpm)
 
     # Update our $RELEASE_VERSION.yaml to point to new DPM
     DPM_VERSION=$DPM_VERSION yq -MiY '.spec.assistant.version |= env.DPM_VERSION' "$assembly_location"
@@ -268,6 +269,7 @@ update_component() {
     # Find built tar and unpack to DPM component
     output_path=$(bazel cquery "${BAZEL_MODE_FLAGS[@]}" "$bazel_path" --output=files 2> /dev/null)
     component_path="$DPM_HOME/cache/components/$target_name/$COMPONENT_VERSION"
+    rm -rf $component_path
     mkdir -p "$component_path"
     tar -xzf "$output_path" -C "$component_path"
     echo "$(tput setaf 5)$progress_marker Unpacked component, updating assembly.$(tput sgr 0)"

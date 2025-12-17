@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.integration.tests.toxiproxy.fast
 
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.ParticipantReference
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -15,7 +14,7 @@ import com.digitalasset.canton.integration.plugins.toxiproxy.{
   RunningProxy,
   UseToxiproxy,
 }
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.tests.multihostedparties.OnlinePartyReplicationTestHelpers
 import com.digitalasset.canton.integration.tests.toxiproxy.{
   ToxiproxyHelpers,
@@ -54,7 +53,7 @@ sealed trait OnlinePartyReplicationNetworkDisruptionsTest
     with SharedEnvironment {
 
   val toxiproxy = new UseToxiproxy(ToxiproxyConfig(List(proxyConf())))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
   registerPlugin(toxiproxy)
 
   // TODO(#26775): Remove hard-coding of ProtocolVersion.dev (done as toxiproxy tests don't run pv.dev otherwise)
@@ -355,6 +354,11 @@ sealed trait OnlinePartyReplicationNetworkDisruptionsTest
     scenariosSkipped shouldBe empty
   }
 }
+
+// class OnlinePartyReplicationNetworkDisruptionsTestH2
+//   extends OnlinePartyReplicationNetworkDisruptionsTest {
+//   registerPlugin(new UseH2(loggerFactory))
+// }
 
 class OnlinePartyReplicationNetworkDisruptionsTestPostgres
     extends OnlinePartyReplicationNetworkDisruptionsTest {

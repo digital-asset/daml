@@ -6,14 +6,13 @@ package com.digitalasset.canton.integration.tests.ledgerapi.auth
 import com.daml.ledger.api.v2.admin.party_management_service.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.HasExecutionContext
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{
   SigningKeysWithThreshold,
   SigningPublicKey,
   v30 as cryptoProto,
 }
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2}
 import com.digitalasset.canton.integration.{EnvironmentDefinition, TestConsoleEnvironment}
 import com.digitalasset.canton.topology.DefaultTestIdentities
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.Confirmation
@@ -32,7 +31,8 @@ final class AllocateExternalPartyAuthIT
     extends AdminOrIDPAdminServiceCallAuthTests
     with HasExecutionContext {
 
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseH2(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   override def baseEnvironmentDefinition: EnvironmentDefinition = EnvironmentDefinition.P2_S1M1
   override def environmentDefinition: EnvironmentDefinition =

@@ -7,12 +7,12 @@ import cats.data.EitherT
 import cats.syntax.bifunctor.*
 import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
-import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.KeyPurpose.{Encryption, Signing}
 import com.digitalasset.canton.crypto.SigningKeyUsage.matchesRelevantUsages
 import com.digitalasset.canton.crypto.store.db.StoredPrivateKey
@@ -30,7 +30,7 @@ import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.retry
+import com.digitalasset.canton.util.{MonadUtil, retry}
 import com.digitalasset.canton.version.ReleaseProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 
@@ -49,6 +49,7 @@ import scala.concurrent.duration.DurationInt
 trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging =>
 
   implicit val ec: ExecutionContext
+  protected val parallelismForParsing: PositiveInt
 
   protected val releaseProtocolVersion: ReleaseProtocolVersion
 
@@ -157,25 +158,24 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Set[(Fingerprint, B)]] = for {
     storedKeys <- readPrivateKeys(keyIds, keyPurpose)
-    keyMap <- storedKeys.toSeq
-      .parTraverse {
-        storedPrivateKey => // parTraverse use is fine because computation is in-memory only
-          parsingFunc(storedPrivateKey) match {
-            case Left(parseErr) =>
-              EitherT
-                .leftT[FutureUnlessShutdown, (Fingerprint, B)](
-                  CryptoPrivateStoreError
-                    .FailedToReadKey(
-                      storedPrivateKey.id,
-                      s"could not parse stored key (it can either be corrupted or encrypted): ${parseErr.toString}",
-                    )
-                )
-                .leftWiden[CryptoPrivateStoreError]
-            case Right(privateKey) =>
-              EitherT.rightT[FutureUnlessShutdown, CryptoPrivateStoreError](
-                (storedPrivateKey.id, buildKeyWithNameFunc(privateKey, storedPrivateKey.name))
+    keyMap <- MonadUtil
+      .parTraverseWithLimit(parallelismForParsing)(storedKeys.toSeq) { storedPrivateKey =>
+        parsingFunc(storedPrivateKey) match {
+          case Left(parseErr) =>
+            EitherT
+              .leftT[FutureUnlessShutdown, (Fingerprint, B)](
+                CryptoPrivateStoreError
+                  .FailedToReadKey(
+                    storedPrivateKey.id,
+                    s"could not parse stored key (it can either be corrupted or encrypted): ${parseErr.toString}",
+                  )
               )
-          }
+              .leftWiden[CryptoPrivateStoreError]
+          case Right(privateKey) =>
+            EitherT.rightT[FutureUnlessShutdown, CryptoPrivateStoreError](
+              (storedPrivateKey.id, buildKeyWithNameFunc(privateKey, storedPrivateKey.name))
+            )
+        }
       }
       .map(_.toSet)
   } yield keyMap
@@ -183,11 +183,26 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
   private[crypto] def signingKey(signingKeyId: Fingerprint)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Option[SigningPrivateKey]] =
-    signingKeys(NonEmpty.mk(Seq, signingKeyId)).map(_.headOption)
+    signingKeys(NonEmpty.mk(Seq, signingKeyId))(identity).map(_.headOption.map {
+      case (_, privateKey) => privateKey
+    })
 
-  private[crypto] def signingKeys(signingKeyIds: NonEmpty[Seq[Fingerprint]])(implicit
+  private def signingKeysFromStored(signingKeyIds: Set[StoredPrivateKey])(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Set[SigningPrivateKey]] =
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Seq[
+    (StoredPrivateKey, SigningPrivateKey)
+  ]] = NonEmpty.from(signingKeyIds.toSeq) match {
+    case Some(nonEmptySigningKeys) =>
+      signingKeys(nonEmptySigningKeys)(_.id)
+    case None =>
+      EitherT.rightT(Seq.empty)
+  }
+
+  private[crypto] def signingKeys[T](
+      signingKeyIds: NonEmpty[Seq[T]]
+  )(fingerprintExtractor: T => Fingerprint)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Seq[(T, SigningPrivateKey)]] =
     retrieveAndUpdateCache(
       signingKeyMap,
       fingerprints =>
@@ -196,7 +211,7 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
           key => SigningPrivateKey.fromTrustedByteString(key.data),
           (privateKey, name) => SigningPrivateKeyWithName(privateKey, name),
         )(fingerprints),
-    )(signingKeyIds)
+    )(signingKeyIds, fingerprintExtractor)
 
   private[crypto] def storeSigningKey(
       key: SigningPrivateKey,
@@ -226,8 +241,10 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Seq[Fingerprint]] =
     for {
-      signingKeys <- signingKeys(signingKeyIds)
-      filteredSigningKeys = signingKeys.filter(key => matchesRelevantUsages(key.usage, filterUsage))
+      signingKeys <- signingKeys(signingKeyIds)(identity)
+      filteredSigningKeys = signingKeys.view
+        .map { case (_, privateKey) => privateKey }
+        .filter(key => matchesRelevantUsages(key.usage, filterUsage))
     } yield filteredSigningKeys.map(_.id).toSeq
 
   def existsSigningKey(signingKeyId: Fingerprint)(implicit
@@ -238,11 +255,25 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
   private[crypto] def decryptionKey(encryptionKeyId: Fingerprint)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Option[EncryptionPrivateKey]] =
-    decryptionKeys(NonEmpty.mk(Seq, encryptionKeyId)).map(_.headOption)
+    decryptionKeys(NonEmpty.mk(Seq, encryptionKeyId))(identity).map(_.headOption.map {
+      case (_, privateKey) => privateKey
+    })
 
-  private[crypto] def decryptionKeys(encryptionKeyIds: NonEmpty[Seq[Fingerprint]])(implicit
+  private def decryptionKeyFromStored(encryptionKeyIds: Set[StoredPrivateKey])(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Set[EncryptionPrivateKey]] =
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Seq[
+    (StoredPrivateKey, EncryptionPrivateKey)
+  ]] =
+    NonEmpty.from(encryptionKeyIds.toSeq) match {
+      case None => EitherT.rightT(Seq.empty)
+      case Some(nonEmptyEncryptionKeyIds) => decryptionKeys(nonEmptyEncryptionKeyIds)(_.id)
+    }
+
+  private[crypto] def decryptionKeys[T](
+      encryptionKeyIds: NonEmpty[Seq[T]]
+  )(fingerprintExtractor: T => Fingerprint)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Seq[(T, EncryptionPrivateKey)]] =
     retrieveAndUpdateCache(
       decryptionKeyMap,
       fingerprints =>
@@ -251,7 +282,7 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
           key => EncryptionPrivateKey.fromTrustedByteString(key.data),
           (privateKey, name) => EncryptionPrivateKeyWithName(privateKey, name),
         )(fingerprints),
-    )(encryptionKeyIds)
+    )(encryptionKeyIds, fingerprintExtractor)
 
   private[crypto] def storeDecryptionKey(
       key: EncryptionPrivateKey,
@@ -279,7 +310,7 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Boolean] =
     decryptionKey(decryptionKeyId).map(_.nonEmpty)
 
-  private def retrieveAndUpdateCache[KN <: PrivateKeyWithName](
+  private def retrieveAndUpdateCache[KN <: PrivateKeyWithName, T](
       cache: TrieMap[Fingerprint, KN],
       readKeys: NonEmpty[Seq[Fingerprint]] => EitherT[
         FutureUnlessShutdown,
@@ -289,9 +320,11 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
         ],
       ],
   )(
-      keyIds: NonEmpty[Seq[Fingerprint]]
-  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Set[KN#K]] = {
-    val missingKeys = NonEmpty.from((keyIds.toSet -- signingKeyMap.keySet).toSeq)
+      keyIds: NonEmpty[Seq[T]],
+      fingerprintExtractor: T => Fingerprint,
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Seq[(T, KN#K)]] = {
+    val missingKeys =
+      NonEmpty.from((keyIds.toSet.map(fingerprintExtractor) -- signingKeyMap.keySet).toSeq)
     for {
       missingKeyMap <- missingKeys.traverse(readKeys)
       _ = missingKeyMap.foreach(update =>
@@ -300,10 +333,11 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
         }
       )
       keys <- EitherT.rightT[FutureUnlessShutdown, CryptoPrivateStoreError]({
-        keyIds.forgetNE.flatMap(keyId => cache.get(keyId).map(_.privateKey))
+        keyIds.forgetNE.flatMap(keyId =>
+          cache.get(fingerprintExtractor(keyId)).map(kn => keyId -> kn.privateKey)
+        )
       })
-    } yield keys.toSet
-
+    } yield keys
   }
 
   /** Returns the wrapper key used to encrypt the private key or None if private key is not
@@ -340,9 +374,7 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
 
     for {
       storedSigningKeys <- listPrivateKeys(KeyPurpose.Signing)
-      signingKeys <- storedSigningKeys.toSeq.parTraverseFilter(spk =>
-        signingKey(spk.id).map(_.map(spk -> _))
-      )
+      signingKeys <- signingKeysFromStored(storedSigningKeys)
       migratedSigningKeys = signingKeys.collect {
         case (stored, privateKey) if privateKey.migrated =>
           new StoredPrivateKey(
@@ -362,9 +394,7 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
       _ = signingKeyMap.filterInPlace((fp, _) => !migratedSigningKeys.map(_.id).contains(fp))
 
       storedEncryptionKeys <- listPrivateKeys(KeyPurpose.Encryption)
-      encryptionKeys <- storedEncryptionKeys.toSeq.parTraverseFilter(spk =>
-        decryptionKey(spk.id).map(_.map(spk -> _))
-      )
+      encryptionKeys <- decryptionKeyFromStored(storedEncryptionKeys)
       migratedEncryptionKeys = encryptionKeys.collect {
         case (stored, privateKey) if privateKey.migrated =>
           new StoredPrivateKey(
@@ -412,13 +442,9 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
 
     for {
       storedSigningKeys <- listPrivateKeys(KeyPurpose.Signing)
-      signingKeys <- storedSigningKeys.toSeq.parTraverseFilter(spk =>
-        signingKey(spk.id).map(_.map(spk -> _))
-      )
+      signingKeys <- signingKeysFromStored(storedSigningKeys)
       storedEncryptionKeys <- listPrivateKeys(KeyPurpose.Encryption)
-      encryptionKeys <- storedEncryptionKeys.toSeq.parTraverseFilter(spk =>
-        decryptionKey(spk.id).map(_.map(spk -> _))
-      )
+      encryptionKeys <- decryptionKeyFromStored(storedEncryptionKeys)
     } yield {
       val noSigningKeysMigrated = signingKeys.forall { case (_stored, key) => !key.migrated }
       val noEncryptionKeysMigrated = encryptionKeys.forall { case (_stored, key) => !key.migrated }
@@ -451,9 +477,7 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
 
     for {
       storedSigningKeys <- listPrivateKeys(KeyPurpose.Signing)
-      signingKeys <- storedSigningKeys.toSeq.parTraverseFilter(spk =>
-        signingKey(spk.id).map(_.map(spk -> _))
-      )
+      signingKeys <- signingKeysFromStored(storedSigningKeys)
       migratedSigningKeys = reverseMigrateKeys(signingKeys)
       _ <- replaceStoredPrivateKeys(migratedSigningKeys)
       _ = logger.info(
@@ -461,9 +485,7 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
       )
 
       storedEncryptionKeys <- listPrivateKeys(KeyPurpose.Encryption)
-      encryptionKeys <- storedEncryptionKeys.toSeq.parTraverseFilter(spk =>
-        decryptionKey(spk.id).map(_.map(spk -> _))
-      )
+      encryptionKeys <- decryptionKeyFromStored(storedEncryptionKeys)
       migratedEncryptionKeys = reverseMigrateKeys(encryptionKeys)
       _ <- replaceStoredPrivateKeys(migratedEncryptionKeys)
       _ = logger.info(

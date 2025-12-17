@@ -10,15 +10,11 @@ import com.daml.test.evidence.tag.Reliability.{
   ReliabilityTest,
   Remediation,
 }
-import com.digitalasset.canton.config.{DbConfig, PositiveDurationSeconds}
+import com.digitalasset.canton.config.PositiveDurationSeconds
 import com.digitalasset.canton.console.SequencerReference
 import com.digitalasset.canton.integration.bootstrap.NetworkBootstrapper
 import com.digitalasset.canton.integration.plugins.toxiproxy.*
-import com.digitalasset.canton.integration.plugins.{
-  UsePostgres,
-  UseReferenceBlockSequencer,
-  UseSharedStorage,
-}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres, UseSharedStorage}
 import com.digitalasset.canton.integration.tests.toxiproxy.ToxiproxyHelpers
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -195,6 +191,6 @@ class RunningSequencerRecoveryOnDatabaseFaultTestPostgres
   override protected val getToxiProxy: String => RunningProxy =
     setupPlugins(
       new UsePostgres(loggerFactory),
-      new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory),
+      new UseBftSequencer(loggerFactory),
     )
 }

@@ -321,7 +321,7 @@ packagingTests assistant tmpDir =
               let dar = projDir </> ".daml/dist/script-example-0.0.1.dar"
               assertFileExists dar -}
         , testCase "Package depending on daml-script can use data-dependencies" $ do
-              callCommandSilent $ unwords [show assistant, "new", tmpDir </> "data-dependency"]
+              callCommandSilent $ unwords [show assistant, "new", "--template=skeleton-single-package", tmpDir </> "data-dependency"]
               callCommandSilentIn (tmpDir </> "data-dependency") $ unwords [show assistant, "build", "-o", "data-dependency.dar"]
               createDirectoryIfMissing True (tmpDir </> "proj")
               writeFileUTF8 (tmpDir </> "proj" </> "daml.yaml") $
@@ -634,7 +634,7 @@ damlStartTests assistant getDamlStart =
 -- | Ensure that daml clean removes precisely the files created by daml build.
 cleanTests :: Assistant -> FilePath -> TestTree
 cleanTests assistant baseDir = testGroup (show assistant <> " clean")
-    [ cleanTestFor "skeleton"
+    [ cleanTestFor "skeleton-single-package"
     , cleanTestFor "quickstart-java"
     ]
     where
@@ -666,6 +666,13 @@ templateTests assistant = testGroup "templates" $
             callCommandSilentIn dir $ unwords [show assistant, "build"]
     | name <- templateNames
     ] <>
+    [ testCase name $ do
+        withTempDir $ \tmpDir -> do
+            let dir = tmpDir </> "foobar"
+            callCommandSilentIn tmpDir $ unwords ["daml", "new", dir, "--template", name]
+            callCommandSilentIn dir "daml build --all"
+    | name <- multipackageTemplateNames
+    ] <>
     [ testCase "quickstart-java, positional template" $ do
         withTempDir $ \tmpDir -> do
             let dir = tmpDir </> "foobar"
@@ -677,22 +684,27 @@ templateTests assistant = testGroup "templates" $
     ]
   -- NOTE (MK) We might want to autogenerate this list at some point but for now
   -- this should be good enough.
-  where templateNames =
-            [ "daml-intro-choices"
-            , "daml-intro-compose"
-            , "daml-intro-constraints"
-            , "daml-intro-contracts"
-            , "daml-intro-daml-scripts"
-            , "daml-intro-data"
+  where
+    templateNames =
+      [ "daml-intro-choices"
+      , "daml-intro-compose"
+      , "daml-intro-constraints"
+      , "daml-intro-contracts"
+      , "daml-intro-daml-scripts"
+      , "daml-intro-data"
 --            , "daml-intro-exceptions"    -- warn for deprecated exceptions
-            , "daml-intro-functional-101"
-            , "daml-intro-parties"
---            , "daml-intro-test"          -- multi-package
-            , "daml-patterns"
-            , "quickstart-java"
-            , "script-example"
-            , "skeleton"
-            ]
+      , "daml-intro-functional-101"
+      , "daml-intro-parties"
+      , "daml-patterns"
+      , "quickstart-java"
+      , "script-example"
+      , "skeleton-single-package"
+      ]
+    multipackageTemplateNames =
+      [ "daml-intro-test"
+      , "multi-package-example"
+      , "skeleton"
+      ]
 
 -- | Check we can generate language bindings.
 codegenTests :: Assistant -> FilePath -> TestTree
@@ -709,7 +721,7 @@ codegenTests assistant codegenDir = testGroup (show assistant <> " codegen") (
             testCase lang $ do
                 createDirectoryIfMissing True codegenDir
                 let projectDir = codegenDir </> ("proj-" ++ lang)
-                callCommandSilentIn codegenDir $ unwords [show assistant, "new", projectDir, "--template=skeleton"]
+                callCommandSilentIn codegenDir $ unwords [show assistant, "new", projectDir, "--template=skeleton-single-package"]
                 callCommandSilentIn projectDir $ unwords [show assistant, "build"]
                 let darFile = projectDir </> ".daml/dist/proj-" ++ lang ++ "-0.0.1.dar"
                     outDir  = projectDir </> "generated" </> lang
@@ -732,7 +744,7 @@ cantonTests assistant = testGroup (show assistant <> " sandbox")
     [ testCaseSteps "Can start Canton sandbox and run script" $ \step -> withTempDir $ \dir -> do
         step dir
         step "Creating package"
-        callCommandSilentIn dir $ unwords [show assistant, "new", "skeleton", "--template=skeleton"]
+        callCommandSilentIn dir $ unwords [show assistant, "new", "skeleton", "--template=skeleton-single-package"]
         step "Building package"
         -- TODO(#14706): remove explicit target once the default major version is 2
         callCommandSilentIn (dir </> "skeleton") $ unwords [show assistant, "build", "--target=2.1"]

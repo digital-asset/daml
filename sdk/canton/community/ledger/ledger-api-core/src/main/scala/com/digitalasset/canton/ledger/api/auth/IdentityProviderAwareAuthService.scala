@@ -17,7 +17,7 @@ import com.digitalasset.canton.auth.{AuthService, ClaimSet, JwtVerifierLoader}
 import com.digitalasset.canton.ledger.api.IdentityProviderId
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
-import spray.json.*
+import io.circe.parser
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -117,14 +117,22 @@ class IdentityProviderAwareAuthService(
 
   private def parseAuthServicePayload(jwtPayload: String): AuthServiceJWTPayload = {
     import AuthServiceJWTCodec.JsonImplicits.*
-    JsonParser(jwtPayload).convertTo[AuthServiceJWTPayload]
+    parser
+      .decode(jwtPayload)
+      .fold(
+        err => throw new RuntimeException("Failed to decode JWT JSON payload", err),
+        identity,
+      )
   }
 
-  private[this] def parseAudienceBasedPayload(
-      jwtPayload: String
-  ): AuthServiceJWTPayload = {
+  private[this] def parseAudienceBasedPayload(jwtPayload: String): AuthServiceJWTPayload = {
     import AuthServiceJWTCodec.AudienceBasedTokenJsonImplicits.*
-    JsonParser(jwtPayload).convertTo[AuthServiceJWTPayload]
+    parser
+      .decode(jwtPayload)
+      .fold(
+        err => throw new RuntimeException("Failed to decode JWT JSON payload", err),
+        identity,
+      )
   }
 
   private def toAuthenticatedUser(payload: StandardJWTPayload, id: IdentityProviderId.Id) =

@@ -286,7 +286,7 @@ final class UnassignmentProcessingStepsTest
       .forOwnerAndSynchronizer(submittingParticipant, sourceSynchronizer.unwrap)
 
   private lazy val cryptoClient = createCryptoClient()
-  private lazy val cryptoSnapshot = cryptoClient.currentSnapshotApproximation
+  private lazy val cryptoSnapshot = cryptoClient.currentSnapshotApproximation.futureValueUS
 
   private lazy val seedGenerator = new SeedGenerator(crypto.pureCrypto)
 
@@ -969,7 +969,7 @@ final class UnassignmentProcessingStepsTest
     "prevent the contract being reassigned is not vetted on the target synchronizer" in {
       val unassignmentProcessingStepsWithoutPackages = {
         val f = createCryptoFactory(packages = Seq.empty)
-        val s = createCryptoClient(f).currentSnapshotApproximation
+        val s = createCryptoClient(f).currentSnapshotApproximation.futureValueUS
         val c = createReassignmentCoordination(s)
         createUnassignmentProcessingSteps(c)
       }

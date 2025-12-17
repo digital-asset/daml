@@ -7,6 +7,7 @@ import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.TryUtil.ForFailedOps
 import com.digitalasset.canton.util.{LoggerUtil, TryUtil}
@@ -16,6 +17,7 @@ import org.slf4j.event.Level
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import java.util.concurrent.{ScheduledExecutorService, TimeUnit}
 import scala.annotation.tailrec
+import scala.collection.mutable
 import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
 import scala.ref.WeakReference
@@ -132,6 +134,12 @@ object FutureSupervisor {
         @SuppressWarnings(Array("org.wartremover.warts.Var"))
         var removed = 0
 
+        val summarizedAlerts: mutable.SortedMap[Level, mutable.Map[String, AlertStatistics]] =
+          mutable.TreeMap.empty[Level, mutable.Map[String, AlertStatistics]](
+            // Sorted in reverse so that we log higher levels first
+            Ordering.by[Level, Int](_.toInt).reverse
+          )
+
         TryUtil
           .tryCatchInterrupted {
             // Traverses the linked list with a look-ahead of 1, i.e.,
@@ -148,11 +156,24 @@ object FutureSupervisor {
                       removed += 1
                       go(current)
                     } else {
-                      if (blocked.alertNow(now)) {
-                        val dur = Duration.fromNanos(now - blocked.startNanos)
-                        val message =
-                          s"${blocked.description()} has not completed after ${LoggerUtil.roundDurationForHumans(dur)}"
-                        log(message, blocked.logLevel, blocked.errorLoggingContext)
+                      blocked.alertNow(now) match {
+                        case DoNotAlert =>
+                        case AlertWithLog =>
+                          val dur = Duration.fromNanos(now - blocked.startNanos)
+                          val message =
+                            s"${blocked.description()} has not completed after ${LoggerUtil.roundDurationForHumans(dur)}"
+                          log(message, blocked.logLevel, blocked.errorLoggingContext)
+                        case AlertWithSummary =>
+                          val level = blocked.logLevel
+                          val traceId =
+                            blocked.errorLoggingContext.traceId.getOrElse("<no trace id>")
+                          val summariesForLevel = summarizedAlerts.getOrElseUpdate(
+                            level,
+                            new mutable.HashMap[String, AlertStatistics](),
+                          )
+                          val summary =
+                            summariesForLevel.getOrElseUpdate(traceId, new AlertStatistics())
+                          summary.add(now - blocked.startNanos)
                       }
                       go(blocked)
                     }
@@ -165,6 +186,28 @@ object FutureSupervisor {
             }
 
             go(newSentinel)
+
+            // Finally print the summaries; one for each log level.
+            summarizedAlerts.foreach { case (level, summariesForLevel) =>
+              val sb = new StringBuilder()
+              sb.append(
+                s"Supervised futures for the following trace IDs have not completed with alert log level $level:\n"
+              )
+              summariesForLevel.foreach { case (traceId, statistics) =>
+                val count = statistics.getCount
+                val shortest = Duration.fromNanos(statistics.getShortest)
+                sb.append("  ").append(traceId).discard
+                if (count > 1) sb.append(" x").append(count).discard
+                sb.append("(").append(LoggerUtil.roundDurationForHumans(shortest)).discard
+                if (count > 1) {
+                  val longest = Duration.fromNanos(statistics.getLongest)
+                  sb.append("..").append(LoggerUtil.roundDurationForHumans(longest)).discard
+                }
+                sb.append(")").append("\n").discard[StringBuilder]
+              }
+              implicit val traceContext: TraceContext = TraceContext.empty
+              LoggerUtil.logAtLevel(level, sb.toString())
+            }
           }
           .valueOr { ex =>
             // Catch all non-fatal (and interrupted) exceptions and log them so that they don't get discarded.
@@ -321,20 +364,56 @@ object FutureSupervisor {
         errorLoggingContext: ErrorLoggingContext,
         logLevel: Level,
     ) extends ScheduledEntry {
-      val warnCounter = new AtomicInteger(1)
+      @SuppressWarnings(Array("org.wartremover.warts.Var"))
+      // Must only be accessed by the `checkSlow` method that runs sequentially
+      private var hasWarned: Boolean = false
 
       def stillRelevantAndIncomplete: Boolean = fut match {
         case WeakReference(f) => !f.isCompleted
         case _ => false
       }
 
-      def alertNow(currentNanos: Long): Boolean = {
-        val cur = warnCounter.get()
-        if ((currentNanos - startNanos > (warnNanos * cur)) && stillRelevantAndIncomplete) {
-          warnCounter.incrementAndGet().discard
-          true
-        } else false
-      }
+      private[Impl] def alertNow(currentNanos: Long): AlertNow =
+        if (hasWarned) AlertWithSummary
+        else {
+          val elapsed = currentNanos - startNanos
+          if (elapsed > warnNanos) {
+            hasWarned = true
+            AlertWithLog
+          } else DoNotAlert
+        }
     }
+
+    private[Impl] sealed trait AlertNow extends Product with Serializable
+    private[Impl] case object DoNotAlert extends AlertNow
+    private[Impl] case object AlertWithLog extends AlertNow
+    private[Impl] case object AlertWithSummary extends AlertNow
+
+    private[Impl] class AlertStatistics {
+      @SuppressWarnings(Array("org.wartremover.warts.Var"))
+      // Must only be accessed by the `checkSlow` method that runs sequentially
+      private var count: Int = 0
+
+      @SuppressWarnings(Array("org.wartremover.warts.Var"))
+      // Must only be accessed by the `checkSlow` method that runs sequentially
+      private var shortest: Long = Long.MaxValue
+
+      @SuppressWarnings(Array("org.wartremover.warts.Var"))
+      // Must only be accessed by the `checkSlow` method that runs sequentially
+      private var longest: Long = Long.MinValue
+
+      def getCount: Int = count
+      def getShortest: Long = shortest
+      def getLongest: Long = longest
+
+      def add(elapsedNanos: Long): Unit = {
+        count += 1
+        if (elapsedNanos < shortest) shortest = elapsedNanos
+        if (elapsedNanos > longest) longest = elapsedNanos
+      }
+
+      override def toString: String = s"AlertStatistics(#$count($shortest..$longest))"
+    }
+
   }
 }

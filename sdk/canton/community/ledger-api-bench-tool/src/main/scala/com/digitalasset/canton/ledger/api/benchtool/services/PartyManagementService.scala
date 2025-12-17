@@ -16,6 +16,7 @@ import org.slf4j.{Logger, LoggerFactory}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
+@SuppressWarnings(Array("com.digitalasset.canton.DirectGrpcServiceInvocation"))
 class PartyManagementService(channel: Channel, authorizationToken: Option[String]) {
   private val logger: Logger = LoggerFactory.getLogger(getClass)
   private val service: PartyManagementServiceGrpc.PartyManagementServiceStub =
@@ -30,6 +31,7 @@ class PartyManagementService(channel: Channel, authorizationToken: Option[String
           pageToken = "",
           pageSize = 0,
           identityProviderId = "",
+          filterParty = "",
         )
       )
       .map(_.partyDetails.map(_.party).toSet)
@@ -47,10 +49,15 @@ class PartyManagementService(channel: Channel, authorizationToken: Option[String
           userId = "",
         )
       )
+      .map { response =>
+        response.partyDetails match {
+          case Some(details) => new Party(details.party)
+          case _ => throw new NoSuchElementException(s"No party details in response $response.")
+        }
+      }
       .transformWith {
-        case Success(response) =>
+        case Success(party) =>
           Future.successful {
-            val party = new Party(response.partyDetails.get.party)
             logger.info(s"Allocated party: $party")
             party
           }

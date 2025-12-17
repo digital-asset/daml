@@ -3,9 +3,8 @@
 
 package com.digitalasset.canton.integration.tests.reliability
 
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
@@ -20,7 +19,7 @@ final class QuickRestartAfterStartIntegrationTest
     EnvironmentDefinition.P1S1M1_Manual
 
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   "start / stop / restart and ping" in { implicit env =>
     import env.*

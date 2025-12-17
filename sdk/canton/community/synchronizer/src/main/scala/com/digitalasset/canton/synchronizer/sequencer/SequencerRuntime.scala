@@ -141,13 +141,19 @@ class SequencerRuntime(
   ): EitherT[FutureUnlessShutdown, String, Unit] = {
     def keyCheckET =
       EitherT {
-        val snapshot = syncCrypto
+        syncCrypto
           .currentSnapshotApproximation(TraceContext.empty)
-          .ipsSnapshot
-        snapshot
-          .signingKeys(sequencerId, SigningKeyUsage.SequencerAuthenticationOnly)
-          .map { keys =>
-            Either.cond(keys.nonEmpty, (), s"Missing sequencer keys at ${snapshot.referenceTime}.")
+          .flatMap { snapshot =>
+            val ipsSnapshot = snapshot.ipsSnapshot
+            ipsSnapshot
+              .signingKeys(sequencerId, SigningKeyUsage.SequencerAuthenticationOnly)
+              .map { keys =>
+                Either.cond(
+                  keys.nonEmpty,
+                  (),
+                  s"Missing sequencer keys at ${ipsSnapshot.referenceTime}.",
+                )
+              }
           }
       }
 

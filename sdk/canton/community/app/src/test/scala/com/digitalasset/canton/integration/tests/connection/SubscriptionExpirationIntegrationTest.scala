@@ -5,8 +5,7 @@ package com.digitalasset.canton.integration.tests.connection
 
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config
-import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -94,5 +93,5 @@ sealed trait SubscriptionExpirationIntegrationTest
 
 class SubscriptionExpirationIntegrationTestDefault extends SubscriptionExpirationIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }

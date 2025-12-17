@@ -876,9 +876,9 @@ class ConnectedSynchronizer(
       _waitForReplay <- FutureUnlessShutdown.outcomeF(
         timeTracker.awaitTick(clock.now).getOrElse(Future.unit)
       )
-
+      approximateSnapshot <- topologyClient.currentSnapshotApproximation
       _params <- synchronizeWithClosing(functionFullName)(
-        topologyClient.currentSnapshotApproximation.findDynamicSynchronizerParametersOrDefault(
+        approximateSnapshot.findDynamicSynchronizerParametersOrDefault(
           staticSynchronizerParameters.protocolVersion
         )
       )
@@ -1204,6 +1204,7 @@ object ConnectedSynchronizer {
         topologyProcessor <- topologyProcessorFactory.create(
           acsCommitmentProcessor.scheduleTopologyTick
         )
+
       } yield {
         val contractValidator = ContractValidator(
           synchronizerCrypto.pureCrypto,

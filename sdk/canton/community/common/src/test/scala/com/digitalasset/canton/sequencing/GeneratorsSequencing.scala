@@ -7,6 +7,7 @@ import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port, PositiveInt}
 import com.digitalasset.canton.networking.Endpoint
+import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.GeneratorsTopology
 import com.digitalasset.canton.{Generators, SequencerAlias}
 import magnolify.scalacheck.auto.genArbitrary
@@ -15,6 +16,7 @@ import org.scalacheck.{Arbitrary, Gen}
 final class GeneratorsSequencing(generatorsTopology: GeneratorsTopology) {
   import com.digitalasset.canton.config.GeneratorsConfig.*
   import com.digitalasset.canton.Generators.*
+  import com.digitalasset.canton.time.GeneratorsTime.*
   import generatorsTopology.*
 
   implicit val sequencerAliasArb: Arbitrary[SequencerAlias] = Arbitrary(
@@ -34,7 +36,12 @@ final class GeneratorsSequencing(generatorsTopology: GeneratorsTopology) {
 
   implicit val sequencerConnectionArb: Arbitrary[SequencerConnection] = genArbitrary
   implicit val submissionRequestAmplificationArb: Arbitrary[SubmissionRequestAmplification] =
-    genArbitrary
+    Arbitrary(
+      for {
+        factor <- Arbitrary.arbitrary[PositiveInt]
+        patience <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
+      } yield SubmissionRequestAmplification(factor, patience)
+    )
   implicit val sequencerConnectionPoolDelaysArb: Arbitrary[SequencerConnectionPoolDelays] =
     genArbitrary
 

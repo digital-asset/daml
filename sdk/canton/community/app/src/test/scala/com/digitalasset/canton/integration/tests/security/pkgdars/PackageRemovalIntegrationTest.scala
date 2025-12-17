@@ -11,7 +11,6 @@ import com.daml.test.evidence.tag.Security.{Attack, SecurityTest, SecurityTestSu
 import com.digitalasset.canton.BigDecimalImplicits.*
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.config.CantonRequireTypes.String255
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.ConsoleEnvironment.Implicits.*
 import com.digitalasset.canton.console.{
   LocalParticipantReference,
@@ -22,7 +21,7 @@ import com.digitalasset.canton.damltests.java.conflicttest.Many
 import com.digitalasset.canton.damltests.java.iou
 import com.digitalasset.canton.damltests.java.iou.Amount
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.tests.pkgdars.PackageUsableMixin
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -776,7 +775,7 @@ trait PackageRemovalIntegrationTest
 class PackageRemovalIntegrationTestPostgres extends PackageRemovalIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.Postgres](
+    new UseBftSequencer(
       loggerFactory,
       sequencerGroups = MultiSynchronizer.tryCreate(Set("sequencer1"), Set("sequencer2")),
     )
