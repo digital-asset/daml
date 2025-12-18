@@ -7,7 +7,7 @@ Integrity
 #########
 
 The section on the :ref:`ledger structure <ledger-structure>` section answered the question “What does the Ledger looks like?” by introducing a hierarchical format to record the party interactions as changes.
-The section on `privacy <ledger-privacy>` answered the question “Who sees which changes and data?” by introducing projections.
+The section on :ref:`privacy <da-model-privacy>` answered the question “Who sees which changes and data?” by introducing projections.
 This section addresses the question "Who can request which changes?" by defining which ledgers are valid.
 
 .. _da-model-validity:
@@ -71,6 +71,8 @@ because Daml script ensures that all generated transactions conform to the Daml 
    :width: 100%
    :alt: A non-conformant ledger where one leg of the DvP settlement is missing
 
+.. _da-model-authorization-violation:
+         
 Authorization violation examples
 ================================
          
@@ -100,6 +102,8 @@ This must be treated as an authorization failure, as Alice did not consent to sw
 On the ledger, the first root action of ``TX 2`` is not properly authorized
 because Alice is a signatory of the contract #3 created in the first root action even though she did not request the update.
 
+.. _da-dvp-ledger-create-auth-failure:
+
 .. https://lucid.app/lucidchart/cd2cef11-6f69-4f9c-8e1e-d79488547de2/edit
 .. image:: ./images/dvp-ledger-create-auth-failure.svg
    :align: center
@@ -118,6 +122,8 @@ because Carol did not agree to have her asset transferred away.
 
 The ledger produced by this script has an authorization failure for the Exercise node on contract #1:
 The transaction structure provides no evidence that the actor Carol has agreed to exercising the ``Transfer`` choice on her asset.
+
+.. _da-dvp-ledger-nested-auth-failure:
 
 .. https://lucid.app/lucidchart/50e2ad7a-ef88-4fb8-bf62-44027034a3dd/edit
 .. image:: ./images/dvp-ledger-nested-auth-error.svg
@@ -327,19 +333,6 @@ for `n`:sub:`2` as ② and `n`:sub:`1` as ④, the consuming exercise ② does n
 With signatories instead of stakeholders, this problem does not appear:
 A signatory is an informee of all nodes on the contract and therefore any node relevant for consistency for the contract is present in the signatory's projection.
 
-
-.. wip::
-
-   * Key consistency (should be transaction-internal only: consistent lookups)
-
-   * Consistency (transaction-internal and ledger-wide, contract ID and key):
-     Discuss limitation of honest signatories/maintainers
-
-   * Move the examples to valid ledgers
-
-
-
-
 .. _da-model-conformance:
 
 Conformance
@@ -422,293 +415,267 @@ and this is what makes conformance behave well under projections.
 
    A Daml model can restrict the flow of information only within an action.
    Across actions, it is at the discretion of the submitters to ensure the desired flow.
-   but the Ledger does not validate this.
+   The Ledger does not validate this.
 
 
 Conformance of an action or transaction depends only on the Daml model of interest,
 which is unabiguously referenced via the package IDs.
 Therefore, witnesses, informees and third parties can independently check conformance of an action.
-   
+So conformance is common knowledge.
 
 .. _da-model-authorization:
 
 Authorization
 *************
 
-The last criterion rules out the last two problematic examples,
-:ref:`an obligation imposed on a painter <obligation-imposed-on-painter>`,
-and :ref:`the painter stealing Alice's money <painter-stealing-ious>`.
-The first of those is visualized below.
-
-.. image:: ./images/invalid-obligation.svg
-   :align: center
-   :width: 100%
-   :alt: A time sequence showing only one commit, in which PaintAgree P A P123 is requested by A. 
-
-The reason why the example is intuitively impermissible is that
-the `PaintAgree` contract is supposed to express that the painter has an
-obligation to paint Alice's house, but he never agreed to that obligation.
-On paper contracts, obligations are expressed in the body of the contract,
-and imposed on the contract's *signatories*.
-
-.. _da-signatories-maintainers:
-
-Signatories and Maintainers
-========================================
-
-To capture these elements of real-world contracts, the **contract model**
-additionally specifies, for each contract in the system:
-
-#. A non-empty set of **signatories**, the parties bound by the
-   contract.
-
-#. If the contract is associated with a key, a non-empty set of **maintainers**,
-   the parties that make sure that at most one unconsumed contract exists for the key.
-   The maintainers must be a subset of the signatories and depend only on the key.
-   This dependence is captured by the function `maintainers` that takes a key and returns the key's maintainers.
-
-
-In the example, the contract model specifies that
-
-#. An `Iou obligor owner` contract has only the `obligor` as a signatory.
-
-#. A `MustPay obligor owner` contract has both the `obligor`
-   and the `owner` as signatories.
-
-#. A `PaintOffer houseOwner painter obligor refNo` contract has only the
-   painter as the signatory.
-   Its associated key consists of the painter and the reference number.
-   The painter is the maintainer.
-
-#. A `PaintAgree houseOwner painter refNo` contract has both the
-   house owner and the painter as signat
-   The key consists of the painter and the reference number.
-   The painter is the only maintainer.
-
-In the graphical representation below, signatories of a contract are indicated
-with a dollar sign (as a mnemonic for an obligation) and use a bold
-font. 
-Maintainers are marked with `@` (as a mnemonic who enforces uniqueness).
-Since maintainers are always signatories, parties marked with `@` are implicitly signatories.
-For example, annotating the paint offer acceptance action with
-signatories yields the image below.
-
-.. https://www.lucidchart.com/documents/edit/4a3fdcbc-e521-4fd8-a636-1035b4d65126/0
-.. image:: ./images/signatories-paint-offer.svg
-   :align: center
-   :width: 60%
-   :alt: The original paint deal flowchart. P is a maintainer; A and the Bank are signatories.
-
-
-.. _da-ledgers-authorization-rules:
-
-Authorization Rules
-===================
-
-Signatories allow one to precisely state that the painter has an obligation.
-The imposed obligation is intuitively invalid because the painter did not
-agree to this obligation. In other words, the painter did not *authorize*
-the creation of the obligation.
-
-In a Daml ledger, a party can **authorize** a subaction of a commit in
-either of the following ways:
-
-* Every top-level action of the commit is authorized by all requesters
-  of the commit.
-
-* Every consequence of an exercise action `act` on a contract `c` is
-  authorized by all signatories of `c` and all actors of `act`.
-
-The second authorization rule encodes the offer-acceptance pattern,
-which is a prerequisite for contract formation in contract law. The
-contract `c` is effectively an offer by its signatories who act as
-offerers. The exercise is an acceptance of the offer by the actors who
-are the offerees. The consequences of the exercise can be interpreted
-as the contract body so the authorization rules of Daml
-ledgers closely model the rules for contract formation in contract
-law.
-
-.. _da-ledgers-def-well-authorized:
+The last validity condition rules out the :ref:`authorization violation examples <da-model-authorization-violation>`.
+Authorization requirements are expressed in Daml using the signatories and observers of a contract and the controllers of choices.
 
 .. _da-ledgers-required-authorizers:
 
-A commit is **well-authorized** if every subaction `act` of the commit is
-authorized by at least all of the **required authorizers** of `act`, where:
+Required authorizers
+====================
 
-#. the required authorizers of a **Create** action on a contract `c` are the
-   signatories of `c`.
+Every node defines a non-empty set of parties who must have consented to the action of this node.
+This set is called the **required authorizers** of the node and defined as follows:
+For Create nodes, the required authorizers are the signatories of the contract,
+and for Exercise and Fetch nodes, the required authorizers are the actors of the node.
 
-#. the required authorizers of an **Exercise** or a **Fetch** action are its actors.
+For the above :ref:`example where Bob tries to skip the propose-accept workflow <da-dvp-ledger-create-auth-failure>`,
+the following table lists for each party the nodes for which they are a required authorizer.
+For example, node ③ has the required authorizers Alice and Bob because they are the signatories of contract #3.
 
-#. the required authorizers of a **NoSuchKey** assertion are the maintainers of the key.
+.. _da-dvp-ledger-create-auth-failure-required-authorizers:
 
-We lift this notion to ledgers, whereby a ledger is well-authorized exactly when all of its commits are.
+.. list-table:: Required authorizers in the :ref:`example where Bob tries to skip the propose-accept workflow <da-dvp-ledger-create-auth-failure>`
+   :widths: 10 23 23 21 23
+   :header-rows: 1
+
+   * - Node
+     - Bank1
+     - Bank2
+     - Alice
+     - Bob
+   * - ①
+     - signatory
+     -
+     -
+     -
+   * - ②
+     -
+     - signatory
+     -
+     -
+   * - ③
+     -
+     -
+     - signatory
+     - signatory
+   * - ④
+     -
+     -
+     -
+     - actor
+   * - ⑤
+     -
+     -
+     - actor
+     -
+   * - ⑥
+     - signatory
+     -
+     -
+     -
+   * - ⑦
+     -
+     -
+     -
+     - actor
+   * - ⑧
+     -
+     - signatory
+     -
+     -
 
 
-Examples
-========
+       
+Authorization context
+=====================
 
-An intuition for how the authorization definitions work is most easily
-developed by looking at some examples. The main example, the
-paint offer ledger, is intuitively legitimate. It should therefore
-also be well-authorized according to our definitions,
-which it is indeed.
+In a Canton ledger, a party can **authorize** a subaction of a commit in two ways:
 
-In the visualizations below,
-`Π ✓ act` denotes that the parties `Π` authorize the
-action `act`. The resulting authorizations are shown below.
+* The requesters of a commit authorize every top-level action of the commit.
 
-.. https://www.lucidchart.com/documents/edit/9df74ad9-b781-4974-bbb5-e67c7f03d196/0
-.. image:: ./images/authorization-paint-offer.svg
+* For an Exercise action, the signatories of the input contract and the actors of the action jointly authorize every consequence of the action.
+
+The set of authorizing parties for a given action is called the **authorization context**.
+Continuing the example of the required authorizers, the following table shows the authorization context for each node.
+For instance, the authorization context for nodes ③ and ④'s authorization context consists of Bob because Bob is the sole requester of the commit.
+For node ⑥, the authorization context contains two parties:
+
+* Bank1 because Bank1 is the signatory of the input contract of the parent node ⑤.
+* Alice because Alice is the actor on the parent node ⑤.
+
+Similarly, the authorization context for nodes ⑤ and ⑦ contains both Alice and Bob: Alice is a signatory on the input contract #3 of the parent node ④,
+and Bob is both a signatory on #3 and the actor of ④.
+
+.. _da-dvp-ledger-create-auth-failure-authorization-contexts:
+
+.. list-table:: Authorization contexts in the :ref:`example where Bob tries to skip the propose-accept workflow <da-dvp-ledger-create-auth-failure>`
+   :widths: 10 23 23 21 23
+   :header-rows: 1
+
+   * - Node
+     - Bank1
+     - Bank2
+     - Alice
+     - Bob
+   * - ①
+     - requester of ``TX 0``
+     -
+     -
+     -
+   * - ②
+     -
+     - requester of ``TX 1``
+     -
+     -
+   * - ③
+     -
+     -
+     - 
+     - requester of ``TX 2``
+   * - ④
+     -
+     -
+     - 
+     - requester of ``TX 2``
+   * - ⑤
+     -
+     -
+     - signatory on #3
+     - signatory on #3 + actor of ④
+   * - ⑥
+     - signatory on #1
+     -
+     - actor of ⑤
+     -
+   * - ⑦
+     -
+     -
+     - signatory on #3
+     - signatory on #3 + actor of ④
+   * - ⑧
+     -
+     - signatory on #2
+     -
+     - actor of ⑦
+
+.. important::
+   The authorization context summarizes the *context* (parent action or commit) in which an action happens on the Ledger.
+   It cannot be derived from the action itself.
+
+.. _da-ledgers-authorization-rules:
+
+Authorization rules
+===================
+
+Well-authorization ensures that the authorizing parties and the required authorizers fit together.
+
+.. admonition:: Definition: well-authorization
+
+   An action, transaction, or commit is **well-authorized** if for every subaction, the authorization context contains all the required authorizers of the subaction.
+
+In the running example, well-authorization requires that every non-empty cell in the :ref:`required authorizers table <da-dvp-ledger-create-auth-failure-required-authorizers>`
+is also non-empty in the :ref:`authorization context table <da-dvp-ledger-create-auth-failure-authorization-contexts>`.
+For example, ``TX 0`` is well-authorized because it contains only one subaction ①
+and the required authorizer Bank1 is also the requester of the commit.
+Conversely, ``TX 2`` is not well-authorized because ③'s required authorizers include Alice who is not in ③'s authorization context.
+This authorization failure captures the problem with this transaction ``TX 2``:
+The Ledger does not contain any record of Alice consenting to the DvP.
+
+In contrast, the Exercise action at ④ is well-authorized.
+This illustrates how authorization flows from the signatories of a contract to the consequences of the choices.
+Assuming that the signatories Alice and Bob entered the ``SimpleDvP`` contract #3,
+the authorization rules allow Bob, the one controller of the ``Settle`` choice, to swap the two assets
+even though Bob does not own one of the assets (#1).
+In other words, Alice **delegates** via the ``SimpleDvp`` contract #3 to Bob the right to transfer her asset #1.
+
+A similar flow of authorization also happens in the propose-accept workflow for the ``SimpleDvP`` contract in :ref:`the correct workflow <da-dvp-ledger>`:
+In ``TX 2``, Alice proposes the ``ProposeSimpleDvP`` contract #3 as a signatory.
+When Bob accepts the proposal with the ``Accept`` choice,
+Alice's authority flows to the creation of the ``SimpleDvP`` contract #4,
+where both Alice and Bob are signatories.
+
+Authorization vs. conformance
+=============================
+
+The :ref:`third authorization violation example <da-dvp-ledger-nested-auth-failure>` illustrates the difference between authorization and conformance.
+Node ⑨ is not well-authorized because the required authorizers include Carol, but the authorization context contains only Alice and Bob, as they are signatories of the input contract #4 of node ⑧.
+Neither are the actions rooted at ⑧ and ④ well-authorized because they contain the action at ⑨ as a sub-action.
+
+The authorization failure disappears in the projection to Bank1 though,
+because the projection of a ledger forgets the requesters of the commits.
+So from Bank1's perspective, the asset transfer looks fine.
+
+.. https://lucid.app/lucidchart/a12ccf62-7acd-45be-896e-588286b517e1/edit
+.. image:: ./images/dvp-ledger-nested-auth-error-project-bank1.svg
    :align: center
-   :alt: The original paint deal time sequence, described in depth with respect to authorizations below.
+   :width: 100%
+   :alt: Bank1's projection of the DvP with Carol's asset
 
-In the first commit, the bank authorizes the creation of the IOU by
-requesting that commit. As the bank is the sole signatory on the
-IOU contract, this commit is well-authorized. Similarly, in the second
-commit, the painter authorizes the creation of the paint offer contract,
-and painter is the only signatory on that contract, making this commit
-also well-authorized.
+This reiterates that well-authorization of an action cannot be determined solely from the action alone,
+and projections do not retain the context for root actions of the projection.
+Yet, the ledger and the projection both conform to the Daml model.
 
-The third commit is more complicated. First, Alice authorizes
-the exercise on the paint offer by requesting it. She is the only actor
-on this exercise, so this complies with the authorization requirement.
-Since the painter is the signatory of the paint offer, and Alice
-the actor of the exercise, they jointly authorize all consequences
-of the exercise. The first consequence is an exercise on the IOU, with
-Alice as the actor, so this is permissible. 
-The second consequence is the creation of the new IOU (for P) by exercising the old IOU (for A).
-As the IOU was formerly signed by the bank, with Alice as the actor of the exercise, they jointly authorize this creation.
-This action is permissible as the bank is the sole signatory.
-The final consequence is creating the paint agreement with Alice and the painter as signatories.
-Since they both authorize the action, this is also permissible.
-Thus, the entire third commit is also well-authorized, and so is the ledger.
+Now, suppose that node ⑨ specifies Alice as the actor instead of Carol.
+Then, the action (and the ledger as a whole) is well-authorized, but it no longer conforms to the Daml model.
+And the conformance failure shows up in Bank1's projection!
 
-Similarly, the intuitively problematic examples
-are prohibited by our authorization criterion. In the
-first example, Alice forced the painter to paint her house. The
-authorizations for the example are shown below.
+In summary, well-authorization is not common knowledge like conformance.
 
 
-.. https://www.lucidchart.com/documents/edit/6a05add2-7ec9-4a6a-bb9b-7103bf35390f
-.. image:: ./images/authorization-invalid-obligation.svg
-   :align: center
-   :alt: A time sequence for a scenario where Alice forces the painter to paint her house, described in depth with respect to authorization below.
+Valid Ledgers
+*************
 
-Alice authorizes the **Create** action on the `PaintAgree` contract by
-requesting it. However, the painter is also a signatory on the
-`PaintAgree` contract, but he did not authorize the **Create** action.
-Thus, this ledger is indeed not well-authorized.
+Having formalized the three conditions consistency, conformance and well-authorization, we can now formally define validity.
 
-In the second example, the painter steals money from Alice.
+.. admonition:: Definition: Valid ledger
 
-.. https://www.lucidchart.com/documents/edit/e895410e-6e77-4686-9fc6-0286a064f420
-.. image:: ./images/authorization-stealing-ious.svg
-   :align: center
-   :alt: A time sequence for a scenario where the painter steals Alice's money, described in depth with respect to authorization below.
+   A Canton ledger is **valid** for a set of parties P if all of the following hold:
 
-The bank authorizes the creation of the IOU by requesting this action.
-Similarly, the painter authorizes the exercise that transfers the IOU
-to him. However, the actor of this exercise is Alice, who has not
-authorized the exercise. Thus, this ledger is not
-well-authorized.
+   - The Ledger is consistent for contracts whose signatories include one of the parties.
+
+   - The Ledger conforms to the Daml templates.
+
+   - The ledger is well-authorized for the set of parties.
+
+   The Ledger is valid if it is valid for all parties.
+
+   
+Virtual Global Ledger
+=====================
 
 
-Valid Ledgers, Obligations, Offers and Rights
-*********************************************
+.. wip::
+   Move this to a separate page?
 
-Daml ledgers are designed to mimic real-world interactions between
-parties, which are governed by contract law. The validity conditions
-on the ledgers, and the information contained in contract models have
-several subtle links to the concepts of the contract law that are
-worth pointing out.
+The Canton protocol creates a Virtual Global Ledger (VGL) that is valid for the honest parties
+and such that each of these parties sees their projection of VGL.
+Honesty here means that the all nodes that processes the transactions involving the party operate according to the Canton protocol,
+subject to the Byzantine fault tolerance configured in the topology.
 
-First, contracts specify implicit **on-ledger
-obligations**, which result from consequences of the exercises on
-contracts. For example, the `PaintOffer` contains an on-ledger
-obligation for `A` to transfer her IOU in case she accepts the offer.
+This Virtual Global Ledger is not materialized anywhere due to privacy:
+In general, no node knows the entirety of the ledger.
+Accordingly, the Canton protocol cannot ensure a valid Virtual Global Ledger as a whole.
+For example, if a group of signatories decides to commit a double spend of a contract,
+then this is their decision.
+Since each spend may be witnessed by an different honest party,
+the VGL contains both spends and is therefore inconsistent for this contract.
 
-Second, every contract on a Daml ledger can model a real-world offer, 
-whose consequences (both on- and off-ledger) are specified by the 
-**Exercise** actions on the contract allowed by the contract model.
 
-Third, in Daml ledgers, as in the real world, one person's rights are
-another person's obligations. For example, `A`'s right to accept the
-`PaintOffer` is `P`'s obligation to paint her house in case she
-accepts.
-In Daml ledgers, a party's rights according to a contract model are 
-the exercise actions the party can perform, based on the authorization 
-and conformance rules.
 
-Finally, validity conditions ensure three important properties of the Daml
-ledger model, that mimic the contract law.
-
-#. **Obligations need consent**.
-   Daml ledgers follow the offer-acceptance pattern of the
-   contract law, and thus ensures that all ledger contracts are
-   formed voluntarily. For example, the following
-   ledger is not valid.
-
-   .. https://www.lucidchart.com/documents/edit/6a05add2-7ec9-4a6a-bb9b-7103bf35390f
-   .. image:: ./images/authorization-invalid-obligation.svg
-     :align: center
-     :width: 100%
-     :alt: The time sequence for a scenario where Alice forces the painter to paint her house, explained previously in the Authorization Rules Example section.
-
-#. **Consent is needed to take away on-ledger rights**.
-   As only **Exercise** actions consume contracts, the rights cannot be taken
-   away from the actors; the contract model specifies exactly who the
-   actors are, and the authorization rules require them to approve the
-   contract consumption.
-
-   In the examples, Alice had the right to transfer her IOUs;
-   painter's attempt to take that right away from her, by performing
-   a transfer himself, was not valid.
-
-   .. https://www.lucidchart.com/documents/edit/e895410e-6e77-4686-9fc6-0286a064f420
-   .. image:: ./images/authorization-stealing-ious.svg
-     :align: center
-     :width: 100%
-     :alt: The time sequence for a scenario where the painter steals Alice's money, explained previously in the Authorization Rules Example section.
-
-   Parties can still **delegate** their rights to other parties. For
-   example, assume that Alice, instead of accepting painter's offer,
-   decides to make him a counteroffer instead. The painter can
-   then accept this counteroffer, with the consequences as before:
-
-   .. https://www.lucidchart.com/documents/edit/ba64b0d2-776a-4c94-a9be-b76948a76632
-   .. image:: ./images/counteroffer-acceptance.svg
-     :align: center
-     :width: 60%
-     :name: counteroffer-acceptance
-     :alt: The original PaintAgreement flow chart, but now the topmost contract is the CounterOffer.
-
-   Here, by creating the `CounterOffer` contract, Alice delegates
-   her right to transfer the IOU contract to the painter. In case of
-   delegation, prior to submission, the requester must get informed about the contracts
-   that are part of the requested transaction, but where the requester
-   is not a signatory. In the example above, the
-   painter must learn about the existence of the IOU for Alice before
-   he can request the acceptance of the `CounterOffer`. The
-   concepts of observers and divulgence, introduced in the next
-   section, enable such scenarios.
-
-#. **On-ledger obligations cannot be unilaterally escaped**. Once an
-   obligation is recorded on a Daml ledger, it can only be removed in
-   accordance with the contract model. For example, assuming the IOU
-   contract model shown earlier, if the ledger records the creation
-   of a `MustPay` contract, the bank cannot later simply record an
-   action that consumes this contract:
-
-   .. https://www.lucidchart.com/documents/edit/521f4ec6-9152-447d-bda8-c0c636d7635f
-   .. image:: ./images/validity-no-removal-of-obligations.svg
-      :align: center
-      :width: 100%
-      :alt: A time sequence in which the first commit includes the creation of a MustPay contract and the second commit includes the bank consuming this contract, as described above.
-
-   That is, this ledger is invalid, as the action above is not
-   conformant to the contract model.
-
+   
 ..
   Parking lot
 
