@@ -234,11 +234,11 @@ dedup = dedupBy compare
 dedupBy : (a -> a -> Ordering) -> [a] -> [a]
 dedupBy cmp xs =
   let
-    indexed = zip xs [1..length xs]
-    comp x y = cmp (fst x) (fst y)
+    indexed = mapWithIndex (,) xs
+    comp x y = cmp (snd x) (snd y)
     deduped = dedupSortBy comp indexed
-    sorted = sortOn snd deduped
-  in map fst sorted
+    sorted = sortOn fst deduped
+  in map snd sorted
 
 -- | A version of `dedup` where deduplication is done
 -- after applyng function. Example use: `dedupOn (.employeeNo) employees`
