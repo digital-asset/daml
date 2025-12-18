@@ -293,7 +293,7 @@ private[backend] trait StorageBackendTestsEvents
         notPersistedContractId = hashCid("#1"),
       )(
         stakeholders = Set(partySignatory, partyObserver1),
-        template_id = someTemplateId.toString(),
+        template_id = someTemplateId,
       ),
       dtosAssign(
         event_offset = 2,
@@ -301,7 +301,7 @@ private[backend] trait StorageBackendTestsEvents
         notPersistedContractId = hashCid("#2"),
       )(
         stakeholders = Set(partySignatory, partyObserver2),
-        template_id = someTemplateId.toString(),
+        template_id = someTemplateId,
       ),
     ).flatten
 

@@ -6,7 +6,6 @@ package com.digitalasset.canton.synchronizer.sequencer
 import cats.data.EitherT
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config as cantonConfig
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port, PositiveInt}
 import com.digitalasset.canton.health.HealthQuasiComponent
@@ -21,6 +20,7 @@ import com.digitalasset.canton.sequencing.SequencerConnectionXPool.{
   SequencerConnectionXPoolHealth,
 }
 import com.digitalasset.canton.sequencing.{SequencerConnectionX, SequencerConnectionXPool}
+import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SequencerId}
 import com.digitalasset.canton.tracing.{TraceContext, TracingConfig}
 import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
@@ -121,8 +121,8 @@ object DirectSequencerConnectionXPool {
     connections = NonEmpty(Seq, directConnectionDummyConfig),
     trustThreshold = PositiveInt.one,
     // Not relevant for the direct pool
-    minRestartConnectionDelay = cantonConfig.NonNegativeFiniteDuration.Zero,
-    maxRestartConnectionDelay = cantonConfig.NonNegativeFiniteDuration.Zero,
-    warnConnectionValidationDelay = cantonConfig.NonNegativeFiniteDuration.Zero,
+    minRestartConnectionDelay = NonNegativeFiniteDuration.Zero,
+    maxRestartConnectionDelay = NonNegativeFiniteDuration.Zero,
+    warnConnectionValidationDelay = NonNegativeFiniteDuration.Zero,
   )
 }

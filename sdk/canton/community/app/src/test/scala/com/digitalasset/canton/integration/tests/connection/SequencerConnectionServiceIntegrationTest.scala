@@ -3,7 +3,12 @@
 
 package com.digitalasset.canton.integration.tests.connection
 
-import com.digitalasset.canton.admin.api.client.data.SubmissionRequestAmplification
+import com.digitalasset.canton.admin.api.client.data.{
+  SequencerConnection,
+  SequencerConnectionValidation,
+  SequencerConnections,
+  SubmissionRequestAmplification,
+}
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.InstanceReference
 import com.digitalasset.canton.integration.bootstrap.{
@@ -19,12 +24,7 @@ import com.digitalasset.canton.integration.{
   SharedEnvironment,
 }
 import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
-import com.digitalasset.canton.sequencing.{
-  SequencerConnectionValidation,
-  SequencerConnectionXPool,
-  SequencerConnections,
-  SequencerSubscriptionPool,
-}
+import com.digitalasset.canton.sequencing.{SequencerConnectionXPool, SequencerSubscriptionPool}
 import com.digitalasset.canton.{SequencerAlias, config}
 import monocle.macros.syntax.lens.*
 import org.slf4j.event.Level.INFO
@@ -68,10 +68,12 @@ sealed trait SequencerConnectionServiceIntegrationTest
     "Allow modifying the pool configuration" in { implicit env =>
       import env.*
 
-      val connectionsConfig = Seq(sequencer1, sequencer2).map(s =>
-        s.config.publicApi.clientConfig
-          .asSequencerConnection(SequencerAlias.tryCreate(s.name), sequencerId = None)
-      )
+      val connectionsConfig = Seq(sequencer1, sequencer2)
+        .map(s =>
+          s.config.publicApi.clientConfig
+            .asSequencerConnection(SequencerAlias.tryCreate(s.name), sequencerId = None)
+        )
+        .map(SequencerConnection.fromInternal)
 
       // Before connecting participants to sequencers, ensure a dissemination quorum
       waitUntilAllBftSequencersAuthenticateDisseminationQuorum()

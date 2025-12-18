@@ -10,7 +10,11 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
 }
 import com.daml.ledger.javaapi.data.codegen.ContractId as CodeGenCID
 import com.daml.ledger.javaapi.data.{Command, DisclosedContract, Identifier}
-import com.digitalasset.canton.admin.api.client.data.TrafficControlParameters
+import com.digitalasset.canton.admin.api.client.data.{
+  SequencerConnections,
+  SynchronizerConnectionConfig,
+  TrafficControlParameters,
+}
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.config.SynchronizerTimeTrackerConfig
@@ -26,8 +30,6 @@ import com.digitalasset.canton.integration.{
   TestConsoleEnvironment,
 }
 import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
-import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
-import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.synchronizer.sequencer.HasProgrammableSequencer
 import com.digitalasset.canton.topology.{ExternalParty, Member, Party}
 

@@ -8,6 +8,7 @@ import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.*
 import com.daml.test.evidence.tag.FuncTest
 import com.daml.test.evidence.tag.Security.SecurityTest.Property
 import com.daml.test.evidence.tag.Security.{Attack, SecurityTest, SecurityTestSuite}
+import com.digitalasset.canton.admin.api.client.data.SynchronizerConnectionConfig
 import com.digitalasset.canton.console.{CommandFailure, LocalInstanceReference}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.TransactionRoutingError.TopologyErrors.NoSynchronizerOnWhichAllSubmittersCanSubmit
@@ -26,7 +27,6 @@ import com.digitalasset.canton.participant.sync.SyncServiceError.{
   SyncServiceSynchronizerDisabledUs,
   SyncServiceSynchronizerDisconnect,
 }
-import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.sequencing.authentication.MemberAuthentication.MemberAccessDisabled
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.*

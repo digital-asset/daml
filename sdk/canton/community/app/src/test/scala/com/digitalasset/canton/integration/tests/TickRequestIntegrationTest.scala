@@ -3,7 +3,11 @@
 
 package com.digitalasset.canton.integration.tests
 
-import com.digitalasset.canton.admin.api.client.data.TrafficControlParameters
+import com.digitalasset.canton.admin.api.client.data.{
+  SequencerConnections,
+  SynchronizerConnectionConfig,
+  TrafficControlParameters,
+}
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.RequireTypes.{
@@ -22,13 +26,9 @@ import com.digitalasset.canton.integration.{
   EnvironmentDefinition,
   SharedEnvironment,
 }
-import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.protocol.LfContractId
+import com.digitalasset.canton.sequencing.TrafficControlParameters as InternalTrafficControlParameters
 import com.digitalasset.canton.sequencing.protocol.TimeProof
-import com.digitalasset.canton.sequencing.{
-  SequencerConnections,
-  TrafficControlParameters as InternalTrafficControlParameters,
-}
 import com.digitalasset.canton.synchronizer.sequencer.{HasProgrammableSequencer, SendDecision}
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.Member

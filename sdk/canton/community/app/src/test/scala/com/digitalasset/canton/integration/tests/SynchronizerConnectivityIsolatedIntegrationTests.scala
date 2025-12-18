@@ -4,12 +4,15 @@
 package com.digitalasset.canton.integration.tests
 
 import com.digitalasset.canton.SequencerAlias
+import com.digitalasset.canton.admin.api.client.data.{
+  GrpcSequencerConnection,
+  SequencerConnections,
+  SynchronizerConnectionConfig,
+}
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
 import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
-import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
-import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnections}
 import com.google.protobuf.ByteString
 
 trait SynchronizerConnectivityIsolatedIntegrationTest

@@ -4,6 +4,7 @@
 package com.digitalasset.canton.integration.tests.toxiproxy.fast
 
 import com.digitalasset.canton.HasExecutionContext
+import com.digitalasset.canton.admin.api.client.data.SynchronizerConnectionConfig
 import com.digitalasset.canton.integration.EnvironmentDefinition.P2_S1M1
 import com.digitalasset.canton.integration.plugins.toxiproxy.UseToxiproxy.ToxiproxyConfig
 import com.digitalasset.canton.integration.plugins.toxiproxy.{
@@ -17,7 +18,6 @@ import com.digitalasset.canton.integration.{
   EnvironmentDefinition,
   SharedEnvironment,
 }
-import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import eu.rekawek.toxiproxy.model.ToxicDirection
 
 class ToxiproxyPluginTest

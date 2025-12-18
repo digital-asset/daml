@@ -3,14 +3,15 @@
 
 package com.digitalasset.canton.integration.plugins.toxiproxy
 
+import com.digitalasset.canton.admin.api.client.data.SynchronizerConnectionConfig
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.RequireTypes.Port
+import com.digitalasset.canton.console.ConsoleEnvironment
 import com.digitalasset.canton.integration.ConfigTransforms.*
 import com.digitalasset.canton.integration.plugins.toxiproxy.ProxyConfig.postgresConfig
 import com.digitalasset.canton.integration.plugins.toxiproxy.UseToxiproxy.*
 import com.digitalasset.canton.integration.{ConfigTransform, EnvironmentSetupPlugin}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.synchronizer.sequencer.SequencerConfig.BftSequencer
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig.P2PNetworkConfig
 import com.digitalasset.canton.{BaseTest, SequencerAlias, UniquePortGenerator}
@@ -349,7 +350,7 @@ object UseToxiproxy {
       config: SynchronizerConnectionConfig,
       proxyConf: ParticipantToSequencerPublicApi,
       toxiproxy: RunningToxiproxy,
-  ): SynchronizerConnectionConfig = {
+  )(implicit consoleEnvironment: ConsoleEnvironment): SynchronizerConnectionConfig = {
     val proxy = toxiproxy
       .getProxy(proxyConf.name)
       .getOrElse(

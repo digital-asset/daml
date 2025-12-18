@@ -6,12 +6,14 @@ package com.digitalasset.canton.console
 import better.files.*
 import cats.syntax.either.*
 import com.digitalasset.canton.SynchronizerAlias
-import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameters
+import com.digitalasset.canton.admin.api.client.data.{
+  SequencerConnections,
+  StaticSynchronizerParameters,
+}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.data.ActiveContract
-import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}

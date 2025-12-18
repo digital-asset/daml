@@ -4,7 +4,6 @@
 package com.digitalasset.canton.http.json.v2
 
 import com.digitalasset.canton.http.json.v2.ProtoInfo.{camelToSnake, normalizeName}
-import io.circe
 import io.circe.yaml.Printer
 
 import scala.collection.immutable.SortedMap
@@ -135,31 +134,49 @@ object ProtoInfo {
   def normalizeName(s: String): String =
     if (s.nonEmpty && s.last.isDigit) s.dropRight(1) else if (s.startsWith("Js")) s.drop(2) else s
 
-  def loadData(): Either[circe.Error, ProtoInfo] =
-    Using.resources(
+  def loadOverrides(): ExtractedProtoFileComments =
+    Using
+      .resource(
+        Source.fromResource(
+          CommentsOverridesApiDescriptionResourceLocation,
+          classOf[com.digitalasset.canton.http.json.v2.ProtoInfo.type].getClassLoader,
+        )
+      ) { jsonCommentsOverridersResource =>
+        import io.circe.generic.auto.*
+        import io.circe.yaml.Parser as YamlParser
+        Using.resource(jsonCommentsOverridersResource.bufferedReader()) { overridesReader =>
+          YamlParser.default
+            .parse(overridesReader)
+            .flatMap(_.as[ExtractedProtoFileComments])
+        }
+      }
+      .getOrElse(
+        throw new IllegalStateException(
+          s"Cannot load proto comments overrides from $CommentsOverridesApiDescriptionResourceLocation"
+        )
+      )
+
+  def loadData(): ProtoInfo = {
+    import io.circe.generic.auto.*
+    import io.circe.yaml.Parser as YamlParser
+    val protoDocumentation = Using.resource(
       Source.fromResource(
         LedgerApiDescriptionResourceLocation,
         classOf[com.digitalasset.canton.http.json.v2.ProtoInfo.type].getClassLoader,
-      ),
-      Source.fromResource(
-        CommentsOverridesApiDescriptionResourceLocation,
-        classOf[com.digitalasset.canton.http.json.v2.ProtoInfo.type].getClassLoader,
-      ),
-    ) { (protoCommentsResource, jsonCommentsOverridersResource) =>
-      import io.circe.generic.auto.*
-      import io.circe.yaml.Parser as YamlParser
-      Using.resources(
-        protoCommentsResource.bufferedReader(),
-        jsonCommentsOverridersResource.bufferedReader(),
-      ) { (protoCommentsReader, overridesReader) =>
-        for {
-          protoDocumentation <- YamlParser.default
-            .parse(protoCommentsReader)
-            .flatMap(_.as[ExtractedProtoComments])
-          additionalYamlDoc <- YamlParser.default
-            .parse(overridesReader)
-            .flatMap(_.as[ExtractedProtoFileComments])
-        } yield ProtoInfo(protoDocumentation, additionalYamlDoc)
+      )
+    ) { protoCommentsResource =>
+      Using.resource(protoCommentsResource.bufferedReader()) { protoCommentsReader =>
+        YamlParser.default
+          .parse(protoCommentsReader)
+          .flatMap(_.as[ExtractedProtoComments])
+          .getOrElse(
+            throw new IllegalStateException(
+              s"Cannot load scanned proto comments from $LedgerApiDescriptionResourceLocation"
+            )
+          )
       }
     }
+    val commentOverrides = loadOverrides()
+    ProtoInfo(protoDocumentation, commentOverrides)
+  }
 }

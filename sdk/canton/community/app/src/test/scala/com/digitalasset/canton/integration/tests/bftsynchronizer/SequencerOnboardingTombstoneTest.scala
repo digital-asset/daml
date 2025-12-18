@@ -3,7 +3,12 @@
 
 package com.digitalasset.canton.integration.tests.bftsynchronizer
 
-import com.digitalasset.canton.admin.api.client.data.{ComponentHealthState, ComponentStatus}
+import com.digitalasset.canton.admin.api.client.data.{
+  ComponentHealthState,
+  ComponentStatus,
+  SequencerConnection,
+  SequencerConnections,
+}
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
@@ -23,7 +28,6 @@ import com.digitalasset.canton.integration.{
 }
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.logging.SuppressingLogger.LogEntryOptionality
-import com.digitalasset.canton.sequencing.{SequencerConnection, SequencerConnections}
 import com.digitalasset.canton.{SequencerAlias, SynchronizerAlias}
 import monocle.macros.syntax.lens.*
 

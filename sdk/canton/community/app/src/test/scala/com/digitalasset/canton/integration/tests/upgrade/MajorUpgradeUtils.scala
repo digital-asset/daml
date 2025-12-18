@@ -7,10 +7,16 @@ import better.files.File
 import com.daml.ledger.api.v2.CommandsOuterClass
 import com.daml.ledger.javaapi as javab
 import com.daml.ledger.javaapi.data.DisclosedContract
-import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameters
+import com.digitalasset.canton.admin.api.client.data.{
+  SequencerConnectionPoolDelays,
+  SequencerConnections,
+  StaticSynchronizerParameters,
+  SubmissionRequestAmplification,
+}
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.commands.ConsoleCommandGroup
 import com.digitalasset.canton.console.{
+  ConsoleEnvironment,
   InstanceReference,
   MediatorReference,
   ParticipantReference,
@@ -24,11 +30,6 @@ import com.digitalasset.canton.integration.plugins.UseExternalProcess.RunVersion
 import com.digitalasset.canton.integration.tests.manual.S3Synchronization.ContinuityDumpRef
 import com.digitalasset.canton.integration.tests.manual.{DataContinuityTest, S3Synchronization}
 import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
-import com.digitalasset.canton.sequencing.{
-  SequencerConnectionPoolDelays,
-  SequencerConnections,
-  SubmissionRequestAmplification,
-}
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
 import com.digitalasset.canton.topology.transaction.{
   NamespaceDelegation,
@@ -284,7 +285,7 @@ trait MajorUpgradeUtils extends S3Synchronization { self: BaseTest =>
       sequencerLivenessMargin: NonNegativeInt = NonNegativeInt.zero,
       exportDirectory: File,
       sourceNodeNames: Map[String, String] = Map.empty,
-  ): Unit = {
+  )(implicit consoleEnvironment: ConsoleEnvironment): Unit = {
     val files = UpgradeDataFiles.from(
       sourceNodeNames.getOrElse(migratedNode.name, migratedNode.name),
       exportDirectory,

@@ -8,28 +8,18 @@ import cats.syntax.option.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.catsinstances.`cats nonempty traverse`
 import com.digitalasset.canton.ProtoDeserializationError.InvariantViolation
+import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.admin.participant.v30
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.config.SynchronizerTimeTrackerConfig
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.sequencing.{
-  GrpcSequencerConnection,
-  SequencerConnection,
-  SequencerConnectionPoolDelays,
-  SequencerConnections,
-  SubmissionRequestAmplification,
-}
+import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnections}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.util.OptionUtil
 import com.digitalasset.canton.version.*
-import com.digitalasset.canton.{SequencerAlias, SynchronizerAlias}
-import com.google.protobuf.ByteString
 import monocle.syntax.all.*
-
-import java.net.URI
 
 /** The synchronizer connection configuration object
   *
@@ -180,67 +170,6 @@ final case class SynchronizerConnectionConfig(
 
   override protected def companionObj = SynchronizerConnectionConfig
 
-  /** Helper methods to avoid having to use NonEmpty[Seq in the console */
-  def addEndpoints(
-      sequencerAlias: SequencerAlias,
-      connection: String,
-      additionalConnections: String*
-  ): Either[String, SynchronizerConnectionConfig] =
-    addEndpoints(sequencerAlias, new URI(connection), additionalConnections.map(new URI(_))*)
-
-  def addEndpoints(
-      sequencerAlias: SequencerAlias,
-      connection: URI,
-      additionalConnections: URI*
-  ): Either[String, SynchronizerConnectionConfig] = for {
-    sequencerConnections <- sequencerConnections.addEndpoints(
-      sequencerAlias,
-      connection,
-      additionalConnections*
-    )
-  } yield copy(sequencerConnections = sequencerConnections)
-
-  def addConnection(connection: SequencerConnection): Either[String, SynchronizerConnectionConfig] =
-    for {
-      sequencerConnections <- sequencerConnections.addEndpoints(
-        connection.sequencerAlias,
-        connection,
-      )
-    } yield copy(sequencerConnections = sequencerConnections)
-
-  def withCertificates(
-      sequencerAlias: SequencerAlias,
-      certificates: ByteString,
-  ): SynchronizerConnectionConfig =
-    copy(sequencerConnections = sequencerConnections.withCertificates(sequencerAlias, certificates))
-
-  def tryWithSequencerTrustThreshold(
-      threshold: PositiveInt
-  ): SynchronizerConnectionConfig =
-    sequencerConnections
-      .withSequencerTrustThreshold(sequencerTrustThreshold = threshold)
-      .map(connections => copy(sequencerConnections = connections)) match {
-      case Left(err) =>
-        throw new IllegalArgumentException(s"Invalid Sequencer trust threshold $threshold : $err")
-      case Right(es) => es
-    }
-
-  def withSequencerLivenessMargin(livenessMargin: NonNegativeInt): SynchronizerConnectionConfig =
-    copy(sequencerConnections =
-      sequencerConnections
-        .withLivenessMargin(sequencerLivenessMargin = livenessMargin)
-    )
-
-  def withPriority(priority: Int): SynchronizerConnectionConfig =
-    this.copy(priority = priority)
-
-  def withSubmissionRequestAmplification(
-      submissionRequestAmplification: SubmissionRequestAmplification
-  ): SynchronizerConnectionConfig =
-    this.copy(sequencerConnections =
-      sequencerConnections.withSubmissionRequestAmplification(submissionRequestAmplification)
-    )
-
   override protected def pretty: Pretty[SynchronizerConnectionConfig] =
     prettyOfClass(
       param("synchronizer", _.synchronizerAlias),
@@ -283,76 +212,6 @@ object SynchronizerConnectionConfig
     )
   )
   override def name: String = "synchronizer connection config"
-
-  def tryGrpcSingleConnection(
-      synchronizerAlias: SynchronizerAlias,
-      sequencerAlias: SequencerAlias,
-      connection: String,
-      manualConnect: Boolean = false,
-      psid: Option[PhysicalSynchronizerId] = None,
-      certificates: Option[ByteString] = None,
-      priority: Int = 0,
-      initialRetryDelay: Option[NonNegativeFiniteDuration] = None,
-      maxRetryDelay: Option[NonNegativeFiniteDuration] = None,
-      timeTracker: SynchronizerTimeTrackerConfig = SynchronizerTimeTrackerConfig(),
-      initializeFromTrustedSynchronizer: Boolean = false,
-  ): SynchronizerConnectionConfig = {
-    val sequencerConnection =
-      SequencerConnections.single(
-        GrpcSequencerConnection.tryCreate(connection, certificates, sequencerAlias)
-      )
-
-    SynchronizerConnectionConfig(
-      synchronizerAlias,
-      sequencerConnection,
-      manualConnect,
-      psid,
-      priority,
-      initialRetryDelay,
-      maxRetryDelay,
-      timeTracker,
-      initializeFromTrustedSynchronizer,
-    )
-  }
-
-  def tryGrpc(
-      synchronizerAlias: SynchronizerAlias,
-      connections: Seq[SequencerConnection],
-      manualConnect: Boolean = false,
-      psid: Option[PhysicalSynchronizerId] = None,
-      priority: Int = 0,
-      initialRetryDelay: Option[NonNegativeFiniteDuration] = None,
-      maxRetryDelay: Option[NonNegativeFiniteDuration] = None,
-      timeTracker: SynchronizerTimeTrackerConfig = SynchronizerTimeTrackerConfig(),
-      initializeFromTrustedSynchronizer: Boolean = false,
-      sequencerTrustThreshold: PositiveInt = PositiveInt.one,
-      sequencerLivenessMargin: NonNegativeInt = NonNegativeInt.zero,
-      submissionRequestAmplification: SubmissionRequestAmplification =
-        SubmissionRequestAmplification.NoAmplification,
-      sequencerConnectionPoolDelays: SequencerConnectionPoolDelays =
-        SequencerConnectionPoolDelays.default,
-  ): SynchronizerConnectionConfig = {
-    val sequencerConnections =
-      SequencerConnections.tryMany(
-        connections,
-        sequencerTrustThreshold = sequencerTrustThreshold,
-        sequencerLivenessMargin = sequencerLivenessMargin,
-        submissionRequestAmplification = submissionRequestAmplification,
-        sequencerConnectionPoolDelays = sequencerConnectionPoolDelays,
-      )
-
-    SynchronizerConnectionConfig(
-      synchronizerAlias,
-      sequencerConnections,
-      manualConnect,
-      psid,
-      priority,
-      initialRetryDelay,
-      maxRetryDelay,
-      timeTracker,
-      initializeFromTrustedSynchronizer,
-    )
-  }
 
   def fromProtoV30(
       synchronizerConnectionConfigP: v30.SynchronizerConnectionConfig

@@ -6,6 +6,10 @@ package com.digitalasset.canton.integration.tests.repair
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.admin.api.client.data.TemplateId.templateIdsFromJava
+import com.digitalasset.canton.admin.api.client.data.{
+  SequencerConnections,
+  SynchronizerConnectionConfig,
+}
 import com.digitalasset.canton.config.PositiveDurationSeconds
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.InstanceReference
@@ -23,9 +27,7 @@ import com.digitalasset.canton.integration.{
 import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
 import com.digitalasset.canton.participant.admin.workflows.java.canton.internal as W
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceSynchronizerDisconnect
-import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.protocol.messages.DefaultOpenEnvelope
-import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.sequencing.client.ResilientSequencerSubscription
 import com.digitalasset.canton.sequencing.protocol.{
   Deliver,

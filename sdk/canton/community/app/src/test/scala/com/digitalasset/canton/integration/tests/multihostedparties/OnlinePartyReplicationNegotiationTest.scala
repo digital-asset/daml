@@ -10,7 +10,14 @@ import com.daml.ledger.api.v2.transaction_filter.TransactionShape.TRANSACTION_SH
 import com.daml.ledger.api.v2.value.Value.Sum.Party
 import com.daml.ledger.api.v2.value.{RecordField, Value}
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.TransactionWrapper
-import com.digitalasset.canton.admin.api.client.data.TemplateId
+import com.digitalasset.canton.admin.api.client.data.{
+  SequencerConnectionPoolDelays,
+  SequencerConnectionValidation,
+  SequencerConnections,
+  SubmissionRequestAmplification,
+  SynchronizerConnectionConfig,
+  TemplateId,
+}
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.config.SynchronizerTimeTrackerConfig
 import com.digitalasset.canton.console.{
@@ -40,13 +47,6 @@ import com.digitalasset.canton.logging.SuppressionRule
 import com.digitalasset.canton.participant.admin.party.PartyReplicationAdminWorkflow
 import com.digitalasset.canton.participant.admin.workflows.java.canton.internal as M
 import com.digitalasset.canton.participant.config.UnsafeOnlinePartyReplicationConfig
-import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
-import com.digitalasset.canton.sequencing.{
-  SequencerConnectionPoolDelays,
-  SequencerConnectionValidation,
-  SequencerConnections,
-  SubmissionRequestAmplification,
-}
 import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeConfig
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.{PartyId, SynchronizerId}

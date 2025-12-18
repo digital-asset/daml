@@ -18,11 +18,8 @@ import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommand
   GetResourceLimits,
   SetResourceLimits,
 }
+import com.digitalasset.canton.admin.api.client.data.*
 import com.digitalasset.canton.admin.api.client.data.PackageDescription.PackageContents
-import com.digitalasset.canton.admin.api.client.data.{
-  SubmissionRequestAmplification as ConsoleSubmissionRequestAmplification,
-  *,
-}
 import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.admin.participant.v30.PruningServiceGrpc
 import com.digitalasset.canton.admin.participant.v30.PruningServiceGrpc.PruningServiceStub
@@ -65,7 +62,6 @@ import com.digitalasset.canton.participant.pruning.{
   CommitmentInspectContract,
   OpenCommitmentHelper,
 }
-import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.protocol.messages.{
   AcsCommitment,
   CommitmentPeriod,
@@ -73,7 +69,7 @@ import com.digitalasset.canton.protocol.messages.{
   SignedProtocolMessage,
 }
 import com.digitalasset.canton.protocol.{ContractInstance, LfContractId, LfVersionedTransaction}
-import com.digitalasset.canton.sequencing.*
+import com.digitalasset.canton.sequencing.PossiblyIgnoredProtocolEvent
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.{
@@ -190,7 +186,7 @@ private[console] object ParticipantCommands {
           SubmissionRequestAmplification.NoAmplification,
         sequencerConnectionPoolDelays: SequencerConnectionPoolDelays =
           SequencerConnectionPoolDelays.default,
-    ): SynchronizerConnectionConfig =
+    )(implicit consoleEnvironment: ConsoleEnvironment): SynchronizerConnectionConfig =
       SynchronizerConnectionConfig(
         synchronizerAlias,
         SequencerConnections.tryMany(
@@ -221,7 +217,7 @@ private[console] object ParticipantCommands {
         maxRetryDelay: Option[NonNegativeFiniteDuration] = None,
         timeTrackerConfig: SynchronizerTimeTrackerConfig = SynchronizerTimeTrackerConfig(),
         sequencerAlias: SequencerAlias = SequencerAlias.Default,
-    ): SynchronizerConnectionConfig = {
+    )(implicit consoleEnvironment: ConsoleEnvironment): SynchronizerConnectionConfig = {
       // architecture-handbook-entry-begin: OnboardParticipantToConfig
       val certificates = OptionUtil.emptyStringAsNone(certificatesPath).map { path =>
         BinaryFileUtil.readByteStringFromFile(path) match {
@@ -249,19 +245,24 @@ private[console] object ParticipantCommands {
         config: SynchronizerConnectionConfig,
         performHandshake: Boolean,
         validation: SequencerConnectionValidation,
-    ): ConsoleCommandResult[Unit] =
+    )(implicit consoleEnvironment: ConsoleEnvironment): ConsoleCommandResult[Unit] =
       runner.adminCommand(
         ParticipantAdminCommands.SynchronizerConnectivity
-          .RegisterSynchronizer(config, performHandshake = performHandshake, validation)
+          .RegisterSynchronizer(
+            config.toInternal,
+            performHandshake = performHandshake,
+            validation.toInternal,
+          )
       )
 
     def connect(
         runner: AdminCommandRunner,
         config: SynchronizerConnectionConfig,
         validation: SequencerConnectionValidation,
-    ): ConsoleCommandResult[Unit] =
+    )(implicit consoleEnvironment: ConsoleEnvironment): ConsoleCommandResult[Unit] =
       runner.adminCommand(
-        ParticipantAdminCommands.SynchronizerConnectivity.ConnectSynchronizer(config, validation)
+        ParticipantAdminCommands.SynchronizerConnectivity
+          .ConnectSynchronizer(config.toInternal, validation.toInternal)
       )
 
     def reconnect(
@@ -1988,8 +1989,8 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         ),
         sequencerTrustThreshold: PositiveInt = PositiveInt.one,
         sequencerLivenessMargin: NonNegativeInt = NonNegativeInt.zero,
-        submissionRequestAmplification: ConsoleSubmissionRequestAmplification =
-          ConsoleSubmissionRequestAmplification.NoAmplification,
+        submissionRequestAmplification: SubmissionRequestAmplification =
+          SubmissionRequestAmplification.NoAmplification,
         sequencerConnectionPoolDelays: SequencerConnectionPoolDelays =
           SequencerConnectionPoolDelays.default,
         validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
@@ -2003,7 +2004,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         priority = priority,
         sequencerTrustThreshold = sequencerTrustThreshold,
         sequencerLivenessMargin = sequencerLivenessMargin,
-        submissionRequestAmplification = submissionRequestAmplification.toInternal,
+        submissionRequestAmplification = submissionRequestAmplification,
         sequencerConnectionPoolDelays = sequencerConnectionPoolDelays,
       )
       connect_by_config(config, validation, synchronize)
@@ -2037,8 +2038,8 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         ),
         sequencerTrustThreshold: PositiveInt = PositiveInt.one,
         sequencerLivenessMargin: NonNegativeInt = NonNegativeInt.zero,
-        submissionRequestAmplification: ConsoleSubmissionRequestAmplification =
-          ConsoleSubmissionRequestAmplification.NoAmplification,
+        submissionRequestAmplification: SubmissionRequestAmplification =
+          SubmissionRequestAmplification.NoAmplification,
         sequencerConnectionPoolDelays: SequencerConnectionPoolDelays =
           SequencerConnectionPoolDelays.default,
         validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
@@ -2051,7 +2052,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         priority,
         sequencerTrustThreshold = sequencerTrustThreshold,
         sequencerLivenessMargin = sequencerLivenessMargin,
-        submissionRequestAmplification = submissionRequestAmplification.toInternal,
+        submissionRequestAmplification = submissionRequestAmplification,
         sequencerConnectionPoolDelays = sequencerConnectionPoolDelays,
       )
       connect_by_config(config, validation, synchronize)
@@ -2191,7 +2192,9 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
     ): SynchronizerConnectionConfig = {
       val sequencerConnection =
-        SequencerConnection.merge(connections).getOrElse(sys.error("Invalid sequencer connection"))
+        SequencerConnection
+          .merge(connections)
+          .getOrElse(sys.error("Invalid sequencer connection"))
       val sequencerConnections =
         SequencerConnections.single(sequencerConnection)
       val config = SynchronizerConnectionConfig(
@@ -2318,10 +2321,14 @@ trait ParticipantAdministration extends FeatureFlagFilter {
       "For each returned synchronizer, the boolean indicates whether the participant is currently connected to the synchronizer."
     )
     def list_registered()
-        : Seq[(SynchronizerConnectionConfig, ConfiguredPhysicalSynchronizerId, Boolean)] =
-      consoleEnvironment.run {
+        : Seq[(SynchronizerConnectionConfig, ConfiguredPhysicalSynchronizerId, Boolean)] = {
+      val result = consoleEnvironment.run {
         adminCommand(ParticipantAdminCommands.SynchronizerConnectivity.ListRegisteredSynchronizers)
       }
+      result.map { case (internalConfig, psid, connected) =>
+        (SynchronizerConnectionConfig.fromInternal(internalConfig), psid, connected)
+      }
+    }
 
     @Help.Summary("Returns true if a synchronizer is registered using the given alias")
     def is_registered(synchronizerAlias: SynchronizerAlias): Boolean =
@@ -2370,7 +2377,8 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           ).toEither
           cfg <- registeredSynchronizers
             .collectFirst {
-              case (config, _, _) if config.synchronizerAlias == synchronizerAlias => config
+              case (config, _, _) if config.synchronizerAlias == synchronizerAlias =>
+                SynchronizerConnectionConfig.fromInternal(config)
             }
             .toRight(s"No such synchronizer $synchronizerAlias configured")
           newConfig <- Try(modifier(cfg)).toEither.leftMap(_.toString)
@@ -2382,8 +2390,8 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           _ <- adminCommand(
             ParticipantAdminCommands.SynchronizerConnectivity.ModifySynchronizerConnection(
               physicalSynchronizerId,
-              newConfig,
-              validation,
+              newConfig.toInternal,
+              validation.toInternal,
             )
           ).toEither
         } yield ()

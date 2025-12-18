@@ -19,6 +19,7 @@ import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.Updat
   TransactionWrapper,
   UpdateWrapper,
 }
+import com.digitalasset.canton.admin.api.client.data.SequencerConnections
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.{LocalSequencerReference, ParticipantReference}
@@ -50,7 +51,6 @@ import com.digitalasset.canton.performance.{
   PerformanceRunner,
   PerformanceRunnerConfig,
 }
-import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.sequencing.client.RecordingConfig
 import com.digitalasset.canton.synchronizer.mediator.MediatorNodeBootstrap
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopology

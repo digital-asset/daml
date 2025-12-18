@@ -4,6 +4,7 @@
 package com.digitalasset.canton.integration.tests.bftsynchronizer
 
 import com.digitalasset.canton.BigDecimalImplicits.*
+import com.digitalasset.canton.admin.api.client.data.SequencerConnections
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.examples.java.iou.{Amount, Iou}
@@ -20,7 +21,6 @@ import com.digitalasset.canton.integration.{
   HasCycleUtils,
   SharedEnvironment,
 }
-import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.{ForceFlag, PartyId}
 

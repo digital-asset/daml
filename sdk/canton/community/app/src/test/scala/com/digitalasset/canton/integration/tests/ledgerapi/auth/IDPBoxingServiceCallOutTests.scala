@@ -174,13 +174,13 @@ trait IDPBoxingServiceCallOutTests
       }
     }
 
-    "deny Admin granting permissions to parties which do not exist" taggedAs adminSecurityAsset
-      .setAttack(
-        attackUnknownResource(threat = "Grant rights to non existing parties")
+    "allow Admin granting permissions to parties which do not exist" taggedAs adminSecurityAsset
+      .setHappyCase(
+        "Grant rights to non existing parties"
       ) in { implicit env =>
       import env.*
       loggerFactory.suppress(AuthServiceJWTSuppressionRule) {
-        expectUnknownResource {
+        expectSuccess {
           val suffix = UUID.randomUUID().toString
           for {
             (_, idpAdminContext, _) <- createIDPBundle(canBeAnAdmin, suffix)

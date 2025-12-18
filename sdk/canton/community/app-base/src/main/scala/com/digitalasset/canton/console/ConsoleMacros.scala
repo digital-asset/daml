@@ -26,7 +26,11 @@ import com.digitalasset.canton.admin.api.client.data.{
   ListPartiesResult,
   MediatorStatus,
   NodeStatus,
+  SequencerConnectionPoolDelays,
+  SequencerConnectionValidation,
+  SequencerConnections,
   SequencerStatus,
+  SubmissionRequestAmplification,
   TemplateId,
 }
 import com.digitalasset.canton.concurrent.Threading
@@ -45,12 +49,6 @@ import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
 import com.digitalasset.canton.participant.config.BaseParticipantConfig
 import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.sequencing.{
-  SequencerConnectionPoolDelays,
-  SequencerConnectionValidation,
-  SequencerConnections,
-  SubmissionRequestAmplification,
-}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}

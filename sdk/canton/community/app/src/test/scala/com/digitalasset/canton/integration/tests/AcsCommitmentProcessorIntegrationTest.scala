@@ -4,6 +4,10 @@
 package com.digitalasset.canton.integration.tests
 
 import com.digitalasset.canton.BigDecimalImplicits.*
+import com.digitalasset.canton.admin.api.client.data.{
+  SequencerConnections,
+  SynchronizerConnectionConfig,
+}
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeProportion}
@@ -34,9 +38,7 @@ import com.digitalasset.canton.participant.sync.SyncServiceError.{
   SyncServiceSynchronizerDisabledUs,
   SyncServiceSynchronizerDisconnect,
 }
-import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.participant.util.JavaCodegenUtil.*
-import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.sequencing.authentication.MemberAuthentication.MemberAccessDisabled
 import com.digitalasset.canton.sequencing.protocol.{MemberRecipient, SubmissionRequest}
 import com.digitalasset.canton.synchronizer.sequencer.{

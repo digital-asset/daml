@@ -108,14 +108,14 @@ object BatchAggregator {
       processor: Processor[A, B],
       config: BatchAggregatorConfig,
   ): BatchAggregator[A, B] = config match {
-    case BatchAggregatorConfig.AutoBatching(maximumInFlight, maximumBatchSize) =>
+    case BatchAggregatorConfig.Batching(maximumInFlight, maximumBatchSize) =>
       new BatchAggregatorImpl[A, B](
         processor,
         maximumInFlight = maximumInFlight.unwrap,
         maximumBatchSize = maximumBatchSize,
       )
 
-    case BatchAggregatorConfig.NoAutoBatching(maxParallelBatches, maximumBatchSize) =>
+    case BatchAggregatorConfig.NoBatching(maxParallelBatches, maximumBatchSize) =>
       new NoOpBatchAggregator[A, B](
         processor.executeSingle(_)(_, _, _),
         processor.executeBatch(_)(_, _),

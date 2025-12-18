@@ -161,11 +161,10 @@ class SequencerConnectionXPoolImplTest
       )
 
       val poolDelays = SequencerConnectionPoolDelays(
-        minRestartDelay = config.NonNegativeFiniteDuration.ofMillis(100),
-        maxRestartDelay = config.NonNegativeFiniteDuration.ofSeconds(10),
-        warnValidationDelay =
-          config.NonNegativeFiniteDuration.ofMillis(700), // 100 + 200 + 400 = 700
-        subscriptionRequestDelay = config.NonNegativeFiniteDuration.ofSeconds(1),
+        minRestartDelay = NonNegativeFiniteDuration.tryOfMillis(100),
+        maxRestartDelay = NonNegativeFiniteDuration.tryOfSeconds(10),
+        warnValidationDelay = NonNegativeFiniteDuration.tryOfMillis(700), // 100 + 200 + 400 = 700
+        subscriptionRequestDelay = NonNegativeFiniteDuration.tryOfSeconds(1),
       )
 
       withConnectionPool(
@@ -183,7 +182,7 @@ class SequencerConnectionXPoolImplTest
           s"Scheduling restart after ${LoggerUtil.roundDurationForHumans(NonNegativeFiniteDuration.tryOfMillis(delayMs).toScala)}"
 
         val warningRegex =
-          raw"""(?s)Connection has failed validation since \S+ \((\d+) milliseconds ago\). Last failure reason: "Network error: .*"""".r
+          raw"""(?s)Connection has failed validation since \S+ \((\d+) (\w+) ago\). Last failure reason: "Network error: .*"""".r
 
         loggerFactory.assertLogsSeq(
           SuppressionRule.LevelAndAbove(INFO) && SuppressionRule.LoggerNameContains(
@@ -208,8 +207,9 @@ class SequencerConnectionXPoolImplTest
             val warnings = logEntries.filter(_.level == WARN).map(_.warningMessage)
             warnings should not be empty
             forEvery(warnings) {
-              case warningRegex(delay) =>
-                delay.toLong shouldBe >(poolDelays.warnValidationDelay.duration.toMillis)
+              case warningRegex(value, unit) =>
+                val failedValidationDuration = FiniteDuration(value.toLong, unit)
+                failedValidationDuration shouldBe >(poolDelays.warnValidationDelay.toScala)
               case _ => fail("warning log entry not found")
             }
           },

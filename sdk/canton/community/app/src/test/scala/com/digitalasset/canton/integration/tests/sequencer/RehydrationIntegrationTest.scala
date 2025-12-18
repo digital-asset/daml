@@ -10,6 +10,12 @@ import com.daml.ledger.javaapi.data
 import com.daml.test.evidence.tag.Reliability.ReliabilityTestSuite
 import com.digitalasset.canton.BigDecimalImplicits.*
 import com.digitalasset.canton.SequencerAlias
+import com.digitalasset.canton.admin.api.client.data.{
+  SequencerConnectionPoolDelays,
+  SequencerConnections,
+  SubmissionRequestAmplification,
+  SynchronizerConnectionConfig,
+}
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.DbConfig.Postgres
@@ -29,12 +35,6 @@ import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.logging.SuppressingLogger.LogEntryOptionality
 import com.digitalasset.canton.participant.config.{ParticipantInitConfig, ParticipantNodeConfig}
 import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
-import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
-import com.digitalasset.canton.sequencing.{
-  SequencerConnectionPoolDelays,
-  SequencerConnections,
-  SubmissionRequestAmplification,
-}
 import com.digitalasset.canton.synchronizer.mediator.MediatorNodeConfig
 import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeConfig
 import com.digitalasset.canton.topology.{PartyId, PhysicalSynchronizerId}
@@ -290,9 +290,7 @@ abstract class RehydrationIntegrationTest
 
     val sequencerConnections = SequencerConnections.tryMany(
       Seq(
-        sequencer2.sequencerConnection.withAlias(
-          SequencerAlias.tryCreate(sequencer2.name)
-        )
+        sequencer2.sequencerConnection.withAlias(SequencerAlias.tryCreate(sequencer2.name))
       ),
       sequencerTrustThreshold = PositiveInt.one,
       sequencerLivenessMargin = NonNegativeInt.zero,

@@ -3,7 +3,11 @@
 
 package com.digitalasset.canton.integration.tests
 
-import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameters
+import com.digitalasset.canton.admin.api.client.data.{
+  SequencerConnectionValidation,
+  SequencerConnections,
+  StaticSynchronizerParameters,
+}
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.commands.{MediatorSetupGroup, SequencerAdministration}
@@ -20,7 +24,6 @@ import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
 import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.logging.SuppressionRule
-import com.digitalasset.canton.sequencing.{SequencerConnectionValidation, SequencerConnections}
 import com.digitalasset.canton.synchronizer.mediator.MediatorNodeConfig
 import com.digitalasset.canton.synchronizer.sequencer.admin.grpc.InitializeSequencerResponse
 import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeConfig

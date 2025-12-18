@@ -6,12 +6,12 @@ package com.digitalasset.canton.console.commands
 import cats.syntax.either.*
 import com.digitalasset.canton.SequencerAlias
 import com.digitalasset.canton.admin.api.client.commands.SequencerConnectionAdminCommands
-import com.digitalasset.canton.console.{AdminCommandRunner, Help, Helpful, InstanceReference}
-import com.digitalasset.canton.sequencing.{
+import com.digitalasset.canton.admin.api.client.data.{
   SequencerConnection,
   SequencerConnectionValidation,
   SequencerConnections,
 }
+import com.digitalasset.canton.console.{AdminCommandRunner, Help, Helpful, InstanceReference}
 
 import scala.util.Try
 
@@ -26,11 +26,13 @@ trait SequencerConnectionAdministration extends Helpful {
       "Use this command to get the currently configured sequencer connection details for this sequencer client. " +
         "If this node has not yet been initialized, this will return None."
     )
-    def get(): Option[SequencerConnections] = consoleEnvironment.run {
-      adminCommand(
-        SequencerConnectionAdminCommands.GetConnection()
-      )
-    }
+    def get(): Option[SequencerConnections] = consoleEnvironment
+      .run {
+        adminCommand(
+          SequencerConnectionAdminCommands.GetConnection()
+        )
+      }
+      .map(SequencerConnections.fromInternal)
 
     @Help.Summary("Set Sequencer Connection")
     @Help.Description(
@@ -43,7 +45,10 @@ trait SequencerConnectionAdministration extends Helpful {
         validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
     ): Unit = consoleEnvironment.run {
       adminCommand(
-        SequencerConnectionAdminCommands.SetConnection(connections, validation)
+        SequencerConnectionAdminCommands.SetConnection(
+          connections.toInternal,
+          validation.toInternal,
+        )
       )
     }
 
@@ -59,8 +64,8 @@ trait SequencerConnectionAdministration extends Helpful {
     ): Unit = consoleEnvironment.run {
       adminCommand(
         SequencerConnectionAdminCommands.SetConnection(
-          SequencerConnections.single(connection),
-          validation,
+          SequencerConnections.single(connection).toInternal,
+          validation.toInternal,
         )
       )
     }
@@ -88,9 +93,13 @@ trait SequencerConnectionAdministration extends Helpful {
             SequencerConnectionAdminCommands.GetConnection()
           ).toEither
           conn <- connOption.toRight("Node not yet initialized")
-          newConn <- Try(modifier(conn)).toEither.leftMap(_.getMessage)
+          newConn <- Try(modifier(SequencerConnections.fromInternal(conn))).toEither
+            .leftMap(_.getMessage)
           _ <- adminCommand(
-            SequencerConnectionAdminCommands.SetConnection(newConn, validation)
+            SequencerConnectionAdminCommands.SetConnection(
+              newConn.toInternal,
+              validation.toInternal,
+            )
           ).toEither
 
         } yield ()

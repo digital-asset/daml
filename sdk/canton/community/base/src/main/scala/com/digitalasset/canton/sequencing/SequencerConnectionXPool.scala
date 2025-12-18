@@ -7,7 +7,6 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.health.{
   AtomicHealthComponent,
@@ -25,6 +24,7 @@ import com.digitalasset.canton.logging.{NamedLogging, TracedLogger}
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.sequencing.ConnectionX.ConnectionXConfig
+import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SequencerId}
 import com.digitalasset.canton.tracing.{TraceContext, TracingConfig}
 import com.digitalasset.canton.util.MonadUtil
@@ -177,9 +177,9 @@ object SequencerConnectionXPool {
   final case class SequencerConnectionXPoolConfig(
       connections: NonEmpty[Seq[ConnectionXConfig]],
       trustThreshold: PositiveInt,
-      minRestartConnectionDelay: config.NonNegativeFiniteDuration,
-      maxRestartConnectionDelay: config.NonNegativeFiniteDuration,
-      warnConnectionValidationDelay: config.NonNegativeFiniteDuration,
+      minRestartConnectionDelay: NonNegativeFiniteDuration,
+      maxRestartConnectionDelay: NonNegativeFiniteDuration,
+      warnConnectionValidationDelay: NonNegativeFiniteDuration,
       expectedPSIdO: Option[PhysicalSynchronizerId] = None,
   ) extends PrettyPrinting {
     // TODO(i24780): when persisting, use com.digitalasset.canton.version.Invariant machinery for validation
@@ -218,7 +218,7 @@ object SequencerConnectionXPool {
           s"Trust threshold ($trustThreshold) must not exceed the number of connections (${connections.size})",
         )
         _ <- Either.cond(
-          minRestartConnectionDelay.duration <= maxRestartConnectionDelay.duration,
+          minRestartConnectionDelay <= maxRestartConnectionDelay,
           (),
           s"Minimum restart connection delay ($minRestartConnectionDelay) must not exceed the maximum ($maxRestartConnectionDelay)",
         )

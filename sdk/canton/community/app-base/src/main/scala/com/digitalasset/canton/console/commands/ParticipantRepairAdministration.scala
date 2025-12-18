@@ -7,6 +7,10 @@ import better.files.File
 import cats.syntax.either.*
 import cats.syntax.foldable.*
 import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommands
+import com.digitalasset.canton.admin.api.client.data.{
+  SequencerConnectionValidation,
+  SynchronizerConnectionConfig,
+}
 import com.digitalasset.canton.admin.participant.v30.{ExportAcsOldResponse, ExportAcsResponse}
 import com.digitalasset.canton.config.{ConsoleCommandTimeout, NonNegativeDuration}
 import com.digitalasset.canton.console.{
@@ -27,9 +31,7 @@ import com.digitalasset.canton.participant.admin.data.{
   RepairContract,
   RepresentativePackageIdOverride,
 }
-import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.protocol.{ContractInstance, LfContractId}
-import com.digitalasset.canton.sequencing.SequencerConnectionValidation
 import com.digitalasset.canton.topology.{PartyId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.ResourceUtil
@@ -43,10 +45,10 @@ import java.util.UUID
 import scala.util.{Failure, Success, Try}
 
 class ParticipantRepairAdministration(
-    val consoleEnvironment: ConsoleEnvironment,
     runner: AdminCommandRunner,
     val loggerFactory: NamedLoggerFactory,
-) extends FeatureFlagFilter
+)(implicit val consoleEnvironment: ConsoleEnvironment)
+    extends FeatureFlagFilter
     with NoTracing
     with Helpful {
   private def timeouts: ConsoleCommandTimeout = consoleEnvironment.commandTimeouts
@@ -110,7 +112,7 @@ class ParticipantRepairAdministration(
       consoleEnvironment.run {
         runner.adminCommand(
           ParticipantAdminCommands.ParticipantRepairManagement
-            .MigrateSynchronizer(source, target, force = force)
+            .MigrateSynchronizer(source, target.toInternal, force = force)
         )
       }
     }
@@ -589,8 +591,8 @@ class ParticipantRepairAdministration(
               currentPSId = currentPhysicalSynchronizerId,
               successorPSId = successorPhysicalSynchronizerId,
               upgradeTime = announcedUpgradeTime,
-              successorConfig = successorConfig,
-              sequencerConnectionValidation = validation,
+              successorConfig = successorConfig.toInternal,
+              sequencerConnectionValidation = validation.toInternal,
             )
         )
       }

@@ -4,6 +4,7 @@
 package com.digitalasset.canton.integration.tests.toxiproxy.slow
 
 import com.digitalasset.canton.admin.api.client.data.{
+  GrpcSequencerConnection,
   ParticipantStatus,
   SubmissionRequestAmplification,
 }
@@ -30,7 +31,6 @@ import com.digitalasset.canton.integration.{
   TestConsoleEnvironment,
 }
 import com.digitalasset.canton.logging.LogEntry
-import com.digitalasset.canton.sequencing.GrpcSequencerConnection
 import com.digitalasset.canton.util.collection.SeqUtil
 import com.digitalasset.canton.util.{FutureUnlessShutdownUtil, LoggerUtil}
 import eu.rekawek.toxiproxy.model.{Toxic, ToxicDirection}

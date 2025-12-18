@@ -5,6 +5,7 @@ package com.digitalasset.canton.integration.tests.manual.topology
 
 import cats.syntax.parallel.*
 import com.digitalasset.canton.BaseTest.eventually
+import com.digitalasset.canton.admin.api.client.data.SequencerConnections
 import com.digitalasset.canton.admin.api.client.data.topology.ListMediatorSynchronizerStateResult
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.{
@@ -16,7 +17,6 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.integration.TestConsoleEnvironment
 import com.digitalasset.canton.logging.{ErrorLoggingContext, TracedLogger}
-import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.ForceFlag
 import com.digitalasset.canton.topology.store.TimeQuery

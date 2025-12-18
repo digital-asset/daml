@@ -6,7 +6,7 @@ package com.digitalasset.canton.integration.tests.bftsynchronizer
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.BigDecimalImplicits.*
-import com.digitalasset.canton.admin.api.client.data.TemplateId
+import com.digitalasset.canton.admin.api.client.data.{SequencerConnections, TemplateId}
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.examples.java.iou.{Amount, Iou}
 import com.digitalasset.canton.integration.bootstrap.{
@@ -22,7 +22,6 @@ import com.digitalasset.canton.integration.{
   SharedEnvironment,
   TestConsoleEnvironment,
 }
-import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.{ForceFlag, PartyId, UniqueIdentifier}
 

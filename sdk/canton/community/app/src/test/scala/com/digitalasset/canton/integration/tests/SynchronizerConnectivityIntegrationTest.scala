@@ -4,6 +4,14 @@
 package com.digitalasset.canton.integration.tests
 
 import com.daml.test.evidence.scalatest.OperabilityTestHelpers
+import com.digitalasset.canton.admin.api.client.data.{
+  SequencerConnection,
+  SequencerConnectionPoolDelays,
+  SequencerConnectionValidation,
+  SequencerConnections,
+  SubmissionRequestAmplification,
+  SynchronizerConnectionConfig,
+}
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
@@ -28,16 +36,9 @@ import com.digitalasset.canton.participant.sync.SyncServiceError.{
   SyncServiceUnknownSynchronizer,
 }
 import com.digitalasset.canton.participant.sync.SyncServiceInjectionError.NotConnectedToAnySynchronizer
-import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.participant.synchronizer.SynchronizerRegistryError.ConnectionErrors.SynchronizerIsNotAvailable
 import com.digitalasset.canton.participant.synchronizer.SynchronizerRegistryError.InitialOnboardingError
-import com.digitalasset.canton.sequencing.SequencerConnectionValidation.ThresholdActive
 import com.digitalasset.canton.sequencing.authentication.MemberAuthentication.MemberAccessDisabled
-import com.digitalasset.canton.sequencing.{
-  SequencerConnectionPoolDelays,
-  SequencerConnections,
-  SubmissionRequestAmplification,
-}
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp
 import com.digitalasset.canton.{SequencerAlias, SynchronizerAlias, config}
@@ -387,7 +388,7 @@ sealed trait SynchronizerConnectivityIntegrationTest
                 sequencer1.sequencerConnection.withSequencerId(sequencerId = sequencer2.id)
               ),
             ),
-            validation = ThresholdActive,
+            validation = SequencerConnectionValidation.ThresholdActive,
           ),
           _.shouldBeCantonErrorCode(SyncServiceError.SyncServiceInconsistentConnectivity),
         )
@@ -407,14 +408,14 @@ sealed trait SynchronizerConnectivityIntegrationTest
                   .asSequencerConnection(seq1Alias, sequencerId = None),
                 sequencer2.config.publicApi.clientConfig
                   .asSequencerConnection(seq2Alias, sequencerId = None),
-              ),
+              ).map(SequencerConnection.fromInternal),
               sequencerTrustThreshold = PositiveInt.one,
               sequencerLivenessMargin = NonNegativeInt.zero,
               SubmissionRequestAmplification.NoAmplification,
               SequencerConnectionPoolDelays.default,
             ),
           ),
-          validation = ThresholdActive,
+          validation = SequencerConnectionValidation.ThresholdActive,
         )
         // now check that the connection for sequencer1 got updated with the sequencer id
 

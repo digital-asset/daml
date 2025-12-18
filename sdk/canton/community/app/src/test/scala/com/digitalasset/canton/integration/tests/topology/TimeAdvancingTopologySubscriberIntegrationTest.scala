@@ -3,6 +3,10 @@
 
 package com.digitalasset.canton.integration.tests.topology
 
+import com.digitalasset.canton.admin.api.client.data.{
+  SequencerConnections,
+  SynchronizerConnectionConfig,
+}
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.{SynchronizerTimeTrackerConfig, TestSequencerClientFor}
 import com.digitalasset.canton.console.{ParticipantReference, SequencerReference}
@@ -18,7 +22,7 @@ import com.digitalasset.canton.integration.{
   EnvironmentDefinition,
   SharedEnvironment,
 }
-import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
+import com.digitalasset.canton.sequencing.SequencedSerializedEvent
 import com.digitalasset.canton.sequencing.client.DelayedSequencerClient
 import com.digitalasset.canton.sequencing.client.DelayedSequencerClient.{
   DelaySequencerClient,
@@ -31,7 +35,6 @@ import com.digitalasset.canton.sequencing.protocol.{
   SequencedEvent,
   TimeProof,
 }
-import com.digitalasset.canton.sequencing.{SequencedSerializedEvent, SequencerConnections}
 import com.digitalasset.canton.synchronizer.sequencer.time.TimeAdvancingTopologySubscriber.TimeAdvanceBroadcastMessageIdPrefix
 import com.digitalasset.canton.synchronizer.sequencer.{HasProgrammableSequencer, SendDecision}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration

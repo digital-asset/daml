@@ -5,6 +5,12 @@ package com.digitalasset.canton.integration.tests.topology
 
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SequencerAlias
+import com.digitalasset.canton.admin.api.client.data.{
+  SequencerConnectionPoolDelays,
+  SequencerConnections,
+  SubmissionRequestAmplification,
+  SynchronizerConnectionConfig,
+}
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.{CommandFailure, LocalParticipantReference}
@@ -20,13 +26,7 @@ import com.digitalasset.canton.integration.{
   TestConsoleEnvironment,
 }
 import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore
-import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
-import com.digitalasset.canton.sequencing.{
-  GrpcSequencerConnection,
-  SequencerConnectionPoolDelays,
-  SequencerConnections,
-  SubmissionRequestAmplification,
-}
+import com.digitalasset.canton.sequencing.GrpcSequencerConnection
 import com.digitalasset.canton.topology.TopologyManagerError.InvalidSynchronizerSuccessor
 import com.digitalasset.canton.topology.transaction.DelegationRestriction.CanSignAllMappings
 import com.digitalasset.canton.topology.{
@@ -203,8 +203,7 @@ sealed trait LogicalSynchronizerUpgradeTopologyIntegrationTest
              On purpose, we don't set the sequencer id. It should be grabbed automatically.
              In case it is not, the assertion below will fail.
              */
-            sequencer.sequencerConnection
-              .withAlias(SequencerAlias.tryCreate(sequencer.name))
+            sequencer.sequencerConnection.withAlias(SequencerAlias.tryCreate(sequencer.name))
           },
           PositiveInt.two,
           NonNegativeInt.zero,

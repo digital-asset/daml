@@ -4,12 +4,14 @@
 package com.digitalasset.canton.console
 
 import com.digitalasset.canton.SynchronizerAlias
+import com.digitalasset.canton.admin.api.client.data.{
+  SequencerConnectionValidation,
+  SynchronizerConnectionConfig,
+}
 import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.console.commands.ParticipantCommands
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
-import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
-import com.digitalasset.canton.sequencing.SequencerConnectionValidation
 import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
 
 class ParticipantReferencesExtensions(participants: Seq[ParticipantReference])(implicit

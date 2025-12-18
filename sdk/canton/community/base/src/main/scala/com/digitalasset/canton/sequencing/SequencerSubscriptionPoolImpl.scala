@@ -5,7 +5,6 @@ package com.digitalasset.canton.sequencing
 
 import cats.syntax.either.*
 import com.daml.metrics.api.MetricsContext
-import com.digitalasset.canton.config as cantonConfig
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -32,7 +31,7 @@ import com.digitalasset.canton.sequencing.client.{
   SequencerClientSubscriptionError,
   SubscriptionCloseReason,
 }
-import com.digitalasset.canton.time.WallClock
+import com.digitalasset.canton.time.{NonNegativeFiniteDuration, WallClock}
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ErrorUtil, FutureUnlessShutdownUtil, LoggerUtil}
@@ -202,9 +201,9 @@ final class SequencerSubscriptionPoolImpl private[sequencing] (
           {
             val delay = config.subscriptionRequestDelay
             logger.debug(
-              s"Scheduling new check in ${LoggerUtil.roundDurationForHumans(delay.duration)}"
+              s"Scheduling new check in ${LoggerUtil.roundDurationForHumans(delay.toScala)}"
             )
-            wallClock.scheduleAfter(_ => adjustInternal(), delay.asJava)
+            wallClock.scheduleAfter(_ => adjustInternal(), delay.duration)
           },
           "adjustConnectionsIfNeeded",
         )
@@ -437,8 +436,7 @@ object SequencerSubscriptionPoolImpl {
       trustThreshold: PositiveInt,
   ) {
     val livenessMargin: NonNegativeInt = poolConfig.livenessMargin
-    val subscriptionRequestDelay: cantonConfig.NonNegativeFiniteDuration =
-      poolConfig.subscriptionRequestDelay
+    val subscriptionRequestDelay: NonNegativeFiniteDuration = poolConfig.subscriptionRequestDelay
     lazy val activeThreshold: PositiveInt = trustThreshold + livenessMargin
   }
 

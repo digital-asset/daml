@@ -4,7 +4,10 @@
 package com.digitalasset.canton.integration.tests.bftsynchronizer
 
 import com.digitalasset.canton.SequencerAlias
-import com.digitalasset.canton.admin.api.client.data.SubmissionRequestAmplification
+import com.digitalasset.canton.admin.api.client.data.{
+  GrpcSequencerConnection,
+  SubmissionRequestAmplification,
+}
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.CommandFailure
 import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2}
@@ -40,8 +43,10 @@ sealed trait BftSynchronizerBootstrapTemplateTest
       clue("participant2 connects to sequencer1, sequencer2 using connect_bft") {
         participant2.synchronizers.connect_bft(
           Seq(sequencer2, sequencer1).map(s =>
-            s.config.publicApi.clientConfig
-              .asSequencerConnection(SequencerAlias.tryCreate(s.name), sequencerId = None)
+            GrpcSequencerConnection.fromInternal(
+              s.config.publicApi.clientConfig
+                .asSequencerConnection(SequencerAlias.tryCreate(s.name), sequencerId = None)
+            )
           ),
           synchronizerAlias = daName,
           physicalSynchronizerId = Some(daId),
@@ -90,32 +95,30 @@ sealed trait BftSynchronizerBootstrapTemplateTest
         _.errorMessage should include(
           "Sequencer trust threshold 3 cannot be greater than number of sequencer connections 2"
         ),
+        _.errorMessage should include("Command execution failed"),
       )
     }
 
     "modify submissionRequestAmplification" in { implicit env =>
       import env.*
 
-      // TODO(i29601): remove `toInternal` when `synchronizers.config` is converted
       participant2.synchronizers
         .config(daName)
         .map(_.sequencerConnections.submissionRequestAmplification) shouldBe
-        Some(SubmissionRequestAmplification.NoAmplification.toInternal)
+        Some(SubmissionRequestAmplification.NoAmplification)
 
       val amplification = SubmissionRequestAmplification(PositiveInt.two, 0.second)
-      // TODO(i29601): remove `toInternal` when `synchronizers.modify` is converted
       participant2.synchronizers.modify(
         daName,
         _.withSubmissionRequestAmplification(
-          SubmissionRequestAmplification(PositiveInt.two, 0.second).toInternal
+          SubmissionRequestAmplification(PositiveInt.two, 0.second)
         ),
       )
 
-      // TODO(i29601): remove `toInternal` when `synchronizers.config` is converted
       participant2.synchronizers
         .config(daName)
         .map(_.sequencerConnections.submissionRequestAmplification) shouldBe
-        Some(amplification.toInternal)
+        Some(amplification)
     }
 
   }
