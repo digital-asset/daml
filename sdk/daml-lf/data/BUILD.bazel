@@ -27,9 +27,9 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
-        "//libs-scala/crypto",
-        "//libs-scala/logging-entries",
-        "//libs-scala/scala-utils",
+        "//canton:crypto",
+        "//canton:logging-entries",
+        "//canton:scala-utils",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_slf4j_slf4j_api",
@@ -54,8 +54,8 @@ da_scala_test(
     scalacopts = lf_scalacopts,
     deps = [
         ":data",
+        "//canton:scalatest-utils",
         "//daml-lf/data-scalacheck",
-        "//libs-scala/scalatest-utils",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )

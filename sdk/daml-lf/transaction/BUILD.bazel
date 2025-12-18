@@ -31,12 +31,12 @@ da_scala_library(
     exports = [":transaction_proto_java"],
     deps = [
         ":transaction_proto_java",
+        "//canton:crypto",
+        "//canton:nameof",
+        "//canton:safe-proto",
+        "//canton:scala-utils",
         "//daml-lf/data",
         "//daml-lf/language",
-        "//libs-scala/crypto",
-        "//libs-scala/nameof",
-        "//libs-scala/safe-proto",
-        "//libs-scala/scala-utils",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
@@ -82,11 +82,11 @@ da_scala_test(
     scalacopts = lf_scalacopts,
     deps = [
         ":transaction",
+        "//canton:crypto",
         "//daml-lf/api-type-signature",
         "//daml-lf/data",
         "//daml-lf/language",
         "//daml-lf/transaction-test-lib",
-        "//libs-scala/crypto",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
