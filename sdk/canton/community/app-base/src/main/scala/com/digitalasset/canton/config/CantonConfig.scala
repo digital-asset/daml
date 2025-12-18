@@ -483,6 +483,7 @@ final case class CantonConfig(
         unsafeEnableOnlinePartyReplication =
           sequencerNodeConfig.parameters.unsafeEnableOnlinePartyReplication,
         requestLimits = sequencerNodeConfig.publicApi.limits,
+        maxAuthTokensPerMember = sequencerNodeConfig.publicApi.maxAuthTokensPerMember,
       )
     }
 
