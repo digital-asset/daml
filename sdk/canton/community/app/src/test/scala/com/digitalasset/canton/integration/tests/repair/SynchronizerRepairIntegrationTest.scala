@@ -7,6 +7,7 @@ import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse.ContractE
 import com.digitalasset.canton.BigDecimalImplicits.*
 import com.digitalasset.canton.HasExecutionContext
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.WrappedContractEntry
+import com.digitalasset.canton.admin.api.client.data.SequencerConnectionValidation
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.console.{
   FeatureFlag,
@@ -19,7 +20,6 @@ import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.Mu
 import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.util.EntitySyntax
 import com.digitalasset.canton.logging.{LogEntry, SuppressingLogger, SuppressionRule}
-import com.digitalasset.canton.sequencing.SequencerConnectionValidation
 import com.digitalasset.canton.sequencing.client.ResilientSequencerSubscription
 import org.slf4j.event.Level
 

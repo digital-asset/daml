@@ -38,15 +38,15 @@ class StringInterningViewSpec extends AsyncFlatSpec with Matchers with BaseTest 
 
     testee.internize(
       new DomainStringIterators(
-        parties = List("p1", "p2", "22::same:name").iterator,
-        templateIds = List("#22:t:a", "#22:t:b").iterator,
+        parties = Iterator("p1", "p2", "22::same:name").map(Ref.Party.assertFromString),
+        templateIds = Iterator("#22:t:a", "#22:t:b").map(Ref.NameTypeConRef.assertFromString),
         synchronizerIds = List("22::same:name", "x::synchronizer1", "x::synchronizer2").iterator
           .map(SynchronizerId.tryFromString),
-        packageIds = List("pkg-1", "pkg-2").iterator,
-        userIds = List("usr1", "usr2").iterator,
-        participantIds = List("pn-1", "pn-2").iterator,
-        choiceNames = List("ChoiceName").iterator,
-        interfaceIds = List("pkg:inter:face").iterator,
+        packageIds = Iterator("pkg-1", "pkg-2").map(Ref.PackageId.assertFromString),
+        userIds = Iterator("usr1", "usr2").map(Ref.UserId.assertFromString),
+        participantIds = Iterator("pn-1", "pn-2").map(Ref.ParticipantId.assertFromString),
+        choiceNames = Iterator("ChoiceName").map(Ref.ChoiceName.assertFromString),
+        interfaceIds = Iterator("pkg:inter:face").map(Ref.Identifier.assertFromString),
       )
     ) shouldBe Vector(
       1 -> "p|p1",
@@ -110,15 +110,15 @@ class StringInterningViewSpec extends AsyncFlatSpec with Matchers with BaseTest 
     interfaceIdAbsent(testee, "pkg:inter:face")
     testee.internize(
       new DomainStringIterators(
-        parties = List("p1", "p2", "22::same:name").iterator,
-        templateIds = List("#22:t:a").iterator,
+        parties = Iterator("p1", "p2", "22::same:name").map(Ref.Party.assertFromString),
+        templateIds = Iterator("#22:t:a").map(Ref.NameTypeConRef.assertFromString),
         synchronizerIds =
-          List("x::synchronizer1", "x::synchronizer2").iterator.map(SynchronizerId.tryFromString),
-        packageIds = List("pkg-1").iterator,
-        userIds = List("usr1").iterator,
-        participantIds = List("pn-1", "pn-2").iterator,
-        choiceNames = List("ChoiceName").iterator,
-        interfaceIds = List("pkg:inter:face").iterator,
+          Iterator("x::synchronizer1", "x::synchronizer2").map(SynchronizerId.tryFromString),
+        packageIds = Iterator("pkg-1").map(Ref.PackageId.assertFromString),
+        userIds = Iterator("usr1").map(Ref.UserId.assertFromString),
+        participantIds = Iterator("pn-1", "pn-2").map(Ref.ParticipantId.assertFromString),
+        choiceNames = Iterator("ChoiceName").map(Ref.ChoiceName.assertFromString),
+        interfaceIds = Iterator("pkg:inter:face").map(Ref.Identifier.assertFromString),
       )
     ) shouldBe Vector(
       1 -> "p|p1",
@@ -156,15 +156,16 @@ class StringInterningViewSpec extends AsyncFlatSpec with Matchers with BaseTest 
     interfaceIdAbsent(testee, "inter:face:unknown")
     testee.internize(
       new DomainStringIterators(
-        parties = List("p1", "p2").iterator,
-        templateIds = List("#22:t:a", "#22:t:b").iterator,
-        synchronizerIds = List("22::same:name", "x::synchronizer1", "x::synchronizer3").iterator
+        parties = Iterator("p1", "p2").map(Ref.Party.assertFromString),
+        templateIds = Iterator("#22:t:a", "#22:t:b").map(Ref.NameTypeConRef.assertFromString),
+        synchronizerIds = Iterator("22::same:name", "x::synchronizer1", "x::synchronizer3")
           .map(SynchronizerId.tryFromString),
-        packageIds = List("pkg-1", "pkg-2").iterator,
-        userIds = List("usr1", "usr2").iterator,
-        participantIds = List("pn-1", "pn-2", "pn-3").iterator,
-        choiceNames = List("ChoiceName").iterator,
-        interfaceIds = List("pkg:inter:face", "pkg:inter:face2").iterator,
+        packageIds = Iterator("pkg-1", "pkg-2").map(Ref.PackageId.assertFromString),
+        userIds = Iterator("usr1", "usr2").map(Ref.UserId.assertFromString),
+        participantIds = Iterator("pn-1", "pn-2", "pn-3").map(Ref.ParticipantId.assertFromString),
+        choiceNames = Iterator("ChoiceName").map(Ref.ChoiceName.assertFromString),
+        interfaceIds =
+          Iterator("pkg:inter:face", "pkg:inter:face2").map(Ref.Identifier.assertFromString),
       )
     ) shouldBe Vector(
       13 -> "t|#22:t:b",
@@ -255,10 +256,10 @@ class StringInterningViewSpec extends AsyncFlatSpec with Matchers with BaseTest 
     packageIdAbsent(testee, "pkg-1")
     testee.internize(
       new DomainStringIterators(
-        parties = List("p1", "p2").iterator,
+        parties = List("p1", "p2").iterator.map(Ref.Party.assertFromString),
         templateIds = List().iterator,
         synchronizerIds = List("x::synchronizer1").iterator.map(SynchronizerId.tryFromString),
-        packageIds = List("pkg-1").iterator,
+        packageIds = List("pkg-1").iterator.map(Ref.PackageId.assertFromString),
         userIds = List().iterator,
         participantIds = List().iterator,
         choiceNames = List().iterator,
@@ -306,11 +307,11 @@ class StringInterningViewSpec extends AsyncFlatSpec with Matchers with BaseTest 
     val testee = new StringInterningView(loggerFactory)
     testee.internize(
       new DomainStringIterators(
-        parties = List("p1", "p2", "22::same:name").iterator,
-        templateIds = List("#22:t:a", "#22:t:b").iterator,
+        parties = List("p1", "p2", "22::same:name").iterator.map(Ref.Party.assertFromString),
+        templateIds = List("#22:t:a", "#22:t:b").iterator.map(Ref.NameTypeConRef.assertFromString),
         synchronizerIds = List("22::same:name", "x::synchronizer1", "x::synchronizer2").iterator
           .map(SynchronizerId.tryFromString),
-        packageIds = List("pkg-1").iterator,
+        packageIds = List("pkg-1").iterator.map(Ref.PackageId.assertFromString),
         userIds = List().iterator,
         participantIds = List().iterator,
         choiceNames = List().iterator,

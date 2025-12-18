@@ -14,7 +14,6 @@ import com.typesafe.scalalogging.Logger
 
 import java.util.concurrent.*
 import java.util.concurrent.atomic.AtomicReference
-import java.util.function.Predicate
 import scala.concurrent.{ExecutionContextExecutor, blocking}
 import scala.util.chaining.*
 
@@ -194,44 +193,21 @@ object Threading {
         minParallelismForForkJoinPool
       }
 
-    try {
-      val java11ForkJoinPoolConstructor = classOf[ForkJoinPool].getConstructor(
-        classOf[Int],
-        classOf[ForkJoinPool.ForkJoinWorkerThreadFactory],
-        classOf[Thread.UncaughtExceptionHandler],
-        classOf[Boolean],
-        classOf[Int],
-        classOf[Int],
-        classOf[Int],
-        classOf[Predicate[?]],
-        classOf[Long],
-        classOf[TimeUnit],
-      )
-
-      java11ForkJoinPoolConstructor.newInstance(
-        Int.box(tunedParallelism.unwrap),
-        threadFactory,
-        handler,
-        Boolean.box(true),
-        Int.box(tunedParallelism.unwrap),
-        Int.box(Int.MaxValue),
-        //
-        // Choosing tunedParallelism here instead of the default of 1.
-        // With the default, we would get only 1 running thread in the presence of blocking calls.
-        Int.box(tunedParallelism.unwrap),
-        null,
-        Long.box(60),
-        TimeUnit.SECONDS,
-      )
-    } catch {
-      case _: NoSuchMethodException =>
-        logger.warn(
-          "Unable to create ForkJoinPool of Java 11. " +
-            "Using fallback instead, which has been tested less than the default one. " +
-            "Do not use this setting in production."
-        )
-        new ForkJoinPool(tunedParallelism.unwrap, threadFactory, handler, true)
-    }
+    new ForkJoinPool(
+      tunedParallelism.unwrap,
+      threadFactory,
+      handler,
+      true,
+      tunedParallelism.unwrap,
+      Int.MaxValue,
+      //
+      // Choosing tunedParallelism here instead of the default of 1.
+      // With the default, we would get only 1 running thread in the presence of blocking calls.
+      tunedParallelism.unwrap,
+      null,
+      60L,
+      TimeUnit.SECONDS,
+    )
   }
 
   def directExecutionContext(logger: Logger): ExecutionContextExecutor = DirectExecutionContext(

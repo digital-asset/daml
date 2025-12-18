@@ -5,6 +5,7 @@ package com.digitalasset.canton.integration.tests.bftsynchronizer
 
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.BigDecimalImplicits.*
+import com.digitalasset.canton.admin.api.client.data.SequencerConnections
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.InstanceReference
@@ -18,7 +19,6 @@ import com.digitalasset.canton.integration.{
 }
 import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
 import com.digitalasset.canton.participant.util.JavaCodegenUtil.*
-import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.topology.{ForceFlag, PartyId, PhysicalSynchronizerId}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{SynchronizerAlias, config}

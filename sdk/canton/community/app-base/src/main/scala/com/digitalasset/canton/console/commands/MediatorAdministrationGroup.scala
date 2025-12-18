@@ -13,6 +13,10 @@ import com.digitalasset.canton.admin.api.client.commands.{
   PruningSchedulerCommands,
   SynchronizerTimeCommands,
 }
+import com.digitalasset.canton.admin.api.client.data.{
+  SequencerConnectionValidation,
+  SequencerConnections,
+}
 import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{
@@ -29,7 +33,6 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.mediator.admin.v30
 import com.digitalasset.canton.mediator.admin.v30.Verdict
 import com.digitalasset.canton.networking.grpc.RecordingStreamObserver
-import com.digitalasset.canton.sequencing.{SequencerConnectionValidation, SequencerConnections}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.tracing.NoTracing
@@ -147,8 +150,8 @@ class MediatorSetupGroup(node: MediatorReference) extends ConsoleCommandGroup.Im
       runner.adminCommand(
         Initialize(
           synchronizerId,
-          sequencerConnections,
-          sequencerConnectionValidation,
+          sequencerConnections.toInternal,
+          sequencerConnectionValidation.toInternal,
         )
       )
     }

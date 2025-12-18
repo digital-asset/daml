@@ -203,12 +203,6 @@ class ApiDocsGenerator(override protected val loggerFactory: NamedLoggerFactory)
   def loadProtoData(): ProtoInfo =
     ProtoInfo
       .loadData()
-      .fold(
-        error => {
-          throw new IllegalStateException(s"Cannot load proto data for documentation $error")
-        },
-        identity,
-      )
 
   def createDocs(
       lapiVersion: String,

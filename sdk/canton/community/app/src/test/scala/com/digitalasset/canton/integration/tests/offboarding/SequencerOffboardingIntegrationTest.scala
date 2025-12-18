@@ -4,7 +4,11 @@
 package com.digitalasset.canton.integration.tests.offboarding
 
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameters
+import com.digitalasset.canton.admin.api.client.data.{
+  SequencerConnections,
+  StaticSynchronizerParameters,
+  SubmissionRequestAmplification,
+}
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.InstanceReference
 import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
@@ -15,7 +19,6 @@ import com.digitalasset.canton.integration.{
   EnvironmentDefinition,
   SharedEnvironment,
 }
-import com.digitalasset.canton.sequencing.{SequencerConnections, SubmissionRequestAmplification}
 import com.digitalasset.canton.topology.SynchronizerId
 
 class SequencerOffboardingIntegrationTest

@@ -4,6 +4,13 @@
 package com.digitalasset.canton.integration.tests.toxiproxy.fast
 
 import com.digitalasset.canton.SequencerAlias
+import com.digitalasset.canton.admin.api.client.data.{
+  SequencerConnectionPoolDelays,
+  SequencerConnectionValidation,
+  SequencerConnections,
+  SubmissionRequestAmplification,
+  SynchronizerConnectionConfig,
+}
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.config.{PositiveDurationSeconds, SynchronizerTimeTrackerConfig}
 import com.digitalasset.canton.integration.ConfigTransforms.heavyTestDefaults
@@ -24,13 +31,6 @@ import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
   IsolatedEnvironments,
-}
-import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
-import com.digitalasset.canton.sequencing.{
-  SequencerConnectionPoolDelays,
-  SequencerConnectionValidation,
-  SequencerConnections,
-  SubmissionRequestAmplification,
 }
 import eu.rekawek.toxiproxy.model.ToxicDirection
 

@@ -5,7 +5,10 @@ package com.digitalasset.canton.integration.tests
 
 import better.files.*
 import com.digitalasset.canton.HasExecutionContext
-import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameters
+import com.digitalasset.canton.admin.api.client.data.{
+  SequencerConnections,
+  StaticSynchronizerParameters,
+}
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2}
 import com.digitalasset.canton.integration.{
@@ -13,7 +16,6 @@ import com.digitalasset.canton.integration.{
   EnvironmentDefinition,
   SharedEnvironment,
 }
-import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
 import com.digitalasset.canton.topology.{
   ForceFlag,

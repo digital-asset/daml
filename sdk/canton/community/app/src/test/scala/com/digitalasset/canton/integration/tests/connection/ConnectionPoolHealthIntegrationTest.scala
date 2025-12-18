@@ -7,6 +7,8 @@ import com.digitalasset.canton.SequencerAlias
 import com.digitalasset.canton.admin.api.client.data.{
   ComponentHealthState,
   ComponentStatus,
+  GrpcSequencerConnection,
+  SequencerConnectionValidation,
   SubmissionRequestAmplification,
 }
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
@@ -23,7 +25,6 @@ import com.digitalasset.canton.integration.{
   EnvironmentDefinition,
   SharedEnvironment,
 }
-import com.digitalasset.canton.sequencing.SequencerConnectionValidation
 
 /** This test checks that the sequencer connection pool properly reports the status of its
   * components through the health status API.
@@ -64,8 +65,10 @@ sealed trait ConnectionPoolHealthIntegrationTest
       waitUntilAllBftSequencersAuthenticateDisseminationQuorum()
 
       val connectionsConfig = sequencers.local.map(s =>
-        s.config.publicApi.clientConfig
-          .asSequencerConnection(SequencerAlias.tryCreate(s.name), sequencerId = None)
+        GrpcSequencerConnection.fromInternal(
+          s.config.publicApi.clientConfig
+            .asSequencerConnection(SequencerAlias.tryCreate(s.name), sequencerId = None)
+        )
       )
 
       clue("connect participants to all sequencers") {

@@ -32,12 +32,13 @@ class JsonApiReferenceDocsTest extends AnyWordSpecLike with BaseTest with Checkp
       GenerateJSONApiDocs.regenerateAll()
     }
 
-    "validate the definitions against the golden files" in {
+    "validate json api definitions against the golden files" in {
       def failureClue(docsType: String): String =
         s"""Current $docsType definitions do not match the golden file.
           | Overwrite the golden file with the current definitions if the API changed.
-          | Definitions can be updated by running GenerateJSONApiDocs class.""".stripMargin
-      val protoInfo = apiDocsGenerator.loadProtoData()
+          | Definitions can be updated by running GenerateJSONApiDocs class or
+          | executing `sbt packageJsonApiDocsArtifacts`""".stripMargin
+      val protoInfo = ProtoInfo(ProtoParser.readProto(), ProtoInfo.loadOverrides())
       val apiDocs = apiDocsGenerator.createStaticDocs(protoInfo)
 
       apiDocs.openApi shouldBe existingOpenApi withClue failureClue("OpenAPI")
@@ -77,15 +78,10 @@ object GenerateJSONApiDocs extends App {
       .createFileIfNotExists()
       .overwrite(protoData.toYaml())
       .discard
-    ProtoInfo
-      .loadData() match {
-      // we ignore the file content -> only ensure it can be loaded back
-      // instead we use the freshly generated protoData with loaded overrides
-      case Right(ProtoInfo(_, overrides)) => ProtoInfo(protoData, overrides)
-      case Left(err) =>
-        throw new IllegalStateException(s"cannot load saved proto data after regenerating: $err")
-    }
+
+    ProtoInfo(protoData, ProtoInfo.loadOverrides())
   }
+
   def regenerateJsonApi(protoData: ProtoInfo) = {
     val apiDocs = apiDocsGenerator.createStaticDocs(protoData)
     File(JsonApiReferenceDocsTest.OpenApiYaml)

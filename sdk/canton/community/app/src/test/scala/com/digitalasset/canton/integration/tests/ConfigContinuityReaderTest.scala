@@ -16,28 +16,7 @@ import org.scalatest.wordspec.AnyWordSpec
   */
 class ConfigContinuityReaderTest extends AnyWordSpec with BaseTest with S3Synchronization {
 
-  private lazy val allTransforms: Map[(Int, Int, Int), Transforms] = Map(
-    (3, 4, 10) -> Transforms(
-      removePaths = Seq(
-        "canton.mediators.mediator1.mediator.deduplication-store.persist-batching",
-        "canton.mediators.mediator1.mediator.deduplication-store.persist-batching.type",
-        "canton.mediators.mediator1.parameters.batching.aggregator",
-        "canton.mediators.mediator1.parameters.batching.aggregator.type",
-        "canton.mediators.mediator1.parameters.batching.contract-store-aggregator",
-        "canton.mediators.mediator1.parameters.batching.contract-store-aggregator.type",
-        "canton.participants.participant1.parameters.batching.aggregator",
-        "canton.participants.participant1.parameters.batching.aggregator.type",
-        "canton.participants.participant1.parameters.batching.contract-store-aggregator",
-        "canton.participants.participant1.parameters.batching.contract-store-aggregator.type",
-        "canton.sequencers.sequencer1.parameters.batching.aggregator",
-        "canton.sequencers.sequencer1.parameters.batching.aggregator.type",
-        "canton.sequencers.sequencer1.parameters.batching.contract-store-aggregator",
-        "canton.sequencers.sequencer1.parameters.batching.contract-store-aggregator.type",
-        "canton.sequencers.sequencer1.traffic-config.batch-aggregator-config",
-        "canton.sequencers.sequencer1.traffic-config.batch-aggregator-config.type",
-      )
-    )
-  )
+  private lazy val allTransforms: Map[(Int, Int, Int), Transforms] = Map.empty
 
   /** Make the config parsable by applying some transformations. It basically makes some breaking
     * changes legitimate.

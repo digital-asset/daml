@@ -10,6 +10,7 @@ import com.daml.test.evidence.tag.Reliability.{
   ReliabilityTest,
   Remediation,
 }
+import com.digitalasset.canton.admin.api.client.data.SequencerConnections
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{LocalInstanceReference, LocalMediatorReference}
 import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
@@ -20,7 +21,6 @@ import com.digitalasset.canton.integration.{
   TestConsoleEnvironment,
 }
 import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
-import com.digitalasset.canton.sequencing.SequencerConnections
 import org.scalactic.source.Position
 import org.slf4j.event.Level
 

@@ -3,13 +3,13 @@
 
 package com.digitalasset.canton.integration.tests.sequencer
 
+import com.digitalasset.canton.admin.api.client.data.SequencerConnection
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.bootstrap.NetworkBootstrapper
 import com.digitalasset.canton.integration.plugins.{UsePostgres, UseSharedStorage}
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.logging.SuppressingLogger.LogEntryOptionality
-import com.digitalasset.canton.sequencing.SequencerConnection
 import org.scalatest.Assertion
 
 // TODO(#16089): Currently this test cannot work due to the issue
@@ -103,8 +103,7 @@ trait SequencerHighAvailabilityIntegrationTest
         mediators = Seq(mediator1),
       )
 
-      val sequencerConns =
-        Seq[SequencerConnection](sequencer1, sequencer2, sequencer3, sequencer4)
+      val sequencerConns = Seq[SequencerConnection](sequencer1, sequencer2, sequencer3, sequencer4)
       participant1.synchronizers.connect_multi(daName, sequencerConns)
       participant2.synchronizers.connect_multi(daName, sequencerConns)
 
@@ -146,10 +145,7 @@ trait SequencerHighAvailabilityIntegrationTest
       )
 
       clue("p1 connect to two sequencers") {
-        participant1.synchronizers.connect_multi(
-          daName,
-          Seq[SequencerConnection](sequencer1, sequencer2),
-        )
+        participant1.synchronizers.connect_multi(daName, Seq(sequencer1, sequencer2))
       }
 
       clue("p1 can ping itself") {

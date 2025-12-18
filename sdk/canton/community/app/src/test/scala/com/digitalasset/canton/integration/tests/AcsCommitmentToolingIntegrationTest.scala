@@ -3,6 +3,10 @@
 
 package com.digitalasset.canton.integration.tests
 
+import com.digitalasset.canton.admin.api.client.data.{
+  SequencerConnections,
+  SynchronizerConnectionConfig,
+}
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeProportion}
@@ -44,11 +48,9 @@ import com.digitalasset.canton.participant.pruning.{
   SortedReconciliationIntervalsHelpers,
 }
 import com.digitalasset.canton.participant.store.ReassignmentStore
-import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.participant.util.JavaCodegenUtil.ContractIdSyntax
 import com.digitalasset.canton.protocol.ReassignmentId
 import com.digitalasset.canton.protocol.messages.AcsCommitment
-import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.synchronizer.sequencer.{
   HasProgrammableSequencer,
   ProgrammableSequencerPolicies,

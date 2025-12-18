@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.sequencing
 
-import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.health.{
   AtomicHealthComponent,
@@ -17,6 +16,7 @@ import com.digitalasset.canton.sequencing.SequencerSubscriptionPool.SequencerSub
 import com.digitalasset.canton.sequencing.SequencerSubscriptionPoolImpl.SubscriptionStartProvider
 import com.digitalasset.canton.sequencing.client.SequencerClient.SequencerTransports
 import com.digitalasset.canton.sequencing.client.{SequencerClient, SequencerClientSubscriptionError}
+import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 
@@ -79,7 +79,7 @@ object SequencerSubscriptionPool {
     */
   final case class SequencerSubscriptionPoolConfig(
       livenessMargin: NonNegativeInt,
-      subscriptionRequestDelay: config.NonNegativeFiniteDuration,
+      subscriptionRequestDelay: NonNegativeFiniteDuration,
   ) extends PrettyPrinting {
     override protected def pretty: Pretty[SequencerSubscriptionPoolConfig] = prettyOfClass(
       param("livenessMargin", _.livenessMargin),

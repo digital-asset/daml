@@ -3,7 +3,11 @@
 
 package com.digitalasset.canton.integration.tests.upgrade.lsu
 
-import com.digitalasset.canton.admin.api.client.data.DynamicSynchronizerParameters as ConsoleDynamicSynchronizerParameters
+import com.digitalasset.canton.admin.api.client.data.{
+  DynamicSynchronizerParameters as ConsoleDynamicSynchronizerParameters,
+  SequencerConnections,
+  SynchronizerConnectionConfig,
+}
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.SynchronizerTimeTrackerConfig
 import com.digitalasset.canton.console.CommandFailure
@@ -17,8 +21,6 @@ import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.tests.upgrade.LogicalUpgradeUtils.SynchronizerNodes
 import com.digitalasset.canton.integration.tests.upgrade.lsu.LSUBase.Fixture
-import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
-import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.topology.{PartyId, TopologyManagerError}
 import com.digitalasset.canton.version.ProtocolVersion
 import monocle.macros.syntax.lens.*

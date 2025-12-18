@@ -78,7 +78,7 @@ abstract class ToxiproxyIntegrationTest
           synchronizerThreshold = PositiveInt.one,
           sequencers = testSequencers,
           mediators = testMediators,
-          mediatorRequestAmplification = amplification.toInternal,
+          mediatorRequestAmplification = amplification,
           overrideMediatorToSequencers =
             // Use a threshold of two to ensure that the mediator connects to all sequencers.
             // TODO(#19911) Reduce to one again once this can be configured independently.

@@ -266,6 +266,12 @@ sealed trait OnlinePartyReplicationNetworkDisruptionsTest
         e.loggerName should include("GrpcConnection")
         e.warningMessage should include("Is the server running?")
       },
+      LogEntryOptionality.OptionalMany -> { e =>
+        e.loggerName should include("GrpcConnection")
+        e.errorMessage should (include("Request failed for server-") and include(
+          "GrpcServerError: UNKNOWN/channel closed"
+        ))
+      },
       LogEntryOptionality.OptionalMany -> {
         _.shouldBeCantonError(
           LostSequencerSubscription,

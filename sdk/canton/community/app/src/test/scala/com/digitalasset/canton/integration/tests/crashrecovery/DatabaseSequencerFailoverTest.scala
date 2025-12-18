@@ -6,6 +6,7 @@ package com.digitalasset.canton.integration.tests.crashrecovery
 import cats.syntax.option.*
 import com.daml.metrics.api.testing.MetricValues
 import com.digitalasset.canton.SequencerAlias
+import com.digitalasset.canton.admin.api.client.data.SynchronizerConnectionConfig
 import com.digitalasset.canton.config.RequireTypes.{ExistingFile, PositiveInt}
 import com.digitalasset.canton.config.{
   NonNegativeFiniteDuration as NonNegativeFiniteDurationConfig,
@@ -24,7 +25,6 @@ import com.digitalasset.canton.integration.{
   SharedEnvironment,
 }
 import com.digitalasset.canton.logging.SuppressingLogger.LogEntryOptionality.Optional
-import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.SequencerConfig
 import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeConfig

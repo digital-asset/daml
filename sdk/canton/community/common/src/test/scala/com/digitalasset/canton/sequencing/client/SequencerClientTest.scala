@@ -11,7 +11,6 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.base.error.utils.DecodedCantonError
 import com.digitalasset.canton.*
 import com.digitalasset.canton.concurrent.Threading
-import com.digitalasset.canton.config as cantonConfig
 import com.digitalasset.canton.config.RequireTypes.{
   NonNegativeInt,
   NonNegativeLong,
@@ -1876,9 +1875,9 @@ final class SequencerClientTest
       SequencerConnectionXPoolConfig(
         connections = NonEmpty(Seq, connection.config),
         trustThreshold = PositiveInt.one,
-        minRestartConnectionDelay = cantonConfig.NonNegativeFiniteDuration.Zero,
-        maxRestartConnectionDelay = cantonConfig.NonNegativeFiniteDuration.Zero,
-        warnConnectionValidationDelay = cantonConfig.NonNegativeFiniteDuration.Zero,
+        minRestartConnectionDelay = NonNegativeFiniteDuration.Zero,
+        maxRestartConnectionDelay = NonNegativeFiniteDuration.Zero,
+        warnConnectionValidationDelay = NonNegativeFiniteDuration.Zero,
       )
 
     override def updateConfig(newConfig: SequencerConnectionXPool.SequencerConnectionXPoolConfig)(

@@ -6,6 +6,11 @@ package com.digitalasset.canton.console
 import ammonite.util.Bind
 import cats.syntax.either.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
+import com.digitalasset.canton.admin.api.client.data.{
+  GrpcSequencerConnection,
+  SequencerConnection,
+  SequencerConnections,
+}
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveDouble, PositiveInt}
@@ -23,11 +28,6 @@ import com.digitalasset.canton.environment.Environment
 import com.digitalasset.canton.lifecycle.{FlagCloseable, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
-import com.digitalasset.canton.sequencing.{
-  GrpcSequencerConnection,
-  SequencerConnection,
-  SequencerConnections,
-}
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
 import com.digitalasset.canton.topology.{
@@ -568,13 +568,17 @@ object ConsoleEnvironment {
 
     implicit def toInstanceName(name: String): InstanceName = InstanceName.tryCreate(name)
 
-    implicit def toGrpcSequencerConnection(connection: String): SequencerConnection =
+    implicit def toGrpcSequencerConnection(connection: String)(implicit
+        consoleEnvironment: ConsoleEnvironment
+    ): SequencerConnection =
       GrpcSequencerConnection.tryCreate(connection)
 
     implicit def toSequencerAlias(alias: String): SequencerAlias =
       SequencerAlias.tryCreate(alias)
 
-    implicit def toSequencerConnections(connection: String): SequencerConnections =
+    implicit def toSequencerConnections(connection: String)(implicit
+        consoleEnvironment: ConsoleEnvironment
+    ): SequencerConnections =
       SequencerConnections.single(GrpcSequencerConnection.tryCreate(connection))
 
     implicit def toGSequencerConnection(

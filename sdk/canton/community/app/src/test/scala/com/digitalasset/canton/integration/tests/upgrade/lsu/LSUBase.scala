@@ -3,11 +3,15 @@
 
 package com.digitalasset.canton.integration.tests.upgrade.lsu
 
-import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameters
+import com.digitalasset.canton.admin.api.client.data.{
+  SequencerConnections,
+  StaticSynchronizerParameters,
+  SynchronizerConnectionConfig,
+}
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.SynchronizerTimeTrackerConfig
-import com.digitalasset.canton.console.{InstanceReference, ParticipantReference}
+import com.digitalasset.canton.console.{ConsoleEnvironment, InstanceReference, ParticipantReference}
 import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerSuccessor}
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.plugins.UsePostgres
@@ -15,8 +19,6 @@ import com.digitalasset.canton.integration.tests.upgrade.LogicalUpgradeUtils
 import com.digitalasset.canton.integration.tests.upgrade.LogicalUpgradeUtils.SynchronizerNodes
 import com.digitalasset.canton.integration.tests.upgrade.lsu.LSUBase.Fixture
 import com.digitalasset.canton.integration.util.EntitySyntax
-import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
-import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.version.ProtocolVersion
 import monocle.macros.syntax.lens.*
@@ -118,7 +120,7 @@ trait LSUBase
     */
   protected def performSynchronizerNodesLSU(
       fixture: Fixture
-  ): Unit = {
+  )(implicit consoleEnvironment: ConsoleEnvironment): Unit = {
     fixture.oldSynchronizerOwners.foreach(
       _.topology.synchronizer_upgrade.announcement.propose(fixture.newPSId, fixture.upgradeTime)
     )
@@ -140,7 +142,7 @@ trait LSUBase
     */
   protected def migrateSynchronizerNodes(
       fixture: Fixture
-  ): Unit = {
+  )(implicit consoleEnvironment: ConsoleEnvironment): Unit = {
     exportNodesData(
       SynchronizerNodes(
         sequencers = fixture.oldSynchronizerNodes.sequencers,

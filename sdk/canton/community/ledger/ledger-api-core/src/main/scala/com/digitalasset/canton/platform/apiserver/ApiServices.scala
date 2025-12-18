@@ -225,7 +225,6 @@ object ApiServices {
               submissionIdGenerator = SubmissionIdGenerator.Random,
               identityProviderExists = new IdentityProviderExists(identityProviderConfigStore),
               partyRecordExist = new PartyRecordsExist(partyRecordStore),
-              indexPartyManagementService = partyManagementService,
               telemetry = telemetry,
               loggerFactory = loggerFactory,
             )

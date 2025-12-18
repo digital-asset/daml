@@ -3,7 +3,10 @@
 
 package com.digitalasset.canton.integration.bootstrap
 
-import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameters
+import com.digitalasset.canton.admin.api.client.data.{
+  StaticSynchronizerParameters,
+  SubmissionRequestAmplification,
+}
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.{
@@ -13,7 +16,6 @@ import com.digitalasset.canton.console.{
   SequencerReference,
 }
 import com.digitalasset.canton.integration.{EnvironmentDefinition, TestConsoleEnvironment}
-import com.digitalasset.canton.sequencing.SubmissionRequestAmplification
 import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.{SynchronizerAlias, protocol}
 import monocle.syntax.all.*

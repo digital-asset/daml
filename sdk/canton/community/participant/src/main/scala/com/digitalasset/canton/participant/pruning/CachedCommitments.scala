@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.participant.pruning
 
-import com.digitalasset.canton.LfPartyId
+import com.digitalasset.canton.InternedPartyId
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.protocol.messages.AcsCommitment
 import com.digitalasset.canton.topology.ParticipantId
@@ -25,17 +25,17 @@ import scala.concurrent.blocking
 class CachedCommitments(
     private var prevParticipantCmts: Map[ParticipantId, AcsCommitment.CommitmentType] =
       Map.empty[ParticipantId, AcsCommitment.CommitmentType],
-    private var prevStkhdCmts: Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType] = Map
-      .empty[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
-    private var prevParticipantToStkhd: Map[ParticipantId, Set[SortedSet[LfPartyId]]] =
-      Map.empty[ParticipantId, Set[SortedSet[LfPartyId]]],
+    private var prevStkhdCmts: Map[SortedSet[InternedPartyId], AcsCommitment.CommitmentType] = Map
+      .empty[SortedSet[InternedPartyId], AcsCommitment.CommitmentType],
+    private var prevParticipantToStkhd: Map[ParticipantId, Set[SortedSet[InternedPartyId]]] =
+      Map.empty[ParticipantId, Set[SortedSet[InternedPartyId]]],
 ) {
   private val lock = new Object
 
   def setCachedCommitments(
       cmts: Map[ParticipantId, AcsCommitment.CommitmentType],
-      stkhdCmts: Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
-      participantToStkhd: Map[ParticipantId, Set[SortedSet[LfPartyId]]],
+      stkhdCmts: Map[SortedSet[InternedPartyId], AcsCommitment.CommitmentType],
+      participantToStkhd: Map[ParticipantId, Set[SortedSet[InternedPartyId]]],
   ): Unit =
     blocking {
       lock.synchronized {
@@ -49,7 +49,7 @@ class CachedCommitments(
 
   def computeCmtFromCached(
       participant: ParticipantId,
-      newStkhdCmts: Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
+      newStkhdCmts: Map[SortedSet[InternedPartyId], AcsCommitment.CommitmentType],
   ): Option[AcsCommitment.CommitmentType] =
     blocking {
       lock.synchronized {
@@ -97,7 +97,7 @@ class CachedCommitments(
 
   def clear(): Unit = setCachedCommitments(
     Map.empty[ParticipantId, AcsCommitment.CommitmentType],
-    Map.empty[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
-    Map.empty[ParticipantId, Set[SortedSet[LfPartyId]]],
+    Map.empty[SortedSet[InternedPartyId], AcsCommitment.CommitmentType],
+    Map.empty[ParticipantId, Set[SortedSet[InternedPartyId]]],
   )
 }

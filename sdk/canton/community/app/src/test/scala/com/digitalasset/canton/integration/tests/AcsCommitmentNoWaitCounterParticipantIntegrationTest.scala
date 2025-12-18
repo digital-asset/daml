@@ -7,6 +7,10 @@ import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommand
   NoWaitCommitments,
   WaitCommitments,
 }
+import com.digitalasset.canton.admin.api.client.data.{
+  SequencerConnections,
+  SynchronizerConnectionConfig,
+}
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.NonNegativeProportion
 import com.digitalasset.canton.config.{CommitmentSendDelay, SynchronizerTimeTrackerConfig}
@@ -28,9 +32,7 @@ import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.Errors
   NoSharedContracts,
 }
 import com.digitalasset.canton.participant.pruning.SortedReconciliationIntervalsHelpers
-import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.participant.util.JavaCodegenUtil.ContractIdSyntax
-import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import monocle.Monocle.toAppliedFocusOps

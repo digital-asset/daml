@@ -5,6 +5,7 @@ package com.digitalasset.canton.integration.tests
 
 import com.daml.metrics.api.testing.MetricValues.*
 import com.digitalasset.canton.admin.api.client.data.{
+  SequencerConnections,
   SubmissionRequestAmplification,
   TrafficControlParameters,
 }
@@ -29,7 +30,6 @@ import com.digitalasset.canton.integration.{
   SharedEnvironment,
   TestConsoleEnvironment,
 }
-import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.sequencing.protocol.{MessageId, TrafficState}
 import com.digitalasset.canton.synchronizer.sequencer.{
   HasProgrammableSequencer,
@@ -37,7 +37,6 @@ import com.digitalasset.canton.synchronizer.sequencer.{
   SendDecision,
   SendPolicy,
 }
-import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.Member
 import monocle.macros.syntax.lens.*
 
@@ -86,11 +85,10 @@ abstract class SubmissionRequestAmplificationIntegrationTest
           old.connections,
           old.sequencerTrustThreshold,
           old.sequencerLivenessMargin,
-          // TODO(i29601): remove `toInternal` when `modify_connections` is converted
           SubmissionRequestAmplification(
             PositiveInt.tryCreate(2),
             config.NonNegativeFiniteDuration.Zero,
-          ).toInternal,
+          ),
           old.sequencerConnectionPoolDelays,
         )
       }
@@ -185,7 +183,7 @@ abstract class SubmissionRequestAmplificationIntegrationTest
           old.withSubmissionRequestAmplification(
             // Make sure to set patience to 0 to force double sending of submission requests
             old.submissionRequestAmplification
-              .copy(factor = PositiveInt.one, patience = NonNegativeFiniteDuration.Zero)
+              .copy(factor = PositiveInt.one, patience = config.NonNegativeFiniteDuration.Zero)
           )
         ),
       )
@@ -338,12 +336,11 @@ abstract class SubmissionRequestAmplificationIntegrationTest
 
     participants.local.foreach { participant =>
       participant.synchronizers.disconnect(daName)
-      // TODO(i29601): remove `toInternal` when `synchronizers.modify` is converted
       participant.synchronizers.modify(
         daName,
         _.focus(_.sequencerConnections).modify(old =>
           old.withSubmissionRequestAmplification(
-            old.submissionRequestAmplification.copy(patience = newPatience.toInternal)
+            old.submissionRequestAmplification.copy(patience = newPatience)
           )
         ),
       )
@@ -351,10 +348,9 @@ abstract class SubmissionRequestAmplificationIntegrationTest
     }
 
     mediators.local.foreach(
-      // TODO(i29601): remove `toInternal` when `synchronizers.modify` is converted
       _.sequencer_connection.modify_connections(old =>
         old.withSubmissionRequestAmplification(
-          old.submissionRequestAmplification.copy(patience = newPatience.toInternal)
+          old.submissionRequestAmplification.copy(patience = newPatience)
         )
       )
     )

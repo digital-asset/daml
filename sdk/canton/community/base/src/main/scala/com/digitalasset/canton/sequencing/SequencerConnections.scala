@@ -4,7 +4,6 @@
 package com.digitalasset.canton.sequencing
 
 import cats.syntax.either.*
-import cats.syntax.foldable.*
 import cats.{Id, Monad}
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.admin.sequencer.v30
@@ -21,9 +20,6 @@ import com.digitalasset.canton.version.{
   ProtocolVersion,
 }
 import com.digitalasset.canton.{ProtoDeserializationError, SequencerAlias}
-import com.google.protobuf.ByteString
-
-import java.net.URI
 
 final case class SequencerConnections private (
     aliasToConnection: NonEmpty[Map[SequencerAlias, SequencerConnection]],
@@ -71,47 +67,6 @@ final case class SequencerConnections private (
         }
       }
       .getOrElse(M.pure(this))
-
-  def addEndpoints(
-      sequencerAlias: SequencerAlias,
-      connection: URI,
-      additionalConnections: URI*
-  ): Either[String, SequencerConnections] =
-    (Seq(connection) ++ additionalConnections).foldLeftM(this) { case (acc, elem) =>
-      acc.modifyM(sequencerAlias, c => c.addEndpoints(elem))
-    }
-
-  def addEndpoints(
-      sequencerAlias: SequencerAlias,
-      connection: SequencerConnection,
-      additionalConnections: SequencerConnection*
-  ): Either[String, SequencerConnections] =
-    (Seq(connection) ++ additionalConnections).foldLeftM(this) { case (acc, elem) =>
-      acc.modifyM(sequencerAlias, c => c.addEndpoints(elem))
-    }
-
-  def withCertificates(
-      sequencerAlias: SequencerAlias,
-      certificates: ByteString,
-  ): SequencerConnections =
-    modify(sequencerAlias, _.withCertificates(certificates))
-
-  def withSubmissionRequestAmplification(
-      submissionRequestAmplification: SubmissionRequestAmplification
-  ): SequencerConnections =
-    this.copy(submissionRequestAmplification = submissionRequestAmplification)
-
-  def withSequencerTrustThreshold(
-      sequencerTrustThreshold: PositiveInt
-  ): Either[String, SequencerConnections] =
-    Either.cond(
-      aliasToConnection.sizeIs >= sequencerTrustThreshold.unwrap,
-      this.copy(sequencerTrustThreshold = sequencerTrustThreshold),
-      s"Sequencer trust threshold $sequencerTrustThreshold cannot be greater than number of sequencer connections ${aliasToConnection.size}",
-    )
-
-  def withLivenessMargin(sequencerLivenessMargin: NonNegativeInt): SequencerConnections =
-    this.copy(sequencerLivenessMargin = sequencerLivenessMargin)
 
   override protected def pretty: Pretty[SequencerConnections] =
     prettyOfClass(

@@ -7,6 +7,11 @@ import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.*
 import com.daml.test.evidence.tag.Reliability.*
+import com.digitalasset.canton.admin.api.client.data.{
+  GrpcSequencerConnection,
+  SequencerConnection,
+  SequencerConnections,
+}
 import com.digitalasset.canton.config.RequireTypes.{Port, PositiveInt}
 import com.digitalasset.canton.console.{
   CommandFailure,
@@ -38,11 +43,6 @@ import com.digitalasset.canton.protocol.messages.{
 }
 import com.digitalasset.canton.sequencing.client.{SendResult, SequencerClient}
 import com.digitalasset.canton.sequencing.protocol.*
-import com.digitalasset.canton.sequencing.{
-  GrpcSequencerConnection,
-  SequencerConnection,
-  SequencerConnections,
-}
 import com.digitalasset.canton.topology.{SequencerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{SequencerAlias, SynchronizerAlias}

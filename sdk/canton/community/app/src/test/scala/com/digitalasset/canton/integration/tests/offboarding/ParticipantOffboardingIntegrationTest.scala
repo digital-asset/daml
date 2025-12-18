@@ -3,7 +3,10 @@
 
 package com.digitalasset.canton.integration.tests.offboarding
 
-import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameters
+import com.digitalasset.canton.admin.api.client.data.{
+  StaticSynchronizerParameters,
+  SubmissionRequestAmplification,
+}
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.{CommandFailure, InstanceReference}
 import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
@@ -13,7 +16,6 @@ import com.digitalasset.canton.integration.{
   SharedEnvironment,
 }
 import com.digitalasset.canton.logging.SuppressionRule
-import com.digitalasset.canton.sequencing.SubmissionRequestAmplification
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp.Remove
 import org.slf4j.event.Level

@@ -6,6 +6,7 @@ package com.digitalasset.canton.platform.store.backend.common
 import com.digitalasset.canton.platform.store.backend.Conversions.IntArrayDBSerialization.encodeToByteArray
 import com.digitalasset.canton.platform.store.backend.DbDto
 import com.digitalasset.canton.platform.store.interning.StringInterning
+import com.digitalasset.daml.lf.data.Ref.{ChoiceName, Identifier, NameTypeConRef, Party}
 
 import java.sql.Connection
 import scala.reflect.ClassTag
@@ -43,26 +44,55 @@ private[backend] object AppendOnlySchema {
     ): Field[FROM, Option[Array[Byte]], ?] =
       ByteaOptional(extractor)
 
+    def party[FROM](extractor: FROM => Party): Field[FROM, Int, ?] =
+      int[FROM](stringInterning => from => stringInterning.party.internalize(extractor(from)))
+
+    def partyOptional[FROM](extractor: FROM => Option[Party]): Field[FROM, Option[Int], ?] =
+      intOptional[FROM](stringInterning =>
+        from => extractor(from).map(stringInterning.party.internalize)
+      )
+
     def parties[FROM](
-        extractor: FROM => Set[String]
+        extractor: FROM => Set[Party]
     ): Field[FROM, Array[Byte], ?] =
       bytea(stringInterning =>
         from =>
           encodeToByteArray(
-            extractor(from)
-              .map(stringInterning.party.unsafe.internalize)
+            extractor(from).map(stringInterning.party.internalize)
           )
       )
 
     def partiesOptional[FROM](
-        extractor: FROM => Option[Set[String]]
+        extractor: FROM => Option[Set[Party]]
     ): Field[FROM, Option[Array[Byte]], ?] =
       byteaOptional(stringInterning =>
         from =>
           extractor(from)
-            .map(_.map(stringInterning.party.unsafe.internalize))
+            .map(_.map(stringInterning.party.internalize))
             .map(encodeToByteArray)
       )
+
+    def template[FROM](extractor: FROM => NameTypeConRef): Field[FROM, Int, ?] =
+      int[FROM](intern => from => intern.templateId.internalize(extractor(from)))
+
+    def templateOptional[FROM](
+        extractor: FROM => Option[NameTypeConRef]
+    ): Field[FROM, Option[Int], ?] =
+      intOptional[FROM](intern => from => extractor(from).map(intern.templateId.internalize))
+
+    def interface[FROM](extractor: FROM => Identifier): Field[FROM, Int, ?] =
+      int[FROM](intern => from => intern.interfaceId.internalize(extractor(from)))
+
+    def interfaceOptional[FROM](
+        extractor: FROM => Option[Identifier]
+    ): Field[FROM, Option[Int], ?] =
+      intOptional[FROM](intern => from => extractor(from).map(intern.interfaceId.internalize))
+
+    def choice[FROM](extractor: FROM => ChoiceName): Field[FROM, Int, ?] =
+      int[FROM](intern => from => intern.choiceName.internalize(extractor(from)))
+
+    def choiceOptional[FROM](extractor: FROM => Option[ChoiceName]): Field[FROM, Option[Int], ?] =
+      intOptional[FROM](intern => from => extractor(from).map(intern.choiceName.internalize))
 
     def bigint[FROM](extractor: StringInterning => FROM => Long): Field[FROM, Long, ?] =
       Bigint(extractor)
@@ -107,12 +137,8 @@ private[backend] object AppendOnlySchema {
     def idFilter[T <: DbDto.IdFilterDbDto](tableName: String): Table[T] =
       fieldStrategy.insert(tableName)(
         "event_sequential_id" -> fieldStrategy.bigint(_ => _.idFilter.event_sequential_id),
-        "template_id" -> fieldStrategy.int(stringInterning =>
-          dto => stringInterning.templateId.unsafe.internalize(dto.idFilter.template_id)
-        ),
-        "party_id" -> fieldStrategy.int(stringInterning =>
-          dto => stringInterning.party.unsafe.internalize(dto.idFilter.party_id)
-        ),
+        "template_id" -> fieldStrategy.template(_.idFilter.template_id),
+        "party_id" -> fieldStrategy.party(_.idFilter.party_id),
         "first_per_sequential_id" -> fieldStrategy.booleanOptional(_ =>
           dto => Option.when(dto.idFilter.first_per_sequential_id)(true)
         ),
@@ -183,11 +209,9 @@ private[backend] object AppendOnlySchema {
           _.deactivated_event_sequential_id
         ),
         "additional_witnesses" -> fieldStrategy.partiesOptional(_.additional_witnesses),
-        "exercise_choice" -> fieldStrategy.intOptional(stringInterning =>
-          _.exercise_choice.map(stringInterning.choiceName.unsafe.internalize)
-        ),
-        "exercise_choice_interface" -> fieldStrategy.intOptional(stringInterning =>
-          _.exercise_choice_interface_id.map(stringInterning.interfaceId.unsafe.internalize)
+        "exercise_choice" -> fieldStrategy.choiceOptional(_.exercise_choice),
+        "exercise_choice_interface" -> fieldStrategy.interfaceOptional(
+          _.exercise_choice_interface_id
         ),
         "exercise_argument" -> fieldStrategy.byteaOptional(_ => _.exercise_argument),
         "exercise_result" -> fieldStrategy.byteaOptional(_ => _.exercise_result),
@@ -211,9 +235,7 @@ private[backend] object AppendOnlySchema {
         // contract related columns
         "contract_id" -> fieldStrategy.bytea(_ => _.contract_id.toBytes.toByteArray),
         "internal_contract_id" -> fieldStrategy.bigintOptional(_ => _.internal_contract_id),
-        "template_id" -> fieldStrategy.int(stringInterning =>
-          dbDto => stringInterning.templateId.unsafe.internalize(dbDto.template_id)
-        ),
+        "template_id" -> fieldStrategy.template(_.template_id),
         "package_id" -> fieldStrategy.int(stringInterning =>
           dbDto => stringInterning.packageId.unsafe.internalize(dbDto.package_id)
         ),
@@ -248,11 +270,9 @@ private[backend] object AppendOnlySchema {
         "node_id" -> fieldStrategy.int(_ => _.node_id),
         "additional_witnesses" -> fieldStrategy.parties(_.additional_witnesses),
         "consuming" -> fieldStrategy.booleanOptional(_ => _.consuming),
-        "exercise_choice" -> fieldStrategy.intOptional(stringInterning =>
-          _.exercise_choice.map(stringInterning.choiceName.unsafe.internalize)
-        ),
-        "exercise_choice_interface" -> fieldStrategy.intOptional(stringInterning =>
-          _.exercise_choice_interface_id.map(stringInterning.interfaceId.unsafe.internalize)
+        "exercise_choice" -> fieldStrategy.choiceOptional(_.exercise_choice),
+        "exercise_choice_interface" -> fieldStrategy.interfaceOptional(
+          _.exercise_choice_interface_id
         ),
         "exercise_argument" -> fieldStrategy.byteaOptional(_ => _.exercise_argument),
         "exercise_result" -> fieldStrategy.byteaOptional(_ => _.exercise_result),
@@ -273,9 +293,7 @@ private[backend] object AppendOnlySchema {
         // contract related columns
         "contract_id" -> fieldStrategy.byteaOptional(_ => _.contract_id.map(_.toBytes.toByteArray)),
         "internal_contract_id" -> fieldStrategy.bigintOptional(_ => _.internal_contract_id),
-        "template_id" -> fieldStrategy.intOptional(stringInterning =>
-          _.template_id.map(stringInterning.templateId.unsafe.internalize)
-        ),
+        "template_id" -> fieldStrategy.templateOptional(_.template_id),
         "package_id" -> fieldStrategy.intOptional(stringInterning =>
           _.package_id.map(stringInterning.packageId.unsafe.internalize)
         ),
@@ -293,9 +311,7 @@ private[backend] object AppendOnlySchema {
         "typ" -> fieldStrategy.string(_ => _.typ),
         "rejection_reason" -> fieldStrategy.stringOptional(_ => _.rejection_reason),
         "is_local" -> fieldStrategy.booleanOptional(_ => _.is_local),
-        "party_id" -> fieldStrategy.intOptional(stringInterning =>
-          _.party.map(stringInterning.party.unsafe.internalize)
-        ),
+        "party_id" -> fieldStrategy.partyOptional(_.party),
       )
 
     val partyToParticipant: Table[DbDto.EventPartyToParticipant] =
@@ -303,9 +319,7 @@ private[backend] object AppendOnlySchema {
         "event_sequential_id" -> fieldStrategy.bigint(_ => _.event_sequential_id),
         "event_offset" -> fieldStrategy.bigint(_ => _.event_offset),
         "update_id" -> fieldStrategy.bytea(_ => _.update_id),
-        "party_id" -> fieldStrategy.int(stringInterning =>
-          dto => stringInterning.party.unsafe.internalize(dto.party_id)
-        ),
+        "party_id" -> fieldStrategy.party(_.party_id),
         "participant_id" -> fieldStrategy.int(stringInterning =>
           dto => stringInterning.participantId.unsafe.internalize(dto.participant_id)
         ),

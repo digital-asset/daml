@@ -8,9 +8,11 @@ import com.digitalasset.canton.admin.api.client.commands.*
 import com.digitalasset.canton.admin.api.client.commands.SequencerAdminCommands.FindPruningTimestampCommand
 import com.digitalasset.canton.admin.api.client.data.topology.ListParticipantSynchronizerPermissionResult
 import com.digitalasset.canton.admin.api.client.data.{
+  GrpcSequencerConnection,
   MediatorStatus,
   NodeStatus,
   ParticipantStatus,
+  SequencerConnections,
   SequencerStatus,
   StaticSynchronizerParameters as ConsoleStaticSynchronizerParameters,
 }
@@ -34,7 +36,6 @@ import com.digitalasset.canton.participant.config.{
 import com.digitalasset.canton.participant.{ParticipantNode, ParticipantNodeBootstrap}
 import com.digitalasset.canton.sequencer.admin.v30.SequencerPruningAdministrationServiceGrpc
 import com.digitalasset.canton.sequencer.admin.v30.SequencerPruningAdministrationServiceGrpc.SequencerPruningAdministrationServiceStub
-import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnections}
 import com.digitalasset.canton.synchronizer.mediator.{
   MediatorNode,
   MediatorNodeBootstrap,
@@ -90,7 +91,7 @@ trait InstanceReference
   override protected def pretty: Pretty[InstanceReference] =
     prettyOfString(inst => show"${inst.instanceType.unquoted} ${inst.name.singleQuoted}")
 
-  val consoleEnvironment: ConsoleEnvironment
+  implicit val consoleEnvironment: ConsoleEnvironment
 
   override protected[console] def tracedLogger: TracedLogger = logger
 
@@ -555,7 +556,7 @@ abstract class ParticipantReference(
     new ParticipantReplicationAdministrationGroup(this, consoleEnvironment)
 
   private lazy val repair_ =
-    new ParticipantRepairAdministration(consoleEnvironment, this, loggerFactory)
+    new ParticipantRepairAdministration(this, loggerFactory)(consoleEnvironment)
 
   private lazy val commitments_ =
     new CommitmentsAdministrationGroup(this, consoleEnvironment, loggerFactory)
@@ -1287,8 +1288,10 @@ class LocalSequencerReference(
     consoleEnvironment.environment.config.sequencersByString(name)
 
   override lazy val sequencerConnection: GrpcSequencerConnection =
-    config.publicApi.clientConfig
-      .asSequencerConnection(sequencerAlias = SequencerAlias.tryCreate(name), sequencerId = None)
+    GrpcSequencerConnection.fromInternal(
+      config.publicApi.clientConfig
+        .asSequencerConnection(sequencerAlias = SequencerAlias.tryCreate(name), sequencerId = None)
+    )
 
   private[console] val nodes: SequencerNodes =
     consoleEnvironment.environment.sequencers
@@ -1319,9 +1322,11 @@ class RemoteSequencerReference(val environment: ConsoleEnvironment, val name: St
     environment.environment.config.remoteSequencersByString(name)
 
   override def sequencerConnection: GrpcSequencerConnection =
-    config.publicApi.asSequencerConnection(
-      sequencerAlias = SequencerAlias.tryCreate(name),
-      sequencerId = None,
+    GrpcSequencerConnection.fromInternal(
+      config.publicApi.asSequencerConnection(
+        sequencerAlias = SequencerAlias.tryCreate(name),
+        sequencerId = None,
+      )
     )
 
   protected lazy val publicApiClient: SequencerPublicApiClient = new SequencerPublicApiClient(

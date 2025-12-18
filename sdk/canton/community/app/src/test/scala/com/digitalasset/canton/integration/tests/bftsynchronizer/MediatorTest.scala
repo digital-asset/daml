@@ -4,6 +4,7 @@
 package com.digitalasset.canton.integration.tests.bftsynchronizer
 
 import com.digitalasset.canton.SynchronizerAlias
+import com.digitalasset.canton.admin.api.client.data.SequencerConnections
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.LocalParticipantReference
 import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2}
@@ -14,7 +15,6 @@ import com.digitalasset.canton.integration.{
 }
 import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
 import com.digitalasset.canton.participant.protocol.TransactionProcessor
-import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.topology.{ForceFlag, PhysicalSynchronizerId}
 import org.scalatest.matchers.{MatchResult, Matcher}
 

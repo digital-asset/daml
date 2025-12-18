@@ -19,14 +19,14 @@ import com.digitalasset.daml.lf.data.Ref.{
 import scala.concurrent.{Future, blocking}
 
 class DomainStringIterators(
-    val parties: Iterator[String],
-    val templateIds: Iterator[String],
+    val parties: Iterator[Party],
+    val templateIds: Iterator[NameTypeConRef],
     val synchronizerIds: Iterator[SynchronizerId],
-    val packageIds: Iterator[String],
-    val userIds: Iterator[String],
-    val participantIds: Iterator[String],
-    val choiceNames: Iterator[String],
-    val interfaceIds: Iterator[String],
+    val packageIds: Iterator[PackageId],
+    val userIds: Iterator[UserId],
+    val participantIds: Iterator[ParticipantId],
+    val choiceNames: Iterator[ChoiceName],
+    val interfaceIds: Iterator[Identifier],
 )
 
 trait InternizingStringInterningView {

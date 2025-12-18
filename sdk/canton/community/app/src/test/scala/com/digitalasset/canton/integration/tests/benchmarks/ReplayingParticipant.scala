@@ -142,7 +142,7 @@ object ReplayingParticipant extends FutureHelpers with EitherValues with OptionV
 
     val underlyingTransport =
       mkUnderlyingTransport(
-        connectedToSequencer.sequencerConnection,
+        connectedToSequencer.sequencerConnection.toInternal,
         member,
         psid,
         synchronizerCrypto,

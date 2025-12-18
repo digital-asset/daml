@@ -9,7 +9,7 @@ import cats.syntax.functorFilter.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton
+import com.digitalasset.canton.checked
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
@@ -32,13 +32,12 @@ import com.digitalasset.canton.sequencing.SequencerConnectionXPool.{
   SequencerConnectionXPoolHealth,
 }
 import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenManagerConfig
-import com.digitalasset.canton.time.{Clock, WallClock}
+import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration, WallClock}
 import com.digitalasset.canton.topology.{Member, PhysicalSynchronizerId, SequencerId}
 import com.digitalasset.canton.tracing.{TraceContext, TracingConfig}
 import com.digitalasset.canton.util.collection.SeqUtil
 import com.digitalasset.canton.util.{ErrorUtil, FutureUnlessShutdownUtil, LoggerUtil, SingleUseCell}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{checked, config as cantonConfig}
 import com.google.common.annotations.VisibleForTesting
 import org.apache.pekko.stream.Materializer
 
@@ -46,6 +45,7 @@ import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.collection.{immutable, mutable}
 import scala.compat.java8.DurationConverters.DurationOps
 import scala.concurrent.{ExecutionContextExecutor, blocking}
+import scala.math.Ordering.Implicits.infixOrderingOps
 import scala.util.Random
 
 class SequencerConnectionXPoolImpl private[sequencing] (
@@ -250,7 +250,7 @@ class SequencerConnectionXPoolImpl private[sequencing] (
       */
     private case class RestartData(
         scheduled: Boolean,
-        delay: cantonConfig.NonNegativeFiniteDuration,
+        delay: NonNegativeFiniteDuration,
         initialStartTimeO: Option[CantonTimestamp],
     )
 
@@ -276,16 +276,14 @@ class SequencerConnectionXPoolImpl private[sequencing] (
             current.copy(
               scheduled = true,
               // Exponentially backoff the restart delay, bounded by the max
-              delay = canton.config.NonNegativeFiniteDuration.tryFromDuration(
-                (delay.duration * 2).min(config.maxRestartConnectionDelay.duration)
-              ),
+              delay = (delay * NonNegativeInt.two).min(config.maxRestartConnectionDelay),
             )
           case other => other
         }
 
       initialStartTimeO.foreach { initialStartTime =>
         val durationSinceInitialStart = (wallClock.now - initialStartTime).toScala
-        if (durationSinceInitialStart > config.warnConnectionValidationDelay.duration) {
+        if (durationSinceInitialStart > config.warnConnectionValidationDelay.toScala) {
           logger.warn(
             s"Connection has failed validation since $initialStartTime" +
               s" (${LoggerUtil.roundDurationForHumans(durationSinceInitialStart)} ago)." +
@@ -298,10 +296,10 @@ class SequencerConnectionXPoolImpl private[sequencing] (
         logger.debug("Restart already scheduled -- ignoring")
       else {
         logger.info(
-          s"Scheduling restart after ${LoggerUtil.roundDurationForHumans(delay.duration)}"
+          s"Scheduling restart after ${LoggerUtil.roundDurationForHumans(delay.toScala)}"
         )
         FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
-          wallClock.scheduleAfter(_ => restart(), delay.asJava),
+          wallClock.scheduleAfter(_ => restart(), delay.duration),
           s"restart-connection-${connection.name}",
         )
       }
