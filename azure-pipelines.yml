@@ -147,7 +147,7 @@ jobs:
         gcloud auth configure-docker --quiet ${DPM_REGISTRY%%/*}
         ./ci/get-dpm.sh
 	
-	#copy LICENSE file as part of every published oci artifact
+        #copy LICENSE file as part of every published oci artifact
         cp ./LICENSE $(Build.StagingDirectory)/LICENSE
         ./ci/publish-oci.sh $(Build.StagingDirectory) $(release_tag) ${DPM_REGISTRY}
       name: publish_to_oci
