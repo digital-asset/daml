@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary")
-load("util.bzl", "protos_zip", "sdk_tarball")
+load("util.bzl", "dpm_sdk_tarball", "protos_zip", "sdk_tarball")
 load("@build_environment//:configuration.bzl", "sdk_version")
 load("@os_info//:os_info.bzl", "is_windows")
 
@@ -82,6 +82,8 @@ protos_zip(
         "ee",
     ]
 ]
+
+dpm_sdk_tarball("dpm-sdk-release-tarball", sdk_version)
 
 alias(
     name = "sdk-release-tarball",
