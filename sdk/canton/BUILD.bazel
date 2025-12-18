@@ -2040,6 +2040,7 @@ da_scala_test_suite(
     resources = [
         ":base/resources-grpc/src/test/resources/logback-test.xml",
     ],
+    scalacopts = canton_scalacopts + ["-language:postfixOps"],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],
@@ -2247,6 +2248,7 @@ da_scala_test_suite(
     scala_deps = [
         "@maven//:org_scalatest_scalatest_wordspec",
     ],
+    scalacopts = canton_scalacopts + ["-language:postfixOps"],
     deps = [
         ":safe-proto",
         "@maven//:com_google_protobuf_protobuf_java",
