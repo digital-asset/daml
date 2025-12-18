@@ -62,11 +62,11 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:daml-lf-script-engine:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
+        "//canton:contextualized-logging",
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/transaction",
-        "//canton:contextualized-logging",
     ],
 )
 
