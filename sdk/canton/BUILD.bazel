@@ -224,6 +224,7 @@ da_scala_library(
         "//canton:tracing",
         "//daml-lf/data",
         "@maven//:com_github_pathikrit_better_files_2_13",
+        "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
         "@maven//:io_grpc_grpc_api",
@@ -2156,6 +2157,7 @@ da_scala_benchmark_jmh(
 da_scala_library(
     name = "executors",
     srcs = glob(["base/executors/src/main/scala/**/*.scala"]),
+    override_scalacopts = canton_scalacopts + ["-language:postfixOps"],
     tags = ["maven_coordinates=com.daml:executors:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
