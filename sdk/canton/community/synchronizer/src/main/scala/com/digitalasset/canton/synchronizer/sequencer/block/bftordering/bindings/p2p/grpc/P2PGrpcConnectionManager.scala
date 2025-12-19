@@ -254,15 +254,17 @@ private[bftordering] final class P2PGrpcConnectionManager(
       p2pEndpoint: P2PEndpoint
   )(implicit traceContext: TraceContext): Unit = {
     val p2pEndpointId = p2pEndpoint.id
-    mutex(this)(connectWorkers.get(p2pEndpointId)) match {
-      case Some(_ -> task) if !task.isCompleted =>
-        logger.info(s"Connection worker for $p2pEndpointId is already running")
-      case _ =>
-        logger.info(s"Starting connection worker for $p2pEndpointId:")
-        connect(p2pEndpoint)(connectExecutionContext, traceContext)
-          .foreach(channelAndWorker =>
-            mutex(this)(connectWorkers.put(p2pEndpointId, channelAndWorker)).discard
-          )
+    mutex(this) {
+      connectWorkers.get(p2pEndpointId) match {
+        case Some(_ -> task) if !task.isCompleted =>
+          logger.info(s"Connection worker for $p2pEndpointId is already running")
+        case _ =>
+          logger.info(s"Starting connection worker for $p2pEndpointId:")
+          connect(p2pEndpoint)(connectExecutionContext, traceContext)
+            .foreach(channelAndWorker =>
+              connectWorkers.put(p2pEndpointId, channelAndWorker).discard
+            )
+      }
     }
   }
 
@@ -408,12 +410,15 @@ private[bftordering] final class P2PGrpcConnectionManager(
         )
       )
     val p2pEndpointId = p2pEndpoint.id
-    val previousChannel = mutex(this) {
-      val previousChannel = channels.put(p2pEndpointId, channel)
-      maybeAuthenticationContext.foreach(grpcSequencerClientAuths.put(p2pEndpointId, _).discard)
-      previousChannel
+    val previousChannel = channels.put(p2pEndpointId, channel)
+    maybeAuthenticationContext.foreach(grpcSequencerClientAuths.put(p2pEndpointId, _).discard)
+    previousChannel.foreach { existingChannel =>
+      logger.warn(
+        s"Found existing outgoing gRPC channel $existingChannel to $p2pEndpointId while trying to create one and shutting it down; " +
+          "this indicates an unexpected race condition"
+      )
+      shutdownGrpcChannel(p2pEndpointId, existingChannel)
     }
-    previousChannel.foreach(shutdownGrpcChannel(p2pEndpointId, _))
     logger.info(s"Created gRPC channel $channel to $p2pEndpointId")
 
     // When authentication is enabled, the external address normally also

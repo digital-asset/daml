@@ -3,9 +3,9 @@
 
 package com.daml.grpc.adapter.utils
 
-import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
-
 import io.grpc.stub.StreamObserver
+
+import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 
 class BackpressuringObserver[T](limit: Int) extends StreamObserver[T] {
   private val observedElements = new AtomicInteger()
@@ -15,7 +15,6 @@ class BackpressuringObserver[T](limit: Int) extends StreamObserver[T] {
 
   override def onCompleted(): Unit = ()
 
-  override def onNext(value: T): Unit = {
+  override def onNext(value: T): Unit =
     if (observedElements.incrementAndGet() < limit) signalDemand.get().run()
-  }
 }

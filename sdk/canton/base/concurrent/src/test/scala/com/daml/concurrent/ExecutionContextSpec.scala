@@ -3,17 +3,17 @@
 
 package com.daml.concurrent
 
-import scala.{concurrent => sc}
-
-import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import shapeless.test.illTyped
+
 import scala.annotation.nowarn
+import scala.concurrent as sc
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 @nowarn("cat=unused-imports") // allow importing unused implicit vals
 class ExecutionContextSpec extends AnyWordSpec with Matchers {
-  import ExecutionContextSpec._
+  import ExecutionContextSpec.*
 
   // In these tests, you can think of the type argument to `theEC` as being like
   // the EC on a Future whose ExecutionContext lookup behavior you are wondering
@@ -23,11 +23,11 @@ class ExecutionContextSpec extends AnyWordSpec with Matchers {
     import TestImplicits.untyped
 
     "disallow lookup" in {
-      illTyped("theEC[Animal]", "could not find implicit value.*")
+      illTyped("theEC[Animal]", ".*implicit.*")
     }
 
     "disallow lookup, even of Any" in {
-      illTyped("theEC[Any]", "could not find implicit value.*")
+      illTyped("theEC[Any]", ".*implicit.*")
     }
 
     "allow lookup only for untyped" in {
@@ -45,12 +45,12 @@ class ExecutionContextSpec extends AnyWordSpec with Matchers {
     }
 
     "refuse to resolve a separate subtype" in {
-      illTyped("theEC[Cat]", "could not find implicit value.*")
+      illTyped("theEC[Cat]", ".*implicit.*")
     }
   }
 
   "importing everything" should {
-    import TestImplicits._
+    import TestImplicits.*
 
     "always prefer Nothing" in {
       theEC[Any] should ===(nothing)

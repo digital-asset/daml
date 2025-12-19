@@ -50,8 +50,9 @@ class SequencerBftPruningAdministrationGroup(
     "Prune the BFT Orderer layer based on the retention period and minimum blocks to keep specified"
   )
   @Help.Description(
-    """Prunes the BFT Orderer layer based on the retention period and minimum blocks to keep specified
-      | returning a description of how the operation went."""
+    """Prunes the BFT Orderer layer based on the retention period and minimum blocks to keep
+      |specified returning a description of how the operation went.
+      """
   )
   def prune(retention: PositiveDurationSeconds, minBlocksToKeep: Int): String =
     consoleEnvironment.run {
@@ -61,12 +62,12 @@ class SequencerBftPruningAdministrationGroup(
   @Help.Summary("Pruning status of the BFT Orderer")
   @Help.Description(
     """Provides a detailed breakdown of information required for pruning:
-      | - the latest block number
-      | - the latest block epoch number
-      | - the latest block timestamp
-      | - the lower bound inclusive epoch number it current supports serving from
-      | - the lower bound inclusive block number it current supports serving from
-      |"""
+      |- the latest block number
+      |- the latest block epoch number
+      |- the latest block timestamp
+      |- the lower bound inclusive epoch number it current supports serving from
+      |- the lower bound inclusive block number it current supports serving from
+      """
   )
   def status(): BftPruningStatus =
     consoleEnvironment.run {
@@ -74,13 +75,14 @@ class SequencerBftPruningAdministrationGroup(
     }
 
   @Help.Summary(
-    "Activate automatic pruning according to the specified schedule with bft-orderer-specific options."
+    "Activate automatic pruning according to the specified schedule with bft-orderer-specific options"
   )
   @Help.Description(
-    """Refer to the ``set_schedule`` description for information about the "cron", "max_duration", and "retention"
-      |parameters. The "min-blocks-to-keep" option refers to how many blocks should be kept at a minimum after the
-      |pruning operation ends, even if fewer blocks would remain based on retention alone.
-  """
+    """Refer to the ``set_schedule`` description for information about the "cron",
+      |"max_duration", and "retention" parameters. The "min-blocks-to-keep" option refers to how
+      |many blocks should be kept at a minimum after the pruning operation ends, even if fewer
+      |blocks would remain based on retention alone.
+      """
   )
   def set_bft_schedule(
       cron: String,
@@ -99,12 +101,13 @@ class SequencerBftPruningAdministrationGroup(
       )
     )
 
-  @Help.Summary("Inspect the automatic, bft-orderer-specific pruning schedule.")
+  @Help.Summary("Inspect the automatic, bft-orderer-specific pruning schedule")
   @Help.Description(
-    """The schedule consists of a "cron" expression and "max_duration" and "retention" durations as described in the
-      |``get_schedule`` command description. Additionally "min_blocks_to_keep" indicates how many blocks should be kept
-      | at a minimum after the pruning operation ends, even if fewer blocks would remain based on retention alone.
-  """
+    """The schedule consists of a "cron" expression and "max_duration" and "retention"
+      |durations as described in the ``get_schedule`` command description. Additionally
+      |"min_blocks_to_keep" indicates how many blocks should be kept at a minimum after the
+      |pruning operation ends, even if fewer blocks would remain based on retention alone.
+      """
   )
   def get_bft_schedule(): Option[BftOrdererPruningSchedule] =
     consoleEnvironment.run(

@@ -187,7 +187,7 @@ class IssSegmentModule[E <: Env[E]](
           } else {
             // Ask availability for batches to be ordered if we have slots available.
             logger.debug(s"initiating pull following segment Start signal")
-            initiatePull()
+            initiatePull(mySegmentState.nextBlockToOrder)
           }
         }
 
@@ -208,7 +208,10 @@ class IssSegmentModule[E <: Env[E]](
                 )
               }
             }
-          case Consensus.LocalAvailability.ProposalCreated(orderingBlock, forEpochNumber) =>
+          case Consensus.LocalAvailability.ProposalCreated(
+                forBlock,
+                orderingBlock,
+              ) =>
             val logPrefix =
               s"$messageType: received block from local availability with batch IDs: " +
                 s"${orderingBlock.proofs.map(_.batchId)}"
@@ -230,10 +233,10 @@ class IssSegmentModule[E <: Env[E]](
               if (mySegmentState.canReceiveProposals) {
                 // An outstanding proposal, requested before a view change, could end up coming after the epoch changes.
                 // In that case we also want to discard it by detecting that this request was not made during the current epoch.
-                if (forEpochNumber != epoch.info.number) {
+                if (forBlock != mySegmentState.nextBlockToOrder) {
                   resetWaitingForProposal()
                   logger.info(
-                    s"$logPrefix. Ignoring it because it is from epoch $forEpochNumber and we're in epoch ${epoch.info.number}."
+                    s"$logPrefix. Ignoring it because it is for block number $forBlock but the next block to order is ${mySegmentState.nextBlockToOrder}."
                   )
                 } else {
                   emitProposalWaitLatency()
@@ -348,7 +351,7 @@ class IssSegmentModule[E <: Env[E]](
               // Ask availability for more batches to be ordered in the next block and contextually
               //  notify availability of ordered batches (if any)
               logger.debug(s"initiating pull after OrderedBlockStored")
-              initiatePull(orderedBatchIds)
+              initiatePull(originalLeaderSegmentStateOfBlock.nextBlockToOrder, orderedBatchIds)
             } else if (orderedBatchIds.nonEmpty) {
               // If the segment can't receive more proposals and some batches have been ordered,
               //  just notify availability about ordered batches
@@ -657,7 +660,8 @@ class IssSegmentModule[E <: Env[E]](
     }
 
   private def initiatePull(
-      orderedBatchIds: Seq[BatchId] = Seq.empty
+      forBlock: BlockNumber,
+      orderedBatchIds: Seq[BatchId] = Seq.empty,
   )(implicit
       traceContext: TraceContext,
       context: E#ActorContextT[ConsensusSegment.Message],
@@ -669,9 +673,10 @@ class IssSegmentModule[E <: Env[E]](
     )
     availability.asyncSend(
       Availability.Consensus.CreateProposal(
+        forBlock,
+        epoch.info.number,
         epoch.currentMembership.orderingTopology,
         cryptoProvider,
-        epoch.info.number,
         orderedBatchIds,
       )
     )

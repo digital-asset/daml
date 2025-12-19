@@ -3,8 +3,12 @@
 
 package com.digitalasset.canton.tracing
 
+import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.OnDemandMetricsReader.NoOpOnDemandMetricsReader$
-import com.digitalasset.canton.telemetry.ConfiguredOpenTelemetry
+import com.digitalasset.canton.telemetry.{
+  ConfiguredOpenTelemetry,
+  UnsetSpanEndingThreadReferenceSpanProcessor,
+}
 import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.trace.Tracer
@@ -40,7 +44,10 @@ private[tracing] class ReportingTracerProvider(
           .setPropagators(ContextPropagators.create(W3CTraceContextPropagator.getInstance()))
           .build(),
         SdkTracerProvider.builder
-          .addSpanProcessor(SimpleSpanProcessor.create(exporter)),
+          .addSpanProcessor(SimpleSpanProcessor.create(exporter))
+          .addSpanProcessor(
+            new UnsetSpanEndingThreadReferenceSpanProcessor(NamedLoggerFactory.root)
+          ),
         NoOpOnDemandMetricsReader$,
       ),
       name,

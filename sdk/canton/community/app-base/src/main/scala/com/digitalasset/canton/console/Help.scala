@@ -23,11 +23,48 @@ object Help {
     */
   final case class Summary(s: String, flag: FeatureFlag = FeatureFlag.Stable)
       extends StaticAnnotation {
+
+    private val maxLength = 120
+
+    if (s.contains('\n') || s.contains('\r')) {
+      System.err.println(
+        s"@Summary: The summary '$s' must be a single line (no newline characters)."
+      )
+    }
+
+    if (s.trim.endsWith(".")) {
+      System.err.println(
+        s"@Summary: The summary '$s' must not end in a full stop ('.')."
+      )
+    }
+
+    if (s.length > maxLength) {
+      System.err.println(
+        s"@Summary: The summary '$s' exceeds $maxLength characters (actual length: ${s.length})."
+      )
+    }
+
     override def toString: String = s
   }
 
   /** A longer description of the method */
   final case class Description(s: String) extends StaticAnnotation {
+
+    private val lineMaxLength = 89
+
+    s.linesIterator.zipWithIndex.foreach { case (line, index) =>
+      if (line.length > lineMaxLength) {
+        System.err.println(
+          s"""
+             |@Description: Line exceeds $lineMaxLength characters.
+             |Location: Line ${index + 1}
+             |Length:   ${line.length}
+             |Content:  "$line"
+             |""".stripMargin
+        )
+      }
+    }
+
     override def toString: String = s
   }
 

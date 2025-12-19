@@ -3,11 +3,10 @@
 
 package com.daml.grpc.adapter.utils
 
-import java.util.concurrent.ConcurrentLinkedQueue
-import java.util.concurrent.atomic.AtomicInteger
-
 import io.grpc.stub.StreamObserver
 
+import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.Promise
 
 class BufferingObserver[T](limit: Option[Int] = None) extends StreamObserver[T] {
@@ -28,7 +27,7 @@ class BufferingObserver[T](limit: Option[Int] = None) extends StreamObserver[T] 
   }
 
   override def onNext(value: T): Unit = {
-    size.updateAndGet(curr => {
+    size.updateAndGet { curr =>
       if (limit.fold(false)(_ <= curr)) {
         onCompleted()
         curr
@@ -36,7 +35,7 @@ class BufferingObserver[T](limit: Option[Int] = None) extends StreamObserver[T] 
         buffer.add(value)
         curr + 1
       }
-    })
+    }
     ()
   }
 }

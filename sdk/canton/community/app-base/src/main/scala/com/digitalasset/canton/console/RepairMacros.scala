@@ -203,7 +203,9 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
       "Upload the identity, keys and initial topology transactions from the directory sourcePath to the node"
     )
     @Help.Description(
-      "The node must not have been initialized. Afterwards, the node will impersonate the one whose credentials were downloaded into the directory."
+      """The node must not have been initialized. Afterwards, the node will impersonate the one
+        |whose credentials were downloaded into the directory.
+        """
     )
     // TODO(#16009) improve repair UX: consider creating node-specific upload methods
     def upload(

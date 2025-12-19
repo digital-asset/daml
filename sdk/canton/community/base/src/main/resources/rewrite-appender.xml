@@ -333,14 +333,6 @@
             <testing>true</testing>
         </rewrite>
 
-        <!-- TODO(#29653): fix duplicates introduced by the BFT orderer -->
-        <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.participant.protocol.validation.TransactionConfirmationResponsesFactory</logger>
-            <contains>belongs to a replayed transaction</contains>
-            <maxLevel>INFO</maxLevel>
-            <testing>true</testing>
-        </rewrite>
-
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
             <logger>com.digitalasset.canton.synchronizer.sequencer.time.TimeAdvancingTopologySubscriberV1</logger>
             <contains>Could not send a time-advancing message</contains>

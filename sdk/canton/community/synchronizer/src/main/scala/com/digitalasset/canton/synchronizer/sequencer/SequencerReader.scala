@@ -45,7 +45,7 @@ import com.digitalasset.canton.tracing.{Spanning, TraceContext}
 import com.digitalasset.canton.util.PekkoUtil.WithKillSwitch
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
+import com.digitalasset.canton.util.{BatchN, EitherTUtil, ErrorUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.*
@@ -53,6 +53,7 @@ import org.apache.pekko.stream.scaladsl.{Flow, Keep, Source}
 import org.apache.pekko.{Done, NotUsed}
 
 import java.util.concurrent.atomic.AtomicReference
+import scala.annotation.nowarn
 import scala.concurrent.ExecutionContext
 
 /** Configuration for the database based sequence reader.
@@ -73,12 +74,14 @@ import scala.concurrent.ExecutionContext
   * @param eventGenerationParallelism
   *   how many events will be generated from the fetched payloads in parallel
   */
+@nowarn("cat=deprecation")
 final case class SequencerReaderConfig(
     readBatchSize: Int = SequencerReaderConfig.defaultReadBatchSize,
     checkpointInterval: config.NonNegativeFiniteDuration =
       SequencerReaderConfig.defaultCheckpointInterval,
     pollingInterval: Option[config.NonNegativeFiniteDuration] = None,
     payloadBatchSize: Int = SequencerReaderConfig.defaultPayloadBatchSize,
+    @deprecated("This config option is not used anymore", "3.5.0")
     payloadBatchWindow: config.NonNegativeFiniteDuration =
       SequencerReaderConfig.defaultPayloadBatchWindow,
     payloadFetchParallelism: Int = SequencerReaderConfig.defaultPayloadFetchParallelism,
@@ -586,13 +589,17 @@ class SequencerReader(
         traceContext: TraceContext
     ): Flow[WithKillSwitch[ValidatedSnapshotWithEvent[IdOrPayload]], UnsignedEventData, NotUsed] =
       Flow[WithKillSwitch[ValidatedSnapshotWithEvent[IdOrPayload]]]
-        .groupedWithin(config.payloadBatchSize, config.payloadBatchWindow.underlying)
+        .batchN(
+          config.payloadBatchSize,
+          config.payloadFetchParallelism,
+          BatchN.MaximizeBatchSize,
+        )
         .mapAsyncAndDrainUS(config.payloadFetchParallelism) { snapshotsWithEvent =>
           // fetch payloads in bulk
           val idOrPayloads =
             snapshotsWithEvent.flatMap(_.value.unvalidatedEvent.event.payloadO.toList)
           store
-            .readPayloads(idOrPayloads, member)
+            .readPayloads(idOrPayloads.toSeq, member)
             .map { loadedPayloads =>
               snapshotsWithEvent.map(snapshotWithEvent =>
                 snapshotWithEvent.map(_.mapEventPayload {
