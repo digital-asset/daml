@@ -59,7 +59,6 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:daml-script-runner:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        "//daml-script/auth-utils",
         "//canton:base_daml-tls",
         "//canton:base_errors",
         "//canton:base_grpc-utils",
@@ -84,6 +83,7 @@ da_scala_library(
         "//daml-lf/language",
         "//daml-lf/stable-packages",
         "//daml-lf/transaction",
+        "//daml-script/auth-utils",
         "//daml-script/converter",
         "//ledger-service/lf-value-json",
         "@maven//:com_google_guava_guava",
