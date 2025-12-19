@@ -95,8 +95,7 @@ class OriginalLeaderSegmentState(
       state.blockCommitMessages(previousBlockNumberInSegment)
     } else latestCompletedEpochLastCommits
 
-    val blockNumber = segment.slotNumbers(nextRelativeBlockToOrder)
-    val blockMetadata = BlockMetadata(state.epoch.info.number, blockNumber)
+    val blockMetadata = BlockMetadata(state.epoch.info.number, nextBlockToOrder)
     val orderedBlock =
       OrderedBlock(
         blockMetadata,
@@ -110,4 +109,6 @@ class OriginalLeaderSegmentState(
   }
 
   def isNextSlotFirst: Boolean = nextRelativeBlockToOrder == 0
+
+  def nextBlockToOrder: BlockNumber = segment.slotNumbers(nextRelativeBlockToOrder)
 }

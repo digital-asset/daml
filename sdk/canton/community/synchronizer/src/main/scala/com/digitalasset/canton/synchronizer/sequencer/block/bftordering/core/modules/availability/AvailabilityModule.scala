@@ -23,6 +23,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Env
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BftNodeId,
+  BlockNumber,
   EpochNumber,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.OrderingRequestBatch.BatchValidityDurationEpochs
@@ -547,13 +548,14 @@ final class AvailabilityModule[E <: Env[E]](
         spanManager.finishBlockSpan(batchIds)
 
       case Availability.Consensus.CreateProposal(
-            orderingTopology,
-            cryptoProvider: CryptoProvider[E],
-            forEpochNumber,
+            forBlock,
+            currentEpochNumber,
+            currentOrderingTopology,
+            currentCryptoProvider: CryptoProvider[E],
             ordered,
           ) =>
         val batchesToBeEvicted =
-          updateLastKnownEpochNumberAndForgetExpiredBatches(messageType, forEpochNumber)
+          updateLastKnownEpochNumberAndForgetExpiredBatches(messageType, currentEpochNumber)
 
         spanManager.finishBlockSpan(ordered)
 
@@ -569,9 +571,9 @@ final class AvailabilityModule[E <: Env[E]](
 
         handleConsensusProposalRequest(
           messageType,
-          orderingTopology,
-          cryptoProvider,
-          forEpochNumber,
+          forBlock,
+          currentOrderingTopology,
+          currentCryptoProvider,
           ordered,
         )
 
@@ -585,9 +587,9 @@ final class AvailabilityModule[E <: Env[E]](
 
   private def handleConsensusProposalRequest(
       actingOnMessageType: => String,
-      orderingTopology: OrderingTopology,
-      cryptoProvider: CryptoProvider[E],
-      forEpochNumber: EpochNumber,
+      forBlock: BlockNumber,
+      currentOrderingTopology: OrderingTopology,
+      currentCryptoProvider: CryptoProvider[E],
       orderedBatchIds: Seq[BatchId],
   )(implicit
       context: E#ActorContextT[Availability.Message[E]],
@@ -598,11 +600,9 @@ final class AvailabilityModule[E <: Env[E]](
     logger.debug(
       s"$actingOnMessageType: recording proposal request from local consensus and reviewing progress"
     )
-    disseminationProtocolState.toBeProvidedToConsensus enqueue ToBeProvidedToConsensus(
-      config.maxBatchesPerBlockProposal,
-      forEpochNumber,
-    )
-    updateActiveTopology(actingOnMessageType, orderingTopology, cryptoProvider)
+    disseminationProtocolState.toBeProvidedToConsensus enqueue
+      ToBeProvidedToConsensus(forBlock, config.maxBatchesPerBlockProposal)
+    updateActiveTopology(actingOnMessageType, currentOrderingTopology, currentCryptoProvider)
 
     // Review and complete both in-progress and ready disseminations regardless of whether the topology
     //  has changed, so that we also try and complete ones that might have become stuck;
@@ -1289,8 +1289,8 @@ final class AvailabilityModule[E <: Env[E]](
       val tracedProofOfAvailabilities = batchesToBeProposed.view.map(_._2.proofOfAvailability)
       val proposal =
         Consensus.LocalAvailability.ProposalCreated(
+          toBeProvidedToConsensus.forBlock,
           OrderingBlock(tracedProofOfAvailabilities.map(_.value).toSeq),
-          toBeProvidedToConsensus.forEpochNumber,
         )
       val (span, newContext) = startSpan(s"BFTOrderer.Availability.ProposeBlock")(
         context.traceContextOfBatch(tracedProofOfAvailabilities),

@@ -14,12 +14,12 @@ import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasRunOnClosing}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcLogPolicy
 import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, GrpcError}
+import com.digitalasset.canton.sequencer.api.v30
 import com.digitalasset.canton.sequencer.api.v30.SequencerServiceGrpc.SequencerServiceStub
 import com.digitalasset.canton.sequencer.api.v30.{
   AcknowledgeSignedRequest,
   AcknowledgeSignedResponse,
   SendAsyncRequest,
-  SubscriptionResponse,
 }
 import com.digitalasset.canton.sequencing.ConnectionX.ConnectionXError
 import com.digitalasset.canton.sequencing.SequencerConnectionXStub.SequencerConnectionXStubError
@@ -269,7 +269,7 @@ class GrpcUserSequencerConnectionXStub(
     def mkSubscription(
         context: CancellableContext,
         hasRunOnClosing: HasRunOnClosing,
-    ): ConsumesCancellableGrpcStreamObserver[E, SubscriptionResponse] =
+    ): ConsumesCancellableGrpcStreamObserver[E, v30.SubscriptionRequest, v30.SubscriptionResponse] =
       GrpcSequencerSubscription.fromSubscriptionResponse(
         context,
         handler,

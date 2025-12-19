@@ -3,7 +3,7 @@
 
 package com.daml.concurrent
 
-import scala.{concurrent => sc}
+import scala.concurrent as sc
 
 sealed abstract class ExecutionContextOf {
   type T[+P] <: sc.ExecutionContext

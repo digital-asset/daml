@@ -97,25 +97,28 @@ class TopologyAdministrationGroup(
     consoleEnvironment.run(adminCommand(grpcCommand))
 
   @Help.Summary("Initialize the node with a unique identifier")
-  @Help.Description("""Every node in Canton is identified using a unique identifier, which is composed
-                      |of a user-chosen string and the fingerprint of a signing key. The signing key is the root key
-                      |defining a so-called namespace, where the signing key has the ultimate control over
-                      |issuing new identifiers.
-                      |During initialisation, we have to pick such a unique identifier.
-                      |By default, initialisation happens automatically, but it can be changed to either initialize
-                      |manually or to read a set of identities and certificates from a file.
-                      |
-                      |Automatic node initialisation is usually turned off to preserve the identity of a participant or synchronizer
-                      |node (during major version upgrades) or if the root namespace key of the node is
-                      |kept offline.
-                      |
-                      |If known, the namespace can be set to verify that it matches the root certificate.
-                      |Otherwise it will be read from the delegation.
-                      |
-                      |Optionally, a set of delegations can be provided if the root namespace key is not available.
-                      |These delegations can be either in files or passed as objects. Their version needs to match the
-                      |necessary protocol version of the synchronizers we are going to connect to.
-                      |""")
+  @Help.Description(
+    """Every node in Canton is identified using a unique identifier, which is composed of a
+      |user-chosen string and the fingerprint of a signing key. The signing key is the root key
+      |defining a so-called namespace, where the signing key has the ultimate control over
+      |issuing new identifiers.
+      |During initialisation, we have to pick such a unique identifier.
+      |By default, initialisation happens automatically, but it can be changed to either
+      |initialize manually or to read a set of identities and certificates from a file.
+      |
+      |Automatic node initialisation is usually turned off to preserve the identity of a
+      |participant or synchronizer node (during major version upgrades) or if the root namespace
+      |key of the node is kept offline.
+      |
+      |If known, the namespace can be set to verify that it matches the root certificate.
+      |Otherwise it will be read from the delegation.
+      |
+      |Optionally, a set of delegations can be provided if the root namespace key is not
+      |available.
+      |These delegations can be either in files or passed as objects. Their version needs to
+      |match the necessary protocol version of the synchronizers we are going to connect to.
+      """
+  )
   def init_id(
       identifier: String,
       namespace: String = "",
@@ -152,22 +155,25 @@ class TopologyAdministrationGroup(
   }
 
   @Help.Summary("Initialize the node with a unique identifier")
-  @Help.Description("""Every node in Canton is identified using a unique identifier, which is composed
-                      |of a user-chosen string and the fingerprint of a signing key. The signing key is the root key
-                      |defining a so-called namespace, where the signing key has the ultimate control over
-                      |issuing new identifiers.
-                      |During initialisation, we have to pick such a unique identifier.
-                      |By default, initialisation happens automatically, but it can be changed to either initialize
-                      |manually or to read a set of identities and delegations from a file.
-                      |
-                      |Automatic node initialisation is usually turned off to preserve the identity of a participant or synchronizer
-                      |node (during major version upgrades) or if the root namespace key of the node is
-                      |kept offline.
-                      |
-                      |Optionally, a set of delegations can be provided if the root namespace key is not available.
-                      |These delegations can be either in files or passed as objects. Their version needs to match the
-                      |necessary protocol version of the synchronizers we are going to connect to.
-                      |""")
+  @Help.Description(
+    """Every node in Canton is identified using a unique identifier, which is composed of a
+      |user-chosen string and the fingerprint of a signing key. The signing key is the root key
+      |defining a so-called namespace, where the signing key has the ultimate control over
+      |issuing new identifiers.
+      |During initialisation, we have to pick such a unique identifier.
+      |By default, initialisation happens automatically, but it can be changed to either
+      |initialize manually or to read a set of identities and delegations from a file.
+      |
+      |Automatic node initialisation is usually turned off to preserve the identity of a
+      |participant or synchronizer node (during major version upgrades) or if the root namespace
+      |key of the node is kept offline.
+      |
+      |Optionally, a set of delegations can be provided if the root namespace key is not
+      |available.
+      |These delegations can be either in files or passed as objects. Their version needs to
+      |match the necessary protocol version of the synchronizers we are going to connect to.
+      """
+  )
   def init_id_from_uid(
       identifier: UniqueIdentifier,
       delegations: Seq[GenericSignedTopologyTransaction] = Seq.empty,
@@ -227,12 +233,15 @@ class TopologyAdministrationGroup(
 
     @Help.Summary("Check if the topology processing of a node is idle")
     @Help.Description(
-      """Topology transactions pass through a set of queues before becoming effective on a synchronizer.
+      """Topology transactions pass through a set of queues before becoming effective on a
+        |synchronizer.
         |This function allows to check if all the queues are empty.
-        |While both synchronizer and participant nodes support similar queues, there is some ambiguity around
-        |the participant queues. While the synchronizer does really know about all in-flight transactions at any
-        |point in time, a participant won't know about the state of any transaction that is currently being processed
-        |by the synchronizer topology dispatcher."""
+        |While both synchronizer and participant nodes support similar queues, there is some
+        |ambiguity around the participant queues. While the synchronizer does really know about
+        |all in-flight transactions at any point in time, a participant won't know about the state
+        |of any transaction that is currently being processed by the synchronizer topology
+        |dispatcher.
+        """
     )
     def is_idle(): Boolean =
       topologyQueueStatus
@@ -255,7 +264,9 @@ class TopologyAdministrationGroup(
 
     @Help.Summary("Downloads the node's topology identity transactions")
     @Help.Description(
-      "The node's identity is defined by topology transactions of type NamespaceDelegation and OwnerToKeyMapping."
+      """The node's identity is defined by topology transactions of type NamespaceDelegation and
+        |OwnerToKeyMapping.
+        """
     )
     def identity_transactions(): Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]] =
       instance.topology.transactions
@@ -561,14 +572,16 @@ class TopologyAdministrationGroup(
         }
     }
 
-    @Help.Summary("export topology snapshot")
+    @Help.Summary("Export topology snapshot")
     @Help.Description(
       """This command export the node's topology transactions as byte string.
         |
-        |The arguments are:
-        |excludeMappings: a list of topology mapping codes to exclude from the export. If not provided, all mappings are included.
-        |filterNamespace: the namespace to filter the transactions by.
-        |protocolVersion: the protocol version used to serialize the topology transactions. If not provided, the latest protocol version is used.
+        |Parameters:
+        |- excludeMappings: A list of topology mapping codes to exclude from the export. If not
+        |  provided, all mappings are included.
+        |- filterNamespace: The namespace to filter the transactions by.
+        |- protocolVersion: The protocol version used to serialize the topology transactions. If
+        |  not provided, the latest protocol version is used.
         """
     )
     def export_topology_snapshot(
@@ -623,14 +636,16 @@ class TopologyAdministrationGroup(
         }
     }
 
-    @Help.Summary("export topology snapshot")
+    @Help.Summary("Export topology snapshot")
     @Help.Description(
       """This command export the node's topology transactions as byte string.
         |
-        |The arguments are:
-        |excludeMappings: a list of topology mapping codes to exclude from the export. If not provided, all mappings are included.
-        |filterNamespace: the namespace to filter the transactions by.
-        |protocolVersion: the protocol version used to serialize the topology transactions. If not provided, the latest protocol version is used.
+        |Parameters:
+        |- excludeMappings: A list of topology mapping codes to exclude from the export. If not
+        |  provided, all mappings are included.
+        |- filterNamespace: The namespace to filter the transactions by.
+        |- protocolVersion: The protocol version used to serialize the topology transactions. If
+        |  not provided, the latest protocol version is used.
         """
     )
     def export_topology_snapshotV2(
@@ -686,12 +701,18 @@ class TopologyAdministrationGroup(
     }
 
     @Help.Summary(
-      "Download the genesis state for a sequencer. This method should be used when performing a major synchronizer upgrade."
+      "Download the genesis state for a sequencer (intended for performing a major synchronizer upgrade)"
     )
     @Help.Description(
-      """Download the topology snapshot which includes the entire history of topology transactions to initialize a sequencer for a major synchronizer upgrade. The validFrom and validUntil are set to SignedTopologyTransaction.InitialTopologySequencingTime.
-        |filterSynchronizerStore: Must be specified if the genesis state is requested from a participant node.
-        |timestamp: If not specified, the max effective time of the latest topology transaction is used. Otherwise, the given timestamp is used.
+      """Download the topology snapshot which includes the entire history of topology transactions
+        |to initialize a sequencer for a major synchronizer upgrade. The `validFrom` and
+        |`validUntil` are set to `SignedTopologyTransaction.InitialTopologySequencingTime`.
+        |
+        |Parameters:
+        |- filterSynchronizerStore: Must be specified if the genesis state is requested
+        |  from a participant node.
+        |- timestamp: If not specified, the max effective time of the latest topology transaction
+        |  is used. Otherwise, the given timestamp is used.
         """
     )
     def genesis_state(
@@ -715,12 +736,18 @@ class TopologyAdministrationGroup(
       }
 
     @Help.Summary(
-      "Download the genesis state for a sequencer. This method should be used when performing a major synchronizer upgrade."
+      "Download the genesis state for a sequencer (intended for performing a major synchronizer upgrade)"
     )
     @Help.Description(
-      """Download the topology snapshot which includes the entire history of topology transactions to initialize a sequencer for a major synchronizer upgrades. The validFrom and validUntil are set to SignedTopologyTransaction.InitialTopologySequencingTime.
-        |filterSynchronizerStore: Must be specified if the genesis state is requested from a participant node.
-        |timestamp: If not specified, the max effective time of the latest topology transaction is used. Otherwise, the given timestamp is used.
+      """Download the topology snapshot which includes the entire history of topology transactions
+        |to initialize a sequencer for a major synchronizer upgrades. The `validFrom` and
+        |`validUntil` are set to `SignedTopologyTransaction.InitialTopologySequencingTime`.
+        |
+        |Parameters:
+        |- filterSynchronizerStore: Must be specified if the genesis state is requested from a
+        |  participant node.
+        |- timestamp: If not specified, the max effective time of the latest topology transaction
+        |  is used. Otherwise, the given timestamp is used.
         """
     )
     def genesis_stateV2(
@@ -744,11 +771,13 @@ class TopologyAdministrationGroup(
       }
 
     @Help.Summary(
-      "Download the upgrade state for a sequencer. This method should be used when performing a logical synchronizer upgrade."
+      "Download the upgrade state for a sequencer (intended for logical synchronizer upgrade)"
     )
     @Help.Description(
-      """Download the topology snapshot which includes the entire history of topology transactions to initialize a sequencer for a logical synchronizer upgrade.
-         A logical synchronizer upgrade must be ongoing for this call to succeed.
+      """Download the topology snapshot which includes the entire history of topology transactions
+        |to initialize a sequencer for a logical synchronizer upgrade.
+        |
+        |A logical synchronizer upgrade must be ongoing for this call to succeed.
         """
     )
     def logical_upgrade_state(
@@ -772,11 +801,16 @@ class TopologyAdministrationGroup(
 
     @Help.Summary("Find the latest transaction for a given mapping hash")
     @Help.Description(
-      """
-        mappingHash: the unique key of the topology mapping to find
-        store: - "Authorized": the topology transaction will be looked up in the node's authorized store.
-               - "<synchronizer id>": the topology transaction will be looked up in the specified synchronizer store.
-        includeProposals: when true, the result could be the latest proposal, otherwise will only return the latest fully authorized transaction"""
+      """Parameters:
+        |- mappingHash: The unique key of the topology mapping to find.
+        |- store:
+        |  - "Authorized": The topology transaction will be looked up in the node's authorized
+        |  store.
+        |  - "<synchronizer id>": The topology transaction will be looked up in the specified
+        |  synchronizer store.
+        |- includeProposals: When true, the result could be the latest proposal, otherwise will
+        |  only return the latest fully authorized transaction.
+        """
     )
     def find_latest_by_mapping_hash[M <: TopologyMapping: ClassTag](
         mappingHash: MappingHash,
@@ -799,10 +833,15 @@ class TopologyAdministrationGroup(
 
     @Help.Summary("Find the latest transaction for a given mapping hash")
     @Help.Description(
-      """
-        store: - "Authorized": the topology transaction will be looked up in the node's authorized store.
-               - "<synchronizer id>": the topology transaction will be looked up in the specified synchronizer store.
-        includeProposals: when true, the result could be the latest proposal, otherwise will only return the latest fully authorized transaction"""
+      """Parameters:
+        |- store:
+        |  - "Authorized": The topology transaction will be looked up in the node's authorized
+        |  store.
+        |  - "<synchronizer id>": The topology transaction will be looked up in the specified
+        |  synchronizer store.
+        |- includeProposals: When true, the result could be the latest proposal, otherwise will
+        |  only return the latest fully authorized transaction.
+        """
     )
     def find_latest_by_mapping[M <: TopologyMapping: ClassTag](
         store: TopologyStoreId,
@@ -981,25 +1020,33 @@ class TopologyAdministrationGroup(
     }
 
     @Help.Summary("Propose the creation of a new decentralized namespace")
-    @Help.Description("""
-        owners: the namespaces of the founding members of the decentralized namespace, which are used to compute the name of the decentralized namespace.
-        threshold: this threshold specifies the minimum number of signatures of decentralized namespace members that are required to
-                   satisfy authorization requirements on topology transactions for the namespace of the decentralized namespace.
-
-        store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
-                               propagated to connected synchronizers, if applicable.
-               - "<synchronizer id>": the topology transaction will be directly submitted to the specified synchronizer without
-                                storing it locally first. This also means it will _not_ be synchronized to other synchronizers
-                                automatically.
-        mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
-                            sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
-                            when set to false, the proposal retains the proposal status until enough signatures are accumulated to
-                            satisfy the mapping's authorization requirements.
-        signedBy: the fingerprint of the key to be used to sign this proposal
-        serial: the expected serial this topology transaction should have. Serials must be contiguous and start at 1.
-                This transaction will be rejected if another fully authorized transaction with the same serial already
-                exists, or if there is a gap between this serial and the most recently used serial.
-                If None, the serial will be automatically selected by the node.""")
+    @Help.Description(
+      """Parameters:
+      |- owners: The namespaces of the founding members of the decentralized namespace, which
+      |  are used to compute the name of the decentralized namespace.
+      |- threshold: This threshold specifies the minimum number of signatures of decentralized
+      |  namespace members that are required to satisfy authorization requirements on topology
+      |  transactions for the namespace of the decentralized namespace.
+      |- store:
+      |  - "Authorized": The topology transaction will be stored in the node's authorized store
+      |  and automatically propagated to connected synchronizers, if applicable.
+      |  - "<synchronizer id>": the topology transaction will be directly submitted to the
+      |  specified synchronizer without storing it locally first. This also means it will _not_
+      |  be synchronized to other synchronizers automatically.
+      |- mustFullyAuthorize: When set to true, the proposal's previously received signatures and
+      |  the signature of this node must be sufficient to fully authorize the topology
+      |  transaction. If this is not the case, the request fails.
+      |  When set to false, the proposal retains the proposal status until enough signatures are
+      |  accumulated to satisfy the mapping's authorization requirements.
+      |- signedBy: The fingerprint of the key to be used to sign this proposal.
+      |- serial: The expected serial this topology transaction should have. Serials must be
+      |  contiguous and start at 1.
+      |  This transaction will be rejected if another fully authorized transaction with the same
+      |  serial already exists, or if there is a gap between this serial and the most recently
+      |  used serial.
+      |  If None, the serial will be automatically selected by the node.
+      """
+    )
     def propose_new(
         owners: Set[Namespace],
         threshold: PositiveInt,
@@ -1037,23 +1084,29 @@ class TopologyAdministrationGroup(
     }
 
     @Help.Summary("Propose changes to a decentralized namespace")
-    @Help.Description("""
-        decentralizedNamespace: the DecentralizedNamespaceDefinition to propose
-
-        store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
-                               propagated to connected synchronizers, if applicable.
-               - "<synchronizer id>": the topology transaction will be directly submitted to the specified synchronizer without
-                                storing it locally first. This also means it will _not_ be synchronized to other synchronizers
-                                automatically.
-        mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
-                            sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
-                            when set to false, the proposal retains the proposal status until enough signatures are accumulated to
-                            satisfy the mapping's authorization requirements.
-        signedBy: the fingerprint of the key to be used to sign this proposal
-        serial: the expected serial this topology transaction should have. Serials must be contiguous and start at 1.
-                This transaction will be rejected if another fully authorized transaction with the same serial already
-                exists, or if there is a gap between this serial and the most recently used serial.
-                If None, the serial will be automatically selected by the node.""")
+    @Help.Description(
+      """Parameters:
+        |- decentralizedNamespace: The DecentralizedNamespaceDefinition to propose.
+        |- store:
+        |  - "Authorized": The topology transaction will be stored in the node's authorized store
+        |  and automatically propagated to connected synchronizers, if applicable.
+        |  - "<synchronizer id>": The topology transaction will be directly submitted to the
+        |  specified synchronizer without storing it locally first. This also means it will _not_
+        |  be synchronized to other synchronizers automatically.
+        |- mustFullyAuthorize: When set to true, the proposal's previously received signatures and
+        |  the signature of this node must be sufficient to fully authorize the topology
+        |  transaction. If this is not the case, the request fails.
+        |  When set to false, the proposal retains the proposal status until enough signatures are
+        |  accumulated to satisfy the mapping's authorization requirements.
+        |- signedBy: The fingerprint of the key to be used to sign this proposal.
+        |- serial: The expected serial this topology transaction should have. Serials must be
+        |  contiguous and start at 1.
+        |  This transaction will be rejected if another fully authorized transaction with the same
+        |  serial already exists, or if there is a gap between this serial and the most recently
+        |  used serial.
+        |  If None, the serial will be automatically selected by the node.
+        """
+    )
     def propose(
         decentralizedNamespace: DecentralizedNamespaceDefinition,
         store: TopologyStoreId,
@@ -1089,30 +1142,40 @@ class TopologyAdministrationGroup(
     )
     @Help.Description(
       """A namespace delegation allows the owner of a namespace to delegate signing privileges for
-        topology transactions on behalf of said namespace to additional signing keys.
-
-        namespace: the namespace for which the target key can be used to sign topology transactions
-        targetKey: the target key to be used for signing topology transactions on behalf of the namespace
-        delegationRestriction: the types of topology mappings for which targetKey can sign. Can be one of the following values:
-                               - CanSignAllMappings: the target key can sign all topology mappings that are currently known or will be added in future releases.
-                               - CanSignAllButNamespaceDelegations: the target key can sign all topology mappings that are currently known or will be added in future releases,
-                                                                    except for namespace delegations.
-                               - CanSignSpecificMappings(TopologyMapping.Code*): the target key can only sign the specified topology mappings.
-
-        store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
-                               propagated to connected synchronizers, if applicable.
-               - "<synchronizer id>": the topology transaction will be directly submitted to the specified synchronizer without
-                                storing it locally first. This also means it will _not_ be synchronized to other synchronizers
-                                automatically.
-        mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
-                            sufficient to fully authorize the topology transaction. If this is not the case, the request fails.
-                            When set to false, the proposal retains the proposal status until enough signatures are accumulated to
-                            satisfy the mapping's authorization requirements.
-        serial: the expected serial this topology transaction should have. Serials must be contiguous and start at 1.
-                This transaction will be rejected if another fully authorized transaction with the same serial already
-                exists, or if there is a gap between this serial and the most recently used serial.
-                If None, the serial will be automatically selected by the node.
-        """
+        |topology transactions on behalf of said namespace to additional signing keys.
+        |
+        |Parameters:
+        |- namespace: The namespace for which the target key can be used to sign topology
+        |  transactions.
+        |- targetKey: The target key to be used for signing topology transactions on behalf of the
+        |  namespace.
+        |- delegationRestriction: The types of topology mappings for which targetKey can sign.
+        |  Can be one of the following values:
+        |  - CanSignAllMappings: The target key can sign all topology mappings that are currently
+        |  known or will be added in future releases.
+        |  - CanSignAllButNamespaceDelegations: The target key can sign all topology mappings that
+        |  are currently known or will be added in future releases, except for namespace
+        |  delegations.
+        |  - CanSignSpecificMappings(TopologyMapping.Code*): the target key can only sign the
+        |  specified topology mappings.
+        |- store:
+        |  - "Authorized": The topology transaction will be stored in the node's authorized store
+        |  and automatically propagated to connected synchronizers, if applicable.
+        |  - "<synchronizer id>": The topology transaction will be directly submitted to the
+        |  specified synchronizer without storing it locally first. This also means it will _not_
+        |  be synchronized to other synchronizers automatically.
+        |- mustFullyAuthorize: When set to true, the proposal's previously received signatures
+        |  and the signature of this node must be sufficient to fully authorize the topology
+        |  transaction. If this is not the case, the request fails.
+        |  When set to false, the proposal retains the proposal status until enough signatures are
+        |  accumulated to satisfy the mapping's authorization requirements.
+        |- serial: The expected serial this topology transaction should have. Serials must be
+        |  contiguous and start at 1.
+        |  This transaction will be rejected if another fully authorized transaction with the same
+        |  serial already exists, or if there is a gap between this serial and the most recently
+        |  used serial.
+        |  If None, the serial will be automatically selected by the node.
+        |"""
     )
     def propose_delegation(
         namespace: Namespace,
@@ -1144,24 +1207,29 @@ class TopologyAdministrationGroup(
     @Help.Description(
       """A namespace delegation allows the owner of a namespace to delegate signing privileges for
         |topology transactions on behalf of said namespace to additional signing keys.
-
-        namespace: the namespace for which the target key should be revoked
-        targetKey: the target key to be revoked
-
-        store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
-                               propagated to connected synchronizers, if applicable.
-               - "<synchronizer id>": the topology transaction will be directly submitted to the specified synchronizer without
-                                storing it locally first. This also means it will _not_ be synchronized to other synchronizers
-                                automatically.
-        mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
-                            sufficient to fully authorize the topology transaction. If this is not the case, the request fails.
-                            When set to false, the proposal retains the proposal status until enough signatures are accumulated to
-                            satisfy the mapping's authorization requirements.
-        serial: the expected serial this topology transaction should have. Serials must be contiguous and start at 1.
-                This transaction will be rejected if another fully authorized transaction with the same serial already
-                exists, or if there is a gap between this serial and the most recently used serial.
-                If None, the serial will be automatically selected by the node.
-        force: must be set to true when performing a dangerous operation, such as revoking a root certificate
+        |
+        |Parameters:
+        |- namespace: The namespace for which the target key should be revoked.
+        |- targetKey: The target key to be revoked.
+        |- store:
+        |  - "Authorized": The topology transaction will be stored in the node's authorized store
+        |  and automatically propagated to connected synchronizers, if applicable.
+        |  - "<synchronizer id>": The topology transaction will be directly submitted to the
+        |  specified synchronizer without storing it locally first. This also means it will _not_
+        |  be synchronized to other synchronizers automatically.
+        |- mustFullyAuthorize: When set to true, the proposal's previously received signatures
+        |  and the signature of this node must be sufficient to fully authorize the topology
+        |  transaction. If this is not the case, the request fails.
+        |  When set to false, the proposal retains the proposal status until enough signatures are
+        |  accumulated to satisfy the mapping's authorization requirements.
+        |- serial: The expected serial this topology transaction should have. Serials must be
+        |  contiguous and start at 1.
+        |  This transaction will be rejected if another fully authorized transaction with the
+        |  same serial already exists, or if there is a gap between this serial and the most
+        |  recently used serial.
+        |  If None, the serial will be automatically selected by the node.
+        |- force: Must be set to true when performing a dangerous operation, such as revoking a
+        |  root certificate.
         """
     )
     def propose_revocation(
@@ -1268,18 +1336,23 @@ class TopologyAdministrationGroup(
 
     @Help.Summary("Add a key to an owner to key mapping")
     @Help.Description(
-      """Add a key to an owner to key mapping. A key owner is anyone in the system that needs a key-pair known
-        |to all members (participants, mediators, sequencers) of a synchronizer. If no owner to key mapping exists for the
-        |specified key owner, create a new mapping with the specified key. The specified key needs to have
-        |been created previously via the `keys.secret` api.
-
-        key: Fingerprint of the key
-        purpose: The key purpose, i.e. whether the key is for signing or encryption
-        keyOwner: The member that owns the key
-        signedBy: Optional fingerprint of the authorizing key which in turn refers to a specific, locally existing certificate.
-        synchronize: Synchronize timeout can be used to ensure that the state has been propagated into the node
-        mustFullyAuthorize: Whether to only add the key if the member is in the position to authorize the change.
-      """
+      """Add a key to an owner to key mapping. A key owner is anyone in the system that needs a
+        |key-pair known to all members (participants, mediators, sequencers) of a synchronizer.
+        |If no owner to key mapping exists for the specified key owner, create a new mapping with
+        |the specified key. The specified key needs to have been created previously via the
+        |`keys.secret` API.
+        |
+        |Parameters:
+        |- key: Fingerprint of the key.
+        |- purpose: The key purpose, i.e. whether the key is for signing or encryption.
+        |- keyOwner: The member that owns the key.
+        |- signedBy: Optional fingerprint of the authorizing key which in turn refers to a
+        |  specific, locally existing certificate.
+        |- synchronize: Synchronize timeout can be used to ensure that the state has been
+        |  propagated into the node.
+        |- mustFullyAuthorize: Whether to only add the key if the member is in the position to
+        |  authorize the change.
+        """
     )
     def add_key(
         key: Fingerprint,
@@ -1303,17 +1376,22 @@ class TopologyAdministrationGroup(
 
     @Help.Summary("Add a set of keys to an owner to key mapping")
     @Help.Description(
-      """Add a set of keys to an owner to key mapping. A key owner is anyone in the system that needs a key-pair known
-        |to all members (participants, mediators, sequencers) of a synchronizer. If no owner to key mapping exists for the
-        |specified key owner, create a new mapping with the specified keys. The specified keys needs to have
-        |been created previously via the `keys.secret` api.
-
-        keys: Fingerprint and key purpose of the keys
-        keyOwner: The member that owns the key
-        signedBy: Optional fingerprint of the authorizing key which in turn refers to a specific, locally existing certificate.
-        synchronize: Synchronize timeout can be used to ensure that the state has been propagated into the node
-        mustFullyAuthorize: Whether to only add the key if the member is in the position to authorize the change.
-      """
+      """Add a set of keys to an owner to key mapping. A key owner is anyone in the system that
+        |needs a key-pair known to all members (participants, mediators, sequencers) of a
+        |synchronizer. If no owner to key mapping exists for the specified key owner, create a
+        |new mapping with the specified keys. The specified keys needs to have been created
+        |previously via the `keys.secret` API.
+        |
+        |Parameters:
+        |- keys: Fingerprint and key purpose of the keys.
+        |- keyOwner: The member that owns the key.
+        |- signedBy: Optional fingerprint of the authorizing key which in turn refers to a
+        |  specific, locally existing certificate.
+        |- synchronize: Synchronize timeout can be used to ensure that the state has been
+        |  propagated into the node.
+        |- mustFullyAuthorize: Whether to only add the key if the member is in the position to
+        |  authorize the change.
+        """
     )
     def add_keys(
         keys: Seq[(Fingerprint, KeyPurpose)],
@@ -1339,19 +1417,24 @@ class TopologyAdministrationGroup(
 
     @Help.Summary("Remove a key from an owner to key mapping")
     @Help.Description(
-      """Remove a key from an owner to key mapping. A key owner is anyone in the system that needs a key-pair known
-        |to all members (participants, mediators, sequencers) of a synchronizer. If the specified key is the last key in the
-        |owner to key mapping (which requires the force to be true), the owner to key mapping will be removed.
-        |The specified key needs to have been created previously via the `keys.secret` api.
-
-        key: Fingerprint of the key
-        purpose: The key purpose, i.e. whether the key is for signing or encryption
-        keyOwner: The member that owns the key
-        signedBy: Optional fingerprint of the authorizing key which in turn refers to a specific, locally existing certificate.
-        synchronize: Synchronize timeout can be used to ensure that the state has been propagated into the node
-        mustFullyAuthorize: Whether to only add the key if the member is in the position to authorize the change.
-        force: removing the last key is dangerous and must therefore be manually forced
-      """
+      """Remove a key from an owner to key mapping. A key owner is anyone in the system that needs
+        |a key-pair known to all members (participants, mediators, sequencers) of a synchronizer.
+        |If the specified key is the last key in the owner to key mapping (which requires the
+        |force to be true), the owner to key mapping will be removed.
+        |The specified key needs to have been created previously via the `keys.secret` API.
+        |
+        |Paramters:
+        |- key: Fingerprint of the key.
+        |- purpose: The key purpose, i.e. whether the key is for signing or encryption.
+        |- keyOwner: The member that owns the key.
+        |- signedBy: Optional fingerprint of the authorizing key which in turn refers to a
+        |  specific, locally existing certificate.
+        |- synchronize: Synchronize timeout can be used to ensure that the state has been
+        |  propagated into the node.
+        |- mustFullyAuthorize: Whether to only add the key if the member is in the position to
+        |  authorize the change.
+        |- force: Removing the last key is dangerous and must therefore be manually forced.
+        """
     )
     def remove_key(
         key: Fingerprint,
@@ -1376,15 +1459,17 @@ class TopologyAdministrationGroup(
 
     @Help.Summary("Rotate the key for an owner to key mapping")
     @Help.Description(
-      """Rotates an existing key of the owner's owner to key mapping by adding the new key and removing the previous
-        |key.
-
-        nodeInstance: The node instance that is used to verify that both the current and new key pertain to this node.
-                      This avoids conflicts when there are different nodes with the same uuid (i.e., multiple sequencers).
-        owner: The member that owns the owner to key mapping
-        currentKey: The current public key that will be rotated
-        newKey: The new public key that has been generated
-      """
+      """Rotates an existing key of the owner's owner to key mapping by adding the new key and
+        |removing the previous key.
+        |
+        |Parameters:
+        |- nodeInstance: The node instance that is used to verify that both the current and new
+        |  key pertain to this node. This avoids conflicts when there are different nodes with the
+        |  same uuid (i.e., multiple sequencers).
+        |- owner: The member that owns the owner to key mapping.
+        |- currentKey: The current public key that will be rotated.
+        |- newKey: The new public key that has been generated.
+        """
     )
     def rotate_key(
         member: Member,
@@ -1712,31 +1797,44 @@ class TopologyAdministrationGroup(
     }
 
     @Help.Summary("Change party to participant mapping")
-    @Help.Description("""Change the association of a party to hosting participants.
-      party: The unique identifier of the party whose set of participants or permission to modify.
-      adds: The unique identifiers of the participants to host the party each specifying the participant's permissions
-            (submission, confirmation, observation). If the participant already hosts the specified party, update the
-            participant's permissions.
-      removes: The unique identifiers of the participants that should no longer host the party.
-      signedBy: Refers to the optional fingerprint of the authorizing key which in turn refers to a specific, locally existing certificate.
-      serial: The expected serial this topology transaction should have. Serials must be contiguous and start at 1.
-              This transaction will be rejected if another fully authorized transaction with the same serial already
-              exists, or if there is a gap between this serial and the most recently used serial.
-              If None, the serial will be automatically selected by the node.
-      synchronize: Synchronize timeout can be used to ensure that the state has been propagated into the node
-      mustFullyAuthorize: When set to true, the proposal's previously received signatures and the signature of this node must be
-                          sufficient to fully authorize the topology transaction. If this is not the case, the request fails.
-                          When set to false, the proposal retains the proposal status until enough signatures are accumulated to
-                          satisfy the mapping's authorization requirements.
-      store: - "Authorized": The topology transaction will be stored in the node's authorized store and automatically
-                             propagated to connected synchronizers, if applicable.
-             - "<synchronizer id>": The topology transaction will be directly submitted to the specified synchronizer without
-                              storing it locally first. This also means it will _not_ be synchronized to other synchronizers
-                              automatically.
-      force: must be set when disabling a party with active contracts
-      requiresPartyToBeOnboarded: When set to true, indicate that the added participants need to first onboard the party
-                                  independently from this call before the added participants fully host the party.
-      """)
+    @Help.Description(
+      """Change the association of a party to hosting participants.
+        |
+        |Parameters:
+        |- party: The unique identifier of the party whose set of participants or permission to
+        |  modify.
+        |- adds: The unique identifiers of the participants to host the party each specifying the
+        |  participant's permissions (submission, confirmation, observation). If the participant
+        |  already hosts the specified party, update the participant's permissions.
+        |- removes: The unique identifiers of the participants that should no longer host the
+        |  party.
+        |- signedBy: Refers to the optional fingerprint of the authorizing key which in turn
+        |  refers to a specific, locally existing certificate.
+        |- serial: The expected serial this topology transaction should have. Serials must be
+        |  contiguous and start at 1.
+        |  This transaction will be rejected if another fully authorized transaction with the same
+        |  serial already exists, or if there is a gap between this serial and the most recently
+        |  used serial.
+        |  If None, the serial will be automatically selected by the node.
+        |- synchronize: Synchronize timeout can be used to ensure that the state has been
+        |  propagated into the node.
+        |- mustFullyAuthorize: When set to true, the proposal's previously received signatures and
+        |  the signature of this node must be sufficient to fully authorize the topology
+        |  transaction. If this is not the case, the request fails.
+        |  When set to false, the proposal retains the proposal status until enough signatures are
+        |  accumulated to satisfy the mapping's authorization requirements.
+        |- store:
+        |  - "Authorized": The topology transaction will be stored in the node's authorized store
+        |  and automatically propagated to connected synchronizers, if applicable.
+        |  - "<synchronizer id>": The topology transaction will be directly submitted to the
+        |  specified synchronizer without storing it locally first. This also means it will _not_
+        |  be synchronized to other synchronizers automatically.
+        |- force: Must be set when disabling a party with active contracts.
+        |- requiresPartyToBeOnboarded: When set to true, indicate that the added participants need
+        |  to first onboard the party independently from this call before the added participants
+        |  fully host the party.
+        """
+    )
     def propose_delta(
         party: PartyId,
         adds: Seq[(ParticipantId, ParticipantPermission)] = Nil,
@@ -1793,36 +1891,51 @@ class TopologyAdministrationGroup(
     }
 
     @Help.Summary("Replace party to participant mapping")
-    @Help.Description("""Replace the association of a party to hosting participants.
-      party: The unique identifier of the party whose set of participant permissions to modify.
-      newParticipants: The unique identifier of the participants to host the party. Each participant entry specifies
-                       the participant's permissions (submission, confirmation, observation).
-      participantsRequiringPartyToBeOnboarded: The participants that need to onboard the party independently from this
-                                               call before the participants fully host the party.
-      threshold: The threshold is `1` for regular parties and larger than `1` for "consortium parties". The threshold
-                 indicates how many participant confirmations are needed in order to confirm a Daml transaction on
-                 behalf the party.
-      partySigningKeys: Party signing keys with threshold. If specified, the keys will be taken from this field.
-                        Otherwise, they have to be specified earlier in PartyToKey mappings.
-      signedBy: Refers to the optional fingerprint of the authorizing key which in turn refers to a specific, locally existing certificate.
-      serial: The expected serial this topology transaction should have. Serials must be contiguous and start at 1.
-              This transaction will be rejected if another fully authorized transaction with the same serial already
-              exists, or if there is a gap between this serial and the most recently used serial.
-              If None, the serial will be automatically selected by the node.
-      operation: The operation to use. When adding a mapping or making changes, use TopologyChangeOp.Replace.
-                 When removing a mapping, use TopologyChangeOp.Remove and pass the same values as the currently effective mapping.
-                 The default value is TopologyChangeOp.Replace.
-      synchronize: Synchronize timeout can be used to ensure that the state has been propagated into the node
-      mustFullyAuthorize: When set to true, the proposal's previously received signatures and the signature of this node must be
-                          sufficient to fully authorize the topology transaction. If this is not the case, the request fails.
-                          When set to false, the proposal retains the proposal status until enough signatures are accumulated to
-                          satisfy the mapping's authorization requirements.
-      store: - "Authorized": The topology transaction will be stored in the node's authorized store and automatically
-                             propagated to connected synchronizers, if applicable.
-             - "<synchronizer id>": The topology transaction will be directly submitted to the specified synchronizer without
-                              storing it locally first. This also means it will _not_ be synchronized to other synchronizers
-                              automatically.
-      """)
+    @Help.Description(
+      """Replace the association of a party to hosting participants.
+      |
+      |Parameters:
+      |- party: The unique identifier of the party whose set of participant permissions to
+      |  modify.
+      |- newParticipants: The unique identifier of the participants to host the party. Each
+      |  participant entry specifies the participant's permissions (submission, confirmation,
+      |  observation).
+      |- participantsRequiringPartyToBeOnboarded: The participants that need to onboard the
+      |  party independently from this call before the participants fully host the party.
+      |- threshold: The threshold is `1` for regular parties and larger than `1` for
+      |  "consortium parties". The threshold indicates how many participant confirmations are
+      |  needed in order to confirm a Daml transaction on behalf the party.
+      |- partySigningKeys: Party signing keys with threshold. If specified, the keys will be
+      |  taken from this field. Otherwise, they have to be specified earlier in PartyToKey
+      |  mappings.
+      |- signedBy: Refers to the optional fingerprint of the authorizing key which in turn
+      |  refers to a specific, locally existing certificate.
+      |- serial: The expected serial this topology transaction should have. Serials must be
+      |  contiguous and start at 1.
+      |  This transaction will be rejected if another fully authorized transaction with the
+      |  same serial already exists, or if there is a gap between this serial and the most
+      |  recently used serial.
+      |  If None, the serial will be automatically selected by the node.
+      |- operation: The operation to use. When adding a mapping or making changes, use
+      |  TopologyChangeOp.Replace.
+      |  When removing a mapping, use TopologyChangeOp.Remove and pass the same values as the
+      |  currently effective mapping.
+      |  The default value is TopologyChangeOp.Replace.
+      |- synchronize: Synchronize timeout can be used to ensure that the state has been
+      |  propagated into the node
+      |- mustFullyAuthorize: When set to true, the proposal's previously received signatures and
+      |  the signature of this node must be sufficient to fully authorize the topology
+      |  transaction. If this is not the case, the request fails.
+      |  When set to false, the proposal retains the proposal status until enough signatures are
+      |  accumulated to satisfy the mapping's authorization requirements.
+      |- store:
+      |  - "Authorized": The topology transaction will be stored in the node's authorized store
+      |  and automatically propagated to connected synchronizers, if applicable.
+      |  - "<synchronizer id>": The topology transaction will be directly submitted to the
+      |  specified synchronizer without storing it locally first. This also means it will _not_
+      |  be synchronized to other synchronizers automatically.
+      """
+    )
     def propose(
         party: PartyId,
         newParticipants: Seq[(ParticipantId, ParticipantPermission)],
@@ -1866,22 +1979,28 @@ class TopologyAdministrationGroup(
 
     @Help.Summary("List party to participant mapping transactions from synchronizer store")
     @Help.Description(
-      """List the party to participant mapping transactions present in the stores. Party to participant mappings
-        |are topology transactions used to allocate a party to certain participants. The same party can be allocated
-        |on several participants with different privileges.
-
-        synchronizerId: Synchronizer to be considered
-        proposals: Whether to query proposals instead of authorized transactions.
-        timeQuery: The time query allows to customize the query by time. The following options are supported:
-                   TimeQuery.HeadState (default): The most recent known state.
-                   TimeQuery.Snapshot(ts): The state at a certain point in time.
-                   TimeQuery.Range(fromO, toO): Time-range of when the transaction was added to the store
-        operation: Optionally, what type of operation the transaction should have.
-        filterParty: Filter for parties starting with the given filter string.
-        filterParticipant: If non-empty, returns only parties that are hosted on this participant.
-        filterSigningKey: Filter for transactions that are authorized with a key that starts with the given filter string.
-        protocolVersion: Export the topology transactions in the optional protocol version.
-        |"""
+      """List the party to participant mapping transactions present in the stores. Party to
+        |participant mappings are topology transactions used to allocate a party to certain
+        |participants. The same party can be allocated on several participants with different
+        |privileges.
+        |
+        |Parameters:
+        |- synchronizerId: Synchronizer to be considered.
+        |- proposals: Whether to query proposals instead of authorized transactions.
+        |- timeQuery: The time query allows to customize the query by time.
+        |  The following options are supported:
+        |  - TimeQuery.HeadState (default): The most recent known state.
+        |  - TimeQuery.Snapshot(ts): The state at a certain point in time.
+        |  - TimeQuery.Range(fromO, toO): Time-range of when the transaction was added to the
+        |    store.
+        |- operation: Optionally, what type of operation the transaction should have.
+        |- filterParty: Filter for parties starting with the given filter string.
+        |- filterParticipant: If non-empty, returns only parties that are hosted on this
+        |  participant.
+        |- filterSigningKey: Filter for transactions that are authorized with a key that starts
+        |  with the given filter string.
+        |- protocolVersion: Export the topology transactions in the optional protocol version.
+        """
     )
     def list(
         synchronizerId: TopologyStoreId.Synchronizer,
@@ -1910,14 +2029,17 @@ class TopologyAdministrationGroup(
     }
 
     @Help.Summary("List multi-hosted party proposals")
-    @Help.Description("""Multi-hosted parties require all involved actors to sign the topology transaction.
-         Topology transactions without sufficient signatures are called proposals. They are
-         distributed the same way as fully authorized topology transactions, and signatures
-         are aggregated until the transaction is fully authorized.
-         This method here allows to inspect the pending queue of open hosting proposals.
-         The proposals are returned as seen on the specified synchronizer. They can be approved
-         by the individual participants by invoking node.topology.transactions.authorize(<synchronizer-id>, <tx-hash>).
-        """)
+    @Help.Description(
+      """Multi-hosted parties require all involved actors to sign the topology transaction.
+        |Topology transactions without sufficient signatures are called proposals. They are
+        |distributed the same way as fully authorized topology transactions, and signatures
+        |are aggregated until the transaction is fully authorized.
+        |This method here allows to inspect the pending queue of open hosting proposals.
+        |The proposals are returned as seen on the specified synchronizer. They can be approved
+        |by the individual participants by invoking
+        |node.topology.transactions.authorize(<synchronizer-id>, <tx-hash>).
+        """
+    )
     def list_hosting_proposals(
         synchronizerId: SynchronizerId,
         participantId: ParticipantId,
@@ -2023,21 +2145,26 @@ class TopologyAdministrationGroup(
 
     @Help.Summary("List party to participant mapping transactions from the authorized store")
     @Help.Description(
-      """List the party to participant mapping transactions present in the stores. Party to participant mappings
-        |are topology transactions used to allocate a party to certain participants. The same party can be allocated
-        |on several participants with different privileges.
-
-        proposals: Whether to query proposals instead of authorized transactions.
-        timeQuery: The time query allows to customize the query by time. The following options are supported:
-                   TimeQuery.HeadState (default): The most recent known state.
-                   TimeQuery.Snapshot(ts): The state at a certain point in time.
-                   TimeQuery.Range(fromO, toO): Time-range of when the transaction was added to the store
-        operation: Optionally, what type of operation the transaction should have.
-        filterParty: Filter for parties starting with the given filter string.
-        filterParticipant: Filter for participants starting with the given filter string.
-        filterSigningKey: Filter for transactions that are authorized with a key that starts with the given filter string.
-        protocolVersion: Export the topology transactions in the optional protocol version.
-        |"""
+      """List the party to participant mapping transactions present in the stores. Party to
+        |participant mappings are topology transactions used to allocate a party to certain
+        |participants. The same party can be allocated on several participants with different
+        |privileges.
+        |
+        |Parameters:
+        |- proposals: Whether to query proposals instead of authorized transactions.
+        |- timeQuery: The time query allows to customize the query by time.
+        |  The following options are supported:
+        |  - TimeQuery.HeadState (default): The most recent known state.
+        |  - TimeQuery.Snapshot(ts): The state at a certain point in time.
+        |  - TimeQuery.Range(fromO, toO): Time-range of when the transaction was added to the
+        |    store.
+        |- operation: Optionally, what type of operation the transaction should have.
+        |- filterParty: Filter for parties starting with the given filter string.
+        |- filterParticipant: Filter for participants starting with the given filter string.
+        |- filterSigningKey: Filter for transactions that are authorized with a key that starts
+        |  with the given filter string.
+        |- protocolVersion: Export the topology transactions in the optional protocol version.
+        """
     )
     def list_from_authorized(
         proposals: Boolean = false,
@@ -2066,21 +2193,26 @@ class TopologyAdministrationGroup(
 
     @Help.Summary("List party to participant mapping transactions from all stores")
     @Help.Description(
-      """List the party to participant mapping transactions present in the stores. Party to participant mappings
-        |are topology transactions used to allocate a party to certain participants. The same party can be allocated
-        |on several participants with different privileges.
-
-        proposals: Whether to query proposals instead of authorized transactions.
-        timeQuery: The time query allows to customize the query by time. The following options are supported:
-                   TimeQuery.HeadState (default): The most recent known state.
-                   TimeQuery.Snapshot(ts): The state at a certain point in time.
-                   TimeQuery.Range(fromO, toO): Time-range of when the transaction was added to the store
-        operation: Optionally, what type of operation the transaction should have.
-        filterParty: Filter for parties starting with the given filter string.
-        filterParticipant: Filter for participants starting with the given filter string.
-        filterSigningKey: Filter for transactions that are authorized with a key that starts with the given filter string.
-        protocolVersion: Export the topology transactions in the optional protocol version.
-        |"""
+      """List the party to participant mapping transactions present in the stores. Party to
+        |participant mappings are topology transactions used to allocate a party to certain
+        |participants. The same party can be allocated on several participants with different
+        |privileges.
+        |
+        |Parameters:
+        |- proposals: Whether to query proposals instead of authorized transactions.
+        |- timeQuery: The time query allows to customize the query by time.
+        |  The following options are supported:
+        |  - TimeQuery.HeadState (default): The most recent known state.
+        |  - TimeQuery.Snapshot(ts): The state at a certain point in time.
+        |  - TimeQuery.Range(fromO, toO): Time-range of when the transaction was added to the
+        |    store.
+        |- operation: Optionally, what type of operation the transaction should have.
+        |- filterParty: Filter for parties starting with the given filter string.
+        |- filterParticipant: Filter for participants starting with the given filter string.
+        |- filterSigningKey: Filter for transactions that are authorized with a key that starts
+        |  with the given filter string.
+        |- protocolVersion: Export the topology transactions in the optional protocol version.
+        """
     )
     def list_from_all(
         proposals: Boolean = false,
@@ -2145,26 +2277,32 @@ class TopologyAdministrationGroup(
         x.item.synchronizerId == synchronizerId && x.item.participantId == participantId
       }
 
-    @Help.Summary("Propose a change to a participant's synchronizer trust certificate.")
+    @Help.Summary("Propose a change to a participant's synchronizer trust certificate")
     @Help.Description(
-      """A participant's synchronizer trust certificate signals to the synchronizer that the participant would like to act on the synchronizer.
-
-        participantId: the identifier of the trust certificate's target participant
-        synchronizerId: the identifier of the synchronizer on which the participant would like to act
-
-        store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
-                               propagated to connected synchronizers, if applicable.
-               - "<synchronizer id>": the topology transaction will be directly submitted to the specified synchronizer without
-                                storing it locally first. This also means it will _not_ be synchronized to other synchronizers
-                                automatically.
-        mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
-                            sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
-                            when set to false, the proposal retains the proposal status until enough signatures are accumulated to
-                            satisfy the mapping's authorization requirements.
-        serial: the expected serial this topology transaction should have. Serials must be contiguous and start at 1.
-                This transaction will be rejected if another fully authorized transaction with the same serial already
-                exists, or if there is a gap between this serial and the most recently used serial.
-                If None, the serial will be automatically selected by the node.
+      """A participant's synchronizer trust certificate signals to the synchronizer that the
+        |participant would like to act on the synchronizer.
+        |
+        |Parameters:
+        |- participantId: The identifier of the trust certificate's target participant.
+        |- synchronizerId: the identifier of the synchronizer on which the participant would like
+        |  to act.
+        |- store:
+        |  - "Authorized": The topology transaction will be stored in the node's authorized store
+        |  and automatically propagated to connected synchronizers, if applicable.
+        |  - "<synchronizer id>": The topology transaction will be directly submitted to the
+        |  specified synchronizer without storing it locally first. This also means it will _not_
+        |  be synchronized to other synchronizers automatically.
+        |- mustFullyAuthorize: When set to true, the proposal's previously received signatures and
+        |  the signature of this node must be sufficient to fully authorize the topology
+        |  transaction. If this is not the case, the request fails.
+        |  When set to false, the proposal retains the proposal status until enough signatures are
+        |  accumulated to satisfy the mapping's authorization requirements.
+        |- serial: The expected serial this topology transaction should have. Serials must be
+        |  contiguous and start at 1.
+        |  This transaction will be rejected if another fully authorized transaction with the same
+        |  serial already exists, or if there is a gap between this serial and the most recently
+        |  used serial.
+        |  If None, the serial will be automatically selected by the node.
         """
     )
     def propose(
@@ -2201,29 +2339,35 @@ class TopologyAdministrationGroup(
   @Help.Summary("Inspect participant synchronizer permissions")
   @Help.Group("Participant Synchronizer Permissions")
   object participant_synchronizer_permissions extends Helpful {
-    @Help.Summary("Propose changes to the synchronizer permissions of participants.")
+    @Help.Summary("Propose changes to the synchronizer permissions of participants")
     @Help.Description(
-      """Synchronizer operators may use this command to change a participant's permissions on a synchronizer.
-
-        synchronizerId: the target synchronizer
-        participantId: the participant whose permissions should be changed
-        permission: the participant's permission
-        loginAfter: the earliest time a participant may connect to the synchronizer
-        limits: synchronizer limits for this participant
-
-        store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
-                               propagated to connected synchronizers, if applicable.
-               - "<synchronizer id>": the topology transaction will be directly submitted to the specified synchronizer without
-                                storing it locally first. This also means it will _not_ be synchronized to other synchronizers
-                                automatically.
-        mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
-                            sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
-                            when set to false, the proposal retains the proposal status until enough signatures are accumulated to
-                            satisfy the mapping's authorization requirements.
-        serial: the expected serial this topology transaction should have. Serials must be contiguous and start at 1.
-                This transaction will be rejected if another fully authorized transaction with the same serial already
-                exists, or if there is a gap between this serial and the most recently used serial.
-                If None, the serial will be automatically selected by the node."""
+      """Synchronizer operators may use this command to change a participant's permissions on a
+        |synchronizer.
+        |
+        |Parameters:
+        |- synchronizerId: The target synchronizer.
+        |- participantId: The participant whose permissions should be changed.
+        |- permission: The participant's permission.
+        |- loginAfter: The earliest time a participant may connect to the synchronizer.
+        |- limits: Synchronizer limits for this participant.
+        |- store:
+        |  - "Authorized": The topology transaction will be stored in the node's authorized store
+        |  and automatically propagated to connected synchronizers, if applicable.
+        |  - "<synchronizer id>": The topology transaction will be directly submitted to the
+        |  specified synchronizer without storing it locally first. This also means it will _not_
+        |  be synchronized to other synchronizers automatically.
+        |- mustFullyAuthorize: When set to true, the proposal's previously received signatures and
+        |  the signature of this node must be sufficient to fully authorize the topology
+        |  transaction. If this is not the case, the request fails.
+        |  When set to false, the proposal retains the proposal status until enough signatures are
+        |  accumulated to satisfy the mapping's authorization requirements.
+        |- serial: The expected serial this topology transaction should have. Serials must be
+        |  contiguous and start at 1.
+        |  This transaction will be rejected if another fully authorized transaction with the same
+        |  serial already exists, or if there is a gap between this serial and the most recently
+        |  used serial.
+        |  If None, the serial will be automatically selected by the node.
+        """
     )
     def propose(
         synchronizerId: SynchronizerId,
@@ -2258,22 +2402,26 @@ class TopologyAdministrationGroup(
       runAdminCommand(cmd)
     }
 
-    @Help.Summary("Revokes the synchronizer permissions of a participant.")
+    @Help.Summary("Revokes the synchronizer permissions of a participant")
     @Help.Description(
-      """Synchronizer operators may use this command to revoke a participant's permissions on a synchronizer.
-
-        synchronizerId: the target synchronizer
-        participantId: the participant whose permissions should be revoked
-
-        store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
-                               propagated to connected synchronizers, if applicable.
-               - "<synchronizer id>": the topology transaction will be directly submitted to the specified synchronizer without
-                                storing it locally first. This also means it will _not_ be synchronized to other synchronizers
-                                automatically.
-        mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
-                            sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
-                            when set to false, the proposal retains the proposal status until enough signatures are accumulated to
-                            satisfy the mapping's authorization requirements."""
+      """Synchronizer operators may use this command to revoke a participant's permissions on a
+        |synchronizer.
+        |
+        |Parameters:
+        |- synchronizerId: The target synchronizer.
+        |- participantId: The participant whose permissions should be revoked.
+        |- mustFullyAuthorize: When set to true, the proposal's previously received signatures and
+        |  the signature of this node must be sufficient to fully authorize the topology
+        |  transaction. If this is not the case, the request fails.
+        |  When set to false, the proposal retains the proposal status until enough signatures are
+        |  accumulated to satisfy the mapping's authorization requirements.
+        |- store:
+        |  - "Authorized": The topology transaction will be stored in the node's authorized store
+        |  and automatically propagated to connected synchronizers, if applicable.
+        |  - "<synchronizer id>": The topology transaction will be directly submitted to the
+        |  specified synchronizer without storing it locally first. This also means it will _not_
+        |  be synchronized to other synchronizers automatically.
+        """
     )
     def revoke(
         synchronizerId: SynchronizerId,
@@ -2359,8 +2507,9 @@ class TopologyAdministrationGroup(
       "Returns true if the given participant is currently active on the given synchronizer"
     )
     @Help.Description(
-      """Active means that the participant has been granted at least observation rights on the synchronizer
-         |and that the participant has registered a synchronizer trust certificate"""
+      """Active means that the participant has been granted at least observation rights on the
+        |synchronizer and that the participant has registered a synchronizer trust certificate.
+        """
     )
     def active(synchronizerId: SynchronizerId, participantId: ParticipantId): Boolean = {
       lazy val participantHasPermission = participant_synchronizer_permissions
@@ -2434,28 +2583,31 @@ class TopologyAdministrationGroup(
 
     @Help.Summary("Change package vettings")
     @Help.Description(
-      """A participant will only process transactions that reference packages that all involved participants have
-         |vetted previously. Vetting is done by registering a respective topology transaction with the synchronizer,
-         |which can then be used by other participants to verify that a transaction is only using
-         |vetted packages.
-         |Note that all referenced and dependent packages must exist in the package store.
-
-         participantId: the identifier of the participant vetting the packages
-         adds: The lf-package ids to be vetted.
-         removes: The lf-package ids to be unvetted.
-         store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
-                             propagated to connected synchronizers, if applicable.
-                - "<synchronizer id>": the topology transaction will be directly submitted to the specified synchronizer without
-                              storing it locally first. This also means it will _not_ be synchronized to other synchronizers
-                              automatically.
-         filterParticipant: Filter for participants starting with the given filter string.
-         mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
-                          sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
-                          when set to false, the proposal retains the proposal status until enough signatures are accumulated to
-                          satisfy the mapping's authorization requirements.
-         signedBy: the fingerprint of the key to be used to sign this proposal
-         force: must be set when revoking the vetting of packagesIds
-         |"""
+      """A participant will only process transactions that reference packages that all involved
+        |participants have vetted previously. Vetting is done by registering a respective topology
+        |transaction with the synchronizer, which can then be used by other participants to verify
+        |that a transaction is only using vetted packages.
+        |Note that all referenced and dependent packages must exist in the package store.
+        |
+        |Parameters:
+        |- participantId: The identifier of the participant vetting the packages.
+        |- adds: The lf-package ids to be vetted.
+        |- removes: The lf-package ids to be unvetted.
+        |- store:
+        |  - "Authorized": The topology transaction will be stored in the node's authorized store
+        |  and automatically propagated to connected synchronizers, if applicable.
+        |  - "<synchronizer id>": The topology transaction will be directly submitted to the
+        |  specified synchronizer without storing it locally first. This also means it will _not_
+        |  be synchronized to other synchronizers automatically.
+        |- filterParticipant: Filter for participants starting with the given filter string.
+        |- mustFullyAuthorize: When set to true, the proposal's previously received signatures and
+        |  the signature of this node must be sufficient to fully authorize the topology
+        |  transaction. If this is not the case, the request fails.
+        |  When set to false, the proposal retains the proposal status until enough signatures are
+        |  accumulated to satisfy the mapping's authorization requirements.
+        |- signedBy: The fingerprint of the key to be used to sign this proposal.
+        |- force: Must be set when revoking the vetting of packagesIds.
+        """
     )
     def propose_delta(
         participant: ParticipantId,
@@ -2534,28 +2686,38 @@ class TopologyAdministrationGroup(
       }
     }
     @Help.Summary("Replace package vettings")
-    @Help.Description("""A participant will only process transactions that reference packages that all involved participants have
-        |vetted previously. Vetting is done by registering a respective topology transaction with the synchronizer,
-        |which can then be used by other participants to verify that a transaction is only using
-        |vetted packages.
+    @Help.Description(
+      """A participant will only process transactions that reference packages that all involved
+        |participants have vetted previously. Vetting is done by registering a respective topology
+        |transaction with the synchronizer, which can then be used by other participants to verify
+        |that a transaction is only using vetted packages.
         |Note that all referenced and dependent packages must exist in the package store.
-
-        participantId: the identifier of the participant vetting the packages
-        packages: The lf-package ids with validity boundaries to be vetted that will replace the previous vetted packages.
-        store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
-                              propagated to connected synchronizers, if applicable.
-               - "<synchronizer id>": the topology transaction will be directly submitted to the specified synchronizer without
-                              storing it locally first. This also means it will _not_ be synchronized to other synchronizers automatically.
-        mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
-                              sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
-                              when set to false, the proposal retains the proposal status until enough signatures are accumulated to
-                              satisfy the mapping's authorization requirements.
-        serial: ted serial this topology transaction should have. Serials must be contiguous and start at 1.
-                    This transaction will be rejected if another fully authorized transaction with the same serial already
-                    exists, or if there is a gap between this serial and the most recently used serial.
-                    If None, the serial will be automatically selected by the node.
-        signedBy: the fingerprint of the key to be used to sign this proposal
-        force: must be set when revoking the vetting of packagesIds""")
+        |
+        |Parameters:
+        |- participantId: The identifier of the participant vetting the packages.
+        |- packages: The lf-package ids with validity boundaries to be vetted that will replace
+        |  the previous vetted packages.
+        |- store:
+        |  - "Authorized": The topology transaction will be stored in the node's authorized store
+        |  and automatically propagated to connected synchronizers, if applicable.
+        |  - "<synchronizer id>": The topology transaction will be directly submitted to the
+        |  specified synchronizer without storing it locally first. This also means it will _not_
+        |  be synchronized to other synchronizers automatically.
+        |- mustFullyAuthorize: When set to true, the proposal's previously received signatures and
+        |  the signature of this node must be sufficient to fully authorize the topology
+        |  transaction. If this is not the case, the request fails.
+        |  When set to false, the proposal retains the proposal status until enough signatures are
+        |  accumulated to satisfy the mapping's authorization requirements.
+        |- serial: The expected serial this topology transaction should have. Serials must be
+        |  contiguous and start at 1.
+        |  This transaction will be rejected if another fully authorized transaction with the same
+        |  serial already exists, or if there is a gap between this serial and the most recently
+        |  used serial.
+        |  If None, the serial will be automatically selected by the node.
+        |- signedBy: The fingerprint of the key to be used to sign this proposal.
+        |- force: Must be set when revoking the vetting of packagesIds.
+        """
+    )
     def propose(
         participant: ParticipantId,
         packages: Seq[VettedPackage],
@@ -2589,10 +2751,10 @@ class TopologyAdministrationGroup(
 
     @Help.Summary("List vetted packages")
     @Help.Description(
-      """
-     store: the optional topology store to query from
-     proposals: if true then proposals are shown, otherwise actual validated state
-     """
+      """Parameters:
+        |- store: The optional topology store to query from.
+        |- proposals: If true then proposals are shown, otherwise actual validated state.
+        """
     )
     def list(
         store: Option[TopologyStoreId] = None,
@@ -2625,10 +2787,10 @@ class TopologyAdministrationGroup(
 
     @Help.Summary("List mediator synchronizer topology state")
     @Help.Description(
-      """
-     synchronizerId: the optional target synchronizer
-     proposals: if true then proposals are shown, otherwise actual validated state
-     """
+      """Parameters:
+        |- synchronizerId: The optional target synchronizer.
+        |- proposals: If true then proposals are shown, otherwise actual validated state.
+        """
     )
     def list(
         synchronizerId: Option[SynchronizerId] = None,
@@ -2664,20 +2826,25 @@ class TopologyAdministrationGroup(
 
     @Help.Summary("Propose changes to the mediator topology")
     @Help.Description(
-      """
-     synchronizerId: the target synchronizer
-     group: the mediator group identifier
-     adds: The unique identifiers of the active mediators to add.
-     removes: The unique identifiers of the mediators that should no longer be active mediators.
-     observerAdds: The unique identifiers of the observer mediators to add.
-     observerRemoves: The unique identifiers of the mediators that should no longer be observer mediators.
-     updateThreshold: Optionally an updated value for the threshold of the mediator group.
-     await: optional timeout to wait for the proposal to be persisted in the specified topology store
-     mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
-                         sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
-                         when set to false, the proposal retains the proposal status until enough signatures are accumulated to
-                         satisfy the mapping's authorization requirements.
-     signedBy: the fingerprint of the key to be used to sign this proposal"""
+      """Parameters:
+        |- synchronizerId: The target synchronizer.
+        |- group: The mediator group identifier.
+        |- adds: The unique identifiers of the active mediators to add.
+        |- removes: The unique identifiers of the mediators that should no longer be active
+        |  mediators.
+        |- observerAdds: The unique identifiers of the observer mediators to add.
+        |- observerRemoves: The unique identifiers of the mediators that should no longer be
+        |  observer mediators.
+        |- updateThreshold: Optionally an updated value for the threshold of the mediator group.
+        |- await: Optional timeout to wait for the proposal to be persisted in the specified
+        |  topology store.
+        |- mustFullyAuthorize: When set to true, the proposal's previously received signatures and
+        |  the signature of this node must be sufficient to fully authorize the topology
+        |  transaction. If this is not the case, the request fails.
+        |  When set to false, the proposal retains the proposal status until enough signatures are
+        |  accumulated to satisfy the mapping's authorization requirements.
+        |- signedBy: The fingerprint of the key to be used to sign this proposal.
+        |"""
     )
     def propose_delta(
         synchronizerId: SynchronizerId,
@@ -2748,26 +2915,36 @@ class TopologyAdministrationGroup(
     }
 
     @Help.Summary("Replace the mediator topology")
-    @Help.Description("""
-         synchronizerId: the target synchronizer
-         threshold: the minimum number of mediators that need to come to a consensus for a message to be sent to other members.
-         active: the list of mediators that will take part in the mediator consensus in this mediator group
-         passive: the mediators that will receive all messages but will not participate in mediator consensus
-         group: the mediator group identifier
-         store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
-                                propagated to connected synchronizers, if applicable.
-                - "<synchronizer id>": the topology transaction will be directly submitted to the specified synchronizer without
-                                 storing it locally first. This also means it will _not_ be synchronized to other synchronizers
-                                 automatically.
-         mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
-                             sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
-                             when set to false, the proposal retains the proposal status until enough signatures are accumulated to
-                             satisfy the mapping's authorization requirements.
-         signedBy: the fingerprint of the key to be used to sign this proposal
-         serial: the expected serial this topology transaction should have. Serials must be contiguous and start at 1.
-                 This transaction will be rejected if another fully authorized transaction with the same serial already
-                 exists, or if there is a gap between this serial and the most recently used serial.
-                 If None, the serial will be automatically selected by the node.""")
+    @Help.Description(
+      """Parameters:
+        |- synchronizerId: The target synchronizer.
+        |- threshold: The minimum number of mediators that need to come to a consensus for a
+        |  message to be sent to other members.
+        |- active: The list of mediators that will take part in the mediator consensus in this
+        |  mediator group.
+        |- passive: The mediators that will receive all messages but will not participate in
+        |  mediator consensus.
+        |- group: The mediator group identifier.
+        |- store:
+        |  - "Authorized": The topology transaction will be stored in the node's authorized store
+        |  and automatically propagated to connected synchronizers, if applicable.
+        |  - "<synchronizer id>": The topology transaction will be directly submitted to the
+        |  specified synchronizer without storing it locally first. This also means it will _not_
+        |  be synchronized to other synchronizers automatically.
+        |- mustFullyAuthorize: When set to true, the proposal's previously received signatures and
+        |  the signature of this node must be sufficient to fully authorize the topology
+        |  transaction. If this is not the case, the request fails.
+        |  When set to false, the proposal retains the proposal status until enough signatures are
+        |  accumulated to satisfy the mapping's authorization requirements.
+        |- signedBy: The fingerprint of the key to be used to sign this proposal.
+        |- serial: The expected serial this topology transaction should have. Serials must be
+        |  contiguous and start at 1.
+        |  This transaction will be rejected if another fully authorized transaction with the same
+        |  serial already exists, or if there is a gap between this serial and the most recently
+        |  used serial.
+        |  If None, the serial will be automatically selected by the node.
+        """
+    )
     def propose(
         synchronizerId: SynchronizerId,
         threshold: PositiveInt,
@@ -2798,19 +2975,23 @@ class TopologyAdministrationGroup(
     }
 
     @Help.Summary("Propose to remove a mediator group")
-    @Help.Description("""
-         synchronizerId: the target synchronizer
-         group: the mediator group identifier
-
-         store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
-                                propagated to connected synchronizers, if applicable.
-                - "<synchronizer id>": the topology transaction will be directly submitted to the specified synchronizer without
-                                 storing it locally first. This also means it will _not_ be synchronized to other synchronizers
-                                 automatically.
-         mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
-                             sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
-                             when set to false, the proposal retains the proposal status until enough signatures are accumulated to
-                             satisfy the mapping's authorization requirements.""")
+    @Help.Description(
+      """Parameters:
+        |- synchronizerId: The target synchronizer.
+        |- group: The mediator group identifier.
+        |- store:
+        |  - "Authorized": The topology transaction will be stored in the node's authorized store
+        |  and automatically propagated to connected synchronizers, if applicable.
+        |  - "<synchronizer id>": The topology transaction will be directly submitted to the
+        |  specified synchronizer without storing it locally first. This also means it will _not_
+        |  be synchronized to other synchronizers automatically.
+        |- mustFullyAuthorize: When set to true, the proposal's previously received signatures and
+        |  the signature of this node must be sufficient to fully authorize the topology
+        |  transaction. If this is not the case, the request fails.
+        |  When set to false, the proposal retains the proposal status until enough signatures are
+        |  accumulated to satisfy the mapping's authorization requirements.
+        """
+    )
     def remove_group(
         synchronizerId: SynchronizerId,
         group: NonNegativeInt,
@@ -2869,26 +3050,32 @@ class TopologyAdministrationGroup(
 
     @Help.Summary("Propose changes to the sequencer topology")
     @Help.Description(
-      """
-         synchronizerId: the target synchronizer
-         active: the list of active sequencers
-         passive: sequencers that receive messages but are not available for members to connect to
-
-         store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
-                                propagated to connected synchronizers, if applicable.
-                - "<synchronizer id>": the topology transaction will be directly submitted to the specified synchronizer without
-                                 storing it locally first. This also means it will _not_ be synchronized to other synchronizers
-                                 automatically.
-         mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
-                             sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
-                             when set to false, the proposal retains the proposal status until enough signatures are accumulated to
-                             satisfy the mapping's authorization requirements.
-         signedBy: the fingerprint of the key to be used to sign this proposal
-         serial: the expected serial this topology transaction should have. Serials must be contiguous and start at 1.
-                 This transaction will be rejected if another fully authorized transaction with the same serial already
-                 exists, or if there is a gap between this serial and the most recently used serial.
-                 If None, the serial will be automatically selected by the node.
-         synchronize: Synchronization timeout to wait until the proposal has been observed on the synchronizer."""
+      """Parameters:
+        |- synchronizerId: The target synchronizer.
+        |- active: The list of active sequencers.
+        |- passive: Sequencers that receive messages but are not available for members to connect
+        |  to.
+        |- store:
+        |  - "Authorized": The topology transaction will be stored in the node's authorized store
+        |  and automatically propagated to connected synchronizers, if applicable.
+        |  - "<synchronizer id>": The topology transaction will be directly submitted to the
+        |  specified synchronizer without storing it locally first. This also means it will _not_
+        |  be synchronized to other synchronizers automatically.
+        |- mustFullyAuthorize: When set to true, the proposal's previously received signatures and
+        |  the signature of this node must be sufficient to fully authorize the topology
+        |  transaction. If this is not the case, the request fails.
+        |  When set to false, the proposal retains the proposal status until enough signatures are
+        |  accumulated to satisfy the mapping's authorization requirements.
+        |- signedBy: The fingerprint of the key to be used to sign this proposal.
+        |- serial: The expected serial this topology transaction should have. Serials must be
+        |  contiguous and start at 1.
+        |  This transaction will be rejected if another fully authorized transaction with the same
+        |  serial already exists, or if there is a gap between this serial and the most recently
+        |  used serial.
+        |  If None, the serial will be automatically selected by the node.
+        |- synchronize: Synchronization timeout to wait until the proposal has been observed on
+        |  the synchronizer.
+        """
     )
     def propose(
         synchronizerId: SynchronizerId,
@@ -2996,28 +3183,34 @@ class TopologyAdministrationGroup(
 
     @Help.Summary("Propose changes to dynamic synchronizer parameters")
     @Help.Description(
-      """
-       synchronizerId: the target synchronizer
-       parameters: the new dynamic synchronizer parameters to be used on the synchronizer
-
-       store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
-                              propagated to connected synchronizers, if applicable.
-              - "<synchronizer id>": the topology transaction will be directly submitted to the specified synchronizer without
-                               storing it locally first. This also means it will _not_ be synchronized to other synchronizers
-                               automatically.
-       mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
-                           sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
-                           when set to false, the proposal retains the proposal status until enough signatures are accumulated to
-                           satisfy the mapping's authorization requirements.
-       signedBy: the fingerprint of the key to be used to sign this proposal
-       serial: the expected serial this topology transaction should have. Serials must be contiguous and start at 1.
-               This transaction will be rejected if another fully authorized transaction with the same serial already
-               exists, or if there is a gap between this serial and the most recently used serial.
-               If None, the serial will be automatically selected by the node.
-       synchronize: Synchronize timeout can be used to ensure that the state has been propagated into the node
-       waitForParticipants: if synchronize is defined, the command will also wait until parameters have been propagated
-                            to the listed participants
-       force: must be set to true when performing a dangerous operation, such as increasing the preparationTimeRecordTimeTolerance"""
+      """Parameters:
+        |- synchronizerId: The target synchronizer.
+        |- parameters: The new dynamic synchronizer parameters to be used on the synchronizer.
+        |- store:
+        |  - "Authorized": The topology transaction will be stored in the node's authorized store
+        |  and automatically propagated to connected synchronizers, if applicable.
+        |  - "<synchronizer id>": The topology transaction will be directly submitted to the
+        |  specified synchronizer without storing it locally first. This also means it will _not_
+        |  be synchronized to other synchronizers automatically.
+        |- mustFullyAuthorize: When set to true, the proposal's previously received signatures and
+        |  the signature of this node must be sufficient to fully authorize the topology
+        |  transaction. If this is not the case, the request fails.
+        |  When set to false, the proposal retains the proposal status until enough signatures are
+        |  accumulated to satisfy the mapping's authorization requirements.
+        |- signedBy: The fingerprint of the key to be used to sign this proposal.
+        |- serial: The expected serial this topology transaction should have. Serials must be
+        |  contiguous and start at 1.
+        |  This transaction will be rejected if another fully authorized transaction with the same
+        |  serial already exists, or if there is a gap between this serial and the most recently
+        |  used serial.
+        |  If None, the serial will be automatically selected by the node.
+        |- synchronize: Synchronize timeout can be used to ensure that the state has been
+        |  propagated into the node.
+        |- waitForParticipants: If synchronize is defined, the command will also wait until
+        |  parameters have been propagated to the listed participants.
+        |- force: Must be set to true when performing a dangerous operation, such as increasing
+        |  the preparationTimeRecordTimeTolerance.
+        """
     )
     def propose(
         synchronizerId: SynchronizerId,
@@ -3055,18 +3248,22 @@ class TopologyAdministrationGroup(
 
     @Help.Summary("Propose an update to dynamic synchronizer parameters")
     @Help.Description(
-      """
-       synchronizerId: the target synchronizer
-       update: the new dynamic synchronizer parameters to be used on the synchronizer
-       mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
-                           sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
-                           when set to false, the proposal retains the proposal status until enough signatures are accumulated to
-                           satisfy the mapping's authorization requirements.
-       signedBy: the fingerprint of the key to be used to sign this proposal
-       synchronize: Synchronize timeout can be used to ensure that the state has been propagated into the node
-       waitForParticipants: if synchronize is defined, the command will also wait until the update has been propagated
-                            to the listed participants
-       force: must be set to true when performing a dangerous operation, such as increasing the preparationTimeRecordTimeTolerance"""
+      """Parameters:
+        |- synchronizerId: The target synchronizer.
+        |- update: The new dynamic synchronizer parameters to be used on the synchronizer.
+        |- mustFullyAuthorize: When set to true, the proposal's previously received signatures and
+        |  the signature of this node must be sufficient to fully authorize the topology
+        |  transaction. If this is not the case, the request fails.
+        |  When set to false, the proposal retains the proposal status until enough signatures are
+        |  accumulated to satisfy the mapping's authorization requirements.
+        |- signedBy: The fingerprint of the key to be used to sign this proposal.
+        |- synchronize: Synchronize timeout can be used to ensure that the state has been
+        |  propagated into the node.
+        |- waitForParticipants: If synchronize is defined, the command will also wait until the
+        |  update has been propagated to the listed participants.
+        |- force: Must be set to true when performing a dangerous operation, such as increasing
+        |  the preparationTimeRecordTimeTolerance.
+        """
     )
     def propose_update(
         synchronizerId: SynchronizerId,
@@ -3107,9 +3304,11 @@ class TopologyAdministrationGroup(
       "Update the ledger time record time tolerance in the dynamic synchronizer parameters"
     )
     @Help.Description(
-      """
-        synchronizerId: the target synchronizer
-        newLedgerTimeRecordTimeTolerance: the new ledgerTimeRecordTimeTolerance value to apply to the synchronizer"""
+      """Parameters:
+        |- synchronizerId: The target synchronizer.
+        |- newLedgerTimeRecordTimeTolerance: The new ledgerTimeRecordTimeTolerance value to apply
+        |  to the synchronizer.
+        """
     )
     def set_ledger_time_record_time_tolerance(
         synchronizerId: SynchronizerId,
@@ -3134,17 +3333,20 @@ class TopologyAdministrationGroup(
       "Update the preparation time record time tolerance in the dynamic synchronizer parameters"
     )
     @Help.Description(
-      """If it would be insecure to perform the change immediately,
-        |the command will block and wait until it is secure to perform the change.
+      """If it would be insecure to perform the change immediately, the command will block and
+        |wait until it is secure to perform the change.
         |The command will block for at most twice of ``newPreparationTimeRecordTimeTolerance``.
         |
-        |The method will fail if ``mediatorDeduplicationTimeout`` is less than twice of ``newPreparationTimeRecordTimeTolerance``.
+        |The method will fail if ``mediatorDeduplicationTimeout`` is less than twice of
+        |``newPreparationTimeRecordTimeTolerance``.
         |
         |Do not modify synchronizer parameters concurrently while running this command,
         |because the command may override concurrent changes.
         |
         |force: update ``newPreparationTimeRecordTimeTolerance`` immediately without blocking.
-        |This is safe to do during synchronizer bootstrapping and in test environments, but should not be done in operational production systems."""
+        |This is safe to do during synchronizer bootstrapping and in test environments, but should
+        |not be done in operational production systems.
+        """
     )
     def set_preparation_time_record_time_tolerance(
         synchronizerId: SynchronizerId,
@@ -3326,26 +3528,33 @@ class TopologyAdministrationGroup(
 
       @Help.Summary("Propose the announcement of a synchronizer migration")
       @Help.Description(
-        """
-         physicalSynchronizerId: the physical synchronizer id of the synchronizer on which the synchronizer migration will be announced
-         successorPhysicalSynchronizerId: the id of the physical synchronizer that succeeds the current physical synchronizer
-         upgradeTime: the time of the migration from the current synchronizer to its successor
-
-         store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
-                                propagated to connected synchronizers, if applicable.
-                - "<synchronizer id>": the topology transaction will be directly submitted to the specified synchronizer without
-                                 storing it locally first. This also means it will _not_ be synchronized to other synchronizers
-                                 automatically.
-         mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
-                             sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
-                             when set to false, the proposal retains the proposal status until enough signatures are accumulated to
-                             satisfy the mapping's authorization requirements.
-         signedBy: the fingerprint of the key to be used to sign this proposal
-         serial: the expected serial this topology transaction should have. Serials must be contiguous and start at 1.
-                 This transaction will be rejected if another fully authorized transaction with the same serial already
-                 exists, or if there is a gap between this serial and the most recently used serial.
-                 If None, the serial will be automatically selected by the node.
-         synchronize: Synchronization timeout to wait until the proposal has been observed on the synchronizer."""
+        """Parameters:
+          |- physicalSynchronizerId: The physical synchronizer id of the synchronizer on which the
+          |  synchronizer migration will be announced.
+          |- successorPhysicalSynchronizerId: The id of the physical synchronizer that succeeds the
+          |  current physical synchronizer.
+          |- upgradeTime: The time of the migration from the current synchronizer to its successor.
+          |- store:
+          |  - "Authorized": The topology transaction will be stored in the node's authorized store
+          |  and automatically propagated to connected synchronizers, if applicable.
+          |  - "<synchronizer id>": The topology transaction will be directly submitted to the
+          |  specified synchronizer without storing it locally first. This also means it will _not_
+          |  be synchronized to other synchronizers automatically.
+          |- mustFullyAuthorize: When set to true, the proposal's previously received signatures and
+          |  the signature of this node must be sufficient to fully authorize the topology
+          |  transaction. If this is not the case, the request fails.
+          |  When set to false, the proposal retains the proposal status until enough signatures are
+          |  accumulated to satisfy the mapping's authorization requirements.
+          |- signedBy: The fingerprint of the key to be used to sign this proposal.
+          |- serial: The expected serial this topology transaction should have. Serials must be
+          |  contiguous and start at 1.
+          |  This transaction will be rejected if another fully authorized transaction with the same
+          |  serial already exists, or if there is a gap between this serial and the most recently
+          |  used serial.
+          |  If None, the serial will be automatically selected by the node.
+          |- synchronize: Synchronization timeout to wait until the proposal has been observed on
+          |  the synchronizer.
+          """
       )
       def propose(
           successorPhysicalSynchronizerId: PhysicalSynchronizerId,
@@ -3383,26 +3592,33 @@ class TopologyAdministrationGroup(
 
       @Help.Summary("Propose the revocation of a synchronizer migration announcement")
       @Help.Description(
-        """
-         physicalSynchronizerId: the physical synchronizer id of the synchronizer on which the synchronizer migration announcement will be revoked
-         successorPhysicalSynchronizerId: the id of the physical synchronizer that was supposed to succeed the current physical synchronizer
-         upgradeTime: when will the upgrade happen
-
-         store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
-                                propagated to connected synchronizers, if applicable.
-                - "<synchronizer id>": the topology transaction will be directly submitted to the specified synchronizer without
-                                 storing it locally first. This also means it will _not_ be synchronized to other synchronizers
-                                 automatically.
-         mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
-                             sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
-                             when set to false, the proposal retains the proposal status until enough signatures are accumulated to
-                             satisfy the mapping's authorization requirements.
-         signedBy: the fingerprint of the key to be used to sign this proposal
-         serial: the expected serial this topology transaction should have. Serials must be contiguous and start at 1.
-                 This transaction will be rejected if another fully authorized transaction with the same serial already
-                 exists, or if there is a gap between this serial and the most recently used serial.
-                 If None, the serial will be automatically selected by the node.
-         synchronize: Synchronization timeout to wait until the proposal has been observed on the synchronizer."""
+        """Parameters:
+          |- physicalSynchronizerId: The physical synchronizer id of the synchronizer on which the
+          |  synchronizer migration announcement will be revoked.
+          |- successorPhysicalSynchronizerId: The id of the physical synchronizer that was supposed
+          |  to succeed the current physical synchronizer.
+          |- upgradeTime: When will the upgrade happen.
+          |- store:
+          |  - "Authorized": The topology transaction will be stored in the node's authorized store
+          |  and automatically propagated to connected synchronizers, if applicable.
+          |  - "<synchronizer id>": The topology transaction will be directly submitted to the
+          |  specified synchronizer without storing it locally first. This also means it will _not_
+          |  be synchronized to other synchronizers automatically.
+          |- mustFullyAuthorize: When set to true, the proposal's previously received signatures and
+          |  the signature of this node must be sufficient to fully authorize the topology
+          |  transaction. If this is not the case, the request fails.
+          |  When set to false, the proposal retains the proposal status until enough signatures are
+          |  accumulated to satisfy the mapping's authorization requirements.
+          |- signedBy: The fingerprint of the key to be used to sign this proposal.
+          |- serial: The expected serial this topology transaction should have. Serials must be
+          |  contiguous and start at 1.
+          |  This transaction will be rejected if another fully authorized transaction with the same
+          |  serial already exists, or if there is a gap between this serial and the most recently
+          |  used serial.
+          |  If None, the serial will be automatically selected by the node.
+          |- synchronize: Synchronization timeout to wait until the proposal has been observed on
+          |  the synchronizer.
+          """
       )
       def revoke(
           successorPhysicalSynchronizerId: PhysicalSynchronizerId,
@@ -3442,29 +3658,35 @@ class TopologyAdministrationGroup(
     object sequencer_successors extends Helpful {
       @Help.Summary("Propose the connection details of a sequencer on the successor synchronizer")
       @Help.Description(
-        """
-         sequencerId: the id of the sequencer that will be reachable by the provided endpoints
-         endpoints: a list of URIs of the endpoints with which the sequencer is reachable on the successor synchronizer
-         synchronizerId: the logical synchronizer id
-         customTrustCertificates: a trust certificate in case the sequencer's TLS certificate is not signed via certificates trusted
-                                  by the OS's default trusted certificates
-
-         store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
-                                propagated to connected synchronizers, if applicable.
-                - "<synchronizer id>": the topology transaction will be directly submitted to the specified synchronizer without
-                                 storing it locally first. This also means it will _not_ be synchronized to other synchronizers
-                                 automatically.
-         mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
-                             sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
-                             when set to false, the proposal retains the proposal status until enough signatures are accumulated to
-                             satisfy the mapping's authorization requirements.
-         signedBy: the fingerprint of the key to be used to sign this proposal
-         serial: the expected serial this topology transaction should have. Serials must be contiguous and start at 1.
-                 This transaction will be rejected if another fully authorized transaction with the same serial already
-                 exists, or if there is a gap between this serial and the most recently used serial.
-                 If None, the serial will be automatically selected by the node.
-         operation: whether to replace or remove the currently valid mapping
-         synchronize: Synchronization timeout to wait until the proposal has been observed on the synchronizer."""
+        """Parameters:
+          |- sequencerId: The ID of the sequencer that will be reachable by the provided endpoints.
+          |- endpoints: A list of URIs of the endpoints with which the sequencer is reachable on the
+          |  successor synchronizer.
+          |- synchronizerId: The logical synchronizer ID.
+          |- customTrustCertificates: A trust certificate in case the sequencer's TLS certificate is
+          |  not signed via certificates trusted by the OS's default trusted certificates.
+          |- store:
+          |  - "Authorized": The topology transaction will be stored in the node's authorized store
+          |  and automatically propagated to connected synchronizers, if applicable.
+          |  - "<synchronizer id>": The topology transaction will be directly submitted to the
+          |  specified synchronizer without storing it locally first. This also means it will _not_
+          |  be synchronized to other synchronizers automatically.
+          |- mustFullyAuthorize: When set to true, the proposal's previously received signatures and
+          |  the signature of this node must be sufficient to fully authorize the topology
+          |  transaction. If this is not the case, the request fails.
+          |  When set to false, the proposal retains the proposal status until enough signatures are
+          |  accumulated to satisfy the mapping's authorization requirements.
+          |- signedBy: The fingerprint of the key to be used to sign this proposal.
+          |- serial: The expected serial this topology transaction should have. Serials must be
+          |  contiguous and start at 1.
+          |  This transaction will be rejected if another fully authorized transaction with the same
+          |  serial already exists, or if there is a gap between this serial and the most recently
+          |  used serial.
+          |  If None, the serial will be automatically selected by the node.
+          |- operation: Whether to replace or remove the currently valid mapping.
+          |- synchronize: Synchronization timeout to wait until the proposal has been observed on
+          |  the synchronizer.
+          """
       )
       def propose_successor(
           sequencerId: SequencerId,
@@ -3546,13 +3768,16 @@ class TopologyAdministrationGroup(
         )
       }
 
-    @Help.Summary("Creates a temporary topology store.")
+    @Help.Summary("Creates a temporary topology store")
     @Help.Description(
-      """A temporary topology store is useful for orchestrating the synchronizer founding ceremony or importing a topology snapshot for later inspection.
-        |Temporary topology stores are not persisted and all transactions are kept in memory only, which means restarting the node causes the loss of all
-        |transactions in that store.
-        |Additionally, temporary topology stores are not connected to any synchronizer, so there is no automatic propagation of topology transactions
-        |from the temporary store to connected synchronizers."""
+      """A temporary topology store is useful for orchestrating the synchronizer founding ceremony
+        |or importing a topology snapshot for later inspection.
+        |Temporary topology stores are not persisted and all transactions are kept in memory only,
+        |which means restarting the node causes the loss of all transactions in that store.
+        |Additionally, temporary topology stores are not connected to any synchronizer, so there
+        |is no automatic propagation of topology transactions from the temporary store to
+        |connected synchronizers.
+        """
     )
     def create_temporary_topology_store(
         name: String,
@@ -3563,12 +3788,14 @@ class TopologyAdministrationGroup(
       }
 
     @Help.Summary(
-      "This command drops a temporary topology store and all transactions contained in it."
+      "This command drops a temporary topology store and all transactions contained in it"
     )
     @Help.Description(
-      """Dropping a temporary topology store is not reversible and all topology transactions in the store will
-        |be permanently dropped.
-        |It's not possible to delete the authorized store or any synchronizer store with this command."""
+      """Dropping a temporary topology store is not reversible and all topology transactions in
+        |the store will be permanently dropped.
+        |
+        |It is not possible to delete the authorized store or any synchronizer store with this
+        |command."""
     )
     def drop_temporary_topology_store(temporaryStoreId: TopologyStoreId.Temporary): Unit =
       consoleEnvironment.run {

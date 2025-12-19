@@ -299,27 +299,35 @@ class InFlightSubmissionSynchronizerTracker(
       changeIdHash: ChangeIdHash,
       messageId: MessageId,
       newTrackingData: SubmissionTrackingData,
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+      maxSequencingTime: CantonTimestamp,
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+    // This timeout has relevance only for crash recovery (will be used there to publish the rejection).
+    // We try to approximate it as precision is not paramount (this approximation is likely too low, resulting in an immediate delivery on crash recovery).
+    // In theory, we could pipe the realized immediate-synchronizer time back to the persistence, but then we would need to wait for persisting before letting
+    // the synchronizer go, which would have the undesirable effect of submission errors are slowing down the synchronizer.
+    // Please note: as this data is also used in a heuristic for journal garbage collection, we must use here realistic values.
+
+    // first approximation is by synchronizer-time-tracker
+    val tsLatestObserved = timeTracker.latestTime
+      .getOrElse(
+        // if no synchronizer-time yet, then approximating with the initial time of the synchronizer
+        recordOrderPublisher.initTimestamp
+      )
+
+    // cap the timeout by the max sequencing time so that the timeout field can move only backwards.
+    val newTsUnsequenced = if (tsLatestObserved > maxSequencingTime) {
+      logger.info(
+        s"Capping submission error $newTrackingData (change ID hash $changeIdHash, message Id $messageId on $synchronizerId) observed around $tsLatestObserved beyond max sequencing time $maxSequencingTime."
+      )
+      maxSequencingTime
+    } else tsLatestObserved
+
     store.value
       .updateUnsequenced(
         changeIdHash,
         synchronizerId,
         messageId,
-        UnsequencedSubmission(
-          // This timeout has relevance only for crash recovery (will be used there to publish the rejection).
-          // We try to approximate it as precision is not paramount (this approximation is likely too low, resulting in an immediate delivery on crash recovery).
-          // In theory we could pipe the realized immediate-synchronizer time back to the persistence, but then we would need to wait for persisting before letting
-          // the synchronizer go, which would have the undesirable effect of submission errors are slowing down the synchronizer.
-          // Please note: as this data is also used in a heuristic for journal garbage collection, we must use here realistic values.
-
-          // first approximation is by synchronizer-time-tracker
-          timeTracker.latestTime
-            .getOrElse(
-              // if no synchronizer-time yet, then approximating with the initial time of the synchronizer
-              recordOrderPublisher.initTimestamp
-            ),
-          newTrackingData,
-        ),
+        UnsequencedSubmission(newTsUnsequenced, newTrackingData),
       )
       .map { _ =>
         unsequencedSubmissionMap.changeIfExists(
@@ -332,6 +340,7 @@ class InFlightSubmissionSynchronizerTracker(
           )
           .discard
       }
+  }
 
   /** Updates the unsequenced submission corresponding to the
     * [[com.digitalasset.canton.sequencing.protocol.DeliverError]], if any, using

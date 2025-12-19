@@ -16,8 +16,6 @@ import com.digitalasset.daml.lf.transaction.CommittedTransaction
 
 import scala.concurrent.Future
 
-// TODO(i12285) sandbox-classic clean-up: This interface and its implementation is only used in the JdbcLedgerDao suite
-//                                It should be removed when the assertions in that suite are covered by other suites
 private[platform] trait LedgerWriteDao extends ReportsHealth {
 
   /** Initializes the database with the given ledger identity. If the database was already

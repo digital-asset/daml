@@ -3,10 +3,9 @@
 
 package com.daml.executors
 
-import java.util.concurrent.{ThreadFactory, Executors => JavaExecutors}
-
 import com.daml.executors.executors.QueueAwareExecutionContextExecutorService
 
+import java.util.concurrent.{Executors as JavaExecutors, ThreadFactory}
 import scala.concurrent.ExecutionContext
 
 object InstrumentedExecutors {

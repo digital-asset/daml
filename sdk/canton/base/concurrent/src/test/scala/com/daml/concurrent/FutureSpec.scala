@@ -8,12 +8,12 @@ import org.scalatest.wordspec.AnyWordSpec
 import shapeless.test.illTyped
 
 import scala.annotation.nowarn
-import scala.{concurrent => sc}
+import scala.concurrent as sc
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 @nowarn("msg=local method example .* is never used")
 class FutureSpec extends AnyWordSpec with Matchers {
-  import ExecutionContextSpec._
+  import ExecutionContextSpec.*
 
   val elephantVal = 3000
   val catVal = 9
@@ -28,7 +28,7 @@ class FutureSpec extends AnyWordSpec with Matchers {
 
   "an untyped future" can {
     "be flatmapped to by any future" in {
-      import scalaz.syntax.bind._, TestImplicits.Elephant
+      import scalaz.syntax.bind.*, TestImplicits.Elephant
       def example = someElephantFuture flatMap (_ => someUntypedFuture)
     }
 
@@ -41,7 +41,7 @@ class FutureSpec extends AnyWordSpec with Matchers {
     "not lose its type to conversion" in {
       illTyped(
         "someCatFuture: sc.Future[Int]",
-        "type mismatch.*found.*daml.concurrent.Future.*required: scala.concurrent.Future.*",
+        "type mismatch.*daml.concurrent.Future.*\\|.*scala.concurrent.Future.*",
       )
     }
   }
@@ -54,15 +54,15 @@ class FutureSpec extends AnyWordSpec with Matchers {
     }
 
     "disallow mixing in flatMap" in {
-      import scalaz.syntax.bind._, TestImplicits.Elephant
+      import scalaz.syntax.bind.*, TestImplicits.Elephant
       illTyped(
         "someElephantFuture flatMap (_ => someCatFuture)",
-        "type mismatch.*found.*Cat.*required.*Elephant.*",
+        "type mismatch.*Cat.*\\|.*Elephant.*",
       )
     }
 
     "allow mixing in flatMap if requirement changed first" in {
-      import scalaz.syntax.bind._, TestImplicits.Cat
+      import scalaz.syntax.bind.*, TestImplicits.Cat
       def example =
         someElephantFuture
           .changeExecutionContext[Cat]
@@ -70,7 +70,7 @@ class FutureSpec extends AnyWordSpec with Matchers {
     }
 
     "continue a chain after requirements tightened" in {
-      import scalaz.syntax.bind._, TestImplicits.cryptozoology
+      import scalaz.syntax.bind.*, TestImplicits.cryptozoology
       def example =
         someElephantFuture
           .require[Elephant with Cat]

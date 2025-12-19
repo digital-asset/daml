@@ -130,7 +130,7 @@ class IssConsensusModuleTest
         val (context, consensus) = createIssConsensusModule()
         implicit val ctx: ContextType = context
         consensus.receive(
-          Consensus.LocalAvailability.ProposalCreated(oneRequestOrderingBlock, EpochNumber.First)
+          Consensus.LocalAvailability.ProposalCreated(BlockNumber.First, oneRequestOrderingBlock)
         )
         // verifies that no ModuleRef receives any messages from Consensus
         succeed

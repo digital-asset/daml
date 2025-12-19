@@ -8,8 +8,7 @@ import io.circe.parser.*
 import org.slf4j.{Logger, LoggerFactory}
 
 import java.time.Instant
-import scala.util.Try
-import scala.util.control.NonFatal
+import scala.util.{Failure, Success, Try}
 
 /** All the JWT payloads that can be used with the JWT auth service. */
 sealed abstract class AuthServiceJWTPayload extends Product with Serializable
@@ -170,9 +169,10 @@ object AuthServiceJWTCodec {
   // ------------------------------------------------------------------------------------------------------------------
   // Decoding
   // ------------------------------------------------------------------------------------------------------------------
-  def readAudienceBasedToken(value: Json): AuthServiceJWTPayload =
-    value.asObject match {
-      case Some(obj) =>
+  def readAudienceBasedToken(value: Json): Either[String, AuthServiceJWTPayload] =
+    value.asObject
+      .toRight(s"Could not read ${value.spaces2} as AuthServiceJWTPayload: value is not an object")
+      .map { obj =>
         val fields = obj.toMap
         StandardJWTPayload(
           issuer = readOptionalString(propIss, fields),
@@ -183,15 +183,12 @@ object AuthServiceJWTCodec {
           audiences = readOptionalStringOrArray(propAud, fields),
           scope = readAndCombineScopes(fields),
         )
-      case None =>
-        throw new RuntimeException(
-          s"Could not read ${value.spaces2} as AuthServiceJWTPayload: value is not an object"
-        )
-    }
+      }
 
-  def readScopeBasedToken(value: Json): AuthServiceJWTPayload =
-    value.asObject match {
-      case Some(obj) =>
+  def readScopeBasedToken(value: Json): Either[String, AuthServiceJWTPayload] =
+    value.asObject
+      .toRight(s"Could not read ${value.noSpaces} as AuthServiceJWTPayload: value is not an object")
+      .map { obj =>
         val fields = obj.toMap
         StandardJWTPayload(
           issuer = readOptionalString(propIss, fields),
@@ -202,19 +199,16 @@ object AuthServiceJWTCodec {
           audiences = readOptionalStringOrArray(propAud, fields),
           scope = readAndCombineScopes(fields),
         )
-      case None =>
-        throw new RuntimeException(
-          s"Could not read ${value.noSpaces} as AuthServiceJWTPayload: value is not an object"
-        )
-    }
+      }
 
-  def readFromString(value: String): Try[AuthServiceJWTPayload] =
-    for {
-      json <- parse(value).left.map(new RuntimeException(_)).toTry
-      parsed <- Try(readPayload(json))
-    } yield parsed
+  def readFromString(value: String): Either[RuntimeException, AuthServiceJWTPayload] =
+    parse(value).left
+      .map(_.getMessage)
+      .flatMap(readPayload)
+      .left
+      .map(message => new RuntimeException(message))
 
-  private def readPayload(value: Json): AuthServiceJWTPayload =
+  private def readPayload(value: Json): Either[String, AuthServiceJWTPayload] =
     value.asObject match {
       case Some(obj) =>
         val fields = obj.toMap
@@ -232,22 +226,24 @@ object AuthServiceJWTCodec {
             .map(_.substring(audPrefix.length))
             .filter(_.nonEmpty) match {
             case participantId :: Nil =>
-              StandardJWTPayload(
-                issuer = readOptionalString(propIss, fields),
-                participantId = Some(participantId),
-                userId = readString(propSub, fields), // guarded by if-clause above
-                exp = readInstant(propExp, fields),
-                format = StandardJWTTokenFormat.Audience,
-                audiences =
-                  List.empty, // we do not read or extract audience claims for ParticipantId-based tokens
-                scope = readAndCombineScopes(fields),
+              Right(
+                StandardJWTPayload(
+                  issuer = readOptionalString(propIss, fields),
+                  participantId = Some(participantId),
+                  userId = readString(propSub, fields), // guarded by if-clause above
+                  exp = readInstant(propExp, fields),
+                  format = StandardJWTTokenFormat.Audience,
+                  audiences =
+                    List.empty, // we do not read or extract audience claims for ParticipantId-based tokens
+                  scope = readAndCombineScopes(fields),
+                )
               )
             case Nil =>
-              throw new RuntimeException(
+              Left(
                 s"Could not read ${value.noSpaces} as AuthServiceJWTPayload: `aud` must include participantId value prefixed by $audPrefix"
               )
             case _ =>
-              throw new RuntimeException(
+              Left(
                 s"Could not read ${value.noSpaces} as AuthServiceJWTPayload: `aud` must include a single participantId value prefixed by $audPrefix"
               )
           }
@@ -255,31 +251,36 @@ object AuthServiceJWTCodec {
           // We support the tokens with scope containing `daml_ledger_api`.
           // `aud` field is interpreted as the participantId and may be validated by the apis authorizer for
           // conformance with actual participantId.
-          val participantId = audienceValue match {
-            case id :: Nil => Some(id)
-            case Nil => None
+          val participantIdE = audienceValue match {
+            case id :: Nil => Right(Some(id))
+            case Nil => Right(None)
             case _ =>
-              throw new RuntimeException(
+              Left(
                 s"Could not read ${value.noSpaces} as AuthServiceJWTPayload: `aud` must be empty or a single participantId."
               )
           }
-          StandardJWTPayload(
-            issuer = readOptionalString(propIss, fields),
-            participantId = participantId,
-            userId = readString(propSub, fields),
-            exp = readInstant(propExp, fields),
-            format = StandardJWTTokenFormat.Scope,
-            audiences =
-              List.empty, // we do not read or extract audience claims for Scope-based tokens
-            scope = Some(scopeLedgerApiFull),
-          )
-        } else
-          throw new RuntimeException(
+          participantIdE
+            .map(participantId =>
+              StandardJWTPayload(
+                issuer = readOptionalString(propIss, fields),
+                participantId = participantId,
+                userId = readString(propSub, fields),
+                exp = readInstant(propExp, fields),
+                format = StandardJWTTokenFormat.Scope,
+                audiences =
+                  List.empty, // we do not read or extract audience claims for Scope-based tokens
+                scope = Some(scopeLedgerApiFull),
+              )
+            )
+
+        } else {
+          Left(
             s"Access token with unknown scope \"${scopes.mkString}\". Issue tokens with adjusted or no scope to get rid of this warning."
           )
+        }
 
       case None =>
-        throw new RuntimeException(
+        Left(
           s"Could not read ${value.noSpaces} as AuthServiceJWTPayload: value is not an object"
         )
     }
@@ -355,33 +356,28 @@ object AuthServiceJWTCodec {
   // ------------------------------------------------------------------------------------------------------------------
   // Implicits that can be imported to write JSON
   // ------------------------------------------------------------------------------------------------------------------
-  object JsonImplicits {
-    implicit val authServiceJWTPayloadEncoder: Encoder[AuthServiceJWTPayload] =
-      Encoder.instance(v => writePayload(v))
-    implicit val authServiceJWTPayloadDecoder: Decoder[AuthServiceJWTPayload] = Decoder.instance {
-      c =>
-        try Right(readPayload(c.value))
-        catch { case NonFatal(e) => Left(DecodingFailure(e.getMessage, Nil)) }
-    }
-  }
+  object JsonImplicits extends AuthServiceJWTPayloadCodec(writePayload, readPayload)
 
-  object AudienceBasedTokenJsonImplicits {
-    implicit val authServiceJWTPayloadEncoder: Encoder[AuthServiceJWTPayload] =
-      Encoder.instance(v => writeAudienceBasedPayload(v))
-    implicit val authServiceJWTPayloadDecoder: Decoder[AuthServiceJWTPayload] = Decoder.instance {
-      c =>
-        try Right(readAudienceBasedToken(c.value))
-        catch { case NonFatal(e) => Left(DecodingFailure(e.getMessage, Nil)) }
-    }
-  }
+  object AudienceBasedTokenJsonImplicits
+      extends AuthServiceJWTPayloadCodec(writeAudienceBasedPayload, readAudienceBasedToken)
 
-  object ScopeBasedTokenJsonImplicits {
+  object ScopeBasedTokenJsonImplicits
+      extends AuthServiceJWTPayloadCodec(writeScopeBasedPayload, readScopeBasedToken)
+
+  abstract class AuthServiceJWTPayloadCodec(
+      writeToken: AuthServiceJWTPayload => Json,
+      readToken: Json => Either[String, AuthServiceJWTPayload],
+  ) {
     implicit val authServiceJWTPayloadEncoder: Encoder[AuthServiceJWTPayload] =
-      Encoder.instance(v => writeScopeBasedPayload(v))
-    implicit val authServiceJWTPayloadDecoder: Decoder[AuthServiceJWTPayload] = Decoder.instance {
-      c =>
-        try Right(readScopeBasedToken(c.value))
-        catch { case NonFatal(e) => Left(DecodingFailure(e.getMessage, Nil)) }
-    }
+      Encoder.instance(writeToken)
+
+    implicit val authServiceJWTPayloadDecoder: Decoder[AuthServiceJWTPayload] =
+      Decoder.instance { c =>
+        Try(readToken(c.value)) match {
+          case Failure(exception) => Left(DecodingFailure(exception.getMessage, Nil))
+          case Success(Left(parsingError)) => Left(DecodingFailure(parsingError, Nil))
+          case Success(Right(parsedBody)) => Right(parsedBody)
+        }
+      }
   }
 }

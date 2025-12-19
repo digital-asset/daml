@@ -23,6 +23,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BftKeyId,
   BftNodeId,
+  BlockNumber,
   EpochNumber,
   ViewNumber,
 }
@@ -244,17 +245,17 @@ private[availability] trait AvailabilityModuleTestUtils { self: BftSequencerBase
     ).complete(ProofOfAvailabilityNode0AckNode0InTopology.acks)
   protected val ABatchProposalNode0VoteNode0InTopology =
     Consensus.LocalAvailability.ProposalCreated(
+      BlockNumber.First,
       OrderingBlock(
         Seq(ProofOfAvailabilityNode0AckNode0InTopology)
       ),
-      EpochNumber.First,
     )
   protected val ABatchProposalNode0VoteNodes0To2InTopology =
     Consensus.LocalAvailability.ProposalCreated(
+      BlockNumber.First,
       OrderingBlock(
         Seq(ProofOfAvailabilityNode0AckNode0To2InTopology)
       ),
-      EpochNumber.First,
     )
   protected val ProofOfAvailabilityNode0And1VotesNodes0And1InTopology = ProofOfAvailability(
     ABatchId,
@@ -281,16 +282,16 @@ private[availability] trait AvailabilityModuleTestUtils { self: BftSequencerBase
     AnotherBatchId -> InProgressBatchMetadata(Traced(AnotherBatchId), anEpochNumber, ABatch.stats)
       .complete(ProofOfAvailability6NodesQuorumVotesNodes0And4To6InTopology.acks)
   protected val ABatchProposalNode0And1Votes = Consensus.LocalAvailability.ProposalCreated(
+    BlockNumber.First,
     OrderingBlock(
       Seq(ProofOfAvailabilityNode0And1VotesNodes0And1InTopology)
     ),
-    EpochNumber.First,
   )
   protected val ABatchProposal4NodesQuorumVotes = Consensus.LocalAvailability.ProposalCreated(
+    BlockNumber.First,
     OrderingBlock(
       Seq(ProofOfAvailability4NodesQuorumVotesNodes0To3InTopology)
     ),
-    EpochNumber.First,
   )
   protected val AMissingBatchStatusNode1And2AcksWithNode1ToTry =
     MissingBatchStatus(
@@ -316,8 +317,8 @@ private[availability] trait AvailabilityModuleTestUtils { self: BftSequencerBase
       .copy(mode = OrderedBlockForOutput.Mode.FromStateTransfer)
   protected val AToBeProvidedToConsensus =
     ToBeProvidedToConsensus(
+      BlockNumber.First,
       BftBlockOrdererConfig.DefaultMaxBatchesPerProposal,
-      EpochNumber.First,
     )
   protected val Node0To6 = (0 to 6).map(node).toSet
   protected val OrderingTopologyNodes0To6 = OrderingTopology.forTesting(Node0To6)

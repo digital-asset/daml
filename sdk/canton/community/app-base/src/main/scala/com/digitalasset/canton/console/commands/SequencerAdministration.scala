@@ -116,9 +116,15 @@ class SequencerAdministration(node: SequencerReference) extends ConsoleCommandGr
     }
 
   @Help.Summary(
-    "Initialize a sequencer from the beginning of the event stream. This should only be called for " +
-      "sequencer nodes being initialized at the same time as the corresponding synchronizer node. " +
-      "This is called as part of the synchronizer.setup.bootstrap command, so you are unlikely to need to call this directly."
+    "Initialize a sequencer from the beginning of the event stream"
+  )
+  @Help.Description(
+    """This should only be called for sequencer nodes being initialized at the same time as the
+      |corresponding synchronizer node.
+      |
+      |This is called as part of the synchronizer.setup.bootstrap command, so you are unlikely
+      |to need to call this directly.
+      """"
   )
   def assign_from_genesis_state(
       genesisState: ByteString,
@@ -138,9 +144,15 @@ class SequencerAdministration(node: SequencerReference) extends ConsoleCommandGr
   }
 
   @Help.Summary(
-    "Initialize a sequencer from the beginning of the event stream. This should only be called for " +
-      "sequencer nodes being initialized at the same time as the corresponding synchronizer node. " +
-      "This is called as part of the synchronizer.setup.bootstrap command, so you are unlikely to need to call this directly."
+    "Initialize a sequencer from the beginning of the event stream"
+  )
+  @Help.Description(
+    """This should only be called for sequencer nodes being initialized at the same time as the
+      |corresponding synchronizer node.
+      |
+      |This is called as part of the synchronizer.setup.bootstrap command, so you are unlikely
+      |to need to call this directly.
+      """"
   )
   def assign_from_genesis_stateV2(
       genesisState: ByteString,
@@ -180,7 +192,7 @@ class SequencerAdministration(node: SequencerReference) extends ConsoleCommandGr
   }
 
   @Help.Summary(
-    "Dynamically initialize a sequencer from a point later than the beginning of the event stream."
+    "Dynamically initialize a sequencer from a point later than the beginning of the event stream"
   )
   def assign_from_onboarding_state(
       onboardingState: ByteString,
@@ -197,7 +209,7 @@ class SequencerAdministration(node: SequencerReference) extends ConsoleCommandGr
   }
 
   @Help.Summary(
-    "Dynamically initialize a sequencer from a point later than the beginning of the event stream."
+    "Dynamically initialize a sequencer from a point later than the beginning of the event stream"
   )
   def assign_from_onboarding_stateV2(
       onboardingState: ByteString,

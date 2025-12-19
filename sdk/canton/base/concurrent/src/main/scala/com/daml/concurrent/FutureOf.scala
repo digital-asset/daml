@@ -3,28 +3,29 @@
 
 package com.daml.concurrent
 
+import scalaz.std.scalaFuture.*
+import scalaz.{Catchable, Cobind, Isomorphism, Leibniz, MonadError, Nondeterminism, Semigroup}
+
+import scala.concurrent as sc
 import scala.language.implicitConversions
-import scala.{concurrent => sc}
 import scala.util.Try
 
-import scalaz.{Catchable, Cobind, Isomorphism, Leibniz, MonadError, Nondeterminism, Semigroup}
 import Isomorphism.<~>
 import Leibniz.===
-import scalaz.std.scalaFuture._
 
 sealed abstract class FutureOf {
 
   /** We don't use [[scala.concurrent.Future]] as the upper bound because it has methods that
-    * collide with the versions we want to use, i.e. those that preserve the
-    * phantom `EC` type parameter.  By contrast, [[scala.concurrent.Awaitable]] has only the
-    * `ready` and `result` methods, which are mostly useless.
+    * collide with the versions we want to use, i.e. those that preserve the phantom `EC` type
+    * parameter. By contrast, [[scala.concurrent.Awaitable]] has only the `ready` and `result`
+    * methods, which are mostly useless.
     */
   type T[-EC, +A] <: sc.Awaitable[A]
   private[concurrent] def subst[F[_[+_]], EC](ff: F[sc.Future]): F[T[EC, +*]]
 }
 
-/** Instances and methods for `FutureOf`. You should not import these; instead,
-  * enable `-Xsource:2.13` and they will always be available without import.
+/** Instances and methods for `FutureOf`. You should not import these; instead, enable
+  * `-Xsource:2.13` and they will always be available without import.
   */
 object FutureOf {
   val Instance: FutureOf = new FutureOf {
@@ -62,10 +63,9 @@ object FutureOf {
       Instance.subst[Lambda[`t[+_]` => sc.Future <~> t], R](implicitly[sc.Future <~> sc.Future])
     )
 
-  /** Common methods like `map` and `flatMap` are not provided directly; instead,
-    * import the appropriate Scalaz syntax for these; `scalaz.syntax.bind._`
-    * will give you `map`, `flatMap`, and most other common choices.  Only
-    * exotic Future-specific combinators are provided here.
+  /** Common methods like `map` and `flatMap` are not provided directly; instead, import the
+    * appropriate Scalaz syntax for these; `scalaz.syntax.bind._` will give you `map`, `flatMap`,
+    * and most other common choices. Only exotic Future-specific combinators are provided here.
     */
   implicit final class Ops[-EC, +A](private val self: Future[EC, A]) extends AnyVal {
 
@@ -140,16 +140,15 @@ object FutureOf {
   /** Operations that don't refer to an ExecutionContext. */
   implicit final class NonEcOps[+A](private val self: Future[Nothing, A]) extends AnyVal {
 
-    /** Switch execution contexts for later operations.  This is not necessary if
-      * `NEC <: EC`, as the future will simply widen in those cases, or you can
-      * use `require` instead, which implies more safety.
+    /** Switch execution contexts for later operations. This is not necessary if `NEC <: EC`, as the
+      * future will simply widen in those cases, or you can use `require` instead, which implies
+      * more safety.
       */
     def changeExecutionContext[NEC]: Future[NEC, A] =
       swapExecutionContext[Nothing, NEC].to(self)
 
-    /** The "unsafe" conversion to Future.  Does nothing itself, but removes
-      * the control on which [[scala.concurrent.ExecutionContext]] is used for later
-      * operations.
+    /** The "unsafe" conversion to Future. Does nothing itself, but removes the control on which
+      * [[scala.concurrent.ExecutionContext]] is used for later operations.
       */
     def removeExecutionContext: sc.Future[A] =
       self.changeExecutionContext[Any].asScala
@@ -162,9 +161,8 @@ object FutureOf {
   /** Operations safe if the Future is set to any ExecutionContext. */
   implicit final class AnyOps[+A](private val self: Future[Any, A]) extends AnyVal {
 
-    /** The "safe" conversion to Future.  `EC = Any` already means "use any
-      * ExecutionContext", so there is little harm in restating that by
-      * referring directly to [[scala.concurrent.Future]].
+    /** The "safe" conversion to Future. `EC = Any` already means "use any ExecutionContext", so
+      * there is little harm in restating that by referring directly to [[scala.concurrent.Future]].
       */
     def asScala: sc.Future[A] = `future is any type`[A].flip(self)
   }

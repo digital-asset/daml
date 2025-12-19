@@ -13,6 +13,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data.AvailabilityStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BftNodeId,
+  BlockNumber,
   EpochNumber,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.{
@@ -450,9 +451,10 @@ object Availability {
   sealed trait Consensus[+E] extends LocalProtocolMessage[E]
   object Consensus {
     final case class CreateProposal[E <: Env[E]](
-        orderingTopology: OrderingTopology,
-        cryptoProvider: CryptoProvider[E],
-        epochNumber: EpochNumber,
+        forBlock: BlockNumber,
+        currentEpochNumber: EpochNumber,
+        currentOrderingTopology: OrderingTopology,
+        currentCryptoProvider: CryptoProvider[E],
         orderedBatchIds: Seq[BatchId] = Seq.empty,
     ) extends Consensus[E]
 

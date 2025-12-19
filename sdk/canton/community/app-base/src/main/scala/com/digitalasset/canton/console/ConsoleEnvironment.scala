@@ -321,10 +321,8 @@ class ConsoleEnvironment(
         Help.Item(
           "help",
           None,
-          Help.Summary(
-            "Help with console commands; type help(\"<command>\") for detailed help for <command>"
-          ),
-          Help.Description(""),
+          Help.Summary("Help with console commands"),
+          Help.Description("Type help(\"<command>\") for detailed help for <command>."),
           Help.Topic(Help.defaultTopLevelTopic),
         ),
       ) :+
