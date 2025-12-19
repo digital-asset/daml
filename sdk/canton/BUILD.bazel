@@ -33,8 +33,6 @@ load("//language-support/java:javaopts.bzl", "da_java_bindings_javacopts")
 load("//language-support/java/codegen:codegen.bzl", "dar_to_java")
 load("//rules_daml:daml.bzl", "daml_compile")
 
-### build-info ###
-
 canton_scalacopts = ["-Xsource:3-cross"]
 
 genrule(
@@ -1922,19 +1920,6 @@ da_scala_library(
     deps = [
         "@maven//:io_grpc_grpc_stub",
     ],
-)
-
-da_scala_library(
-    name = "build-info",
-    srcs = glob(["base/build-info/src/main/scala/**/*.scala"]),
-    resources = [
-        "//:mvn_version_file",
-    ],
-    tags = ["maven_coordinates=com.daml:build-info:__VERSION__"],
-    visibility = [
-        "//:__subpackages__",
-    ],
-    deps = [],
 )
 
 da_scala_library(

@@ -52,7 +52,7 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         "//canton:bindings-java",
-        "//canton:build-info",
+        "//language-support/build-info",
         "//canton:nonempty",
         "//daml-lf/api-type-signature",
         "//daml-lf/archive:daml_lf_archive_proto_java",

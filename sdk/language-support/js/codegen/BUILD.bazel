@@ -34,7 +34,7 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:codegen-js-lib:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        "//canton:build-info",
+        "//language-support/build-info",
         "//daml-lf/api-type-signature",
         "//daml-lf/archive:daml_lf_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
