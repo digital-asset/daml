@@ -735,7 +735,10 @@ class SequencerNodeBootstrap(
           authenticationServices = {
             val authenticationService = memberAuthServiceFactory.createAndSubscribe(
               syncCryptoForAuthentication,
-              new MemberAuthenticationStore(),
+              new MemberAuthenticationStore(
+                parameters.maxAuthTokensPerMember,
+                loggerFactory,
+              ),
               // closing the subscription when the token expires will force the client to try to reconnect
               // immediately and notice it is unauthenticated, which will cause it to also start re-authenticating
               // it's important to disconnect the member AFTER we expired the token, as otherwise, the member

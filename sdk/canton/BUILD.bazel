@@ -33,8 +33,6 @@ load("//language-support/java:javaopts.bzl", "da_java_bindings_javacopts")
 load("//language-support/java/codegen:codegen.bzl", "dar_to_java")
 load("//rules_daml:daml.bzl", "daml_compile")
 
-### build-info ###
-
 canton_scalacopts = ["-Xsource:3-cross"]
 
 genrule(
@@ -1821,18 +1819,6 @@ da_scala_test_suite(
     ],
 )
 
-da_scala_library(
-    name = "auth-utils",
-    srcs = glob(["base/auth-utils/src/main/scala/**/*.scala"]),
-    tags = ["maven_coordinates=com.daml:auth-utils:__VERSION__"],
-    visibility = [
-        "//visibility:public",
-    ],
-    deps = [
-        "@maven//:org_slf4j_slf4j_api",
-    ],
-)
-
 da_java_library(
     name = "rs-grpc-bridge",
     srcs = glob(["base/rs-grpc-bridge/src/main/java/**/*.java"]),
@@ -1934,19 +1920,6 @@ da_scala_library(
     deps = [
         "@maven//:io_grpc_grpc_stub",
     ],
-)
-
-da_scala_library(
-    name = "build-info",
-    srcs = glob(["base/build-info/src/main/scala/**/*.scala"]),
-    resources = [
-        "//:mvn_version_file",
-    ],
-    tags = ["maven_coordinates=com.daml:build-info:__VERSION__"],
-    visibility = [
-        "//:__subpackages__",
-    ],
-    deps = [],
 )
 
 da_scala_library(
@@ -2187,16 +2160,6 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         "//canton:scala-utils",
-    ],
-)
-
-da_scala_library(
-    name = "fs-utils",
-    srcs = glob(["base/fs-utils/src/main/scala/**/*.scala"]),
-    tags = ["maven_coordinates=com.daml:fs-utils:__VERSION__"],
-    visibility = ["//visibility:public"],
-    deps = [
-        "//canton:resources",
     ],
 )
 
