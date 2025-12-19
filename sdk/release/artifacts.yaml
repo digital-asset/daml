@@ -89,7 +89,7 @@
   type: jar-scala
 - target: //ledger-service/utils:utils
   type: jar-scala
-- target: //canton:auth-utils
+- target: //daml-script/auth-utils:auth-utils
   type: jar-scala
 - target: //canton:build-info
   type: jar-scala

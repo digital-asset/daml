@@ -1821,18 +1821,6 @@ da_scala_test_suite(
     ],
 )
 
-da_scala_library(
-    name = "auth-utils",
-    srcs = glob(["base/auth-utils/src/main/scala/**/*.scala"]),
-    tags = ["maven_coordinates=com.daml:auth-utils:__VERSION__"],
-    visibility = [
-        "//visibility:public",
-    ],
-    deps = [
-        "@maven//:org_slf4j_slf4j_api",
-    ],
-)
-
 da_java_library(
     name = "rs-grpc-bridge",
     srcs = glob(["base/rs-grpc-bridge/src/main/java/**/*.java"]),
