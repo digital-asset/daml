@@ -30,7 +30,7 @@ da_scala_library(
         "//canton:base_daml-tls",
         "//canton:community_ledger_ledger-common",
         "//canton:community_util-observability",
-        "//canton:fs-utils",
+        "//test-common/canton/fs-utils",
         "//canton:ledger-resources",
         "//canton:ports",
         "//canton:resources",

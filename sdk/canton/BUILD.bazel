@@ -2164,16 +2164,6 @@ da_scala_library(
 )
 
 da_scala_library(
-    name = "fs-utils",
-    srcs = glob(["base/fs-utils/src/main/scala/**/*.scala"]),
-    tags = ["maven_coordinates=com.daml:fs-utils:__VERSION__"],
-    visibility = ["//visibility:public"],
-    deps = [
-        "//canton:resources",
-    ],
-)
-
-da_scala_library(
     name = "http-test-utils",
     srcs = glob(["base/http-test-utils/src/main/scala/**/*.scala"]),
     scala_deps = [
