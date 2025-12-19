@@ -532,7 +532,7 @@ class ParticipantNodeBootstrap(
                 postProcessor = inFlightSubmissionTracker
                   .processPublications(_)(_)
                   .failOnShutdownTo(
-                    // This will be throw in the Indexer pekko-stream pipeline, and handled gracefully there
+                    // This will be thrown in the Indexer pekko-stream pipeline, and handled gracefully there
                     new RuntimeException("Post processing aborted due to shutdown")
                   ),
                 sequentialPostProcessor = sequentialPostProcessor,

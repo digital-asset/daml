@@ -263,6 +263,26 @@ class IndexerState(
         Future.failed(new RepairInProgress(repairDone))
     }
 
+  def waitForFirstSuccessfulIndexerInitialization: Future[Unit] =
+    withStateUnlessShutdown {
+      case Normal(recoveringQueue, _) =>
+        logger.info("Waiting for first successful initialization of the indexer")
+        recoveringQueue.firstSuccessfulConsumerInitialization
+          .transform(
+            _ => logger.info("Indexer initialized"),
+            failure => {
+              logger.info(
+                "Waiting for first successful initialization of the indexer failed",
+                failure,
+              )
+              failure
+            },
+          )
+
+      case Repair(_, repairDone, _) =>
+        Future.failed(new RepairInProgress(repairDone))
+    }
+
   private def withState[T](f: State => T): T =
     blocking(synchronized(f(state)))
 

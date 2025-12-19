@@ -176,7 +176,7 @@ class MemberAuthenticationService(
   ): Either[AuthenticationError, StoredAuthenticationToken] =
     for {
       _ <- correctSynchronizer(member, intendedSynchronizerId)
-      validTokenO = store.fetchTokens(member).filter(_.expireAt > clock.now).find(_.token == token)
+      validTokenO = store.tokenForMemberAt(member, token, clock.now)
       validToken <- validTokenO.toRight(MissingToken(member)).leftWiden[AuthenticationError]
     } yield validToken
 
@@ -187,13 +187,13 @@ class MemberAuthenticationService(
   ): FutureUnlessShutdown[Either[LogoutTokenDoesNotExist.type, Unit]] =
     for {
       _ <- waitForInitialized
-      storedTokenO = store.fetchToken(token)
-      res <- storedTokenO match {
+      memberO = store.fetchMemberOfTokenForInvalidation(token)
+      res <- memberO match {
         case None => FutureUnlessShutdown.pure(Left(LogoutTokenDoesNotExist))
-        case Some(storedToken) =>
+        case Some(member) =>
           // Force invalidation, whether the member is actually active or not
           invalidateAndExpire(isActiveCheck = (_: Member) => FutureUnlessShutdown.pure(false))(
-            storedToken.member
+            member
           ).map(Right(_))
       }
     } yield res

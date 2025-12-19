@@ -209,7 +209,6 @@ trait LedgerApiStaticTimeConformanceTest extends SingleVersionLedgerApiConforman
 
   "A participant with static time" can {
     "pass integration tests" in { implicit env =>
-      // TODO(i12121): Exclusions due to timeouts because with sim clock time doesn't advance on its own
       val exclusions = Seq(
         "CommandServiceIT:CSduplicateSubmitAndWaitBasic",
         "CommandServiceIT:CSduplicateSubmitAndWaitForTransactionId",

@@ -4,6 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencing.authentication
 
 import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.Nonce
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.data.CantonTimestamp
@@ -87,6 +88,24 @@ class MemberAuthenticationStoreTest extends AsyncWordSpec with BaseTest {
       p2Tokens should contain.only(p2t1)
       p3Tokens shouldBe empty
     }
+
+    "drop excess token" in {
+      val store = mk(PositiveInt.one)
+      val p1t1 = generateToken(participant1)
+      val p1t2 = generateToken(participant1)
+      List(p1t1, p1t2).foreach(store.saveToken)
+      val p1Tokens = store.fetchTokens(participant1)
+      p1Tokens shouldBe Seq(p1t2)
+      store.tokenForMemberAt(participant1, p1t1.token, defaultExpiry.minusSeconds(1)) shouldBe empty
+      store.tokenForMemberAt(
+        participant1,
+        p1t2.token,
+        defaultExpiry.minusSeconds(1),
+      ) should contain(p1t2)
+      store.tokenForMemberAt(participant1, p1t2.token, defaultExpiry) shouldBe empty
+      store.tokenForMemberAt(participant2, p1t2.token, defaultExpiry.minusSeconds(1)) shouldBe empty
+    }
+
   }
 
   "expire" should {
@@ -116,7 +135,11 @@ class MemberAuthenticationStoreTest extends AsyncWordSpec with BaseTest {
     }
   }
 
-  private def mk(): MemberAuthenticationStore = new MemberAuthenticationStore()
+  private def mk(maxItems: PositiveInt = PositiveInt.tryCreate(10)): MemberAuthenticationStore =
+    new MemberAuthenticationStore(
+      maxItems,
+      loggerFactory,
+    )
 
   private def generateToken(
       member: Member,

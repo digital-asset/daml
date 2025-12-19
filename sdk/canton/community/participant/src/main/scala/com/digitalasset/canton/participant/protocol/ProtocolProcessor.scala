@@ -330,6 +330,7 @@ abstract class ProtocolProcessor[
           tracked.changeIdHash,
           inFlightSubmission.messageId,
           newTrackingData,
+          maxSequencingTime,
         )
         .map(_ => tracked.onDefinitiveFailure)
 
