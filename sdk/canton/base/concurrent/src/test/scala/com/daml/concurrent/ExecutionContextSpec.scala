@@ -23,11 +23,11 @@ class ExecutionContextSpec extends AnyWordSpec with Matchers {
     import TestImplicits.untyped
 
     "disallow lookup" in {
-      illTyped("theEC[Animal]", ".*implicit.*")
+      illTyped("theEC[Animal]", "implicit error.*")
     }
 
     "disallow lookup, even of Any" in {
-      illTyped("theEC[Any]", ".*implicit.*")
+      illTyped("theEC[Any]", "implicit error.*")
     }
 
     "allow lookup only for untyped" in {
@@ -45,7 +45,7 @@ class ExecutionContextSpec extends AnyWordSpec with Matchers {
     }
 
     "refuse to resolve a separate subtype" in {
-      illTyped("theEC[Cat]", ".*implicit.*")
+      illTyped("theEC[Cat]", "implicit error.*")
     }
   }
 
