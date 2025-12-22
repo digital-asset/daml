@@ -26,6 +26,13 @@ Functions
 
   Prepend an element to a non\-empty list\.
 
+.. _function-da-nonempty-ltpipe-87825:
+
+`(<|) <function-da-nonempty-ltpipe-87825_>`_
+  \: a \-\> :ref:`NonEmpty <type-da-nonempty-types-nonempty-16010>` a \-\> :ref:`NonEmpty <type-da-nonempty-types-nonempty-16010>` a
+
+  Alias for ``cons``\.
+
 .. _function-da-nonempty-append-34337:
 
 `append <function-da-nonempty-append-34337_>`_
