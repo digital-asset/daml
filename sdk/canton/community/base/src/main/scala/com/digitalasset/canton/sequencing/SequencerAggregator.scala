@@ -30,8 +30,8 @@ import com.digitalasset.canton.sequencing.protocol.SignedContent
 import com.digitalasset.canton.store.SequencedEventStore.SequencedEventWithTraceContext
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.ShowUtil.*
+import com.digitalasset.canton.util.{ErrorUtil, Mutex}
 import com.google.common.annotations.VisibleForTesting
 import org.slf4j.event.Level
 
@@ -54,6 +54,7 @@ class SequencerAggregator(
     with NamedLogging
     with FlagCloseable {
 
+  private val lock = Mutex()
   private val postAggregationHandlerRef = new AtomicReference[Option[PostAggregationHandler]](None)
   def setPostAggregationHandler(postAggregationHandler: PostAggregationHandler): Unit =
     postAggregationHandlerRef
@@ -91,11 +92,9 @@ class SequencerAggregator(
     override def done: Boolean = sequenceData.view.values.forall(_.promise.isCompleted)
 
     override def run()(implicit traceContext: TraceContext): Unit =
-      blocking {
-        this.synchronized {
-          sequenceData.view.values
-            .foreach(_.promise.shutdown_())
-        }
+      lock.exclusive {
+        sequenceData.view.values
+          .foreach(_.promise.shutdown_())
       }
   }).discard
 
@@ -196,23 +195,21 @@ class SequencerAggregator(
     } else
       synchronizeWithClosing(NameOf.functionFullName)(
         try {
-          blocking {
-            this.synchronized {
-              if (cursor.forall(message.timestamp > _)) {
-                val sequencerMessageData = updatedSequencerMessageData(sequencerId, message)
-                sequenceData.put(message.timestamp, sequencerMessageData).discard
+          lock.exclusive {
+            if (cursor.forall(message.timestamp > _)) {
+              val sequencerMessageData = updatedSequencerMessageData(sequencerId, message)
+              sequenceData.put(message.timestamp, sequencerMessageData).discard
 
-                val (nextMinimumTimestamp, nextData) =
-                  sequenceData.headOption.getOrElse(
-                    (message.timestamp, sequencerMessageData)
-                  ) // returns min message.timestamp
+              val (nextMinimumTimestamp, nextData) =
+                sequenceData.headOption.getOrElse(
+                  (message.timestamp, sequencerMessageData)
+                ) // returns min message.timestamp
 
-                pushDownstreamIfConsensusIsReached(nextMinimumTimestamp, nextData)
+              pushDownstreamIfConsensusIsReached(nextMinimumTimestamp, nextData)
 
-                sequencerMessageData.promise.futureUS.map(_.map(_ == sequencerId))
-              } else
-                FutureUnlessShutdown.pure(Right(false))
-            }
+              sequencerMessageData.promise.futureUS.map(_.map(_ == sequencerId))
+            } else
+              FutureUnlessShutdown.pure(Right(false))
           }
         } catch {
           case t: Throwable =>
@@ -266,8 +263,8 @@ class SequencerAggregator(
 
   def changeMessageAggregationConfig(
       newConfig: MessageAggregationConfig
-  ): Unit = blocking {
-    this.synchronized {
+  ): Unit =
+    lock.exclusive {
       configRef.set(newConfig)
       sequenceData.headOption.foreach { case (nextMinimumTimestamp, nextData) =>
         pushDownstreamIfConsensusIsReached(
@@ -276,7 +273,6 @@ class SequencerAggregator(
         )
       }
     }
-  }
 }
 
 object SequencerAggregator {

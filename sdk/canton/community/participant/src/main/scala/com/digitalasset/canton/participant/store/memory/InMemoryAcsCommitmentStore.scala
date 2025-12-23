@@ -30,8 +30,8 @@ import com.digitalasset.canton.protocol.messages.{
 import com.digitalasset.canton.store.memory.InMemoryPrunableByTime
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.collection.IterableUtil.Ops
+import com.digitalasset.canton.util.{ErrorUtil, Mutex}
 
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import scala.annotation.tailrec
@@ -53,9 +53,11 @@ class InMemoryAcsCommitmentStore(
   private val computed
       : TrieMap[ParticipantId, Map[CommitmentPeriod, AcsCommitment.HashedCommitmentType]] =
     TrieMap.empty
+  private val lockComputed = new Mutex()
 
   private val received: TrieMap[ParticipantId, Set[SignedProtocolMessage[AcsCommitment]]] =
     TrieMap.empty
+  private val lockReceived = new Mutex()
 
   private val lastComputed: AtomicReference[Option[CantonTimestampSecond]] =
     new AtomicReference(None)
@@ -72,8 +74,8 @@ class InMemoryAcsCommitmentStore(
   override def storeComputed(
       items: NonEmpty[Seq[AcsCommitmentStore.ParticipantCommitmentData]]
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
-    blocking {
-      computed.synchronized {
+    {
+      lockComputed.exclusive {
         items.toList.foreach { case item =>
           val ParticipantCommitmentData(counterParticipant, period, commitment) = item
           val oldMap = computed.getOrElse(counterParticipant, Map.empty)
@@ -108,8 +110,8 @@ class InMemoryAcsCommitmentStore(
   override def storeReceived(
       commitment: SignedProtocolMessage[AcsCommitment]
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
-    blocking {
-      received.synchronized {
+    {
+      lockReceived.exclusive {
         val sender = commitment.message.sender
         val old = received.getOrElse(sender, Set.empty)
         received.update(sender, old + commitment)
@@ -335,14 +337,14 @@ class InMemoryIncrementalCommitments(
   private val reinitStarted: AtomicReference[Option[CantonTimestamp]] = new AtomicReference(None)
   private val reinitCompleted: AtomicReference[Option[CantonTimestamp]] = new AtomicReference(None)
 
-  private object lock
+  private val lock = new Mutex()
 
   private def updateSnap(
       rt: RecordTime,
       updates: Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
       deletes: Set[SortedSet[LfPartyId]],
   ): Unit = blocking {
-    lock.synchronized {
+    lock.exclusive {
       this.rt.set(rt)
       snap --= deletes
       snap ++= updates
@@ -355,7 +357,7 @@ class InMemoryIncrementalCommitments(
       updates: Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
       deletes: Set[SortedSet[LfPartyId]],
   ): Unit = blocking {
-    lock.synchronized {
+    lock.exclusive {
       this.checkpointRt.set(rt)
       checkpointSnap --= deletes
       checkpointSnap ++= updates
@@ -407,7 +409,7 @@ class InMemoryIncrementalCommitments(
       traceContext: TraceContext
   ): FutureUnlessShutdown[ReinitializationStatus] = {
     val (started, completed) = blocking {
-      lock.synchronized {
+      lock.exclusive {
         (reinitStarted.get(), reinitCompleted.get())
       }
     }
@@ -425,7 +427,7 @@ class InMemoryIncrementalCommitments(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Boolean] = {
     val completedSuccessfully = blocking {
-      lock.synchronized {
+      lock.exclusive {
         val changeConditionMet = reinitStarted.get().contains(timestamp)
         if (changeConditionMet) {
           reinitCompleted.set(Some(timestamp))
@@ -451,10 +453,10 @@ class InMemoryCommitmentQueue(implicit val ec: ExecutionContext) extends Commitm
         .reverse
     )
 
-  private object lock
+  private val lock = new Mutex()
 
   private def sync[T](v: => T): FutureUnlessShutdown[T] = {
-    val evaluated = blocking(lock.synchronized(v))
+    val evaluated = blocking(lock.exclusive(v))
     FutureUnlessShutdown.pure(evaluated)
   }
 
