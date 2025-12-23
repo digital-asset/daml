@@ -348,6 +348,7 @@ object UseLedgerApiTestTool {
   // Ideally we'd rely on sbt and coursier to manage the dependency to avoid having to deal with  caching ourselves,
   // but these does not seem to be a straightforward way to keep the test tool off from the classpath so that the
   // fat jar contents don't interfere with canton dependencies (e.g. fastparse).
+  @SuppressWarnings(Array("com.digitalasset.canton.RequireBlocking"))
   def download(
       url: String,
       destination: File,

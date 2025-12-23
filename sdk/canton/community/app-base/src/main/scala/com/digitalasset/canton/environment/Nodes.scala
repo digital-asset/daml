@@ -31,10 +31,11 @@ import com.digitalasset.canton.synchronizer.sequencer.config.{
 }
 import com.digitalasset.canton.synchronizer.sequencer.{SequencerNode, SequencerNodeBootstrap}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.Mutex
 import com.digitalasset.canton.util.Thereafter.syntax.*
 
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 
 /** Group of CantonNodes of the same type (mediators, participants, sequencers). */
 trait Nodes[+Node <: CantonNode, +NodeBootstrap <: CantonNodeBootstrap[Node]]
@@ -128,6 +129,7 @@ class ManagedNodes[
     with HasCloseContext
     with FlagCloseableAsync {
 
+  private val lock = new Mutex()
   private val nodes = TrieMap[InstanceName, ManagedNodeStage[NodeBootstrap]]()
   override def names(): Seq[InstanceName] = configs.keys.toSeq
 
@@ -259,8 +261,8 @@ class ManagedNodes[
       params = parametersFor(name)
     } yield (config, params)
 
-  override def migrateDatabase(name: InstanceName): Either[StartupError, Unit] = blocking(
-    synchronized {
+  override def migrateDatabase(name: InstanceName): Either[StartupError, Unit] = (
+    lock.exclusive {
       for {
         cAndP <- configAndParams(name)
         (config, params) = cAndP
@@ -269,8 +271,8 @@ class ManagedNodes[
     }
   )
 
-  override def repairDatabaseMigration(name: InstanceName): Either[StartupError, Unit] = blocking(
-    synchronized {
+  override def repairDatabaseMigration(name: InstanceName): Either[StartupError, Unit] = (
+    lock.exclusive {
       for {
         cAndP <- configAndParams(name)
         (config, params) = cAndP

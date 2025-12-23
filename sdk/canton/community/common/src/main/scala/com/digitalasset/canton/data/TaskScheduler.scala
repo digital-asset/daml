@@ -26,6 +26,7 @@ import com.digitalasset.canton.util.{
   ErrorUtil,
   FutureUnlessShutdownUtil,
   FutureUtil,
+  Mutex,
   SimpleExecutionQueue,
 }
 import com.digitalasset.canton.{SequencerCounter, SequencerCounterDiscriminator}
@@ -35,7 +36,7 @@ import java.time.Duration as JDuration
 import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.tailrec
 import scala.collection.mutable
-import scala.concurrent.{ExecutionContext, Future, blocking}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.language.implicitConversions
 import scala.math.Ordering.Implicits.infixOrderingOps
 import scala.util.control.NonFatal
@@ -119,7 +120,7 @@ class TaskScheduler[Task <: TimedTask](
       crashOnFailure = exitOnFatalFailures,
     )
 
-  private[this] val lock: Object = new Object
+  private[this] val lock = new Mutex()
 
   // init metrics
   private val queueSizeGauge: CloseableGauge = metrics.taskQueue(() => taskQueue.size)
@@ -153,8 +154,8 @@ class TaskScheduler[Task <: TimedTask](
       if (noProgressDuration >= alertAfter) {
         val highWatermarkTs = highWatermark.get()
 
-        val blocked = blocking {
-          lock.synchronized {
+        val blocked =
+          lock.exclusive {
             if (taskQueue.headOption.exists(_.timestamp <= highWatermarkTs))
               taskQueue
                 .filter(_.timestamp <= highWatermarkTs)
@@ -165,7 +166,6 @@ class TaskScheduler[Task <: TimedTask](
               Set.empty
             }
           }
-        }
         if (blocked.nonEmpty) {
           logger.info(
             s"Task scheduler waits for tick of sc=${sc + 1}. The tick with sc=$sc occurred at $lastTick. " +
@@ -194,8 +194,8 @@ class TaskScheduler[Task <: TimedTask](
     *   if the `timestamp` or `sequencer counter` of the task is earlier than to where the task
     *   scheduler has already progressed
     */
-  def scheduleTask(task: Task): Unit = blocking {
-    lock.synchronized {
+  def scheduleTask(task: Task): Unit =
+    lock.exclusive {
       implicit val traceContext: TraceContext = task.traceContext
       if (task.timestamp <= latestPolledTimestamp.get) {
         ErrorUtil.internalError(
@@ -216,7 +216,6 @@ class TaskScheduler[Task <: TimedTask](
       logger.trace(s"Adding task $task to the task scheduler.")
       taskQueue.enqueue(Right(task))
     }
-  }
 
   /** Schedule task only, if the desired timestamp is after the current latest polled timestamp.
     *
@@ -230,8 +229,8 @@ class TaskScheduler[Task <: TimedTask](
   def scheduleTaskIfLater[T <: Task](
       desiredTimestamp: CantonTimestamp,
       taskFactory: CantonTimestamp => T,
-  ): Either[CantonTimestamp, T] = blocking {
-    lock.synchronized {
+  ): Either[CantonTimestamp, T] =
+    lock.exclusive {
       val polledTimestamp = latestPolledTimestamp.get
       if (desiredTimestamp <= polledTimestamp) {
         Left(polledTimestamp)
@@ -241,7 +240,6 @@ class TaskScheduler[Task <: TimedTask](
         Right(task)
       }
     }
-  }
 
   /** Scheduling a task immediately. This does not mean it will be executed immediately: all
     * preceding tasks will finish executing first.
@@ -255,8 +253,8 @@ class TaskScheduler[Task <: TimedTask](
   def scheduleTaskImmediately(
       taskFactory: CantonTimestamp => FutureUnlessShutdown[Unit],
       taskTraceContext: TraceContext,
-  ): CantonTimestamp = blocking {
-    lock.synchronized {
+  ): CantonTimestamp =
+    lock.exclusive {
       val currentTimestamp = latestPolledTimestamp.get()
       implicit val traceContext: TraceContext = taskTraceContext
       logger.trace(s"Adding task to the task scheduler immediately ($currentTimestamp).")
@@ -269,7 +267,6 @@ class TaskScheduler[Task <: TimedTask](
       )
       currentTimestamp
     }
-  }
 
   /** Schedules a new barrier at the given timestamp.
     *
@@ -280,8 +277,8 @@ class TaskScheduler[Task <: TimedTask](
     */
   def scheduleBarrierUS(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): Option[FutureUnlessShutdown[Unit]] = blocking {
-    lock.synchronized {
+  )(implicit traceContext: TraceContext): Option[FutureUnlessShutdown[Unit]] =
+    lock.exclusive {
       if (latestPolledTimestamp.get >= timestamp) None
       else {
         val barrierPromise = mkPromise[Unit]("task-scheduler-time-barrier", futureSupervisor)
@@ -301,7 +298,6 @@ class TaskScheduler[Task <: TimedTask](
         Some(barrierPromise.futureUS)
       }
     }
-  }
 
   /** Signals that the sequencer counter with the given timestamp has been observed.
     *
@@ -327,9 +323,9 @@ class TaskScheduler[Task <: TimedTask](
     */
   def addTick(sequencerCounter: SequencerCounter, timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Unit = blocking {
+  ): Unit =
     // We lock the whole method here because the priority queue and the peano queue are not thread-safe.
-    lock.synchronized {
+    lock.exclusive {
       logger.trace(
         s"Signalling sequencer counter $sequencerCounter at $timestamp to the task scheduler. Head is ${sequencerCounterQueue.head}"
       )
@@ -397,7 +393,6 @@ class TaskScheduler[Task <: TimedTask](
 
       performActionsAndCompleteBarriers()
     }
-  }
 
   /** The returned future completes after all tasks that can be currently performed have completed.
     * Never fails.

@@ -108,8 +108,8 @@ import scala.annotation.tailrec
 import scala.collection.concurrent.TrieMap
 import scala.collection.immutable.{Map, SortedMap, SortedSet}
 import scala.collection.mutable
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.*
-import scala.concurrent.{ExecutionContext, blocking}
 import scala.math.Ordering.Implicits.*
 
 /** Computes, sends, receives and compares ACS commitments
@@ -3203,18 +3203,19 @@ object AcsCommitmentProcessor extends HasLoggerName {
 final class DurationResizableRingBuffer(initialMaxSize: Int) {
   require(initialMaxSize >= 0, s"max size must be >= 0, got $initialMaxSize")
 
+  private val lock = new Mutex()
   private val buf = mutable.ArrayDeque.empty[java.time.Duration]
   @volatile private var maxSize: Int = initialMaxSize
 
   def capacity: Int = maxSize
 
-  def size: Int = blocking(this.synchronized(buf.size))
+  def size: Int = (lock.exclusive(buf.size))
 
-  def isEmpty: Boolean = blocking(this.synchronized(buf.isEmpty))
+  def isEmpty: Boolean = (lock.exclusive(buf.isEmpty))
 
   /** Change capacity. Drops oldest items if shrinking below current size. */
-  def setCapacity(newMaxSize: Int): Unit = blocking {
-    this.synchronized {
+  def setCapacity(newMaxSize: Int): Unit =
+    lock.exclusive {
       require(newMaxSize >= 0, s"max size must be >= 0, got $newMaxSize")
       maxSize = newMaxSize
       if (buf.sizeIs > maxSize) {
@@ -3223,22 +3224,20 @@ final class DurationResizableRingBuffer(initialMaxSize: Int) {
       }
       ()
     }
-  }
 
   /** Append one element, dropping from front if full (or no-op if capacity=0). */
-  def add(elem: java.time.Duration): Unit = blocking {
-    this.synchronized {
+  def add(elem: java.time.Duration): Unit =
+    lock.exclusive {
       if (maxSize > 0) {
         if (buf.sizeIs >= maxSize) { val _ = buf.removeHead() }
         buf.append(elem)
       }
       ()
     }
-  }
 
   /** Append many elements efficiently, dropping as needed. */
-  def addAll(elems: IterableOnce[java.time.Duration]): Unit = blocking {
-    this.synchronized {
+  def addAll(elems: IterableOnce[java.time.Duration]): Unit =
+    lock.exclusive {
       if (maxSize > 0) {
         buf.appendAll(elems)
         // keep only the last `maxSize` elements
@@ -3249,11 +3248,10 @@ final class DurationResizableRingBuffer(initialMaxSize: Int) {
       }
       ()
     }
-  }
 
   /** Compute the average Duration if this buffer stores Duration. */
-  def averageDuration(): Option[java.time.Duration] = blocking {
-    this.synchronized {
+  def averageDuration(): Option[java.time.Duration] =
+    lock.exclusive {
       if (buf.isEmpty) None
       else {
         val billion = BigInt(1_000_000_000)
@@ -3268,5 +3266,4 @@ final class DurationResizableRingBuffer(initialMaxSize: Int) {
         )
       }
     }
-  }
 }

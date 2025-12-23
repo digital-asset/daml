@@ -33,6 +33,7 @@ import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{Member, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.Mutex
 import com.digitalasset.canton.util.Thereafter.syntax.ThereafterOps
 import com.github.benmanes.caffeine.cache.Scheduler
 import com.github.blemale.scaffeine.{Cache, Scaffeine}
@@ -41,7 +42,7 @@ import com.google.common.annotations.VisibleForTesting
 import java.time.Duration
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.{ExecutionContext, Future, blocking}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Success
 
 /** Defines the methods for protocol message signing using a session signing key. This requires
@@ -168,7 +169,7 @@ class SyncCryptoSignerWithSessionKeys(
   }
 
   /** To control access to the [[sessionKeysSigningCache]] and the [[pendingRequests]]. */
-  private val lock = new Object()
+  private val lock = new Mutex()
 
   /** Creates a delegation signature that authorizes the session key to act on behalf of the
     * long-term key.
@@ -280,7 +281,7 @@ class SyncCryptoSignerWithSessionKeys(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncCryptoError, SessionKeyAndDelegation] = {
 
-    val sessionKeyOrGenerationData = blocking(lock.synchronized {
+    val sessionKeyOrGenerationData = (lock.exclusive {
       // get hold of all existing or pending session keys
       val pendingSessionKeys = pendingRequests.toMap
       val keysInCache = sessionKeysSigningCache.asMap().values.toSeq

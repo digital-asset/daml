@@ -18,11 +18,11 @@ import com.digitalasset.canton.participant.event.RecordTime
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.CommitmentSnapshot
 import com.digitalasset.canton.platform.store.interning.StringInterning
 import com.digitalasset.canton.protocol.messages.AcsCommitment.CommitmentType
+import com.digitalasset.canton.util.Mutex
 import com.digitalasset.canton.{InternedPartyId, LfPartyId, lfPartyOrdering}
 
 import scala.collection.concurrent.TrieMap
 import scala.collection.immutable.{Map, SortedSet}
-import scala.concurrent.blocking
 
 @SuppressWarnings(Array("org.wartremover.warts.Var"))
 abstract class GenericRunningCommitments[T: Pretty](
@@ -31,7 +31,7 @@ abstract class GenericRunningCommitments[T: Pretty](
 )(implicit ordering: Ordering[T])
     extends HasLoggerName {
 
-  private val lock = new Object
+  private val lock = new Mutex()
   @volatile private var rt: RecordTime = initRt
   private val deltaB = Map.newBuilder[SortedSet[T], LtHash16]
 
@@ -54,8 +54,8 @@ abstract class GenericRunningCommitments[T: Pretty](
       deletedB.result()
     }
 
-    blocking {
-      lock.synchronized {
+    {
+      lock.exclusive {
         val delta = deltaB.result()
         if (gc) deltaB.clear()
         val deleted = garbageCollect(delta)
@@ -75,54 +75,50 @@ abstract class GenericRunningCommitments[T: Pretty](
   def update(rt: RecordTime, change: GenericAcsChange[T])(implicit
       loggingContext: NamedLoggingContext
   ): Unit =
-    blocking {
-      lock.synchronized {
-        this.rt = rt
-        change.activations.foreach { case (cid, stakeholdersAndReassignmentCounter) =>
-          val sortedStakeholders =
-            SortedSet(stakeholdersAndReassignmentCounter.stakeholders.toSeq*)
-          val h = commitments.getOrElseUpdate(sortedStakeholders, LtHash16())
-          AcsCommitmentProcessor.addContractToCommitmentDigest(
-            h,
-            cid,
-            stakeholdersAndReassignmentCounter.reassignmentCounter,
-          )
-          loggingContext.debug(
-            s"Adding to commitment activation cid $cid reassignmentCounter ${stakeholdersAndReassignmentCounter.reassignmentCounter}"
-          )
-          deltaB += sortedStakeholders -> h
-        }
-        change.deactivations.foreach { case (cid, stakeholdersAndReassignmentCounter) =>
-          val sortedStakeholders =
-            SortedSet(stakeholdersAndReassignmentCounter.stakeholders.toSeq*)
-          val h = commitments.getOrElseUpdate(sortedStakeholders, LtHash16())
-          AcsCommitmentProcessor.removeContractFromCommitmentDigest(
-            h,
-            cid,
-            stakeholdersAndReassignmentCounter.reassignmentCounter,
-          )
-          loggingContext.debug(
-            s"Removing from commitment deactivation cid $cid reassignmentCounter ${stakeholdersAndReassignmentCounter.reassignmentCounter}"
-          )
-          deltaB += sortedStakeholders -> h
-        }
+    lock.exclusive {
+      this.rt = rt
+      change.activations.foreach { case (cid, stakeholdersAndReassignmentCounter) =>
+        val sortedStakeholders =
+          SortedSet(stakeholdersAndReassignmentCounter.stakeholders.toSeq*)
+        val h = commitments.getOrElseUpdate(sortedStakeholders, LtHash16())
+        AcsCommitmentProcessor.addContractToCommitmentDigest(
+          h,
+          cid,
+          stakeholdersAndReassignmentCounter.reassignmentCounter,
+        )
+        loggingContext.debug(
+          s"Adding to commitment activation cid $cid reassignmentCounter ${stakeholdersAndReassignmentCounter.reassignmentCounter}"
+        )
+        deltaB += sortedStakeholders -> h
+      }
+      change.deactivations.foreach { case (cid, stakeholdersAndReassignmentCounter) =>
+        val sortedStakeholders =
+          SortedSet(stakeholdersAndReassignmentCounter.stakeholders.toSeq*)
+        val h = commitments.getOrElseUpdate(sortedStakeholders, LtHash16())
+        AcsCommitmentProcessor.removeContractFromCommitmentDigest(
+          h,
+          cid,
+          stakeholdersAndReassignmentCounter.reassignmentCounter,
+        )
+        loggingContext.debug(
+          s"Removing from commitment deactivation cid $cid reassignmentCounter ${stakeholdersAndReassignmentCounter.reassignmentCounter}"
+        )
+        deltaB += sortedStakeholders -> h
       }
     }
 
   def watermark: RecordTime = rt
 
   def reinitialize(snapshot: Map[SortedSet[T], CommitmentType], recordTime: RecordTime) =
-    blocking {
-      lock.synchronized {
-        // delete all active
-        deltaB.clear()
-        commitments.clear()
-        snapshot.foreach { case (stkhd, cmt) =>
-          commitments += stkhd -> LtHash16.tryCreate(cmt)
-          deltaB += stkhd -> LtHash16.tryCreate(cmt)
-        }
-        rt = recordTime
+    lock.exclusive {
+      // delete all active
+      deltaB.clear()
+      commitments.clear()
+      snapshot.foreach { case (stkhd, cmt) =>
+        commitments += stkhd -> LtHash16.tryCreate(cmt)
+        deltaB += stkhd -> LtHash16.tryCreate(cmt)
       }
+      rt = recordTime
     }
 }
 
