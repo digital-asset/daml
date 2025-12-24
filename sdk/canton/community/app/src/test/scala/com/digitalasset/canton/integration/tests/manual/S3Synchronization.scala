@@ -10,11 +10,11 @@ import com.digitalasset.canton.integration.tests.manual.S3Synchronization.{
   ContinuityDumpRef,
   ContinuityDumpS3Ref,
 }
+import com.digitalasset.canton.util.Mutex
 import com.digitalasset.canton.version.{ProtocolVersion, ReleaseVersion}
 import com.digitalasset.canton.{FutureHelpers, TestEssentials}
 
 import java.nio.file.Files
-import scala.concurrent.blocking
 import scala.jdk.CollectionConverters.*
 import scala.math.Ordering.Implicits.*
 import scala.sys.process.*
@@ -202,11 +202,10 @@ object S3Synchronization {
       (baseDbDumpPath / path).directory
   }
 
+  private val lock = new Mutex()
   // aws S3 sync commands don't have any locks so concurrent runs will interfere with each other
   private def runSynchronized(command: String): Int =
-    blocking {
-      synchronized {
-        command.!
-      }
+    lock.exclusive {
+      command.!
     }
 }
