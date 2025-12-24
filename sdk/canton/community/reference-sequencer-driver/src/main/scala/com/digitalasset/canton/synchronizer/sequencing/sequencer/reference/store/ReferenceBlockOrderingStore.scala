@@ -15,6 +15,7 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.reference.store
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.reference.store.v1 as proto
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.util.Mutex
 
 import scala.concurrent.{ExecutionContext, blocking}
 
@@ -60,6 +61,7 @@ class InMemoryReferenceSequencerDriverStore extends ReferenceBlockOrderingStore 
   import java.util.concurrent.ConcurrentLinkedDeque
 
   private val deque = new ConcurrentLinkedDeque[Traced[BlockFormat.OrderedRequest]]()
+  private val lock = Mutex()
 
   override def insertRequest(
       request: BlockFormat.OrderedRequest
@@ -71,7 +73,7 @@ class InMemoryReferenceSequencerDriverStore extends ReferenceBlockOrderingStore 
   private def insertRequestInternal(
       request: BlockFormat.OrderedRequest
   )(implicit traceContext: TraceContext): Unit =
-    blocking(deque.synchronized {
+    blocking(lock.exclusive {
       deque.add(Traced(request)).discard
     })
 
@@ -94,7 +96,7 @@ class InMemoryReferenceSequencerDriverStore extends ReferenceBlockOrderingStore 
   ): Seq[TimestampedBlock] =
     if (initialHeight >= 0)
       blocking(
-        deque.synchronized {
+        lock.exclusive {
           // Get the last elements up until initial height
           val iterator = deque.descendingIterator()
           val initial = math.max(initialHeight, 0)

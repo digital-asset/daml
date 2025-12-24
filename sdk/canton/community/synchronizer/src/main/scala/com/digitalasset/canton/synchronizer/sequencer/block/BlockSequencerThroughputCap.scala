@@ -20,13 +20,14 @@ import com.digitalasset.canton.synchronizer.sequencer.block.BlockSequencerThroug
 }
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.Member
+import com.digitalasset.canton.util.Mutex
 import com.google.common.annotations.VisibleForTesting
 import org.apache.pekko.actor.{Cancellable, Scheduler}
 
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import scala.collection.mutable
-import scala.concurrent.{ExecutionContext, blocking}
+import scala.concurrent.ExecutionContext
 import scala.jdk.CollectionConverters.*
 
 /** Throughput cap that functions to protect the overall availability of the sequencer network. This
@@ -62,6 +63,7 @@ class BlockSequencerThroughputCap(
     extends NamedLogging
     with AutoCloseable {
 
+  private val lock = new Mutex()
   private val perMessageTypeCaps =
     Map[SubmissionRequestType, IndividualBlockSequencerThroughputCap](
       SubmissionRequestType.ConfirmationRequest -> makeIndividualCap(
@@ -128,7 +130,7 @@ class BlockSequencerThroughputCap(
   @VisibleForTesting
   private[block] def addBlockUpdateInternal(
       submissions: Seq[SubmissionRequestEntry]
-  ): Unit = if (enabled.get()) blocking(synchronized {
+  ): Unit = if (enabled.get())(lock.exclusive {
     cancellable.foreach(_.cancel().discard)
 
     submissions.foreach { submission =>
@@ -146,7 +148,7 @@ class BlockSequencerThroughputCap(
     advanceWindow()
   })
 
-  private def advanceWindow(): Unit = blocking(synchronized {
+  private def advanceWindow(): Unit = (lock.exclusive {
     perMessageTypeCaps.values.foreach(_.advanceWindow())
     scheduleClockTick()
   })

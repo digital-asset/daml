@@ -80,10 +80,11 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.HasTestCloseContext
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.IdString
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
 
-import java.time.Duration as JDuration
+import java.time.{Duration as JDuration, Instant}
 import java.util.UUID
 import scala.annotation.nowarn
 import scala.collection.concurrent.TrieMap
@@ -101,7 +102,8 @@ sealed trait AcsCommitmentProcessorBaseTest
   protected lazy val crypto =
     SymbolicCrypto.create(testedReleaseProtocolVersion, timeouts, loggerFactory)
 
-  protected lazy val interval = PositiveSeconds.tryOfSeconds(5)
+  protected lazy val reconInterval = PositiveSeconds.tryOfSeconds(5)
+  protected lazy val checkpointInterval = PositiveSeconds.tryOfSeconds(3)
   protected lazy val synchronizerId = SynchronizerId(
     UniqueIdentifier.tryFromProtoPrimitive("synchronizer::da")
   ).toPhysical
@@ -351,7 +353,7 @@ sealed trait AcsCommitmentProcessorBaseTest
 
     val sortedReconciliationIntervalsProvider =
       overrideDefaultSortedReconciliationIntervalsProvider.getOrElse {
-        constantSortedReconciliationIntervalsProvider(interval)
+        constantSortedReconciliationIntervalsProvider(reconInterval)
       }
 
     // reset default Metrics
@@ -386,10 +388,10 @@ sealed trait AcsCommitmentProcessorBaseTest
       Some(CommitmentSendDelay(Some(NonNegativeProportion.zero), Some(NonNegativeProportion.zero))),
       increasePerceivedComputationTimeForCommitments = Option.when(
         increasePerceivedComputationTimeForCommitments
-      )(interval.duration.multipliedBy(2)),
+      )(reconInterval.duration.multipliedBy(2)),
       doNotAwaitOnCheckingIncomingCommitments = false,
       commitmentCheckpointInterval =
-        PositiveDurationSeconds.ofSeconds(interval.duration.getSeconds),
+        PositiveDurationSeconds.ofSeconds(checkpointInterval.duration.getSeconds),
       // just as for the additional consistency checks flag: if enabled, one needs to populate the above ACS
       // and contract stores correctly, otherwise the tests will fail
       commitmentMismatchDebugging = false,
@@ -888,7 +890,7 @@ class AcsCommitmentProcessorTest
         .create(
           fromExclusive.forgetRefinement,
           toInclusive.forgetRefinement,
-          reconciliationInterval.getOrElse(interval),
+          reconciliationInterval.getOrElse(reconInterval),
         )
         .value
     val payload =
@@ -1344,7 +1346,7 @@ class AcsCommitmentProcessorTest
         - Computed and received commitments are correct
        */
 
-      interval shouldBe PositiveSeconds.tryOfSeconds(5)
+      reconInterval shouldBe PositiveSeconds.tryOfSeconds(5)
 
       val timeProofs = List[Long](9, 13).map(CantonTimestamp.ofEpochSecond)
       val contractSetup = Map(
@@ -1361,7 +1363,7 @@ class AcsCommitmentProcessorTest
       )
 
       val sortedReconciliationIntervalsProvider = constantSortedReconciliationIntervalsProvider(
-        interval,
+        reconInterval,
         synchronizerBootstrappingTime = CantonTimestamp.ofEpochSecond(6),
       )
 
@@ -1410,7 +1412,7 @@ class AcsCommitmentProcessorTest
         computed.size shouldBe 1
         inside(computed.headOption.value) { case (commitmentPeriod, participantId, _) =>
           commitmentPeriod shouldBe CommitmentPeriod
-            .create(ts(10) - interval, ts(10))
+            .create(ts(10) - reconInterval, ts(10))
             .value
           participantId shouldBe remoteId1
         }
@@ -1771,6 +1773,277 @@ class AcsCommitmentProcessorTest
         assertInIntervalBefore(submission1.associatedTimestamp, reconciliationInterval)(res1)
         assertInIntervalBefore(tsCleanRequest, reconciliationInterval)(res2)
         assertInIntervalBefore(tsCleanRequest2, reconciliationInterval)(res3)
+      }
+    }
+
+    "summarize changes replayed during recovery" must {
+
+      val startTs = CantonTimestamp.MinValue
+      val timeProofs =
+        List(startTs.plusSeconds(100).addMicros(1))
+      // contract ID to stakeholders, creation and archival time
+      // this is needed simply to initialize the commitment processor in this test, but we won't actually play these changes
+      val contractSetup = Map.empty[
+        LfContractId,
+        (Set[IdString.Party], TimeOfChange, TimeOfChange, ReassignmentCounter, ReassignmentCounter),
+      ]
+
+      "cancel out activations and deactivations in batch" in {
+
+        val ts = CantonTimestamp.assertFromInstant(Instant.parse("2025-11-20T20:45:00.00Z"))
+        val (proc, store, sequencerClient, changes, _) =
+          testSetupDontPublish(
+            timeProofs,
+            contractSetup,
+            topology,
+          )
+
+        val nrContracts = 12
+        val many: Seq[(Integer, LfContractId)] = (1 to nrContracts).toList.map(n =>
+          (n, ExampleTransactionFactory.suffixedId(n % (2 ^ 16), n / (2 ^ 16)))
+        )
+        val rc = None: Option[RepairCounter]
+
+        val acsChangesTmp: Seq[(RecordTime, AcsChange)] =
+          many.take(nrContracts - 2).map { case (idx, cid) =>
+            (
+              RecordTime.fromTimeOfChange(
+                TimeOfChange(ts.plusSeconds(idx.toLong), rc)
+              ),
+              AcsChange(
+                activations = Map[LfContractId, ContractStakeholdersAndReassignmentCounter](
+                  cid ->
+                    ContractStakeholdersAndReassignmentCounter(
+                      Set(alice),
+                      ReassignmentCounter(idx % 3),
+                    )
+                ),
+                deactivations = Map.empty,
+              ),
+            )
+          } ++
+            many.takeRight(nrContracts - 2).map { case (idx, cid) =>
+              (
+                RecordTime.fromTimeOfChange(
+                  TimeOfChange(ts.plusSeconds(idx.toLong).addMicros(1))
+                ),
+                AcsChange(
+                  activations = Map.empty,
+                  deactivations = Map[LfContractId, ContractStakeholdersAndReassignmentCounter](
+                    cid ->
+                      ContractStakeholdersAndReassignmentCounter(
+                        Set(alice),
+                        ReassignmentCounter(idx % 3),
+                      )
+                  ),
+                ),
+              )
+            }: Seq[(RecordTime, AcsChange)]
+        val acsChanges: NonEmpty[Seq[(RecordTime, AcsChange)]] =
+          NonEmpty.from(acsChangesTmp).valueOrFail("acsChangesTmp must be non-empty")
+
+        for {
+          processor <- proc
+          collapsedChanges <- processor.collapseAndPublishAcsChanges(
+            acsChanges.sortBy(_._1.timestamp)
+          )
+          _ <- processChanges(processor, store, collapsedChanges.toList)
+        } yield {
+          // intervals should be 3, 5, 6, 9, 10, 12 (this will be 11+1 micros), and finally 12+1 micros
+          collapsedChanges.size shouldBe 7
+          // check that, if we collapse everything together, they all cancel out
+          val activations = scala.collection.mutable.Map
+            .empty[LfContractId, ContractStakeholdersAndReassignmentCounter]
+          val deactivations = scala.collection.mutable.Map
+            .empty[LfContractId, ContractStakeholdersAndReassignmentCounter]
+          collapsedChanges.foreach { case (_, change) =>
+            processor.addChange(change, activations, deactivations)
+          }
+          activations should contain theSameElementsAs acsChanges.toSeq
+            .take(2)
+            .map { case (_rt, change) => change.activations }
+            .foldLeft(Map.empty[LfContractId, ContractStakeholdersAndReassignmentCounter])(_ ++ _)
+
+          deactivations should contain theSameElementsAs acsChanges.toSeq
+            .takeRight(2)
+            .map { case (_rt, change) => change.deactivations }
+            .foldLeft(Map.empty[LfContractId, ContractStakeholdersAndReassignmentCounter])(_ ++ _)
+
+          // check that one interval contains what we expect - should only have a deactivation - the one initially at 6.01, and an activation
+          // the one at 9. activations and deactivations at 7, 7.01, 8, 8.01 should not be in there
+          collapsedChanges(3)._2.deactivations.map { case (cid, meta) =>
+            (cid, meta.reassignmentCounter)
+          } should contain theSameElementsAs
+            acsChanges(13)._2.deactivations.map { case (cid, meta) =>
+              (cid, meta.reassignmentCounter)
+            }
+          collapsedChanges(3)._2.activations.map { case (cid, meta) =>
+            (cid, meta.reassignmentCounter)
+          } should contain theSameElementsAs
+            acsChanges(8)._2.activations.map { case (cid, meta) => (cid, meta.reassignmentCounter) }
+        }
+      }
+
+      "work in scenario where the same contract appears with multiple activations and deactivations" in {
+        /*
+        The scenario we test is:
+        c1, t1, act
+        c1,t1 deact
+        c1,t2,act
+        c1,t2,deact
+        c1, t3, act
+         */
+
+        val (proc, store, sequencerClient, changes, _) =
+          testSetupDontPublish(
+            timeProofs,
+            contractSetup,
+            topology,
+          )
+
+        val cid = ExampleTransactionFactory.suffixedId(1, 1)
+
+        val acsChanges =
+          Seq(
+            (
+              RecordTime.fromTimeOfChange(TimeOfChange(startTs, None)),
+              AcsChange(
+                activations = Map[LfContractId, ContractStakeholdersAndReassignmentCounter](
+                  cid ->
+                    ContractStakeholdersAndReassignmentCounter(Set(alice), ReassignmentCounter(0))
+                ),
+                deactivations = Map.empty,
+              ),
+            ),
+            (
+              RecordTime.fromTimeOfChange(TimeOfChange(startTs, None)),
+              AcsChange(
+                activations = Map.empty,
+                deactivations = Map[LfContractId, ContractStakeholdersAndReassignmentCounter](
+                  cid ->
+                    ContractStakeholdersAndReassignmentCounter(Set(alice), ReassignmentCounter(0))
+                ),
+              ),
+            ),
+            (
+              RecordTime.fromTimeOfChange(
+                TimeOfChange(startTs.plusSeconds(2), Some(RepairCounter(1)))
+              ),
+              AcsChange(
+                activations = Map[LfContractId, ContractStakeholdersAndReassignmentCounter](
+                  cid ->
+                    ContractStakeholdersAndReassignmentCounter(Set(alice), ReassignmentCounter(1))
+                ),
+                deactivations = Map.empty,
+              ),
+            ),
+            (
+              RecordTime.fromTimeOfChange(
+                TimeOfChange(startTs.plusSeconds(2), Some(RepairCounter(1)))
+              ),
+              AcsChange(
+                activations = Map.empty,
+                deactivations = Map[LfContractId, ContractStakeholdersAndReassignmentCounter](
+                  cid ->
+                    ContractStakeholdersAndReassignmentCounter(Set(alice), ReassignmentCounter(1))
+                ),
+              ),
+            ),
+            (
+              RecordTime.fromTimeOfChange(
+                TimeOfChange(startTs.plusSeconds(21), Some(RepairCounter(2)))
+              ),
+              AcsChange(
+                activations = Map[LfContractId, ContractStakeholdersAndReassignmentCounter](
+                  cid ->
+                    ContractStakeholdersAndReassignmentCounter(Set(alice), ReassignmentCounter(2))
+                ),
+                deactivations = Map.empty,
+              ),
+            ),
+          )
+
+        for {
+          processor <- proc
+          collapsedChanges <- NonEmpty.from(acsChanges.sortBy(_._1.timestamp).toSeq) match {
+            case Some(value) => processor.collapseAndPublishAcsChanges(value)
+            case None => FutureUnlessShutdown.pure(Seq.empty)
+          }
+          _ <- processChanges(processor, store, collapsedChanges.toList)
+        } yield {
+          // we have two tocs: startTs.plusSeconds(2), startTs.plusSeconds(21), because startTs and startTs.plusSeconds(2)
+          // get collapsed (don't cross checkpoint or reconciliation interval)
+          collapsedChanges.size shouldBe 2
+
+          val activations = scala.collection.mutable.Map
+            .empty[LfContractId, ContractStakeholdersAndReassignmentCounter]
+          val deactivations = scala.collection.mutable.Map
+            .empty[LfContractId, ContractStakeholdersAndReassignmentCounter]
+          collapsedChanges.foreach { case (_, change) =>
+            processor.addChange(change, activations, deactivations)
+          }
+          // activations should only contain the last activation
+          activations should contain theSameElementsAs acsChanges(4)._2.activations
+          deactivations shouldBe empty
+        }
+      }
+
+      "work when restoring from ACS and have a single toc" in {
+        val (proc, store, sequencerClient, changes, _) =
+          testSetupDontPublish(
+            timeProofs,
+            contractSetup,
+            topology,
+          )
+
+        val nrContracts = 12
+        val many: Seq[(Integer, LfContractId)] = (1 to nrContracts).toList.map(n =>
+          (n, ExampleTransactionFactory.suffixedId(n % (2 ^ 16), n / (2 ^ 16)))
+        )
+
+        // all changes are activations, have the same toc, but different reassignment counters
+        val acsChanges =
+          many.take(nrContracts - 2).map { case (idx, cid) =>
+            (
+              RecordTime.fromTimeOfChange(
+                TimeOfChange(startTs, Some(RepairCounter(idx)))
+              ),
+              AcsChange(
+                activations = Map[LfContractId, ContractStakeholdersAndReassignmentCounter](
+                  cid ->
+                    ContractStakeholdersAndReassignmentCounter(
+                      Set(alice),
+                      ReassignmentCounter(idx % 3),
+                    )
+                ),
+                deactivations = Map.empty,
+              ),
+            )
+          }
+
+        for {
+          processor <- proc
+          collapsedChanges <- NonEmpty.from(acsChanges.sortBy(_._1.timestamp).toSeq) match {
+            case Some(value) => processor.collapseAndPublishAcsChanges(value)
+            case None => FutureUnlessShutdown.pure(Seq.empty)
+          }
+          _ <- processChanges(processor, store, collapsedChanges.toList)
+        } yield {
+          // we have a single toc: startTs
+          collapsedChanges.size shouldBe 1
+
+          val activations = scala.collection.mutable.Map
+            .empty[LfContractId, ContractStakeholdersAndReassignmentCounter]
+          val deactivations = scala.collection.mutable.Map
+            .empty[LfContractId, ContractStakeholdersAndReassignmentCounter]
+          collapsedChanges.foreach { case (_, change) =>
+            processor.addChange(change, activations, deactivations)
+          }
+          activations should contain theSameElementsAs acsChanges.toSeq
+            .map { case (_rt, change) => change.activations }
+            .foldLeft(Map.empty[LfContractId, ContractStakeholdersAndReassignmentCounter])(_ ++ _)
+          deactivations shouldBe empty
+        }
       }
     }
 
@@ -4349,7 +4622,7 @@ class AcsCommitmentProcessorTest
           }
 
       } yield {
-        val intervalAsMicros = interval.duration.toMillis * 1000
+        val intervalAsMicros = reconInterval.duration.toMillis * 1000
         // remoteId2 is 3 intervals behind remoteId1
         ParticipantTestMetrics.synchronizer.commitments.largestCounterParticipantLatency.getValue shouldBe 3 * intervalAsMicros
         // remoteId3 is 2 intervals behind remoteId1
@@ -4446,7 +4719,7 @@ class AcsCommitmentProcessorTest
           }
 
       } yield {
-        val intervalAsMicros = interval.duration.toMillis * 1000
+        val intervalAsMicros = reconInterval.duration.toMillis * 1000
         // remoteId2 is 3 intervals behind remoteId1
         ParticipantTestMetrics.synchronizer.commitments
           .counterParticipantLatency(remoteId2)

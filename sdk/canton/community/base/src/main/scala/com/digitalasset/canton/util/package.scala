@@ -14,4 +14,5 @@ package object util {
   type NamedLoggingLazyVal[T] = LazyValWithContext[T, NamedLoggingContext]
   val NamedLoggingLazyVal: LazyValWithContextCompanion[NamedLoggingContext] =
     new LazyValWithContextCompanion[NamedLoggingContext] {}
+
 }

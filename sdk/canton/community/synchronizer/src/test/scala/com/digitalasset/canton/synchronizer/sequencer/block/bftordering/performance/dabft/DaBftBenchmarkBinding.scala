@@ -20,6 +20,7 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.sta
   SendRequest,
   StandaloneBftOrderingServiceGrpc,
 }
+import com.digitalasset.canton.util.Mutex
 import com.google.protobuf.ByteString
 import io.grpc.inprocess.InProcessChannelBuilder
 import io.grpc.stub.StreamObserver
@@ -59,7 +60,7 @@ final class DaBftBinding(payload: ByteString) extends BftBinding {
   private val writeChannels =
     new ConcurrentHashMap[
       BftBenchmarkConfig.Node,
-      (ManagedChannel, StandaloneBftOrderingServiceStub),
+      (ManagedChannel, StandaloneBftOrderingServiceStub, Mutex),
     ]
 
   private val readChannels =
@@ -79,14 +80,14 @@ final class DaBftBinding(payload: ByteString) extends BftBinding {
       txId: String,
   ): CompletionStage[Unit] = {
     val result = new CompletableFuture[Unit]()
-    val (_, stub) = channelAndStub(node)
+    val (_, stub, lock) = channelAndStub(node)
 
     writeExecutor.submit(new Runnable {
       override def run(): Unit = {
 
         val request = SendRequest(txId, payload)
 
-        mutex(stub) { // The writer is not thread-safe
+        mutex(lock) { // The writer is not thread-safe
           stub
             .send(request)
             .transform {
@@ -181,7 +182,7 @@ final class DaBftBinding(payload: ByteString) extends BftBinding {
 
   private def channelAndStub(
       writeNode: BftBenchmarkConfig.WriteNode[?]
-  ): (ManagedChannel, StandaloneBftOrderingServiceStub) =
+  ): (ManagedChannel, StandaloneBftOrderingServiceStub, Mutex) =
     writeChannels.computeIfAbsent(
       writeNode,
       _ => {
@@ -203,7 +204,7 @@ final class DaBftBinding(payload: ByteString) extends BftBinding {
             .stub(channel)
             .withMaxInboundMessageSize(MaxReadGrpcBytes)
             .withMaxOutboundMessageSize(MaxReadGrpcBytes)
-        channel -> stub
+        (channel, stub, new Mutex())
       },
     )
 

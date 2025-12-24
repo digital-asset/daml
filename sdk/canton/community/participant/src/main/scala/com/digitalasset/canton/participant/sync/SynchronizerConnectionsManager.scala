@@ -85,7 +85,7 @@ import org.apache.pekko.stream.Materializer
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.Duration
-import scala.concurrent.{ExecutionContextExecutor, Future, blocking}
+import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.jdk.CollectionConverters.*
 import scala.util.chaining.*
 import scala.util.{Failure, Right, Success, Try}
@@ -1508,6 +1508,7 @@ object SynchronizerConnectionsManager {
       */
     private val connected: TrieMap[PhysicalSynchronizerId, ConnectedSynchronizer] = TrieMap()
     private val lsidToPSId: BiMap[SynchronizerId, PhysicalSynchronizerId] = HashBiMap.create
+    private val lock = new Mutex()
 
     def get(psid: PhysicalSynchronizerId): Option[ConnectedSynchronizer] = connected.get(psid)
     def get(lsid: SynchronizerId): Option[ConnectedSynchronizer] =
@@ -1528,8 +1529,8 @@ object SynchronizerConnectionsManager {
       val lsid = connectedSynchronizer.psid.logical
       val psid = connectedSynchronizer.psid
 
-      blocking {
-        this.synchronized {
+      {
+        lock.exclusive {
           if (connected.isDefinedAt(psid))
             throw new IllegalArgumentException(
               s"Cannot add $psid because the node is already connected to it"
@@ -1547,11 +1548,9 @@ object SynchronizerConnectionsManager {
     }
 
     def remove(psid: PhysicalSynchronizerId): Option[ConnectedSynchronizer] =
-      blocking {
-        this.synchronized {
-          lsidToPSId.remove(psid.logical)
-          connected.remove(psid)
-        }
+      lock.exclusive {
+        lsidToPSId.remove(psid.logical)
+        connected.remove(psid)
       }
   }
 }

@@ -103,6 +103,7 @@ private[topology] class PartyReplicationChaos(val logger: TracedLogger) extends 
 
   // Since the operations are ran asynchronously, I don't expect performance
   // issues with this synchronized block
+  @SuppressWarnings(Array("com.digitalasset.canton.RequireBlocking"))
   private def nextAction(
       sourceParticipant: LocalParticipantReference,
       targetParticipant: LocalParticipantReference,

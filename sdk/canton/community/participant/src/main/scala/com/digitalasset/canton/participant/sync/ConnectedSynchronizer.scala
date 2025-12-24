@@ -474,14 +474,25 @@ class ConnectedSynchronizer(
       } yield ()
     }
 
-    def replayAcsChanges(fromExclusive: TimeOfChange, toInclusive: TimeOfChange)(implicit
+    def loadAcsChanges(
+        fromExclusive: TimeOfChange,
+        toInclusive: TimeOfChange,
+        batchSize: PositiveInt,
+    )(implicit
         traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, ConnectedSynchronizerInitializationError, LazyList[
-      (RecordTime, AcsChange)
-    ]] =
+    ): EitherT[
+      FutureUnlessShutdown,
+      ConnectedSynchronizerInitializationError,
+      (
+          LazyList[
+            (RecordTime, AcsChange)
+          ],
+          Int,
+      ),
+    ] =
       liftF(for {
-        contractIdChanges <- persistent.activeContractStore
-          .changesBetween(fromExclusive, toInclusive)
+        (contractIdChanges, count) <- persistent.activeContractStore
+          .changesBetween(fromExclusive, toInclusive, batchSize)
         changes <- contractIdChanges.parTraverse { case (toc, change) =>
           val changeWithAdjustedReassignmentCountersForUnassignments = ActiveContractIdsChange(
             change.activations,
@@ -508,8 +519,63 @@ class ConnectedSynchronizer(
                 .force
                 .mkString(", ")}"
         )
-        changes
+        (changes, count)
       })
+
+    def replayAcsChangesInBatches(
+        acsChangesReplayStartRt: RecordTime,
+        lastSequencerTimestamp: CantonTimestamp,
+        nextRepairCounter: RepairCounter,
+        batchSize: PositiveInt,
+    ): EitherT[FutureUnlessShutdown, ConnectedSynchronizerInitializationError, Unit] = {
+
+      val endToc = TimeOfChange(lastSequencerTimestamp, Some(nextRepairCounter))
+      logger.info(
+        s"Looking for ACS changes to replay between ${acsChangesReplayStartRt.timestamp} and $endToc in batches of $batchSize"
+      )
+
+      def iterateInBatches(from: TimeOfChange): EitherT[
+        FutureUnlessShutdown,
+        ConnectedSynchronizerInitializationError,
+        Unit,
+      ] =
+        if (lastSequencerTimestamp >= acsChangesReplayStartRt.timestamp) {
+          for {
+            res <-
+              loadAcsChanges(
+                from,
+                endToc,
+                batchSize,
+              )
+            (acsChangesToConsume, count) = res
+
+            _ <- NonEmpty.from(acsChangesToConsume) match {
+              case Some(nonEmptyBatch) => // publish ACS changes
+                EitherT.rightT[FutureUnlessShutdown, ConnectedSynchronizerInitializationError](
+                  acsCommitmentProcessor.publish(nonEmptyBatch)
+                )
+              case None => EitherTUtil.unitUS[ConnectedSynchronizerInitializationError]
+            }
+
+            // decide whether to continue: if we got a "full" batch, there might be more
+            _ <- NonEmpty.from(acsChangesToConsume) match {
+              // more acs changes might exist; continue from the last TimeOfChange
+              case Some(fullBatch) if count >= batchSize.value =>
+                val (lastChange, _) = fullBatch.last1
+                val lastRt = lastChange.toTimeOfChange
+                iterateInBatches(lastRt)
+              //  count < batchSize.value
+              case Some(_) => EitherTUtil.unitUS[ConnectedSynchronizerInitializationError]
+              // batch is empty
+              case None => EitherTUtil.unitUS[ConnectedSynchronizerInitializationError]
+            }
+          } yield ()
+        } else
+          EitherTUtil.unitUS[ConnectedSynchronizerInitializationError]
+
+      // start looping from the original start
+      iterateInBatches(acsChangesReplayStartRt.toTimeOfChange)
+    }
 
     def initializeClientAtCleanHead(): Unit = {
       // generally, the topology client will be initialised by the topology processor. however,
@@ -559,20 +625,13 @@ class ConnectedSynchronizer(
       )
 
       _ <- loadPendingEffectiveTimesFromTopologyStore(acsChangesReplayStartRt.timestamp)
-      acsChangesToReplay <-
-        if (lastSequencerTimestamp >= acsChangesReplayStartRt.timestamp) {
-          logger.info(
-            s"Looking for ACS changes to replay between ${acsChangesReplayStartRt.timestamp} and $lastSequencerTimestamp"
-          )
-          replayAcsChanges(
-            acsChangesReplayStartRt.toTimeOfChange,
-            TimeOfChange(lastSequencerTimestamp, Some(nextRepairCounter)),
-          )
-        } else
-          EitherT.pure[FutureUnlessShutdown, ConnectedSynchronizerInitializationError](Seq.empty)
-      _ = acsChangesToReplay.foreach { case (toc, change) =>
-        acsCommitmentProcessor.publish(toc, change)
-      }
+
+      _ <- replayAcsChangesInBatches(
+        acsChangesReplayStartRt,
+        lastSequencerTimestamp,
+        nextRepairCounter,
+        parameters.batchingConfig.maxItemsInBatch,
+      )
     } yield ()
   }
 

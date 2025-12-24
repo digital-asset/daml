@@ -19,9 +19,10 @@ import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
+import com.digitalasset.canton.util.Mutex
 
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.{ExecutionContext, Future, blocking}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
 object SubscriptionPool {
@@ -44,6 +45,7 @@ class SubscriptionPool[Subscription <: ManagedSubscription](
 
   // as the subscriptions are mutable, any access or modifications to this pool are expected to be synchronized
   private val pool = TrieMap[Member, Vector[Subscription]]()
+  private val lock = new Mutex()
 
   private val subscribersGauge = metrics.publicApi.subscriptionsGauge
 
@@ -65,8 +67,8 @@ class SubscriptionPool[Subscription <: ManagedSubscription](
     synchronizeWithClosing(functionFullName) {
       logger.debug(s"Creating subscription for $member")
       EitherT.right[RegistrationError](createSubscription().map { subscription =>
-        blocking {
-          synchronized {
+        {
+          lock.exclusive {
             // if the subscription is already closed we won't add to the pool in the first place
             if (!(subscription.isClosing || subscription.isCancelled)) {
               logger.debug(s"Adding subscription from $member to pool")
@@ -120,12 +122,10 @@ class SubscriptionPool[Subscription <: ManagedSubscription](
   def closeSubscriptions(member: Member, waitForClosed: Boolean = false)(implicit
       traceContext: TraceContext
   ): Unit =
-    blocking {
-      synchronized {
-        val memberSubscriptions = pool.get(member).map(_.toList).getOrElse(List.empty)
-        logger.debug(s"Closing ${memberSubscriptions.size} subscriptions for $member")
-        memberSubscriptions.foreach(closeSubscription(member, _, waitForClosed))
-      }
+    lock.exclusive {
+      val memberSubscriptions = pool.get(member).map(_.toList).getOrElse(List.empty)
+      logger.debug(s"Closing ${memberSubscriptions.size} subscriptions for $member")
+      memberSubscriptions.foreach(closeSubscription(member, _, waitForClosed))
     }
 
   def closeAllSubscriptions(waitForClosed: Boolean = false)(implicit
@@ -142,26 +142,24 @@ class SubscriptionPool[Subscription <: ManagedSubscription](
       waitForClosed: Boolean = false,
       transientReason: Option[ServerSubscriptionCloseReason.TransientCloseReason] = None,
   )(implicit traceContext: TraceContext): Unit =
-    blocking {
-      synchronized {
-        try {
-          logger.debug(s"Closing subscription for $member")
-          transientReason.fold(subscription.close())(reason => subscription.transientClose(reason))
-          if (waitForClosed)
-            timeouts.unbounded.await(s"closing subscription for $member")(subscription.closedF)
-        } catch {
-          // We don't want to throw if closing fails because it will stop the chain of closing subsequent subscriptions
-          case NonFatal(e) => logger.warn(s"Failed to close subscription for $member", e)
-        } finally {
-          removeSubscription(member, subscription)
-        }
+    lock.exclusive {
+      try {
+        logger.debug(s"Closing subscription for $member")
+        transientReason.fold(subscription.close())(reason => subscription.transientClose(reason))
+        if (waitForClosed)
+          timeouts.unbounded.await(s"closing subscription for $member")(subscription.closedF)
+      } catch {
+        // We don't want to throw if closing fails because it will stop the chain of closing subsequent subscriptions
+        case NonFatal(e) => logger.warn(s"Failed to close subscription for $member", e)
+      } finally {
+        removeSubscription(member, subscription)
       }
     }
 
   private def removeSubscription(member: Member, subscription: Subscription)(implicit
       traceContext: TraceContext
-  ): Unit = blocking {
-    synchronized {
+  ): Unit =
+    lock.exclusive {
       logger.debug(s"Removing subscription for $member")
       val updatedSubscriptions = pool
         .get(member)
@@ -179,10 +177,9 @@ class SubscriptionPool[Subscription <: ManagedSubscription](
         .discard
       updatePoolMetrics()
     }
-  }
 
-  override def onClosed(): Unit = blocking {
-    synchronized {
+  override def onClosed(): Unit =
+    lock.exclusive {
       withNewTraceContext("close_subscription_pool") { implicit traceContext =>
         logger.debug(s"Closing all subscriptions in pool: $poolDescription")
         // wait for the subscriptions to actually close in case they are already in the process of closing
@@ -190,7 +187,6 @@ class SubscriptionPool[Subscription <: ManagedSubscription](
         closeAllSubscriptions(waitForClosed = true)
       }
     }
-  }
 
   private def updatePoolMetrics(): Unit = subscribersGauge.updateValue(pool.size)
 
