@@ -51,15 +51,19 @@ private[lf] object Speedy {
     private[this] val registeredPlugins: Map[String, MetricPlugin] =
       plugins.map(p => p.getClass.getSimpleName -> p).toMap
 
-    private[speedy] def incrCount[P <: MetricPlugin: ClassTag](ctx: MetricPlugin.Ctx*): Unit = {
-      registeredPlugins.get(implicitly[ClassTag[P]].runtimeClass.getSimpleName).foreach {
+    private[speedy] def incrCount[P <: MetricPlugin](
+        ctx: MetricPlugin.Ctx*
+    )(implicit tag: ClassTag[P]): Unit = {
+      val pluginName = tag.runtimeClass.getSimpleName
+      registeredPlugins.get(pluginName).foreach {
         _.incrCount(ctx: _*)
       }
     }
 
-    private[lf] def totalCount[P <: MetricPlugin: ClassTag]: Option[P#Result] = {
+    private[lf] def totalCount[P <: MetricPlugin](implicit tag: ClassTag[P]): Option[P#Result] = {
+      val pluginName = tag.runtimeClass.getSimpleName
       registeredPlugins
-        .get(implicitly[ClassTag[P]].runtimeClass.getSimpleName)
+        .get(pluginName)
         .map(_.totalCount.asInstanceOf[P#Result])
     }
   }
