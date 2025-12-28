@@ -6,13 +6,11 @@ package com.digitalasset.canton.util
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.util.BestFittingBatcher.CapacityLeft
+import com.digitalasset.canton.util.BestFittingBatcher.{CapacityLeft, Sized}
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.IterableOps
 import scala.collection.immutable.SortedMap
-
-import BestFittingBatcher.Sized
 
 /** A mutable, thread-safe (and lock-free) batcher that groups items into batches such that the
   * batches are as full as possible and a set of items is always kept together in a batch.

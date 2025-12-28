@@ -4,9 +4,9 @@
 package com.digitalasset.canton.ledger.api.benchtool.submission
 
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.util.Mutex
 
 import scala.collection.mutable
-import scala.concurrent.blocking
 
 /** Keeps track of contract keys of contracts that haven't been used up (archived) yet. Allows to
   * select the next contract key to use up at random.
@@ -14,16 +14,16 @@ import scala.concurrent.blocking
 final class ActiveContractKeysPool[T](randomnessProvider: RandomnessProvider) {
 
   private val poolsPerTemplate = mutable.Map.empty[String, DepletingUniformRandomPool[T]]
+  private val lock = new Mutex()
 
-  def getAndRemoveContractKey(templateName: String): T = blocking {
-    synchronized {
+  def getAndRemoveContractKey(templateName: String): T =
+    lock.exclusive {
       val pool = poolsPerTemplate(templateName)
       pool.pop()
     }
-  }
 
-  def addContractKey(templateName: String, value: T): Unit = blocking {
-    synchronized {
+  def addContractKey(templateName: String, value: T): Unit =
+    lock.exclusive {
       if (!poolsPerTemplate.contains(templateName)) {
         poolsPerTemplate
           .put(templateName, new DepletingUniformRandomPool(randomnessProvider))
@@ -32,7 +32,6 @@ final class ActiveContractKeysPool[T](randomnessProvider: RandomnessProvider) {
       val pool = poolsPerTemplate(templateName)
       pool.put(value)
     }
-  }
 }
 
 /** A pool of elements supporting two operations:

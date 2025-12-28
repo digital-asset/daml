@@ -165,6 +165,10 @@ final case class StoredTopologyTransaction[+Op <: TopologyChangeOp, +M <: Topolo
   def selectOp[TargetOp <: TopologyChangeOp: ClassTag] = transaction
     .selectOp[TargetOp]
     .map(_ => this.asInstanceOf[StoredTopologyTransaction[TargetOp, M]])
+
+  def isActiveAsOf(asOfInclusive: EffectiveTime): Boolean =
+    validFrom.value <= asOfInclusive.value && validUntil.forall(x => x.value > asOfInclusive.value)
+
 }
 
 object StoredTopologyTransaction
@@ -200,6 +204,8 @@ object StoredTopologyTransaction
 
   type GenericStoredTopologyTransaction =
     StoredTopologyTransaction[TopologyChangeOp, TopologyMapping]
+  type PositiveStoredTopologyTransaction =
+    StoredTopologyTransaction[TopologyChangeOp.Replace, TopologyMapping]
 
   /** @return
     *   `true` if both transactions are the same without comparing the signatures, `false` otherwise
@@ -317,10 +323,6 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransaction]]
 
-  def findProposalsByTxHash(asOfExclusive: EffectiveTime, hashes: NonEmpty[Set[TxHash]])(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransaction]]
-
   def findTransactionsForMapping(asOfExclusive: EffectiveTime, hashes: NonEmpty[Set[MappingHash]])(
       implicit traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransaction]]
@@ -357,7 +359,17 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       types: Seq[TopologyMapping.Code],
       filterUid: Option[NonEmpty[Seq[UniqueIdentifier]]],
       filterNamespace: Option[NonEmpty[Seq[Namespace]]],
+      pagination: Option[(Option[UniqueIdentifier], Int)] = None,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[NegativeStoredTopologyTransactions]
+
+  /** Fetch all items for the given uids in descending order
+    *
+    * This function is used by the batch loader. As such, we assume that the request is already
+    * batched and therefore that the number of uids / ns loaded is limited
+    */
+  def fetchAllDescending(uids: Set[UniqueIdentifier], nss: Set[Namespace])(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[GenericStoredTopologyTransactions]
 
   /** Updates topology transactions. The method proceeds as follows: For each mapping hash, it will
     * have optionally a serial and a set of tx hashes. The tx hashes represent proposals which must

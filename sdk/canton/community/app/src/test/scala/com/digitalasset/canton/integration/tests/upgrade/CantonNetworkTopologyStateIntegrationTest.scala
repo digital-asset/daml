@@ -17,6 +17,7 @@ import com.digitalasset.canton.integration.{
   SharedEnvironment,
   TestConsoleEnvironment,
 }
+import com.digitalasset.canton.logging.NodeLoggingUtil
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage}
 import com.digitalasset.canton.store.IndexedTopologyStoreId
 import com.digitalasset.canton.topology.processing.{InitialTopologySnapshotValidator, SequencedTime}
@@ -91,6 +92,7 @@ final class CantonNetworkTopologyStateIntegrationTest
   }
   private lazy val genesisSnapshot =
     StoredTopologyTransactions.fromTrustedByteString(genesisBytes).value
+  private val disableDebugLogging = false
 
   private var topologyStoreAfterImport: Option[TopologyStore[?]] = None
 
@@ -177,6 +179,8 @@ final class CantonNetworkTopologyStateIntegrationTest
     }
 
     "successfully validate the initial topology snapshot" in { implicit env =>
+      if (disableDebugLogging)
+        NodeLoggingUtil.setLevel(level = "INFO")
       if (toxiProxyLatency > 0) {
         // enable db toxiproxy
         val proxy = toxiproxyPlugin.runningToxiproxy.getProxy(participant1Proxy)

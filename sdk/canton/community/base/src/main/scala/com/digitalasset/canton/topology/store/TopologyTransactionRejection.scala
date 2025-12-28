@@ -40,7 +40,10 @@ object TopologyTransactionRejection {
       override protected def pretty: Pretty[SerialMismatch] =
         prettyOfClass(param("expected", _.expected), param("actual", _.actual))
       override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-        TopologyManagerError.SerialMismatch.Failure(Some(actual), Some(expected))
+        TopologyManagerError.SerialMismatch.Failure(
+          actual = Some(actual),
+          expected = Some(expected),
+        )
     }
     final case class InternalError(message: String) extends TopologyTransactionRejection {
       override def asString: String = message
