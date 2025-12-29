@@ -7,7 +7,7 @@ load(
     "da_scala_test_suite",
 )
 load(
-    "@io_bazel_rules_scala//scala:scala.bzl",
+    "@rules_scala//scala:scala.bzl",
     "scala_test_suite",
 )
 

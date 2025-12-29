@@ -4,4 +4,4 @@
 # This file defines custom targets that are referenced in replacements in
 # dependencies.yaml.
 
-load("@io_bazel_rules_scala//scala:scala_import.bzl", "scala_import")
+load("@rules_scala//scala:scala_import.bzl", "scala_import")
