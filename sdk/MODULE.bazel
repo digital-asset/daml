@@ -3,12 +3,58 @@ module(
     version = "3.4.x",
 )
 
-bazel_dep(name = "rules_go", version = "0.50.1")
-bazel_dep(name = "rules_sh", version = "0.4.0")
-bazel_dep(name = "gazelle", version = "0.39.1")
-bazel_dep(name = "buildifier_prebuilt", version = "7.3.1")
+bazel_dep(name = "rules_go", version = "0.53.0")                # Match Old
+bazel_dep(name = "rules_sh", version = "0.5.0")                 # Latest -> Undef
+bazel_dep(name = "gazelle", version = "0.42.0")                 # Match Old
+bazel_dep(name = "buildifier_prebuilt", version = "7.3.1")      # New
+# bazel_dep(name = "rules_nixpkgs_core", version = "0.12.0")
+bazel_dep(name = "rules_pkg", version = "1.1.0")                # Match Old
+bazel_dep(name = "bazel_jar_jar", version = "0.1.12")           # Latest -> 0.1.5
+bazel_dep(name = "bazel_skylib", version = "1.9.0")             # Latest -> Undef
+bazel_dep(name = "rules_scala", version = "7.0.0")              # 7.0.0 -> 6.6.0
+bazel_dep(name = "rules_haskell", version = "1.0")              # Latest -> Undef
+bazel_dep(name = "rules_jvm_external", version = "6.9")         # Latest -> 6.7
+bazel_dep(name = "rules_java", version = "9.3.0")               # New
+bazel_dep(name = "rules_proto", version = "7.1.0")              # Latest -> 6.0.0
+bazel_dep(name = "rules_nodejs", version = "6.6.2")             # Latest -> 5.8.5
+bazel_dep(name = "rules_cc", version = "0.2.16")                # New
 
-bazel_dep(name = "rules_nixpkgs_core", version = "0.12.0")
+register_toolchains("@rules_java//toolchains:all")
 
 go_sdk = use_extension("@rules_go//go:extensions.bzl", "go_sdk")
 go_sdk.download(version = "1.22.8")
+
+scala_config = use_extension("@rules_scala//scala/extensions:config.bzl", "scala_config")
+scala_config.settings(scala_version = "2.13.16")
+
+scala_deps = use_extension("@rules_scala//scala/extensions:deps.bzl", "scala_deps")
+scala_deps.scala()
+
+custom_scala_config = use_extension("//bazel_tools:scala_module_extension.bzl", "scala_extension")
+use_repo(custom_scala_config, "build_environment", "os_info", "scala_version")
+
+maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
+maven.install(
+    name = "maven",
+    known_contributing_modules = ["com_github_digital_asset_daml", "protobuf"],
+    artifacts = [
+        "org.scala-lang:scala-compiler:2.13.16",
+        "org.scala-lang:scala-library:2.13.16",
+        "org.scala-lang:scala-reflect:2.13.16",
+        "org.scala-lang.modules:scala-parser-combinators_2.13:2.3.0",
+
+        # ScalaPB artifacts
+        "org.wartremover:wartremover_2.13.16:3.2.5",
+        "com.thesamet.scalapb:protoc-gen_2.13:0.9.5",
+        "com.thesamet.scalapb:compilerplugin_2.13:0.11.14",
+    ],
+)
+use_repo(maven, "maven")
+
+npm = use_extension("@rules_nodejs//nodejs:extensions.bzl", "npm")
+npm.npm_import(
+    name = "language_support_js_deps",
+    package_json = "//language-support/js/packages:package.json",
+    package_lock_json = "//language-support/js/packages:yarn.lock",
+)
+use_repo(npm, "language_support_js_deps")

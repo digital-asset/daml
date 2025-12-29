@@ -1,0 +1,46 @@
+resolved = [
+     {
+          "original_rule_class": "@@rules_haskell//haskell:cabal.bzl%_fetch_stack",
+          "definition_information": "Repository rules_haskell_stack instantiated at:\n  /mnt/work/code/tms/virtuslab/digitalasset/daml/sdk/WORKSPACE:580:18: in <toplevel>\n  /mnt/work/code/tms/virtuslab/digitalasset/daml/sdk/bazel-haskell-deps.bzl:448:19: in daml_haskell_deps\n  /home/ormaniec/.cache/bazel/_bazel_ormaniec/25926e4f352a6882819daaf316b9e732/external/rules_haskell/haskell/cabal.bzl:2649:21: in stack_snapshot\nRepository rule _fetch_stack defined at:\n  /home/ormaniec/.cache/bazel/_bazel_ormaniec/25926e4f352a6882819daaf316b9e732/external/rules_haskell/haskell/cabal.bzl:2421:31: in <toplevel>\n",
+          "original_attributes": {
+               "name": "rules_haskell_stack",
+               "generator_name": "rules_haskell_stack",
+               "generator_function": "daml_haskell_deps",
+               "generator_location": None
+          },
+          "repositories": [
+               {
+                    "rule_class": "@@rules_haskell//haskell:cabal.bzl%_fetch_stack",
+                    "attributes": {
+                         "name": "rules_haskell_stack",
+                         "generator_name": "rules_haskell_stack",
+                         "generator_function": "daml_haskell_deps",
+                         "generator_location": None
+                    },
+                    "output_tree_hash": "f99272753e2df2ca87867720f096fd763fde5215e6db6fedf9c0a9461f71f787"
+               }
+          ]
+     },
+     {
+          "original_rule_class": "@@bazel_tools//tools/sh:sh_configure.bzl%sh_config",
+          "definition_information": "Repository local_config_sh instantiated at:\n  /DEFAULT.WORKSPACE.SUFFIX:174:13: in <toplevel>\n  /home/ormaniec/.cache/bazel/_bazel_ormaniec/25926e4f352a6882819daaf316b9e732/external/bazel_tools/tools/sh/sh_configure.bzl:83:14: in sh_configure\nRepository rule sh_config defined at:\n  /home/ormaniec/.cache/bazel/_bazel_ormaniec/25926e4f352a6882819daaf316b9e732/external/bazel_tools/tools/sh/sh_configure.bzl:72:28: in <toplevel>\n",
+          "original_attributes": {
+               "name": "local_config_sh",
+               "generator_name": "local_config_sh",
+               "generator_function": "sh_configure",
+               "generator_location": None
+          },
+          "repositories": [
+               {
+                    "rule_class": "@@bazel_tools//tools/sh:sh_configure.bzl%sh_config",
+                    "attributes": {
+                         "name": "local_config_sh",
+                         "generator_name": "local_config_sh",
+                         "generator_function": "sh_configure",
+                         "generator_location": None
+                    },
+                    "output_tree_hash": "6f23d1fe2cb1a440e0cf2265222dcb2b38d93fd55b4a568d0009c7733f7a586b"
+               }
+          ]
+     }
+]
