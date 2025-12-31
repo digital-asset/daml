@@ -161,7 +161,7 @@ alias(
 
 alias(
     name = "java",
-    actual = "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
+    actual = "@rules_java//toolchains:current_java_runtime",
 )
 
 exports_files([
