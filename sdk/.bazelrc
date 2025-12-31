@@ -126,3 +126,20 @@ test:windows --test_env=ComSpec
 build -c opt
 
 try-import %workspace%/.bazelrc.local
+
+
+# Migration
+
+# ERROR: /mnt/work/code/tms/virtuslab/digitalasset/daml/sdk/canton/BUILD.bazel:1508:16: Building canton/libbindings-java.jar (150 source files, 2 source jars) failed: (Exit 1): java failed: error executing Javac command (from target //canton:bindings-java)
+#   (cd /home/ormaniec/.cache/bazel/_bazel_ormaniec/25926e4f352a6882819daaf316b9e732/execroot/_main && \
+#   exec env - \
+#     LC_CTYPE=en_US.UTF-8 \
+#     PATH=/bin:/usr/bin:/usr/local/bin \
+#   external/rules_java~~toolchains~remotejdk25_linux/bin/java '--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED' '--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED' '--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED' '--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED' '--add-exports=jdk.compiler/com.sun.tools.javac.resources=ALL-UNNAMED' '--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED' '--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED' '--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED' '--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED' '--add-opens=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED' '--add-opens=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED' '--add-opens=java.base/java.nio=ALL-UNNAMED' '--add-opens=java.base/java.lang=ALL-UNNAMED' '-Dsun.io.useCanonCaches=false' -XX:-CompactStrings -Xlog:disable '-Xlog:all=warning:stderr:uptime,level,tags' -jar external/rules_java~~toolchains~remote_java_tools/java_tools/JavaBuilder_deploy.jar @bazel-out/k8-opt/bin/canton/libbindings-java.jar-0.params @bazel-out/k8-opt/bin/canton/libbindings-java.jar-1.params)
+# # Configuration: faa54cc52a02c2f1242926fb2ccdddde847be32c5beb1d36d990490722cd8351
+# # Execution platform: @@local_config_platform//:host
+# canton/community/bindings-java/src/main/java/com/daml/ledger/javaapi/data/User.java:40: error: [ImpossibleNullComparison] This value cannot be null, and comparing it to null may be misleading.
+#     if (primaryParty == null || primaryParty.isEmpty()) {
+#                      ^
+#     (see https://errorprone.info/bugpattern/ImpossibleNullComparison)
+build --javacopt="-Xep:ImpossibleNullComparison:OFF"

@@ -1633,7 +1633,7 @@ copy_file(
     out = "community/ledger-api-proto/src/main/protobuf/com/daml/ledger/api/scalapb/package.proto",
 )
 
-proto_jars(
+proto_jars (
     name = "ledger_api_proto",
     srcs = glob(["community/ledger-api-proto/src/main/protobuf/com/daml/ledger/api/v*/**/*.proto"]),
     grpc = True,

@@ -4,7 +4,7 @@
 load("//bazel_tools:pom_file.bzl", "pom_file")
 load("@os_info//:os_info.bzl", "is_windows")
 load("@com_github_google_bazel_common//tools/javadoc:javadoc.bzl", "javadoc_library")
-load("@rules_nixpkgs_core//nixpkgs:nixpkgs.bzl", "nixpkgs_package")
+# load("@rules_nixpkgs_core//nixpkgs:nixpkgs.bzl", "nixpkgs_package")
 load("//bazel_tools:pkg.bzl", "pkg_empty_zip")
 load("//bazel_tools/dev_env_tool:dev_env_tool.bzl", "dadew_tool_home", "dadew_where")
 
@@ -12,7 +12,7 @@ def _dadew_java_configure_impl(repository_ctx):
     ps = repository_ctx.which("powershell")
     dadew = dadew_where(repository_ctx, ps)
     java_home = dadew_tool_home(dadew, repository_ctx.attr.dadew_path)
-    repository_ctx.file("BUILD.bazel", executable = False, content = """
+    repository_ctx.file("_BUILD.bazel", executable = False, content = """
 load("@rules_java//java:defs.bzl", "java_runtime")
 java_runtime(
     name = "runtime",

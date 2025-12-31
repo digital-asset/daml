@@ -18,12 +18,12 @@ genrule(
     ]],
     cmd = """
         for src in \
-            external/com_google_protobuf/src/google/protobuf/any.proto \
-            external/com_google_protobuf/src/google/protobuf/duration.proto \
-            external/com_google_protobuf/src/google/protobuf/empty.proto \
-            external/com_google_protobuf/src/google/protobuf/wrappers.proto \
-            external/com_google_protobuf/src/google/protobuf/struct.proto \
-            external/com_google_protobuf/src/google/protobuf/field_mask.proto \
+            external/protobuf/src/google/protobuf/any.proto \
+            external/protobuf/src/google/protobuf/duration.proto \
+            external/protobuf/src/google/protobuf/empty.proto \
+            external/protobuf/src/google/protobuf/wrappers.proto \
+            external/protobuf/src/google/protobuf/struct.proto \
+            external/protobuf/src/google/protobuf/field_mask.proto \
         ; do
             $(location @proto3-suite//:compile-proto-file) \
                 --includeDir """ + google_protobuf_src + """ \
