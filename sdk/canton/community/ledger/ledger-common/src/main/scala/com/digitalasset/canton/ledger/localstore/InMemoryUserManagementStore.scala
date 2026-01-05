@@ -18,6 +18,7 @@ import scala.concurrent.{Future, blocking}
 
 import UserManagementStore.*
 
+@SuppressWarnings(Array("com.digitalasset.canton.RequireBlocking"))
 class InMemoryUserManagementStore(
     createAdmin: Boolean = true,
     val loggerFactory: NamedLoggerFactory,

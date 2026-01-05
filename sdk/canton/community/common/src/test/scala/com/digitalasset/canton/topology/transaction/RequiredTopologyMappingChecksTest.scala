@@ -3,22 +3,24 @@
 
 package com.digitalasset.canton.topology.transaction
 
+import cats.implicits.catsSyntaxOptionId
 import cats.instances.order.*
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.{Fingerprint, SigningKeysWithThreshold, SigningPublicKey}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.{DynamicSynchronizerParameters, OnboardingRestriction}
-import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.DefaultTestIdentities.{
   mediatorId,
   sequencerId,
   synchronizerId,
 }
-import com.digitalasset.canton.topology.TopologyStateProcessor.MaybePending
+import com.digitalasset.canton.topology.cache.TopologyStateLookup
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.*
+import com.digitalasset.canton.topology.store.StoredTopologyTransaction.GenericStoredTopologyTransaction
 import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.topology.transaction.DelegationRestriction.{
@@ -33,11 +35,11 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp.Replace
 import com.digitalasset.canton.topology.transaction.TopologyMapping.Code
-import com.digitalasset.canton.topology.transaction.checks.TopologyMappingChecks.PendingChangesLookup
 import com.digitalasset.canton.topology.transaction.checks.{
   RequiredTopologyMappingChecks,
   TopologyMappingChecks,
 }
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{
   BaseTest,
   FailOnShutdown,
@@ -46,8 +48,8 @@ import com.digitalasset.canton.{
 }
 import org.scalatest.wordspec.AnyWordSpec
 
-import java.time
 import scala.annotation.nowarn
+import scala.concurrent.ExecutionContext
 import scala.language.implicitConversions
 
 private[transaction] abstract class BaseTopologyMappingChecksTest[T <: TopologyMappingChecks]
@@ -155,7 +157,6 @@ private[transaction] abstract class BaseTopologyMappingChecksTest[T <: TopologyM
       checks: TopologyMappingChecks,
       toValidate: GenericSignedTopologyTransaction,
       inStore: Option[GenericSignedTopologyTransaction] = None,
-      pendingChanges: PendingChangesLookup = Map.empty,
       relaxChecksForBackwardsCompatibility: Boolean = false,
   ): Either[TopologyTransactionRejection, Unit] =
     checks
@@ -163,7 +164,6 @@ private[transaction] abstract class BaseTopologyMappingChecksTest[T <: TopologyM
         EffectiveTime.MaxValue,
         toValidate,
         inStore,
-        pendingChanges,
         relaxChecksForBackwardsCompatibility,
       )
       .value
@@ -184,8 +184,82 @@ class RequiredTopologyMappingChecksTest
       store: TopologyStore[SynchronizerStore]
   ): RequiredTopologyMappingChecks =
     RequiredTopologyMappingChecks(
-      store,
       Some(defaultStaticSynchronizerParameters),
+      new TopologyStateLookup {
+
+        override def synchronizerId: Option[PhysicalSynchronizerId] = store.storeId.forSynchronizer
+
+        override def lookupForUid(
+            asOf: EffectiveTime,
+            asOfInclusive: Boolean,
+            uid: UniqueIdentifier,
+            transactionTypes: Set[Code],
+            op: TopologyChangeOp,
+        )(implicit
+            traceContext: TraceContext
+        ): FutureUnlessShutdown[Seq[GenericStoredTopologyTransaction]] = op match {
+          case TopologyChangeOp.Replace =>
+            store
+              .findPositiveTransactions(
+                asOf = asOf.value,
+                asOfInclusive = asOfInclusive,
+                isProposal = false,
+                types = transactionTypes.toSeq,
+                filterUid = NonEmpty.mk(Seq, uid).some,
+                filterNamespace = None,
+              )
+              .map(_.result)
+          case TopologyChangeOp.Remove => ???
+        }
+
+        override def lookupForNamespace(
+            asOf: EffectiveTime,
+            asOfInclusive: Boolean,
+            ns: Namespace,
+            transactionTypes: Set[Code],
+            op: TopologyChangeOp,
+        )(implicit
+            traceContext: TraceContext
+        ): FutureUnlessShutdown[Seq[GenericStoredTopologyTransaction]] =
+          lookupForNamespaces(asOf, asOfInclusive, NonEmpty.mk(Seq, ns), transactionTypes, op)
+            .map(_.toSeq.flatMap(_._2))
+
+        override def lookupForNamespaces(
+            asOf: EffectiveTime,
+            asOfInclusive: Boolean,
+            ns: NonEmpty[Seq[Namespace]],
+            transactionTypes: Set[Code],
+            op: TopologyChangeOp,
+        )(implicit
+            traceContext: TraceContext,
+            executionContext: ExecutionContext,
+        ): FutureUnlessShutdown[Map[Namespace, Seq[GenericStoredTopologyTransaction]]] = op match {
+          case TopologyChangeOp.Replace =>
+            store
+              .findPositiveTransactions(
+                asOf = asOf.value,
+                asOfInclusive = asOfInclusive,
+                isProposal = false,
+                types = transactionTypes.toSeq,
+                filterUid = None,
+                filterNamespace = ns.some,
+              )
+              .map(_.result.groupBy(_.mapping.namespace))(executionContext)
+          case TopologyChangeOp.Remove =>
+            store
+              .findNegativeTransactions(
+                asOf = asOf.value,
+                asOfInclusive = asOfInclusive,
+                isProposal = false,
+                types = transactionTypes.toSeq,
+                filterUid = None,
+                filterNamespace = ns.some,
+              )
+              .map(_.result.groupBy(_.mapping.namespace))(executionContext)
+
+        }
+
+      },
       loggerFactory,
     )
 
@@ -197,7 +271,6 @@ class RequiredTopologyMappingChecksTest
         checks: TopologyMappingChecks,
         toValidate: GenericSignedTopologyTransaction,
         inStore: Option[GenericSignedTopologyTransaction] = None,
-        pendingChanges: PendingChangesLookup = Map.empty,
         relaxChecksForBackwardsCompatibility: Boolean = false,
     ): Either[TopologyTransactionRejection, Unit] =
       checks
@@ -205,7 +278,6 @@ class RequiredTopologyMappingChecksTest
           EffectiveTime.MaxValue,
           toValidate,
           inStore,
-          pendingChanges,
           relaxChecksForBackwardsCompatibility,
         )
         .value
@@ -301,147 +373,6 @@ class RequiredTopologyMappingChecksTest
         )
       }
 
-      "respect pending changes when loading additional data for validations" in {
-        import factory.SigningKeys.{key1, key2, key3}
-        val (checks, store) = mk()
-        val ns1 = Namespace(key1.fingerprint)
-        val ns2 = Namespace(key2.fingerprint)
-        val ns3 = Namespace(key3.fingerprint)
-
-        val nsd1Replace_1 =
-          factory.mkAdd(NamespaceDelegation.tryCreate(ns1, key1, CanSignAllMappings))
-        val nsd1Remove_2 = factory.mkRemove(
-          NamespaceDelegation.tryCreate(ns1, key1, CanSignAllMappings),
-          serial = PositiveInt.two,
-        )
-        val nsd1ReplaceProposal_3 = factory.mkAdd(
-          NamespaceDelegation.tryCreate(ns1, key1, CanSignAllMappings),
-          serial = PositiveInt.three,
-          isProposal = true,
-        )
-
-        val nsd2Replace_1 =
-          factory.mkAdd(NamespaceDelegation.tryCreate(ns2, key2, CanSignAllMappings))
-        val nsd2Remove_2 = factory.mkRemove(
-          NamespaceDelegation.tryCreate(ns2, key2, CanSignAllMappings),
-          serial = PositiveInt.two,
-        )
-
-        val nsd3Replace_1 =
-          factory.mkAdd(NamespaceDelegation.tryCreate(ns3, key3, CanSignAllMappings))
-
-        store
-          .update(
-            SequencedTime(ts),
-            EffectiveTime(ts),
-            removals = Map.empty,
-            additions = Seq(nsd1Replace_1, nsd2Replace_1).map(ValidatedTopologyTransaction(_)),
-          )
-          .futureValueUS
-
-        store
-          .update(
-            SequencedTime(ts + seconds(1)),
-            EffectiveTime(ts + seconds(1)),
-            removals =
-              Map(nsd1Remove_2.mapping.uniqueKey -> (Some(nsd1Remove_2.serial), Set.empty)),
-            additions = Seq(ValidatedTopologyTransaction(nsd1Remove_2)),
-          )
-          .futureValueUS
-
-        store
-          .update(
-            SequencedTime(ts + seconds(2)),
-            EffectiveTime(ts + seconds(2)),
-            removals = Map.empty,
-            additions = Seq(ValidatedTopologyTransaction(nsd1ReplaceProposal_3)),
-          )
-          .futureValueUS
-
-        /*
-         * The store contains the following transactions:
-         * TS0: Replace NSD1, Replace NSD2
-         * TS1: Remove NSD1
-         * TS2: Replace Proposal NSD1
-         */
-
-        // TS0: load without pending changes
-        checks
-          .loadFromStore(
-            EffectiveTime(ts.immediateSuccessor),
-            codes = Set(Code.NamespaceDelegation),
-            pendingChanges = Seq.empty,
-          )
-          .futureValueUS
-          .value should contain theSameElementsAs Seq(nsd1Replace_1, nsd2Replace_1)
-
-        // TS0: load with Removal NS2 as pending change
-        checks
-          .loadFromStore(
-            EffectiveTime(ts.immediateSuccessor),
-            codes = Set(Code.NamespaceDelegation),
-            pendingChanges = Seq(MaybePending(nsd2Remove_2)),
-          )
-          .futureValueUS
-          .value shouldBe Seq(nsd1Replace_1)
-
-        // TS0: load with Replace NS3 as pending change without prior transactions in the store
-        checks
-          .loadFromStore(
-            EffectiveTime(ts.immediateSuccessor),
-            codes = Set(Code.NamespaceDelegation),
-            pendingChanges = Seq(MaybePending(nsd3Replace_1)),
-          )
-          .futureValueUS
-          .value should contain theSameElementsAs Seq(
-          nsd1Replace_1,
-          nsd2Replace_1,
-          nsd3Replace_1,
-        )
-
-        // TS0: load with Replace NS3 as pending change without prior transactions in the store and also matching a
-        // namespace filter
-        checks
-          .loadFromStore(
-            EffectiveTime(ts.immediateSuccessor),
-            codes = Set(Code.NamespaceDelegation),
-            pendingChanges = Seq(MaybePending(nsd3Replace_1)),
-            filterNamespace = Some(NonEmpty(Seq, ns2, ns3)),
-          )
-          .futureValueUS
-          .value should contain theSameElementsAs Seq(nsd2Replace_1, nsd3Replace_1)
-
-        // TS1: don't load Remove NS1 from the store
-        checks
-          .loadFromStore(
-            EffectiveTime(ts.immediateSuccessor + seconds(1)),
-            codes = Set(Code.NamespaceDelegation),
-            Seq.empty,
-          )
-          .futureValueUS
-          .value shouldBe Seq(nsd2Replace_1)
-
-        // TS1: don't load Remove NS1 from the store mixed with Remove NS2 as pending change
-        checks
-          .loadFromStore(
-            EffectiveTime(ts.immediateSuccessor + seconds(1)),
-            codes = Set(Code.NamespaceDelegation),
-            Seq(MaybePending(nsd2Remove_2)),
-          )
-          .futureValueUS
-          .value shouldBe Seq.empty
-
-        // TS2: don't load proposals
-        checks
-          .loadFromStore(
-            EffectiveTime(ts.immediateSuccessor + seconds(2)),
-            codes = Set(Code.NamespaceDelegation),
-            Seq.empty,
-          )
-          .futureValueUS
-          .value shouldBe Seq(nsd2Replace_1)
-
-      }
     }
 
     "validating DecentralizedNamespaceDefinition" should {
@@ -695,7 +626,7 @@ class RequiredTopologyMappingChecksTest
           NonEmpty.mk(Set, ns1k1.mapping.target),
         )
 
-        addToStore(store, p2_otk, p2_dtc)
+        addToStore(store, revokedNd, p2_otk, p2_dtc)
 
         val ptp = factory.mkAdd(
           PartyToParticipant.tryCreate(
@@ -714,7 +645,6 @@ class RequiredTopologyMappingChecksTest
         checkTransaction(
           checks,
           ptp,
-          pendingChanges = Map(revokedNd.mapping.uniqueKey -> MaybePending(revokedNd)),
         ) shouldBe Left(
           TopologyTransactionRejection.RequiredMapping.NamespaceHasBeenRevoked(
             ns1k1.mapping.namespace
@@ -1361,7 +1291,5 @@ class RequiredTopologyMappingChecksTest
     val keysNE = NonEmpty.from(keys).value
     (keysNE, namespaces, rootCerts)
   }
-
-  private def seconds(s: Int) = PositiveSeconds.tryCreate(time.Duration.ofSeconds(s.toLong))
 
 }

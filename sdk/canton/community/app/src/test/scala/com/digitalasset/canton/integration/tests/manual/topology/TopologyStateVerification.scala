@@ -282,14 +282,15 @@ class TopologyStateVerification(
 
       processor = TopologyStateProcessor.forTransactionProcessing(
         topologyStore,
-        new TopologyMappingChecks.All(
-          RequiredTopologyMappingChecks(
-            topologyStore,
-            Some(crypto.staticSynchronizerParameters),
-            replayLoggerFactory,
+        lookup =>
+          new TopologyMappingChecks.All(
+            RequiredTopologyMappingChecks(
+              Some(crypto.staticSynchronizerParameters),
+              lookup,
+              replayLoggerFactory,
+            ),
+            new OptionalTopologyMappingChecks(topologyStore, replayLoggerFactory),
           ),
-          new OptionalTopologyMappingChecks(topologyStore, replayLoggerFactory),
-        ),
         crypto.pureCrypto,
         replayLoggerFactory,
       )

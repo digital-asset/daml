@@ -12,6 +12,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.cache.TopologyStateLookupByNamespace
 import com.digitalasset.canton.topology.processing.AuthorizedTopologyTransaction.{
   AuthorizedDecentralizedNamespaceDefinition,
   AuthorizedNamespaceDelegation,
@@ -63,7 +64,7 @@ private object AuthorizationKeys {
   */
 class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
     val pureCrypto: PureCrypto,
-    val store: TopologyStore[TopologyStoreId],
+    override val lookup: TopologyStateLookupByNamespace,
     validationIsFinal: Boolean,
     val loggerFactory: NamedLoggerFactory,
 )(implicit override val executionContext: ExecutionContext)
