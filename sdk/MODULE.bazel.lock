@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 6,
-  "moduleFileHash": "a8782048d19cb002fe8305830a1dba230d64bc84d3f5e0a54356fc6b70b9f0a3",
+  "moduleFileHash": "42e24c5086a44dd6fbe1629167426eb7cfc9ba8889caf461d438d0adbefdf9a9",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -166,7 +166,10 @@
                   "io.grpc:grpc-netty-shaded:1.77.0",
                   "io.opentelemetry:opentelemetry-context:1.43.0",
                   "io.opentelemetry:opentelemetry-api:1.43.0",
-                  "org.slf4j:slf4j-api:2.0.6"
+                  "org.scalatest:scalatest-wordspec_2.13:3.2.11",
+                  "org.scalatest:scalatest-flatspec_2.13:3.2.11",
+                  "org.slf4j:slf4j-api:2.0.6",
+                  "org.scalatest:scalatest-shouldmatchers_2.13:3.2.11"
                 ]
               },
               "devDependency": false,
@@ -216,7 +219,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 94,
+                "line": 97,
                 "column": 13
               }
             },
@@ -234,7 +237,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 118,
+                "line": 121,
                 "column": 13
               }
             }
@@ -248,7 +251,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 136,
+            "line": 139,
             "column": 33
           },
           "imports": {

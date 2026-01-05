@@ -73,7 +73,10 @@ maven.install(
         "io.opentelemetry:opentelemetry-context:1.43.0",
         "io.opentelemetry:opentelemetry-api:1.43.0",
 
-        "org.slf4j:slf4j-api:2.0.6"
+        "org.scalatest:scalatest-wordspec_2.13:3.2.11",
+        "org.scalatest:scalatest-flatspec_2.13:3.2.11",
+        "org.slf4j:slf4j-api:2.0.6",
+        "org.scalatest:scalatest-shouldmatchers_2.13:3.2.11",
     ],
 )
 use_repo(maven, "maven")
