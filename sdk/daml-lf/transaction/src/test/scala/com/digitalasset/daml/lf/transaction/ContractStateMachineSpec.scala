@@ -5,14 +5,10 @@ package com.digitalasset.daml
 package lf
 package transaction
 
+import com.digitalasset.daml.lf.crypto.SValueHash
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.transaction.ContractStateMachine.{
-  ActiveLedgerState,
-  KeyActive,
-  KeyInactive,
-  KeyMapping,
-  KeyResolver,
-}
+import com.digitalasset.daml.lf.speedy.SValue
+import com.digitalasset.daml.lf.transaction.ContractStateMachine._
 import com.digitalasset.daml.lf.transaction.ContractStateMachineSpec._
 import com.digitalasset.daml.lf.transaction.Transaction.{
   ChildrenRecursion,
@@ -26,13 +22,13 @@ import com.digitalasset.daml.lf.transaction.TransactionErrors.{
   InconsistentContractKey,
   KeyInputError,
 }
-import com.digitalasset.daml.lf.transaction.test.{NodeIdTransactionBuilder, TestNodeBuilder}
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.Implicits.{
   defaultPackageId,
   toIdentifier,
   toName,
   toParty,
 }
+import com.digitalasset.daml.lf.transaction.test.{NodeIdTransactionBuilder, TestNodeBuilder}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
 import org.scalatest.matchers.should.Matchers
@@ -67,7 +63,13 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       templateId: Ref.TypeConId,
       key: String,
   ): GlobalKeyWithMaintainers =
-    GlobalKeyWithMaintainers.assertBuild(templateId, Value.ValueText(key), aliceS, pkgName)
+    GlobalKeyWithMaintainers.assertBuild(
+      templateId,
+      Value.ValueText(key),
+      SValueHash.assertHashContractKey(pkgName, templateId.qualifiedName, SValue.SText(key)),
+      aliceS,
+      pkgName,
+    )
 
   private def toOptKeyWithMaintainers(
       templateId: Ref.TypeConId,
@@ -77,7 +79,12 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     else Some(toKeyWithMaintainers(templateId, key))
 
   def gkey(key: String): GlobalKey =
-    GlobalKey.assertBuild(templateId, Value.ValueText(key), pkgName)
+    GlobalKey.assertBuild(
+      templateId,
+      pkgName,
+      Value.ValueText(key),
+      SValueHash.assertHashContractKey(pkgName, templateId.qualifiedName, SValue.SText(key)),
+    )
 
   def mkCreate(
       contractId: ContractId,

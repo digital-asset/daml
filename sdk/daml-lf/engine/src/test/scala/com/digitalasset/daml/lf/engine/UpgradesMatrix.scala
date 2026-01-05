@@ -9,9 +9,11 @@ import com.daml.logging.LoggingContext
 import com.digitalasset.daml.lf.archive.DamlLf._
 import com.digitalasset.daml.lf.archive.testing.Encode
 import com.digitalasset.daml.lf.command.ApiCommand
+import com.digitalasset.daml.lf.crypto.SValueHash
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
+import com.digitalasset.daml.lf.speedy.SValue
 import com.digitalasset.daml.lf.testing.parser.Implicits._
 import com.digitalasset.daml.lf.testing.parser.{AstRewriter, ParserParameters}
 import com.digitalasset.daml.lf.transaction._
@@ -22,6 +24,7 @@ import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
 
 import scala.annotation.nowarn
+import scala.collection.immutable.ArraySeq
 import scala.concurrent.Future
 import scala.language.implicitConversions
 
@@ -314,18 +317,20 @@ class UpgradesMatrixCases(
     def additionalCreateArgsValue(@nowarn v1PkgId: PackageId): ImmArray[(Option[Name], Value)] =
       ImmArray.empty
 
-    // Used for creating disclosures of v1 contracts and the "lookup contract by key" map passed to the engine.
-    def additionalv1KeyArgsValue(
+    // Used for creating the "lookup contract by key" map passed to the engine. Specified as SValues instead of Values
+    // because the key hashing function acts on SValues.
+    def additionalv1KeyArgsSValue(
         @nowarn v1PkgId: PackageId,
         @nowarn setupData: SetupData,
-    ): ImmArray[(Option[Name], Value)] =
-      ImmArray.empty
-    // Used for creating *ByKey commands
-    def additionalv2KeyArgsValue(
+    ): List[(Name, SValue)] =
+      List.empty
+    // Used for creating *ByKey commands. Specified as SValues instead of Values because the key hashing function acts
+    // on SValues.
+    def additionalv2KeyArgsSValue(
         @nowarn v2PkgId: PackageId,
         @nowarn setupData: SetupData,
-    ): ImmArray[(Option[Name], Value)] =
-      ImmArray.empty
+    ): List[(Name, SValue)] =
+      List.empty
     // Used for looking up contracts by key in choice bodies
     def additionalv2KeyArgsLf(v2PkgId: PackageId): String = ""
 
@@ -893,15 +898,12 @@ class UpgradesMatrixCases(
     override def v2Key = v1Key
 
     // Used for creating disclosures of v1 contracts and the "lookup contract by key" map passed to the engine.
-    override def additionalv1KeyArgsValue(pkgId: PackageId, setupData: SetupData) =
-      ImmArray(
-        None /* maintainers2 */ -> ValueList(
-          FrontStack(ValueParty(setupData.bob))
-        )
-      )
+    override def additionalv1KeyArgsSValue(pkgId: PackageId, setupData: SetupData) =
+      List(("maintainers2": Name) -> SValue.SList(FrontStack(SValue.SParty(setupData.bob))))
+
     // Used for creating *ByKey commands
-    override def additionalv2KeyArgsValue(pkgId: PackageId, setupData: SetupData) =
-      additionalv1KeyArgsValue(pkgId, setupData)
+    override def additionalv2KeyArgsSValue(pkgId: PackageId, setupData: SetupData) =
+      additionalv1KeyArgsSValue(pkgId, setupData)
     // Used for looking up contracts by key in choice bodies
     override def additionalv2KeyArgsLf(v2PkgId: PackageId) =
       s", maintainers2 = (Cons @Party [Mod:Client {bob} this] (Nil @Party))"
@@ -1634,10 +1636,8 @@ class UpgradesMatrixCases(
 
     override def additionalv2KeyArgsLf(v2PkgId: PackageId) =
       s", extra = None @Unit"
-    override def additionalv2KeyArgsValue(v2PkgId: PackageId, setupData: SetupData) =
-      ImmArray(
-        None /* extra */ -> ValueOptional(None)
-      )
+    override def additionalv2KeyArgsSValue(v2PkgId: PackageId, setupData: SetupData) =
+      List(("extra": Name) -> SValue.SOptional(None))
 
     override def v1Key = s"""
                             |  Mod:${templateName}Key {
@@ -1660,10 +1660,8 @@ class UpgradesMatrixCases(
 
     override def additionalv2KeyArgsLf(v2PkgId: PackageId) =
       s", extra = None @Unit"
-    override def additionalv2KeyArgsValue(v2PkgId: PackageId, setupData: SetupData) =
-      ImmArray(
-        None /* extra */ -> ValueOptional(None)
-      )
+    override def additionalv2KeyArgsSValue(v2PkgId: PackageId, setupData: SetupData) =
+      List(("extra": Name) -> SValue.SOptional(None))
 
     override def v1Key = s"""
                             |  Mod:${templateName}Key {
@@ -1704,13 +1702,8 @@ class UpgradesMatrixCases(
     override def v2AdditionalKeyFields: String = ""
 
     // Used for creating disclosures of v1 contracts and the "lookup contract by key" map passed to the engine.
-    override def additionalv1KeyArgsValue(
-        v1PkgId: PackageId,
-        setupData: SetupData,
-    ): ImmArray[(Option[Name], Value)] =
-      ImmArray(
-        None /* extra */ -> ValueOptional(Some(ValueUnit))
-      )
+    override def additionalv1KeyArgsSValue(v1PkgId: PackageId, setupData: SetupData) =
+      List(("extra": Name) -> SValue.SOptional(Some(SValue.SUnit)))
 
     override def v1Key = s"""
                             |  Mod:${templateName}Key {
@@ -1955,6 +1948,7 @@ class UpgradesMatrixCases(
     val tplQualifiedName: QualifiedName = s"Mod:$templateName"
     val tplRef: TypeConRef = TypeConRef.assertFromString(s"#$templateDefsPkgName:Mod:$templateName")
     val v1TplId: Identifier = Identifier(templateDefsV1PkgId, tplQualifiedName)
+    val v2TplId: Identifier = Identifier(templateDefsV2PkgId, tplQualifiedName)
 
     def clientContractArg(alice: Party, bob: Party): ValueRecord = ValueRecord(
       None /* clientTplId */,
@@ -1972,31 +1966,47 @@ class UpgradesMatrixCases(
       ).slowAppend(testCase.additionalCreateArgsValue(templateDefsV1PkgId)),
     )
 
-    def globalContractv1Key(setupData: SetupData): ValueRecord = ValueRecord(
-      None,
-      ImmArray(
-        None /* label */ -> ValueText("test-key"),
-        None /* maintainers */ -> ValueList(FrontStack(ValueParty(setupData.alice))),
-      ).slowAppend(testCase.additionalv1KeyArgsValue(templateDefsV1PkgId, setupData)),
-    )
+    def globalContractv1KeySValue(setupData: SetupData): SValue = {
+      val (additionalFields, additionalValues) =
+        testCase.additionalv1KeyArgsSValue(templateDefsV1PkgId, setupData).unzip
+      SValue.SRecord(
+        v1TplId,
+        ImmArray.from(List[Name]("label", "maintainers") ++ additionalFields),
+        ArraySeq(
+          SValue.SText("test-key"),
+          SValue.SList(FrontStack(SValue.SParty(setupData.alice))),
+        ) ++ additionalValues,
+      )
+    }
 
-    def globalContractv2Key(setupData: SetupData): ValueRecord = ValueRecord(
-      None,
-      ImmArray(
-        None /* label */ -> ValueText("test-key"),
-        None /* maintainers */ -> ValueList(FrontStack(ValueParty(setupData.alice))),
-      ).slowAppend(testCase.additionalv2KeyArgsValue(templateDefsV2PkgId, setupData)),
-    )
+    def globalContractv2KeySValue(setupData: SetupData): SValue = {
+      val (additionalFields, additionalValues) =
+        testCase.additionalv2KeyArgsSValue(templateDefsV2PkgId, setupData).unzip
+      SValue.SRecord(
+        v2TplId,
+        ImmArray.from(List[Name]("label", "maintainers") ++ additionalFields),
+        ArraySeq(
+          SValue.SText("test-key"),
+          SValue.SList(FrontStack(SValue.SParty(setupData.alice))),
+        ) ++ additionalValues,
+      )
+    }
 
     def globalContractKeyWithMaintainers(setupData: SetupData): Option[GlobalKeyWithMaintainers] =
-      whenKeysOtherwiseNone(
+      whenKeysOtherwiseNone {
+        val keySValue = globalContractv1KeySValue(setupData)
         GlobalKeyWithMaintainers.assertBuild(
           v1TplId,
-          globalContractv1Key(setupData),
+          keySValue.toNormalizedValue,
+          SValueHash.assertHashContractKey(
+            templateDefsPkgName,
+            v1TplId.qualifiedName,
+            keySValue,
+          ),
           Set(setupData.alice),
           templateDefsPkgName,
         )
-      )
+      }
 
     def makeApiCommands(
         operation: Operation,
@@ -2102,7 +2112,7 @@ class UpgradesMatrixCases(
             ImmArray(
               ApiCommand.ExerciseByKey(
                 tplRef, // we let package preference select v2
-                globalContractv2Key(setupData),
+                globalContractv2KeySValue(setupData).toNormalizedValue,
                 ChoiceName.assertFromString("TemplateChoice"),
                 choiceArg,
               )
@@ -2117,7 +2127,7 @@ class UpgradesMatrixCases(
               ),
               ApiCommand.ExerciseByKey(
                 tplRef, // we let package preference select v2
-                globalContractv2Key(setupData),
+                globalContractv2KeySValue(setupData).toNormalizedValue,
                 ChoiceName.assertFromString("TemplateChoice"),
                 choiceArg,
               ),
@@ -2136,7 +2146,7 @@ class UpgradesMatrixCases(
                   case Fetch | FetchInterface | Exercise | ExerciseInterface =>
                     ValueContractId(setupData.globalContractId)
                   case FetchByKey | LookupByKey | ExerciseByKey =>
-                    globalContractv2Key(setupData)
+                    globalContractv2KeySValue(setupData).toNormalizedValue
                 },
               )
             )

@@ -7,8 +7,9 @@ import cats.syntax.either.*
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.{LfVersioned, ProtoDeserializationError}
-import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.{Bytes, Ref}
 import com.digitalasset.daml.lf.value.{ValueCoder, ValueOuterClass}
+import com.digitalasset.daml.lf.crypto
 
 object GlobalKeySerialization {
 
@@ -22,7 +23,7 @@ object GlobalKeySerialization {
         .leftMap(_.errorMessage)
     } yield v30.GlobalKey(
       templateId = templateIdP.toByteString,
-      key = keyP.toByteString,
+      key = globalKey.unversioned.hash.bytes.toByteString.concat(keyP.toByteString),
       globalKey.unversioned.packageName,
     )
   }
@@ -33,37 +34,48 @@ object GlobalKeySerialization {
 
   def fromProtoV30(globalKeyP: v30.GlobalKey): ParsingResult[LfVersioned[LfGlobalKey]] = {
     val v30.GlobalKey(templateIdBytes, keyBytes, packageNameP) = globalKeyP
-    for {
-      templateIdP <- ProtoConverter.protoParser(ValueOuterClass.Identifier.parseFrom)(
-        templateIdBytes
+    val hashBytesLength = crypto.Hash.underlyingHashLength
+    if (keyBytes.size < hashBytesLength) {
+      Left(
+        ProtoDeserializationError.OtherError(
+          s"ByteString too short to contain a GlobalKey hash. Expected at least $hashBytesLength bytes, got ${keyBytes.size}"
+        )
       )
-      templateId <- ValueCoder
-        .decodeIdentifier(templateIdP)
-        .leftMap(err =>
-          ProtoDeserializationError
-            .ValueDeserializationError("GlobalKey.templateId", err.errorMessage)
+    } else {
+      val hashBs = keyBytes.substring(0, hashBytesLength)
+      val valueBs = keyBytes.substring(hashBytesLength)
+      for {
+        templateIdP <- ProtoConverter.protoParser(ValueOuterClass.Identifier.parseFrom)(
+          templateIdBytes
         )
+        templateId <- ValueCoder
+          .decodeIdentifier(templateIdP)
+          .leftMap(err =>
+            ProtoDeserializationError
+              .ValueDeserializationError("GlobalKey.templateId", err.errorMessage)
+          )
 
-      keyP <- ProtoConverter.protoParser(ValueOuterClass.VersionedValue.parseFrom)(
-        keyBytes
-      )
-      versionedKey <- ValueCoder
-        .decodeVersionedValue(keyP)
-        .leftMap(err =>
-          ProtoDeserializationError.ValueDeserializationError("GlobalKey.proto", err.toString)
-        )
+        hash <- crypto.Hash.fromBytes(Bytes.fromByteString(hashBs)).left.map(ProtoDeserializationError.OtherError(_))
+        keyP <- ProtoConverter.protoParser(ValueOuterClass.VersionedValue.parseFrom)(valueBs)
+        versionedKey <- ValueCoder
+          .decodeVersionedValue(keyP)
+          .leftMap(err =>
+            ProtoDeserializationError.ValueDeserializationError("GlobalKey.proto", err.toString)
+          )
 
-      packageName <- Ref.PackageName
-        .fromString(packageNameP)
-        .leftMap(err => ProtoDeserializationError.ValueDeserializationError("GlobalKey.proto", err))
+        packageName <- Ref.PackageName
+          .fromString(packageNameP)
+          .leftMap(err =>
+            ProtoDeserializationError.ValueDeserializationError("GlobalKey.proto", err)
+          )
 
-      globalKey <- LfGlobalKey
-        .build(templateId, versionedKey.unversioned, packageName)
-        .leftMap(err =>
-          ProtoDeserializationError.ValueDeserializationError("GlobalKey.key", err.toString)
-        )
+        globalKey <- LfGlobalKey
+          .build(templateId, packageName, versionedKey.unversioned, hash)
+          .leftMap(err =>
+            ProtoDeserializationError.ValueDeserializationError("GlobalKey.key", err.toString)
+          )
 
-    } yield LfVersioned(versionedKey.version, globalKey)
+      } yield LfVersioned(versionedKey.version, globalKey)
+    }
   }
-
 }

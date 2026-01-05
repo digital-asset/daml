@@ -46,6 +46,7 @@ import com.digitalasset.daml.lf.value.Value.ContractId
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.ledger.localstore.InMemoryUserManagementStore
+import com.digitalasset.daml.lf.crypto.SValueHash
 import scalaz.OneAnd
 import scalaz.OneAnd._
 import scalaz.std.set._
@@ -321,7 +322,7 @@ class IdeLedgerClient(
       .getOrElse(throw new IllegalArgumentException(s"Unknown package ${templateId.packageId}"))
 
     GlobalKey
-      .build(templateId, key, pkg.pkgName)
+      .build(templateId, pkg.pkgName, key, null)
       .fold(keyBuilderError(_), Future.successful(_))
       .flatMap { gkey =>
         ledger.ledgerData.activeKeys.get(gkey) match {
@@ -374,7 +375,7 @@ class IdeLedgerClient(
         SubmitError.CreateEmptyContractKeyMaintainers(tid, arg)
       case FetchEmptyContractKeyMaintainers(tid, keyValue, packageName) =>
         SubmitError.FetchEmptyContractKeyMaintainers(
-          GlobalKey.assertBuild(tid, keyValue, packageName)
+          GlobalKey.assertBuild(tid, packageName, keyValue, null)
         )
       case WronglyTypedContract(cid, exp, act) => SubmitError.WronglyTypedContract(cid, exp, act)
       case ContractDoesNotImplementInterface(iid, cid, tid) =>

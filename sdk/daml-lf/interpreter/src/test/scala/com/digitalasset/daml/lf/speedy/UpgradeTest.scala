@@ -530,10 +530,22 @@ class UpgradeTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChec
     )
 
   val v1_key =
-    GlobalKeyWithMaintainers.assertBuild(i"'-pkg1-':M:T", ValueParty(alice), Set(alice), pkgName)
+    GlobalKeyWithMaintainers.assertBuild(
+      i"'-pkg1-':M:T",
+      ValueParty(alice),
+      null,
+      Set(alice),
+      pkgName,
+    )
 
   val v2_key =
-    GlobalKeyWithMaintainers.assertBuild(i"'-pkg2-':M:T", ValueParty(alice), Set(alice), pkgName)
+    GlobalKeyWithMaintainers.assertBuild(
+      i"'-pkg2-':M:T",
+      ValueParty(alice),
+      null,
+      Set(alice),
+      pkgName,
+    )
 
   "upgrade attempted" - {
 
@@ -548,6 +560,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChec
       val v_missingFieldKey = GlobalKeyWithMaintainers.assertBuild(
         i"'-pkg2-':M:T",
         ValueParty(alice),
+        null,
         Set(alice),
         pkgName,
       )
@@ -607,6 +620,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChec
       val v_missingFieldKey = GlobalKeyWithMaintainers.assertBuild(
         i"'-pkg1-':M:T",
         ValueParty(alice),
+        null,
         Set(alice),
         pkgName,
       )
@@ -665,6 +679,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChec
       def key(templateId: Ref.TypeConId) = GlobalKeyWithMaintainers.assertBuild(
         templateId,
         ValueParty(alice),
+        null,
         Set(alice),
         pkgName,
       )
@@ -879,6 +894,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChec
       val v1_extraTextKey = GlobalKeyWithMaintainers.assertBuild(
         i"'-pkg1-':M:T",
         ValueParty(alice),
+        null,
         Set(alice),
         pkgName,
       )
@@ -940,6 +956,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChec
       val v1_extraSomeKey = GlobalKeyWithMaintainers.assertBuild(
         i"'-pkg3-':M:T",
         ValueParty(alice),
+        null,
         Set(alice),
         pkgName,
       )
@@ -1013,6 +1030,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChec
       val v1_extraNoneKey = GlobalKeyWithMaintainers.assertBuild(
         i"'-pkg3-':M:T",
         ValueParty(alice),
+        null,
         Set(alice),
         pkgName,
       )
@@ -1066,6 +1084,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChec
       val v1_extraNoneKey = GlobalKeyWithMaintainers.assertBuild(
         i"'-pkg3-':M:T",
         ValueParty(alice),
+        null,
         Set(alice),
         pkgName,
       )

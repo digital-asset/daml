@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf
 package speedy
 
-import com.digitalasset.daml.lf.crypto.Hash
+import com.digitalasset.daml.lf.crypto.{Hash, SValueHash}
 import com.digitalasset.daml.lf.data.Ref.{PackageId, PackageName, Party}
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
@@ -1305,10 +1305,15 @@ class ExceptionTest extends AnyFreeSpec with Inside with Matchers with TableDriv
                 ),
               )
               val globalKey = GlobalKeyWithMaintainers.assertBuild(
-                templateId,
-                key.toNormalizedValue,
-                Set(alice),
-                templateDefsPkgName,
+                templateId = templateId,
+                value = key.toNormalizedValue,
+                valueHash = SValueHash.assertHashContractKey(
+                  packageName = templateDefsPkgName,
+                  templateName = templateId.qualifiedName,
+                  key = key,
+                ),
+                maintainers = Set(alice),
+                packageName = templateDefsPkgName,
               )
               val globalContract = TransactionBuilder.fatContractInstanceWithDummyDefaults(
                 version = SerializationVersion.StableVersions.max,

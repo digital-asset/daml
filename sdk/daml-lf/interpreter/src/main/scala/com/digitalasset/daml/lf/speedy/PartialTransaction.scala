@@ -443,7 +443,7 @@ private[speedy] case class PartialTransaction(
       val auth = Authorize(context.info.authorizers)
       val nid = NodeId(nextNodeIdx)
       val node = Node.LookupByKey(
-        key.packageName,
+        key.globalKey.packageName,
         key.templateId,
         key.globalKeyWithMaintainers,
         result,

@@ -289,6 +289,7 @@ object Node {
     GlobalKeyWithMaintainers.assertBuild(
       gk.globalKey.templateId,
       gk.value,
+      gk.globalKey.hash,
       gk.maintainers,
       gk.globalKey.packageName,
     )

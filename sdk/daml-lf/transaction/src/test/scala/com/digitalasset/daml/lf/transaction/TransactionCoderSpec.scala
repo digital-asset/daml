@@ -797,8 +797,9 @@ class TransactionCoderSpec
     key.copy(globalKey =
       GlobalKey.assertBuild(
         key.globalKey.templateId,
-        normalize(key.value, version),
         key.globalKey.packageName,
+        normalize(key.value, version),
+        key.globalKey.hash,
       )
     )
 

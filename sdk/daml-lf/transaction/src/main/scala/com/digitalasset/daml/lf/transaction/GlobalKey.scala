@@ -6,7 +6,7 @@ package transaction
 
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{Party, TypeConId}
+import com.digitalasset.daml.lf.data.Ref.{PackageName, Party, TypeConId}
 import com.digitalasset.daml.lf.value.Value
 
 /** Useful in various circumstances -- basically this is what a ledger implementation must use as
@@ -33,36 +33,25 @@ final class GlobalKey private (
 object GlobalKey {
 
   def assertWithRenormalizedValue(key: GlobalKey, value: Value): GlobalKey = {
-    if (
-      key.key != value &&
-      Hash.assertHashContractKey(key.templateId, key.packageName, value) != key.hash
-    ) {
-      throw new IllegalArgumentException(
-        s"Hash must not change as a result of value renormalization key=$key, value=$value"
-      )
-    }
-
     new GlobalKey(key.templateId, key.packageName, value, key.hash)
-
   }
 
   // Will fail if key contains contract ids
   def build(
       templateId: TypeConId,
+      packageName: PackageName,
       key: Value,
-      packageName: Ref.PackageName,
-  ): Either[crypto.Hash.HashingError, GlobalKey] = {
-    crypto.Hash
-      .hashContractKey(templateId, packageName, key)
-      .map(new GlobalKey(templateId, packageName, key, _))
-  }
+      keyHash: crypto.Hash,
+  ): Either[crypto.Hash.HashingError, GlobalKey] =
+    Right(new GlobalKey(templateId, packageName, key, keyHash))
 
   def assertBuild(
       templateId: TypeConId,
+      packageName: PackageName,
       key: Value,
-      packageName: Ref.PackageName,
+      keyHash: crypto.Hash,
   ): GlobalKey = {
-    data.assertRight(build(templateId, key, packageName).left.map(_.msg))
+    data.assertRight(build(templateId, packageName, key, keyHash).left.map(_.msg))
   }
 
   private[lf] def unapply(globalKey: GlobalKey): Some[(TypeConId, Value)] =
@@ -89,18 +78,22 @@ object GlobalKeyWithMaintainers {
   def assertBuild(
       templateId: TypeConId,
       value: Value,
+      valueHash: crypto.Hash,
       maintainers: Set[Party],
-      packageName: Ref.PackageName,
+      packageName: PackageName,
   ): GlobalKeyWithMaintainers =
-    data.assertRight(build(templateId, value, maintainers, packageName).left.map(_.msg))
+    data.assertRight(build(templateId, value, valueHash, maintainers, packageName).left.map(_.msg))
 
   def build(
       templateId: TypeConId,
       value: Value,
+      valueHash: crypto.Hash,
       maintainers: Set[Party],
-      packageName: Ref.PackageName,
+      packageName: PackageName,
   ): Either[Hash.HashingError, GlobalKeyWithMaintainers] =
-    GlobalKey.build(templateId, value, packageName).map(GlobalKeyWithMaintainers(_, maintainers))
+    GlobalKey
+      .build(templateId, packageName, value, valueHash)
+      .map(GlobalKeyWithMaintainers(_, maintainers))
 }
 
 /** Controls whether the engine should error out when it encounters duplicate keys.

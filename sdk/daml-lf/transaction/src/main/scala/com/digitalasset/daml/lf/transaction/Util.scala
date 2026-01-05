@@ -77,7 +77,12 @@ object Util {
   ): Either[String, GlobalKeyWithMaintainers] =
     normalizeValue(key.globalKey.key, version).map(normalized =>
       key.copy(globalKey =
-        GlobalKey.assertBuild(key.globalKey.templateId, normalized, key.globalKey.packageName)
+        GlobalKey.assertBuild(
+          key.globalKey.templateId,
+          key.globalKey.packageName,
+          normalized,
+          key.globalKey.hash,
+        )
       )
     )
 

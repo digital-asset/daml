@@ -51,7 +51,13 @@ class AuthorizationSpec extends AnyFreeSpec with Matchers with Inside with TestI
     init.copy(
       // By default maintainers are added to signatories so do this to allow error case testing
       keyOpt = Some(
-        GlobalKeyWithMaintainers.assertBuild(templateId, Value.ValueUnit, maintainers, pkgName)
+        GlobalKeyWithMaintainers.assertBuild(
+          templateId,
+          Value.ValueUnit,
+          null,
+          maintainers,
+          pkgName,
+        )
       )
     )
   }

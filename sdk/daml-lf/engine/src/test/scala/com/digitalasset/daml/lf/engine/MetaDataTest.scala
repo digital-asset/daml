@@ -4,6 +4,7 @@
 package com.digitalasset.daml.lf
 package engine
 
+import com.digitalasset.daml.lf.crypto.SValueHash
 import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.{
   CreateKey,
   CreateSerializationVersion,
@@ -11,6 +12,7 @@ import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.{
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.language.LanguageVersion
+import com.digitalasset.daml.lf.speedy.SValue
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.Implicits._
 import com.digitalasset.daml.lf.transaction.test.{
   TestIdFactory,
@@ -41,7 +43,14 @@ class MetaDataTest
       argument = ValueUnit,
       signatories = parties,
       observers = noOne,
-      key = CreateKey.SignatoryMaintainerKey(ValueParty("alice")),
+      key = CreateKey.SignatoryMaintainerKey(
+        ValueParty("alice"),
+        SValueHash.assertHashContractKey(
+          TestNodeBuilder.defaultPackageName,
+          "M:T",
+          SValue.SParty("alice"),
+        ),
+      ),
       version = CreateSerializationVersion.FromPackage,
     )
     val nodeWithoutInterface = Table[TestNodeBuilder => Node](
@@ -74,7 +83,14 @@ class MetaDataTest
       argument = ValueUnit,
       signatories = parties,
       observers = noOne,
-      key = CreateKey.SignatoryMaintainerKey(ValueParty("alice")),
+      key = CreateKey.SignatoryMaintainerKey(
+        ValueParty("alice"),
+        SValueHash.assertHashContractKey(
+          TestNodeBuilder.defaultPackageName,
+          "M:T",
+          SValue.SParty("alice"),
+        ),
+      ),
       version = CreateSerializationVersion.FromPackage,
     )
     val nodeWithInterface = Table[TestNodeBuilder => Node](

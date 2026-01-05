@@ -132,7 +132,6 @@ private[lf] object Speedy {
   sealed abstract class LedgerMode extends Product with Serializable
 
   final case class CachedKey(
-      packageName: PackageName,
       globalKeyWithMaintainers: GlobalKeyWithMaintainers,
       key: SValue,
   ) {
@@ -1392,11 +1391,17 @@ private[lf] object Speedy {
       )
 
     private[lf] def globalKey(pkgName: PackageName, templateId: TypeConId, keyValue: SValue) = {
-      val lfValue = keyValue.toNormalizedValue
-      GlobalKey
-        .build(templateId, lfValue, pkgName)
-        .toOption
-    }
+      for {
+        hash <- SValueHash.hashContractKey(pkgName, templateId.qualifiedName, keyValue)
+        res <- GlobalKey
+          .build(
+            templateId,
+            pkgName,
+            keyValue.toNormalizedValue,
+            hash,
+          )
+      } yield res
+    }.toOption
 
     private[lf] def assertGlobalKey(pkgName: PackageName, templateId: TypeConId, keyValue: SValue) =
       globalKey(pkgName, templateId, keyValue)

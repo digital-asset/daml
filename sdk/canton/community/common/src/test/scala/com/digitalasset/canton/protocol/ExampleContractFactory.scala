@@ -131,7 +131,7 @@ object ExampleContractFactory extends EitherValues {
       value: Value = ValueInt64(random.nextLong()),
       maintainers: Set[Ref.Party] = Set(signatory),
   ): GlobalKeyWithMaintainers =
-    GlobalKeyWithMaintainers.assertBuild(templateId, value, maintainers, packageName)
+    GlobalKeyWithMaintainers.assertBuild(templateId, value, null, maintainers, packageName)
 
   def modify[Time <: CreationTime](
       base: GenContractInstance { type InstCreatedAtTime <: Time },

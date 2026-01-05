@@ -35,6 +35,7 @@ import com.digitalasset.daml.lf.transaction.Node.{Create, Exercise}
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.FlowShape
 import org.apache.pekko.stream.scaladsl.{Broadcast, Flow, GraphDSL, Merge, Sink, Source}
+import com.digitalasset.daml.lf.crypto
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
@@ -384,8 +385,11 @@ private[platform] object InMemoryStateUpdater {
         globalKey = createdEvent.contractKey.map(k =>
           Key.assertBuild(
             createdEvent.templateId,
-            k.unversioned,
             createdEvent.packageName,
+            k.unversioned,
+            createdEvent.createKeyHash.getOrElse(
+              throw new IllegalStateException("contractKey is defined but createKeyHash is not")
+            ),
           )
         ),
       )
@@ -393,13 +397,15 @@ private[platform] object InMemoryStateUpdater {
         // no state updates for participant divulged events and transient events as these events
         // cannot lead to successful contract lookup and usage in interpretation anyway
         if exercisedEvent.consuming && exercisedEvent.flatEventWitnesses.nonEmpty =>
+      lazy val oops : crypto.Hash = throw new RuntimeException("HERE")
       ContractStateEvent.Archived(
         contractId = exercisedEvent.contractId,
         globalKey = exercisedEvent.contractKey.map(k =>
           Key.assertBuild(
             exercisedEvent.templateId,
-            k.unversioned,
             exercisedEvent.packageName,
+            k.unversioned,
+            oops,
           )
         ),
       )
