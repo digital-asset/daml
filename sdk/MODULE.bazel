@@ -66,6 +66,9 @@ maven.install(
 
         "io.grpc:grpc-netty-shaded:1.77.0",
 
+        "io.opentelemetry:opentelemetry-context:1.43.0",
+        "io.opentelemetry:opentelemetry-api:1.43.0",
+
         "org.slf4j:slf4j-api:2.0.6"
     ],
 )
