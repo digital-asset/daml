@@ -18,4 +18,4 @@ sdk/release/           @digital-asset/daml-language
 sdk/release.sh         @digital-asset/daml-language
 
 # Temporary owners to prevent unexpected changes to daml-lf and engine
-/daml-lf               @remyhaemmerle-da @carlpulley-da @dylant-da
+/sdk/daml-lf           @remyhaemmerle-da @carlpulley-da @dylant-da
