@@ -134,12 +134,9 @@ abstract class UpgradesMatrixUnit(upgradesMatrixCases: UpgradesMatrixCases, n: I
             (kwm: GlobalKeyWithMaintainers) =>
               testHelper
                 .globalContractKeyWithMaintainers(setupData)
-                .flatMap(helperKey => {
-                  println(
-                    s"helperKey = ${helperKey.globalKey}\n${helperKey.globalKey.hash}=\nkwm = ${kwm.globalKey}\nhash=${kwm.globalKey.hash}"
-                  )
+                .flatMap(helperKey =>
                   Option.when(helperKey.globalKey == kwm.globalKey)(setupData.globalContractId)
-                })
+                )
         ).unlift
       case _ => PartialFunction.empty
     }

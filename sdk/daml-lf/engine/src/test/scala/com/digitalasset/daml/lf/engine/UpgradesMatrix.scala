@@ -1946,8 +1946,10 @@ class UpgradesMatrixCases(
     val clientGlobalTplId: Identifier = Identifier(clientGlobalPkgId, "Mod:Client")
     val ifaceId: Identifier = Identifier(commonDefsPkgId, "Mod:Iface")
     val tplQualifiedName: QualifiedName = s"Mod:$templateName"
+    val keyQualifiedName: QualifiedName = s"Mod:${templateName}Key"
     val tplRef: TypeConRef = TypeConRef.assertFromString(s"#$templateDefsPkgName:Mod:$templateName")
     val v1TplId: Identifier = Identifier(templateDefsV1PkgId, tplQualifiedName)
+    val v1KeyId: Identifier = Identifier(templateDefsV1PkgId, keyQualifiedName)
     val v2TplId: Identifier = Identifier(templateDefsV2PkgId, tplQualifiedName)
 
     def clientContractArg(alice: Party, bob: Party): ValueRecord = ValueRecord(
@@ -1970,7 +1972,7 @@ class UpgradesMatrixCases(
       val (additionalFields, additionalValues) =
         testCase.additionalv1KeyArgsSValue(templateDefsV1PkgId, setupData).unzip
       SValue.SRecord(
-        v1TplId,
+        v1KeyId,
         ImmArray.from(List[Name]("label", "maintainers") ++ additionalFields),
         ArraySeq(
           SValue.SText("test-key"),
