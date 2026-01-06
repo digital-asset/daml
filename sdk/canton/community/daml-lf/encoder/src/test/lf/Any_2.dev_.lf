@@ -1,0 +1,14 @@
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+module AnyMod {
+
+    record Tuple a b = {_1: a, _2: b};
+
+    val int2Any: AnyMod:Tuple Int64 Text -> Any = \ (x: AnyMod:Tuple Int64 Text) -> to_any @(AnyMod:Tuple Int64 Text) x;
+
+    val any2Int: Any -> (Option (AnyMod:Tuple Int64 Text)) = \ (x: Any) -> from_any @(AnyMod:Tuple Int64 Text) x;
+
+    val intRep: TypeRep = type_rep @(AnyMod:Tuple Int64 Text);
+
+}

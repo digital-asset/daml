@@ -1,0 +1,18 @@
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+module LedgerTimeMod {
+
+  record @serializable Action = { party: Party, action: Text } ;
+
+  template (this : Action) =  {
+    precondition True;
+    signatories (PartyMod:one (LedgerTimeMod:Action {party} this));
+    observers (Nil @Party);
+    choice CheckStatus (self) (dueBy: Timestamp) : Bool
+      , controllers (PartyMod:one (LedgerTimeMod:Action {party} this))
+      , observers (PartyMod:one (LedgerTimeMod:Action {party} this))
+      to (ledger_time_lt dueBy);
+  };
+
+}

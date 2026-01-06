@@ -583,7 +583,7 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
   /** In case of single instance sequencer we can use in-memory fanout buffer for events */
   final def bufferEvents(
       events: NonEmpty[Seq[Sequenced[IdOrPayload]]]
-  ): Unit =
+  )(implicit traceContext: TraceContext): Unit =
     if (eventsBufferEnabled) eventsBuffer.bufferEvents(events)
 
   final def resetAndPreloadBuffer()(implicit

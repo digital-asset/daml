@@ -36,11 +36,11 @@ import com.digitalasset.canton.sequencing.protocol.{DeliverError, MessageId}
 import com.digitalasset.canton.time.SynchronizerTimeTracker
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.util.MonadUtil
+import com.digitalasset.canton.util.{MonadUtil, Mutex}
 
 import java.util.UUID
 import scala.collection.mutable
-import scala.concurrent.{ExecutionContext, blocking}
+import scala.concurrent.ExecutionContext
 
 /** Tracker for in-flight submissions backed by the
   * [[com.digitalasset.canton.participant.store.InFlightSubmissionStore]].
@@ -456,6 +456,7 @@ object InFlightSubmissionTracker {
       override val loggerFactory: NamedLoggerFactory,
   ) extends NamedLogging {
 
+    private val lock = new Mutex()
     private val mutableUnsequencedMap: mutable.Map[MessageId, Entry[T]] =
       mutable.Map()
     private val rootHashMap: mutable.Map[RootHash, MessageId] =
@@ -465,8 +466,8 @@ object InFlightSubmissionTracker {
     def changeIfExists(
         key: MessageId,
         trackingData: T,
-    ): Unit = blocking(
-      synchronized(
+    ): Unit = (
+      lock.exclusive(
         mutableUnsequencedMap
           .updateWith(key) {
             case Some(entry) =>
@@ -482,8 +483,8 @@ object InFlightSubmissionTracker {
     def addRootHashIfNotSpecifiedYet(
         key: MessageId,
         rootHash: RootHash,
-    ): Unit = blocking(
-      synchronized(
+    ): Unit = (
+      lock.exclusive(
         mutableUnsequencedMap
           .updateWith(key) {
             case Some(entry @ Entry(_, _, _, None, _)) =>
@@ -504,7 +505,7 @@ object InFlightSubmissionTracker {
         rootHash: Option[RootHash],
     )(implicit traceContext: TraceContext): Option[SynchronizerTimeTracker.TickRequestCell] = {
       val messageId = MessageId.fromUuid(messageUuid)
-      blocking(synchronized {
+      (lock.exclusive {
         Option.when(!mutableUnsequencedMap.contains(MessageId.fromUuid(messageUuid))) {
           val entry = Entry(
             trackingData,
@@ -529,8 +530,8 @@ object InFlightSubmissionTracker {
     // This is needed as corresponding scheduled tasks are not getting removed, but rather those task will do nothing on perform()
     // if an earlier task already emitted the corresponding event.
     def pull(key: MessageId): Option[Entry[T]] =
-      blocking(
-        synchronized(
+      (
+        lock.exclusive(
           mutableUnsequencedMap
             .remove(key)
             .map { result =>
@@ -543,8 +544,8 @@ object InFlightSubmissionTracker {
       )
 
     def pullByHash(rootHash: RootHash): Unit =
-      blocking(
-        synchronized(
+      (
+        lock.exclusive(
           rootHashMap
             .get(rootHash)
             .foreach(pull)

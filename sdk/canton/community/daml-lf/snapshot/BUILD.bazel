@@ -1,0 +1,214 @@
+# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@os_info//:os_info.bzl", "is_windows")
+load("//bazel_tools:proto.bzl", "proto_jars")
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_benchmark_jmh",
+    "da_scala_binary",
+    "da_scala_library",
+    "da_scala_test",
+    "da_scala_test_suite",
+    "lf_scalacopts",
+    "lf_scalacopts_stricter",
+)
+load(
+    "//daml-lf/language:daml-lf.bzl",
+    "COMPILER_LF_MAJOR_VERSIONS",
+    "DEFAULT_LF_VERSION",
+)
+load(
+    "//language-support/java/codegen:codegen.bzl",
+    "dar_to_java",
+)
+load(
+    "//rules_daml:daml.bzl",
+    "daml_compile",
+)
+
+proto_jars(
+    name = "snapshot_proto",
+    srcs = ["src/main/protobuf/com/digitalasset/daml/lf/snapshot.proto"],
+    maven_artifact_prefix = "daml-lf-snapshot",
+    maven_group = "com.daml",
+    strip_import_prefix = "src/main/protobuf/",
+    visibility = ["//visibility:public"],
+)
+
+da_scala_library(
+    name = "snapshot",
+    srcs = glob(["src/main/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    deps = [
+        "snapshot_proto_java",
+        "//canton:contextualized-logging",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/data",
+        "//daml-lf/engine",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//daml-lf/transaction",
+        "@maven//:com_google_protobuf_protobuf_java",
+    ],
+)
+
+da_scala_benchmark_jmh(
+    name = "replay-benchmark",
+    srcs = glob(["src/benchmark/**/*.scala"]),
+    max_heap_size = "4g",
+    scala_deps = ["@maven//:org_scalaz_scalaz_core"],
+    deps = [
+        ":snapshot",
+        "//daml-lf/data",
+        "//daml-lf/engine",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//daml-lf/transaction",
+    ],
+)
+
+[
+    daml_compile(
+        name = "ReplayBenchmark",
+        srcs = glob(["src/test/daml/**/*.daml"]),
+        dependencies = ["//daml-script/daml:daml-script.dar"],
+        target = DEFAULT_LF_VERSION,
+    ),
+    dar_to_java(
+        name = "ReplayBenchmark-codegen",
+        src = ":ReplayBenchmark.dar",
+        package_prefix = "com.daml.lf.testing.snapshot.java",
+    ),
+    da_scala_test_suite(
+        name = "replay-benchmark-tests",
+        srcs = glob(
+            ["src/test/scala/**/*.scala"],
+            exclude = [
+                "src/test/scala/**/GenerateSnapshots.scala",
+                "src/test/scala/**/ExtractSnapshotChoices.scala",
+            ],
+        ),
+        data = [":ReplayBenchmark.dar"],
+        scala_deps = [
+            "@maven//:org_apache_pekko_pekko_actor",
+            "@maven//:org_apache_pekko_pekko_stream",
+            "@maven//:org_scalatest_scalatest_core",
+            "@maven//:org_scalatest_scalatest_matchers_core",
+            "@maven//:org_scalatest_scalatest_shouldmatchers",
+            "@maven//:org_scalatest_scalatest_wordspec",
+            "@maven//:org_scalaz_scalaz_core",
+        ],
+        deps = [
+            ":ReplayBenchmark-codegen",
+            ":replay-benchmark_compiled_benchmark_lib",
+            ":replay-benchmark_generator",
+            ":snapshot",
+            "//bazel_tools/runfiles:scala_runfiles",
+            "//canton:community_ledger_ledger-common",
+            "//canton:community_util-observability",
+            "//canton:contextualized-logging",
+            "//canton:ledger-resources",
+            "//canton:ports",
+            "//canton:resources",
+            "//canton:rs-grpc-bridge",
+            "//canton:testing-utils",
+            "//daml-lf/archive:daml_lf_archive_reader",
+            "//daml-lf/data",
+            "//daml-lf/engine",
+            "//daml-lf/engine:script-engine",
+            "//daml-lf/interpreter",
+            "//daml-lf/language",
+            "//daml-lf/parser",
+            "//daml-lf/stable-packages",
+            "//daml-lf/transaction",
+            "//daml-lf/transaction-test-lib",
+            "//daml-script/runner:script-runner-lib",
+            "//daml-script/test:test-utils",
+            "//test-common/canton/it-lib",
+        ],
+    ),
+] if not is_windows else []
+
+[
+    da_scala_test_suite(
+        name = "generate-snapshots",
+        srcs = glob(["src/test/scala/**/GenerateSnapshots.scala"]),
+        scala_deps = [
+            "@maven//:org_apache_pekko_pekko_actor",
+            "@maven//:org_apache_pekko_pekko_stream",
+            "@maven//:org_scalatest_scalatest_core",
+            "@maven//:org_scalatest_scalatest_matchers_core",
+            "@maven//:org_scalatest_scalatest_shouldmatchers",
+            "@maven//:org_scalatest_scalatest_wordspec",
+            "@maven//:org_scalaz_scalaz_core",
+        ],
+        tags = ["manual"],
+        deps = [
+            ":replay-benchmark_compiled_benchmark_lib",
+            ":replay-benchmark_generator",
+            ":snapshot",
+            "//bazel_tools/runfiles:scala_runfiles",
+            "//canton:community_ledger_ledger-common",
+            "//canton:community_util-observability",
+            "//canton:contextualized-logging",
+            "//canton:ledger-resources",
+            "//canton:ports",
+            "//canton:resources",
+            "//canton:rs-grpc-bridge",
+            "//canton:testing-utils",
+            "//daml-lf/archive:daml_lf_archive_reader",
+            "//daml-lf/data",
+            "//daml-lf/engine",
+            "//daml-lf/interpreter",
+            "//daml-lf/language",
+            "//daml-lf/parser",
+            "//daml-lf/stable-packages",
+            "//daml-lf/transaction",
+            "//daml-lf/transaction-test-lib",
+            "//daml-script/runner:script-runner-lib",
+            "//daml-script/test:test-utils",
+            "//test-common/canton/it-lib",
+        ],
+    ),
+    da_scala_test_suite(
+        name = "extract-snapshot-choices",
+        srcs = glob(["src/test/scala/**/ExtractSnapshotChoices.scala"]),
+        scala_deps = [
+            "@maven//:org_scalatest_scalatest_core",
+            "@maven//:org_scalatest_scalatest_matchers_core",
+            "@maven//:org_scalatest_scalatest_shouldmatchers",
+            "@maven//:org_scalatest_scalatest_wordspec",
+            "@maven//:org_scalaz_scalaz_core",
+        ],
+        tags = ["manual"],
+        deps = [
+            ":snapshot",
+            "//daml-lf/data",
+            "//daml-lf/engine",
+            "//daml-lf/interpreter",
+            "//daml-lf/language",
+            "//daml-lf/transaction",
+        ],
+    ),
+] if not is_windows else []
+
+da_scala_binary(
+    name = "replay-profile",
+    srcs = glob(["src/profile/**/*.scala"]),
+    main_class = "com.daml.lf.testing.snapshot.ReplayProfile",
+    max_heap_size = "4g",
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+    ],
+    deps = [
+        ":snapshot",
+        "//daml-lf/data",
+        "//daml-lf/engine",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//daml-lf/transaction",
+    ],
+)

@@ -1041,6 +1041,7 @@ class TopologyTransactionProcessorTestInMemory extends TopologyTransactionProces
     )
 
 }
+
 class TopologyTransactionProcessorTestPostgres
     extends TopologyTransactionProcessorTest
     with DbTest
