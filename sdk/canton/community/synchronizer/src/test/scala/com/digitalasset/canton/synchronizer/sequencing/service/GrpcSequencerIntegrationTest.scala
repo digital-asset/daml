@@ -377,7 +377,8 @@ class Env(override val loggerFactory: SuppressingLogger)(implicit
             override def signRequest[A <: HasCryptographicEvidence](
                 request: A,
                 hashPurpose: HashPurpose,
-                snapshot: Option[SyncCryptoApi],
+                snapshot: SyncCryptoApi,
+                approximateTimestampOverride: Option[CantonTimestamp],
             )(implicit
                 ec: ExecutionContext,
                 traceContext: TraceContext,

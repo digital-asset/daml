@@ -696,6 +696,7 @@ trait InvalidTransactionConfirmationRequestIntegrationTest
               newLtvt,
               (viewKey, message.viewEncryptionKeyRandomness),
               crypto,
+              Some(environment.now),
               testedProtocolVersion,
             )
             .valueOrFail("create new envelope")

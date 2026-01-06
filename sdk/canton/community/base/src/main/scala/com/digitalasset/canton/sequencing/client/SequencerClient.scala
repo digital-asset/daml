@@ -557,11 +557,16 @@ abstract class SequencerClientImpl(
           request.updateAggregationRule(aggregationRule)
         } else request
 
+      // TODO(#22086): We must use a more recent timestamp because there can be delays when sending submission requests
+      // to avoid load spikes on the sequencer (e.g., for ACS commitments). By using a new clock measurement,
+      // we ensure that, when using session signing keys, the key will not expire by the time the submission
+      // request reaches the sequencer.
       val resF = requestSigner
         .signRequest(
           amplifiableRequest,
           HashPurpose.SubmissionRequestSignature,
-          Some(topologySnapshot),
+          topologySnapshot,
+          Some(clock.now),
         )
         .leftMap[SendAsyncClientError] { err =>
           val message = s"Error signing submission request $err"
@@ -925,7 +930,8 @@ abstract class SequencerClientImpl(
         signedRequest <- requestSigner.signRequest(
           request,
           HashPurpose.AcknowledgementSignature,
-          Some(approximateSnapshot),
+          approximateSnapshot,
+          Some(clock.now),
         )
         result <-
           if (config.useNewConnectionPool) {

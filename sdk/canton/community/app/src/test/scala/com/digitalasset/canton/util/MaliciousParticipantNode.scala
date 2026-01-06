@@ -125,6 +125,7 @@ class MaliciousParticipantNode(
 
   def submitUnassignmentRequest(
       fullTree: FullUnassignmentTree,
+      approximateTimestampOverride: Option[CantonTimestamp],
       mediator: MediatorGroupRecipient = defaultMediatorGroup,
       cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi = defaultCryptoSnapshot(),
       sourceProtocolVersion: Source[ProtocolVersion] = Source(defaultProtocolVersion),
@@ -148,7 +149,7 @@ class MaliciousParticipantNode(
     ) { sessionKeyStore =>
       for {
         submittingParticipantSignature <- cryptoSnapshot
-          .sign(rootHash.unwrap, SigningKeyUsage.ProtocolOnly)
+          .sign(rootHash.unwrap, SigningKeyUsage.ProtocolOnly, approximateTimestampOverride)
           .leftMap(_.toString)
         mediatorMessage = fullTree.mediatorMessage(
           submittingParticipantSignature,
@@ -184,6 +185,7 @@ class MaliciousParticipantNode(
             fullTree,
             (viewKey, viewKeyMap),
             cryptoSnapshot,
+            approximateTimestampOverride,
             sourceProtocolVersion.unwrap,
           )
           .leftMap(_.toString)
@@ -219,6 +221,7 @@ class MaliciousParticipantNode(
   def submitAssignmentRequest(
       submitter: LfPartyId,
       reassignmentData: UnassignmentData,
+      approximateTimestampOverride: Option[CantonTimestamp],
       submittingParticipant: ParticipantId = participantId,
       mediator: MediatorGroupRecipient = defaultMediatorGroup,
       cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi = defaultCryptoSnapshot(),
@@ -289,7 +292,7 @@ class MaliciousParticipantNode(
 
         rootHash = fullTree.rootHash
         submittingParticipantSignature <- cryptoSnapshot
-          .sign(rootHash.unwrap, SigningKeyUsage.ProtocolOnly)
+          .sign(rootHash.unwrap, SigningKeyUsage.ProtocolOnly, approximateTimestampOverride)
           .leftMap(_.toString)
         mediatorMessage = fullTree.mediatorMessage(
           submittingParticipantSignature,
@@ -325,6 +328,7 @@ class MaliciousParticipantNode(
             fullTree,
             (viewKey, viewKeyMap),
             cryptoSnapshot,
+            approximateTimestampOverride,
             targetProtocolVersion.unwrap,
           )
           .leftMap(_.toString)

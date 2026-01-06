@@ -26,7 +26,7 @@ import com.digitalasset.canton.console.{
   SequencerReference,
 }
 import com.digitalasset.canton.crypto.{HashOps, SyncCryptoApi, SynchronizerCryptoClient}
-import com.digitalasset.canton.data.ViewType
+import com.digitalasset.canton.data.{CantonTimestamp, ViewType}
 import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.integration.tests.security.SecurityTestHelpers.{
   MessageTransform,
@@ -466,6 +466,7 @@ trait SecurityTestHelpers extends SecurityTestLensUtils {
   def signedTransformOf[A <: SignedProtocolMessageContent](
       transform: MessageTransform[A],
       useCurrentSnapshot: Boolean = false,
+      approximateTimestampOverride: Option[CantonTimestamp] = None,
   )(implicit
       executionContext: ExecutionContext
   ): SignedMessageTransform[A] =
@@ -475,7 +476,9 @@ trait SecurityTestHelpers extends SecurityTestLensUtils {
       (transform(updateSignatureUsing(syncCrypto, useCurrentSnapshot), _))
         .andThen(_.focus(_.sender).replace(sender))
         // TODO(i16512): See if we should pass `useCurrentSnapshot` to sign the submission request
-        .andThen(signModifiedSubmissionRequest(_, syncCrypto))(submissionRequest)
+        .andThen(signModifiedSubmissionRequest(_, syncCrypto, approximateTimestampOverride))(
+          submissionRequest
+        )
     }
 
   /** Convenience method to create a [[SignedMessageTransform]] from a [[MessageTransform]] signing
@@ -488,6 +491,7 @@ trait SecurityTestHelpers extends SecurityTestLensUtils {
       transform: MessageTransform[A],
       senderRef: LocalInstanceReference,
       useCurrentSnapshot: Boolean = false,
+      approximateTimestampOverride: Option[CantonTimestamp] = None,
   )(implicit
       executionContext: ExecutionContext
   ): SignedMessageTransform[A] =
@@ -497,7 +501,9 @@ trait SecurityTestHelpers extends SecurityTestLensUtils {
       (transform(updateSignatureUsing(syncCrypto, useCurrentSnapshot), _))
         .andThen(_.focus(_.sender).replace(sender))
         // TODO(i16512): See if we should pass `useCurrentSnapshot` to sign the submission request
-        .andThen(signModifiedSubmissionRequest(_, syncCrypto))(submissionRequest)
+        .andThen(signModifiedSubmissionRequest(_, syncCrypto, approximateTimestampOverride))(
+          submissionRequest
+        )
     }
 
   private def senderAndCryptoFromRef(

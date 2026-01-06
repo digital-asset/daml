@@ -20,6 +20,7 @@ import com.digitalasset.canton.crypto.{
   SyncCryptoError,
   SynchronizerCrypto,
 }
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
@@ -37,9 +38,16 @@ trait SyncCryptoSigner extends NamedLogging with AutoCloseable {
   protected def cryptoPrivateStore: CryptoPrivateStore
 
   /** Signs a given hash using the currently active signing keys in the current topology state.
+    *
+    * @param approximateTimestampOverride
+    *   if defined use this timestamp to pick the validity timestamp of the session signing key.
+    *   This should only be done when you have to guess such a timestamp -
+    *   currentSnapShotApproximation (e.g., for a submission request, or a signature on an encrypted
+    *   view message).
     */
   def sign(
       topologySnapshot: TopologySnapshot,
+      approximateTimestampOverride: Option[CantonTimestamp],
       hash: Hash,
       usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit

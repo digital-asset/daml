@@ -1,10 +1,10 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.integration.tests.repair
+package com.digitalasset.canton.integration.tests.manual
 
 import better.files.*
-import com.daml.test.evidence.scalatest.OperabilityTestHelpers
+import com.digitalasset.canton.config.RequireTypes
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{
   LocalInstanceReference,
@@ -15,6 +15,7 @@ import com.digitalasset.canton.console.{
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.examples.java as M
+import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.bootstrap.{
   NetworkBootstrapper,
   NetworkTopologyDescription,
@@ -25,14 +26,7 @@ import com.digitalasset.canton.integration.plugins.{
   UsePostgres,
 }
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
-import com.digitalasset.canton.integration.util.{AcsInspection, PartyToParticipantDeclarative}
-import com.digitalasset.canton.integration.{
-  CommunityIntegrationTest,
-  ConfigTransforms,
-  EnvironmentDefinition,
-  SharedEnvironment,
-  TestConsoleEnvironment,
-}
+import com.digitalasset.canton.integration.util.PartyToParticipantDeclarative
 import com.digitalasset.canton.participant.admin.data.ContractImportMode
 import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
 import com.digitalasset.canton.time.PositiveSeconds
@@ -48,6 +42,9 @@ import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
 
 /** Given a large active contract set (ACS), we want to test the ACS export and import.
+  *
+  * IMPORTANT: This does NOT implement a proper offline party replication as this is NOT the test
+  * focus.
   *
   * The tooling also allows to generate "transient contracts": these are contracts that are created
   * and archived immediately (and thus don't show up in the ACS snapshot). This is useful to check
@@ -104,9 +101,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
   */
 protected abstract class LargeAcsExportAndImportTestBase
     extends CommunityIntegrationTest
-    with SharedEnvironment
-    with AcsInspection
-    with OperabilityTestHelpers {
+    with SharedEnvironment {
 
   /** Test definition, in particular how many active Iou contracts should be used */
   protected def testSet: TestSet
@@ -158,7 +153,41 @@ protected abstract class LargeAcsExportAndImportTestBase
 
   protected val baseEnvironmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P3_S1M1_Manual
+      .clearConfigTransforms() // Disable globally unique ports
+      .addConfigTransforms(ConfigTransforms.allDefaultsButGloballyUniquePorts*)
       .addConfigTransforms(
+        // Hard-coded ports ensure connectivity across node restarts. To save time,
+        // participants are restored from database dumps which contain persisted
+        // sequencer configurations. Static ports are required so these restored
+        // nodes can successfully reconnect.
+        ConfigTransforms.updateSequencerConfig("sequencer1")(cfg =>
+          cfg
+            .focus(_.publicApi.internalPort)
+            .replace(Some(RequireTypes.Port.tryCreate(9018)))
+            .focus(_.adminApi.internalPort)
+            .replace(Some(RequireTypes.Port.tryCreate(9019)))
+        ),
+        ConfigTransforms.updateParticipantConfig("participant1")(cfg =>
+          cfg
+            .focus(_.ledgerApi.internalPort)
+            .replace(Some(RequireTypes.Port.tryCreate(9011)))
+            .focus(_.adminApi.internalPort)
+            .replace(Some(RequireTypes.Port.tryCreate(9012)))
+        ),
+        ConfigTransforms.updateParticipantConfig("participant2")(cfg =>
+          cfg
+            .focus(_.ledgerApi.internalPort)
+            .replace(Some(RequireTypes.Port.tryCreate(9021)))
+            .focus(_.adminApi.internalPort)
+            .replace(Some(RequireTypes.Port.tryCreate(9022)))
+        ),
+        ConfigTransforms.updateParticipantConfig("participant3")(cfg =>
+          cfg
+            .focus(_.ledgerApi.internalPort)
+            .replace(Some(RequireTypes.Port.tryCreate(9031)))
+            .focus(_.adminApi.internalPort)
+            .replace(Some(RequireTypes.Port.tryCreate(9032)))
+        ),
         // Disable background pruning
         ConfigTransforms.updateAllParticipantConfigs_(
           _.focus(_.parameters.journalGarbageCollectionDelay)
@@ -182,6 +211,16 @@ protected abstract class LargeAcsExportAndImportTestBase
           _.focus(_.parameters.activationFrequencyForWarnAboutConsistencyChecks)
             .replace(Long.MaxValue)
         ),
+      )
+      // Disabling LAPI verification to reduce test termination time
+      .updateTestingConfig(
+        _.focus(_.participantsWithoutLapiVerification).replace(
+          Set(
+            "participant1",
+            "participant2",
+            "participant3",
+          )
+        )
       )
 
   override protected def environmentDefinition: EnvironmentDefinition = baseEnvironmentDefinition
@@ -483,14 +522,19 @@ protected abstract class EstablishTestSet extends LargeAcsExportAndImportTestBas
 
       importDurationMs should be < testSet.acsImportDurationBoundMs
     }
+  }
 
+  "reconnect P3" in { implicit env =>
+    import env.*
     participant3.synchronizers.reconnect(daName)
+  }
 
-    clue(s"Assert ACS on P3") {
-      participant3.testing.state_inspection
-        .contractCountInAcs(daName, CantonTimestamp.now())
-        .futureValueUS shouldBe Some(testSet.acsSize)
-    }
+  "assert ACS on P3" in { implicit env =>
+    import env.*
+
+    participant3.testing.state_inspection
+      .contractCountInAcs(daName, CantonTimestamp.now())
+      .futureValueUS shouldBe Some(testSet.acsSize)
   }
 }
 
@@ -513,12 +557,12 @@ final class LargeAcsExportAndImportTest extends EstablishTestSet {
     ContractImportMode.Validation
 }
 
-/** The actual test */
-final class LargeAcsExportAndImportTestLegacy extends EstablishTestSet {
-  override protected def testSet: TestSet = TestSet(10, transientContracts = 1)
-
-  override def useLegacyExportImport: Boolean = true
-
-  override protected def testContractIdImportMode: ContractImportMode =
-    ContractImportMode.Validation
-}
+/** The actual test using legacy ACS export / import endpoints */
+//final class LargeAcsExportAndImportTestLegacy extends EstablishTestSet {
+//  override protected def testSet: TestSet = TestSet(10, transientContracts = 1)
+//
+//  override def useLegacyExportImport: Boolean = true
+//
+//  override protected def testContractIdImportMode: ContractImportMode =
+//    ContractImportMode.Validation
+//}

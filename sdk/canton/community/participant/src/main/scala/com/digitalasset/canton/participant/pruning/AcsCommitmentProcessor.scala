@@ -2033,6 +2033,7 @@ class AcsCommitmentProcessor private (
       msgs: Seq[(ParticipantId, AcsCommitment)],
       intervalMillis: Long,
   )(implicit traceContext: TraceContext): Unit = {
+    val now = clock.now
 
     def contentsOrDefaults(delay: CommitmentSendDelay): (Double, Double) =
       (
@@ -2112,13 +2113,18 @@ class AcsCommitmentProcessor private (
     ): EitherT[FutureUnlessShutdown, CommitmentSendState, Unit] = {
       implicit val metricsContext: MetricsContext = MetricsContext("type" -> "send-commitment")
       val sendCallback = SendCallback.future
+      val approximateTimestampOverride = Some(now)
 
       for {
         cryptoSnapshot <- EitherT.liftF(synchronizerCrypto.currentSnapshotApproximation)
+        // TODO(#22086): Currently the ACS commitment processor delays the actual sending of the submission
+        // request to avoid load spikes on the sequencer. With an interval length of 30min on CN mainnet,
+        // this means that by the time the ACS commitment reaches the counter-participant, the signature
+        // using session keys will be invalid. This can fixed by choosing the period end as the timestamp.
         signedCmtMsgs <- EitherT.right(
           msgsFiltered.parTraverse { case (participant, commitment) =>
             SignedProtocolMessage
-              .trySignAndCreate(commitment, cryptoSnapshot)
+              .trySignAndCreate(commitment, cryptoSnapshot, approximateTimestampOverride)
               .map(_ -> Recipients.cc(participant))
           }
         )
@@ -2201,7 +2207,7 @@ class AcsCommitmentProcessor private (
               _ => stubbornSendUnlessClosing(),
               java.time.Duration.ofMillis(randDelayMillis),
             ),
-          s"Failed to schedule sending commitment message batch for period $period at time ${clock.now
+          s"Failed to schedule sending commitment message batch for period $period at time ${now
               .add(java.time.Duration.ofMillis(randDelayMillis))}",
           logPassiveInstanceAtInfo = true,
         )

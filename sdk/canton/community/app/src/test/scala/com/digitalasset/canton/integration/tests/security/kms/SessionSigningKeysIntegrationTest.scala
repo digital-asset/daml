@@ -78,7 +78,7 @@ class MockKmsDriverSessionSigningKeysIntegrationTestPostgres
     Set.empty
 
   override protected lazy val protectedNodes: Set[String] =
-    Set("sequencer1")
+    Set("participant1", "participant2", "mediator1", "sequencer1")
 
   setupPlugins(
     // TODO(#25069): Add persistence to mock KMS driver to support auto-init = false

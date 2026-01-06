@@ -478,10 +478,11 @@ class SynchronizerSnapshotSyncCryptoApi(
   override def sign(
       hash: Hash,
       usage: NonEmpty[Set[SigningKeyUsage]],
+      approximateTimestampOverride: Option[CantonTimestamp],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncCryptoError, Signature] =
-    syncCryptoSigner.sign(ipsSnapshot, hash, usage)
+    syncCryptoSigner.sign(ipsSnapshot, approximateTimestampOverride, hash, usage)
 
   override def verifySignature(
       hash: Hash,

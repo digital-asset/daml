@@ -91,7 +91,7 @@ abstract class AbstractMessageProcessor(
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[SignedProtocolMessage[ConfirmationResponses]] =
-    SignedProtocolMessage.trySignAndCreate(responses, ips)
+    SignedProtocolMessage.trySignAndCreate(responses, ips, None)
 
   // Assumes that we are not closing (i.e., that this is synchronized with shutdown somewhere higher up the call stack)
   protected def sendResponses(

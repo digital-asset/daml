@@ -51,7 +51,11 @@ object ParticipantPruningStore {
       case dbStorage: DbStorage =>
         val dbStore = new DbParticipantPruningStore(dbStoreName, dbStorage, timeouts, loggerFactory)
         dbStore.pruningStatus().map { initialStatus =>
-          new DbParticipantPruningStoreCached(underlying = dbStore, initialStatus = initialStatus)
+          new DbParticipantPruningStoreCached(
+            underlying = dbStore,
+            initialStatus = initialStatus,
+            loggerFactory = loggerFactory,
+          )
         }
 
     }

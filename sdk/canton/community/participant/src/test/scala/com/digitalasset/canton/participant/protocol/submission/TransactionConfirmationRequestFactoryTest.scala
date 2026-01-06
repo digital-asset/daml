@@ -56,8 +56,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import java.util.UUID
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.duration.*
-import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.ExecutionContext
 
 class TransactionConfirmationRequestFactoryTest
     extends AsyncWordSpec
@@ -202,6 +201,7 @@ class TransactionConfirmationRequestFactoryTest
     // in the end.
     new TransactionConfirmationRequestFactory(
       submittingParticipant,
+      wallClock,
       LoggingConfig(),
       loggerFactory,
       parallel = false,
@@ -218,13 +218,11 @@ class TransactionConfirmationRequestFactoryTest
 
   // Since the ConfirmationRequestFactory signs the envelopes in parallel,
   // we cannot predict the counter that SymbolicCrypto uses to randomize the signatures.
-  // So we simply replace them with a fixed empty signature. When we are using
-  // EncryptedViewMessage we order the sequence of randomness encryption on both the actual
-  // and expected messages so that they match.
-  private def stripSignatureAndOrderMap(
+  // So we simply replace them with a fixed empty signature.
+  private def stripSignatures(
       request: TransactionConfirmationRequest
-  ): TransactionConfirmationRequest = {
-    val requestNoSignature = request
+  ): TransactionConfirmationRequest =
+    request
       .focus(_.viewEnvelopes)
       .modify(
         _.map(
@@ -232,8 +230,15 @@ class TransactionConfirmationRequestFactoryTest
             .modify(_.map(_ => SymbolicCrypto.emptySignature))
         )
       )
+      .focus(_.informeeMessage.submittingParticipantSignature)
+      .replace(SymbolicCrypto.emptySignature)
 
-    val orderedTvm = requestNoSignature.viewEnvelopes.map(tvm =>
+  // When we are using EncryptedViewMessage we order the sequence of randomness encryption on both the actual
+  // and expected messages so that they match.
+  private def orderMap(
+      request: TransactionConfirmationRequest
+  ): TransactionConfirmationRequest = {
+    val orderedTvm = request.viewEnvelopes.map(tvm =>
       tvm.protocolMessage match {
         case encViewMessage @ EncryptedViewMessage(_, _, _, _, _, _) =>
           val encryptedRandomnessOrdering: Ordering[AsymmetricEncrypted[SecureRandomness]] =
@@ -249,7 +254,7 @@ class TransactionConfirmationRequestFactoryTest
       }
     )
 
-    requestNoSignature
+    request
       .focus(_.viewEnvelopes)
       .replace(orderedTvm)
   }
@@ -292,19 +297,8 @@ class TransactionConfirmationRequestFactoryTest
     val expectedTransactionViewMessages = example.transactionViewTreesWithWitnesses.map {
       case (tree, _) =>
         val signature =
-          if (tree.isTopLevel) {
-            Some(
-              Await
-                .result(
-                  cryptoSnapshot
-                    .sign(tree.updateId.unwrap, SigningKeyUsage.ProtocolOnly)
-                    .value,
-                  10.seconds,
-                )
-                .failOnShutdown
-                .valueOr(err => fail(err.toString))
-            )
-          } else None
+          if (tree.isTopLevel) Some(SymbolicCrypto.emptySignature)
+          else None
 
         val (recipients, sessionKeyRandomness) = hashToKeyMap(tree.viewHash)
 
@@ -355,17 +349,10 @@ class TransactionConfirmationRequestFactoryTest
         OpenEnvelope(encryptedViewMessage, recipients)(testedProtocolVersion)
     }
 
-    val signature =
-      cryptoSnapshot
-        .sign(
-          example.fullInformeeTree.updateId.unwrap,
-          SigningKeyUsage.ProtocolOnly,
-        )
-        .failOnShutdown
-        .futureValue
-
     TransactionConfirmationRequest(
-      InformeeMessage(example.fullInformeeTree, signature)(testedProtocolVersion),
+      InformeeMessage(example.fullInformeeTree, SymbolicCrypto.emptySignature)(
+        testedProtocolVersion
+      ),
       expectedTransactionViewMessages,
       testedProtocolVersion,
     )
@@ -440,7 +427,7 @@ class TransactionConfirmationRequestFactoryTest
               .failOnShutdown
               .map { res =>
                 val expected = expectedConfirmationRequest(example, newCryptoSnapshot)
-                stripSignatureAndOrderMap(res.value) shouldBe stripSignatureAndOrderMap(expected)
+                orderMap(stripSignatures(res.value)) shouldBe orderMap(expected)
               }(executorService) // parallel executorService to avoid a deadlock
           }
         }
