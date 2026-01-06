@@ -16,10 +16,10 @@ above features will also require that you have a working Daml SDK installed,
 which you can get with:
 
 ```
-curl -s https://get.daml.com | sh
+curl https://get.digitalasset.com/install/install.sh | sh
 ```
 
-For more information on Daml please see [docs.daml.com](https://docs.daml.com).
+For more information on Daml please see [docs.digitalasset.com](https://docs.digitalasset.com).
 
 ## Troubleshooting
 
