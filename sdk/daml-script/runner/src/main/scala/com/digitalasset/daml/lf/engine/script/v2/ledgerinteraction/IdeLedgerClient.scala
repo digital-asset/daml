@@ -7,46 +7,30 @@ package script
 package v2
 package ledgerinteraction
 
-import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.canton.ledger.api.{
-  IdentityProviderId,
-  ObjectMeta,
-  PartyDetails,
-  User,
-  UserRight,
-}
+import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.ledger.api._
+import com.digitalasset.canton.ledger.localstore.InMemoryUserManagementStore
+import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.daml.lf.command.ApiCommand
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.ScriptEngine.{
+  ExtendedValueComputationMode,
   TraceLog,
   WarningLog,
   runExtendedValueComputation,
-  ExtendedValueComputationMode,
 }
 import com.digitalasset.daml.lf.interpretation.Error.ContractIdInContractKey
-import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, LookupError, Reference}
 import com.digitalasset.daml.lf.language.Ast.PackageMetadata
-import com.digitalasset.daml.lf.script.{IdeLedger, IdeLedgerRunner}
+import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, LookupError, Reference}
 import com.digitalasset.daml.lf.script
+import com.digitalasset.daml.lf.script.{IdeLedger, IdeLedgerRunner}
 import com.digitalasset.daml.lf.speedy.{Pretty, SError}
-import com.digitalasset.daml.lf.transaction.{
-  CreationTime,
-  FatContractInstance,
-  GlobalKey,
-  IncompleteTransaction,
-  Node,
-  NodeId,
-  Transaction,
-  TransactionCoder,
-}
+import com.digitalasset.daml.lf.transaction._
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
-import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
-import com.digitalasset.canton.ledger.localstore.InMemoryUserManagementStore
-import com.digitalasset.daml.lf.crypto.SValueHash
+import org.apache.pekko.stream.Materializer
 import scalaz.OneAnd
 import scalaz.OneAnd._
 import scalaz.std.set._
@@ -317,19 +301,30 @@ class IdeLedgerClient(
         }
       )
 
+    def keyHashingError(err: Error.Interpretation.DamlException): Future[crypto.Hash] =
+      Future.failed(
+        new RuntimeException(Pretty.prettyDamlException(err.error).renderWideStream.mkString)
+      )
+
     val pkg = compiledPackages.pkgInterface
       .lookupPackage(templateId.packageId)
       .getOrElse(throw new IllegalArgumentException(s"Unknown package ${templateId.packageId}"))
 
-    GlobalKey
-      .build(templateId, pkg.pkgName, key, null)
-      .fold(keyBuilderError(_), Future.successful(_))
-      .flatMap { gkey =>
-        ledger.ledgerData.activeKeys.get(gkey) match {
-          case None => Future.successful(None)
-          case Some(cid) => queryContractId(parties, templateId, cid)
-        }
-      }
+    for {
+      keyHash <- Engine
+        .hashContractKey(compiledPackages, templateId, key)
+        .fold(keyHashingError, Future.successful)
+      gkey <-
+        GlobalKey
+          .build(templateId, pkg.pkgName, key, keyHash)
+          .fold(keyBuilderError, Future.successful)
+          .flatMap { gkey =>
+            ledger.ledgerData.activeKeys.get(gkey) match {
+              case None => Future.successful(None)
+              case Some(cid) => queryContractId(parties, templateId, cid)
+            }
+          }
+    } yield gkey
   }
 
   private def getTypeIdentifier(t: Ast.Type): Option[Identifier] =

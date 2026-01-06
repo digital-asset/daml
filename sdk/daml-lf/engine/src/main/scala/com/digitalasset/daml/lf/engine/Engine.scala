@@ -992,6 +992,50 @@ object Engine {
       crypto.Hash.deriveTransactionSeed(submissionSeed, participant, preparationTime)
     )
 
+  def hashContractKey(
+      compiledPackages: CompiledPackages,
+      templateId: Identifier,
+      key: Value,
+  ): Either[Error.Interpretation.DamlException, Hash] = {
+
+    val pkgId = templateId.packageId
+
+
+    for {
+      keyRef  <- compiledPackages.pkgInterface.lookupTemplateKey(templateId)
+        .left
+        .map(Error.Interpretation.DamlException(IError.ContractKey))
+      sValue <- new ValueTranslator(
+        compiledPackages.pkgInterface,
+        forbidLocalContractIds = true,
+        forbidTrailingNones = true,
+      )
+        .translateValue(Ast.TTyCon(templateId), key)
+        .left
+        .map(error =>
+          Error.Interpretation.DamlException(
+            IError.Upgrade(
+              IError.Upgrade.TranslationFailed(
+                None,
+                templateId,
+                templateId,
+                key,
+                error,
+              )
+            )
+          )
+        )
+      hash <- SValueHash
+        .hashContractKey(
+          compiledPackages.signatures(pkgId).pkgName,
+          templateId.qualifiedName,
+          sValue,
+        )
+        .left
+        .map(_ => Error.Interpretation.DamlException(IError.ContractIdInContractKey(key)))
+    } yield hash
+  }
+
   private def profileDesc(tx: VersionedTransaction): String = {
     if (tx.roots.length == 1) {
       val makeDesc = (kind: String, tmpl: Ref.Identifier, extra: Option[String]) =>
