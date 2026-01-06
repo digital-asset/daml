@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 import datetime
 import http.client
 import json
@@ -166,3 +169,4 @@ if __name__ == "__main__":
     if failing_tests:
         print('Increasing logs retention to 2 years')
         az_set_logs_ttl(access_token, 365 * 2)
+
