@@ -12,7 +12,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ledger.api._
 import com.digitalasset.canton.ledger.localstore.InMemoryUserManagementStore
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
-import com.digitalasset.daml.lf.command.ApiCommand
+import com.digitalasset.daml.lf.command.{ApiCommand, ApiContractKey}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.ScriptEngine.{
@@ -21,7 +21,6 @@ import com.digitalasset.daml.lf.engine.ScriptEngine.{
   WarningLog,
   runExtendedValueComputation,
 }
-import com.digitalasset.daml.lf.interpretation.Error.ContractIdInContractKey
 import com.digitalasset.daml.lf.language.Ast.PackageMetadata
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, LookupError, Reference}
 import com.digitalasset.daml.lf.script
@@ -287,45 +286,26 @@ class IdeLedgerClient(
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-  ): Future[Option[ScriptLedgerClient.ActiveContract]] = {
-    def keyBuilderError(err: crypto.Hash.HashingError): Future[GlobalKey] =
-      Future.failed(
-        err match {
-          case crypto.Hash.HashingError.ForbiddenContractId() =>
-            new RuntimeException(
-              Pretty
-                .prettyDamlException(ContractIdInContractKey(key))
-                .renderWideStream
-                .mkString
-            )
-        }
-      )
-
-    def keyHashingError(err: Error.Interpretation.DamlException): Future[crypto.Hash] =
-      Future.failed(
-        new RuntimeException(Pretty.prettyDamlException(err.error).renderWideStream.mkString)
-      )
-
-    val pkg = compiledPackages.pkgInterface
-      .lookupPackage(templateId.packageId)
-      .getOrElse(throw new IllegalArgumentException(s"Unknown package ${templateId.packageId}"))
-
+  ): Future[Option[ScriptLedgerClient.ActiveContract]] =
     for {
-      keyHash <- Engine
-        .hashContractKey(compiledPackages, templateId, key)
-        .fold(keyHashingError, Future.successful)
-      gkey <-
-        GlobalKey
-          .build(templateId, pkg.pkgName, key, keyHash)
-          .fold(keyBuilderError, Future.successful)
-          .flatMap { gkey =>
-            ledger.ledgerData.activeKeys.get(gkey) match {
-              case None => Future.successful(None)
-              case Some(cid) => queryContractId(parties, templateId, cid)
-            }
-          }
-    } yield gkey
-  }
+      // Keys passed to the IDE ledger by daml script are well typed and contract ID-free by virtue of having been
+      // type-checked by the compiler. So there is no need to prettify typechecking or hashing errors thrown by
+      // unsafePreprocessApiContractKey.
+      gkey <- Future(
+        preprocessor.unsafePreprocessApiContractKey(
+          Map.empty.withDefault((name: Ref.PackageName) =>
+            throw new IllegalStateException(
+              s"Unexpected package lookup by name during contract key preprocessing. The name is ${name}."
+            )
+          ),
+          ApiContractKey(templateId.toRef, key),
+        )
+      )
+      res <- ledger.ledgerData.activeKeys.get(gkey) match {
+        case None => Future.successful(None)
+        case Some(cid) => queryContractId(parties, templateId, cid)
+      }
+    } yield res
 
   private def getTypeIdentifier(t: Ast.Type): Option[Identifier] =
     t match {
