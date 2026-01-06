@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
 class SymbolicPureCrypto extends CryptoPureApi {
 
   /** This flag is used to control the randomness during asymmetric encryption. This is only
-    * intended to be used for testing purposes and it overrides the randomization flag given to
+    * intended to be used for testing purposes, and it overrides the randomization flag given to
     * [[encryptWithInternal]].
     */
   private val neverRandomizeAsymmetricEncryption = new AtomicBoolean(false)

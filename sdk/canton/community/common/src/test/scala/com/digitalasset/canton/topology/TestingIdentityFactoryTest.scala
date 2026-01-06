@@ -61,7 +61,7 @@ class TestingIdentityFactoryTest
         Await
           .result(
             p1.currentSnapshotApproximation.futureValueUS
-              .sign(hash, SigningKeyUsage.ProtocolOnly)
+              .sign(hash, SigningKeyUsage.ProtocolOnly, None)
               .value,
             10.seconds,
           )
@@ -125,7 +125,7 @@ class TestingIdentityFactoryTest
         Await
           .result(
             p2.currentSnapshotApproximation.futureValueUS
-              .sign(hash, SigningKeyUsage.ProtocolOnly)
+              .sign(hash, SigningKeyUsage.ProtocolOnly, None)
               .value,
             10.seconds,
           )
@@ -238,7 +238,7 @@ class TestingIdentityFactoryTest
         Await
           .result(
             p2.currentSnapshotApproximation.futureValueUS
-              .sign(hash, SigningKeyUsage.ProtocolOnly)
+              .sign(hash, SigningKeyUsage.ProtocolOnly, None)
               .value,
             10.seconds,
           )

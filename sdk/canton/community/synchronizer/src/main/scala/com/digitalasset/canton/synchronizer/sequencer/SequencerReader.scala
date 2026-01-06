@@ -712,6 +712,7 @@ class SequencerReader(
             topologySnapshot,
             event,
             None,
+            None,
             HashPurpose.SequencedEventSignature,
             protocolVersion,
           )

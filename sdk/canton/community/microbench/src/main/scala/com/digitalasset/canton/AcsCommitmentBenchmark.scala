@@ -92,7 +92,6 @@ import org.scalatest.Inspectors
 import org.scalatest.matchers.should.Matchers
 
 import java.util.concurrent.TimeUnit
-import scala.collection.immutable.Set
 import scala.concurrent.Await
 import scala.concurrent.duration.{Duration, DurationInt}
 
@@ -649,7 +648,7 @@ class AcsCommitmentBenchmark
             .create(synchronizerId, participant, localId, period, cmt, testedProtocolVersion)
         snapshotF.flatMap { snapshot =>
           SignedProtocolMessage
-            .trySignAndCreate(payload, snapshot)
+            .trySignAndCreate(payload, snapshot, None)
         }
       }
     )

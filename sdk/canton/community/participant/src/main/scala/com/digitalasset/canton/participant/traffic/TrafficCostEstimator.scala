@@ -69,6 +69,7 @@ import com.digitalasset.canton.protocol.{
 import com.digitalasset.canton.sequencing.protocol.{Batch, MediatorGroupRecipient, Recipients}
 import com.digitalasset.canton.sequencing.traffic.TrafficStateController
 import com.digitalasset.canton.store.SessionKeyStore
+import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.{
   SynchronizerTopologyClientWithInit,
@@ -104,6 +105,7 @@ class TrafficCostEstimator(
     psid: PhysicalSynchronizerId,
     participantId: ParticipantId,
     trafficStateController: TrafficStateController,
+    clock: Clock,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging {
@@ -326,11 +328,11 @@ class TrafficCostEstimator(
           NonEmpty.mk(Seq, confirmationResponse),
           psid.protocolVersion,
         )
-        SignedProtocolMessage.trySignAndCreate(confirmationResponses, client)
+        SignedProtocolMessage.trySignAndCreate(confirmationResponses, client, Some(clock.now))
       }
       batch = Batch.of(
         psid.protocolVersion,
-        (signedConfirmationResponse -> Recipients.cc(mediatorGroupRecipient)),
+        signedConfirmationResponse -> Recipients.cc(mediatorGroupRecipient),
       )
       estimatedCost <- EitherT.liftF(
         trafficStateController
@@ -397,8 +399,10 @@ object TrafficCostEstimator {
       throw new UnsupportedOperationException(
         "Private store should not be used in this mock implementation"
       )
+
     override def sign(
         topologySnapshot: TopologySnapshot,
+        approximateTimestampOverride: Option[CantonTimestamp],
         hash: Hash,
         usage: NonEmpty[Set[SigningKeyUsage]],
     )(implicit
@@ -411,7 +415,7 @@ object TrafficCostEstimator {
         allowedSigningKeySpecs,
       )
       maybeWithSignatureDelegation <- EitherT.fromEither[FutureUnlessShutdown](
-        maybeAddSignatureDelegation(signature, topologySnapshot)
+        maybeAddSignatureDelegation(signature, topologySnapshot, approximateTimestampOverride)
       )
     } yield maybeWithSignatureDelegation
 
@@ -420,12 +424,16 @@ object TrafficCostEstimator {
     private def maybeAddSignatureDelegation(
         signature: Signature,
         topologySnapshot: TopologySnapshot,
+        approximateTimestampOverride: Option[CantonTimestamp],
     ) = if (withSessionKeys) {
       SignatureDelegation
         .create(
           TrafficCostEstimator.sessionSigningKey,
+          // this delegation validation period is an approximation of the real one (i.e., without the tolerance shift),
+          // but it’s a good enough estimate to provide an accurate assessment of the transaction size and
+          // compute its cost.
           SignatureDelegationValidityPeriod(
-            topologySnapshot.timestamp,
+            approximateTimestampOverride.getOrElse(topologySnapshot.timestamp),
             PositiveFiniteDuration.ofMinutes(5),
           ),
           signature,

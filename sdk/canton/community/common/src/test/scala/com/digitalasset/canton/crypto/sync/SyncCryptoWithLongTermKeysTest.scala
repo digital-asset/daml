@@ -43,6 +43,7 @@ class SyncCryptoWithLongTermKeysTest extends AnyWordSpec with SyncCryptoTest {
         val signature = p1WithSessionKey.syncCryptoSigner
           .sign(
             testingTopologyWithSessionKeys.topologySnapshot(),
+            None,
             hash,
             defaultUsage,
           )

@@ -96,6 +96,7 @@ class StrayConfirmationResultIntegrationTest
             val signedModifiedRequest = signModifiedSubmissionRequest(
               alsoSendToP2,
               mediator1.underlying.value.replicaManager.mediatorRuntime.value.mediator.syncCrypto,
+              Some(environment.now),
             )
             SendDecision.Replace(signedModifiedRequest)
           } else SendDecision.Process

@@ -124,7 +124,7 @@ object SequencerClientFactory {
             loggerFactory,
           )
 
-        val sequencerTransportsMapO = Option.when(!config.useNewConnectionPool)(
+        val sequencerTransportsMapF = Option.when(!config.useNewConnectionPool)(
           makeTransport(
             sequencerConnections,
             member,
@@ -135,34 +135,39 @@ object SequencerClientFactory {
         def getTrafficStateWithTransports(
             ts: CantonTimestamp
         ): EitherT[FutureUnlessShutdown, String, Option[TrafficState]] =
-          BftSender
-            .makeRequest(
-              s"Retrieving traffic state from synchronizer for $member at $ts",
-              futureSupervisor,
-              logger,
-              sequencerTransportsMapO.getOrElse(
+          for {
+            sequencerTransportsMap <- EitherT.liftF(
+              sequencerTransportsMapF.getOrElse(
                 throw new IllegalStateException(
                   "sequencerTransportsMap undefined while using transports"
                 )
-              ),
-              sequencerConnections.sequencerTrustThreshold,
-            )(
-              _.getTrafficStateForMember(
-                // Request the traffic state at the timestamp immediately following the last sequenced event timestamp
-                // That's because we will not re-process that event, but if it was a traffic purchase, the sequencer
-                // would return a state with the previous extra traffic value, because traffic purchases only become
-                // valid _after_ they've been sequenced. This ensures the participant doesn't miss a traffic purchase
-                // if it gets disconnected just after reading one.
-                GetTrafficStateForMemberRequest(
-                  member,
-                  ts.immediateSuccessor,
-                  synchronizerParameters.protocolVersion,
-                )
-              ).map(_.trafficState)
-            )(identity)
-            .leftMap { err =>
-              s"Failed to retrieve traffic state from synchronizer for $member: $err"
-            }
+              )
+            )
+            request <- BftSender
+              .makeRequest(
+                s"Retrieving traffic state from synchronizer for $member at $ts",
+                futureSupervisor,
+                logger,
+                sequencerTransportsMap,
+                sequencerConnections.sequencerTrustThreshold,
+              )(
+                _.getTrafficStateForMember(
+                  // Request the traffic state at the timestamp immediately following the last sequenced event timestamp
+                  // That's because we will not re-process that event, but if it was a traffic purchase, the sequencer
+                  // would return a state with the previous extra traffic value, because traffic purchases only become
+                  // valid _after_ they've been sequenced. This ensures the participant doesn't miss a traffic purchase
+                  // if it gets disconnected just after reading one.
+                  GetTrafficStateForMemberRequest(
+                    member,
+                    ts.immediateSuccessor,
+                    synchronizerParameters.protocolVersion,
+                  )
+                ).map(_.trafficState)
+              )(identity)
+              .leftMap { err =>
+                s"Failed to retrieve traffic state from synchronizer for $member: $err"
+              }
+          } yield request
 
         def getTrafficStateWithConnectionPool(
             ts: CantonTimestamp
@@ -204,6 +209,7 @@ object SequencerClientFactory {
           } yield result
 
         for {
+          sequencerTransportsMapO <- EitherT.liftF(sequencerTransportsMapF.traverse(identity))
           sequencerTransports <- EitherT.fromEither[FutureUnlessShutdown](
             SequencerTransports.from(
               sequencerTransportsMapO,
@@ -335,7 +341,7 @@ object SequencerClientFactory {
           executionSequencerFactory: ExecutionSequencerFactory,
           materializer: Materializer,
           traceContext: TraceContext,
-      ): SequencerClientTransport & SequencerClientTransportPekko = {
+      ): FutureUnlessShutdown[SequencerClientTransport & SequencerClientTransportPekko] = {
         val loggerFactoryWithSequencerAlias =
           SequencerClient.loggerFactoryWithSequencerAlias(
             loggerFactory,
@@ -349,42 +355,50 @@ object SequencerClientFactory {
           }
 
         replayConfigForMember(member).filter(_ => allowReplay) match {
-          case None => mkRealTransport()
+          case None => FutureUnlessShutdown.pure(mkRealTransport())
           case Some(ReplayConfig(recording, SequencerEvents)) =>
-            new ReplayingEventsSequencerClientTransport(
-              synchronizerParameters.protocolVersion,
-              recording.fullFilePath,
-              processingTimeout,
-              loggerFactoryWithSequencerAlias,
+            FutureUnlessShutdown.pure(
+              new ReplayingEventsSequencerClientTransport(
+                synchronizerParameters.protocolVersion,
+                recording.fullFilePath,
+                processingTimeout,
+                loggerFactoryWithSequencerAlias,
+              )
             )
           case Some(ReplayConfig(recording, replaySendsConfig: SequencerSends)) =>
-            if (replaySendsConfig.usePekko) {
-              val underlyingTransport = mkRealTransport()
-              new ReplayingSendsSequencerClientTransportPekko(
-                synchronizerParameters.protocolVersion,
-                recording.fullFilePath,
-                replaySendsConfig,
-                member,
-                underlyingTransport,
-                requestSigner,
-                metrics,
-                processingTimeout,
-                loggerFactoryWithSequencerAlias,
-              )
-            } else {
-              val underlyingTransport = mkRealTransport()
-              new ReplayingSendsSequencerClientTransportImpl(
-                synchronizerParameters.protocolVersion,
-                recording.fullFilePath,
-                replaySendsConfig,
-                member,
-                underlyingTransport,
-                requestSigner,
-                metrics,
-                processingTimeout,
-                loggerFactoryWithSequencerAlias,
-              )
-            }
+            syncCryptoApi.currentSnapshotApproximation.map(currentSnapshotApproximation =>
+              if (replaySendsConfig.usePekko) {
+                val underlyingTransport = mkRealTransport()
+                new ReplayingSendsSequencerClientTransportPekko(
+                  synchronizerParameters.protocolVersion,
+                  recording.fullFilePath,
+                  replaySendsConfig,
+                  member,
+                  underlyingTransport,
+                  requestSigner,
+                  currentSnapshotApproximation,
+                  clock,
+                  metrics,
+                  processingTimeout,
+                  loggerFactoryWithSequencerAlias,
+                )
+              } else {
+                val underlyingTransport = mkRealTransport()
+                new ReplayingSendsSequencerClientTransportImpl(
+                  synchronizerParameters.protocolVersion,
+                  recording.fullFilePath,
+                  replaySendsConfig,
+                  member,
+                  underlyingTransport,
+                  requestSigner,
+                  currentSnapshotApproximation,
+                  clock,
+                  metrics,
+                  processingTimeout,
+                  loggerFactoryWithSequencerAlias,
+                )
+              }
+            )
         }
       }
 

@@ -132,7 +132,7 @@ final class AssignmentValidationTest
       recipients: Recipients = RecipientsTest.testInstance,
   ): ParsedReassignmentRequest[FullAssignmentTree] = {
     val signature = cryptoSnapshot
-      .sign(view.rootHash.unwrap, SigningKeyUsage.ProtocolOnly)
+      .sign(view.rootHash.unwrap, SigningKeyUsage.ProtocolOnly, None)
       .futureValueUS
       .toOption
 

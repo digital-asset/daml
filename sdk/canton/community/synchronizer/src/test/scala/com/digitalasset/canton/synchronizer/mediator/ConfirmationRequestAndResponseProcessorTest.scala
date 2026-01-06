@@ -317,6 +317,7 @@ class ConfirmationRequestAndResponseProcessorTest
           .trySignAndCreate(
             confirmationResponses,
             snapshot,
+            None,
           )
       )
   }
@@ -355,6 +356,7 @@ class ConfirmationRequestAndResponseProcessorTest
           .trySignAndCreate(
             response,
             snapshot,
+            None,
           )
       )
       .failOnShutdown
@@ -364,7 +366,7 @@ class ConfirmationRequestAndResponseProcessorTest
     .forOwnerAndSynchronizer(participant, synchronizerId)
     .awaitSnapshot(CantonTimestamp.Epoch)
     .futureValueUS
-    .sign(tree.tree.rootHash.unwrap, SigningKeyUsage.ProtocolOnly)
+    .sign(tree.tree.rootHash.unwrap, SigningKeyUsage.ProtocolOnly, None)
     .failOnShutdown
     .futureValue
 
