@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v2_1
 
@@ -51,7 +51,7 @@ abstract class UserManagementServiceITBase extends LedgerTestSuite {
     for {
       create <- ledger.userManagement.createUser(CreateUserRequest(Some(newUser), Nil))
       _ = assertEquals("withUser", unsetResourceVersion(create), CreateUserResponse(Some(newUser)))
-      v <- f(create.user.get)
+      v <- f(create.user.value)
     } yield v
   }
 
@@ -101,18 +101,15 @@ abstract class UserManagementServiceITBase extends LedgerTestSuite {
     updateResp.getUser.getMetadata.annotations
 
   def extractAnnotations(updateResp: CreateUserResponse): Map[String, String] =
-    updateResp.user.get.metadata.get.annotations
+    updateResp.user.value.metadata.value.annotations
 
-  def unsetResourceVersion[T](t: T): T = {
-    val t2: T = t match {
-      case u: User => u.update(_.metadata.resourceVersion := "").asInstanceOf[T]
-      case u: CreateUserResponse => u.update(_.user.metadata.resourceVersion := "").asInstanceOf[T]
-      case u: UpdateUserResponse => u.update(_.user.metadata.resourceVersion := "").asInstanceOf[T]
-      case u: GetUserResponse => u.update(_.user.metadata.resourceVersion := "").asInstanceOf[T]
-      case other => sys.error(s"could not match $other")
-    }
-    t2
-  }
+  def unsetResourceVersion(u: User): User = u.update(_.metadata.resourceVersion := "")
+  def unsetResourceVersion(u: CreateUserResponse): CreateUserResponse =
+    u.update(_.user.metadata.resourceVersion := "")
+  def unsetResourceVersion(u: UpdateUserResponse): UpdateUserResponse =
+    u.update(_.user.metadata.resourceVersion := "")
+  def unsetResourceVersion(u: GetUserResponse): GetUserResponse =
+    u.update(_.user.metadata.resourceVersion := "")
 
   def userManagementTest(
       shortIdentifier: String,

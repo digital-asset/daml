@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store
@@ -126,16 +126,16 @@ trait SynchronizerConnectionConfigStoreTest extends FailOnShutdown {
   private val daId = SynchronizerId(
     UniqueIdentifier.tryCreate("da", DefaultTestIdentities.namespace)
   )
-  private val daStable = PhysicalSynchronizerId(daId, ProtocolVersion.latest, NonNegativeInt.zero)
+  private val daStable = PhysicalSynchronizerId(daId, NonNegativeInt.zero, ProtocolVersion.latest)
   private val daBeta =
-    PhysicalSynchronizerId(daId, ProtocolVersion.parseUnchecked(3444).value, NonNegativeInt.zero)
-  private val daDev = PhysicalSynchronizerId(daId, ProtocolVersion.dev, NonNegativeInt.zero)
+    PhysicalSynchronizerId(daId, NonNegativeInt.zero, ProtocolVersion.parseUnchecked(3444).value)
+  private val daDev = PhysicalSynchronizerId(daId, NonNegativeInt.zero, ProtocolVersion.dev)
   private val daName = SynchronizerAlias.tryCreate("da")
 
   private val acmeId =
     SynchronizerId(UniqueIdentifier.tryCreate("acme", DefaultTestIdentities.namespace))
   private val acmeStable =
-    PhysicalSynchronizerId(acmeId, ProtocolVersion.latest, NonNegativeInt.zero)
+    PhysicalSynchronizerId(acmeId, NonNegativeInt.zero, ProtocolVersion.latest)
   private val acmeName = SynchronizerAlias.tryCreate("acme")
 
   def synchronizerConnectionConfigStore(
@@ -194,8 +194,8 @@ trait SynchronizerConnectionConfigStoreTest extends FailOnShutdown {
       "be able to store and retrieve a config successfully" in {
         val synchronizerId2 = PhysicalSynchronizerId(
           psid.logical,
-          psid.protocolVersion,
           psid.serial.increment.toNonNegative,
+          psid.protocolVersion,
         )
 
         val predecessor = SynchronizerPredecessor(

@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol
@@ -67,8 +67,8 @@ class ParticipantTopologyTerminateProcessingTest
   private lazy val psid1 = DefaultTestIdentities.physicalSynchronizerId
   private lazy val psid2 = PhysicalSynchronizerId(
     psid1.logical,
-    psid1.protocolVersion,
     psid1.serial.increment.toNonNegative,
+    psid1.protocolVersion,
   )
   private def synchronizerPredecessor(upgradeTime: CantonTimestamp) =
     SynchronizerPredecessor(psid1, upgradeTime)

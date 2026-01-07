@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v2_1
 
@@ -128,8 +128,8 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
         )
       )
     } yield {
-      assertEquals(get1.user.get.identityProviderId, idpId2)
-      assertEquals(get2.user.get.identityProviderId, idpId1)
+      assertEquals(get1.user.value.identityProviderId, idpId2)
+      assertEquals(get2.user.value.identityProviderId, idpId1)
       assert(
         error.getMessage.startsWith("PERMISSION_DENIED"),
         s"Actual message: ${error.getMessage}",
@@ -184,8 +184,8 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
         GetUserRequest(userId = userId1, identityProviderId = "")
       )
     } yield {
-      assertEquals(get1.user.get.identityProviderId, idpId)
-      assertEquals(get2.user.get.identityProviderId, "")
+      assertEquals(get1.user.value.identityProviderId, idpId)
+      assertEquals(get2.user.value.identityProviderId, "")
     }
   })
 
@@ -391,8 +391,8 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
         )
       )
     } yield {
-      assertEquals("default idp", get1.user.get.identityProviderId, "")
-      assertEquals("non default idp", get2.user.get.identityProviderId, idpId1)
+      assertEquals("default idp", get1.user.value.identityProviderId, "")
+      assertEquals("non default idp", get2.user.value.identityProviderId, idpId1)
     }
   })
 
@@ -427,8 +427,8 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
       // allocating parties before user is created
       allocatedParties <- Future.sequence(allocatePartiesMaxAndOne)
       permissionsMaxPlusOne = allocatedParties.map(createCanActAs)
-      permissionOne = permissionsMaxPlusOne.head
-      permissionsMax = permissionsMaxPlusOne.tail
+      permissionOne = permissionsMaxPlusOne.headOption.value
+      permissionsMax = permissionsMaxPlusOne.drop(1)
       // cannot create user with #limit+1 rights
       create1 <- ledger
         .createUser(CreateUserRequest(Some(user1), permissionsMaxPlusOne))
@@ -451,8 +451,8 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
       assertTooManyUserRightsError(create1)
       assertEquals(unsetResourceVersion(create2), CreateUserResponse(Some(user1)))
       assertTooManyUserRightsError(grant1)
-      assertEquals(rights1.rights.size, permissionsMaxPlusOne.tail.size)
-      assertSameElements(rights1.rights, permissionsMaxPlusOne.tail)
+      assertEquals(rights1.rights.size, permissionsMaxPlusOne.drop(1).size)
+      assertSameElements(rights1.rights, permissionsMaxPlusOne.drop(1))
       assertEquals(unsetResourceVersion(create3), CreateUserResponse(Some(user2)))
     }
   })
@@ -702,7 +702,7 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
           resp
       }
       assertSingleton("Success response", successes).discard
-      assertSameElements(successes.head.newlyGrantedRights, userRights)
+      assertSameElements(successes.headOption.value.newlyGrantedRights, userRights)
       val unexpectedErrors = results
         .collect {
           case Failure(t)
@@ -826,9 +826,9 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
       assertUserAlreadyExists(res2)
       assertEquals(unsetResourceVersion(res3), CreateUserResponse(Some(user2)))
       assertEquals(res4, DeleteUserResponse())
-      val resourceVersion1 = res1.user.get.metadata.get.resourceVersion
+      val resourceVersion1 = res1.user.value.metadata.value.resourceVersion
       assert(resourceVersion1.nonEmpty, "New user's resource version should be non empty")
-      val resourceVersion2 = res3.user.get.metadata.get.resourceVersion
+      val resourceVersion2 = res3.user.value.metadata.value.resourceVersion
       assert(resourceVersion2.nonEmpty, "New user's resource version should be non empty")
     }
   }
@@ -1045,7 +1045,7 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
       )
       // Verify that the second page stays the same even after we have created a new user that is lexicographically smaller than the last user on the first page
       // (Note: "!" is the smallest valid user-id character)
-      newUserId = "!" + page1.users.last.id
+      newUserId = "!" + page1.users.lastOption.value.id
       _ <- ledger.createUser(
         CreateUserRequest(
           Some(
@@ -1175,7 +1175,7 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
         pageSizeOne.users.nonEmpty,
         "First page with requested pageSize zero should return some users",
       )
-      assertEquals(pageSizeZero.users.head, pageSizeOne.users.head)
+      assertEquals(pageSizeZero.users.headOption.value, pageSizeOne.users.headOption.value)
     }
   }
 
@@ -1211,7 +1211,7 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
         )
     } yield {
       assert(
-        page.users.size <= maxUsersPageSize,
+        page.users.sizeIs <= maxUsersPageSize,
         s"page size must be within limit. actual size: ${page.users.size}, server's limit: $maxUsersPageSize",
       )
     }
@@ -1300,8 +1300,8 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
       assertUserNotFound(res2)
       assertSameElements(res3.newlyGrantedRights, List.empty)
       assertSameElements(res4.newlyGrantedRights.toSet, userRights.toSet)
-      val userResourceVersion1 = userBefore.user.get.metadata.get.resourceVersion
-      val userResourceVersion2 = userAfter.user.get.metadata.get.resourceVersion
+      val userResourceVersion1 = userBefore.user.value.metadata.value.resourceVersion
+      val userResourceVersion2 = userAfter.user.value.metadata.value.resourceVersion
       assertEquals(
         "changing user rights must not change user's resource version",
         userResourceVersion1,
@@ -1392,8 +1392,8 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
       assertUserNotFound(res2)
       assertSameElements(res3.newlyRevokedRights, List.empty)
       assertSameElements(res4.newlyRevokedRights.toSet, userRights.toSet)
-      val userResourceVersion1 = userBefore.user.get.metadata.get.resourceVersion
-      val userResourceVersion2 = userAfter.user.get.metadata.get.resourceVersion
+      val userResourceVersion1 = userBefore.user.value.metadata.value.resourceVersion
+      val userResourceVersion2 = userAfter.user.value.metadata.value.resourceVersion
       assertEquals(
         "changing user rights must not change user's resource version",
         userResourceVersion1,
@@ -1493,7 +1493,7 @@ final class UserManagementServiceIT extends UserManagementServiceITBase {
 }
 
 object UserManagementServiceIT {
-  case class Parties(
+  final case class Parties(
       acting1: String,
       acting2: String,
       reading1: String,

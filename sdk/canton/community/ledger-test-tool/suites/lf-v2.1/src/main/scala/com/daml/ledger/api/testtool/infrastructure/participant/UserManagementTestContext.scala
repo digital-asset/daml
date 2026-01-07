@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.infrastructure.participant
 
@@ -56,7 +56,7 @@ trait UserManagementTestContext {
   def createUser(createUserRequest: CreateUserRequest): Future[CreateUserResponse] =
     for {
       response <- services.userManagement.createUser(createUserRequest)
-      user = response.user.get
+      user = response.user.getOrElse(sys.error("Missing user"))
       _ = createdUsersById.put(user.id, user)
     } yield response
 
@@ -135,7 +135,7 @@ trait UserManagementTestContext {
           )
         )
       )
-      idp = response.identityProviderConfig.get
+      idp = response.identityProviderConfig.getOrElse(sys.error("Missing identity provider"))
       _ = createdIdentityProvidersById.put(idp.identityProviderId, idp)
     } yield response
 

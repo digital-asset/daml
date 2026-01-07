@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.infrastructure
 
@@ -17,8 +17,8 @@ sealed trait Party {
   def underlying: ApiParty
   def initialSynchronizers: List[String]
 }
-case class LocalParty(underlying: ApiParty, initialSynchronizers: List[String]) extends Party
-case class ExternalParty(
+final case class LocalParty(underlying: ApiParty, initialSynchronizers: List[String]) extends Party
+final case class ExternalParty(
     underlying: ApiParty,
     initialSynchronizers: List[String],
     signingFingerprint: Fingerprint,

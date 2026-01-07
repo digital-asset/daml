@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.client
@@ -788,8 +788,8 @@ final class SequencerClientTest
           val psid = DefaultTestIdentities.physicalSynchronizerId
           val nextPSid = PhysicalSynchronizerId(
             psid.logical,
-            psid.protocolVersion,
             psid.serial.increment.toNonNegative,
+            psid.protocolVersion,
           )
 
           val upgradeTime = CantonTimestamp.now()

@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto.kms.aws
@@ -622,7 +622,7 @@ object AwsKms extends Kms.SupportedSchemes {
       /* We can access AWS in multiple ways, for example: (1) using the AWS security token service (sts)
          profile (2) setting up the following environment variables: AWS_ACCESS_KEY_ID,
          AWS_SECRET_ACCESS_KEY and AWS_SESSION_TOKEN */
-      .credentialsProvider(DefaultCredentialsProvider.create())
+      .credentialsProvider(DefaultCredentialsProvider.builder().build())
 
     config.endpointOverride.map(URI.create).foreach(kmsAsyncClientBuilder.endpointOverride)
 
@@ -664,7 +664,7 @@ object AwsKms extends Kms.SupportedSchemes {
             /* We can access AWS in multiple ways, for example: (1) using the AWS security token service (sts)
              profile (2) setting up the following environment variables: AWS_ACCESS_KEY_ID,
              AWS_SECRET_ACCESS_KEY and AWS_SESSION_TOKEN */
-            .credentialsProvider(DefaultCredentialsProvider.create())
+            .credentialsProvider(DefaultCredentialsProvider.builder().build())
             .build(),
           httpClientO,
           timeouts,

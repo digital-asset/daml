@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology
@@ -47,5 +47,5 @@ final class GeneratorsTopology(protocolVersion: ProtocolVersion) {
   implicit val physicalSynchronizerIdArb: Arbitrary[PhysicalSynchronizerId] = Arbitrary(for {
     synchronizerId <- synchronizerIdArb.arbitrary
     serial <- Arbitrary.arbitrary[NonNegativeInt]
-  } yield PhysicalSynchronizerId(synchronizerId, protocolVersion, serial))
+  } yield PhysicalSynchronizerId(synchronizerId, serial, protocolVersion))
 }

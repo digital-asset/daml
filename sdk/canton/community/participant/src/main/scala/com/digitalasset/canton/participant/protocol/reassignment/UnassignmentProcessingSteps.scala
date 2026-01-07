@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.reassignment
@@ -17,6 +17,7 @@ import com.digitalasset.canton.crypto.{
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.data.ViewType.UnassignmentViewType
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdownImpl.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
 import com.digitalasset.canton.participant.protocol.conflictdetection.{
@@ -425,12 +426,11 @@ private[reassignment] class UnassignmentProcessingSteps(
       isReassigningParticipant,
       participantId,
       contractValidator,
-      activenessF,
       reassignmentCoordination,
     )
 
     for {
-      unassignmentValidationResult <- unassignmentValidation.perform(parsedRequest)
+      unassignmentValidationResult <- unassignmentValidation.perform(parsedRequest, activenessF)
     } yield {
       val confirmationResponseF =
         if (

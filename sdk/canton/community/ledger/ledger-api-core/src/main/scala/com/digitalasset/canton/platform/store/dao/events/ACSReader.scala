@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.dao.events
@@ -253,9 +253,10 @@ class ACSReader(
     ): Future[Vector[Long]] =
       globalIdQueriesLimiter.execute(
         dispatcher.executeSql(metrics.index.db.getAssingIdsForOffsets) { connection =>
+          // all activations for an incomplete offset should be assignments
           val ids =
             eventStorageBackend
-              .lookupAssignSequentialIdByOffset(offsets.map(_.unwrap))(connection)
+              .lookupActivationSequentialIdByOffset(offsets.map(_.unwrap))(connection)
           logger.debug(
             s"Assign Ids for offsets returned #${ids.size} (from ${offsets.size}) ${ids.lastOption
                 .map(last => s"until $last")
@@ -270,9 +271,10 @@ class ACSReader(
     ): Future[Vector[Long]] =
       globalIdQueriesLimiter.execute(
         dispatcher.executeSql(metrics.index.db.getUnassingIdsForOffsets) { connection =>
+          // all deactivations for an incomplete offset should be assignments
           val ids =
             eventStorageBackend
-              .lookupUnassignSequentialIdByOffset(offsets.map(_.unwrap))(connection)
+              .lookupDeactivationSequentialIdByOffset(offsets.map(_.unwrap))(connection)
           logger.debug(
             s"Unassign Ids for offsets returned #${ids.size} (from ${offsets.size}) ${ids.lastOption
                 .map(last => s"until $last")

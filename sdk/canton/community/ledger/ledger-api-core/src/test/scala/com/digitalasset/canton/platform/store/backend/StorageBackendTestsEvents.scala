@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend
@@ -34,6 +34,7 @@ import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream.{
   PaginationLastOnlyInput,
 }
 import com.digitalasset.canton.protocol.TestUpdateId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.daml.lf.data.Ref.{
   ChoiceName,
   Identifier,
@@ -2926,5 +2927,124 @@ private[backend] trait StorageBackendTestsEvents
       range should contain theSameElementsInOrderAs list
       range.size shouldBe list.size
     }
+  }
+
+  behavior of "incomplete lookup related event_sequential_id lookup queries"
+
+  it should "return the correct sequence of event sequential IDs" in {
+    val synchronizerId1 = SynchronizerId.tryFromString("x::synchronizer1")
+    val synchronizerId2 = SynchronizerId.tryFromString("x::synchronizer2")
+    val synchronizerId3 = SynchronizerId.tryFromString("x::synchronizer3")
+    val synchronizerId4 = SynchronizerId.tryFromString("x::synchronizer4")
+
+    val dbDtos = Vector(
+      dtosCreate(
+        event_offset = 1,
+        event_sequential_id = 1L,
+        internal_contract_id = 1,
+        synchronizer_id = synchronizerId1,
+      )(),
+      dtosCreate(
+        event_offset = 2,
+        event_sequential_id = 2L,
+        internal_contract_id = 2,
+        synchronizer_id = synchronizerId1,
+      )(),
+      dtosConsumingExercise(
+        event_offset = 3,
+        event_sequential_id = 3L,
+        internal_contract_id = Some(2L),
+        synchronizer_id = synchronizerId2,
+      ),
+      dtosUnassign(
+        event_offset = 4,
+        event_sequential_id = 4L,
+        internal_contract_id = Some(2L),
+        synchronizer_id = synchronizerId2,
+        target_synchronizer_id = synchronizerId1,
+      ),
+      dtosAssign(
+        event_offset = 5,
+        event_sequential_id = 5L,
+        internal_contract_id = 2L,
+        source_synchronizer_id = synchronizerId2,
+        synchronizer_id = synchronizerId1,
+      )(),
+      dtosAssign(
+        event_offset = 6,
+        event_sequential_id = 6L,
+        internal_contract_id = 2L,
+        source_synchronizer_id = synchronizerId3,
+        synchronizer_id = synchronizerId4,
+      )(),
+      dtosConsumingExercise(
+        event_offset = 10,
+        event_sequential_id = 10L,
+        internal_contract_id = Some(2L),
+        synchronizer_id = synchronizerId1,
+      ),
+      dtosUnassign(
+        event_offset = 11,
+        event_sequential_id = 11L,
+        internal_contract_id = Some(1L),
+        synchronizer_id = synchronizerId1,
+      ),
+      dtosUnassign(
+        event_offset = 12,
+        event_sequential_id = 12L,
+        internal_contract_id = Some(1L),
+        target_synchronizer_id = synchronizerId2,
+      ),
+      dtosAssign(
+        event_offset = 13,
+        event_sequential_id = 13L,
+        internal_contract_id = 2L,
+        synchronizer_id = synchronizerId2,
+      )(),
+      dtosUnassign(
+        event_offset = 14,
+        event_sequential_id = 14L,
+        internal_contract_id = Some(2L),
+        synchronizer_id = synchronizerId2,
+      ),
+      dtosAssign(
+        event_offset = 15,
+        event_sequential_id = 15L,
+        internal_contract_id = 2L,
+        synchronizer_id = synchronizerId2,
+      )(),
+      dtosCreate(
+        event_offset = 16,
+        event_sequential_id = 16L,
+        internal_contract_id = 3,
+        synchronizer_id = synchronizerId4,
+      )(),
+    ).flatten
+
+    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+    executeSql(ingest(dbDtos, _))
+    executeSql(updateLedgerEnd(offset(16), 16L))
+
+    executeSql(
+      backend.event.lookupActivationSequentialIdByOffset(
+        List(
+          1L,
+          5L,
+          6L,
+          7L,
+        )
+      )
+    ) shouldBe Vector(
+      1L, // this is actually a Create, but it is fine as the payload query is filtered to assign and it is invalid for create and assign to mix on one offset
+      5L,
+      6L,
+    )
+    executeSql(
+      backend.event.lookupDeactivationSequentialIdByOffset(
+        List(
+          1L, 4L, 6L, 7L, 11L,
+        )
+      )
+    ) shouldBe Vector(4L, 11L)
   }
 }

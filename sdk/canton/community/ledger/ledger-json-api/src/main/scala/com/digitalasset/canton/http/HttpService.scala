@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http
@@ -124,19 +124,13 @@ class HttpService(
           mat.executionContext,
           apiLoggingConfig,
           loggerFactory,
-        )
-
-        jsonEndpoints = new JsonRoutes(
           healthService,
-          v2Routes,
-          startSettings.debugLoggingOfHttpBodies,
-          loggerFactory,
         )
 
         rateDurationSizeMetrics = HttpMetricsInterceptor.rateDurationSizeMetrics(metrics.http)
 
         defaultEndpoints =
-          rateDurationSizeMetrics apply jsonEndpoints.all
+          rateDurationSizeMetrics apply v2Routes.combinedRoutes
 
         allEndpoints: Route = concat(
           defaultEndpoints,
