@@ -78,7 +78,7 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:base-errors:__VERSION__"],
     unused_dependency_checker_mode = "error",
     visibility = [
-        "//canton/commmunity/daml-lf/validation:__subpackages__",
+        "//canton/community/daml-lf/validation:__subpackages__",
         "//daml-script:__subpackages__",
         "//test-common/canton:__subpackages__",
     ],
@@ -208,7 +208,7 @@ da_scala_library(
     unused_dependency_checker_mode = "error",
     visibility = [
         "//canton/community/daml-lf/snapshot:__subpackages__",
-        "//canton/commmunity/daml-lf/validation:__subpackages__",
+        "//canton/community/daml-lf/validation:__subpackages__",
         "//daml-script:__subpackages__",
         "//language-support:__subpackages__",
         "//test-common/canton:__subpackages__",
@@ -262,7 +262,7 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:base-grpc-utils:__VERSION__"],
     unused_dependency_checker_mode = "error",
     visibility = [
-        "//canton/commmunity/daml-lf/validation:__subpackages__",
+        "//canton/community/daml-lf/validation:__subpackages__",
         "//daml-script:__subpackages__",
         "//test-common/canton:__subpackages__",
     ],
@@ -368,7 +368,7 @@ da_scala_library(
         "//canton/community/daml-lf/engine",
         "//canton/community/daml-lf/language",
         "//canton/community/daml-lf/transaction",
-        "//canton/commmunity/daml-lf/validation",
+        "//canton/community/daml-lf/validation",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_thesamet_scalapb_scalapb_runtime_2_13",
@@ -412,7 +412,7 @@ proto_gen(
         "grpc",
     ],
     visibility = [
-        "//canton/commmunity/daml-lf/validation:__subpackages__",
+        "//canton/community/daml-lf/validation:__subpackages__",
         "//daml-script:__subpackages__",
     ],
 )
@@ -435,7 +435,7 @@ da_scala_library(
         ]
     ],
     tags = ["maven_coordinates=com.daml:community-admin-api:__VERSION__"],
-    visibility = ["//canton/commmunity/daml-lf/validation:__subpackages__"],
+    visibility = ["//canton/community/daml-lf/validation:__subpackages__"],
 )
 
 ### community/base ###
@@ -481,7 +481,7 @@ scala_library(
     scalacopts = canton_scalacopts + ["-language:postfixOps"],
     unused_dependency_checker_mode = "error",
     visibility = [
-        "//canton/commmunity/daml-lf/validation:__subpackages__",
+        "//canton/community/daml-lf/validation:__subpackages__",
         "//daml-script:__subpackages__",
         "//language-support:__subpackages__",
     ],
@@ -770,7 +770,7 @@ scala_library(
         "//canton/community/daml-lf/engine",
         "//canton/community/daml-lf/language",
         "//canton/community/daml-lf/transaction",
-        "//canton/commmunity/daml-lf/validation",
+        "//canton/community/daml-lf/validation",
         "@canton_maven//:org_flywaydb_flyway_core",
         "@maven//:com_auth0_java_jwt",
         "@maven//:com_chuusai_shapeless_2_13",
