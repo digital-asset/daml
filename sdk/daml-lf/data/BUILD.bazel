@@ -55,7 +55,7 @@ da_scala_test(
     deps = [
         ":data",
         "//canton:scalatest-utils",
-        "//daml-lf/data-scalacheck",
+        "//canton/community/daml-lf/data-scalacheck",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
