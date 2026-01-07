@@ -254,7 +254,7 @@ da_scala_test(
         "//canton:contextualized-logging",
         "//daml-lf/archive:daml_lf_archive_proto_java",
         "//daml-lf/data",
-        "//daml-lf/encoder",
+        "//canton/community/daml-lf/encoder",
         "//canton/community/daml-lf/interpreter",
         "//canton/community/daml-lf/language",
         "//canton/community/daml-lf/parser",

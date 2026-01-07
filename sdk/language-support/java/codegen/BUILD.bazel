@@ -217,7 +217,7 @@ scala_source_jar(
     [
         dar_to_java(
             name = "test-model-%s" % target,
-            src = "//daml-lf/encoder:testing-dar-%s" % target,
+            src = "//canton/community/daml-lf/encoder:testing-dar-%s" % target,
             package_prefix = "test",
         ),
         java_test(
