@@ -40,7 +40,7 @@ da_scala_binary(
         "//canton/community/daml-lf/interpreter",
         "//canton/community/daml-lf/language",
         "//canton/community/daml-lf/transaction",
-        "//canton/commmunity/daml-lf/validation",
+        "//canton/community/daml-lf/validation",
         "//daml-script/converter",
         "//daml-script/runner:script-runner-lib",
         "@maven//:com_google_protobuf_protobuf_java",

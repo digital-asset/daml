@@ -63,7 +63,7 @@ da_scala_test_suite(
         "//canton/community/daml-lf/language",
         "//canton/community/daml-lf/parser",
         "//canton/community/daml-lf/stable-packages",
-        "//canton/commmunity/daml-lf/validation",
+        "//canton/community/daml-lf/validation",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
@@ -88,7 +88,7 @@ da_scala_binary(
         "//canton/community/daml-lf/language",
         "//canton/community/daml-lf/parser",
         "//canton/community/daml-lf/stable-packages",
-        "//canton/commmunity/daml-lf/validation",
+        "//canton/community/daml-lf/validation",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
