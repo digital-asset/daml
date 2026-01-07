@@ -30,7 +30,7 @@ da_scala_library(
         "//canton:__subpackages__",
         "//canton-3x:__subpackages__",
         "//compiler/script-service:__subpackages__",
-        "//daml-lf:__subpackages__",
+        "//canton/community/daml-lf:__subpackages__",
     ],
     deps = [
         "//canton:scala-utils",

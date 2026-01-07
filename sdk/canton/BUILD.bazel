@@ -343,7 +343,7 @@ da_scala_library(
     unused_dependency_checker_mode = "error",
     visibility = [
         "//compiler/repl-service:__subpackages__",
-        "//daml-lf:__subpackages__",
+        "//canton/community/daml-lf:__subpackages__",
         "//daml-script:__subpackages__",
         "//language-support/java:__subpackages__",
         "//ledger-service/utils:__subpackages__",
@@ -731,7 +731,7 @@ scala_library(
     scalacopts = canton_scalacopts + ["-language:postfixOps"],
     unused_dependency_checker_mode = "error",
     visibility = [
-        "//daml-lf:__subpackages__",
+        "//canton/community/daml-lf:__subpackages__",
         "//daml-script:__subpackages__",
         "//language-support/java:__subpackages__",
     ],

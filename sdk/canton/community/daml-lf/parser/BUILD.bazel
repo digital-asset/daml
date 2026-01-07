@@ -19,7 +19,7 @@ da_scala_library(
     scalacopts = lf_scalacopts_stricter,
     tags = ["maven_coordinates=com.daml:daml-lf-parser:__VERSION__"],
     visibility = [
-        "//daml-lf:__subpackages__",
+        "//canton/community/daml-lf:__subpackages__",
     ],
     deps = [
         "//canton:scala-utils",
@@ -40,7 +40,7 @@ da_scala_test(
     ],
     scalacopts = lf_scalacopts,
     visibility = [
-        "//daml-lf:__subpackages__",
+        "//canton/community/daml-lf:__subpackages__",
     ],
     deps = [
         ":parser",

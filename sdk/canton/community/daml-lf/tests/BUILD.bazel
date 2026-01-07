@@ -23,7 +23,7 @@ load("@os_info//:os_info.bzl", "is_intel")
 #         name = "Exceptions-v{}".format(major),
 #         srcs = ["Exceptions.daml"],
 #         target = DEFAULT_LF_VERSION,
-#         visibility = ["//daml-lf:__subpackages__"],
+#         visibility = ["//canton/community/daml-lf:__subpackages__"],
 #     )
 #     for major in LF_MAJOR_VERSIONS
 # ]
@@ -33,7 +33,7 @@ load("@os_info//:os_info.bzl", "is_intel")
         name = "Exceptions-{}".format(mangle_for_damlc(version)),
         srcs = ["Exceptions.daml"],
         target = version,
-        visibility = ["//daml-lf:__subpackages__"],
+        visibility = ["//canton/community/daml-lf:__subpackages__"],
     )
     for version in [DEV_LF_VERSION]
 ]
@@ -44,7 +44,7 @@ load("@os_info//:os_info.bzl", "is_intel")
         srcs = ["Interfaces.daml"],
         enable_interfaces = True,
         target = DEFAULT_LF_VERSION,
-        visibility = ["//daml-lf:__subpackages__"],
+        visibility = ["//canton/community/daml-lf:__subpackages__"],
     )
     for major in COMPILER_LF_MAJOR_VERSIONS
 ]
@@ -55,7 +55,7 @@ load("@os_info//:os_info.bzl", "is_intel")
         srcs = ["InterfaceViews.daml"],
         enable_interfaces = True,
         target = DEFAULT_LF_VERSION,
-        visibility = ["//daml-lf:__subpackages__"],
+        visibility = ["//canton/community/daml-lf:__subpackages__"],
     )
     for major in COMPILER_LF_MAJOR_VERSIONS
 ]
@@ -63,7 +63,7 @@ load("@os_info//:os_info.bzl", "is_intel")
 daml_build_test(
     name = "ReinterpretTests-v2",
     project_dir = "reinterpret",
-    visibility = ["//daml-lf:__subpackages__"],
+    visibility = ["//canton/community/daml-lf:__subpackages__"],
 )
 
 [
@@ -71,7 +71,7 @@ daml_build_test(
         name = "MultiKeys-{}".format(mangle_for_damlc(version)),
         srcs = ["MultiKeys.daml"],
         target = version,
-        visibility = ["//daml-lf:__subpackages__"],
+        visibility = ["//canton/community/daml-lf:__subpackages__"],
     )
     for version in [DEV_LF_VERSION]
 ]
