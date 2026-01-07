@@ -7,8 +7,8 @@ import cats.syntax.functor.*
 import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.annotation.StaticAnnotation
-import scala.reflect.ClassTag
 import scala.reflect.runtime.universe as ru
+import scala.reflect.{ClassTag, classTag}
 
 /** User friendly help messages generator.
   */
@@ -23,11 +23,48 @@ object Help {
     */
   final case class Summary(s: String, flag: FeatureFlag = FeatureFlag.Stable)
       extends StaticAnnotation {
+
+    private val maxLength = 120
+
+    if (s.contains('\n') || s.contains('\r')) {
+      System.err.println(
+        s"@Summary: The summary '$s' must be a single line (no newline characters)."
+      )
+    }
+
+    if (s.trim.endsWith(".")) {
+      System.err.println(
+        s"@Summary: The summary '$s' must not end in a full stop ('.')."
+      )
+    }
+
+    if (s.length > maxLength) {
+      System.err.println(
+        s"@Summary: The summary '$s' exceeds $maxLength characters (actual length: ${s.length})."
+      )
+    }
+
     override def toString: String = s
   }
 
   /** A longer description of the method */
   final case class Description(s: String) extends StaticAnnotation {
+
+    private val lineMaxLength = 89
+
+    s.linesIterator.zipWithIndex.foreach { case (line, index) =>
+      if (line.length > lineMaxLength) {
+        System.err.println(
+          s"""
+             |@Description: Line exceeds $lineMaxLength characters.
+             |Location: Line ${index + 1}
+             |Length:   ${line.length}
+             |Content:  "$line"
+             |""".stripMargin
+        )
+      }
+    }
+
     override def toString: String = s
   }
 
@@ -50,13 +87,17 @@ object Help {
     override def toString: String = name
   }
 
-  final case class MethodSignature(argsWithTypes: Seq[(String, String)], retType: String) {
-    val argString = "(" + argsWithTypes.map(arg => s"${arg._1}: ${arg._2}").mkString(", ") + ")"
+  final case class MethodSignature(argsWithTypes: Seq[Parameter], retType: String) {
+    val argString = "(" + argsWithTypes.mkString(", ") + ")"
     val retString = s": $retType"
-    override def toString(): String = argString + retString
+    override def toString: String = argString + retString
     def noUnits(): String =
       (if (argsWithTypes.isEmpty) "" else argString) +
         (if (retType == "Unit") "" else retString)
+  }
+
+  final case class Parameter(name: String, tpe: String, hasDefaultParameter: Boolean) {
+    override def toString: String = s"$name: $tpe"
   }
 
   final case class Item(
@@ -136,7 +177,12 @@ object Help {
       scope: Set[FeatureFlag],
   ): Option[Item] =
     memberDescription(member)
-      .filter { case (summary, _, _, _) => scope.contains(summary.flag) }
+      .filter { case (summary, _, _, _) =>
+        val isVisibleForTesting =
+          member.annotations.exists(_.toString.contains("VisibleForTesting"))
+
+        scope.contains(summary.flag) && !isVisibleForTesting
+      }
       .map { case (summary, description, topic, group) =>
         val methodName = member.name.toString
         val info = member.info
@@ -161,6 +207,17 @@ object Help {
   ): Seq[Item] = {
     val mirror = ru.runtimeMirror(getClass.getClassLoader)
     val mirroredType = mirror.reflect(instance)
+    mirroredType.symbol.typeSignature.members
+      .flatMap(m => extractItem(mirror, m, baseTopic, scope).toList)
+      .toSeq
+  }
+
+  def getItemsForClass[T: ClassTag](
+      baseTopic: Seq[String] = Seq(),
+      scope: Set[FeatureFlag] = FeatureFlag.all,
+  ): Seq[Item] = {
+    val mirror = ru.runtimeMirror(getClass.getClassLoader)
+    val mirroredType = mirror.reflectClass(mirror.classSymbol(classTag[T].runtimeClass))
     mirroredType.symbol.typeSignature.members
       .flatMap(m => extractItem(mirror, m, baseTopic, scope).toList)
       .toSeq
@@ -206,7 +263,7 @@ object Help {
 
     val args =
       excludeImplicits(methodType.paramLists.flatten).map(symb =>
-        (symb.name.toString, symb.typeSignature.toString)
+        Parameter(symb.name.toString, symb.typeSignature.toString, symb.asTerm.isParamWithDefault)
       )
     // return types can contain implicit parameter lists; ensure that these are excluded
     val returnType =

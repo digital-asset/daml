@@ -14,6 +14,7 @@ import com.google.protobuf.field_mask.FieldMask
 
 import scala.concurrent.{ExecutionContext, Future}
 
+@SuppressWarnings(Array("com.digitalasset.canton.DirectGrpcServiceInvocation"))
 final class IdentityProviderConfigClient(
     service: IdentityProviderConfigServiceStub,
     getDefaultToken: () => Option[String] = () => None,

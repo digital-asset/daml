@@ -47,7 +47,7 @@ private[backend] trait StorageBackendTestsContracts
         create_key_hash = Some(key2.hash.toHexString),
       )(
         stakeholders = Set(signatory),
-        template_id = someTemplateId.toString(),
+        template_id = someTemplateId,
       ),
       dtosCreate(
         event_offset = 2L,
@@ -56,7 +56,7 @@ private[backend] trait StorageBackendTestsContracts
         create_key_hash = Some(key1.hash.toHexString),
       )(
         stakeholders = Set(signatory),
-        template_id = someTemplateId.toString(),
+        template_id = someTemplateId,
       ),
       dtosCreate(
         event_offset = 3L,
@@ -65,14 +65,14 @@ private[backend] trait StorageBackendTestsContracts
         create_key_hash = Some(key1.hash.toHexString),
       )(
         stakeholders = Set(signatory),
-        template_id = someTemplateId.toString(),
+        template_id = someTemplateId,
       ),
       dtosConsumingExercise(
         event_offset = 4L,
         event_sequential_id = 4L,
         internal_contract_id = Some(internalContractId2),
         stakeholders = Set(signatory),
-        template_id = someTemplateId.toString(),
+        template_id = someTemplateId,
       ),
       dtosCreate(
         event_offset = 5L,
@@ -81,7 +81,7 @@ private[backend] trait StorageBackendTestsContracts
         create_key_hash = Some(key1.hash.toHexString),
       )(
         stakeholders = Set(signatory),
-        template_id = someTemplateId.toString(),
+        template_id = someTemplateId,
       ),
     ).flatten
 
@@ -189,7 +189,7 @@ private[backend] trait StorageBackendTestsContracts
         internal_contract_id = internalContractId,
       )(
         stakeholders = Set(signatory),
-        template_id = someTemplateId.toString(),
+        template_id = someTemplateId,
       ),
       dtosAssign(
         event_offset = 2L,
@@ -198,7 +198,7 @@ private[backend] trait StorageBackendTestsContracts
         synchronizer_id = someSynchronizerId2,
       )(
         stakeholders = Set(signatory),
-        template_id = someTemplateId.toString(),
+        template_id = someTemplateId,
       ),
       dtosAssign(
         event_offset = 3L,
@@ -207,7 +207,7 @@ private[backend] trait StorageBackendTestsContracts
         synchronizer_id = someSynchronizerId2,
       )(
         stakeholders = Set(signatory),
-        template_id = someTemplateId.toString(),
+        template_id = someTemplateId,
       ),
       dtosAssign(
         event_offset = 4L,
@@ -216,7 +216,7 @@ private[backend] trait StorageBackendTestsContracts
         synchronizer_id = someSynchronizerId,
       )(
         stakeholders = Set(signatory),
-        template_id = someTemplateId.toString(),
+        template_id = someTemplateId,
       ),
     ).flatten
 
@@ -298,7 +298,7 @@ private[backend] trait StorageBackendTestsContracts
         internal_contract_id = internalContractId,
       )(
         stakeholders = Set(signatory),
-        template_id = someTemplateId.toString(),
+        template_id = someTemplateId,
       ),
       dtosAssign(
         event_offset = 2L,
@@ -307,7 +307,7 @@ private[backend] trait StorageBackendTestsContracts
         synchronizer_id = someSynchronizerId2,
       )(
         stakeholders = Set(signatory),
-        template_id = someTemplateId.toString(),
+        template_id = someTemplateId,
       ),
       dtosUnassign(
         event_offset = 3L,
@@ -316,7 +316,7 @@ private[backend] trait StorageBackendTestsContracts
         deactivated_event_sequential_id = Some(1L),
         synchronizer_id = someSynchronizerId,
         stakeholders = Set(signatory),
-        template_id = someTemplateId.toString(),
+        template_id = someTemplateId,
       ),
       dtosConsumingExercise(
         event_offset = 4L,
@@ -325,7 +325,7 @@ private[backend] trait StorageBackendTestsContracts
         deactivated_event_sequential_id = Some(2L),
         synchronizer_id = someSynchronizerId2,
         stakeholders = Set(signatory),
-        template_id = someTemplateId.toString(),
+        template_id = someTemplateId,
       ),
     ).flatten
 

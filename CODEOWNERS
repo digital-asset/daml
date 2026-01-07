@@ -16,3 +16,6 @@ azure-pipelines.yml    @digital-asset/daml-language
 azure-cron.yml         @digital-asset/daml-language
 sdk/release/           @digital-asset/daml-language
 sdk/release.sh         @digital-asset/daml-language
+
+# Temporary owners to prevent unexpected changes to daml-lf and engine
+/sdk/daml-lf           @remyhaemmerle-da @carlpulley-da @dylant-da

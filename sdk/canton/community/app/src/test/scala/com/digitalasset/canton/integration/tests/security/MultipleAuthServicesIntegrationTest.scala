@@ -6,8 +6,8 @@ package com.digitalasset.canton.integration.tests.security
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.*
 import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authorization
 import com.daml.test.evidence.tag.Security.{Attack, SecurityTest, SecurityTestSuite}
+import com.digitalasset.canton.config.AuthServiceConfig
 import com.digitalasset.canton.config.CantonRequireTypes.NonEmptyString
-import com.digitalasset.canton.config.{AuthServiceConfig, DbConfig}
 import com.digitalasset.canton.console.{
   CommandFailure,
   ConsoleEnvironment,
@@ -15,7 +15,7 @@ import com.digitalasset.canton.console.{
   LocalParticipantReference,
 }
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.tests.ledgerapi.SuppressionRules.AuthServiceJWTSuppressionRule
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -161,5 +161,6 @@ trait MultipleAuthServicesIntegrationTest
 
 class MultipleAuthServicesReferenceIntegrationTestPostgres
     extends MultipleAuthServicesIntegrationTest {
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UsePostgres(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }

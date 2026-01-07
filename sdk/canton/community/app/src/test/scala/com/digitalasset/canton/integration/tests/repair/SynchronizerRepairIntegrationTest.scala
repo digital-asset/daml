@@ -7,8 +7,8 @@ import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse.ContractE
 import com.digitalasset.canton.BigDecimalImplicits.*
 import com.digitalasset.canton.HasExecutionContext
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.WrappedContractEntry
+import com.digitalasset.canton.admin.api.client.data.SequencerConnectionValidation
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.{
   FeatureFlag,
   LocalMediatorReference,
@@ -17,14 +17,9 @@ import com.digitalasset.canton.console.{
 import com.digitalasset.canton.examples.java.iou
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
-import com.digitalasset.canton.integration.plugins.{
-  UseBftSequencer,
-  UsePostgres,
-  UseReferenceBlockSequencer,
-}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.util.EntitySyntax
 import com.digitalasset.canton.logging.{LogEntry, SuppressingLogger, SuppressionRule}
-import com.digitalasset.canton.sequencing.SequencerConnectionValidation
 import com.digitalasset.canton.sequencing.client.ResilientSequencerSubscription
 import org.slf4j.event.Level
 
@@ -318,22 +313,6 @@ sealed abstract class SynchronizerRepairIntegrationTest
   private def newSynchronizerAlias(implicit env: TestConsoleEnvironment) = env.acmeName
 
   private def newSynchronizerId(implicit env: TestConsoleEnvironment) = env.acmeId.logical
-}
-
-final class SynchronizerRepairReferenceIntegrationTestPostgres
-    extends SynchronizerRepairIntegrationTest {
-  registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.Postgres](
-      loggerFactory,
-      sequencerGroups = MultiSynchronizer(
-        Seq(
-          Set(InstanceName.tryCreate("sequencer1")),
-          Set(InstanceName.tryCreate("sequencer2")),
-        )
-      ),
-    )
-  )
 }
 
 final class SynchronizerRepairBftOrderingIntegrationTestPostgres

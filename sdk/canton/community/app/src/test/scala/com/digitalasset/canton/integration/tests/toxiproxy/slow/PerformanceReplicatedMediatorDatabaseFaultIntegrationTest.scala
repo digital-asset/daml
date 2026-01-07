@@ -4,8 +4,8 @@
 package com.digitalasset.canton.integration.tests.toxiproxy.slow
 
 import com.digitalasset.canton.config
+import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.{DbConfig, NonNegativeDuration}
 import com.digitalasset.canton.integration.bootstrap.{
   NetworkBootstrapper,
   NetworkTopologyDescription,
@@ -148,7 +148,7 @@ class PerformanceReplicatedMediatorDatabaseFaultIntegrationTest
     ),
     toxiproxyPlugin,
     external,
-    new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory),
+    new UseBftSequencer(loggerFactory),
   ).foreach(registerPlugin)
 
   "introduce database connection faults on the mediators while the runners are running" in {

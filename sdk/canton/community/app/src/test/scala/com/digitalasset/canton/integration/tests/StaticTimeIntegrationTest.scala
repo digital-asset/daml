@@ -3,10 +3,9 @@
 
 package com.digitalasset.canton.integration.tests
 
-import com.digitalasset.canton.config.StorageConfig
 import com.digitalasset.canton.damltests.java.statictimetest.Pass
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseBftSequencer
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -81,5 +80,5 @@ trait StaticTimeIntegrationTest extends CommunityIntegrationTest with SharedEnvi
 }
 
 class StaticTimeIntegrationTestInMemory extends StaticTimeIntegrationTest {
-  registerPlugin(new UseReferenceBlockSequencer[StorageConfig.Memory](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }

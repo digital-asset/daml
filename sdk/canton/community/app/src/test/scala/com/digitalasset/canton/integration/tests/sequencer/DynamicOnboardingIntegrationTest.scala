@@ -7,6 +7,11 @@ import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.*
 import com.daml.test.evidence.tag.Reliability.*
+import com.digitalasset.canton.admin.api.client.data.{
+  GrpcSequencerConnection,
+  SequencerConnection,
+  SequencerConnections,
+}
 import com.digitalasset.canton.config.RequireTypes.{Port, PositiveInt}
 import com.digitalasset.canton.console.{
   CommandFailure,
@@ -38,11 +43,6 @@ import com.digitalasset.canton.protocol.messages.{
 }
 import com.digitalasset.canton.sequencing.client.{SendResult, SequencerClient}
 import com.digitalasset.canton.sequencing.protocol.*
-import com.digitalasset.canton.sequencing.{
-  GrpcSequencerConnection,
-  SequencerConnection,
-  SequencerConnections,
-}
 import com.digitalasset.canton.topology.{SequencerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{SequencerAlias, SynchronizerAlias}
@@ -233,13 +233,11 @@ abstract class DynamicOnboardingIntegrationTest(val name: String)
       sequencer2.health.initialized() shouldBe true
 
       // Restart the new sequencer to make sure that the initialization survives a restart
-      // TODO(#25004): restart the BFT sequencer too once it's fully crash fault-tolerant (and remove the flag).
+      // TODO(#25004): restart the BFT sequencer too once it's fully crash fault-tolerant
       // Currently this fails because we're stopping the sequencer before it finished its initial state transfer process.
       // Ideally we wait for that to be concluded before considering the sequencer initialized and ready to tolerate crashes.
-      if (!isBftSequencer) {
-        sequencer2.stop()
-        sequencer2.start()
-      }
+      // sequencer2.stop()
+      // sequencer2.start()
 
       participant2.synchronizers.connect_local(sequencer2, daName)
       participant1.health.ping(participant2, timeout = 30.seconds)

@@ -9,6 +9,7 @@ import cats.syntax.show.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{
+  BatchingConfig,
   CacheConfig,
   CryptoConfig,
   CryptoProvider,
@@ -272,10 +273,17 @@ trait SyncCryptoApi {
     *   the hash to sign
     * @param usage
     *   restricts signing to private keys that have at least one matching usage
+    * @param approximateTimestampOverride
+    *   optional timestamp to use for signing. Should only be set for signatures that end up, for
+    *   example, in submission requests, or of encrypted view messages, where the topology is not
+    *   yet fixed, i.e., when using a topology snapshot approximation. The current local clock
+    *   reading is often a suitable value. This timestamp will be used to pick a session signing key
+    *   with a suitable validity period, if needed.
     */
   def sign(
       hash: Hash,
       usage: NonEmpty[Set[SigningKeyUsage]],
+      approximateTimestampOverride: Option[CantonTimestamp],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncCryptoError, Signature]
@@ -361,6 +369,7 @@ object Crypto {
       clock: Clock,
       executionContext: ExecutionContext,
       timeouts: ProcessingTimeout,
+      batchingConfig: BatchingConfig,
       loggerFactory: NamedLoggerFactory,
       tracerProvider: TracerProvider,
   )(implicit
@@ -538,6 +547,7 @@ object Crypto {
                         replicaManager,
                         releaseProtocolVersion,
                         timeouts,
+                        batchingConfig,
                         loggerFactory,
                       )
                       .leftMap(err => show"Failed to create crypto private store: $err")
@@ -552,7 +562,7 @@ object Crypto {
             case None =>
               for {
                 cryptoPrivateStore <- CryptoPrivateStore
-                  .create(storage, releaseProtocolVersion, timeouts, loggerFactory)
+                  .create(storage, releaseProtocolVersion, timeouts, batchingConfig, loggerFactory)
                   .leftMap(err => show"Failed to create crypto private store: $err")
                 jceCrypto <- createCryptoWithJceProvider(
                   cryptoSchemes,

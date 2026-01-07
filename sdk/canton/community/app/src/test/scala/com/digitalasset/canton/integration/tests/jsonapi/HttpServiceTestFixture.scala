@@ -22,15 +22,15 @@ import com.digitalasset.canton.config.{
 }
 import com.digitalasset.canton.http.UserId
 import com.digitalasset.canton.http.util.NewBoolean
-import com.digitalasset.canton.logging.SuppressingLogger
+import com.digitalasset.canton.logging.{NamedLoggerFactory, SuppressingLogger}
 import com.digitalasset.canton.util.JarResourceUtils
 import com.digitalasset.daml.lf.data.Ref
+import io.circe.syntax.*
 import org.apache.pekko.http.scaladsl.model.*
 import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.util.ByteString
 import scalaz.syntax.tag.*
-import spray.json.*
 
 import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
@@ -38,7 +38,7 @@ import scala.concurrent.{ExecutionContext, Future}
 @nowarn("msg=match may not be exhaustive")
 object HttpServiceTestFixture {
 
-  val loggerFactory = SuppressingLogger(getClass)
+  val loggerFactory: NamedLoggerFactory = SuppressingLogger(getClass)
   val logger = loggerFactory.getLogger(getClass)
 
   lazy val staticPkgIdAccount: Ref.PackageRef = {
@@ -77,29 +77,29 @@ object HttpServiceTestFixture {
   def jwtForUser(
       user: Option[String]
   ): Jwt = {
-    val payload: JsValue = {
-      val standardJwtPayload: AuthServiceJWTPayload =
-        StandardJWTPayload(
-          issuer = None,
-          userId = user.getOrElse(userId.unwrap),
-          participantId = None,
-          exp = None,
-          format = StandardJWTTokenFormat.Scope,
-          audiences = List.empty,
-          scope = Some(AuthServiceJWTCodec.scopeLedgerApiFull),
-        )
-      standardJwtPayload.toJson
-    }
+    val standardJwtPayload: AuthServiceJWTPayload =
+      StandardJWTPayload(
+        issuer = None,
+        userId = user.getOrElse(userId.unwrap),
+        participantId = None,
+        exp = None,
+        format = StandardJWTTokenFormat.Scope,
+        audiences = List.empty,
+        scope = Some(AuthServiceJWTCodec.scopeLedgerApiFull),
+      )
+
+    val payloadString: String = standardJwtPayload.asJson.noSpaces
+
     JwtSigner.HMAC256
       .sign(
         DecodedJwt(
           """{"alg": "HS256", "typ": "JWT"}""",
-          payload.prettyPrint,
+          payloadString,
         ),
         "secret",
       )
       .fold(
-        e => throw new IllegalArgumentException(s"cannot sign a JWT: ${e.prettyPrint}"),
+        e => throw new IllegalArgumentException(s"cannot sign a JWT: ${e.toString}"),
         identity,
       )
   }

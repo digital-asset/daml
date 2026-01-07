@@ -7,12 +7,10 @@ import com.daml.ledger.api.v2.command_service.SubmitAndWaitResponse
 import com.daml.ledger.api.v2.{state_service, transaction_filter}
 import com.daml.ledger.test.java.model.iou.Iou
 import com.digitalasset.canton.admin.api.client.data.TemplateId
-import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.http.json.SprayJson
 import com.digitalasset.canton.http.json.v2.JsCommandServiceCodecs.*
 import com.digitalasset.canton.http.json.v2.JsStateServiceCodecs.*
 import com.digitalasset.canton.http.json.v2.{JsCommand, JsCommands, JsGetActiveContractsResponse}
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2}
 import com.digitalasset.canton.util.MonadUtil
 import io.circe.parser.decode
 import io.circe.syntax.*
@@ -26,7 +24,8 @@ import scala.concurrent.Future
 class JsonStreamAsListPerformanceTests
     extends AbstractHttpServiceIntegrationTestFuns
     with HttpServiceUserFixture.UserToken {
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseH2(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   private val numberOfRepeatedCalls: Int = 5
   private val maxAverageTimeForCall: Long = 1000
@@ -54,36 +53,31 @@ class JsonStreamAsListPerformanceTests
           fixture
             .postJsonRequest(
               Uri.Path("/v2/state/active-contracts"),
-              SprayJson
-                .parse(
-                  state_service
-                    .GetActiveContractsRequest(
-                      activeAtOffset = completionOffset,
-                      eventFormat = Some(
-                        transaction_filter.EventFormat(
-                          filtersByParty = Map.empty,
-                          filtersForAnyParty = Some(
-                            transaction_filter.Filters(
-                              cumulative = Seq(
-                                transaction_filter.CumulativeFilter(
-                                  identifierFilter =
-                                    transaction_filter.CumulativeFilter.IdentifierFilter
-                                      .WildcardFilter(
-                                        transaction_filter
-                                          .WildcardFilter(includeCreatedEventBlob = true)
-                                      )
-                                )
-                              )
+              state_service
+                .GetActiveContractsRequest(
+                  activeAtOffset = completionOffset,
+                  eventFormat = Some(
+                    transaction_filter.EventFormat(
+                      filtersByParty = Map.empty,
+                      filtersForAnyParty = Some(
+                        transaction_filter.Filters(
+                          cumulative = Seq(
+                            transaction_filter.CumulativeFilter(
+                              identifierFilter =
+                                transaction_filter.CumulativeFilter.IdentifierFilter
+                                  .WildcardFilter(
+                                    transaction_filter
+                                      .WildcardFilter(includeCreatedEventBlob = true)
+                                  )
                             )
-                          ),
-                          verbose = false,
+                          )
                         )
                       ),
+                      verbose = false,
                     )
-                    .asJson
-                    .toString()
+                  ),
                 )
-                .valueOr(err => fail(s"$err")),
+                .asJson,
               headers,
             )
             .map { case (_, result) =>
@@ -93,9 +87,7 @@ class JsonStreamAsListPerformanceTests
         for {
           completionOffset <- postJsonRequest(
             uri = fixture.uri.withPath(Uri.Path("/v2/commands/submit-and-wait")),
-            json = SprayJson
-              .parse(command.asJson.noSpaces)
-              .valueOr(err => fail(s"$err")),
+            json = command.asJson,
             headers = headers,
           ).map { case (statusCode, result) =>
             statusCode should be(StatusCodes.OK)

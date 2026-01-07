@@ -142,7 +142,7 @@ object ReplayingParticipant extends FutureHelpers with EitherValues with OptionV
 
     val underlyingTransport =
       mkUnderlyingTransport(
-        connectedToSequencer.sequencerConnection,
+        connectedToSequencer.sequencerConnection.toInternal,
         member,
         psid,
         synchronizerCrypto,
@@ -215,6 +215,8 @@ object ReplayingParticipant extends FutureHelpers with EitherValues with OptionV
         member,
         underlyingTransport,
         RequestSigner(synchronizerCryptoClient, testedProtocolVersion, extendedLoggerFactory),
+        synchronizerCryptoClient.currentSnapshotApproximation.futureValueUS,
+        clock,
         SequencerTestMetrics.sequencerClient,
         timeouts,
         extendedLoggerFactory,
@@ -254,6 +256,7 @@ object ReplayingParticipant extends FutureHelpers with EitherValues with OptionV
         clock,
         executionContext,
         timeouts,
+        BatchingConfig(),
         loggerFactory,
         NoReportingTracerProvider,
       )

@@ -5,9 +5,15 @@ package com.digitalasset.canton.integration.tests.upgrade
 
 import better.files.File
 import com.daml.metrics.api.MetricsContext
-import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameters
+import com.digitalasset.canton.admin.api.client.data.{
+  SequencerConnectionPoolDelays,
+  SequencerConnections,
+  StaticSynchronizerParameters,
+  SubmissionRequestAmplification,
+}
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.{
+  ConsoleEnvironment,
   InstanceReference,
   LocalInstanceReference,
   LocalMediatorReference,
@@ -22,11 +28,6 @@ import com.digitalasset.canton.integration.tests.upgrade.LogicalUpgradeUtils.{
 }
 import com.digitalasset.canton.sequencing.client.{SendCallback, SendResult}
 import com.digitalasset.canton.sequencing.protocol.{Batch, Deliver}
-import com.digitalasset.canton.sequencing.{
-  SequencerConnectionPoolDelays,
-  SequencerConnections,
-  SubmissionRequestAmplification,
-}
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
 import com.digitalasset.canton.topology.transaction.{NamespaceDelegation, OwnerToKeyMapping}
 import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId, UniqueIdentifier}
@@ -122,7 +123,7 @@ trait LogicalUpgradeUtils { self: BaseTest =>
       sequencerLivenessMargin: NonNegativeInt = NonNegativeInt.zero,
       exportDirectory: File,
       sourceNodeNames: Map[String, String] = Map.empty,
-  ): Unit = {
+  )(implicit consoleEnvironment: ConsoleEnvironment): Unit = {
     val files = UpgradeDataFiles.from(
       sourceNodeNames.getOrElse(migratedNode.name, migratedNode.name),
       exportDirectory,

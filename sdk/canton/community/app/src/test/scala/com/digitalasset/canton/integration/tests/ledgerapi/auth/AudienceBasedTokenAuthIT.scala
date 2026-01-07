@@ -7,8 +7,8 @@ import com.daml.jwt.{StandardJWTPayload, StandardJWTTokenFormat}
 import com.daml.ledger.api.v2.admin.package_management_service.*
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.*
 import com.digitalasset.base.error.ErrorsAssertions
-import com.digitalasset.canton.config.{AuthServiceConfig, CantonConfig, DbConfig}
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.config.{AuthServiceConfig, CantonConfig}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2}
 import com.digitalasset.canton.integration.tests.ledgerapi.SuppressionRules.{
   AuthInterceptorSuppressionRule,
   AuthServiceJWTSuppressionRule,
@@ -27,7 +27,8 @@ import scala.concurrent.Future
 class AudienceBasedTokenAuthIT extends ServiceCallAuthTests with ErrorsAssertions {
 
   registerPlugin(ExpectedAudienceOverrideConfig(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseH2(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   override def serviceCallName: String =
     "Any service call with target audience based token authorization"

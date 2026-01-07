@@ -342,9 +342,10 @@ class IssSegmentModuleTest
           )
         }
         inside(availabilityCell.get()) {
-          case Some(Availability.Consensus.CreateProposal(o, _, e, ackO)) =>
-            o.nodes shouldBe Set(myId)
+          case Some(Availability.Consensus.CreateProposal(b, e, o, _, ackO)) =>
+            b shouldBe BlockNumber(1L)
             e shouldBe EpochNumber.First
+            o.nodes shouldBe Set(myId)
             ackO shouldBe empty
         }
         consensus.allFuturesHaveFinished shouldBe true
@@ -369,9 +370,10 @@ class IssSegmentModuleTest
         // Upon receiving a Start signal (in a non-first epoch), Consensus should ask for a Proposal from Availability
         consensus.receive(ConsensusSegment.Start)
         inside(availabilityCell.get()) {
-          case Some(Availability.Consensus.CreateProposal(o, _, e, ackO)) =>
-            o.nodes shouldBe Set(myId)
+          case Some(Availability.Consensus.CreateProposal(b, e, o, _, ackO)) =>
+            b shouldBe BlockNumber(10L)
             e shouldBe SecondEpochNumber
+            o.nodes shouldBe Set(myId)
             ackO shouldBe empty
         }
         availabilityCell.set(None)
@@ -388,7 +390,7 @@ class IssSegmentModuleTest
         consensus.receive(
           ConsensusSegment.ConsensusMessage.LocalAvailability(
             Consensus.LocalAvailability
-              .ProposalCreated(oneRequestOrderingBlock1Ack, SecondEpochNumber)
+              .ProposalCreated(BlockNumber(10L), oneRequestOrderingBlock1Ack)
           )
         )
 
@@ -469,9 +471,10 @@ class IssSegmentModuleTest
           )
         }
         inside(availabilityCell.get()) {
-          case Some(Availability.Consensus.CreateProposal(o, _, e, ackO)) =>
-            o.nodes shouldBe Set(myId)
+          case Some(Availability.Consensus.CreateProposal(b, e, o, _, ackO)) =>
+            b shouldBe BlockNumber(11L)
             e shouldBe SecondEpochNumber
+            o.nodes shouldBe Set(myId)
             ackO shouldBe Seq(aBatchId)
         }
         context.delayedMessages should matchPattern {
@@ -509,9 +512,10 @@ class IssSegmentModuleTest
         // Consensus.Start message from Network module(s) should trigger request for proposal
         consensus.receive(ConsensusSegment.Start)
         inside(availabilityBuffer.toSeq) {
-          case Seq(Availability.Consensus.CreateProposal(t, _, e, ackO)) =>
-            t shouldBe fullTopology
+          case Seq(Availability.Consensus.CreateProposal(b, e, o, _, ackO)) =>
+            b shouldBe BlockNumber(13L)
             e shouldBe SecondEpochNumber
+            o shouldBe fullTopology
             ackO shouldBe empty
         }
         availabilityBuffer.clear()
@@ -526,7 +530,7 @@ class IssSegmentModuleTest
         consensus.receive(
           ConsensusSegment.ConsensusMessage.LocalAvailability(
             Consensus.LocalAvailability
-              .ProposalCreated(oneRequestOrderingBlock3Ack, SecondEpochNumber)
+              .ProposalCreated(BlockNumber(13L), oneRequestOrderingBlock3Ack)
           )
         )
 
@@ -623,9 +627,10 @@ class IssSegmentModuleTest
         )
 
         inside(availabilityBuffer.toSeq) {
-          case Seq(Availability.Consensus.CreateProposal(t, _, e, ackO)) =>
-            t shouldBe fullTopology
+          case Seq(Availability.Consensus.CreateProposal(b, e, o, _, ackO)) =>
+            b shouldBe BlockNumber(17L)
             e shouldBe SecondEpochNumber
+            o shouldBe fullTopology
             ackO shouldBe Seq(aBatchId)
         }
         context.delayedMessages should matchPattern {
@@ -799,7 +804,7 @@ class IssSegmentModuleTest
         consensus.receive(
           ConsensusSegment.ConsensusMessage.LocalAvailability(
             Consensus.LocalAvailability
-              .ProposalCreated(oneRequestOrderingBlock1Ack, SecondEpochNumber)
+              .ProposalCreated(BlockNumber(10L), oneRequestOrderingBlock1Ack)
           )
         )
         context.runPipedMessagesThenVerifyAndReceiveOnModule(consensus) { x =>
@@ -853,9 +858,10 @@ class IssSegmentModuleTest
         )
 
         inside(availabilityBuffer.toSeq) {
-          case Seq(Availability.Consensus.CreateProposal(t, _, e, ackO)) =>
-            t.nodes shouldBe Set(myId)
+          case Seq(Availability.Consensus.CreateProposal(b, e, o, _, ackO)) =>
+            b shouldBe BlockNumber(11L)
             e shouldBe SecondEpochNumber
+            o.nodes shouldBe Set(myId)
             ackO shouldBe Seq(aBatchId)
         }
         p2pBuffer.clear()
@@ -1024,7 +1030,7 @@ class IssSegmentModuleTest
         )
 
         // Despite completing blocks, no initiatePull is sent to Availability because the view change
-        // occurred before the blocks were completed, and moreSlotsToAssign will return false when
+        // occurred before the blocks were completed, and `canReceiveProposals` will return false when
         // completing blocks with segment.view > 0
         availabilityBuffer shouldBe empty
         consensus.allFuturesHaveFinished shouldBe true
@@ -1130,9 +1136,10 @@ class IssSegmentModuleTest
         consensus.receive(ConsensusSegment.Start)
         context.runPipedMessagesAndReceiveOnModule(consensus)
         inside(availabilityBuffer.toSeq) {
-          case Seq(Availability.Consensus.CreateProposal(t, _, e, ackO)) =>
-            t.nodes shouldBe Set(myId)
+          case Seq(Availability.Consensus.CreateProposal(b, e, o, _, ackO)) =>
+            b shouldBe BlockNumber(10L)
             e shouldBe SecondEpochNumber
+            o.nodes shouldBe Set(myId)
             ackO shouldBe empty
         }
         availabilityBuffer.clear()
@@ -1215,7 +1222,7 @@ class IssSegmentModuleTest
         consensus.receive(
           ConsensusSegment.ConsensusMessage.LocalAvailability(
             Consensus.LocalAvailability
-              .ProposalCreated(oneRequestOrderingBlock1Ack, EpochNumber.First)
+              .ProposalCreated(BlockNumber(10L), oneRequestOrderingBlock1Ack)
           )
         )
         p2pBuffer shouldBe empty
@@ -1250,26 +1257,26 @@ class IssSegmentModuleTest
         // and the epoch before receiving the proposal.
         // There are now up to 2 outstanding initiatePulls. One from before the view change (in epoch0), and one
         // from the new epoch1 starting. Here, we mock Availability answering both back-to-back with proposals.
-        // The one from epoch0 should be ignored because we are now in epoch1
+        // The one from the old block should be ignored
         val epoch1PrePrepare = block10PrePrepare1Node
         val epoch1Prepare = prepareFromPrePrepare(epoch1PrePrepare.message)(from = myId)
         val epoch1Commit = commitFromPrePrepare(epoch1PrePrepare.message)(from = myId)
         val epoch1OrderedBlock = orderedBlockFromPrePrepare(epoch1PrePrepare.message)
 
-        // this one is just ignored for being from an old epoch
+        // this one is just ignored for being from an old block
         consensus.receive(
           ConsensusSegment.ConsensusMessage.LocalAvailability(
             Consensus.LocalAvailability
-              .ProposalCreated(oneRequestOrderingBlock1Ack, EpochNumber.First)
+              .ProposalCreated(BlockNumber.First, oneRequestOrderingBlock1Ack)
           )
         )
         p2pBuffer should be(empty)
 
-        // this one with the right epoch number will be used
+        // this one with the right block number will be used
         consensus.receive(
           ConsensusSegment.ConsensusMessage.LocalAvailability(
             Consensus.LocalAvailability
-              .ProposalCreated(oneRequestOrderingBlock1Ack, SecondEpochNumber)
+              .ProposalCreated(BlockNumber(10L), oneRequestOrderingBlock1Ack)
           )
         )
         context.runPipedMessagesAndReceiveOnModule(consensus)
@@ -1854,6 +1861,7 @@ class IssSegmentModuleTest
         )
         context.runPipedMessages() shouldBe empty
       }
+
       "order an empty block if now blocking progress (received block was non-empty)" in {
         implicit val context: ProgrammableUnitTestContext[ConsensusSegment.Message] =
           new ProgrammableUnitTestContext
@@ -1866,14 +1874,13 @@ class IssSegmentModuleTest
         consensus.receive(
           ConsensusSegment.ConsensusMessage.BlockOrdered(blockMetadata, isEmpty = false)
         )
-        context.runPipedMessagesThenVerifyAndReceiveOnModule(consensus) { x =>
-          inside(x) {
-            case MessageFromPipeToSelf(
+        context.runPipedMessages() should matchPattern {
+          case Seq(
+                MessageFromPipeToSelf(
                   Some(PbftSignedNetworkMessage(SignedMessage(pp: PrePrepare, _))),
                   _,
-                ) =>
-              pp.block.proofs shouldBe empty
-          }
+                )
+              ) if pp.block.proofs.isEmpty =>
         }
         succeed
       }
@@ -1890,14 +1897,13 @@ class IssSegmentModuleTest
 
         consensus.receive(ConsensusSegment.Internal.BlockInactivityTimeout)
 
-        context.runPipedMessagesThenVerifyAndReceiveOnModule(consensus) { x =>
-          inside(x) {
-            case MessageFromPipeToSelf(
+        context.runPipedMessages() should matchPattern {
+          case Seq(
+                MessageFromPipeToSelf(
                   Some(PbftSignedNetworkMessage(SignedMessage(pp: PrePrepare, _))),
                   _,
-                ) =>
-              pp.block.proofs shouldBe empty
-          }
+                )
+              ) if pp.block.proofs.isEmpty =>
         }
         succeed
       }

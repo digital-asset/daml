@@ -692,6 +692,7 @@ trait LedgerAuthorizationIntegrationTest
           senderRef = participant2,
           // Using current snapshot because participant2's crypto client does not yet have a snapshot for the request id.
           useCurrentSnapshot = true,
+          Some(environment.now),
         ),
         // Authorized reject
         withLocalVerdict(localReject),
@@ -832,6 +833,7 @@ trait LedgerAuthorizationIntegrationTest
           senderRef = participant2,
           // Using current snapshot because participant2's crypto client does not yet have a snapshot for the request id.
           useCurrentSnapshot = true,
+          Some(environment.now),
         ),
         // Reject on behalf of stakeholder party1.
         withLocalVerdict(localReject),
@@ -1751,11 +1753,11 @@ trait LedgerAuthorizationIntegrationTest
       val cryptoSnapshot = adHocSnapshot
       val hash = cryptoSnapshot.pureCrypto
         .build(HashPurpose.SubmissionRequestSignature)
-        .add("hamburger")
+        .addString("hamburger")
         .finish()
       val signature =
         cryptoSnapshot
-          .sign(hash, SigningKeyUsage.ProtocolOnly)
+          .sign(hash, SigningKeyUsage.ProtocolOnly, Some(environment.now))
           .failOnShutdown
           .futureValue
 
@@ -2068,6 +2070,7 @@ trait LedgerAuthorizationIntegrationTest
     participant1.underlying.value.sync.syncCrypto
       .tryForSynchronizer(daId, defaultStaticSynchronizerParameters)
       .currentSnapshotApproximation
+      .futureValueUS
   }
 
   private def assertPhase3Alert(

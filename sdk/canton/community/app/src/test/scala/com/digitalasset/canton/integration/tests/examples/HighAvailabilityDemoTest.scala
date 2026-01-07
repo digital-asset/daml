@@ -3,13 +3,8 @@
 
 package com.digitalasset.canton.integration.tests.examples
 
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.integration.CommunityIntegrationTest
-import com.digitalasset.canton.integration.plugins.{
-  UsePostgres,
-  UseReferenceBlockSequencer,
-  UseSharedStorage,
-}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres, UseSharedStorage}
 import com.digitalasset.canton.integration.tests.examples.HighAvailabilityDemoTest.examplesPath
 
 object HighAvailabilityDemoTest {
@@ -38,7 +33,7 @@ class HighAvailabilityDemoTest
     with CommunityIntegrationTest {
 
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
   registerPlugin(
     UseSharedStorage.forParticipants(
       "participant_a",

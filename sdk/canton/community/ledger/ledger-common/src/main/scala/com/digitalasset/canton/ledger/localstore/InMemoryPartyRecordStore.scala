@@ -19,11 +19,12 @@ import com.digitalasset.canton.ledger.localstore.api.{
 import com.digitalasset.canton.ledger.localstore.utils.LocalAnnotationsUtils
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.util.Mutex
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.Party
 
 import scala.collection.mutable
-import scala.concurrent.{ExecutionContext, Future, blocking}
+import scala.concurrent.{ExecutionContext, Future}
 
 object InMemoryPartyRecordStore {
   final case class PartyRecordInfo(
@@ -55,6 +56,7 @@ class InMemoryPartyRecordStore(
   implicit private val ec: ExecutionContext = executionContext
 
   private val state: mutable.TreeMap[Ref.Party, PartyRecordInfo] = mutable.TreeMap()
+  private val lock = Mutex()
 
   override def getPartyRecordO(
       party: Party
@@ -212,11 +214,9 @@ class InMemoryPartyRecordStore(
     }
 
   private def withState[T](t: => T): Future[T] =
-    blocking(
-      state.synchronized(
-        Future.successful(t)
-      )
-    )
+    Future.successful {
+      lock.exclusive(t)
+    }
 
   private def withoutPartyRecord[T](party: Ref.Party)(t: => Result[T]): Result[T] =
     state.get(party) match {

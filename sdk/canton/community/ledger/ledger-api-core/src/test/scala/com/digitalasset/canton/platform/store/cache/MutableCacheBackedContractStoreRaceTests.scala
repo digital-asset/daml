@@ -15,7 +15,6 @@ import com.digitalasset.canton.ledger.participant.state.index.ContractStateStatu
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
-import com.digitalasset.canton.participant.store.PersistedContractInstance
 import com.digitalasset.canton.participant.store.memory.InMemoryContractStore
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.store.cache.MutableCacheBackedContractStoreRaceTests.{
@@ -30,7 +29,11 @@ import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.*
 import com.digitalasset.canton.platform.store.{LedgerApiContractStore, LedgerApiContractStoreImpl}
-import com.digitalasset.canton.protocol.{ExampleContractFactory, ExampleTransactionFactory}
+import com.digitalasset.canton.protocol.{
+  ContractInstance,
+  ExampleContractFactory,
+  ExampleTransactionFactory,
+}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.transaction.GlobalKey
 import com.digitalasset.daml.lf.value.Value
@@ -500,9 +503,12 @@ private object MutableCacheBackedContractStoreRaceTests {
       ec: ExecutionContext
   ): Future[Unit] =
     if (event.created) {
-      val contract = PersistedContractInstance(event.contract)
+      val contract =
+        ContractInstance
+          .create(event.contract)
+          .getOrElse(fail(s"Failed creating contract ${event.contract.contractId}"))
       contractStore
-        .storeContracts(Seq(contract.asContractInstance))
+        .storeContracts(Seq(contract))
         .map(_ => ())
     } else Future.unit
 }

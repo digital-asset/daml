@@ -23,10 +23,10 @@ da_scala_binary(
         "@maven//:ch_qos_logback_logback_classic",
     ],
     deps = [
+        "//canton:contextualized-logging",
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
-        "//libs-scala/contextualized-logging",
     ],
 )
 
@@ -48,11 +48,11 @@ da_scala_binary(
     ],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:contextualized-logging",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
-        "//libs-scala/contextualized-logging",
     ],
 )
 
@@ -75,11 +75,11 @@ da_scala_binary(
     ],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:contextualized-logging",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
-        "//libs-scala/contextualized-logging",
     ],
 )
 
@@ -107,10 +107,10 @@ da_scala_binary(
     ],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:contextualized-logging",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
-        "//libs-scala/contextualized-logging",
     ],
 )

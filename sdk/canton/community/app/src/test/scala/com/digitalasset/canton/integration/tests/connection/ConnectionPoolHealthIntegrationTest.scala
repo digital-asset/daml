@@ -4,24 +4,26 @@
 package com.digitalasset.canton.integration.tests.connection
 
 import com.digitalasset.canton.SequencerAlias
-import com.digitalasset.canton.admin.api.client.data.{ComponentHealthState, ComponentStatus}
-import com.digitalasset.canton.config.DbConfig
+import com.digitalasset.canton.admin.api.client.data.{
+  ComponentHealthState,
+  ComponentStatus,
+  GrpcSequencerConnection,
+  SequencerConnectionValidation,
+  SubmissionRequestAmplification,
+}
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.{InstanceReference, LocalInstanceReference}
 import com.digitalasset.canton.integration.bootstrap.{
   NetworkBootstrapper,
   NetworkTopologyDescription,
 }
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
+import com.digitalasset.canton.integration.tests.bftsequencer.AwaitsBftSequencerAuthenticationDisseminationQuorum
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
   EnvironmentDefinition,
   SharedEnvironment,
-}
-import com.digitalasset.canton.sequencing.{
-  SequencerConnectionValidation,
-  SubmissionRequestAmplification,
 }
 
 /** This test checks that the sequencer connection pool properly reports the status of its
@@ -29,7 +31,8 @@ import com.digitalasset.canton.sequencing.{
   */
 sealed trait ConnectionPoolHealthIntegrationTest
     extends CommunityIntegrationTest
-    with SharedEnvironment {
+    with SharedEnvironment
+    with AwaitsBftSequencerAuthenticationDisseminationQuorum {
 
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P2S4M1_Config
@@ -59,9 +62,13 @@ sealed trait ConnectionPoolHealthIntegrationTest
     "Initialize the setup" in { implicit env =>
       import env.*
 
+      waitUntilAllBftSequencersAuthenticateDisseminationQuorum()
+
       val connectionsConfig = sequencers.local.map(s =>
-        s.config.publicApi.clientConfig
-          .asSequencerConnection(SequencerAlias.tryCreate(s.name), sequencerId = None)
+        GrpcSequencerConnection.fromInternal(
+          s.config.publicApi.clientConfig
+            .asSequencerConnection(SequencerAlias.tryCreate(s.name), sequencerId = None)
+        )
       )
 
       clue("connect participants to all sequencers") {
@@ -165,5 +172,5 @@ sealed trait ConnectionPoolHealthIntegrationTest
 
 class ConnectionPoolHealthIntegrationTestDefault extends ConnectionPoolHealthIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }

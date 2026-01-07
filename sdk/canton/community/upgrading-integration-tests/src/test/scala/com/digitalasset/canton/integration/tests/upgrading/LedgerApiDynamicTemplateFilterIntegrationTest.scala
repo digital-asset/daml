@@ -19,11 +19,10 @@ import com.daml.ledger.api.v2.value.Identifier.toJavaProto
 import com.daml.ledger.javaapi.data.CreatedEvent as JavaCreatedEvent
 import com.daml.ledger.javaapi.data.codegen.{Contract, ContractCompanion}
 import com.digitalasset.canton.admin.api.client.data.TemplateId
-import com.digitalasset.canton.config.DbConfig.Postgres
 import com.digitalasset.canton.console.LocalParticipantReference
 import com.digitalasset.canton.damltests.upgrade.v1.java.upgrade.Upgrading as UpgradingV1
 import com.digitalasset.canton.damltests.upgrade.v2.java.upgrade.Upgrading as UpgradingV2
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -207,13 +206,15 @@ abstract class LedgerApiDynamicTemplateFilterIntegrationTest
 
 final class ReferenceLedgerApiDynamicTemplateFilterIntegrationTestPostgres
     extends LedgerApiDynamicTemplateFilterIntegrationTest {
-  registerPlugin(new UseReferenceBlockSequencer[Postgres](loggerFactory))
+  registerPlugin(new UsePostgres(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }
 
 //TODO(#16651): Remove this test once package-name test coverage is ensured by conformance tests
 final class ReferenceLedgerApiDynamicTemplateFilterIntegrationTestNoCaches
     extends LedgerApiDynamicTemplateFilterIntegrationTest {
-  registerPlugin(new UseReferenceBlockSequencer[Postgres](loggerFactory))
+  registerPlugin(new UsePostgres(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   override lazy val environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P1_S1M1

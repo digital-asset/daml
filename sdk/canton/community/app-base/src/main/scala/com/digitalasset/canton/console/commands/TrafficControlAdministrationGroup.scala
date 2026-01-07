@@ -24,7 +24,9 @@ class TrafficControlAdministrationGroup(
 
   @Help.Summary("Return the traffic state of the node")
   @Help.Description(
-    """Use this command to get the traffic state of the node at a given time for a specific synchronizer id."""
+    """Use this command to get the traffic state of the node at a given time for a specific
+      |synchronizer ID.
+      """
   )
   def traffic_state(
       synchronizerId: SynchronizerId

@@ -229,7 +229,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
     final case class Failure(actual: Option[PositiveInt], expected: Option[PositiveInt])(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
-          cause = s"The given serial $expected did not match the actual serial $actual."
+          cause = s"The provided serial $actual did not match the expected serial $expected."
         )
         with TopologyManagerError
   }

@@ -7,14 +7,9 @@ import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.*
 import com.daml.test.evidence.tag.Security.SecurityTest.Property.Availability
 import com.daml.test.evidence.tag.Security.{Attack, SecurityTest, SecurityTestSuite}
 import com.digitalasset.canton.ProtoDeserializationError
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.SynchronizerCrypto
-import com.digitalasset.canton.integration.plugins.{
-  UseBftSequencer,
-  UsePostgres,
-  UseReferenceBlockSequencer,
-}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
@@ -236,12 +231,6 @@ trait InvalidRequestSequencerIntegrationTest
       SequencerTestHelper.sendSubmissionRequest(sequencerServiceStub, request, signature)
     responseF2.futureValue shouldBe (())
   }
-}
-
-class InvalidRequestSequencerReferenceIntegrationTestPostgres
-    extends InvalidRequestSequencerIntegrationTest {
-  registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }
 
 class InvalidRequestSequencerBftOrderingIntegrationTestPostgres

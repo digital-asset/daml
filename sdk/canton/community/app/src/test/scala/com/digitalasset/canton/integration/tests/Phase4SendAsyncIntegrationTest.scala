@@ -3,12 +3,8 @@
 
 package com.digitalasset.canton.integration.tests
 
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.integration.plugins.{
-  UseProgrammableSequencer,
-  UseReferenceBlockSequencer,
-}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseProgrammableSequencer}
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -107,7 +103,7 @@ sealed trait Phase4SendAsyncIntegrationTest
   }
 }
 
-class Phase4SendAsyncReferenceIntegrationTestPostgres extends Phase4SendAsyncIntegrationTest {
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+class Phase4SendAsyncBftOrderingIntegrationTestPostgres extends Phase4SendAsyncIntegrationTest {
+  registerPlugin(new UseBftSequencer(loggerFactory))
   registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
 }

@@ -46,8 +46,8 @@ import scala.util.{Random, Success}
   * POSTGRES_DB=postgres
   * }}}
   *
-  * Please note that you need to create in this case two databases: $POSTGRES_DB AND
-  * "${POSTGRES_DB}_dev"
+  * Please note that you need to create in this case two databases: $$POSTGRES_DB AND
+  * "$${POSTGRES_DB}_dev"
   *
   * On the database, you need to create the user as follows:
   *
@@ -116,8 +116,10 @@ class UsePostgres(
       ExecutorServiceExtensions(dbSetupExecutorService)(logger, DefaultProcessingTimeouts.testing),
     )(logger)
 
-  override def afterTests(): Unit =
+  override def afterTests(): Unit = {
+    dbSetup.analyzeDatabaseStatistics()
     close()
+  }
 
   def generateDbConfig(
       name: String,

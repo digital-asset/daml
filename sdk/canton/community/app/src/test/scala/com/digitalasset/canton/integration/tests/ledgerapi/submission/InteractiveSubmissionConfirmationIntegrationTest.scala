@@ -422,7 +422,7 @@ final class InteractiveSubmissionConfirmationIntegrationTest
       loggerFactory.assertEventuallyLogsSeq(LevelAndAbove(Level.WARN))(
         {
           val participant = cpn.runningNode.value.getNode.value
-          val routingSynchronizerState = participant.sync.getRoutingSynchronizerState
+          val routingSynchronizerState = participant.sync.getRoutingSynchronizerState.futureValueUS
           val synchronizerRank = participant.sync
             .selectRoutingSynchronizer(
               submitterInfo,

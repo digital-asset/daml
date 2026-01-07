@@ -434,6 +434,10 @@ trait SequencerMemberValidator {
   def isMemberRegisteredAt(member: Member, time: CantonTimestamp)(implicit
       tc: TraceContext
   ): FutureUnlessShutdown[Boolean]
+
+  def areMembersRegisteredAt(members: Seq[Member], time: CantonTimestamp)(implicit
+      tc: TraceContext
+  ): FutureUnlessShutdown[Map[Member, Boolean]]
 }
 
 /** Persistence for the Sequencer. Writers are expected to create a [[SequencerWriterStore]] which
@@ -531,6 +535,15 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
         registered
       }
 
+  override def areMembersRegisteredAt(members: Seq[Member], time: CantonTimestamp)(implicit
+      tc: TraceContext
+  ): FutureUnlessShutdown[Map[Member, Boolean]] =
+    lookupMembers(members).map(
+      _.view
+        .mapValues(_.exists(_.registeredFrom <= time))
+        .toMap
+    )
+
   /** Save a series of payloads to the store. Is up to the caller to determine a reasonable batch
     * size and no batching is done within the store.
     * @param payloads
@@ -570,7 +583,7 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
   /** In case of single instance sequencer we can use in-memory fanout buffer for events */
   final def bufferEvents(
       events: NonEmpty[Seq[Sequenced[IdOrPayload]]]
-  ): Unit =
+  )(implicit traceContext: TraceContext): Unit =
     if (eventsBufferEnabled) eventsBuffer.bufferEvents(events)
 
   final def resetAndPreloadBuffer()(implicit

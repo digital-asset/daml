@@ -3,8 +3,7 @@
 
 package com.digitalasset.canton.integration.tests.ledger.api.benchtool.submission
 
-import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2}
 import com.digitalasset.canton.integration.tests.ledgerapi.NoAuthPlugin
 import com.digitalasset.canton.ledger.api.benchtool.BenchtoolSandboxFixture
 import com.digitalasset.canton.ledger.api.benchtool.config.WorkflowConfig
@@ -17,7 +16,8 @@ import org.scalatest.AppendedClues
 
 class FibonacciCommandSubmitterITSpec extends BenchtoolSandboxFixture with AppendedClues {
   registerPlugin(NoAuthPlugin(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseH2(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   "FibonacciCommandSubmitterIT" should {
     "populate create fibonacci contracts" onlyRunWithOrGreaterThan ProtocolVersion.dev in { env =>

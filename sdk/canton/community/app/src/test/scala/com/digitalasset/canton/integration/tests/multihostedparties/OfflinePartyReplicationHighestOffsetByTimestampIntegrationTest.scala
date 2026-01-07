@@ -76,8 +76,8 @@ final class OffPRHighestOffsetByTimestampIntegrationTest
 
     val sourceLedgerEnd = source.ledger_api.state.end()
 
-    source.topology.party_to_participant_mappings.propose_delta(
-      party = alice,
+    alice.topology.party_to_participant_mappings.propose_delta(
+      node = source,
       adds = Seq(target.id -> ParticipantPermission.Submission),
       store = daId,
       requiresPartyToBeOnboarded = true,

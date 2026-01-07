@@ -17,8 +17,8 @@ import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.config.{LoggingConfig, ProcessingTimeout, TestingConfigInternal}
 import com.digitalasset.canton.crypto.{HashPurpose, SyncCryptoApi, SyncCryptoClient}
 import com.digitalasset.canton.data.{CantonTimestamp, LogicalUpgradeTime, SynchronizerPredecessor}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -83,7 +83,7 @@ import com.digitalasset.canton.sequencing.traffic.{TrafficReceipt, TrafficStateC
 import com.digitalasset.canton.store.*
 import com.digitalasset.canton.store.CursorPrehead.SequencerCounterCursorPrehead
 import com.digitalasset.canton.store.SequencedEventStore.ProcessingSequencedEvent
-import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
+import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
 import com.digitalasset.canton.tracing.{HasTraceContext, Spanning, TraceContext, Traced}
@@ -97,7 +97,7 @@ import com.digitalasset.canton.util.Thereafter.syntax.ThereafterAsyncOps
 import com.digitalasset.canton.util.TryUtil.*
 import com.digitalasset.canton.util.collection.IterableUtil
 import com.digitalasset.canton.util.retry.AllExceptionRetryPolicy
-import com.digitalasset.canton.{SequencerAlias, SequencerCounter, config, lifecycle, time}
+import com.digitalasset.canton.{SequencerAlias, SequencerCounter, lifecycle, time}
 import com.google.common.annotations.VisibleForTesting
 import io.grpc.Status
 import io.opentelemetry.api.trace.Tracer
@@ -382,8 +382,8 @@ abstract class SequencerClientImpl(
       )
 
       if (replayEnabled) {
-        val syncCryptoApi = syncCryptoClient.currentSnapshotApproximation
         val resF = for {
+          syncCryptoApi <- EitherT.liftF(syncCryptoClient.currentSnapshotApproximation)
           costO <- EitherT.liftF(
             trafficStateController.flatTraverse(_.computeCost(batch, syncCryptoApi.ipsSnapshot))
           )
@@ -447,11 +447,10 @@ abstract class SequencerClientImpl(
             )
           })
 
-        // Snapshot used both for cost computation and signing the submission request
-        val syncCryptoApi = syncCryptoClient.currentSnapshotApproximation
-        val snapshot = syncCryptoApi.ipsSnapshot
-
         val resF = for {
+          // Snapshot used both for cost computation and signing the submission request
+          syncCryptoApi <- EitherT.liftF(syncCryptoClient.currentSnapshotApproximation)
+          snapshot = syncCryptoApi.ipsSnapshot
           cost <- EitherT.liftF(
             trafficStateController.flatTraverse(_.computeCost(batch, snapshot))
           )
@@ -558,11 +557,16 @@ abstract class SequencerClientImpl(
           request.updateAggregationRule(aggregationRule)
         } else request
 
+      // TODO(#22086): We must use a more recent timestamp because there can be delays when sending submission requests
+      // to avoid load spikes on the sequencer (e.g., for ACS commitments). By using a new clock measurement,
+      // we ensure that, when using session signing keys, the key will not expire by the time the submission
+      // request reaches the sequencer.
       val resF = requestSigner
         .signRequest(
           amplifiableRequest,
           HashPurpose.SubmissionRequestSignature,
-          Some(topologySnapshot),
+          topologySnapshot,
+          Some(clock.now),
         )
         .leftMap[SendAsyncClientError] { err =>
           val message = s"Error signing submission request $err"
@@ -708,8 +712,8 @@ abstract class SequencerClientImpl(
         patienceO match {
           case Some(patience) =>
             val durationToWait = if (config.enableAmplificationImprovements) {
-              (patience.asFiniteApproximation - durationOfPreviousAttempt).max(Duration.Zero)
-            } else patience.asFiniteApproximation
+              (patience.toScala - durationOfPreviousAttempt).max(Duration.Zero)
+            } else patience.toScala
 
             logger.debug(
               s"Scheduling amplification for message ID $messageId ${if (durationToWait <= Duration.Zero) "immediately"
@@ -922,10 +926,12 @@ abstract class SequencerClientImpl(
     if (LogicalUpgradeTime.canProcessKnowingPredecessor(synchronizerPredecessor, timestamp)) {
       val request = AcknowledgeRequest(member, timestamp, protocolVersion)
       for {
+        approximateSnapshot <- EitherT.liftF(syncCryptoClient.currentSnapshotApproximation)
         signedRequest <- requestSigner.signRequest(
           request,
           HashPurpose.AcknowledgementSignature,
-          Some(syncCryptoClient.currentSnapshotApproximation),
+          approximateSnapshot,
+          Some(clock.now),
         )
         result <-
           if (config.useNewConnectionPool) {
@@ -1073,7 +1079,7 @@ object SequencerClientImpl {
   private final case class AmplifiedSendState(
       previousSequencers: Seq[SequencerId],
       nextLinkDetailsO: Option[LinkDetails],
-      nextPatienceO: Option[config.NonNegativeFiniteDuration],
+      nextPatienceO: Option[NonNegativeFiniteDuration],
       isFirstStep: Boolean,
   )
 
@@ -1088,7 +1094,7 @@ object SequencerClientImpl {
         SequencerAlias,
         SequencerId,
         SequencerClientTransportCommon,
-        Option[config.NonNegativeFiniteDuration],
+        Option[NonNegativeFiniteDuration],
     )
 
     override def readTrustThreshold(): PositiveInt =
@@ -1282,7 +1288,7 @@ class RichSequencerClientImpl(
   private val handlerIdle: AtomicReference[Promise[Unit]] = new AtomicReference(
     Promise.successful(())
   )
-  private val handlerIdleLock: Object = new Object
+  private val handlerIdleLock = new Mutex()
 
   override def getConnectionPoolHealthStatus: Seq[HealthQuasiComponent] = {
     val (connectionPoolHealth, connectionsHealth) =
@@ -1704,12 +1710,11 @@ class RichSequencerClientImpl(
     private def signalHandler(
         eventHandler: SequencedApplicationHandler[ClosedEnvelope]
     )(implicit traceContext: TraceContext): Unit = synchronizeWithClosingSync(functionFullName) {
-      val isIdle = blocking {
-        handlerIdleLock.synchronized {
+      val isIdle =
+        handlerIdleLock.exclusive {
           val oldPromise = handlerIdle.getAndUpdate(p => if (p.isCompleted) Promise() else p)
           oldPromise.isCompleted
         }
-      }
       if (isIdle) {
         val handlingF = handleReceivedEventsUntilEmpty(eventHandler)
         addToFlushAndLogError("invoking the application handler")(
@@ -1727,9 +1732,8 @@ class RichSequencerClientImpl(
         import scala.jdk.CollectionConverters.*
         val handlerEvents = javaEventList.asScala.toSeq
 
-        def stopHandler(): Unit = blocking {
-          handlerIdleLock.synchronized(handlerIdle.get().success(()).discard)
-        }
+        def stopHandler(): Unit =
+          handlerIdleLock.exclusive(handlerIdle.get().success(()).discard)
 
         processEventBatch(eventHandler, handlerEvents).value
           .transformWith {
@@ -1742,8 +1746,8 @@ class RichSequencerClientImpl(
               FutureUnlessShutdown.unit
           }
       } else {
-        val stillBusy = blocking {
-          handlerIdleLock.synchronized {
+        val stillBusy =
+          handlerIdleLock.exclusive {
             val idlePromise = handlerIdle.get()
             if (sequencerAggregator.eventQueue.isEmpty) {
               // signalHandler must not be executed here, because that would lead to lost signals.
@@ -1752,7 +1756,6 @@ class RichSequencerClientImpl(
             // signalHandler must not be executed here, because that would lead to duplicate invocations.
             !idlePromise.isCompleted
           }
-        }
 
         if (stillBusy) {
           handleReceivedEventsUntilEmpty(eventHandler)

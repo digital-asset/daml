@@ -7,6 +7,7 @@ import com.daml.ledger.api.v2.command_completion_service.CompletionStreamRespons
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
 import com.daml.ledger.api.v2.update_service.{GetUpdateResponse, GetUpdatesResponse}
+import com.digitalasset.canton.config.CantonRequireTypes.String185
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.ParticipantId
 import com.digitalasset.canton.ledger.api.health.ReportsHealth
@@ -95,6 +96,7 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
   /** Returns a list of all known parties. */
   def listKnownParties(
       fromExcl: Option[Party],
+      filterParty: Option[String185],
       maxResults: Int,
   )(implicit
       loggingContext: LoggingContextWithTrace

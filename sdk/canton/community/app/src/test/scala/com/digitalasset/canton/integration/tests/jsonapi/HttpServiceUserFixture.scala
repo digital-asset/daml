@@ -17,7 +17,6 @@ import org.apache.pekko.http.scaladsl.model.HttpHeader.ParsingResult
 import org.apache.pekko.http.scaladsl.model.{HttpHeader, Uri}
 import org.scalatest.Suite
 import scalaz.syntax.tag.*
-import spray.json.JsonParser
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -99,9 +98,8 @@ object HttpServiceUserFixture {
           .map(Right.CanReadAs.apply)
           .map(Right.Kind.CanReadAs.apply)
           .map(Right.apply)
-      val createUserRequest = toSprayJson(
-        CreateUserRequest(Some(User(username, "", false, None, "")), rights)
-      )
+      val createUserRequest =
+        CreateUserRequest(Some(User(username, "", false, None, "")), rights).asJson
       postRequest(
         uri.withPath(Uri.Path("/v2/users")),
         createUserRequest,
@@ -113,9 +111,5 @@ object HttpServiceUserFixture {
 
     protected def jwtForUser(userId: String): Jwt =
       Jwt(getToken(userId, Some("secret")).value)
-
-    private def toSprayJson[T](t: T)(implicit encoder: io.circe.Encoder[T]) = JsonParser(
-      t.asJson.toString()
-    )
   }
 }

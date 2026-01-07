@@ -21,7 +21,7 @@ javadoc_library(
     ],
     deps = [
         "//canton:bindings-java",
-        "//libs-scala/rs-grpc-bridge",
+        "//canton:rs-grpc-bridge",
         "@maven//:com_google_code_findbugs_jsr305",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_core",

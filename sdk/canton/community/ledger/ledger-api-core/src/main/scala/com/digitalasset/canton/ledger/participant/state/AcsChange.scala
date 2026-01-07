@@ -7,26 +7,55 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{HasLoggerName, NamedLoggingContext}
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.util.ErrorUtil
-import com.digitalasset.canton.{LfPartyId, ReassignmentCounter}
+import com.digitalasset.canton.{InternedPartyId, LfPartyId, ReassignmentCounter}
 
 /** Represents a change to the ACS. The contracts are accompanied by their stakeholders.
   *
   * Note that we include the LfContractId (for uniqueness), but we do not include the contract hash
   * because the contract id already authenticates the contract contents.
   */
+
+trait GenericAcsChange[T] {
+  def activations: Map[LfContractId, GenericContractStakeholdersAndReassignmentCounter[T]]
+  def deactivations: Map[LfContractId, GenericContractStakeholdersAndReassignmentCounter[T]]
+}
+
 final case class AcsChange(
     activations: Map[LfContractId, ContractStakeholdersAndReassignmentCounter],
     deactivations: Map[LfContractId, ContractStakeholdersAndReassignmentCounter],
-)
+) extends GenericAcsChange[LfPartyId]
+
+final case class InternalizedAcsChange(
+    activations: Map[LfContractId, InternalizedContractStakeholdersAndReassignmentCounter],
+    deactivations: Map[LfContractId, InternalizedContractStakeholdersAndReassignmentCounter],
+) extends GenericAcsChange[InternedPartyId]
+
+trait GenericContractStakeholdersAndReassignmentCounter[T] {
+  def stakeholders: Set[T]
+  def reassignmentCounter: ReassignmentCounter
+}
 
 final case class ContractStakeholdersAndReassignmentCounter(
     stakeholders: Set[LfPartyId],
     reassignmentCounter: ReassignmentCounter,
-) extends PrettyPrinting {
+) extends GenericContractStakeholdersAndReassignmentCounter[LfPartyId]
+    with PrettyPrinting {
   override protected def pretty: Pretty[ContractStakeholdersAndReassignmentCounter] = prettyOfClass(
     param("stakeholders", _.stakeholders),
     param("reassignment counter", _.reassignmentCounter),
   )
+}
+
+final case class InternalizedContractStakeholdersAndReassignmentCounter(
+    stakeholders: Set[InternedPartyId],
+    reassignmentCounter: ReassignmentCounter,
+) extends GenericContractStakeholdersAndReassignmentCounter[InternedPartyId]
+    with PrettyPrinting {
+  override protected def pretty: Pretty[InternalizedContractStakeholdersAndReassignmentCounter] =
+    prettyOfClass(
+      param("stakeholders", _.stakeholders),
+      param("reassignment counter", _.reassignmentCounter),
+    )
 }
 
 object AcsChange {

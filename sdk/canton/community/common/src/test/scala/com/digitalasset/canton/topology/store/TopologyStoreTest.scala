@@ -9,7 +9,7 @@ import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.topology.TopologyStateHash
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.SuppressionRule.LevelAndAbove
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.processing.{
@@ -36,6 +36,8 @@ trait TopologyStoreTest
     with TopologyStoreTestBase
     with FailOnShutdown
     with HasActorSystem {
+
+  implicit def closeContext: CloseContext
 
   val testData = new TopologyStoreTestData(testedProtocolVersion, loggerFactory, executionContext)
   import testData.*
@@ -312,10 +314,6 @@ trait TopologyStoreTest
 
             positiveProposals <- findPositiveTransactions(store, ts6, isProposal = true)
 
-            txByTxHash <- store.findProposalsByTxHash(
-              EffectiveTime(ts1.immediateSuccessor), // increase since exclusive
-              NonEmpty(Set, dop_synchronizer1_proposal.hash),
-            )
             txByMappingHash <- store.findTransactionsForMapping(
               EffectiveTime(ts2.immediateSuccessor), // increase since exclusive
               NonEmpty(Set, otk_p1.mapping.uniqueKey),
@@ -370,7 +368,6 @@ trait TopologyStoreTest
             )
             expectTransactions(positiveProposals, Seq(dop_synchronizer1_proposal))
 
-            txByTxHash shouldBe Seq(dop_synchronizer1_proposal)
             txByMappingHash shouldBe Seq(otk_p1)
 
             tsWatermark shouldBe Some(ts1)

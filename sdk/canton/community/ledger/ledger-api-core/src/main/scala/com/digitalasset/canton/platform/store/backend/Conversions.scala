@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.store.backend
 
 import anorm.*
 import anorm.Column.nonNull
-import anorm.SqlParser.int
+import com.daml.ledger.api.v2.trace_context.TraceContext as ProtoTraceContext
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationEvent.{
@@ -127,20 +127,16 @@ private[backend] object Conversions {
   def hashFromHexString(name: String): RowParser[Hash] =
     SqlParser.get[String](name).map(Hash.assertFromString)
 
-  def traceContextOption(name: String)(implicit logger: Logger): RowParser[TraceContext] = {
-    import com.daml.ledger.api.v2.trace_context.TraceContext as ProtoTraceContext
-    SqlParser
-      .get[Array[Byte]](name)
-      .map(traceContextBytes =>
+  def traceContextOption(bytes: Option[Array[Byte]])(implicit logger: Logger): TraceContext =
+    bytes
+      .map(b =>
         SerializableTraceContextConverter
           .fromDamlProtoSafeOpt(logger)(
-            Some(ProtoTraceContext.parseFrom(traceContextBytes))
+            Some(ProtoTraceContext.parseFrom(b))
           )
           .traceContext
       )
-      .?
-      .map(_.getOrElse(TraceContext.empty))
-  }
+      .getOrElse(TraceContext.empty)
 
   // UpdateId
 
@@ -202,15 +198,6 @@ private[backend] object Conversions {
         s"Integer $other was not expected as an authorization event serialized value."
       )
   }
-
-  def authorizationEventParser(
-      authorizationLevelColumnName: String,
-      authorizationEventTypeColumnName: String,
-  ): RowParser[AuthorizationEvent] =
-    int(authorizationLevelColumnName) ~
-      int(authorizationEventTypeColumnName) map { case level ~ eventType =>
-        authorizationEvent(eventType, level)
-      }
 
   object IntArrayDBSerialization {
     // Ints to Byte Array (with version byte prefix)

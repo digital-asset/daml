@@ -67,9 +67,9 @@ object AvailabilityAck {
           HashPurpose.BftAvailabilityAck,
           HashAlgorithm.Sha256,
         )
-        .add(batchId.getCryptographicEvidence)
-        .add(epoch)
-        .add(from)
+        .addByteString(batchId.getCryptographicEvidence)
+        .addLong(epoch)
+        .addString(from)
         .finish()
     )(
       metricsContext.withExtraLabels(

@@ -7,8 +7,6 @@ import com.daml.ledger.api.v2.transaction_filter.TransactionShape.TRANSACTION_SH
 import com.daml.ledger.api.v2.transaction_filter.{EventFormat, Filters, TransactionFormat}
 import com.daml.ledger.api.v2.value.Identifier
 import com.daml.ledger.api.v2.{state_service, transaction_filter}
-import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.http.json.SprayJson
 import com.digitalasset.canton.http.json.v2.JsCommandServiceCodecs.*
 import com.digitalasset.canton.http.json.v2.JsSchema.JsServicesCommonCodecs.*
 import com.digitalasset.canton.http.json.v2.JsStateServiceCodecs.*
@@ -18,7 +16,7 @@ import com.digitalasset.canton.http.json.v2.{
   JsSubmitAndWaitForTransactionResponse,
 }
 import com.digitalasset.canton.http.{Party, WebsocketConfig}
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2}
 import com.digitalasset.canton.integration.tests.jsonapi.AbstractHttpServiceIntegrationTestFuns.{
   HttpServiceTestFixtureData,
   dar1,
@@ -28,10 +26,10 @@ import com.digitalasset.canton.ledger.service.MetadataReader
 import com.digitalasset.daml.lf.data.Ref
 import io.circe.parser.decode
 import io.circe.syntax.*
+import io.circe.{Json, parser}
 import org.apache.pekko.http.scaladsl.model.Uri.Query
 import org.apache.pekko.http.scaladsl.model.{HttpHeader, StatusCodes, Uri}
 import scalaz.syntax.tag.*
-import spray.json.{JsArray, JsObject, JsString, JsonParser}
 
 import java.io.File
 import scala.concurrent.Future
@@ -39,7 +37,8 @@ import scala.concurrent.Future
 class JsonListLimitTest
     extends AbstractHttpServiceIntegrationTestFuns
     with HttpServiceUserFixture.UserToken {
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseH2(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   override def packageFiles: List[File] = List(dar1)
 
@@ -167,18 +166,13 @@ class JsonListLimitTest
 
   }
 
-  private def acsAtOffsetRequest(party: Party, endOffset: Long) =
-    SprayJson
-      .parse(
-        state_service
-          .GetActiveContractsRequest(
-            activeAtOffset = endOffset,
-            eventFormat = Some(partyTransactions(party)),
-          )
-          .asJson
-          .toString()
+  private def acsAtOffsetRequest(party: Party, endOffset: Long): Json =
+    state_service
+      .GetActiveContractsRequest(
+        activeAtOffset = endOffset,
+        eventFormat = Some(partyTransactions(party)),
       )
-      .valueOr(err => fail(s"$err"))
+      .asJson
 
   private def submitMultipleCommands(
       http: HttpServiceTestFixtureData,
@@ -191,10 +185,6 @@ class JsonListLimitTest
     }
     endOffset <- http.client.stateService.getLedgerEndOffset()
   } yield endOffset
-
-  private def toSprayJson[T](t: T)(implicit encoder: io.circe.Encoder[T]) = JsonParser(
-    t.asJson.toString()
-  )
 
   private def submitCommand(
       http: HttpServiceTestFixtureData,
@@ -211,22 +201,23 @@ class JsonListLimitTest
 
     val createCommand = JsCommand.CreateCommand(
       templateId = Identifier(iouPkgId, "Iou", "Iou"),
-      createArguments = io.circe.parser
+      createArguments = parser
         .parse(
           s"""{"observers":[],"issuer":"$party","amount":"999.99","currency":"USD","owner":"$party"}"""
         )
         .value,
     )
-    val jsCommandJson = JsObject(
-      ("commands", JsArray(toSprayJson[JsCommand.Command](createCommand))),
-      ("commandId", JsString(commandId)),
-      ("actAs", JsArray(JsString(party.unwrap))),
-      ("userId", JsString("alice")),
+    val jsCommandJson: Json = Json.obj(
+      ("commands", Json.arr(Json.obj("CreateCommand" -> createCommand.asJson))),
+      ("commandId", Json.fromString(commandId)),
+      ("actAs", Json.arr(Json.fromString(party.unwrap))),
+      ("userId", Json.fromString("alice")),
     )
 
-    val jsSubmitAndWaitForTransactionRequest = JsObject(
-      "commands" -> jsCommandJson,
-      "transactionFormat" -> toSprayJson(
+    val jsSubmitAndWaitForTransactionRequest: Json = Json.obj(
+      ("commands", jsCommandJson),
+      (
+        "transactionFormat",
         TransactionFormat(
           eventFormat = Some(
             EventFormat(
@@ -236,7 +227,7 @@ class JsonListLimitTest
             )
           ),
           transactionShape = TRANSACTION_SHAPE_ACS_DELTA,
-        )
+        ).asJson,
       ),
     )
 

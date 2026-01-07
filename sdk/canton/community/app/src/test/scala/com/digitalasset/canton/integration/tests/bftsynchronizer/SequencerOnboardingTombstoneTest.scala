@@ -3,16 +3,21 @@
 
 package com.digitalasset.canton.integration.tests.bftsynchronizer
 
-import com.digitalasset.canton.admin.api.client.data.{ComponentHealthState, ComponentStatus}
+import com.digitalasset.canton.admin.api.client.data.{
+  ComponentHealthState,
+  ComponentStatus,
+  SequencerConnection,
+  SequencerConnections,
+}
 import com.digitalasset.canton.concurrent.Threading
-import com.digitalasset.canton.config.DbConfig
+import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.LocalParticipantReference
 import com.digitalasset.canton.integration.bootstrap.{
   NetworkBootstrapper,
   NetworkTopologyDescription,
 }
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.util.OnboardsNewSequencerNode
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -23,7 +28,6 @@ import com.digitalasset.canton.integration.{
 }
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.logging.SuppressingLogger.LogEntryOptionality
-import com.digitalasset.canton.sequencing.{SequencerConnection, SequencerConnections}
 import com.digitalasset.canton.{SequencerAlias, SynchronizerAlias}
 import monocle.macros.syntax.lens.*
 
@@ -288,6 +292,12 @@ trait SequencerOnboardingTombstoneTest
 }
 
 class SequencerOnboardingTombstoneTestPostgres extends SequencerOnboardingTombstoneTest {
+  val plugin = new UseBftSequencer(
+    loggerFactory,
+    dynamicallyOnboardedSequencerNames = Seq(InstanceName.tryCreate("sequencer2")),
+  )
+  override val bftSequencerPlugin: Option[UseBftSequencer] = Some(plugin)
+
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(plugin)
 }

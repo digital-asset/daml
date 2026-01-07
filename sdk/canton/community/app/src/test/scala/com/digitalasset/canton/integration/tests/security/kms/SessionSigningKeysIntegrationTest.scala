@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.integration.tests.security.kms
 
-import com.digitalasset.canton.config.{DbConfig, SessionSigningKeysConfig}
-import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseReferenceBlockSequencer}
+import com.digitalasset.canton.config.SessionSigningKeysConfig
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.tests.security.kms.aws.AwsKmsCryptoIntegrationTestBase
 import com.digitalasset.canton.integration.tests.security.kms.gcp.GcpKmsCryptoIntegrationTestBase
 import com.digitalasset.canton.integration.tests.security.kms.mock.MockKmsDriverCryptoIntegrationTestBase
@@ -50,8 +50,8 @@ class AwsKmsSessionSigningKeysIntegrationTestPostgres
 
   setupPlugins(
     withAutoInit = false,
-    storagePlugin = Option.empty[EnvironmentSetupPlugin],
-    sequencerPlugin = new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory),
+    storagePlugin = Some(new UsePostgres(loggerFactory)),
+    sequencerPlugin = new UseBftSequencer(loggerFactory),
   )
 }
 
@@ -66,8 +66,8 @@ class GcpKmsSessionSigningKeysIntegrationTestPostgres
 
   setupPlugins(
     withAutoInit = false,
-    storagePlugin = Option.empty[EnvironmentSetupPlugin],
-    sequencerPlugin = new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory),
+    storagePlugin = Some(new UsePostgres(loggerFactory)),
+    sequencerPlugin = new UseBftSequencer(loggerFactory),
   )
 }
 
@@ -78,7 +78,7 @@ class MockKmsDriverSessionSigningKeysIntegrationTestPostgres
     Set.empty
 
   override protected lazy val protectedNodes: Set[String] =
-    Set("sequencer1")
+    Set("participant1", "participant2", "mediator1", "sequencer1")
 
   setupPlugins(
     // TODO(#25069): Add persistence to mock KMS driver to support auto-init = false

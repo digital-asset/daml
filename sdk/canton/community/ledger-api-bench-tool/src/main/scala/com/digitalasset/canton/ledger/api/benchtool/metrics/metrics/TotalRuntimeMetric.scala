@@ -39,6 +39,7 @@ object TotalRuntimeMetric {
 /** Measures the total runtime since the set start time to the time of receiving the most recent
   * item.
   */
+@SuppressWarnings(Array("org.wartremover.warts.Var")) //Metric interface is imperative in nature.
 final case class TotalRuntimeMetric[T](
     clock: Clock,
     startTime: Instant,

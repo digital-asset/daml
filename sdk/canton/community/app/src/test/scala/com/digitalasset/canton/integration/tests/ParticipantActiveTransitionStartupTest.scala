@@ -12,11 +12,7 @@ import com.digitalasset.canton.config.{
   PositiveFiniteDuration,
   ReplicationConfig,
 }
-import com.digitalasset.canton.integration.plugins.{
-  UseBftSequencer,
-  UsePostgres,
-  UseReferenceBlockSequencer,
-}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -145,12 +141,6 @@ sealed abstract class ParticipantActiveTransitionStartupIntegrationTest
       }
     }
   }
-}
-
-final class ParticipantActiveTransitionStartupReferenceIntegrationTest
-    extends ParticipantActiveTransitionStartupIntegrationTest {
-  registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }
 
 final class ParticipantActiveTransitionStartupBftOrderingIntegrationTest

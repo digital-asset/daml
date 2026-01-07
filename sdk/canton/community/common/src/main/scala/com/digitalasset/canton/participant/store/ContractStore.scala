@@ -56,14 +56,17 @@ trait ContractStore extends ContractLookup with Purgeable with FlagCloseable {
     *
     * @param contracts
     *   The created contracts to be stored
+    *
+    * @return
+    *   A map from contract IDs to internal contract IDs of the stored contracts
     */
   def storeContracts(contracts: Seq[ContractInstance])(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Unit]
+  ): FutureUnlessShutdown[Map[LfContractId, Long]]
 
   def storeContract(contract: ContractInstance)(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Unit] = storeContracts(Seq(contract))
+  ): FutureUnlessShutdown[Unit] = storeContracts(Seq(contract)).map(_ => ())
 
   /** Debug find utility to search pcs
     */
@@ -163,8 +166,8 @@ object ContractStore {
 }
 
 final case class PersistedContractInstance(
-    // internalContractId: Long, TODO(#27996): getting the internal contract ID with DbBulkUpdateProcessor is not possible without major rewrite there
-    inst: FatContractInstance { type CreatedAtTime <: CreationTime.CreatedAt }
+    internalContractId: Long,
+    inst: FatContractInstance { type CreatedAtTime <: CreationTime.CreatedAt },
 ) {
   def asContractInstance: ContractInstance = ContractInstance.create(inst) match {
     case Right(contract) => contract

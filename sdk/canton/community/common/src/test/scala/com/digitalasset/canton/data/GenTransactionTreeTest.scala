@@ -496,7 +496,7 @@ class GenTransactionTreeTest
         tvt.tree.mapUnblindedRootViews(_.replace(tvt.viewHash, viewWithBlindedSubviews))
 
       val dummyViewHash = ViewHash(
-        factory.cryptoOps.build(HashPurpose.MerkleTreeInnerNode).add("hummous").finish()
+        factory.cryptoOps.build(HashPurpose.MerkleTreeInnerNode).addString("hummous").finish()
       )
       val mangledSubviewHashes =
         if (tvt.subviewHashes.isEmpty) Seq(dummyViewHash)

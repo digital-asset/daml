@@ -4,17 +4,15 @@
 package com.digitalasset.canton.integration.tests
 
 import com.digitalasset.canton.SequencerAlias
-import com.digitalasset.canton.config.*
+import com.digitalasset.canton.admin.api.client.data.{
+  GrpcSequencerConnection,
+  SequencerConnections,
+  SynchronizerConnectionConfig,
+}
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
-import com.digitalasset.canton.integration.plugins.{
-  UseBftSequencer,
-  UsePostgres,
-  UseReferenceBlockSequencer,
-}
-import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
-import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnections}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.google.protobuf.ByteString
 
 trait SynchronizerConnectivityIsolatedIntegrationTest
@@ -94,22 +92,6 @@ trait SynchronizerConnectivityIsolatedIntegrationTest
 
 //class SynchronizerConnectivityIsolatedReferenceIntegrationTestDefault
 //  extends SynchronizerConnectivityIsolatedIntegrationTests
-
-class SynchronizerConnectivityIsolatedReferenceIntegrationTestPostgres
-    extends SynchronizerConnectivityIsolatedIntegrationTest {
-  registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.Postgres](
-      loggerFactory,
-      sequencerGroups = MultiSynchronizer(
-        Seq(
-          Set(InstanceName.tryCreate("sequencer1")),
-          Set(InstanceName.tryCreate("sequencer2")),
-        )
-      ),
-    )
-  )
-}
 
 class SynchronizerConnectivityIsolatedBftOrderingIntegrationTestPostgres
     extends SynchronizerConnectivityIsolatedIntegrationTest {

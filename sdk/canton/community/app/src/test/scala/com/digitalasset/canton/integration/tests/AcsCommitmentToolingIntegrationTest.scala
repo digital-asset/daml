@@ -3,6 +3,10 @@
 
 package com.digitalasset.canton.integration.tests
 
+import com.digitalasset.canton.admin.api.client.data.{
+  SequencerConnections,
+  SynchronizerConnectionConfig,
+}
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeProportion}
@@ -44,11 +48,9 @@ import com.digitalasset.canton.participant.pruning.{
   SortedReconciliationIntervalsHelpers,
 }
 import com.digitalasset.canton.participant.store.ReassignmentStore
-import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.participant.util.JavaCodegenUtil.ContractIdSyntax
 import com.digitalasset.canton.protocol.ReassignmentId
 import com.digitalasset.canton.protocol.messages.AcsCommitment
-import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.synchronizer.sequencer.{
   HasProgrammableSequencer,
   ProgrammableSequencerPolicies,
@@ -1080,6 +1082,7 @@ trait AcsCommitmentToolingIntegrationTest
 class AcsCommitmentToolingIntegrationTestPostgres extends AcsCommitmentToolingIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
+    // TODO(#29603): This test fails to advance time properly with BFT sequencer, too flaky (>50% failures).
     new UseReferenceBlockSequencer[DbConfig.Postgres](
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
@@ -1096,7 +1099,7 @@ class AcsCommitmentToolingIntegrationTestPostgres extends AcsCommitmentToolingIn
 //class AcsCommitmentToolingIntegrationTestH2 extends AcsCommitmentToolingIntegrationTest {
 //  registerPlugin(new UseH2(loggerFactory))
 //  registerPlugin(
-//    new UseCommunityReferenceBlockSequencer[DbConfig.H2](
+//    new UseBftSequencer(
 //      loggerFactory,
 //      sequencerGroups = MultiSynchronizer(
 //        Seq(

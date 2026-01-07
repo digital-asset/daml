@@ -16,13 +16,13 @@ import com.digitalasset.daml.lf.engine.script.ledgerinteraction.{
   ScriptLedgerClient,
 }
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
-import com.digitalasset.daml.lf.speedy.SValue
 import com.digitalasset.daml.lf.stablepackages.StablePackages
+import com.digitalasset.daml.lf.engine.ScriptEngine.{ExtendedValue, defaultCompilerConfig}
 import com.digitalasset.daml.lf.value.Value
 import org.scalatest.Suite
 
-import scala.collection.immutable.ArraySeq
 import scala.concurrent.{ExecutionContext, Future}
+import scala.annotation.unused
 
 // Fixture for a set of participants used in Daml Script tests
 trait AbstractScriptTest extends CantonFixture with PekkoBeforeAndAfterAll {
@@ -30,11 +30,13 @@ trait AbstractScriptTest extends CantonFixture with PekkoBeforeAndAfterAll {
 
   val majorLanguageVersion: LanguageVersion.Major;
 
-  def tuple(a: SValue, b: SValue) =
-    SValue.SRecord(
-      id = StablePackages.stablePackages.Tuple2,
-      fields = ImmArray(Ref.Name.assertFromString("_1"), Ref.Name.assertFromString("_2")),
-      values = ArraySeq(a, b),
+  def tuple(a: Value, b: Value): Value =
+    Value.ValueRecord(
+      Some(StablePackages.stablePackages.Tuple2),
+      ImmArray(
+        Some(Ref.Name.assertFromString("_1")) -> a,
+        Some(Ref.Name.assertFromString("_2")) -> b,
+      ),
     )
 
   // TODO(https://github.com/digital-asset/daml/issues/18457): delete once test cases using keys
@@ -46,7 +48,7 @@ trait AbstractScriptTest extends CantonFixture with PekkoBeforeAndAfterAll {
     //  non-dev dar
     Paths.get(s"daml-script/test/script-test-v${majorLanguageVersion.pretty}.dev.dar")
   )
-  lazy val dar: CompiledDar = CompiledDar.read(darPath, Runner.compilerConfig)
+  lazy val dar: CompiledDar = CompiledDar.read(darPath, defaultCompilerConfig)
 
   protected def timeMode: ScriptTimeMode
   override protected lazy val darFiles = List(darPath)
@@ -61,21 +63,14 @@ trait AbstractScriptTest extends CantonFixture with PekkoBeforeAndAfterAll {
       name: Ref.QualifiedName,
       inputValue: Option[Value] = None,
       dar: CompiledDar,
-  )(implicit ec: ExecutionContext): Future[SValue] = {
+  )(implicit ec: ExecutionContext): Future[ExtendedValue] = {
     val scriptId = Ref.Identifier(dar.mainPkg, name)
-    def converter(input: Value, typ: Ast.Type) =
-      new com.digitalasset.daml.lf.engine.preprocessing.ValueTranslator(
-        dar.compiledPackages.pkgInterface,
-        false,
-      )
-        .translateValue(typ, input)
-        .left
-        .map(_.message)
+    def translate(v: Value, @unused ty: Ast.Type): Either[String, Value] = Right(v)
     Runner
       .run(
         dar.compiledPackages,
         scriptId,
-        Some(converter(_, _)),
+        Some(translate(_, _)),
         inputValue,
         clients,
         timeMode,

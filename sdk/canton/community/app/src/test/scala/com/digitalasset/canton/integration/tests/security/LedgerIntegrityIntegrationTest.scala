@@ -7,7 +7,6 @@ import com.daml.ledger.api.v2.commands.Command
 import com.daml.test.evidence.scalatest.ScalaTestSupport.TagContainer
 import com.daml.test.evidence.tag.EvidenceTag
 import com.daml.test.evidence.tag.Security.{Attack, SecurityTest, SecurityTestSuite}
-import com.digitalasset.canton.config.DbConfig.Postgres
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.CryptoPureApi
 import com.digitalasset.canton.damltests.java.universal.UniversalContract
@@ -20,9 +19,9 @@ import com.digitalasset.canton.data.{
 import com.digitalasset.canton.integration.EnvironmentDefinition.S1M1
 import com.digitalasset.canton.integration.bootstrap.NetworkBootstrapper
 import com.digitalasset.canton.integration.plugins.{
+  UseBftSequencer,
   UsePostgres,
   UseProgrammableSequencer,
-  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.util.TestSubmissionService.CommandsWithMetadata
 import com.digitalasset.canton.integration.util.{EntitySyntax, PartiesAllocator}
@@ -304,15 +303,9 @@ abstract sealed class LedgerIntegrityIntegrationTest
   )
 }
 
-//final class ReferenceLedgerIntegrityIntegrationTestDefault extends LedgerIntegrityIntegrationTest
-//  registerPlugin(new UseReferenceBlockSequencer[Postgres](loggerFactory))
-//  // we need to register the ProgrammableSequencer after the ReferenceBlockSequencer
-//  registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
-//}
-
 final class ReferenceLedgerIntegrityIntegrationTestPostgres extends LedgerIntegrityIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
   // we need to register the ProgrammableSequencer after the ReferenceBlockSequencer
   registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
 }

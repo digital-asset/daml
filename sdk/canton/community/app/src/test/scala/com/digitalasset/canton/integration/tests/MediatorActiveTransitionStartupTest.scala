@@ -15,11 +15,7 @@ import com.digitalasset.canton.config.{
 }
 import com.digitalasset.canton.console.InstanceReference
 import com.digitalasset.canton.integration.ConfigTransforms.updateMediatorConfig
-import com.digitalasset.canton.integration.plugins.{
-  UseBftSequencer,
-  UsePostgres,
-  UseReferenceBlockSequencer,
-}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransform,
@@ -143,11 +139,6 @@ abstract class MediatorActiveTransitionStartupTestSetup
       }
     }
   }
-}
-
-class MediatorActiveTransitionStartupTest extends MediatorActiveTransitionStartupTestSetup {
-  registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }
 
 class MediatorBftActiveTransitionStartupTest extends MediatorActiveTransitionStartupTestSetup {

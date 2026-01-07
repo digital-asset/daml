@@ -4,8 +4,8 @@
 package com.digitalasset.canton.synchronizer.mediator
 
 import cats.data.OptionT
-import cats.syntax.parallel.*
 import com.digitalasset.canton.LfPartyId
+import com.digitalasset.canton.config.BatchingConfig
 import com.digitalasset.canton.data.{CantonTimestamp, ViewConfirmationParameters, ViewPosition}
 import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -46,6 +46,7 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
       responseTimestamp: CantonTimestamp,
       confirmationResponses: ConfirmationResponses,
       topologySnapshot: TopologySnapshot,
+      batchingConfig: BatchingConfig,
   )(implicit
       loggingContext: NamedLoggingContext,
       ec: ExecutionContext,
@@ -62,6 +63,7 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
             confirmationResponses.rootHash,
             confirmationResponses.sender,
             topologySnapshot,
+            batchingConfig,
           )
         case Some(aggregation) =>
           aggregation
@@ -71,6 +73,7 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
               confirmationResponses.rootHash,
               confirmationResponses.sender,
               topologySnapshot,
+              batchingConfig,
             )
             .map(_.orElse(Some(aggregation)))
       }
@@ -82,6 +85,7 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
       rootHash: RootHash,
       sender: ParticipantId,
       topologySnapshot: TopologySnapshot,
+      batchingConfig: BatchingConfig,
   )(implicit
       loggingContext: NamedLoggingContext,
       ec: ExecutionContext,
@@ -95,6 +99,7 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
       localVerdict: LocalVerdict,
       topologySnapshot: TopologySnapshot,
       confirmingParties: Set[LfPartyId],
+      batchingConfig: BatchingConfig,
   )(implicit
       ec: ExecutionContext,
       loggingContext: NamedLoggingContext,
@@ -189,17 +194,19 @@ trait ResponseAggregator extends HasLoggerName with Product with Serializable {
             }
 
             val informeesByView = ViewKey[VKEY].informeesAndThresholdByKey(request)
-            val ret = informeesByView.toList
-              .parTraverseFilter { case (viewKey, viewConfirmationParameters) =>
-                val confirmingParties = viewConfirmationParameters.confirmers
-                topologySnapshot.canConfirm(sender, confirmingParties).map { partiesCanConfirm =>
-                  val hostedConfirmingParties = confirmingParties.toSeq
-                    .filter(partiesCanConfirm.contains)
-                  Option.when(hostedConfirmingParties.nonEmpty)(
-                    viewKey -> hostedConfirmingParties.toSet
-                  )
-                }
+            val ret: FutureUnlessShutdown[List[(VKEY, Set[LfPartyId])]] = MonadUtil
+              .parTraverseFilterWithLimit(batchingConfig.parallelism)(informeesByView.toList) {
+                case (viewKey, viewConfirmationParameters) =>
+                  val confirmingParties = viewConfirmationParameters.confirmers
+                  topologySnapshot.canConfirm(sender, confirmingParties).map { partiesCanConfirm =>
+                    val hostedConfirmingParties = confirmingParties.toSeq
+                      .filter(partiesCanConfirm.contains)
+                    Option.when(hostedConfirmingParties.nonEmpty)(
+                      viewKey -> hostedConfirmingParties.toSet
+                    )
+                  }
               }
+              .map(_.toList)
               .map { viewsWithConfirmingPartiesForSender =>
                 loggingContext.debug(
                   s"Malformed response $responseTimestamp from $sender considered as a rejection for $viewsWithConfirmingPartiesForSender"

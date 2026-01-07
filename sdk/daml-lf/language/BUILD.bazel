@@ -31,8 +31,8 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:daml-lf-language:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
+        "//canton:nameof",
         "//daml-lf/data",
-        "//libs-scala/nameof",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )

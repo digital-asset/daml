@@ -4,13 +4,13 @@
 package com.digitalasset.canton.integration.tests.health
 
 import com.digitalasset.canton.admin.api.client.data.NodeStatus
+import com.digitalasset.canton.config.IdentityConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.{DbConfig, IdentityConfig}
 import com.digitalasset.canton.integration.bootstrap.{
   NetworkBootstrapper,
   NetworkTopologyDescription,
 }
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -178,5 +178,5 @@ sealed trait StatusIntegrationTest
 
 class StatusReferenceIntegrationTestPostgres extends StatusIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }

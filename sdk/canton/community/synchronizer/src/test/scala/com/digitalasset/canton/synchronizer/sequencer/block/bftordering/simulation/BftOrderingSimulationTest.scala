@@ -35,6 +35,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   EpochNumber,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.OrderingRequest
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.iss.BlockMetadata
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.Membership
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Mempool
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.*
@@ -414,6 +415,8 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
           // Forces always querying for an up-to-date topology, so that we simulate correctly topology changes.
           val requestInspector = new RequestInspector {
             override def isRequestToAllMembersOfSynchronizer(
+                blockMetadata: BlockMetadata,
+                requestNumber: Int,
                 request: OrderingRequest,
                 maxBytesToDecompress: MaxBytesToDecompress,
                 logger: TracedLogger,

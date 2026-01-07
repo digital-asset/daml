@@ -68,13 +68,17 @@ abstract class HealthAdministration[S <: NodeStatus.Status](
 
   @Help.Summary("Collect Canton system information to help diagnose issues")
   @Help.Description(
-    """Generates a comprehensive health report for the local Canton process and any connected remote nodes.
+    """Generates a comprehensive health report for the local Canton process and any connected
+      |remote nodes.
       |
-      |The arguments are:
-      |  - outputFile: Specifies the file path to save the report. If not set, a default path is used.
-      |  - timeout: Sets a custom timeout for gathering data, useful for large reports from slow remote nodes.
-      |  - chunkSize: Adjusts the data stream chunk size from remote nodes. Use this to prevent gRPC errors related to 'max inbound message size'
-      |"""
+      |Parameters:
+      |- outputFile: Specifies the file path to save the report. If not set, a default path is
+      |  used.
+      |- timeout: Sets a custom timeout for gathering data, useful for large reports from slow
+      |  remote nodes.
+      |- chunkSize: Adjusts the data stream chunk size from remote nodes. Use this to prevent
+      |  gRPC errors related to 'max inbound message size'
+      """
   )
   def dump(
       outputFile: String = CantonHealthAdministration.defaultHealthDumpName.canonicalPath,
@@ -164,7 +168,7 @@ abstract class HealthAdministration[S <: NodeStatus.Status](
     case _ => false
   }
 
-  @Help.Summary("Returns true if node has been initialized.")
+  @Help.Summary("Returns true if node has been initialized")
   def initialized(): Boolean = initializedCache.updateAndGet {
     case false =>
       // in case the node is not reachable, we cannot assume it is not initialized, because it could have been initialized in the past
@@ -200,7 +204,9 @@ abstract class HealthAdministration[S <: NodeStatus.Status](
 
   @Help.Summary("Change the log level of the process")
   @Help.Description(
-    "If the default logback configuration is used, this will change the log level of the process."
+    """If the default logback configuration is used, this will change the log level of the
+      |process.
+      """
   )
   def set_log_level(level: Level): Unit = consoleEnvironment.run {
     adminCommand(
@@ -210,7 +216,9 @@ abstract class HealthAdministration[S <: NodeStatus.Status](
 
   @Help.Summary("Show the last errors logged")
   @Help.Description(
-    """Returns a map with the trace-id as key and the most recent error messages as value. Requires that --log-last-errors is enabled (and not turned off)."""
+    """Returns a map with the trace-id as key and the most recent error messages as
+      |value. Requires that --log-last-errors is enabled (and not turned off).
+      """
   )
   def last_errors(): Map[String, String] = consoleEnvironment.run {
     adminCommand(
@@ -220,7 +228,9 @@ abstract class HealthAdministration[S <: NodeStatus.Status](
 
   @Help.Summary("Show all messages logged with the given traceId in a recent interval")
   @Help.Description(
-    "Returns a list of buffered log messages associated to a given trace-id. Usually, the trace-id is taken from last_errors()"
+    """Returns a list of buffered log messages associated to a given trace-id. Usually,
+      |the trace-id is taken from last_errors().
+      """
   )
   def last_error_trace(traceId: String): Seq[String] = consoleEnvironment.run {
     adminCommand(

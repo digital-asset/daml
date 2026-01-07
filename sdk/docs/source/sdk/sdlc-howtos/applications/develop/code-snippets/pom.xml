@@ -15,12 +15,5 @@
             <version>YOUR_SDK_VERSION</version>
         </dependency>
         <!-- end snippet: dependency bindings java -->
-        <!-- start snippet: dependency bindings rxjava -->
-        <dependency>
-            <groupId>com.daml</groupId>
-            <artifactId>bindings-rxjava</artifactId>
-            <version>YOUR_SDK_VERSION</version>
-        </dependency>
-        <!-- end snippet: dependency bindings rxjava -->
     </dependencies>
 </project>

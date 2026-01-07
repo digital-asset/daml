@@ -160,12 +160,12 @@ class UnicumGenerator(cryptoOps: HashOps & HmacOps) {
           // The salt's length is determined by the hash algorithm and the contract ID version determines the hash algorithm,
           // so salts have fixed length.
           .addWithoutLengthPrefix(salt.unwrap.forHashing)
-          .add(
+          .addByteString(
             DeterministicEncoding.encodeSeqWith(metadata.signatories.toSeq.sorted)(
               DeterministicEncoding.encodeParty
             )
           )
-          .add(
+          .addByteString(
             DeterministicEncoding.encodeSeqWith(nonSignatoryStakeholders.toSeq.sorted)(
               DeterministicEncoding.encodeParty
             )
@@ -177,7 +177,7 @@ class UnicumGenerator(cryptoOps: HashOps & HmacOps) {
                 _.bytes.toByteString
               )
           )
-          .add(
+          .addByteString(
             DeterministicEncoding.encodeOptionWith(
               metadata.maybeKeyWithMaintainers.map(_.maintainers)
             ) { maintainers =>
@@ -282,12 +282,12 @@ class UnicumGenerator(cryptoOps: HashOps & HmacOps) {
       // so salts have fixed length.
       .addWithoutLengthPrefix(contractSalt.forHashing)
       .addWithoutLengthPrefix(DeterministicEncoding.encodeInstant(ledgerCreateTime.time.toInstant))
-      .add(
+      .addByteString(
         DeterministicEncoding.encodeSeqWith(metadata.signatories.toSeq.sorted)(
           DeterministicEncoding.encodeParty
         )
       )
-      .add(
+      .addByteString(
         DeterministicEncoding.encodeSeqWith(nonSignatoryStakeholders.toSeq.sorted)(
           DeterministicEncoding.encodeParty
         )
@@ -299,7 +299,7 @@ class UnicumGenerator(cryptoOps: HashOps & HmacOps) {
             _.bytes.toByteString
           )
       )
-      .add(
+      .addByteString(
         DeterministicEncoding.encodeOptionWith(
           metadata.maybeKeyWithMaintainers.map(_.maintainers)
         ) { maintainers =>

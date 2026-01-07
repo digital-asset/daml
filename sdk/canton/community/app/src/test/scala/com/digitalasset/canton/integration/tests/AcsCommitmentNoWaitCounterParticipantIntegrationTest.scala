@@ -7,12 +7,16 @@ import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommand
   NoWaitCommitments,
   WaitCommitments,
 }
+import com.digitalasset.canton.admin.api.client.data.{
+  SequencerConnections,
+  SynchronizerConnectionConfig,
+}
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.NonNegativeProportion
-import com.digitalasset.canton.config.{CommitmentSendDelay, DbConfig, SynchronizerTimeTrackerConfig}
+import com.digitalasset.canton.config.{CommitmentSendDelay, SynchronizerTimeTrackerConfig}
 import com.digitalasset.canton.console.{LocalParticipantReference, ParticipantReference}
 import com.digitalasset.canton.examples.java.iou.Iou
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -28,9 +32,7 @@ import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.Errors
   NoSharedContracts,
 }
 import com.digitalasset.canton.participant.pruning.SortedReconciliationIntervalsHelpers
-import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.participant.util.JavaCodegenUtil.ContractIdSyntax
-import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import monocle.Monocle.toAppliedFocusOps
@@ -455,6 +457,7 @@ trait AcsCommitmentNoWaitCounterParticipantIntegrationTest
       val endTime = simClock.now
       logger.info(s"advancing simClock from $startTime to $endTime")
       logger.info("performing ping and updating time on active synchronizers")
+      sequencer1.underlying.value.sequencer.timeTracker.fetchTime().futureValueUS
       participant1.health.ping(participant1)
       participants.all.filter(_.health.is_running()).foreach(_.testing.fetch_synchronizer_times())
 
@@ -492,14 +495,14 @@ trait AcsCommitmentNoWaitCounterParticipantIntegrationTest
 class AcsCommitmentNoWaitCounterParticipantIntegrationTestPostgres
     extends AcsCommitmentNoWaitCounterParticipantIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
   override val isInMemory = false
 }
 
 //class AcsCommitmentNoWaitCounterParticipantIntegrationTestH2
 //    extends AcsCommitmentNoWaitCounterParticipantIntegrationTest {
 //  registerPlugin(new UseH2(loggerFactory))
-//  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+//  registerPlugin(new UseBftSequencer(loggerFactory))
 //  override val isInMemory = false
 //}
 

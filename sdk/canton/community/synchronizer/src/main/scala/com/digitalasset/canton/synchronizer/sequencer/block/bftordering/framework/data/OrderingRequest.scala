@@ -27,6 +27,7 @@ import java.time.Instant
 
 final case class OrderingRequest(
     tag: String,
+    messageId: String,
     payload: ByteString,
     orderingStartInstant: Option[Instant] =
       None, // Used for metrics support only, unset in unit and simulation tests
@@ -37,10 +38,13 @@ final case class OrderingRequest(
 
   def addToHashBuilder(hashBuilder: HashBuilder): Unit =
     hashBuilder
-      .add(payload)
-      .add(tag)
-      .add(orderingStartInstant.toString)
+      .addByteString(payload)
+      .addString(tag)
+      .addString(orderingStartInstant.toString)
       .discard
+
+  def headerString: String =
+    s"(tag=$tag, messageId=$messageId, payloadSize=${payload.size()}, orderingStartInstant=$orderingStartInstant)"
 }
 
 object OrderingRequest {
@@ -63,10 +67,10 @@ final case class OrderingRequestBatch private (
 ) extends HasProtocolVersionedWrapper[OrderingRequestBatch] {
 
   def addToHashBuilder(hashBuilder: HashBuilder): Unit = {
-    hashBuilder.add(epochNumber)
+    hashBuilder.addLong(epochNumber)
     requests.foreach { request =>
-      hashBuilder.add(representativeProtocolVersion.representative.toProtoPrimitive)
-      hashBuilder.add(request.traceContext.toString)
+      hashBuilder.addInt(representativeProtocolVersion.representative.toProtoPrimitive)
+      hashBuilder.addString(request.traceContext.toString)
       request.value.addToHashBuilder(hashBuilder)
     }
   }
@@ -83,6 +87,7 @@ final case class OrderingRequestBatch private (
   ): v30.OrderingRequest = v30.OrderingRequest(
     traceContext = traceContext.getOrElse(""),
     orderingRequest.tag,
+    orderingRequest.messageId,
     orderingRequest.payload,
     orderingRequest.orderingStartInstant.map(i =>
       com.google.protobuf.timestamp.Timestamp(i.getEpochSecond, i.getNano)
@@ -132,6 +137,7 @@ object OrderingRequestBatch extends VersioningCompanion[OrderingRequestBatch] {
           (
             OrderingRequest(
               protoOrderingRequest.tag,
+              protoOrderingRequest.messageId,
               protoOrderingRequest.payload,
               protoOrderingRequest.orderingStartInstant.map(_.asJavaInstant),
             ),

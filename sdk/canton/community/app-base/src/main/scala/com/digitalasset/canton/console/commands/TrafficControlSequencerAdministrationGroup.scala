@@ -34,7 +34,9 @@ class TrafficControlSequencerAdministrationGroup(
 
   @Help.Summary("Return the traffic state of the given members")
   @Help.Description(
-    """Use this command to get the traffic state of a list of members at the latest safe timestamp."""
+    """Use this command to get the traffic state of a list of members at the latest safe
+      |timestamp.
+      """
   )
   def traffic_state_of_members(
       members: Seq[Member]
@@ -47,10 +49,12 @@ class TrafficControlSequencerAdministrationGroup(
 
   @Help.Summary("Return the traffic state of the given members at the latest approximate time")
   @Help.Description(
-    """Use this command to get the traffic state of a list of members using the latest possible time the sequencer can
-      estimate the state.
-      CAREFUL: The returned state is only an approximation in the future and might not be the actual correct state
-      by the time this timestamp is reached by the synchronizer."""
+    """Use this command to get the traffic state of a list of members using the latest possible
+      |time the sequencer can estimate the state.
+      |
+      |CAREFUL: The returned state is only an approximation in the future and might not be the
+      |actual correct state by the time this timestamp is reached by the synchronizer.
+      """
   )
   def traffic_state_of_members_approximate(
       members: Seq[Member]
@@ -66,7 +70,9 @@ class TrafficControlSequencerAdministrationGroup(
 
   @Help.Summary("Return the last traffic state update of the given members, per member")
   @Help.Description(
-    """Use this command to get the last traffic state update of each member. It will be last updated when a member consumed traffic."""
+    """Use this command to get the last traffic state update of each member. It will be last
+      |updated when a member consumed traffic.
+      """
   )
   def last_traffic_state_update_of_members(
       members: Seq[Member]
@@ -98,12 +104,13 @@ class TrafficControlSequencerAdministrationGroup(
       )
     )
 
-  @Help.Summary("Return the traffic state of the all members.")
+  @Help.Summary("Return the traffic state of the all members")
   @Help.Description(
     """Use this command to get the traffic state of all members.
-      Set latestApproximate to true to get an approximation of the traffic state (including base traffic)
-      at the latest possible timestamp the sequencer can calculate it. This an approximation only because the sequencer
-      may use its wall clock which could be beyond the synchronizer time.
+      |Set latestApproximate to true to get an approximation of the traffic state (including
+      |base traffic) at the latest possible timestamp the sequencer can calculate it. This an
+      |approximation only because the sequencer may use its wall clock which could be beyond
+      |the synchronizer time.
       """
   )
   def traffic_state_of_all_members(
@@ -122,13 +129,16 @@ class TrafficControlSequencerAdministrationGroup(
   @Help.Summary("Set the traffic purchased entry of a member")
   @Help.Description(
     """Use this command to set the new traffic purchased entry of a member.
-      | member: member for which the traffic purchased entry is to be set
-      | serial: serial number of the request, must be strictly greater than the latest update made for that member
-      | newBalance: new traffic purchased entry to be set
       |
-      | returns: the max sequencing time used for the update
-      | After and only after that time, if the new balance still does not appear in the traffic state,
-      |  the update can be considered failed and should be retried.
+      |Parameters:
+      |- member: Member for which the traffic purchased entry is to be set.
+      |- serial: Serial number of the request, must be strictly greater than the latest update
+      |  made for that member.
+      |- newBalance: New traffic purchased entry to be set.
+      |
+      |Returns: The max sequencing time used for the update. After and only after that time,
+      |if the new balance still does not appear in the traffic state, the update can be
+      |considered failed and should be retried.
       """
   )
   def set_traffic_balance(

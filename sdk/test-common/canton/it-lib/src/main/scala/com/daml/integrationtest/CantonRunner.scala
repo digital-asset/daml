@@ -17,7 +17,7 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ports.{LockedFreePort, PortLock}
 import com.daml.scalautil.Statement.discard
 import com.daml.timer.RetryStrategy
-import spray.json._
+import io.circe.Json
 
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.Future
@@ -25,13 +25,12 @@ import scala.sys.process.{Process, ProcessLogger}
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 import java.time.Instant
-
 import scala.concurrent.ExecutionContext
 
 object CantonRunner {
   import CantonConfig.TimeProviderType
 
-  private[integrationtest] def toJson(s: String): String = JsString(s).toString()
+  private[integrationtest] def toJson(s: String): String = Json.fromString(s).noSpaces
   private[integrationtest] def toJson(path: Path): String = toJson(path.toString)
 
   lazy val cantonPath = Paths.get(rlocation("canton/community_app_deploy.jar"))
@@ -306,7 +305,7 @@ object CantonRunner {
     )
     val header = """{"alg": "HS256", "typ": "JWT"}"""
     val jwt =
-      DecodedJwt[String](header, AuthServiceJWTCodec.writePayload(payload).compactPrint)
+      DecodedJwt[String](header, AuthServiceJWTCodec.writePayload(payload).noSpaces)
     JwtSigner.HMAC256.sign(jwt, secret) match {
       case Right(a) => a.value
       case Left(e) => throw new IllegalStateException(e.toString)

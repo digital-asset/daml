@@ -143,7 +143,7 @@ class Env(override val loggerFactory: SuppressingLogger)(implicit
   val useNewConnectionPool: Boolean = true
 
   when(topologyClient.currentSnapshotApproximation(any[TraceContext]))
-    .thenReturn(mockTopologySnapshot)
+    .thenReturn(FutureUnlessShutdown.pure(mockTopologySnapshot))
   when(topologyClient.headSnapshot(any[TraceContext]))
     .thenReturn(mockTopologySnapshot)
   when(mockTopologySnapshot.timestamp).thenReturn(CantonTimestamp.Epoch)
@@ -237,7 +237,9 @@ class Env(override val loggerFactory: SuppressingLogger)(implicit
         request: v30.SequencerAuthentication.ChallengeRequest
     ): Future[v30.SequencerAuthentication.ChallengeResponse] =
       for {
-        fingerprints <- cryptoApi.ips.currentSnapshotApproximation
+        approximateSnapshot <- cryptoApi.ips.currentSnapshotApproximation
+          .failOnShutdownToAbortException("shutting down")
+        fingerprints <- approximateSnapshot
           .signingKeys(participant, SigningKeyUsage.SequencerAuthenticationOnly)
           .map(_.map(_.fingerprint).toList)
           .onShutdown(throw new Exception("Aborted due to shutdown."))
@@ -375,7 +377,8 @@ class Env(override val loggerFactory: SuppressingLogger)(implicit
             override def signRequest[A <: HasCryptographicEvidence](
                 request: A,
                 hashPurpose: HashPurpose,
-                snapshot: Option[SyncCryptoApi],
+                snapshot: SyncCryptoApi,
+                approximateTimestampOverride: Option[CantonTimestamp],
             )(implicit
                 ec: ExecutionContext,
                 traceContext: TraceContext,

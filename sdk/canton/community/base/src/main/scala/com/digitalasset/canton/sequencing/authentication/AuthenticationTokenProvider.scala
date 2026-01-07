@@ -15,7 +15,7 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.{Fingerprint, Nonce, SynchronizerCrypto}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, UnlessShutdown}
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.metrics.SequencerConnectionPoolMetrics
 import com.digitalasset.canton.networking.Endpoint
@@ -41,7 +41,6 @@ import com.digitalasset.canton.util.retry.{
   Jitter,
   Pause,
   RetryWithDelay,
-  Success,
 }
 import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.{Status, StatusRuntimeException}
@@ -124,21 +123,7 @@ class AuthenticationTokenProvider(
             .toEitherT[FutureUnlessShutdown]
           token <- authenticate(endpoint, authenticationClient, nonce, challenge.fingerprints)
         } yield token).value
-      }.subflatMap {
-        case Left(status) if channelIsShutdown(status) => UnlessShutdown.AbortedDueToShutdown
-        case other => UnlessShutdown.Outcome(other)
       }
-
-    def channelIsShutdown(status: Status): Boolean = status match {
-      case s
-          if s.getCode == Status.Code.UNAVAILABLE &&
-            (s.getDescription.contains("Channel shutdown invoked") ||
-              s.getDescription.contains("Channel shutdownNow invoked")) =>
-        true
-      case s if s.getCode == Status.Code.CANCELLED =>
-        true
-      case _ => false
-    }
 
     val operation = "generate sequencer authentication token"
     val maxRetriesInt = config.retries.value
@@ -173,11 +158,6 @@ class AuthenticationTokenProvider(
           operationName = operation,
         )(jitter)
       }
-
-    implicit val success: Success[Either[Status, AuthenticationTokenWithExpiry]] = Success.apply {
-      case Right(_) => true
-      case Left(status) => channelIsShutdown(status)
-    }
 
     EitherT(
       retryWithDelay.unlessShutdown(
@@ -305,6 +285,12 @@ object AuthenticationTokenProvider {
           logger: TracedLogger,
       )(implicit tc: TraceContext): ErrorKind =
         exception match {
+          case ex: StatusRuntimeException
+              if ex.getStatus.getCode == Status.Code.UNAVAILABLE &&
+                (ex.getStatus.getDescription.contains("Channel shutdown invoked") ||
+                  ex.getStatus.getDescription.contains("Channel shutdownNow invoked")) =>
+            FatalErrorKind
+
           // Ideally we would like to retry only on retryable gRPC status codes (such as `UNAVAILABLE`),
           // but as this could be hard to get right, we compromise by retrying on all gRPC status codes,
           // and use a finite number of retries.

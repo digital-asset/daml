@@ -6,6 +6,7 @@ package com.digitalasset.canton.crypto.validations
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.{
+  BatchingConfig,
   CachingConfigs,
   CryptoConfig,
   CryptoProvider,
@@ -47,6 +48,7 @@ class SyncSchemeValidationsTest extends AnyWordSpec with BaseTest with HasExecut
       wallClock,
       executorService,
       timeouts,
+      BatchingConfig(),
       loggerFactory,
       NoReportingTracerProvider,
     )

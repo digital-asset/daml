@@ -30,7 +30,7 @@ object FooDivulgerCommandGenerator {
       allDivulgees: List[Party],
   ): (List[Command], Map[Set[Party], Value]) = {
     require(
-      allDivulgees.size <= 5,
+      allDivulgees.sizeIs <= 5,
       s"Number of divulgee parties must be at most 5, was: ${allDivulgees.size}.",
     )
     def allNonEmptySubsets(divulgees: List[Party]): List[List[Party]] = {

@@ -11,13 +11,18 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.base.error.utils.DecodedCantonError
 import com.digitalasset.canton.*
 import com.digitalasset.canton.concurrent.Threading
-import com.digitalasset.canton.config as cantonConfig
-import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.RequireTypes.{
   NonNegativeInt,
   NonNegativeLong,
   Port,
   PositiveInt,
+}
+import com.digitalasset.canton.config.{
+  DefaultProcessingTimeouts,
+  LoggingConfig,
+  ProcessingTimeout,
+  SynchronizerTimeTrackerConfig,
+  TestingConfigInternal,
 }
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{
@@ -94,7 +99,12 @@ import com.digitalasset.canton.store.{
   SequencedEventStore,
   SequencerCounterTrackerStore,
 }
-import com.digitalasset.canton.time.{MockTimeRequestSubmitter, SimClock, SynchronizerTimeTracker}
+import com.digitalasset.canton.time.{
+  MockTimeRequestSubmitter,
+  NonNegativeFiniteDuration,
+  SimClock,
+  SynchronizerTimeTracker,
+}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.DefaultTestIdentities.{
   daSequencerId,
@@ -103,6 +113,7 @@ import com.digitalasset.canton.topology.DefaultTestIdentities.{
 }
 import com.digitalasset.canton.topology.client.{SynchronizerTopologyClient, TopologySnapshot}
 import com.digitalasset.canton.tracing.{TraceContext, TracingConfig}
+import com.digitalasset.canton.util.Mutex
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.canton.version.{
   IgnoreInSerializationTestExhaustivenessCheck,
@@ -122,7 +133,7 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger, AtomicLong, AtomicReference}
 import scala.annotation.tailrec
 import scala.concurrent.duration.{Duration, DurationInt}
-import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.jdk.CollectionConverters.*
 import scala.jdk.DurationConverters.ScalaDurationOps
 import scala.util.{Failure, Success}
@@ -385,6 +396,7 @@ final class SequencerClientTest
         val counter = new AtomicInteger(0)
         val maxSeenCounter = new AtomicInteger(0)
         val maxSequencerCounter = new AtomicLong(0L)
+        val lock = Mutex()
         val env = factory.create(
           initializeCounterAllocatorTo = Some(SequencerCounter(0)),
           options = SequencerClientConfig(
@@ -402,9 +414,10 @@ final class SequencerClientTest
               logger.debug(s"Processing batch of events $firstSc to $lastSc")
               HandlerResult.asynchronous(
                 FutureUnlessShutdown.outcomeF(Future {
-                  blocking {
-                    maxSeenCounter.synchronized {
-                      maxSeenCounter.set(Math.max(counter.incrementAndGet(), maxSeenCounter.get()))
+                  {
+                    lock.exclusive {
+                      val incrementedCounter = counter.incrementAndGet()
+                      maxSeenCounter.updateAndGet(_.max(incrementedCounter)).discard
                     }
                   }
                   Threading.sleep(100)
@@ -1087,7 +1100,7 @@ final class SequencerClientTest
     "a synchronous error" should {
       val amplificationConfig = SubmissionRequestAmplification(
         factor = PositiveInt.two,
-        patience = config.NonNegativeFiniteDuration.Zero,
+        patience = NonNegativeFiniteDuration.Zero,
       )
 
       "trigger amplification if it is 'overloaded' and the flag is set" in {
@@ -1136,7 +1149,7 @@ final class SequencerClientTest
     "amplification" should {
       val amplificationConfig = SubmissionRequestAmplification(
         factor = PositiveInt.two,
-        patience = config.NonNegativeFiniteDuration.tryFromDuration(10.seconds),
+        patience = NonNegativeFiniteDuration.tryOfSeconds(10),
       )
 
       def lastSubmissionTime(env: Env[?]): CantonTimestamp =
@@ -1865,9 +1878,9 @@ final class SequencerClientTest
       SequencerConnectionXPoolConfig(
         connections = NonEmpty(Seq, connection.config),
         trustThreshold = PositiveInt.one,
-        minRestartConnectionDelay = cantonConfig.NonNegativeFiniteDuration.Zero,
-        maxRestartConnectionDelay = cantonConfig.NonNegativeFiniteDuration.Zero,
-        warnConnectionValidationDelay = cantonConfig.NonNegativeFiniteDuration.Zero,
+        minRestartConnectionDelay = NonNegativeFiniteDuration.Zero,
+        maxRestartConnectionDelay = NonNegativeFiniteDuration.Zero,
+        warnConnectionValidationDelay = NonNegativeFiniteDuration.Zero,
       )
 
     override def updateConfig(newConfig: SequencerConnectionXPool.SequencerConnectionXPoolConfig)(
@@ -2015,7 +2028,7 @@ final class SequencerClientTest
       val topologyClient = mock[SynchronizerTopologyClient]
       val mockTopologySnapshot = mock[TopologySnapshot]
       when(topologyClient.currentSnapshotApproximation(any[TraceContext]))
-        .thenReturn(mockTopologySnapshot)
+        .thenReturn(FutureUnlessShutdown.pure(mockTopologySnapshot))
       when(
         mockTopologySnapshot.findDynamicSynchronizerParametersOrDefault(
           any[ProtocolVersion],
@@ -2036,7 +2049,8 @@ final class SequencerClientTest
     override def signRequest[A <: HasCryptographicEvidence](
         request: A,
         hashPurpose: HashPurpose,
-        snapshot: Option[SyncCryptoApi],
+        snapshot: SyncCryptoApi,
+        approximateTimestampOverride: Option[CantonTimestamp],
     )(implicit
         ec: ExecutionContext,
         traceContext: TraceContext,

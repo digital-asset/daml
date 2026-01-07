@@ -5,9 +5,9 @@ package com.digitalasset.canton.integration.tests
 
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.RequireTypes.ExistingFile
-import com.digitalasset.canton.config.{IdentityConfig, PemFile, StorageConfig, TlsBaseServerConfig}
+import com.digitalasset.canton.config.{IdentityConfig, PemFile, TlsBaseServerConfig}
+import com.digitalasset.canton.integration.plugins.UseBftSequencer
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
-import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -241,18 +241,6 @@ trait GrpcConnectionErrorsIntegrationTest extends CommunityIntegrationTest with 
   }
 }
 
-class GrpcConnectionErrorsReferenceIntegrationTestInMemory
-    extends GrpcConnectionErrorsIntegrationTest {
-  registerPlugin(
-    new UseReferenceBlockSequencer[StorageConfig.Memory](
-      loggerFactory,
-      sequencerGroups = MultiSynchronizer(
-        Seq(Set(InstanceName.tryCreate("sequencer1")), Set(InstanceName.tryCreate("sequencer2")))
-      ),
-    )
-  )
-}
-
 class GrpcConnectionErrorsBftOrderingIntegrationTestInMemory
     extends GrpcConnectionErrorsIntegrationTest {
   registerPlugin(
@@ -264,18 +252,6 @@ class GrpcConnectionErrorsBftOrderingIntegrationTestInMemory
     )
   )
 }
-
-// class GrpcConnectionErrorsReferenceIntegrationTestPostgres extends GrpcConnectionErrorsIntegrationTest {
-//   registerPlugin(new UsePostgres(loggerFactory))
-//   registerPlugin(
-//     new UseReferenceBlockSequencer[DbConfig.Postgres](
-//       loggerFactory,
-//       sequencerGroups = MultiSynchronizer(
-//         Seq(Set(InstanceName.tryCreate("sequencer1")), Set(InstanceName.tryCreate("sequencer2")))
-//       ),
-//     )
-//   )
-// }
 
 // class GrpcConnectionErrorsBftOrderingIntegrationTestPostgres extends GrpcConnectionErrorsIntegrationTest {
 //   registerPlugin(new UsePostgres(loggerFactory))

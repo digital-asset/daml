@@ -14,6 +14,7 @@ import com.digitalasset.daml.lf.data.Ref.{Party, UserId}
 
 import scala.concurrent.{ExecutionContext, Future}
 
+@SuppressWarnings(Array("com.digitalasset.canton.DirectGrpcServiceInvocation"))
 final class UserManagementClient(
     service: UserManagementServiceStub,
     getDefaultToken: () => Option[String] = () => None,

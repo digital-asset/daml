@@ -915,4 +915,8 @@ object ConfigTransforms {
       )
     )
 
+  val disableOnboardingTopologyValidation: ConfigTransform =
+    updateAllMediatorConfigs_(
+      _.focus(_.topology.validateInitialTopologySnapshot).replace(false)
+    )
 }

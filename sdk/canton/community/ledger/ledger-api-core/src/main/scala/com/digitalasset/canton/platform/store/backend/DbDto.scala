@@ -5,6 +5,15 @@ package com.digitalasset.canton.platform.store.backend
 
 import com.daml.scalautil.NeverEqualsOverride
 import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.daml.lf.data.Ref.{
+  ChoiceName,
+  Identifier,
+  NameTypeConRef,
+  PackageId,
+  ParticipantId,
+  Party,
+  UserId,
+}
 import com.digitalasset.daml.lf.value.Value.ContractId
 
 sealed trait DbDto
@@ -20,7 +29,7 @@ object DbDto {
       update_id: Array[Byte],
       workflow_id: Option[String],
       command_id: Option[String],
-      submitters: Option[Set[String]],
+      submitters: Option[Set[Party]],
       record_time: Long,
       synchronizer_id: SynchronizerId,
       trace_context: Array[Byte],
@@ -30,11 +39,11 @@ object DbDto {
       event_type: Int,
       event_sequential_id: Long,
       node_id: Int,
-      additional_witnesses: Option[Set[String]],
+      additional_witnesses: Option[Set[Party]],
       source_synchronizer_id: Option[SynchronizerId],
       reassignment_counter: Option[Long],
       reassignment_id: Option[Array[Byte]],
-      representative_package_id: String,
+      representative_package_id: PackageId,
 
       // contract related columns
       notPersistedContractId: ContractId, // just needed for processing
@@ -50,7 +59,7 @@ object DbDto {
       update_id: Array[Byte],
       workflow_id: Option[String],
       command_id: Option[String],
-      submitters: Option[Set[String]],
+      submitters: Option[Set[Party]],
       record_time: Long,
       synchronizer_id: SynchronizerId,
       trace_context: Array[Byte],
@@ -61,12 +70,12 @@ object DbDto {
       event_sequential_id: Long,
       node_id: Int,
       deactivated_event_sequential_id: Option[Long],
-      additional_witnesses: Option[Set[String]],
-      exercise_choice: Option[String],
-      exercise_choice_interface_id: Option[String],
+      additional_witnesses: Option[Set[Party]],
+      exercise_choice: Option[ChoiceName],
+      exercise_choice_interface_id: Option[Identifier],
       exercise_argument: Option[Array[Byte]],
       exercise_result: Option[Array[Byte]],
-      exercise_actors: Option[Set[String]],
+      exercise_actors: Option[Set[Party]],
       exercise_last_descendant_node_id: Option[Int],
       exercise_argument_compression: Option[Int],
       exercise_result_compression: Option[Int],
@@ -78,9 +87,9 @@ object DbDto {
       // contract related columns
       contract_id: ContractId,
       internal_contract_id: Option[Long],
-      template_id: String,
-      package_id: String,
-      stakeholders: Set[String],
+      template_id: NameTypeConRef,
+      package_id: PackageId,
+      stakeholders: Set[Party],
       ledger_effective_time: Option[Long],
   ) extends DbDto
   final case class IdFilterDeactivateStakeholder(idFilter: IdFilter) extends IdFilterDbDto
@@ -92,7 +101,7 @@ object DbDto {
       update_id: Array[Byte],
       workflow_id: Option[String],
       command_id: Option[String],
-      submitters: Option[Set[String]],
+      submitters: Option[Set[Party]],
       record_time: Long,
       synchronizer_id: SynchronizerId,
       trace_context: Array[Byte],
@@ -102,23 +111,23 @@ object DbDto {
       event_type: Int,
       event_sequential_id: Long,
       node_id: Int,
-      additional_witnesses: Set[String],
+      additional_witnesses: Set[Party],
       consuming: Option[Boolean],
-      exercise_choice: Option[String],
-      exercise_choice_interface_id: Option[String],
+      exercise_choice: Option[ChoiceName],
+      exercise_choice_interface_id: Option[Identifier],
       exercise_argument: Option[Array[Byte]],
       exercise_result: Option[Array[Byte]],
-      exercise_actors: Option[Set[String]],
+      exercise_actors: Option[Set[Party]],
       exercise_last_descendant_node_id: Option[Int],
       exercise_argument_compression: Option[Int],
       exercise_result_compression: Option[Int],
-      representative_package_id: Option[String],
+      representative_package_id: Option[PackageId],
 
       // contract related columns
       contract_id: Option[ContractId],
       internal_contract_id: Option[Long],
-      template_id: Option[String],
-      package_id: Option[String],
+      template_id: Option[NameTypeConRef],
+      package_id: Option[PackageId],
       ledger_effective_time: Option[Long],
   ) extends DbDto
 
@@ -145,8 +154,8 @@ object DbDto {
   }
   final case class IdFilter(
       event_sequential_id: Long,
-      template_id: String,
-      party_id: String,
+      template_id: NameTypeConRef,
+      party_id: Party,
       first_per_sequential_id: Boolean,
   ) {
     def activateStakeholder: IdFilterActivateStakeholder = IdFilterActivateStakeholder(this)
@@ -160,8 +169,8 @@ object DbDto {
       event_sequential_id: Long,
       event_offset: Long,
       update_id: Array[Byte],
-      party_id: String,
-      participant_id: String,
+      party_id: Party,
+      participant_id: ParticipantId,
       participant_permission: Int,
       participant_authorization_event: Int,
       synchronizer_id: SynchronizerId,
@@ -173,7 +182,7 @@ object DbDto {
       ledger_offset: Long,
       recorded_at: Long,
       submission_id: Option[String],
-      party: Option[String],
+      party: Option[Party],
       typ: String,
       rejection_reason: Option[String],
       is_local: Option[Boolean],
@@ -183,8 +192,8 @@ object DbDto {
       completion_offset: Long,
       record_time: Long,
       publication_time: Long,
-      user_id: String,
-      submitters: Set[String],
+      user_id: UserId,
+      submitters: Set[Party],
       command_id: String,
       update_id: Option[Array[Byte]],
       rejection_status_code: Option[Int],
@@ -228,7 +237,7 @@ object DbDto {
       update_id: Array[Byte],
       workflow_id: Option[String],
       command_id: Option[String],
-      submitters: Option[Set[String]],
+      submitters: Option[Set[Party]],
       record_time: Long,
       synchronizer_id: SynchronizerId,
       trace_context: Array[Byte],
@@ -237,14 +246,14 @@ object DbDto {
       // event related columns
       event_sequential_id: Long,
       node_id: Int,
-      additional_witnesses: Set[String],
-      representative_package_id: String,
+      additional_witnesses: Set[Party],
+      representative_package_id: PackageId,
 
       // contract related columns
       notPersistedContractId: ContractId,
       internal_contract_id: Long,
       create_key_hash: Option[String],
-  )(stakeholders: Set[String], template_id: String): Iterator[DbDto] =
+  )(stakeholders: Set[Party], template_id: NameTypeConRef): Iterator[DbDto] =
     Iterator(
       EventActivate(
         // update related columns
@@ -287,7 +296,7 @@ object DbDto {
       update_id: Array[Byte],
       workflow_id: Option[String],
       command_id: Option[String],
-      submitter: Option[String],
+      submitter: Option[Party],
       record_time: Long,
       synchronizer_id: SynchronizerId,
       trace_context: Array[Byte],
@@ -298,12 +307,12 @@ object DbDto {
       source_synchronizer_id: SynchronizerId,
       reassignment_counter: Long,
       reassignment_id: Array[Byte],
-      representative_package_id: String,
+      representative_package_id: PackageId,
 
       // contract related columns
       notPersistedContractId: ContractId,
       internal_contract_id: Long,
-  )(stakeholders: Set[String], template_id: String): Iterator[DbDto] =
+  )(stakeholders: Set[Party], template_id: NameTypeConRef): Iterator[DbDto] =
     Iterator(
       EventActivate(
         // update related columns
@@ -342,7 +351,7 @@ object DbDto {
       update_id: Array[Byte],
       workflow_id: Option[String],
       command_id: Option[String],
-      submitters: Option[Set[String]],
+      submitters: Option[Set[Party]],
       record_time: Long,
       synchronizer_id: SynchronizerId,
       trace_context: Array[Byte],
@@ -352,12 +361,12 @@ object DbDto {
       event_sequential_id: Long,
       node_id: Int,
       deactivated_event_sequential_id: Option[Long],
-      additional_witnesses: Set[String],
-      exercise_choice: String,
-      exercise_choice_interface_id: Option[String],
+      additional_witnesses: Set[Party],
+      exercise_choice: ChoiceName,
+      exercise_choice_interface_id: Option[Identifier],
       exercise_argument: Array[Byte],
       exercise_result: Option[Array[Byte]],
-      exercise_actors: Set[String],
+      exercise_actors: Set[Party],
       exercise_last_descendant_node_id: Int,
       exercise_argument_compression: Option[Int],
       exercise_result_compression: Option[Int],
@@ -365,9 +374,9 @@ object DbDto {
       // contract related columns
       contract_id: ContractId,
       internal_contract_id: Option[Long],
-      template_id: String,
-      package_id: String,
-      stakeholders: Set[String],
+      template_id: NameTypeConRef,
+      package_id: PackageId,
+      stakeholders: Set[Party],
       ledger_effective_time: Long,
   ): Iterator[DbDto] =
     Iterator(
@@ -424,7 +433,7 @@ object DbDto {
       update_id: Array[Byte],
       workflow_id: Option[String],
       command_id: Option[String],
-      submitter: Option[String],
+      submitter: Option[Party],
       record_time: Long,
       synchronizer_id: SynchronizerId,
       trace_context: Array[Byte],
@@ -441,9 +450,9 @@ object DbDto {
       // contract related columns
       contract_id: ContractId,
       internal_contract_id: Option[Long],
-      template_id: String,
-      package_id: String,
-      stakeholders: Set[String],
+      template_id: NameTypeConRef,
+      package_id: PackageId,
+      stakeholders: Set[Party],
   ): Iterator[DbDto] =
     Iterator(
       EventDeactivate(
@@ -495,7 +504,7 @@ object DbDto {
       update_id: Array[Byte],
       workflow_id: Option[String],
       command_id: Option[String],
-      submitters: Option[Set[String]],
+      submitters: Option[Set[Party]],
       record_time: Long,
       synchronizer_id: SynchronizerId,
       trace_context: Array[Byte],
@@ -504,12 +513,12 @@ object DbDto {
       // event related columns
       event_sequential_id: Long,
       node_id: Int,
-      additional_witnesses: Set[String],
-      representative_package_id: String,
+      additional_witnesses: Set[Party],
+      representative_package_id: PackageId,
 
       // contract related columns
       internal_contract_id: Long,
-  )(template_id: String): Iterator[DbDto] =
+  )(template_id: NameTypeConRef): Iterator[DbDto] =
     Iterator(
       EventVariousWitnessed(
         // update related columns
@@ -558,7 +567,7 @@ object DbDto {
       update_id: Array[Byte],
       workflow_id: Option[String],
       command_id: Option[String],
-      submitters: Option[Set[String]],
+      submitters: Option[Set[Party]],
       record_time: Long,
       synchronizer_id: SynchronizerId,
       trace_context: Array[Byte],
@@ -567,13 +576,13 @@ object DbDto {
       // event related columns
       event_sequential_id: Long,
       node_id: Int,
-      additional_witnesses: Set[String],
+      additional_witnesses: Set[Party],
       consuming: Boolean,
-      exercise_choice: String,
-      exercise_choice_interface_id: Option[String],
+      exercise_choice: ChoiceName,
+      exercise_choice_interface_id: Option[Identifier],
       exercise_argument: Array[Byte],
       exercise_result: Option[Array[Byte]],
-      exercise_actors: Set[String],
+      exercise_actors: Set[Party],
       exercise_last_descendant_node_id: Int,
       exercise_argument_compression: Option[Int],
       exercise_result_compression: Option[Int],
@@ -581,8 +590,8 @@ object DbDto {
       // contract related columns
       contract_id: ContractId,
       internal_contract_id: Option[Long],
-      template_id: String,
-      package_id: String,
+      template_id: NameTypeConRef,
+      package_id: PackageId,
       ledger_effective_time: Long,
   ): Iterator[DbDto] =
     Iterator(
@@ -630,8 +639,8 @@ object DbDto {
     )(_.variousWitness)
 
   def idFilters(
-      party_ids: Iterator[String],
-      template_id: String,
+      party_ids: Iterator[Party],
+      template_id: NameTypeConRef,
       event_sequential_id: Long,
   )(toIdFilterDbDto: IdFilter => IdFilterDbDto): Iterator[IdFilterDbDto] =
     party_ids

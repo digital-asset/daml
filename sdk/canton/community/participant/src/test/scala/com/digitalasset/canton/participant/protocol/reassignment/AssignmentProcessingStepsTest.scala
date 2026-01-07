@@ -167,7 +167,7 @@ final class AssignmentProcessingStepsTest
   private lazy val cryptoClient =
     identityFactory.forOwnerAndSynchronizer(participant, targetPSId.unwrap)
 
-  private lazy val cryptoSnapshot = cryptoClient.currentSnapshotApproximation
+  private lazy val cryptoSnapshot = cryptoClient.currentSnapshotApproximation.futureValueUS
 
   private lazy val assignmentProcessingSteps = testInstance(targetPSId, cryptoClient, None)
 
@@ -254,7 +254,7 @@ final class AssignmentProcessingStepsTest
       recipients: Recipients = RecipientsTest.testInstance,
   ): ParsedReassignmentRequest[FullAssignmentTree] = {
     val signature = cryptoSnapshot
-      .sign(view.rootHash.unwrap, SigningKeyUsage.ProtocolOnly)
+      .sign(view.rootHash.unwrap, SigningKeyUsage.ProtocolOnly, None)
       .futureValueUS
       .value
 
@@ -803,6 +803,7 @@ final class AssignmentProcessingStepsTest
         ),
         reassigningParticipantValidationResult =
           ReassigningParticipantValidationResult(errors = Seq.empty),
+        loggerFactory = loggerFactory,
       ),
       MediatorGroupRecipient(MediatorGroupIndex.zero),
       locallyRejectedF = FutureUnlessShutdown.pure(false),
@@ -875,7 +876,7 @@ final class AssignmentProcessingStepsTest
     "succeed when the signature is correct" in {
       for {
         signature <- cryptoSnapshot
-          .sign(assignmentTree.rootHash.unwrap, SigningKeyUsage.ProtocolOnly)
+          .sign(assignmentTree.rootHash.unwrap, SigningKeyUsage.ProtocolOnly, None)
           .valueOrFailShutdown("signing failed")
 
         parsed = mkParsedRequest(
@@ -901,7 +902,7 @@ final class AssignmentProcessingStepsTest
     "fail when the signature is incorrect" in {
       for {
         signature <- cryptoSnapshot
-          .sign(TestHash.digest("wrong signature"), SigningKeyUsage.ProtocolOnly)
+          .sign(TestHash.digest("wrong signature"), SigningKeyUsage.ProtocolOnly, None)
           .valueOrFailShutdown("signing failed")
 
         parsed = mkParsedRequest(
@@ -934,7 +935,7 @@ final class AssignmentProcessingStepsTest
       TestReassignmentCoordination.apply(
         Set(),
         CantonTimestamp.Epoch,
-        Some(snapshotOverride.currentSnapshotApproximation),
+        Some(snapshotOverride.currentSnapshotApproximation.futureValueUS),
         Some(awaitTimestampOverride),
         loggerFactory,
       ),
@@ -942,6 +943,7 @@ final class AssignmentProcessingStepsTest
       seedGenerator,
       contractValidator,
       Target(defaultStaticSynchronizerParameters),
+      clock,
       Target(testedProtocolVersion),
       loggerFactory = loggerFactory,
     )
@@ -1038,6 +1040,7 @@ final class AssignmentProcessingStepsTest
           tree,
           (viewKey, viewKeyMap),
           cryptoSnapshot,
+          None,
           testedProtocolVersion,
         )
         .valueOrFailShutdown("cannot encrypt assignment request")

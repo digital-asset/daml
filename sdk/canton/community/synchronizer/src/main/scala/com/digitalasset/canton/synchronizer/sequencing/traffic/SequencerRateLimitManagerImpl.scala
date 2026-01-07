@@ -8,8 +8,8 @@ import cats.syntax.bifunctor.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.metrics.api.MetricsContext
-import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
+import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.{SyncCryptoApi, SyncCryptoClient, SynchronizerCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{
@@ -38,7 +38,7 @@ import com.digitalasset.canton.synchronizer.sequencing.traffic.store.TrafficCons
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{MediatorId, Member, ParticipantId, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ErrorUtil
+import com.digitalasset.canton.util.{ErrorUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 
@@ -51,6 +51,7 @@ class SequencerRateLimitManagerImpl(
     override val trafficConsumedStore: TrafficConsumedStore,
     override protected val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
+    batchingConfig: BatchingConfig,
     metrics: SequencerMetrics,
     synchronizerSyncCryptoApi: SynchronizerCryptoClient,
     protocolVersion: ProtocolVersion,
@@ -269,29 +270,33 @@ class SequencerRateLimitManagerImpl(
   ): EitherT[FutureUnlessShutdown, SequencerRateLimitError, Unit] = if (
     isRateLimited(request.sender)
   ) {
-    // At submission time, we use the current snapshot approximation to validate the request cost.
-    // Obviously the request has not been sequenced yet so that's the best we can do.
-    // The optional submissionTimestamp provided in the request will only be used if the first validation fails
-    // It will allow us to differentiate between a benign submission with an outdated submission cost and
-    // a malicious submission with a truly incorrect cost.
-    // If the submitted cost diverges from the one computed using this snapshot, but is valid using the snapshot
-    // the sender claims to have used, and is within the tolerance window, we'll accept the submission.
-    // If not we'll reject it.
-    val topology = synchronizerSyncCryptoApi.currentSnapshotApproximation
-    val currentTopologySnapshot = topology.ipsSnapshot
 
-    validateRequest(
-      request,
-      submissionTimestampO,
-      currentTopologySnapshot,
-      orderingSequencerId = None,
-      latestSequencerEventTimestamp = lastSequencerEventTimestamp,
-      warnIfApproximate = true,
-      lastSequencedTimestamp,
-      // At submission time we allow submission timestamps slightly ahead of our current topology
-      allowSubmissionTimestampInFuture = true,
-    )
-      .flatMap {
+    for {
+      // At submission time, we use the current snapshot approximation to validate the request cost.
+      // Obviously the request has not been sequenced yet so that's the best we can do.
+      // The optional submissionTimestamp provided in the request will only be used if the first validation fails
+      // It will allow us to differentiate between a benign submission with an outdated submission cost and
+      // a malicious submission with a truly incorrect cost.
+      // If the submitted cost diverges from the one computed using this snapshot, but is valid using the snapshot
+      // the sender claims to have used, and is within the tolerance window, we'll accept the submission.
+      // If not we'll reject it.
+      currentTopologySnapshot <-
+        EitherT.liftF(
+          synchronizerSyncCryptoApi.currentSnapshotApproximation
+            .map(_.ipsSnapshot)
+        )
+      requestValidationResult <- validateRequest(
+        request,
+        submissionTimestampO,
+        currentTopologySnapshot,
+        orderingSequencerId = None,
+        latestSequencerEventTimestamp = lastSequencerEventTimestamp,
+        warnIfApproximate = true,
+        lastSequencedTimestamp,
+        // At submission time we allow submission timestamps slightly ahead of our current topology
+        allowSubmissionTimestampInFuture = true,
+      )
+      _ <- requestValidationResult match {
         // If there's a cost to validate against the current available traffic, do that
         case Some(ValidCost(cost, params, _)) =>
           // Pick the immediate successor of the lastSequencedTimestamp, as the event being validated would at least
@@ -304,8 +309,9 @@ class SequencerRateLimitManagerImpl(
             params,
           )
         // Otherwise let the request through
-        case None => EitherT.pure(())
+        case None => EitherT.pure[FutureUnlessShutdown, SequencerRateLimitError](())
       }
+    } yield ()
   } else EitherT.pure(())
 
   /** Compute the cost of a batch using the provided topology. If traffic control parameters are not
@@ -411,7 +417,7 @@ class SequencerRateLimitManagerImpl(
        * tolerance window start = validation timestamp - submissionCostTimestampTopologyTolerance
        * tolerance window end = validation timestamp + submissionTimestampInFutureTolerance
        *
-       * T1 and T4 are outside of the tolerance window (in the past and future respectively):
+       * T1 and T4 are outside the tolerance window (in the past and future respectively):
        *    We reject the submission without even verifying if the cost was correctly computed
        * T2 is before the validation timestamp but within the window: We grab the corresponding topology snapshot
        *    (which we have already because we have topology at least until "validation timestamp"), and check
@@ -798,8 +804,8 @@ class SequencerRateLimitManagerImpl(
     }.toSeq
       .filter(isRateLimited)
 
-    membersToGetTrafficFor.toList
-      .parTraverse { member =>
+    MonadUtil
+      .parTraverseWithLimit(batchingConfig.parallelism)(membersToGetTrafficFor) { member =>
         for {
           tcm <- getOrCreateTrafficConsumedManager(member)
           trafficConsumed = tcm.getTrafficConsumed

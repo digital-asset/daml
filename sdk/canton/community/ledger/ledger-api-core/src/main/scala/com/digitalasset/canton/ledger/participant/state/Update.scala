@@ -9,7 +9,7 @@ import com.digitalasset.canton.RepairCounter
 import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
 import com.digitalasset.canton.ledger.participant.state.Update.CommandRejected.RejectionReasonTemplate
-import com.digitalasset.canton.ledger.participant.state.Update.TransactionAccepted.RepresentativePackageIds
+import com.digitalasset.canton.ledger.participant.state.Update.TransactionAccepted.RepresentativePackageId
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.{LfHash, UpdateId}
 import com.digitalasset.canton.topology.SynchronizerId
@@ -264,28 +264,14 @@ object Update {
 
     def updateId: UpdateId
 
-    /** For each contract created in this transaction, this map may contain contract authentication
-      * data assigned by the ledger implementation. This data is opaque and can only be used in
-      * [[com.digitalasset.daml.lf.transaction.FatContractInstance]]s when submitting transactions
-      * trough the [[SyncService]]. If a contract created by this transaction is not element of this
-      * map, its authentication data is equal to the empty byte array.
-      */
-    def contractAuthenticationData: Map[Value.ContractId, Bytes]
-
-    /** The representative package-ids for the contracts created in this transaction See
-      * [[TransactionAccepted.RepresentativePackageIds]] for more details.
-      */
-    def representativePackageIds: RepresentativePackageIds
-
     def externalTransactionHash: Option[Hash]
 
     def isAcsDelta(contractId: Value.ContractId): Boolean
 
     /** Maps each contract id (of created or archived events of the transaction) to the
-      * corresponding internal contract id in order to have the internal contract id persisted in
-      * the index db for the corresponding events.
+      * corresponding [[ContractInfo]].
       */
-    def internalContractIds: Map[Value.ContractId, Long]
+    def contractInfos: Map[Value.ContractId, ContractInfo]
 
     lazy val blindingInfo: BlindingInfo = Blinding.blind(transaction)
 
@@ -321,35 +307,47 @@ object Update {
       * package-id guarantee is required for ensuring correct rendering of contract create values on
       * the gRPC/JSON Ledger API read queries.
       */
-    sealed trait RepresentativePackageIds extends Product with Serializable
-    object RepresentativePackageIds {
-      def from(
-          representativePackageIds: Map[Value.ContractId, Ref.PackageId]
-      ): DedicatedRepresentativePackageIds =
-        DedicatedRepresentativePackageIds(representativePackageIds)
+    sealed trait RepresentativePackageId extends Product with Serializable
+    object RepresentativePackageId {
 
-      /** Signals that the representative package-id of the created contracts referenced in this
+      /** Signals that the representative package-id of the created contract referenced in this
         * transaction are the same as the contract's creation package-id.
         */
-      case object SameAsContractPackageId extends RepresentativePackageIds
+      case object SameAsContractPackageId extends RepresentativePackageId
 
-      final case class DedicatedRepresentativePackageIds(
-          representativePackageIds: Map[Value.ContractId, Ref.PackageId]
-      ) extends RepresentativePackageIds
-      val Empty: DedicatedRepresentativePackageIds = DedicatedRepresentativePackageIds(Map.empty)
+      final case class DedicatedRepresentativePackageId(
+          representativePackageId: Ref.PackageId
+      ) extends RepresentativePackageId
     }
   }
+
+  /** Information about a contract needed for indexing.
+    *
+    * @param internalContractId
+    *   The internal contract id assigned to the contract.
+    * @param contractAuthenticationData
+    *   Contract authentication data assigned by the ledger implementation. This data is opaque and
+    *   can only be used in [[com.digitalasset.daml.lf.transaction.FatContractInstance]]s when
+    *   submitting transactions through the [[SyncService]].
+    * @param representativePackageId
+    *   The representative package-id for the contract, if the contract is created in this
+    *   transaction. See [[TransactionAccepted.RepresentativePackageId]] for more details.
+    */
+  final case class ContractInfo(
+      internalContractId: Long,
+      contractAuthenticationData: Bytes,
+      representativePackageId: RepresentativePackageId,
+  )
 
   final case class SequencedTransactionAccepted(
       completionInfoO: Option[CompletionInfo],
       transactionMeta: TransactionMeta,
       transaction: CommittedTransaction,
       updateId: UpdateId,
-      contractAuthenticationData: Map[Value.ContractId, Bytes],
       synchronizerId: SynchronizerId,
       recordTime: CantonTimestamp,
       acsChangeFactory: AcsChangeFactory,
-      internalContractIds: Map[Value.ContractId, Long],
+      contractInfos: Map[Value.ContractId, ContractInfo],
       externalTransactionHash: Option[Hash] = None,
   )(implicit override val traceContext: TraceContext)
       extends TransactionAccepted
@@ -357,21 +355,16 @@ object Update {
       with AcsChangeSequencedUpdate {
     override def isAcsDelta(contractId: Value.ContractId): Boolean =
       acsChangeFactory.contractActivenessChanged(contractId)
-
-    override val representativePackageIds: RepresentativePackageIds.SameAsContractPackageId.type =
-      RepresentativePackageIds.SameAsContractPackageId
   }
 
   final case class RepairTransactionAccepted(
       transactionMeta: TransactionMeta,
       transaction: CommittedTransaction,
       updateId: UpdateId,
-      contractAuthenticationData: Map[Value.ContractId, Bytes],
-      representativePackageIds: RepresentativePackageIds,
       synchronizerId: SynchronizerId,
       repairCounter: RepairCounter,
       recordTime: CantonTimestamp,
-      internalContractIds: Map[Value.ContractId, Long],
+      contractInfos: Map[Value.ContractId, ContractInfo],
   )(implicit override val traceContext: TraceContext)
       extends TransactionAccepted
       with RepairUpdate {
@@ -407,11 +400,6 @@ object Update {
 
     def reassignment: Reassignment.Batch
 
-    /** Maps each contract id to the corresponding internal contract id in order to have the
-      * internal contract id persisted in the index db for the corresponding events.
-      */
-    def internalContractIds: Map[Value.ContractId, Long]
-
     def kind: String = if (reassignmentInfo.sourceSynchronizer.unwrap == synchronizerId)
       "unassignment"
     else "assignment"
@@ -438,7 +426,6 @@ object Update {
       recordTime: CantonTimestamp,
       override val synchronizerId: SynchronizerId,
       acsChangeFactory: AcsChangeFactory,
-      internalContractIds: Map[Value.ContractId, Long],
   )(implicit override val traceContext: TraceContext)
       extends ReassignmentAccepted
       with SequencedUpdate
@@ -452,7 +439,6 @@ object Update {
       repairCounter: RepairCounter,
       recordTime: CantonTimestamp,
       override val synchronizerId: SynchronizerId,
-      internalContractIds: Map[Value.ContractId, Long],
   )(implicit override val traceContext: TraceContext)
       extends ReassignmentAccepted
       with RepairUpdate {
@@ -468,7 +454,6 @@ object Update {
       recordTime: CantonTimestamp,
       override val synchronizerId: SynchronizerId,
       acsChangeFactory: AcsChangeFactory,
-      internalContractIds: Map[Value.ContractId, Long],
   )(implicit override val traceContext: TraceContext)
       extends ReassignmentAccepted
       with RepairUpdate

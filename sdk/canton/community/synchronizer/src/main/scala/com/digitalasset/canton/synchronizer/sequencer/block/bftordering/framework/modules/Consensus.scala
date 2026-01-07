@@ -52,8 +52,10 @@ object Consensus {
   sealed trait LocalAvailability extends ProtocolMessage
   object LocalAvailability {
     final case object NoProposalAvailableYet extends LocalAvailability
-    final case class ProposalCreated(orderingBlock: OrderingBlock, epochNumber: EpochNumber)
-        extends LocalAvailability
+    final case class ProposalCreated(
+        forBlock: BlockNumber,
+        orderingBlock: OrderingBlock,
+    ) extends LocalAvailability
   }
 
   /** The networked consensus protocol for ISS running on top of PBFT

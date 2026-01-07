@@ -11,7 +11,6 @@ import com.daml.test.evidence.tag.Reliability.{
   Remediation,
 }
 import com.digitalasset.canton.concurrent.Threading
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{ParticipantReference, RemoteInstanceReference}
 import com.digitalasset.canton.integration.plugins.*
@@ -151,7 +150,7 @@ class RestartHAParticipantReliabilityIntegrationTest
     )
   )
   registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory)
+    new UseBftSequencer(loggerFactory)
   )
 
   registerPlugin(

@@ -25,6 +25,12 @@ trait KmsMetadataStore {
       tc: TraceContext
   ): FutureUnlessShutdown[Option[KmsMetadata]]
 
+  /** Get multiple KMS key metadata from store
+    */
+  def getAll(fingerprints: Seq[Fingerprint])(implicit
+      tc: TraceContext
+  ): FutureUnlessShutdown[Map[Fingerprint, Option[KmsMetadata]]]
+
   /** Store KMS metadata in the store
     */
   def store(

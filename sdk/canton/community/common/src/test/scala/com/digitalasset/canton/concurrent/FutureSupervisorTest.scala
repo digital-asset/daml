@@ -7,6 +7,7 @@ import cats.Monad
 import com.digitalasset.canton.concurrent.FutureSupervisor.Impl.ScheduledFuture
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.*
+import com.digitalasset.canton.logging.SuppressingLogger.LogEntryOptionality.*
 import com.digitalasset.canton.logging.{ErrorLoggingContext, LogEntry, SuppressionRule}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, config}
@@ -88,7 +89,7 @@ class FutureSupervisorImplTest extends FutureSupervisorTest {
 
     def complainAboutSlowFuture(supervisor: FutureSupervisor): Unit = {
       val promise = Promise[Unit]()
-      loggerFactory.assertLoggedWarningsAndErrorsSeq(
+      loggerFactory.assertLogsUnorderedOptional(
         {
           val fut = supervisor.supervised("slow-future")(promise.future)
           eventually() {
@@ -97,14 +98,12 @@ class FutureSupervisorImplTest extends FutureSupervisorTest {
           promise.success(())
           fut.futureValue
         },
-        {
-          // If the test is running slow we might get the warning multiple times
-          logEntries =>
-            logEntries should not be empty
-            forAll(logEntries) {
-              _.warningMessage should include("slow-future has not completed after")
-            }
-        },
+        (
+          Optional,
+          isSummary(_) shouldBe true,
+        ), // can produce flakes due to sometimes logging as a summary
+        (Required, _.warningMessage should include("slow-future has not completed after")),
+        (OptionalMany, _.warningMessage should include("slow-future has not completed after")),
       )
     }
 
@@ -125,7 +124,7 @@ class FutureSupervisorImplTest extends FutureSupervisorTest {
 
       val msg = "Description throws"
       val promise1 = Promise[Unit]()
-      val ex = loggerFactory.assertLoggedWarningsAndErrorsSeq(
+      val ex = loggerFactory.assertLogsUnorderedOptional(
         {
           val fut = supervisor.supervised(throw new Exception(msg))(promise1.future)
           eventually() {
@@ -135,12 +134,19 @@ class FutureSupervisorImplTest extends FutureSupervisorTest {
           // The description is used for logging the slow completion, so we need to deal with it here.
           fut.failed.futureValue
         },
-        forAll(_) { entry =>
-          entry.errorMessage should include(
-            "Future supervision has failed with an exception, but will repeat"
-          )
-          entry.throwable.value.getMessage should include(msg)
-        },
+        (
+          Optional,
+          isSummary(_) shouldBe true,
+        ), // can produce flakes due to sometimes logging as a summary
+        (
+          Required,
+          { entry =>
+            entry.errorMessage should include(
+              "Future supervision has failed with an exception, but will repeat"
+            )
+            entry.throwable.value.getMessage should include(msg)
+          },
+        ),
       )
       ex.getMessage shouldBe msg
 
@@ -310,10 +316,6 @@ class FutureSupervisorImplTest extends FutureSupervisorTest {
       // Creating a lot of log lines in a short amount of time can overwhelm the logging system.
       // The future supervisor should therefore produce summaries in case futures are piling up.
 
-      def isSummary(entry: LogEntry): Boolean = entry.message.contains(
-        s"Supervised futures for the following trace IDs have not completed with alert log level"
-      )
-
       def isInitialWarn(entry: LogEntry): Boolean =
         entry.message.contains(" has not completed after ")
 
@@ -425,6 +427,10 @@ class FutureSupervisorImplTest extends FutureSupervisorTest {
       )
 
     }
+
+    def isSummary(entry: LogEntry): Boolean = entry.message.contains(
+      s"Supervised futures for the following trace IDs have not completed with alert log level"
+    )
   }
 }
 

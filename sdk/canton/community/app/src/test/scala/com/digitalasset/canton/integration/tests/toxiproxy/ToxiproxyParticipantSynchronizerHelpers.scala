@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.integration.tests.toxiproxy
 
+import com.digitalasset.canton.admin.api.client.data.SynchronizerConnectionConfig
 import com.digitalasset.canton.integration.TestConsoleEnvironment
 import com.digitalasset.canton.integration.plugins.toxiproxy.UseToxiproxy.ToxiproxyConfig
 import com.digitalasset.canton.integration.plugins.toxiproxy.{
@@ -11,7 +12,6 @@ import com.digitalasset.canton.integration.plugins.toxiproxy.{
   UseToxiproxy,
 }
 import com.digitalasset.canton.integration.util.EntitySyntax
-import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.{BaseTest, SequencerAlias}
 
 import java.util.concurrent.atomic.AtomicInteger

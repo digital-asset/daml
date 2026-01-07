@@ -8,7 +8,8 @@ import com.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
 import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.speedy.SValue._
+import com.digitalasset.daml.lf.engine.ScriptEngine.defaultCompilerConfig
+import com.digitalasset.daml.lf.value.Value._
 
 import java.nio.file.Paths
 import org.scalatest.Inside
@@ -24,12 +25,12 @@ class DamlScriptDevIT extends AsyncWordSpec with AbstractScriptTest with Inside 
   lazy val trySubmitConcurrentlyTestDarPath =
     BazelRunfiles.rlocation(Paths.get("compiler/damlc/tests/try-submit-concurrently-test.dar"))
   lazy val trySubmitConcurrentlyTestDar: CompiledDar =
-    CompiledDar.read(trySubmitConcurrentlyTestDarPath, Runner.compilerConfig)
+    CompiledDar.read(trySubmitConcurrentlyTestDarPath, defaultCompilerConfig)
 
   lazy val queryTestDarPath =
     BazelRunfiles.rlocation(Paths.get("compiler/damlc/tests/query-test.dar"))
   lazy val queryTestDar: CompiledDar =
-    CompiledDar.read(queryTestDarPath, Runner.compilerConfig)
+    CompiledDar.read(queryTestDarPath, defaultCompilerConfig)
 
   override protected lazy val darFiles = List(
     trySubmitConcurrentlyTestDarPath,
@@ -46,7 +47,7 @@ class DamlScriptDevIT extends AsyncWordSpec with AbstractScriptTest with Inside 
             QualifiedName.assertFromString("TrySubmitConcurrently:resultsMatchInputs"),
             dar = trySubmitConcurrentlyTestDar,
           )
-      } yield r shouldBe SUnit
+      } yield r shouldBe ValueUnit
     }
 
     "return exactly one successful result and n-1 errors when attempting to exercise n consuming choices on the same contract" in {
@@ -58,7 +59,7 @@ class DamlScriptDevIT extends AsyncWordSpec with AbstractScriptTest with Inside 
             QualifiedName.assertFromString("TrySubmitConcurrently:noDoubleSpend"),
             dar = trySubmitConcurrentlyTestDar,
           )
-      } yield r shouldBe SUnit
+      } yield r shouldBe ValueUnit
     }
   }
 
@@ -72,7 +73,7 @@ class DamlScriptDevIT extends AsyncWordSpec with AbstractScriptTest with Inside 
             QualifiedName.assertFromString("Query:main"),
             dar = queryTestDar,
           )
-      } yield r shouldBe SUnit
+      } yield r shouldBe ValueUnit
     }
   }
 }

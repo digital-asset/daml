@@ -4,9 +4,8 @@
 package com.digitalasset.canton.integration.tests.logging
 
 import cats.syntax.functor.*
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.integration.IntegrationTestUtilities.grabCounts
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
@@ -160,5 +159,6 @@ abstract class TraceContextIntegrationTest extends CommunityIntegrationTest with
 class GrpcTraceContextIntegrationTestPostgres extends TraceContextIntegrationTest {
   // run with postgres to ensure writing to persistent stores is working correctly
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
+
 }

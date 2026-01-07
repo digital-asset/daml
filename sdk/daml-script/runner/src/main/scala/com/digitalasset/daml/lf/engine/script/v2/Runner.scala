@@ -8,6 +8,7 @@ package v2
 
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.engine.free.Free
 import com.digitalasset.daml.lf.engine.script.Runner.IdeLedgerContext
 import com.digitalasset.daml.lf.engine.script.ledgerinteraction.{
@@ -15,8 +16,18 @@ import com.digitalasset.daml.lf.engine.script.ledgerinteraction.{
 }
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
 import com.digitalasset.daml.lf.script.{IdeLedger, IdeLedgerRunner}
-import com.digitalasset.daml.lf.speedy.{Profile, SExpr, SValue, Speedy, TraceLog, WarningLog}
-import com.daml.script.converter.ConverterException
+import com.digitalasset.daml.lf.engine.ScriptEngine.{
+  ExtendedValue,
+  ExtendedValueClosureBlob,
+  ExtendedValueComputationMode,
+  runExtendedValueComputation,
+  newTraceLog,
+  newWarningLog,
+  TraceLog,
+  WarningLog,
+}
+import com.digitalasset.daml.lf.value.Value._
+import com.digitalasset.daml.lf.script.converter.ConverterException
 import com.digitalasset.canton.logging.NamedLoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -24,15 +35,14 @@ import scala.concurrent.{ExecutionContext, Future}
 private[lf] class Runner(
     unversionedRunner: script.Runner,
     initialClients: Participants[UnversionedScriptLedgerClient],
-    traceLog: TraceLog = Speedy.Machine.newTraceLog,
-    warningLog: WarningLog = Speedy.Machine.newWarningLog,
-    profile: Profile = Speedy.Machine.newProfile,
+    traceLog: TraceLog = newTraceLog,
+    warningLog: WarningLog = newWarningLog,
     canceled: () => Option[RuntimeException] = () => None,
 ) {
-  import Free.Result, SExpr.SExpr
+  import Free.Result
 
   implicit val namedLoggerFactory: NamedLoggerFactory =
-    NamedLoggerFactory("daml-script", profile.name)
+    NamedLoggerFactory("daml-script", "Daml Script")
 
   private val initialClientsV2 = initialClients.map(
     ScriptLedgerClient.realiseScriptLedgerClient(
@@ -61,7 +71,9 @@ private[lf] class Runner(
         }
     }
 
-  def remapQ[X](result: Result[X, Free.Question, SExpr]): Result[X, ScriptF.Cmd, SExpr] =
+  def remapQ[X](
+      result: Result[X, Free.Question, ExtendedValue]
+  ): Result[X, ScriptF.Cmd, ExtendedValue] =
     result.remapQ { case Free.Question(name, version, payload, stackTrace) =>
       ScriptF.parse(name, version, payload, knownPackages) match {
         case Right(cmd) =>
@@ -84,37 +96,71 @@ private[lf] class Runner(
       }
     }
 
-  def run(expr: SExpr.SExpr, convertLegacyExceptions: Boolean = true)(implicit
+  // Takes a Script X and runs it
+  def runResolved(scriptValue: ExtendedValue, convertLegacyExceptions: Boolean = true)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[SValue] =
+  ): Future[ExtendedValue] =
     for {
+      freeClosure <- scriptValue match {
+        case ValueRecord(_, ImmArray((_, freeClosure: ExtendedValueClosureBlob), _)) =>
+          Future.successful(freeClosure)
+        case a => Future.failed(new RuntimeException(s"Expected Script a but got $a"))
+      }
       freeExpr <-
         Free.getResultF(
-          expr,
+          freeClosure,
           unversionedRunner.extendedCompiledPackages,
           traceLog,
           warningLog,
-          profile,
           Script.DummyLoggingContext,
           convertLegacyExceptions,
           canceled,
         )
       result <-
-        remapQ(freeExpr).runF[ScriptF.Cmd, SExpr](
+        remapQ(freeExpr).runF[ScriptF.Cmd, ExtendedValue](
           _.executeWithRunner(env, this, convertLegacyExceptions)
             .map(Result.successful)
-            .recover { case err: RuntimeException => Result.failed(err) },
-          canceled,
+            .recover { case err: RuntimeException => Result.failed(err) }
         )
     } yield result
+
+  // Takes something that resolves/computes to a Script X, then runs the script
+  def run(comp: ExtendedValueComputationMode, convertLegacyExceptions: Boolean = true)(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[ExtendedValue] =
+    for {
+      scriptValue <- runComputation(comp, convertLegacyExceptions)
+      result <- runResolved(scriptValue, convertLegacyExceptions)
+    } yield result
+
+  def runComputation(
+      comp: ExtendedValueComputationMode,
+      convertLegacyExceptions: Boolean = true,
+  )(implicit ec: ExecutionContext): Future[ExtendedValue] =
+    Future {
+      runExtendedValueComputation(
+        comp,
+        canceled,
+        unversionedRunner.extendedCompiledPackages,
+        iterationsBetweenInterruptions = 100000,
+        traceLog,
+        warningLog,
+        convertLegacyExceptions,
+      )(Script.DummyLoggingContext).fold(
+        err => throw err.fold(identity, free.InterpretationError(_)),
+        identity,
+      )
+    }
 
   def getResult()(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): (Future[SValue], Option[IdeLedgerContext]) =
+  ): (Future[ExtendedValue], Option[IdeLedgerContext]) =
     if (unversionedRunner.script.scriptIds.isLegacy)
       (
         Future.failed(
@@ -125,5 +171,17 @@ private[lf] class Runner(
         ideLedgerContext,
       )
     else
-      (run(unversionedRunner.script.expr), ideLedgerContext)
+      (
+        unversionedRunner.script match {
+          case ScriptAction.NoParam(id, _) =>
+            run(ExtendedValueComputationMode.ByIdentifier(id))
+          case ScriptAction.Param(id, paramType, Some(param), _) =>
+            run(ExtendedValueComputationMode.ByIdentifier(id, Some(List(param))))
+          case _ =>
+            Future.failed(
+              new RuntimeException("impossible")
+            ) // This case is caught by script.Runner, when a Param ScriptAction is called without a param
+        },
+        ideLedgerContext,
+      )
 }

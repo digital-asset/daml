@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
 class SymbolicPureCrypto extends CryptoPureApi {
 
   /** This flag is used to control the randomness during asymmetric encryption. This is only
-    * intended to be used for testing purposes and it overrides the randomization flag given to
+    * intended to be used for testing purposes, and it overrides the randomization flag given to
     * [[encryptWithInternal]].
     */
   private val neverRandomizeAsymmetricEncryption = new AtomicBoolean(false)
@@ -324,7 +324,7 @@ class SymbolicPureCrypto extends CryptoPureApi {
         .getOrElse(generateSecureRandomness(pbkdfScheme.defaultSaltLengthInBytes))
 
     // We just hash the salt and password, then truncate/pad to desired length
-    val hash = TestHash.build.addWithoutLengthPrefix(salt.unwrap).add(password).finish()
+    val hash = TestHash.build.addWithoutLengthPrefix(salt.unwrap).addString(password).finish()
     val keyBytes =
       ByteStringUtil.padOrTruncate(
         hash.unwrap,

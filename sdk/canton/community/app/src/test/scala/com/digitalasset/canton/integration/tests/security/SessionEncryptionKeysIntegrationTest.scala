@@ -6,7 +6,7 @@ package com.digitalasset.canton.integration.tests.security
 import cats.syntax.either.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.BigDecimalImplicits.*
-import com.digitalasset.canton.config.{DbConfig, PositiveFiniteDuration}
+import com.digitalasset.canton.config.PositiveFiniteDuration
 import com.digitalasset.canton.console.LocalParticipantReference
 import com.digitalasset.canton.crypto.SessionKeyInfo
 import com.digitalasset.canton.data.LightTransactionViewTree
@@ -16,7 +16,6 @@ import com.digitalasset.canton.integration.plugins.{
   UseBftSequencer,
   UsePostgres,
   UseProgrammableSequencer,
-  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -444,12 +443,6 @@ trait SessionKeyIntegrationTest
     }
   }
 
-}
-
-class SessionKeyReferenceIntegrationTestPostgres extends SessionKeyIntegrationTest {
-  registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
-  registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
 }
 
 class SessionKeyBftOrderingIntegrationTestPostgres extends SessionKeyIntegrationTest {

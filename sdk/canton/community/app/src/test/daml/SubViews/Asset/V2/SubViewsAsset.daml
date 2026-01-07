@@ -1,0 +1,32 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module SubViewsAsset where
+
+template Asset
+  with
+    sig : Party
+    extra : Optional Text
+  where
+    signatory sig
+
+    choice Cycle : ContractId Asset
+      with
+        ctl : Party
+        factoryId : ContractId AssetFactory
+      controller ctl
+        do exercise factoryId (CreateAsset sig)
+
+template AssetFactory
+  with
+    sig : Party
+    extra : Optional Text
+  where
+    signatory sig
+
+    choice CreateAsset : ContractId Asset
+      with
+        ctl : Party
+      controller ctl
+        do
+          create (Asset sig extra)

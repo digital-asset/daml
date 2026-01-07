@@ -8,10 +8,9 @@ import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.Updat
   UnassignedWrapper,
 }
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.{CommandFailure, FeatureFlag}
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.util.EntitySyntax
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -225,7 +224,7 @@ final class RollbackUnassignmentIntegrationTestPostgres
     extends RollbackUnassignmentIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.Postgres](
+    new UseBftSequencer(
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(

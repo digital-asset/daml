@@ -10,7 +10,6 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   PrepareSubmissionResponse,
 }
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{
   CommandFailure,
@@ -19,7 +18,7 @@ import com.digitalasset.canton.console.{
 }
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.examples.java.cycle
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
@@ -1181,5 +1180,5 @@ trait PartyToParticipantAuthIntegrationTest
 
 class PartyToParticipantAuthIntegrationTestPostgres extends PartyToParticipantAuthIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }

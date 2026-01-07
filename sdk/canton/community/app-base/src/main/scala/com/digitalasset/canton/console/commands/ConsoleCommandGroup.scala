@@ -19,7 +19,8 @@ trait ConsoleCommandGroup extends Helpful with FeatureFlagFilter with NamedLoggi
 
 object ConsoleCommandGroup {
   class Impl(parent: ConsoleCommandGroup) extends ConsoleCommandGroup {
-    override protected def consoleEnvironment: ConsoleEnvironment = parent.consoleEnvironment
+    implicit override protected def consoleEnvironment: ConsoleEnvironment =
+      parent.consoleEnvironment
     override protected def runner: AdminCommandRunner = parent.runner
     override protected def loggerFactory: NamedLoggerFactory = parent.myLoggerFactory
   }

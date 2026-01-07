@@ -38,11 +38,11 @@ da_scala_library(
         "//ledger-service:__subpackages__",
     ],
     deps = [
+        "//canton:nonempty",
         "//daml-lf/archive:daml_lf_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/language",
-        "//libs-scala/nonempty",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_slf4j_slf4j_api",
     ],
@@ -78,13 +78,13 @@ da_scala_test(
     deps = [
         ":api-type-signature",
         "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:nonempty",
         "//daml-lf/archive:daml_lf_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/language",
         "//daml-lf/parser",
         "//daml-lf/transaction-test-lib",
-        "//libs-scala/nonempty",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )

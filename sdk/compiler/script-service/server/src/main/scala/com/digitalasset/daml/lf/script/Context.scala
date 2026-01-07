@@ -10,13 +10,15 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.daml.lf.data.{ImmArray, assertRight}
 import com.digitalasset.daml.lf.data.Ref.{Identifier, ModuleName, PackageId, QualifiedName}
 import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
+import com.digitalasset.daml.lf.engine.script.v2.Converter
 import com.digitalasset.daml.lf.engine.script.ledgerinteraction.IdeLedgerClient
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
 import com.digitalasset.daml.lf.script.api.v1.{ScriptModule => ProtoScriptModule}
 import com.digitalasset.daml.lf.speedy.{Compiler, SDefinition, Speedy}
 import com.digitalasset.daml.lf.speedy.SExpr.SDefinitionRef
 import com.digitalasset.daml.lf.validation.Validation
-import com.daml.script.converter
+import com.digitalasset.daml.lf.value.Value.ValueText
+import com.digitalasset.daml.lf.script.converter
 import com.google.protobuf.ByteString
 import com.digitalasset.daml.lf.engine.script.{Runner, Script}
 import com.daml.logging.LoggingContext
@@ -208,7 +210,6 @@ class Context(
     val scriptId = Identifier(packageId, QualifiedName.assertFromString(name))
     val traceLog = Speedy.Machine.newTraceLog
     val warningLog = Speedy.Machine.newWarningLog
-    val profile = Speedy.Machine.newProfile
     val timeBomb = TimeBomb(timeout.toMillis)
     val isOverdue = timeBomb.hasExploded
     val ledgerClient = new IdeLedgerClient(compiledPackages, traceLog, warningLog, isOverdue)
@@ -222,7 +223,6 @@ class Context(
       timeMode = ScriptTimeMode.Static,
       traceLog = traceLog,
       warningLog = warningLog,
-      profile = profile,
       canceled = () => {
         if (timeBombCanceller()) Some(Runner.TimedOut)
         else if (canceledByRequest()) Some(Runner.CanceledByRequest)
@@ -255,14 +255,12 @@ class Context(
             ideLedgerContext.ledger,
             traceLog,
             warningLog,
-            profile,
             dummyDuration,
             dummySteps,
-            v,
+            Converter.castCommandExtendedValue(v).getOrElse(ValueText("Unserializable")),
           )
         )
       case Failure(e: Error) => handleFailure(e)
-      case Failure(e: Runner.InterpretationError) => handleFailure(Error.RunnerException(e.error))
       case Failure(e: engine.free.InterpretationError) =>
         handleFailure(Error.RunnerException(e.error))
       case Failure(Runner.CanceledByRequest) =>

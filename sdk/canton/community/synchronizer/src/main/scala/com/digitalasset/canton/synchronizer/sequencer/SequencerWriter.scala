@@ -4,11 +4,9 @@
 package com.digitalasset.canton.synchronizer.sequencer
 
 import cats.data.EitherT
-import cats.instances.option.*
 import cats.syntax.bifunctor.*
 import cats.syntax.functor.*
 import cats.syntax.option.*
-import cats.syntax.parallel.*
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -425,7 +423,7 @@ class SequencerWriter(
           // close the running writer and reset the reference
           val closed = runningWriterRef
             .getAndSet(None)
-            .parTraverse_(_.close())
+            .fold(FutureUnlessShutdown.unit)(_.close())
             .recover { case NonFatal(e) =>
               logger.debug("Running writer will be recovered, due to non-fatal error:", e)
               UnlessShutdown.unit

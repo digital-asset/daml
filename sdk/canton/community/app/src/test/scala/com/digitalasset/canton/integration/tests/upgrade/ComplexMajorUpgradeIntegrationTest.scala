@@ -8,10 +8,9 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.BaseTest.CantonLfV21
 import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameters
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.tests.multihostedparties.CoinFactoryHelpers
 import com.digitalasset.canton.integration.tests.upgrade.MajorUpgradeUtils.CantonNodes
 import com.digitalasset.canton.integration.util.EntitySyntax
@@ -54,7 +53,7 @@ final class MajorUpgradeComplexWriterIntegrationTest
 
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.Postgres](
+    new UseBftSequencer(
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(Set("sequencer1", "sequencer2"))
@@ -192,7 +191,7 @@ final class MajorUpgradeComplexReaderIntegrationTest
 
   // We use sequencer's groups to isolate the sequencers from each other, the same way we have different synchronizers
   registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.Postgres](
+    new UseBftSequencer(
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(Set("sequencer1", "sequencer2"))

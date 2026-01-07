@@ -8,8 +8,8 @@ import com.daml.metrics.MetricsFilterConfig
 import com.daml.metrics.api.MetricQualification
 import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommands.Inspection.SlowCounterParticipantSynchronizerConfig
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
+import com.digitalasset.canton.config.CommitmentSendDelay
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, NonNegativeProportion}
-import com.digitalasset.canton.config.{CommitmentSendDelay, DbConfig}
 import com.digitalasset.canton.console.{
   LocalParticipantReference,
   LocalSequencerReference,
@@ -17,7 +17,7 @@ import com.digitalasset.canton.console.{
 }
 import com.digitalasset.canton.examples.java.iou.Iou
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -28,7 +28,7 @@ import com.digitalasset.canton.integration.{
 }
 import com.digitalasset.canton.metrics.{MetricsConfig, MetricsReporterConfig}
 import com.digitalasset.canton.participant.pruning.SortedReconciliationIntervalsHelpers
-import com.digitalasset.canton.topology.{ParticipantId, PartyId}
+import com.digitalasset.canton.topology.{ParticipantId, Party}
 import com.digitalasset.canton.{SynchronizerAlias, UniquePortGenerator, config}
 import monocle.Monocle.toAppliedFocusOps
 
@@ -46,9 +46,9 @@ trait AcsCommitmentMetricsIntegrationTest
   private val bobName = "Bob"
   private val charlieName = "Charlie"
 
-  private var alice: PartyId = _
-  private var bob: PartyId = _
-  private var charlie: PartyId = _
+  private var alice: Party = _
+  private var bob: Party = _
+  private var charlie: Party = _
 
   private var metricsSynchronizerAlias: Shown = _
 
@@ -120,12 +120,12 @@ trait AcsCommitmentMetricsIntegrationTest
         }
 
         // Allocate parties
-        alice = participant1.parties.enable(aliceName, synchronizer = daName)
-        participant1.parties.enable(aliceName, synchronizer = acmeName)
-        bob = participant2.parties.enable(bobName, synchronizer = daName)
-        participant2.parties.enable(bobName, synchronizer = acmeName)
-        charlie = participant3.parties.enable(charlieName, synchronizer = daName)
-        participant3.parties.enable(charlieName, synchronizer = acmeName)
+        alice = participant1.parties.testing.enable(aliceName, synchronizer = daName)
+        participant1.parties.testing.also_enable(alice, synchronizer = acmeName)
+        bob = participant2.parties.testing.enable(bobName, synchronizer = daName)
+        participant2.parties.testing.also_enable(bob, synchronizer = acmeName)
+        charlie = participant3.parties.testing.enable(charlieName, synchronizer = daName)
+        participant3.parties.testing.also_enable(charlie, synchronizer = acmeName)
       }
 
   private def connect(
@@ -778,7 +778,7 @@ trait AcsCommitmentMetricsIntegrationTest
 
 class AcsCommitmentMetricsIntegrationTestDefault extends AcsCommitmentMetricsIntegrationTest {
   registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.Postgres](
+    new UseBftSequencer(
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(Set("sequencer1"), Set("sequencer2"))
@@ -791,7 +791,7 @@ class AcsCommitmentMetricsIntegrationTestDefault extends AcsCommitmentMetricsInt
 class AcsCommitmentMetricsIntegrationTestPostgres extends AcsCommitmentMetricsIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.Postgres](
+    new UseBftSequencer(
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(Set("sequencer1"), Set("sequencer2"))

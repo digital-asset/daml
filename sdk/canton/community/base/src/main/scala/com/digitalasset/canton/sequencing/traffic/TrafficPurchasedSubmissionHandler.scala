@@ -9,7 +9,7 @@ import cats.syntax.parallel.*
 import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
-import com.digitalasset.canton.crypto.{SynchronizerCryptoClient, SynchronizerSnapshotSyncCryptoApi}
+import com.digitalasset.canton.crypto.SynchronizerCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -67,8 +67,8 @@ class TrafficPurchasedSubmissionHandler(
       ec: ExecutionContext,
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, TrafficControlError, Unit] = {
-    val topology: SynchronizerSnapshotSyncCryptoApi = cryptoApi.currentSnapshotApproximation
-    val snapshot = topology.ipsSnapshot
+    val now = clock.now
+    val approximateTimestampOverride = Some(now)
 
     val protocolVersion: ProtocolVersion = cryptoApi.psid.protocolVersion
 
@@ -85,6 +85,7 @@ class TrafficPurchasedSubmissionHandler(
           logger.debug(
             s"Submitting traffic purchased entry request for $member with balance ${totalTrafficPurchased.value}, serial ${serial.value} and max sequencing time $maxSequencingTime"
           )
+          // in this particular case we must decouple the current timestamp we
           sendRequest(
             sequencerClient,
             synchronizerTimeTracker,
@@ -110,6 +111,8 @@ class TrafficPurchasedSubmissionHandler(
     }
 
     for {
+      topology <- EitherT.liftF(cryptoApi.currentSnapshotApproximation)
+      snapshot = topology.ipsSnapshot
       trafficParams <- EitherT
         .fromOptionF(
           snapshot.trafficControlParameters(protocolVersion),
@@ -150,16 +153,17 @@ class TrafficPurchasedSubmissionHandler(
           SignedProtocolMessage.trySignAndCreate(
             setTrafficPurchasedMessage,
             topology,
+            approximateTimestampOverride,
           )
         )
       batch = Batch.of(
         protocolVersion = protocolVersion,
-        // This recipient tree structure allows the recipient of the top up to verify that the sequencers were also addressed
+        // This recipient tree structure allows the recipient of the top-up to verify that the sequencers were also addressed
         signedTrafficPurchasedMessage -> Recipients(
           NonEmpty.mk(
             Seq,
             RecipientsTree.ofMembers(
-              NonEmpty.mk(Set, member), // Root of recipient tree: recipient of the top up
+              NonEmpty.mk(Set, member), // Root of recipient tree: recipient of the top-up
               Seq(
                 RecipientsTree.recipientsLeaf( // Leaf of the tree: sequencers of synchronizer group
                   NonEmpty.mk(
@@ -172,7 +176,8 @@ class TrafficPurchasedSubmissionHandler(
           )
         ),
       )
-      maxSequencingTimes = computeMaxSequencingTimes(trafficParams)
+      // TODO(#29515): fix potential blow-up when using session signing keys with short validity periods
+      maxSequencingTimes = computeMaxSequencingTimes(trafficParams, now)
       _ <- send(maxSequencingTimes, batch, aggregationRule)
     } yield ()
   }
@@ -238,10 +243,10 @@ class TrafficPurchasedSubmissionHandler(
   }
 
   private def computeMaxSequencingTimes(
-      trafficParams: TrafficControlParameters
+      trafficParams: TrafficControlParameters,
+      now: CantonTimestamp,
   ): NonEmpty[Seq[CantonTimestamp]] = {
     val timeWindowSize = trafficParams.setBalanceRequestSubmissionWindowSize
-    val now = clock.now
     val windowUpperBound = CantonTimestamp.ofEpochMilli(
       timeWindowSize.duration
         .multipliedBy(

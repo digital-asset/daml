@@ -7,7 +7,6 @@ import cats.data.{EitherT, Validated}
 import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.syntax.option.*
-import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
@@ -350,20 +349,22 @@ class SendEventGenerator(
       )
 
     def validateRecipient(
-        member: Member
-    ): FutureUnlessShutdown[Validated[Member, SequencerMemberId]] =
-      for {
-        registeredMember <- store.lookupMember(member)
-        memberIdO = registeredMember.map(_.memberId)
-      } yield memberIdO.toRight(member).toValidated
+        member: Member,
+        registeredMember: Option[RegisteredMember],
+    ): Validated[Member, SequencerMemberId] = {
+      val memberIdO = registeredMember.map(_.memberId)
+      memberIdO.toRight(member).toValidated
+    }
 
     def validateRecipients(
         recipients: Set[Member]
     ): FutureUnlessShutdown[Validated[NonEmpty[Seq[Member]], Set[SequencerMemberId]]] =
       for {
         // TODO(#12363) Support group addresses in the DB Sequencer
-        validatedSeq <- recipients.toSeq
-          .parTraverse(validateRecipient)
+        registeredMembers <- store.lookupMembers(recipients.toSeq)
+        validatedSeq = registeredMembers.map { case (member, registeredMember) =>
+          validateRecipient(member, registeredMember)
+        }.toSeq
         validated = validatedSeq.traverse(_.leftMap(NonEmpty(Seq, _)))
       } yield validated.map(_.toSet)
 

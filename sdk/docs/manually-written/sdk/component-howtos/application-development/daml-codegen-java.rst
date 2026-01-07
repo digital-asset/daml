@@ -15,7 +15,7 @@ See :ref:`How to work with contracts and transactions in Java <howto-application
 Install
 -------
 
-Install the Daml Codegen for Java by :ref:`installing the Daml Assistant <daml-assistant-install>`.
+Install the Daml Codegen for Java by :subsiteref:`installing DPM<dpm>`.
 
 Configure
 ---------
@@ -50,7 +50,7 @@ Specify the above settings in the ``codegen`` element of the Daml project file `
 
 Here is an example::
 
-    sdk-version: 3.4.0-rc2
+    sdk-version: 3.4.9
     name: quickstart
     source: daml
     init-script: Main:initialize
@@ -241,7 +241,6 @@ In particular, the codegen generates a file that defines six Java classes and on
 #. ``Bar.Contract``
 #. ``Bar.CreateAnd``
 #. ``Bar.JsonDecoder$``
-#. ``Bar.ByKey``
 #. ``Bar.Exercises``
 
 .. code-block:: java
@@ -250,23 +249,29 @@ In particular, the codegen generates a file that defines six Java classes and on
 
   package com.acme.templates;
 
-  public class Bar extends Template {
-
-    public static final Identifier TEMPLATE_ID = new Identifier("some-package-id", "Com.Acme.Templates", "Bar");
+  public final class Bar extends Template {
+    public static final Identifier TEMPLATE_ID = new Identifier("#some-package-name", "Templates", "Bar");
+    public static final Identifier TEMPLATE_ID_WITH_PACKAGE_ID = new Identifier("some-package-id", "Templates", "Bar");
+    public static final String PACKAGE_ID = "some-package-id";
+    public static final String PACKAGE_NAME = "some-package-name";
+    public static final PackageVersion PACKAGE_VERSION = new PackageVersion(new int[] {0, 0, 1});
 
     public static final Choice<Bar, Archive, Unit> CHOICE_Archive =
       Choice.create(/* ... */);
 
-    public static final ContractCompanion.WithKey<Contract, ContractId, Bar, BarKey> COMPANION =
-        new ContractCompanion.WithKey<>("com.acme.templates.Bar",
-          TEMPLATE_ID, ContractId::new, Bar::fromValue, Contract::new, e -> BarKey.fromValue(e), List.of(CHOICE_Archive));
+    public static final Choice<Bar, Bar_SomeChoice, Boolean> CHOICE_Bar_SomeChoice =
+      Choice.create(/* ... */);
+
+    public static final ContractCompanion.WithoutKey<Contract, ContractId, Bar> COMPANION =
+      new ContractCompanion.WithoutKey<>(new ContractTypeCompanion.Package(Bar.PACKAGE_ID, Bar.PACKAGE_NAME, Bar.PACKAGE_VERSION),
+        "com.acme.templates.Bar", TEMPLATE_ID, ContractId::new,
+        v -> Bar.templateValueDecoder().decode(v), Bar::fromJson, Contract::new,
+        List.of(CHOICE_Archive, CHOICE_Bar_SomeChoice));
 
     public final String owner;
     public final String name;
 
     public CreateAnd createAnd() { /* ... */ }
-
-    public static ByKey byKey(BarKey key) { /* ... */ }
 
     public static class ContractId extends com.daml.ledger.javaapi.data.codegen.ContractId<Bar>
         implements Exercises<ExerciseCommand> {
@@ -282,7 +287,7 @@ In particular, the codegen generates a file that defines six Java classes and on
       default Cmd exerciseBar_SomeChoice(String aName) { /* ... */ }
     }
 
-    public static class Contract extends ContractWithKey<ContractId, Bar, BarKey> {
+    public static class Contract extends com.daml.ledger.javaapi.data.codegen.Contract<ContractId, Bar> {
       // inherited:
       public final ContractId id;
       public final Bar data;
@@ -295,13 +300,8 @@ In particular, the codegen generates a file that defines six Java classes and on
         implements Exercises<CreateAndExerciseCommand> { /* ... */ }
 
     public static class JsonDecoder$ { /* ... */ }
-
-    public static final class ByKey
-        extends com.daml.ledger.javaapi.data.codegen.ByKey
-        implements Exercises<ExerciseByKeyCommand> { /* ... */ }
   }
 
-Note that ``byKey`` and ``ByKey`` will only be generated for templates that define a key.
 
 Variants (a.k.a. sum types)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~

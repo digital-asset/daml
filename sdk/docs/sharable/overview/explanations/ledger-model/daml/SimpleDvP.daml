@@ -113,7 +113,7 @@ simpleDvp = script do
   (_, eur, usd, proposeDvP, disclosedEur) <- setup alice bob bank1 bank2
 
   -- SNIPPET-ACCEPT_AND_SETTLE-BEGIN
-  (newUsd, newEur) <- submitWithDisclosures bob [disclosedEur] do
+  (newUsd, newEur) <- submit (actAs bob <> disclose disclosedEur) $ do
       exerciseCmd proposeDvP $ AcceptAndSettle with toBeAllocated = usd
   -- SNIPPET-ACCEPT_AND_SETTLE-END
     
@@ -126,7 +126,7 @@ simpleDvp = script do
   dvp <- submit bob $
     do exerciseCmd proposeDvp $ Accept with toBeAllocated = usd
 
-  (newUsd, newEur) <- submitWithDisclosures bob [disclosedEur] do
+  (newUsd, newEur) <- submit (actAs bob <> disclose disclosedEur) $ do
       exerciseCmd dvp $ Settle with actor = bob
   -- SNIPPET-ACCEPT_THEN_SETTLE-END
 
