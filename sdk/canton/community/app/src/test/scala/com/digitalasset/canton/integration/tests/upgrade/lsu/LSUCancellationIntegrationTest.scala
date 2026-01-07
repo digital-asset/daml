@@ -150,7 +150,7 @@ abstract class LSUCancellationIntegrationTest extends LSUBase {
 
     connectedSynchronizer.ephemeral.recordOrderPublisher.getSynchronizerSuccessor shouldBe successor
 
-    connectedSynchronizer.synchronizerCrypto.currentSnapshotApproximation.ipsSnapshot
+    connectedSynchronizer.synchronizerCrypto.currentSnapshotApproximation.futureValueUS.ipsSnapshot
       .synchronizerUpgradeOngoing()
       .futureValueUS
       .map { case (successor, _) => successor } shouldBe successor

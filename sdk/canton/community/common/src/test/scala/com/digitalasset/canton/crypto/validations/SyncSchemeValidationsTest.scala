@@ -5,7 +5,12 @@ package com.digitalasset.canton.crypto.validations
 
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.config.{CachingConfigs, CryptoConfig, CryptoProvider}
+import com.digitalasset.canton.config.{
+  CachingConfigs,
+  CryptoConfig,
+  CryptoProvider,
+  SessionEncryptionKeyCacheConfig,
+}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.store.{CryptoPrivateStoreExtended, CryptoPrivateStoreFactory}
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
@@ -31,7 +36,7 @@ class SyncSchemeValidationsTest extends AnyWordSpec with BaseTest with HasExecut
   private lazy val crypto: Crypto = Crypto
     .create(
       CryptoConfig(),
-      CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
+      SessionEncryptionKeyCacheConfig(),
       CachingConfigs.defaultPublicKeyConversionCache,
       new MemoryStorage(loggerFactory, timeouts),
       CryptoPrivateStoreFactory.withoutKms(),

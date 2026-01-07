@@ -8,18 +8,18 @@ import com.digitalasset.canton.protocol.UpdateId
 
 package object repair {
 
-  /** Cooks up a random dummy transaction id.
+  /** Cooks up a random dummy update id.
     *
-    * With single-participant repair commands, we have little hope of coming up with a transactionId
-    * that matches up with other participants. We can get away with differing transaction ids across
-    * participants because the AcsCommitmentProcessor does not compare transaction ids.
+    * With single-participant repair commands, we have little hope of coming up with a updateId that
+    * matches up with other participants. We can get away with differing update ids across
+    * participants because the AcsCommitmentProcessor does not compare update ids.
     */
-  private[repair] def randomTransactionId(syncCrypto: SyncCryptoApiParticipantProvider) = {
+  private[repair] def randomUpdateId(syncCrypto: SyncCryptoApiParticipantProvider) = {
     // We take as much entropy as for a random UUID.
     // This should be enough to guard against clashes between the repair requests executed on a single participant.
-    // We don't have to worry about clashes with ordinary transaction IDs as the hash purpose is different.
+    // We don't have to worry about clashes with ordinary update IDs as the hash purpose is different.
     val randomness = syncCrypto.pureCrypto.generateRandomByteString(16)
-    val hash = syncCrypto.pureCrypto.digest(HashPurpose.RepairTransactionId, randomness)
+    val hash = syncCrypto.pureCrypto.digest(HashPurpose.RepairUpdateId, randomness)
     UpdateId(hash)
   }
 }

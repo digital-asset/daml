@@ -64,7 +64,8 @@ class SimpleExecutionQueue(
     failureMode: FailureMode,
 ) extends PrettyPrinting
     with NamedLogging
-    with FlagCloseableAsync {
+    with FlagCloseableAsync
+    with ExecutionQueue {
 
   /** @param name
     *   For logging purposes
@@ -98,34 +99,26 @@ class SimpleExecutionQueue(
   def execute[A](execution: => Future[A], description: String)(implicit
       loggingContext: ErrorLoggingContext
   ): FutureUnlessShutdown[A] =
-    genExecute(
+    executeUS(
       FutureUnlessShutdown.outcomeF(execution)(directExecutionContext),
       description,
     )
 
+  /** Will execute the given function after all previous executions have completed successfully and
+    * return the future with the result of this execution.
+    */
   def executeE[A, B](
       execution: => EitherT[Future, A, B],
       description: String,
   )(implicit loggingContext: ErrorLoggingContext): EitherT[FutureUnlessShutdown, A, B] =
     EitherT(execute(execution.value, description))
 
-  def executeEUS[A, B](
-      execution: => EitherT[FutureUnlessShutdown, A, B],
-      description: String,
-  )(implicit loggingContext: ErrorLoggingContext): EitherT[FutureUnlessShutdown, A, B] =
-    EitherT(executeUS(execution.value, description))
-
-  def executeUS[A](
+  override def executeUS[A](
       execution: => FutureUnlessShutdown[A],
       description: String,
   )(implicit
       loggingContext: ErrorLoggingContext
-  ): FutureUnlessShutdown[A] = genExecute(execution, description)
-
-  private def genExecute[A](
-      execution: => FutureUnlessShutdown[A],
-      description: String,
-  )(implicit loggingContext: ErrorLoggingContext): FutureUnlessShutdown[A] = {
+  ): FutureUnlessShutdown[A] = {
     val next =
       new TaskCell(
         queueName = name,
@@ -481,4 +474,40 @@ object SimpleExecutionQueue {
       cell
     }
   }
+}
+
+trait ExecutionQueue {
+
+  /** Will execute the given function after all previous executions have completed successfully and
+    * return the future with the result of this execution.
+    */
+  final def executeEUS[A, B](
+      execution: => EitherT[FutureUnlessShutdown, A, B],
+      description: String,
+  )(implicit loggingContext: ErrorLoggingContext): EitherT[FutureUnlessShutdown, A, B] =
+    EitherT(executeUS(execution.value, description))
+
+  /** Will execute the given function after all previous executions have completed successfully and
+    * return the future with the result of this execution.
+    */
+  def executeUS[A](
+      execution: => FutureUnlessShutdown[A],
+      description: String,
+  )(implicit
+      loggingContext: ErrorLoggingContext
+  ): FutureUnlessShutdown[A]
+
+  /** The combined ExecutionQueue will first block this ExecutionQueue, then will block the
+    * secondExecutionQueue.
+    */
+  def combinedWith(secondExecutionQueue: ExecutionQueue): ExecutionQueue =
+    new CombinedExecutionQueue(this, secondExecutionQueue)
+}
+
+class CombinedExecutionQueue(q1: ExecutionQueue, q2: ExecutionQueue) extends ExecutionQueue {
+  override def executeUS[A](
+      execution: => FutureUnlessShutdown[A],
+      description: String,
+  )(implicit loggingContext: ErrorLoggingContext): FutureUnlessShutdown[A] =
+    q1.executeUS(q2.executeUS(execution, description), description)
 }

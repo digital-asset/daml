@@ -80,15 +80,19 @@ object ProtoConverter {
     */
   def protoParser[A](parseFrom: CodedInputStream => A): ByteString => Either[BufferException, A] =
     bytes =>
-      Either
-        .catchOnly[InvalidProtocolBufferException](parseFrom(bytes.newCodedInput))
-        .leftMap(BufferException.apply)
+      try {
+        Right(parseFrom(bytes.newCodedInput))
+      } catch {
+        case e: InvalidProtocolBufferException => Left(BufferException(e))
+      }
 
   def protoParserArray[A](parseFrom: Array[Byte] => A): Array[Byte] => Either[BufferException, A] =
     bytes =>
-      Either
-        .catchOnly[InvalidProtocolBufferException](parseFrom(bytes))
-        .leftMap(BufferException.apply)
+      try {
+        Right(parseFrom(bytes))
+      } catch {
+        case e: InvalidProtocolBufferException => Left(BufferException(e))
+      }
 
   /** Helper for extracting an optional field where the value is required
     * @param field

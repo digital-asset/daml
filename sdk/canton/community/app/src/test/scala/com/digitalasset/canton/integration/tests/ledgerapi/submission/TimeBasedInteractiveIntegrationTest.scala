@@ -23,7 +23,6 @@ import com.digitalasset.canton.integration.{
   HasCycleUtils,
   SharedEnvironment,
 }
-import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.SubmissionErrors.TimeoutError
 import com.digitalasset.canton.synchronizer.sequencer.{
   HasProgrammableSequencer,
@@ -34,7 +33,6 @@ import com.digitalasset.canton.topology.{ExternalParty, ForceFlags}
 import com.digitalasset.canton.{HasExecutionContext, config}
 import com.digitalasset.daml.lf.data.Time
 import io.grpc.Status
-import org.slf4j.event.Level
 import scalapb.TimestampConverters
 
 import java.time.{Duration, Instant}
@@ -225,41 +223,28 @@ final class TimeBasedInteractiveIntegrationTest
               getJohnAcsSize shouldBe johnAcsSize + 1
             }
           } else {
-            loggerFactory.assertEventuallyLogsSeq(SuppressionRule.LevelAndAbove(Level.WARN))(
-              {
-                val (submissionId, ledgerEnd) = exec(prepared, signatures, epn)
-                val completion = findCompletion(
-                  submissionId,
-                  ledgerEnd,
-                  johnE,
-                  epn,
-                  runBetweenAttempts = Eval.always {
-                    // Request a time proof to advance synchronizer time on the participant so it realizes
-                    // that the request has timed out and emits a completion event
-                    // Need to run this between attempts because otherwise we might request the time proof too early
-                    // before the transaction has been registered in phase 1
-                    epn.underlying.value.sync
-                      .lookupSynchronizerTimeTracker(synchronizer1Id)
-                      .value
-                      .requestTick(maxRecordTime.immediateSuccessor, immediately = true)
-                      .discard
-                  },
-                )
-                completion.status.value.code shouldBe io.grpc.Status.Code.ABORTED.value()
-                completion.status.value.message should include(TimeoutError.code.id)
-                // Acs size should not have changed
-                getJohnAcsSize shouldBe johnAcsSize
-                ()
+            val (submissionId, ledgerEnd) = exec(prepared, signatures, epn)
+            val completion = findCompletion(
+              submissionId,
+              ledgerEnd,
+              johnE,
+              epn,
+              runBetweenAttempts = Eval.always {
+                // Request a time proof to advance synchronizer time on the participant so it realizes
+                // that the request has timed out and emits a completion event
+                // Need to run this between attempts because otherwise we might request the time proof too early
+                // before the transaction has been registered in phase 1
+                epn.underlying.value.sync
+                  .lookupSynchronizerTimeTracker(synchronizer1Id)
+                  .value
+                  .requestTick(maxRecordTime.immediateSuccessor, immediately = true)
+                  .discard
               },
-              LogEntry.assertLogSeq(
-                Seq(
-                  (
-                    _.warningMessage should include("Submission timed out"),
-                    "expected submission timed out warning",
-                  )
-                )
-              ),
             )
+            completion.status.value.code shouldBe io.grpc.Status.Code.ABORTED.value()
+            completion.status.value.message should include(TimeoutError.code.id)
+            // Acs size should not have changed
+            getJohnAcsSize shouldBe johnAcsSize
           }
         }
       }

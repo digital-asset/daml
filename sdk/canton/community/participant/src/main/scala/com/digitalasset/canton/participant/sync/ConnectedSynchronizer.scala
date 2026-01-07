@@ -9,6 +9,7 @@ import cats.syntax.functor.*
 import cats.syntax.parallel.*
 import cats.{Eval, Monad}
 import com.daml.nameof.NameOf.functionFullName
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
@@ -94,16 +95,33 @@ import com.digitalasset.canton.topology.processing.{
   SequencedTime,
   TopologyTransactionProcessor,
 }
-import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
+import com.digitalasset.canton.topology.store.StoredTopologyTransactions.PositiveStoredTopologyTransactions
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
+import com.digitalasset.canton.topology.transaction.SynchronizerTrustCertificate.ParticipantTopologyFeatureFlag
+import com.digitalasset.canton.topology.transaction.{
+  SynchronizerTrustCertificate,
+  TopologyChangeOp,
+  TopologyMapping,
+  TopologyTransaction,
+}
+import com.digitalasset.canton.topology.{
+  ForceFlags,
+  ParticipantId,
+  PhysicalSynchronizerId,
+  SynchronizerId,
+  TopologyManagerError,
+}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{
   ContractHasher,
   ContractValidator,
+  EitherTUtil,
   ErrorUtil,
   FutureUnlessShutdownUtil,
   MonadUtil,
 }
+import com.digitalasset.canton.version.ParticipantProtocolFeatureFlags
 import com.digitalasset.daml.lf.engine.Engine
 import io.grpc.Status
 import io.opentelemetry.api.trace.Tracer
@@ -458,14 +476,25 @@ class ConnectedSynchronizer(
       } yield ()
     }
 
-    def replayAcsChanges(fromExclusive: TimeOfChange, toInclusive: TimeOfChange)(implicit
+    def loadAcsChanges(
+        fromExclusive: TimeOfChange,
+        toInclusive: TimeOfChange,
+        batchSize: PositiveInt,
+    )(implicit
         traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, ConnectedSynchronizerInitializationError, LazyList[
-      (RecordTime, AcsChange)
-    ]] =
+    ): EitherT[
+      FutureUnlessShutdown,
+      ConnectedSynchronizerInitializationError,
+      (
+          LazyList[
+            (RecordTime, AcsChange)
+          ],
+          Int,
+      ),
+    ] =
       liftF(for {
-        contractIdChanges <- persistent.activeContractStore
-          .changesBetween(fromExclusive, toInclusive)
+        (contractIdChanges, count) <- persistent.activeContractStore
+          .changesBetween(fromExclusive, toInclusive, batchSize)
         changes <- contractIdChanges.parTraverse { case (toc, change) =>
           val changeWithAdjustedReassignmentCountersForUnassignments = ActiveContractIdsChange(
             change.activations,
@@ -483,7 +512,7 @@ class ConnectedSynchronizer(
         logger.info(
           s"Replaying ${changes.size} ACS changes between $fromExclusive (exclusive) and $toInclusive to the commitment processor"
         )
-        logger.debug(
+        logger.trace(
           s"Retrieved contract ID changes from changesBetween " +
             s"${contractIdChanges
                 .map { case (toc, activeContractsChange) =>
@@ -492,8 +521,63 @@ class ConnectedSynchronizer(
                 .force
                 .mkString(", ")}"
         )
-        changes
+        (changes, count)
       })
+
+    def replayAcsChangesInBatches(
+        acsChangesReplayStartRt: RecordTime,
+        lastSequencerTimestamp: CantonTimestamp,
+        nextRepairCounter: RepairCounter,
+        batchSize: PositiveInt,
+    ): EitherT[FutureUnlessShutdown, ConnectedSynchronizerInitializationError, Unit] = {
+
+      val endToc = TimeOfChange(lastSequencerTimestamp, Some(nextRepairCounter))
+      logger.info(
+        s"Looking for ACS changes to replay between ${acsChangesReplayStartRt.timestamp} and $endToc in batches of $batchSize"
+      )
+
+      def iterateInBatches(from: TimeOfChange): EitherT[
+        FutureUnlessShutdown,
+        ConnectedSynchronizerInitializationError,
+        Unit,
+      ] =
+        if (lastSequencerTimestamp >= acsChangesReplayStartRt.timestamp) {
+          for {
+            res <-
+              loadAcsChanges(
+                from,
+                endToc,
+                batchSize,
+              )
+            (acsChangesToConsume, count) = res
+
+            _ <- NonEmpty.from(acsChangesToConsume) match {
+              case Some(nonEmptyBatch) => // publish ACS changes
+                EitherT.rightT[FutureUnlessShutdown, ConnectedSynchronizerInitializationError](
+                  acsCommitmentProcessor.publish(nonEmptyBatch)
+                )
+              case None => EitherTUtil.unitUS[ConnectedSynchronizerInitializationError]
+            }
+
+            // decide whether to continue: if we got a "full" batch, there might be more
+            _ <- NonEmpty.from(acsChangesToConsume) match {
+              // more acs changes might exist; continue from the last TimeOfChange
+              case Some(fullBatch) if count >= batchSize.value =>
+                val (lastChange, _) = fullBatch.last1
+                val lastRt = lastChange.toTimeOfChange
+                iterateInBatches(lastRt)
+              //  count < batchSize.value
+              case Some(_) => EitherTUtil.unitUS[ConnectedSynchronizerInitializationError]
+              // batch is empty
+              case None => EitherTUtil.unitUS[ConnectedSynchronizerInitializationError]
+            }
+          } yield ()
+        } else
+          EitherTUtil.unitUS[ConnectedSynchronizerInitializationError]
+
+      // start looping from the original start
+      iterateInBatches(acsChangesReplayStartRt.toTimeOfChange)
+    }
 
     def initializeClientAtCleanHead(): Unit = {
       // generally, the topology client will be initialised by the topology processor. however,
@@ -508,7 +592,6 @@ class ConnectedSynchronizer(
         SequencedTime(resubscriptionTs),
         EffectiveTime(resubscriptionTs),
         ApproximateTime(resubscriptionTs),
-        potentialTopologyChange = true,
       )
       // now, compute epsilon at resubscriptionTs and update client
       topologyClient.updateHead(
@@ -517,12 +600,10 @@ class ConnectedSynchronizer(
           resubscriptionTs.plus(staticSynchronizerParameters.topologyChangeDelay.duration)
         ),
         ApproximateTime(resubscriptionTs),
-        potentialTopologyChange = true,
       )
     }
 
     val startingPoints = ephemeral.startingPoints
-    val nextRequestCounter = startingPoints.processing.nextRequestCounter
     val nextRepairCounter = startingPoints.processing.nextRepairCounter
     val lastSequencerTimestamp = startingPoints.processing.lastSequencerTimestamp
 
@@ -546,22 +627,13 @@ class ConnectedSynchronizer(
       )
 
       _ <- loadPendingEffectiveTimesFromTopologyStore(acsChangesReplayStartRt.timestamp)
-      acsChangesToReplay <-
-        if (
-          lastSequencerTimestamp >= acsChangesReplayStartRt.timestamp && (nextRequestCounter > RequestCounter.Genesis || nextRepairCounter > RepairCounter.Genesis)
-        ) {
-          logger.info(
-            s"Looking for ACS changes to replay between ${acsChangesReplayStartRt.timestamp} and $lastSequencerTimestamp"
-          )
-          replayAcsChanges(
-            acsChangesReplayStartRt.toTimeOfChange,
-            TimeOfChange(lastSequencerTimestamp, Some(nextRepairCounter)),
-          )
-        } else
-          EitherT.pure[FutureUnlessShutdown, ConnectedSynchronizerInitializationError](Seq.empty)
-      _ = acsChangesToReplay.foreach { case (toc, change) =>
-        acsCommitmentProcessor.publish(toc, change)
-      }
+
+      _ <- replayAcsChangesInBatches(
+        acsChangesReplayStartRt,
+        lastSequencerTimestamp,
+        nextRepairCounter,
+        parameters.batchingConfig.maxItemsInBatch,
+      )
     } yield ()
   }
 
@@ -613,6 +685,94 @@ class ConnectedSynchronizer(
               )
             )
         )
+
+      // Update the synchronizer trust certificate if the feature flags are out of sync
+      def synchronizeFeatureFlagsAsync(implicit initializationTraceContext: TraceContext): Unit = {
+        val synchronizerId = synchronizerHandle.psid.logical
+        val protocolVersion =
+          synchronizerHandle.staticParameters.protocolVersion
+
+        val featureFlagsForPV: Set[ParticipantTopologyFeatureFlag] =
+          ParticipantProtocolFeatureFlags.supportedFeatureFlagsByPV.getOrElse(
+            protocolVersion,
+            Set.empty,
+          )
+
+        val topologyManager =
+          synchronizerHandle.syncPersistentState.topologyManager
+
+        def updateSTCWithFeatureFlags(
+            existingSynchronizerTrustCertificate: TopologyTransaction[
+              TopologyChangeOp.Replace,
+              SynchronizerTrustCertificate,
+            ]
+        ): EitherT[FutureUnlessShutdown, TopologyManagerError, GenericSignedTopologyTransaction] =
+          synchronizeWithClosing("updating STC for feature flags auto sync")(
+            topologyManager.proposeAndAuthorize(
+              op = TopologyChangeOp.Replace,
+              mapping = existingSynchronizerTrustCertificate.mapping.copy(
+                featureFlags = featureFlagsForPV.toSeq
+              ),
+              serial = Some(existingSynchronizerTrustCertificate.serial.increment),
+              signingKeys = Seq.empty,
+              protocolVersion = protocolVersion,
+              expectFullAuthorization = false,
+              forceChanges = ForceFlags.none,
+              waitToBecomeEffective = None,
+            )
+          )
+
+        val result = for {
+          // Lookup the existing STCs for the node
+          stcTransactions <- EitherT.liftF[
+            FutureUnlessShutdown,
+            TopologyManagerError,
+            PositiveStoredTopologyTransactions,
+          ](
+            topologyManager.store
+              .findPositiveTransactions(
+                // We want the current effective STC
+                asOf = CantonTimestamp.MaxValue,
+                asOfInclusive = true,
+                isProposal = false,
+                types = Seq(TopologyMapping.Code.SynchronizerTrustCertificate),
+                filterUid = Some(NonEmpty.mk(Seq, participantId.uid)),
+                filterNamespace = None,
+              )
+          )
+          currentStcO = stcTransactions.result
+            .maxByOption(_.validFrom)
+            .flatMap(
+              _.transaction
+                .select[TopologyChangeOp.Replace, SynchronizerTrustCertificate]
+            )
+          _ <- currentStcO match {
+            // There should already be an STC present, so we only update if the feature flags differ
+            case Some(currentStc) if currentStc.mapping.featureFlags.toSet != featureFlagsForPV =>
+              logger.info(
+                s"Synchronizer Trust Certificate in the synchronizer store $synchronizerId for $participantId does not have the expected set of feature flags, they will be updated. " +
+                  s"Current: ${currentStc.mapping.featureFlags.toSet}. Expected: $featureFlagsForPV"
+              )
+              updateSTCWithFeatureFlags(currentStc.transaction)
+            case Some(_) =>
+              EitherT.pure[FutureUnlessShutdown, TopologyManagerError](
+                logger.debug(
+                  s"Synchronizer Trust Certificate in the synchronizer store $synchronizerId for $participantId already has the correct feature flags $featureFlagsForPV. No update necessary."
+                )
+              )
+            // This is unexpected as the node is connected to the synchronizer, so it should have an STC in the synchronizer store
+            // (unless it was revoked concurrently but that's very unlikely and still worth logging a warning)
+            case None =>
+              EitherT.pure[FutureUnlessShutdown, TopologyManagerError](
+                logger.warn(
+                  s"Expected a Synchronizer Trust Certificate to be present in the synchronizer store $synchronizerId for $participantId but none was found. Feature flags will not be updated"
+                )
+              )
+          }
+        } yield ()
+
+        EitherTUtil.doNotAwaitUS(result, "Feature flag synchronization")
+      }
 
       // Initialize, replay and process stored events, then subscribe to new events
       (for {
@@ -692,6 +852,8 @@ class ConnectedSynchronizer(
         // wait for initial topology transactions to be sequenced and received before we start computing pending
         // topology transactions to push for IDM approval
         _ <- waitForParticipantToBeInTopology(initializationTraceContext)
+        _ = if (parameters.autoSyncProtocolFeatureFlags)
+          synchronizeFeatureFlagsAsync(initializationTraceContext)
         _ <-
           registerIdentityTransactionHandle
             .synchronizerConnected()(initializationTraceContext)
@@ -775,9 +937,9 @@ class ConnectedSynchronizer(
       _waitForReplay <- FutureUnlessShutdown.outcomeF(
         timeTracker.awaitTick(clock.now).getOrElse(Future.unit)
       )
-
+      approximateSnapshot <- topologyClient.currentSnapshotApproximation
       _params <- synchronizeWithClosing(functionFullName)(
-        topologyClient.currentSnapshotApproximation.findDynamicSynchronizerParametersOrDefault(
+        approximateSnapshot.findDynamicSynchronizerParametersOrDefault(
           staticSynchronizerParameters.protocolVersion
         )
       )
@@ -1095,10 +1257,14 @@ object ConnectedSynchronizer {
             parameters.doNotAwaitOnCheckingIncomingCommitments,
           commitmentCheckpointInterval = parameters.commitmentCheckpointInterval,
           commitmentMismatchDebugging = parameters.commitmentMismatchDebugging,
+          commitmentProcessorNrAcsChangesBehindToTriggerCatchUp =
+            parameters.commitmentProcessorNrAcsChangesBehindToTriggerCatchUp,
+          stringInterning = participantNodePersistentState.value.ledgerApiStore.stringInterningView,
         )
         topologyProcessor <- topologyProcessorFactory.create(
           acsCommitmentProcessor.scheduleTopologyTick
         )
+
       } yield {
         val contractValidator = ContractValidator(
           synchronizerCrypto.pureCrypto,

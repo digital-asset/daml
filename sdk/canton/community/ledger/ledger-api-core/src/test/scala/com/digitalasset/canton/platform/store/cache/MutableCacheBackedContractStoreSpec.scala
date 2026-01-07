@@ -11,7 +11,6 @@ import com.digitalasset.canton.ledger.participant.state.index.ContractStateStatu
 import com.digitalasset.canton.ledger.participant.state.index.{ContractState, ContractStateStatus}
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
-import com.digitalasset.canton.participant.store
 import com.digitalasset.canton.participant.store.memory.InMemoryContractStore
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.store.cache.MutableCacheBackedContractStoreSpec.*
@@ -21,6 +20,7 @@ import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReade
   KeyAssigned,
   KeyUnassigned,
 }
+import com.digitalasset.canton.platform.store.{LedgerApiContractStore, LedgerApiContractStoreImpl}
 import com.digitalasset.canton.protocol.ExampleContractFactory
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{HasExecutionContext, TestEssentials}
@@ -51,7 +51,7 @@ class MutableCacheBackedContractStoreSpec
         contractsReader = mock[LedgerDaoContractsReader],
         contractStateCaches = contractStateCaches,
         loggerFactory = loggerFactory,
-        contractStore = mock[store.ContractStore],
+        contractStore = mock[LedgerApiContractStore],
       )
 
       val event1 = ContractStateEvent.Archived(
@@ -356,7 +356,7 @@ object MutableCacheBackedContractStoreSpec {
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): InMemoryContractStore = {
+  ): LedgerApiContractStore = {
     val store = new InMemoryContractStore(timeouts, loggerFactory)
     val contracts = Seq(
       contract1,
@@ -366,7 +366,7 @@ object MutableCacheBackedContractStoreSpec {
       contract6,
     )
     store.storeContracts(contracts).discard
-    store
+    LedgerApiContractStoreImpl(store, loggerFactory, LedgerApiServerMetrics.ForTesting)
   }
 
   private def contract(

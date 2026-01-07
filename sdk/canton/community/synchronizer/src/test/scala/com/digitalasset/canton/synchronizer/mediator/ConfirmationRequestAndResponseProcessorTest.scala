@@ -300,19 +300,22 @@ class ConfirmationRequestAndResponseProcessorTest
   ): FutureUnlessShutdown[SignedProtocolMessage[ConfirmationResponses]] = {
     val confirmationResponses: ConfirmationResponses = ConfirmationResponses.tryCreate(
       requestId,
-      fullInformeeTree.transactionId.toRootHash,
+      fullInformeeTree.updateId.toRootHash,
       factory.psid,
       participant,
       responses,
       testedProtocolVersion,
     )
     val participantCrypto = identityFactory.forOwner(participant)
-    SignedProtocolMessage
-      .trySignAndCreate(
-        confirmationResponses,
-        participantCrypto
-          .tryForSynchronizer(synchronizerId, defaultStaticSynchronizerParameters)
-          .currentSnapshotApproximation,
+    participantCrypto
+      .tryForSynchronizer(synchronizerId, defaultStaticSynchronizerParameters)
+      .currentSnapshotApproximation
+      .flatMap(snapshot =>
+        SignedProtocolMessage
+          .trySignAndCreate(
+            confirmationResponses,
+            snapshot,
+          )
       )
   }
 
@@ -326,7 +329,7 @@ class ConfirmationRequestAndResponseProcessorTest
   ): Future[SignedProtocolMessage[ConfirmationResponses]] = {
     val response = ConfirmationResponses.tryCreate(
       requestId,
-      fullInformeeTree.transactionId.toRootHash,
+      fullInformeeTree.updateId.toRootHash,
       factory.psid,
       participant,
       NonEmpty.mk(
@@ -341,12 +344,16 @@ class ConfirmationRequestAndResponseProcessorTest
     )
 
     val participantCrypto = identity.forOwner(participant)
-    SignedProtocolMessage
-      .trySignAndCreate(
-        response,
-        participantCrypto
-          .tryForSynchronizer(synchronizerId, defaultStaticSynchronizerParameters)
-          .currentSnapshotApproximation,
+
+    participantCrypto
+      .tryForSynchronizer(synchronizerId, defaultStaticSynchronizerParameters)
+      .currentSnapshotApproximation
+      .flatMap(snapshot =>
+        SignedProtocolMessage
+          .trySignAndCreate(
+            response,
+            snapshot,
+          )
       )
       .failOnShutdown
   }
@@ -494,7 +501,7 @@ class ConfirmationRequestAndResponseProcessorTest
           .failOnShutdown
         response = ConfirmationResponses.tryCreate(
           reqId,
-          fullInformeeTree.transactionId.toRootHash,
+          fullInformeeTree.updateId.toRootHash,
           factory.psid,
           participant,
           NonEmpty.mk(
@@ -902,7 +909,7 @@ class ConfirmationRequestAndResponseProcessorTest
       val informeeMessage =
         InformeeMessage(fullInformeeTree, sign(fullInformeeTree))(testedProtocolVersion)
       val rootHashMessage = RootHashMessage(
-        fullInformeeTree.transactionId.toRootHash,
+        fullInformeeTree.updateId.toRootHash,
         synchronizerId,
         ViewType.TransactionViewType,
         testTopologyTimestamp,
@@ -1171,7 +1178,7 @@ class ConfirmationRequestAndResponseProcessorTest
         }
 
       val rootHashMessage = RootHashMessage(
-        fullInformeeTree.transactionId.toRootHash,
+        fullInformeeTree.updateId.toRootHash,
         synchronizerId,
         ViewType.TransactionViewType,
         testTopologyTimestamp,
@@ -1289,7 +1296,7 @@ class ConfirmationRequestAndResponseProcessorTest
         }
 
       val rootHashMessage = RootHashMessage(
-        fullInformeeTree.transactionId.toRootHash,
+        fullInformeeTree.updateId.toRootHash,
         synchronizerId,
         ViewType.TransactionViewType,
         testTopologyTimestamp,
@@ -1451,7 +1458,7 @@ class ConfirmationRequestAndResponseProcessorTest
         }
 
       val rootHashMessage = RootHashMessage(
-        fullInformeeTree.transactionId.toRootHash,
+        fullInformeeTree.updateId.toRootHash,
         synchronizerId,
         ViewType.TransactionViewType,
         testTopologyTimestamp,
@@ -1557,7 +1564,7 @@ class ConfirmationRequestAndResponseProcessorTest
       val informeeMessage =
         InformeeMessage(fullInformeeTree, sign(fullInformeeTree))(testedProtocolVersion)
       val rootHashMessage = RootHashMessage(
-        fullInformeeTree.transactionId.toRootHash,
+        fullInformeeTree.updateId.toRootHash,
         synchronizerId,
         ViewType.TransactionViewType,
         testTopologyTimestamp,

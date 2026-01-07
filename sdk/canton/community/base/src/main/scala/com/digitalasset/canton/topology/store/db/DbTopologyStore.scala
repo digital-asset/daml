@@ -24,6 +24,7 @@ import com.digitalasset.canton.topology.store.*
 import com.digitalasset.canton.topology.store.StoredTopologyTransaction.GenericStoredTopologyTransaction
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.{
   GenericStoredTopologyTransactions,
+  NegativeStoredTopologyTransactions,
   PositiveStoredTopologyTransactions,
 }
 import com.digitalasset.canton.topology.store.TopologyStore.{
@@ -442,6 +443,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       types: Seq[TopologyMapping.Code],
       filterUid: Option[NonEmpty[Seq[UniqueIdentifier]]],
       filterNamespace: Option[NonEmpty[Seq[Namespace]]],
+      pagination: Option[(Option[UniqueIdentifier], Int)] = None,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[PositiveStoredTopologyTransactions] =
     findTransactionsBatchingUidFilter(
       asOf,
@@ -451,7 +453,26 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       filterUid,
       filterNamespace,
       TopologyChangeOp.Replace.some,
+      pagination,
     ).map(_.collectOfType[TopologyChangeOp.Replace])
+
+  override def findNegativeTransactions(
+      asOf: CantonTimestamp,
+      asOfInclusive: Boolean,
+      isProposal: Boolean,
+      types: Seq[TopologyMapping.Code],
+      filterUid: Option[NonEmpty[Seq[UniqueIdentifier]]],
+      filterNamespace: Option[NonEmpty[Seq[Namespace]]],
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[NegativeStoredTopologyTransactions] =
+    findTransactionsBatchingUidFilter(
+      asOf,
+      asOfInclusive,
+      isProposal,
+      types.toSet,
+      filterUid,
+      filterNamespace,
+      TopologyChangeOp.Remove.some,
+    ).map(_.collectOfType[TopologyChangeOp.Remove])
 
   override def findFirstSequencerStateForSequencer(sequencerId: SequencerId)(implicit
       traceContext: TraceContext
@@ -681,19 +702,74 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       .map(res => res.result.map(TopologyStore.Change.selectChange).distinct)
   }
 
-  override def maxTimestamp(sequencedTime: SequencedTime, includeRejected: Boolean)(implicit
+  override def maxTimestamp(
+      sequencedTime: SequencedTime,
+      includeRejected: Boolean,
+  )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]] = {
-    logger.debug(s"Querying max timestamp")
+    logger.debug(s"Querying max timestamp as of ${sequencedTime.value}")
 
-    val query = buildQueryForTransactions(
+    // Note: this query uses the index idx_common_topology_transactions_max_timestamp
+    val query = buildQueryForMetadata[(SequencedTime, EffectiveTime)](
+      "sequenced, valid_from",
       sql" AND sequenced <= ${sequencedTime.value} ",
       includeRejected = includeRejected,
-      limit = storage.limit(1),
-      orderBy = " ORDER BY valid_from DESC",
+      orderBy = " ORDER BY sequenced DESC",
     )
-    toStoredTopologyTransactions(storage.query(query, operationName = functionFullName))
-      .map(_.result.headOption.map(tx => (tx.sequenced, tx.validFrom)))
+    storage
+      .query(query, operationName = functionFullName)
+      .map(_.headOption)
+  }
+
+  override def latestTopologyChangeTimestamp()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]] = {
+    logger.debug(s"Querying latest topology change timestamp")
+
+    // Note: this query uses the index idx_common_topology_transactions_max_timestamp
+    val query = buildQueryForMetadata[(SequencedTime, EffectiveTime)](
+      "sequenced, valid_from",
+      sql" AND sequenced <= ${CantonTimestamp.MaxValue} AND not is_proposal ",
+      includeRejected = false,
+      orderBy = " ORDER BY sequenced DESC",
+    )
+    storage
+      .query(query, operationName = functionFullName)
+      .map(_.headOption)
+  }
+
+  override def findTopologyIntervalForTimestamp(
+      timestamp: CantonTimestamp
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[(EffectiveTime, Option[EffectiveTime])]] = {
+    logger.debug(s"Querying for topology interval for $timestamp")
+
+    // Note: these queries use the index idx_common_topology_transactions_effective_changes
+    val lowerBoundQuery = buildQueryForMetadata[EffectiveTime](
+      "valid_from",
+      sql" AND valid_from < $timestamp AND not is_proposal",
+      includeRejected = false,
+      orderBy = " ORDER BY valid_from desc",
+    )
+    val upperBoundQuery = buildQueryForMetadata[EffectiveTime](
+      "valid_from",
+      sql" AND valid_from >= $timestamp AND not is_proposal",
+      includeRejected = false,
+      orderBy = " ORDER BY valid_from asc",
+    )
+    val lowerBoundF = storage
+      .query(lowerBoundQuery, operationName = functionFullName + "-lower")
+      .map(_.headOption)
+    val upperBoundF = storage
+      .query(upperBoundQuery, operationName = functionFullName + "-upper")
+      .map(_.headOption)
+
+    for {
+      lower <- lowerBoundF
+      upper <- upperBoundF
+    } yield lower.map(_ -> upper)
   }
 
   override def findDispatchingTransactionsAfter(
@@ -824,6 +900,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       filterUid: Option[NonEmpty[Seq[UniqueIdentifier]]],
       filterNamespace: Option[NonEmpty[Seq[Namespace]]],
       filterOp: Option[TopologyChangeOp],
+      pagination: Option[(Option[UniqueIdentifier], Int)] = None,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[GenericStoredTopologyTransactions] = {
@@ -839,6 +916,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
         filterUidsNew,
         filterNamespaceNew,
         filterOp,
+        pagination,
       )
 
     // Optimization: remove uid-filters made redundant by namespace filters
@@ -896,6 +974,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       filterUid: Option[NonEmpty[Seq[UniqueIdentifier]]],
       filterNamespace: Option[NonEmpty[Seq[Namespace]]],
       filterOp: Option[TopologyChangeOp],
+      pagination: Option[(Option[UniqueIdentifier], Int)],
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[GenericStoredTopologyTransactions] = {
@@ -923,11 +1002,31 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
         sql" AND (" ++ (namespaceFilter ++ uidFilter).intercalate(sql" OR ") ++ sql")"
       } else SQLActionBuilderChain(sql"")
 
+    val nonPaginationFilters =
+      timeRangeFilter ++ isProposalFilter ++ changeOpFilter ++ mappingTypeFilter ++ uidNamespaceFilter
+    val query = pagination match {
+      case Some((participantStartExclusive, pageLimit)) =>
+        val paginationFilter = participantStartExclusive match {
+          case Some(uid) =>
+            sql" AND (identifier, namespace) > (${uid.identifier.toProtoPrimitive}, ${uid.namespace.toProtoPrimitive})"
+          case None =>
+            sql""
+        }
+
+        buildQueryForTransactions(
+          nonPaginationFilters ++ paginationFilter,
+          limit = s" LIMIT $pageLimit ",
+          orderBy = " ORDER BY identifier, namespace ",
+        )
+      case _ =>
+        buildQueryForTransactions(
+          nonPaginationFilters
+        )
+    }
+
     toStoredTopologyTransactions(
       storage.query(
-        buildQueryForTransactions(
-          timeRangeFilter ++ isProposalFilter ++ changeOpFilter ++ mappingTypeFilter ++ uidNamespaceFilter
-        ),
+        query,
         operationName = "singleBatch",
       )
     )
@@ -1025,6 +1124,19 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
     query.as[QueryResultWithId[A]]
   }
 
+  private def buildQueryForMetadata[T: GetResult](
+      selectColumns: String,
+      subQuery: SQLActionBuilder,
+      orderBy: String,
+      includeRejected: Boolean,
+  ): DbAction.ReadTransactional[Vector[T]] = {
+    val query =
+      sql"SELECT #$selectColumns FROM common_topology_transactions WHERE store_id = $storeIndex" ++
+        subQuery ++ (if (!includeRejected) sql" AND rejection_reason IS NULL"
+                     else sql"") ++ sql" #$orderBy #${storage.limit(1)}"
+    query.as[T]
+  }
+
   private def toStoredTopologyTransactions(
       resultF: FutureUnlessShutdown[Vector[QueryResult]]
   ): FutureUnlessShutdown[GenericStoredTopologyTransactions] =
@@ -1040,6 +1152,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
           )
       })
     )
+
   private def toStoredTopologyTransactions(
       result: Vector[QueryResult]
   ): GenericStoredTopologyTransactions =

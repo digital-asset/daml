@@ -1466,12 +1466,43 @@ private[backend] trait StorageBackendTestsEvents
         event_sequential_id = 219,
         internal_contract_id = Some(65),
       ),
+      dtosWitnessedCreate(
+        event_offset = 25,
+        event_sequential_id = 220,
+        internal_contract_id = 630,
+      )(),
       Vector(
         dtoTransactionMeta(
           offset = offset(25),
           synchronizerId = someSynchronizerId2,
           event_sequential_id_first = 210,
           event_sequential_id_last = 220,
+        )
+      ),
+      dtosCreate(
+        event_offset = 26,
+        event_sequential_id = 230,
+        internal_contract_id = 630,
+      )(),
+      Vector(
+        dtoTransactionMeta(
+          offset = offset(26),
+          synchronizerId = someSynchronizerId2,
+          event_sequential_id_first = 230,
+          event_sequential_id_last = 230,
+        )
+      ),
+      dtosConsumingExercise(
+        event_offset = 27,
+        event_sequential_id = 240,
+        internal_contract_id = Some(630),
+      ),
+      Vector(
+        dtoTransactionMeta(
+          offset = offset(27),
+          synchronizerId = someSynchronizerId2,
+          event_sequential_id_first = 240,
+          event_sequential_id_last = 240,
         )
       ),
       dtosConsumingExercise(
@@ -1492,7 +1523,7 @@ private[backend] trait StorageBackendTestsEvents
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dbDtos, _))
     executeSql(
-      updateLedgerEnd(offset(25), 220L)
+      updateLedgerEnd(offset(27), 240L)
     )
 
     Vector(
@@ -1514,22 +1545,29 @@ private[backend] trait StorageBackendTestsEvents
       None -> offset(25) -> Set(
         1, 2, 3, 4, 5, 6, 63,
       ),
-      None -> offset(1000) -> Set(
+      None -> offset(26) -> Set(
         1, 2, 3, 4, 5, 6, 63,
+      ),
+      None -> offset(27) -> Set(
+        1, 2, 3, 4, 5, 6, 63, 630,
+      ),
+      None -> offset(1000) -> Set(
+        1, 2, 3, 4, 5, 6, 63, 630,
       ),
       Some(offset(4)) -> offset(1000) -> Set(
-        1, 2, 3, 4, 5, 6, 63,
+        1, 2, 3, 4, 5, 6, 63, 630,
       ),
       Some(offset(5)) -> offset(1000) -> Set(
-        3, 4, 5, 6, 63,
+        3, 4, 5, 6, 63, 630,
       ),
       Some(offset(6)) -> offset(1000) -> Set(
-        3, 4, 5, 6, 63,
+        3, 4, 5, 6, 63, 630,
       ),
       Some(offset(15)) -> offset(1000) -> Set(
         5,
         6,
         63,
+        630,
       ),
       Some(offset(15)) -> offset(15) -> Set(
       ),
@@ -2349,7 +2387,6 @@ private[backend] trait StorageBackendTestsEvents
         eventSequentialIds = 0L to 100L,
         allFilterParties =
           Some(Set("witness1", "stakeholder1", "submitter1", "actor1").map(Party.assertFromString)),
-        endInclusive = 100L,
       )
     ).toList
 
@@ -2815,7 +2852,6 @@ private[backend] trait StorageBackendTestsEvents
       backend.event.activeContractBatch(
         eventSequentialIds = 0L to 100L,
         allFilterParties = None,
-        endInclusive = 100L,
       )
     ).toList should contain theSameElementsInOrderAs List(
       RawThinActiveContract(

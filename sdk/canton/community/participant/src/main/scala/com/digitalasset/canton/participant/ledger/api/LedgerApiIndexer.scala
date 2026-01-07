@@ -15,7 +15,6 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.participant.config.LedgerApiServerConfig
-import com.digitalasset.canton.participant.store.ContractStore
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.platform.indexer.ha.HaConfig
 import com.digitalasset.canton.platform.indexer.parallel.{
@@ -28,8 +27,8 @@ import com.digitalasset.canton.platform.indexer.{
   IndexerState,
   JdbcIndexer,
 }
-import com.digitalasset.canton.platform.store.DbSupport
 import com.digitalasset.canton.platform.store.cache.OnlyForTestingTransactionInMemoryStore
+import com.digitalasset.canton.platform.store.{DbSupport, LedgerApiContractStore}
 import com.digitalasset.canton.platform.{
   InMemoryState,
   LedgerApiServerInternals,
@@ -59,7 +58,7 @@ class LedgerApiIndexer(
     val enqueue: Update => FutureUnlessShutdown[Unit],
     val inMemoryState: InMemoryState,
     val ledgerApiStore: Eval[LedgerApiStore],
-    val contractStore: Eval[ContractStore],
+    val contractStore: Eval[LedgerApiContractStore],
     val loggerFactory: NamedLoggerFactory,
     val timeouts: ProcessingTimeout,
     indexerState: IndexerState,
@@ -101,7 +100,7 @@ object LedgerApiIndexer {
       clock: Clock,
       commandProgressTracker: CommandProgressTracker,
       ledgerApiStore: Eval[LedgerApiStore],
-      contractStore: Eval[ContractStore],
+      contractStore: Eval[LedgerApiContractStore],
       ledgerApiIndexerConfig: LedgerApiIndexerConfig,
       reassignmentOffsetPersistence: ReassignmentOffsetPersistence,
       postProcessor: (Seq[PostPublishData], TraceContext) => Future[Unit],

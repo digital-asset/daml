@@ -24,6 +24,7 @@ import com.digitalasset.canton.topology.store.*
 import com.digitalasset.canton.topology.store.TopologyTransactionRejection.RequiredMapping as RequiredMappingRejection
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
+import com.digitalasset.canton.topology.transaction.TopologyChangeOp.Remove
 import com.digitalasset.canton.topology.transaction.TopologyMapping.{Code, MappingHash}
 import com.digitalasset.canton.topology.transaction.checks.TopologyMappingChecks.PendingChangesLookup
 import com.digitalasset.canton.tracing.TraceContext
@@ -32,6 +33,7 @@ import com.google.common.annotations.VisibleForTesting
 
 import scala.concurrent.ExecutionContext
 import scala.math.Ordering.Implicits.*
+import scala.reflect.ClassTag
 
 object TopologyMappingChecks {
   type PendingChangesLookup = scala.collection.Map[MappingHash, MaybePending]
@@ -111,33 +113,48 @@ abstract class TopologyMappingChecksWithStore(
   protected def store: TopologyStore[TopologyStoreId] = maybeStore.store
 
   @VisibleForTesting
-  private[transaction] def loadFromStore(
+  private[transaction] def loadFromStore[Op <: TopologyChangeOp](
       effective: EffectiveTime,
       codes: Set[Code],
       pendingChanges: Iterable[MaybePending],
       filterUid: Option[NonEmpty[Seq[UniqueIdentifier]]] = None,
       filterNamespace: Option[NonEmpty[Seq[Namespace]]] = None,
+      op: Op = TopologyChangeOp.Replace,
   )(implicit
-      traceContext: TraceContext
+      traceContext: TraceContext,
+      classTag: ClassTag[Op],
   ): EitherT[FutureUnlessShutdown, TopologyTransactionRejection, Seq[
-    SignedTopologyTransaction[TopologyChangeOp.Replace, TopologyMapping]
-  ]] =
+    SignedTopologyTransaction[Op, TopologyMapping]
+  ]] = {
+    val storeLookup = op match {
+      case _ if maybeStore.skipLoadingFromStore =>
+        FutureUnlessShutdown.pure(
+          StoredTopologyTransactions[TopologyChangeOp.Replace, TopologyMapping](Seq.empty)
+        )
+      case _: TopologyChangeOp.Replace =>
+        store
+          .findPositiveTransactions(
+            effective.value,
+            asOfInclusive = false,
+            isProposal = false,
+            types = codes.toSeq,
+            filterUid = filterUid,
+            filterNamespace = filterNamespace,
+          )
+      case _: TopologyChangeOp.Remove =>
+        store
+          .findNegativeTransactions(
+            effective.value,
+            asOfInclusive = false,
+            isProposal = false,
+            types = codes.toSeq,
+            filterUid = filterUid,
+            filterNamespace = filterNamespace,
+          )
+    }
     EitherT
       .right[TopologyTransactionRejection](
-        (if (maybeStore.skipLoadingFromStore)
-           FutureUnlessShutdown.pure(
-             StoredTopologyTransactions[TopologyChangeOp.Replace, TopologyMapping](Seq.empty)
-           )
-         else
-           store
-             .findPositiveTransactions(
-               effective.value,
-               asOfInclusive = false,
-               isProposal = false,
-               types = codes.toSeq,
-               filterUid = filterUid,
-               filterNamespace = filterNamespace,
-             ))
+        storeLookup
           .map { storedTxs =>
             val latestStored = storedTxs.collectLatestByUniqueKey.signedTransactions
 
@@ -158,9 +175,10 @@ abstract class TopologyMappingChecksWithStore(
 
             TopologyTransactions
               .collectLatestByUniqueKey(latestStored ++ pendingChangesMatchingFilter)
-              .flatMap(_.selectOp[TopologyChangeOp.Replace])
+              .flatMap(_.selectOp[Op])
           }
       )
+  }
 
 }
 
@@ -189,9 +207,13 @@ class RequiredTopologyMappingChecks(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TopologyTransactionRejection, Unit] = {
+    // Allow removal of root certificates even without prior existing positive transaction
+    // This makes it possible to block a namespace from being used in an authorizing position in any topology mapping.
+    lazy val isRootCertificateRemoval =
+      toValidate.select[Remove, NamespaceDelegation].exists(NamespaceDelegation.isRootCertificate)
     val checkFirstIsNotRemove = EitherTUtil
       .condUnitET[FutureUnlessShutdown](
-        !(toValidate.operation == TopologyChangeOp.Remove && inStore.isEmpty),
+        isRootCertificateRemoval || !(toValidate.operation == TopologyChangeOp.Remove && inStore.isEmpty),
         RequiredMappingRejection.NoCorrespondingActiveTxToRevoke(toValidate.mapping),
       )
     val checkReplaceIsNotMaxSerial = EitherTUtil.condUnitET[FutureUnlessShutdown](
@@ -315,7 +337,15 @@ class RequiredTopologyMappingChecks(
           ) =>
         toValidate
           .select[TopologyChangeOp.Replace, NamespaceDelegation]
-          .map(checkNamespaceDelegationReplace(effective, _, pendingChangesLookup))
+          .map(
+            checkNamespaceDelegationReplace(
+              effective,
+              _,
+              inStore.flatMap(_.select[TopologyChangeOp.Remove, NamespaceDelegation]),
+              pendingChangesLookup,
+              relaxChecksForBackwardsCompatibility,
+            )
+          )
 
       case (Code.SynchronizerParametersState, None | Some(Code.SynchronizerParametersState)) =>
         toValidate
@@ -644,8 +674,35 @@ class RequiredTopologyMappingChecks(
       }
     }
 
+    // We disallow self signing with a key for which there's a revoked NamespaceDelegation
+    def checkIsNotSelfSignedWithARevokedRootNSDKey() = {
+      val pendingRevokedNamespaceDelegationsWithSameNamespaceKey = pendingChangesLookup
+        .get(NamespaceDelegation.uniqueKey(mapping.namespace, mapping.namespace.fingerprint))
+        .filter(_.currentTx.selectOp[Remove].isDefined)
+        .toList
+
+      for {
+        revokedNamespaceDelegationsWithSameNamespace <- loadFromStore(
+          effective,
+          Set(Code.NamespaceDelegation),
+          pendingRevokedNamespaceDelegationsWithSameNamespaceKey,
+          filterNamespace = Some(NonEmpty(Seq, mapping.partyId.namespace)),
+          op = Remove,
+        )
+        hasRevokedRootNamespaceDelegationsWithSameNamespace =
+          revokedNamespaceDelegationsWithSameNamespace
+            .flatMap(_.selectMapping[NamespaceDelegation])
+            .exists(NamespaceDelegation.isRootCertificate)
+        _ <- EitherTUtil.condUnitET[FutureUnlessShutdown][TopologyTransactionRejection](
+          !mapping.isSelfSigned || !hasRevokedRootNamespaceDelegationsWithSameNamespace,
+          RequiredMappingRejection.NamespaceHasBeenRevoked(mapping.partyId.namespace),
+        )
+      } yield ()
+    }
+
     for {
       _ <- checkParticipants()
+      _ <- checkIsNotSelfSignedWithARevokedRootNSDKey()
     } yield ()
 
   }
@@ -978,7 +1035,12 @@ class RequiredTopologyMappingChecks(
         TopologyChangeOp.Replace,
         NamespaceDelegation,
       ],
+      revokedInStore: Option[SignedTopologyTransaction[
+        TopologyChangeOp.Remove,
+        NamespaceDelegation,
+      ]],
       pendingChangesLookup: PendingChangesLookup,
+      relaxChecksForBackwardsCompatibility: Boolean,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TopologyTransactionRejection, Unit] = {
@@ -1003,7 +1065,21 @@ class RequiredTopologyMappingChecks(
         )
       }
 
-    checkNoClashWithDecentralizedNamespaces()
+    def checkKeyWasNotPreviouslyRevoked()
+        : EitherT[FutureUnlessShutdown, TopologyTransactionRejection, Unit] =
+      EitherT.cond(
+        revokedInStore.isEmpty,
+        (),
+        RequiredMappingRejection.NamespaceHasBeenRevoked(toValidate.mapping.namespace),
+      )
+
+    for {
+      _ <- checkNoClashWithDecentralizedNamespaces()
+      _ <-
+        if (relaxChecksForBackwardsCompatibility)
+          EitherT.pure[FutureUnlessShutdown, TopologyTransactionRejection](())
+        else checkKeyWasNotPreviouslyRevoked()
+    } yield ()
   }
 
   private def checkSynchronizerUpgradeAnnouncement(

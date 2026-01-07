@@ -56,7 +56,7 @@ trait ExampleTransaction {
 
   def transactionTree: GenTransactionTree
 
-  def transactionId: UpdateId = transactionTree.transactionId
+  def updateId: UpdateId = transactionTree.updateId
 
   def fullInformeeTree: FullInformeeTree
 

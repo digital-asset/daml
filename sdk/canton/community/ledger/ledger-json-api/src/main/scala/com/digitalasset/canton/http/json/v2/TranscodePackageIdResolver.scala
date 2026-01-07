@@ -265,8 +265,8 @@ private class TranscodeTopologyAwarePackageBackedResolver(
         packagePreferenceBackend.getPreferredPackages(
           packageVettingRequirements =
             PackageVettingRequirements(packageNames.iterator.map(_ -> Set(party)).toMap),
-          packageFilter = PackagePreferenceBackend.PackageFilterRestriction(
-            supportedPackagesPerPackagename = userPackagePreferenceMap.view.mapValues(Set(_)).toMap,
+          packageFilter = PackagePreferenceBackend.SupportedPackagesFilter(
+            supportedPackagesPerPackageName = userPackagePreferenceMap.view.mapValues(Set(_)).toMap,
             restrictionDescription = "Commands.packageIdSelectionPreferences",
           ),
           synchronizerId = synchronizerIdO,

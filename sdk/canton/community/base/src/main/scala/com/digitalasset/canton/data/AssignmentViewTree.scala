@@ -153,7 +153,7 @@ final case class AssignmentCommonData private (
     uuid: UUID,
     submitterMetadata: ReassignmentSubmitterMetadata,
     reassigningParticipants: Set[ParticipantId],
-    val unassignmentTs: CantonTimestamp,
+    unassignmentTs: CantonTimestamp,
 )(
     hashOps: HashOps,
     override val deserializedFrom: Option[ByteString],

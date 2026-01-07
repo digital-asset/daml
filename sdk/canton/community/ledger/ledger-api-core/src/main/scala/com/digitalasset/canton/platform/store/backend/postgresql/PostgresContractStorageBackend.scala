@@ -3,13 +3,17 @@
 
 package com.digitalasset.canton.platform.store.backend.postgresql
 
-import anorm.SqlParser.{int, long}
-import anorm.{SqlStringInterpolation, ~}
+import anorm.SqlParser.long
+import anorm.~
 import com.digitalasset.canton.platform.Key
 import com.digitalasset.canton.platform.store.backend.Conversions.hashFromHexString
 import com.digitalasset.canton.platform.store.backend.PersistentEventType
-import com.digitalasset.canton.platform.store.backend.common.ContractStorageBackendTemplate
+import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.*
+import com.digitalasset.canton.platform.store.backend.common.{
+  ContractStorageBackendTemplate,
+  QueryStrategy,
+}
 import com.digitalasset.canton.platform.store.cache.LedgerEndCache
 import com.digitalasset.canton.platform.store.interning.StringInterning
 import com.digitalasset.canton.topology.SynchronizerId
@@ -69,23 +73,21 @@ class PostgresContractStorageBackend(
     ledgerEndCache()
       .map { ledgerEnd =>
         val inputWithIndex = synchronizerContracts.zipWithIndex
-        val inputIndexes: Array[java.lang.Integer] = inputWithIndex.iterator.map {
-          case (_, index) =>
-            Int.box(index)
-        }.toArray
-        val inputSynchronizerIds: Array[java.lang.Integer] = inputWithIndex.iterator.map {
-          case ((synchronizerId, _), _) =>
-            Int.box(stringInterning.synchronizerId.internalize(synchronizerId))
-        }.toArray
-        val inputInternalContractIds: Array[java.lang.Long] = inputWithIndex.iterator.map {
-          case ((_, contractId), _) => Long.box(contractId)
-        }.toArray
-        val resultParser = int("result_index") ~ long("result_event_sequential_id") map {
-          case index ~ resultEventSeqId => index -> resultEventSeqId
-        }
-        val results = SQL"""
+        def toArrayLiteral(values: Iterable[Any]): String = values.mkString("ARRAY[", ", ", "]")
+        val indexArrayLiteral = toArrayLiteral(inputWithIndex.view.map(_._2))
+        val synchronizerIdArrayLiteral = toArrayLiteral(
+          inputWithIndex.view.map(_._1._1).map(stringInterning.synchronizerId.internalize)
+        )
+        val internalContractIdArrayLiteral = toArrayLiteral(inputWithIndex.view.map(_._1._2))
+        // Resorting here to non-prepared statement as the combination of prepared statement and unnest and cross lateral join produced very inefficient query plans with PostgreSQL.
+        // For Future reference:
+        //   * Wrong query plan involved traversing the event_sequential_id index backwards in a index scan and eliminating candidates with filters on table itself (the good plan is the descending index only scan with index condition over the contract ID)
+        //   * Query plans without prepared statement results in an efficient plan in tests
+        //   * Only the prepared statement via JDBC resulted in inefficient plans (creating prepared statements for example via psql tool with PREPARE was not exhibiting the same problem)
+        val results = QueryStrategy
+          .plainJdbcQuery(s"""
           SELECT input.index as result_index, activate_evs.event_sequential_id as result_event_sequential_id
-          FROM UNNEST($inputIndexes, $inputSynchronizerIds, $inputInternalContractIds) AS input(index, synchronizer_id, internal_contract_id)
+          FROM UNNEST($indexArrayLiteral, $synchronizerIdArrayLiteral, $internalContractIdArrayLiteral) AS input(index, synchronizer_id, internal_contract_id)
           CROSS JOIN LATERAL (
             SELECT *
             FROM lapi_events_activate_contract activate_evs
@@ -100,8 +102,12 @@ class PostgresContractStorageBackend(
             )
             ORDER BY activate_evs.event_sequential_id DESC
             LIMIT 1
-          ) activate_evs"""
-          .asVectorOf(resultParser)(connection)
+          ) activate_evs""")(resultSet =>
+            (
+              resultSet.getInt("result_index"),
+              resultSet.getLong("result_event_sequential_id"),
+            )
+          )(connection)
           .toMap
         inputWithIndex.iterator.flatMap { case (synCon, index) =>
           results.get(index).map(synCon -> _)

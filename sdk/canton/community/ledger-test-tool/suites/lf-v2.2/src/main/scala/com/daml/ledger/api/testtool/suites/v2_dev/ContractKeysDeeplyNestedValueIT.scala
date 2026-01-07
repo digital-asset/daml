@@ -20,7 +20,7 @@ final class ContractKeysDeeplyNestedValueIT extends LedgerTestSuite {
       : ContractCompanion.WithoutKey[Handler.Contract, Handler.ContractId, Handler] =
     Handler.COMPANION
 
-  private[this] def waitForTransactionId(
+  private[this] def waitForUpdateId(
       alpha: ParticipantTestContext,
       party: Party,
       command: Update[?],
@@ -78,7 +78,7 @@ final class ContractKeysDeeplyNestedValueIT extends LedgerTestSuite {
     ) { implicit ec => (alpha, party) =>
       for {
         handler: Handler.ContractId <- alpha.create(party, new Handler(party))
-        result <- waitForTransactionId(alpha, party, handler.exerciseCreateKey(nKey))
+        result <- waitForUpdateId(alpha, party, handler.exerciseCreateKey(nKey))
       } yield result
     }
 
@@ -92,7 +92,7 @@ final class ContractKeysDeeplyNestedValueIT extends LedgerTestSuite {
         for {
           handler: Handler.ContractId <- alpha.create(party, new Handler(party))
           _ <- alpha.exercise(party, handler.exerciseCreateKey(nKey))
-          result <- waitForTransactionId(alpha, party, handler.exerciseFetchByKey(nKey))
+          result <- waitForUpdateId(alpha, party, handler.exerciseFetchByKey(nKey))
         } yield result
       }
     }
@@ -103,7 +103,7 @@ final class ContractKeysDeeplyNestedValueIT extends LedgerTestSuite {
     ) { implicit ec => (alpha, party) =>
       for {
         handler: Handler.ContractId <- alpha.create(party, new Handler(party))
-        result <- waitForTransactionId(alpha, party, handler.exerciseLookupByKey(nKey))
+        result <- waitForUpdateId(alpha, party, handler.exerciseLookupByKey(nKey))
       } yield result
     }
 
@@ -118,7 +118,7 @@ final class ContractKeysDeeplyNestedValueIT extends LedgerTestSuite {
           handler: Handler.ContractId <- alpha.create(party, new Handler(party))
           _ <- alpha.exercise(party, handler.exerciseCreateKey(nKey))
           result <-
-            waitForTransactionId(alpha, party, handler.exerciseLookupByKey(nKey))
+            waitForUpdateId(alpha, party, handler.exerciseLookupByKey(nKey))
         } yield result
       }
     }

@@ -18,6 +18,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.DriverBlockSequencer
 import com.digitalasset.canton.synchronizer.sequencer.config.{
   SequencerNodeParameterConfig,
   SequencerNodeParameters,
+  TimeAdvancingTopologyConfig,
 }
 import com.digitalasset.canton.synchronizer.sequencer.traffic.SequencerTrafficConfig
 import com.digitalasset.canton.synchronizer.sequencer.{
@@ -87,6 +88,7 @@ class ReferenceSequencerApiTest extends SequencerApiTest with RateLimitManagerTe
       ),
       maxConfirmationRequestsBurstFactor = PositiveDouble.tryCreate(1.0),
       asyncWriter = AsyncWriterParameters(),
+      timeAdvancingTopology = TimeAdvancingTopologyConfig(),
     )
 
   "Reference sequencer" when runSequencerApiTests()

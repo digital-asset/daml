@@ -6,6 +6,8 @@ package com.digitalasset.canton.synchronizer.sequencer
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.environment.Environment
 import com.digitalasset.canton.sequencing.protocol.{
+  Batch,
+  Envelope,
   MediatorGroupRecipient,
   MemberRecipient,
   SequencersOfSynchronizer,
@@ -131,15 +133,17 @@ object ProgrammableSequencerPolicies {
     }
   }
 
-  def isConfirmationResponse(submissionRequest: SubmissionRequest): Boolean =
-    submissionRequest.batch.envelopes.nonEmpty && submissionRequest.batch.envelopes.forall {
-      envelope =>
-        val allRecipients = envelope.recipients.allRecipients
-        allRecipients.sizeIs == 1 && allRecipients.forall {
-          case MediatorGroupRecipient(_) => true
-          case _ => false
-        }
+  def isConfirmationResponse(batch: Batch[? <: Envelope[?]]): Boolean =
+    batch.envelopes.nonEmpty && batch.envelopes.forall { envelope =>
+      val allRecipients = envelope.recipients.allRecipients
+      allRecipients.sizeIs == 1 && allRecipients.forall {
+        case MediatorGroupRecipient(_) => true
+        case _ => false
+      }
     }
+
+  def isConfirmationResponse(submissionRequest: SubmissionRequest): Boolean =
+    isConfirmationResponse(submissionRequest.batch)
 
   def isMediatorResult(submissionRequest: SubmissionRequest): Boolean =
     submissionRequest.batch.envelopes.nonEmpty && submissionRequest.sender.code == MediatorId.Code

@@ -27,7 +27,7 @@ import monocle.Monocle.toAppliedFocusOps
 import java.time.Duration as JDuration
 import java.util.concurrent.atomic.AtomicReference
 
-trait AcsMultiHostedPartyIntegrationTest
+trait AcsCommitmentProcessorPruningIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment
     with EntitySyntax {
@@ -53,7 +53,6 @@ trait AcsMultiHostedPartyIntegrationTest
 
   // for usage while participant is down
   private var participant4IdHolder: ParticipantId = _
-  private var participant2IdHolder: ParticipantId = _
 
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P4_S1M1
@@ -258,7 +257,7 @@ trait AcsMultiHostedPartyIntegrationTest
     }
   }
 
-  "multi hosted party" when {
+  "commitment processor" when {
     "should prune when time is advancing normally" in { implicit env =>
       import env.*
 
@@ -266,7 +265,7 @@ trait AcsMultiHostedPartyIntegrationTest
 
       incrementAndValidate(1, shouldPruningIncrease = true)
     }
-    "should prune when below BFT threshold participants is down" in { implicit env =>
+    "should not prune when a counter-participant is down" in { implicit env =>
       import env.*
       participant4IdHolder = participant4.id
       participant4.stop()
@@ -275,7 +274,7 @@ trait AcsMultiHostedPartyIntegrationTest
         participant4.health.is_running() shouldBe false
       }
 
-      incrementAndValidate(1, shouldPruningIncrease = true)
+      incrementAndValidate(1, shouldPruningIncrease = false)
     }
 
     "should prune when the down participant is added to the no-wait configuration" in {
@@ -287,6 +286,7 @@ trait AcsMultiHostedPartyIntegrationTest
         incrementAndValidate(1, shouldPruningIncrease = true)
     }
 
+    // this is a corner case, but still falls under the general case: cannot prune because participant4 is wait and down
     "should not prune when participant4 is the only not on no wait" in { implicit env =>
       import env.*
       logger.info("participant 4 is still down")
@@ -299,72 +299,17 @@ trait AcsMultiHostedPartyIntegrationTest
 
       // our no wait list contains participant2 and participant3.
       // since our wait list only contains participant4, but it is down, then we can not prune.
-      // because we need to wait for min (threshold - 1, size(participants-self-noWait)=1) = 1 commitment
       incrementAndValidate(1, shouldPruningIncrease = false)
-    }
-
-    "should prune correctly once waiting is re-introduced wait for participant2" in {
-      implicit env =>
-        import env.*
-        // we need to wait for min (threshold - 1, size(participants-self-noWait)=1) = 1 commitment
-        // since we wait for participant2, then both observers get a threshold of 2.
-        // We can use participant2 to clear the period, even if participant4 is still down.
-        participant1.commitments.set_no_wait_commitments_from(Seq(participant4IdHolder), Seq(daId))
-        participant1.commitments.set_wait_commitments_from(Seq(participant2), Seq(daId))
-
-        incrementAndValidate(1, shouldPruningIncrease = true)
-    }
-
-    "should not prune when more than bft threshold participants are down" in { implicit env =>
-      import env.*
-      logger.info("participant 4 is still down")
-      participant1.commitments.set_wait_commitments_from(Seq(participant3), Seq(daId))
-      participant3.stop()
-
-      eventually() {
-        participant3.health.is_running() shouldBe false
-      }
-
-      // observer1 now has a threshold of 3, but participant3 and participant4 is down, so we can't advance
-
-      incrementAndValidate(1, shouldPruningIncrease = false)
-    }
-
-    "should not prune when when threshold is 2 and only counter-participant is down" in {
-      implicit env =>
-        import env.*
-        participant3.start()
-        participant3.synchronizers.connect_local(sequencer1, alias = daName)
-        participant4.start()
-        participant4.synchronizers.connect_local(sequencer1, alias = daName)
-        participant2IdHolder = participant2.id
-        participant2.stop()
-
-        eventually() {
-          participant2.health.is_running() shouldBe false
-          participant3.synchronizers.is_connected(daId) shouldBe true
-          participant4.synchronizers.is_connected(daId) shouldBe true
-
-          participant1.commitments.outstanding(
-            daName,
-            CantonTimestamp.MinValue.toInstant,
-            CantonTimestamp.MaxValue.toInstant,
-          ) shouldBe empty
-        }
-
-        // observer2 cannot fulfil its threshold if participant2 is down
-        incrementAndValidate(1, shouldPruningIncrease = false)
     }
 
     "should prune when all counter-participants are in no-wait" in { implicit env =>
       import env.*
 
       participant1.commitments.set_no_wait_commitments_from(
-        Seq(participant3, participant4, participant2IdHolder),
+        Seq(participant3, participant4IdHolder, participant2),
         Seq(daId),
       )
       participant3.stop()
-      participant4.stop()
 
       eventually() {
         participant3.health.is_running() shouldBe false
@@ -379,6 +324,7 @@ trait AcsMultiHostedPartyIntegrationTest
 }
 
 //we don't run an in-memory version of this test since it relies on stopping and starting participants.
-class AcsMultiHostedPartyIntegrationTestPostgres extends AcsMultiHostedPartyIntegrationTest {
+class AcsCommitmentProcessorPruningIntegrationTestPostgres
+    extends AcsCommitmentProcessorPruningIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
 }

@@ -9,6 +9,7 @@ import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.NonEmptyReturningOps.*
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.concurrent.FutureSupervisor
+import com.digitalasset.canton.config.TopologyConfig
 import com.digitalasset.canton.crypto.SynchronizerCrypto
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.{
@@ -121,6 +122,7 @@ class SyncPersistentStateManager(
     val indexedStringStore: IndexedStringStore,
     acsCounterParticipantConfigStore: AcsCounterParticipantConfigStore,
     parameters: ParticipantNodeParameters,
+    topologyConfig: TopologyConfig,
     synchronizerConnectionConfigStore: SynchronizerConnectionConfigStore,
     synchronizerCryptoFactory: StaticSynchronizerParameters => SynchronizerCrypto,
     clock: Clock,
@@ -458,6 +460,7 @@ class SyncPersistentStateManager(
         futureSupervisor,
         parameters.cachingConfigs,
         parameters.batchingConfig,
+        topologyConfig,
         participantId,
         parameters.unsafeOnlinePartyReplication,
         exitOnFatalFailures = parameters.exitOnFatalFailures,
@@ -490,9 +493,7 @@ class SyncPersistentStateManager(
               // only if the participant's trustCert is not yet in the topology store do we have to initialize it.
               // The callback will fetch the essential topology state from the sequencer
               Option.when(trustCert.isEmpty)(
-                new StoreBasedSynchronizerTopologyInitializationCallback(
-                  participantId
-                )
+                new StoreBasedSynchronizerTopologyInitializationCallback
               )
             )
         )
@@ -500,5 +501,5 @@ class SyncPersistentStateManager(
     }
 
   override def close(): Unit =
-    LifeCycle.close(physicalPersistentStates.values.toSeq :+ aliasResolution: _*)(logger)
+    LifeCycle.close((physicalPersistentStates.values.toSeq :+ aliasResolution)*)(logger)
 }

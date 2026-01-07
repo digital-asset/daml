@@ -5,8 +5,8 @@ package com.digitalasset.canton.participant.admin.party
 
 import cats.data.EitherT
 import cats.syntax.option.*
-import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.{DefaultProcessingTimeouts, TopologyConfig}
 import com.digitalasset.canton.crypto.{Fingerprint, Hash, HashAlgorithm, TestHash}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -297,6 +297,7 @@ class PartyReplicationTopologyWorkflowTest
           clock,
           store = topologyStore,
           packageDependenciesResolver = StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
+          topologyConfig = TopologyConfig(),
           timeouts = timeouts,
           futureSupervisor = futureSupervisor,
           loggerFactory = loggerFactory,

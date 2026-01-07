@@ -119,7 +119,7 @@ object CacheConfigWithSizeOnly {
   *   configuration for the receiver's cache that stores the decryptions of the session keys
   */
 final case class SessionEncryptionKeyCacheConfig(
-    enabled: Boolean,
+    enabled: Boolean = true,
     senderCache: CacheConfigWithTimeout = CacheConfigWithTimeout(
       maximumSize = PositiveNumeric.tryCreate(10000),
       expireAfterTimeout = PositiveFiniteDuration.ofSeconds(10),
@@ -160,8 +160,7 @@ final case class CachingConfigs(
     partyCache: CacheConfig = CachingConfigs.defaultPartyCache,
     participantCache: CacheConfig = CachingConfigs.defaultParticipantCache,
     keyCache: CacheConfig = CachingConfigs.defaultKeyCache,
-    sessionEncryptionKeyCache: SessionEncryptionKeyCacheConfig =
-      CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
+    sessionEncryptionKeyCache: SessionEncryptionKeyCacheConfig = SessionEncryptionKeyCacheConfig(),
     publicKeyConversionCache: CacheConfig = CachingConfigs.defaultPublicKeyConversionCache,
     packageVettingCache: CacheConfig = CachingConfigs.defaultPackageVettingCache,
     packageDependencyCache: CacheConfig = CachingConfigs.defaultPackageDependencyCache,
@@ -193,10 +192,6 @@ object CachingConfigs {
     maximumSize = PositiveNumeric.tryCreate(10000),
     expireAfterAccess = NonNegativeFiniteDuration.ofMinutes(60),
   )
-  val defaultSessionEncryptionKeyCacheConfig: SessionEncryptionKeyCacheConfig =
-    SessionEncryptionKeyCacheConfig(
-      enabled = true
-    )
   val defaultPackageVettingCache: CacheConfig =
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(10000))
   val defaultPackageDependencyCache: CacheConfig =

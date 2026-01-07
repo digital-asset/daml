@@ -310,6 +310,7 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
   private val cryptoSnapshot = identityFactory
     .forOwnerAndSynchronizer(confirmingParticipant, sourceSynchronizer.unwrap)
     .currentSnapshotApproximation
+    .futureValueUS
 
   private val reassignmentId = ReassignmentId.tryCreate("00")
 

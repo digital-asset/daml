@@ -4,11 +4,10 @@
 package com.digitalasset.canton.crypto
 
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.util.HexString
+import com.digitalasset.canton.util.{HexString, Mutex}
 import com.google.protobuf.ByteString
 
 import java.nio.{ByteBuffer, ByteOrder, ShortBuffer}
-import scala.concurrent.blocking
 import scala.jdk.CollectionConverters.*
 
 /** A running digest of a set of bytes, where elements can be added and removed.
@@ -31,9 +30,9 @@ class LtHash16 private (private val buffer: Array[Byte]) {
   private def shortBuffer(bytes: Array[Byte]): ShortBuffer =
     ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer
 
-  private val lock = new Object
+  private val lock = new Mutex()
 
-  private def blockSync[T]: T => T = x => blocking(lock.synchronized(x))
+  private def blockSync[T]: T => T = x => (lock.exclusive(x))
 
   private def performOp(bytes: Array[Byte], f: (Short, Short) => Int): Unit = blockSync {
     val hash = Blake2xb.digest(bytes, BYTE_LENGTH)

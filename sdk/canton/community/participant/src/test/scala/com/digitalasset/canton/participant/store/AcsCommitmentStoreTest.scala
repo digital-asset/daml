@@ -23,6 +23,7 @@ import com.digitalasset.canton.participant.store.AcsCommitmentStore.{
   ReinitializationStatus,
 }
 import com.digitalasset.canton.participant.store.UpdateMode.Checkpoint
+import com.digitalasset.canton.platform.store.interning.MockStringInterning
 import com.digitalasset.canton.protocol.ContractMetadata
 import com.digitalasset.canton.protocol.messages.{
   AcsCommitment,
@@ -182,6 +183,12 @@ trait CommitmentStoreBaseTest
   lazy val alice: LfPartyId = LfPartyId.assertFromString("Alice")
   lazy val bob: LfPartyId = LfPartyId.assertFromString("bob")
   lazy val charlie: LfPartyId = LfPartyId.assertFromString("charlie")
+
+  lazy val mockStringInterning = new MockStringInterning
+
+  lazy val internalizedAlice: Int = mockStringInterning.party.internalize(alice)
+  lazy val internalizedBob: Int = mockStringInterning.party.internalize(bob)
+  lazy val internalizedCharlie: Int = mockStringInterning.party.internalize(charlie)
 }
 
 trait AcsCommitmentStoreTest
@@ -909,41 +916,18 @@ trait AcsCommitmentStoreTest
       }
     }
 
-    "can idempotent mark period as multi hosted cleared" in {
-      val store = mk()
-      for {
-        _ <- store.markOutstanding(periods(0, 1), remoteIdNESet)
-        _ <- store.markComputedAndSent(period(0, 1))
-        noOutstanding <- store.noOutstandingCommitments(ts(10))
-        _ <- store.markMultiHostedCleared(period(0, 1))
-        noOutstandingAfterCleared <- store.noOutstandingCommitments(ts(10))
-        _ <- store.markMultiHostedCleared(period(0, 1))
-        noOutstandingAfterClearedIdempotent <- store.noOutstandingCommitments(ts(10))
-
-      } yield {
-        noOutstanding shouldBe Some(ts(0))
-        noOutstandingAfterCleared shouldBe Some(ts(1))
-        noOutstandingAfterClearedIdempotent shouldBe noOutstandingAfterCleared
-      }
-    }
-
     "can mark non-existing period without problems" in {
       val store = mk()
       for {
         _ <- store.markOutstanding(periods(0, 1), remoteIdNESet)
         _ <- store.markComputedAndSent(period(0, 1))
         noOutstanding <- store.noOutstandingCommitments(ts(10))
-        _ <- store.markMultiHostedCleared(period(0, 2))
-        noOutstandingAfterCleared <- store.noOutstandingCommitments(ts(10))
-
       } yield {
         noOutstanding shouldBe Some(ts(0))
-        // we marked an invalid period so it shouldn't advance
-        noOutstandingAfterCleared shouldBe noOutstanding
       }
     }
 
-    "marked periods are fine even with mismatches" in {
+    "periods are not cleared if there are mismatches" in {
       val store = mk()
       for {
         _ <- store.markOutstanding(periods(0, 1), remoteIdNESet)
@@ -951,18 +935,9 @@ trait AcsCommitmentStoreTest
         noOutstanding <- store.noOutstandingCommitments(ts(10))
         _ <- store.markUnsafe(remoteId, periods(0, 1))
         noOutstandingUnsafe <- store.noOutstandingCommitments(ts(10))
-        _ <- store.markMultiHostedCleared(period(0, 1))
-        noOutstandingAfterCleared <- store.noOutstandingCommitments(ts(10))
-
-        // we try to remark the period as unsafe, this should not cause an update
-        _ <- store.markUnsafe(remoteId, periods(0, 1))
-        noOutStandingAfterMarkUnsafe <- store.noOutstandingCommitments(ts(10))
       } yield {
         noOutstanding shouldBe Some(ts(0))
         noOutstandingUnsafe shouldBe noOutstanding
-
-        noOutstandingAfterCleared shouldBe Some(ts(1))
-        noOutStandingAfterMarkUnsafe shouldBe noOutstandingAfterCleared
       }
     }
 
@@ -971,8 +946,6 @@ trait AcsCommitmentStoreTest
 }
 
 trait IncrementalCommitmentStoreTest extends CommitmentStoreBaseTest {
-  import com.digitalasset.canton.lfPartyOrdering
-
   def commitmentSnapshotStore(mkWith: ExecutionContext => IncrementalCommitmentStore): Unit = {
 
     def mk() = mkWith(executionContext)
@@ -996,7 +969,10 @@ trait IncrementalCommitmentStoreTest extends CommitmentStoreBaseTest {
 
           _ <- snapshot.update(
             rt(1, 0),
-            updates = Map(SortedSet(alice, bob) -> snapAB10, SortedSet(bob, charlie) -> snapBC10),
+            updates = Map(
+              SortedSet(internalizedAlice, internalizedBob) -> snapAB10,
+              SortedSet(internalizedBob, internalizedCharlie) -> snapBC10,
+            ),
             deletes = Set.empty,
             mode,
           )
@@ -1005,7 +981,7 @@ trait IncrementalCommitmentStoreTest extends CommitmentStoreBaseTest {
 
           _ <- snapshot.update(
             rt(1, 1),
-            updates = Map(SortedSet(bob, charlie) -> snapBC11),
+            updates = Map(SortedSet(internalizedBob, internalizedCharlie) -> snapBC11),
             deletes = Set.empty,
             mode,
           )
@@ -1014,8 +990,11 @@ trait IncrementalCommitmentStoreTest extends CommitmentStoreBaseTest {
 
           _ <- snapshot.update(
             rt(2, 0),
-            updates = Map(SortedSet(alice, bob) -> snapAB2, SortedSet(alice, charlie) -> snapAC2),
-            deletes = Set(SortedSet(bob, charlie)),
+            updates = Map(
+              SortedSet(internalizedAlice, internalizedBob) -> snapAB2,
+              SortedSet(internalizedAlice, internalizedCharlie) -> snapAC2,
+            ),
+            deletes = Set(SortedSet(internalizedBob, internalizedCharlie)),
             mode,
           )
           res2 <- snapshot.get()
@@ -1024,7 +1003,10 @@ trait IncrementalCommitmentStoreTest extends CommitmentStoreBaseTest {
           _ <- snapshot.update(
             rt(3, 0),
             updates = Map.empty,
-            deletes = Set(SortedSet(alice, bob), SortedSet(alice, charlie)),
+            deletes = Set(
+              SortedSet(internalizedAlice, internalizedBob),
+              SortedSet(internalizedAlice, internalizedCharlie),
+            ),
             mode,
           )
           res3 <- snapshot.get()
@@ -1036,20 +1018,20 @@ trait IncrementalCommitmentStoreTest extends CommitmentStoreBaseTest {
 
           wm1 shouldBe rt(1, 0)
           res1 shouldBe (rt(1, 0) -> Map(
-            SortedSet(alice, bob) -> snapAB10,
-            SortedSet(bob, charlie) -> snapBC10,
+            SortedSet(internalizedAlice, internalizedBob) -> snapAB10,
+            SortedSet(internalizedBob, internalizedCharlie) -> snapBC10,
           ))
 
           wm11 shouldBe rt(1, 1)
           res11 shouldBe (rt(1, 1) -> Map(
-            SortedSet(alice, bob) -> snapAB10,
-            SortedSet(bob, charlie) -> snapBC11,
+            SortedSet(internalizedAlice, internalizedBob) -> snapAB10,
+            SortedSet(internalizedBob, internalizedCharlie) -> snapBC11,
           ))
 
           ts2 shouldBe rt(2, 0)
           res2 shouldBe (rt(2, 0) -> Map(
-            SortedSet(alice, bob) -> snapAB2,
-            SortedSet(alice, charlie) -> snapAC2,
+            SortedSet(internalizedAlice, internalizedBob) -> snapAB2,
+            SortedSet(internalizedAlice, internalizedCharlie) -> snapAC2,
           ))
 
           ts3 shouldBe rt(3, 0)

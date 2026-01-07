@@ -4,11 +4,15 @@
 package com.digitalasset.canton.participant.store.db
 
 import com.daml.nameof.NameOf.functionFullName
-import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.config.BatchingConfig
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.store.ActiveContractStoreTest
 import com.digitalasset.canton.participant.store.db.DbActiveContractStoreTest.maxSynchronizerIndex
 import com.digitalasset.canton.participant.store.db.DbContractStoreTest.createDbContractStoreForTesting
+import com.digitalasset.canton.participant.util.TimeOfChange
+import com.digitalasset.canton.protocol.ExampleTransactionFactory
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
@@ -18,7 +22,11 @@ import com.digitalasset.canton.store.{
   PrunableByTimeParameters,
 }
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.MonadUtil
+import com.digitalasset.canton.{BaseTest, ReassignmentCounter, RepairCounter}
 import org.scalatest.wordspec.AsyncWordSpec
+
+import java.time.Instant
 
 trait DbActiveContractStoreTest extends AsyncWordSpec with BaseTest with ActiveContractStoreTest {
   this: DbTest =>
@@ -59,6 +67,7 @@ trait DbActiveContractStoreTest extends AsyncWordSpec with BaseTest with ActiveC
           synchronizerId,
           enableAdditionalConsistencyChecks = Some(1000),
           PrunableByTimeParameters.testingParams,
+          BatchingConfig(),
           indexStore,
           timeouts,
           loggerFactory,
@@ -71,6 +80,89 @@ trait DbActiveContractStoreTest extends AsyncWordSpec with BaseTest with ActiveC
         )(ec),
     )
 
+    "be able to handle many changes within a time period" inUS {
+
+      val indexStore =
+        new InMemoryIndexedStringStore(minIndex = 1, maxIndex = maxSynchronizerIndex)
+
+      val synchronizerId = IndexedSynchronizer.tryCreate(
+        acsSynchronizerId,
+        indexStore.getOrCreateIndexForTesting(
+          IndexedStringType.synchronizerId,
+          acsSynchronizerStr,
+        ),
+      )
+      // Check we end up with the expected synchronizer index. If we don't, then test isolation may get broken.
+      assert(synchronizerId.index == synchronizerIndex)
+      val acs = new DbActiveContractStore(
+        storage,
+        synchronizerId,
+        enableAdditionalConsistencyChecks = None,
+        PrunableByTimeParameters.testingParams,
+        BatchingConfig(),
+        indexStore,
+        timeouts,
+        loggerFactory,
+      )(executionContext)
+
+      val rc = None: Option[RepairCounter]
+      val rc1 = Some(RepairCounter.One): Option[RepairCounter]
+
+      val ts = CantonTimestamp.assertFromInstant(Instant.parse("2019-04-04T10:00:00.00Z"))
+      val ts1 = ts.addMicros(1)
+
+      val tocExclusive = TimeOfChange(ts.immediatePredecessor, rc)
+      val toc1 = TimeOfChange(ts, rc)
+      val toc2 = TimeOfChange(ts1, rc1)
+
+      val nrContracts = 100_000
+      val many = (1 to nrContracts).toList.map(n =>
+        ExampleTransactionFactory.suffixedId(n % (2 ^ 16), n / (2 ^ 16))
+      )
+      for {
+
+        _ <- valueOrFail(
+          MonadUtil.batchedSequentialTraverse_(PositiveInt.one, PositiveInt.tryCreate(5000))(
+            many.map((_, ReassignmentCounter(0)))
+          )(acs.markContractsCreated(_, toc1))
+        )("assign many in chunks")
+
+        _ <- valueOrFail(
+          MonadUtil.batchedSequentialTraverse_(PositiveInt.one, PositiveInt.tryCreate(5000))(
+            many
+          )(acs.archiveContracts(_, toc2))
+        )("assign many in chunks")
+
+        largeLimit = PositiveInt.tryCreate(2 * nrContracts) // activations and deactivations
+        smallLimit = PositiveInt.tryCreate(100)
+        (manyChanges, manyChangesReturnedSize) <- acs.changesBetween(
+          tocExclusive,
+          toc2,
+          largeLimit,
+        )
+        (notSoManyChanges, notSoManyChangesReturnedSize) <- acs.changesBetween(
+          tocExclusive,
+          toc2,
+          smallLimit,
+        )
+      } yield {
+        val manyChangesSize = manyChanges.flatMap { case (_, changes) =>
+          changes.deactivations.keys ++ changes.activations.keys
+        }.size
+        manyChangesSize shouldBe largeLimit.value
+        notSoManyChanges.flatMap { case (_, changes) =>
+          changes.deactivations.keys ++ changes.activations.keys
+        }.size shouldBe nrContracts
+        notSoManyChangesReturnedSize shouldBe nrContracts
+        manyChanges
+          .flatMap { case (_, changes) => changes.deactivations }
+          .toSet
+          .intersect(notSoManyChanges.flatMap { case (_, changes) => changes.deactivations }.toSet)
+          .size shouldBe notSoManyChanges.flatMap { case (_, changes) =>
+          changes.deactivations
+        }.size
+      }
+    }
   }
 }
 

@@ -173,7 +173,7 @@ final class ApiParticipantPruningService private (
       previousPruneUpToInclusive: Option[Offset],
       previousIncompleteReassignmentOffsets: Vector[Offset],
       pruneUpTo: Offset,
-      incompletReassignmentOffsets: Vector[Offset],
+      incompleteReassignmentOffsets: Vector[Offset],
   )(implicit loggingContext: LoggingContextWithTrace): Future[PruneResponse] = {
     logger.info(s"About to prune ledger api server index to ${pruneUpTo.unwrap} inclusively.")
     readBackend
@@ -181,7 +181,7 @@ final class ApiParticipantPruningService private (
         previousPruneUpToInclusive = previousPruneUpToInclusive,
         previousIncompleteReassignmentOffsets = previousIncompleteReassignmentOffsets,
         pruneUpToInclusive = pruneUpTo,
-        incompletReassignmentOffsets = incompletReassignmentOffsets,
+        incompleteReassignmentOffsets = incompleteReassignmentOffsets,
       )
       .map { _ =>
         logger.info(s"Pruned ledger api server index up to ${pruneUpTo.unwrap} inclusively.")

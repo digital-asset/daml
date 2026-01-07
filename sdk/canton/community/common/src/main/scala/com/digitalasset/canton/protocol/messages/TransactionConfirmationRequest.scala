@@ -32,7 +32,7 @@ final case class TransactionConfirmationRequest(
 
   def mediator: MediatorGroupRecipient = informeeMessage.mediator
 
-  lazy val rootHash: RootHash = informeeMessage.fullInformeeTree.transactionId.toRootHash
+  lazy val rootHash: RootHash = informeeMessage.fullInformeeTree.updateId.toRootHash
 
   private def rootHashMessage(
       submissionTopologyTime: CantonTimestamp

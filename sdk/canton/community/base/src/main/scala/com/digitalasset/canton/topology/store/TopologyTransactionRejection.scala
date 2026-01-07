@@ -222,6 +222,18 @@ object TopologyTransactionRejection {
         TopologyManagerError.MissingTopologyMapping.MissingSynchronizerParameters(effective)
     }
 
+    final case class NamespaceHasBeenRevoked(namespace: Namespace)
+        extends TopologyTransactionRejection {
+      override def asString: String = s"The namespace $namespace has previously been revoked."
+
+      override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+        TopologyManagerError.NamespaceHasBeenRevoked.Reject(namespace)
+
+      override protected def pretty: Pretty[NamespaceHasBeenRevoked.this.type] = prettyOfClass(
+        param("namespace", _.namespace)
+      )
+    }
+
     final case class NamespaceAlreadyInUse(namespace: Namespace)
         extends TopologyTransactionRejection {
       override def asString: String = s"The namespace $namespace is already used by another entity."

@@ -262,6 +262,7 @@ class ParticipantTab(
     }
   }
 
+  @SuppressWarnings(Array("com.digitalasset.canton.RequireBlocking"))
   private def subscribeToChannel(offset: Long): Unit = {
     val channel = ClientChannelBuilder
       .createChannelBuilderToTrustedServer(participant.config.clientLedgerApi)

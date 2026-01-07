@@ -74,6 +74,7 @@ final case class SequencerNodeParameterConfig(
     sequencingTimeLowerBoundExclusive: Option[CantonTimestamp] =
       SequencerNodeParameterConfig.DefaultSequencingTimeLowerBoundExclusive,
     asyncWriter: AsyncWriterConfig = AsyncWriterConfig(),
+    timeAdvancingTopology: TimeAdvancingTopologyConfig = TimeAdvancingTopologyConfig(),
 ) extends ProtocolConfig
     with LocalNodeParametersConfig
     with UniformCantonConfigValidation

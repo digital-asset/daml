@@ -9,8 +9,9 @@ import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.{
   CompositeSql,
   SqlStringInterpolation,
 }
+import com.digitalasset.canton.util.ResourceUtil
 
-import java.sql.Connection
+import java.sql.{Connection, ResultSet}
 
 object QueryStrategy {
 
@@ -117,6 +118,19 @@ object QueryStrategy {
       cSQL"(#$nonNullableColumn >= $startInclusive and #$nonNullableColumn <= $endInclusive)"
     }
   }
+
+  def plainJdbcQuery[T](
+      querySqlString: String
+  )(parser: ResultSet => T)(connection: Connection): Vector[T] =
+    ResourceUtil.withResource(connection.createStatement())(statement =>
+      ResourceUtil.withResource(statement.executeQuery(querySqlString)) { resultSet =>
+        Iterator
+          .continually(resultSet.next())
+          .takeWhile(identity)
+          .map(_ => parser(resultSet))
+          .toVector
+      }
+    )
 }
 
 trait QueryStrategy {

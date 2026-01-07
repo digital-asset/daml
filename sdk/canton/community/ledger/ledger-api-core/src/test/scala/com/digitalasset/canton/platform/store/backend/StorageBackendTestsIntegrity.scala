@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.platform.store.backend
 
+import anorm.SqlParser.scalar
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationEvent.{
   Added,
   ChangedTo,
@@ -37,414 +38,304 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
 
   behavior of "IntegrityStorageBackend"
 
-  // TODO(i28539) analyse if additional unit tests needed, and implement them with the new schema
-//  it should "find duplicate event ids" in {
-//    val updates = Vector(
-//      dtoCreateLegacy(offset(7), 7L, hashCid("#7")),
-//      dtoCreateLegacy(offset(7), 7L, hashCid("#7")), // duplicate id
-//    )
-//
-//    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-//    executeSql(ingest(updates, _))
-//    executeSql(updateLedgerEnd(offset(7), 7L))
-//    val failure =
-//      intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
-//
-//    // Error message should contain the duplicate event sequential id
-//    failure.getMessage should include("7")
-//  }
-//
-//  it should "find duplicate event ids with different offsets" in {
-//    val updates = Vector(
-//      dtoCreateLegacy(offset(6), 7L, hashCid("#7")),
-//      dtoCreateLegacy(offset(7), 7L, hashCid("#7")), // duplicate id
-//    )
-//
-//    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-//    executeSql(ingest(updates, _))
-//    executeSql(updateLedgerEnd(offset(7), 7L))
-//    val failure =
-//      intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
-//
-//    // Error message should contain the duplicate event sequential id
-//    failure.getMessage should include("7")
-//  }
-//
-//  it should "find non-consecutive event ids" in {
-//    val updates = Vector(
-//      dtoCreateLegacy(offset(1), 1L, hashCid("#1")),
-//      dtoCreateLegacy(offset(3), 3L, hashCid("#3")), // non-consecutive id
-//    )
-//
-//    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-//    executeSql(ingest(updates, _))
-//    executeSql(updateLedgerEnd(offset(3), 3L))
-//    val failure =
-//      intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
-//
-//    failure.getMessage should include("consecutive")
-//
-//  }
-//
-//  it should "not find non-consecutive event ids if those gaps are before the pruning offset" in {
-//    val updates = Vector(
-//      dtoCreateLegacy(offset(1), 1L, hashCid("#1")),
-//      dtoCreateLegacy(
-//        offset(3),
-//        3L,
-//        hashCid("#3"),
-//      ), // non-consecutive id but after pruning offset
-//      dtoCreateLegacy(offset(4), 4L, hashCid("#4")),
-//    )
-//
-//    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-//    executeSql(backend.parameter.updatePrunedUptoInclusive(offset(2)))
-//    executeSql(ingest(updates, _))
-//    executeSql(updateLedgerEnd(offset(4), 4L))
-//    executeSql(backend.integrity.verifyIntegrity())
-//  }
-//
-//  it should "detect monotonicity violation of record times for one synchronizer in created table" in {
-//    val updates = Vector(
-//      dtoCreateLegacy(
-//        offset(1),
-//        1L,
-//        hashCid("#1"),
-//        synchronizerId = someSynchronizerId,
-//        recordTime = time5,
-//      ),
-//      dtoCreateLegacy(
-//        offset(2),
-//        2L,
-//        hashCid("#2"),
-//        synchronizerId = someSynchronizerId2,
-//        recordTime = time1,
-//      ),
-//      dtoCreateLegacy(
-//        offset(3),
-//        3L,
-//        hashCid("#3"),
-//        synchronizerId = someSynchronizerId,
-//        recordTime = time7,
-//      ),
-//      dtoCreateLegacy(
-//        offset(4),
-//        4L,
-//        hashCid("#4"),
-//        synchronizerId = someSynchronizerId2,
-//        recordTime = time3,
-//      ),
-//      dtoCreateLegacy(
-//        offset(5),
-//        5L,
-//        hashCid("#5"),
-//        synchronizerId = someSynchronizerId,
-//        recordTime = time6,
-//      ),
-//    )
-//
-//    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-//    executeSql(ingest(updates, _))
-//    executeSql(updateLedgerEnd(offset(5), 5L))
-//    val failure =
-//      intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
-//    failure.getMessage should include(
-//      "occurrence of decreasing record time found within one synchronizer: offsets Offset(3),Offset(5)"
-//    )
-//  }
-//
-//  it should "detect monotonicity violation of record times for one synchronizer in consuming exercise table" in {
-//    val updates = Vector(
-//      dtoCreateLegacy(
-//        offset(1),
-//        1L,
-//        hashCid("#1"),
-//        synchronizerId = someSynchronizerId,
-//        recordTime = time5,
-//      ),
-//      dtoCreateLegacy(
-//        offset(2),
-//        2L,
-//        hashCid("#2"),
-//        synchronizerId = someSynchronizerId2,
-//        recordTime = time1,
-//      ),
-//      dtoExerciseLegacy(
-//        offset(3),
-//        3L,
-//        consuming = true,
-//        hashCid("#3"),
-//        synchronizerId = someSynchronizerId,
-//        recordTime = time7,
-//      ),
-//      dtoCreateLegacy(
-//        offset(4),
-//        4L,
-//        hashCid("#4"),
-//        synchronizerId = someSynchronizerId2,
-//        recordTime = time3,
-//      ),
-//      dtoCreateLegacy(
-//        offset(5),
-//        5L,
-//        hashCid("#5"),
-//        synchronizerId = someSynchronizerId,
-//        recordTime = time6,
-//      ),
-//    )
-//
-//    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-//    executeSql(ingest(updates, _))
-//    executeSql(updateLedgerEnd(offset(5), 5L))
-//    val failure =
-//      intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
-//    failure.getMessage should include(
-//      "occurrence of decreasing record time found within one synchronizer: offsets Offset(3),Offset(5)"
-//    )
-//  }
-//
-//  it should "detect monotonicity violation of record times for one synchronizer in non-consuming exercise table" in {
-//    val updates = Vector(
-//      dtoCreateLegacy(
-//        offset(1),
-//        1L,
-//        hashCid("#1"),
-//        synchronizerId = someSynchronizerId,
-//        recordTime = time5,
-//      ),
-//      dtoCreateLegacy(
-//        offset(2),
-//        2L,
-//        hashCid("#2"),
-//        synchronizerId = someSynchronizerId2,
-//        recordTime = time1,
-//      ),
-//      dtoExerciseLegacy(
-//        offset(3),
-//        3L,
-//        consuming = false,
-//        hashCid("#3"),
-//        synchronizerId = someSynchronizerId,
-//        recordTime = time7,
-//      ),
-//      dtoCreateLegacy(
-//        offset(4),
-//        4L,
-//        hashCid("#4"),
-//        synchronizerId = someSynchronizerId2,
-//        recordTime = time3,
-//      ),
-//      dtoCreateLegacy(
-//        offset(5),
-//        5L,
-//        hashCid("#5"),
-//        synchronizerId = someSynchronizerId,
-//        recordTime = time6,
-//      ),
-//    )
-//
-//    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-//    executeSql(ingest(updates, _))
-//    executeSql(updateLedgerEnd(offset(5), 5L))
-//    val failure =
-//      intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
-//    failure.getMessage should include(
-//      "occurrence of decreasing record time found within one synchronizer: offsets Offset(3),Offset(5)"
-//    )
-//  }
-//
-//  it should "detect monotonicity violation of record times for one synchronizer in assign table" in {
-//    val updates = Vector(
-//      dtoCreateLegacy(
-//        offset(1),
-//        1L,
-//        hashCid("#1"),
-//        synchronizerId = someSynchronizerId,
-//        recordTime = time5,
-//      ),
-//      dtoCreateLegacy(
-//        offset(2),
-//        2L,
-//        hashCid("#2"),
-//        synchronizerId = someSynchronizerId2,
-//        recordTime = time1,
-//      ),
-//      dtoAssignLegacy(
-//        offset(3),
-//        3L,
-//        hashCid("#3"),
-//        targetSynchronizerId = someSynchronizerId,
-//        recordTime = time7,
-//      ),
-//      dtoCreateLegacy(
-//        offset(4),
-//        4L,
-//        hashCid("#4"),
-//        synchronizerId = someSynchronizerId2,
-//        recordTime = time3,
-//      ),
-//      dtoCreateLegacy(
-//        offset(5),
-//        5L,
-//        hashCid("#5"),
-//        synchronizerId = someSynchronizerId,
-//        recordTime = time6,
-//      ),
-//    )
-//
-//    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-//    executeSql(ingest(updates, _))
-//    executeSql(updateLedgerEnd(offset(5), 5L))
-//    val failure =
-//      intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
-//    failure.getMessage should include(
-//      "occurrence of decreasing record time found within one synchronizer: offsets Offset(3),Offset(5)"
-//    )
-//  }
-//
-//  it should "detect monotonicity violation of record times for one synchronizer in unassign table" in {
-//    val updates = Vector(
-//      dtoCreateLegacy(
-//        offset(1),
-//        1L,
-//        hashCid("#1"),
-//        synchronizerId = someSynchronizerId,
-//        recordTime = time5,
-//      ),
-//      dtoCreateLegacy(
-//        offset(2),
-//        2L,
-//        hashCid("#2"),
-//        synchronizerId = someSynchronizerId2,
-//        recordTime = time1,
-//      ),
-//      dtoUnassignLegacy(
-//        offset(3),
-//        3L,
-//        hashCid("#3"),
-//        sourceSynchronizerId = someSynchronizerId,
-//        recordTime = time7,
-//      ),
-//      dtoCreateLegacy(
-//        offset(4),
-//        4L,
-//        hashCid("#4"),
-//        synchronizerId = someSynchronizerId2,
-//        recordTime = time3,
-//      ),
-//      dtoCreateLegacy(
-//        offset(5),
-//        5L,
-//        hashCid("#5"),
-//        synchronizerId = someSynchronizerId,
-//        recordTime = time6,
-//      ),
-//    )
-//
-//    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-//    executeSql(ingest(updates, _))
-//    executeSql(updateLedgerEnd(offset(5), 5L))
-//    val failure =
-//      intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
-//    failure.getMessage should include(
-//      "occurrence of decreasing record time found within one synchronizer: offsets Offset(3),Offset(5)"
-//    )
-//  }
-//
-//  it should "detect monotonicity violation of record times for one synchronizer in completions table" in {
-//    val updates = Vector(
-//      dtoCreateLegacy(
-//        offset(1),
-//        1L,
-//        hashCid("#1"),
-//        synchronizerId = someSynchronizerId,
-//        recordTime = time5,
-//      ),
-//      dtoCreateLegacy(
-//        offset(2),
-//        2L,
-//        hashCid("#2"),
-//        synchronizerId = someSynchronizerId2,
-//        recordTime = time1,
-//      ),
-//      dtoCompletion(
-//        offset(3),
-//        synchronizerId = someSynchronizerId,
-//        recordTime = time7,
-//      ),
-//      dtoCreateLegacy(
-//        offset(4),
-//        3L,
-//        hashCid("#4"),
-//        synchronizerId = someSynchronizerId2,
-//        recordTime = time3,
-//      ),
-//      dtoCreateLegacy(
-//        offset(5),
-//        4L,
-//        hashCid("#5"),
-//        synchronizerId = someSynchronizerId,
-//        recordTime = time6,
-//      ),
-//    )
-//
-//    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-//    executeSql(ingest(updates, _))
-//    executeSql(updateLedgerEnd(offset(5), 4L))
-//    val failure =
-//      intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
-//    failure.getMessage should include(
-//      "occurrence of decreasing record time found within one synchronizer: offsets Offset(3),Offset(5)"
-//    )
-//  }
-//
-//  it should "detect monotonicity violation of record times for one synchronizer in completions table, if it is a timely-reject going backwards" in {
-//    val updates = Vector(
-//      dtoCreateLegacy(
-//        offset(1),
-//        1L,
-//        hashCid("#1"),
-//        synchronizerId = someSynchronizerId,
-//        recordTime = time5,
-//      ),
-//      dtoCreateLegacy(
-//        offset(2),
-//        2L,
-//        hashCid("#2"),
-//        synchronizerId = someSynchronizerId2,
-//        recordTime = time1,
-//      ),
-//      dtoCompletion(
-//        offset(3),
-//        synchronizerId = someSynchronizerId,
-//        recordTime = time7,
-//        messageUuid = Some("message uuid"),
-//      ),
-//      dtoCreateLegacy(
-//        offset(4),
-//        3L,
-//        hashCid("#4"),
-//        synchronizerId = someSynchronizerId2,
-//        recordTime = time3,
-//      ),
-//      dtoCreateLegacy(
-//        offset(5),
-//        4L,
-//        hashCid("#5"),
-//        synchronizerId = someSynchronizerId,
-//        recordTime = time6,
-//      ),
-//    )
-//
-//    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-//    executeSql(ingest(updates, _))
-//    executeSql(updateLedgerEnd(offset(5), 4L))
-//    val failure =
-//      intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
-//    failure.getMessage should include(
-//      "occurrence of decreasing record time found within one synchronizer: offsets Offset(3),Offset(5)"
-//    )
-//  }
+  it should "find duplicate event ids" in {
+    val updates = Vector(
+      dtosCreate(event_offset = 7, event_sequential_id = 7L)(),
+      dtosCreate(event_offset = 7, event_sequential_id = 7L)(), // duplicate id
+    ).flatten
+
+    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+    executeSql(ingest(updates, _))
+    executeSql(updateLedgerEnd(offset(7), 7L))
+    val failure =
+      intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
+
+    // Error message should contain the duplicate event sequential id
+    failure.getMessage should include("7")
+  }
+
+  it should "find duplicate event ids with different offsets" in {
+    val updates = Vector(
+      dtosCreate(event_offset = 6, event_sequential_id = 7L)(),
+      dtosCreate(event_offset = 7, event_sequential_id = 7L)(), // duplicate id
+    ).flatten
+
+    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+    executeSql(ingest(updates, _))
+    executeSql(updateLedgerEnd(offset(7), 7L))
+    val failure =
+      intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
+
+    // Error message should contain the duplicate event sequential id
+    failure.getMessage should include("7")
+  }
+
+  it should "find non-consecutive event ids" in {
+    val updates = Vector(
+      dtosCreate(event_offset = 1, event_sequential_id = 1L)(),
+      dtosCreate(event_offset = 3, event_sequential_id = 3L)(), // non-consecutive id
+    ).flatten
+
+    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+    executeSql(ingest(updates, _))
+    executeSql(updateLedgerEnd(offset(3), 3L))
+    val failure =
+      intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
+
+    failure.getMessage should include("consecutive")
+
+  }
+
+  it should "not find non-consecutive event ids if those gaps are before the pruning offset" in {
+    val internalContractId = insertParContracts() // making sure internal_contract_id = 1L exists
+    val updates = Vector(
+      dtosCreate(
+        event_offset = 1,
+        event_sequential_id = 1L,
+        internal_contract_id = internalContractId,
+      )(),
+      dtosCreate(
+        event_offset = 3,
+        event_sequential_id = 3L,
+        internal_contract_id = 1,
+      )(), // non-consecutive id but after pruning offset
+      dtosCreate(
+        event_offset = 4,
+        event_sequential_id = 4L,
+        internal_contract_id = internalContractId,
+      )(),
+    ).flatten
+
+    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+    executeSql(backend.parameter.updatePrunedUptoInclusive(offset(2)))
+    executeSql(ingest(updates, _))
+    executeSql(updateLedgerEnd(offset(4), 4L))
+    executeSql(backend.integrity.verifyIntegrity())
+  }
+
+  it should "detect monotonicity violation of record times for one synchronizer in activate table" in {
+    val updates = Vector(
+      dtosCreate(
+        event_offset = 1,
+        event_sequential_id = 1L,
+        synchronizer_id = someSynchronizerId,
+        record_time = time5.micros,
+      )(),
+      dtosCreate(
+        event_offset = 2,
+        event_sequential_id = 2L,
+        synchronizer_id = someSynchronizerId2,
+        record_time = time1.micros,
+      )(),
+      dtosCreate(
+        event_offset = 3,
+        event_sequential_id = 3L,
+        synchronizer_id = someSynchronizerId,
+        record_time = time7.micros,
+      )(),
+      dtosCreate(
+        event_offset = 4,
+        event_sequential_id = 4L,
+        synchronizer_id = someSynchronizerId2,
+        record_time = time3.micros,
+      )(),
+      dtosCreate(
+        event_offset = 5,
+        event_sequential_id = 5L,
+        synchronizer_id = someSynchronizerId,
+        record_time = time6.micros,
+      )(),
+    ).flatten
+
+    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+    executeSql(ingest(updates, _))
+    executeSql(updateLedgerEnd(offset(5), 5L))
+    val failure =
+      intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
+    failure.getMessage should include(
+      "occurrence of decreasing record time found within one synchronizer: offsets Offset(3),Offset(5)"
+    )
+  }
+
+  it should "detect monotonicity violation of record times for one synchronizer in deactivate table" in {
+    val updates = Vector(
+      dtosCreate(
+        event_offset = 1,
+        event_sequential_id = 1L,
+        synchronizer_id = someSynchronizerId,
+        record_time = time5.micros,
+      )(),
+      dtosCreate(
+        event_offset = 2,
+        event_sequential_id = 2L,
+        synchronizer_id = someSynchronizerId2,
+        record_time = time1.micros,
+      )(),
+      dtosConsumingExercise(
+        event_offset = 3,
+        event_sequential_id = 3L,
+        synchronizer_id = someSynchronizerId,
+        record_time = time7.micros,
+      ),
+      dtosCreate(
+        event_offset = 4,
+        event_sequential_id = 4L,
+        synchronizer_id = someSynchronizerId2,
+        record_time = time3.micros,
+      )(),
+      dtosCreate(
+        event_offset = 5,
+        event_sequential_id = 5L,
+        synchronizer_id = someSynchronizerId,
+        record_time = time6.micros,
+      )(),
+    ).flatten
+
+    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+    executeSql(ingest(updates, _))
+    executeSql(updateLedgerEnd(offset(5), 5L))
+    val failure =
+      intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
+    failure.getMessage should include(
+      "occurrence of decreasing record time found within one synchronizer: offsets Offset(3),Offset(5)"
+    )
+  }
+
+  it should "detect monotonicity violation of record times for one synchronizer in various witnessed table" in {
+    val updates = Vector(
+      dtosCreate(
+        event_offset = 1,
+        event_sequential_id = 1L,
+        synchronizer_id = someSynchronizerId,
+        record_time = time5.micros,
+      )(),
+      dtosCreate(
+        event_offset = 2,
+        event_sequential_id = 2L,
+        synchronizer_id = someSynchronizerId2,
+        record_time = time1.micros,
+      )(),
+      dtosWitnessedExercised(
+        event_offset = 3,
+        event_sequential_id = 3L,
+        consuming = false,
+        synchronizer_id = someSynchronizerId,
+        record_time = time7.micros,
+      ),
+      dtosCreate(
+        event_offset = 4,
+        event_sequential_id = 4L,
+        synchronizer_id = someSynchronizerId2,
+        record_time = time3.micros,
+      )(),
+      dtosCreate(
+        event_offset = 5,
+        event_sequential_id = 5L,
+        synchronizer_id = someSynchronizerId,
+        record_time = time6.micros,
+      )(),
+    ).flatten
+
+    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+    executeSql(ingest(updates, _))
+    executeSql(updateLedgerEnd(offset(5), 5L))
+    val failure =
+      intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
+    failure.getMessage should include(
+      "occurrence of decreasing record time found within one synchronizer: offsets Offset(3),Offset(5)"
+    )
+  }
+
+  it should "detect monotonicity violation of record times for one synchronizer in completions table" in {
+    val updates = Vector(
+      dtosCreate(
+        event_offset = 1,
+        event_sequential_id = 1L,
+        synchronizer_id = someSynchronizerId,
+        record_time = time5.micros,
+      )(),
+      dtosCreate(
+        event_offset = 2,
+        event_sequential_id = 2L,
+        synchronizer_id = someSynchronizerId2,
+        record_time = time1.micros,
+      )(),
+      Seq(
+        dtoCompletion(
+          offset(3),
+          synchronizerId = someSynchronizerId,
+          recordTime = time7,
+        )
+      ),
+      dtosCreate(
+        event_offset = 4,
+        event_sequential_id = 3L,
+        synchronizer_id = someSynchronizerId2,
+        record_time = time3.micros,
+      )(),
+      dtosCreate(
+        event_offset = 5,
+        event_sequential_id = 4L,
+        synchronizer_id = someSynchronizerId,
+        record_time = time6.micros,
+      )(),
+    ).flatten
+
+    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+    executeSql(ingest(updates, _))
+    executeSql(updateLedgerEnd(offset(5), 4L))
+    val failure =
+      intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
+    failure.getMessage should include(
+      "occurrence of decreasing record time found within one synchronizer: offsets Offset(3),Offset(5)"
+    )
+  }
+
+  it should "detect monotonicity violation of record times for one synchronizer in completions table, if it is a timely-reject going backwards" in {
+    val updates = Vector(
+      dtosCreate(
+        event_offset = 1,
+        event_sequential_id = 1L,
+        synchronizer_id = someSynchronizerId,
+        record_time = time5.micros,
+      )(),
+      dtosCreate(
+        event_offset = 2,
+        event_sequential_id = 2L,
+        synchronizer_id = someSynchronizerId2,
+        record_time = time1.micros,
+      )(),
+      Seq(
+        dtoCompletion(
+          offset(3),
+          synchronizerId = someSynchronizerId,
+          recordTime = time7,
+          messageUuid = Some("message uuid"),
+        )
+      ),
+      dtosCreate(
+        event_offset = 4,
+        event_sequential_id = 3L,
+        synchronizer_id = someSynchronizerId2,
+        record_time = time3.micros,
+      )(),
+      dtosCreate(
+        event_offset = 5,
+        event_sequential_id = 4L,
+        synchronizer_id = someSynchronizerId,
+        record_time = time6.micros,
+      )(),
+    ).flatten
+
+    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+    executeSql(ingest(updates, _))
+    executeSql(updateLedgerEnd(offset(5), 4L))
+    val failure =
+      intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
+    failure.getMessage should include(
+      "occurrence of decreasing record time found within one synchronizer: offsets Offset(3),Offset(5)"
+    )
+  }
 
   it should "detect monotonicity violation of record times for one synchronizer in party to participant table" in {
     val updates = Vector(
@@ -654,32 +545,46 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
     executeSql(backend.integrity.verifyIntegrity())
   }
 
-  // TODO(i28539) analyse if additional unit tests needed, and implement them with the new schema
-//  it should "not find errors beyond the ledger end" in {
-//    val updates = Vector(
-//      dtoCreateLegacy(offset(1), 1L, hashCid("#1")),
-//      dtoCreateLegacy(offset(2), 2L, hashCid("#2")),
-//      dtoCreateLegacy(offset(7), 7L, hashCid("#7")), // beyond the ledger end
-//      dtoCreateLegacy(offset(7), 7L, hashCid("#7")), // duplicate id (beyond ledger end)
-//      dtoCreateLegacy(offset(9), 9L, hashCid("#9")), // non-consecutive id (beyond ledger end)
-//    )
-//
-//    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-//    executeSql(ingest(updates, _))
-//    executeSql(updateLedgerEnd(offset(2), 2L))
-//    executeSql(backend.integrity.verifyIntegrity())
-//
-//    // Succeeds if verifyIntegrity() doesn't throw
-//    succeed
-//  }
+  it should "not find errors beyond the ledger end" in {
+    val internalContractId = insertParContracts()
+    val updates = Vector(
+      dtosCreate(
+        event_offset = 1,
+        event_sequential_id = 1L,
+        internal_contract_id = internalContractId,
+      )(),
+      dtosCreate(
+        event_offset = 2,
+        event_sequential_id = 2L,
+        internal_contract_id = internalContractId,
+      )(),
+      dtosCreate(
+        event_offset = 7,
+        event_sequential_id = 7L,
+        internal_contract_id = internalContractId,
+      )(), // beyond the ledger end
+      dtosCreate(
+        event_offset = 7,
+        event_sequential_id = 7L,
+        internal_contract_id = internalContractId,
+      )(), // duplicate id (beyond ledger end)
+      dtosCreate(
+        event_offset = 9,
+        event_sequential_id = 9L,
+        internal_contract_id = internalContractId,
+      )(), // non-consecutive id (beyond ledger end)
+    ).flatten
+
+    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+    executeSql(ingest(updates, _))
+    executeSql(updateLedgerEnd(offset(2), 2L))
+    executeSql(backend.integrity.verifyIntegrity())
+
+    // Succeeds if verifyIntegrity() doesn't throw
+    succeed
+  }
 
   private def prepareMissingReferencedParContracts(): Unit = {
-    // setting up started_up_to_inclusive = 10
-    executeSql(
-      SQL"INSERT INTO par_pruning_operation (name, started_up_to_inclusive) VALUES ('n', 10)"
-        .execute()(_)
-    )
-
     val updates = Vector(
       dtosCreate(
         event_offset = 1,
@@ -732,7 +637,7 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
         consuming = false,
       ),
       dtosConsumingExercise(
-        event_offset = 13,
+        event_offset = 14,
         event_sequential_id = 8L,
         deactivated_event_sequential_id = Some(4L),
         internal_contract_id = Some(4L),
@@ -741,23 +646,22 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(updates, _))
-    executeSql(updateLedgerEnd(offset(12), 13L))
+    executeSql(updateLedgerEnd(offset(14), 8L))
   }
 
   it should "find missing referenced par_contracts" in {
     prepareMissingReferencedParContracts()
-    val failure =
-      intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
-    executeSql(SQL"DELETE FROM par_pruning_operation".execute()(_))
+    insertPruningOperationUpTo(10L)
+    val failure = intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
     failure.getMessage should include(
-      "some internal_contract_id-s in events tables are not present in par_contracts (first 10 shown with offsets) [(4,4), (4,13), (5,11), (6,12), (7,13)]"
+      "some internal_contract_id-s in events tables are not present in par_contracts (first 10 shown with offsets) [(4,4), (4,14), (5,11), (6,12), (7,13)]"
     )
   }
 
   it should "not report error for missing referenced par_contracts when inMemory" in {
     prepareMissingReferencedParContracts()
+    insertPruningOperationUpTo(0L)
     executeSql(backend.integrity.verifyIntegrity(inMemoryCantonStore = true))
-    executeSql(SQL"DELETE FROM par_pruning_operation".execute()(_))
     succeed
   }
 
@@ -789,10 +693,15 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
         deactivated_event_sequential_id = Some(6L),
         internal_contract_id = Some(1L),
       ),
-      dtosCreate(
+      dtosConsumingExercise( // deactivated_event_sequential_id is NULL - not reported
         event_offset = 6,
         event_sequential_id = 6L,
-        notPersistedContractId = hashCid("#6"),
+        deactivated_event_sequential_id = None,
+      ),
+      dtosCreate(
+        event_offset = 7,
+        event_sequential_id = 7L,
+        notPersistedContractId = hashCid("#7"),
         internal_contract_id = 2L,
       )(
         stakeholders = Set(someParty)
@@ -806,7 +715,7 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(updates, _))
-    executeSql(updateLedgerEnd(offset(6), 6L))
+    executeSql(updateLedgerEnd(offset(7), 7L))
 
     // using inMemoryCantonStore = true to skip the par_contracts check
     val failure =
@@ -817,6 +726,145 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
       "some deactivation events do not have a preceding activation event, deactivated_event_sequential_id-s with offsets (first 10 shown) [(1,4), (6,5)]"
     )
   }
+
+  it should "report leftover witnessed events after pruning" in {
+    val updates = Vector(
+      dtosWitnessedExercised(
+        event_offset = 2,
+        event_sequential_id = 2L,
+        consuming = false,
+        internal_contract_id = None,
+      ),
+      dtosWitnessedExercised(
+        event_offset = 5,
+        event_sequential_id = 3L,
+        consuming = false,
+        internal_contract_id = None,
+      ),
+    ).flatten
+
+    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+    executeSql(backend.parameter.updatePrunedUptoInclusive(offset(3)))
+    executeSql(ingest(updates, _))
+    executeSql(updateLedgerEnd(offset(5), 3L))
+
+    // using inMemoryCantonStore = true to skip the par_contracts check
+    val failure = intercept[RuntimeException](
+      executeSql(backend.integrity.verifyIntegrity(inMemoryCantonStore = true))
+    )
+
+    failure.getMessage should include(
+      "some events in various_witnessed have not been pruned, offsets (first 10 shown) [2]"
+    )
+  }
+
+  it should "report leftover activate events after pruning" in {
+    val updates = Vector(
+      dtosCreate(
+        event_offset = 1,
+        event_sequential_id = 1L, // deactivated by 3L
+      )(),
+      dtosCreate(
+        event_offset = 2,
+        event_sequential_id = 2L, // not deactivated
+      )(),
+      dtosConsumingExercise(
+        event_offset = 3,
+        event_sequential_id = 3L,
+        deactivated_event_sequential_id = Some(1L),
+      ),
+      // incomplete reassignment 1
+      dtosCreate(
+        event_offset = 4,
+        event_sequential_id = 4L, // deactivated by 5L
+      )(),
+      dtosUnassign(
+        event_offset = 5,
+        event_sequential_id = 5L,
+        deactivated_event_sequential_id = Some(4L),
+      ),
+      // incomplete reassignment 2
+      dtosAssign(
+        event_offset = 6,
+        event_sequential_id = 6L, // deactivated by 7L
+      )(),
+      dtosConsumingExercise(
+        event_offset = 7,
+        event_sequential_id = 7L,
+        deactivated_event_sequential_id = Some(6L),
+      ),
+      // incomplete reassignment 3
+      dtosAssign(
+        event_offset = 8,
+        event_sequential_id = 8L, // deactivated by 9L
+      )(),
+      dtosUnassign(
+        event_offset = 9,
+        event_sequential_id = 9L,
+        deactivated_event_sequential_id = Some(8L),
+      ),
+      // after pruning offset
+      dtosCreate(
+        event_offset = 10,
+        event_sequential_id = 10L,
+      )(),
+    ).flatten
+
+    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+    executeSql(backend.parameter.updatePrunedUptoInclusive(offset(9)))
+    executeSql(ingest(updates, _))
+    executeSql(updateLedgerEnd(offset(10), 10L))
+
+    // using inMemoryCantonStore = true to skip the par_contracts check
+    val failure = intercept[RuntimeException](
+      executeSql(backend.integrity.verifyIntegrity(inMemoryCantonStore = true))
+    )
+
+    failure.getMessage should include(
+      "some events in activate have not been pruned, offsets (first 10 shown) [1]"
+    )
+  }
+
+  it should "report leftover deactivate events after pruning" in {
+    val updates = Vector(
+      dtosConsumingExercise(
+        event_offset = 2,
+        event_sequential_id = 2L,
+        deactivated_event_sequential_id = None,
+      ),
+      dtosConsumingExercise(
+        event_offset = 5,
+        event_sequential_id = 3L,
+        deactivated_event_sequential_id = None,
+      ),
+    ).flatten
+
+    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+    executeSql(backend.parameter.updatePrunedUptoInclusive(offset(3)))
+    executeSql(ingest(updates, _))
+    executeSql(updateLedgerEnd(offset(2), 2L))
+
+    // using inMemoryCantonStore = true to skip the par_contracts check
+    val failure = intercept[RuntimeException](
+      executeSql(backend.integrity.verifyIntegrity(inMemoryCantonStore = true))
+    )
+
+    failure.getMessage should include(
+      "some events in deactivate have not been pruned, offsets (first 10 shown) [2]"
+    )
+  }
+
+  private def insertParContracts(): Long =
+    executeSql(
+      SQL"INSERT INTO par_contracts (contract_id, instance, package_id, template_id) VALUES (${"c".getBytes}, ${"d".getBytes}, 'pid', 'tid')"
+        .executeInsert(scalar[Long].single)(_)
+    )
+
+  def insertPruningOperationUpTo[A](offset: Long): Unit =
+    executeSql(
+      SQL"INSERT INTO par_pruning_operation (name, started_up_to_inclusive) VALUES ('n', $offset)"
+        .execute()(_)
+    )
 
   private def performMissingMandatoryFieldCheck(updates: Seq[DbDto]) = {
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))

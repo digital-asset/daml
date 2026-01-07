@@ -261,4 +261,6 @@ enum ForceFlag {
   FORCE_FLAG_ALLOW_VET_INCOMPATIBLE_UPGRADES = 12;
   /** Required when submitting dynamic synchronizer parameters that have out-of-bounds values */
   FORCE_FLAG_ALLOW_OUT_OF_BOUNDS_VALUE = 13;
+  /** Required when changing the confirming threshold to a value higher than the number of confirming participants */
+  FORCE_FLAG_ALLOW_CONFIRMING_THRESHOLD_CANNOT_BE_MET = 14;
 }

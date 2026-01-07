@@ -73,7 +73,7 @@ import com.google.common.annotations.VisibleForTesting
 
 import java.util.UUID
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
-import scala.concurrent.{ExecutionContext, blocking}
+import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success}
 
 /** The [[ProtocolProcessor]] orchestrates Phase 3, 4, and 7 of the synchronization protocol. For
@@ -258,8 +258,8 @@ abstract class ProtocolProcessor[
           Right(steps.createSubmissionResult(deliver, pendingSubmission))
         case SendResult.Error(error) =>
           Left(untracked.embedSubmissionError(SequencerDeliverError(error)))
-        case SendResult.Timeout(sequencerTime) =>
-          Left(untracked.embedSubmissionError(SequencerTimeoutError(sequencerTime)))
+        case SendResult.Timeout(_sequencerTime) =>
+          Left(untracked.embedSubmissionError(SequencerTimeoutError))
       })
     } yield result
     result.bimap(untracked.toSubmissionError, FutureUnlessShutdown.pure)
@@ -387,7 +387,7 @@ abstract class ProtocolProcessor[
             preparedBatch.embedSequencerRequestError,
             pendingSubmission,
           ).leftMap { submissionError =>
-            logger.warn(s"Failed to submit submission due to $submissionError")
+            preparedBatch.logSubmissionSendError(submissionError)
             preparedBatch.submissionErrorTrackingData(submissionError)
           }
 
@@ -1844,7 +1844,9 @@ abstract class ProtocolProcessor[
 }
 
 object ProtocolProcessor {
+
   private val approvalContradictionCheckIsEnabled = new AtomicReference[Boolean](true)
+  private val lock = new Mutex()
   private val testsAllowedToDisableApprovalContradictionCheck = Seq(
     "LedgerAuthorizationReferenceIntegrationTestDefault",
     "LedgerAuthorizationBftOrderingIntegrationTestDefault",
@@ -1870,8 +1872,8 @@ object ProtocolProcessor {
 
     val logger = loggerFactory.getLogger(this.getClass)
 
-    blocking {
-      synchronized {
+    {
+      lock.exclusive {
         logger.info("Disabling approval contradiction check")
         approvalContradictionCheckIsEnabled.set(false)
         try {
@@ -1892,9 +1894,11 @@ object ProtocolProcessor {
 
   sealed trait ResultProcessingError extends ProcessorError
 
+  sealed trait SubmissionOrTimeoutError extends SubmissionProcessingError
+
   /** We were unable to send the request to the sequencer */
   final case class SequencerRequestError(sendError: SendAsyncClientError)
-      extends SubmissionProcessingError
+      extends SubmissionOrTimeoutError
       with RequestProcessingError {
     override protected def pretty: Pretty[SequencerRequestError] = prettyOfParam(_.sendError)
   }
@@ -1915,16 +1919,12 @@ object ProtocolProcessor {
   }
 
   /** The sequencer did not sequence our event within the allotted time
-    * @param timestamp
-    *   sequencer time when the timeout occurred
     */
-  final case class SequencerTimeoutError(timestamp: CantonTimestamp)
-      extends SubmissionProcessingError
-      with RequestProcessingError {
-    override protected def pretty: Pretty[SequencerTimeoutError] = prettyOfClass(
-      unnamedParam(_.timestamp)
-    )
+  case object SequencerTimeoutError extends SubmissionOrTimeoutError with RequestProcessingError {
+    override protected def pretty: Pretty[SequencerTimeoutError] =
+      prettyOfObject[SequencerTimeoutError]
   }
+  type SequencerTimeoutError = SequencerTimeoutError.type
 
   final case class UnableToGetDynamicSynchronizerParameters(
       synchronizerId: PhysicalSynchronizerId,

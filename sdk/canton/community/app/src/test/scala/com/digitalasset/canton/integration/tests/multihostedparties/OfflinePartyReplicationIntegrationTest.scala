@@ -402,7 +402,11 @@ final class OfflinePartyReplicationWithSilentSynchronizerIntegrationTest
         silenceSynchronizerAndAwaitEffectiveness(daId, sequencer1, source, simClock = None)
 
       val ledgerOffset =
-        source.parties.find_highest_offset_by_timestamp(daId, silentSynchronizerValidFrom)
+        source.parties.find_highest_offset_by_timestamp(
+          daId,
+          silentSynchronizerValidFrom,
+          force = true,
+        )
 
       ledgerOffset should be > NonNegativeLong.zero
 
@@ -442,7 +446,9 @@ final class OfflinePartyReplicationWithSilentSynchronizerIntegrationTest
       val foundOffset = loggerFactory.assertLogsUnorderedOptional(
         eventually(retryOnTestFailuresOnly = false) {
           val offset =
-            source.parties.find_highest_offset_by_timestamp(daId, requestedTimestamp).value
+            source.parties
+              .find_highest_offset_by_timestamp(daId, requestedTimestamp, force = true)
+              .value
           offset should be > 0L
           offset
         },

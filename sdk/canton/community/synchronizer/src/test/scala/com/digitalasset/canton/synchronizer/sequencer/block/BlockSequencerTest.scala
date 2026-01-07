@@ -11,6 +11,7 @@ import com.digitalasset.canton.config.{
   CachingConfigs,
   DefaultProcessingTimeouts,
   ProcessingTimeout,
+  TopologyConfig,
 }
 import com.digitalasset.canton.crypto.SynchronizerCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
@@ -121,6 +122,7 @@ class BlockSequencerTest
       defaultStaticSynchronizerParameters,
       topologyStore,
       StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
+      topologyConfig = TopologyConfig(),
       DefaultProcessingTimeouts.testing,
       FutureSupervisor.Noop,
       loggerFactory,
@@ -129,7 +131,6 @@ class BlockSequencerTest
       SequencedTime(CantonTimestamp.Epoch),
       EffectiveTime(CantonTimestamp.Epoch),
       ApproximateTime(CantonTimestamp.Epoch),
-      potentialTopologyChange = true,
     )
     private val cryptoApi = SynchronizerCryptoClient.create(
       member = sequencer1,

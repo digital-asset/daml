@@ -6,7 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencing.authentication.grpc
 import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
-import com.digitalasset.canton.config.RequireTypes.Port
+import com.digitalasset.canton.config.RequireTypes.{Port, PositiveInt}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -61,7 +61,8 @@ class SequencerAuthenticationServerInterceptorTest
 
     lazy val service = new GrpcHelloService()
 
-    lazy val store: MemberAuthenticationStore = new MemberAuthenticationStore()
+    lazy val store: MemberAuthenticationStore =
+      new MemberAuthenticationStore(PositiveInt.tryCreate(10), loggerFactory)
     lazy val synchronizerId = SynchronizerId(
       UniqueIdentifier.tryFromProtoPrimitive("popo::pipi")
     ).toPhysical

@@ -43,7 +43,7 @@ import com.digitalasset.canton.time.*
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext, TracerProvider}
 import com.digitalasset.canton.util.FutureInstances.parallelFuture
-import com.digitalasset.canton.util.{MonadUtil, PekkoUtil, SingleUseCell}
+import com.digitalasset.canton.util.{MonadUtil, Mutex, PekkoUtil, SingleUseCell}
 import com.google.common.annotations.VisibleForTesting
 import io.circe.Encoder
 import io.circe.generic.semiauto.deriveEncoder
@@ -53,8 +53,8 @@ import org.slf4j.bridge.SLF4JBridgeHandler
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.mutable.ListBuffer
+import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Future, blocking}
 import scala.util.control.NonFatal
 
 /** Holds all significant resources held by this process.
@@ -208,6 +208,8 @@ class Environment(
 
   private val deadlockConfig = config.monitoring.deadlockDetection
   protected def timeouts: ProcessingTimeout = config.parameters.timeouts.processing
+
+  private val lock = new Mutex()
 
   protected val futureSupervisor =
     if (config.monitoring.logging.logSlowFutures)
@@ -567,7 +569,7 @@ class Environment(
 
   def addUserCloseable(closeable: AutoCloseable): Unit = userCloseables.append(closeable)
 
-  override def close(): Unit = blocking(this.synchronized {
+  override def close(): Unit = (lock.exclusive {
     val closeActorSystem: AutoCloseable =
       LifeCycle.toCloseableActorSystem(actorSystem, logger, timeouts)
 

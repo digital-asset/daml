@@ -9,7 +9,7 @@ import com.digitalasset.canton.config.CachingConfigs
 import com.digitalasset.canton.crypto.CryptoPureApiError.KeyParseAndValidateError
 import com.digitalasset.canton.crypto.SigningKeyUsage.compatibleUsageForSignAndVerify
 import com.digitalasset.canton.crypto.provider.jce.{JceJavaKeyConverter, JceSecurityProvider}
-import com.digitalasset.canton.util.{EitherUtil, ErrorUtil}
+import com.digitalasset.canton.util.{EitherUtil, ErrorUtil, Mutex}
 import com.google.common.annotations.VisibleForTesting
 import com.google.crypto.tink.internal.EllipticCurvesUtil
 import org.bouncycastle.math.ec.rfc8032.Ed25519.{SECRET_KEY_SIZE, validatePublicKeyFull}
@@ -31,7 +31,6 @@ import java.security.{
 }
 import scala.annotation.nowarn
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.blocking
 
 object CryptoKeyValidation {
 
@@ -51,8 +50,8 @@ object CryptoKeyValidation {
   }
 
   // To prevent concurrent cache cleanups
-  private val cachePrivateLock = new Object
-  private val cachePublicLock = new Object
+  private val cachePrivateLock = new Mutex()
+  private val cachePublicLock = new Mutex()
 
   /** Validates a symmetric key by checking:
     *   - Symmetric key format
@@ -340,15 +339,14 @@ object CryptoKeyValidation {
     }
 
     // Temporary workaround to clear this TrieMap and prevent memory leaks.
-    blocking {
-      cachePrivateLock.synchronized {
-        if (
-          validatedPrivateKeys.size > CachingConfigs.defaultPublicKeyConversionCache.maximumSize.value
-        ) {
-          validatedPrivateKeys.clear()
-        }
+    cachePrivateLock.exclusive {
+      if (
+        validatedPrivateKeys.size > CachingConfigs.defaultPublicKeyConversionCache.maximumSize.value
+      ) {
+        validatedPrivateKeys.clear()
       }
     }
+
     // If the result is already in the cache it means the key has already been validated.
     (if (cacheValidation)
        validatedPrivateKeys.getOrElseUpdate(privateKey.id, parseRes)
@@ -396,15 +394,14 @@ object CryptoKeyValidation {
     }
 
     // Temporary workaround to clear this TrieMap and prevent memory leaks.
-    blocking {
-      cachePublicLock.synchronized {
-        if (
-          validatedPublicKeys.size > CachingConfigs.defaultPublicKeyConversionCache.maximumSize.value
-        ) {
-          validatedPublicKeys.clear()
-        }
+    cachePublicLock.exclusive {
+      if (
+        validatedPublicKeys.size > CachingConfigs.defaultPublicKeyConversionCache.maximumSize.value
+      ) {
+        validatedPublicKeys.clear()
       }
     }
+
     // If the result is already in the cache it means the key has already been validated.
     (if (cacheValidation)
        validatedPublicKeys.getOrElseUpdate(publicKey.id, parseRes)

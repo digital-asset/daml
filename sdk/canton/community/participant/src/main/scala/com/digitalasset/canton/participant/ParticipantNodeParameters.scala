@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant
 
 import com.digitalasset.canton.config.*
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveNumeric}
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt, PositiveNumeric}
 import com.digitalasset.canton.config.StartupMemoryCheckConfig.ReportingLevel
 import com.digitalasset.canton.environment.{CantonNodeParameters, HasGeneralCantonNodeParameters}
 import com.digitalasset.canton.participant.admin.AdminWorkflowConfig
@@ -36,6 +36,8 @@ final case class ParticipantNodeParameters(
     disableOptionalTopologyChecks: Boolean,
     commitmentCheckpointInterval: PositiveDurationSeconds,
     commitmentMismatchDebugging: Boolean,
+    commitmentProcessorNrAcsChangesBehindToTriggerCatchUp: Option[PositiveInt],
+    autoSyncProtocolFeatureFlags: Boolean,
 ) extends CantonNodeParameters
     with HasGeneralCantonNodeParameters {
   override def dontWarnOnDeprecatedPV: Boolean = protocolConfig.dontWarnOnDeprecatedPV
@@ -93,5 +95,7 @@ object ParticipantNodeParameters {
     disableOptionalTopologyChecks = false,
     commitmentCheckpointInterval = PositiveDurationSeconds.ofMinutes(1),
     commitmentMismatchDebugging = false,
+    commitmentProcessorNrAcsChangesBehindToTriggerCatchUp = None,
+    autoSyncProtocolFeatureFlags = true,
   )
 }

@@ -270,8 +270,12 @@ private final case class LedgerServicesJson(
   implicit val token: Option[String] = tokenParam
 
   private val backend = PekkoHttpBackend(
-    customConnectionPoolSettings =
-      Some(ConnectionPoolSettings.apply(mat.system).withMaxOpenRequests(256)),
+    customConnectionPoolSettings = Some(
+      ConnectionPoolSettings
+        .apply(mat.system)
+        .withMaxConnections(16)
+        .withMaxOpenRequests(256)
+    ),
     customizeRequest = { request =>
       logger.debug(s"JSON Request ${request.method} ${request.uri}")
       request
@@ -552,7 +556,11 @@ private final case class LedgerServicesJson(
     ): Future[ListKnownPartiesResponse] =
       clientCall(
         JsPartyManagementService.listKnownPartiesEndpoint,
-        PagedList((), Some(request.pageSize), Some(request.pageToken)),
+        PagedList(
+          (None, None): (Option[String], Option[String]),
+          Some(request.pageSize),
+          Some(request.pageToken),
+        ),
       )
 
     override def allocateParty(request: AllocatePartyRequest): Future[AllocatePartyResponse] =

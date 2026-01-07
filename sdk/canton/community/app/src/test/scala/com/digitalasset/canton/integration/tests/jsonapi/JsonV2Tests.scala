@@ -693,7 +693,7 @@ class JsonV2Tests
         )
 
         def generateHex(length: Int): String =
-          RandomStringUtils.random(length, "0123456789abcdef").toLowerCase
+          RandomStringUtils.insecure.next(length, "0123456789abcdef").toLowerCase
 
         val randomTraceId = generateHex(32)
 

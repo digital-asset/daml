@@ -14,7 +14,7 @@ import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc.ApiInfoServiceS
 import com.digitalasset.canton.connection.v30.GetApiInfoResponse
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{Crypto, Fingerprint, SynchronizerCrypto}
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasUnlessClosing, LifeCycle}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.{CommonMockMetrics, SequencerConnectionPoolMetrics}
 import com.digitalasset.canton.networking.Endpoint
@@ -43,7 +43,7 @@ import com.digitalasset.canton.topology.{
   SynchronizerId,
 }
 import com.digitalasset.canton.tracing.{TraceContext, TracingConfig}
-import com.digitalasset.canton.util.{PekkoUtil, ResourceUtil}
+import com.digitalasset.canton.util.{Mutex, PekkoUtil, ResourceUtil}
 import com.digitalasset.canton.version.{
   ProtocolVersion,
   ProtocolVersionCompatibility,
@@ -59,7 +59,7 @@ import org.scalatest.Assertions.fail
 import org.scalatest.matchers.should.Matchers
 
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future, Promise, blocking}
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future, Promise}
 import scala.util.Random
 
 trait ConnectionPoolTestHelpers {
@@ -362,17 +362,19 @@ protected object ConnectionPoolTestHelpers {
         member: Member,
         preSubscriptionEventO: Option[ProcessingSerializedEvent],
         subscriptionHandlerFactory: SubscriptionHandlerXFactory,
+        parent: HasUnlessClosing,
     )(implicit
         traceContext: TraceContext,
         ec: ExecutionContext,
     ): SequencerSubscriptionX[SequencerClientSubscriptionError] =
       new SequencerSubscriptionX(
-        connection,
-        member,
-        None,
-        _ => FutureUnlessShutdown.pure(Right(())),
-        timeouts,
-        loggerFactory,
+        connection = connection,
+        member = member,
+        startingTimestampO = None,
+        handler = _ => FutureUnlessShutdown.pure(Right(())),
+        parent = parent,
+        timeouts = timeouts,
+        loggerFactory = loggerFactory,
       )
   }
 
@@ -515,26 +517,23 @@ protected object ConnectionPoolTestHelpers {
 
   protected class CreatedConnections {
     private val connectionsMap = TrieMap[Int, InternalSequencerConnectionX]()
-
+    private val lock = new Mutex()
     def apply(index: Int): InternalSequencerConnectionX = connectionsMap.apply(index)
 
     def add(index: Int, connection: InternalSequencerConnectionX): Unit =
-      blocking {
-        synchronized {
-          connectionsMap.updateWith(index) {
-            case Some(_) => throw new IllegalStateException("Connection already exists")
-            case None => Some(connection)
-          }
+      lock.exclusive {
+        connectionsMap.updateWith(index) {
+          case Some(_) => throw new IllegalStateException("Connection already exists")
+          case None => Some(connection)
         }
       }
 
-    def snapshotAndClear(): Map[Int, InternalSequencerConnectionX] = blocking {
-      synchronized {
+    def snapshotAndClear(): Map[Int, InternalSequencerConnectionX] =
+      lock.exclusive {
         val snapshot = connectionsMap.readOnlySnapshot().toMap
         connectionsMap.clear()
         snapshot
       }
-    }
 
     def size: Int = connectionsMap.size
   }

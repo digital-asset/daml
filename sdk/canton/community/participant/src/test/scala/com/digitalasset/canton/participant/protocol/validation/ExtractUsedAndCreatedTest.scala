@@ -69,7 +69,7 @@ class ExtractUsedAndCreatedTest extends BaseTestWordSpec with HasExecutionContex
         val absolutizationData = etf.cantonContractIdVersion match {
           case _: CantonContractIdV1Version => ContractIdAbsolutizationDataV1
           case _: CantonContractIdV2Version =>
-            ContractIdAbsolutizationDataV2(example.transactionId, etf.ledgerTime)
+            ContractIdAbsolutizationDataV2(example.updateId, etf.ledgerTime)
         }
         val contractAbsolutizer = new ContractIdAbsolutizer(etf.cryptoOps, absolutizationData)
         val effectAbsolutizer = new LedgerEffectAbsolutizer(contractAbsolutizer)

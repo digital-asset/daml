@@ -321,8 +321,8 @@ class SystematicTopologyAwareUpgradingIntegrationTest
               entry => {
                 entry.shouldBeCantonErrorCode(PackageSelectionFailed)
                 entry.message should include regex
-                  s"""No synchronizers satisfy the draft transaction topology requirements: Discarded synchronizers:
-                       |.*${env.daId}: Package-name '${FooV1.PACKAGE_NAME}' appearing in a draft transaction root node has been discarded: Packages with dependencies not vetted by all interested parties.*${FooV2.PACKAGE_ID.toPackageId.show} ->.*${BarV1.PACKAGE_ID.toPackageId.show}""".stripMargin
+                  s"""No synchronizers satisfy the topology requirements for the submitted command.*
+                       |.*${env.daId}: Failed to select package-id for package-name '${FooV1.PACKAGE_NAME}' appearing in a command root node due to: Packages with dependencies not vetted by all interested parties.*${FooV2.PACKAGE_ID.toPackageId.show} ->.*${BarV1.PACKAGE_ID.toPackageId.show}.*""".stripMargin
               },
             )
             None
@@ -519,10 +519,9 @@ class SystematicTopologyAwareUpgradingIntegrationTest
                 entry => {
                   entry.shouldBeCantonErrorCode(PackageSelectionFailed)
                   entry.message should include regex
-                    s"""No synchronizers satisfy the draft transaction topology requirements: Discarded synchronizers:
-                       |.*$daId: Package-name '${FooV1.PACKAGE_NAME}' appearing in a draft transaction root node has been discarded: All candidates discarded after applying package-id filter.
-                       |Candidates.*
-                       |Filter: Commands.package_id_selection_preference: .*foo -> ${FooV3.PACKAGE_ID.toPackageId.show}""".stripMargin
+                    s"""No synchronizers satisfy the topology requirements for the submitted command: Discarded synchronizers:.*
+                       |.*$daId: Failed to select package-id for package-name '${FooV1.PACKAGE_NAME}' appearing in a command root node due to: No vetted package candidate satisfies the package-id filter 'Commands.package_id_selection_preference'=.*foo -> ${FooV3.PACKAGE_ID.toPackageId.show}.*
+                       |.*Candidates:.*${FooV2.PACKAGE_ID.toPackageId.show}.*""".stripMargin
                 },
               )
               None

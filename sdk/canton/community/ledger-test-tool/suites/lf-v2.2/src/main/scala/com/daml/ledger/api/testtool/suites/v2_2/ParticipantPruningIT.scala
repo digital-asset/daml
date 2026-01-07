@@ -423,26 +423,26 @@ class ParticipantPruningIT extends LedgerTestSuite {
     runConcurrently = false,
   )(implicit ec => { case Participants(Participant(participant, Seq(submitter))) =>
     for {
-      offsetAndTransactionIdEntries <- populateLedgerAndGetOffsetsWithTransactionIds(
+      offsetAndUpdateIdEntries <- populateLedgerAndGetOffsetsWithUpdateIds(
         participant,
         submitter,
       )
-      offsetToPruneUpTo = offsetAndTransactionIdEntries(lastItemToPruneIndex)._1
-      transactionsPerBatch = offsetAndTransactionIdEntries.size / batchesToPopulate
-      prunedTransactionIds = Range(
+      offsetToPruneUpTo = offsetAndUpdateIdEntries(lastItemToPruneIndex)._1
+      transactionsPerBatch = offsetAndUpdateIdEntries.size / batchesToPopulate
+      prunedUpdateIds = Range(
         lastItemToPruneIndex - transactionsPerBatch + 1,
         lastItemToPruneIndex + 1,
-      ).toVector.map(offsetAndTransactionIdEntries(_)._2)
-      unprunedTransactionIds = Range(
+      ).toVector.map(offsetAndUpdateIdEntries(_)._2)
+      unprunedUpdateIds = Range(
         lastItemToPruneIndex + 1,
         lastItemToPruneIndex + transactionsPerBatch + 1,
       ).toVector
-        .map(offsetAndTransactionIdEntries(_)._2)
+        .map(offsetAndUpdateIdEntries(_)._2)
 
       _ <- participant.prune(offsetToPruneUpTo)
 
       prunedTransactions <- Future.sequence(
-        prunedTransactionIds.map(
+        prunedUpdateIds.map(
           participant
             .transactionById(_, Seq(submitter), AcsDelta)
             .mustFail("attempting to read transactions before the pruning cut-off")
@@ -450,7 +450,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
       )
 
       _ <- Future.sequence(
-        unprunedTransactionIds.map(participant.transactionById(_, Seq(submitter), AcsDelta))
+        unprunedUpdateIds.map(participant.transactionById(_, Seq(submitter), AcsDelta))
       )
     } yield {
       prunedTransactions.foreach(
@@ -752,7 +752,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
   ): Future[Vector[Long]] =
     populateLedger(participant, submitter).map(_.map(tx => tx.offset))
 
-  private def populateLedgerAndGetOffsetsWithTransactionIds(
+  private def populateLedgerAndGetOffsetsWithUpdateIds(
       participant: ParticipantTestContext,
       submitter: Party,
   )(implicit ec: ExecutionContext): Future[Vector[(Long, String)]] =

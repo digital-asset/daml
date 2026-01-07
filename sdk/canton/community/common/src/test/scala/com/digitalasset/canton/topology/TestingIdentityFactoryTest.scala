@@ -60,7 +60,9 @@ class TestingIdentityFactoryTest
       val signature =
         Await
           .result(
-            p1.currentSnapshotApproximation.sign(hash, SigningKeyUsage.ProtocolOnly).value,
+            p1.currentSnapshotApproximation.futureValueUS
+              .sign(hash, SigningKeyUsage.ProtocolOnly)
+              .value,
             10.seconds,
           )
           .failOnShutdown
@@ -68,35 +70,35 @@ class TestingIdentityFactoryTest
 
       "signature of participant1 is verifiable by participant1" in {
         await(
-          p1.currentSnapshotApproximation
+          p1.currentSnapshotApproximation.futureValueUS
             .verifySignature(hash, participant1, signature, SigningKeyUsage.ProtocolOnly)
         ) shouldBe Either.unit
       }
       "signature of participant1 is verifiable by participant2" in {
         await(
-          p2.currentSnapshotApproximation
+          p2.currentSnapshotApproximation.futureValueUS
             .verifySignature(hash, participant1, signature, SigningKeyUsage.ProtocolOnly)
         ) shouldBe Either.unit
       }
       "signature verification fails for wrong key owner" in {
         await(
-          p1.currentSnapshotApproximation
+          p1.currentSnapshotApproximation.futureValueUS
             .verifySignature(hash, participant2, signature, SigningKeyUsage.ProtocolOnly)
         ).left.value shouldBe a[SignatureCheckError.SignerHasNoValidKeys]
       }
       "signature fails for invalid hash" in {
         await(
-          p1.currentSnapshotApproximation
+          p1.currentSnapshotApproximation.futureValueUS
             .verifySignature(hash2, participant1, signature, SigningKeyUsage.ProtocolOnly)
         ).left.value shouldBe a[SignatureCheckError]
         await(
-          p1.currentSnapshotApproximation
+          p1.currentSnapshotApproximation.futureValueUS
             .verifySignature(hash2, participant2, signature, SigningKeyUsage.ProtocolOnly)
         ).left.value shouldBe a[SignatureCheckError]
       }
       "signature fails for invalid key usage" in {
         await(
-          p1.currentSnapshotApproximation
+          p1.currentSnapshotApproximation.futureValueUS
             .verifySignature(
               hash,
               participant1,
@@ -107,13 +109,13 @@ class TestingIdentityFactoryTest
       }
       "participant1 is active" in {
         Seq(p1, p2).foreach(
-          _.currentSnapshotApproximation.ipsSnapshot
+          _.currentSnapshotApproximation.futureValueUS.ipsSnapshot
             .isParticipantActive(participant1)
             .futureValueUS shouldBe true
         )
       }
       "party1 is active" in {
-        p1.currentSnapshotApproximation.ipsSnapshot
+        p1.currentSnapshotApproximation.futureValueUS.ipsSnapshot
           .activeParticipantsOf(party1.toLf)
           .futureValueUS shouldBe Map(
           participant1 -> ParticipantAttributes(ParticipantPermission.Confirmation)
@@ -122,7 +124,9 @@ class TestingIdentityFactoryTest
       "participant2 can't sign messages without appropriate keys" in {
         Await
           .result(
-            p2.currentSnapshotApproximation.sign(hash, SigningKeyUsage.ProtocolOnly).value,
+            p2.currentSnapshotApproximation.futureValueUS
+              .sign(hash, SigningKeyUsage.ProtocolOnly)
+              .value,
             10.seconds,
           )
           .failOnShutdown
@@ -136,7 +140,7 @@ class TestingIdentityFactoryTest
           expectedLength: Int,
       ): Unit = {
         val allMembers = sequencers ++ mediators
-        val membersToKeys = p1.currentSnapshotApproximation.ipsSnapshot
+        val membersToKeys = p1.currentSnapshotApproximation.futureValueUS.ipsSnapshot
           .signingKeys(allMembers, SigningKeyUsage.All)
           .futureValueUS
         allMembers
@@ -145,14 +149,17 @@ class TestingIdentityFactoryTest
       }
 
       "synchronizer entities have keys" in {
-        val sequencers = p1.currentSnapshotApproximation.ipsSnapshot
+        val sequencers = p1.currentSnapshotApproximation.futureValueUS.ipsSnapshot
           .sequencerGroup()
           .futureValueUS
           .valueOrFail("did not find SequencerSynchronizerState")
           .active
 
         val mediators =
-          p1.currentSnapshotApproximation.ipsSnapshot.mediatorGroups().futureValueUS.flatMap(_.all)
+          p1.currentSnapshotApproximation.futureValueUS.ipsSnapshot
+            .mediatorGroups()
+            .futureValueUS
+            .flatMap(_.all)
         // We expect two different signing keys: one for protocol signing and one for sequencer authentication.
         checkSynchronizerKeys(sequencers, mediators, 2)
       }
@@ -216,7 +223,7 @@ class TestingIdentityFactoryTest
 
       "extending with admin parties works" in {
         def check(p: ParticipantId) =
-          p1.currentSnapshotApproximation.ipsSnapshot
+          p1.currentSnapshotApproximation.futureValueUS.ipsSnapshot
             .activeParticipantsOf(p.adminParty.toLf)
             .futureValueUS
             .keys shouldBe Set(p)
@@ -225,12 +232,14 @@ class TestingIdentityFactoryTest
 
       }
 
-      val hash = getMyHash(p2.currentSnapshotApproximation.pureCrypto)
+      val hash = getMyHash(p2.currentSnapshotApproximation.futureValueUS.pureCrypto)
 
       val signature =
         Await
           .result(
-            p2.currentSnapshotApproximation.sign(hash, SigningKeyUsage.ProtocolOnly).value,
+            p2.currentSnapshotApproximation.futureValueUS
+              .sign(hash, SigningKeyUsage.ProtocolOnly)
+              .value,
             10.seconds,
           )
           .failOnShutdown
@@ -238,11 +247,11 @@ class TestingIdentityFactoryTest
 
       "participant2 signatures are valid" in {
         await(
-          p2.currentSnapshotApproximation
+          p2.currentSnapshotApproximation.futureValueUS
             .verifySignature(hash, participant2, signature, SigningKeyUsage.ProtocolOnly)
         ) shouldBe Either.unit
         await(
-          p1.currentSnapshotApproximation
+          p1.currentSnapshotApproximation.futureValueUS
             .verifySignature(hash, participant1, signature, SigningKeyUsage.ProtocolOnly)
         ).left.value shouldBe a[SignatureCheckError]
       }
@@ -275,6 +284,7 @@ class TestingIdentityFactoryTest
             .build()
             .forOwnerAndSynchronizer(participant1)
             .currentSnapshotApproximation
+            .futureValueUS
         def ol(permission: ParticipantPermission) =
           ParticipantAttributes(permission)
         syncCryptoApi.ipsSnapshot.activeParticipantsOf(party1.toLf).futureValueUS shouldBe Map(

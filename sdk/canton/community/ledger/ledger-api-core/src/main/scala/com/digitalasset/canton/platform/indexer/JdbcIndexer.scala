@@ -7,7 +7,6 @@ import com.daml.ledger.resources.ResourceOwner
 import com.digitalasset.canton.ledger.participant.state.Update
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
-import com.digitalasset.canton.participant.store.ContractStore
 import com.digitalasset.canton.platform.InMemoryState
 import com.digitalasset.canton.platform.index.InMemoryStateUpdater
 import com.digitalasset.canton.platform.indexer.ha.HaConfig
@@ -22,11 +21,11 @@ import com.digitalasset.canton.platform.store.DbSupport.{
   DataSourceProperties,
   ParticipantDataSourceConfig,
 }
-import com.digitalasset.canton.platform.store.DbType
 import com.digitalasset.canton.platform.store.backend.StorageBackendFactory
 import com.digitalasset.canton.platform.store.backend.h2.H2StorageBackendFactory
 import com.digitalasset.canton.platform.store.dao.DbDispatcher
 import com.digitalasset.canton.platform.store.dao.events.{CompressionStrategy, LfValueTranslation}
+import com.digitalasset.canton.platform.store.{DbType, LedgerApiContractStore}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref
@@ -53,7 +52,7 @@ object JdbcIndexer {
       reassignmentOffsetPersistence: ReassignmentOffsetPersistence,
       postProcessor: (Vector[PostPublishData], TraceContext) => Future[Unit],
       sequentialPostProcessor: Update => Unit,
-      contractStore: ContractStore,
+      contractStore: LedgerApiContractStore,
   )(implicit materializer: Materializer) {
 
     def initialized()(implicit traceContext: TraceContext): ResourceOwner[Indexer] = {

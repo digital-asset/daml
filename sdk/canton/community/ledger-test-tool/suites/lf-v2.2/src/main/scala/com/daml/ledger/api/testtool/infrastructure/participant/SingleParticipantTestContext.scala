@@ -98,6 +98,7 @@ import com.digitalasset.canton.ledger.api.TransactionShape
 import com.digitalasset.canton.ledger.api.TransactionShape.{AcsDelta, LedgerEffects, toProto}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.{PartyId, UniqueIdentifier}
+import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{MonadUtil, OptionUtil}
 import com.google.protobuf.ByteString
 import io.grpc.StatusRuntimeException
@@ -489,17 +490,18 @@ final class SingleParticipantTestContext private[participant] (
   ): Future[UpdatePartyIdentityProviderIdResponse] =
     services.partyManagement.updatePartyIdentityProviderId(request)
 
-  override def allocateParties(partiesCount: Int, minSynchronizers: Int): Future[Vector[Party]] =
-    Future.sequence(
-      Vector.fill(partiesCount)(
-        allocateParty(
-          partyIdHint = Some(nextPartyHintId()),
-          localMetadata = None,
-          identityProviderId = None,
-          minSynchronizers = Some(minSynchronizers),
-        )
+  override def allocateParties(partiesCount: Int, minSynchronizers: Int): Future[Vector[Party]] = {
+    MonadUtil.parTraverseWithLimit(
+      PositiveInt.tryCreate(16)
+    )(1 to partiesCount) { _ =>
+      allocateParty(
+        partyIdHint = Some(nextPartyHintId()),
+        localMetadata = None,
+        identityProviderId = None,
+        minSynchronizers = Some(minSynchronizers),
       )
-    )
+    }
+  }.map(_.toVector)
 
   override def allocateExternalParties(
       partiesCount: Int,
@@ -524,7 +526,7 @@ final class SingleParticipantTestContext private[participant] (
 
   override def listKnownPartiesExpanded(): Future[Set[Party]] =
     services.partyManagement
-      .listKnownParties(ListKnownPartiesRequest("", 0, ""))
+      .listKnownParties(ListKnownPartiesRequest("", 0, "", filterParty = ""))
       .map(_.partyDetails.map(partyDetails => Party(partyDetails.party)).toSet)
 
   override def listKnownParties(req: ListKnownPartiesRequest): Future[ListKnownPartiesResponse] =
@@ -533,7 +535,7 @@ final class SingleParticipantTestContext private[participant] (
 
   override def listKnownParties(): Future[ListKnownPartiesResponse] =
     services.partyManagement
-      .listKnownParties(new ListKnownPartiesRequest("", 0, ""))
+      .listKnownParties(new ListKnownPartiesRequest("", 0, "", filterParty = ""))
 
   override def waitForPartiesOnOtherParticipants(
       otherParticipants: Iterable[ParticipantTestContext],
@@ -844,14 +846,14 @@ final class SingleParticipantTestContext private[participant] (
       .flatMap(txReq => transactions(take, txReq))
 
   override def transactionTreeById(
-      transactionId: String,
+      updateId: String,
       parties: Party*
   ): Future[Transaction] = {
     val partiesList = parties.toList.headOption.map(_ => parties.toList)
     services.update
       .getUpdateById(
         GetUpdateByIdRequest(
-          updateId = transactionId,
+          updateId = updateId,
           updateFormat = Some(
             UpdateFormat(
               includeTransactions =
@@ -1019,7 +1021,7 @@ final class SingleParticipantTestContext private[participant] (
       submitAndWaitForTransactionRequest(actAs, readAs, template.create.commands, AcsDelta)
     ).map(response => extractContracts(response.getTransaction).head)
 
-  override def createAndGetTransactionId[
+  override def createAndGetUpdateId[
       TCid <: ContractId[T],
       T <: Template,
   ](

@@ -10,6 +10,7 @@ import com.digitalasset.canton.config.{
   CachingConfigs,
   CryptoConfig,
   CryptoProvider,
+  SessionEncryptionKeyCacheConfig,
   SessionSigningKeysConfig,
 }
 import com.digitalasset.canton.crypto.signer.SyncCryptoSigner
@@ -121,7 +122,7 @@ trait SyncCryptoTest
   protected lazy val crypto: Crypto = Crypto
     .create(
       cryptoConfig,
-      CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
+      SessionEncryptionKeyCacheConfig(),
       CachingConfigs.defaultPublicKeyConversionCache,
       new MemoryStorage(loggerFactory, timeouts),
       CryptoPrivateStoreFactory.withoutKms(),

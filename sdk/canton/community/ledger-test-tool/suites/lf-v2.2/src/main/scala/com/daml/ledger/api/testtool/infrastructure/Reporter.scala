@@ -6,7 +6,7 @@ package com.daml.ledger.api.testtool.infrastructure
 import com.digitalasset.canton.buildinfo.BuildInfo
 import org.scalatest.exceptions.StackDepthException
 
-import java.io.{PrintStream, PrintWriter, StringWriter}
+import java.io.{PrintWriter, StringWriter}
 import scala.util.Try
 
 trait Reporter[A] {
@@ -57,7 +57,7 @@ object Reporter {
   }
 
   final class ColorizedPrintStreamReporter(
-      s: PrintStream,
+      reporterPrintln: String => Unit,
       printStackTraces: Boolean,
       printOnFailuresOnly: Boolean = false,
   ) extends Reporter[Unit] {
@@ -72,34 +72,34 @@ object Reporter {
 
     private def printReport(results: Vector[LedgerTestSummary]): Unit =
       results.groupBy(_.suite).foreach { case (suite, summaries) =>
-        s.println()
-        s.println(cyan(suite))
+        reporterPrintln("")
+        reporterPrintln(cyan(suite))
 
         for (LedgerTestSummary(_, name, description, result) <- summaries) {
-          s.print(cyan(s"- [$name] $description ... "))
+          reporterPrintln(cyan(s"- [$name] $description ... "))
           result match {
             case Right(Result.Succeeded(duration)) =>
-              s.println(green(s"Success (${duration.toMillis} ms)"))
+              reporterPrintln(green(s"Success (${duration.toMillis} ms)"))
             case Right(Result.Retired) =>
-              s.println(yellow(s"Skipped (retired test)"))
+              reporterPrintln(yellow(s"Skipped (retired test)"))
             case Right(Result.Excluded(reason)) =>
-              s.println(yellow(s"Skipped ($reason)"))
-            case Left(Result.TimedOut) => s.println(red(s"Timeout"))
+              reporterPrintln(yellow(s"Skipped ($reason)"))
+            case Left(Result.TimedOut) => reporterPrintln(red(s"Timeout"))
             case Left(Result.Failed(cause)) =>
               val message =
                 extractRelevantLineNumber(cause).fold("Assertion failed") { lineHint =>
                   s"Assertion failed at line $lineHint"
                 }
-              s.println(red(message))
-              s.println(red(indented(cause.getMessage)))
+              reporterPrintln(red(message))
+              reporterPrintln(red(indented(cause.getMessage)))
               cause match {
                 case AssertionErrorWithPreformattedMessage(preformattedMessage, _) =>
-                  preformattedMessage.split("\n").map(indented(_)).foreach(s.println)
+                  preformattedMessage.split("\n").map(indented(_)).foreach(reporterPrintln)
                 case _ => // ignore
               }
               if (printStackTraces) {
                 for (renderedStackTraceLine <- render(cause))
-                  s.println(red(indented(renderedStackTraceLine)))
+                  reporterPrintln(red(indented(renderedStackTraceLine)))
               }
             case Left(Result.FailedUnexpectedly(cause)) =>
               val prefix =
@@ -108,11 +108,11 @@ object Reporter {
                 extractRelevantLineNumber(cause).fold(prefix) { lineHint =>
                   s"$prefix at line $lineHint"
                 }
-              s.println(red(message))
-              s.println(red(indented(cause.getMessage)))
+              reporterPrintln(red(message))
+              reporterPrintln(red(indented(cause.getMessage)))
               if (printStackTraces) {
                 for (renderedStackTraceLine <- render(cause))
-                  s.println(red(indented(renderedStackTraceLine)))
+                  reporterPrintln(red(indented(renderedStackTraceLine)))
               }
           }
         }
@@ -125,35 +125,35 @@ object Reporter {
     ): Unit = {
       val (successes, failures) = results.partition(_.result.isRight)
 
-      s.println()
-      s.println(blue("#" * 80))
-      s.println(blue("#"))
-      s.println(blue(s"# TEST REPORT, version: ${BuildInfo.version}"))
-      s.println(blue("#"))
-      s.println(blue("#" * 80))
+      reporterPrintln("")
+      reporterPrintln(blue("#" * 80))
+      reporterPrintln(blue("#"))
+      reporterPrintln(blue(s"# TEST REPORT, version: ${BuildInfo.version}"))
+      reporterPrintln(blue("#"))
+      reporterPrintln(blue("#" * 80))
       if (failures.isEmpty && printOnFailuresOnly) {
-        s.println(s"Successful tests: ${successes.size}")
-        s.println(s"Excluded tests: ${excludedTests.size}")
+        reporterPrintln(s"Successful tests: ${successes.size}")
+        reporterPrintln(s"Excluded tests: ${excludedTests.size}")
       } else {
-        s.println()
-        s.println(yellow("### RUN INFORMATION"))
-        s.println()
-        runInfo.foreach { case (label, value) => s.println(cyan(s"$label = $value")) }
+        reporterPrintln("")
+        reporterPrintln(yellow("### RUN INFORMATION"))
+        reporterPrintln("")
+        runInfo.foreach { case (label, value) => reporterPrintln(cyan(s"$label = $value")) }
         if (successes.nonEmpty) {
-          s.println()
-          s.println(green("### SUCCESSES"))
+          reporterPrintln("")
+          reporterPrintln(green("### SUCCESSES"))
           printReport(successes)
         }
 
         if (excludedTests.nonEmpty) {
-          s.println()
-          s.println(yellow("### EXCLUDED TESTS"))
+          reporterPrintln("")
+          reporterPrintln(yellow("### EXCLUDED TESTS"))
           printReport(excludedTests)
         }
 
         if (failures.nonEmpty) {
-          s.println()
-          s.println(red("### FAILURES"))
+          reporterPrintln("")
+          reporterPrintln(red("### FAILURES"))
           printReport(failures)
         }
       }

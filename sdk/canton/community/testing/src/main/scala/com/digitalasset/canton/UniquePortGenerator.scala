@@ -4,7 +4,9 @@
 package com.digitalasset.canton
 
 import better.files.File
+import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.RequireTypes.Port
+import com.digitalasset.canton.util.Mutex
 import org.slf4j.{Logger, LoggerFactory}
 
 import java.nio.channels.{FileLock, OverlappingFileLockException}
@@ -12,7 +14,6 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.StandardOpenOption
 import java.time.Duration
 import scala.annotation.tailrec
-import scala.concurrent.blocking
 import scala.util.*
 
 /** Generates host-wide unique ports for canton tests that we guarantee won't be used in our tests.
@@ -97,6 +98,7 @@ class UniqueBoundedCounter(
   require(maxValue > startValue, s"maxValue $maxValue must be greater than startValue $startValue")
 
   private val lockFile: File = File(dataFile.pathAsString + ".lock")
+  private val lock = new Mutex()
 
   Try(lockFile.createIfNotExists(createParents = true)) match {
     case Success(_) => // OK
@@ -128,7 +130,7 @@ class UniqueBoundedCounter(
             s"Retrying operation due to OverlappingFileLockException (Attempt $attempt/$maxRetries), sleeping ${retryDelayMillis}ms ...",
             e,
           )
-          blocking(Thread.sleep(retryDelayMillis))
+          (Threading.sleep(retryDelayMillis))
           attemptWithRetries(operation, attempt + 1)
         } else {
           val retriesExhaustedErrorMessage =
@@ -152,36 +154,34 @@ class UniqueBoundedCounter(
     *   - data file mutation is properly serialized (required as per [[java.nio.channels.FileLock]]
     *     JavaDoc).
     */
-  private def perform(operation: Int => Int): Try[Int] = this.synchronized {
-    blocking {
-      Using(lockFile.newFileChannel(Seq(StandardOpenOption.WRITE, StandardOpenOption.CREATE))) {
-        lockChannel =>
-          var fileLock: FileLock = null
-          try {
-            // Acquire file lock using blocking lock()
-            // This may block and throw OverlappingFileLockException if another OS process holds the lock.
-            // This may also throw numerous other exceptions!
-            logger.debug("Attempting to acquire file lock via blocking lock()...")
-            fileLock = lockChannel.lock()
-            logger.debug("Acquired file lock.")
+  private def perform(operation: Int => Int): Try[Int] = lock.exclusive {
+    Using(lockFile.newFileChannel(Seq(StandardOpenOption.WRITE, StandardOpenOption.CREATE))) {
+      lockChannel =>
+        var fileLock: FileLock = null
+        try {
+          // Acquire file lock using blocking lock()
+          // This may block and throw OverlappingFileLockException if another OS process holds the lock.
+          // This may also throw numerous other exceptions!
+          logger.debug("Attempting to acquire file lock via blocking lock()...")
+          fileLock = lockChannel.lock()
+          logger.debug("Acquired file lock.")
 
-            logger.debug("Mutating counter...")
-            val dataAccessResult = mutateCounter(operation)
-            logger.debug("Counter changed.")
+          logger.debug("Mutating counter...")
+          val dataAccessResult = mutateCounter(operation)
+          logger.debug("Counter changed.")
 
-            dataAccessResult.fold(throw _, identity)
-          } finally {
-            if (fileLock != null) {
-              logger.debug("Releasing file lock.")
-              Try(fileLock.release())
-            } else {
-              logger.debug(
-                "Nothing to release. File lock was null because the attempt to acquire the file lock failed " +
-                  "with an exception, most likely an OverlappingFileLockException has been thrown."
-              )
-            }
+          dataAccessResult.fold(throw _, identity)
+        } finally {
+          if (fileLock != null) {
+            logger.debug("Releasing file lock.")
+            Try(fileLock.release())
+          } else {
+            logger.debug(
+              "Nothing to release. File lock was null because the attempt to acquire the file lock failed " +
+                "with an exception, most likely an OverlappingFileLockException has been thrown."
+            )
           }
-      }
+        }
     }
   }
 

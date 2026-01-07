@@ -151,6 +151,6 @@ private[protocol] object TopologyTransactionDiff {
 
 private[protocol] final case class TopologyTransactionDiff(
     topologyEvents: NonEmpty[Set[TopologyEvent]],
-    transactionId: UpdateId,
+    updateId: UpdateId,
     requiresLocalParticipantPartyReplication: Boolean,
 )

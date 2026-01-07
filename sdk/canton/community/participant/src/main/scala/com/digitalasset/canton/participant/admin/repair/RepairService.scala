@@ -18,12 +18,7 @@ import com.digitalasset.canton.data.{CantonTimestamp, LedgerTimeBoundaries}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.Update.TransactionAccepted.RepresentativePackageIds
 import com.digitalasset.canton.ledger.participant.state.{RepairUpdate, TransactionMeta, Update}
-import com.digitalasset.canton.lifecycle.{
-  FlagCloseable,
-  FutureUnlessShutdown,
-  HasCloseContext,
-  LifeCycle,
-}
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, HasCloseContext}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
 import com.digitalasset.canton.participant.ParticipantNodeParameters
@@ -73,11 +68,7 @@ import scala.concurrent.{ExecutionContext, Future}
   * streams start emitting the repair events if applicable.
   *
   * @param executionQueue
-  *   Sequential execution queue on which repair actions must be run. This queue is shared with the
-  *   CantonSyncService, which uses it for synchronizer connections. Sharing it ensures that we
-  *   cannot connect to the synchronizer while a repair action is running and vice versa. It also
-  *   ensure only one repair runs at a time. This ensures concurrent activity among repair
-  *   operations does not corrupt state.
+  *   Sequential execution queue on which repair actions must be run.
   */
 final class RepairService(
     participantId: ParticipantId,
@@ -90,7 +81,7 @@ final class RepairService(
     syncPersistentStateLookup: SyncPersistentStateLookup,
     connectedSynchronizersLookup: ConnectedSynchronizersLookup,
     @VisibleForTesting
-    private[canton] val executionQueue: SimpleExecutionQueue,
+    private[canton] val executionQueue: ExecutionQueue,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends NamedLogging
@@ -1015,7 +1006,7 @@ final class RepairService(
           roots = ImmArray.from(nodeIds.take(txNodes.size)),
         )
       ),
-      updateId = randomTransactionId(syncCrypto),
+      updateId = randomUpdateId(syncCrypto),
       contractAuthenticationData = contractAuthenticationData,
       representativePackageIds = RepresentativePackageIds.from(representativePackageIds),
       synchronizerId = repair.synchronizer.psid.logical,
@@ -1172,7 +1163,7 @@ final class RepairService(
           repairCountersToAllocate,
         )
       )
-    } yield RepairRequest(synchronizer, randomTransactionId(syncCrypto), repairCounters)
+    } yield RepairRequest(synchronizer, randomUpdateId(syncCrypto), repairCounters)
   }
 
   /** Read the ACS state for each contract in cids
@@ -1241,8 +1232,6 @@ final class RepairService(
     logger.info(message)
     message
   }
-
-  override protected def onClosed(): Unit = LifeCycle.close(executionQueue)(logger)
 
   private def withRepairIndexer(code: FutureQueue[RepairUpdate] => EitherT[Future, String, Unit])(
       implicit traceContext: TraceContext

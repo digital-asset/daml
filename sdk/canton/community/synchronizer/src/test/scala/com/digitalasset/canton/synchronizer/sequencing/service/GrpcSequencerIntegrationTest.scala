@@ -27,6 +27,7 @@ import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{HashPurpose, Nonce, SigningKeyUsage, SyncCryptoApi}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.error.CantonBaseError
 import com.digitalasset.canton.lifecycle.{
   AsyncOrSyncCloseable,
   CloseContext,
@@ -142,7 +143,7 @@ class Env(override val loggerFactory: SuppressingLogger)(implicit
   val useNewConnectionPool: Boolean = true
 
   when(topologyClient.currentSnapshotApproximation(any[TraceContext]))
-    .thenReturn(mockTopologySnapshot)
+    .thenReturn(FutureUnlessShutdown.pure(mockTopologySnapshot))
   when(topologyClient.headSnapshot(any[TraceContext]))
     .thenReturn(mockTopologySnapshot)
   when(mockTopologySnapshot.timestamp).thenReturn(CantonTimestamp.Epoch)
@@ -193,6 +194,7 @@ class Env(override val loggerFactory: SuppressingLogger)(implicit
   val params = new SequencerParameters {
     override def maxConfirmationRequestsBurstFactor: PositiveDouble = PositiveDouble.tryCreate(0.1)
     override def processingTimeouts: ProcessingTimeout = timeouts
+    override def maxSubscriptionsPerMember: PositiveInt = PositiveInt.three
   }
   private val service =
     new GrpcSequencerService(
@@ -203,6 +205,7 @@ class Env(override val loggerFactory: SuppressingLogger)(implicit
       new SubscriptionPool[GrpcManagedSubscription[?]](
         clock,
         SequencerTestMetrics,
+        PositiveInt.three,
         timeouts,
         loggerFactory,
       ),
@@ -234,7 +237,9 @@ class Env(override val loggerFactory: SuppressingLogger)(implicit
         request: v30.SequencerAuthentication.ChallengeRequest
     ): Future[v30.SequencerAuthentication.ChallengeResponse] =
       for {
-        fingerprints <- cryptoApi.ips.currentSnapshotApproximation
+        approximateSnapshot <- cryptoApi.ips.currentSnapshotApproximation
+          .failOnShutdownToAbortException("shutting down")
+        fingerprints <- approximateSnapshot
           .signingKeys(participant, SigningKeyUsage.SequencerAuthenticationOnly)
           .map(_.map(_.fingerprint).toList)
           .onShutdown(throw new Exception("Aborted due to shutdown."))
@@ -492,7 +497,7 @@ class GrpcSequencerIntegrationTest
 
     "send from the client gets a message to the sequencer" in { env =>
       when(env.sequencer.sendAsyncSigned(any[SignedContent[SubmissionRequest]])(anyTraceContext))
-        .thenReturn(EitherTUtil.unitUS[SequencerDeliverError])
+        .thenReturn(EitherTUtil.unitUS[CantonBaseError])
       implicit val metricsContext: MetricsContext = MetricsContext.Empty
       val client = env.makeDefaultClient.futureValueUS.value
       val result = for {
@@ -530,6 +535,7 @@ class GrpcSequencerIntegrationTest
           new SubscriptionPool[GrpcManagedSubscription[?]](
             clock,
             SequencerTestMetrics,
+            PositiveInt.three,
             env.timeouts,
             env.loggerFactory,
           ),

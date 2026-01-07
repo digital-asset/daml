@@ -45,6 +45,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.BlockSequencerFactor
 import com.digitalasset.canton.synchronizer.sequencer.config.{
   SequencerNodeParameterConfig,
   SequencerNodeParameters,
+  TimeAdvancingTopologyConfig,
 }
 import com.digitalasset.canton.synchronizer.sequencer.store.{DbSequencerStore, DbSequencerStoreTest}
 import com.digitalasset.canton.synchronizer.sequencer.traffic.{
@@ -178,6 +179,7 @@ abstract class ReferenceSequencerWithTrafficControlApiTestBase
           .build(loggerFactory)
           .forOwnerAndSynchronizer(request.sender)
           .currentSnapshotApproximation
+          .futureValueUS
       SignedContent
         .create(
           cryptoSnapshot.pureCrypto,
@@ -296,6 +298,7 @@ abstract class ReferenceSequencerWithTrafficControlApiTestBase
       ),
       maxConfirmationRequestsBurstFactor = PositiveDouble.tryCreate(1.0),
       asyncWriter = AsyncWriterParameters(),
+      timeAdvancingTopology = TimeAdvancingTopologyConfig(),
     )
     // Important to create the histograms before the factory, because creating the factory will
     // register them once and for all and we can't add more afterwards

@@ -15,8 +15,8 @@ import com.digitalasset.canton.ledger.participant.state.index.ContractStateStatu
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.participant.store.PersistedContractInstance
 import com.digitalasset.canton.participant.store.memory.InMemoryContractStore
-import com.digitalasset.canton.participant.store.{ContractStore, PersistedContractInstance}
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.store.cache.MutableCacheBackedContractStoreRaceTests.{
   IndexViewContractsReader,
@@ -29,6 +29,7 @@ import com.digitalasset.canton.platform.store.cache.MutableCacheBackedContractSt
 import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.*
+import com.digitalasset.canton.platform.store.{LedgerApiContractStore, LedgerApiContractStoreImpl}
 import com.digitalasset.canton.protocol.{ExampleContractFactory, ExampleTransactionFactory}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.transaction.GlobalKey
@@ -59,10 +60,15 @@ class MutableCacheBackedContractStoreRaceTests
   it should "preserve causal monotonicity under contention for key state" in {
     val workload = generateWorkload(keysCount = 10L, contractsCount = 1000L)
     val indexViewContractsReader = IndexViewContractsReader()(unboundedExecutionContext)
-    val participantContractStore = new InMemoryContractStore(
+    val inMemoryContractStore = new InMemoryContractStore(
       timeouts = timeouts,
       loggerFactory = loggerFactory,
     )(unboundedExecutionContext)
+    val participantContractStore = LedgerApiContractStoreImpl(
+      inMemoryContractStore,
+      loggerFactory,
+      LedgerApiServerMetrics.ForTesting,
+    )
     val contractStore =
       buildContractStore(
         indexViewContractsReader,
@@ -86,10 +92,15 @@ class MutableCacheBackedContractStoreRaceTests
   it should "preserve causal monotonicity under contention for contract state" in {
     val workload = generateWorkload(keysCount = 10L, contractsCount = 1000L)
     val indexViewContractsReader = IndexViewContractsReader()(unboundedExecutionContext)
-    val participantContractStore = new InMemoryContractStore(
+    val inMemoryContractStore = new InMemoryContractStore(
       timeouts = timeouts,
       loggerFactory = loggerFactory,
     )(unboundedExecutionContext)
+    val participantContractStore = LedgerApiContractStoreImpl(
+      inMemoryContractStore,
+      loggerFactory,
+      LedgerApiServerMetrics.ForTesting,
+    )
     val contractStore =
       buildContractStore(
         indexViewContractsReader,
@@ -117,7 +128,7 @@ private object MutableCacheBackedContractStoreRaceTests {
 
   private def test(
       indexViewContractsReader: IndexViewContractsReader,
-      participantContractStore: ContractStore,
+      participantContractStore: LedgerApiContractStore,
       workload: Seq[Long => SimplifiedContractStateEvent],
       unboundedExecutionContext: ExecutionContext,
   )(
@@ -358,7 +369,7 @@ private object MutableCacheBackedContractStoreRaceTests {
       indexViewContractsReader: IndexViewContractsReader,
       ec: ExecutionContext,
       loggerFactory: NamedLoggerFactory,
-      participantContractStore: ContractStore,
+      participantContractStore: LedgerApiContractStore,
   ) = {
     val metrics = LedgerApiServerMetrics.ForTesting
     new MutableCacheBackedContractStore(
@@ -485,7 +496,7 @@ private object MutableCacheBackedContractStoreRaceTests {
     ): Future[Map[Key, Long]] = ??? // not used in this test
   }
 
-  def update(contractStore: ContractStore, event: SimplifiedContractStateEvent)(implicit
+  def update(contractStore: LedgerApiContractStore, event: SimplifiedContractStateEvent)(implicit
       ec: ExecutionContext
   ): Future[Unit] =
     if (event.created) {
@@ -493,6 +504,5 @@ private object MutableCacheBackedContractStoreRaceTests {
       contractStore
         .storeContracts(Seq(contract.asContractInstance))
         .map(_ => ())
-        .failOnShutdownToAbortException("test")
     } else Future.unit
 }

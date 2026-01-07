@@ -93,6 +93,7 @@ object OpenTelemetryFactory {
           .pipe(setScheduleDelay(config.batchSpanProcessor.scheduleDelay))
           .build
       )
+      .addSpanProcessor(new UnsetSpanEndingThreadReferenceSpanProcessor(loggerFactory))
       .setSampler(sampler)
 
     def setMetricsReader: SdkMeterProviderBuilder => SdkMeterProviderBuilder = builder =>

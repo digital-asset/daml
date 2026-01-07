@@ -7,29 +7,38 @@ import better.files.File
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.Fingerprint
 import com.digitalasset.canton.integration.CommunityIntegrationTest
-import com.digitalasset.canton.integration.plugins.UseH2
 import com.digitalasset.canton.integration.tests.examples.ExampleIntegrationTest.examplesPath
 import com.digitalasset.canton.integration.tests.examples.OpenSslOfflineRootKeyDemoExampleIntegrationTest.demoFolder
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId.Authorized
 import com.digitalasset.canton.topology.transaction.{DelegationRestriction, TopologyMapping}
+import org.scalatest.BeforeAndAfterEach
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
 object OpenSslOfflineRootKeyDemoExampleIntegrationTest {
   lazy val demoFolder: File = examplesPath / "10-offline-root-namespace-init"
 }
 
-sealed abstract class OpenSslOfflineRootKeyDemoExampleIntegrationTest
+class OpenSslOfflineRootKeyDemoExampleIntegrationTest
     extends ExampleIntegrationTest(
       demoFolder / "manual-init-example.conf"
     )
     with CommunityIntegrationTest
-    with ScalaCheckPropertyChecks {
+    with ScalaCheckPropertyChecks
+    with BeforeAndAfterEach {
 
   override def afterAll(): Unit = {
     super.afterAll()
     // Delete the temp files created by the test
     (demoFolder / "tmp").delete(swallowIOExceptions = true)
   }
+
+  override def afterEach(): Unit =
+    List(
+      "canton-examples.init-script",
+      "canton-examples.openssl-signature-algorithm",
+      "canton-examples.openssl-script-dir",
+      "canton-examples.openssl-keys-dir",
+    ).foreach(System.clearProperty)
 
   private def delegationRestrictions(
       fingerprint: Fingerprint
@@ -45,66 +54,71 @@ sealed abstract class OpenSslOfflineRootKeyDemoExampleIntegrationTest
       .restriction
   }
 
-  "run offline root namespace key init demo" in { implicit env =>
-    import env.*
+  List(
+    ("openssl-example-ec256.sh", "ecdsa256"),
+    ("openssl-example-ed25519.sh", "ed25519"),
+  ).foreach { case (script, keySpec) =>
+    s"run offline root namespace key init demo for $keySpec" in { implicit env =>
+      import env.*
 
-    val tmpDir = better.files.File.newTemporaryDirectory("tmp")
-    ExampleIntegrationTest.ensureSystemProperties(
-      "canton-examples.openssl-script-dir" -> demoFolder.pathAsString
-    )
-    ExampleIntegrationTest.ensureSystemProperties(
-      "canton-examples.openssl-keys-dir" -> tmpDir.pathAsString
-    )
-    runScript(demoFolder / "bootstrap.canton")(environment)
-    participant1.is_initialized shouldBe true
+      ExampleIntegrationTest.ensureSystemProperties(
+        "canton-examples.init-script" -> script,
+        "canton-examples.openssl-signature-algorithm" -> keySpec,
+      )
 
-    // Check root key restrictions
-    delegationRestrictions(
-      participant1.id.fingerprint
-    ) shouldBe DelegationRestriction.CanSignAllMappings
+      val tmpDir = better.files.File.newTemporaryDirectory("tmp")
+      ExampleIntegrationTest.ensureSystemProperties(
+        "canton-examples.openssl-script-dir" -> demoFolder.pathAsString
+      )
+      ExampleIntegrationTest.ensureSystemProperties(
+        "canton-examples.openssl-keys-dir" -> tmpDir.pathAsString
+      )
+      runScript(demoFolder / "bootstrap.canton")(environment)
+      participant1.is_initialized shouldBe true
 
-    val namespaceDelegationFingerprint = participant1.keys.public
-      .list()
-      .find(_.name.map(_.unwrap).contains("IntermediateKey"))
-      .value
-      .id
+      // Check root key restrictions
+      delegationRestrictions(
+        participant1.id.fingerprint
+      ) shouldBe DelegationRestriction.CanSignAllMappings
 
-    // Check intermediate key restrictions
-    delegationRestrictions(
-      namespaceDelegationFingerprint
-    ) shouldBe DelegationRestriction.CanSignAllButNamespaceDelegations
-
-    // Run the script adding a key with signing restrictions
-    runScript(demoFolder / "restricted-key.canton")(environment)
-
-    // Check restricted key restrictions
-    delegationRestrictions(
-      participant1.keys.public
+      val namespaceDelegationFingerprint = participant1.keys.public
         .list()
-        .find(_.name.map(_.unwrap).contains("RestrictedKey"))
+        .find(_.name.map(_.unwrap).contains("IntermediateKey"))
         .value
         .id
-    ) shouldBe DelegationRestriction.CanSignSpecificMappings(
-      NonEmpty.mk(
-        Set,
-        TopologyMapping.Code.PartyToParticipant,
-        TopologyMapping.Code.PartyToKeyMapping,
+
+      // Check intermediate key restrictions
+      delegationRestrictions(
+        namespaceDelegationFingerprint
+      ) shouldBe DelegationRestriction.CanSignAllButNamespaceDelegations
+
+      // Run the script adding a key with signing restrictions
+      runScript(demoFolder / "restricted-key.canton")(environment)
+
+      // Check restricted key restrictions
+      delegationRestrictions(
+        participant1.keys.public
+          .list()
+          .find(_.name.map(_.unwrap).contains("RestrictedKey"))
+          .value
+          .id
+      ) shouldBe DelegationRestriction.CanSignSpecificMappings(
+        NonEmpty.mk(
+          Set,
+          TopologyMapping.Code.PartyToParticipant,
+          TopologyMapping.Code.PartyToKeyMapping,
+        )
       )
-    )
 
-    // Run the script revoking the delegation
-    runScript(demoFolder / "revoke-namespace-delegation.canton")(environment)
+      // Run the script revoking the delegation
+      runScript(demoFolder / "revoke-namespace-delegation.canton")(environment)
 
-    // Check the delegation is gone
-    participant1.topology.namespace_delegations
-      .list(
-        store = Authorized,
-        filterTargetKey = Some(namespaceDelegationFingerprint),
-      ) shouldBe empty
+      // Check the delegation is gone
+      participant1.topology.namespace_delegations
+        .list(
+          store = Authorized,
+          filterTargetKey = Some(namespaceDelegationFingerprint),
+        ) shouldBe empty
+    }
   }
-}
-
-final class OpenSslOfflineRootKeyDemoExampleIntegrationTestH2
-    extends OpenSslOfflineRootKeyDemoExampleIntegrationTest {
-  registerPlugin(new UseH2(loggerFactory))
 }

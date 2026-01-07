@@ -25,6 +25,7 @@ import scala.concurrent.blocking
   *   ErrorLoggingLazyVal To be used when the initializer wants to log errors using the logger of
   *   the caller
   */
+@SuppressWarnings(Array("com.digitalasset.canton.RequireBlocking"))
 final class LazyValWithContext[T, Context](initialize: Context => T) {
 
   @SuppressWarnings(Array("org.wartremover.warts.Var"))

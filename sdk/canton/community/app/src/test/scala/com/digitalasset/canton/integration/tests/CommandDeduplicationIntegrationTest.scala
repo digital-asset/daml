@@ -77,8 +77,6 @@ trait CommandDeduplicationIntegrationTest
 
   private val reconciliationInterval = config.PositiveDurationSeconds.ofDays(365)
 
-  protected val isTimestampManipulationSupported: Boolean = true
-
   override lazy val environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P2_S1M1_S1M1
       .addConfigTransforms(
@@ -555,81 +553,80 @@ trait CommandDeduplicationIntegrationTest
     }
 
   "do not deduplicate rejected commands" in WithContext { (alice, simClock) => implicit env =>
-    // TODO(#17334): verify
-    // This test assumes that a protocol message can be delayed by advancing the clock time,
-    //  so it isn't supported by the BFT Ordering Sequencer, as BFT time does not necessarily depend on
-    //  the current clock time.
-    if (isTimestampManipulationSupported) {
-      import env.*
+    import env.*
 
-      val createCycleContract =
-        new C.Cycle(
-          "Command-Dedup-timeout",
-          alice.toProtoPrimitive,
-        ).create.commands.loneElement
-      val commandId = "reject-timeout"
+    val createCycleContract =
+      new C.Cycle(
+        "Command-Dedup-timeout",
+        alice.toProtoPrimitive,
+      ).create.commands.loneElement
+    val commandId = "reject-timeout"
 
-      def submitAsync(submissionId: String): Unit =
-        participant1.ledger_api.javaapi.commands.submit_async(
-          Seq(alice),
-          Seq(createCycleContract),
-          synchronizerId = Some(daId),
-          commandId = commandId,
-          submissionId = submissionId,
-          deduplicationPeriod = DeduplicationDuration(maxDedupDuration).some,
-        )
-
-      val DelayPromises(requestReceived, requestRelease, responseReceived, responseRelease) =
-        sequencerPolicyDelayRequestAndResponse(participant1.id, sequencer1) // For DA synchronizer
-      val completionEnd = participant1.ledger_api.state.end()
-
-      val submissionId1 = "timeout-submission"
-      submitAsync(submissionId1)
-      logger.debug("Wait until request submission has reached the sequencer")
-      requestReceived.futureValue
-
-      val tolerance = initializedSynchronizers(daName).synchronizerOwners.headOption
-        .getOrElse(fail("synchronizer owners are missing"))
-        .topology
-        .synchronizer_parameters
-        .get_dynamic_synchronizer_parameters(daId)
-        .ledgerTimeRecordTimeTolerance
-        .asJava
-      require(
-        tolerance < maxDedupDuration.minusSeconds(2),
-        "test must be run with shorter ledger time tolerance",
+    def submitAsync(submissionId: String): Unit =
+      participant1.ledger_api.javaapi.commands.submit_async(
+        Seq(alice),
+        Seq(createCycleContract),
+        synchronizerId = Some(daId),
+        commandId = commandId,
+        submissionId = submissionId,
+        deduplicationPeriod = DeduplicationDuration(maxDedupDuration).some,
       )
-      simClock.advance(tolerance.plusSeconds(1)) // Advance the time beyond the max sequencing time
-      val offset1 = loggerFactory.assertLogsUnordered(
-        {
-          requestRelease.success(())
-          responseRelease.success(()) // We don't care about the response
-          val (completion1, offset1) =
-            findCompletionFor(participant1, alice, completionEnd, commandId, submissionId1)
-          val status1 = completion1.status.value
-          status1.code shouldBe com.google.rpc.Code.ABORTED_VALUE
-          status1.message should include(TimeoutError.id)
-          completion1.submissionId shouldBe submissionId1
-          // Since some timeouts don't go through in the in-flight submission tracker,
-          // we conservatively don't mark this as a definite answer
-          // even though we could in this particular case
-          GrpcStatuses.isDefiniteAnswer(status1) shouldBe false
 
-          offset1
-        },
-        _.warningMessage should include("Submission timed out at"),
-      )
-      val sequencer = getProgrammableSequencer(sequencer1.name) // For DA synchronizer
-      sequencer.resetPolicy()
-
-      val submissionId2 = "successful-resubmission"
-      submitAsync(submissionId2)
-      val (completion2, offset2) =
-        findCompletionFor(participant1, alice, offset1, commandId, submissionId2)
-      // Even though we've advance the clock by an hour, the dedup period is much longer, so we expect the reported
-      // dedup period to include
-      checkAccepted(completion2, submissionId2, None -> offset1.some)
+    val sequencer = getProgrammableSequencer(sequencer1.name) // For DA synchronizer
+    val participant1Id = participant1.id
+    val requestReceived = Promise[Unit]()
+    sequencer.setPolicy_("drop confirmation requests from participant1") { submissionRequest =>
+      if (submissionRequest.sender == participant1Id && submissionRequest.isConfirmationRequest) {
+        requestReceived.trySuccess(())
+        SendDecision.Drop
+      } else SendDecision.Process
     }
+    val completionEnd = participant1.ledger_api.state.end()
+
+    val submissionId1 = "timeout-submission"
+    submitAsync(submissionId1)
+    logger.debug("Wait until request submission has reached the sequencer")
+    requestReceived.future.futureValue
+
+    val tolerance = initializedSynchronizers(daName).synchronizerOwners.headOption
+      .getOrElse(fail("synchronizer owners are missing"))
+      .topology
+      .synchronizer_parameters
+      .get_dynamic_synchronizer_parameters(daId)
+      .ledgerTimeRecordTimeTolerance
+      .asJava
+    require(
+      tolerance < maxDedupDuration.minusSeconds(2),
+      "test must be run with shorter ledger time tolerance",
+    )
+    val offset1 = loggerFactory.assertLogsUnordered(
+      {
+        // Advance the time beyond the max sequencing time and the observation latency
+        simClock.advance(tolerance.plusSeconds(1))
+        val (completion1, offset1) =
+          findCompletionFor(participant1, alice, completionEnd, commandId, submissionId1)
+        val status1 = completion1.status.value
+        status1.code shouldBe com.google.rpc.Code.ABORTED_VALUE
+        status1.message should include(TimeoutError.id)
+        completion1.submissionId shouldBe submissionId1
+        // Since some timeouts don't go through in the in-flight submission tracker,
+        // we conservatively don't mark this as a definite answer
+        // even though we could in this particular case
+        GrpcStatuses.isDefiniteAnswer(status1) shouldBe false
+
+        offset1
+      },
+      _.warningMessage should include("Submission timed out at"),
+    )
+    sequencer.resetPolicy()
+
+    val submissionId2 = "successful-resubmission"
+    submitAsync(submissionId2)
+    val (completion2, offset2) =
+      findCompletionFor(participant1, alice, offset1, commandId, submissionId2)
+    // Even though we've advance the clock by an hour, the dedup period is much longer, so we expect the reported
+    // dedup period to include
+    checkAccepted(completion2, submissionId2, None -> offset1.some)
   }
 
   "do not confuse submissions when submission ID is omitted" in
@@ -797,8 +794,6 @@ class CommandDeduplicationIntegrationTestInMemory extends CommandDeduplicationIn
 
 class CommandDeduplicationBftOrderingIntegrationTestInMemory
     extends CommandDeduplicationIntegrationTest {
-
-  override protected val isTimestampManipulationSupported: Boolean = false
 
   registerPlugin(
     new UseBftSequencer(

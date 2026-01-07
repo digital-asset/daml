@@ -25,6 +25,7 @@ import com.digitalasset.canton.platform.store.interning.{
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.SerializableTraceContextConverter.SerializableTraceContextExtension
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
+import com.digitalasset.canton.util.Mutex
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{NameTypeConRef, PackageId, Party, UserId}
 import com.digitalasset.daml.lf.value.Value.ContractId
@@ -35,11 +36,11 @@ import org.scalatest.matchers.should.Matchers
 import sun.reflect.generics.reflectiveObjects.NotImplementedException
 
 import java.sql.Connection
-import scala.concurrent.blocking
 
 class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
 
   behavior of "SequentialWriteDaoImpl"
+  private val lock = new Mutex()
 
   it should "store correctly in a happy path case" in {
     val storageBackendCaptor =
@@ -170,8 +171,8 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
     override def batch(dbDtos: Vector[DbDto], stringInterning: StringInterning): Vector[DbDto] =
       dbDtos
 
-    override def insertBatch(connection: Connection, batch: Vector[DbDto]): Unit = blocking(
-      synchronized {
+    override def insertBatch(connection: Connection, batch: Vector[DbDto]): Unit = (
+      lock.exclusive {
         connection shouldBe someConnection
         captured = captured ++ batch
       }
@@ -186,14 +187,14 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
         params: ParameterStorageBackend.LedgerEnd,
         synchronizerIndexes: Map[SynchronizerId, SynchronizerIndex],
     )(connection: Connection): Unit =
-      blocking(synchronized {
+      (lock.exclusive {
         connection shouldBe someConnection
         captured = captured :+ params
       })
 
     private var ledgerEndCalled = false
     override def ledgerEnd(connection: Connection): Option[ParameterStorageBackend.LedgerEnd] =
-      blocking(synchronized {
+      (lock.exclusive {
         connection shouldBe someConnection
         ledgerEndCalled shouldBe false
         ledgerEndCalled = true

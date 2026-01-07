@@ -373,10 +373,10 @@ object TransactionProcessor {
     )
     object TimeoutError
         extends ErrorCode(id = "NOT_SEQUENCED_TIMEOUT", ErrorCategory.ContentionOnSharedResources) {
-      final case class Error(timestamp: CantonTimestamp)
+      final case class Error()
           extends TransactionErrorImpl(
             cause =
-              "Transaction was not sequenced within the pre-defined max sequencing time and has therefore timed out"
+              s"Transaction was not sequenced within the pre-defined max sequencing time and has therefore timed out"
           )
           with TransactionSubmissionError
     }
@@ -478,12 +478,12 @@ object TransactionProcessor {
   }
 
   final case class ViewParticipantDataError(
-      transactionId: UpdateId,
+      updateId: UpdateId,
       viewHash: ViewHash,
       error: String,
   ) extends TransactionProcessorError {
     override protected def pretty: Pretty[ViewParticipantDataError] = prettyOfClass(
-      param("transaction id", _.transactionId),
+      param("update id", _.updateId),
       param("view hash", _.viewHash),
       param("error", _.error.unquoted),
     )
