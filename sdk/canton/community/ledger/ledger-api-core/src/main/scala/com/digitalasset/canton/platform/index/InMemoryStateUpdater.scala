@@ -397,15 +397,16 @@ private[platform] object InMemoryStateUpdater {
         // no state updates for participant divulged events and transient events as these events
         // cannot lead to successful contract lookup and usage in interpretation anyway
         if exercisedEvent.consuming && exercisedEvent.flatEventWitnesses.nonEmpty =>
-      lazy val oops : crypto.Hash = throw new RuntimeException("HERE")
       ContractStateEvent.Archived(
         contractId = exercisedEvent.contractId,
-        globalKey = exercisedEvent.contractKey.map(k =>
-          Key.assertBuild(
-            exercisedEvent.templateId,
-            exercisedEvent.packageName,
-            k.unversioned,
-            oops,
+        globalKey = exercisedEvent.contractKey.flatMap(k =>
+          exercisedEvent.contractKeyHash.map(hash =>
+            Key.assertBuild(
+              exercisedEvent.templateId,
+              exercisedEvent.packageName,
+              k.unversioned,
+              hash,
+            )
           )
         ),
       )
@@ -493,6 +494,7 @@ private[platform] object InMemoryStateUpdater {
           contractKey = exercise.keyOpt.map(k =>
             com.digitalasset.daml.lf.transaction.Versioned(exercise.version, k.value)
           ),
+          contractKeyHash = exercise.keyOpt.map(_.globalKey.hash),
           treeEventWitnesses = blinding.disclosure.getOrElse(nodeId, Set.empty),
           flatEventWitnesses =
             if (exercise.consuming && txAccepted.isAcsDelta(exercise.targetCoid))

@@ -159,6 +159,7 @@ object TransactionLogUpdate {
       commandId: String,
       workflowId: String,
       contractKey: Option[LfValue.VersionedValue],
+      contractKeyHash: Option[Hash],
       treeEventWitnesses: Set[Party],
       flatEventWitnesses: Set[Party],
       submitters: Set[Party],

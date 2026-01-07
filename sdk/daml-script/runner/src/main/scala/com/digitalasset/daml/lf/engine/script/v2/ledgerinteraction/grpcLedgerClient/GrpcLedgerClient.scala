@@ -213,6 +213,12 @@ class GrpcLedgerClient(
   }
 
   // Helper shared by query, queryContractId and queryContractKey
+  // TODO(https://github.com/digital-asset/daml/issues/22283): return a key hash instead of a key. With the current
+  //   code, the enrichment of keys will fail when the key type has been changed by an (invalid) upgrade. We could
+  //   skip the enrichement as the enriched part of the returned key value is not used: the value is merely hashed
+  //   using (at the moment), the upgrades-friendly hasher. We want however to switch to the typed normal form hasher,
+  //   which requires having the creation package handy, which we won't necessarily have. So we want instead to modify
+  //   the ledger API to return the hash of the key directly and pass it along to the caller here.
   private def queryWithKey(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
