@@ -44,7 +44,7 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
-        "//daml-lf/snapshot:snapshot_proto_java",
+        "//canton/community/daml-lf/snapshot:snapshot_proto_java",
         "//canton/community/daml-lf/stable-packages",
         "//canton/community/daml-lf/transaction",
         "//canton/commmunity/daml-lf/validation",

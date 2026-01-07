@@ -34,7 +34,7 @@ for ((i=0;i<$SIZE;++i)); do
         MODULE_NAME=$(echo "${CHOICE}" | cut -d ":" -f 2)
         TEMPLATE_NAME=$(echo "${CHOICE}" | cut -d ":" -f 3)
         CHOICE_NAME=$(echo "${CHOICE}" | cut -d ":" -f 4)
-        bazel run --sandbox_debug //daml-lf/snapshot:replay-benchmark -- \
+        bazel run --sandbox_debug //canton/community/daml-lf/snapshot:replay-benchmark -- \
           -p entriesFile="$ENTRIES_FILE" \
           -p choiceName="$MODULE_NAME:$TEMPLATE_NAME:$CHOICE_NAME" \
           -p darFile="$REPO/$DAR_DIR/$DAR_NAME" \

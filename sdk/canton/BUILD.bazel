@@ -207,7 +207,7 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:canton-community-util-observability:__VERSION__"],
     unused_dependency_checker_mode = "error",
     visibility = [
-        "//daml-lf/snapshot:__subpackages__",
+        "//canton/community/daml-lf/snapshot:__subpackages__",
         "//canton/commmunity/daml-lf/validation:__subpackages__",
         "//daml-script:__subpackages__",
         "//language-support:__subpackages__",

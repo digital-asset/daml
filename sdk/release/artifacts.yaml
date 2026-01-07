@@ -37,9 +37,9 @@
   type: jar-scala
 - target: //daml-lf/ide-ledger:ide-ledger
   type: jar-scala
-- target: //daml-lf/snapshot:snapshot_proto_jar
+- target: //canton/community/daml-lf/snapshot:snapshot_proto_jar
   type: jar-lib
-- target: //daml-lf/snapshot:snapshot_proto_java
+- target: //canton/community/daml-lf/snapshot:snapshot_proto_java
   type: jar-proto
 - target: //canton/community/daml-lf/transaction:transaction
   type: jar-scala
