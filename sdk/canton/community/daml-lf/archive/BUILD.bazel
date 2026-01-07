@@ -55,7 +55,7 @@ genrule(
             [
                 """
                    $(location @proto3-suite//:compile-proto-file)  \
-                     --includeDir daml-lf/archive/src/protobuf/        \
+                     --includeDir canton/community/daml-lf/archive/src/protobuf/        \
                      --proto com/digitalasset/daml/lf/archive/daml_lf%s.proto   \
                      --out $(@D)
                  """ % vx

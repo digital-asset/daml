@@ -99,7 +99,7 @@ genrule(
     cd compiler/script-service/protos
     $$ORIGPWD/$(location @proto3-suite//:compile-proto-file) \
       --includeDir ./                                        \
-      --includeDir $$ORIGPWD/daml-lf/archive/src/protobuf/        \
+      --includeDir $$ORIGPWD/canton/community/daml-lf/archive/src/protobuf/        \
       --proto test_results.proto --out "$$ORIGPWD/$(@D)"
   """,
     tools = [
